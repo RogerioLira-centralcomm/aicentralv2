@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>offer_stack</title>
+  <style>
+    @font-face {
+      font-family: "ComposeSans";
+      src: url("{{ font_url }}") format("truetype");
+      font-display: block;
+    }
+    html, body {
+      margin: 0;
+      width: {{ width }}px;
+      height: {{ height }}px;
+      overflow: hidden;
+      background: {{ brand_color }};
+    }
+    .ad {
+      display: flex;
+      flex-direction: {{ 'row-reverse' if photo_side == 'right' else 'row' }};
+      width: {{ width }}px;
+      height: {{ height }}px;
+      color: #fff;
+      font-family: "ComposeSans", "Open Sans", sans-serif;
+      background: {{ brand_color }};
+    }
+    .visual {
+      position: relative;
+      width: 56%;
+      height: 100%;
+      overflow: hidden;
+      flex: 0 0 56%;
+    }
+    .visual img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .copy {
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      box-sizing: border-box;
+      width: 44%;
+      flex: 1 1 44%;
+      padding: {{ cta_gap }}px {{ cta_gap + 8 }}px;
+      gap: {{ cta_gap }}px;
+    }
+    .logo {
+      width: 64px;
+      height: 64px;
+      object-fit: contain;
+      align-self: flex-start;
+      margin-bottom: auto;
+    }
+    .headline {
+      margin: 0;
+      font-size: {{ headline_font_size }}px;
+      font-weight: 700;
+      line-height: 1.15;
+      overflow: hidden;
+    }
+    .legal {
+      margin: 0;
+      font-size: clamp(10px, 1.4vw, 14px);
+      line-height: 1.2;
+      opacity: 0.86;
+    }
+    .cta {
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 8px 12px;
+      background: color-mix(in srgb, {{ brand_color }} 70%, #000 30%);
+      font-size: clamp(14px, 2.2vw, 22px);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  {% set family = family or 'square_1x1' %}
+  {% include 'mapped_slots.html' %}
+  {% if not regions %}
+  <article class="ad" data-family="{{ family }}" data-template="offer-stack" data-photo-side="{{ photo_side }}">
+    <div class="visual">{% if still_url %}<img src="{{ still_url }}" alt="">{% endif %}</div>
+    <div class="copy">
+      {% if logo_url %}<img class="logo" src="{{ logo_url }}" alt="">{% endif %}
+      <p class="headline">{{ headline }}</p>
+      {% if legal %}<p class="legal">{{ legal }}</p>{% endif %}
+      {% if cta %}<p class="cta">{{ cta }}</p>{% endif %}
+    </div>
+  </article>
+  {% endif %}
+</body>
+</html>

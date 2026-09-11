@@ -17,6 +17,7 @@ LIBRARY_FAMILIES = frozenset({
     "story_9x16",
     "landscape_social",
     "slate_16x9",
+    "portrait_4x5",
 })
 
 LAYOUT_SQUARE_SCHEMA = {
@@ -90,6 +91,38 @@ FAMILY_SPECS = {
         "html_key": "studio.html",
         "adjust_schema": LAYOUT_STUDIO_SCHEMA,
         "default_params": {"headline_font_size": 26, "cta_gap": 12},
+    },
+    "portrait_4x5": {
+        "kind": "layout",
+        "html_key": "editorial_still.html",
+        "adjust_schema": LAYOUT_STUDIO_SCHEMA,
+        "default_params": {"headline_font_size": 28, "cta_gap": 12},
+    },
+}
+
+TEMPLATE_KINDS = {
+    "editorial-still": {
+        "name": "Editorial still",
+        "html_key": "editorial_still.html",
+        "families": ("square_1x1", "portrait_4x5", "story_9x16", "landscape_social"),
+    },
+    "product-hero": {
+        "name": "Produto herói",
+        "html_key": "product_hero.html",
+        "families": ("square_1x1", "portrait_4x5", "story_9x16", "landscape_social"),
+    },
+    "ugc-face": {
+        "name": "UGC / rosto",
+        "html_key": "ugc_face.html",
+        "families": ("story_9x16", "portrait_4x5"),
+    },
+    "offer-stack": {
+        "name": "Oferta em faixa",
+        "html_key": "offer_stack.html",
+        "families": (
+            "square_1x1", "portrait_4x5", "story_9x16", "landscape_social",
+            "rectangle", "wide_banner", "half_page",
+        ),
     },
 }
 
@@ -209,6 +242,92 @@ SEED_VARIATIONS = {
         "html_key": "studio.html",
         "adjust_schema": LAYOUT_STUDIO_SCHEMA,
         "params": {"headline_font_size": 26, "cta_gap": 12},
+        "status": "experimental",
+        "approve_count": 0,
+        "reject_count": 0,
+        "preview_asset_url": None,
+    },
+    "seed-editorial-still": {
+        "id": "seed-editorial-still",
+        "template_slug": "editorial-still-4x5",
+        "name": "Papel editorial",
+        "family": "portrait_4x5",
+        "kind": "layout",
+        "html_key": "editorial_still.html",
+        "adjust_schema": LAYOUT_STUDIO_SCHEMA,
+        "params": {
+            "headline_font_size": 28,
+            "cta_gap": 12,
+            "regions": [
+                {"tipo": "headline", "x": 6.0, "y": 16.0, "w": 24.0, "h": 28.0},
+                {"tipo": "foto_produto", "x": 30.0, "y": 14.0, "w": 42.0, "h": 58.0},
+                {"tipo": "logo", "x": 74.0, "y": 16.0, "w": 18.0, "h": 14.0},
+                {"tipo": "cta", "x": 8.0, "y": 80.0, "w": 84.0, "h": 8.0},
+                {"tipo": "legal", "x": 8.0, "y": 90.0, "w": 84.0, "h": 6.0},
+            ],
+        },
+        "status": "experimental",
+        "approve_count": 0,
+        "reject_count": 0,
+        "preview_asset_url": None,
+    },
+    "seed-product-hero": {
+        "id": "seed-product-hero",
+        "template_slug": "product-hero-story",
+        "name": "Herói no poço",
+        "family": "story_9x16",
+        "kind": "layout",
+        "html_key": "product_hero.html",
+        "adjust_schema": LAYOUT_STUDIO_SCHEMA,
+        "params": {
+            "headline_font_size": 28,
+            "cta_gap": 12,
+            "regions": [
+                {"tipo": "foto_produto", "x": 0.0, "y": 0.0, "w": 100.0, "h": 78.0},
+                {"tipo": "headline", "x": 7.0, "y": 72.0, "w": 86.0, "h": 12.0},
+                {"tipo": "cta", "x": 20.0, "y": 86.0, "w": 60.0, "h": 8.0},
+            ],
+        },
+        "status": "experimental",
+        "approve_count": 0,
+        "reject_count": 0,
+        "preview_asset_url": None,
+    },
+    "seed-ugc-face": {
+        "id": "seed-ugc-face",
+        "template_slug": "ugc-face-story",
+        "name": "Rosto + caption",
+        "family": "story_9x16",
+        "kind": "layout",
+        "html_key": "ugc_face.html",
+        "adjust_schema": LAYOUT_STUDIO_SCHEMA,
+        "params": {
+            "headline_font_size": 26,
+            "cta_gap": 10,
+            "regions": [
+                {"tipo": "foto_pessoa", "x": 0.0, "y": 0.0, "w": 100.0, "h": 100.0},
+                {"tipo": "headline", "x": 6.0, "y": 72.0, "w": 70.0, "h": 10.0},
+                {"tipo": "cta", "x": 6.0, "y": 84.0, "w": 50.0, "h": 8.0},
+            ],
+        },
+        "status": "experimental",
+        "approve_count": 0,
+        "reject_count": 0,
+        "preview_asset_url": None,
+    },
+    "seed-offer-stack": {
+        "id": "seed-offer-stack",
+        "template_slug": "offer-stack-1x1",
+        "name": "Split oferta",
+        "family": "square_1x1",
+        "kind": "layout",
+        "html_key": "offer_stack.html",
+        "adjust_schema": LAYOUT_SQUARE_SCHEMA,
+        "params": {
+            "headline_font_size": 26,
+            "photo_side": "right",
+            "cta_gap": 12,
+        },
         "status": "experimental",
         "approve_count": 0,
         "reject_count": 0,
@@ -455,6 +574,68 @@ def catalog_variations(family=None):
     if family:
         rows = [item for item in rows if item["family"] == family]
     return rows
+
+
+def catalog_templates(family=None):
+    rows = []
+    for kind, spec in TEMPLATE_KINDS.items():
+        for item_family in spec["families"]:
+            rows.append({
+                "id": f"tpl-{kind}-{item_family}",
+                "slug": f"{kind}-{item_family.replace('_', '-')}",
+                "name": spec["name"],
+                "kind": "layout",
+                "family": item_family,
+                "html_key": spec["html_key"],
+                "adjust_schema": (
+                    LAYOUT_SQUARE_SCHEMA
+                    if item_family == "square_1x1" and kind == "offer-stack"
+                    else LAYOUT_STUDIO_SCHEMA
+                ),
+                "template_kind": kind,
+            })
+    if family:
+        rows = [item for item in rows if item["family"] == family]
+    return rows
+
+
+def suggest_template_kind(family, regions=None):
+    tipos = {
+        str(item.get("tipo") or "").strip().lower()
+        for item in (regions or [])
+        if isinstance(item, dict)
+    }
+    family = str(family or "")
+    if "foto_pessoa" in tipos:
+        return "ugc-face"
+    if "preco" in tipos:
+        return "offer-stack"
+    if "foto_produto" in tipos and ({"fundo", "legal", "headline"} & tipos):
+        return "editorial-still"
+    if family in {"story_9x16"}:
+        return "ugc-face" if "foto_pessoa" in tipos else "product-hero"
+    if family in {"square_1x1", "portrait_4x5"}:
+        return "editorial-still"
+    return "offer-stack"
+
+
+def suggest_compose_template(templates, family=None, regions=None):
+    rows = [item for item in (templates or []) if isinstance(item, dict)]
+    if family:
+        matched = [item for item in rows if item.get("family") == family]
+        rows = matched or rows
+    if not rows:
+        catalog = catalog_templates(family)
+        return catalog[0] if catalog else None
+    kind = suggest_template_kind(family, regions)
+    for item in rows:
+        slug = str(item.get("slug") or "")
+        if slug.startswith(kind) or item.get("template_kind") == kind:
+            return item
+        html_key = str(item.get("html_key") or "")
+        if kind.replace("-", "_") in html_key:
+            return item
+    return rows[0]
 
 
 def resolve_variation(variation_id, family=None, repository=None):

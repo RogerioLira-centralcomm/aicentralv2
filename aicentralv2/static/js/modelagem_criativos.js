@@ -25,6 +25,31 @@
     tv: { label: 'Smart TV', icon: 'fa-tv' },
     celular: { label: 'Celular', icon: 'fa-mobile-screen' },
     tablet: { label: 'Tablet', icon: 'fa-tablet-screen-button' },
+    social: { label: 'Rede social', icon: 'fa-share-nodes' },
+  };
+  const FORMAT_SHORT_NAMES = {
+    'instagram-feed': 'Feed 1:1',
+    'instagram-feed-4x5': 'Feed 4:5',
+    'instagram-story': 'Story',
+    'instagram-reels': 'Reels',
+    'facebook-feed': 'Feed 1:1',
+    'linkedin-share': 'Paisagem',
+    'linkedin-feed': 'Quadrado',
+    'linkedin-portrait': 'Retrato',
+    'tiktok-vertical': 'In-feed 9:16',
+    'youtube-infeed': 'In-feed 16:9',
+    'youtube-shorts': 'Shorts 9:16',
+    'iab-medium-rectangle': '300×250',
+    'iab-leaderboard': '728×90',
+    'iab-half-page': '300×600',
+    'iab-mobile-banner': '320×50',
+  };
+  const SOCIAL_NETWORKS = {
+    instagram: { label: 'Instagram', prefix: 'instagram-' },
+    facebook: { label: 'Facebook', prefix: 'facebook-' },
+    linkedin: { label: 'LinkedIn', prefix: 'linkedin-' },
+    tiktok: { label: 'TikTok', prefix: 'tiktok-' },
+    youtube: { label: 'YouTube', prefix: 'youtube-' },
   };
   const state = {
     formats: [],
@@ -49,6 +74,8 @@
     originalPlacement: null,
     previewDevice: 'desktop',
     productionCarouselTimer: null,
+    pauseAdTimer: null,
+    pauseAdInterval: null,
     brandAnalysis: null,
     brandAssetCandidates: [],
     selectedBrandAssets: new Set(),
@@ -77,6 +104,8 @@
     unfoldItems: {},
     composeLibrary: { visual_systems: [], templates: [], variations: [] },
     selectedVariationId: null,
+    selectedLibraryTemplateSlug: null,
+    selectedLibraryVariationId: null,
   };
 
   const KV_ITEM_ORDER = [
@@ -260,10 +289,12 @@
     if (name === 'historico' && state.campaigns.length) loadHistory();
     if (name === 'produzir') renderWorkspace();
     if (name === 'desdobrar') {
+      renderClientOptions();
       renderUnfoldFormats();
       renderUnfoldLibrary();
       fillUnfoldModels();
       quoteUnfoldPath();
+      syncUnfoldProgress();
       if (state.unfoldCampaign) {
         renderUnfoldSpend(state.unfoldCampaign);
         syncPublishTriggers();
@@ -303,6 +334,7 @@
     fillPrepareModels();
     quoteUnfoldPath();
     quotePreparePath();
+    syncUnfoldProgress();
     loadComposeLibrary();
     if (failures.length) {
       setPageError(`Não foi possível carregar ${failures.join(' | ')}`);
@@ -321,37 +353,43 @@
     ));
   }
 
-  function renderClientOptions() {
-    const select = $('#mcCampaignClient');
+  function clientOptionLabel(client) {
+    const suffix = client.source === 'crm'
+      ? 'CRM · marca pronta'
+      : (client.house || Number(client.crm_client_id) === 174
+        ? 'CentralComm · marca'
+        : 'Perfil de marca');
+    return `${escapeHtml(client.name)} — ${suffix}`;
+  }
+
+  function requestedClientRef() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('client_ref')
+      || (params.get('crm_client_id') ? `crm:${params.get('crm_client_id')}` : '')
+      || (params.get('creative_client_id') ? `profile:${params.get('creative_client_id')}` : '');
+  }
+
+  function fillClientSelect(select, placeholder) {
     if (!select) return;
     const current = select.value;
     const branded = brandedCampaignClients();
-    select.innerHTML = '<option value="">Selecione um cliente</option>' + branded
-      .map((client) => {
-        const suffix = client.source === 'crm'
-          ? 'CRM · marca pronta'
-          : (client.house || Number(client.crm_client_id) === 174
-            ? 'CentralComm · marca'
-            : 'Perfil de marca');
-        return `<option value="${escapeHtml(client.selection_key)}">${escapeHtml(client.name)} — ${suffix}</option>`;
-      }).join('');
-    const params = new URLSearchParams(window.location.search);
-    const requested = params.get('client_ref')
-      || (params.get('crm_client_id') ? `crm:${params.get('crm_client_id')}` : '')
-      || (params.get('creative_client_id') ? `profile:${params.get('creative_client_id')}` : '');
-    const preferred = current || requested;
+    select.innerHTML = `<option value="">${placeholder}</option>` + branded
+      .map((client) => `<option value="${escapeHtml(client.selection_key)}">${clientOptionLabel(client)}</option>`)
+      .join('');
+    const preferred = current || requestedClientRef();
     if (preferred && Array.from(select.options).some((option) => option.value === preferred)) {
       select.value = preferred;
     }
+  }
+
+  function renderClientOptions() {
+    fillClientSelect($('#mcCampaignClient'), 'Selecione um cliente');
+    fillClientSelect($('#mcUnfoldClient'), 'Selecione a marca');
     renderClientPreview();
     renderGeneratorSummary();
     updateGeneratorAvailability();
-    const unfoldClient = $('#mcUnfoldClient');
-    if (unfoldClient) {
-      const unfoldCurrent = unfoldClient.value;
-      unfoldClient.innerHTML = select.innerHTML;
-      unfoldClient.value = unfoldCurrent;
-    }
+    renderUnfoldBrand();
+    syncUnfoldProgress();
   }
 
   function modelCampaigns() {
@@ -478,6 +516,77 @@
     return 'Programática';
   }
 
+  function catalogTypeKey(format) {
+    if (format?.category === 'social') return 'social';
+    if (format?.category === 'streaming') return 'streaming';
+    return 'programatica';
+  }
+
+  function catalogTypeLabel(key) {
+    if (key === 'social') return 'Redes sociais';
+    if (key === 'streaming') return 'Streaming';
+    return 'Programática';
+  }
+
+  function socialNetworkKey(format) {
+    const slug = String(format?.slug || '');
+    return Object.keys(SOCIAL_NETWORKS).find((key) => slug.startsWith(SOCIAL_NETWORKS[key].prefix)) || null;
+  }
+
+  function catalogNetworkKey(format) {
+    const social = socialNetworkKey(format);
+    if (social) return social;
+    return format?.channel || format?.channel_name || 'outros';
+  }
+
+  function catalogNetworkLabel(format) {
+    const social = socialNetworkKey(format);
+    if (social) return SOCIAL_NETWORKS[social].label;
+    return format?.channel_name || formatGroupLabel(format);
+  }
+
+  function catalogNetworkLogo(format) {
+    const social = socialNetworkKey(format);
+    if (!social) return '';
+    const profile = state.viewerProfiles.find((item) => item.slug === social);
+    return profile?.logo_asset_ref || `/static/images/creative-viewers/${social}.svg`;
+  }
+
+  function formatShortName(format) {
+    return FORMAT_SHORT_NAMES[format?.slug] || formatDisplayName(format);
+  }
+
+  function isSocialFormat(format) {
+    return format?.category === 'social' || Boolean(socialNetworkKey(format));
+  }
+
+  function groupedCatalogFormats(formats) {
+    const typeOrder = { programatica: 0, streaming: 1, social: 2 };
+    const types = new Map();
+    formats.forEach((format) => {
+      const type = catalogTypeKey(format);
+      if (!types.has(type)) types.set(type, new Map());
+      const networks = types.get(type);
+      const network = catalogNetworkKey(format);
+      if (!networks.has(network)) {
+        networks.set(network, {
+          key: network,
+          label: catalogNetworkLabel(format),
+          logo: catalogNetworkLogo(format),
+          formats: [],
+        });
+      }
+      networks.get(network).formats.push(format);
+    });
+    return Array.from(types.entries())
+      .sort((left, right) => (typeOrder[left[0]] ?? 9) - (typeOrder[right[0]] ?? 9))
+      .map(([type, networks]) => ({
+        type,
+        label: catalogTypeLabel(type),
+        networks: Array.from(networks.values()),
+      }));
+  }
+
   function formatDisplayName(format) {
     const group = formatGroupLabel(format);
     const name = String(format.name_pt || '');
@@ -497,17 +606,11 @@
   }
 
   function groupedGeneratorFormats(formats) {
-    const order = { programatica: 0, streaming: 1, social: 2 };
-    const groups = new Map();
-    formats.forEach((format) => {
-      const label = formatGroupLabel(format);
-      if (!groups.has(label)) groups.set(label, []);
-      groups.get(label).push(format);
-    });
-    return Array.from(groups.entries()).sort((left, right) => {
-      const rank = (item) => order[item[1][0]?.category] ?? 9;
-      return rank(left) - rank(right) || left[0].localeCompare(right[0], 'pt');
-    });
+    const catalog = groupedCatalogFormats(formats);
+    return catalog.flatMap((group) => group.networks.map((network) => [
+      group.type === 'programatica' ? group.label : network.label,
+      network.formats,
+    ]));
   }
 
   function renderGeneratorFormats() {
@@ -661,7 +764,7 @@
   function isLibraryFormat(format) {
     return [
       'sequence_16x9', 'square_1x1', 'rectangle', 'wide_banner',
-      'half_page', 'story_9x16', 'landscape_social', 'slate_16x9',
+      'half_page', 'story_9x16', 'landscape_social', 'slate_16x9', 'portrait_4x5',
     ].includes(format?.iab_family) || isSequenceFormat(format);
   }
 
@@ -1873,10 +1976,12 @@
     const format = activeProductionFormat();
     const pauseSequence = isSequenceFormat(format);
     const canonicalPlacement = clonePlacement(format);
-    if (pauseSequence) {
+    if (pauseSequence || canonicalPlacement.context === 'tv') {
       canonicalPlacement.context = 'tv';
-      canonicalPlacement.viewport = { width: 1920, height: 1080 };
-      canonicalPlacement.slot = { x: 3, y: 6, width: 94, height: 82 };
+      if (pauseSequence) {
+        canonicalPlacement.viewport = { width: 1920, height: 1080 };
+        canonicalPlacement.slot = { x: 3, y: 6, width: 94, height: 82 };
+      }
     }
     const productionDeviceSwitch = $('.mc-production-preview-controls .mc-viewer-device-switch');
     productionDeviceSwitch?.classList.toggle(
@@ -1885,10 +1990,10 @@
     );
     const placement = previewPlacement(canonicalPlacement, state.previewDevice, format);
     const profile = state.viewerProfiles.find((item) => String(item.id) === String(state.selectedViewerProfileId));
-    const hero = profile?.shell_spec?.hero || {};
     const zone = placement.placement_zone;
     const iabSize = iabDisplaySize(format, state.previewDevice);
-    const isPortalPage = placement.context !== 'tv' && !pauseSequence;
+    const isPortalPage = placement.context !== 'tv';
+    const isTvPause = placement.context === 'tv';
     const carouselAssets = [...approvedFrames];
     if (!carouselAssets.some((asset) => String(asset.id) === String(approved.id))) {
       carouselAssets.unshift(approved);
@@ -1901,17 +2006,15 @@
       ? `width:${iabSize.w}px;height:${iabSize.h}px`
       : `left:${placement.slot?.x || 10}%;top:${placement.slot?.y || 18}%;width:${placement.slot?.width || 76}%;height:${placement.slot?.height || 42}%`;
     root.innerHTML = `
-      <div class="mc-production-device is-${escapeHtml(placement.context || 'portal')}${pauseSequence ? ' is-pause' : ''}${isPortalPage ? ' is-page' : ''}"
+      <div class="mc-production-device is-${escapeHtml(placement.context || 'portal')}${isTvPause ? ' is-pause is-playing' : ''}${isPortalPage ? ' is-page' : ''}"
            data-viewer="${escapeHtml(profile?.slug || 'automatico')}"
-           data-layout="${escapeHtml(pauseSequence ? 'pause' : (profile?.shell_spec?.layout || 'standard'))}"
+           data-layout="${escapeHtml(isTvPause ? 'pause' : (profile?.shell_spec?.layout || 'standard'))}"
            data-zone="${escapeHtml(zone || '')}"
-           ${isPortalPage ? '' : `style="aspect-ratio:${Number(placement.viewport?.width) || 1280}/${Number(placement.viewport?.height) || 800}"`}>
+           ${isPortalPage ? '' : `style="aspect-ratio:${Number(placement.viewport?.width) || 1920}/${Number(placement.viewport?.height) || 1080}"`}>
         <div class="mc-production-context">
-          ${pauseSequence
-            ? netflixPauseShellHtml(profile)
-            : placement.context === 'tv'
-              ? `<header style="background:${escapeHtml(safeViewerColor(profile?.palette?.primary, '#1e4d4f'))}">${viewerLogo(profile)}<span></span><i class="fa-solid fa-magnifying-glass"></i></header><section class="mc-production-hero"><small>${escapeHtml(hero.eyebrow || 'Conteúdo em destaque')}</small><strong>${escapeHtml(hero.title || 'Entretenimento em destaque')}</strong></section>${viewerCatalogHtml(profile)}`
-              : portalPageHtml(profile)}
+          ${isTvPause
+            ? tvPlaybackShellHtml(profile)
+            : portalPageHtml(profile)}
         </div>
         <div class="mc-production-creative ${carouselAssets.length > 1 ? 'has-carousel' : ''}" style="${creativeStyle}">
           ${carouselAssets.map((asset, index) => liveStudioFrame(asset, format, index, activeCarouselIndex)).join('')}
@@ -1937,6 +2040,9 @@
         creative.style.width = `${Math.round(iabSize.w * scale)}px`;
         creative.style.height = `${Math.round(iabSize.h * scale)}px`;
       }
+    }
+    if (isTvPause) {
+      armPauseAd($('.mc-production-device', root));
     }
     const showCarouselFrame = (nextIndex) => {
       activeCarouselIndex = (nextIndex + carouselAssets.length) % carouselAssets.length;
@@ -2367,17 +2473,17 @@
 
   function clonePlacement(format) {
     const fallback = {
-      context: format.channel && ['netflix', 'hbomax', 'disneyplus'].includes(format.channel) ? 'tv' : 'portal',
+      context: format.channel && ['netflix', 'hbomax', 'disneyplus', 'primevideo'].includes(format.channel) ? 'tv' : 'portal',
       viewport: { width: 1280, height: 800 },
       slot: { x: 65, y: 20, width: 28, height: 38 },
       fit: 'contain',
       responsive: 'scale',
-      placement_zone: format.placement_zone || resolvePlacementZone(format, { context: 'portal' }, 'desktop'),
     };
     const spec = Object.keys(format.placement_spec || {}).length ? format.placement_spec : fallback;
     const result = JSON.parse(JSON.stringify(spec));
     if (!result.placement_zone) {
-      result.placement_zone = format.placement_zone || resolvePlacementZone(format, result, 'desktop');
+      const zone = format.placement_zone || resolvePlacementZone(format, result, 'desktop');
+      if (zone) result.placement_zone = zone;
     }
     return result;
   }
@@ -2464,17 +2570,104 @@
   }
 
   function netflixPauseShellHtml(profile) {
+    return tvPlaybackShellHtml(profile);
+  }
+
+  function tvSceneImage(profile) {
+    const hero = profile?.shell_spec?.hero || {};
+    if (hero.image) return hero.image;
+    return profile?.shell_spec?.sections?.[0]?.items?.[0]?.image || '';
+  }
+
+  function tvPlaybackShellHtml(profile) {
+    const hero = profile?.shell_spec?.hero || {};
+    const slug = profile?.slug || 'tv';
+    const scene = tvSceneImage(profile);
     return `
-      <div class="mc-pause-shell">
-        <header class="mc-pause-top">${viewerLogo(profile)}<span>Pausado</span></header>
-        <footer class="mc-pause-controls">
-          <i class="fa-solid fa-play"></i>
-          <i class="fa-solid fa-volume-high"></i>
-          <b></b>
-          <i class="fa-solid fa-closed-captioning"></i>
-          <i class="fa-solid fa-expand"></i>
-        </footer>
+      <div class="mc-tv-playback is-${escapeHtml(slug)}">
+        <div class="mc-tv-scene" aria-hidden="true">
+          ${scene ? `<img src="${escapeHtml(scene)}" alt="">` : ''}
+          <div class="mc-tv-scene-grade"></div>
+          <div class="mc-tv-now">
+            <small>${escapeHtml(hero.eyebrow || 'Em reprodução')}</small>
+            <strong>${escapeHtml(hero.title || 'Uma história para continuar assistindo')}</strong>
+          </div>
+        </div>
+        <div class="mc-tv-player">
+          <header>${viewerLogo(profile)}<span data-pause-state>Reproduzindo</span></header>
+          <footer>
+            <i class="fa-solid fa-pause" data-pause-icon></i>
+            <time>12:04</time>
+            <b class="mc-tv-progress"><i></i></b>
+            <time>48:22</time>
+            <i class="fa-solid fa-volume-high"></i>
+            <i class="fa-solid fa-closed-captioning"></i>
+            <i class="fa-solid fa-expand"></i>
+          </footer>
+        </div>
+        <div class="mc-tv-pause-mark" data-pause-mark hidden>
+          <i class="fa-solid fa-pause"></i>
+        </div>
+        <div class="mc-tv-pause-cue" data-pause-cue>
+          <b data-pause-count>3</b>
+          <span>O anúncio entra por cima da tela</span>
+        </div>
       </div>`;
+  }
+
+  function clearPauseAdTimers() {
+    if (state.pauseAdTimer) window.clearTimeout(state.pauseAdTimer);
+    if (state.pauseAdInterval) window.clearInterval(state.pauseAdInterval);
+    state.pauseAdTimer = null;
+    state.pauseAdInterval = null;
+  }
+
+  function revealPauseAd(root) {
+    if (!root) return;
+    root.classList.remove('is-playing');
+    root.classList.add('is-paused');
+    const cue = root.querySelector('[data-pause-cue]');
+    if (cue) cue.hidden = true;
+    const label = root.querySelector('[data-pause-state]');
+    if (label) label.textContent = 'Pausado';
+    const icon = root.querySelector('[data-pause-icon]');
+    if (icon) icon.className = 'fa-solid fa-play';
+    const mark = root.querySelector('[data-pause-mark]');
+    if (mark && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      mark.hidden = false;
+      window.setTimeout(() => { mark.hidden = true; }, 420);
+    }
+  }
+
+  function armPauseAd(root, delay = 3000) {
+    if (!root) return;
+    clearPauseAdTimers();
+    root.classList.remove('is-paused');
+    root.classList.add('is-playing');
+    const cue = root.querySelector('[data-pause-cue]');
+    const label = root.querySelector('[data-pause-state]');
+    if (label) label.textContent = 'Reproduzindo';
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      revealPauseAd(root);
+      return;
+    }
+    let left = Math.max(1, Math.round(delay / 1000));
+    const tick = () => {
+      if (!cue) return;
+      cue.hidden = false;
+      const count = cue.querySelector('[data-pause-count]');
+      if (count) count.textContent = String(left);
+    };
+    tick();
+    state.pauseAdInterval = window.setInterval(() => {
+      left -= 1;
+      if (left <= 0) {
+        clearPauseAdTimers();
+        revealPauseAd(root);
+        return;
+      }
+      tick();
+    }, 1000);
   }
 
   function viewerCatalogHtml(profile) {
@@ -2623,20 +2816,8 @@
     frame.style.setProperty('--viewer-surface', safeViewerColor(palette.surface, '#ffffff'));
     frame.style.setProperty('--viewer-canvas', safeViewerColor(palette.canvas, '#edf2f1'));
     frame.style.setProperty('--viewer-text', safeViewerColor(palette.text, '#1f2937'));
-    const nav = Array.isArray(profile.shell_spec?.nav) ? profile.shell_spec.nav.slice(0, 5) : [];
-    const navHtml = nav.map((item) => `<span>${escapeHtml(item)}</span>`).join('');
     if (profile.viewer_kind === 'tv') {
-      const hero = profile.shell_spec?.hero || {};
-      shell.innerHTML = `
-        <div class="mc-tv-backdrop"></div>
-        <header class="mc-tv-nav">${viewerLogo(profile)}<nav>${navHtml}</nav><i class="fa-regular fa-user"></i></header>
-        <section class="mc-tv-hero">
-          <span>${escapeHtml(hero.eyebrow || 'Conteúdo em destaque')}</span>
-          <strong>${escapeHtml(hero.title || 'Uma história para continuar assistindo')}</strong>
-          <small>${escapeHtml(hero.description || 'Prévia ilustrativa do ambiente de streaming.')}</small>
-        </section>
-        ${viewerCatalogHtml(profile)}
-        <div class="mc-tv-controls"><i class="fa-solid fa-play"></i><span></span><i class="fa-solid fa-volume-high"></i></div>`;
+      shell.innerHTML = tvPlaybackShellHtml(profile);
     } else {
       shell.innerHTML = portalPageHtml(profile);
     }
@@ -2741,6 +2922,12 @@
     }
     $('#mcAdSlotContent').innerHTML = adCreativeHtml(format);
     $('#mcAdSlotSize').textContent = `${iabSize.w} × ${iabSize.h} px`;
+    if (displayPlacement.context === 'tv') {
+      frame.classList.add('is-playing');
+      armPauseAd(frame);
+    } else {
+      frame.classList.remove('is-playing', 'is-paused');
+    }
     $('#mcResetPlacement').disabled = false;
     syncPlacementFields();
   }
@@ -3177,6 +3364,36 @@
     renderBrandInventory(client);
   }
 
+  function brandFileKey(file) {
+    return `${file?.name || ''}:${file?.size || 0}:${file?.lastModified || 0}`;
+  }
+
+  function brandCandidateRole(asset) {
+    if (asset?.kind === 'logo') return 'logo';
+    return String(asset?.category || '').toLowerCase() === 'campanha' ? 'creative' : 'reference';
+  }
+
+  function syncCreativeLineFromBrandFiles() {
+    const logo = state.primaryBrandFileIndex >= 0
+      ? state.brandFiles[state.primaryBrandFileIndex]
+      : null;
+    const logoKey = logo ? brandFileKey(logo) : '';
+    const extras = state.brandFiles.filter((_, index) => index !== state.primaryBrandFileIndex);
+    const present = new Set(state.creativeLineFiles.map(brandFileKey));
+    state.creativeLineFiles = state.creativeLineFiles.filter(
+      (file) => brandFileKey(file) !== logoKey,
+    );
+    extras.forEach((file) => {
+      const key = brandFileKey(file);
+      if (present.has(key) || state.creativeLineFiles.length >= 6) return;
+      state.creativeLineFiles.push(file);
+      present.add(key);
+    });
+    if (state.selectedBrandId) state.creativeLineClientId = state.selectedBrandId;
+    renderCreativeLineUploads();
+    renderCreativeLineWorkspace();
+  }
+
   function addCreativeLineFiles(files) {
     const incoming = Array.from(files || []).filter(
       (file) => /^image\/(png|jpeg|webp)$/.test(file.type) && file.size <= 5 * 1024 * 1024,
@@ -3278,6 +3495,7 @@
     );
     state.brandFiles = [...state.brandFiles, ...accepted].slice(0, 8);
     renderDroppedBrandFiles();
+    syncCreativeLineFromBrandFiles();
     if (accepted.length !== Array.from(files || []).length) {
       toast('Algumas imagens foram ignoradas. Use PNG, JPG ou WEBP de até 5 MB.', 'warning');
     }
@@ -3365,6 +3583,7 @@
         renderBrandPalette(data.color_palette);
         renderBrandInventory(data);
         renderBrandCandidates();
+        syncCreativeLineFromBrandFiles();
         $('#mcClientFormStatus').textContent = '';
         toast('Leitura da marca concluída. Revise as sugestões.', 'success');
       } catch (error) {
@@ -3374,6 +3593,42 @@
         window.clearInterval(progressTimer);
       }
     });
+  }
+
+  async function persistBrandUploads(clientId) {
+    const logoIndex = state.primaryBrandFileIndex;
+    const logoFile = logoIndex >= 0 ? state.brandFiles[logoIndex] : null;
+    const seen = new Set();
+    const creativeFiles = [];
+    const take = (file) => {
+      if (!file) return;
+      const key = brandFileKey(file);
+      if (seen.has(key)) return;
+      seen.add(key);
+      creativeFiles.push(file);
+    };
+    state.brandFiles.forEach((file, index) => {
+      if (index !== logoIndex) take(file);
+    });
+    state.creativeLineFiles.forEach(take);
+    if (logoFile) {
+      const assetBody = new FormData();
+      assetBody.append('images', logoFile);
+      assetBody.append('primary_logo', 'true');
+      await api(`${API.clients}/${clientId}/brand-assets`, {
+        method: 'POST',
+        body: assetBody,
+      });
+    }
+    if (creativeFiles.length) {
+      const creativeBody = new FormData();
+      creativeFiles.forEach((file) => creativeBody.append('images', file));
+      creativeBody.append('role', 'creative');
+      await api(`${API.clients}/${clientId}/brand-assets`, {
+        method: 'POST',
+        body: creativeBody,
+      });
+    }
   }
 
   async function saveClient(event) {
@@ -3407,7 +3662,7 @@
         brand_assets: selectedBrandCandidates().map((asset) => ({
           source_url: brandAssetKey(asset),
           page_url: asset.page_url,
-          role: asset.kind === 'logo' ? 'logo' : 'reference',
+          role: brandCandidateRole(asset),
           category: asset.category,
           reason: asset.reason,
           width: asset.width,
@@ -3424,21 +3679,7 @@
           ? await api(`${API.clients}/${current.id}`, { method: 'PUT', body: JSON.stringify(data) })
           : await api(API.clients, { method: 'POST', body: JSON.stringify(data) });
         const clientId = saved.id || current.id;
-        if (state.brandFiles.length) {
-          const assetBody = new FormData();
-          const ordered = state.primaryBrandFileIndex >= 0
-            ? [
-              state.brandFiles[state.primaryBrandFileIndex],
-              ...state.brandFiles.filter((_, index) => index !== state.primaryBrandFileIndex),
-            ]
-            : state.brandFiles;
-          ordered.forEach((file) => assetBody.append('images', file));
-          assetBody.append('primary_logo', String(state.primaryBrandFileIndex >= 0));
-          await api(`${API.clients}/${clientId}/brand-assets`, {
-            method: 'POST',
-            body: assetBody,
-          });
-        }
+        await persistBrandUploads(clientId);
         state.clients = await api(API.clients);
         state.campaignClients = await api(API.campaignClients);
         renderClientOptions();
@@ -3446,7 +3687,11 @@
         if (campaignClient) campaignClient.value = `profile:${clientId}`;
         renderClientPreview();
         renderGeneratorSummary();
-        selectBrand(clientId);
+        selectBrand(clientId, { keepDraft: true });
+        state.creativeLineClientId = clientId;
+        state.creativeLineFiles = [];
+        renderCreativeLineUploads();
+        renderCreativeLineWorkspace();
         toast(current ? 'Perfil de marca atualizado.' : 'Perfil de marca salvo.', 'success');
       } catch (error) {
         $('#mcClientFormStatus').textContent = error.message;
@@ -3619,7 +3864,7 @@
   function unfoldFormats() {
     const families = new Set([
       'rectangle', 'wide_banner', 'half_page',
-      'square_1x1', 'story_9x16', 'landscape_social',
+      'square_1x1', 'story_9x16', 'landscape_social', 'portrait_4x5',
     ]);
     return state.formats.filter((format) => (
       format.media_type === 'image'
@@ -3637,6 +3882,97 @@
     const width = Number(size[0]) || 1;
     const height = Number(size[1]) || 1;
     return `aspect-ratio:${width}/${height}`;
+  }
+
+  function unfoldHasKv() {
+    return Boolean($('#mcUnfoldFile')?.files?.length || $('#mcUnfoldSourceAsset')?.value);
+  }
+
+  function unfoldHasPieces() {
+    return unfoldSceneList(state.unfoldCampaign).some((scene) => (
+      (scene.assets || []).some((asset) => asset.asset_type !== 'video' && (asset.asset_url || asset.url))
+    ));
+  }
+
+  function unfoldSelectedClient() {
+    return brandedCampaignClients().find(
+      (item) => item.selection_key === $('#mcUnfoldClient')?.value,
+    );
+  }
+
+  function renderUnfoldBrand() {
+    const root = $('#mcUnfoldBrandPreview');
+    const empty = $('#mcUnfoldBrandEmpty');
+    if (!root) return;
+    const client = unfoldSelectedClient();
+    const branded = brandedCampaignClients();
+    if (empty) empty.hidden = branded.length > 0 || Boolean($('#mcUnfoldClient')?.value);
+    if (!client) {
+      root.hidden = true;
+      root.innerHTML = '';
+      return;
+    }
+    const logo = client.logo_upload_path || client.logo_url;
+    const primary = brandPrimaryColor(client);
+    const secondary = brandSecondaryColor(client);
+    root.hidden = false;
+    root.innerHTML = `
+      <div class="mc-unfold-brand-row">
+        ${logo
+          ? `<img src="${escapeHtml(logo)}" alt="">`
+          : '<span class="mc-unfold-brand-mark" aria-hidden="true"></span>'}
+        <span>
+          <strong>${escapeHtml(client.name)}</strong>
+          <small>${escapeHtml(client.sector || 'Sem setor')}</small>
+        </span>
+      </div>
+      ${primary || secondary ? `<div class="mc-unfold-swatches" aria-hidden="true">
+        ${primary ? `<i style="background:${escapeHtml(primary)}"></i>` : ''}
+        ${secondary ? `<i style="background:${escapeHtml(secondary)}"></i>` : ''}
+      </div>` : ''}
+      ${brandTone(client) ? `<p class="mc-section-note">${escapeHtml(brandTone(client))}</p>` : ''}`;
+  }
+
+  function syncUnfoldProgress() {
+    if (!$('#mcUnfoldForm')) return;
+    const done = {
+      marca: Boolean($('#mcUnfoldClient')?.value),
+      kv: unfoldHasKv(),
+      fecha: unfoldHasKv(),
+      retangulos: state.unfoldFormatIds.size > 0,
+      pecas: unfoldHasPieces(),
+    };
+    const order = ['marca', 'kv', 'fecha', 'retangulos', 'pecas'];
+    const current = order.find((key) => !done[key]) || 'pecas';
+    $$('[data-unfold-step]').forEach((button) => {
+      const key = button.dataset.unfoldStep;
+      button.classList.toggle('is-done', Boolean(done[key]) && key !== current);
+      button.classList.toggle('is-current', key === current);
+      if (key === current) button.setAttribute('aria-current', 'step');
+      else button.removeAttribute('aria-current');
+    });
+    $$('[data-unfold-col]').forEach((col) => {
+      col.classList.toggle('is-current', col.dataset.unfoldCol === current);
+    });
+    const meta = $('#mcUnfoldFormatMeta');
+    if (meta) {
+      const count = state.unfoldFormatIds.size;
+      meta.textContent = count
+        ? `${count} ${count === 1 ? 'retângulo' : 'retângulos'} no lote`
+        : 'Clique para ligar ou tirar um retângulo.';
+    }
+  }
+
+  function focusUnfoldStep(key) {
+    const target = $(`[data-unfold-col="${key}"]`);
+    if (!target) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    target.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    $$('[data-unfold-col]').forEach((col) => col.classList.toggle('is-focus', col === target));
+    if (key === 'marca') $('#mcUnfoldClient')?.focus();
+    else if (key === 'kv') $('#mcUnfoldDropzone')?.focus();
+    else if (key === 'fecha') $('#mcUnfoldModel')?.focus();
+    else if (key === 'retangulos') $('#mcUnfoldGenerate')?.focus();
   }
 
   function renderUnfoldFormats() {
@@ -3657,6 +3993,7 @@
           ? `<small class="mc-unfold-share">Foto ${escapeHtml(formatSceneLabel(format))}</small>`
           : ''}
       </button>`).join('') || '<p class="mc-section-note">Nenhum retângulo estático neste catálogo.</p>';
+    syncUnfoldProgress();
   }
 
   function renderUnfoldLibrary() {
@@ -3827,6 +4164,7 @@
       extra.textContent = extras.join('  ');
     }
     syncUnfoldReview();
+    syncUnfoldProgress();
   }
 
   async function quoteUnfoldPath() {
@@ -3956,6 +4294,7 @@
     setUnfoldFile(file);
     if ($('#mcUnfoldSourceAsset')) $('#mcUnfoldSourceAsset').value = '';
     showUnfoldPreview(URL.createObjectURL(file));
+    syncUnfoldProgress();
     readUnfoldKv({ file }).catch((error) => toast(error.message, 'error'));
   }
 
@@ -3969,6 +4308,7 @@
       node.classList.toggle('is-active', node === button);
     });
     readUnfoldKv({ assetId }).catch((error) => toast(error.message, 'error'));
+    syncUnfoldProgress();
   }
 
   function renderUnfoldSpend(campaign) {
@@ -4007,9 +4347,11 @@
       });
     });
     root.innerHTML = cards.join('') || '<div class="cx-empty-state"><p>Feche as peças para ver o contato neste tamanho.</p></div>';
+    $('#mcUnfoldResult')?.classList.toggle('has-pieces', cards.length > 0);
     renderUnfoldSpend(campaign);
     syncPublishTriggers();
     refreshPublishModal();
+    syncUnfoldProgress();
   }
 
   async function createUnfolding(button) {
@@ -4019,12 +4361,19 @@
       syncUnfoldReview();
       const data = new FormData(form);
       const formatIds = Array.from(state.unfoldFormatIds);
+      if (!$('#mcUnfoldClient')?.value) {
+        toast('Selecione a marca que assina o lote.', 'warning');
+        focusUnfoldStep('marca');
+        return;
+      }
       if (!formatIds.length) {
         toast('Marque ao menos um retângulo.', 'warning');
+        focusUnfoldStep('retangulos');
         return;
       }
       if (!data.get('kv')?.size && !data.get('source_asset_id')) {
         toast('Solte o KV ou pegue uma peça já gerada.', 'warning');
+        focusUnfoldStep('kv');
         return;
       }
       if (!data.get('source_asset_id')) data.delete('source_asset_id');
@@ -4079,6 +4428,7 @@
         renderUnfoldPieces(state.unfoldCampaign);
         status.textContent = '';
         toast('Peças fechadas.', 'success');
+        focusUnfoldStep('pecas');
       } catch (error) {
         status.textContent = error.message;
         toast(error.message, 'error');
@@ -5019,12 +5369,20 @@
       }
       if (remove) {
         const index = Number(remove.dataset.droppedRemove);
+        const removed = state.brandFiles[index];
         state.brandFiles.splice(index, 1);
+        if (removed) {
+          const removedKey = brandFileKey(removed);
+          state.creativeLineFiles = state.creativeLineFiles.filter(
+            (file) => brandFileKey(file) !== removedKey,
+          );
+        }
         if (state.primaryBrandFileIndex === index) state.primaryBrandFileIndex = -1;
         else if (state.primaryBrandFileIndex > index) state.primaryBrandFileIndex -= 1;
       }
       renderDroppedBrandFiles();
       renderBrandCandidates();
+      syncCreativeLineFromBrandFiles();
     });
     document.addEventListener('paste', (event) => {
       if (!$('#mcClientForm')?.offsetParent) return;
@@ -5112,12 +5470,29 @@
     $('#mcFormatCategory')?.addEventListener('change', renderFormatBrowser);
     bind('#mcLibrarySearch', 'input', renderLibrary);
     bind('#mcLibraryCategory', 'change', renderLibrary);
+    bind('#mcUnfoldClient', 'change', () => {
+      renderUnfoldBrand();
+      syncUnfoldProgress();
+    });
+    $$('.mc-unfold-steps [data-unfold-step]').forEach((button) => {
+      button.addEventListener('click', () => focusUnfoldStep(button.dataset.unfoldStep));
+    });
     $('#mcUnfoldFormatList')?.addEventListener('click', (event) => {
       const button = event.target.closest('[data-unfold-format]');
       if (!button) return;
       const id = String(button.dataset.unfoldFormat);
       if (state.unfoldFormatIds.has(id)) state.unfoldFormatIds.delete(id);
       else state.unfoldFormatIds.add(id);
+      renderUnfoldFormats();
+      quoteUnfoldPath();
+    });
+    $('#mcUnfoldFormatsAll')?.addEventListener('click', () => {
+      unfoldFormats().forEach((format) => state.unfoldFormatIds.add(String(format.id)));
+      renderUnfoldFormats();
+      quoteUnfoldPath();
+    });
+    $('#mcUnfoldFormatsNone')?.addEventListener('click', () => {
+      state.unfoldFormatIds.clear();
       renderUnfoldFormats();
       quoteUnfoldPath();
     });
@@ -5160,6 +5535,7 @@
       }
       syncUnfoldReview();
       quoteUnfoldPath();
+      syncUnfoldProgress();
     });
     $('#mcUnfoldModel')?.addEventListener('change', quoteUnfoldPath);
     $('#mcUnfoldGenerate')?.addEventListener('click', (event) => {

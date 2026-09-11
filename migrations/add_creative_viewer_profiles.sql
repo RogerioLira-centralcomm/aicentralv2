@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS cx_creative_viewer_profiles (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_cx_viewer_profile_kind
-        CHECK (viewer_kind IN ('portal', 'tv')),
+        CHECK (viewer_kind IN ('portal', 'tv', 'social')),
     CONSTRAINT chk_cx_viewer_profile_palette_object
         CHECK (jsonb_typeof(palette) = 'object'),
     CONSTRAINT chk_cx_viewer_profile_shell_object
@@ -37,3 +37,12 @@ ALTER TABLE cx_public_collection_assets
 
 CREATE INDEX IF NOT EXISTS idx_cx_public_assets_viewer
     ON cx_public_collection_assets(viewer_profile_id);
+
+DO $$
+BEGIN
+    ALTER TABLE cx_creative_viewer_profiles
+        DROP CONSTRAINT IF EXISTS chk_cx_viewer_profile_kind;
+    ALTER TABLE cx_creative_viewer_profiles
+        ADD CONSTRAINT chk_cx_viewer_profile_kind
+            CHECK (viewer_kind IN ('portal', 'tv', 'social'));
+END $$;

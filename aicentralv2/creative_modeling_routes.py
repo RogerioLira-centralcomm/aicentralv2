@@ -301,12 +301,14 @@ def api_upload_client_logo(cid):
 
 @admin_required_api
 def api_upload_client_brand_assets(cid):
+    role = request.form.get("role") or "reference"
     return _execute(
         lambda: _ok(
             _service().upload_client_brand_assets(
                 cid,
                 request.files.getlist("images"),
                 request.form.get("primary_logo") == "true",
+                role,
             ),
             201,
         )

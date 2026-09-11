@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>ugc_face</title>
+  <style>
+    @font-face {
+      font-family: "ComposeSans";
+      src: url("{{ font_url }}") format("truetype");
+      font-display: block;
+    }
+    html, body {
+      margin: 0;
+      width: {{ width }}px;
+      height: {{ height }}px;
+      overflow: hidden;
+      background: #111;
+    }
+    .ad {
+      position: relative;
+      width: {{ width }}px;
+      height: {{ height }}px;
+      color: #fff;
+      font-family: "ComposeSans", "Open Sans", sans-serif;
+      background: #111;
+    }
+    .visual {
+      position: absolute;
+      inset: 0;
+    }
+    .visual img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .caption {
+      position: absolute;
+      left: 5%;
+      right: 18%;
+      bottom: 11%;
+      display: grid;
+      gap: 8px;
+    }
+    .headline {
+      margin: 0;
+      font-size: {{ headline_font_size }}px;
+      font-weight: 700;
+      line-height: 1.15;
+      text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+    }
+    .cta {
+      margin: 0;
+      font-size: clamp(13px, 2vw, 18px);
+      font-weight: 600;
+    }
+    .logo {
+      position: absolute;
+      top: 8%;
+      right: 6%;
+      width: 12%;
+      max-height: 10%;
+      object-fit: contain;
+    }
+  </style>
+</head>
+<body>
+  {% set family = family or 'story_9x16' %}
+  {% include 'mapped_slots.html' %}
+  {% if not regions %}
+  <article class="ad" data-family="{{ family }}" data-template="ugc-face">
+    <div class="visual">{% if still_url %}<img src="{{ still_url }}" alt="">{% endif %}</div>
+    {% if logo_url %}<img class="logo" src="{{ logo_url }}" alt="">{% endif %}
+    <div class="caption">
+      <p class="headline">{{ headline }}</p>
+      {% if cta %}<p class="cta">{{ cta }}</p>{% endif %}
+    </div>
+  </article>
+  {% endif %}
+</body>
+</html>

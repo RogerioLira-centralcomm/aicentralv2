@@ -2383,7 +2383,7 @@ class CreativeModelingRepository:
                 """
                 SELECT pc.id, pc.campaign_id, pc.title, pc.description,
                        pc.created_at, c.name AS campaign_name,
-                       cl.name AS client_name, cl.logo_url,
+                       cl.id AS client_id, cl.name AS client_name, cl.logo_url,
                        cl.logo_upload_path, cl.primary_color, cl.secondary_color
                   FROM cx_public_creative_collections pc
                   JOIN cx_campaigns c ON c.id = pc.campaign_id
@@ -2403,7 +2403,7 @@ class CreativeModelingRepository:
                        f.mechanic, f.media_type,
                        f.aspect_ratio, f.default_size,
                        f.placement_spec, f.behavior_spec,
-                       ch.name AS channel_name,
+                       ch.slug AS channel_slug, ch.name AS channel_name,
                        v.label AS variation_label, s.position AS step_position,
                        vp.id AS viewer_profile_id, vp.slug AS viewer_slug,
                        vp.name AS viewer_name, vp.viewer_kind,
@@ -2484,6 +2484,49 @@ class CreativeModelingRepository:
             result = dict(collection)
             result["assets"] = [dict(row) for row in cursor.fetchall()]
             return result
+
+    def list_client_public_nav(self, client_id):
+        if not client_id:
+            return []
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT pc.token, pc.title, pc.created_at,
+                       c.name AS campaign_name,
+                       cl.id AS client_id, cl.name AS client_name,
+                       cl.logo_url, cl.logo_upload_path,
+                       COALESCE(vp.slug, ch.slug, 'portal') AS viewer_slug,
+                       COALESCE(vp.name, ch.name, 'Canal') AS viewer_name,
+                       COALESCE(vp.viewer_kind, 'portal') AS viewer_kind,
+                       vp.logo_asset_ref AS viewer_logo,
+                       ch.name AS channel_name,
+                       COUNT(ca.asset_id)::integer AS asset_count
+                  FROM cx_public_creative_collections pc
+                  JOIN cx_campaigns c ON c.id = pc.campaign_id
+                  JOIN cx_clients cl ON cl.id = c.client_id
+                  JOIN cx_public_collection_assets ca
+                    ON ca.collection_id = pc.id
+                  JOIN cx_generated_assets a ON a.id = ca.asset_id
+                  JOIN cx_generation_jobs j ON j.id = a.job_id
+                  LEFT JOIN cx_variation_steps s ON s.id = a.step_id
+                  LEFT JOIN cx_format_templates f
+                    ON f.id = COALESCE(j.format_template_id, s.format_template_id)
+                  LEFT JOIN cx_channels ch ON ch.id = f.channel_id
+                  LEFT JOIN cx_creative_viewer_profiles vp
+                    ON vp.id = COALESCE(
+                        ca.viewer_profile_id,
+                        f.default_viewer_profile_id
+                    )
+                 WHERE cl.id = %s AND pc.is_active = TRUE
+                 GROUP BY pc.token, pc.title, pc.created_at, c.name,
+                          cl.id, cl.name, cl.logo_url, cl.logo_upload_path,
+                          vp.slug, vp.name, vp.viewer_kind, vp.logo_asset_ref,
+                          ch.slug, ch.name
+                 ORDER BY c.name, pc.created_at DESC, viewer_name
+                """,
+                (client_id,),
+            )
+            return [dict(row) for row in cursor.fetchall()]
 
     def get_public_collection_asset(self, token, asset_id):
         with self.conn.cursor() as cursor:

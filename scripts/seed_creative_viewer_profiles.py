@@ -202,9 +202,10 @@ PROFILES = (
             "density": "cinematic", "headline_style": "ranked",
             "layout": "ranked_portrait",
             "hero": {
-                "eyebrow": "Conteúdo patrocinado",
+                "eyebrow": "Em reprodução",
                 "title": "Sua marca no momento certo",
                 "description": "Uma pausa integrada à experiência de entretenimento.",
+                "image": "/static/images/creative-viewers/catalog/netflix-catalog.svg",
             },
             "sections": [{"title": "Em alta", "ranked": True, "card_shape": "portrait", "items": [
                 {"title": "Entre Dois Mundos", "image": "/static/images/creative-viewers/catalog/netflix-top10.svg"},
@@ -231,9 +232,10 @@ PROFILES = (
             "masthead": "overlay", "nav": ["Início", "Filmes", "Séries", "Originais"],
             "density": "cinematic", "headline_style": "franchise",
             "hero": {
-                "eyebrow": "Estreia em destaque",
+                "eyebrow": "Em reprodução",
                 "title": "Além das Constelações",
                 "description": "Uma aventura para descobrir novos mundos em família.",
+                "image": "/static/images/creative-viewers/catalog/disney-catalog.svg",
             },
             "sections": [{"title": "Histórias para toda a família", "items": [
                 {"title": "Clube da Imaginação", "image": "/static/images/creative-viewers/catalog/disney-catalog.svg"},
@@ -259,9 +261,10 @@ PROFILES = (
             "density": "cinematic", "headline_style": "premium",
             "layout": "premium_layers",
             "hero": {
-                "eyebrow": "Uma nova série original",
+                "eyebrow": "Em reprodução",
                 "title": "Herança Sombria",
                 "description": "Poder, segredos e uma família à beira do colapso.",
+                "image": "/static/images/creative-viewers/catalog/hbo-cinema.svg",
             },
             "sections": [{"title": "Séries premiadas para maratonar", "card_shape": "landscape", "items": [
                 {"title": "O Último Acordo", "image": "/static/images/creative-viewers/catalog/hbo-catalog.svg"},
@@ -275,7 +278,162 @@ PROFILES = (
                 {"title": "Ecos da Memória", "image": "/static/images/creative-viewers/catalog/hbo-cinema.svg"},
                 {"title": "Palácio de Inverno", "image": "/static/images/creative-viewers/catalog/hbo-cinema.svg"},
                 {"title": "Mar Aberto", "image": "/static/images/creative-viewers/catalog/hbo-cinema.svg"},
+            ]            }],
+        },
+    },
+    {
+        "slug": "prime-video",
+        "name": "Prime Video",
+        "viewer_kind": "tv",
+        "source_url": "https://www.primevideo.com/",
+        "logo_asset_ref": "/static/images/creative-viewers/prime-video.svg",
+        "palette": {
+            "primary": "#00A8E1", "secondary": "#1A98FF",
+            "surface": "#1B2329", "canvas": "#0F171E", "text": "#FFFFFF",
+        },
+        "shell_spec": {
+            "masthead": "overlay",
+            "nav": ["Início", "Loja", "TV ao vivo", "Kids"],
+            "density": "cinematic",
+            "headline_style": "pause",
+            "layout": "pause_playback",
+            "hero": {
+                "eyebrow": "Em reprodução",
+                "title": "A Travessia do Norte",
+                "description": "O filme continua. Na pausa, o anúncio entra por cima da tela.",
+                "image": "/static/images/creative-viewers/catalog/hbo-cinema.svg",
+            },
+            "sections": [{"title": "Continuar assistindo", "card_shape": "landscape", "items": [
+                {"title": "Noite no Porto", "image": "/static/images/creative-viewers/catalog/hbo-cinema.svg"},
+                {"title": "Rota 27", "image": "/static/images/creative-viewers/catalog/hbo-cinema.svg"},
+                {"title": "Depois da Maré", "image": "/static/images/creative-viewers/catalog/hbo-cinema.svg"},
+                {"title": "Casa de Inverno", "image": "/static/images/creative-viewers/catalog/hbo-cinema.svg"},
             ]}],
+        },
+    },
+    {
+        "slug": "instagram",
+        "name": "Instagram",
+        "viewer_kind": "social",
+        "source_url": "https://www.instagram.com/",
+        "logo_asset_ref": "/static/images/creative-viewers/instagram.svg",
+        "palette": {
+            "primary": "#E1306C", "secondary": "#F58529",
+            "surface": "#FFFFFF", "canvas": "#FAFAFA", "text": "#262626",
+        },
+        "shell_spec": {
+            "network": "instagram",
+            "device": "phone",
+            "layout": "feed_post",
+            "masthead": "post",
+            "nav": ["Início", "Reels", "Perfil"],
+            "density": "social",
+            "headline_style": "caption",
+            "hero": {
+                "eyebrow": "Patrocinado",
+                "title": "Marca no feed",
+                "description": "O anúncio preenche o poço da publicação.",
+            },
+        },
+    },
+    {
+        "slug": "facebook",
+        "name": "Facebook",
+        "viewer_kind": "social",
+        "source_url": "https://www.facebook.com/",
+        "logo_asset_ref": "/static/images/creative-viewers/facebook.svg",
+        "palette": {
+            "primary": "#1877F2", "secondary": "#0866FF",
+            "surface": "#FFFFFF", "canvas": "#F0F2F5", "text": "#050505",
+        },
+        "shell_spec": {
+            "network": "facebook",
+            "device": "phone",
+            "layout": "feed_post",
+            "masthead": "post",
+            "nav": ["Início", "Watch", "Mercado"],
+            "density": "social",
+            "headline_style": "caption",
+            "hero": {
+                "eyebrow": "Patrocinado",
+                "title": "Marca no feed",
+                "description": "O anúncio preenche o poço da publicação.",
+            },
+        },
+    },
+    {
+        "slug": "linkedin",
+        "name": "LinkedIn",
+        "viewer_kind": "social",
+        "source_url": "https://www.linkedin.com/",
+        "logo_asset_ref": "/static/images/creative-viewers/linkedin.svg",
+        "palette": {
+            "primary": "#0A66C2", "secondary": "#004182",
+            "surface": "#FFFFFF", "canvas": "#F3F2EF", "text": "#191919",
+        },
+        "shell_spec": {
+            "network": "linkedin",
+            "device": "desktop",
+            "layout": "share_card",
+            "masthead": "bar",
+            "nav": ["Início", "Rede", "Vagas"],
+            "density": "social",
+            "headline_style": "professional",
+            "hero": {
+                "eyebrow": "Promovido",
+                "title": "Marca no feed profissional",
+                "description": "O anúncio preenche o card 1.91:1 ou o poço do feed.",
+            },
+        },
+    },
+    {
+        "slug": "tiktok",
+        "name": "TikTok",
+        "viewer_kind": "social",
+        "source_url": "https://www.tiktok.com/",
+        "logo_asset_ref": "/static/images/creative-viewers/tiktok.svg",
+        "palette": {
+            "primary": "#FE2C55", "secondary": "#25F4EE",
+            "surface": "#161616", "canvas": "#000000", "text": "#FFFFFF",
+        },
+        "shell_spec": {
+            "network": "tiktok",
+            "device": "phone",
+            "layout": "full_bleed",
+            "masthead": "overlay",
+            "nav": ["Início", "Amigos", "Caixa de entrada"],
+            "density": "social",
+            "headline_style": "caption",
+            "hero": {
+                "eyebrow": "Patrocinado",
+                "title": "Marca no For You",
+                "description": "O anúncio preenche o poço 9:16.",
+            },
+        },
+    },
+    {
+        "slug": "youtube",
+        "name": "YouTube",
+        "viewer_kind": "social",
+        "source_url": "https://www.youtube.com/",
+        "logo_asset_ref": "/static/images/creative-viewers/youtube.svg",
+        "palette": {
+            "primary": "#FF0000", "secondary": "#0F0F0F",
+            "surface": "#FFFFFF", "canvas": "#0F0F0F", "text": "#0F0F0F",
+        },
+        "shell_spec": {
+            "network": "youtube",
+            "device": "desktop",
+            "layout": "watch_player",
+            "masthead": "bar",
+            "nav": ["Início", "Shorts", "Inscrições"],
+            "density": "social",
+            "headline_style": "watch",
+            "hero": {
+                "eyebrow": "Anúncio",
+                "title": "Marca no player",
+                "description": "O anúncio preenche o player 16:9 ou o poço dos Shorts.",
+            },
         },
     },
 )
@@ -330,7 +488,13 @@ def main():
                        (ch.slug = 'netflix' AND vp.slug = 'netflix')
                        OR (ch.slug = 'hbomax' AND vp.slug = 'hbo-max')
                        OR (ch.slug = 'disneyplus' AND vp.slug = 'disney-plus')
+                       OR (ch.slug = 'primevideo' AND vp.slug = 'prime-video')
                        OR (ch.slug = 'portal_generico' AND vp.slug = 'g1')
+                       OR (ch.slug = 'meta_social' AND f.slug LIKE 'instagram%' AND vp.slug = 'instagram')
+                       OR (ch.slug = 'meta_social' AND f.slug LIKE 'facebook%' AND vp.slug = 'facebook')
+                       OR (ch.slug = 'tiktok_social' AND vp.slug = 'tiktok')
+                       OR (ch.slug = 'linkedin_social' AND vp.slug = 'linkedin')
+                       OR (ch.slug = 'youtube_social' AND vp.slug = 'youtube')
                    )
                 """
             )

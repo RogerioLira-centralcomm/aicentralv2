@@ -26,10 +26,18 @@ BEHAVIORS = {
 }
 
 
+SOCIAL_CHANNELS = {
+    "meta_social", "tiktok_social", "linkedin_social", "youtube_social",
+}
+SOCIAL_DESKTOP = {"linkedin-share", "youtube-infeed"}
+
+
 def _context(row):
     channel = (row.get("channel") or "").lower()
-    if channel in {"netflix", "hbomax", "disneyplus"}:
+    if channel in {"netflix", "hbomax", "disneyplus", "primevideo"}:
         return "tv"
+    if channel in SOCIAL_CHANNELS:
+        return "social"
     if "mobile" in (row.get("slug") or ""):
         return "celular"
     return "portal"
@@ -55,6 +63,13 @@ def _placement(row):
             {"x": 18, "y": 20, "width": 64, "height": 50},
         )
         viewport = {"width": 1600, "height": 900}
+    elif context == "social":
+        slot = {"x": 0, "y": 0, "width": 100, "height": 100}
+        viewport = (
+            {"width": 1280, "height": 800}
+            if slug in SOCIAL_DESKTOP
+            else {"width": 390, "height": 844}
+        )
     elif size == "728x90":
         slot = {"x": 12, "y": 18, "width": 76, "height": 12}
         viewport = {"width": 1280, "height": 800}
@@ -83,7 +98,7 @@ def _placement(row):
         "fit": "contain",
         "responsive": "scale",
     }
-    if context != "tv" and zone:
+    if context not in {"tv", "social"} and zone:
         spec["placement_zone"] = zone
     return spec
 

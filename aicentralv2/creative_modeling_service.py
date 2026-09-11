@@ -37,8 +37,10 @@ from .creative_modeling_fx import annotate_cost, brl_from_usd
 from .creative_format_geometry import (
     ALLOWED_SCENE_COUNTS,
     PLACEMENT_ZONES,
+    SOCIAL_FORMAT_SLUGS,
     canvas_mismatch,
     default_render_mode,
+    default_social_placement,
     format_beat,
     format_direction,
     hygiene_instruction,
@@ -61,12 +63,14 @@ from .creative_image_fidelity import (
 from .creative_compose_library import (
     LIBRARY_FAMILIES,
     apply_script_params,
+    catalog_templates,
     catalog_variations,
     normalize_compose_choice,
     persisted_variation_id,
     propose_variation_adjust,
     resolve_variation,
     schema_for_family,
+    suggest_compose_template,
 )
 from .creative_construct_params import (
     ENGINE_CONSTRUCT,
@@ -108,7 +112,7 @@ MOCKUPS = {
     ),
 }
 
-PLACEMENT_CONTEXTS = {"portal", "tv", "celular", "tablet"}
+PLACEMENT_CONTEXTS = {"portal", "tv", "celular", "tablet", "social"}
 PLACEMENT_FITS = {"contain", "cover", "fill"}
 RESPONSIVE_MODES = {"scale", "reflow", "fixed"}
 BEHAVIOR_TYPES = {
@@ -118,7 +122,7 @@ BEHAVIOR_TRIGGERS = {
     "none", "hover_tap", "click", "drag_vertical", "drag_horizontal",
     "view", "auto",
 }
-VIEWER_KINDS = {"portal", "tv"}
+VIEWER_KINDS = {"portal", "tv", "social"}
 VIEWER_PALETTE_KEYS = {"primary", "secondary", "surface", "canvas", "text"}
 
 
@@ -701,6 +705,115 @@ def _viewer_profile_data(value):
     }
 
 
+def _collection_sessions(assets):
+    sessions = []
+    index = {}
+    for asset in assets or []:
+        kind = asset.get("viewer_kind") or "portal"
+        key = asset.get("viewer_slug") or kind
+        if key not in index:
+            session = {
+                "key": key,
+                "kind": kind,
+                "name": asset.get("viewer_name") or (
+                    "Streaming" if kind == "tv" else "Portais"
+                ),
+                "logo": asset.get("viewer_logo_asset_ref"),
+                "channel_name": asset.get("channel_name"),
+                "assets": [],
+            }
+            index[key] = session
+            sessions.append(session)
+        index[key]["assets"].append(asset)
+    return sessions
+
+
+def _public_catalog(collection, nav_rows, token):
+    rows = list(nav_rows or [])
+    if not any(row.get("token") == token for row in rows):
+        for session in collection.get("sessions") or []:
+            rows.append({
+                "token": token,
+                "title": collection.get("title"),
+                "campaign_name": collection.get("campaign_name"),
+                "client_name": collection.get("client_name"),
+                "logo_url": collection.get("logo_url"),
+                "logo_upload_path": collection.get("logo_upload_path"),
+                "viewer_slug": session.get("key"),
+                "viewer_name": session.get("name"),
+                "viewer_kind": session.get("kind"),
+                "viewer_logo": session.get("logo"),
+                "asset_count": len(session.get("assets") or []),
+            })
+    brands = {}
+    brand_order = []
+    for row in rows:
+        brand_name = row.get("client_name") or "Marca"
+        if brand_name not in brands:
+            brands[brand_name] = {
+                "name": brand_name,
+                "logo": row.get("logo_upload_path") or row.get("logo_url"),
+                "campaigns": {},
+                "campaign_order": [],
+            }
+            brand_order.append(brand_name)
+        brand = brands[brand_name]
+        camp_token = row.get("token")
+        if camp_token not in brand["campaigns"]:
+            brand["campaigns"][camp_token] = {
+                "token": camp_token,
+                "title": row.get("title") or row.get("campaign_name"),
+                "campaign_name": row.get("campaign_name") or row.get("title"),
+                "current": camp_token == token,
+                "href": f"/criativos/publico/{camp_token}",
+                "channels": [],
+            }
+            brand["campaign_order"].append(camp_token)
+        channel_key = row.get("viewer_slug") or "canal"
+        brand["campaigns"][camp_token]["channels"].append({
+            "key": channel_key,
+            "name": row.get("viewer_name") or row.get("channel_name") or "Canal",
+            "kind": row.get("viewer_kind") or "portal",
+            "logo": row.get("viewer_logo"),
+            "count": row.get("asset_count") or 0,
+            "current": camp_token == token,
+            "href": (
+                f"#session-{channel_key}"
+                if camp_token == token
+                else f"/criativos/publico/{camp_token}#session-{channel_key}"
+            ),
+        })
+    campaigns = []
+    brand_list = []
+    for brand_name in brand_order:
+        brand = brands[brand_name]
+        camps = [brand["campaigns"][key] for key in brand["campaign_order"]]
+        for camp in camps:
+            primary = camp["channels"][0] if camp["channels"] else None
+            camp["primary_key"] = primary["key"] if primary else None
+            camp["select_href"] = camp["href"] + (
+                f"#session-{camp['primary_key']}" if camp["primary_key"] else ""
+            )
+            campaigns.append(camp)
+        brand_list.append({
+            "name": brand["name"],
+            "logo": brand["logo"],
+            "campaigns": camps,
+        })
+    sessions = collection.get("sessions") or []
+    primary = max(sessions, key=lambda item: len(item.get("assets") or []), default=None)
+    return {
+        "exhibitor": {
+            "key": primary.get("key"),
+            "name": primary.get("name"),
+            "kind": primary.get("kind"),
+            "logo": primary.get("logo"),
+        } if primary else None,
+        "campaigns": campaigns,
+        "brands": brand_list,
+    }
+
+
 class CreativeModelingService:
     def __init__(
         self, repository=None, generator=None, storage=None, brand_analyzer=None
@@ -773,6 +886,16 @@ class CreativeModelingService:
                 if isinstance(placement, dict)
                 else None
             )
+            if format_data.get("slug") in SOCIAL_FORMAT_SLUGS:
+                social = default_social_placement(
+                    format_data.get("slug"), format_data.get("default_size")
+                )
+                if not isinstance(placement, dict) or placement.get("context") != "social":
+                    format_data["placement_spec"] = social
+                else:
+                    format_data["placement_spec"] = {**social, **placement, "context": "social"}
+                format_data["placement_zone"] = None
+                continue
             if zone not in PLACEMENT_ZONES:
                 zone = geometry.get("placement_zone")
                 if zone and isinstance(placement, dict):
@@ -812,6 +935,14 @@ class CreativeModelingService:
         for seed in catalog_variations(family):
             if str(seed["id"]) not in seen:
                 variations.append(seed)
+        seen_templates = {
+            str(item.get("slug"))
+            for item in templates
+            if isinstance(item, dict) and item.get("slug")
+        }
+        for seed in catalog_templates(family):
+            if seed["slug"] not in seen_templates:
+                templates.append(seed)
         return _serialize({
             "visual_systems": systems,
             "templates": templates,
@@ -825,16 +956,17 @@ class CreativeModelingService:
             return None
         family = str(getattr(contract, "family", "") or "square_1x1")
         templates = lister(family) or lister() or []
-        if not templates:
-            return None
-        template = templates[0]
-        params = dict(getattr(contract, "params", None) or {})
         regions = getattr(contract, "regions", None) or []
-        if regions:
-            params["regions"] = [
-                item.model_dump() if hasattr(item, "model_dump") else item
-                for item in regions
-            ]
+        region_rows = [
+            item.model_dump() if hasattr(item, "model_dump") else item
+            for item in regions
+        ]
+        template = suggest_compose_template(templates, family, region_rows)
+        if not template or template.get("id") in (None, "") or str(template.get("id")).startswith("tpl-"):
+            return None
+        params = dict(getattr(contract, "params", None) or {})
+        if region_rows:
+            params["regions"] = region_rows
         variation = saver(
             template["id"],
             "Rascunho extraído",
@@ -845,7 +977,9 @@ class CreativeModelingService:
             return None
         variation = dict(variation)
         variation["family"] = family
+        variation["template_id"] = template.get("id")
         variation["template_slug"] = template.get("slug")
+        variation["html_key"] = template.get("html_key")
         return variation
 
     def run_creative_agent(self, name, payload):
@@ -904,7 +1038,12 @@ class CreativeModelingService:
             profile = _viewer_profile_data(
                 self.repository.get_viewer_profile(viewer_profile_id)
             )
-            expected_kind = "tv" if placement_spec["context"] == "tv" else "portal"
+            if placement_spec["context"] == "tv":
+                expected_kind = "tv"
+            elif placement_spec["context"] == "social":
+                expected_kind = "social"
+            else:
+                expected_kind = "portal"
             if profile["viewer_kind"] != expected_kind:
                 raise ValueError(
                     "O ambiente escolhido não corresponde ao contexto do formato."
@@ -1107,7 +1246,7 @@ class CreativeModelingService:
             if not isinstance(candidate, dict):
                 continue
             role = candidate.get("role")
-            if role not in {"logo", "reference"}:
+            if role not in {"logo", "reference", "creative"}:
                 continue
             source_url = _text(
                 candidate.get("source_url"), "Imagem da marca", max_length=2000
@@ -3734,6 +3873,9 @@ class CreativeModelingService:
             "compose_params": (
                 (context.get("creative_brief") or {}).get("compose_library") or {}
             ).get("params") or {},
+            "html_key": (
+                (context.get("creative_brief") or {}).get("compose_library") or {}
+            ).get("html_key"),
         }
 
     @staticmethod
@@ -4746,12 +4888,23 @@ class CreativeModelingService:
             )
             asset.update({
                 "viewer_slug": profile["slug"],
+                "viewer_name": profile.get("name") or asset.get("viewer_name"),
                 "viewer_kind": profile["viewer_kind"],
                 "viewer_logo_asset_ref": profile["logo_asset_ref"],
                 "viewer_palette": profile["palette"],
                 "viewer_shell_spec": profile["shell_spec"],
                 "viewer_disclaimer": profile["disclaimer"],
             })
+        collection["sessions"] = _collection_sessions(deduplicated_assets)
+        collection["token"] = token
+        nav_rows = []
+        if collection.get("client_id") and hasattr(
+            self.repository, "list_client_public_nav"
+        ):
+            nav_rows = self.repository.list_client_public_nav(
+                collection["client_id"]
+            )
+        collection["catalog"] = _public_catalog(collection, nav_rows, token)
         return _serialize(collection)
 
     def public_collection_asset(self, token, asset_id):

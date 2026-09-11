@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>editorial_still</title>
+  <style>
+    @font-face {
+      font-family: "ComposeSans";
+      src: url("{{ font_url }}") format("truetype");
+      font-display: block;
+    }
+    html, body {
+      margin: 0;
+      width: {{ width }}px;
+      height: {{ height }}px;
+      overflow: hidden;
+      background: #F4EFE6;
+    }
+    .ad {
+      position: relative;
+      display: grid;
+      grid-template-columns: 28% 1fr 22%;
+      grid-template-rows: 1fr auto auto;
+      width: {{ width }}px;
+      height: {{ height }}px;
+      box-sizing: border-box;
+      padding: 6% 5% 5%;
+      color: #1A1714;
+      font-family: "ComposeSans", "Didot", "Times New Roman", serif;
+      background: #F4EFE6;
+    }
+    .headline {
+      grid-column: 1;
+      grid-row: 1;
+      align-self: center;
+      margin: 0;
+      font-size: {{ headline_font_size }}px;
+      font-weight: 500;
+      line-height: 1.12;
+      letter-spacing: -0.02em;
+    }
+    .visual {
+      grid-column: 2;
+      grid-row: 1;
+      align-self: center;
+      justify-self: center;
+      width: 88%;
+      height: 72%;
+      overflow: hidden;
+    }
+    .visual img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+    .logo {
+      grid-column: 3;
+      grid-row: 1;
+      align-self: start;
+      justify-self: end;
+      width: 72%;
+      max-height: 28%;
+      object-fit: contain;
+    }
+    .invite {
+      grid-column: 1 / -1;
+      grid-row: 2;
+      margin: {{ cta_gap }}px 0 0;
+      font-size: clamp(12px, 2.1vw, 22px);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .legal {
+      grid-column: 1 / -1;
+      grid-row: 3;
+      margin: 8px 0 0;
+      font-size: clamp(8px, 1.1vw, 12px);
+      line-height: 1.25;
+      opacity: 0.72;
+      font-family: "ComposeSans", "Open Sans", sans-serif;
+    }
+  </style>
+</head>
+<body>
+  {% set family = family or 'portrait_4x5' %}
+  {% include 'mapped_slots.html' %}
+  {% if not regions %}
+  <article class="ad" data-family="{{ family }}" data-template="editorial-still">
+    <p class="headline">{{ headline }}</p>
+    <div class="visual">{% if still_url %}<img src="{{ still_url }}" alt="">{% endif %}</div>
+    {% if logo_url %}<img class="logo" src="{{ logo_url }}" alt="">{% endif %}
+    {% if cta %}<p class="invite">{{ cta }}</p>{% endif %}
+    {% if legal %}<p class="legal">{{ legal }}</p>{% endif %}
+  </article>
+  {% endif %}
+</body>
+</html>

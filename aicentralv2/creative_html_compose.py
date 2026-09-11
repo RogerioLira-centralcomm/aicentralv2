@@ -22,10 +22,12 @@ HTML_COMPOSE_FAMILIES = frozenset({
     "story_9x16",
     "landscape_social",
     "slate_16x9",
+    "portrait_4x5",
 })
 HTML_COMPOSE_TEMPLATES = {
     "sequence_16x9": "sequence_16x9.html",
     "square_1x1": "square_1x1.html",
+    "portrait_4x5": "editorial_still.html",
 }
 LAYOUT_SLOT_ROLES = {
     "visual": "photo",
@@ -144,7 +146,12 @@ def render_compose_html(geometry, copy=None, still_url="", logo_url="", font_url
     size = geometry.get("size") or (1920, 1080)
     width, height = int(size[0]), int(size[1])
     cta = "" if copy.get("omit_cta") else str(copy.get("cta") or "").strip()
-    template = HTML_COMPOSE_TEMPLATES.get(family) or "studio.html"
+    template = (
+        geometry.get("html_key")
+        or copy.get("html_key")
+        or HTML_COMPOSE_TEMPLATES.get(family)
+        or "studio.html"
+    )
     params = clamp_params(schema_for_family(family), copy.get("compose_params"))
     if not params.get("regions"):
         extra = sanitize_compose_regions(copy.get("regions"))

@@ -28,6 +28,7 @@ from aicentralv2.creative_format_geometry import (
     default_render_mode,
     format_direction,
     format_family_spec,
+    placement_zone_for,
     should_compose,
 )
 from aicentralv2.creative_modeling_generation import (
@@ -54,6 +55,8 @@ from aicentralv2.creative_image_fidelity import (
 )
 from aicentralv2.creative_modeling_service import (
     CreativeModelingService,
+    _collection_sessions,
+    _public_catalog,
     _quality_review_data,
     client_identity_payload,
     hydrate_client_from_creative_line,
@@ -347,6 +350,9 @@ class FakeRepository:
         return self.jobs
 
     def list_campaigns(self):
+        return []
+
+    def list_client_public_nav(self, client_id):
         return []
 
 
@@ -909,6 +915,29 @@ class CreativeServiceTest(unittest.TestCase):
             updated["profile"]["brand_summary"],
             "Produto central com muito respiro.",
         )
+
+    def test_import_aceita_criativo_como_referencia_da_linha(self):
+        saved = []
+        self.repo.add_client_brand_asset = (
+            lambda client_id, data: saved.append(data) or len(saved)
+        )
+        imported = self.service._import_candidate_brand_assets(10, {
+            "brand_assets": [
+                {
+                    "role": "creative",
+                    "source_url": "https://marca.com/campanha.png",
+                    "category": "Campanha",
+                },
+                {
+                    "role": "mood",
+                    "source_url": "https://marca.com/ignorar.png",
+                },
+            ]
+        })
+
+        self.assertEqual(len(imported), 1)
+        self.assertEqual(imported[0]["role"], "creative")
+        self.assertEqual(saved[0]["role"], "creative")
 
     def test_auditoria_pronta_hidrata_marca_e_payload_da_geracao(self):
         client = hydrate_client_from_creative_line({
@@ -2363,6 +2392,22 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertEqual(result["id"], 7)
         self.assertEqual(self.repo.format_data["placement_spec"]["slot"]["width"], 70.0)
         self.assertEqual(self.repo.format_data["behavior_spec"]["type"], "hotspot")
+        self.assertEqual(
+            self.repo.format_data["placement_spec"]["placement_zone"],
+            "leaderboard",
+        )
+
+    def test_layout_rejeita_zona_invalida(self):
+        placement = dict(self.repo.format_data["placement_spec"])
+        placement["placement_zone"] = "hero_overlay"
+        with self.assertRaisesRegex(ValueError, "Zona de posicionamento"):
+            self.service.update_format_modeling(7, {
+                "safe_area": {},
+                "placement_spec": placement,
+                "behavior_spec": {
+                    "type": "static", "trigger": "none", "transition_ms": 0
+                },
+            })
 
 
 class FakeHttpResponse:
@@ -2486,6 +2531,83 @@ class CreativeGenerationContractTest(unittest.TestCase):
         self.assertLess(half_slots["headline"][1], half_slots["cta"][1])
         self.assertGreater(slate_slots["headline"][2], slate_slots["cta"][2])
         self.assertNotEqual(leader_slots["cta"][1:], half_slots["cta"][1:])
+        self.assertEqual(leader["placement_zone"], "leaderboard")
+        self.assertIsNone(netflix["placement_zone"])
+
+    def test_zona_iab_segue_familia_tamanho_e_dispositivo(self):
+        self.assertEqual(
+            placement_zone_for(family="wide_banner", size=(728, 90), slug="iab-leaderboard"),
+            "leaderboard",
+        )
+        self.assertEqual(
+            placement_zone_for(family="half_page", size=(300, 600), slug="iab-half-page"),
+            "rail",
+        )
+        self.assertEqual(
+            placement_zone_for(family="rectangle", size=(300, 250), slug="iab-medium-rectangle"),
+            "in_feed",
+        )
+        self.assertEqual(
+            placement_zone_for(family="portal_unit", slug="hotspot"),
+            "in_feed",
+        )
+        self.assertEqual(
+            placement_zone_for(family="wide_banner", size=(320, 50), slug="iab-mobile-banner"),
+            "sticky",
+        )
+        self.assertEqual(
+            placement_zone_for(
+                family="wide_banner", size=(728, 90), slug="iab-leaderboard",
+                device="mobile",
+            ),
+            "sticky",
+        )
+        self.assertIsNone(
+            placement_zone_for(
+                family="wide_banner", slug="netflix-pause-banner", context="tv",
+            )
+        )
+
+    def test_collection_sessions_agrupa_por_veiculo(self):
+        sessions = _collection_sessions([
+            {"viewer_slug": "netflix", "viewer_kind": "tv", "viewer_name": "Netflix", "id": 1},
+            {"viewer_slug": "netflix", "viewer_kind": "tv", "viewer_name": "Netflix", "id": 2},
+            {"viewer_slug": "g1", "viewer_kind": "portal", "viewer_name": "G1", "id": 3},
+        ])
+        self.assertEqual([session["key"] for session in sessions], ["netflix", "g1"])
+        self.assertEqual(len(sessions[0]["assets"]), 2)
+        self.assertEqual(sessions[1]["name"], "G1")
+        self.assertEqual(sessions[0]["kind"], "tv")
+
+    def test_catalogo_publico_agrupa_canais_por_marca_e_campanha(self):
+        collection = {
+            "title": "Verão",
+            "campaign_name": "Verão 26",
+            "client_name": "Marca X",
+            "sessions": [{
+                "key": "netflix", "name": "Netflix", "kind": "tv",
+                "logo": "/static/images/creative-viewers/netflix.png",
+                "assets": [1, 2],
+            }],
+        }
+        catalog = _public_catalog(collection, [
+            {
+                "token": "tok-a", "title": "Verão", "campaign_name": "Verão 26",
+                "client_name": "Marca X", "viewer_slug": "netflix",
+                "viewer_name": "Netflix", "viewer_kind": "tv", "asset_count": 2,
+            },
+            {
+                "token": "tok-b", "title": "Inverno", "campaign_name": "Inverno 26",
+                "client_name": "Marca X", "viewer_slug": "g1",
+                "viewer_name": "G1", "viewer_kind": "portal", "asset_count": 1,
+            },
+        ], "tok-a")
+        self.assertEqual(catalog["exhibitor"]["name"], "Netflix")
+        self.assertEqual(len(catalog["campaigns"]), 2)
+        self.assertTrue(catalog["campaigns"][0]["current"])
+        self.assertEqual(catalog["campaigns"][1]["select_href"], "/criativos/publico/tok-b#session-g1")
+        self.assertEqual(catalog["brands"][0]["name"], "Marca X")
+        self.assertEqual(catalog["brands"][0]["campaigns"][1]["channels"][0]["name"], "G1")
 
     def test_compose_devolve_png_no_retangulo_alvo(self):
         rectangle = compose_native_piece(
@@ -2956,7 +3078,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("mc-hub-desks", page)
         self.assertIn("Bancadas", page)
         self.assertIn("modelagem_biblioteca", page)
-        self.assertIn("modelagem_criativos.css') }}?v=52", page)
+        self.assertIn("modelagem_criativos.css') }}?v=55", page)
         self.assertNotIn("mc-desk.css", page)
         self.assertNotIn("modelagem_criativos.js", page)
         shell = (template_dir / "_mc_shell.html").read_text(encoding="utf-8")
@@ -3018,6 +3140,14 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("const bind = (selector, event, handler) => {", production_js)
         self.assertIn("root && typeof root.querySelector === 'function'", production_js)
         self.assertIn("title: 'Remover variação'", production_js)
+        self.assertIn("function portalPageHtml", production_js)
+        self.assertIn("function resolvePlacementZone", production_js)
+        self.assertIn("function tvPlaybackShellHtml", production_js)
+        self.assertIn("function armPauseAd", production_js)
+        self.assertIn("O anúncio entra por cima da tela", production_js)
+        self.assertIn("data-ad-zone", production_js)
+        self.assertIn("placement_zone", production_js)
+        self.assertIn("primevideo", production_js)
         public_page = (
             root
             / "aicentralv2"
@@ -3025,25 +3155,61 @@ class CreativeFilesContractTest(unittest.TestCase):
             / "public"
             / "creative_collection.html"
         ).read_text(encoding="utf-8")
+        public_ad = (
+            root
+            / "aicentralv2"
+            / "templates"
+            / "public"
+            / "_pv_ad_unit.html"
+        ).read_text(encoding="utf-8")
         Environment().parse(public_page)
+        Environment().parse(public_ad)
         self.assertIn("cc_logo.png", public_page)
-        self.assertIn("pv-player", public_page)
         self.assertIn("data-mechanic", public_page)
-        self.assertIn("public_collection_asset", public_page)
         self.assertIn("viewer_shell.sections", public_page)
         self.assertIn("pv-tv-catalog", public_page)
-        self.assertIn("data-carousel", public_page)
         self.assertIn("asset.carousel_assets", public_page)
         self.assertIn("data-behavior", public_page)
+        self.assertIn("data-zone", public_page)
+        self.assertIn("pv-portal-page", public_page)
+        self.assertIn("data-ad-zone", public_page)
+        self.assertIn("cnn-brasil", public_page)
+        self.assertIn("sbt-news", public_page)
+        self.assertIn("pv-session", public_page)
+        self.assertIn("pv-session-rail", public_page)
+        self.assertIn("pv-sidebar", public_page)
+        self.assertIn("data-exhibitor", public_page)
+        self.assertIn("data-campaign-switch", public_page)
+        self.assertIn("pv-tv-pause-overlay", public_page)
+        self.assertIn("data-pause-delay", public_page)
+        self.assertIn("O anúncio entra por cima da tela", public_page)
+        self.assertIn("collection.sessions", public_page)
+        self.assertIn("collection.catalog", public_page)
+        public_js = (
+            root / "aicentralv2" / "static" / "js" / "public_creative_viewer.js"
+        ).read_text(encoding="utf-8")
+        self.assertIn("armPauseWhenVisible", public_js)
+        self.assertIn("Próximo criativo em", public_js)
+        self.assertIn("dataset.pauseDelay", public_js)
+        self.assertIn("data-campaign-switch", public_js)
+        self.assertIn("markSession", public_js)
+        self.assertIn("Publicidade", public_ad)
+        self.assertIn("pv-player", public_ad)
+        self.assertIn("public_collection_asset", public_ad)
+        self.assertIn("data-carousel", public_ad)
+        self.assertIn("iab_width", public_ad)
         repository_source = (
             root / "aicentralv2" / "creative_modeling_repository.py"
         ).read_text(encoding="utf-8")
         self.assertIn("f.behavior_spec", repository_source)
         self.assertIn("AS carousel_assets", repository_source)
+        self.assertIn("def list_client_public_nav", repository_source)
+        self.assertIn("cl.id AS client_id", repository_source)
         self.assertNotIn('src="{{ asset.asset_url }}"', public_page)
         library = (template_dir / "_mc_biblioteca.html").read_text(encoding="utf-8")
         self.assertIn("mcFormatStage", library)
         self.assertIn("mcAdSlot", library)
+        self.assertIn("O anúncio entra na zona do portal no tamanho IAB", library)
         self.assertIn("mcLibraryDetail", library)
         self.assertIn('id="mcLibraryVariations"', library)
         clients = (template_dir / "_mc_clientes.html").read_text(encoding="utf-8")
@@ -3083,6 +3249,19 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("compartilham o still", unfold)
         self.assertIn('id="mcUnfoldUseExample"', unfold)
         self.assertIn("Gerar exemplo com GPT Image 2", unfold)
+        self.assertIn('class="mc-unfold-steps"', unfold)
+        self.assertIn("mc-unfold-line", unfold)
+        self.assertIn(".mc-shell [hidden]", (root / "aicentralv2" / "static" / "css" / "modelagem_criativos.css").read_text(encoding="utf-8"))
+        self.assertIn('data-unfold-col="marca"', unfold)
+        self.assertIn('data-unfold-col="kv"', unfold)
+        self.assertIn('data-unfold-col="fecha"', unfold)
+        self.assertIn('data-unfold-col="retangulos"', unfold)
+        self.assertIn('data-unfold-col="pecas"', unfold)
+        self.assertIn('id="mcUnfoldClient"', unfold)
+        self.assertIn('id="mcUnfoldBrandPreview"', unfold)
+        self.assertIn('id="mcUnfoldFormatsAll"', unfold)
+        self.assertIn('id="mcUnfoldResult"', unfold)
+        self.assertNotIn("mc-unfold-board", unfold)
         self.assertNotIn("Gerar desdobramentos", unfold)
         self.assertNotIn('id="mcUnfoldSourceCampaign"', unfold)
         self.assertIn('type="hidden" name="source_asset_id" id="mcUnfoldSourceAsset"', unfold)
@@ -3101,6 +3280,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         desk = (template_dir / "modelagem_desk.html").read_text(encoding="utf-8")
         self.assertIn('id="mcPublishDialog"', desk)
         self.assertIn('id="mcPublishBatch"', desk)
+        self.assertIn("produzir', 'desdobrar", desk)
         self.assertIn("setupBrandDropzone(", production_js)
         dropzone = production_js.split("function setupBrandDropzone")[1].split(
             "async function analyzeBrand"
@@ -3113,6 +3293,14 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("data-brand-select", production_js)
         self.assertIn("learnCreativeLine(button)", production_js)
         self.assertIn("creative-line/analyze", production_js)
+        self.assertIn("syncCreativeLineFromBrandFiles()", production_js)
+        self.assertIn("append('role', 'creative')", production_js)
+        self.assertIn("brandCandidateRole(asset)", production_js)
+        self.assertIn("selectBrand(clientId, { keepDraft: true })", production_js)
+        production_css = (
+            root / "aicentralv2" / "static" / "css" / "modelagem_criativos.css"
+        ).read_text(encoding="utf-8")
+        self.assertIn('[data-brand-col="add"] .mc-brand-col-body', production_css)
         catalog_dir = (
             root / "aicentralv2" / "static" / "images"
             / "creative-viewers" / "catalog"
@@ -3126,6 +3314,7 @@ class CreativeFilesContractTest(unittest.TestCase):
             "g1-mobilidade-eletrica.jpg",
             "g1-lobo-guara.jpg",
             "g1-festival-gastronomia.jpg",
+            "prime-video.svg",
         ):
             self.assertTrue(
                 (root / "aicentralv2" / "static" / "images"
@@ -3243,6 +3432,9 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn('"type": "carousel"', layout_seed)
         self.assertIn("THEN %s::jsonb ELSE placement_spec", layout_seed)
         self.assertIn("THEN %s::jsonb ELSE behavior_spec", layout_seed)
+        self.assertIn('spec["placement_zone"] = zone', layout_seed)
+        self.assertIn('"leaderboard"', layout_seed)
+        self.assertIn('"in_feed"', layout_seed)
         viewer_migration = (
             root / "migrations" / "add_creative_viewer_profiles.sql"
         ).read_text(encoding="utf-8")
@@ -3255,10 +3447,15 @@ class CreativeFilesContractTest(unittest.TestCase):
         viewer_seed = (
             root / "scripts" / "seed_creative_viewer_profiles.py"
         ).read_text(encoding="utf-8")
-        for slug in ("g1", "cnn-brasil", "sbt-news", "netflix", "disney-plus", "hbo-max"):
+        for slug in ("g1", "cnn-brasil", "sbt-news", "netflix", "disney-plus", "hbo-max", "prime-video"):
             self.assertIn(f'"slug": "{slug}"', viewer_seed)
         self.assertIn('"layout": "ranked_portrait"', viewer_seed)
         self.assertIn('"layout": "premium_layers"', viewer_seed)
+        self.assertIn('"layout": "pause_playback"', viewer_seed)
+        self.assertIn('"layout": "news_dense"', viewer_seed)
+        self.assertIn('"layout": "broadcast"', viewer_seed)
+        self.assertIn('"Conta SBT"', viewer_seed)
+        self.assertIn('"Ao vivo"', viewer_seed)
         self.assertIn('"ranked": True', viewer_seed)
         deploy = (root / "deploy.sh").read_text(encoding="utf-8")
         migration_call = (
@@ -3472,6 +3669,12 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("sceneRefFiles", frontend)
         self.assertIn("function acceptCampaignPackFiles", frontend)
         self.assertIn("function readUnfoldKv", frontend)
+        self.assertIn("function fillClientSelect", frontend)
+        self.assertIn("$('#mcUnfoldClient')", frontend)
+        self.assertIn("function renderUnfoldBrand", frontend)
+        self.assertIn("function syncUnfoldProgress", frontend)
+        self.assertIn("function focusUnfoldStep", frontend)
+        self.assertIn("Selecione a marca que assina o lote.", frontend)
         self.assertIn("function syncUnfoldReview", frontend)
         self.assertIn("Lendo o KV", frontend)
         self.assertIn("acceptUnfoldKv", frontend)
@@ -3509,7 +3712,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         desk = (
             root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html"
         ).read_text(encoding="utf-8")
-        self.assertIn("modelagem_criativos.js') }}?v=51", desk)
+        self.assertIn("modelagem_criativos.js') }}?v=54", desk)
         self.assertIn("mc_page_js) }}?v=4", desk)
         self.assertIn("function loadComposeLibrary", frontend)
         self.assertIn("variation_id", frontend)

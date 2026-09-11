@@ -4,7 +4,7 @@
 {% block page_subtitle %}Modelagem e produção criativa{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=52">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=55">
 {% endblock %}
 
 {% block content %}
@@ -13,7 +13,7 @@
   <section class="mc-panel" data-panel="{{ mc_page }}" role="tabpanel">
     {% include panel %}
   </section>
-  {% if mc_page == 'produzir' %}
+  {% if mc_page in ['produzir', 'desdobrar'] %}
   <dialog class="cx-modal" id="mcPublishDialog">
     <header class="cx-modal-header">
       <strong>Publicáveis em lote</strong>
@@ -27,7 +27,7 @@
 
 {% block scripts %}
 {% if mc_studio_js %}
-<script src="{{ url_for('static', filename='js/modelagem_criativos.js') }}?v=51" defer></script>
+<script src="{{ url_for('static', filename='js/modelagem_criativos.js') }}?v=54" defer></script>
 {% endif %}
 {% if mc_page_js %}
 <script src="{{ url_for('static', filename=mc_page_js) }}?v=4" defer></script>

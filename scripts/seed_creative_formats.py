@@ -102,6 +102,30 @@ LAYER_DESCRIPTIONS = {
         "background": "landscape professional scene with left-to-right reading and calm lighting",
         "content": "complete share image: locked headline, logo and one CTA without feed chrome",
     },
+    "instagram-feed-4x5": {
+        "background": "editorial paper field in 4:5, one hero product and protected margins",
+        "content": "complete feed still: headline, hero, brand lockup and legal, no app chrome",
+    },
+    "instagram-reels": {
+        "background": "vertical 9:16 photographic field with safe zones at top and bottom",
+        "content": "full-bleed Reels piece with locked copy, logo and one CTA clear of UI chrome",
+    },
+    "linkedin-feed": {
+        "background": "square professional field with one subject and quiet negative space",
+        "content": "complete LinkedIn feed advertisement with locked copy, logo and one CTA",
+    },
+    "linkedin-portrait": {
+        "background": "4:5 professional still with a single focal subject",
+        "content": "complete LinkedIn portrait advertisement with locked copy, logo and one CTA",
+    },
+    "youtube-infeed": {
+        "background": "16:9 cinematic still that fills the watch player",
+        "content": "complete in-feed advertisement: locked headline, logo and one CTA, no player chrome",
+    },
+    "youtube-shorts": {
+        "background": "vertical 9:16 photographic field with caption-safe margins",
+        "content": "complete Shorts advertisement: locked headline, logo and one CTA",
+    },
 }
 
 CATEGORIES = (
@@ -130,6 +154,14 @@ CHANNELS = (
     (
         "disneyplus",
         "Disney+",
+        "ctv_streaming",
+        "smart_tv_16x9",
+        "Premium streaming content displayed on a 16:9 smart TV screen.",
+        "streaming",
+    ),
+    (
+        "primevideo",
+        "Prime Video",
         "ctv_streaming",
         "smart_tv_16x9",
         "Premium streaming content displayed on a 16:9 smart TV screen.",
@@ -165,6 +197,14 @@ CHANNELS = (
         "social",
         "desktop_feed",
         "Professional landscape share placement.",
+        "social",
+    ),
+    (
+        "youtube_social",
+        "YouTube",
+        "social",
+        "desktop_watch",
+        "In-feed landscape and Shorts placements on YouTube.",
         "social",
     ),
 )
@@ -333,16 +373,66 @@ FORMATS = (
         "static_display",
         "image",
     ),
+    (
+        "instagram-feed-4x5",
+        "Instagram — Feed 1080×1350",
+        "Instagram — Feed 1080x1350",
+        "meta_social",
+        "static_display",
+        "image",
+    ),
+    (
+        "instagram-reels",
+        "Instagram — Reels 1080×1920",
+        "Instagram — Reels 1080x1920",
+        "meta_social",
+        "static_display",
+        "image",
+    ),
+    (
+        "linkedin-feed",
+        "LinkedIn — Feed 1080×1080",
+        "LinkedIn — Feed 1080x1080",
+        "linkedin_social",
+        "static_display",
+        "image",
+    ),
+    (
+        "linkedin-portrait",
+        "LinkedIn — Retrato 1080×1350",
+        "LinkedIn — Portrait 1080x1350",
+        "linkedin_social",
+        "static_display",
+        "image",
+    ),
+    (
+        "youtube-infeed",
+        "YouTube — In-feed 1920×1080",
+        "YouTube — In-feed 1920x1080",
+        "youtube_social",
+        "static_display",
+        "image",
+    ),
+    (
+        "youtube-shorts",
+        "YouTube — Shorts 1080×1920",
+        "YouTube — Shorts 1080x1920",
+        "youtube_social",
+        "static_display",
+        "image",
+    ),
 )
 
 CHANNEL_BRAND = {
     "netflix": ("#E50914", "#141414"),
     "hbomax": ("#5822B4", "#0B0714"),
     "disneyplus": ("#113CCF", "#071B47"),
+    "primevideo": ("#00A8E1", "#0F171E"),
     "portal_generico": ("#1E4D4F", "#F8F9FA"),
     "meta_social": ("#1877F2", "#F8F9FA"),
     "tiktok_social": ("#111111", "#FE2C55"),
     "linkedin_social": ("#0A66C2", "#F3F6F8"),
+    "youtube_social": ("#FF0000", "#0F0F0F"),
 }
 
 FORMAT_SPECS = {
@@ -405,6 +495,42 @@ FORMAT_SPECS = {
         "default_size": "1200x627",
         "safe_area": {"top": 36, "right": 48, "bottom": 36, "left": 48, "unit": "px"},
         "responsive_rules": "Landscape reading flow; keep headline and CTA fully visible.",
+    },
+    "instagram-feed-4x5": {
+        "aspect_ratio": "4:5",
+        "default_size": "1080x1350",
+        "safe_area": {"top": 56, "right": 48, "bottom": 72, "left": 48, "unit": "px"},
+        "responsive_rules": "Fill the 4:5 card with no letterbox; keep copy off the edges.",
+    },
+    "instagram-reels": {
+        "aspect_ratio": "9:16",
+        "default_size": "1080x1920",
+        "safe_area": {"top": 160, "right": 64, "bottom": 220, "left": 64, "unit": "px"},
+        "responsive_rules": "Keep locked copy and CTA inside the vertical safe area.",
+    },
+    "linkedin-feed": {
+        "aspect_ratio": "1:1",
+        "default_size": "1080x1080",
+        "safe_area": {"top": 48, "right": 48, "bottom": 48, "left": 48, "unit": "px"},
+        "responsive_rules": "Complete feed piece with locked copy; no reactions bar.",
+    },
+    "linkedin-portrait": {
+        "aspect_ratio": "4:5",
+        "default_size": "1080x1350",
+        "safe_area": {"top": 56, "right": 48, "bottom": 72, "left": 48, "unit": "px"},
+        "responsive_rules": "Fill the portrait card; keep headline and CTA fully visible.",
+    },
+    "youtube-infeed": {
+        "aspect_ratio": "16:9",
+        "default_size": "1920x1080",
+        "safe_area": {"top": 48, "right": 64, "bottom": 80, "left": 64, "unit": "px"},
+        "responsive_rules": "Fill the 16:9 player; do not invent watch chrome.",
+    },
+    "youtube-shorts": {
+        "aspect_ratio": "9:16",
+        "default_size": "1080x1920",
+        "safe_area": {"top": 140, "right": 80, "bottom": 240, "left": 80, "unit": "px"},
+        "responsive_rules": "Leave caption-safe margins; do not invent Shorts chrome.",
     },
 }
 

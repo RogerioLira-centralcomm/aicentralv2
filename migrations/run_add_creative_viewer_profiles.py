@@ -40,12 +40,18 @@ def main():
                         SELECT 1 FROM information_schema.columns
                          WHERE table_name = 'cx_public_collection_assets'
                            AND column_name = 'viewer_profile_id'
-                    ) AS collection_link
+                    ) AS collection_link,
+                    (
+                        SELECT pg_get_constraintdef(oid)
+                          FROM pg_constraint
+                         WHERE conname = 'chk_cx_viewer_profile_kind'
+                    ) AS kind_check
                 """
             )
             validation = cursor.fetchone()
-        if not all(validation.values()):
-            raise RuntimeError(f"Validação da migração falhou: {validation}")
+        kind_check = str(validation.pop("kind_check") or "")
+        if not all(validation.values()) or "social" not in kind_check:
+            raise RuntimeError(f"Validação da migração falhou: {validation} {kind_check}")
     print("Migração dos visualizadores de mídia executada e validada.")
 
 

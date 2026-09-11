@@ -1,9 +1,41 @@
 (() => {
   'use strict';
 
-  const stage = document.querySelector('#pvStage');
   const pieces = [...document.querySelectorAll('[data-piece]')];
   const progress = [...document.querySelectorAll('[data-go-to]')];
+  const exhibitor = document.querySelector('[data-exhibitor]');
+  const campaignSwitch = document.querySelector('[data-campaign-switch]');
+  const sessionLinks = [...document.querySelectorAll('[data-session-link]')];
+
+  campaignSwitch?.addEventListener('change', () => {
+    if (campaignSwitch.value) window.location.href = campaignSwitch.value;
+  });
+
+  const markSession = (key) => {
+    sessionLinks.forEach((link) => {
+      if (link.dataset.sessionKey === key && link.getAttribute('href')?.startsWith('#')) {
+        link.setAttribute('aria-current', 'true');
+      } else {
+        link.removeAttribute('aria-current');
+      }
+    });
+    const active = sessionLinks.find((link) => link.dataset.sessionKey === key);
+    if (!exhibitor || !active) return;
+    exhibitor.dataset.exhibitorKey = key;
+    const name = exhibitor.querySelector('[data-exhibitor-name]');
+    if (name) name.textContent = active.dataset.sessionName || name.textContent;
+    const logo = exhibitor.querySelector('[data-exhibitor-logo]');
+    if (logo && active.dataset.sessionLogo) logo.src = active.dataset.sessionLogo;
+  };
+
+  if (location.hash) {
+    const target = document.querySelector(location.hash);
+    target?.scrollIntoView({ block: 'start' });
+    if (target?.dataset.session) markSession(target.dataset.session);
+  } else {
+    const first = document.querySelector('.pv-session');
+    if (first?.dataset.session) markSession(first.dataset.session);
+  }
 
   const formatTime = (seconds) => {
     if (!Number.isFinite(seconds)) return '0:00';
@@ -31,8 +63,21 @@
           else button.removeAttribute('aria-current');
         });
       });
-    }, { root: innerWidth > 700 ? stage : null, threshold: 0.6 });
+    }, { threshold: 0.55 });
     pieces.forEach((piece) => observer.observe(piece));
+  }
+
+  if ('IntersectionObserver' in window) {
+    const sessionObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        const key = entry.target.dataset.session;
+        if (key) markSession(key);
+      });
+    }, { threshold: 0.35 });
+    document.querySelectorAll('.pv-session').forEach((session) => {
+      sessionObserver.observe(session);
+    });
   }
 
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -166,6 +211,97 @@
     range.addEventListener('input', () => {
       if (video.duration) video.currentTime = (Number(range.value) / 100) * video.duration;
     });
+  });
+
+  const revealPause = (root) => {
+    if (!root) return;
+    root.classList.remove('is-playing');
+    root.classList.add('is-paused');
+    const cue = root.querySelector('[data-pause-cue]');
+    if (cue) cue.hidden = true;
+    const label = root.querySelector('[data-pause-state]');
+    if (label) label.textContent = 'Pausado';
+    const icon = root.querySelector('[data-pause-icon]');
+    if (icon) icon.className = 'fa-solid fa-play';
+    const mark = root.querySelector('[data-pause-mark]');
+    if (mark && !reducedMotion) {
+      mark.hidden = false;
+      window.setTimeout(() => { mark.hidden = true; }, 420);
+    }
+  };
+
+  const armPauseWhenVisible = (root) => {
+    if (!root || root.dataset.pauseArmed === '1') return;
+    root.dataset.pauseArmed = '1';
+    const delay = Number(root.dataset.pauseDelay) || 3000;
+    if (reducedMotion) {
+      revealPause(root);
+      return;
+    }
+    let left = Math.max(1, Math.round(delay / 1000));
+    const count = root.querySelector('[data-pause-count]');
+    const cue = root.querySelector('[data-pause-cue]');
+    const tick = () => {
+      if (count) count.textContent = String(left);
+      if (cue) cue.hidden = false;
+    };
+    tick();
+    const timer = window.setInterval(() => {
+      left -= 1;
+      if (left <= 0) {
+        window.clearInterval(timer);
+        revealPause(root);
+        return;
+      }
+      tick();
+    }, 1000);
+  };
+
+  const tvScreens = [...document.querySelectorAll('.pv-environment.is-tv')];
+  if (reducedMotion) {
+    tvScreens.forEach(revealPause);
+  } else if ('IntersectionObserver' in window) {
+    const pauseObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) armPauseWhenVisible(entry.target);
+      });
+    }, { threshold: 0.45 });
+    tvScreens.forEach((root) => pauseObserver.observe(root));
+  } else {
+    tvScreens.forEach(armPauseWhenVisible);
+  }
+
+  document.querySelectorAll('.pv-session').forEach((session) => {
+    const rail = session.querySelector('.pv-session-rail') || session;
+    const piecesInSession = [...session.querySelectorAll('[data-piece]')];
+    const clock = session.querySelector('[data-session-clock]');
+    if (!clock || piecesInSession.length < 2) return;
+    clock.hidden = false;
+    let seconds = 0;
+    const hold = 8;
+    const write = () => {
+      const remaining = Math.max(0, hold - (seconds % hold));
+      clock.textContent = remaining
+        ? `Próximo criativo em ${remaining}s`
+        : 'Avançando';
+    };
+    write();
+    window.setInterval(() => {
+      seconds += 1;
+      write();
+      if (reducedMotion || seconds % hold !== 0) return;
+      const host = rail.getBoundingClientRect();
+      const visible = piecesInSession.findIndex((piece) => {
+        const rect = piece.getBoundingClientRect();
+        return rect.left >= host.left - 48 && rect.left < host.left + host.width * 0.55;
+      });
+      const next = piecesInSession[(Math.max(0, visible) + 1) % piecesInSession.length];
+      next?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'start',
+      });
+    }, 1000);
   });
 
   document.querySelectorAll('.pv-drag').forEach((handle) => {

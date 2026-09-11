@@ -6,38 +6,96 @@
   <meta name="robots" content="noindex,nofollow">
   <title>{{ collection.title }} | Centralcomm</title>
   <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/public_creative_viewer.css') }}?v=7">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/public_creative_viewer.css') }}?v=10">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
-<body style="--client-primary: {{ collection.primary_color or '#1e4d4f' }}; --client-secondary: {{ collection.secondary_color or '#d6a84b' }}">
+<body class="pv-app" style="--client-primary: {{ collection.primary_color or '#1e4d4f' }}; --client-secondary: {{ collection.secondary_color or '#d6a84b' }}">
+  {% set catalog = collection.catalog or {} %}
+  {% set sessions = collection.sessions or [{'key': 'all', 'kind': 'portal', 'name': 'Apresentação', 'assets': collection.assets}] %}
+  {% set exhibitor = catalog.exhibitor or (sessions[0] if sessions else none) %}
   <header class="pv-header">
     <a class="pv-brand" href="https://centralcomm.media" target="_blank" rel="noopener">
       <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="Centralcomm">
     </a>
+    <div class="pv-header-meta">
+      <div class="pv-header-client">
+        {% if collection.logo_upload_path or collection.logo_url %}
+          <img src="{{ collection.logo_upload_path or collection.logo_url }}" alt="">
+        {% else %}
+          <span>{{ collection.client_name[:2] }}</span>
+        {% endif %}
+        <b>{{ collection.client_name }}</b>
+      </div>
+      <div class="pv-exhibitor" data-exhibitor data-exhibitor-key="{{ exhibitor.key if exhibitor else '' }}">
+        {% if exhibitor and exhibitor.logo %}
+          <img data-exhibitor-logo src="{{ exhibitor.logo }}" alt="">
+        {% endif %}
+        <div>
+          <small>Exibidora</small>
+          <strong data-exhibitor-name>{{ exhibitor.name if exhibitor else collection.title }}</strong>
+        </div>
+      </div>
+      <label class="pv-campaign-switch">
+        <span>Campanha</span>
+        {% if catalog.campaigns|length > 1 %}
+          <select data-campaign-switch aria-label="Outras campanhas do cliente">
+            {% for campaign in catalog.campaigns %}
+              <option value="{{ campaign.select_href }}" {% if campaign.current %}selected{% endif %}>{{ campaign.campaign_name }}</option>
+            {% endfor %}
+          </select>
+        {% else %}
+          <strong>{{ collection.campaign_name or collection.title }}</strong>
+        {% endif %}
+      </label>
+    </div>
     <div class="pv-header-actions">
       <span>{{ collection.assets|length }} criativos</span>
       <a class="pv-download" href="{{ url_for('creative_public.public_collection_download', token=public_token) }}">
-        <i class="fa-solid fa-download" aria-hidden="true"></i> Baixar imagens
+        <i class="fa-solid fa-download" aria-hidden="true"></i> Baixar
       </a>
     </div>
   </header>
 
-  <main>
-    <section class="pv-intro">
-      <div class="pv-client">
-        {% if collection.logo_upload_path or collection.logo_url %}
-          <img src="{{ collection.logo_upload_path or collection.logo_url }}" alt="Logo {{ collection.client_name }}">
-        {% else %}
-          <span>{{ collection.client_name[:2] }}</span>
-        {% endif %}
-      </div>
-      <div>
-        <p class="pv-client-name">{{ collection.client_name }}</p>
-        <h1>{{ collection.title }}</h1>
-        {% if collection.description %}<p class="pv-description">{{ collection.description }}</p>{% endif %}
-      </div>
-    </section>
+  <div class="pv-shell">
+    <aside class="pv-sidebar" aria-label="Canais por marca">
+      <h1 class="pv-visually-hidden">{{ collection.title }}</h1>
+      {% for brand in catalog.brands or [] %}
+        <section class="pv-nav-brand">
+          <header>
+            {% if brand.logo %}<img src="{{ brand.logo }}" alt="">{% endif %}
+            <strong>{{ brand.name }}</strong>
+          </header>
+          {% for campaign in brand.campaigns %}
+            <div class="pv-nav-campaign{% if campaign.current %} is-current{% endif %}">
+              <a class="pv-nav-campaign-link" href="{{ campaign.select_href }}">{{ campaign.campaign_name }}</a>
+              <nav>
+                {% for channel in campaign.channels %}
+                  <a href="{{ channel.href }}" data-session-link data-session-key="{{ channel.key }}" data-session-name="{{ channel.name }}" data-session-logo="{{ channel.logo or '' }}">
+                    {% if channel.logo %}<img src="{{ channel.logo }}" alt="">{% endif %}
+                    <span>{{ channel.name }}</span>
+                    <small>{{ channel.count }}</small>
+                  </a>
+                {% endfor %}
+              </nav>
+            </div>
+          {% endfor %}
+        </section>
+      {% else %}
+        <section class="pv-nav-brand">
+          <header><strong>{{ collection.client_name }}</strong></header>
+          <nav>
+            {% for session in sessions %}
+              <a href="#session-{{ session.key }}" data-session-link data-session-key="{{ session.key }}" data-session-name="{{ session.name }}">
+                <span>{{ session.name }}</span>
+                <small>{{ session.assets|length }}</small>
+              </a>
+            {% endfor %}
+          </nav>
+        </section>
+      {% endfor %}
+    </aside>
 
+    <main>
     <nav class="pv-progress" aria-label="Navegação entre criativos">
       {% for asset in collection.assets %}
         <button type="button" data-go-to="{{ loop.index0 }}" aria-label="Ver criativo {{ loop.index }}" {% if loop.first %}aria-current="true"{% endif %}>{{ loop.index }}</button>
@@ -45,15 +103,27 @@
     </nav>
 
     <section class="pv-stage" id="pvStage" aria-label="Criativos da campanha">
-      {% for asset in collection.assets %}
+      {% set ns = namespace(index=0) %}
+      {% for session in sessions %}
+      <section class="pv-session is-{{ session.kind }}" id="session-{{ session.key }}" data-session="{{ session.key }}" data-kind="{{ session.kind }}">
+        <header class="pv-session-head">
+          <div>
+            <small>Sessão {{ loop.index }} de {{ sessions|length }}</small>
+            <strong>{{ session.name }}</strong>
+          </div>
+          <span>{{ session.assets|length }} criativo{% if session.assets|length != 1 %}s{% endif %}</span>
+          <p class="pv-session-clock" data-session-clock hidden></p>
+        </header>
+        <div class="pv-session-rail">
+      {% for asset in session.assets %}
         {% set mechanic = (asset.mechanic or '')|lower %}
         {% set carousel_assets = asset.carousel_assets or [] %}
         {% set behavior = asset.behavior_spec or {} %}
         {% set behavior_type = behavior.type or 'static' %}
-        <article class="pv-piece" data-piece="{{ loop.index0 }}" data-mechanic="{{ mechanic }}" data-behavior="{{ behavior_type }}">
+        <article class="pv-piece" data-piece="{{ ns.index }}" data-mechanic="{{ mechanic }}" data-behavior="{{ behavior_type }}" data-session="{{ session.key }}">
           <header class="pv-piece-head">
             <div>
-              <span class="pv-sequence">{{ loop.index }} de {{ collection.assets|length }}</span>
+              <span class="pv-sequence">{{ ns.index + 1 }} de {{ collection.assets|length }}</span>
               <h2>{{ asset.title or asset.format_name or 'Criativo' }}</h2>
             </div>
             <div class="pv-tags">
@@ -68,10 +138,15 @@
           {% set viewer_shell = asset.viewer_shell_spec or {} %}
           {% set viewer_hero = viewer_shell.hero or {} %}
           {% set viewer_sections = viewer_shell.sections or [] %}
-          <div class="pv-environment is-{{ asset.viewer_kind or 'portal' }}"
+          {% set zone = asset.placement_zone or 'in_feed' %}
+          {% set highlights = viewer_sections[0] if viewer_sections else {} %}
+          {% set more_news = viewer_sections[1] if viewer_sections|length > 1 else {} %}
+          <div class="pv-environment is-{{ asset.viewer_kind or 'portal' }}{% if asset.viewer_kind != 'tv' %} is-page{% endif %}{% if asset.viewer_kind == 'tv' %} is-playing{% endif %}"
                data-viewer="{{ asset.viewer_slug or 'automatico' }}"
                data-layout="{{ viewer_shell.layout or 'standard' }}"
                data-format="{{ asset.format_slug or '' }}"
+               data-zone="{{ zone }}"
+               data-pause-delay="3000"
                style="--viewer-primary: {{ palette.primary or '#1e4d4f' }}; --viewer-secondary: {{ palette.secondary or '#183436' }}; --viewer-canvas: {{ palette.canvas or '#edf2f1' }}; --viewer-surface: {{ palette.surface or '#ffffff' }}; --viewer-text: {{ palette.text or '#183436' }}">
             <div class="pv-environment-label">
               <span>
@@ -83,127 +158,42 @@
               <small>{{ asset.viewer_disclaimer or 'Simulação de ambiente · sem afiliação com o veículo' }}</small>
             </div>
             {% if asset.viewer_kind == 'tv' %}
-              <div class="pv-tv-shell" aria-hidden="true">
-                <header>
-                  {% if asset.viewer_logo_asset_ref %}<img src="{{ asset.viewer_logo_asset_ref }}" alt="">{% else %}<strong>{{ asset.viewer_name }}</strong>{% endif %}
-                  <nav>
-                    {% for nav_item in viewer_shell.nav or ['Início', 'Séries', 'Filmes', 'Minha lista'] %}
-                      <span>{{ nav_item }}</span>
-                    {% endfor %}
-                  </nav>
-                  <i class="fa-regular fa-user"></i>
-                </header>
-                <div class="pv-tv-hero">
-                  <small>{{ viewer_hero.eyebrow or 'Conteúdo em destaque' }}</small>
-                  <strong>{{ viewer_hero.title or 'Uma história para continuar assistindo' }}</strong>
-                  {% if viewer_hero.description %}<p>{{ viewer_hero.description }}</p>{% endif %}
-                </div>
-              </div>
-            {% else %}
-              <div class="pv-portal-shell" aria-hidden="true">
-                <div class="pv-portal-network">
-                  {% for network_item in viewer_shell.network_links or ['notícias', 'ao vivo', 'conta'] %}<span>{{ network_item }}</span>{% endfor %}
-                </div>
-                <header>
-                  <span class="pv-portal-brand"><i class="fa-solid fa-bars"></i>{% if asset.viewer_logo_asset_ref %}<img src="{{ asset.viewer_logo_asset_ref }}" alt="">{% else %}<strong>{{ asset.viewer_name }}</strong>{% endif %}</span>
-                  {% if viewer_shell.edition_label %}<b>{{ viewer_shell.edition_label }}</b>{% endif %}
-                  <span class="pv-portal-actions"><i class="fa-solid fa-magnifying-glass"></i><small>{{ viewer_shell.account_label or 'Entrar' }}</small></span>
-                </header>
-                <nav>{% for nav_item in viewer_shell.nav or ['Últimas', 'Brasil', 'Economia', 'Mundo'] %}<span>{{ nav_item }}</span>{% endfor %}</nav>
-                <div class="pv-portal-ticker"><b>Agora</b><span>Ambiente editorial demonstrativo</span></div>
-              </div>
-            {% endif %}
-            <div class="pv-environment-content">
-              <div class="pv-editorial"><b></b><span></span><span></span><span></span></div>
-              <div class="pv-media-frame">
-                {% if asset.viewer_slug == 'g1' %}<small class="pv-ad-label">Publicidade</small>{% endif %}
-                {% if asset.asset_type == 'video' %}
-                  <video class="pv-video" src="{{ url_for('creative_public.public_collection_asset', token=public_token, asset_id=asset.id) }}" preload="metadata" playsinline></video>
-                  <div class="pv-player">
-                    <button type="button" data-video-action="play" aria-label="Reproduzir"><i class="fa-solid fa-play"></i></button>
-                    <input type="range" min="0" max="100" value="0" step="0.1" aria-label="Progresso do vídeo">
-                    <time>0:00</time>
-                    <button type="button" data-video-action="mute" aria-label="Ativar ou desativar som"><i class="fa-solid fa-volume-high"></i></button>
-                    <button type="button" data-video-action="fullscreen" aria-label="Tela cheia"><i class="fa-solid fa-expand"></i></button>
+              <div class="pv-tv-playback" aria-hidden="true">
+                <div class="pv-tv-scene">
+                  {% if viewer_hero.image %}<img src="{{ viewer_hero.image }}" alt="">{% elif highlights.get('items') and highlights.get('items')[0].image %}<img src="{{ highlights.get('items')[0].image }}" alt="">{% endif %}
+                  <div class="pv-tv-scene-grade"></div>
+                  <div class="pv-tv-now">
+                    <small>{{ viewer_hero.eyebrow or 'Em reprodução' }}</small>
+                    <strong>{{ viewer_hero.title or 'Uma história para continuar assistindo' }}</strong>
                   </div>
-                {% else %}
-                  <div class="pv-image-wrap pv-carousel" data-carousel data-autoplay="{{ 'true' if carousel_assets|length > 1 else 'false' }}" data-transition-ms="{{ behavior.transition_ms or 360 }}" style="--carousel-transition: {{ behavior.transition_ms or 360 }}ms">
-                    <div class="pv-carousel-track">
-                      {% for frame in carousel_assets %}
-                        <figure class="pv-carousel-slide{% if loop.first %} is-active{% endif %}" data-carousel-slide="{{ loop.index0 }}" aria-hidden="{{ 'false' if loop.first else 'true' }}">
-                          <img class="pv-image" src="{{ url_for('creative_public.public_collection_asset', token=public_token, asset_id=frame.id) }}" alt="{{ frame.title or asset.title or asset.format_name }}">
-                          {% if carousel_assets|length > 1 %}<figcaption>Cena {{ loop.index }} de {{ carousel_assets|length }}</figcaption>{% endif %}
-                        </figure>
-                      {% else %}
-                        <figure class="pv-carousel-slide is-active" data-carousel-slide="0" aria-hidden="false">
-                          <img class="pv-image" src="{{ url_for('creative_public.public_collection_asset', token=public_token, asset_id=asset.id) }}" alt="{{ asset.title or asset.format_name }}">
-                        </figure>
-                      {% endfor %}
-                    </div>
-                    {% if carousel_assets|length > 1 %}
-                      <div class="pv-carousel-controls">
-                        <button type="button" data-carousel-action="previous" aria-label="Cena anterior"><i class="fa-solid fa-chevron-left"></i></button>
-                        <span>
-                          {% for frame in carousel_assets %}<button type="button" data-carousel-go="{{ loop.index0 }}" aria-label="Ir para cena {{ loop.index }}" {% if loop.first %}aria-current="true"{% endif %}></button>{% endfor %}
-                        </span>
-                        <button type="button" data-carousel-action="next" aria-label="Próxima cena"><i class="fa-solid fa-chevron-right"></i></button>
-                      </div>
-                    {% endif %}
-                    {% if behavior_type == 'flip' or 'cart' in mechanic or 'flip' in mechanic %}
-                      <button class="pv-flip-trigger" type="button" data-carousel-action="next"><i class="fa-solid fa-rotate"></i> Virar carta</button>
-                    {% endif %}
-                    {% if behavior_type == 'quiz' or 'quiz' in mechanic %}
-                      <div class="pv-quiz">
-                        <strong>Qual mensagem mais combina com você?</strong>
-                        <button type="button">Descobrir agora</button>
-                        <button type="button">Ver benefícios</button>
-                      </div>
-                    {% elif behavior_type in ['compare', 'reveal'] or 'arrast' in mechanic or 'pux' in mechanic %}
-                      <button class="pv-drag" type="button" aria-label="Arraste para revelar"><span>Arraste</span></button>
-                    {% elif behavior_type == 'hotspot' or 'hotspot' in mechanic or 'clique' in mechanic %}
-                      <button class="pv-hotspot one" type="button" aria-label="Explorar ponto 1">+</button>
-                      <button class="pv-hotspot two" type="button" aria-label="Explorar ponto 2">+</button>
-                      <div class="pv-hotspot-note">Detalhe da peça</div>
-                    {% endif %}
-                  </div>
-                {% endif %}
+                </div>
+                <div class="pv-tv-player">
+                  <header>
+                    {% if asset.viewer_logo_asset_ref %}<img src="{{ asset.viewer_logo_asset_ref }}" alt="">{% else %}<strong>{{ asset.viewer_name }}</strong>{% endif %}
+                    <span data-pause-state>Reproduzindo</span>
+                  </header>
+                  <footer>
+                    <i class="fa-solid fa-pause" data-pause-icon></i>
+                    <time>12:04</time>
+                    <b class="pv-tv-progress"><i></i></b>
+                    <time>48:22</time>
+                    <i class="fa-solid fa-volume-high"></i>
+                    <i class="fa-solid fa-closed-captioning"></i>
+                    <i class="fa-solid fa-expand"></i>
+                  </footer>
+                </div>
+                <div class="pv-tv-pause-mark" data-pause-mark hidden>
+                  <i class="fa-solid fa-pause"></i>
+                </div>
+                <div class="pv-tv-pause-cue" data-pause-cue>
+                  <b data-pause-count>3</b>
+                  <span>O anúncio entra por cima da tela</span>
+                </div>
               </div>
-              <div class="pv-editorial right"><b></b><span></span><span></span></div>
-            </div>
-            {% if asset.viewer_slug == 'g1' %}
-              {% set highlights = viewer_sections[0] if viewer_sections else {} %}
-              {% set more_news = viewer_sections[1] if viewer_sections|length > 1 else {} %}
-              <section class="pv-g1-news" aria-label="Notícias fictícias do protótipo">
-                <article class="pv-g1-lead">
-                  <small>{{ viewer_hero.eyebrow or 'Destaque' }}</small>
-                  <strong>{{ viewer_hero.title or 'Notícia demonstrativa em destaque' }}</strong>
-                  <p>{{ viewer_hero.description or 'Conteúdo editorial fictício para contextualização do anúncio.' }}</p>
-                </article>
-                <div class="pv-g1-highlights">
-                  {% for item in highlights.get('items', [])[:2] %}
-                    <article>
-                      {% if item.image %}<img src="{{ item.image }}" alt="">{% endif %}
-                      <span>{{ item.category }}</span>
-                      <strong>{{ item.title }}</strong>
-                    </article>
-                  {% endfor %}
-                </div>
-              </section>
-              <section class="pv-g1-feed" aria-label="{{ more_news.title or 'Mais notícias' }}">
-                {% if viewer_hero.image %}<img src="{{ viewer_hero.image }}" alt="Ônibus elétrico em avenida urbana">{% endif %}
-                <div>
-                  <strong>{{ more_news.title or 'Mais notícias' }}</strong>
-                  {% for item in more_news.get('items', []) %}
-                    <article>
-                      <span>{{ item.category }} · {{ item.time }}</span>
-                      <b>{{ item.title }}</b>
-                      {% if item.summary %}<p>{{ item.summary }}</p>{% endif %}
-                    </article>
-                  {% endfor %}
-                </div>
-              </section>
-            {% endif %}
-            {% if asset.viewer_kind == 'tv' %}
+              <div class="pv-tv-pause-overlay">
+                <small>Publicidade</small>
+                {% include "public/_pv_ad_unit.html" %}
+              </div>
               {% for catalog in viewer_sections or [{}] %}
               <section class="pv-tv-catalog is-{{ catalog.card_shape or 'landscape' }}{% if catalog.ranked %} is-ranked{% endif %}" aria-label="{{ catalog.title or 'Catálogo demonstrativo' }}">
                 <strong>{{ catalog.title or 'Escolhas para você' }}</strong>
@@ -220,6 +210,86 @@
                 </div>
               </section>
               {% endfor %}
+            {% else %}
+              <div class="pv-portal-shell" aria-hidden="true">
+                <div class="pv-portal-network">
+                  {% for network_item in viewer_shell.network_links or ['notícias', 'ao vivo', 'conta'] %}<span>{{ network_item }}</span>{% endfor %}
+                </div>
+                <header>
+                  <span class="pv-portal-brand"><i class="fa-solid fa-bars"></i>{% if asset.viewer_logo_asset_ref %}<img src="{{ asset.viewer_logo_asset_ref }}" alt="">{% else %}<strong>{{ asset.viewer_name }}</strong>{% endif %}</span>
+                  {% if viewer_shell.edition_label %}<b>{{ viewer_shell.edition_label }}</b>{% endif %}
+                  <span class="pv-portal-actions"><i class="fa-solid fa-magnifying-glass"></i><small>{{ viewer_shell.account_label or 'Entrar' }}</small></span>
+                </header>
+                <nav>{% for nav_item in viewer_shell.nav or ['Últimas', 'Brasil', 'Economia', 'Mundo'] %}<span>{{ nav_item }}</span>{% endfor %}</nav>
+                {% if asset.viewer_slug == 'cnn-brasil' %}
+                  <div class="pv-portal-ticker"><b>Agora</b><span>{{ viewer_hero.description or 'Edição contínua do noticiário' }}</span></div>
+                {% endif %}
+              </div>
+              {% if zone == 'leaderboard' %}
+                <div class="pv-ad-zone is-leaderboard is-active" data-ad-zone="leaderboard">{% include "public/_pv_ad_unit.html" %}</div>
+              {% endif %}
+              <div class="pv-portal-page">
+                <div class="pv-portal-main">
+                  {% if asset.viewer_slug == 'sbt-news' %}
+                    <article class="pv-portal-video">
+                      <div class="pv-portal-video-stage">
+                        {% if viewer_hero.image %}<img src="{{ viewer_hero.image }}" alt="">{% endif %}
+                        <i class="fa-solid fa-play"></i>
+                        <b>AO VIVO</b>
+                      </div>
+                      <small>{{ viewer_hero.eyebrow or 'Ao vivo' }}</small>
+                      <strong>{{ viewer_hero.title or 'Edição ao vivo' }}</strong>
+                    </article>
+                  {% endif %}
+                  <section class="pv-portal-news{% if asset.viewer_slug == 'g1' %} pv-g1-news{% endif %}" aria-label="Notícias fictícias do protótipo">
+                    <article class="pv-g1-lead">
+                      <small>{{ viewer_hero.eyebrow or 'Destaque' }}</small>
+                      <strong>{{ viewer_hero.title or 'Notícia demonstrativa em destaque' }}</strong>
+                      <p>{{ viewer_hero.description or 'Conteúdo editorial fictício para contextualização do anúncio.' }}</p>
+                    </article>
+                    <div class="pv-g1-highlights">
+                      {% for item in highlights.get('items', [])[:2] %}
+                        <article>
+                          {% if item.image %}<img src="{{ item.image }}" alt="">{% endif %}
+                          <span>{{ item.category }}</span>
+                          <strong>{{ item.title }}</strong>
+                        </article>
+                      {% endfor %}
+                    </div>
+                  </section>
+                  {% if zone == 'in_feed' %}
+                    <div class="pv-ad-zone is-in-feed is-active" data-ad-zone="in_feed">{% include "public/_pv_ad_unit.html" %}</div>
+                  {% endif %}
+                  <section class="pv-portal-feed{% if asset.viewer_slug == 'g1' %} pv-g1-feed{% endif %}" aria-label="{{ more_news.title or 'Mais notícias' }}">
+                    {% if viewer_hero.image %}<img src="{{ viewer_hero.image }}" alt="">{% endif %}
+                    <div>
+                      <strong>{{ more_news.title or 'Mais notícias' }}</strong>
+                      {% for item in more_news.get('items', []) %}
+                        <article>
+                          <span>{{ item.category }} · {{ item.time }}</span>
+                          <b>{{ item.title }}</b>
+                          {% if item.summary %}<p>{{ item.summary }}</p>{% endif %}
+                        </article>
+                      {% endfor %}
+                    </div>
+                  </section>
+                </div>
+                <aside class="pv-portal-rail">
+                  {% if zone == 'rail' %}
+                    <div class="pv-ad-zone is-rail is-active" data-ad-zone="rail">{% include "public/_pv_ad_unit.html" %}</div>
+                  {% endif %}
+                  <strong>Mais lidas</strong>
+                  {% for item in (highlights.get('items') or more_news.get('items') or [])[:3] %}
+                    <article>
+                      <i>{{ loop.index }}</i>
+                      <span>{{ item.title }}</span>
+                    </article>
+                  {% endfor %}
+                </aside>
+              </div>
+              {% if zone == 'sticky' %}
+                <div class="pv-ad-zone is-sticky is-active" data-ad-zone="sticky">{% include "public/_pv_ad_unit.html" %}</div>
+              {% endif %}
             {% endif %}
           </div>
 
@@ -228,16 +298,22 @@
             {% if asset.mechanic %}<span><i class="fa-regular fa-hand-pointer"></i> {{ asset.mechanic }}</span>{% endif %}
           </footer>
         </article>
-      {% else %}
-        <div class="pv-empty">Esta apresentação ainda não possui criativos.</div>
+        {% set ns.index = ns.index + 1 %}
       {% endfor %}
+        </div>
+      </section>
+      {% endfor %}
+      {% if not collection.assets %}
+        <div class="pv-empty">Esta apresentação ainda não possui criativos.</div>
+      {% endif %}
     </section>
-  </main>
+    </main>
+  </div>
 
   <footer class="pv-footer">
     <span>Apresentação preparada pela Centralcomm</span>
     <span>Conteúdo somente para visualização</span>
   </footer>
-  <script src="{{ url_for('static', filename='js/public_creative_viewer.js') }}?v=4"></script>
+  <script src="{{ url_for('static', filename='js/public_creative_viewer.js') }}?v=6"></script>
 </body>
 </html>

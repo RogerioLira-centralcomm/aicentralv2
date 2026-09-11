@@ -15,11 +15,13 @@ COMPOSE_FAMILIES = frozenset({
     "rectangle", "wide_banner", "half_page", "slate_16x9",
 })
 SOCIAL_PAINT_FAMILIES = frozenset({
-    "square_1x1", "story_9x16", "landscape_social",
+    "square_1x1", "story_9x16", "landscape_social", "portrait_4x5",
 })
 SOCIAL_FORMAT_SLUGS = frozenset({
-    "instagram-feed", "instagram-story", "tiktok-vertical",
-    "facebook-feed", "linkedin-share",
+    "instagram-feed", "instagram-feed-4x5", "instagram-story", "instagram-reels",
+    "tiktok-vertical", "facebook-feed",
+    "linkedin-share", "linkedin-feed", "linkedin-portrait",
+    "youtube-infeed", "youtube-shorts",
 })
 PORTAL_UNIT_SLUGS = frozenset({
     "hotspot", "cartas", "puxe-descubra", "arraste-descubra", "quiz",
@@ -117,6 +119,36 @@ FORMAT_IAB_FAMILY = {
         "size": (1200, 627),
         "iab_cousin": "social_landscape",
     },
+    "instagram-feed-4x5": {
+        "family": "portrait_4x5",
+        "size": (1080, 1350),
+        "iab_cousin": "social_feed",
+    },
+    "instagram-reels": {
+        "family": "story_9x16",
+        "size": (1080, 1920),
+        "iab_cousin": "social_story",
+    },
+    "linkedin-feed": {
+        "family": "square_1x1",
+        "size": (1080, 1080),
+        "iab_cousin": "social_feed",
+    },
+    "linkedin-portrait": {
+        "family": "portrait_4x5",
+        "size": (1080, 1350),
+        "iab_cousin": "social_feed",
+    },
+    "youtube-infeed": {
+        "family": "landscape_social",
+        "size": (1920, 1080),
+        "iab_cousin": "social_landscape",
+    },
+    "youtube-shorts": {
+        "family": "story_9x16",
+        "size": (1080, 1920),
+        "iab_cousin": "social_story",
+    },
 }
 
 FAMILY_BUDGET = {
@@ -201,6 +233,15 @@ FAMILY_BUDGET = {
         "allow_leader_lines": False,
         "summary": "paisagem social: 1 headline, 1 CTA, sem chrome de feed",
     },
+    "portrait_4x5": {
+        "max_marks": 1,
+        "max_headlines": 1,
+        "max_ctas": 1,
+        "max_icons": 0,
+        "max_copy_blocks": 2,
+        "allow_leader_lines": False,
+        "summary": "retrato 4:5: still editorial, 1 headline, 1 CTA, marca intacta",
+    },
 }
 
 HYGIENE_INSTRUCTIONS = {
@@ -275,9 +316,14 @@ def placement_zone_for(family=None, size=None, device=None, slug=None, context=N
     family = str(family or "").strip()
     device = str(device or "").strip().lower()
     context = str(context or "").strip().lower()
-    if context == "tv" or slug in CTV_FORMAT_SLUGS or family in {
-        "slate_16x9", "sequence_16x9",
-    }:
+    if (
+        context in {"tv", "social"}
+        or slug in CTV_FORMAT_SLUGS
+        or slug in SOCIAL_FORMAT_SLUGS
+        or family in {
+            "slate_16x9", "sequence_16x9",
+        } | SOCIAL_PAINT_FAMILIES
+    ):
         return None
     width = height = None
     if size and len(size) >= 2:
@@ -402,6 +448,13 @@ def compose_layout(family, size):
             "cta": (int(width * 0.56), int(height * 0.68), int(width * 0.28), int(height * 0.16)),
             "logo": (int(width * 0.56), int(height * 0.08), 64, 64),
         }
+    elif family == "portrait_4x5":
+        layout = {
+            "visual": (int(width * 0.28), int(height * 0.16), int(width * 0.44), int(height * 0.58)),
+            "headline": (int(width * 0.06), int(height * 0.18), int(width * 0.22), int(height * 0.36)),
+            "cta": (int(width * 0.08), int(height * 0.82), int(width * 0.84), int(height * 0.08)),
+            "logo": (int(width * 0.74), int(height * 0.18), int(width * 0.18), int(width * 0.18)),
+        }
     elif family in {"slate_16x9", "sequence_16x9"}:
         layout = {
             "visual": (0, 0, width, height),
@@ -476,6 +529,8 @@ def _family_from_size(size):
         return "wide_banner"
     if ratio <= 0.62 and height >= 1000:
         return "story_9x16"
+    if 0.72 <= ratio <= 0.88:
+        return "portrait_4x5"
     if ratio <= 0.6:
         return "half_page"
     if 0.95 <= ratio <= 1.08:
@@ -576,6 +631,10 @@ _FAMILY_LAYOUT = {
         "Paisagem social. Visual à esquerda, título e CTA empilhados à direita.",
         "Social landscape. Visual left, headline and CTA stacked on the right.",
     ),
+    "portrait_4x5": (
+        "Retrato 4:5. Papel editorial. Headline à esquerda, herói no centro, lockup à direita.",
+        "4:5 portrait. Editorial paper. Headline left, hero center, lockup right.",
+    ),
     "portal_unit": (
         "Unidade do portal. Os elementos sentam nas zonas do retângulo deste formato.",
         "Portal unit. Place elements in this rectangle's modeled zones.",
@@ -617,6 +676,12 @@ _STATIC_FAMILY_BEATS = {
         "composicao_final",
         "Paisagem social",
         "Horizontal social: visual à esquerda, título e CTA empilhados à direita.",
+        ["background", "images", "title", "text", "logo", "cta"],
+    ),
+    "portrait_4x5": (
+        "composicao_final",
+        "Feed 4:5",
+        "Retrato editorial. Headline à esquerda, produto-herói no centro, marca à direita, legal embaixo.",
         ["background", "images", "title", "text", "logo", "cta"],
     ),
     "slate_16x9": (
@@ -1123,4 +1188,39 @@ def format_beat(format_row, position, scene_count=None):
     for beat in direction.get("beats") or []:
         if int(beat.get("position") or 0) == int(position or 1):
             return beat
+    return None
+
+
+SOCIAL_DESKTOP_SLUGS = frozenset({"linkedin-share", "youtube-infeed"})
+
+
+def default_social_placement(slug, default_size=None):
+    """Poço da rede: o anúncio preenche 100% do slot no pixel real."""
+    slug = str(slug or "").strip()
+    desktop = slug in SOCIAL_DESKTOP_SLUGS
+    return {
+        "context": "social",
+        "viewport": (
+            {"width": 1280, "height": 800}
+            if desktop
+            else {"width": 390, "height": 844}
+        ),
+        "slot": {"x": 0, "y": 0, "width": 100, "height": 100},
+        "fit": "cover",
+        "responsive": "scale",
+    }
+
+
+def social_network_for(slug):
+    slug = str(slug or "").strip()
+    if slug.startswith("instagram-"):
+        return "instagram"
+    if slug.startswith("facebook-"):
+        return "facebook"
+    if slug.startswith("linkedin-"):
+        return "linkedin"
+    if slug.startswith("tiktok-"):
+        return "tiktok"
+    if slug.startswith("youtube-"):
+        return "youtube"
     return None

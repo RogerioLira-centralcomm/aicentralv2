@@ -37,8 +37,34 @@ def main():
                 """
             )
             validation = cursor.fetchone()
+            cursor.execute(
+                """
+                SELECT slug FROM cx_compose_templates
+                 WHERE slug = ANY(%s)
+                """,
+                ([
+                    "editorial-still-4x5",
+                    "editorial-still-1x1",
+                    "product-hero-story",
+                    "ugc-face-story",
+                    "offer-stack-1x1",
+                ],),
+            )
+            found = {row["slug"] for row in cursor.fetchall()}
         if not all(validation.values()):
             raise RuntimeError(f"Validação da migração falhou: {validation}")
+        missing = {
+            "editorial-still-4x5",
+            "editorial-still-1x1",
+            "product-hero-story",
+            "ugc-face-story",
+            "offer-stack-1x1",
+        } - found
+        if missing:
+            raise RuntimeError(
+                "Validação da migração falhou: "
+                f"templates ausentes {sorted(missing)}."
+            )
     print("Migração da biblioteca de compose executada e validada.")
 
 

@@ -552,10 +552,6 @@
     return profile?.logo_asset_ref || `/static/images/creative-viewers/${social}.svg`;
   }
 
-  function formatShortName(format) {
-    return FORMAT_SHORT_NAMES[format?.slug] || formatDisplayName(format);
-  }
-
   function isSocialFormat(format) {
     return format?.category === 'social' || Boolean(socialNetworkKey(format));
   }
@@ -4385,12 +4381,14 @@
   }
 
   function formatShortName(format) {
+    if (FORMAT_SHORT_NAMES[format?.slug]) return FORMAT_SHORT_NAMES[format.slug];
     return String(format.name_pt || '')
       .replace(/^IAB\s+/i, '')
       .replace(/^Instagram\s+[—–-]\s+/i, 'IG ')
       .replace(/^Facebook\s+[—–-]\s+/i, 'FB ')
       .replace(/^LinkedIn\s+[—–-]\s+/i, 'LI ')
-      .replace(/^TikTok\s+[—–-]\s+/i, 'TT ');
+      .replace(/^TikTok\s+[—–-]\s+/i, 'TT ')
+      .replace(/^YouTube\s+[—–-]\s+/i, 'YT ');
   }
 
   function fillUnfoldModels() {

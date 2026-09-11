@@ -3629,6 +3629,19 @@ class CreativeFilesContractTest(unittest.TestCase):
             deploy,
         )
         self.assertIn(
+            '"$VENV_PYTHON" scripts/seed_creative_formats.py',
+            deploy,
+        )
+        self.assertIn(
+            '"$VENV_PYTHON" scripts/seed_creative_viewer_profiles.py',
+            deploy,
+        )
+        compose_runner = (
+            root / "migrations" / "run_add_creative_compose_library.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("editorial-still-4x5", compose_runner)
+        self.assertIn("ugc-face-story", compose_runner)
+        self.assertIn(
             '"$VENV_PYTHON" migrations/run_add_creative_campaign_flow.py',
             deploy,
         )

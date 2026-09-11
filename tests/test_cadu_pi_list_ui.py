@@ -478,6 +478,7 @@ class CaduPiListUiContractTest(unittest.TestCase):
             "toggleCampanhas",
             "toggleTodasCampanhas",
             "toggleAgenciaPis",
+            "bindFiscalRowUi",
         ):
             self.assertIn(function_name, self.js)
         self.assertNotIn("function aplicarFiltros", self.template)

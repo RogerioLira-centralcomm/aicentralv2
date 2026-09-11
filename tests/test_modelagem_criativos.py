@@ -3587,6 +3587,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("data.productions", create_flow)
         self.assertIn("/parametros/api/production-plans", create_flow)
         self.assertIn("production?.scenes?.[0]?.id", create_flow)
+        self.assertIn("produzir?campaign=", create_flow)
+        self.assertIn("if (!empty || !workspace) return;", frontend)
         self.assertNotIn("/parametros/api/variations/", create_flow)
         self.assertIn("campaignClients: '/parametros/api/campaign-clients'", frontend)
         self.assertIn("function brandedCampaignClients", frontend)
@@ -3712,7 +3714,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         desk = (
             root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html"
         ).read_text(encoding="utf-8")
-        self.assertIn("modelagem_criativos.js') }}?v=54", desk)
+        self.assertIn("modelagem_criativos.js') }}?v=55", desk)
         self.assertIn("mc_page_js) }}?v=4", desk)
         self.assertIn("function loadComposeLibrary", frontend)
         self.assertIn("variation_id", frontend)

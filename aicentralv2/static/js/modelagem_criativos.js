@@ -830,28 +830,76 @@
       </div>`;
   }
 
+  function templatesForFormat(format) {
+    const family = format?.iab_family;
+    return (state.composeLibrary?.templates || []).filter((item) => (
+      !family || item.family === family
+    ));
+  }
+
+  function variationsForLibraryTemplate(format) {
+    const family = format?.iab_family;
+    const slug = state.selectedLibraryTemplateSlug;
+    return (state.composeLibrary?.variations || []).filter((item) => (
+      item.status !== 'archived'
+      && item.family === family
+      && (!slug || item.template_slug === slug || String(item.template_id) === String(slug))
+    ));
+  }
+
+  function selectedLibraryVariation(format) {
+    const items = variationsForLibraryTemplate(format);
+    return items.find((item) => String(item.id) === String(state.selectedLibraryVariationId))
+      || items[0]
+      || null;
+  }
+
   function renderLibraryVariations() {
     const root = $('#mcLibraryVariations');
     if (!root) return;
-    const items = (state.composeLibrary?.variations || []).filter((item) => item.status !== 'archived');
-    if (!items.length) {
+    const format = state.formats.find((item) => String(item.id) === String(state.selectedFormatId));
+    if (!format) {
       root.innerHTML = '';
       return;
     }
+    const templates = templatesForFormat(format);
+    const variations = variationsForLibraryTemplate(format);
+    if (!templates.length && !variations.length) {
+      root.innerHTML = '';
+      return;
+    }
+    if (templates.length && !templates.some((item) => item.slug === state.selectedLibraryTemplateSlug)) {
+      state.selectedLibraryTemplateSlug = templates[0].slug;
+    }
+    if (variations.length && !variations.some((item) => String(item.id) === String(state.selectedLibraryVariationId))) {
+      state.selectedLibraryVariationId = variations[0].id;
+    }
     root.innerHTML = `
       <header>
-        <strong>Variações da marca</strong>
-        <small>Aprovação no Produzir promove a carta. Sem HTML na mesa.</small>
+        <strong>Template e variação</strong>
+        <small>O modelador gera o HTML em cima desta carta, não de um split genérico.</small>
       </header>
-      <div class="mc-compose-variation-grid">
-        ${items.map((item) => `
-          <article class="mc-compose-card">
-            <span class="mc-compose-card-status is-${escapeHtml(item.status || 'experimental')}">${escapeHtml(variationStatusLabel(item.status))}</span>
-            <strong>${escapeHtml(item.name || 'Variação')}</strong>
-            <small>${escapeHtml(item.family)} · ${item.approve_count || 0} aprovações</small>
-          </article>
-        `).join('')}
-      </div>`;
+      ${templates.length ? `
+        <div class="mc-compose-variation-grid" data-library-templates>
+          ${templates.map((item) => `
+            <button class="mc-compose-card ${item.slug === state.selectedLibraryTemplateSlug ? 'is-active' : ''}"
+                    type="button" data-library-template="${escapeHtml(item.slug)}">
+              <strong>${escapeHtml(item.name || item.slug)}</strong>
+              <small>${escapeHtml(item.html_key || '')}</small>
+            </button>
+          `).join('')}
+        </div>` : ''}
+      ${variations.length ? `
+        <div class="mc-compose-variation-grid">
+          ${variations.map((item) => `
+            <button class="mc-compose-card ${String(item.id) === String(state.selectedLibraryVariationId) ? 'is-active' : ''}"
+                    type="button" data-library-variation="${escapeHtml(String(item.id))}">
+              <span class="mc-compose-card-status is-${escapeHtml(item.status || 'experimental')}">${escapeHtml(variationStatusLabel(item.status))}</span>
+              <strong>${escapeHtml(item.name || 'Variação')}</strong>
+              <small>${Array.isArray(item.params?.regions) && item.params.regions.length ? `${item.params.regions.length} regiões` : escapeHtml(item.html_key || item.family || '')}</small>
+            </button>
+          `).join('')}
+        </div>` : ''}`;
   }
 
   function activeRenderMode() {
@@ -1162,7 +1210,13 @@
         const campaign = created.campaign || created;
         const production = created.production || created.productions?.[0] || null;
         if (production) state.productionByCampaign.set(String(campaign.id), production);
-        await selectCampaign(campaign.id, production?.scenes?.[0]?.id || created.created_scene_id);
+        const sceneId = production?.scenes?.[0]?.id || created.created_scene_id;
+        toast('Produção iniciada.', 'success');
+        if ($('#mcApp')?.dataset.mcPage !== 'produzir') {
+          window.location.href = `/parametros/modelagem-criativos/produzir?campaign=${encodeURIComponent(campaign.id)}`;
+          return;
+        }
+        await selectCampaign(campaign.id, sceneId);
         seedSceneRefsFromPack();
         form.reset();
         state.enhancedBrief = null;
@@ -1171,7 +1225,6 @@
         renderContextDesign();
         renderClientPreview();
         renderGeneratorSummary();
-        toast('Produção iniciada.', 'success');
         activateTab('produzir');
       } catch (error) {
         $('#mcCampaignFormStatus').textContent = error.message;
@@ -1226,20 +1279,26 @@
   }
 
   function renderWorkspace() {
+    const empty = $('#mcVariationEmpty');
+    const workspace = $('#mcVariationWorkspace');
+    if (!empty || !workspace) return;
     const hasCampaign = Boolean(state.campaign);
-    $('#mcVariationEmpty').classList.toggle('hidden', hasCampaign);
-    $('#mcVariationWorkspace').classList.toggle('hidden', !hasCampaign);
+    empty.classList.toggle('hidden', hasCampaign);
+    workspace.classList.toggle('hidden', !hasCampaign);
     syncPublishTriggers();
     if (!hasCampaign) {
       syncShareTriggers();
       return;
     }
     const c = state.campaign;
-    $('#mcCampaignBrief').innerHTML = `
-      <strong>${escapeHtml(c.client.name)}</strong>
+    const brief = $('#mcCampaignBrief');
+    if (brief) {
+      brief.innerHTML = `
+      <strong>${escapeHtml(c.client?.name || 'Marca')}</strong>
       <span>${escapeHtml(c.objective || 'Sem objetivo')}</span>
       <span>${escapeHtml(c.campaign_text || 'Sem mensagem principal')}</span>
       <em class="mc-campaign-cost" title="Soma de todas as IAs desta modelagem">${campaignCost(c)}</em>`;
+    }
     renderProduction();
     renderAssetPlan();
     syncShareTriggers();
@@ -2447,31 +2506,62 @@
     const root = $('#mcFormatTableBody');
     if (!root) return;
     const formats = filteredFormats('#mcLibrarySearch', '#mcLibraryCategory');
-    root.innerHTML = formats.map((format) => {
-      const orientation = formatOrientationKey(format);
-      const orientationLabel = formatOrientationLabel(format) || 'Quadrado';
-      return `
-      <button class="mc-catalog-format ${String(format.id) === String(state.selectedFormatId) ? 'is-active' : ''}"
-              type="button" data-library-format="${format.id}">
-        <span class="mc-catalog-format-icon" title="${escapeHtml(orientationLabel)}">
-          <span class="mc-orient is-${orientation}" aria-hidden="true"></span>
-          <span class="sr-only">${escapeHtml(orientationLabel)}</span>
-        </span>
-        <span>
-          <strong>${escapeHtml(format.name_pt)}</strong>
-          <small>${escapeHtml([
-            format.iab_family,
-            formatSizeLabel(format),
-            format.iab_cousin ? `primo ${format.iab_cousin}` : '',
-          ].filter(Boolean).join(' · ') || formatExperienceLabel(format))}</small>
-        </span>
-        <em>${suggestedSceneCount(format) > 1 ? 'Carrossel' : 'Estático'}</em>
-      </button>`;
-    }).join('') || '<div class="cx-empty-state"><p>Nenhum formato encontrado.</p></div>';
+    const catalog = groupedCatalogFormats(formats);
+    root.innerHTML = catalog.length
+      ? catalog.map((group) => `
+        <section class="mc-library-type" data-library-type="${escapeHtml(group.type)}">
+          <h3>${escapeHtml(group.label)}</h3>
+          ${group.networks.map((network) => `
+            <section class="mc-library-network">
+              ${group.type === 'social' ? `
+                <header>
+                  ${network.logo ? `<img src="${escapeHtml(network.logo)}" alt="">` : ''}
+                  <strong>${escapeHtml(network.label)}</strong>
+                </header>` : ''}
+              <div class="mc-library-network-formats">
+                ${network.formats.map((format) => {
+                  const orientation = formatOrientationKey(format);
+                  const orientationLabel = formatOrientationLabel(format) || 'Quadrado';
+                  return `<button class="mc-catalog-format ${String(format.id) === String(state.selectedFormatId) ? 'is-active' : ''}"
+                          type="button" data-library-format="${format.id}">
+                    <span class="mc-catalog-format-icon" title="${escapeHtml(orientationLabel)}">
+                      <span class="mc-orient is-${orientation}" aria-hidden="true"></span>
+                      <span class="sr-only">${escapeHtml(orientationLabel)}</span>
+                    </span>
+                    <span>
+                      <strong>${escapeHtml(formatShortName(format))}</strong>
+                      <small>${escapeHtml(formatSizeLabel(format) || format.default_size || '')}</small>
+                    </span>
+                    <em>${escapeHtml(orientationLabel)}</em>
+                  </button>`;
+                }).join('')}
+              </div>
+            </section>
+          `).join('')}
+        </section>`).join('')
+      : '<div class="cx-empty-state"><p>Nenhum formato encontrado.</p></div>';
     renderLibraryVariations();
   }
 
+  function socialViewport(format) {
+    const slug = format?.slug || '';
+    if (slug === 'linkedin-share' || slug === 'youtube-infeed') {
+      return { width: 1280, height: 800 };
+    }
+    return { width: 390, height: 844 };
+  }
+
   function clonePlacement(format) {
+    if (isSocialFormat(format)) {
+      const saved = format.placement_spec || {};
+      return {
+        context: 'social',
+        viewport: saved.viewport || socialViewport(format),
+        slot: saved.slot || { x: 0, y: 0, width: 100, height: 100 },
+        fit: saved.fit || 'cover',
+        responsive: saved.responsive || 'scale',
+      };
+    }
     const fallback = {
       context: format.channel && ['netflix', 'hbomax', 'disneyplus', 'primevideo'].includes(format.channel) ? 'tv' : 'portal',
       viewport: { width: 1280, height: 800 },
@@ -2490,6 +2580,7 @@
 
   function resolvePlacementZone(format, placement, device = 'desktop') {
     if ((placement?.context || format?.placement_spec?.context) === 'tv') return null;
+    if ((placement?.context || format?.placement_spec?.context) === 'social' || isSocialFormat(format)) return null;
     const family = format?.iab_family || '';
     const slug = format?.slug || '';
     const size = parseDefaultSize(format?.default_size || format?.target_size);
@@ -2522,7 +2613,7 @@
 
   function previewPlacement(placement, device = 'desktop', format = null) {
     const result = JSON.parse(JSON.stringify(placement));
-    if (result.context === 'tv') return result;
+    if (result.context === 'tv' || result.context === 'social') return result;
     result.placement_zone = resolvePlacementZone(format, result, device);
     if (device === 'mobile') {
       result.context = 'celular';
@@ -2540,13 +2631,24 @@
     return result;
   }
 
-  function viewerProfilesFor(context) {
-    const kind = context === 'tv' ? 'tv' : 'portal';
-    return state.viewerProfiles.filter((profile) => profile.viewer_kind === kind);
+  function viewerProfilesFor(context, format = null) {
+    if (context === 'tv') {
+      return state.viewerProfiles.filter((profile) => profile.viewer_kind === 'tv');
+    }
+    if (context === 'social' || isSocialFormat(format)) {
+      const network = socialNetworkKey(format);
+      const social = state.viewerProfiles.filter((profile) => profile.viewer_kind === 'social');
+      if (!network) return social;
+      const matched = social.filter((profile) => (
+        profile.slug === network || profile.shell_spec?.network === network
+      ));
+      return matched.length ? matched : social;
+    }
+    return state.viewerProfiles.filter((profile) => profile.viewer_kind === 'portal');
   }
 
   function activeViewerProfile(format, placement) {
-    const compatible = viewerProfilesFor(placement.context);
+    const compatible = viewerProfilesFor(placement.context, format);
     let profile = compatible.find((item) => (
       String(item.id) === String(state.selectedViewerProfileId)
     ));
@@ -2800,6 +2902,153 @@
     if (root && node.parentElement !== root) root.appendChild(node);
   }
 
+  function socialShellHtml(profile, format) {
+    const slug = profile?.slug || socialNetworkKey(format) || 'instagram';
+    const kind = format?.slug || '';
+    const vertical = ['instagram-story', 'instagram-reels', 'tiktok-vertical', 'youtube-shorts'].includes(kind);
+    if (slug === 'tiktok' || kind === 'tiktok-vertical') return tiktokShellHtml(profile);
+    if (slug === 'youtube' && kind === 'youtube-shorts') return youtubeShortsShellHtml(profile);
+    if (slug === 'youtube') return youtubeWatchShellHtml(profile);
+    if (slug === 'linkedin') return linkedinShellHtml(profile, format);
+    if (slug === 'facebook') return facebookShellHtml(profile, format);
+    if (vertical) return instagramStoryShellHtml(profile, format);
+    return instagramFeedShellHtml(profile, format);
+  }
+
+  function instagramFeedShellHtml(profile) {
+    return `
+      <div class="mc-social is-instagram is-feed">
+        <header class="mc-social-status">
+          ${viewerLogo(profile)}
+          <span>9:41</span>
+        </header>
+        <article class="mc-ig-post">
+          <div class="mc-ig-head">
+            <i class="mc-ig-avatar"></i>
+            <div>
+              <strong>marca.oficial</strong>
+              <small>Patrocinado</small>
+            </div>
+            <b>···</b>
+          </div>
+          <div class="mc-ad-well" data-ad-well></div>
+          <div class="mc-ig-actions" aria-hidden="true">
+            <span></span><span></span><span></span><i></i>
+          </div>
+          <p class="mc-ig-caption"><strong>marca.oficial</strong> O anúncio preenche o poço do post.</p>
+        </article>
+      </div>`;
+  }
+
+  function instagramStoryShellHtml(profile, format) {
+    const reels = format?.slug === 'instagram-reels';
+    return `
+      <div class="mc-social is-instagram is-story ${reels ? 'is-reels' : ''}">
+        <div class="mc-ad-well" data-ad-well></div>
+        <div class="mc-ig-story-chrome" aria-hidden="true">
+          <b class="mc-ig-progress"></b>
+          <header>
+            <i class="mc-ig-avatar"></i>
+            <strong>marca.oficial</strong>
+            <small>Patrocinado</small>
+          </header>
+          <footer>
+            <span>Enviar mensagem</span>
+          </footer>
+        </div>
+      </div>`;
+  }
+
+  function facebookShellHtml(profile) {
+    return `
+      <div class="mc-social is-facebook">
+        <header class="mc-social-status">${viewerLogo(profile)}<span>Feed</span></header>
+        <article class="mc-fb-post">
+          <div class="mc-ig-head">
+            <i class="mc-ig-avatar"></i>
+            <div>
+              <strong>Página da marca</strong>
+              <small>Patrocinado</small>
+            </div>
+          </div>
+          <div class="mc-ad-well" data-ad-well></div>
+          <div class="mc-fb-actions" aria-hidden="true"><span>Curtir</span><span>Comentar</span><span>Compartilhar</span></div>
+        </article>
+      </div>`;
+  }
+
+  function linkedinShellHtml(profile, format) {
+    const compact = format?.slug !== 'linkedin-share';
+    return `
+      <div class="mc-social is-linkedin ${compact ? 'is-compact' : 'is-desktop'}">
+        <header class="mc-li-bar">${viewerLogo(profile)}<span>Início</span><span>Rede</span><span>Vagas</span></header>
+        <article class="mc-li-card">
+          <div class="mc-ig-head">
+            <i class="mc-ig-avatar"></i>
+            <div>
+              <strong>Empresa</strong>
+              <small>Promovido</small>
+            </div>
+          </div>
+          <div class="mc-ad-well" data-ad-well></div>
+          <div class="mc-li-actions" aria-hidden="true"><span>Gostei</span><span>Comentar</span><span>Compartilhar</span></div>
+        </article>
+      </div>`;
+  }
+
+  function tiktokShellHtml(profile) {
+    return `
+      <div class="mc-social is-tiktok">
+        <div class="mc-ad-well" data-ad-well></div>
+        <aside class="mc-tt-rail" aria-hidden="true">
+          <i></i><i></i><i></i>
+          ${viewerLogo(profile)}
+        </aside>
+        <footer class="mc-tt-caption">
+          <strong>@marca</strong>
+          <span>Patrocinado · o anúncio preenche o poço 9:16</span>
+        </footer>
+      </div>`;
+  }
+
+  function youtubeWatchShellHtml(profile) {
+    return `
+      <div class="mc-social is-youtube is-watch">
+        <header class="mc-yt-bar">${viewerLogo(profile)}<span>Pesquisar</span></header>
+        <div class="mc-yt-player">
+          <div class="mc-ad-well" data-ad-well></div>
+        </div>
+        <div class="mc-yt-meta">
+          <strong>Anúncio · 16:9 no player</strong>
+          <small>O anúncio preenche o poço da rede neste pixel.</small>
+        </div>
+      </div>`;
+  }
+
+  function youtubeShortsShellHtml(profile) {
+    return `
+      <div class="mc-social is-youtube is-shorts">
+        <div class="mc-ad-well" data-ad-well></div>
+        <aside class="mc-tt-rail" aria-hidden="true"><i></i><i></i><i></i></aside>
+        <footer class="mc-tt-caption">
+          ${viewerLogo(profile)}
+          <strong>Shorts</strong>
+          <span>Patrocinado</span>
+        </footer>
+      </div>`;
+  }
+
+  function variationPreviewHtml(format) {
+    const variation = selectedLibraryVariation(format);
+    const regions = variation?.params?.regions || [];
+    if (!regions.length) {
+      return adCreativeHtml(format);
+    }
+    return `${regions.map((slot) => (
+      `<i class="mc-well-region is-${escapeHtml(slot.tipo)}" style="left:${slot.x}%;top:${slot.y}%;width:${slot.w}%;height:${slot.h}%;">${escapeHtml(slot.tipo)}</i>`
+    )).join('')}<small id="mcAdSlotSize"></small>`;
+  }
+
   function renderViewerShell(profile) {
     const shell = $('#mcViewerShell');
     const frame = $('#mcDeviceFrame');
@@ -2818,6 +3067,10 @@
     frame.style.setProperty('--viewer-text', safeViewerColor(palette.text, '#1f2937'));
     if (profile.viewer_kind === 'tv') {
       shell.innerHTML = tvPlaybackShellHtml(profile);
+    } else if (profile.viewer_kind === 'social') {
+      shell.innerHTML = socialShellHtml(profile, state.formats.find((item) => (
+        String(item.id) === String(state.selectedFormatId)
+      )));
     } else {
       shell.innerHTML = portalPageHtml(profile);
     }
@@ -2828,7 +3081,7 @@
   function renderViewerToolbar(format, placement, profile) {
     const root = $('#mcViewerToolbar');
     if (!root) return;
-    const profiles = viewerProfilesFor(placement.context);
+    const profiles = viewerProfilesFor(placement.context, format);
     root.innerHTML = `
       <span>Visualizar em</span>
       <div>${profiles.map((item) => `
@@ -2837,7 +3090,7 @@
                 aria-pressed="${profile && String(item.id) === String(profile.id)}">
           ${viewerLogo(item)}<span>${escapeHtml(item.name)}</span>
         </button>`).join('')}</div>
-      ${placement.context !== 'tv' ? `
+      ${placement.context !== 'tv' && placement.context !== 'social' ? `
         <div class="mc-viewer-device-switch" aria-label="Tamanho do portal">
           <button type="button" data-preview-device="desktop" class="${state.previewDevice === 'desktop' ? 'is-active' : ''}" aria-pressed="${state.previewDevice === 'desktop'}"><i class="fa-solid fa-desktop"></i> Desktop</button>
           <button type="button" data-preview-device="mobile" class="${state.previewDevice === 'mobile' ? 'is-active' : ''}" aria-pressed="${state.previewDevice === 'mobile'}"><i class="fa-solid fa-mobile-screen"></i> Mobile</button>
@@ -2877,6 +3130,7 @@
     const displayPlacement = previewPlacement(placement, state.previewDevice, format);
     const slot = displayPlacement.slot;
     const zone = displayPlacement.placement_zone;
+    const social = displayPlacement.context === 'social' || isSocialFormat(format);
     const iabSize = iabDisplaySize(format, state.previewDevice);
     $('#mcStageEmpty').classList.add('hidden');
     $('#mcFormatStage').classList.remove('hidden');
@@ -2888,9 +3142,13 @@
       ${format.iab_family ? `<span>${escapeHtml(format.iab_family)}</span>` : ''}
       ${zone ? `<span>${escapeHtml(zone)}</span>` : ''}
       ${stageSize ? `<small>${stageSize.w} px × ${stageSize.h} px</small>` : ''}`;
-    $('#mcDeviceFrame').className = `mc-device-frame is-${escapeHtml(displayPlacement.context)}${zone ? ' is-page' : ''}`;
+    const socialPhone = social && socialViewport(format).width === 390;
+    $('#mcDeviceFrame').className = `mc-device-frame is-${escapeHtml(displayPlacement.context)}${zone ? ' is-page' : ''}${social ? ' is-social' : ''}${socialPhone ? ' is-celular' : ''}`;
     if (displayPlacement.context === 'tv') {
       $('#mcDeviceFrame').style.aspectRatio = `${Number(displayPlacement.viewport.width) || 1280} / ${Number(displayPlacement.viewport.height) || 800}`;
+    } else if (social) {
+      const view = socialViewport(format);
+      $('#mcDeviceFrame').style.aspectRatio = `${view.width} / ${view.height}`;
     } else {
       $('#mcDeviceFrame').style.aspectRatio = state.previewDevice === 'mobile' ? '390 / 844' : '1280 / 800';
     }
@@ -2899,7 +3157,28 @@
     renderViewerShell(profile);
     const slotNode = $('#mcAdSlot');
     const frame = $('#mcDeviceFrame');
+    const well = $('#mcViewerShell')?.querySelector('[data-ad-well]');
     frame.dataset.zone = zone || '';
+    const foot = $('#mcStageFootNote');
+    if (foot) {
+      foot.textContent = social
+        ? 'O anúncio preenche o poço da rede neste pixel.'
+        : 'O anúncio entra na zona do portal no tamanho IAB. Arraste para ajuste fino.';
+    }
+    if (social && well) {
+      well.appendChild(slotNode);
+      slotNode.classList.add('is-in-zone', 'is-social-well');
+      slotNode.style.width = '100%';
+      slotNode.style.height = '100%';
+      slotNode.style.left = '0';
+      slotNode.style.top = '0';
+      slotNode.style.transform = '';
+      $('#mcAdSlotContent').innerHTML = variationPreviewHtml(format);
+      $('#mcAdSlotSize').textContent = `${iabSize.w} × ${iabSize.h} px`;
+      $('#mcResetPlacement').disabled = false;
+      syncPlacementFields();
+      return;
+    }
     if (zone) {
       mountNodeInZone($('#mcViewerShell'), slotNode, zone);
       const scale = Math.min(1, (frame.clientWidth || 720) / (state.previewDevice === 'mobile' ? 390 : 1280));
@@ -2978,6 +3257,11 @@
         <div><strong>${escapeHtml(format.name_pt)}</strong><small>${escapeHtml(format.channel_name || format.category || '')}</small></div>
         ${engineBadge(format)}
       </div>
+      <label class="mc-library-extract" id="mcLibraryExtractDrop">
+        <input id="mcLibraryExtractFile" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+        <strong>Solte uma referência</strong>
+        <small>Lê o mapa e grava variação deste formato no template escolhido.</small>
+      </label>
       <div class="mc-detail-tabs" role="tablist">
         <button class="is-active" type="button" data-studio-detail-tab="technical">Layout</button>
         <button type="button" data-studio-detail-tab="visual">Image 2</button>
@@ -2993,7 +3277,7 @@
         </div>
         <label class="cx-field"><span class="cx-label">Ambiente padrão</span>
           <select class="cx-select" name="default_viewer_profile_id">
-            ${state.viewerProfiles.map((profile) => `<option value="${profile.id}" data-viewer-kind="${profile.viewer_kind}">${escapeHtml(profile.name)} · ${profile.viewer_kind === 'tv' ? 'TV' : 'Portal'}</option>`).join('')}
+            ${state.viewerProfiles.map((profile) => `<option value="${profile.id}" data-viewer-kind="${profile.viewer_kind}">${escapeHtml(profile.name)} · ${profile.viewer_kind === 'tv' ? 'TV' : profile.viewer_kind === 'social' ? 'Rede' : 'Portal'}</option>`).join('')}
           </select>
         </label>
         <div class="mc-field-pair">

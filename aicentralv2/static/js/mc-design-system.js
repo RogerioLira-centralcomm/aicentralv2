@@ -7,6 +7,7 @@
     approve: (id) => `/parametros/api/design-system/brand/${id}/approve`,
     tokens: (id) => `/parametros/api/design-system/brand/${id}/tokens`,
     compose: (id) => `/parametros/api/design-system/brand/${id}/compose`,
+    loop: (id) => `/parametros/api/design-system/brand/${id}/loop`,
     track: (id, track) => `/parametros/api/design-system/brand/${id}/tracks/${track}`,
     adapt: (id) => `/parametros/api/design-system/brand/${id}/adapt`,
     campaign: (id) => `/parametros/api/design-system/campaign/${id}`,
@@ -26,6 +27,8 @@
     highlight: '',
     swaps: [],
     mode: 'sistema',
+    archetype: 'brand',
+    looping: false,
     system: null,
     patchTimer: 0,
   };
@@ -135,6 +138,7 @@
         `<button type="button" role="option" class="mc-dsa-format${active}" data-format="${escapeHtml(item.key)}" aria-selected="${item.key === state.format}">`
         + `<span class="mc-dsa-format-box" style="aspect-ratio:${width}/${height}"></span>`
         + `<strong>${escapeHtml(item.size_label || item.label)}</strong>`
+        + `<em>${escapeHtml(item.density || '')}</em>`
         + `</button>`
       );
     }).join('');
@@ -293,6 +297,104 @@
     }).join('');
   }
 
+  function renderCatalog(system) {
+    const host = $('mcDsaCatalog');
+    if (!host) return;
+    const catalog = system?.catalog || {};
+    const dna = catalog.dna || system?.dna || {};
+    const tokens = system?.tokens || {};
+    const copy = system?.ad_copy || {};
+    const personality = (dna.personality || []).map((item) => `<li>${escapeHtml(item)}</li>`).join('');
+    const must = (dna.must || []).map((item) => `<li>${escapeHtml(item)}</li>`).join('');
+    const avoid = (dna.avoid || []).map((item) => `<li>${escapeHtml(item)}</li>`).join('');
+    const colors = (catalog.token_roles || []).find((item) => item.id === 'colors');
+    const swatches = (colors?.items || []).map((item) => (
+      `<i style="--swatch:${escapeHtml(item.value || '#fff')}" title="${escapeHtml(item.label)} ${escapeHtml(item.value || '')}"></i>`
+    )).join('');
+    const components = (catalog.components || []).map((item) => (
+      `<article class="mc-dsa-comp" data-comp="${escapeHtml(item.id)}">`
+      + (item.image ? `<img src="${escapeHtml(item.image)}" alt="">` : `<span class="mc-dsa-comp-mark" style="color:${escapeHtml(tokens.ink || '#1E4D4F')};font-family:${escapeHtml(tokens['font-display'] || 'Inter')},sans-serif">${escapeHtml(item.text || item.label)}</span>`)
+      + `<strong>${escapeHtml(item.label)}</strong>`
+      + `<small>P${item.priority}</small>`
+      + `</article>`
+    )).join('');
+    const formats = (catalog.iab_formats || []).map((item) => (
+      `<button type="button" class="mc-dsa-format" data-format="${escapeHtml(item.key)}">`
+      + `<span class="mc-dsa-format-box" style="aspect-ratio:${item.width || 1}/${item.height || 1}"></span>`
+      + `<strong>${escapeHtml(item.size_label || item.label)}</strong>`
+      + `<em>${escapeHtml(item.density || '')}</em>`
+      + `</button>`
+    )).join('');
+    const archetypes = (catalog.archetypes || []).map((item) => (
+      `<button type="button" class="mc-dsa-arch${item.active ? ' is-active' : ''}" data-archetype="${escapeHtml(item.id)}" data-format="${escapeHtml(item.format)}">`
+      + `<span class="mc-dsa-arch-stage" style="background:${escapeHtml(item.ground === 'wash' ? tokens.ink : tokens.paper)};color:${escapeHtml(item.ground === 'wash' ? tokens.paper : tokens.ink)}">`
+      + `<strong>${escapeHtml(item.headline || item.label)}</strong>`
+      + `<em>${escapeHtml(item.cta || '')}</em>`
+      + `</span>`
+      + `<b>${escapeHtml(item.label)}</b>`
+      + `</button>`
+    )).join('');
+    const flow = (catalog.flow || []).map((item) => (
+      `<li class="${item.current ? 'is-current' : ''}${item.done ? ' is-done' : ''}">${escapeHtml(item.label)}</li>`
+    )).join('');
+    host.innerHTML = (
+      `<p class="mc-dsa-tagline">${escapeHtml(catalog.tagline || '')}</p>`
+      + `<section class="mc-dsa-block" data-block="dna">`
+      + `<h2>DNA</h2>`
+      + `<div class="mc-dsa-dna">`
+      + (dna.logo_url || dna.product_url ? `<img src="${escapeHtml(dna.product_url || dna.logo_url)}" alt="">` : '')
+      + `<div>`
+      + `<p class="mc-dsa-lockup" style="font-family:${escapeHtml(tokens['font-display'] || 'Inter')},sans-serif;font-weight:${escapeHtml(tokens['weight-display'] || '700')}">${escapeHtml(copy.headline || dna.name || '')}</p>`
+      + `<ul class="mc-dsa-chips">${personality}</ul>`
+      + `</div>`
+      + `<div class="mc-dsa-type-spec" style="font-family:${escapeHtml(tokens['font-display'] || 'Inter')},sans-serif">Aa <small>${escapeHtml(tokens['font-display'] || 'Inter')}</small></div>`
+      + `<div class="mc-dsa-dna-swatches">${swatches}</div>`
+      + `</div>`
+      + `<form class="mc-dsa-dna-form" id="mcDsaDna">`
+      + `<label>Personalidade <input name="personality" value="${escapeHtml((dna.personality || []).join(', '))}" maxlength="180"></label>`
+      + `<label>Obrigatório <input name="must" value="${escapeHtml((dna.must || []).join(', '))}" maxlength="240"></label>`
+      + `<label>Evitar <input name="avoid" value="${escapeHtml((dna.avoid || []).join(', '))}" maxlength="240"></label>`
+      + `</form>`
+      + `<div class="mc-dsa-rules"><p>Fazer</p><ul>${must}</ul><p>Não fazer</p><ul>${avoid}</ul></div>`
+      + `</section>`
+      + `<section class="mc-dsa-block" data-block="tokens"><h2>Tokens</h2><div class="mc-dsa-token-roles">${(catalog.token_roles || []).map((role) => (
+        `<article><h3>${escapeHtml(role.label)}</h3>`
+        + (role.id === 'cta'
+          ? `<span class="mc-dsa-cta-chip" style="background:${escapeHtml(tokens.accent || '#111')};color:${escapeHtml(tokens.cta_ink || '#fff')}">${escapeHtml(copy.cta || 'CTA')}</span>`
+          : role.id === 'type'
+            ? `<p class="mc-dsa-lockup" style="font-family:${escapeHtml(tokens['font-display'] || 'Inter')},sans-serif;font-weight:${escapeHtml(tokens['weight-display'] || '700')}">${escapeHtml(copy.headline || 'Aa')}</p>`
+            : role.id === 'legal'
+              ? `<small>${escapeHtml(copy.legal || '')}</small>`
+              : `<div class="mc-dsa-dna-swatches">${(role.items || []).map((item) => `<i style="--swatch:${escapeHtml(item.value || '#fff')}"></i>`).join('')}</div>`)
+        + `</article>`
+      )).join('')}</div></section>`
+      + `<section class="mc-dsa-block" data-block="components"><h2>Componentes</h2><div class="mc-dsa-comps">${components}</div></section>`
+      + `<section class="mc-dsa-block" data-block="formats"><h2>Formatos IAB</h2><div class="mc-dsa-formats is-catalog">${formats}</div></section>`
+      + `<section class="mc-dsa-block" data-block="templates"><h2>Templates</h2><div class="mc-dsa-arches">${archetypes}</div></section>`
+      + `<section class="mc-dsa-block" data-block="flow"><h2>Recomposição</h2><ol class="mc-dsa-flow">${flow}</ol><p>${escapeHtml(catalog.loop?.label || '')}</p></section>`
+    );
+  }
+
+  function renderFlow(system) {
+    const host = $('mcDsaFlow');
+    if (!host) return;
+    const flow = system?.flow || system?.catalog?.flow || [];
+    host.innerHTML = flow.map((item) => (
+      `<li class="${item.current ? 'is-current' : ''}${item.done ? ' is-done' : ''}">${escapeHtml(item.label)}</li>`
+    )).join('');
+    const lead = $('mcDsaLoopLead');
+    if (lead) lead.textContent = system?.loop?.label || 'Um eixo por vez. O loop fecha DNA, contraste, trilhas e regras.';
+  }
+
+  function renderArchetypes(system) {
+    const host = $('mcDsaArchetypes');
+    if (!host) return;
+    const rows = system?.archetypes || system?.catalog?.archetypes || [];
+    host.innerHTML = rows.map((item) => (
+      `<button type="button" class="mc-dsa-arch${item.id === state.archetype || item.active ? ' is-active' : ''}" data-archetype="${escapeHtml(item.id)}" data-format="${escapeHtml(item.format)}">${escapeHtml(item.label)}</button>`
+    )).join('');
+  }
+
   function renderTable(system) {
     const host = $('mcDsaTable');
     if (!host) return;
@@ -312,7 +414,6 @@
     const system = state.system;
     const sheet = brandUrl();
     const piece = pieceUrl(system);
-    const sheetFrame = $('mcDsaSheet');
     const improveFrame = $('mcDsaImproveSheet');
     const pieceFrame = $('mcDsaFrame');
     const open = $('mcDsaOpen');
@@ -322,7 +423,6 @@
       }
       if (open) open.href = piece;
     } else {
-      if (sheetFrame) sheetFrame.src = sheet;
       if (improveFrame) improveFrame.src = sheet;
       if (open) open.href = sheet;
     }
@@ -334,6 +434,7 @@
       state.format = system.adapt.format.key;
     }
     if (system?.adapt?.layer_count) state.layers = system.adapt.layer_count;
+    if (system?.archetype) state.archetype = system.archetype;
     const exists = Boolean(system?.exists);
     const approved = system?.status === 'approved';
     const offer = $('mcDsaOffer');
@@ -362,17 +463,15 @@
     if (refine) refine.disabled = !exists || system?.scope === 'campaign';
     if (approve) approve.disabled = !exists || approved || system?.scope === 'campaign';
     renderCampaigns();
+    renderCatalog(system);
+    renderFlow(system);
+    renderArchetypes(system);
     renderFormats(system);
     renderLayerControl(system);
     renderLayerList(system);
-    renderBoard(system);
-    renderGrounds(system);
     renderTracks(system);
-    renderCopy(system);
-    renderGroups(system);
     renderIntents(system);
     renderPasses(system);
-    renderTable(system);
     renderPassMeta(system);
     syncFrames();
   }
@@ -393,6 +492,7 @@
         format: state.format,
         layers: state.layers,
         swaps: state.swaps,
+        archetype: state.archetype,
       }),
     }));
     renderSystem(data);
@@ -436,20 +536,66 @@
     setStatus('Sistema aprovado.');
   }
 
-  async function patchSystem(tokens, adCopy) {
+  async function patchSystem(tokens, adCopy, dna, archetype) {
     const data = await readJson(await fetch(API.tokens(currentId()), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tokens: tokens || undefined, ad_copy: adCopy || undefined }),
+      body: JSON.stringify({
+        tokens: tokens || undefined,
+        ad_copy: adCopy || undefined,
+        dna: dna || undefined,
+        archetype: archetype || undefined,
+      }),
     }));
     renderSystem(data);
   }
 
-  function queuePatch(tokens, adCopy) {
+  async function generateTrack(trackId) {
+    const data = await readJson(await fetch(API.track(currentId(), trackId), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    }));
+    renderSystem(data);
+    return data;
+  }
+
+  async function continueLoop() {
+    if (state.looping) return;
+    state.looping = true;
+    try {
+      for (let hop = 0; hop < 8; hop += 1) {
+        setStatus('Rodando o loop do sistema.');
+        const data = await readJson(await fetch(API.loop(currentId()), { method: 'POST' }));
+        renderSystem(data);
+        const info = data.loop || {};
+        setStatus(info.label || '');
+        if (info.action === 'track' && info.track_id) {
+          setStatus(`Gerando ${info.track_id}.`);
+          try {
+            await generateTrack(info.track_id);
+          } catch (error) {
+            setStatus(error.message);
+            break;
+          }
+          continue;
+        }
+        if (info.ready) {
+          setStatus('Sistema pronto para a peça.');
+          break;
+        }
+        if (!['compose', 'contrast', 'rules'].includes(info.action)) break;
+      }
+    } finally {
+      state.looping = false;
+    }
+  }
+
+  function queuePatch(tokens, adCopy, dna) {
     window.clearTimeout(state.patchTimer);
     state.patchTimer = window.setTimeout(async () => {
       try {
-        await patchSystem(tokens, adCopy);
+        await patchSystem(tokens, adCopy, dna);
         setStatus('Token gravado.');
       } catch (error) {
         setStatus(error.message);
@@ -597,17 +743,63 @@
       button.disabled = true;
       setStatus(`Gerando ${button.getAttribute('data-track')} no GPT Image 2.`);
       try {
-        const data = await readJson(await fetch(API.track(currentId(), button.getAttribute('data-track')), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-        }));
-        renderSystem(data);
+        await generateTrack(button.getAttribute('data-track'));
         setStatus('Trilha gerada. Confira o fundo e o produto.');
       } catch (error) {
         setStatus(error.message);
       } finally {
         button.disabled = false;
+      }
+    });
+    $('mcDsaCatalog')?.addEventListener('click', async (event) => {
+      const archetype = event.target.closest('[data-archetype]');
+      const format = event.target.closest('[data-format]');
+      if (archetype) {
+        state.archetype = archetype.getAttribute('data-archetype') || 'brand';
+        state.format = archetype.getAttribute('data-format') || state.format;
+        setMode('peca');
+        try {
+          await adaptSystem();
+        } catch (error) {
+          setStatus(error.message);
+        }
+        return;
+      }
+      if (format) {
+        state.format = format.getAttribute('data-format') || 'iab-billboard';
+        setMode('peca');
+        try {
+          await adaptSystem();
+        } catch (error) {
+          setStatus(error.message);
+        }
+      }
+    });
+    $('mcDsaCatalog')?.addEventListener('change', (event) => {
+      const form = event.target.closest('#mcDsaDna');
+      if (!form) return;
+      queuePatch(null, null, {
+        personality: form.elements.personality.value,
+        must: form.elements.must.value,
+        avoid: form.elements.avoid.value,
+      });
+    });
+    $('mcDsaArchetypes')?.addEventListener('click', async (event) => {
+      const button = event.target.closest('[data-archetype]');
+      if (!button) return;
+      state.archetype = button.getAttribute('data-archetype') || 'brand';
+      state.format = button.getAttribute('data-format') || state.format;
+      try {
+        await adaptSystem();
+      } catch (error) {
+        setStatus(error.message);
+      }
+    });
+    $('mcDsaLoop')?.addEventListener('click', async () => {
+      try {
+        await continueLoop();
+      } catch (error) {
+        setStatus(error.message);
       }
     });
     $('mcDsaCompose')?.addEventListener('click', async () => {

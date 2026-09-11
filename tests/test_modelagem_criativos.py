@@ -227,6 +227,13 @@ class FakeRepository:
         self.created_campaign["id"] = 30
         return {"id": 30, "variation_id": 20, "step_id": 8}
 
+    def create_mesa_campaign(self, client_id, name, objective="Mesa de formato"):
+        return self.create_campaign_with_variation_a({
+            "client_id": client_id,
+            "name": name,
+            "objective": objective,
+        })
+
     def find_latest_campaign_for_client(self, client_id):
         return {
             "id": 30,
@@ -4165,7 +4172,7 @@ class CreativeFilesContractTest(unittest.TestCase):
             root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html"
         ).read_text(encoding="utf-8")
         self.assertIn("modelagem_criativos.js') }}?v=57", desk)
-        self.assertIn("mc_page_js) }}?v=30", desk)
+        self.assertIn("mc_page_js) }}?v=31", desk)
         self.assertIn("function loadComposeLibrary", frontend)
         self.assertIn("variation_id", frontend)
         self.assertIn("compose-library", frontend)

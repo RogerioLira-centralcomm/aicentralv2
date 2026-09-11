@@ -86,7 +86,7 @@ def heal_contrast(system):
     return healed, patches
 
 
-def patch_system(system, tokens=None, ad_copy=None):
+def patch_system(system, tokens=None, ad_copy=None, dna=None, archetype=None):
     parsed = parse_system(system)
     patches = []
     if isinstance(tokens, dict):
@@ -95,6 +95,35 @@ def patch_system(system, tokens=None, ad_copy=None):
             for key, value in tokens.items()
         ]
     parsed, applied = apply_token_patches(parsed, patches)
+    if isinstance(dna, dict) or archetype:
+        from .components import ARCHETYPES, compile_rules
+
+        data = dump_system(parsed)
+        if isinstance(dna, dict):
+            current = dict(data.get("dna") or {})
+            if dna.get("name"):
+                current["name"] = str(dna.get("name") or "")[:80]
+            for key in ("personality", "must", "avoid"):
+                if dna.get(key) is None:
+                    continue
+                raw = dna.get(key)
+                if isinstance(raw, str):
+                    current[key] = [part.strip() for part in raw.split(",") if part.strip()][:8]
+                elif isinstance(raw, list):
+                    current[key] = [str(part).strip() for part in raw if str(part).strip()][:8]
+            data["dna"] = current
+        chosen = str(archetype or data.get("archetype") or "brand")
+        if chosen in ARCHETYPES:
+            data["archetype"] = chosen
+            from .catalog import _track_url
+            from .components import TRACK_FOR_ARCHETYPE, apply_background
+
+            arch = ARCHETYPES[chosen]
+            track_id = TRACK_FOR_ARCHETYPE.get(chosen)
+            image = _track_url(parsed, track_id) if track_id else ""
+            data["tokens"] = apply_background(data.get("tokens") or {}, arch["ground"], image_url=image)
+        data["rules"] = compile_rules(data.get("dna"), data.get("archetype"))
+        parsed = DesignSystemAds.model_validate(data)
     kind = None
     if isinstance(tokens, dict):
         kind = tokens.get("ground-kind")
@@ -309,6 +338,52 @@ def compose_design_system(system, *, text_callable=None, reference_urls=None):
             except Exception as exc:
                 raise ValueError("O OpenRouter não devolveu o sistema da marca.") from exc
     return apply_compose(parsed, raw)
+
+
+def seed_local_compose(system):
+    parsed = parse_system(system)
+    dna = dict(parsed.dna or {})
+    name = dna.get("name") or parsed.name or "a marca"
+    if not dna.get("personality"):
+        dna["personality"] = ["clara", "de mídia", "reconhecível"]
+    if not dna.get("must"):
+        dna["must"] = ["logo reconhecível", "headline curta", "CTA com 4.5:1"]
+    if not dna.get("avoid"):
+        dna["avoid"] = ["resize cego", "card SaaS", "copy longa"]
+    dna["name"] = name
+    return apply_compose(
+        parsed,
+        {
+            "dna": dna,
+            "archetype": parsed.archetype or "brand",
+            "notes": ["DNA assentado no loop local."],
+        },
+    )
+
+
+def advance_loop(system, *, text_callable=None, reference_urls=None):
+    """Um passo do loop contínuo. Não gera imagem — a mesa pede a trilha."""
+    from .catalog import inspect_loop
+    from .components import compile_rules
+
+    parsed = parse_system(system)
+    info = inspect_loop(parsed)
+    report = None
+    if info["action"] == "compose":
+        if text_callable is not None:
+            parsed, report = compose_design_system(
+                parsed, text_callable=text_callable, reference_urls=reference_urls
+            )
+        else:
+            parsed, report = seed_local_compose(parsed)
+    elif info["action"] == "contrast":
+        parsed, report = improve_system(parsed, "contrast")
+    elif info["action"] == "rules":
+        data = dump_system(parsed)
+        data["rules"] = compile_rules(data.get("dna"), data.get("archetype"))
+        parsed = DesignSystemAds.model_validate(data)
+    info = inspect_loop(parsed)
+    return parsed, info, report
 
 
 def refine_design_system(

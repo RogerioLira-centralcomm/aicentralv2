@@ -12,7 +12,8 @@ from .campaign import (
 )
 from .centralcomm import CENTRALCOMM_SLUG, centralcomm_preset
 from .materialize import ensure_brand_design_system
-from .refine import IMPROVE_INTENTS, improve_system, patch_system, refine_design_system
+from .catalog import catalog_for
+from .refine import IMPROVE_INTENTS, advance_loop, improve_system, patch_system, refine_design_system
 from .render import render_specimen, table_html, tailwind_theme
 from .schema import dump_system, parse_system
 
@@ -24,14 +25,18 @@ TOKEN_GROUPS = (
 )
 
 
-def payload_for(system, *, format_key=None, layer_count=None, swaps=None):
+def payload_for(system, *, format_key=None, layer_count=None, swaps=None, archetype=None):
     parsed = parse_system(system)
     stack = None
     if format_key:
         if layer_count in (None, "") and parsed.elements:
             layer_count = layer_count_from_elements(parsed.elements)
         parsed, stack = adapt_system(
-            parsed, format_key, layer_count or MIN_LAYERS, swaps=swaps
+            parsed,
+            format_key,
+            layer_count or MIN_LAYERS,
+            swaps=swaps,
+            archetype=archetype,
         )
     parsed.specimen_html = render_specimen(parsed, standalone=False, stack=stack)
     data = dump_system(parsed)
@@ -76,6 +81,12 @@ def payload_for(system, *, format_key=None, layer_count=None, swaps=None):
     data["rules"] = parsed.rules or {}
     data["dna"] = parsed.dna or {}
     data["tracks"] = list(parsed.tracks or [])
+    data["catalog"] = catalog_for(parsed, client_id=parsed.client_id)
+    data["iab_formats"] = data["catalog"]["iab_formats"]
+    data["components"] = data["catalog"]["components"]
+    data["archetypes"] = data["catalog"]["archetypes"]
+    data["flow"] = data["catalog"]["flow"]
+    data["loop"] = data["catalog"]["loop"]
     if stack:
         data["adapt"] = stack
     return data
@@ -139,8 +150,12 @@ def run_improve(system, intent):
     return improve_system(system, intent)
 
 
-def run_patch(system, tokens=None, ad_copy=None):
-    return patch_system(system, tokens=tokens, ad_copy=ad_copy)
+def run_patch(system, tokens=None, ad_copy=None, dna=None, archetype=None):
+    return patch_system(system, tokens=tokens, ad_copy=ad_copy, dna=dna, archetype=archetype)
+
+
+def run_loop(system, *, text_callable=None, reference_urls=None):
+    return advance_loop(system, text_callable=text_callable, reference_urls=reference_urls)
 
 
 def mark_approved(system):

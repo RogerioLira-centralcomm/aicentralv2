@@ -28,6 +28,20 @@ ARCHETYPES = {
     "promotion": {"ground": "wash", "lead": "cta", "label": "Promoção"},
 }
 
+ARCHETYPE_FORMAT = {
+    "brand": "iab-billboard",
+    "product-hero": "iab-medium",
+    "lifestyle": "iab-halfpage",
+    "promotion": "iab-medium",
+}
+
+TRACK_FOR_ARCHETYPE = {
+    "brand": "wash",
+    "product-hero": "packshot",
+    "lifestyle": "lifestyle",
+    "promotion": "wash",
+}
+
 GROUND_KINDS = ("paper", "wash", "image")
 
 

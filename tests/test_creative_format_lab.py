@@ -606,6 +606,25 @@ class CreativeFormatLabTest(unittest.TestCase):
         })
         self.assertEqual(again["id"], first["id"])
 
+    def test_criar_sessao_usa_campanha_leve_quando_o_passo_quebra(self):
+        repository = FakeRepository()
+        modeling = CreativeModelingService(repository=repository, generator=FakeGenerator())
+        lab = FormatLabService(modeling)
+        repository.find_latest_campaign_for_client = lambda *_args, **_kwargs: None
+
+        def boom(*_args, **_kwargs):
+            raise RuntimeError("engine check")
+
+        repository.create_campaign_with_variation_a = boom
+        repository.create_mesa_campaign = lambda *_args, **_kwargs: {"id": 88}
+        session = lab.create_session({
+            "client_id": 10,
+            "format": "video-linear-15",
+        })
+        self.assertEqual(session["campaign_id"], 88)
+        self.assertEqual(session["client_id"], 10)
+        self.assertTrue(session["id"])
+
     def test_criar_sessao_nao_quebra_se_a_campanha_nao_carrega(self):
         repository = FakeRepository()
         modeling = CreativeModelingService(repository=repository, generator=FakeGenerator())
@@ -1033,12 +1052,14 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("modelagem_trocar", shell)
         self.assertIn("modelagem_design-system", shell)
         desk = (root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html").read_text(encoding="utf-8")
-        self.assertIn("modelagem_criativos.css') }}?v=87", desk)
-        self.assertIn("mc_page_js) }}?v=30", desk)
+        self.assertIn("modelagem_criativos.css') }}?v=88", desk)
+        self.assertIn("mc_page_js) }}?v=31", desk)
         dsa = (root / "aicentralv2" / "templates" / "parametros" / "_mc_design_system.html").read_text(encoding="utf-8")
         self.assertLess(dsa.find("mc-dsa-preview"), dsa.find("mc-dsa-side"))
         self.assertIn("Folha", dsa)
         self.assertIn("Pedir ao modelo", dsa)
+        self.assertIn("Continuar loop", dsa)
+        self.assertIn("mcDsaCatalog", dsa)
         self.assertIn("Um eixo por vez", dsa)
         css = (root / "aicentralv2" / "static" / "css" / "modelagem_criativos.css").read_text(encoding="utf-8")
         self.assertIn("grid-template-columns: minmax(0, 1fr) 20rem;", css)

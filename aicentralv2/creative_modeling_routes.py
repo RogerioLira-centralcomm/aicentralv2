@@ -478,6 +478,8 @@ def api_patch_brand_design_system(client_id):
                 client_id,
                 tokens=payload.get("tokens") if isinstance(payload.get("tokens"), dict) else None,
                 ad_copy=payload.get("ad_copy") if isinstance(payload.get("ad_copy"), dict) else None,
+                dna=payload.get("dna") if isinstance(payload.get("dna"), dict) else None,
+                archetype=payload.get("archetype"),
             )
         )
     )
@@ -486,6 +488,11 @@ def api_patch_brand_design_system(client_id):
 @admin_required_api
 def api_compose_brand_design_system(client_id):
     return _execute(lambda: _ok(_service().compose_brand_design_system(client_id)))
+
+
+@admin_required_api
+def api_loop_brand_design_system(client_id):
+    return _execute(lambda: _ok(_service().loop_brand_design_system(client_id)))
 
 
 @admin_required_api
@@ -509,7 +516,11 @@ def api_adapt_brand_design_system(client_id):
     return _execute(
         lambda: _ok(
             _service().adapt_brand_design_system(
-                client_id, format_key, layers, swaps=swaps
+                client_id,
+                format_key,
+                layers,
+                swaps=swaps,
+                archetype=payload.get("archetype"),
             )
         )
     )
@@ -1305,6 +1316,12 @@ def register_creative_modeling_routes(blueprint):
         "/api/design-system/brand/<client_id>/compose",
         endpoint="creative_design_system_brand_compose",
         view_func=api_compose_brand_design_system,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/design-system/brand/<client_id>/loop",
+        endpoint="creative_design_system_brand_loop",
+        view_func=api_loop_brand_design_system,
         methods=["POST"],
     )
     blueprint.add_url_rule(

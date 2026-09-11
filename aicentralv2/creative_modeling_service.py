@@ -1335,7 +1335,7 @@ class CreativeModelingService:
         persisted = self._persist_brand_design_system(client, refined)
         return _serialize({**payload_for(persisted), "exists": True, "preset": False})
 
-    def patch_brand_design_system(self, client_id, tokens=None, ad_copy=None):
+    def patch_brand_design_system(self, client_id, tokens=None, ad_copy=None, dna=None, archetype=None):
         from .design_system_ads.service import (
             is_preset_id,
             payload_for,
@@ -1344,15 +1344,52 @@ class CreativeModelingService:
         )
 
         if is_preset_id(client_id):
-            patched, _applied = run_patch(read_preset(), tokens=tokens, ad_copy=ad_copy)
+            patched, _applied = run_patch(
+                read_preset(), tokens=tokens, ad_copy=ad_copy, dna=dna, archetype=archetype
+            )
             return _serialize({**payload_for(patched), "exists": True, "preset": True})
         client = self.get_client(client_id)
         system = self._stored_brand_design_system(client)
         if system is None:
             raise CreativeNotFoundError("A marca ainda não tem Design System Ads.")
-        patched, _applied = run_patch(system, tokens=tokens, ad_copy=ad_copy)
+        patched, _applied = run_patch(
+            system, tokens=tokens, ad_copy=ad_copy, dna=dna, archetype=archetype
+        )
         persisted = self._persist_brand_design_system(client, patched)
         return _serialize({**payload_for(persisted), "exists": True, "preset": False})
+
+    def loop_brand_design_system(self, client_id, generate_track=False):
+        from .design_system_ads.service import (
+            is_preset_id,
+            payload_for,
+            read_preset,
+            run_loop,
+        )
+
+        if is_preset_id(client_id):
+            advanced, info, _report = run_loop(read_preset())
+            payload = {**payload_for(advanced), "exists": True, "preset": True, "loop": info}
+            return _serialize(payload)
+        client = self.get_client(client_id)
+        system = self._stored_brand_design_system(client)
+        if system is None:
+            from .design_system_ads.materialize import ensure_brand_design_system
+
+            system = ensure_brand_design_system(client)
+        references = []
+        if client.get("logo_upload_path") or client.get("logo_url"):
+            references.append(client.get("logo_upload_path") or client.get("logo_url"))
+        for asset in client.get("brand_assets") or []:
+            url = asset.get("asset_url") or asset.get("stored_url") or asset.get("source_url")
+            if url:
+                references.append(url)
+        advanced, info, _report = run_loop(
+            system,
+            text_callable=self._design_system_text_callable(),
+            reference_urls=references[:4],
+        )
+        persisted = self._persist_brand_design_system(client, advanced)
+        return _serialize({**payload_for(persisted), "exists": True, "preset": False, "loop": info})
 
     def compose_brand_design_system(self, client_id):
         from .design_system_ads.refine import compose_design_system
@@ -1448,7 +1485,7 @@ class CreativeModelingService:
         return _serialize({**payload_for(persisted), "exists": True, "preset": False})
 
     def adapt_brand_design_system(
-        self, client_id, format_key=None, layer_count=None, swaps=None
+        self, client_id, format_key=None, layer_count=None, swaps=None, archetype=None
     ):
         from .design_system_ads.service import is_preset_id, payload_for, read_preset
 
@@ -1460,6 +1497,7 @@ class CreativeModelingService:
                         format_key=format_key or "iab-billboard",
                         layer_count=layer_count,
                         swaps=swaps,
+                        archetype=archetype,
                     ),
                     "exists": True,
                     "preset": True,
@@ -1471,6 +1509,11 @@ class CreativeModelingService:
             from .design_system_ads.materialize import ensure_brand_design_system
 
             system = ensure_brand_design_system(client)
+        if archetype:
+            from .design_system_ads.service import run_patch
+
+            system, _applied = run_patch(system, archetype=archetype)
+            system = self._persist_brand_design_system(client, system)
         return _serialize(
             {
                 **payload_for(
@@ -1478,6 +1521,7 @@ class CreativeModelingService:
                     format_key=format_key or "iab-billboard",
                     layer_count=layer_count,
                     swaps=swaps,
+                    archetype=archetype,
                 ),
                 "exists": True,
                 "preset": False,

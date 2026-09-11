@@ -283,8 +283,27 @@ def apply_layer_swaps(stack, swaps):
     return current
 
 
-def adapt_system(system, format_key="iab-billboard", layer_count=MIN_LAYERS, swaps=None):
+def adapt_system(system, format_key="iab-billboard", layer_count=MIN_LAYERS, swaps=None, archetype=None):
     parsed = parse_system(system)
+    if archetype:
+        from .components import ARCHETYPES, TRACK_FOR_ARCHETYPE, apply_background, compile_rules
+
+        data = dump_system(parsed)
+        if archetype in ARCHETYPES:
+            data["archetype"] = archetype
+            image = ""
+            track_id = TRACK_FOR_ARCHETYPE.get(archetype)
+            for item in parsed.tracks or []:
+                if isinstance(item, dict) and item.get("id") == track_id:
+                    image = item.get("url") or ""
+                    break
+            data["tokens"] = apply_background(
+                data.get("tokens") or {},
+                ARCHETYPES[archetype]["ground"],
+                image_url=image,
+            )
+            data["rules"] = compile_rules(data.get("dna"), archetype)
+            parsed = parse_system(data)
     if layer_count in (None, "") and parsed.elements:
         from .campaign import layer_count_from_elements
 

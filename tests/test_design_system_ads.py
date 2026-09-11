@@ -210,6 +210,20 @@ class DesignSystemAdsContractTest(unittest.TestCase):
         kv = next(item for item in composed.tracks if item["id"] == "kv")
         self.assertIn("16:9", kv["prompt"])
         self.assertIn("#1E4D4F", prompt_for_track(system, "packshot"))
+        catalog = payload_for(system)
+        self.assertEqual(len(catalog["catalog"]["components"]), 7)
+        self.assertEqual(len(catalog["archetypes"]), 4)
+        self.assertEqual(catalog["loop"]["action"], "track")
+        self.assertTrue(catalog["catalog"]["dna"]["personality"])
+        empty = ensure_brand_design_system({"id": 21, "name": "Vazia", "primary_color": "#123456"})
+        empty.dna = {}
+        from aicentralv2.design_system_ads.refine import advance_loop, seed_local_compose
+
+        seeded, info, _report = advance_loop(empty)
+        self.assertTrue(seeded.dna.get("personality"))
+        self.assertIn(info["action"], {"contrast", "track", "ready", "rules"})
+        local, _report = seed_local_compose(empty)
+        self.assertIn("clara", local.dna.get("personality") or [])
 
     def test_heal_e_patch(self):
         weak = ensure_brand_design_system(
@@ -314,11 +328,18 @@ class DesignSystemAdsContractTest(unittest.TestCase):
         self.assertIn('data-mode="melhorar"', html)
         self.assertIn('data-mode="peca"', html)
         self.assertIn("mcDsaIntents", html)
-        self.assertIn("mcDsaGrounds", html)
+        self.assertIn("mcDsaCatalog", html)
+        self.assertIn("mcDsaLoop", html)
+        self.assertIn("mcDsaArchetypes", html)
         self.assertIn("mcDsaTracks", html)
         self.assertIn("mcDsaCompose", html)
+        self.assertIn("Continuar loop", html)
         self.assertIn(
             "/parametros/api/design-system/brand/<client_id>/compose",
+            [rule.rule for rule in app.url_map.iter_rules()],
+        )
+        self.assertIn(
+            "/parametros/api/design-system/brand/<client_id>/loop",
             [rule.rule for rule in app.url_map.iter_rules()],
         )
 

@@ -1,0 +1,116 @@
+{% extends "base_erp.html" %}
+{% block title %}Estados do Trocr — Modelagem{% endblock %}
+{% block page_label %}Lab{% endblock %}
+{% block page_subtitle %}Estados visuais do editor Trocr{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=79">
+{% endblock %}
+
+{% block content %}
+<main class="mc-states-lab">
+  <header>
+    <h1>Estados do Trocr</h1>
+    <p>Mocks lado a lado. Sem OpenRouter, sem persistência. Valida o fluxo de versão e OCR dinâmico.</p>
+  </header>
+  <section class="mc-states-grid">
+    <article class="mc-states-card" data-state="empty">
+      <h2>Canvas vazio</h2>
+      <div class="mc-states-mini">
+        <strong>Solte a referência.</strong>
+        <p>Ao enviar uma nova imagem, o OCR é executado automaticamente.</p>
+      </div>
+    </article>
+    <article class="mc-states-card" data-state="ocr">
+      <h2>Imagem + OCR</h2>
+      <div class="mc-states-mini is-paper mc-trocr-mini">
+        <strong>Textos detectados</strong>
+        <p>Headline TIM ULTRA COMBO · Apoio Conexão dentro e fora de casa · Preço R$ 149,90 · CTA Assine</p>
+        <p class="mc-inline">OCR atualizado</p>
+      </div>
+    </article>
+    <article class="mc-states-card" data-state="analysis">
+      <h2>Análise preenchida</h2>
+      <div class="mc-states-mini is-paper mc-trocr-mini">
+        <strong>Elementos identificados na imagem.</strong>
+        <p>Fundo, pessoas, logo, título, CTA e preço marcados. Grafismo livre.</p>
+      </div>
+    </article>
+    <article class="mc-states-card" data-state="base">
+      <h2>Base ativa</h2>
+      <div class="mc-states-mini is-paper mc-trocr-mini">
+        <strong>Editando v3 · Editado</strong>
+        <p>Base ativa: v3 · Editado. Use esta versão como base para continuar editando.</p>
+        <span class="mc-run-badge">Base ativa</span>
+      </div>
+    </article>
+    <article class="mc-states-card" data-state="history">
+      <h2>Histórico com 4 versões</h2>
+      <div class="mc-states-mini is-paper mc-trocr-mini">
+        <strong>4 versões. Nenhuma versão será sobrescrita.</strong>
+        <ol>
+          <li>v1 · Original</li>
+          <li>v2 · Editado</li>
+          <li>v3 · Editado</li>
+          <li>v4 · Produção</li>
+        </ol>
+      </div>
+    </article>
+    <article class="mc-states-card" data-state="compare">
+      <h2>Modo comparar</h2>
+      <div class="mc-states-mini is-paper mc-trocr-mini">
+        <strong>Original × versão atual</strong>
+        <p>v1 · Original ao lado de v4 · Produção. Slider fica para depois.</p>
+      </div>
+    </article>
+    <article class="mc-states-card" data-state="loading">
+      <h2>Loading</h2>
+      <div class="mc-states-mini">
+        <strong>Gerando nova versão</strong>
+        <p>OCR processando · Analisando criativo · Gerando prompt otimizado</p>
+        <ol class="mc-run-load">
+          <li class="is-done">Análise</li>
+          <li class="is-done">Montagem do prompt</li>
+          <li class="is-current">Geração</li>
+          <li>Finalização</li>
+        </ol>
+      </div>
+    </article>
+    <article class="mc-states-card" data-state="error">
+      <h2>Erro</h2>
+      <div class="mc-states-mini is-paper">
+        <div class="mc-run-state is-error">
+          <strong>Falha ao gerar nova versão</strong>
+          <p>Tente novamente, edite os insumos ou volte à versão anterior.</p>
+          <button class="cx-btn cx-btn-primary" type="button">Tentar novamente</button>
+          <button class="cx-btn cx-btn-ghost" type="button">Editar insumos</button>
+          <button class="cx-btn cx-btn-ghost" type="button">Voltar à versão anterior</button>
+        </div>
+      </div>
+    </article>
+    <article class="mc-states-card" data-state="success">
+      <h2>Sucesso</h2>
+      <div class="mc-states-mini is-paper">
+        <div class="mc-run-state is-success">
+          <strong>Nova versão criada com sucesso</strong>
+          <p>v4 · Produção entrou no histórico. A v3 continua disponível.</p>
+        </div>
+      </div>
+    </article>
+    <article class="mc-states-card" data-state="rebase">
+      <h2>Mudança de base</h2>
+      <div class="mc-states-mini is-paper mc-trocr-mini">
+        <strong>Versão definida como base</strong>
+        <p>v2 virou a base ativa. O canvas mudou. A edição seguinte parte desta versão.</p>
+      </div>
+    </article>
+    <article class="mc-states-card" data-state="reread">
+      <h2>Reprocessamento OCR</h2>
+      <div class="mc-states-mini is-paper mc-trocr-mini">
+        <strong>OCR e análise rodaram de novo</strong>
+        <p>Headline, preço e CTA foram repovoados a partir da nova base. O cache da versão anterior permanece.</p>
+      </div>
+    </article>
+  </section>
+</main>
+{% endblock %}

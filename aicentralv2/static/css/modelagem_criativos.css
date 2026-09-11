@@ -8554,6 +8554,7 @@
   border: 0;
 }
 
+.mc-lab.mc-trocr,
 .mc-trocr {
   --cx-mesa-white: #ffffff;
   --cx-mesa-gray-50: #f8fafc;
@@ -8577,6 +8578,7 @@
 
 .mc-trocr-pagehead {
   grid-column: 1 / -1;
+  grid-row: 1;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -8616,6 +8618,8 @@
 }
 
 .mc-trocr-flow {
+  grid-column: 1;
+  grid-row: 2;
   display: grid;
   grid-template-rows: 1fr auto;
   padding: 0.9rem 0.85rem 1rem;
@@ -8701,6 +8705,8 @@
 }
 
 .mc-trocr-main {
+  grid-column: 2;
+  grid-row: 2;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   min-width: 0;
@@ -8974,6 +8980,8 @@
 }
 
 .mc-trocr-inspector {
+  grid-column: 3;
+  grid-row: 2;
   display: grid;
   align-content: start;
   gap: 0.85rem;
@@ -9213,9 +9221,18 @@
 }
 
 @media (max-width: 1100px) {
+  .mc-lab.mc-trocr,
   .mc-trocr {
     grid-template-columns: 1fr;
     grid-template-rows: auto auto auto auto;
+  }
+
+  .mc-trocr-pagehead,
+  .mc-trocr-flow,
+  .mc-trocr-main,
+  .mc-trocr-inspector {
+    grid-column: auto;
+    grid-row: auto;
   }
 
   .mc-trocr-flow,

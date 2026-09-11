@@ -3372,6 +3372,17 @@ class CreativeFilesContractTest(unittest.TestCase):
             "_mc_lab.html",
             "_mc_placas.html",
             "_mc_trocar.html",
+            "trocr/_flow_sidebar.html",
+            "trocr/_canvas.html",
+            "trocr/_inspector.html",
+            "trocr/_ocr_fields.html",
+            "trocr/_analysis.html",
+            "trocr/_preserve_alter.html",
+            "trocr/_prompt.html",
+            "trocr/_generate.html",
+            "trocr/_versions.html",
+            "trocr/_states.html",
+            "trocr/states.html",
             "_mc_design_system.html",
         ]
         for name in names:
@@ -3939,6 +3950,14 @@ class CreativeFilesContractTest(unittest.TestCase):
         )
         self.assertIn(
             '"$VENV_PYTHON" migrations/run_add_creative_storyboards_and_catalogs.py',
+            deploy,
+        )
+        self.assertIn(
+            '"$VENV_PYTHON" migrations/run_add_design_system_ads.py',
+            deploy,
+        )
+        self.assertIn(
+            '"$VENV_PYTHON" migrations/run_add_creative_plate_kits.py',
             deploy,
         )
         self.assertIn(

@@ -28,7 +28,9 @@ from aicentralv2.creative_format_lab.spec import CreativeFormatSpec, parse_forma
 from aicentralv2.creative_format_lab.storyboard import build_storyboard, quote_concept
 from aicentralv2.creative_format_lab.close import close_scene
 from aicentralv2.creative_format_lab.swap import (
+    build_optimized_prompt,
     build_swap_prompt,
+    preview_swap_prompt,
     quote_swap,
     read_swap_reference,
     resolve_aspect_ratio,
@@ -973,6 +975,7 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         register_modeling_ux_lab(app)
         rules = [rule.rule for rule in app.url_map.iter_rules()]
         self.assertIn("/lab/modelagem/states", rules)
+        self.assertIn("/lab/trocr/states", rules)
         self.assertIn("/lab/design-system/marca/<client_id>", rules)
         self.assertIn("/lab/design-system/campanha/<campaign_id>", rules)
         shell = (root / "aicentralv2" / "templates" / "parametros" / "_mc_shell.html").read_text(encoding="utf-8")
@@ -1089,14 +1092,31 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("--mc-stage-ratio", js)
         self.assertIn("frame.style.transform = ''", js)
         self.assertNotIn("1920px", js)
-        trocar = (root / "aicentralv2" / "templates" / "parametros" / "_mc_trocar.html").read_text(encoding="utf-8")
+        trocar_dir = root / "aicentralv2" / "templates" / "parametros"
+        trocar = (trocar_dir / "_mc_trocar.html").read_text(encoding="utf-8")
+        for path in sorted((trocar_dir / "trocr").glob("*.html")):
+            trocar += path.read_text(encoding="utf-8")
         self.assertIn("mcSwapOut", trocar)
         self.assertIn("9:16", trocar)
         self.assertIn("mcSwapElements", trocar)
+        self.assertIn("Editar criativo com IA", trocar)
+        self.assertIn("Prompt otimizado", trocar)
+        self.assertIn("Todas as versões são preservadas", trocar)
+        states = (trocar_dir / "trocr" / "states.html").read_text(encoding="utf-8")
+        self.assertIn("Canvas vazio", states)
+        self.assertIn("Histórico com 4 versões", states)
+        self.assertIn("Reprocessamento OCR", states)
+        docs = (root / "docs" / "trocr-editor-refactor.md").read_text(encoding="utf-8")
+        self.assertIn("OCR dinâmico", docs)
+        self.assertIn("/lab/trocr/states", docs)
         swap_js = (root / "aicentralv2" / "static" / "js" / "mc-trocar.js").read_text(encoding="utf-8")
         self.assertIn("/parametros/api/format-lab/swap/read", swap_js)
+        self.assertIn("/parametros/api/format-lab/swap/prompt", swap_js)
         self.assertIn("aspect_ratio", swap_js)
         self.assertIn("logo_used", swap_js)
+        self.assertIn("pushVersion", swap_js)
+        self.assertIn("useAsBase", swap_js)
+        self.assertIn("Usar como base", swap_js)
         placas = (root / "aicentralv2" / "templates" / "parametros" / "_mc_placas.html").read_text(encoding="utf-8")
         self.assertIn("mcPlacasStudio", placas)
         self.assertIn("mcPlacasList", placas)
@@ -1445,6 +1465,57 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
         self.assertEqual(result["cta"], "Monte o seu")
         self.assertEqual(result["elements"][0]["role"], "logo")
         self.assertEqual(result["aspect_hint"], "16:9")
+        self.assertIn("analysis", result)
+        self.assertTrue(result["analysis"]["logo"])
+        self.assertTrue(result["analysis"]["headline"])
+
+    def test_prompt_otimizado_respeita_preservar_e_qualidade(self):
+        prompt = build_optimized_prompt(
+            {
+                "brand_name": "TIM",
+                "headline": "TIM ULTRA COMBO",
+                "price": "R$ 149,90",
+                "cta": "Assine",
+                "note": "Diminuir o TIM ULTRA COMBO.",
+                "preserve": ["layout", "people", "logo"],
+                "alter": ["headline", "price"],
+                "quality": "draft",
+                "use_brand_context": True,
+            },
+            brand={"name": "TIM", "tone_of_voice": "direto"},
+        )
+        self.assertIn("Preserve exactly", prompt)
+        self.assertIn("Change only", prompt)
+        self.assertIn("draft preview", prompt)
+        self.assertIn("Brand tone", prompt)
+        preview = preview_swap_prompt(
+            {
+                "brand_name": "TIM",
+                "headline": "TIM ULTRA COMBO",
+                "preserve": ["logo"],
+                "quality": "production",
+            }
+        )
+        self.assertIn("identidade visual", preview["preview"])
+        self.assertEqual(preview["quality"], "production")
+        self.assertNotEqual(quote_swap({"quality": "draft"})["estimated_cost_usd"], quote_swap()["estimated_cost_usd"])
+
+    def test_prompt_override_nao_reescreve_o_texto(self):
+        prompt = build_optimized_prompt({"prompt_override": "Manter as pessoas e só trocar o CTA."})
+        self.assertEqual(prompt, "Manter as pessoas e só trocar o CTA.")
+
+    def test_geracao_nao_reusa_id_da_versao(self):
+        first = swap_reference(
+            {"reference": "data:image/png;base64,aaa", "quality": "draft"},
+            image_callable=lambda *_a, **_k: {"b64_json": "YQ=="},
+        )
+        second = swap_reference(
+            {"reference": "data:image/png;base64,bbb", "quality": "production"},
+            image_callable=lambda *_a, **_k: {"b64_json": "Yg=="},
+        )
+        self.assertNotEqual(first["png_data_url"], second["png_data_url"])
+        self.assertEqual(first["quality"], "draft")
+        self.assertEqual(second["quality"], "production")
 
     def test_swap_sem_referencia_falha(self):
         with self.assertRaises(ValueError):
@@ -1532,3 +1603,21 @@ class CreativeFormatLabRoutesTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["data"]["headline"], "500 MEGA")
         service.read_format_lab_swap.assert_called_once()
+
+    def test_preview_do_prompt_do_trocar(self):
+        service = Mock()
+        service.preview_format_lab_swap.return_value = {
+            "prompt": "Edit the attached advertising reference.",
+            "preview": "Edite o criativo preservando a identidade visual.",
+        }
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            response = self.client.post(
+                "/parametros/api/format-lab/swap/prompt",
+                json={"headline": "TIM ULTRA COMBO", "preserve": ["logo"]},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("identidade visual", response.get_json()["data"]["preview"])
+        service.preview_format_lab_swap.assert_called_once()

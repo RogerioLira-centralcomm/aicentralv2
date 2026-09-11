@@ -47,7 +47,7 @@ class CrmV3ActivityUiContractTest(unittest.TestCase):
 
     def test_ai_is_progressive_and_keeps_configuration_collapsed(self):
         self.assertIn('<details class="cx-atividade-ia-topics"', self.template)
-        self.assertIn('<div class="cx-atividade-kit" data-canal-produtos>', self.template)
+        self.assertIn('<div class="cx-drawer-field cx-atividade-kit" data-canal-produtos>', self.template)
         self.assertIn('<details class="cx-atividade-ia-refine"', self.template)
         self.assertIn('<section class="cx-atividade-ia-history"', self.template)
         self.assertNotIn('<details class="cx-atividade-ia-products"', self.template)
@@ -88,6 +88,18 @@ class CrmV3ActivityUiContractTest(unittest.TestCase):
         self.assertIn("Interativos", self.template)
         self.assertIn("data-canal-ficha", self.template)
         self.assertIn("data-open-canais", self.template)
+        self.assertIn("cx-btn cx-btn-primary cx-atividade-ia-generate", self.template)
+        self.assertIn("cx-btn cx-btn-ghost cx-btn-sm", self.template)
+        self.assertIn('<small data-collapse-state>opcional</small>', self.template)
+        self.assertNotIn("o texto já escrito", self.template)
+        self.assertNotIn(" · ", self.template)
+        self.assertNotIn("cadência", self.template)
+        self.assertRegex(
+            self.css,
+            r"\.cx-atividade-editor-side\s*\{[^}]*background:\s*var\(--cx-surface-muted\)",
+        )
+        self.assertIn(".cx-atividade-editor-side .cx-drawer-ia-output", self.css)
+        self.assertIn("display: block", self.css.split(".cx-atividade-editor-side .cx-drawer-ia-output", 1)[1][:180])
         self.assertIn("<textarea id=\"cx-ativ-ia-instrucoes\"", self.template)
         self.assertIn("wireCanalPicker", self.js)
         self.assertIn("openDrawerCanais", self.js)

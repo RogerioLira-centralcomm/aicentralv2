@@ -184,7 +184,7 @@
             <div>
               <h2 id="cx-atividade-ia-title">Assistente</h2>
             </div>
-            <button type="button" class="cx-atividade-ia-generate" data-ia-action="gerar-roteiro">
+            <button type="button" class="cx-btn cx-btn-primary cx-atividade-ia-generate" data-ia-action="gerar-roteiro">
               Gerar
             </button>
           </header>
@@ -209,7 +209,7 @@
               <summary>
                 <span>
                   <strong id="cx-atividade-ia-topics-title">Rumo e tom</strong>
-                  <em data-collapse-state>opcional</em>
+                  <small data-collapse-state>opcional</small>
                 </span>
                 <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
               </summary>
@@ -235,8 +235,8 @@
               </div>
             </details>
 
-            <div class="cx-atividade-kit" data-canal-produtos>
-              <label class="cx-atividade-kit-label" for="cx-ativ-kit" id="cx-atividade-ia-canais-title">Kit</label>
+            <div class="cx-drawer-field cx-atividade-kit" data-canal-produtos>
+              <label for="cx-ativ-kit" id="cx-atividade-ia-canais-title">Kit</label>
               <div class="cx-atividade-kit-row">
                 <select id="cx-ativ-kit" data-canal-select aria-label="Kit do canal">
                   <option value="">Nenhum</option>
@@ -245,7 +245,7 @@
                   <option value="Serasa">Serasa</option>
                   <option value="Interativos">Interativos</option>
                 </select>
-                <button type="button" class="cx-atividade-canal-catalog" data-open-canais>Ficha</button>
+                <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-open-canais>Ficha</button>
               </div>
               <p class="cx-atividade-kit-fact" data-canal-ficha hidden></p>
             </div>
@@ -254,7 +254,7 @@
               <summary>
                 <span>
                   <strong>Ajuste fino</strong>
-                  <em data-collapse-state>opcional</em>
+                  <small data-collapse-state>opcional</small>
                 </span>
                 <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
               </summary>
@@ -266,16 +266,11 @@
             </details>
           </div>
 
-          <p class="cx-atividade-ia-legend">
-            <button type="button" data-ia-action="melhorar-texto">Revisar</button>
-            o texto já escrito
-            ·
-            <button type="button" data-ia-action="sugerir-atividade">Próxima</button>
-            variação
-            ·
-            <button type="button" data-ia-action="touchpoints">Sequência</button>
-            cadência
-          </p>
+          <div class="cx-atividade-ia-legend" role="group" aria-label="Ações do assistente">
+            <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-ia-action="melhorar-texto">Revisar</button>
+            <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-ia-action="sugerir-atividade">Próxima</button>
+            <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-ia-action="touchpoints">Sequência</button>
+          </div>
 
           <div class="cx-drawer-ia-output" data-ia-output aria-live="polite">
             <p class="cx-atividade-ia-empty">Gere o texto desta atividade.</p>

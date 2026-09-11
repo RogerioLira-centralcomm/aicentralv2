@@ -191,7 +191,7 @@
 
           <div class="cx-atividade-brief" data-ia-brief>
             <p class="cx-atividade-brief-lead" data-ia-brief-lead>O título e o registro à esquerda viram o assunto do texto.</p>
-            <div class="cx-atividade-brief-lines" data-ia-brief-lines></div>
+            <p class="cx-atividade-brief-meta" data-ia-brief-meta hidden></p>
           </div>
           <p class="cx-atividade-canal-suggest" data-canal-suggest hidden></p>
           <p class="sr-only" data-ia-channel-label></p>
@@ -204,64 +204,52 @@
             <span data-ia-progress-pct>0%</span>
           </div>
 
-          <details class="cx-atividade-ia-topics" data-ia-topics>
-            <summary>
-              <span>
-                <strong id="cx-atividade-ia-topics-title">Rumo e tom</strong>
-                <em data-collapse-state>opcional</em>
-              </span>
-              <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
-            </summary>
-            <p class="cx-atividade-ia-topics-hint">Sem rumo, o gerador segue o título e o registro. O kit do canal não troca esse assunto.</p>
-            <div class="cx-atividade-ia-toolbar" role="group" aria-label="Rumo e tom opcionais">
-              <div class="cx-drawer-chip-group cx-drawer-chip-group-compact"
-                   data-chip-group="foco" data-chip-optional role="radiogroup" aria-label="Objetivo da conversa">
-                <button type="button" class="cx-drawer-chip" data-value="apresentar_solucao" role="radio" aria-checked="false">Apresentar</button>
-                <button type="button" class="cx-drawer-chip" data-value="estudar" role="radio" aria-checked="false">Estudar</button>
-                <button type="button" class="cx-drawer-chip" data-value="follow_up" role="radio" aria-checked="false">Follow-up</button>
-                <button type="button" class="cx-drawer-chip" data-value="falar_sobre_canal" role="radio" aria-checked="false">Canal</button>
-                <button type="button" class="cx-drawer-chip" data-value="apresentar_proposta" role="radio" aria-checked="false">Proposta</button>
-                <button type="button" class="cx-drawer-chip" data-value="apresentar_empresa" role="radio" aria-checked="false">CentralComm</button>
-                <button type="button" class="cx-drawer-chip" data-value="entender_necessidades" role="radio" aria-checked="false">Entender</button>
+          <div class="cx-atividade-ia-tools">
+            <details class="cx-atividade-ia-topics" data-ia-topics>
+              <summary>
+                <span>
+                  <strong id="cx-atividade-ia-topics-title">Rumo e tom</strong>
+                  <em data-collapse-state>opcional</em>
+                </span>
+                <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+              </summary>
+              <p class="cx-atividade-ia-topics-hint">Sem rumo, o gerador segue o título e o registro.</p>
+              <div class="cx-atividade-ia-toolbar" role="group" aria-label="Rumo e tom opcionais">
+                <div class="cx-drawer-chip-group cx-drawer-chip-group-compact"
+                     data-chip-group="foco" data-chip-optional role="radiogroup" aria-label="Objetivo da conversa">
+                  <button type="button" class="cx-drawer-chip" data-value="apresentar_solucao" role="radio" aria-checked="false">Apresentar</button>
+                  <button type="button" class="cx-drawer-chip" data-value="estudar" role="radio" aria-checked="false">Estudar</button>
+                  <button type="button" class="cx-drawer-chip" data-value="follow_up" role="radio" aria-checked="false">Follow-up</button>
+                  <button type="button" class="cx-drawer-chip" data-value="falar_sobre_canal" role="radio" aria-checked="false">Canal</button>
+                  <button type="button" class="cx-drawer-chip" data-value="apresentar_proposta" role="radio" aria-checked="false">Proposta</button>
+                  <button type="button" class="cx-drawer-chip" data-value="apresentar_empresa" role="radio" aria-checked="false">CentralComm</button>
+                  <button type="button" class="cx-drawer-chip" data-value="entender_necessidades" role="radio" aria-checked="false">Entender</button>
+                </div>
+                <div class="cx-drawer-chip-group cx-drawer-chip-group-compact"
+                     data-chip-group="tom" role="radiogroup" aria-label="Tom da comunicação">
+                  <button type="button" class="cx-drawer-chip" data-value="institucional" role="radio" aria-checked="false">Institucional</button>
+                  <button type="button" class="cx-drawer-chip is-active" data-value="consultivo" role="radio" aria-checked="true">Consultivo</button>
+                  <button type="button" class="cx-drawer-chip" data-value="direto" role="radio" aria-checked="false">Direto</button>
+                  <button type="button" class="cx-drawer-chip" data-value="informal" role="radio" aria-checked="false">Informal</button>
+                </div>
               </div>
-              <div class="cx-drawer-chip-group cx-drawer-chip-group-compact"
-                   data-chip-group="tom" role="radiogroup" aria-label="Tom da comunicação">
-                <button type="button" class="cx-drawer-chip" data-value="institucional" role="radio" aria-checked="false">Institucional</button>
-                <button type="button" class="cx-drawer-chip is-active" data-value="consultivo" role="radio" aria-checked="true">Consultivo</button>
-                <button type="button" class="cx-drawer-chip" data-value="direto" role="radio" aria-checked="false">Direto</button>
-                <button type="button" class="cx-drawer-chip" data-value="informal" role="radio" aria-checked="false">Informal</button>
+            </details>
+
+            <div class="cx-atividade-kit" data-canal-produtos>
+              <label class="cx-atividade-kit-label" for="cx-ativ-kit" id="cx-atividade-ia-canais-title">Kit</label>
+              <div class="cx-atividade-kit-row">
+                <select id="cx-ativ-kit" data-canal-select aria-label="Kit do canal">
+                  <option value="">Nenhum</option>
+                  <option value="Netflix">Netflix</option>
+                  <option value="Spotify">Spotify</option>
+                  <option value="Serasa">Serasa</option>
+                  <option value="Interativos">Interativos</option>
+                </select>
+                <button type="button" class="cx-atividade-canal-catalog" data-open-canais>Ficha</button>
               </div>
+              <p class="cx-atividade-kit-fact" data-canal-ficha hidden></p>
             </div>
-          </details>
 
-          <details class="cx-atividade-ia-products" data-canal-produtos aria-labelledby="cx-atividade-ia-canais-title">
-            <summary>
-              <span>
-                <strong id="cx-atividade-ia-canais-title">Kit do canal</strong>
-                <em data-collapse-state>opcional</em>
-              </span>
-              <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
-            </summary>
-            <div class="cx-atividade-ia-canais-head">
-              <p class="cx-atividade-ia-topics-hint">O kit entra com 1 a 3 números. O assunto continua sendo o título e o registro.</p>
-              <button type="button" class="cx-atividade-canal-catalog" data-open-canais>
-                Ver ficha
-              </button>
-            </div>
-            <div class="cx-atividade-canal-ficha" data-canal-ficha hidden></div>
-            <input type="search" class="cx-atividade-canal-filter" data-canal-filter
-                   placeholder="Buscar canal — Netflix, Serasa, Interativos…" autocomplete="off" />
-            <div class="cx-drawer-chip-group cx-drawer-chip-group-compact"
-                 data-chip-group="canal_produto" data-chip-optional data-canal-chips
-                 role="radiogroup" aria-label="Kit do canal">
-              <button type="button" class="cx-drawer-chip cx-atividade-canal-opt" data-value="Netflix" role="radio" aria-checked="false"><span class="cx-atividade-brand" aria-hidden="true">N</span>Netflix</button>
-              <button type="button" class="cx-drawer-chip cx-atividade-canal-opt" data-value="Spotify" role="radio" aria-checked="false"><span class="cx-atividade-brand" aria-hidden="true">S</span>Spotify</button>
-              <button type="button" class="cx-drawer-chip cx-atividade-canal-opt" data-value="Serasa" role="radio" aria-checked="false"><span class="cx-atividade-brand" aria-hidden="true">S</span>Serasa</button>
-              <button type="button" class="cx-drawer-chip cx-atividade-canal-opt" data-value="Interativos" role="radio" aria-checked="false"><span class="cx-atividade-brand" aria-hidden="true">I</span>Interativos</button>
-            </div>
-          </details>
-
-          <div class="cx-atividade-ia-meta">
             <details class="cx-atividade-ia-refine" data-ia-refine>
               <summary>
                 <span>
@@ -276,20 +264,21 @@
                           placeholder="Objeção, corte, prazo ou o que a mensagem precisa carregar — ex.: imóveis RJ, score 500+, mínimo R$ 10 mil, sem falar de follow-up."></textarea>
               </label>
             </details>
-            <p class="cx-atividade-ia-legend">
-              <button type="button" data-ia-action="melhorar-texto">Revisar</button>
-              o texto já escrito
-              ·
-              <button type="button" data-ia-action="sugerir-atividade">Próxima</button>
-              variação
-              ·
-              <button type="button" data-ia-action="touchpoints">Sequência</button>
-              cadência
-            </p>
           </div>
 
+          <p class="cx-atividade-ia-legend">
+            <button type="button" data-ia-action="melhorar-texto">Revisar</button>
+            o texto já escrito
+            ·
+            <button type="button" data-ia-action="sugerir-atividade">Próxima</button>
+            variação
+            ·
+            <button type="button" data-ia-action="touchpoints">Sequência</button>
+            cadência
+          </p>
+
           <div class="cx-drawer-ia-output" data-ia-output aria-live="polite">
-            <p class="cx-atividade-ia-empty">Gere a partir do briefing acima.</p>
+            <p class="cx-atividade-ia-empty">Gere o texto desta atividade.</p>
           </div>
         </section>
 
@@ -301,17 +290,16 @@
           </div>
         </section>
 
-        <details class="cx-atividade-ia-history" data-ia-history-section hidden>
-          <summary class="cx-atividade-ia-history-title">
-            <span>
-              <i class="fa-regular fa-clock" aria-hidden="true"></i>
-              Histórico
-              <em data-ia-history-count></em>
-            </span>
-            <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
-          </summary>
+        <section class="cx-atividade-ia-history" data-ia-history-section>
+          <header class="cx-atividade-ia-history-title">
+            <strong>Histórico</strong>
+            <em data-ia-history-count></em>
+          </header>
+          <p class="cx-atividade-ia-history-empty" data-ia-history-empty>
+            As gerações desta atividade aparecem aqui.
+          </p>
           <div data-ia-history></div>
-        </details>
+        </section>
       </aside>
     </div>
   </form>

@@ -2162,13 +2162,64 @@ body.cx-drawer-open {
   border-left: 3px solid #2f6b4f;
 }
 .cx-atividade-brief-lead {
-  margin: 0 0 12px;
+  margin: 0;
   color: #122826;
   font-size: 18px;
   font-weight: 650;
   letter-spacing: -0.03em;
   line-height: 1.25;
 }
+.cx-atividade-brief-meta {
+  margin: 6px 0 0;
+  color: #5b6f68;
+  font-size: 12.5px;
+  font-weight: 550;
+  line-height: 1.35;
+}
+.cx-atividade-brief-meta[hidden] { display: none; }
+.cx-atividade-ia-tools {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 14px;
+}
+.cx-atividade-kit {
+  display: grid;
+  gap: 6px;
+}
+.cx-atividade-kit-label {
+  color: #173c3e;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.cx-atividade-kit-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+.cx-atividade-kit-row select {
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid #c5d0c8;
+  border-radius: 2px;
+  background: #fff;
+  color: #122826;
+  font: inherit;
+  font-size: 13px;
+}
+.cx-atividade-kit-row select:focus {
+  border-color: var(--cx-brand);
+  outline: 0;
+  box-shadow: var(--cx-focus);
+}
+.cx-atividade-kit-fact {
+  margin: 0;
+  color: #5b6f68;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.cx-atividade-kit-fact[hidden] { display: none; }
 .cx-atividade-brief-lines {
   display: grid;
   gap: 7px;
@@ -2504,7 +2555,10 @@ body.cx-drawer-open {
 .cx-atividade-ia-generate:hover { background: #1c3d3a; }
 .cx-atividade-ia-generate:disabled { opacity: 0.6; cursor: wait; }
 .cx-atividade-editor-side .cx-drawer-ia-output {
-  margin: 0 0 12px;
+  display: block;
+  flex: 1 1 auto;
+  min-height: 168px;
+  margin: 0 0 16px;
   border-style: solid;
   border-color: #c7d7d5;
   background: #fff;
@@ -2650,14 +2704,23 @@ body.cx-drawer-open {
   cursor: pointer;
 }
 .cx-atividade-ia-history {
-  flex: 0 0 auto;
-  border: 1px solid var(--cx-border);
-  max-height: none;
+  flex: 1 1 auto;
+  min-height: 132px;
+  margin-top: 4px;
+  padding: 14px 0 0;
+  border: 0;
+  border-top: 1px solid #c5d0c8;
+  border-radius: 0;
+  background: transparent;
   overflow-y: auto;
-  border-radius: 8px;
-  background: #fff;
-  padding: 10px 12px;
 }
+.cx-atividade-ia-history-empty {
+  margin: 0;
+  color: #5b6f68;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.cx-atividade-ia-history-empty[hidden] { display: none; }
 .cx-atividade-ia-history-title,
 .cx-atividade-side-title {
   display: flex;

@@ -1244,7 +1244,6 @@
             row.remove();
             var list = wrapper.querySelector('[data-ia-history]');
             var section = wrapper.querySelector('[data-ia-history-section]');
-            if (section && list && !list.children.length) section.hidden = true;
             syncHistoryCount(wrapper);
         }
         if (!item.historyId) {
@@ -1640,6 +1639,7 @@
         wireRegistroCounter(form);
         wireStyleModel(wrapper);
         loadIaHistory(wrapper, form, clienteId, atividade && atividade.id);
+        syncHistoryCount(wrapper);
         var meetingEditor = setupMeetingEditor(wrapper, form, atividade);
         meetingEditor.toggle(tipoVal);
         wireAtividadeAssistente(wrapper, form, clienteId, meetingEditor);
@@ -2094,29 +2094,34 @@
 
     function renderCanalFicha(wrapper, nome) {
         var box = wrapper.querySelector('[data-canal-ficha]');
+        var select = wrapper.querySelector('[data-canal-select]');
+        if (select && String(select.value || '') !== String(nome || '')) {
+            if (!nome) {
+                select.value = '';
+            } else if ($$('option', select).some(function (opt) { return opt.value === nome; })) {
+                select.value = nome;
+            } else {
+                var extra = document.createElement('option');
+                extra.value = nome;
+                extra.textContent = nome;
+                select.appendChild(extra);
+                select.value = nome;
+            }
+        }
         if (!box) return;
         var canal = findCanalByName(nome);
         if (!canal) {
             box.hidden = true;
-            box.innerHTML = '';
+            box.textContent = '';
             return;
         }
-        var facts = [];
-        if (canal.alcance) facts.push(canal.alcance);
-        if (canal.viewability != null) facts.push('Viewability ' + canal.viewability + '%');
-        if (canal.investimento_minimo) facts.push('Mínimo ' + canal.investimento_minimo);
         var registro = ((wrapper.querySelector('[data-field="descricao"]') || {}).value || '');
         var formatos = formatosParaRegistro(canal, registro);
-        if (formatos[0]) {
-            facts.push(formatos[0].nome + (formatos[0].taxa ? ' ' + formatos[0].taxa : ''));
-        }
-        box.hidden = false;
-        box.innerHTML = '<strong>' + escapeHtml(canal.nome) + '</strong>' +
-            '<em>' + escapeHtml(canal.categoria || 'Kit do canal') + '</em>' +
-            facts.map(function (fact) {
-                return '<span>' + escapeHtml(fact) + '</span>';
-            }).join('') +
-            '<button type="button" data-canal-clear>Tirar do briefing</button>';
+        var fact = formatos[0]
+            ? (formatos[0].nome + (formatos[0].taxa ? ' ' + formatos[0].taxa : ''))
+            : (canal.alcance || '');
+        box.hidden = !fact;
+        box.textContent = fact;
     }
 
     function renderCanalSuggest(wrapper, form) {
@@ -2149,7 +2154,6 @@
         renderCanalFicha(wrapper, val);
         renderCanalSuggest(wrapper, form);
         syncAssistantBriefing(wrapper, form);
-        syncAssistantCollapses(wrapper, form, val ? { openProducts: true } : {});
     }
 
     function markCanalChips(wrapper, val) {
@@ -2164,10 +2168,9 @@
 
     function wireCanalPicker(wrapper, form) {
         var host = wrapper.querySelector('[data-canal-produtos]');
-        var chips = wrapper.querySelector('[data-canal-chips]');
         var hidden = form.querySelector('[data-field="canal_produto"]');
-        var filter = wrapper.querySelector('[data-canal-filter]');
-        if (!host || !chips) return;
+        var select = wrapper.querySelector('[data-canal-select]');
+        if (!host) return;
 
         function onCanalAction(ev) {
             var apply = ev.target && ev.target.closest ? ev.target.closest('[data-canal-apply]') : null;
@@ -2181,42 +2184,39 @@
             }
             return false;
         }
-        host.addEventListener('click', function (ev) {
-            if (onCanalAction(ev)) return;
-            var chip = ev.target && ev.target.closest ? ev.target.closest('.cx-drawer-chip') : null;
-            if (!chip || !chips.contains(chip)) return;
-            var val = chip.getAttribute('data-value') || '';
-            if (hidden && hidden.value === val) {
-                setCanalProduto(form, wrapper, '', 'clear');
-                return;
-            }
-            setCanalProduto(form, wrapper, val, 'pick');
-        });
+        host.addEventListener('click', onCanalAction);
         var suggestBox = wrapper.querySelector('[data-canal-suggest]');
-        if (suggestBox && !host.contains(suggestBox)) {
-            suggestBox.addEventListener('click', onCanalAction);
-        }
-
-        if (filter) {
-            filter.addEventListener('input', function () {
-                var q = String(filter.value || '').toLowerCase();
-                $$('.cx-drawer-chip', chips).forEach(function (chip) {
-                    var nome = String(chip.getAttribute('data-value') || '').toLowerCase();
-                    chip.hidden = !!(q && nome.indexOf(q) === -1);
-                });
+        if (suggestBox) suggestBox.addEventListener('click', onCanalAction);
+        if (select) {
+            select.addEventListener('change', function () {
+                setCanalProduto(form, wrapper, select.value || '', select.value ? 'pick' : 'clear');
             });
         }
 
         var openCatalog = host.querySelector('[data-open-canais]');
         if (openCatalog) {
             openCatalog.addEventListener('click', function () {
-                openDrawerCanais(hidden && hidden.value);
+                openDrawerCanais(hidden && hidden.value, {
+                    onPick: function (nome) {
+                        setCanalProduto(form, wrapper, nome || '', 'pick');
+                    }
+                });
             });
         }
 
+        renderCanalFicha(wrapper, hidden && hidden.value);
+        renderCanalSuggest(wrapper, form);
+        syncAssistantBriefing(wrapper, form);
+
         loadCanaisCatalogo().then(function (canais) {
-            if (canais.length) chips.innerHTML = canais.map(canalChipHtml).join('');
-            markCanalChips(wrapper, hidden && hidden.value);
+            if (select && canais.length) {
+                var atual = hidden ? hidden.value : '';
+                select.innerHTML = '<option value="">Nenhum</option>' + canais.map(function (canal) {
+                    return '<option value="' + escapeHtml(canal.nome) + '">' +
+                        escapeHtml(canal.nome) + '</option>';
+                }).join('');
+                if (atual) select.value = atual;
+            }
             renderCanalFicha(wrapper, hidden && hidden.value);
             renderCanalSuggest(wrapper, form);
             syncAssistantBriefing(wrapper, form);
@@ -2354,17 +2354,18 @@
         var section = wrapper && wrapper.querySelector('[data-ia-history-section]');
         var list = wrapper && wrapper.querySelector('[data-ia-history]');
         var count = wrapper && wrapper.querySelector('[data-ia-history-count]');
+        var empty = wrapper && wrapper.querySelector('[data-ia-history-empty]');
         if (!list) return;
-        var n = list.children.length;
+        var n = $$('.cx-atividade-ia-history-item', list).length;
         if (count) count.textContent = n ? String(n) : '';
-        if (section && !n) section.hidden = true;
+        if (section) section.hidden = false;
+        if (empty) empty.hidden = n > 0;
     }
 
     function syncAssistantCollapses(wrapper, form, opts) {
         opts = opts || {};
         if (!wrapper || !form) return;
         var topics = wrapper.querySelector('[data-ia-topics]');
-        var products = wrapper.querySelector('[data-canal-produtos]');
         var refine = wrapper.querySelector('[data-ia-refine]');
         var foco = String((form.querySelector('[data-field="foco"]') || {}).value || '').trim();
         var tom = String((form.querySelector('[data-field="tom"]') || {}).value || 'consultivo').trim();
@@ -2373,14 +2374,12 @@
         var rumo = rumoLabel(foco, canal);
         var tomLabel = tom ? tom.charAt(0).toUpperCase() + tom.slice(1) : 'Consultivo';
         var topicsState = topics && topics.querySelector('[data-collapse-state]');
-        var productsState = products && products.querySelector('[data-collapse-state]');
         var refineState = refine && refine.querySelector('[data-collapse-state]');
         if (topicsState) {
             topicsState.textContent = rumo
                 ? (rumo + ' · ' + tomLabel)
                 : (tom && tom !== 'consultivo' ? tomLabel : 'opcional');
         }
-        if (productsState) productsState.textContent = canal || 'opcional';
         if (refineState) {
             refineState.textContent = ajuste
                 ? (ajuste.length > 28 ? ajuste.slice(0, 25) + '…' : ajuste)
@@ -2388,16 +2387,12 @@
         }
         if (opts.collapseOptional) {
             if (topics) topics.open = false;
-            if (products) products.open = false;
             if (refine) refine.open = false;
             return;
         }
         if (opts.initial) {
-            if (topics && foco) topics.open = true;
-            if (products && canal) products.open = true;
             if (refine && ajuste) refine.open = true;
         }
-        if (opts.openProducts && products) products.open = true;
         if (opts.openTopics && topics) topics.open = true;
         if (opts.openRefine && refine) refine.open = true;
     }
@@ -2422,12 +2417,9 @@
         var contato = selectedOptionLabel(form.querySelector('[data-field="contato_id"]'));
         var clienteNome = cliente.nome || (wrapper.querySelector('[data-atividade-cliente]') || {}).textContent || '';
         var titulo = String((form.querySelector('[data-field="titulo"]') || {}).value || '').trim();
-        var registro = String((form.querySelector('[data-field="descricao"]') || {}).value || '').trim();
         var canal = String((form.querySelector('[data-field="canal_produto"]') || {}).value || '').trim();
         var foco = String((form.querySelector('[data-field="foco"]') || {}).value || '').trim();
         var tom = String((form.querySelector('[data-field="tom"]') || {}).value || 'consultivo').trim();
-        var ajuste = String((wrapper.querySelector('[data-ia-field="instrucoes"]') || {}).value || '').trim();
-        var canalInfo = findCanalByName(canal);
         wrapper._briefKitNome = canal || '';
 
         var quem = contato || (clienteNome ? ('equipe de ' + clienteNome) : 'o cliente');
@@ -2437,30 +2429,15 @@
                 ? (tipoGeracaoLabel(tipo).charAt(0).toUpperCase() + tipoGeracaoLabel(tipo).slice(1) + ' para ' + quem)
                 : 'O título e o registro à esquerda viram o assunto do texto.';
         }
-        var lines = wrapper.querySelector('[data-ia-brief-lines]');
-        if (!lines) return;
-        var rows = [];
-        if (titulo) rows.push(['Assunto', titulo]);
-        if (registro) rows.push(['Registro', registro.length > 110 ? registro.slice(0, 107) + '…' : registro]);
-        if (canalInfo) {
-            var kitBits = [canalInfo.nome];
-            var formatos = formatosParaRegistro(canalInfo, registro);
-            if (formatos[0]) {
-                kitBits.push(formatos[0].nome + (formatos[0].taxa ? ' ' + formatos[0].taxa : ''));
-            } else if (canalInfo.alcance) {
-                kitBits.push(canalInfo.alcance);
-            }
-            rows.push(['Kit', kitBits.join(' — ')]);
-        } else {
-            rows.push(['Kit', 'Nenhum. O texto sai só do título e do registro.']);
+        var meta = wrapper.querySelector('[data-ia-brief-meta]');
+        if (meta) {
+            var rumo = rumoLabel(foco, canal);
+            var bits = [];
+            if (rumo) bits.push(rumo);
+            if (tom) bits.push(tom);
+            meta.textContent = bits.join(' · ');
+            meta.hidden = !bits.length;
         }
-        var rumo = rumoLabel(foco, canal);
-        rows.push(['Tom', (rumo ? rumo + ', ' : '') + (tom || 'consultivo')]);
-        if (ajuste) rows.push(['Ajuste', ajuste.length > 80 ? ajuste.slice(0, 77) + '…' : ajuste]);
-        lines.innerHTML = rows.map(function (row) {
-            return '<div class="cx-atividade-brief-row"><span>' + escapeHtml(row[0]) +
-                '</span><b>' + escapeHtml(row[1]) + '</b></div>';
-        }).join('');
         syncAssistantCollapses(wrapper, form);
     }
 
@@ -4050,7 +4027,8 @@
                 : '');
     }
 
-    function openDrawerCanais(slug) {
+    function openDrawerCanais(slug, opts) {
+        opts = opts || {};
         var frag = cloneTpl('cx-drawer-canais-tpl');
         if (!frag) return null;
         var wrapper = document.createElement('div');
@@ -4058,6 +4036,7 @@
         var list = wrapper.querySelector('[data-canais-list]');
         var stage = wrapper.querySelector('[data-canais-stage]');
         var busca = wrapper.querySelector('[data-canais-busca]');
+        var picked = null;
 
         function paint(canais, ativo) {
             if (!list) return;
@@ -4076,6 +4055,7 @@
             var atual = (slug && canais.filter(function (item) {
                 return item.slug === slug || item.nome === slug;
             })[0]) || canais[0] || null;
+            picked = atual;
             paint(canais, atual);
             if (atual) renderCanalStage(stage, atual);
             if (list) {
@@ -4086,6 +4066,7 @@
                         return item.slug === btn.getAttribute('data-canal-slug');
                     })[0];
                     if (!found) return;
+                    picked = found;
                     paint(canais, found);
                     renderCanalStage(stage, found);
                 });
@@ -4100,12 +4081,23 @@
             }
         });
 
+        var actions = [{ label: 'Fechar', variant: 'ghost', close: true }];
+        if (typeof opts.onPick === 'function') {
+            actions.unshift({
+                label: 'Usar neste texto',
+                variant: 'primary',
+                close: true,
+                onClick: function () {
+                    if (picked && picked.nome) opts.onPick(picked.nome);
+                }
+            });
+        }
         return cxDrawer.open({
             title: 'Canais e materiais',
             size: 'editor',
             contentEl: wrapper,
             split: false,
-            actions: [{ label: 'Fechar', variant: 'ghost', close: true }]
+            actions: actions
         });
     }
 

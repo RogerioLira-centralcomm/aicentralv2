@@ -16,13 +16,16 @@ class AuthPublicLayoutTests(unittest.TestCase):
         self.assertIn("interactive-widget=overlays-content", base)
         self.assertIn('class="auth-root"', base)
         self.assertIn("auth-public.css", base)
-        self.assertIn("?v=3", base)
+        self.assertIn("?v=5", base)
         self.assertIn("visualViewport", js)
         self.assertIn("is-keyboard-open", js)
         self.assertIn("--vvh", css)
         self.assertIn("overflow: hidden", css)
         self.assertIn("font-size: 16px", css)
         self.assertIn("auth-scene-pan", css)
+        self.assertIn("-webkit-text-size-adjust: 100%", css)
+        self.assertIn("border-radius: 22px 22px 0 0", css)
+        self.assertIn("safe-area-inset-top", css)
 
     def test_login_e_recuperacao_sem_autofocus(self):
         login = (TEMPLATES / "login_tailwind.html").read_text(encoding="utf-8")

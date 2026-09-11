@@ -28,6 +28,8 @@ html.auth-root body {
   max-height: 100%;
   overflow: hidden;
   overscroll-behavior: none;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
 }
 
 body.auth-public {
@@ -338,6 +340,7 @@ body[data-auth-page="reset-password"] .auth-page-content {
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+  padding-left: 2.65rem;
 }
 
 .auth-email-local:focus {
@@ -815,52 +818,140 @@ body[data-auth-page="reset-password"] .auth-page-content {
   }
 
   .auth-scene {
-    flex: 0 0 88px;
-    height: 88px;
-    min-height: 88px;
-    max-height: 88px;
+    flex: 0 0 auto;
+    height: clamp(132px, 22vh, 168px);
+    min-height: calc(132px + env(safe-area-inset-top));
+    max-height: calc(168px + env(safe-area-inset-top));
+  }
+
+  .auth-scene-image {
+    width: 118%;
+    height: 118%;
+    top: -6%;
+    left: -8%;
   }
 
   .auth-scene-shade {
-    background: linear-gradient(180deg, rgba(18, 54, 56, 0.08), rgba(18, 54, 56, 0.78));
+    background:
+      linear-gradient(180deg, rgba(18, 54, 56, 0.28) 0%, rgba(18, 54, 56, 0.08) 42%, rgba(18, 54, 56, 0.72) 100%);
   }
 
   .auth-scene-copy {
+    top: calc(0.7rem + env(safe-area-inset-top));
     right: 1rem;
-    bottom: 0.85rem;
+    bottom: auto;
     left: 1rem;
+    max-width: none;
   }
 
   .auth-scene-city {
-    margin: 0;
+    margin: 0 0 0.4rem;
+    font-size: 11px;
   }
 
   .auth-scene-message {
-    display: none;
+    display: block;
+    max-width: 15ch;
+    font-size: clamp(1rem, 4.2vw, 1.15rem);
+    letter-spacing: -0.03em;
+    line-height: 1.1;
   }
 
   .auth-workspace {
     flex: 1 1 auto;
     min-height: 0;
-    box-shadow: 0 -14px 35px rgba(18, 54, 56, 0.12);
+    margin-top: -1.35rem;
+    border-radius: 22px 22px 0 0;
+    box-shadow: 0 -18px 36px rgba(18, 54, 56, 0.18);
   }
 
   .auth-workspace-inner {
     width: 100%;
-    padding: 1.15rem 1.25rem calc(1rem + env(safe-area-inset-bottom));
+    padding: 0.85rem 1.1rem calc(0.7rem + env(safe-area-inset-bottom));
+  }
+
+  .auth-brand {
+    gap: 0.5rem;
+    border-radius: 999px;
+    padding: 0.3rem 0.65rem 0.3rem 0.3rem;
+  }
+
+  .auth-brand img {
+    width: 28px;
+  }
+
+  .auth-brand span {
+    padding-left: 0.55rem;
+  }
+
+  .auth-brand strong {
+    font-size: 13px;
+  }
+
+  .auth-brand small {
+    margin-top: 0;
+    font-size: 10px;
   }
 
   .auth-page-content,
-  .auth-workspace--wide .auth-page-content {
-    padding-block: 0.85rem;
+  .auth-workspace--wide .auth-page-content,
+  body[data-auth-page="subscription-checkout"] .auth-page-content,
+  body[data-auth-page="invite"] .auth-page-content,
+  body[data-auth-page="reset-password"] .auth-page-content {
+    align-content: start;
+    padding-block: 0.65rem;
+  }
+
+  body[data-auth-page="login"] .auth-header p,
+  body[data-auth-page="forgot-password"] .auth-header p {
+    display: none;
   }
 
   .auth-header {
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .auth-header h1 {
+    font-size: 1.35rem;
+    letter-spacing: -0.03em;
+  }
+
+  .auth-header p {
+    max-width: none;
+    margin-top: 0.4rem;
+    font-size: 13px;
+  }
+
+  .auth-form {
+    gap: 0.7rem;
+  }
+
+  .auth-input,
+  .auth-select,
+  .auth-submit,
+  .auth-button,
+  .auth-email-lock {
+    min-height: 44px;
+  }
+
+  .auth-email-lock .auth-input-icon {
+    top: 50%;
+  }
+
+  .auth-email-domain {
+    max-width: none;
+    padding: 0 0.65rem;
+    font-size: 11px;
   }
 
   .auth-flashes {
-    margin-top: 0.85rem;
+    margin-top: 0.65rem;
+  }
+
+  .auth-footer {
+    gap: 0.5rem;
+    padding-top: 0.65rem;
+    font-size: 11px;
   }
 
   .auth-form-grid,
@@ -872,35 +963,23 @@ body[data-auth-page="reset-password"] .auth-page-content {
 
 @media (max-width: 420px) {
   .auth-scene {
-    flex-basis: 72px;
-    height: 72px;
-    min-height: 72px;
-    max-height: 72px;
-  }
-
-  .auth-brand img {
-    width: 42px;
-  }
-
-  .auth-brand strong {
-    font-size: 14px;
+    height: clamp(120px, 20vh, 148px);
+    min-height: calc(120px + env(safe-area-inset-top));
+    max-height: calc(148px + env(safe-area-inset-top));
   }
 
   .auth-workspace-inner {
-    padding: 1rem 1rem calc(0.85rem + env(safe-area-inset-bottom));
+    padding: 0.75rem 0.95rem calc(0.65rem + env(safe-area-inset-bottom));
   }
 
-  .auth-field-row,
-  .auth-footer {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 0.35rem;
+  .auth-header h1 {
+    font-size: 1.25rem;
   }
 
-  .auth-email-domain {
-    max-width: 48%;
-    padding: 0 0.6rem;
-    font-size: 12px;
+  .auth-field-row {
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
   }
 }
 
@@ -908,12 +987,17 @@ body.is-keyboard-open .auth-scene {
   display: none;
 }
 
+body.is-keyboard-open .auth-workspace {
+  margin-top: 0;
+  border-radius: 0;
+}
+
 body.is-keyboard-open .auth-footer {
   display: none;
 }
 
 body.is-keyboard-open .auth-page-content {
-  padding-block: 0.5rem;
+  padding-block: 0.45rem;
   overflow: auto;
 }
 

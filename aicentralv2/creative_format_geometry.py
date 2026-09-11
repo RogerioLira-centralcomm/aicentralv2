@@ -25,6 +25,12 @@ PORTAL_UNIT_SLUGS = frozenset({
     "hotspot", "cartas", "puxe-descubra", "arraste-descubra", "quiz",
     "native-infeed",
 })
+PLACEMENT_ZONES = frozenset({"leaderboard", "rail", "in_feed", "sticky"})
+CTV_FORMAT_SLUGS = frozenset({
+    "netflix-pause-banner", "netflix-logo-bumper", "netflix-anuncio-simulado",
+    "hbomax-pause-ad", "hbomax-interactive-midroll",
+    "disney-pause-plus", "disney-branded-slate",
+})
 FORMAT_IAB_FAMILY = {
     "iab-medium-rectangle": {
         "family": "rectangle",
@@ -257,8 +263,41 @@ def format_family_spec(slug, default_size=None):
         "target_size": f"{size[0]}x{size[1]}" if size else None,
         "budget": _budget_for(family, None),
         "composable": family in COMPOSE_FAMILIES,
+        "placement_zone": placement_zone_for(
+            family=family, size=size, slug=slug,
+        ),
     }
     return spec
+
+
+def placement_zone_for(family=None, size=None, device=None, slug=None, context=None):
+    slug = str(slug or "").strip()
+    family = str(family or "").strip()
+    device = str(device or "").strip().lower()
+    context = str(context or "").strip().lower()
+    if context == "tv" or slug in CTV_FORMAT_SLUGS or family in {
+        "slate_16x9", "sequence_16x9",
+    }:
+        return None
+    width = height = None
+    if size and len(size) >= 2:
+        width, height = size[0], size[1]
+    mobile = device in {"mobile", "celular"}
+    if (
+        slug == "iab-mobile-banner"
+        or (width == 320 and height == 50)
+        or (mobile and (family == "wide_banner" or (height is not None and height <= 90)))
+    ):
+        return "sticky"
+    if family == "wide_banner" or slug == "iab-leaderboard" or (
+        width == 728 and height == 90
+    ):
+        return "leaderboard"
+    if family == "half_page" or slug == "iab-half-page" or (
+        width == 300 and height == 600
+    ):
+        return "rail"
+    return "in_feed"
 
 
 def resolve_format_geometry(context, behavior_spec=None):

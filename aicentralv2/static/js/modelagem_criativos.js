@@ -1883,9 +1883,12 @@
       'hidden',
       canonicalPlacement.context === 'tv',
     );
-    const placement = previewPlacement(canonicalPlacement, state.previewDevice);
+    const placement = previewPlacement(canonicalPlacement, state.previewDevice, format);
     const profile = state.viewerProfiles.find((item) => String(item.id) === String(state.selectedViewerProfileId));
     const hero = profile?.shell_spec?.hero || {};
+    const zone = placement.placement_zone;
+    const iabSize = iabDisplaySize(format, state.previewDevice);
+    const isPortalPage = placement.context !== 'tv' && !pauseSequence;
     const carouselAssets = [...approvedFrames];
     if (!carouselAssets.some((asset) => String(asset.id) === String(approved.id))) {
       carouselAssets.unshift(approved);
@@ -1894,26 +1897,47 @@
       0,
       carouselAssets.findIndex((asset) => String(asset.id) === String(approved.id)),
     );
+    const creativeStyle = isPortalPage
+      ? `width:${iabSize.w}px;height:${iabSize.h}px`
+      : `left:${placement.slot?.x || 10}%;top:${placement.slot?.y || 18}%;width:${placement.slot?.width || 76}%;height:${placement.slot?.height || 42}%`;
     root.innerHTML = `
-      <div class="mc-production-device is-${escapeHtml(placement.context || 'portal')}${pauseSequence ? ' is-pause' : ''}"
+      <div class="mc-production-device is-${escapeHtml(placement.context || 'portal')}${pauseSequence ? ' is-pause' : ''}${isPortalPage ? ' is-page' : ''}"
            data-viewer="${escapeHtml(profile?.slug || 'automatico')}"
            data-layout="${escapeHtml(pauseSequence ? 'pause' : (profile?.shell_spec?.layout || 'standard'))}"
-           style="aspect-ratio:${Number(placement.viewport?.width) || 1280}/${Number(placement.viewport?.height) || 800}">
+           data-zone="${escapeHtml(zone || '')}"
+           ${isPortalPage ? '' : `style="aspect-ratio:${Number(placement.viewport?.width) || 1280}/${Number(placement.viewport?.height) || 800}"`}>
         <div class="mc-production-context">
           ${pauseSequence
             ? netflixPauseShellHtml(profile)
             : placement.context === 'tv'
               ? `<header style="background:${escapeHtml(safeViewerColor(profile?.palette?.primary, '#1e4d4f'))}">${viewerLogo(profile)}<span></span><i class="fa-solid fa-magnifying-glass"></i></header><section class="mc-production-hero"><small>${escapeHtml(hero.eyebrow || 'Conteúdo em destaque')}</small><strong>${escapeHtml(hero.title || 'Entretenimento em destaque')}</strong></section>${viewerCatalogHtml(profile)}`
-              : profile?.slug === 'g1'
-                ? g1PortalShellHtml(profile)
-                : `<header style="background:${escapeHtml(safeViewerColor(profile?.palette?.primary, '#1e4d4f'))}">${viewerLogo(profile)}<span></span><i class="fa-solid fa-magnifying-glass"></i></header><div class="mc-production-content"><b></b><b></b><b></b><b></b></div>`}
+              : portalPageHtml(profile)}
         </div>
-        <div class="mc-production-creative ${carouselAssets.length > 1 ? 'has-carousel' : ''}" style="left:${placement.slot?.x || 10}%;top:${placement.slot?.y || 18}%;width:${placement.slot?.width || 76}%;height:${placement.slot?.height || 42}%">
+        <div class="mc-production-creative ${carouselAssets.length > 1 ? 'has-carousel' : ''}" style="${creativeStyle}">
           ${carouselAssets.map((asset, index) => liveStudioFrame(asset, format, index, activeCarouselIndex)).join('')}
           ${carouselAssets.length > 1 ? `<div class="mc-production-carousel-dots">${carouselAssets.map((asset, index) => `<button type="button" data-production-carousel-go="${index}" aria-label="Ver cena ${index + 1}" ${index === activeCarouselIndex ? 'aria-current="true"' : ''}></button>`).join('')}</div>` : ''}
         </div>
         <small>${escapeHtml(profile?.disclaimer || 'Simulação de ambiente')}</small>
       </div>`;
+    if (isPortalPage) {
+      const device = $('.mc-production-device', root);
+      const palette = profile?.palette || {};
+      if (device) {
+        device.style.setProperty('--viewer-primary', safeViewerColor(palette.primary, '#1e4d4f'));
+        device.style.setProperty('--viewer-secondary', safeViewerColor(palette.secondary, '#173436'));
+        device.style.setProperty('--viewer-surface', safeViewerColor(palette.surface, '#ffffff'));
+        device.style.setProperty('--viewer-canvas', safeViewerColor(palette.canvas, '#edf2f1'));
+        device.style.setProperty('--viewer-text', safeViewerColor(palette.text, '#1f2937'));
+      }
+      mountNodeInZone($('.mc-production-context', root), $('.mc-production-creative', root), zone);
+      const creative = $('.mc-production-creative', root);
+      const pageWidth = state.previewDevice === 'mobile' ? 390 : 1280;
+      const scale = Math.min(1, (device?.clientWidth || 576) / pageWidth);
+      if (creative) {
+        creative.style.width = `${Math.round(iabSize.w * scale)}px`;
+        creative.style.height = `${Math.round(iabSize.h * scale)}px`;
+      }
+    }
     const showCarouselFrame = (nextIndex) => {
       activeCarouselIndex = (nextIndex + carouselAssets.length) % carouselAssets.length;
       $$('[data-production-carousel-image]', root).forEach((image, index) => {
@@ -2348,18 +2372,57 @@
       slot: { x: 65, y: 20, width: 28, height: 38 },
       fit: 'contain',
       responsive: 'scale',
+      placement_zone: format.placement_zone || resolvePlacementZone(format, { context: 'portal' }, 'desktop'),
     };
-    return JSON.parse(JSON.stringify(Object.keys(format.placement_spec || {}).length ? format.placement_spec : fallback));
+    const spec = Object.keys(format.placement_spec || {}).length ? format.placement_spec : fallback;
+    const result = JSON.parse(JSON.stringify(spec));
+    if (!result.placement_zone) {
+      result.placement_zone = format.placement_zone || resolvePlacementZone(format, result, 'desktop');
+    }
+    return result;
   }
 
-  function previewPlacement(placement, device = 'desktop') {
+  function resolvePlacementZone(format, placement, device = 'desktop') {
+    if ((placement?.context || format?.placement_spec?.context) === 'tv') return null;
+    const family = format?.iab_family || '';
+    const slug = format?.slug || '';
+    const size = parseDefaultSize(format?.default_size || format?.target_size);
+    const saved = placement?.placement_zone;
+    if (device === 'mobile' || slug === 'iab-mobile-banner' || (size && size.w === 320 && size.h === 50)) {
+      if (family === 'wide_banner' || slug === 'iab-mobile-banner' || slug === 'iab-leaderboard' || (size && size.h <= 90)) {
+        return 'sticky';
+      }
+    }
+    if (saved && ['leaderboard', 'rail', 'in_feed', 'sticky'].includes(saved) && device !== 'mobile') {
+      return saved;
+    }
+    if (family === 'wide_banner' || slug === 'iab-leaderboard' || (size && size.w === 728 && size.h === 90)) {
+      return 'leaderboard';
+    }
+    if (family === 'half_page' || slug === 'iab-half-page' || (size && size.w === 300 && size.h === 600)) {
+      return 'rail';
+    }
+    return 'in_feed';
+  }
+
+  function iabDisplaySize(format, device = 'desktop') {
+    const size = parseDefaultSize(format?.default_size || format?.target_size);
+    if (device === 'mobile' && (!size || size.h <= 90 || format?.iab_family === 'wide_banner')) {
+      return { w: 320, h: 50 };
+    }
+    if (size) return size;
+    return { w: 300, h: 250 };
+  }
+
+  function previewPlacement(placement, device = 'desktop', format = null) {
     const result = JSON.parse(JSON.stringify(placement));
     if (result.context === 'tv') return result;
+    result.placement_zone = resolvePlacementZone(format, result, device);
     if (device === 'mobile') {
       result.context = 'celular';
       result.viewport = { width: 390, height: 844 };
-      result.slot = result.slot?.height <= 15
-        ? { x: 5, y: 22, width: 90, height: 12 }
+      result.slot = result.placement_zone === 'sticky'
+        ? { x: 5, y: 82, width: 90, height: 12 }
         : { x: 7, y: 28, width: 86, height: 36 };
       return result;
     }
@@ -2439,37 +2502,109 @@
     }).join('');
   }
 
-  function g1PortalShellHtml(profile) {
-    const shell = profile.shell_spec || {};
+  function portalEditorialItems(profile) {
+    const items = [];
+    (profile?.shell_spec?.sections || []).forEach((section) => {
+      (section.items || []).forEach((item) => items.push(item));
+    });
+    return items;
+  }
+
+  function portalAdZoneHtml(zone, label = 'Publicidade') {
+    return `<div class="mc-ad-zone is-${zone.replace('_', '-')}" data-ad-zone="${zone}"><small>${label}</small></div>`;
+  }
+
+  function portalPageHtml(profile) {
+    const shell = profile?.shell_spec || {};
     const hero = shell.hero || {};
-    const highlights = shell.sections?.[0]?.items || [];
-    const network = (shell.network_links || []).map(
+    const items = portalEditorialItems(profile);
+    const highlights = items.slice(0, 2);
+    const feed = items.slice(0, 4);
+    const rail = items.slice(0, 3);
+    const network = (shell.network_links || ['notícias', 'ao vivo', 'conta']).map(
       (item) => `<span>${escapeHtml(item)}</span>`,
     ).join('');
     const nav = (shell.nav || []).map(
       (item) => `<span>${escapeHtml(item)}</span>`,
     ).join('');
+    const slug = profile?.slug || 'portal';
+    const video = slug === 'sbt-news' ? `
+      <article class="mc-portal-video">
+        <div class="mc-portal-video-stage">
+          ${hero.image ? `<img src="${escapeHtml(hero.image)}" alt="">` : ''}
+          <i class="fa-solid fa-play"></i>
+          <b>AO VIVO</b>
+        </div>
+        <small>${escapeHtml(hero.eyebrow || 'Ao vivo')}</small>
+        <strong>${escapeHtml(hero.title || 'Edição ao vivo')}</strong>
+      </article>` : '';
     return `
-      <div class="mc-g1-network">${network}</div>
-      <header class="mc-g1-masthead">
-        <span><i class="fa-solid fa-bars"></i>${viewerLogo(profile)}</span>
-        <b>${escapeHtml(shell.edition_label || 'Notícias')}</b>
-        <i class="fa-solid fa-magnifying-glass"></i>
-      </header>
-      <nav class="mc-g1-nav">${nav}</nav>
-      <section class="mc-g1-news">
-        <article class="mc-g1-lead">
-          <small>${escapeHtml(hero.eyebrow || 'Destaque')}</small>
-          <strong>${escapeHtml(hero.title || 'Notícia demonstrativa')}</strong>
-          <span>${escapeHtml(hero.description || '')}</span>
-        </article>
-        <div>${highlights.slice(0, 2).map((item) => `
-          <article>
-            ${item.image ? `<img src="${escapeHtml(item.image)}" alt="">` : ''}
-            <small>${escapeHtml(item.category || '')}</small>
-            <strong>${escapeHtml(item.title || '')}</strong>
-          </article>`).join('')}</div>
-      </section>`;
+      <div class="mc-portal-page">
+        <div class="mc-portal-network">${network}</div>
+        <header class="mc-portal-masthead">
+          <span><i class="fa-solid fa-bars"></i>${viewerLogo(profile)}</span>
+          <b>${escapeHtml(shell.edition_label || profile?.name || 'Notícias')}</b>
+          <i class="fa-solid fa-magnifying-glass"></i>
+        </header>
+        <nav class="mc-portal-nav">${nav}</nav>
+        ${slug === 'cnn-brasil' ? `<div class="mc-portal-ticker"><b>Agora</b><span>${escapeHtml(hero.description || 'Edição contínua do noticiário')}</span></div>` : ''}
+        ${portalAdZoneHtml('leaderboard')}
+        <div class="mc-portal-body">
+          <div class="mc-portal-main">
+            ${video}
+            <article class="mc-portal-lead">
+              <small>${escapeHtml(hero.eyebrow || 'Destaque')}</small>
+              <strong>${escapeHtml(hero.title || 'Manchete demonstrativa')}</strong>
+              <span>${escapeHtml(hero.description || '')}</span>
+            </article>
+            <div class="mc-portal-highlights">${highlights.map((item) => `
+              <article>
+                ${item.image ? `<img src="${escapeHtml(item.image)}" alt="">` : ''}
+                <small>${escapeHtml(item.category || '')}</small>
+                <strong>${escapeHtml(item.title || '')}</strong>
+              </article>`).join('')}</div>
+            ${portalAdZoneHtml('in_feed')}
+            <section class="mc-portal-feed">
+              <strong>Mais notícias</strong>
+              ${feed.map((item) => `
+                <article>
+                  <span>${escapeHtml(item.category || '')}${item.time ? ` · ${escapeHtml(item.time)}` : ''}</span>
+                  <b>${escapeHtml(item.title || '')}</b>
+                  ${item.summary ? `<p>${escapeHtml(item.summary)}</p>` : ''}
+                </article>`).join('')}
+            </section>
+          </div>
+          <aside class="mc-portal-rail">
+            ${portalAdZoneHtml('rail')}
+            <strong>Mais lidas</strong>
+            ${rail.map((item, index) => `
+              <article>
+                <i>${index + 1}</i>
+                <span>${escapeHtml(item.title || '')}</span>
+              </article>`).join('')}
+          </aside>
+        </div>
+        ${portalAdZoneHtml('sticky')}
+      </div>`;
+  }
+
+  function g1PortalShellHtml(profile) {
+    return portalPageHtml(profile);
+  }
+
+  function mountNodeInZone(root, node, zone) {
+    if (!node) return;
+    const host = zone && root ? root.querySelector(`[data-ad-zone="${zone}"]`) : null;
+    root?.querySelectorAll('[data-ad-zone]').forEach((el) => {
+      el.classList.toggle('is-active', el === host);
+    });
+    if (host) {
+      host.appendChild(node);
+      node.classList.add('is-in-zone');
+      return;
+    }
+    node.classList.remove('is-in-zone');
+    if (root && node.parentElement !== root) root.appendChild(node);
   }
 
   function renderViewerShell(profile) {
@@ -2502,19 +2637,8 @@
         </section>
         ${viewerCatalogHtml(profile)}
         <div class="mc-tv-controls"><i class="fa-solid fa-play"></i><span></span><i class="fa-solid fa-volume-high"></i></div>`;
-    } else if (profile.slug === 'g1') {
-      shell.innerHTML = g1PortalShellHtml(profile);
     } else {
-      shell.innerHTML = `
-        <div class="mc-portal-network"><span>notícias</span><span>ao vivo</span><span>conta</span></div>
-        <header class="mc-portal-masthead"><i class="fa-solid fa-bars"></i>${viewerLogo(profile)}<i class="fa-solid fa-magnifying-glass"></i></header>
-        <nav class="mc-portal-nav">${navHtml}</nav>
-        <div class="mc-portal-ticker"><b>Agora</b><span>Informação atualizada em um ambiente editorial simulado</span></div>
-        <section class="mc-portal-grid" aria-hidden="true">
-          <div class="mc-portal-lead"><small>Conteúdo editorial</small><strong>Manchete demonstrativa para contextualizar o inventário</strong><span></span></div>
-          <div class="mc-portal-stack"><b></b><span></span><b></b><span></span></div>
-          <aside><strong>Mais lidas</strong><span></span><span></span><span></span></aside>
-        </section>`;
+      shell.innerHTML = portalPageHtml(profile);
     }
     $('#mcViewerDisclaimer').textContent = profile.disclaimer
       || 'Simulação de ambiente · sem afiliação com o veículo';
@@ -2569,8 +2693,10 @@
         : 'desktop';
     }
     const placement = state.placementDraft;
-    const displayPlacement = previewPlacement(placement, state.previewDevice);
+    const displayPlacement = previewPlacement(placement, state.previewDevice, format);
     const slot = displayPlacement.slot;
+    const zone = displayPlacement.placement_zone;
+    const iabSize = iabDisplaySize(format, state.previewDevice);
     $('#mcStageEmpty').classList.add('hidden');
     $('#mcFormatStage').classList.remove('hidden');
     $('#mcStageTitle').textContent = format.name_pt;
@@ -2579,18 +2705,42 @@
       <span>${escapeHtml(displayPlacement.context)}</span>
       <strong>${escapeHtml(formatSizeLabel(format))}</strong>
       ${format.iab_family ? `<span>${escapeHtml(format.iab_family)}</span>` : ''}
+      ${zone ? `<span>${escapeHtml(zone)}</span>` : ''}
       ${stageSize ? `<small>${stageSize.w} px × ${stageSize.h} px</small>` : ''}`;
-    $('#mcDeviceFrame').className = `mc-device-frame is-${escapeHtml(displayPlacement.context)}`;
-    $('#mcDeviceFrame').style.aspectRatio = `${Number(displayPlacement.viewport.width) || 1280} / ${Number(displayPlacement.viewport.height) || 800}`;
+    $('#mcDeviceFrame').className = `mc-device-frame is-${escapeHtml(displayPlacement.context)}${zone ? ' is-page' : ''}`;
+    if (displayPlacement.context === 'tv') {
+      $('#mcDeviceFrame').style.aspectRatio = `${Number(displayPlacement.viewport.width) || 1280} / ${Number(displayPlacement.viewport.height) || 800}`;
+    } else {
+      $('#mcDeviceFrame').style.aspectRatio = state.previewDevice === 'mobile' ? '390 / 844' : '1280 / 800';
+    }
     const profile = activeViewerProfile(format, placement);
     renderViewerToolbar(format, placement, profile);
     renderViewerShell(profile);
-    $('#mcAdSlot').style.left = `${slot.x}%`;
-    $('#mcAdSlot').style.top = `${slot.y}%`;
-    $('#mcAdSlot').style.width = `${slot.width}%`;
-    $('#mcAdSlot').style.height = `${slot.height}%`;
+    const slotNode = $('#mcAdSlot');
+    const frame = $('#mcDeviceFrame');
+    frame.dataset.zone = zone || '';
+    if (zone) {
+      mountNodeInZone($('#mcViewerShell'), slotNode, zone);
+      const scale = Math.min(1, (frame.clientWidth || 720) / (state.previewDevice === 'mobile' ? 390 : 1280));
+      slotNode.style.width = `${Math.round(iabSize.w * scale)}px`;
+      slotNode.style.height = `${Math.round(iabSize.h * scale)}px`;
+      slotNode.style.left = '';
+      slotNode.style.top = '';
+      const original = state.originalPlacement?.slot || slot;
+      const dx = (placement.slot?.x ?? original.x) - original.x;
+      const dy = (placement.slot?.y ?? original.y) - original.y;
+      slotNode.style.transform = (dx || dy) ? `translate(${dx}%, ${dy}%)` : '';
+    } else {
+      if (slotNode.parentElement !== frame) frame.appendChild(slotNode);
+      slotNode.classList.remove('is-in-zone');
+      slotNode.style.width = `${slot.width}%`;
+      slotNode.style.height = `${slot.height}%`;
+      slotNode.style.left = `${slot.x}%`;
+      slotNode.style.top = `${slot.y}%`;
+      slotNode.style.transform = '';
+    }
     $('#mcAdSlotContent').innerHTML = adCreativeHtml(format);
-    $('#mcAdSlotSize').textContent = `${Math.round(slot.width)}% × ${Math.round(slot.height)}%`;
+    $('#mcAdSlotSize').textContent = `${iabSize.w} × ${iabSize.h} px`;
     $('#mcResetPlacement').disabled = false;
     syncPlacementFields();
   }
@@ -4486,6 +4636,12 @@
           },
           fit: data.fit,
           responsive: state.placementDraft?.responsive || 'scale',
+          placement_zone: state.placementDraft?.placement_zone
+            || resolvePlacementZone(
+              state.formats.find((item) => String(item.id) === String(form.dataset.formatId)),
+              state.placementDraft,
+              'desktop',
+            ),
         };
         data.behavior_spec = {
           type: data.behavior_type,

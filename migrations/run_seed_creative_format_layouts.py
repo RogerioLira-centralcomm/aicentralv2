@@ -38,6 +38,8 @@ def _context(row):
 def _placement(row):
     context = _context(row)
     size = row.get("default_size") or ""
+    slug = row.get("slug") or ""
+    zone = None
     if context == "tv":
         tv_slots = {
             "disney-pause-plus": {"x": 22, "y": 22, "width": 56, "height": 48},
@@ -49,29 +51,41 @@ def _placement(row):
             "netflix-pause-banner": {"x": 8, "y": 6, "width": 84, "height": 15},
         }
         slot = tv_slots.get(
-            row.get("slug"),
+            slug,
             {"x": 18, "y": 20, "width": 64, "height": 50},
         )
         viewport = {"width": 1600, "height": 900}
     elif size == "728x90":
         slot = {"x": 12, "y": 18, "width": 76, "height": 12}
         viewport = {"width": 1280, "height": 800}
+        zone = "leaderboard"
     elif size == "300x600":
         slot = {"x": 70, "y": 16, "width": 23, "height": 68}
         viewport = {"width": 1280, "height": 800}
+        zone = "rail"
     elif size == "320x50":
         slot = {"x": 5, "y": 82, "width": 90, "height": 12}
         viewport = {"width": 390, "height": 844}
+        zone = "sticky"
     else:
         slot = {"x": 65, "y": 20, "width": 28, "height": 38}
         viewport = {"width": 1280, "height": 800}
-    return {
+        zone = "in_feed"
+    if slug in {
+        "hotspot", "cartas", "puxe-descubra", "arraste-descubra",
+        "quiz", "native-infeed",
+    }:
+        zone = "in_feed"
+    spec = {
         "context": context,
         "viewport": viewport,
         "slot": slot,
         "fit": "contain",
         "responsive": "scale",
     }
+    if context != "tv" and zone:
+        spec["placement_zone"] = zone
+    return spec
 
 
 def main():

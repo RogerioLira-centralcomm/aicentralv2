@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS cx_creative_scenes (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT uq_cx_creative_scene_position UNIQUE (production_id, position),
-    CONSTRAINT chk_cx_creative_scene_position CHECK (position BETWEEN 1 AND 4),
+    CONSTRAINT chk_cx_creative_scene_position CHECK (position BETWEEN 1 AND 8),
     CONSTRAINT chk_cx_creative_scene_status
         CHECK (
             status IN (
@@ -67,6 +67,12 @@ CREATE INDEX IF NOT EXISTS idx_cx_generated_assets_scene
 
 DO $$
 BEGIN
+    ALTER TABLE cx_creative_scenes
+        DROP CONSTRAINT IF EXISTS chk_cx_creative_scene_position;
+    ALTER TABLE cx_creative_scenes
+        ADD CONSTRAINT chk_cx_creative_scene_position
+        CHECK (position BETWEEN 1 AND 8);
+
     IF NOT EXISTS (
         SELECT 1
           FROM pg_constraint

@@ -2010,6 +2010,29 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertEqual(len(eight), 8)
         self.assertIn("Fechamento", eight[-1])
 
+    def test_plano_explica_quando_o_banco_ainda_limita_a_4_cenas(self):
+        repository = Mock()
+        repository.get_format.return_value = {
+            "slug": "instagram-feed",
+            "mechanic": "static_display",
+            "behavior_spec": {"type": "static"},
+            "default_size": "1080x1080",
+        }
+        repository.create_campaign_with_productions.side_effect = Exception(
+            'new row violates check constraint "chk_cx_creative_scene_position"'
+        )
+        service = CreativeModelingService(
+            repository=repository,
+            generator=FakeGenerator(),
+            storage=FakeStorage(),
+        )
+        with self.assertRaisesRegex(ValueError, "mais de 4 cenas"):
+            service.create_production_plan({
+                "name": "Seis cenas",
+                "scene_count": 6,
+                "productions": [{"format_template_id": 9}],
+            })
+
     def test_plano_persiste_campaign_pack(self):
         repository = Mock()
         repository.get_format.return_value = {
@@ -3577,6 +3600,18 @@ class CreativeFilesContractTest(unittest.TestCase):
             scene_migration,
         )
         self.assertIn("ADD COLUMN IF NOT EXISTS scene_id", scene_migration)
+        self.assertIn(
+            "CHECK (position BETWEEN 1 AND 8)",
+            scene_migration,
+        )
+        self.assertIn(
+            "DROP CONSTRAINT IF EXISTS chk_cx_creative_scene_position",
+            scene_migration,
+        )
+        self.assertNotIn(
+            "CHECK (position BETWEEN 1 AND 4)",
+            scene_migration,
+        )
 
 
 class CreativeUnfoldContractTest(unittest.TestCase):

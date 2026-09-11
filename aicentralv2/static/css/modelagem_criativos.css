@@ -4022,6 +4022,10 @@
   background: #fff;
   box-shadow: 0 1.4rem 3rem rgba(15, 23, 42, 0.2);
 }
+.mc-device-frame.is-page .mc-viewer-shell {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
 .mc-device-frame:not(.is-tv):not(.is-celular) {
   border-top-width: 1.65rem;
 }

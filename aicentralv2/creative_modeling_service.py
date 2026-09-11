@@ -36,11 +36,13 @@ from .creative_html_compose import compose_studio_result
 from .creative_modeling_fx import annotate_cost, brl_from_usd
 from .creative_format_geometry import (
     ALLOWED_SCENE_COUNTS,
+    PLACEMENT_ZONES,
     canvas_mismatch,
     default_render_mode,
     format_beat,
     format_direction,
     hygiene_instruction,
+    placement_zone_for,
     resolve_format_geometry,
     resolve_scene_count,
     scene_count_for_format,
@@ -531,13 +533,23 @@ def _placement_spec(value):
         raise ValueError("O slot ultrapassa a largura do viewport.")
     if normalized_slot["y"] + normalized_slot["height"] > 100:
         raise ValueError("O slot ultrapassa a altura do viewport.")
-    return {
+    zone = value.get("placement_zone")
+    if zone in (None, ""):
+        normalized_zone = None
+    elif zone not in PLACEMENT_ZONES:
+        raise ValueError("Zona de posicionamento inválida.")
+    else:
+        normalized_zone = zone
+    spec = {
         "context": context,
         "viewport": {"width": width, "height": height},
         "slot": normalized_slot,
         "fit": fit,
         "responsive": responsive,
     }
+    if normalized_zone:
+        spec["placement_zone"] = normalized_zone
+    return spec
 
 
 def _behavior_spec(value):
@@ -755,6 +767,20 @@ class CreativeModelingService:
             )
             format_data["element_budget"] = geometry.get("budget")
             format_data["direction"] = format_direction(format_data)
+            placement = format_data.get("placement_spec")
+            zone = (
+                placement.get("placement_zone")
+                if isinstance(placement, dict)
+                else None
+            )
+            if zone not in PLACEMENT_ZONES:
+                zone = geometry.get("placement_zone")
+                if zone and isinstance(placement, dict):
+                    format_data["placement_spec"] = {
+                        **placement,
+                        "placement_zone": zone,
+                    }
+            format_data["placement_zone"] = zone
         return _serialize(formats)
 
     def list_compose_library(self, family=None, client_id=None):
@@ -860,6 +886,16 @@ class CreativeModelingService:
         placement_spec = _placement_spec(
             payload.get("placement_spec") or current.get("placement_spec") or {}
         )
+        if not placement_spec.get("placement_zone"):
+            geometry = resolve_format_geometry(current)
+            zone = placement_zone_for(
+                family=geometry.get("family"),
+                size=geometry.get("size"),
+                slug=current.get("slug"),
+                context=placement_spec.get("context"),
+            )
+            if zone:
+                placement_spec["placement_zone"] = zone
         viewer_profile_id = payload.get(
             "default_viewer_profile_id", current.get("default_viewer_profile_id")
         )
@@ -1562,7 +1598,15 @@ class CreativeModelingService:
                 compose.get("params"),
                 productions[0]["scene_count"],
             )
-        created = self.repository.create_campaign_with_productions(data)
+        try:
+            created = self.repository.create_campaign_with_productions(data)
+        except Exception as exc:
+            if "chk_cx_creative_scene_position" in str(exc):
+                raise ValueError(
+                    "Este lote tem mais de 4 cenas e o banco ainda limita a posição. "
+                    "O próximo deploy aplica a migration e libera 6 e 8 batidas."
+                ) from exc
+            raise
         return _serialize(
             {
                 "campaign": self.repository.get_campaign(created["id"]),
@@ -4662,6 +4706,30 @@ class CreativeModelingService:
                     "transition_ms": 420,
                 }
             asset["behavior_spec"] = behavior
+            geometry = resolve_format_geometry({
+                "slug": asset.get("format_slug"),
+                "default_size": asset.get("default_size"),
+            })
+            placement = (
+                asset.get("placement_spec")
+                if isinstance(asset.get("placement_spec"), dict)
+                else {}
+            )
+            zone = placement.get("placement_zone")
+            if zone not in PLACEMENT_ZONES:
+                zone = placement_zone_for(
+                    family=geometry.get("family"),
+                    size=geometry.get("size"),
+                    slug=asset.get("format_slug"),
+                    context=placement.get("context"),
+                )
+            asset["placement_zone"] = zone
+            asset["iab_family"] = geometry.get("family")
+            size = geometry.get("size")
+            if size:
+                asset["iab_width"], asset["iab_height"] = size
+            elif zone:
+                asset["iab_width"], asset["iab_height"] = (300, 250)
             if not asset.get("viewer_profile_id"):
                 continue
             profile = _viewer_profile_data(

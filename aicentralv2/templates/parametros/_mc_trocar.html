@@ -1,39 +1,49 @@
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap">
 <article class="mc-lab mc-swap" id="mcSwap">
-  <section class="mc-swap-stage">
+  <section class="mc-swap-stage" id="mcSwapStage">
     <div class="mc-swap-drop" id="mcSwapDrop">
       <input id="mcSwapFile" type="file" accept="image/*" hidden>
-      <strong>Solte a referência. O GPT Image 2 troca o anúncio e mantém o quadro.</strong>
+      <strong>Solte a referência. A gente lê headline, logo e CTA para você editar.</strong>
     </div>
     <figure class="mc-swap-preview" id="mcSwapPreview" hidden>
-      <img id="mcSwapImage" alt="Still trocado">
+      <img id="mcSwapImage" alt="Still do anúncio">
     </figure>
   </section>
   <aside class="mc-swap-side">
-    <label>
-      <span>Marca</span>
-      <select id="mcSwapClient">
+    <label class="cx-field">
+      <span class="cx-label">Marca</span>
+      <select class="cx-select" id="mcSwapClient">
         <option value="">Marca da mesa</option>
       </select>
     </label>
-    <label>
-      <span>Headline</span>
-      <input id="mcSwapHeadline" type="text" maxlength="80" placeholder="A linha que entra no quadro">
+    <fieldset class="mc-swap-out">
+      <legend>Saída do anúncio</legend>
+      <label><input type="radio" name="mcSwapOut" value="16:9" checked> CTV · 16:9</label>
+      <label><input type="radio" name="mcSwapOut" value="9:16"> Stories · 9:16</label>
+      <label><input type="radio" name="mcSwapOut" value="4:5"> Feed · 4:5</label>
+      <label><input type="radio" name="mcSwapOut" value="1:1"> Quadrado · 1:1</label>
+    </fieldset>
+    <section class="mc-swap-read" id="mcSwapRead" hidden>
+      <span class="cx-label">O que a imagem tem</span>
+      <ul id="mcSwapElements"></ul>
+    </section>
+    <label class="cx-field">
+      <span class="cx-label">Headline</span>
+      <input class="cx-input" id="mcSwapHeadline" type="text" maxlength="80" placeholder="A linha que entra no quadro">
     </label>
-    <label>
-      <span>Apoio</span>
-      <textarea id="mcSwapSupport" rows="2" maxlength="160" placeholder="O que a TV lê em 3 segundos"></textarea>
+    <label class="cx-field">
+      <span class="cx-label">Apoio</span>
+      <textarea class="cx-input" id="mcSwapSupport" rows="2" maxlength="160" placeholder="O que a TV lê em 3 segundos"></textarea>
     </label>
-    <label>
-      <span>CTA</span>
-      <input id="mcSwapCta" type="text" maxlength="40" placeholder="Encontre a loja">
+    <label class="cx-field">
+      <span class="cx-label">CTA</span>
+      <input class="cx-input" id="mcSwapCta" type="text" maxlength="40" placeholder="Encontre a loja">
     </label>
-    <label>
-      <span>O que trocar</span>
-      <textarea id="mcSwapNote" rows="3" maxlength="240" placeholder="Trocar Cyrella por Vivara. Tudo em português."></textarea>
+    <label class="cx-field">
+      <span class="cx-label">O que trocar</span>
+      <textarea class="cx-input" id="mcSwapNote" rows="3" maxlength="240" placeholder="Trocar a marca. Manter a foto. Texto em português."></textarea>
     </label>
     <p id="mcSwapStatus">Uma foto de referência basta. Sem roteiro de 15s.</p>
     <p class="mc-swap-cost" id="mcSwapCost">R$ 1,20</p>
-    <button type="button" id="mcSwapRun" disabled>Trocar anúncio</button>
+    <button class="cx-btn cx-btn-primary" type="button" id="mcSwapRun" disabled>Trocar anúncio</button>
   </aside>
 </article>

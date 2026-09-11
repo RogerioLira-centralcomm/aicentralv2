@@ -139,7 +139,7 @@ MC_DESKS = {
     },
     "trocar": {
         "title": "Trocar anúncio",
-        "lead": "Uma referência. O GPT Image 2 troca marca e copy. O layout fica.",
+        "lead": "Uma referência. A gente lê o que dá para editar. Você escolhe a saída.",
         "panel": "parametros/_mc_trocar.html",
         "studio": False,
         "page_js": "js/mc-trocar.js",
@@ -255,6 +255,13 @@ def api_format_lab_patch(session_id):
 def api_format_lab_swap():
     return _execute(
         lambda: _ok(_service().swap_format_lab(_json(), session.get("user_id")))
+    )
+
+
+@admin_required_api
+def api_format_lab_swap_read():
+    return _execute(
+        lambda: _ok(_service().read_format_lab_swap(_json(), session.get("user_id")))
     )
 
 
@@ -1023,6 +1030,12 @@ def register_creative_modeling_routes(blueprint):
         "/api/format-lab/swap",
         endpoint="creative_format_lab_swap",
         view_func=api_format_lab_swap,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/swap/read",
+        endpoint="creative_format_lab_swap_read",
+        view_func=api_format_lab_swap_read,
         methods=["POST"],
     )
     blueprint.add_url_rule(

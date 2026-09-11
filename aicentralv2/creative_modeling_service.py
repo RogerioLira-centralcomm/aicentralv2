@@ -1086,6 +1086,9 @@ class CreativeModelingService:
     def swap_format_lab(self, payload, user_id=None):
         return self._format_lab().swap(payload, user_id=user_id)
 
+    def read_format_lab_swap(self, payload, user_id=None):
+        return self._format_lab().read_swap(payload, user_id=user_id)
+
     def close_format_lab_session(self, session_id, payload, user_id=None):
         return self._format_lab().close(session_id, payload, user_id=user_id)
 

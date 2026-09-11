@@ -1,4 +1,5 @@
 {% set mc_page = mc_page|default('hub') %}
+{% set mc_lab_pages = ['lab', 'mesa', 'placas', 'trocar'] %}
 <header class="mc-header">
   <div>
     <h1>Modelagem de Criativos</h1>
@@ -14,15 +15,17 @@
   <a href="{{ url_for('parametros.modelagem_extrair') }}"{% if mc_page == 'extrair' %} class="is-current" aria-current="page"{% endif %}>Extrair</a>
   <a href="{{ url_for('parametros.modelagem_preparar') }}"{% if mc_page == 'preparar' %} class="is-current" aria-current="page"{% endif %}>Preparar</a>
   <a href="{{ url_for('parametros.modelagem_produzir') }}"{% if mc_page == 'produzir' %} class="is-current" aria-current="page"{% endif %}>Produzir</a>
+  <details class="mc-desk-drop"{% if mc_page in mc_lab_pages %} open{% endif %}>
+    <summary{% if mc_page in mc_lab_pages %} class="is-current"{% endif %}>Lab 15s</summary>
+    <div class="mc-desk-drop-menu">
+      <a href="{{ url_for('parametros.modelagem_mesa') }}"{% if mc_page == 'mesa' %} class="is-current" aria-current="page"{% endif %}>Conceito</a>
+      <a href="{{ url_for('parametros.modelagem_placas') }}"{% if mc_page == 'placas' %} class="is-current" aria-current="page"{% endif %}>Placas</a>
+      <a href="{{ url_for('parametros.modelagem_trocar') }}"{% if mc_page == 'trocar' %} class="is-current" aria-current="page"{% endif %}>Trocar</a>
+    </div>
+  </details>
   <a href="{{ url_for('parametros.modelagem_bancada') }}"{% if mc_page == 'bancada' %} class="is-current" aria-current="page"{% endif %}>Bancada 2.0</a>
   <a href="{{ url_for('parametros.modelagem_revisao') }}"{% if mc_page == 'revisao' %} class="is-current" aria-current="page"{% endif %}>Revisar</a>
   <a href="{{ url_for('parametros.modelagem_desdobrar') }}"{% if mc_page == 'desdobrar' %} class="is-current" aria-current="page"{% endif %}>Desdobrar</a>
   <a href="{{ url_for('parametros.modelagem_historico') }}"{% if mc_page == 'historico' %} class="is-current" aria-current="page"{% endif %}>Histórico</a>
-</nav>
-<nav class="mc-lab-nav" aria-label="Lab de conceito 15s">
-  <a href="{{ url_for('parametros.modelagem_lab') }}"{% if mc_page == 'lab' %} class="is-current" aria-current="page"{% endif %}>Lab 15s</a>
-  <a href="{{ url_for('parametros.modelagem_mesa') }}"{% if mc_page == 'mesa' %} class="is-current" aria-current="page"{% endif %}>Conceito</a>
-  <a href="{{ url_for('parametros.modelagem_placas') }}"{% if mc_page == 'placas' %} class="is-current" aria-current="page"{% endif %}>Placas</a>
-  <a href="{{ url_for('parametros.modelagem_trocar') }}"{% if mc_page == 'trocar' %} class="is-current" aria-current="page"{% endif %}>Trocar</a>
 </nav>
 <div id="mcPageAlert" class="cx-alert cx-alert-danger hidden" role="alert"></div>

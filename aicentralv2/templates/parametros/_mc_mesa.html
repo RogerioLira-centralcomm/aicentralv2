@@ -1,9 +1,8 @@
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap">
 <article class="mc-mesa" id="mcMesa">
   <header class="mc-mesa-rail" id="mcMesaRail">
     <div class="mc-mesa-brands" id="mcMesaBrands"></div>
-    <label>
-      <select id="mcMesaClient" aria-label="Marca">
+    <label class="cx-field">
+      <select class="cx-select" id="mcMesaClient" aria-label="Marca">
         <option value="">Marca</option>
       </select>
     </label>
@@ -81,12 +80,12 @@
     <ol class="mc-mesa-layers" id="mcMesaLayers" hidden></ol>
     <ol class="mc-mesa-trace" id="mcMesaTrace"></ol>
     <p id="mcMesaStatus">Vivara pronta. Confira o key visual e monte o conceito de 15s.</p>
-    <button type="button" id="mcMesaAnalyze" disabled>Montar conceito</button>
-    <button type="button" id="mcMesaMockup" disabled>Modelar base</button>
-    <button type="button" id="mcMesaGenerate" disabled>Montar cena 1</button>
-    <button type="button" id="mcMesaClose" disabled>Fechar cena</button>
-    <button type="button" id="mcMesaApprove" disabled>Aprovar</button>
-    <a class="mc-mesa-handoff" id="mcMesaHandoff" hidden href="{{ url_for('parametros.modelagem_bancada') }}">Aprovar</a>
+    <button class="cx-btn cx-btn-secondary" type="button" id="mcMesaAnalyze" disabled>Montar conceito</button>
+    <button class="cx-btn cx-btn-secondary" type="button" id="mcMesaMockup" disabled>Modelar base</button>
+    <button class="cx-btn cx-btn-primary" type="button" id="mcMesaGenerate" disabled>Montar cena 1</button>
+    <button class="cx-btn cx-btn-secondary" type="button" id="mcMesaClose" disabled>Fechar cena</button>
+    <button class="cx-btn cx-btn-primary" type="button" id="mcMesaApprove" disabled>Aprovar</button>
+    <a class="cx-btn cx-btn-primary mc-mesa-handoff" id="mcMesaHandoff" hidden href="{{ url_for('parametros.modelagem_bancada') }}">Aprovar</a>
     <ol class="mc-mesa-defects" id="mcMesaDefects" hidden></ol>
   </aside>
 </article>

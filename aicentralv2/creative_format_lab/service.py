@@ -8,7 +8,7 @@ from .campaign_models import list_campaign_models, load_campaign_model
 from .catalog import catalog_payload
 from .close import close_scene
 from .pipeline import apply_manual_patch, new_session_id, run_session
-from .swap import quote_swap, swap_reference
+from .swap import quote_swap, read_swap_reference, swap_reference
 from .storyboard import build_storyboard, quote_concept
 
 
@@ -29,16 +29,20 @@ class FormatLabService:
             return _serialize(quote_swap())
         return _serialize(quote_concept(payload))
 
+    def read_swap(self, payload, user_id=None):
+        payload = payload if isinstance(payload, dict) else {}
+        try:
+            result = read_swap_reference(
+                payload,
+                text_callable=self._text_callable(payload),
+            )
+        except ValueError as exc:
+            raise CreativeConflictError(str(exc)) from exc
+        return _serialize(result)
+
     def swap(self, payload, user_id=None):
         payload = payload if isinstance(payload, dict) else {}
-        brand = {}
-        client_id = payload.get("client_id")
-        if client_id not in (None, ""):
-            try:
-                from .brand_context import build_brand_context
-                brand = build_brand_context(self._client(_integer(client_id, "Cliente")))
-            except Exception:
-                brand = {}
+        brand = self._swap_brand(payload)
         try:
             result = swap_reference(
                 payload,
@@ -312,6 +316,26 @@ class FormatLabService:
             "campaign_id": campaign["id"],
             "bancada": saved.get("bancada"),
         })
+
+    def _swap_brand(self, payload):
+        client_id = payload.get("client_id")
+        if client_id in (None, ""):
+            return {}
+        try:
+            from .brand_context import build_brand_context
+
+            client = self._client(_integer(client_id, "Cliente"))
+            brand = build_brand_context(client)
+            logo = ""
+            official = getattr(self.modeling, "_official_logo_data_url", None)
+            if callable(official):
+                logo = official(client) or ""
+            if not (isinstance(logo, str) and logo.startswith(("https://", "http://", "data:image/"))):
+                logo = str(brand.get("logo_url") or "")
+            brand["logo_url"] = logo if logo.startswith(("https://", "http://", "data:image/")) else ""
+            return brand
+        except Exception:
+            return {}
 
     def _client(self, client_id):
         if hasattr(self.modeling, "get_client"):

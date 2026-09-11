@@ -3287,7 +3287,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("Bancadas", page)
         self.assertIn("modelagem_biblioteca", page)
         self.assertIn("modelagem_mesa", page)
-        self.assertIn("modelagem_criativos.css') }}?v=57", page)
+        self.assertIn("modelagem_criativos.css') }}?v=65", page)
         self.assertNotIn("mc-desk.css", page)
         self.assertNotIn("modelagem_criativos.js", page)
         shell = (template_dir / "_mc_shell.html").read_text(encoding="utf-8")
@@ -4034,7 +4034,7 @@ class CreativeFilesContractTest(unittest.TestCase):
             root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html"
         ).read_text(encoding="utf-8")
         self.assertIn("modelagem_criativos.js') }}?v=57", desk)
-        self.assertIn("mc_page_js) }}?v=12", desk)
+        self.assertIn("mc_page_js) }}?v=13", desk)
         self.assertIn("function loadComposeLibrary", frontend)
         self.assertIn("variation_id", frontend)
         self.assertIn("compose-library", frontend)

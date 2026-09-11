@@ -1,10 +1,27 @@
 (function () {
   const API = {
     swap: '/parametros/api/format-lab/swap',
+    read: '/parametros/api/format-lab/swap/read',
     quote: '/parametros/api/format-lab/quote',
     clients: '/parametros/api/clients',
   };
-  const state = { reference: '', clientId: '', clients: [] };
+  const ROLE_LABEL = {
+    logo: 'Logo',
+    headline: 'Headline',
+    support: 'Apoio',
+    cta: 'CTA',
+    product: 'Produto',
+    price: 'Preço',
+    person: 'Pessoa',
+    background: 'Fundo',
+  };
+  const state = {
+    reference: '',
+    clientId: '',
+    clients: [],
+    aspectRatio: '16:9',
+    userPickedFormat: false,
+  };
 
   document.addEventListener('DOMContentLoaded', boot);
 
@@ -14,6 +31,7 @@
 
   async function boot() {
     bind();
+    applyRatio(state.aspectRatio);
     try {
       const [clients, quote] = await Promise.all([
         fetch(API.clients, { credentials: 'same-origin' }).then(readJson),
@@ -52,6 +70,14 @@
     $('mcSwapClient')?.addEventListener('change', (event) => {
       state.clientId = event.target.value;
     });
+    document.querySelectorAll('input[name="mcSwapOut"]').forEach((input) => {
+      input.addEventListener('change', () => {
+        if (!input.checked) return;
+        state.userPickedFormat = true;
+        state.aspectRatio = input.value;
+        applyRatio(input.value);
+      });
+    });
     $('mcSwapRun')?.addEventListener('click', runSwap);
   }
 
@@ -75,9 +101,77 @@
       $('mcSwapDrop').hidden = true;
       $('mcSwapImage').src = state.reference;
       $('mcSwapRun').disabled = false;
-      setStatus('Referência na mesa. Escreva o que entra no lugar.');
+      setStatus('Lendo headline, logo e CTA da referência…');
+      readReference();
     };
     reader.readAsDataURL(file);
+  }
+
+  async function readReference() {
+    if (!state.reference) return;
+    try {
+      const data = await fetch(API.read, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reference: state.reference }),
+      }).then(readJson);
+      fillFields(data);
+      renderElements(data.elements || [], data.style || '');
+      if (data.aspect_hint && !state.userPickedFormat) {
+        selectFormat(data.aspect_hint);
+      }
+      setStatus('Elementos lidos. Edite o texto, escolha a saída e troque a marca.');
+    } catch (_error) {
+      renderElements([], '');
+      setStatus('Não deu para ler os textos. Você ainda pode escrever na mão.');
+    }
+  }
+
+  function fillFields(data) {
+    const headline = $('mcSwapHeadline');
+    const support = $('mcSwapSupport');
+    const cta = $('mcSwapCta');
+    if (headline && data.headline) headline.value = data.headline;
+    if (support && data.support) support.value = data.support;
+    if (cta && data.cta) cta.value = data.cta;
+  }
+
+  function renderElements(items, style) {
+    const box = $('mcSwapRead');
+    const list = $('mcSwapElements');
+    if (!box || !list) return;
+    const rows = Array.isArray(items) ? items : [];
+    if (!rows.length && !style) {
+      box.hidden = true;
+      list.innerHTML = '';
+      return;
+    }
+    box.hidden = false;
+    list.innerHTML = rows.map((item) => {
+      const label = ROLE_LABEL[item.role] || item.role || 'Elemento';
+      const text = item.text || item.note || '';
+      return `<li><strong>${escapeHtml(label)}</strong>${text ? ` ${escapeHtml(text)}` : ''}</li>`;
+    }).join('');
+    if (style) {
+      list.innerHTML += `<li class="is-style">${escapeHtml(style)}</li>`;
+    }
+  }
+
+  function selectFormat(ratio) {
+    const input = document.querySelector(`input[name="mcSwapOut"][value="${ratio}"]`);
+    if (!input) return;
+    input.checked = true;
+    state.aspectRatio = ratio;
+    applyRatio(ratio);
+  }
+
+  function applyRatio(ratio) {
+    const [width, height] = String(ratio || '16:9').split(':').map(Number);
+    const stage = $('mcSwapStage');
+    if (!stage || !width || !height) return;
+    stage.style.setProperty('--mc-swap-ratio', `${width} / ${height}`);
+    stage.classList.toggle('is-vertical', height > width);
   }
 
   async function runSwap() {
@@ -98,6 +192,7 @@
           support: $('mcSwapSupport')?.value || '',
           cta: $('mcSwapCta')?.value || '',
           note: $('mcSwapNote')?.value || '',
+          aspect_ratio: state.aspectRatio,
         }),
       }).then(readJson);
       if (data.png_data_url) {
@@ -108,7 +203,13 @@
       if (data.quote?.spent_brl != null) {
         $('mcSwapCost').textContent = `R$ ${Number(data.quote.spent_brl).toFixed(2)}`;
       }
-      setStatus('Still trocado. O quadro ficou; a marca mudou.');
+      if (data.logo_used) {
+        setStatus('Still trocado. A logo oficial entrou no quadro. O efeito da referência ficou.');
+      } else if (state.clientId) {
+        setStatus('Still trocado. Cadastre a logo em Marcas para ela entrar no quadro.');
+      } else {
+        setStatus('Still trocado. O quadro ficou; a marca mudou.');
+      }
     } catch (error) {
       setStatus(error.message);
     }

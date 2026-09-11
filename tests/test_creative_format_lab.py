@@ -20,7 +20,14 @@ from aicentralv2.creative_format_lab.service import FormatLabService
 from aicentralv2.creative_format_lab.spec import CreativeFormatSpec, parse_format_spec
 from aicentralv2.creative_format_lab.storyboard import build_storyboard, quote_concept
 from aicentralv2.creative_format_lab.close import close_scene
-from aicentralv2.creative_format_lab.swap import build_swap_prompt, quote_swap, swap_reference
+from aicentralv2.creative_format_lab.swap import (
+    build_swap_prompt,
+    quote_swap,
+    read_swap_reference,
+    resolve_aspect_ratio,
+    swap_input_references,
+    swap_reference,
+)
 from aicentralv2.creative_format_lab.guidelines import check_stack, protect_box
 from aicentralv2.creative_format_lab.visual_qa import run_qa_loop
 from aicentralv2.creative_modeling_repository import CreativeConflictError
@@ -561,8 +568,9 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertEqual(MC_DESKS["mesa"]["page_js"], "js/mc-mesa.js")
         root = Path(__file__).resolve().parents[1]
         shell = (root / "aicentralv2" / "templates" / "parametros" / "_mc_shell.html").read_text(encoding="utf-8")
-        self.assertIn("mc-lab-nav", shell)
-        self.assertIn("modelagem_lab", shell)
+        self.assertIn("mc-desk-drop", shell)
+        self.assertIn("Lab 15s", shell)
+        self.assertIn("modelagem_mesa", shell)
         self.assertIn("modelagem_placas", shell)
         self.assertIn("modelagem_trocar", shell)
         html = (root / "aicentralv2" / "templates" / "parametros" / "_mc_mesa.html").read_text(encoding="utf-8")
@@ -605,6 +613,14 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("closeScene", js)
         self.assertIn("/mockup", js)
         self.assertIn("logo_visible", js)
+        trocar = (root / "aicentralv2" / "templates" / "parametros" / "_mc_trocar.html").read_text(encoding="utf-8")
+        self.assertIn("mcSwapOut", trocar)
+        self.assertIn("9:16", trocar)
+        self.assertIn("mcSwapElements", trocar)
+        swap_js = (root / "aicentralv2" / "static" / "js" / "mc-trocar.js").read_text(encoding="utf-8")
+        self.assertIn("/parametros/api/format-lab/swap/read", swap_js)
+        self.assertIn("aspect_ratio", swap_js)
+        self.assertIn("logo_used", swap_js)
 
 
 class CreativeFormatLabCloseTest(unittest.TestCase):
@@ -671,12 +687,16 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
                 "headline": "O presente que marca o momento",
                 "cta": "Encontre a loja",
                 "note": "Trocar Cyrella por Vivara.",
+                "logo_url": "https://cdn.example/vivara-logo.png",
             }
         )
         self.assertIn("Brazilian Portuguese", prompt)
         self.assertIn("Vivara", prompt)
         self.assertIn("Keep the same composition", prompt)
         self.assertIn("Trocar Cyrella por Vivara", prompt)
+        self.assertIn("official brand logo", prompt)
+        self.assertIn("exactly", prompt)
+        self.assertIn("neon", prompt)
 
     def test_swap_usa_a_referencia_e_devolve_png(self):
         called = {}
@@ -684,20 +704,69 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
         def fake_image(prompt, input_references=None, **_kwargs):
             called["prompt"] = prompt
             called["refs"] = input_references
+            called["aspect"] = _kwargs.get("aspect_ratio")
             return {"b64_json": "aGVsbG8="}
 
         result = swap_reference(
-            {"reference": "data:image/png;base64,aaa", "brand_name": "Rede D'Or"},
+            {
+                "reference": "data:image/png;base64,aaa",
+                "brand_name": "Rede D'Or",
+                "aspect_ratio": "9:16",
+            },
+            brand={"logo_url": "https://cdn.example/redor-logo.png"},
             image_callable=fake_image,
         )
         self.assertTrue(result["png_data_url"].startswith("data:image/png"))
-        self.assertEqual(called["refs"], ["data:image/png;base64,aaa"])
+        self.assertEqual(
+            called["refs"],
+            ["data:image/png;base64,aaa", "https://cdn.example/redor-logo.png"],
+        )
+        self.assertEqual(called["aspect"], "9:16")
+        self.assertTrue(result["logo_used"])
         self.assertIn("Rede D'Or", called["prompt"])
         self.assertEqual(quote_swap()["model"], "openai/gpt-image-2")
+        self.assertEqual(resolve_aspect_ratio({"output": "mobile"}), "9:16")
+
+    def test_swap_sem_logo_mantem_uma_referencia(self):
+        refs = swap_input_references(
+            {"reference": "data:image/png;base64,aaa"},
+            brand={"name": "TIM"},
+        )
+        self.assertEqual(refs, ["data:image/png;base64,aaa"])
+
+    def test_le_elementos_da_referencia(self):
+        def fake_text(_messages, **_kwargs):
+            return {
+                "message": {
+                    "content": {
+                        "headline": "500 MEGA",
+                        "support": "Internet que cabe no mês",
+                        "cta": "Monte o seu",
+                        "logo_text": "TIM",
+                        "aspect_hint": "16:9",
+                        "style": "foto de produto, fundo azul",
+                        "elements": [
+                            {"role": "logo", "text": "TIM", "note": "canto superior"},
+                            {"role": "headline", "text": "500 MEGA"},
+                        ],
+                    }
+                }
+            }
+
+        result = read_swap_reference(
+            {"reference": "data:image/png;base64,aaa"},
+            text_callable=fake_text,
+        )
+        self.assertEqual(result["headline"], "500 MEGA")
+        self.assertEqual(result["cta"], "Monte o seu")
+        self.assertEqual(result["elements"][0]["role"], "logo")
+        self.assertEqual(result["aspect_hint"], "16:9")
 
     def test_swap_sem_referencia_falha(self):
         with self.assertRaises(ValueError):
             swap_reference({"brand_name": "Vivara"}, image_callable=lambda *_a, **_k: b"x")
+        with self.assertRaises(ValueError):
+            read_swap_reference({}, text_callable=lambda *_a, **_k: {})
 
 
 class CreativeFormatLabRoutesTest(unittest.TestCase):
@@ -731,3 +800,22 @@ class CreativeFormatLabRoutesTest(unittest.TestCase):
         self.assertEqual(catalog.get_json()["data"]["family"], "ctv")
         self.assertEqual(blocked.status_code, 409)
         self.assertFalse(blocked.get_json()["success"])
+
+    def test_ler_referencia_do_trocar(self):
+        service = Mock()
+        service.read_format_lab_swap.return_value = {
+            "headline": "500 MEGA",
+            "cta": "Monte o seu",
+            "elements": [{"role": "logo", "text": "TIM"}],
+        }
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            response = self.client.post(
+                "/parametros/api/format-lab/swap/read",
+                json={"reference": "data:image/png;base64,aaa"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["data"]["headline"], "500 MEGA")
+        service.read_format_lab_swap.assert_called_once()

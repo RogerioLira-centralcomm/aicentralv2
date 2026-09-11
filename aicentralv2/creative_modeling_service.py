@@ -1057,7 +1057,7 @@ class CreativeModelingService:
         if not callable(generate):
             return None
 
-        def _run(prompt, aspect_ratio="1:1", background="transparent", input_references=None, **_extra):
+        def _run(prompt, aspect_ratio="1:1", background="opaque", input_references=None, **_extra):
             result = generate(
                 prompt,
                 input_references=input_references,
@@ -1108,6 +1108,9 @@ class CreativeModelingService:
 
     def create_format_lab_session(self, payload, user_id=None):
         return self._format_lab().create_session(payload, user_id=user_id)
+
+    def list_format_lab_sessions(self, payload=None):
+        return self._format_lab().list_sessions(payload)
 
     def get_format_lab_session(self, session_id):
         return self._format_lab().get_session(session_id)
@@ -5033,9 +5036,21 @@ class CreativeModelingService:
                     )
                 ]
         total_usd = sum(float(item.get("cost_usd") or 0) for item in modelings)
+        lab_history = []
+        for item in modelings:
+            try:
+                campaign = self.repository.get_campaign(item.get("id"))
+            except Exception:
+                continue
+            brief = campaign.get("creative_brief") if isinstance(campaign, dict) else {}
+            lab = (brief or {}).get("format_lab") if isinstance(brief, dict) else {}
+            for row in (lab or {}).get("history") or []:
+                if isinstance(row, dict):
+                    lab_history.append({**row, "campaign_id": item.get("id")})
         return _serialize({
             "jobs": jobs,
             "modelings": modelings,
+            "lab": lab_history,
             "total_usd": round(total_usd, 6),
             "total_brl": brl_from_usd(total_usd),
         })

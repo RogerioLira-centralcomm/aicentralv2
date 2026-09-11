@@ -206,6 +206,19 @@ def _image_error_message(response):
     return "Não foi possível gerar a imagem."
 
 
+GPT_IMAGE_BACKGROUNDS = frozenset({"auto", "opaque"})
+
+
+def sanitize_image_payload(payload):
+    """Remove parâmetros que o modelo recusa — GPT Image 2 não aceita fundo transparente."""
+    clean = dict(payload or {})
+    model = str(clean.get("model") or "").strip()
+    background = str(clean.get("background") or "").strip().lower()
+    if model.startswith("openai/gpt-image") and background not in GPT_IMAGE_BACKGROUNDS:
+        clean["background"] = "opaque"
+    return clean
+
+
 def generate_image(
     prompt: str,
     *,
@@ -219,7 +232,7 @@ def generate_image(
 ) -> Dict[str, Any]:
     """Gera imagem no GPT Image 2 via OpenRouter (`/api/v1/images`)."""
     image_model = resolve_image_model(model)
-    payload = {
+    payload = sanitize_image_payload({
         "model": image_model,
         "prompt": prompt,
         "aspect_ratio": aspect_ratio or "16:9",
@@ -227,7 +240,7 @@ def generate_image(
         "output_format": output_format,
         "resolution": resolution,
         "background": background,
-    }
+    })
     headers = {
         "Authorization": f"Bearer {_api_key()}",
         "Content-Type": "application/json",

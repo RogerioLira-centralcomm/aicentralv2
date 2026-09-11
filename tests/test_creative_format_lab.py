@@ -292,7 +292,8 @@ class CreativeFormatLabTest(unittest.TestCase):
 
         parts = decompose_creative("https://cdn.example/ref.png", fake)
         self.assertEqual(len(calls), 2)
-        self.assertEqual(calls[0][1], "transparent")
+        self.assertEqual(calls[0][1], "opaque")
+        self.assertEqual(calls[1][1], "opaque")
         self.assertTrue(parts["cast_url"].startswith("data:image/png;base64,"))
 
     def test_qa_loop_para_no_terceiro_patch(self):
@@ -526,6 +527,58 @@ class CreativeFormatLabTest(unittest.TestCase):
         self.assertEqual(called["urls"], ["https://cdn.example/ok.jpg"])
         self.assertEqual(len(board["storyboard"]), 4)
 
+    def test_conceito_e_base_viram_historico_da_campanha(self):
+        repository = FakeRepository()
+        modeling = CreativeModelingService(repository=repository, generator=FakeGenerator())
+        lab = FormatLabService(modeling)
+        first = lab.create_session({
+            "client_id": 10,
+            "campaign_id": 30,
+            "format": "video-linear-15",
+            "campaign_slug": "vivara-presente-ctv",
+        })
+        board = lab.storyboard(first["id"], {
+            "campaign_slug": "vivara-presente-ctv",
+            "scene_count": 4,
+        })
+        again = lab.create_session({
+            "client_id": 10,
+            "campaign_id": 30,
+            "format": "video-linear-15",
+            "campaign_slug": "vivara-presente-ctv",
+        })
+        self.assertEqual(again["id"], first["id"])
+        self.assertEqual(len(again["storyboard"] or board["storyboard"]), 4)
+        listed = lab.list_sessions({
+            "client_id": 10,
+            "format": "video-linear-15",
+            "campaign_slug": "vivara-presente-ctv",
+        })
+        self.assertEqual(listed["active"]["id"], first["id"])
+        self.assertEqual(listed["history"][0]["stage"], "concept")
+        self.assertEqual(listed["history"][0]["session_id"], first["id"])
+        base = lab.mockup(first["id"], {
+            "campaign_slug": "vivara-presente-ctv",
+            "text_callable": None,
+            "screenshot": _shot,
+        })
+        self.assertTrue(base["base_html"])
+        listed = lab.list_sessions({
+            "client_id": 10,
+            "format": "video-linear-15",
+            "campaign_slug": "vivara-presente-ctv",
+        })
+        self.assertEqual(listed["active"]["stage"], "base")
+        self.assertEqual(listed["history"][0]["stage"], "base")
+        fresh = lab.create_session({
+            "client_id": 10,
+            "campaign_id": 30,
+            "format": "video-linear-15",
+            "campaign_slug": "vivara-presente-ctv",
+            "fresh": True,
+        })
+        self.assertNotEqual(fresh["id"], first["id"])
+
     def test_storyboard_cobrado_no_ledger(self):
         repository = FakeRepository()
         modeling = CreativeModelingService(repository=repository, generator=FakeGenerator())
@@ -744,6 +797,64 @@ class CreativeFormatLabTest(unittest.TestCase):
         self.assertEqual(base["mockup"]["provider"], "plate")
         self.assertEqual(len(base["mockup"]["versions"]), 2)
 
+    def test_mockup_entrega_html_se_o_screenshot_falha(self):
+        def boom(*_args, **_kwargs):
+            raise RuntimeError("chromium down")
+
+        base = run_session(
+            {
+                "campaign_slug": "vivara-presente-ctv",
+                "stage": "mockup",
+                "mockup_passes": 2,
+            },
+            client={"id": 22, "name": "Vivara"},
+            text_callable=None,
+            screenshot=boom,
+        )
+        self.assertTrue(base["base_html"])
+        self.assertIn("layer-key-visual", base["base_html"])
+        self.assertTrue(base["mockup"]["render_url"].startswith("data:image/png"))
+        self.assertEqual(len(base["mockup"]["versions"]), 2)
+
+    def test_mockup_devolve_html_se_a_gravacao_explode(self):
+        from aicentralv2.creative_format_lab.service import _slim_lab_session
+
+        repository = FakeRepository()
+        modeling = CreativeModelingService(repository=repository, generator=FakeGenerator())
+        lab = FormatLabService(modeling)
+        session = lab.create_session({"client_id": 10, "campaign_id": 30})
+        lab.storyboard(session["id"], {"campaign_slug": "vivara-presente-ctv", "scene_count": 4})
+        repository.update_campaign_bancada = lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("jsonb")
+        )
+        repository.upsert_concept_session = lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("jsonb")
+        )
+        result = lab.mockup(session["id"], {
+            "campaign_slug": "vivara-presente-ctv",
+            "text_callable": None,
+            "screenshot": _shot,
+        })
+        self.assertTrue(result["base_html"])
+        self.assertIn("layer-key-visual", result["base_html"])
+        slim = _slim_lab_session({
+            "mockup": {
+                "html": "<html></html>",
+                "render_url": "data:image/png;base64,abc",
+                "versions": [{"attempt": 1, "html": "<html></html>", "png_data_url": "data:image/png;base64,abc"}],
+            },
+            "renders": [{"png_data_url": "data:image/png;base64,abc"}],
+        })
+        self.assertNotIn("png_data_url", slim["mockup"]["versions"][0])
+        self.assertEqual(slim["renders"][0]["png_data_url"], "")
+
+    def test_screenshot_html_devolve_png_se_o_chromium_cai(self):
+        from aicentralv2 import creative_html_compose as compose
+
+        with patch.object(compose, "_browser_instance", side_effect=RuntimeError("no chrome")):
+            png = compose.screenshot_html("<html></html>", 64, 64)
+        self.assertEqual(png, compose.BACKUP_PNG)
+
     def test_logo_opcional_no_gancho_e_obrigatoria_no_fechamento(self):
         self.assertFalse(is_end_card("proof", "scene_04", 5))
         self.assertTrue(is_end_card("proof", "scene_04", 4))
@@ -828,10 +939,15 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("mcMesaMockup", html)
         self.assertIn("mcMesaBaseDialog", html)
         self.assertIn("Montar a base", html)
+        self.assertIn("mcMesaBaseWait", html)
+        self.assertIn("mcMesaBaseFrame", html)
+        self.assertIn("mcMesaRunKey", html)
         self.assertIn("mcMesaRunSeq", html)
         self.assertIn("mcMesaRunTakes", html)
         self.assertIn("mcMesaRunBeats", html)
         self.assertIn("mcMesaBaseNote", html)
+        self.assertIn("mcMesaHistory", html)
+        self.assertIn("Histórico desta campanha", html)
         self.assertIn("mcMesaLogo", html)
         self.assertIn("mcMesaKeys", html)
         self.assertIn("mcMesaVersions", html)
@@ -858,6 +974,13 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("openBaseDialog", js)
         self.assertIn("runCurrentBeat", js)
         self.assertIn("paintRunStill", js)
+        self.assertIn("startRunProgress", js)
+        self.assertIn("resumeDesk", js)
+        self.assertIn("renderHistory", js)
+        self.assertIn("openSavedSession", js)
+        self.assertIn("showBasePreview", js)
+        self.assertIn("srcdoc", js)
+        self.assertIn("mcMesaBaseWait", js)
         self.assertIn("mcMesaBaseDialog", js)
         self.assertIn("logo_visible", js)
         self.assertIn("isLastScene", js)
@@ -962,6 +1085,68 @@ class CreativeFormatLabPlatesTest(unittest.TestCase):
         })
         self.assertEqual(bound["feed-1x1"], ["instagram"])
         self.assertNotIn("missing", bound)
+
+    def test_recorte_de_produto_nao_derruba_o_lote_se_o_provedor_recusar(self):
+        from aicentralv2.creative_format_lab.plates import (
+            build_plate_kit,
+            build_product_cutouts,
+        )
+
+        def refuse(*_args, **_kwargs):
+            raise RuntimeError(
+                'O provedor recusou a imagem: background: not supported. Accepted: auto, opaque'
+            )
+
+        cutouts = build_product_cutouts(
+            {"name": "Vivara"}, "Joias", refuse
+        )
+        self.assertEqual(cutouts, {"horizontal": "", "vertical": ""})
+        kit = build_plate_kit(
+            {
+                "id": 9,
+                "name": "Vivara",
+                "brand_profile": {"products_services": ["Joias"]},
+            },
+            image_callable=refuse,
+            product="Joias",
+            refine=False,
+        )
+        self.assertGreaterEqual(len(kit["plates"]), 10)
+        self.assertTrue(all(item["html"] for item in kit["plates"]))
+
+    def test_lab_nao_pede_fundo_transparente_ao_gpt_image_2(self):
+        from aicentralv2.creative_format_lab.close import close_scene
+        from aicentralv2.creative_format_lab.plates import build_product_cutouts
+
+        seen = []
+
+        def fake(prompt, **kwargs):
+            seen.append(kwargs.get("background"))
+            return TINY_PNG
+
+        cutouts = build_product_cutouts({"name": "Vivara"}, "Anel", fake)
+        self.assertTrue(cutouts["horizontal"])
+        close_scene(
+            {
+                "id": "scene_04",
+                "purpose": "cta",
+                "headline": "Encontre a loja",
+                "cta": "Encontre a loja",
+            },
+            brand={"name": "Vivara"},
+            image_callable=fake,
+        )
+        self.assertTrue(seen)
+        self.assertTrue(all(item == "opaque" for item in seen))
+        root = Path(__file__).resolve().parents[1]
+        for path in (root / "aicentralv2" / "creative_format_lab").rglob("*.py"):
+            text = path.read_text(encoding="utf-8")
+            self.assertNotIn('background="transparent"', text, path.name)
+            self.assertNotIn("background='transparent'", text, path.name)
+        service = (root / "aicentralv2" / "creative_format_lab" / "service.py").read_text(encoding="utf-8")
+        wrapper = (root / "aicentralv2" / "creative_modeling_service.py").read_text(encoding="utf-8")
+        self.assertIn('background="opaque"', service)
+        self.assertNotIn('background="transparent"', wrapper)
 
     def test_kit_passa_texto_produto_e_tres_refinos_por_familia(self):
         from aicentralv2.creative_format_lab.plates import build_plate_kit, patch_plate_kit
@@ -1214,6 +1399,20 @@ class CreativeFormatLabRoutesTest(unittest.TestCase):
         self.assertEqual(catalog.get_json()["data"]["family"], "ctv")
         self.assertEqual(blocked.status_code, 409)
         self.assertFalse(blocked.get_json()["success"])
+        service.list_format_lab_sessions.return_value = {
+            "sessions": [{"id": "flab-x", "stage": "concept"}],
+            "active": {"id": "flab-x", "storyboard": [{"id": "scene_01"}]},
+            "history": [{"session_id": "flab-x", "stage": "concept"}],
+        }
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            listed = self.client.get(
+                "/parametros/api/format-lab/sessions?client_id=10&format=video-linear-15"
+            )
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(listed.get_json()["data"]["history"][0]["stage"], "concept")
 
     def test_ler_referencia_do_trocar(self):
         service = Mock()

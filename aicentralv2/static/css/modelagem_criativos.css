@@ -7174,6 +7174,32 @@
   font-size: 0.9rem;
 }
 
+.mc-mesa-history {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.7rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mc-mesa-history[hidden] {
+  display: none;
+}
+
+.mc-mesa-history button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #7a7264;
+  font-size: 0.75rem;
+}
+
+.mc-mesa-history li[data-stage="base"] button,
+.mc-mesa-history li[data-stage="scene"] button {
+  color: #b8892d;
+}
+
 .mc-mesa-marcas-link {
   color: var(--mesa-live);
   font-size: 0.78rem;
@@ -7676,12 +7702,29 @@
   min-height: 0;
 }
 
-.mc-base-plate img {
+.mc-base-plate img,
+.mc-base-html {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: contain;
   background: #0c0b0a;
+}
+
+.mc-base-html {
+  position: absolute;
+  inset: 0;
+  border: 0;
+}
+
+.mc-base-plate > img {
+  position: absolute;
+  inset: 0;
+}
+
+.mc-base-html[hidden],
+.mc-base-plate > img[hidden] {
+  display: none;
 }
 
 .mc-base-void {
@@ -7704,10 +7747,69 @@
   line-height: 0.95;
 }
 
-.mc-base-void span {
+.mc-base-void span,
+.mc-base-wait span {
   font-size: 0.9rem;
   line-height: 1.4;
   color: rgba(235, 228, 214, 0.7);
+}
+
+.mc-base-wait {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.45rem;
+  padding: 1.5rem;
+  background: rgba(12, 11, 10, 0.72);
+  color: #ebe4d6;
+  text-align: center;
+}
+
+.mc-base-wait[hidden] {
+  display: none;
+}
+
+.mc-base-wait em {
+  width: 1.55rem;
+  height: 1.55rem;
+  border: 2px solid rgba(235, 228, 214, 0.22);
+  border-top-color: #b8892d;
+  border-radius: 50%;
+  animation: mc-base-spin 0.7s linear infinite;
+}
+
+.mc-base-wait strong {
+  font-family: Iowan Old Style, Palatino, Georgia, serif;
+  font-size: 1.35rem;
+  letter-spacing: -0.03em;
+}
+
+.mc-run-key {
+  margin: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.mc-run-key[hidden] {
+  display: none;
+}
+
+.mc-run-key img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: #0c0b0a;
+}
+
+.mc-run-key figcaption {
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #7a7264;
 }
 
 .mc-run-rail {
@@ -7842,8 +7944,21 @@
   opacity: 0.5;
 }
 
-.mc-base-dialog.is-busy .mc-run-now {
+.mc-base-dialog.is-busy .mc-base-void {
+  visibility: hidden;
+}
+
+.mc-base-dialog.is-busy .mc-run-now,
+.mc-base-dialog.is-busy #mcMesaBaseRun {
   color: #b8892d;
+}
+
+.mc-base-dialog.is-busy #mcMesaBaseRun {
+  pointer-events: none;
+}
+
+@keyframes mc-base-spin {
+  to { transform: rotate(360deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -7851,6 +7966,11 @@
   .mc-base-plate img,
   .mc-run-seq button {
     transition: none;
+  }
+
+  .mc-base-wait em {
+    animation: none;
+    border-color: #b8892d;
   }
 }
 

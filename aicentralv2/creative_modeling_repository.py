@@ -3228,6 +3228,38 @@ class CreativeModelingRepository:
             ]
         return data
 
+    def find_open_concept_session(self, client_id, format_key=None, campaign_slug=None):
+        items = self.list_concept_sessions(client_id, format_key, campaign_slug, limit=1)
+        return items[0] if items else None
+
+    def list_concept_sessions(self, client_id, format_key=None, campaign_slug=None, limit=12):
+        try:
+            client_id = int(client_id)
+        except (TypeError, ValueError):
+            return []
+        format_key = _concept_format_key(format_key) if format_key else None
+        slug = str(campaign_slug or "").strip() or None
+        try:
+            cap = max(1, min(int(limit or 12), 24))
+        except (TypeError, ValueError):
+            cap = 12
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id
+                  FROM cx_concept_sessions
+                 WHERE client_id = %s
+                   AND status <> 'handed_off'
+                   AND (%s IS NULL OR format_key = %s)
+                   AND (%s IS NULL OR campaign_slug IS NULL OR campaign_slug = %s)
+                 ORDER BY updated_at DESC NULLS LAST, created_at DESC
+                 LIMIT %s
+                """,
+                (client_id, format_key, format_key, slug, slug, cap),
+            )
+            rows = [item["id"] for item in cursor.fetchall()]
+        return [self.get_concept_session(session_id) for session_id in rows if session_id]
+
     def record_concept_pass(
         self,
         session_id,

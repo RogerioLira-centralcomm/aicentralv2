@@ -383,6 +383,32 @@ class FakeRepository:
         stored = self.concept_sessions.get(str(session_id or "").strip())
         return dict(stored) if stored else None
 
+    def find_open_concept_session(self, client_id, format_key=None, campaign_slug=None):
+        items = self.list_concept_sessions(client_id, format_key, campaign_slug, limit=1)
+        return items[0] if items else None
+
+    def list_concept_sessions(self, client_id, format_key=None, campaign_slug=None, limit=12):
+        try:
+            client_id = int(client_id)
+        except (TypeError, ValueError):
+            return []
+        slug = str(campaign_slug or "").strip()
+        key = str(format_key or "").strip()
+        found = []
+        for session in self.concept_sessions.values():
+            if int(session.get("client_id") or 0) != client_id:
+                continue
+            if session.get("status") == "handed_off":
+                continue
+            stored_key = str(session.get("format") or session.get("format_key") or "")
+            if key and stored_key and stored_key != key:
+                continue
+            stored_slug = str(session.get("campaign_slug") or "")
+            if slug and stored_slug and stored_slug != slug:
+                continue
+            found.append(dict(session))
+        return found[-int(limit or 12):][::-1]
+
     def record_concept_pass(
         self,
         session_id,
@@ -2738,6 +2764,29 @@ class CreativeGenerationContractTest(unittest.TestCase):
         self.assertEqual(http.payload["background"], "opaque")
         self.assertEqual(result["actual_cost_usd"], 0.13)
 
+    @patch.dict("os.environ", {"OPENROUTER_API_KEY": "test"})
+    def test_gpt_image_2_troca_fundo_transparente_por_opaco(self):
+        from aicentralv2.services.openrouter_service import sanitize_image_payload
+
+        http = FakeHttp()
+        client = CreativeGenerationClient(http=http)
+        client.generate_image("prompt", aspect_ratio="16:9", background="transparent")
+        self.assertEqual(http.payload["background"], "opaque")
+        self.assertEqual(
+            sanitize_image_payload({
+                "model": "openai/gpt-image-2",
+                "background": "transparent",
+            })["background"],
+            "opaque",
+        )
+        self.assertEqual(
+            sanitize_image_payload({
+                "model": "google/gemini-2.5-flash-image",
+                "background": "transparent",
+            })["background"],
+            "transparent",
+        )
+
     def test_proporcao_iab_e_normalizada_para_modelo_de_imagem(self):
         self.assertEqual(normalize_image_aspect_ratio("6:5"), "4:3")
         self.assertEqual(normalize_image_aspect_ratio("1:2"), "9:16")
@@ -4078,7 +4127,7 @@ class CreativeFilesContractTest(unittest.TestCase):
             root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html"
         ).read_text(encoding="utf-8")
         self.assertIn("modelagem_criativos.js') }}?v=57", desk)
-        self.assertIn("mc_page_js) }}?v=20", desk)
+        self.assertIn("mc_page_js) }}?v=22", desk)
         self.assertIn("function loadComposeLibrary", frontend)
         self.assertIn("variation_id", frontend)
         self.assertIn("compose-library", frontend)

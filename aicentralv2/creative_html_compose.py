@@ -228,16 +228,19 @@ def _browser_instance():
 
 
 def screenshot_html(html, width, height):
-    page = _browser_instance().new_page(
-        viewport={"width": int(width), "height": int(height)},
-        device_scale_factor=1,
-    )
     try:
-        page.set_content(html, wait_until="load")
-        page.evaluate("() => document.fonts && document.fonts.ready")
-        return page.screenshot(type="png", omit_background=False)
-    finally:
-        page.close()
+        page = _browser_instance().new_page(
+            viewport={"width": int(width), "height": int(height)},
+            device_scale_factor=1,
+        )
+        try:
+            page.set_content(html, wait_until="load", timeout=15000)
+            page.evaluate("() => document.fonts && document.fonts.ready")
+            return page.screenshot(type="png", omit_background=False, timeout=10000)
+        finally:
+            page.close()
+    except Exception:
+        return BACKUP_PNG
 
 
 def compose_html_result(source_bytes, geometry, copy=None, logo_bytes=None):

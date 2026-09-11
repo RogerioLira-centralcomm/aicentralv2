@@ -26,7 +26,7 @@ def decompose_creative(image_url, image_callable=None, field=""):
         image_callable(
             CAST_PROMPT,
             aspect_ratio="1:1",
-            background="transparent",
+            background="opaque",
             input_references=refs,
         )
     )

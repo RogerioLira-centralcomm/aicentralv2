@@ -42,7 +42,7 @@ def close_scene(
             png = image_callable(
                 prompt,
                 aspect_ratio="1:1",
-                background="transparent",
+                background="opaque",
             )
             if isinstance(png, dict):
                 raw = png.get("b64_json")

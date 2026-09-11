@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import logging
+from datetime import datetime, timezone
+
 from ..creative_modeling_generation import OpenRouterError
 from ..creative_modeling_repository import CreativeConflictError, CreativeNotFoundError
 from ..creative_modeling_service import _integer, _serialize
@@ -18,6 +21,100 @@ from .plates import (
     patch_plate_kit,
 )
 from .storyboard import build_storyboard, quote_concept
+
+logger = logging.getLogger(__name__)
+
+
+def _preview_lab_result(result):
+    """Um still no retorno; as versões ficam só com o HTML."""
+    data = dict(result or {})
+    mockup = data.get("mockup")
+    if isinstance(mockup, dict):
+        slim = dict(mockup)
+        slim["versions"] = [
+            {key: value for key, value in item.items() if key != "png_data_url"}
+            if isinstance(item, dict) else item
+            for item in (slim.get("versions") or [])
+        ]
+        data["mockup"] = slim
+    chosen = (mockup or {}).get("render_url") if isinstance(mockup, dict) else ""
+    data["renders"] = [
+        {**item, "png_data_url": chosen if index == 0 else ""}
+        if isinstance(item, dict) else item
+        for index, item in enumerate(data.get("renders") or [])
+    ]
+    return data
+
+
+def _slim_lab_session(session):
+    """Tira stills em base64 da persistência — o HTML da base basta."""
+    data = dict(session or {})
+    mockup = data.get("mockup")
+    if isinstance(mockup, dict):
+        slim = dict(mockup)
+        slim["versions"] = [
+            {key: value for key, value in item.items() if key != "png_data_url"}
+            for item in (slim.get("versions") or [])
+            if isinstance(item, dict)
+        ]
+        data["mockup"] = slim
+    data["renders"] = [
+        {**item, "png_data_url": ""}
+        if isinstance(item, dict)
+        else item
+        for item in (data.get("renders") or [])
+    ]
+    return data
+
+
+def _session_stage(session):
+    data = session if isinstance(session, dict) else {}
+    if data.get("status") == "handed_off" or (data.get("handoff") or {}).get("bancada"):
+        return "approve"
+    if data.get("closed") or (isinstance(data.get("qa"), dict) and data["qa"].get("passed") and data.get("scenes")):
+        if any(item.get("closed_url") for item in (data.get("scenes") or []) if isinstance(item, dict)):
+            return "close"
+    if any(item.get("html") for item in (data.get("scenes") or []) if isinstance(item, dict)):
+        return "scene"
+    if data.get("base_html") or (isinstance(data.get("mockup"), dict) and data["mockup"].get("html")):
+        return "base"
+    if data.get("storyboard"):
+        return "concept"
+    return "draft"
+
+
+def _history_entry(session):
+    stage = _session_stage(session)
+    if stage == "draft":
+        return None
+    storyboard = session.get("storyboard") or []
+    first = storyboard[0] if storyboard and isinstance(storyboard[0], dict) else {}
+    return {
+        "session_id": session.get("id"),
+        "stage": stage,
+        "format": session.get("format") or session.get("format_key") or "",
+        "campaign_slug": session.get("campaign_slug") or "",
+        "brand_name": session.get("brand_name") or (session.get("brand") or {}).get("name") or "",
+        "headline": first.get("headline") or "",
+        "has_base": bool(session.get("base_html")),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def _session_summary(session):
+    entry = _history_entry(session) or {}
+    return {
+        "id": session.get("id"),
+        "campaign_id": session.get("campaign_id"),
+        "client_id": session.get("client_id"),
+        "status": session.get("status") or "draft",
+        "stage": entry.get("stage") or _session_stage(session),
+        "format": session.get("format") or session.get("format_key") or "",
+        "campaign_slug": session.get("campaign_slug") or "",
+        "headline": entry.get("headline") or "",
+        "has_base": bool(session.get("base_html")),
+        "scene_count": session.get("scene_count") or len(session.get("storyboard") or []),
+    }
 
 
 class FormatLabService:
@@ -212,6 +309,18 @@ class FormatLabService:
         else:
             campaign = self._ensure_campaign(client_id, client)
             campaign_id = campaign["id"]
+        if not payload.get("fresh"):
+            existing = self._open_session(
+                client_id,
+                payload.get("format") or payload.get("format_key"),
+                payload.get("campaign_slug"),
+            )
+            if existing:
+                existing["campaign_id"] = existing.get("campaign_id") or campaign_id
+                if payload.get("format") and not existing.get("format"):
+                    existing["format"] = payload.get("format")
+                    self._write_session(existing["campaign_id"], existing, active=True)
+                return _serialize(existing)
         session_id = new_session_id()
         session = {
             "id": session_id,
@@ -284,18 +393,31 @@ class FormatLabService:
         }
         if not merged.get("storyboard") and session.get("storyboard"):
             merged["storyboard"] = session.get("storyboard")
-        result = run_session(
-            merged,
-            client=client,
-            text_callable=self._text_callable(payload),
-            screenshot=payload.get("screenshot"),
-        )
+        try:
+            result = run_session(
+                merged,
+                client=client,
+                text_callable=self._text_callable(payload),
+                screenshot=payload.get("screenshot"),
+            )
+        except Exception:
+            logger.exception("Mockup da sessão %s falhou; entrega a placa HTML", session_id)
+            try:
+                result = run_session(
+                    merged,
+                    client=client,
+                    text_callable=None,
+                    screenshot=lambda *_args, **_kwargs: b"",
+                )
+            except Exception as exc:
+                logger.exception("Placa de fallback da sessão %s também falhou", session_id)
+                raise CreativeConflictError("Não montou a base. Tente de novo.") from exc
         if session.get("storyboard") and not result.get("storyboard"):
             result["storyboard"] = session.get("storyboard")
         result["id"] = session_id
         result["client_id"] = session.get("client_id") or client.get("id")
         result["campaign_id"] = campaign["id"]
-        result["status"] = "concept"
+        result["status"] = "review" if result.get("base_html") else "concept"
         result["cost"] = self._bill_prompt(
             campaign["id"],
             session_id,
@@ -308,13 +430,40 @@ class FormatLabService:
         )
         stored = {**session, **result}
         self._write_session(campaign["id"], stored, active=True)
-        return _serialize(result)
+        return _serialize(_preview_lab_result(result))
 
     def get_session(self, session_id):
         campaign, session = self._find_session(session_id)
         data = dict(session)
         data["campaign_id"] = campaign.get("id")
+        data["stage"] = _session_stage(data)
         return _serialize(data)
+
+    def list_sessions(self, payload=None):
+        payload = payload if isinstance(payload, dict) else {}
+        client_id = payload.get("client_id")
+        if client_id in (None, ""):
+            return _serialize({"sessions": [], "active": None, "history": []})
+        client_id = _integer(client_id, "Cliente")
+        listed = self._list_open_sessions(
+            client_id,
+            payload.get("format") or payload.get("format_key"),
+            payload.get("campaign_slug"),
+        )
+        active = listed[0] if listed else None
+        if isinstance(active, dict):
+            active = dict(active)
+            active["stage"] = _session_stage(active)
+        history = []
+        if active and active.get("campaign_id"):
+            campaign = self.repository.get_campaign(active["campaign_id"])
+            _brief, lab, _sessions = self._lab(campaign)
+            history = [item for item in (lab.get("history") or []) if isinstance(item, dict)]
+        return _serialize({
+            "sessions": [_session_summary(item) for item in listed],
+            "active": active,
+            "history": history,
+        })
 
     def run(self, session_id, payload, user_id=None):
         payload = payload if isinstance(payload, dict) else {}
@@ -539,7 +688,7 @@ class FormatLabService:
         return brief, lab, sessions
 
     def _write_session(self, campaign_id, session, active=False):
-        session = dict(session or {})
+        session = _slim_lab_session(dict(session or {}))
         campaign = self.repository.get_campaign(campaign_id)
         session["campaign_id"] = campaign_id
         client = campaign.get("client") if isinstance(campaign.get("client"), dict) else {}
@@ -550,18 +699,67 @@ class FormatLabService:
         lab["sessions"] = sessions
         if active:
             lab["active_session_id"] = session["id"]
+        entry = _history_entry(session)
+        if entry:
+            previous = [
+                item for item in (lab.get("history") or [])
+                if isinstance(item, dict)
+                and not (
+                    item.get("session_id") == entry["session_id"]
+                    and item.get("stage") == entry["stage"]
+                )
+            ]
+            lab["history"] = [entry, *previous][:12]
         brief["format_lab"] = lab
         index = getattr(self.repository, "format_lab_index", None)
         if not isinstance(index, dict):
             index = {}
             self.repository.format_lab_index = index
         index[session["id"]] = campaign_id
-        updater = getattr(self.repository, "update_campaign_bancada", None)
-        if callable(updater):
-            updater(campaign_id, brief)
-        persist = getattr(self.repository, "upsert_concept_session", None)
-        if callable(persist):
-            persist(session)
+        try:
+            updater = getattr(self.repository, "update_campaign_bancada", None)
+            if callable(updater):
+                updater(campaign_id, brief)
+            persist = getattr(self.repository, "upsert_concept_session", None)
+            if callable(persist):
+                persist(session)
+        except Exception:
+            logger.exception("Não gravou a sessão %s; o retorno da mesa segue", session.get("id"))
+
+    def _open_session(self, client_id, format_key=None, campaign_slug=None):
+        listed = self._list_open_sessions(client_id, format_key, campaign_slug)
+        return listed[0] if listed else None
+
+    def _list_open_sessions(self, client_id, format_key=None, campaign_slug=None):
+        finder = getattr(self.repository, "list_concept_sessions", None)
+        if callable(finder):
+            found = [
+                item for item in (finder(client_id, format_key, campaign_slug) or [])
+                if isinstance(item, dict) and item.get("id")
+            ]
+            if found:
+                return found
+        stored = getattr(self.repository, "concept_sessions", None)
+        if isinstance(stored, dict):
+            slug = str(campaign_slug or "").strip()
+            key = str(format_key or "").strip()
+            rows = []
+            for item in stored.values():
+                if not isinstance(item, dict):
+                    continue
+                if int(item.get("client_id") or 0) != int(client_id):
+                    continue
+                if item.get("status") == "handed_off":
+                    continue
+                stored_key = str(item.get("format") or item.get("format_key") or "")
+                if key and stored_key and stored_key != key:
+                    continue
+                stored_slug = str(item.get("campaign_slug") or "")
+                if slug and stored_slug and stored_slug != slug:
+                    continue
+                rows.append(item)
+            return list(reversed(rows))
+        return []
 
     def _find_session(self, session_id):
         session_id = str(session_id or "").strip()
@@ -597,8 +795,8 @@ class FormatLabService:
         return 30
 
     def _text_callable(self, payload):
-        if payload.get("text_callable"):
-            return payload["text_callable"]
+        if "text_callable" in (payload or {}):
+            return payload.get("text_callable")
         generator = getattr(self.modeling, "generator", None)
         return getattr(generator, "text_callable", None)
 
@@ -612,7 +810,7 @@ class FormatLabService:
         if not callable(generate):
             return None
 
-        def _run(prompt, aspect_ratio="1:1", background="transparent", input_references=None, **_extra):
+        def _run(prompt, aspect_ratio="1:1", background="opaque", input_references=None, **_extra):
             result = generate(
                 prompt,
                 input_references=input_references,

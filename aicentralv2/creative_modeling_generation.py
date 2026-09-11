@@ -7,7 +7,12 @@ import re
 
 import requests
 
-from .services.openrouter_service import OpenRouterError, chat_completion, resolve_api_key
+from .services.openrouter_service import (
+    OpenRouterError,
+    chat_completion,
+    resolve_api_key,
+    sanitize_image_payload,
+)
 
 
 OPENROUTER_IMAGE_URL = "https://openrouter.ai/api/v1/images"
@@ -443,7 +448,7 @@ class CreativeGenerationClient:
         requested_aspect_ratio = aspect_ratio
         provider_aspect_ratio = normalize_image_aspect_ratio(aspect_ratio)
         image_model = str(model or DEFAULT_IMAGE_MODEL).strip() or DEFAULT_IMAGE_MODEL
-        payload = {
+        payload = sanitize_image_payload({
             "model": image_model,
             "prompt": prompt,
             "aspect_ratio": provider_aspect_ratio,
@@ -451,7 +456,7 @@ class CreativeGenerationClient:
             "output_format": output_format,
             "resolution": resolution,
             "background": background,
-        }
+        })
         if references:
             payload["input_references"] = references
         try:

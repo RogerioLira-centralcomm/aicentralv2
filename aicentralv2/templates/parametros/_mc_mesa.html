@@ -31,6 +31,7 @@
     <div class="mc-mesa-skills" id="mcMesaBaseSkills" aria-label="Base da campanha"></div>
     <div class="mc-mesa-skills is-overlay" id="mcMesaSkills" role="group" aria-label="Skills da campanha"></div>
     <p class="mc-mesa-cost" id="mcMesaCost">R$ 0</p>
+    <ol class="mc-mesa-history" id="mcMesaHistory" hidden aria-label="Histórico desta campanha"></ol>
     <a class="mc-mesa-marcas-link" href="{{ url_for('parametros.modelagem_marcas') }}">Abrir Marcas</a>
   </header>
 
@@ -144,10 +145,17 @@
   </form>
   <div class="mc-run-body">
     <figure class="mc-base-plate" id="mcMesaBasePlate">
+      <iframe id="mcMesaBaseFrame" class="mc-base-html" title="HTML da base" sandbox="allow-same-origin" hidden></iframe>
       <img id="mcMesaBaseStill" alt="Still do 15s" hidden>
+      <img id="mcMesaBaseKey" alt="Key visual" hidden>
       <div class="mc-base-void" id="mcMesaBaseVoid">
         <strong>O quadro está vazio</strong>
         <span>A sequência devolve o still aqui, batida a batida.</span>
+      </div>
+      <div class="mc-base-wait" id="mcMesaBaseWait" hidden>
+        <em></em>
+        <strong id="mcMesaBaseWaitLabel">Montando a base</strong>
+        <span id="mcMesaBaseWaitHint">Sessão → HTML → camadas → still</span>
       </div>
     </figure>
     <aside class="mc-run-rail">
@@ -159,6 +167,10 @@
         <li data-op="close"><button type="button">Fechar</button></li>
         <li data-op="approve"><button type="button">Aprovar</button></li>
       </ol>
+      <figure class="mc-run-key" id="mcMesaRunKey" hidden>
+        <img id="mcMesaRunKeyImg" alt="Key visual da marca">
+        <figcaption>Key visual</figcaption>
+      </figure>
       <div class="mc-run-return">
         <p id="mcMesaBaseNote">Ainda não houve retorno. Monte o conceito para o roteiro aparecer.</p>
         <ol class="mc-mesa-trace" id="mcMesaTrace"></ol>

@@ -34,7 +34,7 @@ _LOCAL_TZ = ZoneInfo("America/Sao_Paulo")
 _PRODUCT_PROMPT = (
     "Isolated product or service still for {name}: {product}. "
     "Studio beauty cutout, no text, no logo, no environment, "
-    "transparent background, PNG."
+    "seamless light studio backdrop, PNG."
 )
 
 
@@ -192,6 +192,15 @@ def starter_copy(brand, text_callable=None, product=None):
     }
 
 
+def _safe_product_cutout(image_callable, prompt, aspect_ratio):
+    try:
+        return _as_data_url(
+            image_callable(prompt, aspect_ratio=aspect_ratio, background="opaque")
+        )
+    except Exception:
+        return ""
+
+
 def build_product_cutouts(brand, product, image_callable):
     name = str((brand or {}).get("name") or "the brand")
     item = str(product or "").strip()
@@ -199,12 +208,8 @@ def build_product_cutouts(brand, product, image_callable):
         return {"horizontal": "", "vertical": ""}
     prompt = _PRODUCT_PROMPT.format(name=name, product=item)
     return {
-        "horizontal": _as_data_url(
-            image_callable(prompt, aspect_ratio="16:9", background="transparent")
-        ),
-        "vertical": _as_data_url(
-            image_callable(prompt, aspect_ratio="9:16", background="transparent")
-        ),
+        "horizontal": _safe_product_cutout(image_callable, prompt, "16:9"),
+        "vertical": _safe_product_cutout(image_callable, prompt, "9:16"),
     }
 
 

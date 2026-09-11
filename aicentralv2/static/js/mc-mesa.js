@@ -102,6 +102,7 @@
       renderSkills();
       renderCost();
       autofillVivara();
+      await resumeDesk();
       renderOps();
       fitStage();
     } catch (error) {
@@ -111,6 +112,11 @@
 
   function bind() {
     $('mcMesaClient')?.addEventListener('change', (event) => selectClient(event.target.value));
+    $('mcMesaHistory')?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-session]');
+      if (!button) return;
+      openSavedSession(button.getAttribute('data-session'));
+    });
     $('mcMesaCounts')?.addEventListener('click', (event) => {
       const button = event.target.closest('[data-count]');
       if (!button) return;
@@ -269,6 +275,11 @@
   }
 
   function selectClient(id) {
+    if (String(state.clientId) !== String(id)) {
+      state.sessionId = '';
+      state.session = null;
+      state.storyboard = [];
+    }
     state.clientId = id;
     const client = currentClient();
     const match = MODEL_BRANDS.find((item) => nameMatches(client?.name, item.match));
@@ -293,6 +304,7 @@
     $('mcMesaGenerate').disabled = !state.clientId;
     labelGenerate();
     setStatus(state.clientId ? 'Marca pronta. Escolha o key visual e monte a cena 1.' : 'Escolha a marca. O 15s se monta em seguida.');
+    resumeDesk();
   }
 
   function pickModel(slug) {
@@ -322,6 +334,7 @@
     if (!state.clientId) {
       setStatus(`Campanha ${model?.label || slug} pronta. Selecione a marca para usar o payload.`);
     }
+    resumeDesk();
   }
 
   function autofillVivara() {
@@ -333,6 +346,61 @@
     } else {
       setStatus('Campanha Vivara pronta. Se a marca existir no seletor, ela entra sozinha.');
     }
+  }
+
+  function historyLabel(item) {
+    if (item.stage === 'base') return 'Base';
+    if (item.stage === 'scene') return 'Cena';
+    if (item.stage === 'close') return 'Still';
+    if (item.stage === 'approve') return 'Aprovado';
+    return 'Conceito';
+  }
+
+  function renderHistory(items) {
+    const list = $('mcMesaHistory');
+    if (!list) return;
+    const rows = (items || []).filter((item) => item.stage && item.stage !== 'draft');
+    list.hidden = !rows.length;
+    list.innerHTML = rows.slice(0, 4).map((item) => (
+      `<li data-stage="${item.stage || 'concept'}">
+        <button type="button" data-session="${item.session_id || item.id || ''}">${historyLabel(item)} · ${item.headline || item.format || '15s'}</button>
+      </li>`
+    )).join('');
+  }
+
+  async function resumeDesk() {
+    if (!state.clientId) {
+      renderHistory([]);
+      return null;
+    }
+    const params = new URLSearchParams({
+      client_id: state.clientId,
+      format: state.formatKey || '',
+      campaign_slug: state.campaignSlug || '',
+    });
+    const data = await fetch(`${API.sessions}?${params}`, { credentials: 'same-origin' }).then(readJson);
+    renderHistory(data.history?.length ? data.history : data.sessions || []);
+    if (data.active?.storyboard?.length || data.active?.base_html) {
+      applySession(data.active);
+      setStatus(
+        data.active.base_html
+          ? 'Base desta campanha retomada. Siga para a cena.'
+          : 'Conceito desta campanha retomado. Monte a base.'
+      );
+    }
+    return data.active || null;
+  }
+
+  async function openSavedSession(sessionId) {
+    if (!sessionId) return;
+    const data = await fetch(`${API.sessions}/${sessionId}`, { credentials: 'same-origin' }).then(readJson);
+    applySession(data);
+    setStatus(
+      data.base_html
+        ? 'Base salva neste formato. Siga para a cena.'
+        : 'Conceito salvo nesta campanha. Monte a base.'
+    );
+    openBaseDialog(data.base_html ? 'base' : 'concept');
   }
 
   function nameMatches(name, needle) {
@@ -644,7 +712,7 @@
     const list = $('mcMesaTrace');
     if (!list) return;
     list.innerHTML = (steps || []).map((item) => (
-      `<li data-status="${item.status || 'queued'}"><strong>${item.label || item.id}</strong></li>`
+      `<li data-id="${item.id || ''}" data-status="${item.status || 'queued'}"><strong>${item.label || item.id}</strong></li>`
     )).join('');
     renderOps();
   }
@@ -696,6 +764,7 @@
       }),
     }).then(readJson);
     state.sessionId = data.id;
+    if (data.storyboard?.length || data.base_html) applySession(data);
     return state.sessionId;
   }
 
@@ -708,14 +777,15 @@
       $('mcMesaAnalyze').disabled = true;
       renderOps('concept');
       state.runOp = 'concept';
-      setRunBusy(true);
       paintRunSeq();
-      renderTrace([
+      startRunProgress([
         { id: 'create', label: 'Conceito', status: 'running' },
         { id: 'refine', label: 'Melhor roteiro', status: 'queued' },
-      ]);
+      ], 'Montando o conceito', 'Sessão → roteiro → tira');
       setStatus('Duas passagens no roteiro de 15s. O retorno entra neste quadro.');
       const sessionId = await ensureSession();
+      markRunProgress('create', 'done');
+      markRunProgress('refine', 'running');
       const data = await fetch(`${API.sessions}/${sessionId}/storyboard`, {
         method: 'POST',
         credentials: 'same-origin',
@@ -795,14 +865,34 @@
     return null;
   }
 
-  function setRunBusy(busy) {
+  function setRunBusy(busy, label, hint) {
     $('mcMesaBaseDialog')?.classList.toggle('is-busy', Boolean(busy));
+    const wait = $('mcMesaBaseWait');
+    if (wait) {
+      wait.hidden = !busy;
+      if (busy && label && $('mcMesaBaseWaitLabel')) {
+        $('mcMesaBaseWaitLabel').textContent = label;
+      }
+      if (busy && hint && $('mcMesaBaseWaitHint')) {
+        $('mcMesaBaseWaitHint').textContent = hint;
+      }
+    }
     const node = $('mcMesaBaseRun');
     if (busy && node) {
       node.disabled = true;
       return;
     }
     labelRunButton();
+  }
+
+  function startRunProgress(steps, label, hint) {
+    setRunBusy(true, label, hint);
+    renderTrace(steps);
+  }
+
+  function markRunProgress(id, status) {
+    const item = document.querySelector(`#mcMesaTrace [data-id="${id}"]`);
+    if (item) item.dataset.status = status || 'done';
   }
 
   function paintRunSeq() {
@@ -842,30 +932,62 @@
     if (node && text) node.textContent = text;
   }
 
-  function showBaseStill(url) {
-    const still = $('mcMesaBaseStill');
+  function currentKeyVisual() {
+    const scene = state.storyboard.find((item) => item.id === state.sceneId) || state.storyboard[0] || {};
+    return state.keyVisuals[state.sceneId] || scene.key_visual || '';
+  }
+
+  function showBasePreview({ still, html, key } = {}) {
+    const stillNode = $('mcMesaBaseStill');
+    const frame = $('mcMesaBaseFrame');
+    const keyNode = $('mcMesaBaseKey');
     const voidBox = $('mcMesaBaseVoid');
-    if (!still || !voidBox) return;
-    if (url) {
-      still.src = url;
-      still.hidden = false;
-      voidBox.hidden = true;
-      return;
+    const railKey = $('mcMesaRunKey');
+    const railImg = $('mcMesaRunKeyImg');
+    const hasStill = Boolean(still);
+    const hasHtml = Boolean(html);
+    const hasKey = Boolean(key);
+    if (stillNode) {
+      if (hasStill) stillNode.src = still;
+      else stillNode.removeAttribute('src');
+      stillNode.hidden = !hasStill;
     }
-    still.removeAttribute('src');
-    still.hidden = true;
-    voidBox.hidden = false;
+    if (frame) {
+      if (hasHtml && !hasStill) frame.srcdoc = html;
+      else frame.removeAttribute('srcdoc');
+      frame.hidden = !(hasHtml && !hasStill);
+    }
+    if (keyNode) {
+      const showKey = hasKey && !hasStill && !hasHtml;
+      if (showKey) keyNode.src = key;
+      else keyNode.removeAttribute('src');
+      keyNode.hidden = !showKey;
+    }
+    if (voidBox) voidBox.hidden = hasStill || hasHtml || hasKey;
+    if (railKey && railImg) {
+      const showRail = hasKey && (hasStill || hasHtml);
+      if (showRail) railImg.src = key;
+      else railImg.removeAttribute('src');
+      railKey.hidden = !showRail;
+    }
   }
 
   function paintRunStill() {
     const versions = sceneVersions(state.sceneId);
-    const mockupVersions = (state.session?.mockup?.versions || []).filter((item) => item.png_data_url);
+    const mockupVersions = (state.session?.mockup?.versions || []).filter((item) => item.png_data_url || item.html);
     const chosen = versions.find((item) => item.attempt === state.versionAttempt)
       || versions.find((item) => item.chosen)
       || versions[versions.length - 1]
       || mockupVersions.find((item) => item.chosen)
-      || (state.session?.mockup && { png_data_url: state.session.mockup.render_url });
-    showBaseStill(chosen?.png_data_url || '');
+      || (state.session?.mockup && {
+        png_data_url: state.session.mockup.render_url,
+        html: state.session.mockup.html || state.session.base_html,
+      });
+    showBasePreview({
+      still: chosen?.png_data_url || '',
+      html: chosen?.html || state.session?.base_html || state.session?.mockup?.html || '',
+      key: currentKeyVisual(),
+    });
     paintConceptBeats();
     paintRunTakes(versions.length ? versions : mockupVersions, chosen);
   }
@@ -873,10 +995,12 @@
   function paintConceptBeats() {
     const list = $('mcMesaRunBeats');
     if (!list) return;
-    const hasStill = Boolean(
-      sceneVersions(state.sceneId).length || state.session?.mockup?.render_url
+    const hasPreview = Boolean(
+      sceneVersions(state.sceneId).length
+      || state.session?.mockup?.render_url
+      || state.session?.base_html
     );
-    list.hidden = hasStill || !state.storyboard.length;
+    list.hidden = hasPreview || !state.storyboard.length;
     list.innerHTML = state.storyboard.map((item, index) => (
       `<li><strong>${index + 1}</strong><span>${item.headline || item.purpose || `Cena ${index + 1}`}</span></li>`
     )).join('');
@@ -908,11 +1032,19 @@
       if (run) run.disabled = true;
       renderOps('base');
       state.runOp = 'base';
-      setRunBusy(true);
       paintRunSeq();
+      startRunProgress([
+        { id: 'session', label: 'Sessão', status: 'running' },
+        { id: 'html', label: 'HTML da marca', status: 'queued' },
+        { id: 'layers', label: 'Camadas', status: 'queued' },
+        { id: 'still', label: 'Still 16:9', status: 'queued' },
+      ], 'Montando a base', 'Sessão → HTML → camadas → still');
       setStatus('Montando o HTML da marca no quadro 16:9.');
       const sessionId = await ensureSession();
+      markRunProgress('session', 'done');
+      markRunProgress('html', 'running');
       setStatus('Ajustando as camadas. Se o provedor falhar, a placa entra do mesmo jeito.');
+      markRunProgress('layers', 'running');
       const data = await fetch(`${API.sessions}/${sessionId}/mockup`, {
         method: 'POST',
         credentials: 'same-origin',
@@ -924,6 +1056,9 @@
         }),
       }).then(readJson);
       applySession(data);
+      markRunProgress('html', 'done');
+      markRunProgress('layers', 'done');
+      markRunProgress('still', 'done');
       const plateOnly = data.mockup?.provider === 'plate';
       setStatus(
         plateOnly
@@ -957,13 +1092,12 @@
       $('mcMesaGenerate').disabled = true;
       renderOps('scene');
       state.runOp = 'scene';
-      setRunBusy(true);
       paintRunSeq();
-      renderTrace([
+      startRunProgress([
         { id: 'v1', label: `${state.sceneId} v1`, status: 'running' },
         { id: 'v2', label: 'v2', status: 'queued' },
         { id: 'v3', label: 'v3', status: 'queued' },
-      ]);
+      ], 'Montando a cena', 'Três takes voltam para o quadro');
       setStatus(`Gerando ${state.sceneId}. Três takes voltam para o quadro.`);
       const sessionId = await ensureSession();
       const data = await fetch(`${API.sessions}/${sessionId}/run`, {
@@ -1141,6 +1275,15 @@
     showScene();
     paintRunStill();
     paintRunSeq();
+    if (data.id && (data.storyboard?.length || data.base_html)) {
+      renderHistory([{
+        session_id: data.id,
+        id: data.id,
+        stage: data.base_html ? 'base' : 'concept',
+        headline: (data.storyboard || state.storyboard || [])[0]?.headline || '',
+        format: data.format || state.formatKey,
+      }]);
+    }
   }
 
   function sceneVersions(sceneId) {

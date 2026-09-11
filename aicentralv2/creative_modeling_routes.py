@@ -190,6 +190,16 @@ def api_format_lab_campaign(slug):
 
 @admin_required_api
 def api_format_lab_sessions():
+    if request.method == "GET":
+        return _execute(
+            lambda: _ok(
+                _service().list_format_lab_sessions({
+                    "client_id": request.args.get("client_id"),
+                    "format": request.args.get("format") or request.args.get("format_key"),
+                    "campaign_slug": request.args.get("campaign_slug"),
+                })
+            )
+        )
     return _execute(
         lambda: _ok(
             _service().create_format_lab_session(_json(), session.get("user_id")),
@@ -1050,7 +1060,7 @@ def register_creative_modeling_routes(blueprint):
         "/api/format-lab/sessions",
         endpoint="creative_format_lab_sessions",
         view_func=api_format_lab_sessions,
-        methods=["POST"],
+        methods=["GET", "POST"],
     )
     blueprint.add_url_rule(
         "/api/format-lab/sessions/<session_id>",

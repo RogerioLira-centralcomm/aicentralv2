@@ -25,7 +25,11 @@ def clamp_renders(value):
 
 def render_png(html_text, width=1920, height=1080, screenshot=None):
     runner = screenshot or screenshot_html
-    return runner(html_text, width, height)
+    try:
+        png = runner(html_text, width, height)
+    except Exception:
+        return b""
+    return png if isinstance(png, (bytes, bytearray)) else b""
 
 
 def png_data_url(png_bytes):

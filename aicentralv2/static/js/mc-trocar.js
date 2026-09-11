@@ -50,6 +50,7 @@
   };
 
   let readAbort = null;
+  let promptAbort = null;
   let promptTimer = 0;
 
   document.addEventListener('DOMContentLoaded', boot);
@@ -66,21 +67,13 @@
     renderVersions();
     highlightQuality();
     try {
-      const [clients, quote] = await Promise.all([
-        fetch(API.clients, { credentials: 'same-origin' }).then(readJson),
-        fetch(API.quote, {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ kind: 'swap', quality: state.quality }),
-        }).then(readJson),
-      ]);
+      const clients = await request(API.clients);
       state.clients = Array.isArray(clients) ? clients : (clients?.items || clients?.clients || []);
       renderClients();
-      paintCost(quote);
     } catch (_error) {
       setStatus('Não deu para carregar as marcas. Você ainda pode escrever o nome no pedido.');
     }
+    refreshQuote();
   }
 
   function bind() {
@@ -251,13 +244,7 @@
     hideError();
     try {
       const reference = await downscaleImage(version.image, 1280, 0.82);
-      const data = await fetch(API.read, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        signal: readAbort.signal,
-        body: JSON.stringify({ reference }),
-      }).then(readJson);
+      const data = await request(API.read, { reference }, { signal: readAbort.signal });
       state.cache[version.id] = data;
       version.ocr = data;
       version.analysis = data.analysis || null;
@@ -361,11 +348,9 @@
     $('mcTrocrViewport')?.setAttribute('data-presentation', state.presentation);
   }
 
-  function payload() {
+  function editFields() {
     const client = state.clients.find((item) => String(item.id) === String(state.clientId));
-    const base = baseVersion();
     return {
-      reference: base?.image || '',
       client_id: state.clientId || undefined,
       brand_name: client?.name || '',
       headline: $('mcSwapHeadline')?.value || '',
@@ -380,8 +365,12 @@
       use_brand_context: state.brandContext,
       preserve: checkedValues('mcTrocrPreserve'),
       alter: checkedValues('mcTrocrAlter'),
-      prompt_override: state.promptEdited ? ($('mcTrocrPrompt')?.value || '') : undefined,
+      prompt_override: (state.promptEdited || state.promptLocked) ? ($('mcTrocrPrompt')?.value || '') : undefined,
     };
+  }
+
+  function payload() {
+    return { ...editFields(), reference: baseVersion()?.image || '' };
   }
 
   async function refreshPrompt() {
@@ -389,32 +378,24 @@
     if (!baseVersion()?.image || state.promptEdited) return;
     window.clearTimeout(promptTimer);
     promptTimer = window.setTimeout(async () => {
+      if (promptAbort) promptAbort.abort();
+      promptAbort = new AbortController();
       try {
-        const data = await fetch(API.prompt, {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload()),
-        }).then(readJson);
+        const data = await request(API.prompt, editFields(), { signal: promptAbort.signal });
         state.optimizedPrompt = data.prompt || '';
         state.optimizedPreview = data.preview || data.prompt || '';
         const box = $('mcTrocrPrompt');
         if (box && box.readOnly) box.value = state.optimizedPreview;
         paintCost(data.quote);
-      } catch (_error) {
-        /* preview é auxiliar */
+      } catch (error) {
+        if (error.name === 'AbortError') return;
       }
     }, 220);
   }
 
   async function refreshQuote() {
     try {
-      const quote = await fetch(API.quote, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind: 'swap', quality: state.quality }),
-      }).then(readJson);
+      const quote = await request(API.quote, { kind: 'swap', quality: state.quality });
       paintCost(quote);
     } catch (_error) {
       /* custo é auxiliar */
@@ -437,12 +418,7 @@
     state.lastAction = 'generate';
     try {
       showGenSteps('prompt');
-      const data = await fetch(API.swap, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...payload(), quality, reference: base.image }),
-      }).then(readJson);
+      const data = await request(API.swap, { ...editFields(), quality, reference: base.image });
       showGenSteps('generate');
       if (!data.png_data_url) throw new Error('A geração não devolveu a imagem.');
       const thumb = await makeThumb(data.png_data_url);
@@ -557,6 +533,7 @@
     if (!card) return;
     const id = card.getAttribute('data-version');
     const action = button?.getAttribute('data-action');
+    if (!action && event.target.closest('summary, menu, details')) return;
     if (action === 'base') useAsBase(id);
     else if (action === 'compare') {
       state.compareIds = [state.baseId || state.versions[0]?.id, id];
@@ -579,24 +556,33 @@
         : 'Nenhuma versão. O histórico será criado ao enviar o criativo.';
     }
     if (!list) return;
+    if ($('mcTrocrCompareBtn')) $('mcTrocrCompareBtn').disabled = state.versions.length < 2;
     list.innerHTML = state.versions.map((item) => {
       const current = item.id === state.activeId;
       const base = item.id === state.baseId;
       const when = formatWhen(item.createdAt);
-      return `<li class="mc-trocr-version-card${current ? ' is-active' : ''}${base ? ' is-base' : ''}" data-version="${item.id}">
-        ${item.thumb ? `<img src="${item.thumb}" alt="${escapeHtml(item.name)}">` : '<span class="mc-trocr-thumb"></span>'}
-        <strong>${escapeHtml(item.id)} · ${escapeHtml(item.name)}</strong>
-        <small>${escapeHtml(ORIGIN_LABEL[item.origin] || item.origin)} · ${when}</small>
-        ${base ? '<small>Base ativa</small>' : ''}
-        <menu>
-          <button type="button" data-action="view">Visualizar</button>
-          <button type="button" data-action="compare">Comparar</button>
-          <button type="button" data-action="duplicate">Duplicar</button>
+      return `<li class="mc-trocr-take${current ? ' is-active' : ''}${base ? ' is-base' : ''}" data-version="${item.id}">
+        <button type="button" class="mc-trocr-take-still" data-action="view">
+          ${item.thumb ? `<img src="${item.thumb}" alt="${escapeHtml(item.name)}">` : '<span class="mc-trocr-thumb"></span>'}
+          ${base ? '<em>Base</em>' : ''}
+        </button>
+        <p>
+          <strong>${escapeHtml(item.id)} ${escapeHtml(item.name)}</strong>
+          <small>${escapeHtml(ORIGIN_LABEL[item.origin] || item.origin)} ${when}</small>
+        </p>
+        <div class="mc-trocr-take-cta">
           <button type="button" data-action="base">Usar como base</button>
-          <button type="button" data-action="rename">Renomear</button>
-          <button type="button" data-action="restore">Restaurar contexto</button>
-          ${item.origin === 'original' ? '' : '<button type="button" data-action="delete">Excluir</button>'}
-        </menu>
+          <details>
+            <summary aria-label="Mais ações"><svg class="mc-trocr-ico" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="3.5" cy="8" r="1.15" fill="currentColor"/><circle cx="8" cy="8" r="1.15" fill="currentColor"/><circle cx="12.5" cy="8" r="1.15" fill="currentColor"/></svg></summary>
+            <menu>
+              <button type="button" data-action="compare">Comparar</button>
+              <button type="button" data-action="duplicate">Duplicar</button>
+              <button type="button" data-action="rename">Renomear</button>
+              <button type="button" data-action="restore">Restaurar contexto</button>
+              ${item.origin === 'original' ? '' : '<button type="button" data-action="delete">Excluir</button>'}
+            </menu>
+          </details>
+        </div>
       </li>`;
     }).join('');
   }
@@ -663,8 +649,13 @@
   }
 
   function highlightQuality() {
-    $('mcTrocrDraft')?.classList.toggle('is-emphasis', state.quality === 'draft');
-    $('mcSwapRun')?.classList.toggle('is-emphasis', state.quality === 'production');
+    const draft = $('mcTrocrDraft');
+    const prod = $('mcSwapRun');
+    const draftOn = state.quality === 'draft';
+    draft?.classList.toggle('cx-btn-primary', draftOn);
+    draft?.classList.toggle('cx-btn-secondary', !draftOn);
+    prod?.classList.toggle('cx-btn-primary', !draftOn);
+    prod?.classList.toggle('cx-btn-secondary', draftOn);
   }
 
   function enableGenerate(enabled) {
@@ -809,10 +800,29 @@
     return downscaleImage(dataUrl, 160, 0.72);
   }
 
-  async function readJson(response) {
-    const payload = await response.json();
+  async function request(url, body, options) {
+    const response = await fetch(url, {
+      method: options?.method || (body ? 'POST' : 'GET'),
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      signal: options?.signal,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    let payload = {};
+    try {
+      payload = await response.json();
+    } catch (_error) {
+      payload = {};
+    }
+    if (response.status === 401 || response.status === 403) {
+      throw new Error('Sua sessão expirou. Entre de novo para continuar.');
+    }
     if (!response.ok || payload.success === false) {
-      throw new Error(payload.message || payload.error || 'Não deu para trocar o anúncio.');
+      throw new Error(payload.message || payload.error || (
+        response.status >= 500
+          ? 'O servidor não concluiu. Tente de novo.'
+          : 'Não deu para trocar o anúncio.'
+      ));
     }
     return payload.data || payload;
   }

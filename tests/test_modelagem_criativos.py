@@ -3381,6 +3381,7 @@ class CreativeFilesContractTest(unittest.TestCase):
             "trocr/_prompt.html",
             "trocr/_generate.html",
             "trocr/_versions.html",
+            "trocr/_icons.html",
             "trocr/_states.html",
             "trocr/states.html",
             "_mc_design_system.html",
@@ -4153,7 +4154,7 @@ class CreativeFilesContractTest(unittest.TestCase):
             root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html"
         ).read_text(encoding="utf-8")
         self.assertIn("modelagem_criativos.js') }}?v=57", desk)
-        self.assertIn("mc_page_js) }}?v=24", desk)
+        self.assertIn("mc_page_js) }}?v=25", desk)
         self.assertIn("function loadComposeLibrary", frontend)
         self.assertIn("variation_id", frontend)
         self.assertIn("compose-library", frontend)

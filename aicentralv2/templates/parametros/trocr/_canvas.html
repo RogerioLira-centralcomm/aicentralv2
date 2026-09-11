@@ -1,3 +1,4 @@
+{% from "parametros/trocr/_icons.html" import ico %}
 <section class="mc-trocr-canvas" id="mcSwapStage">
   <header class="mc-trocr-canvas-bar">
     <div class="mc-trocr-tabs" role="tablist">
@@ -5,18 +6,20 @@
       <button type="button" data-view="compare" id="mcTrocrCompareBtn">Comparar</button>
     </div>
     <div class="mc-trocr-canvas-tools">
-      <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="mcTrocrZoomOut" aria-label="Diminuir zoom">−</button>
-      <span id="mcTrocrZoomLabel">100%</span>
-      <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="mcTrocrZoomIn" aria-label="Aumentar zoom">+</button>
-      <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="mcTrocrDownload">Download</button>
-      <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="mcTrocrFullscreen">Tela cheia</button>
+      <button type="button" class="mc-trocr-tool" id="mcTrocrZoomOut" aria-label="Diminuir zoom">{{ ico('minus') }}</button>
+      <span class="mc-trocr-zoom" id="mcTrocrZoomLabel">100%</span>
+      <button type="button" class="mc-trocr-tool" id="mcTrocrZoomIn" aria-label="Aumentar zoom">{{ ico('plus') }}</button>
+      <span class="mc-trocr-tool-gap" aria-hidden="true"></span>
+      <button type="button" class="mc-trocr-tool" id="mcTrocrDownload" aria-label="Download">{{ ico('download') }}</button>
+      <button type="button" class="mc-trocr-tool" id="mcTrocrFullscreen" aria-label="Tela cheia">{{ ico('expand') }}</button>
     </div>
   </header>
   <p class="mc-trocr-base-meta" id="mcTrocrBaseMeta">Nenhuma versão selecionada</p>
   <div class="mc-swap-stage mc-trocr-stage" id="mcTrocrViewport" data-presentation="final">
     <div class="mc-swap-drop" id="mcSwapDrop">
       <input id="mcSwapFile" type="file" accept="image/*" hidden>
-      <strong>Solte a referência.</strong>
+      <span class="mc-trocr-drop-ico">{{ ico('image') }}</span>
+      <strong>Solte a referência</strong>
       <p>Ao enviar uma nova imagem, o OCR é executado automaticamente.</p>
     </div>
     <figure class="mc-swap-preview" id="mcSwapPreview" hidden>

@@ -6,6 +6,7 @@ import os
 from typing import Any
 
 from ..services.openrouter_service import OpenRouterError, chat_completion
+from .cost import record as record_cost
 from .helpers import extract_json, text
 
 
@@ -28,6 +29,7 @@ def chat_text(
         max_tokens=max_tokens,
         temperature=temperature,
     )
+    record_cost(result.get("usage"), kind="chat", model=text(result.get("model")))
     message = result.get("message") or {}
     content = message.get("content")
     if isinstance(content, list):

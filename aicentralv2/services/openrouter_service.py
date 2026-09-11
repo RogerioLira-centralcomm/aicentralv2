@@ -144,6 +144,7 @@ def chat_completion(
             else max(-2.0, min(float(presence_penalty), 2.0))
         ),
         "stream": False,
+        "usage": {"include": True},
     }
     if tools:
         payload["tools"] = tools

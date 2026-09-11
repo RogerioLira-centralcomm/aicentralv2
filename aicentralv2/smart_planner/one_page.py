@@ -178,6 +178,7 @@ Regras:
 - market.stat é um número ou uma palavra de decisão (nunca um slogan). Sem inventar percentual sem rotular como premissa.
 - defense.body fecha a reunião: por que este mix, agora, para este anunciante.
 - Sem agência como herói, sem CentralComm no texto, sem mencionar IA.
+- Se houver identidade da marca (público, produto, tom), use como verdade. Não invente outro posicionamento.
 """
 
 
@@ -344,12 +345,20 @@ def build_one_page(
     campanha: dict,
     presenter_id: str,
     public_token: str = "",
+    brand: dict | None = None,
+    cliente_id=None,
+    agencia_id=None,
 ) -> dict:
+    from .brand import brand_prompt_block
+
     client = text(meta.get("client") or campanha.get("cliente"))
     agency = text(meta.get("agency") or campanha.get("agencia"))
     pitch = match_pitch(client, agency, briefing)
     partners = list(pitch.get("partners") or []) if pitch else []
-    branding = resolve_branding(client, agency, presenter_id, partners)
+    branding = resolve_branding(
+        client, agency, presenter_id, partners,
+        cliente_id=cliente_id, agencia_id=agencia_id, brand=brand,
+    )
     presenter = branding["presenter"]
     if pitch:
         cards = cards_from_pitch(pitch)
@@ -357,7 +366,10 @@ def build_one_page(
             client = pitch["client"]
         if not agency:
             agency = pitch["agency"]
-        branding = resolve_branding(client, agency, presenter_id, partners)
+        branding = resolve_branding(
+            client, agency, presenter_id, partners,
+            cliente_id=cliente_id, agencia_id=agencia_id, brand=brand,
+        )
     else:
         parsed = chat_json(
             ONE_PAGE_PROMPT,
@@ -366,6 +378,7 @@ def build_one_page(
                     "cliente": client,
                     "agencia": agency,
                     "presenter": presenter,
+                    "marca": brand_prompt_block(brand),
                     "briefing": briefing[:8000],
                     "planejamento": planejamento[:8000],
                     "campanha": campanha,

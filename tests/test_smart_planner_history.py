@@ -88,3 +88,5 @@ def test_history_row_goes_to_gerar_when_mix_is_ready():
     assert row["resume_step"] == "gerar"
     assert row["href"] == "/smart-planner/tok-mix/gerar"
     assert row["canvas_href"] == "/smart-planner/tok-mix/canvas"
+    assert row["custo"] == ""
+    assert row["custo_brl"] == 0

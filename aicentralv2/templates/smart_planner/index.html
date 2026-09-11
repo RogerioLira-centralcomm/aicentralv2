@@ -4,7 +4,7 @@
 {% block title %}Smart Planner{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=4">
 {% endblock %}
 
 {% block content %}
@@ -12,9 +12,9 @@
   <header class="sp-head">
     <div>
       <h1>Planejamentos</h1>
-      <p>
+      <p id="sp-history-summary">
         {% if total_user %}
-          {{ total_user }} {{ 'campanha' if total_user == 1 else 'campanhas' }} neste usuário.
+          {{ total_user }} {{ 'campanha' if total_user == 1 else 'campanhas' }} neste usuário{% if custo_total %}. {{ custo_total }} em gerações{% endif %}.
         {% else %}
           Briefing vira uma folha de decisão — página única ou plano completo.
         {% endif %}
@@ -57,6 +57,10 @@
         <div>
           <dt>Verba</dt>
           <dd>{{ row.verba or "—" }}</dd>
+        </div>
+        <div class="is-cost">
+          <dt>Custo</dt>
+          <dd>{{ row.custo or "—" }}</dd>
         </div>
         <div>
           <dt>Praça</dt>

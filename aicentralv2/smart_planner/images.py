@@ -11,6 +11,7 @@ import re
 from flask import current_app, has_app_context
 
 from ..services.openrouter_service import generate_image, resolve_image_model
+from .cost import record as record_cost
 from .helpers import as_dict, as_list, text
 
 logger = logging.getLogger(__name__)
@@ -83,6 +84,7 @@ def _render(prompt: str, stem: str, aspect_ratio: str) -> str:
         resolution="2K",
         model=resolve_image_model(),
     )
+    record_cost(result.get("usage"), kind="image", model=text(result.get("model")))
     raw = base64.b64decode(result["b64_json"])
     digest = hashlib.sha1(raw).hexdigest()[:8]
     filename = f"{stem}-{digest}.png"

@@ -10,6 +10,7 @@ from ..services.openrouter_service import OpenRouterError
 from . import one_page
 from .ai import chat_json
 from .catalog import PRACA_OPTIONS, objetivo_label
+from .cost import bound_session
 from .helpers import as_dict, as_list, plan_mode_of, session_title, text
 from .images import apply_sheet_art
 from .repository import get_by_token, merge_dados, update_session
@@ -51,6 +52,7 @@ Regras:
 - body de decisão: o que fazer, com que peso e por quê. Sem jargão de agência.
 - plan_mode=completo: as 4 seções, 2 a 3 cards por seção.
 - O primeiro card de strategy deve ser a recomendação em uma frase.
+- Se houver identidade da marca, use público, produto e tom como verdade.
 """
 
 
@@ -138,51 +140,60 @@ def generate_canvas(token: str, presenter_id: str | None = None) -> dict:
     if mode == "one_page" and not planejamento and not briefing and not meta.get("client"):
         raise ValueError("Informe o cliente final ou o briefing antes de montar a página única.")
     chosen = text(presenter_id) or text(dados.get("presenter_brand")) or "centralcomm"
-    if mode == "one_page":
-        plan = one_page.build_one_page(
-            meta,
-            briefing,
-            planejamento,
-            campanha,
-            chosen,
-            text(dados.get("public_token")),
+    with bound_session(token):
+        if mode == "one_page":
+            plan = one_page.build_one_page(
+                meta,
+                briefing,
+                planejamento,
+                campanha,
+                chosen,
+                text(dados.get("public_token")),
+                brand=as_dict(dados.get("brand")),
+                cliente_id=dados.get("cliente_id"),
+                agencia_id=dados.get("agencia_id"),
+            )
+            try:
+                apply_sheet_art(plan, force=True)
+            except OpenRouterError:
+                logger.exception("GPT Image 2 indisponível; a folha usa o fundo da família.")
+            merge_dados(token, {
+                "presenter_brand": plan["meta"]["presenter"],
+                "public_token": plan["share"]["public_token"],
+            })
+            row = update_session(token, {
+                "plan_content": plan,
+                "schema_version": 3,
+                "canvas_layout": {
+                    "mode": mode,
+                    "generatedAt": plan["meta"]["updatedAt"],
+                    "presenter": plan["meta"]["presenter"],
+                },
+            })
+            return {"plan": plan, "session": row}
+        parsed = chat_json(
+            CANVAS_PROMPT,
+            json.dumps(
+                {
+                    "plan_mode": mode,
+                    "meta": meta,
+                    "marca": as_dict(dados.get("brand")),
+                    "briefing": briefing[:12000],
+                    "planejamento": planejamento[:20000],
+                    "campanha": campanha,
+                },
+                ensure_ascii=False,
+            ),
+            max_tokens=5000,
+            temperature=0.2,
         )
-        try:
-            apply_sheet_art(plan, force=True)
-        except OpenRouterError:
-            logger.exception("GPT Image 2 indisponível; a folha usa o fundo da família.")
-        merge_dados(token, {
-            "presenter_brand": plan["meta"]["presenter"],
-            "public_token": plan["share"]["public_token"],
-        })
+        plan = normalize_plan(parsed if isinstance(parsed, dict) else {}, mode, meta)
         row = update_session(token, {
             "plan_content": plan,
-            "schema_version": 3,
-            "canvas_layout": {"mode": mode, "generatedAt": plan["meta"]["updatedAt"], "presenter": plan["meta"]["presenter"]},
+            "schema_version": 2,
+            "canvas_layout": {"mode": mode, "generatedAt": plan["meta"]["updatedAt"]},
         })
         return {"plan": plan, "session": row}
-    parsed = chat_json(
-        CANVAS_PROMPT,
-        json.dumps(
-            {
-                "plan_mode": mode,
-                "meta": meta,
-                "briefing": briefing[:12000],
-                "planejamento": planejamento[:20000],
-                "campanha": campanha,
-            },
-            ensure_ascii=False,
-        ),
-        max_tokens=5000,
-        temperature=0.2,
-    )
-    plan = normalize_plan(parsed if isinstance(parsed, dict) else {}, mode, meta)
-    row = update_session(token, {
-        "plan_content": plan,
-        "schema_version": 2,
-        "canvas_layout": {"mode": mode, "generatedAt": plan["meta"]["updatedAt"]},
-    })
-    return {"plan": plan, "session": row}
 
 
 def save_plan(token: str, plan: dict) -> dict:

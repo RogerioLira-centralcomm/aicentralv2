@@ -4,20 +4,35 @@
 {% block title %}Novo planejamento · Smart Planner{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=4">
 {% endblock %}
 
 {% block content %}
-<div class="sp-desk">
+<div class="sp-desk" id="sp-start">
   <header class="sp-head">
     <div>
-      <h1>O que o anunciante precisa assinar?</h1>
-      <p>O briefing é o mesmo. Muda a folha: uma decisão em uma página ou o plano com as quatro seções.</p>
+      <h1>Quem é o anunciante?</h1>
+      <p>Se houver marca na Modelagem, o quadro já sai com público, produto e identidade.</p>
     </div>
     <a class="cx-btn cx-btn-ghost" href="{{ url_for('smart_planner.index') }}">Voltar aos planejamentos</a>
   </header>
 
-  <div class="sp-formats">
+  <div class="sp-parties">
+    <label class="cx-field sp-party" data-kind="cliente">
+      <span class="cx-label">Cliente final</span>
+      <input class="cx-input js-sp-party" type="text" name="cliente" autocomplete="off" placeholder="Buscar no CRM ou escrever o nome">
+      <ul class="sp-suggest" hidden></ul>
+    </label>
+    <label class="cx-field sp-party" data-kind="agencia">
+      <span class="cx-label">Agência</span>
+      <input class="cx-input js-sp-party" type="text" name="agencia" autocomplete="off" placeholder="Opcional — preenche se o cliente tiver vínculo">
+      <ul class="sp-suggest" hidden></ul>
+    </label>
+  </div>
+  <div class="sp-brand-chip" id="sp-brand-chip" hidden></div>
+
+  <h2 class="sp-start-format">O que o anunciante precisa assinar?</h2>
+  <div class="sp-formats" id="sp-formats">
     <button type="button" class="sp-format is-priority js-sp-start" data-mode="one_page">
       <span class="sp-format-mark">Página única</span>
       <h2>Uma folha para decidir</h2>
@@ -47,5 +62,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/start.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/start.js') }}?v=3"></script>
 {% endblock %}

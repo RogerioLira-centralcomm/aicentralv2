@@ -60,7 +60,7 @@ def test_normalize_keeps_branding():
 def test_principal_brand_removes_centralcomm_from_copy(monkeypatch):
     monkeypatch.setattr(
         "aicentralv2.smart_planner.one_page.resolve_branding",
-        lambda client, agency, presenter_id, partners=None: {
+        lambda client, agency, presenter_id, partners=None, **kwargs: {
             "client": {"name": client, "logo_url": "", "id": 1},
             "agency": {"name": agency, "logo_url": "", "id": 2},
             "presenter": {"id": "serasa", "name": "Serasa Ads", "role": "principal", "logo_url": ""},

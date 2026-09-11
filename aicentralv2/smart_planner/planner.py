@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from .ai import chat_text
+from .brand import brand_prompt_block
+from .cost import bound_session
 from .catalog import CHANNEL_CATALOG, channel_label
 from .helpers import as_dict, normalize_markdown, text
 from .repository import get_by_token, merge_dados
@@ -73,6 +75,20 @@ Não invente números sem rotular como premissa. Sem agência, sem ferramenta.
 """
 
 
+def _brand_block(brand: dict) -> str:
+    payload = brand_prompt_block(brand)
+    if not payload:
+        return ""
+    lines = ["\n\n## Identidade da marca (Modelagem)"]
+    for key, value in payload.items():
+        if not value:
+            continue
+        if isinstance(value, list):
+            value = ", ".join(str(item) for item in value if item)
+        lines.append(f"- {key}: {value}")
+    return "\n".join(lines)
+
+
 def _campaign_block(campanha: dict) -> str:
     if not campanha:
         return ""
@@ -94,22 +110,23 @@ def _campaign_block(campanha: dict) -> str:
     return "\n".join(lines)
 
 
-def research_market(briefing: str, campanha: dict) -> str:
+def research_market(briefing: str, campanha: dict, brand: dict | None = None) -> str:
     raw = chat_text(
         MARKET_PROMPT,
-        briefing[:18000] + _campaign_block(campanha),
+        briefing[:18000] + _campaign_block(campanha) + _brand_block(brand),
         max_tokens=2500,
         temperature=0.3,
     )
     return normalize_markdown(raw)
 
 
-def generate_plan(briefing: str, campanha: dict, lastro: str = "") -> str:
+def generate_plan(briefing: str, campanha: dict, lastro: str = "", brand: dict | None = None) -> str:
     raw = chat_text(
         PLAN_PROMPT,
         "Monte o planejamento de mídia com base neste briefing:\n\n"
         + briefing[:28000]
         + _campaign_block(campanha)
+        + _brand_block(brand)
         + (f"\n\n## Dados de mercado\n{lastro}" if lastro else ""),
         max_tokens=8000,
         temperature=0.35,
@@ -120,12 +137,13 @@ def generate_plan(briefing: str, campanha: dict, lastro: str = "") -> str:
     return normalize_markdown(raw)
 
 
-def review_plan(document: str, briefing: str, campanha: dict) -> str:
+def review_plan(document: str, briefing: str, campanha: dict, brand: dict | None = None) -> str:
     raw = chat_text(
         REVIEW_PROMPT,
         "Briefing:\n"
         + briefing[:12000]
         + _campaign_block(campanha)
+        + _brand_block(brand)
         + "\n\nDocumento a revisar:\n"
         + document[:28000],
         max_tokens=8000,
@@ -144,14 +162,16 @@ def run_generation(token: str) -> dict:
         raise ValueError("Processe o briefing antes de gerar o plano.")
     dados = as_dict(row.get("dados_detectados"))
     campanha = dados.get("campanha") if isinstance(dados.get("campanha"), dict) else {}
-    market = research_market(briefing, campanha)
-    plan = generate_plan(briefing, campanha, market)
-    reviewed = review_plan(plan, briefing, campanha)
-    merge_dados(token, {
-        "mercado": market,
-        "planejamento": reviewed,
-        "planejamento_rascunho": plan,
-    })
+    brand = as_dict(dados.get("brand"))
+    with bound_session(token):
+        market = research_market(briefing, campanha, brand)
+        plan = generate_plan(briefing, campanha, market, brand)
+        reviewed = review_plan(plan, briefing, campanha, brand)
+        merge_dados(token, {
+            "mercado": market,
+            "planejamento": reviewed,
+            "planejamento_rascunho": plan,
+        })
     return {
         "mercado": market,
         "planejamento": reviewed,

@@ -4,7 +4,7 @@
 {% block title %}{{ steps[step_index].title }} · Smart Planner{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=4">
 {% endblock %}
 
 {% block content %}
@@ -26,10 +26,13 @@
     </div>
   </header>
 
-  {% if facts and (facts.cliente or facts.verba or facts.praca) %}
-  <dl class="sp-facts is-strip">
+  {% if facts and (facts.cliente or facts.agencia or facts.marca or facts.verba or facts.praca or facts.custo) %}
+    <dl class="sp-facts is-strip">
     <div><dt>Cliente</dt><dd>{{ facts.cliente or "—" }}</dd></div>
+    {% if facts.agencia %}<div><dt>Agência</dt><dd>{{ facts.agencia }}</dd></div>{% endif %}
+    {% if facts.marca %}<div><dt>Marca</dt><dd>{{ facts.marca }}</dd></div>{% endif %}
     <div><dt>Verba</dt><dd>{{ facts.verba or "—" }}</dd></div>
+    {% if facts.custo %}<div class="is-cost"><dt>Custo</dt><dd>{{ facts.custo }}</dd></div>{% endif %}
     <div><dt>Praça</dt><dd>{{ facts.praca or "—" }}</dd></div>
     <div><dt>Período</dt><dd>{{ facts.periodo or "—" }}</dd></div>
     {% if facts.objetivo %}<div><dt>Objetivo</dt><dd>{{ facts.objetivo }}</dd></div>{% endif %}
@@ -85,7 +88,13 @@
           <div class="sp-stack">
             <label class="cx-field"><span class="cx-label">Campanha</span><input class="cx-input" name="campanha" value="{{ campos.campanha }}"></label>
             <label class="cx-field"><span class="cx-label">Cliente final</span><input class="cx-input" name="cliente" value="{{ campos.cliente }}" placeholder="Anunciante"></label>
+            <input type="hidden" name="cliente_id" value="{{ campos.cliente_id or '' }}">
             <label class="cx-field"><span class="cx-label">Agência</span><input class="cx-input" name="agencia" value="{{ campos.agencia }}" placeholder="Se houver"></label>
+            <input type="hidden" name="agencia_id" value="{{ campos.agencia_id or '' }}">
+            <input type="hidden" name="cx_client_id" value="{{ campos.cx_client_id or '' }}">
+            {% if brand and brand.has_identity %}
+            <p class="cx-help">{{ brand.name }} tem identidade na Modelagem. O quadro usa público, produto e tom.</p>
+            {% endif %}
             <label class="cx-field">
               <span class="cx-label">Objetivo</span>
               <select class="cx-select" name="objetivo">
@@ -200,5 +209,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=3"></script>
 {% endblock %}

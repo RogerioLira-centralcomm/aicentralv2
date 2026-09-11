@@ -6,10 +6,12 @@ import json
 
 from ..services.openrouter_service import OpenRouterError
 from .ai import chat_json, chat_text
+from .brand import apply_pistas, briefing_pistas, preserve_seed
+from .cost import bound_session
 from .catalog import CHANNEL_CATALOG, DEVICE_OPTIONS, FIELD_SCHEMA
 from .helpers import as_dict, campaign_from_campos, normalize_markdown, text
 from .materials import compose_material
-from .repository import merge_dados, update_session
+from .repository import get_by_token, merge_dados, update_session
 
 
 NARRATIVE_PROMPT = """Você é o redator de briefing do Smart Planner no CentralX.
@@ -105,8 +107,21 @@ def process_briefing(token: str, text_in: str, references: list[dict] | None = N
     material = compose_material(text_in, references)
     if len(material) < 40:
         raise ValueError("Escreva o briefing ou adicione uma referência com mais detalhe.")
-    extracted = extract_fields(material)
-    campos = extracted["campos"]
+    with bound_session(token):
+        return _process_briefing(token, text_in, references, material)
+
+
+def _process_briefing(
+    token: str,
+    text_in: str,
+    references: list[dict] | None,
+    material: str,
+) -> dict:
+    row = get_by_token(token)
+    dados_atuais = as_dict((row or {}).get("dados_detectados"))
+    pistas = briefing_pistas(dados_atuais)
+    extracted = extract_fields(material, pistas)
+    campos = apply_pistas(extracted["campos"], pistas)
     origem = "texto escrito ou colado pelo usuário"
     if references and text_in.strip():
         origem = "briefing escrito pelo usuário acompanhado de material de apoio"
@@ -140,9 +155,11 @@ def process_briefing(token: str, text_in: str, references: list[dict] | None = N
         "cliente": text(campos.get("cliente")) or None,
         "plataformas_sugeridas": campos.get("canais") or None,
     })
-    current = as_dict(row.get("dados_detectados"))
-    current.update(dados)
-    current["plan_mode"] = current.get("plan_mode") or "completo"
+    current = preserve_seed(dados_atuais, dados)
+    current["plan_mode"] = current.get("plan_mode") or dados_atuais.get("plan_mode") or "completo"
+    current["cliente"] = text(campos.get("cliente")) or current.get("cliente")
+    current["agencia"] = text(campos.get("agencia")) or current.get("agencia")
+    current.pop("cost", None)
     row = merge_dados(token, current)
     return {
         "session": row,

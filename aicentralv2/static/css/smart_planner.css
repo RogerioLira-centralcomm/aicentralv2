@@ -140,6 +140,16 @@
   margin: 0;
 }
 
+.sp-plan .sp-facts {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 1.15rem;
+  row-gap: 0.7rem;
+}
+
+#sp-history-summary {
+  font-variant-numeric: tabular-nums;
+}
+
 .sp-facts.is-strip {
   grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
   gap: 0.85rem 1.25rem;
@@ -162,6 +172,11 @@
 
 .sp-facts div:first-child dd {
   color: var(--sp-budget);
+}
+
+.sp-facts .is-cost dd {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.015em;
 }
 
 .sp-plan-aside {
@@ -205,6 +220,76 @@
   margin: 0.5rem 0 1.1rem;
   max-width: 32rem;
   color: var(--sp-fog);
+}
+
+.sp-parties {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.sp-party {
+  position: relative;
+}
+
+.sp-suggest {
+  position: absolute;
+  z-index: 8;
+  top: calc(100% - 0.15rem);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0.25rem 0;
+  list-style: none;
+  background: var(--cx-surface, #fff);
+  border: 1px solid var(--sp-rule);
+  border-radius: var(--cx-radius-md, 0.5rem);
+  max-height: 14rem;
+  overflow: auto;
+}
+
+.sp-suggest button {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sp-suggest button:hover,
+.sp-suggest button:focus-visible {
+  background: var(--cx-brand-soft, #e8f1f1);
+}
+
+.sp-brand-chip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  align-items: baseline;
+  margin: 0 0 1.35rem;
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--sp-rule);
+  border-bottom: 1px solid var(--sp-rule);
+}
+
+.sp-brand-chip strong {
+  color: var(--sp-signal);
+}
+
+.sp-brand-chip span {
+  color: var(--sp-fog);
+  font-size: 0.875rem;
+}
+
+.sp-start-format {
+  margin: 0 0 0.85rem;
+  font-size: 1.05rem;
+  font-weight: 700;
 }
 
 .sp-formats {
@@ -978,6 +1063,7 @@
 
   .sp-plan,
   .sp-formats,
+  .sp-parties,
   .sp-revisao,
   .sp-board.is-exec,
   .sp-split,

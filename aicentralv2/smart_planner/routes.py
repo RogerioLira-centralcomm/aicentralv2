@@ -26,6 +26,8 @@ from .catalog import (
 )
 from .helpers import as_dict
 from .materials import extract_pdf, save_upload, scrape_url
+from .brand import brand_for_client, search_parties
+from .logos import lookup_agency_for_client
 from .repository import SessionNotFound, SmartPlannerError, get_by_public_token
 from .service import (
     delete_plan,
@@ -75,13 +77,21 @@ def index():
         flash_error = None
     except Exception:
         logger.exception("Falha ao carregar histórico do Smart Planner")
-        payload = {"rows": [], "total_user": 0, "total_base": 0}
+        payload = {
+            "rows": [],
+            "total_user": 0,
+            "total_base": 0,
+            "custo_total": "",
+            "custo_total_brl": 0,
+        }
         flash_error = "Não foi possível carregar o histórico."
     return render_template(
         "smart_planner/index.html",
         rows=payload["rows"],
         total_user=payload["total_user"],
         total_base=payload["total_base"],
+        custo_total=payload.get("custo_total") or "",
+        custo_total_brl=payload.get("custo_total_brl") or 0,
         flash_error=flash_error,
         **_page_ctx(),
     )
@@ -181,12 +191,42 @@ def canvas(token):
     )
 
 
+@bp.route("/api/partes")
+@login_required_api
+def api_partes():
+    kind = (request.args.get("kind") or "cliente").strip().lower()
+    if kind not in {"cliente", "agencia"}:
+        kind = "cliente"
+    rows = search_parties(request.args.get("q") or "", kind)
+    return _ok({"rows": rows})
+
+
+@bp.route("/api/marca")
+@login_required_api
+def api_marca():
+    cliente_id = request.args.get("cliente_id")
+    try:
+        cliente_id = int(cliente_id) if cliente_id else None
+    except (TypeError, ValueError):
+        cliente_id = None
+    brand = brand_for_client(cliente_id) if cliente_id else {}
+    agency = lookup_agency_for_client(cliente_id) if cliente_id else {}
+    return _ok({
+        "brand": brand,
+        "agency": {
+            "id": agency.get("id"),
+            "name": agency.get("name") or "",
+            "logo_url": agency.get("logo_url") or "",
+        } if agency.get("name") else {},
+    })
+
+
 @bp.route("/api/criar", methods=["POST"])
 @login_required_api
 def api_criar():
     try:
         payload = request.get_json(silent=True) or {}
-        row = start_plan(payload.get("plan_mode"))
+        row = start_plan(payload.get("plan_mode"), payload)
         token = row["session_token"]
         return _ok({
             "session_token": token,
@@ -353,12 +393,20 @@ def _handle_not_found(exc):
     try:
         payload = history_payload()
     except Exception:
-        payload = {"rows": [], "total_user": 0, "total_base": 0}
+        payload = {
+            "rows": [],
+            "total_user": 0,
+            "total_base": 0,
+            "custo_total": "",
+            "custo_total_brl": 0,
+        }
     return render_template(
         "smart_planner/index.html",
         rows=payload["rows"],
         total_user=payload["total_user"],
         total_base=payload["total_base"],
+        custo_total=payload.get("custo_total") or "",
+        custo_total_brl=payload.get("custo_total_brl") or 0,
         flash_error=str(exc),
         **_page_ctx(),
     ), 404

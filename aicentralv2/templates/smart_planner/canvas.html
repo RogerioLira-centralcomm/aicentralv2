@@ -4,7 +4,7 @@
 {% block title %}{{ plan_mode_label }} · {{ titulo }}{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=4">
 {% endblock %}
 
 {% block content %}
@@ -40,10 +40,11 @@
       <button type="button" class="cx-btn cx-btn-primary" id="sp-canvas-save">Salvar</button>
     </div>
   </header>
-  {% if facts and (facts.cliente or facts.verba or facts.praca) %}
+  {% if facts and (facts.cliente or facts.verba or facts.praca or facts.custo) %}
   <dl class="sp-facts is-strip">
     <div><dt>Cliente</dt><dd>{{ facts.cliente or "—" }}</dd></div>
     <div><dt>Verba</dt><dd>{{ facts.verba or "—" }}</dd></div>
+    {% if facts.custo %}<div class="is-cost"><dt>Custo</dt><dd>{{ facts.custo }}</dd></div>{% endif %}
     <div><dt>Praça</dt><dd>{{ facts.praca or "—" }}</dd></div>
     <div><dt>Período</dt><dd>{{ facts.periodo or "—" }}</dd></div>
     {% if facts.objetivo %}<div><dt>Objetivo</dt><dd>{{ facts.objetivo }}</dd></div>{% endif %}

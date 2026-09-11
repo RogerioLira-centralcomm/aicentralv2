@@ -120,7 +120,8 @@ def lookup_agency_for_client(client_id: Any) -> dict:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT COALESCE(ag.nome_fantasia, ag.razao_social) AS nome,
+                SELECT ag.id_cliente,
+                       COALESCE(ag.nome_fantasia, ag.razao_social) AS nome,
                        web.logo_url
                   FROM tbl_cliente_agencia ca
                   JOIN tbl_cliente ag ON ag.id_cliente = ca.id_agencia_cliente
@@ -136,7 +137,7 @@ def lookup_agency_for_client(client_id: Any) -> dict:
             name = text(row.get("nome"))
             if name:
                 return {
-                    "id": None,
+                    "id": row.get("id_cliente"),
                     "name": name,
                     "logo_url": public_logo(row.get("logo_url")),
                     "source": "crm",
@@ -144,6 +145,39 @@ def lookup_agency_for_client(client_id: Any) -> dict:
     except Exception:
         logger.exception("Falha ao buscar agência do cliente %s", client_id)
     return _empty_party()
+
+
+def lookup_party_by_id(party_id: Any) -> dict:
+    if not party_id:
+        return _empty_party()
+    try:
+        conn = get_db()
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT c.id_cliente,
+                       COALESCE(c.nome_fantasia, c.razao_social) AS nome,
+                       web.logo_url
+                  FROM tbl_cliente c
+                  LEFT JOIN cliente_web_info web
+                         ON web.id_cliente = c.id_cliente AND web.status = 'ok'
+                 WHERE c.id_cliente = %s
+                 LIMIT 1
+                """,
+                (party_id,),
+            )
+            row = cur.fetchone() or {}
+        if not row:
+            return _empty_party()
+        return {
+            "id": row.get("id_cliente"),
+            "name": text(row.get("nome")),
+            "logo_url": public_logo(row.get("logo_url")),
+            "source": "crm",
+        }
+    except Exception:
+        logger.exception("Falha ao buscar parte %s", party_id)
+        return _empty_party()
 
 
 def _from_crm(cur, query: str) -> dict:
@@ -211,11 +245,38 @@ def _from_cx_clients(cur, query: str) -> dict:
     }
 
 
-def resolve_branding(client_name: str, agency_name: str, presenter_id: str, partners: list[str] | None = None) -> dict:
-    client = lookup_party(client_name)
-    agency = lookup_party(agency_name)
-    if not agency.get("name") and client.get("id"):
-        agency = lookup_agency_for_client(client["id"])
+def resolve_branding(
+    client_name: str,
+    agency_name: str,
+    presenter_id: str,
+    partners: list[str] | None = None,
+    cliente_id: Any = None,
+    agencia_id: Any = None,
+    brand: dict | None = None,
+) -> dict:
+    snapshot = brand if isinstance(brand, dict) else {}
+    if snapshot.get("logo_url") or snapshot.get("name"):
+        client = {
+            "id": cliente_id or snapshot.get("id"),
+            "name": text(snapshot.get("name") or client_name),
+            "logo_url": public_logo(snapshot.get("logo_url")),
+            "source": "marcas",
+        }
+    elif cliente_id:
+        client = lookup_party_by_id(cliente_id)
+        if client_name and not client.get("name"):
+            client["name"] = text(client_name)
+    else:
+        client = lookup_party(client_name)
+    if agencia_id:
+        agency = lookup_party_by_id(agencia_id)
+        if agency_name and not agency.get("name"):
+            agency["name"] = text(agency_name)
+    else:
+        agency = lookup_party(agency_name)
+    crm_id = cliente_id or (client.get("id") if client.get("source") == "crm" else None)
+    if not agency.get("name") and crm_id:
+        agency = lookup_agency_for_client(crm_id)
     presenter = presenter_brand(presenter_id)
     if presenter["id"] != "centralcomm":
         presenter["role"] = "principal"

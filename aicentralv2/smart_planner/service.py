@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from flask import session
 
+from .brand import seed_parties
 from .catalog import PLAN_MODES, PRACA_OPTIONS, WIZARD_STEPS, objetivo_label, plan_mode_label
+from .cost import cost_from_dados, format_brl
 from .logos import presenter_options
 from .helpers import as_dict, as_list, plan_mode_of, session_title, text
 from .repository import (
@@ -30,18 +32,27 @@ def current_user() -> dict:
 def history_payload() -> dict:
     user = current_user()
     rows = list_sessions(user["user_email"], user["user_id"])
+    total_brl = 0.0
+    for row in rows:
+        try:
+            total_brl += float((row or {}).get("custo_brl") or 0)
+        except (TypeError, ValueError):
+            continue
     return {
         "rows": rows,
         "total_user": len(rows),
         "total_base": count_sessions(),
+        "custo_total_brl": round(total_brl, 2),
+        "custo_total": format_brl(total_brl),
     }
 
 
-def start_plan(plan_mode: str) -> dict:
+def start_plan(plan_mode: str, payload: dict | None = None) -> dict:
     mode = (plan_mode or "").strip().lower()
     if mode not in PLAN_MODES:
         raise ValueError("Escolha plano completo ou página única.")
-    return create_session(current_user(), mode)
+    seed = seed_parties(payload or {})
+    return create_session(current_user(), mode, seed)
 
 
 def load_owned(token: str) -> dict:
@@ -71,18 +82,27 @@ def wizard_context(row: dict, step_id: str) -> dict:
         "dispositivos": as_list(campanha.get("dispositivos") or dados.get("dispositivos")),
         "kpis": dados.get("kpis") or [],
         "observacoes": text(dados.get("observacoes")),
+        "cliente_id": dados.get("cliente_id"),
+        "agencia_id": dados.get("agencia_id"),
+        "cx_client_id": dados.get("cx_client_id"),
     }
     if isinstance(campos["campanha"], dict):
         campos["campanha"] = text(dados.get("nome_campanha"))
     praca_label = PRACA_OPTIONS.get(campos["praca"], {}).get("label", campos["praca"])
+    brand = as_dict(dados.get("brand"))
+    custo = cost_from_dados(dados)
     return {
         "row": row,
         "dados": dados,
         "campanha": campanha,
         "campos": campos,
+        "brand": brand,
         "facts": {
             "cliente": campos["cliente"],
+            "agencia": campos["agencia"],
+            "marca": text(brand.get("name")),
             "verba": campos["verba"],
+            "custo": custo["label"],
             "periodo": campos["periodo"],
             "praca": praca_label,
             "objetivo": objetivo_label(campos["objetivo"]) or campos["objetivo_texto"],
@@ -103,7 +123,14 @@ def wizard_context(row: dict, step_id: str) -> dict:
 
 
 def persist_review(token: str, payload: dict) -> dict:
-    return save_campos(token, payload.get("campos") or {}, payload.get("briefing"))
+    campos = dict(payload.get("campos") or {})
+    for key in ("cliente_id", "agencia_id", "cx_client_id"):
+        raw = campos.get(key)
+        try:
+            campos[key] = int(raw) if raw not in ("", None) else None
+        except (TypeError, ValueError):
+            campos[key] = None
+    return save_campos(token, campos, payload.get("briefing"))
 
 
 def persist_canais(token: str, payload: dict) -> dict:

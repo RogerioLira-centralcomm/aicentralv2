@@ -81,7 +81,10 @@
           campos: {
             campanha: data.get("campanha"),
             cliente: data.get("cliente"),
+            cliente_id: data.get("cliente_id") || null,
             agencia: data.get("agencia"),
+            agencia_id: data.get("agencia_id") || null,
+            cx_client_id: data.get("cx_client_id") || null,
             objetivo: data.get("objetivo"),
             objetivo_texto: data.get("objetivo_texto"),
             publico: data.get("publico"),

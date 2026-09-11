@@ -236,7 +236,15 @@ class PiOperacaoServiceTest(unittest.TestCase):
             },
         )
 
-    def test_get_estado_nao_sincroniza_nem_escreve(self):
+    def test_catalogo_financeiro_usa_tipos_fiscais(self):
+        service = PiOperacaoService(repository=FakeRepository(substatus=4))
+        tipos = {item["tipo"] for item in service.catalogo(10)["tipos"]}
+        self.assertIn("financeiro", tipos)
+        self.assertIn("nota_fiscal", tipos)
+        self.assertIn("documentos_assinados", tipos)
+        self.assertIn("comprovacao", tipos)
+        self.assertIn("atualizacao_manual", tipos)
+        self.assertTrue(all(item.get("canal") for item in service.catalogo(10)["tipos"]))
         repo = FakeRepository()
         service = PiOperacaoService(repository=repo)
         repo.gerar_checklist(

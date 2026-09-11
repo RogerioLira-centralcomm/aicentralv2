@@ -272,21 +272,26 @@
 
   function readPercs() {
     return {
-      margem_cc: parsePct(form.perc_margem_cc.value),
-      tech_fee: parsePct(form.perc_tech_fee.value),
-      com_vendas: parsePct(form.perc_com_vendas.value),
-      pl_incentivos: parsePct(form.perc_pl_incentivos.value),
-      impostos: parsePct(form.perc_impostos.value),
-      comissao_agencia: parsePct(form.perc_comissao_agencia.value),
-      comissao_parceiro: parsePct(form.perc_comissao_parceiro.value)
+      margem_cc: parsePct(form.perc_margem_cc && form.perc_margem_cc.value),
+      tech_fee: parsePct(form.perc_tech_fee && form.perc_tech_fee.value),
+      com_vendas: parsePct(form.perc_com_vendas && form.perc_com_vendas.value),
+      pl_incentivos: parsePct(form.perc_pl_incentivos && form.perc_pl_incentivos.value),
+      impostos: parsePct(form.perc_impostos && form.perc_impostos.value),
+      comissao_agencia: parsePct(form.perc_comissao_agencia && form.perc_comissao_agencia.value),
+      comissao_parceiro: parsePct(form.perc_comissao_parceiro && form.perc_comissao_parceiro.value)
     };
   }
 
   function computeDre() {
-    var gasto = parseFloat(dreRoot.getAttribute('data-gasto') || '0') || 0;
+    var gastoInput = form.gasto_midia_realizado;
+    var gasto = gastoInput && gastoInput.value
+      ? parsePct(gastoInput.value)
+      : (parseFloat(dreRoot.getAttribute('data-gasto') || '0') || 0);
     var objContr = parseFloat(dreRoot.getAttribute('data-obj-contratado') || '0') || 0;
     var objAting = parseFloat(dreRoot.getAttribute('data-obj-atingido') || '0') || 0;
     var cbase = parseFloat(dreRoot.getAttribute('data-cbase') || '0') || 0;
+    var fonte = dreRoot.getAttribute('data-fonte') || 'cotacao';
+    var liquidoHeader = parseFloat(dreRoot.getAttribute('data-liquido-header') || '0') || 0;
     var cpm = dreRoot.getAttribute('data-cpm') === 'true';
     var perc = readPercs();
     var tf = perc.tech_fee / 100;
@@ -300,28 +305,94 @@
     var soma = mcc + com + inc + imp;
     var bruto = 0;
     var tfVal = 0;
+    var liquido = liquidoHeader;
+    if (fonte === 'legado') {
+      if (perc.comissao_agencia && perc.comissao_agencia < 100) {
+        bruto = liquidoHeader / (1 - perc.comissao_agencia / 100);
+      } else {
+        bruto = parseFloat(dreRoot.getAttribute('data-bruto-header') || '0') || liquidoHeader;
+      }
+      liquido = liquidoHeader;
+      tfVal = 0;
+      return {
+        valor_bruto: bruto,
+        valor_liquido: liquido,
+        gasto_midia: gasto,
+        impostos: liquido * (perc.impostos / 100),
+        margem_cc: bruto * mcc,
+        tech_fee: tfVal,
+        com_vendas: bruto * com,
+        pl_incentivos: bruto * inc,
+        comissoes: (bruto - liquido) + (liquido * perc.comissao_parceiro / 100),
+        resultado: liquido - gasto
+      };
+    }
     if (cbase > 0 && tf < 1 && soma < 1 && volume > 0) {
       var opex = cbase / (1 - tf);
       bruto = volume * (opex / (1 - soma));
       tfVal = volume * (opex - cbase);
+    } else {
+      bruto = parseFloat(dreRoot.getAttribute('data-bruto-header') || '0') || 0;
     }
-    var liquido = bruto - (bruto * perc.comissao_agencia / 100);
+    liquido = bruto - (bruto * perc.comissao_agencia / 100);
     return {
       valor_bruto: bruto,
       valor_liquido: liquido,
+      gasto_midia: gasto,
+      impostos: bruto * imp,
       margem_cc: bruto * mcc,
       tech_fee: tfVal,
       com_vendas: bruto * com,
       pl_incentivos: bruto * inc,
-      impostos: bruto * imp
+      comissoes: (bruto * perc.comissao_agencia / 100) + (liquido * perc.comissao_parceiro / 100),
+      resultado: liquido - gasto
     };
+  }
+
+  function pctAferido(real, previsto) {
+    if (!previsto) return 0;
+    return Math.round((Number(real || 0) / Number(previsto)) * 100);
   }
 
   function renderDre() {
     var dre = computeDre();
     Object.keys(dre).forEach(function (key) {
-      var el = dreRoot.querySelector('[data-dre="' + key + '"]');
-      if (el) el.textContent = formatBrl(dre[key]);
+      var realizado = dreRoot.querySelector('[data-dre-realizado="' + key + '"]');
+      if (realizado && !realizado.querySelector('input')) realizado.textContent = formatBrl(dre[key]);
+      var previstoEl = dreRoot.querySelector('[data-dre-previsto="' + key + '"]');
+      var previsto = previstoEl ? parsePct(String(previstoEl.textContent || '').replace('R$', '')) : 0;
+      if (previstoEl && key === 'gasto_midia') {
+        previsto = parseFloat(dreRoot.getAttribute('data-midia-previsto') || '0') || 0;
+      }
+      var aferido = dreRoot.querySelector('[data-dre-aferido="' + key + '"]');
+      if (aferido) {
+        var prevVal = 0;
+        if (previstoEl) {
+          var raw = previstoEl.getAttribute('data-raw');
+          prevVal = raw != null ? parseFloat(raw) : 0;
+        }
+        if (!prevVal && key === 'gasto_midia') prevVal = parseFloat(dreRoot.getAttribute('data-midia-previsto') || '0') || 0;
+        if (!prevVal && previstoEl) {
+          var n = parseFloat(String(previstoEl.textContent || '').replace(/[^\d,-]/g, '').replace(/\./g, '').replace(',', '.'));
+          prevVal = isFinite(n) ? n : 0;
+        }
+        aferido.textContent = pctAferido(dre[key], prevVal) + '%';
+      }
+      var resultado = dreRoot.querySelector('[data-dre-resultado="' + key + '"]');
+      if (resultado) {
+        if (key === 'resultado') resultado.textContent = formatBrl(dre.resultado);
+        else {
+          var prevN = 0;
+          var previstoCell = dreRoot.querySelector('[data-dre-previsto="' + key + '"]');
+          if (previstoCell) {
+            var parsed = parseFloat(String(previstoCell.textContent || '').replace(/[^\d,-]/g, '').replace(/\./g, '').replace(',', '.'));
+            prevN = isFinite(parsed) ? parsed : 0;
+          }
+          resultado.textContent = formatBrl(dre[key] - prevN);
+        }
+      }
+      var legacy = dreRoot.querySelector('[data-dre="' + key + '"]');
+      if (legacy) legacy.textContent = formatBrl(dre[key]);
     });
   }
 
@@ -339,7 +410,10 @@
       credentials: 'same-origin',
       body: JSON.stringify({
         percentuais: readPercs(),
-        observacoes_operacao: obs ? obs.value.trim() : ''
+        observacoes_operacao: obs ? obs.value.trim() : '',
+        gasto_midia_realizado: form.gasto_midia_realizado && form.gasto_midia_realizado.value
+          ? parsePct(form.gasto_midia_realizado.value)
+          : undefined
       })
     })
       .then(function (resp) { return resp.json(); })
@@ -347,10 +421,7 @@
         if (!data.success) throw new Error(data.message || 'Não foi possível salvar.');
         toast('Provisionamentos atualizados com o total das campanhas.', 'success');
         if (data.data) {
-          ['valor_bruto', 'valor_liquido', 'margem_cc', 'tech_fee', 'com_vendas', 'pl_incentivos', 'impostos'].forEach(function (key) {
-            var el = dreRoot.querySelector('[data-dre="' + key + '"]');
-            if (el && data.data[key] != null) el.textContent = formatBrl(data.data[key]);
-          });
+          renderDre();
         }
       })
       .catch(function (error) {

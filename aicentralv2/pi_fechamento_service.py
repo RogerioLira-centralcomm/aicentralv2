@@ -94,6 +94,29 @@ def classificar_zona(custo_real, zonas):
     return 5
 
 
+def classificar_zona_por_margem(liquido, midia):
+    liquido = _safe_float(liquido)
+    if liquido <= 0:
+        return None
+    margem = (liquido - _safe_float(midia)) / liquido
+    if margem >= 0.40:
+        return 1
+    if margem >= 0.20:
+        return 2
+    if margem >= 0.0:
+        return 3
+    if margem >= -0.15:
+        return 4
+    return 5
+
+
+def eh_legado(pi):
+    if pi.get("cotacao_id"):
+        return False
+    cbase = _money(pi.get("custo_base_unitario")) or 0.0
+    return cbase <= 0
+
+
 def calcular_zonas(pi, desvio_pct, ruptura_mult=10.0):
     obj_contr = _safe_float(pi.get("objetivo_contratado_pi") or pi.get("objetivo_contratado"))
     cbase = _safe_float(pi.get("custo_base_unitario"))
@@ -126,6 +149,105 @@ def _pct(realizado, previsto):
     return round((float(realizado or 0) / float(previsto)) * 100, 2)
 
 
+DRE_LINHAS = (
+    {"chave": "valor_bruto", "label": "Bruto", "perc": None},
+    {"chave": "valor_liquido", "label": "Líquido", "perc": None},
+    {"chave": "gasto_midia", "label": "Mídia", "perc": None},
+    {"chave": "impostos", "label": "Impostos", "perc": "impostos"},
+    {"chave": "margem_cc", "label": "Margem CC", "perc": "margem_cc"},
+    {"chave": "tech_fee", "label": "Tech fee", "perc": "tech_fee"},
+    {"chave": "com_vendas", "label": "Com. vendas", "perc": "com_vendas"},
+    {"chave": "pl_incentivos", "label": "PL", "perc": "pl_incentivos"},
+    {"chave": "comissoes", "label": "Comissões", "perc": None},
+    {"chave": "resultado", "label": "Resultado", "perc": None},
+)
+
+
+def _dre_previsto_header(pi, midia_prevista):
+    bruto = _safe_float(pi.get("valor_bruto") or pi.get("vr_bruto_pi"))
+    liquido = _safe_float(pi.get("valor_liquido") or pi.get("vr_liquido_pi"))
+    perc_ag = _percent_points(pi.get("perc_comissao_agencia") or pi.get("perc_cms_agencia"))
+    perc_parc = _percent_points(pi.get("perc_comissao_parceiro") or pi.get("perc_cms_parc_reg"))
+    com_ag = _money(pi.get("comissao_agencia") or pi.get("vr_cms_agencia"))
+    if com_ag is None:
+        com_ag = bruto * (perc_ag / 100.0)
+    com_parc = _money(pi.get("comissao_parceiro") or pi.get("vr_cms_parc_com"))
+    if com_parc is None:
+        com_parc = liquido * (perc_parc / 100.0)
+    midia = _safe_float(midia_prevista)
+    return {
+        "valor_bruto": round(bruto, 2),
+        "valor_liquido": round(liquido, 2),
+        "gasto_midia": round(midia, 2),
+        "impostos": round(_safe_float(pi.get("val_impostos")), 2),
+        "margem_cc": round(_safe_float(pi.get("val_margem_cc") or pi.get("margem_cc")), 2),
+        "tech_fee": round(_safe_float(pi.get("val_tech_fee")), 2),
+        "com_vendas": round(_safe_float(pi.get("val_com_vendas")), 2),
+        "pl_incentivos": round(_safe_float(pi.get("val_pl_incentivos")), 2),
+        "comissoes": round(_safe_float(com_ag) + _safe_float(com_parc), 2),
+        "resultado": round(liquido - midia, 2),
+    }
+
+
+def _dre_realizado(dre, gasto):
+    liquido = _safe_float(dre.get("valor_liquido"))
+    midia = _safe_float(gasto)
+    return {
+        "valor_bruto": round(_safe_float(dre.get("valor_bruto")), 2),
+        "valor_liquido": round(liquido, 2),
+        "gasto_midia": round(midia, 2),
+        "impostos": round(_safe_float(dre.get("impostos")), 2),
+        "margem_cc": round(_safe_float(dre.get("margem_cc")), 2),
+        "tech_fee": round(_safe_float(dre.get("tech_fee")), 2),
+        "com_vendas": round(_safe_float(dre.get("com_vendas")), 2),
+        "pl_incentivos": round(_safe_float(dre.get("pl_incentivos")), 2),
+        "comissoes": round(
+            _safe_float(dre.get("comissao_agencia")) + _safe_float(dre.get("comissao_parceiro")),
+            2,
+        ),
+        "resultado": round(liquido - midia, 2),
+    }
+
+
+def _dre_resultado(previsto, realizado):
+    resultado = {}
+    for chave in previsto:
+        if chave == "resultado":
+            resultado[chave] = realizado.get(chave)
+        else:
+            resultado[chave] = round(
+                _safe_float(realizado.get(chave)) - _safe_float(previsto.get(chave)),
+                2,
+            )
+    return resultado
+
+
+def _zona_explicacao(zona, zona_label, zona_base, gasto, previsto, liquido):
+    if not zona:
+        return "Sem classificação de zona — faltam líquido ou mídia para aferir."
+    if zona_base == "margem":
+        margem = 0.0
+        if _safe_float(liquido) > 0:
+            margem = ((_safe_float(liquido) - _safe_float(gasto)) / _safe_float(liquido)) * 100
+        return (
+            f"Margem {margem:.0f}% (líquido − mídia) / líquido → Zona {zona} · {zona_label}. "
+            "Base: margem, porque este PI não tem custo-base."
+        )
+    return (
+        f"Mídia {_fmt_brl_curto(gasto)} vs prevista {_fmt_brl_curto(previsto)} "
+        f"→ Zona {zona} · {zona_label}."
+    )
+
+
+def _fmt_brl_curto(value):
+    try:
+        number = float(value or 0)
+    except (TypeError, ValueError):
+        return "R$ 0,00"
+    formatted = f"{number:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"R$ {formatted}"
+
+
 def _percent_points(value):
     parsed = _money(value)
     if parsed is None:
@@ -155,6 +277,8 @@ def calcular_provisionamentos(pi, gasto_real, obj_contratado=0.0, obj_atingido=0
     volume_contr = (float(obj_contratado or 0) / 1000.0) if is_cpm else float(obj_contratado or 0)
     volume_ating = (float(obj_atingido or 0) / 1000.0) if is_cpm else float(obj_atingido or 0)
     gasto = float(gasto_real or 0)
+    if eh_legado(pi):
+        return _provisionamentos_legado(pi, gasto, perc, perc_ag, perc_parc, fonte)
     if cbase > 0 and gasto > 0:
         volume = gasto / cbase
     elif volume_ating > 0:
@@ -204,7 +328,68 @@ def calcular_provisionamentos(pi, gasto_real, obj_contratado=0.0, obj_atingido=0
             "comissao_agencia": perc_ag,
             "comissao_parceiro": perc_parc,
         },
-        "fonte": "campanhas",
+        "fonte": "cotacao",
+        "total_campanhas": None,
+    }
+
+
+def _provisionamentos_legado(pi, gasto, perc, perc_ag, perc_parc, overrides):
+    liquido = _money(pi.get("valor_liquido") or pi.get("vr_liquido_pi")) or 0.0
+    if perc_ag and perc_ag < 100:
+        bruto = liquido / (1 - (perc_ag / 100.0))
+    else:
+        bruto = _money(pi.get("valor_bruto") or pi.get("vr_bruto_pi")) or liquido
+    com_ag = bruto - liquido if perc_ag else 0.0
+    com_parc = liquido * (perc_parc / 100.0)
+    impostos_informados = (
+        "impostos" in (overrides or {})
+        or _money(pi.get("perc_impostos"))
+        or _money(pi.get("val_impostos"))
+    )
+    if not impostos_informados:
+        perc["impostos"] = 15.0
+        imp_val = liquido * 0.15
+    elif _money(pi.get("val_impostos")) and "impostos" not in (overrides or {}):
+        imp_val = _money(pi.get("val_impostos")) or 0.0
+    else:
+        imp_val = liquido * (perc["impostos"] / 100.0)
+    mcc_val = _money(pi.get("val_margem_cc")) or 0.0
+    tf_val = _money(pi.get("val_tech_fee")) or 0.0
+    com_val = _money(pi.get("val_com_vendas")) or 0.0
+    inc_val = _money(pi.get("val_pl_incentivos")) or 0.0
+    if "margem_cc" in (overrides or {}) and perc["margem_cc"]:
+        mcc_val = bruto * (perc["margem_cc"] / 100.0)
+    if "tech_fee" in (overrides or {}) and perc["tech_fee"]:
+        tf_val = bruto * (perc["tech_fee"] / 100.0)
+    if "com_vendas" in (overrides or {}) and perc["com_vendas"]:
+        com_val = bruto * (perc["com_vendas"] / 100.0)
+    if "pl_incentivos" in (overrides or {}) and perc["pl_incentivos"]:
+        inc_val = bruto * (perc["pl_incentivos"] / 100.0)
+    elif perc["pl_incentivos"]:
+        inc_val = inc_val or (bruto * (perc["pl_incentivos"] / 100.0))
+    midia = gasto
+    return {
+        "valor_bruto": round(bruto, 2),
+        "valor_liquido": round(liquido, 2),
+        "valor_liquido_pr": round(liquido - com_parc, 2),
+        "comissao_agencia": round(com_ag, 2),
+        "comissao_parceiro": round(com_parc, 2),
+        "margem_cc": round(mcc_val or 0.0, 2),
+        "tech_fee": round(tf_val or 0.0, 2),
+        "com_vendas": round(com_val or 0.0, 2),
+        "pl_incentivos": round(inc_val or 0.0, 2),
+        "impostos": round(imp_val, 2),
+        "margem_liquida_calculada": round(liquido - midia, 2),
+        "percentuais": {
+            "margem_cc": perc["margem_cc"],
+            "tech_fee": perc["tech_fee"],
+            "com_vendas": perc["com_vendas"],
+            "pl_incentivos": perc["pl_incentivos"],
+            "impostos": perc["impostos"],
+            "comissao_agencia": perc_ag,
+            "comissao_parceiro": perc_parc,
+        },
+        "fonte": "legado",
         "total_campanhas": None,
     }
 
@@ -276,6 +461,37 @@ class PiFechamentoService:
         percentuais = (payload or {}).get("percentuais") or {}
         observacoes = (payload or {}).get("observacoes_operacao")
         snapshot = self.preview(id_pi, percentuais=percentuais)
+        gasto_manual = (payload or {}).get("gasto_midia_realizado")
+        if gasto_manual is not None:
+            try:
+                gasto_manual = float(gasto_manual)
+            except (TypeError, ValueError):
+                gasto_manual = None
+            if gasto_manual is not None and snapshot.get("fonte_dre") == "legado":
+                pi = dict(snapshot.get("pi") or {})
+                dre = calcular_provisionamentos(
+                    pi,
+                    gasto_manual,
+                    snapshot.get("objetivo_contratado") or 0,
+                    snapshot.get("objetivo_atingido") or 0,
+                    percentuais=percentuais,
+                )
+                snapshot["gasto_midia_realizado"] = round(gasto_manual, 2)
+                snapshot["valor_bruto"] = dre["valor_bruto"]
+                snapshot["valor_liquido"] = dre["valor_liquido"]
+                snapshot["margem_cc"] = dre["margem_cc"]
+                snapshot["tech_fee"] = dre["tech_fee"]
+                snapshot["com_vendas"] = dre["com_vendas"]
+                snapshot["pl_incentivos"] = dre["pl_incentivos"]
+                snapshot["impostos"] = dre["impostos"]
+                snapshot["margem_liquida_calculada"] = dre["margem_liquida_calculada"]
+                snapshot["percentuais"] = dre["percentuais"]
+                snapshot["fonte_dre"] = dre["fonte"]
+                snapshot["dre_realizado"] = _dre_realizado(dre, gasto_manual)
+                snapshot["dre_resultado"] = _dre_resultado(
+                    snapshot.get("dre_previsto") or {},
+                    snapshot["dre_realizado"],
+                )
         if observacoes is not None:
             snapshot["observacoes_operacao"] = str(observacoes).strip()
         gravado = self.repository.obter_resultado(id_pi)
@@ -436,8 +652,13 @@ class PiFechamentoService:
                     previsto = _money(pi.get("camp_midia_prev_total"))
                 zona = snap.get("zona_lucratividade")
                 if zona is None:
-                    calc = calcular_zonas(pi, _desvio_pi(pi), _ruptura_mult())
-                    zona = classificar_zona(gasto, calc["zonas"])
+                    cbase = _safe_float(pi.get("custo_base_unitario"))
+                    liquido = _money(snap.get("valor_liquido")) or _money(pi.get("valor_liquido"))
+                    if cbase > 0:
+                        calc = calcular_zonas(pi, _desvio_pi(pi), _ruptura_mult())
+                        zona = classificar_zona(gasto, calc["zonas"])
+                    else:
+                        zona = classificar_zona_por_margem(liquido, gasto)
                 try:
                     zona_int = int(zona)
                 except (TypeError, ValueError):
@@ -516,15 +737,30 @@ class PiFechamentoService:
             )
         if not previsto:
             previsto = calc["midia_orcado"]
-        zona = classificar_zona(gasto, calc["zonas"])
         dre = calcular_provisionamentos(pi, gasto, obj_contr, obj_ating, percentuais=percentuais)
         dre["total_campanhas"] = len(linhas)
+        cbase = _safe_float(pi.get("custo_base_unitario"))
+        if cbase > 0:
+            zona = classificar_zona(gasto, calc["zonas"])
+            zona_base = "custo"
+        else:
+            zona = classificar_zona_por_margem(dre["valor_liquido"], gasto)
+            zona_base = "margem"
+        zona_label = ZONA_LABELS.get(zona or 0, "—")
+        dre_previsto = _dre_previsto_header(pi, previsto)
+        dre_realizado = _dre_realizado(dre, gasto)
+        dre_resultado = _dre_resultado(dre_previsto, dre_realizado)
+        dre_aferido = {
+            chave: _pct(dre_realizado.get(chave), dre_previsto.get(chave))
+            for chave in dre_previsto
+        }
         return {
             "pi": pi,
             "id_pi": pi.get("id_pi"),
             "codigo_pi": pi.get("codigo_pi_cc") or pi.get("codigo_pi_ag"),
             "cliente_nome": pi.get("cliente_nome"),
             "agencia_nome": pi.get("agencia_nome"),
+            "parceiro_nome": pi.get("parceiro_nome"),
             "executivo": pi.get("resp_comercial_nome") or pi.get("responsavel_comercial_nome"),
             "gasto_midia_realizado": round(gasto, 2),
             "gasto_midia_previsto": round(previsto, 2),
@@ -545,9 +781,18 @@ class PiFechamentoService:
             "margem_liquida_calculada": dre["margem_liquida_calculada"],
             "percentuais": dre["percentuais"],
             "fonte_dre": dre["fonte"],
+            "dre_previsto": dre_previsto,
+            "dre_realizado": dre_realizado,
+            "dre_resultado": dre_resultado,
+            "dre_aferido": dre_aferido,
+            "dre_linhas": DRE_LINHAS,
             "total_campanhas": dre["total_campanhas"],
             "zona_lucratividade": zona,
-            "zona_label": ZONA_LABELS.get(zona or 0, "—"),
+            "zona_label": zona_label,
+            "zona_base": zona_base,
+            "zona_explicacao": _zona_explicacao(
+                zona, zona_label, zona_base, gasto, previsto, dre["valor_liquido"]
+            ),
             "zonas": calc["zonas"],
             "saude": saude,
             "saude_pi": saude.get("status") or "sem_dados",
@@ -566,6 +811,12 @@ class PiFechamentoService:
                 nome_keys=("contato_cliente_nome", "contato_fin_cliente_nome"),
                 email_keys=("contato_cliente_email", "contato_fin_cliente_email"),
                 id_keys=("id_cont_cliente_financ", "id_cont_cliente_midia"),
+            ),
+            "contato_parceiro": self._contato_por_papel(
+                pi,
+                nome_keys=("contato_parceiro_nome",),
+                email_keys=("contato_parceiro_email",),
+                id_keys=("id_cont_parc_reg_financ", "id_cont_parc_reg_midia"),
             ),
             "drive": {
                 "principal": pi.get("googled_pi_princ"),
@@ -602,29 +853,22 @@ class PiFechamentoService:
             if pi.get(key):
                 contato_id = pi.get(key)
                 break
-        if nome or email:
+        if contato_id and (not nome or not email):
+            obter = getattr(getattr(self.operacao, "repository", None), "obter_contato", None)
+            if callable(obter):
+                try:
+                    contato = obter(contato_id) or {}
+                except Exception:
+                    contato = {}
+                nome = nome or str(contato.get("nome_completo") or "").strip()
+                email = email or str(contato.get("email") or "").strip()
+        if nome or email or contato_id:
             return {
                 "id": contato_id,
                 "nome": nome,
                 "email": email,
             }
-        if not contato_id:
-            return {}
-        obter = getattr(getattr(self.operacao, "repository", None), "obter_contato", None)
-        if not callable(obter):
-            return {}
-        try:
-            row = obter(contato_id)
-        except Exception:
-            logger.exception("Falha ao resolver contato do PI %s", pi.get("id_pi"))
-            return {}
-        if not isinstance(row, dict):
-            return {}
-        return {
-            "id": row.get("id_contato_cliente") or contato_id,
-            "nome": str(row.get("nome_completo") or "").strip(),
-            "email": str(row.get("email") or "").strip(),
-        }
+        return {}
 
     def _pendencias(self, pi, campanhas, estado, snapshot):
         pendencias = []

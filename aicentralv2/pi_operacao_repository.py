@@ -83,6 +83,7 @@ class PiOperacaoRepository:
                        p.desvio_aceitavel_pct,
                        p.id_cont_cliente_midia, p.id_cont_cliente_financ,
                        p.id_cont_agen_midia, p.id_cont_agen_financ,
+                       p.id_cont_parc_reg_financ, p.id_cont_parc_reg_midia,
                        p.cotacao_id, cot.proposta_enviada_em,
                        cot.status AS cotacao_status,
                        p.id_sub_status_pi, p.id_status_pi, p.periodo_inicio,
@@ -517,7 +518,7 @@ class PiOperacaoRepository:
     def listar_contatos_disponiveis(self, id_pi):
         pi = self.obter_pi(id_pi)
         empresas = []
-        for empresa_id in (pi.get("id_cliente"), pi.get("id_agencia")):
+        for empresa_id in (pi.get("id_cliente"), pi.get("id_agencia"), pi.get("id_parceiro")):
             if empresa_id is None:
                 continue
             empresa_id = int(empresa_id)
@@ -559,8 +560,9 @@ class PiOperacaoRepository:
     def listar_destinatarios_sugeridos(self, id_pi):
         pi = self.obter_pi(id_pi)
         candidatos = (
-            ("cliente_final", pi.get("id_cont_cliente_midia") or pi.get("id_cont_cliente_financ")),
-            ("agencia", pi.get("id_cont_agen_midia") or pi.get("id_cont_agen_financ")),
+            ("cliente_final", pi.get("id_cont_cliente_financ") or pi.get("id_cont_cliente_midia")),
+            ("agencia", pi.get("id_cont_agen_financ") or pi.get("id_cont_agen_midia")),
+            ("parceiro", pi.get("id_cont_parc_reg_financ") or pi.get("id_cont_parc_reg_midia")),
         )
         ids = [contato_id for _, contato_id in candidatos if contato_id]
         if not ids:
@@ -600,8 +602,8 @@ class PiOperacaoRepository:
         for item in destinatarios:
             contato_id = int(item["id_contato_cliente"])
             papel = str(item.get("papel", "")).strip()
-            if papel not in ("agencia", "cliente_final"):
-                raise ValueError("Papel deve ser agencia ou cliente_final.")
+            if papel not in ("agencia", "cliente_final", "parceiro"):
+                raise ValueError("Papel deve ser agencia, cliente_final ou parceiro.")
             if contato_id in vistos:
                 raise ValueError("O mesmo contato não pode ser repetido.")
             padrao = bool(item.get("padrao", False))
@@ -615,9 +617,12 @@ class PiOperacaoRepository:
         esperado = {
             "cliente_final": pi["id_cliente"],
             "agencia": pi.get("id_agencia"),
+            "parceiro": pi.get("id_parceiro"),
         }
         if any(papel == "agencia" for _, papel, _ in normalizados) and not esperado["agencia"]:
             raise PropriedadeInvalidaError("Este PI não possui agência.")
+        if any(papel == "parceiro" for _, papel, _ in normalizados) and not esperado["parceiro"]:
+            raise PropriedadeInvalidaError("Este PI não possui parceiro.")
 
         ids = [item[0] for item in normalizados]
         contatos = {}

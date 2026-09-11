@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS cadu_pi_contato_operacional (
     id BIGSERIAL PRIMARY KEY,
     id_pi INTEGER NOT NULL REFERENCES cadu_pi(id_pi) ON DELETE CASCADE,
     id_contato_cliente INTEGER NOT NULL REFERENCES tbl_contato_cliente(id_contato_cliente) ON DELETE CASCADE,
-    papel VARCHAR(20) NOT NULL CHECK (papel IN ('agencia', 'cliente_final')),
+    papel VARCHAR(20) NOT NULL CHECK (papel IN ('agencia', 'cliente_final', 'parceiro')),
     padrao BOOLEAN NOT NULL DEFAULT FALSE,
     created_by INTEGER REFERENCES tbl_contato_cliente(id_contato_cliente) ON DELETE SET NULL,
     created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT date_trunc('second', CURRENT_TIMESTAMP),

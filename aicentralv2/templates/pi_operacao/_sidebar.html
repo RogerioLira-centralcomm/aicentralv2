@@ -125,11 +125,6 @@
         <strong id="pi-recipient-count" class="pi-op-recipient-count" aria-live="polite"></strong>
       </div>
       <p class="pi-op-section-help">Estes contatos receberão as comunicações enviadas por esta operação.</p>
-      <form id="pi-recipients-form" class="pi-op-stack">
-        <div id="pi-recipient-options" class="pi-op-state">Carregando contatos disponíveis…</div>
-        {% if not somente_leitura %}
-        <button type="submit" class="pi-op-btn pi-op-btn--secondary" disabled>Salvar destinatários</button>
-        {% endif %}
       </form>
     </section>
 
@@ -217,6 +212,44 @@
       </div>
     </footer>
   </div>
+</dialog>
+
+<dialog id="pi-contact-dialog" class="pi-email-dialog" aria-labelledby="pi-contact-title">
+  <form method="dialog" class="pi-email-modal pi-contact-modal">
+    <header class="pi-email-modal__header">
+      <div>
+        <span id="pi-contact-context">Destinatários</span>
+        <h2 id="pi-contact-title">Adicionar contato</h2>
+      </div>
+      <button type="button" class="pi-op-icon-btn" data-contact-close aria-label="Fechar">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+    </header>
+    <div class="pi-email-modal__body pi-contact-modal__body">
+      <label>
+        <strong>Escolher contato já cadastrado</strong>
+        <small>Lista da empresa vinculada a este papel</small>
+        <select id="pi-contact-existing">
+          <option value="">Carregando…</option>
+        </select>
+      </label>
+      <p class="pi-op-section-help">Ou cadastre um contato novo:</p>
+      <label>
+        <strong>Nome</strong>
+        <input id="pi-contact-name" maxlength="120" autocomplete="name">
+      </label>
+      <label>
+        <strong>E-mail</strong>
+        <input id="pi-contact-email" type="email" maxlength="180" autocomplete="email">
+      </label>
+      <p id="pi-contact-status" class="pi-op-state" hidden></p>
+    </div>
+    <footer class="pi-email-modal__footer">
+      <button type="button" class="pi-op-btn pi-op-btn--secondary" data-contact-close>Voltar</button>
+      <button type="button" id="pi-contact-pick" class="pi-op-btn pi-op-btn--secondary">Usar contato da lista</button>
+      <button type="button" id="pi-contact-create" class="pi-op-btn pi-op-btn--primary">Criar e adicionar</button>
+    </footer>
+  </form>
 </dialog>
 
 <dialog id="pi-confirm-dialog" class="pi-confirm-dialog" aria-labelledby="pi-confirm-title" aria-describedby="pi-confirm-message">

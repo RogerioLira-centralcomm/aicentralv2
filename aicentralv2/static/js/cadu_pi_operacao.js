@@ -526,25 +526,37 @@
         availableIds[id] = true;
       }
     });
-    if (!available.length) {
+    if (!available.length && !isFinanceiroWorkspace()) {
       target.className = '';
       target.innerHTML = '<div class="pi-op-state">Nenhum contato com vínculo ativo foi encontrado para o cliente ou agência deste PI.</div>';
       if (count) count.textContent = '0 selecionados';
       if (submit) submit.disabled = true;
       return;
     }
-    var groups = { cliente_final: [], agencia: [] };
+    var pi = data.pi || {};
+    var groups = { cliente_final: [], agencia: [], parceiro: [] };
     available.forEach(function (item) {
       var id = recipientId(item);
       var active = selectedById[id];
       var role = (active && active.papel) ||
-        (data.pi && String(item.pk_id_tbl_cliente) === String(data.pi.id_agencia) ? 'agencia' : 'cliente_final');
+        (pi.id_parceiro && String(item.pk_id_tbl_cliente) === String(pi.id_parceiro) ? 'parceiro' :
+          (pi.id_agencia && String(item.pk_id_tbl_cliente) === String(pi.id_agencia) ? 'agencia' : 'cliente_final'));
       if (!groups[role]) role = 'cliente_final';
       groups[role].push({ item: item, id: id, active: active, role: role });
     });
-    function groupHtml(role, label) {
-      var items = groups[role];
-      if (!items.length) return '';
+    function addContactBtn(role, entityId) {
+      if (readOnly || !entityId) return '';
+      return '<button type="button" class="pi-op-text-btn" data-add-contact="' + esc(role) +
+        '" data-entity-id="' + esc(entityId) + '">Adicionar contato</button>';
+    }
+    function groupHtml(role, label, entityId) {
+      var items = groups[role] || [];
+      if (!items.length && !entityId) return '';
+      if (!items.length) {
+        return '<fieldset class="pi-op-recipient-group"><legend>' + esc(label) + '</legend>' +
+          '<p class="pi-op-state">Nenhum contato neste grupo.</p>' +
+          addContactBtn(role, entityId) + '</fieldset>';
+      }
       return '<fieldset class="pi-op-recipient-group"><legend>' + esc(label) + '</legend>' +
         items.map(function (entry) {
           var item = entry.item;
@@ -559,10 +571,12 @@
             (entry.active ? ' checked' : '') + (disabled ? ' disabled' : '') + '>' +
             '<span><strong>' + esc(item.nome_completo || item.email || 'Contato sem nome') +
             '</strong><small class="block">' + detail + '</small></span></label>';
-        }).join('') + '</fieldset>';
+        }).join('') + addContactBtn(role, entityId) + '</fieldset>';
     }
     target.className = 'pi-op-recipient-groups';
-    target.innerHTML = groupHtml('cliente_final', 'Cliente') + groupHtml('agencia', 'Agência');
+    target.innerHTML = groupHtml('cliente_final', 'Cliente', pi.id_cliente) +
+      groupHtml('agencia', 'Agência', pi.id_agencia) +
+      groupHtml('parceiro', 'Parceiro', pi.id_parceiro);
     updateRecipientCount();
   }
 
@@ -586,6 +600,16 @@
     }
   }
 
+  function isFinanceiroWorkspace() {
+    return String(root.dataset.fechamentoModo || '').trim() === 'financeiro';
+  }
+
+  function fiscalCommunication(type) {
+    return communicationCatalog.find(function (item) {
+      return String(communicationId(item)) === String(type) && item.canal === 'financeiro';
+    });
+  }
+
   function communicationName(item) {
     return item.nome || item.titulo || item.assunto_padrao || item.descricao || item.label || item.tipo || item.slug || 'Comunicação';
   }
@@ -601,22 +625,46 @@
       target.innerHTML = '<div class="pi-op-state">Nenhum tipo de comunicação disponível para esta etapa.</div>';
       return;
     }
+    var financeiro = isFinanceiroWorkspace();
     var recipientsReady = savedEmailRecipients(operationData).length > 0;
-    var guidance = recipientsReady ? '' :
-      '<div class="pi-op-communication-warning">' +
-        '<strong>Defina quem receberá os e-mails</strong>' +
-        '<span>Selecione e salve ao menos um destinatário para liberar as comunicações.</span>' +
+    var guidance = '';
+    if (!recipientsReady) {
+      guidance = '<div class="pi-op-communication-warning">' +
+        '<strong>' + (financeiro ? 'Defina quem recebe, se quiser enviar' : 'Defina quem receberá os e-mails') + '</strong>' +
+        '<span>' + (financeiro
+          ? 'Os botões abrem o e-mail. Se faltar destinatário, o modal pede para escolher ou criar o contato.'
+          : 'Selecione e salve ao menos um destinatário para liberar as comunicações.') + '</span>' +
         '<button type="button" class="pi-op-text-btn" data-choose-recipients>Selecionar destinatários</button>' +
-      '</div>';
-    target.innerHTML = guidance + '<div class="pi-op-communication-list">' + communicationCatalog.map(function (item) {
-      return '<button type="button" class="pi-op-btn pi-op-btn--secondary" data-communication="' +
-        esc(communicationId(item)) + '"><i class="fa-regular fa-envelope" aria-hidden="true"></i>' +
-        '<span>' + esc(communicationName(item)) + '</span></button>';
-    }).join('') + '</div>';
-    target.querySelectorAll('[data-communication]').forEach(function (button) {
-      button.disabled = !recipientsReady;
-      button.title = recipientsReady ? '' : 'Selecione e salve os destinatários primeiro';
-    });
+        '</div>';
+    }
+    function buttonsHtml(items) {
+      return '<div class="pi-op-communication-list">' + items.map(function (item) {
+        return '<button type="button" class="pi-op-btn pi-op-btn--secondary" data-communication="' +
+          esc(communicationId(item)) + '" data-canal="' + esc(item.canal || 'operacao') +
+          '" data-audiencia="' + esc(item.audiencia || '') + '"><i class="fa-regular fa-envelope" aria-hidden="true"></i>' +
+          '<span>' + esc(communicationName(item)) + '</span></button>';
+      }).join('') + '</div>';
+    }
+    var html = guidance;
+    if (financeiro) {
+      var groups = { cliente: [], agencia: [], geral: [] };
+      communicationCatalog.forEach(function (item) {
+        var key = item.audiencia === 'agencia' ? 'agencia' : item.audiencia === 'cliente' ? 'cliente' : 'geral';
+        groups[key].push(item);
+      });
+      if (groups.cliente.length) html += '<h4 class="pi-op-comm-group">Cliente</h4>' + buttonsHtml(groups.cliente);
+      if (groups.agencia.length) html += '<h4 class="pi-op-comm-group">Agência</h4>' + buttonsHtml(groups.agencia);
+      if (groups.geral.length) html += '<h4 class="pi-op-comm-group">Outras</h4>' + buttonsHtml(groups.geral);
+    } else {
+      html += buttonsHtml(communicationCatalog);
+    }
+    target.innerHTML = html;
+    if (!financeiro) {
+      target.querySelectorAll('[data-communication]').forEach(function (button) {
+        button.disabled = !recipientsReady;
+        button.title = recipientsReady ? '' : 'Selecione e salve os destinatários primeiro';
+      });
+    }
   }
 
   async function loadOperation() {
@@ -767,7 +815,7 @@
       return;
     }
     if (action === 'email') {
-      if (!savedEmailRecipients(operationData).length) {
+      if (!savedEmailRecipients(operationData).length && !isFinanceiroWorkspace()) {
         focusRecipientSelection();
         return;
       }
@@ -848,7 +896,7 @@
       scrollSidebarTo(communications);
       return;
     }
-    if (!savedEmailRecipients(operationData).length) {
+    if (!savedEmailRecipients(operationData).length && !isFinanceiroWorkspace()) {
       focusRecipientSelection();
       return;
     }
@@ -879,11 +927,18 @@
     if (!emailDialog.open) emailDialog.showModal();
     try {
       var payload = Object.assign({ tipo: type, id_campanha: campaignId || null }, draft || emailDraft(type, campaignId));
-      var data = await request(base + '/email/preview', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      var fiscal = fiscalCommunication(type);
+      var data = fiscal
+        ? await request('/api/cadu_pi/' + piId + '/financeiro/comunicacoes/' + encodeURIComponent(type) + '/preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mensagem: payload.mensagem, assunto: payload.assunto })
+          })
+        : await request(base + '/email/preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
       emailPreviewData = data;
       var recipients = list(data.destinatarios);
       var subject = document.getElementById('pi-email-subject');
@@ -891,11 +946,19 @@
       var audience = document.getElementById('pi-email-audience');
       fillSenders(data.remetentes, data.remetente);
       if (subject && !subject.value) subject.value = data.assunto || '';
+      if (message && !message.value && data.mensagem) message.value = data.mensagem;
       if (audience) {
-        audience.innerHTML = recipients.length
-          ? '<strong>Para quem vai</strong><ul>' +
-            recipients.map(recipientLabel).join('') + '</ul>'
-          : '<div class="pi-op-error">Selecione ao menos um destinatário antes de enviar.</div>';
+        if (recipients.length) {
+          audience.innerHTML = '<strong>Para quem vai</strong><ul>' +
+            recipients.map(recipientLabel).join('') + '</ul>';
+        } else if (isFinanceiroWorkspace()) {
+          var role = (fiscal && fiscal.audiencia === 'agencia') ? 'agencia'
+            : (fiscal && fiscal.audiencia === 'cliente') ? 'cliente_final' : 'cliente_final';
+          audience.innerHTML = '<div class="pi-op-error">Não há destinatário para este e-mail.</div>' +
+            '<button type="button" class="pi-op-text-btn" data-add-contact="' + esc(role) + '">Escolher ou criar contato</button>';
+        } else {
+          audience.innerHTML = '<div class="pi-op-error">Selecione ao menos um destinatário antes de enviar.</div>';
+        }
       }
       if (data.html && frame) {
         frame.hidden = false;
@@ -921,9 +984,15 @@
   }
 
   async function sendEmail(type, campaignId, button) {
+    var fiscal = fiscalCommunication(type);
     var recipients = list(emailPreviewData && emailPreviewData.destinatarios);
     if (!recipients.length) {
-      notify('Selecione os destinatários e atualize a prévia antes de enviar.', 'warning');
+      if (isFinanceiroWorkspace()) {
+        notify('Escolha ou crie o destinatário deste e-mail antes de enviar.', 'warning');
+        focusRecipientSelection();
+      } else {
+        notify('Selecione os destinatários e atualize a prévia antes de enviar.', 'warning');
+      }
       return;
     }
     var confirmed = await confirmAction({
@@ -936,19 +1005,38 @@
     if (!confirmed) return;
     setBusy(button, true, 'Enviando…');
     try {
-      var data = await request(base + '/email/enviar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(emailDraft(type, campaignId))
-      });
+      var data;
+      if (fiscal) {
+        var url = fiscal.audiencia === 'agencia'
+          ? '/api/cadu_pi/' + piId + '/documentos/' + encodeURIComponent(type) + '/enviar-assinatura'
+          : '/api/cadu_pi/' + piId + '/financeiro/comunicacoes/' + encodeURIComponent(type) + '/enviar';
+        data = await request(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mensagem: emailDraft(type, campaignId).mensagem })
+        });
+      } else {
+        data = await request(base + '/email/enviar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(emailDraft(type, campaignId))
+        });
+      }
       notify(data.message || 'E-mail enviado com sucesso.', 'success');
       if (emailDialog && emailDialog.open) emailDialog.close('sent');
       loadOperation();
+      if (window.piOperacao && window.piOperacao.atualizarDocumentos) {
+        window.piOperacao.atualizarDocumentos();
+      }
     } catch (error) { notify(error.message, 'error'); }
     finally { setBusy(button, false); }
   }
 
   async function sendTestEmail(type, campaignId, button) {
+    if (fiscalCommunication(type)) {
+      notify('O envio de teste desta comunicação fiscal ainda não está disponível.', 'warning');
+      return;
+    }
     if (!userEmail) {
       notify('Seu usuário não tem e-mail para receber o teste.', 'warning');
       return;
@@ -1262,12 +1350,17 @@
     }
     var communication = event.target.closest('[data-communication]');
     if (communication) {
-      if (!savedEmailRecipients(operationData).length) {
+      if (!savedEmailRecipients(operationData).length && !isFinanceiroWorkspace()) {
         focusRecipientSelection();
         return;
       }
       previewEmail(communication.dataset.communication, selectedCampaign && selectedCampaign.id_campanha);
       openSidebar();
+      return;
+    }
+    var addContact = event.target.closest('[data-add-contact]');
+    if (addContact) {
+      openContactDialog(addContact.dataset.addContact, addContact.dataset.entityId);
       return;
     }
     var chooseRecipients = event.target.closest('[data-choose-recipients]');
@@ -1317,7 +1410,7 @@
 
   var previewAll = document.getElementById('pi-preview-emails');
   if (previewAll) previewAll.addEventListener('click', function () {
-    if (!savedEmailRecipients(operationData).length) {
+    if (!savedEmailRecipients(operationData).length && !isFinanceiroWorkspace()) {
       focusRecipientSelection();
       return;
     }
@@ -1351,8 +1444,8 @@
 
   function docStatusLabel(status) {
     if (status === 'enviado') return 'Enviado';
-    if (status === 'pendente') return 'Pendente';
-    return 'Aguardando handoff';
+    if (status === 'pendente') return 'Não enviado';
+    return 'Não enviado';
   }
 
   function scrollToAnchor(anchorId) {
@@ -1418,18 +1511,28 @@
       var meta = doc.enviado_em
         ? 'Enviado' + (doc.enviado_para ? ' · ' + doc.enviado_para : '') + ' · ' + formatDocDate(doc.enviado_em)
         : docStatusLabel(doc.status);
-      return '<li class="pi-op-docs-item is-' + esc(doc.status) + '">' +
-        '<button type="button" class="pi-op-docs-item__btn" data-doc-anchor="' + esc(doc.ancora) + '">' +
+      var files = list(doc.arquivos).filter(function (arq) { return arq && arq.url; });
+      var gerarUrl = doc.gerar_url || doc.pdf_url || '';
+      var actions = '';
+      if (files.length) {
+        actions = files.map(function (arq) {
+          return '<a class="pi-op-text-btn" href="' + esc(arq.url) + '" target="_blank" rel="noopener">' +
+            esc(arq.label || 'Baixar') + '</a>';
+        }).join('');
+      } else if (doc.pdf_url) {
+        actions = '<a class="pi-op-text-btn" href="' + esc(doc.pdf_url) + '" target="_blank" rel="noopener">Baixar</a>';
+      }
+      if (doc.pode_gerar !== false && gerarUrl) {
+        actions += '<a class="pi-op-text-btn" href="' + esc(gerarUrl) + '" target="_blank" rel="noopener">Gerar</a>';
+      }
+      return '<li class="pi-op-docs-item is-' + esc(doc.status || 'pendente') + '">' +
+        '<div class="pi-op-docs-item__btn">' +
         '<span class="pi-op-docs-item__label">' + esc(doc.label) + '</span>' +
-        '<span class="pi-op-docs-item__meta">' + esc(doc.audiencia) + ' · ' + esc(meta) + '</span>' +
-        '</button></li>';
+        '<span class="pi-op-docs-item__meta">' + esc(doc.audiencia || '') + ' · ' + esc(meta) + '</span>' +
+        '<span class="pi-op-docs-item__actions">' + actions + '</span>' +
+        '</div></li>';
     }).join('') + '</ul>' +
       (pendentes ? '<p class="pi-op-docs-hint">' + pendentes + ' documento(s) ainda não enviado(s).</p>' : '');
-    docsRegistryTarget.querySelectorAll('[data-doc-anchor]').forEach(function (button) {
-      button.addEventListener('click', function () {
-        scrollToAnchor(button.getAttribute('data-doc-anchor'));
-      });
-    });
   }
 
   function renderDocumentResumo(data) {
@@ -1461,6 +1564,141 @@
       }
       return null;
     }
+  }
+
+  var contactDialog = document.getElementById('pi-contact-dialog');
+  var pendingContactRole = 'cliente_final';
+
+  function entityIdForRole(role) {
+    var pi = (operationData && operationData.pi) || {};
+    if (role === 'agencia') return pi.id_agencia;
+    if (role === 'parceiro') return pi.id_parceiro;
+    return pi.id_cliente;
+  }
+
+  async function openContactDialog(role, entityId) {
+    pendingContactRole = role || 'cliente_final';
+    var companyId = entityId || entityIdForRole(pendingContactRole);
+    if (!companyId) {
+      notify('Este PI não tem empresa vinculada a este papel.', 'warning');
+      return;
+    }
+    if (!contactDialog) {
+      focusRecipientSelection();
+      return;
+    }
+    var context = document.getElementById('pi-contact-context');
+    var title = document.getElementById('pi-contact-title');
+    var labels = { cliente_final: 'Cliente', agencia: 'Agência', parceiro: 'Parceiro' };
+    if (context) context.textContent = labels[pendingContactRole] || 'Destinatários';
+    if (title) title.textContent = 'Adicionar contato';
+    var select = document.getElementById('pi-contact-existing');
+    var status = document.getElementById('pi-contact-status');
+    var nameInput = document.getElementById('pi-contact-name');
+    var emailInput = document.getElementById('pi-contact-email');
+    if (nameInput) nameInput.value = '';
+    if (emailInput) emailInput.value = '';
+    if (status) { status.hidden = true; status.textContent = ''; }
+    if (select) {
+      select.innerHTML = '<option value="">Carregando contatos…</option>';
+      select.dataset.entityId = String(companyId);
+    }
+    if (!contactDialog.open) contactDialog.showModal();
+    try {
+      var contatos = await request('/api/clientes/' + encodeURIComponent(companyId) + '/todos-contatos');
+      var items = Array.isArray(contatos) ? contatos : list(contatos.contatos || contatos.items);
+      if (select) {
+        select.innerHTML = items.length
+          ? '<option value="">Selecione um contato</option>' + items.map(function (item) {
+            var id = item.id_contato_cliente || item.id;
+            return '<option value="' + esc(id) + '">' +
+              esc((item.nome_completo || 'Contato') + (item.email ? ' · ' + item.email : ' · sem e-mail')) +
+              '</option>';
+          }).join('')
+          : '<option value="">Nenhum contato cadastrado nesta empresa</option>';
+      }
+    } catch (error) {
+      if (select) select.innerHTML = '<option value="">Não foi possível listar os contatos</option>';
+      notify(error.message, 'error');
+    }
+  }
+
+  async function attachContact(contatoId) {
+    var form = document.getElementById('pi-recipients-form');
+    var existing = form ? Array.prototype.map.call(
+      form.querySelectorAll('[data-recipient-id]:checked'),
+      function (input) {
+        return {
+          id_contato_cliente: Number(input.dataset.recipientId),
+          papel: input.dataset.recipientRole,
+          padrao: false
+        };
+      }
+    ) : [];
+    var already = existing.some(function (item) {
+      return Number(item.id_contato_cliente) === Number(contatoId);
+    });
+    if (!already) {
+      existing.push({
+        id_contato_cliente: Number(contatoId),
+        papel: pendingContactRole,
+        padrao: !existing.some(function (item) { return item.papel === pendingContactRole; })
+      });
+    }
+    await request(base + '/destinatarios', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ destinatarios: existing })
+    });
+    notify('Contato adicionado aos destinatários.', 'success');
+    if (contactDialog && contactDialog.open) contactDialog.close('saved');
+    await loadOperation();
+    if (currentEmailType) {
+      previewEmail(currentEmailType, currentEmailCampaignId);
+    }
+  }
+
+  if (contactDialog) {
+    contactDialog.querySelectorAll('[data-contact-close]').forEach(function (button) {
+      button.addEventListener('click', function () { contactDialog.close('cancel'); });
+    });
+    var pickBtn = document.getElementById('pi-contact-pick');
+    if (pickBtn) pickBtn.addEventListener('click', async function () {
+      var select = document.getElementById('pi-contact-existing');
+      var contatoId = select && select.value;
+      if (!contatoId) {
+        notify('Selecione um contato da lista.', 'warning');
+        return;
+      }
+      setBusy(pickBtn, true, 'Adicionando…');
+      try { await attachContact(contatoId); }
+      catch (error) { notify(error.message, 'error'); }
+      finally { setBusy(pickBtn, false); }
+    });
+    var createBtn = document.getElementById('pi-contact-create');
+    if (createBtn) createBtn.addEventListener('click', async function () {
+      var companyId = entityIdForRole(pendingContactRole);
+      var nameInput = document.getElementById('pi-contact-name');
+      var emailInput = document.getElementById('pi-contact-email');
+      var nome = nameInput ? nameInput.value.trim() : '';
+      var email = emailInput ? emailInput.value.trim() : '';
+      if (!nome || !email) {
+        notify('Informe nome e e-mail para criar o contato.', 'warning');
+        return;
+      }
+      setBusy(createBtn, true, 'Criando…');
+      try {
+        var created = await request('/api/cliente/' + encodeURIComponent(companyId) + '/criar-contato', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nome_completo: nome, email: email })
+        });
+        var contatoId = created.contato_id || created.id || (created.data && created.data.contato_id);
+        if (!contatoId) throw new Error('Contato criado sem identificador.');
+        await attachContact(contatoId);
+      } catch (error) { notify(error.message, 'error'); }
+      finally { setBusy(createBtn, false); }
+    });
   }
 
   initDrive();

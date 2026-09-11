@@ -321,7 +321,6 @@ class PiDocumentoService:
     def listar(self, snapshot):
         cartas = snapshot.get("cartas") or {}
         dest = _contato(snapshot)
-        persistido = bool(snapshot.get("persistido"))
         documentos = []
         for item in CATALOGO_AGENCIA:
             if item.get("requer_incentivo") and not _tem_incentivo(snapshot):
@@ -334,7 +333,7 @@ class PiDocumentoService:
                     "destinatario": dest,
                     "enviado_em": salvo.get("enviado_em"),
                     "enviado_para": salvo.get("destinatario_nome") or dest.get("nome"),
-                    "pode_enviar": persistido and bool(dest.get("email")),
+                    "pode_enviar": bool(dest.get("email")),
                     "pode_gerar": True,
                 }
             )
@@ -343,7 +342,6 @@ class PiDocumentoService:
     def listar_cliente(self, snapshot, notas=None):
         cartas = snapshot.get("cartas") or {}
         dest = _contato_cliente(snapshot)
-        persistido = bool(snapshot.get("persistido"))
         notas = list(notas or snapshot.get("notas_fiscais") or [])
         tem_nf_pdf = any(nota.get("tem_pdf") or nota.get("nf_arquivo_path") for nota in notas)
         id_pi = snapshot.get("id_pi")
@@ -356,7 +354,7 @@ class PiDocumentoService:
             if item.get("requer_nf"):
                 pode_anexo = tem_nf_pdf
             elif tipo == "financeiro":
-                pode_anexo = persistido
+                pode_anexo = True
             documentos.append(
                 {
                     **item,
@@ -371,10 +369,71 @@ class PiDocumentoService:
             )
         return documentos
 
+    def preview_comunicacao(self, id_pi, tipo, mensagem=None, autor=None):
+        tipo = str(tipo or "").strip()
+        snapshot = self.fechamento.resultado(id_pi)
+        notas = list(snapshot.get("notas_fiscais") or [])
+        if tipo == "nota_fiscal" and not notas:
+            try:
+                from flask import has_app_context
+
+                if has_app_context():
+                    from . import db
+                    notas = [dict(item) for item in (db.obter_notas_fiscais_por_pi(id_pi) or [])]
+            except Exception:
+                logger.exception("Não leu as notas fiscais do PI %s para a prévia.", id_pi)
+                notas = []
+        tipos_agencia = {item["tipo"] for item in CATALOGO_AGENCIA}
+        if tipo in TIPOS_CLIENTE:
+            dest = _contato_cliente(snapshot)
+            texto = _texto(mensagem) or mensagem_cliente(tipo, snapshot, notas)
+            html = self._email_html_cliente(tipo, snapshot, dest, texto, notas)
+            assunto = self._assunto_cliente(tipo, snapshot)
+            audiencia = "cliente"
+            papel = "cliente_final"
+        elif tipo in tipos_agencia:
+            dest = _contato(snapshot)
+            texto = _texto(mensagem) or mensagem_padrao(tipo, snapshot)
+            html = self._email_html(texto)
+            assunto = self._assunto(tipo, snapshot)
+            audiencia = "agencia"
+            papel = "agencia"
+        else:
+            raise DocumentoIndisponivelError("Tipo de comunicação fiscal inválido.")
+        destinatarios = []
+        if dest.get("email"):
+            destinatarios = [
+                {
+                    "id_contato_cliente": dest.get("id"),
+                    "nome_completo": dest.get("nome"),
+                    "email": dest.get("email"),
+                    "papel": papel,
+                }
+            ]
+        remetentes = []
+        remetente = None
+        try:
+            pi = snapshot.get("pi") or {}
+            campanhas = snapshot.get("campanhas") or []
+            remetentes = self.fechamento.operacao._remetentes_disponiveis(pi, campanhas, autor)
+            remetente = self.fechamento.operacao._escolher_remetente(remetentes, {})
+        except Exception:
+            logger.exception("Não montou remetentes da prévia fiscal do PI %s.", id_pi)
+        return {
+            "tipo": tipo,
+            "assunto": assunto,
+            "html": html,
+            "mensagem": texto,
+            "destinatarios": destinatarios,
+            "remetentes": remetentes,
+            "remetente": remetente,
+            "canal": "financeiro",
+            "audiencia": audiencia,
+        }
+
     def resumo_sidebar(self, snapshot, modo="fechamento", notas=None):
         """Resumo fiscal e registro de documentos para a sidebar do PI."""
         cartas = snapshot.get("cartas") or {}
-        persistido = bool(snapshot.get("persistido"))
         notas = list(notas or snapshot.get("notas_fiscais") or [])
         documentos = []
 
@@ -384,10 +443,8 @@ class PiDocumentoService:
             salvo = cartas.get(item["tipo"]) or {}
             if salvo.get("enviado_em"):
                 status = "enviado"
-            elif persistido:
-                status = "pendente"
             else:
-                status = "bloqueado"
+                status = "pendente"
             documentos.append(
                 {
                     "tipo": item["tipo"],
@@ -396,7 +453,10 @@ class PiDocumentoService:
                     "status": status,
                     "enviado_em": salvo.get("enviado_em"),
                     "enviado_para": salvo.get("destinatario_nome"),
-                    "ancora": "pi-docs-agencia",
+                    "pdf_url": _url_doc_pdf(snapshot.get("id_pi"), item["tipo"], "agencia"),
+                    "gerar_url": _url_doc_pdf(snapshot.get("id_pi"), item["tipo"], "agencia"),
+                    "pode_gerar": True,
+                    "pode_baixar": True,
                 }
             )
 
@@ -410,11 +470,13 @@ class PiDocumentoService:
                 if salvo.get("enviado_em"):
                     status = "enviado"
                 elif item.get("requer_nf") and not tem_nf_pdf:
-                    status = "bloqueado"
-                elif tipo == "financeiro" and not persistido:
-                    status = "bloqueado"
+                    status = "pendente"
                 else:
                     status = "pendente"
+                arquivos = self._arquivos_cliente(tipo, snapshot.get("id_pi"), snapshot, notas)
+                pdf_url = next((arq.get("url") for arq in arquivos if arq.get("url")), "")
+                if tipo == "financeiro":
+                    pdf_url = _url_doc_pdf(snapshot.get("id_pi"), "fechamento", "cliente")
                 documentos.append(
                     {
                         "tipo": tipo,
@@ -423,7 +485,15 @@ class PiDocumentoService:
                         "status": status,
                         "enviado_em": salvo.get("enviado_em"),
                         "enviado_para": salvo.get("destinatario_nome"),
-                        "ancora": "pi-comms-cliente",
+                        "pdf_url": pdf_url,
+                        "gerar_url": _url_doc_pdf(
+                            snapshot.get("id_pi"),
+                            "fechamento" if tipo == "financeiro" else "comprovacao",
+                            "cliente",
+                        ) if tipo != "nota_fiscal" else "",
+                        "arquivos": arquivos,
+                        "pode_gerar": tipo != "nota_fiscal",
+                        "pode_baixar": any(arq.get("disponivel") for arq in arquivos) or tipo != "nota_fiscal",
                     }
                 )
 
@@ -556,7 +626,7 @@ class PiDocumentoService:
             {
                 "label": "Baixar resultado financeiro",
                 "url": _url_doc_pdf(id_pi, "fechamento", "cliente"),
-                "disponivel": bool(snapshot.get("persistido")),
+                "disponivel": True,
             }
         ]
 
@@ -588,10 +658,9 @@ class PiDocumentoService:
         anexos = self._anexos_cliente(id_pi, tipo, snapshot, notas)
         if tipo == "nota_fiscal" and not anexos:
             raise DocumentoIndisponivelError("Nenhuma nota fiscal com PDF anexado neste PI.")
-        if tipo == "financeiro" and not snapshot.get("persistido"):
-            raise DocumentoIndisponivelError(
-                "O resultado financeiro só pode ser enviado depois do handoff."
-            )
+        if tipo == "financeiro" and not anexos:
+            pdf, filename = self.gerar(id_pi, "fechamento", variante="cliente")
+            anexos.append({"name": filename, "content": base64.b64encode(pdf).decode()})
         nome = dest.get("nome") or _texto(snapshot.get("cliente_nome")) or "Cliente"
         html = self._email_html_cliente(tipo, snapshot, dest, texto, notas)
         assunto = self._assunto_cliente(tipo, snapshot, pedir_assinatura=pedir_assinatura)
@@ -750,10 +819,6 @@ class PiDocumentoService:
             raise DocumentoIndisponivelError("Variante de documento inválida.")
 
         snapshot = self.fechamento.resultado(id_pi)
-        if tipo == "fechamento" and not snapshot.get("persistido"):
-            raise DocumentoIndisponivelError(
-                "Gere o snapshot no handoff antes de emitir este documento."
-            )
         if tipo == "bonificacao" and not _tem_incentivo(snapshot):
             raise DocumentoIndisponivelError(
                 "Carta de bonificação só se aplica a PI com agência ou incentivo."
@@ -794,10 +859,6 @@ class PiDocumentoService:
         if tipo not in {item["tipo"] for item in CATALOGO_AGENCIA}:
             raise DocumentoIndisponivelError("Este documento não vai para assinatura da agência.")
         snapshot = self.fechamento.resultado(id_pi)
-        if not snapshot.get("persistido"):
-            raise DocumentoIndisponivelError(
-                "Envie o PI ao financeiro antes de solicitar a assinatura."
-            )
         dest = _contato(snapshot)
         if not dest.get("email"):
             raise DocumentoIndisponivelError(

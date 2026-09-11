@@ -126,10 +126,12 @@ class PiDocumentoServiceTest(unittest.TestCase):
         with self.assertRaises(DocumentoIndisponivelError):
             service.gerar(10, "bonificacao", variante="agencia")
 
-    def test_fechamento_exige_snapshot_persistido(self):
+    @unittest.skipUnless(REPORTLAB_AVAILABLE, "reportlab não instalado")
+    def test_fechamento_gera_sem_snapshot_persistido(self):
         service = self._service(_snapshot(persistido=False))
-        with self.assertRaises(DocumentoIndisponivelError):
-            service.gerar(10, "fechamento", variante="cliente")
+        pdf, nome = service.gerar(10, "fechamento", variante="cliente")
+        self.assertTrue(pdf.startswith(b"%PDF"))
+        self.assertIn("fechamento", nome)
 
     @unittest.skipUnless(REPORTLAB_AVAILABLE, "reportlab não instalado")
     def test_passagem_pode_usar_preview(self):
@@ -260,6 +262,8 @@ class PiDocumentoServiceTest(unittest.TestCase):
         self.assertFalse(fiscal["tem_nf"])
         self.assertTrue(any(item["codigo"] == "sem_nf" for item in fiscal["alertas"]))
         self.assertGreaterEqual(len(resumo["documentos"]), 3)
+        self.assertFalse(any(doc["status"] == "bloqueado" for doc in resumo["documentos"]))
+        self.assertTrue(any(doc.get("pdf_url") or doc.get("gerar_url") for doc in resumo["documentos"]))
 
     def test_resumo_sidebar_financeiro_marca_enviado(self):
         service = self._service(

@@ -343,3 +343,29 @@ def api_enviar_comunicacao_cliente(id_pi, tipo):
     except Exception:
         logger.exception("Erro ao enviar comunicação %s do PI %s ao cliente", tipo, id_pi)
         return _erro_json("Não foi possível enviar o e-mail ao cliente.", 500)
+
+
+@bp.post("/api/cadu_pi/<int:id_pi>/financeiro/comunicacoes/<tipo>/preview")
+@login_required_api
+def api_preview_comunicacao_cliente(id_pi, tipo):
+    body = request.get_json(silent=True) or {}
+    try:
+        autor = {
+            "id": session.get("user_id"),
+            "nome": session.get("user_name"),
+            "email": session.get("user_email"),
+        }
+        data = PiDocumentoService().preview_comunicacao(
+            id_pi,
+            tipo,
+            mensagem=body.get("mensagem"),
+            autor=autor,
+        )
+        return jsonify({"success": True, **data})
+    except DocumentoIndisponivelError as exc:
+        return _erro_json(exc, 400)
+    except PiNaoEncontradoError:
+        return _erro_json("PI não encontrado", 404)
+    except Exception:
+        logger.exception("Erro ao gerar prévia da comunicação %s do PI %s", tipo, id_pi)
+        return _erro_json("Não foi possível gerar a prévia.", 500)

@@ -47,8 +47,11 @@ TIPOS_POR_SUBSTATUS = {
         "atualizacao_manual",
     ),
     4: (
-        "cliente_fechamento",
-        "agencia_fechamento",
+        "financeiro",
+        "nota_fiscal",
+        "documentos_assinados",
+        "comprovacao",
+        "bonificacao",
         "atualizacao_manual",
     ),
 }
@@ -69,9 +72,13 @@ ASSUNTOS = {
     "relatorios_faturamento": "Relatórios do {codigo} para faturamento",
     "cliente_fechamento": "Fechamento da campanha — relatórios do {codigo}",
     "agencia_fechamento": "Fechamento do {codigo} para a agência",
+    "financeiro": "Resultado financeiro do {codigo}",
     "financeiro_cliente": "Resultado financeiro do {codigo}",
+    "nota_fiscal": "Nota fiscal do {codigo}",
     "nota_fiscal_cliente": "Nota fiscal do {codigo}",
     "documentos_assinados": "Documentos assinados do {codigo}",
+    "comprovacao": "Comprovação de veiculação — {codigo}",
+    "bonificacao": "Carta de bonificação — {codigo}",
 }
 
 EMAIL_CARTA = frozenset(
@@ -254,16 +261,68 @@ class PiOperacaoService:
     def catalogo(self, id_pi):
         pi = self.repository.obter_pi(id_pi)
         substatus = int(pi["id_sub_status_pi"]) if pi.get("id_sub_status_pi") is not None else None
-        permitidos = TIPOS_POR_SUBSTATUS.get(substatus, ())
         codigo = pi.get("codigo_pi_cc") or pi.get("codigo_pi_ag") or id_pi
+        if substatus == 4:
+            tipos = self._catalogo_financeiro(pi, codigo)
+        else:
+            tipos = [
+                {
+                    "tipo": tipo,
+                    "label": ASSUNTOS.get(tipo, tipo).split("—")[0].strip(),
+                    "assunto_padrao": assunto_email(tipo, codigo),
+                    "canal": "operacao",
+                }
+                for tipo in TIPOS_POR_SUBSTATUS.get(substatus, ())
+            ]
         return {
             "substatus": substatus,
             "substatus_descricao": pi.get("sub_status_descricao"),
-            "tipos": [
-                {"tipo": tipo, "assunto_padrao": assunto_email(tipo, codigo)}
-                for tipo in permitidos
-            ],
+            "tipos": tipos,
         }
+
+    def _catalogo_financeiro(self, pi, codigo):
+        from .pi_documento_service import CATALOGO_AGENCIA, CATALOGO_CLIENTE
+
+        tipos = []
+        for item in CATALOGO_CLIENTE:
+            tipos.append(
+                {
+                    "tipo": item["tipo"],
+                    "label": item["label"],
+                    "proposito": item.get("proposito"),
+                    "assunto_padrao": assunto_email(item["tipo"], codigo),
+                    "canal": "financeiro",
+                    "audiencia": "cliente",
+                }
+            )
+        tem_incentivo = bool(
+            (pi.get("agencia_nome") or "").strip()
+            or pi.get("perc_pl_incentivos")
+            or pi.get("val_pl_incentivos")
+        )
+        for item in CATALOGO_AGENCIA:
+            if item.get("requer_incentivo") and not tem_incentivo:
+                continue
+            tipos.append(
+                {
+                    "tipo": item["tipo"],
+                    "label": item["label"],
+                    "proposito": item.get("proposito"),
+                    "assunto_padrao": assunto_email(item["tipo"], codigo),
+                    "canal": "financeiro",
+                    "audiencia": "agencia",
+                }
+            )
+        tipos.append(
+            {
+                "tipo": "atualizacao_manual",
+                "label": "Atualização manual",
+                "assunto_padrao": assunto_email("atualizacao_manual", codigo),
+                "canal": "operacao",
+                "audiencia": "geral",
+            }
+        )
+        return tipos
 
     def _itens_canonicos(self, id_pi, campanhas):
         itens = [
@@ -757,11 +816,12 @@ class PiOperacaoService:
                 contato = por_email.get(str(email).strip().lower())
                 if not contato:
                     raise ValueError("Destinatário não pertence ao cliente ou à agência do PI.")
-                papel = (
-                    "agencia"
-                    if contato.get("pk_id_tbl_cliente") == pi.get("id_agencia")
-                    else "cliente_final"
-                )
+                papel = "cliente_final"
+                empresa = contato.get("pk_id_tbl_cliente")
+                if pi.get("id_agencia") and empresa == pi.get("id_agencia"):
+                    papel = "agencia"
+                elif pi.get("id_parceiro") and empresa == pi.get("id_parceiro"):
+                    papel = "parceiro"
                 convertidos.append(
                     {
                         "id_contato_cliente": contato["id_contato_cliente"],
@@ -775,8 +835,33 @@ class PiOperacaoService:
         resultado = self.repository.substituir_destinatarios(
             id_pi, destinatarios, autor_id
         )
+        self._gravar_contatos_financeiros(id_pi, resultado)
         self.sincronizar(id_pi, autor_id)
         return resultado
+
+    def _gravar_contatos_financeiros(self, id_pi, destinatarios):
+        padrao = {}
+        for item in destinatarios or []:
+            if item.get("padrao") and item.get("id_contato_cliente"):
+                padrao[item.get("papel")] = item["id_contato_cliente"]
+        patch = {}
+        if padrao.get("cliente_final"):
+            patch["contato_fin_cliente"] = padrao["cliente_final"]
+        if padrao.get("agencia"):
+            patch["contato_fin_agencia"] = padrao["agencia"]
+        if padrao.get("parceiro"):
+            patch["contato_fin_parceiro"] = padrao["parceiro"]
+        if not patch:
+            return
+        try:
+            from . import db
+
+            db.atualizar_cadu_pi_complementar(id_pi, patch)
+        except Exception:
+            logger.exception(
+                "Não gravou os contatos financeiros do PI %s após salvar destinatários.",
+                id_pi,
+            )
 
     def gerar_checklist(self, id_pi, payload, autor_id):
         campanhas = self.repository.listar_campanhas(id_pi)

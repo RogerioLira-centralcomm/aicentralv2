@@ -9,7 +9,9 @@ from aicentralv2.pi_fechamento_service import (
     PiFechamentoService,
     calcular_provisionamentos,
     classificar_zona,
+    classificar_zona_por_margem,
     calcular_zonas,
+    eh_legado,
 )
 
 
@@ -123,6 +125,46 @@ class FechamentoServiceTest(unittest.TestCase):
         self.assertEqual(classificar_zona(105, zonas), 3)
         self.assertEqual(classificar_zona(140, zonas), 4)
         self.assertEqual(classificar_zona(200, zonas), 5)
+
+    def test_classifica_zona_por_margem(self):
+        self.assertEqual(classificar_zona_por_margem(1000, 500), 1)
+        self.assertEqual(classificar_zona_por_margem(1000, 750), 2)
+        self.assertEqual(classificar_zona_por_margem(1000, 1000), 3)
+        self.assertEqual(classificar_zona_por_margem(1000, 1100), 4)
+        self.assertEqual(classificar_zona_por_margem(1000, 1300), 5)
+
+    def test_legado_ancora_liquido_e_imposto_15(self):
+        pi = {
+            "valor_liquido": 1000,
+            "valor_bruto": 0,
+            "perc_comissao_agencia": 20,
+            "custo_base_unitario": 0,
+            "cotacao_id": None,
+        }
+        self.assertTrue(eh_legado(pi))
+        dre = calcular_provisionamentos(pi, 400)
+        self.assertEqual(dre["fonte"], "legado")
+        self.assertEqual(dre["valor_liquido"], 1000)
+        self.assertEqual(dre["valor_bruto"], 1250)
+        self.assertEqual(dre["impostos"], 150)
+        self.assertEqual(dre["tech_fee"], 0)
+        self.assertEqual(dre["margem_cc"], 0)
+        self.assertEqual(dre["margem_liquida_calculada"], 600)
+
+    def test_preview_sem_custo_base_usa_zona_por_margem(self):
+        operacao = FakeOperacao()
+        operacao.pi["custo_base_unitario"] = 0
+        operacao.pi["cotacao_id"] = None
+        operacao.pi["valor_liquido"] = 1000
+        service = PiFechamentoService(
+            repository=FakeFechamentoRepo(),
+            operacao=operacao,
+        )
+        preview = service.preview(10)
+        self.assertEqual(preview["fonte_dre"], "legado")
+        self.assertEqual(preview["zona_base"], "margem")
+        self.assertIn("Base: margem", preview["zona_explicacao"])
+        self.assertEqual(preview["dre_realizado"]["resultado"], preview["margem_liquida_calculada"])
 
     def test_calcular_zonas_respeita_desvio(self):
         calc = calcular_zonas(
@@ -259,18 +301,23 @@ class FechamentoUiContractTest(unittest.TestCase):
         self.assertIn("Enviar para assinatura", main)
         self.assertIn("enviar-assinatura", self.routes)
         self.assertIn("Nota fiscal e status de pagamento", main)
-        self.assertIn("Documentos e comunicações", main)
-        self.assertIn("Para o cliente", main)
         self.assertIn("Status de pagamento", main)
-        self.assertIn("pi-comms-cliente", main)
         self.assertIn("comunicacoes/<tipo>/enviar", self.routes)
+        self.assertIn("comunicacoes/<tipo>/preview", self.routes)
         self.assertIn("notas/<int:id_nota>/pagamento", self.routes)
         self.assertIn("documentos/resumo", self.routes)
-        self.assertIn("pi-fiscal-workspace", main)
+        self.assertIn("pi-zona-strip", main)
+        self.assertIn("pi-dre-table", main)
         self.assertIn("pi-fiscal-alerts", main)
+        self.assertNotIn("pi-fiscal-workspace", main)
+        self.assertNotIn("pi-comms-cliente", main)
         sidebar = (self.templates / "pi_operacao/_sidebar.html").read_text()
         self.assertIn("pi-docs-registry-panel", sidebar)
         self.assertIn("pi-fiscal-pulse-panel", sidebar)
+        self.assertIn("pi-contact-dialog", sidebar)
+        js = (Path(__file__).resolve().parents[1] / "aicentralv2" / "static" / "js" / "cadu_pi_operacao.js").read_text()
+        self.assertIn("isFinanceiroWorkspace", js)
+        self.assertIn("data-add-contact", js)
         self.assertNotIn("Gerar PDFs", main)
 
 

@@ -993,8 +993,11 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("modelagem_trocar", shell)
         self.assertIn("modelagem_design-system", shell)
         desk = (root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html").read_text(encoding="utf-8")
-        self.assertIn("modelagem_criativos.css') }}?v=82", desk)
+        self.assertIn("modelagem_criativos.css') }}?v=83", desk)
         self.assertIn("mc_page_js) }}?v=26", desk)
+        css = (root / "aicentralv2" / "static" / "css" / "modelagem_criativos.css").read_text(encoding="utf-8")
+        self.assertIn("grid-template-columns: minmax(0, 1fr) 22rem;", css)
+        self.assertNotIn("grid-template-columns: 15rem minmax(0, 1fr) 22rem;", css)
         mesa_dir = root / "aicentralv2" / "templates" / "parametros"
         html = (mesa_dir / "_mc_mesa.html").read_text(encoding="utf-8")
         for path in sorted((mesa_dir / "mesa").glob("*.html")):
@@ -1109,6 +1112,8 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         docs = (root / "docs" / "trocr-editor-refactor.md").read_text(encoding="utf-8")
         self.assertIn("OCR dinâmico", docs)
         self.assertIn("/lab/trocr/states", docs)
+        self.assertIn("Faixa de etapas no topo", docs)
+        self.assertNotIn("Sidebar de fluxo", docs)
         swap_js = (root / "aicentralv2" / "static" / "js" / "mc-trocar.js").read_text(encoding="utf-8")
         self.assertIn("/parametros/api/format-lab/swap/read", swap_js)
         self.assertIn("/parametros/api/format-lab/swap/prompt", swap_js)

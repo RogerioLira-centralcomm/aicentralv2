@@ -7,7 +7,7 @@ A mesa Trocar continua em `/parametros/modelagem-criativos/trocar`. Na tela, o p
 Quatro regiões, nesta ordem:
 
 1. Header da página — título, subtítulo e o aviso de que as versões são preservadas
-2. Sidebar de fluxo — Upload, OCR, Análise, Edição, Geração, Revisão
+2. Faixa de etapas no topo — Upload, OCR, Análise, Edição, Geração, Revisão (número + nome, sem descrição)
 3. Canvas central — visualização, comparar, zoom, download e tela cheia
 4. Inspetor direito — marca, formato, textos, análise, preservar/alterar, prompt e geração
 

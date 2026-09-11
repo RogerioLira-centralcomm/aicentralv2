@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import logging
-import os
-from flask import current_app
 
 from ..services import integration_credentials
-from ..services.d4sign_client import D4SignClient, D4SignError
+from ..services.d4sign_client import D4SignClient, D4SignError, public_webhook_url
 from .helpers import OPEN_STATUSES, serialize_document
 from .repository import AssinaturasRepository, DocumentoNaoEncontrado
 
@@ -53,18 +51,7 @@ def get_client():
 
 def webhook_url(config=None):
     config = config or {}
-    try:
-        base = current_app.config.get("BASE_URL") or os.getenv("BASE_URL") or ""
-    except RuntimeError:
-        base = os.getenv("BASE_URL") or ""
-    base = str(base).rstrip("/")
-    if not base:
-        return ""
-    url = f"{base}/assinaturas/api/webhook"
-    secret = str(config.get("webhook_secret") or "").strip()
-    if secret:
-        url = f"{url}?secret={secret}"
-    return url
+    return public_webhook_url(config.get("webhook_secret"))
 
 
 def listar_documentos(filtros=None):

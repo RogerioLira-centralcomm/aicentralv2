@@ -7,7 +7,7 @@ from flask import Flask
 from aicentralv2.assinaturas import service
 from aicentralv2.assinaturas.helpers import serialize_document
 from aicentralv2.assinaturas.routes import bp
-from aicentralv2.services.d4sign_client import D4SignClient
+from aicentralv2.services.d4sign_client import D4SignClient, public_webhook_url
 
 
 class D4SignClientTest(unittest.TestCase):
@@ -17,6 +17,14 @@ class D4SignClientTest(unittest.TestCase):
         self.assertIn("secure.d4sign.com.br/embed/viewblob/doc-1", url)
         self.assertIn("email=apolo%40centralcomm.media", url)
         self.assertIn("key_signer=key-9", url)
+
+    def test_public_webhook_uses_production_centralx(self):
+        url = public_webhook_url("abc123")
+        self.assertEqual(
+            url,
+            "https://ai.centralcomm.media/assinaturas/api/webhook?secret=abc123",
+        )
+        self.assertNotIn("localhost", service.webhook_url({"webhook_secret": "abc123"}))
 
 
 class AssinaturasServiceTest(unittest.TestCase):

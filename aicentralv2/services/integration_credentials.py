@@ -2,6 +2,7 @@
 
 import json
 import os
+import secrets
 from urllib.parse import urlparse
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -119,10 +120,14 @@ def get_configuration(provider, include_secrets=False):
         record = db.obter_credencial_integracao(provider, incluir_segredo=True)
     except Exception:
         record = None
+    unreadable = False
     if record:
         config = dict(record.get("public_config") or {})
-        secrets = decrypt_secrets(record.get("encrypted_secret"))
-        config.update(secrets)
+        try:
+            secrets = decrypt_secrets(record.get("encrypted_secret"))
+            config.update(secrets)
+        except IntegrationCredentialError:
+            unreadable = bool(record.get("encrypted_secret"))
         source = "database"
         status = record.get("status") or "active"
     else:
@@ -133,8 +138,11 @@ def get_configuration(provider, include_secrets=False):
         "provider": provider,
         "source": source,
         "status": status,
-        "configured": status == "active" and all(
-            config.get(field) for field in PROVIDERS[provider]["required"]
+        "unreadable_secret": unreadable,
+        "configured": (
+            not unreadable
+            and status == "active"
+            and all(config.get(field) for field in PROVIDERS[provider]["required"])
         ),
     }
     for field in PROVIDERS[provider]["public_fields"]:
@@ -172,10 +180,12 @@ def save_configuration(provider, payload, updated_by):
         public["image_model"] = "openai/gpt-image-2"
     if provider == "d4sign" and not public.get("ambiente"):
         public["ambiente"] = "producao"
+    if provider == "d4sign" and not submitted_secrets.get("webhook_secret") and not existing_secrets.get("webhook_secret"):
+        submitted_secrets["webhook_secret"] = secrets.token_urlsafe(24)
     if submitted_secrets:
-        secrets = dict(existing_secrets)
-        secrets.update(submitted_secrets)
-        encrypted = encrypt_secrets(secrets)
+        merged = dict(existing_secrets)
+        merged.update(submitted_secrets)
+        encrypted = encrypt_secrets(merged)
     else:
         encrypted = None
     from aicentralv2 import db
@@ -202,6 +212,7 @@ def get_summary(provider):
         key: config.get(key, "")
         for key in ("provider", "source", "status", "configured")
     }
+    summary["unreadable_secret"] = bool(config.get("unreadable_secret"))
     summary["label"] = schema["label"]
     summary["public_config"] = {
         field: config.get(field, "") for field in schema["public_fields"]
@@ -213,11 +224,31 @@ def get_summary(provider):
         config.get(field) for field in required_secrets
     )
     summary["secret_mask"] = "••••••••" if summary["has_secret"] else ""
+    if provider == "d4sign":
+        from .d4sign_client import public_webhook_url
+        summary["webhook_url"] = public_webhook_url(config.get("webhook_secret"))
     return summary
 
 
 def list_summaries():
-    return [get_summary(provider) for provider in PROVIDERS]
+    items = []
+    for provider in PROVIDERS:
+        try:
+            items.append(get_summary(provider))
+        except IntegrationCredentialError:
+            schema = PROVIDERS[provider]
+            items.append({
+                "provider": provider,
+                "source": "database",
+                "status": "error",
+                "configured": False,
+                "unreadable_secret": True,
+                "label": schema["label"],
+                "public_config": {field: "" for field in schema["public_fields"]},
+                "has_secret": False,
+                "secret_mask": "",
+            })
+    return items
 
 
 def validate_configuration(provider):
@@ -296,11 +327,33 @@ def _validate_d4sign(config):
                 )
         except Exception:
             pass
+        hook_message = _register_d4sign_vault_webhook(config, suggested)
         return True, (
-            f"Credencial D4Sign aceita. Cofre preenchido: {safes[0]['name']}."
+            f"Credencial D4Sign aceita. Cofre preenchido: {safes[0]['name']}.{hook_message}"
         ), {"safes": safes, "suggested_safe": suggested}
     name = next((item["name"] for item in safes if item["uuid"] == uuid_safe), uuid_safe)
-    return True, f"Credencial D4Sign aceita. Cofre: {name}.", {"safes": safes}
+    hook_message = _register_d4sign_vault_webhook(config, uuid_safe)
+    return True, f"Credencial D4Sign aceita. Cofre: {name}.{hook_message}", {
+        "safes": safes,
+    }
+
+
+def _register_d4sign_vault_webhook(config, uuid_safe):
+    from .d4sign_client import D4SignClient, D4SignError, public_webhook_url
+
+    hook = public_webhook_url(config.get("webhook_secret"))
+    if not uuid_safe or not hook:
+        return ""
+    try:
+        D4SignClient.from_config(config).register_vault_webhook(uuid_safe, hook)
+    except D4SignError:
+        return (
+            " O POSTBack de cada documento já aponta para o CentralX. "
+            "Para o webhook do cofre inteiro, ative Webhook 2.0 em D4Sign → Dev API."
+        )
+    except Exception:
+        return " O POSTBack de cada documento já aponta para o CentralX."
+    return " POSTBack do cofre registrado em ai.centralcomm.media."
 
 
 def _validate_public(provider, config):

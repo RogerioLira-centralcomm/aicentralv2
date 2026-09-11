@@ -14,6 +14,15 @@ PRODUCTION_API = "https://secure.d4sign.com.br/api/v1"
 SANDBOX_API = "https://sandbox.d4sign.com.br/api/v1"
 PRODUCTION_EMBED = "https://secure.d4sign.com.br/embed/viewblob"
 SANDBOX_EMBED = "https://sandbox.d4sign.com.br/embed/viewblob"
+PUBLIC_WEBHOOK_BASE = "https://ai.centralcomm.media"
+
+
+def public_webhook_url(secret=""):
+    url = f"{PUBLIC_WEBHOOK_BASE.rstrip('/')}/assinaturas/api/webhook"
+    secret = str(secret or "").strip()
+    if secret:
+        url = f"{url}?secret={secret}"
+    return url
 
 
 class D4SignError(RuntimeError):
@@ -154,6 +163,29 @@ class D4SignClient:
             f"/documents/{document_uuid}/webhooks",
             json={"url": url},
         )
+
+    def register_vault_webhook(self, safe_uuid, url):
+        body = {"type": "cofre", "uuid": safe_uuid, "url": url}
+        last_error = None
+        for path in ("/webhooks/v2/", "/webhooks/v2"):
+            try:
+                return self._request("POST", path, json=body)
+            except D4SignError as exc:
+                last_error = exc
+        v2_url = (
+            f"{self.base_url.replace('/api/v1', '/api/v2')}/webhooks/"
+            f"?{urlencode({'tokenAPI': self.token_api, 'cryptKey': self.crypt_key})}"
+        )
+        try:
+            response = requests.post(v2_url, json=body, timeout=self.timeout)
+        except requests.RequestException as exc:
+            raise D4SignError("Não foi possível registrar o webhook do cofre.") from exc
+        if response.status_code >= 400:
+            self._raise(response, str(last_error) if last_error else "Webhook do cofre recusado.")
+        try:
+            return response.json()
+        except ValueError:
+            return {"raw": response.text}
 
     def get_document(self, document_uuid):
         return self._request("GET", f"/documents/{document_uuid}")

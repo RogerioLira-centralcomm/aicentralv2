@@ -48,14 +48,18 @@
     status.classList.toggle('is-missing', !summary.configured);
     var secretState = form.querySelector('[data-secret-state]');
     if (secretState) {
-      secretState.textContent = summary.has_secret
-        ? summary.source === 'environment'
-          ? 'Segredo disponível no ambiente do servidor.'
-          : 'Segredo armazenado: ' + summary.secret_mask + '. Deixe vazio para mantê-lo.'
-        : 'Nenhum segredo armazenado no banco.';
+      secretState.textContent = summary.unreadable_secret
+        ? 'Esta credencial foi gravada com outra chave do servidor. Cole o token e a crypt key e salve de novo.'
+        : summary.has_secret
+          ? summary.source === 'environment'
+            ? 'Segredo disponível no ambiente do servidor.'
+            : 'Segredo armazenado: ' + summary.secret_mask + '. Deixe vazio para mantê-lo.'
+          : 'Nenhum segredo armazenado no banco.';
     }
     form.dataset.configured = summary.configured ? 'true' : 'false';
     form.dataset.source = summary.source || 'database';
+    var webhook = form.querySelector('[data-webhook-url]');
+    if (webhook) webhook.value = summary.webhook_url || '';
   }
 
   function load() {

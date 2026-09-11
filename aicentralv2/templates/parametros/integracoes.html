@@ -5,7 +5,7 @@
 {% block page_subtitle %}Credenciais de integrações{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/integracoes.css') }}?v=3">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/integracoes.css') }}?v=4">
 {% endblock %}
 
 {% block content %}
@@ -183,15 +183,20 @@
           </select>
         </label>
         <label class="is-wide">
-          <span>Webhook secret <em>opcional</em></span>
+          <span>Webhook secret <em>gerado automaticamente</em></span>
           <input name="webhook_secret" type="password" autocomplete="new-password"
                  placeholder="Deixe vazio para manter o segredo atual">
+        </label>
+        <label class="is-wide">
+          <span>POSTBack da D4Sign</span>
+          <input type="text" readonly data-webhook-url autocomplete="off"
+                 placeholder="Validar a configuração registra esta URL no cofre">
         </label>
       </div>
 
       <aside>
-        <strong>Mesa de assinaturas</strong>
-        <span>Depois de conectar, envie e assine documentos em Operação → Mesa de documentos. O cofre é escolhido na validação.</span>
+        <strong>Webhook do cofre</strong>
+        <span>A D4Sign avisa https://ai.centralcomm.media/assinaturas/api/webhook quando alguém assina. Isso atualiza a mesa, o badge e o financeiro do PI.</span>
       </aside>
 
       <footer>
@@ -206,5 +211,5 @@
 
 {% block scripts %}
 {{ super() }}
-<script src="{{ url_for('static', filename='js/integracoes.js') }}?v=3"></script>
+<script src="{{ url_for('static', filename='js/integracoes.js') }}?v=5"></script>
 {% endblock %}

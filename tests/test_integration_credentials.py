@@ -75,6 +75,27 @@ class IntegrationCredentialsServiceTest(unittest.TestCase):
         self.assertEqual(summary["public_config"]["image_model"], "openai/gpt-image-2")
         self.assertNotIn("or-env-key", str(summary))
 
+    def test_unreadable_secret_does_not_break_summaries(self):
+        record = {
+            "provider": "d4sign",
+            "public_config": {
+                "uuid_safe": "1b4259e5-8c30-42be-9220-a06852cd4c46",
+                "ambiente": "producao",
+            },
+            "encrypted_secret": "gAAAAABunreadable",
+            "status": "active",
+        }
+        with patch(
+            "aicentralv2.db.obter_credencial_integracao", return_value=record
+        ):
+            summary = integration_credentials.get_summary("d4sign")
+        self.assertFalse(summary["configured"])
+        self.assertTrue(summary["unreadable_secret"])
+        self.assertEqual(
+            summary["public_config"]["uuid_safe"],
+            "1b4259e5-8c30-42be-9220-a06852cd4c46",
+        )
+
     def test_empty_secret_preserves_existing_database_value(self):
         encrypted = integration_credentials.encrypt_secrets(
             {"client_secret": "existing-secret"}

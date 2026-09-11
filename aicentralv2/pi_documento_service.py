@@ -371,6 +371,156 @@ class PiDocumentoService:
             )
         return documentos
 
+    def resumo_sidebar(self, snapshot, modo="fechamento", notas=None):
+        """Resumo fiscal e registro de documentos para a sidebar do PI."""
+        cartas = snapshot.get("cartas") or {}
+        persistido = bool(snapshot.get("persistido"))
+        notas = list(notas or snapshot.get("notas_fiscais") or [])
+        documentos = []
+
+        for item in CATALOGO_AGENCIA:
+            if item.get("requer_incentivo") and not _tem_incentivo(snapshot):
+                continue
+            salvo = cartas.get(item["tipo"]) or {}
+            if salvo.get("enviado_em"):
+                status = "enviado"
+            elif persistido:
+                status = "pendente"
+            else:
+                status = "bloqueado"
+            documentos.append(
+                {
+                    "tipo": item["tipo"],
+                    "label": item["label"],
+                    "audiencia": "agência",
+                    "status": status,
+                    "enviado_em": salvo.get("enviado_em"),
+                    "enviado_para": salvo.get("destinatario_nome"),
+                    "ancora": "pi-docs-agencia",
+                }
+            )
+
+        if modo == "financeiro":
+            tem_nf_pdf = any(
+                nota.get("tem_pdf") or nota.get("nf_arquivo_path") for nota in notas
+            )
+            for item in CATALOGO_CLIENTE:
+                tipo = item["tipo"]
+                salvo = cartas.get(_chave_carta_cliente(tipo)) or {}
+                if salvo.get("enviado_em"):
+                    status = "enviado"
+                elif item.get("requer_nf") and not tem_nf_pdf:
+                    status = "bloqueado"
+                elif tipo == "financeiro" and not persistido:
+                    status = "bloqueado"
+                else:
+                    status = "pendente"
+                documentos.append(
+                    {
+                        "tipo": tipo,
+                        "label": item["label"],
+                        "audiencia": "cliente",
+                        "status": status,
+                        "enviado_em": salvo.get("enviado_em"),
+                        "enviado_para": salvo.get("destinatario_nome"),
+                        "ancora": "pi-comms-cliente",
+                    }
+                )
+
+        fiscal = self._pulso_fiscal(snapshot, notas, modo)
+        return {
+            "modo": modo,
+            "documentos": documentos,
+            "fiscal": fiscal,
+            "total_enviados": sum(1 for doc in documentos if doc["status"] == "enviado"),
+            "total_pendentes": sum(1 for doc in documentos if doc["status"] == "pendente"),
+        }
+
+    def _pulso_fiscal(self, snapshot, notas, modo):
+        if modo != "financeiro":
+            return None
+        alertas = []
+        notas = list(notas or [])
+        status_fin = _texto(snapshot.get("status_financeiro"))
+        valor_liquido = _num(snapshot.get("valor_liquido"))
+
+        if not notas:
+            alertas.append(
+                {
+                    "nivel": "critico",
+                    "codigo": "sem_nf",
+                    "mensagem": "Nenhuma NF vinculada a este PI.",
+                    "ancora": "pi-nf-pagamento",
+                }
+            )
+        else:
+            sem_pdf = [
+                nota
+                for nota in notas
+                if not (nota.get("tem_pdf") or nota.get("nf_arquivo_path"))
+            ]
+            if sem_pdf:
+                alertas.append(
+                    {
+                        "nivel": "atencao",
+                        "codigo": "nf_sem_pdf",
+                        "mensagem": f"{len(sem_pdf)} NF(s) sem PDF anexado.",
+                        "ancora": "pi-nf-pagamento",
+                    }
+                )
+            nao_pagas = [
+                nota
+                for nota in notas
+                if _texto(nota.get("status_descricao")).lower() != "pagamento realizado"
+            ]
+            if nao_pagas:
+                nivel = "atencao"
+                if all(
+                    _texto(nota.get("status_descricao")).lower() not in {
+                        "aguardando pagamento",
+                        "nf emitida",
+                    }
+                    for nota in nao_pagas
+                ):
+                    nivel = "critico"
+                alertas.append(
+                    {
+                        "nivel": nivel,
+                        "codigo": "pagamento_pendente",
+                        "mensagem": f"Pagamento pendente em {len(nao_pagas)} NF(s).",
+                        "ancora": "pi-nf-pagamento",
+                    }
+                )
+            for nota in notas:
+                valor_nf = _num(nota.get("valor_liquido") or nota.get("valor"))
+                if (
+                    valor_liquido > 0
+                    and valor_nf > 0
+                    and abs(valor_liquido - valor_nf) > max(1.0, valor_liquido * 0.02)
+                ):
+                    alertas.append(
+                        {
+                            "nivel": "atencao",
+                            "codigo": "divergencia_valor",
+                            "mensagem": "Valor da NF difere do líquido do PI.",
+                            "ancora": "pi-nf-pagamento",
+                        }
+                    )
+                    break
+
+        return {
+            "tem_nf": bool(notas),
+            "nf_paga": bool(notas)
+            and all(
+                _texto(nota.get("status_descricao")).lower() == "pagamento realizado"
+                for nota in notas
+            ),
+            "status_financeiro": status_fin,
+            "status_financeiro_label": snapshot.get("status_financeiro_label"),
+            "alertas": alertas,
+            "notas_count": len(notas),
+        }
+
     def _arquivos_cliente(self, tipo, id_pi, snapshot, notas):
         if tipo == "nota_fiscal":
             arquivos = []

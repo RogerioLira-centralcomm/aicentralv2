@@ -85,12 +85,15 @@ def fechamento(id_pi):
     if str(pi.get("id_sub_status_pi")) == "4":
         return redirect(url_for("pi_financeiro.workspace", id_pi=id_pi))
     preview = _service().preview(id_pi)
-    documentos = PiDocumentoService().listar(preview)
+    doc_service = PiDocumentoService()
+    documentos = doc_service.listar(preview)
+    documentos_resumo = doc_service.resumo_sidebar(preview, modo="fechamento")
     return render_template(
         "cadu_pi_fechamento.html",
         pi=pi,
         preview=preview,
         documentos=documentos,
+        documentos_resumo=documentos_resumo,
         modo="fechamento",
         somente_leitura=False,
         operacao_modo="pi",
@@ -116,7 +119,9 @@ def workspace(id_pi):
         notas = []
         statuses_nf = []
     resultado["notas_fiscais"] = notas
-    comunicacoes_cliente = PiDocumentoService().listar_cliente(resultado, notas)
+    doc_service = PiDocumentoService()
+    comunicacoes_cliente = doc_service.listar_cliente(resultado, notas)
+    documentos_resumo = doc_service.resumo_sidebar(resultado, modo="financeiro", notas=notas)
     id_status_pago = next(
         (item.get("id") for item in statuses_nf if str(item.get("descricao") or "") == "Pagamento Realizado"),
         None,
@@ -127,6 +132,7 @@ def workspace(id_pi):
         preview=resultado,
         documentos=documentos,
         comunicacoes_cliente=comunicacoes_cliente,
+        documentos_resumo=documentos_resumo,
         notas_fiscais=notas,
         statuses_nf=statuses_nf,
         id_status_pagamento_realizado=id_status_pago,
@@ -134,6 +140,40 @@ def workspace(id_pi):
         somente_leitura=False,
         operacao_modo="pi",
     )
+
+
+@bp.get("/api/cadu_pi/<int:id_pi>/documentos/resumo")
+@login_required_api
+def api_documentos_resumo(id_pi):
+    from . import db
+
+    pi = db.obter_cadu_pi_por_id(id_pi)
+    if not pi:
+        return _erro_json("PI não encontrado", 404)
+    substatus = str(pi.get("id_sub_status_pi") or "")
+    doc_service = PiDocumentoService()
+    if substatus == "3":
+        snapshot = _service().preview(id_pi)
+        modo = "fechamento"
+        notas = []
+    elif substatus in {"4", "5"}:
+        snapshot = _service().resultado(id_pi)
+        modo = "financeiro"
+        try:
+            notas = [
+                serializar_nota_fiscal(item)
+                for item in (db.obter_notas_fiscais_por_pi(id_pi) or [])
+            ]
+        except Exception:
+            logger.exception("Erro ao carregar notas para resumo do PI %s", id_pi)
+            notas = []
+        snapshot["notas_fiscais"] = notas
+    else:
+        return jsonify({"success": True, "data": {"modo": "operacao", "documentos": [], "fiscal": None}})
+    return jsonify({
+        "success": True,
+        "data": doc_service.resumo_sidebar(snapshot, modo=modo, notas=notas),
+    })
 
 
 @bp.get("/api/cadu_pi/<int:id_pi>/resultado-fechamento/preview")

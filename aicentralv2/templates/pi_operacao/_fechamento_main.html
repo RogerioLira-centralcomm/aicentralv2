@@ -5,7 +5,22 @@
 {% set notas_fiscais = notas_fiscais or preview.get('notas_fiscais') or [] %}
 {% set comunicacoes_cliente = comunicacoes_cliente or [] %}
 {% set statuses_nf = statuses_nf or [] %}
+{% set resumo_docs = documentos_resumo if documentos_resumo is defined else {} %}
+{% set fiscal = resumo_docs.get('fiscal') or {} %}
+{% set alertas_fiscais = fiscal.get('alertas') or [] %}
 {% set editavel = true %}
+
+{% if modo == 'financeiro' and alertas_fiscais %}
+<section class="pi-op-panel pi-fiscal-alerts" aria-label="Alertas fiscais" id="pi-fiscal-alerts">
+  <ul class="pi-fiscal-alerts__list">
+    {% for alerta in alertas_fiscais %}
+    <li class="pi-fiscal-alerts__item is-{{ alerta.nivel }}">
+      <a href="#{{ alerta.ancora }}" class="pi-fiscal-alerts__link">{{ alerta.mensagem }}</a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
 
 <section id="pi-mobile-summary" class="pi-op-panel" aria-label="Resumo do resultado"
          role="tabpanel" aria-labelledby="pi-mobile-tab-summary" data-mobile-panel="summary" tabindex="0">
@@ -38,11 +53,11 @@
 </section>
 
 {% if modo == 'financeiro' %}
-<section class="pi-op-panel" id="pi-nf-pagamento" aria-label="Nota fiscal e status de pagamento"
+<section class="pi-op-panel pi-op-panel--priority" id="pi-nf-pagamento" aria-label="Nota fiscal e status de pagamento"
          data-status-pago-id="{{ id_status_pagamento_realizado or '' }}">
   <header class="pi-op-panel__head">
-    <h2>Nota fiscal e status de pagamento</h2>
-    <p>Emissão, vencimento e baixa. Atualize o status quando o cliente pagar e baixe o PDF da NF.</p>
+    <h2>Nota fiscal e pagamento</h2>
+    <p>{% if notas_fiscais %}Controle de emissão, vencimento e baixa.{% else %}Sem NF vinculada — emita ou importe antes de cobrar o cliente.{% endif %}</p>
   </header>
   {% if notas_fiscais %}
   <div class="pi-nf-desk">
@@ -189,6 +204,15 @@
 </section>
 {% endif %}
 
+{% if modo == 'financeiro' %}
+<details class="pi-op-panel pi-fechamento-fold">
+  <summary class="pi-op-panel__head">
+    <h2>Observações da operação</h2>
+    <p>Contexto deixado no handoff — consulte se houver divergência.</p>
+  </summary>
+  <p class="pi-fechamento-obs-readonly">{{ preview.observacoes_operacao or pi.obs_operacao or 'Nenhuma observação registrada.' }}</p>
+</details>
+{% else %}
 <section class="pi-op-panel" aria-label="Observações da operação">
   <header class="pi-op-panel__head">
     <h2>Observações para o financeiro</h2>
@@ -197,12 +221,21 @@
   <textarea id="obs_operacao_fechamento" class="pi-fechamento-obs" rows="4"
             placeholder="Contexto de veiculação, desvios e pendências que o financeiro precisa saber.">{{ preview.observacoes_operacao or pi.obs_operacao or '' }}</textarea>
 </section>
+{% endif %}
 
+{% if modo == 'financeiro' %}
+<details class="pi-op-panel pi-fechamento-fold">
+  <summary class="pi-op-panel__head">
+    <h2>Resultado por campanha</h2>
+    <p>{{ campanhas|length }} campanhas no snapshot — detalhe sob demanda.</p>
+  </summary>
+{% else %}
 <section class="pi-op-panel" aria-label="Campanhas do snapshot">
   <header class="pi-op-panel__head">
     <h2>Resultado por campanha</h2>
     <p>Gasto de mídia e entrega de cada linha — base do cálculo acima.</p>
   </header>
+{% endif %}
   {% if campanhas %}
   <div class="cx-table-scroll">
     <table class="cx-table cx-table-dense w-full">
@@ -229,13 +262,22 @@
   {% else %}
   <p>Nenhuma campanha no snapshot.</p>
   {% endif %}
+{% if modo == 'financeiro' %}
+</details>
+{% else %}
 </section>
+{% endif %}
 
 {% if modo == 'financeiro' %}
-<section class="pi-op-panel" aria-label="Comunicações ao cliente" id="pi-comms-cliente">
+<section class="pi-op-panel pi-op-panel--priority" aria-label="Documentos e comunicações" id="pi-fiscal-workspace">
   <header class="pi-op-panel__head">
-    <h2>E-mails e arquivos para o cliente</h2>
-    <p>Financeiro, nota fiscal e documentos para assinatura eletrônica. Baixe os PDFs ou envie com anexo.</p>
+    <h2>Documentos e comunicações</h2>
+    <p>Envie ao cliente e à agência. O registro de cada arquivo aparece na sidebar.</p>
+  </header>
+
+<section class="pi-op-panel pi-op-panel--nested" aria-label="Comunicações ao cliente" id="pi-comms-cliente">
+  <header class="pi-op-panel__head pi-op-panel__head--compact">
+    <h2>Para o cliente</h2>
   </header>
   {% set dest_cli = preview.contato_cliente or {} %}
   <div class="pi-doc-dest{% if not dest_cli.email %} is-missing{% endif %}">
@@ -293,21 +335,12 @@
   <p>Nenhuma comunicação ao cliente disponível.</p>
   {% endif %}
 </section>
-{% endif %}
 
-<section class="pi-op-panel" aria-label="Documentos da agência" id="pi-docs-agencia">
-  {% if modo == 'financeiro' %}
-  <details class="pi-fechamento-fold">
-    <summary class="pi-op-panel__head">
-      <h2>Documentos da agência</h2>
-      <p>Cartas de comprovação e bonificação — recolher para focar no cliente.</p>
-    </summary>
-  {% else %}
-  <header class="pi-op-panel__head">
-    <h2>Documentos da agência</h2>
-    <p>Cartas já endereçadas ao contato do PI. A mensagem e o PDF levam o contratado e o entregue.</p>
+<section class="pi-op-panel pi-op-panel--nested" aria-label="Documentos da agência" id="pi-docs-agencia">
+  <header class="pi-op-panel__head pi-op-panel__head--compact">
+    <h2>Para a agência</h2>
+    <p>Comprovação e bonificação endereçadas ao contato do PI.</p>
   </header>
-  {% endif %}
   {% set dest = preview.contato_agencia or {} %}
   <div class="pi-doc-dest{% if not dest.email %} is-missing{% endif %}">
     {% if dest.email %}
@@ -350,10 +383,58 @@
   {% else %}
   <p>Nenhuma carta aplicável a este PI.</p>
   {% endif %}
-  {% if modo == 'financeiro' %}
-  </details>
+</section>
+</section>
+{% else %}
+<section class="pi-op-panel" aria-label="Documentos da agência" id="pi-docs-agencia">
+  <header class="pi-op-panel__head">
+    <h2>Documentos da agência</h2>
+    <p>Cartas já endereçadas ao contato do PI. A mensagem e o PDF levam o contratado e o entregue.</p>
+  </header>
+  {% set dest = preview.contato_agencia or {} %}
+  <div class="pi-doc-dest{% if not dest.email %} is-missing{% endif %}">
+    {% if dest.email %}
+    <strong>Aos cuidados de {{ dest.nome or preview.agencia_nome or 'contato da agência' }}</strong>
+    <span>{{ dest.email }}</span>
+    {% if preview.agencia_nome %}<span>{{ preview.agencia_nome }}</span>{% endif %}
+    {% else %}
+    <strong>Sem contato da agência</strong>
+    <span>Cadastre o contato no PI para endereçar e enviar as cartas.</span>
+    {% endif %}
+  </div>
+  {% if documentos %}
+  <div class="pi-doc-desk">
+    {% for doc in documentos %}
+    <article class="pi-doc-card" data-doc-tipo="{{ doc.tipo }}" data-doc-variante="{{ doc.variante }}">
+      <header>
+        <h3>{{ doc.label }}</h3>
+        <p>{{ doc.proposito }}</p>
+      </header>
+      <label class="sr-only" for="doc_msg_{{ doc.tipo }}">Mensagem da {{ doc.label }}</label>
+      <textarea id="doc_msg_{{ doc.tipo }}" name="mensagem">{{ doc.mensagem }}</textarea>
+      <div class="pi-doc-card__actions">
+        <a href="{{ url_for('pi_financeiro.documento_pdf', id_pi=pi.id_pi, tipo=doc.tipo, variante=doc.variante) }}"
+           class="pi-op-btn pi-op-btn--secondary" data-doc-preview target="_blank" rel="noopener">
+          <i class="fa-regular fa-file-pdf" aria-hidden="true"></i>Ver PDF
+        </a>
+        <button type="button" class="pi-op-btn pi-op-btn--primary" data-doc-send
+                {% if not doc.pode_enviar %}disabled{% endif %}>
+          Enviar para assinatura
+        </button>
+        {% if doc.enviado_em %}
+        <span class="pi-doc-card__status">Enviado para {{ doc.enviado_para or dest.nome or 'a agência' }}</span>
+        {% elif not preview.get('persistido') %}
+        <span class="pi-doc-card__hint">Disponível após enviar ao financeiro.</span>
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p>Nenhuma carta aplicável a este PI.</p>
   {% endif %}
 </section>
+{% endif %}
 
 <dialog id="modal_confirmar_financeiro" class="cx-modal-shell">
   <div class="cx-modal-panel max-w-md bg-white p-0 rounded-lg shadow-2xl">

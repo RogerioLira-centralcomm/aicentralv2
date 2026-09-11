@@ -9,6 +9,7 @@
      data-stage="{{ pi.id_sub_status_pi }}"
      data-readonly="{{ 'true' if somente_leitura else 'false' }}"
      data-fechamento-modo="{{ modo }}"
+     data-docs-resumo='{{ documentos_resumo|tojson if documentos_resumo is defined else "{}" }}'
      data-user-id="{{ session.get('user_id') or '' }}"
      data-user-name="{{ session.get('user_name') or '' }}"
      data-user-email="{{ session.get('user_email') or '' }}">

@@ -127,6 +127,9 @@
           status.textContent = 'Enviado para ' + (dest.nome || dest.email || 'a agência');
           var hint = card.querySelector('.pi-doc-card__hint');
           if (hint) hint.remove();
+          if (window.piOperacao && window.piOperacao.atualizarDocumentos) {
+            window.piOperacao.atualizarDocumentos();
+          }
         })
         .catch(function (error) {
           toast(error.message || 'Não foi possível enviar o documento.', 'error');
@@ -186,6 +189,9 @@
           if (previsto) previsto.textContent = nota.data_pagamento_previsto_br || '—';
           if (realizado) realizado.textContent = nota.data_pagamento_realizado_br || '—';
           toast('Status de pagamento atualizado.', 'success');
+          if (window.piOperacao && window.piOperacao.atualizarDocumentos) {
+            window.piOperacao.atualizarDocumentos();
+          }
         })
         .catch(function (error) {
           toast(error.message || 'Não foi possível salvar o status.', 'error');
@@ -237,6 +243,9 @@
           status.textContent = 'Enviado para ' + (dest.nome || dest.email || 'o cliente');
           var hint = card.querySelector('.pi-doc-card__hint');
           if (hint) hint.remove();
+          if (window.piOperacao && window.piOperacao.atualizarDocumentos) {
+            window.piOperacao.atualizarDocumentos();
+          }
         })
         .catch(function (error) {
           toast(error.message || 'Não foi possível enviar o e-mail.', 'error');

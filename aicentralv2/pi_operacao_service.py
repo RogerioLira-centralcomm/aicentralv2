@@ -351,6 +351,79 @@ class PiOperacaoService:
                     "evidencia": "PI enviado para faturamento",
                 }
             )
+            conclusoes.extend(self._conclusoes_financeiras(pi))
+        return conclusoes
+
+    def _conclusoes_financeiras(self, pi):
+        conclusoes = []
+        id_pi = pi.get("id_pi")
+        if not id_pi:
+            return conclusoes
+        try:
+            from . import db
+            from .pi_fechamento_repository import PiFechamentoRepository
+
+            notas = db.obter_notas_fiscais_por_pi(id_pi) or []
+            if notas:
+                conclusoes.append(
+                    {
+                        "codigo": "nf_vinculada",
+                        "id_campanha": None,
+                        "evidencia": f"{len(notas)} nota(s) fiscal(is) vinculada(s)",
+                    }
+                )
+            if notas and all(
+                str(nota.get("status_descricao") or "").strip().lower()
+                == "pagamento realizado"
+                for nota in notas
+            ):
+                conclusoes.append(
+                    {
+                        "codigo": "pagamento_confirmado",
+                        "id_campanha": None,
+                        "evidencia": "Todas as notas com pagamento realizado",
+                    }
+                )
+            gravado = PiFechamentoRepository().obter_resultado(id_pi) or {}
+            cartas = dict((gravado.get("payload_json") or {}).get("documentos") or {})
+            if cartas.get("comprovacao", {}).get("enviado_em"):
+                conclusoes.append(
+                    {
+                        "codigo": "comprovacao_veiculacao",
+                        "id_campanha": None,
+                        "evidencia": "Comprovação enviada para assinatura",
+                    }
+                )
+            if cartas.get("bonificacao", {}).get("enviado_em"):
+                conclusoes.append(
+                    {
+                        "codigo": "carta_bonificacao",
+                        "id_campanha": None,
+                        "evidencia": "Carta de bonificação enviada",
+                    }
+                )
+            if cartas.get("cliente_financeiro", {}).get("enviado_em"):
+                conclusoes.append(
+                    {
+                        "codigo": "relatorio_cliente_enviado",
+                        "id_campanha": None,
+                        "evidencia": "Resultado financeiro enviado ao cliente",
+                    }
+                )
+            assinatura_ok = any(
+                cartas.get(chave, {}).get("enviado_em")
+                for chave in ("comprovacao", "bonificacao", "cliente_documentos_assinados")
+            )
+            if assinatura_ok:
+                conclusoes.append(
+                    {
+                        "codigo": "assinatura_d4sign",
+                        "id_campanha": None,
+                        "evidencia": "Documentos encaminhados para assinatura",
+                    }
+                )
+        except Exception:
+            logger.exception("Falha ao calcular conclusões financeiras do PI %s", id_pi)
         return conclusoes
 
     def _aplicar_evidencias(self, checklist, conclusoes, campanhas, pi=None):

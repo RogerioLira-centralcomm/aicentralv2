@@ -1640,3 +1640,148 @@ body.pi-op-lock { overflow: hidden; }
 }
 .pi-saude-badge[data-saude="risco"] { background: #fee2e2; color: #991b1b; }
 .pi-saude-badge[data-saude="atencao"] { background: #ffedd5; color: #9a3412; }
+
+.pi-op-panel--priority {
+  border-color: #c5d9dc;
+  box-shadow: 0 1px 0 rgba(19, 46, 48, 0.04);
+}
+.pi-op-panel--nested {
+  margin-top: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--pi-border);
+  border-radius: 0.65rem;
+  background: #fafcfd;
+}
+.pi-op-panel__head--compact h2 {
+  font-size: 0.95rem;
+  margin: 0;
+}
+.pi-op-panel__head--compact p {
+  margin: 0.2rem 0 0;
+  font-size: 12px;
+}
+.pi-fechamento-obs-readonly {
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.55rem;
+  background: #f8fafb;
+  color: #334155;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.pi-fiscal-alerts__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+.pi-fiscal-alerts__item {
+  border-radius: 0.55rem;
+  border: 1px solid transparent;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.pi-fiscal-alerts__item.is-critico {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+.pi-fiscal-alerts__item.is-atencao {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #9a3412;
+}
+.pi-fiscal-alerts__link {
+  display: block;
+  padding: 0.65rem 0.85rem;
+  color: inherit;
+  text-decoration: none;
+}
+.pi-fiscal-alerts__link:hover { text-decoration: underline; }
+.pi-op-fiscal-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin: 0;
+}
+.pi-op-fiscal-facts div {
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--pi-border);
+  border-radius: 0.5rem;
+  background: #fff;
+}
+.pi-op-fiscal-facts dt {
+  margin: 0;
+  color: var(--pi-muted);
+  font-size: 11px;
+}
+.pi-op-fiscal-facts dd {
+  margin: 0.15rem 0 0;
+  color: #132e30;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.pi-op-fiscal-alerts {
+  list-style: none;
+  margin: 0.65rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+.pi-op-fiscal-alerts li.is-critico .pi-op-text-btn { color: #991b1b; }
+.pi-op-fiscal-alerts li.is-atencao .pi-op-text-btn { color: #9a3412; }
+.pi-op-fiscal-ok {
+  margin: 0.65rem 0 0;
+  color: #176447;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+.pi-op-docs-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+.pi-op-docs-item__btn {
+  width: 100%;
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--pi-border);
+  border-radius: 0.5rem;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+.pi-op-docs-item__btn:hover {
+  border-color: #9ec5b0;
+  background: #f7fbf8;
+}
+.pi-op-docs-item.is-enviado .pi-op-docs-item__btn {
+  border-color: #b7e0c3;
+  background: #f3fbf5;
+}
+.pi-op-docs-item.is-bloqueado .pi-op-docs-item__btn {
+  opacity: 0.72;
+}
+.pi-op-docs-item__label {
+  color: #132e30;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.pi-op-docs-item__meta {
+  color: var(--pi-muted);
+  font-size: 11px;
+}
+.pi-op-docs-hint {
+  margin: 0.55rem 0 0;
+  color: var(--pi-muted);
+  font-size: 12px;
+}
+.is-highlight {
+  outline: 2px solid rgba(114, 205, 128, 0.55);
+  outline-offset: 2px;
+}

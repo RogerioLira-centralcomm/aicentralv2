@@ -245,6 +245,57 @@ class PiDocumentoServiceTest(unittest.TestCase):
         with self.assertRaises(DocumentoIndisponivelError):
             service.enviar_ao_cliente(10, "financeiro")
 
+    def test_resumo_sidebar_fechamento_lista_agencia(self):
+        service = self._service(_snapshot())
+        resumo = service.resumo_sidebar(_snapshot(), modo="fechamento")
+        self.assertEqual(resumo["modo"], "fechamento")
+        self.assertTrue(any(doc["tipo"] == "comprovacao" for doc in resumo["documentos"]))
+        self.assertIsNone(resumo["fiscal"])
+
+    def test_resumo_sidebar_financeiro_alertas_sem_nf(self):
+        service = self._service(_snapshot())
+        resumo = service.resumo_sidebar(_snapshot(), modo="financeiro", notas=[])
+        fiscal = resumo["fiscal"]
+        self.assertIsNotNone(fiscal)
+        self.assertFalse(fiscal["tem_nf"])
+        self.assertTrue(any(item["codigo"] == "sem_nf" for item in fiscal["alertas"]))
+        self.assertGreaterEqual(len(resumo["documentos"]), 3)
+
+    def test_resumo_sidebar_financeiro_marca_enviado(self):
+        service = self._service(
+            _snapshot(
+                cartas={
+                    "comprovacao": {
+                        "enviado_em": "2026-09-10T10:00:00",
+                        "destinatario_nome": "Maria",
+                    },
+                    "cliente_financeiro": {
+                        "enviado_em": "2026-09-10T11:00:00",
+                        "destinatario_nome": "Ana",
+                    },
+                }
+            )
+        )
+        resumo = service.resumo_sidebar(
+            _snapshot(
+                cartas={
+                    "comprovacao": {
+                        "enviado_em": "2026-09-10T10:00:00",
+                        "destinatario_nome": "Maria",
+                    },
+                    "cliente_financeiro": {
+                        "enviado_em": "2026-09-10T11:00:00",
+                        "destinatario_nome": "Ana",
+                    },
+                }
+            ),
+            modo="financeiro",
+            notas=[{"status_descricao": "Aguardando Pagamento", "valor_liquido": 1000}],
+        )
+        enviados = [doc for doc in resumo["documentos"] if doc["status"] == "enviado"]
+        self.assertGreaterEqual(len(enviados), 2)
+        self.assertEqual(resumo["total_enviados"], len(enviados))
+
 
 if __name__ == "__main__":
     unittest.main()

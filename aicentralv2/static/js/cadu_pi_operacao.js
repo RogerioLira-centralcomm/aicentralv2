@@ -1332,15 +1332,150 @@
     if (typeof window.abrirArquivosPi === 'function') window.abrirArquivosPi();
   });
 
+  var fiscalPulsePanel = document.getElementById('pi-fiscal-pulse-panel');
+  var fiscalPulseTarget = document.getElementById('pi-fiscal-pulse');
+  var docsRegistryPanel = document.getElementById('pi-docs-registry-panel');
+  var docsRegistryTarget = document.getElementById('pi-docs-registry');
+  var docsRegistryCount = document.getElementById('pi-docs-registry-count');
+  var fechamentoModo = String(root.dataset.fechamentoModo || '').trim();
+
+  function formatDocDate(value) {
+    if (!value) return '';
+    var text = String(value);
+    if (text.length >= 10 && text.indexOf('-') === 4) {
+      var parts = text.slice(0, 10).split('-');
+      return parts[2] + '/' + parts[1];
+    }
+    return text.slice(0, 10);
+  }
+
+  function docStatusLabel(status) {
+    if (status === 'enviado') return 'Enviado';
+    if (status === 'pendente') return 'Pendente';
+    return 'Aguardando handoff';
+  }
+
+  function scrollToAnchor(anchorId) {
+    if (!anchorId) return;
+    var target = document.getElementById(anchorId);
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    target.classList.add('is-highlight');
+    window.setTimeout(function () { target.classList.remove('is-highlight'); }, 1400);
+  }
+
+  function renderFiscalPulse(fiscal) {
+    if (!fiscalPulsePanel || !fiscalPulseTarget) return;
+    if (!fiscal) {
+      fiscalPulsePanel.hidden = true;
+      fiscalPulseTarget.innerHTML = '';
+      return;
+    }
+    fiscalPulsePanel.hidden = false;
+    var alertas = list(fiscal.alertas);
+    var statusLabel = fiscal.status_financeiro_label || fiscal.status_financeiro || '—';
+    var nfResumo = fiscal.tem_nf
+      ? (fiscal.nf_paga ? 'Pagamento confirmado' : fiscal.notas_count + ' NF(s) em aberto')
+      : 'Sem NF vinculada';
+    var html = '<dl class="pi-op-fiscal-facts">' +
+      '<div><dt>Status</dt><dd>' + esc(statusLabel) + '</dd></div>' +
+      '<div><dt>Notas</dt><dd>' + esc(nfResumo) + '</dd></div>' +
+      '</dl>';
+    if (alertas.length) {
+      html += '<ul class="pi-op-fiscal-alerts">' + alertas.map(function (item) {
+        return '<li class="is-' + esc(item.nivel) + '">' +
+          '<button type="button" class="pi-op-text-btn" data-doc-anchor="' + esc(item.ancora) + '">' +
+          esc(item.mensagem) + '</button></li>';
+      }).join('') + '</ul>';
+    } else if (fiscal.nf_paga) {
+      html += '<p class="pi-op-fiscal-ok">Fiscal em dia para este PI.</p>';
+    }
+    fiscalPulseTarget.innerHTML = html;
+    fiscalPulseTarget.querySelectorAll('[data-doc-anchor]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        scrollToAnchor(button.getAttribute('data-doc-anchor'));
+      });
+    });
+  }
+
+  function renderDocumentRegistry(data) {
+    if (!docsRegistryPanel || !docsRegistryTarget) return;
+    var documentos = list(data && data.documentos);
+    var showPanel = fechamentoModo || stage === '3' || stage === '4';
+    if (!showPanel || !documentos.length) {
+      docsRegistryPanel.hidden = true;
+      docsRegistryTarget.innerHTML = '';
+      if (docsRegistryCount) docsRegistryCount.textContent = '';
+      return;
+    }
+    docsRegistryPanel.hidden = false;
+    var pendentes = Number(data.total_pendentes || 0);
+    var enviados = Number(data.total_enviados || 0);
+    if (docsRegistryCount) {
+      docsRegistryCount.textContent = enviados + '/' + documentos.length;
+    }
+    docsRegistryTarget.innerHTML = '<ul class="pi-op-docs-list">' + documentos.map(function (doc) {
+      var meta = doc.enviado_em
+        ? 'Enviado' + (doc.enviado_para ? ' · ' + doc.enviado_para : '') + ' · ' + formatDocDate(doc.enviado_em)
+        : docStatusLabel(doc.status);
+      return '<li class="pi-op-docs-item is-' + esc(doc.status) + '">' +
+        '<button type="button" class="pi-op-docs-item__btn" data-doc-anchor="' + esc(doc.ancora) + '">' +
+        '<span class="pi-op-docs-item__label">' + esc(doc.label) + '</span>' +
+        '<span class="pi-op-docs-item__meta">' + esc(doc.audiencia) + ' · ' + esc(meta) + '</span>' +
+        '</button></li>';
+    }).join('') + '</ul>' +
+      (pendentes ? '<p class="pi-op-docs-hint">' + pendentes + ' documento(s) ainda não enviado(s).</p>' : '');
+    docsRegistryTarget.querySelectorAll('[data-doc-anchor]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        scrollToAnchor(button.getAttribute('data-doc-anchor'));
+      });
+    });
+  }
+
+  function renderDocumentResumo(data) {
+    if (!data) return;
+    renderFiscalPulse(data.fiscal);
+    renderDocumentRegistry(data);
+  }
+
+  async function loadDocumentResumo(forceRefresh) {
+    if (!piId) return;
+    var embedded = {};
+    try {
+      embedded = JSON.parse(root.dataset.docsResumo || '{}');
+    } catch (error) {
+      embedded = {};
+    }
+    if (!forceRefresh && embedded && embedded.documentos) {
+      renderDocumentResumo(embedded);
+      return embedded;
+    }
+    if (stage !== '3' && stage !== '4' && !fechamentoModo) return null;
+    try {
+      var data = await request('/api/cadu_pi/' + piId + '/documentos/resumo');
+      renderDocumentResumo(data);
+      return data;
+    } catch (error) {
+      if (docsRegistryTarget) {
+        docsRegistryTarget.innerHTML = '<div class="pi-op-state">Documentos indisponíveis no momento.</div>';
+      }
+      return null;
+    }
+  }
+
   initDrive();
   if (piId) {
     loadOperation();
     if (document.getElementById('pi-operation-communications')) loadCatalog();
+    loadDocumentResumo();
   }
 
   window.piOperacao = {
     abrirCampanha: campaignPanel,
-    recarregar: function () { return Promise.all([loadOperation(), loadCatalog()]); },
+    recarregar: function () {
+      return Promise.all([loadOperation(), loadCatalog(), loadDocumentResumo()]);
+    },
+    atualizarDocumentos: function () { return loadDocumentResumo(true); },
     atualizarDestinatarios: function (destinatarios) {
       return request(base + '/destinatarios', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },

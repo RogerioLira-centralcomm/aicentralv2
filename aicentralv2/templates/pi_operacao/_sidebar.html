@@ -36,6 +36,13 @@
         <div id="pi-origin-partner-row" {% if not pi or not pi.parceiro_nome %}hidden{% endif %}><span>Parceiro</span><strong id="pi-origin-partner">{{ pi.parceiro_nome or '' if pi else '' }}</strong></div>
         <div><span>Veiculação</span><strong id="pi-origin-period">—</strong></div>
       </div>
+      {% if pi and pi.id_sub_status_pi|string in ['4', '5'] %}
+      <a id="pi-origin-financeiro" class="pi-op-finance-link" href="{{ url_for('pi_financeiro.workspace', id_pi=pi.id_pi) }}">
+        <i class="fa-solid fa-file-invoice-dollar" aria-hidden="true"></i>
+        <span>Workspace financeiro</span>
+        <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+      </a>
+      {% endif %}
       <div id="pi-route-campaigns" class="pi-op-route-map__campaigns" aria-live="polite">
         <span class="pi-op-state">Carregando campanhas…</span>
       </div>

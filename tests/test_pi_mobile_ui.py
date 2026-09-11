@@ -224,6 +224,29 @@ class PiMobileUiContractTest(unittest.TestCase):
             self.assertIn(class_name, pi_detail)
             self.assertIn(f".{class_name}", css)
 
+    def test_visao_operacional_foca_midia_e_pacing(self):
+        pi_detail = self._source(TEMPLATES / "cadu_pi_form.html")
+        sidebar = self._source(TEMPLATES / "pi_operacao" / "_sidebar.html")
+        mobile = self._source(TEMPLATES / "pi_operacao" / "_mobile_summary.html")
+        css = self._source(STATIC / "css" / "pi-operacao.css")
+
+        self.assertIn("Operação: PI", pi_detail)
+        self.assertNotIn("Operação do PI", pi_detail)
+        self.assertIn('id="pi-edit-period"', pi_detail)
+        self.assertIn('id="pi-period-pacing"', pi_detail)
+        self.assertIn('id="pi-edit-midia"', pi_detail)
+        self.assertIn('id="pi-midia-blocos"', pi_detail)
+        self.assertIn('id="input_obs_operacao"', pi_detail)
+        self.assertIn('id="pi-edit-comercial"', pi_detail)
+        self.assertIn("window.atualizarOperacaoMidia", pi_detail)
+        self.assertIn('id="pi-origin-financeiro"', sidebar)
+        self.assertIn("pi_financeiro.workspace", sidebar)
+        self.assertIn('id="pi-mobile-midia"', mobile)
+        self.assertNotIn("Valor bruto", mobile)
+        self.assertIn(".pi-period-ops", css)
+        self.assertIn(".pi-midia-ops", css)
+        self.assertIn(".pi-op-finance-link", css)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,10 +1,10 @@
 {% extends 'base_erp.html' %}
 
 {% block title %}{% if modo == 'novo' %}PI Recebido{% elif somente_leitura|default(false) %}Visualizar PI{% if pi and (pi.sub_status_descricao or pi.status_descricao) %} - {{ pi.sub_status_descricao or pi.status_descricao }}{% endif %}{% else %}Editar PI{% if pi and (pi.sub_status_descricao or pi.status_descricao) %} - {{ pi.sub_status_descricao or pi.status_descricao }}{% endif %}{% endif %} - CentralComm AI{% endblock %}
-{% block page_label %}Operação do PI{% endblock %}
-{% block page_subtitle %}Gestão de campanhas e comunicações{% endblock %}
+{% block page_label %}Operação: PI{% endblock %}
+{% block page_subtitle %}Visão detalhada do PI com foco na operação{% endblock %}
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=17">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=18">
 {% endblock %}
 
 {% block content %}
@@ -40,10 +40,10 @@
         </a>
         <div>
           <div class="flex items-center gap-2 flex-wrap">
-            <h1>{% if modo == 'novo' %}PI Recebido{% else %}Operação do PI{% if pi and pi.codigo_pi_cc %} · {{ pi.codigo_pi_cc }}{% endif %}{% endif %}</h1>
+            <h1>{% if modo == 'novo' %}PI Recebido{% else %}Operação: PI{% if pi and pi.codigo_pi_cc %} · {{ pi.codigo_pi_cc }}{% endif %}{% endif %}</h1>
             {% if pi_status_label %}<span class="pi-op-badge">{{ pi_status_label }}</span>{% endif %}
           </div>
-          <p>{% if modo == 'novo' %}Cadastrar novo PI{% elif somente_leitura %}Somente visualização — alterações não permitidas{% else %}{{ pi.titulo_pi or 'Atualizar dados, campanhas e operação' }}{% endif %}</p>
+          <p>{% if modo == 'novo' %}Cadastrar novo PI{% elif somente_leitura %}Somente visualização — alterações não permitidas{% else %}Visão detalhada do PI com foco na operação{% endif %}</p>
         </div>
       </div>
       <div class="pi-op-actions">
@@ -303,30 +303,71 @@
         </div>
       </details>
 
-      <!-- Período (card estilo cotação) -->
+      <!-- Período resumido + pacing -->
       <section class="pi-edit-card" id="pi-edit-period">
-        <div class="pi-edit-card__head"><div><h2>Período</h2><p>Janela contratada para veiculação das campanhas.</p></div></div>
-        <div class="pi-edit-card__body">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-          <div>
-            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Início <span class="text-red-500">*</span></label>
-            <div class="flex">
-              <button type="button" class="px-1.5 py-1 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-gray-500" onclick="document.getElementById('input_periodo_inicio').showPicker()">
-                <i class="fas fa-calendar-alt text-[9px]"></i>
-              </button>
-              <input type="date" name="periodo_inicio" id="input_periodo_inicio" class="flex-1 text-[10px] border border-gray-200 rounded-r px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.periodo_inicio.strftime('%Y-%m-%d') if pi and pi.periodo_inicio else '' }}" required>
+        <div class="pi-edit-card__head"><div><h2>Período</h2><p>Janela de veiculação e ritmo médio de mídia.</p></div></div>
+        <div class="pi-edit-card__body pi-period-ops">
+          <div class="pi-period-ops__dates">
+            <span class="pi-period-ops__label">Veiculação</span>
+            <strong id="pi-period-range">—</strong>
+            <em id="pi-period-days"></em>
+            {% if somente_leitura %}
+            <input type="hidden" name="periodo_inicio" id="input_periodo_inicio" value="{{ pi.periodo_inicio.strftime('%Y-%m-%d') if pi and pi.periodo_inicio else '' }}">
+            <input type="hidden" name="periodo_fim" id="input_periodo_fim" value="{{ pi.periodo_fim.strftime('%Y-%m-%d') if pi and pi.periodo_fim else '' }}">
+            {% else %}
+            <div class="pi-period-ops__inputs">
+              <label>
+                <span>Início <span class="text-red-500">*</span></span>
+                <input type="date" name="periodo_inicio" id="input_periodo_inicio" required value="{{ pi.periodo_inicio.strftime('%Y-%m-%d') if pi and pi.periodo_inicio else '' }}">
+              </label>
+              <label>
+                <span>Término <span class="text-red-500">*</span></span>
+                <input type="date" name="periodo_fim" id="input_periodo_fim" required value="{{ pi.periodo_fim.strftime('%Y-%m-%d') if pi and pi.periodo_fim else '' }}">
+              </label>
             </div>
+            {% endif %}
           </div>
-          <div>
-            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">Término <span class="text-red-500">*</span></label>
-            <div class="flex">
-              <button type="button" class="px-1.5 py-1 bg-gray-100 border border-r-0 border-gray-200 rounded-l text-gray-500" onclick="document.getElementById('input_periodo_fim').showPicker()">
-                <i class="fas fa-calendar-alt text-[9px]"></i>
-              </button>
-              <input type="date" name="periodo_fim" id="input_periodo_fim" class="flex-1 text-[10px] border border-gray-200 rounded-r px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" value="{{ pi.periodo_fim.strftime('%Y-%m-%d') if pi and pi.periodo_fim else '' }}" required>
-            </div>
+          <div class="pi-period-ops__analysis" id="pi-period-pacing">
+            <span class="pi-op-state">Informe o período para analisar o ritmo.</span>
+          </div>
+          <div class="pi-period-ops__justify" id="pi-period-justify">
+            <label for="input_obs_operacao">Justificativa do gasto de mídia</label>
+            <textarea name="obs_operacao" id="input_obs_operacao" rows="3"
+              placeholder="Use este espaço se a mídia passou do orçamento — o financeiro precisa do contexto."
+              {% if somente_leitura %}readonly{% endif %}>{{ pi.obs_operacao if pi and pi.obs_operacao else '' }}</textarea>
           </div>
         </div>
+      </section>
+
+      <!-- Orçamento de mídia operacional -->
+      <section class="pi-edit-card" id="pi-edit-midia">
+        <div class="pi-edit-card__head">
+          <div>
+            <h2>Orçamento de mídia</h2>
+            <p>Quanto as campanhas estão consumindo do orçamento e como o gasto se divide.</p>
+          </div>
+        </div>
+        <div class="pi-edit-card__body pi-midia-ops">
+          <div class="pi-midia-ops__kpis">
+            <div>
+              <span>Orçamento</span>
+              <strong id="pi-midia-orcado">—</strong>
+            </div>
+            <div>
+              <span>Realizado</span>
+              <strong id="pi-midia-gasto">—</strong>
+            </div>
+            <div>
+              <span>Do orçamento</span>
+              <strong id="pi-midia-pct">—</strong>
+            </div>
+          </div>
+          <div class="pi-midia-ops__bar" role="progressbar" aria-label="Consumo do orçamento de mídia" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="pi-midia-bar-wrap">
+            <span id="pi-midia-bar"></span>
+          </div>
+          <div class="pi-midia-ops__blocos" id="pi-midia-blocos">
+            <span class="pi-op-state">Carregando divisão por campanha…</span>
+          </div>
         </div>
       </section>
 
@@ -334,9 +375,14 @@
       <div id="banner_valores_pendentes" class="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] text-amber-800">
         <i class="fas fa-exclamation-triangle mr-1"></i>
         <strong>Valores financeiros pendentes.</strong>
-        Preencha a calculadora abaixo e clique em <strong>Salvar</strong> antes de iniciar as campanhas.
+        Preencha os parâmetros comerciais abaixo e clique em <strong>Salvar</strong> antes de iniciar as campanhas.
       </div>
       {% endif %}
+
+      {% if pi_valores_editaveis %}
+      <details class="pi-edit-disclosure" id="pi-edit-comercial"{% if modo == 'novo' %} open{% endif %}>
+        <summary><span class="ml-1">Parâmetros comerciais</span></summary>
+        <div class="p-4 space-y-4">
 
       <!-- Calculadora / Valores Financeiros -->
       <section class="pi-edit-card pi-edit-finance" id="calculadora_pi_block">
@@ -548,6 +594,34 @@
           </div>
         </div>
       </section>
+        </div>
+      </details>
+      {% else %}
+      <div id="pi-edit-comercial-hidden" hidden>
+        <input type="hidden" name="valor_bruto" id="input_valor_bruto" value="{{ pi.valor_bruto if pi and pi.valor_bruto else '' }}">
+        <input type="hidden" name="plataforma_campanha" id="sel_plataforma_campanha" value="{{ pi.plataforma_campanha if pi and pi.plataforma_campanha else '' }}">
+        <input type="hidden" name="custo_base_unitario" id="input_custo_base_unitario" value="{% if pi and pi.custo_base_unitario %}{{ '%.2f'|format(pi.custo_base_unitario|float)|replace('.', ',') }}{% endif %}">
+        <input type="hidden" name="objetivo_contratado_pi" id="input_objetivo_contratado_pi" value="{{ pi.objetivo_contratado_pi if pi and pi.objetivo_contratado_pi else '' }}">
+        <input type="checkbox" name="meta_baseada_em_cpm" id="input_meta_baseada_em_cpm" value="1" hidden {% if pi and pi.meta_baseada_em_cpm %}checked{% endif %}>
+        <input type="hidden" name="perc_margem_cc" id="input_perc_margem_cc" value="{% if pi and pi.perc_margem_cc %}{{ '%.2f'|format(pi.perc_margem_cc|float)|replace('.', ',') }}{% endif %}">
+        <input type="hidden" name="perc_tech_fee" id="input_perc_tech_fee" value="{% if pi and pi.perc_tech_fee %}{{ '%.2f'|format(pi.perc_tech_fee|float)|replace('.', ',') }}{% endif %}">
+        <input type="hidden" name="perc_com_vendas" id="input_perc_com_vendas" value="{% if pi and pi.perc_com_vendas %}{{ '%.2f'|format(pi.perc_com_vendas|float)|replace('.', ',') }}{% endif %}">
+        <input type="hidden" name="perc_pl_incentivos" id="input_perc_pl_incentivos" value="{% if pi and pi.perc_pl_incentivos %}{{ '%.2f'|format(pi.perc_pl_incentivos|float)|replace('.', ',') }}{% endif %}">
+        <input type="hidden" name="perc_impostos" id="input_perc_impostos" value="{% if pi and pi.perc_impostos %}{{ '%.2f'|format(pi.perc_impostos|float)|replace('.', ',') }}{% endif %}">
+        <input type="hidden" name="val_margem_cc" id="input_val_margem_cc" value="{{ pi.val_margem_cc if pi and pi.val_margem_cc else '' }}">
+        <input type="hidden" name="val_tech_fee" id="input_val_tech_fee" value="{{ pi.val_tech_fee if pi and pi.val_tech_fee else '' }}">
+        <input type="hidden" name="val_com_vendas" id="input_val_com_vendas" value="{{ pi.val_com_vendas if pi and pi.val_com_vendas else '' }}">
+        <input type="hidden" name="val_pl_incentivos" id="input_val_pl_incentivos" value="{{ pi.val_pl_incentivos if pi and pi.val_pl_incentivos else '' }}">
+        <input type="hidden" name="val_impostos" id="input_val_impostos" value="{{ pi.val_impostos if pi and pi.val_impostos else '' }}">
+        <input type="hidden" name="perc_comissao_agencia" id="input_perc_comissao_agencia" value="{{ '%.2f'|format(pi.perc_comissao_agencia|float) if pi and pi.perc_comissao_agencia else '' }}">
+        <input type="hidden" name="comissao_agencia" id="input_comissao_agencia" value="{{ pi.comissao_agencia if pi and pi.comissao_agencia else '' }}">
+        <input type="hidden" name="perc_comissao_parceiro" id="input_perc_comissao_parceiro" value="{{ '%.2f'|format(pi.perc_comissao_parceiro|float) if pi and pi.perc_comissao_parceiro else '' }}">
+        <input type="hidden" name="comissao_parceiro" id="input_comissao_parceiro" value="{{ pi.comissao_parceiro if pi and pi.comissao_parceiro else '' }}">
+        <input type="hidden" name="valor_liquido" id="input_valor_liquido" value="{{ pi.valor_liquido if pi and pi.valor_liquido else '' }}">
+        <input type="hidden" name="valor_liquido_pr" id="input_valor_liquido_pr" value="{{ pi.valor_liquido_pr if pi and pi.valor_liquido_pr else '' }}">
+        <input type="hidden" name="valor_plataformas" id="input_valor_plataformas" value="{{ pi.valor_plataformas if pi and pi.valor_plataformas else '' }}">
+      </div>
+      {% endif %}
 
       {% if modo == 'editar' and pi %}
       <!-- Dados Campanhas -->
@@ -586,15 +660,9 @@
           <span class="ml-1">Observações</span>
         </summary>
         <div class="p-4">
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Obs. Financeiro</label>
-              <textarea name="obs_financeiro" class="w-full text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none resize-none" rows="2">{{ pi.obs_financeiro if pi and pi.obs_financeiro else '' }}</textarea>
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Obs. Operação</label>
-              <textarea name="obs_operacao" class="w-full text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none resize-none" rows="2">{{ pi.obs_operacao if pi and pi.obs_operacao else '' }}</textarea>
-            </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Obs. Financeiro</label>
+            <textarea name="obs_financeiro" class="w-full text-sm border border-gray-200 rounded px-3 py-2 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none resize-none" rows="2">{{ pi.obs_financeiro if pi and pi.obs_financeiro else '' }}</textarea>
           </div>
         </div>
       </details>
@@ -976,8 +1044,8 @@
     hint.textContent = meta && meta.checked ? '(Soma dividida por 1000)' : '(Volume direto)';
   }
 
-  els.percComissaoAg().addEventListener('input', function() { maskPercent(this); calcValores(); });
-  els.percComissaoParc().addEventListener('input', function() { maskPercent(this); calcValores(); });
+  if (els.percComissaoAg()) els.percComissaoAg().addEventListener('input', function() { maskPercent(this); calcValores(); });
+  if (els.percComissaoParc()) els.percComissaoParc().addEventListener('input', function() { maskPercent(this); calcValores(); });
   // perc_tech_fee é readonly: só muda quando a plataforma muda (via atualizarPercentuaisDerivados).
   [els.percMargemCc(), els.percComVendas(), els.percPlIncentivos(), els.percImpostos()].forEach(function(el) {
     if (!el) return;
@@ -1006,14 +1074,240 @@
   var execEl = els.exec();
   if (execEl) execEl.addEventListener('change', scheduleAtualizarPercentuais);
 
-  document.getElementById('input_periodo_inicio').addEventListener('change', function() {
+  var STATUS_CAMPANHA_ENCERRADA = {
+    finalizada: 1, finalizado: 1, concluida: 1, 'concluída': 1,
+    concluido: 1, 'concluído': 1, encerrada: 1, encerrado: 1,
+    cancelada: 1, cancelado: 1
+  };
+
+  function escapeHtmlPi(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function(ch) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch];
+    });
+  }
+
+  function parseDateValue(value) {
+    if (!value) return null;
+    var s = String(value).trim();
+    var iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) return new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+    var br = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (br) return new Date(Number(br[3]), Number(br[2]) - 1, Number(br[1]));
+    return null;
+  }
+
+  function formatDateBR(d) {
+    if (!d) return '—';
+    return d.toLocaleDateString('pt-BR');
+  }
+
+  function previstoCampanha(c) {
+    var v = Number(c && c.custo_midia_previsto);
+    if (v > 0) return v;
+    v = Number(c && c.custo_midia_orcado);
+    if (v > 0) return v;
+    v = Number(c && c.valor_plataforma);
+    return v > 0 ? v : 0;
+  }
+
+  function campanhaEncerrada(c, piSub) {
+    if (Number(piSub) === 4 || Number(piSub) === 5) return true;
+    var nome = String((c && c.status_nome) || '').trim().toLowerCase();
+    if (STATUS_CAMPANHA_ENCERRADA[nome]) return true;
+    var fim = parseDateValue(c && (c.periodo_fim_iso || c.periodo_fim));
+    if (!fim) return false;
+    var hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    return fim < hoje;
+  }
+
+  function calcularPacingMidia(previsto, gasto, periodoInicio, periodoFim, encerrada) {
+    var prev = Number(previsto) || 0;
+    var gast = Number(gasto) || 0;
+    var dIni = parseDateValue(periodoInicio);
+    var dFim = parseDateValue(periodoFim);
+    var hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    var diasTotais = null;
+    var diasRestantes = null;
+    var diasDecorridos = null;
+    var pctTempo = null;
+    if (dIni && dFim && dFim >= dIni) {
+      diasTotais = Math.round((dFim - dIni) / 86400000);
+      if (diasTotais <= 0) {
+        pctTempo = hoje >= dIni ? 100 : 0;
+        diasRestantes = Math.max(Math.round((dFim - hoje) / 86400000), 0);
+        diasDecorridos = 0;
+      } else {
+        diasDecorridos = Math.min(Math.max(Math.round((hoje - dIni) / 86400000), 0), diasTotais);
+        pctTempo = Math.round(Math.max(0, Math.min(100, (diasDecorridos / diasTotais) * 100)));
+        diasRestantes = Math.max(Math.round((dFim - hoje) / 86400000), 0);
+      }
+    }
+    var pctGasto = prev > 0 ? Math.round((gast / prev) * 100) : null;
+    var resultado = pctGasto == null ? 'sem_dados' : (gast > prev ? 'acima' : (gast < prev ? 'abaixo' : 'dentro'));
+    var encerradaEfetiva = !!encerrada || (pctTempo != null && pctTempo >= 100);
+    var modo = (!dIni || !dFim || dFim < dIni) ? 'sem_dados' : (encerradaEfetiva ? 'resultado' : 'pacing');
+    return {
+      modo: modo,
+      previsto: prev > 0 ? prev : null,
+      gasto: gast,
+      pct_gasto: pctGasto,
+      resultado: resultado,
+      excedente: prev > 0 && gast > prev ? Math.round((gast - prev) * 100) / 100 : 0,
+      periodo_pct_elapsed: pctTempo,
+      periodo_dias_total: diasTotais,
+      periodo_dias_restantes: diasRestantes,
+      periodo_dias_decorridos: diasDecorridos,
+      pacing_atual_dia: (modo === 'pacing' && diasDecorridos > 0) ? Math.round((gast / diasDecorridos) * 100) / 100 : null,
+      pacing_previsto_dia: (modo === 'pacing' && diasRestantes > 0) ? Math.round((Math.max(prev - gast, 0) / diasRestantes) * 100) / 100 : null
+    };
+  }
+
+  function atualizarPeriodoResumo() {
+    var ini = document.getElementById('input_periodo_inicio');
+    var fim = document.getElementById('input_periodo_fim');
+    var range = document.getElementById('pi-period-range');
+    var daysEl = document.getElementById('pi-period-days');
+    var dIni = parseDateValue(ini && ini.value);
+    var dFim = parseDateValue(fim && fim.value);
+    if (range) range.textContent = (dIni || dFim) ? (formatDateBR(dIni) + ' – ' + formatDateBR(dFim)) : '—';
+    if (!daysEl) return;
+    if (dIni && dFim && dFim >= dIni) {
+      var n = Math.round((dFim - dIni) / 86400000);
+      daysEl.textContent = n === 1 ? '1 dia' : n + ' dias';
+    } else {
+      daysEl.textContent = '';
+    }
+  }
+
+  function renderPacingPanel(pacing) {
+    var el = document.getElementById('pi-period-pacing');
+    if (!el) return;
+    if (!pacing || pacing.modo === 'sem_dados') {
+      el.innerHTML = '<span class="pi-op-state">Informe o período para analisar o ritmo.</span>';
+      return;
+    }
+    if (pacing.modo === 'resultado') {
+      var labels = {
+        acima: 'Gastou acima do orçamento',
+        abaixo: 'Gastou abaixo do orçamento',
+        dentro: 'Consumiu o orçamento previsto',
+        sem_dados: 'Sem orçamento de mídia para comparar'
+      };
+      var cls = pacing.resultado === 'acima' ? 'is-over' : (pacing.resultado === 'abaixo' ? 'is-under' : 'is-ok');
+      el.innerHTML =
+        '<span class="pi-period-ops__label">Resultado da veiculação</span>' +
+        '<strong class="' + cls + '">' + (pacing.pct_gasto != null ? pacing.pct_gasto + '%' : '—') + '</strong>' +
+        '<p>' + (labels[pacing.resultado] || labels.sem_dados) + '</p>' +
+        (pacing.excedente > 0 ? '<small>Excedente ' + formatBRL(pacing.excedente) + '</small>' : '');
+      return;
+    }
+    var rest = pacing.periodo_dias_restantes;
+    var restLabel = rest === 0 ? 'Encerra hoje' : (rest === 1 ? '1 dia restante' : rest + ' dias restantes');
+    var gastoPct = Math.max(0, Math.min(pacing.pct_gasto == null ? 0 : pacing.pct_gasto, 100));
+    var tempoPct = pacing.periodo_pct_elapsed || 0;
+    el.innerHTML =
+      '<span class="pi-period-ops__label">Ritmo de mídia</span>' +
+      '<strong>' + restLabel + '</strong>' +
+      '<p>' + (pacing.periodo_pct_elapsed != null ? pacing.periodo_pct_elapsed + '% do período decorrido' : '') + '</p>' +
+      '<div class="pi-period-ops__paces">' +
+        '<div><span>Pacing previsto</span><b>' + (pacing.pacing_previsto_dia != null ? formatBRL(pacing.pacing_previsto_dia) + '/dia' : '—') + '</b></div>' +
+        '<div><span>Pacing atual</span><b>' + (pacing.pacing_atual_dia != null ? formatBRL(pacing.pacing_atual_dia) + '/dia' : '—') + '</b></div>' +
+      '</div>' +
+      '<div class="pi-period-ops__compare">' +
+        '<div><span>Tempo</span><i><b style="width:' + tempoPct + '%"></b></i></div>' +
+        '<div><span>Gasto</span><i><b class="' + ((pacing.pct_gasto || 0) > tempoPct ? 'is-over' : '') + '" style="width:' + gastoPct + '%"></b></i></div>' +
+      '</div>';
+  }
+
+  function renderMidiaBlocos(camps, totalGasto, totalPrev) {
+    var el = document.getElementById('pi-midia-blocos');
+    if (!el) return;
+    if (!camps || !camps.length) {
+      el.innerHTML = '<span class="pi-op-state">Nenhuma campanha para dividir o gasto.</span>';
+      return;
+    }
+    var base = totalGasto > 0 ? totalGasto : totalPrev;
+    var html = '<h3>Divisão do gasto</h3>';
+    camps.forEach(function(c) {
+      var gasto = Number(c.totalizador_gasto) || 0;
+      var prev = previstoCampanha(c);
+      var pct = base > 0 ? Math.round((gasto / base) * 100) : (camps.length === 1 ? 100 : 0);
+      html +=
+        '<div class="pi-midia-bloco">' +
+          '<div class="pi-midia-bloco__meta">' +
+            '<strong>' + escapeHtmlPi(c.nome_campanha || 'Campanha') + '</strong>' +
+            '<em>' + escapeHtmlPi(c.plataforma_nome || '') + '</em>' +
+          '</div>' +
+          '<div class="pi-midia-bloco__bar" aria-hidden="true"><span style="width:' + Math.min(Math.max(pct, 0), 100) + '%"></span></div>' +
+          '<div class="pi-midia-bloco__vals">' +
+            '<b>' + pct + '%</b>' +
+            '<small>' + formatBRL(gasto) + ' de ' + formatBRL(prev) + '</small>' +
+          '</div>' +
+        '</div>';
+    });
+    el.innerHTML = html;
+  }
+
+  window.atualizarOperacaoMidia = function(camps) {
+    camps = camps || [];
+    window._piOperacaoCamps = camps;
+    atualizarPeriodoResumo();
+    var totalPrev = 0;
+    var totalGasto = 0;
+    camps.forEach(function(c) {
+      totalPrev += previstoCampanha(c);
+      totalGasto += Number(c.totalizador_gasto) || 0;
+    });
+    var orcadoEl = document.getElementById('pi-midia-orcado');
+    var gastoEl = document.getElementById('pi-midia-gasto');
+    var pctEl = document.getElementById('pi-midia-pct');
+    var bar = document.getElementById('pi-midia-bar');
+    var barWrap = document.getElementById('pi-midia-bar-wrap');
+    var pct = totalPrev > 0 ? Math.round((totalGasto / totalPrev) * 100) : null;
+    if (orcadoEl) orcadoEl.textContent = totalPrev > 0 ? formatBRL(totalPrev) : '—';
+    if (gastoEl) {
+      gastoEl.textContent = formatBRL(totalGasto);
+      gastoEl.classList.toggle('is-over', totalPrev > 0 && totalGasto > totalPrev);
+    }
+    if (pctEl) {
+      pctEl.textContent = pct != null ? pct + '%' : '—';
+      pctEl.classList.toggle('is-over', totalPrev > 0 && totalGasto > totalPrev);
+    }
+    if (bar) bar.style.width = Math.min(pct == null ? 0 : pct, 100) + '%';
+    if (barWrap) {
+      barWrap.setAttribute('aria-valuenow', pct == null ? 0 : Math.min(pct, 100));
+      barWrap.classList.toggle('is-over', totalPrev > 0 && totalGasto > totalPrev);
+    }
+    var mobile = document.getElementById('pi-mobile-midia');
+    if (mobile) mobile.textContent = (totalGasto || totalPrev) ? (formatBRL(totalGasto) + ' / ' + (totalPrev > 0 ? formatBRL(totalPrev) : '—')) : '—';
+    renderMidiaBlocos(camps, totalGasto, totalPrev);
+    var encerrada = Number(PI_SUB_STATUS) === 4 || Number(PI_SUB_STATUS) === 5 ||
+      (camps.length > 0 && camps.every(function(c) { return campanhaEncerrada(c, PI_SUB_STATUS); }));
+    var ini = document.getElementById('input_periodo_inicio');
+    var fim = document.getElementById('input_periodo_fim');
+    var pacing = calcularPacingMidia(totalPrev, totalGasto, ini && ini.value, fim && fim.value, encerrada);
+    renderPacingPanel(pacing);
+    var justify = document.getElementById('pi-period-justify');
+    if (justify) justify.classList.toggle('is-overspend', pacing.resultado === 'acima');
+  };
+
+  function onPeriodoChange() {
     var fimInput = document.getElementById('input_periodo_fim');
-    if (this.value) {
-      var dt = new Date(this.value + 'T00:00:00');
+    var iniInput = document.getElementById('input_periodo_inicio');
+    if (iniInput && iniInput.value && fimInput && fimInput.type === 'date') {
+      var dt = new Date(iniInput.value + 'T00:00:00');
       dt.setDate(dt.getDate() + 1);
       fimInput.min = dt.toISOString().split('T')[0];
     }
-  });
+    window.atualizarOperacaoMidia(window._piOperacaoCamps || []);
+  }
+
+  var periodoInicioEl = document.getElementById('input_periodo_inicio');
+  var periodoFimEl = document.getElementById('input_periodo_fim');
+  if (periodoInicioEl) periodoInicioEl.addEventListener('change', onPeriodoChange);
+  if (periodoFimEl) periodoFimEl.addEventListener('change', onPeriodoChange);
 
   function getExecutivoId() {
     return els.exec().value || null;
@@ -1349,8 +1643,8 @@
     }
     }
 
-    if (els.percComissaoAg().value) maskPercent(els.percComissaoAg());
-    if (els.percComissaoParc().value) maskPercent(els.percComissaoParc());
+    if (els.percComissaoAg() && els.percComissaoAg().value) maskPercent(els.percComissaoAg());
+    if (els.percComissaoParc() && els.percComissaoParc().value) maskPercent(els.percComissaoParc());
 
     // Auto-default de datas (igual cotação): hoje+7d / hoje+37d quando vazias.
     var diniEl = document.getElementById('input_periodo_inicio');
@@ -1362,6 +1656,9 @@
     if (dfimEl && !dfimEl.value) {
       var _hf = new Date(); _hf.setDate(_hf.getDate() + 37);
       dfimEl.value = _hf.toISOString().split('T')[0];
+    }
+    if (typeof window.atualizarOperacaoMidia === 'function') {
+      window.atualizarOperacaoMidia(window._piOperacaoCamps || []);
     }
 
     var cbaseEl0 = els.custoBase();
@@ -1908,6 +2205,7 @@
           badge.textContent = '0';
           badge.className = 'ml-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1 text-[9px] font-bold rounded-full bg-gray-200 text-gray-500';
           container.innerHTML = '<div class="pi-campaign-state"><i class="fa-solid fa-inbox"></i><span>Nenhuma campanha vinculada a este PI.</span></div>';
+          if (typeof window.atualizarOperacaoMidia === 'function') window.atualizarOperacaoMidia([]);
           return;
         }
         var camps = data.campanhas;
@@ -2008,9 +2306,11 @@
         });
         container.innerHTML = html;
         bindCampanhaListEvents(container);
+        if (typeof window.atualizarOperacaoMidia === 'function') window.atualizarOperacaoMidia(camps);
       })
       .catch(function() {
         container.innerHTML = '<div class="pi-campaign-state is-error"><i class="fa-solid fa-triangle-exclamation"></i><span>Não foi possível carregar as campanhas.</span></div>';
+        if (typeof window.atualizarOperacaoMidia === 'function') window.atualizarOperacaoMidia([]);
       });
   };
 

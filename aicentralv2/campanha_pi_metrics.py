@@ -339,6 +339,107 @@ def anexar_preco_metrica_campanha(row: Any) -> dict[str, Any]:
     return r
 
 
+STATUS_CAMPANHA_ENCERRADA = frozenset(
+    {
+        "finalizada",
+        "finalizado",
+        "concluída",
+        "concluida",
+        "concluído",
+        "concluido",
+        "encerrada",
+        "encerrado",
+        "cancelada",
+        "cancelado",
+    }
+)
+
+
+def campanha_esta_encerrada(
+    status_nome: Any = None,
+    periodo_fim: Any = None,
+    hoje: Optional[date] = None,
+    pi_sub_status: Any = None,
+) -> bool:
+    """Campanha ou PI já encerrado para efeito de pacing operacional."""
+    try:
+        if int(pi_sub_status) in (4, 5):
+            return True
+    except (TypeError, ValueError):
+        pass
+    nome = str(status_nome or "").strip().lower()
+    if nome in STATUS_CAMPANHA_ENCERRADA:
+        return True
+    d_fim = _to_date(periodo_fim)
+    ref = hoje or date.today()
+    return bool(d_fim and d_fim < ref)
+
+
+def calcular_pacing_midia(
+    previsto: Any,
+    gasto: Any,
+    periodo_inicio: Any,
+    periodo_fim: Any,
+    *,
+    encerrada: bool = False,
+    hoje: Optional[date] = None,
+) -> dict[str, Any]:
+    """Ritmo diário de mídia (ativo) ou resultado de gasto (encerrada)."""
+    prev = parse_brl_float(previsto) or 0.0
+    gast = parse_brl_float(gasto) or 0.0
+    periodo = calcular_periodo_progresso(periodo_inicio, periodo_fim, hoje=hoje)
+    pct_tempo = periodo.get("periodo_pct_elapsed")
+    dias_totais = periodo.get("periodo_dias_total")
+    dias_restantes = periodo.get("periodo_dias_restantes")
+    d_ini = _to_date(periodo_inicio)
+    d_fim = _to_date(periodo_fim)
+    ref = hoje or date.today()
+    dias_decorridos = None
+    if d_ini and d_fim and d_fim >= d_ini:
+        total = max((d_fim - d_ini).days, 0)
+        dias_decorridos = min(max((ref - d_ini).days, 0), total)
+
+    pct_gasto = round((gast / prev) * 100) if prev > 0 else None
+    if pct_gasto is None:
+        resultado = "sem_dados"
+    elif gast > prev:
+        resultado = "acima"
+    elif gast < prev:
+        resultado = "abaixo"
+    else:
+        resultado = "dentro"
+
+    encerrada_efetiva = bool(encerrada) or (pct_tempo is not None and pct_tempo >= 100)
+    if not d_ini or not d_fim or d_fim < d_ini:
+        modo = "sem_dados"
+    elif encerrada_efetiva:
+        modo = "resultado"
+    else:
+        modo = "pacing"
+
+    pacing_atual = None
+    pacing_previsto = None
+    if modo == "pacing" and dias_decorridos and dias_decorridos > 0:
+        pacing_atual = round(gast / dias_decorridos, 2)
+    if modo == "pacing" and dias_restantes and dias_restantes > 0:
+        pacing_previsto = round(max(prev - gast, 0) / dias_restantes, 2)
+
+    return {
+        "modo": modo,
+        "previsto": prev if prev > 0 else None,
+        "gasto": gast,
+        "pct_gasto": pct_gasto,
+        "resultado": resultado,
+        "excedente": round(gast - prev, 2) if prev > 0 and gast > prev else 0.0,
+        "periodo_pct_elapsed": pct_tempo,
+        "periodo_dias_total": dias_totais,
+        "periodo_dias_restantes": dias_restantes,
+        "periodo_dias_decorridos": dias_decorridos,
+        "pacing_atual_dia": pacing_atual,
+        "pacing_previsto_dia": pacing_previsto,
+    }
+
+
 def calc_progress_tier(pct: Any) -> str:
     """Tier visual da barra de progresso (espelha campanhas-ui.js)."""
     try:

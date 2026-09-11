@@ -8,10 +8,11 @@ import os
 
 from ..creative_html_compose import screenshot_html
 from ..creative_modeling_generation import _json_content
+from ..services.openrouter_service import resolve_chat_model
 from .html_builder import apply_patches
 from .spec import parse_qa_report
 
-QA_MODEL = os.getenv("CREATIVE_FORMAT_QA_MODEL", "openai/gpt-5.4")
+QA_MODEL = os.getenv("CREATIVE_FORMAT_QA_MODEL", "")
 MAX_RENDERS = 3
 
 
@@ -82,7 +83,7 @@ def review_render(
             },
             {"role": "user", "content": content},
         ],
-        model=QA_MODEL,
+        model=resolve_chat_model(QA_MODEL),
         max_tokens=800,
         temperature=0.1,
     )

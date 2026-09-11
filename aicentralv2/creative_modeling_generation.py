@@ -7,7 +7,7 @@ import re
 
 import requests
 
-from .services.openrouter_service import OpenRouterError, chat_completion
+from .services.openrouter_service import OpenRouterError, chat_completion, resolve_api_key
 
 
 OPENROUTER_IMAGE_URL = "https://openrouter.ai/api/v1/images"
@@ -437,7 +437,7 @@ class CreativeGenerationClient:
         if len(raw_references) > 2:
             raise ValueError("Use no máximo duas imagens de referência.")
         references = [_image_reference(item) for item in raw_references]
-        key = os.getenv("OPENROUTER_API_KEY", "").strip()
+        key = resolve_api_key()
         if not key:
             raise OpenRouterError("OpenRouter não está configurado.")
         requested_aspect_ratio = aspect_ratio

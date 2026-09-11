@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ..creative_modeling_fx import annotate_cost
+from ..creative_modeling_generation import OpenRouterError
 from ..creative_skills.loader import load_bundle
 from .brand_context import build_brand_context, reference_images
 from .campaign_models import apply_brand_to_campaign, apply_key_visuals, campaign_from_brand, expand_campaign_scenes, load_campaign_model
@@ -99,32 +100,20 @@ def build_storyboard(payload, *, client=None, text_callable=None):
         payload.get("files"),
         text_callable=None,
     )
+    images = [url for url in images if isinstance(url, str) and url.startswith("https://")]
     create_bundle = load_bundle("create", route["format"], has_reference=bool(images))
-    spec = build_spec(
+    spec, provider = _storyboard_spec(
         route=route,
-        intent="create",
         variant=variant,
-        user_message=knobs.get("offer") or (campaign or {}).get("title") or "",
-        brand_name=brand.get("name") or payload.get("brand_name") or "",
-        dna=brand.get("brand_dna"),
-        brand_context=brand,
+        brand=brand,
         campaign=campaign,
         images=images,
         knobs=knobs,
+        payload=payload,
         text_callable=text_callable,
-        bundle=create_bundle,
+        create_bundle=create_bundle,
     )
     refine_bundle = load_bundle("refine", route["format"], has_reference=bool(images))
-    spec = refine_spec(
-        spec,
-        route=route,
-        brand_context=brand,
-        campaign=campaign,
-        knobs=knobs,
-        images=images,
-        text_callable=text_callable,
-        bundle=refine_bundle,
-    )
     spec = apply_copy_locks(spec, knobs.get("storyboard"))
     cards = [
         {
@@ -181,7 +170,56 @@ def build_storyboard(payload, *, client=None, text_callable=None):
         "skills": create_bundle["skills"] + [item for item in refine_bundle["skills"] if item["id"] == "refine"],
         "quote": quote,
         "status": "concept",
+        "provider": provider,
     }
+
+
+def _storyboard_spec(
+    *,
+    route,
+    variant,
+    brand,
+    campaign,
+    images,
+    knobs,
+    payload,
+    text_callable,
+    create_bundle,
+):
+    common = {
+        "route": route,
+        "intent": "create",
+        "variant": variant,
+        "user_message": knobs.get("offer") or (campaign or {}).get("title") or "",
+        "brand_name": brand.get("name") or payload.get("brand_name") or "",
+        "dna": brand.get("brand_dna"),
+        "brand_context": brand,
+        "campaign": campaign,
+        "images": images,
+        "knobs": knobs,
+        "bundle": create_bundle,
+    }
+    fallback = build_spec(text_callable=None, **common)
+    if text_callable is None:
+        return fallback, "campaign"
+    try:
+        spec = build_spec(text_callable=text_callable, **common)
+    except (OpenRouterError, ValueError):
+        return fallback, "campaign"
+    try:
+        spec = refine_spec(
+            spec,
+            route=route,
+            brand_context=brand,
+            campaign=campaign,
+            knobs=knobs,
+            images=images,
+            text_callable=text_callable,
+            bundle=load_bundle("refine", route["format"], has_reference=bool(images)),
+        )
+    except (OpenRouterError, ValueError):
+        return spec, "llm"
+    return spec, "llm"
 
 
 def _scene_prompt(campaign, scene_id):

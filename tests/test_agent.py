@@ -353,6 +353,26 @@ class AgentContractsTest(unittest.TestCase):
         self.assertEqual(payload["top_p"], 0.9)
         self.assertEqual(payload["top_k"], 40)
         self.assertFalse(payload["parallel_tool_calls"])
+        self.assertEqual(mock_post.call_args.kwargs["headers"]["X-OpenRouter-Title"], "CentralX")
+
+    @patch.dict("os.environ", {"OPENROUTER_API_KEY": "env-key"}, clear=False)
+    @patch("aicentralv2.services.openrouter_service.requests.post")
+    def test_openrouter_prefers_database_key(self, mock_post):
+        response = MagicMock()
+        response.json.return_value = {
+            "model": "openai/gpt-4o-mini",
+            "choices": [{"message": {"role": "assistant", "content": "ok"}}],
+        }
+        mock_post.return_value = response
+        with patch(
+            "aicentralv2.services.integration_credentials.get_configuration",
+            return_value={"api_key": "db-key", "default_model": "openai/gpt-4o-mini"},
+        ):
+            chat_completion([{"role": "user", "content": "teste"}])
+        self.assertEqual(
+            mock_post.call_args.kwargs["headers"]["Authorization"],
+            "Bearer db-key",
+        )
 
     def test_dates_and_quote_codes_use_brazilian_format(self):
         from aicentralv2.agent.presenters import document_hints, format_date_br, format_period_br

@@ -642,17 +642,20 @@
 
   async function ensureSession() {
     if (state.sessionId) return state.sessionId;
-    if (!state.clientId) throw new Error('Escolha a marca. O 15s se monta em seguida.');
+    const clientId = Number(state.clientId);
+    if (!Number.isFinite(clientId) || clientId <= 0) {
+      throw new Error('Escolha a marca. O 15s se monta em seguida.');
+    }
     const data = await fetch(API.sessions, {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        client_id: Number(state.clientId),
-        format: state.formatKey,
-        variant: state.variant,
+        client_id: clientId,
+        format: state.formatKey || 'video-linear-15',
+        variant: state.variant || 'A',
         intent: 'create',
-        campaign_slug: state.campaignSlug,
+        campaign_slug: state.campaignSlug || '',
       }),
     }).then(readJson);
     state.sessionId = data.id;
@@ -692,7 +695,11 @@
       renderEdit();
       const first = state.storyboard[0];
       $('mcMesaCaption').textContent = first?.headline || '';
-      setStatus('Conceito pronto. Passo 2: modele a base em HTML.');
+      setStatus(
+        data.provider === 'campaign'
+          ? 'Roteiro da campanha na mesa. O provedor não respondeu; o conceito-base entrou.'
+          : 'Conceito pronto. Passo 2: modele a base em HTML.'
+      );
       revealStrip();
       renderOps();
     } catch (error) {

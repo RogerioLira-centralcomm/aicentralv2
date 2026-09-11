@@ -5750,16 +5750,32 @@
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 0.15rem;
+  justify-content: space-between;
+  gap: 0.8rem;
+  flex: 1 1 auto;
   min-width: 0;
   height: 40px;
   max-height: 40px;
   margin: 0;
-  padding: 0.15rem;
+  padding: 0.15rem 0.2rem;
   overflow-x: auto;
   border: 1px solid var(--cx-border, #dbe1ea);
   border-radius: 0.7rem;
   background: #fff;
+}
+
+.mc-desk-nav-flow,
+.mc-desk-nav-lab {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.1rem;
+}
+
+.mc-desk-nav-lab {
+  margin-left: auto;
+  padding-left: 0.55rem;
+  border-left: 1px solid var(--cx-border, #dbe1ea);
 }
 
 .mc-desk-nav a {

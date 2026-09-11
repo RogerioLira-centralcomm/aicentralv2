@@ -1,10 +1,13 @@
 """Cliente OpenRouter compartilhado pelo Agente CentralX e serviços legados."""
 import os
 import json
+import base64
 import requests
 from typing import Dict, Any, List, Optional
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+OPENROUTER_IMAGE_URL = "https://openrouter.ai/api/v1/images"
+DEFAULT_IMAGE_MODEL = os.getenv("CREATIVE_IMAGE_MODEL", "openai/gpt-image-2")
 
 
 def _env_float(name: str, default: float) -> float:
@@ -56,8 +59,38 @@ def _chat_error_message(response):
     return "Não foi possível consultar o provedor de IA."
 
 
+def resolve_api_key() -> str:
+    try:
+        from . import integration_credentials
+
+        config = integration_credentials.get_configuration(
+            "openrouter", include_secrets=True
+        )
+        key = str(config.get("api_key") or "").strip()
+        if key:
+            return key
+    except Exception:
+        pass
+    return os.getenv("OPENROUTER_API_KEY", "").strip()
+
+
+def resolve_chat_model(explicit=None) -> str:
+    if explicit and str(explicit).strip():
+        return str(explicit).strip()
+    try:
+        from . import integration_credentials
+
+        config = integration_credentials.get_configuration("openrouter")
+        model = str(config.get("default_model") or "").strip()
+        if model:
+            return model
+    except Exception:
+        pass
+    return os.getenv("AGENT_OPENROUTER_MODEL", DEFAULT_CHAT_MODEL) or "openai/gpt-4o-mini"
+
+
 def _api_key() -> str:
-    key = os.getenv("OPENROUTER_API_KEY", "").strip()
+    key = resolve_api_key()
     if not key:
         raise OpenRouterError("OpenRouter não está configurado.")
     return key
@@ -79,7 +112,7 @@ def chat_completion(
 ) -> Dict[str, Any]:
     """Executa chat/tool-calling com parâmetros conservadores para uso operacional."""
     payload = {
-        "model": model or DEFAULT_CHAT_MODEL,
+        "model": resolve_chat_model(model),
         "messages": messages,
         "max_tokens": max_tokens,
         "temperature": DEFAULT_TEMPERATURE if temperature is None else max(0.0, min(float(temperature), 2.0)),
@@ -108,6 +141,7 @@ def chat_completion(
         "Content-Type": "application/json",
         "HTTP-Referer": "https://centralcomm.media",
         "X-Title": "Agente CentralX",
+        "X-OpenRouter-Title": "CentralX",
     }
     last_error = None
     last_response = None
@@ -133,6 +167,90 @@ def chat_completion(
                 continue
             break
     raise OpenRouterError(_chat_error_message(last_response)) from last_error
+
+
+def _image_error_message(response):
+    status = getattr(response, "status_code", None)
+    if status in (401, 403):
+        return "A credencial OpenRouter não foi aceita."
+    if status == 402:
+        return "O saldo da conta OpenRouter é insuficiente."
+    if status == 429:
+        return "O OpenRouter limitou as gerações. Aguarde e tente novamente."
+    if status and status >= 500:
+        return "O provedor de imagem está indisponível no momento."
+    detail = ""
+    try:
+        payload = response.json() if response is not None else {}
+        error = payload.get("error") if isinstance(payload, dict) else {}
+        detail = error.get("message") if isinstance(error, dict) else str(error or "")
+    except (AttributeError, TypeError, ValueError):
+        detail = ""
+    if status == 400 and detail:
+        return f"O provedor recusou a imagem: {str(detail)[:240]}"
+    return "Não foi possível gerar a imagem."
+
+
+def generate_image(
+    prompt: str,
+    *,
+    aspect_ratio: str = "16:9",
+    quality: str = "high",
+    output_format: str = "png",
+    resolution: str = "2K",
+    background: str = "opaque",
+    model: Optional[str] = None,
+    timeout: int = 180,
+) -> Dict[str, Any]:
+    """Gera imagem no GPT Image 2 via OpenRouter (`/api/v1/images`)."""
+    image_model = (model or DEFAULT_IMAGE_MODEL).strip() or DEFAULT_IMAGE_MODEL
+    payload = {
+        "model": image_model,
+        "prompt": prompt,
+        "aspect_ratio": aspect_ratio or "16:9",
+        "quality": quality,
+        "output_format": output_format,
+        "resolution": resolution,
+        "background": background,
+    }
+    headers = {
+        "Authorization": f"Bearer {_api_key()}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://centralcomm.media",
+        "X-Title": "CentralX - Smart Planner",
+        "X-OpenRouter-Title": "CentralX",
+    }
+    try:
+        response = requests.post(
+            OPENROUTER_IMAGE_URL,
+            headers=headers,
+            json=payload,
+            timeout=max(30, min(int(timeout), 180)),
+        )
+        response.raise_for_status()
+        data = response.json()
+        images = data.get("data") or []
+        first = images[0] if images else {}
+        encoded = first.get("b64_json") if isinstance(first, dict) else None
+        url = first.get("url") if isinstance(first, dict) else None
+        if not encoded and url:
+            fetched = requests.get(url, timeout=60)
+            fetched.raise_for_status()
+            encoded = base64.b64encode(fetched.content).decode("ascii")
+        if not encoded:
+            raise OpenRouterError("O provedor não retornou a imagem.")
+        return {
+            "b64_json": encoded,
+            "model": data.get("model") or image_model,
+            "usage": data.get("usage") or {},
+            "output_format": output_format,
+        }
+    except OpenRouterError:
+        raise
+    except requests.HTTPError as exc:
+        raise OpenRouterError(_image_error_message(getattr(exc, "response", None))) from exc
+    except (requests.RequestException, ValueError, KeyError, IndexError) as exc:
+        raise OpenRouterError("Não foi possível gerar a imagem.") from exc
 
 # Prompt otimizado para transformar texto em FAQ estruturado
 ANALYSIS_PROMPT = {

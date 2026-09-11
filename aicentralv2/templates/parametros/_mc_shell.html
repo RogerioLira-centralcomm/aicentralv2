@@ -1,62 +1,29 @@
 {% set mc_page = mc_page|default('hub') %}
-{% set mc_lab_pages = ['lab', 'mesa', 'placas', 'trocar'] %}
-{% set mc_flow_pages = ['extrair', 'preparar', 'produzir', 'desdobrar', 'revisao'] %}
-{% set mc_house_pages = ['marcas', 'biblioteca', 'bancada', 'historico'] %}
-{% set mc_lab_label = {
-  'mesa': 'Conceito',
-  'placas': 'Placas',
-  'trocar': 'Trocar',
-  'lab': 'Lab'
-} %}
-{% set mc_flow_label = {
-  'extrair': 'Extrair',
-  'preparar': 'Preparar',
-  'produzir': 'Produzir',
-  'desdobrar': 'Desdobrar',
-  'revisao': 'Revisar'
-} %}
-{% set mc_house_label = {
-  'marcas': 'Marcas',
-  'biblioteca': 'Formatos',
-  'bancada': 'Bancada',
-  'historico': 'Histórico'
-} %}
 <div class="mc-chrome">
   <a class="mc-header" href="{{ url_for('parametros.modelagem_criativos') }}">Modelagem</a>
   <nav class="mc-desk-nav" aria-label="Mesas da modelagem">
-    <details class="mc-desk-drop">
-      <summary{% if mc_page in mc_house_pages %} class="is-current"{% endif %}>{{ mc_house_label[mc_page] if mc_page in mc_house_pages else 'Páginas' }}</summary>
-      <div class="mc-desk-drop-menu">
-        <a href="{{ url_for('parametros.modelagem_marcas') }}"{% if mc_page == 'marcas' %} class="is-current" aria-current="page"{% endif %}>Marcas</a>
-        <a href="{{ url_for('parametros.modelagem_biblioteca') }}"{% if mc_page == 'biblioteca' %} class="is-current" aria-current="page"{% endif %}>Formatos</a>
-        <a href="{{ url_for('parametros.modelagem_bancada') }}"{% if mc_page == 'bancada' %} class="is-current" aria-current="page"{% endif %}>Bancada</a>
-        <a href="{{ url_for('parametros.modelagem_historico') }}"{% if mc_page == 'historico' %} class="is-current" aria-current="page"{% endif %}>Histórico</a>
-      </div>
-    </details>
-    <details class="mc-desk-drop">
-      <summary{% if mc_page in mc_flow_pages %} class="is-current"{% endif %}>{{ mc_flow_label[mc_page] if mc_page in mc_flow_pages else 'Fluxo' }}</summary>
-      <div class="mc-desk-drop-menu">
-        <a href="{{ url_for('parametros.modelagem_extrair') }}"{% if mc_page == 'extrair' %} class="is-current" aria-current="page"{% endif %}>Extrair</a>
-        <a href="{{ url_for('parametros.modelagem_preparar') }}"{% if mc_page == 'preparar' %} class="is-current" aria-current="page"{% endif %}>Preparar</a>
-        <a href="{{ url_for('parametros.modelagem_produzir') }}"{% if mc_page == 'produzir' %} class="is-current" aria-current="page"{% endif %}>Produzir</a>
-        <a href="{{ url_for('parametros.modelagem_desdobrar') }}"{% if mc_page == 'desdobrar' %} class="is-current" aria-current="page"{% endif %}>Desdobrar</a>
-        <a href="{{ url_for('parametros.modelagem_revisao') }}"{% if mc_page == 'revisao' %} class="is-current" aria-current="page"{% endif %}>Revisar</a>
-      </div>
-    </details>
-    <details class="mc-desk-drop">
-      <summary{% if mc_page in mc_lab_pages %} class="is-current"{% endif %}>{{ mc_lab_label[mc_page] if mc_page in mc_lab_pages else 'Lab' }}</summary>
-      <div class="mc-desk-drop-menu">
-        <a href="{{ url_for('parametros.modelagem_mesa') }}"{% if mc_page == 'mesa' %} class="is-current" aria-current="page"{% endif %}>Conceito</a>
-        <a href="{{ url_for('parametros.modelagem_placas') }}"{% if mc_page == 'placas' %} class="is-current" aria-current="page"{% endif %}>Placas</a>
-        <a href="{{ url_for('parametros.modelagem_trocar') }}"{% if mc_page == 'trocar' %} class="is-current" aria-current="page"{% endif %}>Trocar</a>
-      </div>
-    </details>
-    {% if mc_page == 'mesa' %}
-    <details class="mc-desk-drop" id="mcFormatDrop">
-      <summary id="mcFormatSummary">Video 15s · 1920×1080</summary>
-      <div class="mc-desk-drop-menu is-formats" id="mcFormatMenu"></div>
-    </details>
-    {% endif %}
+    <div class="mc-desk-nav-flow">
+      <a href="{{ url_for('parametros.modelagem_marcas') }}"{% if mc_page == 'marcas' %} class="is-current" aria-current="page"{% endif %}>Marcas</a>
+      <a href="{{ url_for('parametros.modelagem_extrair') }}"{% if mc_page == 'extrair' %} class="is-current" aria-current="page"{% endif %}>Extrair</a>
+      <a href="{{ url_for('parametros.modelagem_preparar') }}"{% if mc_page == 'preparar' %} class="is-current" aria-current="page"{% endif %}>Preparar</a>
+      <a href="{{ url_for('parametros.modelagem_produzir') }}"{% if mc_page == 'produzir' %} class="is-current" aria-current="page"{% endif %}>Produzir</a>
+      <a href="{{ url_for('parametros.modelagem_desdobrar') }}"{% if mc_page == 'desdobrar' %} class="is-current" aria-current="page"{% endif %}>Desdobrar</a>
+      <a href="{{ url_for('parametros.modelagem_revisao') }}"{% if mc_page == 'revisao' %} class="is-current" aria-current="page"{% endif %}>Revisar</a>
+      <a href="{{ url_for('parametros.modelagem_biblioteca') }}"{% if mc_page == 'biblioteca' %} class="is-current" aria-current="page"{% endif %}>Formatos</a>
+      <a href="{{ url_for('parametros.modelagem_bancada') }}"{% if mc_page == 'bancada' %} class="is-current" aria-current="page"{% endif %}>Bancada</a>
+      <a href="{{ url_for('parametros.modelagem_historico') }}"{% if mc_page == 'historico' %} class="is-current" aria-current="page"{% endif %}>Histórico</a>
+    </div>
+    <div class="mc-desk-nav-lab">
+      <a href="{{ url_for('parametros.modelagem_mesa') }}"{% if mc_page == 'mesa' %} class="is-current" aria-current="page"{% endif %}>Conceito</a>
+      <a href="{{ url_for('parametros.modelagem_placas') }}"{% if mc_page == 'placas' %} class="is-current" aria-current="page"{% endif %}>Placas</a>
+      <a href="{{ url_for('parametros.modelagem_trocar') }}"{% if mc_page == 'trocar' %} class="is-current" aria-current="page"{% endif %}>Trocar</a>
+      {% if mc_page == 'mesa' %}
+      <details class="mc-desk-drop" id="mcFormatDrop">
+        <summary id="mcFormatSummary">Video 15s · 1920×1080</summary>
+        <div class="mc-desk-drop-menu is-formats" id="mcFormatMenu"></div>
+      </details>
+      {% endif %}
+    </div>
   </nav>
 </div>
 <div id="mcPageAlert" class="cx-alert cx-alert-danger hidden" role="alert"></div>

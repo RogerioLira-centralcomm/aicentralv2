@@ -1,6 +1,7 @@
 """Design System Ads: contrato, CentralComm, loop e rotas de specimen."""
 
 import unittest
+from pathlib import Path
 
 from flask import Flask
 
@@ -274,6 +275,48 @@ class DesignSystemAdsAdaptTest(unittest.TestCase):
         self.assertIn(CENTRALCOMM_CAMPAIGN_SLUG, preset["specimen_url"])
         self.assertEqual(preset["ad_copy"]["cta"], "Reservar")
         self.assertEqual(preset["tokens"]["ink"], "#1E4D4F")
+
+
+class DesignSystemAdsDeployTest(unittest.TestCase):
+    def test_deploy_aplica_migration(self):
+        root = Path(__file__).resolve().parents[1]
+        migration = (root / "migrations" / "add_design_system_ads.sql").read_text(
+            encoding="utf-8"
+        )
+        runner = (root / "migrations" / "run_add_design_system_ads.py").read_text(
+            encoding="utf-8"
+        )
+        deploy = (root / "deploy.sh").read_text(encoding="utf-8")
+        self.assertIn("ADD COLUMN IF NOT EXISTS brand_profile", migration)
+        self.assertIn("ADD COLUMN IF NOT EXISTS creative_brief", migration)
+        self.assertIn("uq_cx_brand_visual_systems_design_system_ads", migration)
+        self.assertIn("design-system-ads", migration)
+        self.assertIn("add_design_system_ads.sql", runner)
+        self.assertIn("uq_cx_brand_visual_systems_design_system_ads", runner)
+        self.assertIn(
+            '"$VENV_PYTHON" migrations/run_add_design_system_ads.py',
+            deploy,
+        )
+        self.assertIn(
+            '"$VENV_PYTHON" migrations/run_add_creative_plate_kits.py',
+            deploy,
+        )
+        self.assertLess(
+            deploy.index(
+                '"$VENV_PYTHON" migrations/run_add_creative_storyboards_and_catalogs.py'
+            ),
+            deploy.index(
+                '"$VENV_PYTHON" migrations/run_add_design_system_ads.py'
+            ),
+        )
+        self.assertLess(
+            deploy.index(
+                '"$VENV_PYTHON" migrations/run_add_creative_compose_library.py'
+            ),
+            deploy.index(
+                '"$VENV_PYTHON" migrations/run_add_design_system_ads.py'
+            ),
+        )
 
 
 class DesignSystemAdsContrastTest(unittest.TestCase):

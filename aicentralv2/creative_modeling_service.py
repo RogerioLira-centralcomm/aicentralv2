@@ -25,6 +25,7 @@ from .creative_modeling_generation import (
 )
 from .creative_modeling_repository import (
     HOUSE_CRM_CLIENT_ID,
+    CreativeConflictError,
     CreativeModelingRepository,
     CreativeNotFoundError,
 )
@@ -1152,6 +1153,9 @@ class CreativeModelingService:
     def save_format_lab_swap_history(self, payload, user_id=None):
         return self._format_lab().save_swap_history(payload, user_id=user_id)
 
+    def serve_format_lab_swap_still(self, filename):
+        return self._format_lab().swap_still_path(filename)
+
     def close_format_lab_session(self, session_id, payload, user_id=None):
         return self._format_lab().close(session_id, payload, user_id=user_id)
 
@@ -1268,23 +1272,32 @@ class CreativeModelingService:
         return _serialize(client)
 
     def get_brand_design_system(self, client_id):
+        from .design_system_ads.revision import stamp_revision, storage_report
         from .design_system_ads.service import is_preset_id, payload_for, read_preset
 
         if is_preset_id(client_id):
             return _serialize({**read_preset(), "exists": True, "preset": True})
         client = self.get_client(client_id)
-        stored = self._stored_brand_design_system(client)
+        stored, source = self._read_brand_design_system(client)
         if stored:
             from .design_system_ads.fidelity import attach_client_evidence
 
             stored = attach_client_evidence(stored, client)
-            return _serialize({**payload_for(stored), "exists": True, "preset": False})
+            if source == "projection":
+                stored = stamp_revision(stored, 0)
+            return _serialize(
+                {
+                    **payload_for(stored, storage=storage_report(source)),
+                    "exists": True,
+                    "preset": False,
+                }
+            )
         from .design_system_ads.materialize import ensure_brand_design_system
 
         suggested = ensure_brand_design_system(client)
         return _serialize(
             {
-                **payload_for(suggested),
+                **payload_for(suggested, storage=storage_report("")),
                 "exists": False,
                 "preset": False,
                 "client_id": client.get("id"),
@@ -1292,21 +1305,44 @@ class CreativeModelingService:
             }
         )
 
-    def ensure_brand_design_system(self, client_id):
+    def ensure_brand_design_system(self, client_id, expected_revision=None):
+        from .design_system_ads.revision import storage_report
         from .design_system_ads.service import is_preset_id, payload_for, read_preset
 
         if is_preset_id(client_id):
             return _serialize({**read_preset(), "exists": True, "preset": True})
         client = self.get_client(client_id)
         system = self._stored_brand_design_system(client)
-        if system is None:
+        if system is not None:
+            return _serialize(
+                {
+                    **payload_for(system, storage=storage_report("profile")),
+                    "exists": True,
+                    "preset": False,
+                }
+            )
+        projected, source = self._read_brand_design_system(client)
+        if source == "projection" and projected is not None:
+            system = projected
+        else:
             from .design_system_ads.materialize import ensure_brand_design_system
 
             system = ensure_brand_design_system(client)
-        persisted = self._persist_brand_design_system(client, system)
-        return _serialize({**payload_for(persisted), "exists": True, "preset": False})
+        pinned, _source = self._pin_brand_revision(client, expected_revision)
+        persisted = self._persist_brand_design_system(
+            client, system, expected_revision=pinned
+        )
+        return _serialize(
+            {
+                **payload_for(persisted, storage=storage_report("profile")),
+                "exists": True,
+                "preset": False,
+            }
+        )
 
-    def refine_brand_design_system(self, client_id, attempts=4, intent=None):
+    def refine_brand_design_system(
+        self, client_id, attempts=4, intent=None, expected_revision=None
+    ):
         from .design_system_ads.refine import IMPROVE_INTENTS, clamp_passes
         from .design_system_ads.service import (
             is_preset_id,
@@ -1316,24 +1352,65 @@ class CreativeModelingService:
             run_refine,
         )
 
+        from .design_system_ads.runlog import add_step, new_run
+
+        run = new_run("refine")
         kind = str(intent or "").strip().lower()
+        step = kind or "refine"
+        from .design_system_ads.prompt_context import attach_run_context
+        from .creative_modeling_repository import CreativeConflictError
+
         if is_preset_id(client_id):
             current = read_preset()
             if kind in IMPROVE_INTENTS:
                 improved, _report = run_improve(current, kind)
-                return _serialize({**payload_for(improved), "exists": True, "preset": True})
-            refined, _reports = run_refine(current, attempts=clamp_passes(attempts))
-            return _serialize({**payload_for(refined), "exists": True, "preset": True})
-        client = self.get_client(client_id)
+                add_step(run, step=step, status="local", notes=["Ajuste local no catálogo."])
+                attach_run_context(run, improved, compose_mode="local")
+                return self._with_dsa_run(
+                    {**payload_for(improved), "exists": True, "preset": True}, run
+                )
+            try:
+                refined, _reports = run_refine(
+                    current,
+                    attempts=clamp_passes(attempts),
+                    text_callable=self._traced_design_system_text(run, step),
+                    client_id=client_id,
+                    intent=kind or None,
+                )
+            except Exception as exc:
+                self._dsa_fail(exc, run, step)
+            attach_run_context(run, refined, compose_mode="model")
+            return self._with_dsa_run(
+                {**payload_for(refined), "exists": True, "preset": True}, run
+            )
+        try:
+            client = self.get_client(client_id)
+        except Exception as exc:
+            self._dsa_fail(exc, run, "refine")
         system = self._stored_brand_design_system(client)
         if system is None:
             from .design_system_ads.materialize import ensure_brand_design_system
 
             system = ensure_brand_design_system(client)
+        if kind in IMPROVE_INTENTS and expected_revision is None:
+            from .design_system_ads.revision import REVISION_REQUIRED
+
+            raise ValueError(REVISION_REQUIRED)
+        pinned, source = self._pin_brand_revision(client, expected_revision)
+        run["revision"] = {"expected": pinned, "source": source}
         if kind in IMPROVE_INTENTS:
-            improved, _report = run_improve(system, kind)
-            persisted = self._persist_brand_design_system(client, improved)
-            return _serialize({**payload_for(persisted), "exists": True, "preset": False})
+            improved, _report = run_improve(system, kind, client=client, client_id=client.get("id"))
+            try:
+                persisted = self._persist_brand_design_system(
+                    client, improved, expected_revision=pinned
+                )
+            except CreativeConflictError as exc:
+                self._reject_obsolete_brand(exc, run)
+            add_step(run, step=step, status="local", notes=["Ajuste local no catálogo."])
+            attach_run_context(run, persisted, compose_mode="local")
+            return self._with_dsa_run(
+                {**payload_for(persisted), "exists": True, "preset": False}, run
+            )
         references = []
         for asset in client.get("brand_assets") or []:
             url = asset.get("asset_url") or asset.get("stored_url") or asset.get("source_url")
@@ -1341,16 +1418,48 @@ class CreativeModelingService:
                 references.append(url)
         if client.get("logo_upload_path"):
             references.insert(0, client["logo_upload_path"])
-        refined, _reports = run_refine(
-            system,
-            attempts=clamp_passes(attempts),
-            text_callable=self._design_system_text_callable(),
-            reference_urls=references[:4],
+        callable = self._traced_design_system_text(run, step)
+        try:
+            refined, _reports = run_refine(
+                system,
+                attempts=clamp_passes(attempts),
+                text_callable=callable,
+                reference_urls=references[:4],
+                client=client,
+                client_id=client.get("id") or client_id,
+                intent=kind or None,
+            )
+        except Exception as exc:
+            self._dsa_fail(exc, run, step)
+        outcome = ((refined.evidence or {}).get("policy") or {}).get("refine") or {}
+        if outcome.get("outcome") in {"blocked", "provider_error"} and not (
+            _reports and any(getattr(item, "patches", None) for item in _reports)
+        ):
+            attach_run_context(run, refined, compose_mode="model" if callable else "local")
+            return self._with_dsa_run(
+                {**payload_for(refined), "exists": True, "preset": False, "persisted": False},
+                run,
+            )
+        try:
+            persisted = self._persist_brand_design_system(
+                client, refined, expected_revision=pinned
+            )
+        except CreativeConflictError as exc:
+            self._reject_obsolete_brand(exc, run)
+        attach_run_context(run, persisted, compose_mode="model" if callable else "local")
+        return self._with_dsa_run(
+            {**payload_for(persisted), "exists": True, "preset": False}, run
         )
-        persisted = self._persist_brand_design_system(client, refined)
-        return _serialize({**payload_for(persisted), "exists": True, "preset": False})
 
-    def patch_brand_design_system(self, client_id, tokens=None, ad_copy=None, dna=None, archetype=None):
+    def patch_brand_design_system(
+        self,
+        client_id,
+        tokens=None,
+        ad_copy=None,
+        dna=None,
+        archetype=None,
+        expected_revision=None,
+    ):
         from .design_system_ads.service import (
             is_preset_id,
             payload_for,
@@ -1358,6 +1467,8 @@ class CreativeModelingService:
             run_patch,
         )
 
+        if expected_revision is None:
+            raise ValueError("Informe a revisão da marca.")
         if is_preset_id(client_id):
             patched, _applied = run_patch(
                 read_preset(), tokens=tokens, ad_copy=ad_copy, dna=dna, archetype=archetype
@@ -1370,10 +1481,16 @@ class CreativeModelingService:
         patched, _applied = run_patch(
             system, tokens=tokens, ad_copy=ad_copy, dna=dna, archetype=archetype
         )
-        persisted = self._persist_brand_design_system(client, patched)
+        persisted = self._persist_brand_design_system(
+            client, patched, expected_revision=expected_revision
+        )
         return _serialize({**payload_for(persisted), "exists": True, "preset": False})
 
-    def loop_brand_design_system(self, client_id, generate_track=False):
+    def loop_brand_design_system(
+        self, client_id, generate_track=False, expected_revision=None
+    ):
+        from .design_system_ads.catalog import inspect_loop
+        from .design_system_ads.runlog import new_run
         from .design_system_ads.service import (
             is_preset_id,
             payload_for,
@@ -1381,16 +1498,36 @@ class CreativeModelingService:
             run_loop,
         )
 
+        run = new_run("loop")
         if is_preset_id(client_id):
-            advanced, info, _report = run_loop(read_preset())
+            current = read_preset()
+            before = inspect_loop(current)
+            try:
+                advanced, info, report = run_loop(
+                    current,
+                    text_callable=self._traced_design_system_text(run, before.get("action") or "loop"),
+                    client_id=client_id,
+                )
+            except Exception as exc:
+                try:
+                    exc.run = run
+                except Exception:
+                    pass
+                raise
+            self._record_loop_steps(run, before, info, report)
+            from .design_system_ads.prompt_context import attach_run_context
+
+            attach_run_context(run, advanced)
             payload = {**payload_for(advanced), "exists": True, "preset": True, "loop": info}
-            return _serialize(payload)
+            return self._with_dsa_run(payload, run)
         client = self.get_client(client_id)
         system = self._stored_brand_design_system(client)
         if system is None:
             from .design_system_ads.materialize import ensure_brand_design_system
 
             system = ensure_brand_design_system(client)
+        pinned, source = self._pin_brand_revision(client, expected_revision)
+        run["revision"] = {"expected": pinned, "source": source}
         from .design_system_ads.fidelity import attach_client_evidence
 
         system = attach_client_evidence(system, client)
@@ -1401,28 +1538,70 @@ class CreativeModelingService:
             url = asset.get("asset_url") or asset.get("stored_url") or asset.get("source_url")
             if url:
                 references.append(url)
-        advanced, info, _report = run_loop(
-            system,
-            text_callable=self._design_system_text_callable(),
-            reference_urls=references[:4],
-        )
-        persisted = self._persist_brand_design_system(client, advanced)
-        return _serialize({**payload_for(persisted), "exists": True, "preset": False, "loop": info})
+        before = inspect_loop(system)
+        try:
+            advanced, info, report = run_loop(
+                system,
+                text_callable=self._traced_design_system_text(run, before.get("action") or "loop"),
+                reference_urls=references[:4],
+                client=client,
+                client_id=client_id,
+            )
+        except Exception as exc:
+            try:
+                exc.run = run
+            except Exception:
+                pass
+            raise
+        self._record_loop_steps(run, before, info, report)
+        try:
+            persisted = self._persist_brand_design_system(
+                client, advanced, expected_revision=pinned
+            )
+        except CreativeConflictError as exc:
+            self._reject_obsolete_brand(exc, run)
+        from .design_system_ads.prompt_context import attach_run_context
 
-    def compose_brand_design_system(self, client_id):
+        attach_run_context(run, persisted)
+        return self._with_dsa_run(
+            {**payload_for(persisted), "exists": True, "preset": False, "loop": info},
+            run,
+        )
+
+    def compose_brand_design_system(self, client_id, expected_revision=None):
+        from .design_system_ads.prompt_context import attach_run_context
         from .design_system_ads.refine import compose_design_system
+        from .design_system_ads.runlog import new_run
         from .design_system_ads.service import is_preset_id, payload_for, read_preset
 
-        callable = self._design_system_text_callable()
+        run = new_run("compose")
+        callable = self._traced_design_system_text(run, "compose")
         if callable is None:
-            raise ValueError("OpenRouter não está configurado para montar o sistema.")
+            error = ValueError("OpenRouter não está configurado para montar o sistema.")
+            self._dsa_fail(error, run, "compose")
         if is_preset_id(client_id):
             system = read_preset()
-            composed, _report = compose_design_system(
-                system, text_callable=callable, reference_urls=[system.get("logo_url")]
+            try:
+                composed, _report = compose_design_system(
+                    system,
+                    text_callable=callable,
+                    reference_urls=[system.get("logo_url")],
+                    client_id=client_id,
+                )
+            except Exception as exc:
+                try:
+                    exc.run = run
+                except Exception:
+                    pass
+                raise
+            attach_run_context(run, composed, compose_mode="model")
+            return self._with_dsa_run(
+                {**payload_for(composed), "exists": True, "preset": True}, run
             )
-            return _serialize({**payload_for(composed), "exists": True, "preset": True})
-        client = self.get_client(client_id)
+        try:
+            client = self.get_client(client_id)
+        except Exception as exc:
+            self._dsa_fail(exc, run, "compose")
         system = self._stored_brand_design_system(client)
         if system is None:
             from .design_system_ads.materialize import ensure_brand_design_system
@@ -1431,6 +1610,8 @@ class CreativeModelingService:
         from .design_system_ads.fidelity import attach_client_evidence
 
         system = attach_client_evidence(system, client)
+        pinned, source = self._pin_brand_revision(client, expected_revision)
+        run["revision"] = {"expected": pinned, "source": source}
         references = []
         if client.get("logo_upload_path") or client.get("logo_url"):
             references.append(client.get("logo_upload_path") or client.get("logo_url"))
@@ -1438,21 +1619,49 @@ class CreativeModelingService:
             url = asset.get("asset_url") or asset.get("stored_url") or asset.get("source_url")
             if url:
                 references.append(url)
-        composed, _report = compose_design_system(
-            system, text_callable=callable, reference_urls=references[:4]
+        try:
+            composed, _report = compose_design_system(
+                system,
+                text_callable=callable,
+                reference_urls=references[:4],
+                client=client,
+                client_id=client.get("id") or client_id,
+            )
+        except Exception as exc:
+            try:
+                exc.run = run
+            except Exception:
+                pass
+            raise
+        try:
+            persisted = self._persist_brand_design_system(
+                client, composed, expected_revision=pinned
+            )
+        except CreativeConflictError as exc:
+            self._reject_obsolete_brand(exc, run)
+        attach_run_context(run, persisted, compose_mode="model")
+        return self._with_dsa_run(
+            {**payload_for(persisted), "exists": True, "preset": False}, run
         )
-        persisted = self._persist_brand_design_system(client, composed)
-        return _serialize({**payload_for(persisted), "exists": True, "preset": False})
 
-    def generate_brand_track(self, client_id, track_id, extra=""):
+    def generate_brand_track(self, client_id, track_id, extra="", expected_revision=None):
+        import time
+
         from .design_system_ads.components import apply_background
+        from .design_system_ads.runlog import add_step, new_run
         from .design_system_ads.schema import dump_system, parse_system
         from .design_system_ads.service import is_preset_id, payload_for, read_preset
-        from .design_system_ads.tracks import merge_tracks, prompt_for_track, track_spec
+        from .design_system_ads.prompt_context import attach_run_context, stamp_runtime_context
+        from .design_system_ads.tracks import build_track_prompt, merge_tracks, track_spec
         from .services.openrouter_service import generate_image, resolve_api_key
 
+        run = new_run("track")
         if not resolve_api_key():
-            raise ValueError("OpenRouter não está configurado para gerar a trilha.")
+            self._dsa_fail(
+                ValueError("OpenRouter não está configurado para gerar a trilha."),
+                run,
+                "track",
+            )
         spec = track_spec(track_id)
         if is_preset_id(client_id):
             system = parse_system(read_preset())
@@ -1462,8 +1671,21 @@ class CreativeModelingService:
             client = self.get_client(client_id)
             system = self._stored_brand_design_system(client)
             if system is None:
-                raise CreativeNotFoundError("A marca ainda não tem Design System Ads.")
+                self._dsa_fail(
+                    CreativeNotFoundError("A marca ainda não tem Design System Ads."),
+                    run,
+                    "track",
+                )
             persist = True
+        pinned, source = (None, "preset")
+        if persist:
+            from .design_system_ads.copy import compute_needs_input, needs_input_label
+
+            waiting = compute_needs_input(system)
+            if waiting and spec["id"] != "wash":
+                self._dsa_fail(ValueError(needs_input_label(waiting)), run, "track")
+            pinned, source = self._pin_brand_revision(client, expected_revision)
+            run["revision"] = {"expected": pinned, "source": source}
         refs = self._track_input_references(system, spec["id"], client)
         extra_text = str(extra or "").strip()
         if refs:
@@ -1471,17 +1693,54 @@ class CreativeModelingService:
                 f"{extra_text} Use the attached brand images as the real product and mark. "
                 "Do not invent a different SKU, bottle or logo."
             ).strip()
-        prompt = prompt_for_track(system, spec["id"], extra_text)
-        result = generate_image(
-            prompt,
-            aspect_ratio=spec["aspect"],
-            model="openai/gpt-image-2",
-            input_references=refs,
+        prompt, context = build_track_prompt(
+            system,
+            spec["id"],
+            extra_text,
+            client=client,
+            client_id=client_id,
         )
+        system = stamp_runtime_context(system, context, compose_mode="model")
+        started = time.perf_counter()
+        try:
+            result = generate_image(
+                prompt,
+                aspect_ratio=spec["aspect"],
+                model="openai/gpt-image-2",
+                input_references=refs,
+            )
+        except Exception as exc:
+            add_step(
+                run,
+                step="track",
+                status="error",
+                model="openai/gpt-image-2",
+                duration_ms=int((time.perf_counter() - started) * 1000),
+                input_text=prompt,
+                error=str(exc),
+                notes=[spec["id"]],
+            )
+            try:
+                exc.run = run
+            except Exception:
+                pass
+            raise
         encoded = (result or {}).get("b64_json")
         if not encoded:
-            raise ValueError("O GPT Image 2 não devolveu a trilha.")
+            self._dsa_fail(ValueError("O GPT Image 2 não devolveu a trilha."), run, "track")
         url = self.storage.save_generated_base64(encoded)
+        add_step(
+            run,
+            step="track",
+            status="ok",
+            model=str((result or {}).get("model") or "openai/gpt-image-2"),
+            duration_ms=int((time.perf_counter() - started) * 1000),
+            usage=(result or {}).get("usage"),
+            input_text=prompt,
+            output=url,
+            artifact=url,
+            notes=[spec["id"], "Imagem gerada. Sem dump de base64."],
+        )
         data = dump_system(system)
         data["tracks"] = merge_tracks(data.get("tracks"), [{"id": spec["id"], "url": url, "prompt": prompt}])
         tokens = dict(data.get("tokens") or {})
@@ -1492,10 +1751,23 @@ class CreativeModelingService:
         data["tokens"] = tokens
         parsed = parse_system(data)
         if persist:
-            parsed = self._persist_brand_design_system(client, parsed)
-        return _serialize({**payload_for(parsed), "exists": True, "preset": not persist})
+            try:
+                parsed = self._persist_brand_design_system(
+                    client, parsed, expected_revision=pinned
+                )
+            except CreativeConflictError as exc:
+                self._reject_obsolete_brand(
+                    exc,
+                    run,
+                    artifact=url,
+                    notes=["Trilha gerada após outra edição. Não virou artefato atual."],
+                )
+        attach_run_context(run, parsed, compose_mode="model")
+        return self._with_dsa_run(
+            {**payload_for(parsed), "exists": True, "preset": not persist}, run
+        )
 
-    def approve_brand_design_system(self, client_id):
+    def approve_brand_design_system(self, client_id, expected_revision=None):
         from .design_system_ads.service import (
             is_preset_id,
             mark_approved,
@@ -1503,6 +1775,8 @@ class CreativeModelingService:
             read_preset,
         )
 
+        if expected_revision is None:
+            raise ValueError("Informe a revisão da marca.")
         if is_preset_id(client_id):
             approved = mark_approved(read_preset())
             return _serialize({**payload_for(approved), "exists": True, "preset": True})
@@ -1510,11 +1784,19 @@ class CreativeModelingService:
         system = self._stored_brand_design_system(client)
         if system is None:
             raise CreativeNotFoundError("A marca ainda não tem Design System Ads.")
-        persisted = self._persist_brand_design_system(client, mark_approved(system))
+        persisted = self._persist_brand_design_system(
+            client, mark_approved(system), expected_revision=expected_revision
+        )
         return _serialize({**payload_for(persisted), "exists": True, "preset": False})
 
     def adapt_brand_design_system(
-        self, client_id, format_key=None, layer_count=None, swaps=None, archetype=None
+        self,
+        client_id,
+        format_key=None,
+        layer_count=None,
+        swaps=None,
+        archetype=None,
+        expected_revision=None,
     ):
         from .design_system_ads.service import is_preset_id, payload_for, read_preset
 
@@ -1538,11 +1820,16 @@ class CreativeModelingService:
             from .design_system_ads.materialize import ensure_brand_design_system
 
             system = ensure_brand_design_system(client)
-        if archetype:
+        chosen = str(archetype or "").strip()
+        current = str(getattr(system, "archetype", None) or "brand")
+        if chosen and chosen != current:
             from .design_system_ads.service import run_patch
 
-            system, _applied = run_patch(system, archetype=archetype)
-            system = self._persist_brand_design_system(client, system)
+            pinned, _source = self._pin_brand_revision(client, expected_revision)
+            system, _applied = run_patch(system, archetype=chosen)
+            system = self._persist_brand_design_system(
+                client, system, expected_revision=pinned
+            )
         return _serialize(
             {
                 **payload_for(
@@ -1573,6 +1860,113 @@ class CreativeModelingService:
             system, stack = adapt_system(system, format_key, layer_count, swaps=swaps)
         return render_specimen(system, standalone=True, stack=stack, highlight=highlight)
 
+    def validate_brand_design_system_render(
+        self, client_id, format_key=None, layer_count=None
+    ):
+        from .design_system_ads.service import is_preset_id, read_preset
+
+        if is_preset_id(client_id):
+            return self._run_design_system_render_validation(
+                read_preset(),
+                format_key=format_key,
+                layer_count=layer_count,
+                exists=True,
+                preset=True,
+            )
+        client = self.get_client(client_id)
+        system = self._stored_brand_design_system(client)
+        if system is None:
+            from .design_system_ads.materialize import ensure_brand_design_system
+
+            system = ensure_brand_design_system(client)
+        return self._run_design_system_render_validation(
+            system,
+            format_key=format_key,
+            layer_count=layer_count,
+            exists=True,
+            preset=False,
+        )
+
+    def validate_campaign_design_system_render(
+        self, campaign_id, format_key=None, layer_count=None
+    ):
+        from .design_system_ads.campaign import (
+            ensure_campaign_design_system,
+            is_campaign_preset_id,
+        )
+        from .design_system_ads.service import read_campaign_preset
+
+        if is_campaign_preset_id(campaign_id):
+            return self._run_design_system_render_validation(
+                read_campaign_preset(),
+                format_key=format_key,
+                layer_count=layer_count,
+                exists=True,
+                preset=True,
+            )
+        campaign = self.repository.get_campaign(
+            _integer(campaign_id, "Campanha"), productions=False
+        )
+        system = self._stored_campaign_design_system(campaign)
+        if system is None:
+            brand = self._brand_system_for_campaign(campaign, create=False)
+            system, _items = ensure_campaign_design_system(
+                brand, campaign, self._campaign_elements(campaign)
+            )
+        return self._run_design_system_render_validation(
+            system,
+            format_key=format_key,
+            layer_count=layer_count,
+            exists=system is not None,
+            preset=False,
+        )
+
+    def _run_design_system_render_validation(
+        self, system, *, format_key, layer_count, exists, preset
+    ):
+        import time
+
+        from .design_system_ads.runlog import add_step, new_run
+        from .design_system_ads.service import payload_for
+        from .design_system_ads.validate_render import validate_render
+
+        run = new_run("render")
+        started = time.monotonic()
+        try:
+            report, _stack = validate_render(
+                system,
+                format_key=format_key or "iab-billboard",
+                layer_count=layer_count or 6,
+                force=True,
+            )
+        except Exception as exc:
+            return self._dsa_fail(exc, run, step="render")
+        elapsed = int((time.monotonic() - started) * 1000)
+        skipped = report.render == "skipped"
+        failed = report.render == "failed"
+        add_step(
+            run,
+            step="render",
+            status="error" if failed else "ok",
+            duration_ms=elapsed,
+            notes=list(report.notes or [])[:4],
+            output=report.model_dump_json(),
+            result=(
+                (report.defects[0] if report.defects else "peça falhou")
+                if failed
+                else ("Playwright ausente." if skipped else "peça ok")
+            ),
+        )
+        payload = payload_for(
+            system,
+            format_key=format_key or "iab-billboard",
+            layer_count=layer_count,
+            report=report,
+        )
+        return self._with_dsa_run(
+            {**payload, "exists": exists, "preset": preset}, run
+        )
+
     def get_campaign_design_system(self, campaign_id):
         from .design_system_ads.campaign import (
             ensure_campaign_design_system,
@@ -1602,7 +1996,7 @@ class CreativeModelingService:
             }
         )
 
-    def ensure_campaign_design_system(self, campaign_id):
+    def ensure_campaign_design_system(self, campaign_id, expected_revision=None):
         from .design_system_ads.campaign import (
             ensure_campaign_design_system,
             is_campaign_preset_id,
@@ -1614,22 +2008,64 @@ class CreativeModelingService:
         campaign = self.repository.get_campaign(
             _integer(campaign_id, "Campanha"), productions=False
         )
-        brand = self._brand_system_for_campaign(campaign, create=True)
-        system, _items = ensure_campaign_design_system(
-            brand, campaign, self._campaign_elements(campaign)
-        )
+        from .design_system_ads.revision import read_revision
         from .design_system_ads.refine import compose_campaign_design_system
+        from .design_system_ads.runlog import add_step, new_run
 
+        brand = self._brand_system_for_campaign(campaign, create=True)
+        stored = self._stored_campaign_design_system(campaign)
+        pinned, source = self._pin_campaign_revision(campaign, expected_revision)
+        run = new_run("campaign")
+        run["revision"] = {
+            "expected": pinned,
+            "source": source,
+            "brand": read_revision(brand),
+        }
+        client = campaign.get("client") if isinstance(campaign.get("client"), dict) else {}
+        system, _items = ensure_campaign_design_system(
+            brand,
+            campaign,
+            self._campaign_elements(campaign),
+            existing=stored,
+        )
         try:
             system, _report = compose_campaign_design_system(
                 system,
                 campaign,
-                text_callable=self._design_system_text_callable(),
+                text_callable=self._traced_design_system_text(run, "campaign"),
+                client=client,
+                client_id=client.get("id") or getattr(brand, "client_id", None),
             )
-        except Exception:
-            system, _report = compose_campaign_design_system(system, campaign)
-        persisted = self._persist_campaign_design_system(campaign, system)
-        return _serialize({**payload_for(persisted), "exists": True, "preset": False})
+        except Exception as exc:
+            add_step(run, step="campaign", status="error", error=str(exc))
+            try:
+                exc.run = run
+            except Exception:
+                pass
+            raise
+        try:
+            persisted = self._persist_campaign_design_system(
+                campaign, system, expected_revision=pinned
+            )
+        except CreativeConflictError as exc:
+            add_step(
+                run,
+                step="cas",
+                status="error",
+                error=str(exc),
+                notes=["Compose da campanha obsoleto. Não gravado."],
+            )
+            try:
+                exc.run = run
+            except Exception:
+                pass
+            raise
+        from .design_system_ads.prompt_context import attach_run_context
+
+        attach_run_context(run, persisted)
+        return self._with_dsa_run(
+            {**payload_for(persisted), "exists": True, "preset": False}, run
+        )
 
     def adapt_campaign_design_system(
         self, campaign_id, format_key=None, layer_count=None, swaps=None
@@ -1702,7 +2138,7 @@ class CreativeModelingService:
             return stored
         system = ensure_brand_design_system(client)
         if create and client.get("id"):
-            return self._persist_brand_design_system(client, system)
+            return self._persist_brand_design_system(client, system, expected_revision=0)
         return system
 
     def _campaign_elements(self, campaign):
@@ -1728,14 +2164,81 @@ class CreativeModelingService:
             return parse_system(stored)
         return None
 
-    def _persist_campaign_design_system(self, campaign, system):
+    def _pin_brand_revision(self, client, expected_revision=None):
+        from .design_system_ads.revision import pin_expected_revision
+
+        return pin_expected_revision(
+            self._stored_brand_design_system(client), expected_revision
+        )
+
+    def _pin_campaign_revision(self, campaign, expected_revision=None):
+        from .design_system_ads.revision import pin_expected_revision
+
+        return pin_expected_revision(
+            self._stored_campaign_design_system(campaign), expected_revision
+        )
+
+    def _reject_obsolete_brand(self, exc, run, *, artifact=None, notes=None):
+        from .design_system_ads.revision import BRAND_CONFLICT
+        from .design_system_ads.runlog import add_step
+
+        add_step(
+            run,
+            step="cas",
+            status="error",
+            error=BRAND_CONFLICT,
+            artifact=artifact,
+            notes=notes or ["Resultado obsoleto. Não gravado."],
+        )
+        try:
+            exc.run = run
+        except Exception:
+            pass
+        raise exc
+
+    def _persist_campaign_design_system(self, campaign, system, expected_revision):
+        from .creative_modeling_repository import CreativeConflictError
+        from .design_system_ads.revision import (
+            CAMPAIGN_CONFLICT,
+            CAMPAIGN_REVISION_REQUIRED,
+            next_revision,
+            resolve_write_revision,
+            stamp_revision,
+        )
         from .design_system_ads.schema import dump_system, parse_system
 
+        if expected_revision is None:
+            raise ValueError(CAMPAIGN_REVISION_REQUIRED)
+        expected, matched = resolve_write_revision(
+            self._stored_campaign_design_system(campaign), expected_revision
+        )
+        if not matched:
+            raise CreativeConflictError(CAMPAIGN_CONFLICT)
+        stamped = stamp_revision(system, next_revision(expected))
+        from .design_system_ads.validate import stamp_validation
+
+        previous = None
+        stored = self._stored_campaign_design_system(campaign)
+        if stored is not None:
+            previous = (getattr(stored, "evidence", None) or {}).get("validation")
+        stamped, _report = stamp_validation(stamped, previous=previous)
+        data = dump_system(stamped)
         brief = campaign.get("creative_brief") if isinstance(campaign.get("creative_brief"), dict) else {}
         brief = dict(brief)
-        brief["design_system_ads"] = dump_system(system)
-        self.repository.update_campaign_bancada(campaign["id"], brief)
-        return parse_system(brief["design_system_ads"])
+        brief["design_system_ads"] = data
+        cas = getattr(self.repository, "update_campaign_bancada_cas", None)
+        if callable(cas):
+            cas(campaign["id"], brief, expected)
+        else:
+            path_writer = getattr(self.repository, "update_campaign_design_system_ads", None)
+            if callable(path_writer):
+                path_writer(campaign["id"], data)
+            else:
+                writer = getattr(self.repository, "update_campaign_bancada", None)
+                if callable(writer):
+                    writer(campaign["id"], brief)
+        campaign["creative_brief"] = brief
+        return parse_system(data)
 
     def _maybe_generate_campaign_design_system(self, campaign):
         if not isinstance(campaign, dict) or campaign.get("id") in (None, ""):
@@ -1749,12 +2252,18 @@ class CreativeModelingService:
             return
 
     def _stored_brand_design_system(self, client):
+        """Canônico: só `brand_profile.design_system_ads`. CAS nunca lê a projeção."""
         from .design_system_ads.schema import FRAMEWORK, parse_system
 
         profile = client.get("brand_profile") if isinstance(client.get("brand_profile"), dict) else {}
         stored = profile.get("design_system_ads")
         if isinstance(stored, dict) and (stored.get("framework") == FRAMEWORK or stored.get("tokens")):
             return parse_system(stored)
+        return None
+
+    def _projection_design_system(self, client):
+        from .design_system_ads.schema import FRAMEWORK, parse_system
+
         getter = getattr(self.repository, "get_design_system_ads", None)
         if not callable(getter):
             return None
@@ -1767,20 +2276,65 @@ class CreativeModelingService:
             return parse_system(tokens)
         return None
 
-    def _persist_brand_design_system(self, client, system):
+    def _read_brand_design_system(self, client):
+        stored = self._stored_brand_design_system(client)
+        if stored is not None:
+            return stored, "profile"
+        projected = self._projection_design_system(client)
+        if projected is not None:
+            return projected, "projection"
+        return None, ""
+
+    def _persist_brand_design_system(self, client, system, expected_revision):
+        from .creative_modeling_repository import CreativeConflictError
+        from .design_system_ads.revision import (
+            BRAND_CONFLICT,
+            REVISION_REQUIRED,
+            next_revision,
+            resolve_write_revision,
+            stamp_revision,
+        )
         from .design_system_ads.schema import dump_system
 
-        data = dump_system(system)
+        if expected_revision is None:
+            raise ValueError(REVISION_REQUIRED)
+        expected, matched = resolve_write_revision(
+            self._stored_brand_design_system(client), expected_revision
+        )
+        if not matched:
+            raise CreativeConflictError(BRAND_CONFLICT)
+        stamped = stamp_revision(system, next_revision(expected))
+        from .design_system_ads.validate import stamp_validation
+
+        previous = None
+        stored = self._stored_brand_design_system(client)
+        if stored is not None:
+            previous = (getattr(stored, "evidence", None) or {}).get("validation")
+        stamped, _report = stamp_validation(stamped, previous=previous)
+        data = dump_system(stamped)
         data["client_id"] = client.get("id")
         profile = dict(client.get("brand_profile") or {})
         profile["design_system_ads"] = data
+        cas = getattr(self.repository, "update_client_brand_profile_cas", None)
+        if callable(cas):
+            cas(client["id"], profile, expected)
+        else:
+            path_writer = getattr(self.repository, "update_client_design_system_ads", None)
+            if callable(path_writer):
+                path_writer(client["id"], data)
+            else:
+                writer = getattr(self.repository, "update_client_brand_profile", None)
+                if callable(writer):
+                    writer(client["id"], profile)
         client["brand_profile"] = profile
-        writer = getattr(self.repository, "update_client_brand_profile", None)
-        if callable(writer):
-            writer(client["id"], profile)
+        # Projeção auxiliar. Canônico já está em brand_profile.design_system_ads.
+        # Falha ou revisão atrasada não reabre o CAS nem vira fonte de leitura.
         upsert = getattr(self.repository, "upsert_design_system_ads", None)
         if callable(upsert):
-            upsert(client["id"], data)
+            try:
+                upsert(client["id"], data)
+            except Exception:
+                pass
         return data
 
     def _design_system_text_callable(self):
@@ -1789,6 +2343,53 @@ class CreativeModelingService:
         if not resolve_api_key():
             return None
         return chat_completion
+
+    def _traced_design_system_text(self, run, step="llm"):
+        from .design_system_ads.runlog import wrap_text_callable
+
+        return wrap_text_callable(self._design_system_text_callable(), run, step=step)
+
+    def _with_dsa_run(self, payload, run):
+        data = dict(payload) if isinstance(payload, dict) else {"data": payload}
+        data["run"] = run
+        return _serialize(data)
+
+    def _dsa_fail(self, exc, run, step="erro"):
+        from .design_system_ads.runlog import add_step
+
+        add_step(run, step=step, status="error", error=str(exc))
+        try:
+            exc.run = run
+        except Exception:
+            pass
+        raise exc
+
+    def _record_loop_steps(self, run, before, info, report):
+        from .design_system_ads.runlog import add_step
+
+        action = (before or {}).get("action") or "loop"
+        steps = run.get("steps") or []
+        if not any(item.get("step") == action for item in steps):
+            add_step(
+                run,
+                step=action,
+                status="ok",
+                notes=[(before or {}).get("label") or (info or {}).get("label") or ""],
+                result=(info or {}).get("label") or (before or {}).get("label") or "",
+            )
+        if report is None:
+            return
+        notes = [str(item) for item in (getattr(report, "notes", None) or []) if item]
+        notes.append(
+            f"{(info or {}).get('compose_mode') or 'unknown'} / review {(info or {}).get('review_kind') or 'none'}"
+        )
+        add_step(
+            run,
+            step="report",
+            status="ok" if getattr(report, "passed", False) else "local",
+            notes=notes,
+            result="passou" if getattr(report, "passed", False) else "não passou",
+        )
 
     def _client_write_data(self, payload, include_crm=True):
         payload = payload if isinstance(payload, dict) else {}

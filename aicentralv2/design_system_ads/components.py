@@ -51,6 +51,7 @@ TRACK_FOR_ARCHETYPE = {
 }
 
 GROUND_KINDS = ("paper", "wash", "image")
+P0_ROLES = ("logo", "headline", "product")
 
 
 def component_of(role):
@@ -77,33 +78,48 @@ def should_park(role, density):
 def default_backgrounds(tokens):
     tokens = tokens if isinstance(tokens, dict) else {}
     paper = tokens.get("paper") or "#FFFFFF"
-    ink = tokens.get("ink") or "#1E4D4F"
+    ink = tokens.get("ink") or "#111111"
     ground = str(tokens.get("ground") or "").strip()
     return [
-        {"id": "paper", "kind": "solid", "label": "Papel", "fill": paper},
-        {"id": "wash", "kind": "wash", "label": "Lavagem", "fill": ink},
-        {"id": "image", "kind": "image", "label": "Imagem", "fill": ground},
+        {"id": "paper", "kind": "paper", "label": "Papel", "fill": paper, "available": True},
+        {"id": "wash", "kind": "wash", "label": "Lavagem", "fill": ink, "available": True},
+        {
+            "id": "image",
+            "kind": "image",
+            "label": "Imagem",
+            "fill": ground,
+            "available": bool(ground),
+        },
     ]
 
 
 def apply_background(tokens, background_id, *, image_url=None):
     """Papel, lavagem da marca ou imagem. Overlay protege o texto."""
     tokens = dict(tokens or {})
-    kind = str(background_id or "paper").strip().lower()
-    if kind not in GROUND_KINDS:
-        kind = "paper"
+    requested = str(background_id or "paper").strip().lower()
+    kind = requested if requested in GROUND_KINDS else "paper"
     image = str(image_url or tokens.get("ground") or "").strip()
+    if requested not in GROUND_KINDS and requested:
+        tokens["background_status"] = "unknown_kind"
+        kind = tokens.get("ground-kind") if tokens.get("ground-kind") in GROUND_KINDS else "paper"
+    if kind == "image" and not image:
+        tokens["background_status"] = "missing_image"
+        kind = "paper" if tokens.get("ground-kind") != "wash" else "wash"
     if kind == "image" and image:
         tokens["ground"] = image
         tokens["ground-fit"] = tokens.get("ground-fit") or "cover"
         tokens["overlay"] = tokens.get("overlay") or "color-mix(in srgb, var(--dsa-ink) 34%, transparent)"
+        tokens["background_status"] = "ok"
     elif kind == "wash":
         tokens["ground"] = ""
         strength = str(tokens.get("wash-strength") or "16%").strip() or "16%"
-        tokens["overlay"] = f"color-mix(in srgb, {tokens.get('ink') or '#1E4D4F'} {strength}, transparent)"
+        ink = tokens.get("ink") or "#111111"
+        tokens["overlay"] = f"color-mix(in srgb, {ink} {strength}, transparent)"
+        tokens.setdefault("background_status", "ok")
     else:
         tokens["ground"] = ""
         tokens["overlay"] = "transparent"
+        tokens.setdefault("background_status", "ok")
     tokens["ground-kind"] = kind
     return tokens
 
@@ -133,7 +149,7 @@ def compile_rules(dna=None, archetype="brand"):
     )
     return {
         "archetype": arch,
-        "mandatory": ["logo", "headline"],
+        "mandatory": ["logo", "headline", "product"],
         "preferred": [arch["lead"], "cta"],
         "park_first": ["legal", "chip", "icon", "support"],
         "must": must[:8],

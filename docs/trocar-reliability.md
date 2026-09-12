@@ -4,7 +4,7 @@ Diagnóstico do código em produção e plano de incrementos. Complementa [`troc
 
 Não existe `AGENTS.md` no repositório. Pydantic 2 (`>=2.9,<3`) já é dependência; o padrão do lab é `creative_format_lab/spec.py`. 409 já mapeia `CreativeConflictError`.
 
-**Fase 1:** baseline. **Fase 2:** schema. **Fase 3:** plano/hash/conflitos/no-op + OCR com `status`. **Fase 4:** seleção + typeset com máscara. **Fase 5:** tipografia, CTAs, roteamento, prompts. **Fase 6 (esta sessão):** histórico com CAS/`parent_id`, original travada, still autenticado.
+**Fase 1:** baseline. **Fase 2:** schema. **Fase 3:** plano/hash/conflitos/no-op + OCR com `status`. **Fase 4:** seleção + typeset com máscara. **Fase 5:** tipografia, CTAs, roteamento, prompts. **Fase 6:** histórico com CAS/`parent_id`. **Fase 7:** slot cego. **Fase 8 (esta sessão):** rascunho manda `quality=medium` no Image 2; duas pills de CTA sem caixa saem da tinta.
 
 ---
 
@@ -63,14 +63,14 @@ IDs `v1`, `v2` vêm do cliente. Teto 60. `parent_id` e `revision` (CAS) no servi
 | Locks acima de 12: lista completa + `locks_overflow` — **fase 2** | `apply_swap_schema` |
 | Recrop pinta headline/apoio/preço mesmo sem autorização — **corrigido na fase 3** | `typeset_all` só se explícito; recrop não força mais |
 | Texto sem pessoas cai no Image 2 — **corrigido na fase 5** | `swap_mode`: `alter ⊆ TYPE_ONLY` → typeset; `force_image` força Image 2 |
-| Slot cego: &lt;40 px de tinta → `_fill_slot` no retângulo | `_locate_type`; `_fill_slot` |
+| Slot cego: &lt;40 px de tinta → `_fill_slot` no retângulo — **corrigido na fase 7** | sem tinta no slot da grade não preenche; cromático &gt;25% do slot é foto, não tipo; `_fill_slot` só na região do usuário |
 | CTA sempre tinta quase preta — **corrigido na fase 5** | `_patch_ink("cta")` usa tinta amostrada quando há `cover` |
-| Draft não muda o payload do Image 2 | `FormatLabService._image_callable` não passa `quality`; `generate_image` default `high` |
+| Draft não muda o payload do Image 2 — **corrigido na fase 8** | Trocr manda `image_quality`; draft → `medium`, production → `high`. Mesa/Camadas não passam o campo |
 | Quote typeset = US$ 0 (custo operacional, não só API) | `quote_swap` |
 | Image 2 sem máscara no cliente | `CreativeModelingGenerator.generate_image` — só `input_references` |
 | Logo oficial entra só porque a marca está ligada — **corrigido na fase 3** | se `logo` ∈ preserve, não anexa logo oficial |
 | Stills gerados acessíveis em URL estática — **novos na fase 6** | `save_trocr_still` + `GET /swap/still/<arquivo>`; legado público permanece |
-| Sem CSRF nas rotas format-lab | `admin_required_api` + cookie; agente tem token, Trocr não |
+| Sem CSRF nas rotas format-lab — **POST do Trocr na fase 6** | `X-Trocr-CSRF-Token`; GET history/still sem header |
 | Preview e execução recalculam o plano à parte — **corrigido na fase 3** | `plan_hash`; hash obsoleto → 409 |
 | `prompt_override` substitui o prompt inteiro | `build_optimized_prompt` |
 | Aspecto no servidor prioriza hint/OCR — **corrigido na fase 5** | `resolve_aspect_ratio` → `aspect_ratio`/`output`, senão `ratio_from_size(ref_*)`, senão `aspect_hint`, senão `16:9` |
@@ -83,7 +83,7 @@ IDs `v1`, `v2` vêm do cliente. Teto 60. `parent_id` e `revision` (CAS) no servi
 - Fantasmas TIM Black desta semana (lab anterior; não re-medido nesta fase).
 - Exploitabilidade real de CSRF (SameSite do cookie não inspecionado ponta a ponta).
 - Corrida de duas abas no `POST /history`.
-- Se o Image 2 no OpenRouter ignora `quality` mesmo quando enviado (hoje nem enviamos).
+- Se o Image 2 no OpenRouter ignora `quality` mesmo quando enviado (agora o Trocr manda `medium`/`high`).
 - Necessidade de OpenCV ou PaddleOCR — nenhum dos dois está em `requirements.txt`.
 - Consumidores de `read_swap_reference` além do Trocr e do `engineer.apply_still_read`.
 
@@ -93,7 +93,7 @@ Não tratar hipótese como bug. Não inventar suporte a máscara no Image 2.
 
 ## Divergências doc × código
 
-[`trocar.md`](trocar.md) descreve typeset como “custo zero” e não registra que draft/production são equivalentes no HTTP do Image 2. Fluxo, rotas e modos batem.
+[`trocar.md`](trocar.md) descreve typeset como “custo zero”. Draft e production agora diferem no HTTP do Image 2 (`medium` vs `high`); o modelo continua `openai/gpt-image-2`. Fluxo, rotas e modos batem.
 
 ---
 
@@ -136,7 +136,10 @@ Rollback da fase 1: apagar este arquivo e o ponteiro em `trocar.md`. Nenhum runt
 3. **Feito.** Plano único, conflitos, no-op, OCR com status (P0).
 4. **Feito.** Seleção manual + typeset com máscara + QA de pixels (P1, fatia vertical).
 5. **Feito.** Tipografia, CTAs múltiplos, roteamento de formato, prompts derivados do plano (P1).
-6. **Parcial.** Histórico com CAS/`parent_id`, original travada, still autenticado. Sem jobs, multipart, CSRF de header nem PaddleOCR.
+6. **Feito o executor.** Sessão em `swap_session.py`, CSRF nas POST, still legado hex pela rota autenticada. Sem jobs, multipart, PaddleOCR.
+7. **Feito.** Slot cego não preenche foto.
+8. **Feito.** Rascunho → `quality=medium` só no Trocr. Dois CTAs sem bbox: plano não bloqueia; typeset acha as pills na tinta.
+9. **Feito.** Um CTA no pedido pinta só a pill da esquerda; a segunda não muda. Sem pill na tinta, recusa. Preço/headline sem caixa continuam bloqueados.
 
 Segurança crítica (SSRF no typeset local, limite de megapixels, CSRF) entra junto da fatia que tocar o executor — não espera o P2 de jobs.
 
@@ -272,16 +275,52 @@ Novos: `test_texto_sem_elenco_e_regiao_vai_para_typeset`, `test_prompt_deriva_so
 - Versões guardam `parent_id`. Append do swap usa `base_id` e `origin` do modo (`typeset`/`recrop`, não mais “produção” genérico).
 - Swap devolve `history` (revisão + URLs). A mesa aplica e manda `revision` no persist.
 - Stills novos: `instance/trocr_stills/` + `GET /parametros/api/format-lab/swap/still/<arquivo>` (`admin_required_api`).
-- Sem jobs, multipart, PaddleOCR, CSRF de header, Image 2 pago.
+- Histórico e still saíram de `FormatLabService` para [`swap_session.py`](../aicentralv2/creative_format_lab/swap_session.py).
+- POST do Trocr exige `X-Trocr-CSRF-Token`. GET history/still não.
+- Still legado com nome hex em `/static/uploads/creative_generated/` é reescrito para a rota autenticada na leitura. O arquivo público antigo continua no disco.
+- Sem jobs, multipart, PaddleOCR, Image 2 pago.
 
 ## Testes da fase 6
 
-Mesmo comando da fase 1 + `test_still_do_trocar_exige_login_e_serve_arquivo`. **Resultado real:** `Ran 28 tests in 1.006s` — **OK**.
+Mesmo comando da fase 1 + `tests.test_trocr_session`. **Resultado real:** `Ran 32 tests in 0.880s` — **OK**.
 
-Novos: `test_historico_trava_original_cas_e_still_privado`, `test_still_do_trocar_exige_login_e_serve_arquivo`.
+## Fase 7 — o que mudou
+
+- Typeset no slot da grade sem tinta suficiente não preenche o retângulo.
+- Mancha cromática que ocupa mais de 25% do slot é tratada como foto, não como tipo.
+- `_fill_slot` só roda na região que o usuário recortou.
+- Cobertura de glifo com raio 6 (antes 4).
+- Sem Image 2 pago, sem PaddleOCR, sem jobs.
+
+## Testes da fase 7
+
+Mesmo comando da fase 1 + `tests.test_trocr_session`. Novo: `test_typeset_slot_cego_nao_preenche_a_pessoa`. **Resultado real:** `Ran 33 tests in 1.056s` — **OK**.
+
+## Fase 8 — o que mudou
+
+- `image_quality()`: draft/rascunho → `medium`; production → `high`. Só o `FormatLabService.swap` injeta `image_quality` no `_image_callable`. Mesa 15s e Camadas não passam o campo — o default do gerador continua `high`.
+- Dois ou mais `role=cta` com texto e sem bbox: o plano não bloqueia (`may_infer_cta_pills`). O hash não inclui caixa inferida (preview sem PNG continua batendo na geração).
+- `locate_cta_pills` agrupa manchas cromáticas em pills (aspecto largo, não foto). `attach_inferred_cta_regions` preenche `bbox_px` na hora do typeset. Sem duas pills → erro acionável, não pinta no escuro.
+- Sem Image 2 pago, sem PaddleOCR, sem jobs, sem inventar bbox a partir da nota.
+
+## Testes da fase 8
+
+Mesmo comando da fase 1 + `tests.test_trocr_session` + still autenticado. Novos: `test_rascunho_do_trocr_manda_qualidade_media`, `test_duas_pills_sem_caixa_nao_pintam_o_vao`. **Resultado real:** `Ran 35 tests in 1.686s` — **OK**.
+
+## Fase 9 — o que mudou
+
+- `may_infer_cta_pills` vale para um CTA sem bbox, não só para o par.
+- Um texto + duas pills: pinta só a da esquerda. A segunda e o vão ficam iguais.
+- `locate_cta_pills` devolve as pills da esquerda para a direita (não as de maior score).
+- Sem pill cromática: erro acionável. Não inventa caixa a partir da nota. Preço/headline sem região seguem bloqueados.
+- Sem Image 2 pago, sem PaddleOCR, sem jobs.
+
+## Testes da fase 9
+
+Mesmo comando da fase 8. Novo: `test_um_cta_pinta_so_a_pill_da_esquerda`.
 
 ## Checkpoint
 
-**Concluído:** fases 1–5 e fatia de histórico/isolamento da fase 6.
+**Concluído:** fases 1–9 do Trocr.
 
-**Fora desta fatia:** OCR geométrico, jobs, multipart, CSRF de header nas rotas format-lab, isolamento dos stills *legados* em `/static/uploads/creative_generated/`.
+**Fora desta linha:** OCR geométrico, jobs, multipart, isolamento físico dos stills legados, modelo mais barato de rascunho. Mesa 15s e Camadas não entram aqui.

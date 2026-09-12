@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from .schema import contrast_ratio, normalize_hex, nudge_hex_for_contrast, relative_luminance
+from .schema import (
+    NEUTRAL_MUTED,
+    contrast_ratio,
+    normalize_hex,
+    nudge_hex_for_contrast,
+    relative_luminance,
+)
 
 PILL_RADIUS = ("999px", "9999px", "50%", "100vh")
 
@@ -166,14 +172,14 @@ def _muted(colors, paper, ink):
     secondary = _unwrap_color(colors.get("secondary"))
     if secondary and contrast_ratio(secondary, paper) >= 4.5 and secondary.upper() != ink.upper():
         return secondary
-    return "#3D4451"
+    return NEUTRAL_MUTED
 
 
 def _typefaces(typography):
-    display = str(typography.get("headingFont") or "").strip() or "Inter"
-    body = str(typography.get("bodyFont") or display).strip() or display
+    display = str(typography.get("headingFont") or "").strip()
+    body = str(typography.get("bodyFont") or display).strip()
     styles = typography.get("styles") if isinstance(typography.get("styles"), list) else []
-    if display == "Inter" and styles:
+    if not display and styles:
         first = styles[0] if isinstance(styles[0], dict) else {}
         family = str(first.get("family") or "").strip()
         if family:
@@ -367,4 +373,4 @@ def _hairline(colors):
             if color:
                 return color
     muted = _unwrap_color(colors.get("secondary") or colors.get("muted"))
-    return muted or "#3D4451"
+    return muted or NEUTRAL_MUTED

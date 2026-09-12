@@ -85,10 +85,11 @@ Todas exigem admin (`@admin_required_api`). Prefixo: `/parametros/api`.
 | `POST` | `/design-system/brand/<client_id>/loop` | um passo do loop contínuo |
 | `POST` | `/design-system/brand/<client_id>/compose` | compose DNA + copy no OpenRouter |
 | `POST` | `/design-system/brand/<client_id>/refine` | intent local **ou** refino com modelo |
-| `POST` | `/design-system/brand/<client_id>/tokens` | patch de tokens / copy / DNA / arquétipo |
+| `POST` | `/design-system/brand/<client_id>/tokens` | patch; body exige `expected_revision` |
 | `POST` | `/design-system/brand/<client_id>/tracks/<track_id>` | gera packshot / KV / lifestyle / wash |
-| `POST` | `/design-system/brand/<client_id>/approve` | `status = approved` |
+| `POST` | `/design-system/brand/<client_id>/approve` | `status = approved`; body exige `expected_revision` |
 | `GET`/`POST` | `/design-system/brand/<client_id>/adapt` | recompõe no formato IAB |
+| `POST` | `/design-system/brand/<client_id>/validate-render` | confere o specimen no browser (opt-in) |
 
 #### Campanha
 
@@ -97,6 +98,7 @@ Todas exigem admin (`@admin_required_api`). Prefixo: `/parametros/api`.
 | `GET` | `/design-system/campaign/<campaign_id>` | lê (ou sugere herança da marca) |
 | `POST` | `/design-system/campaign/<campaign_id>` | herda marca, compose da temporada, grava |
 | `GET`/`POST` | `/design-system/campaign/<campaign_id>/adapt` | recompõe no formato IAB com recortes |
+| `POST` | `/design-system/campaign/<campaign_id>/validate-render` | confere o specimen no browser (opt-in) |
 
 ---
 
@@ -119,7 +121,9 @@ Todas exigem admin (`@admin_required_api`). Prefixo: `/parametros/api`.
 | Preset da casa | tokens do tema `[data-theme="centralcomm"]` | teal `#1E4D4F`, ouro `#F3B71B` |
 | Extract satélite | `extracted_design_system` / `normalized.json` | `ingest.py` |
 | Formatos | catálogo do Format Lab | `creative_format_lab/catalog.py` |
-| Skill do agente | `.agents/skills/design-system-ads/SKILL.md` | Advertising OS |
+| Skill do agente | `.agents/skills/design-system-ads/SKILL.md` + satélites | Orientação. **Não** entra no OpenRouter. |
+| Política runtime | `runtime_policy.py` + `prompt_context.py` | Compose e refine migrados. Review/trilhas/campanha ainda não. |
+| Preset da casa | `centralcomm.resolve_preset_context` | Só Labs sem cliente (`centralcomm`) ou marca CentralComm |
 
 Env relevantes:
 
@@ -149,6 +153,7 @@ Framework: `design-system-ads`. Validado em `schema.py` (`DesignSystemAds`). Tod
   "source": "brand",
   "status": "draft",
   "version": 1,
+  "revision": 0,
   "client_id": 42,
   "logo_url": "https://…/logo.png",
   "tokens": {},
@@ -174,6 +179,8 @@ Framework: `design-system-ads`. Validado em `schema.py` (`DesignSystemAds`). Tod
 |---|---|---|
 | `scope` | `brand` \| `campaign` | campanha herda tokens; muda copy e recortes |
 | `status` | `draft` \| `approved` \| `archived` | só marca aprova na mesa |
+| `version` | int ≥ 1 | contador de passes; **não** é a revisão do documento |
+| `revision` | int ≥ 0 | revisão do JSON. Legado ausente = 0. Cada persistência sobe 1. Approve/patch exigem `expected_revision` |
 | `source` | `brand` \| `extract-design-system` \| `tailwind-centralcomm` \| `campaign` | hierarquia de evidência |
 | `archetype` | `brand` \| `product-hero` \| `lifestyle` \| `promotion` | escolhe fundo + formato default |
 | `inherits_brand_id` | id do DS da marca | só campanha |
@@ -249,6 +256,8 @@ Limites por densidade IAB (`copy.fit_ad_copy`):
 | compact | 32 | 0 | 14 | 22 |
 | standard | 42 | 56 | 16 | 36 |
 | rich | 56 | 80 | 18 | 48 |
+
+`ad_copy` é o default da marca. `ad_copy_by_format` só guarda o que muda no compacto. Sem produto, DNA ou legal obrigatório: `needs_input[]` e o loop não gera trilha (CentralComm isento).
 
 Copy meta (sobre o laboratório) é descartada: `design system`, `tinta certa`, `herda o tema`, `Tailwind`, `ver o sistema`.  
 Copy estoque também: `no primeiro olhar`, `Saiba mais`, `o que … promete, no tamanho do anúncio`.
@@ -463,7 +472,7 @@ Trocar arquétipo aplica o fundo correspondente e recompila `rules`.
 
 `POST /tracks/<packshot|kv|lifestyle|wash>`
 
-1. Monta prompt (`prompt_for_track`) com tinta, DNA, produto, setor, tom.
+1. Monta prompt (`build_track_prompt` / `prompt_for_track`) com `prompt_context` (`ads-tracks-2026-09-12`), tinta, DNA, produto, setor, tom.
 2. Anexa até 2 referências reais (produto/cena + logo) — lavagem não usa foto.
 3. `generate_image` · `openai/gpt-image-2` · aspect da trilha · `background: opaque`.
 4. Grava PNG em storage; atualiza `tracks[].url`.
@@ -636,30 +645,9 @@ Enviado em compose, review, refine e compose de campanha:
 
 **Modelo:** `DESIGN_SYSTEM_ADS_COMPOSE_MODEL` · `openai/gpt-4o` · temp `0.25` · 1200 tokens.
 
-System:
+O compose monta o contexto em `build_ads_prompt_context`. System = restrições derivadas de `runtime_policy.py`. User = `identity` + `evidence` (dados) + contrato. Extract de site não entra como instrução.
 
-```text
-Você é o diretor de arte desta marca.
-Copy de anúncio em português, fiel aos pixels.
-Nunca escreva sobre o laboratório ou o design system. JSON only.
-```
-
-Ask:
-
-```text
-Escreva o Advertising OS desta MARCA em português. Não é campanha.
-Use fidelity: tinta travada, setor, tom, produtos, forbidden e assets.
-JSON: dna{name,personality[3-5 traços concretos desta marca],must[],avoid[]},
-archetype, ad_copy{headline,support,cta,legal} o que a marca vende e para quem,
-patches[{token_id,css,reason}] só se o token falhar e só na família da tinta travada,
-effects{wash-strength,grain,overlay,cta-shadow},
-tracks[{id,prompt}] packshot,kv,lifestyle,wash com material, luz, recorte e hex, notes[].
-Se fidelity.assets já tiver URL para uma trilha, não invente outra imagem.
-Wash é CSS (wash-strength), não peça foto de gradiente.
-Proibido: reconhecível, direta, de marca, Saiba mais, no primeiro olhar, design system,
-tinta certa, herda o tema, Tailwind, cream, terracotta, card SaaS.
-Wash é a lavagem DESTA tinta, não um campo genérico.
-```
+Incremento 4: compose, refine, review, compose de campanha e trilhas usam `build_ads_prompt_context`. Intents (`contrast`, `type`, `cta`, `compact`, `airy`) continuam locais — sem LLM. Review ainda é textual: sem screenshot nem HTML do specimen.
 
 JSON esperado de volta:
 
@@ -682,29 +670,13 @@ JSON esperado de volta:
 
 ### 7.3 Review de fidelidade
 
-**Modelo:** gpt-4o · temp `0.15` · 900 tokens.
+**Modelo:** `DESIGN_SYSTEM_ADS_COMPOSE_MODEL` · `openai/gpt-4o` · temp `0.15` · 900 tokens.
 
-System:
+O review monta o contexto em `build_ads_prompt_context("review")`. System = restrições da política. User = `identity` + `evidence` + `artifact` + `criteria` (dados). Extract de site não entra como instrução. A checagem é **textual**: não há screenshot nem HTML do specimen nesta chamada.
 
-```text
-Você revisa fidelidade de Advertising OS.
-A tinta extraída é lei. Copy de anúncio em português. JSON only.
-```
+`apply_review` — não `apply_compose` — aceita `passed`, `score`, `notes`, `defects`. DNA só se o atual for genérico; copy só se for estoque/meta; patches só com proveniência. Tracks, status e fundo são rejeitados.
 
-Ask:
-
-```text
-Revise a FIDELIDADE deste Advertising OS contra fidelity
-(tinta travada, setor, tom, produtos, assets).
-JSON: passed, score 0-1, notes[], defects[],
-dna{…} só se o DNA for genérico,
-ad_copy{…} só se a copy for estoque ou meta,
-patches[{token_id,css,reason}] só na família de fidelity.locked_tokens.
-Proibido trocar ink/paper/accent por outra marca.
-Nunca use teal CentralComm se a tinta da marca não for teal.
-```
-
-Sem modelo: score local 0.74 se contraste ok e copy limpa; senão 0.48. Marca `evidence.reviewed`.
+Sem modelo: score local 0.74 se contraste ok e copy limpa; senão 0.48. Marca `evidence.reviewed` com `kind=local`. Falha do provedor ou JSON inválido **levantam erro** e não persistem review falsa.
 
 ### 7.4 Refine de tokens (até 4 passes)
 
@@ -729,41 +701,17 @@ Para se `passed`, se o score cair, ou se acabar o orçamento (`MAX_PASSES = 4`).
 
 ### 7.5 Compose da campanha
 
-**Modelo:** gpt-4o · temp `0.35` · 900 tokens.
+**Modelo:** `DESIGN_SYSTEM_ADS_COMPOSE_MODEL` · `openai/gpt-4o` · temp `0.35` · 900 tokens.
 
-System:
+O compose monta o contexto em `build_ads_prompt_context("campaign")`. System = restrições da política. User = `identity` + `evidence` + `artifact` + `campaign` (dados). Extract de site não entra como instrução.
 
-```text
-Você é o diretor de arte da campanha.
-A tinta da marca está travada. Copy e KV mudam. JSON only.
-```
+`apply_campaign_compose` aceita `creative_line`, `ad_copy`, `archetype`, `ground-kind` e tracks `kv`/`lifestyle`. Tinta, DNA e status ficam travados (`lock_campaign_tokens`). Legal obrigatório da marca não some.
 
-Ask (brief ganha `scope: campaign` + bloco `campaign`):
-
-```text
-Escreva a CAMPANHA desta marca em português. Não reescreva ink, paper nem accent.
-JSON: creative_line (uma frase da temporada), ad_copy{headline,support,cta,legal} da oferta,
-archetype (product-hero|lifestyle|promotion|brand),
-tracks[{id,prompt}] só kv e lifestyle com a linha da campanha,
-ground-kind paper|wash|image, notes[].
-Proibido: copiar a headline institucional da marca, Saiba mais, design system.
-```
-
-Bloco `campaign` no brief:
-
-```json
-{
-  "name": "Verao",
-  "objective": "…",
-  "campaign_text": "…",
-  "cta_text": "Reservar",
-  "creative_line": "…"
-}
-```
+Sem modelo: seed local (`local_seed`). Falha do provedor ou JSON inválido **levantam erro** e não persistem campanha falsa. Preset `centralcomm-verao` não passa por este compose.
 
 ### 7.6 Prompts de imagem (trilhas)
 
-Gerados em `tracks.prompt_for_track`. Inglês, com hex da tinta e material real.
+Gerados em `tracks.build_track_prompt`. Inglês, com hex da tinta e material real. Sem “reconhecível”.
 
 **Packshot**
 
@@ -970,6 +918,8 @@ aicentralv2/design_system_ads/
   ingest.py         extract-design-system → tokens de anúncio
   fidelity.py       dossiê, lock de tinta, bind de assets
   refine.py         compose, review, loop, intents, campaign compose
+  runtime_policy.py regras tipadas + enforcement
+  prompt_context.py contexto por tarefa (compose, refine, review, campaign)
   catalog.py        catálogo + inspect_loop
   tracks.py         4 trilhas + prompts de imagem
   copy.py           copy de anúncio, estoque, limites IAB

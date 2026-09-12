@@ -513,7 +513,282 @@ class CreativeFormatLabTest(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         self.assertEqual(calls[0], "16:9")
         self.assertEqual([item["role"] for item in result["layers"]], ["ground"])
+        self.assertEqual(result["replace"], "ground")
+        self.assertEqual(result["cast_status"], "not_run")
+        self.assertNotIn("read", result)
+
+    def test_split_cutout_usa_bbox_e_box_percentual(self):
+        import base64
+        import io
+
+        from PIL import Image, ImageDraw
+
+        from aicentralv2.creative_format_lab.split_layers import split_still
+
+        canvas = Image.new("RGB", (20, 10), (0, 51, 255))
+        pixels = canvas.load()
+        for y in range(10):
+            for x in range(10, 20):
+                pixels[x, y] = (196, 122, 90)
+
+        def predict(image):
+            mask = Image.new("L", image.size, 0)
+            ImageDraw.Draw(mask).rectangle([10, 0, 19, 9], fill=255)
+            return [{"label": "person", "mask": mask}]
+
+        result = split_still(canvas, predictor=predict)
+        cast = next(item for item in result["layers"] if item["role"] == "cast")
+        ground = next(item for item in result["layers"] if item["role"] == "ground")
+        cut = Image.open(io.BytesIO(base64.b64decode(cast["png_data_url"].split(",", 1)[1])))
+        well = Image.open(io.BytesIO(base64.b64decode(ground["png_data_url"].split(",", 1)[1])))
+        self.assertEqual(cut.size, (10, 10))
+        self.assertEqual(well.size, (20, 10))
+        self.assertEqual(cast["box"]["x"], 50.0)
+        self.assertEqual(cast["box"]["w"], 50.0)
+        self.assertEqual(cast["box"]["h"], 100.0)
+        self.assertEqual(result["width"], 20)
+        self.assertEqual(result["height"], 10)
+
+    def test_split_leftover_foto_mantem_pixels_fora_da_mascara(self):
+        import base64
+        import io
+
+        from PIL import Image, ImageDraw
+
+        from aicentralv2.creative_format_lab.split_layers import lifestyle_still, split_still
+
+        still = lifestyle_still().convert("RGB")
+        ImageDraw.Draw(still).rectangle([8, 8, 70, 36], fill=(255, 255, 255))
+
+        def predict(image):
+            mask = Image.new("L", image.size, 0)
+            ImageDraw.Draw(mask).ellipse([200, 24, 292, 164], fill=255)
+            return [{"label": "person", "mask": mask}]
+
+        result = split_still(still, predictor=predict)
+        self.assertTrue(result["cast_ok"])
+        self.assertEqual(result["ground_kind"], "image")
+        ground = next(item for item in result["layers"] if item["role"] == "ground")
+        well = Image.open(io.BytesIO(base64.b64decode(ground["png_data_url"].split(",", 1)[1])))
+        self.assertEqual(well.size, still.size)
+        self.assertGreater(sum(well.getpixel((20, 16))[:3]) / 3, 240)
+
+    def test_example_still_dimensoes_nao_sao_16_9(self):
+        from aicentralv2.creative_format_lab.split_layers import (
+            example_still_payload,
+            hypothetical_still,
+        )
+
+        still = hypothetical_still()
+        payload = example_still_payload()
+        self.assertEqual(still.size, (480, 180))
+        self.assertEqual(payload["width"], 480)
+        self.assertEqual(payload["height"], 180)
+        self.assertNotAlmostEqual(payload["width"] / payload["height"], 16 / 9, places=2)
+        self.assertEqual(payload["ground_kind"], "paper")
+
+    def test_read_attached_still_projeta_chips_e_descarta_dates(self):
+        from aicentralv2.creative_format_lab.engineer import read_attached_still
+        from aicentralv2.creative_format_lab.split_layers import example_still_payload
+
+        def text_callable(_messages, **_kwargs):
+            return {
+                "message": {
+                    "content": {
+                        "headline": "Arraial de Belô",
+                        "support": "É de graça!",
+                        "dates": "24, 25 e 26 julho",
+                        "venue": "Mineirinho",
+                        "logo_text": "Belotur",
+                        "price": "",
+                        "cta": "",
+                    }
+                }
+            }
+
+        read = read_attached_still(example_still_payload()["image"], text_callable)
+        self.assertEqual(read["headline"], "Arraial de Belô")
+        self.assertEqual(read["support"], "É de graça!")
+        self.assertEqual(read["logo_text"], "Belotur")
+        self.assertNotIn("dates", read)
+        self.assertNotIn("venue", read)
+        self.assertNotIn("status", read)
+
+    def test_split_mascara_rejeitada_nao_tenta_segundo_predictor(self):
+        from PIL import Image, ImageDraw
+
+        from aicentralv2.creative_format_lab.split_layers import split_still, tim_like_still
+
+        calls = []
+
+        def predict(image):
+            calls.append(image.size)
+            mask = Image.new("L", image.size, 255)
+            ImageDraw.Draw(mask).rectangle([0, 0, image.size[0], image.size[1]], fill=255)
+            return [{"label": "person", "mask": mask}]
+
+        result = split_still(tim_like_still(), predictor=predict)
+        self.assertEqual(len(calls), 1)
         self.assertFalse(result["cast_ok"])
+        self.assertNotIn("cast", [item["role"] for item in result["layers"]])
+
+    def test_resolve_predictor_escolhe_o_primeiro_disponivel(self):
+        from aicentralv2.creative_format_lab import split_layers as sl
+
+        dummy = lambda image: []
+        with patch.object(sl, "_load_rembg", return_value=dummy):
+            predict, engine = sl.resolve_predictor()
+            self.assertEqual(engine, "rembg")
+            self.assertIs(predict, dummy)
+        with patch.object(sl, "_load_rembg", side_effect=RuntimeError("ausente")):
+            with patch.object(sl, "_load_yolo_person", return_value=dummy):
+                predict, engine = sl.resolve_predictor()
+                self.assertEqual(engine, "yolo")
+        with patch.object(sl, "_load_rembg", side_effect=RuntimeError("ausente")):
+            with patch.object(sl, "_load_yolo_person", side_effect=RuntimeError("ausente")):
+                predict, engine = sl.resolve_predictor()
+                self.assertEqual(engine, "python")
+                self.assertIs(predict, sl.field_predictor)
+
+    def test_open_image_recusa_url_http(self):
+        from aicentralv2.creative_format_lab.split_layers import split_still
+
+        with self.assertRaises(ValueError):
+            split_still("https://cdn.example/still.png", predictor=lambda image: [])
+
+    def test_generate_image_wrapper_nao_declara_mask(self):
+        import inspect
+
+        from aicentralv2.services.openrouter_service import build_image_payload, generate_image
+
+        self.assertNotIn("mask", inspect.signature(generate_image).parameters)
+        self.assertNotIn("mask", inspect.signature(build_image_payload).parameters)
+
+    def test_camadas_lab_capabilities_sem_baixar_peso(self):
+        from aicentralv2.creative_format_lab.camadas_lab import list_capabilities
+
+        caps = {item["engine_id"]: item for item in list_capabilities()}
+        self.assertIsInstance(caps["rembg_u2net_human"]["available"], bool)
+        self.assertTrue(caps["field_predictor"]["available"])
+        self.assertEqual(caps["image2_well"]["limitation"], "no_mask")
+
+    def test_camadas_lab_compara_candidato_fake_e_remove(self):
+        from PIL import Image, ImageDraw
+
+        from aicentralv2.creative_format_lab.camadas_lab import compare_segmenters
+        from aicentralv2.creative_format_lab.split_layers import hypothetical_still
+
+        still = hypothetical_still()
+
+        def fake(image):
+            mask = Image.new("L", image.size, 0)
+            ImageDraw.Draw(mask).ellipse([320, 20, 460, 170], fill=255)
+            return [{"label": "person", "mask": mask}]
+
+        def boom(_image):
+            raise RuntimeError("candidato caiu")
+
+        report = compare_segmenters(still, fake)
+        self.assertIn(report["baseline"]["cast_status"], {"succeeded", "rejected", "not_found"})
+        self.assertEqual(report["candidate"]["cast_status"], "succeeded")
+        self.assertIsNone(report["candidate"]["cast_confidence"])
+        failed = compare_segmenters(still, boom)
+        self.assertEqual(failed["candidate"]["status"], "failed")
+        missing = compare_segmenters(still, "nao-e-callable")
+        self.assertEqual(missing["candidate"]["status"], "unavailable")
+        empty = compare_segmenters(still)
+        self.assertIsNone(empty["candidate"])
+
+    def test_camadas_lab_geometria_incompativel(self):
+        from aicentralv2.creative_format_lab.camadas_lab import geometry_compatible
+
+        self.assertTrue(geometry_compatible({"width": 20, "height": 10, "layers": []}, 20, 10))
+        self.assertFalse(geometry_compatible({"width": 40, "height": 10, "layers": []}, 20, 10))
+        self.assertFalse(geometry_compatible({
+            "width": 20,
+            "height": 10,
+            "layers": [{"box": {"x": 80, "y": 0, "w": 40, "h": 10}}],
+        }, 20, 10))
+
+    def test_split_status_rejeitado_nao_e_so_cast_ok(self):
+        from PIL import Image, ImageDraw
+
+        from aicentralv2.creative_format_lab.split_layers import split_still, tim_like_still
+
+        def predict(image):
+            mask = Image.new("L", image.size, 255)
+            ImageDraw.Draw(mask).rectangle([0, 0, image.size[0], image.size[1]], fill=255)
+            return [{"label": "person", "mask": mask}]
+
+        result = split_still(tim_like_still(), predictor=predict)
+        self.assertFalse(result["cast_ok"])
+        self.assertEqual(result["cast_status"], "rejected")
+        self.assertEqual(result["cast_reason"], "full-frame")
+        self.assertIsNone(result["cast_confidence"])
+
+    def test_split_devolve_read_full_e_chips(self):
+        from aicentralv2.creative_format_lab.service import FormatLabService
+        from aicentralv2.creative_format_lab.split_layers import example_still_payload
+
+        class Modeling:
+            repository = None
+            generator = None
+
+        def text_callable(_messages, **_kwargs):
+            return {
+                "message": {
+                    "content": {
+                        "headline": "Arraial de Belô",
+                        "support": "É de graça!",
+                        "dates": "24, 25 e 26 julho",
+                        "venue": "Mineirinho",
+                        "logo_text": "Belotur",
+                    }
+                }
+            }
+
+        result = FormatLabService(Modeling()).split_layers({
+            "image": example_still_payload()["image"],
+            "text_callable": text_callable,
+            "operation_id": "7",
+        })
+        self.assertEqual(result["read"]["headline"], "Arraial de Belô")
+        self.assertNotIn("dates", result["read"])
+        self.assertEqual(result["read_full"]["dates"], "24, 25 e 26 julho")
+        self.assertEqual(result["read_full"]["venue"], "Mineirinho")
+        self.assertEqual(result["ocr_status"], "succeeded")
+        self.assertEqual(result["operation_id"], "7")
+        self.assertEqual(result["replace"], "pack")
+
+    def test_rota_split_descarta_injections_do_cliente(self):
+        service = Mock()
+        service.split_format_lab_layers.return_value = {"layers": [], "field": "#000"}
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            app = Flask(__name__)
+            register_creative_modeling_routes(app)
+            client = app.test_client()
+            with client.session_transaction() as sess:
+                sess["user_id"] = 1
+                sess["is_admin"] = True
+            response = client.post(
+                "/parametros/api/format-lab/layers/split",
+                json={
+                    "image": "data:image/png;base64,aaa",
+                    "predictor": "malicioso",
+                    "text_callable": "malicioso",
+                    "image_callable": "malicioso",
+                    "operation_id": "9",
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        sent = service.split_format_lab_layers.call_args[0][0]
+        self.assertNotIn("predictor", sent)
+        self.assertNotIn("text_callable", sent)
+        self.assertNotIn("image_callable", sent)
+        self.assertEqual(sent["operation_id"], "9")
 
     def test_qa_loop_para_no_terceiro_patch(self):
         spec = build_spec(
@@ -1687,8 +1962,9 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("modelagem_camadas", shell)
         self.assertIn("modelagem_design-system", shell)
         desk = (root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html").read_text(encoding="utf-8")
-        self.assertIn("modelagem_criativos.css') }}?v=96", desk)
-        self.assertIn("mc_page_js) }}?v=46", desk)
+        self.assertIn("modelagem_criativos.css') }}?v=104", desk)
+        self.assertIn("mc_page_js) }}?v=65", desk)
+        self.assertIn("js/mc-dsa-write-queue.js", desk)
         camadas = (root / "aicentralv2" / "templates" / "parametros" / "_mc_camadas.html").read_text(encoding="utf-8")
         self.assertIn("mcLayersRun", camadas)
         self.assertIn("Separar", camadas)
@@ -1751,6 +2027,19 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("Ordem do 15s", html)
         self.assertIn("As batidas do 15s", html)
         self.assertIn("mcMesaStrip", html)
+        self.assertIn("mcMesaRead", html)
+        self.assertIn("Ler still de novo", html)
+        self.assertIn("Ver textos reconhecidos", html)
+        self.assertIn("Sem still de referência.", html)
+        js = (root / "aicentralv2" / "static" / "js" / "mc-mesa.js").read_text(encoding="utf-8")
+        self.assertIn("reread_still", js)
+        self.assertIn("Leitura concluída.", js)
+        self.assertIn("Leitura parcial. Há conteúdo pendente.", js)
+        self.assertIn("Nenhum texto identificado.", js)
+        self.assertIn("Leitura indisponível.", js)
+        self.assertIn("Não foi possível concluir a leitura.", js)
+        self.assertIn("Campanha travada", js)
+        self.assertIn("readToken", js)
         self.assertIn("Abrir Marcas", html)
         self.assertIn("data-state", html)
         self.assertIn("mcMesaConfirm", html)
@@ -1827,6 +2116,9 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("mcTrocrForceImage", trocar)
         self.assertIn("mcTrocrRoute", trocar)
         self.assertIn("mcTrocrDates", trocar)
+        self.assertIn("mcTrocrSubtitle", trocar)
+        self.assertIn("mcTrocrLogo", trocar)
+        self.assertIn("mcTrocrDisclaimer", trocar)
         self.assertIn("Tipo na foto", trocar)
         self.assertIn("Compor na foto", trocar)
         self.assertIn("Todas as versões são preservadas", trocar)
@@ -1844,9 +2136,17 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("/parametros/api/format-lab/swap/read", swap_js)
         self.assertIn("/parametros/api/format-lab/swap/prompt", swap_js)
         self.assertIn("/parametros/api/format-lab/swap/history", swap_js)
+        self.assertIn("parent_id", swap_js)
+        self.assertIn("histórico mudou", swap_js)
+        self.assertIn("X-Trocr-CSRF-Token", swap_js)
+        self.assertIn("data-csrf", trocar)
+        self.assertIn("register_trocr_routes", (root / "aicentralv2" / "creative_format_lab" / "swap_routes.py").read_text(encoding="utf-8"))
         self.assertIn("persistHistory", swap_js)
         self.assertIn("loadHistory", swap_js)
         self.assertIn("aspect_ratio", swap_js)
+        self.assertIn("logo_text", swap_js)
+        self.assertIn("mcTrocrSubtitle", swap_js)
+        self.assertIn("item.kind === 'face'", swap_js)
         self.assertIn("logo_used", swap_js)
         self.assertIn("pushVersion", swap_js)
         self.assertIn("useAsBase", swap_js)
@@ -1860,7 +2160,11 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("Compor na foto", swap_js)
         self.assertIn("Recortar e compor", swap_js)
         self.assertIn("mcTrocrDates", swap_js)
+        self.assertIn("mcTrocrCta2", swap_js)
+        self.assertIn("withCtas", swap_js)
         self.assertIn("renderEditPanels", swap_js)
+        ocr_fields = (trocar_dir / "trocr" / "_ocr_fields.html").read_text(encoding="utf-8")
+        self.assertIn("mcTrocrCta2", ocr_fields)
         placas = (root / "aicentralv2" / "templates" / "parametros" / "_mc_placas.html").read_text(encoding="utf-8")
         self.assertIn("mcPlacasStudio", placas)
         self.assertIn("mcPlacasList", placas)
@@ -1871,6 +2175,18 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("/parametros/api/format-lab/plates/patch", placas_js)
         self.assertIn("apply_to_all", placas_js)
         self.assertIn("selected_channels", placas_js)
+
+    def test_camadas_js_substitui_o_pacote_inteiro(self):
+        root = Path(__file__).resolve().parents[1]
+        js = (root / "aicentralv2" / "static" / "js" / "mc-camadas.js").read_text(encoding="utf-8")
+        self.assertIn("function showPack(data)", js)
+        self.assertIn("function escapeHtml(value)", js)
+        self.assertIn("operationId", js)
+        self.assertIn("operation_id", js)
+        self.assertIn("replace === 'ground'", js)
+        self.assertIn("lastNonGround.concat(ground)", js)
+        self.assertIn("lastRead", js)
+        self.assertIn("split('image')", js)
 
 
 class CreativeFormatLabPlatesTest(unittest.TestCase):
@@ -2160,6 +2476,9 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
                 "reference": "data:image/png;base64,aaa",
                 "brand_name": "Rede D'Or",
                 "aspect_ratio": "9:16",
+                "alter": ["headline"],
+                "headline": "Cuidado que se vê",
+                "force_image": True,
             },
             brand={"logo_url": "https://cdn.example/redor-logo.png"},
             image_callable=fake_image,
@@ -2212,6 +2531,7 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
         self.assertIn("analysis", result)
         self.assertTrue(result["analysis"]["logo"])
         self.assertTrue(result["analysis"]["headline"])
+        self.assertEqual(result["status"], "completed")
 
     def test_cartela_de_elenco_compõe_tipo_sem_image2(self):
         from aicentralv2.creative_format_lab.swap import (
@@ -2230,6 +2550,9 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
             "preserve": ["layout", "people", "colors", "graphic"],
             "alter": ["secondary"],
             "support": "Entrada franca",
+            "ref_width": 640,
+            "ref_height": 640,
+            "regions": {"secondary": [486, 172, 633, 261]},
             "elements": [
                 {"role": "person", "text": "Mumuzinho"},
                 {"role": "person", "text": "Zé Vaqueiro"},
@@ -2293,12 +2616,39 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
             "alter": ["headline"],
             "headline": "Internet extra que cabe no mês",
             "faces": 1,
+            "ref_width": 640,
+            "ref_height": 240,
+            "regions": {"headline": [20, 24, 260, 80]},
         }
         self.assertEqual(swap_mode(payload), "typeset")
         result = swap_reference(payload)
         painted = Image.open(io.BytesIO(base64.b64decode(result["png_data_url"].split(",", 1)[1]))).convert("RGB")
         self.assertEqual(canvas.getpixel((540, 120)), painted.getpixel((540, 120)))
         self.assertEqual(painted.getpixel((400, 40)), canvas.getpixel((400, 40)))
+
+    def test_typeset_slot_cego_nao_preenche_a_pessoa(self):
+        import base64
+        import io
+
+        from PIL import Image, ImageDraw
+
+        from aicentralv2.creative_format_lab.swap import typeset_reference
+
+        canvas = Image.new("RGB", (640, 240), (1, 21, 74))
+        draw = ImageDraw.Draw(canvas)
+        draw.ellipse([470, 30, 610, 210], fill=(200, 40, 40))
+        buffer = io.BytesIO()
+        canvas.save(buffer, format="PNG")
+        reference = "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
+        result = typeset_reference({
+            "reference": reference,
+            "aspect_ratio": "16:9",
+            "alter": ["headline"],
+            "headline": "Internet extra",
+        })
+        painted = Image.open(io.BytesIO(base64.b64decode(result["png_data_url"].split(",", 1)[1]))).convert("RGB")
+        self.assertEqual(canvas.getpixel((540, 120)), painted.getpixel((540, 120)))
+        self.assertFalse((result.get("patches") or [{}])[0].get("masked"))
 
     def test_recrop_compõe_tipo_depois_do_image2(self):
         from aicentralv2.creative_format_lab.swap import (
@@ -2338,7 +2688,7 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
         self.assertEqual(result["passes"], ["image", "typeset"])
         texts = [item["text"] for item in result["patches"]]
         self.assertIn("R$ 199,90/mês", texts)
-        self.assertIn("ATÉ 2000 GB", texts)
+        self.assertNotIn("ATÉ 2000 GB", texts)
         self.assertTrue(inflated_numbers("ATÉ 17000 GB R$ 1999,90", ["1700", "2000"]))
         scored = score_swap_copy({"support": "17000 GB"}, locks=["1700"])
         self.assertTrue(scored["scrambled"])
@@ -2405,6 +2755,7 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
                 "brand_name": "TIM",
                 "headline": "TIM ULTRA COMBO",
                 "preserve": ["logo"],
+                "alter": ["headline"],
                 "quality": "production",
             }
         )
@@ -2418,11 +2769,11 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
 
     def test_geracao_nao_reusa_id_da_versao(self):
         first = swap_reference(
-            {"reference": "data:image/png;base64,aaa", "quality": "draft"},
+            {"reference": "data:image/png;base64,aaa", "quality": "draft", "alter": ["cta"], "cta": "A", "force_image": True},
             image_callable=lambda *_a, **_k: {"b64_json": "YQ=="},
         )
         second = swap_reference(
-            {"reference": "data:image/png;base64,bbb", "quality": "production"},
+            {"reference": "data:image/png;base64,bbb", "quality": "production", "alter": ["cta"], "cta": "B", "force_image": True},
             image_callable=lambda *_a, **_k: {"b64_json": "Yg=="},
         )
         self.assertNotEqual(first["png_data_url"], second["png_data_url"])
@@ -2475,8 +2826,1136 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
         loaded = lab.load_swap_history({"client_id": 10}, user_id=7)
         self.assertEqual(loaded["active_id"], "v2")
         self.assertEqual(loaded["versions"][1]["name"], "Produção")
+        self.assertEqual(loaded["revision"], 1)
         empty = lab.load_swap_history({"client_id": 11}, user_id=7)
         self.assertEqual(empty["versions"], [])
+
+    def test_historico_trava_original_cas_e_still_privado(self):
+        class _MemStorage:
+            def __init__(self):
+                self.n = 0
+                self.sessions = {}
+
+            def save_trocr_still(self, encoded, output_format="png"):
+                self.n += 1
+                return f"/parametros/api/format-lab/swap/still/{'a' * 32}.png"
+
+            def save_trocr_session(self, key, data):
+                self.sessions[key] = data
+
+            def load_trocr_session(self, key):
+                return self.sessions.get(key)
+
+        repository = FakeRepository()
+        modeling = CreativeModelingService(repository, FakeGenerator(), storage=_MemStorage())
+        lab = FormatLabService(modeling)
+        png = "data:image/png;base64," + TINY_PNG.hex()
+        first = lab.save_swap_history(
+            {
+                "client_id": 10,
+                "active_id": "v1",
+                "base_id": "v1",
+                "revision": 0,
+                "versions": [
+                    {"id": "v1", "name": "Original", "origin": "original", "image": png},
+                ],
+            },
+            user_id=7,
+        )
+        self.assertEqual(first["revision"], 1)
+        self.assertTrue(first["versions"][0]["image_url"].startswith("/parametros/api/format-lab/swap/still/"))
+        original = first["versions"][0]["image_url"]
+        dropped = lab.save_swap_history(
+            {
+                "client_id": 10,
+                "active_id": "v2",
+                "base_id": "v1",
+                "revision": 1,
+                "versions": [
+                    {
+                        "id": "v2",
+                        "name": "Tipo na foto",
+                        "origin": "typeset",
+                        "parent_id": "v1",
+                        "image": png,
+                    },
+                ],
+            },
+            user_id=7,
+        )
+        self.assertEqual([item["id"] for item in dropped["versions"]], ["v1", "v2"])
+        self.assertEqual(dropped["versions"][0]["origin"], "original")
+        self.assertEqual(dropped["versions"][0]["image_url"], original)
+        self.assertEqual(dropped["versions"][1]["parent_id"], "v1")
+        swapped = lab.save_swap_history(
+            {
+                "client_id": 10,
+                "revision": 2,
+                "versions": [
+                    {
+                        "id": "v1",
+                        "name": "Original",
+                        "origin": "edited",
+                        "image": "https://evil.example/track.png",
+                    },
+                    dropped["versions"][1],
+                ],
+            },
+            user_id=7,
+        )
+        self.assertEqual(swapped["versions"][0]["origin"], "original")
+        self.assertEqual(swapped["versions"][0]["image_url"], original)
+        rejected = lab.save_swap_history(
+            {
+                "client_id": 10,
+                "revision": 3,
+                "versions": [
+                    swapped["versions"][0],
+                    swapped["versions"][1],
+                    {"id": "v3", "origin": "edited", "image": "https://evil.example/track.png"},
+                ],
+            },
+            user_id=7,
+        )
+        self.assertEqual([item["id"] for item in rejected["versions"]], ["v1", "v2"])
+        with self.assertRaises(CreativeConflictError) as raised:
+            lab.save_swap_history(
+                {
+                    "client_id": 10,
+                    "revision": 1,
+                    "versions": [swapped["versions"][0]],
+                },
+                user_id=7,
+            )
+        self.assertIn("histórico mudou", str(raised.exception).lower())
+
+    def test_schema_legado_nao_funde_dates_e_subtitle(self):
+        from aicentralv2.creative_format_lab.swap import prepare_swap, typeset_patches
+        from aicentralv2.creative_format_lab.swap_schema import apply_swap_schema, infer_kind
+
+        prepared = prepare_swap({
+            "dates": "24 e 25 de julho",
+            "subtitle": "",
+            "headline": "Entrada franca",
+            "instruction": "Não mexer no elenco.",
+        })
+        self.assertEqual(prepared["dates"], "24 e 25 de julho")
+        self.assertEqual(prepared["subtitle"], "")
+        self.assertEqual(prepared["note"], "Não mexer no elenco.")
+        self.assertEqual(infer_kind("person", "Mumuzinho"), "name_pill")
+        self.assertEqual(infer_kind("person", ""), "face")
+        schema = apply_swap_schema({
+            "elements": [
+                {"role": "cta", "text": "Conferir planos"},
+                {"role": "cta", "text": "Contratar"},
+                {"role": "person", "text": ""},
+                {"role": "person", "text": "Mumuzinho"},
+            ],
+            "logo_text": "TIM",
+            "disclaimer": "Consulte condições.",
+            "preserve": ["logo"],
+        })
+        ids = [item["id"] for item in schema["elements"]]
+        kinds = {item["id"]: item["kind"] for item in schema["elements"]}
+        self.assertIn("cta_01", ids)
+        self.assertIn("cta_02", ids)
+        self.assertEqual(kinds["cta_01"], "type")
+        self.assertEqual(kinds["face_01"], "face")
+        self.assertEqual(kinds["name_pill_01"], "name_pill")
+        self.assertEqual(schema["faces"], 1)
+        self.assertIn("TIM", schema["locks"])
+        self.assertIn("Consulte condições.", schema["locks"])
+        self.assertEqual(schema["logo_text"], "TIM")
+        patches = typeset_patches({
+            "alter": ["secondary"],
+            "dates": "24 e 25 de julho",
+            "subtitle": "linha que não é data",
+            "support": "Entrada franca",
+        })
+        self.assertEqual(
+            [item["slot"] for item in patches],
+            ["secondary", "dates"],
+        )
+        self.assertEqual(patches[1]["text"], "24 e 25 de julho")
+
+    def test_schema_recusa_texto_acima_do_limite_e_nao_descarta_lock(self):
+        from aicentralv2.creative_format_lab.swap import prepare_swap
+        from aicentralv2.creative_format_lab.swap_schema import apply_swap_schema, normalize_read
+
+        with self.assertRaises(ValueError):
+            prepare_swap({"price": "R$ " + ("9" * 40)})
+        many = apply_swap_schema({
+            "elements": [
+                {"role": "person", "text": f"Nome {index}"}
+                for index in range(1, 16)
+            ],
+        })
+        self.assertGreaterEqual(len(many["locks"]), 15)
+        self.assertTrue(many["locks_overflow"])
+        read = normalize_read({
+            "headline": "A" * 90,
+            "cta": "Monte o seu",
+        })
+        self.assertEqual(len(read["headline"]), 90)
+        self.assertIn("headline", read["overflow"])
+        self.assertFalse(read["locks_overflow"])
+        self.assertEqual(read["cta"], "Monte o seu")
+        with self.assertRaises(ValueError) as raised:
+            prepare_swap({"headline": "<html>oferta</html>"})
+        self.assertIn("HTML", str(raised.exception))
+        dup = apply_swap_schema({
+            "elements": [
+                {"id": "cta_01", "role": "cta", "text": "Conferir planos", "bbox_px": [10, 10, 40, 40]},
+                {"id": "cta_01", "role": "cta", "text": "Contratar"},
+                {"role": "person", "kind": "pessoa", "text": ""},
+            ],
+        })
+        ids = [item["id"] for item in dup["elements"]]
+        self.assertEqual(ids.count("cta_01"), 1)
+        self.assertIn("cta_02", ids)
+        self.assertEqual(dup["elements"][2]["kind"], "face")
+        self.assertIsNone(dup["elements"][0]["bbox_px"])
+        prepared = prepare_swap({
+            "locks": [f"Nome {index}" for index in range(1, 16)],
+        })
+        from aicentralv2.creative_format_lab.swap import _lock_list
+        self.assertEqual(len(_lock_list(prepared)), 15)
+
+    def test_plano_unico_hash_conflitos_e_noop(self):
+        from aicentralv2.creative_format_lab.swap import (
+            read_swap_reference,
+            swap_input_references,
+            swap_reference,
+            typeset_patches,
+        )
+        from aicentralv2.creative_format_lab.swap_plan import assert_swap_plan, build_swap_plan
+
+        legado = {
+            "base_id": "v1",
+            "reference": "data:image/png;base64,aaa",
+            "alter": ["headline"],
+            "headline": "Internet extra",
+            "force_image": True,
+        }
+        preview = preview_swap_prompt(legado)
+        self.assertFalse(preview["noop"])
+        self.assertFalse(preview["blocked"])
+        self.assertEqual(preview["plan_hash"], build_swap_plan(legado)["plan_hash"])
+        called = {"n": 0}
+
+        def fake_image(*_a, **_k):
+            called["n"] += 1
+            return {"b64_json": "YQ=="}
+
+        ran = swap_reference({**legado, "plan_hash": preview["plan_hash"]}, image_callable=fake_image)
+        self.assertEqual(called["n"], 1)
+        self.assertEqual(ran["plan_hash"], preview["plan_hash"])
+        self.assertTrue(ran["png_data_url"].startswith("data:image/png"))
+        with self.assertRaises(ValueError) as stale:
+            swap_reference({**legado, "plan_hash": "deadbeef"}, image_callable=fake_image)
+        self.assertIn("plano mudou", str(stale.exception).lower())
+
+        noop = swap_reference({"reference": "data:image/png;base64,aaa", "base_id": "v1"})
+        self.assertEqual(noop["mode"], "noop")
+        self.assertTrue(noop["noop"])
+        self.assertEqual(noop["png_data_url"], "")
+
+        overlap = preview_swap_prompt({"preserve": ["people"], "alter": ["people"], "headline": "X"})
+        self.assertTrue(any(item["code"] == "preserve_and_alter" for item in overlap["conflicts"]))
+        self.assertTrue(overlap["blocked"])
+        with self.assertRaises(ValueError):
+            assert_swap_plan({
+                "preserve": ["people"],
+                "alter": ["people"],
+                "headline": "X",
+                "reference": "data:image/png;base64,aaa",
+            })
+
+        note = preview_swap_prompt({
+            "note": "Trocar o preço para R$ 99",
+            "alter": ["headline"],
+            "headline": "Oferta",
+        })
+        self.assertTrue(any(item["code"] == "note_mismatch" for item in note["conflicts"]))
+
+        field = preview_swap_prompt({
+            "headline": "Novo título",
+            "elements": [{"role": "headline", "text": "Título velho", "text_original": "Título velho"}],
+        })
+        self.assertTrue(any(item["code"] == "field_without_operation" for item in field["conflicts"]))
+
+        patches = typeset_patches({
+            "alter": ["price"],
+            "headline": "Não pintar",
+            "support": "ATÉ 2000 GB",
+            "price": "R$ 10",
+        })
+        self.assertEqual([item["slot"] for item in patches], ["price"])
+
+        unread = read_swap_reference({"reference": "data:image/png;base64,aaa"}, text_callable=None)
+        self.assertEqual(unread["status"], "unavailable")
+        self.assertTrue(unread["error"])
+        broken = read_swap_reference(
+            {"reference": "data:image/png;base64,aaa"},
+            text_callable=lambda *_a, **_k: {"message": {"content": "isso não é json"}},
+        )
+        self.assertEqual(broken["status"], "invalid")
+        self.assertNotEqual(broken["status"], "completed")
+
+        refs = swap_input_references(
+            {"reference": "data:image/png;base64,aaa", "preserve": ["logo"]},
+            brand={"logo_url": "https://cdn.example/logo.png"},
+        )
+        self.assertEqual(refs, ["data:image/png;base64,aaa"])
+
+        confirmed = {
+            "reference": "data:image/png;base64,aaa",
+            "preserve": ["people"],
+            "alter": ["people"],
+            "confirm_conflicts": True,
+        }
+        preview_ok = preview_swap_prompt(confirmed)
+        self.assertFalse(preview_ok["blocked"])
+        allowed = swap_reference(
+            {**confirmed, "plan_hash": preview_ok["plan_hash"]},
+            image_callable=fake_image,
+        )
+        self.assertEqual(allowed["mode"], "image")
+
+        layout = preview_swap_prompt({
+            "aspect_ratio": "9:16",
+            "aspect_hint": "16:9",
+            "preserve": ["layout"],
+            "alter": ["price"],
+            "price": "R$ 10",
+        })
+        self.assertTrue(any(item["code"] == "layout_vs_format" for item in layout["conflicts"]))
+
+        with self.assertRaises(ValueError) as masked:
+            assert_swap_plan({
+                "preserve": ["logo"],
+                "alter": ["headline"],
+                "headline": "Oferta",
+                "note": "Trocar o preço para R$ 99",
+                "reference": "data:image/png;base64,aaa",
+            }, brand={"logo_url": "https://cdn.example/logo.png"})
+        self.assertIn("instrução", str(masked.exception).lower())
+
+        def boom(*_a, **_k):
+            raise RuntimeError("down")
+
+        down = read_swap_reference(
+            {"reference": "data:image/png;base64,aaa"},
+            text_callable=boom,
+        )
+        self.assertEqual(down["status"], "provider_error")
+
+    def test_hash_obsoleto_vira_409_no_servico(self):
+        repository = FakeRepository()
+        modeling = CreativeModelingService(repository, FakeGenerator())
+        lab = FormatLabService(modeling)
+        with self.assertRaises(CreativeConflictError) as raised:
+            lab.swap({
+                "reference": "data:image/png;base64,aaa",
+                "alter": ["cta"],
+                "cta": "A",
+                "plan_hash": "deadbeef",
+            })
+        self.assertIn("plano mudou", str(raised.exception).lower())
+
+    def test_noop_nao_grava_versao(self):
+        class _MemStorage:
+            def __init__(self):
+                self.n = 0
+
+            def save_generated_base64(self, encoded, output_format="png"):
+                self.n += 1
+                return f"/static/uploads/creative_generated/noop{self.n}.png"
+
+        repository = FakeRepository()
+        modeling = CreativeModelingService(repository, FakeGenerator(), storage=_MemStorage())
+        lab = FormatLabService(modeling)
+        result = lab.swap(
+            {"reference": "data:image/png;base64,aaa", "client_id": 10},
+            user_id=7,
+        )
+        self.assertTrue(result["noop"])
+        self.assertEqual(result["mode"], "noop")
+        self.assertFalse(result.get("png_data_url"))
+        self.assertEqual(modeling.storage.n, 0)
+        self.assertNotIn("trocr", repository.brand_profiles.get(10) or {})
+
+    def test_typeset_com_mascara_nao_mexe_fora_da_bbox(self):
+        import base64
+        import io
+
+        from PIL import Image, ImageDraw
+
+        from aicentralv2.creative_format_lab.swap import (
+            score_typeset_qa,
+            typeset_reference,
+        )
+        from aicentralv2.creative_format_lab.swap_plan import build_swap_plan
+
+        canvas = Image.new("RGB", (320, 120), (1, 21, 74))
+        draw = ImageDraw.Draw(canvas)
+        draw.rectangle([16, 40, 150, 88], fill=(255, 255, 255))
+        draw.ellipse([230, 20, 300, 100], fill=(200, 40, 40))
+        buffer = io.BytesIO()
+        canvas.save(buffer, format="PNG")
+        reference = "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
+        box = [16, 40, 150, 88]
+        result = typeset_reference({
+            "reference": reference,
+            "alter": ["price"],
+            "price": "R$ 99",
+            "ref_width": 320,
+            "ref_height": 120,
+            "regions": {"price": box},
+        })
+        painted = Image.open(io.BytesIO(base64.b64decode(result["png_data_url"].split(",", 1)[1]))).convert("RGB")
+        self.assertEqual(canvas.getpixel((260, 60)), painted.getpixel((260, 60)))
+        self.assertEqual(result["qa"]["status"], "pass")
+        self.assertEqual(result["qa"]["pixels_outside_mask"], 0)
+        self.assertTrue(result["patches"][0]["masked"])
+        leaked = canvas.copy()
+        leaked.putpixel((260, 60), (0, 255, 0))
+        failed = score_typeset_qa(canvas, leaked, [box])
+        self.assertEqual(failed["status"], "fail")
+        self.assertGreater(failed["pixels_outside_mask"], 0)
+        with self.assertRaises(ValueError) as remote:
+            typeset_reference({
+                "reference": "https://evil.test/still.png",
+                "alter": ["price"],
+                "price": "R$ 1",
+            })
+        self.assertIn("URL", str(remote.exception))
+        first = build_swap_plan({
+            "alter": ["price"],
+            "price": "R$ 99",
+            "regions": {"price": [16, 40, 150, 88]},
+        })
+        second = build_swap_plan({
+            "alter": ["price"],
+            "price": "R$ 99",
+            "regions": {"price": [20, 44, 160, 92]},
+        })
+        self.assertNotEqual(first["plan_hash"], second["plan_hash"])
+        from aicentralv2.creative_format_lab import swap as swap_mod
+
+        previous = swap_mod.TYPESET_MAX_PIXELS
+        swap_mod.TYPESET_MAX_PIXELS = 100
+        try:
+            with self.assertRaises(ValueError) as huge:
+                typeset_reference({
+                    "reference": reference,
+                    "alter": ["price"],
+                    "price": "R$ 99",
+                })
+        finally:
+            swap_mod.TYPESET_MAX_PIXELS = previous
+        self.assertIn("pixels", str(huge.exception))
+
+    def test_typeset_sem_regiao_nao_pinta_no_escuro(self):
+        from aicentralv2.creative_format_lab.swap_plan import assert_swap_plan, build_swap_plan
+
+        payload = {
+            "reference": "data:image/png;base64,aaa",
+            "preserve": ["people"],
+            "alter": ["price"],
+            "price": "R$ 99",
+            "faces": 4,
+            "confirm_conflicts": True,
+        }
+        plan = build_swap_plan(payload)
+        self.assertTrue(any(item["code"] == "needs_region" for item in plan["conflicts"]))
+        self.assertTrue(plan["blocked"])
+        self.assertEqual(plan["mode"], "blocked")
+        with self.assertRaises(ValueError) as raised:
+            assert_swap_plan(payload)
+        self.assertIn("região", str(raised.exception).lower())
+        with_box = build_swap_plan({
+            **payload,
+            "regions": {"price": [16, 40, 150, 88]},
+            "ref_width": 320,
+            "ref_height": 120,
+        })
+        self.assertFalse(any(item["code"] == "needs_region" for item in with_box["conflicts"]))
+        self.assertFalse(with_box["blocked"])
+        self.assertEqual(with_box["mode"], "typeset")
+
+    def test_texto_sem_elenco_e_regiao_vai_para_typeset(self):
+        import base64
+        import io
+
+        from PIL import Image, ImageDraw
+
+        from aicentralv2.creative_format_lab.swap import (
+            _patch_ink,
+            ratio_from_size,
+            resolve_aspect_ratio,
+            swap_mode,
+            typeset_patches,
+            typeset_reference,
+        )
+
+        self.assertEqual(ratio_from_size(640, 640), "1:1")
+        self.assertEqual(ratio_from_size(1080, 1080), "1:1")
+        self.assertEqual(ratio_from_size(1080, 1920), "9:16")
+        self.assertEqual(resolve_aspect_ratio({"ref_width": 1080, "ref_height": 1920}), "9:16")
+        self.assertEqual(resolve_aspect_ratio({"aspect_ratio": "1:1", "ref_width": 1080, "ref_height": 1920}), "1:1")
+        self.assertEqual(swap_mode({"alter": ["price"], "price": "R$ 99"}), "typeset")
+
+        canvas = Image.new("RGB", (320, 140), (1, 21, 74))
+        draw = ImageDraw.Draw(canvas)
+        draw.rectangle([12, 20, 140, 60], fill=(255, 255, 255))
+        draw.rectangle([170, 80, 300, 120], fill=(250, 220, 40))
+        buffer = io.BytesIO()
+        canvas.save(buffer, format="PNG")
+        reference = "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
+        result = typeset_reference({
+            "reference": reference,
+            "alter": ["price"],
+            "price": "R$ 79",
+            "ref_width": 320,
+            "ref_height": 140,
+            "regions": {"price": [12, 20, 140, 60]},
+        })
+        self.assertEqual(result["mode"], "typeset")
+        self.assertEqual(result["qa"]["status"], "pass")
+        painted = Image.open(io.BytesIO(base64.b64decode(result["png_data_url"].split(",", 1)[1]))).convert("RGB")
+        self.assertEqual(canvas.getpixel((230, 100)), painted.getpixel((230, 100)))
+
+        cta_ink = _patch_ink("cta", {"ink": (250, 220, 40), "cover": [(1, 1)]}, (1, 21, 74))
+        self.assertEqual(cta_ink, (250, 220, 40))
+        self.assertNotEqual(cta_ink, (17, 17, 17))
+
+        pills = Image.new("RGB", (320, 80), (1, 21, 74))
+        pill_draw = ImageDraw.Draw(pills)
+        pill_draw.rectangle([12, 20, 120, 60], fill=(250, 220, 40))
+        pill_draw.rectangle([200, 20, 308, 60], fill=(250, 220, 40))
+        gap = pills.getpixel((160, 40))
+        pill_buf = io.BytesIO()
+        pills.save(pill_buf, format="PNG")
+        two_ctas = typeset_reference({
+            "reference": "data:image/png;base64," + base64.b64encode(pill_buf.getvalue()).decode("ascii"),
+            "alter": ["cta"],
+            "cta": "Conferir planos",
+            "ref_width": 320,
+            "ref_height": 80,
+            "elements": [
+                {"id": "cta_01", "role": "cta", "text": "Ver planos", "bbox_px": [12, 20, 120, 60]},
+                {"id": "cta_02", "role": "cta", "text": "Contratar", "bbox_px": [200, 20, 308, 60]},
+            ],
+        })
+        self.assertEqual(len(two_ctas["patches"]), 2)
+        self.assertEqual([item["text"] for item in two_ctas["patches"]], ["Ver planos", "Contratar"])
+        painted_ctas = Image.open(io.BytesIO(base64.b64decode(two_ctas["png_data_url"].split(",", 1)[1]))).convert("RGB")
+        self.assertEqual(gap, painted_ctas.getpixel((160, 40)))
+
+        preview = preview_swap_prompt({
+            "headline": "Internet extra",
+            "price": "R$ 169,99",
+            "cta": "Assine",
+            "alter": ["headline"],
+            "elements": [
+                {"role": "headline", "text": "Linha velha", "text_original": "Linha velha", "source": "ocr"},
+            ],
+        })
+        self.assertIn("Internet extra", preview["prompt"])
+        self.assertNotIn("Price exactly", preview["prompt"])
+        self.assertIn("→", preview["preview"])
+
+    def test_prompt_deriva_so_das_operacoes(self):
+        prompt = build_optimized_prompt(
+            {
+                "headline": "Internet extra",
+                "price": "R$ 169,99",
+                "cta": "Assine",
+                "alter": ["headline"],
+            },
+            operations=[{"field": "headline", "from": "Linha velha", "to": "Internet extra"}],
+        )
+        self.assertIn("Headline exactly: Internet extra", prompt)
+        self.assertIn("Replace only the line 'Linha velha'", prompt)
+        self.assertNotIn("Price exactly", prompt)
+        self.assertNotIn("CTA exactly", prompt)
+
+    def test_rascunho_do_trocr_manda_qualidade_media(self):
+        from aicentralv2.creative_format_lab.swap import image_quality
+
+        self.assertEqual(image_quality({"quality": "draft"}), "medium")
+        self.assertEqual(image_quality({"quality": "rascunho"}), "medium")
+        self.assertEqual(image_quality({"quality": "production"}), "high")
+
+        seen = {}
+
+        class Generator:
+            def generate_image(self, prompt, **kwargs):
+                seen.update(kwargs)
+                return {"b64_json": __import__("base64").b64encode(TINY_PNG).decode()}
+
+        class Modeling:
+            generator = Generator()
+            repository = None
+
+        lab = FormatLabService(Modeling())
+        lab._image_callable({"generate": True, "image_quality": "medium"})("x")
+        self.assertEqual(seen.get("quality"), "medium")
+        seen.clear()
+        lab._image_callable({"generate": True})("x")
+        self.assertNotIn("quality", seen)
+
+    def test_duas_pills_sem_caixa_nao_pintam_o_vao(self):
+        import base64
+        import io
+
+        from PIL import Image, ImageDraw
+
+        from aicentralv2.creative_format_lab.swap import typeset_reference
+        from aicentralv2.creative_format_lab.swap_plan import build_swap_plan
+
+        pills = Image.new("RGB", (320, 80), (1, 21, 74))
+        draw = ImageDraw.Draw(pills)
+        draw.rectangle([12, 20, 120, 60], fill=(250, 220, 40))
+        draw.rectangle([200, 20, 308, 60], fill=(250, 220, 40))
+        gap = pills.getpixel((160, 40))
+        buffer = io.BytesIO()
+        pills.save(buffer, format="PNG")
+        payload = {
+            "reference": "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("ascii"),
+            "alter": ["cta"],
+            "cta": "Ver planos",
+            "ref_width": 320,
+            "ref_height": 80,
+            "elements": [
+                {"id": "cta_01", "role": "cta", "text": "Ver planos"},
+                {"id": "cta_02", "role": "cta", "text": "Contratar"},
+            ],
+        }
+        plan = build_swap_plan({k: v for k, v in payload.items() if k != "reference"})
+        self.assertFalse(plan["blocked"])
+        self.assertEqual(plan["mode"], "typeset")
+        result = typeset_reference(payload)
+        self.assertEqual(len(result["patches"]), 2)
+        self.assertEqual([item["text"] for item in result["patches"]], ["Ver planos", "Contratar"])
+        self.assertTrue(all(item.get("bbox_px") for item in result["patches"]))
+        painted = Image.open(io.BytesIO(base64.b64decode(result["png_data_url"].split(",", 1)[1]))).convert("RGB")
+        self.assertEqual(gap, painted.getpixel((160, 40)))
+        self.assertEqual(result["qa"]["status"], "pass")
+
+    def test_um_cta_pinta_so_a_pill_da_esquerda(self):
+        import base64
+        import io
+
+        from PIL import Image, ImageDraw
+
+        from aicentralv2.creative_format_lab.swap import typeset_reference
+        from aicentralv2.creative_format_lab.swap_plan import build_swap_plan
+
+        pills = Image.new("RGB", (320, 80), (1, 21, 74))
+        draw = ImageDraw.Draw(pills)
+        draw.rectangle([12, 20, 120, 60], fill=(250, 220, 40))
+        draw.rectangle([200, 20, 308, 60], fill=(250, 220, 40))
+        second = pills.getpixel((250, 40))
+        gap = pills.getpixel((160, 40))
+        buffer = io.BytesIO()
+        pills.save(buffer, format="PNG")
+        payload = {
+            "reference": "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("ascii"),
+            "alter": ["cta"],
+            "cta": "Assine agora",
+            "ref_width": 320,
+            "ref_height": 80,
+        }
+        plan = build_swap_plan({k: v for k, v in payload.items() if k != "reference"})
+        self.assertFalse(plan["blocked"])
+        self.assertEqual(plan["mode"], "typeset")
+        result = typeset_reference(payload)
+        self.assertEqual(len(result["patches"]), 1)
+        painted = Image.open(io.BytesIO(base64.b64decode(result["png_data_url"].split(",", 1)[1]))).convert("RGB")
+        self.assertEqual(gap, painted.getpixel((160, 40)))
+        self.assertEqual(second, painted.getpixel((250, 40)))
+        self.assertNotEqual(pills.getpixel((66, 40)), painted.getpixel((66, 40)))
+        self.assertEqual(result["qa"]["status"], "pass")
+
+        empty = Image.new("RGB", (320, 80), (1, 21, 74))
+        empty_buf = io.BytesIO()
+        empty.save(empty_buf, format="PNG")
+        with self.assertRaises(ValueError) as raised:
+            typeset_reference({
+                "reference": "data:image/png;base64," + base64.b64encode(empty_buf.getvalue()).decode("ascii"),
+                "alter": ["cta"],
+                "cta": "Assine agora",
+            })
+        self.assertIn("pill", str(raised.exception).lower())
+
+
+class CreativeFormatLabStillBeatsTest(unittest.TestCase):
+    BLACK_READ = {
+        "headline": "Acesse vantagens exclusivas e um superbônus de internet",
+        "support": "até 110GB + bônus para redes sociais",
+        "price": "R$ 169,99",
+        "cta": "Conferir planos",
+        "logo_text": "TIM Black",
+    }
+    STILL = "https://cdn.example/tim-black.png"
+
+    def _payload(self, **extra):
+        from aicentralv2.creative_format_lab.engineer import _still_fingerprint
+
+        data = {
+            "scene_count": 4,
+            "variant": "A",
+            "images": [self.STILL],
+            "still_read": dict(self.BLACK_READ),
+            "still_fingerprint": _still_fingerprint(self.STILL),
+            "ocr_status": "succeeded",
+        }
+        data.update(extra)
+        return data
+
+    def _adversary(self, messages, **_k):
+        blob = str(messages)
+        if "CreativeFormatSpec" in blob:
+            return {
+                "message": {
+                    "content": {
+                        "intent": "create",
+                        "format": "video-linear-15",
+                        "variant": "A",
+                        "adapter": "generic_ctv",
+                        "platform_label": "CTV",
+                        "brand_name": "TIM",
+                        "scenes": [
+                            {"id": "scene_01", "purpose": "hook", "headline": "Internet infinita"},
+                            {"id": "scene_02", "purpose": "benefit", "headline": "TIM Black"},
+                            {"id": "scene_03", "purpose": "proof", "headline": "R$ 99"},
+                            {
+                                "id": "scene_04",
+                                "purpose": "cta",
+                                "headline": "TIM Black",
+                                "cta": "Saiba mais",
+                            },
+                        ],
+                    }
+                }
+            }
+        if "Leia os elementos editáveis deste still." in blob:
+            return {"message": {"content": dict(self.BLACK_READ)}}
+        return {"message": {"content": {"passed": True, "score": 0.9, "defects": [], "patches": []}}}
+
+    def test_tim_black_herda_papeis_do_still(self):
+        board = build_storyboard(
+            self._payload(),
+            client={"id": 32, "name": "TIM"},
+            text_callable=self._adversary,
+        )
+        cards = {item["id"]: item for item in board["storyboard"]}
+        bind = board["copy_bind"]
+        self.assertEqual(bind["ocr_status"], "succeeded")
+        self.assertEqual(cards["scene_01"]["headline"], self.BLACK_READ["headline"])
+        self.assertEqual(cards["scene_02"]["headline"], self.BLACK_READ["support"])
+        self.assertEqual(cards["scene_03"]["headline"], self.BLACK_READ["price"])
+        self.assertEqual(cards["scene_04"]["cta"], "Conferir planos")
+        self.assertNotEqual(cards["scene_02"]["headline"], "TIM Black")
+        self.assertNotEqual(cards["scene_04"]["cta"], "TIM Black")
+        self.assertNotIn("Internet infinita", [item["headline"] for item in board["storyboard"]])
+        roles = {item["scene_id"]: item["source_block"] for item in bind["beats"]}
+        self.assertEqual(roles["scene_01"], "headline")
+        self.assertEqual(roles["scene_02"], "support")
+        self.assertEqual(roles["scene_03"], "price")
+        self.assertEqual(roles["scene_04"], "cta")
+        self.assertEqual(board["provider"], "llm")
+
+    def test_modelo_adversarial_nao_chega_ao_html(self):
+        result = run_session(
+            {**self._payload(), "format": "video-linear-15", "renders": 1},
+            client={"id": 32, "name": "TIM", "primary_color": "#0033A0"},
+            text_callable=self._adversary,
+            screenshot=_shot,
+        )
+        headlines = [item["headline"] for item in result["scenes"]]
+        self.assertEqual(headlines[0], self.BLACK_READ["headline"])
+        self.assertEqual(headlines[1], self.BLACK_READ["support"])
+        self.assertEqual(headlines[2], self.BLACK_READ["price"])
+        self.assertEqual(result["scenes"][3]["cta"], "Conferir planos")
+        html = " ".join(item.get("html") or "" for item in result["scenes"])
+        self.assertIn("Conferir planos", html)
+        self.assertIn("110GB", html)
+        self.assertNotIn("Internet infinita", html)
+        self.assertEqual(result["spec"]["scenes"][1]["headline"], self.BLACK_READ["support"])
+        self.assertEqual(result["copy_bind"]["ocr_status"], "succeeded")
+        self.assertEqual(result["copy_bind"]["beats"][1]["source_block"], "support")
+
+    def test_copy_insuficiente_nao_inventa_beneficio(self):
+        payload = self._payload(still_read={
+            "headline": "Acesse vantagens exclusivas",
+            "support": "",
+            "price": "",
+            "cta": "Conferir planos",
+            "logo_text": "TIM Black",
+        })
+        board = build_storyboard(payload, client={"id": 32, "name": "TIM"}, text_callable=self._adversary)
+        cards = {item["id"]: item for item in board["storyboard"]}
+        states = {item["scene_id"]: item["bind_state"] for item in board["copy_bind"]["beats"]}
+        self.assertEqual(states["scene_01"], "bound")
+        self.assertEqual(states["scene_02"], "insufficient")
+        self.assertEqual(states["scene_03"], "insufficient")
+        self.assertEqual(states["scene_04"], "bound")
+        self.assertEqual(cards["scene_02"]["headline"], "")
+        self.assertNotEqual(cards["scene_02"]["headline"], "TIM Black")
+        self.assertNotEqual(cards["scene_02"]["headline"], "Internet infinita")
+        self.assertEqual(cards["scene_03"]["headline"], "")
+        self.assertEqual(board["copy_bind"]["ocr_status"], "partial")
+        self.assertEqual(board["provider"], "llm")
+
+    def test_leitura_parcial_nao_completa_campo_ilegivel(self):
+        payload = self._payload(still_read={
+            "headline": "Acesse vantagens exclusivas",
+            "support": "",
+            "price": "R$ 169,99",
+            "cta": "Conferir planos",
+            "logo_text": "TIM Black",
+        })
+        board = build_storyboard(payload, client={"id": 32, "name": "TIM"}, text_callable=self._adversary)
+        cards = {item["id"]: item for item in board["storyboard"]}
+        self.assertEqual(cards["scene_03"]["headline"], "R$ 169,99")
+        self.assertEqual(cards["scene_02"]["headline"], "")
+        self.assertEqual(cards["scene_04"]["cta"], "Conferir planos")
+
+    def test_ocr_falhou_nao_e_sem_still(self):
+        from aicentralv2.creative_format_lab.engineer import _still_fingerprint, apply_still_read, normalize_knobs
+
+        knobs = apply_still_read(
+            normalize_knobs({
+                "still_read": {},
+                "ocr_status": "failed",
+                "still_fingerprint": _still_fingerprint(self.STILL),
+            }),
+            [self.STILL],
+        )
+        bind = knobs["still_bind"]
+        self.assertEqual(bind["ocr_status"], "failed")
+        self.assertNotEqual(bind["ocr_status"], "none")
+        self.assertTrue(all(item["bind_state"] == "failed" for item in bind["beats"]))
+
+    def test_ocr_indisponivel_nao_declara_heranca(self):
+        board = build_storyboard(
+            {
+                "scene_count": 4,
+                "images": [self.STILL],
+            },
+            client={"id": 32, "name": "TIM"},
+        )
+        bind = board["copy_bind"]
+        self.assertEqual(bind["ocr_status"], "unavailable")
+        self.assertTrue(all(item["bind_state"] == "unavailable" for item in bind["beats"]))
+        self.assertNotEqual(bind["ocr_status"], "none")
+        self.assertFalse(any(item["headline"] == "TIM Black" for item in board["storyboard"]))
+
+    def test_troca_de_still_descarta_lock_obsoleto(self):
+        payload = self._payload(storyboard=[
+            {"id": "scene_02", "headline": "TIM Black", "purpose": "benefit"},
+            {"id": "scene_01", "headline": self.BLACK_READ["headline"]},
+        ])
+        board = build_storyboard(payload, client={"id": 32, "name": "TIM"}, text_callable=self._adversary)
+        cards = {item["id"]: item for item in board["storyboard"]}
+        self.assertEqual(cards["scene_01"]["headline"], self.BLACK_READ["headline"])
+        self.assertEqual(cards["scene_02"]["headline"], self.BLACK_READ["support"])
+        self.assertNotEqual(cards["scene_02"]["headline"], "TIM Black")
+
+    def test_regenerar_visual_preserva_copy_autorizada(self):
+        payload = self._payload(storyboard=[
+            {"id": "scene_01", "headline": self.BLACK_READ["headline"]},
+            {"id": "scene_03", "headline": self.BLACK_READ["price"]},
+        ])
+        board = build_storyboard(payload, client={"id": 32, "name": "TIM"}, text_callable=self._adversary)
+        cards = {item["id"]: item for item in board["storyboard"]}
+        self.assertEqual(cards["scene_01"]["headline"], self.BLACK_READ["headline"])
+        self.assertEqual(cards["scene_03"]["headline"], self.BLACK_READ["price"])
+        self.assertEqual(cards["scene_04"]["cta"], "Conferir planos")
+
+    def test_sem_still_preserva_campanha(self):
+        board = build_storyboard(
+            {"campaign_slug": "vivara-presente-ctv", "scene_count": 4},
+            client={"id": 4, "name": "Vivara"},
+        )
+        self.assertEqual(board["copy_bind"]["ocr_status"], "none")
+        self.assertIn("momentos", board["storyboard"][0]["headline"].lower())
+
+    def test_dois_ctas_na_leitura_nao_sao_concatenados(self):
+        payload = self._payload(still_read_full={
+            "cta": "Conferir planos",
+            "elements": [
+                {"id": "cta_01", "role": "cta", "text": "Conferir planos"},
+                {"id": "cta_02", "role": "cta", "text": "Contratar"},
+            ],
+        })
+        board = build_storyboard(payload, client={"id": 32, "name": "TIM"}, text_callable=self._adversary)
+        options = board["copy_bind"]["cta_options"]
+        self.assertEqual([item["text"] for item in options], ["Conferir planos", "Contratar"])
+        self.assertEqual(board["storyboard"][3]["cta"], "Conferir planos")
+        self.assertNotIn("Conferir planos Contratar", board["storyboard"][3]["cta"])
+        origin = board["copy_origin"]["beats"][3]["fields"]
+        self.assertEqual(origin["headline"]["source_block"], "price")
+        self.assertEqual(origin["cta"]["source_block"], "cta")
+        self.assertNotEqual(origin["headline"]["source_block"], origin["cta"]["source_block"])
+
+
+class CreativeFormatLabStillReadLifecycleTest(unittest.TestCase):
+    STILL = "https://cdn.example/tim-black.png"
+    OTHER = "https://cdn.example/tim-fit.png"
+    BLACK = {
+        "headline": "Acesse vantagens exclusivas e um superbônus de internet",
+        "support": "até 110GB + bônus para redes sociais",
+        "price": "R$ 169,99",
+        "cta": "Conferir planos",
+        "logo_text": "TIM Black",
+    }
+
+    def _lab(self):
+        repository = FakeRepository()
+        modeling = CreativeModelingService(repository=repository, generator=FakeGenerator())
+        return FormatLabService(modeling), repository
+
+    def _session(self, lab, **extra):
+        payload = {
+            "client_id": 10,
+            "campaign_id": 30,
+            "format": "video-linear-15",
+            "fresh": True,
+        }
+        payload.update(extra)
+        return lab.create_session(payload)
+
+    def _spy(self, ocr_calls, read=None):
+        chips = dict(read or self.BLACK)
+
+        def fake(messages, **_k):
+            blob = str(messages)
+            if "Leia os elementos editáveis deste still." in blob:
+                ocr_calls.append(1)
+                return {"message": {"content": chips}}
+            if "CreativeFormatSpec" in blob:
+                return {
+                    "message": {
+                        "content": {
+                            "intent": "create",
+                            "format": "video-linear-15",
+                            "variant": "A",
+                            "adapter": "generic_ctv",
+                            "platform_label": "CTV",
+                            "brand_name": "TIM",
+                            "scenes": [
+                                {"id": "scene_01", "purpose": "hook", "headline": "Internet infinita"},
+                                {"id": "scene_02", "purpose": "benefit", "headline": "TIM Black"},
+                                {"id": "scene_03", "purpose": "proof", "headline": "R$ 99"},
+                                {"id": "scene_04", "purpose": "cta", "headline": "TIM Black", "cta": "Saiba mais"},
+                            ],
+                        }
+                    }
+                }
+            return {"message": {"content": {"passed": True, "score": 0.9, "defects": [], "patches": []}}}
+
+        return fake
+
+    def test_regenerar_reutiliza_a_mesma_leitura(self):
+        lab, _repo = self._lab()
+        session = self._session(lab)
+        calls = []
+        first = lab.storyboard(session["id"], {
+            "images": [self.STILL],
+            "scene_count": 4,
+            "text_callable": self._spy(calls),
+        })
+        self.assertEqual(len(calls), 1)
+        self.assertTrue(first["still_read"]["read_id"])
+        second = lab.storyboard(session["id"], {
+            "images": [self.STILL],
+            "scene_count": 4,
+            "text_callable": self._spy(calls),
+        })
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(second["still_read"]["read_id"], first["still_read"]["read_id"])
+        self.assertTrue(second["still_read"]["reused"])
+        self.assertEqual(second["copy_origin"]["read_id"], first["still_read"]["read_id"])
+
+    def test_restaurar_sessao_recupera_vinculo_sem_ocr(self):
+        lab, _repo = self._lab()
+        session = self._session(lab)
+        calls = []
+        created = lab.storyboard(session["id"], {
+            "images": [self.STILL],
+            "scene_count": 4,
+            "text_callable": self._spy(calls),
+        })
+        stored = lab.get_session(session["id"])
+        listed = lab.list_sessions({"client_id": 10, "format": "video-linear-15"})
+        self.assertEqual(stored["still_read"]["read_id"], created["still_read"]["read_id"])
+        self.assertEqual(stored["copy_origin"]["beats"][1]["fields"]["headline"]["text"], self.BLACK["support"])
+        self.assertEqual(listed["active"]["still_read"]["read_id"], created["still_read"]["read_id"])
+        self.assertEqual(len(calls), 1)
+
+    def test_trocar_still_nao_reusa_leitura_anterior(self):
+        lab, _repo = self._lab()
+        session = self._session(lab)
+        calls = []
+        first = lab.storyboard(session["id"], {
+            "images": [self.STILL],
+            "scene_count": 4,
+            "text_callable": self._spy(calls),
+        })
+        other = dict(self.BLACK, headline="Outro gancho", support="Outro benefício")
+        second = lab.storyboard(session["id"], {
+            "images": [self.OTHER],
+            "scene_count": 4,
+            "text_callable": self._spy(calls, other),
+        })
+        self.assertEqual(len(calls), 2)
+        self.assertNotEqual(second["still_read"]["read_id"], first["still_read"]["read_id"])
+        self.assertEqual(second["storyboard"][0]["headline"], "Outro gancho")
+        stored = lab.get_session(session["id"])
+        self.assertEqual(stored["still_read_prev"]["read_id"], first["still_read"]["read_id"])
+
+    def test_releitura_explicita_gera_revisao(self):
+        lab, _repo = self._lab()
+        session = self._session(lab)
+        calls = []
+        first = lab.storyboard(session["id"], {
+            "images": [self.STILL],
+            "scene_count": 4,
+            "text_callable": self._spy(calls),
+        })
+        second = lab.storyboard(session["id"], {
+            "images": [self.STILL],
+            "scene_count": 4,
+            "reread_still": True,
+            "text_callable": self._spy(calls),
+        })
+        self.assertEqual(len(calls), 2)
+        self.assertNotEqual(second["still_read"]["read_id"], first["still_read"]["read_id"])
+        self.assertEqual(second["still_read"]["revision"], first["still_read"]["revision"] + 1)
+
+    def test_leitura_parcial_preserva_pendencia(self):
+        lab, _repo = self._lab()
+        session = self._session(lab)
+        partial = {"headline": "Acesse vantagens exclusivas", "support": "", "price": "R$ 169,99", "cta": "Conferir planos", "logo_text": "TIM Black"}
+        board = lab.storyboard(session["id"], {
+            "images": [self.STILL],
+            "scene_count": 4,
+            "text_callable": self._spy([], partial),
+        })
+        states = {item["scene_id"]: item["bind_state"] for item in board["copy_bind"]["beats"]}
+        self.assertEqual(board["still_read"]["ocr_status"], "partial")
+        self.assertEqual(states["scene_02"], "insufficient")
+        self.assertTrue(board["copy_origin"]["beats"][1]["fields"]["headline"]["pending"])
+
+    def test_ocr_falhou_nao_repete_sozinho(self):
+        lab, _repo = self._lab()
+        session = self._session(lab)
+        calls = []
+
+        def boom(messages, **_k):
+            blob = str(messages)
+            if "Leia os elementos editáveis deste still." in blob:
+                calls.append(1)
+                raise ValueError("ocr down")
+            if "CreativeFormatSpec" in blob:
+                return {
+                    "message": {
+                        "content": {
+                            "intent": "create",
+                            "format": "video-linear-15",
+                            "scenes": [
+                                {"id": "scene_01", "headline": "A"},
+                                {"id": "scene_02", "headline": "B"},
+                                {"id": "scene_03", "headline": "C"},
+                                {"id": "scene_04", "headline": "D", "cta": "Saiba mais"},
+                            ],
+                        }
+                    }
+                }
+            return {"message": {"content": {"passed": True, "score": 0.9, "defects": [], "patches": []}}}
+
+        first = lab.storyboard(session["id"], {"images": [self.STILL], "scene_count": 4, "text_callable": boom})
+        second = lab.storyboard(session["id"], {"images": [self.STILL], "scene_count": 4, "text_callable": boom})
+        self.assertEqual(first["still_read"]["ocr_status"], "failed")
+        self.assertEqual(len(calls), 1)
+        self.assertTrue(second["still_read"]["reused"])
+
+    def test_read_id_de_outra_sessao_nao_autoriza(self):
+        lab, _repo = self._lab()
+        first = lab.storyboard(self._session(lab)["id"], {
+            "images": [self.STILL],
+            "scene_count": 4,
+            "text_callable": self._spy([]),
+        })
+        other = self._session(lab)
+        calls = []
+        forged = lab.storyboard(other["id"], {
+            "images": [self.STILL],
+            "scene_count": 4,
+            "still_read_id": first["still_read"]["read_id"],
+            "still_read": {"chips": {"headline": "Texto de outra sessão"}, "fingerprint": "x"},
+            "text_callable": self._spy(calls),
+        })
+        self.assertNotEqual(forged["still_read"]["read_id"], first["still_read"]["read_id"])
+        self.assertNotEqual(forged["storyboard"][0]["headline"], "Texto de outra sessão")
+        self.assertEqual(len(calls), 1)
+
+    def test_payload_adulterado_nao_e_autoritativo(self):
+        lab, _repo = self._lab()
+        session = self._session(lab)
+        board = lab.storyboard(session["id"], {
+            "scene_count": 4,
+            "still_read": dict(self.BLACK),
+            "ocr_status": "succeeded",
+            "still_fingerprint": "forjado",
+        })
+        self.assertNotEqual(board["copy_bind"]["ocr_status"], "succeeded")
+        self.assertNotIn(self.BLACK["support"], [item["headline"] for item in board["storyboard"]])
+
+    def test_sessao_antiga_nao_declara_heranca(self):
+        lab, repo = self._lab()
+        session = self._session(lab)
+        stored = repo.get_concept_session(session["id"])
+        stored["storyboard"] = [{"id": "scene_01", "headline": "Linha antiga", "purpose": "hook"}]
+        repo.upsert_concept_session(stored)
+        data = lab.get_session(session["id"])
+        self.assertFalse((data.get("still_read") or {}).get("read_id"))
+        self.assertNotEqual((data.get("copy_origin") or {}).get("ocr_status"), "succeeded")
+
+    def test_campanha_travada_mostra_origem_final(self):
+        lab, _repo = self._lab()
+        session = self._session(lab, campaign_slug="tim-controle-ctv")
+        board = lab.storyboard(session["id"], {
+            "campaign_slug": "tim-controle-ctv",
+            "images": [self.STILL],
+            "scene_count": 4,
+            "text_callable": self._spy([]),
+        })
+        origin = board["copy_origin"]
+        self.assertTrue(origin["lock_copy"])
+        self.assertEqual(origin["beats"][0]["fields"]["headline"]["origin"], "campaign")
+        self.assertTrue(origin["campaign_overrides_still"])
+        self.assertIn("O mês acabou", board["storyboard"][0]["headline"])
+
+    def test_estado_persistido_nao_tem_base64(self):
+        lab, _repo = self._lab()
+        session = self._session(lab)
+        png = "data:image/png;base64," + ("A" * 80)
+        board = lab.storyboard(session["id"], {
+            "images": [self.STILL],
+            "key_visuals": {"scene_01": png},
+            "scene_count": 4,
+            "text_callable": self._spy([]),
+        })
+        blob = str(board["still_read"]) + str(board["copy_origin"])
+        self.assertNotIn("base64", blob)
+        self.assertNotIn(png, blob)
+        stored = lab.get_session(session["id"])
+        self.assertNotIn("base64", str(stored.get("still_read") or {}))
 
 
 class CreativeFormatLabRoutesTest(unittest.TestCase):
@@ -2490,6 +3969,10 @@ class CreativeFormatLabRoutesTest(unittest.TestCase):
         with self.client.session_transaction() as session:
             session["user_id"] = 1
             session["user_type"] = "admin"
+            session["trocr_csrf_token"] = "trocr-test-csrf"
+
+    def _trocr_headers(self):
+        return {"X-Trocr-CSRF-Token": "trocr-test-csrf"}
 
     def test_catalogo_e_handoff_bloqueado(self):
         service = Mock()
@@ -2569,6 +4052,7 @@ class CreativeFormatLabRoutesTest(unittest.TestCase):
             response = self.client.post(
                 "/parametros/api/format-lab/swap/read",
                 json={"reference": "data:image/png;base64,aaa"},
+                headers=self._trocr_headers(),
             )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["data"]["headline"], "500 MEGA")
@@ -2587,6 +4071,7 @@ class CreativeFormatLabRoutesTest(unittest.TestCase):
             response = self.client.post(
                 "/parametros/api/format-lab/swap/prompt",
                 json={"headline": "TIM ULTRA COMBO", "preserve": ["logo"]},
+                headers=self._trocr_headers(),
             )
         self.assertEqual(response.status_code, 200)
         self.assertIn("identidade visual", response.get_json()["data"]["preview"])
@@ -2610,12 +4095,51 @@ class CreativeFormatLabRoutesTest(unittest.TestCase):
             saved = self.client.post(
                 "/parametros/api/format-lab/swap/history",
                 json={"client_id": 10, "versions": [{"id": "v1", "image": "/static/uploads/creative_generated/a.png"}]},
+                headers=self._trocr_headers(),
             )
         self.assertEqual(listed.status_code, 200)
         self.assertEqual(listed.get_json()["data"]["active_id"], "v1")
         self.assertEqual(saved.status_code, 200)
         service.load_format_lab_swap_history.assert_called_once()
         service.save_format_lab_swap_history.assert_called_once()
+
+    def test_still_do_trocar_exige_login_e_serve_arquivo(self):
+        import tempfile
+        from pathlib import Path
+
+        from aicentralv2.creative_modeling_repository import CreativeNotFoundError
+
+        service = Mock()
+        service.serve_format_lab_swap_still.side_effect = CreativeNotFoundError(
+            "Still do Trocr não encontrado."
+        )
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            missing = self.client.get("/parametros/api/format-lab/swap/still/missing.png")
+        self.assertEqual(missing.status_code, 404)
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / ("a" * 32 + ".png")
+            path.write_bytes(TINY_PNG)
+            service.serve_format_lab_swap_still.side_effect = None
+            service.serve_format_lab_swap_still.return_value = path
+            with patch(
+                "aicentralv2.creative_modeling_routes._service",
+                return_value=service,
+            ):
+                found = self.client.get(f"/parametros/api/format-lab/swap/still/{path.name}")
+            self.assertEqual(found.status_code, 200)
+            self.assertEqual(found.data, TINY_PNG)
+            found.close()
+        guest = Flask(__name__)
+        guest.config.update(TESTING=True, SECRET_KEY="format-lab-test")
+        bp = Blueprint("parametros_format_lab_guest", __name__, url_prefix="/parametros")
+        register_creative_modeling_routes(bp)
+        guest.register_blueprint(bp)
+        anon = guest.test_client()
+        blocked = anon.get("/parametros/api/format-lab/swap/still/" + ("b" * 32) + ".png")
+        self.assertEqual(blocked.status_code, 401)
 
     def test_split_camadas_devolve_layers_e_field(self):
         service = Mock()
@@ -2643,6 +4167,30 @@ class CreativeFormatLabRoutesTest(unittest.TestCase):
         self.assertEqual(data["field"], "#0033FF")
         self.assertEqual(data["layers"][0]["role"], "cast")
         service.split_format_lab_layers.assert_called_once()
+
+    def test_rota_split_descarta_injections_do_cliente(self):
+        service = Mock()
+        service.split_format_lab_layers.return_value = {"layers": [], "field": "#000"}
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            response = self.client.post(
+                "/parametros/api/format-lab/layers/split",
+                json={
+                    "image": "data:image/png;base64,aaa",
+                    "predictor": "malicioso",
+                    "text_callable": "malicioso",
+                    "image_callable": "malicioso",
+                    "operation_id": "9",
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        sent = service.split_format_lab_layers.call_args[0][0]
+        self.assertNotIn("predictor", sent)
+        self.assertNotIn("text_callable", sent)
+        self.assertNotIn("image_callable", sent)
+        self.assertEqual(sent["operation_id"], "9")
 
     def test_exemplo_camadas_devolve_still_python(self):
         service = Mock()

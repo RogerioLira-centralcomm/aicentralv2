@@ -9,7 +9,17 @@ from .brand_context import build_brand_context, reference_images
 from .campaign_models import apply_brand_to_campaign, apply_key_visuals, campaign_from_brand, expand_campaign_scenes, load_campaign_model, offer_hint
 from .catalog import ROLE_MAP
 from .mockup import MOCKUP_ESTIMATE_USD, MOCKUP_PASSES, scene_logo_visible
-from .engineer import _usable_image_url, apply_copy_locks, apply_still_read, build_spec, normalize_knobs, refine_spec
+from .engineer import (
+    _first_still,
+    _usable_image_url,
+    apply_still_read,
+    build_copy_origin,
+    build_spec,
+    finalize_spec,
+    normalize_knobs,
+    pack_still_record,
+    refine_spec,
+)
 from .router import route_format
 
 PROMPT_ESTIMATE_USD = 0.02
@@ -64,7 +74,16 @@ def quote_concept(payload=None):
     )
 
 
-def build_storyboard(payload, *, client=None, text_callable=None):
+def build_storyboard(
+    payload,
+    *,
+    client=None,
+    text_callable=None,
+    persisted_read=None,
+    reread=False,
+    accept_inline=True,
+    session_id="",
+):
     payload = payload if isinstance(payload, dict) else {}
     client = client if isinstance(client, dict) else {}
     extra_assets = [
@@ -75,7 +94,14 @@ def build_storyboard(payload, *, client=None, text_callable=None):
     brand = build_brand_context(client, extra_assets=extra_assets)
     knobs = normalize_knobs(payload)
     user_images = [item["asset_url"] for item in extra_assets]
-    knobs = apply_still_read(knobs, user_images, text_callable)
+    knobs = apply_still_read(
+        knobs,
+        user_images,
+        text_callable,
+        persisted=persisted_read,
+        reread=reread,
+        accept_inline=accept_inline,
+    )
     images = reference_images(brand, user_images)
     campaign = load_campaign_model(payload.get("campaign_slug"))
     if campaign:
@@ -119,7 +145,7 @@ def build_storyboard(payload, *, client=None, text_callable=None):
         create_bundle=create_bundle,
     )
     refine_bundle = load_bundle("refine", route["format"], has_reference=bool(images))
-    spec = apply_copy_locks(spec, knobs.get("storyboard"))
+    spec = finalize_spec(spec, campaign, knobs)
     cards = [
         {
             "id": scene.id,
@@ -146,6 +172,16 @@ def build_storyboard(payload, *, client=None, text_callable=None):
         for index, scene in enumerate(spec.scenes, start=1)
     ]
     quote = quote_concept({**payload, "kind": "storyboard", "scene_count": knobs["scene_count"]})
+    still_read = pack_still_record(
+        knobs,
+        image=_first_still(user_images),
+        persisted=persisted_read,
+        session_id=session_id or str(payload.get("session_id") or ""),
+        reread=reread,
+    )
+    knobs["still_read_id"] = still_read.get("read_id") or ""
+    copy_origin = build_copy_origin(spec, campaign, knobs)
+    copy_origin["read_id"] = still_read.get("read_id") or ""
     return {
         "intent": "create",
         "format": spec.format,
@@ -164,6 +200,9 @@ def build_storyboard(payload, *, client=None, text_callable=None):
             "name": payload.get("name") or (campaign or {}).get("title") or spec.brand_name,
         },
         "knobs": knobs,
+        "copy_bind": knobs.get("still_bind") or {},
+        "still_read": still_read,
+        "copy_origin": copy_origin,
         "spec": spec.model_dump(),
         "storyboard": cards,
         "scene_count": len(cards),

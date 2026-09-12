@@ -9,8 +9,10 @@
     loop: (id) => `/parametros/api/design-system/brand/${id}/loop`,
     track: (id, track) => `/parametros/api/design-system/brand/${id}/tracks/${track}`,
     adapt: (id) => `/parametros/api/design-system/brand/${id}/adapt`,
+    validateRender: (id) => `/parametros/api/design-system/brand/${id}/validate-render`,
     campaign: (id) => `/parametros/api/design-system/campaign/${id}`,
     campaignAdapt: (id) => `/parametros/api/design-system/campaign/${id}/adapt`,
+    campaignValidateRender: (id) => `/parametros/api/design-system/campaign/${id}/validate-render`,
   };
 
   const COLOR_TOKENS = new Set(['paper', 'ink', 'accent', 'muted', 'cta_ink', 'highlight', 'hairline']);
@@ -33,7 +35,12 @@
     looping: false,
     system: null,
     patchTimer: 0,
+    console: [],
+    consoleOpen: false,
   };
+
+  const CONSOLE_KEY = 'mc-dsa-console';
+  const CONSOLE_MAX = 40;
 
   function $(id) {
     return document.getElementById(id);
@@ -48,11 +55,332 @@
   }
 
   async function readJson(response) {
-    const payload = await response.json();
+    let payload = {};
+    try {
+      payload = await response.json();
+    } catch (_error) {
+      pushConsole({ step: 'http', status: 'error', error: `HTTP ${response.status}. Resposta sem JSON.` });
+      const error = new Error('A mesa de Ads não concluiu.');
+      error.status = response.status;
+      throw error;
+    }
+    ingestRun(payload.data && payload.data.run);
     if (!response.ok || payload.success === false) {
-      throw new Error(payload.error || 'A mesa de Ads não concluiu.');
+      const last = state.console[state.console.length - 1];
+      if (payload.error && last?.error !== payload.error) {
+        pushConsole({ step: 'http', status: 'error', error: payload.error });
+      }
+      const error = new Error(payload.error || 'A mesa de Ads não concluiu.');
+      error.status = response.status;
+      throw error;
     }
     return payload.data;
+  }
+
+  function currentRevision() {
+    const raw = state.system && state.system.revision;
+    const value = Number(raw);
+    return Number.isFinite(value) && value >= 0 ? value : 0;
+  }
+
+  function revisionBody(extra, revision) {
+    return Object.assign({}, extra || {}, { expected_revision: revision });
+  }
+
+  function cancelQueuedPatch() {
+    window.clearTimeout(state.patchTimer);
+    state.patchTimer = 0;
+  }
+
+  const queueApi = window.McDsaWriteQueue || {};
+  const BRAND_CONFLICT = queueApi.BRAND_CONFLICT || 'A marca mudou. Recarregue.';
+  const DISCARDED_EDIT = queueApi.DISCARDED_EDIT || 'Edição pendente descartada. A marca mudou.';
+  const DISCARDED_STALE_LOCAL = queueApi.DISCARDED_STALE_LOCAL
+    || 'O ajuste anterior foi gravado. Este pedido usava o estado antigo e não foi reenviado.';
+  let writeEpoch = 0;
+  let lastWriteSucceeded = false;
+  let pendingPatch = queueApi.emptyPatch ? queueApi.emptyPatch() : { tokens: {}, adCopy: {}, dna: {} };
+
+  function discardPendingWrites(message) {
+    writeEpoch += 1;
+    lastWriteSucceeded = false;
+    pendingPatch = queueApi.emptyPatch ? queueApi.emptyPatch() : { tokens: {}, adCopy: {}, dna: {} };
+    cancelQueuedPatch();
+    if (message) {
+      setStatus(message);
+      pushConsole({ step: 'http', status: 'error', error: message });
+    }
+  }
+
+  async function reloadOnConflict(error) {
+    if (error && error.status === 409) {
+      discardPendingWrites(error.message || BRAND_CONFLICT);
+      try { await loadSystem({ skipAdapt: true }); } catch (_reload) { /* keep the write error */ }
+    }
+  }
+
+  let writeQueue = Promise.resolve();
+
+  async function writeJson(url, extra) {
+    const job = {
+      url,
+      extra: extra || {},
+      revision: currentRevision(),
+      epoch: writeEpoch,
+    };
+    const run = writeQueue.then(async () => {
+      const reason = queueApi.queuedWriteReason
+        ? queueApi.queuedWriteReason(
+          job.revision,
+          currentRevision(),
+          job.epoch,
+          writeEpoch,
+          lastWriteSucceeded
+        )
+        : ((job.epoch !== writeEpoch || job.revision !== currentRevision()) ? 'stale' : null);
+      if (reason) {
+        const message = queueApi.messageFor ? queueApi.messageFor(reason) : DISCARDED_EDIT;
+        const error = new Error(message);
+        error.discarded = true;
+        error.reason = reason;
+        setStatus(message);
+        pushConsole({ step: 'http', status: 'error', error: message });
+        throw error;
+      }
+      try {
+        const data = await readJson(await fetch(job.url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(revisionBody(job.extra, job.revision)),
+        }));
+        lastWriteSucceeded = true;
+        return data;
+      } catch (error) {
+        lastWriteSucceeded = false;
+        await reloadOnConflict(error);
+        throw error;
+      }
+    });
+    writeQueue = run.catch(() => {});
+    return run;
+  }
+
+  function slimConsoleItem(item) {
+    return {
+      id: item.id,
+      hop: item.hop || 0,
+      step: item.step,
+      status: item.status,
+      model: item.model,
+      duration_ms: item.duration_ms,
+      usage: item.usage,
+      error: item.error,
+      notes: item.notes,
+      artifact: item.artifact,
+      result: item.result,
+    };
+  }
+
+  function loadConsole() {
+    try {
+      const stored = JSON.parse(sessionStorage.getItem(CONSOLE_KEY) || '[]');
+      state.console = Array.isArray(stored) ? stored.slice(-CONSOLE_MAX) : [];
+    } catch (_error) {
+      state.console = [];
+    }
+  }
+
+  function saveConsole() {
+    try {
+      sessionStorage.setItem(CONSOLE_KEY, JSON.stringify(state.console.slice(-CONSOLE_MAX).map(slimConsoleItem)));
+    } catch (_error) {
+      /* ignore quota */
+    }
+  }
+
+  function setConsoleOpen(open) {
+    state.consoleOpen = Boolean(open);
+    const host = $('mcDsa');
+    const panel = $('mcDsaConsole');
+    const tab = $('mcDsaConsoleTab');
+    if (host) host.dataset.console = state.consoleOpen ? 'open' : 'closed';
+    if (panel) panel.hidden = !state.consoleOpen;
+    if (tab) tab.setAttribute('aria-expanded', state.consoleOpen ? 'true' : 'false');
+  }
+
+  function stepLabel(step) {
+    return {
+      compose: 'Montar DNA',
+      contrast: 'Contraste',
+      review: 'Revisar fidelidade',
+      track: 'Gerar trilha',
+      rules: 'Regras da IA',
+      campaign: 'Campanha',
+      refine: 'Refinar',
+      persist: 'Gravar',
+      report: 'Relatório',
+      validação: 'Validação',
+      render: 'Render',
+      needs_input: 'Falta dado',
+      loop: 'Hop',
+      http: 'HTTP',
+      llm: 'Modelo',
+      ready: 'Pronto',
+    }[step] || step || 'Passo';
+  }
+
+  function modelLabel(model) {
+    const value = String(model || '');
+    return value.includes('/') ? value.split('/').pop() : value;
+  }
+
+  function durationLabel(ms) {
+    const value = Number(ms) || 0;
+    if (!value) return '';
+    return value >= 1000 ? `${(value / 1000).toFixed(1)}s` : `${value}ms`;
+  }
+
+  function usageLabel(usage) {
+    if (!usage || typeof usage !== 'object') return '';
+    if (usage.prompt_tokens == null && usage.completion_tokens == null) return '';
+    return `${usage.prompt_tokens ?? '–'}→${usage.completion_tokens ?? '–'}`;
+  }
+
+  function resultFromOutput(output, error, notes, artifact) {
+    if (error) return String(error);
+    const text = String(output || '').replace(/^```(?:json)?\n?/i, '').replace(/\n```$/, '');
+    try {
+      const parsed = JSON.parse(text);
+      const copy = parsed.ad_copy || {};
+      if (copy.headline) return copy.cta ? `${copy.headline} — ${copy.cta}` : copy.headline;
+      if (Object.prototype.hasOwnProperty.call(parsed, 'passed')) {
+        return parsed.passed ? `passou${parsed.score != null ? ` (${parsed.score})` : ''}` : 'não passou';
+      }
+    } catch (_error) {
+      const start = text.indexOf('{');
+      const end = text.lastIndexOf('}');
+      if (start >= 0 && end > start) {
+        try {
+          return resultFromOutput(text.slice(start, end + 1), '', notes, artifact);
+        } catch (_nested) {
+          /* ignore */
+        }
+      }
+    }
+    if (artifact) return artifact;
+    const note = (notes || []).find(Boolean);
+    if (note) return String(note);
+    return text.slice(0, 160);
+  }
+
+  function lastConsoleItem() {
+    return state.console[state.console.length - 1] || null;
+  }
+
+  function settleRunning(step) {
+    state.console = state.console.filter((item) => !(
+      item.status === 'running' && (item.step === step || item.step === 'loop')
+    ));
+  }
+
+  function renderConsole() {
+    const list = $('mcDsaConsoleList');
+    const count = $('mcDsaConsoleCount');
+    const live = $('mcDsaConsoleLive');
+    const tab = $('mcDsaConsoleTab');
+    const items = state.console.slice(-CONSOLE_MAX);
+    const last = lastConsoleItem();
+    const hasError = items.some((item) => item.status === 'error');
+    if (count) count.textContent = items.length ? `${items.length} ${items.length === 1 ? 'passo' : 'passos'}` : '';
+    if (live) live.textContent = last ? (last.result || stepLabel(last.step)) : '';
+    if (tab) tab.classList.toggle('is-error', hasError);
+    if (!list) return;
+    list.innerHTML = items.map((item, index) => {
+      const notes = (item.notes || []).filter(Boolean).map((note) => `<p class="mc-dsa-console-notes">${escapeHtml(note)}</p>`).join('');
+      const error = item.error ? `<p class="mc-dsa-console-error">${escapeHtml(item.error)}</p>` : '';
+      const artifact = item.artifact
+        ? `<p class="mc-dsa-console-artifact"><a href="${escapeHtml(item.artifact)}" target="_blank" rel="noreferrer">Ver geração</a></p>`
+        : '';
+      const dump = [item.input, item.output].filter(Boolean).join('\n\n');
+      const model = [modelLabel(item.model), durationLabel(item.duration_ms), usageLabel(item.usage)].filter(Boolean).join('  ');
+      const result = item.result || resultFromOutput(item.output, item.error, item.notes, item.artifact);
+      const canOpen = Boolean(dump || error || notes || artifact);
+      const head = (
+        `<span class="mc-dsa-console-hop">${index + 1}</span>`
+        + `<b>${escapeHtml(stepLabel(item.step))}</b>`
+        + (model ? `<p class="mc-dsa-console-meta">${escapeHtml(model)}</p>` : '')
+        + (result ? `<p class="mc-dsa-console-result">${escapeHtml(result)}</p>` : '')
+      );
+      return (
+        `<li data-status="${escapeHtml(item.status || 'ok')}">`
+        + `<details>`
+        + `<summary>${head}</summary>`
+        + (canOpen
+          ? `<div class="mc-dsa-console-body">${error}${notes}${artifact}`
+            + (dump ? `<pre>${escapeHtml(dump)}</pre>` : '')
+            + `</div>`
+          : '')
+        + `</details></li>`
+      );
+    }).join('');
+    list.scrollTop = list.scrollHeight;
+  }
+
+  function pushConsole(entry) {
+    state.console.push({
+      id: entry.id || `step-${Date.now()}-${state.console.length + 1}`,
+      hop: entry.hop || state.console.length + 1,
+      step: entry.step || 'passo',
+      status: entry.status || 'ok',
+      model: entry.model || '',
+      duration_ms: entry.duration_ms || 0,
+      usage: entry.usage || {},
+      input: entry.input || entry.input_text || '',
+      output: entry.output || '',
+      error: entry.error || '',
+      notes: entry.notes || [],
+      artifact: entry.artifact || '',
+      result: entry.result || resultFromOutput(entry.output, entry.error, entry.notes, entry.artifact),
+    });
+    state.console = state.console.slice(-CONSOLE_MAX);
+    saveConsole();
+    renderConsole();
+    if (entry.status === 'running' || entry.status === 'error') {
+      setConsoleOpen(true);
+    }
+  }
+
+  function ingestRun(run) {
+    const steps = run && Array.isArray(run.steps) ? run.steps : [];
+    if (!steps.length) return;
+    const seen = new Set(state.console.map((item) => item.id));
+    steps.forEach((step) => {
+      const id = `${run.run_id || 'run'}-${step.id || step.step}`;
+      if (seen.has(id)) return;
+      seen.add(id);
+      settleRunning(step.step);
+      state.console.push({
+        id,
+        hop: state.console.length + 1,
+        step: step.step || 'passo',
+        status: step.status || 'ok',
+        model: step.model || '',
+        duration_ms: step.duration_ms || 0,
+        usage: step.usage || {},
+        input: step.input || '',
+        output: step.output || '',
+        error: step.error || '',
+        notes: step.notes || [],
+        artifact: step.artifact || '',
+        result: step.result || resultFromOutput(step.output, step.error, step.notes, step.artifact),
+      });
+    });
+    state.console = state.console.slice(-CONSOLE_MAX);
+    saveConsole();
+    renderConsole();
+    if (steps.some((step) => step.status === 'error')) {
+      setConsoleOpen(true);
+    }
   }
 
   function setStatus(text) {
@@ -199,13 +527,17 @@
     const formats = (catalog.iab_formats || []).map((item) => {
       const size = item.size_label || item.label;
       const active = item.key === state.format ? ' is-active' : '';
+      const valid = item.valid || 'unchecked';
+      const pending = item.pending || '';
       return (
-        `<button type="button" class="mc-dsa-format${active}" data-format="${escapeHtml(item.key)}">`
+        `<button type="button" class="mc-dsa-format${active}" data-format="${escapeHtml(item.key)}" data-valid="${escapeHtml(valid)}" data-pending="${escapeHtml(pending)}">`
         + `<strong>${escapeHtml(size)}</strong>`
         + `<em>${escapeHtml(item.density || '')}</em>`
         + `</button>`
       );
     }).join('');
+    const pendingItems = system?.pendencies || catalog.pendencies || [];
+    const pendingBlock = renderPendencies(pendingItems);
     host.innerHTML = (
       `<p class="mc-dsa-tagline">${escapeHtml(catalog.tagline || catalog.creative_line || '')}</p>`
       + `<section class="mc-dsa-block" data-block="dna">`
@@ -242,7 +574,44 @@
       + `</section>`
       + `<section class="mc-dsa-block" data-block="tracks"><h2>Trilhas</h2><div class="mc-dsa-tracks">${tracks}</div></section>`
       + `<section class="mc-dsa-block" data-block="components"><h2>Camadas</h2><div class="mc-dsa-comps">${components}</div></section>`
+      + pendingBlock
       + `<section class="mc-dsa-block" data-block="formats"><h2>IAB</h2><div class="mc-dsa-formats is-catalog">${formats}</div></section>`
+    );
+  }
+
+  function pendencyLabel(state) {
+    return {
+      needs_input: 'Falta dado',
+      missing_track: 'Trilha',
+      needs_confirm: 'Confirmar',
+      stale: 'Stale',
+    }[state] || state;
+  }
+
+  function renderPendencies(items) {
+    const rows = Array.isArray(items) ? items : [];
+    if (!rows.length) {
+      return (
+        `<section class="mc-dsa-block" data-block="pendencies">`
+        + `<h2>Pendências</h2>`
+        + `<p class="mc-dsa-pendencies-empty">Nenhuma pendência.</p>`
+        + `</section>`
+      );
+    }
+    const list = rows.map((item) => (
+      `<li>`
+      + `<button type="button" data-format="${escapeHtml(item.format || '')}">`
+      + `<strong>${escapeHtml(item.size_label || item.label || item.format || '')}</strong>`
+      + `<em>${escapeHtml(pendencyLabel(item.state))}</em>`
+      + `<span>${escapeHtml(item.detail || '')}</span>`
+      + `</button>`
+      + `</li>`
+    )).join('');
+    return (
+      `<section class="mc-dsa-block" data-block="pendencies">`
+      + `<h2>Pendências</h2>`
+      + `<ol class="mc-dsa-pendencies">${list}</ol>`
+      + `</section>`
     );
   }
 
@@ -296,6 +665,51 @@
     host.innerHTML = rows.map((item) => (
       `<button type="button" class="mc-dsa-arch${item.id === state.archetype || item.active ? ' is-active' : ''}" data-archetype="${escapeHtml(item.id)}" data-format="${escapeHtml(item.format)}">${escapeHtml(item.label)}</button>`
     )).join('');
+  }
+
+  function renderProvenance(system) {
+    const node = $('mcDsaProvenance');
+    if (!node) return;
+    const banner = system?.provenance?.banner || {};
+    if (!banner.text) {
+      node.hidden = true;
+      node.textContent = '';
+      return;
+    }
+    node.hidden = false;
+    node.className = `mc-dsa-provenance is-${banner.kind === 'ok' ? 'ok' : 'warn'}`;
+    node.textContent = banner.text;
+  }
+
+  function renderStorage(system) {
+    const node = $('mcDsaStorage');
+    if (!node) return;
+    const storage = system?.storage || {};
+    if (!storage.orphan) {
+      node.hidden = true;
+      node.textContent = '';
+      return;
+    }
+    node.hidden = false;
+    node.className = 'mc-dsa-provenance is-warn';
+    node.textContent = storage.label || 'Este Ads veio da projeção. Grave na marca para ficar canônico.';
+  }
+
+  function renderNeedsInput(system) {
+    const node = $('mcDsaNeedsInput');
+    if (!node) return;
+    const items = system?.needs_input || system?.loop?.needs_input || [];
+    const label = system?.loop?.action === 'needs_input'
+      ? (system.loop.label || '')
+      : '';
+    if (!items.length && !label) {
+      node.hidden = true;
+      node.textContent = '';
+      return;
+    }
+    node.hidden = false;
+    node.className = 'mc-dsa-provenance is-warn';
+    node.textContent = label || (items.length === 1 ? `Falta ${items[0]}.` : `Falta ${items.join(', ')}.`);
   }
 
   function renderPassMeta(system) {
@@ -352,7 +766,12 @@
       campaignMount.disabled = state.looping || !state.campaignId;
     }
     if (approve) approve.disabled = !exists || approved || system?.scope === 'campaign';
+    const confer = $('mcDsaValidateRender');
+    if (confer) confer.disabled = state.looping || !(exists || system?.preset);
     renderCampaigns();
+    renderProvenance(system);
+    renderStorage(system);
+    renderNeedsInput(system);
     renderCatalog(system);
     renderGrounds(system);
     renderArchBoard(system);
@@ -361,75 +780,113 @@
     renderLayerList(system);
     renderPassMeta(system);
     syncFrames();
+    logValidation(system);
   }
 
-  async function loadSystem() {
+  let lastValidationFingerprint = '';
+
+  function logValidation(system) {
+    const report = system && system.validation;
+    const digest = report && report.fingerprint;
+    if (!digest || digest === lastValidationFingerprint) return;
+    lastValidationFingerprint = digest;
+    const stale = Number(report.stale_count) || 0;
+    const short = report.fingerprint_short || digest.slice(0, 8);
+    pushConsole({
+      step: 'validação',
+      status: report.passed ? 'ok' : 'error',
+      result: `${short} · ${stale} stale`,
+      notes: stale
+        ? [`${stale} formato${stale === 1 ? '' : 's'} stale.`]
+        : [report.notes && report.notes[0] ? report.notes[0] : 'Contrato atual.'],
+    });
+  }
+
+  function logRender(system) {
+    const report = system && system.validation;
+    if (!report || !report.render || report.render === 'skipped') return;
+    const failed = report.render === 'failed';
+    pushConsole({
+      step: 'render',
+      status: failed ? 'error' : 'ok',
+      result: failed
+        ? ((report.defects && report.defects[0]) || 'peça falhou')
+        : 'peça ok',
+      notes: report.notes || [],
+    });
+  }
+
+  async function loadSystem(options) {
     const url = isCampaign() ? API.campaign(state.campaignId) : API.brand(currentId());
     const data = await readJson(await fetch(url));
+    lastWriteSucceeded = false;
     renderSystem(data);
-    if (data.exists || data.preset) await adaptSystem();
+    if ((data.exists || data.preset) && !options?.skipAdapt) await adaptSystem();
   }
 
   async function adaptSystem() {
     const url = isCampaign() ? API.campaignAdapt(state.campaignId) : API.adapt(currentId());
-    const data = await readJson(await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        format: state.format,
-        layers: state.layers,
-        swaps: state.swaps,
-        archetype: state.archetype,
-      }),
-    }));
+    const data = await writeJson(url, {
+      format: state.format,
+      layers: state.layers,
+      swaps: state.swaps,
+      archetype: state.archetype,
+    });
     renderSystem(data);
   }
 
   async function createSystem() {
     const url = isCampaign() ? API.campaign(state.campaignId) : API.brand(currentId());
-    const data = await readJson(await fetch(url, { method: 'POST' }));
+    const data = await writeJson(url);
     renderSystem(data);
     return data;
   }
 
   async function improveSystem(intent) {
     setStatus(`Ajustando ${INTENT_LABEL[intent] || intent}.`);
-    const data = await readJson(await fetch(API.refine(currentId()), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ intent }),
-    }));
+    const data = await writeJson(API.refine(currentId()), { intent });
     renderSystem(data);
     setStatus('Ajuste aplicado no catálogo.');
   }
 
   async function approveSystem() {
     setStatus('Aprovando a marca.');
-    const data = await readJson(await fetch(API.approve(currentId()), { method: 'POST' }));
+    const data = await writeJson(API.approve(currentId()));
     renderSystem(data);
     setStatus('Marca aprovada.');
   }
 
+  async function validateRender() {
+    const url = isCampaign()
+      ? API.campaignValidateRender(state.campaignId)
+      : API.validateRender(currentId());
+    setStatus('Conferindo a peça no browser.');
+    const data = await writeJson(url, {
+      format: state.format,
+      layers: state.layers,
+    });
+    renderSystem(data);
+    logRender(data);
+    const report = data.validation || {};
+    if (report.render === 'skipped') {
+      setStatus(report.notes && report.notes[0] ? report.notes[0] : 'Render não conferido.');
+      return;
+    }
+    setStatus(report.render === 'passed' ? 'Peça conferida.' : 'A peça falhou no specimen.');
+  }
+
   async function patchSystem(tokens, adCopy, dna, archetype) {
-    const data = await readJson(await fetch(API.tokens(currentId()), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        tokens: tokens || undefined,
-        ad_copy: adCopy || undefined,
-        dna: dna || undefined,
-        archetype: archetype || undefined,
-      }),
-    }));
+    const data = await writeJson(API.tokens(currentId()), {
+      tokens: tokens || undefined,
+      ad_copy: adCopy || undefined,
+      dna: dna || undefined,
+      archetype: archetype || undefined,
+    });
     renderSystem(data);
   }
 
   async function generateTrack(trackId) {
-    const data = await readJson(await fetch(API.track(currentId(), trackId), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    }));
+    const data = await writeJson(API.track(currentId(), trackId));
     renderSystem(data);
     return data;
   }
@@ -440,18 +897,45 @@
     const create = $('mcDsaCreate');
     if (create) create.disabled = true;
     try {
+      setConsoleOpen(true);
       for (let hop = 0; hop < 8; hop += 1) {
         setStatus('Montando a linha da marca.');
-        const data = await readJson(await fetch(API.loop(currentId()), { method: 'POST' }));
+        pushConsole({
+          id: `hop-${hop + 1}`,
+          hop: hop + 1,
+          step: 'loop',
+          status: 'running',
+          notes: [`${hop + 1}  ${currentId()}`],
+          result: `hop ${hop + 1}`,
+        });
+        const data = await writeJson(API.loop(currentId()));
+        settleRunning('loop');
         renderSystem(data);
         const info = data.loop || {};
         setStatus(info.label || '');
+        if (info.action === 'needs_input') {
+          pushConsole({
+            step: 'needs_input',
+            status: 'ok',
+            notes: info.needs_input || [],
+            result: info.label || 'Falta dado da marca.',
+          });
+          break;
+        }
         if (info.action === 'track' && info.track_id) {
           if (info.track_id === 'wash') continue;
           setStatus(TRACK_LABEL[info.track_id] || `Gerando ${info.track_id}.`);
+          pushConsole({
+            step: 'track',
+            status: 'running',
+            notes: [info.track_id],
+            result: TRACK_LABEL[info.track_id] || info.track_id,
+          });
           try {
             await generateTrack(info.track_id);
+            settleRunning('track');
           } catch (error) {
+            settleRunning('track');
             setStatus(error.message);
             break;
           }
@@ -491,11 +975,20 @@
   }
 
   function queuePatch(tokens, adCopy, dna) {
+    pendingPatch = queueApi.mergePatch
+      ? queueApi.mergePatch(pendingPatch, { tokens: tokens || {}, adCopy: adCopy || {}, dna: dna || {} })
+      : Object.assign(pendingPatch, { tokens: tokens || pendingPatch.tokens, adCopy: adCopy || pendingPatch.adCopy, dna: dna || pendingPatch.dna });
     window.clearTimeout(state.patchTimer);
     state.patchTimer = window.setTimeout(async () => {
+      const payload = pendingPatch;
+      pendingPatch = queueApi.emptyPatch ? queueApi.emptyPatch() : { tokens: {}, adCopy: {}, dna: {} };
+      if (queueApi.patchIsEmpty && queueApi.patchIsEmpty(payload)) return;
       try {
-        await patchSystem(tokens, adCopy, dna);
+        await patchSystem(payload.tokens, payload.adCopy, payload.dna);
         setStatus('Gravado.');
+        if (queueApi.patchIsEmpty && !queueApi.patchIsEmpty(pendingPatch)) {
+          queuePatch();
+        }
       } catch (error) {
         setStatus(error.message);
       }
@@ -519,6 +1012,15 @@
   }
 
   async function boot() {
+    loadConsole();
+    renderConsole();
+    $('mcDsaConsoleTab')?.addEventListener('click', () => setConsoleOpen(!state.consoleOpen));
+    $('mcDsaConsoleClose')?.addEventListener('click', () => setConsoleOpen(false));
+    $('mcDsaConsoleClear')?.addEventListener('click', () => {
+      state.console = [];
+      saveConsole();
+      renderConsole();
+    });
     try {
       state.clients = await readJson(await fetch(API.clients));
     } catch (_error) {
@@ -700,6 +1202,17 @@
         await approveSystem();
       } catch (error) {
         setStatus(error.message);
+      }
+    });
+    $('mcDsaValidateRender')?.addEventListener('click', async () => {
+      const button = $('mcDsaValidateRender');
+      if (button) button.disabled = true;
+      try {
+        await validateRender();
+      } catch (error) {
+        setStatus(error.message);
+      } finally {
+        if (button) button.disabled = state.looping || !(state.system?.exists || state.system?.preset);
       }
     });
     try {

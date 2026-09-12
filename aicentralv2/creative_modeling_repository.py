@@ -210,6 +210,59 @@ class CreativeConflictError(ValueError):
     pass
 
 
+def json_revision_clause(column):
+    return (
+        "COALESCE(CASE WHEN {col} #>> '{{design_system_ads,revision}}' ~ '^[0-9]+$' "
+        "THEN ({col} #>> '{{design_system_ads,revision}}')::int ELSE 0 END, 0)"
+    ).format(col=column)
+
+
+def design_system_ads_document(payload):
+    """Documento Ads a gravar no path JSONB. Não é o brand_profile inteiro."""
+    data = payload if isinstance(payload, dict) else {}
+    nested = data.get("design_system_ads")
+    if isinstance(nested, dict):
+        return nested
+    if data.get("framework") == "design-system-ads" or data.get("tokens"):
+        return data
+    return {}
+
+
+def revision_where_clause(column, table):
+    """Coluna gerada nas tabelas canônicas; path JSONB nos probes."""
+    if table in {"cx_clients", "cx_campaigns"}:
+        return "design_system_ads_revision"
+    return json_revision_clause(column)
+
+
+def jsonb_set_ads_sql(column, table, *, extra_set=""):
+    clause = revision_where_clause(column, table)
+    extra = f", {extra_set}" if extra_set else ""
+    return f"""
+        UPDATE {table}
+           SET {column} = jsonb_set(
+                 COALESCE({column}, '{{}}'::jsonb),
+                 '{{design_system_ads}}',
+                 %s::jsonb
+               ){extra}
+         WHERE id = %s
+           AND {clause} = %s
+        RETURNING id
+    """
+
+
+def jsonb_merge_neighbors_sql(column, table, *, extra_set=""):
+    """Atualiza chaves vizinhas sem tocar design_system_ads."""
+    extra = f", {extra_set}" if extra_set else ""
+    return f"""
+        UPDATE {table}
+           SET {column} = COALESCE({column}, '{{}}'::jsonb)
+             || (%s::jsonb - 'design_system_ads'){extra}
+         WHERE id = %s
+        RETURNING id
+    """
+
+
 def _house_crm_client_id(cursor):
     cursor.execute(
         """
@@ -704,18 +757,50 @@ class CreativeModelingRepository:
             return client_id
 
     def update_client_brand_profile(self, client_id, brand_profile):
+        """Mescla chaves vizinhas. Não substitui design_system_ads."""
         with self._write() as cursor:
             cursor.execute(
-                """
-                UPDATE cx_clients
-                   SET brand_profile = %s
-                 WHERE id = %s
-                RETURNING id
-                """,
+                jsonb_merge_neighbors_sql("brand_profile", "cx_clients"),
                 (Json(brand_profile or {}), client_id),
             )
             if not cursor.fetchone():
                 raise CreativeNotFoundError("Cliente não encontrado.")
+
+    def update_client_design_system_ads(self, client_id, system):
+        """Grava só o path canônico. Sem WHERE de revisão."""
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                UPDATE cx_clients
+                   SET brand_profile = jsonb_set(
+                         COALESCE(brand_profile, '{}'::jsonb),
+                         '{design_system_ads}',
+                         %s::jsonb
+                       )
+                 WHERE id = %s
+                RETURNING id
+                """,
+                (Json(design_system_ads_document(system)), client_id),
+            )
+            if not cursor.fetchone():
+                raise CreativeNotFoundError("Cliente não encontrado.")
+
+    def update_client_brand_profile_cas(self, client_id, brand_profile, expected_revision):
+        expected = max(0, int(expected_revision or 0))
+        payload = design_system_ads_document(brand_profile)
+        with self._write() as cursor:
+            cursor.execute(
+                jsonb_set_ads_sql("brand_profile", "cx_clients"),
+                (Json(payload), client_id, expected),
+            )
+            if cursor.fetchone():
+                return
+            cursor.execute("SELECT id FROM cx_clients WHERE id = %s", (client_id,))
+            if not cursor.fetchone():
+                raise CreativeNotFoundError("Cliente não encontrado.")
+            from .design_system_ads.revision import BRAND_CONFLICT
+
+            raise CreativeConflictError(BRAND_CONFLICT)
 
     def delete_client_brand_asset(self, client_id, asset_id):
         with self._write() as cursor:
@@ -1327,29 +1412,62 @@ class CreativeModelingRepository:
         return result
 
     def update_campaign_bancada(self, campaign_id, brief, name=None):
+        """Mescla o brief vizinho. Não substitui design_system_ads."""
+        extra = "name = %s" if name else ""
+        params = (
+            (Json(brief or {}), name, campaign_id)
+            if name
+            else (Json(brief or {}), campaign_id)
+        )
         with self._write() as cursor:
-            if name:
-                cursor.execute(
-                    """
-                    UPDATE cx_campaigns
-                       SET creative_brief = %s, name = %s
-                     WHERE id = %s
-                    RETURNING id
-                    """,
-                    (Json(brief), name, campaign_id),
-                )
-            else:
-                cursor.execute(
-                    """
-                    UPDATE cx_campaigns
-                       SET creative_brief = %s
-                     WHERE id = %s
-                    RETURNING id
-                    """,
-                    (Json(brief), campaign_id),
-                )
+            cursor.execute(
+                jsonb_merge_neighbors_sql(
+                    "creative_brief", "cx_campaigns", extra_set=extra
+                ),
+                params,
+            )
             if not cursor.fetchone():
                 raise CreativeNotFoundError("Campanha não encontrada.")
+
+    def update_campaign_design_system_ads(self, campaign_id, system, name=None):
+        extra = "name = %s" if name else ""
+        payload = Json(design_system_ads_document(system))
+        params = (payload, name, campaign_id) if name else (payload, campaign_id)
+        with self._write() as cursor:
+            cursor.execute(
+                f"""
+                UPDATE cx_campaigns
+                   SET creative_brief = jsonb_set(
+                         COALESCE(creative_brief, '{{}}'::jsonb),
+                         '{{design_system_ads}}',
+                         %s::jsonb
+                       ){', name = %s' if name else ''}
+                 WHERE id = %s
+                RETURNING id
+                """,
+                params,
+            )
+            if not cursor.fetchone():
+                raise CreativeNotFoundError("Campanha não encontrada.")
+
+    def update_campaign_bancada_cas(self, campaign_id, brief, expected_revision, name=None):
+        expected = max(0, int(expected_revision or 0))
+        payload = Json(design_system_ads_document(brief))
+        extra = "name = %s" if name else ""
+        params = (payload, name, campaign_id, expected) if name else (payload, campaign_id, expected)
+        with self._write() as cursor:
+            cursor.execute(
+                jsonb_set_ads_sql("creative_brief", "cx_campaigns", extra_set=extra),
+                params,
+            )
+            if cursor.fetchone():
+                return
+            cursor.execute("SELECT id FROM cx_campaigns WHERE id = %s", (campaign_id,))
+            if not cursor.fetchone():
+                raise CreativeNotFoundError("Campanha não encontrada.")
+            from .design_system_ads.revision import CAMPAIGN_CONFLICT
+
+            raise CreativeConflictError(CAMPAIGN_CONFLICT)
 
     def create_variation(self, campaign_id, notes=None):
         labels = ("A", "B", "C", "D")
@@ -2939,12 +3057,23 @@ class CreativeModelingRepository:
         return None
 
     def upsert_design_system_ads(self, client_id, system):
+        """Projeção de `cx_brand_visual_systems`. Canônico: brand_profile.
+
+        Corre depois do CAS. Falha não desfaz o documento canônico.
+        Revisão atrasada não sobrescreve a projeção.
+        """
+        from .design_system_ads.revision import projection_is_stale
+
         payload = system if isinstance(system, dict) else {}
         name = str(payload.get("name") or "Design System Ads")[:160]
         status = str(payload.get("status") or "draft")
         if status not in {"draft", "approved", "archived"}:
             status = "draft"
         existing = self.get_design_system_ads(client_id)
+        if existing and projection_is_stale(
+            (existing.get("tokens") or {}), payload
+        ):
+            return existing.get("id")
         try:
             with self._write() as cursor:
                 if existing:

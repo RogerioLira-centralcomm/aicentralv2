@@ -12,7 +12,8 @@ from .campaign_models import list_campaign_models, load_campaign_model
 from .catalog import catalog_payload
 from .close import close_scene
 from .pipeline import apply_manual_patch, new_session_id, run_session
-from .swap import preview_swap_prompt, quote_swap, read_swap_reference, swap_reference
+from .swap import image_quality, preview_swap_prompt, read_swap_reference, swap_reference
+from .swap_session import TrocrStore
 from .plates import (
     apply_bindings,
     build_plate_kit,
@@ -23,6 +24,7 @@ from .plates import (
 from .lab_models import lab_chat_model
 from .decompose import decompose_creative
 from .split_layers import example_still_payload, split_still
+from .engineer import strip_public_read_fields
 from .storyboard import build_storyboard, quote_concept
 
 logger = logging.getLogger(__name__)
@@ -67,6 +69,8 @@ def _slim_lab_session(session):
         else item
         for item in (data.get("renders") or [])
     ]
+    if isinstance(data.get("still_read"), dict):
+        data["still_read"] = _public_still_read(data["still_read"])
     return data
 
 
@@ -131,6 +135,9 @@ def _desk_session(session):
         "brand_name": data.get("brand_name") or "",
         "offer": data.get("offer") or "",
         "scene_count": data.get("scene_count") or len(data.get("storyboard") or []),
+        "still_read": _public_still_read(data.get("still_read")),
+        "copy_bind": data.get("copy_bind") if isinstance(data.get("copy_bind"), dict) else {},
+        "copy_origin": data.get("copy_origin") if isinstance(data.get("copy_origin"), dict) else {},
     }
 
 
@@ -150,6 +157,56 @@ def _session_summary(session):
     }
 
 
+def _public_still_read(record):
+    data = dict(record) if isinstance(record, dict) else {}
+    if not data:
+        return {}
+    slim = {
+        key: data.get(key)
+        for key in (
+            "read_id",
+            "session_id",
+            "fingerprint",
+            "asset_ref",
+            "ocr_status",
+            "chips",
+            "cta_options",
+            "schema_version",
+            "bind_rule",
+            "model",
+            "created_at",
+            "revision",
+            "reused",
+        )
+        if key in data
+    }
+    asset = str(slim.get("asset_ref") or "")
+    if asset.startswith("data:image/"):
+        slim["asset_ref"] = "data:image/attached"
+    return slim
+
+
+def _session_read_record(session):
+    session = session if isinstance(session, dict) else {}
+    record = session.get("still_read")
+    if isinstance(record, dict) and (record.get("read_id") or record.get("fingerprint") or record.get("chips")):
+        return record
+    knobs = session.get("knobs") if isinstance(session.get("knobs"), dict) else {}
+    chips = knobs.get("still_read") if isinstance(knobs.get("still_read"), dict) else {}
+    fingerprint = str(knobs.get("still_fingerprint") or "")
+    if chips or fingerprint:
+        return {
+            "read_id": "",
+            "fingerprint": fingerprint,
+            "ocr_status": knobs.get("ocr_status") or "unknown",
+            "chips": chips,
+            "schema_version": "unknown",
+            "bind_rule": "unknown",
+            "model": "unknown",
+        }
+    return None
+
+
 class FormatLabService:
     def __init__(self, modeling):
         self.modeling = modeling
@@ -164,7 +221,10 @@ class FormatLabService:
     def quote(self, payload=None):
         payload = payload if isinstance(payload, dict) else {}
         if str(payload.get("kind") or "") == "swap":
-            return _serialize(quote_swap(payload))
+            from .swap_plan import build_swap_plan
+
+            brand = self._swap_brand(payload) if payload.get("use_brand_context") is not False else {}
+            return _serialize(build_swap_plan(payload, brand)["quote"])
         return _serialize(quote_concept(payload))
 
     def read_swap(self, payload, user_id=None):
@@ -194,16 +254,25 @@ class FormatLabService:
             if engine in {"image", "image2", "decompose"}:
                 return self._decompose_layers(image, payload)
             result = split_still(image, predictor=payload.get("predictor"))
-            from .engineer import read_attached_still
+            from .camadas_lab import list_capabilities
+            from .engineer import read_still_blocks
 
-            read = read_attached_still(image, self._text_callable(payload))
-            if read:
-                result["read"] = read
+            blocks = read_still_blocks(image, self._text_callable(payload))
+            if blocks["read"]:
+                result["read"] = blocks["read"]
+            if blocks["read_full"]:
+                result["read_full"] = blocks["read_full"]
+            result["ocr_status"] = blocks["ocr_status"]
+            result["operation_id"] = str(payload.get("operation_id") or "")
+            result["capabilities"] = list_capabilities()
+            result["replace"] = "pack"
             return result
         except (ValueError, OpenRouterError) as exc:
             raise CreativeConflictError(str(exc)) from exc
 
     def _decompose_layers(self, image, payload):
+        from .camadas_lab import list_capabilities
+
         if not image:
             raise CreativeConflictError("Envie um still.")
         probe = split_still(image, predictor=payload.get("predictor"))
@@ -227,13 +296,22 @@ class FormatLabService:
                 "label": "Fundo",
                 "box": {"x": 0, "y": 0, "w": 100, "h": 100},
                 "png_data_url": parts["ground_url"],
+                "provenance": "generated",
             })
         return {
             "layers": layers,
             "field": probe.get("field") or parts.get("field") or "",
             "engine": "image2",
-            "cast_ok": False,
+            "engine_id": "image2_well",
+            "cast_ok": bool(probe.get("cast_ok")),
+            "cast_status": "not_run",
+            "cast_reason": "",
+            "cast_confidence": None,
             "ground_kind": "image",
+            "replace": "ground",
+            "ocr_status": "not_run",
+            "operation_id": str(payload.get("operation_id") or ""),
+            "capabilities": list_capabilities(),
             "width": width,
             "height": height,
         }
@@ -245,232 +323,39 @@ class FormatLabService:
             result = swap_reference(
                 payload,
                 brand=brand,
-                image_callable=self._image_callable({**payload, "generate": True}),
+                image_callable=self._image_callable({
+                    **payload,
+                    "generate": True,
+                    "image_quality": image_quality(payload),
+                }),
             )
         except ValueError as exc:
             raise CreativeConflictError(str(exc)) from exc
         result["brand_name"] = payload.get("brand_name") or brand.get("name") or ""
-        image_url = self._persist_still(result.get("png_data_url"))
+        if result.get("noop") or result.get("mode") == "noop" or not result.get("png_data_url"):
+            return _serialize(result)
+        store = self._trocr_store()
+        image_url = store.persist_still(result.get("png_data_url"))
         if image_url:
             result["image_url"] = image_url
         try:
-            self._append_generated_version(payload, result, user_id)
+            store.persist_generated(payload, result, user_id)
         except Exception:
             logger.exception("Não gravou a versão gerada no histórico do Trocr")
+        result["history"] = store.load(payload, user_id=user_id)
         return _serialize(result)
 
+    def _trocr_store(self):
+        return TrocrStore(self.modeling, self.repository, self._client)
+
     def load_swap_history(self, payload, user_id=None):
-        payload = payload if isinstance(payload, dict) else {}
-        client_id = self._optional_client(payload)
-        session = self._read_trocr(self._trocr_key(payload, user_id), client_id)
-        return _serialize(self._public_history(session, client_id))
+        return self._trocr_store().load(payload, user_id=user_id)
 
     def save_swap_history(self, payload, user_id=None):
-        payload = payload if isinstance(payload, dict) else {}
-        client_id = self._optional_client(payload)
-        versions = []
-        for item in payload.get("versions") or []:
-            stored = self._store_version(item)
-            if not stored:
-                continue
-            if not stored["id"]:
-                stored["id"] = f"v{len(versions) + 1}"
-            if not stored["attempt"]:
-                stored["attempt"] = len(versions) + 1
-            versions.append(stored)
-        session = {
-            "client_id": client_id or "",
-            "active_id": str(payload.get("active_id") or (versions[-1]["id"] if versions else "")),
-            "base_id": str(payload.get("base_id") or (versions[0]["id"] if versions else "")),
-            "aspect_ratio": str(payload.get("aspect_ratio") or "16:9"),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-            "versions": versions[:60],
-        }
-        self._write_trocr(self._trocr_key(payload, user_id), session, client_id)
-        if client_id and user_id not in (None, ""):
-            self._write_trocr(f"user-{user_id}", session, None)
-        return _serialize(self._public_history(session, client_id))
+        return self._trocr_store().save(payload, user_id=user_id)
 
-    def _append_generated_version(self, payload, result, user_id=None):
-        image_url = result.get("image_url") or ""
-        if not image_url.startswith(("/static/uploads/", "https://", "http://")):
-            return
-        existing = self.load_swap_history(payload, user_id=user_id)
-        versions = list(existing.get("versions") or [])
-        if any(item.get("image_url") == image_url for item in versions if isinstance(item, dict)):
-            return
-        quality = str(result.get("quality") or payload.get("quality") or "production")
-        next_id = f"v{len(versions) + 1}"
-        versions.append({
-            "id": next_id,
-            "attempt": len(versions) + 1,
-            "name": "Rascunho" if quality == "draft" else "Produção",
-            "origin": "draft" if quality == "draft" else "production",
-            "quality": quality,
-            "status": "ready",
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "image_url": image_url,
-            "thumb_url": image_url,
-        })
-        self.save_swap_history(
-            {
-                **payload,
-                "versions": versions,
-                "active_id": next_id,
-                "base_id": existing.get("base_id") or (versions[0]["id"] if versions else next_id),
-                "aspect_ratio": result.get("aspect_ratio") or payload.get("aspect_ratio") or "16:9",
-            },
-            user_id=user_id,
-        )
-
-    def _store_version(self, item):
-        if not isinstance(item, dict):
-            return None
-        image_url = self._storeable_image(item.get("image_url") or item.get("image"))
-        if not image_url:
-            return None
-        thumb_url = self._storeable_image(item.get("thumb_url") or item.get("thumb")) or image_url
-        created = item.get("created_at") or item.get("createdAt") or datetime.now(timezone.utc).isoformat()
-        if hasattr(created, "isoformat"):
-            created = created.isoformat()
-        return {
-            "id": str(item.get("id") or ""),
-            "attempt": item.get("attempt") or 0,
-            "name": str(item.get("name") or item.get("id") or "versão"),
-            "origin": str(item.get("origin") or "edited"),
-            "quality": str(item.get("quality") or ""),
-            "status": str(item.get("status") or "ready"),
-            "created_at": str(created),
-            "image_url": image_url,
-            "thumb_url": thumb_url,
-            "ocr": self._slim_context(item.get("ocr")),
-            "analysis": self._slim_context(item.get("analysis")),
-        }
-
-    def _storeable_image(self, raw):
-        url = self._persist_still(raw)
-        if url.startswith(("/static/uploads/", "https://", "http://")):
-            return url
-        return ""
-
-    def _persist_still(self, raw):
-        text = str(raw or "").strip()
-        if not text:
-            return ""
-        if text.startswith(("/static/uploads/", "https://", "http://")):
-            return text
-        if not text.startswith("data:image/"):
-            return ""
-        encoded = text.split(",", 1)[-1]
-        saver = getattr(getattr(self.modeling, "storage", None), "save_generated_base64", None)
-        if not callable(saver) or not encoded:
-            return ""
-        try:
-            return saver(encoded) or ""
-        except Exception:
-            logger.exception("Não gravou still do Trocr")
-            return ""
-
-    def _slim_context(self, value):
-        if not isinstance(value, dict):
-            return None
-        slim = {}
-        for key, item in value.items():
-            if key in {"reference", "png_data_url", "image", "image_url", "thumb"}:
-                continue
-            if isinstance(item, str) and item.startswith("data:"):
-                continue
-            slim[key] = item
-        return slim or None
-
-    def _optional_client(self, payload):
-        raw = (payload or {}).get("client_id")
-        if raw in (None, ""):
-            return None
-        try:
-            return _integer(raw, "Cliente")
-        except Exception:
-            return None
-
-    def _trocr_key(self, payload, user_id=None):
-        client_id = self._optional_client(payload)
-        if client_id:
-            return f"client-{client_id}"
-        uid = user_id if user_id not in (None, "") else "anon"
-        return f"user-{uid}"
-
-    def _public_history(self, session, client_id=None):
-        data = session if isinstance(session, dict) else {}
-        versions = []
-        for item in data.get("versions") or []:
-            if not isinstance(item, dict):
-                continue
-            url = item.get("image_url") or ""
-            thumb = item.get("thumb_url") or url
-            versions.append({
-                **item,
-                "image_url": url,
-                "thumb_url": thumb,
-                "image": url,
-                "thumb": thumb,
-            })
-        return {
-            "client_id": data.get("client_id") or client_id or "",
-            "active_id": data.get("active_id") or "",
-            "base_id": data.get("base_id") or "",
-            "aspect_ratio": data.get("aspect_ratio") or "16:9",
-            "updated_at": data.get("updated_at") or "",
-            "versions": versions,
-        }
-
-    def _read_trocr(self, key, client_id=None):
-        store = getattr(self.repository, "trocr_sessions", None)
-        if isinstance(store, dict) and isinstance(store.get(key), dict):
-            return dict(store[key])
-        if client_id:
-            try:
-                client = self._client(client_id)
-                profile = client.get("brand_profile") if isinstance(client, dict) else {}
-                if isinstance(profile, dict) and isinstance(profile.get("trocr"), dict):
-                    return dict(profile["trocr"])
-            except Exception:
-                pass
-        loader = getattr(getattr(self.modeling, "storage", None), "load_trocr_session", None)
-        if callable(loader):
-            try:
-                data = loader(key)
-                if isinstance(data, dict):
-                    return data
-            except Exception:
-                pass
-        return {}
-
-    def _write_trocr(self, key, session, client_id=None):
-        store = getattr(self.repository, "trocr_sessions", None)
-        if not isinstance(store, dict):
-            try:
-                self.repository.trocr_sessions = {}
-                store = self.repository.trocr_sessions
-            except Exception:
-                store = None
-        if isinstance(store, dict):
-            store[key] = session
-        if client_id:
-            try:
-                client = self._client(client_id)
-                profile = dict((client or {}).get("brand_profile") or {})
-                profile["trocr"] = session
-                updater = getattr(self.repository, "update_client_brand_profile", None)
-                if callable(updater):
-                    updater(client_id, profile)
-            except Exception:
-                logger.exception("Não gravou histórico Trocr na marca")
-        saver = getattr(getattr(self.modeling, "storage", None), "save_trocr_session", None)
-        if callable(saver):
-            try:
-                saver(key, session)
-            except Exception:
-                logger.exception("Não gravou histórico Trocr em arquivo")
+    def swap_still_path(self, filename):
+        return self._trocr_store().still_path(filename)
 
     def list_campaigns(self):
         return _serialize(list_campaign_models())
@@ -658,28 +543,47 @@ class FormatLabService:
         payload = payload if isinstance(payload, dict) else {}
         campaign, session = self._find_session(session_id)
         client = self._session_client(session, campaign)
+        reread = bool(payload.get("reread_still"))
+        persisted = _session_read_record(session)
+        if payload.get("still_read_id") and persisted and payload.get("still_read_id") != persisted.get("read_id"):
+            persisted = None
         merged = {
             **session,
-            **payload,
+            **strip_public_read_fields(payload),
             "session_id": session_id,
             "client_id": session.get("client_id") or client.get("id"),
         }
+        merged.pop("still_read", None)
+        merged.pop("copy_bind", None)
+        merged.pop("copy_origin", None)
         try:
             result = build_storyboard(
                 merged,
                 client=client,
                 text_callable=self._text_callable(payload),
+                persisted_read=persisted,
+                reread=reread,
+                accept_inline=False,
+                session_id=session_id,
             )
         except (ValueError, OpenRouterError):
             result = build_storyboard(
                 merged,
                 client=client,
                 text_callable=None,
+                persisted_read=persisted,
+                reread=reread,
+                accept_inline=False,
+                session_id=session_id,
             )
         result["id"] = session_id
         result["client_id"] = session.get("client_id") or client.get("id")
         result["campaign_id"] = campaign["id"]
         result["status"] = "concept"
+        previous = _session_read_record(session)
+        current = result.get("still_read") if isinstance(result.get("still_read"), dict) else {}
+        if previous and current.get("fingerprint") and previous.get("fingerprint") != current.get("fingerprint"):
+            result["still_read_prev"] = _public_still_read(previous)
         self._write_session(campaign["id"], {**session, **result}, active=True)
         cost = self._bill_prompt(
             campaign["id"],
@@ -698,20 +602,25 @@ class FormatLabService:
         client = self._session_client(session, campaign)
         merged = {
             **session,
-            **payload,
+            **strip_public_read_fields(payload),
             "session_id": session_id,
             "client_id": session.get("client_id") or client.get("id"),
             "stage": "mockup",
             "mockup_passes": payload.get("mockup_passes") or 3,
         }
+        merged.pop("still_read", None)
         if not merged.get("storyboard") and session.get("storyboard"):
             merged["storyboard"] = session.get("storyboard")
+        persisted = _session_read_record(session)
         try:
             result = run_session(
                 merged,
                 client=client,
                 text_callable=self._text_callable(payload),
                 screenshot=payload.get("screenshot"),
+                persisted_read=persisted,
+                accept_inline=False,
+                session_id=session_id,
             )
         except Exception:
             logger.exception("Mockup da sessão %s falhou; entrega a placa HTML", session_id)
@@ -721,6 +630,9 @@ class FormatLabService:
                     client=client,
                     text_callable=None,
                     screenshot=lambda *_args, **_kwargs: b"",
+                    persisted_read=persisted,
+                    accept_inline=False,
+                    session_id=session_id,
                 )
             except Exception as exc:
                 logger.exception("Placa de fallback da sessão %s também falhou", session_id)
@@ -750,6 +662,9 @@ class FormatLabService:
         data = dict(session)
         data["campaign_id"] = campaign.get("id")
         data["stage"] = _session_stage(data)
+        data["still_read"] = _public_still_read(data.get("still_read"))
+        data["copy_bind"] = data.get("copy_bind") if isinstance(data.get("copy_bind"), dict) else {}
+        data["copy_origin"] = data.get("copy_origin") if isinstance(data.get("copy_origin"), dict) else {}
         return _serialize(data)
 
     def list_sessions(self, payload=None):
@@ -785,11 +700,12 @@ class FormatLabService:
         client = self._session_client(session, campaign)
         merged = {
             **session,
-            **payload,
+            **strip_public_read_fields(payload),
             "session_id": session_id,
             "client_id": session.get("client_id") or client.get("id"),
             "renders": payload.get("renders") or payload.get("attempts") or 3,
         }
+        merged.pop("still_read", None)
         if not payload.get("storyboard") and session.get("storyboard"):
             merged["storyboard"] = session.get("storyboard")
         if not payload.get("base_html") and session.get("base_html"):
@@ -800,6 +716,9 @@ class FormatLabService:
             client=client,
             text_callable=self._text_callable(payload),
             screenshot=payload.get("screenshot"),
+            persisted_read=_session_read_record(session),
+            accept_inline=False,
+            session_id=session_id,
         )
         if session.get("storyboard") and not result.get("storyboard"):
             result["storyboard"] = session.get("storyboard")
@@ -1207,13 +1126,16 @@ class FormatLabService:
             return None
 
         def _run(prompt, aspect_ratio="1:1", background="opaque", input_references=None, **_extra):
-            result = generate(
-                prompt,
-                input_references=input_references,
-                aspect_ratio=aspect_ratio,
-                background=background,
-                output_format="png",
-            )
+            kwargs = {
+                "input_references": input_references,
+                "aspect_ratio": aspect_ratio,
+                "background": background,
+                "output_format": "png",
+            }
+            quality = payload.get("image_quality")
+            if quality:
+                kwargs["quality"] = quality
+            result = generate(prompt, **kwargs)
             raw = result.get("b64_json") if isinstance(result, dict) else None
             if not raw:
                 return None

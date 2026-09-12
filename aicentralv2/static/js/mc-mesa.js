@@ -48,6 +48,11 @@
     visualSkills: [],
     selectedSkills: ['imagegen-frontend-web'],
     runOp: 'concept',
+    stillRead: null,
+    copyOrigin: null,
+    readToken: 0,
+    rereading: false,
+    showReadChips: false,
   };
 
   const RUN_BEATS = [
@@ -407,6 +412,11 @@
       showScene();
       mesaToast(`Versão v${state.versionAttempt} no quadro.`);
     });
+    $('mcMesaReread')?.addEventListener('click', () => rereadStill());
+    $('mcMesaReadChipsBtn')?.addEventListener('click', () => {
+      state.showReadChips = !state.showReadChips;
+      renderRead();
+    });
     $('mcMesaStrip')?.addEventListener('click', (event) => {
       const button = event.target.closest('[data-scene]');
       if (!button) return;
@@ -456,6 +466,7 @@
       message: state.offer || state.campaign?.title || state.objective,
       offer: state.offer || state.campaign?.offer || state.campaign?.title || '',
       selected_skills: [...state.selectedSkills],
+      still_read_id: state.stillRead?.read_id || '',
     };
   }
 
@@ -468,6 +479,8 @@
       state.sessionId = '';
       state.session = null;
       state.storyboard = [];
+      state.stillRead = null;
+      state.copyOrigin = null;
     }
     state.clientId = id;
     const client = currentClient();
@@ -770,6 +783,7 @@
     renderKeys();
     const card = state.storyboard.find((item) => item.id === state.sceneId);
     if (card) card.key_visual = url;
+    state.readToken += 1;
     setStatus('Key visual desta cena saiu da marca.');
     mesaToast('Key visual atualizado.');
   }
@@ -970,7 +984,10 @@
     files.forEach((file) => {
       if (!file.type.startsWith('image/')) return;
       const reader = new FileReader();
-      reader.onload = () => state.images.push(reader.result);
+      reader.onload = () => {
+        state.images.push(reader.result);
+        state.readToken += 1;
+      };
       reader.readAsDataURL(file);
     });
     if (files.length) setStatus('Referência na mesa. A marca e o conceito entram juntos.');
@@ -1025,15 +1042,18 @@
       const sessionId = await ensureSession();
       markRunProgress('create', 'done');
       markRunProgress('refine', 'running');
+      const token = ++state.readToken;
       const data = await fetch(`${API.sessions}/${sessionId}/storyboard`, {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(knobs()),
       }).then(readJson);
+      if (token !== state.readToken) return;
       state.session = data;
       state.sessionId = data.id;
       state.storyboard = data.storyboard || [];
+      captureRead(data);
       state.sceneId = (state.storyboard[0] || {}).id || 'scene_01';
       if (data.quote || data.cost) state.quote = data.cost || data.quote;
       renderStrip();
@@ -1044,6 +1064,7 @@
       $('mcMesaAnalyze').disabled = false;
       labelGenerate();
       renderEdit();
+      renderRead();
       const first = state.storyboard[0];
       $('mcMesaCaption').textContent = first?.headline || '';
       setStatus(
@@ -1544,9 +1565,146 @@
     }
   }
 
+  function captureRead(data) {
+    if (!data) return;
+    if (data.still_read && typeof data.still_read === 'object') state.stillRead = data.still_read;
+    if (data.copy_origin && typeof data.copy_origin === 'object') state.copyOrigin = data.copy_origin;
+    else if (data.copy_bind && typeof data.copy_bind === 'object') {
+      state.copyOrigin = state.copyOrigin || { ocr_status: data.copy_bind.ocr_status || 'none', beats: [] };
+    }
+  }
+
+  function readStatusLabel(status) {
+    const labels = {
+      none: 'Sem still de referência.',
+      succeeded: 'Leitura concluída.',
+      partial: 'Leitura parcial. Há conteúdo pendente.',
+      not_found: 'Nenhum texto identificado.',
+      unavailable: 'Leitura indisponível.',
+      failed: 'Não foi possível concluir a leitura.',
+      unknown: 'Esta sessão não tem leitura persistida. Ler o still de novo se a fonte ainda estiver disponível.',
+    };
+    return labels[status] || labels.none;
+  }
+
+  function originLabel(origin) {
+    const labels = {
+      still: 'Still',
+      campaign: 'Campanha travada',
+      operator: 'Edição do operador',
+      none: 'Sem fonte suficiente',
+      generated: 'Geração livre',
+    };
+    return labels[origin] || origin || 'Sem fonte suficiente';
+  }
+
+  function bindStateLabel(stateName) {
+    const labels = {
+      bound: 'Vínculo completo',
+      insufficient: 'Pendente',
+      unavailable: 'Leitura indisponível',
+      failed: 'Leitura falhou',
+      not_found: 'Sem texto',
+      none: 'Sem still',
+      unknown: 'Sem proveniência',
+    };
+    return labels[stateName] || stateName || '';
+  }
+
+  function renderRead() {
+    const box = $('mcMesaRead');
+    if (!box) return;
+    const origin = state.copyOrigin || {};
+    const read = state.stillRead || {};
+    const status = origin.ocr_status || read.ocr_status || (selectedVisuals().length ? 'unknown' : 'none');
+    const hasStill = Boolean(selectedVisuals().length || read.fingerprint || status !== 'none');
+    box.hidden = !hasStill && status === 'none' && !state.storyboard.length;
+    const statusNode = $('mcMesaReadStatus');
+    if (statusNode) statusNode.textContent = readStatusLabel(status);
+    const warn = $('mcMesaReadWarn');
+    if (warn) {
+      const notes = [];
+      if (origin.campaign_overrides_still) notes.push('A campanha travada está fornecendo a copy.');
+      if (origin.qa_passed) notes.push('O QA visual aprovou a placa; isso não valida o texto do still.');
+      warn.hidden = !notes.length;
+      warn.textContent = notes.join(' ');
+    }
+    const reread = $('mcMesaReread');
+    if (reread) {
+      const canRead = Boolean(selectedVisuals().length) && !state.rereading;
+      reread.hidden = !canRead;
+      reread.disabled = !canRead;
+    }
+    const chipsBtn = $('mcMesaReadChipsBtn');
+    const chips = read.chips || {};
+    const hasChips = Object.values(chips).some(Boolean);
+    if (chipsBtn) {
+      chipsBtn.hidden = !hasChips;
+      chipsBtn.textContent = state.showReadChips ? 'Ocultar textos reconhecidos' : 'Ver textos reconhecidos';
+    }
+    const list = $('mcMesaReadChips');
+    if (list) {
+      list.hidden = !state.showReadChips || !hasChips;
+      list.innerHTML = Object.entries(chips).filter(([, value]) => value).map(([key, value]) => (
+        `<dt>${key}</dt><dd>${value}</dd>`
+      )).join('');
+    }
+    const beats = $('mcMesaReadBeats');
+    if (beats) {
+      const rows = origin.beats || [];
+      beats.innerHTML = rows.map((item) => {
+        const fields = item.fields || {};
+        const headline = fields.headline || {};
+        const cta = fields.cta || {};
+        const parts = [];
+        if (headline.text || headline.origin) {
+          parts.push(`linha: ${headline.text || '—'} · ${originLabel(headline.origin)}${headline.source_block ? ` (${headline.source_block})` : ''}${headline.pending ? ' · pendente' : ''}`);
+        }
+        if (item.purpose === 'cta' && (cta.text || cta.origin)) {
+          parts.push(`botão: ${cta.text || '—'} · ${originLabel(cta.origin)}${cta.source_block ? ` (${cta.source_block})` : ''}${cta.pending ? ' · pendente' : ''}`);
+        }
+        return `<li><strong>${item.purpose || item.scene_id} · ${bindStateLabel(item.bind_state)}</strong><span>${parts.join('<br>')}</span></li>`;
+      }).join('');
+    }
+  }
+
+  async function rereadStill() {
+    if (state.rereading || !selectedVisuals().length) return;
+    state.rereading = true;
+    const token = ++state.readToken;
+    const button = $('mcMesaReread');
+    if (button) button.disabled = true;
+    setStatus('Lendo o still de novo. Isso executa uma nova leitura.');
+    try {
+      const sessionId = await ensureSession();
+      const data = await fetch(`${API.sessions}/${sessionId}/storyboard`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...knobs(), reread_still: true }),
+      }).then(readJson);
+      if (token !== state.readToken) return;
+      state.session = data;
+      state.sessionId = data.id;
+      if (data.storyboard?.length) state.storyboard = data.storyboard;
+      captureRead(data);
+      renderStrip();
+      renderEdit();
+      renderRead();
+      setStatus('Nova leitura concluída. O vínculo das batidas foi recalculado.');
+      mesaToast('Still relido.');
+    } catch (error) {
+      if (token === state.readToken) setStatus(error.message);
+    } finally {
+      state.rereading = false;
+      renderRead();
+    }
+  }
+
   function applySession(data) {
     state.session = data;
     state.sessionId = data.id;
+    captureRead(data);
     if (data.storyboard?.length) state.storyboard = data.storyboard;
     else if (data.scenes?.length) {
       state.storyboard = data.scenes.map((item, index) => ({
@@ -1576,6 +1734,7 @@
       defects.innerHTML = notes.map((item) => `<li>${item}</li>`).join('');
     }
     renderEdit();
+    renderRead();
     renderKeys();
     labelGenerate();
     const versions = sceneVersions(state.sceneId);

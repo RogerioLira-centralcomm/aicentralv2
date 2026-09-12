@@ -33,10 +33,45 @@ def centralcomm_campaign_brief():
     }
 
 
-def ensure_campaign_design_system(brand, campaign=None, elements=None):
+def ensure_campaign_design_system(brand, campaign=None, elements=None, existing=None):
     brand = parse_system(brand)
     campaign = campaign if isinstance(campaign, dict) else {}
     items = collect_campaign_elements(campaign, elements)
+    from .fidelity import bind_evidence_tracks
+    from .policy import stamp_inheritance
+    from .provenance import ensure_provenance
+
+    track_assets = [
+        {
+            "url": item.get("asset_url"),
+            "role": item.get("role") or "",
+            "label": item.get("label") or "",
+        }
+        for item in items
+    ]
+    if existing is not None:
+        stored = parse_system(existing)
+        data = dump_system(stored)
+        data["scope"] = "campaign"
+        data["source"] = "campaign"
+        if items:
+            data["elements"] = items
+            data["tracks"] = bind_evidence_tracks(data.get("tracks") or stored.tracks, track_assets)
+        data["ad_copy"] = _campaign_copy(stored, campaign) or stored.ad_copy
+        from .copy import prune_format_copy
+
+        data["ad_copy_by_format"] = prune_format_copy(
+            data["ad_copy"],
+            getattr(stored, "ad_copy_by_format", None) or getattr(brand, "ad_copy_by_format", None) or {},
+        )
+        line = _creative_line(campaign)
+        if line:
+            data["creative_line"] = line
+        data["tokens"] = dict(stored.tokens or {})
+        data["dna"] = dict(stored.dna or brand.dna or {})
+        system = stamp_inheritance(DesignSystemAds.model_validate(data), brand, existing=True)
+        return ensure_provenance(system), items
+
     name = str(campaign.get("name") or brand.name or "Campanha").strip()[:80]
     line = _creative_line(campaign)
     data = dump_system(brand)
@@ -54,22 +89,19 @@ def ensure_campaign_design_system(brand, campaign=None, elements=None):
         }
     )
     data["ad_copy"] = _campaign_copy(brand, campaign)
-    data["tokens"] = dict(brand.tokens or {})
-    from .fidelity import bind_evidence_tracks
+    from .copy import prune_format_copy
 
+    data["ad_copy_by_format"] = prune_format_copy(
+        data["ad_copy"],
+        getattr(brand, "ad_copy_by_format", None) or {},
+    )
+    data["tokens"] = dict(brand.tokens or {})
     data["tracks"] = bind_evidence_tracks(
         data.get("tracks") or brand.tracks,
-        [
-            {
-                "url": item.get("asset_url"),
-                "role": item.get("role") or "",
-                "label": item.get("label") or "",
-            }
-            for item in items
-        ],
+        track_assets,
     )
-    system = DesignSystemAds.model_validate(data)
-    return system, items
+    system = stamp_inheritance(DesignSystemAds.model_validate(data), brand, existing=False)
+    return ensure_provenance(system), items
 
 
 def collect_campaign_elements(campaign, extras=None):

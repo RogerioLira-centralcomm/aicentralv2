@@ -10,6 +10,8 @@ from flask import Blueprint, abort, jsonify, render_template, request, send_file
 from werkzeug.utils import secure_filename
 
 from .auth import admin_required, admin_required_api
+from .creative_format_lab.swap_csrf import get_or_create_token as trocr_csrf_token
+from .creative_format_lab.swap_routes import register_trocr_routes
 from .creative_modeling_generation import OpenRouterError
 from .creative_modeling_repository import (
     CreativeConflictError,
@@ -33,8 +35,18 @@ def _ok(data=None, status=200):
     return jsonify({"success": True, "data": data}), status
 
 
-def _error(message, status):
-    return jsonify({"success": False, "error": str(message)}), status
+def _error(message, status, extra=None):
+    payload = {"success": False, "error": str(message)}
+    if extra:
+        payload.update(extra)
+    return jsonify(payload), status
+
+
+def _run_extra(exc):
+    run = getattr(exc, "run", None)
+    if not run:
+        return None
+    return {"data": {"run": run}}
 
 
 def _json(optional=False):
@@ -50,14 +62,14 @@ def _execute(callback):
     try:
         return callback()
     except CreativeNotFoundError as exc:
-        return _error(exc, 404)
+        return _error(exc, 404, _run_extra(exc))
     except CreativeConflictError as exc:
-        return _error(exc, 409)
+        return _error(exc, 409, _run_extra(exc))
     except (ValueError, OpenRouterError) as exc:
-        return _error(exc, 400)
-    except Exception:
+        return _error(exc, 400, _run_extra(exc))
+    except Exception as exc:
         logger.exception("Erro na Modelagem de Criativos")
-        return _error("Não foi possível concluir a solicitação.", 500)
+        return _error("Não foi possível concluir a solicitação.", 500, _run_extra(exc))
 
 
 MC_DESKS = {
@@ -184,6 +196,7 @@ def modelagem_desk(page):
         panel=spec["panel"],
         mc_studio_js=spec["studio"],
         mc_page_js=spec.get("page_js"),
+        mc_trocr_csrf=trocr_csrf_token() if page == "trocar" else "",
     )
 
 
@@ -328,43 +341,11 @@ def api_format_lab_layers_example():
 
 @admin_required_api
 def api_format_lab_layers_split():
+    from aicentralv2.creative_format_lab.camadas_lab import strip_client_injections
+
+    payload = strip_client_injections(_json())
     return _execute(
-        lambda: _ok(_service().split_format_lab_layers(_json(), session.get("user_id")))
-    )
-
-
-@admin_required_api
-def api_format_lab_swap():
-    return _execute(
-        lambda: _ok(_service().swap_format_lab(_json(), session.get("user_id")))
-    )
-
-
-@admin_required_api
-def api_format_lab_swap_read():
-    return _execute(
-        lambda: _ok(_service().read_format_lab_swap(_json(), session.get("user_id")))
-    )
-
-
-@admin_required_api
-def api_format_lab_swap_prompt():
-    return _execute(
-        lambda: _ok(_service().preview_format_lab_swap(_json(), session.get("user_id")))
-    )
-
-
-@admin_required_api
-def api_format_lab_swap_history():
-    if request.method == "GET":
-        return _execute(
-            lambda: _ok(_service().load_format_lab_swap_history(
-                {"client_id": request.args.get("client_id")},
-                session.get("user_id"),
-            ))
-        )
-    return _execute(
-        lambda: _ok(_service().save_format_lab_swap_history(_json(), session.get("user_id")))
+        lambda: _ok(_service().split_format_lab_layers(payload, session.get("user_id")))
     )
 
 
@@ -481,19 +462,31 @@ def api_clients():
 @admin_required_api
 def api_brand_design_system(client_id):
     if request.method == "POST":
-        return _execute(lambda: _ok(_service().ensure_brand_design_system(client_id)))
+        from .design_system_ads.commands import parse_optional_revision
+
+        command = parse_optional_revision(_json(optional=True))
+        return _execute(
+            lambda: _ok(
+                _service().ensure_brand_design_system(
+                    client_id, expected_revision=command.expected_revision
+                )
+            )
+        )
     return _execute(lambda: _ok(_service().get_brand_design_system(client_id)))
 
 
 @admin_required_api
 def api_refine_brand_design_system(client_id):
-    payload = _json(optional=True)
+    from .design_system_ads.commands import parse_refine_brand
+
+    command = parse_refine_brand(_json(optional=True))
     return _execute(
         lambda: _ok(
             _service().refine_brand_design_system(
                 client_id,
-                payload.get("attempts") or 4,
-                intent=payload.get("intent"),
+                command.attempts or 4,
+                intent=command.intent,
+                expected_revision=command.expected_revision,
             )
         )
     )
@@ -501,20 +494,32 @@ def api_refine_brand_design_system(client_id):
 
 @admin_required_api
 def api_approve_brand_design_system(client_id):
-    return _execute(lambda: _ok(_service().approve_brand_design_system(client_id)))
+    from .design_system_ads.commands import parse_approve_brand
+
+    command = parse_approve_brand(_json(optional=True))
+    return _execute(
+        lambda: _ok(
+            _service().approve_brand_design_system(
+                client_id, expected_revision=command.expected_revision
+            )
+        )
+    )
 
 
 @admin_required_api
 def api_patch_brand_design_system(client_id):
-    payload = _json(optional=True)
+    from .design_system_ads.commands import parse_patch_brand
+
+    command = parse_patch_brand(_json(optional=True))
     return _execute(
         lambda: _ok(
             _service().patch_brand_design_system(
                 client_id,
-                tokens=payload.get("tokens") if isinstance(payload.get("tokens"), dict) else None,
-                ad_copy=payload.get("ad_copy") if isinstance(payload.get("ad_copy"), dict) else None,
-                dna=payload.get("dna") if isinstance(payload.get("dna"), dict) else None,
-                archetype=payload.get("archetype"),
+                tokens=command.tokens,
+                ad_copy=command.ad_copy,
+                dna=command.dna,
+                archetype=command.archetype,
+                expected_revision=command.expected_revision,
             )
         )
     )
@@ -522,21 +527,60 @@ def api_patch_brand_design_system(client_id):
 
 @admin_required_api
 def api_compose_brand_design_system(client_id):
-    return _execute(lambda: _ok(_service().compose_brand_design_system(client_id)))
+    from .design_system_ads.commands import parse_optional_revision
+
+    command = parse_optional_revision(_json(optional=True))
+    return _execute(
+        lambda: _ok(
+            _service().compose_brand_design_system(
+                client_id, expected_revision=command.expected_revision
+            )
+        )
+    )
 
 
 @admin_required_api
 def api_loop_brand_design_system(client_id):
-    return _execute(lambda: _ok(_service().loop_brand_design_system(client_id)))
+    from .design_system_ads.commands import parse_optional_revision
+
+    command = parse_optional_revision(_json(optional=True))
+    return _execute(
+        lambda: _ok(
+            _service().loop_brand_design_system(
+                client_id, expected_revision=command.expected_revision
+            )
+        )
+    )
 
 
 @admin_required_api
 def api_generate_brand_track(client_id, track_id):
-    payload = _json(optional=True)
+    from .design_system_ads.commands import parse_optional_revision
+
+    command = parse_optional_revision(_json(optional=True))
     return _execute(
         lambda: _ok(
             _service().generate_brand_track(
-                client_id, track_id, extra=payload.get("extra") or ""
+                client_id,
+                track_id,
+                extra=command.extra or "",
+                expected_revision=command.expected_revision,
+            )
+        )
+    )
+
+
+@admin_required_api
+def api_validate_brand_design_system_render(client_id):
+    from .design_system_ads.commands import parse_validate_render
+
+    command = parse_validate_render(_json(optional=True))
+    format_key = command.format or request.args.get("format")
+    layers = command.layers if command.layers is not None else request.args.get("layers")
+    return _execute(
+        lambda: _ok(
+            _service().validate_brand_design_system_render(
+                client_id, format_key, layers
             )
         )
     )
@@ -544,10 +588,12 @@ def api_generate_brand_track(client_id, track_id):
 
 @admin_required_api
 def api_adapt_brand_design_system(client_id):
-    payload = _json(optional=True)
-    format_key = payload.get("format") or request.args.get("format")
-    layers = payload.get("layers") or request.args.get("layers")
-    swaps = payload.get("swaps") if isinstance(payload.get("swaps"), list) else None
+    from .design_system_ads.commands import parse_adapt
+
+    command = parse_adapt(_json(optional=True))
+    format_key = command.format or request.args.get("format")
+    layers = command.layers if command.layers is not None else request.args.get("layers")
+    swaps = command.swaps if isinstance(command.swaps, list) else None
     return _execute(
         lambda: _ok(
             _service().adapt_brand_design_system(
@@ -555,7 +601,8 @@ def api_adapt_brand_design_system(client_id):
                 format_key,
                 layers,
                 swaps=swaps,
-                archetype=payload.get("archetype"),
+                archetype=command.archetype,
+                expected_revision=command.expected_revision,
             )
         )
     )
@@ -564,16 +611,43 @@ def api_adapt_brand_design_system(client_id):
 @admin_required_api
 def api_campaign_design_system(campaign_id):
     if request.method == "POST":
-        return _execute(lambda: _ok(_service().ensure_campaign_design_system(campaign_id)))
+        from .design_system_ads.commands import parse_campaign_compose
+
+        command = parse_campaign_compose(_json(optional=True))
+        return _execute(
+            lambda: _ok(
+                _service().ensure_campaign_design_system(
+                    campaign_id, expected_revision=command.expected_revision
+                )
+            )
+        )
     return _execute(lambda: _ok(_service().get_campaign_design_system(campaign_id)))
 
 
 @admin_required_api
+def api_validate_campaign_design_system_render(campaign_id):
+    from .design_system_ads.commands import parse_validate_render
+
+    command = parse_validate_render(_json(optional=True))
+    format_key = command.format or request.args.get("format")
+    layers = command.layers if command.layers is not None else request.args.get("layers")
+    return _execute(
+        lambda: _ok(
+            _service().validate_campaign_design_system_render(
+                campaign_id, format_key, layers
+            )
+        )
+    )
+
+
+@admin_required_api
 def api_adapt_campaign_design_system(campaign_id):
-    payload = _json(optional=True)
-    format_key = payload.get("format") or request.args.get("format")
-    layers = payload.get("layers") or request.args.get("layers")
-    swaps = payload.get("swaps") if isinstance(payload.get("swaps"), list) else None
+    from .design_system_ads.commands import parse_adapt
+
+    command = parse_adapt(_json(optional=True))
+    format_key = command.format or request.args.get("format")
+    layers = command.layers if command.layers is not None else request.args.get("layers")
+    swaps = command.swaps if isinstance(command.swaps, list) else None
     return _execute(
         lambda: _ok(
             _service().adapt_campaign_design_system(
@@ -1269,30 +1343,7 @@ def register_creative_modeling_routes(blueprint):
         view_func=api_format_lab_layers_split,
         methods=["POST"],
     )
-    blueprint.add_url_rule(
-        "/api/format-lab/swap",
-        endpoint="creative_format_lab_swap",
-        view_func=api_format_lab_swap,
-        methods=["POST"],
-    )
-    blueprint.add_url_rule(
-        "/api/format-lab/swap/read",
-        endpoint="creative_format_lab_swap_read",
-        view_func=api_format_lab_swap_read,
-        methods=["POST"],
-    )
-    blueprint.add_url_rule(
-        "/api/format-lab/swap/prompt",
-        endpoint="creative_format_lab_swap_prompt",
-        view_func=api_format_lab_swap_prompt,
-        methods=["POST"],
-    )
-    blueprint.add_url_rule(
-        "/api/format-lab/swap/history",
-        endpoint="creative_format_lab_swap_history",
-        view_func=api_format_lab_swap_history,
-        methods=["GET", "POST"],
-    )
+    register_trocr_routes(blueprint)
     blueprint.add_url_rule(
         "/api/format-lab/quote",
         endpoint="creative_format_lab_quote",
@@ -1384,6 +1435,12 @@ def register_creative_modeling_routes(blueprint):
         methods=["POST"],
     )
     blueprint.add_url_rule(
+        "/api/design-system/brand/<client_id>/validate-render",
+        endpoint="creative_design_system_brand_validate_render",
+        view_func=api_validate_brand_design_system_render,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
         "/api/design-system/brand/<client_id>/adapt",
         endpoint="creative_design_system_brand_adapt",
         view_func=api_adapt_brand_design_system,
@@ -1394,6 +1451,12 @@ def register_creative_modeling_routes(blueprint):
         endpoint="creative_design_system_campaign",
         view_func=api_campaign_design_system,
         methods=["GET", "POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/design-system/campaign/<campaign_id>/validate-render",
+        endpoint="creative_design_system_campaign_validate_render",
+        view_func=api_validate_campaign_design_system_render,
+        methods=["POST"],
     )
     blueprint.add_url_rule(
         "/api/design-system/campaign/<campaign_id>/adapt",

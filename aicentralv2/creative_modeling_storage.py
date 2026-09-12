@@ -172,6 +172,12 @@ class CreativeAssetStorage:
         path = _trocr_still_root() / name
         return path if path.is_file() else None
 
+    def load_generated_still(self, filename):
+        name = Path(str(filename or "")).name
+        if not TROCR_STILL_NAME.fullmatch(name):
+            return None
+        return self.absolute_generated_path(f"{GENERATED_PREFIX}{name}")
+
     def save_trocr_session(self, key, data):
         name = _safe_trocr_key(key)
         path = _root("creative_trocr") / f"{name}.json"

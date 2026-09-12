@@ -72,10 +72,34 @@ def track_spec(track_id):
     raise ValueError("Trilha inválida. Use produto, KV, lifestyle ou campo.")
 
 
-def prompt_for_track(system, track_id, extra=""):
+def build_track_prompt(system, track_id, extra="", *, client=None, client_id=None):
+    from .prompt_context import build_ads_prompt_context
+
     spec = track_spec(track_id)
+    context = build_ads_prompt_context(
+        "tracks",
+        system,
+        format_context={
+            "track_id": spec["id"],
+            "aspect": spec["aspect"],
+            "role": spec["role"],
+        },
+        client=client,
+        client_id=client_id,
+    )
+    return _image_prompt(system, spec, extra, context), context
+
+
+def prompt_for_track(system, track_id, extra=""):
+    prompt, _context = build_track_prompt(system, track_id, extra)
+    return prompt
+
+
+def _image_prompt(system, spec, extra, context):
     payload = system if isinstance(system, dict) else {}
-    tokens = getattr(system, "tokens", None) or payload.get("tokens") or {}
+    tokens = (context.get("identity") or {}).get("locked_tokens") or {}
+    if not tokens:
+        tokens = getattr(system, "tokens", None) or payload.get("tokens") or {}
     dna = getattr(system, "dna", None) or payload.get("dna") or {}
     copy = getattr(system, "ad_copy", None) or payload.get("ad_copy") or {}
     evidence = getattr(system, "evidence", None)
@@ -101,6 +125,7 @@ def prompt_for_track(system, track_id, extra=""):
         or ["SaaS cards", "resize", "stock handshake", "cream terracotta", "acid green"]
     )
     stored = ""
+    track_id = spec.get("id") or ""
     for item in tracks or []:
         if isinstance(item, dict) and item.get("id") == track_id and item.get("prompt"):
             stored = str(item["prompt"]).strip()

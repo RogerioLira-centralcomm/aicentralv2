@@ -61,6 +61,7 @@
     picking: false,
     pickStart: null,
     revision: 0,
+    csrf: '',
   };
 
   let readAbort = null;
@@ -77,6 +78,7 @@
   }
 
   async function boot() {
+    state.csrf = $('mcSwap')?.dataset?.csrf || '';
     bind();
     applyRatio(state.aspectRatio);
     applyPresentation();
@@ -1531,7 +1533,10 @@
     const response = await fetch(url, {
       method: options?.method || (body ? 'POST' : 'GET'),
       credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(state.csrf ? { 'X-Trocr-CSRF-Token': state.csrf } : {}),
+      },
       signal: options?.signal,
       body: body ? JSON.stringify(body) : undefined,
     });

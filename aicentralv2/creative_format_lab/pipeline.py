@@ -9,7 +9,16 @@ from ..creative_skills.loader import load_bundle
 from .brand_context import build_brand_context, reference_images, scene_photos
 from .campaign_models import apply_brand_to_campaign, apply_key_visuals, campaign_from_brand, expand_campaign_scenes, load_campaign_model, offer_hint
 from .catalog import ROLE_MAP, composition_purposes
-from .engineer import _usable_image_url, apply_copy_locks, apply_still_read, build_spec, normalize_knobs
+from .engineer import (
+    _first_still,
+    _usable_image_url,
+    apply_still_read,
+    build_copy_origin,
+    build_spec,
+    finalize_spec,
+    normalize_knobs,
+    pack_still_record,
+)
 from .html_builder import build_scene_html
 from .layer_export import export_layers, export_scene_cards
 from .guidelines import check_stack
@@ -38,7 +47,17 @@ def _step(skill_id, label, status, note=""):
     return {"id": skill_id, "label": label, "status": status, "note": note}
 
 
-def run_session(payload, *, client=None, text_callable=None, screenshot=None):
+def run_session(
+    payload,
+    *,
+    client=None,
+    text_callable=None,
+    screenshot=None,
+    persisted_read=None,
+    reread=False,
+    accept_inline=True,
+    session_id="",
+):
     payload = payload if isinstance(payload, dict) else {}
     client = client if isinstance(client, dict) else {}
     user_images = _payload_images(payload)
@@ -51,7 +70,23 @@ def run_session(payload, *, client=None, text_callable=None, screenshot=None):
     photos = scene_photos(brand, user_images)
     knobs = normalize_knobs(payload)
     if _should_read_still(payload):
-        knobs = apply_still_read(knobs, user_images, text_callable)
+        knobs = apply_still_read(
+            knobs,
+            user_images,
+            text_callable,
+            persisted=persisted_read,
+            reread=reread,
+            accept_inline=accept_inline,
+        )
+    elif persisted_read:
+        knobs = apply_still_read(
+            knobs,
+            user_images,
+            None,
+            persisted=persisted_read,
+            reread=False,
+            accept_inline=False,
+        )
     campaign = payload.get("campaign") if isinstance(payload.get("campaign"), dict) else None
     if not campaign:
         campaign = load_campaign_model(payload.get("campaign_slug"))
@@ -128,7 +163,7 @@ def run_session(payload, *, client=None, text_callable=None, screenshot=None):
                 text_callable=None,
                 bundle=bundle,
             )
-    spec = apply_copy_locks(spec, knobs.get("storyboard"))
+    spec = finalize_spec(spec, campaign, knobs)
     _mark(steps, "create", "done", "spec")
     _mark(steps, "reconstruct", "done", "spec")
     _mark(steps, bundle["format_skill"], "done", spec.format)
@@ -246,6 +281,17 @@ def run_session(payload, *, client=None, text_callable=None, screenshot=None):
     cards = export_scene_cards(scenes)
     qa = qa_bundle["qa"]
     status = "ready" if qa.get("passed") else "review"
+    still_read = pack_still_record(
+        knobs,
+        image=_first_still(user_images),
+        persisted=persisted_read or payload.get("still_read"),
+        session_id=session_id or str(payload.get("session_id") or ""),
+        reread=reread,
+    )
+    knobs["still_read_id"] = still_read.get("read_id") or ""
+    copy_origin = build_copy_origin(spec, campaign, knobs)
+    copy_origin["read_id"] = still_read.get("read_id") or ""
+    copy_origin["qa_passed"] = bool(qa.get("passed"))
     return {
         "id": str(payload.get("session_id") or new_session_id()),
         "intent": spec.intent,
@@ -284,6 +330,9 @@ def run_session(payload, *, client=None, text_callable=None, screenshot=None):
         },
         "references": images,
         "knobs": knobs,
+        "copy_bind": knobs.get("still_bind") or {},
+        "still_read": still_read,
+        "copy_origin": copy_origin,
         "scene_count": len(scenes),
         "duration": 15,
         "base_html": base_html,

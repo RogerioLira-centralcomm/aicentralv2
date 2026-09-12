@@ -176,6 +176,7 @@ echo "[7/9] Atualizando schemas e dados..."
 "$VENV_PYTHON" scripts/seed_creative_viewer_profiles.py
 "$VENV_PYTHON" migrations/run_add_creative_storyboards_and_catalogs.py
 "$VENV_PYTHON" migrations/run_add_design_system_ads.py
+"$VENV_PYTHON" migrations/run_add_design_system_ads_revision.py
 "$VENV_PYTHON" migrations/run_convert_interactive_formats_to_image_carousels.py
 "$VENV_PYTHON" migrations/run_add_google_calendar_meet.py
 "$VENV_PYTHON" migrations/run_add_system_integration_credentials.py

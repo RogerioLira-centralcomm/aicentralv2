@@ -10,6 +10,15 @@
     logo_text: 'Logo',
   };
 
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function boot() {
     const fileInput = document.getElementById('mcLayersFile');
     const drop = document.getElementById('mcLayersDrop');
@@ -29,6 +38,10 @@
     if (!fileInput || !drop || !run) return;
     let imageUrl = '';
     let lastKind = '';
+    let operationId = 0;
+    let lastRead = null;
+    let lastNonGround = [];
+    let lastCastOk = false;
 
     function setBusy(busy) {
       run.disabled = busy || !imageUrl;
@@ -49,8 +62,12 @@
     }
 
     function showStill(url) {
+      operationId += 1;
       imageUrl = url;
       lastKind = '';
+      lastRead = null;
+      lastNonGround = [];
+      lastCastOk = false;
       if (preview) preview.src = url;
       frame?.classList.remove('hidden');
       drop.classList.add('has-still');
@@ -84,65 +101,87 @@
       const items = Object.entries(COPY_LABEL)
         .map(([key, label]) => {
           const value = String((read || {})[key] || '').trim();
-          return value ? `<li><strong>${label}</strong><span>${value}</span></li>` : '';
+          return value ? `<li><strong>${escapeHtml(label)}</strong><span>${escapeHtml(value)}</span></li>` : '';
         })
         .filter(Boolean);
       if (copyList) copyList.innerHTML = items.join('');
       copyBox?.classList.toggle('hidden', !items.length);
     }
 
-    function showPack(data) {
-      lastKind = data.ground_kind || '';
-      const layers = data.layers || [];
-      if (grid) {
-        const cards = layers.map((item, index) => {
-          const box = item.box || {};
-          const name = ROLE_NAME[item.role] || item.label || `camada-${index + 1}`;
-          const file = `${item.role || 'layer'}-${index + 1}.png`;
-          return `<li data-role="${item.role || ''}">
+    function isGroundOnly(data) {
+      return data.replace === 'ground' || data.engine === 'image2';
+    }
+
+    function mergeLayers(data) {
+      const incoming = data.layers || [];
+      if (isGroundOnly(data)) {
+        const ground = incoming.filter((item) => item.role === 'ground');
+        return lastNonGround.concat(ground);
+      }
+      lastNonGround = incoming.filter((item) => item.role !== 'ground');
+      lastCastOk = Boolean(data.cast_ok);
+      return incoming;
+    }
+
+    function cardHtml(item, index) {
+      const box = item.box || {};
+      const name = ROLE_NAME[item.role] || item.label || `camada-${index + 1}`;
+      const file = `${item.role || 'layer'}-${index + 1}.png`;
+      const safeName = escapeHtml(name);
+      return `<li data-role="${escapeHtml(item.role || '')}">
             <figure>
-              <img src="${item.png_data_url || ''}" alt="${name}">
+              <img src="${item.png_data_url || ''}" alt="${safeName}">
               <figcaption>
-                <strong>${name}</strong>
+                <strong>${safeName}</strong>
                 <span>${Math.round(box.w || 0)}×${Math.round(box.h || 0)}%</span>
               </figcaption>
             </figure>
             <a class="cx-btn cx-btn-secondary cx-btn-sm" href="${item.png_data_url || ''}" download="${file}">Baixar PNG</a>
           </li>`;
-        });
-        if (!data.cast_ok) {
+    }
+
+    function showPack(data) {
+      lastKind = data.ground_kind || lastKind;
+      const layers = mergeLayers(data);
+      const castOk = isGroundOnly(data) ? lastCastOk : Boolean(data.cast_ok);
+      if (grid) {
+        const cards = layers.map((item, index) => cardHtml(item, index));
+        if (!castOk) {
           cards.unshift(`<li class="mc-layers-empty" data-role="cast">Sem pessoa confiável. Tipo fica no HTML.</li>`);
         }
         grid.innerHTML = cards.join('') || '<li class="mc-layers-empty">Nenhum recorte veio do still.</li>';
       }
       drawBoxes(layers.filter((item) => item.role === 'cast'));
-      if (field) {
-        field.textContent = data.field || '';
+      if (field && (data.field || !isGroundOnly(data))) {
+        field.textContent = data.field || field.textContent || '';
         field.style.setProperty('--layers-field', data.field || '#0033FF');
-        field.classList.toggle('hidden', !data.field);
+        field.classList.toggle('hidden', !(data.field || field.textContent));
       }
       if (castNote) {
-        castNote.textContent = data.cast_ok ? 'Pessoa no acetato.' : 'Sem pessoa confiável.';
-        castNote.classList.toggle('is-ok', Boolean(data.cast_ok));
+        castNote.textContent = castOk ? 'Pessoa no acetato.' : 'Sem pessoa confiável.';
+        castNote.classList.toggle('is-ok', castOk);
         castNote.classList.remove('hidden');
       }
-      paintCopy(data.read);
+      if (data.read && Object.keys(data.read).length) {
+        lastRead = data.read;
+      }
+      paintCopy(data.read && Object.keys(data.read).length ? data.read : lastRead);
       if (engine) {
         engine.textContent = data.engine === 'image2'
           ? 'Image 2 · poço'
-          : data.cast_ok
+          : castOk
             ? `${data.engine || 'Python'} · recorte`
             : `${data.engine || 'Python'} · tinta`;
       }
       setBusy(false);
     }
 
-    async function requestSplit(engineName) {
+    async function requestSplit(engineName, token) {
       const response = await fetch(API, {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: imageUrl, engine: engineName }),
+        body: JSON.stringify({ image: imageUrl, engine: engineName, operation_id: String(token) }),
       });
       const payload = await response.json();
       if (!response.ok || payload.success === false) {
@@ -153,6 +192,9 @@
 
     async function split(engineName) {
       if (!imageUrl) return;
+      const token = operationId + 1;
+      operationId = token;
+      const requested = imageUrl;
       setBusy(true);
       if (status) {
         status.textContent = engineName === 'image'
@@ -160,17 +202,20 @@
           : 'Recortando no Python.';
       }
       try {
-        const data = await requestSplit(engineName);
+        const data = await requestSplit(engineName, token);
+        if (token !== operationId || requested !== imageUrl) return;
+        if (data.operation_id && String(data.operation_id) !== String(token)) return;
         showPack(data);
         setStep(3);
         if (status) {
           status.textContent = data.engine === 'image2'
             ? 'Poço vazio. Tipo fica no HTML.'
-            : data.cast_ok
+            : (isGroundOnly(data) ? lastCastOk : data.cast_ok)
               ? 'Pessoa no acetato. Tinta no campo. Tipo fica no HTML.'
               : 'Tinta no campo. Sem pessoa confiável. Tipo fica no HTML.';
         }
       } catch (error) {
+        if (token !== operationId) return;
         if (status) status.textContent = error.message;
         setBusy(false);
       }

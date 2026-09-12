@@ -12,9 +12,17 @@
       <button class="cx-btn cx-btn-primary" type="button" id="mcDsaCreate">Montar a marca</button>
       <button class="cx-btn" type="button" id="mcDsaCampaignMount">Montar campanha</button>
       <button class="cx-btn" type="button" id="mcDsaApprove" disabled>Aprovar</button>
+      <button class="cx-btn" type="button" id="mcDsaValidateRender" disabled>Conferir peça</button>
+      <button class="cx-btn mc-dsa-console-tab" type="button" id="mcDsaConsoleTab" aria-expanded="false" aria-controls="mcDsaConsole">
+        Processo
+        <small id="mcDsaConsoleLive"></small>
+      </button>
     </div>
   </header>
   <p class="mc-dsa-status" id="mcDsaStatus"></p>
+  <p class="mc-dsa-provenance" id="mcDsaProvenance" hidden></p>
+  <p class="mc-dsa-provenance" id="mcDsaStorage" hidden></p>
+  <p class="mc-dsa-provenance" id="mcDsaNeedsInput" hidden></p>
   <section class="mc-dsa-stage" id="mcDsaStage">
     <div class="mc-dsa-preview" aria-label="Peça IAB">
       <iframe class="mc-dsa-frame" id="mcDsaFrame" title="Peça IAB" src="/lab/design-system/marca/centralcomm?format=iab-billboard&layers=4"></iframe>
@@ -40,4 +48,13 @@
       <div class="mc-dsa-catalog" id="mcDsaCatalog"></div>
     </aside>
   </section>
+  <aside class="mc-dsa-console" id="mcDsaConsole" hidden>
+    <header>
+      <strong>Processo</strong>
+      <span class="mc-dsa-console-count" id="mcDsaConsoleCount"></span>
+      <button class="cx-btn" type="button" id="mcDsaConsoleClear">Limpar</button>
+      <button class="cx-btn" type="button" id="mcDsaConsoleClose">Fechar</button>
+    </header>
+    <ol class="mc-dsa-console-list" id="mcDsaConsoleList"></ol>
+  </aside>
 </article>

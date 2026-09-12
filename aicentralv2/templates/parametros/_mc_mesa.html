@@ -58,6 +58,16 @@
   <aside class="mc-mesa-side">
     {% include "parametros/mesa/_inspector_tabs.html" %}
     <p id="mcMesaStatus">Vivara pronta. Confira o key visual e monte o conceito de 15s.</p>
+    <section class="mc-mesa-read" id="mcMesaRead" hidden>
+      <p class="mc-mesa-read-status" id="mcMesaReadStatus">Sem still de referência.</p>
+      <p class="mc-mesa-read-warn" id="mcMesaReadWarn" hidden></p>
+      <div class="mc-mesa-read-actions">
+        <button type="button" id="mcMesaReadChipsBtn">Ver textos reconhecidos</button>
+        <button type="button" id="mcMesaReread" hidden>Ler still de novo</button>
+      </div>
+      <dl class="mc-mesa-read-chips" id="mcMesaReadChips" hidden></dl>
+      <ol class="mc-mesa-read-beats" id="mcMesaReadBeats"></ol>
+    </section>
     {% include "parametros/mesa/_production_flow.html" %}
     <ol class="mc-mesa-defects" id="mcMesaDefects" hidden></ol>
   </aside>

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from ..creative_format_lab.catalog import FORMATS, decorate_format, format_entry
-from .components import component_of, density_for, should_park
+from .components import P0_ROLES, component_of, density_for, should_park
 from .layouts import (
     box_from_recipe,
     fan_in_well,
+    inside_well,
     recipe_for,
 )
 from .schema import dump_system, parse_system
@@ -108,22 +109,23 @@ def resolve_iab_format(format_key):
 
 
 def core_roles_for(archetype="brand", density="rich"):
-    if density == "compact":
-        return ("logo", "headline", "cta")
-    if archetype == "product-hero":
-        return ("product", "logo", "headline", "cta")
+    cores = list(P0_ROLES)
     if archetype == "promotion":
-        return ("logo", "headline", "cta", "support")
-    return ("visual", "logo", "headline", "cta")
+        extra = ("cta", "support")
+    elif density == "compact" or archetype == "product-hero":
+        extra = ("cta",)
+    else:
+        extra = ("cta", "visual")
+    for role in extra:
+        if role not in cores:
+            cores.append(role)
+    return tuple(cores)
 
 
 def roles_for_count(count, *, archetype="brand", density="rich"):
     number = clamp_layer_count(count)
     roles = list(core_roles_for(archetype, density))
-    extras = EXTRA_ROLES
-    if "product" in roles and "visual" not in roles:
-        extras = tuple(role for role in EXTRA_ROLES if role != "visual")
-    for role in extras + ORNAMENT_ROLES:
+    for role in EXTRA_ROLES + ORNAMENT_ROLES:
         if len(roles) >= number:
             break
         if role not in roles:
@@ -199,26 +201,30 @@ def build_layer_stack(system, format_key, layer_count=MIN_LAYERS):
     well = box_from_recipe(recipe["well"])
     archetype = parsed.archetype or "brand"
     cores = core_roles_for(archetype, density)
-    from .copy import fit_ad_copy
+    from .copy import resolve_ad_copy
 
-    copy = fit_ad_copy(parsed.ad_copy, density, parsed.name)
+    copy = resolve_ad_copy(parsed, entry.get("key"), density)
     count = clamp_layer_count(layer_count)
     roles = roles_for_count(count, archetype=archetype, density=density)
     extras = [role for role in roles if role.startswith("ornament") or role == "product"]
     layers = []
     ornament_index = 0
     for order, role in enumerate(roles):
+        priority = int(component_of(role).get("priority") or 3)
         parked_role = role in parked or (
             should_park(role, density) and role not in cores
         )
+        if priority == 0:
+            parked_role = False
         text = ""
         if role == "ground":
             box, z = {"x": 0, "y": 0, "w": 100, "h": 100}, 1
         elif role == "visual":
             box, z = box_from_recipe(recipe["visual"]), 2
         elif role == "product":
-            if role in cores and not parked_role:
-                box, z = box_from_recipe(recipe["visual"]), 4
+            visual = box_from_recipe(recipe.get("visual"))
+            if visual and inside_well(visual, well):
+                box, z = visual, 4
             else:
                 box, z = fan_in_well(well, ornament_index, max(len(extras), 1)), 4
                 ornament_index += 1
@@ -266,7 +272,10 @@ def build_layer_stack(system, format_key, layer_count=MIN_LAYERS):
         if role in BLEED_ROLES:
             layer["bleed"] = True
         layers.append(layer)
+    present = {item["role"] for item in layers}
+    conflicts = [f"ADS.P0.REQUIRED:{role}" for role in P0_ROLES if role not in present]
     return {
+        "conflicts": conflicts,
         "format": {
             "key": entry["key"],
             "label": entry.get("label") or entry["key"],
@@ -283,6 +292,7 @@ def build_layer_stack(system, format_key, layer_count=MIN_LAYERS):
         "layer_count": count,
         "layers": layers,
         "tokens": adapt_type_scale(parsed.tokens, entry, recipe),
+        "ad_copy": copy,
     }
 
 

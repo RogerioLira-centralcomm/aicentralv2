@@ -67,11 +67,13 @@ def apply_token_patches(system, patches):
     return DesignSystemAds.model_validate(data), applied
 
 
-def heal_contrast(system):
+def heal_contrast(system, *, force=False):
     parsed = parse_system(system)
+    if parsed.status == "approved" and not force:
+        return parsed, []
     tokens = dict(parsed.tokens)
     paper = normalize_hex(tokens.get("paper"), "#FFFFFF")
-    ink = normalize_hex(tokens.get("ink"), "#1E4D4F")
+    ink = normalize_hex(tokens.get("ink"), "#111111")
     accent = normalize_hex(tokens.get("accent"), ink)
     cta_ink = normalize_hex(tokens.get("cta_ink"), "#FFFFFF")
     patches = []
@@ -169,16 +171,50 @@ def patch_system(system, tokens=None, ad_copy=None, dna=None, archetype=None):
         data = dump_system(parsed)
         data["ad_copy"] = clean_ad_copy(merged, parsed.name)
         parsed = DesignSystemAds.model_validate(data)
+    if applied:
+        from .provenance import stamp_fields
+
+        parsed = stamp_fields(
+            parsed,
+            {
+                f"tokens.{item['token_id']}": {
+                    "state": "inferred",
+                    "origin": "mesa",
+                }
+                for item in applied
+            },
+        )
     return parsed, applied
 
 
-def improve_system(system, intent):
+def improve_system(system, intent, *, client=None, client_id=None):
     """Melhoria local e visível. Não é o refino com modelo."""
+    from .prompt_context import build_ads_prompt_context, stamp_runtime_context
+
     kind = str(intent or "").strip().lower()
     if kind not in IMPROVE_INTENTS:
         raise ValueError("Escolha o que melhorar: contraste, tipo, CTA, compacto ou arejado.")
     parsed = parse_system(system)
-    tokens = dict(parsed.tokens)
+    context = build_ads_prompt_context(
+        "refine",
+        parsed,
+        intent=kind,
+        client=client,
+        client_id=client_id or parsed.client_id,
+    )
+    improved, report = apply_refine(
+        parsed,
+        _local_intent_payload(parsed, kind),
+        intent=kind,
+        policy_context=context,
+        source="local",
+    )
+    improved = stamp_runtime_context(improved, context, compose_mode="local")
+    return _append_pass(improved, report), report
+
+
+def _local_intent_payload(system, kind):
+    tokens = dict(system.tokens or {})
     patches = []
 
     def set_token(key, value, reason):
@@ -188,13 +224,13 @@ def improve_system(system, intent):
         patches.append({"token_id": key, "css": value, "reason": reason})
 
     if kind == "contrast":
-        healed, heal_patches = heal_contrast(parsed)
+        healed, heal_patches = heal_contrast(system, force=True)
         tokens = dict(healed.tokens)
         patches = list(heal_patches)
         if not patches:
             darker = mix_hex(tokens.get("ink"), "#000000", 0.2) or "#153638"
             set_token("ink", darker, "Tinta mais escura para o título ler no IAB.")
-            set_token("muted", mix_hex(darker, "#64748B", 0.35) or "#3D4451", "Apoio acompanha a tinta.")
+            set_token("muted", mix_hex(darker, "#64748B", 0.35) or "#4B5563", "Apoio acompanha a tinta.")
     elif kind == "type":
         set_token("weight-display", "800", "Título mais pesado, de peça.")
         set_token("tracking", "-0.03em", "Tracking fechado de anúncio, não de site.")
@@ -214,21 +250,423 @@ def improve_system(system, intent):
         set_token("safe", "8%", "Margem arejada.")
         set_token("cta-pad", "0.9em 1.55em", "Botão com ar.")
         set_token("tracking", "0", "Título sem tracking fechado.")
+    return {"patches": patches, "notes": [_intent_note(kind)]}
 
-    data = dump_system(parsed)
-    data["tokens"] = tokens
-    improved = DesignSystemAds.model_validate(data)
-    improved, extra = heal_contrast(improved)
-    if extra:
-        patches.extend(extra)
-    report = DesignSystemPass(
-        attempt=len(improved.passes) + 1,
-        passed=bool(improved.contrast.get("passed")),
-        score=0.86 if patches else 0.7,
-        notes=[_intent_note(kind)],
-        patches=patches,
+
+def apply_refine(system, raw, *, intent=None, policy_context=None, source="llm"):
+    """Aplica só o eixo pedido. Não reescreve DNA, copy nem trilhas."""
+    from .runtime_policy import (
+        apply_ground_payload,
+        filter_identity_patches,
+        keep_required_legal,
+        refine_scope,
+        stamp_policy_outcome,
     )
-    return _append_pass(improved, report), report
+    from .provenance import extract_llm_refine
+
+    parsed = parse_system(system)
+    axis, scope = refine_scope(intent)
+    payload = extract_llm_refine(raw)
+    conflicts = []
+    rejected = []
+    corrected = []
+    extra_patches = []
+    for item in payload.get("patches") or []:
+        if not isinstance(item, dict):
+            continue
+        token_id = str(item.get("token_id") or item.get("id") or "").strip()
+        css = item.get("css") if item.get("css") is not None else item.get("value")
+        if not token_id:
+            continue
+        if css is None:
+            rejected.append({"field": token_id, "reason": "null não apaga token."})
+            continue
+        if token_id not in scope["allowed_tokens"]:
+            rejected.append({"field": token_id, "reason": "fora do eixo", "id": "ADS.REFINE.SCOPE"})
+            conflicts.append(
+                {
+                    "id": "ADS.REFINE.SCOPE",
+                    "status": "conflict",
+                    "token_id": token_id,
+                    "detail": f"{token_id} fora do eixo {axis or 'tokens'}.",
+                }
+            )
+            continue
+        extra_patches.append(item)
+    extra_patches, dropped = filter_identity_patches(
+        parsed, extra_patches, source=source
+    )
+    conflicts.extend(dropped)
+    rejected.extend(
+        {"field": item.get("token_id"), "reason": item.get("detail"), "id": item.get("id")}
+        for item in dropped
+    )
+    extra_patches = lock_token_patches(parsed, extra_patches)
+    working, applied = apply_token_patches(parsed, extra_patches)
+    if payload.get("ground-kind"):
+        if not scope["allows_ground"]:
+            conflicts.append(
+                {
+                    "id": "ADS.REFINE.SCOPE",
+                    "status": "conflict",
+                    "token_id": "ground-kind",
+                    "detail": "Fundo fora do eixo.",
+                }
+            )
+            rejected.append({"field": "ground-kind", "reason": "fora do eixo", "id": "ADS.REFINE.SCOPE"})
+        else:
+            tokens, ground_conflict = apply_ground_payload(
+                working.tokens,
+                payload.get("ground-kind"),
+                image_url=(working.tokens or {}).get("ground") or "",
+            )
+            data = dump_system(working)
+            data["tokens"] = tokens
+            working = DesignSystemAds.model_validate(data)
+            if ground_conflict:
+                conflicts.append(ground_conflict)
+                if ground_conflict.get("status") == "needs_input":
+                    rejected.append(
+                        {
+                            "field": "ground-kind",
+                            "reason": ground_conflict.get("detail"),
+                            "id": ground_conflict.get("id"),
+                        }
+                    )
+                else:
+                    corrected.append(
+                        {
+                            "field": "ground-kind",
+                            "reason": ground_conflict.get("detail"),
+                            "id": ground_conflict.get("id"),
+                        }
+                    )
+    if isinstance(raw, dict) and isinstance(raw.get("ad_copy"), dict):
+        if not scope["allows_copy"]:
+            conflicts.append(
+                {
+                    "id": "ADS.REFINE.SCOPE",
+                    "status": "conflict",
+                    "detail": "Copy fora do eixo do refine.",
+                }
+            )
+            rejected.append({"field": "ad_copy", "reason": "fora do eixo", "id": "ADS.REFINE.SCOPE"})
+            _, legal_conflict = keep_required_legal(parsed, parsed.ad_copy or {}, incoming={})
+            if legal_conflict:
+                conflicts.append(legal_conflict)
+        else:
+            from .copy import clean_ad_copy
+
+            cleaned, legal_conflict = keep_required_legal(
+                parsed,
+                clean_ad_copy(raw.get("ad_copy"), parsed.name),
+                incoming=raw.get("ad_copy"),
+            )
+            data = dump_system(working)
+            data["ad_copy"] = cleaned
+            working = DesignSystemAds.model_validate(data)
+            if legal_conflict:
+                conflicts.append(legal_conflict)
+                corrected.append(
+                    {"field": "legal", "reason": legal_conflict.get("detail"), "id": "ADS.LEGAL.KEEP"}
+                )
+    before_heal = dict(working.tokens or {})
+    working, heal_patches = heal_contrast(working, force=bool(scope.get("force_contrast")))
+    for item in heal_patches:
+        applied.append(item)
+        corrected.append(
+            {
+                "field": item.get("token_id"),
+                "reason": item.get("reason") or "Correção dependente de contraste.",
+                "id": "ADS.CONTRAST.45",
+            }
+        )
+        if item.get("token_id") and before_heal.get(item["token_id"]) != item.get("css"):
+            conflicts.append(
+                {
+                    "id": "ADS.CONTRAST.45",
+                    "status": "conflict",
+                    "token_id": item.get("token_id"),
+                    "detail": "Ajuste dependente de contraste, fora do pedido cru.",
+                }
+            )
+    changed = {
+        key: working.tokens.get(key)
+        for key, value in (parsed.tokens or {}).items()
+        if str(working.tokens.get(key) or "") != str(value or "")
+    }
+    statuses = {item.get("status") for item in conflicts if isinstance(item, dict)}
+    if "needs_input" in statuses:
+        outcome = "needs_input"
+    elif "incompatible" in statuses and not changed:
+        outcome = "blocked"
+    elif rejected and applied:
+        outcome = "partial"
+    elif rejected and not changed:
+        outcome = "blocked"
+    elif not changed:
+        outcome = "noop"
+    else:
+        outcome = "accepted"
+    working = stamp_policy_outcome(working, conflicts)
+    working = _stamp_refine_enforcement(
+        working,
+        {
+            "outcome": outcome,
+            "intent": axis or "tokens",
+            "triggered_rules": list({item.get("id") for item in conflicts if item.get("id")}),
+            "rejected_fields": rejected[:12],
+            "corrected_fields": corrected[:12],
+            "block_reason": next(
+                (item.get("detail") for item in conflicts if item.get("status") in {"conflict", "incompatible", "needs_input"}),
+                "",
+            ),
+            "source": source,
+        },
+    )
+    report = DesignSystemPass(
+        attempt=len(working.passes) + 1,
+        passed=bool(working.contrast.get("passed")) and outcome not in {"blocked", "needs_input"},
+        score=0.86 if applied else (0.7 if outcome == "noop" else 0.45),
+        notes=[str(item)[:200] for item in (payload.get("notes") or [_intent_note(axis)])][:6],
+        patches=applied,
+        defects=[item.get("detail") or item.get("id") for item in conflicts][:6],
+    )
+    return working, report
+
+
+def _stamp_refine_enforcement(system, summary):
+    data = dump_system(system)
+    evidence = dict(data.get("evidence") or {})
+    policy = dict(evidence.get("policy") or {})
+    policy["refine"] = summary
+    evidence["policy"] = policy
+    data["evidence"] = evidence
+    return DesignSystemAds.model_validate(data)
+
+
+def _stamp_review_enforcement(system, summary):
+    data = dump_system(system)
+    evidence = dict(data.get("evidence") or {})
+    policy = dict(evidence.get("policy") or {})
+    policy["review"] = summary
+    evidence["policy"] = policy
+    data["evidence"] = evidence
+    return DesignSystemAds.model_validate(data)
+
+
+def apply_review(system, raw, *, policy_context=None, source="llm"):
+    """Aplica só o juízo de fidelidade. DNA/copy/patches sob escopo; sem tracks."""
+    from .copy import clean_ad_copy, dna_is_generic, is_stock_copy
+    from .components import compile_rules
+    from .provenance import extract_llm_review
+    from .runtime_policy import (
+        filter_identity_patches,
+        keep_required_legal,
+        stamp_policy_outcome,
+    )
+
+    parsed = parse_system(system)
+    payload = extract_llm_review(raw)
+    conflicts = []
+    rejected = []
+    corrected = []
+    extra_patches = []
+    allows_dna = dna_is_generic(parsed.dna) and parsed.status != "approved"
+    allows_copy = is_stock_copy(parsed.ad_copy)
+    working = parsed
+    if isinstance(raw, dict) and isinstance(raw.get("dna"), dict):
+        if parsed.status == "approved":
+            conflicts.append(
+                {
+                    "id": "ADS.IDENTITY.APPROVED_LOCK",
+                    "status": "conflict",
+                    "detail": "DNA aprovado não aceita o patch do modelo.",
+                }
+            )
+            rejected.append(
+                {"field": "dna", "reason": "aprovado", "id": "ADS.IDENTITY.APPROVED_LOCK"}
+            )
+        elif not allows_dna:
+            conflicts.append(
+                {
+                    "id": "ADS.REVIEW.SCOPE",
+                    "status": "conflict",
+                    "detail": "DNA específico não aceita reescrita no review.",
+                }
+            )
+            rejected.append({"field": "dna", "reason": "fora do escopo", "id": "ADS.REVIEW.SCOPE"})
+        else:
+            data = dump_system(working)
+            current = dict(data.get("dna") or {})
+            incoming = raw.get("dna") or {}
+            for key in ("name", "personality", "must", "avoid"):
+                if incoming.get(key) not in (None, "", []):
+                    current[key] = incoming[key]
+            data["dna"] = current
+            data["rules"] = compile_rules(current, data.get("archetype"))
+            working = DesignSystemAds.model_validate(data)
+    if isinstance(raw, dict) and isinstance(raw.get("ad_copy"), dict):
+        if not allows_copy:
+            conflicts.append(
+                {
+                    "id": "ADS.REVIEW.SCOPE",
+                    "status": "conflict",
+                    "detail": "Copy específica não aceita reescrita no review.",
+                }
+            )
+            rejected.append({"field": "ad_copy", "reason": "fora do escopo", "id": "ADS.REVIEW.SCOPE"})
+            _, legal_conflict = keep_required_legal(parsed, parsed.ad_copy or {}, incoming={})
+            if legal_conflict:
+                conflicts.append(legal_conflict)
+        else:
+            cleaned, legal_conflict = keep_required_legal(
+                parsed,
+                clean_ad_copy(raw.get("ad_copy"), parsed.name),
+                incoming=raw.get("ad_copy"),
+            )
+            data = dump_system(working)
+            data["ad_copy"] = cleaned
+            working = DesignSystemAds.model_validate(data)
+            if legal_conflict:
+                conflicts.append(legal_conflict)
+                corrected.append(
+                    {"field": "legal", "reason": legal_conflict.get("detail"), "id": "ADS.LEGAL.KEEP"}
+                )
+    for item in payload.get("patches") or []:
+        if not isinstance(item, dict):
+            continue
+        token_id = str(item.get("token_id") or item.get("id") or "").strip()
+        css = item.get("css") if item.get("css") is not None else item.get("value")
+        if not token_id:
+            continue
+        if css is None:
+            rejected.append({"field": token_id, "reason": "null não apaga token."})
+            continue
+        extra_patches.append(item)
+    extra_patches, dropped = filter_identity_patches(
+        parsed, extra_patches, source=source
+    )
+    conflicts.extend(dropped)
+    rejected.extend(
+        {"field": item.get("token_id"), "reason": item.get("detail"), "id": item.get("id")}
+        for item in dropped
+    )
+    extra_patches = lock_token_patches(parsed, extra_patches)
+    working, applied = apply_token_patches(working, extra_patches)
+    if isinstance(raw, dict) and raw.get("ground-kind"):
+        conflicts.append(
+            {
+                "id": "ADS.REVIEW.SCOPE",
+                "status": "conflict",
+                "token_id": "ground-kind",
+                "detail": "Fundo fora do escopo do review.",
+            }
+        )
+        rejected.append({"field": "ground-kind", "reason": "fora do escopo", "id": "ADS.REVIEW.SCOPE"})
+    if isinstance(raw, dict) and raw.get("tracks"):
+        conflicts.append(
+            {
+                "id": "ADS.REVIEW.SCOPE",
+                "status": "conflict",
+                "detail": "Trilhas fora do escopo do review.",
+            }
+        )
+        rejected.append({"field": "tracks", "reason": "fora do escopo", "id": "ADS.REVIEW.SCOPE"})
+    before_heal = dict(working.tokens or {})
+    working, heal_patches = heal_contrast(working)
+    for item in heal_patches:
+        applied.append(item)
+        corrected.append(
+            {
+                "field": item.get("token_id"),
+                "reason": item.get("reason") or "Correção dependente de contraste.",
+                "id": "ADS.CONTRAST.45",
+            }
+        )
+        if item.get("token_id") and before_heal.get(item["token_id"]) != item.get("css"):
+            conflicts.append(
+                {
+                    "id": "ADS.CONTRAST.45",
+                    "status": "conflict",
+                    "token_id": item.get("token_id"),
+                    "detail": "Ajuste dependente de contraste, fora do pedido cru.",
+                }
+            )
+    changed = {
+        key: working.tokens.get(key)
+        for key, value in (parsed.tokens or {}).items()
+        if str(working.tokens.get(key) or "") != str(value or "")
+    }
+    if working.ad_copy != parsed.ad_copy:
+        changed["ad_copy"] = working.ad_copy
+    if working.dna != parsed.dna:
+        changed["dna"] = working.dna
+    statuses = {item.get("status") for item in conflicts if isinstance(item, dict)}
+    if "needs_input" in statuses:
+        outcome = "needs_input"
+    elif "incompatible" in statuses and not changed:
+        outcome = "blocked"
+    elif rejected and changed:
+        outcome = "partial"
+    elif rejected and not changed:
+        outcome = "blocked"
+    elif not changed:
+        outcome = "noop"
+    else:
+        outcome = "accepted"
+    working = stamp_policy_outcome(working, conflicts)
+    working = _stamp_review_enforcement(
+        working,
+        {
+            "outcome": outcome,
+            "check_kind": "textual",
+            "visual_available": False,
+            "triggered_rules": list({item.get("id") for item in conflicts if item.get("id")}),
+            "rejected_fields": rejected[:12],
+            "corrected_fields": corrected[:12],
+            "block_reason": next(
+                (
+                    item.get("detail")
+                    for item in conflicts
+                    if item.get("status") in {"conflict", "incompatible", "needs_input"}
+                ),
+                "",
+            ),
+            "source": source,
+        },
+    )
+    try:
+        score = float(payload.get("score")) if payload.get("score") is not None else 0.0
+    except (TypeError, ValueError):
+        score = 0.0
+    score = max(0.0, min(1.0, score))
+    if "passed" in payload:
+        model_passed = bool(payload.get("passed"))
+    else:
+        model_passed = score >= 0.7
+    notes = [str(item)[:200] for item in (payload.get("notes") or ["Revisão de fidelidade."])][:6]
+    defects = [str(item)[:200] for item in (payload.get("defects") or [])][:6]
+    defects.extend(
+        item.get("detail") or item.get("id")
+        for item in conflicts
+        if item.get("detail") or item.get("id")
+    )
+    if payload.get("score") is not None:
+        report_score = score
+    else:
+        report_score = 0.86 if applied or changed else (0.7 if outcome == "noop" else 0.45)
+    report = DesignSystemPass(
+        attempt=len(working.passes) + 1,
+        passed=model_passed
+        and bool(working.contrast.get("passed"))
+        and outcome not in {"blocked", "needs_input"},
+        score=report_score,
+        notes=notes,
+        patches=applied,
+        defects=defects[:6],
+    )
+    return working, report
 
 
 def _intent_note(intent):
@@ -239,6 +677,21 @@ def _intent_note(intent):
         "compact": "Melhoria: voz compacta.",
         "airy": "Melhoria: voz arejada.",
     }.get(intent, "Melhoria na mesa.")
+
+
+def _brief_policy(system):
+    from .runtime_policy import POLICY_VERSION, preset_context_for, prompt_fragment
+    from .skills import skill_bundle
+
+    context = preset_context_for(system)
+    bundle = skill_bundle("refine", preset_context=context)
+    return {
+        "version": POLICY_VERSION,
+        "selected": bundle["selected"],
+        "rules": bundle["rules"],
+        "runtime_loads_markdown": False,
+        "constraints": prompt_fragment("refine", preset_context=context),
+    }
 
 
 def advertising_brief(system):
@@ -266,6 +719,7 @@ def advertising_brief(system):
         "tracks": parsed.tracks,
         "evidence": parsed.evidence,
         "fidelity": compile_fidelity(parsed),
+        "policy": _brief_policy(parsed),
         "agent": {
             "role": "diretor de arte desta marca, não de um kit genérico",
             "wash_is_css": True,
@@ -300,19 +754,38 @@ def advertising_brief(system):
     }
 
 
-def apply_compose(system, raw):
+def apply_compose(system, raw, *, policy_context=None):
     from .components import ARCHETYPES, compile_rules
+    from .provenance import extract_llm_compose
+    from .runtime_policy import (
+        apply_ground_payload,
+        filter_identity_patches,
+        keep_required_legal,
+        preset_context_for,
+        stamp_policy_outcome,
+    )
     from .tracks import merge_tracks
 
     parsed = parse_system(system)
+    preset_context = (policy_context or {}).get("preset_context") or preset_context_for(parsed)
     data = dump_system(parsed)
-    payload = raw if isinstance(raw, dict) else {}
-    if isinstance(payload.get("dna"), dict):
+    payload = extract_llm_compose(raw)
+    conflicts = []
+    approved = parsed.status == "approved"
+    if isinstance(payload.get("dna"), dict) and not approved:
         current = dict(data.get("dna") or {})
         for key in ("name", "personality", "must", "avoid"):
             if payload["dna"].get(key) not in (None, "", []):
                 current[key] = payload["dna"][key]
         data["dna"] = current
+    elif isinstance(payload.get("dna"), dict) and approved:
+        conflicts.append(
+            {
+                "id": "ADS.IDENTITY.APPROVED_LOCK",
+                "status": "conflict",
+                "detail": "DNA aprovado não aceita o patch do modelo.",
+            }
+        )
     archetype = str(payload.get("archetype") or data.get("archetype") or "brand")
     if archetype in ARCHETYPES:
         data["archetype"] = archetype
@@ -320,65 +793,86 @@ def apply_compose(system, raw):
     if isinstance(payload.get("ad_copy"), dict):
         from .copy import clean_ad_copy
 
-        data["ad_copy"] = clean_ad_copy(
-            payload["ad_copy"],
-            (data.get("dna") or {}).get("name") or data.get("name"),
+        cleaned, legal_conflict = keep_required_legal(
+            parsed,
+            clean_ad_copy(
+                payload["ad_copy"],
+                (data.get("dna") or {}).get("name") or data.get("name"),
+            ),
+            incoming=payload["ad_copy"],
+        )
+        data["ad_copy"] = cleaned
+        if legal_conflict:
+            conflicts.append(legal_conflict)
+    if isinstance(payload.get("ad_copy_by_format"), dict):
+        from .copy import merge_format_copy
+
+        data["ad_copy_by_format"] = merge_format_copy(
+            data.get("ad_copy_by_format"),
+            payload.get("ad_copy_by_format"),
+            data.get("ad_copy"),
         )
     effects = payload.get("effects") if isinstance(payload.get("effects"), dict) else {}
     extra_patches = list(payload.get("patches") or [])
     for key in ("wash-strength", "grain", "overlay", "cta-shadow", "hairline"):
         if effects.get(key) not in (None, ""):
             extra_patches.append({"token_id": key, "css": effects[key], "reason": "Efeito de mídia."})
-    parsed = DesignSystemAds.model_validate(data)
-    parsed, applied = apply_token_patches(parsed, lock_token_patches(parsed, extra_patches))
-    parsed, _ = heal_contrast(parsed)
-    data = dump_system(parsed)
+    extra_patches, dropped = filter_identity_patches(
+        parsed, extra_patches, preset_context=preset_context
+    )
+    conflicts.extend(dropped)
+    working = DesignSystemAds.model_validate(data)
+    working, applied = apply_token_patches(working, extra_patches)
+    if payload.get("ground-kind"):
+        tokens, ground_conflict = apply_ground_payload(
+            working.tokens,
+            payload.get("ground-kind"),
+            image_url=(working.tokens or {}).get("ground") or "",
+        )
+        data = dump_system(working)
+        data["tokens"] = tokens
+        working = DesignSystemAds.model_validate(data)
+        if ground_conflict:
+            conflicts.append(ground_conflict)
+    working, _ = heal_contrast(working)
+    data = dump_system(working)
     data["tracks"] = merge_tracks(data.get("tracks"), payload.get("tracks"))
-    composed = DesignSystemAds.model_validate(data)
+    composed = stamp_policy_outcome(DesignSystemAds.model_validate(data), conflicts)
     report = DesignSystemPass(
         attempt=len(composed.passes) + 1,
-        passed=bool(composed.contrast.get("passed")),
+        passed=bool(composed.contrast.get("passed")) and not any(
+            item.get("status") == "incompatible" for item in conflicts
+        ),
         score=0.88 if applied or payload.get("tracks") or payload.get("dna") else 0.6,
         notes=[str(item)[:200] for item in (payload.get("notes") or ["Sistema montado no OpenRouter."])][:6],
         patches=applied,
+        defects=[item.get("detail") or item.get("id") for item in conflicts][:6],
     )
     return _append_pass(composed, report), report
 
 
-def compose_design_system(system, *, text_callable=None, reference_urls=None):
+def compose_design_system(
+    system,
+    *,
+    text_callable=None,
+    reference_urls=None,
+    client=None,
+    client_id=None,
+    prompt_context=None,
+):
+    from .prompt_context import build_ads_prompt_context, context_messages, stamp_runtime_context
+
     parsed = parse_system(system)
     if text_callable is None:
         raise ValueError("OpenRouter não está configurado para montar o sistema.")
-    brief = advertising_brief(parsed)
-    brief["ask"] = (
-        "Escreva o Advertising OS desta MARCA em português. Não é campanha. "
-        "Use fidelity: tinta travada, setor, tom, produtos, forbidden e assets. "
-        "JSON: dna{name,personality[3-5 traços concretos desta marca],must[],avoid[]}, "
-        "archetype, ad_copy{headline,support,cta,legal} o que a marca vende e para quem, "
-        "patches[{token_id,css,reason}] só se o token falhar e só na família da tinta travada, "
-        "effects{wash-strength,grain,overlay,cta-shadow}, "
-        "tracks[{id,prompt}] packshot,kv,lifestyle,wash com material, luz, recorte e hex, notes[]. "
-        "Se fidelity.assets já tiver URL para uma trilha, não invente outra imagem. "
-        "Wash é CSS (wash-strength), não peça foto de gradiente. "
-        "Proibido: reconhecível, direta, de marca, Saiba mais, no primeiro olhar, design system, "
-        "tinta certa, herda o tema, Tailwind, cream, terracotta, card SaaS. "
-        "Wash é a lavagem DESTA tinta, não um campo genérico."
+    context = prompt_context or build_ads_prompt_context(
+        "compose",
+        parsed,
+        client=client,
+        client_id=client_id or parsed.client_id,
     )
-    content = [{"type": "text", "text": json.dumps(brief, ensure_ascii=False)}]
-    for url in [item for item in (reference_urls or []) if item][:4]:
-        content.append({"type": "image_url", "image_url": {"url": url}})
     response = text_callable(
-        [
-            {
-                "role": "system",
-                "content": (
-                    "Você é o diretor de arte desta marca. "
-                    "Copy de anúncio em português, fiel aos pixels. "
-                    "Nunca escreva sobre o laboratório ou o design system. JSON only."
-                ),
-            },
-            {"role": "user", "content": content},
-        ],
+        context_messages(context, reference_urls=reference_urls),
         model=resolve_chat_model(COMPOSE_MODEL),
         max_tokens=1200,
         temperature=0.25,
@@ -392,14 +886,27 @@ def compose_design_system(system, *, text_callable=None, reference_urls=None):
                 raw = json.loads(str(raw))
             except Exception as exc:
                 raise ValueError("O OpenRouter não devolveu o sistema da marca.") from exc
-    return apply_compose(parsed, raw)
+    from .provenance import set_compose_mode
+
+    composed, report = apply_compose(parsed, raw, policy_context=context)
+    composed = stamp_runtime_context(
+        set_compose_mode(composed, "model"), context, compose_mode="model"
+    )
+    return composed, report
 
 
-def seed_local_compose(system):
+def seed_local_compose(system, *, client=None, client_id=None):
     from .copy import brand_ad_copy
     from .materialize import GENERIC_TRAITS, _dna_from_evidence
+    from .prompt_context import build_ads_prompt_context, stamp_runtime_context
 
     parsed = parse_system(system)
+    context = build_ads_prompt_context(
+        "compose",
+        parsed,
+        client=client,
+        client_id=client_id or parsed.client_id,
+    )
     name = (parsed.dna or {}).get("name") or parsed.name or "A marca"
     dna = _dna_from_evidence(name, {}, {}, parsed.dna or {}, parsed.evidence or {})
     personality = [
@@ -416,7 +923,9 @@ def seed_local_compose(system):
     dna["personality"] = personality[:5]
     dna["name"] = name
     copy = brand_ad_copy(name)
-    return apply_compose(
+    from .provenance import set_compose_mode
+
+    composed, report = apply_compose(
         parsed,
         {
             "dna": dna,
@@ -424,46 +933,51 @@ def seed_local_compose(system):
             "ad_copy": copy,
             "notes": ["Linha da marca assentada no loop, sem traço genérico."],
         },
+        policy_context=context,
     )
+    return stamp_runtime_context(
+        set_compose_mode(composed, "local_seed"), context, compose_mode="local_seed"
+    ), report
 
 
-def compose_campaign_design_system(system, campaign=None, *, text_callable=None):
+def compose_campaign_design_system(
+    system,
+    campaign=None,
+    *,
+    text_callable=None,
+    client=None,
+    client_id=None,
+    prompt_context=None,
+):
+    from .prompt_context import build_ads_prompt_context, context_messages, stamp_runtime_context
+    from .provenance import set_compose_mode
+
     parsed = parse_system(system)
     campaign = campaign if isinstance(campaign, dict) else {}
+    context = prompt_context or build_ads_prompt_context(
+        "campaign",
+        parsed,
+        campaign_context=campaign,
+        client=client,
+        client_id=client_id or parsed.client_id,
+    )
     if text_callable is None:
-        return seed_campaign_compose(parsed, campaign)
-    brief = advertising_brief(parsed)
-    brief["scope"] = "campaign"
-    brief["campaign"] = {
-        "name": campaign.get("name") or parsed.name,
-        "objective": campaign.get("objective") or "",
-        "campaign_text": campaign.get("campaign_text") or "",
-        "cta_text": campaign.get("cta_text") or "",
-        "creative_line": campaign.get("creative_line") or parsed.creative_line,
-    }
-    brief["ask"] = (
-        "Escreva a CAMPANHA desta marca em português. Não reescreva ink, paper nem accent. "
-        "JSON: creative_line (uma frase da temporada), ad_copy{headline,support,cta,legal} da oferta, "
-        "archetype (product-hero|lifestyle|promotion|brand), "
-        "tracks[{id,prompt}] só kv e lifestyle com a linha da campanha, "
-        "ground-kind paper|wash|image, notes[]. "
-        "Proibido: copiar a headline institucional da marca, Saiba mais, design system."
-    )
-    response = text_callable(
-        [
-            {
-                "role": "system",
-                "content": (
-                    "Você é o diretor de arte da campanha. "
-                    "A tinta da marca está travada. Copy e KV mudam. JSON only."
-                ),
-            },
-            {"role": "user", "content": json.dumps(brief, ensure_ascii=False)},
-        ],
-        model=resolve_chat_model(COMPOSE_MODEL),
-        max_tokens=900,
-        temperature=0.35,
-    )
+        return seed_campaign_compose(
+            parsed,
+            campaign,
+            client=client,
+            client_id=client_id,
+            prompt_context=context,
+        )
+    try:
+        response = text_callable(
+            context_messages(context),
+            model=resolve_chat_model(COMPOSE_MODEL),
+            max_tokens=900,
+            temperature=0.35,
+        )
+    except Exception as exc:
+        raise ValueError("O compose da campanha não concluiu.") from exc
     raw = response["message"].get("content") if isinstance(response, dict) else response
     if not isinstance(raw, dict):
         try:
@@ -473,12 +987,34 @@ def compose_campaign_design_system(system, campaign=None, *, text_callable=None)
                 raw = json.loads(str(raw))
             except Exception as exc:
                 raise ValueError("O OpenRouter não devolveu a campanha.") from exc
-    return apply_campaign_compose(parsed, raw)
+    composed, report = apply_campaign_compose(
+        parsed, raw, policy_context=context, source="llm"
+    )
+    return stamp_runtime_context(
+        set_compose_mode(composed, "model"), context, compose_mode="model"
+    ), report
 
 
-def seed_campaign_compose(system, campaign=None):
+def seed_campaign_compose(
+    system,
+    campaign=None,
+    *,
+    client=None,
+    client_id=None,
+    prompt_context=None,
+):
+    from .prompt_context import build_ads_prompt_context, stamp_runtime_context
+    from .provenance import set_compose_mode
+
     campaign = campaign if isinstance(campaign, dict) else {}
     parsed = parse_system(system)
+    context = prompt_context or build_ads_prompt_context(
+        "campaign",
+        parsed,
+        campaign_context=campaign,
+        client=client,
+        client_id=client_id or parsed.client_id,
+    )
     name = str(campaign.get("name") or parsed.name or "Campanha").replace(" Ads", "").strip()
     line = str(
         campaign.get("creative_line")
@@ -491,7 +1027,7 @@ def seed_campaign_compose(system, campaign=None):
         or campaign.get("campaign_text")
         or name
     ).strip().splitlines()[0][:80]
-    return apply_campaign_compose(
+    composed, report = apply_campaign_compose(
         parsed,
         {
             "creative_line": line,
@@ -505,52 +1041,247 @@ def seed_campaign_compose(system, campaign=None):
             "ground-kind": "image" if campaign.get("assets") else "wash",
             "notes": ["Campanha herda a tinta. Copy e linha mudam."],
         },
+        policy_context=context,
+        source="local",
     )
+    return stamp_runtime_context(
+        set_compose_mode(composed, "local_seed"), context, compose_mode="local_seed"
+    ), report
 
 
-def apply_campaign_compose(system, raw):
-    from .components import ARCHETYPES, apply_background
-    from .copy import clean_ad_copy
+def _stamp_campaign_enforcement(system, summary):
+    data = dump_system(system)
+    evidence = dict(data.get("evidence") or {})
+    policy = dict(evidence.get("policy") or {})
+    policy["campaign"] = summary
+    evidence["policy"] = policy
+    data["evidence"] = evidence
+    return DesignSystemAds.model_validate(data)
+
+
+def apply_campaign_compose(system, raw, *, policy_context=None, source="llm"):
+    from .components import ARCHETYPES
+    from .copy import COPY_KEYS, clean_ad_copy
+    from .policy import MUTABLE_TRACKS, PROTECTED_TOKEN_IDS, lock_campaign_tokens
+    from .provenance import extract_llm_campaign
+    from .runtime_policy import apply_ground_payload, keep_required_legal, stamp_policy_outcome
     from .tracks import merge_tracks
 
+    del policy_context
     parsed = parse_system(system)
     data = dump_system(parsed)
     data["scope"] = "campaign"
-    payload = raw if isinstance(raw, dict) else {}
+    payload = extract_llm_campaign(raw)
+    conflicts = []
+    rejected = []
+    corrected = []
+    if isinstance(raw, dict) and isinstance(raw.get("dna"), dict):
+        conflicts.append(
+            {
+                "id": "ADS.CAMPAIGN.SCOPE",
+                "status": "conflict",
+                "detail": "DNA da marca não se reescreve na campanha.",
+            }
+        )
+        rejected.append({"field": "dna", "reason": "fora do escopo", "id": "ADS.CAMPAIGN.SCOPE"})
+    if isinstance(raw, dict) and raw.get("status"):
+        conflicts.append(
+            {
+                "id": "ADS.CAMPAIGN.SCOPE",
+                "status": "conflict",
+                "detail": "Status não vem do modelo.",
+            }
+        )
+        rejected.append({"field": "status", "reason": "fora do escopo", "id": "ADS.CAMPAIGN.SCOPE"})
+    if isinstance(raw, dict) and isinstance(raw.get("tokens"), dict):
+        for key in raw.get("tokens") or {}:
+            if key in PROTECTED_TOKEN_IDS:
+                conflicts.append(
+                    {
+                        "id": "ADS.CAMPAIGN.SCOPE",
+                        "status": "conflict",
+                        "token_id": key,
+                        "detail": f"{key} da marca está travado na campanha.",
+                    }
+                )
+                rejected.append({"field": key, "reason": "tinta travada", "id": "ADS.CAMPAIGN.SCOPE"})
+    if isinstance(raw, dict) and raw.get("patches"):
+        conflicts.append(
+            {
+                "id": "ADS.CAMPAIGN.SCOPE",
+                "status": "conflict",
+                "detail": "Patches de token não entram no compose da campanha.",
+            }
+        )
+        rejected.append({"field": "patches", "reason": "fora do escopo", "id": "ADS.CAMPAIGN.SCOPE"})
     if payload.get("creative_line"):
         data["creative_line"] = str(payload["creative_line"]).strip()[:240]
-    if isinstance(payload.get("ad_copy"), dict):
-        data["ad_copy"] = clean_ad_copy(payload["ad_copy"], data.get("name"))
-    archetype = str(payload.get("archetype") or data.get("archetype") or "brand")
-    if archetype in ARCHETYPES:
-        data["archetype"] = archetype
-    if payload.get("ground-kind"):
-        data["tokens"] = apply_background(
-            data.get("tokens") or {},
-            payload.get("ground-kind"),
-            image_url=(payload.get("tokens") or {}).get("ground") if isinstance(payload.get("tokens"), dict) else None,
+    if isinstance(raw, dict) and isinstance(raw.get("ad_copy"), dict):
+        merged = dict(parsed.ad_copy or {})
+        for key in COPY_KEYS:
+            if raw["ad_copy"].get(key) is None:
+                continue
+            merged[key] = raw["ad_copy"].get(key)
+        cleaned, legal_conflict = keep_required_legal(
+            parsed,
+            clean_ad_copy(merged, data.get("name")),
+            incoming=raw.get("ad_copy"),
         )
+        data["ad_copy"] = cleaned
+        if legal_conflict:
+            conflicts.append(legal_conflict)
+            corrected.append(
+                {"field": "legal", "reason": legal_conflict.get("detail"), "id": "ADS.LEGAL.KEEP"}
+            )
+    format_copy = payload.get("ad_copy_by_format") if isinstance(payload, dict) else None
+    if format_copy is None and isinstance(raw, dict):
+        format_copy = raw.get("ad_copy_by_format")
+    if isinstance(format_copy, dict):
+        from .copy import merge_format_copy
+
+        data["ad_copy_by_format"] = merge_format_copy(
+            data.get("ad_copy_by_format"),
+            format_copy,
+            data.get("ad_copy"),
+        )
+    archetype = str(payload.get("archetype") or data.get("archetype") or "brand")
+    if payload.get("archetype") and archetype not in ARCHETYPES:
+        conflicts.append(
+            {
+                "id": "ADS.CAMPAIGN.SCOPE",
+                "status": "conflict",
+                "detail": f"Arquétipo {archetype} inválido.",
+            }
+        )
+        rejected.append({"field": "archetype", "reason": "inválido", "id": "ADS.CAMPAIGN.SCOPE"})
+    elif archetype in ARCHETYPES:
+        data["archetype"] = archetype
+    incoming_ground = {
+        key: payload.get(key)
+        for key in ("ground-kind", "overlay", "wash-strength", "grain")
+        if payload.get(key) not in (None, "")
+    }
+    if incoming_ground.get("ground-kind"):
+        tokens, ground_conflict = apply_ground_payload(
+            data.get("tokens") or {},
+            incoming_ground.get("ground-kind"),
+            image_url=(data.get("tokens") or {}).get("ground") or "",
+        )
+        data["tokens"] = lock_campaign_tokens(tokens, incoming_ground)
+        if ground_conflict:
+            conflicts.append(ground_conflict)
+            if ground_conflict.get("status") == "needs_input":
+                rejected.append(
+                    {
+                        "field": "ground-kind",
+                        "reason": ground_conflict.get("detail"),
+                        "id": ground_conflict.get("id"),
+                    }
+                )
+            else:
+                corrected.append(
+                    {
+                        "field": "ground-kind",
+                        "reason": ground_conflict.get("detail"),
+                        "id": ground_conflict.get("id"),
+                    }
+                )
+    elif incoming_ground:
+        data["tokens"] = lock_campaign_tokens(data.get("tokens") or {}, incoming_ground)
     if isinstance(payload.get("tracks"), list):
-        data["tracks"] = merge_tracks(data.get("tracks"), payload.get("tracks"))
-    composed = DesignSystemAds.model_validate(data)
+        allowed = []
+        for item in payload["tracks"]:
+            if not isinstance(item, dict):
+                continue
+            track_id = str(item.get("id") or "").strip()
+            if track_id not in MUTABLE_TRACKS:
+                conflicts.append(
+                    {
+                        "id": "ADS.CAMPAIGN.SCOPE",
+                        "status": "conflict",
+                        "detail": f"Trilha {track_id or 'vazia'} fora do escopo da campanha.",
+                    }
+                )
+                rejected.append(
+                    {"field": track_id or "tracks", "reason": "fora do escopo", "id": "ADS.CAMPAIGN.SCOPE"}
+                )
+                continue
+            allowed.append(item)
+        data["tracks"] = merge_tracks(data.get("tracks"), allowed)
+    composed = stamp_policy_outcome(DesignSystemAds.model_validate(data), conflicts)
+    changed = (
+        str(composed.creative_line or "") != str(parsed.creative_line or "")
+        or composed.ad_copy != parsed.ad_copy
+        or composed.archetype != parsed.archetype
+        or str((composed.tokens or {}).get("ground-kind") or "")
+        != str((parsed.tokens or {}).get("ground-kind") or "")
+    )
+    statuses = {item.get("status") for item in conflicts if isinstance(item, dict)}
+    if "needs_input" in statuses:
+        outcome = "needs_input"
+    elif "incompatible" in statuses and not changed:
+        outcome = "blocked"
+    elif rejected and changed:
+        outcome = "partial"
+    elif rejected and not changed:
+        outcome = "blocked"
+    elif not changed:
+        outcome = "noop"
+    else:
+        outcome = "accepted"
+    composed = _stamp_campaign_enforcement(
+        composed,
+        {
+            "outcome": outcome,
+            "triggered_rules": list({item.get("id") for item in conflicts if item.get("id")}),
+            "rejected_fields": rejected[:12],
+            "corrected_fields": corrected[:12],
+            "block_reason": next(
+                (
+                    item.get("detail")
+                    for item in conflicts
+                    if item.get("status") in {"conflict", "incompatible", "needs_input"}
+                ),
+                "",
+            ),
+            "source": source,
+        },
+    )
     report = DesignSystemPass(
         attempt=len(composed.passes) + 1,
-        passed=True,
-        score=0.86,
+        passed=outcome not in {"blocked", "needs_input"},
+        score=0.86 if changed else (0.7 if outcome == "noop" else 0.45),
         notes=[str(item)[:200] for item in (payload.get("notes") or ["Campanha montada."])][:6],
         patches=[],
+        defects=[item.get("detail") or item.get("id") for item in conflicts if item.get("detail") or item.get("id")][:6],
     )
     return _append_pass(composed, report), report
 
 
-def review_fidelity(system, *, text_callable=None, reference_urls=None):
+def review_fidelity(
+    system,
+    *,
+    text_callable=None,
+    reference_urls=None,
+    client=None,
+    client_id=None,
+    prompt_context=None,
+):
     from .copy import is_stock_copy
+    from .prompt_context import build_ads_prompt_context, context_messages, stamp_runtime_context
 
     parsed = parse_system(system)
+    context = prompt_context or build_ads_prompt_context(
+        "review",
+        parsed,
+        client=client,
+        client_id=client_id or parsed.client_id,
+    )
     if text_callable is None:
         score = 0.74 if parsed.contrast.get("passed") and not is_stock_copy(parsed.ad_copy) else 0.48
         notes = ["Revisão local: tinta da marca travada e copy sem estoque."]
-        reviewed = mark_reviewed(parsed, score=score, notes=notes)
+        reviewed = mark_reviewed(parsed, score=score, notes=notes, kind="local")
+        reviewed = stamp_runtime_context(reviewed, context, compose_mode="local")
         report = DesignSystemPass(
             attempt=len(reviewed.passes) + 1,
             passed=score >= 0.7,
@@ -560,46 +1291,15 @@ def review_fidelity(system, *, text_callable=None, reference_urls=None):
         )
         return _append_pass(reviewed, report), report
 
-    brief = advertising_brief(parsed)
-    brief["ask"] = (
-        "Revise a FIDELIDADE deste Advertising OS contra fidelity "
-        "(tinta travada, setor, tom, produtos, assets). "
-        "JSON: passed, score 0-1, notes[], defects[], "
-        "dna{name,personality,must,avoid} só se o DNA for genérico, "
-        "ad_copy{headline,support,cta,legal} só se a copy for estoque ou meta, "
-        "patches[{token_id,css,reason}] só na família de fidelity.locked_tokens. "
-        "Proibido trocar ink/paper/accent por outra marca. "
-        "Nunca use teal CentralComm se a tinta da marca não for teal."
-    )
-    content = [{"type": "text", "text": json.dumps(brief, ensure_ascii=False)}]
-    for url in [item for item in (reference_urls or []) if item][:4]:
-        content.append({"type": "image_url", "image_url": {"url": url}})
     try:
         response = text_callable(
-            [
-                {
-                    "role": "system",
-                    "content": (
-                        "Você revisa fidelidade de Advertising OS. "
-                        "A tinta extraída é lei. Copy de anúncio em português. JSON only."
-                    ),
-                },
-                {"role": "user", "content": content},
-            ],
+            context_messages(context, reference_urls=reference_urls),
             model=resolve_chat_model(COMPOSE_MODEL),
             max_tokens=900,
             temperature=0.15,
         )
-    except Exception:
-        reviewed = mark_reviewed(parsed, score=0.5, notes=["A revisão não concluiu."])
-        report = DesignSystemPass(
-            attempt=len(reviewed.passes) + 1,
-            passed=bool(parsed.contrast.get("passed")),
-            score=0.5,
-            defects=["A revisão de fidelidade não concluiu."],
-            patches=[],
-        )
-        return _append_pass(reviewed, report), report
+    except Exception as exc:
+        raise ValueError("A revisão não concluiu.") from exc
     raw = response["message"].get("content") if isinstance(response, dict) else response
     if not isinstance(raw, dict):
         try:
@@ -607,18 +1307,22 @@ def review_fidelity(system, *, text_callable=None, reference_urls=None):
         except Exception:
             try:
                 raw = json.loads(str(raw))
-            except Exception:
-                raw = {"passed": False, "notes": ["A revisão não devolveu JSON."]}
-    composed, report = apply_compose(parsed, raw)
-    try:
-        score = float(raw.get("score") or report.score or 0)
-    except (TypeError, ValueError):
-        score = report.score or 0.0
-    reviewed = mark_reviewed(composed, score=score, notes=report.notes)
-    return reviewed, report
+            except Exception as exc:
+                raise ValueError("O OpenRouter não devolveu a revisão.") from exc
+    reviewed, report = apply_review(parsed, raw, policy_context=context, source="llm")
+    reviewed = mark_reviewed(reviewed, score=report.score, notes=report.notes, kind="model")
+    reviewed = stamp_runtime_context(reviewed, context, compose_mode="model")
+    return _append_pass(reviewed, report), report
 
 
-def advance_loop(system, *, text_callable=None, reference_urls=None):
+def advance_loop(
+    system,
+    *,
+    text_callable=None,
+    reference_urls=None,
+    client=None,
+    client_id=None,
+):
     """Um passo do loop contínuo. Não gera imagem — a mesa pede a trilha."""
     from .catalog import inspect_loop
     from .components import compile_rules
@@ -629,15 +1333,25 @@ def advance_loop(system, *, text_callable=None, reference_urls=None):
     if info["action"] == "compose":
         if text_callable is not None:
             parsed, report = compose_design_system(
-                parsed, text_callable=text_callable, reference_urls=reference_urls
+                parsed,
+                text_callable=text_callable,
+                reference_urls=reference_urls,
+                client=client,
+                client_id=client_id,
             )
         else:
-            parsed, report = seed_local_compose(parsed)
+            parsed, report = seed_local_compose(
+                parsed, client=client, client_id=client_id
+            )
     elif info["action"] == "contrast":
-        parsed, report = improve_system(parsed, "contrast")
+        parsed, report = improve_system(parsed, "contrast", client=client, client_id=client_id)
     elif info["action"] == "review":
         parsed, report = review_fidelity(
-            parsed, text_callable=text_callable, reference_urls=reference_urls
+            parsed,
+            text_callable=text_callable,
+            reference_urls=reference_urls,
+            client=client,
+            client_id=client_id,
         )
     elif info["action"] == "rules":
         data = dump_system(parsed)
@@ -653,8 +1367,21 @@ def refine_design_system(
     attempts=4,
     text_callable=None,
     reference_urls=None,
+    client=None,
+    client_id=None,
+    prompt_context=None,
+    intent=None,
 ):
+    from .prompt_context import build_ads_prompt_context, stamp_runtime_context
+
     current = parse_system(system)
+    context = prompt_context or build_ads_prompt_context(
+        "refine",
+        current,
+        intent=intent,
+        client=client,
+        client_id=client_id or current.client_id,
+    )
     current, heal_patches = heal_contrast(current)
     limit = clamp_passes(attempts)
     already = len(current.passes)
@@ -674,25 +1401,32 @@ def refine_design_system(
         current = _append_pass(current, first)
         reports.append(first)
         if first.passed and not text_callable:
-            return current, reports
+            return stamp_runtime_context(current, context, compose_mode="local"), reports
         budget = max(0, budget - 1)
 
     if text_callable is None or budget <= 0:
-        return current, reports
+        return stamp_runtime_context(current, context, compose_mode="local"), reports
 
     last_score = reports[-1].score if reports else 0.0
     for step in range(budget):
         attempt = len(current.passes) + 1
-        review = _review_tokens(
+        raw = _review_tokens(
             current,
             attempt=attempt,
             text_callable=text_callable,
             reference_urls=reference_urls,
+            intent=intent,
+            client=client,
+            client_id=client_id,
+            prompt_context=context,
         )
-        if review.patches:
-            current, applied = apply_token_patches(current, review.patches)
-            review.patches = applied
-            current, _ = heal_contrast(current)
+        current, review = apply_refine(
+            current,
+            raw,
+            intent=intent,
+            policy_context=context,
+            source="llm",
+        )
         current = _append_pass(current, review)
         reports.append(review)
         if review.passed:
@@ -700,7 +1434,7 @@ def refine_design_system(
         if review.score and last_score and review.score < last_score:
             break
         last_score = review.score
-    return current, reports
+    return stamp_runtime_context(current, context, compose_mode="model"), reports
 
 
 def _append_pass(system, report):
@@ -712,44 +1446,39 @@ def _append_pass(system, report):
     return DesignSystemAds.model_validate(data)
 
 
-def _review_tokens(system, *, attempt, text_callable, reference_urls=None):
+def _review_tokens(
+    system,
+    *,
+    attempt,
+    text_callable,
+    reference_urls=None,
+    intent=None,
+    client=None,
+    client_id=None,
+    prompt_context=None,
+):
+    from .prompt_context import build_ads_prompt_context, context_messages
+
     parsed = parse_system(system)
-    brief = advertising_brief(parsed)
-    brief["attempt"] = attempt
-    brief["ask"] = (
-        "Review this Advertising OS. Return JSON: passed, score 0-1, defects[], notes[], "
-        "patches[{token_id,css,reason}]. Patch only tokens that fail ads (contrast, CTA, type). "
-        "Never rewrite the system. Never invent a generic palette."
+    context = prompt_context or build_ads_prompt_context(
+        "refine",
+        parsed,
+        intent=intent,
+        client=client,
+        client_id=client_id or parsed.client_id,
     )
-    payload = json.dumps(brief, ensure_ascii=False)
-    images = [url for url in (reference_urls or []) if url]
-    content = [{"type": "text", "text": payload}]
-    for url in images[:4]:
-        content.append({"type": "image_url", "image_url": {"url": url}})
+    user_payload = dict(context["user_payload"])
+    user_payload["attempt"] = attempt
     try:
         response = text_callable(
-            [
-                {
-                    "role": "system",
-                    "content": (
-                        "You review an Advertising Design System. "
-                        "DNA, contrast, type and CTA. Patches only. Never rewrite."
-                    ),
-                },
-                {"role": "user", "content": content},
-            ],
+            context_messages({**context, "user_payload": user_payload}, reference_urls=reference_urls),
             model=resolve_chat_model(REFINE_MODEL),
             max_tokens=700,
             temperature=0.1,
+            response_format={"type": "json_object"},
         )
-    except Exception:
-        return DesignSystemPass(
-            attempt=attempt,
-            passed=bool(parsed.contrast.get("passed")),
-            score=0.5,
-            defects=["O refino não concluiu."],
-            patches=[],
-        )
+    except Exception as exc:
+        raise ValueError("O refino não concluiu.") from exc
     raw = response["message"].get("content") if isinstance(response, dict) else response
     if not isinstance(raw, dict):
         try:
@@ -757,20 +1486,6 @@ def _review_tokens(system, *, attempt, text_callable, reference_urls=None):
         except Exception:
             try:
                 raw = json.loads(str(raw))
-            except Exception:
-                raw = {"passed": False, "defects": ["O refino não devolveu JSON."]}
-    try:
-        score = float(raw.get("score") or 0)
-    except (TypeError, ValueError):
-        score = 0.0
-    return DesignSystemPass(
-        attempt=attempt,
-        passed=bool(raw.get("passed")),
-        score=max(0.0, min(1.0, score)),
-        defects=[str(item)[:200] for item in (raw.get("defects") or [])][:8],
-        notes=[str(item)[:200] for item in (raw.get("notes") or [])][:8],
-        patches=lock_token_patches(
-            parsed,
-            [item for item in (raw.get("patches") or []) if isinstance(item, dict)][:12],
-        ),
-    )
+            except Exception as exc:
+                raise ValueError("O OpenRouter não devolveu o refino.") from exc
+    return raw

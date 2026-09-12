@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ..creative_brand_dna import materialize_brand_dna
-from .centralcomm import centralcomm_preset, is_centralcomm_client
+from .centralcomm import centralcomm_preset
 from .ingest import merge_extracted_tokens
 from .refine import heal_contrast
 from .schema import FRAMEWORK, DesignSystemAds, normalize_hex, parse_system
@@ -55,7 +55,9 @@ def _fonts(profile, line, dna):
             default=display,
             limit=80,
         )
-    return display or "Inter", body or display or "Inter"
+    from .schema import TYPE_STACK_FALLBACK
+
+    return display or TYPE_STACK_FALLBACK, body or display or TYPE_STACK_FALLBACK
 
 
 def _existing_system(client, profile):
@@ -66,7 +68,9 @@ def _existing_system(client, profile):
         parsed = parse_system(stored)
         if client.get("id") and not parsed.client_id:
             parsed.client_id = client.get("id")
-        return parsed
+        from .provenance import ensure_provenance
+
+        return ensure_provenance(parsed)
     return None
 
 
@@ -77,10 +81,14 @@ def ensure_brand_design_system(client=None, *, existing=None):
     found = existing if existing is not None else _existing_system(client, profile)
     if found:
         from .fidelity import attach_client_evidence
+        from .provenance import ensure_provenance
 
-        return attach_client_evidence(parse_system(found), client)
+        return attach_client_evidence(ensure_provenance(parse_system(found)), client)
 
-    if is_centralcomm_client(client) or is_centralcomm_client(client.get("name")):
+    from .centralcomm import may_apply_house_preset, resolve_preset_context
+
+    preset_context = resolve_preset_context(client=client, client_id=client.get("id"))
+    if may_apply_house_preset(preset_context):
         preset = centralcomm_preset(client_id=client.get("id") or "centralcomm")
         logo = (
             client.get("logo_upload_path")
@@ -90,15 +98,18 @@ def ensure_brand_design_system(client=None, *, existing=None):
         tokens = dict(preset.tokens)
         tokens["logo"] = logo
         from .fidelity import attach_client_evidence
+        from .provenance import stamp_centralcomm
 
         return attach_client_evidence(
-            DesignSystemAds.model_validate(
-                {
-                    **preset.model_dump(),
-                    "client_id": client.get("id") or preset.client_id,
-                    "logo_url": logo,
-                    "tokens": tokens,
-                }
+            stamp_centralcomm(
+                DesignSystemAds.model_validate(
+                    {
+                        **preset.model_dump(),
+                        "client_id": client.get("id") or preset.client_id,
+                        "logo_url": logo,
+                        "tokens": tokens,
+                    }
+                )
             ),
             client,
         )
@@ -113,8 +124,10 @@ def ensure_brand_design_system(client=None, *, existing=None):
         palette = _hexes([client.get("primary_color"), *palette])
     if client.get("secondary_color"):
         palette = _hexes([*palette, client.get("secondary_color")])
-    ink = palette[0] if palette else "#111111"
-    highlight = palette[1] if len(palette) > 1 else (palette[0] if palette else "#111111")
+    from .schema import NEUTRAL_INK, NEUTRAL_MUTED, TYPE_STACK_FALLBACK
+
+    ink = palette[0] if palette else NEUTRAL_INK
+    highlight = palette[1] if len(palette) > 1 else (palette[0] if palette else NEUTRAL_INK)
     display, body = _fonts(profile, line, dna)
     logo = (
         (dna.get("logo") or {}).get("asset_url")
@@ -128,7 +141,7 @@ def ensure_brand_design_system(client=None, *, existing=None):
         "paper": "#FFFFFF",
         "ink": ink,
         "accent": ink,
-        "muted": "#3D4451",
+        "muted": NEUTRAL_MUTED,
         "cta_ink": "#FFFFFF",
         "highlight": highlight,
         "logo": logo,
@@ -165,7 +178,58 @@ def ensure_brand_design_system(client=None, *, existing=None):
     if extracted:
         system, _patches = heal_contrast(system)
     from .fidelity import attach_client_evidence
+    from .provenance import stamp_fields
 
+    records = {}
+    if extracted:
+        for key in ("paper", "ink", "accent", "highlight", "font-display", "font-body"):
+            value = str((system.tokens or {}).get(key) or "").strip()
+            if key.startswith("font") and (not value or value == TYPE_STACK_FALLBACK):
+                records[f"tokens.{key}"] = {
+                    "state": "fallback",
+                    "origin": "schema-default",
+                }
+                continue
+            records[f"tokens.{key}"] = {
+                "state": "inferred",
+                "origin": "extract-design-system",
+                "evidence_ids": ["extracted_design_system"],
+            }
+    else:
+        if client.get("primary_color"):
+            records["tokens.ink"] = {
+                "state": "inferred",
+                "origin": "primary_color",
+                "evidence_ids": ["primary_color"],
+            }
+            records["tokens.accent"] = {
+                "state": "inferred",
+                "origin": "primary_color",
+                "evidence_ids": ["primary_color"],
+            }
+        else:
+            records["tokens.ink"] = {"state": "fallback", "origin": "schema-default"}
+            records["tokens.accent"] = {"state": "fallback", "origin": "schema-default"}
+        records["tokens.paper"] = {"state": "fallback", "origin": "schema-default"}
+        records["tokens.highlight"] = {
+            "state": "inferred" if len(palette) > 1 else "fallback",
+            "origin": "palette" if len(palette) > 1 else "schema-default",
+        }
+        records["tokens.muted"] = {"state": "fallback", "origin": "schema-default"}
+        if not display or display == TYPE_STACK_FALLBACK:
+            records["tokens.font-display"] = {"state": "fallback", "origin": "schema-default"}
+        else:
+            records["tokens.font-display"] = {
+                "state": "inferred",
+                "origin": "brand_profile.fonts",
+            }
+        if logo:
+            records["tokens.logo"] = {
+                "state": "inferred",
+                "origin": "logo",
+                "evidence_ids": ["logo"],
+            }
+    system = stamp_fields(system, records)
     return attach_client_evidence(system, client)
 
 

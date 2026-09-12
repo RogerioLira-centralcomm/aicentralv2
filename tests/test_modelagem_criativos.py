@@ -3985,6 +3985,10 @@ class CreativeFilesContractTest(unittest.TestCase):
             deploy,
         )
         self.assertIn(
+            '"$VENV_PYTHON" migrations/run_add_design_system_ads_revision.py',
+            deploy,
+        )
+        self.assertIn(
             '"$VENV_PYTHON" migrations/run_add_creative_plate_kits.py',
             deploy,
         )
@@ -4181,7 +4185,9 @@ class CreativeFilesContractTest(unittest.TestCase):
             root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html"
         ).read_text(encoding="utf-8")
         self.assertIn("modelagem_criativos.js') }}?v=57", desk)
-        self.assertIn("mc_page_js) }}?v=46", desk)
+        self.assertIn("mc_page_js) }}?v=65", desk)
+        self.assertIn("mc-dsa-write-queue.js') }}?v=64", desk)
+        self.assertIn("js/mc-dsa-write-queue.js", desk)
         self.assertIn("function loadComposeLibrary", frontend)
         self.assertIn("variation_id", frontend)
         self.assertIn("compose-library", frontend)

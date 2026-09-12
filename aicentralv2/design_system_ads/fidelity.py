@@ -55,6 +55,7 @@ def attach_client_evidence(system, client=None):
     profile = client.get("brand_profile") if isinstance(client.get("brand_profile"), dict) else {}
     data = dump_system(parsed)
     evidence = dict(data.get("evidence") or {})
+    provenance = evidence.get("provenance")
     if client.get("sector"):
         evidence["sector"] = client.get("sector")
     if client.get("tone_of_voice"):
@@ -68,6 +69,8 @@ def attach_client_evidence(system, client=None):
         evidence["assets"] = assets
     if parsed.source == "tailwind-centralcomm":
         evidence["reviewed"] = True
+    if isinstance(provenance, dict):
+        evidence["provenance"] = provenance
     data["evidence"] = evidence
     data["tracks"] = bind_evidence_tracks(data.get("tracks"), assets)
     return parse_system(data)
@@ -149,17 +152,23 @@ def missing_required_tracks(system):
     ]
 
 
-def mark_reviewed(system, score=0.0, notes=None):
+def mark_reviewed(system, score=0.0, notes=None, kind="local"):
+    from .provenance import set_review
+
     parsed = parse_system(system)
     data = dump_system(parsed)
     evidence = dict(data.get("evidence") or {})
+    review_kind = str(kind or "local").strip().lower()
+    if review_kind not in {"local", "model"}:
+        review_kind = "local"
     evidence["reviewed"] = True
     evidence["fidelity"] = {
         "score": float(score or 0),
         "notes": [str(item)[:200] for item in (notes or [])][:6],
+        "kind": review_kind,
     }
     data["evidence"] = evidence
-    return parse_system(data)
+    return set_review(parse_system(data), review_kind, score=score, notes=notes)
 
 
 def needs_fidelity_review(system):
@@ -167,7 +176,12 @@ def needs_fidelity_review(system):
     if parsed.source == "tailwind-centralcomm":
         return False
     evidence = parsed.evidence if isinstance(parsed.evidence, dict) else {}
-    return not bool(evidence.get("reviewed"))
+    if evidence.get("reviewed"):
+        return False
+    from .provenance import get_provenance
+
+    kind = (get_provenance(parsed).get("review") or {}).get("kind")
+    return kind not in {"local", "model"}
 
 
 def lock_token_patches(system, patches):

@@ -13,7 +13,7 @@ from .components import (
 )
 from .layouts import recipe_for
 from .learn import curriculum, training_catalog
-from .schema import parse_system
+from .schema import TYPE_STACK_FALLBACK, parse_system
 
 FLOW = (
     ("dna", "DNA"),
@@ -55,7 +55,7 @@ def catalog_for(system, *, client_id=None):
     tokens = parsed.tokens or {}
     copy = parsed.ad_copy or {}
     dna = parsed.dna or {}
-    slug = client_id or parsed.client_id or "centralcomm"
+    slug = client_id or parsed.client_id or ""
     loop = inspect_loop(parsed)
     return {
         "tagline": _tagline(parsed),
@@ -111,6 +111,7 @@ def inspect_loop(system):
     ]
     must = [item for item in (dna.get("must") or []) if str(item).strip()]
     missing = missing_required_tracks(parsed)
+    waiting = list(getattr(parsed, "needs_input", None) or [])
     contrast_ok = bool((parsed.contrast or {}).get("passed"))
     if not personality or not must or is_stock_copy(parsed.ad_copy):
         action, step = "compose", "dna"
@@ -118,27 +119,43 @@ def inspect_loop(system):
         action, step = "contrast", "tokens"
     elif needs_fidelity_review(parsed):
         action, step = "review", "tokens"
+    elif waiting:
+        action, step = "needs_input", "components"
     elif missing:
         action, step = "track", "components"
     elif not (parsed.rules or {}).get("must"):
         action, step = "rules", "rules"
     else:
         action, step = "ready", "templates"
+    from .provenance import get_provenance, needs_confirmation
+
+    provenance = get_provenance(parsed)
     return {
         "step": step,
         "action": action,
         "track_id": missing[0] if action == "track" else "",
         "missing_tracks": missing,
+        "needs_input": waiting,
         "ready": action == "ready",
-        "label": _loop_label(action, missing[0] if missing else ""),
+        "label": _loop_label(
+            action,
+            missing[0] if missing else "",
+            waiting,
+        ),
+        "compose_mode": provenance.get("compose_mode") or "unknown",
+        "review_kind": (provenance.get("review") or {}).get("kind") or "none",
+        "needs_confirmation": needs_confirmation(parsed),
     }
 
 
-def _loop_label(action, track_id):
+def _loop_label(action, track_id, waiting=None):
+    from .copy import needs_input_label
+
     return {
         "compose": "Montar o DNA e a copy.",
         "contrast": "Fechar o contraste a 4.5:1.",
         "review": "Revisar fidelidade da tinta e da copy.",
+        "needs_input": needs_input_label(waiting),
         "track": f"Gerar a trilha {track_id}." if track_id else "Gerar as trilhas.",
         "rules": "Assentar as regras da IA.",
         "ready": "Sistema pronto para a peça.",
@@ -169,12 +186,17 @@ def _backgrounds(parsed):
         if not isinstance(item, dict):
             continue
         kind = item.get("kind") or item.get("id") or "paper"
+        image = tokens.get("ground") if kind in {"image"} else ""
+        available = True if kind != "image" else bool(image or item.get("fill"))
+        if item.get("available") is False:
+            available = False
         rows.append(
             {
                 **item,
                 "active": kind == active or item.get("id") == active,
+                "available": available,
                 "preview": item.get("fill") or tokens.get("paper") or "#FFFFFF",
-                "image": tokens.get("ground") if kind == "image" else "",
+                "image": image,
             }
         )
     return rows
@@ -199,12 +221,12 @@ def _token_roles(tokens, copy):
                     "headline": copy.get("headline") or "",
                     "cta": copy.get("cta") or "",
                     "legal": copy.get("legal") or "",
-                    "font": tokens.get("font-display") or "Inter",
+                    "font": tokens.get("font-display") or TYPE_STACK_FALLBACK,
                     "weight": tokens.get("weight-display") or "700",
                     "tracking": tokens.get("tracking") or "0",
                     "paper": tokens.get("paper") or "#FFFFFF",
-                    "ink": tokens.get("ink") or "#1E4D4F",
-                    "accent": tokens.get("accent") or "#1E4D4F",
+                    "ink": tokens.get("ink") or "#111111",
+                    "accent": tokens.get("accent") or "#111111",
                     "cta_ink": tokens.get("cta_ink") or "#FFFFFF",
                 },
             }

@@ -28,16 +28,60 @@ CENTRALCOMM_TOKENS = {
 }
 
 
+PRESET_NO_CLIENT = "no_client"
+PRESET_HOUSE_CLIENT = "house_client"
+PRESET_OTHER_CLIENT = "other_client"
+PRESET_INVALID_CLIENT = "invalid_client"
+PRESET_LOAD_ERROR = "load_error"
+PRESET_UNAUTHORIZED = "unauthorized"
+
+# Labs / specimen sem marca: só o slug canônico, nunca id vazio ou erro.
+HOUSE_CONTEXT_ID = CENTRALCOMM_SLUG
+
+
 def is_centralcomm_client(client=None):
     if client is None:
         return False
     if isinstance(client, str):
-        return client.strip().lower() in CENTRALCOMM_NAMES | {CENTRALCOMM_SLUG}
+        return client.strip().lower() in CENTRALCOMM_NAMES
     if not isinstance(client, dict):
         return False
     name = str(client.get("name") or "").strip().lower()
-    slug = str(client.get("id") or client.get("slug") or "").strip().lower()
-    return name in CENTRALCOMM_NAMES or slug == CENTRALCOMM_SLUG
+    slug = str(client.get("slug") or "").strip().lower()
+    return name in CENTRALCOMM_NAMES or slug in CENTRALCOMM_NAMES
+
+
+def is_house_context_id(client_id):
+    return str(client_id or "").strip().lower() == HOUSE_CONTEXT_ID
+
+
+def resolve_preset_context(
+    *,
+    client_id=None,
+    client=None,
+    not_found=False,
+    load_error=False,
+    unauthorized=False,
+):
+    if unauthorized:
+        return PRESET_UNAUTHORIZED
+    if load_error:
+        return PRESET_LOAD_ERROR
+    if not_found:
+        return PRESET_INVALID_CLIENT
+    if client is not None:
+        if is_centralcomm_client(client):
+            return PRESET_HOUSE_CLIENT
+        return PRESET_OTHER_CLIENT
+    if is_house_context_id(client_id):
+        return PRESET_NO_CLIENT
+    if client_id not in (None, ""):
+        return PRESET_OTHER_CLIENT
+    return PRESET_UNAUTHORIZED
+
+
+def may_apply_house_preset(context):
+    return context in {PRESET_NO_CLIENT, PRESET_HOUSE_CLIENT}
 
 
 def centralcomm_preset(*, client_id=None, status="draft"):

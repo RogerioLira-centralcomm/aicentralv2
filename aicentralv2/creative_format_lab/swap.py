@@ -820,6 +820,7 @@ def typeset_reference(payload=None, brand=None, operations=None):
     reference = _reference(payload)
     raw = _load_typeset_png(reference)
     before = _open_typeset_image(raw)
+    payload = attach_inferred_cta_regions(payload, before)
     after = before.copy()
     patches = typeset_patches(payload)
     _apply_typeset(after, patches, resolve_aspect_ratio(payload), payload)
@@ -927,16 +928,16 @@ def _apply_typeset(image, patches, aspect="1:1", payload=None):
         user_box = _valid_user_box(patch.get("bbox_px"), image.size, ref)
         if user_box:
             crop = image.crop(user_box)
+            patch["masked"] = True
             _paint_patch(crop, patch, field, (0.0, 0.0, 1.0, 1.0))
             image.paste(crop, (user_box[0], user_box[1]))
             patch["bbox_px"] = list(user_box)
-            patch["masked"] = True
             continue
         box = slots.get(patch["slot"])
         if not box:
             continue
-        _paint_patch(image, patch, field, box)
         patch["masked"] = False
+        _paint_patch(image, patch, field, box)
 
 
 def _paint_patch(image, patch, field, slot):
@@ -945,8 +946,10 @@ def _paint_patch(image, patch, field, slot):
     if region.get("cover"):
         _cover_type(image, region["cover"], fill)
         target = region["bbox"]
-    else:
+    elif patch.get("masked"):
         _fill_slot(image, region["bbox"], fill)
+        target = region["bbox"]
+    else:
         target = region["bbox"]
     _draw_copy(
         image,
@@ -1105,9 +1108,12 @@ def _locate_type(image, slot, field):
                 chromatic.append((px, py, pixel))
             elif _luma(pixel) > 205:
                 pale.append((px, py, pixel))
-    chosen = chromatic if len(chromatic) >= 40 else pale
     slot_box = (left, top, right, bottom)
-    if len(chosen) < 40:
+    area = max(1, (right - left) * (bottom - top))
+    if chromatic and len(chromatic) / area > 0.25:
+        chromatic = []
+    chosen = pale if pale else chromatic
+    if not chosen:
         return {
             "bbox": slot_box,
             "slot": slot_box,
@@ -1149,7 +1155,7 @@ def _cover_type(image, points, field):
         return
     width, height = image.size
     pixels = image.load()
-    radius = 4
+    radius = 6
     seen = set()
     for x, y in points:
         for dx in range(-radius, radius + 1):
@@ -1428,6 +1434,157 @@ def _quality(payload=None):
     if raw in {"draft", "rascunho"}:
         return "draft"
     return "production"
+
+
+def image_quality(payload=None):
+    """Qualidade HTTP do Image 2 só no Trocr. Mesa/Camadas não passam este campo."""
+    return "medium" if _quality(payload) == "draft" else "high"
+
+
+def may_infer_cta_pills(payload=None):
+    payload = payload if isinstance(payload, dict) else {}
+    if "cta" not in set(payload.get("alter") or []):
+        return False
+    ctas = [
+        item
+        for item in (payload.get("elements") or [])
+        if isinstance(item, dict) and item.get("role") == "cta" and str(item.get("text") or "").strip()
+    ]
+    if ctas:
+        return not all(item.get("bbox_px") for item in ctas)
+    if not str(payload.get("cta") or "").strip():
+        return False
+    regions = payload.get("regions") if isinstance(payload.get("regions"), dict) else {}
+    return not bool(regions.get("cta"))
+
+
+def attach_inferred_cta_regions(payload, image):
+    data = dict(payload or {})
+    if "cta" not in set(data.get("alter") or []):
+        return data
+    elements = [dict(item) if isinstance(item, dict) else item for item in (data.get("elements") or [])]
+    ctas = [
+        item
+        for item in elements
+        if isinstance(item, dict) and item.get("role") == "cta" and str(item.get("text") or "").strip()
+    ]
+    wanted = len(ctas) if ctas else (1 if str(data.get("cta") or "").strip() else 0)
+    if wanted == 0:
+        return data
+    if wanted >= 2 and all(item.get("bbox_px") for item in ctas):
+        return data
+    if wanted == 1:
+        has_box = bool(ctas and ctas[0].get("bbox_px"))
+        regions = data.get("regions") if isinstance(data.get("regions"), dict) else {}
+        if has_box or regions.get("cta"):
+            return data
+    boxes = locate_cta_pills(image, max(wanted, 2))
+    if wanted >= 2:
+        if len(boxes) < wanted:
+            raise ValueError("Não achei as duas pills de CTA. Selecione a região de cada botão.")
+        for item, box in zip(ctas, boxes):
+            if not item.get("bbox_px"):
+                item["bbox_px"] = box
+        data["elements"] = elements
+        return data
+    if not boxes:
+        raise ValueError("Não achei a pill de CTA. Selecione a região do botão.")
+    first = boxes[0]
+    if ctas:
+        if not ctas[0].get("bbox_px"):
+            ctas[0]["bbox_px"] = first
+        data["elements"] = elements
+        return data
+    regions = dict(data.get("regions") or {}) if isinstance(data.get("regions"), dict) else {}
+    regions["cta"] = first
+    data["regions"] = regions
+    return data
+
+
+def locate_cta_pills(image, count=2):
+    count = max(1, int(count or 1))
+    width, height = image.size
+    work = image
+    scale = 1.0
+    if width > 480:
+        scale = width / 480.0
+        work = image.resize((480, max(1, int(round(height / scale)))))
+    field = _canvas_field(work)
+    work_w, work_h = work.size
+    chromatic = []
+    for py in range(work_h):
+        for px in range(work_w):
+            pixel = work.getpixel((px, py))
+            if not _far_from_field(pixel, field):
+                continue
+            if max(pixel[:3]) - min(pixel[:3]) > 80:
+                chromatic.append((px, py))
+    if not chromatic:
+        return []
+    clusters = _split_x_clusters(chromatic, min_gap=max(12, work_w // 20))
+    valid = [
+        cluster
+        for cluster in clusters
+        if _pill_score(cluster, (work_w, work_h)) > 0
+    ]
+    valid.sort(key=lambda cluster: min(point[0] for point in cluster))
+    chosen = valid[:count]
+    if not chosen:
+        return []
+    pad = max(3, int(work_h * 0.02))
+    boxes = []
+    for cluster in chosen:
+        xs = [point[0] for point in cluster]
+        ys = [point[1] for point in cluster]
+        box = [
+            max(0, min(xs) - pad),
+            max(0, min(ys) - pad),
+            min(work_w, max(xs) + pad + 1),
+            min(work_h, max(ys) + pad + 1),
+        ]
+        if scale != 1.0:
+            box = [
+                max(0, int(box[0] * scale)),
+                max(0, int(box[1] * scale)),
+                min(width, int(box[2] * scale)),
+                min(height, int(box[3] * scale)),
+            ]
+        if box[2] - box[0] < 8 or box[3] - box[1] < 8:
+            return []
+        boxes.append(box)
+    return boxes
+
+
+def _split_x_clusters(points, min_gap=16):
+    if not points:
+        return []
+    ordered = sorted(points, key=lambda item: (item[0], item[1]))
+    clusters = [[ordered[0]]]
+    for item in ordered[1:]:
+        if item[0] - clusters[-1][-1][0] >= min_gap:
+            clusters.append([item])
+        else:
+            clusters[-1].append(item)
+    return clusters
+
+
+def _pill_score(cluster, size):
+    if len(cluster) < 12:
+        return -1
+    xs = [point[0] for point in cluster]
+    ys = [point[1] for point in cluster]
+    width = max(xs) - min(xs) + 1
+    height = max(ys) - min(ys) + 1
+    if height < 6 or width < 12:
+        return -1
+    area = width * height
+    img_area = max(1, size[0] * size[1])
+    if area / img_area > 0.35:
+        return -1
+    aspect = width / max(1, height)
+    if aspect < 1.2:
+        return -1
+    return len(cluster) * min(aspect, 4.0)
 
 
 def _token_list(value, allowed):

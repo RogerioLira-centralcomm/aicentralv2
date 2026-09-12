@@ -10,6 +10,9 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 FRAMEWORK = "design-system-ads"
 MAX_PASSES = 4
 MIN_CONTRAST = 4.5
+NEUTRAL_INK = "#111111"
+NEUTRAL_MUTED = "#4B5563"
+TYPE_STACK_FALLBACK = "ui-sans-serif"
 _HEX = re.compile(r"^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
 
 TOKEN_ROWS = (
@@ -144,6 +147,7 @@ class DesignSystemAds(BaseModel):
     source: str = "brand"
     status: str = "draft"
     version: int = 1
+    revision: int = 0
     client_id: Optional[Any] = None
     logo_url: str = ""
     tokens: Dict[str, Any] = Field(default_factory=dict)
@@ -151,7 +155,11 @@ class DesignSystemAds(BaseModel):
     tailwind: Dict[str, Any] = Field(default_factory=dict)
     contrast: Dict[str, Any] = Field(default_factory=dict)
     ad_copy: Dict[str, str] = Field(default_factory=dict)
+    ad_copy_by_format: Dict[str, Dict[str, str]] = Field(default_factory=dict)
+    needs_input: List[str] = Field(default_factory=list)
     inherits_brand_id: Optional[Any] = None
+    inherits_brand_version: Optional[Any] = None
+    inherits_brand_revision: Optional[Any] = None
     creative_line: str = ""
     elements: List[Dict[str, Any]] = Field(default_factory=list)
     evidence: Dict[str, Any] = Field(default_factory=dict)
@@ -180,17 +188,26 @@ class DesignSystemAds(BaseModel):
     def _framework(cls, value):
         return FRAMEWORK
 
+    @field_validator("revision")
+    @classmethod
+    def _revision(cls, value):
+        try:
+            return max(0, int(value))
+        except (TypeError, ValueError):
+            return 0
+
     @model_validator(mode="after")
     def _compile(self):
         tokens = dict(self.tokens or {})
+        house = str(self.source or "") == "tailwind-centralcomm"
         tokens.setdefault("paper", "#FFFFFF")
-        tokens.setdefault("ink", "#1E4D4F")
-        tokens.setdefault("accent", tokens.get("ink") or "#1E4D4F")
-        tokens.setdefault("muted", "#3D4451")
+        tokens.setdefault("ink", "#1E4D4F" if house else NEUTRAL_INK)
+        tokens.setdefault("accent", tokens.get("ink") or ("#1E4D4F" if house else NEUTRAL_INK))
+        tokens.setdefault("muted", "#3D4451" if house else NEUTRAL_MUTED)
         tokens.setdefault("cta_ink", "#FFFFFF")
-        tokens.setdefault("highlight", "#F3B71B")
-        tokens.setdefault("font-display", "Inter")
-        tokens.setdefault("font-body", tokens.get("font-display") or "Inter")
+        tokens.setdefault("highlight", "#F3B71B" if house else (tokens.get("ink") or NEUTRAL_INK))
+        tokens.setdefault("font-display", "Inter" if house else TYPE_STACK_FALLBACK)
+        tokens.setdefault("font-body", tokens.get("font-display") or ("Inter" if house else TYPE_STACK_FALLBACK))
         tokens.setdefault("type-headline", "72px")
         tokens.setdefault("type-support", "28px")
         tokens.setdefault("type-cta", "22px")
@@ -202,7 +219,7 @@ class DesignSystemAds(BaseModel):
         tokens.setdefault("tracking", "-0.015em")
         tokens.setdefault("cta-pad", "0.7em 1.2em")
         tokens.setdefault("cta-shadow", "none")
-        tokens.setdefault("hairline", tokens.get("muted") or "#3D4451")
+        tokens.setdefault("hairline", tokens.get("muted") or ("#3D4451" if house else NEUTRAL_MUTED))
         tokens.setdefault("ground", "")
         tokens.setdefault("ground-fit", "cover")
         tokens.setdefault("ground-kind", "paper")
@@ -228,9 +245,11 @@ class DesignSystemAds(BaseModel):
             from .tracks import default_tracks
 
             self.tracks = default_tracks()
-        from .copy import clean_ad_copy
+        from .copy import clean_ad_copy, compute_needs_input, prune_format_copy
 
         self.ad_copy = clean_ad_copy(self.ad_copy, self.name)
+        self.ad_copy_by_format = prune_format_copy(self.ad_copy, self.ad_copy_by_format)
+        self.needs_input = compute_needs_input(self)
         return self
 
 
@@ -300,7 +319,7 @@ def compile_tailwind_theme(tokens):
 def measure_contrast(tokens):
     tokens = tokens if isinstance(tokens, dict) else {}
     paper = normalize_hex(tokens.get("paper"), "#FFFFFF")
-    ink = normalize_hex(tokens.get("ink"), "#1E4D4F")
+    ink = normalize_hex(tokens.get("ink"), "#111111")
     accent = normalize_hex(tokens.get("accent"), ink)
     cta_ink = normalize_hex(tokens.get("cta_ink"), "#FFFFFF")
     pairs = {

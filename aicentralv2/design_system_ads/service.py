@@ -25,8 +25,25 @@ TOKEN_GROUPS = (
 )
 
 
-def payload_for(system, *, format_key=None, layer_count=None, swaps=None, archetype=None):
+def payload_for(
+    system,
+    *,
+    format_key=None,
+    layer_count=None,
+    swaps=None,
+    archetype=None,
+    report=None,
+    storage=None,
+):
+    from .provenance import ensure_provenance, stamp_centralcomm
+
     parsed = parse_system(system)
+    if parsed.source == "tailwind-centralcomm":
+        evidence = parsed.evidence if isinstance(parsed.evidence, dict) else {}
+        if not (evidence.get("provenance") or {}).get("fields"):
+            parsed = stamp_centralcomm(parsed)
+    else:
+        parsed = ensure_provenance(parsed)
     stack = None
     if not format_key:
         from .components import ARCHETYPE_FORMAT
@@ -91,9 +108,41 @@ def payload_for(system, *, format_key=None, layer_count=None, swaps=None, archet
     data["archetypes"] = data["catalog"]["archetypes"]
     data["flow"] = data["catalog"]["flow"]
     data["loop"] = data["catalog"]["loop"]
+    from .provenance import summarize_for_payload
+
+    data["provenance"] = summarize_for_payload(parsed)
+    data["needs_confirmation"] = data["provenance"]["needs_confirmation"]
+    data["identity"] = data["provenance"]["identity"]
+    data["needs_input"] = list(parsed.needs_input or [])
+    data["ad_copy_by_format"] = dict(parsed.ad_copy_by_format or {})
     if stack:
         data["adapt"] = stack
-    return data
+        data["adapt_conflicts"] = list(stack.get("conflicts") or [])
+    from .runtime_policy import (
+        MIGRATED_TASKS,
+        POLICY_VERSION,
+        UNMIGRATED_TASKS,
+        preset_context_for,
+    )
+    from .skills import skill_bundle
+
+    preset_context = preset_context_for(parsed)
+    task = "preset" if parsed.source == "tailwind-centralcomm" else "brand"
+    data["skill_context"] = skill_bundle(task, preset_context=preset_context)
+    data["runtime_context"] = {
+        "profile": "ads-runtime-payload",
+        "policy_version": POLICY_VERSION,
+        "preset_context": preset_context,
+        "migrated": list(MIGRATED_TASKS),
+        "unmigrated": list(UNMIGRATED_TASKS),
+        "skill_applied": False,
+    }
+    from .validate import attach_validation_payload
+
+    payload = attach_validation_payload(data, parsed, report=report)
+    if isinstance(storage, dict):
+        payload["storage"] = storage
+    return payload
 
 
 def specimen_path(client_id, format_key=None, layer_count=None):
@@ -118,11 +167,15 @@ def _with_query(path, format_key, layer_count):
 
 
 def is_preset_id(client_id):
-    return str(client_id or "").strip().lower() == CENTRALCOMM_SLUG
+    from .centralcomm import is_house_context_id
+
+    return is_house_context_id(client_id)
 
 
 def read_preset():
-    return payload_for(centralcomm_preset(status="approved"))
+    from .provenance import stamp_centralcomm
+
+    return payload_for(stamp_centralcomm(centralcomm_preset(status="approved")))
 
 
 def read_campaign_preset():
@@ -138,28 +191,46 @@ def materialize_client(client, existing=None):
     return ensure_brand_design_system(client, existing=existing)
 
 
-def run_refine(system, *, attempts=4, text_callable=None, reference_urls=None):
+def run_refine(
+    system,
+    *,
+    attempts=4,
+    text_callable=None,
+    reference_urls=None,
+    client=None,
+    client_id=None,
+    intent=None,
+):
     refined, reports = refine_design_system(
         system,
         attempts=attempts,
         text_callable=text_callable,
         reference_urls=reference_urls,
+        client=client,
+        client_id=client_id,
+        intent=intent,
     )
     return refined, reports
 
 
-def run_improve(system, intent):
+def run_improve(system, intent, *, client=None, client_id=None):
     if str(intent or "").strip().lower() not in IMPROVE_INTENTS:
         raise ValueError("Escolha o que melhorar: contraste, tipo, CTA, compacto ou arejado.")
-    return improve_system(system, intent)
+    return improve_system(system, intent, client=client, client_id=client_id)
 
 
 def run_patch(system, tokens=None, ad_copy=None, dna=None, archetype=None):
     return patch_system(system, tokens=tokens, ad_copy=ad_copy, dna=dna, archetype=archetype)
 
 
-def run_loop(system, *, text_callable=None, reference_urls=None):
-    return advance_loop(system, text_callable=text_callable, reference_urls=reference_urls)
+def run_loop(system, *, text_callable=None, reference_urls=None, client=None, client_id=None):
+    return advance_loop(
+        system,
+        text_callable=text_callable,
+        reference_urls=reference_urls,
+        client=client,
+        client_id=client_id,
+    )
 
 
 def mark_approved(system):

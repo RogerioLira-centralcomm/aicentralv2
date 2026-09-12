@@ -8,6 +8,7 @@ import os
 import re
 
 from .swap import (
+    may_infer_cta_pills,
     needs_recrop,
     prepare_swap,
     quote_swap,
@@ -54,7 +55,13 @@ def build_swap_plan(payload=None, brand=None):
     noop = _is_noop(data, operations)
     mode = "noop" if noop else swap_mode(data)
     require_region = flag_on("CREATIVE_FORMAT_SWAP_REQUIRE_REGION", True)
-    if require_region and mode == "typeset" and _type_only(data) and not _has_region(data):
+    if (
+        require_region
+        and mode == "typeset"
+        and _type_only(data)
+        and not _has_region(data)
+        and not may_infer_cta_pills(data)
+    ):
         conflicts.append(_conflict(
             "needs_region",
             "Selecione a região do item. Sem caixa o Trocr não pinta no escuro.",

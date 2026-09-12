@@ -60,7 +60,9 @@ Variáveis de ambiente:
 | `CREATIVE_FORMAT_SWAP_STRICT_PLAN` | ligado | hash do preview tem de bater na geração |
 | `CREATIVE_FORMAT_SWAP_REQUIRE_REGION` | ligado | typeset sem bbox bloqueia; confirmar não fura |
 
-O Image 2 está fixo em `SWAP_MODEL = "openai/gpt-image-2"`. Não há modelo de rascunho mais barato ainda.
+CSRF do Trocr: header `X-Trocr-CSRF-Token` nas rotas POST `/swap`, `/swap/read`, `/swap/prompt`, `/swap/history`. GET de histórico e still não exige. Token na sessão (`trocr_csrf_token`) e em `#mcSwap[data-csrf]`.
+
+O Image 2 está fixo em `SWAP_MODEL = "openai/gpt-image-2"`. Rascunho manda `quality=medium`; produção manda `high`. Não há modelo mais barato à parte.
 
 ---
 
@@ -70,6 +72,9 @@ O Image 2 está fixo em `SWAP_MODEL = "openai/gpt-image-2"`. Não há modelo de 
 aicentralv2/creative_format_lab/swap.py          núcleo: OCR, prompt, risco, modos, typeset
 aicentralv2/creative_format_lab/swap_schema.py   contrato Pydantic + adaptador legado
 aicentralv2/creative_format_lab/swap_plan.py     plano único, hash, conflitos, no-op
+aicentralv2/creative_format_lab/swap_session.py  histórico, CAS, still autenticado
+aicentralv2/creative_format_lab/swap_csrf.py     CSRF das rotas POST do Trocr
+aicentralv2/creative_format_lab/swap_routes.py   HTTP /swap /read /prompt /history /still
 aicentralv2/creative_format_lab/service.py       FormatLabService.swap / read_swap / preview / history
 aicentralv2/creative_modeling_service.py         fachada para as rotas
 aicentralv2/creative_modeling_routes.py          HTTP
@@ -79,6 +84,7 @@ aicentralv2/templates/parametros/trocr/*         canvas, inspetor, versões, est
 aicentralv2/static/js/mc-trocar.js               store e fluxo
 aicentralv2/static/css/modelagem_criativos.css   visual
 tests/test_creative_format_lab.py                CreativeFormatLabSwapTest
+tests/test_trocr_session.py                      histórico, still, CSRF
 tests/test_modelagem_criativos.py                desk e rotas
 ```
 
@@ -186,12 +192,12 @@ Type-only (só headline/apoio/CTA/preço) também cai em typeset, mesmo sem elen
 
 Sem Image 2. `quote.estimated_cost_usd = 0`, `model = "typeset"`. Se o payload traz `regions`/`bbox_px` do mesmo tamanho da referência, a pintura fica recortada nessa caixa e `qa.status` vem `pass` ou `fail`. Sem região, `qa.status` é `unchecked` e o slot legado continua.
 
-1. `typeset_patches` monta slots a partir de `alter`. Se `alter` tem `cta` e há 2+ elements `role=cta` com texto, sai um patch por pill com o próprio `bbox_px`.
+1. `typeset_patches` monta slots a partir de `alter`. Se `alter` tem `cta` e há 2+ elements `role=cta` com texto, sai um patch por pill. Sem `bbox_px`, `locate_cta_pills` infere as caixas pela tinta (não pela nota), da esquerda para a direita. Um texto pinta só a pill da esquerda; a segunda não muda. Sem as pills pedidas, a geração recusa.
 2. `_slots_for` escolhe a grade. Em 16:9, se o tipo está em cima/esquerda (`TYPESET_SLOTS_TOP`), usa essa grade; senão a grade “tipo no centro/direita”.
 3. `_canvas_field` acha a cor de campo (luma &lt; 232 — navy entra, branco do tipo não).
 4. `_locate_type` procura glifos no slot (cromáticos ou claros).
 5. `_cover_type` pinta **só os pixels do glifo** (raio 4), não o retângulo inteiro — para não comer a pessoa.
-6. `_draw_copy` escreve o texto novo, fonte condensada, ink contrastante. CTA usa a tinta amostrada quando há `cover` — não força mais `(17, 17, 17)`. Headline larga (`width/height ≥ 2.4`) alinha à esquerda.
+6. `_draw_copy` escreve o texto novo, fonte condensada, ink contrastante. CTA usa a tinta amostrada quando há `cover` — não força mais `(17, 17, 17)`. Headline larga (`width/height ≥ 2.4`) alinha à esquerda. Slot da grade sem tinta **não** chama `_fill_slot` (não come a pessoa). `_fill_slot` só na caixa que o usuário selecionou. Cobertura de glifo com raio 6.
 
 Slots 16:9 (tipo à direita / centro):
 
@@ -708,15 +714,15 @@ Já no refactor de UX, ainda válidos:
 
 - slider before/after
 - upload multipart em vez de data URL
-- modelo mais barato de rascunho
+- modelo mais barato de rascunho (hoje só `quality=medium` no mesmo Image 2)
 - cancelar job de geração
 
 Do typeset, depois deste lab:
 
-- inferir a segunda pill se o OCR só devolve um CTA (hoje precisa de 2 elements + bbox)
+- OCR que só devolve um CTA ainda não cria o segundo campo na mesa (fase 9 pinta a pill da esquerda; o segundo texto continua manual em `#mcTrocrCta2`)
 - slots 16:9 TIM (quota vs preço vs headline) com detector menos cego
 - fonte da marca no Pillow, não só Avenir
-- coverage de glifo com dilatação maior para matar fantasma
+- coverage de glifo ainda maior se o raio 6 não matar o fantasma
 - OCR local de fallback quando a chave não resolve (hoje a mesa só falha e deixa o campo vazio)
 
 ---
@@ -727,5 +733,5 @@ Do typeset, depois deste lab:
 - Image 2 **pode** redesenhar tudo, inclusive o que o prompt pediu para travar. Por isso cartela vai para typeset.
 - O preview PT é didático. O modelo lê o inglês (ou o override).
 - `presentation` não muda o PNG. É moldura no canvas.
-- `quality` no typeset é ignorada (sempre `typeset`).
+- `quality` no typeset é ignorada (sempre `typeset`). No Image 2, rascunho manda `medium` e produção manda `high`.
 - Sem `OPENROUTER_API_KEY` / integração, OCR e Image 2 não rodam; typeset roda se a referência for data URL.

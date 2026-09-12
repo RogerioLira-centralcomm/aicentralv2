@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import io
 import logging
+import time
 
 try:
     from PIL import Image, ImageChops, ImageFilter
@@ -24,6 +25,9 @@ ROLE_LABELS = {
 
 
 def split_still(image, predictor=None):
+    from .camadas_lab import engine_id_for
+
+    started = time.monotonic()
     source = _open_image(image)
     if callable(predictor):
         predict = predictor
@@ -34,32 +38,62 @@ def split_still(image, predictor=None):
     layers = []
     union = Image.new("L", source.size, 0)
     cast_ok = False
+    saw_person = False
+    cast_reason = ""
+    cast_score_raw = None
     for index, item in enumerate(detections):
         mask = item["mask"]
         if mask.getbbox() is None:
             continue
         role = "cast" if item["label"] in CAST_LABELS else "product"
         quality = _mask_quality(mask, source, engine if role == "cast" else "custom")
-        if role == "cast" and not quality["ok"]:
-            logger.info("Máscara de pessoa recusada: %s", quality["reason"])
-            continue
+        if role == "cast":
+            saw_person = True
+            cast_score_raw = quality.get("coverage")
+            if not quality["ok"]:
+                cast_reason = quality["reason"]
+                logger.info("Máscara de pessoa recusada: %s", quality["reason"])
+                continue
         union = ImageChops.lighter(union, mask)
         crop, box = _cutout(source, mask)
-        layers.append(_layer(role, item["label"], box, crop, index))
+        layer = _layer(role, item["label"], box, crop, index)
+        layer["provenance"] = "extracted"
+        layers.append(layer)
         if role == "cast":
             cast_ok = True
+            cast_reason = ""
     field_rgb = _field_rgb(source, union)
     kind = classify_ground(source, field_rgb)
     ground, field = _ground(source, union, field_rgb, kind, cast_ok)
-    layers.append(_layer("ground", "ground", {"x": 0, "y": 0, "w": 100, "h": 100}, ground, len(layers)))
+    ground_layer = _layer("ground", "ground", {"x": 0, "y": 0, "w": 100, "h": 100}, ground, len(layers))
+    ground_layer["provenance"] = "extracted" if kind == "image" and cast_ok else "reconstructed"
+    layers.append(ground_layer)
+    if cast_ok:
+        cast_status = "succeeded"
+    elif saw_person:
+        cast_status = "rejected"
+    else:
+        cast_status = "not_found"
     return {
         "layers": layers,
         "field": field,
         "engine": engine,
+        "engine_id": engine_id_for(engine),
         "cast_ok": cast_ok,
+        "cast_status": cast_status,
+        "cast_reason": cast_reason,
+        "cast_score_raw": cast_score_raw,
+        "cast_confidence": None,
         "ground_kind": kind,
         "width": source.size[0],
         "height": source.size[1],
+        "duration_ms": int((time.monotonic() - started) * 1000),
+        "geometry": {
+            "width": source.size[0],
+            "height": source.size[1],
+            "space": "source_percent",
+            "cast_crop": "bbox",
+        },
     }
 
 
@@ -612,18 +646,18 @@ def _cutout(source, mask):
 def _mask_quality(mask, source, engine="python"):
     box = mask.getbbox()
     if box is None:
-        return {"ok": False, "reason": "empty"}
+        return {"ok": False, "reason": "empty", "coverage": 0.0}
     width, height = source.size
     hist = mask.histogram()
     covered = sum(hist[128:]) if hist else 0
     total = max(1, width * height)
     coverage = covered / total
     if coverage < 0.02:
-        return {"ok": False, "reason": "tiny"}
+        return {"ok": False, "reason": "tiny", "coverage": coverage}
     box_w = (box[2] - box[0]) / width
     box_h = (box[3] - box[1]) / height
     if box_w > 0.92 and box_h > 0.88:
-        return {"ok": False, "reason": "full-frame"}
+        return {"ok": False, "reason": "full-frame", "coverage": coverage}
     rgb = source.convert("RGB")
     pixels = rgb.load()
     marks = mask.load()
@@ -644,10 +678,10 @@ def _mask_quality(mask, source, engine="python"):
             if dist < 80:
                 ink += 1
     if covered and white / covered > 0.55:
-        return {"ok": False, "reason": "paper"}
+        return {"ok": False, "reason": "paper", "coverage": coverage}
     if engine not in {"rembg", "yolo"} and covered and ink / covered > 0.45 and skin / covered < 0.18:
-        return {"ok": False, "reason": "field-garment"}
-    return {"ok": True, "reason": ""}
+        return {"ok": False, "reason": "field-garment", "coverage": coverage}
+    return {"ok": True, "reason": "", "coverage": coverage}
 
 
 def classify_ground(source, field_rgb):

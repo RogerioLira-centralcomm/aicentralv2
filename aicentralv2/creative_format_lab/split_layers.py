@@ -25,36 +25,59 @@ ROLE_LABELS = {
 
 def split_still(image, predictor=None):
     source = _open_image(image)
-    engine = "python"
     if callable(predictor):
         predict = predictor
         engine = "custom"
     else:
-        predict = default_predictor()
+        predict, engine = resolve_predictor()
     detections = _normalize_detections(predict(source), source.size)
     layers = []
     union = Image.new("L", source.size, 0)
+    cast_ok = False
     for index, item in enumerate(detections):
         mask = item["mask"]
         if mask.getbbox() is None:
             continue
-        union = ImageChops.lighter(union, mask)
         role = "cast" if item["label"] in CAST_LABELS else "product"
+        quality = _mask_quality(mask, source, engine if role == "cast" else "custom")
+        if role == "cast" and not quality["ok"]:
+            logger.info("Máscara de pessoa recusada: %s", quality["reason"])
+            continue
+        union = ImageChops.lighter(union, mask)
         crop, box = _cutout(source, mask)
         layers.append(_layer(role, item["label"], box, crop, index))
-    ground, field = _ground(source, union)
+        if role == "cast":
+            cast_ok = True
+    field_rgb = _field_rgb(source, union)
+    kind = classify_ground(source, field_rgb)
+    ground, field = _ground(source, union, field_rgb, kind, cast_ok)
     layers.append(_layer("ground", "ground", {"x": 0, "y": 0, "w": 100, "h": 100}, ground, len(layers)))
     return {
         "layers": layers,
         "field": field,
         "engine": engine,
+        "cast_ok": cast_ok,
+        "ground_kind": kind,
         "width": source.size[0],
         "height": source.size[1],
     }
 
 
 def default_predictor():
-    return field_predictor
+    predict, _engine = resolve_predictor()
+    return predict
+
+
+def resolve_predictor():
+    try:
+        return _load_rembg(), "rembg"
+    except Exception:
+        pass
+    try:
+        return _load_yolo_person(), "yolo"
+    except Exception:
+        pass
+    return field_predictor, "python"
 
 
 def hypothetical_still():
@@ -79,7 +102,45 @@ def example_still_payload():
         "width": image.size[0],
         "height": image.size[1],
         "engine": "python",
+        "ground_kind": "paper",
     }
+
+
+def tim_like_still():
+    """Campo navy, blusa da tinta, pele e tipo branco. Sem segmentador a pessoa falha."""
+    if Image is None:
+        raise RuntimeError("Pillow é necessário para recortar camadas.")
+    from PIL import ImageDraw
+
+    canvas = Image.new("RGB", (640, 240), (255, 255, 255))
+    draw = ImageDraw.Draw(canvas)
+    draw.rounded_rectangle([8, 8, 632, 232], radius=18, fill=(1, 21, 74))
+    draw.rectangle([28, 28, 300, 64], fill=(255, 255, 255))
+    draw.rectangle([28, 88, 160, 140], fill=(255, 255, 255))
+    draw.ellipse([430, 20, 500, 88], fill=(196, 122, 90))
+    draw.rectangle([438, 84, 494, 168], fill=(1, 21, 74))
+    draw.rectangle([420, 164, 512, 220], fill=(180, 20, 40))
+    return canvas
+
+
+def lifestyle_still():
+    """Foto com variação. Image 2 pode limpar o poço."""
+    if Image is None:
+        raise RuntimeError("Pillow é necessário para recortar camadas.")
+    from PIL import ImageDraw
+
+    canvas = Image.new("RGB", (320, 180), (40, 50, 40))
+    pixels = canvas.load()
+    for y in range(180):
+        for x in range(320):
+            pixels[x, y] = (
+                (x * 3 + y * 2) % 170 + 30,
+                (y * 5 + x) % 140 + 40,
+                (x + y * 3) % 160 + 20,
+            )
+    draw = ImageDraw.Draw(canvas)
+    draw.ellipse([200, 24, 292, 164], fill=(196, 122, 90))
+    return canvas
 
 
 def field_predictor(image):
@@ -109,6 +170,22 @@ def field_predictor(image):
     return [{"label": "person", "mask": mask}]
 
 
+def _load_rembg():
+    from rembg import new_session, remove
+
+    session = new_session("u2net_human_seg")
+
+    def predict(image):
+        rgba = remove(image.convert("RGB"), session=session)
+        if not isinstance(rgba, Image.Image):
+            rgba = Image.open(io.BytesIO(rgba)).convert("RGBA")
+        else:
+            rgba = rgba.convert("RGBA")
+        return [{"label": "person", "mask": rgba.split()[-1]}]
+
+    return predict
+
+
 def _load_yolo():
     try:
         from ultralytics import YOLO
@@ -135,6 +212,15 @@ def _load_yolo():
                     "mask": _resize_mask(mask_data, width, height),
                 })
         return found
+
+    return predict
+
+
+def _load_yolo_person():
+    raw = _load_yolo()
+
+    def predict(image):
+        return [item for item in raw(image) if item.get("label") in CAST_LABELS]
 
     return predict
 
@@ -523,15 +609,81 @@ def _cutout(source, mask):
     }
 
 
-def _ground(source, union):
-    inverted = ImageChops.invert(union)
-    hist = union.histogram()
+def _mask_quality(mask, source, engine="python"):
+    box = mask.getbbox()
+    if box is None:
+        return {"ok": False, "reason": "empty"}
+    width, height = source.size
+    hist = mask.histogram()
     covered = sum(hist[128:]) if hist else 0
-    total = max(1, source.size[0] * source.size[1])
-    field_rgb = _median_color(source, inverted)
+    total = max(1, width * height)
+    coverage = covered / total
+    if coverage < 0.02:
+        return {"ok": False, "reason": "tiny"}
+    box_w = (box[2] - box[0]) / width
+    box_h = (box[3] - box[1]) / height
+    if box_w > 0.92 and box_h > 0.88:
+        return {"ok": False, "reason": "full-frame"}
+    rgb = source.convert("RGB")
+    pixels = rgb.load()
+    marks = mask.load()
+    ink = 0
+    white = 0
+    skin = 0
+    field = _corner_field(rgb)
+    for y in range(box[1], box[3]):
+        for x in range(box[0], box[2]):
+            if marks[x, y] < 128:
+                continue
+            color = pixels[x, y]
+            if _is_paper(color):
+                white += 1
+            if _is_skin(color):
+                skin += 1
+            dist = abs(color[0] - field[0]) + abs(color[1] - field[1]) + abs(color[2] - field[2])
+            if dist < 80:
+                ink += 1
+    if covered and white / covered > 0.55:
+        return {"ok": False, "reason": "paper"}
+    if engine not in {"rembg", "yolo"} and covered and ink / covered > 0.45 and skin / covered < 0.18:
+        return {"ok": False, "reason": "field-garment"}
+    return {"ok": True, "reason": ""}
+
+
+def classify_ground(source, field_rgb):
+    rgb = source.convert("RGB")
+    width, height = rgb.size
+    pixels = rgb.load()
+    near = 0
+    total = width * height
+    red, green, blue = field_rgb
+    step = max(1, min(width, height) // 80)
+    sampled = 0
+    for y in range(0, height, step):
+        for x in range(0, width, step):
+            sampled += 1
+            color = pixels[x, y]
+            if abs(color[0] - red) + abs(color[1] - green) + abs(color[2] - blue) < 48:
+                near += 1
+    if sampled and near / sampled >= 0.28:
+        return "paper"
+    return "image"
+
+
+def _field_rgb(source, union):
+    inverted = ImageChops.invert(union)
+    if inverted.getbbox() is None:
+        inverted = Image.new("L", source.size, 255)
+    return _median_color(source, inverted)
+
+
+def _ground(source, union, field_rgb=None, ground_kind="paper", cast_ok=False):
+    if field_rgb is None:
+        field_rgb = _field_rgb(source, union)
     field = "#{:02X}{:02X}{:02X}".format(*field_rgb)
-    if (total - covered) / total < 0.02:
+    if ground_kind == "paper" or not cast_ok:
         return Image.new("RGBA", source.size, field_rgb + (255,)), field
+    inverted = ImageChops.invert(union)
     leftover = Image.new("RGBA", source.size, (0, 0, 0, 0))
     leftover.paste(source, mask=inverted)
     return leftover, field

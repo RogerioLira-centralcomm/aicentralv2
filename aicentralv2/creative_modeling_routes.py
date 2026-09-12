@@ -140,7 +140,7 @@ MC_DESKS = {
     },
     "camadas": {
         "title": "Camadas do still",
-        "lead": "A pessoa vira acetato. A tinta vira fundo. Headline e CTA ficam no HTML.",
+        "lead": "Pessoa só se o recorte for fiel. Papel vira wash. Headline e CTA ficam no HTML.",
         "panel": "parametros/_mc_camadas.html",
         "studio": False,
         "page_js": "js/mc-camadas.js",

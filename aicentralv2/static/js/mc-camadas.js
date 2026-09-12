@@ -2,10 +2,12 @@
   const API = '/parametros/api/format-lab/layers/split';
   const EXAMPLE = '/parametros/api/format-lab/layers/example';
   const ROLE_NAME = { cast: 'Pessoa', product: 'Produto', ground: 'Tinta' };
-  const ENGINE_NAME = {
-    python: 'Python · recorte',
-    custom: 'Python · recorte',
-    image2: 'Image 2 · redesenha',
+  const COPY_LABEL = {
+    headline: 'Headline',
+    support: 'Apoio',
+    price: 'Preço',
+    cta: 'CTA',
+    logo_text: 'Logo',
   };
 
   function boot() {
@@ -16,31 +18,26 @@
     const overlay = document.getElementById('mcLayersOverlay');
     const run = document.getElementById('mcLayersRun');
     const imageBtn = document.getElementById('mcLayersImage');
-    const both = document.getElementById('mcLayersBoth');
     const demo = document.getElementById('mcLayersDemo');
     const status = document.getElementById('mcLayersStatus');
     const field = document.getElementById('mcLayersField');
     const engine = document.getElementById('mcLayersEngine');
-    const board = document.getElementById('mcLayersBoard');
-    const grids = {
-      python: document.getElementById('mcLayersGridPython'),
-      image2: document.getElementById('mcLayersGridImage'),
-    };
+    const grid = document.getElementById('mcLayersGrid');
+    const castNote = document.getElementById('mcLayersCastNote');
+    const copyBox = document.getElementById('mcLayersCopy');
+    const copyList = document.getElementById('mcLayersCopyList');
     if (!fileInput || !drop || !run) return;
     let imageUrl = '';
-
-    function buttons() {
-      return [run, imageBtn, both, demo].filter(Boolean);
-    }
+    let lastKind = '';
 
     function setBusy(busy) {
-      buttons().forEach((node) => {
-        if (node === demo) {
-          node.disabled = busy;
-          return;
-        }
-        node.disabled = busy || !imageUrl;
-      });
+      run.disabled = busy || !imageUrl;
+      if (demo) demo.disabled = busy;
+      if (imageBtn) {
+        const allowWell = lastKind === 'image' && Boolean(imageUrl);
+        imageBtn.classList.toggle('hidden', !allowWell);
+        imageBtn.disabled = busy || !allowWell;
+      }
     }
 
     function setStep(step) {
@@ -53,21 +50,22 @@
 
     function showStill(url) {
       imageUrl = url;
+      lastKind = '';
       if (preview) preview.src = url;
       frame?.classList.remove('hidden');
       drop.classList.add('has-still');
-      Object.values(grids).forEach((grid) => {
-        if (grid) grid.innerHTML = '';
-      });
+      if (grid) grid.innerHTML = '';
       field?.classList.add('hidden');
+      castNote?.classList.add('hidden');
+      copyBox?.classList.add('hidden');
+      if (copyList) copyList.innerHTML = '';
       if (overlay) {
         overlay.innerHTML = '';
         overlay.hidden = true;
       }
-      board?.classList.remove('is-compare');
       setStep(1);
       setBusy(false);
-      if (status) status.textContent = 'Still na placa. Rode Python, Image 2 ou os dois.';
+      if (status) status.textContent = 'Still na placa. Separe pessoa, tinta e copy.';
     }
 
     function drawBoxes(layers) {
@@ -82,41 +80,61 @@
       overlay.hidden = !overlay.innerHTML;
     }
 
-    function paintGrid(grid, layers) {
-      if (!grid) return;
-      grid.innerHTML = (layers || []).map((item, index) => {
-        const box = item.box || {};
-        const name = ROLE_NAME[item.role] || item.label || `camada-${index + 1}`;
-        const file = `${item.role || 'layer'}-${index + 1}.png`;
-        return `<li data-role="${item.role || ''}">
-          <figure>
-            <img src="${item.png_data_url || ''}" alt="${name}">
-            <figcaption>
-              <strong>${name}</strong>
-              <span>${Math.round(box.w || 0)}×${Math.round(box.h || 0)}%</span>
-            </figcaption>
-          </figure>
-          <a class="cx-btn cx-btn-secondary cx-btn-sm" href="${item.png_data_url || ''}" download="${file}">Baixar PNG</a>
-        </li>`;
-      }).join('') || '<li class="mc-layers-empty">Nenhum recorte.</li>';
+    function paintCopy(read) {
+      const items = Object.entries(COPY_LABEL)
+        .map(([key, label]) => {
+          const value = String((read || {})[key] || '').trim();
+          return value ? `<li><strong>${label}</strong><span>${value}</span></li>` : '';
+        })
+        .filter(Boolean);
+      if (copyList) copyList.innerHTML = items.join('');
+      copyBox?.classList.toggle('hidden', !items.length);
     }
 
     function showPack(data) {
-      const key = data.engine === 'image2' ? 'image2' : 'python';
-      paintGrid(grids[key], data.layers || []);
-      if (key === 'python') drawBoxes(data.layers || []);
-      if (field && data.field) {
-        field.textContent = data.field;
-        field.style.setProperty('--layers-field', data.field);
-        field.classList.remove('hidden');
+      lastKind = data.ground_kind || '';
+      const layers = data.layers || [];
+      if (grid) {
+        const cards = layers.map((item, index) => {
+          const box = item.box || {};
+          const name = ROLE_NAME[item.role] || item.label || `camada-${index + 1}`;
+          const file = `${item.role || 'layer'}-${index + 1}.png`;
+          return `<li data-role="${item.role || ''}">
+            <figure>
+              <img src="${item.png_data_url || ''}" alt="${name}">
+              <figcaption>
+                <strong>${name}</strong>
+                <span>${Math.round(box.w || 0)}×${Math.round(box.h || 0)}%</span>
+              </figcaption>
+            </figure>
+            <a class="cx-btn cx-btn-secondary cx-btn-sm" href="${item.png_data_url || ''}" download="${file}">Baixar PNG</a>
+          </li>`;
+        });
+        if (!data.cast_ok) {
+          cards.unshift(`<li class="mc-layers-empty" data-role="cast">Sem pessoa confiável. Tipo fica no HTML.</li>`);
+        }
+        grid.innerHTML = cards.join('') || '<li class="mc-layers-empty">Nenhum recorte veio do still.</li>';
       }
-      const pythonFilled = Boolean(grids.python?.querySelector('img'));
-      const imageFilled = Boolean(grids.image2?.querySelector('img'));
-      board?.classList.toggle('is-compare', pythonFilled && imageFilled);
+      drawBoxes(layers.filter((item) => item.role === 'cast'));
+      if (field) {
+        field.textContent = data.field || '';
+        field.style.setProperty('--layers-field', data.field || '#0033FF');
+        field.classList.toggle('hidden', !data.field);
+      }
+      if (castNote) {
+        castNote.textContent = data.cast_ok ? 'Pessoa no acetato.' : 'Sem pessoa confiável.';
+        castNote.classList.toggle('is-ok', Boolean(data.cast_ok));
+        castNote.classList.remove('hidden');
+      }
+      paintCopy(data.read);
       if (engine) {
-        if (pythonFilled && imageFilled) engine.textContent = 'Python e Image 2';
-        else engine.textContent = ENGINE_NAME[data.engine] || 'Python · recorte';
+        engine.textContent = data.engine === 'image2'
+          ? 'Image 2 · poço'
+          : data.cast_ok
+            ? `${data.engine || 'Python'} · recorte`
+            : `${data.engine || 'Python'} · tinta`;
       }
+      setBusy(false);
     }
 
     async function requestSplit(engineName) {
@@ -138,7 +156,7 @@
       setBusy(true);
       if (status) {
         status.textContent = engineName === 'image'
-          ? 'Image 2 redesenhando elenco e fundo.'
+          ? 'Limpando o poço da foto.'
           : 'Recortando no Python.';
       }
       try {
@@ -147,31 +165,13 @@
         setStep(3);
         if (status) {
           status.textContent = data.engine === 'image2'
-            ? 'Image 2 redesenhou. Confira se inventou pixel.'
-            : 'Python recortou. Tipo fica no HTML.';
+            ? 'Poço vazio. Tipo fica no HTML.'
+            : data.cast_ok
+              ? 'Pessoa no acetato. Tinta no campo. Tipo fica no HTML.'
+              : 'Tinta no campo. Sem pessoa confiável. Tipo fica no HTML.';
         }
       } catch (error) {
         if (status) status.textContent = error.message;
-      } finally {
-        setBusy(false);
-      }
-    }
-
-    async function splitBoth() {
-      if (!imageUrl) return;
-      setBusy(true);
-      if (status) status.textContent = 'Python primeiro. Image 2 em seguida.';
-      try {
-        const python = await requestSplit('python');
-        showPack(python);
-        if (status) status.textContent = 'Python ok. Pedindo Image 2.';
-        const image = await requestSplit('image');
-        showPack(image);
-        setStep(3);
-        if (status) status.textContent = 'Os dois na mesa. Compare pessoa e tinta.';
-      } catch (error) {
-        if (status) status.textContent = error.message;
-      } finally {
         setBusy(false);
       }
     }
@@ -196,7 +196,6 @@
     fileInput.addEventListener('change', () => readFile(fileInput.files?.[0]));
     run.addEventListener('click', () => split('python'));
     imageBtn?.addEventListener('click', () => split('image'));
-    both?.addEventListener('click', () => splitBoth());
     demo?.addEventListener('click', async () => {
       demo.disabled = true;
       if (status) status.textContent = 'Abrindo o still de teste.';

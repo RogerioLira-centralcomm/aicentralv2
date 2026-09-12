@@ -2,9 +2,9 @@
   <header class="mc-layers-head">
     <div>
       <h2 id="mcLayersTitle">O still vira acetato</h2>
-      <p>Duas rotas. Python recorta o pixel. Image 2 redesenha elenco e fundo. Headline, preço e CTA não saem daqui — entram no HTML da Mesa.</p>
+      <p>Pessoa só sai se o recorte for confiável. Papel vira wash da tinta. Headline, preço e CTA entram no HTML — não no PNG.</p>
     </div>
-    <p class="mc-layers-engine" id="mcLayersEngine">Python · Image 2</p>
+    <p class="mc-layers-engine" id="mcLayersEngine">Python · recorte</p>
   </header>
   <ol class="mc-layers-tally" aria-label="Ordem do recorte">
     <li class="is-current" data-layers-step="1">Still</li>
@@ -23,9 +23,8 @@
         <div class="mc-layers-overlay" id="mcLayersOverlay" hidden></div>
       </figure>
       <div class="mc-layers-actions">
-        <button class="cx-btn cx-btn-primary" id="mcLayersRun" type="button" disabled>Python</button>
-        <button class="cx-btn cx-btn-secondary" id="mcLayersImage" type="button" disabled>Image 2</button>
-        <button class="cx-btn cx-btn-secondary" id="mcLayersBoth" type="button" disabled>Os dois</button>
+        <button class="cx-btn cx-btn-primary" id="mcLayersRun" type="button" disabled>Separar</button>
+        <button class="cx-btn cx-btn-secondary hidden" id="mcLayersImage" type="button" disabled>Limpar poço</button>
         <button class="cx-btn cx-btn-secondary" id="mcLayersDemo" type="button">Abrir criativo de teste</button>
       </div>
     </div>
@@ -34,17 +33,13 @@
         <h3>Acetatos</h3>
         <p class="mc-layers-field hidden" id="mcLayersField"></p>
       </header>
-      <p id="mcLayersStatus">Solte um still. Rode Python, Image 2 ou os dois.</p>
-      <div class="mc-layers-compare" id="mcLayersCompare">
-        <section data-pack="python">
-          <h4>Python</h4>
-          <ol class="mc-layers-grid" id="mcLayersGridPython"></ol>
-        </section>
-        <section data-pack="image2">
-          <h4>Image 2</h4>
-          <ol class="mc-layers-grid" id="mcLayersGridImage"></ol>
-        </section>
-      </div>
+      <p id="mcLayersStatus">Solte um still. A pessoa sai em PNG. A tinta vira o campo. O tipo fica no HTML.</p>
+      <p class="mc-layers-cast-note hidden" id="mcLayersCastNote"></p>
+      <ol class="mc-layers-grid" id="mcLayersGrid"></ol>
+      <section class="mc-layers-copy hidden" id="mcLayersCopy" aria-label="Tipo no HTML">
+        <h4>Tipo no HTML</h4>
+        <ul id="mcLayersCopyList"></ul>
+      </section>
     </aside>
   </div>
 </section>

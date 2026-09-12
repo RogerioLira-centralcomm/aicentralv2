@@ -1,4 +1,4 @@
-"""Image 2 parte o criativo: fundo de um lado, pessoas do outro."""
+"""Image 2 limpa o poço de uma foto. Não recorta pessoa."""
 
 from __future__ import annotations
 
@@ -11,8 +11,7 @@ CAST_PROMPT = (
     "Clean figure only. No new people. No text."
 )
 GROUND_PROMPT = (
-    "Recreate only the background of this advertisement: the flat color field "
-    "or wash, empty of people. "
+    "Recreate only the background of this advertisement as an empty photographic well. "
     "No people, no faces, no typography, no logos, no prices, no buttons. "
     "Clean empty field ready for HTML type. Same colors as the source."
 )
@@ -23,14 +22,6 @@ def decompose_creative(image_url, image_callable=None, field="", aspect_ratio="1
         return {"cast_url": "", "ground_url": "", "field": str(field or "")}
     refs = [image_url]
     ratio = aspect_ratio or "16:9"
-    cast = _as_data_url(
-        image_callable(
-            CAST_PROMPT,
-            aspect_ratio=ratio,
-            background="opaque",
-            input_references=refs,
-        )
-    )
     ground = _as_data_url(
         image_callable(
             GROUND_PROMPT,
@@ -40,7 +31,7 @@ def decompose_creative(image_url, image_callable=None, field="", aspect_ratio="1
         )
     )
     return {
-        "cast_url": cast,
+        "cast_url": "",
         "ground_url": ground,
         "field": str(field or ""),
     }

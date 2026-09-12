@@ -298,10 +298,10 @@ class CreativeFormatLabTest(unittest.TestCase):
             return b"png"
 
         parts = decompose_creative("https://cdn.example/ref.png", fake)
-        self.assertEqual(len(calls), 2)
+        self.assertEqual(len(calls), 1)
         self.assertEqual(calls[0][1], "opaque")
-        self.assertEqual(calls[1][1], "opaque")
-        self.assertTrue(parts["cast_url"].startswith("data:image/png;base64,"))
+        self.assertEqual(parts["cast_url"], "")
+        self.assertTrue(parts["ground_url"].startswith("data:image/png;base64,"))
 
     def test_split_still_recorte_pessoa_e_fundo(self):
         import base64
@@ -355,6 +355,64 @@ class CreativeFormatLabTest(unittest.TestCase):
         example = example_still_payload()
         self.assertTrue(example["image"].startswith("data:image/png;base64,"))
         self.assertEqual(example["engine"], "python")
+        self.assertEqual(result["ground_kind"], "paper")
+
+    def test_split_tim_like_sem_segmentador_vira_wash(self):
+        from aicentralv2.creative_format_lab.split_layers import (
+            field_predictor,
+            split_still,
+            tim_like_still,
+        )
+
+        result = split_still(tim_like_still(), predictor=field_predictor)
+        self.assertFalse(result["cast_ok"])
+        self.assertEqual(result["ground_kind"], "paper")
+        self.assertTrue(result["field"].upper().startswith("#01"))
+        self.assertNotIn("cast", [item["role"] for item in result["layers"]])
+        self.assertIn("ground", [item["role"] for item in result["layers"]])
+
+    def test_split_tim_like_com_predictor_mantem_wash(self):
+        from PIL import Image, ImageDraw
+
+        from aicentralv2.creative_format_lab.split_layers import split_still, tim_like_still
+
+        still = tim_like_still()
+
+        def predict(image):
+            mask = Image.new("L", image.size, 0)
+            ImageDraw.Draw(mask).ellipse([430, 20, 512, 220], fill=255)
+            return [{"label": "person", "mask": mask}]
+
+        result = split_still(still, predictor=predict)
+        self.assertTrue(result["cast_ok"])
+        self.assertEqual(result["ground_kind"], "paper")
+        self.assertIn("cast", [item["role"] for item in result["layers"]])
+
+    def test_split_sempre_devolve_ocr_no_html(self):
+        from aicentralv2.creative_format_lab.service import FormatLabService
+        from aicentralv2.creative_format_lab.split_layers import example_still_payload
+
+        class Modeling:
+            repository = None
+            generator = None
+
+        def text_callable(_messages, **_kwargs):
+            return {
+                "message": {
+                    "content": {
+                        "headline": "Acesse vantagens exclusivas",
+                        "price": "R$ 169,99",
+                        "cta": "Contratar",
+                    }
+                }
+            }
+
+        result = FormatLabService(Modeling()).split_layers({
+            "image": example_still_payload()["image"],
+            "text_callable": text_callable,
+        })
+        self.assertEqual(result["read"]["price"], "R$ 169,99")
+        self.assertEqual(result["read"]["cta"], "Contratar")
 
     def test_split_still_nao_engole_tipo_nem_letra_3d(self):
         from PIL import Image, ImageDraw
@@ -420,7 +478,12 @@ class CreativeFormatLabTest(unittest.TestCase):
 
     def test_split_engine_image2_empacota_decompose(self):
         from aicentralv2.creative_format_lab.service import FormatLabService
-        from aicentralv2.creative_format_lab.split_layers import example_still_payload
+        from aicentralv2.creative_format_lab.split_layers import (
+            _png_data_url,
+            example_still_payload,
+            lifestyle_still,
+        )
+        from aicentralv2.creative_modeling_repository import CreativeConflictError
 
         calls = []
 
@@ -437,12 +500,20 @@ class CreativeFormatLabTest(unittest.TestCase):
             repository = None
 
         service = FormatLabService(Modeling())
-        still = example_still_payload()["image"]
+        with self.assertRaises(CreativeConflictError):
+            service.split_layers({
+                "image": example_still_payload()["image"],
+                "engine": "image",
+                "image_callable": fake,
+            })
+        still = _png_data_url(lifestyle_still())
         result = service.split_layers({"image": still, "engine": "image", "image_callable": fake})
         self.assertEqual(result["engine"], "image2")
-        self.assertEqual(len(calls), 2)
+        self.assertEqual(result["ground_kind"], "image")
+        self.assertEqual(len(calls), 1)
         self.assertEqual(calls[0], "16:9")
-        self.assertEqual([item["role"] for item in result["layers"]], ["cast", "ground"])
+        self.assertEqual([item["role"] for item in result["layers"]], ["ground"])
+        self.assertFalse(result["cast_ok"])
 
     def test_qa_loop_para_no_terceiro_patch(self):
         spec = build_spec(
@@ -1616,19 +1687,21 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("modelagem_camadas", shell)
         self.assertIn("modelagem_design-system", shell)
         desk = (root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html").read_text(encoding="utf-8")
-        self.assertIn("modelagem_criativos.css') }}?v=95", desk)
-        self.assertIn("mc_page_js) }}?v=45", desk)
+        self.assertIn("modelagem_criativos.css') }}?v=96", desk)
+        self.assertIn("mc_page_js) }}?v=46", desk)
         camadas = (root / "aicentralv2" / "templates" / "parametros" / "_mc_camadas.html").read_text(encoding="utf-8")
         self.assertIn("mcLayersRun", camadas)
+        self.assertIn("Separar", camadas)
         self.assertIn("mcLayersImage", camadas)
-        self.assertIn("mcLayersBoth", camadas)
-        self.assertIn("Os dois", camadas)
+        self.assertIn("Limpar poço", camadas)
+        self.assertNotIn("Os dois", camadas)
+        self.assertIn("mcLayersCopy", camadas)
         self.assertIn("Abrir criativo de teste", camadas)
         self.assertIn("O still vira acetato", camadas)
         js = (root / "aicentralv2" / "static" / "js" / "mc-camadas.js").read_text(encoding="utf-8")
         self.assertIn("/api/format-lab/layers/split", js)
         self.assertIn("/api/format-lab/layers/example", js)
-        self.assertIn("engine: engineName", js)
+        self.assertIn("Tipo fica no HTML", js)
         dsa = (root / "aicentralv2" / "templates" / "parametros" / "_mc_design_system.html").read_text(encoding="utf-8")
         self.assertLess(dsa.find("mc-dsa-preview"), dsa.find("mc-dsa-side"))
         self.assertIn("Montar", dsa)

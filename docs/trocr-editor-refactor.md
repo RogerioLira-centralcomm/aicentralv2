@@ -2,6 +2,8 @@
 
 A mesa Trocar continua em `/parametros/modelagem-criativos/trocar`. Na tela, o produto se chama Trocr: um editor generativo de criativos a partir de uma imagem de entrada. O chrome da Modelagem não muda.
 
+Contrato completo (payloads, prompts, modos typeset/recrop/image, APIs e lab): [`docs/trocar.md`](trocar.md). Este arquivo cobre só a UX da tela.
+
 ## Visão geral da tela
 
 Quatro regiões, nesta ordem:

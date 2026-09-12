@@ -194,12 +194,11 @@ class FormatLabService:
             if engine in {"image", "image2", "decompose"}:
                 return self._decompose_layers(image, payload)
             result = split_still(image, predictor=payload.get("predictor"))
-            if payload.get("read"):
-                from .engineer import read_attached_still
+            from .engineer import read_attached_still
 
-                read = read_attached_still(image, self._text_callable(payload))
-                if read:
-                    result["read"] = read
+            read = read_attached_still(image, self._text_callable(payload))
+            if read:
+                result["read"] = read
             return result
         except (ValueError, OpenRouterError) as exc:
             raise CreativeConflictError(str(exc)) from exc
@@ -207,28 +206,23 @@ class FormatLabService:
     def _decompose_layers(self, image, payload):
         if not image:
             raise CreativeConflictError("Envie um still.")
+        probe = split_still(image, predictor=payload.get("predictor"))
+        if probe.get("ground_kind") != "image":
+            raise CreativeConflictError(
+                "Este still é papel. A tinta já é o wash. Image 2 só limpa poço de foto."
+            )
         image_fn = self._image_callable({**payload, "generate": True})
         if not callable(image_fn):
             raise CreativeConflictError("Image 2 não está disponível.")
-        from .split_layers import _open_image
-
-        source = _open_image(image)
-        width, height = source.size
+        width = probe.get("width") or 0
+        height = probe.get("height") or 0
         ratio = width / max(1, height)
         aspect = "16:9" if ratio >= 1.45 else ("9:16" if ratio <= 0.75 else "1:1")
-        parts = decompose_creative(image, image_fn, aspect_ratio=aspect)
+        parts = decompose_creative(image, image_fn, field=probe.get("field") or "", aspect_ratio=aspect)
         layers = []
-        if parts.get("cast_url"):
-            layers.append({
-                "id": "cast-0",
-                "role": "cast",
-                "label": "person",
-                "box": {"x": 0, "y": 0, "w": 100, "h": 100},
-                "png_data_url": parts["cast_url"],
-            })
         if parts.get("ground_url"):
             layers.append({
-                "id": "ground-1",
+                "id": "ground-0",
                 "role": "ground",
                 "label": "Fundo",
                 "box": {"x": 0, "y": 0, "w": 100, "h": 100},
@@ -236,8 +230,10 @@ class FormatLabService:
             })
         return {
             "layers": layers,
-            "field": parts.get("field") or "",
+            "field": probe.get("field") or parts.get("field") or "",
             "engine": "image2",
+            "cast_ok": False,
+            "ground_kind": "image",
             "width": width,
             "height": height,
         }

@@ -749,7 +749,12 @@ def _paint_typeset(png, patches, aspect="1:1"):
             continue
         region = _locate_type(image, box, field)
         fill = (255, 255, 255) if patch["slot"] == "cta" else field
-        _fill_slot(image, region["slot"], fill)
+        if region.get("cover"):
+            _cover_type(image, region["cover"], fill)
+            target = region["bbox"]
+        else:
+            _fill_slot(image, region["bbox"], fill)
+            target = region["bbox"]
         ink = region["ink"]
         if patch["slot"] == "cta":
             ink = (17, 17, 17)
@@ -759,8 +764,8 @@ def _paint_typeset(png, patches, aspect="1:1"):
             ink = (227, 6, 19)
         _draw_copy(
             image,
-            region["slot"],
-            region["slot"],
+            target,
+            target,
             _stack_copy(patch["text"]),
             ink,
         )
@@ -858,7 +863,7 @@ def _cover_type(image, points, field):
         return
     width, height = image.size
     pixels = image.load()
-    radius = 3
+    radius = 4
     seen = set()
     for x, y in points:
         for dx in range(-radius, radius + 1):
@@ -939,8 +944,8 @@ def _canvas_field(image):
         ((pixel[0] // 16) * 16, (pixel[1] // 16) * 16, (pixel[2] // 16) * 16)
         for pixel in small.getdata()
     ]
-    mid = [item for item in buckets if 40 < _luma(item) < 230]
-    return Counter(mid or buckets).most_common(1)[0][0]
+    wash = [item for item in buckets if _luma(item) < 232]
+    return Counter(wash or buckets).most_common(1)[0][0]
 
 
 def _field_color(region):

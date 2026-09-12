@@ -375,6 +375,25 @@ class CreativeFormatLabTest(unittest.TestCase):
         self.assertLess(cast["box"]["w"], 48)
         self.assertGreater(cast["box"]["h"], 45)
 
+    def test_split_still_parte_da_pele_nao_do_sofa(self):
+        from PIL import Image, ImageDraw
+
+        from aicentralv2.creative_format_lab.split_layers import split_still
+
+        canvas = Image.new("RGB", (640, 240), (2, 20, 90))
+        draw = ImageDraw.Draw(canvas)
+        draw.rectangle([24, 150, 220, 220], fill=(28, 38, 72))
+        draw.ellipse([430, 16, 524, 112], fill=(196, 122, 90))
+        draw.rectangle([448, 104, 508, 172], fill=(2, 20, 90))
+        draw.ellipse([438, 168, 472, 204], fill=(196, 122, 90))
+        draw.ellipse([488, 168, 522, 204], fill=(196, 122, 90))
+        result = split_still(canvas)
+        cast = next(item for item in result["layers"] if item["role"] == "cast")
+        self.assertGreater(cast["box"]["x"], 50)
+        self.assertLess(cast["box"]["y"], 25)
+        self.assertGreater(cast["box"]["h"], 55)
+        self.assertLess(cast["box"]["w"], 45)
+
     def test_ocr_do_still_trava_oferta_e_cta(self):
         from aicentralv2.creative_format_lab.engineer import apply_still_read, normalize_knobs
 
@@ -2176,6 +2195,37 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
         )
         self.assertEqual(scored["accuracy"], 1.0)
         self.assertFalse(scored["scrambled"])
+
+    def test_typeset_16x9_nao_pinta_a_pessoa(self):
+        import base64
+        import io
+
+        from PIL import Image, ImageDraw
+
+        from aicentralv2.creative_format_lab.swap import swap_mode, swap_reference
+
+        canvas = Image.new("RGB", (640, 240), (1, 21, 74))
+        draw = ImageDraw.Draw(canvas)
+        draw.rectangle([28, 32, 250, 48], fill=(255, 255, 255))
+        draw.rectangle([28, 56, 210, 72], fill=(255, 255, 255))
+        draw.ellipse([470, 30, 610, 210], fill=(200, 40, 40))
+        buffer = io.BytesIO()
+        canvas.save(buffer, format="PNG")
+        reference = "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
+        payload = {
+            "reference": reference,
+            "aspect_ratio": "16:9",
+            "aspect_hint": "16:9",
+            "preserve": ["people", "logo", "colors", "style"],
+            "alter": ["headline"],
+            "headline": "Internet extra que cabe no mês",
+            "faces": 1,
+        }
+        self.assertEqual(swap_mode(payload), "typeset")
+        result = swap_reference(payload)
+        painted = Image.open(io.BytesIO(base64.b64decode(result["png_data_url"].split(",", 1)[1]))).convert("RGB")
+        self.assertEqual(canvas.getpixel((540, 120)), painted.getpixel((540, 120)))
+        self.assertEqual(painted.getpixel((400, 40)), canvas.getpixel((400, 40)))
 
     def test_recrop_compõe_tipo_depois_do_image2(self):
         from aicentralv2.creative_format_lab.swap import (

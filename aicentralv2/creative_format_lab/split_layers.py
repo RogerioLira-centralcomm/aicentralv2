@@ -83,19 +83,27 @@ def example_still_payload():
 
 
 def field_predictor(image):
-    """Pessoa à direita, tinta nos cantos. Tipo claro fica fora. Sem YOLO, sem Image 2."""
+    """Pele primeiro. Tinta e sofá não viram pessoa. Sem YOLO, sem Image 2."""
     source = image.convert("RGB")
     paper = _trim_paper(source)
     card = source.crop(paper)
     work = card.copy()
     work.thumbnail((320, 320), Image.BILINEAR)
     field = _corner_field(work)
-    figure = _without_type(_difference_mask(work, field), work)
-    blobs = _blobs(figure, min_area=max(16, int(work.size[0] * work.size[1] * 0.004)))
-    seed = _pick_person(blobs, work)
+    skin = _skin_mask(work)
+    seed = _pick_person(
+        _blobs(skin, min_area=max(10, int(work.size[0] * work.size[1] * 0.0015))),
+        work,
+    )
+    if seed is None:
+        figure = _without_type(_difference_mask(work, field), work)
+        seed = _pick_person(
+            _blobs(figure, min_area=max(16, int(work.size[0] * work.size[1] * 0.004))),
+            work,
+        )
     if seed is None:
         return []
-    filled = _fill_figure(seed, work)
+    filled = _fill_from_skin(seed, work)
     mask = Image.new("L", source.size, 0)
     mask.paste(filled.resize(card.size, Image.NEAREST), (paper[0], paper[1]))
     return [{"label": "person", "mask": mask}]
@@ -145,11 +153,24 @@ def _is_paper(color, luma=242):
 
 def _is_skin(color):
     red, green, blue = (int(item) for item in color[:3])
-    if red < 50 or red < green + 6 or blue > red + 8:
+    if red < 50 or red < green + 4 or blue > red + 12:
         return False
-    if _luma(color) > 205:
+    if _luma(color) > 210:
         return False
-    return (red - blue) > 12 and abs(red - green) < 80
+    return (red - blue) > 8 and abs(red - green) < 90
+
+
+def _skin_mask(image):
+    mask = Image.new("L", image.size, 0)
+    pixels = image.load()
+    marks = mask.load()
+    for y in range(image.size[1]):
+        for x in range(image.size[0]):
+            if _is_skin(pixels[x, y]):
+                marks[x, y] = 255
+    if ImageFilter is not None:
+        mask = mask.filter(ImageFilter.MaxFilter(5))
+    return mask
 
 
 def _trim_paper(image):
@@ -320,37 +341,44 @@ def _morph_close(mask, radius=16):
     return mask.filter(ImageFilter.MaxFilter(size)).filter(ImageFilter.MinFilter(size))
 
 
-def _fill_figure(seed, image):
-    """Fecha o torso quando a roupa some na tinta. Não pinta o card inteiro."""
+def _fill_from_skin(seed, image):
+    """Rosto e mãos definem a coluna. Camisa da tinta e cachecol entram. Sofá não."""
     width, height = seed.size
     box = seed.getbbox()
     if box is None:
         return seed
     if (box[2] - box[0]) / max(1, width) > 0.55:
         return seed
-    pad = max(3, (box[2] - box[0]) // 3)
+    pad = max(6, (box[2] - box[0]) // 2)
     left = max(0, box[0] - pad)
     right = min(width, box[2] + pad)
-    closed = _morph_close(seed, radius=max(10, height // 7))
-    filled = Image.new("L", seed.size, 0)
-    seed_px = seed.load()
-    closed_px = closed.load()
+    filled = seed.copy()
     marks = filled.load()
-    pixels = image.load()
+    seed_px = seed.load()
+    radius = max(6, height // 8)
+    for y in range(max(0, box[1] - 4), min(height, box[3] + 4)):
+        xs = []
+        for yy in range(max(0, y - radius), min(height, y + radius + 1)):
+            for x in range(left, right):
+                if seed_px[x, yy] >= 128:
+                    xs.append(x)
+        if not xs:
+            continue
+        for x in range(min(xs), max(xs) + 1):
+            marks[x, y] = 255
+    closed = _morph_close(filled, radius=max(8, height // 8))
+    out = Image.new("L", seed.size, 0)
+    out_px = out.load()
+    closed_px = closed.load()
     for y in range(height):
         for x in range(left, right):
-            if _luma(pixels[x, y]) > 205:
-                continue
-            if seed_px[x, y] >= 128 or closed_px[x, y] >= 128:
-                marks[x, y] = 255
-    for x in range(left, right):
-        ys = [y for y in range(height) if marks[x, y] >= 128]
-        if len(ys) < 2 or (ys[-1] - ys[0]) < height * 0.22:
-            continue
-        for y in range(ys[0], ys[-1] + 1):
-            if _luma(pixels[x, y]) <= 205:
-                marks[x, y] = 255
-    return filled
+            if marks[x, y] >= 128 or closed_px[x, y] >= 128:
+                out_px[x, y] = 255
+    return out
+
+
+def _fill_figure(seed, image):
+    return _fill_from_skin(seed, image)
 
 
 def _difference_mask(image, field, threshold=90):

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0C1A1B">
+  <meta name="description" content="{{ place.subtitle }}">
+  {% if place.media.og_url or place.media.hero_url %}
+  <meta property="og:image" content="{{ place.media.og_url or place.media.hero_url }}">
+  {% endif %}
+  <title>{{ place.title }}{% if place.code %} ({{ place.code }}){% endif %} · CentralComm Places</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@36..72,560;36..72,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/places_public.css') }}?v=7">
+</head>
+<body class="cc-place" data-preview="{{ '1' if preview else '0' }}">
+  <a class="cc-skip" href="#mapa">Ir para o mapa</a>
+
+  {% if preview %}
+  <p class="cc-preview" role="status">Prévia interna. Este link ainda não é o público.</p>
+  {% endif %}
+
+  <header class="cc-top">
+    <a class="cc-brand" href="{{ url_for('places.publico_indice') }}">
+      <img src="{{ brand.logo }}" alt="CentralComm">
+      <span>Places</span>
+    </a>
+    {% if places_nav %}
+    <nav class="cc-places" aria-label="Places publicados">
+      {% for item in places_nav %}
+      <a href="{{ url_for('places.publico', slug=item.slug) }}"{% if item.slug == place.slug %} aria-current="page"{% endif %}>{{ item.code or item.title }}</a>
+      {% endfor %}
+    </nav>
+    {% endif %}
+    <a class="cc-top-cta" href="#proposta">Pedir proposta</a>
+  </header>
+
+  <main id="conteudo">
+    <section class="cc-hero">
+      {% if place.media.hero_url %}
+      <img src="{{ place.media.hero_url }}" alt="Vista de {{ place.title }}">
+      {% endif %}
+      <div class="cc-hero-copy">
+        <p class="cc-stamp">{{ place.code or place.type_label }} · {{ place.city_label }}</p>
+        <h1>{{ place.title }}</h1>
+        <p class="cc-lead">{{ place.subtitle }}</p>
+        <p class="cc-desc">Você compra presença neste lugar: quem passa no terminal, quem mora na bacia e o que a campanha continua a atingir depois da visita. Os números não se somam.</p>
+        <div class="cc-hero-actions">
+          <a href="#mapa">Ver o mapa e as fotos</a>
+          <a class="is-fill" href="#proposta">Pedir proposta</a>
+        </div>
+        <div class="cc-metrics" id="cc-metrics">
+          <div class="cc-metric">
+            <small>Passageiros em 2025</small>
+            <strong>{{ place.metrics.passengers.label or '—' }}</strong>
+            <span>ANAC · dado oficial</span>
+          </div>
+          <div class="cc-metric">
+            <small>Em 4 semanas</small>
+            <strong>{{ place.metrics.four_weeks.label or '—' }}</strong>
+            <span>Estimativa · anual ÷ 13</span>
+          </div>
+          <div class="cc-metric">
+            <small>Quem mora na bacia</small>
+            <strong>{{ place.catchment.population.label or '—' }}</strong>
+            <span>Censo 2022 · não é o terminal</span>
+          </div>
+          <div class="cc-metric">
+            <small>Pontos no mapa</small>
+            <strong>{{ place.points|length or place.zones|length }}</strong>
+            <span>terminal, bairros e pessoas</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cc-map-block" id="mapa">
+      <article class="cc-stage">
+        <div class="cc-stage-head">
+          <div>
+            <h2>Onde a marca aparece</h2>
+            <p>Toque um ponto para ver a foto real do lugar, a posição e o recorte comercial.</p>
+          </div>
+          <span class="cc-seal">{{ place.points|length or place.zones|length }} pontos · mapa e interiores</span>
+        </div>
+        <div class="cc-zone-nav" id="cc-zone-nav" role="tablist" aria-label="Pontos do place"></div>
+        <div class="cc-map-stack">
+          <div class="cc-map" id="cc-map" role="application" aria-label="Mapa de {{ place.title }}"></div>
+          {% if place.media.map_url %}
+          <figure class="cc-map-art">
+            <img src="{{ place.media.map_url }}" alt="Mapa aéreo de {{ place.title }}">
+            <figcaption>Vista aérea do recorte</figcaption>
+          </figure>
+          {% endif %}
+        </div>
+      </article>
+      <aside class="cc-detail" id="cc-detail" aria-live="polite">
+        <figure class="cc-point-photo" hidden>
+          <img id="zonePhoto" alt="">
+        </figure>
+        <p class="cc-stamp" id="zoneId"></p>
+        <h3 id="zoneName"></h3>
+        <p id="zoneDescription"></p>
+        <div class="cc-detail-stats">
+          <div><small>Tipo</small><strong id="zoneRadius"></strong></div>
+          <div><small>Coordenadas</small><strong id="zoneReach"></strong></div>
+        </div>
+        <div class="cc-block" id="zoneFormatsWrap" hidden><h4>O que entra</h4><div class="cc-pills" id="zoneFormats"></div></div>
+        <div class="cc-block" id="zoneAudiencesWrap" hidden><h4>Quem você atinge</h4><div class="cc-aud" id="zoneAudiences"></div></div>
+        <div class="cc-commercial"><strong>Por que comprar este ponto</strong><p id="zoneCommercial"></p></div>
+        <p class="cc-trust">{{ place.methodology.trust }}</p>
+      </aside>
+    </section>
+
+    {% set point_photos = place.points|selectattr('image_url')|list %}
+    {% if point_photos %}
+    <section class="cc-gallery" id="fotos">
+      <div class="cc-gallery-head">
+        <h2>Como é por dentro</h2>
+        <p>Fotos de cada ponto — o terminal, o bairro e as pessoas no terreno. É o que a campanha encontra.</p>
+      </div>
+      <div class="cc-gallery-track">
+        {% for item in point_photos %}
+        <figure class="cc-gallery-card" data-point="{{ item.id or item.name }}">
+          <img src="{{ item.image_url }}" alt="{{ item.name }}">
+          <figcaption>
+            <strong>{{ item.name }}</strong>
+            <span>{{ item.kind_label or item.kind }}</span>
+          </figcaption>
+        </figure>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="cc-region">
+      <div>
+        <h2>Quem mora ao redor</h2>
+        <p>{{ place.catchment.profile }} População residente da bacia — não é presença no terminal.</p>
+      </div>
+      <dl>
+        <div>
+          <dt>População da bacia</dt>
+          <dd>{{ place.catchment.population.label or '—' }}</dd>
+          <small>{{ source_labels.get(place.catchment.population.source_status, '') }} · Censo 2022</small>
+        </div>
+        <div>
+          <dt>Densidade</dt>
+          <dd>{{ place.catchment.density.label or '—' }}</dd>
+          <small>{{ source_labels.get(place.catchment.density.source_status, '') }} · Censo 2022</small>
+        </div>
+        <div>
+          <dt>Possivelmente impactados</dt>
+          <dd>{{ place.catchment.impacted.label or '—' }}</dd>
+          <small>Estimativa do halo em 4 semanas. Não some ao terminal.</small>
+        </div>
+      </dl>
+      {% if place.catchment.neighborhoods %}
+      <ul class="cc-hoods">
+        {% for item in place.catchment.neighborhoods %}
+        <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </section>
+
+    <section class="cc-paper">
+      <h2>O que você compra</h2>
+      <p>A marca aparece no celular de quem está no lugar, no caminho e nos dias seguintes. Mobile leva a campanha; desktop entra só para manter frequência.</p>
+      <div class="cc-formats">
+        <article>
+          <small>No lugar</small>
+          <strong>Display e vídeo</strong>
+          <p>Banner, interstitial e vídeo vertical enquanto a pessoa está no terminal ou no entorno.</p>
+        </article>
+        <article>
+          <small>No contexto</small>
+          <strong>Portais e escala</strong>
+          <p>Display, rich media e vídeo em portais premium ligados ao deslocamento.</p>
+        </article>
+        <article>
+          <small>Depois da visita</small>
+          <strong>7, 15 e 30 dias</strong>
+          <p>O place origina uma audiência que a campanha continua a atingir fora do aeroporto.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="cc-audiences">
+      <h2>Públicos que nascem da presença</h2>
+      <div class="cc-audience-grid">
+        {% for item in place.audiences %}
+        <article>
+          <strong>{{ item.title }}</strong>
+          <span>{{ item.body }}</span>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="cc-method">
+      <div>
+        <h2>{{ place.methodology.title }}</h2>
+        <p>{{ place.methodology.body }}</p>
+      </div>
+      <ol>
+        {% for step in place.methodology.steps %}
+        <li>{{ step }}</li>
+        {% endfor %}
+      </ol>
+    </section>
+
+    <section class="cc-cta" id="proposta">
+      <div>
+        <h2>Pedir proposta para {{ place.title }}</h2>
+        <p>Agência ou anunciante: o comercial devolve recorte, formato e janela. Informe e-mail ou WhatsApp.</p>
+      </div>
+      <form class="cc-form" id="cc-inquiry" data-slug="{{ place.slug }}">
+        <label>Nome<input name="name" required autocomplete="name" enterkeyhint="next"></label>
+        <label>Empresa<input name="company" autocomplete="organization" enterkeyhint="next"></label>
+        <label>E-mail<input type="email" name="email" autocomplete="email" inputmode="email" enterkeyhint="next"></label>
+        <label>WhatsApp<input name="phone" autocomplete="tel" inputmode="tel" enterkeyhint="done"></label>
+        <label class="cc-span">Como podemos ajudar<textarea name="message" rows="3" placeholder="Campanha, período, marcas ou dúvidas do recorte"></textarea></label>
+        <button type="submit">Pedir proposta</button>
+        <p class="cc-form-note" id="cc-form-note" role="status" aria-live="polite" hidden></p>
+      </form>
+    </section>
+  </main>
+
+  <a class="cc-dock" href="#proposta">Pedir proposta</a>
+
+  <div class="cc-overlay" id="cc-overlay" hidden inert></div>
+  <section class="cc-sheet" id="cc-sheet" hidden inert role="dialog" aria-modal="true" aria-labelledby="mZoneName">
+    <div class="cc-sheet-handle" aria-hidden="true"></div>
+    <button type="button" class="cc-sheet-close" id="cc-close">Fechar</button>
+    <figure class="cc-point-photo" hidden>
+      <img id="mZonePhoto" alt="">
+    </figure>
+    <p class="cc-stamp" id="mZoneId"></p>
+    <h3 id="mZoneName"></h3>
+    <p id="mZoneDescription"></p>
+    <div class="cc-detail-stats">
+      <div><small>Tipo</small><strong id="mZoneRadius"></strong></div>
+      <div><small>Coordenadas</small><strong id="mZoneReach"></strong></div>
+    </div>
+    <div class="cc-block" id="mZoneFormatsWrap" hidden><h4>O que entra</h4><div class="cc-pills" id="mZoneFormats"></div></div>
+    <div class="cc-block" id="mZoneAudiencesWrap" hidden><h4>Quem você atinge</h4><div class="cc-aud" id="mZoneAudiences"></div></div>
+    <div class="cc-commercial"><strong>Por que comprar este ponto</strong><p id="mZoneCommercial"></p></div>
+  </section>
+
+  <script type="application/json" id="cc-place-data">{{ place|tojson }}</script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="{{ url_for('static', filename='js/places_public.js') }}?v=6"></script>
+</body>
+</html>

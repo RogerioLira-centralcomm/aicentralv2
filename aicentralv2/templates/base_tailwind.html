@@ -548,6 +548,8 @@
                             <li><a href="{{ url_for('whatsapp.index') }}" class="{% if request.endpoint == 'whatsapp.index' %}active{% endif %}">WhatsApp</a></li>
                             <li><a href="{{ url_for('cotacoes.cotacoes_list') }}" class="{% if request.endpoint and request.endpoint.startswith('cotacoes.') %}active{% endif %}">Cotações</a></li>
                             <li><a href="{{ url_for('briefing_list') }}" class="{% if request.endpoint == 'briefing_list' %}active{% endif %}">Briefings</a></li>
+                            <li><a href="{{ url_for('smart_planner.index') }}" class="{% if request.endpoint and request.endpoint.startswith('smart_planner.') %}active{% endif %}">Smart Planner</a></li>
+                            <li><a href="{{ url_for('places.index') }}" class="{% if request.endpoint and request.endpoint.startswith('places.') %}active{% endif %}">Places</a></li>
                             <li class="pointer-events-none" aria-hidden="true"><span class="cx-nav-section block">PI</span></li>
                             <li><a href="{{ url_for('cadu_pi_novo') }}" class="{% if request.endpoint == 'cadu_pi_novo' %}active{% endif %}">PI Recebido</a></li>
                             <li><a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=2) }}" class="{% if request.endpoint == 'cadu_pi_lista' and request.args.get('id_sub_status_pi') == '2' %}active{% endif %}">Em configuração</a></li>
@@ -718,7 +720,7 @@
 
                         <!-- Comercial -->
                         <li class="mt-2">
-                            <details {% if request.endpoint in ['clientes', 'leads_list', 'briefing_list', 'cadu_pi_novo', 'crm.index', 'crm_v3.crm_v3', 'whatsapp.index'] or (request.endpoint and request.endpoint.startswith('cotacoes.')) %}open{% endif %}>
+                            <details {% if request.endpoint in ['clientes', 'leads_list', 'briefing_list', 'cadu_pi_novo', 'crm.index', 'crm_v3.crm_v3', 'whatsapp.index'] or (request.endpoint and (request.endpoint.startswith('cotacoes.') or request.endpoint.startswith('smart_planner.') or request.endpoint.startswith('places.'))) %}open{% endif %}>
                                 <summary>Comercial</summary>
                                 <ul>
                                     {% if is_centralcomm_user %}
@@ -759,6 +761,16 @@
                                     <li>
                                         <a href="{{ url_for('briefing_list') }}" class="{% if request.endpoint == 'briefing_list' %}active{% endif %}">
                                             Briefings
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('smart_planner.index') }}" class="{% if request.endpoint and request.endpoint.startswith('smart_planner.') %}active{% endif %}">
+                                            Smart Planner
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('places.index') }}" class="{% if request.endpoint and request.endpoint.startswith('places.') %}active{% endif %}">
+                                            Places
                                         </a>
                                     </li>
                                     <li class="pointer-events-none" aria-hidden="true"><span class="cx-nav-section block">PI</span></li>

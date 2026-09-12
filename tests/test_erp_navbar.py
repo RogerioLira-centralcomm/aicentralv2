@@ -116,6 +116,16 @@ class ErpNavbarTestCase(unittest.TestCase):
         self.assertIn("height: 1.125rem", self.enterprise_css)
         self.assertIn("flex: 0 0 2.25rem", self.enterprise_css)
 
+    def test_places_fica_no_comercial_junto_do_smart_planner(self):
+        html = self._render_base()
+        comercial = html.split("Comercial", 1)[1]
+        planner = comercial.find("Smart Planner")
+        places = comercial.find("Places")
+        self.assertGreater(planner, -1)
+        self.assertGreater(places, planner)
+        self.assertIn('href="/places.index"', html)
+        self.assertIn("fa-location-dot", html)
+
     def test_navbar_nao_tem_campo_pesquisar(self):
         self.assertNotIn("nav-busca-pi-input", self.base_template)
         self.assertNotIn("class=\"erp-search", self.base_template)

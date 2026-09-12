@@ -20,6 +20,9 @@ ENDPOINT_CONTEXT = {
     "smart_planner.canais": ("comercial", "smart_planner"),
     "smart_planner.gerar": ("comercial", "smart_planner"),
     "smart_planner.canvas": ("comercial", "smart_planner"),
+    "places.index": ("comercial", "places"),
+    "places.novo": ("comercial", "places"),
+    "places.editar": ("comercial", "places"),
     "cadu_pi_novo": ("comercial", "pi_recebido"),
     "cadu_pi_lista": ("operacao", "pedidos_insercao"),
     "campanhas_pi": ("operacao", "campanhas"),
@@ -97,6 +100,8 @@ def resolve_page_context():
         module, screen = "comercial", endpoint.split(".", 1)[-1]
     elif endpoint.startswith("smart_planner."):
         module, screen = "comercial", "smart_planner"
+    elif endpoint.startswith("places."):
+        module, screen = "comercial", "places"
     elif endpoint.startswith("whatsapp."):
         module, screen = "comercial", endpoint.split(".", 1)[-1]
     elif endpoint.startswith("intelligence."):

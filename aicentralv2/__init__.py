@@ -220,6 +220,9 @@ def create_app(config_class=Config):
         from .smart_planner.routes import bp as smart_planner_bp
         app.register_blueprint(smart_planner_bp)
 
+        from .places.routes import bp as places_bp
+        app.register_blueprint(places_bp)
+
         from .agent import bp as agent_bp
         app.register_blueprint(agent_bp)
 

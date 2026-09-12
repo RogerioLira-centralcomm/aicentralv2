@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0C1A1B">
+  <title>CentralComm Places</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@36..72,560;36..72,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/places_public.css') }}?v=7">
+</head>
+<body class="cc-place cc-index">
+  <div class="cc-index-shell">
+    <a class="cc-brand" href="{{ url_for('places.publico_indice') }}">
+      <img src="{{ brand.logo }}" alt="CentralComm">
+      <span>Places</span>
+    </a>
+    <header class="cc-index-head">
+      <h1>O lugar vira audiência.</h1>
+      <p>Abra o recorte que a agência ou o anunciante vai comprar: mapa, fotos dos pontos e os números oficiais. Depois, peça a proposta.</p>
+    </header>
+    <div class="cc-air-grid">
+      {% for item in places %}
+      <a class="cc-air-card" href="{{ url_for('places.publico', slug=item.slug) }}">
+        {% if item.media.hero_url %}
+        <img src="{{ item.media.hero_url }}" alt="">
+        {% endif %}
+        <div>
+          <small>{{ item.code }} · {{ item.city_label }}</small>
+          <h2>{{ item.title }}</h2>
+          <p>{{ item.metrics.passengers.label }} passageiros em 2025</p>
+        </div>
+      </a>
+      {% else %}
+      <p class="cc-empty">Nenhum place publicado. Peça o link ao comercial.</p>
+      {% endfor %}
+    </div>
+  </div>
+</body>
+</html>

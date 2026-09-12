@@ -7,9 +7,9 @@ import secrets
 from ..creative_modeling_generation import OpenRouterError
 from ..creative_skills.loader import load_bundle
 from .brand_context import build_brand_context, reference_images, scene_photos
-from .campaign_models import apply_brand_to_campaign, apply_key_visuals, campaign_from_brand, expand_campaign_scenes, load_campaign_model
+from .campaign_models import apply_brand_to_campaign, apply_key_visuals, campaign_from_brand, expand_campaign_scenes, load_campaign_model, offer_hint
 from .catalog import ROLE_MAP, composition_purposes
-from .engineer import apply_copy_locks, build_spec, normalize_knobs
+from .engineer import _usable_image_url, apply_copy_locks, apply_still_read, build_spec, normalize_knobs
 from .html_builder import build_scene_html
 from .layer_export import export_layers, export_scene_cards
 from .guidelines import check_stack
@@ -24,6 +24,14 @@ from .visual_qa import clamp_renders, run_qa_loop
 
 def new_session_id():
     return f"flab-{secrets.token_hex(6)}"
+
+
+def _should_read_still(payload):
+    """OCR só no conceito. Mockup, QA e cena já têm spec."""
+    stage = str(payload.get("stage") or "").strip().lower()
+    if payload.get("spec") or stage in {"mockup", "qa", "close", "scene"}:
+        return False
+    return True
 
 
 def _step(skill_id, label, status, note=""):
@@ -42,16 +50,22 @@ def run_session(payload, *, client=None, text_callable=None, screenshot=None):
     images = reference_images(brand, user_images)
     photos = scene_photos(brand, user_images)
     knobs = normalize_knobs(payload)
+    if _should_read_still(payload):
+        knobs = apply_still_read(knobs, user_images, text_callable)
     campaign = payload.get("campaign") if isinstance(payload.get("campaign"), dict) else None
     if not campaign:
         campaign = load_campaign_model(payload.get("campaign_slug"))
         if campaign:
             campaign = apply_brand_to_campaign(campaign, brand)
+            campaign["lock_copy"] = True
         elif brand.get("name"):
             campaign = campaign_from_brand(
                 brand,
                 payload.get("format") or "video-linear-15",
                 scene_count=knobs["scene_count"],
+                hint=offer_hint(payload, knobs),
+                has_reference=any(_usable_image_url(url) for url in user_images)
+                or any(_usable_image_url(url) for url in (knobs.get("key_visuals") or {}).values()),
             )
     if campaign:
         campaign = expand_campaign_scenes(campaign, knobs["scene_count"])

@@ -3396,6 +3396,7 @@ class CreativeFilesContractTest(unittest.TestCase):
             "mesa/_history_drawer.html",
             "mesa/states.html",
             "_mc_lab.html",
+            "_mc_camadas.html",
             "_mc_placas.html",
             "_mc_trocar.html",
             "trocr/_flow_sidebar.html",
@@ -4180,7 +4181,7 @@ class CreativeFilesContractTest(unittest.TestCase):
             root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html"
         ).read_text(encoding="utf-8")
         self.assertIn("modelagem_criativos.js') }}?v=57", desk)
-        self.assertIn("mc_page_js) }}?v=42", desk)
+        self.assertIn("mc_page_js) }}?v=45", desk)
         self.assertIn("function loadComposeLibrary", frontend)
         self.assertIn("variation_id", frontend)
         self.assertIn("compose-library", frontend)

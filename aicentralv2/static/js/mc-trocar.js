@@ -25,6 +25,7 @@
     draft: 'Rascunho',
     production: 'Produção',
     typeset: 'Tipo na foto',
+    recrop: 'Recorte + tipo',
   };
 
   const state = {
@@ -500,9 +501,10 @@
       const thumb = await makeThumb(still);
       showGenSteps('finish');
       const typeset = data.mode === 'typeset';
+      const recrop = data.mode === 'recrop';
       const version = pushVersion({
-        name: typeset ? 'Tipo na foto' : (quality === 'draft' ? 'Rascunho' : 'Produção'),
-        origin: typeset ? 'typeset' : (quality === 'draft' ? 'draft' : 'production'),
+        name: typeset ? 'Tipo na foto' : (recrop ? 'Recorte + tipo' : (quality === 'draft' ? 'Rascunho' : 'Produção')),
+        origin: typeset ? 'typeset' : (recrop ? 'recrop' : (quality === 'draft' ? 'draft' : 'production')),
         quality: typeset ? 'typeset' : quality,
         image: still,
         thumb,
@@ -515,12 +517,16 @@
       setFlow('review');
       toast(data.mode === 'typeset'
         ? 'Tipo composto na foto. Elenco intacto.'
-        : 'Nova versão criada com sucesso', 'success');
+        : (data.mode === 'recrop'
+          ? 'Formato virado. Tipo composto na foto.'
+          : 'Nova versão criada com sucesso'), 'success');
       setStatus(data.mode === 'typeset'
         ? 'Tipo composto na foto original. Os selos de nome não foram redesenhados.'
-        : (data.logo_used
-          ? 'Nova versão criada. A logo oficial entrou no quadro.'
-          : 'Nova versão criada. Use esta versão como base para continuar editando.'));
+        : (data.mode === 'recrop'
+          ? 'O Image 2 só recortou. Preço e headline entraram na foto.'
+          : (data.logo_used
+            ? 'Nova versão criada. A logo oficial entrou no quadro.'
+            : 'Nova versão criada. Use esta versão como base para continuar editando.')));
       renderCompare();
       await persistHistory();
       return version;
@@ -882,41 +888,54 @@
   }
 
   function paintRoute(risk, mode, quote) {
-    state.mode = mode === 'typeset' ? 'typeset' : 'image';
+    state.mode = mode === 'typeset' || mode === 'recrop' ? mode : 'image';
     const typeset = state.mode === 'typeset';
+    const recrop = state.mode === 'recrop';
     const forced = Boolean($('mcTrocrForceImage')?.checked);
     const generate = document.querySelector('.mc-trocr-generate');
-    generate?.setAttribute('data-route', typeset ? 'typeset' : 'image');
+    generate?.setAttribute('data-route', typeset ? 'typeset' : (recrop ? 'recrop' : 'image'));
     const route = $('mcTrocrRoute');
-    route?.setAttribute('data-mode', typeset ? 'typeset' : 'image');
+    route?.setAttribute('data-mode', typeset ? 'typeset' : (recrop ? 'typeset' : 'image'));
     if ($('mcTrocrRouteName')) {
-      $('mcTrocrRouteName').textContent = typeset ? 'Tipo na foto' : 'Image 2 redesenha';
+      $('mcTrocrRouteName').textContent = typeset
+        ? 'Tipo na foto'
+        : (recrop ? 'Recorte + tipo na foto' : 'Image 2 redesenha');
     }
     if ($('mcTrocrRouteCopy')) {
       $('mcTrocrRouteCopy').textContent = typeset
         ? 'O texto novo entra na referência. Selos de nome não passam pelo modelo.'
-        : (risk?.level === 'high'
-          ? (risk.reason || 'O Image 2 costuma embaralhar os selos desta cartela.')
-          : 'O still de referência entra no modelo. Rascunho valida; produção entrega.');
+        : (recrop
+          ? 'O Image 2 vira o formato. Preço, quota e headline entram na foto depois.'
+          : (risk?.level === 'high'
+            ? (risk.reason || 'O Image 2 costuma embaralhar os selos desta cartela.')
+            : 'O still de referência entra no modelo. Rascunho valida; produção entrega.'));
     }
     paintCost(quote);
     paintRisk(risk, state.mode);
     if ($('mcTrocrQualityBox')) $('mcTrocrQualityBox').hidden = typeset;
     if ($('mcTrocrDraft')) $('mcTrocrDraft').hidden = typeset;
-    if ($('mcSwapRun')) $('mcSwapRun').textContent = typeset ? 'Compor na foto' : 'Gerar produção';
-    if ($('mcTrocrForceRow')) $('mcTrocrForceRow').hidden = !(typeset || risk?.level === 'high' || forced);
+    if ($('mcSwapRun')) {
+      $('mcSwapRun').textContent = typeset ? 'Compor na foto' : (recrop ? 'Recortar e compor' : 'Gerar produção');
+    }
+    if ($('mcTrocrForceRow')) $('mcTrocrForceRow').hidden = !(typeset || recrop || risk?.level === 'high' || forced);
     if ($('mcTrocrPromptHint')) {
       $('mcTrocrPromptHint').textContent = typeset
         ? 'O Image 2 não entra. Editar o prompt só vale se redesenhar a peça.'
-        : 'Diga o item. A rota decide se o tipo entra na foto ou se o Image 2 redesenha.';
+        : (recrop
+          ? 'O recorte passa pelo Image 2. O tipo não: ele é composto na foto.'
+          : 'Diga o item. A rota decide se o tipo entra na foto ou se o Image 2 redesenha.');
     }
     if ($('mcTrocrStepGenHint')) {
-      $('mcTrocrStepGenHint').textContent = typeset ? 'Tipo na foto' : 'IA cria nova versão';
+      $('mcTrocrStepGenHint').textContent = typeset ? 'Tipo na foto' : (recrop ? 'Recorte + tipo' : 'IA cria nova versão');
     }
     if ($('mcTrocrGenPaint')) {
-      $('mcTrocrGenPaint').textContent = typeset ? 'Composição' : 'Geração';
+      $('mcTrocrGenPaint').textContent = typeset ? 'Composição' : (recrop ? 'Recorte e tipo' : 'Geração');
     }
     highlightQuality();
+    if (typeset) {
+      $('mcSwapRun')?.classList.add('cx-btn-primary');
+      $('mcSwapRun')?.classList.remove('cx-btn-secondary');
+    }
     renderBaseMeta();
   }
 

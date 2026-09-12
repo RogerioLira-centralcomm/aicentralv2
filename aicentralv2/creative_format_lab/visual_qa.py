@@ -114,8 +114,10 @@ def scrub_stub_defects(defects, scene, layers):
 
 
 def _qa_images(render_url, scene, reference_urls):
-    ordered = []
-    for url in (render_url, (scene or {}).get("key_visual"), *((reference_urls or []))):
+    if not still_is_usable(render_url):
+        return []
+    ordered = [render_url]
+    for url in ((scene or {}).get("key_visual"), *(reference_urls or [])):
         if still_is_usable(url) and url not in ordered:
             ordered.append(url)
     return ordered[:5]
@@ -195,7 +197,7 @@ def review_render(
                 "support": scene.get("support") or "",
                 "cta": scene.get("cta") or "",
             },
-            "has_render": bool(_qa_images(render_url, scene, reference_urls)),
+            "has_render": still_is_usable(render_url),
             "prior": {
                 "score": prior.get("score"),
                 "defects": list(prior.get("defects") or [])[:6],
@@ -221,7 +223,7 @@ def review_render(
     content = [{"type": "text", "text": payload}]
     for url in images:
         content.append({"type": "image_url", "image_url": {"url": url}})
-    has_render = bool(images)
+    has_render = still_is_usable(render_url)
     system = (
         "You are the Visual QA step of Creative Format Engineer. "
         "Fidelity first. Reply with one JSON object only. "

@@ -7,25 +7,26 @@ import base64
 CAST_PROMPT = (
     "Extract only the people from this advertisement as one group cutout. "
     "Keep every face, body, pose, hair and garment exactly. "
-    "Remove the background, bunting, typography, name pills, dates, logos "
-    "and decorative pattern. Transparent PNG. No new people. No text."
+    "Remove the background, typography, logos, prices, buttons and decorations. "
+    "Clean figure only. No new people. No text."
 )
 GROUND_PROMPT = (
     "Recreate only the background of this advertisement: the flat color field "
-    "and the repeating pennant bunting. "
-    "No people, no faces, no typography, no name pills, no logos, no dates. "
+    "or wash, empty of people. "
+    "No people, no faces, no typography, no logos, no prices, no buttons. "
     "Clean empty field ready for HTML type. Same colors as the source."
 )
 
 
-def decompose_creative(image_url, image_callable=None, field=""):
+def decompose_creative(image_url, image_callable=None, field="", aspect_ratio="16:9"):
     if not image_url or not callable(image_callable):
         return {"cast_url": "", "ground_url": "", "field": str(field or "")}
     refs = [image_url]
+    ratio = aspect_ratio or "16:9"
     cast = _as_data_url(
         image_callable(
             CAST_PROMPT,
-            aspect_ratio="1:1",
+            aspect_ratio=ratio,
             background="opaque",
             input_references=refs,
         )
@@ -33,7 +34,7 @@ def decompose_creative(image_url, image_callable=None, field=""):
     ground = _as_data_url(
         image_callable(
             GROUND_PROMPT,
-            aspect_ratio="1:1",
+            aspect_ratio=ratio,
             background="opaque",
             input_references=refs,
         )

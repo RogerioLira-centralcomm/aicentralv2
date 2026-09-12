@@ -15,6 +15,7 @@
     </div>
     <div class="mc-desk-nav-lab">
       <a href="{{ url_for('parametros.modelagem_mesa') }}"{% if mc_page == 'mesa' %} class="is-current" aria-current="page"{% endif %}>Conceito</a>
+      <a href="{{ url_for('parametros.modelagem_camadas') }}"{% if mc_page == 'camadas' %} class="is-current" aria-current="page"{% endif %}>Camadas</a>
       <a href="{{ url_for('parametros.modelagem_placas') }}"{% if mc_page == 'placas' %} class="is-current" aria-current="page"{% endif %}>Placas</a>
       <a href="{{ url_for('parametros.modelagem_trocar') }}"{% if mc_page == 'trocar' %} class="is-current" aria-current="page"{% endif %}>Trocar</a>
       <a href="{{ url_for('parametros.modelagem_design-system') }}"{% if mc_page == 'design-system' %} class="is-current" aria-current="page"{% endif %}>Design System</a>

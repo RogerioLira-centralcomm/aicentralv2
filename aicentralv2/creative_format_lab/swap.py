@@ -34,10 +34,11 @@ TYPESET_SLOTS = {
         "price": (0.12, 0.52, 0.36, 0.08),
     },
     "9:16": {
-        "headline": (0.08, 0.56, 0.84, 0.16),
-        "secondary": (0.08, 0.74, 0.84, 0.08),
-        "cta": (0.12, 0.84, 0.76, 0.08),
-        "price": (0.12, 0.48, 0.40, 0.08),
+        "headline": (0.05, 0.085, 0.70, 0.155),
+        "secondary": (0.05, 0.27, 0.40, 0.14),
+        "dates": (0.05, 0.27, 0.40, 0.14),
+        "price": (0.04, 0.395, 0.40, 0.155),
+        "cta": (0.58, 0.90, 0.28, 0.055),
     },
     "16:9": {
         "headline": (0.40, 0.14, 0.36, 0.34),
@@ -45,6 +46,24 @@ TYPESET_SLOTS = {
         "cta": (0.76, 0.34, 0.20, 0.28),
         "price": (0.40, 0.70, 0.30, 0.10),
     },
+}
+TYPESET_SLOTS_TOP = {
+    "9:16": {
+        "headline": (0.05, 0.08, 0.90, 0.20),
+        "secondary": (0.05, 0.28, 0.50, 0.16),
+        "dates": (0.05, 0.28, 0.50, 0.16),
+        "price": (0.05, 0.42, 0.48, 0.13),
+        "cta": (0.06, 0.88, 0.88, 0.09),
+    },
+    "16:9": {
+        "headline": (0.04, 0.10, 0.50, 0.28),
+        "secondary": (0.04, 0.40, 0.22, 0.22),
+        "dates": (0.50, 0.08, 0.28, 0.20),
+        "price": (0.16, 0.40, 0.26, 0.20),
+        "cta": (0.04, 0.78, 0.40, 0.14),
+    },
+    "1:1": TYPESET_SLOTS["1:1"],
+    "4:5": TYPESET_SLOTS["4:5"],
 }
 
 OUTPUT_FORMATS = (
@@ -139,7 +158,7 @@ Se um texto estiver ilegível, deixe vazio. Não corrija português. Retorne JSO
   "dates": "",
   "venue": "",
   "aspect_hint": "1:1",
-  "style": "iluminação, fundo e materiais — sem sugerir efeito novo",
+  "style": "fundo azul, pessoa à direita, tipo à esquerda",
   "elements": [
     {"role": "person", "text": "nome no selo", "note": "onde está"}
   ],
@@ -249,6 +268,7 @@ def build_optimized_prompt(payload=None, brand=None):
     use_brand = payload.get("use_brand_context") is not False
     preserve = _token_list(payload.get("preserve"), PRESERVE_LABELS)
     alter = _token_list(payload.get("alter"), ALTER_LABELS)
+    recrop = swap_mode(payload) == "recrop"
     lines = [
         "Edit the attached advertising reference. Keep the same composition, crop, hierarchy and number of frames.",
         "All visible text must be Brazilian Portuguese.",
@@ -257,7 +277,14 @@ def build_optimized_prompt(payload=None, brand=None):
         "Keep the original lighting, color grade, materials and photography. Do not add a new light ribbon or energy streak.",
         "Do not add player chrome, app UI or extra frames that are not in the reference.",
     ]
-    if alter:
+    if recrop:
+        lines = [
+            "Recrop the attached advertising still to the output frame. Keep the same person, wardrobe, lighting and brand color field.",
+            "Do not redesign the campaign. Do not invent a new effect, UI chrome or extra frame.",
+            "A later typesetting pass will replace headline, price, quota and CTAs. Prefer a clean field behind the type.",
+            "Do not invent a new offer, number or Portuguese line. If type must stay, clone it — do not add zeros to prices or quotas (199,90 not 1999,90; 1700 not 17000).",
+        ]
+    elif alter:
         lines.insert(
             1,
             "This is an item swap. Change only the listed items. Every other face, name pill, date, logo and graphic stays locked.",
@@ -320,18 +347,19 @@ def build_optimized_prompt(payload=None, brand=None):
             text = str(item).strip()
             if text:
                 lines.append(f"Do not add: {text}.")
-    if headline:
-        lines.append(f"Headline exactly: {headline}")
-    if support:
-        lines.append(f"Support exactly: {support}")
-    if subtitle:
-        lines.append(f"Subtitle exactly: {subtitle}")
-    if price:
-        lines.append(f"Price exactly: {price}")
-    if cta:
-        lines.append(f"CTA exactly: {cta}")
-    if not (headline or support or cta or price):
-        lines.append("Keep the original copy unless the note asks to change a brand name.")
+    if not recrop:
+        if headline:
+            lines.append(f"Headline exactly: {headline}")
+        if support:
+            lines.append(f"Support exactly: {support}")
+        if subtitle:
+            lines.append(f"Subtitle exactly: {subtitle}")
+        if price:
+            lines.append(f"Price exactly: {price}")
+        if cta:
+            lines.append(f"CTA exactly: {cta}")
+        if not (headline or support or cta or price):
+            lines.append("Keep the original copy unless the note asks to change a brand name.")
     if note:
         lines.append(note)
     return " ".join(lines)
@@ -398,8 +426,11 @@ def build_prompt_preview_pt(payload=None, brand=None):
     parts.append(f"Formato de saída {aspect}.")
     parts.append("Rascunho de validação." if quality == "draft" else "Versão de produção, alta fidelidade.")
     risk = swap_risk(payload)
-    if risk.get("level") == "high":
-        if swap_mode(payload) == "typeset":
+    mode = swap_mode(payload)
+    if mode == "recrop":
+        parts.append("O Image 2 só vira o formato. Preço, quota e headline entram na foto depois.")
+    elif risk.get("level") == "high":
+        if mode == "typeset":
             parts.append("Tipo composto na foto. Elenco e selos ficam iguais à referência.")
         else:
             parts.append(risk["reason"])
@@ -446,8 +477,18 @@ def swap_risk(payload=None, read=None):
     return {"level": "ok", "reason": ""}
 
 
+def needs_recrop(payload=None):
+    payload = payload if isinstance(payload, dict) else {}
+    target = resolve_aspect_ratio(payload)
+    hint = match_aspect_ratio(payload.get("aspect_hint"))
+    return bool(hint and target and hint != target)
+
+
 def swap_mode(payload=None):
     payload = payload if isinstance(payload, dict) else {}
+    patches = typeset_patches(payload)
+    if needs_recrop(payload) and patches:
+        return "recrop"
     if payload.get("force_image"):
         return "image"
     alter = set(_token_list(payload.get("alter"), ALTER_LABELS))
@@ -494,7 +535,31 @@ def looks_scrambled(text):
     if re.search(r"(\S)\1{2,}", raw):
         return True
     folded = raw.casefold()
-    return any(token in folded for token in ("entradada", "franceça", "franceca", "graçça", "vaqueiroo"))
+    tells = (
+        "entradada",
+        "franceça",
+        "franceca",
+        "graçça",
+        "vaqueiroo",
+        "famíliaía",
+        "familiaia",
+        "planoso",
+        "contratator",
+        "conferir plan",
+    )
+    return any(token in folded for token in tells)
+
+
+def inflated_numbers(blob, locks=None):
+    digits = re.sub(r"\D", "", str(blob or ""))
+    found = []
+    for lock in locks or []:
+        seed = re.sub(r"\D", "", str(lock))
+        if len(seed) < 3:
+            continue
+        if seed + "0" in digits:
+            found.append(str(lock))
+    return found
 
 
 def read_swap_reference(payload=None, *, text_callable=None):
@@ -571,7 +636,8 @@ def swap_reference(payload=None, *, brand=None, image_callable=None):
     refs = swap_input_references(payload, brand)
     if not refs:
         raise ValueError("Envie uma imagem de referência.")
-    if swap_mode(payload) == "typeset":
+    mode = swap_mode(payload)
+    if mode == "typeset":
         return typeset_reference(payload, brand=brand)
     if image_callable is None:
         raise ValueError("Gerador de imagem indisponível.")
@@ -587,6 +653,27 @@ def swap_reference(payload=None, *, brand=None, image_callable=None):
     png = _png_bytes(result)
     if not png:
         raise ValueError("O GPT Image 2 não devolveu o still.")
+    still = "data:image/png;base64," + base64.b64encode(png).decode("ascii")
+    if mode == "recrop" and typeset_patches(payload):
+        painted = typeset_reference(
+            {
+                **payload,
+                "reference": still,
+                "aspect_hint": aspect_ratio,
+                "force_image": False,
+                "typeset_all": True,
+            },
+            brand=brand,
+        )
+        painted["mode"] = "recrop"
+        painted["passes"] = ["image", "typeset"]
+        painted["model"] = SWAP_MODEL
+        painted["quality"] = quality
+        painted["prompt"] = prompt
+        painted["preview"] = build_prompt_preview_pt(payload, brand)
+        painted["logo_used"] = len(refs) > 1
+        painted["quote"] = quote_swap(payload)
+        return painted
     return {
         "prompt": prompt,
         "preview": build_prompt_preview_pt(payload, brand),
@@ -597,7 +684,7 @@ def swap_reference(payload=None, *, brand=None, image_callable=None):
         "model": SWAP_MODEL,
         "mode": "image",
         "risk": swap_risk(payload),
-        "png_data_url": "data:image/png;base64," + base64.b64encode(png).decode("ascii"),
+        "png_data_url": still,
         "quote": quote_swap({**payload, "force_image": True}),
     }
 
@@ -631,6 +718,8 @@ def typeset_reference(payload=None, brand=None):
 def typeset_patches(payload=None):
     payload = payload if isinstance(payload, dict) else {}
     alter = set(_token_list(payload.get("alter"), ALTER_LABELS))
+    if payload.get("typeset_all") or needs_recrop(payload):
+        alter = alter | {"headline", "secondary", "price"}
     rows = []
     if "headline" in alter and payload.get("headline"):
         rows.append({"slot": "headline", "text": str(payload["headline"]).strip()[:80]})
@@ -652,24 +741,59 @@ def _paint_typeset(png, patches, aspect="1:1"):
     except ImportError as exc:
         raise ValueError("Pillow é necessário para compor o tipo na foto.") from exc
     image = Image.open(io.BytesIO(png)).convert("RGB")
-    slots = TYPESET_SLOTS.get(aspect) or TYPESET_SLOTS["1:1"]
+    slots = _slots_for(image, aspect)
     field = _canvas_field(image)
     for patch in patches:
         box = slots.get(patch["slot"])
         if not box:
             continue
         region = _locate_type(image, box, field)
-        _cover_type(image, region["cover"], field)
+        fill = (255, 255, 255) if patch["slot"] == "cta" else field
+        _fill_slot(image, region["slot"], fill)
+        ink = region["ink"]
+        if patch["slot"] == "cta":
+            ink = (17, 17, 17)
+        elif patch["slot"] in {"headline", "price"} and _luma(field) < 90:
+            ink = (255, 255, 255)
+        elif patch["slot"] == "secondary" and _luma(field) < 90 and _luma(ink) > 180:
+            ink = (227, 6, 19)
         _draw_copy(
             image,
-            region["bbox"],
+            region["slot"],
             region["slot"],
             _stack_copy(patch["text"]),
-            region["ink"],
+            ink,
         )
     buffer = io.BytesIO()
     image.save(buffer, format="PNG")
     return buffer.getvalue()
+
+
+def _slots_for(image, aspect="1:1"):
+    base = TYPESET_SLOTS.get(aspect) or TYPESET_SLOTS["1:1"]
+    top = TYPESET_SLOTS_TOP.get(aspect)
+    if not top or aspect not in {"16:9"}:
+        return base
+    field = _canvas_field(image)
+    upper = _ink_weight(image, (0.04, 0.04, 0.50, 0.40), field)
+    lower = _ink_weight(image, (0.40, 0.55, 0.55, 0.28), field)
+    return top if upper >= lower else base
+
+
+def _ink_weight(image, box, field):
+    width, height = image.size
+    x, y, w, h = box
+    left, top = max(0, int(width * x)), max(0, int(height * y))
+    right = min(width, int(width * (x + w)))
+    bottom = min(height, int(height * (y + h)))
+    count = 0
+    step = max(1, (right - left) // 48)
+    for py in range(top, bottom, step):
+        for px in range(left, right, step):
+            pixel = image.getpixel((px, py))
+            if _far_from_field(pixel, field) and _luma(pixel) > 210:
+                count += 1
+    return count
 
 
 def _locate_type(image, slot, field):
@@ -715,6 +839,20 @@ def _locate_type(image, slot, field):
     }
 
 
+def _fill_slot(image, box, fill):
+    from PIL import ImageDraw
+
+    draw = ImageDraw.Draw(image)
+    try:
+        draw.rectangle(box, fill=fill)
+    except Exception:
+        pixels = image.load()
+        left, top, right, bottom = box
+        for py in range(top, bottom):
+            for px in range(left, right):
+                pixels[px, py] = fill
+
+
 def _cover_type(image, points, field):
     if not points:
         return
@@ -758,7 +896,7 @@ def _stack_copy(text):
     words = raw.split()
     if len(words) == 2:
         return "\n".join(words)
-    if len(words) >= 3:
+    if len(words) >= 6:
         mid = (len(words) + 1) // 2
         return " ".join(words[:mid]) + "\n" + " ".join(words[mid:])
     return raw
@@ -898,14 +1036,18 @@ def score_swap_copy(read, locks=None, forbidden=None):
     forbidden = [str(item).strip() for item in (forbidden or []) if str(item).strip()]
     hits = [item for item in locks if item.casefold() in folded]
     leaks = [item for item in forbidden if item.casefold() in folded]
+    inflated = inflated_numbers(blob, locks)
     total = len(locks) + len(forbidden)
     score = (len(hits) + (len(forbidden) - len(leaks))) / total if total else 0.0
+    if inflated:
+        score = max(0.0, score - 0.25 * len(inflated))
     return {
         "hits": hits,
         "misses": [item for item in locks if item not in hits],
         "leaks": leaks,
+        "inflated": inflated,
         "accuracy": round(score, 3),
-        "scrambled": looks_scrambled(blob),
+        "scrambled": looks_scrambled(blob) or bool(inflated),
         "blob": blob[:400],
     }
 

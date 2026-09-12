@@ -7,7 +7,7 @@ import json
 from ..creative_modeling_generation import OpenRouterError, _json_content
 from ..creative_skills.visual import load_visual_brief
 from .catalog import is_end_card, logo_visible_for
-from .engineer import _resolve_offer
+from .engineer import _resolve_offer, _usable_image_url, redact_inline_images
 from .lab_models import JSON_OBJECT, MOCKUP_MODEL, MOCKUP_TEMPERATURE, lab_chat_model
 from .html_builder import (
     apply_cta_visibility,
@@ -47,10 +47,7 @@ def build_base_mockup(
     brand = brand if isinstance(brand, dict) else {}
     campaign = campaign if isinstance(campaign, dict) else {}
     knobs = knobs if isinstance(knobs, dict) else {}
-    images = [
-        url for url in (images or [])
-        if isinstance(url, str) and url.startswith("https://")
-    ][:4]
+    images = [url for url in (images or []) if _usable_image_url(url)][:4]
     attempts = clamp_renders(passes or knobs.get("mockup_passes") or MOCKUP_PASSES)
     scene = spec.scenes[0]
     html_text = build_scene_html(
@@ -231,9 +228,9 @@ def _refine_mockup(
         },
         "has_previous_still": still_is_usable(plate_render),
     }
-    content = [{"type": "text", "text": json.dumps(payload, ensure_ascii=False)}]
+    content = [{"type": "text", "text": json.dumps(redact_inline_images(payload), ensure_ascii=False)}]
     for url in images:
-        if isinstance(url, str) and url.startswith("https://"):
+        if _usable_image_url(url):
             content.append({"type": "image_url", "image_url": {"url": url}})
     if still_is_usable(plate_render):
         content.append({"type": "image_url", "image_url": {"url": plate_render}})

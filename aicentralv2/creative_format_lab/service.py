@@ -21,6 +21,8 @@ from .plates import (
     patch_plate_kit,
 )
 from .lab_models import lab_chat_model
+from .decompose import decompose_creative
+from .split_layers import example_still_payload, split_still
 from .storyboard import build_storyboard, quote_concept
 
 logger = logging.getLogger(__name__)
@@ -180,6 +182,65 @@ class FormatLabService:
         payload = payload if isinstance(payload, dict) else {}
         brand = self._swap_brand(payload) if payload.get("use_brand_context") is not False else {}
         return _serialize(preview_swap_prompt(payload, brand))
+
+    def example_layers_still(self, user_id=None):
+        return example_still_payload()
+
+    def split_layers(self, payload, user_id=None):
+        payload = payload if isinstance(payload, dict) else {}
+        image = payload.get("image") or payload.get("reference") or ""
+        engine = str(payload.get("engine") or "python").strip().lower()
+        try:
+            if engine in {"image", "image2", "decompose"}:
+                return self._decompose_layers(image, payload)
+            result = split_still(image, predictor=payload.get("predictor"))
+            if payload.get("read"):
+                from .engineer import read_attached_still
+
+                read = read_attached_still(image, self._text_callable(payload))
+                if read:
+                    result["read"] = read
+            return result
+        except (ValueError, OpenRouterError) as exc:
+            raise CreativeConflictError(str(exc)) from exc
+
+    def _decompose_layers(self, image, payload):
+        if not image:
+            raise CreativeConflictError("Envie um still.")
+        image_fn = self._image_callable({**payload, "generate": True})
+        if not callable(image_fn):
+            raise CreativeConflictError("Image 2 não está disponível.")
+        from .split_layers import _open_image
+
+        source = _open_image(image)
+        width, height = source.size
+        ratio = width / max(1, height)
+        aspect = "16:9" if ratio >= 1.45 else ("9:16" if ratio <= 0.75 else "1:1")
+        parts = decompose_creative(image, image_fn, aspect_ratio=aspect)
+        layers = []
+        if parts.get("cast_url"):
+            layers.append({
+                "id": "cast-0",
+                "role": "cast",
+                "label": "person",
+                "box": {"x": 0, "y": 0, "w": 100, "h": 100},
+                "png_data_url": parts["cast_url"],
+            })
+        if parts.get("ground_url"):
+            layers.append({
+                "id": "ground-1",
+                "role": "ground",
+                "label": "Fundo",
+                "box": {"x": 0, "y": 0, "w": 100, "h": 100},
+                "png_data_url": parts["ground_url"],
+            })
+        return {
+            "layers": layers,
+            "field": parts.get("field") or "",
+            "engine": "image2",
+            "width": width,
+            "height": height,
+        }
 
     def swap(self, payload, user_id=None):
         payload = payload if isinstance(payload, dict) else {}

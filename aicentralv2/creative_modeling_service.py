@@ -1131,6 +1131,12 @@ class CreativeModelingService:
     def patch_format_lab_session(self, session_id, payload, user_id=None):
         return self._format_lab().patch(session_id, payload, user_id=user_id)
 
+    def split_format_lab_layers(self, payload, user_id=None):
+        return self._format_lab().split_layers(payload, user_id=user_id)
+
+    def example_format_lab_layers(self, user_id=None):
+        return self._format_lab().example_layers_still(user_id=user_id)
+
     def swap_format_lab(self, payload, user_id=None):
         return self._format_lab().swap(payload, user_id=user_id)
 

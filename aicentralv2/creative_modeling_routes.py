@@ -138,6 +138,13 @@ MC_DESKS = {
         "studio": False,
         "page_js": "js/mc-placas.js",
     },
+    "camadas": {
+        "title": "Camadas do still",
+        "lead": "A pessoa vira acetato. A tinta vira fundo. Headline e CTA ficam no HTML.",
+        "panel": "parametros/_mc_camadas.html",
+        "studio": False,
+        "page_js": "js/mc-camadas.js",
+    },
     "trocar": {
         "title": "Editar criativo com IA",
         "lead": "Envie um criativo, ajuste o que deseja alterar e gere novas versões sem perder as anteriores.",
@@ -309,6 +316,20 @@ def api_format_lab_plates_patch():
 def api_format_lab_plates_bind():
     return _execute(
         lambda: _ok(_service().bind_format_lab_plates(_json(), session.get("user_id")))
+    )
+
+
+@admin_required_api
+def api_format_lab_layers_example():
+    return _execute(
+        lambda: _ok(_service().example_format_lab_layers(session.get("user_id")))
+    )
+
+
+@admin_required_api
+def api_format_lab_layers_split():
+    return _execute(
+        lambda: _ok(_service().split_format_lab_layers(_json(), session.get("user_id")))
     )
 
 
@@ -1235,6 +1256,18 @@ def register_creative_modeling_routes(blueprint):
         "/api/format-lab/plates/<int:kit_id>",
         endpoint="creative_format_lab_plates_item",
         view_func=api_format_lab_plates_item,
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/layers/example",
+        endpoint="creative_format_lab_layers_example",
+        view_func=api_format_lab_layers_example,
+        methods=["GET"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/layers/split",
+        endpoint="creative_format_lab_layers_split",
+        view_func=api_format_lab_layers_split,
+        methods=["POST"],
     )
     blueprint.add_url_rule(
         "/api/format-lab/swap",

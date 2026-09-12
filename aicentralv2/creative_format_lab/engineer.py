@@ -220,9 +220,9 @@ def _user_payload(route, intent, variant, user_message, brand_name, dna, brand_c
             "size_label": entry.get("size_label") or route.get("platform_label"),
             "orientation": entry.get("orientation") or "horizontal",
             "kind": entry.get("kind") or "video",
-            "knobs": knobs,
-            "brand": _slim_brand(brand_context),
-            "campaign": campaign or {},
+            "knobs": redact_inline_images(knobs),
+            "brand": redact_inline_images(_slim_brand(brand_context)),
+            "campaign": redact_inline_images(campaign or {}),
             "brand_dna": {
                 "id": dna.get("id"),
                 "colors": dna.get("colors"),
@@ -242,7 +242,9 @@ def _user_payload(route, intent, variant, user_message, brand_name, dna, brand_c
                 "Keep the brand alive in every frame (color, type, tone) even when the logo is off.",
                 "Set logo_visible per scene. The last scene (CTA) always has the logo on, centered.",
                 "Opening and middle scenes may set logo_visible true or false. Default off unless the beat is brand.",
-                "Copy campaign headlines, support and CTA verbatim when present. Do not paraphrase locked lines.",
+                "Copy campaign headlines, support and CTA verbatim only when campaign.lock_copy is true.",
+                "If knobs.still_read is present it is OCR of the attached still. Use that offer, price and CTA. Do not invent Saiba mais or another product line.",
+                "If a still is attached and still_read is empty, read its offer and copy first. Do not swap to another product line of the same brand.",
                 "Keep user-locked offer, headline, support, CTA and key visuals.",
                 "Refuse generic hooks such as sua história, viva o momento, conheça agora.",
             ],
@@ -359,7 +361,63 @@ def _refine_knobs(knobs):
         "objective": knobs.get("objective") or "",
         "density": knobs.get("density") or "tv",
         "hook_tension": knobs.get("hook_tension"),
+        "cta_lock": knobs.get("cta_lock") or "",
+        "still_read": knobs.get("still_read") or {},
     }
+
+
+def read_attached_still(image, text_callable=None):
+    """OCR do Trocr: headline, preço e CTA visíveis. Sem recortar pixel."""
+    if not callable(text_callable) or not isinstance(image, str):
+        return {}
+    if not (image.startswith("data:image/") or _usable_image_url(image)):
+        return {}
+    from .swap import read_swap_reference
+
+    try:
+        parsed = read_swap_reference({"image": image, "strict": True}, text_callable=text_callable)
+    except ValueError:
+        return {}
+    slim = {
+        "headline": parsed.get("headline") or "",
+        "support": parsed.get("support") or "",
+        "price": parsed.get("price") or "",
+        "cta": parsed.get("cta") or "",
+        "logo_text": parsed.get("logo_text") or "",
+    }
+    if not any(slim.values()):
+        return {}
+    return slim
+
+
+def apply_still_read(knobs, images, text_callable=None):
+    """Trava oferta e CTA no que o still escreveu. Não trava as 4 headlines."""
+    knobs = dict(knobs or {})
+    if knobs.get("still_read"):
+        return knobs
+    image = ""
+    for url in images or []:
+        if isinstance(url, str) and (url.startswith("data:image/") or _usable_image_url(url)):
+            image = url
+            break
+    read = read_attached_still(image, text_callable)
+    if not read:
+        return knobs
+    knobs["still_read"] = read
+    knobs["offer"] = knobs.get("offer") or _offer_from_read(read)
+    knobs["cta_lock"] = knobs.get("cta_lock") or read.get("cta") or ""
+    return knobs
+
+
+def _offer_from_read(read):
+    read = read if isinstance(read, dict) else {}
+    parts = [
+        read.get("logo_text") or "",
+        read.get("headline") or "",
+        read.get("price") or "",
+        read.get("support") or "",
+    ]
+    return " · ".join(part for part in parts if part)[:160]
 
 
 def _refine_brand(brand):
@@ -375,13 +433,24 @@ def _refine_brand(brand):
     }
 
 
+def redact_inline_images(value):
+    if isinstance(value, str) and value.startswith("data:image/"):
+        return "data:image/attached"
+    if isinstance(value, dict):
+        return {key: redact_inline_images(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [redact_inline_images(item) for item in value]
+    return value
+
+
 def payload_locks(campaign=None, knobs=None):
     campaign = campaign if isinstance(campaign, dict) else {}
     knobs = knobs if isinstance(knobs, dict) else {}
     locks = []
-    for item in campaign.get("scenes") or []:
-        if isinstance(item, dict) and item.get("id"):
-            locks.append(item)
+    if campaign.get("lock_copy", True) is not False:
+        for item in campaign.get("scenes") or []:
+            if isinstance(item, dict) and item.get("id"):
+                locks.append(item)
     for item in knobs.get("storyboard") or []:
         if isinstance(item, dict) and item.get("id"):
             locks.append(item)

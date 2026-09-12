@@ -5,6 +5,28 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+_LINE_HINTS = (
+    (
+        (
+            "pré",
+            "pre-pago",
+            "prepago",
+            "recarga",
+            "recarreg",
+            "chip",
+            "rende mais",
+            "16gb",
+            "internet por",
+            "black",
+            "110gb",
+            "superbônus",
+            "superbonus",
+        ),
+        ("controle", "fatura", "monte o seu", "o mês acabou"),
+    ),
+    (("controle", "fatura", "monte o seu"), ("pré", "recarga", "recarreg")),
+)
+
 CAMPAIGN_DIR = Path(__file__).resolve().parent / "campaigns"
 
 
@@ -26,16 +48,49 @@ def load_campaign_model(slug):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def match_campaign_for_brand(brand_name):
+def match_campaign_for_brand(brand_name, hint=""):
     name = str(brand_name or "").strip().lower()
     if not name:
         return None
+    hits = []
     for item in list_campaign_models():
         full = load_campaign_model(item["slug"])
         needles = [str(full.get("brand_name") or "").lower(), *(full.get("brand_match") or [])]
         if any(needle and needle in name for needle in needles):
+            hits.append(full)
+    for full in hits:
+        if campaign_fits_hint(full, hint):
             return full
     return None
+
+
+def _campaign_text(campaign):
+    campaign = campaign if isinstance(campaign, dict) else {}
+    parts = [
+        campaign.get("title"),
+        campaign.get("offer"),
+        campaign.get("objective"),
+        campaign.get("product"),
+        campaign.get("cta"),
+    ]
+    for scene in campaign.get("scenes") or []:
+        if isinstance(scene, dict):
+            parts.extend([scene.get("headline"), scene.get("support"), scene.get("cta")])
+    return " ".join(str(part or "") for part in parts).casefold()
+
+
+def campaign_fits_hint(campaign, hint):
+    text = str(hint or "").casefold()
+    if not text.strip():
+        return True
+    blob = _campaign_text(campaign)
+    for left, right in _LINE_HINTS:
+        hint_left = any(token in text for token in left)
+        camp_right = any(token in blob for token in right)
+        camp_left = any(token in blob for token in left)
+        if hint_left and camp_right and not camp_left:
+            return False
+    return True
 
 
 def apply_brand_to_campaign(model, brand_context):
@@ -71,6 +126,7 @@ def apply_brand_to_campaign(model, brand_context):
     model["product"] = model.get("product") or product or ""
     model["audience"] = model.get("audience") or brand.get("target_audience") or ""
     model["tone"] = model.get("tone") or brand.get("tone_of_voice") or ""
+    model.setdefault("lock_copy", True)
     model["brand"] = {
         "id": brand.get("id"),
         "name": name,
@@ -115,12 +171,20 @@ def expand_campaign_scenes(model, scene_count=4):
     return model
 
 
-def campaign_from_brand(brand_context, format_key="video-linear-15", scene_count=4):
+def campaign_from_brand(brand_context, format_key="video-linear-15", scene_count=4, hint="", has_reference=False):
     brand = brand_context if isinstance(brand_context, dict) else {}
-    matched = match_campaign_for_brand(brand.get("name"))
-    if matched:
-        return expand_campaign_scenes(apply_brand_to_campaign(matched, brand), scene_count)
-    opportunity = (brand.get("campaign_opportunities") or ["Campanha CTV"])[0]
+    hint = str(hint or "").strip()
+    matched = match_campaign_for_brand(brand.get("name"), hint=hint)
+    if matched and not has_reference:
+        applied = apply_brand_to_campaign(matched, brand)
+        applied["lock_copy"] = True
+        return expand_campaign_scenes(applied, scene_count)
+    if hint:
+        opportunity = hint
+    elif has_reference:
+        opportunity = "Oferta do criativo de referência"
+    else:
+        opportunity = (brand.get("campaign_opportunities") or ["Campanha CTV"])[0]
     product = (brand.get("products_services") or [brand.get("brand_summary") or ""])[0]
     proof = (brand.get("proof_points") or brand.get("differentiators") or [""])[0]
     motif = (brand.get("visual_motifs") or [""])[0]
@@ -169,9 +233,22 @@ def campaign_from_brand(brand_context, format_key="video-linear-15", scene_count
             },
         ],
         "generated_from_marcas": True,
+        "lock_copy": False,
         "scene_count": 4,
     }
     return expand_campaign_scenes(base, scene_count)
+
+
+def offer_hint(payload=None, knobs=None):
+    payload = payload if isinstance(payload, dict) else {}
+    knobs = knobs if isinstance(knobs, dict) else {}
+    return str(
+        knobs.get("offer")
+        or payload.get("offer")
+        or payload.get("message")
+        or payload.get("user_message")
+        or ""
+    ).strip()
 
 
 def apply_key_visuals(model, urls=None, mapping=None):

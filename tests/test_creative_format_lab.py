@@ -303,6 +303,128 @@ class CreativeFormatLabTest(unittest.TestCase):
         self.assertEqual(calls[1][1], "opaque")
         self.assertTrue(parts["cast_url"].startswith("data:image/png;base64,"))
 
+    def test_split_still_recorte_pessoa_e_fundo(self):
+        import base64
+        import io
+
+        from PIL import Image, ImageDraw
+
+        from aicentralv2.creative_format_lab.split_layers import split_still
+
+        canvas = Image.new("RGB", (20, 10), (0, 51, 255))
+        pixels = canvas.load()
+        for y in range(10):
+            for x in range(10, 20):
+                pixels[x, y] = (200, 40, 40)
+        buffer = io.BytesIO()
+        canvas.save(buffer, format="PNG")
+
+        def predict(image):
+            width, height = image.size
+            mask = Image.new("L", (width, height), 0)
+            ImageDraw.Draw(mask).rectangle([width // 2, 0, width, height], fill=255)
+            return [{"label": "person", "mask": mask}]
+
+        result = split_still(buffer.getvalue(), predictor=predict)
+        roles = [item["role"] for item in result["layers"]]
+        self.assertIn("cast", roles)
+        self.assertIn("ground", roles)
+        self.assertTrue(result["field"].startswith("#"))
+        cast = next(item for item in result["layers"] if item["role"] == "cast")
+        self.assertTrue(cast["png_data_url"].startswith("data:image/png;base64,"))
+        cut = Image.open(io.BytesIO(base64.b64decode(cast["png_data_url"].split(",", 1)[1])))
+        self.assertEqual(cut.mode, "RGBA")
+        self.assertGreater(cut.size[0], 0)
+        with self.assertRaises(ValueError):
+            split_still("", predictor=predict)
+
+    def test_split_hipotetico_so_python(self):
+        from aicentralv2.creative_format_lab.split_layers import (
+            example_still_payload,
+            hypothetical_still,
+            split_still,
+        )
+
+        result = split_still(hypothetical_still())
+        roles = [item["role"] for item in result["layers"]]
+        self.assertEqual(result["engine"], "python")
+        self.assertIn("cast", roles)
+        self.assertIn("ground", roles)
+        self.assertEqual(roles.count("product"), 0)
+        self.assertTrue(result["field"].startswith("#"))
+        example = example_still_payload()
+        self.assertTrue(example["image"].startswith("data:image/png;base64,"))
+        self.assertEqual(example["engine"], "python")
+
+    def test_split_still_nao_engole_tipo_nem_letra_3d(self):
+        from PIL import Image, ImageDraw
+
+        from aicentralv2.creative_format_lab.split_layers import split_still
+
+        canvas = Image.new("RGB", (640, 240), (255, 255, 255))
+        draw = ImageDraw.Draw(canvas)
+        draw.rounded_rectangle([8, 8, 632, 232], radius=20, fill=(1, 21, 74))
+        draw.rectangle([28, 36, 210, 72], fill=(255, 255, 255))
+        draw.rectangle([28, 100, 140, 168], fill=(255, 255, 255))
+        draw.ellipse([430, 22, 498, 90], fill=(196, 122, 90))
+        draw.rectangle([442, 86, 488, 148], fill=(1, 21, 74))
+        draw.rectangle([428, 146, 508, 220], fill=(180, 20, 40))
+        result = split_still(canvas)
+        cast = next(item for item in result["layers"] if item["role"] == "cast")
+        self.assertGreater(cast["box"]["x"], 48)
+        self.assertLess(cast["box"]["w"], 48)
+        self.assertGreater(cast["box"]["h"], 45)
+
+    def test_ocr_do_still_trava_oferta_e_cta(self):
+        from aicentralv2.creative_format_lab.engineer import apply_still_read, normalize_knobs
+
+        knobs = normalize_knobs({})
+
+        def fake(_messages, **_kwargs):
+            return {
+                "message": {
+                    "content": {
+                        "headline": "Perfeito para o seu bolso e para o seu dia a dia",
+                        "price": "30GB · 12x R$30",
+                        "cta": "Conferir planos",
+                        "logo_text": "TIM Controle Fit",
+                    }
+                }
+            }
+
+        updated = apply_still_read(knobs, ["data:image/png;base64," + ("a" * 40)], fake)
+        self.assertEqual(updated["cta_lock"], "Conferir planos")
+        self.assertIn("30GB", updated["offer"])
+        self.assertIn("TIM Controle Fit", updated["offer"])
+        self.assertEqual(updated["still_read"]["cta"], "Conferir planos")
+        self.assertFalse(apply_still_read(knobs, ["data:image/png;base64," + ("a" * 40)], None).get("still_read"))
+
+    def test_split_engine_image2_empacota_decompose(self):
+        from aicentralv2.creative_format_lab.service import FormatLabService
+        from aicentralv2.creative_format_lab.split_layers import example_still_payload
+
+        calls = []
+
+        def fake(prompt, **kwargs):
+            calls.append(kwargs.get("aspect_ratio"))
+            return b"png"
+
+        class Generator:
+            def generate_image(self, prompt, **kwargs):
+                return {"b64_json": "cG5n"}
+
+        class Modeling:
+            generator = Generator()
+            repository = None
+
+        service = FormatLabService(Modeling())
+        still = example_still_payload()["image"]
+        result = service.split_layers({"image": still, "engine": "image", "image_callable": fake})
+        self.assertEqual(result["engine"], "image2")
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[0], "16:9")
+        self.assertEqual([item["role"] for item in result["layers"]], ["cast", "ground"])
+
     def test_qa_loop_para_no_terceiro_patch(self):
         spec = build_spec(
             route={
@@ -387,6 +509,81 @@ class CreativeFormatLabTest(unittest.TestCase):
             model = load_campaign_model(slug)
             self.assertEqual(len(model["scenes"]), 4)
             self.assertTrue(all(scene.get("headline") for scene in model["scenes"]))
+
+    def test_tim_recarga_sem_slug_nao_trava_controle(self):
+        from aicentralv2.creative_format_lab.campaign_models import (
+            campaign_fits_hint,
+            campaign_from_brand,
+            match_campaign_for_brand,
+        )
+        from aicentralv2.creative_format_lab.engineer import payload_locks
+
+        offer = "Recarregue R$30 e tenha internet por até 30 dias"
+        controle = load_campaign_model("tim-controle-ctv")
+        self.assertFalse(campaign_fits_hint(controle, offer))
+        self.assertIsNone(match_campaign_for_brand("TIM", hint=offer))
+        generated = campaign_from_brand(
+            {"name": "TIM", "campaign_opportunities": ["Controle que cabe no mês"]},
+            hint=offer,
+            has_reference=True,
+        )
+        self.assertTrue(generated.get("generated_from_marcas"))
+        self.assertFalse(generated.get("lock_copy"))
+        self.assertNotIn(
+            "O mês acabou. A internet, não.",
+            [scene["headline"] for scene in generated["scenes"]],
+        )
+        self.assertEqual(payload_locks(generated, {}), [])
+        board = build_storyboard(
+            {"offer": offer, "scene_count": 4, "images": ["https://cdn.example/tim-pre.png"]},
+            client={"id": 11, "name": "Tim"},
+        )
+        headlines = [card["headline"] for card in board["storyboard"]]
+        self.assertNotIn("O mês acabou. A internet, não.", headlines)
+
+    def test_tim_slug_explicito_trava_controle_mesmo_com_recarga(self):
+        board = build_storyboard(
+            {
+                "campaign_slug": "tim-controle-ctv",
+                "scene_count": 4,
+                "offer": "Recarregue R$30 e tenha internet por até 30 dias",
+            },
+            client={"id": 11, "name": "Tim"},
+        )
+        headlines = [card["headline"] for card in board["storyboard"]]
+        self.assertIn("O mês acabou. A internet, não.", headlines)
+
+    def test_create_nao_embute_bytes_de_imagem_no_json(self):
+        import json
+
+        from aicentralv2.creative_format_lab.engineer import _user_payload, normalize_knobs
+
+        png = "data:image/png;base64," + ("A" * 200)
+        knobs = normalize_knobs({"offer": "Recarregue R$30", "key_visuals": {"scene_01": png}})
+        blob = _user_payload(
+            {"format": "video-linear-15", "adapter": "generic_ctv", "platform_label": "CTV"},
+            "create",
+            "A",
+            "Recarregue R$30",
+            "TIM",
+            {},
+            {"name": "TIM", "logo_url": png, "assets": {"references": [png]}},
+            {
+                "lock_copy": False,
+                "scenes": [{"id": "scene_01", "headline": "X", "key_visual": png}],
+            },
+            knobs,
+        )
+        self.assertNotIn("data:image/png;base64", blob)
+        self.assertIn("data:image/attached", blob)
+        self.assertFalse(json.loads(blob)["campaign"]["lock_copy"])
+
+    def test_qa_has_render_so_conta_still_da_placa(self):
+        from aicentralv2.creative_format_lab.visual_qa import _qa_images
+
+        kv = "https://cdn.example/tim-pre.png"
+        self.assertEqual(_qa_images("", {"key_visual": kv}, [kv]), [])
+        self.assertEqual(_qa_images(kv, {"key_visual": kv}, [])[0], kv)
 
     def test_run_com_campanha_tim_usa_headline_do_modelo(self):
         result = run_session(
@@ -1363,8 +1560,11 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("lab", MC_DESKS)
         self.assertIn("placas", MC_DESKS)
         self.assertIn("trocar", MC_DESKS)
+        self.assertIn("camadas", MC_DESKS)
         self.assertIn("design-system", MC_DESKS)
         self.assertEqual(MC_DESKS["trocar"]["page_js"], "js/mc-trocar.js")
+        self.assertEqual(MC_DESKS["camadas"]["page_js"], "js/mc-camadas.js")
+        self.assertEqual(MC_DESKS["camadas"]["panel"], "parametros/_mc_camadas.html")
         self.assertEqual(MC_DESKS["design-system"]["page_js"], "js/mc-design-system.js")
         self.assertEqual(MC_DESKS["mesa"]["panel"], "parametros/_mc_mesa.html")
         self.assertEqual(MC_DESKS["mesa"]["page_js"], "js/mc-mesa.js")
@@ -1394,10 +1594,22 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("modelagem_mesa", shell)
         self.assertIn("modelagem_placas", shell)
         self.assertIn("modelagem_trocar", shell)
+        self.assertIn("modelagem_camadas", shell)
         self.assertIn("modelagem_design-system", shell)
         desk = (root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html").read_text(encoding="utf-8")
-        self.assertIn("modelagem_criativos.css') }}?v=93", desk)
-        self.assertIn("mc_page_js) }}?v=42", desk)
+        self.assertIn("modelagem_criativos.css') }}?v=95", desk)
+        self.assertIn("mc_page_js) }}?v=45", desk)
+        camadas = (root / "aicentralv2" / "templates" / "parametros" / "_mc_camadas.html").read_text(encoding="utf-8")
+        self.assertIn("mcLayersRun", camadas)
+        self.assertIn("mcLayersImage", camadas)
+        self.assertIn("mcLayersBoth", camadas)
+        self.assertIn("Os dois", camadas)
+        self.assertIn("Abrir criativo de teste", camadas)
+        self.assertIn("O still vira acetato", camadas)
+        js = (root / "aicentralv2" / "static" / "js" / "mc-camadas.js").read_text(encoding="utf-8")
+        self.assertIn("/api/format-lab/layers/split", js)
+        self.assertIn("/api/format-lab/layers/example", js)
+        self.assertIn("engine: engineName", js)
         dsa = (root / "aicentralv2" / "templates" / "parametros" / "_mc_design_system.html").read_text(encoding="utf-8")
         self.assertLess(dsa.find("mc-dsa-preview"), dsa.find("mc-dsa-side"))
         self.assertIn("Montar", dsa)
@@ -1552,7 +1764,9 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("paintRoute", swap_js)
         self.assertIn("force_image", swap_js)
         self.assertIn("typeset", swap_js)
+        self.assertIn("recrop", swap_js)
         self.assertIn("Compor na foto", swap_js)
+        self.assertIn("Recortar e compor", swap_js)
         self.assertIn("mcTrocrDates", swap_js)
         self.assertIn("renderEditPanels", swap_js)
         placas = (root / "aicentralv2" / "templates" / "parametros" / "_mc_placas.html").read_text(encoding="utf-8")
@@ -1963,6 +2177,50 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
         self.assertEqual(scored["accuracy"], 1.0)
         self.assertFalse(scored["scrambled"])
 
+    def test_recrop_compõe_tipo_depois_do_image2(self):
+        from aicentralv2.creative_format_lab.swap import (
+            inflated_numbers,
+            needs_recrop,
+            score_swap_copy,
+            swap_mode,
+            swap_reference,
+        )
+
+        fixture = Path(__file__).resolve().parent / "fixtures" / "creatives" / "arraial-1x1.png"
+        raw = fixture.read_bytes()
+        reference = "data:image/png;base64," + __import__("base64").b64encode(raw).decode("ascii")
+        payload = {
+            "reference": reference,
+            "aspect_ratio": "9:16",
+            "aspect_hint": "16:9",
+            "preserve": ["people", "logo", "colors"],
+            "alter": ["price"],
+            "headline": "Aproveite muita internet pra falar à vontade com a família toda",
+            "support": "ATÉ 2000 GB",
+            "price": "R$ 199,90/mês",
+            "cta": "Contratar",
+            "force_image": True,
+        }
+        self.assertTrue(needs_recrop(payload))
+        self.assertEqual(swap_mode(payload), "recrop")
+        called = {"n": 0}
+
+        def fake_image(*_a, **_k):
+            called["n"] += 1
+            return {"b64_json": __import__("base64").b64encode(raw).decode("ascii")}
+
+        result = swap_reference(payload, image_callable=fake_image)
+        self.assertEqual(called["n"], 1)
+        self.assertEqual(result["mode"], "recrop")
+        self.assertEqual(result["passes"], ["image", "typeset"])
+        texts = [item["text"] for item in result["patches"]]
+        self.assertIn("R$ 199,90/mês", texts)
+        self.assertIn("ATÉ 2000 GB", texts)
+        self.assertTrue(inflated_numbers("ATÉ 17000 GB R$ 1999,90", ["1700", "2000"]))
+        scored = score_swap_copy({"support": "17000 GB"}, locks=["1700"])
+        self.assertTrue(scored["scrambled"])
+        self.assertIn("1700", scored["inflated"])
+
     def test_prompt_de_item_nao_pede_troca_de_marca(self):
         from aicentralv2.creative_format_lab.swap import score_swap_copy
 
@@ -2235,3 +2493,47 @@ class CreativeFormatLabRoutesTest(unittest.TestCase):
         self.assertEqual(saved.status_code, 200)
         service.load_format_lab_swap_history.assert_called_once()
         service.save_format_lab_swap_history.assert_called_once()
+
+    def test_split_camadas_devolve_layers_e_field(self):
+        service = Mock()
+        service.split_format_lab_layers.return_value = {
+            "layers": [
+                {
+                    "role": "cast",
+                    "label": "person",
+                    "box": {"x": 50, "y": 0, "w": 50, "h": 100},
+                    "png_data_url": "data:image/png;base64,aaa",
+                }
+            ],
+            "field": "#0033FF",
+        }
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            response = self.client.post(
+                "/parametros/api/format-lab/layers/split",
+                json={"image": "data:image/png;base64,aaa"},
+            )
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()["data"]
+        self.assertEqual(data["field"], "#0033FF")
+        self.assertEqual(data["layers"][0]["role"], "cast")
+        service.split_format_lab_layers.assert_called_once()
+
+    def test_exemplo_camadas_devolve_still_python(self):
+        service = Mock()
+        service.example_format_lab_layers.return_value = {
+            "image": "data:image/png;base64,aaa",
+            "engine": "python",
+            "width": 480,
+            "height": 180,
+        }
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            response = self.client.get("/parametros/api/format-lab/layers/example")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["data"]["engine"], "python")
+        service.example_format_lab_layers.assert_called_once()

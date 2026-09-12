@@ -241,8 +241,6 @@ def update_place(place_id: int, data: dict) -> dict:
 def upsert_seed(data: dict) -> dict:
     existing = get_by_slug(data["slug"])
     if existing:
-        if existing.get("status") != "draft":
-            return existing
         merged = dict(existing)
         merged.update(
             {
@@ -252,7 +250,7 @@ def upsert_seed(data: dict) -> dict:
                 "subtitle": data.get("subtitle"),
                 "place_type": data["place_type"],
                 "city": data["city"],
-                "status": data.get("status") or existing.get("status"),
+                "status": existing.get("status") or data.get("status"),
                 "payload": data.get("payload"),
                 "published_at": existing.get("published_at"),
             }

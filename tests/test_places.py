@@ -49,13 +49,32 @@ class PlacesCatalogTest(unittest.TestCase):
             sum_zone_reaches(CONFINS["payload"]["zones"])
 
     def test_sdu_avoids_runway_copy(self):
-        trust = SANTOS_DUMONT["payload"]["methodology"]["trust"]
-        self.assertIn("pistas", trust.lower())
+        body = SANTOS_DUMONT["payload"]["methodology"]["body"]
+        self.assertIn("pistas", body.lower())
 
     def test_confins_international_is_to_validate(self):
         zone = next(item for item in CONFINS["payload"]["zones"] if item["id"] == "CNF-03")
-        self.assertEqual(zone["reach"], "A validar")
+        self.assertEqual(zone["reach"], "8–14 mil")
         self.assertEqual(zone["reach_status"], "to_validate")
+        point = next(item for item in CONFINS["payload"]["points"] if item["id"] == "cnf-internacional")
+        self.assertEqual(point["reach_status"], "to_validate")
+        self.assertEqual(point["radius_m"], 200)
+
+    def test_addressable_is_below_physical_four_weeks(self):
+        for item in SEED_PLACES:
+            physical = item["payload"]["metrics"]["four_weeks"]["value"]
+            addressable = item["payload"]["metrics"]["addressable"]["value"]
+            self.assertIsNotNone(physical)
+            self.assertIsNotNone(addressable)
+            self.assertLess(addressable, physical * 0.4)
+            self.assertGreater(addressable, physical * 0.1)
+
+    def test_points_have_distinct_radii(self):
+        for item in SEED_PLACES:
+            radii = {point["radius_m"] for point in item["payload"]["points"]}
+            self.assertGreaterEqual(len(radii), 3)
+            self.assertTrue(all(point["reach"] for point in item["payload"]["points"]))
+            self.assertTrue(all(point["formats"] for point in item["payload"]["points"]))
 
     def test_catchment_uses_official_census_recorte(self):
         cnf = CONFINS["payload"]["catchment"]
@@ -93,6 +112,15 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertEqual(view["city_label"], "São Paulo")
         self.assertEqual(view["type_label"], "Aeroporto")
         self.assertTrue(view["catchment"]["neighborhoods"])
+        self.assertEqual(view["offer"]["lines"][0]["title"], "No T1")
+
+    def test_each_airport_has_its_own_offer(self):
+        leads = {item["payload"]["offer"]["lead"] for item in SEED_PLACES}
+        self.assertEqual(len(leads), 3)
+        for item in SEED_PLACES:
+            self.assertGreaterEqual(len(item["payload"]["offer"]["lines"]), 3)
+            format_sets = {tuple(point["formats"]) for point in item["payload"]["points"]}
+            self.assertGreater(len(format_sets), 1)
 
     def test_normalize_keeps_polygon(self):
         payload = normalize_payload(CONFINS["payload"])
@@ -137,16 +165,23 @@ class PlacesCatalogTest(unittest.TestCase):
         css = PUBLIC_CSS.read_text(encoding="utf-8")
         self.assertNotIn("--cx-", css)
         self.assertNotIn("#4FFF82", css)
+        self.assertNotIn("Fraunces", css)
         self.assertIn("#1e4d4f", css)
-        self.assertIn("#f3b71b", css)
-        self.assertIn("#9ccf31", css)
-        self.assertIn("Fraunces", css)
+        self.assertIn("#f5a623", css)
+        self.assertIn("#4aff6b", css)
+        self.assertIn("#167a3a", css)
+        self.assertIn("#080808", css)
+        self.assertIn("Nunito", css)
         self.assertIn("safe-area-inset", css)
         self.assertIn("cc-zone-chip", css)
-        self.assertIn("cc-dock", css)
+        self.assertIn("cc-foot", css)
         self.assertIn("cc-gallery", css)
         self.assertIn("cc-point-photo", css)
         self.assertIn("cc-map-art", css)
+        self.assertIn("cc-map-label", css)
+        self.assertIn("cc-flag", css)
+        self.assertIn("cc-flag[hidden]", css)
+        self.assertIn("cc-air-code", css)
         self.assertIn(":focus-visible", css)
         self.assertIn("100svh", css)
         self.assertIn("leaflet-container", css)
@@ -157,8 +192,9 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertNotIn("#0c1a1b", css)
 
     def test_zone_color_from_brand(self):
-        self.assertEqual(zone_color("CORE"), "#F3B71B")
+        self.assertEqual(zone_color("CORE"), "#167A3A")
         self.assertEqual(PUBLIC_TOKENS["logo"], "/static/images/cc_logo.png")
+        self.assertEqual(PUBLIC_TOKENS["font_display"], "Nunito")
 
 
 class PlacesPublicRoutesTest(unittest.TestCase):
@@ -179,7 +215,10 @@ class PlacesPublicRoutesTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
         self.assertIn("Santos Dumont", html)
-        self.assertIn("6,2 mi", html)
+        self.assertIn("95–150 mil", html)
+        self.assertIn("cc-air-code", html)
+        self.assertIn("SDU", html)
+        self.assertNotIn("sdu-hero.jpg", html)
         self.assertNotIn("--cx-", html)
 
     def test_public_place_renders_catchment(self):
@@ -189,14 +228,23 @@ class PlacesPublicRoutesTest(unittest.TestCase):
             response = self.client.get("/places/p/santos-dumont")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("Quem mora ao redor", html)
+        self.assertIn("Quem vive no entorno", html)
         self.assertIn("96 mil", html)
-        self.assertIn("Pedir proposta", html)
         self.assertIn("Ir para o mapa", html)
         self.assertIn("O que você compra", html)
+        self.assertIn("O SDU é o centro", html)
+        self.assertIn("cc-map-label", html)
+        self.assertIn("4 semanas no halo", html)
+        self.assertNotIn("Não some ao terminal", html)
+        self.assertIn("Como o número é feito", html)
+        self.assertNotIn("geofence", html.lower())
         self.assertIn("cc_logo.png", html)
         self.assertIn("cc-map", html)
-        self.assertNotIn("Quero uma proposta", html)
+        self.assertIn("cc-foot", html)
+        self.assertNotIn("proposta", html.lower())
+        self.assertNotIn("Falar com especialista", html)
+        self.assertNotIn("cc-inquiry", html)
+        self.assertNotIn("Fraunces", html)
 
     def test_public_place_shows_point_gallery_and_map_art(self):
         place = dict(self.place)
@@ -219,10 +267,22 @@ class PlacesPublicRoutesTest(unittest.TestCase):
         ):
             response = self.client.get("/places/p/santos-dumont")
         html = response.get_data(as_text=True)
-        self.assertIn("Como é por dentro", html)
+        self.assertIn("Como é o ponto", html)
         self.assertIn("cc-gallery", html)
-        self.assertIn("cc-map-art", html)
         self.assertIn("sdu-hero.jpg", html)
+        self.assertNotIn("cc-map-art", html)
+
+    def test_confins_public_shows_validate_and_offer(self):
+        place = serialize(dict(CONFINS, id=1, preview_token="preview-cnf", status="published"))
+        with patch("aicentralv2.places.service.public_place", return_value=place), patch(
+            "aicentralv2.places.service.public_catalog", return_value=[place]
+        ):
+            response = self.client.get("/places/p/confins")
+        html = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("A validar", html)
+        self.assertIn("Na estrada", html)
+        self.assertIn("cnf-internacional", html)
 
 
 if __name__ == "__main__":

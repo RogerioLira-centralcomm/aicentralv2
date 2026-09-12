@@ -1,4 +1,4 @@
-"""Tokens da one-page pública CentralComm. Não misturar com o ERP."""
+"""Tokens da one-page pública — os mesmos do site centralcomm.media."""
 
 from __future__ import annotations
 
@@ -6,24 +6,23 @@ LOGO_PATH = "/static/images/cc_logo.png"
 
 PUBLIC_TOKENS = {
     "teal": "#1E4D4F",
-    "teal_deep": "#122F30",
-    "gold": "#F3B71B",
-    "lime": "#9CCF31",
-    "ink": "#F4F1E8",
-    "muted": "rgba(244, 241, 232, 0.62)",
-    "canvas": "#0C1A1B",
-    "panel": "#132426",
+    "black": "#080808",
+    "lime": "#4AFF6B",
+    "lime_on_light": "#167A3A",
+    "gold": "#F5A623",
+    "canvas": "#F7F8FA",
+    "ink": "#141414",
     "logo": LOGO_PATH,
-    "font_display": "Fraunces",
-    "font_body": "Inter",
+    "font_display": "Nunito",
+    "font_body": "Nunito Sans",
 }
 
 ZONE_COLORS = {
-    "CORE": "#F3B71B",
-    "DEPARTURES": "#9CCF31",
-    "PREMIUM": "#5BB8C4",
+    "CORE": "#167A3A",
+    "DEPARTURES": "#F5A623",
+    "PREMIUM": "#1E4D4F",
     "MOBILITY": "#2A6D70",
-    "HALO": "#E8C15A",
+    "HALO": "#C48A1A",
 }
 
 

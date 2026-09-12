@@ -3,39 +3,41 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0C1A1B">
+  <meta name="theme-color" content="#080808">
   <title>CentralComm Places</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@36..72,560;36..72,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/places_public.css') }}?v=7">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Nunito+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/places_public.css') }}?v=13">
 </head>
 <body class="cc-place cc-index">
-  <div class="cc-index-shell">
+  <header class="cc-top">
     <a class="cc-brand" href="{{ url_for('places.publico_indice') }}">
       <img src="{{ brand.logo }}" alt="CentralComm">
       <span>Places</span>
     </a>
+  </header>
+  <div class="cc-index-shell">
     <header class="cc-index-head">
       <h1>O lugar vira audiência.</h1>
-      <p>Abra o recorte que a agência ou o anunciante vai comprar: mapa, fotos dos pontos e os números oficiais. Depois, peça a proposta.</p>
+      <p>Três aeroportos. Cada um com o raio que a campanha compra no celular.</p>
     </header>
     <div class="cc-air-grid">
       {% for item in places %}
       <a class="cc-air-card" href="{{ url_for('places.publico', slug=item.slug) }}">
-        {% if item.media.hero_url %}
-        <img src="{{ item.media.hero_url }}" alt="">
-        {% endif %}
-        <div>
-          <small>{{ item.code }} · {{ item.city_label }}</small>
-          <h2>{{ item.title }}</h2>
-          <p>{{ item.metrics.passengers.label }} passageiros em 2025</p>
-        </div>
+        <strong class="cc-air-code">{{ item.code or item.title[:3] }}</strong>
+        <h2>{{ item.title }}</h2>
+        <p>{{ item.city_label }}</p>
+        <span>{{ item.metrics.addressable.label or item.metrics.passengers.label }} no celular, em 4 semanas</span>
       </a>
       {% else %}
-      <p class="cc-empty">Nenhum place publicado. Peça o link ao comercial.</p>
+      <p class="cc-empty">Nenhum place publicado neste link.</p>
       {% endfor %}
     </div>
+    <footer class="cc-foot">
+      <img src="{{ brand.logo }}" alt="CentralComm">
+      <p>CentralComm Places</p>
+    </footer>
   </div>
 </body>
 </html>

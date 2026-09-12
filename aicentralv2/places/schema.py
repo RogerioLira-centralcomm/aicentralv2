@@ -11,7 +11,17 @@ CITIES = ("bh", "sp", "rj")
 STATUSES = ("draft", "published", "archived", "mapping")
 SOURCE_STATUSES = ("official", "estimate", "to_validate")
 ZONE_TYPES = ("CORE", "DEPARTURES", "PREMIUM", "MOBILITY", "HALO")
-POINT_KINDS = ("bairro", "densidade", "pessoas", "marco", "mobilidade", "terminal", "halo")
+POINT_KINDS = (
+    "bairro",
+    "densidade",
+    "pessoas",
+    "marco",
+    "mobilidade",
+    "terminal",
+    "embarque",
+    "premium",
+    "halo",
+)
 POINT_LABELS = {
     "bairro": "Bairro",
     "densidade": "Densidade",
@@ -19,7 +29,20 @@ POINT_LABELS = {
     "marco": "Marco",
     "mobilidade": "Mobilidade",
     "terminal": "Terminal",
+    "embarque": "Embarque",
+    "premium": "Premium",
     "halo": "Halo",
+}
+POINT_RADIUS = {
+    "terminal": 300,
+    "embarque": 250,
+    "premium": 200,
+    "mobilidade": 350,
+    "halo": 1000,
+    "bairro": 800,
+    "densidade": 900,
+    "pessoas": 700,
+    "marco": 400,
 }
 
 CITY_LABELS = {"bh": "Belo Horizonte", "sp": "São Paulo", "rj": "Rio de Janeiro"}
@@ -180,6 +203,8 @@ def normalize_geometry(value: Any) -> dict:
 def normalize_point(item: Any) -> dict:
     data = as_dict(item)
     kind = normalize_choice(data.get("kind"), POINT_KINDS, "marco")
+    radius_m = _float(data.get("radius_m"))
+    radius_m = int(radius_m) if radius_m else POINT_RADIUS.get(kind, 400)
     return {
         "id": text(data.get("id")),
         "name": text(data.get("name")),
@@ -187,6 +212,16 @@ def normalize_point(item: Any) -> dict:
         "kind_label": POINT_LABELS.get(kind, "Marco"),
         "lat": _float(data.get("lat")),
         "lng": _float(data.get("lng")),
+        "radius_m": radius_m,
+        "radius_label": text(data.get("radius_label")) or f"{radius_m} m",
+        "reach": text(data.get("reach")),
+        "reach_status": normalize_source_status(data.get("reach_status"), "estimate"),
+        "formats": [text(x) for x in as_list(data.get("formats")) if text(x)],
+        "audiences": [text(x) for x in as_list(data.get("audiences")) if text(x)],
+        "commercial": text(data.get("commercial")),
+        "color": text(data.get("color")) or zone_color(
+            {"terminal": "CORE", "embarque": "DEPARTURES", "premium": "PREMIUM", "mobilidade": "MOBILITY", "halo": "HALO"}.get(kind, "CORE")
+        ),
         "source": text(data.get("source")),
         "note": text(data.get("note")),
         "image_url": text(data.get("image_url")),
@@ -224,6 +259,18 @@ def normalize_catchment(value: Any) -> dict:
     }
 
 
+def normalize_offer(value: Any) -> dict:
+    data = as_dict(value)
+    lines = []
+    for raw in as_list(data.get("lines") or data.get("items")):
+        row = as_dict(raw)
+        title = text(row.get("title"))
+        body = text(row.get("body"))
+        if title:
+            lines.append({"title": title, "body": body})
+    return {"lead": text(data.get("lead")), "lines": lines}
+
+
 def normalize_payload(value: Any) -> dict:
     data = as_dict(value)
     metrics = as_dict(data.get("metrics"))
@@ -233,6 +280,7 @@ def normalize_payload(value: Any) -> dict:
         "metrics": {
             "passengers": normalize_metric(metrics.get("passengers")),
             "four_weeks": normalize_metric(metrics.get("four_weeks")),
+            "addressable": normalize_metric(metrics.get("addressable")),
             "impacted": normalize_metric(metrics.get("impacted") or metrics.get("four_weeks")),
         },
         "geo": normalize_geo(data.get("geo")),
@@ -246,21 +294,17 @@ def normalize_payload(value: Any) -> dict:
             "map_url": text(media.get("map_url")),
             "og_url": text(media.get("og_url")),
         },
+        "offer": normalize_offer(data.get("offer")),
         "methodology": {
-            "title": text(methodology.get("title")) or "Não vendemos um círculo no mapa.",
+            "title": text(methodology.get("title")) or "Como o número é feito",
             "body": text(methodology.get("body"))
             or (
-                "As zonas são contextos funcionais. Passageiros físicos, devices observados, "
-                "devices elegíveis e usuários impactados são métricas diferentes. "
-                "Não some os alcances das zonas."
+                "Passageiros da ANAC não são o que a campanha compra. "
+                "O número do ponto é quem dá para alcançar neste raio, no celular, em 4 semanas. "
+                "Os raios não se somam."
             ),
-            "steps": [text(x) for x in as_list(methodology.get("steps"))]
-            or ["Presença física", "Device observado", "Audience match", "Impacto real"],
-            "trust": text(methodology.get("trust"))
-            or (
-                "Terminal, circulação e acessos tratados como áreas funcionais. "
-                "O polígono final de mídia deve ser calibrado na plataforma de location data."
-            ),
+            "steps": [text(x) for x in as_list(methodology.get("steps")) if text(x)],
+            "trust": text(methodology.get("trust")),
         },
     }
 

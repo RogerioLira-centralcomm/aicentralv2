@@ -162,8 +162,19 @@ def load_bundle(intent, format_key, has_reference=False):
     return plan
 
 
-def combined_system_prompt(bundle, packs):
-    parts = [bundle["texts"].get("orchestrator") or ""]
+ENGINEER_OUTPUT = (
+    "Output contract: return one JSON object matching CreativeFormatSpec. "
+    "Required keys: intent, format, variant, adapter, platform_label, brand_name, scenes. "
+    "scenes is a JSON array of 4 or 5 objects (not a dict keyed by id). "
+    "Each scene has id scene_01..scene_0N, headline, purpose, support, cta, set_note, action_note. "
+    "Never return pack_list, format_skill, trace, HTML, or markdown fences."
+)
+
+
+def combined_system_prompt(bundle, packs, include_orchestrator=False):
+    parts = [ENGINEER_OUTPUT]
+    if include_orchestrator:
+        parts.append(bundle["texts"].get("orchestrator") or "")
     for pack in packs:
         text = bundle["texts"].get(pack)
         if text:

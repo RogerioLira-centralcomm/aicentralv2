@@ -76,7 +76,9 @@ def ensure_brand_design_system(client=None, *, existing=None):
     line = profile.get("creative_line") if isinstance(profile.get("creative_line"), dict) else {}
     found = existing if existing is not None else _existing_system(client, profile)
     if found:
-        return parse_system(found)
+        from .fidelity import attach_client_evidence
+
+        return attach_client_evidence(parse_system(found), client)
 
     if is_centralcomm_client(client) or is_centralcomm_client(client.get("name")):
         preset = centralcomm_preset(client_id=client.get("id") or "centralcomm")
@@ -87,13 +89,18 @@ def ensure_brand_design_system(client=None, *, existing=None):
         )
         tokens = dict(preset.tokens)
         tokens["logo"] = logo
-        return DesignSystemAds.model_validate(
-            {
-                **preset.model_dump(),
-                "client_id": client.get("id") or preset.client_id,
-                "logo_url": logo,
-                "tokens": tokens,
-            }
+        from .fidelity import attach_client_evidence
+
+        return attach_client_evidence(
+            DesignSystemAds.model_validate(
+                {
+                    **preset.model_dump(),
+                    "client_id": client.get("id") or preset.client_id,
+                    "logo_url": logo,
+                    "tokens": tokens,
+                }
+            ),
+            client,
         )
 
     dna = materialize_brand_dna(client, profile, profile.get("brand_dna"))
@@ -106,8 +113,8 @@ def ensure_brand_design_system(client=None, *, existing=None):
         palette = _hexes([client.get("primary_color"), *palette])
     if client.get("secondary_color"):
         palette = _hexes([*palette, client.get("secondary_color")])
-    ink = palette[0] if palette else "#1E4D4F"
-    highlight = palette[1] if len(palette) > 1 else "#F3B71B"
+    ink = palette[0] if palette else "#111111"
+    highlight = palette[1] if len(palette) > 1 else (palette[0] if palette else "#111111")
     display, body = _fonts(profile, line, dna)
     logo = (
         (dna.get("logo") or {}).get("asset_url")
@@ -150,21 +157,107 @@ def ensure_brand_design_system(client=None, *, existing=None):
             "logo_url": logo,
             "tokens": tokens,
             "evidence": evidence,
-            "dna": {
-                "name": name,
-                "personality": ["reconhecível", "direta", "de marca"],
-                "must": ["logo reconhecível", "headline curta", "CTA com 4.5:1"],
-                "avoid": ["resize cego", "copy longa", "card SaaS"],
-            },
+            "dna": _dna_from_evidence(name, client, profile, dna, evidence),
             "archetype": "brand",
-            "ad_copy": {
-                "headline": f"{name} no primeiro olhar",
-                "support": f"O que {name} promete, no tamanho do anúncio.",
-                "cta": "Saiba mais",
-                "legal": name,
-            },
+            "ad_copy": {},
         }
     )
     if extracted:
         system, _patches = heal_contrast(system)
-    return system
+    from .fidelity import attach_client_evidence
+
+    return attach_client_evidence(system, client)
+
+
+GENERIC_TRAITS = {"reconhecível", "reconhecivel", "direta", "de marca"}
+
+
+def _dna_from_evidence(name, client, profile, dna, evidence):
+    profile = profile if isinstance(profile, dict) else {}
+    dna = dna if isinstance(dna, dict) else {}
+    evidence = evidence if isinstance(evidence, dict) else {}
+    voice = evidence.get("voice") if isinstance(evidence.get("voice"), dict) else {}
+    stored = profile.get("brand_dna") if isinstance(profile.get("brand_dna"), dict) else {}
+    personality = _list(
+        stored.get("personality")
+        or dna.get("personality")
+        or dna.get("traits")
+    )
+    personality = [item for item in personality if item.lower() not in GENERIC_TRAITS]
+    tone = _text(
+        client.get("tone_of_voice")
+        or stored.get("tone")
+        or dna.get("tone")
+        or evidence.get("tone"),
+        limit=40,
+    )
+    sector = _text(
+        client.get("sector")
+        or stored.get("sector")
+        or dna.get("sector")
+        or evidence.get("sector"),
+        limit=40,
+    )
+    products = _list(profile.get("products_services") or evidence.get("products"))
+    if products and products[0] not in personality:
+        personality.append(products[0])
+    if tone and tone not in personality:
+        personality.append(tone)
+    if sector and sector not in personality:
+        personality.append(sector)
+    if voice.get("density") == "compact" and "compacta na mídia" not in personality:
+        personality.append("compacta na mídia")
+    elif voice.get("density") == "airy" and "arejada na mídia" not in personality:
+        personality.append("arejada na mídia")
+    must = _unique_list(
+        _list(stored.get("must") or dna.get("must"))
+        + _list(profile.get("mandatory_elements"))
+    )
+    avoid = _unique_list(
+        _list(stored.get("avoid") or dna.get("avoid"))
+        + _list(profile.get("forbidden_elements"))
+    )
+    if logo_hint(client, dna) and not any("logo" in item.lower() for item in must):
+        must.append(f"logo de {name} com respiro")
+    if not any("cta" in item.lower() for item in must):
+        must.append("CTA com 4.5:1")
+    if not any("resize" in item.lower() for item in avoid):
+        avoid.append("resize cego")
+    if not any("saas" in item.lower() for item in avoid):
+        avoid.append("card SaaS")
+    return {
+        "name": name,
+        "personality": personality[:5],
+        "must": must[:6],
+        "avoid": avoid[:6],
+    }
+
+
+def logo_hint(client, dna):
+    client = client if isinstance(client, dict) else {}
+    dna = dna if isinstance(dna, dict) else {}
+    return bool(
+        client.get("logo_url")
+        or client.get("logo_upload_path")
+        or (dna.get("logo") or {}).get("asset_url")
+    )
+
+
+def _list(value):
+    if isinstance(value, str):
+        return [part.strip() for part in value.split(",") if part.strip()][:8]
+    if isinstance(value, list):
+        return [str(part).strip() for part in value if str(part).strip()][:8]
+    return []
+
+
+def _unique_list(items):
+    seen = set()
+    unique = []
+    for item in items or []:
+        key = item.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+    return unique[:8]

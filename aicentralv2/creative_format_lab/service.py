@@ -20,6 +20,7 @@ from .plates import (
     normalize_bindings,
     patch_plate_kit,
 )
+from .lab_models import lab_chat_model
 from .storyboard import build_storyboard, quote_concept
 
 logger = logging.getLogger(__name__)
@@ -1180,7 +1181,7 @@ class FormatLabService:
                 None,
                 "prompt",
                 "openrouter",
-                "openai/gpt-4o-mini" if str((metadata or {}).get("kind") or "") == "mockup" else "openai/gpt-5.4",
+                lab_chat_model((metadata or {}).get("kind") or "storyboard"),
                 estimate,
                 prompt=session_id,
                 request_payload=metadata if isinstance(metadata, dict) else {},
@@ -1207,6 +1208,7 @@ class FormatLabService:
                     position,
                     status="done",
                     job_id=job_id,
+                    model=lab_chat_model(kind),
                     estimated_cost_usd=estimate,
                     actual_cost_usd=estimate,
                     metadata=metadata if isinstance(metadata, dict) else {},

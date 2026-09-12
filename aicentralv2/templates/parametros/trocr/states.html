@@ -4,7 +4,7 @@
 {% block page_subtitle %}Estados visuais do editor Trocr{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=80">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=93">
 {% endblock %}
 
 {% block content %}
@@ -61,6 +61,18 @@
       <div class="mc-states-mini is-paper mc-trocr-mini">
         <strong>Original × versão atual</strong>
         <p>v1 · Original ao lado de v4 · Produção. Slider fica para depois.</p>
+      </div>
+    </article>
+    <article class="mc-states-card" data-state="typeset">
+      <h2>Tipo na foto</h2>
+      <div class="mc-states-mini is-paper mc-trocr-mini">
+        <div class="mc-trocr-route" data-mode="typeset">
+          <p class="mc-trocr-route-name">Tipo na foto</p>
+          <p class="mc-trocr-route-copy">O texto novo entra na referência. Selos de nome não passam pelo modelo.</p>
+          <p class="mc-trocr-cost">R$ 0</p>
+        </div>
+        <p>Fica na peça: Mumuzinho · Zé Vaqueiro · Mineirinho</p>
+        <button class="cx-btn cx-btn-primary" type="button">Compor na foto</button>
       </div>
     </article>
     <article class="mc-states-card" data-state="loading">

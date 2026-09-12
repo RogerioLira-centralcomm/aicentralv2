@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 
 from pydantic import ValidationError
 
 from ..creative_modeling_generation import OpenRouterError, _json_content
-from ..services.openrouter_service import resolve_chat_model
 from ..creative_skills.loader import combined_system_prompt, load_bundle
 from ..creative_skills.visual import load_visual_brief, normalize_selected_skills
+from .lab_models import ENGINEER_TEMPERATURE, JSON_OBJECT, lab_chat_model
 from .catalog import (
     COMPOSITIONS,
     CTA_DEFAULTS,
@@ -26,7 +25,6 @@ from .catalog import (
 )
 from .spec import CreativeFormatSpec, parse_format_spec
 
-ENGINEER_MODEL = os.getenv("CREATIVE_FORMAT_ENGINEER_MODEL", "")
 logger = logging.getLogger(__name__)
 _MAX_DATA_IMAGE = 2_500_000
 
@@ -56,7 +54,7 @@ def normalize_knobs(payload=None, campaign=None):
         "cast_lock": bool(payload.get("cast_lock", True)),
         "product_lock": bool(payload.get("product_lock", True)),
         "scenography": scenography,
-        "offer": str(payload.get("offer") or payload.get("message") or "").strip(),
+        "offer": _resolve_offer(payload, campaign),
         "cta_lock": str(payload.get("cta_text") or payload.get("cta") or "").strip(),
         "campaign_url": str(payload.get("campaign_url") or "").strip(),
         "key_visuals": _key_visual_map(payload),
@@ -126,17 +124,22 @@ def refine_spec(
     system = combined_system_prompt(bundle, ["refine"])
     user = json.dumps(
         {
-            "task": "Pass 2: best 15s concept for this brand and these knobs.",
-            "draft": spec.model_dump() if hasattr(spec, "model_dump") else spec,
-            "brand": _slim_brand(brand_context),
-            "campaign": campaign or {},
-            "knobs": knobs,
+            "task": "Pass 2: improve only weak beats. Do not rewrite locked copy.",
+            "draft": _draft_scenes(spec),
+            "locked": _locked_copy(campaign, knobs),
+            "improve": _improve_beats(spec),
+            "brand": _refine_brand(brand_context),
+            "campaign": _refine_campaign(campaign),
+            "knobs": _refine_knobs(knobs),
             "rules": [
                 "Return JSON only matching CreativeFormatSpec.",
-                f"Keep exactly {knobs['scene_count']} scenes.",
+                f"Keep exactly {knobs['scene_count']} scenes as a JSON array: scene_01 to scene_0{knobs['scene_count']}.",
                 "Do not return HTML.",
                 "Do not draw player chrome.",
-                "Keep the brand alive in every frame.",
+                "Do not replace locked headline, support, CTA or key visual.",
+                "Improve set_note and action_note only. Headlines stay verbatim.",
+                "Keep the brand alive in every frame (color, type, tone) even when the logo is off.",
+                "Set logo_visible per scene. The last scene (CTA) always has the logo on, centered.",
                 "Reject generic hooks and website CTAs.",
             ],
         },
@@ -229,7 +232,7 @@ def _user_payload(route, intent, variant, user_message, brand_name, dna, brand_c
             },
             "rules": [
                 "Return JSON only matching CreativeFormatSpec.",
-                f"Exactly {knobs['scene_count']} scenes: scene_01 to scene_0{knobs['scene_count']}.",
+                f"Exactly {knobs['scene_count']} scenes as a JSON array: scene_01 to scene_0{knobs['scene_count']}.",
                 "Duration is 15 seconds. Do not write a 30s film.",
                 "Do not return HTML.",
                 "Do not draw player chrome.",
@@ -239,7 +242,7 @@ def _user_payload(route, intent, variant, user_message, brand_name, dna, brand_c
                 "Keep the brand alive in every frame (color, type, tone) even when the logo is off.",
                 "Set logo_visible per scene. The last scene (CTA) always has the logo on, centered.",
                 "Opening and middle scenes may set logo_visible true or false. Default off unless the beat is brand.",
-                "Use campaign model headlines, set_note and action_note when present.",
+                "Copy campaign headlines, support and CTA verbatim when present. Do not paraphrase locked lines.",
                 "Keep user-locked offer, headline, support, CTA and key visuals.",
                 "Refuse generic hooks such as sua história, viva o momento, conheça agora.",
             ],
@@ -269,6 +272,107 @@ def apply_copy_locks(spec, locks):
         if "logo_visible" in lock:
             scene.logo_visible = bool(lock.get("logo_visible"))
     return spec
+
+
+_GENERIC_HOOKS = ("sua história", "viva o momento", "conheça agora")
+
+
+def _resolve_offer(payload, campaign=None):
+    payload = payload if isinstance(payload, dict) else {}
+    campaign = campaign if isinstance(campaign, dict) else {}
+    offer = str(payload.get("offer") or payload.get("message") or "").strip()
+    locked = str(campaign.get("offer") or "").strip()
+    title = str(campaign.get("title") or "").strip()
+    if locked and (not offer or offer == title):
+        return locked
+    return offer or locked or title
+
+
+def _improve_beats(spec):
+    hints = []
+    for scene in getattr(spec, "scenes", None) or []:
+        scene_id = getattr(scene, "id", "") or "scene"
+        headline = str(getattr(scene, "headline", "") or "").lower()
+        if any(hook in headline for hook in _GENERIC_HOOKS):
+            hints.append(f"{scene_id}: generic hook")
+        if not str(getattr(scene, "set_note", "") or "").strip():
+            hints.append(f"{scene_id}: set_note empty")
+        if not str(getattr(scene, "action_note", "") or "").strip():
+            hints.append(f"{scene_id}: action_note empty")
+    if not hints:
+        hints.append("Tighten set_note and action_note for TV distance. Keep locked headlines.")
+    return hints[:8]
+
+
+def _draft_scenes(spec):
+    scenes = getattr(spec, "scenes", None) or []
+    cards = []
+    for scene in scenes:
+        cards.append({
+            "id": getattr(scene, "id", ""),
+            "purpose": getattr(scene, "purpose", ""),
+            "headline": getattr(scene, "headline", ""),
+            "support": getattr(scene, "support", ""),
+            "cta": getattr(scene, "cta", ""),
+            "set_note": getattr(scene, "set_note", ""),
+            "action_note": getattr(scene, "action_note", ""),
+            "logo_visible": getattr(scene, "logo_visible", None),
+        })
+    return {
+        "format": getattr(spec, "format", ""),
+        "variant": getattr(spec, "variant", ""),
+        "brand_name": getattr(spec, "brand_name", ""),
+        "scenes": cards,
+    }
+
+
+def _locked_copy(campaign=None, knobs=None):
+    locked = []
+    for item in payload_locks(campaign, knobs):
+        fields = {
+            field: item.get(field)
+            for field in ("headline", "support", "cta", "set_note", "action_note")
+            if item.get(field) not in (None, "")
+        }
+        if item.get("id") and fields:
+            locked.append({"id": item["id"], **fields})
+    return locked
+
+
+def _refine_campaign(campaign):
+    campaign = campaign if isinstance(campaign, dict) else {}
+    return {
+        "slug": campaign.get("slug") or "",
+        "title": campaign.get("title") or "",
+        "offer": campaign.get("offer") or "",
+        "objective": campaign.get("objective") or "",
+        "cta": campaign.get("cta") or "",
+        "forbidden": list(campaign.get("forbidden") or [])[:8],
+    }
+
+
+def _refine_knobs(knobs):
+    knobs = knobs if isinstance(knobs, dict) else {}
+    return {
+        "scene_count": knobs.get("scene_count"),
+        "offer": knobs.get("offer") or "",
+        "objective": knobs.get("objective") or "",
+        "density": knobs.get("density") or "tv",
+        "hook_tension": knobs.get("hook_tension"),
+    }
+
+
+def _refine_brand(brand):
+    slim = _slim_brand(brand)
+    dna = brand.get("brand_dna") if isinstance((brand or {}).get("brand_dna"), dict) else {}
+    return {
+        "name": slim.get("name") or "",
+        "tone_of_voice": str(dna.get("voice_tone") or slim.get("tone_of_voice") or "")[:240],
+        "palette": slim.get("palette") or [],
+        "forbidden_elements": slim.get("forbidden_elements") or [],
+        "mandatory_elements": slim.get("mandatory_elements") or [],
+        "logo_url": slim.get("logo_url") or "",
+    }
 
 
 def payload_locks(campaign=None, knobs=None):
@@ -357,9 +461,10 @@ def _call_engineer(system, format_skill, user, images, text_callable):
                 {"role": "system", "content": system},
                 {"role": "user", "content": content},
             ],
-            model=resolve_chat_model(ENGINEER_MODEL),
-            max_tokens=1800,
-            temperature=0.15,
+            model=lab_chat_model("storyboard"),
+            max_tokens=2400,
+            temperature=ENGINEER_TEMPERATURE,
+            response_format=JSON_OBJECT,
         )
     except OpenRouterError:
         raise

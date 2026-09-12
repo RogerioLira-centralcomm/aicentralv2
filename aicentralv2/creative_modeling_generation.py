@@ -117,15 +117,24 @@ text_rewritten. Se havia logo e sumiu, logo_locked=false e logo_missing."""
 
 
 def _json_content(content):
+    if isinstance(content, dict):
+        return content
     if not isinstance(content, str):
         raise OpenRouterError("O provedor retornou conteúdo inválido.")
     clean = content.strip()
     clean = re.sub(r"^```(?:json)?\s*", "", clean, flags=re.IGNORECASE)
-    clean = re.sub(r"\s*```$", "", clean)
+    clean = re.sub(r"\s*```\s*$", "", clean)
     try:
         parsed = json.loads(clean)
-    except json.JSONDecodeError as exc:
-        raise OpenRouterError("O provedor não retornou JSON válido.") from exc
+    except json.JSONDecodeError:
+        start = clean.find("{")
+        end = clean.rfind("}")
+        if start < 0 or end <= start:
+            raise OpenRouterError("O provedor não retornou JSON válido.")
+        try:
+            parsed = json.loads(clean[start:end + 1])
+        except json.JSONDecodeError as exc:
+            raise OpenRouterError("O provedor não retornou JSON válido.") from exc
     if not isinstance(parsed, dict):
         raise OpenRouterError("O provedor retornou uma estrutura inválida.")
     return parsed

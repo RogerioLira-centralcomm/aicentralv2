@@ -205,7 +205,10 @@ def _storyboard_spec(
     try:
         spec = build_spec(text_callable=text_callable, **common)
     except (OpenRouterError, ValueError):
-        return fallback, "campaign"
+        try:
+            spec = build_spec(text_callable=text_callable, **common)
+        except (OpenRouterError, ValueError):
+            return fallback, "campaign"
     try:
         spec = refine_spec(
             spec,

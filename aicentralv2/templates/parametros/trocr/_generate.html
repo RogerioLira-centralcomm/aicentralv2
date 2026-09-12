@@ -1,5 +1,11 @@
-<section class="mc-trocr-section mc-trocr-generate" hidden>
-  <fieldset class="mc-trocr-quality">
+<section class="mc-trocr-section mc-trocr-generate" hidden data-route="image">
+  <div class="mc-trocr-route" id="mcTrocrRoute" data-mode="image" role="status">
+    <p class="mc-trocr-route-name" id="mcTrocrRouteName">Image 2 redesenha</p>
+    <p class="mc-trocr-route-copy" id="mcTrocrRouteCopy">O still de referência entra no modelo. Rascunho valida; produção entrega.</p>
+    <p class="mc-trocr-cost" id="mcSwapCost">R$ —</p>
+  </div>
+  <p class="mc-trocr-risk" id="mcTrocrRisk" hidden></p>
+  <fieldset class="mc-trocr-quality" id="mcTrocrQualityBox">
     <legend>Modo de qualidade</legend>
     <label>
       <input type="radio" name="mcTrocrQuality" value="draft">
@@ -16,7 +22,10 @@
       </span>
     </label>
   </fieldset>
-  <p class="mc-trocr-cost" id="mcSwapCost">R$ 1,20</p>
+  <label class="mc-trocr-force" id="mcTrocrForceRow" hidden>
+    <input type="checkbox" id="mcTrocrForceImage">
+    <span>Redesenhar a peça no Image 2</span>
+  </label>
   <p class="mc-trocr-status" id="mcSwapStatus">Uma foto de referência basta. Sem roteiro de 15s.</p>
   <div class="mc-trocr-actions">
     <button class="cx-btn cx-btn-secondary" type="button" id="mcTrocrDraft" disabled>Gerar rascunho</button>
@@ -25,7 +34,7 @@
   <ol class="mc-run-load" id="mcTrocrGenSteps" hidden>
     <li data-gen="analysis">Análise</li>
     <li data-gen="prompt">Montagem do prompt</li>
-    <li data-gen="generate">Geração</li>
+    <li data-gen="generate" id="mcTrocrGenPaint">Geração</li>
     <li data-gen="finish">Finalização</li>
   </ol>
 </section>

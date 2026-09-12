@@ -17,8 +17,16 @@ COMPONENTS = {
 
 DENSITY = {
     "compact": {"max_visible": 3, "park_from": 2, "formats": ("iab-leaderboard", "iab-mobile")},
-    "standard": {"max_visible": 5, "park_from": 3, "formats": ("iab-medium", "iab-skyscraper")},
-    "rich": {"max_visible": 7, "park_from": 4, "formats": ("iab-billboard", "iab-halfpage")},
+    "standard": {
+        "max_visible": 5,
+        "park_from": 3,
+        "formats": ("iab-medium", "iab-skyscraper", "story-9x16", "reels-9x16", "shorts-9x16"),
+    },
+    "rich": {
+        "max_visible": 7,
+        "park_from": 4,
+        "formats": ("iab-billboard", "iab-halfpage", "feed-1x1", "feed-4x5", "linkedin-landscape"),
+    },
 }
 
 ARCHETYPES = {
@@ -91,7 +99,8 @@ def apply_background(tokens, background_id, *, image_url=None):
         tokens["overlay"] = tokens.get("overlay") or "color-mix(in srgb, var(--dsa-ink) 34%, transparent)"
     elif kind == "wash":
         tokens["ground"] = ""
-        tokens["overlay"] = f"color-mix(in srgb, {tokens.get('ink') or '#1E4D4F'} 16%, transparent)"
+        strength = str(tokens.get("wash-strength") or "16%").strip() or "16%"
+        tokens["overlay"] = f"color-mix(in srgb, {tokens.get('ink') or '#1E4D4F'} {strength}, transparent)"
     else:
         tokens["ground"] = ""
         tokens["overlay"] = "transparent"
@@ -102,8 +111,26 @@ def apply_background(tokens, background_id, *, image_url=None):
 def compile_rules(dna=None, archetype="brand"):
     dna = dna if isinstance(dna, dict) else {}
     arch = ARCHETYPES.get(str(archetype or "brand"), ARCHETYPES["brand"])
-    must = list(dna.get("must") or ["logo reconhecível", "headline curta", "produto ou marca visível", "CTA com 4.5:1"])
-    avoid = list(dna.get("avoid") or ["resize cego", "copy longa", "card SaaS", "pílula de site", "produto minúsculo"])
+    must = list(
+        dna.get("must")
+        or [
+            "logo com respiro",
+            "headline curta no formato",
+            "produto ou marca visível",
+            "CTA com 4.5:1 e 28px",
+            "recompor por formato",
+        ]
+    )
+    avoid = list(
+        dna.get("avoid")
+        or [
+            "resize cego",
+            "copy longa",
+            "card SaaS",
+            "pílula de site",
+            "produto minúsculo",
+        ]
+    )
     return {
         "archetype": arch,
         "mandatory": ["logo", "headline"],

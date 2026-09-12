@@ -124,6 +124,7 @@ def chat_completion(
     top_k: Optional[int] = None,
     frequency_penalty: Optional[float] = None,
     presence_penalty: Optional[float] = None,
+    response_format: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Executa chat/tool-calling com parâmetros conservadores para uso operacional."""
     payload = {
@@ -152,6 +153,8 @@ def chat_completion(
         payload["parallel_tool_calls"] = False
     if plugins:
         payload["plugins"] = plugins
+    if response_format:
+        payload["response_format"] = response_format
     headers = {
         "Authorization": f"Bearer {_api_key()}",
         "Content-Type": "application/json",
@@ -220,6 +223,54 @@ def sanitize_image_payload(payload):
     return clean
 
 
+def image_reference(value):
+    """Normaliza URL/data URL para o contrato ContentPartImage do OpenRouter."""
+    if isinstance(value, str) and value.startswith(("https://", "http://", "data:image/")):
+        return {"type": "image_url", "image_url": {"url": value}}
+    if isinstance(value, dict):
+        image_url = value.get("image_url")
+        if isinstance(image_url, str):
+            return {"type": "image_url", "image_url": {"url": image_url}}
+        if (
+            value.get("type") == "image_url"
+            and isinstance(image_url, dict)
+            and isinstance(image_url.get("url"), str)
+        ):
+            return {"type": "image_url", "image_url": {"url": image_url["url"]}}
+    raise ValueError("Referência de imagem inválida.")
+
+
+def build_image_payload(
+    prompt: str,
+    *,
+    aspect_ratio: str = "16:9",
+    quality: str = "high",
+    output_format: str = "png",
+    resolution: str = "2K",
+    background: str = "opaque",
+    model: Optional[str] = None,
+    input_references=None,
+) -> Dict[str, Any]:
+    payload = sanitize_image_payload({
+        "model": resolve_image_model(model),
+        "prompt": prompt,
+        "aspect_ratio": aspect_ratio or "16:9",
+        "quality": quality,
+        "output_format": output_format,
+        "resolution": resolution,
+        "background": background,
+    })
+    refs = []
+    for item in list(input_references or [])[:2]:
+        try:
+            refs.append(image_reference(item))
+        except ValueError:
+            continue
+    if refs:
+        payload["input_references"] = refs
+    return payload
+
+
 def generate_image(
     prompt: str,
     *,
@@ -230,18 +281,20 @@ def generate_image(
     background: str = "opaque",
     model: Optional[str] = None,
     timeout: int = 180,
+    input_references=None,
 ) -> Dict[str, Any]:
     """Gera imagem no GPT Image 2 via OpenRouter (`/api/v1/images`)."""
-    image_model = resolve_image_model(model)
-    payload = sanitize_image_payload({
-        "model": image_model,
-        "prompt": prompt,
-        "aspect_ratio": aspect_ratio or "16:9",
-        "quality": quality,
-        "output_format": output_format,
-        "resolution": resolution,
-        "background": background,
-    })
+    payload = build_image_payload(
+        prompt,
+        aspect_ratio=aspect_ratio,
+        quality=quality,
+        output_format=output_format,
+        resolution=resolution,
+        background=background,
+        model=model,
+        input_references=input_references,
+    )
+    image_model = payload.get("model") or resolve_image_model(model)
     headers = {
         "Authorization": f"Bearer {_api_key()}",
         "Content-Type": "application/json",

@@ -210,22 +210,38 @@ class DesignSystemAdsContractTest(unittest.TestCase):
         kv = next(item for item in composed.tracks if item["id"] == "kv")
         self.assertIn("16:9", kv["prompt"])
         self.assertIn("#1E4D4F", prompt_for_track(system, "packshot"))
+        self.assertNotIn("reconhecível", prompt_for_track(system, "packshot"))
         catalog = payload_for(system)
         self.assertEqual(len(catalog["catalog"]["components"]), 7)
         self.assertEqual(len(catalog["archetypes"]), 4)
         self.assertEqual(catalog["loop"]["action"], "track")
-        self.assertTrue(catalog["catalog"]["dna"]["personality"])
+        self.assertTrue(catalog["catalog"]["backgrounds"])
         empty = ensure_brand_design_system({"id": 21, "name": "Vazia", "primary_color": "#123456"})
+        self.assertNotIn("reconhecível", empty.dna.get("personality") or [])
         empty.dna = {}
-        from aicentralv2.design_system_ads.refine import advance_loop, seed_local_compose
+        from aicentralv2.design_system_ads.refine import (
+            advance_loop,
+            seed_campaign_compose,
+            seed_local_compose,
+        )
 
         seeded, info, _report = advance_loop(empty)
         self.assertTrue(seeded.dna.get("personality"))
-        self.assertIn(info["action"], {"contrast", "track", "ready", "rules"})
+        self.assertNotIn("reconhecível", seeded.dna.get("personality") or [])
+        self.assertIn(info["action"], {"contrast", "review", "track", "ready", "rules"})
         local, _report = seed_local_compose(empty)
-        self.assertIn("reconhecível", local.dna.get("personality") or [])
+        self.assertNotIn("reconhecível", local.dna.get("personality") or [])
         self.assertTrue(local.ad_copy.get("headline"))
         self.assertNotIn("tinta certa", (local.ad_copy.get("headline") or "").lower())
+        campaign, _ = seed_campaign_compose(system, {
+            "name": "Verao",
+            "objective": "Calor no visual",
+            "cta_text": "Reservar",
+        })
+        self.assertEqual(campaign.scope, "campaign")
+        self.assertIn("Calor", campaign.creative_line)
+        self.assertEqual(campaign.ad_copy.get("cta"), "Reservar")
+        self.assertNotEqual(campaign.ad_copy.get("headline"), system.ad_copy.get("headline"))
 
     def test_heal_e_patch(self):
         weak = ensure_brand_design_system(
@@ -279,7 +295,7 @@ class DesignSystemAdsContractTest(unittest.TestCase):
 
     def test_specimen_centralcomm(self):
         html = render_specimen(read_preset(), standalone=True)
-        self.assertIn("cdn.tailwindcss.com", html)
+        self.assertIn("dsa-ad-stage", html)
         self.assertIn("--dsa-ink", html)
         self.assertIn("A campanha chega inteira", html)
         self.assertNotIn("A peça na tinta certa", html)
@@ -288,6 +304,8 @@ class DesignSystemAdsContractTest(unittest.TestCase):
         self.assertIn("/static/images/cc_logo.png", html)
         payload = payload_for(centralcomm_preset())
         self.assertIn("/lab/design-system/marca/", payload["specimen_url"])
+        self.assertIn("format=", payload["specimen_url"])
+        self.assertIn("dsa-ad-stage", payload["specimen_html"])
 
     def test_copy_de_anuncio_nao_e_meta(self):
         from aicentralv2.design_system_ads.copy import (
@@ -312,7 +330,23 @@ class DesignSystemAdsContractTest(unittest.TestCase):
         self.assertNotIn("design system", " ".join(cleaned.values()).lower())
         brand = brand_ad_copy("Clara")
         self.assertIn("Clara", brand["headline"])
-        self.assertEqual(brand["cta"], "Saiba mais")
+        self.assertEqual(brand["cta"], "Ver mais")
+        self.assertNotEqual(brand["cta"], "Saiba mais")
+        from aicentralv2.design_system_ads.copy import fit_ad_copy
+
+        compact = fit_ad_copy(
+            {
+                "headline": "Uma headline longa demais para o leaderboard de anúncio",
+                "support": "Apoio que some no compacto",
+                "cta": "Começar agora mesmo",
+                "legal": "CentralComm",
+            },
+            "compact",
+            "CentralComm",
+        )
+        self.assertEqual(compact["support"], "")
+        self.assertLessEqual(len(compact["headline"]), 32)
+        self.assertLessEqual(len(compact["cta"]), 14)
 
     def test_brand_context_expoe_ds(self):
         context = build_brand_context(
@@ -356,9 +390,11 @@ class DesignSystemAdsContractTest(unittest.TestCase):
         html = desk.read_text(encoding="utf-8")
         self.assertNotIn("data-mode", html)
         self.assertIn("Montar", html)
+        self.assertIn("Montar campanha", html)
         self.assertIn("Aprovar", html)
         self.assertIn("mcDsaCatalog", html)
         self.assertIn("mcDsaStage", html)
+        self.assertIn("mcDsaGrounds", html)
         self.assertIn("mcDsaArchetypes", html)
         self.assertNotIn("mcDsaIntents", html)
         self.assertNotIn("mcDsaLoop", html)
@@ -527,6 +563,279 @@ class DesignSystemAdsDeployTest(unittest.TestCase):
                 '"$VENV_PYTHON" migrations/run_add_design_system_ads.py'
             ),
         )
+
+
+class DesignSystemAdsFidelityTest(unittest.TestCase):
+    def test_ouro_nao_vira_teal_da_casa(self):
+        weak = ensure_brand_design_system(
+            {"id": 1, "name": "Clara", "primary_color": "#F3B71B"}
+        )
+        self.assertEqual(weak.tokens["ink"].upper(), "#F3B71B")
+        healed, patches = heal_contrast(weak)
+        self.assertNotEqual(healed.tokens["ink"].upper(), "#1E4D4F")
+        self.assertTrue(patches)
+        self.assertGreaterEqual(healed.contrast["pairs"]["ink_on_paper"], MIN_CONTRAST)
+        ink = healed.tokens["ink"].lstrip("#")
+        red, _green, blue = int(ink[0:2], 16), int(ink[2:4], 16), int(ink[4:6], 16)
+        self.assertGreater(red, blue)
+
+    def test_asset_da_marca_entra_na_trilha(self):
+        system = ensure_brand_design_system(
+            {
+                "id": 9,
+                "name": "Clara",
+                "primary_color": "#123456",
+                "brand_assets": [
+                    {"asset_url": "/media/clara-pack.jpg", "role": "packshot"},
+                    {"asset_url": "/media/clara-kv.jpg", "role": "kv"},
+                ],
+            }
+        )
+        pack = next(item for item in system.tracks if item["id"] == "packshot")
+        kv = next(item for item in system.tracks if item["id"] == "kv")
+        self.assertEqual(pack["url"], "/media/clara-pack.jpg")
+        self.assertEqual(kv["url"], "/media/clara-kv.jpg")
+
+    def test_copy_estoque_volta_ao_compose(self):
+        from aicentralv2.design_system_ads.catalog import inspect_loop
+        from aicentralv2.design_system_ads.copy import is_stock_copy
+
+        system = ensure_brand_design_system(
+            {
+                "id": 8,
+                "name": "Clara",
+                "primary_color": "#123456",
+                "sector": "joalheria",
+                "tone_of_voice": "cálida",
+            }
+        )
+        system.ad_copy = {
+            "headline": "Clara no primeiro olhar",
+            "support": "O que Clara promete, no tamanho do anúncio.",
+            "cta": "Saiba mais",
+            "legal": "Clara",
+        }
+        self.assertTrue(is_stock_copy(system.ad_copy))
+        self.assertEqual(inspect_loop(system)["action"], "compose")
+
+    def test_loop_revisa_antes_das_trilhas(self):
+        from aicentralv2.design_system_ads.catalog import inspect_loop
+        from aicentralv2.design_system_ads.refine import advance_loop
+
+        filled = ensure_brand_design_system(
+            {
+                "id": 8,
+                "name": "Clara",
+                "primary_color": "#123456",
+                "sector": "joalheria",
+                "tone_of_voice": "cálida",
+            }
+        )
+        self.assertEqual(inspect_loop(filled)["action"], "review")
+        advanced, info, _report = advance_loop(filled)
+        self.assertTrue((advanced.evidence or {}).get("reviewed"))
+        self.assertEqual(info["action"], "track")
+        house = payload_for(centralcomm_preset())
+        self.assertEqual(house["loop"]["action"], "track")
+        self.assertNotIn("wash", house["loop"]["missing_tracks"])
+
+    def test_extract_ouro_sozinho_nao_vira_teal(self):
+        ingested = ingest_extracted(
+            {"colors": {"primary": "#F3B71B", "background": "#FFFFFF"}}
+        )
+        self.assertNotEqual(ingested["tokens"]["ink"].upper(), "#1E4D4F")
+        ink = ingested["tokens"]["ink"].lstrip("#")
+        red, _green, blue = int(ink[0:2], 16), int(ink[2:4], 16), int(ink[4:6], 16)
+        self.assertGreater(red, blue)
+        self.assertGreaterEqual(contrast_ratio(ingested["tokens"]["ink"], "#FFFFFF"), MIN_CONTRAST)
+
+    def test_asset_sem_papel_ainda_entra_no_packshot(self):
+        system = ensure_brand_design_system(
+            {
+                "id": 11,
+                "name": "Clara",
+                "primary_color": "#123456",
+                "brand_assets": [{"asset_url": "/media/clara-loose.jpg"}],
+            }
+        )
+        pack = next(item for item in system.tracks if item["id"] == "packshot")
+        self.assertEqual(pack["url"], "/media/clara-loose.jpg")
+
+    def test_trilha_anexa_produto_e_logo(self):
+        from aicentralv2.design_system_ads.fidelity import track_reference_urls
+        from aicentralv2.services.openrouter_service import build_image_payload
+
+        client = {
+            "id": 19,
+            "name": "Clara",
+            "primary_color": "#123456",
+            "logo_url": "/static/uploads/client_logos/clara.png",
+            "brand_assets": [{"asset_url": "/media/clara-pack.jpg", "role": "packshot"}],
+        }
+        system = ensure_brand_design_system(client)
+        pack = track_reference_urls(system, "packshot", client)
+        self.assertEqual(pack[0], "/media/clara-pack.jpg")
+        self.assertIn("/static/uploads/client_logos/clara.png", pack)
+        self.assertLessEqual(len(pack), 2)
+        kv = track_reference_urls(system, "kv", client)
+        self.assertEqual(kv[0], "/media/clara-pack.jpg")
+        self.assertEqual(track_reference_urls(system, "wash", client), [])
+        payload = build_image_payload(
+            "packshot",
+            input_references=[
+                "data:image/png;base64,cmVmMQ==",
+                "https://cdn.test/logo.png",
+                "/local/skip.png",
+            ],
+        )
+        self.assertEqual(len(payload["input_references"]), 2)
+        self.assertEqual(
+            payload["input_references"][0]["image_url"]["url"],
+            "data:image/png;base64,cmVmMQ==",
+        )
+
+    def test_campanha_liga_recorte_na_trilha(self):
+        from aicentralv2.design_system_ads.campaign import ensure_campaign_design_system
+
+        system, _elements = ensure_campaign_design_system(
+            centralcomm_preset(),
+            {"id": 9, "name": "Verao", "cta_text": "Reservar"},
+            [{"asset_url": "/static/a.png", "role": "product"}],
+        )
+        pack = next(item for item in system.tracks if item["id"] == "packshot")
+        self.assertEqual(pack["url"], "/static/a.png")
+
+    def test_produto_ocupa_o_poco_no_hero(self):
+        from aicentralv2.design_system_ads.adapt import adapt_system
+        from aicentralv2.design_system_ads.schema import parse_system
+
+        brand = parse_system(dump_system(centralcomm_preset()))
+        brand.archetype = "product-hero"
+        brand.tracks = [
+            {**item, "url": "/media/pack.png"} if item["id"] == "packshot" else item
+            for item in brand.tracks
+        ]
+        adapted, stack = adapt_system(brand, "iab-medium", 4)
+        product = next(item for item in stack["layers"] if item["role"] == "product")
+        self.assertFalse(product.get("parked"))
+        self.assertEqual(product.get("asset_url"), "/media/pack.png")
+        self.assertGreaterEqual(product["w"], 80)
+        self.assertNotIn("visual", [item["role"] for item in stack["layers"]])
+        html = render_specimen(adapted, standalone=True, stack=stack)
+        self.assertIn("/media/pack.png", html)
+
+    def test_curriculo_classifica_criativo_real(self):
+        from aicentralv2.design_system_ads.learn import classify_creative, curriculum
+
+        levels = {item["id"] for item in curriculum()}
+        self.assertEqual(levels, {"L1", "L2", "L3", "L4", "L5"})
+        pack = classify_creative({"type_on_image": False, "faces": 0})
+        self.assertEqual(pack["id"], "L1")
+        self.assertEqual(pack["lab"], "campaign-pack")
+        self.assertEqual(pack["concept"], "packshot")
+        car = classify_creative({"type_on_image": True, "aspect": "1.91:1"})
+        self.assertEqual(car["id"], "L2")
+        self.assertEqual(car["format"], "linkedin-landscape")
+        self.assertEqual(car["lab"], "format-lab-swap-read")
+        self.assertEqual(car["template"], "product-left-type")
+        feed = classify_creative({"chrome": "meta", "aspect": "4:5", "faces": 1})
+        self.assertEqual(feed["id"], "L3")
+        self.assertTrue(feed["crop_first"])
+        festa = classify_creative({"faces": 6, "name_pills": True, "aspect": "1:1"})
+        self.assertEqual(festa["id"], "L4")
+        self.assertEqual(festa["lab"], "decompose")
+        print_google = classify_creative({"screenshot": True, "chrome": "google"})
+        self.assertEqual(print_google["id"], "L5")
+        self.assertEqual(print_google["lab"], "crop-then-learn")
+        self.assertEqual(print_google["inner"], "L1")
+        from aicentralv2.design_system_ads.catalog import catalog_for
+
+        catalog = catalog_for(centralcomm_preset())
+        self.assertEqual({item["id"] for item in catalog["curriculum"]}, levels)
+        self.assertIn("event-kv", {item["id"] for item in catalog["training"]["concepts"]})
+
+    def test_lote_real_aumenta_assertividade(self):
+        from aicentralv2.design_system_ads.learn import measure_training, plan_training
+
+        report = measure_training()
+        self.assertGreaterEqual(report["before"]["accuracy"], 0.3)
+        self.assertLess(report["before"]["accuracy"], 0.55)
+        self.assertGreaterEqual(report["after"]["accuracy"], 0.95)
+        self.assertGreaterEqual(report["delta"], 0.4)
+        self.assertEqual(report["after"]["misses"], [])
+        seniortec = plan_training(
+            {"cropped": True, "aspect": "4:5", "faces": 2, "type_on_image": True, "event": True}
+        )
+        self.assertEqual(seniortec["concept"], "event-kv")
+        self.assertNotEqual(seniortec["id"], "L3")
+        self.assertEqual(seniortec["labs"]["format_skill"], "iab-banner")
+        self.assertIn("reconstruct", seniortec["labs"]["packs"])
+
+    def test_receitas_sociais_ficam_perfeitas(self):
+        from aicentralv2.design_system_ads.adapt import adapt_system, list_iab_formats
+        from aicentralv2.design_system_ads.layouts import validate_stack
+
+        keys = {item["key"] for item in list_iab_formats()}
+        self.assertIn("feed-1x1", keys)
+        self.assertIn("feed-4x5", keys)
+        self.assertIn("story-9x16", keys)
+        for key in ("feed-1x1", "feed-4x5", "story-9x16", "linkedin-landscape"):
+            for count in (4, 8):
+                adapted, stack = adapt_system(centralcomm_preset(), key, count)
+                issues = validate_stack(stack)
+                self.assertEqual(issues, [], f"{key} × {count}: {issues}")
+                cta = next(item for item in stack["layers"] if item["role"] == "cta")
+                height = stack["format"]["height"]
+                self.assertGreaterEqual(height * cta["h"] / 100, 28)
+
+
+class DesignSystemAdsLiveCreativesTest(unittest.TestCase):
+    FIXTURES = Path(__file__).resolve().parent / "fixtures" / "creatives"
+
+    def test_dois_criativos_reais_passam_no_projeto(self):
+        from aicentralv2.creative_skills.loader import load_format_skill, resolve_pack
+        from aicentralv2.design_system_ads.adapt import adapt_system
+        from aicentralv2.design_system_ads.layouts import validate_stack
+        from aicentralv2.design_system_ads.learn import (
+            inspect_creative_file,
+            lesson_from_file,
+            live_pair,
+            plan_training,
+        )
+
+        pair = live_pair()
+        self.assertEqual([item["id"] for item in pair], ["arraial", "mg-cyberster"])
+        for item in pair:
+            path = self.FIXTURES / item["filename"]
+            self.assertTrue(path.is_file(), f"falta o criativo {path}")
+            inspected = inspect_creative_file(path)
+            self.assertEqual(inspected["width"], item["inspect"]["width"])
+            self.assertEqual(inspected["height"], item["inspect"]["height"])
+            self.assertEqual(inspected["screenshot"], item["inspect"]["screenshot"])
+            lesson = lesson_from_file(path, item["hints"])
+            for axis, expected in item["expect"].items():
+                self.assertEqual(lesson.get(axis), expected, f"{item['id']}.{axis}")
+            planned = plan_training({**inspected["hints"], **item["hints"]})
+            self.assertEqual(planned["labs"]["format_skill"], "iab-banner")
+            self.assertIn("reconstruct", planned["labs"]["packs"])
+            pack = resolve_pack("reconstruct", lesson["format"], has_reference=True)
+            self.assertEqual(pack["format_skill"], "iab-banner")
+            self.assertIn(lesson["format"], load_format_skill(lesson["format"]))
+            adapted, stack = adapt_system(centralcomm_preset(), lesson["format"], 8)
+            self.assertEqual(validate_stack(stack), [], lesson["format"])
+            html = render_specimen(adapted, standalone=True, stack=stack)
+            self.assertIn("dsa-ad", html)
+            payload = payload_for(
+                centralcomm_preset(),
+                format_key=lesson["format"],
+                layer_count=8,
+            )
+            self.assertIn("dsa-ad", payload["specimen_html"])
+            self.assertEqual(payload["layers"]["count"], 8)
+
+        phone = inspect_creative_file(self.FIXTURES / "mg-discover.jpg")
+        self.assertTrue(phone["screenshot"])
+        self.assertNotEqual(phone["hints"].get("aspect"), "9:16")
 
 
 class DesignSystemAdsContrastTest(unittest.TestCase):

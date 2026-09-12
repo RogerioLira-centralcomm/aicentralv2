@@ -130,37 +130,19 @@ def render_format_specimen(system, stack, *, standalone=True, highlight=None):
 
 
 def render_specimen(system, *, standalone=True, stack=None, highlight=None):
-    if stack:
+    if stack is None:
+        from .adapt import adapt_system
+        from .components import ARCHETYPE_FORMAT
+
+        parsed = parse_system(system)
+        fmt = ARCHETYPE_FORMAT.get(parsed.archetype or "brand") or "iab-billboard"
+        adapted, stack = adapt_system(parsed, fmt, 6)
         return render_format_specimen(
-            system, stack, standalone=standalone, highlight=highlight
+            adapted, stack, standalone=standalone, highlight=highlight
         )
-    parsed = parse_system(system)
-    copy = parsed.ad_copy or {}
-    logo = escape(parsed.logo_url or "")
-    name = escape(parsed.name or "Design System Ads")
-    headline = escape(copy.get("headline") or name)
-    support = escape(copy.get("support") or "")
-    cta = escape(copy.get("cta") or "Saiba mais")
-    legal = escape(copy.get("legal") or name)
-    logo_html = (
-        f"<img class='dsa-logo' src='{logo}' alt='{name}'>"
-        if parsed.logo_url
-        else f"<strong class='dsa-logo-fallback'>{name}</strong>"
+    return render_format_specimen(
+        system, stack, standalone=standalone, highlight=highlight
     )
-    sheet = f"""
-<section class="dsa-sheet bg-dsa-paper text-dsa-ink font-dsa-body" style="{_sheet_style(parsed)}">
-  <header class="dsa-lockup">{logo_html}<span>{name}</span></header>
-  <h1 class="dsa-headline font-dsa-display text-dsa-headline">{headline}</h1>
-  <p class="dsa-support text-dsa-muted text-dsa-support">{support}</p>
-  <p>
-    <a class="dsa-cta bg-dsa-accent text-dsa-cta-ink rounded-dsa-cta text-dsa-cta" href="#peca">{cta}</a>
-  </p>
-  <p class="dsa-legal text-dsa-legal">{legal}</p>
-</section>
-"""
-    if not standalone:
-        return sheet.strip()
-    return _standalone_document(parsed, sheet, title=name)
 
 
 def _standalone_document(system, body, title="", stage=False):
@@ -252,6 +234,16 @@ def _standalone_document(system, body, title="", stage=False):
       background: var(--dsa-overlay, transparent);
       pointer-events: none;
       z-index: 1;
+    }}
+    .dsa-ad-stage::after {{
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+      opacity: var(--dsa-grain, 0);
+      mix-blend-mode: multiply;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
     }}
     .dsa-safe {{
       position: absolute;
@@ -381,6 +373,8 @@ def _sheet_style(system):
         f"--dsa-ground-image:{image};"
         f"--dsa-ground-fit:{tokens.get('ground-fit') or 'cover'};"
         f"--dsa-overlay:{tokens.get('overlay') or 'transparent'};"
+        f"--dsa-grain:{tokens.get('grain') or '0'};"
+        f"--dsa-wash-strength:{tokens.get('wash-strength') or '16%'};"
     )
 
 

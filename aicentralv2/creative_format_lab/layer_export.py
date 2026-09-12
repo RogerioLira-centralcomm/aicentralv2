@@ -87,6 +87,21 @@ class _StageParser(HTMLParser):
             self._buf.append(data)
 
 
+def snapshot_layers(html, layer_ids=None):
+    parser = _StageParser()
+    parser.feed(str(html or ""))
+    wanted = set(layer_ids) if layer_ids else None
+    layers = []
+    for item in parser.layers:
+        layer_id = item.get("id") or ""
+        if not layer_id or layer_id in SKIP_IDS:
+            continue
+        if wanted and layer_id not in wanted:
+            continue
+        layers.append({"id": layer_id, "text": (item.get("text") or "")[:180]})
+    return layers
+
+
 def export_layers(html, scene_id="scene_01"):
     parser = _StageParser()
     parser.feed(str(html or ""))

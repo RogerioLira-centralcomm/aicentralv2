@@ -7,6 +7,7 @@ import os
 
 from ..creative_modeling_generation import _json_content
 from ..services.openrouter_service import resolve_chat_model
+from .fidelity import compile_fidelity, lock_token_patches, mark_reviewed
 from .schema import (
     MAX_PASSES,
     MIN_CONTRAST,
@@ -14,7 +15,9 @@ from .schema import (
     DesignSystemPass,
     contrast_ratio,
     dump_system,
+    mix_hex,
     normalize_hex,
+    nudge_hex_for_contrast,
     parse_system,
 )
 
@@ -73,13 +76,31 @@ def heal_contrast(system):
     cta_ink = normalize_hex(tokens.get("cta_ink"), "#FFFFFF")
     patches = []
     if contrast_ratio(ink, paper) < MIN_CONTRAST:
-        tokens["ink"] = "#1E4D4F" if paper.upper() in {"#FFFFFF", "#F8F9FA", "#FFF"} else "#FFFFFF"
-        patches.append({"token_id": "ink", "css": tokens["ink"], "reason": "Contraste ink/paper abaixo de 4.5."})
+        tokens["ink"], _ = nudge_hex_for_contrast(ink, paper)
+        patches.append({
+            "token_id": "ink",
+            "css": tokens["ink"],
+            "reason": "Contraste ink/paper abaixo de 4.5; a tinta da marca foi escurecida, não trocada.",
+        })
     if contrast_ratio(cta_ink, accent) < MIN_CONTRAST:
-        tokens["accent"] = tokens.get("ink") or "#1E4D4F"
-        tokens["cta_ink"] = "#FFFFFF"
-        patches.append({"token_id": "accent", "css": tokens["accent"], "reason": "CTA sem contraste. Fill da tinta da marca."})
-        patches.append({"token_id": "cta_ink", "css": "#FFFFFF", "reason": "Texto do CTA em branco."})
+        light_on_accent = contrast_ratio("#FFFFFF", accent)
+        dark_on_accent = contrast_ratio("#0F172A", accent)
+        if light_on_accent >= MIN_CONTRAST or light_on_accent >= dark_on_accent:
+            tokens["cta_ink"] = "#FFFFFF"
+        else:
+            tokens["cta_ink"] = "#0F172A"
+        patches.append({
+            "token_id": "cta_ink",
+            "css": tokens["cta_ink"],
+            "reason": "Texto do CTA no extremo que lê sobre o fill da marca.",
+        })
+        if contrast_ratio(tokens["cta_ink"], accent) < MIN_CONTRAST:
+            tokens["accent"], _ = nudge_hex_for_contrast(accent, tokens["cta_ink"])
+            patches.append({
+                "token_id": "accent",
+                "css": tokens["accent"],
+                "reason": "CTA da marca empurrado só o suficiente para 4.5:1.",
+            })
     data = dump_system(parsed)
     data["tokens"] = tokens
     healed = DesignSystemAds.model_validate(data)
@@ -171,9 +192,9 @@ def improve_system(system, intent):
         tokens = dict(healed.tokens)
         patches = list(heal_patches)
         if not patches:
-            darker = _mix_hex(tokens.get("ink"), "#000000", 0.2) or "#153638"
+            darker = mix_hex(tokens.get("ink"), "#000000", 0.2) or "#153638"
             set_token("ink", darker, "Tinta mais escura para o título ler no IAB.")
-            set_token("muted", _mix_hex(darker, "#64748B", 0.35) or "#3D4451", "Apoio acompanha a tinta.")
+            set_token("muted", mix_hex(darker, "#64748B", 0.35) or "#3D4451", "Apoio acompanha a tinta.")
     elif kind == "type":
         set_token("weight-display", "800", "Título mais pesado, de peça.")
         set_token("tracking", "-0.03em", "Tracking fechado de anúncio, não de site.")
@@ -220,41 +241,61 @@ def _intent_note(intent):
     }.get(intent, "Melhoria na mesa.")
 
 
-def _mix_hex(color, other, amount):
-    left = normalize_hex(color)
-    right = normalize_hex(other)
-    if not left or not right:
-        return ""
-    mix = max(0.0, min(1.0, float(amount)))
-
-    def channel(hex_color, index):
-        return int(hex_color.lstrip("#")[index : index + 2], 16)
-
-    parts = []
-    for index in (0, 2, 4):
-        value = int(channel(left, index) * (1 - mix) + channel(right, index) * mix)
-        parts.append(f"{max(0, min(255, value)):02X}")
-    return f"#{''.join(parts)}"
-
-
 def advertising_brief(system):
     parsed = parse_system(system)
+    tokens = parsed.tokens or {}
     return {
         "framework": "design-system-ads",
+        "scope": parsed.scope,
         "name": parsed.name,
         "dna": parsed.dna,
         "archetype": parsed.archetype,
-        "tokens": parsed.tokens,
+        "tokens": tokens,
+        "effects": {
+            "wash-strength": tokens.get("wash-strength") or "16%",
+            "grain": tokens.get("grain") or "0",
+            "overlay": tokens.get("overlay") or "transparent",
+            "hairline": tokens.get("hairline") or "",
+            "cta-shadow": tokens.get("cta-shadow") or "none",
+        },
         "contrast": parsed.contrast,
         "copy": parsed.ad_copy,
+        "creative_line": parsed.creative_line,
         "rules": parsed.rules,
         "backgrounds": parsed.backgrounds,
         "tracks": parsed.tracks,
+        "evidence": parsed.evidence,
+        "fidelity": compile_fidelity(parsed),
+        "agent": {
+            "role": "diretor de arte desta marca, não de um kit genérico",
+            "wash_is_css": True,
+            "generate_tracks": ["packshot", "kv", "lifestyle"],
+            "prefer_assets": True,
+            "materials": [
+                str(item)
+                for item in (
+                    (parsed.evidence or {}).get("products")
+                    or (compile_fidelity(parsed).get("products") or [])
+                )[:4]
+            ],
+            "avoid_image_defaults": [
+                "cream #F4F1EA + terracotta",
+                "acid green on near-black",
+                "SaaS cards and soft grey shadows",
+                "stock handshake or glass office",
+                "website chrome, navbar, app UI",
+                "reconhecível / direta / de marca",
+            ],
+        },
         "must": [
             "Advertising OS, not a website kit.",
-            "Keep approved ink/paper/accent unless contrast fails.",
-            "Short copy. Recompose IAB, never resize.",
+            "Locked tokens in fidelity.locked_tokens stay in the same color family.",
+            "Never replace brand ink with CentralComm teal unless that is already the ink.",
+            "Prefer fidelity.assets on tracks before inventing a new image.",
+            "Wash is CSS (wash-strength + ink), never a generated gradient photo.",
+            "Short copy from this brand. Recompose IAB, never resize.",
             "Do not invent cream, terracotta, acid green or SaaS cards.",
+            "DNA and copy come from this brand's evidence, never generic traits.",
         ],
     }
 
@@ -283,8 +324,13 @@ def apply_compose(system, raw):
             payload["ad_copy"],
             (data.get("dna") or {}).get("name") or data.get("name"),
         )
+    effects = payload.get("effects") if isinstance(payload.get("effects"), dict) else {}
+    extra_patches = list(payload.get("patches") or [])
+    for key in ("wash-strength", "grain", "overlay", "cta-shadow", "hairline"):
+        if effects.get(key) not in (None, ""):
+            extra_patches.append({"token_id": key, "css": effects[key], "reason": "Efeito de mídia."})
     parsed = DesignSystemAds.model_validate(data)
-    parsed, applied = apply_token_patches(parsed, payload.get("patches") or [])
+    parsed, applied = apply_token_patches(parsed, lock_token_patches(parsed, extra_patches))
     parsed, _ = heal_contrast(parsed)
     data = dump_system(parsed)
     data["tracks"] = merge_tracks(data.get("tracks"), payload.get("tracks"))
@@ -305,12 +351,18 @@ def compose_design_system(system, *, text_callable=None, reference_urls=None):
         raise ValueError("OpenRouter não está configurado para montar o sistema.")
     brief = advertising_brief(parsed)
     brief["ask"] = (
-        "Escreva o Advertising OS desta marca em português. "
-        "JSON: dna{name,personality[3-5 traços concretos],must[],avoid[]}, archetype, "
-        "ad_copy{headline,support,cta,legal} como linha de anúncio (o que a marca vende, para quem), "
-        "patches[{token_id,css,reason}], tracks[{id,prompt}] packshot,kv,lifestyle,wash, notes[]. "
-        "Proibido na copy: design system, tinta certa, herda o tema, Tailwind, ver o sistema. "
-        "Prompts de trilha citam hex de ink/paper e deixam espaço para tipo."
+        "Escreva o Advertising OS desta MARCA em português. Não é campanha. "
+        "Use fidelity: tinta travada, setor, tom, produtos, forbidden e assets. "
+        "JSON: dna{name,personality[3-5 traços concretos desta marca],must[],avoid[]}, "
+        "archetype, ad_copy{headline,support,cta,legal} o que a marca vende e para quem, "
+        "patches[{token_id,css,reason}] só se o token falhar e só na família da tinta travada, "
+        "effects{wash-strength,grain,overlay,cta-shadow}, "
+        "tracks[{id,prompt}] packshot,kv,lifestyle,wash com material, luz, recorte e hex, notes[]. "
+        "Se fidelity.assets já tiver URL para uma trilha, não invente outra imagem. "
+        "Wash é CSS (wash-strength), não peça foto de gradiente. "
+        "Proibido: reconhecível, direta, de marca, Saiba mais, no primeiro olhar, design system, "
+        "tinta certa, herda o tema, Tailwind, cream, terracotta, card SaaS. "
+        "Wash é a lavagem DESTA tinta, não um campo genérico."
     )
     content = [{"type": "text", "text": json.dumps(brief, ensure_ascii=False)}]
     for url in [item for item in (reference_urls or []) if item][:4]:
@@ -345,26 +397,225 @@ def compose_design_system(system, *, text_callable=None, reference_urls=None):
 
 def seed_local_compose(system):
     from .copy import brand_ad_copy
+    from .materialize import GENERIC_TRAITS, _dna_from_evidence
 
     parsed = parse_system(system)
-    dna = dict(parsed.dna or {})
-    name = dna.get("name") or parsed.name or "A marca"
-    if not dna.get("personality"):
-        dna["personality"] = ["reconhecível", "direta", "de marca"]
-    if not dna.get("must"):
-        dna["must"] = ["logo reconhecível", "headline curta", "CTA com 4.5:1"]
-    if not dna.get("avoid"):
-        dna["avoid"] = ["resize cego", "card SaaS", "copy longa"]
+    name = (parsed.dna or {}).get("name") or parsed.name or "A marca"
+    dna = _dna_from_evidence(name, {}, {}, parsed.dna or {}, parsed.evidence or {})
+    personality = [
+        item for item in (dna.get("personality") or [])
+        if str(item).strip().lower() not in GENERIC_TRAITS
+    ]
+    if not personality:
+        short = name.replace(" Ads", "").strip() or "A marca"
+        product = next(
+            (str(item).strip() for item in (parsed.evidence or {}).get("products") or [] if str(item).strip()),
+            short,
+        )
+        personality = [f"{short} em close", f"{product} no primeiro plano"]
+    dna["personality"] = personality[:5]
     dna["name"] = name
+    copy = brand_ad_copy(name)
     return apply_compose(
         parsed,
         {
             "dna": dna,
             "archetype": parsed.archetype or "brand",
-            "ad_copy": brand_ad_copy(name),
-            "notes": ["Linha da marca assentada no loop."],
+            "ad_copy": copy,
+            "notes": ["Linha da marca assentada no loop, sem traço genérico."],
         },
     )
+
+
+def compose_campaign_design_system(system, campaign=None, *, text_callable=None):
+    parsed = parse_system(system)
+    campaign = campaign if isinstance(campaign, dict) else {}
+    if text_callable is None:
+        return seed_campaign_compose(parsed, campaign)
+    brief = advertising_brief(parsed)
+    brief["scope"] = "campaign"
+    brief["campaign"] = {
+        "name": campaign.get("name") or parsed.name,
+        "objective": campaign.get("objective") or "",
+        "campaign_text": campaign.get("campaign_text") or "",
+        "cta_text": campaign.get("cta_text") or "",
+        "creative_line": campaign.get("creative_line") or parsed.creative_line,
+    }
+    brief["ask"] = (
+        "Escreva a CAMPANHA desta marca em português. Não reescreva ink, paper nem accent. "
+        "JSON: creative_line (uma frase da temporada), ad_copy{headline,support,cta,legal} da oferta, "
+        "archetype (product-hero|lifestyle|promotion|brand), "
+        "tracks[{id,prompt}] só kv e lifestyle com a linha da campanha, "
+        "ground-kind paper|wash|image, notes[]. "
+        "Proibido: copiar a headline institucional da marca, Saiba mais, design system."
+    )
+    response = text_callable(
+        [
+            {
+                "role": "system",
+                "content": (
+                    "Você é o diretor de arte da campanha. "
+                    "A tinta da marca está travada. Copy e KV mudam. JSON only."
+                ),
+            },
+            {"role": "user", "content": json.dumps(brief, ensure_ascii=False)},
+        ],
+        model=resolve_chat_model(COMPOSE_MODEL),
+        max_tokens=900,
+        temperature=0.35,
+    )
+    raw = response["message"].get("content") if isinstance(response, dict) else response
+    if not isinstance(raw, dict):
+        try:
+            raw = _json_content(raw)
+        except Exception:
+            try:
+                raw = json.loads(str(raw))
+            except Exception as exc:
+                raise ValueError("O OpenRouter não devolveu a campanha.") from exc
+    return apply_campaign_compose(parsed, raw)
+
+
+def seed_campaign_compose(system, campaign=None):
+    campaign = campaign if isinstance(campaign, dict) else {}
+    parsed = parse_system(system)
+    name = str(campaign.get("name") or parsed.name or "Campanha").replace(" Ads", "").strip()
+    line = str(
+        campaign.get("creative_line")
+        or campaign.get("objective")
+        or parsed.creative_line
+        or f"{name} nesta temporada"
+    ).strip()[:240]
+    headline = str(
+        campaign.get("headline")
+        or campaign.get("campaign_text")
+        or name
+    ).strip().splitlines()[0][:80]
+    return apply_campaign_compose(
+        parsed,
+        {
+            "creative_line": line,
+            "ad_copy": {
+                "headline": headline or name,
+                "support": line,
+                "cta": campaign.get("cta_text") or "Reservar",
+                "legal": parsed.ad_copy.get("legal") if parsed.ad_copy else name,
+            },
+            "archetype": "promotion" if campaign.get("cta_text") else parsed.archetype or "lifestyle",
+            "ground-kind": "image" if campaign.get("assets") else "wash",
+            "notes": ["Campanha herda a tinta. Copy e linha mudam."],
+        },
+    )
+
+
+def apply_campaign_compose(system, raw):
+    from .components import ARCHETYPES, apply_background
+    from .copy import clean_ad_copy
+    from .tracks import merge_tracks
+
+    parsed = parse_system(system)
+    data = dump_system(parsed)
+    data["scope"] = "campaign"
+    payload = raw if isinstance(raw, dict) else {}
+    if payload.get("creative_line"):
+        data["creative_line"] = str(payload["creative_line"]).strip()[:240]
+    if isinstance(payload.get("ad_copy"), dict):
+        data["ad_copy"] = clean_ad_copy(payload["ad_copy"], data.get("name"))
+    archetype = str(payload.get("archetype") or data.get("archetype") or "brand")
+    if archetype in ARCHETYPES:
+        data["archetype"] = archetype
+    if payload.get("ground-kind"):
+        data["tokens"] = apply_background(
+            data.get("tokens") or {},
+            payload.get("ground-kind"),
+            image_url=(payload.get("tokens") or {}).get("ground") if isinstance(payload.get("tokens"), dict) else None,
+        )
+    if isinstance(payload.get("tracks"), list):
+        data["tracks"] = merge_tracks(data.get("tracks"), payload.get("tracks"))
+    composed = DesignSystemAds.model_validate(data)
+    report = DesignSystemPass(
+        attempt=len(composed.passes) + 1,
+        passed=True,
+        score=0.86,
+        notes=[str(item)[:200] for item in (payload.get("notes") or ["Campanha montada."])][:6],
+        patches=[],
+    )
+    return _append_pass(composed, report), report
+
+
+def review_fidelity(system, *, text_callable=None, reference_urls=None):
+    from .copy import is_stock_copy
+
+    parsed = parse_system(system)
+    if text_callable is None:
+        score = 0.74 if parsed.contrast.get("passed") and not is_stock_copy(parsed.ad_copy) else 0.48
+        notes = ["Revisão local: tinta da marca travada e copy sem estoque."]
+        reviewed = mark_reviewed(parsed, score=score, notes=notes)
+        report = DesignSystemPass(
+            attempt=len(reviewed.passes) + 1,
+            passed=score >= 0.7,
+            score=score,
+            notes=notes,
+            patches=[],
+        )
+        return _append_pass(reviewed, report), report
+
+    brief = advertising_brief(parsed)
+    brief["ask"] = (
+        "Revise a FIDELIDADE deste Advertising OS contra fidelity "
+        "(tinta travada, setor, tom, produtos, assets). "
+        "JSON: passed, score 0-1, notes[], defects[], "
+        "dna{name,personality,must,avoid} só se o DNA for genérico, "
+        "ad_copy{headline,support,cta,legal} só se a copy for estoque ou meta, "
+        "patches[{token_id,css,reason}] só na família de fidelity.locked_tokens. "
+        "Proibido trocar ink/paper/accent por outra marca. "
+        "Nunca use teal CentralComm se a tinta da marca não for teal."
+    )
+    content = [{"type": "text", "text": json.dumps(brief, ensure_ascii=False)}]
+    for url in [item for item in (reference_urls or []) if item][:4]:
+        content.append({"type": "image_url", "image_url": {"url": url}})
+    try:
+        response = text_callable(
+            [
+                {
+                    "role": "system",
+                    "content": (
+                        "Você revisa fidelidade de Advertising OS. "
+                        "A tinta extraída é lei. Copy de anúncio em português. JSON only."
+                    ),
+                },
+                {"role": "user", "content": content},
+            ],
+            model=resolve_chat_model(COMPOSE_MODEL),
+            max_tokens=900,
+            temperature=0.15,
+        )
+    except Exception:
+        reviewed = mark_reviewed(parsed, score=0.5, notes=["A revisão não concluiu."])
+        report = DesignSystemPass(
+            attempt=len(reviewed.passes) + 1,
+            passed=bool(parsed.contrast.get("passed")),
+            score=0.5,
+            defects=["A revisão de fidelidade não concluiu."],
+            patches=[],
+        )
+        return _append_pass(reviewed, report), report
+    raw = response["message"].get("content") if isinstance(response, dict) else response
+    if not isinstance(raw, dict):
+        try:
+            raw = _json_content(raw)
+        except Exception:
+            try:
+                raw = json.loads(str(raw))
+            except Exception:
+                raw = {"passed": False, "notes": ["A revisão não devolveu JSON."]}
+    composed, report = apply_compose(parsed, raw)
+    try:
+        score = float(raw.get("score") or report.score or 0)
+    except (TypeError, ValueError):
+        score = report.score or 0.0
+    reviewed = mark_reviewed(composed, score=score, notes=report.notes)
+    return reviewed, report
 
 
 def advance_loop(system, *, text_callable=None, reference_urls=None):
@@ -384,6 +635,10 @@ def advance_loop(system, *, text_callable=None, reference_urls=None):
             parsed, report = seed_local_compose(parsed)
     elif info["action"] == "contrast":
         parsed, report = improve_system(parsed, "contrast")
+    elif info["action"] == "review":
+        parsed, report = review_fidelity(
+            parsed, text_callable=text_callable, reference_urls=reference_urls
+        )
     elif info["action"] == "rules":
         data = dump_system(parsed)
         data["rules"] = compile_rules(data.get("dna"), data.get("archetype"))
@@ -514,5 +769,8 @@ def _review_tokens(system, *, attempt, text_callable, reference_urls=None):
         score=max(0.0, min(1.0, score)),
         defects=[str(item)[:200] for item in (raw.get("defects") or [])][:8],
         notes=[str(item)[:200] for item in (raw.get("notes") or [])][:8],
-        patches=[item for item in (raw.get("patches") or []) if isinstance(item, dict)][:12],
+        patches=lock_token_patches(
+            parsed,
+            [item for item in (raw.get("patches") or []) if isinstance(item, dict)][:12],
+        ),
     )

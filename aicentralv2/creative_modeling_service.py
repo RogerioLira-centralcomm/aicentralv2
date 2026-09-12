@@ -1269,6 +1269,9 @@ class CreativeModelingService:
         client = self.get_client(client_id)
         stored = self._stored_brand_design_system(client)
         if stored:
+            from .design_system_ads.fidelity import attach_client_evidence
+
+            stored = attach_client_evidence(stored, client)
             return _serialize({**payload_for(stored), "exists": True, "preset": False})
         from .design_system_ads.materialize import ensure_brand_design_system
 
@@ -1455,11 +1458,19 @@ class CreativeModelingService:
             if system is None:
                 raise CreativeNotFoundError("A marca ainda não tem Design System Ads.")
             persist = True
-        prompt = prompt_for_track(system, spec["id"], extra)
+        refs = self._track_input_references(system, spec["id"], client)
+        extra_text = str(extra or "").strip()
+        if refs:
+            extra_text = (
+                f"{extra_text} Use the attached brand images as the real product and mark. "
+                "Do not invent a different SKU, bottle or logo."
+            ).strip()
+        prompt = prompt_for_track(system, spec["id"], extra_text)
         result = generate_image(
             prompt,
             aspect_ratio=spec["aspect"],
             model="openai/gpt-image-2",
+            input_references=refs,
         )
         encoded = (result or {}).get("b64_json")
         if not encoded:
@@ -2006,6 +2017,60 @@ class CreativeModelingService:
                 self.repository.set_client_logo(client_id, item["asset_path"])
             saved.append(data)
         return _serialize(saved)
+
+    def _track_input_references(self, system, track_id, client=None):
+        from .design_system_ads.fidelity import track_reference_urls
+
+        refs = []
+        for url in track_reference_urls(system, track_id, client):
+            resolved = self._public_image_reference(url)
+            if not resolved:
+                continue
+            refs.append(resolved)
+            if len(refs) >= 2:
+                break
+        return refs
+
+    def _public_image_reference(self, url):
+        text = str(url or "").strip()
+        if not text:
+            return None
+        if text.startswith("data:image/"):
+            return text
+        data = self._asset_as_data_url({"asset_path": text})
+        if data:
+            return data
+        try:
+            if "/creative_generated/" in text:
+                return self.storage.generated_as_data_url(text)
+        except ValueError:
+            pass
+        raw = self._read_logo_path(text, getattr(self.storage, "read_public_bytes", None))
+        if not raw:
+            raw = self._static_file_bytes(text)
+        if raw:
+            mime = "image/jpeg" if text.lower().endswith((".jpg", ".jpeg")) else (
+                "image/webp" if text.lower().endswith(".webp") else "image/png"
+            )
+            encoded = base64.b64encode(raw).decode("ascii")
+            return f"data:{mime};base64,{encoded}"
+        if text.startswith(("http://", "https://")):
+            return text
+        return None
+
+    def _static_file_bytes(self, public_path):
+        from pathlib import Path
+
+        value = str(public_path or "")
+        if not value.startswith("/static/"):
+            return None
+        try:
+            from flask import current_app
+
+            path = Path(current_app.root_path) / value.lstrip("/")
+            return path.read_bytes() if path.is_file() else None
+        except Exception:
+            return None
 
     def _asset_as_data_url(self, asset):
         path = asset.get("asset_path") if isinstance(asset, dict) else asset

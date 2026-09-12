@@ -8,7 +8,7 @@ TRACKS = (
         "label": "Produto",
         "aspect": "1:1",
         "role": "product",
-        "hint": "Packshot recortável, fundo limpo, produto reconhecível.",
+        "hint": "Packshot recortável, fundo limpo, produto da marca.",
     },
     {
         "id": "kv",
@@ -22,7 +22,7 @@ TRACKS = (
         "label": "Lifestyle",
         "aspect": "16:9",
         "role": "visual",
-        "hint": "Cena humana na tinta da marca, sem chrome de site.",
+        "hint": "Cena humana no mundo desta marca, sem chrome de site.",
     },
     {
         "id": "wash",
@@ -74,28 +74,67 @@ def track_spec(track_id):
 
 def prompt_for_track(system, track_id, extra=""):
     spec = track_spec(track_id)
-    tokens = getattr(system, "tokens", None) or (system or {}).get("tokens") or {}
-    dna = getattr(system, "dna", None) or (system or {}).get("dna") or {}
-    copy = getattr(system, "ad_copy", None) or (system or {}).get("ad_copy") or {}
-    name = dna.get("name") or getattr(system, "name", None) or "a marca"
-    ink = tokens.get("ink") or "#1E4D4F"
+    payload = system if isinstance(system, dict) else {}
+    tokens = getattr(system, "tokens", None) or payload.get("tokens") or {}
+    dna = getattr(system, "dna", None) or payload.get("dna") or {}
+    copy = getattr(system, "ad_copy", None) or payload.get("ad_copy") or {}
+    evidence = getattr(system, "evidence", None)
+    if not isinstance(evidence, dict):
+        evidence = payload.get("evidence") or {}
+    tracks = getattr(system, "tracks", None)
+    if tracks is None:
+        tracks = payload.get("tracks") or []
+    name = dna.get("name") or getattr(system, "name", None) or "the brand"
+    ink = tokens.get("ink") or "#111111"
     paper = tokens.get("paper") or "#FFFFFF"
-    highlight = tokens.get("highlight") or "#F3B71B"
-    personality = ", ".join(dna.get("personality") or ["reconhecível"])
-    must = "; ".join(dna.get("must") or ["logo e produto reconhecíveis"])
-    avoid = "; ".join(dna.get("avoid") or ["card SaaS", "resize", "copy longa"])
+    highlight = tokens.get("highlight") or ink
+    products = [str(item).strip() for item in (evidence.get("products") or []) if str(item).strip()]
+    product = products[0] if products else name
+    sector = str(evidence.get("sector") or "").strip()
+    tone = str(evidence.get("tone") or "").strip()
+    personality = ", ".join(
+        item for item in (dna.get("personality") or []) if str(item).strip()
+    ) or f"{name}, {sector}".strip(", ")
+    must = "; ".join(dna.get("must") or ["logo and product of this brand"])
+    avoid = "; ".join(
+        dna.get("avoid")
+        or ["SaaS cards", "resize", "stock handshake", "cream terracotta", "acid green"]
+    )
     stored = ""
-    for item in getattr(system, "tracks", None) or (system or {}).get("tracks") or []:
+    for item in tracks or []:
         if isinstance(item, dict) and item.get("id") == track_id and item.get("prompt"):
             stored = str(item["prompt"]).strip()
             break
     brief = stored or spec["hint"]
     extra = str(extra or "").strip()
+    world = f"{name} in {sector}" if sector else name
+    if track_id == "packshot":
+        direction = (
+            f"Studio packshot of the real {product} from {name}, clipped on {paper}, "
+            f"brand ink {ink} in the label or shadow, hard but soft-edged key light, "
+            f"recognizable silhouette of THIS product, 28 percent of frame, "
+            f"room on the right for type. Not a generic bottle."
+        )
+    elif track_id == "kv":
+        direction = (
+            f"16:9 master key visual for {world}. Negative space for a 2-line headline and CTA. "
+            f"Brand ink {ink} as the signal, paper {paper} as the field, highlight {highlight} only once. "
+            f"{tone + ' tone. ' if tone else ''}Art directed, not a website hero."
+        )
+    elif track_id == "lifestyle":
+        direction = (
+            f"Lived scene of someone using {product} in the world of {world}, "
+            f"ink {ink} in wardrobe or light, {tone or 'brand'} atmosphere, "
+            f"no stock handshake, no office glass, no navbar."
+        )
+    else:
+        direction = (
+            f"Abstract wash of {name} ink {ink} on {paper}, pigment and paper grain, "
+            f"no photography, no logo, no UI. This is the brand's stain, not a gradient."
+        )
     return (
-        f"Advertising still for {name}. {brief} "
-        f"Brand ink {ink}, paper {paper}, highlight {highlight}. "
-        f"Personality: {personality}. Must: {must}. Avoid: {avoid}. "
-        f"Headline space for: {copy.get('headline') or 'short line'}. "
-        f"No website UI, no app chrome, no cream terracotta SaaS kit, no watermarks. "
-        f"{extra}"
+        f"{direction} {brief} Personality: {personality}. Must: {must}. Avoid: {avoid}. "
+        f"Headline space for: {copy.get('headline') or name}. "
+        f"No website UI, no app chrome, no cream terracotta SaaS kit, no watermarks, "
+        f"no generic stock. {extra}"
     ).strip()

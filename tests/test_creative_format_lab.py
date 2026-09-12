@@ -96,6 +96,8 @@ class CreativeFormatLabTest(unittest.TestCase):
         banner = load_format_skill("iab-billboard")
         self.assertIn("IAB banner", banner)
         self.assertIn("layer-headline", banner)
+        self.assertIn("feed-4x5", banner)
+        self.assertIn("linkedin-landscape", banner)
         self.assertIn("video-linear-15", FORMAT_SKILL_KEYS)
         self.assertIn("ctv-video-linear-30", FORMAT_SKILL_KEYS)
         self.assertIn("iab-billboard", FORMAT_SKILL_KEYS)
@@ -531,6 +533,348 @@ class CreativeFormatLabTest(unittest.TestCase):
         self.assertEqual(called["roles"], ["system", "user"])
         self.assertEqual(called["urls"], ["https://cdn.example/ok.jpg"])
         self.assertEqual(len(board["storyboard"]), 4)
+
+    def test_engenheiro_nao_manda_orchestrator_no_system(self):
+        from aicentralv2.creative_skills.loader import combined_system_prompt, load_bundle
+
+        bundle = load_bundle("create", "video-linear-15")
+        system = combined_system_prompt(bundle, ["create"])
+        self.assertIn("CreativeFormatSpec", system)
+        self.assertNotIn("Your job is NOT to directly design", system)
+        self.assertNotIn("loading every skill", system)
+
+    def test_spec_aceita_cenas_sem_id_na_ordem(self):
+        spec = parse_format_spec(
+            {
+                "format": "video-linear-15",
+                "scenes": [
+                    {"title": "A", "beat": "hook"},
+                    {"headline": "B", "role": "product"},
+                    {"headline": "C"},
+                    {"headline": "D", "purpose": "cta"},
+                ],
+            },
+            expected_format="video-linear-15",
+        )
+        self.assertEqual([item.id for item in spec.scenes], ["scene_01", "scene_02", "scene_03", "scene_04"])
+        self.assertEqual(spec.scenes[0].headline, "A")
+        self.assertEqual(spec.scenes[0].purpose, "hook")
+
+    def test_spec_aceita_cenas_como_objeto(self):
+        spec = parse_format_spec(
+            {
+                "format": "video-linear-15",
+                "scenes": {
+                    "scene_01": {"headline": "A", "purpose": "brand"},
+                    "scene_02": {"headline": "B", "purpose": "product"},
+                    "scene_03": {"headline": "C", "purpose": "lifestyle"},
+                    "scene_04": {"headline": "D", "purpose": "cta"},
+                },
+            },
+            expected_format="video-linear-15",
+        )
+        self.assertEqual([item.id for item in spec.scenes], ["scene_01", "scene_02", "scene_03", "scene_04"])
+        self.assertEqual(spec.scenes[0].headline, "A")
+
+    def test_refine_manda_delta_e_nao_a_campanha_inteira(self):
+        import json
+
+        payloads = []
+
+        def fake(messages, **_kwargs):
+            content = messages[-1]["content"]
+            text = content if isinstance(content, str) else next(
+                block.get("text") for block in content if isinstance(block, dict) and block.get("type") == "text"
+            )
+            payloads.append(json.loads(text))
+            return {
+                "message": {
+                    "content": {
+                        "intent": "create",
+                        "format": "video-linear-15",
+                        "variant": "C",
+                        "adapter": "generic_ctv",
+                        "platform_label": "CTV",
+                        "brand_name": "Vivara",
+                        "scenes": [
+                            {"id": "scene_01", "headline": "Alguns momentos pedem marca.", "purpose": "brand"},
+                            {"id": "scene_02", "headline": "A peça que fica.", "purpose": "product"},
+                            {"id": "scene_03", "headline": "Quem ganha, lembra.", "purpose": "lifestyle"},
+                            {"id": "scene_04", "headline": "Encontre a peça.", "purpose": "cta", "cta": "Encontre a peça"},
+                        ],
+                    }
+                }
+            }
+
+        board = build_storyboard(
+            {"campaign_slug": "vivara-presente-ctv", "scene_count": 4},
+            client={"id": 22, "name": "Vivara"},
+            text_callable=fake,
+        )
+        self.assertEqual(len(payloads), 2)
+        create, refine = payloads
+        self.assertEqual(create["intent"], "create")
+        self.assertIn("scenes", create["campaign"])
+        self.assertNotIn("scenes", refine["campaign"])
+        self.assertEqual(refine["campaign"]["slug"], "vivara-presente-ctv")
+        self.assertEqual(len(refine["draft"]["scenes"]), 4)
+        self.assertTrue(refine["locked"])
+        self.assertEqual(refine["locked"][0]["headline"], "Alguns momentos pedem marca.")
+        self.assertIn("Do not replace locked headline", " ".join(refine["rules"]))
+        self.assertTrue(refine["improve"])
+        self.assertEqual(board["storyboard"][0]["headline"], "Alguns momentos pedem marca.")
+
+    def test_mockup_manda_estado_da_placa(self):
+        import json
+
+        payloads = []
+        images = []
+
+        def fake(messages, **_kwargs):
+            content = messages[-1]["content"]
+            text = next(block.get("text") for block in content if block.get("type") == "text")
+            payloads.append(json.loads(text))
+            images.append([
+                (block.get("image_url") or {}).get("url")
+                for block in content
+                if block.get("type") == "image_url"
+            ])
+            return {"message": {"content": {"passed": True, "score": 0.8, "patches": [], "css_vars": {}}}}
+
+        run_session(
+            {
+                "campaign_slug": "vivara-presente-ctv",
+                "stage": "mockup",
+                "mockup_passes": 2,
+                "images": ["https://cdn.example/vivara-caixa.jpg"],
+            },
+            client={"id": 22, "name": "Vivara"},
+            text_callable=fake,
+            screenshot=_shot,
+        )
+        self.assertEqual(len(payloads), 2)
+        self.assertTrue(payloads[0]["layers"])
+        self.assertIn("layer-headline", {item["id"] for item in payloads[0]["layers"]})
+        self.assertFalse(payloads[0]["has_previous_still"])
+        self.assertFalse(payloads[1]["has_previous_still"])
+        self.assertFalse(any(url and str(url).startswith("data:image/") for url in images[1]))
+        self.assertNotIn("<html", json.dumps(payloads[0]))
+
+    def test_qa_manda_headline_camadas_e_marca(self):
+        import json
+
+        seen = {}
+
+        def fake(messages, **_kwargs):
+            content = messages[-1]["content"]
+            text = next(block.get("text") for block in content if block.get("type") == "text")
+            seen["payload"] = json.loads(text)
+            return {
+                "message": {
+                    "content": {"passed": True, "score": 0.9, "defects": [], "patches": []}
+                }
+            }
+
+        spec = build_spec(
+            route={
+                "format": "video-linear-15",
+                "adapter": "generic_ctv",
+                "platform_label": "CTV",
+            },
+            brand_name="Vivara",
+            campaign=load_campaign_model("vivara-presente-ctv"),
+        )
+        scenes = [
+            {
+                "id": spec.scenes[0].id,
+                "html": build_scene_html(spec, spec.scenes[0]),
+                "headline": spec.scenes[0].headline,
+                "support": spec.scenes[0].support,
+                "purpose": spec.scenes[0].purpose,
+                "logo_visible": True,
+            }
+        ]
+        run_qa_loop(
+            spec=spec,
+            scenes=scenes,
+            renders=1,
+            text_callable=fake,
+            screenshot=_shot,
+            brand={"name": "Vivara", "palette": ["#C4A574"], "forbidden_elements": ["preço"]},
+        )
+        payload = seen["payload"]
+        self.assertEqual(payload["scene"]["headline"], "Alguns momentos pedem marca.")
+        self.assertEqual(payload["brand"]["name"], "Vivara")
+        self.assertEqual(payload["locked"]["headline"], "Alguns momentos pedem marca.")
+        self.assertFalse(payload["has_render"])
+        self.assertIn("layer-headline", payload["layer_ids"])
+        self.assertTrue(payload["layers"])
+
+    def test_qa_nao_aplica_cta_generico(self):
+        from aicentralv2.creative_format_lab.visual_qa import lock_copy_patches
+
+        kept = lock_copy_patches(
+            [
+                {"layer_id": "layer-headline", "text": "Alguns momentos pedem marca."},
+                {"layer_id": "layer-cta", "text": "Explore Now"},
+                {"layer_id": "layer-cta", "text": "Encontre a peça"},
+            ],
+            {"headline": "Alguns momentos pedem marca.", "cta": "Encontre a peça"},
+        )
+        texts = [item.get("text") for item in kept]
+        self.assertIn("Alguns momentos pedem marca.", texts)
+        self.assertIn("Encontre a peça", texts)
+        self.assertNotIn("Explore Now", texts)
+
+    def test_qa_sem_still_ignora_typo_inventado(self):
+        from aicentralv2.creative_format_lab.visual_qa import png_data_url, review_render
+
+        spec = build_spec(
+            route={
+                "format": "video-linear-15",
+                "adapter": "generic_ctv",
+                "platform_label": "CTV",
+            },
+            brand_name="Vivara",
+            campaign=load_campaign_model("vivara-presente-ctv"),
+        )
+        scene = spec.scenes[0]
+
+        def fake(*_args, **_kwargs):
+            return {
+                "message": {
+                    "content": {
+                        "passed": False,
+                        "score": 0.8,
+                        "defects": [
+                            "The headline text has a typo: 'momentospedem'.",
+                            "The CTA layer contains placeholder text 'CTA'.",
+                        ],
+                        "patches": [{"layer_id": "layer-cta", "text": "Explore Now"}],
+                    }
+                }
+            }
+
+        report = review_render(
+            spec=spec,
+            scene_html=build_scene_html(spec, scene),
+            render_url=png_data_url(TINY_PNG),
+            attempt=1,
+            scene={
+                "id": scene.id,
+                "purpose": scene.purpose,
+                "headline": scene.headline,
+                "support": scene.support,
+                "cta": scene.cta,
+            },
+            brand={"name": "Vivara"},
+            text_callable=fake,
+        )
+        self.assertTrue(report.passed)
+        self.assertEqual(report.defects, [])
+        self.assertFalse(any((item.text or "") == "Explore Now" for item in report.patches))
+
+    def test_stack_brand_mantem_logo_mesmo_sem_flag(self):
+        stack = build_stack(
+            {
+                "id": "scene_01",
+                "purpose": "brand",
+                "headline": "Alguns momentos pedem marca.",
+                "logo_visible": False,
+            },
+            brand={"name": "Vivara", "primary_color": "#C4A574"},
+        )
+        self.assertTrue(any(item["role"] == "logo" for item in stack["layers"]))
+        self.assertTrue(check_stack(stack)["passed"], check_stack(stack)["defects"])
+
+    def test_fechar_usa_image_prompt_da_campanha(self):
+        seen = []
+
+        def fake(prompt, **kwargs):
+            seen.append(prompt)
+            return TINY_PNG
+
+        close_scene(
+            {
+                "id": "scene_02",
+                "purpose": "product",
+                "headline": "A peça que fica.",
+                "image_prompt": "Macro 16:9 of a yellow-gold ring on dark linen.",
+            },
+            brand={"name": "Vivara"},
+            image_callable=fake,
+        )
+        self.assertTrue(seen)
+        self.assertIn("yellow-gold ring", seen[0])
+        self.assertIn("opaque background", seen[0])
+        self.assertNotIn("transparent background", seen[0])
+
+    def test_offer_da_campanha_vence_o_titulo_da_mesa(self):
+        from aicentralv2.creative_format_lab.engineer import normalize_knobs
+
+        knobs = normalize_knobs(
+            {"offer": "O presente que marca o momento", "scene_count": 4},
+            load_campaign_model("vivara-presente-ctv"),
+        )
+        self.assertIn("joia", knobs["offer"].lower())
+        self.assertNotEqual(knobs["offer"], "O presente que marca o momento")
+
+    def test_qa_segunda_pass_leva_defeitos_anteriores(self):
+        import json
+
+        payloads = []
+
+        def fake(messages, **_kwargs):
+            content = messages[-1]["content"]
+            text = next(block.get("text") for block in content if block.get("type") == "text")
+            payloads.append(json.loads(text))
+            return _qa_fail()
+
+        spec = build_spec(
+            route={
+                "format": "video-linear-15",
+                "adapter": "generic_ctv",
+                "platform_label": "CTV",
+            },
+            brand_name="Vivara",
+            campaign=load_campaign_model("vivara-presente-ctv"),
+        )
+        run_qa_loop(
+            spec=spec,
+            scenes=[{
+                "id": spec.scenes[0].id,
+                "html": build_scene_html(spec, spec.scenes[0]),
+                "headline": spec.scenes[0].headline,
+                "key_visual": "https://cdn.example/vivara-caixa.jpg",
+            }],
+            renders=2,
+            reference_urls=["https://cdn.example/vivara-anel.jpg"],
+            text_callable=fake,
+            screenshot=_shot,
+            brand={"name": "Vivara"},
+        )
+        self.assertEqual(payloads[0].get("prior"), {})
+        self.assertIn("CTA fora do lugar", payloads[1]["prior"]["defects"])
+
+    def test_ledger_cobra_o_modelo_que_a_mesa_chama(self):
+        from aicentralv2.creative_format_lab.lab_models import lab_chat_model
+
+        repository = FakeRepository()
+        modeling = CreativeModelingService(repository=repository, generator=FakeGenerator())
+        lab = FormatLabService(modeling)
+        session = lab.create_session({"client_id": 10, "campaign_id": 30})
+        lab.storyboard(session["id"], {"campaign_slug": "vivara-presente-ctv", "scene_count": 4})
+        self.assertEqual(repository.jobs[-1]["args"][5], lab_chat_model("storyboard"))
+        self.assertEqual(
+            repository.concept_passes[session["id"]][-1]["model"],
+            lab_chat_model("storyboard"),
+        )
+        lab.mockup(session["id"], {
+            "campaign_slug": "vivara-presente-ctv",
+            "text_callable": None,
+            "screenshot": _shot,
+        })
+        self.assertEqual(repository.jobs[-1]["args"][5], lab_chat_model("mockup"))
 
     def test_conceito_e_base_viram_historico_da_campanha(self):
         repository = FakeRepository()
@@ -1052,8 +1396,8 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("modelagem_trocar", shell)
         self.assertIn("modelagem_design-system", shell)
         desk = (root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html").read_text(encoding="utf-8")
-        self.assertIn("modelagem_criativos.css') }}?v=91", desk)
-        self.assertIn("mc_page_js) }}?v=36", desk)
+        self.assertIn("modelagem_criativos.css') }}?v=93", desk)
+        self.assertIn("mc_page_js) }}?v=42", desk)
         dsa = (root / "aicentralv2" / "templates" / "parametros" / "_mc_design_system.html").read_text(encoding="utf-8")
         self.assertLess(dsa.find("mc-dsa-preview"), dsa.find("mc-dsa-side"))
         self.assertIn("Montar", dsa)
@@ -1101,7 +1445,7 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("mcMesaTrace", html)
         self.assertIn("mcMesaOps", html)
         self.assertIn("Ordem do 15s", html)
-        self.assertIn("Define a direção da cena", html)
+        self.assertIn("As batidas do 15s", html)
         self.assertIn("mcMesaStrip", html)
         self.assertIn("Abrir Marcas", html)
         self.assertIn("data-state", html)
@@ -1175,6 +1519,12 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("mcSwapElements", trocar)
         self.assertIn("Editar criativo com IA", trocar)
         self.assertIn("Prompt otimizado", trocar)
+        self.assertIn("mcTrocrRisk", trocar)
+        self.assertIn("mcTrocrForceImage", trocar)
+        self.assertIn("mcTrocrRoute", trocar)
+        self.assertIn("mcTrocrDates", trocar)
+        self.assertIn("Tipo na foto", trocar)
+        self.assertIn("Compor na foto", trocar)
         self.assertIn("Todas as versões são preservadas", trocar)
         states = (trocar_dir / "trocr" / "states.html").read_text(encoding="utf-8")
         self.assertIn("Canvas vazio", states)
@@ -1198,6 +1548,12 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("useAsBase", swap_js)
         self.assertIn("Usar como base", swap_js)
         self.assertIn("rotateLayout", swap_js)
+        self.assertIn("paintRisk", swap_js)
+        self.assertIn("paintRoute", swap_js)
+        self.assertIn("force_image", swap_js)
+        self.assertIn("typeset", swap_js)
+        self.assertIn("Compor na foto", swap_js)
+        self.assertIn("mcTrocrDates", swap_js)
         self.assertIn("renderEditPanels", swap_js)
         placas = (root / "aicentralv2" / "templates" / "parametros" / "_mc_placas.html").read_text(encoding="utf-8")
         self.assertIn("mcPlacasStudio", placas)
@@ -1550,6 +1906,99 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
         self.assertIn("analysis", result)
         self.assertTrue(result["analysis"]["logo"])
         self.assertTrue(result["analysis"]["headline"])
+
+    def test_cartela_de_elenco_compõe_tipo_sem_image2(self):
+        from aicentralv2.creative_format_lab.swap import (
+            looks_scrambled,
+            score_swap_copy,
+            swap_mode,
+            swap_reference,
+        )
+
+        fixture = Path(__file__).resolve().parent / "fixtures" / "creatives" / "arraial-1x1.png"
+        raw = fixture.read_bytes()
+        reference = "data:image/png;base64," + __import__("base64").b64encode(raw).decode("ascii")
+        payload = {
+            "reference": reference,
+            "aspect_ratio": "1:1",
+            "preserve": ["layout", "people", "colors", "graphic"],
+            "alter": ["secondary"],
+            "support": "Entrada franca",
+            "elements": [
+                {"role": "person", "text": "Mumuzinho"},
+                {"role": "person", "text": "Zé Vaqueiro"},
+                {"role": "person", "text": "Chama Chuva"},
+                {"role": "person", "text": "Felipe Araújo"},
+            ],
+            "faces": 6,
+        }
+        self.assertEqual(swap_mode(payload), "typeset")
+        called = {"n": 0}
+
+        def boom(*_a, **_k):
+            called["n"] += 1
+            raise AssertionError("Image 2 não deveria rodar")
+
+        result = swap_reference(payload, image_callable=boom)
+        self.assertEqual(result["mode"], "typeset")
+        self.assertEqual(called["n"], 0)
+        self.assertTrue(result["png_data_url"].startswith("data:image/png"))
+        self.assertEqual(result["patches"][0]["text"], "Entrada franca")
+        from PIL import Image
+        import io
+        original = Image.open(io.BytesIO(raw)).convert("RGB")
+        painted = Image.open(
+            io.BytesIO(__import__("base64").b64decode(result["png_data_url"].split(",", 1)[1]))
+        ).convert("RGB")
+        self.assertEqual(original.size, painted.size)
+        self.assertEqual(original.getpixel((320, 280)), painted.getpixel((320, 280)))
+        self.assertEqual(original.getpixel((430, 250)), painted.getpixel((430, 250)))
+        self.assertFalse(looks_scrambled("Entrada franca"))
+        self.assertTrue(looks_scrambled("Entradada franceça"))
+        scored = score_swap_copy(
+            {"support": "Entrada franca", "elements": [{"role": "person", "text": "Mumuzinho"}]},
+            locks=["Entrada franca", "Mumuzinho"],
+            forbidden=["É de graça"],
+        )
+        self.assertEqual(scored["accuracy"], 1.0)
+        self.assertFalse(scored["scrambled"])
+
+    def test_prompt_de_item_nao_pede_troca_de_marca(self):
+        from aicentralv2.creative_format_lab.swap import score_swap_copy
+
+        prompt = build_optimized_prompt(
+            {
+                "headline": "Te encontro no Arraial de Belô",
+                "support": "É de graça!",
+                "aspect_ratio": "1:1",
+                "preserve": ["layout", "people", "colors", "graphic"],
+                "alter": ["secondary"],
+                "locks": ["Mumuzinho", "Mineirinho", "Belô Horizonte"],
+                "note": "Trocar só o selo 'É de graça!' por 'Entrada franca'.",
+            }
+        )
+        self.assertIn("item swap", prompt)
+        self.assertIn("name-pill", prompt)
+        self.assertIn("Mumuzinho", prompt)
+        self.assertIn("glyph by glyph", prompt)
+        self.assertIn("Clone those text regions", prompt)
+        self.assertIn("Change only", prompt)
+        self.assertNotIn("Swap only the advertised brand, product and copy", prompt)
+        risk = preview_swap_prompt(
+            {
+                "preserve": ["people"],
+                "alter": ["secondary"],
+                "faces": 6,
+            }
+        )["risk"]
+        self.assertEqual(risk["level"], "high")
+        scored = score_swap_copy(
+            {"support": "Entrada franca", "elements": [{"role": "person", "text": "Mumuzinho"}]},
+            locks=["Mumuzinho", "Entrada franca"],
+            forbidden=["É de graça"],
+        )
+        self.assertEqual(scored["accuracy"], 1.0)
+        self.assertEqual(scored["misses"], [])
 
     def test_prompt_otimizado_respeita_preservar_e_qualidade(self):
         prompt = build_optimized_prompt(

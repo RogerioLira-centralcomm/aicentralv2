@@ -9,16 +9,18 @@
       <p class="mc-dsa-offer" id="mcDsaOffer">A marca ainda não tem linha de anúncio.</p>
     </div>
     <div class="mc-dsa-actions">
-      <button class="cx-btn cx-btn-primary" type="button" id="mcDsaCreate">Montar</button>
+      <button class="cx-btn cx-btn-primary" type="button" id="mcDsaCreate">Montar a marca</button>
+      <button class="cx-btn" type="button" id="mcDsaCampaignMount">Montar campanha</button>
       <button class="cx-btn" type="button" id="mcDsaApprove" disabled>Aprovar</button>
     </div>
   </header>
   <p class="mc-dsa-status" id="mcDsaStatus"></p>
-  <div class="mc-dsa-catalog" id="mcDsaCatalog"></div>
-  <section class="mc-dsa-stage" id="mcDsaStage" hidden>
+  <section class="mc-dsa-stage" id="mcDsaStage">
     <div class="mc-dsa-preview" aria-label="Peça IAB">
       <iframe class="mc-dsa-frame" id="mcDsaFrame" title="Peça IAB" src="/lab/design-system/marca/centralcomm?format=iab-billboard&layers=4"></iframe>
       <p class="mc-dsa-pass" id="mcDsaPass"></p>
+      <div class="mc-dsa-grounds" id="mcDsaGrounds" aria-label="Fundos"></div>
+      <div class="mc-dsa-arches is-board" id="mcDsaArchBoard" aria-label="Arquétipos"></div>
     </div>
     <aside class="mc-dsa-side" aria-label="Montagem IAB">
       <label class="cx-field">
@@ -35,6 +37,7 @@
       </label>
       <p class="mc-dsa-stack-lead">Clique para marcar na peça.</p>
       <ol class="mc-dsa-layers-list" id="mcDsaLayerList"></ol>
+      <div class="mc-dsa-catalog" id="mcDsaCatalog"></div>
     </aside>
   </section>
 </article>

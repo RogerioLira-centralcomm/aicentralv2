@@ -12,6 +12,7 @@ from .components import (
     density_for,
 )
 from .layouts import recipe_for
+from .learn import curriculum, training_catalog
 from .schema import parse_system
 
 FLOW = (
@@ -70,6 +71,16 @@ def catalog_for(system, *, client_id=None):
         "components": _components(parsed, copy, tokens),
         "iab_formats": _formats(),
         "archetypes": _archetypes(parsed, slug),
+        "backgrounds": _backgrounds(parsed),
+        "effects": {
+            "wash-strength": tokens.get("wash-strength") or "16%",
+            "grain": tokens.get("grain") or "0",
+            "overlay": tokens.get("overlay") or "transparent",
+            "hairline": tokens.get("hairline") or "",
+            "cta-shadow": tokens.get("cta-shadow") or "none",
+        },
+        "creative_line": parsed.creative_line or "",
+        "scope": parsed.scope,
         "rules": parsed.rules or {},
         "flow": [
             {
@@ -81,24 +92,32 @@ def catalog_for(system, *, client_id=None):
             for key, label in FLOW
         ],
         "loop": loop,
+        "curriculum": curriculum(),
+        "training": training_catalog(),
     }
 
 
 def inspect_loop(system):
     parsed = parse_system(system)
     dna = parsed.dna or {}
-    personality = [item for item in (dna.get("personality") or []) if str(item).strip()]
-    must = [item for item in (dna.get("must") or []) if str(item).strip()]
-    missing = [
-        item["id"]
-        for item in (parsed.tracks or [])
-        if isinstance(item, dict) and item.get("id") and not item.get("url")
+    from .copy import is_stock_copy
+    from .fidelity import missing_required_tracks, needs_fidelity_review
+    from .materialize import GENERIC_TRAITS
+
+    personality = [
+        item
+        for item in (dna.get("personality") or [])
+        if str(item).strip() and str(item).strip().lower() not in GENERIC_TRAITS
     ]
+    must = [item for item in (dna.get("must") or []) if str(item).strip()]
+    missing = missing_required_tracks(parsed)
     contrast_ok = bool((parsed.contrast or {}).get("passed"))
-    if not personality or not must:
+    if not personality or not must or is_stock_copy(parsed.ad_copy):
         action, step = "compose", "dna"
     elif not contrast_ok:
         action, step = "contrast", "tokens"
+    elif needs_fidelity_review(parsed):
+        action, step = "review", "tokens"
     elif missing:
         action, step = "track", "components"
     elif not (parsed.rules or {}).get("must"):
@@ -119,6 +138,7 @@ def _loop_label(action, track_id):
     return {
         "compose": "Montar o DNA e a copy.",
         "contrast": "Fechar o contraste a 4.5:1.",
+        "review": "Revisar fidelidade da tinta e da copy.",
         "track": f"Gerar a trilha {track_id}." if track_id else "Gerar as trilhas.",
         "rules": "Assentar as regras da IA.",
         "ready": "Sistema pronto para a peça.",
@@ -132,11 +152,32 @@ def _flow_done(key, loop):
 
 
 def _tagline(parsed):
+    if parsed.scope == "campaign" and parsed.creative_line:
+        return parsed.creative_line
     dna = parsed.dna or {}
     traits = ", ".join((dna.get("personality") or [])[:3])
     if traits:
         return f"{dna.get('name') or parsed.name}. {traits}."
     return f"{parsed.name}."
+
+
+def _backgrounds(parsed):
+    tokens = parsed.tokens or {}
+    active = tokens.get("ground-kind") or "paper"
+    rows = []
+    for item in parsed.backgrounds or []:
+        if not isinstance(item, dict):
+            continue
+        kind = item.get("kind") or item.get("id") or "paper"
+        rows.append(
+            {
+                **item,
+                "active": kind == active or item.get("id") == active,
+                "preview": item.get("fill") or tokens.get("paper") or "#FFFFFF",
+                "image": tokens.get("ground") if kind == "image" else "",
+            }
+        )
+    return rows
 
 
 def _token_roles(tokens, copy):

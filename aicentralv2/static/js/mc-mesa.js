@@ -934,6 +934,8 @@
       item.classList.toggle('is-done', position > -1 && position < idx);
       item.classList.toggle('is-waiting', position > idx);
       item.classList.toggle('is-busy', Boolean(busy) && op === busy);
+      if (op === active) item.setAttribute('aria-current', 'step');
+      else item.removeAttribute('aria-current');
     });
   }
 
@@ -1172,6 +1174,9 @@
       const position = order.indexOf(op);
       item.classList.toggle('is-current', op === active);
       item.classList.toggle('is-done', readyIdx > -1 && position < readyIdx);
+      item.classList.toggle('is-waiting', position > readyIdx);
+      if (op === active) item.setAttribute('aria-current', 'step');
+      else item.removeAttribute('aria-current');
     });
     labelRunButton();
   }

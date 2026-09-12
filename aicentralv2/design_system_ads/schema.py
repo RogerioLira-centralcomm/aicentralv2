@@ -38,6 +38,8 @@ TOKEN_ROWS = (
     ("ground-fit", "Encaixe do fundo", "--dsa-ground-fit", ""),
     ("ground-kind", "Tipo de fundo", "--dsa-ground-kind", ""),
     ("overlay", "Véu do fundo", "--dsa-overlay", ""),
+    ("wash-strength", "Força da lavagem", "--dsa-wash-strength", ""),
+    ("grain", "Grain", "--dsa-grain", ""),
 )
 
 
@@ -74,6 +76,36 @@ def contrast_ratio(first, second):
     right = relative_luminance(second)
     lighter, darker = (max(left, right), min(left, right))
     return (lighter + 0.05) / (darker + 0.05)
+
+
+def mix_hex(color, other, amount):
+    left = normalize_hex(color)
+    right = normalize_hex(other)
+    if not left or not right:
+        return ""
+    mix = max(0.0, min(1.0, float(amount)))
+
+    def channel(hex_color, index):
+        return int(hex_color.lstrip("#")[index : index + 2], 16)
+
+    parts = []
+    for index in (0, 2, 4):
+        value = int(channel(left, index) * (1 - mix) + channel(right, index) * mix)
+        parts.append(f"{max(0, min(255, value)):02X}")
+    return f"#{''.join(parts)}"
+
+
+def nudge_hex_for_contrast(color, surface, minimum=MIN_CONTRAST):
+    current = normalize_hex(color, "#111111")
+    paper = normalize_hex(surface, "#FFFFFF")
+    if contrast_ratio(current, paper) >= minimum:
+        return current, False
+    target = "#000000" if relative_luminance(paper) >= 0.45 else "#FFFFFF"
+    for amount in (0.22, 0.38, 0.52, 0.68, 0.82, 1.0):
+        mixed = mix_hex(current, target, amount)
+        if mixed and contrast_ratio(mixed, paper) >= minimum:
+            return mixed, True
+    return target, True
 
 
 def token_row(token_id, value):
@@ -175,6 +207,8 @@ class DesignSystemAds(BaseModel):
         tokens.setdefault("ground-fit", "cover")
         tokens.setdefault("ground-kind", "paper")
         tokens.setdefault("overlay", "transparent")
+        tokens.setdefault("wash-strength", "16%")
+        tokens.setdefault("grain", "0.12")
         if self.logo_url and not tokens.get("logo"):
             tokens["logo"] = self.logo_url
         self.logo_url = str(tokens.get("logo") or self.logo_url or "")

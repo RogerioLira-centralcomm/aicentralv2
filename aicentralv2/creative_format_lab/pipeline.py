@@ -223,6 +223,7 @@ def run_session(payload, *, client=None, text_callable=None, screenshot=None):
         text_callable=text_callable,
         screenshot=screenshot,
         scene_id=scene_id or None,
+        brand=brand,
     )
     _mark(steps, "validate", "done" if qa_bundle["qa"].get("passed") else "review", "QA")
     scenes = qa_bundle["scenes"]
@@ -299,6 +300,7 @@ def apply_manual_patch(session, payload, *, text_callable=None, screenshot=None)
         text_callable=text_callable,
         screenshot=screenshot,
         scene_id=scene_id or None,
+        brand=session.get("brand") if isinstance(session.get("brand"), dict) else {},
     )
     scenes = qa_bundle["scenes"]
     for item in scenes:

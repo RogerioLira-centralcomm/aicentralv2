@@ -21,13 +21,17 @@ TOKEN_GROUPS = (
     ("cores", "Cores", ("paper", "ink", "accent", "muted", "cta_ink", "highlight", "hairline")),
     ("tipo", "Tipo", ("font-display", "font-body", "weight-display", "weight-cta", "tracking")),
     ("botao", "CTA", ("cta-radius", "cta-pad", "cta-shadow")),
-    ("fundo", "Fundo", ("ground-kind", "ground", "overlay")),
+    ("fundo", "Fundo", ("ground-kind", "ground", "overlay", "wash-strength", "grain")),
 )
 
 
 def payload_for(system, *, format_key=None, layer_count=None, swaps=None, archetype=None):
     parsed = parse_system(system)
     stack = None
+    if not format_key:
+        from .components import ARCHETYPE_FORMAT
+
+        format_key = ARCHETYPE_FORMAT.get(archetype or parsed.archetype or "brand") or "iab-billboard"
     if format_key:
         if layer_count in (None, "") and parsed.elements:
             layer_count = layer_count_from_elements(parsed.elements)

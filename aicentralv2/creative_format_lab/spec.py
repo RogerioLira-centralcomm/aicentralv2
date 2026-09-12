@@ -113,7 +113,7 @@ class CreativeFormatSpec(BaseModel):
 
 
 class QaPatch(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
     layer_id: str = ""
     css: str = ""
     text: str = ""
@@ -123,9 +123,11 @@ class QaPatch(BaseModel):
     def _layer(cls, value):
         return str(value or "")[:64]
 
-    @field_validator("text", "css")
+    @field_validator("text", "css", mode="before")
     @classmethod
     def _patch_text(cls, value):
+        if isinstance(value, dict):
+            value = ";".join(f"{key}:{item}" for key, item in value.items() if item not in (None, ""))
         text = str(value or "")
         if _HTML_MARK.search(text):
             raise ValueError("Patch rejeita HTML solto.")
@@ -133,7 +135,7 @@ class QaPatch(BaseModel):
 
 
 class VisualQaReport(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
     passed: bool = False
     score: float = 0
     defects: List[str] = Field(default_factory=list)
@@ -152,11 +154,40 @@ class VisualQaReport(BaseModel):
         return [str(item)[:200] for item in (value or [])[:12]]
 
 
+def _coerce_spec_payload(payload, expected_count=None):
+    data = dict(payload or {})
+    raw = data.get("scenes")
+    if isinstance(raw, dict):
+        ordered = []
+        for index in range(1, 6):
+            key = f"scene_0{index}"
+            item = raw.get(key)
+            if isinstance(item, dict):
+                ordered.append(item)
+        raw = ordered or list(raw.values())
+    scenes = []
+    for index, item in enumerate(raw or [], start=1):
+        if not isinstance(item, dict):
+            continue
+        scene = dict(item)
+        scene["id"] = f"scene_0{index}"
+        scene.setdefault(
+            "headline",
+            scene.get("title") or scene.get("copy") or scene.get("text") or "",
+        )
+        scene.setdefault("purpose", scene.get("beat") or scene.get("role") or "hook")
+        scenes.append(scene)
+        if expected_count and index >= expected_count:
+            break
+    data["scenes"] = scenes
+    return data
+
+
 def parse_format_spec(payload, expected_format=None):
     if isinstance(payload, CreativeFormatSpec):
         spec = payload
     else:
-        data = dict(payload or {})
+        data = _coerce_spec_payload(payload)
         key = resolve_format_key(data.get("format"))
         if not format_entry(key):
             data["format"] = expected_format or "video-linear-15"
@@ -176,4 +207,19 @@ def parse_format_spec(payload, expected_format=None):
 def parse_qa_report(payload, attempt=1):
     data = dict(payload or {})
     data.setdefault("attempt", attempt)
-    return VisualQaReport.model_validate(data)
+    if "passed" not in data:
+        try:
+            data["passed"] = float(data.get("score") or 0) >= 0.8
+        except (TypeError, ValueError):
+            data["passed"] = False
+    try:
+        return VisualQaReport.model_validate(data)
+    except Exception:
+        return VisualQaReport.model_validate({
+            "passed": False,
+            "score": 0,
+            "defects": list(data.get("defects") or ["QA inválido"])[:8],
+            "notes": list(data.get("notes") or [])[:4],
+            "patches": [],
+            "attempt": attempt,
+        })

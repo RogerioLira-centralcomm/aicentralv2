@@ -14,7 +14,7 @@
   };
 
   const COLOR_TOKENS = new Set(['paper', 'ink', 'accent', 'muted', 'cta_ink', 'highlight', 'hairline']);
-  const CORE_ROLES = new Set(['visual', 'logo', 'headline', 'support', 'cta']);
+  const CORE_ROLES = new Set(['visual', 'product', 'logo', 'headline', 'support', 'cta']);
   const ROLE_INTENT = { colors: 'contrast', type: 'type', cta: 'cta' };
   const INTENT_LABEL = { contrast: 'Contraste', type: 'Tipo', cta: 'CTA' };
   const TRACK_LABEL = { packshot: 'Gerar produto', kv: 'Gerar KV', lifestyle: 'Gerar cena', wash: 'Gerar tinta' };
@@ -28,7 +28,7 @@
     layers: 4,
     highlight: '',
     swaps: [],
-    stageOpen: false,
+    stageOpen: true,
     archetype: 'brand',
     looping: false,
     system: null,
@@ -90,9 +90,9 @@
   }
 
   function hideStage() {
-    state.stageOpen = false;
+    state.stageOpen = true;
     const stage = $('mcDsaStage');
-    if (stage) stage.hidden = true;
+    if (stage) stage.hidden = false;
   }
 
   function renderClients() {
@@ -185,29 +185,6 @@
       + `<small>P${item.priority}</small>`
       + `</article>`
     )).join('');
-    const formats = (catalog.iab_formats || []).map((item) => {
-      const size = item.size_label || item.label;
-      const active = item.key === state.format && state.stageOpen ? ' is-active' : '';
-      return (
-        `<button type="button" class="mc-dsa-format${active}" data-format="${escapeHtml(item.key)}">`
-        + `<span class="mc-dsa-format-box" style="aspect-ratio:${item.width || 1}/${item.height || 1}"></span>`
-        + `<strong>Abrir ${escapeHtml(size)}</strong>`
-        + `<em>${escapeHtml(item.density || '')}</em>`
-        + `</button>`
-      );
-    }).join('');
-    const archetypes = (catalog.archetypes || []).map((item) => (
-      `<button type="button" class="mc-dsa-arch${item.active ? ' is-active' : ''}" data-archetype="${escapeHtml(item.id)}" data-format="${escapeHtml(item.format)}">`
-      + `<span class="mc-dsa-arch-stage" style="background:${escapeHtml(item.ground === 'wash' ? tokens.ink : tokens.paper)};color:${escapeHtml(item.ground === 'wash' ? tokens.paper : tokens.ink)}">`
-      + `<strong>${escapeHtml(item.headline || item.label)}</strong>`
-      + `<em>${escapeHtml(item.cta || '')}</em>`
-      + `</span>`
-      + `<b>${escapeHtml(item.label)}</b>`
-      + `</button>`
-    )).join('');
-    const flow = (catalog.flow || []).map((item) => (
-      `<li class="${item.current ? 'is-current' : ''}${item.done ? ' is-done' : ''}">${escapeHtml(item.label)}</li>`
-    )).join('');
     const tracks = (system?.tracks || []).map((item) => {
       const label = TRACK_LABEL[item.id] || item.label;
       return (
@@ -218,19 +195,23 @@
         + `</button>`
       );
     }).join('');
+    const effects = catalog.effects || {};
+    const formats = (catalog.iab_formats || []).map((item) => {
+      const size = item.size_label || item.label;
+      const active = item.key === state.format ? ' is-active' : '';
+      return (
+        `<button type="button" class="mc-dsa-format${active}" data-format="${escapeHtml(item.key)}">`
+        + `<strong>${escapeHtml(size)}</strong>`
+        + `<em>${escapeHtml(item.density || '')}</em>`
+        + `</button>`
+      );
+    }).join('');
     host.innerHTML = (
-      `<p class="mc-dsa-tagline">${escapeHtml(catalog.tagline || '')}</p>`
+      `<p class="mc-dsa-tagline">${escapeHtml(catalog.tagline || catalog.creative_line || '')}</p>`
       + `<section class="mc-dsa-block" data-block="dna">`
       + `<h2>DNA</h2>`
-      + `<div class="mc-dsa-dna">`
       + (dna.logo_url || dna.product_url ? `<img src="${escapeHtml(dna.product_url || dna.logo_url)}" alt="">` : '')
-      + `<div>`
-      + `<p class="mc-dsa-lockup" style="font-family:${escapeHtml(tokens['font-display'] || 'Inter')},sans-serif;font-weight:${escapeHtml(tokens['weight-display'] || '700')}">${escapeHtml(copy.headline || dna.name || '')}</p>`
       + `<ul class="mc-dsa-chips">${personality}</ul>`
-      + `</div>`
-      + `<div class="mc-dsa-type-spec" style="font-family:${escapeHtml(tokens['font-display'] || 'Inter')},sans-serif">Aa <small>${escapeHtml(tokens['font-display'] || 'Inter')}</small></div>`
-      + `<div class="mc-dsa-dna-swatches">${swatches}</div>`
-      + `</div>`
       + `<form class="mc-dsa-dna-form" id="mcDsaDna">`
       + `<label>Personalidade <input name="personality" value="${escapeHtml((dna.personality || []).join(', '))}" maxlength="180"></label>`
       + `<label>Obrigatório <input name="must" value="${escapeHtml((dna.must || []).join(', '))}" maxlength="240"></label>`
@@ -244,35 +225,68 @@
       + `</form>`
       + `<div class="mc-dsa-rules"><p>Fazer</p><ul>${must}</ul><p>Não fazer</p><ul>${avoid}</ul></div>`
       + `</section>`
-      + `<section class="mc-dsa-block" data-block="tokens"><h2>Tokens</h2><div class="mc-dsa-token-roles">${(catalog.token_roles || []).map((role) => {
-        const intent = ROLE_INTENT[role.id];
-        return (
-          `<article><h3>${escapeHtml(role.label)}</h3>`
-          + (role.id === 'cta'
-            ? `<span class="mc-dsa-cta-chip" style="background:${escapeHtml(tokens.accent || '#111')};color:${escapeHtml(tokens.cta_ink || '#fff')}">${escapeHtml(copy.cta || 'CTA')}</span>`
-            : role.id === 'type'
-              ? `<p class="mc-dsa-lockup" style="font-family:${escapeHtml(tokens['font-display'] || 'Inter')},sans-serif;font-weight:${escapeHtml(tokens['weight-display'] || '700')}">${escapeHtml(copy.headline || 'Aa')}</p>`
-              : role.id === 'legal'
-                ? `<small>${escapeHtml(copy.legal || '')}</small>`
-                : `<div class="mc-dsa-dna-swatches">${(role.items || []).map((item) => (
-                  COLOR_TOKENS.has(item.id)
-                    ? `<label class="mc-dsa-color"><input type="color" data-token="${escapeHtml(item.id)}" value="${escapeHtml(hexColor(item.value))}" aria-label="${escapeHtml(item.label || item.id)}"></label>`
-                    : `<i style="--swatch:${escapeHtml(item.value || '#fff')}"></i>`
-                )).join('')}</div>`)
-          + (intent ? `<button type="button" class="mc-dsa-intent" data-intent="${intent}">${INTENT_LABEL[intent]}</button>` : '')
-          + `</article>`
-        );
-      }).join('')}</div>`
+      + `<section class="mc-dsa-block" data-block="tokens"><h2>Tinta</h2>`
+      + `<div class="mc-dsa-dna-swatches">${swatches}</div>`
+      + `<p class="mc-dsa-lockup" style="font-family:${escapeHtml(tokens['font-display'] || 'Inter')},sans-serif">${escapeHtml(copy.headline || dna.name || '')}</p>`
+      + `<span class="mc-dsa-cta-chip" style="background:${escapeHtml(tokens.accent || '#111')};color:${escapeHtml(tokens.cta_ink || '#fff')}">${escapeHtml(copy.cta || 'CTA')}</span>`
+      + `<div>${Object.entries(ROLE_INTENT).map(([key, intent]) => (
+        `<button type="button" class="mc-dsa-intent" data-intent="${intent}">${INTENT_LABEL[intent]}</button>`
+      )).join('')}</div>`
       + `<dl class="mc-dsa-contrast${system?.contrast?.passed ? ' is-ok' : ' is-bad'}">`
       + `<div><dt>Texto</dt><dd>${pairs.ink_on_paper || '—'} : 1</dd></div>`
       + `<div><dt>Botão</dt><dd>${pairs.cta_on_accent || '—'} : 1</dd></div>`
       + `</dl></section>`
-      + `<section class="mc-dsa-block" data-block="components"><h2>Componentes</h2><div class="mc-dsa-comps">${components}</div></section>`
+      + `<section class="mc-dsa-block" data-block="effects"><h2>Efeito</h2>`
+      + `<label>Lavagem <input data-token="wash-strength" value="${escapeHtml(effects['wash-strength'] || tokens['wash-strength'] || '16%')}" maxlength="8"></label>`
+      + `<label>Grain <input data-token="grain" value="${escapeHtml(effects.grain || tokens.grain || '0.12')}" maxlength="8"></label>`
+      + `</section>`
       + `<section class="mc-dsa-block" data-block="tracks"><h2>Trilhas</h2><div class="mc-dsa-tracks">${tracks}</div></section>`
-      + `<section class="mc-dsa-block" data-block="formats"><h2>Formatos IAB</h2><div class="mc-dsa-formats is-catalog">${formats}</div></section>`
-      + `<section class="mc-dsa-block" data-block="templates"><h2>Templates</h2><div class="mc-dsa-arches">${archetypes}</div></section>`
-      + `<section class="mc-dsa-block" data-block="flow"><h2>Recomposição</h2><ol class="mc-dsa-flow">${flow}</ol><p>${escapeHtml(catalog.loop?.label || '')}</p></section>`
+      + `<section class="mc-dsa-block" data-block="components"><h2>Camadas</h2><div class="mc-dsa-comps">${components}</div></section>`
+      + `<section class="mc-dsa-block" data-block="formats"><h2>IAB</h2><div class="mc-dsa-formats is-catalog">${formats}</div></section>`
     );
+  }
+
+  function renderGrounds(system) {
+    const host = $('mcDsaGrounds');
+    if (!host) return;
+    const tokens = system?.tokens || {};
+    const grounds = system?.catalog?.backgrounds || system?.backgrounds || [];
+    host.innerHTML = grounds.map((item) => {
+      const kind = item.id || item.kind || 'paper';
+      const active = item.active || kind === tokens['ground-kind'] ? ' is-active' : '';
+      const fill = item.preview || item.fill || tokens.paper || '#fff';
+      const image = item.image || (kind === 'image' ? tokens.ground : '');
+      return (
+        `<button type="button" class="mc-dsa-ground${active}" data-ground="${escapeHtml(kind)}">`
+        + `<i style="background:${image ? `center/cover url('${escapeHtml(image)}')` : escapeHtml(fill)}"></i>`
+        + `<span>${escapeHtml(item.label || kind)}</span>`
+        + `</button>`
+      );
+    }).join('');
+  }
+
+  function renderArchBoard(system) {
+    const host = $('mcDsaArchBoard');
+    if (!host) return;
+    const tokens = system?.tokens || {};
+    const rows = system?.catalog?.archetypes || system?.archetypes || [];
+    host.innerHTML = rows.map((item) => {
+      const image = item.image || '';
+      const wash = item.ground === 'wash';
+      const bg = image
+        ? `center/cover url('${escapeHtml(image)}')`
+        : (wash ? tokens.ink : tokens.paper);
+      const fg = wash && !image ? (tokens.paper || '#fff') : (tokens.ink || '#111');
+      return (
+        `<button type="button" class="mc-dsa-arch${item.active || item.id === state.archetype ? ' is-active' : ''}" data-archetype="${escapeHtml(item.id)}" data-format="${escapeHtml(item.format || 'iab-billboard')}">`
+        + `<span class="mc-dsa-arch-stage" style="background:${escapeHtml(bg)};color:${escapeHtml(fg)}">`
+        + `<strong>${escapeHtml(item.headline || item.label)}</strong>`
+        + `<em>${escapeHtml(item.cta || '')}</em>`
+        + `</span>`
+        + `<b>${escapeHtml(item.label)}</b>`
+        + `</button>`
+      );
+    }).join('');
   }
 
   function renderArchetypes(system) {
@@ -330,12 +344,18 @@
       }
     }
     if (create) {
-      create.textContent = isCampaign() ? 'Montar campanha' : 'Montar';
-      create.disabled = state.looping;
+      create.textContent = 'Montar a marca';
+      create.disabled = state.looping || isCampaign();
+    }
+    const campaignMount = $('mcDsaCampaignMount');
+    if (campaignMount) {
+      campaignMount.disabled = state.looping || !state.campaignId;
     }
     if (approve) approve.disabled = !exists || approved || system?.scope === 'campaign';
     renderCampaigns();
     renderCatalog(system);
+    renderGrounds(system);
+    renderArchBoard(system);
     renderArchetypes(system);
     renderLayerControl(system);
     renderLayerList(system);
@@ -347,7 +367,7 @@
     const url = isCampaign() ? API.campaign(state.campaignId) : API.brand(currentId());
     const data = await readJson(await fetch(url));
     renderSystem(data);
-    if (state.stageOpen && (data.exists || data.preset)) await adaptSystem();
+    if (data.exists || data.preset) await adaptSystem();
   }
 
   async function adaptSystem() {
@@ -427,6 +447,7 @@
         const info = data.loop || {};
         setStatus(info.label || '');
         if (info.action === 'track' && info.track_id) {
+          if (info.track_id === 'wash') continue;
           setStatus(TRACK_LABEL[info.track_id] || `Gerando ${info.track_id}.`);
           try {
             await generateTrack(info.track_id);
@@ -440,7 +461,7 @@
           setStatus('Pronto. Abra um formato IAB.');
           break;
         }
-        if (!['compose', 'contrast', 'rules'].includes(info.action)) break;
+        if (!['compose', 'contrast', 'review', 'rules'].includes(info.action)) break;
       }
     } finally {
       state.looping = false;
@@ -448,13 +469,25 @@
     }
   }
 
-  async function mountSystem() {
+  async function mountBrand() {
+    state.campaignId = '';
+    renderCampaigns();
     const exists = Boolean(state.system?.exists || state.system?.preset);
-    if (!exists) {
-      setStatus(isCampaign() ? 'Montando a campanha.' : 'Montando a marca.');
+    if (!exists || state.system?.scope === 'campaign') {
+      setStatus('Montando a marca.');
       await createSystem();
     }
     await continueLoop();
+  }
+
+  async function mountCampaign() {
+    if (!state.campaignId) {
+      throw new Error('Escolha a campanha. A tinta da marca fica travada.');
+    }
+    setStatus('Montando a campanha.');
+    await createSystem();
+    setStatus(state.system?.creative_line || 'Campanha na tinta da marca.');
+    if (state.system?.exists || state.system?.preset) await adaptSystem();
   }
 
   function queuePatch(tokens, adCopy, dna) {
@@ -630,9 +663,34 @@
         button.getAttribute('data-archetype') || 'brand',
       );
     });
+    $('mcDsaGrounds')?.addEventListener('click', async (event) => {
+      const button = event.target.closest('[data-ground]');
+      if (!button) return;
+      try {
+        await patchSystem({ 'ground-kind': button.getAttribute('data-ground') });
+        if (state.system?.exists || state.system?.preset) await adaptSystem();
+      } catch (error) {
+        setStatus(error.message);
+      }
+    });
+    $('mcDsaArchBoard')?.addEventListener('click', async (event) => {
+      const button = event.target.closest('[data-archetype]');
+      if (!button) return;
+      await openPiece(
+        button.getAttribute('data-format') || state.format,
+        button.getAttribute('data-archetype') || 'brand',
+      );
+    });
     $('mcDsaCreate')?.addEventListener('click', async () => {
       try {
-        await mountSystem();
+        await mountBrand();
+      } catch (error) {
+        setStatus(error.message);
+      }
+    });
+    $('mcDsaCampaignMount')?.addEventListener('click', async () => {
+      try {
+        await mountCampaign();
       } catch (error) {
         setStatus(error.message);
       }

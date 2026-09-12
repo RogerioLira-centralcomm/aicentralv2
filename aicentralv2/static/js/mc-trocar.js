@@ -24,6 +24,7 @@
     edited: 'Editado',
     draft: 'Rascunho',
     production: 'Produção',
+    typeset: 'Tipo na foto',
   };
 
   const state = {
@@ -43,6 +44,8 @@
     brandContext: true,
     promptEdited: false,
     promptLocked: false,
+    lastRead: null,
+    mode: 'image',
     optimizedPrompt: '',
     optimizedPreview: '',
     zoom: 1,
@@ -133,7 +136,7 @@
       state.brandContext = event.target.checked;
       refreshPrompt();
     });
-    ['mcSwapHeadline', 'mcSwapSupport', 'mcTrocrPrice', 'mcSwapCta', 'mcSwapNote'].forEach((id) => {
+    ['mcSwapHeadline', 'mcSwapSupport', 'mcTrocrDates', 'mcTrocrVenue', 'mcTrocrPrice', 'mcSwapCta', 'mcSwapNote'].forEach((id) => {
       $(id)?.addEventListener('input', () => {
         if (id === 'mcSwapNote') updateNoteCount();
         if (state.versions.length) setFlow('edit');
@@ -145,6 +148,10 @@
     });
     $('mcSwapRun')?.addEventListener('click', () => runSwap('production'));
     $('mcTrocrDraft')?.addEventListener('click', () => runSwap('draft'));
+    $('mcTrocrForceImage')?.addEventListener('change', () => {
+      refreshPrompt();
+      refreshQuote();
+    });
     $('mcTrocrViewBtn')?.addEventListener('click', () => setViewMode('view'));
     $('mcTrocrCompareBtn')?.addEventListener('click', () => setViewMode('compare'));
     $('mcTrocrZoomIn')?.addEventListener('click', () => setZoom(state.zoom + 0.1));
@@ -275,9 +282,10 @@
   }
 
   function applyRead(data, version, meta) {
+    state.lastRead = data || null;
     fillFields(data);
     applyAnalysis(data.analysis || {}, data.elements || []);
-    renderElements(data.elements || [], data.style || '');
+    renderLocks(data);
     if (data.aspect_hint && !state.userPickedFormat) selectFormat(data.aspect_hint);
     renderEditPanels();
     setFlow(meta?.cached ? 'edit' : 'analysis');
@@ -295,10 +303,14 @@
   function fillFields(data) {
     const headline = $('mcSwapHeadline');
     const support = $('mcSwapSupport');
+    const dates = $('mcTrocrDates');
+    const venue = $('mcTrocrVenue');
     const price = $('mcTrocrPrice');
     const cta = $('mcSwapCta');
     if (headline) headline.value = data.headline || '';
     if (support) support.value = data.support || '';
+    if (dates) dates.value = data.dates || '';
+    if (venue) venue.value = data.venue || '';
     if (price) price.value = data.price || '';
     if (cta) cta.value = data.cta || '';
   }
@@ -332,16 +344,22 @@
     });
   }
 
-  function renderElements(items, style) {
+  function renderLocks(read) {
+    const data = read || {};
     const list = $('mcSwapElements');
-    if (!list) return;
-    const rows = Array.isArray(items) ? items : [];
-    list.innerHTML = rows.map((item) => {
-      const label = ROLE_LABEL[item.role] || item.role || 'Elemento';
-      const text = item.text || item.note || '';
-      return `<li><strong>${escapeHtml(label)}</strong>${text ? ` ${escapeHtml(text)}` : ''}</li>`;
-    }).join('');
-    if (style) list.innerHTML += `<li class="is-style">${escapeHtml(style)}</li>`;
+    const box = $('mcTrocrLocks');
+    const locks = [];
+    (data.elements || []).forEach((item) => {
+      if (item.role === 'person' && item.text) locks.push(item.text);
+    });
+    if (data.dates) locks.push(data.dates);
+    if (data.venue) locks.push(data.venue);
+    if (data.logo_text) locks.push(data.logo_text);
+    if (list) {
+      list.innerHTML = locks.map((text) => `<li>${escapeHtml(text)}</li>`).join('');
+      if (data.style) list.innerHTML += `<li class="is-style">${escapeHtml(data.style)}</li>`;
+    }
+    if (box) box.hidden = locks.length === 0;
   }
 
   function selectFormat(ratio) {
@@ -396,6 +414,8 @@
 
   function editFields() {
     const client = state.clients.find((item) => String(item.id) === String(state.clientId));
+    const read = state.lastRead || {};
+    const people = (read.elements || []).filter((item) => item.role === 'person');
     return {
       client_id: state.clientId || undefined,
       brand_name: client?.name || '',
@@ -406,6 +426,13 @@
       note: $('mcSwapNote')?.value || '',
       instruction: $('mcSwapNote')?.value || '',
       aspect_ratio: state.aspectRatio,
+      aspect_hint: read.aspect_hint || '',
+      dates: $('mcTrocrDates')?.value || read.dates || '',
+      venue: $('mcTrocrVenue')?.value || read.venue || '',
+      subtitle: $('mcTrocrDates')?.value || read.dates || '',
+      elements: read.elements || [],
+      faces: people.length,
+      force_image: Boolean($('mcTrocrForceImage')?.checked),
       presentation: state.presentation,
       quality: state.quality,
       use_brand_context: state.brandContext,
@@ -432,7 +459,7 @@
         state.optimizedPreview = data.preview || data.prompt || '';
         const box = $('mcTrocrPrompt');
         if (box && box.readOnly) box.value = state.optimizedPreview;
-        paintCost(data.quote);
+        paintRoute(data.risk, data.mode, data.quote);
       } catch (error) {
         if (error.name === 'AbortError') return;
       }
@@ -441,7 +468,7 @@
 
   async function refreshQuote() {
     try {
-      const quote = await request(API.quote, { kind: 'swap', quality: state.quality });
+      const quote = await request(API.quote, { kind: 'swap', quality: state.quality, ...editFields() });
       paintCost(quote);
     } catch (_error) {
       /* custo é auxiliar */
@@ -459,7 +486,9 @@
     enableGenerate(false);
     setFlow('generate');
     showGenSteps('analysis');
-    setStatus(quality === 'draft' ? 'Gerando rascunho…' : 'Gerando nova versão…');
+    setStatus(state.mode === 'typeset'
+      ? 'Compondo o tipo na foto…'
+      : (quality === 'draft' ? 'Gerando rascunho…' : 'Gerando nova versão…'));
     hideError();
     state.lastAction = 'generate';
     try {
@@ -470,23 +499,28 @@
       if (!still) throw new Error('A geração não devolveu a imagem.');
       const thumb = await makeThumb(still);
       showGenSteps('finish');
+      const typeset = data.mode === 'typeset';
       const version = pushVersion({
-        name: quality === 'draft' ? 'Rascunho' : 'Produção',
-        origin: quality === 'draft' ? 'draft' : 'production',
-        quality,
+        name: typeset ? 'Tipo na foto' : (quality === 'draft' ? 'Rascunho' : 'Produção'),
+        origin: typeset ? 'typeset' : (quality === 'draft' ? 'draft' : 'production'),
+        quality: typeset ? 'typeset' : quality,
         image: still,
         thumb,
       });
       state.compareIds = [base.id, version.id];
       showPreview(still);
-      paintCost(data.quote);
+      paintRoute(data.risk, data.mode, data.quote);
       state.promptLocked = false;
       state.promptEdited = false;
       setFlow('review');
-      toast('Nova versão criada com sucesso', 'success');
-      setStatus(data.logo_used
-        ? 'Nova versão criada. A logo oficial entrou no quadro.'
-        : 'Nova versão criada. Use esta versão como base para continuar editando.');
+      toast(data.mode === 'typeset'
+        ? 'Tipo composto na foto. Elenco intacto.'
+        : 'Nova versão criada com sucesso', 'success');
+      setStatus(data.mode === 'typeset'
+        ? 'Tipo composto na foto original. Os selos de nome não foram redesenhados.'
+        : (data.logo_used
+          ? 'Nova versão criada. A logo oficial entrou no quadro.'
+          : 'Nova versão criada. Use esta versão como base para continuar editando.'));
       renderCompare();
       await persistHistory();
       return version;
@@ -685,6 +719,8 @@
     const filled = Boolean(
       $('mcSwapHeadline')?.value
       || $('mcSwapSupport')?.value
+      || $('mcTrocrDates')?.value
+      || $('mcTrocrVenue')?.value
       || $('mcTrocrPrice')?.value
       || $('mcSwapCta')?.value
     );
@@ -712,7 +748,8 @@
       node.textContent = 'Nenhuma versão selecionada';
       return;
     }
-    node.textContent = `Editando ${active.id} · ${active.name}. Base ativa: ${base ? `${base.id} · ${base.name}` : '—'}.`;
+    const route = state.mode === 'typeset' ? 'Tipo na foto.' : '';
+    node.textContent = `Editando ${active.id} · ${active.name}. Base ativa: ${base ? `${base.id} · ${base.name}` : '—'}.${route ? ` ${route}` : ''}`;
   }
 
   function setFlow(step, error) {
@@ -797,7 +834,7 @@
   }
 
   function resetPanel() {
-    ['mcSwapHeadline', 'mcSwapSupport', 'mcTrocrPrice', 'mcSwapCta', 'mcSwapNote', 'mcTrocrPrompt'].forEach((id) => {
+    ['mcSwapHeadline', 'mcSwapSupport', 'mcTrocrDates', 'mcTrocrVenue', 'mcTrocrPrice', 'mcSwapCta', 'mcSwapNote', 'mcTrocrPrompt'].forEach((id) => {
       if ($(id)) $(id).value = '';
     });
     state.promptEdited = false;
@@ -839,9 +876,60 @@
   }
 
   function paintCost(quote) {
-    if (quote?.spent_brl != null && $('mcSwapCost')) {
-      $('mcSwapCost').textContent = `R$ ${Number(quote.spent_brl).toFixed(2)}`;
+    if (!$('mcSwapCost') || quote?.spent_brl == null) return;
+    const value = Number(quote.spent_brl);
+    $('mcSwapCost').textContent = value === 0 ? 'R$ 0' : `R$ ${value.toFixed(2)}`;
+  }
+
+  function paintRoute(risk, mode, quote) {
+    state.mode = mode === 'typeset' ? 'typeset' : 'image';
+    const typeset = state.mode === 'typeset';
+    const forced = Boolean($('mcTrocrForceImage')?.checked);
+    const generate = document.querySelector('.mc-trocr-generate');
+    generate?.setAttribute('data-route', typeset ? 'typeset' : 'image');
+    const route = $('mcTrocrRoute');
+    route?.setAttribute('data-mode', typeset ? 'typeset' : 'image');
+    if ($('mcTrocrRouteName')) {
+      $('mcTrocrRouteName').textContent = typeset ? 'Tipo na foto' : 'Image 2 redesenha';
     }
+    if ($('mcTrocrRouteCopy')) {
+      $('mcTrocrRouteCopy').textContent = typeset
+        ? 'O texto novo entra na referência. Selos de nome não passam pelo modelo.'
+        : (risk?.level === 'high'
+          ? (risk.reason || 'O Image 2 costuma embaralhar os selos desta cartela.')
+          : 'O still de referência entra no modelo. Rascunho valida; produção entrega.');
+    }
+    paintCost(quote);
+    paintRisk(risk, state.mode);
+    if ($('mcTrocrQualityBox')) $('mcTrocrQualityBox').hidden = typeset;
+    if ($('mcTrocrDraft')) $('mcTrocrDraft').hidden = typeset;
+    if ($('mcSwapRun')) $('mcSwapRun').textContent = typeset ? 'Compor na foto' : 'Gerar produção';
+    if ($('mcTrocrForceRow')) $('mcTrocrForceRow').hidden = !(typeset || risk?.level === 'high' || forced);
+    if ($('mcTrocrPromptHint')) {
+      $('mcTrocrPromptHint').textContent = typeset
+        ? 'O Image 2 não entra. Editar o prompt só vale se redesenhar a peça.'
+        : 'Diga o item. A rota decide se o tipo entra na foto ou se o Image 2 redesenha.';
+    }
+    if ($('mcTrocrStepGenHint')) {
+      $('mcTrocrStepGenHint').textContent = typeset ? 'Tipo na foto' : 'IA cria nova versão';
+    }
+    if ($('mcTrocrGenPaint')) {
+      $('mcTrocrGenPaint').textContent = typeset ? 'Composição' : 'Geração';
+    }
+    highlightQuality();
+    renderBaseMeta();
+  }
+
+  function paintRisk(risk, mode) {
+    const node = $('mcTrocrRisk');
+    if (!node) return;
+    const forced = Boolean($('mcTrocrForceImage')?.checked);
+    const warn = risk?.level === 'high' && (mode !== 'typeset' || forced);
+    node.hidden = !warn;
+    node.classList.toggle('is-on', warn);
+    node.textContent = warn
+      ? (risk.reason || 'O Image 2 costuma embaralhar os selos desta cartela.')
+      : '';
   }
 
   function currentVersion() {

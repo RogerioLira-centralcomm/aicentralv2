@@ -503,6 +503,7 @@ def apply_cta_visibility(html_text, visible):
         text,
         count=1,
     )
+    text = _replace_text(text, "layer-cta", "")
     return _append_style(text, "layer-cta", "#layer-cta{display:none !important}")
 
 

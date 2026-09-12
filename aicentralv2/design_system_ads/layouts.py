@@ -85,12 +85,75 @@ RECIPES = {
         "type": {"headline": 16, "support": 11, "cta": 12, "legal": 9},
         "density": "tall",
     },
+    "feed-1x1": {
+        "logo": (6, 6, 20, 8),
+        "visual": (0, 0, 100, 100),
+        "headline": (6, 58, 88, 14),
+        "support": (6, 74, 88, 8),
+        "cta": (18, 85, 64, 7),
+        "legal": (6, 94, 88, 4),
+        "icon": (78, 6, 14, 8),
+        "chip": (6, 50, 28, 6),
+        "well": (0, 0, 100, 54),
+        "type": {"headline": 36, "support": 16, "cta": 16, "legal": 11},
+        "density": "square",
+    },
+    "feed-4x5": {
+        "logo": (7, 5, 22, 7),
+        "visual": (0, 0, 100, 100),
+        "headline": (7, 60, 86, 14),
+        "support": (7, 76, 86, 7),
+        "cta": (12, 86, 76, 6.5),
+        "legal": (7, 94.5, 86, 3.5),
+        "icon": (76, 5, 16, 7),
+        "chip": (7, 52, 30, 5),
+        "well": (0, 0, 100, 56),
+        "type": {"headline": 32, "support": 15, "cta": 15, "legal": 11},
+        "density": "tall",
+    },
+    "story-9x16": {
+        "logo": (8, 8, 28, 6),
+        "visual": (0, 0, 100, 100),
+        "headline": (8, 58, 84, 16),
+        "support": (8, 76, 84, 6),
+        "cta": (12, 84, 76, 6),
+        "legal": (8, 93, 84, 4),
+        "icon": (70, 8, 22, 6),
+        "chip": (8, 50, 36, 5),
+        "well": (0, 0, 100, 52),
+        "type": {"headline": 34, "support": 14, "cta": 16, "legal": 11},
+        "density": "tall",
+        "park": {"support", "chip", "icon"},
+    },
+    "linkedin-landscape": {
+        "logo": (5.2, 12, 10, 28),
+        "visual": (0, 0, 36, 100),
+        "headline": (40, 16, 36, 36),
+        "support": (40, 56, 34, 16),
+        "cta": (78, 36, 17, 28),
+        "legal": (40, 86, 30, 8),
+        "icon": (16, 8, 8, 14),
+        "chip": (5.2, 8, 10, 12),
+        "well": (0, 0, 36, 100),
+        "type": {"headline": 28, "support": 14, "cta": 14, "legal": 10},
+        "density": "wide",
+        "park": {"chip"},
+    },
 }
 
 FAMILY_FALLBACK = {
     "wide_banner": "iab-billboard",
     "rectangle": "iab-medium",
     "half_page": "iab-halfpage",
+    "square_1x1": "feed-1x1",
+    "portrait_4x5": "feed-4x5",
+    "story_9x16": "story-9x16",
+    "landscape_social": "linkedin-landscape",
+}
+
+RECIPE_ALIASES = {
+    "reels-9x16": "story-9x16",
+    "shorts-9x16": "story-9x16",
 }
 
 VISIBLE_COPY = ("logo", "headline", "cta")
@@ -99,7 +162,7 @@ WELL_ROLES = {"product", "visual"}
 
 
 def recipe_for(format_key, family="wide_banner"):
-    key = str(format_key or "")
+    key = RECIPE_ALIASES.get(str(format_key or ""), str(format_key or ""))
     if key in RECIPES:
         return dict(RECIPES[key])
     return dict(RECIPES[FAMILY_FALLBACK.get(family, "iab-billboard")])

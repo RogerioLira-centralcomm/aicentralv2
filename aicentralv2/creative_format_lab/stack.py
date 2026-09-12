@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from .catalog import is_end_card, logo_visible_for, plate_for
-from .guidelines import CANVAS, protect_box
+from .guidelines import CANVAS, REQUIRED, protect_box
 
 PLATE_BOXES = {
     "split": {
@@ -58,6 +58,8 @@ def build_stack(scene, *, brand=None, assets=None, plate=None):
         logo_on = bool(scene.get("logo_visible"))
     else:
         logo_on = logo_visible_for(purpose, scene.get("id"), scene.get("scene_count"))
+    if "logo" in REQUIRED.get(purpose, ()):
+        logo_on = True
     show_cta = bool(scene.get("cta")) or purpose == "cta"
     product_url = assets.get("product_url") or (photo if layout != "hero" else "")
     if layout == "hero":
@@ -149,7 +151,7 @@ def _layer_prompt(role, scene, brand):
     if role == "cast":
         return (
             f"Group cutout of the people in this {name} poster, {headline}. "
-            "Transparent PNG. No background, no type, no flags, no logos."
+            "Opaque PNG. No background wash invented, no type, no flags, no logos."
         )
     if role == "ground":
         return (
@@ -157,10 +159,16 @@ def _layer_prompt(role, scene, brand):
             "No people, no type, no logos."
         )
     if role == "product":
+        custom = str(scene.get("image_prompt") or "").strip()
+        if custom:
+            return (
+                f"{custom} Isolated product cutout for {name}. "
+                "Studio still, no text, no environment, opaque background, PNG."
+            )
         return (
             f"Isolated product cutout for {name}, {headline}. "
-            "Studio still, no text, no environment, transparent background, PNG."
+            "Studio still, no text, no environment, opaque background, PNG."
         )
     if role == "logo":
-        return f"Official {name} logo lockup, isolated, transparent background, PNG, no tagline."
+        return f"Official {name} logo lockup, isolated, opaque background, PNG, no tagline."
     return ""

@@ -64,7 +64,9 @@ def clamp_layer_count(value):
 def list_iab_formats():
     rows = []
     for item in FORMATS:
-        if item.get("kind") != "banner" and not str(item.get("key") or "").startswith("iab-"):
+        kind = item.get("kind")
+        key = str(item.get("key") or "")
+        if kind not in {"banner", "social"} and not key.startswith("iab-"):
             continue
         entry = decorate_format(item)
         canvas = entry.get("canvas") or {}
@@ -105,10 +107,23 @@ def resolve_iab_format(format_key):
     return decorate_format(entry) if entry else None
 
 
-def roles_for_count(count):
+def core_roles_for(archetype="brand", density="rich"):
+    if density == "compact":
+        return ("logo", "headline", "cta")
+    if archetype == "product-hero":
+        return ("product", "logo", "headline", "cta")
+    if archetype == "promotion":
+        return ("logo", "headline", "cta", "support")
+    return ("visual", "logo", "headline", "cta")
+
+
+def roles_for_count(count, *, archetype="brand", density="rich"):
     number = clamp_layer_count(count)
-    roles = list(CORE_ROLES)
-    for role in EXTRA_ROLES + ORNAMENT_ROLES:
+    roles = list(core_roles_for(archetype, density))
+    extras = EXTRA_ROLES
+    if "product" in roles and "visual" not in roles:
+        extras = tuple(role for role in EXTRA_ROLES if role != "visual")
+    for role in extras + ORNAMENT_ROLES:
         if len(roles) >= number:
             break
         if role not in roles:
@@ -182,15 +197,19 @@ def build_layer_stack(system, format_key, layer_count=MIN_LAYERS):
     density = density_for(entry.get("key"), recipe.get("density"))
     parked = set(recipe.get("park") or ())
     well = box_from_recipe(recipe["well"])
-    copy = parsed.ad_copy or {}
+    archetype = parsed.archetype or "brand"
+    cores = core_roles_for(archetype, density)
+    from .copy import fit_ad_copy
+
+    copy = fit_ad_copy(parsed.ad_copy, density, parsed.name)
     count = clamp_layer_count(layer_count)
-    roles = roles_for_count(count)
+    roles = roles_for_count(count, archetype=archetype, density=density)
     extras = [role for role in roles if role.startswith("ornament") or role == "product"]
     layers = []
     ornament_index = 0
     for order, role in enumerate(roles):
         parked_role = role in parked or (
-            should_park(role, density) and role not in CORE_ROLES
+            should_park(role, density) and role not in cores
         )
         text = ""
         if role == "ground":
@@ -198,8 +217,11 @@ def build_layer_stack(system, format_key, layer_count=MIN_LAYERS):
         elif role == "visual":
             box, z = box_from_recipe(recipe["visual"]), 2
         elif role == "product":
-            box, z = fan_in_well(well, ornament_index, max(len(extras), 1)), 4
-            ornament_index += 1
+            if role in cores and not parked_role:
+                box, z = box_from_recipe(recipe["visual"]), 4
+            else:
+                box, z = fan_in_well(well, ornament_index, max(len(extras), 1)), 4
+                ornament_index += 1
         elif role == "logo":
             box, z = box_from_recipe(recipe["logo"]), 40
         elif role == "headline":
@@ -238,6 +260,9 @@ def build_layer_stack(system, format_key, layer_count=MIN_LAYERS):
             **_clamp_box(box),
         }
         layer["order"] = order
+        asset = _layer_asset(parsed, role)
+        if asset:
+            layer["asset_url"] = asset
         if role in BLEED_ROLES:
             layer["bleed"] = True
         layers.append(layer)
@@ -319,3 +344,20 @@ def adapt_system(system, format_key="iab-billboard", layer_count=MIN_LAYERS, swa
     data["tokens"] = stack["tokens"]
     adapted = parse_system(data)
     return adapted, stack
+
+
+def _layer_asset(system, role):
+    if role == "logo":
+        return system.logo_url or (system.tokens or {}).get("logo") or ""
+    track_id = {"product": "packshot", "visual": "lifestyle", "ground": "kv"}.get(role)
+    if not track_id:
+        return ""
+    fallback = "kv" if role == "visual" else ""
+    for item in system.tracks or []:
+        if isinstance(item, dict) and item.get("id") == track_id and item.get("url"):
+            return item["url"]
+    if fallback:
+        for item in system.tracks or []:
+            if isinstance(item, dict) and item.get("id") == fallback and item.get("url"):
+                return item["url"]
+    return ""

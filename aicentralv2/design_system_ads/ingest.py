@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .schema import contrast_ratio, normalize_hex, relative_luminance
+from .schema import contrast_ratio, normalize_hex, nudge_hex_for_contrast, relative_luminance
 
 PILL_RADIUS = ("999px", "9999px", "50%", "100vh")
 
@@ -113,16 +113,28 @@ def _light_surface(colors):
 
 
 def _readable_ink(colors, paper):
+    candidates = []
     for key in ("foreground", "primary", "text", "brand"):
         color = _unwrap_color(colors.get(key))
-        if color and contrast_ratio(color, paper) >= 4.5:
-            return color
+        if color:
+            candidates.append(color)
+            if contrast_ratio(color, paper) >= 4.5:
+                return color
     css = colors.get("cssVariables") if isinstance(colors.get("cssVariables"), dict) else {}
     for value in css.values():
         color = _unwrap_color(value)
         if color and relative_luminance(color) <= 0.18 and contrast_ratio(color, paper) >= 4.5:
             return color
-    return "#1E4D4F"
+        if color:
+            candidates.append(color)
+    for item in colors.get("palette") or []:
+        color = _unwrap_color(item)
+        if color:
+            candidates.append(color)
+    if candidates:
+        nudged, _ = nudge_hex_for_contrast(candidates[0], paper)
+        return nudged
+    return "#111111"
 
 
 def _cta_fill(colors, paper, ink):
@@ -131,7 +143,8 @@ def _cta_fill(colors, paper, ink):
         return primary
     if contrast_ratio("#FFFFFF", ink) >= 4.5:
         return ink
-    return "#1E4D4F"
+    nudged, _ = nudge_hex_for_contrast(ink, "#FFFFFF")
+    return nudged or ink or "#111111"
 
 
 def _highlight(colors, accent):
@@ -142,7 +155,11 @@ def _highlight(colors, accent):
     primary = _unwrap_color(colors.get("primary"))
     if primary and primary.upper() != accent.upper():
         return primary
-    return "#F3B71B"
+    for item in colors.get("palette") or []:
+        color = _unwrap_color(item)
+        if color and color.upper() != accent.upper() and relative_luminance(color) < 0.85:
+            return color
+    return primary or accent or "#111111"
 
 
 def _muted(colors, paper, ink):

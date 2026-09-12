@@ -3,23 +3,32 @@
 from __future__ import annotations
 
 import json
-import os
 
 from ..creative_modeling_generation import OpenRouterError, _json_content
-from ..services.openrouter_service import resolve_chat_model
 from ..creative_skills.visual import load_visual_brief
 from .catalog import is_end_card, logo_visible_for
+from .engineer import _resolve_offer
+from .lab_models import JSON_OBJECT, MOCKUP_MODEL, MOCKUP_TEMPERATURE, lab_chat_model
 from .html_builder import (
+    apply_cta_visibility,
     apply_logo_visibility,
     apply_patches,
     build_scene_html,
     ensure_system_layers,
 )
-from .visual_qa import clamp_renders, png_data_url, render_png
+from .layer_export import snapshot_layers
+from .spec import QaPatch
+from .visual_qa import clamp_renders, lock_copy_patches, png_data_url, render_png, still_is_usable
 
-MOCKUP_MODEL = os.getenv("CREATIVE_FORMAT_MOCKUP_MODEL", "openai/gpt-4o-mini")
 MOCKUP_PASSES = 3
 MOCKUP_ESTIMATE_USD = 0.005
+MOCKUP_LAYER_IDS = (
+    "layer-brand",
+    "layer-headline",
+    "layer-support",
+    "layer-cta",
+    "layer-key-visual",
+)
 
 
 def build_base_mockup(
@@ -60,7 +69,8 @@ def build_base_mockup(
     current = html_text
     best = {"score": 0.55, "html": current, "attempt": 1}
     provider = "plate"
-    model = resolve_chat_model(MOCKUP_MODEL) or MOCKUP_MODEL
+    model = lab_chat_model("mockup")
+    previous_render = ""
     for attempt in range(1, attempts + 1):
         if text_callable is not None:
             try:
@@ -72,6 +82,7 @@ def build_base_mockup(
                     knobs=knobs,
                     images=images,
                     attempt=attempt,
+                    plate_render=previous_render,
                     text_callable=text_callable,
                 )
                 provider = "llm"
@@ -81,6 +92,7 @@ def build_base_mockup(
         current = apply_logo_visibility(current, True)
         png = render_png(current, spec.canvas.width, spec.canvas.height, screenshot)
         url = png_data_url(png)
+        previous_render = url
         score = min(0.95, 0.55 + (0.15 * attempt))
         versions.append({
             "scene_id": "base",
@@ -170,11 +182,15 @@ def _refine_mockup(
     images,
     attempt,
     text_callable,
+    plate_render="",
 ):
+    layers = snapshot_layers(html_text, MOCKUP_LAYER_IDS)
     payload = {
-        "task": f"Pass {attempt}/{MOCKUP_PASSES}: model the black 16:9 HTML mockup for this brand.",
+        "task": f"Pass {attempt}/{MOCKUP_PASSES}: patch this black 16:9 plate. Use the current layers"
+        + (" and the previous still." if still_is_usable(plate_render) else "."),
         "rules": [
             "Return JSON only: {passed, score, defects[], patches[{layer_id,text,css}], css_vars{}}.",
+            "No markdown fences. css is a string, not an object.",
             "Do not return a new HTML document.",
             "Keep layer IDs. Keep 1920x1080. Keep the black velvet plate.",
             "Use brand ink/accent/logo. Do not invent a layout.",
@@ -184,6 +200,9 @@ def _refine_mockup(
             "No uppercase headlines. No pill buttons. No player chrome.",
             "Logo in the base is a system mark, not a lock for every later scene.",
             "No website menu, no extra scenes, no grey landscape drawing.",
+            "Patch from the current layer texts. Do not invent missing copy.",
+            "Do not rewrite headline, support or CTA. CSS and key-visual only.",
+            "The base plate has no end-card CTA. Leave layer-cta empty.",
         ],
         "selected_skills": knobs.get("selected_skills") or [],
         "visual_skill": load_visual_brief(knobs.get("selected_skills"), stage="html"),
@@ -200,21 +219,24 @@ def _refine_mockup(
         },
         "campaign": {
             "title": campaign.get("title"),
-            "offer": knobs.get("offer") or campaign.get("offer"),
+            "offer": knobs.get("offer") or _resolve_offer(knobs, campaign),
             "objective": knobs.get("objective") or campaign.get("objective"),
         },
-        "layer_ids": [
-            "layer-brand",
-            "layer-headline",
-            "layer-support",
-            "layer-cta",
-            "layer-key-visual",
-        ],
+        "layer_ids": list(MOCKUP_LAYER_IDS),
+        "layers": layers,
+        "locked": {
+            "headline": spec.scenes[0].headline,
+            "support": spec.scenes[0].support,
+            "cta": spec.scenes[0].cta or "",
+        },
+        "has_previous_still": still_is_usable(plate_render),
     }
     content = [{"type": "text", "text": json.dumps(payload, ensure_ascii=False)}]
     for url in images:
         if isinstance(url, str) and url.startswith("https://"):
             content.append({"type": "image_url", "image_url": {"url": url}})
+    if still_is_usable(plate_render):
+        content.append({"type": "image_url", "image_url": {"url": plate_render}})
     response = text_callable(
         [
             {
@@ -223,9 +245,10 @@ def _refine_mockup(
             },
             {"role": "user", "content": content},
         ],
-        model=resolve_chat_model(MOCKUP_MODEL),
+        model=lab_chat_model("mockup"),
         max_tokens=900,
-        temperature=0.15,
+        temperature=MOCKUP_TEMPERATURE,
+        response_format=JSON_OBJECT,
     )
     raw = response["message"].get("content") if isinstance(response, dict) else response
     if not isinstance(raw, dict):
@@ -236,11 +259,23 @@ def _refine_mockup(
                 raw = json.loads(str(raw))
             except Exception:
                 return html_text
-    updated = apply_patches(html_text, raw.get("patches") or [])
+    patches = []
+    for item in raw.get("patches") or []:
+        try:
+            patches.append(QaPatch.model_validate(item).model_dump())
+        except Exception:
+            continue
+    first = spec.scenes[0]
+    patches = lock_copy_patches(
+        patches,
+        {"headline": first.headline, "support": first.support, "cta": first.cta or ""},
+    )
+    updated = apply_patches(html_text, patches)
     css_vars = raw.get("css_vars") if isinstance(raw.get("css_vars"), dict) else {}
     if css_vars:
         updated = _apply_css_vars(updated, css_vars)
-    return updated
+    show_cta = bool(first.cta) or is_end_card(first.purpose, first.id, len(spec.scenes))
+    return apply_cta_visibility(updated, show_cta)
 
 
 def _apply_css_vars(html_text, css_vars):
@@ -271,7 +306,8 @@ def _mockup_system(knobs=None):
     brief = load_visual_brief((knobs or {}).get("selected_skills"), stage="html")
     base = (
         "You model advertising format HTML. "
-        "Black 16:9 mockup first. Patches only. GPT-4o-mini fidelity pass."
+        "Black 16:9 mockup first. Patches only. GPT-4o-mini fidelity pass. "
+        "Reply with one JSON object only. No markdown fences."
     )
     if not brief:
         return base

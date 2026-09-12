@@ -55,6 +55,19 @@ def ensure_campaign_design_system(brand, campaign=None, elements=None):
     )
     data["ad_copy"] = _campaign_copy(brand, campaign)
     data["tokens"] = dict(brand.tokens or {})
+    from .fidelity import bind_evidence_tracks
+
+    data["tracks"] = bind_evidence_tracks(
+        data.get("tracks") or brand.tracks,
+        [
+            {
+                "url": item.get("asset_url"),
+                "role": item.get("role") or "",
+                "label": item.get("label") or "",
+            }
+            for item in items
+        ],
+    )
     system = DesignSystemAds.model_validate(data)
     return system, items
 
@@ -125,7 +138,8 @@ def _campaign_copy(brand, campaign):
         or extracted.get("headline")
         or bancada.get("title")
         or _first_line(campaign.get("campaign_text"))
-        or brand_copy.get("headline")
+        or campaign.get("name")
+        or ""
     )
     support = (
         campaign.get("support")
@@ -133,10 +147,11 @@ def _campaign_copy(brand, campaign):
         or extracted.get("offer")
         or campaign.get("objective")
         or campaign.get("creative_line")
-        or brand_copy.get("support")
+        or campaign.get("objective")
+        or ""
     )
-    cta = campaign.get("cta_text") or extracted.get("cta") or brand_copy.get("cta")
-    legal = campaign.get("legal") or brand_copy.get("legal")
+    cta = campaign.get("cta_text") or extracted.get("cta") or "Reservar"
+    legal = campaign.get("legal") or brand_copy.get("legal") or str(campaign.get("name") or "")
     return {
         key: str(value).strip()
         for key, value in {

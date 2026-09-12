@@ -3,16 +3,49 @@
 from __future__ import annotations
 
 import base64
+import io
 import json
 import os
+import re
+from pathlib import Path
 
 from ..creative_modeling_fx import annotate_cost
 from ..creative_modeling_generation import _json_content
 
 SWAP_MODEL = "openai/gpt-image-2"
 SWAP_READ_MODEL = os.getenv("CREATIVE_FORMAT_SWAP_READ_MODEL", "openai/gpt-4o-mini")
+SWAP_READ_TEMPERATURE = float(os.getenv("CREATIVE_FORMAT_SWAP_READ_TEMPERATURE", "0") or 0)
+SWAP_READ_MAX_TOKENS = int(os.getenv("CREATIVE_FORMAT_SWAP_READ_MAX_TOKENS", "1200") or 1200)
 SWAP_ESTIMATE_USD = 0.22
 SWAP_DRAFT_ESTIMATE_USD = 0.14
+TYPE_ONLY = {"headline", "secondary", "cta", "price"}
+TYPESET_SLOTS = {
+    "1:1": {
+        "headline": (0.04, 0.04, 0.50, 0.26),
+        "secondary": (0.76, 0.27, 0.23, 0.14),
+        "dates": (0.56, 0.06, 0.40, 0.28),
+        "cta": (0.18, 0.84, 0.64, 0.10),
+        "price": (0.18, 0.72, 0.40, 0.10),
+    },
+    "4:5": {
+        "headline": (0.07, 0.58, 0.86, 0.14),
+        "secondary": (0.07, 0.74, 0.86, 0.08),
+        "cta": (0.12, 0.86, 0.76, 0.07),
+        "price": (0.12, 0.52, 0.36, 0.08),
+    },
+    "9:16": {
+        "headline": (0.08, 0.56, 0.84, 0.16),
+        "secondary": (0.08, 0.74, 0.84, 0.08),
+        "cta": (0.12, 0.84, 0.76, 0.08),
+        "price": (0.12, 0.48, 0.40, 0.08),
+    },
+    "16:9": {
+        "headline": (0.40, 0.14, 0.36, 0.34),
+        "secondary": (0.40, 0.52, 0.34, 0.16),
+        "cta": (0.76, 0.34, 0.20, 0.28),
+        "price": (0.40, 0.70, 0.30, 0.10),
+    },
+}
 
 OUTPUT_FORMATS = (
     {
@@ -89,8 +122,12 @@ _ROLE_TO_ANALYSIS = {
 }
 
 READ_SYSTEM = """Você lê um still de anúncio. Extraia só o que está visível.
-Não invente oferta, preço ou slogan. Copy em português do Brasil exatamente como aparece.
-Se um texto estiver ilegível, deixe vazio. Retorne JSON puro:
+Não invente oferta, preço, nome ou slogan. Copy em português do Brasil exatamente como aparece, com acento.
+Cartela de evento: cada selo de nome é um element role=person. Datas vão em dates. Local vai em venue.
+O grito da peça (É de graça, Entrada franca, etc.) vai em support ou cta — nunca some.
+Bandeirola, fitas ou padrão repetido = graphic true.
+style descreve o que se vê (cor do campo, luz, recorte). Nunca repita estas instruções.
+Se um texto estiver ilegível, deixe vazio. Não corrija português. Retorne JSON puro:
 {
   "headline": "",
   "support": "",
@@ -99,10 +136,12 @@ Se um texto estiver ilegível, deixe vazio. Retorne JSON puro:
   "cta": "",
   "disclaimer": "",
   "logo_text": "",
-  "aspect_hint": "16:9",
+  "dates": "",
+  "venue": "",
+  "aspect_hint": "1:1",
   "style": "iluminação, fundo e materiais — sem sugerir efeito novo",
   "elements": [
-    {"role": "logo", "text": "", "note": "onde está e o que o humano pode editar"}
+    {"role": "person", "text": "nome no selo", "note": "onde está"}
   ],
   "analysis": {
     "background": true,
@@ -116,11 +155,26 @@ Se um texto estiver ilegível, deixe vazio. Retorne JSON puro:
   }
 }
 roles válidos: logo, headline, support, cta, product, price, person, background, graphic.
-analysis marca o que está visível. aspect_hint é 16:9, 9:16, 4:5 ou 1:1."""
+analysis marca o que está visível. aspect_hint é 16:9, 9:16, 4:5 ou 1:1. Print de celular não muda o aspect da peça."""
+
+READ_STRICT_SYSTEM = (
+    READ_SYSTEM
+    + "\nVALIDAÇÃO: transcreva glifo a glifo. Se o still escreveu Mumuzinho ou franceça, copie o erro."
+    " Não normalize para o nome famoso nem corrija acento."
+)
 
 
 def quote_swap(payload=None):
     payload = payload if isinstance(payload, dict) else {}
+    if swap_mode(payload) == "typeset":
+        return annotate_cost({
+            "estimated_cost_usd": 0,
+            "model": "typeset",
+            "passes": 0,
+            "quality": "typeset",
+            "later": {"image": False, "video": False},
+            "output_formats": list(OUTPUT_FORMATS),
+        })
     quality = _quality(payload)
     estimate = SWAP_DRAFT_ESTIMATE_USD if quality == "draft" else SWAP_ESTIMATE_USD
     return annotate_cost({
@@ -143,7 +197,12 @@ def match_aspect_ratio(value):
 
 def resolve_aspect_ratio(payload=None):
     payload = payload if isinstance(payload, dict) else {}
-    return match_aspect_ratio(payload.get("aspect_ratio") or payload.get("output")) or "16:9"
+    return (
+        match_aspect_ratio(
+            payload.get("aspect_ratio") or payload.get("output") or payload.get("aspect_hint")
+        )
+        or "16:9"
+    )
 
 
 def swap_logo_url(payload=None, brand=None):
@@ -192,13 +251,20 @@ def build_optimized_prompt(payload=None, brand=None):
     alter = _token_list(payload.get("alter"), ALTER_LABELS)
     lines = [
         "Edit the attached advertising reference. Keep the same composition, crop, hierarchy and number of frames.",
-        "Swap only the advertised brand, product and copy. Do not redesign the layout.",
         "All visible text must be Brazilian Portuguese.",
         "Spell every visible line exactly as written below. Do not scramble, hyphenate, invent or auto-correct Portuguese.",
         "Do not invent a new visual effect: no neon light trails, sci-fi streaks, extra glow, lens flares or futuristic overlays that are not in the reference.",
         "Keep the original lighting, color grade, materials and photography. Do not add a new light ribbon or energy streak.",
         "Do not add player chrome, app UI or extra frames that are not in the reference.",
     ]
+    if alter:
+        lines.insert(
+            1,
+            "This is an item swap. Change only the listed items. Every other face, name pill, date, logo and graphic stays locked.",
+        )
+        lines.insert(2, "Do not redesign the layout.")
+    else:
+        lines.insert(1, "Swap only the advertised brand, product and copy. Do not redesign the layout.")
     if quality == "draft":
         lines.append("This is a draft preview. Prefer a clear, fast interpretation over extra micro-detail.")
     else:
@@ -208,8 +274,26 @@ def build_optimized_prompt(payload=None, brand=None):
         lines.append(f"Output aspect ratio {aspect}. Recrop and rebalance composition for that frame.")
     if preserve:
         lines.append("Preserve exactly: " + ", ".join(PRESERVE_LABELS[item] for item in preserve) + ".")
+    if "people" in preserve:
+        lines.append(
+            "Keep every face, pose, hair, garment and name-pill label exactly. Do not replace, add or drop a person."
+        )
+        lines.append(
+            "Do not redraw name pills, dates, logos or the headline. Clone those text regions from the reference. "
+            "Typeset only the lines listed under Change only."
+        )
+    if "graphic" in preserve:
+        lines.append("Keep the repeating pennant/bunting and field pattern. Do not restyle the graphic devices.")
     if alter:
         lines.append("Change only: " + ", ".join(ALTER_LABELS[item] for item in alter) + ".")
+    locks = _lock_list(payload)
+    if locks:
+        spelled = " | ".join(_spell_lock(item) for item in locks)
+        lines.append("These strings must remain visible and correctly spelled: " + spelled + ".")
+        lines.append(
+            "Paint each locked string glyph by glyph. Do not double letters or add syllables "
+            "(franca not franceça, Mumuzinho not Mumuzinho)."
+        )
     if use_brand and name:
         lines.append(f"New brand: {name}.")
     if use_brand and color:
@@ -313,18 +397,104 @@ def build_prompt_preview_pt(payload=None, brand=None):
         parts.append(note)
     parts.append(f"Formato de saída {aspect}.")
     parts.append("Rascunho de validação." if quality == "draft" else "Versão de produção, alta fidelidade.")
+    risk = swap_risk(payload)
+    if risk.get("level") == "high":
+        if swap_mode(payload) == "typeset":
+            parts.append("Tipo composto na foto. Elenco e selos ficam iguais à referência.")
+        else:
+            parts.append(risk["reason"])
     return " ".join(parts)
 
 
 def preview_swap_prompt(payload=None, brand=None):
+    payload = prepare_swap(payload)
     prompt = build_optimized_prompt(payload, brand)
+    mode = swap_mode(payload)
     return {
         "prompt": prompt,
         "preview": build_prompt_preview_pt(payload, brand),
         "quality": _quality(payload),
         "aspect_ratio": resolve_aspect_ratio(payload),
         "quote": quote_swap(payload),
+        "risk": swap_risk(payload),
+        "mode": mode,
+        "locks": _lock_list(payload),
     }
+
+
+def swap_risk(payload=None, read=None):
+    """Cartela com muitos selos + troca de tipo = risco alto de português embaralhado."""
+    payload = payload if isinstance(payload, dict) else {}
+    read = read if isinstance(read, dict) else {}
+    people = sum(
+        1
+        for item in (read.get("elements") or payload.get("elements") or [])
+        if isinstance(item, dict) and item.get("role") == "person"
+    )
+    faces = 0
+    try:
+        faces = int(payload.get("faces") or 0)
+    except (TypeError, ValueError):
+        faces = 0
+    alter = set(_token_list(payload.get("alter"), ALTER_LABELS))
+    type_alter = bool(alter & {"headline", "secondary", "cta", "price"})
+    if (people >= 4 or faces >= 4 or "people" in _token_list(payload.get("preserve"), PRESERVE_LABELS)) and type_alter:
+        return {
+            "level": "high",
+            "reason": "Cartela com elenco. O Image 2 costuma embaralhar os selos. Clone o tipo da referência e só reescreva o item marcado — ou use decompose.",
+        }
+    return {"level": "ok", "reason": ""}
+
+
+def swap_mode(payload=None):
+    payload = payload if isinstance(payload, dict) else {}
+    if payload.get("force_image"):
+        return "image"
+    alter = set(_token_list(payload.get("alter"), ALTER_LABELS))
+    if swap_risk(payload).get("level") == "high" and alter and alter <= TYPE_ONLY:
+        return "typeset"
+    return "image"
+
+
+def prepare_swap(payload=None):
+    data = dict(payload) if isinstance(payload, dict) else {}
+    merged = []
+    for item in locks_from_read(data) + _lock_list(data):
+        if item not in merged:
+            merged.append(item)
+        if len(merged) >= 12:
+            break
+    data["locks"] = merged
+    if not match_aspect_ratio(data.get("aspect_ratio") or data.get("output")):
+        hint = match_aspect_ratio(data.get("aspect_hint"))
+        if hint:
+            data["aspect_ratio"] = hint
+    if not data.get("subtitle") and data.get("dates"):
+        data["subtitle"] = str(data.get("dates") or "").replace("\n", " ")[:80]
+    return data
+
+
+def locks_from_read(payload=None):
+    payload = payload if isinstance(payload, dict) else {}
+    locks = []
+    for item in payload.get("elements") or []:
+        if not isinstance(item, dict):
+            continue
+        if item.get("role") == "person" and item.get("text"):
+            locks.append(str(item["text"]).strip()[:80])
+    for key in ("dates", "venue", "logo_text"):
+        value = str(payload.get(key) or "").replace("\n", " ").strip()
+        if value:
+            locks.append(value[:80])
+    return locks
+
+
+def looks_scrambled(text):
+    raw = re.sub(r"\s+", " ", str(text or "")).strip()
+    if re.search(r"(\S)\1{2,}", raw):
+        return True
+    folded = raw.casefold()
+    return any(token in folded for token in ("entradada", "franceça", "franceca", "graçça", "vaqueiroo"))
 
 
 def read_swap_reference(payload=None, *, text_callable=None):
@@ -335,9 +505,10 @@ def read_swap_reference(payload=None, *, text_callable=None):
     empty = _empty_read()
     if text_callable is None:
         return empty
+    system = READ_STRICT_SYSTEM if payload.get("strict") else READ_SYSTEM
     response = text_callable(
         [
-            {"role": "system", "content": READ_SYSTEM},
+            {"role": "system", "content": system},
             {
                 "role": "user",
                 "content": [
@@ -347,8 +518,8 @@ def read_swap_reference(payload=None, *, text_callable=None):
             },
         ],
         model=SWAP_READ_MODEL,
-        max_tokens=700,
-        temperature=0.1,
+        max_tokens=SWAP_READ_MAX_TOKENS,
+        temperature=SWAP_READ_TEMPERATURE,
     )
     raw = response["message"].get("content") if isinstance(response, dict) else response
     if isinstance(raw, dict):
@@ -375,7 +546,7 @@ def read_swap_reference(payload=None, *, text_callable=None):
             "text": str(item.get("text") or "").strip()[:120],
             "note": str(item.get("note") or "").strip()[:160],
         })
-        if len(elements) >= 12:
+        if len(elements) >= 20:
             break
     aspect_hint = match_aspect_ratio(parsed.get("aspect_hint"))
     return {
@@ -386,6 +557,8 @@ def read_swap_reference(payload=None, *, text_callable=None):
         "cta": str(parsed.get("cta") or "").strip()[:40],
         "disclaimer": str(parsed.get("disclaimer") or "").strip()[:160],
         "logo_text": str(parsed.get("logo_text") or "").strip()[:40],
+        "dates": str(parsed.get("dates") or "").strip()[:80],
+        "venue": str(parsed.get("venue") or "").strip()[:80],
         "aspect_hint": aspect_hint,
         "style": str(parsed.get("style") or "").strip()[:200],
         "elements": elements,
@@ -394,10 +567,12 @@ def read_swap_reference(payload=None, *, text_callable=None):
 
 
 def swap_reference(payload=None, *, brand=None, image_callable=None):
-    payload = payload if isinstance(payload, dict) else {}
+    payload = prepare_swap(payload)
     refs = swap_input_references(payload, brand)
     if not refs:
         raise ValueError("Envie uma imagem de referência.")
+    if swap_mode(payload) == "typeset":
+        return typeset_reference(payload, brand=brand)
     if image_callable is None:
         raise ValueError("Gerador de imagem indisponível.")
     prompt = build_optimized_prompt(payload, brand)
@@ -420,9 +595,268 @@ def swap_reference(payload=None, *, brand=None, image_callable=None):
         "aspect_ratio": aspect_ratio,
         "quality": quality,
         "model": SWAP_MODEL,
+        "mode": "image",
+        "risk": swap_risk(payload),
+        "png_data_url": "data:image/png;base64," + base64.b64encode(png).decode("ascii"),
+        "quote": quote_swap({**payload, "force_image": True}),
+    }
+
+
+def typeset_reference(payload=None, brand=None):
+    payload = prepare_swap(payload)
+    reference = _reference(payload)
+    raw = _png_bytes({"png_data_url": reference} if str(reference).startswith("data:image") else {})
+    if not raw and str(reference).startswith("data:image") and "," in reference:
+        raw = base64.b64decode(reference.split(",", 1)[-1])
+    if not raw:
+        raise ValueError("Envie uma imagem de referência.")
+    patches = typeset_patches(payload)
+    png = _paint_typeset(raw, patches, resolve_aspect_ratio(payload))
+    return {
+        "prompt": build_optimized_prompt(payload, brand),
+        "preview": build_prompt_preview_pt(payload, brand),
+        "reference": reference[:80],
+        "logo_used": False,
+        "aspect_ratio": resolve_aspect_ratio(payload),
+        "quality": "typeset",
+        "model": "typeset",
+        "mode": "typeset",
+        "risk": swap_risk(payload),
+        "patches": patches,
         "png_data_url": "data:image/png;base64," + base64.b64encode(png).decode("ascii"),
         "quote": quote_swap(payload),
     }
+
+
+def typeset_patches(payload=None):
+    payload = payload if isinstance(payload, dict) else {}
+    alter = set(_token_list(payload.get("alter"), ALTER_LABELS))
+    rows = []
+    if "headline" in alter and payload.get("headline"):
+        rows.append({"slot": "headline", "text": str(payload["headline"]).strip()[:80]})
+    if "secondary" in alter:
+        if payload.get("support"):
+            rows.append({"slot": "secondary", "text": str(payload["support"]).strip()[:80]})
+        if payload.get("subtitle"):
+            rows.append({"slot": "dates", "text": str(payload["subtitle"]).strip()[:80]})
+    if "cta" in alter and payload.get("cta"):
+        rows.append({"slot": "cta", "text": str(payload["cta"]).strip()[:40]})
+    if "price" in alter and payload.get("price"):
+        rows.append({"slot": "price", "text": str(payload["price"]).strip()[:40]})
+    return rows
+
+
+def _paint_typeset(png, patches, aspect="1:1"):
+    try:
+        from PIL import Image, ImageDraw
+    except ImportError as exc:
+        raise ValueError("Pillow é necessário para compor o tipo na foto.") from exc
+    image = Image.open(io.BytesIO(png)).convert("RGB")
+    slots = TYPESET_SLOTS.get(aspect) or TYPESET_SLOTS["1:1"]
+    field = _canvas_field(image)
+    for patch in patches:
+        box = slots.get(patch["slot"])
+        if not box:
+            continue
+        region = _locate_type(image, box, field)
+        _cover_type(image, region["cover"], field)
+        _draw_copy(
+            image,
+            region["bbox"],
+            region["slot"],
+            _stack_copy(patch["text"]),
+            region["ink"],
+        )
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def _locate_type(image, slot, field):
+    width, height = image.size
+    x, y, w, h = slot
+    left, top = max(0, int(width * x)), max(0, int(height * y))
+    right = min(width, int(width * (x + w)))
+    bottom = min(height, int(height * (y + h)))
+    chromatic = []
+    pale = []
+    for py in range(top, bottom):
+        for px in range(left, right):
+            pixel = image.getpixel((px, py))
+            if not _far_from_field(pixel, field):
+                continue
+            chroma = max(pixel[:3]) - min(pixel[:3])
+            if chroma > 80:
+                chromatic.append((px, py, pixel))
+            elif _luma(pixel) > 205:
+                pale.append((px, py, pixel))
+    chosen = chromatic if len(chromatic) >= 40 else pale
+    slot_box = (left, top, right, bottom)
+    if len(chosen) < 40:
+        return {
+            "bbox": slot_box,
+            "slot": slot_box,
+            "ink": _contrast_ink(field),
+            "cover": [],
+        }
+    xs = [item[0] for item in chosen]
+    ys = [item[1] for item in chosen]
+    pad = max(3, int(height * 0.006))
+    return {
+        "bbox": (
+            max(left, min(xs) - pad),
+            max(top, min(ys) - pad),
+            min(right, max(xs) + pad + 1),
+            min(bottom, max(ys) + pad + 1),
+        ),
+        "slot": slot_box,
+        "ink": _ink_color([item[2] for item in chosen]),
+        "cover": [(item[0], item[1]) for item in chosen],
+    }
+
+
+def _cover_type(image, points, field):
+    if not points:
+        return
+    width, height = image.size
+    pixels = image.load()
+    radius = 3
+    seen = set()
+    for x, y in points:
+        for dx in range(-radius, radius + 1):
+            for dy in range(-radius, radius + 1):
+                px, py = x + dx, y + dy
+                if px < 0 or py < 0 or px >= width or py >= height:
+                    continue
+                if (px, py) in seen:
+                    continue
+                seen.add((px, py))
+                pixels[px, py] = field
+
+
+def _draw_copy(image, bbox, slot, text, ink):
+    from PIL import ImageDraw
+
+    draw = ImageDraw.Draw(image)
+    left, right = slot[0], slot[2]
+    top, bottom = bbox[1], bbox[3]
+    max_width = max(12, right - left - 6)
+    max_height = max(12, bottom - top + int((bottom - top) * 0.12))
+    lines = max(1, text.count("\n") + 1)
+    font = _fit_font(draw, text, max_width, max_height, int(max_height / lines * 0.96))
+    box = draw.multiline_textbbox((0, 0), text, font=font, spacing=0, align="center")
+    tw, th = box[2] - box[0], box[3] - box[1]
+    tx = left + max(2, (right - left - tw) // 2)
+    ty = top + max(0, (bottom - top - th) // 2)
+    draw.multiline_text((tx, ty), text, font=font, fill=ink, spacing=0, align="center")
+
+
+def _stack_copy(text):
+    raw = str(text or "").strip()
+    if not raw or "\n" in raw:
+        return raw
+    words = raw.split()
+    if len(words) == 2:
+        return "\n".join(words)
+    if len(words) >= 3:
+        mid = (len(words) + 1) // 2
+        return " ".join(words[:mid]) + "\n" + " ".join(words[mid:])
+    return raw
+
+
+def _far_from_field(pixel, field, threshold=140):
+    return (
+        abs(pixel[0] - field[0])
+        + abs(pixel[1] - field[1])
+        + abs(pixel[2] - field[2])
+    ) > threshold
+
+
+def _ink_color(colors):
+    if not colors:
+        return (255, 255, 255)
+    ranked = sorted(colors, key=lambda item: max(item[:3]) - min(item[:3]), reverse=True)
+    top = ranked[: max(1, len(ranked) // 5)]
+    count = len(top)
+    return (
+        sum(item[0] for item in top) // count,
+        sum(item[1] for item in top) // count,
+        sum(item[2] for item in top) // count,
+    )
+
+
+def _contrast_ink(field):
+    return (17, 17, 17) if _luma(field) > 140 else (255, 255, 255)
+
+
+def _median_color(region):
+    return _field_color(region)
+
+
+def _canvas_field(image):
+    from collections import Counter
+
+    small = image.resize((48, 48))
+    buckets = [
+        ((pixel[0] // 16) * 16, (pixel[1] // 16) * 16, (pixel[2] // 16) * 16)
+        for pixel in small.getdata()
+    ]
+    mid = [item for item in buckets if 40 < _luma(item) < 230]
+    return Counter(mid or buckets).most_common(1)[0][0]
+
+
+def _field_color(region):
+    from collections import Counter
+
+    small = region.resize((32, 32))
+    width, height = small.size
+    border = []
+    for x in range(width):
+        border.append(small.getpixel((x, 0)))
+        border.append(small.getpixel((x, height - 1)))
+    for y in range(height):
+        border.append(small.getpixel((0, y)))
+        border.append(small.getpixel((width - 1, y)))
+    buckets = [((pixel[0] // 16) * 16, (pixel[1] // 16) * 16, (pixel[2] // 16) * 16) for pixel in border]
+    return Counter(buckets).most_common(1)[0][0] if buckets else (255, 255, 255)
+
+
+def _luma(color):
+    red, green, blue = color[:3]
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+
+
+def _fit_font(draw, text, max_width, max_height, start):
+    size = max(14, int(start))
+    font = _typeset_font(size)
+    while size > 14:
+        box = draw.multiline_textbbox((0, 0), text, font=font, spacing=0, align="center")
+        if box[2] - box[0] <= max_width and box[3] - box[1] <= max_height:
+            break
+        size -= 2
+        font = _typeset_font(size)
+    return font
+
+
+def _typeset_font(size):
+    from PIL import ImageFont
+
+    for path, index in (
+        ("/System/Library/Fonts/Avenir Next Condensed.ttc", 8),
+        ("/System/Library/Fonts/Avenir Next Condensed.ttc", 0),
+        ("/System/Library/Fonts/Supplemental/Arial Bold.ttf", None),
+        ("/Library/Fonts/Arial Bold.ttf", None),
+        ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", None),
+    ):
+        if not Path(path).is_file():
+            continue
+        try:
+            if index is None:
+                return ImageFont.truetype(path, size)
+            return ImageFont.truetype(path, size, index=index)
+        except OSError:
+            continue
+    return ImageFont.load_default()
 
 
 def _empty_read():
@@ -434,11 +868,72 @@ def _empty_read():
         "cta": "",
         "disclaimer": "",
         "logo_text": "",
+        "dates": "",
+        "venue": "",
         "aspect_hint": "",
         "style": "",
         "elements": [],
         "analysis": {key: False for key in ANALYSIS_KEYS},
     }
+
+
+def score_swap_copy(read, locks=None, forbidden=None):
+    """Mede se as linhas travadas sobreviveram e se a troca apareceu."""
+    read = read if isinstance(read, dict) else {}
+    blob = " ".join(
+        [
+            str(read.get("headline") or ""),
+            str(read.get("support") or ""),
+            str(read.get("subtitle") or ""),
+            str(read.get("cta") or ""),
+            str(read.get("disclaimer") or ""),
+            str(read.get("dates") or ""),
+            str(read.get("venue") or ""),
+            str(read.get("logo_text") or ""),
+            " ".join(str(item.get("text") or "") for item in (read.get("elements") or []) if isinstance(item, dict)),
+        ]
+    )
+    folded = blob.casefold()
+    locks = [str(item).strip() for item in (locks or []) if str(item).strip()]
+    forbidden = [str(item).strip() for item in (forbidden or []) if str(item).strip()]
+    hits = [item for item in locks if item.casefold() in folded]
+    leaks = [item for item in forbidden if item.casefold() in folded]
+    total = len(locks) + len(forbidden)
+    score = (len(hits) + (len(forbidden) - len(leaks))) / total if total else 0.0
+    return {
+        "hits": hits,
+        "misses": [item for item in locks if item not in hits],
+        "leaks": leaks,
+        "accuracy": round(score, 3),
+        "scrambled": looks_scrambled(blob),
+        "blob": blob[:400],
+    }
+
+
+def _spell_lock(text):
+    words = [part for part in str(text or "").split() if part]
+    if not words:
+        return str(text or "")
+    counts = " + ".join(f"{word}={len(word)}" for word in words)
+    return f"{text} ({counts})"
+
+
+def _lock_list(payload):
+    raw = payload.get("locks") if isinstance(payload, dict) else None
+    if isinstance(raw, str):
+        items = [part.strip() for part in raw.split("|")]
+    elif isinstance(raw, (list, tuple)):
+        items = raw
+    else:
+        items = []
+    seen = []
+    for item in items:
+        text = str(item or "").strip()
+        if text and text not in seen:
+            seen.append(text[:80])
+        if len(seen) >= 12:
+            break
+    return seen
 
 
 def _analysis_from_read(parsed, elements):
@@ -454,15 +949,17 @@ def _analysis_from_read(parsed, elements):
         present["secondary"] = True
     if parsed.get("cta"):
         present["cta"] = True
-    if parsed.get("price") or parsed.get("disclaimer"):
+    if parsed.get("price") or parsed.get("disclaimer") or parsed.get("dates"):
         present["supports"] = True
     result = {}
     for key in ANALYSIS_KEYS:
         flagged = raw.get(key)
-        if flagged is True or flagged is False:
+        if present.get(key):
+            result[key] = True
+        elif flagged is True or flagged is False:
             result[key] = bool(flagged)
         else:
-            result[key] = bool(present.get(key))
+            result[key] = False
     return result
 
 

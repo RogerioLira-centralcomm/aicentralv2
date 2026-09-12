@@ -62,4 +62,5 @@ When both reference and format exist: reference controls appearance; format skil
 - HTML only → implement + format + validate
 
 Do not load every skill by default.
-This lab phase only executes CTV video formats.
+This lab phase executes CTV video, IAB banners and social units (`feed-1x1`, `feed-4x5`, `story-9x16`, `linkedin-landscape`). Social formats load the IAB banner skill plus the reconstruct pack when a reference exists.
+When the input is a network screenshot, crop the ad rectangle first. Then route the inner concept (packshot, product-kv, lifestyle, event-kv, event-cast) — do not treat 4:5 as lifestyle by default.

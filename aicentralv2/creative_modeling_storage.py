@@ -29,6 +29,8 @@ PUBLIC_PREFIX = "/static/uploads/client_logos/"
 REFERENCE_PREFIX = "/static/uploads/creative_references/"
 GENERATED_PREFIX = "/static/uploads/creative_generated/"
 TROCR_PREFIX = "/static/uploads/creative_trocr/"
+TROCR_STILL_PREFIX = "/parametros/api/format-lab/swap/still/"
+TROCR_STILL_NAME = re.compile(r"^[a-f0-9]{32}\.(png|jpg|jpeg|webp)$")
 
 
 def _safe_trocr_key(key):
@@ -38,6 +40,12 @@ def _safe_trocr_key(key):
 
 def _root(folder="client_logos"):
     root = Path(current_app.root_path) / "static" / "uploads" / folder
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _trocr_still_root():
+    root = Path(current_app.instance_path) / "trocr_stills"
     root.mkdir(parents=True, exist_ok=True)
     return root
 
@@ -140,6 +148,29 @@ class CreativeAssetStorage:
         filename = f"{uuid.uuid4().hex}{extension}"
         (_root("creative_generated") / filename).write_bytes(content)
         return f"{GENERATED_PREFIX}{filename}"
+
+    def save_trocr_still(self, encoded, output_format="png"):
+        output_format = (output_format or "png").lower()
+        extensions = {"png": ".png", "jpeg": ".jpg", "jpg": ".jpg", "webp": ".webp"}
+        extension = extensions.get(output_format)
+        if not extension:
+            raise ValueError("Formato de imagem retornado não é suportado.")
+        try:
+            content = base64.b64decode(encoded, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise ValueError("A imagem retornada pelo provedor é inválida.") from exc
+        if not content:
+            raise ValueError("O provedor retornou uma imagem vazia.")
+        filename = f"{uuid.uuid4().hex}{extension}"
+        (_trocr_still_root() / filename).write_bytes(content)
+        return f"{TROCR_STILL_PREFIX}{filename}"
+
+    def load_trocr_still(self, filename):
+        name = Path(str(filename or "")).name
+        if not TROCR_STILL_NAME.fullmatch(name):
+            return None
+        path = _trocr_still_root() / name
+        return path if path.is_file() else None
 
     def save_trocr_session(self, key, data):
         name = _safe_trocr_key(key)

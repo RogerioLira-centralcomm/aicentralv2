@@ -5,6 +5,14 @@
     <p class="mc-trocr-cost" id="mcSwapCost">R$ —</p>
   </div>
   <p class="mc-trocr-risk" id="mcTrocrRisk" hidden></p>
+  <div class="mc-trocr-conflicts" id="mcTrocrConflicts" hidden>
+    <p class="mc-trocr-conflicts-title">Conflitos do pedido</p>
+    <ul id="mcTrocrConflictList"></ul>
+    <label class="mc-trocr-confirm" id="mcTrocrConfirmRow" hidden>
+      <input type="checkbox" id="mcTrocrConfirmConflicts">
+      <span>Confirmar mesmo assim</span>
+    </label>
+  </div>
   <fieldset class="mc-trocr-quality" id="mcTrocrQualityBox">
     <legend>Modo de qualidade</legend>
     <label>
@@ -26,6 +34,8 @@
     <input type="checkbox" id="mcTrocrForceImage">
     <span>Redesenhar a peça no Image 2</span>
   </label>
+  <p class="mc-trocr-region-hint" id="mcTrocrRegionHint" hidden></p>
+  <p class="mc-trocr-qa" id="mcTrocrQa" hidden></p>
   <p class="mc-trocr-status" id="mcSwapStatus">Uma foto de referência basta. Sem roteiro de 15s.</p>
   <div class="mc-trocr-actions">
     <button class="cx-btn cx-btn-secondary" type="button" id="mcTrocrDraft" disabled>Gerar rascunho</button>

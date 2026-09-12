@@ -9,6 +9,7 @@
       <button type="button" class="mc-trocr-tool" id="mcTrocrZoomOut" aria-label="Diminuir zoom">{{ ico('minus') }}</button>
       <span class="mc-trocr-zoom" id="mcTrocrZoomLabel">100%</span>
       <button type="button" class="mc-trocr-tool" id="mcTrocrZoomIn" aria-label="Aumentar zoom">{{ ico('plus') }}</button>
+      <button type="button" class="mc-trocr-tool" id="mcTrocrPickRegion" aria-label="Selecionar região">{{ ico('crop') }}</button>
       <span class="mc-trocr-tool-gap" aria-hidden="true"></span>
       <button type="button" class="mc-trocr-tool" id="mcTrocrDownload" aria-label="Download">{{ ico('download') }}</button>
       <button type="button" class="mc-trocr-tool" id="mcTrocrFullscreen" aria-label="Tela cheia">{{ ico('expand') }}</button>
@@ -25,6 +26,9 @@
     <figure class="mc-swap-preview" id="mcSwapPreview" hidden>
       <div class="mc-trocr-frame" data-mockup="final">
         <img id="mcSwapImage" alt="Still do anúncio">
+        <div class="mc-trocr-region" id="mcTrocrRegion" hidden>
+          <div class="mc-trocr-region-box" id="mcTrocrRegionBox" hidden></div>
+        </div>
       </div>
     </figure>
     <div class="mc-trocr-compare" id="mcTrocrCompare" hidden>

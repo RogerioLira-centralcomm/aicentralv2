@@ -366,28 +366,50 @@ def _refine_knobs(knobs):
     }
 
 
-def read_attached_still(image, text_callable=None):
-    """OCR do Trocr: headline, preço e CTA visíveis. Sem recortar pixel."""
+READ_CHIP_KEYS = ("headline", "support", "price", "cta", "logo_text")
+
+
+def project_read_chips(parsed):
+    parsed = parsed if isinstance(parsed, dict) else {}
+    slim = {key: str(parsed.get(key) or "").strip() for key in READ_CHIP_KEYS}
+    if not any(slim.values()):
+        return {}
+    return slim
+
+
+def read_still_blocks(image, text_callable=None):
+    """Uma leitura. Chips iguais aos de hoje; bloco completo fica em read_full."""
+    empty = {"read": {}, "read_full": {}, "ocr_status": "unavailable"}
     if not callable(text_callable) or not isinstance(image, str):
-        return {}
+        return empty
     if not (image.startswith("data:image/") or _usable_image_url(image)):
-        return {}
+        return empty
     from .swap import read_swap_reference
 
     try:
         parsed = read_swap_reference({"image": image, "strict": True}, text_callable=text_callable)
     except ValueError:
-        return {}
-    slim = {
-        "headline": parsed.get("headline") or "",
-        "support": parsed.get("support") or "",
-        "price": parsed.get("price") or "",
-        "cta": parsed.get("cta") or "",
-        "logo_text": parsed.get("logo_text") or "",
-    }
-    if not any(slim.values()):
-        return {}
-    return slim
+        return {"read": {}, "read_full": {}, "ocr_status": "failed"}
+    if not isinstance(parsed, dict):
+        return {"read": {}, "read_full": {}, "ocr_status": "failed"}
+    chips = project_read_chips(parsed)
+    status = str(parsed.get("status") or "").strip()
+    if status in {"unavailable", "provider_error", "invalid"}:
+        ocr_status = {
+            "unavailable": "unavailable",
+            "provider_error": "failed",
+            "invalid": "failed",
+        }[status]
+    elif chips:
+        ocr_status = "succeeded"
+    else:
+        ocr_status = "not_found"
+    return {"read": chips, "read_full": parsed, "ocr_status": ocr_status}
+
+
+def read_attached_still(image, text_callable=None):
+    """OCR do Trocr: headline, preço e CTA visíveis. Sem recortar pixel."""
+    return read_still_blocks(image, text_callable)["read"]
 
 
 def apply_still_read(knobs, images, text_callable=None):

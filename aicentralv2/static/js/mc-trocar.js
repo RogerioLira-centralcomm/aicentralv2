@@ -52,6 +52,15 @@
     zoom: 1,
     lastAction: '',
     cache: {},
+    planHash: '',
+    planSeq: 0,
+    planBlocked: false,
+    planNoop: false,
+    conflicts: [],
+    region: null,
+    picking: false,
+    pickStart: null,
+    revision: 0,
   };
 
   let readAbort = null;
@@ -137,7 +146,7 @@
       state.brandContext = event.target.checked;
       refreshPrompt();
     });
-    ['mcSwapHeadline', 'mcSwapSupport', 'mcTrocrDates', 'mcTrocrVenue', 'mcTrocrPrice', 'mcSwapCta', 'mcSwapNote'].forEach((id) => {
+    ['mcSwapHeadline', 'mcSwapSupport', 'mcTrocrSubtitle', 'mcTrocrDates', 'mcTrocrVenue', 'mcTrocrPrice', 'mcSwapCta', 'mcTrocrCta2', 'mcTrocrLogo', 'mcTrocrDisclaimer', 'mcSwapNote'].forEach((id) => {
       $(id)?.addEventListener('input', () => {
         if (id === 'mcSwapNote') updateNoteCount();
         if (state.versions.length) setFlow('edit');
@@ -153,10 +162,20 @@
       refreshPrompt();
       refreshQuote();
     });
+    $('mcTrocrConfirmConflicts')?.addEventListener('change', () => {
+      refreshPrompt();
+      enableGenerate(canGenerate());
+    });
     $('mcTrocrViewBtn')?.addEventListener('click', () => setViewMode('view'));
     $('mcTrocrCompareBtn')?.addEventListener('click', () => setViewMode('compare'));
     $('mcTrocrZoomIn')?.addEventListener('click', () => setZoom(state.zoom + 0.1));
     $('mcTrocrZoomOut')?.addEventListener('click', () => setZoom(state.zoom - 0.1));
+    $('mcTrocrPickRegion')?.addEventListener('click', togglePickRegion);
+    const region = $('mcTrocrRegion');
+    region?.addEventListener('pointerdown', onRegionDown);
+    region?.addEventListener('pointermove', onRegionMove);
+    region?.addEventListener('pointerup', onRegionUp);
+    region?.addEventListener('pointercancel', onRegionUp);
     $('mcTrocrDownload')?.addEventListener('click', downloadActive);
     $('mcTrocrFullscreen')?.addEventListener('click', toggleFullscreen);
     $('mcTrocrUsePrompt')?.addEventListener('click', () => {
@@ -242,11 +261,14 @@
       thumb: partial.thumb || '',
       ocr: partial.ocr || null,
       analysis: partial.analysis || null,
+      qa: partial.qa || null,
+      plan_hash: partial.plan_hash || '',
+      parent_id: partial.parent_id || (partial.origin === 'original' ? '' : (state.baseId || '')),
     };
     state.versions.push(version);
     state.activeId = version.id;
     if (!state.baseId || partial.asBase !== false) state.baseId = version.id;
-    enableGenerate(true);
+    enableGenerate(canGenerate());
     renderVersions();
     renderBaseMeta();
     renderEditPanels();
@@ -273,7 +295,9 @@
       version.ocr = data;
       version.analysis = data.analysis || null;
       applyRead(data, version, { cached: false });
-      toast('OCR atualizado', 'success');
+      if (data.status === 'completed' || data.status === 'partial') {
+        toast(data.status === 'partial' ? 'OCR parcial. Confira os textos.' : 'OCR atualizado', 'success');
+      }
     } catch (error) {
       if (error.name === 'AbortError') return;
       setFlow('ocr', 'error');
@@ -287,33 +311,82 @@
     fillFields(data);
     applyAnalysis(data.analysis || {}, data.elements || []);
     renderLocks(data);
+    paintOcrStatus(data);
     if (data.aspect_hint && !state.userPickedFormat) selectFormat(data.aspect_hint);
     renderEditPanels();
-    setFlow(meta?.cached ? 'edit' : 'analysis');
-    window.setTimeout(() => {
-      if (state.flow === 'analysis') setFlow('edit');
-    }, 280);
-    setStatus(meta?.cached
-      ? 'Elementos da base ativa. Edite o texto e gere uma nova versão.'
-      : 'Elementos identificados na imagem. Selecione o que deseja preservar ou alterar.');
+    const failed = ['unavailable', 'provider_error', 'invalid', 'unreadable'].includes(data.status);
+    if (failed) {
+      setFlow('ocr', 'error');
+      showError('Falha ao executar OCR', data.error || 'Não deu para ler os textos. Escreva na mão.', 'ocr');
+    } else {
+      setFlow(meta?.cached ? 'edit' : 'analysis');
+      window.setTimeout(() => {
+        if (state.flow === 'analysis') setFlow('edit');
+      }, 280);
+    }
+    setStatus(ocrStatusCopy(data, meta));
     refreshPrompt();
     renderBaseMeta();
     schedulePersist();
   }
 
+  function ocrStatusCopy(data, meta) {
+    if (data.status === 'unavailable' || data.status === 'provider_error') {
+      return data.error || 'OCR indisponível. Escreva os textos na mão.';
+    }
+    if (data.status === 'invalid' || data.status === 'unreadable') {
+      return data.error || 'A leitura não veio. Escreva os textos na mão.';
+    }
+    if (data.status === 'partial') {
+      return 'Leitura parcial. Confira os campos antes de gerar.';
+    }
+    if (meta?.cached) {
+      return 'Elementos da base ativa. Edite o texto e gere uma nova versão.';
+    }
+    return 'Elementos identificados na imagem. Selecione o que deseja preservar ou alterar.';
+  }
+
+  function paintOcrStatus(data) {
+    const banner = $('mcTrocrOcrBanner');
+    if (!banner) return;
+    const status = data?.status || '';
+    const failed = ['unavailable', 'provider_error', 'invalid', 'unreadable', 'partial'].includes(status);
+    banner.hidden = !failed;
+    banner.dataset.status = status;
+    banner.textContent = data?.error || (
+      status === 'partial'
+        ? 'Leitura parcial. Confira os campos.'
+        : 'Não deu para ler os textos. Escreva na mão.'
+    );
+    const hint = $('mcTrocrOcrHint');
+    if (hint && failed) {
+      hint.textContent = status === 'partial' ? 'Leitura parcial.' : 'OCR sem leitura. Escreva na mão.';
+    }
+  }
+
   function fillFields(data) {
     const headline = $('mcSwapHeadline');
     const support = $('mcSwapSupport');
+    const subtitle = $('mcTrocrSubtitle');
     const dates = $('mcTrocrDates');
     const venue = $('mcTrocrVenue');
     const price = $('mcTrocrPrice');
     const cta = $('mcSwapCta');
+    const cta2 = $('mcTrocrCta2');
+    const logo = $('mcTrocrLogo');
+    const disclaimer = $('mcTrocrDisclaimer');
+    const ctas = (data.elements || []).filter((item) => item.role === 'cta' && item.text);
     if (headline) headline.value = data.headline || '';
     if (support) support.value = data.support || '';
+    if (subtitle) subtitle.value = data.subtitle || '';
     if (dates) dates.value = data.dates || '';
     if (venue) venue.value = data.venue || '';
     if (price) price.value = data.price || '';
-    if (cta) cta.value = data.cta || '';
+    if (cta) cta.value = data.cta || ctas[0]?.text || '';
+    if (cta2) cta2.value = ctas[1]?.text || '';
+    if ($('mcTrocrCta2Field')) $('mcTrocrCta2Field').hidden = !ctas[1] && !cta2?.value;
+    if (logo) logo.value = data.logo_text || '';
+    if (disclaimer) disclaimer.value = data.disclaimer || '';
   }
 
   function applyAnalysis(analysis, elements) {
@@ -356,6 +429,7 @@
     if (data.dates) locks.push(data.dates);
     if (data.venue) locks.push(data.venue);
     if (data.logo_text) locks.push(data.logo_text);
+    if (data.disclaimer) locks.push(data.disclaimer);
     if (list) {
       list.innerHTML = locks.map((text) => `<li>${escapeHtml(text)}</li>`).join('');
       if (data.style) list.innerHTML += `<li class="is-style">${escapeHtml(data.style)}</li>`;
@@ -416,7 +490,11 @@
   function editFields() {
     const client = state.clients.find((item) => String(item.id) === String(state.clientId));
     const read = state.lastRead || {};
-    const people = (read.elements || []).filter((item) => item.role === 'person');
+    const faces = Number.isInteger(read.faces)
+      ? read.faces
+      : (read.elements || []).filter((item) => (
+        item.kind === 'face' || (item.role === 'person' && !item.text && !item.kind)
+      )).length;
     return {
       client_id: state.clientId || undefined,
       brand_name: client?.name || '',
@@ -430,9 +508,10 @@
       aspect_hint: read.aspect_hint || '',
       dates: $('mcTrocrDates')?.value || read.dates || '',
       venue: $('mcTrocrVenue')?.value || read.venue || '',
-      subtitle: $('mcTrocrDates')?.value || read.dates || '',
-      elements: read.elements || [],
-      faces: people.length,
+      subtitle: $('mcTrocrSubtitle')?.value || read.subtitle || '',
+      logo_text: $('mcTrocrLogo')?.value || read.logo_text || '',
+      disclaimer: $('mcTrocrDisclaimer')?.value || read.disclaimer || '',
+      faces,
       force_image: Boolean($('mcTrocrForceImage')?.checked),
       presentation: state.presentation,
       quality: state.quality,
@@ -440,7 +519,57 @@
       preserve: checkedValues('mcTrocrPreserve'),
       alter: checkedValues('mcTrocrAlter'),
       prompt_override: (state.promptEdited || state.promptLocked) ? ($('mcTrocrPrompt')?.value || '') : undefined,
+      base_id: state.baseId || undefined,
+      plan_hash: state.planHash || undefined,
+      confirm_conflicts: Boolean($('mcTrocrConfirmConflicts')?.checked),
+      ref_width: state.region?.ref_width || undefined,
+      ref_height: state.region?.ref_height || undefined,
+      regions: state.region?.box ? { [state.region.field]: state.region.box } : undefined,
+      elements: withRegion(withCtas(read.elements || [])),
     };
+  }
+
+  function regionField() {
+    const alter = checkedValues('mcTrocrAlter');
+    const order = ['price', 'headline', 'cta', 'secondary'];
+    return order.find((item) => alter.includes(item)) || 'price';
+  }
+
+  function withCtas(elements) {
+    const first = $('mcSwapCta')?.value || '';
+    const second = $('mcTrocrCta2')?.value || '';
+    const rows = (elements || []).map((item) => ({ ...item }));
+    const ctas = rows.filter((item) => item.role === 'cta');
+    if (ctas[0] && first) ctas[0].text = first;
+    if (ctas[1] && second) ctas[1].text = second;
+    if (!ctas[1] && second) {
+      rows.push({ role: 'cta', kind: 'type', text: second, source: 'manual' });
+    }
+    if ($('mcTrocrCta2Field')) $('mcTrocrCta2Field').hidden = !second && !ctas[1];
+    return rows;
+  }
+
+  function withRegion(elements) {
+    if (!state.region?.box) return elements;
+    const role = state.region.field === 'secondary' ? 'support' : state.region.field;
+    let found = false;
+    const rows = (elements || []).map((item) => {
+      if (item.role === role && !found) {
+        found = true;
+        return { ...item, bbox_px: state.region.box, source: item.source || 'manual' };
+      }
+      return item;
+    });
+    if (!found) {
+      rows.push({
+        role,
+        kind: 'type',
+        text: '',
+        bbox_px: state.region.box,
+        source: 'manual',
+      });
+    }
+    return rows;
   }
 
   function payload() {
@@ -449,22 +578,41 @@
 
   async function refreshPrompt() {
     updateNoteCount();
-    if (!baseVersion()?.image || state.promptEdited) return;
+    if (!baseVersion()?.image) return;
     window.clearTimeout(promptTimer);
-    promptTimer = window.setTimeout(async () => {
-      if (promptAbort) promptAbort.abort();
-      promptAbort = new AbortController();
-      try {
-        const data = await request(API.prompt, editFields(), { signal: promptAbort.signal });
-        state.optimizedPrompt = data.prompt || '';
-        state.optimizedPreview = data.preview || data.prompt || '';
-        const box = $('mcTrocrPrompt');
-        if (box && box.readOnly) box.value = state.optimizedPreview;
-        paintRoute(data.risk, data.mode, data.quote);
-      } catch (error) {
+    promptTimer = window.setTimeout(() => {
+      loadPlan().catch((error) => {
         if (error.name === 'AbortError') return;
-      }
+      });
     }, 220);
+  }
+
+  async function loadPlan() {
+    window.clearTimeout(promptTimer);
+    if (promptAbort) promptAbort.abort();
+    promptAbort = new AbortController();
+    const seq = ++state.planSeq;
+    const fields = { ...editFields() };
+    delete fields.plan_hash;
+    const data = await request(API.prompt, fields, { signal: promptAbort.signal });
+    if (seq !== state.planSeq) return data;
+    applyPlan(data);
+    return data;
+  }
+
+  function applyPlan(data) {
+    state.optimizedPrompt = data.prompt || '';
+    if (!state.promptEdited) {
+      state.optimizedPreview = data.preview || data.prompt || '';
+      const box = $('mcTrocrPrompt');
+      if (box && box.readOnly) box.value = state.optimizedPreview;
+    }
+    state.planHash = data.plan_hash || '';
+    state.planBlocked = Boolean(data.blocked);
+    state.planNoop = Boolean(data.noop);
+    state.conflicts = data.conflicts || [];
+    paintRoute(data.risk, data.mode, data.quote, data);
+    enableGenerate(canGenerate());
   }
 
   async function refreshQuote() {
@@ -494,10 +642,37 @@
     state.lastAction = 'generate';
     try {
       showGenSteps('prompt');
-      const data = await request(API.swap, { ...editFields(), quality, reference: base.image });
+      try {
+        await loadPlan();
+      } catch (error) {
+        if (error.name !== 'AbortError') throw error;
+      }
+      if (state.planBlocked && !$('mcTrocrConfirmConflicts')?.checked) {
+        const first = state.conflicts.find((item) => item.blocking) || state.conflicts[0] || {};
+        throw new Error(first.message || 'Confirme o conflito antes de gerar.');
+      }
+      const data = await request(API.swap, {
+        ...editFields(),
+        quality,
+        reference: base.image,
+        base_id: state.baseId || undefined,
+        revision: state.revision || 0,
+      });
       showGenSteps('generate');
+      state.planHash = data.plan_hash || state.planHash;
+      state.planBlocked = Boolean(data.blocked);
+      state.planNoop = Boolean(data.noop);
+      state.conflicts = data.conflicts || state.conflicts;
+      paintRoute(data.risk, data.mode, data.quote, data);
+      if (data.noop || data.mode === 'noop') {
+        showGenSteps('finish');
+        setFlow('edit');
+        toast('Nada para trocar. O Trocr não gerou versão.', 'success');
+        setStatus(data.preview || 'Nada para trocar. Marque um item ou escreva a instrução.');
+        return null;
+      }
       const still = data.image_url || data.png_data_url;
-      if (!still) throw new Error('A geração não devolveu a imagem.');
+      if (!still) throw new Error(data.preview || 'A geração não devolveu a imagem.');
       const thumb = await makeThumb(still);
       showGenSteps('finish');
       const typeset = data.mode === 'typeset';
@@ -508,10 +683,13 @@
         quality: typeset ? 'typeset' : quality,
         image: still,
         thumb,
+        qa: data.qa || null,
+        plan_hash: data.plan_hash || '',
+        parent_id: base.id,
       });
+      if (data.history) applyStoredUrls(data.history);
       state.compareIds = [base.id, version.id];
       showPreview(still);
-      paintRoute(data.risk, data.mode, data.quote);
       state.promptLocked = false;
       state.promptEdited = false;
       setFlow('review');
@@ -536,7 +714,7 @@
       setStatus(error.message);
     } finally {
       hideGenSteps();
-      enableGenerate(Boolean(baseVersion()?.image));
+      enableGenerate(canGenerate());
     }
   }
 
@@ -659,7 +837,7 @@
         </button>
         <p>
           <strong>${escapeHtml(item.id)} ${escapeHtml(item.name)}</strong>
-          <small>${escapeHtml(ORIGIN_LABEL[item.origin] || item.origin)} ${when}</small>
+          <small>${escapeHtml(ORIGIN_LABEL[item.origin] || item.origin)} ${when}${item.parent_id ? ` · de ${escapeHtml(item.parent_id)}` : ''}</small>
         </p>
         <div class="mc-trocr-take-cta">
           <button type="button" data-action="base">Usar como base</button>
@@ -706,7 +884,10 @@
   }
 
   function showPreview(src) {
-    if ($('mcSwapImage') && src) $('mcSwapImage').src = src;
+    if ($('mcSwapImage') && src) {
+      $('mcSwapImage').src = src;
+      $('mcSwapImage').onload = () => paintRegionBox();
+    }
     $('mcSwapPreview').hidden = state.viewMode === 'compare';
     $('mcSwapDrop').hidden = true;
     $('mcTrocrViewport')?.classList.add('has-image');
@@ -725,15 +906,20 @@
     const filled = Boolean(
       $('mcSwapHeadline')?.value
       || $('mcSwapSupport')?.value
+      || $('mcTrocrSubtitle')?.value
       || $('mcTrocrDates')?.value
       || $('mcTrocrVenue')?.value
       || $('mcTrocrPrice')?.value
       || $('mcSwapCta')?.value
+      || $('mcTrocrCta2')?.value
+      || $('mcTrocrLogo')?.value
+      || $('mcTrocrDisclaimer')?.value
     );
     const ocr = $('mcTrocrOcr');
+    const banner = $('mcTrocrOcrBanner');
     if (ocr && ocr.tagName === 'DETAILS') {
-      ocr.open = filled;
-      if ($('mcTrocrOcrHint')) {
+      ocr.open = filled || Boolean(banner && !banner.hidden);
+      if ($('mcTrocrOcrHint') && (!banner || banner.hidden)) {
         $('mcTrocrOcrHint').textContent = filled
           ? 'Textos lidos da imagem. Ajuste se precisar.'
           : 'Nenhum texto para mostrar.';
@@ -814,6 +1000,7 @@
     const stage = $('mcTrocrViewport');
     if (stage) stage.style.setProperty('--mc-trocr-zoom', String(state.zoom));
     if ($('mcTrocrZoomLabel')) $('mcTrocrZoomLabel').textContent = `${Math.round(state.zoom * 100)}%`;
+    paintRegionBox();
   }
 
   function downloadActive() {
@@ -840,7 +1027,7 @@
   }
 
   function resetPanel() {
-    ['mcSwapHeadline', 'mcSwapSupport', 'mcTrocrDates', 'mcTrocrVenue', 'mcTrocrPrice', 'mcSwapCta', 'mcSwapNote', 'mcTrocrPrompt'].forEach((id) => {
+    ['mcSwapHeadline', 'mcSwapSupport', 'mcTrocrSubtitle', 'mcTrocrDates', 'mcTrocrVenue', 'mcTrocrPrice', 'mcSwapCta', 'mcTrocrCta2', 'mcTrocrLogo', 'mcTrocrDisclaimer', 'mcSwapNote', 'mcTrocrPrompt'].forEach((id) => {
       if ($(id)) $(id).value = '';
     });
     state.promptEdited = false;
@@ -887,35 +1074,56 @@
     $('mcSwapCost').textContent = value === 0 ? 'R$ 0' : `R$ ${value.toFixed(2)}`;
   }
 
-  function paintRoute(risk, mode, quote) {
-    state.mode = mode === 'typeset' || mode === 'recrop' ? mode : 'image';
+  function paintRoute(risk, mode, quote, plan) {
+    state.mode = ['typeset', 'recrop', 'noop', 'blocked'].includes(mode) ? mode : 'image';
+    if (plan) {
+      state.planBlocked = Boolean(plan.blocked);
+      state.planNoop = Boolean(plan.noop);
+      state.conflicts = plan.conflicts || [];
+      if (plan.plan_hash) state.planHash = plan.plan_hash;
+    }
+    paintConflicts(state.conflicts, state.planBlocked);
     const typeset = state.mode === 'typeset';
     const recrop = state.mode === 'recrop';
+    const noop = state.mode === 'noop' || state.planNoop;
+    const blocked = state.mode === 'blocked' || state.planBlocked;
     const forced = Boolean($('mcTrocrForceImage')?.checked);
     const generate = document.querySelector('.mc-trocr-generate');
-    generate?.setAttribute('data-route', typeset ? 'typeset' : (recrop ? 'recrop' : 'image'));
+    generate?.setAttribute('data-route', noop ? 'noop' : (blocked ? 'blocked' : (typeset ? 'typeset' : (recrop ? 'recrop' : 'image'))));
     const route = $('mcTrocrRoute');
-    route?.setAttribute('data-mode', typeset ? 'typeset' : (recrop ? 'typeset' : 'image'));
+    route?.setAttribute('data-mode', typeset || recrop ? 'typeset' : (noop || blocked ? 'noop' : 'image'));
     if ($('mcTrocrRouteName')) {
-      $('mcTrocrRouteName').textContent = typeset
-        ? 'Tipo na foto'
-        : (recrop ? 'Recorte + tipo na foto' : 'Image 2 redesenha');
+      $('mcTrocrRouteName').textContent = noop
+        ? 'Nada para trocar'
+        : (blocked
+          ? 'Pedido bloqueado'
+          : (typeset
+            ? 'Tipo na foto'
+            : (recrop ? 'Recorte + tipo na foto' : 'Image 2 redesenha')));
     }
     if ($('mcTrocrRouteCopy')) {
-      $('mcTrocrRouteCopy').textContent = typeset
-        ? 'O texto novo entra na referência. Selos de nome não passam pelo modelo.'
-        : (recrop
-          ? 'O Image 2 vira o formato. Preço, quota e headline entram na foto depois.'
-          : (risk?.level === 'high'
-            ? (risk.reason || 'O Image 2 costuma embaralhar os selos desta cartela.')
-            : 'O still de referência entra no modelo. Rascunho valida; produção entrega.'));
+      $('mcTrocrRouteCopy').textContent = noop
+        ? 'O Trocr não gera versão nem cobra Image 2. Marque um item ou escreva a instrução.'
+        : (blocked
+          ? 'Confirme o conflito ou ajuste preservar/alterar antes de gerar.'
+          : (typeset
+            ? 'O texto novo entra na referência. Selos de nome não passam pelo modelo.'
+            : (recrop
+              ? 'O Image 2 vira o formato. Preço, quota e headline entram na foto depois.'
+              : (risk?.level === 'high'
+                ? (risk.reason || 'O Image 2 costuma embaralhar os selos desta cartela.')
+                : 'O still de referência entra no modelo. Rascunho valida; produção entrega.'))));
     }
     paintCost(quote);
     paintRisk(risk, state.mode);
-    if ($('mcTrocrQualityBox')) $('mcTrocrQualityBox').hidden = typeset;
-    if ($('mcTrocrDraft')) $('mcTrocrDraft').hidden = typeset;
+    if ($('mcTrocrQualityBox')) $('mcTrocrQualityBox').hidden = typeset || noop || blocked;
+    if ($('mcTrocrDraft')) $('mcTrocrDraft').hidden = typeset || noop || blocked;
     if ($('mcSwapRun')) {
-      $('mcSwapRun').textContent = typeset ? 'Compor na foto' : (recrop ? 'Recortar e compor' : 'Gerar produção');
+      $('mcSwapRun').textContent = noop
+        ? 'Nada para trocar'
+        : (blocked
+          ? 'Gerar bloqueado'
+          : (typeset ? 'Compor na foto' : (recrop ? 'Recortar e compor' : 'Gerar produção')));
     }
     if ($('mcTrocrForceRow')) $('mcTrocrForceRow').hidden = !(typeset || recrop || risk?.level === 'high' || forced);
     if ($('mcTrocrPromptHint')) {
@@ -936,7 +1144,198 @@
       $('mcSwapRun')?.classList.add('cx-btn-primary');
       $('mcSwapRun')?.classList.remove('cx-btn-secondary');
     }
+    enableGenerate(canGenerate());
+    paintQa(plan?.qa);
+    paintRegionHint();
     renderBaseMeta();
+  }
+
+  function paintQa(qa) {
+    const node = $('mcTrocrQa');
+    if (!node) return;
+    if (!qa || !qa.status || qa.status === 'unchecked') {
+      node.hidden = true;
+      node.textContent = '';
+      return;
+    }
+    node.hidden = false;
+    node.dataset.status = qa.status;
+    node.textContent = qa.status === 'pass'
+      ? 'QA: pixels fora da região iguais à base.'
+      : 'QA: a pintura saiu da região. Selecione de novo.';
+  }
+
+  function paintRegionHint() {
+    const node = $('mcTrocrRegionHint');
+    if (!node) return;
+    if (state.picking) {
+      node.hidden = false;
+      node.textContent = `Arraste a região do ${regionLabel(regionField())} no still.`;
+      return;
+    }
+    if (state.region?.box) {
+      const box = state.region.box;
+      node.hidden = false;
+      node.textContent = `Região do ${regionLabel(state.region.field)}: ${box[2] - box[0]}×${box[3] - box[1]} px.`;
+      return;
+    }
+    if (state.conflicts.some((item) => item.code === 'needs_region')) {
+      node.hidden = false;
+      node.textContent = 'Selecione a região do item. Sem caixa o Trocr não pinta no escuro.';
+      return;
+    }
+    node.hidden = state.mode !== 'typeset';
+    node.textContent = 'Selecione a região do item para o tipo pintar só ali.';
+  }
+
+  function regionLabel(field) {
+    return ({
+      price: 'preço',
+      headline: 'headline',
+      cta: 'CTA',
+      secondary: 'apoio',
+    })[field] || field;
+  }
+
+  function togglePickRegion() {
+    state.picking = !state.picking;
+    $('mcTrocrViewport')?.classList.toggle('is-picking', state.picking);
+    $('mcTrocrPickRegion')?.classList.toggle('is-on', state.picking);
+    const layer = $('mcTrocrRegion');
+    if (layer) layer.hidden = !state.picking && !state.region?.box;
+    paintRegionHint();
+    setStatus(state.picking
+      ? `Arraste a região do ${regionLabel(regionField())}.`
+      : (state.region?.box ? 'Região marcada. O typeset pinta só ali.' : 'Seleção de região desligada.'));
+  }
+
+  function imageContentRect(img) {
+    if (!img?.naturalWidth) return null;
+    const rect = img.getBoundingClientRect();
+    const scale = Math.min(rect.width / img.naturalWidth, rect.height / img.naturalHeight);
+    const width = img.naturalWidth * scale;
+    const height = img.naturalHeight * scale;
+    return {
+      left: rect.left + (rect.width - width) / 2,
+      top: rect.top + (rect.height - height) / 2,
+      width,
+      height,
+      scale,
+      nw: img.naturalWidth,
+      nh: img.naturalHeight,
+    };
+  }
+
+  function clientToImagePx(event) {
+    const box = imageContentRect($('mcSwapImage'));
+    if (!box || !box.scale) return null;
+    const x = Math.round((event.clientX - box.left) / box.scale);
+    const y = Math.round((event.clientY - box.top) / box.scale);
+    return {
+      x: Math.max(0, Math.min(box.nw, x)),
+      y: Math.max(0, Math.min(box.nh, y)),
+      nw: box.nw,
+      nh: box.nh,
+    };
+  }
+
+  function onRegionDown(event) {
+    if (!state.picking) return;
+    const point = clientToImagePx(event);
+    if (!point) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    state.pickStart = point;
+    state.region = {
+      field: regionField(),
+      box: [point.x, point.y, point.x + 8, point.y + 8],
+      ref_width: point.nw,
+      ref_height: point.nh,
+    };
+    paintRegionBox();
+  }
+
+  function onRegionMove(event) {
+    if (!state.picking || !state.pickStart) return;
+    const point = clientToImagePx(event);
+    if (!point) return;
+    const start = state.pickStart;
+    state.region = {
+      field: regionField(),
+      box: [
+        Math.min(start.x, point.x),
+        Math.min(start.y, point.y),
+        Math.max(start.x, point.x),
+        Math.max(start.y, point.y),
+      ],
+      ref_width: point.nw,
+      ref_height: point.nh,
+    };
+    paintRegionBox();
+  }
+
+  function onRegionUp() {
+    if (!state.pickStart) return;
+    state.pickStart = null;
+    const box = state.region?.box;
+    if (!box || box[2] - box[0] < 8 || box[3] - box[1] < 8) {
+      state.region = null;
+      paintRegionBox();
+      paintRegionHint();
+      return;
+    }
+    state.picking = false;
+    $('mcTrocrViewport')?.classList.remove('is-picking');
+    $('mcTrocrPickRegion')?.classList.remove('is-on');
+    paintRegionBox();
+    paintRegionHint();
+    refreshPrompt();
+    setStatus(`Região do ${regionLabel(state.region.field)} marcada.`);
+  }
+
+  function paintRegionBox() {
+    const layer = $('mcTrocrRegion');
+    const node = $('mcTrocrRegionBox');
+    const img = $('mcSwapImage');
+    if (!layer || !node) return;
+    if (!state.region?.box || !img) {
+      node.hidden = true;
+      layer.hidden = !state.picking;
+      return;
+    }
+    const content = imageContentRect(img);
+    const frame = img.parentElement?.getBoundingClientRect();
+    if (!content || !frame) {
+      node.hidden = true;
+      return;
+    }
+    const box = state.region.box;
+    layer.hidden = false;
+    node.hidden = false;
+    node.style.left = `${content.left - frame.left + box[0] * content.scale}px`;
+    node.style.top = `${content.top - frame.top + box[1] * content.scale}px`;
+    node.style.width = `${(box[2] - box[0]) * content.scale}px`;
+    node.style.height = `${(box[3] - box[1]) * content.scale}px`;
+  }
+
+  function paintConflicts(conflicts, blocked) {
+    const box = $('mcTrocrConflicts');
+    const list = $('mcTrocrConflictList');
+    const row = $('mcTrocrConfirmRow');
+    const items = Array.isArray(conflicts) ? conflicts : [];
+    if (box) box.hidden = items.length === 0;
+    if (list) {
+      list.innerHTML = items.map((item) => `<li>${escapeHtml(item.message || item.code || '')}</li>`).join('');
+    }
+    const confirmable = items.some((item) => item.blocking && item.code !== 'needs_region');
+    if (row) row.hidden = !confirmable;
+  }
+
+  function canGenerate() {
+    if (!baseVersion()?.image) return false;
+    if (state.conflicts.some((item) => item.code === 'needs_region')) return false;
+    if (state.planBlocked && !$('mcTrocrConfirmConflicts')?.checked) return false;
+    return true;
   }
 
   function paintRisk(risk, mode) {
@@ -1011,6 +1410,9 @@
       thumb: item.thumb_url || item.thumb || item.image_url || item.image || '',
       ocr: item.ocr || null,
       analysis: item.analysis || null,
+      qa: item.qa || null,
+      plan_hash: item.plan_hash || '',
+      parent_id: item.parent_id || '',
     })).filter((item) => item.image);
   }
 
@@ -1027,6 +1429,7 @@
       ? data.base_id
       : (state.versions[0]?.id || '');
     if (data?.aspect_ratio) selectFormat(data.aspect_ratio);
+    if (data?.revision != null) state.revision = Number(data.revision) || 0;
     const current = currentVersion();
     const base = baseVersion();
     renderVersions();
@@ -1034,7 +1437,7 @@
     renderEditPanels();
     if (!current) return;
     showPreview(current.image);
-    enableGenerate(true);
+    enableGenerate(canGenerate());
     setFlow('review');
     if (base?.ocr) applyRead(base.ocr, base, { cached: true });
   }
@@ -1057,11 +1460,14 @@
   }
 
   function applyStoredUrls(saved) {
+    if (saved?.revision != null) state.revision = Number(saved.revision) || 0;
     (saved?.versions || []).forEach((item) => {
       const local = state.versions.find((version) => version.id === item.id);
       if (!local) return;
       if (item.image_url && String(local.image || '').startsWith('data:')) local.image = item.image_url;
       if (item.thumb_url && String(local.thumb || '').startsWith('data:')) local.thumb = item.thumb_url;
+      if (item.parent_id && !local.parent_id) local.parent_id = item.parent_id;
+      if (item.plan_hash && !local.plan_hash) local.plan_hash = item.plan_hash;
     });
   }
 
@@ -1089,6 +1495,7 @@
           active_id: state.activeId,
           base_id: state.baseId,
           aspect_ratio: state.aspectRatio,
+          revision: state.revision || 0,
           versions: state.versions.map((item) => ({
             id: item.id,
             attempt: item.attempt,
@@ -1101,13 +1508,19 @@
             thumb: item.thumb,
             ocr: item.ocr,
             analysis: item.analysis,
+            qa: item.qa || null,
+            plan_hash: item.plan_hash || '',
+            parent_id: item.parent_id || '',
           })),
         });
         applyStoredUrls(saved);
       } while (persistAgain);
       renderVersions();
       return saved;
-    } catch (_error) {
+    } catch (error) {
+      if (String(error.message || '').toLowerCase().includes('histórico mudou')) {
+        await loadHistory();
+      }
       return null;
     } finally {
       persistBusy = false;

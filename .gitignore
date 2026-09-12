@@ -55,6 +55,7 @@ logs/
 # Uploads
 uploads/
 temp/
+instance/
 
 # Build
 build/

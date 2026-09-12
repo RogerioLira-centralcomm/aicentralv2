@@ -8,6 +8,8 @@ Não é a Mesa de Conceito 15s. Não monta roteiro, não fecha HTML de canal e n
 
 Documento de UX da tela: [`docs/trocr-editor-refactor.md`](trocr-editor-refactor.md). Este arquivo é o contrato: fluxo, payload, prompts, modos e limites.
 
+Diagnóstico e plano de incrementos: [`docs/trocar-reliability.md`](trocar-reliability.md). Em conflito com o código, vale o símbolo citado lá.
+
 ---
 
 ## 1. O que a funcionalidade faz
@@ -16,7 +18,9 @@ Documento de UX da tela: [`docs/trocr-editor-refactor.md`](trocr-editor-refactor
 2. Visão LLM lê textos e análise (não é Tesseract).
 3. A mesa preenche headline, apoio, datas, local, preço e CTA.
 4. O usuário marca o que **preservar** e o que **alterar**, e pode escrever uma instrução livre.
-5. O servidor escolhe uma de três rotas:
+5. O servidor escolhe a rota em `build_swap_plan()`:
+   - **noop** — nada para trocar. 200, sem PNG, sem versão.
+   - **blocked** — conflito sem confirmação, ou typeset sem região (`REQUIRE_REGION` ligado).
    - **typeset** — Pillow pinta o tipo na foto. Sem Image 2. Custo zero.
    - **recrop** — Image 2 só vira o formato; Pillow pinta o tipo depois.
    - **image** — GPT Image 2 redesenha o still.
@@ -40,7 +44,7 @@ Autenticação: `admin_required` na página, `admin_required_api` nas rotas JSON
 | Fonte do tipo | Avenir Next Condensed → Arial Bold → DejaVu → default | `_typeset_font` |
 | Marca | `build_brand_context` + logo oficial | `_swap_brand` |
 | Persistência | `brand_profile.trocr` + arquivo + memória | `_read_trocr` / `_write_trocr` |
-| Stills | `save_generated_base64` → `/static/uploads/creative_generated/` | `_persist_still` |
+| Stills | `save_trocr_still` → `GET /swap/still/<arquivo>` (auth); legado em `/static/uploads/creative_generated/` | `_persist_still` |
 | Auth LLM | `resolve_api_key()` (integração OpenRouter ou `OPENROUTER_API_KEY`) | generator da modelagem |
 | Custo | `annotate_cost` (USD + BRL) | `creative_modeling_fx` |
 
@@ -53,6 +57,8 @@ Variáveis de ambiente:
 | `CREATIVE_FORMAT_SWAP_READ_MAX_TOKENS` | `1200` | OCR |
 | `OPENROUTER_API_KEY` | — | fallback se a integração não resolver |
 | `USD_BRL_RATE` | cotação dinâmica | quote em reais |
+| `CREATIVE_FORMAT_SWAP_STRICT_PLAN` | ligado | hash do preview tem de bater na geração |
+| `CREATIVE_FORMAT_SWAP_REQUIRE_REGION` | ligado | typeset sem bbox bloqueia; confirmar não fura |
 
 O Image 2 está fixo em `SWAP_MODEL = "openai/gpt-image-2"`. Não há modelo de rascunho mais barato ainda.
 
@@ -62,6 +68,8 @@ O Image 2 está fixo em `SWAP_MODEL = "openai/gpt-image-2"`. Não há modelo de 
 
 ```
 aicentralv2/creative_format_lab/swap.py          núcleo: OCR, prompt, risco, modos, typeset
+aicentralv2/creative_format_lab/swap_schema.py   contrato Pydantic + adaptador legado
+aicentralv2/creative_format_lab/swap_plan.py     plano único, hash, conflitos, no-op
 aicentralv2/creative_format_lab/service.py       FormatLabService.swap / read_swap / preview / history
 aicentralv2/creative_modeling_service.py         fachada para as rotas
 aicentralv2/creative_modeling_routes.py          HTTP
@@ -121,13 +129,17 @@ IDs `v1`, `v2`, `v3`… Toda geração faz `push`. Teto no servidor: 60 versões
 | `activeId` | o que o canvas mostra |
 | `baseId` | referência da próxima edição (`baseVersion()`) |
 | `origin` | `original` · `edited` · `draft` · `production` · `typeset` · `recrop` |
+| `parent_id` | versão de origem (`baseId` no momento da geração) |
+| `revision` | CAS do histórico no servidor |
 
 Regras:
 
-- A original não exclui.
+- A original não exclui — a UI esconde o botão e o servidor recolocá se o POST omitir ou tentar trocar o PNG.
 - Nenhuma geração substitui a anterior.
+- `revision` divergente → 409; a mesa recarrega o histórico.
 - Trocar a marca persiste o histórico atual e carrega o da nova marca.
 - Sem marca, a chave é o usuário (`user-{id}`).
+- Still novo não vai para URL estática pública. Legado `/static/uploads/creative_generated/` continua válido.
 
 Origens na UI:
 
@@ -143,20 +155,24 @@ Origens na UI:
 
 ## 6. Rotas de geração
 
-A função `swap_mode(payload)` escolhe a rota **antes** de chamar o modelo.
+A função `build_swap_plan(payload)` escolhe a rota **antes** de chamar o modelo. `swap_mode()` só decide typeset/recrop/image.
 
 ```
-se aspect_hint ≠ aspect_ratio e há patches de tipo
+se não há alteração efetiva, nota, force_image, override nem recrop
+    → noop
+senão se typeset sem região (REQUIRE_REGION, default ligado)
+    → blocked
+senão se aspect_hint ≠ aspect_ratio e há patches de tipo
     → recrop
 senão se force_image
     → image
-senão se risco = high e alter ⊆ {headline, secondary, cta, price}
+senão se alter ⊆ {headline, secondary, cta, price}
     → typeset
 senão
     → image
 ```
 
-`needs_recrop` compara `aspect_hint` (lido no still) com `aspect_ratio` (saída pedida).
+`needs_recrop` compara `aspect_hint` (lido no still) com `aspect_ratio` (saída pedida). Sem `aspect_ratio`/`output`, `resolve_aspect_ratio` usa `ratio_from_size(ref_width, ref_height)`, depois o hint, depois `16:9`.
 
 ### 6.1 Risco alto (`swap_risk`)
 
@@ -164,18 +180,18 @@ High quando **preserva pessoas** (ou ≥4 faces / selos `person`) **e** altera t
 
 Motivo: cartela de elenco. O Image 2 embaralha português nos selos (`Mumuzinho` → `Mumuzinho` com letra extra, `Entrada franca` → `Entradada franceça`).
 
-Nesse caso o default é typeset. O checkbox **Redesenhar a peça no Image 2** (`force_image`) força o modo `image`.
+Type-only (só headline/apoio/CTA/preço) também cai em typeset, mesmo sem elenco. O checkbox **Redesenhar a peça no Image 2** (`force_image`) força o modo `image`.
 
 ### 6.2 Typeset (Pillow)
 
-Sem Image 2. `quote.estimated_cost_usd = 0`, `model = "typeset"`.
+Sem Image 2. `quote.estimated_cost_usd = 0`, `model = "typeset"`. Se o payload traz `regions`/`bbox_px` do mesmo tamanho da referência, a pintura fica recortada nessa caixa e `qa.status` vem `pass` ou `fail`. Sem região, `qa.status` é `unchecked` e o slot legado continua.
 
-1. `typeset_patches` monta slots a partir de `alter`.
+1. `typeset_patches` monta slots a partir de `alter`. Se `alter` tem `cta` e há 2+ elements `role=cta` com texto, sai um patch por pill com o próprio `bbox_px`.
 2. `_slots_for` escolhe a grade. Em 16:9, se o tipo está em cima/esquerda (`TYPESET_SLOTS_TOP`), usa essa grade; senão a grade “tipo no centro/direita”.
 3. `_canvas_field` acha a cor de campo (luma &lt; 232 — navy entra, branco do tipo não).
 4. `_locate_type` procura glifos no slot (cromáticos ou claros).
 5. `_cover_type` pinta **só os pixels do glifo** (raio 4), não o retângulo inteiro — para não comer a pessoa.
-6. `_draw_copy` escreve o texto novo, fonte condensada, ink contrastante. CTA força ink quase preto.
+6. `_draw_copy` escreve o texto novo, fonte condensada, ink contrastante. CTA usa a tinta amostrada quando há `cover` — não força mais `(17, 17, 17)`. Headline larga (`width/height ≥ 2.4`) alinha à esquerda.
 
 Slots 16:9 (tipo à direita / centro):
 
@@ -198,7 +214,7 @@ Slots 16:9 topo (`TYPESET_SLOTS_TOP`) — TIM Black, tipo à esquerda:
 
 Há grades também para 9:16, 4:5 e 1:1.
 
-`typeset_all` (usado depois do recrop) inclui headline, secondary e price mesmo se o usuário só marcou um item.
+`typeset_all` só pinta headline/apoio/preço extra se o payload pedir. Recrop **não** liga mais esse atalho.
 
 ### 6.3 Recrop
 
@@ -208,7 +224,7 @@ Passes: `["image", "typeset"]`. Custo = cotação do Image 2 (o typeset é de gr
 
 ### 6.4 Image
 
-Uma passagem Image 2. Até 2 referências: still + logo oficial (produção, ou se `use_brand_context` não for falso).
+Uma passagem Image 2. Até 2 referências: still + logo oficial (produção, ou se `use_brand_context` não for falso). Se `logo` está em `preserve`, a logo oficial **não** entra.
 
 ---
 
@@ -218,7 +234,7 @@ Todas sob `/parametros`. Envelope: `{ "success": true, "data": { ... } }`. Erro:
 
 ### 7.1 `POST /parametros/api/format-lab/swap/read`
 
-Lê o still. Sem `text_callable` (chave ausente) devolve o JSON vazio, não 500.
+Lê o still. Sem `text_callable` (chave ausente) devolve `status: unavailable`, não 500 nem leitura vazia “ok”. JSON inválido → `invalid`. Provedor caiu → `provider_error`. Sem texto útil → `unreadable`. Overflow → `partial`.
 
 **Request**
 
@@ -249,9 +265,13 @@ Aceita também `image` ou `reference_url` (`https://` / `http://` / `data:image/
   "aspect_hint": "16:9",
   "style": "fundo azul-marinho, pessoa à direita, tipo à esquerda",
   "elements": [
-    { "role": "person", "text": "", "note": "modelo à direita" },
-    { "role": "logo", "text": "TIM", "note": "canto superior esquerdo" }
+    { "id": "face_01", "role": "person", "kind": "face", "text": "", "note": "modelo à direita", "source": "ocr" },
+    { "id": "logo_01", "role": "logo", "kind": "logo", "text": "TIM", "note": "canto superior esquerdo", "source": "ocr" }
   ],
+  "faces": 1,
+  "locks": ["TIM"],
+  "locks_overflow": false,
+  "overflow": [],
   "analysis": {
     "background": true,
     "images": true,
@@ -261,7 +281,9 @@ Aceita também `image` ou `reference_url` (`https://` / `http://` / `data:image/
     "secondary": true,
     "cta": true,
     "supports": true
-  }
+  },
+  "status": "completed",
+  "error": ""
 }
 ```
 
@@ -324,7 +346,14 @@ Monta prompt + preview + quote + risco **sem gerar**.
   },
   "risk": { "level": "high", "reason": "Cartela com elenco. …" },
   "mode": "typeset",
-  "locks": ["24, 25 e 26 de julho", "Mineirinho", "TIM"]
+  "locks": ["24, 25 e 26 de julho", "Mineirinho", "TIM"],
+  "plan_id": "pln_ab12cd34ef56",
+  "plan_hash": "…sha256…",
+  "planner_version": "trocr-plan-4",
+  "operations": [{"field": "price", "from": "R$ 169,99/mês", "to": "R$ 149,90/mês"}],
+  "conflicts": [],
+  "noop": false,
+  "blocked": false
 }
 ```
 
@@ -363,11 +392,13 @@ No modo `recrop` entram `passes: ["image", "typeset"]`.
 
 No modo `image`, `quality` é `draft` ou `production`; `patches` não vem.
 
+No modo `noop`: `png_data_url` vazio, `model: noop`, sem `image_url`, sem gravar versão. Hash obsoleto ou conflito sem `confirm_conflicts` → 409.
+
 ### 7.4 `GET|POST /parametros/api/format-lab/swap/history`
 
 **GET** `?client_id=12` — carrega a sessão.
 
-**POST** — persiste (debounce 400 ms no cliente).
+**POST** — persiste (debounce 400 ms no cliente). Mandar `revision` da última leitura. Sem `revision` o legado ainda grava (incrementa). Com `revision` errada → 409.
 
 ```json
 {
@@ -375,6 +406,7 @@ No modo `image`, `quality` é `draft` ou `production`; `patches` não vem.
   "active_id": "v3",
   "base_id": "v1",
   "aspect_ratio": "16:9",
+  "revision": 2,
   "versions": [
     {
       "id": "v1",
@@ -386,6 +418,7 @@ No modo `image`, `quality` é `draft` ou `production`; `patches` não vem.
       "created_at": "2026-09-12T10:00:00.000Z",
       "image": "data:image/png;base64,…",
       "thumb": "data:image/jpeg;base64,…",
+      "parent_id": "",
       "ocr": { "headline": "…", "analysis": {} },
       "analysis": {}
     }
@@ -393,17 +426,23 @@ No modo `image`, `quality` é `draft` ou `production`; `patches` não vem.
 }
 ```
 
-O servidor converte data URL em arquivo e devolve `image_url` / `thumb_url`. Data URLs não ficam no `brand_profile`. OCR/analysis são slim: sem `png_data_url` nem strings `data:`.
+O servidor converte data URL em still autenticado (`/parametros/api/format-lab/swap/still/<hex>.png`) e devolve `image_url` / `thumb_url` / `revision` / `parent_id`. Data URLs não ficam no `brand_profile`. OCR/analysis são slim: sem `png_data_url` nem strings `data:`.
+
+URL remota (`http`/`https`) não entra no histórico. Original omitida ou com PNG trocado é restaurada a partir da sessão gravada.
 
 Chave: `client-{id}` se há marca; senão `user-{user_id}`. Com marca, também espelha em `user-{id}`.
 
-### 7.5 `POST /parametros/api/format-lab/quote`
+### 7.5 `GET /parametros/api/format-lab/swap/still/<arquivo>`
+
+Still privado. `admin_required_api` + cookie. Nome `32 hex` + `.png|.jpg|.webp`. Arquivo em `instance/trocr_stills/`, fora de `/static`. `<img src>` same-origin envia a sessão.
+
+### 7.6 `POST /parametros/api/format-lab/quote`
 
 ```json
 { "kind": "swap", "quality": "production", "...editFields" }
 ```
 
-Devolve `quote_swap`. Sem `kind: swap` a rota cotiza o lab de conceito 15s.
+Devolve o `quote` do `build_swap_plan`. Sem `kind: swap` a rota cotiza o lab de conceito 15s. No-op / bloqueado: `image_api_cost_usd: 0`, `label: Sem geração`.
 
 Estimativas:
 
@@ -426,14 +465,17 @@ Montado em `mc-trocar.js`. É o contrato da mesa.
 | `headline` | `#mcSwapHeadline` | max 80 |
 | `support` | `#mcSwapSupport` | max 160 |
 | `price` | `#mcTrocrPrice` | max 40 |
-| `cta` | `#mcSwapCta` | max 40 |
+| `cta` | `#mcSwapCta` | max 40; segundo botão em `#mcTrocrCta2` → `elements[].role=cta` |
 | `note` / `instruction` | `#mcSwapNote` | mesmo valor |
-| `dates` / `subtitle` | `#mcTrocrDates` | subtitle = dates no JS |
+| `dates` | `#mcTrocrDates` | independente de `subtitle` |
+| `subtitle` | `#mcTrocrSubtitle` | não copia datas |
+| `logo_text` | `#mcTrocrLogo` | texto da marca no quadro |
+| `disclaimer` | `#mcTrocrDisclaimer` | texto legal visível |
 | `venue` | `#mcTrocrVenue` | |
 | `aspect_ratio` | rádio `mcSwapOut` | 16:9 · 9:16 · 4:5 · 1:1 |
 | `aspect_hint` | último OCR | detectado, não o pedido |
 | `elements` | OCR | lista crua |
-| `faces` | `elements` com `role=person` | |
+| `faces` | `elements` com `kind=face` | selo de nome não conta |
 | `force_image` | `#mcTrocrForceImage` | força Image 2 |
 | `presentation` | rádio apresentação | só chrome do canvas (`final` / `mobile` / `portal` / `ctv`) |
 | `quality` | rádio qualidade | `draft` · `production` |
@@ -442,6 +484,11 @@ Montado em `mc-trocar.js`. É o contrato da mesa.
 | `alter` | checkboxes | ver tokens |
 | `prompt_override` | textarea se editado/travado | senão omitido |
 | `reference` | `baseVersion().image` | só em `/swap` e `/read` |
+| `base_id` | versão-base da mesa | entra no hash no lugar do PNG |
+| `plan_hash` | último preview | se vier, tem de bater |
+| `confirm_conflicts` | `#mcTrocrConfirmConflicts` | não entra no hash |
+| `ref_width` / `ref_height` | still natural | obrigatório para validar a bbox |
+| `regions` | seleção no canvas | `{ price: [x0, y0, x1, y1] }` |
 
 Tokens **preserve**: `layout`, `background`, `people`, `product`, `logo`, `text_position`, `colors`, `graphic`, `style`.
 
@@ -449,7 +496,7 @@ Tokens **alter**: `price`, `cta`, `headline`, `secondary`, `people`, `product`, 
 
 `TYPE_ONLY` = `{headline, secondary, cta, price}`. Typeset só roda se o risco é high **e** `alter` está contido nesse conjunto.
 
-Locks no servidor (`prepare_swap`): textos de `elements.role=person` + `dates` + `venue` + `logo_text`, até 12. O JS não manda `locks`; o backend deriva.
+Locks no servidor (`apply_swap_schema`): selos `kind=name_pill`, `logo_text`, `disclaimer`, `dates` e `venue`. Acima de 12 a lista **não** é cortada; `locks_overflow` fica verdadeiro (não se mistura com texto longo). Copy acima do limite gera erro na geração; no OCR vira `overflow[]` sem corte. `kind` inválido cai em `face`/`name_pill`/`type`. IDs repetidos viram o próximo livre (`cta_02`). Bbox sem `ref_width`/`ref_height` não é inventada.
 
 ---
 
@@ -499,7 +546,7 @@ Núcleo (modo `image`, sem `alter`):
 11. Locks com contagem de letras: `Mumuzinho (Mumuzinho=9)`.
 12. Paint each locked string glyph by glyph…
 13. Brand / color / logo / tom / forbidden.
-14. `Headline exactly: …` `Support exactly: …` `Price exactly: …` `CTA exactly: …`
+14. Copy: se o plano tem operações com `from ≠ to`, só essas linhas entram (`Headline exactly` + `Replace only the line '…'`). Senão o dump legado de headline/apoio/preço/CTA.
 15. Nota livre do usuário.
 
 Se há `alter`, o item 2 vira: *This is an item swap. Change only the listed items…*
@@ -519,7 +566,7 @@ Sem as linhas `Headline exactly` — o typeset posterior escreve o tipo.
 
 ### 9.3 Preview da UI — `build_prompt_preview_pt` (português)
 
-O que o textarea mostra. Não é o que o Image 2 recebe, salvo override.
+O que o textarea mostra. Não é o que o Image 2 recebe, salvo override. Se o plano tem operações com `from ≠ to`, o preview lista só essas trocas (`'linha velha' → 'linha nova'`), não o dump de preço/CTA intactos.
 
 Exemplo typeset TIM:
 
@@ -631,7 +678,7 @@ Limites que o lab ainda viu no TIM Black 16:9:
 
 - fantasma da headline antiga (cobertura de glifo incompleta)
 - quota 80GB pode cair no slot errado se `secondary` / `dates` se misturam
-- CTA não clona o par de pills (Conferir planos + Contratar) — um slot só
+- CTA não clonava o par de pills — **fase 5:** dois `role=cta` com bbox viram dois patches; mesa tem `#mcTrocrCta2`
 - fontes do ERP (família TIM) não entram no Pillow; Avenir/Arial aproximam
 - sem chave, a mesa mostra erro de OCR e deixa editar na mão; typeset continua possível
 
@@ -666,7 +713,7 @@ Já no refactor de UX, ainda válidos:
 
 Do typeset, depois deste lab:
 
-- clonar geometria real do CTA (duas pills)
+- inferir a segunda pill se o OCR só devolve um CTA (hoje precisa de 2 elements + bbox)
 - slots 16:9 TIM (quota vs preço vs headline) com detector menos cego
 - fonte da marca no Pillow, não só Avenir
 - coverage de glifo com dilatação maior para matar fantasma

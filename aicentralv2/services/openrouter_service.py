@@ -36,13 +36,62 @@ class OpenRouterError(RuntimeError):
     """Erro seguro e recuperável do provedor."""
 
 
+_SAMPLING_KEYS = (
+    "temperature",
+    "top_p",
+    "top_k",
+    "frequency_penalty",
+    "presence_penalty",
+)
+_NO_SAMPLING_SLUGS = frozenset({"gpt-5", "gpt-5-mini", "gpt-5-nano"})
+
+
+def model_omits_sampling(model=None) -> bool:
+    """GPT-5 mini/nano e o-series recusam temperature/top_p/top_k no OpenAI."""
+    slug = str(model or "").strip().lower()
+    if "/" in slug:
+        slug = slug.split("/", 1)[1]
+    if slug in _NO_SAMPLING_SLUGS:
+        return True
+    if slug.startswith(("gpt-5-mini-", "gpt-5-nano-")):
+        return True
+    return slug.startswith(("o1", "o3", "o4-"))
+
+
+def sanitize_chat_payload(payload):
+    """Tira sampling que o provedor rejeita com 'Provider returned error'."""
+    clean = dict(payload or {})
+    if model_omits_sampling(clean.get("model")):
+        for key in _SAMPLING_KEYS:
+            clean.pop(key, None)
+    return clean
+
+
+def _provider_error_detail(error):
+    if not isinstance(error, dict):
+        return str(error or "").strip()
+    metadata = error.get("metadata") if isinstance(error.get("metadata"), dict) else {}
+    raw = metadata.get("raw")
+    if isinstance(raw, str) and raw.strip():
+        try:
+            inner = json.loads(raw)
+        except ValueError:
+            inner = None
+        if isinstance(inner, dict):
+            nested = inner.get("error") if isinstance(inner.get("error"), dict) else inner
+            message = str(nested.get("message") or "").strip()
+            if message:
+                return message
+    return str(error.get("message") or "").strip()
+
+
 def _chat_error_message(response):
     status = getattr(response, "status_code", None)
     detail = ""
     try:
         payload = response.json() if response is not None else {}
         error = payload.get("error") if isinstance(payload, dict) else {}
-        detail = error.get("message") if isinstance(error, dict) else str(error or "")
+        detail = _provider_error_detail(error)
     except (AttributeError, TypeError, ValueError):
         detail = ""
     detail = str(detail or "").strip()
@@ -155,6 +204,7 @@ def chat_completion(
         payload["plugins"] = plugins
     if response_format:
         payload["response_format"] = response_format
+    payload = sanitize_chat_payload(payload)
     headers = {
         "Authorization": f"Bearer {_api_key()}",
         "Content-Type": "application/json",
@@ -182,7 +232,12 @@ def chat_completion(
         except (requests.RequestException, ValueError, KeyError, IndexError) as exc:
             last_error = exc
             last_response = getattr(exc, "response", None) or last_response
-            if attempt == 0 and isinstance(exc, requests.RequestException):
+            status = getattr(last_response, "status_code", None)
+            if (
+                attempt == 0
+                and isinstance(exc, requests.RequestException)
+                and (status is None or int(status) >= 500)
+            ):
                 continue
             break
     raise OpenRouterError(_chat_error_message(last_response)) from last_error

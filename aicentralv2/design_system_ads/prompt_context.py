@@ -244,10 +244,20 @@ def build_ads_prompt_context(
     }
 
 
+def _public_image_url(url):
+    if not isinstance(url, str):
+        return False
+    text = url.strip()
+    if text.startswith("https://"):
+        return True
+    return text.startswith("http://") and "localhost" not in text and "127.0.0.1" not in text
+
+
 def context_messages(context, *, reference_urls=None):
     content = [{"type": "text", "text": json.dumps(context["user_payload"], ensure_ascii=False)}]
-    for url in [item for item in (reference_urls or []) if item][:4]:
-        content.append({"type": "image_url", "image_url": {"url": url}})
+    if context.get("task") != "review":
+        for url in [item for item in (reference_urls or []) if _public_image_url(item)][:4]:
+            content.append({"type": "image_url", "image_url": {"url": url}})
     return [
         {"role": "system", "content": context["instructions"]},
         {"role": "user", "content": content},

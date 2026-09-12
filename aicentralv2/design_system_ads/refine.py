@@ -1269,6 +1269,7 @@ def review_fidelity(
     from .prompt_context import build_ads_prompt_context, context_messages, stamp_runtime_context
 
     parsed = parse_system(system)
+    del reference_urls
     context = prompt_context or build_ads_prompt_context(
         "review",
         parsed,
@@ -1291,7 +1292,7 @@ def review_fidelity(
 
     try:
         response = text_callable(
-            context_messages(context, reference_urls=reference_urls),
+            context_messages(context),
             model=resolve_chat_model(COMPOSE_MODEL),
             max_tokens=900,
             temperature=0.15,

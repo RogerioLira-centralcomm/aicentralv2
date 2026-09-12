@@ -388,6 +388,75 @@ class AgentContractsTest(unittest.TestCase):
         self.assertFalse(payload["parallel_tool_calls"])
         self.assertEqual(mock_post.call_args.kwargs["headers"]["X-OpenRouter-Title"], "CentralX")
 
+    @patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"})
+    @patch("aicentralv2.services.openrouter_service.requests.post")
+    def test_gpt5_mini_omits_sampling_params(self, mock_post):
+        response = MagicMock()
+        response.json.return_value = {
+            "model": "openai/gpt-5-mini",
+            "choices": [{"message": {"role": "assistant", "content": "ok"}}],
+        }
+        mock_post.return_value = response
+        chat_completion(
+            [{"role": "user", "content": "teste"}],
+            model="openai/gpt-5-mini",
+            temperature=0.15,
+        )
+        payload = mock_post.call_args.kwargs["json"]
+        self.assertEqual(payload["model"], "openai/gpt-5-mini")
+        self.assertNotIn("temperature", payload)
+        self.assertNotIn("top_p", payload)
+        self.assertNotIn("top_k", payload)
+        self.assertNotIn("frequency_penalty", payload)
+        self.assertNotIn("presence_penalty", payload)
+
+    @patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"})
+    @patch("aicentralv2.services.openrouter_service.requests.post")
+    def test_openrouter_unwraps_provider_raw_error(self, mock_post):
+        import json as json_lib
+
+        import requests as req
+
+        response = MagicMock()
+        response.status_code = 400
+        response.json.return_value = {
+            "error": {
+                "message": "Provider returned error",
+                "metadata": {
+                    "raw": json_lib.dumps(
+                        {
+                            "error": {
+                                "message": "Unsupported parameter: 'top_p' is not supported with this model."
+                            }
+                        }
+                    )
+                },
+            }
+        }
+        response.raise_for_status.side_effect = req.HTTPError(response=response)
+        mock_post.return_value = response
+        with self.assertRaises(OpenRouterError) as error:
+            chat_completion(
+                [{"role": "user", "content": "teste"}],
+                model="openai/gpt-5-mini",
+            )
+        self.assertIn("top_p", str(error.exception))
+        self.assertEqual(mock_post.call_count, 1)
+
+    @patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"})
+    @patch("aicentralv2.services.openrouter_service.requests.post")
+    def test_openrouter_retries_only_server_errors(self, mock_post):
+        import requests as req
+
+        response = MagicMock()
+        response.status_code = 503
+        response.json.return_value = {"error": {"message": "overloaded"}}
+        response.raise_for_status.side_effect = req.HTTPError(response=response)
+        mock_post.return_value = response
+        with self.assertRaises(OpenRouterError):
+            chat_completion([{"role": "user", "content": "teste"}])
+        self.assertEqual(mock_post.call_count, 2)
+
     @patch.dict("os.environ", {"OPENROUTER_API_KEY": "env-key"}, clear=False)
     @patch("aicentralv2.services.openrouter_service.requests.post")
     def test_openrouter_prefers_database_key(self, mock_post):

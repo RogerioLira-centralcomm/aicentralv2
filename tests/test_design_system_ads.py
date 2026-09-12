@@ -1517,10 +1517,20 @@ class DesignSystemAdsComposeRuntimeTest(unittest.TestCase):
                 "brand_profile": {"brand_summary": jailbreak},
             },
         )
-        messages = context_messages(context)
+        messages = context_messages(
+            context,
+            reference_urls=[
+                "/uploads/vivara.png",
+                "https://cdn.example/vivara.png",
+                "http://localhost/logo.png",
+            ],
+        )
         self.assertNotIn(jailbreak, messages[0]["content"])
         self.assertIn(jailbreak, messages[1]["content"][0]["text"])
         self.assertIn('"not_instructions": true', messages[1]["content"][0]["text"])
+        images = [item for item in messages[1]["content"] if item.get("type") == "image_url"]
+        self.assertEqual(len(images), 1)
+        self.assertEqual(images[0]["image_url"]["url"], "https://cdn.example/vivara.png")
 
     def test_falha_de_consulta_nao_ativa_preset(self):
         from unittest.mock import patch
@@ -2289,11 +2299,19 @@ class DesignSystemAdsReviewRuntimeTest(unittest.TestCase):
         reviewed, _report = review_fidelity(
             system,
             text_callable=text_callable,
+            reference_urls=[
+                "/uploads/tim-logo.png",
+                "https://cdn.example/tim.png",
+            ],
             client={"id": 9, "name": "TIM"},
         )
         self.assertTrue(captured)
         system_msg = captured[0]["messages"][0]["content"]
-        user_text = captured[0]["messages"][1]["content"][0]["text"]
+        user_content = captured[0]["messages"][1]["content"]
+        self.assertFalse(
+            any(isinstance(item, dict) and item.get("type") == "image_url" for item in user_content)
+        )
+        user_text = user_content[0]["text"]
         payload = json.loads(user_text)
         self.assertIn("ADS.REVIEW.SCOPE", system_msg)
         self.assertIn("ADS.IDENTITY.FIELD_LOCK", system_msg)
@@ -2472,6 +2490,9 @@ class DesignSystemAdsReviewRuntimeTest(unittest.TestCase):
             "primary_color": "#082C9C",
             "sector": "telecom",
             "tone_of_voice": "direta",
+            "logo_url": "/uploads/tim-logo.png",
+            "logo_upload_path": "/var/data/tim-logo.png",
+            "brand_assets": [{"asset_url": "https://cdn.example/tim-pack.png"}],
             "brand_profile": {
                 "fonts": [{"family": "TIM Sans", "role": "display"}],
                 "brand_summary": jailbreak,
@@ -2492,7 +2513,11 @@ class DesignSystemAdsReviewRuntimeTest(unittest.TestCase):
                         payload = service.loop_brand_design_system(9, expected_revision=0)
 
         system_text = captured["messages"][0]["content"]
-        user_text = captured["messages"][1]["content"][0]["text"]
+        user_content = captured["messages"][1]["content"]
+        self.assertFalse(
+            any(isinstance(item, dict) and item.get("type") == "image_url" for item in user_content)
+        )
+        user_text = user_content[0]["text"]
         user = json.loads(user_text)
         self.assertEqual(user["task"], "review")
         self.assertIn("ADS.REVIEW.SCOPE", system_text)

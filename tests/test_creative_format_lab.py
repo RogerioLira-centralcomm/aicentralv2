@@ -2533,6 +2533,49 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
         self.assertTrue(result["analysis"]["headline"])
         self.assertEqual(result["status"], "completed")
 
+    def test_ocr_aceita_content_em_lista_do_gpt5(self):
+        captured = {}
+
+        def fake_text(_messages, **kwargs):
+            captured.update(kwargs)
+            return {
+                "message": {
+                    "content": [
+                        {"type": "reasoning", "text": "vou extrair o still"},
+                        {
+                            "type": "output_text",
+                            "text": '{"headline":"500 MEGA","cta":"Monte o seu","logo_text":"TIM"}',
+                        },
+                    ]
+                }
+            }
+
+        result = read_swap_reference(
+            {"reference": "data:image/png;base64,aaa"},
+            text_callable=fake_text,
+        )
+        self.assertEqual(result["headline"], "500 MEGA")
+        self.assertEqual(result["cta"], "Monte o seu")
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(captured.get("response_format"), {"type": "json_object"})
+
+    def test_ocr_aceita_json_no_reasoning_quando_content_vem_vazio(self):
+        def fake_text(_messages, **_kwargs):
+            return {
+                "message": {
+                    "content": "",
+                    "reasoning": 'Campos visíveis: {"headline":"ATÉ 110GB","price":"R$ 169,99/mês"}',
+                }
+            }
+
+        result = read_swap_reference(
+            {"reference": "data:image/png;base64,aaa"},
+            text_callable=fake_text,
+        )
+        self.assertEqual(result["headline"], "ATÉ 110GB")
+        self.assertEqual(result["price"], "R$ 169,99/mês")
+        self.assertEqual(result["status"], "completed")
+
     def test_cartela_de_elenco_compõe_tipo_sem_image2(self):
         from aicentralv2.creative_format_lab.swap import (
             looks_scrambled,

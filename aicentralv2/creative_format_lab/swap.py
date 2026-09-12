@@ -11,6 +11,7 @@ from pathlib import Path
 
 from ..creative_modeling_fx import annotate_cost
 from ..creative_modeling_generation import _json_content
+from .lab_models import JSON_OBJECT
 
 SWAP_MODEL = "openai/gpt-image-2"
 SWAP_READ_MODEL = os.getenv("CREATIVE_FORMAT_SWAP_READ_MODEL", "openai/gpt-5-nano")
@@ -642,6 +643,22 @@ def inflated_numbers(blob, locks=None):
     return found
 
 
+def _ocr_message_content(response):
+    if isinstance(response, dict):
+        message = response.get("message")
+        if isinstance(message, dict):
+            for key in ("content", "parsed"):
+                value = message.get(key)
+                if value not in (None, "", []):
+                    return value
+            reasoning = message.get("reasoning")
+            if isinstance(reasoning, str) and "{" in reasoning:
+                return reasoning
+            return message.get("content")
+        return response.get("content", response)
+    return response
+
+
 def read_swap_reference(payload=None, *, text_callable=None):
     payload = payload if isinstance(payload, dict) else {}
     reference = _reference(payload)
@@ -666,17 +683,11 @@ def read_swap_reference(payload=None, *, text_callable=None):
             model=SWAP_READ_MODEL,
             max_tokens=SWAP_READ_MAX_TOKENS,
             temperature=SWAP_READ_TEMPERATURE,
+            response_format=JSON_OBJECT,
         )
     except Exception:
         return {**empty, "status": "provider_error", "error": "O provedor de OCR falhou. Escreva na mão ou tente de novo."}
-    if isinstance(response, dict):
-        message = response.get("message")
-        if isinstance(message, dict):
-            raw = message.get("content")
-        else:
-            raw = response.get("content", response)
-    else:
-        raw = response
+    raw = _ocr_message_content(response)
     if isinstance(raw, dict):
         parsed = raw
     else:

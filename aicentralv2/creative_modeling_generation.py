@@ -116,7 +116,37 @@ cta_locked=false e inclua cta_changed. Se a copy foi reescrita, inclua
 text_rewritten. Se havia logo e sumiu, logo_locked=false e logo_missing."""
 
 
+def _flatten_provider_content(content):
+    """OpenRouter/GPT-5 devolve content como string, dict ou lista de partes."""
+    if content is None:
+        return ""
+    if isinstance(content, (str, dict)):
+        return content
+    if not isinstance(content, list):
+        return str(content)
+    chunks = []
+    for item in content:
+        if isinstance(item, str):
+            if item.strip():
+                chunks.append(item)
+            continue
+        if not isinstance(item, dict):
+            continue
+        kind = str(item.get("type") or "")
+        if kind in {"image_url", "input_image"}:
+            continue
+        text = item.get("text")
+        if text is None:
+            text = item.get("content")
+        if isinstance(text, dict):
+            return text
+        if isinstance(text, str) and text.strip():
+            chunks.append(text)
+    return "\n".join(chunks)
+
+
 def _json_content(content):
+    content = _flatten_provider_content(content)
     if isinstance(content, dict):
         return content
     if not isinstance(content, str):

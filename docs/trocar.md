@@ -240,7 +240,7 @@ Todas sob `/parametros`. Envelope: `{ "success": true, "data": { ... } }`. Erro:
 
 ### 7.1 `POST /parametros/api/format-lab/swap/read`
 
-Lê o still. Sem `text_callable` (chave ausente) devolve `status: unavailable`, não 500 nem leitura vazia “ok”. JSON inválido → `invalid`. Provedor caiu → `provider_error`. Sem texto útil → `unreadable`. Overflow → `partial`.
+Lê o still. Sem `text_callable` (chave ausente) devolve `status: unavailable`, não 500 nem leitura vazia “ok”. JSON inválido → `invalid`. Provedor caiu → `provider_error`. Sem texto útil → `unreadable`. Overflow → `partial`. A chamada pede `response_format: json_object`. `content` em lista (GPT-5/OpenRouter) e JSON no `reasoning` quando o content vem vazio também valem.
 
 **Request**
 

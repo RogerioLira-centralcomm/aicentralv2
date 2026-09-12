@@ -1607,7 +1607,7 @@ class DesignSystemAdsComposeRuntimeTest(unittest.TestCase):
         self.assertIn("ADS.IDENTITY.HOUSE_COLORS", run["context"]["rule_ids"])
         self.assertEqual(run["context"]["preset_context"], "other_client")
         self.assertTrue(run["context"]["instruction_hash"])
-        self.assertEqual(captured["kwargs"]["model"].split("/")[-1], "gpt-4o")
+        self.assertEqual(captured["kwargs"]["model"].split("/")[-1], "gpt-5-mini")
 
 
 class DesignSystemAdsConcurrencyTest(unittest.TestCase):
@@ -2218,7 +2218,7 @@ class DesignSystemAdsRefineRuntimeTest(unittest.TestCase):
         self.assertFalse(payload["run"]["context"]["skill_applied"])
         self.assertTrue(payload["run"]["context"]["instruction_hash"])
         self.assertTrue(payload["run"]["context"]["context_hash"])
-        self.assertEqual(captured["kwargs"]["model"].split("/")[-1], "gpt-4o-mini")
+        self.assertEqual(captured["kwargs"]["model"].split("/")[-1], "gpt-5-nano")
         self.assertEqual(persisted["revision"], 0)
 
     def test_refine_revisao_obsoleta(self):
@@ -2514,7 +2514,7 @@ class DesignSystemAdsReviewRuntimeTest(unittest.TestCase):
         self.assertFalse(payload["run"]["context"]["skill_applied"])
         self.assertTrue(payload["run"]["context"]["instruction_hash"])
         self.assertTrue(payload["run"]["context"]["context_hash"])
-        self.assertEqual(captured["kwargs"]["model"].split("/")[-1], "gpt-4o")
+        self.assertEqual(captured["kwargs"]["model"].split("/")[-1], "gpt-5-mini")
         self.assertEqual(persisted["revision"], 0)
         from aicentralv2.design_system_ads.provenance import get_provenance
 
@@ -2818,7 +2818,7 @@ class DesignSystemAdsCampaignRuntimeTest(unittest.TestCase):
         self.assertFalse(payload["run"]["context"]["skill_applied"])
         self.assertTrue(payload["run"]["context"]["instruction_hash"])
         self.assertTrue(payload["run"]["context"]["context_hash"])
-        self.assertEqual(captured["kwargs"]["model"].split("/")[-1], "gpt-4o")
+        self.assertEqual(captured["kwargs"]["model"].split("/")[-1], "gpt-5-mini")
         self.assertEqual(persisted["revision"], 0)
 
     def test_campaign_falha_do_provedor_nao_persiste(self):

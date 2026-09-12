@@ -1,4 +1,4 @@
-"""Loop de fidelidade: até 4 passes, patches de token, gpt-4o-mini."""
+"""Loop de fidelidade: até 4 passes, patches de token, gpt-5-nano."""
 
 from __future__ import annotations
 
@@ -21,10 +21,8 @@ from .schema import (
     parse_system,
 )
 
-REFINE_MODEL = os.getenv("DESIGN_SYSTEM_ADS_MODEL", "openai/gpt-4o-mini")
-COMPOSE_MODEL = os.getenv("DESIGN_SYSTEM_ADS_COMPOSE_MODEL") or os.getenv(
-    "DESIGN_SYSTEM_ADS_MODEL", "openai/gpt-4o"
-)
+REFINE_MODEL = os.getenv("DESIGN_SYSTEM_ADS_MODEL", "openai/gpt-5-nano")
+COMPOSE_MODEL = os.getenv("DESIGN_SYSTEM_ADS_COMPOSE_MODEL", "openai/gpt-5-mini")
 IMPROVE_INTENTS = ("contrast", "type", "cta", "compact", "airy")
 COPY_KEYS = ("headline", "support", "cta", "legal")
 

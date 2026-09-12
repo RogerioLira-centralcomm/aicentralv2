@@ -38,7 +38,7 @@ Autenticação: `admin_required` na página, `admin_required_api` nas rotas JSON
 | Página | Flask + Jinja | `modelagem_desk("trocar")` |
 | CSS | `modelagem_criativos.css` | `?v=96` no desk |
 | Cliente | `mc-trocar.js` (IIFE, sem framework) | `static/js/mc-trocar.js` |
-| OCR | OpenRouter `openai/gpt-4o-mini` visão | `read_swap_reference` |
+| OCR | OpenRouter `openai/gpt-5-nano` visão | `read_swap_reference` |
 | Imagem | OpenRouter `openai/gpt-image-2` | `swap_reference` modo `image` / `recrop` |
 | Typeset | Pillow (PIL) | `_paint_typeset` |
 | Fonte do tipo | Avenir Next Condensed → Arial Bold → DejaVu → default | `_typeset_font` |
@@ -52,7 +52,7 @@ Variáveis de ambiente:
 
 | Variável | Default | Uso |
 |---|---|---|
-| `CREATIVE_FORMAT_SWAP_READ_MODEL` | `openai/gpt-4o-mini` | OCR |
+| `CREATIVE_FORMAT_SWAP_READ_MODEL` | `openai/gpt-5-nano` | OCR |
 | `CREATIVE_FORMAT_SWAP_READ_TEMPERATURE` | `0` | OCR |
 | `CREATIVE_FORMAT_SWAP_READ_MAX_TOKENS` | `1200` | OCR |
 | `OPENROUTER_API_KEY` | — | fallback se a integração não resolver |
@@ -667,7 +667,7 @@ O que rodou de verdade:
 | Passo | O que usamos | O que não usamos |
 |---|---|---|
 | OCR da mesa | precisava de OpenRouter | chave não resolveu neste ambiente |
-| OCR do script | transcrição local (`READ0`) | gpt-4o-mini ao vivo |
+| OCR do script | transcrição local (`READ0`) | gpt-5-nano ao vivo |
 | Geração | **typeset Pillow** em 4 edições | Image 2 (sem chave) |
 | Preview da mesa | Flask `127.0.0.1:5078/.../trocar` | — |
 

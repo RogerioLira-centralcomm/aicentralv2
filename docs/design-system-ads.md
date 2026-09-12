@@ -110,8 +110,8 @@ Todas exigem admin (`@admin_required_api`). Prefixo: `/parametros/api`.
 | Persistência marca | `cx_clients.brand_profile.design_system_ads` + `cx_brand_visual_systems` | JSONB |
 | Persistência campanha | `cx_campaigns.creative_brief.design_system_ads` | JSONB |
 | Chat (compose / review / refine) | OpenRouter `chat_completion` | `services/openrouter_service.py` |
-| Compose / review | `openai/gpt-4o` | env `DESIGN_SYSTEM_ADS_COMPOSE_MODEL` |
-| Refine de tokens | `openai/gpt-4o-mini` | env `DESIGN_SYSTEM_ADS_MODEL` |
+| Compose / review | `openai/gpt-5-mini` | env `DESIGN_SYSTEM_ADS_COMPOSE_MODEL` |
+| Refine de tokens | `openai/gpt-5-nano` | env `DESIGN_SYSTEM_ADS_MODEL` |
 | Imagem das trilhas | OpenRouter Images · `openai/gpt-image-2` | fundo opaco, até 2 `input_references` |
 | CSS da peça | variáveis `--dsa-*` | compiladas no validator do schema |
 | Tailwind | tema `dsa` em `static/css/tailwind/design-system.css` | `bg-dsa-paper`, `text-dsa-ink`, … |
@@ -128,11 +128,13 @@ Todas exigem admin (`@admin_required_api`). Prefixo: `/parametros/api`.
 Env relevantes:
 
 ```bash
-DESIGN_SYSTEM_ADS_COMPOSE_MODEL=openai/gpt-4o   # default
-DESIGN_SYSTEM_ADS_MODEL=openai/gpt-4o-mini      # refine
+DESIGN_SYSTEM_ADS_COMPOSE_MODEL=openai/gpt-5-mini  # compose / review / campanha
+DESIGN_SYSTEM_ADS_MODEL=openai/gpt-5-nano         # refine
 OPENROUTER_API_KEY=...                          # chat + imagem
 CREATIVE_IMAGE_MODEL=openai/gpt-image-2         # fallback global
 ```
+
+Família GPT-5 nas mesas: compose/review/campanha usam **mini** (JSON + juízo de marca). Refine, mockup, OCR e router usam **nano**. A Mesa de 15s já storyboarda em **gpt-5.4**. Imagem fica no Image 2.
 
 Sem chave OpenRouter: o loop ainda anda com **seed local** (DNA a partir da evidência + copy da marca). Imagem de trilha exige chave.
 
@@ -378,9 +380,9 @@ cliente (logo, paleta, brand_profile, assets, extract?)
         │
         ▼
   loop (até 8 hops na mesa)
-        compose  → DNA + copy (gpt-4o)
+        compose  → DNA + copy (gpt-5-mini)
         contrast → heal 4.5:1 (local)
-        review   → fidelidade (gpt-4o)
+        review   → fidelidade (gpt-5-mini)
         track    → packshot / kv / lifestyle (gpt-image-2)
         rules    → compile_rules
         ready    → sistema pronto
@@ -443,7 +445,7 @@ Condições (nessa ordem):
 
 ### 5.4 Intents locais (sem modelo)
 
-`POST /refine` com `{ "intent": "contrast" }`. Sem `intent`, roda o refino com `gpt-4o-mini` (até 4 passes).
+`POST /refine` com `{ "intent": "contrast" }`. Sem `intent`, roda o refino com `gpt-5-nano` (até 4 passes).
 
 | intent | efeito |
 |---|---|
@@ -510,7 +512,7 @@ campanha (nome, objective, campaign_text, cta_text, assets, campaign_pack)
   bind recortes → trilhas kv / lifestyle
         │
         ▼
-  compose_campaign  (gpt-4o)  — NÃO reescreve ink/paper/accent
+  compose_campaign  (gpt-5-mini)  — NÃO reescreve ink/paper/accent
         creative_line
         ad_copy da oferta
         archetype (product-hero | lifestyle | promotion | brand)
@@ -643,7 +645,7 @@ Enviado em compose, review, refine e compose de campanha:
 
 ### 7.2 Compose da marca
 
-**Modelo:** `DESIGN_SYSTEM_ADS_COMPOSE_MODEL` · `openai/gpt-4o` · temp `0.25` · 1200 tokens.
+**Modelo:** `DESIGN_SYSTEM_ADS_COMPOSE_MODEL` · `openai/gpt-5-mini` · temp `0.25` · 1200 tokens.
 
 O compose monta o contexto em `build_ads_prompt_context`. System = restrições derivadas de `runtime_policy.py`. User = `identity` + `evidence` (dados) + contrato. Extract de site não entra como instrução.
 
@@ -670,7 +672,7 @@ JSON esperado de volta:
 
 ### 7.3 Review de fidelidade
 
-**Modelo:** `DESIGN_SYSTEM_ADS_COMPOSE_MODEL` · `openai/gpt-4o` · temp `0.15` · 900 tokens.
+**Modelo:** `DESIGN_SYSTEM_ADS_COMPOSE_MODEL` · `openai/gpt-5-mini` · temp `0.15` · 900 tokens.
 
 O review monta o contexto em `build_ads_prompt_context("review")`. System = restrições da política. User = `identity` + `evidence` + `artifact` + `criteria` (dados). Extract de site não entra como instrução. A checagem é **textual**: não há screenshot nem HTML do specimen nesta chamada.
 
@@ -680,7 +682,7 @@ Sem modelo: score local 0.74 se contraste ok e copy limpa; senão 0.48. Marca `e
 
 ### 7.4 Refine de tokens (até 4 passes)
 
-**Modelo:** `DESIGN_SYSTEM_ADS_MODEL` · `openai/gpt-4o-mini` · temp `0.1` · 700 tokens.
+**Modelo:** `DESIGN_SYSTEM_ADS_MODEL` · `openai/gpt-5-nano` · temp `0.1` · 700 tokens.
 
 System:
 
@@ -701,7 +703,7 @@ Para se `passed`, se o score cair, ou se acabar o orçamento (`MAX_PASSES = 4`).
 
 ### 7.5 Compose da campanha
 
-**Modelo:** `DESIGN_SYSTEM_ADS_COMPOSE_MODEL` · `openai/gpt-4o` · temp `0.35` · 900 tokens.
+**Modelo:** `DESIGN_SYSTEM_ADS_COMPOSE_MODEL` · `openai/gpt-5-mini` · temp `0.35` · 900 tokens.
 
 O compose monta o contexto em `build_ads_prompt_context("campaign")`. System = restrições da política. User = `identity` + `evidence` + `artifact` + `campaign` (dados). Extract de site não entra como instrução.
 

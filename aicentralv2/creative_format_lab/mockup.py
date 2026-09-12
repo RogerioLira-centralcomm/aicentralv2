@@ -1,4 +1,4 @@
-"""Cena-base: mockup HTML preto + marca, 1–3 passes baratos (GPT-4o-mini)."""
+"""Cena-base: mockup HTML preto + marca, 1–3 passes baratos (GPT-5-nano)."""
 
 from __future__ import annotations
 
@@ -303,7 +303,7 @@ def _mockup_system(knobs=None):
     brief = load_visual_brief((knobs or {}).get("selected_skills"), stage="html")
     base = (
         "You model advertising format HTML. "
-        "Black 16:9 mockup first. Patches only. GPT-4o-mini fidelity pass. "
+        "Black 16:9 mockup first. Patches only. GPT-5-nano fidelity pass. "
         "Reply with one JSON object only. No markdown fences."
     )
     if not brief:

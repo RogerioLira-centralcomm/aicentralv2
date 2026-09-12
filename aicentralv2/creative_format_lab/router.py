@@ -8,7 +8,7 @@ import re
 
 from .catalog import format_entry
 
-ROUTER_MODEL = os.getenv("CREATIVE_FORMAT_ROUTER_MODEL", "openai/gpt-4o-mini")
+ROUTER_MODEL = os.getenv("CREATIVE_FORMAT_ROUTER_MODEL", "openai/gpt-5-nano")
 DEFAULT_FORMAT = "video-linear-15"
 _QR = re.compile(r"\b(qr|companion|youtube|aponte|scan|c[aâ]mera)\b", re.IGNORECASE)
 _CTA = re.compile(r"\b(cta|call to action|bot[aã]o|saiba mais)\b", re.IGNORECASE)

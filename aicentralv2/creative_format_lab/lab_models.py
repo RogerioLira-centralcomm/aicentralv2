@@ -11,7 +11,7 @@ ENGINEER_MODEL = (
     or os.getenv("CREATIVE_TEXT_MODEL")
     or "openai/gpt-5.4"
 )
-MOCKUP_MODEL = os.getenv("CREATIVE_FORMAT_MOCKUP_MODEL", "openai/gpt-4o-mini")
+MOCKUP_MODEL = os.getenv("CREATIVE_FORMAT_MOCKUP_MODEL", "openai/gpt-5-nano")
 QA_MODEL = os.getenv("CREATIVE_FORMAT_QA_MODEL") or MOCKUP_MODEL
 IMAGE_MODEL = os.getenv("CREATIVE_IMAGE_MODEL", "openai/gpt-image-2")
 ENGINEER_TEMPERATURE = float(os.getenv("CREATIVE_FORMAT_ENGINEER_TEMPERATURE", "0.05"))

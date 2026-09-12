@@ -29,7 +29,7 @@ from .router import route_format
 
 _JSON = re.compile(r"\{[\s\S]*\}")
 PLATE_PASSES = 3
-PLATE_MODEL = os.getenv("CREATIVE_FORMAT_MOCKUP_MODEL", "openai/gpt-4o-mini")
+PLATE_MODEL = os.getenv("CREATIVE_FORMAT_MOCKUP_MODEL", "openai/gpt-5-nano")
 _LOCAL_TZ = ZoneInfo("America/Sao_Paulo")
 _PRODUCT_PROMPT = (
     "Isolated product or service still for {name}: {product}. "
@@ -297,7 +297,7 @@ def refine_plate_family(
                     "role": "system",
                     "content": (
                         "You refine IAB plate HTML. Patches only. "
-                        "Native canvas. GPT-4o-mini fidelity pass. Scene 1."
+                        "Native canvas. GPT-5-nano fidelity pass. Scene 1."
                     ),
                 },
                 {"role": "user", "content": content},

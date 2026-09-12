@@ -13,7 +13,7 @@ from ..creative_modeling_fx import annotate_cost
 from ..creative_modeling_generation import _json_content
 
 SWAP_MODEL = "openai/gpt-image-2"
-SWAP_READ_MODEL = os.getenv("CREATIVE_FORMAT_SWAP_READ_MODEL", "openai/gpt-4o-mini")
+SWAP_READ_MODEL = os.getenv("CREATIVE_FORMAT_SWAP_READ_MODEL", "openai/gpt-5-nano")
 SWAP_READ_TEMPERATURE = float(os.getenv("CREATIVE_FORMAT_SWAP_READ_TEMPERATURE", "0") or 0)
 SWAP_READ_MAX_TOKENS = int(os.getenv("CREATIVE_FORMAT_SWAP_READ_MAX_TOKENS", "1200") or 1200)
 SWAP_ESTIMATE_USD = 0.22

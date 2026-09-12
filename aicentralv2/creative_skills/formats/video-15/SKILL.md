@@ -50,7 +50,7 @@ Rules:
 
 Image loop: up to 3 stills per scene. Version 1 is a draft. Versions 2 and 3 answer the QA defects. Keep discarded frames for the human. Generate one scene at a time.
 
-Before scene 01, model a black HTML mockup with GPT-4o-mini (1–3 cheap passes) from brand assets and the format wireframe. Later scenes clone that base and only change copy, key visual and whether the logo is on.
+Before scene 01, model a black HTML mockup with GPT-5-nano (1–3 cheap passes) from brand assets and the format wireframe. Later scenes clone that base and only change copy, key visual and whether the logo is on.
 
 Key visual: the user picks photos already stored on the brand. Those photos are the campaign KV — product, box, gesture — not stock.
 

@@ -1746,7 +1746,7 @@ class CreativeFormatLabTest(unittest.TestCase):
         self.assertNotIn("text-transform:uppercase", (PROTOTYPES / "styles.css").read_text(encoding="utf-8"))
         self.assertIn("--brand-ink", base["base_html"])
         self.assertEqual(len(base["mockup"]["versions"]), 2)
-        self.assertEqual(base["mockup"]["model"], "openai/gpt-4o-mini")
+        self.assertEqual(base["mockup"]["model"], "openai/gpt-5-nano")
         product = run_session(
             {
                 **base,

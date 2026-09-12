@@ -79,7 +79,7 @@ Image 2 **não** preenche falha de pessoa. Se o gate recusou o acetato, a mesa a
 | Pessoa (2) | Ultralytics YOLO-seg `person` (`yolov8n-seg.pt`) | opcional |
 | Pessoa (3) | `field_predictor` | pele / o que não é tinta; último recurso |
 | Tinta | mediana das amostras de canto + union invertida | `_corner_field`, `_field_rgb` |
-| OCR | OpenRouter chat visão `openai/gpt-4o-mini` | `read_swap_reference` + `READ_STRICT_SYSTEM` |
+| OCR | OpenRouter chat visão `openai/gpt-5-nano` | `read_swap_reference` + `READ_STRICT_SYSTEM` |
 | Poço | OpenRouter Images `openai/gpt-image-2` | `generate_image` + `GROUND_PROMPT` |
 | Auth LLM | `resolve_api_key()` (integração ou `OPENROUTER_API_KEY`) | `openrouter_service` |
 
@@ -90,7 +90,7 @@ Variáveis de ambiente:
 | Variável | Default | Uso |
 |---|---|---|
 | `OPENROUTER_API_KEY` | — | OCR e Image 2 se a integração não resolver |
-| `CREATIVE_FORMAT_SWAP_READ_MODEL` | `openai/gpt-4o-mini` | OCR |
+| `CREATIVE_FORMAT_SWAP_READ_MODEL` | `openai/gpt-5-nano` | OCR |
 | `CREATIVE_FORMAT_SWAP_READ_TEMPERATURE` | `0` | OCR |
 | `CREATIVE_FORMAT_SWAP_READ_MAX_TOKENS` | `1200` | OCR |
 | `AGENT_OPENROUTER_MODEL` | `openai/gpt-4o-mini` | fallback do chat |

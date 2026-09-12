@@ -188,7 +188,7 @@ Inclui: prompt PT/EN, swap com logo stub, OCR parseado, typeset de cartela sem I
 Não executado:
 
 - `tests.test_modelagem_criativos` completo (contrato amplo da Modelagem; working tree de Ads sujo).
-- Image 2 / gpt-4o-mini reais (opt-in, pago, sem autorização).
+- Image 2 / gpt-5-nano reais (opt-in, pago, sem autorização).
 - Benchmark visual TIM Black / arraial ao vivo.
 - Testes de CSRF, SSRF, duas abas, EXIF, overflow — ainda não existem.
 

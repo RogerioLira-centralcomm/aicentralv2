@@ -34,7 +34,7 @@ Requirements:
 
 Fill prototype slots only. Do not invent a new layout.
 
-Before the first campaign still, model a black 16:9 HTML mockup (the format skill wireframe) with GPT-4o-mini, 1 to 3 cheap passes. That base HTML is the pattern every later CTV scene inherits.
+Before the first campaign still, model a black 16:9 HTML mockup (the format skill wireframe) with GPT-5-nano, 1 to 3 cheap passes. That base HTML is the pattern every later CTV scene inherits.
 
 The IAB base kit on Placas is a different job: scene 1 only, native IAB canvas, three patch passes per family (horizontal / box / vertical). Same patch contract. Product cutouts are transparent PNG layers, smaller than the rectangle.
 

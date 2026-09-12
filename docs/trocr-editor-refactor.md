@@ -38,7 +38,7 @@ O histórico grava no servidor por marca (`brand_profile.trocr`) e também em ar
 
 ## Lógica de OCR dinâmico
 
-A leitura é visão (GPT-4o-mini), não OCR clássico. Sempre que a base muda:
+A leitura é visão (GPT-5-nano), não OCR clássico. Sempre que a base muda:
 
 1. a imagem da base é redimensionada no cliente (lado longo 1280) só para a leitura
 2. a geração continua usando a imagem cheia

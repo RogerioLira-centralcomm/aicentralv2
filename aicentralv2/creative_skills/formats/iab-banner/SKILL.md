@@ -24,4 +24,4 @@ The IAB base kit on Placas mounts **scene 1 only**. Later scenes stay in the Ban
 - Last scene always has the CTA and the logo on. The base kit is scene 1.
 - Copy in Brazilian Portuguese. Spell lines exactly when locked.
 - Safe area stays inside the IAB unit. No bleed past the canvas.
-- Refine with patches only. Three GPT-4o-mini passes per family (horizontal / box / vertical). Do not return a new HTML document.
+- Refine with patches only. Three GPT-5-nano passes per family (horizontal / box / vertical). Do not return a new HTML document.

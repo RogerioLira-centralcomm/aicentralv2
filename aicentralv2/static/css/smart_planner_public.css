@@ -1,0 +1,322 @@
+/* Documento público Centralcomm. Sem tokens --cx do ERP. */
+
+:root {
+  --cc-canvas: #eef1f2;
+  --cc-ink: #141414;
+  --cc-black: #080808;
+  --cc-teal: #1e4d4f;
+  --cc-gold: #f5a623;
+  --cc-green: #167a3a;
+  --cc-muted: #5c6168;
+  --cc-line: #d5dbde;
+  --cc-paper: #fbfcfd;
+  --cc-display: "Nunito", "Nunito Sans", sans-serif;
+  --cc-body: "Nunito Sans", Nunito, system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body.cc-plan {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--cc-canvas);
+  color: var(--cc-ink);
+  font-family: var(--cc-body);
+}
+
+a { color: inherit; text-decoration: none; }
+img { display: block; max-width: 100%; }
+button { font: inherit; color: inherit; }
+
+:focus-visible {
+  outline: 2px solid var(--cc-green);
+  outline-offset: 3px;
+}
+
+.cc-skip {
+  position: absolute;
+  left: 0.75rem;
+  top: 0.75rem;
+  z-index: 20;
+  padding: 0.5rem 0.75rem;
+  background: var(--cc-gold);
+  color: var(--cc-black);
+  font-weight: 700;
+  transform: translateY(-160%);
+}
+
+.cc-skip:focus { transform: none; }
+
+.cc-plan-top {
+  background: var(--cc-black);
+  color: #fff;
+}
+
+.cc-plan-top-inner,
+.cc-plan-shell,
+.cc-plan-foot {
+  width: min(46rem, calc(100% - 1.5rem));
+  margin-inline: auto;
+}
+
+.cc-plan-top-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 3.5rem;
+}
+
+.cc-plan-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.cc-plan-brand img {
+  height: 1.55rem;
+  width: auto;
+  filter: brightness(0) invert(1);
+}
+
+.cc-plan-brand span {
+  font-family: var(--cc-display);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.cc-plan-print {
+  border: 0;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.cc-plan-print:hover,
+.cc-plan-print:focus-visible {
+  color: var(--cc-gold);
+}
+
+.cc-plan-shell {
+  padding: 1.75rem 0 3rem;
+}
+
+.cc-plan-mast h1 {
+  margin: 0;
+  max-width: 18ch;
+  font-family: var(--cc-display);
+  font-size: clamp(2rem, 5vw, 2.85rem);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.cc-plan-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem 1.4rem;
+  margin: 1rem 0 0;
+}
+
+.cc-plan-facts div { min-width: 6.5rem; }
+
+.cc-plan-facts dt {
+  color: var(--cc-muted);
+  font-size: 0.78rem;
+}
+
+.cc-plan-facts dd {
+  margin: 0.1rem 0 0;
+  font-weight: 700;
+}
+
+.cc-plan-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 1.5rem 0 0;
+  border-bottom: 1px solid var(--cc-line);
+}
+
+.cc-plan-tabs a {
+  padding: 0.7rem 0.2rem 0.65rem;
+  color: var(--cc-muted);
+  font-family: var(--cc-display);
+  font-weight: 800;
+}
+
+.cc-plan-tabs a.is-on,
+.cc-plan-tabs a[aria-selected="true"] {
+  color: var(--cc-ink);
+  box-shadow: inset 0 -2px 0 var(--cc-teal);
+}
+
+.cc-plan-panel {
+  padding-top: 1.35rem;
+}
+
+.cc-plan-reco {
+  margin: 0 0 1.4rem;
+  max-width: 38rem;
+  font-family: var(--cc-display);
+  font-size: clamp(1.2rem, 2.4vw, 1.45rem);
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.cc-plan-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 1.25rem 1.5rem;
+}
+
+.cc-plan-block h2,
+.cc-plan-chapter h2,
+.cc-plan-board h2,
+.cc-plan-void h2 {
+  margin: 0 0 0.45rem;
+  font-family: var(--cc-display);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.cc-plan-block p,
+.cc-plan-chapter p,
+.cc-plan-board p,
+.cc-plan-void p {
+  margin: 0;
+  max-width: 40rem;
+  color: var(--cc-muted);
+  line-height: 1.55;
+}
+
+.cc-plan-shot {
+  margin: 0 0 0.7rem;
+  background: var(--cc-black);
+}
+
+.cc-plan-shot img {
+  width: 100%;
+  height: auto;
+}
+
+.cc-plan-stat {
+  margin: 0 0 0.45rem !important;
+  color: var(--cc-ink) !important;
+  font-family: var(--cc-display);
+  font-size: 1.65rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.cc-plan-stat small {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--cc-muted);
+  font-family: var(--cc-body);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.cc-plan-block.is-defense {
+  margin-top: 1.4rem;
+  padding-top: 1.15rem;
+  border-top: 1px solid var(--cc-line);
+}
+
+.cc-plan-void {
+  padding: 1.5rem 0 0.5rem;
+}
+
+.cc-plan-void h1,
+.cc-plan-void h2 {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+}
+
+.cc-plan-doc {
+  display: grid;
+  gap: 1.6rem;
+}
+
+.cc-plan-chapter ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.15rem;
+  color: var(--cc-muted);
+  line-height: 1.5;
+}
+
+.cc-plan-table {
+  margin-top: 0.65rem;
+  overflow: auto;
+}
+
+.cc-plan-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.cc-plan-table th,
+.cc-plan-table td {
+  padding: 0.4rem 0.5rem 0.4rem 0;
+  border-bottom: 1px solid var(--cc-line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.cc-plan-table th { font-weight: 800; }
+
+.cc-plan-board {
+  display: grid;
+  gap: 1.4rem;
+}
+
+.cc-plan-board article + article { margin-top: 0.85rem; }
+
+.cc-plan-board h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.95rem;
+}
+
+.cc-plan-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0 0 2rem;
+  color: var(--cc-muted);
+  font-size: 0.8rem;
+}
+
+.cc-plan-foot img {
+  height: 1.1rem;
+  width: auto;
+}
+
+@media (max-width: 720px) {
+  .cc-plan-split,
+  .cc-plan-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .cc-plan-tabs a + a {
+    border-top: 1px solid var(--cc-line);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+@media print {
+  body.cc-plan { background: #fff; }
+  .cc-plan-top,
+  .cc-plan-tabs,
+  .cc-plan-print,
+  .cc-skip { display: none !important; }
+  .cc-plan-shell { width: 100%; padding: 0; }
+  .cc-plan-panel[hidden] { display: none !important; }
+}

@@ -13,7 +13,8 @@ from . import canvas as canvas_mod
 from . import planner
 from . import processor
 from .logos import presenter_options
-from .share import public_sheet_url, qr_svg
+from .public_view import public_view
+from .share import HOUSE, public_sheet_url, qr_svg
 from .catalog import (
     CHANNEL_CATALOG,
     CHANNEL_GROUPS,
@@ -145,37 +146,20 @@ def conclusao(token):
 def publico(public_token):
     row = get_by_public_token(public_token)
     if not row:
-        raise SessionNotFound("Quadro público não encontrado.")
-    plan = as_dict(row.get("plan_content"))
-    if not plan.get("sections"):
-        generated = canvas_mod.generate_canvas(row["session_token"])
-        plan = generated["plan"]
-    share = as_dict(plan.get("share"))
-    share["url"] = share.get("url") or public_sheet_url(public_token)
-    plan["share"] = share
-    return render_template(
-        "smart_planner/public.html",
-        plan=plan,
-        token=public_token,
-        titulo=share.get("title") or (plan.get("meta") or {}).get("client") or "Página única",
-        plan_mode="one_page",
-        readonly=True,
-    )
+        raise SessionNotFound("Este planejamento não está no ar.")
+    view = public_view(row)
+    view["share_url"] = view.get("share_url") or public_sheet_url(public_token)
+    return render_template("smart_planner/public.html", **view)
 
 
 @bp.route("/api/p/<public_token>")
 def api_publico(public_token):
     row = get_by_public_token(public_token)
     if not row:
-        return _error("Quadro público não encontrado.", 404)
-    plan = as_dict(row.get("plan_content"))
-    if not plan.get("sections"):
-        generated = canvas_mod.generate_canvas(row["session_token"])
-        plan = generated["plan"]
-    share = as_dict(plan.get("share"))
-    share["url"] = share.get("url") or public_sheet_url(public_token)
-    plan["share"] = share
-    return _ok({"plan": plan})
+        return _error("Este planejamento não está no ar.", 404)
+    view = public_view(row)
+    view["share_url"] = view.get("share_url") or public_sheet_url(public_token)
+    return _ok(view)
 
 
 @bp.route("/api/p/<public_token>/qr.svg")
@@ -469,6 +453,12 @@ def api_excluir(session_id):
 def _handle_not_found(exc):
     if request.path.startswith("/smart-planner/api/"):
         return _error(exc, 404)
+    if request.path.startswith("/smart-planner/p/"):
+        return render_template(
+            "smart_planner/public_error.html",
+            house=HOUSE,
+            mensagem=str(exc) or "Este planejamento não está no ar.",
+        ), 404
     try:
         payload = history_payload()
     except Exception:

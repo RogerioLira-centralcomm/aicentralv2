@@ -4,7 +4,7 @@
 {% block title %}{{ steps[step_index].title }} · Smart Planner{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=9">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=12">
 {% endblock %}
 
 {% block content %}
@@ -55,6 +55,7 @@
           </p>
         </div>
         <div class="sp-hi-head-actions">
+          <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-sp-guide>Como funciona</button>
           {% if step_id == 'revisao' and briefing_original %}
           <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-original-open">Briefing original</button>
           {% endif %}
@@ -352,7 +353,7 @@
           </li>
           {% if share_url %}
           <li>
-            <a class="sp-done-link" href="{{ share_url }}" target="_blank" rel="noopener">
+            <a class="sp-done-link" href="{{ share_url }}" target="_blank" rel="noopener noreferrer">
               <strong>Link público</strong>
               <small>{{ share_url }}</small>
             </a>
@@ -630,8 +631,10 @@
     <div class="sp-compile-excerpt" id="sp-compile-excerpt"></div>
   </div>
 </div>
+{% include "smart_planner/_guide.html" %}
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=9"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/guide.js') }}?v=2"></script>
 {% endblock %}

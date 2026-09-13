@@ -206,8 +206,8 @@
       qr +
       '<div><a href="' +
       escapeHtml(url) +
-      '" target="_blank" rel="noopener">' +
-      escapeHtml(share.label || "Quadro completo") +
+      '" target="_blank" rel="noopener noreferrer">' +
+      escapeHtml(share.label || "Abrir o planejamento") +
       "</a><button type=\"button\" class=\"sp-pdf\" data-print=\"1\">" +
       escapeHtml(share.pdf_label || "Salvar PDF") +
       "</button><small>" +

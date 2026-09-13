@@ -4,7 +4,7 @@
 {% block title %}Novo planejamento · Smart Planner{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=5">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=12">
 {% endblock %}
 
 {% block content %}
@@ -14,7 +14,10 @@
       <h1>Quem é o anunciante?</h1>
       <p>Se houver marca na Modelagem, o quadro já sai com público, produto e identidade.</p>
     </div>
-    <a class="cx-btn cx-btn-ghost" href="{{ url_for('smart_planner.index') }}">Voltar aos planejamentos</a>
+    <div class="sp-head-actions">
+      <button type="button" class="cx-btn cx-btn-ghost" data-sp-guide>Como funciona</button>
+      <a class="cx-btn cx-btn-ghost" href="{{ url_for('smart_planner.index') }}">Voltar aos planejamentos</a>
+    </div>
   </header>
 
   <div class="sp-parties">
@@ -59,8 +62,10 @@
     </button>
   </div>
 </div>
+{% include "smart_planner/_guide.html" %}
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/smart_planner/start.js') }}?v=3"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/guide.js') }}?v=2"></script>
 {% endblock %}

@@ -141,6 +141,13 @@ class MixEngineTest(unittest.TestCase):
         self.assertIn("Refazer briefing", html)
         self.assertIn("data-gen-mode=\"one_page\"", html)
         self.assertIn("data-gen-mode=\"completo\"", html)
+        self.assertIn("data-sp-guide", html)
+        guide = (Path(__file__).resolve().parents[1] / "aicentralv2" / "templates" / "smart_planner" / "_guide.html").read_text()
+        self.assertIn("Como o plano nasce", guide)
+        self.assertIn("guide-flow.png", guide)
+        self.assertIn("gpt-5.4", guide)
+        self.assertIn("Página única", guide)
+        self.assertIn("Planejamento completo", guide)
 
     def test_rewrite_from_plan_keeps_original(self):
         from contextlib import nullcontext

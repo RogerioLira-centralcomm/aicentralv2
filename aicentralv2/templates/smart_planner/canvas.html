@@ -36,6 +36,9 @@
       </label>
       {% endif %}
       <a class="cx-btn cx-btn-ghost" href="{{ url_for('smart_planner.index') }}">Planejamentos</a>
+      {% if share_url %}
+      <a class="cx-btn cx-btn-ghost" href="{{ share_url }}" target="_blank" rel="noopener noreferrer">Link público</a>
+      {% endif %}
       <button type="button" class="cx-btn cx-btn-secondary" id="sp-canvas-regen">Gerar de novo</button>
       <button type="button" class="cx-btn cx-btn-primary" id="sp-canvas-save">Salvar</button>
     </div>
@@ -59,5 +62,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/canvas.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/canvas.js') }}?v=3"></script>
 {% endblock %}

@@ -48,6 +48,13 @@
   margin-bottom: 1.5rem;
 }
 
+.sp-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
 .sp-head h1 {
   margin: 0;
   font-size: clamp(1.5rem, 2vw, 2rem);
@@ -2579,4 +2586,218 @@
   font-style: normal;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+.sp-guide {
+  --guide-ink: #1e2420;
+  --guide-fog: #5a615c;
+  --guide-pad: #f3edd4;
+  --guide-felt: #1f4a32;
+  --guide-rule: #c9c2a4;
+  --guide-check: #c23b2a;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: min(48rem, calc(100vw - 1.25rem));
+  max-height: calc(100vh - 1.25rem);
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--guide-felt);
+  background: var(--guide-pad);
+  color: var(--guide-ink);
+  box-shadow: 0 18px 48px rgba(18, 22, 20, 0.32);
+  transform: translate(-50%, -50%);
+}
+
+.sp-guide[open] {
+  display: block;
+}
+
+.sp-guide::backdrop {
+  background: rgba(18, 22, 20, 0.62);
+}
+
+.sp-guide-sheet {
+  display: grid;
+  max-height: calc(100vh - 1rem);
+  overflow: auto;
+}
+
+.sp-guide-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 1.25rem 1rem;
+  background: var(--guide-pad);
+}
+
+.sp-guide-head .cx-btn:focus-visible {
+  outline: 2px solid var(--guide-felt);
+  outline-offset: 2px;
+}
+
+.sp-guide-head h2 {
+  margin: 0;
+  font-size: clamp(1.45rem, 2.4vw, 1.85rem);
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.sp-guide-head p {
+  margin: 0.4rem 0 0;
+  max-width: 32rem;
+  color: var(--guide-fog);
+  font-size: 0.9375rem;
+  line-height: 1.45;
+}
+
+.sp-guide-figure {
+  margin: 0;
+  background: #141816;
+}
+
+.sp-guide-figure img {
+  display: block;
+  width: 100%;
+  height: 13.25rem;
+  object-fit: cover;
+  object-position: center 46%;
+}
+
+.sp-guide-figure figcaption {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.35rem;
+  padding: 0.45rem 0.75rem 0.55rem;
+  background: var(--guide-felt);
+  color: #e8edd8;
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+.sp-guide-figure figcaption span:nth-child(3) {
+  color: #f3c7bf;
+}
+
+.sp-guide-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  border-top: 1px solid var(--guide-rule);
+}
+
+.sp-guide-split section {
+  padding: 1.05rem 1.2rem 1.25rem;
+}
+
+.sp-guide-split section + section {
+  border-left: 1px solid var(--guide-rule);
+}
+
+.sp-guide-split h3,
+.sp-guide-out h3 {
+  margin: 0 0 0.7rem;
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.sp-guide-split ol,
+.sp-guide-split ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.sp-guide-split ol {
+  counter-reset: passo;
+}
+
+.sp-guide-split ol li {
+  grid-template-columns: 1.1rem minmax(0, 1fr);
+}
+
+.sp-guide-split ol li::before {
+  counter-increment: passo;
+  content: counter(passo);
+  color: var(--guide-felt);
+  font-size: 0.9rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.sp-guide-split ol li strong,
+.sp-guide-split ol li span {
+  grid-column: 2;
+}
+
+.sp-guide-split li {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.sp-guide-split strong {
+  font-size: 0.9rem;
+}
+
+.sp-guide-split span {
+  color: var(--guide-fog);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.sp-guide-out {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  border-top: 1px solid var(--guide-rule);
+}
+
+.sp-guide-out article {
+  padding: 1.05rem 1.2rem 1.3rem;
+}
+
+.sp-guide-out article + article {
+  border-left: 1px solid var(--guide-rule);
+}
+
+.sp-guide-out p {
+  margin: 0;
+  color: var(--guide-fog);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.sp-guide-out article:first-child h3 {
+  color: var(--guide-check);
+}
+
+@media (max-width: 720px) {
+  .sp-guide-figure img {
+    height: 10.5rem;
+    object-fit: contain;
+    background: #141816;
+  }
+
+  .sp-guide-split,
+  .sp-guide-out {
+    grid-template-columns: 1fr;
+  }
+
+  .sp-guide-split section + section,
+  .sp-guide-out article + article {
+    border-left: 0;
+    border-top: 1px solid var(--guide-rule);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-guide {
+    scroll-behavior: auto;
+  }
 }

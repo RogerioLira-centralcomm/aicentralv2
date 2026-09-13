@@ -1,0 +1,75 @@
+<dialog class="sp-guide" id="sp-guide" aria-labelledby="sp-guide-title">
+  <form method="dialog" class="sp-guide-sheet">
+    <header class="sp-guide-head">
+      <div>
+        <h2 id="sp-guide-title">Como o plano nasce</h2>
+        <p>Três passos na tela. A família GPT-5 trabalha entre eles. Você fecha o mix.</p>
+      </div>
+      <button type="submit" class="cx-btn cx-btn-ghost cx-btn-sm" value="close">Fechar</button>
+    </header>
+
+    <figure class="sp-guide-figure">
+      <img src="{{ url_for('static', filename='images/smart_planner/guide-flow.png') }}"
+           width="1536" height="864"
+           alt="Mesa de planejamento: pilha de briefing, caderno com mix, folha de decisão e plano encadernado.">
+      <figcaption>
+        <span>Briefing</span>
+        <span>Revisão</span>
+        <span>Folha</span>
+        <span>Plano</span>
+      </figcaption>
+    </figure>
+
+    <div class="sp-guide-split">
+      <section>
+        <h3>Na tela</h3>
+        <ol>
+          <li>
+            <strong>Importar briefing</strong>
+            <span>Cole texto, URL, PDF ou imagem. Quanto mais concreto, melhor a narrativa.</span>
+          </li>
+          <li>
+            <strong>Revisar</strong>
+            <span>Narrativa, verba e mix em 100%. Dois métodos indicados pelo objetivo; os outros quatro ficam em mais métodos.</span>
+          </li>
+          <li>
+            <strong>Gerar documentos</strong>
+            <span>Escolha página única ou planejamento completo. O custo em reais aparece antes de gerar.</span>
+          </li>
+        </ol>
+      </section>
+      <section>
+        <h3>Por trás</h3>
+        <ul>
+          <li>
+            <strong>gpt-5-mini</strong>
+            <span>Extrai campos, redige o briefing, lê imagem, pesquisa mercado e monta o quadro.</span>
+          </li>
+          <li>
+            <strong>gpt-5-nano</strong>
+            <span>Resume URL, PDF e busca — o bloco entra no texto para você editar.</span>
+          </li>
+          <li>
+            <strong>gpt-5.4</strong>
+            <span>Escreve a folha. No plano completo faz a 2ª e a 3ª passagem — a versão que fica.</span>
+          </li>
+          <li>
+            <strong>Revisão automática</strong>
+            <span>Sempre a página única primeiro. O plano completo usa essa tese e não a contradiz. Sem imagem gerada.</span>
+          </li>
+        </ul>
+      </section>
+    </div>
+
+    <div class="sp-guide-out">
+      <article>
+        <h3>Página única</h3>
+        <p>Uma folha para a reunião: recomendação, criativo no canal, um dado e a defesa.</p>
+      </article>
+      <article>
+        <h3>Planejamento completo</h3>
+        <p>Doze seções no texto e o quadro — contexto, estratégia, mídia e execução — a partir da folha.</p>
+      </article>
+    </div>
+  </form>
+</dialog>

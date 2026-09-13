@@ -1,4 +1,4 @@
-"""Link público e QR do quadro no CentralX."""
+"""Link público e QR do planejamento — documento Centralcomm."""
 
 from __future__ import annotations
 
@@ -10,6 +10,13 @@ import secrets
 from flask import has_request_context, url_for
 
 from .helpers import text
+
+HOUSE = {
+    "name": "Centralcomm",
+    "logo": "/static/images/cc_logo.png",
+    "site": "https://centralcomm.media",
+    "label": "Planejamento de mídia",
+}
 
 
 def make_public_token() -> str:
@@ -41,7 +48,7 @@ def share_payload(public_token: str, client: str = "") -> dict:
         "public_token": token,
         "path": public_path(token),
         "url": url,
-        "label": "Quadro completo",
+        "label": "Abrir o planejamento",
         "pdf_label": "Salvar PDF",
         "title": text(client) or "Página única",
     }

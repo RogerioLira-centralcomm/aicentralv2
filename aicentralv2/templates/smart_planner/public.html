@@ -2,35 +2,156 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ titulo }} · Quadro CentralX</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=2">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080808">
+  <meta name="description" content="{{ title }} — planejamento de mídia Centralcomm.">
+  <title>{{ title }} · Centralcomm</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_public.css') }}?v=1">
 </head>
-<body class="sp-public">
-  <div class="sp-desk is-sheet" id="sp-canvas"
-       data-token="{{ token }}"
-       data-mode="one_page"
-       data-public="1"
-       data-readonly="1">
-    <header class="sp-head is-public">
-      <div>
-        <p class="sp-kicker">Quadro CentralX</p>
-        <h1>{{ titulo }}</h1>
-      </div>
-      <div class="sp-actions">
-        <button type="button" class="cx-btn cx-btn-primary" id="sp-print">Salvar PDF</button>
-      </div>
-    </header>
-    <div class="sp-stage" id="sp-stage">
-      <div id="sp-canvas-board" class="sp-board is-sheet" aria-live="polite"></div>
+<body class="cc-plan" data-tab="{{ default_tab }}">
+  <a class="cc-skip" href="#documento">Ir para o documento</a>
+
+  <header class="cc-plan-top">
+    <div class="cc-plan-top-inner">
+      <a class="cc-plan-brand" href="{{ house.site }}" target="_blank" rel="noopener noreferrer">
+        <img src="{{ house.logo }}" alt="{{ house.name }}">
+        <span>{{ house.label }}</span>
+      </a>
+      <button type="button" class="cc-plan-print" id="cc-print">Salvar PDF</button>
     </div>
-  </div>
-  <script src="{{ url_for('static', filename='js/smart_planner/canvas.js') }}?v=2"></script>
-  <script>
-    document.getElementById("sp-print")?.addEventListener("click", function () {
-      window.print();
-    });
-  </script>
+  </header>
+
+  <main class="cc-plan-shell" id="documento">
+    <header class="cc-plan-mast">
+      <h1>{{ title }}</h1>
+      {% if facts %}
+      <dl class="cc-plan-facts">
+        {% for label, value in facts %}
+        <div>
+          <dt>{{ label }}</dt>
+          <dd>{{ value }}</dd>
+        </div>
+        {% endfor %}
+      </dl>
+      {% endif %}
+    </header>
+
+    <nav class="cc-plan-tabs" role="tablist" aria-label="Documentos deste planejamento">
+      <a href="#folha" role="tab" data-cc-tab="folha" aria-controls="cc-folha" id="tab-folha">Página única</a>
+      <a href="#plano" role="tab" data-cc-tab="plano" aria-controls="cc-plano" id="tab-plano">Plano completo</a>
+    </nav>
+
+    <section class="cc-plan-panel" id="cc-folha" data-cc-panel="folha" data-ready="{{ '1' if tem_folha else '0' }}" role="tabpanel" aria-labelledby="tab-folha">
+      {% if tem_folha %}
+      {% set strategy = sheet.strategy or {} %}
+      {% set creative = sheet.creative or {} %}
+      {% set market = sheet.market or {} %}
+      {% set defense = sheet.defense or {} %}
+      {% if strategy.body %}
+      <p class="cc-plan-reco">{{ strategy.body }}</p>
+      {% endif %}
+      <div class="cc-plan-split">
+        {% if creative.body or creative.image_url %}
+        <article class="cc-plan-block">
+          <h2>{{ creative.title or "Criativo no canal" }}</h2>
+          {% if creative.image_url %}
+          <figure class="cc-plan-shot">
+            <img src="{{ creative.image_url }}" alt="">
+          </figure>
+          {% endif %}
+          {% if creative.body %}<p>{{ creative.body }}</p>{% endif %}
+        </article>
+        {% endif %}
+        {% if market.body or market.stat %}
+        <article class="cc-plan-block is-stat">
+          <h2>{{ market.title or "Dado de mercado" }}</h2>
+          {% if market.stat %}
+          <p class="cc-plan-stat">{{ market.stat }}{% if market.stat_label %} <small>{{ market.stat_label }}</small>{% endif %}</p>
+          {% endif %}
+          {% if market.body %}<p>{{ market.body }}</p>{% endif %}
+        </article>
+        {% endif %}
+      </div>
+      {% if defense.body %}
+      <article class="cc-plan-block is-defense">
+        <h2>{{ defense.title or "Defesa" }}</h2>
+        <p>{{ defense.body }}</p>
+      </article>
+      {% endif %}
+      {% else %}
+      <div class="cc-plan-void">
+        <h2>A página única ainda não foi criada</h2>
+        <p>Este link só mostra o documento gerado. A folha da reunião ainda não existe nesta campanha.</p>
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="cc-plan-panel" id="cc-plano" data-cc-panel="plano" data-ready="{{ '1' if tem_completo else '0' }}" role="tabpanel" aria-labelledby="tab-plano" hidden>
+      {% if tem_completo %}
+      {% if chapters %}
+      <div class="cc-plan-doc">
+        {% for chapter in chapters %}
+        <article class="cc-plan-chapter">
+          {% if chapter.title %}<h2>{{ chapter.title }}</h2>{% endif %}
+          {% for block in chapter.blocks %}
+            {% if block.type == "p" %}
+            <p>{{ block.text }}</p>
+            {% elif block.type == "ul" %}
+            <ul>
+              {% for item in block.items %}<li>{{ item }}</li>{% endfor %}
+            </ul>
+            {% elif block.type == "table" %}
+            <div class="cc-plan-table">
+              <table>
+                {% if block.head %}
+                <tr>
+                  {% for cell in block.head %}<th>{{ cell }}</th>{% endfor %}
+                </tr>
+                {% endif %}
+                {% for row in block.rows %}
+                <tr>
+                  {% for cell in row %}<td>{{ cell }}</td>{% endfor %}
+                </tr>
+                {% endfor %}
+              </table>
+            </div>
+            {% endif %}
+          {% endfor %}
+        </article>
+        {% endfor %}
+      </div>
+      {% elif board %}
+      <div class="cc-plan-board">
+        {% for section in board %}
+        <section>
+          <h2>{{ section.title }}</h2>
+          {% for card in section.cards %}
+          <article>
+            {% if card.title %}<h3>{{ card.title }}</h3>{% endif %}
+            {% if card.body %}<p>{{ card.body }}</p>{% endif %}
+          </article>
+          {% endfor %}
+        </section>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% else %}
+      <div class="cc-plan-void">
+        <h2>O plano completo ainda não foi criado</h2>
+        <p>Esta campanha tem só a página única. O planejamento nas doze seções ainda não foi gerado.</p>
+      </div>
+      {% endif %}
+    </section>
+  </main>
+
+  <footer class="cc-plan-foot">
+    <img src="{{ house.logo }}" alt="{{ house.name }}">
+    <p>{{ house.name }} · {{ house.label }}</p>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/smart_planner/public.js') }}?v=1"></script>
 </body>
 </html>

@@ -75,6 +75,7 @@ class Config:
 	BREVO_SENDER_EMAIL = os.getenv('BREVO_SENDER_EMAIL', 'contato@centralcomm.media')
 	FINANCEIRO_HANDOFF_EMAILS = os.getenv('FINANCEIRO_HANDOFF_EMAILS', '')
 	PI_HANDOFF_GATE = os.getenv('PI_HANDOFF_GATE', 'true').lower() in ('true', '1', 'yes', 'on')
+	CAMADAS_V2_ENABLED = os.getenv('CAMADAS_V2_ENABLED', 'false').lower() in ('true', '1', 'yes', 'on')
 	BREVO_HANDOFF_INTERNO = os.getenv('BREVO_HANDOFF_INTERNO', 'true').lower() in ('true', '1', 'yes', 'on')
 	MAKE_HANDOFF_FALLBACK = os.getenv('MAKE_HANDOFF_FALLBACK', 'false').lower() in ('true', '1', 'yes', 'on')
 	PI_HANDOFF_BLOQUEIA_RISCO = os.getenv('PI_HANDOFF_BLOQUEIA_RISCO', 'false').lower() in ('true', '1', 'yes', 'on')

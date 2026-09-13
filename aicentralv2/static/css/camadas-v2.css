@@ -1,0 +1,68 @@
+.mc-cv2 {
+  --cv2-ink: #1a1f18;
+  --cv2-night: #12161c;
+  --cv2-sheet: #f2efe6;
+  --cv2-live: #1f8a7a;
+  --cv2-warn: #9a4a24;
+  color: var(--cv2-ink);
+}
+
+.mc-cv2-check {
+  background:
+    linear-gradient(45deg, #d5cfc0 25%, transparent 25%) 0 0 / 12px 12px,
+    linear-gradient(-45deg, #d5cfc0 25%, transparent 25%) 0 6px / 12px 12px,
+    linear-gradient(45deg, transparent 75%, #d5cfc0 75%) 6px -6px / 12px 12px,
+    linear-gradient(-45deg, transparent 75%, #d5cfc0 75%) -6px 0 / 12px 12px,
+    var(--cv2-sheet);
+}
+
+.mc-cv2-viewport {
+  cursor: default;
+}
+
+#mcCv2World {
+  width: max-content;
+  max-width: min(72vw, 720px);
+}
+
+#mcCv2Canvas,
+#mcCv2Overlay {
+  display: block;
+  max-width: min(72vw, 720px);
+  max-height: min(58vh, 420px);
+  height: auto;
+}
+
+.mc-cv2-viewport.is-pan {
+  cursor: grab;
+}
+
+.mc-cv2-viewport.is-brush,
+.mc-cv2-viewport.is-erase {
+  cursor: crosshair;
+}
+
+.mc-cv2-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border: 1px solid #145c52;
+  background: #e8fff8;
+  pointer-events: auto;
+}
+
+.mc-cv2-handle.is-nw { cursor: nwse-resize; }
+.mc-cv2-handle.is-ne { cursor: nesw-resize; }
+.mc-cv2-handle.is-sw { cursor: nesw-resize; }
+.mc-cv2-handle.is-se { cursor: nwse-resize; }
+
+.mc-cv2 .is-current {
+  box-shadow: inset 0 -2px 0 #1f8a7a;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mc-cv2 * {
+    transition: none !important;
+  }
+}

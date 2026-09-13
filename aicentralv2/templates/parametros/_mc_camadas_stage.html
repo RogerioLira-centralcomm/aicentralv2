@@ -1,0 +1,38 @@
+<div class="grid min-w-0 gap-2" id="mcCv2StageWrap">
+  <div class="flex flex-wrap items-center justify-between gap-2">
+    <div class="flex flex-wrap gap-1" role="tablist" aria-label="Modo da área">
+      <button class="cx-btn cx-btn-secondary cx-btn-sm is-current" type="button" data-stage-mode="original">Original</button>
+      <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-stage-mode="layers">Camadas</button>
+      <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-stage-mode="masks">Máscaras</button>
+      <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-stage-mode="html">HTML</button>
+    </div>
+    <div class="flex flex-wrap items-center gap-1">
+      <button class="cx-btn cx-btn-ghost cx-btn-sm" id="mcCv2ZoomOut" type="button">−</button>
+      <span class="min-w-[3rem] text-center text-sm tabular-nums" id="mcCv2ZoomLabel">100%</span>
+      <button class="cx-btn cx-btn-ghost cx-btn-sm" id="mcCv2ZoomIn" type="button">+</button>
+      <button class="cx-btn cx-btn-ghost cx-btn-sm" id="mcCv2Undo" type="button">Desfazer</button>
+      <button class="cx-btn cx-btn-ghost cx-btn-sm" id="mcCv2Redo" type="button">Refazer</button>
+    </div>
+  </div>
+  <div class="flex flex-wrap gap-1" id="mcCv2Tools" aria-label="Ferramentas">
+    <button class="cx-btn cx-btn-secondary cx-btn-sm is-current" type="button" data-tool="select">Selecionar</button>
+    <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-tool="add">Ponto +</button>
+    <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-tool="subtract">Ponto −</button>
+    <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-tool="brush">Pincel</button>
+    <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-tool="erase">Borracha</button>
+    <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-mask-op="expand">Expandir</button>
+    <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-mask-op="contract">Contrair</button>
+    <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-mask-op="feather">Suavizar</button>
+    <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-mask-op="halo">Tirar halo</button>
+  </div>
+  <div class="mc-cv2-check relative min-h-[22rem] overflow-hidden border border-stone-800 bg-[var(--cv2-night)]" id="mcCv2Viewport">
+    <div class="absolute left-1/2 top-1/2 origin-center" id="mcCv2World">
+      <canvas class="block max-w-none" id="mcCv2Canvas" width="800" height="450"></canvas>
+      <canvas class="pointer-events-none absolute inset-0" id="mcCv2Overlay" width="800" height="450"></canvas>
+      <svg class="pointer-events-none absolute inset-0 h-full w-full" id="mcCv2Svg" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+      <div class="absolute inset-0" id="mcCv2Handles"></div>
+    </div>
+    {% include "parametros/_mc_camadas_html_stage.html" %}
+    <p class="pointer-events-none absolute inset-x-4 bottom-4 text-center text-sm text-stone-200" id="mcCv2Empty">Solte um criativo ou use Mapear criativo.</p>
+  </div>
+</div>

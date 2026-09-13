@@ -1,5 +1,7 @@
 # Camadas (mesa híbrida)
 
+Spec para **refazer a tela**: [`docs/camadas-rebuild.md`](camadas-rebuild.md) — fluxo, prompts literais, funções e outputs. Este arquivo é o contrato operacional; o rebuild é a fonte para a UI nova.
+
 Mesa da Modelagem que **separa um still em acetatos**: pessoa (se o recorte for fiel), tinta do campo, e tipo no HTML. Não é o Trocr (não redesenha a peça). Não é a Mesa de Conceito 15s (não fecha roteiro nem HTML de canal).
 
 A tela vive em `/parametros/modelagem-criativos/camadas`. Título no desk: **Camadas do still**. Lead: *Pessoa só se o recorte for fiel. Papel vira wash. Headline e CTA ficam no HTML.*

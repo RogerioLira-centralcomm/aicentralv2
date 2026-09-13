@@ -130,6 +130,9 @@ _FORMAT_LOOKUP = (
     ("ctv", {"chave": "ctv-16x9", "w": 1920, "h": 1080, "label": "16:9"}),
     ("dooh", {"chave": "iab-billboard", "w": 970, "h": 250, "label": "DOOH"}),
     ("audio", {"chave": "audio-bar", "w": 728, "h": 90, "label": "Áudio"}),
+    ("in-app", {"chave": "feed-1x1", "w": 1080, "h": 1080, "label": "In-app"}),
+    ("receipt", {"chave": "iab-leaderboard", "w": 728, "h": 90, "label": "Recibo"}),
+    ("cupom", {"chave": "feed-1x1", "w": 1080, "h": 1080, "label": "Cupom"}),
 )
 
 _ASSISTENTE_POR_TIPO = {
@@ -301,6 +304,11 @@ _RESOLVED_LOGOS = _index_canais_logos()
 
 
 def _resolver_logo(slug: str, logo_path: str = "") -> str:
+    global _RESOLVED_LOGOS
+    encontrado = _RESOLVED_LOGOS.get(slug or "") or (logo_path or "")
+    if encontrado:
+        return encontrado
+    _RESOLVED_LOGOS = _index_canais_logos()
     return _RESOLVED_LOGOS.get(slug or "") or (logo_path or "")
 
 
@@ -509,9 +517,93 @@ def _fallback_canais() -> List[Dict[str, Any]]:
             diferenciais=["Hot Spots e 360° para imóveis", "Poll/Quiz até 8x vs display"],
             formatos=list(INTERATIVOS_FALLBACK),
         )))
+    canais = _completar_canais_midia(canais)
     if canais:
         return canais
-    return [_aplicar_kit(item) for item in _fallback_canais_minimo()]
+    return _completar_canais_midia([_aplicar_kit(item) for item in _fallback_canais_minimo()])
+
+
+def _completar_canais_midia(canais: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    extras = [
+        _canal(
+            "ifood", "iFood", "Mobilidade", "mobile",
+            alcance="+50M usuários BR", viewability=90, minimo="R$ 8.000",
+            beneficios=["In-App Ads", "Splash Screen", "Push Notification"],
+            diferenciais=["Momento de fome e decisão de pedido", "Público classe C forte", "Cupom no app"],
+            descricao="App de delivery com o maior volume de pedidos do Brasil. Ideal para food, varejo e cupom no momento da fome.",
+            cor="#EA1D2C",
+            assistente={
+                "quando": "O cliente quer cupom, delivery ou impacto no momento da fome.",
+                "passos": [
+                    "Mostre splash e in-app no instante do pedido, não só banner.",
+                    "Pergunte praça, ticket médio e se tem oferta pronta.",
+                    "Feche um teste com cupom no app.",
+                ],
+                "evitar": "Vender iFood como display mobile genérico.",
+                "proximo_passo": "Gerar a apresentação com splash + cupom e marcar o follow-up.",
+            },
+        ),
+        _canal(
+            "uber", "Uber", "Mobilidade", "mobile",
+            alcance="+30M usuários BR", viewability=88, minimo="R$ 10.000",
+            beneficios=["In-App Banner", "Splash", "Receipt Ads"],
+            diferenciais=["Passageiro em deslocamento", "Recibo com alta leitura", "Cidades e aeroportos"],
+            descricao="Plataforma de mobilidade com anúncios no app e no recibo. Bom para marca e drive-to-store.",
+            cor="#000000",
+            assistente={
+                "quando": "O cliente precisa de marca no deslocamento ou no recibo da corrida.",
+                "passos": [
+                    "Separe splash, banner no app e recibo — cada um tem um job.",
+                    "Pergunte cidades e se o objetivo é marca ou loja.",
+                    "Ofereça um circuito de aeroporto ou centro.",
+                ],
+                "evitar": "Tratar Uber como Waze. Aqui o anúncio vive no app e no recibo.",
+                "proximo_passo": "Gerar a apresentação com um formato e uma praça.",
+            },
+        ),
+        _canal(
+            "99", "99", "Mobilidade", "mobile",
+            alcance="+20M usuários BR", viewability=86, minimo="R$ 8.000",
+            beneficios=["In-App Ads", "Splash Screen", "Cupom no app"],
+            diferenciais=["Forte nas capitais", "Público complementar à Uber", "Cupom nativo"],
+            descricao="App de transporte com penetração nacional. Complementa Uber no recorte de praça e classe.",
+            cor="#FFDD00",
+            assistente={
+                "quando": "Complemento de Uber nas capitais, com cupom nativo.",
+                "passos": [
+                    "Mostre a diferença de praça e classe versus Uber.",
+                    "Pergunte se o cliente quer cupom ou só marca.",
+                    "Feche um teste nas capitais onde a 99 é mais forte.",
+                ],
+                "evitar": "Empilhar 99 e Uber no mesmo slide sem recorte.",
+                "proximo_passo": "Gerar a apresentação com o recorte de capitais.",
+            },
+        ),
+        _canal(
+            "logan", "Logan", "DOOH", "ooh",
+            alcance="Circuitos urbanos e trajetos", viewability=94, minimo="R$ 12.000",
+            beneficios=["Mídia em veículo", "Circuitos urbanos", "DOOH mobile"],
+            diferenciais=["Impacto no trajeto", "Praça e rota sob medida", "Complemento de campanha OOH"],
+            descricao="Mídia em trajetos e circuitos urbanos. Use quando o cliente precisa de presença no caminho, não só na tela.",
+            formatos=["Mídia em veículo", "Circuitos urbanos", "DOOH mobile"],
+            cor="#1F4B8F",
+            assistente={
+                "quando": "O cliente precisa de presença no trajeto, não só na tela.",
+                "passos": [
+                    "Mostre o circuito (rota, cidade, período), não uma tela isolada.",
+                    "Pergunte se complementa OOH estático ou digital.",
+                    "Feche um mapa de trajetos na reunião.",
+                ],
+                "evitar": "Vender Logan como banner digital. O ponto é o caminho.",
+                "proximo_passo": "Levar o mapa de circuitos na apresentação.",
+            },
+        ),
+    ]
+    slugs = {item.get("slug") for item in canais}
+    for extra in extras:
+        if extra["slug"] not in slugs:
+            canais.append(_aplicar_kit(extra))
+    return canais
 
 
 def _fallback_canais_minimo() -> List[Dict[str, Any]]:
@@ -721,7 +813,7 @@ def _eh_serasa(canal: Dict[str, Any]) -> bool:
 
 
 def listar_canais() -> List[Dict[str, Any]]:
-    canais = _query_db_canais() or _fallback_canais()
+    canais = _completar_canais_midia(_query_db_canais() or _fallback_canais())
     return sorted(canais, key=lambda item: (item.get("nome") or "").casefold())
 
 

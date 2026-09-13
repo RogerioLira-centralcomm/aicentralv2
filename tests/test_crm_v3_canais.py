@@ -96,6 +96,19 @@ class CrmV3CanaisCatalogTest(unittest.TestCase):
             self.assertTrue(canal["formatos"][0].get("chave"), canal["slug"])
             self.assertTrue(canal["formatos"][0].get("label"), canal["slug"])
 
+    def test_catalogo_inclui_ifood_uber_99_logan(self):
+        slugs = {item["slug"] for item in listar_canais()}
+        for slug, nome in (("ifood", "iFood"), ("uber", "Uber"), ("99", "99"), ("logan", "Logan")):
+            self.assertIn(slug, slugs)
+            canal = resolver_canal(nome)
+            self.assertIsNotNone(canal)
+            self.assertEqual(canal["slug"], slug)
+            self.assertTrue((canal.get("logo") or "").startswith("/static/"), slug)
+            self.assertTrue(canal.get("formatos"), slug)
+        self.assertEqual(inferir_canal("Apresentar iFood"), "iFood")
+        self.assertEqual(inferir_canal("Campanha Uber e recibo"), "Uber")
+        self.assertEqual(inferir_canal("Mídia Logan no trajeto"), "Logan")
+
     def test_ficha_traz_formato_e_segmentacao(self):
         netflix = ficha_canal_texto("Netflix")
         self.assertIn("Formatos:", netflix)
@@ -120,6 +133,8 @@ class CrmV3CanaisCatalogTest(unittest.TestCase):
         self.assertIn("falar_sobre_canal", js)
         self.assertIn("is-detail", css)
         self.assertIn("is-sessao", css)
+        self.assertIn("flex-wrap: nowrap", css)
+        self.assertIn("overflow-x: auto", css)
         self.assertIn("aspect-ratio: 1 / 1", css)
         self.assertIn("aspect-ratio: 9 / 16", css)
         self.assertIn("aspect-ratio: 300 / 250", css)

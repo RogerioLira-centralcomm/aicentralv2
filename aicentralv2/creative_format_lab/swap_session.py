@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import logging
 import mimetypes
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -13,6 +14,9 @@ from ..creative_modeling_service import _integer, _serialize
 from ..creative_modeling_storage import GENERATED_PREFIX, TROCR_STILL_NAME, TROCR_STILL_PREFIX
 
 logger = logging.getLogger(__name__)
+
+RUN_SCHEMA = "runs-v1"
+RUNS_LIMIT = 24
 
 STILL_PREFIXES = (
     "/static/uploads/creative_generated/",
@@ -30,41 +34,41 @@ class TrocrStore:
     def load(self, payload, user_id=None):
         payload = payload if isinstance(payload, dict) else {}
         client_id = optional_client(payload)
-        session = self.read(self.session_key(payload, user_id), client_id)
-        return _serialize(self.public_history(session, client_id))
+        store = wrap_store(self.read(self.session_key(payload, user_id), client_id), client_id)
+        run = pick_run(store, payload.get("run_id"))
+        return _serialize(self.public_history(run, store, client_id))
 
     def save(self, payload, user_id=None):
         payload = payload if isinstance(payload, dict) else {}
         client_id = optional_client(payload)
         key = self.session_key(payload, user_id)
-        existing = self.read(key, client_id)
-        current = history_revision(existing)
-        sent = payload.get("revision")
-        if sent not in (None, ""):
-            try:
-                expected = int(sent)
-            except (TypeError, ValueError):
-                expected = -1
-            if expected != current:
-                raise CreativeConflictError("O histórico mudou. Recarregue e tente de novo.")
+        store = wrap_store(self.read(key, client_id), client_id)
         incoming = payload.get("versions") or []
-        if payload.get("reset"):
+        start_new = bool(payload.get("new_run") or payload.get("reset"))
+        if start_new:
+            run = empty_run(client_id, payload.get("aspect_ratio"))
             versions = self.merge_versions([], incoming)
+            run = write_run(run, payload, versions, client_id, history_revision(run) + 1)
+            store = put_run(store, run, active=True)
         else:
-            versions = self.merge_versions(existing.get("versions") or [], incoming)
-        session = {
-            "client_id": client_id or "",
-            "active_id": str(payload.get("active_id") or (versions[-1]["id"] if versions else "")),
-            "base_id": str(payload.get("base_id") or (versions[0]["id"] if versions else "")),
-            "aspect_ratio": str(payload.get("aspect_ratio") or "16:9"),
-            "revision": current + 1,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-            "versions": versions[:60],
-        }
-        self.write(key, session, client_id)
+            run = pick_run(store, payload.get("run_id"))
+            current = history_revision(run)
+            sent = payload.get("revision")
+            if sent not in (None, ""):
+                try:
+                    expected = int(sent)
+                except (TypeError, ValueError):
+                    expected = -1
+                if expected != current:
+                    raise CreativeConflictError("O histórico mudou. Recarregue e tente de novo.")
+            versions = self.merge_versions(run.get("versions") or [], incoming)
+            run = write_run(run, payload, versions, client_id, current + 1)
+            store = put_run(store, run, active=True)
+        packed = store_with_mirror(store)
+        self.write(key, packed, client_id)
         if client_id and user_id not in (None, ""):
-            self.write(f"user-{user_id}", session, None)
-        return _serialize(self.public_history(session, client_id))
+            self.write(f"user-{user_id}", packed, None)
+        return _serialize(self.public_history(run, packed, client_id))
 
     def persist_generated(self, payload, result, user_id=None):
         image_url = result.get("image_url") or ""
@@ -106,6 +110,7 @@ class TrocrStore:
         self.save(
             {
                 **payload,
+                "run_id": existing.get("run_id") or payload.get("run_id"),
                 "versions": versions,
                 "active_id": next_id,
                 "base_id": existing.get("base_id") or (versions[0]["id"] if versions else next_id),
@@ -235,7 +240,7 @@ class TrocrStore:
         url = self.persist_still(raw)
         return url if accepted_still(url) else ""
 
-    def public_history(self, session, client_id=None):
+    def public_history(self, session, store=None, client_id=None):
         data = session if isinstance(session, dict) else {}
         versions = []
         for item in data.get("versions") or []:
@@ -250,14 +255,20 @@ class TrocrStore:
                 "image": url,
                 "thumb": thumb,
             })
+        pack = store if isinstance(store, dict) else wrap_store(data, client_id)
+        active_id = str(data.get("run_id") or pack.get("active_run_id") or "")
         return {
             "client_id": data.get("client_id") or client_id or "",
+            "run_id": data.get("run_id") or "",
+            "title": data.get("title") or run_title(data),
+            "created_at": data.get("created_at") or "",
             "active_id": data.get("active_id") or "",
             "base_id": data.get("base_id") or "",
             "aspect_ratio": data.get("aspect_ratio") or "16:9",
             "revision": history_revision(data),
             "updated_at": data.get("updated_at") or "",
             "versions": versions,
+            "runs": [run_summary(item, active_id) for item in pack.get("runs") or [] if isinstance(item, dict)],
         }
 
     def session_key(self, payload, user_id=None):
@@ -325,6 +336,173 @@ def optional_client(payload):
         return _integer(raw, "Cliente")
     except Exception:
         return None
+
+
+def new_run_id():
+    return f"r-{uuid.uuid4().hex[:12]}"
+
+
+def utc_now():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def empty_run(client_id=None, aspect="16:9"):
+    now = utc_now()
+    return {
+        "run_id": new_run_id(),
+        "title": "",
+        "created_at": now,
+        "updated_at": now,
+        "client_id": client_id or "",
+        "active_id": "",
+        "base_id": "",
+        "aspect_ratio": aspect or "16:9",
+        "revision": 0,
+        "versions": [],
+    }
+
+
+def is_run_store(data):
+    return isinstance(data, dict) and data.get("schema") == RUN_SCHEMA and isinstance(data.get("runs"), list)
+
+
+def wrap_store(session, client_id=None):
+    if is_run_store(session):
+        store = {
+            "schema": RUN_SCHEMA,
+            "active_run_id": session.get("active_run_id") or "",
+            "runs": [dict(item) for item in session.get("runs") or [] if isinstance(item, dict) and item.get("run_id")],
+        }
+        if not store["runs"]:
+            run = empty_run(client_id)
+            store["runs"] = [run]
+            store["active_run_id"] = run["run_id"]
+        elif not store["active_run_id"]:
+            store["active_run_id"] = store["runs"][0]["run_id"]
+        return store
+    if isinstance(session, dict) and (session.get("versions") or session.get("revision") or session.get("run_id")):
+        run = {
+            **empty_run(client_id or session.get("client_id"), session.get("aspect_ratio") or "16:9"),
+            "run_id": session.get("run_id") or new_run_id(),
+            "title": session.get("title") or run_title(session),
+            "created_at": session.get("created_at") or session.get("updated_at") or utc_now(),
+            "updated_at": session.get("updated_at") or utc_now(),
+            "active_id": session.get("active_id") or "",
+            "base_id": session.get("base_id") or "",
+            "aspect_ratio": session.get("aspect_ratio") or "16:9",
+            "revision": history_revision(session),
+            "versions": list(session.get("versions") or []),
+        }
+        return {
+            "schema": RUN_SCHEMA,
+            "active_run_id": run["run_id"],
+            "runs": [run],
+        }
+    run = empty_run(client_id)
+    return {"schema": RUN_SCHEMA, "active_run_id": run["run_id"], "runs": [run]}
+
+
+def pick_run(store, run_id=None):
+    runs = [item for item in (store.get("runs") or []) if isinstance(item, dict)]
+    wanted = str(run_id or "").strip()
+    if wanted:
+        for item in runs:
+            if str(item.get("run_id") or "") == wanted:
+                return item
+    active = str(store.get("active_run_id") or "")
+    for item in runs:
+        if str(item.get("run_id") or "") == active:
+            return item
+    return runs[0] if runs else empty_run()
+
+
+def write_run(run, payload, versions, client_id, revision):
+    payload = payload if isinstance(payload, dict) else {}
+    data = dict(run or empty_run(client_id))
+    data["client_id"] = client_id or data.get("client_id") or ""
+    data["active_id"] = str(payload.get("active_id") or (versions[-1]["id"] if versions else ""))
+    data["base_id"] = str(payload.get("base_id") or (versions[0]["id"] if versions else ""))
+    data["aspect_ratio"] = str(payload.get("aspect_ratio") or data.get("aspect_ratio") or "16:9")
+    data["revision"] = revision
+    data["updated_at"] = utc_now()
+    data["versions"] = versions[:60]
+    data["title"] = str(payload.get("title") or "").strip() or run_title(data)
+    if not data.get("created_at"):
+        data["created_at"] = data["updated_at"]
+    if not data.get("run_id"):
+        data["run_id"] = new_run_id()
+    return data
+
+
+def put_run(store, run, active=True):
+    pack = {
+        "schema": RUN_SCHEMA,
+        "active_run_id": store.get("active_run_id") or "",
+        "runs": [],
+    }
+    seen = False
+    run_id = str(run.get("run_id") or "")
+    for item in store.get("runs") or []:
+        if not isinstance(item, dict) or not item.get("run_id"):
+            continue
+        if str(item.get("run_id")) == run_id:
+            pack["runs"].append(run)
+            seen = True
+        else:
+            pack["runs"].append(item)
+    if not seen:
+        pack["runs"].insert(0, run)
+    pack["runs"] = pack["runs"][:RUNS_LIMIT]
+    if active or not pack["active_run_id"]:
+        pack["active_run_id"] = run.get("run_id") or pack["active_run_id"]
+    return pack
+
+
+def run_title(session):
+    versions = [
+        item for item in (session.get("versions") or [])
+        if isinstance(item, dict)
+    ]
+    first = versions[0] if versions else {}
+    name = str(first.get("name") or "Troca").strip() or "Troca"
+    aspect = str(session.get("aspect_ratio") or "").strip()
+    return f"{name} · {aspect}" if aspect else name
+
+
+def store_with_mirror(store):
+    run = pick_run(store)
+    return {
+        **store,
+        "client_id": run.get("client_id") or "",
+        "run_id": run.get("run_id") or "",
+        "title": run.get("title") or "",
+        "active_id": run.get("active_id") or "",
+        "base_id": run.get("base_id") or "",
+        "aspect_ratio": run.get("aspect_ratio") or "16:9",
+        "revision": history_revision(run),
+        "updated_at": run.get("updated_at") or "",
+        "versions": list(run.get("versions") or []),
+    }
+
+
+def run_summary(run, active_id=""):
+    versions = [item for item in (run.get("versions") or []) if isinstance(item, dict)]
+    thumb = ""
+    for item in versions:
+        thumb = published_still_url(item.get("thumb_url") or item.get("image_url") or "")
+        if thumb:
+            break
+    run_id = str(run.get("run_id") or "")
+    return {
+        "run_id": run_id,
+        "title": run.get("title") or run_title(run),
+        "created_at": run.get("created_at") or "",
+        "updated_at": run.get("updated_at") or "",
+        "aspect_ratio": run.get("aspect_ratio") or "16:9",
+        "version_count": len(versions),
+        "thumb_url": thumb,
+        "active": bool(run_id and run_id == str(active_id or "")),
+    }
 
 
 def history_revision(session):

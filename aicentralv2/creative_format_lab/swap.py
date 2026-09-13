@@ -44,11 +44,11 @@ TYPESET_SLOTS = {
         "price": (0.12, 0.52, 0.36, 0.08),
     },
     "9:16": {
-        "headline": (0.05, 0.085, 0.70, 0.155),
-        "secondary": (0.05, 0.27, 0.40, 0.14),
-        "dates": (0.05, 0.27, 0.40, 0.14),
-        "price": (0.04, 0.395, 0.40, 0.155),
-        "cta": (0.58, 0.90, 0.28, 0.055),
+        "headline": (0.04, 0.055, 0.92, 0.145),
+        "secondary": (0.08, 0.22, 0.84, 0.10),
+        "dates": (0.08, 0.22, 0.84, 0.10),
+        "price": (0.08, 0.33, 0.52, 0.11),
+        "cta": (0.10, 0.875, 0.80, 0.075),
     },
     "16:9": {
         "headline": (0.40, 0.14, 0.36, 0.34),
@@ -59,11 +59,11 @@ TYPESET_SLOTS = {
 }
 TYPESET_SLOTS_TOP = {
     "9:16": {
-        "headline": (0.05, 0.08, 0.90, 0.20),
-        "secondary": (0.05, 0.28, 0.50, 0.16),
-        "dates": (0.05, 0.28, 0.50, 0.16),
-        "price": (0.05, 0.42, 0.48, 0.13),
-        "cta": (0.06, 0.88, 0.88, 0.09),
+        "headline": (0.04, 0.05, 0.92, 0.16),
+        "secondary": (0.07, 0.22, 0.86, 0.11),
+        "dates": (0.07, 0.22, 0.86, 0.11),
+        "price": (0.07, 0.34, 0.55, 0.12),
+        "cta": (0.08, 0.875, 0.84, 0.08),
     },
     "16:9": {
         "headline": (0.04, 0.10, 0.50, 0.28),
@@ -1019,7 +1019,7 @@ def _patch_ink(slot, region, field):
 def _copy_align(slot, bbox):
     width = max(1, bbox[2] - bbox[0])
     height = max(1, bbox[3] - bbox[1])
-    if slot == "headline" and width / height >= 2.4:
+    if slot == "headline" and 2.4 <= width / height < 4.5:
         return "left"
     return "center"
 
@@ -1110,11 +1110,15 @@ def _open_typeset_image(png):
 def _slots_for(image, aspect="1:1"):
     base = TYPESET_SLOTS.get(aspect) or TYPESET_SLOTS["1:1"]
     top = TYPESET_SLOTS_TOP.get(aspect)
-    if not top or aspect not in {"16:9"}:
+    if not top or aspect not in {"16:9", "9:16"}:
         return base
     field = _canvas_field(image)
-    upper = _ink_weight(image, (0.04, 0.04, 0.50, 0.40), field)
-    lower = _ink_weight(image, (0.40, 0.55, 0.55, 0.28), field)
+    if aspect == "9:16":
+        upper = _ink_weight(image, (0.04, 0.04, 0.92, 0.28), field)
+        lower = _ink_weight(image, (0.08, 0.55, 0.84, 0.28), field)
+    else:
+        upper = _ink_weight(image, (0.04, 0.04, 0.50, 0.40), field)
+        lower = _ink_weight(image, (0.40, 0.55, 0.55, 0.28), field)
     return top if upper >= lower else base
 
 
@@ -1166,7 +1170,7 @@ def _locate_type(image, slot, field):
         }
     xs = [item[0] for item in chosen]
     ys = [item[1] for item in chosen]
-    pad = max(3, int(height * 0.006))
+    pad = max(2, int(height * (0.003 if height > width else 0.006)))
     return {
         "bbox": (
             max(left, min(xs) - pad),
@@ -1238,8 +1242,6 @@ def _stack_copy(text):
     if not raw or "\n" in raw:
         return raw
     words = raw.split()
-    if len(words) == 2:
-        return "\n".join(words)
     if len(words) >= 6:
         mid = (len(words) + 1) // 2
         return " ".join(words[:mid]) + "\n" + " ".join(words[mid:])

@@ -6,7 +6,15 @@
     history: '/parametros/api/format-lab/swap/history',
     quote: '/parametros/api/format-lab/quote',
     clients: '/parametros/api/clients',
+    viewers: '/parametros/api/viewer-profiles',
+    formats: '/parametros/api/formats',
   };
+  const OUTPUTS = [
+    { ratio: '16:9', family: 'h', value: 16 / 9 },
+    { ratio: '9:16', family: 'v', value: 9 / 16 },
+    { ratio: '4:5', family: 'v', value: 4 / 5 },
+    { ratio: '1:1', family: 's', value: 1 },
+  ];
   const ROLE_LABEL = {
     logo: 'Logo',
     headline: 'Headline',
@@ -51,6 +59,14 @@
     allClients: [],
     aspectRatio: '16:9',
     userPickedFormat: false,
+    forcedFormat: false,
+    pendingForce: '',
+    runId: '',
+    runs: [],
+    viewerProfiles: [],
+    formats: [],
+    viewerSlug: '',
+    viewerPicked: false,
     presentation: 'final',
     quality: 'draft',
     brandContext: false,
@@ -107,7 +123,8 @@
     } catch (_error) {
       setStatus('Não deu para carregar as marcas. Você ainda pode escrever o nome no pedido.');
     }
-    await loadHistory();
+    await Promise.all([loadHistory(), loadViewerCatalog()]);
+    await consumeHandoff();
     refreshQuote();
   }
 
@@ -129,6 +146,7 @@
     $('mcSwapClient')?.addEventListener('change', async (event) => {
       await persistHistory();
       selectBrand(event.target.value);
+      state.runId = '';
       const restored = await loadHistory();
       if (!restored && state.versions.length) schedulePersist();
       refreshPrompt();
@@ -136,16 +154,14 @@
     document.querySelectorAll('input[name="mcSwapOut"]').forEach((node) => {
       node.addEventListener('change', () => {
         if (!node.checked) return;
-        state.userPickedFormat = true;
-        state.aspectRatio = node.value;
-        applyRatio(node.value);
-        refreshPrompt();
+        onFormatPick(node.value);
       });
     });
     document.querySelectorAll('input[name="mcTrocrPresent"]').forEach((node) => {
       node.addEventListener('change', () => {
         if (!node.checked) return;
         state.presentation = node.value;
+        state.viewerPicked = false;
         applyPresentation();
       });
     });
@@ -204,6 +220,8 @@
     $('mcTrocrCompareBtn')?.addEventListener('click', () => setViewMode('compare'));
     $('mcTrocrZoomIn')?.addEventListener('click', () => setZoom(state.zoom + 0.1));
     $('mcTrocrZoomOut')?.addEventListener('click', () => setZoom(state.zoom - 0.1));
+    $('mcTrocrZoomFit')?.addEventListener('click', () => setZoom(1));
+    window.addEventListener('resize', () => fitCreative());
     $('mcTrocrPickRegion')?.addEventListener('click', togglePickRegion);
     const region = $('mcTrocrRegion');
     region?.addEventListener('pointerdown', onRegionDown);
@@ -247,6 +265,13 @@
     $('mcTrocrRotate')?.addEventListener('click', rotateLayout);
     $('mcTrocrVersions')?.addEventListener('click', onVersionClick);
     $('mcTrocrHistoryList')?.addEventListener('click', onVersionClick);
+    $('mcTrocrRunList')?.addEventListener('click', onRunClick);
+    $('mcTrocrReelSessions')?.addEventListener('click', onRunClick);
+    $('mcTrocrViewerPicks')?.addEventListener('click', onViewerPick);
+    $('mcTrocrReelToggle')?.addEventListener('click', () => {
+      setReelCollapsed(!$('mcTrocrReel')?.classList.contains('is-collapsed'));
+    });
+    setReelCollapsed(window.localStorage.getItem('cx-trocr-reel') === '1');
   }
 
   function currentClient() {
@@ -329,26 +354,156 @@
       return;
     }
     const reader = new FileReader();
-    reader.onload = async () => {
-      const image = String(reader.result || '');
-      await startFresh({ persistEmpty: Boolean(state.versions.length || state.revision) });
-      const thumb = await makeThumb(image);
-      const version = pushVersion({
-        name: 'Original',
-        origin: 'original',
-        image,
-        thumb,
-      }, { persist: false });
-      showPreview(image);
-      if (!state.userPickedFormat) {
-        const guessed = await guessAspect(image);
-        if (guessed) selectFormat(guessed);
-      }
-      setStatus('Ao enviar uma nova imagem, o OCR é executado automaticamente.');
-      await readReference(version, { force: true, reference: image });
-      schedulePersist();
-    };
+    reader.onload = () => ingestStill(String(reader.result || ''));
     reader.readAsDataURL(file);
+  }
+
+  function isAllowedStill(value) {
+    const text = String(value || '').trim();
+    if (text.startsWith('data:image/')) return true;
+    try {
+      const url = new URL(text, window.location.origin);
+      if (url.origin !== window.location.origin) return false;
+      return url.pathname.startsWith('/static/')
+        || url.pathname.includes('/swap/still/');
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  async function materializeStill(value) {
+    const text = String(value || '').trim();
+    if (text.startsWith('data:image/')) return text;
+    const response = await fetch(text, { credentials: 'same-origin' });
+    if (!response.ok) throw new Error('Não deu para ler o still do Studio.');
+    const blob = await response.blob();
+    if (!String(blob.type || '').startsWith('image/')) {
+      throw new Error('O still do Studio não é uma imagem.');
+    }
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('Não deu para ler o still do Studio.'));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  function applyStudioCopy(copy) {
+    if (!copy) return;
+    [
+      ['mcSwapHeadline', copy.headline],
+      ['mcSwapSupport', copy.support],
+      ['mcSwapCta', copy.cta],
+    ].forEach(([id, value]) => {
+      if (value && $(id) && !$(id).value) $(id).value = value;
+    });
+    refreshPrompt();
+  }
+
+  function applyHandoffChrome(options) {
+    if (options?.aspect) {
+      state.userPickedFormat = true;
+      selectFormat(options.aspect);
+    }
+    if (options?.presentation) {
+      state.presentation = options.presentation;
+      state.viewerPicked = false;
+      const radio = document.querySelector(`input[name="mcTrocrPresent"][value="${options.presentation}"]`);
+      if (radio) radio.checked = true;
+      applyPresentation();
+    }
+  }
+
+  async function ingestStill(raw, options) {
+    let image = '';
+    try {
+      if (!isAllowedStill(raw)) throw new Error('O still do Studio não pôde ser aberto.');
+      image = await materializeStill(raw);
+    } catch (error) {
+      setStatus(error.message || 'O still do Studio não pôde ser aberto.');
+      return false;
+    }
+    if (!image) {
+      setStatus('O still do Studio não pôde ser aberto.');
+      return false;
+    }
+    if (!options?.skipReset) {
+      if (state.versions.length) {
+        await persistHistory();
+        await startNewRun();
+      } else {
+        await startFresh({ persistEmpty: false });
+      }
+    }
+    const thumb = await makeThumb(image);
+    const version = pushVersion({
+      name: options?.name || 'Original',
+      origin: 'original',
+      image,
+      thumb,
+    }, { persist: false });
+    showPreview(image);
+    applyHandoffChrome(options);
+    if (!state.userPickedFormat && !options?.aspect) {
+      const guessed = await guessAspect(image);
+      if (guessed) {
+        selectFormat(guessed);
+        setFormatHint(`Saída ${guessed}, a mais próxima da peça. Depois você pode forçar outra.`);
+      }
+    } else if (options?.aspect) {
+      setFormatHint(`Saída ${options.aspect}, vinda do Studio. Depois você pode forçar outra.`);
+    }
+    setStatus(options?.from === 'studio'
+      ? 'Still do Studio. O OCR roda automaticamente.'
+      : 'Ao enviar uma nova imagem, o OCR é executado automaticamente.');
+    await readReference(version, { force: true, reference: image });
+    applyHandoffChrome(options);
+    applyStudioCopy(options?.copy);
+    schedulePersist();
+    return true;
+  }
+
+  async function consumeHandoff() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('from') !== 'studio') return false;
+    let payload = null;
+    try {
+      payload = JSON.parse(sessionStorage.getItem('cx-trocr-handoff') || '');
+    } catch (_error) {
+      payload = null;
+    }
+    if (!payload?.still || payload.from !== 'studio') {
+      sessionStorage.removeItem('cx-trocr-handoff');
+      if (window.history.replaceState) {
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+      setStatus('O Studio não enviou um still. Solte uma imagem para começar.');
+      return false;
+    }
+    if (payload.clientId) {
+      selectBrand(payload.clientId);
+      await loadHistory();
+    }
+    if (state.versions.length) await persistHistory();
+    await startNewRun();
+    const loaded = await ingestStill(payload.still, {
+      from: 'studio',
+      skipReset: true,
+      name: payload.title || 'Studio',
+      aspect: payload.aspect || '16:9',
+      presentation: payload.presentation || 'ctv',
+      copy: {
+        headline: payload.headline || '',
+        support: payload.support || '',
+        cta: payload.cta || '',
+      },
+    });
+    if (!loaded) return false;
+    sessionStorage.removeItem('cx-trocr-handoff');
+    if (window.history.replaceState) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    return true;
   }
 
   function pushVersion(partial, options) {
@@ -547,7 +702,50 @@
     if (!input) return;
     input.checked = true;
     state.aspectRatio = ratio;
+    state.viewerPicked = false;
     applyRatio(ratio);
+    applyPresentation();
+  }
+
+  function familyOf(ratio) {
+    return (OUTPUTS.find((item) => item.ratio === ratio) || {}).family || '';
+  }
+
+  function nearestOutput(ratioValue, family) {
+    const pool = family ? OUTPUTS.filter((item) => item.family === family) : OUTPUTS;
+    return (pool.length ? pool : OUTPUTS).reduce((best, item) => (
+      Math.abs(ratioValue - item.value) < Math.abs(ratioValue - best.value) ? item : best
+    )).ratio;
+  }
+
+  function sourceRatioValue() {
+    const hint = state.lastRead?.aspect_hint;
+    if (hint && hint.includes(':')) {
+      const [width, height] = hint.split(':').map(Number);
+      if (width && height) return width / height;
+    }
+    const image = $('mcSwapImage');
+    if (image?.naturalWidth && image.naturalHeight) {
+      return image.naturalWidth / image.naturalHeight;
+    }
+    return null;
+  }
+
+  function setFormatHint(text) {
+    if ($('mcTrocrFormatHint')) $('mcTrocrFormatHint').textContent = text;
+  }
+
+  function onFormatPick(clicked) {
+    const source = sourceRatioValue();
+    const nearest = source != null ? nearestOutput(source) : clicked;
+    state.userPickedFormat = true;
+    state.forcedFormat = clicked !== nearest;
+    state.pendingForce = '';
+    selectFormat(clicked);
+    setFormatHint(state.forcedFormat
+      ? `Saída forçada: ${clicked}. A mais próxima da peça é ${nearest}.`
+      : `Saída ${clicked}, a mais próxima da peça.`);
+    refreshPrompt();
   }
 
   function rotateLayout() {
@@ -557,10 +755,15 @@
       '4:5': '16:9',
       '1:1': '9:16',
     })[state.aspectRatio] || '9:16';
+    const source = sourceRatioValue();
+    const nearest = source != null ? nearestOutput(next === '16:9' ? 16 / 9 : 9 / 16, familyOf(next)) : next;
     state.userPickedFormat = true;
-    selectFormat(next);
+    state.forcedFormat = false;
+    state.pendingForce = '';
+    selectFormat(nearest);
+    setFormatHint(`Rotação para ${nearest}. Clique em outro formato para forçar.`);
     refreshPrompt();
-    setStatus(`Layout da peça em ${next}.`);
+    setStatus(`Layout da peça em ${nearest}.`);
   }
 
   function guessAspect(src) {
@@ -584,12 +787,126 @@
     if (!stage || !width || !height) return;
     stage.style.setProperty('--mc-swap-ratio', `${width} / ${height}`);
     stage.classList.toggle('is-vertical', height > width);
+    fitCreative();
+  }
+
+  function placeCreative(host) {
+    const image = $('mcSwapImage');
+    const region = $('mcTrocrRegion');
+    if (!host || !image) return;
+    if (image.parentElement !== host) host.appendChild(image);
+    if (region && region.parentElement !== host) host.appendChild(region);
   }
 
   function applyPresentation() {
     const frame = document.querySelector('.mc-trocr-frame');
+    const device = $('mcTrocrDevice');
+    const shell = $('mcTrocrViewerShell');
+    const picks = $('mcTrocrViewerPicks');
+    const image = $('mcSwapImage');
     if (frame) frame.dataset.mockup = state.presentation;
     $('mcTrocrViewport')?.setAttribute('data-presentation', state.presentation);
+    const mockup = state.presentation !== 'final';
+    if (picks) picks.hidden = !mockup;
+    if (!mockup || !device || !shell || !window.McViewerShell) {
+      if (device) device.hidden = true;
+      if (frame) frame.hidden = false;
+      placeCreative(frame);
+      return;
+    }
+    const profiles = window.McViewerShell.profilesFor(state.viewerProfiles, state.presentation);
+    state.viewerSlug = preferredViewerSlug(profiles);
+    const profile = profiles.find((item) => item.slug === state.viewerSlug) || profiles[0];
+    if (!profile) {
+      device.hidden = true;
+      if (frame) frame.hidden = false;
+      return;
+    }
+    device.hidden = false;
+    if (frame) frame.hidden = true;
+    window.McViewerShell.applyPalette(device, profile);
+    device.classList.add('is-paused');
+    shell.innerHTML = window.McViewerShell.shellHtml(profile, state.aspectRatio);
+    if ($('mcTrocrViewerDisclaimer')) {
+      $('mcTrocrViewerDisclaimer').textContent = profile.disclaimer
+        || 'Simulação de ambiente · sem afiliação com o veículo';
+    }
+    const holder = document.createElement('div');
+    holder.className = 'mc-production-creative mc-trocr-creative';
+    placeCreative(holder);
+    if (profile.viewer_kind === 'tv') {
+      shell.appendChild(holder);
+    } else {
+      window.McViewerShell.mountCreative(shell, holder, profile.viewer_kind);
+    }
+    paintViewerPicks(profiles);
+  }
+
+  function paintViewerPicks(profiles) {
+    const root = $('mcTrocrViewerPicks');
+    if (!root) return;
+    root.innerHTML = profiles.map((item) => `
+      <button type="button" data-viewer="${escapeHtml(item.slug)}" class="${item.slug === state.viewerSlug ? 'is-active' : ''}">
+        ${item.logo_asset_ref ? `<img src="${escapeHtml(item.logo_asset_ref)}" alt="">` : ''}
+        <span>${escapeHtml(item.name)}</span>
+      </button>`).join('');
+  }
+
+  function onViewerPick(event) {
+    const button = event.target.closest('[data-viewer]');
+    if (!button) return;
+    state.viewerSlug = button.getAttribute('data-viewer') || '';
+    state.viewerPicked = true;
+    applyPresentation();
+  }
+
+  function preferredViewerSlug(profiles) {
+    const list = Array.isArray(profiles) ? profiles : [];
+    if (!list.length) return '';
+    if (state.viewerPicked && list.some((item) => item.slug === state.viewerSlug)) {
+      return state.viewerSlug;
+    }
+    const byId = new Map((state.viewerProfiles || []).map((item) => [String(item.id), item]));
+    const linked = (state.formats || []).filter((item) => {
+      const profile = byId.get(String(item.default_viewer_profile_id));
+      return profile && list.some((row) => row.slug === profile.slug);
+    });
+    const sameAspect = linked.find((item) => normalizeAspect(item.aspect_ratio) === state.aspectRatio)
+      || linked.find((item) => familyOf(normalizeAspect(item.aspect_ratio)) === familyOf(state.aspectRatio));
+    const pick = sameAspect || linked[0];
+    if (pick) {
+      const profile = byId.get(String(pick.default_viewer_profile_id));
+      if (profile) return profile.slug;
+    }
+    const preferred = {
+      ctv: { '16:9': ['netflix', 'disney-plus', 'hbo-max', 'prime-video'] },
+      portal: { '16:9': ['g1'], '4:5': ['g1'], '1:1': ['g1'] },
+      mobile: {
+        '9:16': ['tiktok', 'instagram'],
+        '4:5': ['instagram', 'facebook'],
+        '1:1': ['instagram', 'linkedin'],
+      },
+    };
+    const slugs = (preferred[state.presentation] || {})[state.aspectRatio] || [];
+    return slugs.find((slug) => list.some((item) => item.slug === slug)) || list[0].slug || '';
+  }
+
+  function normalizeAspect(value) {
+    const text = String(value || '').replace(/\s/g, '');
+    if (OUTPUTS.some((item) => item.ratio === text)) return text;
+    const [width, height] = text.split(':').map(Number);
+    if (!width || !height) return '';
+    return nearestOutput(width / height);
+  }
+
+  async function loadViewerCatalog() {
+    const [viewers, formats] = await Promise.all([
+      request(API.viewers).catch(() => []),
+      request(API.formats).catch(() => []),
+    ]);
+    state.viewerProfiles = Array.isArray(viewers) ? viewers : [];
+    state.formats = Array.isArray(formats) ? formats : [];
+    applyPresentation();
   }
 
   function editFields() {
@@ -611,6 +928,7 @@
       instruction: $('mcSwapNote')?.value || '',
       aspect_ratio: state.aspectRatio,
       aspect_hint: read.aspect_hint || '',
+      run_id: state.runId || undefined,
       dates: $('mcTrocrDates')?.value || read.dates || '',
       venue: $('mcTrocrVenue')?.value || read.venue || '',
       subtitle: $('mcTrocrSubtitle')?.value || read.subtitle || '',
@@ -863,10 +1181,10 @@
     toast('Versão duplicada. O original permanece no histórico.', 'success');
   }
 
-  function renameVersion(id) {
+  async function renameVersion(id) {
     const version = state.versions.find((item) => item.id === id);
     if (!version) return;
-    const next = window.prompt('Nome da versão', `${version.id} · ${version.name}`);
+    const next = await askName('Nome da versão', version.name);
     if (!next) return;
     version.name = next.replace(/^v\d+\s*·\s*/i, '').trim() || version.name;
     renderVersions();
@@ -921,13 +1239,19 @@
     const count = $('mcTrocrVersionCount');
     const create = $('mcTrocrNewEdit');
     if (create) create.disabled = !state.versions.length;
-    if ($('mcTrocrHistoryBtn')) $('mcTrocrHistoryBtn').disabled = !state.versions.length;
-    if ($('mcTrocrOpenHistory')) $('mcTrocrOpenHistory').disabled = !state.versions.length;
-    if ($('mcTrocrHistoryCount')) $('mcTrocrHistoryCount').textContent = String(state.versions.length);
-    if (count) {
-      count.textContent = state.versions.length
-        ? `${state.versions.length} ${state.versions.length === 1 ? 'versão' : 'versões'}. Clique para abrir no canvas.`
-        : 'Nenhuma versão ainda.';
+    const historyCount = state.runs.length || state.versions.length;
+    if ($('mcTrocrHistoryBtn')) $('mcTrocrHistoryBtn').disabled = !historyCount;
+    if ($('mcTrocrOpenHistory')) $('mcTrocrOpenHistory').disabled = !historyCount;
+    if ($('mcTrocrHistoryCount')) $('mcTrocrHistoryCount').textContent = String(historyCount);
+    const versionLabel = state.versions.length
+      ? `${state.versions.length} ${state.versions.length === 1 ? 'versão' : 'versões'} nesta troca`
+      : 'Nenhuma versão ainda';
+    if (count) count.textContent = versionLabel;
+    if ($('mcTrocrReelLabel')) {
+      const run = state.runs.find((item) => item.run_id === state.runId);
+      $('mcTrocrReelLabel').textContent = run?.title
+        ? `${run.title} · ${versionLabel}`
+        : versionLabel;
     }
     if (!list) return;
     if ($('mcTrocrCompareBtn')) $('mcTrocrCompareBtn').disabled = state.versions.length < 2;
@@ -961,6 +1285,67 @@
     }).join('');
     const history = $('mcTrocrHistoryList');
     if (history) history.innerHTML = list.innerHTML;
+    renderReelSessions();
+    renderRuns();
+    fitCreative();
+  }
+
+  function renderReelSessions() {
+    const host = $('mcTrocrReelSessions');
+    if (!host) return;
+    const others = (state.runs || []).filter((item) => item.run_id && item.run_id !== state.runId);
+    host.hidden = !others.length;
+    host.innerHTML = others.map((item) => `
+      <button type="button" class="mc-trocr-reel-bin" data-run="${escapeHtml(item.run_id)}">
+        ${item.thumb_url ? `<img src="${escapeHtml(item.thumb_url)}" alt="">` : '<span></span>'}
+        <span>
+          <strong>${escapeHtml(item.title || 'Troca')}</strong>
+          <small>${item.version_count || 0} versões</small>
+        </span>
+      </button>`).join('');
+  }
+
+  function setReelCollapsed(collapsed) {
+    const reel = $('mcTrocrReel');
+    const toggle = $('mcTrocrReelToggle');
+    if (!reel) return;
+    reel.classList.toggle('is-collapsed', Boolean(collapsed));
+    toggle?.setAttribute('aria-expanded', String(!collapsed));
+    try {
+      window.localStorage.setItem('cx-trocr-reel', collapsed ? '1' : '0');
+    } catch (_error) {}
+    window.requestAnimationFrame(fitCreative);
+  }
+
+  function fitCreative() {
+    const stage = $('mcTrocrViewport');
+    if (!stage?.classList.contains('has-image')) return;
+    const [wide, tall] = String(state.aspectRatio || '16:9').split(':').map(Number);
+    const ratio = wide && tall ? wide / tall : 16 / 9;
+    const pad = 20;
+    const availW = Math.max(96, stage.clientWidth - pad);
+    const availH = Math.max(96, stage.clientHeight - pad);
+    let width = availW;
+    let height = width / ratio;
+    if (height > availH) {
+      height = availH;
+      width = height * ratio;
+    }
+    stage.style.setProperty('--mc-fit-w', `${Math.floor(width)}px`);
+    stage.style.setProperty('--mc-fit-h', `${Math.floor(height)}px`);
+    applyUserZoom();
+  }
+
+  function applyUserZoom() {
+    const scale = state.zoom;
+    const stage = $('mcTrocrViewport');
+    document.documentElement.style.setProperty('--mc-trocr-zoom', String(scale));
+    if (stage) stage.style.setProperty('--mc-trocr-zoom', String(scale));
+    if ($('mcTrocrZoomLabel')) {
+      $('mcTrocrZoomLabel').textContent = Math.abs(scale - 1) < 0.02
+        ? 'Caber'
+        : `${Math.round(scale * 100)}%`;
+    }
   }
 
   function renderCompare() {
@@ -984,22 +1369,28 @@
     const hasImage = Boolean(currentVersion()?.image);
     $('mcSwapDrop').hidden = hasImage;
     $('mcSwapPreview').hidden = !hasImage || mode === 'compare';
-    $('mcTrocrCompare').hidden = mode !== 'compare' || state.versions.length < 1;
+    $('mcTrocrCompare').hidden = mode !== 'compare' || state.versions.length < 2;
     $('mcTrocrViewport')?.classList.toggle('has-image', hasImage);
     renderEditPanels();
     if (mode === 'compare') renderCompare();
+    fitCreative();
   }
 
   function showPreview(src) {
     if ($('mcSwapImage') && src) {
       $('mcSwapImage').src = src;
-      $('mcSwapImage').onload = () => paintRegionBox();
+      $('mcSwapImage').onload = () => {
+        fitCreative();
+        paintRegionBox();
+      };
     }
     $('mcSwapPreview').hidden = state.viewMode === 'compare';
     $('mcSwapDrop').hidden = true;
     $('mcTrocrViewport')?.classList.add('has-image');
+    applyPresentation();
     renderEditPanels();
     if (state.viewMode === 'compare') renderCompare();
+    window.requestAnimationFrame(fitCreative);
   }
 
   function renderEditPanels() {
@@ -1135,7 +1526,8 @@
 
   function openHistory() {
     const dialog = $('mcTrocrHistory');
-    if (!dialog || !state.versions.length) return;
+    if (!dialog || !(state.versions.length || state.runs.length)) return;
+    renderRuns();
     if (typeof dialog.showModal === 'function') dialog.showModal();
     else dialog.hidden = false;
   }
@@ -1148,11 +1540,8 @@
   }
 
   function setZoom(value) {
-    state.zoom = Math.min(2, Math.max(0.5, Number(value.toFixed(2))));
-    document.documentElement.style.setProperty('--mc-trocr-zoom', String(state.zoom));
-    const stage = $('mcTrocrViewport');
-    if (stage) stage.style.setProperty('--mc-trocr-zoom', String(state.zoom));
-    if ($('mcTrocrZoomLabel')) $('mcTrocrZoomLabel').textContent = `${Math.round(state.zoom * 100)}%`;
+    state.zoom = Math.min(2.5, Math.max(0.25, Number(value.toFixed(2))));
+    applyUserZoom();
     paintRegionBox();
   }
 
@@ -1180,10 +1569,15 @@
   }
 
   async function onNewPiece() {
-    if (state.versions.length && !window.confirm('Apagar esta peça e começar outra? O histórico atual some.')) {
-      return;
+    if (state.versions.length) {
+      const ok = await askConfirm(
+        'Nova troca',
+        'A troca atual fica no histórico da marca. Começar outro conjunto?',
+      );
+      if (!ok) return;
+      await persistHistory();
     }
-    await startFresh({ persistEmpty: true });
+    await startNewRun();
     setStatus('Solte uma imagem. PNG ou JPG.');
   }
 
@@ -1202,6 +1596,8 @@
     state.conflicts = [];
     state.region = null;
     state.replaceSession = true;
+    state.forcedFormat = false;
+    state.pendingForce = '';
     resetPanel();
     hideError();
     hideWait();
@@ -1220,10 +1616,17 @@
     }
   }
 
+  async function startNewRun() {
+    await startFresh({ persistEmpty: false });
+    await resetHistory();
+  }
+
   async function resetHistory() {
     const body = {
       client_id: state.clientId || undefined,
+      new_run: true,
       reset: true,
+      run_id: state.runId || undefined,
       revision: state.revision || 0,
       versions: [],
       active_id: '',
@@ -1231,15 +1634,14 @@
       aspect_ratio: state.aspectRatio,
     };
     try {
-      const saved = await request(API.history, body);
-      if (saved?.revision != null) state.revision = Number(saved.revision) || 0;
+      applyHistoryMeta(await request(API.history, body));
     } catch (error) {
       if (!String(error.message || '').toLowerCase().includes('histórico mudou')) return;
       const data = await request(`${API.history}${historyQuery()}`);
       state.revision = Number(data?.revision) || 0;
-      const saved = await request(API.history, { ...body, revision: state.revision });
-      if (saved?.revision != null) state.revision = Number(saved.revision) || 0;
+      applyHistoryMeta(await request(API.history, { ...body, revision: state.revision }));
     }
+    renderVersions();
   }
 
   function resetPanel() {
@@ -1645,8 +2047,12 @@
     return downscaleImage(dataUrl, 160, 0.72);
   }
 
-  function historyQuery() {
-    return state.clientId ? `?client_id=${encodeURIComponent(state.clientId)}` : '';
+  function historyQuery(runId) {
+    const parts = [];
+    if (state.clientId) parts.push(`client_id=${encodeURIComponent(state.clientId)}`);
+    const wanted = runId === undefined ? state.runId : runId;
+    if (wanted) parts.push(`run_id=${encodeURIComponent(wanted)}`);
+    return parts.length ? `?${parts.join('&')}` : '';
   }
 
   function hydrateVersions(items) {
@@ -1670,7 +2076,15 @@
     })).filter((item) => item.image);
   }
 
+  function applyHistoryMeta(data) {
+    if (!data) return;
+    if (data.run_id) state.runId = data.run_id;
+    if (Array.isArray(data.runs)) state.runs = data.runs;
+    if (data.revision != null) state.revision = Number(data.revision) || 0;
+  }
+
   function applyHistory(data) {
+    applyHistoryMeta(data);
     state.versions = hydrateVersions(data?.versions || []);
     state.cache = {};
     state.versions.forEach((item) => {
@@ -1682,7 +2096,10 @@
     state.baseId = data?.base_id && state.versions.some((item) => item.id === data.base_id)
       ? data.base_id
       : (state.versions[0]?.id || '');
-    if (data?.aspect_ratio) selectFormat(data.aspect_ratio);
+    if (data?.aspect_ratio) {
+      state.userPickedFormat = true;
+      selectFormat(data.aspect_ratio);
+    }
     if (data?.revision != null) state.revision = Number(data.revision) || 0;
     const current = currentVersion();
     const base = baseVersion();
@@ -1696,10 +2113,14 @@
     if (base?.ocr) applyRead(base.ocr, base, { cached: true });
   }
 
-  async function loadHistory() {
+  async function loadHistory(runId) {
     try {
-      const data = await request(`${API.history}${historyQuery()}`);
-      if (!data?.versions?.length) return false;
+      const data = await request(`${API.history}${historyQuery(runId === undefined ? '' : runId)}`);
+      applyHistoryMeta(data);
+      if (!data?.versions?.length) {
+        renderVersions();
+        return false;
+      }
       if (data.client_id && !state.clientId) {
         selectBrand(data.client_id);
       }
@@ -1712,7 +2133,7 @@
   }
 
   function applyStoredUrls(saved) {
-    if (saved?.revision != null) state.revision = Number(saved.revision) || 0;
+    applyHistoryMeta(saved);
     (saved?.versions || []).forEach((item) => {
       const local = state.versions.find((version) => version.id === item.id);
       if (!local) return;
@@ -1745,7 +2166,8 @@
         try {
           saved = await request(API.history, {
             client_id: state.clientId || undefined,
-            reset: Boolean(state.replaceSession),
+            run_id: state.runId || undefined,
+            reset: Boolean(state.replaceSession) && !state.runId,
             active_id: state.activeId,
             base_id: state.baseId,
             aspect_ratio: state.aspectRatio,
@@ -1823,6 +2245,123 @@
   function setStatus(text) {
     const node = $('mcSwapStatus');
     if (node) node.textContent = text;
+  }
+
+  function renderRuns() {
+    const list = $('mcTrocrRunList');
+    if (!list) return;
+    const runs = state.runs.length ? state.runs : (state.runId ? [{
+      run_id: state.runId,
+      title: 'Troca atual',
+      version_count: state.versions.length,
+      aspect_ratio: state.aspectRatio,
+      active: true,
+    }] : []);
+    if ($('mcTrocrHistoryRunTitle')) {
+      const current = runs.find((item) => item.run_id === state.runId) || runs[0];
+      $('mcTrocrHistoryRunTitle').textContent = current
+        ? `${current.title || 'Troca'} · ${current.version_count || state.versions.length} versões`
+        : 'Versões desta troca';
+    }
+    list.innerHTML = runs.map((item) => `
+      <li>
+        <button type="button" data-run="${escapeHtml(item.run_id)}" class="${item.run_id === state.runId ? 'is-active' : ''}">
+          ${item.thumb_url ? `<img src="${escapeHtml(item.thumb_url)}" alt="">` : '<span></span>'}
+          <strong>${escapeHtml(item.title || 'Troca')}</strong>
+          <small>${escapeHtml(item.aspect_ratio || '')} · ${item.version_count || 0} versões</small>
+        </button>
+      </li>`).join('') || '<li class="is-empty">Nenhuma troca desta marca ainda.</li>';
+  }
+
+  async function onRunClick(event) {
+    const button = event.target.closest('[data-run]');
+    if (!button) return;
+    const runId = button.getAttribute('data-run');
+    if (!runId || runId === state.runId) return;
+    await persistHistory();
+    const restored = await loadHistory(runId);
+    if (!restored) {
+      state.runId = runId;
+      state.versions = [];
+      renderVersions();
+    }
+    setStatus('Troca da marca aberta no canvas.');
+  }
+
+  function askConfirm(title, text) {
+    const dialog = $('mcTrocrConfirm');
+    if (!dialog || typeof dialog.showModal !== 'function') {
+      return Promise.resolve(false);
+    }
+    if ($('mcTrocrConfirmTitle')) $('mcTrocrConfirmTitle').textContent = title;
+    if ($('mcTrocrConfirmText')) $('mcTrocrConfirmText').textContent = text;
+    dialog.showModal();
+    return new Promise((resolve) => {
+      const ok = $('mcTrocrConfirmOk');
+      const cancel = $('mcTrocrConfirmCancel');
+      let settled = false;
+      const finish = (value) => {
+        if (settled) return;
+        settled = true;
+        ok?.removeEventListener('click', onOk);
+        cancel?.removeEventListener('click', onCancel);
+        dialog.removeEventListener('cancel', onCancel);
+        if (dialog.open) dialog.close();
+        resolve(value);
+      };
+      const onOk = (event) => {
+        event.preventDefault();
+        finish(true);
+      };
+      const onCancel = (event) => {
+        event.preventDefault();
+        finish(false);
+      };
+      ok?.addEventListener('click', onOk);
+      cancel?.addEventListener('click', onCancel);
+      dialog.addEventListener('cancel', onCancel);
+    });
+  }
+
+  function askName(title, value) {
+    const dialog = $('mcTrocrName');
+    const input = $('mcTrocrNameInput');
+    if (!dialog || !input || typeof dialog.showModal !== 'function') {
+      return Promise.resolve('');
+    }
+    if ($('mcTrocrNameTitle')) $('mcTrocrNameTitle').textContent = title;
+    input.value = value || '';
+    dialog.showModal();
+    input.focus();
+    input.select();
+    return new Promise((resolve) => {
+      const ok = $('mcTrocrNameOk');
+      const cancel = $('mcTrocrNameCancel');
+      let settled = false;
+      const finish = (next) => {
+        if (settled) return;
+        settled = true;
+        ok?.removeEventListener('click', onOk);
+        cancel?.removeEventListener('click', onCancel);
+        dialog.removeEventListener('cancel', onCancel);
+        if (dialog.open) dialog.close();
+        resolve(next);
+      };
+      const onOk = (event) => {
+        event.preventDefault();
+        finish(input.value.trim());
+      };
+      const onCancel = (event) => {
+        event.preventDefault();
+        finish('');
+      };
+      ok?.addEventListener('click', onOk);
+      cancel?.addEventListener('click', onCancel);
+      dialog.addEventListener('cancel', onCancel);
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') onOk(event);
+      }, { once: true });
+    });
   }
 
   function escapeHtml(value) {

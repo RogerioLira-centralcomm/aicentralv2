@@ -118,7 +118,7 @@
   function setBusy(on, text) {
     state.busy = Boolean(on);
     $('mcStudio')?.classList.toggle('is-busy', state.busy);
-    ['mcStudioScript', 'mcStudioRefs', 'mcStudioScenes', 'mcStudioAnimate', 'mcStudioVideo'].forEach((id) => {
+    ['mcStudioScript', 'mcStudioRefs', 'mcStudioScenes', 'mcStudioAnimate', 'mcStudioVideo', 'mcStudioTrocr'].forEach((id) => {
       const node = $(id);
       if (node) node.disabled = state.busy;
     });
@@ -130,6 +130,7 @@
     const tally = $('mcStudioTally');
     if (node) node.textContent = text || '';
     if (tally) tally.textContent = text || '';
+    syncTrocrButton();
   }
 
   function money(quote) {
@@ -199,6 +200,7 @@
       $('mcStudioNext').hidden = state.scenes.length < 2;
       $('mcStudioDots').textContent = `cena ${state.sceneIndex + 1} de ${state.scenes.length}`;
       renderToggles();
+      syncTrocrButton();
       return;
     }
     const url = state.refs?.cast?.url || state.refs?.ground?.url || '';
@@ -212,6 +214,7 @@
       $('mcStudioDots').textContent = state.refs?.ground?.url && state.refs?.cast?.url
         ? 'elenco'
         : 'referência';
+      syncTrocrButton();
       return;
     }
     if (frame) frame.hidden = true;
@@ -223,6 +226,64 @@
     $('mcStudioPrev').hidden = true;
     $('mcStudioNext').hidden = true;
     $('mcStudioDots').textContent = '';
+    syncTrocrButton();
+  }
+
+  function usableStill(value) {
+    const text = String(value || '').trim();
+    return text.startsWith('data:image/')
+      || text.startsWith('/static/')
+      || text.includes('/swap/still/');
+  }
+
+  function currentStill() {
+    const scene = state.scenes[state.sceneIndex] || {};
+    return [
+      scene.scene_image,
+      scene.image_url,
+      scene.render_url,
+      scene.cast_url,
+      scene.ground_url,
+      state.refs?.cast?.url,
+      state.refs?.ground?.url,
+    ].find(usableStill) || '';
+  }
+
+  function syncTrocrButton() {
+    const button = $('mcStudioTrocr');
+    if (!button) return;
+    const still = currentStill();
+    const scene = state.scenes[state.sceneIndex] || {};
+    button.hidden = !still;
+    button.disabled = state.busy || !still;
+    button.textContent = scene.html ? 'Editar still no Trocr' : 'Editar no Trocr';
+  }
+
+  function openTrocr() {
+    const still = currentStill();
+    if (!still) {
+      status('Gere uma referência com imagem antes de abrir o Trocr.');
+      return;
+    }
+    const scene = state.scenes[state.sceneIndex] || {};
+    const beat = state.storyboard[state.sceneIndex] || {};
+    try {
+      sessionStorage.setItem('cx-trocr-handoff', JSON.stringify({
+        from: 'studio',
+        still,
+        clientId: state.clientId || '',
+        aspect: '16:9',
+        presentation: 'ctv',
+        title: scene.id ? `Studio · ${scene.id}` : 'Studio · referência',
+        headline: scene.headline || beat.headline || '',
+        support: scene.support || beat.support || '',
+        cta: scene.cta || beat.cta || '',
+      }));
+    } catch (_error) {
+      status('O still é grande demais para passar ao Trocr. Baixe a referência e solte no editor.');
+      return;
+    }
+    window.location.href = '/parametros/modelagem-criativos/trocar?from=studio';
   }
 
   function showScene(index) {
@@ -452,6 +513,7 @@
     });
     $('mcStudioPrev').addEventListener('click', () => showScene(state.sceneIndex - 1));
     $('mcStudioNext').addEventListener('click', () => showScene(state.sceneIndex + 1));
+    $('mcStudioTrocr')?.addEventListener('click', openTrocr);
     document.addEventListener('keydown', (event) => {
       if (!state.scenes.length || state.busy) return;
       if (event.key === 'ArrowLeft') showScene(state.sceneIndex - 1);

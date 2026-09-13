@@ -427,6 +427,50 @@ class CreativeModelingRepository:
             raise CreativeNotFoundError("Ambiente de mídia não encontrado.")
         return dict(row)
 
+    def get_viewer_profile_by_slug(self, slug):
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, slug, name, viewer_kind, source_url, logo_asset_ref,
+                       palette, shell_spec, disclaimer, is_active
+                  FROM cx_creative_viewer_profiles
+                 WHERE slug = %s
+                """,
+                (slug,),
+            )
+            row = cursor.fetchone()
+        if not row:
+            raise CreativeNotFoundError("Ambiente de mídia não encontrado.")
+        return dict(row)
+
+    def update_viewer_profile(self, profile_id, data):
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                UPDATE cx_creative_viewer_profiles
+                   SET name = %s,
+                       logo_asset_ref = %s,
+                       palette = %s,
+                       shell_spec = %s,
+                       disclaimer = %s,
+                       updated_at = NOW()
+                 WHERE id = %s
+             RETURNING id
+                """,
+                (
+                    data.get("name"),
+                    data.get("logo_asset_ref"),
+                    Json(data.get("palette") or {}),
+                    Json(data.get("shell_spec") or {}),
+                    data.get("disclaimer"),
+                    profile_id,
+                ),
+            )
+            row = cursor.fetchone()
+        if not row:
+            raise CreativeNotFoundError("Ambiente de mídia não encontrado.")
+        return dict(row)
+
     def get_format(self, format_id):
         with self.conn.cursor() as cursor:
             cursor.execute(
@@ -475,6 +519,27 @@ class CreativeModelingRepository:
             )
             if not cursor.fetchone():
                 raise CreativeNotFoundError("Formato não encontrado.")
+
+    def set_format_default_viewer(self, format_id, profile_id):
+        self.set_format_default_viewers([(format_id, profile_id)])
+
+    def set_format_default_viewers(self, assignments):
+        rows = list(assignments or [])
+        if not rows:
+            return
+        with self._write() as cursor:
+            for format_id, profile_id in rows:
+                cursor.execute(
+                    """
+                    UPDATE cx_format_templates
+                       SET default_viewer_profile_id = %s
+                     WHERE id = %s AND is_active = TRUE
+                    RETURNING id
+                    """,
+                    (profile_id, format_id),
+                )
+                if not cursor.fetchone():
+                    raise CreativeNotFoundError("Formato não encontrado.")
 
     def list_clients(self):
         with self.conn.cursor() as cursor:

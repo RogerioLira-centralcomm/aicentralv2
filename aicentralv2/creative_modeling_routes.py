@@ -6,7 +6,7 @@ import logging
 import mimetypes
 import zipfile
 
-from flask import Blueprint, abort, jsonify, render_template, request, send_file, session
+from flask import Blueprint, abort, current_app, jsonify, render_template, request, send_file, session
 from werkzeug.utils import secure_filename
 
 from .auth import admin_required, admin_required_api
@@ -188,14 +188,19 @@ def modelagem_desk(page):
     spec = MC_DESKS.get(page)
     if not spec:
         abort(404)
+    panel = spec["panel"]
+    page_js = spec.get("page_js")
+    if page == "camadas" and current_app.config.get("CAMADAS_V2_ENABLED"):
+        panel = "parametros/_mc_camadas_v2.html"
+        page_js = "js/camadas/index.js"
     return render_template(
         "parametros/modelagem_desk.html",
         mc_page=page,
         mc_title=spec["title"],
         mc_lead=spec["lead"],
-        panel=spec["panel"],
+        panel=panel,
         mc_studio_js=spec["studio"],
-        mc_page_js=spec.get("page_js"),
+        mc_page_js=page_js,
         mc_trocr_csrf=trocr_csrf_token() if page == "trocar" else "",
     )
 
@@ -431,6 +436,23 @@ def api_compose_library():
 @admin_required_api
 def api_viewer_profiles():
     return _execute(lambda: _ok(_service().list_viewer_profiles()))
+
+
+@admin_required_api
+def api_viewer_templates():
+    return _execute(lambda: _ok(_service().list_viewer_templates()))
+
+
+@admin_required_api
+def api_viewer_template(slug):
+    if request.method == "GET":
+        return _execute(lambda: _ok(_service().get_viewer_template(slug)))
+    return _execute(lambda: _ok(_service().update_viewer_template(slug, _json())))
+
+
+@admin_required_api
+def api_viewer_template_formats(slug):
+    return _execute(lambda: _ok(_service().assign_viewer_formats(slug, _json())))
 
 
 @admin_required_api
@@ -1558,6 +1580,23 @@ def register_creative_modeling_routes(blueprint):
         view_func=api_viewer_profiles,
     )
     blueprint.add_url_rule(
+        "/api/viewer-templates",
+        endpoint="creative_viewer_templates",
+        view_func=api_viewer_templates,
+    )
+    blueprint.add_url_rule(
+        "/api/viewer-templates/<slug>",
+        endpoint="creative_viewer_template",
+        view_func=api_viewer_template,
+        methods=["GET", "PUT"],
+    )
+    blueprint.add_url_rule(
+        "/api/viewer-templates/<slug>/formats",
+        endpoint="creative_viewer_template_formats",
+        view_func=api_viewer_template_formats,
+        methods=["PUT"],
+    )
+    blueprint.add_url_rule(
         "/api/formats/<int:format_id>",
         endpoint="creative_update_format",
         view_func=api_update_format,
@@ -1930,6 +1969,16 @@ def trocr_ux_states():
 
 
 @admin_required
+def modeling_ux_templates():
+    return render_template("parametros/lab/templates.html")
+
+
+@admin_required
+def modeling_ux_template_edit(slug):
+    return render_template("parametros/lab/template_edit.html", template_slug=slug)
+
+
+@admin_required
 def design_system_brand_specimen(client_id):
     try:
         html = _service().render_brand_design_system(
@@ -1974,6 +2023,16 @@ def register_modeling_ux_lab(app):
         "/lab/trocr/states",
         endpoint="trocr_ux_states",
         view_func=trocr_ux_states,
+    )
+    app.add_url_rule(
+        "/lab/templates",
+        endpoint="modeling_ux_templates",
+        view_func=modeling_ux_templates,
+    )
+    app.add_url_rule(
+        "/lab/templates/<slug>",
+        endpoint="modeling_ux_template_edit",
+        view_func=modeling_ux_template_edit,
     )
     app.add_url_rule(
         "/lab/design-system/marca/<client_id>",

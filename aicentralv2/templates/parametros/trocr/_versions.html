@@ -1,13 +1,16 @@
-<section class="mc-trocr-versions" aria-label="Versões recentes">
-  <header>
-    <div>
-      <h2>Versões</h2>
-      <p id="mcTrocrVersionCount">Nenhuma versão ainda.</p>
-    </div>
-    <div class="mc-trocr-version-actions">
+{% from "parametros/trocr/_icons.html" import ico %}
+<section class="mc-trocr-reel" id="mcTrocrReel" aria-label="Versões da troca">
+  <button type="button" class="mc-trocr-reel-toggle" id="mcTrocrReelToggle" aria-expanded="true" aria-controls="mcTrocrReelBody">
+    {{ ico('chevron') }}
+    <span id="mcTrocrReelLabel">Nenhuma versão ainda</span>
+    <b id="mcTrocrVersionCount">Nenhuma versão ainda.</b>
+  </button>
+  <div class="mc-trocr-reel-body" id="mcTrocrReelBody">
+    <div class="mc-trocr-reel-toolbar">
       <button type="button" class="mc-trocr-text-cta" id="mcTrocrOpenHistory" disabled>Abrir histórico</button>
       <button type="button" class="mc-trocr-text-cta" id="mcTrocrNewEdit" disabled>Usar a atual como base</button>
     </div>
-  </header>
-  <ul class="mc-trocr-version-list" id="mcTrocrVersions"></ul>
+    <div class="mc-trocr-reel-sessions" id="mcTrocrReelSessions"></div>
+    <ul class="mc-trocr-version-list" id="mcTrocrVersions"></ul>
+  </div>
 </section>

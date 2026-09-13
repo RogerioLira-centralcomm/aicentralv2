@@ -102,10 +102,12 @@ class FakeRepository:
         self.trocr_sessions = {}
         self.format_data = {
             "id": 7,
+            "slug": "leaderboard",
             "name_pt": "Leaderboard",
             "aspect_ratio": "4:1",
             "default_size": "728x90",
             "media_type": "image",
+            "channel": "portal_generico",
             "screen_context_template": "Portal editorial em desktop",
             "background_guidance": "Conteúdo editorial ao redor",
             "placement_spec": {
@@ -122,6 +124,7 @@ class FakeRepository:
             },
             "default_viewer_profile_id": 1,
         }
+        self.formats = [self.format_data]
         self.viewer_profiles = [
             {
                 "id": 1, "slug": "g1", "name": "G1",
@@ -147,12 +150,46 @@ class FakeRepository:
         return client_id
 
     def get_format(self, format_id):
-        if format_id != 7:
-            raise LookupError("Formato não encontrado")
-        return dict(self.format_data)
+        for item in self.formats:
+            if item.get("id") == format_id:
+                return dict(item)
+        if format_id == self.format_data.get("id"):
+            return dict(self.format_data)
+        raise LookupError("Formato não encontrado")
+
+    def list_formats(self):
+        rows = []
+        seen = set()
+        for item in self.formats:
+            rows.append(dict(item))
+            seen.add(item.get("id"))
+        if self.format_data.get("id") not in seen:
+            rows.insert(0, dict(self.format_data))
+        return rows
 
     def update_format_modeling(self, format_id, data):
-        self.format_data.update(data)
+        if format_id == self.format_data.get("id"):
+            self.format_data.update(data)
+        for item in self.formats:
+            if item.get("id") == format_id:
+                item.update(data)
+                return
+
+    def set_format_default_viewer(self, format_id, profile_id):
+        self.set_format_default_viewers([(format_id, profile_id)])
+
+    def set_format_default_viewers(self, assignments):
+        for format_id, profile_id in assignments or []:
+            found = False
+            if format_id == self.format_data.get("id"):
+                self.format_data["default_viewer_profile_id"] = profile_id
+                found = True
+            for item in self.formats:
+                if item.get("id") == format_id:
+                    item["default_viewer_profile_id"] = profile_id
+                    found = True
+            if not found:
+                raise LookupError("Formato não encontrado")
 
     def list_viewer_profiles(self):
         return [dict(item) for item in self.viewer_profiles]
@@ -161,6 +198,18 @@ class FakeRepository:
         return next(
             dict(item) for item in self.viewer_profiles if item["id"] == profile_id
         )
+
+    def get_viewer_profile_by_slug(self, slug):
+        return next(
+            dict(item) for item in self.viewer_profiles if item["slug"] == slug
+        )
+
+    def update_viewer_profile(self, profile_id, data):
+        for item in self.viewer_profiles:
+            if item["id"] == profile_id:
+                item.update(data)
+                return {"id": profile_id}
+        raise LookupError("Ambiente de mídia não encontrado.")
 
     def get_client(self, client_id):
         return {
@@ -1920,6 +1969,10 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertEqual(listed[1]["direction"]["behavior"], "reveal")
 
     def test_perfil_de_viewer_preserva_hero_e_catalogo_seguro(self):
+        self.repo.viewer_profiles[1]["palette"] = {
+            "primary": "#111111",
+            "canvas": "#000000",
+        }
         self.repo.viewer_profiles[1]["shell_spec"] = {
             "nav": ["Início", "Filmes"],
             "network_links": ["globo.com", "g1"],
@@ -1948,11 +2001,60 @@ class CreativeServiceTest(unittest.TestCase):
             netflix["shell_spec"]["sections"][0]["items"][0]["title"],
             "Arquivo 27",
         )
+        saved = self.service.update_viewer_template("netflix", {
+            "name": "Netflix Lab",
+            "disclaimer": "Simulação sem afiliação",
+            "palette": {"primary": "#E50914"},
+            "shell_spec": {"nav": ["Início"], "hero": {"title": "Pausa"}},
+        })
+        self.assertEqual(saved["name"], "Netflix Lab")
+        self.assertEqual(saved["shell_spec"]["hero"]["title"], "Pausa")
+        self.assertEqual(saved["shell_spec"]["hero"]["eyebrow"], "Em destaque")
+        self.assertEqual(saved["palette"]["primary"], "#E50914")
+        self.assertEqual(saved["palette"]["canvas"], "#000000")
+        self.assertEqual(saved["shell_spec"]["network_links"], ["globo.com", "g1"])
         self.assertEqual(netflix["shell_spec"]["network_links"], ["globo.com", "g1"])
         self.assertEqual(
             netflix["shell_spec"]["sections"][0]["items"][0]["category"],
             "Cultura",
         )
+
+    def test_vincula_formatos_ao_template_de_ambiente(self):
+        self.repo.formats = [
+            self.repo.format_data,
+            {
+                "id": 11,
+                "slug": "disney-pause-plus",
+                "name_pt": "Disney Pause+",
+                "aspect_ratio": "16:9",
+                "channel": "disneyplus",
+                "placement_spec": {"context": "tv"},
+                "default_viewer_profile_id": None,
+            },
+            {
+                "id": 12,
+                "slug": "netflix-pause-banner",
+                "name_pt": "Netflix Pause",
+                "aspect_ratio": "16:9",
+                "channel": "netflix",
+                "placement_spec": {"context": "tv"},
+                "default_viewer_profile_id": 2,
+            },
+        ]
+        listed = self.service.list_viewer_templates()
+        g1 = next(item for item in listed if item["slug"] == "g1")
+        netflix = next(item for item in listed if item["slug"] == "netflix")
+        self.assertEqual([item["slug"] for item in g1["formats"]], ["leaderboard"])
+        self.assertEqual(
+            [item["slug"] for item in netflix["formats"]],
+            ["netflix-pause-banner"],
+        )
+        saved = self.service.assign_viewer_formats("netflix", {"format_ids": [11]})
+        self.assertEqual({item["id"] for item in saved["formats"]}, {11})
+        self.assertIsNone(self.repo.formats[2]["default_viewer_profile_id"])
+        self.assertEqual(self.repo.formats[1]["default_viewer_profile_id"], 2)
+        with self.assertRaisesRegex(ValueError, "não corresponde"):
+            self.service.assign_viewer_formats("netflix", {"format_ids": [7]})
 
     def test_aprimora_briefing_aceita_seis_e_oito_cenas(self):
         six = self.service.enhance_campaign_brief({
@@ -4185,7 +4287,7 @@ class CreativeFilesContractTest(unittest.TestCase):
             root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html"
         ).read_text(encoding="utf-8")
         self.assertIn("modelagem_criativos.js') }}?v=57", desk)
-        self.assertIn("mc_page_js) }}?v=65", desk)
+        self.assertIn("mc_page_js) }}?v=75", desk)
         self.assertIn("mc-dsa-write-queue.js') }}?v=64", desk)
         self.assertIn("js/mc-dsa-write-queue.js", desk)
         self.assertIn("function loadComposeLibrary", frontend)

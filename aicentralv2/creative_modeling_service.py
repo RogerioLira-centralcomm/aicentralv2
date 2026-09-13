@@ -44,6 +44,7 @@ from .creative_html_compose import (
 from .creative_modeling_fx import annotate_cost, brl_from_usd
 from .creative_format_geometry import (
     ALLOWED_SCENE_COUNTS,
+    CTV_FORMAT_SLUGS,
     PLACEMENT_ZONES,
     SOCIAL_FORMAT_SLUGS,
     canvas_mismatch,
@@ -600,6 +601,58 @@ def _behavior_spec(value):
         "transition_ms": int(
             _number(value.get("transition_ms", 0), "Duração da transição", 0, 5000)
         ),
+    }
+
+
+TV_CHANNELS = frozenset({"netflix", "hbomax", "disneyplus", "primevideo"})
+SOCIAL_CHANNELS = frozenset({
+    "meta_social", "tiktok_social", "linkedin_social", "youtube_social",
+})
+
+
+def _format_context_kind(value):
+    row = value if isinstance(value, dict) else {}
+    slug = str(row.get("slug") or "")
+    channel = str(row.get("channel") or "")
+    placement = row.get("placement_spec") if isinstance(row.get("placement_spec"), dict) else {}
+    context = str(placement.get("context") or "")
+    if slug in SOCIAL_FORMAT_SLUGS or context == "social" or channel in SOCIAL_CHANNELS:
+        return "social"
+    if slug in CTV_FORMAT_SLUGS or context == "tv" or channel in TV_CHANNELS:
+        return "tv"
+    return "portal"
+
+
+def _format_link_data(value):
+    row = value if isinstance(value, dict) else {}
+    return {
+        "id": row.get("id"),
+        "slug": row.get("slug") or "",
+        "name": row.get("name_pt") or row.get("name") or "",
+        "aspect_ratio": row.get("aspect_ratio") or "",
+        "channel": row.get("channel") or "",
+        "channel_name": row.get("channel_name") or "",
+        "viewer_kind": _format_context_kind(row),
+        "default_viewer_profile_id": row.get("default_viewer_profile_id"),
+    }
+
+
+def _viewer_template_data(value):
+    if not isinstance(value, dict):
+        raise ValueError("Ambiente de mídia inválido.")
+    palette = value.get("palette") if isinstance(value.get("palette"), dict) else {}
+    shell = value.get("shell_spec") if isinstance(value.get("shell_spec"), dict) else {}
+    return {
+        "id": value.get("id"),
+        "slug": value.get("slug") or "",
+        "name": value.get("name") or "",
+        "viewer_kind": value.get("viewer_kind") or "",
+        "source_url": value.get("source_url") or "",
+        "logo_asset_ref": value.get("logo_asset_ref") or "",
+        "palette": palette,
+        "shell_spec": shell,
+        "disclaimer": value.get("disclaimer") or "",
+        "is_active": value.get("is_active", True),
     }
 
 
@@ -1188,6 +1241,144 @@ class CreativeModelingService:
             _viewer_profile_data(profile)
             for profile in self.repository.list_viewer_profiles()
         ])
+
+    def list_viewer_templates(self):
+        rows = self._format_rows()
+        return _serialize([
+            self._with_template_formats(_viewer_template_data(profile), rows)
+            for profile in self.repository.list_viewer_profiles()
+        ])
+
+    def get_viewer_template(self, slug):
+        return _serialize(self._with_template_formats(_viewer_template_data(
+            self._active_viewer_by_slug(slug)
+        )))
+
+    def _active_viewer_by_slug(self, slug):
+        profile = self.repository.get_viewer_profile_by_slug(slug)
+        if profile.get("is_active") is False:
+            raise CreativeNotFoundError("Ambiente de mídia não encontrado.")
+        return profile
+
+    def _format_rows(self):
+        lister = getattr(self.repository, "list_formats", None)
+        return lister() if callable(lister) else []
+
+    def _with_template_formats(self, template, rows=None):
+        profile_id = template.get("id")
+        linked = []
+        compatible = []
+        if rows is None:
+            rows = self._format_rows()
+        for row in rows:
+            summary = _format_link_data(row)
+            if summary["viewer_kind"] == template.get("viewer_kind"):
+                compatible.append(summary)
+            if summary["default_viewer_profile_id"] == profile_id:
+                linked.append(summary)
+        template["formats"] = linked
+        template["compatible_formats"] = compatible
+        return template
+
+    def assign_viewer_formats(self, slug, payload):
+        if not isinstance(payload, dict):
+            raise ValueError("Corpo JSON inválido.")
+        profile = self._active_viewer_by_slug(slug)
+        raw_ids = payload.get("format_ids")
+        if not isinstance(raw_ids, list):
+            raise ValueError("format_ids deve ser uma lista.")
+        wanted = []
+        seen = set()
+        for raw in raw_ids:
+            format_id = _integer(raw, "Formato")
+            if format_id in seen:
+                continue
+            seen.add(format_id)
+            wanted.append(format_id)
+        lister = getattr(self.repository, "list_formats", None)
+        rows = lister() if callable(lister) else []
+        by_id = {row.get("id"): row for row in rows if isinstance(row, dict)}
+        for format_id in wanted:
+            current = by_id.get(format_id)
+            if not current:
+                raise CreativeNotFoundError("Formato não encontrado.")
+            if _format_context_kind(current) != profile.get("viewer_kind"):
+                raise ValueError(
+                    "O formato não corresponde ao tipo deste ambiente."
+                )
+        setter = getattr(self.repository, "set_format_default_viewer", None)
+        batch = getattr(self.repository, "set_format_default_viewers", None)
+        if not callable(setter) and not callable(batch):
+            raise ValueError("Repositório sem vínculo de formato.")
+        assigned = [
+            row.get("id")
+            for row in rows
+            if isinstance(row, dict)
+            and row.get("default_viewer_profile_id") == profile.get("id")
+        ]
+        changes = [(format_id, profile["id"]) for format_id in wanted]
+        changes.extend(
+            (format_id, None)
+            for format_id in assigned
+            if format_id not in seen
+        )
+        if callable(batch):
+            batch(changes)
+        else:
+            for format_id, profile_id in changes:
+                setter(format_id, profile_id)
+        return self.get_viewer_template(slug)
+
+    def update_viewer_template(self, slug, payload):
+        if not isinstance(payload, dict):
+            raise ValueError("Corpo JSON inválido.")
+        current = self._active_viewer_by_slug(slug)
+        current_palette = current.get("palette") if isinstance(current.get("palette"), dict) else {}
+        current_shell = current.get("shell_spec") if isinstance(current.get("shell_spec"), dict) else {}
+        if "palette" in payload:
+            incoming_palette = payload.get("palette")
+            if not isinstance(incoming_palette, dict):
+                raise ValueError("Paleta deve ser um objeto JSON.")
+            palette = {**current_palette, **incoming_palette}
+        else:
+            palette = current_palette
+        if "shell_spec" in payload:
+            incoming_shell = payload.get("shell_spec")
+            if not isinstance(incoming_shell, dict):
+                raise ValueError("O modelo do ambiente deve ser um objeto JSON.")
+            shell = {**current_shell, **incoming_shell}
+            if isinstance(incoming_shell.get("hero"), dict) and isinstance(current_shell.get("hero"), dict):
+                shell["hero"] = {**current_shell["hero"], **incoming_shell["hero"]}
+        else:
+            shell = current_shell
+        safe_palette = {
+            key: _color(raw, f"Cor {key}")
+            for key, raw in palette.items()
+            if key in VIEWER_PALETTE_KEYS and raw not in (None, "")
+        }
+        name = _text(payload.get("name", current.get("name")), "Nome", required=True, max_length=100)
+        disclaimer = _text(
+            payload.get("disclaimer", current.get("disclaimer")),
+            "Aviso do ambiente",
+            required=True,
+            max_length=200,
+        )
+        logo = _text(
+            payload.get("logo_asset_ref", current.get("logo_asset_ref")),
+            "Logo do ambiente",
+            max_length=255,
+        )
+        if logo and not re.fullmatch(r"/static/images/creative-viewers/[a-z0-9.-]+", logo):
+            raise ValueError("Logo do ambiente inválido.")
+        data = {
+            "name": name,
+            "logo_asset_ref": logo,
+            "palette": safe_palette,
+            "shell_spec": shell,
+            "disclaimer": disclaimer,
+        }
+        self.repository.update_viewer_profile(current["id"], data)
+        return self.get_viewer_template(slug)
 
     def update_format_modeling(self, format_id, payload):
         if not isinstance(payload, dict):

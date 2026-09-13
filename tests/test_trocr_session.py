@@ -94,6 +94,51 @@ class TrocrSessionStoreTest(unittest.TestCase):
             user_id=7,
         )
         self.assertEqual(empty["versions"], [])
+        self.assertGreaterEqual(len(empty.get("runs") or []), 1)
+        previous = next((item for item in empty["runs"] if item.get("version_count")), None)
+        self.assertIsNotNone(previous)
+        reopened = lab.load_swap_history({"client_id": 10, "run_id": previous["run_id"]}, user_id=7)
+        self.assertEqual([item["id"] for item in reopened["versions"]], ["v1", "v2"])
+
+    def test_nova_troca_nao_apaga_run_anterior(self):
+        class _MemStorage:
+            def __init__(self):
+                self.sessions = {}
+
+            def save_trocr_still(self, encoded, output_format="png"):
+                return f"/parametros/api/format-lab/swap/still/{'a' * 32}.png"
+
+            def save_trocr_session(self, key, data):
+                self.sessions[key] = data
+
+            def load_trocr_session(self, key):
+                return self.sessions.get(key)
+
+        repository = FakeRepository()
+        modeling = CreativeModelingService(repository, FakeGenerator(), storage=_MemStorage())
+        lab = FormatLabService(modeling)
+        png = "data:image/png;base64," + TINY_PNG.hex()
+        first = lab.save_swap_history(
+            {
+                "client_id": 10,
+                "revision": 0,
+                "versions": [{"id": "v1", "name": "Original", "origin": "original", "image": png}],
+            },
+            user_id=7,
+        )
+        second = lab.save_swap_history(
+            {
+                "client_id": 10,
+                "new_run": True,
+                "reset": True,
+                "revision": first["revision"],
+                "versions": [],
+            },
+            user_id=7,
+        )
+        self.assertEqual(second["versions"], [])
+        self.assertNotEqual(second["run_id"], first["run_id"])
+        self.assertTrue(any(item["run_id"] == first["run_id"] for item in second["runs"]))
 
     def test_still_legado_hex_vira_rota_autenticada(self):
         name = "a" * 32 + ".png"

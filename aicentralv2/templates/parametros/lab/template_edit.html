@@ -1,0 +1,68 @@
+{% extends "base_erp.html" %}
+{% block title %}Template {{ template_slug }} — Lab{% endblock %}
+{% block page_label %}Lab{% endblock %}
+{% block page_subtitle %}Editar modelo de ambiente{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=114">
+{% endblock %}
+
+{% block content %}
+<main class="mc-states-lab mc-lab-template-edit" id="mcLabTemplateEdit" data-slug="{{ template_slug }}">
+  <header>
+    <h1 id="mcLabTemplateTitle">{{ template_slug }}</h1>
+    <p>Paleta, shell e quais formatos CTV, portal ou rede usam este ambiente.</p>
+    {% set lab_page = 'templates' %}
+    {% include "parametros/lab/_lab_nav.html" %}
+  </header>
+  <p class="mc-lab-templates-status" id="mcLabTemplateStatus">Carregando…</p>
+  <div class="mc-lab-template-grid">
+    <form class="mc-lab-template-form" id="mcLabTemplateForm" hidden>
+      <label class="cx-field">
+        <span class="cx-label">Nome</span>
+        <input class="cx-input" id="mcLabName" required maxlength="100">
+      </label>
+      <label class="cx-field">
+        <span class="cx-label">Aviso</span>
+        <input class="cx-input" id="mcLabDisclaimer" required maxlength="200">
+      </label>
+      <label class="cx-field">
+        <span class="cx-label">Logo</span>
+        <input class="cx-input" id="mcLabLogo" maxlength="255">
+      </label>
+      <fieldset class="mc-lab-palette">
+        <legend>Paleta</legend>
+        <label>Primária <input type="color" id="mcLabPrimary"></label>
+        <label>Secundária <input type="color" id="mcLabSecondary"></label>
+        <label>Superfície <input type="color" id="mcLabSurface"></label>
+        <label>Canvas <input type="color" id="mcLabCanvas"></label>
+        <label>Texto <input type="color" id="mcLabText"></label>
+      </fieldset>
+      <fieldset class="mc-lab-formats" id="mcLabFormats" hidden>
+        <legend>Formatos que usam este ambiente</legend>
+        <div class="mc-lab-format-list" id="mcLabFormatList"></div>
+      </fieldset>
+      <label class="cx-field">
+        <span class="cx-label">Shell JSON</span>
+        <textarea class="cx-input" id="mcLabShell" rows="16" spellcheck="false"></textarea>
+      </label>
+      <div class="mc-lab-template-actions">
+        <button type="submit" class="cx-btn cx-btn-primary">Salvar modelo</button>
+        <a class="cx-btn cx-btn-ghost" href="{{ url_for('modeling_ux_templates') }}">Voltar</a>
+      </div>
+    </form>
+    <aside class="mc-lab-template-preview">
+      <p>Preview</p>
+      <div class="mc-production-device" id="mcLabPreviewFrame" data-viewer="">
+        <div class="mc-production-context" id="mcLabPreviewShell"></div>
+        <small id="mcLabPreviewDisclaimer">Simulação de ambiente</small>
+      </div>
+    </aside>
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/mc-viewer-shell.js') }}?v=1" defer></script>
+<script src="{{ url_for('static', filename='js/mc-lab-templates.js') }}?v=2" defer></script>
+{% endblock %}

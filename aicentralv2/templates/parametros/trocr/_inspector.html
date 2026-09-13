@@ -12,7 +12,7 @@
         <select class="cx-select" id="mcSwapClient">
           <option value="">Carregando marcas…</option>
         </select>
-        <small class="mc-trocr-brand-hint" id="mcTrocrBrandHint">A marca da Mesa guarda o histórico desta peça.</small>
+        <small class="mc-trocr-brand-hint" id="mcTrocrBrandHint">A marca guarda cada conjunto de troca. Abra o histórico para navegar.</small>
       </label>
       <label class="mc-trocr-toggle is-extra" id="mcTrocrBrandRow" hidden>
         <input type="checkbox" id="mcTrocrBrandContext">
@@ -37,6 +37,7 @@
         </fieldset>
         <button type="button" class="mc-trocr-text-cta" id="mcTrocrRotate">{{ ico('rotate') }} Rotacionar layout</button>
       </div>
+      <p class="mc-trocr-format-hint" id="mcTrocrFormatHint">A saída começa no formato mais próximo da peça. Depois você força outro.</p>
       <fieldset class="mc-trocr-chips">
         <legend>Como ver no canvas</legend>
         <label><input type="radio" name="mcTrocrPresent" value="final" checked> Peça final</label>
@@ -44,6 +45,7 @@
         <label><input type="radio" name="mcTrocrPresent" value="portal"> Mockup portal</label>
         <label><input type="radio" name="mcTrocrPresent" value="ctv"> Mockup CTV</label>
       </fieldset>
+      <div class="mc-trocr-viewer-picks" id="mcTrocrViewerPicks" hidden></div>
     </section>
 
     {% include "parametros/trocr/_ocr_fields.html" %}

@@ -1,10 +1,19 @@
 <dialog class="mc-trocr-history" id="mcTrocrHistory">
   <header>
     <div>
-      <h2>Histórico da peça</h2>
-      <p>Cada geração entra aqui. Nada some. Clique para abrir no canvas.</p>
+      <h2>Histórico da marca</h2>
+      <p>Nada some. Cada troca iniciada fica aqui. Escolha uma troca e abra a versão no canvas.</p>
     </div>
     <button type="button" class="mc-trocr-text-cta is-muted" id="mcTrocrHistoryClose">Fechar</button>
   </header>
-  <ul class="mc-trocr-history-list" id="mcTrocrHistoryList"></ul>
+  <div class="mc-trocr-history-body">
+    <section class="mc-trocr-history-runs">
+      <h3>Trocas</h3>
+      <ul class="mc-trocr-run-list" id="mcTrocrRunList"></ul>
+    </section>
+    <section class="mc-trocr-history-versions">
+      <h3 id="mcTrocrHistoryRunTitle">Versões desta troca</h3>
+      <ul class="mc-trocr-history-list" id="mcTrocrHistoryList"></ul>
+    </section>
+  </div>
 </dialog>

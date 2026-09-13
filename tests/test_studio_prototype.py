@@ -110,6 +110,7 @@ class StudioPrototypeTest(unittest.TestCase):
         self.assertNotIn("swap.py", last["html"])
         stack_cta = next(item for item in last["stack"]["layers"] if item["role"] == "cta")
         self.assertEqual(stack_cta["tipo"], "instruction")
+        self.assertIn("scene_image", last)
 
     def test_quote_e_video_seedance(self):
         quote = quote_prototype({"need_cast": True, "fundo": "lavagem", "video": True})

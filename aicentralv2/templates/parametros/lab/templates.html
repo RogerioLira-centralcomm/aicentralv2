@@ -1,0 +1,25 @@
+{% extends "base_erp.html" %}
+{% block title %}Templates de ambiente — Lab{% endblock %}
+{% block page_label %}Lab{% endblock %}
+{% block page_subtitle %}Modelos CTV, portais e redes a partir da base{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=114">
+{% endblock %}
+
+{% block content %}
+<main class="mc-states-lab mc-lab-templates" id="mcLabTemplates">
+  <header>
+    <h1>Templates de ambiente</h1>
+    <p>Ambientes do Produzir ligados aos formatos da base. O Trocr abre o mockup correspondente.</p>
+    {% set lab_page = 'templates' %}
+    {% include "parametros/lab/_lab_nav.html" %}
+  </header>
+  <p class="mc-lab-templates-status" id="mcLabTemplateStatus">Carregando modelos da base…</p>
+  <section class="mc-lab-template-groups" id="mcLabTemplateGroups"></section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/mc-lab-templates.js') }}?v=2" defer></script>
+{% endblock %}

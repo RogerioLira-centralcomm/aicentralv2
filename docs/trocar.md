@@ -36,7 +36,7 @@ Autenticação: `admin_required` na página, `admin_required_api` nas rotas JSON
 | Camada | Tecnologia | Onde |
 |---|---|---|
 | Página | Flask + Jinja | `modelagem_desk("trocar")` |
-| CSS | `modelagem_criativos.css` | `?v=96` no desk |
+| CSS | `modelagem_criativos.css` | `?v=114` no desk |
 | Cliente | `mc-trocar.js` (IIFE, sem framework) | `static/js/mc-trocar.js` |
 | OCR | OpenRouter `openai/gpt-5-nano` visão | `read_swap_reference` |
 | Imagem | OpenRouter `openai/gpt-image-2` | `swap_reference` modo `image` / `recrop` |
@@ -114,7 +114,7 @@ Upload → OCR → Análise → Edição → Geração → Revisão
 ```
 
 1. **Upload.** Drop zone ou file input. A imagem vira `v1 · Original`. Se o usuário não escolheu formato, o cliente estima 16:9 / 9:16 / 4:5 / 1:1 pela proporção do arquivo.
-2. **OCR.** O cliente redimensiona o lado longo para 1280 px (JPEG 0.82) só para a leitura e só persiste o histórico depois. Still autenticado (`/swap/still/...`) é materializado em data URL no servidor — caminho relativo não vai ao OpenRouter. A geração usa a imagem cheia. `POST /swap/read`. **Nova peça** apaga a sessão (`reset: true`) e volta ao drop.
+2. **OCR.** O cliente redimensiona o lado longo para 1280 px (JPEG 0.82) só para a leitura e só persiste o histórico depois. Still autenticado (`/swap/still/...`) é materializado em data URL no servidor — caminho relativo não vai ao OpenRouter. A geração usa a imagem cheia. `POST /swap/read`. **Nova peça** arquiva a run atual (`reset` / `new_run`) e abre outra vazia. Não apaga o histórico da marca.
 3. **Análise.** Checkboxes de fundo, imagens, grafismo, logo, título, secundário, CTA e apoios. Selos `role=person`, datas, local e `logo_text` viram **locks** (“Fica na peça”).
 4. **Edição.** Campos editáveis + preservar/alterar + nota livre + formato + qualidade. `POST /swap/prompt` a cada ~220 ms (debounce). A UI mostra o preview em português; o Image 2 recebe o prompt em inglês.
 5. **Geração.** Rascunho ou produção chama `POST /swap`. Steps visuais: Análise → Montagem do prompt → Geração → Finalização.
@@ -128,15 +128,16 @@ Estados da faixa: `upload`, `ocr`, `analysis`, `edit`, `generate`, `review`. Err
 
 ## 5. Versões
 
-IDs `v1`, `v2`, `v3`… Toda geração faz `push`. Teto no servidor: 60 versões.
+Schema `runs-v1`: cada marca guarda `active_run_id` + `runs[]` (até 24 trocas). IDs `v1`, `v2`, `v3`… Toda geração faz `push` **dentro da run**. Teto no servidor: 60 versões por run. CAS (`revision`) também é por run.
 
 | Campo | Papel |
 |---|---|
+| `run_id` / `active_run_id` | troca iniciada (um conjunto de versões) |
 | `activeId` | o que o canvas mostra |
 | `baseId` | referência da próxima edição (`baseVersion()`) |
 | `origin` | `original` · `edited` · `draft` · `production` · `typeset` · `recrop` |
 | `parent_id` | versão de origem (`baseId` no momento da geração) |
-| `revision` | CAS do histórico no servidor |
+| `revision` | CAS da run no servidor |
 
 Regras:
 
@@ -483,7 +484,7 @@ Montado em `mc-trocar.js`. É o contrato da mesa.
 | `elements` | OCR | lista crua |
 | `faces` | `elements` com `kind=face` | selo de nome não conta |
 | `force_image` | `#mcTrocrForceImage` | força Image 2 |
-| `presentation` | rádio apresentação | só chrome do canvas (`final` / `mobile` / `portal` / `ctv`) |
+| `presentation` | rádio apresentação | chrome do canvas (`final` / `mobile` / `portal` / `ctv`). Mockup usa `GET /api/viewer-profiles` + `GET /api/formats`; CTV 16:9 escolhe o `default_viewer_profile_id` do formato. Admin em `/lab/templates`. |
 | `quality` | rádio qualidade | `draft` · `production` |
 | `use_brand_context` | `#mcTrocrBrandContext` | default true |
 | `preserve` | checkboxes | ver tokens |
@@ -713,7 +714,14 @@ Para virar 9:16: escolher Stories. `needs_recrop` → Image 2 recorta → typese
 
 ## 16. Limites conhecidos e próximos passos
 
-Já no refactor de UX, ainda válidos:
+Já no ar nesta linha:
+
+- histórico `runs-v1` por marca / por troca; **Nova peça** arquiva
+- filmstrip recolhível; zoom **Caber**
+- mockups Produzir no canvas; lab `/lab/templates` edita paleta, shell e vínculo `cx_format_templates.default_viewer_profile_id`
+- handoff Studio → Trocr: `Editar no Trocr` grava `sessionStorage.cx-trocr-handoff` e abre `/trocar?from=studio`. Nova run; still só `data:image` ou same-origin `/static/` / `/swap/still/`
+
+Ainda válidos:
 
 - slider before/after
 - upload multipart em vez de data URL
@@ -735,6 +743,6 @@ Do typeset, depois deste lab:
 - Typeset **não** redesenha pessoa, logo nem grafismo. Só cobre glifos e escreve.
 - Image 2 **pode** redesenhar tudo, inclusive o que o prompt pediu para travar. Por isso cartela vai para typeset.
 - O preview PT é didático. O modelo lê o inglês (ou o override).
-- `presentation` não muda o PNG. É moldura no canvas.
+- `presentation` não muda o PNG. É moldura no canvas (viewers do Produzir quando não é `final`).
 - `quality` no typeset é ignorada (sempre `typeset`). No Image 2, rascunho manda `medium` e produção manda `high`.
 - Sem `OPENROUTER_API_KEY` / integração, OCR e Image 2 não rodam; typeset roda se a referência for data URL.

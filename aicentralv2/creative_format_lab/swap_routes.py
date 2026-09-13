@@ -77,7 +77,10 @@ def api_format_lab_swap_history():
     if request.method == "GET":
         return execute(
             lambda: ok(service().load_format_lab_swap_history(
-                {"client_id": request.args.get("client_id")},
+                {
+                    "client_id": request.args.get("client_id"),
+                    "run_id": request.args.get("run_id"),
+                },
                 session.get("user_id"),
             ))
         )

@@ -7,8 +7,9 @@
     </div>
     <div class="mc-trocr-canvas-tools">
       <button type="button" class="mc-trocr-tool" id="mcTrocrZoomOut" aria-label="Diminuir zoom">{{ ico('minus') }}</button>
-      <span class="mc-trocr-zoom" id="mcTrocrZoomLabel">100%</span>
+      <span class="mc-trocr-zoom" id="mcTrocrZoomLabel">Caber</span>
       <button type="button" class="mc-trocr-tool" id="mcTrocrZoomIn" aria-label="Aumentar zoom">{{ ico('plus') }}</button>
+      <button type="button" class="mc-trocr-text-cta" id="mcTrocrZoomFit">Caber na tela</button>
       <button type="button" class="mc-trocr-tool" id="mcTrocrPickRegion" aria-label="Selecionar região">{{ ico('crop') }}</button>
       <span class="mc-trocr-tool-gap" aria-hidden="true"></span>
       <button type="button" class="mc-trocr-tool" id="mcTrocrDownload" aria-label="Download">{{ ico('download') }}</button>
@@ -24,6 +25,10 @@
       <p>Ao enviar uma nova imagem, o OCR é executado automaticamente.</p>
     </div>
     <figure class="mc-swap-preview" id="mcSwapPreview" hidden>
+      <div class="mc-trocr-device mc-production-device" id="mcTrocrDevice" hidden>
+        <div class="mc-production-context" id="mcTrocrViewerShell"></div>
+        <small id="mcTrocrViewerDisclaimer">Simulação de ambiente · sem afiliação com o veículo</small>
+      </div>
       <div class="mc-trocr-frame" data-mockup="final">
         <img id="mcSwapImage" alt="Still do anúncio">
         <div class="mc-trocr-region" id="mcTrocrRegion" hidden>

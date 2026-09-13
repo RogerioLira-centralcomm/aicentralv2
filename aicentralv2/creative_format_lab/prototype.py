@@ -277,6 +277,9 @@ def compose_scenes(payload=None, *, brand=None):
             "html": html,
             "stack": stack,
             "cta_kind": scene["recipe"].get("cta_kind") or "",
+            "scene_image": assets.get("scene_image") or "",
+            "cast_url": assets.get("cast_url") or "",
+            "ground_url": assets.get("ground_url") or "",
         })
     return {
         "format_key": entry["key"],

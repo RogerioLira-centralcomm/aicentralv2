@@ -14,7 +14,7 @@ Cinco regiões, nesta ordem:
 4. Canvas central — visualização, clique para marcar área, overlay de geração
 5. Coluna do pedido — o que mudar, Fica/Troca, rota e avisos no mesmo bloco, gerar
 
-A tira de versões fica sob o canvas. Nenhuma geração substitui a anterior.
+A tira de versões é um filmstrip recolhível sob o poço (`#mcTrocrReel`). Takes da troca ativa e bins das outras trocas da mesma marca. Nenhuma geração substitui a anterior.
 
 ## Fluxo de edição
 
@@ -87,14 +87,18 @@ Rota de validação visual: `/lab/trocr/states`. Fora de `MC_DESKS`. Sem OpenRou
 - Ao enviar uma nova imagem, o OCR roda automaticamente.
 - Texto detectado é editável e entra no prompt.
 - Preservar e alterar convivem.
-- Formato muda composição e recorte. Apresentação (peça / mockup) é chrome no canvas.
+- Formato muda composição e recorte. Apresentação (peça / mockup) é chrome no canvas: os viewers do Produzir (`McViewerShell`). CTV 16:9 abre o ambiente ligado ao formato na base (Netflix, Disney+, HBO, Prime). Admin em `/lab/templates`.
+- Studio manda o still por `sessionStorage` (`from=studio`). O Trocr abre uma run nova, 16:9 CTV, e roda o OCR.
 - Rascunho e produção são CTAs distintos.
 
 ## Persistência
 
-- `GET/POST /parametros/api/format-lab/swap/history`
-- A mesa carrega o histórico ao abrir e ao trocar a marca
-- Cada geração e o original são gravados após `pushVersion`
+- `GET/POST /parametros/api/format-lab/swap/history` — schema `runs-v1`: `active_run_id` + `runs[]` por marca (até 24 trocas). CAS por run.
+- `GET` aceita `?client_id=&run_id=`.
+- **Nova peça** arquiva a troca atual e abre outra vazia. Não apaga.
+- Blob legado (`versions` no topo) vira a primeira run.
+- A mesa carrega o histórico ao abrir e ao trocar a marca.
+- Cada geração e o original são gravados após `pushVersion`.
 
 ## Próximos passos
 

@@ -1,78 +1,141 @@
-<article class="mc-mesa" id="mcMesa">
-  <header class="mc-mesa-rail" id="mcMesaRail">
-    <div class="mc-mesa-cluster" data-cluster="brand">
-      <div class="mc-mesa-brands" id="mcMesaBrands"></div>
-      <label class="cx-field">
-        <select class="cx-select" id="mcMesaClient" aria-label="Marca">
-          <option value="">Marca</option>
-        </select>
-      </label>
+<article class="mc-studio" id="mcStudio">
+  <header class="mc-studio-bar">
+    <label class="cx-field mc-studio-brand">
+      <select class="cx-select" id="mcStudioClient" aria-label="Marca">
+        <option value="">Marca</option>
+      </select>
+    </label>
+    <label class="cx-field mc-studio-case">
+      <select class="cx-select" id="mcStudioCase" aria-label="Caso">
+        <option value="">Caso</option>
+      </select>
+    </label>
+    <div class="mc-studio-counts" role="radiogroup" aria-label="Cenas">
+      <button type="button" data-count="4" class="is-current">4</button>
+      <button type="button" data-count="6">6</button>
     </div>
-    <div class="mc-mesa-cluster" data-cluster="campaign">
-      <div class="mc-mesa-formats" id="mcMesaFormats" hidden></div>
-      <div class="mc-mesa-counts" id="mcMesaCounts" role="radiogroup" aria-label="Cenas">
-        <button type="button" data-count="4" class="is-current">4</button>
-        <button type="button" data-count="5">5</button>
-      </div>
-      <div class="mc-mesa-objectives" id="mcMesaObjectives"></div>
-    </div>
-    <div class="mc-mesa-cluster" data-cluster="mode">
-      <div class="mc-mesa-skills" id="mcMesaBaseSkills" aria-label="Base da campanha"></div>
-    </div>
-    <div class="mc-mesa-cluster mc-mesa-cluster-end" data-cluster="meta">
-      <p class="mc-mesa-cost" id="mcMesaCost">R$ 0</p>
-      <button class="mc-mesa-history-toggle" type="button" id="mcMesaHistoryToggle">Histórico</button>
-      <a class="mc-mesa-marcas-link" href="{{ url_for('parametros.modelagem_marcas') }}">Abrir Marcas</a>
-    </div>
+    <div class="mc-studio-objectives" id="mcStudioObjectives"></div>
+    <p class="mc-studio-quote" id="mcStudioQuote">R$ 0</p>
   </header>
 
-  <div class="mc-mesa-workspace">
-    <ol class="mc-mesa-strip" id="mcMesaStrip" aria-label="Tira de 15s"></ol>
-
-    <section class="mc-mesa-stage" id="mcMesaStage" aria-label="Palco da peça">
-      <div class="mc-mesa-viewport" id="mcMesaViewport">
-        <div class="mc-mesa-frame" id="mcMesaFrameWrap">
-          <div class="mc-mesa-drop" id="mcMesaDrop">
-            <input id="mcMesaFiles" type="file" accept="image/*,.html" multiple hidden>
-            <div class="mc-mesa-plate">
-              <span class="mc-mesa-plate-icon" aria-hidden="true"><i class="fa-regular fa-image"></i></span>
-              <strong>Escolha o key visual e monte o 15s</strong>
-              <p class="mc-mesa-lead">Selecione um asset da campanha ou envie uma nova imagem.</p>
-              <button class="mc-mesa-pick" type="button" id="mcMesaPickKey">Selecionar key visual</button>
-            </div>
-          </div>
-          <figure class="mc-mesa-preview" id="mcMesaPreview" hidden>
-            <img id="mcMesaFrame" alt="Cena ativa">
-          </figure>
-        </div>
-      </div>
-      <div class="mc-mesa-stage-meta">
-        <span id="mcMesaStageMeta">16:9 · 1920 × 1080</span>
-        <button class="mc-mesa-guide" type="button" id="mcMesaGuide">Ver guia de composição</button>
-      </div>
-      <p class="mc-mesa-caption" id="mcMesaCaption"></p>
-      <ol class="mc-mesa-versions" id="mcMesaVersions" hidden></ol>
-    </section>
-  </div>
-
-  <aside class="mc-mesa-side">
-    {% include "parametros/mesa/_inspector_tabs.html" %}
-    <p id="mcMesaStatus">Vivara pronta. Confira o key visual e monte o conceito de 15s.</p>
-    <section class="mc-mesa-read" id="mcMesaRead" hidden>
-      <p class="mc-mesa-read-status" id="mcMesaReadStatus">Sem still de referência.</p>
-      <p class="mc-mesa-read-warn" id="mcMesaReadWarn" hidden></p>
-      <div class="mc-mesa-read-actions">
-        <button type="button" id="mcMesaReadChipsBtn">Ver textos reconhecidos</button>
-        <button type="button" id="mcMesaReread" hidden>Ler still de novo</button>
-      </div>
-      <dl class="mc-mesa-read-chips" id="mcMesaReadChips" hidden></dl>
-      <ol class="mc-mesa-read-beats" id="mcMesaReadBeats"></ol>
-    </section>
-    {% include "parametros/mesa/_production_flow.html" %}
-    <ol class="mc-mesa-defects" id="mcMesaDefects" hidden></ol>
+  <aside class="mc-studio-nav" aria-label="Passos">
+    <button type="button" data-step="script" class="is-current">
+      <i>1</i>
+      <strong>Roteiro</strong>
+      <span>Ideia e mensagem</span>
+    </button>
+    <button type="button" data-step="refs">
+      <i>2</i>
+      <strong>Referências</strong>
+      <span>Elenco e fundo</span>
+    </button>
+    <button type="button" data-step="scenes">
+      <i>3</i>
+      <strong>Cenas</strong>
+      <span>O que entra no quadro</span>
+    </button>
+    <button type="button" data-step="play">
+      <i>4</i>
+      <strong>Exibir</strong>
+      <span>Anime ou grave CTV</span>
+    </button>
   </aside>
-</article>
 
-{% include "parametros/mesa/_history_drawer.html" %}
-{% include "parametros/mesa/_toast.html" %}
-{% include "parametros/mesa/_modal_shell.html" %}
+  <section class="mc-studio-canvas" aria-label="Cena">
+    <div class="mc-studio-versions" id="mcStudioVersions" hidden>
+      <button type="button" data-version="v1">v1</button>
+      <button type="button" data-version="v2">v2</button>
+      <button type="button" data-version="v3" class="is-current">v3 recomendada</button>
+    </div>
+    <button type="button" class="mc-studio-thumb" id="mcStudioPrev" hidden aria-label="Cena anterior">‹</button>
+    <div class="mc-studio-stage" id="mcStudioStage">
+      <iframe id="mcStudioFrame" title="Cena do Studio" hidden></iframe>
+      <img id="mcStudioStill" alt="Referência gerada" hidden>
+      <div class="mc-studio-empty" id="mcStudioEmpty">
+        <strong>Gere o roteiro para ver o quadro</strong>
+        <p>Quatro ou seis cenas no formato certo. Sem Trocr nesta etapa.</p>
+      </div>
+    </div>
+    <button type="button" class="mc-studio-thumb" id="mcStudioNext" hidden aria-label="Próxima cena">›</button>
+    <p class="mc-studio-dots" id="mcStudioDots"></p>
+    <p class="mc-studio-tally" id="mcStudioTally"></p>
+  </section>
+
+  <aside class="mc-studio-side">
+    <div data-pane="script">
+      <h2>Roteiro</h2>
+      <p>Três versões. A v3 segue. Se a crítica não achar problema, para na v2.</p>
+      <ol class="mc-studio-beats" id="mcStudioBeats"></ol>
+      <div class="mc-studio-actions">
+        <button class="cx-btn cx-btn-primary" type="button" id="mcStudioScript">Gerar roteiro</button>
+      </div>
+    </div>
+    <div data-pane="refs" hidden>
+      <h2>Referências</h2>
+      <div class="mc-studio-knobs">
+        <label class="cx-field">Elenco
+          <select class="cx-select" id="mcStudioCast">
+            <option>1 pessoa</option>
+            <option>2</option>
+            <option>família</option>
+            <option>trabalho</option>
+          </select>
+        </label>
+        <label class="cx-field">Idade
+          <select class="cx-select" id="mcStudioAge">
+            <option>18-24</option>
+            <option selected>25-34</option>
+            <option>35-44</option>
+            <option>45-54</option>
+            <option>55+</option>
+          </select>
+        </label>
+        <label class="cx-field">Fundo
+          <select class="cx-select" id="mcStudioGround">
+            <option value="lavagem">Lavagem</option>
+            <option value="imagem">Imagem</option>
+          </select>
+        </label>
+      </div>
+      <div class="mc-studio-actions">
+        <button class="cx-btn cx-btn-primary" type="button" id="mcStudioRefs">Gerar referências</button>
+      </div>
+    </div>
+    <div data-pane="scenes" hidden>
+      <h2>Elementos da cena</h2>
+      <p>Ligue ou desligue o que entra neste quadro.</p>
+      <ul class="mc-studio-toggles" id="mcStudioToggles"></ul>
+      <div class="mc-studio-actions">
+        <button class="cx-btn cx-btn-secondary" type="button" id="mcStudioReset">Restaurar padrão</button>
+        <button class="cx-btn cx-btn-primary" type="button" id="mcStudioScenes">Montar cenas</button>
+      </div>
+    </div>
+    <div data-pane="play" hidden>
+      <h2>Exibir</h2>
+      <label class="cx-field">Display CSS
+        <select class="cx-select" id="mcStudioSeconds">
+          <option value="5">5 segundos</option>
+          <option value="10">10 segundos</option>
+        </select>
+      </label>
+      <p class="mc-studio-note">CTV: Seedance 5s, 720p. CTA é instrução, não botão.</p>
+      <p id="mcStudioVideoStatus"></p>
+      <div class="mc-studio-actions">
+        <button class="cx-btn cx-btn-secondary" type="button" id="mcStudioAnimate">Animar display</button>
+        <button class="cx-btn cx-btn-primary" type="button" id="mcStudioVideo">Cotar e gravar vídeo</button>
+      </div>
+    </div>
+    <p class="mc-studio-status" id="mcStudioStatus"></p>
+  </aside>
+
+  <dialog class="mc-studio-confirm" id="mcStudioConfirm">
+    <div class="mc-studio-confirm-body">
+      <strong id="mcStudioConfirmTitle">Gravar CTV</strong>
+      <p id="mcStudioConfirmText">Seedance 5s, 720p, sem áudio.</p>
+    </div>
+    <footer class="mc-studio-confirm-foot">
+      <button class="cx-btn cx-btn-secondary" type="button" id="mcStudioConfirmCancel">Cancelar</button>
+      <button class="cx-btn cx-btn-primary" type="button" id="mcStudioConfirmOk">Gravar</button>
+    </footer>
+  </dialog>
+</article>

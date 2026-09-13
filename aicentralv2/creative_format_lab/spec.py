@@ -53,7 +53,7 @@ class SceneSpec(BaseModel):
     @classmethod
     def _scene_id(cls, value):
         text = str(value or "").strip()
-        if not re.fullmatch(r"scene_0[1-5]", text):
+        if not re.fullmatch(r"scene_0[1-6]", text):
             raise ValueError("Cena inválida.")
         return text
 
@@ -103,8 +103,8 @@ class CreativeFormatSpec(BaseModel):
     @model_validator(mode="after")
     def _scene_pack(self):
         count = len(self.scenes)
-        if count not in (4, 5):
-            raise ValueError("O conceito 15s exige 4 ou 5 cenas.")
+        if count not in (4, 5, 6):
+            raise ValueError("O conceito 15s exige 4, 5 ou 6 cenas.")
         expected = [f"scene_0{index}" for index in range(1, count + 1)]
         ids = [scene.id for scene in self.scenes]
         if ids != expected:
@@ -159,7 +159,7 @@ def _coerce_spec_payload(payload, expected_count=None):
     raw = data.get("scenes")
     if isinstance(raw, dict):
         ordered = []
-        for index in range(1, 6):
+        for index in range(1, 7):
             key = f"scene_0{index}"
             item = raw.get(key)
             if isinstance(item, dict):

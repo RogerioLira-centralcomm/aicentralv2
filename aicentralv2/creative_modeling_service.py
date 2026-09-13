@@ -1093,6 +1093,27 @@ class CreativeModelingService:
     def format_lab_quote(self, payload=None):
         return self._format_lab().quote(payload)
 
+    def prototype_quote(self, payload=None):
+        return self._format_lab().prototype_quote(payload)
+
+    def prototype_script(self, payload=None, user_id=None):
+        return self._format_lab().prototype_script(payload, user_id=user_id)
+
+    def prototype_refs(self, payload=None, user_id=None):
+        return self._format_lab().prototype_refs(payload, user_id=user_id)
+
+    def prototype_scenes(self, payload=None, user_id=None):
+        return self._format_lab().prototype_scenes(payload, user_id=user_id)
+
+    def prototype_animate(self, payload=None, user_id=None):
+        return self._format_lab().prototype_animate(payload, user_id=user_id)
+
+    def prototype_video(self, payload=None, user_id=None):
+        return self._format_lab().prototype_video(payload, user_id=user_id)
+
+    def prototype_video_status(self, job_id, polling_url=None):
+        return self._format_lab().prototype_video_status(job_id, polling_url=polling_url)
+
     def format_lab_campaign(self, slug):
         return self._format_lab().get_campaign_model(slug)
 

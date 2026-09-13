@@ -26,6 +26,15 @@ from .decompose import decompose_creative
 from .split_layers import example_still_payload, split_still
 from .engineer import strip_public_read_fields
 from .storyboard import build_storyboard, quote_concept
+from .brand_context import build_brand_context
+from .prototype import (
+    animate_spec,
+    build_refs,
+    build_script,
+    compose_scenes,
+    quote_prototype,
+    video_payload,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +147,7 @@ def _desk_session(session):
         "still_read": _public_still_read(data.get("still_read")),
         "copy_bind": data.get("copy_bind") if isinstance(data.get("copy_bind"), dict) else {},
         "copy_origin": data.get("copy_origin") if isinstance(data.get("copy_origin"), dict) else {},
+        "prototype": data.get("prototype") if isinstance(data.get("prototype"), dict) else {},
     }
 
 
@@ -504,6 +514,143 @@ class FormatLabService:
         if not model:
             raise CreativeNotFoundError("Campanha-modelo não encontrada.")
         return _serialize(model)
+
+    def prototype_quote(self, payload=None):
+        return quote_prototype(self._apply_campaign(payload))
+
+    def prototype_script(self, payload=None, user_id=None):
+        payload = self._apply_campaign(payload)
+        brand = self._studio_brand(payload)
+        result = build_script(payload, brand=brand, text_callable=self._text_callable(payload))
+        self._merge_prototype(payload, {"script": result, "brand": {"name": brand.get("name")}})
+        return result
+
+    def prototype_refs(self, payload=None, user_id=None):
+        payload = self._apply_campaign(payload)
+        brand = self._studio_brand(payload)
+        result = build_refs(
+            payload,
+            brand=brand,
+            text_callable=self._text_callable(payload),
+            image_callable=self._studio_image_callable(payload),
+        )
+        self._merge_prototype(payload, {"refs": result})
+        return result
+
+    def prototype_scenes(self, payload=None, user_id=None):
+        payload = self._apply_campaign(payload)
+        brand = self._studio_brand(payload)
+        result = compose_scenes(payload, brand=brand)
+        self._merge_prototype(payload, {"scenes": result})
+        return result
+
+    def prototype_animate(self, payload=None, user_id=None):
+        payload = self._apply_campaign(payload)
+        result = animate_spec(payload)
+        self._merge_prototype(payload, {"animate": result})
+        return result
+
+    def prototype_video(self, payload=None, user_id=None):
+        payload = self._apply_campaign(payload)
+        plan = video_payload(payload)
+        if payload.get("submit") is False:
+            return plan
+        from ..services.openrouter_service import generate_video
+
+        video_fn = payload.get("video_callable") or generate_video
+        job = video_fn(
+            plan["prompt"],
+            model=plan["model"],
+            duration=plan["duration"],
+            resolution=plan["resolution"],
+            aspect_ratio=plan["aspect_ratio"],
+            generate_audio=plan["generate_audio"],
+            frame_images=plan["frame_images"],
+        )
+        result = {**plan, "job": job}
+        self._merge_prototype(payload, {"video": result})
+        return result
+
+    def prototype_video_status(self, job_id, polling_url=None):
+        from ..services.openrouter_service import poll_video
+
+        return poll_video(job_id, polling_url=polling_url)
+
+    def _apply_campaign(self, payload):
+        data = dict(payload) if isinstance(payload, dict) else {}
+        slug = str(data.get("campaign_slug") or "").strip()
+        if not slug:
+            return data
+        model = load_campaign_model(slug) or {}
+        if not model:
+            return data
+        data.setdefault("format_key", model.get("format") or "video-linear-15")
+        data.setdefault("variant", model.get("variant") or "C")
+        data.setdefault("offer", model.get("offer") or model.get("title") or "")
+        data.setdefault("cta", model.get("cta") or "")
+        data.setdefault("objective", model.get("objective") or "Reconhecimento")
+        if data.get("scene_count") in (None, "") and model.get("scenes"):
+            data["scene_count"] = len(model["scenes"])
+        return data
+
+    def _studio_brand(self, payload):
+        payload = payload if isinstance(payload, dict) else {}
+        given = payload.get("brand")
+        if isinstance(given, dict) and given.get("name"):
+            return given
+        slug = str(payload.get("campaign_slug") or "").strip()
+        if slug:
+            model = load_campaign_model(slug) or {}
+            if model:
+                return {
+                    "name": model.get("brand_name") or slug,
+                    "tone_of_voice": model.get("tone") or "",
+                    "target_audience": model.get("audience") or "",
+                    "ad_segments": [],
+                    "forbidden_elements": list(model.get("forbidden") or []),
+                    "brand_summary": model.get("offer") or model.get("title") or "",
+                    "primary_color": "#C4170C" if "g1" in slug else "",
+                    "secondary_color": "#111111" if "g1" in slug else "",
+                    "palette": ["#C4170C", "#FFFFFF", "#111111"] if "g1" in slug else [],
+                    "logo_url": "",
+                    "brand_dna": {},
+                }
+        client_id = payload.get("client_id")
+        if client_id not in (None, ""):
+            return build_brand_context(self._client(_integer(client_id, "Cliente")))
+        return {"name": "", "palette": [], "brand_dna": {}}
+
+    def _studio_image_callable(self, payload):
+        if payload.get("generate") is False:
+            return None
+        if payload.get("image_callable"):
+            return payload["image_callable"]
+        from ..services.openrouter_service import generate_image
+
+        def _run(prompt, aspect_ratio="16:9", resolution="1K", model=None, **_extra):
+            return generate_image(
+                prompt,
+                aspect_ratio=aspect_ratio,
+                resolution=resolution or "1K",
+                model=model,
+            )
+
+        return _run
+
+    def _merge_prototype(self, payload, chunk):
+        session_id = str((payload or {}).get("session_id") or "").strip()
+        if not session_id:
+            return
+        try:
+            campaign, session = self._find_session(session_id)
+        except Exception:
+            return
+        if not session:
+            return
+        current = session.get("prototype") if isinstance(session.get("prototype"), dict) else {}
+        current.update(chunk)
+        session["prototype"] = current
+        self._write_session(campaign.get("id"), session, active=True)
 
     def create_session(self, payload, user_id=None):
         payload = payload if isinstance(payload, dict) else {}

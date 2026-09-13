@@ -3,7 +3,7 @@
 from ..creative_skills.visual import list_visual_skills
 
 DURATION_SECONDS = 15
-SCENE_COUNTS = (4, 5)
+SCENE_COUNTS = (4, 5, 6)
 
 FORMATS = (
     {
@@ -380,6 +380,25 @@ COMPOSITIONS = {
     },
 }
 
+COMPOSITIONS_6 = {
+    "A": {
+        "label": "Gancho → Benefício → Prova → Experiência → Estilo → CTA",
+        "purposes": ("hook", "benefit", "proof", "experience", "lifestyle", "cta"),
+    },
+    "B": {
+        "label": "Problema → Solução → Experiência → Prova → Estilo → CTA",
+        "purposes": ("problem", "solution", "experience", "proof", "lifestyle", "cta"),
+    },
+    "C": {
+        "label": "Marca → Produto → Estilo → Prova → Experiência → CTA",
+        "purposes": ("brand", "product", "lifestyle", "proof", "experience", "cta"),
+    },
+    "D": {
+        "label": "Pergunta → Descoberta → Benefício → Prova → Experiência → CTA",
+        "purposes": ("question", "discovery", "benefit", "proof", "experience", "cta"),
+    },
+}
+
 COMPOSITIONS_5 = {
     "A": {
         "label": "Gancho → Contexto → Benefício → Prova → CTA",
@@ -405,6 +424,7 @@ SCENE_FILES = {
     "scene_03": "scene-03.html",
     "scene_04": "scene-04.html",
     "scene_05": "scene-03.html",
+    "scene_06": "scene-04.html",
 }
 
 SCENE_TIMECODES = {
@@ -421,15 +441,46 @@ SCENE_TIMECODES = {
         "scene_04": ("00:09 / 00:15", 64),
         "scene_05": ("00:12 / 00:15", 88),
     },
+    6: {
+        "scene_01": ("00:01 / 00:15", 6),
+        "scene_02": ("00:03 / 00:15", 18),
+        "scene_03": ("00:06 / 00:15", 34),
+        "scene_04": ("00:08 / 00:15", 50),
+        "scene_05": ("00:11 / 00:15", 70),
+        "scene_06": ("00:13 / 00:15", 90),
+    },
 }
 
 QR_TIMECODES = {
     4: {"scene_03": ("00:09 / 00:15", 62), "scene_04": ("00:12 / 00:15", 88)},
     5: {"scene_04": ("00:09 / 00:15", 64), "scene_05": ("00:12 / 00:15", 88)},
+    6: {"scene_05": ("00:11 / 00:15", 70), "scene_06": ("00:13 / 00:15", 90)},
 }
 
 END_CARD_PURPOSES = {"cta", "response"}
-END_CARD_SCENES = {"scene_04", "scene_05"}
+END_CARD_SCENES = {"scene_04", "scene_05", "scene_06"}
+
+STUDIO_TOGGLES = (
+    "pessoa",
+    "cta",
+    "logo",
+    "titulo",
+    "texto_curto",
+    "texto_longo",
+    "imagem_apoio",
+    "grafico",
+)
+
+PURPOSE_TOGGLES = {
+    "brand": ("logo", "titulo", "texto_curto"),
+    "product": ("logo", "titulo", "imagem_apoio"),
+    "lifestyle": ("pessoa", "titulo", "texto_curto"),
+    "proof": ("titulo", "texto_curto", "grafico"),
+    "experience": ("pessoa", "titulo", "texto_curto"),
+    "hook": ("titulo", "texto_curto"),
+    "benefit": ("titulo", "texto_curto", "imagem_apoio"),
+    "cta": ("logo", "titulo", "cta"),
+}
 LOGO_ON_PURPOSES = {
     "brand",
 }
@@ -493,7 +544,9 @@ def last_scene_id(scene_count=None):
         count = int(scene_count or 0)
     except (TypeError, ValueError):
         count = 0
-    if count >= 5:
+    if count >= 6:
+        return "scene_06"
+    if count == 5:
         return "scene_05"
     if count == 4:
         return "scene_04"
@@ -588,7 +641,26 @@ def clamp_scene_count(value):
         number = int(value)
     except (TypeError, ValueError):
         number = 4
-    return 5 if number == 5 else 4
+    if number == 6:
+        return 6
+    if number == 5:
+        return 5
+    return 4
+
+
+def is_ctv_format(format_key):
+    entry = format_entry(format_key) or {}
+    return entry.get("kind") == "video" or str(entry.get("group") or "") == "15s"
+
+
+def toggles_for_purpose(purpose, *, format_key="video-linear-15"):
+    keys = list(PURPOSE_TOGGLES.get(str(purpose or "").strip().lower()) or PURPOSE_TOGGLES["brand"])
+    recipe = {item: item in keys for item in STUDIO_TOGGLES}
+    if is_ctv_format(format_key) and recipe.get("cta"):
+        recipe["cta_kind"] = "instruction"
+    else:
+        recipe["cta_kind"] = "button" if recipe.get("cta") else ""
+    return recipe
 
 
 def resolve_format_key(format_key):
@@ -664,8 +736,13 @@ def is_cta_format(format_key):
 def composition_purposes(variant, scene_count=4):
     key = str(variant or "A").strip().upper()
     count = clamp_scene_count(scene_count)
-    table = COMPOSITIONS_5 if count == 5 else COMPOSITIONS
-    item = table.get(key) or table["A"]
+    if count == 6:
+        table = COMPOSITIONS_6
+    elif count == 5:
+        table = COMPOSITIONS_5
+    else:
+        table = COMPOSITIONS
+    item = table.get(key) or table["C"]
     return list(item["purposes"])
 
 
@@ -705,6 +782,14 @@ def catalog_payload():
         "compositions_5": {
             key: {"label": item["label"], "purposes": list(item["purposes"])}
             for key, item in COMPOSITIONS_5.items()
+        },
+        "compositions_6": {
+            key: {"label": item["label"], "purposes": list(item["purposes"])}
+            for key, item in COMPOSITIONS_6.items()
+        },
+        "studio_toggles": list(STUDIO_TOGGLES),
+        "purpose_toggles": {
+            key: list(value) for key, value in PURPOSE_TOGGLES.items()
         },
         "intents": [
             {"key": "create", "label": "Criar"},

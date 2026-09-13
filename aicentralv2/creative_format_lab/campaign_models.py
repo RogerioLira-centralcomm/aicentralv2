@@ -277,6 +277,7 @@ def _public(data):
         "intent": data.get("intent") or "create",
         "objective": data.get("objective"),
         "offer": data.get("offer") or data.get("title"),
+        "cta": data.get("cta"),
         "product": data.get("product"),
         "scenes": [
             {

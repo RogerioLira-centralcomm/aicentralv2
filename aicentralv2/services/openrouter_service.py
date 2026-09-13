@@ -7,6 +7,7 @@ from typing import Dict, Any, List, Optional
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_IMAGE_URL = "https://openrouter.ai/api/v1/images"
+OPENROUTER_VIDEO_URL = "https://openrouter.ai/api/v1/videos"
 DEFAULT_IMAGE_MODEL = os.getenv("CREATIVE_IMAGE_MODEL", "openai/gpt-image-2")
 
 
@@ -395,6 +396,86 @@ def generate_image(
         raise OpenRouterError(_image_error_message(getattr(exc, "response", None))) from exc
     except (requests.RequestException, ValueError, KeyError, IndexError) as exc:
         raise OpenRouterError("Não foi possível gerar a imagem.") from exc
+
+
+def generate_video(
+    prompt: str,
+    *,
+    model: str = "bytedance/seedance-2.0-mini",
+    duration: int = 5,
+    resolution: str = "720p",
+    aspect_ratio: str = "16:9",
+    generate_audio: bool = False,
+    frame_images=None,
+    timeout: int = 90,
+) -> Dict[str, Any]:
+    """Submete vídeo assíncrono no OpenRouter (`POST /api/v1/videos`)."""
+    payload = {
+        "model": model or "bytedance/seedance-2.0-mini",
+        "prompt": prompt,
+        "duration": max(4, min(int(duration or 5), 15)),
+        "resolution": resolution or "720p",
+        "aspect_ratio": aspect_ratio or "16:9",
+        "generate_audio": bool(generate_audio),
+    }
+    frames = [item for item in list(frame_images or []) if isinstance(item, dict)]
+    if frames:
+        payload["frame_images"] = frames[:2]
+    headers = {
+        "Authorization": f"Bearer {_api_key()}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://centralcomm.media",
+        "X-Title": "CentralX - Studio",
+        "X-OpenRouter-Title": "CentralX",
+    }
+    try:
+        response = requests.post(
+            OPENROUTER_VIDEO_URL,
+            headers=headers,
+            json=payload,
+            timeout=max(15, min(int(timeout), 90)),
+        )
+        response.raise_for_status()
+        data = response.json() if response.content else {}
+        return {
+            "id": data.get("id") or "",
+            "polling_url": data.get("polling_url") or "",
+            "status": data.get("status") or "pending",
+            "model": payload["model"],
+            "usage": data.get("usage") or {},
+        }
+    except requests.HTTPError as exc:
+        raise OpenRouterError(_image_error_message(getattr(exc, "response", None))) from exc
+    except (requests.RequestException, ValueError, KeyError) as exc:
+        raise OpenRouterError("Não foi possível enviar o vídeo.") from exc
+
+
+def poll_video(job_id: str, polling_url: Optional[str] = None, timeout: int = 60) -> Dict[str, Any]:
+    """Consulta o job de vídeo no OpenRouter."""
+    url = str(polling_url or "").strip() or f"{OPENROUTER_VIDEO_URL}/{job_id}"
+    headers = {
+        "Authorization": f"Bearer {_api_key()}",
+        "HTTP-Referer": "https://centralcomm.media",
+        "X-Title": "CentralX - Studio",
+    }
+    try:
+        response = requests.get(url, headers=headers, timeout=max(10, min(int(timeout), 90)))
+        response.raise_for_status()
+        data = response.json() if response.content else {}
+        return {
+            "id": data.get("id") or job_id,
+            "status": data.get("status") or "pending",
+            "polling_url": data.get("polling_url") or url,
+            "unsigned_urls": list(data.get("unsigned_urls") or []),
+            "error": data.get("error") or "",
+            "usage": data.get("usage") or {},
+            "model": data.get("model") or "",
+        }
+    except requests.HTTPError as exc:
+        raise OpenRouterError(_image_error_message(getattr(exc, "response", None))) from exc
+    except (requests.RequestException, ValueError, KeyError) as exc:
+        raise OpenRouterError("Não foi possível consultar o vídeo.") from exc
+
 
 # Prompt otimizado para transformar texto em FAQ estruturado
 ANALYSIS_PROMPT = {

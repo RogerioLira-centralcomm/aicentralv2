@@ -131,8 +131,8 @@ MC_DESKS = {
         "page_js": "js/mc-revisao.js",
     },
     "mesa": {
-        "title": "Mesa de Conceito",
-        "lead": "Conceito, base, cena, fecha e aprova — nesta ordem.",
+        "title": "Studio",
+        "lead": "Roteiro, referências, cenas e animação.",
         "panel": "parametros/_mc_mesa.html",
         "studio": False,
         "page_js": "js/mc-mesa.js",
@@ -256,6 +256,45 @@ def api_format_lab_session(session_id):
 @admin_required_api
 def api_format_lab_quote():
     return _execute(lambda: _ok(_service().format_lab_quote(_json())))
+
+
+@admin_required_api
+def api_prototype_quote():
+    return _execute(lambda: _ok(_service().prototype_quote(_json())))
+
+
+@admin_required_api
+def api_prototype_script():
+    return _execute(lambda: _ok(_service().prototype_script(_json(), session.get("user_id"))))
+
+
+@admin_required_api
+def api_prototype_refs():
+    return _execute(lambda: _ok(_service().prototype_refs(_json(), session.get("user_id"))))
+
+
+@admin_required_api
+def api_prototype_scenes():
+    return _execute(lambda: _ok(_service().prototype_scenes(_json(), session.get("user_id"))))
+
+
+@admin_required_api
+def api_prototype_animate():
+    return _execute(lambda: _ok(_service().prototype_animate(_json(), session.get("user_id"))))
+
+
+@admin_required_api
+def api_prototype_video():
+    return _execute(lambda: _ok(_service().prototype_video(_json(), session.get("user_id"))))
+
+
+@admin_required_api
+def api_prototype_video_status(job_id):
+    return _execute(
+        lambda: _ok(
+            _service().prototype_video_status(job_id, request.args.get("polling_url"))
+        )
+    )
 
 
 @admin_required_api
@@ -1349,6 +1388,47 @@ def register_creative_modeling_routes(blueprint):
         endpoint="creative_format_lab_quote",
         view_func=api_format_lab_quote,
         methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/prototype/quote",
+        endpoint="creative_prototype_quote",
+        view_func=api_prototype_quote,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/prototype/script",
+        endpoint="creative_prototype_script",
+        view_func=api_prototype_script,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/prototype/refs",
+        endpoint="creative_prototype_refs",
+        view_func=api_prototype_refs,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/prototype/scenes",
+        endpoint="creative_prototype_scenes",
+        view_func=api_prototype_scenes,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/prototype/animate",
+        endpoint="creative_prototype_animate",
+        view_func=api_prototype_animate,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/prototype/video",
+        endpoint="creative_prototype_video",
+        view_func=api_prototype_video,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/prototype/video/<job_id>",
+        endpoint="creative_prototype_video_status",
+        view_func=api_prototype_video_status,
     )
     blueprint.add_url_rule(
         "/api/format-lab/sessions/<session_id>/storyboard",

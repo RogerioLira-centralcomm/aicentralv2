@@ -1,0 +1,60 @@
+{
+  "slug": "g1-ctv",
+  "brand_name": "G1",
+  "brand_match": ["g1", "globo"],
+  "format": "video-linear-15",
+  "variant": "C",
+  "intent": "create",
+  "title": "A notícia na sala",
+  "offer": "O que importa, no ar, na hora.",
+  "product": "CTV 15s no G1 — 1920×1080, 16:9, quatro batidas.",
+  "audience": "Adulto em casa, sofá, TV. Distância de sala, não de celular.",
+  "tone": "Editorial, direto, sem urgência de e-commerce.",
+  "objective": "Reconhecimento: marca no ar do portal, não clique de banner.",
+  "cta": "Procure na loja",
+  "forbidden": ["saiba mais", "compre agora", "preço", "menu de site", "botão clicável"],
+  "proof": {
+    "viewer": "G1 / portal — peça no ar via modelagem/viewer, não via Mesa antiga",
+    "catalog": "video-linear-15 · 1920×1080 · 16:9 · 15s",
+    "seedance": "protótipo 5s first+last, 720p",
+    "accept": "formato certo, safe area 90%, CTA como instrução, 4 cenas C"
+  },
+  "scenes": [
+    {
+      "id": "scene_01",
+      "purpose": "brand",
+      "headline": "O que importa chega na sala.",
+      "support": "Notícia no ar. Sem menu. Sem clique.",
+      "set_note": "Campo editorial vermelho e papel claro. Masthead longe da borda.",
+      "action_note": "A marca entra sem pressa. Tipo grande, distância de sofá.",
+      "cta": ""
+    },
+    {
+      "id": "scene_02",
+      "purpose": "product",
+      "headline": "A oferta no quadro, não no feed.",
+      "support": "Um produto. Uma frase. TV lê de longe.",
+      "set_note": "Packshot ou recorte limpo à direita. Tipo à esquerda, safe 90%.",
+      "action_note": "O produto segura. Sem recorte nervoso.",
+      "cta": ""
+    },
+    {
+      "id": "scene_03",
+      "purpose": "lifestyle",
+      "headline": "Quem assiste, lembra.",
+      "support": "Sala, sofá, luz da TV. A pessoa é a prova.",
+      "set_note": "Adulto 35–44 no sofá. Sem celular em close. Sem UI de app.",
+      "action_note": "Um gesto. A cena respira.",
+      "cta": ""
+    },
+    {
+      "id": "scene_04",
+      "purpose": "cta",
+      "headline": "Procure na loja.",
+      "support": "Instrução no ar. Não é botão.",
+      "set_note": "End card. Logo e verbo. Nada de pill clicável.",
+      "action_note": "O quadro para. A instrução fica.",
+      "cta": "Procure na loja"
+    }
+  ]
+}

@@ -84,7 +84,7 @@ def build_stack(scene, *, brand=None, assets=None, plate=None):
         layers.append({
             "id": f"{scene.get('id') or 'scene'}-{role}",
             "role": role,
-            "tipo": tipo,
+            "tipo": "instruction" if role == "cta" and scene.get("cta_kind") == "instruction" else tipo,
             "x": x,
             "y": y,
             "w": w,

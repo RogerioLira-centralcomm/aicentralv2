@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 48" role="img" aria-label="Prime Video">
+  <text x="8" y="30" fill="#00A8E1" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">prime</text>
+  <text x="78" y="30" fill="#00A8E1" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="600">video</text>
+  <path d="M12 36c22 10 62 10 84 0" fill="none" stroke="#00A8E1" stroke-width="2.4" stroke-linecap="round"/>
+</svg>

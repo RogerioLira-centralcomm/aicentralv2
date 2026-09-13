@@ -5,9 +5,13 @@ from pathlib import Path
 from flask import Flask
 
 from aicentralv2.crm_v3_canais import (
+    GRUPOS,
+    canal_publico,
     ficha_canal_texto,
+    grupos_canais,
     inferir_canal,
     listar_canais,
+    mapear_segmentacoes,
     resolver_canal,
 )
 from aicentralv2.crm_v3_routes import bp
@@ -54,6 +58,9 @@ class CrmV3CanaisCatalogTest(unittest.TestCase):
         self.assertIn("function sortCanaisAlfabetico", js)
         self.assertIn("localeCompare", js)
         self.assertIn("canais = sortCanaisAlfabetico(canais)", js)
+        self.assertIn("res.grupos || (data && data.grupos)", js)
+        self.assertIn("'<b>' + escapeHtml(canal.nome) + '</b></button>'", js)
+        self.assertNotIn("<small>' +", js.split("function paint(canais, ativo)")[1].split("function paintCats")[0])
 
     def test_sidebar_canais_esta_no_crm(self):
         page = (ROOT / "aicentralv2/templates/crm_v3.html").read_text()
@@ -70,7 +77,9 @@ class CrmV3CanaisCatalogTest(unittest.TestCase):
     def test_catalogo_traz_base_e_logo_local(self):
         canais = listar_canais()
         slugs = {item["slug"] for item in canais}
-        self.assertGreaterEqual(len(canais), 33)
+        self.assertGreaterEqual(len(canais), 31)
+        self.assertNotIn("telegram", slugs)
+        self.assertNotIn("the-trade-desk", slugs)
         self.assertIn("netflix", slugs)
         self.assertIn("interativos", slugs)
         netflix = resolver_canal("Netflix")
@@ -79,12 +88,53 @@ class CrmV3CanaisCatalogTest(unittest.TestCase):
         self.assertTrue(netflix.get("descricao"))
         static_root = ROOT / "aicentralv2"
         for canal in canais:
-            if canal["slug"] == "interativos":
-                continue
             logo = canal.get("logo") or ""
             self.assertTrue(logo.startswith("/static/"), canal["slug"])
             rel = logo[len("/static/"):]
             self.assertTrue((static_root / "static" / rel).is_file(), canal["slug"] + " " + logo)
+        self.assertEqual(resolver_canal("g1-globo")["logo"], "/static/images/canais/g1-globo.svg")
+        self.assertEqual(resolver_canal("Prime Video")["logo"], "/static/images/canais/prime-video.svg")
+        self.assertEqual(resolver_canal("SBT")["logo"], "/static/images/canais/sbt.svg")
+        self.assertEqual(resolver_canal("hbo-max")["logo"], "/static/images/canais/hbo-max.svg")
+        self.assertEqual(resolver_canal("Interativos")["logo"], "/static/images/canais/interativos.svg")
+
+    def test_grupos_sao_os_oito_na_ordem(self):
+        grupos = grupos_canais()
+        self.assertEqual(grupos, list(GRUPOS))
+        self.assertEqual(len(grupos), 8)
+
+    def test_formatos_publicos_tem_dispositivos(self):
+        for item in listar_canais():
+            canal = canal_publico(item)
+            self.assertTrue(canal["formatos"], canal["slug"])
+            for fmt in canal["formatos"]:
+                self.assertTrue(fmt.get("dispositivos"), f"{canal['slug']} {fmt.get('nome')}")
+
+    def test_mapeia_segmentacao_do_banco(self):
+        recortes = mapear_segmentacoes({
+            "contextual": {
+                "nome": "Contextual / Editorial",
+                "opcoes": ["Política", "Economia", "Saúde"],
+            },
+            "geografica": {"nome": "Geográfica", "opcoes": ["Estado/UF", "Cidade"]},
+        })
+        self.assertGreaterEqual(len(recortes), 2)
+        self.assertEqual(recortes[0]["nome"], "Contextual / Editorial")
+        self.assertIn("Política", recortes[0]["exemplo"])
+        lista = mapear_segmentacoes([
+            {"nome": "Home nacional", "quando": "alcance", "exemplo": "Home G1"},
+            {"nome": "Editoria", "quando": "contexto", "exemplo": "Política"},
+        ])
+        self.assertEqual([item["nome"] for item in lista], ["Home nacional", "Editoria"])
+
+    def test_segmentacoes_nao_sao_stub_do_tipo(self):
+        stubs = {"Títulos e gêneros", "Contexto editorial"}
+        for nome in ("Netflix", "g1"):
+            canal = resolver_canal(nome)
+            self.assertIsNotNone(canal, nome)
+            recortes = [seg["nome"] for seg in canal["segmentacoes"] if seg.get("nome")]
+            self.assertGreaterEqual(len(set(recortes)), 3, nome)
+            self.assertFalse(set(recortes) <= stubs, nome)
 
     def test_canal_publico_tem_formatos_segmentacao_e_assistente(self):
         from aicentralv2.crm_v3_canais import canal_publico
@@ -133,8 +183,7 @@ class CrmV3CanaisCatalogTest(unittest.TestCase):
         self.assertIn("falar_sobre_canal", js)
         self.assertIn("is-detail", css)
         self.assertIn("is-sessao", css)
-        self.assertIn("flex-wrap: nowrap", css)
-        self.assertIn("overflow-x: auto", css)
+        self.assertIn("flex-wrap: wrap", css)
         self.assertIn("aspect-ratio: 1 / 1", css)
         self.assertIn("aspect-ratio: 9 / 16", css)
         self.assertIn("aspect-ratio: 300 / 250", css)
@@ -158,7 +207,11 @@ class CrmV3CanaisCatalogTest(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         payload = json.loads(res.data)
         canais = payload.get("canais") or (payload.get("data") if isinstance(payload.get("data"), list) else [])
-        self.assertGreaterEqual(len(canais), 33)
+        self.assertGreaterEqual(len(canais), 31)
+        slugs = {item.get("slug") for item in canais}
+        self.assertNotIn("telegram", slugs)
+        self.assertNotIn("the-trade-desk", slugs)
+        self.assertEqual(payload.get("grupos"), list(GRUPOS))
         netflix = next(item for item in canais if item.get("slug") == "netflix")
         instagram = next(item for item in canais if item.get("slug") == "instagram")
         serasa = next(item for item in canais if "serasa" in (item.get("nome") or "").casefold())

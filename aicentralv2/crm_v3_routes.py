@@ -12,6 +12,7 @@ from .cotacao_tipos import normalizar_tipo_comercial
 from .crm_v3_canais import (
     canal_publico,
     ficha_canal_texto,
+    grupos_canais,
     inferir_canal,
     listar_canais,
     nomes_canais,
@@ -294,7 +295,7 @@ def api_lookups():
 @login_required_api
 def api_canais():
     canais = [canal_publico(item) for item in listar_canais()]
-    return _ok(canais, canais=canais)
+    return _ok(canais, canais=canais, grupos=grupos_canais(canais))
 
 
 @bp.route("/api/canais/<slug>")

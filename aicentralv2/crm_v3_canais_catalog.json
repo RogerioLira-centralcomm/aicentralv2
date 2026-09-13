@@ -2,7 +2,7 @@
   {
     "slug": "spotify",
     "nome": "Spotify",
-    "categoria": "Streaming de Áudio",
+    "categoria": "Streaming",
     "tipo": "audio",
     "alcance": "+50M ouvintes",
     "viewability": 98,
@@ -22,12 +22,158 @@
     ],
     "logo_path": "/assets_images/logos/spotify.png",
     "descricao": "A maior plataforma de streaming de áudio do mundo, com mais de 50 milhões de ouvintes no Brasil. Ideal para campanhas de awareness e branding com alta taxa de completion.",
-    "cor": "#1DB954"
+    "cor": "#1DB954",
+    "formatos": [
+      {
+        "nome": "Audio Ads (Music & Podcasts / Audio Everywhere)",
+        "chave": "audio-bar",
+        "w": 728,
+        "h": 90,
+        "label": "15s/30s",
+        "melhor_para": "cobertura em escala em música e podcasts com presença constante de marca entre faixas de áudio",
+        "dispositivos": [
+          "audio",
+          "mobile",
+          "desktop",
+          "tablet",
+          "app"
+        ]
+      },
+      {
+        "nome": "Video Ads (Video Takeover / Mobile Overlay)",
+        "chave": "iab-billboard",
+        "w": 970,
+        "h": 250,
+        "label": "970×250",
+        "melhor_para": "impacto visual com som ligado em momentos de tela ativa dentro do app",
+        "dispositivos": [
+          "mobile",
+          "desktop",
+          "tablet",
+          "app"
+        ]
+      },
+      {
+        "nome": "Sponsored Session",
+        "chave": "audio-bar",
+        "w": 728,
+        "h": 90,
+        "label": "15s/30s",
+        "melhor_para": "troca clara de valor para brand awareness e consideração, oferecendo sessão sem anúncios após ver o vídeo",
+        "dispositivos": [
+          "mobile",
+          "app"
+        ]
+      },
+      {
+        "nome": "Sponsored Playlist",
+        "chave": "audio-bar",
+        "w": 728,
+        "h": 90,
+        "label": "Playlist",
+        "melhor_para": "associação prolongada da marca a playlists de alto consumo em momentos de uso recorrente",
+        "dispositivos": [
+          "mobile",
+          "desktop",
+          "tablet",
+          "app",
+          "audio"
+        ]
+      },
+      {
+        "nome": "Podcast Ads",
+        "chave": "audio-bar",
+        "w": 728,
+        "h": 90,
+        "label": "Podcast",
+        "melhor_para": "afinidade e profundidade de mensagem em conteúdos de nicho e audiências engajadas",
+        "dispositivos": [
+          "audio",
+          "mobile",
+          "desktop",
+          "tablet",
+          "app"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Conteúdo: Música vs Podcasts",
+        "quando": "ao definir se a campanha deve priorizar música, podcasts ou ambos no gerenciador de anúncios e nas linhas de pedido",
+        "exemplo": "marca de bens de consumo veicula Audio Ads em música para alcance amplo e reserva Podcast Ads apenas em programas de culinária e bem‑estar para aprofundar a mensagem"
+      },
+      {
+        "nome": "Momento de tela ativa (screen-on)",
+        "quando": "ao comprar formatos de vídeo e Sponsored Session, que só são entregues quando o app está em foco na tela",
+        "exemplo": "campanha de lançamento usa Video Takeover direcionado a sessões em que o usuário está com o app em foco, garantindo exposição visual completa"
+      },
+      {
+        "nome": "Tipo de sessão de escuta (sessão patrocinada vs sessão regular)",
+        "quando": "ao optar por Sponsored Session em vez de vídeo padrão, construindo experiência de ~30 minutos sem anúncios",
+        "exemplo": "marca de telecom ativa Sponsored Session para usuários free em mobile, oferecendo meia hora de música sem interrupções após o vídeo"
+      },
+      {
+        "nome": "Playlist e propriedade de inventário (Owned & Operated Playlists)",
+        "quando": "ao selecionar Sponsored Playlist em listas proprietárias com grande volume de ouvintes recorrentes",
+        "exemplo": "marca de bebidas patrocina playlist de hits nacionais, com presença em todos os intervalos comerciais da playlist e destaque na página"
+      },
+      {
+        "nome": "Contexto de uso em áudio sem tela (screenless audio)",
+        "quando": "ao focar em Audio Ads que alcançam usuários em momentos sem atenção à tela, como fones ou carro",
+        "exemplo": "marca automotiva direciona áudio para sessões de direção, priorizando mensagem sonora clara e call to action simples"
+      },
+      {
+        "nome": "Dispositivo e ambiente de app",
+        "quando": "ao escolher entre entrega em mobile, desktop ou outros dispositivos, especialmente para formatos de vídeo",
+        "exemplo": "varejo prioriza Mobile Overlay e Video Takeover em smartphones, com criativos otimizados para mobile e landing pages responsivas"
+      },
+      {
+        "nome": "Segmentação por programa de podcast",
+        "quando": "ao planejar compra de Podcast Ads em programas específicos alinhados ao público da marca",
+        "exemplo": "fintech concentra inserções em podcasts de finanças pessoais e empreendedorismo, usando host-read para aumentar credibilidade junto ao público.[2][4][8]"
+      },
+      {
+        "nome": "Formato de troca de valor (value exchange advertising)",
+        "quando": "ao usar Sponsored Session ou playlists patrocinadas que oferecem benefício claro ao usuário em troca de atenção ao anúncio",
+        "exemplo": "marca de e-commerce ativa Sponsored Session comunicando explícito “assista ao nosso vídeo e ganhe 30 minutos de música sem anúncios”, reforçando percepção positiva de marca.[1][11][15][8]"
+      }
+    ],
+    "fontes_pesquisa": [
+      {
+        "title": "Soluções de publicidade | Spotify Advertising (Experiências de vídeo e Sponsored Sessions)",
+        "url": "https://ads.spotify.com/pt-BR/experiencias-publicitarias/"
+      },
+      {
+        "title": "Ad Formats | Spotify Advertising (Music & Podcasts, posicionamentos automáticos)",
+        "url": "https://ads.spotify.com/pt-BR/ad-formats/"
+      },
+      {
+        "title": "Sponsored Playlist | Spotify Advertising (especificações de assets e uso de áudio/vídeo)",
+        "url": "https://ads.spotify.com/pt-BR/experiencias-publicitarias/sponsored-playlist-ad-specs/"
+      },
+      {
+        "title": "Comece a usar anúncios de áudio | Spotify Advertising",
+        "url": "https://ads.spotify.com/pt-BR/ad-formats/audio-ads/"
+      },
+      {
+        "title": "Anuncie no Spotify | Streaming de Áudio - Centralcomm",
+        "url": "https://www.centralcomm.media/canal/spotify"
+      },
+      {
+        "title": "Formatos Spotify - Puzzle Ads",
+        "url": "https://www.puzzleads.com.br/formato-spotify/"
+      }
+    ],
+    "avisos_pesquisa": [
+      "A maior parte da documentação pública de formatos (Sponsored Playlist, Video Ads, Sponsored Session) é global; especificidades de disponibilidade e audiência podem variar no Brasil.[11][13][14][12]",
+      "Especificações técnicas usadas por intermediários locais (agências/plataformas de mídia) refletem implementação prática no Brasil, mas não são dados oficiais de audiência ou alcance do Spotify.[5][6][15]",
+      "Não foram encontrados números oficiais recentes de ouvintes únicos, alcance em milhões ou métricas de viewability específicos para Brasil 2025–2026; qualquer valor numérico anterior deve ser tratado como estimativa não validada."
+    ]
   },
   {
     "slug": "deezer",
     "nome": "Deezer",
-    "categoria": "Streaming de Áudio",
+    "categoria": "Streaming",
     "tipo": "audio",
     "alcance": "+16M ouvintes",
     "viewability": 96,
@@ -46,12 +192,174 @@
     ],
     "logo_path": "/assets_images/logos/deezer.svg",
     "descricao": "Plataforma de streaming musical com forte presença no Brasil e América Latina. Parceria exclusiva com operadoras de telecom.",
-    "cor": "#A238FF"
+    "cor": "#A238FF",
+    "formatos": [
+      {
+        "nome": "Audio Ads",
+        "chave": "audio-bar",
+        "w": 728,
+        "h": 90,
+        "label": "15s/30s",
+        "melhor_para": "mensagem em momentos de escuta com atenção plena",
+        "dispositivos": [
+          "audio",
+          "mobile",
+          "desktop",
+          "tablet",
+          "app"
+        ]
+      },
+      {
+        "nome": "Display Banner",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "reforço visual da campanha de áudio",
+        "dispositivos": [
+          "mobile",
+          "desktop",
+          "tablet",
+          "app"
+        ]
+      },
+      {
+        "nome": "Video / Pre-roll",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "Pre-roll",
+        "melhor_para": "impacto de marca no início da sessão de escuta",
+        "dispositivos": [
+          "mobile",
+          "desktop",
+          "tablet",
+          "app"
+        ]
+      },
+      {
+        "nome": "Sponsored Editorial Playlist",
+        "chave": "audio-bar",
+        "w": 728,
+        "h": 90,
+        "label": "15s/30s",
+        "melhor_para": "associação de marca a playlists curadas de alta afinidade",
+        "dispositivos": [
+          "mobile",
+          "desktop",
+          "tablet",
+          "app"
+        ]
+      },
+      {
+        "nome": "Sponsored Session / Escuta Patrocinada",
+        "chave": "audio-bar",
+        "w": 728,
+        "h": 90,
+        "label": "15s/30s",
+        "melhor_para": "gerar percepção de marca generosa oferecendo sessão sem anúncios",
+        "dispositivos": [
+          "audio",
+          "mobile",
+          "desktop",
+          "tablet",
+          "app"
+        ]
+      },
+      {
+        "nome": "Sponsored Track",
+        "chave": "audio-bar",
+        "w": 728,
+        "h": 90,
+        "label": "15s/30s",
+        "melhor_para": "descoberta imediata e aumento de plays de conteúdo específico",
+        "dispositivos": [
+          "audio",
+          "mobile",
+          "desktop",
+          "tablet",
+          "app"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Perfil Demográfico",
+        "quando": "planejamento e setup de campanha",
+        "exemplo": "segmentação por idade e gênero para ajustar criativos a públicos como jovens adultos ou famílias."
+      },
+      {
+        "nome": "Geo por País, Região e Cidade",
+        "quando": "ativação em mercados ou praças específicas",
+        "exemplo": "campanhas focadas em Brasil, com recortes por estados ou grandes capitais para varejo e serviços locais."
+      },
+      {
+        "nome": "Interesses Musicais e Afinidade de Gênero",
+        "quando": "conteúdo e criação de playlists ou faixas patrocinadas",
+        "exemplo": "direcionar anúncios para ouvintes de rock, sertanejo ou eletrônico de acordo com o posicionamento da marca."
+      },
+      {
+        "nome": "Contexto de Playlist / Momento de Uso",
+        "quando": "estratégias de momento da jornada",
+        "exemplo": "ativar campanhas em playlists de treino, trabalho, relax ou festas para alinhar mensagem ao contexto de escuta."
+      },
+      {
+        "nome": "Similaridade com Artistas / Conteúdo",
+        "quando": "promoção de faixas patrocinadas ou colaborações",
+        "exemplo": "boostar uma faixa de artista novo para usuários que escutam artistas semelhantes, aumentando afinidade e conversão."
+      },
+      {
+        "nome": "Device Targeting",
+        "quando": "definição de formato e criativo",
+        "exemplo": "separar estratégias para usuários mobile versus desktop, ajustando duração, call to action e criativos."
+      },
+      {
+        "nome": "Momento da Sessão de Escuta",
+        "quando": "compra de formatos como pre-roll ou escuta patrocinada",
+        "exemplo": "impactar o usuário no início da sessão com pre-roll em vídeo ou oferecer uma sessão sem anúncios após um spot de áudio."
+      },
+      {
+        "nome": "First-party Audio Behaviour",
+        "quando": "otimização contínua via plataforma parceira",
+        "exemplo": "usar padrões de frequência de escuta, horários e tipos de conteúdo para refinar a entrega de campanhas ao longo do tempo."
+      }
+    ],
+    "fontes_pesquisa": [
+      {
+        "title": "Centralcomm – Anuncie no Deezer (Audio, Display, Sponsored Sessions, Podcast Ads)",
+        "url": "https://centralcomm.media/canal/deezer"
+      },
+      {
+        "title": "Deezer Newsroom BR – Parceria exclusiva Deezer e Azerion para monetização de áudio e vídeo no Brasil",
+        "url": "https://newsroom-deezer.com/br/2025/07/deezer-e-azerion-anunciam-parceria-exclusiva-para-vendas-publicitarias-no-brasil/"
+      },
+      {
+        "title": "Deezer for Advertisers – Advertise on Deezer (audio, video, display, branded/sponsored playlists)",
+        "url": "https://business.deezer.com/advertising/"
+      },
+      {
+        "title": "Symphonic Blog – Basics for Advertising on Deezer (audio ads, pre-roll video, sponsored tracks)",
+        "url": "https://blog.symphonic.com/2022/01/26/basics-for-advertising-on-deezer-2/"
+      },
+      {
+        "title": "Deezer Newsroom – Sponsored editorial playlists for advertisers",
+        "url": "https://newsroom-deezer.com/2021/01/deezer-launches-sponsored-editorial-playlists-for-advertisers-2/"
+      },
+      {
+        "title": "Deezer Brand Partnerships – Solutions sur mesure (escuta patrocinada, playlists patrocinadas)",
+        "url": "https://www.deezer-brandpartnerships.com/fr/nos-solutions/solutions-sur-mesure/"
+      }
+    ],
+    "avisos_pesquisa": [
+      "Grande parte da documentação pública da Deezer sobre formatos de anúncio é global; a operação no Brasil a partir de 2025 está integrada à Azerion como parceiro exclusivo de monetização.",
+      "Formatos de vídeo e playlists editoriais patrocinadas são descritos em materiais globais; disponibilidade e especificidades no Brasil devem ser confirmadas com a operação local/Azerion.",
+      "Não foram encontrados dados oficiais e atualizados de alcance em ouvintes para o Brasil 2025–2026 nas fontes consultadas."
+    ]
   },
   {
     "slug": "amazon-music",
     "nome": "Amazon Music",
-    "categoria": "Streaming de Áudio",
+    "categoria": "Streaming",
     "tipo": "audio",
     "alcance": "+8M ouvintes",
     "viewability": 97,
@@ -69,12 +377,137 @@
     ],
     "logo_path": "/assets_images/logos/amazon-music.svg",
     "descricao": "Serviço de streaming da Amazon com integração ao ecossistema Prime e dispositivos Alexa.",
-    "cor": "#FF9900"
+    "cor": "#FF9900",
+    "formatos": [
+      {
+        "nome": "Audio Ads (spots em streaming)",
+        "chave": "audio-bar",
+        "w": 728,
+        "h": 90,
+        "label": "15s/30s",
+        "melhor_para": "impacto em momentos de escuta em música e áudio premium no tier com anúncios do Amazon Music",
+        "dispositivos": [
+          "audio",
+          "mobile",
+          "desktop",
+          "tablet",
+          "ctv"
+        ]
+      },
+      {
+        "nome": "Podcast Audio Ads",
+        "chave": "audio-bar",
+        "w": 728,
+        "h": 90,
+        "label": "15s/30s",
+        "melhor_para": "mensagens de marca em ambientes de podcast via inventário Amazon Music/Wondery/APD",
+        "dispositivos": [
+          "audio",
+          "mobile",
+          "desktop",
+          "tablet"
+        ]
+      },
+      {
+        "nome": "Programmatic 3P Audio (via Amazon DSP)",
+        "chave": "audio-bar",
+        "w": 728,
+        "h": 90,
+        "label": "Áudio",
+        "melhor_para": "escala e frequência em ecossistema de streaming de áudio além do Amazon Music, em compra única",
+        "dispositivos": [
+          "audio",
+          "mobile",
+          "desktop",
+          "tablet",
+          "ctv"
+        ]
+      },
+      {
+        "nome": "Programmatic 3P Audio (APD/Twitch/Spotify/iHeart/SiriusXM)",
+        "chave": "audio-bar",
+        "w": 728,
+        "h": 90,
+        "label": "Áudio",
+        "melhor_para": "escala e frequência em ecossistema de streaming de áudio além do Amazon Music, em compra única",
+        "dispositivos": [
+          "audio",
+          "mobile",
+          "desktop",
+          "tablet",
+          "ctv"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Sinal de compra e comportamento em e-commerce Amazon",
+        "quando": "campanhas focadas em conversão ou consideração para produtos vendidos na Amazon ou em categorias de varejo",
+        "exemplo": "segmentar ouvintes expostos a categorias como eletrônicos, beleza ou supermercado com base em sinais 1st party da Amazon"
+      },
+      {
+        "nome": "Contexto de audição em música streaming",
+        "quando": "posicionamento de marca alinhado a gêneros, moods ou playlists específicos no Amazon Music",
+        "exemplo": "campanhas de bem-estar em playlists de relaxamento ou rotinas matinais, usando o tier com anúncios do Amazon Music como contexto de consumo"
+      },
+      {
+        "nome": "Dispositivo e ambiente (Echo, Fire TV, mobile, desktop)",
+        "quando": "mensagens adaptadas ao ambiente de uso (casa, multitarefa, tela ligada ou só áudio)",
+        "exemplo": "priorizar inventário em smart speakers Echo para mensagens de rotina doméstica, ou em Fire TV/CTV para campanhas que combinam áudio em telas conectadas"
+      },
+      {
+        "nome": "Momento de escuta e dia/horário",
+        "quando": "campanhas que querem estar presentes em rotinas específicas como commuting, trabalho ou fim de semana",
+        "exemplo": "otimizar entrega de spots em horários de pico de escuta, como início da manhã e fim de tarde"
+      },
+      {
+        "nome": "Segmentação por tipo de conteúdo (música vs. podcasts)",
+        "quando": "definir se a mensagem é mais adequada para consumo rápido em música ou aprofundamento em podcasts",
+        "exemplo": "usar standard audio para awareness em música e podcast audio ads para storytelling em programas específicos distribuídos via Amazon Music/Wondery"
+      },
+      {
+        "nome": "Cobertura omnicanal via Amazon DSP",
+        "quando": "campanhas que integram áudio a outros formatos (display, vídeo) dentro do stack Amazon Ads",
+        "exemplo": "usar audio ads em Amazon Music e 3P streaming combinados a display/vídeo na mesma estratégia de DSP, aplicando as mesmas audiências de Amazon Ads"
+      }
+    ],
+    "fontes_pesquisa": [
+      {
+        "title": "Anúncios de áudio - Amazon Ads (pt-BR)",
+        "url": "https://advertising.amazon.com/pt-br/solutions/products/audio-ads"
+      },
+      {
+        "title": "Especificações de anúncios de áudio - Amazon Ads",
+        "url": "https://advertising.amazon.com/pt-br/resources/ad-specs/audio-ads"
+      },
+      {
+        "title": "Amazon Ads: construída para conectar marcas à vida real dos consumidores (Brasil)",
+        "url": "https://www.aboutamazon.com.br/noticias/ads/amazon-ads-construida-para-conectar-marcas-a-vida-real-dos-consumidores"
+      },
+      {
+        "title": "Create standard audio and podcast campaigns on Amazon DSP (Help Center)",
+        "url": "https://advertising.amazon.eg/help/G9T72834T7Z2K2RB"
+      },
+      {
+        "title": "Áudio | Centro de suporte da Amazon Ads (Brasil)",
+        "url": "https://advertising.amazon.com.br/help/G8M4PBLF44KEHQNX"
+      },
+      {
+        "title": "Audio marketing and advertising explained - Amazon Ads",
+        "url": "https://advertising.amazon.com/library/guides/audio-marketing"
+      }
+    ],
+    "avisos_pesquisa": [
+      "A ficha original traz 'Alexa Interactive Ads'; especificações oficiais indicam que anúncios de áudio interativos com Alexa estão, até o momento, disponíveis apenas em EUA e Reino Unido, não como produto confirmado para o Brasil.[4][12]",
+      "Viewability e investimento mínimo não aparecem nas fontes consultadas de Amazon Ads ou Amazon Music; qualquer número deve ser validado diretamente com Amazon Ads Brasil.",
+      "Parte do inventário citado (SiriusXM, Pandora, SoundCloud) é originado de integrações globais; é necessário checar com Amazon Ads Brasil quais fontes 3P específicas estão ativas no país.[9][11][10]",
+      "As descrições de segmentação derivam de documentos globais de Amazon Ads e guias de áudio; ajustes locais de targeting para Brasil podem existir e precisam de validação com o time Amazon Ads no país.[1][3][14][15]"
+    ]
   },
   {
     "slug": "netflix",
     "nome": "Netflix",
-    "categoria": "CTV / Streaming",
+    "categoria": "Streaming",
     "tipo": "ctv",
     "alcance": "+20M assinantes BR",
     "viewability": 99,
@@ -92,12 +525,128 @@
     ],
     "logo_path": "/assets_images/logos/netflix.png",
     "descricao": "A maior plataforma de streaming de vídeo do mundo. Plano com anúncios oferece acesso a audiência premium em ambiente brand safe.",
-    "cor": "#E50914"
+    "cor": "#E50914",
+    "formatos": [
+      {
+        "nome": "Video Ads (pre-roll/mid-roll)",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "16:9",
+        "melhor_para": "video branding em conteúdos sob demanda",
+        "dispositivos": [
+          "ctv",
+          "mobile",
+          "desktop",
+          "tablet",
+          "app"
+        ]
+      },
+      {
+        "nome": "Pause Ads",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "presença de marca em momentos de pausa do usuário",
+        "dispositivos": [
+          "ctv",
+          "mobile",
+          "desktop",
+          "tablet",
+          "app"
+        ]
+      },
+      {
+        "nome": "Pre-roll",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "Pre-roll",
+        "melhor_para": "abertura de sessão",
+        "dispositivos": [
+          "ctv"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Rotativo (sem segmentação)",
+        "quando": "campanha de cobertura ampla no plano com anúncios",
+        "exemplo": "Inserção de vídeo ads distribuídos em diferentes títulos e gêneros, sem filtro adicional de conteúdo.[14]"
+      },
+      {
+        "nome": "Por gênero de conteúdo",
+        "quando": "campanha alinhada ao contexto editorial",
+        "exemplo": "Segmentação para exibir anúncios apenas em séries de comédia ou filmes de ação.[14]"
+      },
+      {
+        "nome": "Top 10 Netflix",
+        "quando": "campanhas que priorizam títulos de maior audiência",
+        "exemplo": "Compra de inventário em filmes e séries listados no Top 10 diário da Netflix.[14]"
+      },
+      {
+        "nome": "Primeira impressão do dia",
+        "quando": "lançamentos e comunicações que buscam alto impacto na primeira sessão do usuário",
+        "exemplo": "Garantir que o primeiro anúncio exibido ao usuário em seu dia na Netflix seja da marca da campanha.[14]"
+      },
+      {
+        "nome": "Interesse (Ads Suite, +100 opções)",
+        "quando": "campanhas orientadas a perfis de audiência com base em comportamento de consumo",
+        "exemplo": "Segmentar usuários com interesse em esportes, kids & family ou true crime usando a camada de dados da Netflix Ads Suite.[7][11]"
+      },
+      {
+        "nome": "Categorias de audiência (17 categorias)",
+        "quando": "planejamento mais granular em clusters de conteúdo/consumo",
+        "exemplo": "Comprar mídia em categorias como entretenimento jovem adulto ou lifestyle, conforme taxonomia da plataforma.[7]"
+      },
+      {
+        "nome": "Audiências 1st party (Amazon Audiences via programático)",
+        "quando": "campanhas com compra programática que usam dados de terceiros integrados",
+        "exemplo": "Usar audiências Amazon para orientar compras programáticas de inventário Netflix no Brasil e México.[6]"
+      },
+      {
+        "nome": "Momento de maratona (binge behavior)",
+        "quando": "campanhas que consideram o comportamento de assistir vários episódios em sequência",
+        "exemplo": "Ativar criativos específicos em blocos de anúncios antes dos três primeiros episódios de uma série, respeitando novos formatos binge ad anunciados pela Netflix.[15]"
+      }
+    ],
+    "fontes_pesquisa": [
+      {
+        "title": "Netflix com anúncios – página oficial do plano no Brasil",
+        "url": "https://www.netflix.com/br/ads-plan"
+      },
+      {
+        "title": "Anúncios na Netflix – Central de Ajuda (experiências com anúncios)",
+        "url": "https://help.netflix.com/pt/node/126831"
+      },
+      {
+        "title": "Netflix Advertising – Ad Formats (Video Ads e Pause Ads, QR codes)",
+        "url": "https://advertising.netflix.com/en-br/ad-formats"
+      },
+      {
+        "title": "Nosso mais novo plano – Básico com anúncios no Brasil",
+        "url": "https://about.netflix.com/pt_br/news/our-newest-plan-now-available-br"
+      },
+      {
+        "title": "Netflix to Roll Out Ads in November, Brazil and Mexico Among First 12 Markets",
+        "url": "https://www.bloomberglinea.com/english/netflix-to-roll-out-ads-in-november-brazil-and-mexico-among-first-12-markets/"
+      },
+      {
+        "title": "Como anunciar na Netflix? Conheça os formatos de anúncios",
+        "url": "https://publya.com/blog/anuncios-na-netflix/"
+      }
+    ],
+    "avisos_pesquisa": [
+      "Grande parte das métricas citadas para Pause Ads, quantidade de pausas mensais e atenção são comunicadas em materiais globais da Netflix e parceiros de mensuração, não necessariamente específicas ao Brasil.[1][3][14]",
+      "Informações sobre mais de 100 opções de interesse, 17 categorias de segmentação e formatos interativos fazem parte da narrativa global/Latam da Netflix Ads Suite, aplicadas ao Brasil mas comunicadas em materiais regionais e globais.[5][7][11]",
+      "Dados de blocos de anúncios por hora (4–5 minutos), duração dos vídeos (15s/30s) e lógica de inserção em filmes e séries vêm de comunicação global do plano com anúncios, com aplicação mencionada para o Brasil.[8][9][15]"
+    ]
   },
   {
     "slug": "globoplay",
     "nome": "Globoplay",
-    "categoria": "CTV / Streaming",
+    "categoria": "Streaming",
     "tipo": "ctv",
     "alcance": "+25M assinantes",
     "viewability": 98,
@@ -117,12 +666,81 @@
     ],
     "logo_path": "/assets_images/logos/globoplay.png",
     "descricao": "Principal plataforma de streaming brasileira com conteúdo exclusivo Globo, novelas, séries e jornalismo.",
-    "cor": "#F7941D"
+    "cor": "#F7941D",
+    "formatos": [
+      {
+        "nome": "Video Ads",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "16:9",
+        "melhor_para": "novela e jornal",
+        "dispositivos": [
+          "ctv",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Pre-roll",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "Pre-roll",
+        "melhor_para": "abertura de capítulo",
+        "dispositivos": [
+          "ctv",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Mid-roll",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "Mid-roll",
+        "melhor_para": "intervalo de jornal",
+        "dispositivos": [
+          "ctv"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Novelas",
+        "quando": "Lançamento de capítulos e episódios com alta retenção",
+        "exemplo": "Veicular Video Ads ou Pre-roll alinhados à estreia de capítulos ou temporadas de novelas presentes na plataforma"
+      },
+      {
+        "nome": "Jornalismo e telejornais",
+        "quando": "Blocos de notícias e coberturas jornalísticas de maior alcance",
+        "exemplo": "Inserir Mid-roll ou Video Ads de curta duração durante intervalos de telejornais ou reportagens relevantes"
+      },
+      {
+        "nome": "Reality shows (ex.: BBB)",
+        "quando": "Exibições semanais, recaps e conteúdos ao vivo relacionados ao reality",
+        "exemplo": "Campanhas com Pre-roll e Pause Ads para aproveitar picos de audiência em episódios e conteúdos complementares"
+      },
+      {
+        "nome": "Eventos ao vivo",
+        "quando": "Transmissões ao vivo (esportes, shows, eventos especiais)",
+        "exemplo": "Utilizar Pre-roll e anúncios durante a transmissão ao vivo para alcance em tempo real e engajamento imediato"
+      },
+      {
+        "nome": "Audiência feminina",
+        "quando": "Lançamentos de produtos/serviços com apelo principal ao público feminino",
+        "exemplo": "Segmentação para público feminino (plataforma indica ~58% feminino) com criativos e mensagens otimizadas para esse perfil"
+      },
+      {
+        "nome": "CTV-first / tela grande",
+        "quando": "Campanhas que priorizam experiência imersiva e storytelling em sala de estar",
+        "exemplo": "Utilizar Video Ads 16:9 otimizados para CTV para maior impacto visual e recall de marca"
+      }
+    ]
   },
   {
     "slug": "paramount-plus",
     "nome": "Paramount+",
-    "categoria": "CTV / Streaming",
+    "categoria": "Streaming",
     "tipo": "ctv",
     "alcance": "+8M assinantes BR",
     "viewability": 97,
@@ -141,12 +759,103 @@
     ],
     "logo_path": "/assets_images/logos/paramount.svg",
     "descricao": "Streaming premium com conteúdo exclusivo da Paramount, MTV, Nickelodeon, Comedy Central e mais.",
-    "cor": "#0064FF"
+    "cor": "#0064FF",
+    "formatos": [
+      {
+        "nome": "Pause Ads",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "momentos de pausa no streaming em tela de TV",
+        "dispositivos": [
+          "ctv"
+        ]
+      },
+      {
+        "nome": "Pre-roll",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "Pre-roll",
+        "melhor_para": "abertura de conteúdo em streaming",
+        "dispositivos": [
+          "ctv"
+        ]
+      },
+      {
+        "nome": "Video Ads",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "16:9",
+        "melhor_para": "vídeo em conteúdo premium de streaming",
+        "dispositivos": [
+          "ctv"
+        ]
+      },
+      {
+        "nome": "Branded Content",
+        "chave": "linkedin-landscape",
+        "w": 1200,
+        "h": 627,
+        "label": "1.91:1",
+        "melhor_para": "projetos customizados com conteúdo premium",
+        "dispositivos": [
+          "ctv"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Esportes",
+        "quando": "futebol e NFL",
+        "exemplo": "Jogos e mesas"
+      },
+      {
+        "nome": "Filmes e franquias",
+        "quando": "marca em conteúdo",
+        "exemplo": "Cinema Paramount"
+      },
+      {
+        "nome": "Horário",
+        "quando": "noite CTV",
+        "exemplo": "Prime time"
+      },
+      {
+        "nome": "Praça",
+        "quando": "teste BR",
+        "exemplo": "Sudeste"
+      }
+    ],
+    "fontes_pesquisa": [
+      {
+        "title": "PARAMOUNT PAUSE AD SPECIFICATIONS",
+        "url": "https://www.paramount.com/sites/g/files/dxjhpe356/files/2023-10/Paramount_Pause_Ad_Specs_R6.pdf"
+      },
+      {
+        "title": "Advertising | Paramount",
+        "url": "https://www.paramount.com/about/businesses/advertising"
+      },
+      {
+        "title": "Paramount Ads Manager: Self-Serve CTV Ads on Paramount+",
+        "url": "https://adsmanager.paramount.com/"
+      },
+      {
+        "title": "Kotait: \"O Paramount+ será uma revolução no mercado\"",
+        "url": "https://www.meioemensagem.com.br/midia/kotait-o-paramount-sera-uma-revolucao-no-mercado"
+      }
+    ],
+    "avisos_pesquisa": [
+      "Não foi encontrado kit 2025/2026 público do Paramount+ Brasil com segmentações, mínimos ou métricas comerciais auditadas.",
+      "O material recuperado confirma o formato Pause Ad e a existência de oferta publicitária/CTV, mas não confirma inventário, viewability, investimento mínimo ou UU no Brasil.",
+      "Algumas referências recuperadas são globais ou de notícia de produto; não devem ser tratadas como especificação comercial local do Brasil."
+    ]
   },
   {
     "slug": "samsung-tv-plus",
     "nome": "Samsung TV Plus",
-    "categoria": "CTV / Streaming",
+    "categoria": "Streaming",
     "tipo": "ctv",
     "alcance": "+20M Smart TVs BR",
     "viewability": 97,
@@ -166,14 +875,70 @@
     ],
     "logo_path": "/assets_images/logos/samsung-tv.svg",
     "descricao": "Streaming gratuito pré-instalado em mais de 20 milhões de Smart TVs Samsung no Brasil. Acesso direto à tela inicial — sem app, sem login.",
-    "cor": "#1428A0"
+    "cor": "#1428A0",
+    "formatos": [
+      {
+        "nome": "Video Ads",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "16:9",
+        "melhor_para": "FAST sem assinatura",
+        "dispositivos": [
+          "ctv"
+        ]
+      },
+      {
+        "nome": "Pause Ads",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "marca no canal FAST",
+        "dispositivos": [
+          "ctv"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Socioeconômica",
+        "quando": "Campanhas de posicionamento premium ou lançamento de produto com foco em alto poder aquisitivo",
+        "exemplo": "Alvo em Classe A/B (audiência premium: 68% Classe A/B)"
+      },
+      {
+        "nome": "Geográfica",
+        "quando": "Ativações regionais, promoções locais ou lançamento por mercado",
+        "exemplo": "Segmentar por estado ou cidade — ex.: São Paulo capital"
+      },
+      {
+        "nome": "Por conteúdo / gênero",
+        "quando": "Quando a mensagem precisa estar alinhada ao tipo de programa (esporte, notícias, entretenimento)",
+        "exemplo": "Usuários que consomem canais de esporte para promoção de produtos relacionados a fitness"
+      },
+      {
+        "nome": "Comportamental (ACR)",
+        "quando": "Campanhas orientadas a intenção ou afinidade usando sinais de ACR",
+        "exemplo": "Público com sinais de interesse em automóveis identificado via dados ACR"
+      },
+      {
+        "nome": "Tela inicial / descoberta",
+        "quando": "Lançamentos e campanhas de awareness que se beneficiam de alta visibilidade imediata",
+        "exemplo": "Home Screen Takeover para promover nova série ou produto no primeiro ponto de contato"
+      },
+      {
+        "nome": "Dayparting (horário)",
+        "quando": "Otimização de entrega para horários com maior engajamento do público-alvo",
+        "exemplo": "Exibir criativos focados em família no horário nobre (ex.: 20h–23h)"
+      }
+    ]
   },
   {
     "slug": "disney-plus",
     "nome": "Disney+",
-    "categoria": "CTV / Streaming",
+    "categoria": "Streaming",
     "tipo": "ctv",
-    "alcance": "+15M assinantes BR",
+    "alcance": "Plano Disney+ Padrão com anúncios disponível no Brasil para assinantes; todos os planos podem exibir publicidade em conteúdos ao vivo e eventos especiais.",
     "viewability": 98,
     "investimento_minimo": "R$ 40.000",
     "beneficios": [
@@ -189,12 +954,132 @@
     ],
     "logo_path": "/assets_images/logos/disney.png",
     "descricao": "Streaming premium da Disney com conteúdo Marvel, Star Wars, Pixar, National Geographic e Star.",
-    "cor": "#1A6DFF"
+    "cor": "#1A6DFF",
+    "formatos": [
+      {
+        "nome": "Video Ads 15s/30s (pre-roll e mid-roll)",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "16:9",
+        "melhor_para": "campanhas em ambiente premium de streaming, em conteúdos on demand e ao vivo",
+        "dispositivos": [
+          "ctv"
+        ]
+      },
+      {
+        "nome": "Pause Ads",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "presença de marca no momento em que o usuário pausa o conteúdo, sem interromper a experiência",
+        "dispositivos": [
+          "ctv"
+        ]
+      },
+      {
+        "nome": "Pause+ (Billboard / Trivia / Carousel dentro de Pause Ads)",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "experiências interativas de marca durante a pausa, com unidades mais ricas (billboard, trivia, carrossel)",
+        "dispositivos": [
+          "ctv"
+        ]
+      },
+      {
+        "nome": "Gateway Go",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "16:9",
+        "melhor_para": "ações de performance ou consideração com oferta/lembrança que o usuário pode acionar via clique, QR code ou notificações",
+        "dispositivos": [
+          "ctv",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Ad Selector",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "16:9",
+        "melhor_para": "campanhas focadas em engajamento, permitindo ao usuário escolher qual criativo assistir",
+        "dispositivos": [
+          "ctv"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Plano Disney+ Padrão com anúncios (assinantes ad-supported)",
+        "quando": "ao comprar inventário em vídeo em conteúdos on demand de assinantes do plano com anúncios",
+        "exemplo": "segmentar campanhas apenas para quem está no plano Padrão com anúncios, que exibe intervalos comerciais antes e durante a maioria dos filmes e séries."
+      },
+      {
+        "nome": "Conteúdos ao vivo e eventos especiais",
+        "quando": "em transmissões ao vivo, reprises e eventos especiais dentro do Disney+ que aceitam anúncios em todos os planos",
+        "exemplo": "ativar campanhas em conteúdos ao vivo e eventos especiais, com inserções antes/depois da reprodução, patrocínios e placements."
+      },
+      {
+        "nome": "Franquias e marcas de conteúdo Disney",
+        "quando": "ao planejar campanhas associadas a universos como Marvel, Star Wars, Pixar, National Geographic e Star",
+        "exemplo": "comprar pacotes ou posicionamentos em conteúdos de franquias específicas para reforço de afinidade com fãs de Marvel ou Star Wars."
+      },
+      {
+        "nome": "Momento de pausa do conteúdo (Pause / Pause+)",
+        "quando": "quando o usuário aciona o pause durante um filme ou série",
+        "exemplo": "segmentar a entrega de Pause Ads ou Pause+ para impactar o usuário apenas quando ele pausa o conteúdo, aproveitando o momento de atenção estática."
+      },
+      {
+        "nome": "Experiências interativas DXC (Gateway Go, Pause+, Ad Selector)",
+        "quando": "ao usar formatos avançados que pedem ação do usuário (clique, escolha de criativo, interação com trivia/carrossel)",
+        "exemplo": "ativar Gateway Go com ofertas clicáveis ou Ad Selector permitindo ao usuário escolher o filme ou criativo da marca que deseja ver."
+      },
+      {
+        "nome": "Promoções e produtos Disney (owned media)",
+        "quando": "em campanhas de cross-promo dentro dos próprios planos com ou sem anúncios",
+        "exemplo": "usar espaços de promoções e patrocínios para divulgar outros produtos/serviços Disney dentro de Disney+."
+      }
+    ],
+    "fontes_pesquisa": [
+      {
+        "title": "Anúncios no Disney+ (central de ajuda em português)",
+        "url": "https://help.disneyplus.com/pt-BR/article/disneyplus-ads"
+      },
+      {
+        "title": "Disney+ Brasil | Filmes, séries e esportes ilimitados",
+        "url": "https://www.disneyplus.com/pt-br"
+      },
+      {
+        "title": "Disney+ Brazil | Unlimited Movies, TV Series, and Sports",
+        "url": "https://www.disneyplus.com/en-br"
+      },
+      {
+        "title": "Disney+ VIDEO AD – International Spec (PDF)",
+        "url": "https://files.disneyadvertising.com/MediaKit/Disney-Plus/_International/disneyplus_video_emea_english.pdf"
+      },
+      {
+        "title": "Disney Brasil MediaKit",
+        "url": "https://www.disneyadvertising.com/mediakit/disney/disney-brasil/"
+      },
+      {
+        "title": "MEDIAKIT – Disney+ Advertising Inventory Guidelines",
+        "url": "https://www.disneyadvertising.com/mediakit/"
+      }
+    ],
+    "avisos_pesquisa": [
+      "Especificações técnicas de vídeo (duração, resolução, codecs) são de documento internacional Disney+ VIDEO AD e podem incluir parâmetros globais; aplicação exata no Brasil deve ser confirmada em mídia kit local.[2]",
+      "Informações sobre formatos avançados (Gateway Go, Pause Ads, Pause+, Ad Selector) são comunicadas em notícia corporativa global da The Walt Disney Company e refletem rollout internacional, com possível variação de disponibilidade por mercado; checar com time comercial Brasil antes de planejar.[14]"
+    ]
   },
   {
     "slug": "prime-video",
     "nome": "Prime Video",
-    "categoria": "CTV / Streaming",
+    "categoria": "Streaming",
     "tipo": "ctv",
     "alcance": "+12M assinantes BR",
     "viewability": 97,
@@ -212,12 +1097,80 @@
     ],
     "logo_path": "/assets_images/logos/prime.png",
     "descricao": "Streaming da Amazon com conteúdo original, filmes e séries. Integração com ecossistema Amazon.",
-    "cor": "#00A8E1"
+    "cor": "#00A8E1",
+    "formatos": [
+      {
+        "nome": "Video Ads",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "16:9",
+        "melhor_para": "branding no Prime",
+        "dispositivos": [
+          "ctv",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Pre-roll",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "Pre-roll",
+        "melhor_para": "abertura de título",
+        "dispositivos": [
+          "ctv"
+        ]
+      },
+      {
+        "nome": "Pause Ads",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "marca no intervalo",
+        "dispositivos": [
+          "ctv"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Membros Prime",
+        "quando": "Quando a campanha mira audiência engajada com maior propensão à compra e retenção.",
+        "exemplo": "Alvo: membros Prime que consomem séries originais e ofertas exclusivas."
+      },
+      {
+        "nome": "Dados de compra Amazon",
+        "quando": "Quando quiser alinhar criativos a comportamento de compra e intenção de compra clara.",
+        "exemplo": "Alvo: usuários que demonstraram interesse ou compraram categorias relacionadas ao produto anunciado."
+      },
+      {
+        "nome": "Fãs de esportes / transmissões ao vivo",
+        "quando": "Durante eventos esportivos ou para aproveitar alto engajamento em transmissões ao vivo.",
+        "exemplo": "Alvo: espectadores de transmissões como Thursday Night Football para promoções relacionadas a esportes."
+      },
+      {
+        "nome": "Proprietários de Fire TV / cross-device",
+        "quando": "Quando a estratégia exige alcance otimizado em TV conectada e mensuração cross-device.",
+        "exemplo": "Alvo: usuários com Fire TV para promover apps, serviços ou ofertas específicas para TV."
+      },
+      {
+        "nome": "Contextual por gênero/conteúdo",
+        "quando": "Quando a mensagem deve estar alinhada ao tipo de conteúdo assistido (série, filme, comédia).",
+        "exemplo": "Alvo: espectadores de comédias para campanhas de marcas com tom leve e humorístico."
+      },
+      {
+        "nome": "Demografia e perfil de renda",
+        "quando": "Para campanhas de produtos/serviços premium ou segmentação por poder aquisitivo.",
+        "exemplo": "Alvo: públicos com perfil de maior poder aquisitivo para lançamentos de marca premium."
+      }
+    ]
   },
   {
     "slug": "hbo-max",
     "nome": "Max (HBO)",
-    "categoria": "CTV / Streaming",
+    "categoria": "Streaming",
     "tipo": "ctv",
     "alcance": "+10M assinantes BR",
     "viewability": 98,
@@ -235,12 +1188,151 @@
     ],
     "logo_path": "/assets_images/logos/hbo-max.png",
     "descricao": "Streaming premium com conteúdo HBO, Warner Bros, DC e Discovery. Séries aclamadas e filmes blockbuster.",
-    "cor": "#5822B4"
+    "cor": "#5822B4",
+    "formatos": [
+      {
+        "nome": "Video Ads",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "16:9",
+        "melhor_para": "branding em streaming premium",
+        "dispositivos": [
+          "ctv"
+        ]
+      },
+      {
+        "nome": "Pre-roll",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "Pre-roll",
+        "melhor_para": "impacto de abertura",
+        "dispositivos": [
+          "ctv"
+        ]
+      },
+      {
+        "nome": "Mid-roll",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "Mid-roll",
+        "melhor_para": "captura de atenção durante consumo longo",
+        "dispositivos": [
+          "ctv"
+        ]
+      },
+      {
+        "nome": "Pause ads",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "mensagem de alta lembrança em pausa",
+        "dispositivos": [
+          "ctv"
+        ]
+      },
+      {
+        "nome": "Takeover",
+        "chave": "iab-billboard",
+        "w": 970,
+        "h": 250,
+        "label": "970×250",
+        "melhor_para": "domínio de um conteúdo/abertura do dia",
+        "dispositivos": [
+          "ctv"
+        ]
+      },
+      {
+        "nome": "Brand Block",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "16:9",
+        "melhor_para": "exclusividade em conteúdo",
+        "dispositivos": [
+          "ctv"
+        ]
+      },
+      {
+        "nome": "Sequential Ads",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "16:9",
+        "melhor_para": "narrativa sequencial em campanhas",
+        "dispositivos": [
+          "ctv"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Brand safety por conteúdo premium",
+        "quando": "quando a campanha precisa aparecer ao lado de séries e filmes premium",
+        "exemplo": "inserção em conteúdo de alto valor de marca dentro do catálogo Max"
+      },
+      {
+        "nome": "Contexto de conteúdo em gêneros",
+        "quando": "quando a compra usa afinidade editorial por gênero ou tema",
+        "exemplo": "esportes, drama, infantil, documentários"
+      },
+      {
+        "nome": "Eventos ao vivo",
+        "quando": "quando a campanha quer acompanhar transmissões live",
+        "exemplo": "Paulistão com inserção dinâmica de anúncios"
+      },
+      {
+        "nome": "1st party do plano com anúncios",
+        "quando": "quando a ativação considera somente inventário do plano Básico com anúncios",
+        "exemplo": "entrega para assinantes do plano ad-supported"
+      },
+      {
+        "nome": "Frequência e controle de exposição",
+        "quando": "quando a campanha exige limitação de repetição",
+        "exemplo": "limite de frequência por marca"
+      },
+      {
+        "nome": "Segurança de marca",
+        "quando": "quando a compra precisa de ambientes selecionados e qualificados",
+        "exemplo": "associação a conteúdo selecionado de alta qualidade"
+      }
+    ],
+    "fontes_pesquisa": [
+      {
+        "title": "Anúncios na HBO Max",
+        "url": "https://help.hbomax.com/br-pt/answer/detail/000002520"
+      },
+      {
+        "title": "Oportunidades HBO Max | Warner Bros. Discovery Brasil",
+        "url": "https://wbdforbrands.com.br/landing/oportunidades-hbo-max/"
+      },
+      {
+        "title": "Max: Nuevas oportunidades comerciales para anunciantes en LatAm",
+        "url": "https://www.thedailytelevision.com/articulo/publicidad/max-abre-nuevas-oportunidades-comerciales-para-anunciantes-en-latam"
+      },
+      {
+        "title": "MAX chega ao Brasil com novas oportunidades comerciais",
+        "url": "https://adnews.com.br/max-chega-ao-brasil-com-novas-oportunidades-comerciais/"
+      },
+      {
+        "title": "HBO Max Adds Pause and Sequential Ad Formats",
+        "url": "https://www.adweek.com/convergent-tv/hbo-max-adds-pause-and-sequential-ad-formats-updates-brand-block/"
+      }
+    ],
+    "avisos_pesquisa": [
+      "Não foi possível validar viewability de 98%; remover como dado comercial não comprovado nas fontes recuperadas.",
+      "Não foi possível validar investimento mínimo de R$ 45.000; remover por ausência de comprovação pública nas fontes recuperadas.",
+      "A disponibilidade de takeovers e brand block foi encontrada em cobertura de produto global, mas não em fonte brasileira suficiente para confirmação local; tratar como não validado no Brasil.",
+      "A menção a inserção dinâmica em eventos ao vivo foi confirmada para a região e inclui o Brasil em evento esportivo, mas o detalhe de comercialização local exata não foi totalmente aberto nas fontes recuperadas."
+    ]
   },
   {
     "slug": "g1-globo",
     "nome": "G1 / Globo.com",
-    "categoria": "Portais Premium",
+    "categoria": "Portais",
     "tipo": "portal",
     "alcance": "+150M pageviews/mês",
     "viewability": 72,
@@ -261,12 +1353,105 @@
     ],
     "logo_path": "/assets_images/logos/g1.png",
     "descricao": "O maior portal de notícias do Brasil, com cobertura nacional e regional. Referência em jornalismo digital.",
-    "cor": "#C4170C"
+    "cor": "#C4170C",
+    "formatos": [
+      {
+        "nome": "Display",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "cobertura nacional",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Native Ads",
+        "chave": "iab-leaderboard",
+        "w": 728,
+        "h": 90,
+        "label": "728×90",
+        "melhor_para": "leitura no feed",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Takeover",
+        "chave": "iab-billboard",
+        "w": 970,
+        "h": 250,
+        "label": "970×250",
+        "melhor_para": "home de impacto",
+        "dispositivos": [
+          "desktop"
+        ]
+      },
+      {
+        "nome": "Video Ads",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "16:9",
+        "melhor_para": "player de notícia",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Branded Content",
+        "chave": "linkedin-landscape",
+        "w": 1200,
+        "h": 627,
+        "label": "1.91:1",
+        "melhor_para": "reportagem patrocinada",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Regional / Geográfica",
+        "quando": "Quando a ação precisa atingir estados, capitais ou regiões específicas",
+        "exemplo": "Promoção de varejo focada apenas em São Paulo e cidades da região metropolitana"
+      },
+      {
+        "nome": "Contextual / Editorial",
+        "quando": "Quando a marca quer associar sua mensagem a seções ou temas jornalísticos (ex.: economia, esporte, saúde)",
+        "exemplo": "Instituição financeira divulgando conteúdo em páginas da seção Economia"
+      },
+      {
+        "nome": "Interesse / Temática",
+        "quando": "Quando a campanha mira públicos por afinidade de interesse (tecnologia, lifestyle, automobilismo, etc.)",
+        "exemplo": "Marca de eletrônicos anunciando para leitores frequentes de tecnologia"
+      },
+      {
+        "nome": "Demográfica",
+        "quando": "Quando há foco em atributos como faixa etária, gênero ou perfil socioeconômico",
+        "exemplo": "Lançamento de curso voltado a adultos jovens e profissionais em início de carreira"
+      },
+      {
+        "nome": "Dispositivo / Plataforma",
+        "quando": "Quando criativos ou experiência são otimizados para mobile ou desktop",
+        "exemplo": "Ofertas exclusivas via mobile app ou mobile web"
+      },
+      {
+        "nome": "Comportamental / Retargeting & CRM",
+        "quando": "Quando se quer alcançar usuários que já interagiram com a marca ou site (retargeting) ou usar base própria de clientes",
+        "exemplo": "Campanha de retargeting para visitantes que visualizaram páginas de produto recentemente"
+      }
+    ]
   },
   {
     "slug": "r7",
     "nome": "R7",
-    "categoria": "Portais Premium",
+    "categoria": "Portais",
     "tipo": "portal",
     "alcance": "+80M pageviews/mês",
     "viewability": 68,
@@ -286,14 +1471,205 @@
     ],
     "logo_path": "/assets_images/logos/r7.png",
     "descricao": "Portal de notícias do Grupo Record com grande audiência nacional. Forte em entretenimento e notícias.",
-    "cor": "#0055A5"
+    "cor": "#0055A5",
+    "formatos": [
+      {
+        "nome": "Retângulo (300x250)",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "cobertura em home e internas do portal",
+        "dispositivos": [
+          "desktop",
+          "mobile",
+          "tablet"
+        ]
+      },
+      {
+        "nome": "Billboard (970x250)",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "impacto em áreas de topo",
+        "dispositivos": [
+          "desktop"
+        ]
+      },
+      {
+        "nome": "Super Banner / Stick Ad (728x90)",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "visibilidade em topo de páginas e formato fixo",
+        "dispositivos": [
+          "desktop"
+        ]
+      },
+      {
+        "nome": "Banner Mobile (320x50)",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "presença em navegação mobile",
+        "dispositivos": [
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Native Advertising / Native com vídeo",
+        "chave": "iab-leaderboard",
+        "w": 728,
+        "h": 90,
+        "label": "728×90",
+        "melhor_para": "integração com conteúdo editorial em páginas do portal",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Half Page (300x600)",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "impacto vertical em páginas de conteúdo",
+        "dispositivos": [
+          "desktop"
+        ]
+      },
+      {
+        "nome": "Galeria de Fotos",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "presença em ambientes de galeria de imagens",
+        "dispositivos": [
+          "desktop"
+        ]
+      },
+      {
+        "nome": "Intervenção padrão (takeover de home)",
+        "chave": "iab-billboard",
+        "w": 970,
+        "h": 250,
+        "label": "970×250",
+        "melhor_para": "takeover de homepage por período determinado",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Conteúdo / Branded Content (R7 Estúdio)",
+        "chave": "linkedin-landscape",
+        "w": 1200,
+        "h": 627,
+        "label": "1.91:1",
+        "melhor_para": "projetos especiais de conteúdo multimídia no portal e redes",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Conteúdo / Branded Content (R7 Estúdio, conteúdos patrocinados)",
+        "chave": "linkedin-landscape",
+        "w": 1200,
+        "h": 627,
+        "label": "1.91:1",
+        "melhor_para": "projetos especiais de conteúdo multimídia no portal e redes",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Contexto editorial de notícias",
+        "quando": "campanhas que precisam estar associadas a conteúdo jornalístico nacional",
+        "exemplo": "inserir display e native em seções de notícias gerais e política do portal R7."
+      },
+      {
+        "nome": "Contexto de entretenimento",
+        "quando": "marcas que querem aproveitar afinidade com conteúdos de entretenimento e celebridades",
+        "exemplo": "usar formatos de display e branded content em editorias de entretenimento e áreas ligadas à Record TV."
+      },
+      {
+        "nome": "Integração multiplataforma portal + redes sociais",
+        "quando": "projetos que combinam presença no site e nas redes sociais do R7",
+        "exemplo": "ativar conteúdo patrocinado no portal com posts de imagem, texto ou vídeo no Instagram e Facebook do R7."
+      },
+      {
+        "nome": "Geo nacional com presença em parceiros",
+        "quando": "campanhas que buscam alcance nacional aproveitando inventário próprio e de parceiros digitais",
+        "exemplo": "comprar retângulo e outros formatos que rodam em home, internas e rede de parceiros do R7."
+      },
+      {
+        "nome": "Projetos especiais de branded content",
+        "quando": "campanhas que priorizam storytelling e formatos editoriais customizados",
+        "exemplo": "desenvolver reportagem multimídia patrocinada via R7 Estúdio com distribuição em portal e redes."
+      },
+      {
+        "nome": "Momentos de alta audiência na home",
+        "quando": "lançamentos e ações de grande impacto que precisam dominar a homepage",
+        "exemplo": "usar intervenção padrão/takeover da home por 24h em desktop e mobile."
+      },
+      {
+        "nome": "Ambientes de vídeo e VOD",
+        "quando": "marcas que desejam presença em player de vídeo e conteúdo sob demanda do ecossistema R7",
+        "exemplo": "formatos de vídeo e conteúdo patrocinado em áreas de VOD e R7 TV, conforme tabelas de preços."
+      },
+      {
+        "nome": "Conteúdo em redes sociais do R7",
+        "quando": "campanhas que priorizam distribuição orgânica em perfis oficiais do R7",
+        "exemplo": "posts patrocinados com menção à marca, hashtags e handshake com perfil do anunciante em Instagram e Facebook."
+      }
+    ],
+    "fontes_pesquisa": [
+      {
+        "title": "Anuncie no R7 – Portal comercial",
+        "url": "http://anuncie.r7.com/"
+      },
+      {
+        "title": "Formatos – Anuncie no R7 (retângulo 300x250)",
+        "url": "http://anuncie.r7.com/formatos/retangulo/"
+      },
+      {
+        "title": "Formatos – Native com Vídeo – Anuncie no R7",
+        "url": "http://anuncie.r7.com/formatos/native-com-video/"
+      },
+      {
+        "title": "Formatos – Intervenção padrão (home takeover) – Anuncie no R7",
+        "url": "http://anuncie.r7.com/formatos/intervencao-padrao/"
+      },
+      {
+        "title": "Formatos – Super Banner / Stick Ad – Anuncie no R7",
+        "url": "http://anuncie.r7.com/formatos/super-banner/"
+      },
+      {
+        "title": "Formatos – Banner Mobile 320x50 – Anuncie no R7",
+        "url": "http://anuncie.r7.com/formatos/banner-mobile/"
+      }
+    ],
+    "avisos_pesquisa": [
+      "Não foram encontradas informações recentes e oficiais sobre alcance em pageviews ou usuários únicos especificamente para 2025–2026; qualquer número anterior pode estar desatualizado ou ser global.",
+      "Os formatos e segmentações listados refletem o que está descrito em páginas Anuncie R7 e tabelas de formatos/preços, mas condições comerciais e disponibilidade podem variar ao longo de 2025–2026.",
+      "Informações de VOD, podcast e PlayPlus aparecem em tabela de preços como canais relacionados, mas sem detalhamento técnico de formatos; recomenda-se consulta comercial direta para compra efetiva."
+    ]
   },
   {
     "slug": "uol",
     "nome": "UOL",
-    "categoria": "Portais Premium",
+    "categoria": "Portais",
     "tipo": "portal",
-    "alcance": "+100M pageviews/mês",
+    "alcance": "“100MM de pessoas alcançadas todos os meses” (Brasil, UOL como maior publisher de conteúdo)",
     "viewability": 70,
     "investimento_minimo": "R$ 10.000",
     "beneficios": [
@@ -312,14 +1688,162 @@
     ],
     "logo_path": "/assets_images/logos/uol.png",
     "descricao": "Um dos maiores portais de conteúdo do Brasil com diversas verticais: notícias, esportes, economia, entretenimento.",
-    "cor": "#FFCC00"
+    "cor": "#FFCC00",
+    "formatos": [
+      {
+        "nome": "Display IAB (retângulos, super banner, skyscraper, rich media)",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "alcance e presença em portais UOL",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Alto impacto / Takeover de Home",
+        "chave": "iab-billboard",
+        "w": 970,
+        "h": 250,
+        "label": "970×250",
+        "melhor_para": "impacto de marca em Home UOL e grandes lançamentos",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Vídeo em player (pre-roll, pos-roll, in-article, floating)",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "Pre-roll",
+        "melhor_para": "engajamento em conteúdo de vídeo UOL",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Native Ads / anúncios integrados ao conteúdo",
+        "chave": "iab-leaderboard",
+        "w": 728,
+        "h": 90,
+        "label": "728×90",
+        "melhor_para": "promoção de conteúdo e performance",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Projeto de conteúdo / branded content UOL",
+        "chave": "linkedin-landscape",
+        "w": 1200,
+        "h": 627,
+        "label": "1.91:1",
+        "melhor_para": "storytelling, consideração e construção de marca",
+        "dispositivos": [
+          "desktop",
+          "mobile",
+          "audio"
+        ]
+      },
+      {
+        "nome": "Newsletter e e-mail UOL",
+        "chave": "iab-leaderboard",
+        "w": 728,
+        "h": 90,
+        "label": "E-mail",
+        "melhor_para": "relacionamento recorrente e segmentação de audiência",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Demográfica (gênero e faixa etária)",
+        "quando": "campanhas que precisam ajustar mensagem por perfil de pessoa (produto com faixa etária definida ou foco em feminino/masculino)",
+        "exemplo": "Segmentar banners e vídeo para mulheres de 25–44 anos em conteúdos de entretenimento e lifestyle dentro do UOL.[9][11]"
+      },
+      {
+        "nome": "Geolocalização e região",
+        "quando": "ações com foco regional, campanhas locais, varejo ou serviços restritos a determinados estados/cidades",
+        "exemplo": "Configurar campanha de display para usuários em São Paulo capital, com criativos específicos para uma rede de lojas da região.[9][11]"
+      },
+      {
+        "nome": "Assuntos de interesse (interesse em temas)",
+        "quando": "campanhas de consideração e performance que dependem de afinidade por temas como esportes, finanças, tecnologia ou entretenimento",
+        "exemplo": "Impactar pessoas interessadas em investimentos e economia com anúncios de instituição financeira em canais de notícias econômicas do UOL.[9][11]"
+      },
+      {
+        "nome": "Contexto de conteúdo (páginas e canais)",
+        "quando": "aproveitar o momento de consumo de informação relevante ao produto, alinhando o anúncio ao contexto editorial",
+        "exemplo": "Veicular formatos de alto impacto na Home e em matérias de tecnologia quando lançar um novo smartphone.[3][9][11]"
+      },
+      {
+        "nome": "Dispositivo (desktop vs mobile)",
+        "quando": "quando o criativo ou a oferta são otimizados para experiência específica em mobile ou desktop",
+        "exemplo": "Campanha mobile-only com formatos verticais em conteúdo mobile e notificações baseadas em geolocalização.[3][9]"
+      },
+      {
+        "nome": "Segmentação inteligente / otimizada pela plataforma",
+        "quando": "campanhas que buscam escala e eficiência deixando a plataforma ajustar a entrega para maior desempenho",
+        "exemplo": "Usar segmentação automatizada em UOL Ads para ampliar alcance de display mantendo foco em conversão ou cliques qualificados.[10][11]"
+      },
+      {
+        "nome": "Primeira parte UOL (audiência do ecossistema)",
+        "quando": "marcas que querem usar dados proprietários do publisher para atingir usuários recorrentes e perfis construídos pelo consumo de conteúdo",
+        "exemplo": "Campanha de seguros direcionada a leitores frequentes de canais de economia, carros e família dentro do ambiente logado UOL.[1][12][14]"
+      },
+      {
+        "nome": "Momento de consumo de vídeo",
+        "quando": "quando o objetivo é aproveitar a atenção em conteúdo audiovisual para pre-roll e formatos em player",
+        "exemplo": "Veicular pre-roll em vídeos de notícias e esportes durante grandes eventos esportivos para reforço de marca.[2][3][7]"
+      }
+    ],
+    "fontes_pesquisa": [
+      {
+        "title": "Midia Kit UOL Ads 2025",
+        "url": "https://ads.uol.com.br/agencias/uol-ads-midia-kit-2025.pdf"
+      },
+      {
+        "title": "Tabela de formatos – publicidade UOL",
+        "url": "https://publicidade.uol.com.br/novo/tabelaFormatos.html"
+      },
+      {
+        "title": "Especificações de formatos – UOL Ads",
+        "url": "https://ads.uol.com.br/formatos/"
+      },
+      {
+        "title": "Página UOL Ads para agências",
+        "url": "https://ads.uol.com.br/agencias/"
+      },
+      {
+        "title": "Publicidade UOL – site institucional",
+        "url": "https://publicidade.uol.com.br/novo/"
+      },
+      {
+        "title": "Midia Kit UOL Ads 2023 (especificações display/native)",
+        "url": "https://ads.uol.com.br/agencias/Midia%20Kit%20UOL%20ads%202023.pdf"
+      }
+    ],
+    "avisos_pesquisa": [
+      "Parte das métricas de alcance são apresentadas como número de pessoas/mês e podem incluir propriedades parceiras além do portal UOL.[1][12]",
+      "Especificações detalhadas de formatos (tamanhos, pesos, posições) são consolidadas em tabelas técnicas que podem ter versões anteriores, exigindo conferência na versão mais recente para compra.[2][3][6]",
+      "Segmentações de UOL Ads descritas como personalizadas e inteligentes são operadas pela plataforma programática, e sua disponibilidade pode variar por tipo de campanha.[9][10][11]"
+    ]
   },
   {
     "slug": "cnn-brasil",
     "nome": "CNN Brasil",
-    "categoria": "Portais Premium",
+    "categoria": "Portais",
     "tipo": "portal",
-    "alcance": "+40M pageviews/mês",
+    "alcance": "cerca de 36,5 milhões de pessoas alcançadas por mês no portal em 2024, com crescimento de 45% em usuários e 44% em pageviews versus 2023",
     "viewability": 72,
     "investimento_minimo": "R$ 10.000",
     "beneficios": [
@@ -336,12 +1860,178 @@
     ],
     "logo_path": "/assets_images/logos/cnn.svg",
     "descricao": "Portal de notícias da CNN Brasil com cobertura 24h. Jornalismo de qualidade e credibilidade.",
-    "cor": "#CC0000"
+    "cor": "#CC0000",
+    "formatos": [
+      {
+        "nome": "Display Ads",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "cobertura em contexto noticioso no portal CNN Brasil",
+        "dispositivos": [
+          "desktop",
+          "mobile",
+          "tablet"
+        ]
+      },
+      {
+        "nome": "Video Pre-roll",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "Pre-roll",
+        "melhor_para": "campanhas em conteúdos de vídeo on-demand e notícias em vídeo no portal",
+        "dispositivos": [
+          "desktop",
+          "mobile",
+          "tablet"
+        ]
+      },
+      {
+        "nome": "Branded Content Portal",
+        "chave": "linkedin-landscape",
+        "w": 1200,
+        "h": 627,
+        "label": "1.91:1",
+        "melhor_para": "projetos especiais com narrativa jornalística, séries, webséries e conteúdos patrocinados em verticais temáticas",
+        "dispositivos": [
+          "desktop",
+          "mobile",
+          "tablet"
+        ]
+      },
+      {
+        "nome": "Native Ads / Conteúdo Patrocinado",
+        "chave": "iab-leaderboard",
+        "w": 728,
+        "h": 90,
+        "label": "728×90",
+        "melhor_para": "integração orgânica em listas, módulos de destaque e áreas de recomendação de conteúdo",
+        "dispositivos": [
+          "desktop",
+          "mobile",
+          "tablet"
+        ]
+      },
+      {
+        "nome": "Patrocínio de Seções / Verticais",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "associação de marca a temas específicos como economia, tecnologia, política, esportes",
+        "dispositivos": [
+          "desktop",
+          "mobile",
+          "tablet"
+        ]
+      },
+      {
+        "nome": "Newsletter Ads",
+        "chave": "iab-leaderboard",
+        "w": 728,
+        "h": 90,
+        "label": "E-mail",
+        "melhor_para": "relacionamento recorrente e segmentação de audiência que consome notícias por e-mail",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Shoppable Video / Video Interativo",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "campanhas de performance e branding com compra diretamente em vídeo",
+        "dispositivos": [
+          "desktop",
+          "mobile",
+          "ctv"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Contexto de notícia e vertical temática",
+        "quando": "campanhas alinhadas a temas específicos como política, economia, tecnologia, esportes ou soft news",
+        "exemplo": "marca de tecnologia patrocina série de conteúdos em vertical de inovação e TI no portal, com presença em matérias e especiais."
+      },
+      {
+        "nome": "Momento de consumo de notícias em tempo real",
+        "quando": "ativação em períodos de alta audiência por breaking news, coberturas especiais e grandes eventos",
+        "exemplo": "campanha de serviços financeiros com presença em home e módulos premium durante cobertura ao vivo de decisões econômicas."
+      },
+      {
+        "nome": "Segmentação por perfil editorial do portal",
+        "quando": "planejamento baseado na audiência qualificada que consome jornalismo de credibilidade",
+        "exemplo": "marca premium associa sua comunicação à audiência de notícias de negócios e política, explorando seções de CNN Money e economia."
+      },
+      {
+        "nome": "Projetos customizados 1st party (CNN LAB / branded content)",
+        "quando": "quando o anunciante precisa de solução sob medida com storytelling e integração a talentos e programas",
+        "exemplo": "websérie patrocinada produzida para o portal em parceria com marca de tecnologia, distribuída em hub de conteúdo e redes da CNN."
+      },
+      {
+        "nome": "Posicionamento em home e espaços de destaque",
+        "quando": "lançamentos, campanhas institucionais ou ações que demandam máxima visibilidade no portal",
+        "exemplo": "takeover de home com display premium e módulos nativos em dia específico de campanha nacional."
+      },
+      {
+        "nome": "Newsletter e audiência recorrente",
+        "quando": "estratégias de frequência e relacionamento com leitores que recebem notícias por e-mail",
+        "exemplo": "marca de educação anuncia em newsletter diária de notícias, com destaque em topo e área de recomendação de conteúdo."
+      },
+      {
+        "nome": "Integração TV + Digital",
+        "quando": "campanhas que combinam presença em TV por assinatura e extensão no portal",
+        "exemplo": "patrocínio de quadro na programação da CNN Brasil com continuidade em hub de conteúdos, vídeos e matérias no portal."
+      },
+      {
+        "nome": "Dados de navegação e comportamento em portal premium",
+        "quando": "otimização de campanhas digitais com base em consumo de páginas, categorias e tipo de conteúdo",
+        "exemplo": "segmentação de campanhas de display para usuários que acessam com frequência seções de economia e mercados."
+      }
+    ],
+    "fontes_pesquisa": [
+      {
+        "title": "CNN Brasil estreia novo portal e ganha home mais diversa",
+        "url": "https://www.cnnbrasil.com.br/nacional/cnn-brasil-estreia-novo-portal-e-ganha-home-mais-diversa-entenda/"
+      },
+      {
+        "title": "CNN Brasil reforça diretoria comercial em movimento estratégico para 2025",
+        "url": "https://marcaspelomundo.com.br/veiculos/cnn-brasil-reforca-diretoria-comercial-em-movimento-estrategico-para-2025/"
+      },
+      {
+        "title": "CNN Brasil | Portais Premium - Centralcomm",
+        "url": "https://centralcomm.media/canal/cnn-brasil"
+      },
+      {
+        "title": "Por meio do CNN Lab, marca Cielo tem novos conteúdos patrocinados na faixa \"CNN Soft\"",
+        "url": "https://telaviva.com.br/23/09/2022/por-meio-do-cnn-lab-marca-cielo-tem-novos-conteudos-patrocinados-na-faixa-cnn-soft/"
+      },
+      {
+        "title": "CNN Brasil cria projeto de branded content para Dell Technologies",
+        "url": "https://abramark.com.br/destaques/cnn-brasil-cria-projeto-de-branded-content-para-dell-technologies/"
+      },
+      {
+        "title": "CNN Brasil apresenta novos formatos comerciais",
+        "url": "https://www.meioemensagem.com.br/midia/cnn-brasil-apresenta-novos-formatos-comerciais"
+      }
+    ],
+    "avisos_pesquisa": [
+      "Parte dos formatos descritos reflete a oferta comercial multiplataforma da CNN Brasil, filtrada aqui apenas para o ambiente de portal digital.",
+      "Dados de audiência citados são referentes ao desempenho do portal em 2024 e podem ter sido atualizados em 2025–2026.",
+      "Informações de shoppable video e soluções interativas decorrem de comunicações recentes de produto integrando vídeo, dados e creators, aplicadas também ao ambiente digital.",
+      "Não foram encontrados, em materiais públicos, parâmetros oficiais de viewability ou investimento mínimo específicos para o portal CNN Brasil."
+    ]
   },
   {
     "slug": "sbt",
     "nome": "SBT",
-    "categoria": "Portais Premium",
+    "categoria": "Portais",
     "tipo": "portal",
     "alcance": "+60M pageviews/mês",
     "viewability": 72,
@@ -362,12 +2052,218 @@
     ],
     "logo_path": "/assets_images/logos/logo-sbt.png",
     "descricao": "Segunda maior emissora do Brasil com portal digital, streaming gratuito (+SBT) e SBT News 24h. Transmitirá 32 jogos da Copa do Mundo 2026.",
-    "cor": "#FFD700"
+    "cor": "#FFD700",
+    "formatos": [
+      {
+        "nome": "Display Ads",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "cobertura ampla em conteúdo de notícias, entretenimento e esportes no portal e ambiente digital do SBT",
+        "dispositivos": [
+          "desktop",
+          "mobile",
+          "tablet"
+        ]
+      },
+      {
+        "nome": "Video Ads / Pre-roll",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "16:9",
+        "melhor_para": "campanhas em vídeo em conteúdo de notícias e entretenimento, incluindo streaming +SBT e SBT News",
+        "dispositivos": [
+          "desktop",
+          "mobile",
+          "ctv",
+          "app"
+        ]
+      },
+      {
+        "nome": "Native Ads",
+        "chave": "iab-leaderboard",
+        "w": 728,
+        "h": 90,
+        "label": "728×90",
+        "melhor_para": "mensagens de marca integradas a conteúdo editorial de notícias e entretenimento",
+        "dispositivos": [
+          "desktop",
+          "mobile",
+          "tablet"
+        ]
+      },
+      {
+        "nome": "Branded Content",
+        "chave": "linkedin-landscape",
+        "w": 1200,
+        "h": 627,
+        "label": "1.91:1",
+        "melhor_para": "projetos especiais com integração de marca em conteúdos e programas do SBT em ambiente digital",
+        "dispositivos": [
+          "desktop",
+          "mobile",
+          "ctv",
+          "app"
+        ]
+      },
+      {
+        "nome": "Projetos Copa 2026 (digital)",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "campanhas de grande alcance associadas à transmissão e cobertura digital da Copa do Mundo 2026",
+        "dispositivos": [
+          "desktop",
+          "mobile",
+          "ctv",
+          "app"
+        ]
+      },
+      {
+        "nome": "Display Ads (banners no portal SBT / SBT News)",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "cobertura ampla em conteúdo de notícias, entretenimento e esportes no portal e ambiente digital do SBT",
+        "dispositivos": [
+          "desktop",
+          "mobile",
+          "tablet"
+        ]
+      },
+      {
+        "nome": "Video Ads / Pre-roll em player de vídeo",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "16:9",
+        "melhor_para": "campanhas em vídeo em conteúdo de notícias e entretenimento, incluindo streaming +SBT e SBT News",
+        "dispositivos": [
+          "desktop",
+          "mobile",
+          "ctv",
+          "app"
+        ]
+      },
+      {
+        "nome": "Native Ads / Conteúdo patrocinado em portal",
+        "chave": "iab-leaderboard",
+        "w": 728,
+        "h": 90,
+        "label": "728×90",
+        "melhor_para": "mensagens de marca integradas a conteúdo editorial de notícias e entretenimento",
+        "dispositivos": [
+          "desktop",
+          "mobile",
+          "tablet"
+        ]
+      },
+      {
+        "nome": "Branded Content digital",
+        "chave": "linkedin-landscape",
+        "w": 1200,
+        "h": 627,
+        "label": "1.91:1",
+        "melhor_para": "projetos especiais com integração de marca em conteúdos e programas do SBT em ambiente digital",
+        "dispositivos": [
+          "desktop",
+          "mobile",
+          "ctv",
+          "app"
+        ]
+      },
+      {
+        "nome": "Projetos especiais ligados à Copa do Mundo 2026 (digital)",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "campanhas de grande alcance associadas à transmissão e cobertura digital da Copa do Mundo 2026",
+        "dispositivos": [
+          "desktop",
+          "mobile",
+          "ctv",
+          "app"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Contexto de notícias (SBT News digital)",
+        "quando": "campanhas que precisam estar associadas a conteúdo jornalístico e cobertura em tempo real",
+        "exemplo": "Inserir vídeos pre-roll e banners em páginas e vídeos de SBT News com foco em política, economia e cotidiano"
+      },
+      {
+        "nome": "Entretenimento e programas do SBT em ambiente digital",
+        "quando": "marcas que querem se conectar com conteúdo de variedades, auditório e novelas em plataformas digitais",
+        "exemplo": "Branded content e vídeos digitais integrados a programas como Domingo Legal ou Eliana, distribuídos em portal, +SBT e canais digitais"
+      },
+      {
+        "nome": "Momento esportivo — Copa do Mundo 2026",
+        "quando": "campanhas atreladas à alta atenção durante jogos e cobertura da Copa em propriedades digitais do SBT",
+        "exemplo": "Pacotes com pre-roll, display e conteúdo patrocinado sincronizados aos 32 jogos em TV aberta e ambientes digitais"
+      },
+      {
+        "nome": "Audiência migrada da TV aberta para digital",
+        "quando": "anunciantes que querem reaproveitar a força da marca SBT e sua base de TV no ambiente online",
+        "exemplo": "Planejar campanhas em vídeo digital + display em SBT News e +SBT como extensão de planos de TV"
+      },
+      {
+        "nome": "Ambiente de streaming gratuito (+SBT)",
+        "quando": "marcas que querem presença em consumo on demand e linear via internet sem barreira de assinatura",
+        "exemplo": "Inserir vídeo ads e projetos especiais em conteúdos do +SBT, alcançando usuários em smart TVs, apps e browsers"
+      },
+      {
+        "nome": "Dispositivos conectados (CTV e smart TVs)",
+        "quando": "campanhas focadas em experiência de tela grande em conteúdo digital do SBT",
+        "exemplo": "Veiculação de vídeo ads antes de conteúdos de SBT News e +SBT em smart TVs, atingindo consumo de TV conectada"
+      },
+      {
+        "nome": "Projetos especiais interativos e formatos diferenciados",
+        "quando": "campanhas que buscam formatos além de spots tradicionais, com maior engajamento",
+        "exemplo": "Ações com pop-ups interativos, menções em conteúdo digital e ativações customizadas junto a propriedades do SBT"
+      },
+      {
+        "nome": "Momento esportivo Copa do Mundo 2026",
+        "quando": "campanhas atreladas à alta atenção durante jogos e cobertura da Copa em propriedades digitais do SBT",
+        "exemplo": "Pacotes com pre-roll, display e conteúdo patrocinado em áreas especiais da Copa no portal, apps e streaming, sincronizados aos 32 jogos em TV aberta."
+      }
+    ],
+    "fontes_pesquisa": [
+      {
+        "title": "SBT Negócios – informações gerais de formatos e presença em plataformas digitais",
+        "url": "https://sbtnegocios.com.br/"
+      },
+      {
+        "title": "Canal premium com descrição de formatos digitais SBT/SBT News (display, vídeo, native, pre-roll, branded content, Copa 2026)",
+        "url": "https://www.centralcomm.media/canal/sbt"
+      },
+      {
+        "title": "Tabela SBT e formatos comerciais da emissora",
+        "url": "https://pt.scribd.com/document/858148196/Tabela-SBT-2025"
+      },
+      {
+        "title": "Mídia kit regional com exemplos de formatos digitais (display, vídeo, pop-up) em portal de TV",
+        "url": "https://pt.scribd.com/document/906628196/super-midia-kit-digital-2024-478-TV"
+      },
+      {
+        "title": "Notícia sobre formato interativo pop-up em programação do SBT",
+        "url": "https://telaviva.com.br/16/04/2025/sbt-estreia-formato-interativo-inedito-com-a-friboi-em-11-programas-da-grade/"
+      }
+    ],
+    "avisos_pesquisa": [
+      "Os dados de alcance mencionados são agregados e podem incluir múltiplas propriedades digitais (portal SBT, SBT News, streaming +SBT, canais em plataformas de vídeo), não necessariamente somente o portal.",
+      "Informações detalhadas de segmentação, inventário e métricas devem ser confirmadas diretamente com o time comercial ou mídia kit oficial atualizado de 2025/2026."
+    ]
   },
   {
     "slug": "experian-portal",
     "nome": "Serasa",
-    "categoria": "Portais Premium",
+    "categoria": "Portais",
     "tipo": "portal",
     "alcance": "+35M visitas/mês",
     "viewability": 85,
@@ -389,12 +2285,60 @@
     ],
     "logo_path": "/assets_images/logos/serasa.png",
     "descricao": "Inventário de mídia premium no ecossistema Serasa: portal com +35M de visitas/mês, app com +30M de downloads, Feirão Limpa Nome e landing pages co-branded.",
-    "cor": "#E91E63"
+    "cor": "#E91E63",
+    "formatos": [
+      {
+        "nome": "Display",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "intenção no portal",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Native Ads",
+        "chave": "iab-leaderboard",
+        "w": 728,
+        "h": 90,
+        "label": "728×90",
+        "melhor_para": "conteúdo de crédito",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Momento de crédito",
+        "quando": "consulta e score",
+        "exemplo": "Visitantes do Serasa"
+      },
+      {
+        "nome": "Imóveis e auto",
+        "quando": "intenção alta",
+        "exemplo": "Páginas de consulta"
+      },
+      {
+        "nome": "Classe e renda",
+        "quando": "corte financeiro",
+        "exemplo": "ABC presumido"
+      },
+      {
+        "nome": "Praça",
+        "quando": "MG e RJ",
+        "exemplo": "Parceria Centralcomm"
+      }
+    ]
   },
   {
     "slug": "experian-dmp",
     "nome": "Serasa Data (DMP)",
-    "categoria": "Data Partners",
+    "categoria": "Dados",
     "tipo": "data",
     "alcance": "+200M perfis",
     "viewability": null,
@@ -413,12 +2357,72 @@
     ],
     "logo_path": "/assets_images/logos/serasa.png",
     "descricao": "A maior base de dados financeiros do Brasil com +200M de perfis. Audiências first-party exclusivas para ativação em qualquer DSP.",
-    "cor": "#E91E63"
+    "cor": "#E91E63",
+    "formatos": [
+      {
+        "nome": "Custom segments",
+        "chave": "iab-leaderboard",
+        "w": 728,
+        "h": 90,
+        "label": "Segmento",
+        "melhor_para": "ativar em mídia",
+        "dispositivos": [
+          "desktop",
+          "mobile",
+          "ctv"
+        ]
+      },
+      {
+        "nome": "Lookalike",
+        "chave": "iab-leaderboard",
+        "w": 728,
+        "h": 90,
+        "label": "Lookalike",
+        "melhor_para": "escala da base",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Data enrichment",
+        "chave": "iab-leaderboard",
+        "w": 728,
+        "h": 90,
+        "label": "CRM match",
+        "melhor_para": "CRM match",
+        "dispositivos": [
+          "desktop"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Score e pagador",
+        "quando": "crédito e imóvel",
+        "exemplo": "Score 500+ ABC"
+      },
+      {
+        "nome": "Intenção 30 dias",
+        "quando": "auto, viagem, casa",
+        "exemplo": "Corte RJ vs Meta"
+      },
+      {
+        "nome": "CNPJ",
+        "quando": "B2B",
+        "exemplo": "Porte e CNAE"
+      },
+      {
+        "nome": "Lookalike da base",
+        "quando": "escala controlada",
+        "exemplo": "CRM do cliente"
+      }
+    ]
   },
   {
     "slug": "tudogostoso",
     "nome": "TudoGostoso",
-    "categoria": "Portais de Nicho",
+    "categoria": "Portais",
     "tipo": "portal",
     "alcance": "+30M pageviews/mês",
     "viewability": 75,
@@ -438,12 +2442,70 @@
     ],
     "logo_path": "/assets_images/logos/tudogostoso.svg",
     "descricao": "O maior site de receitas do Brasil, com audiência altamente engajada em culinária e gastronomia.",
-    "cor": "#E94E1B"
+    "cor": "#E94E1B",
+    "formatos": [
+      {
+        "nome": "Display",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "receita",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Branded recipes",
+        "chave": "feed-4x5",
+        "w": 1080,
+        "h": 1350,
+        "label": "Receita",
+        "melhor_para": "marca na cozinha",
+        "dispositivos": [
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Native Ads",
+        "chave": "iab-leaderboard",
+        "w": 728,
+        "h": 90,
+        "label": "728×90",
+        "melhor_para": "feed de receita",
+        "dispositivos": [
+          "mobile"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Ocasião",
+        "quando": "almoço, festa, diet",
+        "exemplo": "Receitas de domingo"
+      },
+      {
+        "nome": "Ingrediente",
+        "quando": "marca de alimento",
+        "exemplo": "Páginas com o produto"
+      },
+      {
+        "nome": "Mobile cozinha",
+        "quando": "uso na bancada",
+        "exemplo": "Sessão mobile longa"
+      },
+      {
+        "nome": "Frequência",
+        "quando": "cozinheiro habitual",
+        "exemplo": "4+ visitas/mês"
+      }
+    ]
   },
   {
     "slug": "techtudo",
     "nome": "TechTudo",
-    "categoria": "Portais de Nicho",
+    "categoria": "Portais",
     "tipo": "portal",
     "alcance": "+25M pageviews/mês",
     "viewability": 70,
@@ -463,12 +2525,71 @@
     ],
     "logo_path": "/assets_images/logos/techtudo.svg",
     "descricao": "Portal de tecnologia do Grupo Globo, referência em reviews, tutoriais e notícias tech.",
-    "cor": "#00BFFF"
+    "cor": "#00BFFF",
+    "formatos": [
+      {
+        "nome": "Display",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "review",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Native Ads",
+        "chave": "iab-leaderboard",
+        "w": 728,
+        "h": 90,
+        "label": "728×90",
+        "melhor_para": "guia de compra",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Video Ads",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "16:9",
+        "melhor_para": "unboxing",
+        "dispositivos": [
+          "mobile"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Categoria de gadget",
+        "quando": "consideração",
+        "exemplo": "Celular, notebook, game"
+      },
+      {
+        "nome": "Guia de compra",
+        "quando": "alta intenção",
+        "exemplo": "Comparativos"
+      },
+      {
+        "nome": "Lançamento",
+        "quando": "janela de review",
+        "exemplo": "Semana do unboxing"
+      },
+      {
+        "nome": "Mobile",
+        "quando": "leitura técnica",
+        "exemplo": "Feed"
+      }
+    ]
   },
   {
     "slug": "ge-globo-esporte",
     "nome": "GE (Globo Esporte)",
-    "categoria": "Portais de Nicho",
+    "categoria": "Portais",
     "tipo": "portal",
     "alcance": "+120M pageviews/mês",
     "viewability": 74,
@@ -488,12 +2609,71 @@
     ],
     "logo_path": "/assets_images/logos/ge-globo.svg",
     "descricao": "O maior portal de esportes do Brasil, cobrindo futebol, olimpíadas, automobilismo e mais.",
-    "cor": "#00A859"
+    "cor": "#00A859",
+    "formatos": [
+      {
+        "nome": "Display",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "jogo e tabela",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Video Ads",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "16:9",
+        "melhor_para": "lance",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Takeover",
+        "chave": "iab-billboard",
+        "w": 970,
+        "h": 250,
+        "label": "970×250",
+        "melhor_para": "clássico",
+        "dispositivos": [
+          "desktop"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Time",
+        "quando": "paixão",
+        "exemplo": "Páginas do clube"
+      },
+      {
+        "nome": "Rodada",
+        "quando": "ao vivo e pós-jogo",
+        "exemplo": "Domingo 16h–20h"
+      },
+      {
+        "nome": "Modalidade",
+        "quando": "futebol vs olímpico",
+        "exemplo": "ge futebol"
+      },
+      {
+        "nome": "Praça do time",
+        "quando": "regional",
+        "exemplo": "ge Rio, ge Minas"
+      }
+    ]
   },
   {
     "slug": "infomoney",
     "nome": "InfoMoney",
-    "categoria": "Portais de Nicho",
+    "categoria": "Portais",
     "tipo": "portal",
     "alcance": "+40M pageviews/mês",
     "viewability": 72,
@@ -513,12 +2693,70 @@
     ],
     "logo_path": "/assets_images/logos/infomoney.svg",
     "descricao": "Principal portal de finanças e investimentos do Brasil. Conteúdo para investidores e profissionais.",
-    "cor": "#00875A"
+    "cor": "#00875A",
+    "formatos": [
+      {
+        "nome": "Display",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "decisor financeiro",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Native Ads",
+        "chave": "iab-leaderboard",
+        "w": 728,
+        "h": 90,
+        "label": "728×90",
+        "melhor_para": "análise",
+        "dispositivos": [
+          "desktop"
+        ]
+      },
+      {
+        "nome": "Newsletter",
+        "chave": "iab-leaderboard",
+        "w": 728,
+        "h": 90,
+        "label": "E-mail",
+        "melhor_para": "base assinante",
+        "dispositivos": [
+          "desktop"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Investidor",
+        "quando": "renda variável e fundos",
+        "exemplo": "Seção de mercados"
+      },
+      {
+        "nome": "Horário de pregão",
+        "quando": "abertura e fechamento",
+        "exemplo": "9h–11h e 17h"
+      },
+      {
+        "nome": "ABC alto",
+        "quando": "marca financeira",
+        "exemplo": "Leitores 30–55"
+      },
+      {
+        "nome": "Newsletter",
+        "quando": "relação contínua",
+        "exemplo": "Base própria"
+      }
+    ]
   },
   {
     "slug": "youtube",
     "nome": "YouTube",
-    "categoria": "Redes Sociais",
+    "categoria": "Sociais",
     "tipo": "video",
     "alcance": "+140M usuários BR",
     "viewability": 95,
@@ -538,12 +2776,84 @@
     ],
     "logo_path": "/assets_images/logos/youtube.png",
     "descricao": "A maior plataforma de vídeos do mundo. Alcance massivo com formatos de vídeo, display e discovery.",
-    "cor": "#FF0000"
+    "cor": "#FF0000",
+    "formatos": [
+      {
+        "nome": "TrueView",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "In-stream",
+        "melhor_para": "consideração",
+        "dispositivos": [
+          "ctv",
+          "mobile",
+          "desktop"
+        ]
+      },
+      {
+        "nome": "Bumper",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "6s",
+        "melhor_para": "recall 6s",
+        "dispositivos": [
+          "ctv",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Shorts",
+        "chave": "story-9x16",
+        "w": 1080,
+        "h": 1920,
+        "label": "9:16",
+        "melhor_para": "alcance vertical",
+        "dispositivos": [
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Masthead",
+        "chave": "iab-billboard",
+        "w": 970,
+        "h": 250,
+        "label": "Masthead",
+        "melhor_para": "lançamento",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Intenção de busca",
+        "quando": "consideração",
+        "exemplo": "Palavras do vertical"
+      },
+      {
+        "nome": "Afinidade de canal",
+        "quando": "criador",
+        "exemplo": "Canais de casa e auto"
+      },
+      {
+        "nome": "YouTube no CTV",
+        "quando": "sala",
+        "exemplo": "TV Android e Chromecast"
+      },
+      {
+        "nome": "Remarketing",
+        "quando": "quem já viu",
+        "exemplo": "Viewers 7d"
+      }
+    ]
   },
   {
     "slug": "instagram",
     "nome": "Instagram",
-    "categoria": "Redes Sociais",
+    "categoria": "Sociais",
     "tipo": "social",
     "alcance": "+120M usuários BR",
     "viewability": 92,
@@ -563,12 +2873,80 @@
     ],
     "logo_path": "/assets_images/logos/instagram.png",
     "descricao": "Plataforma visual líder em engajamento. Ideal para branding, awareness e conversão com formatos diversos.",
-    "cor": "#E4405F"
+    "cor": "#E4405F",
+    "formatos": [
+      {
+        "nome": "Stories",
+        "chave": "story-9x16",
+        "w": 1080,
+        "h": 1920,
+        "label": "9:16",
+        "melhor_para": "alcance diário",
+        "dispositivos": [
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Reels",
+        "chave": "story-9x16",
+        "w": 1080,
+        "h": 1920,
+        "label": "9:16",
+        "melhor_para": "descoberta",
+        "dispositivos": [
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Feed Ads",
+        "chave": "feed-1x1",
+        "w": 1080,
+        "h": 1080,
+        "label": "1:1",
+        "melhor_para": "consideração",
+        "dispositivos": [
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Shopping",
+        "chave": "feed-1x1",
+        "w": 1080,
+        "h": 1080,
+        "label": "1:1",
+        "melhor_para": "catálogo",
+        "dispositivos": [
+          "mobile"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Interesses",
+        "quando": "alcance",
+        "exemplo": "Casa, moda, comida"
+      },
+      {
+        "nome": "Lookalike da base",
+        "quando": "conversão",
+        "exemplo": "CRM 1%"
+      },
+      {
+        "nome": "Stories vs Reels",
+        "quando": "formato da peça",
+        "exemplo": "9:16 só"
+      },
+      {
+        "nome": "Praça",
+        "quando": "loja e cidade",
+        "exemplo": "Raio 5 km"
+      }
+    ]
   },
   {
     "slug": "tiktok",
     "nome": "TikTok",
-    "categoria": "Redes Sociais",
+    "categoria": "Sociais",
     "tipo": "social",
     "alcance": "+85M usuários BR",
     "viewability": 94,
@@ -588,12 +2966,69 @@
     ],
     "logo_path": "/assets_images/logos/tiktok.svg",
     "descricao": "Plataforma de vídeos curtos com maior crescimento. Ideal para alcançar público jovem com conteúdo autêntico.",
-    "cor": "#000000"
+    "cor": "#000000",
+    "formatos": [
+      {
+        "nome": "In-feed",
+        "chave": "feed-1x1",
+        "w": 1080,
+        "h": 1080,
+        "label": "1:1",
+        "melhor_para": "descoberta",
+        "dispositivos": [
+          "mobile"
+        ]
+      },
+      {
+        "nome": "TopView",
+        "chave": "story-9x16",
+        "w": 1080,
+        "h": 1920,
+        "label": "9:16",
+        "melhor_para": "lançamento",
+        "dispositivos": [
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Spark Ads",
+        "chave": "story-9x16",
+        "w": 1080,
+        "h": 1920,
+        "label": "9:16",
+        "melhor_para": "impulsionar criador",
+        "dispositivos": [
+          "mobile"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Interesse e comportamento",
+        "quando": "Gen Z e millennial",
+        "exemplo": "Beleza, humor, game"
+      },
+      {
+        "nome": "Spark de creator",
+        "quando": "prova social",
+        "exemplo": "Vídeo orgânico impulsionado"
+      },
+      {
+        "nome": "Praça",
+        "quando": "cidade",
+        "exemplo": "Capitais"
+      },
+      {
+        "nome": "Retarget",
+        "quando": "view 50%",
+        "exemplo": "7 dias"
+      }
+    ]
   },
   {
     "slug": "linkedin",
     "nome": "LinkedIn",
-    "categoria": "Redes Sociais",
+    "categoria": "Sociais",
     "tipo": "social",
     "alcance": "+65M usuários BR",
     "viewability": 88,
@@ -613,7 +3048,66 @@
     ],
     "logo_path": "/assets_images/logos/linkedin.svg",
     "descricao": "A maior rede profissional do mundo. Ideal para B2B, recrutamento e thought leadership.",
-    "cor": "#0A66C2"
+    "cor": "#0A66C2",
+    "formatos": [
+      {
+        "nome": "Sponsored Content",
+        "chave": "linkedin-landscape",
+        "w": 1200,
+        "h": 627,
+        "label": "1.91:1",
+        "melhor_para": "B2B",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Message Ads",
+        "chave": "feed-4x5",
+        "w": 1080,
+        "h": 1350,
+        "label": "Inbox",
+        "melhor_para": "inbox",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Dynamic Ads",
+        "chave": "feed-1x1",
+        "w": 1080,
+        "h": 1080,
+        "label": "1:1",
+        "melhor_para": "vaga e marca",
+        "dispositivos": [
+          "desktop"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Cargo e senioridade",
+        "quando": "decisor",
+        "exemplo": "C-level e gerência"
+      },
+      {
+        "nome": "Setor",
+        "quando": "vertical",
+        "exemplo": "Imobiliário, financeiro"
+      },
+      {
+        "nome": "Empresa e porte",
+        "quando": "ABM",
+        "exemplo": "Lista de contas"
+      },
+      {
+        "nome": "Geo profissional",
+        "quando": "praça B2B",
+        "exemplo": "SP e RJ"
+      }
+    ]
   },
   {
     "slug": "eletromidia",
@@ -639,7 +3133,53 @@
     ],
     "logo_path": "/assets_images/logos/eletromidia.png",
     "descricao": "Maior empresa de mídia OOH digital do Brasil. Presente em elevadores, metrôs, aeroportos, shoppings e mobiliário urbano.",
-    "cor": "#FF6B00"
+    "cor": "#FF6B00",
+    "formatos": [
+      {
+        "nome": "DOOH",
+        "chave": "iab-billboard",
+        "w": 970,
+        "h": 250,
+        "label": "DOOH",
+        "melhor_para": "circuito urbano",
+        "dispositivos": [
+          "ooh"
+        ]
+      },
+      {
+        "nome": "Takeover",
+        "chave": "iab-billboard",
+        "w": 970,
+        "h": 250,
+        "label": "970×250",
+        "melhor_para": "estação e aeroporto",
+        "dispositivos": [
+          "ooh"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Circuito",
+        "quando": "metrô, rua, aeroporto",
+        "exemplo": "Linha 4 e T3"
+      },
+      {
+        "nome": "Fluxo e horário",
+        "quando": "pico",
+        "exemplo": "7h–9h e 18h–20h"
+      },
+      {
+        "nome": "Classe do ponto",
+        "quando": "AB vs massa",
+        "exemplo": "Aeroporto vs terminal"
+      },
+      {
+        "nome": "Praça",
+        "quando": "cidade",
+        "exemplo": "SP e RJ"
+      }
+    ]
   },
   {
     "slug": "google-dv360",
@@ -665,38 +3205,72 @@
     ],
     "logo_path": "/assets_images/logos/dv360.svg",
     "descricao": "Principal DSP do mercado para mídia programática. Acesso a inventário premium de display, vídeo, áudio, CTV e DOOH.",
-    "cor": "#4285F4"
-  },
-  {
-    "slug": "the-trade-desk",
-    "nome": "The Trade Desk",
-    "categoria": "Programática",
-    "tipo": "programatica",
-    "alcance": "+80% web BR",
-    "viewability": 70,
-    "investimento_minimo": "R$ 15.000",
-    "beneficios": [
-      "Display",
-      "Video",
-      "Native",
-      "Audio",
-      "CTV",
-      "DOOH"
+    "cor": "#4285F4",
+    "formatos": [
+      {
+        "nome": "Display",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "escala",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Video Ads",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "16:9",
+        "melhor_para": "YouTube e CTV",
+        "dispositivos": [
+          "ctv",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Native Ads",
+        "chave": "iab-leaderboard",
+        "w": 728,
+        "h": 90,
+        "label": "728×90",
+        "melhor_para": "open web",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      }
     ],
-    "diferenciais": [
-      "DSP independente - sem conflito de interesse",
-      "Forte em CTV (Samsung, LG, Roku)",
-      "UID2 - alternativa ao cookie",
-      "Kokai AI para otimização"
-    ],
-    "logo_path": "/assets_images/logos/ttd.svg",
-    "descricao": "DSP independente líder com foco em CTV, audio e data-driven advertising. Forte em transparency e measurement.",
-    "cor": "#00B140"
+    "segmentacoes": [
+      {
+        "nome": "PMP vs open",
+        "quando": "controle vs escala",
+        "exemplo": "Deal premium G1"
+      },
+      {
+        "nome": "1st party",
+        "quando": "CRM e site",
+        "exemplo": "Audience lists"
+      },
+      {
+        "nome": "CTV inventory",
+        "quando": "sala",
+        "exemplo": "Apps conectados"
+      },
+      {
+        "nome": "Brand safety",
+        "quando": "notícia e UGC",
+        "exemplo": "Exclusões e floors"
+      }
+    ]
   },
   {
     "slug": "twitch",
     "nome": "Twitch",
-    "categoria": "Gaming / Live",
+    "categoria": "Sociais",
     "tipo": "gaming",
     "alcance": "+15M usuários BR",
     "viewability": 90,
@@ -717,12 +3291,59 @@
     ],
     "logo_path": "/assets_images/logos/twitch.svg",
     "descricao": "Maior plataforma de live streaming do mundo. Comunidade engajada de gamers e criadores de conteúdo.",
-    "cor": "#9146FF"
+    "cor": "#9146FF",
+    "formatos": [
+      {
+        "nome": "Video Ads",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "16:9",
+        "melhor_para": "live",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Display",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "painel",
+        "dispositivos": [
+          "desktop"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Categoria de jogo",
+        "quando": "FPS, mobile, just chatting",
+        "exemplo": "Canais do gênero"
+      },
+      {
+        "nome": "Creator",
+        "quando": "comunidade",
+        "exemplo": "Streamers BR"
+      },
+      {
+        "nome": "Horário de live",
+        "quando": "noite",
+        "exemplo": "20h–1h"
+      },
+      {
+        "nome": "Desktop vs mobile",
+        "quando": "formato",
+        "exemplo": "PC gamer"
+      }
+    ]
   },
   {
     "slug": "podcast-ads",
     "nome": "Podcast Ads (Rede)",
-    "categoria": "Áudio Digital",
+    "categoria": "Streaming",
     "tipo": "audio",
     "alcance": "+40M ouvintes BR",
     "viewability": 95,
@@ -742,7 +3363,66 @@
     ],
     "logo_path": "/assets_images/logos/podcast.svg",
     "descricao": "Publicidade em podcasts brasileiros via redes de podcast (Spotify, iHeartMedia, Podtag, etc.).",
-    "cor": "#8B5CF6"
+    "cor": "#8B5CF6",
+    "formatos": [
+      {
+        "nome": "Host-read",
+        "chave": "audio-bar",
+        "w": 728,
+        "h": 90,
+        "label": "Host-read",
+        "melhor_para": "confiança do host",
+        "dispositivos": [
+          "audio",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Audio Ads",
+        "chave": "audio-bar",
+        "w": 728,
+        "h": 90,
+        "label": "15s/30s",
+        "melhor_para": "rede",
+        "dispositivos": [
+          "audio",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Branded podcast",
+        "chave": "audio-bar",
+        "w": 728,
+        "h": 90,
+        "label": "Branded",
+        "melhor_para": "série própria",
+        "dispositivos": [
+          "audio"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Tema do show",
+        "quando": "afinidade",
+        "exemplo": "Negócios, true crime, futebol"
+      },
+      {
+        "nome": "Host",
+        "quando": "autoridade",
+        "exemplo": "Programa X"
+      },
+      {
+        "nome": "Download semanal",
+        "quando": "frequência",
+        "exemplo": "Ouvintes 4+ eps"
+      },
+      {
+        "nome": "Praça do ouvinte",
+        "quando": "regional",
+        "exemplo": "Sudeste"
+      }
+    ]
   },
   {
     "slug": "waze",
@@ -766,12 +3446,72 @@
     ],
     "logo_path": "/assets_images/logos/waze.png",
     "descricao": "App de navegação com maior base no Brasil. Ideal para drive-to-store com formatos nativos no mapa.",
-    "cor": "#33CCFF"
+    "cor": "#33CCFF",
+    "formatos": [
+      {
+        "nome": "Pins",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "Pin",
+        "melhor_para": "loja no mapa",
+        "dispositivos": [
+          "mobile",
+          "app"
+        ]
+      },
+      {
+        "nome": "Arrow",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "Seta",
+        "melhor_para": "desvio e parada",
+        "dispositivos": [
+          "mobile",
+          "app"
+        ]
+      },
+      {
+        "nome": "Takeover",
+        "chave": "iab-billboard",
+        "w": 970,
+        "h": 250,
+        "label": "970×250",
+        "melhor_para": "abertura do app",
+        "dispositivos": [
+          "mobile",
+          "app"
+        ]
+      }
+    ],
+    "segmentacoes": [
+      {
+        "nome": "Raio da loja",
+        "quando": "drive-to-store",
+        "exemplo": "3 km do PDV"
+      },
+      {
+        "nome": "Trajeto",
+        "quando": "casa–trabalho",
+        "exemplo": "Manhã na Marginal"
+      },
+      {
+        "nome": "Categoria no mapa",
+        "quando": "intenção local",
+        "exemplo": "Posto, farmácia, mall"
+      },
+      {
+        "nome": "Praça",
+        "quando": "cidade e corredor",
+        "exemplo": "SP + ABC"
+      }
+    ]
   },
   {
     "slug": "kwai",
     "nome": "Kwai",
-    "categoria": "Redes Sociais",
+    "categoria": "Sociais",
     "tipo": "social",
     "alcance": "+60M usuários BR",
     "viewability": 90,
@@ -790,28 +3530,52 @@
     ],
     "logo_path": "/assets_images/logos/kwai.svg",
     "descricao": "Plataforma de vídeos curtos com forte penetração na classe C brasileira. Audiência complementar ao TikTok.",
-    "cor": "#FF4906"
-  },
-  {
-    "slug": "telegram",
-    "nome": "Telegram",
-    "categoria": "Messaging",
-    "tipo": "messaging",
-    "alcance": "+65M usuários BR",
-    "viewability": 92,
-    "investimento_minimo": "R$ 5.000",
-    "beneficios": [
-      "Sponsored Messages",
-      "Telegram Ads (em canais públicos)"
+    "cor": "#FF4906",
+    "formatos": [
+      {
+        "nome": "In-feed",
+        "chave": "feed-1x1",
+        "w": 1080,
+        "h": 1080,
+        "label": "1:1",
+        "melhor_para": "massa classe C",
+        "dispositivos": [
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Splash",
+        "chave": "story-9x16",
+        "w": 1080,
+        "h": 1920,
+        "label": "9:16",
+        "melhor_para": "abertura do app",
+        "dispositivos": [
+          "mobile"
+        ]
+      }
     ],
-    "diferenciais": [
-      "Audiência tech-savvy e early adopters",
-      "Mensagens patrocinadas discretas e nativas",
-      "Sem cookies - baseado em contexto",
-      "Forte em cripto, finanças e tecnologia"
-    ],
-    "logo_path": "/assets_images/logos/telegram.svg",
-    "descricao": "App de mensagens com audiência crescente no Brasil. Telegram Ads permite anúncios em canais públicos.",
-    "cor": "#0088CC"
+    "segmentacoes": [
+      {
+        "nome": "Classe C e interior",
+        "quando": "volume",
+        "exemplo": "Praças fora do eixo"
+      },
+      {
+        "nome": "Entretenimento curto",
+        "quando": "recall simples",
+        "exemplo": "15s vertical"
+      },
+      {
+        "nome": "Idade",
+        "quando": "18–34",
+        "exemplo": "Feed"
+      },
+      {
+        "nome": "Praça",
+        "quando": "Nordeste e interior",
+        "exemplo": "Cidades 200k+"
+      }
+    ]
   }
 ]

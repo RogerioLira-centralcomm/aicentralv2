@@ -17,6 +17,96 @@ CANAIS_MIDIA = (
     "iFood", "Uber", "99", "Logan", "Interativos",
 )
 
+CANAIS_EXCLUIDOS = frozenset({"the-trade-desk", "telegram", "ttd"})
+
+GRUPOS = (
+    "Portais",
+    "Streaming",
+    "Mobilidade",
+    "Sociais",
+    "Dados",
+    "Programática",
+    "DOOH",
+    "Interativos",
+)
+
+_GRUPO_POR_SLUG = {
+    "g1-globo": "Portais",
+    "r7": "Portais",
+    "uol": "Portais",
+    "cnn-brasil": "Portais",
+    "sbt": "Portais",
+    "experian-portal": "Portais",
+    "tudogostoso": "Portais",
+    "techtudo": "Portais",
+    "ge-globo-esporte": "Portais",
+    "infomoney": "Portais",
+    "netflix": "Streaming",
+    "globoplay": "Streaming",
+    "paramount-plus": "Streaming",
+    "samsung-tv-plus": "Streaming",
+    "disney-plus": "Streaming",
+    "prime-video": "Streaming",
+    "hbo-max": "Streaming",
+    "spotify": "Streaming",
+    "deezer": "Streaming",
+    "amazon-music": "Streaming",
+    "podcast-ads": "Streaming",
+    "waze": "Mobilidade",
+    "ifood": "Mobilidade",
+    "uber": "Mobilidade",
+    "99": "Mobilidade",
+    "logan": "Mobilidade",
+    "youtube": "Sociais",
+    "instagram": "Sociais",
+    "tiktok": "Sociais",
+    "linkedin": "Sociais",
+    "kwai": "Sociais",
+    "twitch": "Sociais",
+    "serasa": "Dados",
+    "experian-dmp": "Dados",
+    "google-dv360": "Programática",
+    "eletromidia": "DOOH",
+    "interativos": "Interativos",
+}
+
+DISPOSITIVOS = ("ctv", "mobile", "desktop", "tablet", "audio", "app", "ooh")
+DISPOSITIVO_LABEL = {
+    "ctv": "CTV",
+    "mobile": "mobile",
+    "desktop": "desktop",
+    "tablet": "tablet",
+    "audio": "áudio",
+    "app": "app",
+    "ooh": "OOH",
+}
+_DISPOSITIVOS_POR_TIPO = {
+    "audio": ["audio", "mobile"],
+    "ctv": ["ctv"],
+    "video": ["ctv", "mobile"],
+    "social": ["mobile"],
+    "portal": ["desktop", "mobile"],
+    "programatica": ["desktop", "mobile", "ctv"],
+    "ooh": ["ooh"],
+    "gaming": ["desktop", "mobile"],
+    "mobile": ["mobile", "app"],
+    "messaging": ["mobile"],
+    "data": ["desktop", "mobile"],
+    "interativo": ["desktop", "mobile"],
+}
+_DISPOSITIVOS_POR_CHAVE = {
+    "ctv-16x9": ["ctv"],
+    "story-9x16": ["mobile"],
+    "audio-bar": ["audio", "mobile"],
+    "feed-1x1": ["mobile"],
+    "feed-4x5": ["mobile"],
+    "iab-mobile": ["mobile"],
+    "linkedin-landscape": ["desktop", "mobile"],
+    "iab-billboard": ["desktop"],
+    "iab-leaderboard": ["desktop", "mobile"],
+    "iab-medium": ["desktop", "mobile"],
+}
+
 SERASA_KIT_2027 = {
     "titulo": "Serasa Ads e Centralcomm — 2027",
     "tipo": "apresentacao",
@@ -40,13 +130,13 @@ SERASA_KIT_2027 = {
 }
 
 INTERATIVOS_FALLBACK = [
-    {"nome": "Cube", "taxa": "3-6%", "tempo": "15-30s", "melhor_para": "storytelling, produto", "extra": "4x vs display", "chave": "iab-medium", "w": 300, "h": 250, "label": "300×250"},
-    {"nome": "Scratch", "taxa": "5-10%", "tempo": "10-20s", "melhor_para": "cupom, gamificação", "extra": "6x vs display", "chave": "iab-medium", "w": 300, "h": 250, "label": "300×250"},
-    {"nome": "Hot Spots", "taxa": "3-6%", "tempo": "15-30s", "melhor_para": "imóveis, decoração", "extra": "", "chave": "iab-medium", "w": 300, "h": 250, "label": "300×250"},
-    {"nome": "360° Viewer", "taxa": "4-7%", "tempo": "20-40s", "melhor_para": "imóveis, turismo", "extra": "5x vs display", "chave": "iab-medium", "w": 300, "h": 250, "label": "300×250"},
-    {"nome": "Poll / Quiz", "taxa": "6-12%", "tempo": "15-30s", "melhor_para": "first-party data", "extra": "8x vs display", "chave": "iab-medium", "w": 300, "h": 250, "label": "300×250"},
-    {"nome": "Countdown", "taxa": "2-4%", "tempo": "5-10s", "melhor_para": "lançamentos", "extra": "", "chave": "iab-medium", "w": 300, "h": 250, "label": "300×250"},
-    {"nome": "Video Interactive", "taxa": "4-8%", "tempo": "20-45s", "melhor_para": "demo", "extra": "5x vs display", "chave": "ctv-16x9", "w": 1920, "h": 1080, "label": "16:9"},
+    {"nome": "Cube", "taxa": "3-6%", "tempo": "15-30s", "melhor_para": "storytelling, produto", "extra": "4x vs display", "chave": "iab-medium", "w": 300, "h": 250, "label": "300×250", "dispositivos": ["desktop", "mobile"]},
+    {"nome": "Scratch", "taxa": "5-10%", "tempo": "10-20s", "melhor_para": "cupom, gamificação", "extra": "6x vs display", "chave": "iab-medium", "w": 300, "h": 250, "label": "300×250", "dispositivos": ["desktop", "mobile"]},
+    {"nome": "Hot Spots", "taxa": "3-6%", "tempo": "15-30s", "melhor_para": "imóveis, decoração", "extra": "", "chave": "iab-medium", "w": 300, "h": 250, "label": "300×250", "dispositivos": ["desktop", "mobile"]},
+    {"nome": "360° Viewer", "taxa": "4-7%", "tempo": "20-40s", "melhor_para": "imóveis, turismo", "extra": "5x vs display", "chave": "iab-medium", "w": 300, "h": 250, "label": "300×250", "dispositivos": ["desktop", "mobile"]},
+    {"nome": "Poll / Quiz", "taxa": "6-12%", "tempo": "15-30s", "melhor_para": "first-party data", "extra": "8x vs display", "chave": "iab-medium", "w": 300, "h": 250, "label": "300×250", "dispositivos": ["desktop", "mobile"]},
+    {"nome": "Countdown", "taxa": "2-4%", "tempo": "5-10s", "melhor_para": "lançamentos", "extra": "", "chave": "iab-medium", "w": 300, "h": 250, "label": "300×250", "dispositivos": ["desktop", "mobile"]},
+    {"nome": "Video Interactive", "taxa": "4-8%", "tempo": "20-45s", "melhor_para": "demo", "extra": "5x vs display", "chave": "ctv-16x9", "w": 1920, "h": 1080, "label": "16:9", "dispositivos": ["ctv", "mobile"]},
 ]
 
 _FORMAT_DEFAULT = {"chave": "iab-medium", "w": 300, "h": 250, "label": "300×250"}
@@ -325,6 +415,26 @@ def _lookup_formato(nome: str, tipo: str = "") -> Dict[str, Any]:
     return dict(escolhido)
 
 
+def _normalizar_dispositivos(raw: Any, *, tipo: str = "", chave: str = "") -> List[str]:
+    seen = []
+    for item in raw if isinstance(raw, (list, tuple)) else []:
+        key = str(item or "").strip().casefold()
+        aliases = {"tv": "ctv", "smart tv": "ctv", "connected tv": "ctv", "celular": "mobile", "app": "app"}
+        key = aliases.get(key, key)
+        if key in DISPOSITIVOS and key not in seen:
+            seen.append(key)
+    if seen:
+        return seen
+    if chave in _DISPOSITIVOS_POR_CHAVE:
+        return list(_DISPOSITIVOS_POR_CHAVE[chave])
+    return list(_DISPOSITIVOS_POR_TIPO.get(tipo or "") or ["desktop", "mobile"])
+
+
+def rotulo_dispositivos(dispositivos: Any) -> str:
+    labels = [DISPOSITIVO_LABEL.get(item, item) for item in (dispositivos or []) if item]
+    return " · ".join(labels)
+
+
 def _normalizar_formato(fmt: Any, tipo: str = "") -> Dict[str, Any]:
     if isinstance(fmt, str):
         base = _lookup_formato(fmt, tipo)
@@ -335,18 +445,21 @@ def _normalizar_formato(fmt: Any, tipo: str = "") -> Dict[str, Any]:
             "h": base["h"],
             "label": base["label"],
             "melhor_para": "",
+            "dispositivos": _normalizar_dispositivos([], tipo=tipo, chave=base["chave"]),
         }
     if not isinstance(fmt, dict):
         return {}
     nome = str(fmt.get("nome") or "").strip()
     base = _lookup_formato(nome, tipo) if nome else dict(_FORMAT_BY_TIPO.get(tipo or "") or _FORMAT_DEFAULT)
+    chave = fmt.get("chave") or base.get("chave") or "iab-medium"
     out = {
         "nome": nome,
-        "chave": fmt.get("chave") or base.get("chave") or "iab-medium",
+        "chave": chave,
         "w": fmt.get("w") or base.get("w") or 300,
         "h": fmt.get("h") or base.get("h") or 250,
         "label": fmt.get("label") or base.get("label") or "",
         "melhor_para": fmt.get("melhor_para") or "",
+        "dispositivos": _normalizar_dispositivos(fmt.get("dispositivos"), tipo=tipo, chave=chave),
     }
     for extra in ("taxa", "tempo", "extra"):
         if fmt.get(extra):
@@ -375,17 +488,53 @@ def _oferta_de(item: Dict[str, Any]) -> List[str]:
     return out[:5]
 
 
+def _opcoes_exemplo(opcoes: Any) -> str:
+    if isinstance(opcoes, list):
+        return ", ".join(str(item).strip() for item in opcoes[:3] if str(item).strip())
+    return str(opcoes or "").strip()
+
+
+def mapear_segmentacoes(raw: Any) -> List[Dict[str, str]]:
+    """Normaliza lista comercial ou o JSON antigo `segmentacao` do cadu_canais."""
+    if isinstance(raw, list):
+        out = []
+        for item in raw:
+            if isinstance(item, dict) and (item.get("nome") or "").strip():
+                out.append({
+                    "nome": str(item.get("nome") or "").strip(),
+                    "quando": str(item.get("quando") or "").strip(),
+                    "exemplo": str(item.get("exemplo") or "").strip() or _opcoes_exemplo(item.get("opcoes")),
+                })
+            elif isinstance(item, str) and item.strip():
+                out.append({"nome": item.strip(), "quando": "", "exemplo": ""})
+        return out[:8]
+    if isinstance(raw, dict):
+        out = []
+        for key, val in raw.items():
+            label = str(key or "").replace("_", " ").strip()
+            if isinstance(val, dict):
+                nome = str(val.get("nome") or label).strip()
+                if not nome:
+                    continue
+                out.append({
+                    "nome": nome,
+                    "quando": str(val.get("quando") or label).strip(),
+                    "exemplo": str(val.get("exemplo") or "").strip() or _opcoes_exemplo(val.get("opcoes")),
+                })
+            elif isinstance(val, list) and val:
+                out.append({
+                    "nome": label.title() or "Segmentação",
+                    "quando": label,
+                    "exemplo": _opcoes_exemplo(val),
+                })
+        return out[:8]
+    return []
+
+
 def _segmentacoes_de(item: Dict[str, Any]) -> List[Dict[str, str]]:
-    prontas = []
-    for raw in item.get("segmentacoes") or []:
-        if isinstance(raw, dict) and (raw.get("nome") or "").strip():
-            prontas.append({
-                "nome": str(raw.get("nome") or "").strip(),
-                "quando": str(raw.get("quando") or "").strip(),
-                "exemplo": str(raw.get("exemplo") or "").strip(),
-            })
-        elif isinstance(raw, str) and raw.strip():
-            prontas.append({"nome": raw.strip(), "quando": "", "exemplo": ""})
+    prontas = mapear_segmentacoes(item.get("segmentacoes"))
+    if not prontas:
+        prontas = mapear_segmentacoes(item.get("segmentacao"))
     if prontas:
         return prontas[:8]
     if _eh_serasa(item):
@@ -447,7 +596,26 @@ def _assistente_de(item: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _catalogo_por_slug() -> Dict[str, Dict[str, Any]]:
+    try:
+        rows = json.loads(_CATALOG_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return {
+        str(row.get("slug") or ""): row
+        for row in rows
+        if isinstance(row, dict) and row.get("slug")
+    }
+
+
 def _aplicar_kit(item: Dict[str, Any]) -> Dict[str, Any]:
+    catalogo = _catalogo_por_slug().get(item.get("slug") or "") or {}
+    if catalogo.get("formatos") and not item.get("formatos"):
+        item["formatos"] = catalogo.get("formatos") or []
+    if catalogo.get("segmentacoes") and not item.get("segmentacoes"):
+        item["segmentacoes"] = catalogo.get("segmentacoes") or []
+    if catalogo.get("assistente") and not item.get("assistente"):
+        item["assistente"] = catalogo.get("assistente") or {}
     item["logo"] = _resolver_logo(item.get("slug") or "", item.get("logo") or "")
     tipo = item.get("tipo") or ""
     originais = list(item.get("beneficios") or [])
@@ -466,8 +634,10 @@ def _aplicar_kit(item: Dict[str, Any]) -> Dict[str, Any]:
             "h": meta["h"],
             "label": meta["label"],
             "melhor_para": item.get("descricao") or "",
+            "dispositivos": _normalizar_dispositivos([], tipo=tipo, chave=meta["chave"]),
         }]
     item["formatos"] = formatos
+    item["categoria"] = _GRUPO_POR_SLUG.get(item.get("slug") or "") or item.get("categoria") or ""
     if _eh_serasa(item):
         item["beneficios"] = list(SERASA_KIT_2027["fatos"])
         item["diferenciais"] = (
@@ -516,6 +686,13 @@ def _fallback_canais() -> List[Dict[str, Any]]:
             beneficios=["Taxa de engajamento 2–12% conforme formato", "Tempo de interação 5–45s"],
             diferenciais=["Hot Spots e 360° para imóveis", "Poll/Quiz até 8x vs display"],
             formatos=list(INTERATIVOS_FALLBACK),
+            segmentacoes=[
+                {"nome": "Hot Spots e 360°", "quando": "imóvel e decoração", "exemplo": "Lançamento com planta"},
+                {"nome": "Poll / Quiz", "quando": "first-party data", "exemplo": "Pergunta no portal"},
+                {"nome": "Cube e Scratch", "quando": "produto e cupom", "exemplo": "Varejo no 300×250"},
+                {"nome": "Video Interactive", "quando": "demo em CTV ou mobile", "exemplo": "15–45s"},
+            ],
+            cor="#0F766E",
         )))
     canais = _completar_canais_midia(canais)
     if canais:
@@ -531,6 +708,17 @@ def _completar_canais_midia(canais: List[Dict[str, Any]]) -> List[Dict[str, Any]
             beneficios=["In-App Ads", "Splash Screen", "Push Notification"],
             diferenciais=["Momento de fome e decisão de pedido", "Público classe C forte", "Cupom no app"],
             descricao="App de delivery com o maior volume de pedidos do Brasil. Ideal para food, varejo e cupom no momento da fome.",
+            formatos=[
+                {"nome": "Splash Screen", "dispositivos": ["mobile", "app"], "melhor_para": "abertura do pedido"},
+                {"nome": "In-App Ads", "dispositivos": ["mobile", "app"], "melhor_para": "durante o fluxo"},
+                {"nome": "Push Notification", "dispositivos": ["mobile", "app"], "melhor_para": "cupom e volta"},
+            ],
+            segmentacoes=[
+                {"nome": "Momento da fome", "quando": "almoço e jantar", "exemplo": "11h–14h e 19h–22h"},
+                {"nome": "Ticket e categoria", "quando": "food vs mercado", "exemplo": "Pedido médio da praça"},
+                {"nome": "Praça e raio", "quando": "loja e dark kitchen", "exemplo": "3 km do PDV"},
+                {"nome": "Cupom no app", "quando": "conversão", "exemplo": "Primeira compra da semana"},
+            ],
             cor="#EA1D2C",
             assistente={
                 "quando": "O cliente quer cupom, delivery ou impacto no momento da fome.",
@@ -549,6 +737,17 @@ def _completar_canais_midia(canais: List[Dict[str, Any]]) -> List[Dict[str, Any]
             beneficios=["In-App Banner", "Splash", "Receipt Ads"],
             diferenciais=["Passageiro em deslocamento", "Recibo com alta leitura", "Cidades e aeroportos"],
             descricao="Plataforma de mobilidade com anúncios no app e no recibo. Bom para marca e drive-to-store.",
+            formatos=[
+                {"nome": "Splash", "dispositivos": ["mobile", "app"], "melhor_para": "abertura da corrida"},
+                {"nome": "In-App Ads", "dispositivos": ["mobile", "app"], "melhor_para": "durante o deslocamento"},
+                {"nome": "Receipt Ads", "dispositivos": ["mobile"], "melhor_para": "leitura no recibo"},
+            ],
+            segmentacoes=[
+                {"nome": "Aeroporto e centro", "quando": "marca em deslocamento", "exemplo": "Chegada GRU/CGH/GIG"},
+                {"nome": "Horário da corrida", "quando": "pico vs noite", "exemplo": "7h–9h e 18h–21h"},
+                {"nome": "Recibo", "quando": "alta leitura", "exemplo": "Fim da viagem"},
+                {"nome": "Cidade", "quando": "praça", "exemplo": "SP, RJ, BH"},
+            ],
             cor="#000000",
             assistente={
                 "quando": "O cliente precisa de marca no deslocamento ou no recibo da corrida.",
@@ -567,6 +766,17 @@ def _completar_canais_midia(canais: List[Dict[str, Any]]) -> List[Dict[str, Any]
             beneficios=["In-App Ads", "Splash Screen", "Cupom no app"],
             diferenciais=["Forte nas capitais", "Público complementar à Uber", "Cupom nativo"],
             descricao="App de transporte com penetração nacional. Complementa Uber no recorte de praça e classe.",
+            formatos=[
+                {"nome": "Splash Screen", "dispositivos": ["mobile", "app"], "melhor_para": "abertura"},
+                {"nome": "In-App Ads", "dispositivos": ["mobile", "app"], "melhor_para": "durante a corrida"},
+                {"nome": "Cupom no app", "dispositivos": ["mobile", "app"], "melhor_para": "conversão"},
+            ],
+            segmentacoes=[
+                {"nome": "Capitais", "quando": "complemento da Uber", "exemplo": "SP, RJ, BH, Recife"},
+                {"nome": "Classe e ticket", "quando": "cupom nativo", "exemplo": "Corrida econômica"},
+                {"nome": "Horário", "quando": "pico urbano", "exemplo": "Manhã e fim de expediente"},
+                {"nome": "Praça forte 99", "quando": "não empilhar com Uber", "exemplo": "Cidades onde a 99 lidera"},
+            ],
             cor="#FFDD00",
             assistente={
                 "quando": "Complemento de Uber nas capitais, com cupom nativo.",
@@ -585,7 +795,17 @@ def _completar_canais_midia(canais: List[Dict[str, Any]]) -> List[Dict[str, Any]
             beneficios=["Mídia em veículo", "Circuitos urbanos", "DOOH mobile"],
             diferenciais=["Impacto no trajeto", "Praça e rota sob medida", "Complemento de campanha OOH"],
             descricao="Mídia em trajetos e circuitos urbanos. Use quando o cliente precisa de presença no caminho, não só na tela.",
-            formatos=["Mídia em veículo", "Circuitos urbanos", "DOOH mobile"],
+            formatos=[
+                {"nome": "Mídia em veículo", "dispositivos": ["ooh"], "melhor_para": "trajeto"},
+                {"nome": "Circuitos urbanos", "dispositivos": ["ooh"], "melhor_para": "rota e cidade"},
+                {"nome": "DOOH mobile", "dispositivos": ["ooh", "mobile"], "melhor_para": "apoio digital"},
+            ],
+            segmentacoes=[
+                {"nome": "Rota", "quando": "caminho casa–trabalho", "exemplo": "Corredor da cidade"},
+                {"nome": "Cidade e período", "quando": "circuito fechado", "exemplo": "2 semanas em SP"},
+                {"nome": "Complemento OOH", "quando": "já tem rua ou metrô", "exemplo": "Mesmo período da Eletromidia"},
+                {"nome": "Classe do trajeto", "quando": "AB vs massa", "exemplo": "Centro vs periferia"},
+            ],
             cor="#1F4B8F",
             assistente={
                 "quando": "O cliente precisa de presença no trajeto, não só na tela.",
@@ -665,6 +885,12 @@ def _fallback_canais_minimo() -> List[Dict[str, Any]]:
             beneficios=["Taxa de engajamento 2–12% conforme formato", "Tempo de interação 5–45s"],
             diferenciais=["Hot Spots e 360° para imóveis", "Poll/Quiz até 8x vs display"],
             formatos=list(INTERATIVOS_FALLBACK),
+            segmentacoes=[
+                {"nome": "Hot Spots e 360°", "quando": "imóvel e decoração", "exemplo": "Lançamento com planta"},
+                {"nome": "Poll / Quiz", "quando": "first-party data", "exemplo": "Pergunta no portal"},
+                {"nome": "Cube e Scratch", "quando": "produto e cupom", "exemplo": "Varejo no 300×250"},
+                {"nome": "Video Interactive", "quando": "demo em CTV ou mobile", "exemplo": "15–45s"},
+            ],
             cor="#0F766E",
         ),
     ]
@@ -716,7 +942,7 @@ def _query_db_canais() -> Optional[List[Dict[str, Any]]]:
                 """
                 SELECT slug, nome, categoria, tipo, alcance, viewability,
                        investimento_minimo, formatos_resumo, diferenciais,
-                       logo_path, cor, descricao
+                       logo_path, cor, descricao, segmentacao, segmentacoes, formatos
                 FROM cadu_canais
                 WHERE is_active IS TRUE
                 ORDER BY ordem NULLS LAST, nome
@@ -746,6 +972,9 @@ def _query_db_canais() -> Optional[List[Dict[str, Any]]]:
             logo=row.get("logo_path") or "",
             cor=row.get("cor") or "",
             descricao=row.get("descricao") or "",
+            formatos=row.get("formatos") or [],
+            segmentacoes=mapear_segmentacoes(row.get("segmentacoes"))
+            or mapear_segmentacoes(row.get("segmentacao")),
         )
         canais.append(_aplicar_kit(item))
     if not any(c["slug"] == "interativos" for c in canais):
@@ -790,6 +1019,12 @@ def _canal_interativos_db() -> Dict[str, Any]:
         beneficios=["Engajamento medido por formato", "Tempo de interação 5–45s"],
         diferenciais=["Hot Spots e 360° para imóveis"],
         formatos=formatos,
+        segmentacoes=[
+            {"nome": "Hot Spots e 360°", "quando": "imóvel e decoração", "exemplo": "Lançamento com planta"},
+            {"nome": "Poll / Quiz", "quando": "first-party data", "exemplo": "Pergunta no portal"},
+            {"nome": "Cube e Scratch", "quando": "produto e cupom", "exemplo": "Varejo no 300×250"},
+            {"nome": "Video Interactive", "quando": "demo em CTV ou mobile", "exemplo": "15–45s"},
+        ],
         cor="#0F766E",
     )
     return canal
@@ -814,7 +1049,16 @@ def _eh_serasa(canal: Dict[str, Any]) -> bool:
 
 def listar_canais() -> List[Dict[str, Any]]:
     canais = _completar_canais_midia(_query_db_canais() or _fallback_canais())
+    canais = [
+        item for item in canais
+        if (item.get("slug") or "") not in CANAIS_EXCLUIDOS
+    ]
     return sorted(canais, key=lambda item: (item.get("nome") or "").casefold())
+
+
+def grupos_canais(canais: Optional[List[Dict[str, Any]]] = None) -> List[str]:
+    presentes = {item.get("categoria") for item in (canais or listar_canais()) if item.get("categoria")}
+    return [nome for nome in GRUPOS if nome in presentes]
 
 
 def nomes_canais() -> List[str]:
@@ -958,3 +1202,135 @@ def canal_publico(canal: Dict[str, Any]) -> Dict[str, Any]:
         "assistente": canal.get("assistente") or {},
         "inicial": canal.get("inicial") or (canal.get("nome") or "?")[:1].upper(),
     }
+
+
+def _connect_canais_db():
+    import psycopg
+    from psycopg.rows import dict_row
+
+    from .db import get_db_config
+
+    cfg = dict(get_db_config())
+    cfg.pop("row_factory", None)
+    return psycopg.connect(**cfg, row_factory=dict_row)
+
+
+def garantir_colunas_ficha() -> None:
+    conn = _connect_canais_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("ALTER TABLE cadu_canais ADD COLUMN IF NOT EXISTS segmentacoes jsonb")
+            cur.execute("ALTER TABLE cadu_canais ADD COLUMN IF NOT EXISTS formatos jsonb")
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def persistir_ficha_db(canal: Dict[str, Any]) -> None:
+    slug = (canal.get("slug") or "").strip()
+    if not slug or slug in CANAIS_EXCLUIDOS:
+        return
+    from psycopg.types.json import Json
+
+    categoria = _GRUPO_POR_SLUG.get(slug) or canal.get("categoria") or ""
+    formatos = [_normalizar_formato(fmt, canal.get("tipo") or "") for fmt in (canal.get("formatos") or [])]
+    formatos = [fmt for fmt in formatos if fmt.get("nome")]
+    segmentacoes = mapear_segmentacoes(canal.get("segmentacoes"))
+    conn = _connect_canais_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE cadu_canais
+                SET categoria = COALESCE(NULLIF(%s, ''), categoria),
+                    segmentacoes = %s,
+                    formatos = %s,
+                    updated_at = NOW()
+                WHERE slug = %s
+                """,
+                (categoria, Json(segmentacoes), Json(formatos), slug),
+            )
+            if cur.rowcount == 0:
+                cur.execute(
+                    """
+                    INSERT INTO cadu_canais (
+                        slug, nome, categoria, tipo, alcance, viewability,
+                        investimento_minimo, descricao, cor, logo_path,
+                        formatos_resumo, diferenciais, segmentacoes, formatos,
+                        is_active, updated_at
+                    ) VALUES (
+                        %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s,
+                        %s, %s, %s, %s,
+                        TRUE, NOW()
+                    )
+                    """,
+                    (
+                        slug,
+                        canal.get("nome") or slug,
+                        categoria,
+                        canal.get("tipo") or "",
+                        canal.get("alcance") or "",
+                        canal.get("viewability"),
+                        canal.get("investimento_minimo") or "",
+                        canal.get("descricao") or "",
+                        canal.get("cor") or "",
+                        canal.get("logo") or "",
+                        Json([fmt.get("nome") for fmt in formatos if fmt.get("nome")]),
+                        Json(canal.get("diferenciais") or []),
+                        Json(segmentacoes),
+                        Json(formatos),
+                    ),
+                )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def sincronizar_canais_db() -> Dict[str, int]:
+    garantir_colunas_ficha()
+    from psycopg.types.json import Json
+
+    canais = _completar_canais_midia(_fallback_canais())
+    conn = _connect_canais_db()
+    updated = inserted = 0
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE cadu_canais
+                SET is_active = FALSE, updated_at = NOW()
+                WHERE slug = ANY(%s)
+                """,
+                (list(CANAIS_EXCLUIDOS),),
+            )
+            cur.execute("SELECT slug, segmentacao FROM cadu_canais")
+            taxonomia = {row["slug"]: row.get("segmentacao") for row in cur.fetchall()}
+            for canal in canais:
+                slug = canal.get("slug") or ""
+                if slug in CANAIS_EXCLUIDOS:
+                    continue
+                segs = mapear_segmentacoes(canal.get("segmentacoes")) or mapear_segmentacoes(taxonomia.get(slug))
+                formatos = [fmt for fmt in (canal.get("formatos") or []) if fmt.get("nome")]
+                categoria = _GRUPO_POR_SLUG.get(slug) or canal.get("categoria") or ""
+                cur.execute(
+                    """
+                    UPDATE cadu_canais
+                    SET categoria = COALESCE(NULLIF(%s, ''), categoria),
+                        segmentacoes = %s,
+                        formatos = %s,
+                        is_active = TRUE,
+                        updated_at = NOW()
+                    WHERE slug = %s
+                    """,
+                    (categoria, Json(segs), Json(formatos), slug),
+                )
+                if cur.rowcount:
+                    updated += 1
+                    continue
+                persistir_ficha_db({**canal, "segmentacoes": segs, "formatos": formatos})
+                inserted += 1
+        conn.commit()
+    finally:
+        conn.close()
+    return {"updated": updated, "inserted": inserted}

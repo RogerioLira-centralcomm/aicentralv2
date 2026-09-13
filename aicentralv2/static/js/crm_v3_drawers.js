@@ -2063,7 +2063,9 @@
         if (_canaisCatalogoPromise) return _canaisCatalogoPromise;
         _canaisCatalogoPromise = apiFetch('/canais').then(function (res) {
             var data = res.data || res;
-            _canaisCatalogo = sortCanaisAlfabetico(data.canais || (Array.isArray(data) ? data : []) || []);
+            var lista = (data && data.canais) || (Array.isArray(data) ? data : []) || [];
+            _canaisCatalogo = sortCanaisAlfabetico(lista);
+            _canaisCatalogo.grupos = res.grupos || (data && data.grupos) || [];
             return _canaisCatalogo;
         }).catch(function () {
             _canaisCatalogo = sortCanaisAlfabetico(_canaisCatalogo || []);
@@ -4012,6 +4014,10 @@
         var chave = String(fmt.chave || 'iab-medium').replace(/[^a-z0-9-]/gi, '');
         var label = fmt.label || (fmt.w && fmt.h ? fmt.w + '×' + fmt.h : '');
         var meta = [];
+        var devices = (fmt.dispositivos || []).map(function (item) {
+            return ({ ctv: 'CTV', mobile: 'mobile', desktop: 'desktop', tablet: 'tablet', audio: 'áudio', app: 'app', ooh: 'OOH' })[item] || item;
+        }).filter(Boolean);
+        if (devices.length) meta.push(devices.join(' · '));
         if (fmt.taxa) meta.push(fmt.taxa);
         if (fmt.tempo) meta.push(fmt.tempo);
         if (fmt.melhor_para) meta.push(fmt.melhor_para);
@@ -4138,15 +4144,16 @@
                     escapeHtml(canal.categoria || '') + '">' +
                     '<span class="cx-canais-mark">' +
                     canalMarkHtml(canal) + '</span>' +
-                    '<span><b>' + escapeHtml(canal.nome) + '</b><small>' +
-                    escapeHtml(canal.categoria || '') + '</small></span></button>';
+                    '<b>' + escapeHtml(canal.nome) + '</b></button>';
             }).join('');
             applyCanaisFilter();
         }
 
         function paintCats(canais) {
             if (!cats) return;
-            var seen = [];
+            var seen = (_canaisCatalogo && _canaisCatalogo.grupos && _canaisCatalogo.grupos.length)
+                ? _canaisCatalogo.grupos.slice()
+                : [];
             canais.forEach(function (canal) {
                 if (canal.categoria && seen.indexOf(canal.categoria) === -1) seen.push(canal.categoria);
             });

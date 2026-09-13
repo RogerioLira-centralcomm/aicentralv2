@@ -6429,13 +6429,9 @@ dialog.cx-modal-shell::backdrop {
 }
 .cx-canais-cats {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 6px;
   margin-top: 10px;
-  overflow-x: auto;
-  padding-bottom: 2px;
-  scrollbar-width: thin;
-  -webkit-overflow-scrolling: touch;
 }
 .cx-canais-cat {
   flex: 0 0 auto;
@@ -6510,11 +6506,6 @@ dialog.cx-modal-shell::backdrop {
   color: var(--cx-text);
   font-size: 13px;
   font-weight: 650;
-}
-.cx-canais-item small {
-  display: block;
-  color: var(--cx-text-muted);
-  font-size: 11.5px;
 }
 .cx-canais-stage {
   min-height: 0;

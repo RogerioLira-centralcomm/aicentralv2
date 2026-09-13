@@ -177,9 +177,29 @@ Regras:
 - O criativo precisa parecer inserido no canal (TV, portal, app), não um banner solto.
 - market.stat é um número ou uma palavra de decisão (nunca um slogan). Sem inventar percentual sem rotular como premissa.
 - defense.body fecha a reunião: por que este mix, agora, para este anunciante.
+- Use a verba, os canais e o voo mensal da campanha quando existirem.
 - Sem agência como herói, sem CentralComm no texto, sem mencionar IA.
 - Se houver identidade da marca (público, produto, tom), use como verdade. Não invente outro posicionamento.
 """
+
+SHEET_IMPROVE = ONE_PAGE_PROMPT + "\nEsta é a passagem 2. Aprofunde o JSON abaixo sem mudar o schema. Feche o mix com a campanha."
+SHEET_FINAL = ONE_PAGE_PROMPT + "\nEsta é a passagem 3 — a versão final da folha. Aperte o texto. Sem peça oca."
+
+
+def _sheet_from_material(payload: dict) -> dict:
+    material = json.dumps(payload, ensure_ascii=False)
+    draft = chat_json(ONE_PAGE_PROMPT, "Passagem 1 — rascunho das quatro peças.\n\n" + material, role="draft")
+    improved = chat_json(
+        SHEET_IMPROVE,
+        "Passagem 2.\n\nMaterial:\n" + material[:8000] + "\n\nRascunho:\n" + json.dumps(draft, ensure_ascii=False)[:8000],
+        role="improve",
+    )
+    final = chat_json(
+        SHEET_FINAL,
+        "Passagem 3 — versão final.\n\nMaterial:\n" + material[:8000] + "\n\nDocumento:\n" + json.dumps(improved, ensure_ascii=False)[:8000],
+        role="final",
+    )
+    return final if isinstance(final, dict) else (improved if isinstance(improved, dict) else draft)
 
 
 def match_pitch(client: str, agency: str, briefing: str = "") -> dict | None:
@@ -371,23 +391,15 @@ def build_one_page(
             cliente_id=cliente_id, agencia_id=agencia_id, brand=brand,
         )
     else:
-        parsed = chat_json(
-            ONE_PAGE_PROMPT,
-            json.dumps(
-                {
-                    "cliente": client,
-                    "agencia": agency,
-                    "presenter": presenter,
-                    "marca": brand_prompt_block(brand),
-                    "briefing": briefing[:8000],
-                    "planejamento": planejamento[:8000],
-                    "campanha": campanha,
-                },
-                ensure_ascii=False,
-            ),
-            max_tokens=2500,
-            temperature=0.25,
-        )
+        parsed = _sheet_from_material({
+            "cliente": client,
+            "agencia": agency,
+            "presenter": presenter,
+            "marca": brand_prompt_block(brand),
+            "briefing": briefing[:8000],
+            "planejamento": planejamento[:8000],
+            "campanha": campanha,
+        })
         cards = cards_from_ai(parsed if isinstance(parsed, dict) else {})
     client = client or branding["client"]["name"]
     agency = agency or branding["agency"]["name"]

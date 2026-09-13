@@ -9,7 +9,7 @@ from typing import Any, Optional
 from psycopg.types.json import Json
 
 from ..db import get_db
-from .catalog import CHANNEL_CATALOG, PRACA_OPTIONS, objetivo_label, plan_mode_label, resume_action
+from .catalog import CHANNEL_CATALOG, PRACA_OPTIONS, objetivo_label, plan_mode_label, resume_action, resume_status
 from .cost import cost_from_dados
 from .helpers import as_dict, as_list, campaign_from_campos, format_when, plan_href, plan_mode_of, session_title, text
 
@@ -129,13 +129,18 @@ def list_sessions(user_email: str, user_id: Any = None, limit: int = 80) -> list
     sql = f"""
             SELECT id, session_token, briefing_melhorado, briefing_compilado,
                    dados_detectados, plan_content, objetivo, budget, prazo,
-                   quality_score, created_at, updated_at, nome_campanha, cliente
+                   quality_score, created_at, updated_at, nome_campanha, cliente,
+                   user_name
             FROM cadu_smart_planner_sessions
             WHERE {' AND '.join(clauses)}
             ORDER BY updated_at DESC NULLS LAST, id DESC
             LIMIT %s
             """
-    fallback = sql.replace("plan_content, ", "").replace("deleted_at IS NULL", "TRUE")
+    fallback = (
+        sql.replace("plan_content, ", "")
+        .replace(",\n                   user_name", "")
+        .replace("deleted_at IS NULL", "TRUE")
+    )
     conn = get_db()
     with conn.cursor() as cur:
         try:
@@ -157,6 +162,9 @@ def list_sessions(user_email: str, user_id: Any = None, limit: int = 80) -> list
                 "session_token": token,
                 "titulo": session_title(row or {}, {}),
                 "cliente": "",
+                "agencia": "",
+                "executivo": text((row or {}).get("user_name")),
+                "logo_url": "",
                 "objetivo": "",
                 "verba": "",
                 "custo": "",
@@ -166,6 +174,8 @@ def list_sessions(user_email: str, user_id: Any = None, limit: int = 80) -> list
                 "canais": [],
                 "plan_mode": "completo",
                 "plan_mode_label": plan_mode_label("completo"),
+                "status": "briefing",
+                "status_label": resume_status("briefing"),
                 "tem_planejamento": False,
                 "tem_quadro": False,
                 "tem_briefing": False,
@@ -189,14 +199,12 @@ def serialize_list_row(row: dict) -> dict:
     has_canvas = bool(as_list(plan.get("sections")))
     has_plan_text = bool(text(dados.get("planejamento")))
     has_briefing = bool(text(row.get("briefing_melhorado") or row.get("briefing_compilado")))
-    has_mix = bool(canais_keys or text(row.get("budget") or campanha.get("verba") or dados.get("verba")))
     mode = plan_mode_of(dados)
     token = text(row.get("session_token"))
     custo = cost_from_dados(dados)
-    if has_canvas:
-        resume = "canvas"
-    elif has_plan_text or (has_briefing and has_mix):
-        resume = "gerar"
+    brand = as_dict(dados.get("brand"))
+    if has_canvas or has_plan_text:
+        resume = "canvas" if has_canvas else "conclusao"
     elif has_briefing:
         resume = "revisao"
     else:
@@ -206,6 +214,9 @@ def serialize_list_row(row: dict) -> dict:
         "session_token": token,
         "titulo": session_title(row, dados),
         "cliente": text(row.get("cliente") or dados.get("cliente")),
+        "agencia": text(dados.get("agencia") or campanha.get("agencia")),
+        "executivo": text(row.get("user_name")),
+        "logo_url": text(brand.get("logo_url") or brand.get("logo")),
         "objetivo": objetivo_label(text(row.get("objetivo") or dados.get("objetivo") or campanha.get("objetivo"))),
         "verba": text(row.get("budget") or campanha.get("verba") or dados.get("verba")),
         "custo": custo["label"],
@@ -215,13 +226,15 @@ def serialize_list_row(row: dict) -> dict:
         "canais": canais,
         "plan_mode": mode,
         "plan_mode_label": plan_mode_label(mode),
+        "status": resume,
+        "status_label": resume_status(resume, mode),
         "tem_planejamento": has_plan_text or has_canvas,
         "tem_quadro": has_canvas,
         "tem_briefing": has_briefing,
         "quando": format_when(row.get("updated_at") or row.get("created_at")),
         "updated_at": row.get("updated_at"),
         "resume_step": resume,
-        "resume_action": resume_action(resume),
+        "resume_action": resume_action(resume, mode),
         "href": plan_href(token, resume),
         "canvas_href": plan_href(token, "canvas") if token else "",
     }
@@ -339,8 +352,14 @@ def save_campos(token: str, campos: dict, briefing_text: str | None = None) -> d
         raise SessionNotFound("Plano não encontrado.")
     dados = as_dict(row.get("dados_detectados"))
     campanha = campaign_from_campos(campos)
+    keep = {"verba_alocacao", "canais_verba", "verba_valor", "verba_base", "mix"}
+    if "canais" in campos:
+        keep.add("canais")
     if isinstance(dados.get("campanha"), dict):
-        campanha = {**dados["campanha"], **{k: v for k, v in campanha.items() if v}}
+        campanha = {
+            **dados["campanha"],
+            **{k: v for k, v in campanha.items() if v or k in keep},
+        }
     dados.update(campos)
     dados["nome_campanha"] = text(campos.get("campanha") or dados.get("nome_campanha"))
     dados["campanha"] = campanha

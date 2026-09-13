@@ -85,19 +85,31 @@ CHANNEL_GROUPS = {
     "ooh": "OOH",
 }
 
-WIZARD_STEPS = (
-    {"id": "briefing", "title": "Briefing", "hint": "Cole o material da campanha"},
-    {"id": "revisao", "title": "Revisar", "hint": "Confira anunciante e investimento"},
-    {"id": "canais", "title": "Mix", "hint": "Canais, praça e período"},
-    {"id": "gerar", "title": "Quadro", "hint": "Montar a folha de decisão"},
+CHANNEL_SHOWCASE = (
+    "netflix", "prime_video", "disney", "hbo_max", "globoplay", "spotify",
+    "youtube", "tiktok", "meta_ads", "linkedin", "google_ads", "dv360",
+    "serasa", "gpt_ads", "g1", "uol", "cnn", "ooh",
 )
+
+WIZARD_STEPS = (
+    {"id": "briefing", "title": "Importar briefing", "hint": "Texto, URL, PDF ou imagem"},
+    {"id": "revisao", "title": "Revisar briefing", "hint": "Narrativa, orçamento e mix"},
+    {"id": "conclusao", "title": "Documentos", "hint": "Página única ou plano completo"},
+)
+
+WIZARD_TRAIL = WIZARD_STEPS
 
 RESUME_ACTIONS = {
     "briefing": "Continuar briefing",
-    "revisao": "Revisar dados",
-    "canais": "Definir mix",
-    "gerar": "Montar quadro",
+    "revisao": "Gerar documentos",
+    "conclusao": "Ver documentos",
     "canvas": "Abrir quadro",
+}
+
+RESUME_STATUS = {
+    "briefing": "Em briefing",
+    "revisao": "Em revisão",
+    "conclusao": "Documentos prontos",
 }
 
 
@@ -105,8 +117,18 @@ def plan_mode_label(mode: str) -> str:
     return PLAN_MODE_LABELS.get((mode or "").strip().lower(), PLAN_MODE_LABELS["completo"])
 
 
-def resume_action(step: str) -> str:
+def resume_action(step: str, mode: str = "") -> str:
+    mode = (mode or "").strip().lower()
+    if step == "canvas":
+        return "Abrir folha" if mode == "one_page" else "Abrir quadro"
     return RESUME_ACTIONS.get(step, "Abrir")
+
+
+def resume_status(step: str, mode: str = "") -> str:
+    mode = (mode or "").strip().lower()
+    if step == "canvas":
+        return "Folha pronta" if mode == "one_page" else "Quadro pronto"
+    return RESUME_STATUS.get(step, "Em briefing")
 
 
 def channels_by_group() -> list[tuple[str, str, list[tuple[str, dict]]]]:
@@ -128,3 +150,19 @@ def media_channel_keys() -> list[str]:
 
 def objetivo_label(value: str) -> str:
     return OBJETIVO_OPTIONS.get((value or "").strip().lower(), value or "")
+
+
+def score_label(score: int) -> dict:
+    try:
+        score = int(score or 0)
+    except (TypeError, ValueError):
+        score = 0
+    if score >= 85:
+        return {"tom": "alto", "titulo": "Excelente", "texto": "Seu briefing está claro e completo."}
+    if score >= 70:
+        return {"tom": "alto", "titulo": "Muito bom", "texto": "Seu briefing está claro e completo."}
+    if score >= 55:
+        return {"tom": "medio", "titulo": "Bom", "texto": "Dá para gerar, mas ainda cabe detalhe."}
+    if score >= 35:
+        return {"tom": "medio", "titulo": "Regular", "texto": "Complete os pontos ao lado antes de gerar."}
+    return {"tom": "baixo", "titulo": "Incompleto", "texto": "Faltam informações importantes."}

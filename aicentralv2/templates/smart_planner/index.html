@@ -4,11 +4,11 @@
 {% block title %}Smart Planner{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=4">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=5">
 {% endblock %}
 
 {% block content %}
-<div class="sp-desk">
+<div class="sp-desk is-book">
   <header class="sp-head">
     <div>
       <h1>Planejamentos</h1>
@@ -22,7 +22,7 @@
     </div>
     <a class="cx-btn cx-btn-primary" href="{{ url_for('smart_planner.novo') }}">
       <i class="fa-solid fa-plus" aria-hidden="true"></i>
-      Nova campanha
+      Novo planejamento
     </a>
   </header>
 
@@ -31,75 +31,123 @@
   {% endif %}
 
   {% if rows %}
-  <ul class="sp-list" id="sp-history">
-    {% for row in rows %}
-    <li class="sp-plan {% if row.plan_mode == 'one_page' %}is-sheet{% endif %}" data-id="{{ row.id }}">
-      <div class="sp-plan-main">
-        {% if row.href %}
-        <h2><a href="{{ row.href }}">{{ row.titulo }}</a></h2>
-        {% else %}
-        <h2>{{ row.titulo }}</h2>
-        {% endif %}
-        <p class="sp-plan-client">{{ row.cliente or "Cliente a definir" }}</p>
-        {% if row.objetivo %}<p class="sp-plan-goal">{{ row.objetivo }}</p>{% endif %}
-        {% if row.canais %}
-        <ul class="sp-mix">
-          {% for canal in row.canais[:5] %}
-          <li>{{ canal }}</li>
-          {% endfor %}
-          {% if row.canais|length > 5 %}
-          <li>+{{ row.canais|length - 5 }}</li>
-          {% endif %}
-        </ul>
-        {% endif %}
-      </div>
-      <dl class="sp-facts">
-        <div>
-          <dt>Verba</dt>
-          <dd>{{ row.verba or "—" }}</dd>
-        </div>
-        <div class="is-cost">
-          <dt>Custo</dt>
-          <dd>{{ row.custo or "—" }}</dd>
-        </div>
-        <div>
-          <dt>Praça</dt>
-          <dd>{{ row.praca or "—" }}</dd>
-        </div>
-        <div>
-          <dt>Período</dt>
-          <dd>{{ row.periodo or "—" }}</dd>
-        </div>
-        <div>
-          <dt>Atualizado</dt>
-          <dd>{{ row.quando or "—" }}</dd>
-        </div>
-      </dl>
-      <div class="sp-plan-aside">
-        <span class="sp-mode {% if row.plan_mode == 'one_page' %}is-sheet{% endif %}">{{ row.plan_mode_label }}</span>
-        <div class="sp-plan-actions">
-          {% if row.href %}
-          <a class="cx-btn cx-btn-sm cx-btn-primary" href="{{ row.href }}">{{ row.resume_action }}</a>
-          {% endif %}
-          {% if row.tem_quadro and row.canvas_href and row.resume_step != 'canvas' %}
-          <a class="cx-btn cx-btn-sm cx-btn-ghost" href="{{ row.canvas_href }}">Abrir quadro</a>
-          {% endif %}
-          <button type="button" class="cx-btn cx-btn-sm cx-btn-ghost js-sp-delete" data-id="{{ row.id }}">Excluir</button>
-        </div>
-      </div>
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <div class="sp-empty" id="sp-empty">
-    <h2>Nenhuma campanha neste usuário</h2>
-    <p>Comece pelo briefing. O CentralX monta a página única ou o plano completo no quadro.</p>
-    <a class="cx-btn cx-btn-primary" href="{{ url_for('smart_planner.novo') }}">Nova campanha</a>
+  <div class="sp-book-bar" id="sp-book-bar">
+    <label class="sp-book-search">
+      <span class="sr-only">Buscar planejamento</span>
+      <input class="cx-input" id="sp-filter-q" type="search" placeholder="Buscar campanha, cliente ou agência" autocomplete="off">
+    </label>
+    <div class="sp-mode-switch" role="group" aria-label="Tipo de planejamento">
+      <button type="button" class="is-on" data-mode="" aria-pressed="true">Todos</button>
+      <button type="button" data-mode="one_page" aria-pressed="false">Página única</button>
+      <button type="button" data-mode="completo" aria-pressed="false">Plano completo</button>
+    </div>
+    <label class="sp-book-filter">
+      <span class="sr-only">Cliente</span>
+      <select class="cx-select" id="sp-filter-cliente">
+        <option value="">Todos os clientes</option>
+      </select>
+    </label>
+    <label class="sp-book-filter">
+      <span class="sr-only">Agência</span>
+      <select class="cx-select" id="sp-filter-agencia">
+        <option value="">Todas as agências</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="sp-book" id="sp-history-wrap">
+    <table class="sp-ledger" id="sp-history">
+      <caption class="sr-only">Planejamentos deste usuário</caption>
+      <thead>
+        <tr>
+          <th scope="col">Planejamento</th>
+          <th scope="col">Cliente</th>
+          <th class="is-agency" scope="col">Agência</th>
+          <th scope="col">Tipo</th>
+          <th class="is-num" scope="col">Verba</th>
+          <th class="is-period" scope="col">Período</th>
+          <th scope="col">Status</th>
+          <th class="is-when" scope="col">Atualizado</th>
+          <th class="is-actions" scope="col"><span class="sr-only">Ações</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr class="{{ 'is-sheet' if row.plan_mode == 'one_page' else 'is-full' }}"
+            data-id="{{ row.id }}"
+            data-mode="{{ row.plan_mode }}"
+            data-cliente="{{ row.cliente }}"
+            data-agencia="{{ row.agencia }}"
+            data-search="{{ row.titulo }} {{ row.cliente }} {{ row.agencia }} {{ row.objetivo }} {{ row.canais|join(' ') }}">
+          <td class="is-name">
+            <div class="sp-name">
+              <span class="sp-mark" aria-hidden="true">
+                {% if row.logo_url %}
+                <img src="{{ row.logo_url }}" alt="">
+                {% else %}
+                {{ (row.cliente or row.titulo)[:1]|upper }}
+                {% endif %}
+              </span>
+              <div>
+                {% if row.href %}
+                <a href="{{ row.href }}">{{ row.titulo }}</a>
+                {% else %}
+                <strong>{{ row.titulo }}</strong>
+                {% endif %}
+                {% if row.objetivo %}<p>{{ row.objetivo }}</p>{% endif %}
+                {% if row.canais %}
+                <ul class="sp-mix">
+                  {% for canal in row.canais[:4] %}
+                  <li>{{ canal }}</li>
+                  {% endfor %}
+                  {% if row.canais|length > 4 %}
+                  <li>+{{ row.canais|length - 4 }}</li>
+                  {% endif %}
+                </ul>
+                {% endif %}
+              </div>
+            </div>
+          </td>
+          <td data-label="Cliente">{{ row.cliente or "A definir" }}</td>
+          <td class="is-agency" data-label="Agência">{{ row.agencia or "Direto" }}</td>
+          <td data-label="Tipo">
+            <span class="sp-mode {{ 'is-sheet' if row.plan_mode == 'one_page' else 'is-full' }}">{{ row.plan_mode_label }}</span>
+          </td>
+          <td class="is-num" data-label="Verba">{{ row.verba or "—" }}</td>
+          <td class="is-period" data-label="Período">{{ row.periodo or "—" }}</td>
+          <td data-label="Status">
+            <span class="sp-status {{ 'is-ready' if row.resume_step == 'canvas' else 'is-open' }}">{{ row.status_label }}</span>
+          </td>
+          <td class="is-when" data-label="Atualizado">{{ row.quando or "—" }}</td>
+          <td class="is-actions">
+            <div class="sp-row-actions">
+              {% if row.href %}
+              <a class="cx-btn cx-btn-sm cx-btn-primary" href="{{ row.href }}">{{ row.resume_action }}</a>
+              {% endif %}
+              <button type="button" class="cx-btn cx-btn-sm cx-btn-ghost js-sp-delete" data-id="{{ row.id }}">Excluir</button>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
   {% endif %}
+
+  <div class="sp-empty" id="sp-empty" {% if rows %}hidden{% endif %}>
+    <h2>Nenhuma campanha neste usuário</h2>
+    <p>Comece pelo briefing. O CentralX monta a página única ou o plano completo no quadro.</p>
+    <a class="cx-btn cx-btn-primary" href="{{ url_for('smart_planner.novo') }}">Novo planejamento</a>
+  </div>
+
+  <div class="sp-empty" id="sp-filter-empty" hidden>
+    <h2>Nenhum planejamento neste recorte</h2>
+    <p>Limpe a busca ou troque o tipo — página única e plano completo ficam em livros separados.</p>
+    <button type="button" class="cx-btn cx-btn-outline" id="sp-clear-filters">Limpar filtros</button>
+  </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/index.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/index.js') }}?v=3"></script>
 {% endblock %}

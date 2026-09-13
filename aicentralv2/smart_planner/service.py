@@ -5,14 +5,40 @@ from __future__ import annotations
 from flask import session
 
 from .brand import seed_parties
-from .catalog import PLAN_MODES, PRACA_OPTIONS, WIZARD_STEPS, objetivo_label, plan_mode_label
+from .catalog import (
+    CHANNEL_CATALOG,
+    CHANNEL_SHOWCASE,
+    DEVICE_OPTIONS,
+    PLAN_MODES,
+    PRACA_OPTIONS,
+    WIZARD_STEPS,
+    WIZARD_TRAIL,
+    objetivo_label,
+    plan_mode_label,
+    score_label,
+)
+from .mix import METHODS, allocate, normalize_mix, recommend_methods, shares_to_money, spec_for_js
 from .cost import cost_from_dados, format_brl
+from .models import preview_cost
 from .logos import presenter_options
 from .helpers import as_dict, as_list, plan_mode_of, session_title, text
+from .pace import (
+    allocate_months,
+    budget_shares,
+    campaign_pace,
+    campaign_verba,
+    distribute_budget,
+    format_money,
+    format_verba,
+    pace_payload,
+    parse_money,
+    parse_money_digits,
+)
 from .repository import (
     SessionNotFound,
     count_sessions,
     create_session,
+    get_by_token,
     get_owned,
     list_sessions,
     save_campos,
@@ -77,10 +103,11 @@ def wizard_context(row: dict, step_id: str) -> dict:
         "praca_detalhe": text(campanha.get("praca_detalhe") or dados.get("praca_detalhe")),
         "verba": text(row.get("budget") or campanha.get("verba") or dados.get("verba")),
         "periodo": text(row.get("prazo") or campanha.get("periodo") or dados.get("periodo")),
-        "canais": as_list(campanha.get("canais") or dados.get("canais")),
+        "canais": as_list(campanha.get("canais") or dados.get("canais") or row.get("plataformas_sugeridas")),
         "criativos": text(dados.get("criativos")),
         "dispositivos": as_list(campanha.get("dispositivos") or dados.get("dispositivos")),
-        "kpis": dados.get("kpis") or [],
+        "kpis": [text(item) for item in as_list(dados.get("kpis")) if text(item)],
+        "mix": as_dict(campanha.get("mix")),
         "observacoes": text(dados.get("observacoes")),
         "cliente_id": dados.get("cliente_id"),
         "agencia_id": dados.get("agencia_id"),
@@ -88,9 +115,67 @@ def wizard_context(row: dict, step_id: str) -> dict:
     }
     if isinstance(campos["campanha"], dict):
         campos["campanha"] = text(dados.get("nome_campanha"))
+    campos["canais"] = [key for key in campos["canais"] if key in CHANNEL_CATALOG]
+    verba = campaign_verba({
+        "verba": campos["verba"],
+        "verba_valor": campanha.get("verba_valor"),
+        "verba_base": campanha.get("verba_base"),
+    })
+    pace = campaign_pace({
+        **campanha,
+        "verba": campos["verba"],
+        "verba_valor": verba["valor"],
+        "verba_base": verba["base"],
+        "periodo": campos["periodo"],
+    })
+    method = text(campos["mix"].get("method"))
+    if method not in {item["id"] for item in METHODS}:
+        method = recommend_methods(campos["objetivo"])[0]
+    desk_weights = allocate(campos["canais"], campos["objetivo"], method, campos["mix"].get("weights"))
+    if desk_weights and verba["valor"] > 0:
+        distribuicao = shares_to_money(desk_weights, verba["valor"])
+        shares = {item["id"]: item["pct"] for item in desk_weights}
+    else:
+        distribuicao = distribute_budget(campos["canais"], verba["valor"], campanha.get("canais_verba"))
+        shares = budget_shares(distribuicao)
+    mix = []
+    for key in campos["canais"]:
+        meta = CHANNEL_CATALOG.get(key) or {}
+        mix.append({
+            "id": key,
+            "label": meta.get("label", key),
+            "desc": meta.get("desc", ""),
+            "valor": distribuicao.get(key, 0),
+            "valor_label": format_money(distribuicao.get(key, 0)),
+            "pct": shares.get(key, 0),
+        })
+    mix_desk = {
+        "method": method,
+        "recommended": recommend_methods(campos["objetivo"]),
+        "weights": desk_weights,
+        "methods": [dict(item) for item in METHODS],
+        "spec": spec_for_js(),
+    }
+    available = []
+    seen = set(campos["canais"])
+    for key in list(CHANNEL_SHOWCASE) + [item for item in CHANNEL_CATALOG if item not in CHANNEL_SHOWCASE]:
+        if key in seen or key not in CHANNEL_CATALOG:
+            continue
+        meta = CHANNEL_CATALOG[key]
+        if meta.get("tipo") == "dados":
+            continue
+        available.append({"id": key, "label": meta.get("label", key), "desc": meta.get("desc", "")})
     praca_label = PRACA_OPTIONS.get(campos["praca"], {}).get("label", campos["praca"])
     brand = as_dict(dados.get("brand"))
     custo = cost_from_dados(dados)
+    analysis = as_dict(row.get("analise_ia"))
+    gaps = [text(item) for item in as_list(analysis.get("falta_completar")) if text(item)]
+    share = as_dict(as_dict(row.get("plan_content")).get("share"))
+    score = 0
+    try:
+        score = int(row.get("quality_score") or 0)
+    except (TypeError, ValueError):
+        score = 0
     return {
         "row": row,
         "dados": dados,
@@ -113,16 +198,44 @@ def wizard_context(row: dict, step_id: str) -> dict:
         "presenter_options": presenter_options(),
         "titulo": session_title(row, dados),
         "briefing": text(row.get("briefing_melhorado") or row.get("briefing_compilado")),
+        "briefing_original": text(row.get("input_text_original")),
         "planejamento": text(dados.get("planejamento")),
         "tem_quadro": bool(as_list(as_dict(row.get("plan_content")).get("sections"))),
+        "share_url": text(share.get("url")),
         "steps": WIZARD_STEPS,
+        "trail": WIZARD_TRAIL,
         "step_id": step_id,
         "step_index": index,
+        "step_number": index + 1,
+        "step_total": len(WIZARD_TRAIL),
+        "step_progress": int(round(((index + 1) / len(WIZARD_TRAIL)) * 100)),
+        "quality_score": score,
+        "quality": score_label(score),
+        "analysis": analysis,
+        "gaps": gaps,
         "token": row.get("session_token"),
+        "verba": verba,
+        "pace": pace_payload(pace),
+        "mix": mix,
+        "mix_desk": mix_desk,
+        "available_channels": available,
+        "restricoes": campos["observacoes"],
+        "cost_options": {
+            "one_page": preview_cost("one_page", dados),
+            "completo": preview_cost("completo", dados),
+        },
+        "tem_folha": bool(as_list(as_dict(dados.get("folha")).get("sections"))),
     }
 
 
+def _as_kpis(value) -> list[str]:
+    if isinstance(value, str):
+        return [part.strip() for part in value.replace(";", ",").split(",") if part.strip()]
+    return [text(item) for item in as_list(value) if text(item)]
+
+
 def persist_review(token: str, payload: dict) -> dict:
+    payload = payload or {}
     campos = dict(payload.get("campos") or {})
     for key in ("cliente_id", "agencia_id", "cx_client_id"):
         raw = campos.get(key)
@@ -130,20 +243,135 @@ def persist_review(token: str, payload: dict) -> dict:
             campos[key] = int(raw) if raw not in ("", None) else None
         except (TypeError, ValueError):
             campos[key] = None
+    if "kpis" in campos:
+        campos["kpis"] = _as_kpis(campos.get("kpis"))
+    canais = [
+        str(key)
+        for key in as_list(payload.get("canais") if payload.get("canais") is not None else campos.get("canais"))
+        if str(key) in CHANNEL_CATALOG
+    ]
+    if payload.get("canais") is not None or "canais" in campos:
+        campos["canais"] = canais
+    mix_raw = payload.get("mix") if payload.get("mix") is not None else campos.get("mix")
+    if isinstance(mix_raw, dict):
+        mix = normalize_mix(mix_raw, canais, campos.get("objetivo"))
+        campos["mix"] = mix
+        verba = campaign_verba({
+            "verba": campos.get("verba"),
+            "verba_valor": campos.get("verba_valor"),
+            "verba_base": campos.get("verba_base"),
+        })
+        if verba["valor"] > 0:
+            campos["verba_valor"] = verba["valor"]
+            campos["verba_base"] = verba["base"]
+            if verba["texto"]:
+                campos["verba"] = verba["texto"]
+            campos["canais_verba"] = shares_to_money(mix["weights"], verba["valor"])
     return save_campos(token, campos, payload.get("briefing"))
 
 
 def persist_canais(token: str, payload: dict) -> dict:
+    payload = payload or {}
+    row = get_by_token(token)
+    if not row:
+        raise SessionNotFound("Plano não encontrado.")
+    existing = as_dict(as_dict(row.get("dados_detectados")).get("campanha"))
+    canais = [str(key) for key in as_list(payload.get("canais")) if str(key) in CHANNEL_CATALOG]
+    if not canais:
+        canais = [str(key) for key in as_list(existing.get("canais")) if str(key) in CHANNEL_CATALOG]
+    verba = campaign_verba({
+        "verba": payload.get("verba") or existing.get("verba"),
+        "verba_valor": payload.get("verba_valor") if payload.get("verba_valor") not in ("", None) else existing.get("verba_valor"),
+        "verba_base": payload.get("verba_base") or existing.get("verba_base"),
+    })
+    if verba["valor"] <= 0:
+        parsed = parse_money(payload.get("verba") or existing.get("verba"))
+        verba = {
+            "valor": parsed["valor"],
+            "base": text(payload.get("verba_base") or existing.get("verba_base")).lower() or parsed["base"] or "total",
+            "texto": text(payload.get("verba") or existing.get("verba")),
+        }
+        if verba["base"] not in {"total", "mensal"}:
+            verba["base"] = "total"
+        if verba["valor"] > 0:
+            verba["texto"] = format_verba(verba["valor"], verba["base"])
+    periodo = text(payload.get("periodo")) or text(existing.get("periodo"))
+    alocacao_in = payload.get("verba_alocacao") if isinstance(payload.get("verba_alocacao"), dict) else {}
+    if not alocacao_in:
+        alocacao_in = existing.get("verba_alocacao") if isinstance(existing.get("verba_alocacao"), dict) else {}
+    pace = campaign_pace({
+        "verba": verba["texto"],
+        "verba_valor": verba["valor"],
+        "verba_base": verba["base"],
+        "periodo": periodo,
+        "verba_alocacao": alocacao_in,
+    })
+    alocacao = pace["alocacao"]
+    if pace["editavel"] and alocacao_in and pace["chaves"]:
+        alocacao = allocate_months(pace["chaves"], pace["total"], alocacao_in)
+    recipe = payload.get("mix") if isinstance(payload.get("mix"), dict) else existing.get("mix")
+    canais_verba_in = payload.get("canais_verba") if isinstance(payload.get("canais_verba"), dict) else {}
+    if not canais_verba_in and isinstance(payload.get("mix"), list):
+        canais_verba_in = {
+            str(item.get("id")): item.get("valor")
+            for item in payload.get("mix")
+            if as_dict(item).get("id")
+        }
+    if canais_verba_in:
+        canais_verba = distribute_budget(canais, verba["valor"], canais_verba_in)
+        shares = budget_shares(canais_verba)
+        if isinstance(recipe, dict) and (recipe.get("method") or recipe.get("weights")):
+            mix = {
+                "method": text(recipe.get("method")) or "manual",
+                "weights": allocate(canais, text(payload.get("objetivo") or existing.get("objetivo")), "manual", [
+                    {"id": key, "pct": shares.get(key, 0)} for key in canais
+                ]),
+                "locked": True,
+            }
+        else:
+            mix = None
+    elif isinstance(recipe, dict) and (recipe.get("method") or recipe.get("weights")):
+        mix = normalize_mix(recipe, canais, text(payload.get("objetivo") or existing.get("objetivo")))
+        canais_verba = shares_to_money(mix["weights"], verba["valor"]) if verba["valor"] > 0 else {}
+    else:
+        if not canais_verba_in:
+            canais_verba_in = existing.get("canais_verba") if isinstance(existing.get("canais_verba"), dict) else {}
+        canais_verba = distribute_budget(canais, verba["valor"], canais_verba_in)
+        mix = None
     campos = {
-        "verba": payload.get("verba"),
-        "periodo": payload.get("periodo"),
-        "praca": payload.get("praca"),
-        "praca_detalhe": payload.get("praca_detalhe"),
-        "canais": payload.get("canais") or [],
-        "dispositivos": payload.get("dispositivos") or [],
-        "objetivo": payload.get("objetivo"),
+        "verba": verba["texto"] or text(payload.get("verba") or existing.get("verba")),
+        "verba_valor": verba["valor"],
+        "verba_base": verba["base"],
+        "verba_alocacao": alocacao,
+        "periodo": periodo,
+        "praca": text(payload.get("praca")) if "praca" in payload else text(existing.get("praca")),
+        "praca_detalhe": text(payload.get("praca_detalhe")) if "praca_detalhe" in payload else text(existing.get("praca_detalhe")),
+        "canais": canais,
+        "canais_verba": canais_verba,
     }
+    if mix is not None:
+        campos["mix"] = mix
+    if "dispositivos" in payload:
+        campos["dispositivos"] = [
+            str(key) for key in as_list(payload.get("dispositivos")) if str(key) in DEVICE_OPTIONS
+        ]
     return save_campos(token, campos)
+
+
+def ritmo_from_payload(payload: dict) -> dict:
+    payload = payload or {}
+    verba = campaign_verba({
+        "verba": payload.get("verba"),
+        "verba_valor": payload.get("verba_valor") or parse_money_digits(payload.get("verba")),
+        "verba_base": payload.get("verba_base"),
+    })
+    return pace_payload(campaign_pace({
+        "verba": verba["texto"],
+        "verba_valor": verba["valor"],
+        "verba_base": verba["base"],
+        "periodo": payload.get("periodo"),
+        "verba_alocacao": payload.get("verba_alocacao") if isinstance(payload.get("verba_alocacao"), dict) else {},
+    }))
 
 
 def delete_plan(session_id: int) -> bool:

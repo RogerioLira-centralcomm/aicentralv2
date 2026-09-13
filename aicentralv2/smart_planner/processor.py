@@ -61,7 +61,7 @@ Regras:
     parsed = chat_json(
         "Você extrai dados estruturados e responde apenas com JSON válido.",
         prompt + "\n\n--- MATERIAL ---\n" + material[:40000],
-        max_tokens=4000,
+        role="extract",
     )
     campos = as_dict(parsed.get("campos") if isinstance(parsed, dict) else {})
     analysis = {
@@ -95,8 +95,7 @@ def compose_narrative(material: str, campos: dict, origem: str = "") -> str:
     raw = chat_text(
         "\n\n".join(parts),
         "Redija o briefing a partir deste material:\n\n" + material[:40000],
-        max_tokens=6000,
-        temperature=0.25,
+        role="narrative",
     )
     if not raw:
         raise OpenRouterError("O compositor não devolveu texto.")
@@ -168,3 +167,42 @@ def _process_briefing(
         "score": extracted["score"],
         "analysis": extracted["analysis"],
     }
+
+
+def rewrite_from_plan(token: str) -> dict:
+    row = get_by_token(token)
+    if not row:
+        raise ValueError("Plano não encontrado.")
+    original = text(row.get("input_text_original") or row.get("briefing_compilado"))
+    if len(original) < 40:
+        raise ValueError("Não há briefing original suficiente para reescrever.")
+    dados = as_dict(row.get("dados_detectados"))
+    campanha = as_dict(dados.get("campanha"))
+    campos = {
+        "campanha": text(row.get("nome_campanha") or dados.get("nome_campanha")),
+        "cliente": text(row.get("cliente") or dados.get("cliente")),
+        "agencia": text(dados.get("agencia") or campanha.get("agencia")),
+        "objetivo": text(row.get("objetivo") or dados.get("objetivo") or campanha.get("objetivo")),
+        "objetivo_texto": text(dados.get("objetivo_texto")),
+        "publico": text(row.get("publico_alvo") or dados.get("publico")),
+        "verba": text(row.get("budget") or campanha.get("verba") or dados.get("verba")),
+        "periodo": text(row.get("prazo") or campanha.get("periodo") or dados.get("periodo")),
+        "praca": text(campanha.get("praca") or dados.get("praca")),
+        "praca_detalhe": text(campanha.get("praca_detalhe")),
+        "contexto": text(dados.get("contexto")),
+        "observacoes": text(dados.get("observacoes")),
+        "kpis": dados.get("kpis") or [],
+        "canais": campanha.get("canais") or dados.get("canais") or [],
+        "mix": campanha.get("mix") or {},
+    }
+    with bound_session(token):
+        narrativa = compose_narrative(
+            original,
+            campos,
+            "reescrita com a parametrização atual do executivo — mix, verba e objetivo valem mais que o rascunho antigo",
+        )
+        update_session(token, {
+            "briefing_melhorado": narrativa,
+            "briefing_compilado": narrativa,
+        })
+    return {"briefing": narrativa}

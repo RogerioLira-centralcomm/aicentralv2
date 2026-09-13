@@ -96,7 +96,7 @@ def format_when(value: Any) -> str:
 def campaign_from_campos(campos: dict) -> dict:
     canais = as_list(campos.get("canais"))
     dispositivos = as_list(campos.get("dispositivos"))
-    return {
+    out = {
         "canais": [str(item) for item in canais if item],
         "praca": text(campos.get("praca")),
         "praca_detalhe": text(campos.get("praca_detalhe")),
@@ -106,6 +106,29 @@ def campaign_from_campos(campos: dict) -> dict:
         "objetivo": text(campos.get("objetivo")),
         "agencia": text(campos.get("agencia")),
     }
+    if "verba_base" in campos:
+        base = text(campos.get("verba_base")).lower()
+        out["verba_base"] = base if base in {"total", "mensal"} else "total"
+    if "verba_valor" in campos:
+        try:
+            out["verba_valor"] = int(campos.get("verba_valor") or 0)
+        except (TypeError, ValueError):
+            out["verba_valor"] = 0
+    if "verba_alocacao" in campos and isinstance(campos.get("verba_alocacao"), dict):
+        out["verba_alocacao"] = {
+            str(key): int(value or 0)
+            for key, value in campos["verba_alocacao"].items()
+            if str(key)
+        }
+    if "canais_verba" in campos and isinstance(campos.get("canais_verba"), dict):
+        out["canais_verba"] = {
+            str(key): int(value or 0)
+            for key, value in campos["canais_verba"].items()
+            if str(key)
+        }
+    if "mix" in campos and isinstance(campos.get("mix"), dict):
+        out["mix"] = campos["mix"]
+    return out
 
 
 def plan_mode_of(dados: dict, fallback: str = "completo") -> str:
@@ -129,8 +152,9 @@ def plan_href(token: str, step: str) -> str:
     suffix = {
         "briefing": "briefing",
         "revisao": "revisao",
-        "canais": "canais",
-        "gerar": "gerar",
+        "canais": "revisao",
+        "gerar": "revisao",
+        "conclusao": "conclusao",
         "canvas": "canvas",
     }.get(text(step), "briefing")
     return f"/smart-planner/{token}/{suffix}"

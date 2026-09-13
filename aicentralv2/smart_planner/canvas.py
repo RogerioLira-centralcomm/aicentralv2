@@ -3,16 +3,13 @@
 from __future__ import annotations
 
 import json
-import logging
 from datetime import datetime, timezone
 
-from ..services.openrouter_service import OpenRouterError
 from . import one_page
 from .ai import chat_json
 from .catalog import PRACA_OPTIONS, objetivo_label
 from .cost import bound_session
 from .helpers import as_dict, as_list, plan_mode_of, session_title, text
-from .images import apply_sheet_art
 from .repository import get_by_token, merge_dados, update_session
 
 SECTIONS = (
@@ -21,8 +18,6 @@ SECTIONS = (
     {"id": "media", "title": "Plano de Mídia", "order": 3},
     {"id": "execution", "title": "Execução", "order": 4},
 )
-
-logger = logging.getLogger(__name__)
 
 ONE_PAGE_TYPES = one_page.ONE_PAGE_TYPES + one_page.LEGACY_ONE_PAGE_TYPES
 
@@ -52,7 +47,9 @@ Regras:
 - body de decisão: o que fazer, com que peso e por quê. Sem jargão de agência.
 - plan_mode=completo: as 4 seções, 2 a 3 cards por seção.
 - O primeiro card de strategy deve ser a recomendação em uma frase.
+- Se o voo mensal existir na campanha, um card de media descreve as colunas (menor no começo, maior no meio e no fim).
 - Se houver identidade da marca, use público, produto e tom como verdade.
+- Se houver pagina_unica, ela é a tese já escrita. Aprofunde. Não contradiga.
 """
 
 
@@ -115,17 +112,10 @@ def normalize_plan(payload: dict, mode: str, meta: dict, branding: dict | None =
     return plan
 
 
-def generate_canvas(token: str, presenter_id: str | None = None) -> dict:
-    row = get_by_token(token)
-    if not row:
-        raise ValueError("Plano não encontrado.")
-    dados = as_dict(row.get("dados_detectados"))
-    mode = plan_mode_of(dados)
-    briefing = text(row.get("briefing_melhorado") or row.get("briefing_compilado"))
-    planejamento = text(dados.get("planejamento"))
+def _row_meta(row: dict, dados: dict) -> dict:
     campanha = as_dict(dados.get("campanha"))
     praca_key = text(campanha.get("praca") or dados.get("praca"))
-    meta = {
+    return {
         "title": session_title(row, dados),
         "client": text(row.get("cliente") or dados.get("cliente") or campanha.get("cliente")),
         "agency": text(dados.get("agencia") or campanha.get("agencia")),
@@ -135,32 +125,68 @@ def generate_canvas(token: str, presenter_id: str | None = None) -> dict:
         "market": PRACA_OPTIONS.get(praca_key, {}).get("label", praca_key),
         "objective": objetivo_label(text(row.get("objetivo") or dados.get("objetivo") or campanha.get("objetivo"))),
     }
-    if mode != "one_page" and not planejamento and not briefing:
-        raise ValueError("Gere o planejamento antes de abrir o canvas.")
-    if mode == "one_page" and not planejamento and not briefing and not meta.get("client"):
+
+
+def folha_text(folha: dict) -> str:
+    lines = []
+    for section in as_list((folha or {}).get("sections")):
+        for card in as_list(as_dict(section).get("cards")):
+            item = as_dict(card)
+            title = text(item.get("title") or item.get("type"))
+            body = text(item.get("body"))
+            if not body:
+                continue
+            lines.append(f"### {title}\n{body}" if title else body)
+    return "\n\n".join(lines)
+
+
+def materialize_folha(token: str, presenter_id: str | None = None) -> dict:
+    row = get_by_token(token)
+    if not row:
+        raise ValueError("Plano não encontrado.")
+    dados = as_dict(row.get("dados_detectados"))
+    briefing = text(row.get("briefing_melhorado") or row.get("briefing_compilado"))
+    campanha = as_dict(dados.get("campanha"))
+    meta = _row_meta(row, dados)
+    if not briefing and not meta.get("client"):
         raise ValueError("Informe o cliente final ou o briefing antes de montar a página única.")
     chosen = text(presenter_id) or text(dados.get("presenter_brand")) or "centralcomm"
+    plan = one_page.build_one_page(
+        meta,
+        briefing,
+        text(dados.get("planejamento")),
+        campanha,
+        chosen,
+        text(dados.get("public_token")),
+        brand=as_dict(dados.get("brand")),
+        cliente_id=dados.get("cliente_id"),
+        agencia_id=dados.get("agencia_id"),
+    )
+    merge_dados(token, {
+        "folha": plan,
+        "presenter_brand": plan["meta"]["presenter"],
+        "public_token": plan["share"]["public_token"],
+    })
+    return plan
+
+
+def generate_canvas(token: str, presenter_id: str | None = None) -> dict:
+    row = get_by_token(token)
+    if not row:
+        raise ValueError("Plano não encontrado.")
+    dados = as_dict(row.get("dados_detectados"))
+    mode = plan_mode_of(dados)
+    briefing = text(row.get("briefing_melhorado") or row.get("briefing_compilado"))
+    planejamento = text(dados.get("planejamento"))
+    campanha = as_dict(dados.get("campanha"))
+    meta = _row_meta(row, dados)
+    if mode != "one_page" and not planejamento and not briefing:
+        raise ValueError("Gere o planejamento antes de abrir o canvas.")
+    if mode == "one_page" and not briefing and not meta.get("client"):
+        raise ValueError("Informe o cliente final ou o briefing antes de montar a página única.")
     with bound_session(token):
         if mode == "one_page":
-            plan = one_page.build_one_page(
-                meta,
-                briefing,
-                planejamento,
-                campanha,
-                chosen,
-                text(dados.get("public_token")),
-                brand=as_dict(dados.get("brand")),
-                cliente_id=dados.get("cliente_id"),
-                agencia_id=dados.get("agencia_id"),
-            )
-            try:
-                apply_sheet_art(plan, force=True)
-            except OpenRouterError:
-                logger.exception("GPT Image 2 indisponível; a folha usa o fundo da família.")
-            merge_dados(token, {
-                "presenter_brand": plan["meta"]["presenter"],
-                "public_token": plan["share"]["public_token"],
-            })
+            plan = materialize_folha(token, presenter_id)
             row = update_session(token, {
                 "plan_content": plan,
                 "schema_version": 3,
@@ -171,6 +197,9 @@ def generate_canvas(token: str, presenter_id: str | None = None) -> dict:
                 },
             })
             return {"plan": plan, "session": row}
+        folha = as_dict(dados.get("folha"))
+        if not as_list(folha.get("sections")):
+            folha = materialize_folha(token, presenter_id)
         parsed = chat_json(
             CANVAS_PROMPT,
             json.dumps(
@@ -180,12 +209,12 @@ def generate_canvas(token: str, presenter_id: str | None = None) -> dict:
                     "marca": as_dict(dados.get("brand")),
                     "briefing": briefing[:12000],
                     "planejamento": planejamento[:20000],
+                    "pagina_unica": folha_text(folha),
                     "campanha": campanha,
                 },
                 ensure_ascii=False,
             ),
-            max_tokens=5000,
-            temperature=0.2,
+            role="compose",
         )
         plan = normalize_plan(parsed if isinstance(parsed, dict) else {}, mode, meta)
         row = update_session(token, {

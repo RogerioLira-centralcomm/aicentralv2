@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 
-from flask import Blueprint, Response, current_app, jsonify, render_template, request
+from flask import Blueprint, Response, current_app, jsonify, redirect, render_template, request, url_for
 
 from ..auth import login_required, login_required_api
 from ..services.openrouter_service import OpenRouterError
@@ -23,9 +23,11 @@ from .catalog import (
     PRACA_OPTIONS,
     WIZARD_STEPS,
     channels_by_group,
+    plan_mode_label,
 )
 from .helpers import as_dict
 from .materials import extract_pdf, save_upload, scrape_url
+from .references import capture_file, capture_search, capture_url
 from .brand import brand_for_client, search_parties
 from .logos import lookup_agency_for_client
 from .repository import SessionNotFound, SmartPlannerError, get_by_public_token
@@ -35,6 +37,7 @@ from .service import (
     load_owned,
     persist_canais,
     persist_review,
+    ritmo_from_payload,
     start_plan,
     wizard_context,
 )
@@ -120,15 +123,22 @@ def revisao(token):
 @bp.route("/<token>/canais")
 @login_required
 def canais(token):
-    row = load_owned(token)
-    return render_template("smart_planner/wizard.html", **_page_ctx(**wizard_context(row, "canais")))
+    load_owned(token)
+    return redirect(url_for("smart_planner.revisao", token=token))
 
 
 @bp.route("/<token>/gerar")
 @login_required
 def gerar(token):
+    load_owned(token)
+    return redirect(url_for("smart_planner.revisao", token=token))
+
+
+@bp.route("/<token>/conclusao")
+@login_required
+def conclusao(token):
     row = load_owned(token)
-    return render_template("smart_planner/wizard.html", **_page_ctx(**wizard_context(row, "gerar")))
+    return render_template("smart_planner/wizard.html", **_page_ctx(**wizard_context(row, "conclusao")))
 
 
 @bp.route("/p/<public_token>")
@@ -183,11 +193,19 @@ def api_publico_qr(public_token):
 @login_required
 def canvas(token):
     row = load_owned(token)
-    plan = as_dict(row.get("plan_content"))
+    ctx = wizard_context(row, "canvas")
+    want_folha = (request.args.get("folha") or "").strip().lower() in {"1", "true", "folha"}
+    folha = as_dict(as_dict(row.get("dados_detectados")).get("folha"))
+    if want_folha and folha.get("sections"):
+        plan = folha
+        ctx["plan_mode"] = "one_page"
+        ctx["plan_mode_label"] = plan_mode_label("one_page")
+    else:
+        plan = as_dict(row.get("plan_content"))
     return render_template(
         "smart_planner/canvas.html",
         plan=plan,
-        **_page_ctx(**wizard_context(row, "canvas")),
+        **_page_ctx(**ctx),
     )
 
 
@@ -234,6 +252,37 @@ def api_criar():
         })
     except ValueError as exc:
         return _error(exc, 400)
+
+
+@bp.route("/api/<token>/referencia", methods=["POST"])
+@login_required_api
+def api_referencia(token):
+    try:
+        load_owned(token)
+        if request.files:
+            uploaded = request.files.get("file")
+            if not uploaded or not uploaded.filename:
+                return _error("Envie um arquivo.", 400)
+            dest = os.path.join(current_app.static_folder, "uploads", "smart_planner")
+            path, original = save_upload(uploaded, dest)
+            captured = capture_file(path, original)
+            return _ok(captured)
+        payload = request.get_json(silent=True) or {}
+        kind = (payload.get("kind") or "").strip().lower()
+        if kind == "url":
+            captured = capture_url(payload.get("url") or "")
+        elif kind == "search":
+            captured = capture_search(payload.get("query") or "", payload.get("briefing") or "")
+        else:
+            return _error("Escolha URL, arquivo ou busca online.", 400)
+        return _ok(captured)
+    except SessionNotFound as exc:
+        return _error(exc, 404)
+    except (ValueError, OpenRouterError) as exc:
+        return _error(exc, 422)
+    except Exception:
+        logger.exception("Falha ao capturar referência")
+        return _error("Não foi possível capturar a referência.", 500)
 
 
 @bp.route("/api/<token>/processar", methods=["POST"])
@@ -283,12 +332,29 @@ def api_revisao(token):
     try:
         load_owned(token)
         persist_review(token, request.get_json(silent=True) or {})
-        return _ok({"redirect": f"/smart-planner/{token}/canais"})
+        return _ok({"saved": True, "redirect": f"/smart-planner/{token}/revisao"})
     except SessionNotFound as exc:
         return _error(exc, 404)
     except Exception:
         logger.exception("Falha ao salvar revisão")
         return _error("Não foi possível salvar a revisão.", 500)
+
+
+@bp.route("/api/<token>/rebrief", methods=["POST"])
+@login_required_api
+def api_rebrief(token):
+    try:
+        load_owned(token)
+        persist_review(token, request.get_json(silent=True) or {})
+        result = processor.rewrite_from_plan(token)
+        return _ok({"briefing": result["briefing"]})
+    except SessionNotFound as exc:
+        return _error(exc, 404)
+    except (ValueError, OpenRouterError) as exc:
+        return _error(exc, 422)
+    except Exception:
+        logger.exception("Falha ao reescrever briefing")
+        return _error("Não foi possível reescrever o briefing.", 500)
 
 
 @bp.route("/api/<token>/canais", methods=["POST"])
@@ -297,7 +363,7 @@ def api_canais(token):
     try:
         load_owned(token)
         persist_canais(token, request.get_json(silent=True) or {})
-        return _ok({"redirect": f"/smart-planner/{token}/gerar"})
+        return _ok({"redirect": f"/smart-planner/{token}/revisao"})
     except SessionNotFound as exc:
         return _error(exc, 404)
     except Exception:
@@ -305,14 +371,27 @@ def api_canais(token):
         return _error("Não foi possível salvar canais e verba.", 500)
 
 
+@bp.route("/api/<token>/ritmo", methods=["POST"])
+@login_required_api
+def api_ritmo(token):
+    try:
+        load_owned(token)
+        return _ok(ritmo_from_payload(request.get_json(silent=True) or {}))
+    except SessionNotFound as exc:
+        return _error(exc, 404)
+    except Exception:
+        logger.exception("Falha ao calcular ritmo")
+        return _error("Não foi possível calcular o voo da campanha.", 500)
+
+
 @bp.route("/api/<token>/gerar", methods=["POST"])
 @login_required_api
 def api_gerar(token):
     try:
         load_owned(token)
-        planner.run_generation(token)
-        canvas_mod.generate_canvas(token)
-        return _ok({"redirect": f"/smart-planner/{token}/canvas"})
+        payload = request.get_json(silent=True) or {}
+        planner.run_generation(token, payload.get("plan_mode"))
+        return _ok({"redirect": f"/smart-planner/{token}/conclusao"})
     except SessionNotFound as exc:
         return _error(exc, 404)
     except (ValueError, OpenRouterError) as exc:

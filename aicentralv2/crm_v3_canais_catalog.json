@@ -2314,24 +2314,34 @@
     ],
     "segmentacoes": [
       {
-        "nome": "Momento de crédito",
-        "quando": "consulta e score",
-        "exemplo": "Visitantes do Serasa"
+        "nome": "Score de crédito",
+        "quando": "campanhas de aquisição ou oferta de crédito",
+        "exemplo": "Ofertas de empréstimo ou cartão direcionadas a usuários por faixa de score via app/portal"
       },
       {
-        "nome": "Imóveis e auto",
-        "quando": "intenção alta",
-        "exemplo": "Páginas de consulta"
+        "nome": "Inadimplentes / Renegociação",
+        "quando": "ações de recuperação de crédito e eventos especiais",
+        "exemplo": "Comunicação para usuários com restrição cadastral antes/durante o Feirão Limpa Nome"
       },
       {
-        "nome": "Classe e renda",
-        "quando": "corte financeiro",
-        "exemplo": "ABC presumido"
+        "nome": "Intenção de produto financeiro",
+        "quando": "campanhas de conversão (meio/fundo de funil)",
+        "exemplo": "Usuários que consultaram simuladores ou conteúdos sobre crédito e financiamento"
       },
       {
-        "nome": "Praça",
-        "quando": "MG e RJ",
-        "exemplo": "Parceria Centralcomm"
+        "nome": "Engajamento no app",
+        "quando": "promoções por push ou retenção",
+        "exemplo": "Push segmentado para usuários ativos do app com histórico de interação em produtos financeiros"
+      },
+      {
+        "nome": "E-mail marketing segmentado",
+        "quando": "ativação direta e remarketing",
+        "exemplo": "Sequência de e-mails para leads qualificados com proposta customizada de crédito"
+      },
+      {
+        "nome": "Segmentação geográfica e demográfica",
+        "quando": "campanhas regionais ou por perfil socioeconômico",
+        "exemplo": "Promoção local para ofertas de serviços financeiros em determinadas cidades ou perfis etários"
       }
     ]
   },
@@ -2398,25 +2408,77 @@
     ],
     "segmentacoes": [
       {
-        "nome": "Score e pagador",
-        "quando": "crédito e imóvel",
-        "exemplo": "Score 500+ ABC"
+        "nome": "Audiências Digitais Serasa",
+        "quando": "Quando o anunciante precisa ativar campanhas em DSPs e redes sociais usando audiências prontas e exclusivas baseadas em dados demográficos, financeiros e comportamentais.",
+        "exemplo": "Campanhas de aquisição segmentando consumidores com maior propensão a contratar cartão de crédito ou empréstimo, ativadas diretamente em gerenciadores de anúncios.[1][3][8][11]"
       },
       {
-        "nome": "Intenção 30 dias",
-        "quando": "auto, viagem, casa",
-        "exemplo": "Corte RJ vs Meta"
+        "nome": "Modelos de Afinidade e Propensão à Compra",
+        "quando": "Quando o objetivo é encontrar pessoas com maior probabilidade de comprar determinado produto ou serviço, usando modelos preditivos.",
+        "exemplo": "Segmentos de alta propensão a contratar serviços financeiros específicos (ex.: financiamento de veículos), otimizando a conversão das campanhas.[1][2]"
       },
       {
-        "nome": "CNPJ",
-        "quando": "B2B",
-        "exemplo": "Porte e CNAE"
+        "nome": "Clone / Lookalike de Base Própria",
+        "quando": "Quando o anunciante quer escalar um público que já funciona bem, criando audiências semelhantes a uma base de referência (clientes ou leads).",
+        "exemplo": "A partir da base de clientes com bom histórico de crédito, gerar um público semelhante para prospecção em mídia programática.[1][10]"
       },
       {
-        "nome": "Lookalike da base",
-        "quando": "escala controlada",
-        "exemplo": "CRM do cliente"
+        "nome": "Segmentação Financeira e de Risco de Crédito",
+        "quando": "Quando é necessário recortar a audiência por atributos financeiros e de crédito para adequar oferta, risco e mensagem.",
+        "exemplo": "Campanhas diferenciadas para perfis com maior capacidade de pagamento versus perfis em momento de renegociação ou inadimplência, usando atributos financeiros agregados.[6][7][13]"
+      },
+      {
+        "nome": "Segmentação Sociodemográfica",
+        "quando": "Quando a estratégia exige recortes clássicos de perfil (idade, estado civil, classe social, etc.) combinados com outras variáveis.",
+        "exemplo": "Campanha focada em adultos de determinada faixa etária e classe social, em grandes centros urbanos, com maior potencial de consumo de serviços recorrentes.[8][7]"
+      },
+      {
+        "nome": "Audiências Cookieless",
+        "quando": "Quando o anunciante precisa de segmentação independente de cookies de terceiros, mantendo alcance em ambientes com restrição de rastreamento.",
+        "exemplo": "Campanhas em ambientes com menor disponibilidade de cookies third party, usando audiências baseadas em dados proprietários e identificadores alternativos.[8]"
+      },
+      {
+        "nome": "Clusters Comportamentais / Mosaic",
+        "quando": "Quando se deseja trabalhar com clusters comportamentais ou tipologias de consumo, em vez de apenas filtros individuais.",
+        "exemplo": "Uso de segmentações como Mosaic ou estudos de clusterização da população para falar com grupos com padrões específicos de comportamento financeiro e de consumo.[8][11][13]"
+      },
+      {
+        "nome": "Segmentação B2B por Empresa / CNAE",
+        "quando": "Quando o foco é comunicação B2B, falando com sócios e decisores de empresas a partir de atributos empresariais.",
+        "exemplo": "Campanhas para empresas de determinado segmento de atuação (CNAE) e porte, direcionadas a sócios cadastrados, em ações de crédito PJ ou soluções de gestão.[8][13]"
       }
+    ],
+    "fontes_pesquisa": [
+      {
+        "title": "Conteúdo: Inteligência de audiência para aquisição de clientes (Audiências Digitais, Clone, Modelos de Afinidade)",
+        "url": "https://www.serasaexperian.com.br/conteudos/inteligencia-de-audiencia/"
+      },
+      {
+        "title": "Página de solução: Audiências Digitais",
+        "url": "https://www.serasaexperian.com.br/solucoes/audiencia-digital/"
+      },
+      {
+        "title": "Soluções para ativações digitais (segmentações cookieless, sociodemográficas, CNAE, estudos de clusterização)",
+        "url": "https://www.serasaexperian.com.br/solucoes/ativacoes-digitais/"
+      },
+      {
+        "title": "Análise de mercado e segmentação de campanhas",
+        "url": "https://www.serasaexperian.com.br/solucoes/analise-de-mercado-e-segmentacao-de-campanhas/"
+      },
+      {
+        "title": "Plataformas e motores de decisão (Polis, segmentações PF/PJ)",
+        "url": "https://www.serasaexperian.com.br/solucoes/plataformas-e-motores-de-decisao/"
+      },
+      {
+        "title": "Serasa Experian expande atuação no mercado de audiências digitais (parceria Adobe, DMP, segmentos de comportamento e interesse)",
+        "url": "https://itforum.com.br/serasa-experian-expande-atuacao-no-mercado-de-audiencias-digitais/"
+      }
+    ],
+    "avisos_pesquisa": [
+      "Não foi encontrada, em fontes públicas recentes, cifra validada de alcance em perfis, cookies, devices ou UU para o produto Serasa Data/DMP no Brasil; qualquer número deve ser checado diretamente com o comercial ou kit oficial.",
+      "A solução de audiências digitais da Serasa é ativada nas principais plataformas de mídia digital (DSPs, redes sociais), mas isso diz respeito ao uso de dados em mídia e não a formatos proprietários de inventário.",
+      "As segmentações listadas são derivadas de descrições oficiais de Audiências Digitais, Marketing Services e ativações digitais da Serasa Experian, mas a nomenclatura e disponibilidade exata de cada linha podem variar por produto e parceria.",
+      "Parte das menções a DMP, cookies e devices mapeados aparece em notícias de parceria (Adobe, Tail) e pode refletir configurações específicas dessas integrações, não necessariamente o escopo completo atual da oferta em 2025–2026."
     ]
   },
   {
@@ -2481,24 +2543,34 @@
     ],
     "segmentacoes": [
       {
-        "nome": "Ocasião",
-        "quando": "almoço, festa, diet",
-        "exemplo": "Receitas de domingo"
+        "nome": "Decisoras de compra (feminino)",
+        "quando": "lançamentos de alimentos, campanhas de consumo recorrente e promoções semanais",
+        "exemplo": "campanha de molho de tomate com receitas práticas para o almoço da semana"
       },
       {
-        "nome": "Ingrediente",
-        "quando": "marca de alimento",
-        "exemplo": "Páginas com o produto"
+        "nome": "Mães e responsáveis por refeições infantis",
+        "quando": "volta às aulas, lanches e refeições rápidas",
+        "exemplo": "lançamento de opção de lanche saudável com receitas e sugestão de compra"
       },
       {
-        "nome": "Mobile cozinha",
-        "quando": "uso na bancada",
-        "exemplo": "Sessão mobile longa"
+        "nome": "Entusiastas de culinária",
+        "quando": "lançamentos de utensílios, cursos e coleções de receitas premium",
+        "exemplo": "promoção de mixer com vídeo passo a passo em receitas complexas"
       },
       {
-        "nome": "Frequência",
-        "quando": "cozinheiro habitual",
-        "exemplo": "4+ visitas/mês"
+        "nome": "Saúde e dietas específicas",
+        "quando": "campanhas de alimentação saudável, resoluções de ano novo ou tendências alimentares",
+        "exemplo": "série de receitas low-carb patrocinada por marca de ingredientes alternativos"
+      },
+      {
+        "nome": "Ocasiões e datas comemorativas",
+        "quando": "Natal, Páscoa, Dia das Mães, festas e eventos sazonais",
+        "exemplo": "campanha de sobremesas para ceia de Natal com receitas patrocinadas"
+      },
+      {
+        "nome": "Eletrodomésticos e utensílios de cozinha",
+        "quando": "lançamentos de produto, Black Friday e ações de demonstração",
+        "exemplo": "vídeo mostrando receitas exclusivas usando uma airfryer em Branded Recipes"
       }
     ]
   },
@@ -2533,7 +2605,7 @@
         "w": 300,
         "h": 250,
         "label": "300×250",
-        "melhor_para": "review",
+        "melhor_para": "campanhas de performance e awareness em páginas de conteúdo tech",
         "dispositivos": [
           "desktop",
           "mobile"
@@ -2545,45 +2617,106 @@
         "w": 728,
         "h": 90,
         "label": "728×90",
-        "melhor_para": "guia de compra",
+        "melhor_para": "conteúdo patrocinado com integração editorial",
         "dispositivos": [
           "desktop",
           "mobile"
         ]
       },
       {
-        "nome": "Video Ads",
-        "chave": "ctv-16x9",
-        "w": 1920,
-        "h": 1080,
-        "label": "16:9",
-        "melhor_para": "unboxing",
+        "nome": "Branded Content",
+        "chave": "linkedin-landscape",
+        "w": 1200,
+        "h": 627,
+        "label": "1.91:1",
+        "melhor_para": "ações de conteúdo e aprofundamento de marca",
         "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Reviews patrocinados",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "lançamentos e consideração de compra",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Video",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "awareness e demonstração de produto",
+        "dispositivos": [
+          "desktop",
           "mobile"
         ]
       }
     ],
     "segmentacoes": [
       {
-        "nome": "Categoria de gadget",
-        "quando": "consideração",
-        "exemplo": "Celular, notebook, game"
+        "nome": "interesse em tecnologia",
+        "quando": "quando a campanha quer falar com leitores de eletrônicos, celulares, computadores, apps e software",
+        "exemplo": "marcar a ação em editorias de smartphones, notebooks e apps"
       },
       {
-        "nome": "Guia de compra",
-        "quando": "alta intenção",
-        "exemplo": "Comparativos"
+        "nome": "intenção de compra / comparação",
+        "quando": "quando o anunciante quer atingir usuários em momento de escolha",
+        "exemplo": "campos de comparativos, guias de compra e reviews"
       },
       {
-        "nome": "Lançamento",
-        "quando": "janela de review",
-        "exemplo": "Semana do unboxing"
+        "nome": "contexto editorial",
+        "quando": "quando a mensagem precisa aparecer em conteúdo de notícia, tutorial, lista ou review",
+        "exemplo": "patrocínio de conteúdo em matérias sobre lançamentos e análises"
       },
       {
-        "nome": "Mobile",
-        "quando": "leitura técnica",
-        "exemplo": "Feed"
+        "nome": "produto / categoria",
+        "quando": "quando a campanha é voltada a uma linha específica de produto tech",
+        "exemplo": "smartphones, TVs, notebooks, periféricos ou serviços digitais"
+      },
+      {
+        "nome": "momento de lançamento",
+        "quando": "quando a marca quer ativar comunicação em torno de anúncio de novidade",
+        "exemplo": "campanhas em cobertura de novos modelos, atualizações e eventos do setor"
       }
+    ],
+    "fontes_pesquisa": [
+      {
+        "title": "TechTudo: tecnologia, celular, computador e games",
+        "url": "https://www.techtudo.com.br/"
+      },
+      {
+        "title": "Quem Somos | Expediente - TechTudo",
+        "url": "https://www.techtudo.com.br/quem-somos/"
+      },
+      {
+        "title": "TechTudo entra no portfólio da Editora Globo - Meio e Mensagem",
+        "url": "https://www.meioemensagem.com.br/ultimas-noticias/techtudo-entra-no-portfolio-da-editora-globo"
+      },
+      {
+        "title": "Apresentação do PowerPoint - MÍDIA KIT TECHTUDO 2023",
+        "url": "https://irp.cdn-website.com/43f3dabf/files/uploaded/M%C3%8DDIA%20KIT_TECHTUDO%202023%20v2.pdf"
+      },
+      {
+        "title": "Anuncie no TechTudo | Portais de Nicho - Centralcomm",
+        "url": "https://centralcomm.media/canal/techtudo"
+      },
+      {
+        "title": "Portfólio Atualizado de Formatos Padrão IAB",
+        "url": "https://iabbrasil.com.br/ebook-portfolio-atualizado-de-formatos-padrao-iab/"
+      }
+    ],
+    "avisos_pesquisa": [
+      "Não foi possível validar publicamente, com fonte recente do canal, os números de alcance, viewability ou investimento mínimo; portanto, esses campos não foram preenchidos.",
+      "Há menção pública a formatos IAB e a um portfólio comercial mais amplo em material antigo, mas a oferta atual validada publicamente para o canal ficou limitada aos produtos confirmados nas fontes encontradas.",
+      "Os formatos foram restritos ao que aparece como efetivamente comercializado/publicado para o canal; não foram inferidos formatos como pause, splash, takeover, pin ou in-app sem confirmação direta."
     ]
   },
   {
@@ -2612,61 +2745,145 @@
     "cor": "#00A859",
     "formatos": [
       {
-        "nome": "Display",
+        "nome": "Mídia Display (banners)",
         "chave": "iab-medium",
         "w": 300,
         "h": 250,
         "label": "300×250",
-        "melhor_para": "jogo e tabela",
+        "melhor_para": "cobertura contínua em páginas de notícias, placares e editorias de clubes",
         "dispositivos": [
           "desktop",
           "mobile"
         ]
       },
       {
-        "nome": "Video Ads",
-        "chave": "ctv-16x9",
-        "w": 1920,
-        "h": 1080,
-        "label": "16:9",
-        "melhor_para": "lance",
-        "dispositivos": [
-          "desktop",
-          "mobile"
-        ]
-      },
-      {
-        "nome": "Takeover",
-        "chave": "iab-billboard",
-        "w": 970,
+        "nome": "Billboard / topo de página",
+        "chave": "iab-medium",
+        "w": 300,
         "h": 250,
-        "label": "970×250",
-        "melhor_para": "clássico",
+        "label": "300×250",
+        "melhor_para": "presença de impacto na home e em grandes coberturas (finais, clássicos, campeonatos)",
         "dispositivos": [
           "desktop"
+        ]
+      },
+      {
+        "nome": "Pré-roll em vídeo (Video Ad)",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "lances, highlights, vídeos de análise e quadros em VOD",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Conteúdo patrocinado / Branded Content",
+        "chave": "linkedin-landscape",
+        "w": 1200,
+        "h": 627,
+        "label": "1.91:1",
+        "melhor_para": "histórias de marca, ativações de campeonatos, conteúdos especiais com alta contextualização esportiva",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Patrocínio de editorias / seções",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "domínio de temas específicos como futebol, tênis, esportes a motor e editorias regionais",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Soluções multiplataforma GE / GE TV",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "projetos 360º que integram portal ge, transmissões ao vivo, VOD, videocasts e redes sociais",
+        "dispositivos": [
+          "desktop",
+          "mobile",
+          "ctv",
+          "app"
         ]
       }
     ],
     "segmentacoes": [
       {
-        "nome": "Time",
-        "quando": "paixão",
-        "exemplo": "Páginas do clube"
+        "nome": "Torcedores por time de futebol",
+        "quando": "campanhas associadas a clubes específicos em campeonatos nacionais e internacionais",
+        "exemplo": "Campanha focada em páginas e conteúdos do ge sobre um clube da Série A durante o Brasileirão, explorando a comunidade de torcedores daquele time.[1][2]"
       },
       {
-        "nome": "Rodada",
-        "quando": "ao vivo e pós-jogo",
-        "exemplo": "Domingo 16h–20h"
+        "nome": "Editorias de modalidades esportivas",
+        "quando": "marcas que querem falar com fãs de esportes específicos além do futebol",
+        "exemplo": "Ativação na editoria de tênis do ge, com formatos no portal, YouTube e Globoplay contextualizados ao circuito de tênis.[5]"
       },
       {
-        "nome": "Modalidade",
-        "quando": "futebol vs olímpico",
-        "exemplo": "ge futebol"
+        "nome": "Conteúdo ao vivo e pós-jogo",
+        "quando": "momentos de pico de audiência em transmissões, lives, cortes e highlights",
+        "exemplo": "Patrocínio de transmissões e conteúdos pós-corrida em Esportes a Motor, com presença em momentos de maior audiência.[14][3]"
       },
       {
-        "nome": "Praça do time",
-        "quando": "regional",
-        "exemplo": "ge Rio, ge Minas"
+        "nome": "Esportes a motor",
+        "quando": "campanhas ligadas a automobilismo e competições de alto desempenho",
+        "exemplo": "Patrocínio de coberturas de Fórmula 1 com dashbanners fixos nas corridas e vídeos in-stream integrados à linha do tempo dos ídolos.[14]"
+      },
+      {
+        "nome": "Fantasy game Cartola (fãs de futebol altamente engajados)",
+        "quando": "estratégias voltadas a usuários que acompanham jogos, escalações e estatísticas em tempo real",
+        "exemplo": "Campanha no Cartola integrada ao ge, atingindo milhões de jogadores do maior fantasy game de futebol do Brasil.[1]"
+      },
+      {
+        "nome": "Social Globo + Creators (influenciadores de esporte)",
+        "quando": "campanhas que precisam de engajamento em redes sociais com criadores do universo esportivo",
+        "exemplo": "Ação com influenciadores conectada a conteúdos do ge e redes sociais para ampliar alcance em torcedores jovens.[1]"
+      },
+      {
+        "nome": "Contexto de grandes eventos esportivos",
+        "quando": "períodos de torneios como Libertadores, campeonatos nacionais, ligas internacionais e olimpíadas",
+        "exemplo": "Projeto GE 360º com presença em portal ge, GE TV e redes sociais durante fases decisivas da Libertadores.[3][2]"
+      },
+      {
+        "nome": "Editorias regionais e afiliadas",
+        "quando": "marcas com foco em mercados locais ou regionais",
+        "exemplo": "Patrocínio de página do ge de uma afiliada (como TV Vanguarda), com presença em home e vídeos regionais.[7][10]"
+      }
+    ],
+    "fontes_pesquisa": [
+      {
+        "title": "Anuncie no Times GE | Produtos Globo",
+        "url": "https://globoads.globo.com/para-o-seu-negocio/produtos-e-solucoes-globo/times-ge"
+      },
+      {
+        "title": "ge | Globo Ads",
+        "url": "https://globoads.globo.com/para-o-seu-negocio/produtos-e-solucoes-globo/ge"
+      },
+      {
+        "title": "Anuncie no GE TV | Produtos Globo",
+        "url": "https://globoads.globo.com/para-o-seu-negocio/produtos-e-solucoes-globo/ge-tv"
+      },
+      {
+        "title": "Anuncie no GE (Globo Esporte) | Centralcomm",
+        "url": "https://centralcomm.media/canal/ge-globo-esporte"
+      },
+      {
+        "title": "Anuncie na Editoria de Tênis do ge",
+        "url": "https://globoads.globo.com/para-o-seu-negocio/produtos-e-solucoes-globo/editoria-de-tenis-do-ge"
+      },
+      {
+        "title": "Anuncie nos sites globo - Mídia Kit Sites Globo 2025",
+        "url": "https://www.negociosep.com.br/midiakit/pdf/2025/Midia_Kit_Sites%20Globo_2025_REDE_maio.pdf"
       }
     ]
   },
@@ -2696,35 +2913,76 @@
     "cor": "#00875A",
     "formatos": [
       {
-        "nome": "Display",
+        "nome": "Display Ads (retângulos, banners e formatos de impacto)",
         "chave": "iab-medium",
         "w": 300,
         "h": 250,
         "label": "300×250",
-        "melhor_para": "decisor financeiro",
+        "melhor_para": "campanhas de alcance e frequência em conteúdo de finanças e investimentos",
+        "dispositivos": [
+          "desktop",
+          "mobile",
+          "tablet",
+          "app"
+        ]
+      },
+      {
+        "nome": "Native Ads (conteúdo integrado e unidades responsivas)",
+        "chave": "iab-leaderboard",
+        "w": 728,
+        "h": 90,
+        "label": "728×90",
+        "melhor_para": "posicionamento de marca em contexto editorial com leitura aprofundada",
         "dispositivos": [
           "desktop",
           "mobile"
         ]
       },
       {
-        "nome": "Native Ads",
-        "chave": "iab-leaderboard",
-        "w": 728,
-        "h": 90,
-        "label": "728×90",
-        "melhor_para": "análise",
+        "nome": "Branded Content / MoneyLab (projetos especiais)",
+        "chave": "linkedin-landscape",
+        "w": 1200,
+        "h": 627,
+        "label": "1.91:1",
+        "melhor_para": "storytelling de marca, educação financeira e liderança de pensamento",
         "dispositivos": [
-          "desktop"
+          "desktop",
+          "mobile",
+          "tablet",
+          "app"
         ]
       },
       {
-        "nome": "Newsletter",
+        "nome": "Newsletter (anúncios e patrocínios)",
         "chave": "iab-leaderboard",
         "w": 728,
         "h": 90,
         "label": "E-mail",
-        "melhor_para": "base assinante",
+        "melhor_para": "relacionamento recorrente com base de assinantes interessados em mercado financeiro",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Webinars / programas de vídeo e eventos digitais",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "Webinar",
+        "melhor_para": "geração de leads qualificados e aprofundamento em temas financeiros com interação",
+        "dispositivos": [
+          "desktop",
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Patrocínios de canal e homepage / fundos de página de alto impacto",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "posicionamento institucional e presença dominante em ambientes-chave do portal",
         "dispositivos": [
           "desktop"
         ]
@@ -2732,25 +2990,76 @@
     ],
     "segmentacoes": [
       {
-        "nome": "Investidor",
-        "quando": "renda variável e fundos",
-        "exemplo": "Seção de mercados"
+        "nome": "Interesse em investimentos e mercado financeiro",
+        "quando": "campanhas voltadas a investidores pessoa física e traders que consomem notícias de bolsa, renda fixa, fundos e câmbio",
+        "exemplo": "segmentar formatos de display/native em páginas da editoria Mercados, renda variável e cobertura de empresas listadas[3][7]."
       },
       {
-        "nome": "Horário de pregão",
-        "quando": "abertura e fechamento",
-        "exemplo": "9h–11h e 17h"
+        "nome": "Contexto de economia, negócios e gestão",
+        "quando": "marcas B2B e de serviços corporativos que precisam falar com executivos, empreendedores e tomadores de decisão",
+        "exemplo": "usar branded content e native em matérias de economia, gestão, carreira executiva e ambiente de negócios[3][11]."
       },
       {
-        "nome": "ABC alto",
-        "quando": "marca financeira",
-        "exemplo": "Leitores 30–55"
+        "nome": "Perfil socioeconômico classe AB e profissionais de alta renda",
+        "quando": "produtos financeiros, bens de maior ticket e serviços premium que exigem público com maior poder aquisitivo",
+        "exemplo": "campanhas institucionais em homepage e projetos especiais que exploram audiência qualificada descrita em mídia kit (classe AB, homens de negócios, mulheres em liderança)[9][13]."
       },
       {
-        "nome": "Newsletter",
-        "quando": "relação contínua",
-        "exemplo": "Base própria"
+        "nome": "Momento de mercado (pré-abertura, pregão e fechamento)",
+        "quando": "mensagens conectadas a horários de maior consumo de notícias financeiras e decisões de investimento",
+        "exemplo": "patrocinar newsletters e conteúdos que cobrem os acontecimentos antes da abertura do mercado e resumos após o fechamento[12]."
+      },
+      {
+        "nome": "Contexto de conteúdo educacional em finanças",
+        "quando": "instituições financeiras e fintechs que querem educar novos investidores e melhorar conhecimento financeiro",
+        "exemplo": "ativar projetos MoneyLab com séries explicativas sobre produtos financeiros, planejamento financeiro e investimentos para iniciantes[1][4][13]."
+      },
+      {
+        "nome": "Projetos especiais com dados e insights proprietários",
+        "quando": "campanhas que precisam combinar conteúdo de marca com estudos, pesquisas ou dados sobre comportamento de consumo financeiro",
+        "exemplo": "desenvolver especiais co-branded em parceria com área de projetos especiais do InfoMoney, integrando artigos, vídeos e landing pages para captação de leads[1][13]."
+      },
+      {
+        "nome": "Segmentação por canal temático (ex.: Mercados, Consumo, Carreira)",
+        "quando": "anunciantes que querem adequar a mensagem ao tema específico mais próximo do seu produto",
+        "exemplo": "veicular display/native em seções como Mercados para corretoras, Consumo para varejo e bens duráveis, e Carreira para cursos e MBAs[3][5][7]."
+      },
+      {
+        "nome": "Presença em homepage reformulada com destaque a branded content",
+        "quando": "campanhas que priorizam máxima visibilidade em pontos de entrada do portal",
+        "exemplo": "comprar posições premium na nova homepage que valorizam conteúdos de marca e formatos publicitários de maior impacto[7]."
       }
+    ],
+    "fontes_pesquisa": [
+      {
+        "title": "Midia Kit InfoMoney 2025 (PDF)",
+        "url": "https://dzvmidia.com/wp-content/uploads/2025/08/Midia-Kit-InfoMoney_2025.pdf"
+      },
+      {
+        "title": "Anuncie no InfoMoney – Centralcomm (descrição de formatos e benefícios)",
+        "url": "https://centralcomm.media/canal/infomoney"
+      },
+      {
+        "title": "MidiaKit_Infomoney – apresentação com formatos de mídia display",
+        "url": "https://pt.scribd.com/document/691239876/MidiaKit-Infomoney"
+      },
+      {
+        "title": "MoneyLab Guideline – formatos display e especificações técnicas",
+        "url": "https://www.infomoney.com.br/wp-content/uploads/2021/07/MoneyLab-Guideline.pdf"
+      },
+      {
+        "title": "Novo InfoMoney estreia com site reformulado e novos formatos publicitários",
+        "url": "https://www.infomoney.com.br/mercados/novo-infomoney-homepage-site-reformulado-cobertura-ampliada/"
+      },
+      {
+        "title": "Newsletter InfoMoney – página institucional",
+        "url": "https://www.infomoney.com.br/tudo-sobre/newsletter/"
+      }
+    ],
+    "avisos_pesquisa": [
+      "Parte da documentação disponível é de anos anteriores (ex.: apresentações de 2014 e guideline 2021), usada apenas para validar tipos gerais de formato de impacto, não volumes nem métricas atuais[4][6].",
+      "As informações de audiência (+40M pageviews/mês) são citadas em material de parceiro comercial de portais, não em relatório oficial auditado; usar apenas como ordem de grandeza, sem extrapolar para usuários únicos ou impressões por campanha[2][8].",
+      "Não há, nas fontes consultadas, detalhamento público e atualizado de segmentações técnicas (cookies, device graph etc.); os recortes aqui descritos são de natureza editorial e comercial, com base nos temas e soluções mostrados em mídia kit e páginas institucionais[1][3][7][13]."
     ]
   },
   {
@@ -2779,75 +3088,164 @@
     "cor": "#FF0000",
     "formatos": [
       {
-        "nome": "TrueView",
+        "nome": "In-stream pulável (TrueView)",
         "chave": "ctv-16x9",
         "w": 1920,
         "h": 1080,
         "label": "In-stream",
-        "melhor_para": "consideração",
+        "melhor_para": "alcance eficiente e consideração (views qualificados)",
         "dispositivos": [
           "ctv",
           "mobile",
-          "desktop"
+          "desktop",
+          "tablet",
+          "app"
         ]
       },
       {
-        "nome": "Bumper",
+        "nome": "In-stream não pulável",
+        "chave": "ctv-16x9",
+        "w": 1920,
+        "h": 1080,
+        "label": "16:9",
+        "melhor_para": "reconhecimento de marca e mensagem completa",
+        "dispositivos": [
+          "ctv",
+          "mobile",
+          "desktop",
+          "tablet",
+          "app"
+        ]
+      },
+      {
+        "nome": "Bumper 6s",
         "chave": "ctv-16x9",
         "w": 1920,
         "h": 1080,
         "label": "6s",
-        "melhor_para": "recall 6s",
+        "melhor_para": "awareness rápido e reforço de mensagem",
         "dispositivos": [
           "ctv",
-          "mobile"
+          "mobile",
+          "desktop",
+          "tablet",
+          "app"
         ]
       },
       {
-        "nome": "Shorts",
+        "nome": "In-feed (Discovery)",
+        "chave": "feed-4x5",
+        "w": 1080,
+        "h": 1350,
+        "label": "4:5",
+        "melhor_para": "consideração e descoberta de conteúdo",
+        "dispositivos": [
+          "mobile",
+          "desktop",
+          "tablet",
+          "app"
+        ]
+      },
+      {
+        "nome": "Shorts Ads (vídeo vertical)",
         "chave": "story-9x16",
         "w": 1080,
         "h": 1920,
         "label": "9:16",
-        "melhor_para": "alcance vertical",
+        "melhor_para": "alcance mobile-first e engajamento em vídeo curto",
         "dispositivos": [
-          "mobile"
+          "mobile",
+          "app"
         ]
       },
       {
-        "nome": "Masthead",
+        "nome": "Masthead (Home Takeover)",
         "chave": "iab-billboard",
         "w": 970,
         "h": 250,
         "label": "Masthead",
-        "melhor_para": "lançamento",
+        "melhor_para": "lançamento, alto alcance em curto período",
         "dispositivos": [
+          "ctv",
+          "mobile",
           "desktop",
-          "mobile"
+          "tablet",
+          "app"
         ]
       }
     ],
     "segmentacoes": [
       {
-        "nome": "Intenção de busca",
-        "quando": "consideração",
-        "exemplo": "Palavras do vertical"
+        "nome": "Segmentação por interesses e afinidade",
+        "quando": "Construir reconhecimento em públicos com afinidade contínua com temas relevantes à marca",
+        "exemplo": "Campanha de marca focada em usuários com interesse em tecnologia de consumo, gaming e eletrônicos, usando segmentos de afinidade no YouTube Ads."
       },
       {
-        "nome": "Afinidade de canal",
-        "quando": "criador",
-        "exemplo": "Canais de casa e auto"
+        "nome": "Segmentação por intenção de compra (in-market)",
+        "quando": "Acelerar consideração e conversão em usuários próximos da decisão de compra",
+        "exemplo": "Promoção de smartphones focada em pessoas classificadas como ‘prontas para comprar’ dispositivos móveis, com base em sinais de busca e comportamento em vídeo."
       },
       {
-        "nome": "YouTube no CTV",
-        "quando": "sala",
-        "exemplo": "TV Android e Chromecast"
+        "nome": "Segmentação contextual por conteúdo de vídeo",
+        "quando": "Alinhar mensagem ao momento de consumo de conteúdo específico",
+        "exemplo": "Anúncios de varejo veiculados em vídeos de reviews de eletrodomésticos e comparativos de preço, usando posicionamentos e tópicos relacionados."
       },
       {
-        "nome": "Remarketing",
-        "quando": "quem já viu",
-        "exemplo": "Viewers 7d"
+        "nome": "Audiências próprias (1st party / listas e CRM)",
+        "quando": "Reimpactar clientes, leads e inscritos ou excluir quem já converteu",
+        "exemplo": "Campanha de upgrade de plano veiculada para base de clientes ativos a partir de listas de e-mails e dados de CRM integrados ao Google Ads."
+      },
+      {
+        "nome": "Remarketing de engajamento em vídeo e visitas ao site",
+        "quando": "Aumentar conversão em quem já demonstrou interesse em conteúdo ou produto",
+        "exemplo": "Sequência de anúncios em vídeo para usuários que assistiram ao vídeo de lançamento acima de 50% ou visitaram páginas específicas do site."
+      },
+      {
+        "nome": "Segmentação por dispositivos (CTV, mobile, desktop)",
+        "quando": "Adequar criativo e estratégia ao contexto de consumo (TV conectada x celular)",
+        "exemplo": "Plano de campanha com peças mais longas em CTV para sala de estar e criativos curtos e verticais para mobile em Shorts."
+      },
+      {
+        "nome": "Segmentação demográfica detalhada",
+        "quando": "Campanhas de alcance com recorte de público por idade, gênero, faixa parental e renda estimada",
+        "exemplo": "Lançamento de produto focado em adultos 25–44, não pais, nas grandes capitais, com criativos adaptados por faixa etária."
+      },
+      {
+        "nome": "Segmentação geográfica (país, estado, cidade, raio)",
+        "quando": "Ativar campanhas regionais ou locais com relevância de ponto de venda",
+        "exemplo": "Campanha de abertura de loja física em São Paulo, restrita a um raio de alguns quilômetros em torno dos novos endereços."
       }
+    ],
+    "fontes_pesquisa": [
+      {
+        "title": "Sobre os formatos de anúncio em vídeo - Ajuda do YouTube",
+        "url": "https://support.google.com/youtube/answer/2375464?hl=pt-BR"
+      },
+      {
+        "title": "Criar uma campanha de vídeo - Ajuda do YouTube",
+        "url": "https://support.google.com/youtube/answer/2375497?hl=pt-BR"
+      },
+      {
+        "title": "Sobre o Planejador de alcance - Ajuda do Google Ads (YouTube Select, formatos compatíveis)",
+        "url": "https://support.google.com/google-ads/answer/9427120?hl=pt-419"
+      },
+      {
+        "title": "YouTube | Redes Sociais - Mídia Programática - Centralcomm (ficha com formatos: TrueView, Bumper, Discovery, Masthead, Shorts Ads)",
+        "url": "https://www.centralcomm.media/canal/youtube"
+      },
+      {
+        "title": "YouTube Ads: formatos e estratégia — oHub Base MKT",
+        "url": "https://base.ohub.com.br/mkt/marketing-digital/sem-google-ads/artigos/youtube-ads"
+      },
+      {
+        "title": "YouTube Ads: estratégias que funcionam - AgiComunicação",
+        "url": "https://agicomunicacao.com.br/youtube-ads-estrategias-que-funcionam/"
+      }
+    ],
+    "avisos_pesquisa": [
+      "Os formatos e segmentações listados são globais da plataforma YouTube/Google Ads e não exclusivos do Brasil, embora sejam amplamente utilizados em planos de mídia brasileiros.",
+      "Os dados de alcance consolidados disponíveis em fontes públicas são de estudos de mercado e notícias, não de um kit oficial 2025/2026 com número único de usuários ou UU; qualquer cifra específica deve ser checada diretamente com Google/IAB.",
+      "Informações de compra por reserva (YouTube Select, Masthead) seguem diretrizes globais; condições comerciais e disponibilidade local podem variar em negociações com a equipe de vendas do Google no Brasil."
     ]
   },
   {
@@ -2922,25 +3320,59 @@
     ],
     "segmentacoes": [
       {
+        "nome": "Demográfica",
+        "quando": "quando precisa ajustar a mensagem por gênero, idade ou localização",
+        "exemplo": "mulheres em determinada cidade"
+      },
+      {
         "nome": "Interesses",
-        "quando": "alcance",
-        "exemplo": "Casa, moda, comida"
+        "quando": "para campanhas de awareness e consideração que miram afinidades",
+        "exemplo": "pessoas interessadas em moda, fitness ou tecnologia"
       },
       {
-        "nome": "Lookalike da base",
-        "quando": "conversão",
-        "exemplo": "CRM 1%"
+        "nome": "Comportamento/Intenção de compra",
+        "quando": "para ações de conversão onde intenção de compra é relevante",
+        "exemplo": "usuários que demonstraram interesse em produtos similares"
       },
       {
-        "nome": "Stories vs Reels",
-        "quando": "formato da peça",
-        "exemplo": "9:16 só"
+        "nome": "Remarketing",
+        "quando": "para recuperar e converter quem já interagiu com a marca",
+        "exemplo": "visitantes do site que não finalizaram compra"
       },
       {
-        "nome": "Praça",
-        "quando": "loja e cidade",
-        "exemplo": "Raio 5 km"
+        "nome": "Públicos Semelhantes (Lookalike)",
+        "quando": "para escalar campanhas a partir de clientes ou audiências de melhor desempenho",
+        "exemplo": "público com comportamento similar aos compradores recentes"
+      },
+      {
+        "nome": "Engajamento com Conteúdo",
+        "quando": "para nutrir audiência que já consome conteúdo e aumentar retenção",
+        "exemplo": "usuários que engajaram com Reels, Stories ou publicações da conta"
       }
+    ],
+    "fontes_pesquisa": [
+      {
+        "title": "Publicidade no Instagram | Instagram para Empresas",
+        "url": "https://business.instagram.com/advertising?locale=pt_BR"
+      },
+      {
+        "title": "Formato de anúncio vertical no Instagram",
+        "url": "https://business.instagram.com/blog/vertical-format-ads?locale=pt_BR"
+      },
+      {
+        "title": "IAB Brasil",
+        "url": "https://iabbrasil.com.br/"
+      },
+      {
+        "title": "Most of Instagram's ads ran on Reels in 2025, data shows",
+        "url": "https://www.cnbc.com/2026/01/20/most-of-instagrams-ads-ran-on-reels-in-2025-data-shows.html"
+      }
+    ],
+    "avisos_pesquisa": [
+      "Não foi possível validar, com as fontes disponíveis nesta conversa, quais formatos o Instagram vende especificamente no Brasil em 2025/2026.",
+      "Os resultados recuperados trouxeram apenas páginas gerais do Instagram para Empresas e notícias/terceiros, sem kit comercial Brasil 2025/2026 verificável.",
+      "Não inventei UU, viewability ou investimento mínimo.",
+      "O alcance informado na ficha parece global/estimado e não foi validado por fonte de produto para o Brasil."
     ]
   },
   {
@@ -2969,14 +3401,15 @@
     "cor": "#000000",
     "formatos": [
       {
-        "nome": "In-feed",
+        "nome": "In-Feed Ads",
         "chave": "feed-1x1",
         "w": 1080,
         "h": 1080,
         "label": "1:1",
-        "melhor_para": "descoberta",
+        "melhor_para": "alcance contínuo e descoberta no feed Para Você",
         "dispositivos": [
-          "mobile"
+          "mobile",
+          "app"
         ]
       },
       {
@@ -2985,9 +3418,22 @@
         "w": 1080,
         "h": 1920,
         "label": "9:16",
-        "melhor_para": "lançamento",
+        "melhor_para": "alto impacto em lançamento e awareness",
         "dispositivos": [
-          "mobile"
+          "mobile",
+          "app"
+        ]
+      },
+      {
+        "nome": "Brand Takeover",
+        "chave": "iab-billboard",
+        "w": 970,
+        "h": 250,
+        "label": "970×250",
+        "melhor_para": "takeover de abertura com 100% da tela",
+        "dispositivos": [
+          "mobile",
+          "app"
         ]
       },
       {
@@ -2996,33 +3442,122 @@
         "w": 1080,
         "h": 1920,
         "label": "9:16",
-        "melhor_para": "impulsionar criador",
+        "melhor_para": "impulsionar conteúdo orgânico de marca ou creators",
         "dispositivos": [
-          "mobile"
+          "mobile",
+          "app"
+        ]
+      },
+      {
+        "nome": "Branded Hashtag Challenge",
+        "chave": "story-9x16",
+        "w": 1080,
+        "h": 1920,
+        "label": "9:16",
+        "melhor_para": "ativação participativa e UGC em larga escala",
+        "dispositivos": [
+          "mobile",
+          "app"
+        ]
+      },
+      {
+        "nome": "Branded Effects",
+        "chave": "story-9x16",
+        "w": 1080,
+        "h": 1920,
+        "label": "Efeito",
+        "melhor_para": "engajamento interativo e lembrança de marca",
+        "dispositivos": [
+          "mobile",
+          "app"
+        ]
+      },
+      {
+        "nome": "Search Ads",
+        "chave": "iab-leaderboard",
+        "w": 728,
+        "h": 90,
+        "label": "Busca",
+        "melhor_para": "capturar intenção em buscas dentro do TikTok",
+        "dispositivos": [
+          "mobile",
+          "app"
         ]
       }
     ],
     "segmentacoes": [
       {
-        "nome": "Interesse e comportamento",
-        "quando": "Gen Z e millennial",
-        "exemplo": "Beleza, humor, game"
+        "nome": "Demográfica (idade e gênero)",
+        "quando": "campanhas que exigem recorte básico de público, como foco em Gen Z ou adultos 25–44",
+        "exemplo": "Selecionar Feminino e faixa 25–44 para campanhas de beleza com foco em mulheres adultas.[13][14]"
       },
       {
-        "nome": "Spark de creator",
-        "quando": "prova social",
-        "exemplo": "Vídeo orgânico impulsionado"
+        "nome": "Localização geográfica",
+        "quando": "ações regionais, foco em estados ou cidades, ou campanhas nacionais com exclusões específicas",
+        "exemplo": "Segmentar apenas usuários localizados na cidade de São Paulo para uma ativação física em shopping.[13][14]"
       },
       {
-        "nome": "Praça",
-        "quando": "cidade",
-        "exemplo": "Capitais"
+        "nome": "Interesses declarados e comportamentais",
+        "quando": "campanhas que precisam de afinidade temática (beleza, games, música, esporte, etc.)",
+        "exemplo": "Direcionar anúncios de um jogo mobile para usuários com interesse em jogos e conteúdos de gaming.[13][14]"
       },
       {
-        "nome": "Retarget",
-        "quando": "view 50%",
-        "exemplo": "7 dias"
+        "nome": "Comportamento de engajamento no app",
+        "quando": "otimizar para usuários que interagem mais com vídeos de determinado tema ou formato",
+        "exemplo": "Alcançar pessoas que costumam assistir até o fim e interagir com vídeos de tutoriais de maquiagem.[13][14]"
+      },
+      {
+        "nome": "Palavras‑chave em buscas (Search Ads)",
+        "quando": "capturar usuários no momento de pesquisa ativa por categorias ou marcas dentro do TikTok",
+        "exemplo": "Comprar palavras‑chave como “receita fácil” para promover um food brand nos resultados de busca.[5][9][12][15]"
+      },
+      {
+        "nome": "Públicos personalizados (1st party data)",
+        "quando": "reimpactar bases próprias ou fazer exclusões de clientes existentes",
+        "exemplo": "Subir lista de e‑mails de clientes para excluir quem já comprou de uma campanha de aquisição.[13][14]"
+      },
+      {
+        "nome": "Lookalike / públicos semelhantes",
+        "quando": "escala de performance com base em pessoas parecidas com quem já converteu",
+        "exemplo": "Criar público semelhante a quem completou compra em campanha anterior para ampliar alcance eficiente.[13][14]"
+      },
+      {
+        "nome": "Dispositivo e sistema operacional",
+        "quando": "produtos ou aplicativos disponíveis apenas em determinados sistemas",
+        "exemplo": "Segmentar apenas usuários em dispositivos Android para divulgar um app ainda não disponível em iOS.[13][14]"
       }
+    ],
+    "fontes_pesquisa": [
+      {
+        "title": "TikTok World Brasil / TikTok for Business (produtos de branding, incluindo TopView)",
+        "url": "https://ads.tiktok.com/business/pt-BR/tiktok-world"
+      },
+      {
+        "title": "TikTok Ads: estrutura e formatos (Brasil, visão de mercado)",
+        "url": "https://base.ohub.com.br/mkt/marketing-digital/midias-sociais/artigos/tiktok-ads"
+      },
+      {
+        "title": "Informações sobre o TopView - TikTok Help Center",
+        "url": "https://ads.tiktok.com/resources/help/article/about-topview?lang=pt"
+      },
+      {
+        "title": "TikTok reforça o valor da plataforma para as marcas no Brasil",
+        "url": "https://newsroom.tiktok.com/pt-BR/tiktok-reforca-o-valor-da-plataforma-para-as-marcas-no-brasil"
+      },
+      {
+        "title": "Guias de formatos de anúncios TikTok (ajust / influee, visão global aplicada ao Brasil)",
+        "url": "https://influee.co/br/blog/tiktok-ad-formats"
+      },
+      {
+        "title": "TikTok World Brasil 2025 – anúncio de Search Ads",
+        "url": "https://newsroom.tiktok.com/tiktok-world-brasil-2025?lang=pt-BR"
+      }
+    ],
+    "avisos_pesquisa": [
+      "Número exato de usuários únicos mensais no Brasil não é detalhado em fontes oficiais públicas recentes; qualquer alcance deve ser tratado como estimativa.",
+      "Algumas descrições de formatos (TopView, Brand Takeover, Branded Hashtag, Branded Effects) são baseadas em materiais globais e regionais, embora sejam ofertados no Brasil.[2][7][8][11]",
+      "Investimentos mínimos, valores de reserva e métricas de viewability não aparecem de forma padronizada em documentos públicos recentes para Brasil; devem ser confirmados com equipe comercial local.",
+      "Search Ads foram anunciados especificamente para o mercado brasileiro em 2025, mas detalhes finos de segmentação avançada e disponibilidade para todos os anunciantes podem variar ao longo de 2025–2026.[5][9][12][15]"
     ]
   },
   {
@@ -3051,62 +3586,152 @@
     "cor": "#0A66C2",
     "formatos": [
       {
-        "nome": "Sponsored Content",
+        "nome": "Sponsored Content (Single image / Carousel / Video / Document / Event / Thought Leader etc.)",
         "chave": "linkedin-landscape",
         "w": 1200,
         "h": 627,
         "label": "1.91:1",
-        "melhor_para": "B2B",
+        "melhor_para": "Awareness e consideração B2B no feed profissional; promoção de conteúdo, eventos, documentos e geração de leads via Lead Gen Forms",
         "dispositivos": [
           "desktop",
-          "mobile"
+          "mobile",
+          "tablet",
+          "app"
         ]
       },
       {
-        "nome": "Message Ads",
+        "nome": "Sponsored Messaging (Message Ads e Conversation Ads)",
         "chave": "feed-4x5",
         "w": 1080,
         "h": 1350,
         "label": "Inbox",
-        "melhor_para": "inbox",
+        "melhor_para": "Contato direto 1:1 em inbox, nutrição de leads, convites para eventos, demos e ofertas B2B",
         "dispositivos": [
           "desktop",
-          "mobile"
+          "mobile",
+          "app"
         ]
       },
       {
-        "nome": "Dynamic Ads",
+        "nome": "Dynamic Ads (Follower Ads, Spotlight Ads, Jobs Ads)",
         "chave": "feed-1x1",
         "w": 1080,
         "h": 1080,
         "label": "1:1",
-        "melhor_para": "vaga e marca",
+        "melhor_para": "Crescimento de seguidores de página, promoção de vagas e tráfego para site com criativos personalizados por perfil",
         "dispositivos": [
           "desktop"
+        ]
+      },
+      {
+        "nome": "Text Ads",
+        "chave": "iab-leaderboard",
+        "w": 728,
+        "h": 90,
+        "label": "Texto",
+        "melhor_para": "Performance e tráfego B2B de baixo custo em inventário de sidebar/topo em desktop",
+        "dispositivos": [
+          "desktop"
+        ]
+      },
+      {
+        "nome": "Connected TV Ads",
+        "chave": "feed-1x1",
+        "w": 1080,
+        "h": 1080,
+        "label": "1:1",
+        "melhor_para": "Awareness B2B em ambiente de TV conectada com segmentação profissional do LinkedIn",
+        "dispositivos": [
+          "ctv"
+        ]
+      },
+      {
+        "nome": "LinkedIn Audience Network (Single image / Carousel / Video fora do LinkedIn)",
+        "chave": "feed-1x1",
+        "w": 1080,
+        "h": 1080,
+        "label": "1:1",
+        "melhor_para": "Extensão de alcance B2B em sites e apps de terceiros usando criativos de Sponsored Content",
+        "dispositivos": [
+          "mobile",
+          "desktop",
+          "tablet",
+          "app"
         ]
       }
     ],
     "segmentacoes": [
       {
-        "nome": "Cargo e senioridade",
-        "quando": "decisor",
-        "exemplo": "C-level e gerência"
+        "nome": "Segmentação por cargo e função (job title / job function)",
+        "quando": "Campanhas B2B que precisam alcançar decisores ou perfis específicos dentro de empresas (ex.: diretores de marketing, gerentes de TI)",
+        "exemplo": "Impactar profissionais com cargo \"Head de Recursos Humanos\" ou função \"Marketing\" em empresas de médio e grande porte."
       },
       {
-        "nome": "Setor",
-        "quando": "vertical",
-        "exemplo": "Imobiliário, financeiro"
+        "nome": "Segmentação por setor e indústria",
+        "quando": "Campanhas focadas em segmentos como tecnologia, serviços financeiros, saúde, educação ou manufatura",
+        "exemplo": "Veicular Sponsored Content apenas para usuários que atuam na indústria de \"Serviços Financeiros\" e \"Software e TI\"."
       },
       {
-        "nome": "Empresa e porte",
-        "quando": "ABM",
-        "exemplo": "Lista de contas"
+        "nome": "Segmentação por empresa e account-based (company / ABM)",
+        "quando": "Estratégias de Account-Based Marketing voltadas a listas específicas de contas-alvo",
+        "exemplo": "Criar campanhas para atingir colaboradores de um conjunto de empresas estratégicas (ex.: bancos e grandes varejistas) com criativos personalizados."
       },
       {
-        "nome": "Geo profissional",
-        "quando": "praça B2B",
-        "exemplo": "SP e RJ"
+        "nome": "Segmentação por nível de senioridade",
+        "quando": "Quando o objetivo é falar com tomadores de decisão ou influenciadores em diferentes níveis hierárquicos",
+        "exemplo": "Configurar campanhas para exibir anúncios apenas para profissionais com senioridade \"Manager\", \"Director\", \"VP\" e \"CXO\"."
+      },
+      {
+        "nome": "Segmentação por localização geográfica",
+        "quando": "Campanhas focadas em regiões específicas do Brasil (cidades, estados ou regiões metropolitanas)",
+        "exemplo": "Promover um evento presencial apenas para profissionais localizados em \"São Paulo\" e \"Região Metropolitana do Rio de Janeiro\"."
+      },
+      {
+        "nome": "Segmentação por interesses e grupos profissionais",
+        "quando": "Comunicação baseada em temas (ex.: marketing digital, fintech, recursos humanos, engenharia) e participação em grupos relacionados",
+        "exemplo": "Alcançar usuários interessados em \"transformação digital\" e membros de grupos sobre \"Inovação em Serviços Financeiros\"."
+      },
+      {
+        "nome": "Segmentação por habilidades (skills)",
+        "quando": "Quando o critério principal é a competência profissional declarada no perfil",
+        "exemplo": "Anunciar cursos de programação para membros que possuem habilidades como \"Python\", \"Desenvolvimento Web\" ou \"Machine Learning\"."
+      },
+      {
+        "nome": "Segmentação por remarketing e listas próprias (1st party)",
+        "quando": "Reengajar visitantes do site ou bases de CRM através do LinkedIn, integrando dados próprios do anunciante",
+        "exemplo": "Criar audiências de visitantes do site do anunciante ou importar listas de emails corporativos para campanhas de Sponsored Content e Sponsored Messaging."
       }
+    ],
+    "fontes_pesquisa": [
+      {
+        "title": "A B2B Marketer's Guide to Every LinkedIn Ad Type",
+        "url": "https://www.linkedin.com/business/marketing/blog/linkedin-ads/a-b2b-marketers-guide-to-every-linkedin-ad-type"
+      },
+      {
+        "title": "LinkedIn Ads Guide | Advertise on LinkedIn",
+        "url": "https://business.linkedin.com/advertise/ads/ads-guide"
+      },
+      {
+        "title": "Your Guide to LinkedIn Ad Specs & Formats",
+        "url": "https://www.linkedin.com/business/marketing/blog/linkedin-ads/bookmark-this-handy-resource-for-linkedin-ad-specs-formats"
+      },
+      {
+        "title": "Campaign Formats - LinkedIn (Microsoft Learn, pt-BR)",
+        "url": "https://learn.microsoft.com/pt-br/linkedin/marketing/integrations/ads/campaign-formats"
+      },
+      {
+        "title": "Create and Manage LinkedIn Campaigns - Microsoft Learn",
+        "url": "https://learn.microsoft.com/en-us/linkedin/marketing/integrations/ads/account-structure/create-and-manage-campaigns"
+      },
+      {
+        "title": "Sponsored Content ads | LinkedIn Help",
+        "url": "https://www.linkedin.com/help/linkedin/answer/a425628"
+      }
+    ],
+    "avisos_pesquisa": [
+      "As especificações de formatos e estrutura de campanha consultadas são documentações globais da plataforma, não específicas do mercado brasileiro.",
+      "Connected TV e parte dos formatos avançados (como Thought Leader Ads) são descritos em materiais globais; disponibilidade efetiva e comercialização local podem variar no Brasil em 2025–2026.",
+      "Não há dado oficial recente e público sobre alcance de usuários especificamente no Brasil e sobre parâmetros de viewability ou investimento mínimo; qualquer número anterior deve ser tratado como estimativa não validada."
     ]
   },
   {
@@ -3136,6 +3761,39 @@
     "cor": "#FF6B00",
     "formatos": [
       {
+        "nome": "Programática OOH",
+        "chave": "iab-billboard",
+        "w": 970,
+        "h": 250,
+        "label": "970×250",
+        "melhor_para": "compra por praça, rede e formato com critérios de audiência",
+        "dispositivos": [
+          "ooh"
+        ]
+      },
+      {
+        "nome": "DOOH / inventário digital",
+        "chave": "iab-billboard",
+        "w": 970,
+        "h": 250,
+        "label": "DOOH",
+        "melhor_para": "circuitos urbanos e ativações em telas digitais",
+        "dispositivos": [
+          "ooh"
+        ]
+      },
+      {
+        "nome": "Projetos especiais / campanhas customizadas",
+        "chave": "iab-billboard",
+        "w": 970,
+        "h": 250,
+        "label": "970×250",
+        "melhor_para": "ações sob medida por circuito, praça ou contexto",
+        "dispositivos": [
+          "ooh"
+        ]
+      },
+      {
         "nome": "DOOH",
         "chave": "iab-billboard",
         "w": 970,
@@ -3160,25 +3818,67 @@
     ],
     "segmentacoes": [
       {
-        "nome": "Circuito",
-        "quando": "metrô, rua, aeroporto",
-        "exemplo": "Linha 4 e T3"
+        "nome": "Audiência",
+        "quando": "quando a campanha precisa priorizar perfis de público e não apenas o ponto físico",
+        "exemplo": "planejamento por critérios de audiência na operação programática"
       },
       {
-        "nome": "Fluxo e horário",
-        "quando": "pico",
-        "exemplo": "7h–9h e 18h–20h"
+        "nome": "Contexto",
+        "quando": "quando o anúncio depende do ambiente onde a pessoa está",
+        "exemplo": "campanhas em varejo, transporte ou jornada urbana"
       },
       {
-        "nome": "Classe do ponto",
-        "quando": "AB vs massa",
-        "exemplo": "Aeroporto vs terminal"
+        "nome": "Praça / geo",
+        "quando": "quando a marca quer focar cidades, redes ou regiões específicas",
+        "exemplo": "compra por praça, rede e formato na plataforma programática"
       },
       {
-        "nome": "Praça",
-        "quando": "cidade",
-        "exemplo": "SP e RJ"
+        "nome": "Momento do dia / janela de campanha",
+        "quando": "quando a marca quer impactar em horários ou períodos específicos",
+        "exemplo": "ativação em janelas de campanha na mídia programática"
+      },
+      {
+        "nome": "Dados proprietários e externos",
+        "quando": "quando a segmentação usa inteligência de dados combinada com sinais de audiência",
+        "exemplo": "planejamento com dados proprietários e externos para identificar jornada diária"
+      },
+      {
+        "nome": "Território de interesse / contexto temático",
+        "quando": "quando a campanha quer associar-se a ocasiões ou afinidades",
+        "exemplo": "ativação em territórios como eventos musicais, futebol, esportes e varejo"
       }
+    ],
+    "fontes_pesquisa": [
+      {
+        "title": "Programática OOH Eletromidia",
+        "url": "https://home.eletromidia.com.br/programatica"
+      },
+      {
+        "title": "mídia OOH programática - Eletromidia Ads",
+        "url": "https://www.eletromidia.com.br/eletromidiaads"
+      },
+      {
+        "title": "Soluções de mídia OOH para marcas",
+        "url": "https://www.eletromidia.com.br/solucoes"
+      },
+      {
+        "title": "Área do anunciante - Eletromidia",
+        "url": "https://eletromidia.com.br/areaanunciante"
+      },
+      {
+        "title": "Eletromidia | Mídia OOH que transforma cidades",
+        "url": "https://www.eletromidia.com.br/"
+      },
+      {
+        "title": "Eletromidia reforça nova fase com foco em dados e expansão",
+        "url": "https://propmark.com.br/ooh/eletromidia-reforca-nova-fase-com-foco-em-dados-e-expansao/"
+      }
+    ],
+    "avisos_pesquisa": [
+      "Não validei viewability, mínimo de investimento ou UU porque você pediu para não inventar e as fontes encontradas não trouxeram confirmação direta.",
+      "O produto identificado é principalmente OOH/DOOH; não há evidência nas fontes de formatos mobile, desktop, ctv, app ou audio para este canal.",
+      "A compra programática encontrada é baseada em Preferred Deal e disponível no DV360, mas a segmentação exata pode variar por mídia/programa e não foi extrapolada.",
+      "O material de mídia kit localizado não era uma edição 2025/2026 plenamente verificável no resultado recuperado; usei apenas o que apareceu nas páginas oficiais e notícia de produto."
     ]
   },
   {
@@ -3246,24 +3946,34 @@
     ],
     "segmentacoes": [
       {
-        "nome": "PMP vs open",
-        "quando": "controle vs escala",
-        "exemplo": "Deal premium G1"
+        "nome": "Públicos por afinidade / in‑market",
+        "quando": "quando quiser alcançar audiências por interesses ou intenção de compra (consideração e conversão)",
+        "exemplo": "afinidade por 'tecnologia' ou in‑market para 'intenção de compra de smartphones'"
       },
       {
-        "nome": "1st party",
-        "quando": "CRM e site",
-        "exemplo": "Audience lists"
+        "nome": "Contextual / palavras‑chave",
+        "quando": "quando preferir relevância editorial, reduzir dependência de dados de terceiros ou evitar temas sensíveis",
+        "exemplo": "veicular anúncios em páginas com conteúdo relacionado a 'seguro auto' ou 'finanças pessoais'"
       },
       {
-        "nome": "CTV inventory",
-        "quando": "sala",
-        "exemplo": "Apps conectados"
+        "nome": "Geográfica",
+        "quando": "campanhas locais, regionais ou quando presença física/importância por cidade/estado importa",
+        "exemplo": "segmentar por estado (São Paulo) ou por conjunto de cidades como São Paulo e Campinas"
       },
       {
-        "nome": "Brand safety",
-        "quando": "notícia e UGC",
-        "exemplo": "Exclusões e floors"
+        "nome": "Dispositivo / sistema operacional",
+        "quando": "ao otimizar criativos e experiência por tela (ex.: CTV vs mobile) ou excluir/priorizar dispositivos",
+        "exemplo": "rodar apenas em CTV para vídeos 16:9; ou priorizar mobile para formatos nativos"
+      },
+      {
+        "nome": "Remarketing / CRM",
+        "quando": "para recuperar ou converter usuários que já interagiram com marca, site ou app",
+        "exemplo": "público de visitantes recentes do site ou lista CRM de clientes para campanhas de retenção"
+      },
+      {
+        "nome": "PMP / inventário privado e brand safety",
+        "quando": "quando for necessário inventário premium, controle de publisher ou garantias de brand safety",
+        "exemplo": "negociar deals privados (PMP) para veicular em inventário premium de grandes portais de notícia"
       }
     ]
   },
@@ -3294,50 +4004,136 @@
     "cor": "#9146FF",
     "formatos": [
       {
-        "nome": "Video Ads",
+        "nome": "Video Ads (pre-roll e mid-roll em live stream)",
         "chave": "ctv-16x9",
         "w": 1920,
         "h": 1080,
         "label": "16:9",
-        "melhor_para": "live",
+        "melhor_para": "awareness em transmissão ao vivo",
+        "dispositivos": [
+          "desktop",
+          "mobile",
+          "tablet",
+          "ctv"
+        ]
+      },
+      {
+        "nome": "Display SDA (banner no terço inferior da tela)",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "presença de marca durante a live",
+        "dispositivos": [
+          "desktop"
+        ]
+      },
+      {
+        "nome": "Display Homepage (Headliner / Super Leaderboard / Retângulo médio)",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "impacto em navegação e descoberta",
         "dispositivos": [
           "desktop",
           "mobile"
         ]
       },
       {
-        "nome": "Display",
-        "chave": "iab-medium",
-        "w": 300,
-        "h": 250,
-        "label": "300×250",
-        "melhor_para": "painel",
+        "nome": "Mid‑feed Ads (imagem vertical em feed mobile)",
+        "chave": "feed-1x1",
+        "w": 1080,
+        "h": 1080,
+        "label": "1:1",
+        "melhor_para": "impacto em navegação no app",
         "dispositivos": [
-          "desktop"
+          "mobile"
+        ]
+      },
+      {
+        "nome": "Branded Content / Patrocínio de streamers",
+        "chave": "linkedin-landscape",
+        "w": 1200,
+        "h": 627,
+        "label": "1.91:1",
+        "melhor_para": "associação de marca com criadores e comunidades",
+        "dispositivos": [
+          "desktop",
+          "mobile",
+          "tablet",
+          "ctv",
+          "app"
         ]
       }
     ],
     "segmentacoes": [
       {
-        "nome": "Categoria de jogo",
-        "quando": "FPS, mobile, just chatting",
-        "exemplo": "Canais do gênero"
+        "nome": "Interesse em games e cultura geek",
+        "quando": "planejamento de campanhas de awareness em comunidades de jogos e entretenimento ao vivo",
+        "exemplo": "Campanha focada em usuários que seguem categorias de jogos, eSports ou canais de gaming e cultura geek na Twitch, usando mídia de vídeo e display integrada ao ecossistema da plataforma."
       },
       {
-        "nome": "Creator",
-        "quando": "comunidade",
-        "exemplo": "Streamers BR"
+        "nome": "Contexto de conteúdo ao vivo (categoria / tipo de stream)",
+        "quando": "otimização de campanhas vinculando a mensagem da marca ao tipo de transmissão",
+        "exemplo": "Segmentar anúncios de vídeo para streams de eSports, talk shows ou música ao vivo onde a marca é relevante, alinhando criativos ao contexto da categoria da transmissão."
       },
       {
-        "nome": "Horário de live",
-        "quando": "noite",
-        "exemplo": "20h–1h"
+        "nome": "Ativações com criadores (1st party de canais e comunidades)",
+        "quando": "projetos de branded content e patrocínio com streamers específicos",
+        "exemplo": "Selecionar streamers parceiros com base em audiência, perfil de comunidade e histórico de desempenho em patrocínios dentro do pacote de patrocínios da Amazon Ads na Twitch."
       },
       {
-        "nome": "Desktop vs mobile",
-        "quando": "formato",
-        "exemplo": "PC gamer"
+        "nome": "Segmentação por dispositivo (desktop vs mobile vs CTV)",
+        "quando": "ajuste de criativo e estratégia conforme a tela de consumo",
+        "exemplo": "Separar linhas de campanha para desktop com SDA e display homepage e para mobile com mid‑feed ads, além de vídeo em CTV para impacto em tela grande."
+      },
+      {
+        "nome": "Momento de sessão (entrada e intervalo da live)",
+        "quando": "definição de peso em pre‑roll vs mid‑roll de acordo com a jornada",
+        "exemplo": "Usar pre‑roll para impactar o usuário no início da sessão e mid‑roll em breaks programados pelo Gerenciador de anúncios para reforço de mensagem durante a live."
+      },
+      {
+        "nome": "Descoberta de canais (homepage e páginas de exploração)",
+        "quando": "estratégias de tráfego e visibilidade de canal ou evento",
+        "exemplo": "Investir em placements de homepage headliner, super leaderboard e retângulo médio na homepage e páginas de descoberta para promover canais patrocinados ou eventos especiais."
+      },
+      {
+        "nome": "Segmentação por mercado / país (Brasil)",
+        "quando": "campanhas regionais com entrega restrita ao Brasil",
+        "exemplo": "Campanhas de anunciantes brasileiros veiculadas em inventário da Twitch no Brasil, dentro dos mercados suportados pelo pacote de patrocínios da Amazon Ads que inclui Brasil."
       }
+    ],
+    "fontes_pesquisa": [
+      {
+        "title": "Especificações e diretrizes de anúncios da Twitch (Amazon Ads, pt‑BR)",
+        "url": "https://advertising.amazon.com/pt-br/resources/ad-specs/twitch"
+      },
+      {
+        "title": "How to start advertising with Twitch (Amazon Ads, guia global)",
+        "url": "https://advertising.amazon.com/library/guides/twitch-ads"
+      },
+      {
+        "title": "Especificações para anúncios da Twitch - Retângulo médio (Amazon Ads, pt‑BR)",
+        "url": "https://advertising.amazon.com/pt-br/resources/ad-specs/twitch/medium-rectangle"
+      },
+      {
+        "title": "Anúncios da Twitch no feed para dispositivos móveis (Amazon Ads, pt‑BR)",
+        "url": "https://advertising.amazon.com/pt-br/resources/ad-specs/twitch/mid-feed-ads"
+      },
+      {
+        "title": "Anúncios na Twitch - descubra soluções de marketing para marcas (Amazon Ads, pt‑BR)",
+        "url": "https://advertising.amazon.com/pt-br/channels/twitch"
+      },
+      {
+        "title": "Amazon Ads lança pacote de patrocínios para marcas ativarem streamers na Twitch (Mundo do Marketing)",
+        "url": "https://mundodomarketing.com.br/amazon-ads-lanca-pacote-de-patrocinios-para-marcas-ativarem-streamers-na-twitch"
+      }
+    ],
+    "avisos_pesquisa": [
+      "Grande parte da documentação pública de Twitch Ads e formatos de display e vídeo é global; especificações de inventário por dispositivo e tipos de placement (homepage, retângulo médio, super leaderboard, mid‑feed) são comunicadas em materiais globais da Amazon Ads e não necessariamente refletem um produto exclusivo do Brasil.[1][3][4][6][8]",
+      "Dados específicos de alcance em número de usuários ou sessões médias no Brasil não constam nas fontes consultadas; qualquer cifra de usuários ou minutos de sessão seria estimativa não validada.",
+      "Informações detalhadas de segmentação (interesse, contexto, 1st party) são descritas em nível conceitual em guias de produto e notícias de patrocínios, mas sem tabela técnica pública de targeting para Brasil; os recortes listados derivam de como o produto é apresentado, não de parâmetros exatos de plataforma.[4][7][9][13]"
     ]
   },
   {
@@ -3366,62 +4162,103 @@
     "cor": "#8B5CF6",
     "formatos": [
       {
-        "nome": "Host-read",
-        "chave": "audio-bar",
-        "w": 728,
-        "h": 90,
-        "label": "Host-read",
-        "melhor_para": "confiança do host",
-        "dispositivos": [
-          "audio",
-          "mobile"
-        ]
-      },
-      {
-        "nome": "Audio Ads",
+        "nome": "Audio ads",
         "chave": "audio-bar",
         "w": 728,
         "h": 90,
         "label": "15s/30s",
-        "melhor_para": "rede",
+        "melhor_para": "alcance em podcasts via compra automatizada ou reservada",
         "dispositivos": [
           "audio",
-          "mobile"
+          "mobile",
+          "app",
+          "desktop",
+          "tablet"
         ]
       },
       {
-        "nome": "Branded podcast",
+        "nome": "Host-read / testemunhal",
         "chave": "audio-bar",
         "w": 728,
         "h": 90,
-        "label": "Branded",
-        "melhor_para": "série própria",
+        "label": "Host-read",
+        "melhor_para": "credibilidade do host e integração editorial",
         "dispositivos": [
-          "audio"
+          "audio",
+          "mobile",
+          "app"
+        ]
+      },
+      {
+        "nome": "Anúncio inserido dinamicamente",
+        "chave": "audio-bar",
+        "w": 728,
+        "h": 90,
+        "label": "15s/30s",
+        "melhor_para": "escala com segmentação e substituição ao longo do tempo",
+        "dispositivos": [
+          "audio",
+          "mobile",
+          "app",
+          "desktop",
+          "tablet"
         ]
       }
     ],
     "segmentacoes": [
       {
-        "nome": "Tema do show",
-        "quando": "afinidade",
-        "exemplo": "Negócios, true crime, futebol"
+        "nome": "Programa específico",
+        "quando": "quando o anunciante quer comprar inventário de um podcast ou série específica",
+        "exemplo": "compra local em programas originais e exclusivos no Brasil"
       },
       {
-        "nome": "Host",
-        "quando": "autoridade",
-        "exemplo": "Programa X"
+        "nome": "Catálogo de originais e exclusivos",
+        "quando": "quando a campanha quer cobertura dentro do ecossistema de podcasts do publisher",
+        "exemplo": "inventário em podcasts originais e exclusivos do Spotify"
       },
       {
-        "nome": "Download semanal",
-        "quando": "frequência",
-        "exemplo": "Ouvintes 4+ eps"
+        "nome": "Catálogo global de originais e exclusivos",
+        "quando": "quando a marca quer alcançar ouvintes brasileiros consumindo podcasts fora do Brasil",
+        "exemplo": "programas dos Estados Unidos, Reino Unido, México, Alemanha, Austrália e Suécia"
       },
       {
-        "nome": "Praça do ouvinte",
-        "quando": "regional",
-        "exemplo": "Sudeste"
+        "nome": "Geografia",
+        "quando": "quando a compra usa segmentação por localização no delivery dinâmico",
+        "exemplo": "anúncios inseridos dinamicamente com base na região do ouvinte"
+      },
+      {
+        "nome": "Categoria / contexto editorial",
+        "quando": "quando a marca busca aderência temática do programa",
+        "exemplo": "podcasts de notícias, entretenimento ou cultura alinhados ao tema da campanha"
+      },
+      {
+        "nome": "Comportamento / audiência",
+        "quando": "quando a compra usa dados de audiência e consumo para distribuição",
+        "exemplo": "segmentação por comportamento de escuta em inserção dinâmica"
       }
+    ],
+    "fontes_pesquisa": [
+      {
+        "title": "Conte sua história com anúncios em podcasts",
+        "url": "https://ads.spotify.com/pt-BR/ad-formats/podcast-ads/"
+      },
+      {
+        "title": "Anúncios em podcasts agora estão disponíveis no Brasil",
+        "url": "https://ads.spotify.com/pt-BR/noticias-insights-deprecated/anuncios-em-podcasts-disponiveis-no-brasil/"
+      },
+      {
+        "title": "IAB Brasil - Guia Podcast Advertising",
+        "url": "https://iabbrasil.com.br/wp-content/uploads/2022/03/IAB-BRASIL_GUIA_PODCAST-ADVERTISING_20220503_FINAL.pdf"
+      },
+      {
+        "title": "Spotify Ad Studio is now available in Brazil",
+        "url": "https://ads.spotify.com/en-US/news-and-insights/spotify-ad-studio-brazil-launch"
+      }
+    ],
+    "avisos_pesquisa": [
+      "A ficha atual traz alcance, viewability, investimento mínimo e taxa de completion sem validação nas fontes consultadas; esses campos foram omitidos por falta de suporte documental.",
+      "A métrica de viewability não se aplica de forma padrão a áudio e não foi validada para este produto.",
+      "A oferta validada é do ecossistema Spotify Podcast Ads no Brasil; não há suporte suficiente para afirmar uma rede ampla com outros publishers sem nova fonte específica."
     ]
   },
   {
@@ -3449,36 +4286,48 @@
     "cor": "#33CCFF",
     "formatos": [
       {
-        "nome": "Pins",
+        "nome": "Branded Pin",
         "chave": "iab-medium",
         "w": 300,
         "h": 250,
-        "label": "Pin",
-        "melhor_para": "loja no mapa",
+        "label": "300×250",
+        "melhor_para": "presença de loja no mapa e informação de ponto de venda ao longo da rota",
         "dispositivos": [
           "mobile",
           "app"
         ]
       },
       {
-        "nome": "Arrow",
+        "nome": "Nearby Arrow",
         "chave": "iab-medium",
         "w": 300,
         "h": 250,
         "label": "Seta",
-        "melhor_para": "desvio e parada",
+        "melhor_para": "chamada de atenção no início da sessão para ponto de venda próximo",
         "dispositivos": [
           "mobile",
           "app"
         ]
       },
       {
-        "nome": "Takeover",
+        "nome": "Zero‑Speed Takeover",
         "chave": "iab-billboard",
         "w": 970,
         "h": 250,
         "label": "970×250",
-        "melhor_para": "abertura do app",
+        "melhor_para": "impacto em tela cheia em momento de parada para awareness e drive-to-store",
+        "dispositivos": [
+          "mobile",
+          "app"
+        ]
+      },
+      {
+        "nome": "Promoted Search",
+        "chave": "iab-medium",
+        "w": 300,
+        "h": 250,
+        "label": "300×250",
+        "melhor_para": "capturar intenção em buscas por categorias, marcas ou lugares",
         "dispositivos": [
           "mobile",
           "app"
@@ -3487,25 +4336,76 @@
     ],
     "segmentacoes": [
       {
-        "nome": "Raio da loja",
-        "quando": "drive-to-store",
-        "exemplo": "3 km do PDV"
+        "nome": "Geolocalização de ponto de venda",
+        "quando": "sempre que a campanha precisa impactar motoristas em raio específico de lojas ou unidades",
+        "exemplo": "Impactar usuários que passam a até 10 km de um supermercado ou restaurante com Pins, Arrows e Zero‑Speed Takeover."
       },
       {
-        "nome": "Trajeto",
-        "quando": "casa–trabalho",
-        "exemplo": "Manhã na Marginal"
+        "nome": "Proximidade imediata (momentos de passagem)",
+        "quando": "quando o foco é influenciar motoristas que estão muito perto do estabelecimento",
+        "exemplo": "Usar Arrow com raio padrão de 1 km (máx. 5 km) para indicar que a loja está logo adiante na rota."
       },
       {
-        "nome": "Categoria no mapa",
-        "quando": "intenção local",
-        "exemplo": "Posto, farmácia, mall"
+        "nome": "Histórico de visitas a categorias (geo‑comportamental)",
+        "quando": "em estratégias de atingir públicos com hábitos físicos específicos",
+        "exemplo": "Segmentar usuários que costumam visitar supermercados entre 18h e 20h ou restaurantes japoneses aos domingos dentro de determinada área."
       },
       {
-        "nome": "Praça",
-        "quando": "cidade e corredor",
-        "exemplo": "SP + ABC"
+        "nome": "Contexto de navegação e busca",
+        "quando": "quando a campanha quer capturar intenção de deslocamento ou consumo em tempo real",
+        "exemplo": "Promoted Search aparecendo para quem busca por 'posto de gasolina', 'farmácia' ou pela marca específica durante a navegação."
+      },
+      {
+        "nome": "Momento de parada (zero velocidade)",
+        "quando": "em ações de awareness e oferta que exigem atenção maior em segurança",
+        "exemplo": "Zero‑Speed Takeover exibido somente quando o carro está totalmente parado por alguns segundos, como em semáforos ou congestionamentos."
+      },
+      {
+        "nome": "Rotas e padrões de deslocamento",
+        "quando": "em campanhas focadas em trajetos recorrentes casa‑trabalho ou casa‑estudo",
+        "exemplo": "Usar dados de mobilidade para impactar quem costuma passar por um corredor específico de lojas no trajeto diário."
+      },
+      {
+        "nome": "Categoria de ponto de interesse",
+        "quando": "quando o objetivo é atingir públicos em afinidade com tipos de estabelecimentos",
+        "exemplo": "Focar em categorias como supermercados, restaurantes, postos, farmácias e shoppings, vinculando Pins e Takeovers a esses tipos de locais."
+      },
+      {
+        "nome": "Engajamento com CTAs de navegação e salvar local",
+        "quando": "em otimizações de campanha para gerar mais visitas ou planos de visita",
+        "exemplo": "Ajustar campanhas para usuários que clicam com frequência em 'Dirija até lá' ou 'Salve para mais tarde' em anúncios de Pins e Takeovers."
       }
+    ],
+    "fontes_pesquisa": [
+      {
+        "title": "Waze Ads | Branded Pin, Arrow e Zero‑Speed Takeover (Ads Anatomy)",
+        "url": "https://waze.com/intl/pt-BR/brands/customers/ads-anatomy.html"
+      },
+      {
+        "title": "Waze Ads – Formatos e especificações criativas (Zero‑Speed Takeover, raios, CTAs)",
+        "url": "https://services.google.com/fh/files/misc/waze_ads_format_specs.pdf"
+      },
+      {
+        "title": "Waze Ads – Formatos básicos: Nearby Arrows, Branded Pins, Zero‑speed Takeovers, Promoted Search",
+        "url": "https://medium.com/waze-ads-apac/waze-apac-mobility-academy-4-4ef30e14cd87"
+      },
+      {
+        "title": "Como alcançar pessoas nas proximidades com Waze Ads (Brasil) – descrição de Pins, Arrows e Zero‑Speed Takeover",
+        "url": "https://blog.pareto.io/waze-ads/"
+      },
+      {
+        "title": "Sua empresa anuncia no Waze? (Brasil) – explicação dos 4 formatos e uso para drive‑to‑store",
+        "url": "https://elconsultoria.com.br/sua-empresa-anuncia-no-waze/"
+      },
+      {
+        "title": "Como funciona e como anunciar no Waze Ads Brasil?",
+        "url": "https://divia.com.br/waze-ads-como-funciona-e-como-anunciar-no-waze-ads-brasil"
+      }
+    ],
+    "avisos_pesquisa": [
+      "Parte da documentação de formatos (Branded Pin, Nearby Arrow, Zero‑Speed Takeover, Promoted Search) é global; specs e funcionamento são globais e aplicados também ao Brasil, mas os números de alcance e métricas locais não aparecem nos materiais públicos analisados.[3][5][8][10]",
+      "Não foram encontrados, em fontes públicas recentes, valores oficiais específicos de usuários únicos, viewability ou investimento mínimo para Waze Ads Brasil; qualquer número operacional deve ser validado em canal comercial ou mídia kit proprietário.",
+      "Segmentações geo‑comportamentais e de padrões de deslocamento são descritas em playbooks e materiais de last‑mile to store em contexto global e regional; sua disponibilidade exata em 2025‑2026 no Brasil deve ser confirmada com o time comercial.[13][14]"
     ]
   },
   {
@@ -3557,24 +4457,34 @@
     ],
     "segmentacoes": [
       {
-        "nome": "Classe C e interior",
-        "quando": "volume",
-        "exemplo": "Praças fora do eixo"
+        "nome": "Classe socioeconômica",
+        "quando": "Quando a campanha busca penetração em massa ou foco em perfis de menor renda.",
+        "exemplo": "Campanha de bens de consumo focada em classes C e D em áreas metropolitanas."
       },
       {
-        "nome": "Entretenimento curto",
-        "quando": "recall simples",
-        "exemplo": "15s vertical"
+        "nome": "Idade e gênero",
+        "quando": "Quando o produto/serviço tem apelo claro por faixa etária ou gênero.",
+        "exemplo": "Lançamento de produto jovem direcionado a 18–34 anos."
       },
       {
-        "nome": "Idade",
-        "quando": "18–34",
-        "exemplo": "Feed"
+        "nome": "Geolocalização",
+        "quando": "Para ações regionais, inaugurações físicas ou ofertas locais.",
+        "exemplo": "Promoção válida apenas em cidades do Nordeste ou em municípios selecionados."
       },
       {
-        "nome": "Praça",
-        "quando": "Nordeste e interior",
-        "exemplo": "Cidades 200k+"
+        "nome": "Interesses e categorias de conteúdo",
+        "quando": "Quando há afinidade temática entre o conteúdo consumido e a oferta.",
+        "exemplo": "Anúncio de delivery para usuários que consomem vídeos de culinária e food reviews."
+      },
+      {
+        "nome": "Comportamento e engajamento",
+        "quando": "Para otimizar conversão com usuários que já demonstraram interesse ou alta interação.",
+        "exemplo": "Retargeting para usuários que completaram visualizações de vídeos da marca ou interagiram com anúncios anteriores."
+      },
+      {
+        "nome": "Audiência personalizada / Lookalike",
+        "quando": "Quando se quer escalar encontrando perfis similares aos melhores clientes.",
+        "exemplo": "Upload de base CRM para retargeting e criação de lookalikes a partir dos clientes que mais convertem."
       }
     ]
   }

@@ -1,52 +1,80 @@
 {% from "parametros/trocr/_icons.html" import ico %}
 <aside class="mc-trocr-inspector mc-swap-side" id="mcTrocrInspector">
-  <header class="mc-trocr-inspector-head">
-    <h2>Edição</h2>
-    <button type="button" class="mc-trocr-text-cta is-muted" id="mcTrocrResetPanel">Limpar campos</button>
-  </header>
+  <div class="mc-trocr-inspector-edit">
+    <header class="mc-trocr-inspector-head">
+      <h2>Edição</h2>
+      <button type="button" class="mc-trocr-text-cta is-muted" id="mcTrocrResetPanel">Limpar campos</button>
+    </header>
 
-  <section class="mc-trocr-section">
-    <label class="cx-field">
-      <span class="cx-label">Marca</span>
-      <select class="cx-select" id="mcSwapClient">
-        <option value="">Marca da mesa</option>
-      </select>
-    </label>
-    <label class="mc-trocr-toggle">
-      <input type="checkbox" id="mcTrocrBrandContext" checked>
-      <span>
-        <strong>Usar contexto da marca</strong>
-        <small>Considera diretrizes, tom de voz e histórico da marca.</small>
-      </span>
-    </label>
-  </section>
+    <section class="mc-trocr-section">
+      <label class="cx-field">
+        <span class="cx-label">Marca</span>
+        <select class="cx-select" id="mcSwapClient">
+          <option value="">Carregando marcas…</option>
+        </select>
+        <small class="mc-trocr-brand-hint" id="mcTrocrBrandHint">A mesma marca da Mesa 15s. Logo, tom e histórico entram na geração.</small>
+      </label>
+      <label class="mc-trocr-toggle">
+        <input type="checkbox" id="mcTrocrBrandContext" checked>
+        <span>
+          <strong>Usar DNA da marca</strong>
+          <small>Tom, paleta, logo oficial e histórico Trocr desta marca.</small>
+        </span>
+      </label>
+    </section>
 
-  <section class="mc-trocr-section">
-    <div class="mc-trocr-format-head">
-      <fieldset class="mc-swap-out mc-trocr-chips" id="mcTrocrFormats">
-        <legend>Formato de saída</legend>
-        <span class="mc-trocr-orient">Horizontal</span>
-        <label><input type="radio" name="mcSwapOut" value="16:9" checked> 16:9 CTV</label>
-        <span class="mc-trocr-orient">Vertical</span>
-        <label><input type="radio" name="mcSwapOut" value="9:16"> 9:16 Stories</label>
-        <label><input type="radio" name="mcSwapOut" value="4:5"> 4:5 Feed</label>
-        <span class="mc-trocr-orient">Quadrado</span>
-        <label><input type="radio" name="mcSwapOut" value="1:1"> 1:1 Quadrado</label>
+    <section class="mc-trocr-section">
+      <div class="mc-trocr-format-head">
+        <fieldset class="mc-swap-out mc-trocr-chips" id="mcTrocrFormats">
+          <legend>Formato de saída</legend>
+          <span class="mc-trocr-orient">Horizontal</span>
+          <label><input type="radio" name="mcSwapOut" value="16:9" checked> 16:9 CTV</label>
+          <span class="mc-trocr-orient">Vertical</span>
+          <label><input type="radio" name="mcSwapOut" value="9:16"> 9:16 Stories</label>
+          <label><input type="radio" name="mcSwapOut" value="4:5"> 4:5 Feed</label>
+          <span class="mc-trocr-orient">Quadrado</span>
+          <label><input type="radio" name="mcSwapOut" value="1:1"> 1:1 Quadrado</label>
+        </fieldset>
+        <button type="button" class="mc-trocr-text-cta" id="mcTrocrRotate">{{ ico('rotate') }} Rotacionar layout</button>
+      </div>
+      <fieldset class="mc-trocr-chips">
+        <legend>Como ver no canvas</legend>
+        <label><input type="radio" name="mcTrocrPresent" value="final" checked> Peça final</label>
+        <label><input type="radio" name="mcTrocrPresent" value="mobile"> Mockup mobile</label>
+        <label><input type="radio" name="mcTrocrPresent" value="portal"> Mockup portal</label>
+        <label><input type="radio" name="mcTrocrPresent" value="ctv"> Mockup CTV</label>
       </fieldset>
-      <button type="button" class="mc-trocr-text-cta" id="mcTrocrRotate">{{ ico('rotate') }} Rotacionar layout</button>
-    </div>
-    <fieldset class="mc-trocr-chips">
-      <legend>Tipo de apresentação</legend>
-      <label><input type="radio" name="mcTrocrPresent" value="final" checked> Peça final</label>
-      <label><input type="radio" name="mcTrocrPresent" value="mobile"> Mockup mobile</label>
-      <label><input type="radio" name="mcTrocrPresent" value="portal"> Mockup portal</label>
-      <label><input type="radio" name="mcTrocrPresent" value="ctv"> Mockup CTV</label>
-    </fieldset>
-  </section>
+    </section>
 
-  {% include "parametros/trocr/_ocr_fields.html" %}
-  {% include "parametros/trocr/_analysis.html" %}
-  {% include "parametros/trocr/_preserve_alter.html" %}
-  {% include "parametros/trocr/_prompt.html" %}
-  {% include "parametros/trocr/_generate.html" %}
+    {% include "parametros/trocr/_prompt.html" %}
+    {% include "parametros/trocr/_ocr_fields.html" %}
+    {% include "parametros/trocr/_analysis.html" %}
+    {% include "parametros/trocr/_generate.html" %}
+  </div>
+  <aside class="mc-trocr-feedback" id="mcTrocrFeedback" hidden>
+    <header>
+      <h3>Rota e avisos</h3>
+      <button type="button" class="mc-trocr-text-cta is-muted" id="mcTrocrFeedbackClose">Recolher</button>
+    </header>
+    <div class="mc-trocr-route" id="mcTrocrRoute" data-mode="image" role="status">
+      <p class="mc-trocr-route-name" id="mcTrocrRouteName">Ainda sem pedido</p>
+      <p class="mc-trocr-route-copy" id="mcTrocrRouteCopy">Marque o que muda. A mesa escolhe se pinta o tipo na foto ou se o Image 2 redesenha.</p>
+    </div>
+    <p class="mc-trocr-risk" id="mcTrocrRisk" hidden></p>
+    <div class="mc-trocr-conflicts" id="mcTrocrConflicts" hidden>
+      <p class="mc-trocr-conflicts-title">Conflitos do pedido</p>
+      <ul id="mcTrocrConflictList"></ul>
+      <label class="mc-trocr-confirm" id="mcTrocrConfirmRow" hidden>
+        <input type="checkbox" id="mcTrocrConfirmConflicts">
+        <span>Confirmar mesmo assim</span>
+      </label>
+    </div>
+    <label class="mc-trocr-force" id="mcTrocrForceRow" hidden>
+      <input type="checkbox" id="mcTrocrForceImage">
+      <span>Redesenhar a peça no Image 2</span>
+    </label>
+    <p class="mc-trocr-region-hint" id="mcTrocrRegionHint" hidden></p>
+    <p class="mc-trocr-qa" id="mcTrocrQa" hidden></p>
+    <p class="mc-trocr-status" id="mcSwapStatus">Uma foto de referência basta. Sem roteiro de 15s.</p>
+  </aside>
 </aside>

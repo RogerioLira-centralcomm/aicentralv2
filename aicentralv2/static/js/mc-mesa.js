@@ -17,6 +17,7 @@
     formatGroups: [],
     models: [],
     clients: [],
+    allClients: [],
     clientId: '',
     formatKey: 'video-linear-15',
     formatTouched: false,
@@ -65,6 +66,18 @@
 
   function $(id) {
     return document.getElementById(id);
+  }
+
+  function deskBrand() {
+    return window.McDeskBrand || {
+      read() { return ''; },
+      write() {},
+      branded(list) { return Array.isArray(list) ? list : []; },
+      forSelect(list) { return Array.isArray(list) ? list : []; },
+      pick(_list, fallback) { return String(fallback || ''); },
+      label(client) { return client?.name || client?.id || 'Marca'; },
+      hasInfo() { return true; },
+    };
   }
 
   function setStatus(text) {
@@ -243,7 +256,8 @@
       state.formats = catalog.formats || [];
       state.formatGroups = catalog.format_groups || [];
       state.models = catalog.campaigns || [];
-      state.clients = clients || [];
+      state.allClients = Array.isArray(clients) ? clients : [];
+      state.clients = deskBrand().forSelect(state.allClients);
       state.quote = catalog.quote || null;
       state.baseSkills = catalog.base_skills || state.baseSkills;
       state.visualSkills = catalog.visual_skills || [];
@@ -255,7 +269,7 @@
       renderSelects();
       renderSkills();
       renderCost();
-      autofillVivara();
+      restoreDeskBrand();
       renderDna();
       await resumeDesk();
       renderOps();
@@ -471,7 +485,20 @@
   }
 
   function currentClient() {
-    return state.clients.find((item) => String(item.id) === String(state.clientId));
+    return state.clients.find((item) => String(item.id) === String(state.clientId))
+      || state.allClients.find((item) => String(item.id) === String(state.clientId))
+      || null;
+  }
+
+  function restoreDeskBrand() {
+    const stored = deskBrand().read();
+    if (stored && (state.clients.some((item) => String(item.id) === stored)
+      || state.allClients.some((item) => String(item.id) === stored))) {
+      selectClient(stored);
+      return;
+    }
+    autofillVivara();
+    if (state.clientId) deskBrand().write(state.clientId);
   }
 
   function selectClient(id) {
@@ -483,6 +510,8 @@
       state.copyOrigin = null;
     }
     state.clientId = id;
+    if (state.clientId) deskBrand().write(state.clientId);
+    renderSelects();
     const client = currentClient();
     const match = MODEL_BRANDS.find((item) => nameMatches(client?.name, item.match));
     if (match) {
@@ -513,11 +542,12 @@
     state.campaignSlug = slug;
     state.campaign = state.models.find((item) => item.slug === slug) || null;
     const model = MODEL_BRANDS.find((item) => item.slug === slug);
-    const client = state.clients.find((item) => nameMatches(item.name, model?.match));
+    const client = (state.allClients.length ? state.allClients : state.clients)
+      .find((item) => nameMatches(item.name, model?.match));
     if (client) {
       state.clientId = String(client.id);
-      const select = $('mcMesaClient');
-      if (select) select.value = state.clientId;
+      deskBrand().write(state.clientId);
+      renderSelects();
     }
     if (!state.formatTouched && state.campaign?.format) state.formatKey = state.campaign.format;
     if (state.campaign?.variant) state.variant = state.campaign.variant;
@@ -704,12 +734,25 @@
     )).join('');
   }
 
+  function syncClientSelect() {
+    const select = $('mcMesaClient');
+    if (!select) return;
+    if (state.clientId && Array.from(select.options).some((option) => option.value === String(state.clientId))) {
+      select.value = String(state.clientId);
+    }
+  }
+
   function renderSelects() {
     const client = $('mcMesaClient');
     if (!client) return;
-    client.innerHTML = '<option value="">Marca</option>' + state.clients.map((item) => (
-      `<option value="${item.id}">${item.name || item.id}</option>`
+    const Brand = deskBrand();
+    const items = Brand.forSelect(state.allClients.length ? state.allClients : state.clients, state.clientId);
+    state.clients = items;
+    const placeholder = items.length ? 'Escolha a marca' : 'Nenhuma marca com perfil';
+    client.innerHTML = `<option value="">${placeholder}</option>` + items.map((item) => (
+      `<option value="${item.id}">${Brand.label(item)}</option>`
     )).join('');
+    syncClientSelect();
   }
 
   function renderDna() {

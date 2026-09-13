@@ -28,6 +28,16 @@
     recrop: 'Recorte + tipo',
   };
 
+  const Desk = window.McDeskBrand || {
+    read() { return ''; },
+    write() {},
+    branded(list) { return Array.isArray(list) ? list : []; },
+    forSelect(list) { return Array.isArray(list) ? list : []; },
+    pick(_list, fallback) { return String(fallback || ''); },
+    label(client) { return client?.name || ''; },
+    hasInfo() { return true; },
+  };
+
   const state = {
     versions: [],
     activeId: '',
@@ -38,10 +48,12 @@
     flowError: '',
     clientId: '',
     clients: [],
+    allClients: [],
     aspectRatio: '16:9',
     userPickedFormat: false,
     presentation: 'final',
-    quality: 'production',
+    quality: 'draft',
+    feedbackOpen: false,
     brandContext: true,
     promptEdited: false,
     promptLocked: false,
@@ -71,6 +83,8 @@
   let persistTimer = 0;
   let persistBusy = false;
   let persistAgain = false;
+  let waitTimer = 0;
+  let waitStarted = 0;
 
   document.addEventListener('DOMContentLoaded', boot);
 
@@ -89,8 +103,8 @@
     renderEditPanels();
     try {
       const clients = await request(API.clients);
-      state.clients = Array.isArray(clients) ? clients : (clients?.items || clients?.clients || []);
-      renderClients();
+      state.allClients = Array.isArray(clients) ? clients : (clients?.items || clients?.clients || []);
+      applyDeskBrand();
     } catch (_error) {
       setStatus('Não deu para carregar as marcas. Você ainda pode escrever o nome no pedido.');
     }
@@ -115,7 +129,7 @@
     input?.addEventListener('change', () => takeFile(input.files?.[0]));
     $('mcSwapClient')?.addEventListener('change', async (event) => {
       await persistHistory();
-      state.clientId = event.target.value;
+      selectBrand(event.target.value);
       const restored = await loadHistory();
       if (!restored && state.versions.length) schedulePersist();
       refreshPrompt();
@@ -159,8 +173,19 @@
     document.querySelectorAll('input[name="mcTrocrPreserve"], input[name="mcTrocrAlter"]').forEach((node) => {
       node.addEventListener('change', refreshPrompt);
     });
-    $('mcSwapRun')?.addEventListener('click', () => runSwap('production'));
+    $('mcSwapRun')?.addEventListener('click', () => {
+      const quality = (state.mode === 'typeset' || state.mode === 'recrop') ? 'production' : state.quality;
+      runSwap(quality);
+    });
     $('mcTrocrDraft')?.addEventListener('click', () => runSwap('draft'));
+    $('mcTrocrHistoryBtn')?.addEventListener('click', openHistory);
+    $('mcTrocrOpenHistory')?.addEventListener('click', openHistory);
+    $('mcTrocrHistoryClose')?.addEventListener('click', closeHistory);
+    $('mcTrocrHistory')?.addEventListener('click', (event) => {
+      if (event.target === event.currentTarget) closeHistory();
+    });
+    $('mcTrocrFeedbackToggle')?.addEventListener('click', () => setFeedbackOpen(!state.feedbackOpen));
+    $('mcTrocrFeedbackClose')?.addEventListener('click', () => setFeedbackOpen(false));
     $('mcTrocrForceImage')?.addEventListener('change', () => {
       refreshPrompt();
       refreshQuote();
@@ -215,14 +240,66 @@
     $('mcTrocrNewPiece')?.addEventListener('click', onNewPiece);
     $('mcTrocrRotate')?.addEventListener('click', rotateLayout);
     $('mcTrocrVersions')?.addEventListener('click', onVersionClick);
+    $('mcTrocrHistoryList')?.addEventListener('click', onVersionClick);
+  }
+
+  function currentClient() {
+    return state.clients.find((item) => String(item.id) === String(state.clientId))
+      || state.allClients.find((item) => String(item.profile_id || item.id) === String(state.clientId))
+      || null;
+  }
+
+  function applyDeskBrand() {
+    state.clients = Desk.forSelect(state.allClients, state.clientId);
+    if (!state.clientId) state.clientId = Desk.pick(state.allClients, state.clientId);
+    if (state.clientId) Desk.write(state.clientId);
+    renderClients();
+  }
+
+  function selectBrand(id) {
+    state.clientId = String(id || '');
+    if (state.clientId) Desk.write(state.clientId);
+    renderClients();
+  }
+
+  function renderBrandHint() {
+    const hint = $('mcTrocrBrandHint');
+    if (!hint) return;
+    const client = currentClient();
+    if (!state.clients.length) {
+      hint.textContent = 'Nenhuma marca com DNA ou logo. Abra Marcas para cadastrar o perfil.';
+      return;
+    }
+    if (!client) {
+      hint.textContent = 'Escolha a marca da Mesa. Sem ela, logo, tom e histórico não entram.';
+      return;
+    }
+    const bits = [];
+    if (client.brand_profile?.creative_line) bits.push('DNA');
+    if (client.logo_url || client.logo_upload_path) bits.push('logo');
+    hint.textContent = bits.length
+      ? `${client.name} da Mesa · ${bits.join(' e ')} entram na geração.`
+      : `${client.name} da Mesa. O histórico desta marca fica nesta sessão.`;
   }
 
   function renderClients() {
     const select = $('mcSwapClient');
     if (!select) return;
-    select.innerHTML = '<option value="">Marca da mesa</option>' + state.clients.map((item) => (
-      `<option value="${item.id}">${escapeHtml(item.name || '')}</option>`
+    if (!state.clients.length) {
+      select.innerHTML = '<option value="">Nenhuma marca com perfil</option>';
+      renderBrandHint();
+      return;
+    }
+    select.innerHTML = state.clients.map((item) => (
+      `<option value="${escapeHtml(String(item.id))}">${escapeHtml(Desk.label(item))}</option>`
     )).join('');
+    if (state.clientId && Array.from(select.options).some((option) => option.value === String(state.clientId))) {
+      select.value = String(state.clientId);
+    } else if (select.options.length) {
+      state.clientId = select.value;
+      Desk.write(state.clientId);
+    }
+    renderBrandHint();
   }
 
   function takeFile(file) {
@@ -495,7 +572,7 @@
   }
 
   function editFields() {
-    const client = state.clients.find((item) => String(item.id) === String(state.clientId));
+    const client = currentClient();
     const read = state.lastRead || {};
     const faces = Number.isInteger(read.faces)
       ? read.faces
@@ -641,14 +718,13 @@
     highlightQuality();
     enableGenerate(false);
     setFlow('generate');
-    showGenSteps('analysis');
+    showWait(quality, state.mode);
     setStatus(state.mode === 'typeset'
       ? 'Compondo o tipo na foto…'
-      : (quality === 'draft' ? 'Gerando rascunho…' : 'Gerando nova versão…'));
+      : (quality === 'draft' ? 'Gerando rascunho…' : 'Gerando produção…'));
     hideError();
     state.lastAction = 'generate';
     try {
-      showGenSteps('prompt');
       try {
         await loadPlan();
       } catch (error) {
@@ -656,6 +732,7 @@
       }
       if (state.planBlocked && !$('mcTrocrConfirmConflicts')?.checked) {
         const first = state.conflicts.find((item) => item.blocking) || state.conflicts[0] || {};
+        setFeedbackOpen(true);
         throw new Error(first.message || 'Confirme o conflito antes de gerar.');
       }
       const data = await request(API.swap, {
@@ -665,14 +742,12 @@
         base_id: state.baseId || undefined,
         revision: state.revision || 0,
       });
-      showGenSteps('generate');
       state.planHash = data.plan_hash || state.planHash;
       state.planBlocked = Boolean(data.blocked);
       state.planNoop = Boolean(data.noop);
       state.conflicts = data.conflicts || state.conflicts;
       paintRoute(data.risk, data.mode, data.quote, data);
       if (data.noop || data.mode === 'noop') {
-        showGenSteps('finish');
         setFlow('edit');
         toast('Nada para trocar. O Trocr não gerou versão.', 'success');
         setStatus(data.preview || 'Nada para trocar. Marque um item ou escreva a instrução.');
@@ -681,7 +756,6 @@
       const still = data.image_url || data.png_data_url;
       if (!still) throw new Error(data.preview || 'A geração não devolveu a imagem.');
       const thumb = await makeThumb(still);
-      showGenSteps('finish');
       const typeset = data.mode === 'typeset';
       const recrop = data.mode === 'recrop';
       const version = pushVersion({
@@ -720,7 +794,7 @@
       showError('Falha ao gerar nova versão', error.message, 'generate');
       setStatus(error.message);
     } finally {
-      hideGenSteps();
+      hideWait();
       enableGenerate(canGenerate());
     }
   }
@@ -819,6 +893,7 @@
     else if (action === 'delete') deleteVersion(id);
     else if (action === 'restore') restoreContext(id);
     else selectVersion(id);
+    if (event.currentTarget.id === 'mcTrocrHistoryList') closeHistory();
   }
 
   function renderVersions() {
@@ -826,10 +901,13 @@
     const count = $('mcTrocrVersionCount');
     const create = $('mcTrocrNewEdit');
     if (create) create.disabled = !state.versions.length;
+    if ($('mcTrocrHistoryBtn')) $('mcTrocrHistoryBtn').disabled = !state.versions.length;
+    if ($('mcTrocrOpenHistory')) $('mcTrocrOpenHistory').disabled = !state.versions.length;
+    if ($('mcTrocrHistoryCount')) $('mcTrocrHistoryCount').textContent = String(state.versions.length);
     if (count) {
       count.textContent = state.versions.length
-        ? `${state.versions.length} ${state.versions.length === 1 ? 'versão' : 'versões'}. Nenhuma versão será sobrescrita.`
-        : 'Nenhuma versão. O histórico será criado ao enviar o criativo.';
+        ? `${state.versions.length} ${state.versions.length === 1 ? 'versão' : 'versões'}. Clique para abrir no canvas.`
+        : 'Nenhuma versão ainda.';
     }
     if (!list) return;
     if ($('mcTrocrCompareBtn')) $('mcTrocrCompareBtn').disabled = state.versions.length < 2;
@@ -861,6 +939,8 @@
         </div>
       </li>`;
     }).join('');
+    const history = $('mcTrocrHistoryList');
+    if (history) history.innerHTML = list.innerHTML;
   }
 
   function renderCompare() {
@@ -924,18 +1004,30 @@
     );
     const ocr = $('mcTrocrOcr');
     const banner = $('mcTrocrOcrBanner');
+    const filledCount = [
+      'mcSwapHeadline', 'mcSwapSupport', 'mcTrocrSubtitle', 'mcTrocrDates', 'mcTrocrVenue',
+      'mcTrocrPrice', 'mcSwapCta', 'mcTrocrCta2', 'mcTrocrLogo', 'mcTrocrDisclaimer',
+    ].filter((id) => Boolean($(id)?.value)).length;
+    const ocrFailed = Boolean(banner && !banner.hidden);
     if (ocr && ocr.tagName === 'DETAILS') {
-      ocr.open = filled || Boolean(banner && !banner.hidden);
-      if ($('mcTrocrOcrHint') && (!banner || banner.hidden)) {
+      if (ocrFailed) ocr.open = true;
+      if ($('mcTrocrOcrHint') && !ocrFailed) {
         $('mcTrocrOcrHint').textContent = filled
-          ? 'Textos lidos da imagem. Ajuste se precisar.'
+          ? 'Lidos da imagem. Abra só se for ajustar.'
           : 'Nenhum texto para mostrar.';
       }
     }
-    const analysis = $('mcSwapRead');
-    if (analysis && analysis.tagName === 'DETAILS' && ready) analysis.open = true;
-    const edit = $('mcTrocrEditBlock');
-    if (edit && edit.tagName === 'DETAILS' && ready) edit.open = true;
+    const ocrSignal = $('mcTrocrOcrSignal');
+    if (ocrSignal) {
+      ocrSignal.hidden = filledCount === 0 && !ocrFailed;
+      ocrSignal.textContent = ocrFailed ? 'Sem leitura' : (filledCount ? `${filledCount} lidos` : '');
+    }
+    const analysisCount = document.querySelectorAll('input[name="mcTrocrAnalysis"]:checked').length;
+    const analysisSignal = $('mcTrocrAnalysisSignal');
+    if (analysisSignal) {
+      analysisSignal.hidden = !ready || analysisCount === 0;
+      analysisSignal.textContent = analysisCount ? `${analysisCount} vistos` : '';
+    }
   }
 
   function renderBaseMeta() {
@@ -969,13 +1061,7 @@
   }
 
   function highlightQuality() {
-    const draft = $('mcTrocrDraft');
-    const prod = $('mcSwapRun');
-    const draftOn = state.quality === 'draft';
-    draft?.classList.toggle('cx-btn-primary', draftOn);
-    draft?.classList.toggle('cx-btn-secondary', !draftOn);
-    prod?.classList.toggle('cx-btn-primary', !draftOn);
-    prod?.classList.toggle('cx-btn-secondary', draftOn);
+    paintGoLabel();
   }
 
   function enableGenerate(enabled) {
@@ -983,22 +1069,75 @@
     if ($('mcTrocrDraft')) $('mcTrocrDraft').disabled = !enabled;
   }
 
-  function showGenSteps(current) {
-    const list = $('mcTrocrGenSteps');
-    if (!list) return;
-    list.hidden = false;
-    const order = ['analysis', 'prompt', 'generate', 'finish'];
-    const index = order.indexOf(current);
-    list.querySelectorAll('[data-gen]').forEach((node) => {
-      const pos = order.indexOf(node.getAttribute('data-gen'));
-      node.classList.toggle('is-done', pos < index);
-      node.classList.toggle('is-current', pos === index);
-    });
+  function paintGoLabel() {
+    const button = $('mcSwapRun');
+    if (!button) return;
+    if (state.mode === 'noop' || state.planNoop) button.textContent = 'Nada para trocar';
+    else if (state.mode === 'blocked' || state.planBlocked) button.textContent = 'Gerar bloqueado';
+    else if (state.mode === 'typeset') button.textContent = 'Compor na foto';
+    else if (state.mode === 'recrop') button.textContent = 'Recortar e compor';
+    else button.textContent = state.quality === 'draft' ? 'Gerar rascunho' : 'Gerar produção';
   }
 
-  function hideGenSteps() {
-    const list = $('mcTrocrGenSteps');
-    if (list) list.hidden = true;
+  function showWait(quality, mode) {
+    const box = $('mcTrocrWait');
+    if (!box) return;
+    const typeset = mode === 'typeset';
+    const draft = quality === 'draft' && !typeset;
+    if ($('mcTrocrWaitTitle')) {
+      $('mcTrocrWaitTitle').textContent = typeset
+        ? 'Compondo o tipo na foto'
+        : (draft ? 'Gerando rascunho' : 'Gerando produção');
+    }
+    if ($('mcTrocrWaitCopy')) {
+      $('mcTrocrWaitCopy').textContent = typeset
+        ? 'Isso costuma ser imediato. Sem Image 2.'
+        : (draft
+          ? 'Rascunho costuma levar menos de 30 segundos.'
+          : 'Produção costuma passar de um minuto.');
+    }
+    waitStarted = Date.now();
+    if ($('mcTrocrWaitTime')) $('mcTrocrWaitTime').textContent = '0:00';
+    box.hidden = false;
+    window.clearInterval(waitTimer);
+    waitTimer = window.setInterval(() => {
+      const elapsed = Math.floor((Date.now() - waitStarted) / 1000);
+      const minutes = Math.floor(elapsed / 60);
+      const seconds = String(elapsed % 60).padStart(2, '0');
+      if ($('mcTrocrWaitTime')) $('mcTrocrWaitTime').textContent = `${minutes}:${seconds}`;
+    }, 250);
+  }
+
+  function hideWait() {
+    window.clearInterval(waitTimer);
+    waitTimer = 0;
+    if ($('mcTrocrWait')) $('mcTrocrWait').hidden = true;
+  }
+
+  function openHistory() {
+    const dialog = $('mcTrocrHistory');
+    if (!dialog || !state.versions.length) return;
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+    else dialog.hidden = false;
+  }
+
+  function closeHistory() {
+    const dialog = $('mcTrocrHistory');
+    if (!dialog) return;
+    if (typeof dialog.close === 'function' && dialog.open) dialog.close();
+    else dialog.hidden = true;
+  }
+
+  function setFeedbackOpen(open, options) {
+    state.feedbackOpen = Boolean(open);
+    const rail = $('mcTrocrFeedback');
+    const hasAlert = Boolean(options?.alert);
+    const show = state.feedbackOpen || hasAlert;
+    if (rail) rail.hidden = !show;
+    $('mcSwap')?.classList.toggle('has-feedback', show);
+    if ($('mcTrocrFeedbackToggle')) {
+      $('mcTrocrFeedbackToggle').textContent = show ? 'Esconder rota e avisos' : 'Ver rota e avisos';
+    }
   }
 
   function setZoom(value) {
@@ -1058,6 +1197,9 @@
     state.replaceSession = true;
     resetPanel();
     hideError();
+    hideWait();
+    closeHistory();
+    setFeedbackOpen(false);
     setFlow('upload');
     setViewMode('view');
     if ($('mcSwapImage')) $('mcSwapImage').removeAttribute('src');
@@ -1180,42 +1322,34 @@
               ? 'O Image 2 vira o formato. Preço, quota e headline entram na foto depois.'
               : (risk?.level === 'high'
                 ? (risk.reason || 'O Image 2 costuma embaralhar os selos desta cartela.')
-                : 'O still de referência entra no modelo. Rascunho valida; produção entrega.'))));
+                : 'Rascunho valida a troca. Produção só se for usar a peça.'))));
     }
     paintCost(quote);
     paintRisk(risk, state.mode);
+    const destLead = document.querySelector('.mc-trocr-dest-lead');
+    if (destLead) destLead.hidden = typeset || noop || blocked;
     if ($('mcTrocrQualityBox')) $('mcTrocrQualityBox').hidden = typeset || noop || blocked;
-    if ($('mcTrocrDraft')) $('mcTrocrDraft').hidden = typeset || noop || blocked;
-    if ($('mcSwapRun')) {
-      $('mcSwapRun').textContent = noop
-        ? 'Nada para trocar'
-        : (blocked
-          ? 'Gerar bloqueado'
-          : (typeset ? 'Compor na foto' : (recrop ? 'Recortar e compor' : 'Gerar produção')));
-    }
+    if ($('mcTrocrDraft')) $('mcTrocrDraft').hidden = true;
+    paintGoLabel();
     if ($('mcTrocrForceRow')) $('mcTrocrForceRow').hidden = !(typeset || recrop || risk?.level === 'high' || forced);
     if ($('mcTrocrPromptHint')) {
       $('mcTrocrPromptHint').textContent = typeset
-        ? 'O Image 2 não entra. Editar o prompt só vale se redesenhar a peça.'
+        ? 'O texto entra na foto. Sem Image 2.'
         : (recrop
-          ? 'O recorte passa pelo Image 2. O tipo não: ele é composto na foto.'
-          : 'Diga o item. A rota decide se o tipo entra na foto ou se o Image 2 redesenha.');
+          ? 'O recorte passa pelo Image 2. O tipo entra na foto depois.'
+          : 'Uma frase basta: o item novo e o que não pode mexer.');
     }
     if ($('mcTrocrStepGenHint')) {
-      $('mcTrocrStepGenHint').textContent = typeset ? 'Tipo na foto' : (recrop ? 'Recorte + tipo' : 'IA cria nova versão');
-    }
-    if ($('mcTrocrGenPaint')) {
-      $('mcTrocrGenPaint').textContent = typeset ? 'Composição' : (recrop ? 'Recorte e tipo' : 'Geração');
+      $('mcTrocrStepGenHint').textContent = typeset ? 'Tipo na foto' : (recrop ? 'Recorte + tipo' : 'Rascunho ou produção');
     }
     highlightQuality();
-    if (typeset) {
-      $('mcSwapRun')?.classList.add('cx-btn-primary');
-      $('mcSwapRun')?.classList.remove('cx-btn-secondary');
-    }
     enableGenerate(canGenerate());
     paintQa(plan?.qa);
     paintRegionHint();
     renderBaseMeta();
+    const hasAlert = blocked || (state.conflicts || []).length > 0 || risk?.level === 'high';
+    if (hasAlert) setFeedbackOpen(true, { alert: true });
+    else setFeedbackOpen(state.feedbackOpen);
   }
 
   function paintQa(qa) {
@@ -1516,9 +1650,7 @@
       const data = await request(`${API.history}${historyQuery()}`);
       if (!data?.versions?.length) return false;
       if (data.client_id && !state.clientId) {
-        state.clientId = String(data.client_id);
-        const select = $('mcSwapClient');
-        if (select) select.value = state.clientId;
+        selectBrand(data.client_id);
       }
       applyHistory(data);
       setStatus('Histórico da marca restaurado. Continue editando a partir da base ativa.');

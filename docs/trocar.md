@@ -466,7 +466,7 @@ Montado em `mc-trocar.js`. É o contrato da mesa.
 
 | Campo | Origem | Notas |
 |---|---|---|
-| `client_id` | `#mcSwapClient` | opcional |
+| `client_id` | `#mcSwapClient` | mesma marca da Mesa 15s (`cx-mc-desk-client`); só marcas com DNA, logo ou perfil |
 | `brand_name` | nome do cliente selecionado | |
 | `headline` | `#mcSwapHeadline` | max 80 |
 | `support` | `#mcSwapSupport` | max 160 |
@@ -595,13 +595,16 @@ Recrop acrescenta: *O Image 2 só vira o formato. Preço, quota e headline entra
 
 ## 10. Contexto de marca
 
+A marca do Trocr é a da Mesa 15s. Os dois escrevem `localStorage.cx-mc-desk-client`. O seletor lista só marcas com informação (DNA, logo, tom, paleta ou histórico Trocr), em ordem alfabética.
+
 Se `use_brand_context` não for `false` e houver `client_id`:
 
 - `build_brand_context(client)` — nome, cor, tom, forbidden, `creative_line.gpt_image_instruction`.
 - Logo oficial (`_official_logo_data_url`) entra como **segunda referência** do Image 2.
 - O prompt manda: *Image 2 is the official brand logo lockup. Place that exact mark where the old logo sat.* Não typesetar o nome jurídico no lugar da marca.
+- Histórico Trocr fica em `brand_profile.trocr`, chave `client-{id}`.
 
-Sem logo, pede o mark oficial pelo nome.
+Sem `client_id`, `_swap_brand` devolve `{}` e o checkbox de DNA não faz nada. Sem logo, pede o mark oficial pelo nome.
 
 ---
 

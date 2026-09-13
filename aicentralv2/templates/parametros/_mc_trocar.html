@@ -5,7 +5,10 @@
       <p>Troque um item da peça. Elenco e grafismo ficam na foto.</p>
     </div>
     <div class="mc-trocr-pagehead-actions">
-      <p class="mc-trocr-preserve-note">Todas as versões são preservadas</p>
+      <button type="button" class="mc-trocr-text-cta" id="mcTrocrHistoryBtn" disabled>
+        Histórico
+        <span class="mc-trocr-history-count" id="mcTrocrHistoryCount">0</span>
+      </button>
       <button type="button" class="mc-trocr-text-cta" id="mcTrocrNewPiece">Nova peça</button>
     </div>
   </header>
@@ -15,5 +18,6 @@
     {% include "parametros/trocr/_versions.html" %}
   </div>
   {% include "parametros/trocr/_inspector.html" %}
+  {% include "parametros/trocr/_history.html" %}
   {% include "parametros/trocr/_states.html" %}
 </article>

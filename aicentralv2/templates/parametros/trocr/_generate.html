@@ -1,50 +1,26 @@
 <section class="mc-trocr-section mc-trocr-generate" hidden data-route="image">
-  <div class="mc-trocr-route" id="mcTrocrRoute" data-mode="image" role="status">
-    <p class="mc-trocr-route-name" id="mcTrocrRouteName">Image 2 redesenha</p>
-    <p class="mc-trocr-route-copy" id="mcTrocrRouteCopy">O still de referência entra no modelo. Rascunho valida; produção entrega.</p>
-    <p class="mc-trocr-cost" id="mcSwapCost">R$ —</p>
-  </div>
-  <p class="mc-trocr-risk" id="mcTrocrRisk" hidden></p>
-  <div class="mc-trocr-conflicts" id="mcTrocrConflicts" hidden>
-    <p class="mc-trocr-conflicts-title">Conflitos do pedido</p>
-    <ul id="mcTrocrConflictList"></ul>
-    <label class="mc-trocr-confirm" id="mcTrocrConfirmRow" hidden>
-      <input type="checkbox" id="mcTrocrConfirmConflicts">
-      <span>Confirmar mesmo assim</span>
-    </label>
-  </div>
+  <p class="mc-trocr-dest-lead">Rascunho valida a troca. Produção só se for usar a peça.</p>
+  <p class="mc-trocr-cost" id="mcSwapCost">R$ —</p>
   <fieldset class="mc-trocr-quality" id="mcTrocrQualityBox">
-    <legend>Modo de qualidade</legend>
+    <legend>Destino</legend>
     <label>
-      <input type="radio" name="mcTrocrQuality" value="draft">
+      <input type="radio" name="mcTrocrQuality" value="draft" checked>
       <span>
         <strong>Rascunho</strong>
-        <small>Mais rápido, menor custo, preview de validação.</small>
+        <small>Mais rápido. Serve para conferir se a troca pegou.</small>
       </span>
     </label>
     <label>
-      <input type="radio" name="mcTrocrQuality" value="production" checked>
+      <input type="radio" name="mcTrocrQuality" value="production">
       <span>
         <strong>Produção</strong>
-        <small>Alta resolução, pronto para uso, maior fidelidade.</small>
+        <small>Mais lenta e cara. Só quando a peça for para o ar.</small>
       </span>
     </label>
   </fieldset>
-  <label class="mc-trocr-force" id="mcTrocrForceRow" hidden>
-    <input type="checkbox" id="mcTrocrForceImage">
-    <span>Redesenhar a peça no Image 2</span>
-  </label>
-  <p class="mc-trocr-region-hint" id="mcTrocrRegionHint" hidden></p>
-  <p class="mc-trocr-qa" id="mcTrocrQa" hidden></p>
-  <p class="mc-trocr-status" id="mcSwapStatus">Uma foto de referência basta. Sem roteiro de 15s.</p>
   <div class="mc-trocr-actions">
-    <button class="cx-btn cx-btn-secondary" type="button" id="mcTrocrDraft" disabled>Gerar rascunho</button>
-    <button class="cx-btn cx-btn-primary" type="button" id="mcSwapRun" disabled>Gerar produção</button>
+    <button class="cx-btn cx-btn-primary" type="button" id="mcSwapRun" disabled>Gerar rascunho</button>
   </div>
-  <ol class="mc-run-load" id="mcTrocrGenSteps" hidden>
-    <li data-gen="analysis">Análise</li>
-    <li data-gen="prompt">Montagem do prompt</li>
-    <li data-gen="generate" id="mcTrocrGenPaint">Geração</li>
-    <li data-gen="finish">Finalização</li>
-  </ol>
+  <button type="button" class="mc-trocr-text-cta" id="mcTrocrFeedbackToggle">Ver rota e avisos</button>
+  <button class="cx-btn cx-btn-secondary" type="button" id="mcTrocrDraft" hidden>Gerar rascunho</button>
 </section>

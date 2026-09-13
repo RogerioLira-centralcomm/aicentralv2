@@ -3997,6 +3997,55 @@
             '" onerror="this.replaceWith(document.createTextNode(this.getAttribute(\'data-inicial\')||\'?\'))">';
     }
 
+    function canaisIsCompact() {
+        return window.matchMedia && window.matchMedia('(max-width: 1024px)').matches;
+    }
+
+    function setCanaisView(desk, view) {
+        if (!desk) return;
+        desk.classList.toggle('is-detail', view === 'detail');
+        desk.classList.toggle('is-sessao', view === 'sessao');
+        desk.setAttribute('data-canais-view', view);
+    }
+
+    function formatoThumbHtml(fmt, cor) {
+        var chave = String(fmt.chave || 'iab-medium').replace(/[^a-z0-9-]/gi, '');
+        var label = fmt.label || (fmt.w && fmt.h ? fmt.w + '×' + fmt.h : '');
+        var meta = [];
+        if (fmt.taxa) meta.push(fmt.taxa);
+        if (fmt.tempo) meta.push(fmt.tempo);
+        if (fmt.melhor_para) meta.push(fmt.melhor_para);
+        return '<article class="cx-canais-thumb" data-formato-chave="' + escapeHtml(chave) + '">' +
+            '<div class="cx-canais-thumb-frame is-' + escapeHtml(chave) +
+            '" style="--canal-cor:' + escapeHtml(cor || '#64748b') + '"><span>' +
+            escapeHtml(label) + '</span></div>' +
+            '<b>' + escapeHtml(fmt.nome || '') + '</b>' +
+            (meta.length ? '<small>' + escapeHtml(meta.join(' · ')) + '</small>' : '') +
+            '</article>';
+    }
+
+    function renderCanalSessao(host, canal) {
+        if (!host || !canal) return;
+        var thumbs = (canal.formatos || []).map(function (fmt) {
+            return formatoThumbHtml(fmt, canal.cor);
+        }).join('');
+        var segs = (canal.segmentacoes || []).map(function (seg) {
+            return '<article class="cx-canais-seg"><b>' + escapeHtml(seg.nome || '') + '</b>' +
+                (seg.quando ? '<small>' + escapeHtml(seg.quando) + '</small>' : '') +
+                (seg.exemplo ? '<p>' + escapeHtml(seg.exemplo) + '</p>' : '') +
+                '</article>';
+        }).join('');
+        host.innerHTML =
+            '<button type="button" class="cx-canais-back" data-canais-sessao-back>Voltar à ficha</button>' +
+            '<p class="cx-canais-kicker">' + escapeHtml(canal.categoria || 'Canal') + '</p>' +
+            '<h2>Segmentação e formatos — ' + escapeHtml(canal.nome || '') + '</h2>' +
+            '<h3>Formatos</h3>' +
+            (thumbs ? '<div class="cx-canais-thumbs">' + thumbs + '</div>' : '<p class="cx-canais-empty">Sem formatos cadastrados.</p>') +
+            '<h3>Segmentações</h3>' +
+            (segs ? '<div class="cx-canais-segs">' + segs + '</div>' : '<p class="cx-canais-empty">Sem recortes cadastrados.</p>');
+        host.hidden = false;
+    }
+
     function renderCanalStage(stage, canal) {
         if (!stage || !canal) return;
         var stats = [
@@ -4022,26 +4071,41 @@
                 '<span>' + escapeHtml(arq.titulo || 'Material') + '</span>' +
                 '<small>' + escapeHtml(arq.tipo || 'arquivo') + '</small></a>';
         }).join('');
-        var formatos = (canal.formatos || []).map(function (fmt) {
-            var linha = fmt.nome || '';
-            if (fmt.taxa) linha += ' ' + fmt.taxa;
-            if (fmt.tempo) linha += ' / ' + fmt.tempo;
-            if (fmt.melhor_para) linha += ' — ' + fmt.melhor_para;
-            return linha;
-        }).filter(Boolean);
         var lead = canal.descricao
             ? '<p class="cx-canais-lead">' + escapeHtml(canal.descricao) + '</p>'
             : '';
         var cols = bloco('O que oferece', lista(canal.beneficios)) +
             bloco('Diferenciais', lista(canal.diferenciais));
-        var extras = bloco('Formatos', lista(formatos));
+        var assist = canal.assistente || {};
+        var passos = (assist.passos || []).map(function (passo) {
+            return '<li>' + escapeHtml(passo) + '</li>';
+        }).join('');
+        var playbook = '<div class="cx-canais-playbook" data-canais-playbook>' +
+            '<h3>O que fazer neste canal</h3>' +
+            (assist.quando ? '<p>' + escapeHtml(assist.quando) + '</p>' : '') +
+            (passos ? '<ol>' + passos + '</ol>' : '') +
+            (assist.evitar ? '<p class="cx-canais-avoid">' + escapeHtml(assist.evitar) + '</p>' : '') +
+            (assist.proximo_passo ? '<p><b>Próximo passo.</b> ' + escapeHtml(assist.proximo_passo) + '</p>' : '') +
+            '</div>';
+        var thumbsPreview = (canal.formatos || []).slice(0, 4).map(function (fmt) {
+            return formatoThumbHtml(fmt, canal.cor);
+        }).join('');
         stage.innerHTML =
-            '<p class="cx-canais-kicker">' + escapeHtml(canal.categoria || canal.tipo || 'Canal') + '</p>' +
-            '<h2>' + escapeHtml(canal.nome || '') + '</h2>' +
+            '<button type="button" class="cx-canais-back" data-canais-back>Canais</button>' +
+            '<div class="cx-canais-hero">' +
+            '<span class="cx-canais-mark">' + canalMarkHtml(canal) + '</span>' +
+            '<div><p class="cx-canais-kicker">' + escapeHtml(canal.categoria || canal.tipo || 'Canal') + '</p>' +
+            '<h2>' + escapeHtml(canal.nome || '') + '</h2></div></div>' +
             lead +
             '<div class="cx-canais-stats">' + stats + '</div>' +
+            playbook +
+            '<div class="cx-canais-actions">' +
+            '<button type="button" class="cx-canais-primary" data-canais-gerar>Gerar apresentação</button>' +
+            '<button type="button" data-canais-abrir-sessao>Segmentação e formatos</button>' +
+            '</div>' +
+            '<div class="cx-canais-ia" data-canais-ia hidden></div>' +
+            (thumbsPreview ? '<div class="cx-canais-thumbs">' + thumbsPreview + '</div>' : '') +
             (cols ? '<div class="cx-canais-cols">' + cols + '</div>' : '') +
-            (extras ? '<div class="cx-canais-files">' + extras + '</div>' : '') +
             (arquivos
                 ? '<div class="cx-canais-files"><h3>Materiais</h3>' + arquivos + '</div>'
                 : '');
@@ -4053,10 +4117,16 @@
         if (!frag) return null;
         var wrapper = document.createElement('div');
         wrapper.appendChild(frag);
+        var desk = wrapper.querySelector('[data-canais-desk]');
         var list = wrapper.querySelector('[data-canais-list]');
         var stage = wrapper.querySelector('[data-canais-stage]');
+        var sessao = wrapper.querySelector('[data-canais-sessao]');
         var busca = wrapper.querySelector('[data-canais-busca]');
+        var cats = wrapper.querySelector('[data-canais-cats]');
+        var emptyList = wrapper.querySelector('[data-canais-list-empty]');
         var picked = null;
+        var categoriaAtiva = '';
+        var lastIaTexto = '';
 
         function paint(canais, ativo) {
             if (!list) return;
@@ -4064,41 +4134,183 @@
             list.innerHTML = canais.map(function (canal) {
                 var on = ativo && canal.slug === ativo.slug ? ' is-active' : '';
                 return '<button type="button" class="cx-canais-item' + on + '" data-canal-slug="' +
-                    escapeHtml(canal.slug) + '">' +
+                    escapeHtml(canal.slug) + '" data-canal-cat="' +
+                    escapeHtml(canal.categoria || '') + '">' +
                     '<span class="cx-canais-mark">' +
                     canalMarkHtml(canal) + '</span>' +
                     '<span><b>' + escapeHtml(canal.nome) + '</b><small>' +
                     escapeHtml(canal.categoria || '') + '</small></span></button>';
             }).join('');
+            applyCanaisFilter();
+        }
+
+        function paintCats(canais) {
+            if (!cats) return;
+            var seen = [];
+            canais.forEach(function (canal) {
+                if (canal.categoria && seen.indexOf(canal.categoria) === -1) seen.push(canal.categoria);
+            });
+            cats.innerHTML = '<button type="button" class="cx-canais-cat' +
+                (categoriaAtiva ? '' : ' is-active') + '" data-canais-cat="">Todos</button>' +
+                seen.map(function (nome) {
+                    return '<button type="button" class="cx-canais-cat' +
+                        (categoriaAtiva === nome ? ' is-active' : '') +
+                        '" data-canais-cat="' + escapeHtml(nome) + '">' +
+                        escapeHtml(nome) + '</button>';
+                }).join('');
+        }
+
+        function applyCanaisFilter() {
+            if (!list) return;
+            var q = String((busca && busca.value) || '').toLowerCase();
+            var visiveis = 0;
+            $$('.cx-canais-item', list).forEach(function (item) {
+                var texto = String(item.textContent || '').toLowerCase();
+                var cat = item.getAttribute('data-canal-cat') || '';
+                var hide = !!(q && texto.indexOf(q) === -1) || !!(categoriaAtiva && cat !== categoriaAtiva);
+                item.hidden = hide;
+                if (!hide) visiveis += 1;
+            });
+            if (emptyList) emptyList.hidden = visiveis > 0;
+        }
+
+        function showCanal(canal, view) {
+            picked = canal;
+            lastIaTexto = '';
+            paint(_canaisCatalogo || [], canal);
+            renderCanalStage(stage, canal);
+            if (sessao) {
+                sessao.hidden = true;
+                sessao.innerHTML = '';
+            }
+            setCanaisView(desk, view || (canaisIsCompact() ? 'detail' : 'detail'));
+        }
+
+        function clienteAbertoId() {
+            return (window.crmV3 && window.crmV3.state && window.crmV3.state.clienteId) || '';
+        }
+
+        function gerarApresentacao() {
+            if (!picked) return;
+            var box = stage && stage.querySelector('[data-canais-ia]');
+            var btn = stage && stage.querySelector('[data-canais-gerar]');
+            if (btn) btn.disabled = true;
+            if (box) {
+                box.hidden = false;
+                box.textContent = 'Consultando assistente…';
+            }
+            apiFetch('/ia/gerar-roteiro', {
+                method: 'POST',
+                body: {
+                    titulo: 'Apresentar ' + (picked.nome || 'canal'),
+                    tipo: 'reuniao',
+                    foco: 'falar_sobre_canal',
+                    canal_produto: picked.nome || '',
+                    cliente_id: clienteAbertoId(),
+                    descricao: (picked.assistente && picked.assistente.quando) || picked.descricao || ''
+                }
+            }).then(function (res) {
+                var data = (res && res.data) || res || {};
+                var texto = data.texto || data.descricao || '';
+                lastIaTexto = texto;
+                if (box) {
+                    box.textContent = texto || 'A IA não devolveu texto.';
+                    if (texto) {
+                        box.insertAdjacentHTML('beforeend',
+                            '<div class="cx-canais-actions" style="margin:12px 0 0">' +
+                            '<button type="button" data-canais-abrir-atividade>Abrir como atividade</button>' +
+                            '</div>');
+                    }
+                }
+            }).catch(function (err) {
+                if (box) box.textContent = (err && err.message) || 'Não foi possível gerar a apresentação.';
+            }).then(function () {
+                if (btn) btn.disabled = false;
+            });
+        }
+
+        function abrirAtividadeDoCanal() {
+            var cid = clienteAbertoId();
+            if (!cid) {
+                toast('Selecione um cliente para abrir a atividade', true);
+                return;
+            }
+            if (typeof cxDrawer !== 'undefined' && typeof cxDrawer.close === 'function') {
+                cxDrawer.close();
+            }
+            openDrawerAtividade({
+                titulo: 'Apresentar ' + ((picked && picked.nome) || 'canal'),
+                tipo: 'reuniao',
+                canal_produto: (picked && picked.nome) || '',
+                descricao: lastIaTexto || '',
+                foco: 'falar_sobre_canal'
+            }, cid);
         }
 
         loadCanaisCatalogo().then(function (canais) {
             var atual = (slug && canais.filter(function (item) {
                 return item.slug === slug || item.nome === slug;
-            })[0]) || canais[0] || null;
+            })[0]) || (!canaisIsCompact() && canais[0]) || null;
             picked = atual;
+            paintCats(canais);
             paint(canais, atual);
-            if (atual) renderCanalStage(stage, atual);
-            if (list) {
-                list.addEventListener('click', function (ev) {
-                    var btn = ev.target && ev.target.closest ? ev.target.closest('[data-canal-slug]') : null;
-                    if (!btn) return;
-                    var found = canais.filter(function (item) {
-                        return item.slug === btn.getAttribute('data-canal-slug');
-                    })[0];
-                    if (!found) return;
-                    picked = found;
-                    paint(canais, found);
-                    renderCanalStage(stage, found);
-                });
+            if (atual) {
+                renderCanalStage(stage, atual);
+                setCanaisView(desk, 'detail');
+            } else {
+                setCanaisView(desk, 'list');
             }
-            if (busca) {
-                busca.addEventListener('input', function () {
-                    var q = String(busca.value || '').toLowerCase();
-                    $$('.cx-canais-item', list).forEach(function (item) {
-                        item.hidden = !!(q && String(item.textContent || '').toLowerCase().indexOf(q) === -1);
-                    });
+        });
+
+        if (list) {
+            list.addEventListener('click', function (ev) {
+                var btn = ev.target && ev.target.closest ? ev.target.closest('[data-canal-slug]') : null;
+                if (!btn) return;
+                var found = (_canaisCatalogo || []).filter(function (item) {
+                    return item.slug === btn.getAttribute('data-canal-slug');
+                })[0];
+                if (!found) return;
+                showCanal(found, 'detail');
+            });
+        }
+        if (cats) {
+            cats.addEventListener('click', function (ev) {
+                var btn = ev.target && ev.target.closest ? ev.target.closest('[data-canais-cat]') : null;
+                if (!btn) return;
+                categoriaAtiva = btn.getAttribute('data-canais-cat') || '';
+                $$('.cx-canais-cat', cats).forEach(function (item) {
+                    item.classList.toggle('is-active', item === btn);
                 });
+                applyCanaisFilter();
+            });
+        }
+        if (busca) {
+            busca.addEventListener('input', applyCanaisFilter);
+        }
+        wrapper.addEventListener('click', function (ev) {
+            var t = ev.target && ev.target.closest ? ev.target : null;
+            if (!t || !t.closest) return;
+            if (t.closest('[data-canais-back]')) {
+                setCanaisView(desk, 'list');
+                return;
+            }
+            if (t.closest('[data-canais-abrir-sessao]')) {
+                if (!picked) return;
+                renderCanalSessao(sessao, picked);
+                setCanaisView(desk, 'sessao');
+                return;
+            }
+            if (t.closest('[data-canais-sessao-back]')) {
+                if (sessao) sessao.hidden = true;
+                setCanaisView(desk, 'detail');
+                return;
+            }
+            if (t.closest('[data-canais-gerar]')) {
+                gerarApresentacao();
+                return;
+            }
+            if (t.closest('[data-canais-abrir-atividade]')) {
+                abrirAtividadeDoCanal();
             }
         });
 

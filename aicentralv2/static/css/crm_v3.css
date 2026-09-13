@@ -5077,6 +5077,22 @@ img.crm-v3-avatar-mini {
         padding-right: 12px;
     }
 
+    .crm-v3-header-actions {
+        flex-shrink: 0;
+        gap: 8px;
+    }
+
+    .crm-v3-header-actions .crm-v3-btn {
+        height: 36px;
+        min-height: 36px;
+        padding: 0 12px;
+    }
+
+    #crm-v3-btn-canais {
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+
     .crm-v3-pill[data-filter="atrasado"],
     .crm-v3-pill[data-filter="sem-atividade"],
     .crm-v3-pill[data-filter="arquivo"] {

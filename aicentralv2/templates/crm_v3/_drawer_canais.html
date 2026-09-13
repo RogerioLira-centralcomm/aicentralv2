@@ -1,14 +1,17 @@
 <template id="cx-drawer-canais-tpl">
-  <div class="cx-canais-desk" data-canais-desk>
+  <div class="cx-canais-desk" data-canais-desk data-canais-view="list">
     <aside class="cx-canais-rail" aria-label="Canais">
       <div class="cx-canais-rail-head">
         <strong>Canais</strong>
         <input type="search" data-canais-busca placeholder="Filtrar" autocomplete="off" />
+        <div class="cx-canais-cats" data-canais-cats></div>
       </div>
       <nav class="cx-canais-list" data-canais-list></nav>
+      <p class="cx-canais-list-empty" data-canais-list-empty hidden>Nenhum canal com esse filtro.</p>
     </aside>
     <section class="cx-canais-stage" data-canais-stage>
       <p class="cx-canais-empty">Escolha um canal para ver números, formatos e materiais.</p>
     </section>
+    <section class="cx-canais-sessao" data-canais-sessao hidden></section>
   </div>
 </template>

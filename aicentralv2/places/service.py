@@ -23,10 +23,20 @@ from .repository import (
     update_place,
     upsert_seed,
 )
-from .images import ImageError, generate_place_images, generate_point_images
+from .images import (
+    ImageError,
+    generate_place_images,
+    generate_point_images,
+    image_queue,
+    next_image_target,
+    resolve_place_image_spec,
+)
+from .pipeline import assemble_fiche, fiche_output, image_pack, locate_points, pipeline_record
 from .research import (
     ResearchError,
     finalize_import,
+    polish_one_page,
+    refine_generated_fiche,
     research_region,
     review_place,
     search_places,
@@ -42,11 +52,15 @@ from .schema import (
     STATUS_LABELS,
     STATUSES,
     TYPE_LABELS,
+    as_dict,
     empty_payload,
+    format_usd,
     normalize_choice,
+    normalize_costs,
     normalize_payload,
     public_view,
     text,
+    usage_cost_usd,
 )
 from .share import make_preview_token, preview_url, public_url, qr_svg, slugify
 
@@ -89,10 +103,74 @@ def _share(row: dict) -> dict:
     }
 
 
+def _desk_stats(view: dict) -> dict:
+    points = [item for item in (view.get("points") or []) if item.get("name")]
+    media = as_dict(view.get("media"))
+    photos = sum(1 for item in points if item.get("image_url"))
+    if media.get("hero_url"):
+        photos += 1
+    if media.get("map_url"):
+        photos += 1
+    costs = normalize_costs(view.get("costs"))
+    return {
+        "points_count": len(points),
+        "photos_count": photos,
+        "photos_total": len(points) + 2,
+        "ai_cost_usd": costs.get("total_usd") or 0,
+        "ai_cost_label": costs.get("label") or format_usd(costs.get("total_usd")),
+        "image_queue": image_queue(view),
+    }
+
+
+def _record_cost(payload: dict, *, step: str, model: str = "", usage=None, usd=None, label: str = "") -> dict:
+    costs = normalize_costs(payload.get("costs"))
+    amount = usd if usd is not None else usage_cost_usd(usage)
+    if not step or float(amount or 0) <= 0:
+        payload["costs"] = costs
+        return payload
+    costs["entries"].append(
+        {
+            "step": step,
+            "model": text(model),
+            "usd": float(amount or 0),
+            "at": datetime.now(timezone.utc).isoformat(),
+            "label": label or step,
+        }
+    )
+    payload["costs"] = normalize_costs(costs)
+    return payload
+
+
+def _keep_previous(previous: dict, payload: dict) -> dict:
+    if not (payload.get("metrics") or {}).get("passengers", {}).get("value") and (
+        previous.get("metrics") or {}
+    ).get("passengers", {}).get("value"):
+        payload["metrics"] = previous["metrics"]
+    if not (payload.get("offer") or {}).get("lead") and (previous.get("offer") or {}).get("lead"):
+        payload["offer"] = previous["offer"]
+    if not (payload.get("audiences") or []) and previous.get("audiences"):
+        payload["audiences"] = previous["audiences"]
+    if not (payload.get("research") or {}).get("notes") and previous.get("research"):
+        payload["research"] = previous["research"]
+    if not (payload.get("pipeline") or {}).get("steps") and previous.get("pipeline"):
+        payload["pipeline"] = previous["pipeline"]
+    if not (payload.get("costs") or {}).get("entries") and previous.get("costs"):
+        payload["costs"] = previous["costs"]
+    prev_body = text((previous.get("methodology") or {}).get("body"))
+    incoming_body = text((payload.get("methodology") or {}).get("body"))
+    default_body = text((empty_payload().get("methodology") or {}).get("body"))
+    if prev_body and incoming_body in ("", default_body) and prev_body != default_body:
+        payload["methodology"] = previous["methodology"]
+    return payload
+
+
 def serialize(row: dict) -> dict:
     view = public_view(row)
     view.update(_share(row))
     view["source_labels"] = SOURCE_LABELS
+    view["fiche"] = fiche_output(view)
+    view["images"] = image_pack(view)
+    view.update(_desk_stats(view))
     return view
 
 
@@ -136,6 +214,15 @@ def form_context(row: dict | None = None) -> dict:
         "status_label": STATUS_LABELS["draft"],
         "source_labels": SOURCE_LABELS,
         "point_kinds": [{"id": key, "label": POINT_LABELS[key]} for key in POINT_KINDS],
+        "fiche": fiche_output({"title": "", "code": "", **empty_payload()}),
+        "images": image_pack({}),
+        "costs": normalize_costs({}),
+        "image_queue": [],
+        "points_count": 0,
+        "photos_count": 0,
+        "photos_total": 2,
+        "ai_cost_usd": 0,
+        "ai_cost_label": "—",
     }
     return {
         "place": place,
@@ -201,16 +288,11 @@ def save_place(raw: Any, *, place_id: int | None = None) -> dict:
                     zone["geometry"] = zone.get("geometry") or old.get("geometry") or {}
                 merged_zones.append(zone)
             payload["zones"] = merged_zones
-        if not payload.get("audiences") and previous.get("audiences"):
-            payload["audiences"] = previous["audiences"]
-        if not (payload.get("research") or {}).get("notes") and previous.get("research"):
-            payload["research"] = previous["research"]
+        payload = _keep_previous(previous, payload)
         media = dict(previous.get("media") or {})
         media.update({key: value for key, value in (payload.get("media") or {}).items() if value})
         payload["media"] = media
         payload["points"] = _merge_points(payload.get("points") or [], previous.get("points") or [])
-        if not payload.get("methodology"):
-            payload["methodology"] = previous.get("methodology")
     record = {
         "slug": slug,
         "preview_token": (current or {}).get("preview_token") or make_preview_token(),
@@ -251,6 +333,13 @@ def apply_research(place_id: int) -> dict:
         "reviewed_at": "",
         "review": "",
     }
+    _record_cost(
+        payload,
+        step="research",
+        model=text(result.get("model")),
+        usage=result.get("usage"),
+        label="Pesquisa da bacia",
+    )
     record = dict(place)
     record["payload"] = payload
     saved = update_place(place_id, record)
@@ -267,6 +356,13 @@ def apply_review(place_id: int) -> dict:
     research["review"] = result.get("review") or ""
     research["reviewed_at"] = datetime.now(timezone.utc).isoformat()
     payload["research"] = research
+    _record_cost(
+        payload,
+        step="review",
+        model=text(result.get("model")),
+        usage=result.get("usage"),
+        label="Revisão da ficha",
+    )
     record = dict(place)
     if result.get("subtitle"):
         record["subtitle"] = result["subtitle"]
@@ -279,23 +375,104 @@ def apply_review(place_id: int) -> dict:
 def apply_import(place_id: int) -> dict:
     researched = apply_research(place_id)
     place = serialize(get_by_id(place_id))
-    result = finalize_import(place, research=place.get("research"))
+    finalized = finalize_import(place, research=place.get("research"))
+    refined = refine_generated_fiche(place, draft=finalized)
+    assembled = assemble_fiche(place, researched=researched, finalized=finalized, refined=refined)
+    located, missing_rows = locate_points(assembled.get("points") or [], place)
+    if not located and not missing_rows:
+        try:
+            located, missing_rows = locate_points(suggest_points(place, assembled.get("points") or []), place)
+        except ResearchError:
+            missing_rows = list(assembled.get("points") or [])
+    unlocated = [text(item.get("name")) for item in missing_rows if text(item.get("name"))]
     payload = normalize_payload(place)
-    if result.get("catchment"):
-        payload["catchment"] = result["catchment"]
+    if assembled.get("catchment"):
+        payload["catchment"] = assembled["catchment"]
+    if assembled.get("offer") and assembled["offer"].get("lead"):
+        payload["offer"] = assembled["offer"]
+    if assembled.get("audiences"):
+        payload["audiences"] = assembled["audiences"]
+    if assembled.get("methodology_body"):
+        methodology = dict(payload.get("methodology") or {})
+        methodology["title"] = methodology.get("title") or "Como o número é feito"
+        methodology["body"] = assembled["methodology_body"]
+        payload["methodology"] = methodology
     research = dict(payload.get("research") or {})
-    research["review"] = result.get("review") or ""
+    research["review"] = finalized.get("review") or ""
     research["reviewed_at"] = datetime.now(timezone.utc).isoformat()
     payload["research"] = research
+    payload["points"] = _merge_points(located + missing_rows, payload.get("points") or [])
+    warnings = list(assembled.get("warnings") or [])
+    _record_cost(payload, step="finalize", model=text(finalized.get("model")), usage=finalized.get("usage"), label="Fechar ficha")
+    _record_cost(payload, step="refine", model=text(refined.get("model")), usage=refined.get("usage"), label="Refinar ficha")
+    if unlocated:
+        warnings.append("Sem coordenada: " + ", ".join(unlocated) + ".")
+    model, resolution = resolve_place_image_spec(place)
+    media = dict(payload.get("media") or {})
+    media["image_model"] = model
+    media["image_resolution"] = resolution
+    payload["media"] = media
+    payload["pipeline"] = pipeline_record(
+        steps=["research", "finalize", "refine", "geocode"],
+        models={**as_dict(assembled.get("models")), "image": model},
+        warnings=warnings,
+        unlocated=unlocated,
+    )
     record = dict(place)
-    if result.get("subtitle"):
-        record["subtitle"] = result["subtitle"]
+    if assembled.get("subtitle"):
+        record["subtitle"] = assembled["subtitle"]
+    if assembled.get("operator"):
+        record["operator"] = assembled["operator"]
     record["payload"] = payload
     update_place(place_id, record)
-    suggested = result.get("points") or researched.get("suggested_points") or []
-    saved = apply_suggested_points(place_id, suggested)
-    saved["review_changes"] = result.get("changes") or []
-    saved["import_model"] = result.get("model") or ""
+    place = serialize(get_by_id(place_id))
+    try:
+        polished = polish_one_page(place)
+    except ResearchError:
+        polished = {}
+    if polished:
+        payload = normalize_payload(place)
+        if polished.get("subtitle"):
+            record["subtitle"] = polished["subtitle"]
+        if polished.get("offer") and polished["offer"].get("lead"):
+            payload["offer"] = polished["offer"]
+        if polished.get("catchment_profile"):
+            catchment = dict(payload.get("catchment") or {})
+            catchment["profile"] = polished["catchment_profile"]
+            payload["catchment"] = catchment
+        if polished.get("methodology_body"):
+            methodology = dict(payload.get("methodology") or {})
+            methodology["body"] = polished["methodology_body"]
+            payload["methodology"] = methodology
+        by_id = {text(item.get("id")): item for item in polished.get("points") or []}
+        merged = []
+        for item in payload.get("points") or []:
+            extra = by_id.get(text(item.get("id"))) or {}
+            row = dict(item)
+            if extra.get("commercial"):
+                row["commercial"] = extra["commercial"]
+            if extra.get("formats"):
+                row["formats"] = extra["formats"]
+            if extra.get("audiences"):
+                row["audiences"] = extra["audiences"]
+            merged.append(row)
+        payload["points"] = merged
+        steps = list((payload.get("pipeline") or {}).get("steps") or [])
+        if "polish" not in steps:
+            steps.append("polish")
+        pipeline = dict(payload.get("pipeline") or {})
+        pipeline["steps"] = steps
+        models = dict(pipeline.get("models") or {})
+        models["polish"] = text(polished.get("model"))
+        pipeline["models"] = models
+        payload["pipeline"] = pipeline
+        _record_cost(payload, step="polish", model=text(polished.get("model")), usage=polished.get("usage"), label="Polir one-page")
+        record["payload"] = payload
+        update_place(place_id, record)
+    saved = serialize(get_by_id(place_id))
+    saved["review_changes"] = finalized.get("changes") or []
+    saved["import_model"] = finalized.get("model") or refined.get("model") or ""
+    saved["pipeline"] = saved.get("pipeline") or payload.get("pipeline")
     return saved
 
 
@@ -309,29 +486,93 @@ def apply_suggested_points(place_id: int, raw_points: list | None = None) -> dic
     return serialize(update_place(place_id, record))
 
 
-def apply_images(place_id: int, *, kind: str = "both", point_id: str = "") -> dict:
+def apply_images(place_id: int, *, kind: str = "next", point_id: str = "") -> dict:
     place = serialize(get_by_id(place_id))
     payload = normalize_payload(place)
-    kind = (kind or "both").lower()
-    if kind in ("points", "point", "all"):
+    kind = (kind or "next").lower()
+    target_label = ""
+    if kind in ("next", "points") and not (kind == "point" and point_id):
+        target = next_image_target(place, points_only=(kind == "points"))
+        if not target:
+            saved = serialize(get_by_id(place_id))
+            saved["images"] = image_pack(saved)
+            saved["image_job"] = None
+            saved["image_remaining"] = 0
+            return saved
+        kind = target["kind"]
+        point_id = target.get("point_id") or ""
+        target_label = target.get("label") or ""
+    errors = []
+    generated_media = {}
+    usages = []
+    if kind not in ("points", "point"):
+        try:
+            generated_media = generate_place_images(place, kind=kind)
+            usages.extend(generated_media.pop("usages", []) or [])
+        except ImageError as exc:
+            errors.append(str(exc))
+    if kind in ("point", "all", "both"):
         generated = generate_point_images(place, point_id=point_id if kind == "point" else "")
-        by_id = {text(item.get("id")): item for item in generated}
-        by_name = {text(item.get("name")).lower(): item for item in generated}
+        errors.extend(text(item.get("error")) for item in generated if item.get("error"))
+        by_id = {text(item.get("id")): item for item in generated if item.get("image_url")}
+        by_name = {text(item.get("name")).lower(): item for item in generated if item.get("image_url")}
         merged = []
         for item in payload.get("points") or []:
             match = by_id.get(text(item.get("id"))) or by_name.get(text(item.get("name")).lower())
             if match and match.get("image_url"):
                 item = dict(item)
                 item["image_url"] = match["image_url"]
+                if match.get("usage"):
+                    usages.append(
+                        {
+                            "step": "image-point",
+                            "label": text(item.get("name")),
+                            "usage": match.get("usage"),
+                            "model": resolve_place_image_spec(place)[0],
+                        }
+                    )
             merged.append(item)
         payload["points"] = merged
-    if kind not in ("points", "point"):
-        media = dict(payload.get("media") or {})
-        media.update(generate_place_images(place, kind=kind))
-        payload["media"] = media
+        place["points"] = merged
+        if not target_label and generated:
+            target_label = text(generated[0].get("name"))
+    media = dict(payload.get("media") or {})
+    media.update({key: value for key, value in generated_media.items() if value and key != "usages"})
+    model, resolution = resolve_place_image_spec(place)
+    media["image_model"] = model
+    media["image_resolution"] = resolution
+    pack = image_pack(place, generated=generated_media, errors=errors)
+    media["images"] = (
+        ([{"id": "hero", "role": "hero", "url": pack["hero_url"]}] if pack.get("hero_url") else [])
+        + [{"id": item["id"], "role": "point", "url": item["url"]} for item in pack.get("points") or []]
+    )
+    payload["media"] = media
+    pipeline = dict(payload.get("pipeline") or {})
+    steps = list(pipeline.get("steps") or [])
+    if "images" not in steps:
+        steps.append("images")
+    pipeline["steps"] = steps
+    models = dict(pipeline.get("models") or {})
+    models["image"] = model
+    pipeline["models"] = models
+    if errors:
+        pipeline["warnings"] = list(pipeline.get("warnings") or []) + errors
+    payload["pipeline"] = pipeline
+    for item in usages:
+        _record_cost(
+            payload,
+            step=text(item.get("step")) or "image",
+            model=text(item.get("model")) or model,
+            usage=item.get("usage"),
+            label=text(item.get("label")) or target_label or "Imagem",
+        )
     record = dict(place)
     record["payload"] = payload
-    return serialize(update_place(place_id, record))
+    saved = serialize(update_place(place_id, record))
+    saved["images"] = image_pack(saved, generated=generated_media, errors=errors)
+    saved["image_job"] = {"kind": kind, "point_id": point_id, "label": target_label}
+    saved["image_remaining"] = len(image_queue(saved))
+    return saved
 
 
 def _merge_points(incoming: list, previous: list) -> list:

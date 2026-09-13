@@ -1,7 +1,12 @@
 (function () {
   var dataNode = document.getElementById("cc-place-data");
   if (!dataNode) return;
-  var place = JSON.parse(dataNode.textContent || "{}");
+  var place = {};
+  try {
+    place = JSON.parse(dataNode.textContent || "{}") || {};
+  } catch (error) {
+    return;
+  }
   var points = (place.points || []).filter(function (item) {
     return item && item.lat != null && item.lng != null;
   });
@@ -9,6 +14,8 @@
   var nav = document.getElementById("cc-zone-nav");
   var map;
   var layers = {};
+  var primed = false;
+  var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   function items() {
     if (points.length) return points.map(function (point) {
@@ -74,8 +81,10 @@
       wrap.hidden = false;
       img.src = url;
       img.alt = name || "";
+      wrap.classList.add("is-in");
     } else {
       wrap.hidden = true;
+      wrap.classList.remove("is-in");
       img.removeAttribute("src");
     }
   }
@@ -130,7 +139,7 @@
       chip.classList.toggle("is-on", on);
       chip.setAttribute("aria-selected", on ? "true" : "false");
       if (on && chip.scrollIntoView) {
-        chip.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+        chip.scrollIntoView({ inline: "center", block: "nearest", behavior: reduceMotion ? "auto" : "smooth" });
       }
     });
     document.querySelectorAll(".cc-gallery-card").forEach(function (card) {
@@ -151,7 +160,13 @@
     toggleWrap("zoneAudiencesWrap", item.audiences);
     setPhoto("zonePhoto", item.image, item.name);
     if (map && item.lat != null) {
-      map.flyTo([item.lat, item.lng], zoomFor(item.radius_m), { duration: 0.55 });
+      var zoom = zoomFor(item.radius_m);
+      if (!primed || reduceMotion) {
+        map.setView([item.lat, item.lng], zoom);
+        primed = true;
+      } else {
+        map.flyTo([item.lat, item.lng], zoom, { duration: 0.55 });
+      }
     }
   }
 
@@ -168,6 +183,19 @@
         applyItem(item);
       });
     });
+    nav.addEventListener("keydown", function (event) {
+      if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+      var chips = Array.prototype.slice.call(nav.querySelectorAll(".cc-zone-chip"));
+      var index = chips.findIndex(function (chip) { return chip.classList.contains("is-on"); });
+      if (index < 0) index = 0;
+      index += event.key === "ArrowRight" ? 1 : -1;
+      if (index < 0) index = chips.length - 1;
+      if (index >= chips.length) index = 0;
+      chips[index].focus();
+      var item = catalog.find(function (entry) { return entry.id === chips[index].getAttribute("data-zone"); });
+      applyItem(item);
+      event.preventDefault();
+    });
   }
 
   document.querySelectorAll(".cc-gallery-card").forEach(function (card) {
@@ -175,7 +203,7 @@
       var item = catalog.find(function (entry) { return entry.id === card.getAttribute("data-point"); });
       applyItem(item);
       var mapa = document.getElementById("mapa");
-      if (mapa) mapa.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (mapa) mapa.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
     });
   });
 
@@ -187,8 +215,8 @@
       : [geo.lat || -15.8, geo.lng || -47.9];
     var startZoom = catalog[0] ? zoomFor(catalog[0].radius_m) : (geo.zoom || 15);
     map = L.map(mapNode, { scrollWheelZoom: false, attributionControl: true }).setView(start, startZoom);
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap",
+    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+      attribution: "Tiles &copy; Esri",
       maxZoom: 19
     }).addTo(map);
     catalog.forEach(function (item) {
@@ -206,6 +234,9 @@
       layers[item.id] = { circle: circle, item: item };
     });
     window.setTimeout(function () { map.invalidateSize(); }, 200);
+    window.addEventListener("resize", function () {
+      if (map) map.invalidateSize();
+    });
   }
 
   if (catalog[0]) applyItem(catalog[0]);

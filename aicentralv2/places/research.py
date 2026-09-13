@@ -92,14 +92,24 @@ def search_places(query: str, *, limit: int = 6) -> list[dict]:
 
 
 def geocode_one(query: str, *, near: dict | None = None) -> dict | None:
-    q = text(query)
-    if near and near.get("lat") is not None and near.get("lng") is not None:
-        q = f"{q} {near.get('lat')},{near.get('lng')}"
     try:
-        rows = search_places(q, limit=1)
+        rows = search_places(text(query), limit=5)
     except ResearchError:
         return None
-    return rows[0] if rows else None
+    if not rows:
+        return None
+    if near is None or near.get("lat") is None or near.get("lng") is None:
+        return rows[0]
+    return min(rows, key=lambda item: _geo_distance(near, item))
+
+
+def _geo_distance(origin: dict, item: dict) -> float:
+    try:
+        d_lat = float(item.get("lat")) - float(origin.get("lat"))
+        d_lng = float(item.get("lng")) - float(origin.get("lng"))
+    except (TypeError, ValueError):
+        return float("inf")
+    return d_lat * d_lat + d_lng * d_lng
 
 
 def research_region(place: dict) -> dict:
@@ -130,7 +140,10 @@ def research_region(place: dict) -> dict:
                 "impacted_label, neighborhoods (lista), profile, notes, "
                 "sources (lista de {title, url}), "
                 "points (lista de {name, kind, note}) onde kind é "
-                "bairro|densidade|pessoas|marco|mobilidade|terminal|halo."
+                "bairro|densidade|pessoas|marco|mobilidade|terminal|embarque|premium|halo. "
+                "Se for aeroporto: bacia é o recorte residencial (ilha, distritos ou municípios do corredor), "
+                "não só o bairro do sítio. Inclua terminal, embarque, internacional se houver fonte, "
+                "acesso/mobilidade e halo de bairro. Sem pista, sem base militar, sem acidente geográfico."
             ),
         },
     ]
@@ -141,11 +154,34 @@ def research_region(place: dict) -> dict:
             max_tokens=1600,
             temperature=0.15,
             timeout=90,
-            response_format={"type": "json_object"},
         )
     except OpenRouterError as exc:
         raise ResearchError(str(exc) or "A pesquisa não respondeu.") from exc
     data = _json_content((response.get("message") or {}).get("content"))
+    profile = data.get("profile")
+    if isinstance(profile, dict):
+        profile = text(profile.get("urban_context") or profile.get("profile") or profile.get("summary"))
+    else:
+        profile = text(profile)
+    notes = data.get("notes")
+    if isinstance(notes, list):
+        notes = " ".join(text(item) for item in notes if text(item))
+    else:
+        notes = text(notes)
+    neighborhoods = []
+    for item in as_list(data.get("neighborhoods")):
+        if isinstance(item, dict):
+            name = text(item.get("name") or item.get("title"))
+        else:
+            name = text(item)
+        if name:
+            neighborhoods.append(name)
+    sources = []
+    for item in as_list(data.get("sources")):
+        if isinstance(item, dict) and (text(item.get("title")) or text(item.get("url"))):
+            sources.append({"title": text(item.get("title")), "url": text(item.get("url"))})
+        elif text(item):
+            sources.append({"title": text(item), "url": ""})
     return {
         "model": response.get("model") or RESEARCH_MODEL,
         "usage": response.get("usage") or {},
@@ -168,19 +204,210 @@ def research_region(place: dict) -> dict:
                 "source_status": "estimate",
                 "note": "Halo. Não some ao terminal.",
             },
-            "neighborhoods": [text(x) for x in as_list(data.get("neighborhoods")) if text(x)],
-            "profile": text(data.get("profile")),
+            "neighborhoods": neighborhoods,
+            "profile": profile,
         },
         "research": {
             "query": f"{title} {city} densidade bairros pessoas",
-            "notes": text(data.get("notes")),
-            "sources": as_list(data.get("sources")),
+            "notes": notes,
+            "sources": sources,
         },
         "suggested_points": [
             item
             for item in as_list(data.get("points"))
             if isinstance(item, dict) and text(item.get("name"))
         ],
+    }
+
+
+def refine_generated_fiche(place: dict, *, draft: dict | None = None) -> dict:
+    """Refina pesquisa + finalize: ficha comercial, sem inventar número oficial."""
+    payload = normalize_payload(place)
+    draft = as_dict(draft)
+    locked = {
+        "title": text(place.get("title")),
+        "code": text(place.get("code")),
+        "city": text(place.get("city_label") or place.get("city")),
+        "place_type": text(place.get("place_type") or "aeroporto"),
+        "operator": text(place.get("operator")),
+        "metrics": payload.get("metrics"),
+        "catchment": payload.get("catchment"),
+        "draft_subtitle": text(place.get("subtitle") or draft.get("subtitle")),
+        "draft_points": draft.get("points") or payload.get("points") or [],
+        "draft_review": text(draft.get("review") or as_dict(payload.get("research")).get("review")),
+        "research_notes": text(as_dict(payload.get("research")).get("notes")),
+        "research_sources": as_dict(payload.get("research")).get("sources") or [],
+    }
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "Você refina a ficha gerada de um place da CentralComm. "
+                "Quem lê compra o raio no celular, não outdoor nem proposta. "
+                "Frase curta, voz ativa, português do Brasil. "
+                "Proibido: geofence, proposta, HTML5, push, banner, interstitial, "
+                "out-of-home, OOH, exposição estratégica, posicionamento de mídia, "
+                "viajante nacional, executivos, segmento premium, base militar, pista, baía como ponto. "
+                "Aeroporto precisa de: terminal, embarque, internacional se o lugar tiver voo para fora, "
+                "mobilidade (pátio ou acesso) e halo de bairro com nome real. "
+                "Públicos começam com Quem. Formatos só: Display no app, Vídeo no saguão, "
+                "Vídeo vertical, Portais, 7 e 15 dias. "
+                "Não invente número oficial. Não some raios. Halo não é o terminal. "
+                "Responda só JSON."
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                "Devolva JSON: subtitle, operator, catchment_profile, "
+                "neighborhoods (lista curta de nomes reais), "
+                "offer_lead, offer_lines (3 {title,body}), methodology_body, "
+                "audiences (6 pares {title,body}), "
+                "points (lista de {name, kind, note, commercial} — kind: "
+                "terminal|embarque|premium|mobilidade|halo).\n\n"
+                f"travado={json.dumps(locked, ensure_ascii=False)}"
+            ),
+        },
+    ]
+    try:
+        response = chat_completion(
+            messages,
+            model=FINALIZE_MODEL,
+            max_tokens=4000,
+            temperature=0.2,
+            timeout=90,
+            response_format={"type": "json_object"},
+        )
+    except OpenRouterError as exc:
+        raise ResearchError(str(exc) or "O refine da ficha não respondeu.") from exc
+    data = _json_content((response.get("message") or {}).get("content"))
+    points = [
+        item
+        for item in as_list(data.get("points"))
+        if isinstance(item, dict) and text(item.get("name"))
+    ]
+    audiences = []
+    for item in as_list(data.get("audiences")):
+        if isinstance(item, dict) and text(item.get("title")):
+            audiences.append([text(item.get("title")), text(item.get("body"))])
+        elif isinstance(item, list) and len(item) >= 2:
+            audiences.append([text(item[0]), text(item[1])])
+    return {
+        "model": response.get("model") or FINALIZE_MODEL,
+        "usage": response.get("usage") or {},
+        "subtitle": text(data.get("subtitle")),
+        "operator": text(data.get("operator")),
+        "catchment_profile": text(data.get("catchment_profile")),
+        "neighborhoods": [text(x) for x in as_list(data.get("neighborhoods")) if text(x)][:6],
+        "offer": {
+            "lead": text(data.get("offer_lead")),
+            "lines": [
+                {"title": text(item.get("title")), "body": text(item.get("body"))}
+                for item in as_list(data.get("offer_lines"))
+                if isinstance(item, dict) and text(item.get("title"))
+            ][:3],
+        },
+        "methodology_body": text(data.get("methodology_body")),
+        "audiences": audiences[:6],
+        "points": points,
+    }
+
+
+def polish_one_page(place: dict) -> dict:
+    """Reescreve a one-page sem mexer em número oficial, raio ou alcance."""
+    payload = normalize_payload(place)
+    title = text(place.get("title"))
+    city = text(place.get("city_label") or place.get("city"))
+    code = text(place.get("code"))
+    locked = {
+        "title": title,
+        "code": code,
+        "city": city,
+        "passengers": as_dict(as_dict(payload.get("metrics")).get("passengers")).get("label"),
+        "addressable": as_dict(as_dict(payload.get("metrics")).get("addressable")).get("label"),
+        "catchment_population": as_dict(as_dict(payload.get("catchment")).get("population")).get("label"),
+        "points": [
+            {
+                "id": text(item.get("id")),
+                "name": text(item.get("name")),
+                "kind": text(item.get("kind")),
+                "radius": text(item.get("radius_label")),
+                "reach": text(item.get("reach")),
+                "reach_status": text(item.get("reach_status")),
+                "commercial": text(item.get("commercial")),
+                "formats": item.get("formats") or [],
+                "audiences": item.get("audiences") or [],
+            }
+            for item in as_list(payload.get("points"))
+        ],
+        "draft": {
+            "subtitle": text(place.get("subtitle")),
+            "offer": payload.get("offer"),
+            "catchment_profile": text(as_dict(payload.get("catchment")).get("profile")),
+            "methodology_body": text(as_dict(payload.get("methodology")).get("body")),
+        },
+    }
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "Você é o redator da CentralComm. Melhora o rascunho da one-page. "
+                "Quem lê compra o raio no celular. Frase curta, voz ativa, português do Brasil. "
+                "Proibido: geofence, proposta, HTML5, push, banner, interstitial, ativa campanha, "
+                "presença móvel, viajante nacional, executivos, segmento premium. "
+                "Formatos só do tipo: Display no app, Vídeo no saguão, Vídeo vertical, Portais, 7 e 15 dias. "
+                "Públicos começam com Quem. Não invente número. Não some raios. "
+                "O rascunho já é bom — deixe mais concreto e local. Responda só JSON."
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                "Devolva JSON: subtitle, offer_lead, offer_lines (3 {title,body}), "
+                "points ({id, commercial, formats, audiences}), catchment_profile, methodology_body.\n\n"
+                f"travado={json.dumps(locked, ensure_ascii=False)}"
+            ),
+        },
+    ]
+    try:
+        response = chat_completion(
+            messages,
+            model=FINALIZE_MODEL,
+            max_tokens=4000,
+            temperature=0.2,
+            timeout=90,
+            response_format={"type": "json_object"},
+        )
+    except OpenRouterError as exc:
+        raise ResearchError(str(exc) or "A polidez da one-page não respondeu.") from exc
+    data = _json_content((response.get("message") or {}).get("content"))
+    points = []
+    for item in as_list(data.get("points")):
+        if not isinstance(item, dict) or not text(item.get("id")):
+            continue
+        points.append(
+            {
+                "id": text(item.get("id")),
+                "commercial": text(item.get("commercial")),
+                "formats": [text(x) for x in as_list(item.get("formats")) if text(x)][:3],
+                "audiences": [text(x) for x in as_list(item.get("audiences")) if text(x)][:2],
+            }
+        )
+    return {
+        "model": response.get("model") or FINALIZE_MODEL,
+        "usage": response.get("usage") or {},
+        "subtitle": text(data.get("subtitle")),
+        "offer": {
+            "lead": text(data.get("offer_lead")),
+            "lines": [
+                {"title": text(item.get("title")), "body": text(item.get("body"))}
+                for item in as_list(data.get("offer_lines"))
+                if isinstance(item, dict) and text(item.get("title"))
+            ][:3],
+        },
+        "points": points,
+        "catchment_profile": text(data.get("catchment_profile")),
+        "methodology_body": text(data.get("methodology_body")),
     }
 
 
@@ -226,7 +453,7 @@ def finalize_import(place: dict, *, research: dict | None = None) -> dict:
         response = chat_completion(
             messages,
             model=FINALIZE_MODEL,
-            max_tokens=1400,
+            max_tokens=4000,
             temperature=0.1,
             timeout=90,
             response_format={"type": "json_object"},
@@ -277,19 +504,17 @@ def suggest_points(place: dict, raw_points: list | None = None) -> list[dict]:
         if kind not in POINT_KINDS:
             kind = "bairro" if name in names else "marco"
         located = geocode_one(f"{name} {title} {city}".strip(), near=geo)
-        if not located:
-            continue
-        points.append(
-            {
-                "id": re.sub(r"[^a-z0-9]+", "-", key).strip("-")[:32] or f"pt-{len(points)+1}",
-                "name": name,
-                "kind": kind,
-                "lat": located["lat"],
-                "lng": located["lng"],
-                "source": "Nominatim + pesquisa da região",
-                "note": text(item.get("note")),
-            }
-        )
+        row = {
+            "id": re.sub(r"[^a-z0-9]+", "-", key).strip("-")[:32] or f"pt-{len(points)+1}",
+            "name": name,
+            "kind": kind,
+            "note": text(item.get("note")),
+        }
+        if located:
+            row["lat"] = located["lat"]
+            row["lng"] = located["lng"]
+            row["source"] = "Nominatim + pesquisa da região"
+        points.append(row)
     return points
 
 

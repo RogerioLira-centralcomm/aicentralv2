@@ -1,10 +1,10 @@
 {% extends "base_erp.html" %}
 {% block page_label %}Comercial{% endblock %}
-{% block page_subtitle %}Lugares que viram audiência{% endblock %}
+{% block page_subtitle %}Inventário de places{% endblock %}
 {% block title %}Places{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/places.css') }}?v=5">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/places.css') }}?v=8">
 {% endblock %}
 
 {% block content %}
@@ -12,14 +12,10 @@
 <div class="cx-container pl-desk" data-places-desk>
   <header class="cx-header pl-head">
     <div>
-      <p class="cx-eyebrow">Comercial · Places</p>
       <h1 class="cx-title">Places</h1>
-      <p class="cx-subtitle">Aeroportos prontos para venda. Shoppings e áreas de evento entram como rascunho — SP e RJ têm mais pontos a mapear.</p>
+      <p class="cx-subtitle">Inventário de aeroportos e raios. Abra o place para fechar a ficha; copie o link sem sair da lista.</p>
     </div>
-    <a class="cx-btn cx-btn-primary" href="{{ url_for('places.novo') }}">
-      <i class="fa-solid fa-plus" aria-hidden="true"></i>
-      Novo place
-    </a>
+    <a class="cx-btn cx-btn-primary" href="{{ url_for('places.novo') }}">Novo place</a>
   </header>
 
   {% if flash_error %}
@@ -29,7 +25,7 @@
   <form class="pl-filters" method="get" action="{{ url_for('places.index') }}">
     <label>
       Buscar
-      <input class="cx-input" name="q" value="{{ filters.q }}" placeholder="Nome, código ou slug">
+      <input class="cx-input" name="q" value="{{ filters.q }}" placeholder="CNF, Galeão, slug">
     </label>
     <label>
       Cidade
@@ -61,56 +57,68 @@
     <button class="cx-btn cx-btn-secondary" type="submit">Filtrar</button>
   </form>
 
-  {% if rows %}
-  <ul class="pl-list">
-    {% for row in rows %}
-    <li class="pl-card">
-      <div class="pl-card-main">
-        <p class="pl-meta">{{ row.type_label }} · {{ row.city_label }}</p>
-        <h2><a href="{{ url_for('places.editar', place_id=row.id) }}">{{ row.title }}{% if row.code %} ({{ row.code }}){% endif %}</a></h2>
-        <p>{{ row.subtitle or row.operator }}</p>
-        <p class="pl-metric">
-          {% if row.metrics.passengers.label %}
-            {{ row.metrics.passengers.label }} passageiros
-            <span>{{ row.metrics.passengers.source }}</span>
-          {% else %}
-            Métricas a preencher
-          {% endif %}
-        </p>
-      </div>
-      <div class="pl-card-aside">
-        <span class="pl-status is-{{ row.status }}">{{ row.status_label }}</span>
-        <div class="pl-actions">
-          <a class="cx-btn cx-btn-secondary" href="{{ url_for('places.editar', place_id=row.id) }}">Editar</a>
-          {% if row.status == 'published' and row.public_url %}
-          <a class="cx-btn cx-btn-outline" href="{{ row.public_url }}" target="_blank" rel="noopener">Ver pública</a>
-          <button type="button" class="cx-btn cx-btn-ghost" data-copy="{{ row.public_url }}">Copiar link</button>
-          {% elif row.preview_url %}
-          <a class="cx-btn cx-btn-outline" href="{{ row.preview_url }}" target="_blank" rel="noopener">Prévia</a>
-          {% endif %}
-        </div>
-      </div>
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <div class="pl-empty">
-    <h2>Nenhum place neste recorte</h2>
-    <p>{{ empty_hint }}</p>
-    <a class="cx-btn cx-btn-primary" href="{{ url_for('places.novo') }}">Criar o primeiro</a>
+  <div class="cx-table-wrap pl-table-wrap">
+    <table class="cx-table cx-table-dense pl-table">
+      <caption class="sr-only">Places cadastrados</caption>
+      <thead>
+        <tr>
+          <th>Código</th>
+          <th>Place</th>
+          <th>Cidade</th>
+          <th>Status</th>
+          <th>Passageiros</th>
+          <th>4 semanas</th>
+          <th>Pontos</th>
+          <th>Fotos</th>
+          <th>Custo IA</th>
+          <th>Link</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>
+            <a class="pl-iata" href="{{ url_for('places.editar', place_id=row.id) }}">{{ row.code or "—" }}</a>
+          </td>
+          <td>
+            <a class="pl-place-name" href="{{ url_for('places.editar', place_id=row.id) }}">{{ row.title }}</a>
+            <span class="pl-place-meta">{{ row.type_label }}{% if row.operator %} · {{ row.operator }}{% endif %}</span>
+          </td>
+          <td>{{ row.city_label }}</td>
+          <td><span class="pl-status is-{{ row.status }}">{{ row.status_label }}</span></td>
+          <td>{{ row.metrics.passengers.label or "—" }}</td>
+          <td>{{ row.metrics.addressable.label or row.metrics.four_weeks.label or "—" }}</td>
+          <td>{{ row.points_count }}</td>
+          <td>{{ row.photos_count }}/{{ row.photos_total }}</td>
+          <td class="pl-cost">{{ row.ai_cost_label }}</td>
+          <td class="pl-link-cell">
+            {% set share = row.public_url if row.status == 'published' and row.public_url else row.preview_url %}
+            {% if share %}
+            <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-copy="{{ share }}">Copiar</button>
+            <a class="cx-btn cx-btn-outline cx-btn-sm" href="{{ share }}" target="_blank" rel="noopener noreferrer">{{ 'Abrir' if row.status == 'published' else 'Prévia' }}</a>
+            {% else %}
+            —
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="10">
+            <div class="pl-empty">
+              <h2>Nenhum place neste recorte</h2>
+              <p>{{ empty_hint }}</p>
+              <a class="cx-btn cx-btn-primary" href="{{ url_for('places.novo') }}">Criar o primeiro</a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
-  {% endif %}
-
-  {% if not mapping %}
-  <aside class="pl-next">
-    <h2>Próximos mapas</h2>
-    <p>{{ empty_hint }}</p>
-  </aside>
-  {% endif %}
 </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/places.js') }}"></script>
+<script src="{{ url_for('static', filename='js/places.js') }}?v=8"></script>
 {% endblock %}

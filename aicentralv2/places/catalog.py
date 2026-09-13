@@ -21,6 +21,9 @@ CGH_CATCHMENT_KM2 = 8.77 + 9.08
 # Centro 23.642 + Glória 7.120 + Catete 22.295 + Flamengo 43.099 (IPP / IBGE).
 SDU_CATCHMENT_POP = 96_156
 SDU_CATCHMENT_KM2 = 5.425 + 1.140 + 0.681 + 1.646
+# RA Ilha do Governador 211.018 hab / 40,81 km² (IPP / IBGE Censo 2022).
+GIG_CATCHMENT_POP = 211_018
+GIG_CATCHMENT_KM2 = 40.81
 
 APPS = ["Display no app", "Vídeo vertical", "Interstitial"]
 PORTALS = ["Portais no celular", "Portais premium"]
@@ -67,7 +70,7 @@ CONFINS = {
     "title": "Confins",
     "code": "CNF",
     "operator": "BH Airport (Motiva / Zurich) · Minas Gerais",
-    "subtitle": "Quem voa por Minas e quem chega pela MG-010. A campanha encontra essa gente no celular.",
+    "subtitle": "Quem voa por Minas e quem cruza a MG-010. Encontre essa gente no celular.",
     "payload": normalize_payload(
         {
             "metrics": {
@@ -110,7 +113,7 @@ CONFINS = {
                     note="Halo. Não some ao terminal.",
                 ),
                 "neighborhoods": ["Confins", "Lagoa Santa", "Vespasiano", "corredor MG-010"],
-                "profile": "Trabalho em BH, família no feriado e o fluxo do norte da RMBH. O terminal é um ponto; a MG-010 é outro.",
+                "profile": "Quem trabalha em Belo Horizonte, famílias no feriado e o fluxo do norte da RMBH. O terminal concentra o embarque; a MG-010 pega quem só passou.",
             },
             "audiences": [
                 ["Quem passou pelo terminal", "Presença no saguão em 7, 15 ou 30 dias."],
@@ -137,6 +140,7 @@ CONFINS = {
                         "commercial": "Quem está no saguão, no check-in e na espera. É o recorte que a campanha compra primeiro.",
                         "source": "Sítio do terminal",
                         "note": "Polígono do prédio. Não inclui pista.",
+                        "image_url": "/static/images/places/generated/confins-cnf-terminal-pt-da9534f8.png",
                     }
                 ),
                 _fence(
@@ -154,6 +158,7 @@ CONFINS = {
                         "commercial": "Quem está saindo. Banco, telecom e varejo cabem neste raio curto.",
                         "source": "Check-in ao gate doméstico",
                         "note": "Subconjunto do terminal. Não some ao core.",
+                        "image_url": "/static/images/places/generated/confins-cnf-embarque-pt-05e645ef.png",
                     }
                 ),
                 _fence(
@@ -172,6 +177,7 @@ CONFINS = {
                         "commercial": "Pouca gente, ticket alto. Luxo, cartão e seguro. O volume ainda calibra na plataforma.",
                         "source": "Área internacional · ~4–5% do movimento",
                         "note": "A validar na plataforma de location data.",
+                        "image_url": "/static/images/places/generated/confins-cnf-internacional-pt-ef5b59a6.png",
                     }
                 ),
                 _fence(
@@ -188,6 +194,7 @@ CONFINS = {
                         "audiences": ["Quem busca o carro", "Quem espera na porta"],
                         "commercial": "Quem busca o carro ou o app. Combustível, transporte e conveniência.",
                         "source": "Curbside e pátios",
+                        "image_url": "/static/images/places/generated/confins-cnf-mobilidade-pt-1a41febf.png",
                     }
                 ),
                 _fence(
@@ -204,12 +211,13 @@ CONFINS = {
                         "audiences": ["Quem só passou na estrada"],
                         "commercial": "Quem só passou na estrada. Separado de quem entrou no saguão.",
                         "source": "Acesso viário",
+                        "image_url": "/static/images/places/generated/confins-cnf-corredor-pt-7316f28c.png",
                     }
                 ),
             ],
             "media": {
-                "hero_url": "/static/images/places/confins-hero.jpg",
-                "map_url": "/static/images/places/confins-map.jpg",
+                "hero_url": "/static/images/places/generated/confins-hero-29d2ce76.png",
+                "map_url": "/static/images/places/generated/confins-map-611e4c35.png",
             },
             "zones": [
                 _zone(
@@ -285,11 +293,11 @@ CONFINS = {
                 ),
             ],
             "offer": _offer(
-                "Em Confins a campanha pega quem voa e quem só cruzou a MG-010.",
+                "Em Confins você alcança quem está no terminal e quem passou pela MG-010.",
                 [
-                    ("No saguão", "Display e vídeo para quem está no terminal e no embarque doméstico."),
-                    ("Na estrada", "Portais para quem passou na MG-010 sem entrar no prédio."),
-                    ("7, 15 e 30 dias", "Quem já voou por Confins segue sendo alcançado fora do aeroporto."),
+                    ("No saguão", "Display no app e vídeo no saguão para quem circula no terminal e no check-in."),
+                    ("Na estrada", "Portais para quem passou pela MG-010 sem entrar no prédio."),
+                    ("7 e 15 dias", "Quem já passou por Confins segue no celular fora do aeroporto."),
                 ],
             ),
             "methodology": {
@@ -314,7 +322,7 @@ CONGONHAS = {
     "title": "Congonhas",
     "code": "CGH",
     "operator": "Aena Brasil · São Paulo",
-    "subtitle": "O aeroporto no meio da cidade. Ponte aérea, app na porta e o bairro colado no terminal.",
+    "subtitle": "O aeroporto no meio da cidade. T1, Campo Belo e Moema.",
     "payload": normalize_payload(
         {
             "metrics": {
@@ -357,7 +365,7 @@ CONGONHAS = {
                     note="Separado do terminal. Não some.",
                 ),
                 "neighborhoods": ["Campo Belo", "Moema"],
-                "profile": "Quem faz a ponte, mora do lado e pega o carro na Washington Luís. Aqui o aeroporto é bairro.",
+                "profile": "Quem faz a ponte aérea, mora ao lado e pega o carro na Washington Luís. Aqui o aeroporto funciona como bairro.",
             },
             "audiences": [
                 ["Ponte aérea", "Negócio e volta no mesmo dia."],
@@ -383,6 +391,7 @@ CONGONHAS = {
                         "audiences": ["Quem está no T1", "Ponte aérea"],
                         "commercial": "O terminal no meio da cidade. Sem pista e sem o bairro.",
                         "source": "T1",
+                        "image_url": "/static/images/places/generated/congonhas-cgh-terminal-pt-4976347b.png",
                     }
                 ),
                 _fence(
@@ -399,6 +408,7 @@ CONGONHAS = {
                         "audiences": ["Quem está embarcando", "Negócios"],
                         "commercial": "A frente da Washington Luís. Quem está embarcando — raio curto.",
                         "source": "Acesso principal",
+                        "image_url": "/static/images/places/generated/congonhas-cgh-embarque-pt-b31c703d.png",
                     }
                 ),
                 _fence(
@@ -415,6 +425,7 @@ CONGONHAS = {
                         "audiences": ["Quem já chegou", "Quem pega o app"],
                         "commercial": "Quem já chegou. App, táxi e a saída para a cidade.",
                         "source": "Saída e ponto de apps",
+                        "image_url": "/static/images/places/generated/congonhas-cgh-apps-pt-1495fb4d.png",
                     }
                 ),
                 _fence(
@@ -431,6 +442,7 @@ CONGONHAS = {
                         "audiences": ["Quem veio de carro"],
                         "commercial": "Quem veio de carro. Combustível e a volta para casa.",
                         "source": "Pátios",
+                        "image_url": "/static/images/places/generated/congonhas-cgh-estacionamento-pt-4bdecbe2.png",
                     }
                 ),
                 _fence(
@@ -447,6 +459,7 @@ CONGONHAS = {
                         "audiences": ["Quem mora do lado"],
                         "commercial": "Quem mora colado no aeroporto. Não é o T1.",
                         "source": "Distrito",
+                        "image_url": "/static/images/places/generated/congonhas-cgh-campo-belo-pt-5ab929de.png",
                     }
                 ),
                 _fence(
@@ -463,12 +476,13 @@ CONGONHAS = {
                         "audiences": ["Quem circula em Moema"],
                         "commercial": "Escala em Moema. Separado do terminal de propósito.",
                         "source": "Distrito",
+                        "image_url": "/static/images/places/generated/congonhas-cgh-moema-pt-27ebeb9b.png",
                     }
                 ),
             ],
             "media": {
-                "hero_url": "/static/images/places/congonhas-hero.jpg",
-                "map_url": "/static/images/places/congonhas-map.jpg",
+                "hero_url": "/static/images/places/generated/congonhas-hero-0239e4cd.png",
+                "map_url": "/static/images/places/generated/congonhas-map-01079f3b.png",
             },
             "zones": [
                 _zone(
@@ -529,11 +543,11 @@ CONGONHAS = {
                 ),
             ],
             "offer": _offer(
-                "Congonhas é cidade. O T1 é um recorte; Campo Belo e Moema são outro.",
+                "Alcance quem passa pelo T1, mora ao redor e sai pela Washington Luís.",
                 [
-                    ("No T1", "Display e vídeo para quem faz a ponte e está no terminal."),
-                    ("No bairro", "Portais para quem mora e circula colado no aeroporto."),
-                    ("7, 15 e 30 dias", "Quem já passou em Congonhas segue na cidade."),
+                    ("No T1", "Display no app e vídeo no saguão para quem está no terminal."),
+                    ("No bairro", "Portais e display no app para quem mora e circula perto do aeroporto."),
+                    ("7 e 15 dias", "Quem já passou por Congonhas segue na cidade."),
                 ],
             ),
             "methodology": {
@@ -559,7 +573,7 @@ SANTOS_DUMONT = {
     "title": "Santos Dumont",
     "code": "SDU",
     "operator": "Infraero · Rio de Janeiro",
-    "subtitle": "A ponte no centro do Rio. Terminal de um lado, VLT e o bairro do outro. As pistas ficam de fora.",
+    "subtitle": "A ponte no centro do Rio. Terminal de um lado; VLT e Glória do outro. As pistas ficam fora.",
     "payload": normalize_payload(
         {
             "metrics": {
@@ -629,6 +643,7 @@ SANTOS_DUMONT = {
                         "commercial": "O saguão. As duas pistas ficam de fora.",
                         "source": "Terminal oeste",
                         "note": "Pistas não são zona comercial.",
+                        "image_url": "/static/images/places/generated/santos-dumont-sdu-terminal-pt-52d8757e.png",
                     }
                 ),
                 _fence(
@@ -645,6 +660,7 @@ SANTOS_DUMONT = {
                         "audiences": ["Quem está embarcando"],
                         "commercial": "A entrada da ponte. Mensagem curta para quem está embarcando.",
                         "source": "Saguão e acesso",
+                        "image_url": "/static/images/places/generated/santos-dumont-sdu-embarque-pt-6b5a800a.png",
                     }
                 ),
                 _fence(
@@ -661,6 +677,7 @@ SANTOS_DUMONT = {
                         "audiences": ["Quem desceu", "Quem pega o VLT"],
                         "commercial": "Quem desceu. Hotel, app e o centro a dois pontos de VLT.",
                         "source": "Desembarque e mobilidade",
+                        "image_url": "/static/images/places/generated/santos-dumont-sdu-vlt-pt-ddc51d4c.png",
                     }
                 ),
                 _fence(
@@ -677,6 +694,7 @@ SANTOS_DUMONT = {
                         "audiences": ["Quem trabalha no centro"],
                         "commercial": "Quem trabalha e almoça no centro. Não é o saguão.",
                         "source": "IPP",
+                        "image_url": "/static/images/places/generated/santos-dumont-sdu-centro-pt-8aa58887.png",
                     }
                 ),
                 _fence(
@@ -690,22 +708,23 @@ SANTOS_DUMONT = {
                         "radius_label": "900 m",
                         "reach": "40–70 mil",
                         "formats": ["Portais"],
-                        "audiences": ["Hotel e orla"],
+                        "audiences": ["Quem se hospeda", "Quem vai à orla"],
                         "commercial": "Hotel, orla e a descida para o Flamengo. Recorte à parte.",
                         "source": "IPP",
+                        "image_url": "/static/images/places/generated/santos-dumont-sdu-gloria-pt-bdd4958e.png",
                     }
                 ),
             ],
             "media": {
-                "hero_url": "/static/images/places/sdu-hero.jpg",
-                "map_url": "/static/images/places/sdu-map.jpg",
+                "hero_url": "/static/images/places/generated/santos-dumont-hero-9df56602.png",
+                "map_url": "/static/images/places/generated/santos-dumont-map-b988ab36.png",
             },
             "offer": _offer(
-                "O SDU é o centro. Hotel, VLT e a volta no mesmo dia.",
+                "O SDU liga hotel, VLT e quem volta no mesmo dia.",
                 [
-                    ("No terminal", "Display e vídeo para quem faz a ponte."),
-                    ("Na saída", "App e portais para quem pega o VLT e vai ao hotel."),
-                    ("No centro", "Quem trabalha e almoça sem ter voado."),
+                    ("No terminal", "Display no app e portais para quem faz a ponte."),
+                    ("Na saída", "Vídeo vertical e display no app para quem está embarcando."),
+                    ("No centro", "Portais para quem trabalha e almoça sem ter voado."),
                 ],
             ),
             "methodology": {
@@ -782,7 +801,276 @@ SANTOS_DUMONT = {
     ),
 }
 
-SEED_PLACES = (CONFINS, CONGONHAS, SANTOS_DUMONT)
+GALEAO = {
+    "slug": "galeao",
+    "place_type": "aeroporto",
+    "city": "rj",
+    "status": "published",
+    "title": "Galeão",
+    "code": "GIG",
+    "operator": "RIOgaleão · Rio de Janeiro",
+    "subtitle": "O T2 na Ilha do Governador. Internacional de um lado; a Vinte de Janeiro do outro.",
+    "payload": normalize_payload(
+        {
+            "metrics": {
+                "passengers": _metric(17_836_134, "17,8 mi"),
+                "four_weeks": _metric(
+                    1_372_010,
+                    "~1,37 mi",
+                    source="Derivado do movimento ANAC 2025",
+                    source_status="estimate",
+                    note=FOUR_WEEKS_NOTE,
+                ),
+                "addressable": _metric(
+                    320_000,
+                    "260–390 mil",
+                    source="Estimativa endereçável no T2, 4 semanas",
+                    source_status="estimate",
+                    note=ADDRESSABLE_NOTE,
+                ),
+            },
+            "catchment": {
+                "population": _metric(
+                    GIG_CATCHMENT_POP,
+                    "211 mil",
+                    source="IPP / IBGE Censo 2022 — RA Ilha do Governador",
+                    source_status="official",
+                    note="211.018 hab. Ilha inteira, não presença no T2.",
+                ),
+                "density": _metric(
+                    round(GIG_CATCHMENT_POP / GIG_CATCHMENT_KM2),
+                    "~5,2 mil hab/km²",
+                    source="IPP / IBGE Censo 2022 — densidade da RA Ilha do Governador",
+                    source_status="official",
+                    note="211.018 hab / 40,81 km². Halo da ilha, não o sítio aeroportuário.",
+                ),
+                "impacted": _metric(
+                    None,
+                    "55–95 mil",
+                    source="Halo Ilha do Governador, 4 semanas, endereçável",
+                    source_status="estimate",
+                    note="Halo. Não some ao T2.",
+                ),
+                "neighborhoods": ["Galeão", "Portuguesa", "Jardim Guanabara"],
+                "profile": "Bacia local com 211 mil habitantes. Alta densidade residencial na Ilha do Governador; fluxo de moradores, trabalhadores e passageiros no T2.",
+            },
+            "audiences": [
+                ["Quem mora na Ilha do Governador", "Galeão, Portuguesa e Jardim Guanabara — halo, não o T2."],
+                ["Quem embarca ou desembarca no T2", "O recorte do saguão. Display no app e vídeo."],
+                ["Quem chega de voo internacional", "Cerca de um terço do movimento. O GIG tem e o SDU não."],
+                ["Quem passa na Vinte de Janeiro", "A avenida de entrada. Quem só passou no acesso."],
+                ["Quem já voou", "Retarget depois do embarque ou da chegada."],
+                ["Quem espera no desembarque", "Acompanhante, app e a descida do T2."],
+            ],
+            "geo": _geo(-22.8112259, -43.2585631, 13),
+            "points": [
+                _fence(
+                    {
+                        "id": "gig-terminal",
+                        "name": "Terminal T2",
+                        "kind": "terminal",
+                        "lat": -22.8112259,
+                        "lng": -43.2585631,
+                        "radius_m": 400,
+                        "radius_label": "400 m",
+                        "reach": "260–390 mil",
+                        "formats": ["Display no app", "Vídeo no saguão", "Portais"],
+                        "audiences": ["Quem está no T2", "Doméstico e internacional"],
+                        "commercial": "O saguão que a campanha compra primeiro. Display no app, vídeo no saguão e portais.",
+                        "source": "T2",
+                        "note": "Polígono do prédio. As duas pistas não entram.",
+                        "image_url": "/static/images/places/generated/galeao-gig-terminal-pt-5e3c674e.png",
+                    }
+                ),
+                _fence(
+                    {
+                        "id": "gig-embarque",
+                        "name": "Embarque",
+                        "kind": "embarque",
+                        "lat": -22.8148,
+                        "lng": -43.2502,
+                        "radius_m": 250,
+                        "radius_label": "250 m",
+                        "reach": "140–210 mil",
+                        "formats": ["Vídeo vertical", "Display no app"],
+                        "audiences": ["Quem está embarcando"],
+                        "commercial": "Quem está saindo. Banco, telecom e varejo no raio curto.",
+                        "source": "Check-in ao gate",
+                        "note": "Subconjunto do T2. Não some ao core.",
+                        "image_url": "/static/images/places/generated/galeao-gig-embarque-pt-203a2036.png",
+                    }
+                ),
+                _fence(
+                    {
+                        "id": "gig-internacional",
+                        "name": "Internacional",
+                        "kind": "premium",
+                        "lat": -22.8136,
+                        "lng": -43.2472,
+                        "radius_m": 300,
+                        "radius_label": "300 m",
+                        "reach": "80–130 mil",
+                        "formats": ["Vídeo", "Display"],
+                        "audiences": ["Quem voa para fora", "Ticket alto"],
+                        "commercial": "Imigração e duty-free. Volume real — cerca de 32% do movimento.",
+                        "source": "Área internacional · ~32% do movimento (RIOgaleão 2025)",
+                        "image_url": "/static/images/places/generated/galeao-gig-internacional-pt-a9aed74f.png",
+                    }
+                ),
+                _fence(
+                    {
+                        "id": "gig-estacionamento",
+                        "name": "Estacionamento",
+                        "kind": "mobilidade",
+                        "lat": -22.8165,
+                        "lng": -43.2460,
+                        "radius_m": 400,
+                        "radius_label": "400 m",
+                        "reach": "100–150 mil",
+                        "formats": ["Display no app", "7 e 15 dias"],
+                        "audiences": ["Quem busca o carro", "Quem espera na porta"],
+                        "commercial": "Quem busca o carro ou o app. Combustível e conveniência.",
+                        "source": "Curbside e pátios do T2",
+                        "image_url": "/static/images/places/generated/galeao-gig-estacionamento-pt-ab70235e.png",
+                    }
+                ),
+                _fence(
+                    {
+                        "id": "gig-acesso",
+                        "name": "Vinte de Janeiro",
+                        "kind": "halo",
+                        "lat": -22.8260776,
+                        "lng": -43.2327675,
+                        "radius_m": 1000,
+                        "radius_label": "1 km",
+                        "reach": "70–120 mil",
+                        "formats": ["Portais", "Display"],
+                        "audiences": ["Quem só passou no acesso"],
+                        "commercial": "A avenida de entrada. Separado de quem entrou no T2.",
+                        "source": "Acesso viário",
+                        "image_url": "/static/images/places/generated/galeao-gig-acesso-pt-efd6188c.png",
+                    }
+                ),
+                _fence(
+                    {
+                        "id": "gig-ilha",
+                        "name": "Jardim Guanabara",
+                        "kind": "halo",
+                        "lat": -22.8128362,
+                        "lng": -43.2007792,
+                        "radius_m": 1200,
+                        "radius_label": "1,2 km",
+                        "reach": "55–95 mil",
+                        "formats": ["Portais", "Display"],
+                        "audiences": ["Quem mora na Ilha"],
+                        "commercial": "Quem mora e circula na Ilha. Não é o saguão.",
+                        "source": "IPP",
+                        "image_url": "/static/images/places/generated/galeao-gig-ilha-pt-143e1a95.png",
+                    }
+                ),
+            ],
+            "media": {
+                "hero_url": "/static/images/places/generated/galeao-hero-75062ae1.png",
+                "map_url": "",
+            },
+            "offer": _offer(
+                "No Galeão você compra o T2, o internacional e quem mora na Ilha.",
+                [
+                    ("No T2", "Display no app e vídeo no saguão para quem circula no terminal."),
+                    ("No internacional", "Vídeo e display para quem chega de fora — cerca de um terço do movimento."),
+                    ("Na Ilha", "Portais para quem mora em Galeão, Portuguesa e Jardim Guanabara."),
+                ],
+            ),
+            "methodology": {
+                "title": "Como o número é feito",
+                "body": (
+                    "O GIG tem duas pistas longas — elas não são zona comercial. "
+                    "O T2 cabe em 400 metros; a Ilha é halo. "
+                    "O internacional é recorte de verdade (~32% do movimento), não fatia residual. "
+                    "Passageiros da ANAC não são o que a campanha compra. "
+                    "O número do ponto é quem dá para alcançar neste raio, no celular, em 4 semanas. "
+                    "Os raios não se somam."
+                ),
+                "steps": [],
+                "trust": "",
+            },
+            "zones": [
+                _zone(
+                    {
+                        "id": "GIG-01",
+                        "type": "CORE",
+                        "name": "Terminal T2",
+                        "radius": "400 m",
+                        "reach": "260–390 mil",
+                        "description": "Prédio do T2. Sem pista.",
+                        "formats": APPS + PORTALS,
+                        "audiences": ["Visitante do aeroporto", "Viajante recente"],
+                        "commercial": "Entrada da campanha. Não some aos outros raios.",
+                        "polygon": "48,40 66,36 74,48 68,62 50,64 42,52",
+                    }
+                ),
+                _zone(
+                    {
+                        "id": "GIG-02",
+                        "type": "DEPARTURES",
+                        "name": "Embarque",
+                        "radius": "250 m",
+                        "reach": "140–210 mil",
+                        "description": "Check-in, inspeção e gate.",
+                        "formats": ["Vídeo vertical", "Rich media"] + PORTALS,
+                        "audiences": ["Embarque ativo"],
+                        "commercial": "Alta intenção na saída.",
+                        "polygon": "66,44 84,42 90,54 82,66 66,64 60,52",
+                    }
+                ),
+                _zone(
+                    {
+                        "id": "GIG-03",
+                        "type": "PREMIUM",
+                        "name": "Internacional",
+                        "radius": "300 m",
+                        "reach": "80–130 mil",
+                        "description": "Jornada internacional. Em 2025 ficou em ~32% do movimento.",
+                        "formats": ["Vídeo premium", "Rich media"],
+                        "audiences": ["Internacional", "Ticket alto"],
+                        "commercial": "Volume real, ticket alto.",
+                        "polygon": "28,38 48,36 52,52 44,62 28,60 22,48",
+                    }
+                ),
+                _zone(
+                    {
+                        "id": "GIG-04",
+                        "type": "MOBILITY",
+                        "name": "Estacionamento e apps",
+                        "radius": "400 m",
+                        "reach": "100–150 mil",
+                        "description": "Pátios, curbside e descida do T2.",
+                        "formats": APPS,
+                        "audiences": ["Mobilidade"],
+                        "commercial": "Apps e conveniência.",
+                        "polygon": "40,64 70,62 76,74 66,84 40,84 32,74",
+                    }
+                ),
+                _zone(
+                    {
+                        "id": "GIG-05",
+                        "type": "HALO",
+                        "name": "Halo Ilha",
+                        "radius": "1,2 km",
+                        "reach": "55–95 mil",
+                        "description": "Ilha do Governador. Separada do T2.",
+                        "formats": PORTALS + ["Display"],
+                        "audiences": ["Proximidade"],
+                        "commercial": "Escala na Ilha sem fingir que a pessoa entrou no saguão.",
+                        "polygon": "2,18 28,14 34,32 24,44 4,42",
+                    }
+                ),
+            ],
+        }
+    ),
+}
+
+SEED_PLACES = (CONFINS, CONGONHAS, SANTOS_DUMONT, GALEAO)
 
 CITY_ORDER = ("bh", "sp", "rj")
 TYPE_ORDER = ("aeroporto", "shopping", "evento")

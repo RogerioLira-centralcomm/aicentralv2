@@ -259,6 +259,42 @@ def normalize_catchment(value: Any) -> dict:
     }
 
 
+def normalize_media(value: Any) -> dict:
+    data = as_dict(value)
+    images = []
+    for raw in as_list(data.get("images")):
+        item = as_dict(raw)
+        url = text(item.get("url") or item.get("image_url"))
+        if not url:
+            continue
+        images.append(
+            {
+                "id": text(item.get("id")),
+                "role": text(item.get("role")) or "point",
+                "url": url,
+            }
+        )
+    return {
+        "hero_url": text(data.get("hero_url")),
+        "map_url": text(data.get("map_url")),
+        "og_url": text(data.get("og_url")),
+        "image_model": text(data.get("image_model")),
+        "image_resolution": text(data.get("image_resolution")),
+        "images": images,
+    }
+
+
+def normalize_pipeline(value: Any) -> dict:
+    data = as_dict(value)
+    models = as_dict(data.get("models"))
+    return {
+        "steps": [text(item) for item in as_list(data.get("steps")) if text(item)],
+        "models": {text(key): text(value) for key, value in models.items() if text(key) and text(value)},
+        "warnings": [text(item) for item in as_list(data.get("warnings")) if text(item)],
+        "unlocated": [text(item) for item in as_list(data.get("unlocated")) if text(item)],
+    }
+
+
 def normalize_offer(value: Any) -> dict:
     data = as_dict(value)
     lines = []
@@ -269,6 +305,55 @@ def normalize_offer(value: Any) -> dict:
         if title:
             lines.append({"title": title, "body": body})
     return {"lead": text(data.get("lead")), "lines": lines}
+
+
+def usage_cost_usd(usage: Any) -> float:
+    data = as_dict(usage)
+    for key in ("cost", "total_cost", "cost_usd", "usd"):
+        value = data.get(key)
+        try:
+            if value is not None:
+                return max(0.0, float(value))
+        except (TypeError, ValueError):
+            continue
+    return 0.0
+
+
+def format_usd(value: Any) -> str:
+    amount = _float(value) or 0.0
+    if amount <= 0:
+        return "—"
+    formatted = f"{amount:,.2f}"
+    return "US$ " + formatted.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def normalize_cost_entry(item: Any) -> dict:
+    data = as_dict(item)
+    return {
+        "step": text(data.get("step")),
+        "model": text(data.get("model")),
+        "usd": usage_cost_usd(data) or (_float(data.get("usd")) or 0.0),
+        "at": text(data.get("at")),
+        "label": text(data.get("label")),
+    }
+
+
+def normalize_costs(value: Any) -> dict:
+    data = as_dict(value)
+    entries = [
+        item
+        for item in (normalize_cost_entry(raw) for raw in as_list(data.get("entries")))
+        if item["step"]
+    ]
+    total = round(sum(item["usd"] for item in entries), 4)
+    return {"entries": entries, "total_usd": total, "label": format_usd(total)}
+
+
+DEFAULT_METHODOLOGY_BODY = (
+    "Passageiros da ANAC não são o que a campanha compra. "
+    "O número do ponto é quem dá para alcançar neste raio, no celular, em 4 semanas. "
+    "Os raios não se somam."
+)
 
 
 def normalize_payload(value: Any) -> dict:
@@ -284,25 +369,18 @@ def normalize_payload(value: Any) -> dict:
             "impacted": normalize_metric(metrics.get("impacted") or metrics.get("four_weeks")),
         },
         "geo": normalize_geo(data.get("geo")),
-        "points": [item for item in (normalize_point(raw) for raw in as_list(data.get("points"))) if item["name"] and item["lat"] is not None],
+        "points": [item for item in (normalize_point(raw) for raw in as_list(data.get("points"))) if item["name"]],
         "research": normalize_research(data.get("research")),
         "catchment": normalize_catchment(data.get("catchment")),
         "zones": [normalize_zone(item) for item in as_list(data.get("zones"))],
         "audiences": [normalize_audience(item) for item in as_list(data.get("audiences")) if normalize_audience(item)["title"]],
-        "media": {
-            "hero_url": text(media.get("hero_url")),
-            "map_url": text(media.get("map_url")),
-            "og_url": text(media.get("og_url")),
-        },
+        "media": normalize_media(media),
+        "pipeline": normalize_pipeline(data.get("pipeline")),
         "offer": normalize_offer(data.get("offer")),
+        "costs": normalize_costs(data.get("costs")),
         "methodology": {
             "title": text(methodology.get("title")) or "Como o número é feito",
-            "body": text(methodology.get("body"))
-            or (
-                "Passageiros da ANAC não são o que a campanha compra. "
-                "O número do ponto é quem dá para alcançar neste raio, no celular, em 4 semanas. "
-                "Os raios não se somam."
-            ),
+            "body": text(methodology.get("body")) or DEFAULT_METHODOLOGY_BODY,
             "steps": [text(x) for x in as_list(methodology.get("steps")) if text(x)],
             "trust": text(methodology.get("trust")),
         },

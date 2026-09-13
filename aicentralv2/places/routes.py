@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from flask import Blueprint, jsonify, render_template, request, session
+from flask import Blueprint, jsonify, redirect, render_template, request, session, url_for
 
 from ..auth import login_required, login_required_api
 from . import service
@@ -41,6 +41,14 @@ def _places_nav(_current_slug=""):
         for item in catalog
         if item.get("slug")
     ]
+
+
+def _public_error(message, status=404):
+    return render_template(
+        "places/public_error.html",
+        mensagem=message,
+        brand=PUBLIC_TOKENS,
+    ), status
 
 
 def _public_page(place, *, preview=False):
@@ -226,7 +234,7 @@ def api_images(place_id):
         return _ok(
             service.apply_images(
                 place_id,
-                kind=body.get("kind") or "both",
+                kind=body.get("kind") or "next",
                 point_id=body.get("point_id") or "",
             )
         )
@@ -279,22 +287,32 @@ def publico(slug):
     try:
         place = service.public_place(slug)
     except PlaceNotFound:
-        return render_template("erro_publico.html", mensagem="Este place não está disponível."), 404
+        return _public_error("Este place não está disponível.")
     except Exception:
         logger.exception("Falha ao abrir place público")
-        return render_template("erro_publico.html", mensagem="Este place não está disponível."), 404
+        return _public_error("Este place não está disponível.")
     return _public_page(place, preview=False)
+
+
+@bp.route("/p/<slug>/plano")
+def publico_plano(slug):
+    return redirect(url_for("places.publico", slug=slug), code=301)
 
 
 @bp.route("/preview/<token>")
 def preview(token):
     if "user_id" not in session:
-        return render_template("erro_publico.html", mensagem="Prévia restrita."), 404
+        return _public_error("Prévia restrita.")
     try:
         place = service.preview_place(token)
     except PlaceNotFound:
-        return render_template("erro_publico.html", mensagem="Prévia não encontrada."), 404
+        return _public_error("Prévia não encontrada.")
     return _public_page(place, preview=True)
+
+
+@bp.route("/preview/<token>/plano")
+def preview_plano(token):
+    return redirect(url_for("places.preview", token=token), code=301)
 
 
 @bp.route("/api/p/<slug>/inquiry", methods=["POST"])

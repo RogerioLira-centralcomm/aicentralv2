@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Nunito+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/places_public.css') }}?v=13">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/places_public.css') }}?v=18">
 </head>
 <body class="cc-place" data-preview="{{ '1' if preview else '0' }}">
   <a class="cc-skip" href="#mapa">Ir para o mapa</a>
@@ -23,17 +23,19 @@
   {% endif %}
 
   <header class="cc-top">
-    <a class="cc-brand" href="{{ url_for('places.publico_indice') }}">
-      <img src="{{ brand.logo }}" alt="CentralComm">
-      <span>Places</span>
-    </a>
-    {% if places_nav %}
-    <nav class="cc-places" aria-label="Places publicados">
-      {% for item in places_nav %}
-      <a href="{{ url_for('places.publico', slug=item.slug) }}"{% if item.slug == place.slug %} aria-current="page"{% endif %}>{{ item.code or item.title }}</a>
-      {% endfor %}
-    </nav>
-    {% endif %}
+    <div class="cc-top-inner">
+      <a class="cc-brand" href="{{ url_for('places.publico_indice') }}">
+        <img src="{{ brand.logo }}" alt="CentralComm">
+        <span>Places</span>
+      </a>
+      {% if places_nav %}
+      <nav class="cc-places" aria-label="Places publicados">
+        {% for item in places_nav %}
+        <a href="{{ url_for('places.publico', slug=item.slug) }}"{% if item.slug == place.slug %} aria-current="page"{% endif %}>{{ item.code or item.title }}</a>
+        {% endfor %}
+      </nav>
+      {% endif %}
+    </div>
   </header>
 
   <main id="conteudo">
@@ -60,7 +62,7 @@
         <div class="cc-stage-head">
           <div>
             <h2>O recorte no mapa</h2>
-            <p>Toque um ponto. O círculo é o que a campanha compra.</p>
+            <p>Toque um ponto. O satélite é o lugar; o círculo é o que a campanha compra.</p>
           </div>
         </div>
         <div class="cc-zone-nav" id="cc-zone-nav" role="tablist" aria-label="Pontos do place"></div>
@@ -91,13 +93,13 @@
       </div>
       <div class="cc-gallery-track">
         {% for item in point_photos %}
-        <figure class="cc-gallery-card" data-point="{{ item.id or item.name }}">
+        <button type="button" class="cc-gallery-card" data-point="{{ item.id or item.name }}">
           <img src="{{ item.image_url }}" alt="{{ item.name }}">
-          <figcaption>
+          <span class="cc-gallery-cap">
             <strong>{{ item.name }}</strong>
             <span>{{ item.radius_label or item.kind_label }} · {{ item.reach or item.kind_label }}</span>
-          </figcaption>
-        </figure>
+          </span>
+        </button>
         {% endfor %}
       </div>
     </section>
@@ -149,10 +151,26 @@
       {% endif %}
     </section>
 
+    {% if place.audiences %}
+    <section class="cc-audiences">
+      <h2>Quem a campanha atinge</h2>
+      <div class="cc-audience-grid">
+        {% for item in place.audiences %}
+        <article>
+          <strong>{{ item.title }}</strong>
+          <p>{{ item.body }}</p>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    {% if place.methodology.body %}
     <section class="cc-method">
-      <h2>Como o número é feito</h2>
+      <h2>{{ place.methodology.title or 'Como o número é feito' }}</h2>
       <p>{{ place.methodology.body }}</p>
     </section>
+    {% endif %}
 
     <footer class="cc-foot">
       <img src="{{ brand.logo }}" alt="CentralComm">
@@ -162,6 +180,6 @@
 
   <script type="application/json" id="cc-place-data">{{ place|tojson }}</script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="{{ url_for('static', filename='js/places_public.js') }}?v=13"></script>
+  <script src="{{ url_for('static', filename='js/places_public.js') }}?v=18"></script>
 </body>
 </html>

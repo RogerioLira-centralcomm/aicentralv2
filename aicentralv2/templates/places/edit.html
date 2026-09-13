@@ -5,54 +5,55 @@
 
 {% block styles %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/places.css') }}?v=5">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/places.css') }}?v=8">
 {% endblock %}
 
 {% block content %}
 <div class="cx-page">
   <div class="cx-container pl-desk" data-places-form data-place-id="{{ place.id or '' }}">
+    <script type="application/json" id="pl-place-data">{{ place|tojson }}</script>
+    <script type="application/json" id="pl-point-kinds">{{ point_kinds|tojson }}</script>
+
     <header class="cx-header pl-head">
-      <div>
+      <div class="pl-identity">
         <a class="pl-back" href="{{ url_for('places.index') }}">Places</a>
-        <p class="cx-eyebrow">Comercial · Places</p>
-        <h1 class="cx-title">{{ place.title or 'Novo place' }}</h1>
-        <p class="cx-subtitle">Busque o lugar, finalize a ficha com GPT-5 e gere as imagens do mapa e de cada ponto. O link público é para quem vai comprar.</p>
+        <div class="pl-identity-row">
+          <p class="pl-iata pl-iata-lg" data-identity-code>{{ place.code or "—" }}</p>
+          <div>
+            <h1 class="cx-title" data-identity-title>{{ place.title or 'Novo place' }}</h1>
+            <p class="cx-subtitle" data-identity-meta>
+              {% if place.city_label %}{{ place.city_label }}{% endif %}
+              {% if place.metrics.passengers.label %} · {{ place.metrics.passengers.label }} passageiros{% endif %}
+              {% if place.ai_cost_label and place.ai_cost_label != "—" %} · {{ place.ai_cost_label }}{% endif %}
+            </p>
+          </div>
+        </div>
       </div>
       <div class="pl-head-actions">
-        {% if place.share_url %}
-        <a class="cx-btn cx-btn-outline" href="{{ place.share_url }}" target="_blank" rel="noopener">
+        <a class="cx-btn cx-btn-outline" data-share-link href="{{ place.share_url or '#' }}" target="_blank" rel="noopener noreferrer"{% if not place.share_url %} hidden{% endif %}>
           {{ 'Página pública' if place.status == 'published' else 'Prévia' }}
         </a>
-        <button type="button" class="cx-btn cx-btn-ghost" data-copy="{{ place.share_url }}">Copiar link</button>
-        {% endif %}
+        <button type="button" class="cx-btn cx-btn-ghost" data-copy="{{ place.share_url or '' }}"{% if not place.share_url %} hidden{% endif %}>Copiar link</button>
         <button type="submit" form="pl-form" class="cx-btn cx-btn-primary">Salvar</button>
       </div>
     </header>
 
-    <ol class="pl-steps" aria-label="Fluxo do cadastro">
-      <li class="{% if place.title %}is-done{% endif %}">1. Lugar</li>
-      <li class="{% if place.research.reviewed_at or place.catchment.population.label %}is-done{% endif %}">2. Importar</li>
-      <li class="{% if place.points %}is-done{% endif %}">3. Pontos</li>
-      <li class="{% if place.media.map_url or place.media.hero_url %}is-done{% endif %}">4. Imagens</li>
-      <li class="{% if place.status == 'published' %}is-done{% endif %}">5. Publicar</li>
-    </ol>
+    <nav class="pl-trail" aria-label="Passos do cadastro">
+      <button type="button" class="is-on" data-tab="lugar"><span>1</span> Lugar</button>
+      <button type="button" data-tab="bacia"><span>2</span> Bacia</button>
+      <button type="button" data-tab="pontos"><span>3</span> Pontos</button>
+      <button type="button" data-tab="arte"><span>4</span> Arte</button>
+      <button type="button" data-tab="publicar"><span>5</span> Publicar</button>
+    </nav>
 
     <p class="pl-form-status" hidden></p>
-
-    <nav class="pl-tabs" aria-label="Ficha do place">
-      <button type="button" class="is-on" data-tab="lugar">Lugar</button>
-      <button type="button" data-tab="regiao">Importar</button>
-      <button type="button" data-tab="pontos">Pontos</button>
-      <button type="button" data-tab="imagens">Imagens</button>
-      <button type="button" data-tab="link">Link</button>
-    </nav>
 
     <form id="pl-form" class="pl-form">
       <section class="cx-section pl-panel" data-panel="lugar">
         <div class="cx-section-header">
           <div>
-            <h2 class="cx-section-title">Achar e identificar</h2>
-            <p class="cx-section-description">Busca no mapa. Salve ou finalize a importação em seguida.</p>
+            <h2 class="cx-section-title">Achar o lugar</h2>
+            <p class="cx-section-description">Busque no mapa, confira o código e siga para fechar a ficha.</p>
           </div>
         </div>
         <div class="cx-section-body">
@@ -65,8 +66,8 @@
           <ul class="pl-hits" id="pl-hits" hidden></ul>
           <div class="pl-grid">
             <label>Nome<input class="cx-input" name="title" value="{{ place.title }}" required></label>
-            <label>Slug<input class="cx-input" name="slug" value="{{ place.slug }}" placeholder="confins"></label>
-            <label>Código<input class="cx-input" name="code" value="{{ place.code }}" placeholder="CNF"></label>
+            <label>Slug<input class="cx-input" name="slug" value="{{ place.slug }}" placeholder="galeao"></label>
+            <label>Código<input class="cx-input" name="code" value="{{ place.code }}" placeholder="GIG"></label>
             <label>Operador<input class="cx-input" name="operator" value="{{ place.operator }}"></label>
             <label>Tipo
               <select class="cx-select" name="place_type">
@@ -84,24 +85,24 @@
             </label>
             <label>Latitude<input class="cx-input" name="geo_lat" value="{{ place.geo.lat or '' }}" inputmode="decimal"></label>
             <label>Longitude<input class="cx-input" name="geo_lng" value="{{ place.geo.lng or '' }}" inputmode="decimal"></label>
-            <label class="pl-span">Linha de venda<input class="cx-input" name="subtitle" value="{{ place.subtitle }}" placeholder="O que a agência ou o cliente compra neste place"></label>
+            <label class="pl-span">O que se compra aqui<input class="cx-input" name="subtitle" value="{{ place.subtitle }}" placeholder="O raio que a campanha compra neste place"></label>
+          </div>
+          <div class="pl-panel-nav">
+            <button type="button" class="cx-btn cx-btn-primary" data-next-tab="bacia">Continuar para a bacia</button>
           </div>
         </div>
       </section>
 
-      <section class="cx-section pl-panel" data-panel="regiao" hidden>
+      <section class="cx-section pl-panel" data-panel="bacia" hidden>
         <div class="cx-section-header">
           <div>
-            <h2 class="cx-section-title">Finalizar importação</h2>
-            <p class="cx-section-description">Perplexity pesquisa a região. GPT-5 fecha a ficha, a linha de venda e os pontos.</p>
+            <h2 class="cx-section-title">Fechar a ficha</h2>
+            <p class="cx-section-description">Um passo: pesquisa a região, fecha o texto e já entra os pontos no mapa.</p>
           </div>
-          <div class="pl-head-actions">
-            <button type="button" class="cx-btn cx-btn-primary" id="pl-import">Finalizar importação</button>
-            <button type="button" class="cx-btn cx-btn-secondary" id="pl-research">Só pesquisar</button>
-            <button type="button" class="cx-btn cx-btn-outline" id="pl-review">Revisar com GPT-5</button>
-          </div>
+          <button type="button" class="cx-btn cx-btn-primary" id="pl-import">Fechar ficha</button>
         </div>
         <div class="cx-section-body">
+          <div class="pl-warnings" data-pipeline-warnings hidden></div>
           <div class="pl-grid">
             <label>População da bacia<input class="cx-input" name="catchment_pop_label" value="{{ place.catchment.population.label }}"></label>
             <label>Valor<input class="cx-input" name="catchment_pop_value" value="{{ place.catchment.population.value or '' }}"></label>
@@ -115,124 +116,79 @@
             </label>
             <label>Densidade<input class="cx-input" name="catchment_density_label" value="{{ place.catchment.density.label }}"></label>
             <label>Fonte densidade<input class="cx-input" name="catchment_density_source" value="{{ place.catchment.density.source }}"></label>
-            <label>Possivelmente impactados<input class="cx-input" name="catchment_impacted_label" value="{{ place.catchment.impacted.label }}"></label>
+            <label>No celular em 4 semanas<input class="cx-input" name="catchment_impacted_label" value="{{ place.catchment.impacted.label }}"></label>
             <label class="pl-span">Bairros<input class="cx-input" name="catchment_neighborhoods" value="{{ place.catchment.neighborhoods|join(', ') }}"></label>
             <label class="pl-span">Perfil da região<input class="cx-input" name="catchment_profile" value="{{ place.catchment.profile }}"></label>
           </div>
-          {% if place.research.notes or place.research.review %}
-          <p class="pl-help">{{ place.research.review or place.research.notes }}</p>
-          {% endif %}
+          <p class="pl-help" data-research-notes>{{ place.research.review or place.research.notes }}</p>
+          <div class="pl-panel-nav">
+            <button type="button" class="cx-btn cx-btn-ghost" data-next-tab="lugar">Voltar</button>
+            <button type="button" class="cx-btn cx-btn-secondary" data-next-tab="pontos">Ver pontos</button>
+          </div>
         </div>
       </section>
 
       <section class="cx-section pl-panel" data-panel="pontos" hidden>
         <div class="cx-section-header">
           <div>
-            <h2 class="cx-section-title">Pontos mapeados</h2>
-            <p class="cx-section-description">Lat e lng de cada ponto. Clique no mapa para marcar. A imagem interna sai no GPT Image 2.</p>
+            <h2 class="cx-section-title">Pontos do raio</h2>
+            <p class="cx-section-description">Entram sozinhos ao fechar a ficha. Sem coordenada, clique no mapa. Foto sai uma a uma.</p>
           </div>
-          <button type="button" class="cx-btn cx-btn-secondary" id="pl-suggest">Sugerir pontos</button>
         </div>
         <div class="cx-section-body">
           <div id="pl-admin-map" class="pl-admin-map"></div>
+          <div class="pl-points-wrap">
           <table class="pl-points">
             <thead>
               <tr><th>Foto</th><th>Nome</th><th>Tipo</th><th>Lat</th><th>Lng</th><th></th></tr>
             </thead>
-            <tbody id="pl-points-body">
-              {% for item in place.points %}
-              <tr>
-                <td class="pl-point-media">
-                  <input type="hidden" name="point_id" value="{{ item.id }}">
-                  <input type="hidden" name="point_image" value="{{ item.image_url }}">
-                  {% if item.image_url %}
-                  <img src="{{ item.image_url }}" alt="">
-                  {% else %}
-                  <span class="pl-point-empty">sem foto</span>
-                  {% endif %}
-                </td>
-                <td><input class="cx-input" name="point_name" value="{{ item.name }}"></td>
-                <td>
-                  <select class="cx-select" name="point_kind">
-                    {% for kind in point_kinds %}
-                    <option value="{{ kind.id }}" {% if item.kind == kind.id %}selected{% endif %}>{{ kind.label }}</option>
-                    {% endfor %}
-                  </select>
-                </td>
-                <td><input class="cx-input" name="point_lat" value="{{ item.lat }}"></td>
-                <td><input class="cx-input" name="point_lng" value="{{ item.lng }}"></td>
-                <td>
-                  <button type="button" class="cx-btn cx-btn-ghost" data-gen-point="{{ item.id or item.name }}">Gerar foto</button>
-                  <button type="button" class="cx-btn cx-btn-ghost" data-remove-point>Tirar</button>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
+            <tbody id="pl-points-body"></tbody>
           </table>
-          <button type="button" class="cx-btn cx-btn-ghost" id="pl-add-point">Adicionar ponto</button>
-          <template id="pl-point-row">
-            <tr>
-              <td class="pl-point-media">
-                <input type="hidden" name="point_id" value="">
-                <input type="hidden" name="point_image" value="">
-                <span class="pl-point-empty">sem foto</span>
-              </td>
-              <td><input class="cx-input" name="point_name"></td>
-              <td>
-                <select class="cx-select" name="point_kind">
-                  {% for kind in point_kinds %}
-                  <option value="{{ kind.id }}">{{ kind.label }}</option>
-                  {% endfor %}
-                </select>
-              </td>
-              <td><input class="cx-input" name="point_lat"></td>
-              <td><input class="cx-input" name="point_lng"></td>
-              <td><button type="button" class="cx-btn cx-btn-ghost" data-remove-point>Tirar</button></td>
-            </tr>
-          </template>
+          </div>
+          <div class="pl-panel-nav">
+            <button type="button" class="cx-btn cx-btn-ghost" id="pl-add-point">Adicionar ponto</button>
+            <button type="button" class="cx-btn cx-btn-secondary" data-next-tab="arte">Ir para as fotos</button>
+          </div>
         </div>
       </section>
 
-      <section class="cx-section pl-panel" data-panel="imagens" hidden>
+      <section class="cx-section pl-panel" data-panel="arte" hidden>
         <div class="cx-section-header">
           <div>
-            <h2 class="cx-section-title">Imagens do link</h2>
-            <p class="cx-section-description">GPT Image 2: hero, cartão, mapa aéreo e o interior de cada ponto.</p>
+            <h2 class="cx-section-title">Fotos do link</h2>
+            <p class="cx-section-description" data-image-spec>Uma foto por vez. Hero, mapa e cada ponto. Cinco de uma vez estouram o tempo.</p>
           </div>
         </div>
         <div class="cx-section-body">
-          <div class="pl-media">
-            {% if place.media.hero_url %}<figure><img src="{{ place.media.hero_url }}" alt="Hero"><figcaption>Hero</figcaption></figure>{% endif %}
-            {% if place.media.map_url %}<figure><img src="{{ place.media.map_url }}" alt="Mapa"><figcaption>Mapa</figcaption></figure>{% endif %}
-            {% if place.media.og_url %}<figure><img src="{{ place.media.og_url }}" alt="Cartão do link"><figcaption>Cartão</figcaption></figure>{% endif %}
+          <div class="pl-queue" data-image-queue hidden>
+            <p class="pl-queue-title" data-queue-title>Gerando fotos</p>
+            <p class="pl-queue-step" data-queue-step></p>
+            <div class="pl-queue-bar" aria-hidden="true"><span data-queue-bar></span></div>
+            <ol class="pl-queue-list" data-queue-list></ol>
           </div>
-          <div class="pl-media pl-media-points">
-            {% for item in place.points if item.image_url %}
-            <figure>
-              <img src="{{ item.image_url }}" alt="{{ item.name }}">
-              <figcaption>{{ item.name }}</figcaption>
-            </figure>
-            {% endfor %}
-          </div>
+          <div class="pl-media" data-media-pack></div>
           <div class="pl-grid">
             <label class="pl-span">Hero<input class="cx-input" name="hero_url" value="{{ place.media.hero_url }}"></label>
             <label class="pl-span">Mapa<input class="cx-input" name="map_url" value="{{ place.media.map_url }}"></label>
             <label class="pl-span">Cartão do link<input class="cx-input" name="og_url" value="{{ place.media.og_url }}"></label>
           </div>
           <div class="pl-head-actions">
-            <button type="button" class="cx-btn cx-btn-secondary" id="pl-gen-hero">Gerar hero</button>
-            <button type="button" class="cx-btn cx-btn-outline" id="pl-gen-map">Gerar mapa</button>
-            <button type="button" class="cx-btn cx-btn-outline" id="pl-gen-og">Gerar cartão</button>
-            <button type="button" class="cx-btn cx-btn-primary" id="pl-gen-points">Gerar fotos dos pontos</button>
+            <button type="button" class="cx-btn cx-btn-primary" id="pl-gen-queue">Gerar fotos que faltam</button>
+            <button type="button" class="cx-btn cx-btn-outline" id="pl-gen-hero">Só o hero</button>
+            <button type="button" class="cx-btn cx-btn-outline" id="pl-gen-map">Só o mapa</button>
+          </div>
+          <div class="pl-panel-nav">
+            <button type="button" class="cx-btn cx-btn-ghost" data-next-tab="pontos">Voltar aos pontos</button>
+            <button type="button" class="cx-btn cx-btn-secondary" data-next-tab="publicar">Ir para publicar</button>
           </div>
         </div>
       </section>
 
-      <section class="cx-section pl-panel" data-panel="link" hidden>
+      <section class="cx-section pl-panel" data-panel="publicar" hidden>
         <div class="cx-section-header">
           <div>
             <h2 class="cx-section-title">Publicar o link</h2>
-            <p class="cx-section-description">A one-page é o que a agência ou o cliente final abre para decidir.</p>
+            <p class="cx-section-description">A one-page é o que a agência ou o cliente abre para decidir.</p>
           </div>
         </div>
         <div class="cx-section-body">
@@ -244,12 +200,15 @@
                 {% endfor %}
               </select>
             </label>
+            <label>Custo de IA
+              <input class="cx-input" data-cost-label value="{{ place.ai_cost_label }}" readonly>
+            </label>
           </div>
-          {% if place.share_url %}
-          <p class="pl-help">{{ place.share_url }}</p>
+          <p class="pl-help" data-share-url>{{ place.share_url }}</p>
           {% if place.qr_svg %}
-          <div class="pl-qr">{{ place.qr_svg|safe }}</div>
-          {% endif %}
+          <div class="pl-qr" data-qr>{{ place.qr_svg|safe }}</div>
+          {% else %}
+          <div class="pl-qr" data-qr hidden></div>
           {% endif %}
           <div class="pl-head-actions">
             <button type="button" class="cx-btn cx-btn-primary" id="pl-publish">Publicar</button>
@@ -264,5 +223,5 @@
 
 {% block scripts %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="{{ url_for('static', filename='js/places.js') }}?v=5"></script>
+<script src="{{ url_for('static', filename='js/places.js') }}?v=8"></script>
 {% endblock %}

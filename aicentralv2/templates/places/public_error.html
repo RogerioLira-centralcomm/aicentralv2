@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080808">
+  <title>Place indisponível · CentralComm</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&family=Nunito+Sans:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/places_public.css') }}?v=18">
+</head>
+<body class="cc-place cc-index">
+  <header class="cc-top">
+    <div class="cc-top-inner">
+    <a class="cc-brand" href="{{ url_for('places.publico_indice') }}">
+      <img src="{{ brand.logo }}" alt="CentralComm">
+      <span>Places</span>
+    </a>
+    </div>
+  </header>
+  <div class="cc-index-shell">
+    <section class="cc-plan-empty">
+      <h1>Este place não está no ar</h1>
+      <p>{{ mensagem }}</p>
+      <a class="cc-plan-back" href="{{ url_for('places.publico_indice') }}">Ver os places</a>
+    </section>
+  </div>
+</body>
+</html>

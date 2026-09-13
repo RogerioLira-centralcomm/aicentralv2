@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import base64
 import logging
+import mimetypes
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -45,7 +47,11 @@ class TrocrStore:
                 expected = -1
             if expected != current:
                 raise CreativeConflictError("O histórico mudou. Recarregue e tente de novo.")
-        versions = self.merge_versions(existing.get("versions") or [], payload.get("versions") or [])
+        incoming = payload.get("versions") or []
+        if payload.get("reset"):
+            versions = self.merge_versions([], incoming)
+        else:
+            versions = self.merge_versions(existing.get("versions") or [], incoming)
         session = {
             "client_id": client_id or "",
             "active_id": str(payload.get("active_id") or (versions[-1]["id"] if versions else "")),
@@ -108,6 +114,26 @@ class TrocrStore:
             },
             user_id=user_id,
         )
+
+    def materialize_reference(self, raw):
+        """Still autenticado vira data URL. OpenRouter e o OCR não leem caminho relativo."""
+        text = str(raw or "").strip()
+        if not text:
+            return ""
+        if text.startswith("data:image/") or text.startswith(("https://", "http://")):
+            return text
+        url = published_still_url(text)
+        if not url.startswith(STILL_PREFIXES):
+            return text
+        try:
+            path = self.still_path(Path(url).name)
+        except CreativeNotFoundError:
+            return text
+        data = Path(path).read_bytes()
+        if not data:
+            return text
+        mime = mimetypes.guess_type(Path(url).name)[0] or "image/png"
+        return f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"
 
     def still_path(self, filename):
         storage = getattr(self.modeling, "storage", None)

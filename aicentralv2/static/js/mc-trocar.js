@@ -51,6 +51,7 @@
     optimizedPreview: '',
     zoom: 1,
     lastAction: '',
+    replaceSession: false,
     cache: {},
     planHash: '',
     planSeq: 0,
@@ -211,6 +212,7 @@
       if (previous) selectVersion(previous.id);
     });
     $('mcTrocrResetPanel')?.addEventListener('click', resetPanel);
+    $('mcTrocrNewPiece')?.addEventListener('click', onNewPiece);
     $('mcTrocrRotate')?.addEventListener('click', rotateLayout);
     $('mcTrocrVersions')?.addEventListener('click', onVersionClick);
   }
@@ -231,25 +233,27 @@
     const reader = new FileReader();
     reader.onload = async () => {
       const image = String(reader.result || '');
+      await startFresh({ persistEmpty: Boolean(state.versions.length || state.revision) });
       const thumb = await makeThumb(image);
       const version = pushVersion({
         name: 'Original',
         origin: 'original',
         image,
         thumb,
-      });
+      }, { persist: false });
       showPreview(image);
       if (!state.userPickedFormat) {
         const guessed = await guessAspect(image);
         if (guessed) selectFormat(guessed);
       }
       setStatus('Ao enviar uma nova imagem, o OCR é executado automaticamente.');
-      readReference(version, { force: true });
+      await readReference(version, { force: true, reference: image });
+      schedulePersist();
     };
     reader.readAsDataURL(file);
   }
 
-  function pushVersion(partial) {
+  function pushVersion(partial, options) {
     const attempt = state.versions.length + 1;
     const version = {
       id: `v${attempt}`,
@@ -274,13 +278,14 @@
     renderVersions();
     renderBaseMeta();
     renderEditPanels();
-    schedulePersist();
+    if (options?.persist !== false) schedulePersist();
     return version;
   }
 
   async function readReference(version, options) {
     const force = Boolean(options?.force);
-    if (!version?.image) return;
+    const source = options?.reference || version?.image;
+    if (!source) return;
     if (!force && state.cache[version.id]) {
       applyRead(state.cache[version.id], version, { cached: true });
       return;
@@ -291,7 +296,7 @@
     setStatus('OCR processando…');
     hideError();
     try {
-      const reference = await downscaleImage(version.image, 1280, 0.82);
+      const reference = await downscaleImage(source, 1280, 0.82, { forceJpeg: true });
       const data = await request(API.read, { reference }, { signal: readAbort.signal });
       state.cache[version.id] = data;
       version.ocr = data;
@@ -745,7 +750,7 @@
     setStatus('Use esta versão como base para continuar editando.');
     state.lastAction = 'ocr';
     schedulePersist();
-    readReference(version, { force: true });
+    readReference(version, { force: true, reference: version.image });
   }
 
   function duplicateVersion(id) {
@@ -1026,6 +1031,67 @@
     const count = $('mcTrocrNoteCount');
     if (!note || !count) return;
     count.textContent = `${note.value.length}/500`;
+  }
+
+  async function onNewPiece() {
+    if (state.versions.length && !window.confirm('Apagar esta peça e começar outra? O histórico atual some.')) {
+      return;
+    }
+    await startFresh({ persistEmpty: true });
+    setStatus('Solte uma imagem. PNG ou JPG.');
+  }
+
+  async function startFresh(options) {
+    if (readAbort) readAbort.abort();
+    if (promptAbort) promptAbort.abort();
+    const hadSession = Boolean(state.versions.length || state.revision);
+    state.versions = [];
+    state.cache = {};
+    state.activeId = '';
+    state.baseId = '';
+    state.lastRead = null;
+    state.planHash = '';
+    state.planBlocked = false;
+    state.planNoop = false;
+    state.conflicts = [];
+    state.region = null;
+    state.replaceSession = true;
+    resetPanel();
+    hideError();
+    setFlow('upload');
+    setViewMode('view');
+    if ($('mcSwapImage')) $('mcSwapImage').removeAttribute('src');
+    if ($('mcSwapPreview')) $('mcSwapPreview').hidden = true;
+    if ($('mcSwapDrop')) $('mcSwapDrop').hidden = false;
+    $('mcTrocrViewport')?.classList.remove('has-image');
+    renderVersions();
+    renderBaseMeta();
+    renderEditPanels();
+    if (options?.persistEmpty && hadSession) {
+      await resetHistory();
+    }
+  }
+
+  async function resetHistory() {
+    const body = {
+      client_id: state.clientId || undefined,
+      reset: true,
+      revision: state.revision || 0,
+      versions: [],
+      active_id: '',
+      base_id: '',
+      aspect_ratio: state.aspectRatio,
+    };
+    try {
+      const saved = await request(API.history, body);
+      if (saved?.revision != null) state.revision = Number(saved.revision) || 0;
+    } catch (error) {
+      if (!String(error.message || '').toLowerCase().includes('histórico mudou')) return;
+      const data = await request(`${API.history}${historyQuery()}`);
+      state.revision = Number(data?.revision) || 0;
+      const saved = await request(API.history, { ...body, revision: state.revision });
+      if (saved?.revision != null) state.revision = Number(saved.revision) || 0;
+    }
   }
 
   function resetPanel() {
@@ -1369,18 +1435,19 @@
     return value.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   }
 
-  function downscaleImage(dataUrl, maxSide, quality) {
+  function downscaleImage(dataUrl, maxSide, quality, options) {
     return new Promise((resolve) => {
       const image = new Image();
       image.onload = () => {
-        const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
-        if (scale >= 1) {
+        const scale = Math.min(1, maxSide / Math.max(image.width || 1, image.height || 1));
+        const alreadyJpeg = String(dataUrl || '').startsWith('data:image/jpeg');
+        if (scale >= 1 && !options?.forceJpeg && alreadyJpeg) {
           resolve(dataUrl);
           return;
         }
         const canvas = document.createElement('canvas');
-        canvas.width = Math.round(image.width * scale);
-        canvas.height = Math.round(image.height * scale);
+        canvas.width = Math.max(1, Math.round((image.width || 1) * scale));
+        canvas.height = Math.max(1, Math.round((image.height || 1) * scale));
         canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
         resolve(canvas.toDataURL('image/jpeg', quality));
       };
@@ -1492,38 +1559,49 @@
     try {
       do {
         persistAgain = false;
-        saved = await request(API.history, {
-          client_id: state.clientId || undefined,
-          active_id: state.activeId,
-          base_id: state.baseId,
-          aspect_ratio: state.aspectRatio,
-          revision: state.revision || 0,
-          versions: state.versions.map((item) => ({
-            id: item.id,
-            attempt: item.attempt,
-            name: item.name,
-            origin: item.origin,
-            quality: item.quality,
-            status: item.status,
-            created_at: item.createdAt instanceof Date ? item.createdAt.toISOString() : item.createdAt,
-            image: item.image,
-            thumb: item.thumb,
-            ocr: item.ocr,
-            analysis: item.analysis,
-            qa: item.qa || null,
-            plan_hash: item.plan_hash || '',
-            parent_id: item.parent_id || '',
-          })),
-        });
-        applyStoredUrls(saved);
+        try {
+          saved = await request(API.history, {
+            client_id: state.clientId || undefined,
+            reset: Boolean(state.replaceSession),
+            active_id: state.activeId,
+            base_id: state.baseId,
+            aspect_ratio: state.aspectRatio,
+            revision: state.revision || 0,
+            versions: state.versions.map((item) => ({
+              id: item.id,
+              attempt: item.attempt,
+              name: item.name,
+              origin: item.origin,
+              quality: item.quality,
+              status: item.status,
+              created_at: item.createdAt instanceof Date ? item.createdAt.toISOString() : item.createdAt,
+              image: item.image,
+              thumb: item.thumb,
+              ocr: item.ocr,
+              analysis: item.analysis,
+              qa: item.qa || null,
+              plan_hash: item.plan_hash || '',
+              parent_id: item.parent_id || '',
+            })),
+          });
+          applyStoredUrls(saved);
+          state.replaceSession = false;
+        } catch (error) {
+          if (!String(error.message || '').toLowerCase().includes('histórico mudou')) {
+            return null;
+          }
+          const data = await request(`${API.history}${historyQuery()}`);
+          state.revision = Number(data?.revision) || 0;
+          if (state.replaceSession) {
+            persistAgain = true;
+          } else {
+            applyHistory(data);
+            return null;
+          }
+        }
       } while (persistAgain);
       renderVersions();
       return saved;
-    } catch (error) {
-      if (String(error.message || '').toLowerCase().includes('histórico mudou')) {
-        await loadHistory();
-      }
-      return null;
     } finally {
       persistBusy = false;
     }

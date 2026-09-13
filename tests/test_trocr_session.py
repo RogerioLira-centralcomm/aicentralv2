@@ -84,6 +84,16 @@ class TrocrSessionStoreTest(unittest.TestCase):
                 user_id=7,
             )
         self.assertIn("histórico mudou", str(raised.exception).lower())
+        empty = lab.save_swap_history(
+            {
+                "client_id": 10,
+                "reset": True,
+                "revision": dropped["revision"],
+                "versions": [],
+            },
+            user_id=7,
+        )
+        self.assertEqual(empty["versions"], [])
 
     def test_still_legado_hex_vira_rota_autenticada(self):
         name = "a" * 32 + ".png"
@@ -115,6 +125,30 @@ class TrocrSessionStoreTest(unittest.TestCase):
             self.assertEqual(store.still_path(name), path)
             with self.assertRaises(CreativeNotFoundError):
                 store.still_path("missing.png")
+
+    def test_still_autenticado_vira_data_url_para_ocr(self):
+        with tempfile.TemporaryDirectory() as folder:
+            name = "c" * 32 + ".png"
+            path = Path(folder) / name
+            path.write_bytes(TINY_PNG)
+
+            class _Storage:
+                def load_trocr_still(self, filename):
+                    return path if filename == name else None
+
+            captured = {}
+
+            def fake_text(messages, **_kwargs):
+                captured["url"] = messages[1]["content"][1]["image_url"]["url"]
+                return {"message": {"content": '{"headline":"500 MEGA","cta":"Vai"}'}}
+
+            generator = type("G", (), {"text_callable": staticmethod(fake_text)})()
+            modeling = CreativeModelingService(FakeRepository(), generator, storage=_Storage())
+            lab = FormatLabService(modeling)
+            result = lab.read_swap({"reference": f"/parametros/api/format-lab/swap/still/{name}"})
+            self.assertTrue(captured["url"].startswith("data:image/png;base64,"))
+            self.assertEqual(result["headline"], "500 MEGA")
+            self.assertEqual(result["status"], "completed")
 
 
 class TrocrSessionRoutesTest(unittest.TestCase):

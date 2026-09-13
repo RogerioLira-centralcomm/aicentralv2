@@ -228,7 +228,7 @@ class FormatLabService:
         return _serialize(quote_concept(payload))
 
     def read_swap(self, payload, user_id=None):
-        payload = payload if isinstance(payload, dict) else {}
+        payload = self._swap_payload(payload)
         try:
             result = read_swap_reference(
                 payload,
@@ -239,7 +239,7 @@ class FormatLabService:
         return _serialize(result)
 
     def preview_swap(self, payload, user_id=None):
-        payload = payload if isinstance(payload, dict) else {}
+        payload = self._swap_payload(payload)
         brand = self._swap_brand(payload) if payload.get("use_brand_context") is not False else {}
         return _serialize(preview_swap_prompt(payload, brand))
 
@@ -316,8 +316,17 @@ class FormatLabService:
             "height": height,
         }
 
+    def _swap_payload(self, payload):
+        payload = dict(payload or {}) if isinstance(payload, dict) else {}
+        reference = self._trocr_store().materialize_reference(
+            payload.get("reference") or payload.get("image") or payload.get("reference_url") or ""
+        )
+        if reference:
+            payload["reference"] = reference
+        return payload
+
     def swap(self, payload, user_id=None):
-        payload = payload if isinstance(payload, dict) else {}
+        payload = self._swap_payload(payload)
         brand = self._swap_brand(payload) if payload.get("use_brand_context") is not False else {}
         try:
             result = swap_reference(

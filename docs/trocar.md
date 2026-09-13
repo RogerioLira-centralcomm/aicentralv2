@@ -54,7 +54,7 @@ Variáveis de ambiente:
 |---|---|---|
 | `CREATIVE_FORMAT_SWAP_READ_MODEL` | `openai/gpt-5-nano` | OCR |
 | `CREATIVE_FORMAT_SWAP_READ_TEMPERATURE` | `0` | OCR |
-| `CREATIVE_FORMAT_SWAP_READ_MAX_TOKENS` | `1200` | OCR |
+| `CREATIVE_FORMAT_SWAP_READ_MAX_TOKENS` | `4000` | OCR |
 | `OPENROUTER_API_KEY` | — | fallback se a integração não resolver |
 | `USD_BRL_RATE` | cotação dinâmica | quote em reais |
 | `CREATIVE_FORMAT_SWAP_STRICT_PLAN` | ligado | hash do preview tem de bater na geração |
@@ -114,7 +114,7 @@ Upload → OCR → Análise → Edição → Geração → Revisão
 ```
 
 1. **Upload.** Drop zone ou file input. A imagem vira `v1 · Original`. Se o usuário não escolheu formato, o cliente estima 16:9 / 9:16 / 4:5 / 1:1 pela proporção do arquivo.
-2. **OCR.** O cliente redimensiona o lado longo para 1280 px (JPEG 0.82) só para a leitura. A geração usa a imagem cheia. `POST /swap/read`.
+2. **OCR.** O cliente redimensiona o lado longo para 1280 px (JPEG 0.82) só para a leitura e só persiste o histórico depois. Still autenticado (`/swap/still/...`) é materializado em data URL no servidor — caminho relativo não vai ao OpenRouter. A geração usa a imagem cheia. `POST /swap/read`. **Nova peça** apaga a sessão (`reset: true`) e volta ao drop.
 3. **Análise.** Checkboxes de fundo, imagens, grafismo, logo, título, secundário, CTA e apoios. Selos `role=person`, datas, local e `logo_text` viram **locks** (“Fica na peça”).
 4. **Edição.** Campos editáveis + preservar/alterar + nota livre + formato + qualidade. `POST /swap/prompt` a cada ~220 ms (debounce). A UI mostra o preview em português; o Image 2 recebe o prompt em inglês.
 5. **Geração.** Rascunho ou produção chama `POST /swap`. Steps visuais: Análise → Montagem do prompt → Geração → Finalização.
@@ -641,7 +641,7 @@ Cobertura principal:
 - prompt pede português e proíbe neon
 - Image 2 recebe referência + logo
 - sem logo, uma referência só
-- OCR parseia JSON e analysis
+- OCR parseia JSON e analysis; still autenticado vira data URL; `reset` apaga a sessão
 - cartela de elenco → typeset, Image 2 **não** roda
 - typeset 16:9 não pinta a elipse da pessoa
 - recrop: Image 2 depois typeset

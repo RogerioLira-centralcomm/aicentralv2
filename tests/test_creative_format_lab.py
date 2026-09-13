@@ -2559,6 +2559,26 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
         self.assertEqual(result["status"], "completed")
         self.assertEqual(captured.get("response_format"), {"type": "json_object"})
 
+    def test_ocr_aceita_json_em_reasoning_details(self):
+        def fake_text(_messages, **_kwargs):
+            return {
+                "message": {
+                    "content": "",
+                    "reasoning_details": [
+                        {"type": "reasoning.summary", "summary": "vou ler o still"},
+                        {"type": "reasoning", "text": '{"headline":"TIM BLACK","cta":"Contratar"}'},
+                    ],
+                }
+            }
+
+        result = read_swap_reference(
+            {"reference": "data:image/png;base64,aaa"},
+            text_callable=fake_text,
+        )
+        self.assertEqual(result["headline"], "TIM BLACK")
+        self.assertEqual(result["cta"], "Contratar")
+        self.assertEqual(result["status"], "completed")
+
     def test_ocr_aceita_json_no_reasoning_quando_content_vem_vazio(self):
         def fake_text(_messages, **_kwargs):
             return {

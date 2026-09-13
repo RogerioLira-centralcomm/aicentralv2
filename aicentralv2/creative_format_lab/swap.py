@@ -16,7 +16,7 @@ from .lab_models import JSON_OBJECT
 SWAP_MODEL = "openai/gpt-image-2"
 SWAP_READ_MODEL = os.getenv("CREATIVE_FORMAT_SWAP_READ_MODEL", "openai/gpt-5-nano")
 SWAP_READ_TEMPERATURE = float(os.getenv("CREATIVE_FORMAT_SWAP_READ_TEMPERATURE", "0") or 0)
-SWAP_READ_MAX_TOKENS = int(os.getenv("CREATIVE_FORMAT_SWAP_READ_MAX_TOKENS", "1200") or 1200)
+SWAP_READ_MAX_TOKENS = int(os.getenv("CREATIVE_FORMAT_SWAP_READ_MAX_TOKENS", "4000") or 4000)
 SWAP_ESTIMATE_USD = 0.22
 SWAP_DRAFT_ESTIMATE_USD = 0.14
 TYPE_ONLY = {"headline", "secondary", "cta", "price"}
@@ -647,16 +647,54 @@ def _ocr_message_content(response):
     if isinstance(response, dict):
         message = response.get("message")
         if isinstance(message, dict):
-            for key in ("content", "parsed"):
+            for key in ("content", "parsed", "output_text"):
                 value = message.get(key)
                 if value not in (None, "", []):
                     return value
+            details = message.get("reasoning_details")
+            if isinstance(details, list):
+                chunks = []
+                for item in details:
+                    if isinstance(item, str) and item.strip():
+                        chunks.append(item)
+                        continue
+                    if not isinstance(item, dict):
+                        continue
+                    for key in ("text", "summary", "content", "reasoning"):
+                        value = item.get(key)
+                        if isinstance(value, str) and value.strip():
+                            chunks.append(value)
+                            break
+                blob = "\n".join(chunks)
+                if "{" in blob:
+                    return blob
             reasoning = message.get("reasoning")
             if isinstance(reasoning, str) and "{" in reasoning:
                 return reasoning
             return message.get("content")
         return response.get("content", response)
     return response
+
+
+def _invoke_ocr(text_callable, messages, extra=None):
+    kwargs = {
+        "model": SWAP_READ_MODEL,
+        "max_tokens": SWAP_READ_MAX_TOKENS,
+        "temperature": SWAP_READ_TEMPERATURE,
+        "response_format": JSON_OBJECT,
+        "reasoning": {"effort": "low"},
+    }
+    if extra:
+        kwargs.update(extra)
+    try:
+        return text_callable(messages, **kwargs)
+    except TypeError:
+        kwargs.pop("reasoning", None)
+        try:
+            return text_callable(messages, **kwargs)
+        except TypeError:
+            kwargs.pop("response_format", None)
+            return text_callable(messages, **kwargs)
 
 
 def read_swap_reference(payload=None, *, text_callable=None):
@@ -668,23 +706,18 @@ def read_swap_reference(payload=None, *, text_callable=None):
     if text_callable is None:
         return {**empty, "status": "unavailable", "error": "OCR indisponível. Escreva os textos na mão."}
     system = READ_STRICT_SYSTEM if payload.get("strict") else READ_SYSTEM
-    try:
-        response = text_callable(
-            [
-                {"role": "system", "content": system},
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": "Leia os elementos editáveis deste still."},
-                        {"type": "image_url", "image_url": {"url": reference}},
-                    ],
-                },
+    messages = [
+        {"role": "system", "content": system},
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Leia os elementos editáveis deste still."},
+                {"type": "image_url", "image_url": {"url": reference}},
             ],
-            model=SWAP_READ_MODEL,
-            max_tokens=SWAP_READ_MAX_TOKENS,
-            temperature=SWAP_READ_TEMPERATURE,
-            response_format=JSON_OBJECT,
-        )
+        },
+    ]
+    try:
+        response = _invoke_ocr(text_callable, messages)
     except Exception:
         return {**empty, "status": "provider_error", "error": "O provedor de OCR falhou. Escreva na mão ou tente de novo."}
     raw = _ocr_message_content(response)

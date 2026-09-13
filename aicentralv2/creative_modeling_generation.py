@@ -138,6 +138,12 @@ def _flatten_provider_content(content):
         text = item.get("text")
         if text is None:
             text = item.get("content")
+        if text is None:
+            text = item.get("output_text")
+        if text is None:
+            text = item.get("summary")
+        if text is None:
+            text = item.get("reasoning")
         if isinstance(text, dict):
             return text
         if isinstance(text, str) and text.strip():

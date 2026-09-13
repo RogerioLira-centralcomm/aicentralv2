@@ -174,6 +174,7 @@ def chat_completion(
     frequency_penalty: Optional[float] = None,
     presence_penalty: Optional[float] = None,
     response_format: Optional[Dict[str, Any]] = None,
+    reasoning: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Executa chat/tool-calling com parâmetros conservadores para uso operacional."""
     payload = {
@@ -204,6 +205,8 @@ def chat_completion(
         payload["plugins"] = plugins
     if response_format:
         payload["response_format"] = response_format
+    if reasoning:
+        payload["reasoning"] = reasoning
     payload = sanitize_chat_payload(payload)
     headers = {
         "Authorization": f"Bearer {_api_key()}",

@@ -595,7 +595,7 @@ Recrop acrescenta: *O Image 2 só vira o formato. Preço, quota e headline entra
 
 ## 10. Contexto de marca
 
-A marca do Trocr é a da Mesa 15s. Os dois escrevem `localStorage.cx-mc-desk-client`. O seletor lista só marcas com informação (DNA, logo, tom, paleta ou histórico Trocr), em ordem alfabética.
+A marca do Trocr é a da Mesa 15s. Os dois escrevem `localStorage.cx-mc-desk-client`. O seletor lista só marcas com informação (DNA, logo, tom, paleta ou histórico Trocr), em ordem alfabética. DNA começa desligado. A tela não cita o modelo de imagem nem se ele cobra.
 
 Se `use_brand_context` não for `false` e houver `client_id`:
 

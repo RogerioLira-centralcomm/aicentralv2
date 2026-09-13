@@ -53,8 +53,7 @@
     userPickedFormat: false,
     presentation: 'final',
     quality: 'draft',
-    feedbackOpen: false,
-    brandContext: true,
+    brandContext: false,
     promptEdited: false,
     promptLocked: false,
     lastRead: null,
@@ -161,6 +160,7 @@
     });
     $('mcTrocrBrandContext')?.addEventListener('change', (event) => {
       state.brandContext = event.target.checked;
+      syncBrandOption();
       refreshPrompt();
     });
     ['mcSwapHeadline', 'mcSwapSupport', 'mcTrocrSubtitle', 'mcTrocrDates', 'mcTrocrVenue', 'mcTrocrPrice', 'mcSwapCta', 'mcTrocrCta2', 'mcTrocrLogo', 'mcTrocrDisclaimer', 'mcSwapNote'].forEach((id) => {
@@ -173,6 +173,9 @@
     document.querySelectorAll('input[name="mcTrocrPreserve"], input[name="mcTrocrAlter"]').forEach((node) => {
       node.addEventListener('change', refreshPrompt);
     });
+    document.querySelectorAll('input[name="mcTrocrAnalysis"]').forEach((node) => {
+      node.addEventListener('change', renderEditPanels);
+    });
     $('mcSwapRun')?.addEventListener('click', () => {
       const quality = (state.mode === 'typeset' || state.mode === 'recrop') ? 'production' : state.quality;
       runSwap(quality);
@@ -184,8 +187,11 @@
     $('mcTrocrHistory')?.addEventListener('click', (event) => {
       if (event.target === event.currentTarget) closeHistory();
     });
-    $('mcTrocrFeedbackToggle')?.addEventListener('click', () => setFeedbackOpen(!state.feedbackOpen));
-    $('mcTrocrFeedbackClose')?.addEventListener('click', () => setFeedbackOpen(false));
+    $('mcSwapImage')?.addEventListener('click', (event) => {
+      if (!canMarkOnImage() || state.picking) return;
+      event.preventDefault();
+      togglePickRegion();
+    });
     $('mcTrocrForceImage')?.addEventListener('change', () => {
       refreshPrompt();
       refreshQuote();
@@ -262,24 +268,39 @@
     renderClients();
   }
 
+  function brandHasDna(client) {
+    return Boolean(client && Desk.hasInfo(client));
+  }
+
+  function syncBrandOption() {
+    const row = $('mcTrocrBrandRow');
+    const box = $('mcTrocrBrandContext');
+    const ready = brandHasDna(currentClient());
+    if (!ready) state.brandContext = false;
+    if (row) row.hidden = !ready;
+    if (box) box.checked = Boolean(ready && state.brandContext);
+    renderBrandHint();
+  }
+
   function renderBrandHint() {
     const hint = $('mcTrocrBrandHint');
     if (!hint) return;
     const client = currentClient();
     if (!state.clients.length) {
-      hint.textContent = 'Nenhuma marca com DNA ou logo. Abra Marcas para cadastrar o perfil.';
+      hint.textContent = 'Nenhuma marca com perfil. O pedido segue só com a foto.';
       return;
     }
     if (!client) {
-      hint.textContent = 'Escolha a marca da Mesa. Sem ela, logo, tom e histórico não entram.';
+      hint.textContent = 'Escolha a marca da Mesa. O histórico fica nesta sessão.';
       return;
     }
-    const bits = [];
-    if (client.brand_profile?.creative_line) bits.push('DNA');
-    if (client.logo_url || client.logo_upload_path) bits.push('logo');
-    hint.textContent = bits.length
-      ? `${client.name} da Mesa · ${bits.join(' e ')} entram na geração.`
-      : `${client.name} da Mesa. O histórico desta marca fica nesta sessão.`;
+    if (!brandHasDna(client)) {
+      hint.textContent = 'Sem perfil desta marca. O pedido segue só com a foto.';
+      return;
+    }
+    hint.textContent = state.brandContext
+      ? `${client.name} da Mesa. DNA entra nesta versão.`
+      : `${client.name} da Mesa. DNA só entra se você ligar abaixo.`;
   }
 
   function renderClients() {
@@ -287,7 +308,7 @@
     if (!select) return;
     if (!state.clients.length) {
       select.innerHTML = '<option value="">Nenhuma marca com perfil</option>';
-      renderBrandHint();
+      syncBrandOption();
       return;
     }
     select.innerHTML = state.clients.map((item) => (
@@ -299,7 +320,7 @@
       state.clientId = select.value;
       Desk.write(state.clientId);
     }
-    renderBrandHint();
+    syncBrandOption();
   }
 
   function takeFile(file) {
@@ -427,7 +448,7 @@
     if (meta?.cached) {
       return 'Elementos da base ativa. Edite o texto e gere uma nova versão.';
     }
-    return 'Elementos identificados na imagem. Selecione o que deseja preservar ou alterar.';
+    return 'A leitura preencheu. Confira o pedido à direita.';
   }
 
   function paintOcrStatus(data) {
@@ -732,8 +753,7 @@
       }
       if (state.planBlocked && !$('mcTrocrConfirmConflicts')?.checked) {
         const first = state.conflicts.find((item) => item.blocking) || state.conflicts[0] || {};
-        setFeedbackOpen(true);
-        throw new Error(first.message || 'Confirme o conflito antes de gerar.');
+        throw new Error(conflictCopy(first) || 'Ajuste o pedido antes de gerar.');
       }
       const data = await request(API.swap, {
         ...editFields(),
@@ -749,7 +769,7 @@
       paintRoute(data.risk, data.mode, data.quote, data);
       if (data.noop || data.mode === 'noop') {
         setFlow('edit');
-        toast('Nada para trocar. O Trocr não gerou versão.', 'success');
+        toast('Nada para trocar. Nenhuma versão nova.', 'success');
         setStatus(data.preview || 'Nada para trocar. Marque um item ou escreva a instrução.');
         return null;
       }
@@ -782,7 +802,7 @@
       setStatus(data.mode === 'typeset'
         ? 'Tipo composto na foto original. Os selos de nome não foram redesenhados.'
         : (data.mode === 'recrop'
-          ? 'O Image 2 só recortou. Preço e headline entraram na foto.'
+          ? 'O formato virou. Preço e headline entraram na foto.'
           : (data.logo_used
             ? 'Nova versão criada. A logo oficial entrou no quadro.'
             : 'Nova versão criada. Use esta versão como base para continuar editando.')));
@@ -1013,20 +1033,19 @@
       if (ocrFailed) ocr.open = true;
       if ($('mcTrocrOcrHint') && !ocrFailed) {
         $('mcTrocrOcrHint').textContent = filled
-          ? 'Lidos da imagem. Abra só se for ajustar.'
+          ? 'A leitura preencheu. Abra só se algo estiver errado.'
           : 'Nenhum texto para mostrar.';
       }
     }
-    const ocrSignal = $('mcTrocrOcrSignal');
-    if (ocrSignal) {
-      ocrSignal.hidden = filledCount === 0 && !ocrFailed;
-      ocrSignal.textContent = ocrFailed ? 'Sem leitura' : (filledCount ? `${filledCount} lidos` : '');
-    }
     const analysisCount = document.querySelectorAll('input[name="mcTrocrAnalysis"]:checked').length;
-    const analysisSignal = $('mcTrocrAnalysisSignal');
-    if (analysisSignal) {
-      analysisSignal.hidden = !ready || analysisCount === 0;
-      analysisSignal.textContent = analysisCount ? `${analysisCount} vistos` : '';
+    const readSignal = $('mcTrocrReadSignal');
+    if (readSignal) {
+      const parts = [];
+      if (ocrFailed) parts.push('Sem leitura');
+      else if (filledCount) parts.push(`${filledCount} textos`);
+      if (analysisCount) parts.push(`${analysisCount} na foto`);
+      readSignal.hidden = !parts.length;
+      readSignal.textContent = parts.join(' · ');
     }
   }
 
@@ -1091,7 +1110,7 @@
     }
     if ($('mcTrocrWaitCopy')) {
       $('mcTrocrWaitCopy').textContent = typeset
-        ? 'Isso costuma ser imediato. Sem Image 2.'
+        ? 'Isso costuma ser imediato.'
         : (draft
           ? 'Rascunho costuma levar menos de 30 segundos.'
           : 'Produção costuma passar de um minuto.');
@@ -1126,18 +1145,6 @@
     if (!dialog) return;
     if (typeof dialog.close === 'function' && dialog.open) dialog.close();
     else dialog.hidden = true;
-  }
-
-  function setFeedbackOpen(open, options) {
-    state.feedbackOpen = Boolean(open);
-    const rail = $('mcTrocrFeedback');
-    const hasAlert = Boolean(options?.alert);
-    const show = state.feedbackOpen || hasAlert;
-    if (rail) rail.hidden = !show;
-    $('mcSwap')?.classList.toggle('has-feedback', show);
-    if ($('mcTrocrFeedbackToggle')) {
-      $('mcTrocrFeedbackToggle').textContent = show ? 'Esconder rota e avisos' : 'Ver rota e avisos';
-    }
   }
 
   function setZoom(value) {
@@ -1199,7 +1206,6 @@
     hideError();
     hideWait();
     closeHistory();
-    setFeedbackOpen(false);
     setFlow('upload');
     setViewMode('view');
     if ($('mcSwapImage')) $('mcSwapImage').removeAttribute('src');
@@ -1309,20 +1315,20 @@
           ? 'Pedido bloqueado'
           : (typeset
             ? 'Tipo na foto'
-            : (recrop ? 'Recorte + tipo na foto' : 'Image 2 redesenha')));
+            : (recrop ? 'Recorte + tipo na foto' : 'A peça é redesenhada')));
     }
     if ($('mcTrocrRouteCopy')) {
       $('mcTrocrRouteCopy').textContent = noop
-        ? 'O Trocr não gera versão nem cobra Image 2. Marque um item ou escreva a instrução.'
+        ? 'Falta dizer o que muda. Marque um item ou escreva a frase.'
         : (blocked
-          ? 'Confirme o conflito ou ajuste preservar/alterar antes de gerar.'
+          ? 'Ajuste o pedido antes de gerar.'
           : (typeset
-            ? 'O texto novo entra na referência. Selos de nome não passam pelo modelo.'
+            ? 'O texto novo entra na foto. A imagem não muda.'
             : (recrop
-              ? 'O Image 2 vira o formato. Preço, quota e headline entram na foto depois.'
+              ? 'O formato muda. O texto entra na foto depois.'
               : (risk?.level === 'high'
-                ? (risk.reason || 'O Image 2 costuma embaralhar os selos desta cartela.')
-                : 'Rascunho valida a troca. Produção só se for usar a peça.'))));
+                ? safeReason(risk, 'Os selos desta cartela costumam embaralhar se a peça for redesenhada.')
+                : 'A peça é redesenhada com o pedido.'))));
     }
     paintCost(quote);
     paintRisk(risk, state.mode);
@@ -1334,9 +1340,9 @@
     if ($('mcTrocrForceRow')) $('mcTrocrForceRow').hidden = !(typeset || recrop || risk?.level === 'high' || forced);
     if ($('mcTrocrPromptHint')) {
       $('mcTrocrPromptHint').textContent = typeset
-        ? 'O texto entra na foto. Sem Image 2.'
+        ? 'O texto entra na foto. A imagem não muda.'
         : (recrop
-          ? 'O recorte passa pelo Image 2. O tipo entra na foto depois.'
+          ? 'O formato muda. O texto entra na foto depois.'
           : 'Uma frase basta: o item novo e o que não pode mexer.');
     }
     if ($('mcTrocrStepGenHint')) {
@@ -1346,10 +1352,20 @@
     enableGenerate(canGenerate());
     paintQa(plan?.qa);
     paintRegionHint();
+    paintMarkable();
     renderBaseMeta();
-    const hasAlert = blocked || (state.conflicts || []).length > 0 || risk?.level === 'high';
-    if (hasAlert) setFeedbackOpen(true, { alert: true });
-    else setFeedbackOpen(state.feedbackOpen);
+  }
+
+  function canMarkOnImage() {
+    if (state.viewMode !== 'view' || !baseVersion()?.image) return false;
+    if ($('mcTrocrWait') && !$('mcTrocrWait').hidden) return false;
+    return state.mode === 'typeset'
+      || state.mode === 'recrop'
+      || state.conflicts.some((item) => item.code === 'needs_region');
+  }
+
+  function paintMarkable() {
+    $('mcTrocrViewport')?.classList.toggle('is-markable', canMarkOnImage() && !state.picking);
   }
 
   function paintQa(qa) {
@@ -1383,7 +1399,7 @@
     }
     if (state.conflicts.some((item) => item.code === 'needs_region')) {
       node.hidden = false;
-      node.textContent = 'Selecione a região do item. Sem caixa o Trocr não pinta no escuro.';
+      node.textContent = 'Marque na foto a área do texto.';
       return;
     }
     node.hidden = state.mode !== 'typeset';
@@ -1406,9 +1422,10 @@
     const layer = $('mcTrocrRegion');
     if (layer) layer.hidden = !state.picking && !state.region?.box;
     paintRegionHint();
+    paintMarkable();
     setStatus(state.picking
       ? `Arraste a região do ${regionLabel(regionField())}.`
-      : (state.region?.box ? 'Região marcada. O typeset pinta só ali.' : 'Seleção de região desligada.'));
+      : (state.region?.box ? 'Região marcada. O tipo pinta só ali.' : 'Seleção de região desligada.'));
   }
 
   function imageContentRect(img) {
@@ -1520,14 +1537,48 @@
     node.style.height = `${(box[3] - box[1]) * content.scale}px`;
   }
 
+  function safeReason(risk, fallback) {
+    const text = String(risk?.reason || '');
+    if (!text || /image\s*2|modelo/i.test(text)) return fallback;
+    return text;
+  }
+
+  function conflictCopy(item) {
+    const code = item?.code || '';
+    if (code === 'logo_locked') return 'A logo oficial fica. O pedido não troca o mark.';
+    if (code === 'preserve_and_alter') {
+      const named = String(item.message || '').split(':').pop()?.replace(/\.$/, '').trim();
+      return named
+        ? `${named} está em Fica e em Troca. Deixe só um lado.`
+        : 'O mesmo item está em Fica e em Troca. Deixe só um lado.';
+    }
+    if (code === 'field_without_operation') {
+      const label = String(item.message || '').split(' ')[0];
+      return label ? `${label} mudou. Marque ${label} em Troca.` : 'Um campo mudou. Marque o item em Troca.';
+    }
+    if (code === 'layout_vs_format') return 'O formato muda e o layout está em Fica. Confirme a recomposição.';
+    if (code === 'note_mismatch') return 'A frase pede algo que não está em Troca.';
+    if (code === 'needs_region') return 'Marque na foto a área do texto.';
+    return item?.message || code || '';
+  }
+
   function paintConflicts(conflicts, blocked) {
     const box = $('mcTrocrConflicts');
     const list = $('mcTrocrConflictList');
     const row = $('mcTrocrConfirmRow');
-    const items = Array.isArray(conflicts) ? conflicts : [];
+    const note = $('mcTrocrBrandNote');
+    const raw = Array.isArray(conflicts) ? conflicts : [];
+    const logoNote = raw.find((item) => item.code === 'logo_locked');
+    const items = raw.filter((item) => item.code !== 'logo_locked');
+    if (note) {
+      note.hidden = !(state.brandContext && logoNote);
+      note.textContent = state.brandContext && logoNote ? conflictCopy(logoNote) : '';
+    }
     if (box) box.hidden = items.length === 0;
     if (list) {
-      list.innerHTML = items.map((item) => `<li>${escapeHtml(item.message || item.code || '')}</li>`).join('');
+      list.innerHTML = items.map((item) => (
+        `<li class="${item.blocking ? 'is-block' : ''}">${escapeHtml(conflictCopy(item))}</li>`
+      )).join('');
     }
     const confirmable = items.some((item) => item.blocking && item.code !== 'needs_region');
     if (row) row.hidden = !confirmable;
@@ -1548,7 +1599,7 @@
     node.hidden = !warn;
     node.classList.toggle('is-on', warn);
     node.textContent = warn
-      ? (risk.reason || 'O Image 2 costuma embaralhar os selos desta cartela.')
+      ? safeReason(risk, 'Os selos desta cartela costumam embaralhar se a peça for redesenhada.')
       : '';
   }
 

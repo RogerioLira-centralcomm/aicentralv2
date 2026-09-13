@@ -6,12 +6,13 @@ Contrato completo (payloads, prompts, modos typeset/recrop/image, APIs e lab): [
 
 ## Visão geral da tela
 
-Quatro regiões, nesta ordem:
+Cinco regiões, nesta ordem:
 
 1. Header da página — título e entrada do histórico em modal
 2. Faixa de etapas no topo — Upload, OCR, Análise, Edição, Geração, Resultado
-3. Canvas central — visualização, comparar, overlay de geração com cronômetro
-4. Inspetor direito — a marca da Mesa (só perfis com DNA/logo), formato e o que mudar. Textos e análise ficam recolhidos com sinal. Rota e avisos abrem uma coluna extra.
+3. Coluna Edição — marca, formato, ajuste da leitura, texto técnico
+4. Canvas central — visualização, clique para marcar área, overlay de geração
+5. Coluna do pedido — o que mudar, Fica/Troca, rota e avisos no mesmo bloco, gerar
 
 A tira de versões fica sob o canvas. Nenhuma geração substitui a anterior.
 

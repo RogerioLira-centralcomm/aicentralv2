@@ -1,24 +1,9 @@
 <section class="mc-trocr-section" id="mcTrocrEditBlock" hidden>
-  <h3>O que mudar</h3>
+  <h2>O que mudar</h2>
   <p class="mc-trocr-help" id="mcTrocrPromptHint">Uma frase basta: o item novo e o que não pode mexer.</p>
   <label class="cx-field">
     <textarea class="cx-input" id="mcSwapNote" rows="3" maxlength="500" placeholder="Trocar o preço para R$ 99,90. Manter as pessoas e o fundo."></textarea>
     <small class="mc-trocr-count" id="mcTrocrNoteCount">0/500</small>
   </label>
   {% include "parametros/trocr/_preserve_alter.html" %}
-  <details class="mc-trocr-fold mc-trocr-prompt-fold">
-    <summary>
-      <h3>Prompt avançado</h3>
-      <small class="mc-trocr-help">Só se quiser editar o texto que vai ao modelo.</small>
-    </summary>
-    <div class="mc-trocr-prompt" id="mcTrocrPromptBox">
-      <div class="mc-trocr-prompt-head">
-        <div class="mc-trocr-prompt-actions">
-          <button type="button" class="mc-trocr-text-cta" id="mcTrocrUsePrompt">Usar este prompt</button>
-          <button type="button" class="mc-trocr-text-cta is-muted" id="mcTrocrEditPrompt">Editar</button>
-        </div>
-      </div>
-      <textarea class="cx-input" id="mcTrocrPrompt" rows="5" readonly placeholder="A mesa monta o prompt quando o Image 2 for entrar."></textarea>
-    </div>
-  </details>
 </section>

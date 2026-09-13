@@ -1,10 +1,11 @@
 <details class="mc-trocr-section mc-trocr-fold" id="mcTrocrOcr" hidden>
   <summary>
-    <h3>Textos da peça</h3>
-    <span class="mc-trocr-fold-signal" id="mcTrocrOcrSignal" hidden></span>
-    <small class="mc-trocr-help" id="mcTrocrOcrHint">Nenhum texto para mostrar.</small>
+    <h3>Ajuste da leitura</h3>
+    <span class="mc-trocr-fold-signal" id="mcTrocrReadSignal" hidden></span>
+    <small class="mc-trocr-help" id="mcTrocrOcrHint">A leitura preencheu. Abra só se algo estiver errado.</small>
   </summary>
   <p class="mc-trocr-ocr-banner" id="mcTrocrOcrBanner" hidden></p>
+  <p class="mc-trocr-read-kicker">Palavras</p>
   <label class="cx-field">
     <span class="cx-label">Headline</span>
     <input class="cx-input" id="mcSwapHeadline" type="text" maxlength="80" placeholder="A linha que entra no quadro">
@@ -47,4 +48,5 @@
     <span class="cx-label">Disclaimer</span>
     <textarea class="cx-input" id="mcTrocrDisclaimer" rows="2" maxlength="160" placeholder="Texto legal visível na peça, se houver"></textarea>
   </label>
+  {% include "parametros/trocr/_analysis.html" %}
 </details>

@@ -306,8 +306,9 @@ def build_image_payload(
     model: Optional[str] = None,
     input_references=None,
 ) -> Dict[str, Any]:
+    resolved = resolve_image_model(model)
     payload = sanitize_image_payload({
-        "model": resolve_image_model(model),
+        "model": resolved,
         "prompt": prompt,
         "aspect_ratio": aspect_ratio or "16:9",
         "quality": quality,
@@ -315,6 +316,9 @@ def build_image_payload(
         "resolution": resolution,
         "background": background,
     })
+    if "gemini-3" in resolved or "seedream" in resolved:
+        payload.pop("quality", None)
+        payload.pop("background", None)
     refs = []
     for item in list(input_references or [])[:2]:
         try:

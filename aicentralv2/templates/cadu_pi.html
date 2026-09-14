@@ -261,33 +261,20 @@
                  title="Abrir workspace financeiro">
                 Workspace
               </a>
-              {% if origem_lista == 'faturamento' and not pi.get('nf_id') %}
-              <button type="button"
-                      onclick='abrirModalImportarNf({{ pi.id_pi }}, {{ pi_info|tojson }})'
-                      class="inline-flex items-center justify-center w-6 h-6 rounded text-[10px] font-medium bg-teal-100 text-teal-700 hover:bg-teal-200"
-                      title="Importar NF (PDF)">
-                <i class="fa-solid fa-file-import text-[10px]"></i>
-              </button>
-              {% endif %}
               {% if origem_lista == 'faturamento' %}
-                {% if pi.get('nf_spedy_status') == 'authorized' %}
-              <span class="hidden inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-semibold bg-violet-100 text-violet-700"
-                    title="NFS-e Spedy autorizada">
-                SP ✓
-              </span>
-                {% elif pi.get('nf_id') and pi.get('nf_spedy_status') in ['enqueued', 'received', 'processing', 'creating'] %}
+                {% if pi.get('nf_id') and pi.get('nf_spedy_status') in ['enqueued', 'received', 'processing', 'creating'] %}
               <button type="button"
                       onclick='continuarConfirmacaoSpedy({{ pi.id_pi }}, {{ pi.nf_id }})'
-                      class="hidden inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-semibold bg-violet-100 text-violet-700 hover:bg-violet-200"
+                      class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-violet-100 text-violet-700 hover:bg-violet-200"
                       title="Confirmar emissão Spedy">
-                <i class="fa-solid fa-spinner fa-spin text-[8px]"></i> SP
+                <i class="fa-solid fa-spinner fa-spin text-[8px]"></i> Confirmar NF
               </button>
-                {% else %}
+                {% elif not pi.get('nf_id') %}
               <button type="button"
                       onclick='abrirModalSpedy({{ pi.id_pi }}, {{ pi_info|tojson }})'
-                      class="hidden inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-semibold bg-violet-600 text-white hover:bg-violet-700"
-                      title="Emitir NFS-e de teste via Spedy (sem e-mail ao cliente)">
-                SP
+                      class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-violet-600 text-white hover:bg-violet-700"
+                      title="Gerar NFS-e via Spedy">
+                <i class="fa-solid fa-file-invoice text-[8px]"></i> Gerar NF
               </button>
                 {% endif %}
               {% endif %}
@@ -311,7 +298,7 @@
                   {% endif %}
                 </div>
               </div>
-                {% else %}
+                {% elif origem_lista != 'faturamento' or pi.get('nf_spedy_status') not in ['enqueued', 'received', 'processing', 'creating'] %}
               <button onclick='abrirModalNf({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }})'
                       class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium
  {% if pi.nf_status == 1 %}bg-yellow-100 text-yellow-700 hover:bg-yellow-200
@@ -700,27 +687,41 @@
   <form method="dialog" class="cx-modal-dismiss"><button>close</button></form>
 </dialog>
 
-<!-- Modal Spedy — emissão de teste NFS-e -->
+<!-- Modal Spedy — emissão NFS-e -->
 <dialog id="modal_spedy" class="cx-modal-shell">
-  <div class="cx-modal-panel max-w-md p-4">
-    <div class="flex items-center justify-between mb-3">
-      <h3 class="font-bold text-[11px]" id="modal_spedy_title">Emitir NFS-e via Spedy</h3>
+  <div class="cx-modal-panel max-w-lg p-4">
+    <div class="flex items-center justify-between mb-3 gap-2">
+      <div class="flex items-center gap-2 min-w-0">
+        <h3 class="font-bold text-[11px]" id="modal_spedy_title">Gerar NFS-e via Spedy</h3>
+        <span id="spedy_env_badge" class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold shrink-0">—</span>
+      </div>
       <form method="dialog"><button class="cx-btn cx-btn-ghost cx-btn-xs cx-btn-icon" id="modal_spedy_close_btn">✕</button></form>
     </div>
     <input type="hidden" id="spedy_id_pi">
     <input type="hidden" id="spedy_nf_id">
+    <input type="hidden" id="spedy_ready" value="0">
 
     <div id="spedy_step_confirm">
-      <p class="text-[10px] text-gray-600 mb-2">
-        Emissão de <strong>teste</strong> no ambiente Spedy sandbox. Revise os dados do PI antes de continuar.
+      <p class="text-[10px] text-gray-600 mb-2" id="spedy_intro_text">
+        Carregando preview da emissão...
       </p>
+
+      <div id="spedy_errors_box" class="hidden rounded-lg border border-red-200 bg-red-50 px-3 py-2 mb-3 text-[10px] text-red-900">
+        <p class="font-semibold mb-1">Não é possível emitir:</p>
+        <ul id="spedy_errors_list" class="list-disc pl-4 space-y-0.5"></ul>
+      </div>
+
+      <div id="spedy_warnings_box" class="hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 mb-3 text-[10px] text-amber-950">
+        <p class="font-semibold mb-1">Avisos — revise antes de confirmar:</p>
+        <ul id="spedy_warnings_list" class="list-disc pl-4 space-y-0.5"></ul>
+      </div>
 
       <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 mb-3 text-[10px] text-amber-950">
         <p class="font-semibold mb-1.5">Ao confirmar, o sistema irá:</p>
-        <ul class="list-disc pl-4 space-y-0.5 text-[10px]">
-          <li>Gerar a <strong>nota fiscal de serviço (NFS-e)</strong> na Spedy com os dados do PI.</li>
-          <li>Alterar o status do PI para <strong>NF Emitida</strong> após autorização da nota.</li>
-          <li>Registrar a NFS-e vinculada a este PI no cadastro interno.</li>
+        <ul id="spedy_actions_list" class="list-disc pl-4 space-y-0.5 text-[10px]">
+          <li>Gerar a <strong>nota fiscal de serviço (NFS-e)</strong> na Spedy com os dados abaixo.</li>
+          <li id="spedy_action_status_pi">Alterar o status do PI para <strong>NF Emitida</strong> após autorização da nota.</li>
+          <li>Salvar na base os dados enviados à Spedy e os retornos da emissão.</li>
         </ul>
         <p class="mt-2 text-[10px] font-medium text-green-800">
           <i class="fa-solid fa-envelope-circle-check mr-1"></i>
@@ -729,22 +730,63 @@
       </div>
 
       <div class="bg-gray-50 rounded-lg px-3 py-2 mb-3 border border-gray-200">
-        <div class="grid grid-cols-2 gap-x-3 gap-y-1.5">
+        <p class="text-[9px] uppercase text-gray-400 font-semibold mb-1.5">Dados do PI</p>
+        <div class="grid grid-cols-2 gap-x-3 gap-y-1.5 mb-2">
           <div>
             <span class="text-[9px] uppercase text-gray-400 font-semibold block">Cód PI</span>
             <span class="text-[10px] font-mono font-semibold text-blue-600" id="spedy_info_cod_pi">-</span>
           </div>
           <div>
-            <span class="text-[9px] uppercase text-gray-400 font-semibold block">Valor líquido</span>
+            <span class="text-[9px] uppercase text-gray-400 font-semibold block">Valor</span>
             <span class="text-[10px] font-semibold text-green-700" id="spedy_info_valor">-</span>
           </div>
-          <div class="col-span-2">
-            <span class="text-[9px] uppercase text-gray-400 font-semibold block">Cliente</span>
-            <span class="text-[10px] text-gray-800" id="spedy_info_cliente">-</span>
+          <div>
+            <span class="text-[9px] uppercase text-gray-400 font-semibold block">Mês ref.</span>
+            <span class="text-[10px] text-gray-700" id="spedy_info_mes_ref">-</span>
           </div>
           <div class="col-span-2">
+            <span class="text-[9px] uppercase text-gray-400 font-semibold block">Título</span>
+            <span class="text-[10px] text-gray-800" id="spedy_info_titulo">-</span>
+          </div>
+        </div>
+
+        <p class="text-[9px] uppercase text-gray-400 font-semibold mb-1.5 mt-2">Tomador (cliente)</p>
+        <div class="grid grid-cols-2 gap-x-3 gap-y-1.5 mb-2">
+          <div class="col-span-2">
+            <span class="text-[9px] uppercase text-gray-400 font-semibold block">Razão social</span>
+            <span class="text-[10px] text-gray-800" id="spedy_info_cliente">-</span>
+          </div>
+          <div>
             <span class="text-[9px] uppercase text-gray-400 font-semibold block">CNPJ</span>
             <span class="text-[10px] text-gray-600 font-mono" id="spedy_info_cnpj">-</span>
+          </div>
+          <div>
+            <span class="text-[9px] uppercase text-gray-400 font-semibold block">E-mail</span>
+            <span class="text-[10px] text-gray-700 break-all" id="spedy_info_email">-</span>
+          </div>
+          <div>
+            <span class="text-[9px] uppercase text-gray-400 font-semibold block">Telefone</span>
+            <span class="text-[10px] text-gray-700 font-mono" id="spedy_info_phone">-</span>
+          </div>
+          <div class="col-span-2">
+            <span class="text-[9px] uppercase text-gray-400 font-semibold block">Endereço</span>
+            <span class="text-[10px] text-gray-700" id="spedy_info_endereco">-</span>
+          </div>
+        </div>
+
+        <p class="text-[9px] uppercase text-gray-400 font-semibold mb-1.5 mt-2">Payload Spedy</p>
+        <div class="grid grid-cols-2 gap-x-3 gap-y-1.5">
+          <div class="col-span-2">
+            <span class="text-[9px] uppercase text-gray-400 font-semibold block">Produto / serviço</span>
+            <span class="text-[10px] text-gray-800" id="spedy_info_produto">-</span>
+          </div>
+          <div class="col-span-2">
+            <span class="text-[9px] uppercase text-gray-400 font-semibold block">Observação</span>
+            <span class="text-[10px] text-gray-700" id="spedy_info_observacao">-</span>
+          </div>
+          <div class="col-span-2">
+            <span class="text-[9px] uppercase text-gray-400 font-semibold block">Transaction ID (preview)</span>
+            <span class="text-[10px] text-gray-600 font-mono break-all" id="spedy_info_transaction">-</span>
           </div>
         </div>
       </div>
@@ -752,9 +794,9 @@
       <label class="flex items-start gap-1.5 cursor-pointer mb-2 px-1">
         <input type="checkbox" id="spedy_confirm_entendido" class="cx-checkbox cx-checkbox-sm mt-0.5"
                onchange="toggleBotaoConfirmarSpedy()">
-        <span class="text-[10px] text-gray-700 leading-relaxed">
-          Entendo que a NFS-e será gerada, o status do PI será alterado para <strong>NF Emitida</strong> após a autorização
-          e que <strong>nenhum e-mail</strong> será enviado ao cliente.
+        <span class="text-[10px] text-gray-700 leading-relaxed" id="spedy_confirm_label">
+          Entendo que a NFS-e será gerada no ambiente indicado, o status do PI será alterado para
+          <strong>NF Emitida</strong> após a autorização e que <strong>nenhum e-mail</strong> será enviado ao cliente.
         </span>
       </label>
 
@@ -792,6 +834,9 @@
         <p class="text-[9px] text-gray-500 mt-2" id="spedy_result_message"></p>
         <p class="text-[9px] text-gray-600 mt-1.5 hidden" id="spedy_result_status_pi">
           O status do PI foi atualizado para <strong>NF Emitida</strong>. Nenhum e-mail foi enviado ao cliente.
+        </p>
+        <p class="text-[9px] text-gray-600 mt-1.5 hidden" id="spedy_result_saved_only">
+          Emissão de teste concluída. Os dados enviados e retornados foram salvos na base; o status do PI foi <strong>mantido</strong>.
         </p>
       </div>
       <div class="cx-modal-actions mt-2">
@@ -1085,9 +1130,6 @@
   <form method="dialog" class="cx-modal-dismiss bg-black/40"><button>close</button></form>
 </dialog>
 
-{% if origem_lista == 'faturamento' %}
-{% include 'partials/nf_import.html' %}
-{% endif %}
 
 <script src="{{ url_for('static', filename='js/campanhas-ui.js') }}?v=2"></script>
 <script>window.PI_LISTA_SOMENTE_LEITURA = {{ 'true' if lista_somente_leitura else 'false' }};</script>
@@ -1504,12 +1546,14 @@ function salvarNf() {
 }
 
 var _spedyPollTimer = null;
+var _spedyPreviewData = null;
 
 function toggleBotaoConfirmarSpedy() {
   var cb = document.getElementById('spedy_confirm_entendido');
   var btn = document.getElementById('btn_spedy_confirmar');
+  var ready = document.getElementById('spedy_ready').value === '1';
   if (!cb || !btn) return;
-  var ok = cb.checked;
+  var ok = cb.checked && ready;
   btn.disabled = !ok;
   btn.classList.toggle('opacity-50', !ok);
   btn.classList.toggle('cursor-not-allowed', !ok);
@@ -1522,9 +1566,107 @@ function _spedyShowStep(step) {
   });
 }
 
+function _spedySetList(elId, items) {
+  var el = document.getElementById(elId);
+  if (!el) return;
+  el.innerHTML = '';
+  (items || []).forEach(function(item) {
+    var li = document.createElement('li');
+    li.textContent = item;
+    el.appendChild(li);
+  });
+}
+
+function _spedyToggleBox(boxId, show) {
+  var box = document.getElementById(boxId);
+  if (box) box.classList.toggle('hidden', !show);
+}
+
+function _spedyFormatEndereco(customer) {
+  if (!customer || !customer.address) return '-';
+  var a = customer.address;
+  var city = a.city || {};
+  var parts = [
+    a.street,
+    a.number ? 'nº ' + a.number : '',
+    a.district,
+    city.name,
+    city.state ? city.state.toUpperCase() : '',
+    a.postalCode ? 'CEP ' + a.postalCode : ''
+  ].filter(Boolean);
+  return parts.join(', ') || '-';
+}
+
+function _spedyApplyEnvironmentBadge(data) {
+  var badge = document.getElementById('spedy_env_badge');
+  var intro = document.getElementById('spedy_intro_text');
+  var label = document.getElementById('spedy_confirm_label');
+  var statusAction = document.getElementById('spedy_action_status_pi');
+  if (!badge) return;
+  var env = (data && data.environment) || 'sandbox';
+  var envLabel = (data && data.environment_label) || 'Teste (Sandbox)';
+  var updatesPi = data && data.updates_pi_status !== undefined ? data.updates_pi_status : (env === 'production');
+  var isProd = env === 'production';
+  badge.textContent = envLabel;
+  badge.className = 'inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold shrink-0 ' +
+    (isProd ? 'bg-red-100 text-red-800 border border-red-200' : 'bg-blue-100 text-blue-800 border border-blue-200');
+  if (intro) {
+    intro.innerHTML = isProd
+      ? 'Emissão em <strong>produção</strong> — a NFS-e terá validade fiscal. Revise todos os dados antes de confirmar.'
+      : 'Emissão em <strong>teste (sandbox)</strong> — nota sem validade fiscal. O status do PI <strong>não será alterado</strong>; apenas os dados enviados e retornados serão salvos na base.';
+  }
+  if (statusAction) {
+    statusAction.innerHTML = updatesPi
+      ? 'Alterar o status do PI para <strong>NF Emitida</strong> após autorização da nota.'
+      : 'Manter o status atual do PI (somente teste — dados Spedy serão salvos na base).';
+  }
+  if (label) {
+    label.innerHTML = isProd
+      ? 'Entendo que a NFS-e será gerada em <strong>produção</strong>, terá validade fiscal, o status do PI será alterado para <strong>NF Emitida</strong> após autorização e que <strong>nenhum e-mail</strong> será enviado ao cliente.'
+      : 'Entendo que a NFS-e será gerada em <strong>teste (sandbox)</strong>, o status do PI <strong>não será alterado</strong>, os dados enviados e retornados serão salvos na base e que <strong>nenhum e-mail</strong> será enviado ao cliente.';
+  }
+}
+
+function _spedyRenderPreview(data) {
+  _spedyPreviewData = data || {};
+  _spedyApplyEnvironmentBadge(data);
+
+  var pi = data.pi || {};
+  var payload = data.payload || {};
+  var customer = payload.customer || {};
+  var product = payload.product || {};
+
+  document.getElementById('spedy_info_cod_pi').textContent = pi.codigo_pi || '-';
+  document.getElementById('spedy_info_valor').textContent = pi.valor ? fmtValorBrl(pi.valor) : '-';
+  document.getElementById('spedy_info_mes_ref').textContent = pi.mes_ref_comp || '-';
+  document.getElementById('spedy_info_titulo').textContent = pi.titulo || '-';
+  document.getElementById('spedy_info_cliente').textContent = customer.legalName || customer.name || '-';
+  document.getElementById('spedy_info_cnpj').textContent = customer.federalTaxNumber || '-';
+  document.getElementById('spedy_info_email').textContent = customer.email || '-';
+  document.getElementById('spedy_info_phone').textContent = customer.phone || '-';
+  document.getElementById('spedy_info_endereco').textContent = _spedyFormatEndereco(customer);
+  document.getElementById('spedy_info_produto').textContent =
+    (product.code || '') + (product.name ? ' — ' + product.name : '') || '-';
+  document.getElementById('spedy_info_observacao').textContent = payload.observation || '-';
+  var txNote = payload.transactionIdNote ? ' (' + payload.transactionIdNote + ')' : '';
+  document.getElementById('spedy_info_transaction').textContent =
+    (payload.transactionId || '-') + txNote;
+
+  var errors = data.errors || [];
+  var warnings = data.warnings || [];
+  _spedySetList('spedy_errors_list', errors);
+  _spedySetList('spedy_warnings_list', warnings);
+  _spedyToggleBox('spedy_errors_box', errors.length > 0);
+  _spedyToggleBox('spedy_warnings_box', warnings.length > 0);
+
+  document.getElementById('spedy_ready').value = data.ready ? '1' : '0';
+  toggleBotaoConfirmarSpedy();
+}
+
 function abrirModalSpedy(idPi, piInfo) {
   document.getElementById('spedy_id_pi').value = idPi;
   document.getElementById('spedy_nf_id').value = '';
+  document.getElementById('spedy_ready').value = '0';
   document.getElementById('spedy_info_cod_pi').textContent = piInfo.codPi || '-';
   document.getElementById('spedy_info_cliente').textContent = piInfo.cliente || '-';
   document.getElementById('spedy_info_cnpj').textContent = piInfo.cnpj || '-';
@@ -1533,9 +1675,40 @@ function abrirModalSpedy(idPi, piInfo) {
   document.getElementById('spedy_progress_status').textContent = '';
   var cb = document.getElementById('spedy_confirm_entendido');
   if (cb) cb.checked = false;
+  _spedyToggleBox('spedy_errors_box', false);
+  _spedyToggleBox('spedy_warnings_box', false);
+  _spedyApplyEnvironmentBadge(null);
   toggleBotaoConfirmarSpedy();
   _spedyShowStep('spedy_step_confirm');
   document.getElementById('modal_spedy').showModal();
+
+  var intro = document.getElementById('spedy_intro_text');
+  if (intro) intro.textContent = 'Carregando preview da emissão...';
+
+  fetch('/api/cadu_pi/' + idPi + '/spedy/preview')
+    .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+    .then(function(res) {
+      if (!res.ok && res.data && res.data.error && !res.data.payload) {
+        throw new Error(res.data.error);
+      }
+      _spedyRenderPreview(res.data);
+    })
+    .catch(function(err) {
+      _spedyRenderPreview({
+        ready: false,
+        environment: 'sandbox',
+        environment_label: 'Teste (Sandbox)',
+        errors: [err.message || 'Falha ao carregar preview da emissão.'],
+        warnings: [],
+        pi: {
+          codigo_pi: piInfo.codPi,
+          titulo: piInfo.titulo,
+          mes_ref_comp: piInfo.mesRef,
+          valor: piInfo.valorLiquido
+        },
+        payload: {}
+      });
+    });
 }
 
 function continuarConfirmacaoSpedy(idPi, nfId) {
@@ -1552,13 +1725,17 @@ function confirmarEmissaoSpedy() {
     showToast('Marque a confirmação antes de gerar a NFS-e.', 'warning');
     return;
   }
+  if (document.getElementById('spedy_ready').value !== '1') {
+    showToast('Corrija os erros indicados antes de emitir a NFS-e.', 'warning');
+    return;
+  }
   var idPi = document.getElementById('spedy_id_pi').value;
   var btn = document.getElementById('btn_spedy_confirmar');
   btn.disabled = true;
   _spedyShowStep('spedy_step_progress');
   document.getElementById('spedy_progress_title').textContent = 'Enviando pedido para Spedy...';
 
-  fetch('/api/cadu_pi/' + idPi + '/spedy/emitir-teste', {
+  fetch('/api/cadu_pi/' + idPi + '/spedy/emitir', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: '{}'
@@ -1566,7 +1743,7 @@ function confirmarEmissaoSpedy() {
   .then(async function(r) {
     var data = {};
     try { data = await r.json(); } catch (e) {}
-    if (!r.ok) throw new Error(data.error || 'Falha ao emitir NFS-e de teste');
+    if (!r.ok) throw new Error(data.error || 'Falha ao emitir NFS-e');
     return data;
   })
   .then(function(data) {
@@ -1640,22 +1817,32 @@ function mostrarResultadoSpedy(data, sucesso, mensagemExtra) {
   var title = document.getElementById('spedy_result_title');
   var msg = document.getElementById('spedy_result_message');
   var statusPi = document.getElementById('spedy_result_status_pi');
+  var savedOnly = document.getElementById('spedy_result_saved_only');
+  var piUpdated = data.pi_status_updated === true;
+  var isSandbox = (data.environment || (_spedyPreviewData && _spedyPreviewData.environment)) === 'sandbox';
 
   document.getElementById('spedy_result_numero').textContent = data.numero_nota || (data.nota && data.nota.numero_nota) || '-';
   document.getElementById('spedy_result_status').textContent = data.spedy_status || '-';
 
   if (sucesso) {
     box.className = 'rounded-lg px-4 py-4 mb-4 border border-green-200 bg-green-50';
-    title.textContent = 'NFS-e autorizada com sucesso';
+    title.textContent = isSandbox ? 'Teste Spedy concluído com sucesso' : 'NFS-e autorizada com sucesso';
     title.className = 'text-sm font-semibold mb-2 text-green-800';
-    msg.textContent = data.spedy_message || 'Emissão confirmada pela Spedy (sandbox).';
-    if (statusPi) statusPi.classList.remove('hidden');
+    var envLabel = (_spedyPreviewData && _spedyPreviewData.environment_label) || data.environment_label || 'Spedy';
+    msg.textContent = data.spedy_message || (
+      isSandbox
+        ? ('Emissão confirmada pela Spedy (' + envLabel + '). Dados salvos na base.')
+        : ('Emissão confirmada pela Spedy (' + envLabel + ').')
+    );
+    if (statusPi) statusPi.classList.toggle('hidden', !piUpdated);
+    if (savedOnly) savedOnly.classList.toggle('hidden', piUpdated || !isSandbox);
   } else {
     box.className = 'rounded-lg px-4 py-4 mb-4 border border-red-200 bg-red-50';
     title.textContent = 'Emissão não confirmada';
     title.className = 'text-sm font-semibold mb-2 text-red-800';
     msg.textContent = mensagemExtra || data.spedy_message || data.error || 'Verifique o cadastro do cliente e tente novamente.';
     if (statusPi) statusPi.classList.add('hidden');
+    if (savedOnly) savedOnly.classList.add('hidden');
   }
 }
 

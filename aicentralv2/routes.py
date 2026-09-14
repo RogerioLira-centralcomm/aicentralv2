@@ -33,10 +33,14 @@ from aicentralv2.services.spedy_service import (
     SPEDY_PENDING_STATUSES,
     SPEDY_TERMINAL_STATUSES,
     build_spedy_customer_from_pi,
+    build_spedy_emit_preview,
     build_spedy_transaction_id,
+    detect_spedy_environment,
     extract_invoice_from_order,
     map_spedy_invoice_to_nf_update,
     parse_pi_amount,
+    spedy_aplica_status_negocio,
+    spedy_environment_label,
 )
 from aicentralv2.services.nf_pdf_extraction import (
     extract_nf_pdf,
@@ -14202,6 +14206,34 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         download_name = f"NF_{nota.get('numero_nota') or id_nota}.pdf"
         return send_file(abs_path, mimetype='application/pdf', as_attachment=True, download_name=download_name)
 
+    def _validar_pi_elegivel_emissao_spedy(pi_row, *, allow_pending_retry=False):
+        """PI pode emitir NFS-e Spedy: Faturamento, sub-status 4, sem NF autorizada."""
+        erros = []
+        if not pi_row:
+            return False, ['PI não encontrado.']
+        status_faturamento = db.obter_status_pi_por_descricao('Faturamento')
+        id_status_fat = status_faturamento.get('id') if status_faturamento else None
+        if id_status_fat and pi_row.get('id_status_pi') != id_status_fat:
+            erros.append('PI não está em faturamento.')
+        if pi_row.get('id_sub_status_pi') != 4:
+            erros.append('PI não está em sub-status Em faturamento.')
+        notas = db.obter_notas_fiscais_por_pi(pi_row.get('id_pi')) or []
+        nota = notas[0] if notas else None
+        if nota and (nota.get('spedy_status') or '').lower() == 'authorized':
+            erros.append('PI já possui NFS-e autorizada na Spedy.')
+        elif nota and not allow_pending_retry:
+            spedy_st = (nota.get('spedy_status') or '').lower()
+            pending = spedy_st in SPEDY_PENDING_STATUSES or spedy_st == 'processing'
+            if not pending and db.pi_possui_nota_fiscal(pi_row.get('id_pi')):
+                erros.append('PI já possui nota fiscal vinculada.')
+        elif nota is None and db.pi_possui_nota_fiscal(pi_row.get('id_pi')):
+            erros.append('PI já possui nota fiscal vinculada.')
+        return len(erros) == 0, erros
+
+    def _spedy_env_info():
+        env = detect_spedy_environment(current_app.config.get('SPEDY_API_BASE_URL'))
+        return {'environment': env, 'environment_label': spedy_environment_label(env)}
+
     def _confirmar_spedy_nota_fiscal(nota, *, atualizar_pi=True):
         """Consulta Spedy, persiste status e retorna payload de confirmação."""
         if not nota or not nota.get('spedy_invoice_id'):
@@ -14211,22 +14243,36 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'error': 'Nota fiscal sem vínculo Spedy.',
             }
 
+        env_info = _spedy_env_info()
+        apply_business = spedy_aplica_status_negocio(env_info['environment'])
+        if not apply_business:
+            atualizar_pi = False
+
         spedy = SpedyService()
         try:
             invoice = spedy.get_service_invoice(str(nota['spedy_invoice_id']))
         except SpedyAPIError as exc:
-            return {'confirmed': False, 'pending': True, 'error': str(exc)}
+            return {'confirmed': False, 'pending': True, 'error': str(exc), **env_info}
 
-        update = map_spedy_invoice_to_nf_update(invoice)
+        update = map_spedy_invoice_to_nf_update(
+            invoice,
+            apply_business_status=apply_business,
+        )
+        update['spedy_response_json'] = {
+            'invoice': invoice,
+            'confirmed_at': datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+        }
         if update:
             db.atualizar_nota_fiscal(nota['id'], update)
 
         status = (update.get('spedy_status') or invoice.get('status') or '').lower()
         confirmed = status == 'authorized'
         pending = status in SPEDY_PENDING_STATUSES or status in {'', 'processing'}
+        pi_status_updated = False
 
-        if confirmed and atualizar_pi and nota.get('id_pi'):
+        if confirmed and atualizar_pi and apply_business and nota.get('id_pi'):
             _atualizar_pi_status_nf_emitida(nota['id_pi'])
+            pi_status_updated = True
             registrar_auditoria(
                 acao='emitir',
                 modulo='faturamento',
@@ -14237,6 +14283,23 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     'spedy_invoice_id': nota.get('spedy_invoice_id'),
                     'numero_nota': update.get('numero_nota'),
                     'spedy_status': status,
+                },
+            )
+        elif confirmed and not apply_business:
+            registrar_auditoria(
+                acao='emitir',
+                modulo='faturamento',
+                descricao=(
+                    f'NFS-e Spedy autorizada em teste (sandbox) - PI {nota.get("id_pi")} '
+                    f'NF {update.get("numero_nota")} — status do PI mantido'
+                ),
+                registro_id=nota['id'],
+                registro_tipo='nota_fiscal',
+                dados_novos={
+                    'spedy_invoice_id': nota.get('spedy_invoice_id'),
+                    'numero_nota': update.get('numero_nota'),
+                    'spedy_status': status,
+                    'environment': env_info['environment'],
                 },
             )
 
@@ -14256,49 +14319,82 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'environmentType': invoice.get('environmentType'),
                 'amount': invoice.get('amount'),
             },
+            'pi_status_updated': pi_status_updated,
+            'updates_pi_status': apply_business,
+            **env_info,
         }
 
-    @app.route('/api/cadu_pi/<int:id_pi>/spedy/emitir-teste', methods=['POST'])
+    @app.route('/api/cadu_pi/<int:id_pi>/spedy/preview', methods=['GET'])
     @login_required
-    def api_spedy_emitir_teste_pi(id_pi):
-        """Dispara emissão de NFS-e de teste na Spedy (sandbox) para um PI."""
-        try:
-            db.garantir_colunas_spedy_nota_fiscal()
-        except Exception as exc:
-            current_app.logger.error(f'Migração Spedy NF: {exc}', exc_info=True)
-            return jsonify({'error': 'Não foi possível preparar a tabela de notas fiscais.'}), 500
-
+    def api_spedy_preview_pi(id_pi):
+        """Preview da emissão NFS-e Spedy: ambiente, payload e validações."""
         pi = db.obter_cadu_pi_por_id(id_pi)
         if not pi:
             return jsonify({'error': 'PI não encontrado.'}), 404
 
+        ok, erros_eleg = _validar_pi_elegivel_emissao_spedy(pi, allow_pending_retry=True)
+        if not pi.get('id_cliente'):
+            erros_eleg.append('PI sem cliente vinculado.')
+        cliente = db.obter_cliente_por_id(pi['id_cliente']) if pi.get('id_cliente') else None
+        if pi.get('id_cliente') and not cliente:
+            erros_eleg.append('Cliente do PI não encontrado.')
+
+        contato = None
+        if pi.get('contato_fin_cliente'):
+            contato = db.obter_contato_por_id(pi['contato_fin_cliente'])
+
+        preview = build_spedy_emit_preview(pi, cliente or {}, contato)
+        preview['errors'] = erros_eleg + preview.get('errors', [])
+        preview['ready'] = preview['ready'] and ok and len(preview['errors']) == 0
+        return jsonify(preview)
+
+    def _executar_emissao_spedy_pi(id_pi):
+        """Dispara emissão NFS-e Spedy para um PI. Retorna (payload_dict, status_code)."""
+        try:
+            db.garantir_colunas_spedy_nota_fiscal()
+        except Exception as exc:
+            current_app.logger.error(f'Migração Spedy NF: {exc}', exc_info=True)
+            return {'error': 'Não foi possível preparar a tabela de notas fiscais.'}, 500
+
+        pi = db.obter_cadu_pi_por_id(id_pi)
+        if not pi:
+            return {'error': 'PI não encontrado.'}, 404
+
+        env_info = _spedy_env_info()
+        apply_business = spedy_aplica_status_negocio(env_info['environment'])
+
         notas = db.obter_notas_fiscais_por_pi(id_pi) or []
         nota_alvo = notas[0] if notas else None
         if nota_alvo and (nota_alvo.get('spedy_status') or '').lower() == 'authorized':
-            return jsonify({
+            return {
                 'error': 'Este PI já possui NFS-e autorizada na Spedy.',
                 'nf_id': nota_alvo['id'],
                 'numero_nota': nota_alvo.get('numero_nota'),
-            }), 409
+                **env_info,
+            }, 409
 
         if nota_alvo and nota_alvo.get('spedy_invoice_id') and (
             (nota_alvo.get('spedy_status') or '').lower() in SPEDY_PENDING_STATUSES
             or (nota_alvo.get('spedy_status') or '').lower() == 'processing'
         ):
             confirm = _confirmar_spedy_nota_fiscal(nota_alvo)
-            return jsonify({
+            return {
                 'success': True,
                 'already_pending': True,
                 'nf_id': nota_alvo['id'],
                 **confirm,
-            })
+            }, 200
+
+        ok, erros = _validar_pi_elegivel_emissao_spedy(pi)
+        if not ok:
+            return {'error': erros[0], 'errors': erros, **env_info}, 400
 
         if not pi.get('id_cliente'):
-            return jsonify({'error': 'PI sem cliente vinculado.'}), 400
+            return {'error': 'PI sem cliente vinculado.', **env_info}, 400
 
         cliente = db.obter_cliente_por_id(pi['id_cliente'])
         if not cliente:
-            return jsonify({'error': 'Cliente do PI não encontrado.'}), 400
+            return {'error': 'Cliente do PI não encontrado.', **env_info}, 400
 
         contato = None
         contato_id = pi.get('contato_fin_cliente')
@@ -14307,12 +14403,12 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
         amount = parse_pi_amount(pi)
         if amount <= 0:
-            return jsonify({'error': 'PI sem valor líquido/bruto válido para emissão.'}), 400
+            return {'error': 'PI sem valor líquido/bruto válido para emissão.', **env_info}, 400
 
         try:
             customer = build_spedy_customer_from_pi(pi, cliente, contato)
         except SpedyAPIError as exc:
-            return jsonify({'error': str(exc)}), 400
+            return {'error': str(exc), **env_info}, 400
 
         codigo_pi = pi.get('codigo_pi_cc') or pi.get('codigo_pi_ag')
         transaction_id = build_spedy_transaction_id(id_pi, codigo_pi)
@@ -14342,6 +14438,17 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         obs = f'PI {codigo_pi or id_pi} - {pi.get("titulo_pi") or ""}'.strip()
         spedy = SpedyService()
         try:
+            order_payload = spedy.build_order_payload(
+                transaction_id=transaction_id,
+                customer=customer,
+                amount=amount,
+                observation=obs[:500],
+            )
+            db.atualizar_nota_fiscal(nf_id, {
+                'spedy_request_json': order_payload,
+                'spedy_environment': env_info['environment'],
+                'origem': 'spedy',
+            })
             order = spedy.emit_order(
                 transaction_id=transaction_id,
                 customer=customer,
@@ -14353,37 +14460,55 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'spedy_status': 'error',
                 'spedy_message': str(exc),
             })
-            return jsonify({'error': str(exc), 'nf_id': nf_id}), 502
+            return {'error': str(exc), 'nf_id': nf_id, **env_info}, 502
 
         spedy_info = extract_invoice_from_order(order) or {}
-        if spedy_info:
-            db.atualizar_nota_fiscal(nf_id, spedy_info)
+        db.atualizar_nota_fiscal(nf_id, {
+            **(spedy_info or {}),
+            'spedy_response_json': {
+                'order': order,
+                'invoice_summary': spedy_info,
+            },
+        })
 
         nota = db.obter_nota_fiscal_por_id(nf_id)
-        confirm = _confirmar_spedy_nota_fiscal(nota, atualizar_pi=False)
+        confirm = _confirmar_spedy_nota_fiscal(nota, atualizar_pi=apply_business)
 
+        env_label = env_info['environment_label']
         registrar_auditoria(
             acao='solicitar',
             modulo='faturamento',
-            descricao=f'Emissão NFS-e Spedy (teste) solicitada - PI {codigo_pi or id_pi}',
+            descricao=f'Emissão NFS-e Spedy ({env_label}) solicitada - PI {codigo_pi or id_pi}',
             registro_id=nf_id,
             registro_tipo='nota_fiscal',
             dados_novos={
                 'transaction_id': transaction_id,
                 'spedy_order_id': spedy_info.get('spedy_order_id'),
                 'spedy_invoice_id': spedy_info.get('spedy_invoice_id'),
+                'environment': env_info['environment'],
             },
         )
 
-        if confirm.get('confirmed'):
-            _atualizar_pi_status_nf_emitida(id_pi)
-
-        return jsonify({
+        return {
             'success': True,
             'nf_id': nf_id,
             'transaction_id': transaction_id,
             **confirm,
-        }), 201
+        }, 201
+
+    @app.route('/api/cadu_pi/<int:id_pi>/spedy/emitir', methods=['POST'])
+    @login_required
+    def api_spedy_emitir_pi(id_pi):
+        """Dispara emissão de NFS-e na Spedy para um PI."""
+        payload, status_code = _executar_emissao_spedy_pi(id_pi)
+        return jsonify(payload), status_code
+
+    @app.route('/api/cadu_pi/<int:id_pi>/spedy/emitir-teste', methods=['POST'])
+    @login_required
+    def api_spedy_emitir_teste_pi(id_pi):
+        """Alias legado para emissão NFS-e Spedy."""
+        payload, status_code = _executar_emissao_spedy_pi(id_pi)
+        return jsonify(payload), status_code
 
     @app.route('/api/cadu_pi_nota_fiscal/<int:id_nota>/spedy/status', methods=['GET'])
     @login_required

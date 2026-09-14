@@ -11639,6 +11639,18 @@ def garantir_colunas_spedy_nota_fiscal():
                     ) THEN
                         ALTER TABLE cadu_pi_nota_fiscal ADD COLUMN spedy_environment VARCHAR(30);
                     END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cadu_pi_nota_fiscal' AND column_name = 'spedy_request_json'
+                    ) THEN
+                        ALTER TABLE cadu_pi_nota_fiscal ADD COLUMN spedy_request_json JSONB;
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'cadu_pi_nota_fiscal' AND column_name = 'spedy_response_json'
+                    ) THEN
+                        ALTER TABLE cadu_pi_nota_fiscal ADD COLUMN spedy_response_json JSONB;
+                    END IF;
                 END $$;
             ''')
             conn.commit()
@@ -12200,6 +12212,8 @@ def atualizar_nota_fiscal(id_nota, data):
         'spedy_transaction_id': 'spedy_transaction_id',
         'spedy_message': 'spedy_message',
         'spedy_environment': 'spedy_environment',
+        'spedy_request_json': 'spedy_request_json',
+        'spedy_response_json': 'spedy_response_json',
         'origem': 'origem',
         'nf_arquivo_path': 'nf_arquivo_path',
         'hash_arquivo': 'hash_arquivo',
@@ -12222,7 +12236,7 @@ def atualizar_nota_fiscal(id_nota, data):
         if json_key in data:
             sets.append(f'{col} = %s')
             val = data[json_key]
-            if json_key == 'dados_extraidos_json':
+            if json_key in ('dados_extraidos_json', 'spedy_request_json', 'spedy_response_json'):
                 val = _dv360_io_jsonb(val)
             params.append(val)
 

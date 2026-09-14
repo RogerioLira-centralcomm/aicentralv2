@@ -72,14 +72,21 @@
                 {% if sub_status_atual|string == '4' or origem_lista == 'nf_emitida' %}
                 <td class="text-center" onclick="event.stopPropagation()">
                   {% if pi.get('nf_id') %}
+                    {% if origem_lista == 'faturamento' and pi.get('nf_spedy_status') in ['enqueued', 'received', 'processing', 'creating'] %}
+                  <button type="button" onclick='continuarConfirmacaoSpedy({{ pi.id_pi }}, {{ pi.nf_id }})'
+                          class="cx-btn cx-btn-sm cx-btn-outline" title="Confirmar emissão Spedy">
+                    <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>Confirmar NF
+                  </button>
+                    {% else %}
                   <button type="button" onclick='abrirModalNf({{ pi.id_pi }}, {{ pi.nf_id }}, {{ pi_info|tojson }})'
                           class="cx-btn cx-btn-sm cx-btn-outline" title="Ver nota fiscal">
                     <i class="fa-solid fa-file-invoice" aria-hidden="true"></i>{{ pi.nf_status_descricao or 'Ver NF' }}
                   </button>
+                    {% endif %}
                   {% elif origem_lista == 'faturamento' %}
-                  <button type="button" onclick='abrirModalImportarNf({{ pi.id_pi }}, {{ pi_info|tojson }})'
-                          class="cx-btn cx-btn-sm cx-btn-outline" title="Importar nota fiscal">
-                    <i class="fa-solid fa-file-import" aria-hidden="true"></i>Importar
+                  <button type="button" onclick='abrirModalSpedy({{ pi.id_pi }}, {{ pi_info|tojson }})'
+                          class="cx-btn cx-btn-sm cx-btn-primary" title="Gerar NFS-e via Spedy">
+                    <i class="fa-solid fa-file-invoice" aria-hidden="true"></i>Gerar NF
                   </button>
                   {% else %}—{% endif %}
                 </td>

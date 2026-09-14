@@ -162,7 +162,7 @@ class SpedyService:
                 return item
         raise SpedyAPIError(f'NFS-e Spedy não encontrada: {invoice_id}')
 
-    def emit_order(
+    def build_order_payload(
         self,
         *,
         transaction_id: str,
@@ -186,7 +186,7 @@ class SpedyService:
         if observation:
             item['observation'] = observation[:500]
 
-        payload = {
+        return {
             'transactionId': transaction_id,
             'customer': customer,
             'amount': round(float(amount), 2),
@@ -199,6 +199,21 @@ class SpedyService:
             'profileType': 'producer',
             'items': [item],
         }
+
+    def emit_order(
+        self,
+        *,
+        transaction_id: str,
+        customer: Dict[str, Any],
+        amount: float,
+        observation: str | None = None,
+    ) -> Dict[str, Any]:
+        payload = self.build_order_payload(
+            transaction_id=transaction_id,
+            customer=customer,
+            amount=amount,
+            observation=observation,
+        )
         response = self._request('POST', '/orders', json=payload, timeout=self.timeout)
         return response.json()
 
@@ -292,8 +307,8 @@ def build_spedy_customer_from_pi(pi: dict, cliente: dict, contato: dict | None) 
     }
 
 
-def build_spedy_transaction_id(id_pi: int, codigo_pi: str | None = None) -> str:
-    suffix = uuid.uuid4().hex[:8]
+def build_spedy_transaction_id(id_pi: int, codigo_pi: str | None = None, *, preview: bool = False) -> str:
+    suffix = 'preview' if preview else uuid.uuid4().hex[:8]
     code = re.sub(r'[^A-Za-z0-9_-]', '', (codigo_pi or str(id_pi)))[:24]
     return f'PI-{id_pi}-{code}-{suffix}'
 
@@ -321,7 +336,126 @@ def extract_invoice_from_order(order_payload: Dict[str, Any]) -> Dict[str, Any] 
     }
 
 
-def map_spedy_invoice_to_nf_update(invoice: Dict[str, Any]) -> Dict[str, Any]:
+def detect_spedy_environment(base_url: str | None = None) -> str:
+    """Retorna 'sandbox' ou 'production' conforme a URL da API Spedy."""
+    url = (base_url or '').lower()
+    if not url:
+        try:
+            url = (current_app.config.get('SPEDY_API_BASE_URL') or '').lower()
+        except RuntimeError:
+            url = 'https://sandbox-api.spedy.com.br/v1'
+    return 'sandbox' if 'sandbox' in url else 'production'
+
+
+def spedy_environment_label(environment: str) -> str:
+    return 'Teste (Sandbox)' if environment == 'sandbox' else 'Produção'
+
+
+def spedy_aplica_status_negocio(environment: str) -> bool:
+    """Em sandbox apenas persiste dados Spedy; em produção altera status do PI/NF."""
+    return environment == 'production'
+
+
+def collect_spedy_customer_warnings(
+    cliente: dict,
+    contato: dict | None,
+    customer: Dict[str, Any],
+) -> list[str]:
+    """Lista avisos quando dados do tomador usam fallbacks ou estão incompletos."""
+    warnings: list[str] = []
+    if not contato or not (contato.get('email') or '').strip():
+        warnings.append(
+            'E-mail do tomador será faturamento@example.com (PI sem contato financeiro com e-mail).'
+        )
+    if not contato or not _only_digits((contato or {}).get('telefone')):
+        warnings.append(
+            'Telefone do tomador será um número genérico (PI sem contato financeiro com telefone).'
+        )
+    if not (cliente.get('logradouro') or '').strip():
+        warnings.append('Logradouro do cliente não informado — será enviado "Rua nao informada".')
+    if not _only_digits(cliente.get('cep'), max_len=8):
+        warnings.append('CEP do cliente não informado — será usado CEP padrão 30140071.')
+    cidade_key = (cliente.get('cidade') or '').strip().lower()
+    if cidade_key and cidade_key not in _CITY_IBGE:
+        warnings.append(
+            f'Cidade "{cliente.get("cidade")}" sem código IBGE mapeado — '
+            f'será usado código de Belo Horizonte ({_CITY_IBGE["belo horizonte"][0]}).'
+        )
+    if not _only_digits(cliente.get('inscricao_municipal')):
+        warnings.append('Inscrição municipal do cliente não informada.')
+    return warnings
+
+
+def build_spedy_emit_preview(
+    pi: dict,
+    cliente: dict,
+    contato: dict | None,
+    *,
+    spedy: SpedyService | None = None,
+) -> Dict[str, Any]:
+    """Monta preview da emissão Spedy com payload, avisos e erros de validação."""
+    svc = spedy or SpedyService()
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    if not current_app.config.get('SPEDY_API_KEY'):
+        errors.append('SPEDY_API_KEY não configurada.')
+
+    amount = parse_pi_amount(pi)
+    if amount <= 0:
+        errors.append('PI sem valor líquido/bruto válido para emissão.')
+
+    customer: Dict[str, Any] | None = None
+    try:
+        customer = build_spedy_customer_from_pi(pi, cliente, contato)
+        warnings.extend(collect_spedy_customer_warnings(cliente, contato, customer))
+    except SpedyAPIError as exc:
+        errors.append(str(exc))
+
+    codigo_pi = pi.get('codigo_pi_cc') or pi.get('codigo_pi_ag')
+    obs = f'PI {codigo_pi or pi.get("id_pi")} - {pi.get("titulo_pi") or ""}'.strip()
+    environment = detect_spedy_environment(svc._base_url)
+
+    payload: Dict[str, Any] = {
+        'transactionId': build_spedy_transaction_id(int(pi['id_pi']), codigo_pi, preview=True),
+        'transactionIdNote': 'ID final será gerado ao confirmar a emissão.',
+        'amount': amount,
+        'customer': customer,
+        'product': {
+            'id': svc._product_id,
+            'code': svc._product_code,
+            'name': svc._product_name,
+        },
+        'observation': obs[:500],
+        'sendEmailToCustomer': svc._cfg('SPEDY_SEND_EMAIL_TO_CUSTOMER', False),
+        'autoIssueMode': 'immediately',
+        'paymentMethod': 'bankTransfer',
+        'profileType': 'producer',
+    }
+
+    return {
+        'ready': len(errors) == 0 and customer is not None,
+        'environment': environment,
+        'environment_label': spedy_environment_label(environment),
+        'updates_pi_status': spedy_aplica_status_negocio(environment),
+        'errors': errors,
+        'warnings': warnings,
+        'pi': {
+            'id_pi': pi.get('id_pi'),
+            'codigo_pi': codigo_pi or '',
+            'titulo': pi.get('titulo_pi') or '',
+            'mes_ref_comp': pi.get('mes_ref_comp') or '',
+            'valor': amount,
+        },
+        'payload': payload,
+    }
+
+
+def map_spedy_invoice_to_nf_update(
+    invoice: Dict[str, Any],
+    *,
+    apply_business_status: bool = True,
+) -> Dict[str, Any]:
     """Converte resposta Spedy em campos para cadu_pi_nota_fiscal."""
     status = (invoice.get('status') or '').lower()
     processing = invoice.get('processingDetail') or {}
@@ -351,7 +485,7 @@ def map_spedy_invoice_to_nf_update(invoice: Dict[str, Any]) -> Dict[str, Any]:
         except (TypeError, ValueError):
             pass
 
-    if status == 'authorized':
+    if status == 'authorized' and apply_business_status:
         from aicentralv2 import db
         status_nf_id = db.obter_nota_fiscal_status_id_por_descricao('NF Emitida')
         if status_nf_id:

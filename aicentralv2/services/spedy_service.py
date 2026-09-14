@@ -241,11 +241,39 @@ def _only_digits(value: str | None, *, max_len: int | None = None) -> str:
     return digits
 
 
-def _normalize_phone(value: str | None) -> str:
+def _normalize_brazil_phone_digits(value: str | None) -> str:
+    """Normaliza telefone BR para 10 (fixo) ou 11 (celular) dígitos, sem DDI."""
     digits = _only_digits(value)
-    if len(digits) >= 10:
-        return digits[-11:] if len(digits) > 11 else digits
-    return '31999999999'
+    if digits.startswith('55') and len(digits) >= 12:
+        digits = digits[2:]
+    if len(digits) > 11:
+        digits = digits[-11:]
+    if len(digits) in (10, 11):
+        return digits
+    return ''
+
+
+def _normalize_customer_phones(
+    primary: str | None,
+    secondary: str | None = None,
+) -> Dict[str, str]:
+    """
+    Spedy valida fixo (phone, 10 dígitos) e celular (mobilePhone, 11 dígitos)
+    separadamente — não repetir o mesmo número nos dois campos.
+    """
+    phones: Dict[str, str] = {}
+    for raw in (primary, secondary):
+        digits = _normalize_brazil_phone_digits(raw)
+        if not digits:
+            continue
+        if len(digits) == 11:
+            if digits[2] == '9' and 'mobilePhone' not in phones:
+                phones['mobilePhone'] = digits
+            elif 'phone' not in phones and digits[2] != '9':
+                phones['phone'] = digits
+        elif len(digits) == 10 and 'phone' not in phones:
+            phones['phone'] = digits
+    return phones
 
 
 def _resolve_city(cidade: str | None, estado_sigla: str | None) -> tuple[str, str, str]:
@@ -260,6 +288,31 @@ def _resolve_city(cidade: str | None, estado_sigla: str | None) -> tuple[str, st
         state = default_state
     name = (cidade or 'Belo Horizonte').strip()
     return code, state, name
+
+
+def resolve_spedy_contato_for_pi(pi: dict, db_module=None):
+    """Contato financeiro do PI; se ausente, usa o primeiro contato do cliente com telefone/e-mail."""
+    from aicentralv2 import db as default_db
+
+    db_mod = db_module or default_db
+    contato_id = pi.get('contato_fin_cliente')
+    if contato_id:
+        return db_mod.obter_contato_por_id(contato_id)
+
+    cliente_id = pi.get('id_cliente')
+    if not cliente_id:
+        return None
+
+    contatos = db_mod.obter_contatos_por_cliente(cliente_id) or []
+    for contato in contatos:
+        has_phone = bool(
+            _normalize_brazil_phone_digits(contato.get('telefone'))
+            or _normalize_brazil_phone_digits(contato.get('telefone_secundario'))
+        )
+        has_email = bool((contato.get('email') or '').strip())
+        if has_phone or has_email:
+            return contato
+    return contatos[0] if contatos else None
 
 
 def build_spedy_customer_from_pi(pi: dict, cliente: dict, contato: dict | None) -> Dict[str, Any]:
@@ -279,18 +332,19 @@ def build_spedy_customer_from_pi(pi: dict, cliente: dict, contato: dict | None) 
         estado.get('sigla') if estado else None,
     )
 
-    phone = _normalize_phone((contato or {}).get('telefone'))
+    phones = _normalize_customer_phones(
+        (contato or {}).get('telefone'),
+        (contato or {}).get('telefone_secundario'),
+    )
     email = ((contato or {}).get('email') or 'faturamento@example.com').strip()
 
-    return {
+    customer: Dict[str, Any] = {
         'name': (cliente.get('nome_fantasia') or cliente.get('razao_social') or 'Cliente').strip()[:80],
         'legalName': (cliente.get('razao_social') or cliente.get('nome_fantasia') or 'Cliente').strip()[:80],
         'federalTaxNumber': cnpj,
         'stateTaxNumber': _only_digits(cliente.get('inscricao_estadual')) or None,
         'cityTaxNumber': _only_digits(cliente.get('inscricao_municipal')) or None,
         'email': email[:50],
-        'phone': phone,
-        'mobilePhone': phone,
         'address': {
             'street': (cliente.get('logradouro') or 'Rua nao informada').strip()[:120],
             'district': (cliente.get('bairro') or 'Centro').strip()[:60],
@@ -305,6 +359,8 @@ def build_spedy_customer_from_pi(pi: dict, cliente: dict, contato: dict | None) 
             'country': {'name': 'Brasil', 'code': 1058},
         },
     }
+    customer.update(phones)
+    return customer
 
 
 def build_spedy_transaction_id(id_pi: int, codigo_pi: str | None = None, *, preview: bool = False) -> str:
@@ -367,9 +423,13 @@ def collect_spedy_customer_warnings(
         warnings.append(
             'E-mail do tomador será faturamento@example.com (PI sem contato financeiro com e-mail).'
         )
-    if not contato or not _only_digits((contato or {}).get('telefone')):
+    contato_phones = _normalize_customer_phones(
+        (contato or {}).get('telefone'),
+        (contato or {}).get('telefone_secundario'),
+    )
+    if not contato_phones:
         warnings.append(
-            'Telefone do tomador será um número genérico (PI sem contato financeiro com telefone).'
+            'Telefone do tomador não informado — a Spedy aceita a emissão sem phone/mobilePhone.'
         )
     if not (cliente.get('logradouro') or '').strip():
         warnings.append('Logradouro do cliente não informado — será enviado "Rua nao informada".')

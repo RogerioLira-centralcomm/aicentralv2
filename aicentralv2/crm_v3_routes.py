@@ -1185,13 +1185,54 @@ def _contexto_ia_json(data: dict, profile: str) -> str:
     return json.dumps(_contexto_ia(data, profile), ensure_ascii=False, default=str)
 
 
-def _parse_ia_json(raw: str, required=()) -> dict:
-    """Normaliza fences, valida objeto JSON e campos obrigatórios."""
-    import json
+def _strip_json_fence(raw: str) -> str:
     texto = (raw or "").strip()
     if texto.startswith("```"):
         texto = texto.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
-    parsed = json.loads(texto)
+    start = texto.find("{")
+    if start > 0:
+        texto = texto[start:]
+    return texto
+
+
+def _repair_truncated_json(texto: str) -> str:
+    """Fecha string/chaves cortadas quando o modelo estoura max_tokens."""
+    in_string = False
+    escape = False
+    stack = []
+    for ch in texto:
+        if in_string:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            continue
+        if ch == '"':
+            in_string = True
+        elif ch == "{":
+            stack.append("}")
+        elif ch == "[":
+            stack.append("]")
+        elif ch in "}]" and stack and stack[-1] == ch:
+            stack.pop()
+    if in_string:
+        texto += '"'
+    texto = texto.rstrip()
+    if texto.endswith(","):
+        texto = texto[:-1]
+    return texto + "".join(reversed(stack))
+
+
+def _parse_ia_json(raw: str, required=()) -> dict:
+    """Normaliza fences, valida objeto JSON e campos obrigatórios."""
+    import json
+    texto = _strip_json_fence(raw)
+    try:
+        parsed = json.loads(texto)
+    except json.JSONDecodeError:
+        parsed = json.loads(_repair_truncated_json(texto))
     if not isinstance(parsed, dict):
         raise ValueError("Resposta da IA não é um objeto JSON")
     missing = [key for key in required if parsed.get(key) in (None, "")]

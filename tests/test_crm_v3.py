@@ -902,6 +902,24 @@ class CrmTestApiTest(unittest.TestCase):
         self.assertIn("mercado imobiliário", captured["user"])
         self.assertEqual(len(result["perguntas"]), 4)
 
+    def test_parse_ia_json_recupera_resposta_truncada(self):
+        import aicentralv2.crm_v3_routes as routes
+
+        raw = (
+            '{"abertura":"Olá, quero retomar a conversa.",'
+            '"objetivo":"Entender prioridade",'
+            '"perguntas":["Qual resultado importa agora?","Quem decide?"],'
+            '"fechamento":"Combinar retorno com data.",'
+            '"motivo":"Follow-up no estágio atual",'
+            '"contexto_utilizado":["última reunião","decisor'
+        )
+        parsed = routes._parse_ia_json(
+            raw, required=("abertura", "perguntas", "fechamento", "motivo")
+        )
+        self.assertEqual(parsed["abertura"], "Olá, quero retomar a conversa.")
+        self.assertEqual(parsed["motivo"], "Follow-up no estágio atual")
+        self.assertEqual(parsed["contexto_utilizado"], ["última reunião", "decisor"])
+
     def test_contexto_ia_nao_expoe_dados_pessoais(self):
         contexto = store.get_ai_context("auto-shopping", "comunicacao")
         serializado = json.dumps(contexto, ensure_ascii=False)

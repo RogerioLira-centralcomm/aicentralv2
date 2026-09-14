@@ -1336,6 +1336,9 @@ class CreativeModelingService:
     def add_format_lab_swap_library_still(self, payload, user_id=None):
         return self._format_lab().add_swap_library_still(payload, user_id=user_id)
 
+    def remove_format_lab_swap_library(self, payload, user_id=None):
+        return self._format_lab().remove_swap_library_items(payload, user_id=user_id)
+
     def script_format_lab_animate(self, payload=None, user_id=None):
         return self._format_lab().script_animate(payload, user_id=user_id)
 

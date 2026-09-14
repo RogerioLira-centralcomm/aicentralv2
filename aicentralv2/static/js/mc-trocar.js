@@ -274,8 +274,7 @@
     $('mcTrocrRetry')?.addEventListener('click', retryLast);
     $('mcTrocrEditInputs')?.addEventListener('click', () => {
       hideError();
-      setFlow('edit');
-      $('mcSwapNote')?.focus();
+      openHandEdit();
     });
     $('mcTrocrBackVersion')?.addEventListener('click', () => {
       hideError();
@@ -586,8 +585,9 @@
     } catch (error) {
       if (error.name === 'AbortError') return;
       setFlow('ocr', 'error');
-      showError('Falha ao executar OCR', error.message || 'Não deu para ler os textos.', 'ocr');
-      setStatus('Não deu para ler os textos. Você ainda pode escrever na mão.');
+      openHandEdit();
+      showError('Falha ao executar OCR', error.message || 'Não deu para ler os textos. Escreva na mão.', 'ocr');
+      setStatus('Não deu para ler os textos. Escreva os textos na mão.');
     }
   }
 
@@ -602,6 +602,7 @@
     const failed = ['unavailable', 'provider_error', 'invalid', 'unreadable'].includes(data.status);
     if (failed) {
       setFlow('ocr', 'error');
+      openHandEdit();
       showError('Falha ao executar OCR', data.error || 'Não deu para ler os textos. Escreva na mão.', 'ocr');
     } else {
       setFlow(meta?.cached ? 'edit' : 'analysis');
@@ -1296,7 +1297,7 @@
       const when = formatWhen(item.createdAt);
       return `<li class="mc-trocr-take${current ? ' is-active' : ''}${base ? ' is-base' : ''}" data-version="${item.id}">
         <button type="button" class="mc-trocr-take-still" data-action="view">
-          ${item.thumb ? `<img src="${item.thumb}" alt="${escapeHtml(item.name)}">` : '<span class="mc-trocr-thumb"></span>'}
+          ${item.thumb ? `<img src="${item.thumb}" alt="${escapeHtml(item.name)}" onerror="this.replaceWith(document.createElement('span'))">` : '<span class="mc-trocr-thumb"></span>'}
           ${base ? '<em>Base</em>' : ''}
           ${item.media === 'video' ? `<em class="mc-trocr-take-clip">${item.duration ? `${item.duration}s` : 'Vídeo'}</em>` : ''}
         </button>
@@ -1333,7 +1334,7 @@
     host.hidden = !others.length;
     host.innerHTML = others.map((item) => `
       <button type="button" class="mc-trocr-reel-bin" data-run="${escapeHtml(item.run_id)}">
-        ${item.thumb_url ? `<img src="${escapeHtml(item.thumb_url)}" alt="">` : '<span></span>'}
+        ${item.thumb_url ? `<img src="${escapeHtml(item.thumb_url)}" alt="" onerror="this.closest('.mc-trocr-reel-bin')?.remove()">` : '<span></span>'}
         <span>
           <strong>${escapeHtml(item.title || 'Troca')}</strong>
           <small>${item.version_count || 0} versões</small>
@@ -1716,6 +1717,21 @@
     else {
       const version = baseVersion();
       if (version) readReference(version, { force: true });
+    }
+  }
+
+  function openHandEdit() {
+    setFlow('edit');
+    renderEditPanels();
+    const ocr = $('mcTrocrOcr');
+    if (ocr) {
+      ocr.hidden = false;
+      if (ocr.tagName === 'DETAILS') ocr.open = true;
+    }
+    const headline = $('mcSwapHeadline');
+    if (headline) {
+      headline.focus();
+      headline.select?.();
     }
   }
 
@@ -2351,7 +2367,7 @@
     list.innerHTML = runs.map((item) => `
       <li>
         <button type="button" data-run="${escapeHtml(item.run_id)}" class="${item.run_id === state.runId ? 'is-active' : ''}">
-          ${item.thumb_url ? `<img src="${escapeHtml(item.thumb_url)}" alt="">` : '<span></span>'}
+          ${item.thumb_url ? `<img src="${escapeHtml(item.thumb_url)}" alt="" onerror="this.closest('li')?.remove()">` : '<span></span>'}
           <strong>${escapeHtml(item.title || 'Troca')}</strong>
           <small>${escapeHtml(item.aspect_ratio || '')} · ${item.version_count || 0} versões</small>
         </button>

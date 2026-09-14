@@ -286,6 +286,130 @@ class TrocrSessionStoreTest(unittest.TestCase):
             "/parametros/api/media/assets/asset_clip/content",
         )
 
+    def test_biblioteca_remove_tim_e_still_404(self):
+        alive_name = "a" * 32 + ".png"
+        dead_name = "d" * 32 + ".png"
+        with tempfile.TemporaryDirectory() as folder:
+            alive = Path(folder) / alive_name
+            alive.write_bytes(TINY_PNG)
+
+            class _Storage:
+                def __init__(self):
+                    self.sessions = {}
+
+                def save_trocr_session(self, key, data):
+                    self.sessions[key] = data
+
+                def load_trocr_session(self, key):
+                    return self.sessions.get(key)
+
+                def load_trocr_still(self, filename):
+                    return alive if filename == alive_name else None
+
+                def load_generated_still(self, filename):
+                    return None
+
+            repo = FakeRepository()
+            repo.get_client = lambda client_id: {
+                "id": client_id,
+                "name": "TIM" if int(client_id) == 32 else "Outra marca",
+            }
+            modeling = CreativeModelingService(repo, FakeGenerator(), storage=_Storage())
+            lab = FormatLabService(modeling)
+            store = lab._trocr_store()
+            packed = {
+                "schema": "runs-v1",
+                "active_run_id": "r-keep",
+                "runs": [
+                    {
+                        "run_id": "r-keep",
+                        "client_id": 10,
+                        "title": "Original · 16:9",
+                        "versions": [{
+                            "id": "v1",
+                            "name": "Original",
+                            "origin": "original",
+                            "image_url": f"/parametros/api/format-lab/swap/still/{alive_name}",
+                            "thumb_url": f"/parametros/api/format-lab/swap/still/{alive_name}",
+                        }],
+                    },
+                    {
+                        "run_id": "r-tim",
+                        "client_id": 10,
+                        "title": "TIM Black · 16:9",
+                        "versions": [{
+                            "id": "v1",
+                            "name": "TIM Black",
+                            "origin": "original",
+                            "ocr": {"headline": "TIM Black", "logo_text": "TIM"},
+                            "image_url": f"/parametros/api/format-lab/swap/still/{alive_name}",
+                            "thumb_url": f"/parametros/api/format-lab/swap/still/{alive_name}",
+                        }],
+                    },
+                    {
+                        "run_id": "r-dead",
+                        "client_id": 10,
+                        "title": "Peça sumida · 16:9",
+                        "versions": [{
+                            "id": "v1",
+                            "name": "Original",
+                            "origin": "original",
+                            "image_url": f"/parametros/api/format-lab/swap/still/{dead_name}",
+                            "thumb_url": f"/parametros/api/format-lab/swap/still/{dead_name}",
+                        }],
+                    },
+                    {
+                        "run_id": "r-foreign",
+                        "client_id": 32,
+                        "title": "De outra marca · 16:9",
+                        "versions": [{
+                            "id": "v1",
+                            "name": "Original",
+                            "origin": "original",
+                            "image_url": f"/parametros/api/format-lab/swap/still/{alive_name}",
+                            "thumb_url": f"/parametros/api/format-lab/swap/still/{alive_name}",
+                        }],
+                    },
+                ],
+            }
+            store.write("client-10", packed, 10)
+            store.write("client-32", {
+                "schema": "runs-v1",
+                "active_run_id": "r-tim32",
+                "runs": [{
+                    "run_id": "r-tim32",
+                    "client_id": 32,
+                    "title": "TIM Black · 16:9",
+                    "versions": [{
+                        "id": "v1",
+                        "name": "TIM Black",
+                        "origin": "original",
+                        "ocr": {"headline": "TIM Black", "logo_text": "TIM"},
+                        "image_url": f"/parametros/api/format-lab/swap/still/{alive_name}",
+                        "thumb_url": f"/parametros/api/format-lab/swap/still/{alive_name}",
+                    }],
+                }],
+            }, 32)
+            items = lab.load_swap_library({"client_id": 10, "media": "still"}, user_id=7)
+            ids = {item["run_id"] for item in items["items"]}
+            self.assertEqual(ids, {"r-keep", "r-dead"})
+            dead = next(item for item in items["items"] if item["run_id"] == "r-dead")
+            self.assertTrue(dead["broken"])
+            purged = lab.remove_swap_library_items(
+                {"client_id": 10, "broken": True, "media": "still"},
+                user_id=7,
+            )
+            self.assertEqual(purged["removed"], 1)
+            self.assertEqual({item["run_id"] for item in purged["items"]}, {"r-keep"})
+            gone = lab.remove_swap_library_items(
+                {"client_id": 10, "id": "r-keep:v1", "media": "still"},
+                user_id=7,
+            )
+            self.assertEqual(gone["removed"], 1)
+            self.assertEqual(gone["items"], [])
+            tim = lab.load_swap_library({"client_id": 32, "media": "still"}, user_id=7)
+            self.assertEqual([item["run_id"] for item in tim["items"]], ["r-tim32"])
+
     def test_persist_still_normaliza_url_absoluta(self):
         store = TrocrStore(Mock(storage=Mock()), FakeRepository())
         url = "https://ai.centralcomm.media/parametros/api/format-lab/swap/still/c86b3398268e48b9bcecadde5cb9ebfd.jpg"

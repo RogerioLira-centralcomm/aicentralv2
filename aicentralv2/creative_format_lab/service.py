@@ -381,6 +381,9 @@ class FormatLabService:
     def add_swap_library_still(self, payload, user_id=None):
         return self._trocr_store().add_library_still(payload, user_id=user_id)
 
+    def remove_swap_library_items(self, payload, user_id=None):
+        return self._trocr_store().remove_library_items(payload, user_id=user_id)
+
     def swap_still_path(self, filename):
         return self._trocr_store().still_path(filename)
 

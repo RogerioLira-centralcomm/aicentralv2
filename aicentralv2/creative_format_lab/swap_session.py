@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import logging
 import mimetypes
+import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,6 +24,10 @@ logger = logging.getLogger(__name__)
 
 RUN_SCHEMA = "runs-v1"
 RUNS_LIMIT = 24
+TIM_LINE = re.compile(
+    r"\b(?:tim black|tim controle|tim ultra|tim pr[eé]|tim fam[ií]lia)\b",
+    re.IGNORECASE,
+)
 
 MEDIA_ASSET_PREFIX = "/parametros/api/media/assets/"
 
@@ -43,34 +48,53 @@ class TrocrStore:
     def load(self, payload, user_id=None):
         payload = payload if isinstance(payload, dict) else {}
         client_id = optional_client(payload)
-        store = wrap_store(self.read(self.session_key(payload, user_id), client_id), client_id)
+        key = self.session_key(payload, user_id)
+        store = wrap_store(self.read(key, client_id), client_id)
+        store, changed = self.scrub_store(store, client_id)
+        if changed:
+            packed = store_with_mirror(store)
+            self.write(key, packed, client_id)
+            if client_id and user_id not in (None, ""):
+                self.write(f"user-{user_id}", packed, None)
         run = pick_run(store, payload.get("run_id"))
         return _serialize(self.public_history(run, store, client_id, media=payload.get("media")))
 
     def library(self, payload, user_id=None):
         payload = payload if isinstance(payload, dict) else {}
         client_id = optional_client(payload)
-        store = wrap_store(self.read(self.session_key(payload, user_id), client_id), client_id)
+        key = self.session_key(payload, user_id)
+        store = wrap_store(self.read(key, client_id), client_id)
+        store, changed = self.scrub_store(store, client_id)
+        if changed:
+            packed = store_with_mirror(store)
+            self.write(key, packed, client_id)
+            if client_id and user_id not in (None, ""):
+                self.write(f"user-{user_id}", packed, None)
         want_video = str(payload.get("media") or "still").strip().lower() == "video"
+        drop_tim = self.should_drop_tim(client_id)
         items = []
         seen = set()
         for run in store.get("runs") or []:
             if not isinstance(run, dict):
+                continue
+            if not run_matches_client(run, client_id):
                 continue
             run_id = str(run.get("run_id") or "")
             aspect = str(run.get("aspect_ratio") or "16:9")
             for item in run.get("versions") or []:
                 if not isinstance(item, dict):
                     continue
+                if not self.keep_library_item(item, run, client_id, drop_tim=drop_tim):
+                    continue
                 video = is_video_version(item)
                 if want_video != video:
                     continue
                 url = published_still_url(item.get("image_url") or item.get("thumb_url") or "")
                 video_url = str(item.get("video_url") or "")
-                key = video_url or url or f"{run_id}:{item.get('id')}"
-                if not key or key in seen:
+                ident = video_url or url or f"{run_id}:{item.get('id')}"
+                if not ident or ident in seen:
                     continue
-                seen.add(key)
+                seen.add(ident)
                 version_id = str(item.get("id") or "")
                 items.append({
                     "id": f"{run_id}:{version_id}" if run_id and version_id else version_id,
@@ -84,6 +108,7 @@ class TrocrStore:
                     "ocr": slim_context(item.get("ocr")),
                     "aspect_ratio": aspect,
                     "created_at": str(item.get("created_at") or run.get("updated_at") or ""),
+                    "broken": (not video) and not self.still_alive(url),
                     **({
                         "media": "video",
                         "video_url": video_url,
@@ -108,13 +133,18 @@ class TrocrStore:
         client_id = optional_client(payload)
         key = self.session_key(payload, user_id)
         store = wrap_store(self.read(key, client_id), client_id)
-        run = pick_run(store, payload.get("run_id"))
-        versions = list(run.get("versions") or [])
+        if payload.get("new_run") or payload.get("new_piece"):
+            run = empty_run(client_id, payload.get("aspect_ratio"))
+            versions = []
+        else:
+            run = pick_run(store, payload.get("run_id"))
+            versions = list(run.get("versions") or [])
         next_id = f"v{len(versions) + 1}"
+        piece_name = str(payload.get("name") or "Peça").strip() or "Peça"
         versions.append({
             "id": next_id,
             "attempt": len(versions) + 1,
-            "name": str(payload.get("name") or "Cena"),
+            "name": piece_name,
             "origin": "library",
             "quality": "",
             "status": "ready",
@@ -136,7 +166,7 @@ class TrocrStore:
             "id": f"{run.get('run_id')}:{next_id}",
             "version_id": next_id,
             "run_id": run.get("run_id") or "",
-            "name": "Cena",
+            "name": piece_name,
             "image_url": image_url,
             "thumb_url": image_url,
             "image": image_url,
@@ -144,6 +174,88 @@ class TrocrStore:
             "ocr": None,
             "aspect_ratio": run.get("aspect_ratio") or "16:9",
             "created_at": run.get("updated_at") or "",
+        })
+
+    def remove_library_items(self, payload, user_id=None):
+        payload = payload if isinstance(payload, dict) else {}
+        client_id = optional_client(payload)
+        key = self.session_key(payload, user_id)
+        store = wrap_store(self.read(key, client_id), client_id)
+        wanted = set()
+        raw_ids = list(payload.get("ids") or [])
+        if payload.get("id"):
+            raw_ids.insert(0, payload.get("id"))
+        for raw in raw_ids:
+            run_id, version_id = parse_scene_ref(raw)
+            ident = str(raw or "").strip()
+            if version_id:
+                wanted.add((run_id, version_id))
+                wanted.add(("", version_id))
+            elif ident:
+                wanted.add(("", ident))
+        drop_broken = bool(payload.get("broken") or payload.get("drop_broken"))
+        media = str(payload.get("media") or "").strip().lower()
+        if not wanted and not drop_broken:
+            raise ValueError("Escolha uma peça para apagar.")
+        changed = False
+        removed = 0
+        runs = []
+        for run in store.get("runs") or []:
+            if not isinstance(run, dict) or not run.get("run_id"):
+                continue
+            run_id = str(run.get("run_id") or "")
+            versions = []
+            for item in run.get("versions") or []:
+                if not isinstance(item, dict):
+                    continue
+                version_id = str(item.get("id") or "")
+                video = is_video_version(item)
+                if media == "video" and not video:
+                    versions.append(item)
+                    continue
+                if media in {"still", "image"} and video:
+                    versions.append(item)
+                    continue
+                hit = (run_id, version_id) in wanted or ("", version_id) in wanted
+                url = item.get("image_url") or item.get("thumb_url") or item.get("image") or ""
+                dead = (not video) and not self.still_alive(url)
+                if hit or (drop_broken and dead):
+                    changed = True
+                    removed += 1
+                    continue
+                versions.append(item)
+            if versions:
+                if len(versions) != len([item for item in (run.get("versions") or []) if isinstance(item, dict)]):
+                    run = dict(run)
+                    run["versions"] = versions
+                    changed = True
+                runs.append(run)
+            elif run.get("versions"):
+                changed = True
+        if not changed:
+            raise ValueError("Essa peça já não está na biblioteca.")
+        next_store = {
+            "schema": RUN_SCHEMA,
+            "active_run_id": store.get("active_run_id") or "",
+            "runs": runs,
+        }
+        ids = {str(item.get("run_id") or "") for item in runs}
+        if next_store["active_run_id"] not in ids:
+            next_store["active_run_id"] = runs[0]["run_id"] if runs else ""
+        if not next_store["runs"]:
+            run = empty_run(client_id)
+            next_store["runs"] = [run]
+            next_store["active_run_id"] = run["run_id"]
+        packed = store_with_mirror(next_store)
+        self.write(key, packed, client_id)
+        if client_id and user_id not in (None, ""):
+            self.write(f"user-{user_id}", packed, None)
+        listed = self.library({**payload, "media": media or "still"}, user_id=user_id)
+        return _serialize({
+            "removed": removed,
+            "client_id": listed.get("client_id") or client_id or "",
+            "media": listed.get("media") or (media or "still"),
+            "items": listed.get("items") or [],
         })
 
     def find_still(self, payload, scene_id, user_id=None):
@@ -519,13 +631,109 @@ class TrocrStore:
         url = self.persist_still(raw)
         return url if accepted_still(url) else ""
 
+    def keep_library_item(self, item, run=None, client_id=None, drop_tim=False, require_file=False):
+        if not isinstance(item, dict):
+            return False
+        if not run_matches_client(run, client_id):
+            return False
+        if drop_tim and item_looks_tim(item, run):
+            return False
+        if is_video_version(item):
+            return bool(str(item.get("video_url") or "").strip())
+        url = item.get("image_url") or item.get("thumb_url") or item.get("image") or ""
+        if require_file:
+            return self.still_alive(url)
+        return True
+
+    def scrub_store(self, store, client_id=None):
+        pack = store if isinstance(store, dict) else {}
+        drop_tim = self.should_drop_tim(client_id)
+        changed = False
+        runs = []
+        for run in pack.get("runs") or []:
+            if not isinstance(run, dict) or not run.get("run_id"):
+                continue
+            if not run_matches_client(run, client_id):
+                changed = True
+                continue
+            versions = []
+            for item in run.get("versions") or []:
+                if not isinstance(item, dict):
+                    continue
+                if not self.keep_library_item(item, run, client_id, drop_tim=drop_tim):
+                    changed = True
+                    continue
+                versions.append(item)
+            if not versions and (run.get("versions") or []):
+                changed = True
+                continue
+            if len(versions) != len([item for item in (run.get("versions") or []) if isinstance(item, dict)]):
+                run = dict(run)
+                run["versions"] = versions
+                changed = True
+            runs.append(run)
+        if not changed:
+            return pack, False
+        next_store = {
+            "schema": RUN_SCHEMA,
+            "active_run_id": pack.get("active_run_id") or "",
+            "runs": runs,
+        }
+        ids = {str(item.get("run_id") or "") for item in runs}
+        if next_store["active_run_id"] not in ids:
+            next_store["active_run_id"] = runs[0]["run_id"] if runs else ""
+        if not next_store["runs"]:
+            run = empty_run(client_id)
+            next_store["runs"] = [run]
+            next_store["active_run_id"] = run["run_id"]
+        return next_store, True
+
+    def still_alive(self, raw):
+        text = published_still_url(raw)
+        if not text:
+            return False
+        if text.startswith("data:image/"):
+            return True
+        local = local_still_path(text) or (text if accepted_still(text) else "")
+        if not local:
+            return True
+        storage = getattr(self.modeling, "storage", None)
+        can_check = callable(getattr(storage, "load_trocr_still", None)) or callable(
+            getattr(storage, "load_generated_still", None)
+        )
+        if not can_check:
+            return True
+        try:
+            self.still_path(Path(local).name)
+        except CreativeNotFoundError:
+            return False
+        except Exception:
+            return True
+        return True
+
+    def should_drop_tim(self, client_id):
+        if not client_id or not callable(self.client_lookup):
+            return False
+        try:
+            client = self.client_lookup(client_id)
+        except Exception:
+            return False
+        if not isinstance(client, dict):
+            return False
+        return not client_named_tim(client)
+
     def public_history(self, session, store=None, client_id=None, media=None):
         data = session if isinstance(session, dict) else {}
+        drop_tim = self.should_drop_tim(client_id)
         versions = []
         for item in data.get("versions") or []:
             if not isinstance(item, dict):
                 continue
             if not match_media(item, media):
+                continue
+            if drop_tim and item_looks_tim(item, data):
+                continue
+            if not is_video_version(item) and not self.still_alive(item.get("image_url") or item.get("image") or ""):
                 continue
             url = published_still_url(item.get("image_url") or "")
             thumb = published_still_url(item.get("thumb_url") or url)
@@ -543,6 +751,10 @@ class TrocrStore:
         runs = []
         for item in pack.get("runs") or []:
             if not isinstance(item, dict):
+                continue
+            if not run_matches_client(item, client_id):
+                continue
+            if drop_tim and run_looks_tim(item):
                 continue
             summary = run_summary(item, active_id, media=media)
             if media and not summary.get("version_count"):
@@ -629,6 +841,41 @@ def optional_client(payload):
         return None
 
 
+def run_matches_client(run, client_id):
+    if not client_id:
+        return True
+    owned = optional_client(run if isinstance(run, dict) else {})
+    return owned in (None, client_id)
+
+
+def client_named_tim(client):
+    name = str((client or {}).get("name") or "").strip()
+    folded = name.casefold()
+    return folded == "tim" or folded.startswith("tim ")
+
+
+def item_looks_tim(item, run=None):
+    row = item if isinstance(item, dict) else {}
+    ocr = row.get("ocr") if isinstance(row.get("ocr"), dict) else {}
+    logo = str(ocr.get("logo_text") or row.get("logo_text") or "").strip()
+    if logo.casefold() == "tim":
+        return True
+    blob = " ".join([
+        str(row.get("name") or ""),
+        str(ocr.get("headline") or ""),
+        str(ocr.get("logo_text") or ""),
+        str((run or {}).get("title") or "") if isinstance(run, dict) else "",
+    ])
+    return bool(TIM_LINE.search(blob))
+
+
+def run_looks_tim(run):
+    data = run if isinstance(run, dict) else {}
+    if TIM_LINE.search(str(data.get("title") or "")):
+        return True
+    return any(item_looks_tim(item, data) for item in (data.get("versions") or []) if isinstance(item, dict))
+
+
 def new_run_id():
     return f"r-{uuid.uuid4().hex[:12]}"
 
@@ -662,13 +909,17 @@ def wrap_store(session, client_id=None):
         store = {
             "schema": RUN_SCHEMA,
             "active_run_id": session.get("active_run_id") or "",
-            "runs": [dict(item) for item in session.get("runs") or [] if isinstance(item, dict) and item.get("run_id")],
+            "runs": [
+                dict(item)
+                for item in session.get("runs") or []
+                if isinstance(item, dict) and item.get("run_id") and run_matches_client(item, client_id)
+            ],
         }
         if not store["runs"]:
             run = empty_run(client_id)
             store["runs"] = [run]
             store["active_run_id"] = run["run_id"]
-        elif not store["active_run_id"]:
+        elif store["active_run_id"] not in {str(item.get("run_id") or "") for item in store["runs"]}:
             store["active_run_id"] = store["runs"][0]["run_id"]
         return store
     if isinstance(session, dict) and (session.get("versions") or session.get("revision") or session.get("run_id")):

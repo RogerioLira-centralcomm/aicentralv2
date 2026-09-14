@@ -39,7 +39,7 @@ def register_trocr_routes(blueprint):
         "/api/format-lab/swap/library",
         endpoint="creative_format_lab_swap_library",
         view_func=api_format_lab_swap_library,
-        methods=["GET", "POST"],
+        methods=["GET", "POST", "DELETE"],
     )
     blueprint.add_url_rule(
         "/api/format-lab/swap/animate/script",
@@ -174,6 +174,8 @@ def api_format_lab_swap_library():
                 session.get("user_id"),
             ))
         )
+    if request.method == "DELETE":
+        return execute(lambda: ok(service().remove_format_lab_swap_library(json_body(), session.get("user_id"))))
     return execute(lambda: ok(service().add_format_lab_swap_library_still(json_body(), session.get("user_id"))))
 
 

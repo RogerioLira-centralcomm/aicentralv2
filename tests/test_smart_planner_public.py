@@ -93,19 +93,23 @@ class PublicPlannerTest(TestCase):
         self.assertIn("Smart Planner", html)
         self.assertNotIn("CentralX", html)
         self.assertNotIn("base_erp.html", html)
-        self.assertIn('data-cc-tab="folha"', html)
-        self.assertIn('data-cc-tab="plano"', html)
-        self.assertIn("cc-exec-media", html)
-        self.assertIn("Distribuição do investimento", html)
-        self.assertIn("cc-plan-hero", html)
+        self.assertIn('id="visao"', html)
+        self.assertIn('id="estrategia"', html)
+        self.assertIn('id="investimento"', html)
+        self.assertIn('id="periodo"', html)
+        self.assertIn('id="canais"', html)
+        self.assertIn('id="portais"', html)
+        self.assertIn('id="criativos"', html)
+        self.assertIn('id="premissas"', html)
+        self.assertIn("cc-hero", html)
         self.assertIn("cc-donut", html)
-        self.assertIn("cc-exec-gantt", html)
-        self.assertIn("Destaques do plano", html)
-        self.assertIn("Leitura do mix", html)
-        self.assertIn("Resumo por canal", html)
+        self.assertIn("cc-gantt", html)
+        self.assertIn("Visão geral", html)
+        self.assertIn("Salvar PDF", html)
+        self.assertIn("Compartilhar", html)
         self.assertIn("cc-doc-card", html)
         self.assertIn("is-lead", html)
-        self.assertIn("ainda não foi criado", html)
+        self.assertIn("ainda não foi criada", html)
         self.assertIn("Centralcomm", error)
         self.assertIn("Smart Planner", error)
         self.assertNotIn("base_erp.html", error)
@@ -115,6 +119,11 @@ class PublicPlannerTest(TestCase):
         self.assertIn("row.share_url", index)
         self.assertIn('target="_blank"', canvas)
         self.assertIn("share_url", canvas)
+        self.assertIn('id="sp-folha-form"', canvas)
+        self.assertIn("sp-gallery", canvas)
+        self.assertIn("Criar marca no Cadu Media Studio", canvas)
+        self.assertNotIn("sp-qr", canvas)
+        self.assertNotIn("sp-mockup", canvas)
 
     def test_public_view_exposes_media_board_and_exec_facts(self):
         view = public_view({
@@ -231,6 +240,66 @@ class PublicPlannerTest(TestCase):
         self.assertFalse(view["tem_completo"])
         self.assertEqual(view["default_tab"], "folha")
         self.assertEqual(view["media"]["channels"][0]["label"], "OOH")
+
+    def test_water_campaign_builds_balanced_book(self):
+        view = public_view({
+            "nome_campanha": "Uso Consciente da Água",
+            "cliente": "Anunciante",
+            "objetivo": "reconhecimento",
+            "publico_alvo": "População geral, com foco em responsáveis pelas decisões domésticas.",
+            "budget": "R$ 250.000",
+            "prazo": "3 meses",
+            "dados_detectados": {
+                "plan_mode": "one_page",
+                "anunciante_confidencial": True,
+                "folha": {
+                    "meta": {
+                        "objective": "Reconhecimento",
+                        "publico": "População geral, com foco em responsáveis pelas decisões domésticas.",
+                        "period": "3 meses",
+                        "market": "interior",
+                        "market_detail": "Interior de Minas Gerais",
+                        "budget": "R$ 250.000 no total",
+                        "canais": "3 canais",
+                    },
+                    "media": {
+                        "method_label": "Funil do objetivo",
+                        "channels": [
+                            {"id": "youtube", "label": "YouTube", "pct": 45, "amount_label": "R$ 112.500"},
+                            {"id": "meta_ads", "label": "Meta Ads", "pct": 33, "amount_label": "R$ 82.500"},
+                            {"id": "dv360", "label": "Rede de portais e sites", "pct": 22, "amount_label": "R$ 55.000"},
+                        ],
+                        "pace": {
+                            "how": "R$ 250.000 no período · ~R$ 83.333/mês",
+                            "months": [
+                                {"label": "Set", "amount": 45640, "amount_label": "R$ 45.640"},
+                                {"label": "Out", "amount": 88357, "amount_label": "R$ 88.357"},
+                                {"label": "Nov", "amount": 116003, "amount_label": "R$ 116.003"},
+                            ],
+                        },
+                    },
+                    "sections": [{"cards": [
+                        {"type": "strategy", "body": "Tese sobre economia de água no interior.\n\nLiderar em YouTube.\n\nLevar a mensagem institucional."},
+                        {"type": "creative", "title": "Economizar água começa em casa", "body": "Pequenas atitudes no dia a dia."},
+                        {"type": "defense", "body": "YouTube lidera.\n\nMeta reforça.\n\nDV360 cobre."},
+                    ]}],
+                },
+            },
+            "plan_content": {"sections": []},
+        })
+        self.assertEqual(view["title"], "Uso Consciente da Água")
+        self.assertEqual(view["client"], "Confidencial")
+        self.assertEqual(view["media"]["total"], 250000)
+        self.assertEqual(sum(item["amount"] for item in view["media"]["months"]), 250000)
+        self.assertEqual(sum(item["pct"] for item in view["media"]["channels"]), 100)
+        self.assertEqual(len(view["nav"]), 8)
+        self.assertTrue(view["hero"]["image"].endswith("hero-water.svg"))
+        self.assertTrue(view["inventory"])
+        month_from_bars = [
+            sum(channel["bars"][index]["amount"] for channel in view["media"]["channels"])
+            for index in range(3)
+        ]
+        self.assertEqual(month_from_bars, [45640, 88357, 116003])
 
     def test_history_row_exposes_public_link(self):
         row = serialize_list_row({

@@ -4,13 +4,271 @@
 {% block title %}{{ titulo }} · Smart Planner{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=35">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=40">
 {% endblock %}
 
 {% block content %}
-{% set product_step = "Documentos" %}
+{% set product_step = "Página única" if editor else "Documentos" %}
 {% include "smart_planner/_product_bar.html" %}
-<div class="sp-desk {% if plan_mode == 'one_page' %}is-sheet{% endif %}" id="sp-canvas"
+
+{% if editor %}
+{% set cards = cards or {} %}
+{% set strategy = cards.strategy or {} %}
+{% set creative = cards.creative or {} %}
+{% set market = cards.market or {} %}
+{% set defense = cards.defense or {} %}
+{% set brand = brand_panel or {} %}
+{% set client = brand.client or {} %}
+{% set agency = brand.agency or {} %}
+{% set media_board = media or {} %}
+{% set pace = media_board.pace or {} %}
+<div class="sp-hi" id="sp-canvas"
+     data-token="{{ token }}"
+     data-mode="one_page"
+     data-editor="1"
+     data-presenter="{{ presenter_brand or 'centralcomm' }}">
+  <div class="sp-hi-grid is-review is-folha">
+    <div class="sp-hi-main">
+      <header class="sp-hi-head">
+        <div>
+          <h1>Editar página única</h1>
+          <p>Só a folha: tese, criativo, mídia e defesa. O link público mostra o documento ao cliente.</p>
+        </div>
+        <div class="sp-hi-head-actions">
+          <p class="sp-live" id="sp-save-live" aria-live="polite"></p>
+          <a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ url_for('smart_planner.index') }}">Planejamentos</a>
+          {% if share_url %}
+          <a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ share_url }}" target="_blank" rel="noopener noreferrer">Link publicado</a>
+          {% endif %}
+          <button type="button" class="cx-btn cx-btn-secondary cx-btn-sm" id="sp-canvas-regen">Gerar de novo</button>
+          <button type="button" class="cx-btn cx-btn-primary cx-btn-sm" id="sp-canvas-save">Salvar</button>
+        </div>
+      </header>
+
+      <form id="sp-folha-form" class="sp-review" data-folha="1">
+        <details class="sp-acc" data-acc="strategy" open id="sp-acc-strategy">
+          <summary aria-controls="sp-acc-strategy-body">
+            <span class="sp-acc-title">Tese e briefing</span>
+            <span class="sp-acc-meta">1 campo</span>
+          </summary>
+          <div class="sp-bf is-stack" id="sp-acc-strategy-body">
+            <label for="sp-field-strategy-title"><span>Título</span>
+              <input id="sp-field-strategy-title" name="strategy_title" value="{{ strategy.title or 'Tese e briefing' }}">
+            </label>
+            <label for="sp-field-strategy"><span>Tese</span>
+              <textarea id="sp-field-strategy" name="strategy_body" rows="5">{{ strategy.body or '' }}</textarea>
+            </label>
+          </div>
+        </details>
+
+        <details class="sp-acc" data-acc="creative" open id="sp-acc-creative">
+          <summary aria-controls="sp-acc-creative-body">
+            <span class="sp-acc-title">Criativo no canal</span>
+            <span class="sp-acc-meta">texto e imagens</span>
+          </summary>
+          <div class="sp-bf is-stack" id="sp-acc-creative-body">
+            <label for="sp-field-creative-title"><span>Título</span>
+              <input id="sp-field-creative-title" name="creative_title" value="{{ creative.title or 'Criativo' }}">
+            </label>
+            <div class="sp-bf is-pair">
+              <label for="sp-field-channel"><span>Canal</span>
+                <input id="sp-field-channel" name="creative_channel" value="{{ creative.channel or '' }}">
+              </label>
+              <label for="sp-field-surface"><span>Superfície</span>
+                <select id="sp-field-surface" name="creative_surface">
+                  {% for key, label in [('display', 'Display'), ('ctv', 'CTV'), ('portal', 'Portal'), ('app', 'App')] %}
+                  <option value="{{ key }}" {% if (creative.surface or 'display') == key %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+            </div>
+            <label for="sp-field-creative"><span>Descrição do criativo</span>
+              <textarea id="sp-field-creative" name="creative_body" rows="4">{{ creative.body or '' }}</textarea>
+            </label>
+            <label for="sp-field-image-prompt"><span>Prompt da imagem</span>
+              <textarea id="sp-field-image-prompt" name="creative_image_prompt" rows="3">{{ creative.image_prompt or '' }}</textarea>
+            </label>
+            <input type="hidden" id="sp-field-image-url" name="creative_image_url" value="{{ creative.image_url or '' }}">
+            <div class="sp-gallery" id="sp-gallery" aria-label="Imagens geradas">
+              {% if gallery %}
+              {% for item in gallery %}
+              <figure class="sp-gallery-item {% if item.active %}is-active{% endif %}" data-url="{{ item.url }}" data-kind="{{ item.kind }}">
+                <img src="{{ item.url }}" alt="{{ item.label }}" loading="lazy">
+                <figcaption>{{ item.label }}</figcaption>
+              </figure>
+              {% endfor %}
+              {% else %}
+              <p class="sp-gallery-empty">Nenhuma imagem gerada ainda.</p>
+              {% endif %}
+            </div>
+            <button type="button" class="cx-btn cx-btn-secondary cx-btn-sm" id="sp-canvas-image">Gerar outra peça</button>
+          </div>
+        </details>
+
+        <details class="sp-acc" data-acc="media" open id="sp-acc-media">
+          <summary aria-controls="sp-acc-media-body">
+            <span class="sp-acc-title">Gestão de mídia</span>
+            <span class="sp-acc-meta">leitura do plano</span>
+          </summary>
+          <div id="sp-acc-media-body">
+            {% if media_board.method_label or media_board.channels or pace.months %}
+            <p class="sp-acc-note">{{ media_board.method_label or 'Mix aprovado no briefing' }}</p>
+            {% if media_board.channels %}
+            <ul class="sp-mix-snap">
+              {% for row in media_board.channels %}
+              <li>
+                <span>{{ row.label or row.id }}</span>
+                <i><b style="width: {{ row.pct or 0 }}%"></b></i>
+                <em>{{ row.pct or 0 }}%</em>
+              </li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+            {% if pace.months %}
+            <div class="sp-cal-mini">
+              <p>Voo no período</p>
+              <ol>
+                {% for month in pace.months %}
+                <li>
+                  <b style="--pct: {{ month.pct or 0 }}"></b>
+                  <span>{{ month.label or month.id }}</span>
+                </li>
+                {% endfor %}
+              </ol>
+            </div>
+            {% endif %}
+            <p class="sp-acc-note">Para rebalancear canais e verba, volte à revisão do briefing.</p>
+            <a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ url_for('smart_planner.revisao', token=token) }}">Abrir revisão</a>
+            {% else %}
+            <p class="sp-acc-note">Ainda sem mix nesta folha. Gere de novo ou ajuste na revisão.</p>
+            {% endif %}
+          </div>
+        </details>
+
+        <details class="sp-acc" data-acc="market" open id="sp-acc-market">
+          <summary aria-controls="sp-acc-market-body">
+            <span class="sp-acc-title">Mercado</span>
+            <span class="sp-acc-meta">dado e leitura</span>
+          </summary>
+          <div class="sp-bf is-stack" id="sp-acc-market-body">
+            <div class="sp-bf is-pair">
+              <label for="sp-field-stat"><span>Número</span>
+                <input id="sp-field-stat" name="market_stat" value="{{ market.stat or '' }}">
+              </label>
+              <label for="sp-field-stat-label"><span>Rótulo</span>
+                <input id="sp-field-stat-label" name="market_stat_label" value="{{ market.stat_label or '' }}">
+              </label>
+            </div>
+            <label for="sp-field-market"><span>Leitura</span>
+              <textarea id="sp-field-market" name="market_body" rows="3">{{ market.body or '' }}</textarea>
+            </label>
+          </div>
+        </details>
+
+        <details class="sp-acc" data-acc="defense" open id="sp-acc-defense">
+          <summary aria-controls="sp-acc-defense-body">
+            <span class="sp-acc-title">Defesa</span>
+            <span class="sp-acc-meta">1 campo</span>
+          </summary>
+          <div class="sp-bf is-stack" id="sp-acc-defense-body">
+            <label for="sp-field-defense-title"><span>Título</span>
+              <input id="sp-field-defense-title" name="defense_title" value="{{ defense.title or 'Por que aprovar' }}">
+            </label>
+            <label for="sp-field-defense"><span>Argumento</span>
+              <textarea id="sp-field-defense" name="defense_body" rows="5">{{ defense.body or '' }}</textarea>
+            </label>
+          </div>
+        </details>
+
+        <details class="sp-acc" data-acc="brand" open id="sp-acc-brand">
+          <summary aria-controls="sp-acc-brand-body">
+            <span class="sp-acc-title">Marca</span>
+            <span class="sp-acc-meta">Cadu Media Studio</span>
+          </summary>
+          <div id="sp-acc-brand-body" class="sp-brand-panel">
+            <div class="sp-brand-row">
+              {% if client.name %}
+              <div class="sp-brand-card">
+                {% if client.logo_url %}
+                <img src="{{ client.logo_url }}" alt="" width="40" height="40">
+                {% endif %}
+                <div>
+                  <strong>{{ client.name }}</strong>
+                  <span>{% if client.has_identity %}Identidade na Modelagem{% else %}Sem perfil completo{% endif %}</span>
+                  {% if client.asset_count %}<small>{{ client.asset_count }} asset{{ 's' if client.asset_count != 1 else '' }}</small>{% endif %}
+                </div>
+              </div>
+              {% endif %}
+              {% if agency.name %}
+              <div class="sp-brand-card is-agency">
+                {% if agency.logo_url %}
+                <img src="{{ agency.logo_url }}" alt="" width="40" height="40">
+                {% endif %}
+                <div>
+                  <strong>{{ agency.name }}</strong>
+                  <span>Agência (CRM)</span>
+                </div>
+              </div>
+              {% endif %}
+            </div>
+            {% if client.palette %}
+            <ul class="sp-brand-palette" aria-label="Paleta">
+              {% for color in client.palette %}
+              <li style="--swatch: {{ color }}" title="{{ color }}"></li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+            <label class="sp-presenter" for="sp-presenter">
+              <span>Marca apresentadora da folha</span>
+              <select class="cx-select" id="sp-presenter" name="presenter">
+                {% for option in presenter_options %}
+                <option value="{{ option.id }}" {% if presenter_brand == option.id %}selected{% endif %}>{{ option.label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            {% if brand.needs_create %}
+            <p class="sp-acc-note">Não há marca do anunciante no Cadu Media Studio. Crie o perfil para usar logo, paleta e peças no planejamento.</p>
+            <a class="cx-btn cx-btn-primary cx-btn-sm" href="{{ brand.create_url }}" target="_blank" rel="noopener noreferrer">Criar marca no Cadu Media Studio</a>
+            {% else %}
+            <a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ brand.marcas_url }}" target="_blank" rel="noopener noreferrer">Abrir em Marcas</a>
+            {% endif %}
+          </div>
+        </details>
+      </form>
+    </div>
+
+    <aside class="sp-hi-plan" aria-label="Checklist do documento">
+      <section class="sp-side-card">
+        <h2>Página única</h2>
+        <p>O que esta folha já tem. Clique para ir ao bloco.</p>
+        <ul class="sp-complete-checks sp-editor-checks" id="sp-folha-checks">
+          {% for item in folha_checks or [] %}
+          <li class="{% if item.done %}is-done{% endif %}" data-check="{{ item.id }}">
+            <a href="{{ item.href }}">{{ item.label }}</a>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+      <section class="sp-side-card">
+        <h2>Plano completo</h2>
+        <p>Seções previstas ou já criadas. Esta tela não edita o plano completo.</p>
+        <ul class="sp-complete-checks sp-editor-checks is-completo" id="sp-completo-checks">
+          {% for item in completo_checks or [] %}
+          <li class="{% if item.done %}is-done{% else %}is-planned{% endif %}" data-check="{{ item.id }}">
+            <a href="{{ item.href }}" {% if item.external %}target="_blank" rel="noopener noreferrer"{% endif %}>
+              {{ item.label }}
+              <small>{{ 'Criada' if item.done else 'Prevista' }}</small>
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+    </aside>
+  </div>
+</div>
+
+{% else %}
+<div class="sp-desk" id="sp-canvas"
      data-token="{{ token }}"
      data-mode="{{ plan_mode }}"
      data-presenter="{{ presenter_brand or 'centralcomm' }}">
@@ -18,34 +276,21 @@
     <div>
       <p class="sp-kicker">{{ plan_mode_label }}</p>
       <h1>{{ titulo }}</h1>
-      <p>
-        {% if plan_mode == 'one_page' %}
-          Folha executiva: tese, gestão de mídia e criativo no canal.
-        {% else %}
-          Quadro executivo nas quatro seções. Edite e salve.
-        {% endif %}
-      </p>
+      <p>Quadro executivo nas quatro seções. Edite e salve.</p>
     </div>
     <div class="sp-actions">
-      {% if plan_mode == 'one_page' %}
-      <label class="sp-presenter">
-        <span>Marca da folha</span>
-        <select class="cx-select" id="sp-presenter">
-          {% for option in presenter_options %}
-          <option value="{{ option.id }}" {% if presenter_brand == option.id %}selected{% endif %}>{{ option.label }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      {% endif %}
       <a class="cx-btn cx-btn-ghost" href="{{ url_for('smart_planner.index') }}">Planejamentos</a>
       {% if share_url %}
       <a class="cx-btn cx-btn-ghost" href="{{ share_url }}" target="_blank" rel="noopener noreferrer">Link público</a>
+      {% endif %}
+      {% if tem_folha %}
+      <a class="cx-btn cx-btn-ghost" href="{{ folha_url }}">Abrir página única</a>
       {% endif %}
       <button type="button" class="cx-btn cx-btn-secondary" id="sp-canvas-regen">Gerar de novo</button>
       <button type="button" class="cx-btn cx-btn-primary" id="sp-canvas-save">Salvar</button>
     </div>
   </header>
-  {% if plan_mode != 'one_page' and facts and (facts.cliente or facts.verba or facts.praca or facts.custo or facts.publico or facts.canais) %}
+  {% if facts and (facts.cliente or facts.verba or facts.praca or facts.custo or facts.publico or facts.canais) %}
   <dl class="sp-facts is-strip">
     <div><dt>Cliente</dt><dd>{{ facts.cliente or "—" }}</dd></div>
     {% if facts.objetivo %}<div><dt>Objetivo</dt><dd>{{ facts.objetivo }}</dd></div>{% endif %}
@@ -58,13 +303,12 @@
   </dl>
   {% endif %}
   <div class="sp-stage" id="sp-stage">
-    <div id="sp-canvas-board"
-         class="sp-board {% if plan_mode == 'one_page' %}is-sheet{% endif %}"
-         aria-live="polite"></div>
+    <div id="sp-canvas-board" class="sp-board" aria-live="polite"></div>
   </div>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/canvas.js') }}?v=6"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/canvas.js') }}?v=8"></script>
 {% endblock %}

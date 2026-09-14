@@ -367,11 +367,30 @@ def _plain_excerpt(body: str, limit: int = 1800) -> str:
     return "\n".join(part for part in lines if part).strip()[:limit]
 
 
-def save_plan(token: str, plan: dict) -> dict:
+def save_plan(token: str, plan: dict, *, folha: bool = False) -> dict:
     row = get_by_token(token)
     dados = as_dict(row.get("dados_detectados") if row else {})
-    mode = plan_mode_of(dados)
+    mode = "one_page" if folha else plan_mode_of(dados)
     meta = as_dict(plan.get("meta")) if isinstance(plan, dict) else {}
     branding = as_dict(plan.get("branding")) if isinstance(plan, dict) else {}
-    normalized = normalize_plan(plan if isinstance(plan, dict) else {}, mode, meta, branding)
+    incoming = plan if isinstance(plan, dict) else {}
+    if folha or mode == "one_page":
+        # Preserve media/theme/share from the saved folha when the form omits them.
+        existing = as_dict(dados.get("folha")) or as_dict(row.get("plan_content") if row else {})
+        for key in ("media", "theme", "share", "branding", "one_page_v2"):
+            if key not in incoming and existing.get(key):
+                incoming[key] = existing.get(key)
+        if not meta:
+            meta = as_dict(existing.get("meta"))
+        if not branding:
+            branding = as_dict(existing.get("branding"))
+        normalized = normalize_plan(incoming, "one_page", meta, branding)
+        for key in ("media", "theme", "share"):
+            if existing.get(key) and not normalized.get(key):
+                normalized[key] = existing.get(key)
+        merge_dados(token, {"folha": normalized})
+        if plan_mode_of(dados) == "one_page" or not as_list(as_dict(row.get("plan_content") if row else {}).get("sections")):
+            return update_session(token, {"plan_content": normalized})
+        return get_by_token(token) or row
+    normalized = normalize_plan(incoming, mode, meta, branding)
     return update_session(token, {"plan_content": normalized})

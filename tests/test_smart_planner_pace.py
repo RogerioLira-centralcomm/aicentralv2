@@ -41,7 +41,7 @@ def test_parse_periodo_named_range_crosses_year():
     assert parsed["helper"].startswith("6 meses")
 
 
-def test_sub_month_campaign_opens_without_gantt_columns():
+def test_ten_days_opens_weekly_columns():
     pace = campaign_pace({
         "verba": "R$ 20.000",
         "verba_valor": 20000,
@@ -49,14 +49,50 @@ def test_sub_month_campaign_opens_without_gantt_columns():
         "periodo": "10 dias",
     }, HOJE)
     assert pace["parseou"] is True
-    assert (pace["meses"] or 0) <= 1
-    assert pace["editavel"] is False
+    assert pace["granularidade"] == "semana"
+    assert pace["editavel"] is True
+    assert 2 <= len(pace["chaves"]) <= 3
+    assert sum(pace["alocacao"].values()) == 20000
     payload = pace_payload(pace)
+    assert payload["granularidade"] == "semana"
     assert "inicio" in payload
     assert "fim" in payload
 
 
-def test_one_month_campaign_is_not_column_editable():
+def test_thirty_days_opens_weekly_channel_plan():
+    pace = campaign_pace({
+        "verba": "R$ 40.000",
+        "verba_valor": 40000,
+        "verba_base": "total",
+        "periodo": "30 dias",
+    }, HOJE)
+    assert pace["dias"] == 30
+    assert pace["granularidade"] == "semana"
+    assert pace["editavel"] is True
+    assert pace["visivel"] is True
+    assert 4 <= len(pace["chaves"]) <= 5
+    assert sum(pace["alocacao"].values()) == 40000
+    first = pace["alocacao"][pace["chaves"][0]]
+    last = pace["alocacao"][pace["chaves"][-1]]
+    assert first < last
+    assert "semana" in pace["helper"]
+
+
+def test_one_month_campaign_opens_weekly_columns():
+    pace = campaign_pace({
+        "verba": "R$ 40.000",
+        "verba_valor": 40000,
+        "verba_base": "total",
+        "periodo": "1 mês",
+    }, HOJE)
+    assert pace["meses"] == 1
+    assert pace["granularidade"] == "semana"
+    assert pace["editavel"] is True
+    assert len(pace["chaves"]) >= 4
+    assert sum(pace["alocacao"].values()) == 40000
+
+
+def test_named_month_opens_weekly_columns():
     pace = campaign_pace({
         "verba": "R$ 40.000",
         "verba_valor": 40000,
@@ -64,8 +100,9 @@ def test_one_month_campaign_is_not_column_editable():
         "periodo": "outubro de 2026",
     }, HOJE)
     assert pace["meses"] == 1
-    assert pace["editavel"] is False
-    assert list(pace["alocacao"].values()) == [40000]
+    assert pace["granularidade"] == "semana"
+    assert pace["editavel"] is True
+    assert sum(pace["alocacao"].values()) == 40000
 
 
 def test_learn_release_starts_smaller_and_ends_larger():
@@ -94,6 +131,7 @@ def test_long_campaign_columns_are_editable():
         "periodo": "6 meses",
     }, HOJE)
     assert pace["editavel"] is True
+    assert pace["granularidade"] == "mes"
     assert pace["total"] == 100000
     first = pace["alocacao"][pace["chaves"][0]]
     last = pace["alocacao"][pace["chaves"][-1]]

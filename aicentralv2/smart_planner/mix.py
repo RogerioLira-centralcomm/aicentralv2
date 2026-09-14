@@ -406,7 +406,10 @@ def progress_calendar(
     if len(labels) < len(keys):
         labels.extend(keys[len(labels):])
     alocacao = {text(key): as_int(value) for key, value in as_dict(pace.get("alocacao")).items()}
-    months = as_int(pace.get("meses")) or len(keys)
+    if text(pace.get("granularidade")) == "semana":
+        months = len(keys)
+    else:
+        months = as_int(pace.get("meses")) or len(keys)
     recipe = as_dict(mix)
     use_progress = should_progress(months, recipe) if progress is None else bool(progress) and 2 <= months <= 12
     weights = recipe.get("weights")

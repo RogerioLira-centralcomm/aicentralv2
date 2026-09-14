@@ -4,7 +4,7 @@
 {% block title %}{{ steps[step_index].title }} · Smart Planner{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=36">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=38">
 {% endblock %}
 
 {% block content %}
@@ -38,7 +38,7 @@
             {% if step_id == 'briefing' %}
               Adicione o contexto da campanha para gerar um planejamento mais preciso.
             {% elif step_id == 'revisao' %}
-              Confira o briefing. A gestão de mídia abre no modal — calendário mensal para voos de 2 a 12 meses.
+              Confira o briefing. Mix e calendário ficam à vista; o modal só entra para balancear.
             {% elif step_id == 'canais' %}
               Confira se a verba cobre o voo inteiro antes de gerar o documento. O Gantt começa menor para aprender e solta mais orçamento no meio e no fim.
             {% elif step_id == 'gerar' %}
@@ -185,7 +185,7 @@
         <input type="hidden" name="agencia_id" value="{{ campos.agencia_id or '' }}">
         <input type="hidden" name="cx_client_id" value="{{ campos.cx_client_id or '' }}">
 
-        <details class="sp-acc" data-acc="essentials" data-required="sp-field-campanha,sp-field-cliente,sp-objetivo">
+        <details class="sp-acc" data-acc="essentials" data-required="sp-field-campanha,sp-field-cliente,sp-objetivo" open>
           <summary aria-controls="sp-acc-essentials">
             <span class="sp-acc-title">Informações essenciais</span>
             <span class="sp-acc-meta" data-acc-meta>4 campos</span>
@@ -204,31 +204,31 @@
             </label>
             <label for="sp-field-agencia"><span>Agência</span><input id="sp-field-agencia" name="agencia" value="{{ campos.agencia }}"></label>
             <label class="sp-confidential" for="sp-field-confidential">
-              <input type="checkbox" name="anunciante_confidencial" id="sp-field-confidential" value="1" {% if campos.anunciante_confidencial %}checked{% endif %}>
+              <input class="cx-checkbox cx-checkbox-sm" type="checkbox" name="anunciante_confidencial" id="sp-field-confidential" value="1" {% if campos.anunciante_confidencial %}checked{% endif %}>
               <span>Nome confidencial nos documentos</span>
             </label>
           </div>
         </details>
 
-        <details class="sp-acc" data-acc="audience" data-required="sp-field-publico">
+        <details class="sp-acc" data-acc="audience" data-required="sp-field-publico" open>
           <summary aria-controls="sp-acc-audience">
             <span class="sp-acc-title">Público e mensagem</span>
             <span class="sp-acc-meta" data-acc-meta>2 campos</span>
           </summary>
-          <div class="sp-bf is-stack" id="sp-acc-audience">
-            <label for="sp-field-objetivo-texto"><span>Como o anunciante descreveu</span><textarea id="sp-field-objetivo-texto" name="objetivo_texto" rows="5">{{ campos.objetivo_texto }}</textarea></label>
-            <label for="sp-field-publico"><span>Público</span><textarea id="sp-field-publico" name="publico" rows="5">{{ campos.publico }}</textarea></label>
+          <div class="sp-bf is-pair" id="sp-acc-audience">
+            <label for="sp-field-objetivo-texto"><span>Como o anunciante descreveu</span><textarea id="sp-field-objetivo-texto" name="objetivo_texto" rows="3">{{ campos.objetivo_texto }}</textarea></label>
+            <label for="sp-field-publico"><span>Público</span><textarea id="sp-field-publico" name="publico" rows="3">{{ campos.publico }}</textarea></label>
           </div>
         </details>
 
-        <details class="sp-acc" data-acc="context">
+        <details class="sp-acc" data-acc="context" open>
           <summary aria-controls="sp-acc-context">
             <span class="sp-acc-title">Contexto e restrições</span>
             <span class="sp-acc-meta" data-acc-meta>2 campos</span>
           </summary>
-          <div class="sp-bf is-stack" id="sp-acc-context">
-            <label for="sp-field-contexto"><span>Contexto da campanha</span><textarea id="sp-field-contexto" name="contexto" rows="5">{{ campos.contexto }}</textarea></label>
-            <label for="sp-field-observacoes"><span>Observações e restrições</span><textarea id="sp-field-observacoes" name="observacoes" rows="5">{{ campos.observacoes }}</textarea></label>
+          <div class="sp-bf is-pair" id="sp-acc-context">
+            <label for="sp-field-contexto"><span>Contexto da campanha</span><textarea id="sp-field-contexto" name="contexto" rows="3">{{ campos.contexto }}</textarea></label>
+            <label for="sp-field-observacoes"><span>Observações e restrições</span><textarea id="sp-field-observacoes" name="observacoes" rows="3">{{ campos.observacoes }}</textarea></label>
           </div>
         </details>
 
@@ -238,7 +238,7 @@
             <span class="sp-acc-meta" data-acc-meta>1 campo</span>
           </summary>
           <div class="sp-bf is-stack" id="sp-acc-extracted">
-            <label for="sp-field-criativos"><span>Materiais e formatos identificados</span><textarea id="sp-field-criativos" name="criativos" rows="5">{{ campos.criativos }}</textarea></label>
+            <label for="sp-field-criativos"><span>Materiais e formatos identificados</span><textarea id="sp-field-criativos" name="criativos" rows="3">{{ campos.criativos }}</textarea></label>
             <p class="sp-acc-note">Confirme, edite ou apague o que a leitura automática trouxe. Campo vazio não entra no plano.</p>
           </div>
         </details>
@@ -251,7 +251,7 @@
           <div id="sp-acc-narrative">
             <label class="sp-brief-field" for="sp-narrative">
               <span>Narrativa corrida que segue para a folha e o plano</span>
-              <textarea id="sp-narrative" class="sp-narrative" name="briefing" rows="6">{{ briefing }}</textarea>
+              <textarea id="sp-narrative" class="sp-narrative" name="briefing" rows="4">{{ briefing }}</textarea>
             </label>
             <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-rebrief-btn">Refazer briefing</button>
           </div>
@@ -435,9 +435,9 @@
         <ul class="sp-done-links">
           {% if plan_mode == 'completo' and tem_quadro %}
           <li>
-            <a class="sp-done-link is-main" href="{{ canvas_url }}">
+            <a class="sp-done-link is-main" href="{{ share_url or canvas_url }}" {% if share_url %}target="_blank" rel="noopener noreferrer"{% endif %}>
               <strong>Abrir o plano completo</strong>
-              <small>O quadro nas quatro seções, a partir da página única.</small>
+              <small>Documento publicado nas seções do planejamento.</small>
             </a>
           </li>
           {% endif %}
@@ -491,7 +491,7 @@
         <section class="sp-side-card">
           <h2>Configuração do plano</h2>
           <p>Verba, voo, praça e indicadores.</p>
-          <div class="sp-bf is-stack">
+          <div class="sp-bf">
             <label for="sp-field-verba"><span>Verba</span><input id="sp-field-verba" form="sp-revisao-form" name="verba" value="{{ campos.verba }}" placeholder="A fechar"></label>
             <label for="sp-field-verba-base">
               <span>Essa verba é</span>
@@ -533,8 +533,12 @@
             {% endif %}
           </p>
           <ul class="sp-mix-snap" id="sp-mix-snap" {% if not desk.weights %}hidden{% endif %}>
-            {% for item in (desk.weights or [])[:4] %}
-            <li><span>{{ item.label }}</span><em>{{ item.pct }}%</em></li>
+            {% for item in desk.weights or [] %}
+            <li data-canal="{{ item.id }}">
+              <span>{{ item.label }}</span>
+              <i><b style="width: {{ item.pct }}%"></b></i>
+              <em>{{ item.pct }}%</em>
+            </li>
             {% endfor %}
           </ul>
           <div class="sp-cal-mini" id="sp-cal-mini" {% if not pace.editavel %}hidden{% endif %}>
@@ -562,7 +566,7 @@
         <header>
           <div>
             <h2 id="sp-media-title">Gestão de mídia</h2>
-            <p id="sp-media-desc">Canais, método e calendário mensal. Em voos de 2 a 12 meses a mídia progride.</p>
+            <p id="sp-media-desc">Canais, método e calendário. 30 dias ou 1 mês abre por semana; de 2 a 12 meses, por mês.</p>
             <p class="sp-media-facts" id="sp-media-facts"></p>
             <p class="sp-media-dirty" id="sp-media-dirty" hidden>Alterações não aplicadas</p>
           </div>
@@ -675,12 +679,12 @@
               <div>
                 <h3 id="sp-cal-title">Calendário de balanceamento</h3>
                 <p id="sp-gantt-note">
-                  {% if pace.editavel %}
+                  {% if pace.granularidade == 'semana' %}
+                    Abertura semanal nos canais. Começa menor e solta no meio e no fim. Ajuste a semana.
+                  {% elif pace.editavel %}
                     Começa menor para aprender. Solta mais verba no meio e no fim. Ajuste o mês.
-                  {% elif pace.meses == 1 %}
-                    Campanha de um mês: a verba entra inteira. O calendário aparece em voos de 2 a 12 meses.
                   {% else %}
-                    Informe uma duração (90 dias, 3 meses ou set a nov) para ver o voo.
+                    Informe uma duração (30 dias, 1 mês ou set a nov) para ver o voo.
                   {% endif %}
                 </p>
               </div>
@@ -691,16 +695,16 @@
             </div>
             <div class="sp-gantt-nums">
               <p><small>No período</small><strong id="sp-gantt-total">{{ 'R$ {:,}'.format(pace.total).replace(',', '.') if pace.total else '—' }}</strong></p>
-              <p><small>Ritmo mensal</small><strong id="sp-gantt-ritmo">{{ '~R$ {:,}'.format(pace.ritmo).replace(',', '.') + '/mês' if pace.ritmo else '—' }}</strong></p>
+              <p><small>Ritmo</small><strong id="sp-gantt-ritmo">{% if pace.ritmo %}{{ '~R$ {:,}'.format(pace.ritmo).replace(',', '.') }}{{ '/semana' if pace.granularidade == 'semana' else '/mês' }}{% else %}—{% endif %}</strong></p>
             </div>
             <div class="sp-gantt" id="sp-gantt" {% if not verba.valor or not pace.parseou %}hidden{% endif %}>
               <div class="sp-gantt-track" id="sp-gantt-track"></div>
               <div class="sp-gantt-cols" id="sp-gantt-cols" {% if not pace.editavel %}hidden{% endif %}></div>
             </div>
-            <p class="sp-cal-empty" id="sp-cal-empty" hidden>Informe período e canais para ver o voo mensal.</p>
+            <p class="sp-cal-empty" id="sp-cal-empty" hidden>Informe período e canais para ver o voo.</p>
             <p class="sp-week-hint" id="sp-week-hint" hidden></p>
             <div class="sp-month-weeks" id="sp-month-weeks" hidden></div>
-            <div class="sp-cal-table-wrap" id="sp-cal-wrap" {% if not pace.editavel %}hidden{% endif %}>
+            <div class="sp-cal-table-wrap" id="sp-cal-wrap" {% if not (pace.visivel or pace.editavel) %}hidden{% endif %}>
               <table class="sp-cal-table" id="sp-cal-table"></table>
             </div>
           </section>
@@ -865,28 +869,17 @@
 
 <div class="sp-wait" id="sp-compile-overlay" hidden>
   <div class="sp-wait-shell">
-    <header class="sp-wait-top">
-      <strong>CentralX</strong>
-      <span>Smart Planner</span>
-      <em>IA trabalhando</em>
-    </header>
-    <div class="sp-wait-grid">
-      <section class="sp-wait-stage">
-        <p class="sp-wait-eyebrow" id="sp-wait-eyebrow">Processando</p>
-        <h2 id="sp-wait-title">Entendendo o briefing</h2>
-        <p id="sp-compile-step">Os modelos estão lendo o material para montar a revisão.</p>
-        <div class="sp-wait-visual" aria-hidden="true">
-          <i></i><i></i><i></i>
-        </div>
-      </section>
-      <section class="sp-wait-rail">
-        <div class="sp-wait-count">
-          <span>Etapas</span>
-          <strong id="sp-wait-frac">—</strong>
-        </div>
-        <div class="sp-wait-track"><i id="sp-compile-bar"></i></div>
-        <ol class="sp-wait-steps" id="sp-compile-skills"></ol>
-      </section>
+    <div class="sp-wait-folio" role="status" aria-live="polite">
+      <p class="sp-wait-brand">Smart Planner</p>
+      <p class="sp-wait-kicker" id="sp-wait-eyebrow">Processando</p>
+      <h2 id="sp-wait-title">Entendendo o briefing</h2>
+      <p id="sp-compile-step">Os modelos estão lendo o material para montar a revisão.</p>
+      <div class="sp-wait-meter">
+        <strong id="sp-wait-frac">—</strong>
+        <div class="sp-wait-track"><span id="sp-compile-bar"></span></div>
+      </div>
+      <ol class="sp-wait-steps" id="sp-compile-skills"></ol>
+      <button type="button" class="sp-wait-dismiss" id="sp-wait-dismiss" hidden>Voltar à revisão</button>
     </div>
   </div>
 </div>
@@ -894,6 +887,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=23"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=26"></script>
 <script src="{{ url_for('static', filename='js/smart_planner/guide.js') }}?v=3"></script>
 {% endblock %}

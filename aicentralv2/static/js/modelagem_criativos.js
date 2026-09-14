@@ -359,6 +359,42 @@
     if (campaignId && (page === 'produzir' || page === 'preparar' || page === 'historico')) {
       selectCampaign(campaignId).catch((error) => toast(error.message, 'error'));
     }
+    if (page === 'marcas') {
+      applyBrandDeepLink();
+    }
+  }
+
+  function applyBrandDeepLink() {
+    const params = new URLSearchParams(location.search);
+    const creativeId = params.get('creative_client_id');
+    const crmId = params.get('crm_client_id');
+    if (creativeId) {
+      const match = state.clients.find((client) => String(client.id) === String(creativeId));
+      if (match) {
+        selectBrand(match.id);
+        return;
+      }
+    }
+    if (crmId) {
+      const match = state.clients.find((client) => String(client.crm_client_id) === String(crmId));
+      if (match) {
+        selectBrand(match.id);
+        return;
+      }
+      selectBrand(null);
+      const form = $('#mcClientForm');
+      if (form?.elements.crm_client_id) form.elements.crm_client_id.value = crmId;
+      else if (form) {
+        let hidden = form.querySelector('input[name="crm_client_id"]');
+        if (!hidden) {
+          hidden = document.createElement('input');
+          hidden.type = 'hidden';
+          hidden.name = 'crm_client_id';
+          form.appendChild(hidden);
+        }
+        hidden.value = crmId;
+      }
+    }
   }
 
   function brandedCampaignClients() {

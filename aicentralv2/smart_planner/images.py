@@ -40,6 +40,25 @@ def apply_sheet_art(plan: dict, force: bool = False) -> dict:
     return plan
 
 
+def regenerate_creative(plan: dict) -> dict:
+    """Gera só o criativo no canal — sem fundo e sem wallpaper no editor."""
+    if not isinstance(plan, dict):
+        return plan
+    meta = as_dict(plan.get("meta"))
+    branding = as_dict(plan.get("branding"))
+    hero = as_dict(branding.get("hero"))
+    theme = as_dict(plan.get("theme"))
+    creative = _creative_card(plan)
+    if not creative:
+        return plan
+    slug = _slug(meta.get("client") or hero.get("name") or theme.get("id") or "folha")
+    prompt = text(creative.get("image_prompt")) or _default_creative_prompt(creative, meta, hero)
+    ratio = "4:3" if text(creative.get("surface")) == "app" else "16:9"
+    creative["image_url"] = _render(prompt, f"{slug}-creative", aspect_ratio=ratio)
+    creative["image_model"] = resolve_image_model()
+    return plan
+
+
 def _needs_exclusive_bg(theme: dict) -> bool:
     url = text(theme.get("bg_url"))
     if not url:

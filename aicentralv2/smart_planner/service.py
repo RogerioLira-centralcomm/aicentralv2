@@ -199,7 +199,10 @@ def wizard_context(row: dict, step_id: str) -> dict:
             "valor_label": format_money(distribuicao.get(key, 0)),
             "pct": shares.get(key, 0),
         })
-    mix_progress = should_progress(pace.get("meses"), campos["mix"])
+    mix_progress = should_progress(
+        len(pace.get("chaves") or []) if pace.get("granularidade") == "semana" else pace.get("meses"),
+        campos["mix"],
+    )
     mix_desk = {
         "method": method,
         "method_label": next((item["label"] for item in METHODS if item["id"] == method), "Funil do objetivo"),

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000" role="img" aria-label="Reservatório e encosta no interior de Minas Gerais">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#cfe8f1"/>
+      <stop offset="0.48" stop-color="#e7f2f5"/>
+      <stop offset="1" stop-color="#f4f7f6"/>
+    </linearGradient>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7eb8c8"/>
+      <stop offset="0.45" stop-color="#4f9aaf"/>
+      <stop offset="1" stop-color="#2f7a90"/>
+    </linearGradient>
+    <linearGradient id="hill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7fa089"/>
+      <stop offset="1" stop-color="#4f7460"/>
+    </linearGradient>
+    <linearGradient id="far" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b7c9c4"/>
+      <stop offset="1" stop-color="#8aa39a"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#sky)"/>
+  <path d="M0 390 C180 350 340 410 520 360 C740 300 920 370 1140 330 C1320 300 1460 340 1600 310 V560 H0 Z" fill="url(#far)" opacity=".7"/>
+  <path d="M0 470 C220 430 400 500 600 450 C820 394 1000 470 1220 420 C1380 390 1500 430 1600 410 V640 H0 Z" fill="url(#hill)"/>
+  <path d="M0 620 C280 570 520 650 820 590 C1100 536 1320 610 1600 560 V1000 H0 Z" fill="url(#water)"/>
+  <path d="M0 680 C320 650 680 710 1020 660 C1280 626 1440 680 1600 650" fill="none" stroke="#e8f6f8" stroke-width="8" opacity=".45"/>
+  <path d="M0 760 C360 730 720 790 1080 740 C1300 712 1460 760 1600 730" fill="none" stroke="#d4eef1" stroke-width="5" opacity=".35"/>
+  <rect x="1188" y="318" width="12" height="188" fill="#e8eef0"/>
+  <ellipse cx="1194" cy="318" rx="34" ry="9" fill="#f7fbfc"/>
+  <circle cx="240" cy="210" r="46" fill="#f4fafb" opacity=".55"/>
+</svg>

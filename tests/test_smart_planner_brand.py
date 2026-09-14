@@ -8,9 +8,49 @@ from aicentralv2.smart_planner.brand import (
     seed_parties,
     snapshot_brand,
 )
+from aicentralv2.smart_planner.editor import editor_context
 from aicentralv2.smart_planner.helpers import name_leaks_in, redact_advertiser, session_title
 from aicentralv2.smart_planner.logos import resolve_branding
 from aicentralv2.smart_planner.repository import serialize_list_row
+
+
+def test_editor_context_checklist_and_brand_cta():
+    view = editor_context(
+        {
+            "session_token": "tok-edit",
+            "plan_content": {"sections": []},
+            "dados_detectados": {
+                "plan_mode": "one_page",
+                "cliente_id": 44,
+                "folha": {
+                    "meta": {"client": "BDMG"},
+                    "branding": {
+                        "client": {"name": "BDMG", "logo_url": ""},
+                        "agency": {"name": "Perfil 252", "logo_url": ""},
+                        "presenter": {"id": "centralcomm", "role": "support", "name": "CentralComm"},
+                    },
+                    "theme": {},
+                    "media": {"channels": [{"id": "ooh", "label": "OOH", "pct": 40}], "pace": {"months": []}},
+                    "share": {"url": "https://example.com/smart-planner/p/abc"},
+                    "sections": [{
+                        "id": "one_page",
+                        "cards": [
+                            {"type": "strategy", "title": "Tese", "body": "Tese pronta."},
+                            {"type": "creative", "title": "Criativo", "body": "Peça no canal.", "channel": "ooh"},
+                            {"type": "market", "stat": "12%", "stat_label": "cobertura"},
+                            {"type": "defense", "body": "Porque aprovar."},
+                        ],
+                    }],
+                },
+            },
+        },
+        share_url="https://example.com/smart-planner/p/abc",
+    )
+    assert view["editor_mode"] == "one_page"
+    assert any(item["id"] == "strategy" and item["done"] for item in view["folha_checks"])
+    assert any(item["id"] == "compose" and item["state"] == "planned" for item in view["completo_checks"])
+    assert "modelagem-criativos/marcas" in view["brand_panel"]["marcas_url"]
+    assert "crm_client_id=44" in view["brand_panel"]["create_url"]
 
 
 def test_map_plate_channels_keeps_only_catalog_ids():

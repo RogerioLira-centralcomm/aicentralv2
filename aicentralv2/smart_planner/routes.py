@@ -30,8 +30,10 @@ from .helpers import as_dict, as_list, session_public_token
 from .materials import save_upload
 from .references import capture_file, capture_search, capture_url
 from .brand import brand_for_client, search_parties
+from .editor import editor_context
+from .images import regenerate_creative
 from .logos import lookup_agency_for_client
-from .repository import SessionNotFound, SmartPlannerError, get_by_public_token
+from .repository import SessionNotFound, SmartPlannerError, get_by_public_token, merge_dados
 from .service import (
     delete_plan,
     history_payload,
@@ -173,19 +175,28 @@ def api_publico_qr(public_token):
     return Response(svg, mimetype="image/svg+xml")
 
 
-def _render_canvas(row):
+def _render_canvas(row, *, force_folha: bool = False):
     ctx = wizard_context(row, "canvas")
-    want_folha = (request.args.get("folha") or "").strip().lower() in {"1", "true", "folha"}
-    folha = as_dict(as_dict(row.get("dados_detectados")).get("folha"))
-    if want_folha and folha.get("sections"):
-        plan = folha
+    want_folha = force_folha or (request.args.get("folha") or "").strip().lower() in {"1", "true", "folha"}
+    dados = as_dict(row.get("dados_detectados"))
+    folha = as_dict(dados.get("folha"))
+    mode = ctx.get("plan_mode") or "one_page"
+    if want_folha or mode == "one_page":
+        plan = folha if as_list(folha.get("sections")) else as_dict(row.get("plan_content"))
         ctx["plan_mode"] = "one_page"
         ctx["plan_mode_label"] = plan_mode_label("one_page")
-    else:
-        plan = as_dict(row.get("plan_content"))
+        ctx.update(editor_context(row, ctx.get("share_url") or ""))
+        return render_template(
+            "smart_planner/canvas.html",
+            plan=plan,
+            editor=True,
+            **_page_ctx(**ctx),
+        )
+    plan = as_dict(row.get("plan_content"))
     return render_template(
         "smart_planner/canvas.html",
         plan=plan,
+        editor=False,
         **_page_ctx(**ctx),
     )
 
@@ -196,21 +207,25 @@ def canvas_editar(public_token):
     found = get_by_public_token(public_token)
     if not found:
         raise SessionNotFound("Este planejamento não está no ar.")
-    return _render_canvas(load_owned(found["session_token"]))
+    return _render_canvas(load_owned(found["session_token"]), force_folha=True)
 
 
 @bp.route("/<token>/canvas")
 @login_required
 def canvas(token):
     row = load_owned(token)
+    dados = as_dict(row.get("dados_detectados"))
+    mode = (dados.get("plan_mode") or "").strip().lower()
+    want_folha = (request.args.get("folha") or "").strip().lower() in {"1", "true", "folha"}
     public = session_public_token(row)
-    if public:
+    # Página única (ou ?folha=1) → editor enterprise em /editar.
+    if public and (want_folha or mode != "completo"):
         dest = {"public_token": public}
-        folha = (request.args.get("folha") or "").strip()
-        if folha:
-            dest["folha"] = folha
+        if want_folha:
+            dest["folha"] = "1"
         return redirect(url_for("smart_planner.canvas_editar", **dest))
-    return _render_canvas(row)
+    # Plano completo: quadro neste path (não cai no form da folha).
+    return _render_canvas(row, force_folha=False)
 
 
 @bp.route("/api/partes")
@@ -424,6 +439,15 @@ def api_gerar(token):
 def api_canvas_get(token):
     try:
         row = load_owned(token)
+        want_folha = (request.args.get("folha") or "").strip().lower() in {"1", "true", "folha"}
+        dados = as_dict(row.get("dados_detectados"))
+        folha = as_dict(dados.get("folha"))
+        if want_folha or (dados.get("plan_mode") or "").strip().lower() != "completo":
+            plan = folha if as_list(folha.get("sections")) else as_dict(row.get("plan_content"))
+            if not as_list(plan.get("sections")):
+                generated = canvas_mod.generate_canvas(token)
+                plan = generated["plan"]
+            return _ok({"plan": plan, "editor": editor_context(row)})
         plan = as_dict(row.get("plan_content"))
         if not plan.get("sections"):
             generated = canvas_mod.generate_canvas(token)
@@ -444,7 +468,8 @@ def api_canvas_save(token):
     try:
         load_owned(token)
         payload = request.get_json(silent=True) or {}
-        canvas_mod.save_plan(token, payload.get("plan") or payload)
+        folha = bool(payload.get("folha")) or (request.args.get("folha") or "").strip() in {"1", "true", "folha"}
+        canvas_mod.save_plan(token, payload.get("plan") or payload, folha=folha)
         return _ok({"saved": True})
     except SessionNotFound as exc:
         return _error(exc, 404)
@@ -468,6 +493,34 @@ def api_canvas_gerar(token):
     except Exception:
         logger.exception("Falha ao gerar canvas")
         return _error("Não foi possível gerar o canvas.", 500)
+
+
+@bp.route("/api/<token>/canvas/imagem", methods=["POST"])
+@login_required_api
+def api_canvas_imagem(token):
+    try:
+        from .cost import bound_session
+        from .repository import update_session
+
+        row = load_owned(token)
+        dados = as_dict(row.get("dados_detectados"))
+        folha = as_dict(dados.get("folha")) or as_dict(row.get("plan_content"))
+        if not as_list(folha.get("sections")):
+            generated = canvas_mod.generate_canvas(token)
+            folha = generated["plan"]
+        with bound_session(token):
+            folha = regenerate_creative(folha)
+        merge_dados(token, {"folha": folha})
+        if (dados.get("plan_mode") or "").strip().lower() != "completo":
+            update_session(token, {"plan_content": folha})
+        return _ok({"plan": folha, "editor": editor_context(load_owned(token))})
+    except SessionNotFound as exc:
+        return _error(exc, 404)
+    except (ValueError, OpenRouterError) as exc:
+        return _error(exc, 422)
+    except Exception:
+        logger.exception("Falha ao gerar imagem da folha")
+        return _error("Não foi possível gerar a imagem.", 500)
 
 
 @bp.route("/api/<int:session_id>/excluir", methods=["POST"])

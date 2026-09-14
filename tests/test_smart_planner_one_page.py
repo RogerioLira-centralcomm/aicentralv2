@@ -214,6 +214,28 @@ def test_assemble_from_v2_persists_media_board_and_exec_meta():
     assert "60%" in plan["sections"][0]["cards"][3]["body"]
 
 
+def test_folha_editor_is_enterprise_form_not_pitch_sheet():
+    js = Path("aicentralv2/static/js/smart_planner/canvas.js").read_text(encoding="utf-8")
+    html = Path("aicentralv2/templates/smart_planner/canvas.html").read_text(encoding="utf-8")
+    css = Path("aicentralv2/static/css/smart_planner.css").read_text(encoding="utf-8")
+    assert 'data-editor="1"' in html
+    assert 'id="sp-folha-form"' in html
+    assert "sp-gallery" in html
+    assert "Criar marca no Cadu Media Studio" in html
+    assert "sp-folha-checks" in html
+    assert "sp-completo-checks" in html
+    assert "renderPitchSheet" not in js
+    assert "shareBlock" not in js
+    assert "applyTheme" not in js
+    assert "collectEditor" in js
+    assert "canvas/imagem" in js
+    assert "is-folha" in css
+    assert "sp-gallery-item" in css
+    # Quadro completo ainda existe fora do editor da folha
+    assert "renderBoard" in js
+    assert "sp-board" in html
+
+
 def test_row_meta_exposes_audience_and_channel_count():
     meta = _row_meta(
         {"publico_alvo": "Clientes da RMBH", "objetivo": "trafego", "budget": "R$ 400 mil", "prazo": "outubro"},
@@ -223,18 +245,3 @@ def test_row_meta_exposes_audience_and_channel_count():
     assert "2 canais" in meta["canais"]
     assert meta["mix_method"] == "Funil do objetivo"
     assert meta["objective"] == "Tráfego"
-
-
-def test_exec_sheet_markup_has_three_columns_and_facts():
-    js = Path("aicentralv2/static/js/smart_planner/canvas.js").read_text(encoding="utf-8")
-    css = Path("aicentralv2/static/css/smart_planner.css").read_text(encoding="utf-8")
-    assert "sp-exec-brief" in js
-    assert "sp-exec-media" in js
-    assert "sp-exec-creative" in js
-    assert '["Público", meta.publico]' in js
-    assert '["Canais", meta.canais]' in js
-    assert "Gestão de mídia" in js
-    assert "WIDE_TYPES" in js
-    assert "is-lead" in js
-    assert "minmax(0, 0.9fr) minmax(18rem, 1.2fr) minmax(0, 0.95fr)" in css
-    assert '"media"' in css and '"brief"' in css and '"creative"' in css

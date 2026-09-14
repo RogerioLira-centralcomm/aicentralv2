@@ -1,8 +1,8 @@
-"""Período, verba e voo mensal do Smart Planner.
+"""Período, verba e voo do Smart Planner.
 
 O ritmo padrão não é rateio igual: começa menor para aprender e solta
-mais orçamento no meio e no fim. Colunas só editam campanhas com mais
-de um mês.
+mais orçamento no meio e no fim. Voos de 30 dias ou 1 mês abrem por
+semana; de 2 a 12 meses, por mês.
 """
 
 from __future__ import annotations
@@ -164,6 +164,40 @@ def periodo_vazio(texto: str = "") -> dict:
         "helper": "",
         "parseou": False,
     }
+
+
+def _as_date(raw: Any) -> date | None:
+    try:
+        return date.fromisoformat(text(raw)[:10])
+    except ValueError:
+        return None
+
+
+def faixa_semanas(inicio: date, fim: date) -> dict:
+    if fim < inicio:
+        inicio, fim = fim, inicio
+    chaves: list[str] = []
+    rotulos: list[str] = []
+    cursor = inicio
+    index = 1
+    while cursor <= fim and index <= 6:
+        stop = min(cursor + timedelta(days=6), fim)
+        chaves.append(cursor.isoformat())
+        rotulos.append(f"S{index} · {cursor.day}/{cursor.month}")
+        cursor = stop + timedelta(days=1)
+        index += 1
+    return {"chaves": chaves, "rotulos": rotulos}
+
+
+def is_weekly_flight(periodo: dict | None) -> bool:
+    data = periodo or {}
+    if not data.get("parseou"):
+        return False
+    dias = as_int(data.get("dias"))
+    meses = as_int(data.get("meses"))
+    if 1 <= dias <= 31:
+        return True
+    return meses == 1 and dias <= 35
 
 
 def faixa_meses(inicio: date, fim: date) -> dict:
@@ -389,39 +423,64 @@ def campaign_pace(campanha: dict | None, hoje: date | datetime | None = None) ->
     periodo = parse_periodo(campanha.get("periodo"), hoje)
     months = periodo["meses"]
     valor = verba["valor"]
+    weekly = is_weekly_flight(periodo)
+    start = _as_date(periodo.get("inicio"))
+    end = _as_date(periodo.get("fim"))
+    if weekly and start and end:
+        faixa = faixa_semanas(start, end)
+        keys = list(faixa["chaves"])
+        rotulos = list(faixa["rotulos"])
+        granularidade = "semana"
+    else:
+        keys = list(periodo["chaves"])
+        rotulos = list(periodo["rotulos"])
+        granularidade = "mes"
+    columns = len(keys)
     total = valor
     ritmo = valor
-    if valor > 0 and months:
-        if verba["base"] == "mensal":
-            total = valor * months
-            ritmo = valor
-        else:
-            total = valor
-            ritmo = valor // months
-    keys = list(periodo["chaves"])
+    if valor > 0 and verba["base"] == "mensal" and months and not weekly:
+        total = valor * months
+        ritmo = valor
+    elif valor > 0 and months and not weekly:
+        ritmo = valor // months
+    if weekly and columns and total > 0:
+        ritmo = total // columns
     alocacao: dict[str, int] = {}
-    if keys and total > 0 and months and months > 1:
+    if keys and total > 0 and columns > 1:
         alocacao = allocate_months(keys, total, campanha.get("verba_alocacao"))
-    elif keys and total > 0 and months == 1:
+    elif keys and total > 0:
         alocacao = {keys[0]: total}
     como = ""
-    if valor > 0 and months and verba["base"] == "mensal":
+    if valor > 0 and weekly and columns:
+        como = f"{format_money(total)} no período · ~{format_money(ritmo)}/semana"
+    elif valor > 0 and months and verba["base"] == "mensal":
         label = "mês" if months == 1 else "meses"
         como = f"{format_money(valor)}/mês × {months} {label} = {format_money(total)} no período"
     elif valor > 0 and months:
         como = f"{format_money(total)} no período · ~{format_money(ritmo)}/mês"
     elif valor > 0:
         como = format_verba(valor, verba["base"])
-    editavel = bool(periodo["parseou"] and months and months > 1 and months <= 12 and total > 0)
+    helper = periodo["helper"]
+    if weekly and columns:
+        week_bit = "1 semana" if columns == 1 else f"{columns} semanas"
+        if months == 1 and as_int(periodo.get("dias")) >= 28:
+            helper = f"1 mês · {week_bit}"
+        elif periodo.get("dias"):
+            helper = f"{periodo['dias']} dias · {week_bit}"
+        else:
+            helper = week_bit
+    visivel = bool(periodo["parseou"] and 2 <= columns <= 12)
+    editavel = bool(visivel and total > 0)
     return {
         "total": total,
         "ritmo": ritmo,
         "meses": months,
         "dias": periodo["dias"],
-        "rotulos": periodo["rotulos"],
+        "semanas": columns if weekly else 0,
+        "rotulos": rotulos,
         "chaves": keys,
         "alocacao": alocacao,
-        "helper": periodo["helper"],
+        "helper": helper,
         "como": como,
         "inicio": periodo["inicio"],
         "fim": periodo["fim"],
@@ -429,6 +488,8 @@ def campaign_pace(campanha: dict | None, hoje: date | datetime | None = None) ->
         "base": verba["base"],
         "valor": valor,
         "editavel": editavel,
+        "visivel": visivel,
+        "granularidade": granularidade,
     }
 
 
@@ -446,6 +507,9 @@ def pace_payload(pace: dict) -> dict:
         "parseou": bool(pace.get("parseou")),
         "base": text(pace.get("base") or "total"),
         "editavel": bool(pace.get("editavel")),
+        "visivel": bool(pace.get("visivel") if "visivel" in pace else pace.get("editavel")),
         "inicio": text(pace.get("inicio")),
         "fim": text(pace.get("fim")),
+        "semanas": as_int(pace.get("semanas")),
+        "granularidade": text(pace.get("granularidade") or "mes") or "mes",
     }

@@ -143,7 +143,7 @@
       var copy = item.copy || "";
       if (copy && copy === title) copy = "";
       return "<li class=\"" + cls + "\">" +
-        "<i aria-hidden=\"true\"></i>" +
+        "<span class=\"sp-wait-dot\" aria-hidden=\"true\"></span>" +
         "<div><strong>" + escapeHtml(title) + "</strong>" +
         (copy ? "<span>" + escapeHtml(copy) + "</span>" : "") + "</div></li>";
     }).join("");
@@ -217,8 +217,11 @@
 
   function showCompileOverlay(inputText, mode) {
     var overlay = document.getElementById("sp-compile-overlay");
+    var dismiss = document.getElementById("sp-wait-dismiss");
     if (!overlay) return function () {};
     overlay.hidden = false;
+    overlay.classList.remove("is-error");
+    if (dismiss) dismiss.hidden = true;
     document.body.classList.add("is-sp-wait");
     if (mode) {
       setWaitMeta(
@@ -259,16 +262,47 @@
     };
   }
 
-  function hideCompileOverlay() {
+  function closeCompileOverlay() {
     var overlay = document.getElementById("sp-compile-overlay");
+    var dismiss = document.getElementById("sp-wait-dismiss");
+    if (overlay) {
+      overlay.hidden = true;
+      overlay.classList.remove("is-error");
+    }
+    if (dismiss) dismiss.hidden = true;
+    document.body.classList.remove("is-sp-wait");
+  }
+
+  function hideCompileOverlay() {
     var bar = document.getElementById("sp-compile-bar");
     var stepEl = document.getElementById("sp-compile-step");
     if (bar) bar.style.width = "100%";
     if (stepEl) stepEl.textContent = "Pronto.";
-    window.setTimeout(function () {
-      if (overlay) overlay.hidden = true;
-      document.body.classList.remove("is-sp-wait");
-    }, 280);
+    window.setTimeout(closeCompileOverlay, 280);
+  }
+
+  function failCompileOverlay(message) {
+    var overlay = document.getElementById("sp-compile-overlay");
+    var dismiss = document.getElementById("sp-wait-dismiss");
+    var bar = document.getElementById("sp-compile-bar");
+    if (!overlay) {
+      toast(message, "error");
+      return;
+    }
+    overlay.hidden = false;
+    overlay.classList.add("is-error");
+    document.body.classList.add("is-sp-wait");
+    setWaitMeta("Não gerou", "A geração parou", message || "Não foi possível terminar o documento.");
+    if (bar) bar.style.width = "100%";
+    if (dismiss) {
+      dismiss.hidden = false;
+      dismiss.focus();
+    }
+  }
+
+  var waitDismiss = document.getElementById("sp-wait-dismiss");
+  if (waitDismiss) {
+    waitDismiss.addEventListener("click", closeCompileOverlay);
   }
 
   function setLive(message) {
@@ -694,8 +728,7 @@
         }, 400);
       } catch (error) {
         stop();
-        hideCompileOverlay();
-        toast(error.message, "error");
+        failCompileOverlay(error.message);
         setStatus(status, error.message, "error");
         setLoading(button, false);
       }
@@ -1144,9 +1177,10 @@
       }
       if (snap) {
         snap.hidden = weights.length === 0;
-        snap.innerHTML = weights.slice(0, 4).map(function (item) {
-          return "<li><span>" + channelMark(item.id, labels[item.id] || item.id) + " "
-            + escapeHtml(labels[item.id] || item.id) + "</span><em>" + item.pct + "%</em></li>";
+        snap.innerHTML = weights.map(function (item) {
+          var name = labels[item.id] || item.label || item.id;
+          return "<li data-canal=\"" + escapeHtml(item.id) + "\"><span>" + channelMark(item.id, name) + " "
+            + escapeHtml(name) + "</span><i><b style=\"width:" + item.pct + "%\"></b></i><em>" + item.pct + "%</em></li>";
         }).join("");
       }
     }
@@ -1157,9 +1191,10 @@
       var labels = pace.rotulos || [];
       var values = pace.editavel ? monthValues() : (pace.alocacao || {});
       var total = parseInt(pace.total, 10) || 0;
-      mini.hidden = !pace.editavel || !keys.length;
+      mini.hidden = !(pace.visivel || pace.editavel) || !keys.length;
       if (mini.hidden) return;
-      mini.innerHTML = "<p>" + keys.length + " meses · começa menor e solta no meio e no fim</p><ol>"
+      var unit = pace.granularidade === "semana" ? "semanas" : "meses";
+      mini.innerHTML = "<p>" + keys.length + " " + unit + " · começa menor e solta no meio e no fim</p><ol>"
         + keys.map(function (key, index) {
           var valor = values[key] || 0;
           var pct = total > 0 ? Math.round((valor / total) * 100) : 0;
@@ -1215,17 +1250,22 @@
         var openTh = table.querySelector("th[aria-expanded='true']");
         if (openTh) expanded = openTh.getAttribute("data-month") || "";
       }
-      if (progress) progress.disabled = !pace.editavel;
+      if (progress) progress.disabled = (pace.chaves || []).length < 2;
       var keys = pace.chaves || [];
       var canais = selectedCanais();
       if (emptyCal) emptyCal.hidden = !!(pace.parseou && canais.length);
       if (weekHint) {
-        var weeks = weekHints();
-        weekHint.hidden = weeks.length === 0;
-        weekHint.textContent = weeks.length ? "Leitura das datas: " + weeks.join(" · ") : "";
+        if (pace.granularidade === "semana") {
+          weekHint.hidden = true;
+          weekHint.textContent = "";
+        } else {
+          var weeks = weekHints();
+          weekHint.hidden = weeks.length === 0;
+          weekHint.textContent = weeks.length ? "Leitura das datas: " + weeks.join(" · ") : "";
+        }
       }
       if (!wrap || !table) return;
-      wrap.hidden = !pace.editavel || !keys.length || !canais.length;
+      wrap.hidden = !((pace.visivel || pace.editavel) && keys.length >= 2 && canais.length);
       if (wrap.hidden) {
         if (weekBox) {
           weekBox.hidden = true;
@@ -1276,15 +1316,19 @@
       var helper = document.querySelector(".sp-hi-budget .sp-flight-note");
       if (helper) helper.textContent = pace.helper || "";
       if (totalEl) totalEl.textContent = pace.total > 0 ? "R$ " + formatMoney(pace.total) : "—";
-      if (ritmoEl) ritmoEl.textContent = pace.ritmo > 0 ? "~R$ " + formatMoney(pace.ritmo) + "/mês" : "—";
+      if (ritmoEl) {
+        if (pace.ritmo > 0 && pace.granularidade === "semana") ritmoEl.textContent = "~R$ " + formatMoney(pace.ritmo) + "/semana";
+        else if (pace.ritmo > 0) ritmoEl.textContent = "~R$ " + formatMoney(pace.ritmo) + "/mês";
+        else ritmoEl.textContent = "—";
+      }
       if (note) {
-        if (pace.editavel) note.textContent = "Começa menor para aprender. Solta mais verba no meio e no fim. Ajuste o mês.";
-        else if (pace.meses === 1) note.textContent = "Campanha de um mês: a verba entra inteira. O calendário aparece em voos de 2 a 12 meses.";
-        else note.textContent = "Informe uma duração (90 dias, 3 meses ou set a nov) para ver o voo.";
+        if (pace.granularidade === "semana") note.textContent = "Abertura semanal nos canais. Começa menor e solta no meio e no fim. Ajuste a semana.";
+        else if (pace.editavel) note.textContent = "Começa menor para aprender. Solta mais verba no meio e no fim. Ajuste o mês.";
+        else note.textContent = "Informe uma duração (30 dias, 1 mês ou set a nov) para ver o voo.";
       }
       var progress = document.getElementById("sp-mix-progress");
-      if (progress && !same && pace.editavel) progress.checked = true;
-      if (progress) progress.disabled = !pace.editavel;
+      if (progress && !same && (pace.editavel || pace.granularidade === "semana")) progress.checked = true;
+      if (progress) progress.disabled = (pace.chaves || []).length < 2;
       paintCalendar();
     }
     async function refreshPace() {
@@ -1763,25 +1807,17 @@
     }
 
     function autoOpen() {
-      var opened = false;
       accs.forEach(function (acc) {
         var id = acc.getAttribute("data-acc");
-        var stats = sectionStats(acc);
         if (id === "narrative" || id === "source") {
           acc.open = false;
           return;
         }
         if (id === "extracted") {
-          acc.open = !opened && stats.filled > 0;
-          if (acc.open) opened = true;
+          acc.open = sectionStats(acc).filled > 0;
           return;
         }
-        if (!opened && stats.incomplete) {
-          acc.open = true;
-          opened = true;
-          return;
-        }
-        acc.open = false;
+        acc.open = true;
       });
     }
 
@@ -2156,8 +2192,7 @@
           }, 400);
         } catch (error) {
           stop();
-          hideCompileOverlay();
-          toast(error.message, "error");
+          failCompileOverlay(error.message);
         }
       });
     });
@@ -2374,8 +2409,8 @@
       if (summaryVerba) summaryVerba.textContent = verbaValor() > 0 ? "R$ " + format(verbaValor()) : "A definir";
       if (note) {
         if (pace.editavel) note.textContent = "Começa menor para aprender. Solta mais verba no meio e no fim. Ajuste pela coluna.";
-        else if (pace.meses === 1) note.textContent = "Campanha de um mês: a verba entra inteira. O Gantt por coluna aparece quando o período passa de 30 dias.";
-        else note.textContent = "Informe uma duração (90 dias, 3 meses ou set a nov) para ver o voo.";
+        else if (pace.granularidade === "semana") note.textContent = "Abertura semanal nos canais. Começa menor e solta no meio e no fim.";
+        else note.textContent = "Informe uma duração (30 dias, 1 mês ou set a nov) para ver o voo.";
       }
       if (!same && cols) cols.innerHTML = "";
       paintGantt();

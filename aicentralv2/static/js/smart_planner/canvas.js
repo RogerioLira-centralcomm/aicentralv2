@@ -3,12 +3,12 @@
   if (!root) return;
   var token = root.getAttribute("data-token");
   var mode = root.getAttribute("data-mode");
+  var isEditor = root.getAttribute("data-editor") === "1";
   var readonly = root.getAttribute("data-readonly") === "1";
   var isPublic = root.getAttribute("data-public") === "1";
   var board = document.getElementById("sp-canvas-board");
-  var stage = document.getElementById("sp-stage");
   var presenterSelect = document.getElementById("sp-presenter");
-  var plan = { sections: [], branding: {}, meta: {}, theme: {}, share: {} };
+  var plan = { sections: [], branding: {}, meta: {}, theme: {}, share: {}, media: {} };
 
   var TYPE_LABELS = {
     strategy: "Estratégia",
@@ -40,20 +40,17 @@
     recommendation: 1,
   };
 
-  var LEGACY_SLOTS = [
-    { type: "summary", label: "Objetivo" },
-    { type: "audience", label: "Público" },
-    { type: "channel-mix", label: "Mix", wide: true },
-    { type: "allocation", label: "Verba" },
-    { type: "kpi-group", label: "Indicadores" },
-  ];
-
   function toast(message, type) {
     if (typeof window.showToast === "function") {
       window.showToast(message, type || "info");
       return;
     }
     window.alert(message);
+  }
+
+  function setLive(message) {
+    var live = document.getElementById("sp-save-live");
+    if (live) live.textContent = message || "";
   }
 
   function escapeHtml(value) {
@@ -64,387 +61,100 @@
       .replace(/"/g, "&quot;");
   }
 
-  function logoBox(party, kind) {
-    if (!party || !(party.name || party.logo_url)) return "";
-    var img = party.logo_url
-      ? '<img src="' + escapeHtml(party.logo_url) + '" alt="' + escapeHtml(party.name) + '" onerror="this.remove()">'
-      : '<span class="sp-logo-fallback">' + escapeHtml((party.name || "?").slice(0, 2)) + "</span>";
-    return (
-      '<div class="sp-logo is-' +
-      kind +
-      '">' +
-      img +
-      "<span>" +
-      escapeHtml(party.name || "") +
-      "</span></div>"
-    );
+  function val(id) {
+    var node = document.getElementById(id);
+    return node ? node.value : "";
   }
 
-  function findCard(cards, type) {
-    return cards.findIndex(function (card) {
+  function ensureSection() {
+    if (!plan.sections || !plan.sections.length) {
+      plan.sections = [{ id: "one_page", type: "one_page", title: "Página única", order: 1, cards: [] }];
+    }
+    return plan.sections[0];
+  }
+
+  function upsertCard(type, fields) {
+    var section = ensureSection();
+    section.cards = section.cards || [];
+    var index = section.cards.findIndex(function (card) {
       return card.type === type;
     });
+    var card = index >= 0 ? Object.assign({}, section.cards[index], fields) : Object.assign({ id: type, type: type }, fields);
+    if (index >= 0) section.cards[index] = card;
+    else section.cards.push(card);
+    return card;
   }
 
-  function hasMarketStat(card) {
-    var stat = String((card && card.stat) || "").trim();
-    if (!stat) return false;
-    var low = stat.toLowerCase();
-    return low !== "premissa" && low.indexOf("informe") === -1;
-  }
-
-  function fieldBlock(card, sectionIndex, cardIndex, label, extraFields, hideTitle) {
-    var extras = (extraFields || [])
-      .map(function (field) {
-        return (
-          '<input type="hidden" data-extra="' +
-          field +
-          '" value="' +
-          escapeHtml(card[field] || "") +
-          '">'
-        );
-      })
-      .join("");
-    var body = "";
-    if (readonly) {
-      body = String(card.body || "")
-        .split(/\n\n+/)
-        .map(function (para) {
-          return para.trim();
-        })
-        .filter(Boolean)
-        .map(function (para, index) {
-          return '<p class="' + (index ? "" : "is-lead") + '">' + escapeHtml(para) + "</p>";
-        })
-        .join("");
-    } else {
-      body = '<textarea data-field="body">' + escapeHtml(card.body || "") + "</textarea>";
-    }
-    var title = "";
-    if (!hideTitle) {
-      title = readonly
-        ? "<strong>" + escapeHtml(card.title || label) + "</strong>"
-        : '<input value="' + escapeHtml(card.title || "") + '" data-field="title">';
-    } else if (!readonly) {
-      title = '<input type="hidden" data-field="title" value="' + escapeHtml(card.title || label) + '">';
-    }
-    return (
-      '<article class="sp-card" data-section="' +
-      sectionIndex +
-      '" data-card="' +
-      cardIndex +
-      '" data-type="' +
-      escapeHtml(card.type) +
-      '">' +
-      title +
-      body +
-      extras +
-      "</article>"
-    );
-  }
-
-  function factsStrip(meta) {
-    var canais = meta.canais || "";
-    if (meta.mix_method && canais.indexOf(" · ") !== -1) {
-      canais = canais.split(" · ")[0];
-    }
-    var items = [
-      ["Objetivo", meta.objective],
-      ["Público", meta.publico],
-      ["Verba", meta.budget],
-      ["Período", meta.period],
-      ["Praça", meta.market],
-      ["Canais", canais],
-    ].filter(function (item) {
-      return item[1];
+  function collectEditor() {
+    upsertCard("strategy", {
+      title: val("sp-field-strategy-title") || "Tese e briefing",
+      body: val("sp-field-strategy"),
     });
-    if (!items.length) return "";
-    return (
-      '<dl class="sp-exec-facts">' +
-      items
-        .map(function (item) {
-          return "<div><dt>" + escapeHtml(item[0]) + "</dt><dd>" + escapeHtml(item[1]) + "</dd></div>";
-        })
-        .join("") +
-      "</dl>"
-    );
+    upsertCard("creative", {
+      title: val("sp-field-creative-title") || "Criativo",
+      body: val("sp-field-creative"),
+      channel: val("sp-field-channel"),
+      surface: val("sp-field-surface") || "display",
+      image_url: val("sp-field-image-url"),
+      image_prompt: val("sp-field-image-prompt"),
+    });
+    upsertCard("market", {
+      title: "Mercado",
+      body: val("sp-field-market"),
+      stat: val("sp-field-stat"),
+      stat_label: val("sp-field-stat-label"),
+    });
+    upsertCard("defense", {
+      title: val("sp-field-defense-title") || "Por que aprovar",
+      body: val("sp-field-defense"),
+    });
+    plan.planMode = "one_page";
+    plan.meta = plan.meta || {};
+    if (presenterSelect) {
+      plan.meta.presenter = presenterSelect.value;
+    }
+    return plan;
   }
 
-  function brandChip(party) {
-    if (!party || !(party.name || party.logo_url)) return "";
-    var mark = party.logo_url
-      ? '<img src="' + escapeHtml(party.logo_url) + '" alt="">'
-      : '<span>' + escapeHtml((party.name || "?").slice(0, 2)) + "</span>";
-    return (
-      '<div class="sp-ad-mark is-' +
-      escapeHtml(party.source || "client") +
-      '">' +
-      mark +
-      "<em>" +
-      escapeHtml(party.name || "") +
-      "</em></div>"
-    );
-  }
-
-  function mockup(card, party) {
-    if (!card || !card.image_url) return "";
-    var surface = card.surface || "display";
-    var image = '<img src="' + escapeHtml(card.image_url) + '" alt="">';
-    return (
-      '<div class="sp-mockup is-' +
-      escapeHtml(surface) +
-      '">' +
-      '<div class="sp-mockup-chrome" aria-hidden="true"></div>' +
-      '<div class="sp-mockup-screen">' +
-      image +
-      "</div>" +
-      brandChip(party) +
-      (surface === "ctv" ? '<span class="sp-mockup-qr" aria-hidden="true"></span>' : "") +
-      "</div>"
-    );
-  }
-
-  function densityChart(theme) {
-    var bars = (theme.density || [])
+  function refreshGallery(items) {
+    var host = document.getElementById("sp-gallery");
+    if (!host || !items || !items.length) return;
+    host.innerHTML = items
       .map(function (item) {
-        var value = Math.max(0, Math.min(100, Number(item.value) || Number(item.pct) || 0));
-        var extra = [item.amount_label, item.role].filter(Boolean).join(" · ");
         return (
-          '<div class="sp-density-row"><span>' +
-          escapeHtml(item.label || "") +
-          (extra ? "<small>" + escapeHtml(extra) + "</small>" : "") +
-          "</span><i><b style=\"width:" +
-          value +
-          '%"></b></i><em>' +
-          value +
-          "%</em></div>"
-        );
-      })
-      .join("");
-    if (!bars) return "";
-    var caption = theme.density_caption && theme.density_caption !== "Peso do mix"
-      ? "<p>" + escapeHtml(theme.density_caption) + "</p>"
-      : "";
-    return (
-      '<div class="sp-density">' +
-      caption +
-      bars +
-      (theme.density_note ? "<small class=\"sp-density-note\">" + escapeHtml(theme.density_note) + "</small>" : "") +
-      "</div>"
-    );
-  }
-
-  function flightStrip(pace) {
-    var months = (pace && pace.months) || [];
-    if (months.length < 2 || months.length > 12) return "";
-    var amounts = months.map(function (item) {
-      return Number(item.amount) || 0;
-    });
-    var max = Math.max.apply(null, amounts.concat([1]));
-    var cols = months
-      .map(function (item) {
-        var amount = Number(item.amount) || 0;
-        var height = Math.max(12, Math.round((amount / max) * 56));
-        return (
-          '<div class="sp-flight-col"><i style="height:' +
-          height +
-          'px"></i><span>' +
-          escapeHtml(item.label || "") +
-          "</span>" +
-          (item.amount_label ? "<em>" + escapeHtml(item.amount_label) + "</em>" : "") +
-          "</div>"
-        );
-      })
-      .join("");
-    return (
-      '<div class="sp-flight"><p>Voo da campanha</p><div class="sp-flight-row">' +
-      cols +
-      "</div>" +
-      (pace.how ? "<small>" + escapeHtml(pace.how) + "</small>" : "") +
-      "</div>"
-    );
-  }
-
-  function mediaBoard(media, theme) {
-    media = media || {};
-    var channels = media.channels || [];
-    var density = channels.length
-      ? {
-          density: channels.map(function (item) {
-            return {
-              label: item.label,
-              value: item.pct,
-              amount_label: item.amount_label,
-              role: item.role,
-            };
-          }),
-          density_caption: "",
-          density_note: (theme && theme.density_note) || "",
-        }
-      : theme || {};
-    var how = (media.pace && media.pace.how) || "";
-    if (density.density_note && how && density.density_note === how) {
-      density.density_note = "";
-    }
-    var chart = densityChart(density);
-    var flight = flightStrip(media.pace || {});
-    if (!chart && !flight) return "";
-    return (
-      '<div class="sp-media-board">' +
-      "<p class=\"sp-exec-kicker\">Gestão de mídia</p>" +
-      (media.method_label ? "<p class=\"sp-media-method\">" + escapeHtml(media.method_label) + "</p>" : "") +
-      chart +
-      flight +
-      "</div>"
-    );
-  }
-
-  function shareBlock(share) {
-    var url = share.url || share.path || "";
-    if (!url) return "";
-    var qrSrc = share.public_token
-      ? "/smart-planner/api/p/" + encodeURIComponent(share.public_token) + "/qr.svg"
-      : "";
-    var qr = qrSrc
-      ? '<img class="sp-qr" src="' +
-        qrSrc +
-        '" alt="QR do quadro completo" width="96" height="96">'
-      : "";
-    return (
-      '<div class="sp-share">' +
-      qr +
-      '<div><a href="' +
-      escapeHtml(url) +
-      '" target="_blank" rel="noopener noreferrer">' +
-      escapeHtml(share.label || "Abrir o planejamento") +
-      "</a><button type=\"button\" class=\"sp-pdf\" data-print=\"1\">" +
-      escapeHtml(share.pdf_label || "Salvar PDF") +
-      "</button><small>" +
-      escapeHtml(url) +
-      "</small></div></div>"
-    );
-  }
-
-  function applyTheme(theme) {
-    var host = stage || root;
-    if (!theme || !host) return;
-    host.setAttribute("data-market", theme.id || "");
-    ["ink", "paper", "accent", "fog", "rule"].forEach(function (key) {
-      if (theme[key]) host.style.setProperty("--sp-" + key, theme[key]);
-    });
-    if (theme.bg_url) {
-      host.style.setProperty("--sp-bg", "url('" + theme.bg_url + "')");
-    }
-  }
-
-  function renderPitchSheet(section, sectionIndex) {
-    var cards = section.cards || [];
-    var branding = plan.branding || {};
-    var meta = plan.meta || {};
-    var theme = plan.theme || {};
-    var share = plan.share || {};
-    var presenter = branding.presenter || {};
-    var hero = branding.hero || {};
-    var strategyIdx = findCard(cards, "strategy");
-    var creativeIdx = findCard(cards, "creative");
-    var marketIdx = findCard(cards, "market");
-    var defenseIdx = findCard(cards, "defense");
-    var strategy = cards[strategyIdx] || {};
-    var creative = cards[creativeIdx] || {};
-    var market = cards[marketIdx] || {};
-    var defense = cards[defenseIdx] || {};
-    var partners = (branding.partners || [])
-      .map(function (partner) {
-        if (partner.logo_url) {
-          return (
-            '<img src="' +
-            escapeHtml(partner.logo_url) +
-            '" alt="' +
-            escapeHtml(partner.label || "") +
-            '" title="' +
-            escapeHtml(partner.label || "") +
-            '">'
-          );
-        }
-        return partner.label ? "<span>" + escapeHtml(partner.label) + "</span>" : "";
-      })
-      .join("");
-    var footer =
-      presenter.role === "support" && presenter.logo_url
-        ? '<footer class="sp-sheet-support">' +
-          '<img src="' +
-          escapeHtml(presenter.logo_url) +
+          '<figure class="sp-gallery-item' +
+          (item.active ? " is-active" : "") +
+          '" data-url="' +
+          escapeHtml(item.url) +
+          '" data-kind="' +
+          escapeHtml(item.kind || "") +
+          '"><img src="' +
+          escapeHtml(item.url) +
           '" alt="' +
-          escapeHtml(presenter.name || "") +
-          '"><span>com ' +
-          escapeHtml(presenter.name || "CentralComm") +
-          "</span></footer>"
-        : presenter.role === "principal"
-          ? '<footer class="sp-sheet-support is-principal"><span>' +
-            escapeHtml(presenter.name || "") +
-            "</span></footer>"
-          : "";
-    applyTheme(theme);
-    return (
-      '<article class="sp-sheet is-pitch is-exec" data-market="' +
-      escapeHtml(theme.id || "") +
-      '">' +
-      '<header class="sp-sheet-brands">' +
-      logoBox(branding.client, "client") +
-      logoBox(branding.agency, "agency") +
-      (presenter.role === "principal" ? logoBox(presenter, "presenter") : "") +
-      "</header>" +
-      '<div class="sp-sheet-lead">' +
-      "<h2>" +
-      escapeHtml(meta.client || hero.name || meta.title || "Página única") +
-      "</h2>" +
-      (meta.agency ? "<p>" + escapeHtml(meta.agency) + "</p>" : "") +
-      factsStrip(meta) +
-      "</div>" +
-      '<div class="sp-sheet-main">' +
-      '<section class="sp-exec-brief">' +
-      '<p class="sp-exec-kicker">Tese e briefing</p>' +
-      (strategyIdx >= 0 ? fieldBlock(strategy, sectionIndex, strategyIdx, "Tese e briefing", null, true) : "") +
-      "</section>" +
-      '<section class="sp-exec-media">' +
-      mediaBoard(plan.media || {}, theme) +
-      "</section>" +
-      '<section class="sp-exec-creative">' +
-      (creativeIdx >= 0
-        ? '<div class="sp-hero">' +
-          mockup(creative, hero) +
-          fieldBlock(creative, sectionIndex, creativeIdx, "Criativo no canal", [
-            "channel",
-            "surface",
-            "image_url",
-            "image_prompt",
-          ]) +
-          "</div>"
-        : "") +
-      (defenseIdx >= 0 ? fieldBlock(defense, sectionIndex, defenseIdx, "Por que aprovar") : "") +
-      (hasMarketStat(market)
-        ? '<div class="sp-market is-compact"><p class="sp-stat">' +
-          escapeHtml(market.stat) +
-          "</p>" +
-          (market.stat_label ? '<p class="sp-stat-label">' + escapeHtml(market.stat_label) + "</p>" : "") +
-          "</div>"
-        : "") +
-      (marketIdx >= 0 && !readonly
-        ? fieldBlock(market, sectionIndex, marketIdx, "Indicadores", ["stat", "stat_label"], true)
-        : "") +
-      "</section></div>" +
-      shareBlock(share) +
-      (partners ? '<div class="sp-partners">' + partners + "</div>" : "") +
-      footer +
-      "</article>"
-    );
+          escapeHtml(item.label || "") +
+          '" loading="lazy"><figcaption>' +
+          escapeHtml(item.label || "") +
+          "</figcaption></figure>"
+        );
+      })
+      .join("");
   }
+
+  function applyCreativeUrl(url) {
+    var hidden = document.getElementById("sp-field-image-url");
+    if (hidden) hidden.value = url || "";
+    document.querySelectorAll(".sp-gallery-item").forEach(function (node) {
+      node.classList.toggle("is-active", node.getAttribute("data-url") === url && node.getAttribute("data-kind") === "creative");
+    });
+  }
+
+  /* ——— Board mode (plano completo) ——— */
 
   function cardItems(card) {
     var items = card.items || [];
     if (!items.length) return "";
     return (
-      "<ul class=\"sp-card-items\">" +
+      '<ul class="sp-card-items">' +
       items
         .map(function (item) {
           return "<li>" + escapeHtml(item) + "</li>";
@@ -493,27 +203,30 @@
     );
   }
 
-  function renderLegacySheet(section, sectionIndex) {
-    var cards = section.cards || [];
-    var used = {};
-    var slots = LEGACY_SLOTS.map(function (slot) {
-      var index = cards.findIndex(function (card, i) {
-        return card.type === slot.type && !used[i];
-      });
-      if (index < 0) return "";
-      used[index] = true;
-      return cardMarkup(cards[index], sectionIndex, index, slot.wide ? "is-wide" : "", slot.label);
-    }).join("");
-    var meta = plan.meta || {};
+  function factsStrip(meta) {
+    var canais = meta.canais || "";
+    if (meta.mix_method && canais.indexOf(" · ") !== -1) {
+      canais = canais.split(" · ")[0];
+    }
+    var items = [
+      ["Objetivo", meta.objective],
+      ["Público", meta.publico],
+      ["Verba", meta.budget],
+      ["Período", meta.period],
+      ["Praça", meta.market],
+      ["Canais", canais],
+    ].filter(function (item) {
+      return item[1];
+    });
+    if (!items.length) return "";
     return (
-      '<article class="sp-sheet">' +
-      '<div class="sp-sheet-band" aria-hidden="true"></div>' +
-      '<header class="sp-sheet-head"><strong>Página única</strong><h2>' +
-      escapeHtml(meta.title || meta.campaign || "Página única") +
-      "</h2></header>" +
-      '<div class="sp-sheet-grid">' +
-      slots +
-      "</div></article>"
+      '<dl class="sp-exec-facts">' +
+      items
+        .map(function (item) {
+          return "<div><dt>" + escapeHtml(item[0]) + "</dt><dd>" + escapeHtml(item[1]) + "</dd></div>";
+        })
+        .join("") +
+      "</dl>"
     );
   }
 
@@ -554,29 +267,19 @@
     );
   }
 
-  function isPitchSheet(section) {
-    return (section.cards || []).some(function (card) {
-      return card.type === "strategy" || card.type === "defense" || card.type === "creative";
-    });
-  }
-
   function render() {
     if (!board) return;
     var sections = plan.sections || [];
-    if (!sections.length || !sections.some(function (section) { return (section.cards || []).length; })) {
-      board.innerHTML = '<div class="sp-empty-board"><p>A folha ainda está vazia. Clique em Gerar de novo.</p></div>';
-      return;
-    }
-    if (mode === "one_page") {
-      board.innerHTML = isPitchSheet(sections[0] || {})
-        ? renderPitchSheet(sections[0] || {}, 0)
-        : renderLegacySheet(sections[0] || {}, 0);
+    if (!sections.length || !sections.some(function (section) {
+      return (section.cards || []).length;
+    })) {
+      board.innerHTML = '<div class="sp-empty-board"><p>O quadro ainda está vazio. Clique em Gerar de novo.</p></div>';
       return;
     }
     board.innerHTML = renderBoard();
   }
 
-  function collect() {
+  function collectBoard() {
     if (!board) return plan;
     board.querySelectorAll(".sp-card").forEach(function (node) {
       var sectionIndex = Number(node.getAttribute("data-section"));
@@ -587,23 +290,30 @@
       var body = node.querySelector('[data-field="body"]');
       card.title = title ? title.value : card.title;
       card.body = body ? body.value : card.body;
-      node.querySelectorAll("[data-extra]").forEach(function (hidden) {
-        card[hidden.getAttribute("data-extra")] = hidden.value;
-      });
     });
     return plan;
   }
 
   async function load() {
+    if (isEditor) {
+      var response = await fetch("/smart-planner/api/" + token + "/canvas?folha=1", {
+        credentials: "same-origin",
+      });
+      var payload = await response.json();
+      if (!payload.success) throw new Error(payload.error || "Falha ao carregar");
+      plan = payload.data.plan || plan;
+      if (payload.data.editor && payload.data.editor.gallery) {
+        refreshGallery(payload.data.editor.gallery);
+      }
+      return;
+    }
     var endpoint = isPublic
       ? "/smart-planner/api/p/" + token
       : "/smart-planner/api/" + token + "/canvas";
-    var response = await fetch(endpoint, {
-      credentials: "same-origin",
-    });
-    var payload = await response.json();
-    if (!payload.success) throw new Error(payload.error || "Falha ao carregar");
-    plan = payload.data.plan || { sections: [] };
+    var boardResponse = await fetch(endpoint, { credentials: "same-origin" });
+    var boardPayload = await boardResponse.json();
+    if (!boardPayload.success) throw new Error(boardPayload.error || "Falha ao carregar");
+    plan = boardPayload.data.plan || { sections: [] };
     render();
   }
 
@@ -617,57 +327,111 @@
     var payload = await response.json();
     if (!payload.success) throw new Error(payload.error || "Falha ao gerar");
     plan = payload.data.plan || { sections: [] };
+    if (isEditor) {
+      window.location.reload();
+      return;
+    }
     render();
+  }
+
+  async function save() {
+    var body = isEditor
+      ? { plan: collectEditor(), folha: true }
+      : { plan: collectBoard() };
+    var response = await fetch("/smart-planner/api/" + token + "/canvas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(body),
+    });
+    var payload = await response.json();
+    if (!payload.success) throw new Error(payload.error || "Falha ao salvar");
+  }
+
+  async function generateImage() {
+    setLive("Gerando imagem…");
+    await save();
+    var response = await fetch("/smart-planner/api/" + token + "/canvas/imagem", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({}),
+    });
+    var payload = await response.json();
+    if (!payload.success) throw new Error(payload.error || "Falha ao gerar imagem");
+    plan = payload.data.plan || plan;
+    var creative = ((plan.sections || [])[0] || {}).cards || [];
+    var card = creative.find(function (item) {
+      return item.type === "creative";
+    });
+    if (card && card.image_url) applyCreativeUrl(card.image_url);
+    if (payload.data.editor && payload.data.editor.gallery) {
+      refreshGallery(payload.data.editor.gallery);
+      applyCreativeUrl(card && card.image_url);
+    }
+    setLive("Imagem atualizada.");
   }
 
   document.getElementById("sp-canvas-save")?.addEventListener("click", async function () {
     try {
-      var response = await fetch("/smart-planner/api/" + token + "/canvas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ plan: collect() }),
-      });
-      var payload = await response.json();
-      if (!payload.success) throw new Error(payload.error || "Falha ao salvar");
-      toast("Quadro salvo.", "success");
+      setLive("Salvando…");
+      await save();
+      setLive("Salvo.");
+      toast(isEditor ? "Página única salva." : "Quadro salvo.", "success");
     } catch (error) {
+      setLive("");
       toast(error.message, "error");
     }
   });
 
   document.getElementById("sp-canvas-regen")?.addEventListener("click", async function () {
     try {
+      setLive("Gerando…");
       await regenerate();
-      toast(
-        mode === "one_page"
-          ? "Página única e arte geradas no GPT Image 2."
-          : "Quadro gerado de novo.",
-        "success"
-      );
+      toast(isEditor ? "Página única regenerada." : "Quadro gerado de novo.", "success");
+      setLive("");
     } catch (error) {
+      setLive("");
+      toast(error.message, "error");
+    }
+  });
+
+  document.getElementById("sp-canvas-image")?.addEventListener("click", async function () {
+    try {
+      await generateImage();
+      toast("Nova peça gerada.", "success");
+    } catch (error) {
+      setLive("");
       toast(error.message, "error");
     }
   });
 
   presenterSelect?.addEventListener("change", async function () {
+    if (!isEditor) return;
     try {
+      setLive("Atualizando marca…");
       await regenerate(presenterSelect.value);
-      toast(
-        presenterSelect.value === "centralcomm"
-          ? "CentralComm voltou como apoio."
-          : "Marca principal trocada. CentralComm saiu da folha.",
-        "success"
-      );
     } catch (error) {
+      setLive("");
       toast(error.message, "error");
     }
   });
 
-  board?.addEventListener("click", function (event) {
-    if (event.target && event.target.getAttribute("data-print") === "1") {
-      window.print();
-    }
+  document.getElementById("sp-gallery")?.addEventListener("click", function (event) {
+    var figure = event.target.closest(".sp-gallery-item");
+    if (!figure || figure.getAttribute("data-kind") !== "creative") return;
+    applyCreativeUrl(figure.getAttribute("data-url"));
+  });
+
+  document.querySelectorAll(".sp-editor-checks a[href^='#']").forEach(function (link) {
+    link.addEventListener("click", function (event) {
+      var id = link.getAttribute("href").slice(1);
+      var target = document.getElementById(id);
+      if (!target) return;
+      event.preventDefault();
+      if (target.tagName === "DETAILS") target.open = true;
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   });
 
   load().catch(function (error) {

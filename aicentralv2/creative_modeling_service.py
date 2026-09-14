@@ -1033,7 +1033,39 @@ class CreativeModelingService:
         }
 
     def train_format(self, payload):
-        return run_training(payload if isinstance(payload, dict) else {})
+        payload = dict(payload) if isinstance(payload, dict) else {}
+        self._hydrate_train_assets(payload)
+        return run_training(payload)
+
+    def _hydrate_train_assets(self, payload):
+        if payload.get("approved_creative") or payload.get("generated_mock"):
+            return
+        format_id = payload.get("format_id")
+        lister = getattr(self.repository, "list_format_modeling_jobs", None)
+        getter = getattr(self.repository, "get_format", None)
+        if not format_id or not callable(lister) or not callable(getter):
+            return
+        try:
+            fmt = getter(int(format_id))
+            jobs = lister(int(format_id))
+        except Exception:
+            return
+        item = registry_entry(resolve_canonical_key((fmt or {}).get("slug")) or (fmt or {}).get("slug"))
+        size = (item["width"], item["height"]) if item else (0, 0)
+        approved = next(
+            (
+                job for job in jobs or []
+                if job.get("status") == "approved" and job.get("asset_url")
+            ),
+            None,
+        )
+        if not approved:
+            return
+        payload["generated_mock"] = {
+            "url": approved["asset_url"],
+            "width": size[0],
+            "height": size[1],
+        }
 
     def resolve_format_assets(self, payload):
         return resolve_assets(payload if isinstance(payload, dict) else {})
@@ -1055,6 +1087,11 @@ class CreativeModelingService:
         from .format_lab_reviews import approve_revision
         payload = payload if isinstance(payload, dict) else {}
         return approve_revision(payload.get("variant_id"), payload.get("revision") or 1)
+
+    def showcase_format_revision(self, payload):
+        from .format_lab_reviews import showcase_revision
+        payload = payload if isinstance(payload, dict) else {}
+        return showcase_revision(payload.get("variant_id"), payload.get("revision") or 1)
 
     def list_compose_library(self, family=None, client_id=None):
         family = str(family or "").strip() or None

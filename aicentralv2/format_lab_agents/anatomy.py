@@ -1,6 +1,7 @@
 """Agente de anatomia — quatro eixos, sem inventar marca."""
 
 from ..creative_format_registry import entry
+from ..design_system_ads.learn import classify_creative
 
 
 CONCEPTS = {
@@ -40,11 +41,30 @@ def run(payload):
         level = "L2"
     if payload.get("network_chrome"):
         level = "L5"
+    lesson = classify_creative({
+        "format": (item or {}).get("format_key") or payload.get("format_key") or "",
+        "signals": found,
+        "screenshot": payload.get("network_chrome"),
+        "product": "product" in found,
+        "lifestyle": "lifestyle" in found,
+        "packshot": "product" in found and "lifestyle" not in found,
+    })
+    if lesson.get("concept"):
+        concept = lesson["concept"]
+    if lesson.get("template"):
+        template = lesson["template"]
+    if lesson.get("id"):
+        level = lesson["id"]
     return {
         "status": "ok",
         "concept": concept,
         "template": template,
         "training_level": level,
+        "curriculum": {
+            "label": lesson.get("label"),
+            "teach": lesson.get("teach"),
+            "lab": lesson.get("lab"),
+        },
         "elements_found": found,
         "missing_required": missing,
         "optional_missing": [

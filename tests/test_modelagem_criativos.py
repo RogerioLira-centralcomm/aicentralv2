@@ -1106,6 +1106,22 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertEqual(result["status"], "ok")
         self.assertEqual(result["path"], "C")
         self.assertIn("cx-format-ph", result["steps"]["assets"]["placeholder"]["html"])
+        self.assertIn("curriculum", result["steps"]["anatomy"])
+
+    def test_treino_usa_mock_aprovado_do_formato(self):
+        self.repo.format_jobs = [{
+            "status": "approved",
+            "asset_url": "/mock-leaderboard.png",
+        }]
+        result = self.service.train_format({
+            "format_key": "leaderboard",
+            "format_id": 7,
+            "channel": "portal",
+            "device": "desktop",
+            "zone": "leaderboard",
+        })
+        self.assertEqual(result["path"], "B")
+        self.assertEqual(result["steps"]["assets"]["source_type"], "generated_mock")
 
     def test_revisao_de_formato_fica_imutavel_depois_de_aprovar(self):
         created = self.service.create_format_revision({
@@ -3693,6 +3709,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("format-lab/train", production_js)
         self.assertIn("format-revision", production_js)
         self.assertIn("mc-ad-frame", production_js)
+        self.assertIn("mc-training-examples", production_js)
+        self.assertIn("format-revision-showcase", production_js)
         self.assertIn("PLACEMENT_NOT_DEFINED", production_js)
         self.assertIn("cx-format-ph", production_js)
         self.assertIn("function tvPlaybackShellHtml", production_js)

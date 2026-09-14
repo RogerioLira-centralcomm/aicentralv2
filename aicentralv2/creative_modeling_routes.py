@@ -472,6 +472,11 @@ def api_format_revision_approve():
 
 
 @admin_required_api
+def api_format_revision_showcase():
+    return _execute(lambda: _ok(_service().showcase_format_revision(_json())))
+
+
+@admin_required_api
 def api_compose_library():
     return _execute(
         lambda: _ok(
@@ -1654,6 +1659,12 @@ def register_creative_modeling_routes(blueprint):
         "/api/format-revisions/approve",
         endpoint="creative_format_revisions_approve",
         view_func=api_format_revision_approve,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-revisions/showcase",
+        endpoint="creative_format_revisions_showcase",
+        view_func=api_format_revision_showcase,
         methods=["POST"],
     )
     blueprint.add_url_rule(

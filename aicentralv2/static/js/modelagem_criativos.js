@@ -16,6 +16,7 @@
     formatTrain: '/parametros/api/format-lab/train',
     formatRevisions: '/parametros/api/format-revisions',
     formatRevisionApprove: '/parametros/api/format-revisions/approve',
+    formatRevisionShowcase: '/parametros/api/format-revisions/showcase',
     unfoldings: '/parametros/api/unfoldings',
     readKv: '/parametros/api/unfoldings/read-kv',
     exampleKv: '/parametros/api/unfoldings/example-kv',
@@ -3412,9 +3413,10 @@
       `<li><span>${escapeHtml(key)}</span><strong>${escapeHtml(String(value))}</strong></li>`
     )).join('');
     const revisions = (state.formatRevisions || []).map((item) => (
-      `<li>R${item.revision} · ${escapeHtml(item.status)} · ${(item.focus || []).join(', ')}</li>`
+      `<li>R${item.revision} · ${escapeHtml(item.status)} · ${(item.focus || []).join(', ')}${item.comment ? ` · ${escapeHtml(item.comment)}` : ''}</li>`
     )).join('');
     const nextRevision = ((state.formatRevisions || []).at(-1)?.revision || 0) + 1;
+    const teach = trained?.steps?.anatomy?.curriculum?.teach || '';
     return `<aside class="mc-training-card" data-mode="${escapeHtml(state.libraryMode)}">
       <p><strong>Chave</strong> ${escapeHtml(formatCanonicalKey(format))}</p>
       <p><strong>Zona</strong> ${escapeHtml(String(zone))}</p>
@@ -3423,14 +3425,22 @@
       <p><strong>Opcional</strong> ${escapeHtml(optional)}</p>
       <p><strong>Irmãos</strong> ${escapeHtml(siblings)}</p>
       <p><strong>Safe</strong> ${escapeHtml(JSON.stringify(format.safe_areas || { inset_pct: 0 }))}</p>
+      ${teach ? `<p><strong>Aula</strong> ${escapeHtml(teach)}</p>` : ''}
       ${blocked ? `<p class="mc-training-block">${escapeHtml(blocked.message || blocked.code || 'Bloqueado')}</p>` : ''}
       ${scoreRows ? `<ol class="mc-training-scores">${scoreRows}</ol>` : ''}
+      <div class="mc-training-examples" aria-label="Exemplos de treino">
+        <figure data-example="placeholder"><strong>Placeholder</strong><small>Anatomia no tamanho nativo</small></figure>
+        <figure data-example="defect"><strong>Defeito</strong><small>Resize cego ou chrome do veículo</small></figure>
+        <figure data-example="correct"><strong>Correto</strong><small>Recompor irmãos no poço nativo</small></figure>
+      </div>
       ${state.libraryMode === 'revisao' ? `
         <div class="mc-training-revisions">
           <strong>Revisões</strong>
           <ol>${revisions || '<li>Nenhuma revisão ainda.</li>'}</ol>
+          <textarea class="cx-textarea" id="mcRevisionComment" rows="2" placeholder="Comentário desta rodada"></textarea>
           <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-action="format-revision">Criar R${nextRevision}</button>
           <button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-action="format-revision-approve">Aprovar</button>
+          <button class="cx-btn cx-btn-outline cx-btn-sm" type="button" data-action="format-revision-showcase">Showcase</button>
         </div>` : ''}
     </aside>`;
   }
@@ -3447,15 +3457,23 @@
     const channel = isSocialFormat(format)
       ? (socialNetworkKey(format) || 'instagram')
       : ((format.channel && ['netflix', 'hbomax', 'disneyplus', 'primevideo'].includes(format.channel)) ? 'ctv' : 'portal');
+    const size = parseDefaultSize(format.default_size || format.target_size) || {};
+    const reference = (format.references || []).find((item) => item.asset_url);
     try {
       state.formatTraining = await api(API.formatTrain, {
         method: 'POST',
         body: JSON.stringify({
           format_key: key,
+          format_id: format.id,
           channel,
           device: state.previewDevice === 'mobile' ? 'mobile' : (channel === 'ctv' ? 'tv' : 'desktop'),
           zone,
           viewer_slug: profile?.slug || '',
+          approved_creative: reference ? {
+            url: reference.asset_url,
+            width: size.w,
+            height: size.h,
+          } : undefined,
         }),
       });
     } catch (error) {
@@ -5631,6 +5649,7 @@
             revision_count: 5,
             placement: state.placementDraft,
             quality: state.formatTraining?.steps?.quality,
+            comment: $('#mcRevisionComment')?.value?.trim() || '',
           }),
         });
         state.formatRevisions = [...(state.formatRevisions || []), created];
@@ -5654,6 +5673,24 @@
         ));
         renderLibraryDetail(format);
         toast(`Revisão R${approved.revision} aprovada.`, 'success');
+      } catch (error) { toast(error.message, 'error'); }
+    } else if (action === 'format-revision-showcase') {
+      const format = selectedLibraryFormat();
+      const last = (state.formatRevisions || []).at(-1);
+      if (!format || !last) return toast('Crie e aprove uma revisão primeiro.', 'warning');
+      try {
+        const shown = await api(API.formatRevisionShowcase, {
+          method: 'POST',
+          body: JSON.stringify({
+            variant_id: last.variant_id || formatVariantId(format),
+            revision: last.revision,
+          }),
+        });
+        state.formatRevisions = (state.formatRevisions || []).map((item) => (
+          item.revision === shown.revision ? shown : item
+        ));
+        renderLibraryDetail(format);
+        toast(`Revisão R${shown.revision} no showcase.`, 'success');
       } catch (error) { toast(error.message, 'error'); }
     } else if (action === 'archive-format-mockup') {
       const holder = button.closest('[data-model-job]');

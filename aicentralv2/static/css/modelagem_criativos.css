@@ -13669,6 +13669,23 @@ article.mc-studio .mc-studio-confirm-foot {
 }
 .mc-training-revisions { margin-top: 10px; }
 .mc-training-revisions .cx-btn { margin: 8px 6px 0 0; }
+.mc-training-revisions textarea { margin-top: 8px; }
+.mc-training-examples {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 10px;
+}
+.mc-training-examples figure {
+  margin: 0;
+  padding: 8px;
+  border: 1px solid #d5d8d2;
+  background: #fff;
+}
+.mc-training-examples [data-example="defect"] { border-color: #c45a4a; }
+.mc-training-examples [data-example="correct"] { border-color: #2f6f4e; }
+.mc-training-examples strong,
+.mc-training-examples small { display: block; }
 .mc-ad-frame {
   display: block;
   width: 100%;

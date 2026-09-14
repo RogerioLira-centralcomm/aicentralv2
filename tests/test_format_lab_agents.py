@@ -12,6 +12,7 @@ from aicentralv2.format_lab_reviews import (
     clone_approved,
     create_revision,
     list_revisions,
+    showcase_revision,
 )
 
 
@@ -71,6 +72,14 @@ class FormatLabAgentsTest(TestCase):
         self.assertEqual(again["revision"], 1)
         self.assertEqual(clone_approved("var-1")["revision"], 1)
         self.assertEqual(len(list_revisions("var-1")), 1)
+
+    def test_revisao_guarda_comentario_e_sobe_para_showcase(self):
+        created = create_revision("var-comment", {"format_key": "iab-medium", "comment": "Safe ok"}, 1)
+        self.assertEqual(created["comment"], "Safe ok")
+        approve_revision("var-comment", 1)
+        shown = showcase_revision("var-comment", 1)
+        self.assertEqual(shown["status"], "showcase")
+        self.assertEqual(clone_approved("var-comment")["status"], "showcase")
 
     def test_mock_rapido_nao_pinta_copy_na_imagem(self):
         prompt = compose_format_mockup_prompt(

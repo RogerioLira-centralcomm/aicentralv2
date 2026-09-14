@@ -3,7 +3,7 @@ ALTER TABLE system_integration_credentials
 
 ALTER TABLE system_integration_credentials
     ADD CONSTRAINT system_integration_credentials_provider_check
-    CHECK (provider IN ('google_calendar', 'higgsfield', 'openrouter', 'd4sign'));
+    CHECK (provider IN ('google_calendar', 'higgsfield', 'openrouter', 'openai', 'd4sign'));
 
 CREATE TABLE IF NOT EXISTS cx_documento (
     id SERIAL PRIMARY KEY,

@@ -7,6 +7,7 @@ Montar e respeitar o Campaign Snapshot: só o que foi confirmado, extraído com 
 
 ## Regras de verdade
 - Verba, canais, mix, período, praça e objetivo da mesa são lei.
+- Na página única, o criativo vai no canal de maior peso e why_this_mix cita os % e R$ reais.
 - Sem fonte: "A definir" ou premissa. Nunca invente CPM, impressão, responsável ou logo.
 - Busca de mercado não sobrescreve verba, KPI, anunciante, prazo, campanha ou agência.
 - Identidade da Modelagem (público, tom, produto) é verdade de marca.

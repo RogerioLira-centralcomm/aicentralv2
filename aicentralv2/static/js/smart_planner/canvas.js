@@ -110,11 +110,19 @@
   }
 
   function factsStrip(meta) {
+    var period = meta.period || "";
+    if (meta.ritmo && period && period.indexOf(meta.ritmo) === -1) {
+      period = period + " · " + meta.ritmo;
+    } else if (!period && meta.ritmo) {
+      period = meta.ritmo;
+    }
     var items = [
-      ["Verba", meta.budget],
-      ["Praça", meta.market],
-      ["Período", meta.period],
       ["Objetivo", meta.objective],
+      ["Público", meta.publico],
+      ["Verba", meta.budget],
+      ["Período", period],
+      ["Praça", meta.market],
+      ["Canais", meta.canais],
     ].filter(function (item) {
       return item[1];
     });
@@ -168,7 +176,8 @@
   function densityChart(theme) {
     var bars = (theme.density || [])
       .map(function (item) {
-        var value = Math.max(0, Math.min(100, Number(item.value) || 0));
+        var value = Math.max(0, Math.min(100, Number(item.value) || Number(item.pct) || 0));
+        var extra = [item.amount_label, item.role].filter(Boolean).join(" · ");
         return (
           '<div class="sp-density-row"><span>' +
           escapeHtml(item.label || "") +
@@ -176,7 +185,9 @@
           value +
           '%"></b></i><em>' +
           value +
-          "</em></div>"
+          "%</em>" +
+          (extra ? "<small>" + escapeHtml(extra) + "</small>" : "") +
+          "</div>"
         );
       })
       .join("");
@@ -186,6 +197,68 @@
       escapeHtml(theme.density_caption || "Peso do mix") +
       "</p>" +
       bars +
+      (theme.density_note ? "<small class=\"sp-density-note\">" + escapeHtml(theme.density_note) + "</small>" : "") +
+      "</div>"
+    );
+  }
+
+  function flightStrip(pace) {
+    var months = (pace && pace.months) || [];
+    if (months.length < 2 || months.length > 12) return "";
+    var amounts = months.map(function (item) {
+      return Number(item.amount) || 0;
+    });
+    var max = Math.max.apply(null, amounts.concat([1]));
+    var cols = months
+      .map(function (item) {
+        var amount = Number(item.amount) || 0;
+        var height = Math.max(14, Math.round((amount / max) * 100));
+        return (
+          '<div class="sp-flight-col"><i style="height:' +
+          height +
+          '%"></i><span>' +
+          escapeHtml(item.label || "") +
+          "</span>" +
+          (item.amount_label ? "<em>" + escapeHtml(item.amount_label) + "</em>" : "") +
+          "</div>"
+        );
+      })
+      .join("");
+    return (
+      '<div class="sp-flight"><p>Voo da campanha</p><div class="sp-flight-row">' +
+      cols +
+      "</div>" +
+      (pace.how ? "<small>" + escapeHtml(pace.how) + "</small>" : "") +
+      "</div>"
+    );
+  }
+
+  function mediaBoard(media, theme) {
+    media = media || {};
+    var channels = media.channels || [];
+    var density = channels.length
+      ? {
+          density: channels.map(function (item) {
+            return {
+              label: item.label,
+              value: item.pct,
+              amount_label: item.amount_label,
+              role: item.role,
+            };
+          }),
+          density_caption: "Peso do mix",
+          density_note: (theme && theme.density_note) || (media.pace && media.pace.how) || "",
+        }
+      : theme || {};
+    var chart = densityChart(density);
+    var flight = flightStrip(media.pace || {});
+    if (!chart && !flight) return "";
+    return (
+      '<div class="sp-media-board">' +
+      "<p class=\"sp-media-kicker\">Gestão de mídia</p>" +
+      (media.method_label ? "<p class=\"sp-media-method\">" + escapeHtml(media.method_label) + "</p>" : "") +
+      chart +
+      flight +
       "</div>"
     );
   }
@@ -292,12 +365,14 @@
       (meta.agency ? "<p>" + escapeHtml(meta.agency) + "</p>" : "") +
       factsStrip(meta) +
       "</div>" +
-      (strategyIdx >= 0
-        ? '<section class="sp-exec-reco">' +
-          fieldBlock(strategy, sectionIndex, strategyIdx, "Recomendação", null, true) +
-          "</section>"
-        : "") +
       '<div class="sp-sheet-main">' +
+      '<section class="sp-exec-brief">' +
+      (strategyIdx >= 0 ? fieldBlock(strategy, sectionIndex, strategyIdx, "Tese e briefing", null, true) : "") +
+      "</section>" +
+      '<section class="sp-exec-media">' +
+      mediaBoard(plan.media || {}, theme) +
+      "</section>" +
+      '<section class="sp-exec-creative">' +
       (creativeIdx >= 0
         ? '<div class="sp-hero">' +
           mockup(creative, hero) +
@@ -309,19 +384,17 @@
           ]) +
           "</div>"
         : "") +
-      '<aside class="sp-aside">' +
+      (defenseIdx >= 0 ? fieldBlock(defense, sectionIndex, defenseIdx, "Por que aprovar") : "") +
       (marketIdx >= 0
-        ? '<div class="sp-market"><p class="sp-stat">' +
+        ? '<div class="sp-market is-compact"><p class="sp-stat">' +
           escapeHtml(market.stat || "") +
           '</p><p class="sp-stat-label">' +
           escapeHtml(market.stat_label || "") +
           "</p>" +
-          fieldBlock(market, sectionIndex, marketIdx, "Mercado", ["stat", "stat_label"], true) +
+          fieldBlock(market, sectionIndex, marketIdx, "Indicadores", ["stat", "stat_label"], true) +
           "</div>"
         : "") +
-      densityChart(theme) +
-      (defenseIdx >= 0 ? fieldBlock(defense, sectionIndex, defenseIdx, "Defesa") : "") +
-      "</aside></div>" +
+      "</section></div>" +
       shareBlock(share) +
       (partners ? '<div class="sp-partners">' + partners + "</div>" : "") +
       footer +

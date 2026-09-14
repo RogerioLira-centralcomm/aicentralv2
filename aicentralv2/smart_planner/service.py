@@ -234,6 +234,8 @@ def wizard_context(row: dict, step_id: str) -> dict:
             "periodo": campos["periodo"],
             "praca": praca_label,
             "objetivo": objetivo_label(campos["objetivo"]) or campos["objetivo_texto"],
+            "publico": text(campos.get("publico")),
+            "canais": f"{len(campos['canais'])} canais" if campos.get("canais") else "",
         },
         "plan_mode": plan_mode_of(dados),
         "plan_mode_label": plan_mode_label(plan_mode_of(dados)),

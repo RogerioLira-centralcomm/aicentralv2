@@ -5,6 +5,7 @@ from aicentralv2.smart_planner.canvas import _card_count, _fill_from_groups, _pl
 from aicentralv2.smart_planner.generator import (
     _as_plan_markdown,
     _material_hash,
+    _mix_law,
     _pack,
     _require_llm,
     _stale_generation,
@@ -39,6 +40,8 @@ def test_internal_skills_are_versioned_packages():
     assert "premissa" in truth.lower()
     assert "strategy core" in core.lower() or "núcleo" in core.lower()
     assert "defesa" in page.lower()
+    assert "mix aprovado" in page.lower()
+    assert "gestão de mídia" in page.lower()
     assert load_skill("missing_skill") == ""
 
 
@@ -320,3 +323,84 @@ def test_require_llm_explains_missing_credential():
             assert "Integrações" in str(exc)
         else:
             raise AssertionError("deveria exigir credencial")
+
+
+def _page_with_mix(channel="ooh", roles=None):
+    return {
+        "thesis": {"statement": "Partir dos canais oficiais e levar cada demanda ao autosserviço."},
+        "recommendation": {
+            "summary": "OOH no recorte de Minas e busca no serviço oficial.",
+            "channel_roles": roles or [{"channel": channel, "role": "Alcance de rua"}],
+        },
+        "creative_expression": {"channel": channel, "headline": "Resolva de onde estiver"},
+        "result_estimates": {"status": "not_available"},
+    }
+
+
+def test_validate_page_rejects_creative_outside_approved_mix():
+    snapshot = {
+        "client": {"name": "BDMG"},
+        "channels": ["ooh", "google_ads"],
+        "mix": [
+            {"id": "ooh", "label": "OOH / Painéis", "pct": 70},
+            {"id": "google_ads", "label": "Google Ads", "pct": 30},
+        ],
+    }
+    try:
+        _validate_page(_page_with_mix("tiktok"), snapshot, {"status": "not_available"})
+    except ValueError as exc:
+        assert "maior peso" in str(exc)
+    else:
+        raise AssertionError("deveria rejeitar criativo fora do mix")
+
+
+def test_validate_page_requires_hero_channel_in_roles():
+    snapshot = {
+        "client": {"name": "BDMG"},
+        "channels": ["ooh", "google_ads"],
+        "mix": [
+            {"id": "ooh", "label": "OOH / Painéis", "pct": 70},
+            {"id": "google_ads", "label": "Google Ads", "pct": 30},
+        ],
+    }
+    page = _page_with_mix("ooh", roles=[{"channel": "google_ads", "role": "Busca"}])
+    try:
+        _validate_page(page, snapshot, {"status": "not_available"})
+    except ValueError as exc:
+        assert "herói" in str(exc)
+    else:
+        raise AssertionError("deveria exigir o canal-herói nos papéis")
+
+
+def test_validate_page_accepts_mix_label_as_hero():
+    snapshot = {
+        "client": {"name": "BDMG"},
+        "channels": ["ooh", "google_ads"],
+        "mix": [
+            {"id": "google_ads", "label": "Google Ads", "pct": 55},
+            {"id": "ooh", "label": "OOH / Painéis", "pct": 45},
+        ],
+    }
+    _validate_page(_page_with_mix("Google Ads"), snapshot, {"status": "not_available"})
+
+
+def test_pack_exposes_approved_mix_as_law():
+    packed = _pack(
+        {
+            "client": {"name": "BDMG"},
+            "mix": [
+                {"id": "ooh", "label": "OOH / Painéis", "pct": 60, "amount_label": "R$ 240.000"},
+                {"id": "google_ads", "label": "Google Ads", "pct": 40, "amount_label": "R$ 160.000"},
+            ],
+            "mix_method": "funil",
+            "pace": {"how": "Começa menor, solta no meio e no fim."},
+        },
+        {},
+    )
+    assert "mix_aprovado" in packed
+    assert "OOH / Painéis: 60%" in packed
+    assert "lei da mesa" in packed
+    law = _mix_law({
+        "mix": [{"id": "ooh", "label": "OOH / Painéis", "pct": 60, "amount_label": "R$ 240.000"}],
+    })
+    assert law["hero"]["id"] == "ooh"

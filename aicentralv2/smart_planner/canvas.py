@@ -13,7 +13,10 @@ from .catalog import PRACA_OPTIONS, objetivo_label
 from .cost import bound_session
 from .helpers import as_bool, as_dict, as_list, client_display_name, extract_json, plan_mode_of, session_title, text
 from .materials import apoio_notes
+from .mix import METHODS
+from .pace import campaign_pace
 from .repository import get_by_token, merge_dados, update_session
+from .snapshot import build_snapshot
 
 SECTIONS = (
     {"id": "context", "title": "Contexto", "order": 1},
@@ -120,15 +123,31 @@ def _row_meta(row: dict, dados: dict) -> dict:
     praca_key = text(campanha.get("praca") or dados.get("praca"))
     raw_client = text(row.get("cliente") or dados.get("cliente") or campanha.get("cliente"))
     confidential = as_bool(dados.get("anunciante_confidencial"))
+    canais = [item for item in as_list(campanha.get("canais") or dados.get("canais")) if item]
+    method = text(as_dict(campanha.get("mix")).get("method"))
+    method_label = next((item["label"] for item in METHODS if item["id"] == method), method)
+    publico = text(row.get("publico_alvo") or dados.get("publico") or as_dict(dados.get("brand")).get("target_audience"))
+    budget = text(row.get("budget") or campanha.get("verba") or dados.get("verba"))
+    budget_base = text(campanha.get("verba_base") or dados.get("verba_base") or "total")
+    if budget and budget_base == "mensal" and "mês" not in budget.lower() and "mes" not in budget.lower():
+        budget_label = budget + " / mês"
+    else:
+        budget_label = budget
+    ritmo = text(campaign_pace(campanha).get("como"))
     return {
         "title": session_title(row, dados),
         "client": client_display_name(confidential=confidential, name=raw_client) if confidential else raw_client,
         "agency": text(dados.get("agencia") or campanha.get("agencia")),
         "campaign": text(row.get("nome_campanha") or dados.get("nome_campanha")),
-        "budget": text(row.get("budget") or campanha.get("verba") or dados.get("verba")),
+        "budget": budget_label,
+        "budget_base": budget_base,
         "period": text(row.get("prazo") or campanha.get("periodo") or dados.get("periodo")),
         "market": PRACA_OPTIONS.get(praca_key, {}).get("label", praca_key),
         "objective": objetivo_label(text(row.get("objetivo") or dados.get("objetivo") or campanha.get("objetivo"))),
+        "publico": publico,
+        "ritmo": ritmo,
+        "canais": f"{len(canais)} canais" + (f" · {method_label}" if canais and method_label else ""),
+        "mix_method": method_label,
     }
 
 
@@ -176,8 +195,16 @@ def materialize_folha(token: str, presenter_id: str | None = None) -> dict:
                 "logo_url": "",
                 "source": "confidential",
             }
-        theme = one_page.compose_theme(meta.get("client"), meta.get("agency"), briefing, None)
+        snapshot = as_dict(dados.get("snapshot")) or build_snapshot(row, dados)
+        theme = one_page.theme_for_snapshot(meta.get("client"), meta.get("agency"), briefing, snapshot)
         share = one_page.share_payload(text(dados.get("public_token")), meta.get("client"))
+        media = one_page.build_media_board(
+            snapshot.get("mix"),
+            method=text(snapshot.get("mix_method")),
+            pace=snapshot.get("pace"),
+            roles=as_dict(page.get("recommendation")).get("channel_roles"),
+            calendar=snapshot.get("calendar"),
+        )
         plan = one_page.assemble_from_v2(
             {**meta, "presenter": branding["presenter"]["id"]},
             branding,
@@ -185,7 +212,9 @@ def materialize_folha(token: str, presenter_id: str | None = None) -> dict:
             share,
             page,
             as_dict(dados.get("strategy_core")),
-            text(as_dict(dados.get("snapshot")).get("snapshot_id")),
+            text(snapshot.get("snapshot_id")),
+            snapshot=snapshot,
+            media=media,
         )
         merge_dados(token, {
             "folha": plan,

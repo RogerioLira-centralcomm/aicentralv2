@@ -4,7 +4,7 @@
 {% block title %}{{ titulo }} · Smart Planner{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=29">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=30">
 {% endblock %}
 
 {% block content %}
@@ -18,7 +18,7 @@
       <h1>{{ titulo }}</h1>
       <p>
         {% if plan_mode == 'one_page' %}
-          Folha de decisão: recomendação, criativo no canal e a defesa com QR.
+          Folha executiva: tese, gestão de mídia e criativo no canal.
         {% else %}
           Quadro executivo nas quatro seções. Edite e salve.
         {% endif %}
@@ -43,14 +43,16 @@
       <button type="button" class="cx-btn cx-btn-primary" id="sp-canvas-save">Salvar</button>
     </div>
   </header>
-  {% if facts and (facts.cliente or facts.verba or facts.praca or facts.custo) %}
+  {% if facts and (facts.cliente or facts.verba or facts.praca or facts.custo or facts.publico or facts.canais) %}
   <dl class="sp-facts is-strip">
     <div><dt>Cliente</dt><dd>{{ facts.cliente or "—" }}</dd></div>
+    {% if facts.objetivo %}<div><dt>Objetivo</dt><dd>{{ facts.objetivo }}</dd></div>{% endif %}
+    {% if facts.publico %}<div><dt>Público</dt><dd>{{ facts.publico }}</dd></div>{% endif %}
     <div><dt>Verba</dt><dd>{{ facts.verba or "—" }}</dd></div>
     {% if facts.custo %}<div class="is-cost"><dt>Custo</dt><dd>{{ facts.custo }}</dd></div>{% endif %}
     <div><dt>Praça</dt><dd>{{ facts.praca or "—" }}</dd></div>
     <div><dt>Período</dt><dd>{{ facts.periodo or "—" }}</dd></div>
-    {% if facts.objetivo %}<div><dt>Objetivo</dt><dd>{{ facts.objetivo }}</dd></div>{% endif %}
+    {% if facts.canais %}<div><dt>Canais</dt><dd>{{ facts.canais }}</dd></div>{% endif %}
   </dl>
   {% endif %}
   <div class="sp-stage" id="sp-stage">
@@ -62,5 +64,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/canvas.js') }}?v=3"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/canvas.js') }}?v=4"></script>
 {% endblock %}

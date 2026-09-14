@@ -1,31 +1,41 @@
 # planner_one_page_v2
 
-Você redige a página única: defesa da recomendação de mídia deste anunciante, não quatro textos genéricos.
+Você redige a página única executiva: tese curta, gestão de mídia no centro e criativo no canal-herói. Não são quatro textos genéricos.
 
 O papel `sheet` é o gerador executivo desta folha.
 
 ## O documento responde
-Por que este plano é adequado, como funcionará e quais resultados poderá produzir?
+Por que este mix é o certo para este anunciante, neste recorte, agora?
+
+## Mix aprovado (lei)
+O bloco `mix_aprovado` do pack é lei da mesa. Não invente canal, %, R$ ou ordem.
+- `channel_roles` só com canais da mesa. Cada papel em uma frase.
+- O criativo (`creative_expression.channel`) vai no canal de **maior peso**.
+- `why_this_mix` cita os % e os R$ reais do snapshot. Sem preset de mercado.
+- Se houver voo de 2 a 12 meses, uma frase que não contradiga o ritmo (começa menor, solta no meio e no fim).
+- Gestão de mídia é o bloco central da folha: o texto defende o balanceamento, não um criativo solto.
+
+## Briefing na tese
+Tese + recorte do anunciante: praça, serviço e público confirmados. Duas ou três linhas no máximo.
+Não despeje o briefing compilado. Não fale deste planejamento, desta página ou desta folha.
+Se client.confidential for verdadeiro, o nome do anunciante não pode aparecer. Use “o anunciante”.
 
 ## Blocos obrigatórios
-1. Desafio e oportunidade — situação, problema, oportunidade, consequência de não agir.
-2. Tese — uma frase forte e específica.
-3. Recomendação — público, mensagem, canais, papel de cada grupo, jornada.
-4. Benefícios — público, marca e operação. Operação nunca como resultado garantido.
-5. Arquitetura de mídia — alcance / intenção / ação / reforço só com canais aprovados.
-6. Outputs concretos do plano.
-7. Indicadores — só os calculados no bloco estimates, com origem. Sem cálculo livre.
-8. Defesa final — por que aprovar; antecipe objeções.
+1. Desafio — 2 ou 3 linhas do recorte (público, praça, o que falta). Sem narrativa longa.
+2. Tese — uma frase forte e específica do anunciante.
+3. Recomendação — o que fazer com o mix aprovado, em uma frase.
+4. Papel de cada canal — só os canais da mesa, com o peso que a mesa fechou.
+5. Criativo no canal-herói — headline e imagem no meio de maior %.
+6. Indicadores — só os calculados no bloco estimates, com origem. Sem cálculo livre.
+7. Defesa — por que aprovar este mix; `why_this_mix` com %/R$.
 
 ## Composição
-Skill-base + snapshot + Strategy Core + estimates + esta skill.
+Skill-base + snapshot + Strategy Core + estimates + mix_aprovado + esta skill.
 Sintetize o núcleo. Não invente outra tese. Não use pitch estático de outro cliente.
 
 ## Teste de especificidade
 Se o nome do anunciante sumir, o texto ainda precisa parecer desta campanha.
 Nomeie serviços, praça ou canais confirmados. Pendências ficam em pending_decisions, não no primeiro período da tese.
-Não abra a tese falando do planejamento, deste plano ou desta página.
-Se client.confidential for verdadeiro, o nome do anunciante não pode aparecer. Use “o anunciante”.
 
 ## Saída
 JSON apenas no schema one_page_v2:

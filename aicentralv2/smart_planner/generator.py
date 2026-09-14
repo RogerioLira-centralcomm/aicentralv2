@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import threading
 from datetime import datetime, timedelta, timezone
 
@@ -254,6 +255,36 @@ def _redact_pack(payload: dict, name: str) -> dict:
     return data
 
 
+def _mix_law(snapshot: dict) -> dict:
+    mix = [as_dict(row) for row in as_list((snapshot or {}).get("mix")) if as_dict(row).get("id") or as_dict(row).get("label")]
+    if not mix:
+        return {}
+    ranked = sorted(mix, key=lambda row: int(row.get("pct") or 0), reverse=True)
+    hero = ranked[0] if ranked else {}
+    lines = []
+    for row in ranked:
+        label = text(row.get("label") or row.get("id"))
+        pct = row.get("pct")
+        amount = text(row.get("amount_label"))
+        bit = f"{label}: {pct}%" if pct is not None and pct != "" else label
+        if amount:
+            bit += f" · {amount}"
+        lines.append(bit)
+    pace = as_dict((snapshot or {}).get("pace"))
+    return {
+        "lei": "O mix abaixo é lei da mesa. channel_roles e criativo só com estes canais. O criativo vai no canal de maior peso. why_this_mix cita % e R$.",
+        "hero": {
+            "id": text(hero.get("id")),
+            "label": text(hero.get("label") or hero.get("id")),
+            "pct": hero.get("pct"),
+            "amount_label": text(hero.get("amount_label")),
+        },
+        "channels": lines,
+        "voo": text(pace.get("how")),
+        "method": text((snapshot or {}).get("mix_method")),
+    }
+
+
 def _pack(snapshot: dict, evidence: dict, core: dict | None = None, estimates: dict | None = None, extra: dict | None = None) -> str:
     snap = dict(snapshot or {})
     client = dict(as_dict(snap.get("client")))
@@ -282,6 +313,9 @@ def _pack(snapshot: dict, evidence: dict, core: dict | None = None, estimates: d
         "strategy_core": core or {},
         "brand": brand_prompt_block(as_dict(snap.get("brand"))),
     }
+    mix_aprovado = _mix_law(snap)
+    if mix_aprovado:
+        payload["mix_aprovado"] = mix_aprovado
     if extra:
         payload.update(extra)
     payload["estimates_note"] = estimates_note
@@ -348,8 +382,15 @@ def _materialize_folha(token: str, snapshot: dict, page: dict, core: dict) -> di
             "logo_url": "",
             "source": "confidential",
         }
-    theme = one_page.compose_theme(client, agency, text(snapshot.get("briefing")), None)
+    theme = one_page.theme_for_snapshot(client, agency, text(snapshot.get("briefing")), snapshot)
     share = one_page.share_payload(text(dados.get("public_token")), client)
+    media = one_page.build_media_board(
+        snapshot.get("mix"),
+        method=text(snapshot.get("mix_method")),
+        pace=snapshot.get("pace"),
+        roles=as_dict(page.get("recommendation")).get("channel_roles"),
+        calendar=snapshot.get("calendar"),
+    )
     plan = one_page.assemble_from_v2(
         {**meta, "client": client, "agency": agency, "presenter": branding["presenter"]["id"]},
         branding,
@@ -358,12 +399,65 @@ def _materialize_folha(token: str, snapshot: dict, page: dict, core: dict) -> di
         page,
         core,
         snapshot.get("snapshot_id"),
+        snapshot=snapshot,
+        media=media,
     )
     merge_dados(token, {
         "presenter_brand": plan["meta"]["presenter"],
         "public_token": plan["share"]["public_token"],
     })
     return plan
+
+
+def _channel_token(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", text(value).strip().lower()).strip("_")
+
+
+def _channel_tokens(*values) -> set[str]:
+    tokens = set()
+    for value in values:
+        raw = text(value).strip()
+        if not raw:
+            continue
+        tokens.add(raw.lower())
+        token = _channel_token(raw)
+        if token:
+            tokens.add(token)
+    return tokens
+
+
+def _mix_rows(snapshot: dict) -> list[dict]:
+    rows = []
+    for item in as_list((snapshot or {}).get("mix")):
+        row = as_dict(item)
+        if text(row.get("id") or row.get("label")):
+            rows.append(row)
+    return rows
+
+
+def _approved_tokens(snapshot: dict) -> set[str]:
+    tokens = set()
+    for item in as_list((snapshot or {}).get("channels")):
+        tokens |= _channel_tokens(item)
+    for row in _mix_rows(snapshot):
+        tokens |= _channel_tokens(row.get("id"), row.get("label"))
+    return tokens
+
+
+def _hero_rows(mix: list[dict]) -> list[dict]:
+    scored = [(int(row.get("pct") or 0), row) for row in mix]
+    top = max((pct for pct, _row in scored), default=0)
+    if top <= 0:
+        return []
+    return [row for pct, row in scored if pct == top]
+
+
+def _matches_mix(value: str, rows: list[dict]) -> bool:
+    tokens = _channel_tokens(value)
+    for row in rows:
+        if tokens & _channel_tokens(row.get("id"), row.get("label")):
+            return True
+    return False
 
 
 def _validate_page(page: dict, snapshot: dict, estimates: dict) -> None:
@@ -380,17 +474,25 @@ def _validate_page(page: dict, snapshot: dict, estimates: dict) -> None:
         raise ValueError("A tese fala do planejamento, não do anunciante. Gere novamente.")
     if client_info.get("confidential") and name_leaks_in(client, blob):
         raise ValueError("A tese vazou o nome confidencial do anunciante. Gere novamente.")
-    approved = {text(item) for item in as_list((snapshot or {}).get("channels")) if text(item)}
-    mix_ids = {text(as_dict(row).get("id")) for row in as_list((snapshot or {}).get("mix")) if text(as_dict(row).get("id"))}
+    mix = _mix_rows(snapshot)
+    approved = _approved_tokens(snapshot)
     extras = []
-    for item in as_list(as_dict(page.get("recommendation")).get("channel_roles")):
+    roles = as_list(as_dict(page.get("recommendation")).get("channel_roles"))
+    for item in roles:
         channel = text(as_dict(item).get("channel") or as_dict(item).get("id"))
         if not channel or channel.lower() in {"a definir", "definir"}:
             continue
-        if approved and channel not in approved and channel not in mix_ids:
+        if approved and not (_channel_tokens(channel) & approved):
             extras.append(channel)
     if extras:
         raise ValueError("A página única usou canais não aprovados: " + ", ".join(extras[:4]))
+    heroes = _hero_rows(mix)
+    if heroes:
+        creative_channel = text(as_dict(page.get("creative_expression")).get("channel"))
+        if not _matches_mix(creative_channel, heroes):
+            raise ValueError("O criativo precisa estar no canal de maior peso do mix.")
+        if not any(_matches_mix(text(as_dict(item).get("channel") or as_dict(item).get("id")), heroes) for item in roles):
+            raise ValueError("Os papéis de canal precisam incluir o canal-herói do mix.")
     result = as_dict(page.get("result_estimates"))
     if result.get("status") == "available" and as_dict(estimates).get("status") != "available":
         page["result_estimates"]["status"] = "not_available"

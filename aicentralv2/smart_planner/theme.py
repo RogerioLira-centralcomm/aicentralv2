@@ -132,7 +132,54 @@ def resolve_market_id(client: str = "", agency: str = "", briefing: str = "", pi
     return "finance"
 
 
-def compose_theme(client: str = "", agency: str = "", briefing: str = "", pitch: dict | None = None) -> dict:
+def _as_pct(value) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def density_from_mix(mix) -> list[dict]:
+    items = [as_dict(row) for row in (mix or []) if as_dict(row)]
+    total_pct = sum(_as_pct(row.get("pct")) for row in items)
+    total_amt = sum(_as_pct(row.get("amount")) for row in items)
+    rows = []
+    for row in items:
+        label = text(row.get("label") or row.get("id"))
+        pct = _as_pct(row.get("pct"))
+        if pct <= 0 and total_amt:
+            pct = round(100 * _as_pct(row.get("amount")) / total_amt)
+        if not label or pct <= 0:
+            continue
+        rows.append({
+            "label": label,
+            "value": min(100, pct),
+            "amount_label": text(row.get("amount_label")),
+            "role": text(row.get("role")),
+        })
+    if not rows and total_pct <= 0:
+        return []
+    rows.sort(key=lambda item: item["value"], reverse=True)
+    return rows[:6]
+
+
+def density_note_from_pace(pace) -> str:
+    data = as_dict(pace)
+    labels = data.get("labels") or data.get("rotulos") or []
+    how = text(data.get("how") or data.get("como"))
+    if 2 <= len(labels) <= 12:
+        return how or "Começa menor, solta no meio e no fim."
+    return ""
+
+
+def compose_theme(
+    client: str = "",
+    agency: str = "",
+    briefing: str = "",
+    pitch: dict | None = None,
+    mix=None,
+    density_note: str = "",
+) -> dict:
     theme = theme_record(resolve_market_id(client, agency, briefing, pitch))
     if pitch:
         creative = as_dict(pitch.get("creative"))
@@ -144,6 +191,13 @@ def compose_theme(client: str = "", agency: str = "", briefing: str = "", pitch:
             theme["density"] = [dict(item) for item in density if as_dict(item)]
         if text(pitch.get("density_caption")):
             theme["density_caption"] = text(pitch.get("density_caption"))
+    mix_density = density_from_mix(mix)
+    if mix_density:
+        theme["density"] = mix_density
+        theme["density_caption"] = "Peso do mix"
+    note = text(density_note)
+    if note:
+        theme["density_note"] = note
     return theme
 
 

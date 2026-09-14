@@ -9,8 +9,10 @@ from datetime import datetime, timezone
 from .ai import chat_json
 from .helpers import as_dict, as_list, text
 from .logos import resolve_branding
+from .mix import METHODS
+from .pace import as_int, format_money
 from .share import share_payload
-from .theme import compose_theme, hero_party
+from .theme import compose_theme, density_note_from_pace, hero_party
 
 logger = logging.getLogger(__name__)
 
@@ -257,37 +259,152 @@ def cards_from_pitch(pitch: dict) -> list[dict]:
     ]
 
 
-def cards_from_v2(page: dict) -> list[dict]:
+def _method_label(method_id: str) -> str:
+    key = text(method_id)
+    for item in METHODS:
+        if item["id"] == key:
+            return text(item.get("label"))
+    return key
+
+
+def _audience_line(snapshot: dict) -> str:
+    audiences = as_list((snapshot or {}).get("audiences"))
+    if audiences:
+        first = audiences[0]
+        if isinstance(first, dict):
+            return text(first.get("label") or first.get("name") or first.get("text"))
+        return text(first)
+    return text(as_dict((snapshot or {}).get("brand")).get("audience"))
+
+
+def _role_map(roles) -> dict[str, str]:
+    mapped = {}
+    for item in as_list(roles):
+        row = as_dict(item)
+        channel = text(row.get("channel") or row.get("id")).strip().lower()
+        role = text(row.get("role") or row.get("papel"))
+        if channel and role:
+            mapped[channel] = role
+    return mapped
+
+
+def build_media_board(
+    mix,
+    *,
+    method: str = "",
+    pace=None,
+    roles=None,
+    calendar=None,
+) -> dict:
+    roles_by_channel = _role_map(roles)
+    channels = []
+    for row in as_list(mix):
+        item = as_dict(row)
+        cid = text(item.get("id"))
+        label = text(item.get("label") or cid)
+        if not cid and not label:
+            continue
+        role = (
+            roles_by_channel.get(cid.lower())
+            or roles_by_channel.get(label.lower())
+            or text(item.get("role"))
+        )
+        amount = as_int(item.get("amount"))
+        channels.append({
+            "id": cid,
+            "label": label,
+            "pct": as_int(item.get("pct")),
+            "amount": amount or None,
+            "amount_label": text(item.get("amount_label")) or (format_money(amount) if amount else ""),
+            "role": role,
+        })
+    channels.sort(key=lambda item: item.get("pct") or 0, reverse=True)
+    pace_data = as_dict(pace)
+    labels = [text(item) for item in as_list(pace_data.get("labels")) if text(item)]
+    keys = [text(item) for item in as_list(pace_data.get("keys")) if text(item)]
+    allocation = as_dict(pace_data.get("allocation"))
+    months = []
+    for index, label in enumerate(labels):
+        key = keys[index] if index < len(keys) else str(index)
+        amount = as_int(allocation.get(key) or allocation.get(str(index)))
+        months.append({
+            "label": label,
+            "key": key,
+            "amount": amount or None,
+            "amount_label": format_money(amount) if amount else "",
+        })
+    board = {
+        "method": text(method),
+        "method_label": _method_label(method),
+        "channels": channels,
+    }
+    if labels or text(pace_data.get("how")):
+        board["pace"] = {
+            "how": text(pace_data.get("how")),
+            "labels": labels,
+            "keys": keys,
+            "allocation": allocation,
+            "months": months,
+        }
+    cal = as_dict(calendar)
+    if cal:
+        board["calendar"] = cal
+    return board
+
+
+def enrich_meta(meta: dict, snapshot: dict | None = None, media: dict | None = None) -> dict:
+    out = dict(meta or {})
+    snap = as_dict(snapshot)
+    board = as_dict(media)
+    publico = _audience_line(snap)
+    if publico:
+        out["publico"] = publico
+    budget = as_dict(snap.get("budget"))
+    raw_budget = text(budget.get("raw") or out.get("budget"))
+    base = text(budget.get("base") or out.get("budget_base") or "total")
+    if raw_budget:
+        folded = raw_budget.lower()
+        if base == "mensal" and "mês" not in folded and "mes" not in folded:
+            out["budget"] = raw_budget + " / mês"
+        else:
+            out["budget"] = raw_budget
+        out["budget_base"] = base
+    period = text(as_dict(snap.get("period")).get("raw"))
+    if period:
+        out["period"] = period
+    ritmo = text(as_dict(snap.get("pace")).get("how") or as_dict(board.get("pace")).get("how"))
+    if ritmo:
+        out["ritmo"] = ritmo
+    obj = text(as_dict(snap.get("objective")).get("label") or as_dict(snap.get("objective")).get("text"))
+    if obj:
+        out["objective"] = obj
+    channels = as_list(board.get("channels")) or as_list(snap.get("mix"))
+    method_label = text(board.get("method_label")) or _method_label(board.get("method") or snap.get("mix_method"))
+    if channels:
+        out["canais"] = f"{len(channels)} canais" + (f" · {method_label}" if method_label else "")
+    if method_label:
+        out["mix_method"] = method_label
+    return out
+
+
+def cards_from_v2(page: dict, snapshot: dict | None = None) -> list[dict]:
     data = as_dict(page)
     thesis = as_dict(data.get("thesis"))
     rec = as_dict(data.get("recommendation"))
     challenge = as_dict(data.get("challenge"))
-    opportunity = as_dict(data.get("opportunity"))
     creative = as_dict(data.get("creative_expression"))
     estimates = as_dict(data.get("result_estimates"))
     defense = as_dict(data.get("commercial_defense"))
-    benefits = as_dict(data.get("benefits"))
-    strategy_body = "\n\n".join(
-        part for part in (
-            text(thesis.get("statement")),
-            text(thesis.get("supporting_argument")),
-            text(rec.get("summary")),
-            text(challenge.get("body")),
-            text(opportunity.get("body")),
-        ) if part
-    )
-    defense_bits = list(as_list(defense.get("why_this_plan")))
-    defense_bits.extend(text(item) for item in as_list(defense.get("why_this_mix")) if text(item))
-    for item in as_list(defense.get("objections"))[:2]:
-        row = as_dict(item)
-        if text(row.get("objection")):
-            defense_bits.append(f"{text(row.get('objection'))} {text(row.get('response'))}".strip())
+    audience = text(rec.get("audience")) or _audience_line(as_dict(snapshot))
+    strategy_bits = [
+        text(thesis.get("statement")),
+        text(rec.get("summary")),
+        text(challenge.get("body") or audience),
+    ]
+    strategy_body = "\n\n".join(part for part in strategy_bits if part)
+    defense_bits = list(as_list(defense.get("why_this_mix"))) or list(as_list(defense.get("why_this_plan")))
     if text(defense.get("closing_statement")):
         defense_bits.append(text(defense.get("closing_statement")))
-    for group in ("audience", "brand", "operation"):
-        items = [text(item) for item in as_list(benefits.get(group)) if text(item)]
-        if items:
-            defense_bits.append(f"{group}: " + "; ".join(items[:3]))
     outputs = [
         text(as_dict(item).get("name") or item)
         for item in as_list(data.get("outputs"))
@@ -297,7 +414,7 @@ def cards_from_v2(page: dict) -> list[dict]:
     if outputs:
         market_body = market_body + "\n\nOutputs: " + "; ".join(outputs[:4])
     return [
-        _card("strategy", "Tese e recomendação", strategy_body, index=0),
+        _card("strategy", "Tese e briefing", strategy_body, index=0),
         _card(
             "creative",
             creative.get("headline") or "Criativo no canal",
@@ -331,17 +448,29 @@ def assemble_from_v2(
     page: dict,
     core: dict | None = None,
     snapshot_id: str = "",
+    snapshot: dict | None = None,
+    media: dict | None = None,
 ) -> dict:
-    plan = empty_one_page(meta, branding, theme, share)
-    plan["sections"][0]["cards"] = cards_from_v2(page)
+    snap = as_dict(snapshot)
+    rec = as_dict(as_dict(page).get("recommendation"))
+    board = media or build_media_board(
+        snap.get("mix"),
+        method=text(snap.get("mix_method")),
+        pace=snap.get("pace"),
+        roles=rec.get("channel_roles"),
+        calendar=snap.get("calendar"),
+    )
+    plan = empty_one_page(enrich_meta(meta, snap, board), branding, theme, share)
+    plan["sections"][0]["cards"] = cards_from_v2(page, snap)
+    plan["media"] = board
     plan["one_page_v2"] = page
     if core:
         plan["strategy_core"] = {
             "id": as_dict(core).get("id"),
             "thesis": as_dict(core).get("central_thesis"),
         }
-    if snapshot_id:
-        plan["snapshot_id"] = snapshot_id
+    if snapshot_id or snap.get("snapshot_id"):
+        plan["snapshot_id"] = snapshot_id or text(snap.get("snapshot_id"))
     return plan
 
 
@@ -376,28 +505,64 @@ def cards_from_ai(payload: dict) -> list[dict]:
     ]
 
 
+META_KEYS = (
+    "title",
+    "client",
+    "agency",
+    "campaign",
+    "budget",
+    "budget_base",
+    "period",
+    "market",
+    "objective",
+    "publico",
+    "ritmo",
+    "canais",
+    "mix_method",
+)
+
+
+def theme_for_snapshot(client: str, agency: str, briefing: str, snapshot: dict | None = None, pitch: dict | None = None) -> dict:
+    snap = as_dict(snapshot)
+    return compose_theme(
+        client,
+        agency,
+        briefing,
+        pitch,
+        mix=snap.get("mix"),
+        density_note=density_note_from_pace(snap.get("pace")),
+    )
+
+
 def empty_one_page(meta: dict, branding: dict, theme: dict | None = None, share: dict | None = None) -> dict:
     now = datetime.now(timezone.utc).isoformat()
     resolved = dict(branding or {})
     resolved["hero"] = hero_party(resolved)
+    incoming = as_dict(meta)
     return {
         "schemaVersion": 3,
         "planMode": "one_page",
         "meta": {
-            "title": meta.get("title") or "Página única",
-            "client": meta.get("client"),
-            "agency": meta.get("agency"),
-            "campaign": meta.get("campaign"),
-            "budget": meta.get("budget"),
-            "period": meta.get("period"),
-            "market": meta.get("market"),
-            "objective": meta.get("objective"),
-            "presenter": (resolved.get("presenter") or {}).get("id") or "centralcomm",
+            "title": incoming.get("title") or "Página única",
+            "client": incoming.get("client"),
+            "agency": incoming.get("agency"),
+            "campaign": incoming.get("campaign"),
+            "budget": incoming.get("budget"),
+            "budget_base": incoming.get("budget_base"),
+            "period": incoming.get("period"),
+            "market": incoming.get("market"),
+            "objective": incoming.get("objective"),
+            "publico": incoming.get("publico"),
+            "ritmo": incoming.get("ritmo"),
+            "canais": incoming.get("canais"),
+            "mix_method": incoming.get("mix_method"),
+            "presenter": incoming.get("presenter") or (resolved.get("presenter") or {}).get("id") or "centralcomm",
             "createdAt": now,
             "updatedAt": now,
         },
         "branding": resolved,
         "theme": theme or {},
+        "media": as_dict(incoming.get("media")) if incoming.get("media") else {},
         "share": share or {},
         "sections": [{"id": "one_page", "type": "one_page", "title": "Página única", "order": 1, "cards": []}],
     }
@@ -439,13 +604,12 @@ def normalize_one_page(payload: dict, meta: dict, branding: dict) -> dict:
     plan["sections"][0]["cards"] = cards
     if isinstance(payload, dict):
         incoming_meta = as_dict(payload.get("meta"))
-        plan["meta"].update(
-            {
-                key: incoming_meta[key]
-                for key in ("title", "client", "agency", "campaign", "budget", "period", "market", "objective")
-                if incoming_meta.get(key)
-            }
-        )
+        plan["meta"].update({key: incoming_meta[key] for key in META_KEYS if incoming_meta.get(key)})
+        media = as_dict(payload.get("media"))
+        if media.get("channels") or media.get("method") or media.get("pace"):
+            plan["media"] = media
+        if payload.get("one_page_v2"):
+            plan["one_page_v2"] = payload.get("one_page_v2")
     return plan
 
 

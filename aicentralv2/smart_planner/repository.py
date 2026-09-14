@@ -12,7 +12,7 @@ from ..db import get_db
 from .catalog import CHANNEL_CATALOG, PRACA_OPTIONS, objetivo_label, plan_mode_label, resume_action, resume_status
 from .cost import cost_from_dados
 from .helpers import as_bool, as_dict, as_list, campaign_from_campos, editor_href, format_when, plan_href, plan_mode_of, session_title, text
-from .share import public_sheet_url
+from .share import public_document_url
 
 logger = logging.getLogger(__name__)
 
@@ -218,7 +218,7 @@ def serialize_list_row(row: dict) -> dict:
         resume = "briefing"
     share = as_dict(plan.get("share"))
     public_token = text(share.get("public_token") or dados.get("public_token"))
-    share_url = text(share.get("url")) or (public_sheet_url(public_token) if public_token else "")
+    share_url = public_document_url(public_token, "full_plan" if mode == "completo" else "proposal") if public_token else ""
     return {
         "id": row.get("id"),
         "session_token": token,

@@ -465,7 +465,7 @@
         <ul class="sp-done-links">
           {% if plan_mode == 'completo' and tem_quadro %}
           <li>
-            <a class="sp-done-link is-main" href="{{ share_url or canvas_url }}" {% if share_url %}target="_blank" rel="noopener noreferrer"{% endif %}>
+            <a class="sp-done-link is-main" href="{{ full_plan_url or canvas_url }}" {% if full_plan_url %}target="_blank" rel="noopener noreferrer"{% endif %}>
               <strong>Abrir o plano completo</strong>
               <small>Documento publicado nas seções do planejamento.</small>
             </a>
@@ -473,7 +473,7 @@
           {% endif %}
           {% if tem_folha %}
           <li>
-            <a class="sp-done-link {% if plan_mode != 'completo' %}is-main{% endif %}" href="{{ folha_url }}">
+            <a class="sp-done-link {% if plan_mode != 'completo' %}is-main{% endif %}" href="{{ proposal_url or folha_url }}" {% if proposal_url %}target="_blank" rel="noopener noreferrer"{% endif %}>
               <strong>Abrir a página única</strong>
               <small>{{ 'A tese que o plano completo usou.' if plan_mode == 'completo' else 'A folha pronta para a reunião.' }}</small>
             </a>
@@ -492,14 +492,6 @@
               <small>Volta à lista deste usuário.</small>
             </a>
           </li>
-          {% if share_url %}
-          <li>
-            <a class="sp-done-link" href="{{ share_url }}" target="_blank" rel="noopener noreferrer">
-              <strong>Link público</strong>
-              <small>Abre sem login, para o cliente.</small>
-            </a>
-          </li>
-          {% endif %}
         </ul>
         {% if consistency and consistency.consistent %}
         <p class="sp-done-note">One Page e plano completo estão alinhados na mesma tese.</p>

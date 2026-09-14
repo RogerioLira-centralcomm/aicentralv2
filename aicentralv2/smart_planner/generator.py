@@ -13,7 +13,7 @@ from . import canvas as canvas_mod
 from . import one_page
 from .ai import chat_json, chat_text
 from .brand import brand_prompt_block
-from .catalog import PLAN_MODES
+from .catalog import CHANNEL_CATALOG, PLAN_MODES, PRIMARY_FORMATS
 from .cost import bound_session
 from .estimates import calculate_estimates, format_estimates_for_prompt
 from .helpers import (
@@ -158,10 +158,15 @@ def _run(token: str, mode: str) -> dict:
         _require_llm("página única")
         mark_step(token, "one_page", "running")
         page = _one_page_v2(snapshot, evidence, core, estimates)
+        page["creative_plan"] = _creative_plan(page, snapshot)
         page["material_hash"] = material_hash
         folha = _materialize_folha(token, snapshot, page, core)
         merge_dados(token, {"one_page_v2": page, "folha": folha})
         mark_step(token, "one_page", "done")
+
+    if not as_list(page.get("creative_plan")):
+        page["creative_plan"] = _creative_plan(page, snapshot)
+        merge_dados(token, {"one_page_v2": page})
 
     mark_step(token, "validate", "running")
     _validate_page(page, snapshot, estimates)
@@ -495,6 +500,52 @@ def _matches_mix(value: str, rows: list[dict]) -> bool:
     return False
 
 
+def _creative_plan(page: dict, snapshot: dict) -> list[dict]:
+    """Normaliza uma única recomendação de formato por canal.
+
+    O modelo pode sugerir o formato, mas o catálogo é a autoridade. A
+    quantidade é uma recomendação de entregáveis, não um lote de imagens.
+    """
+    roles = as_list(as_dict(page.get("recommendation")).get("channel_roles"))
+    months = max(1, len(as_list(as_dict(snapshot.get("pace")).get("months"))))
+    out = []
+    for mix in _mix_rows(snapshot):
+        channel_id = text(mix.get("id"))
+        if not channel_id:
+            continue
+        proposed = next(
+            (as_dict(item) for item in roles if _channel_tokens(as_dict(item).get("channel")) & _channel_tokens(channel_id, mix.get("label"))),
+            {},
+        )
+        primary = dict(PRIMARY_FORMATS.get(channel_id) or {
+            "id": "static_landscape",
+            "label": "Imagem horizontal",
+            "surface": "display",
+        })
+        pct = max(0, int(mix.get("pct") or 0))
+        # One concept plus enough refreshes for longer or heavier flights.
+        variations = min(5, max(1, months + (1 if pct >= 30 else 0)))
+        out.append({
+            "channel_id": channel_id,
+            "channel": text(mix.get("label")) or text((CHANNEL_CATALOG.get(channel_id) or {}).get("label")) or channel_id,
+            "role": text(proposed.get("role") or proposed.get("description") or mix.get("role")),
+            "primary_format_id": primary["id"],
+            "primary_format": primary["label"],
+            "surface": primary.get("surface") or "display",
+            "duration_seconds": primary.get("duration_seconds"),
+            "format_rationale": text(proposed.get("format_rationale")) or "Formato principal compatível com o canal; validar especificação de compra antes da produção.",
+            "deliverables": {
+                "concepts": 1,
+                "variations": variations,
+                "final_files": variations,
+                "status": "recommended",
+                "rationale": f"Recomendação provisória para {months} mês(es) e {pct}% do mix; confirmar capacidade e necessidade de renovação.",
+            },
+            "smart_planner_media": "static_concept_image",
+        })
+    return out
+
+
 def _validate_page(page: dict, snapshot: dict, estimates: dict) -> None:
     thesis = text(as_dict(page.get("thesis")).get("statement"))
     if len(thesis) < 20:
@@ -532,6 +583,15 @@ def _validate_page(page: dict, snapshot: dict, estimates: dict) -> None:
     if result.get("status") == "available" and as_dict(estimates).get("status") != "available":
         page["result_estimates"]["status"] = "not_available"
         page["result_estimates"]["summary"] = format_estimates_for_prompt(estimates)
+    creative_plan = as_list(page.get("creative_plan"))
+    channel_ids = [text(as_dict(item).get("channel_id")) for item in creative_plan]
+    if len(channel_ids) != len(set(channel_ids)) or any(not item for item in channel_ids):
+        raise ValueError("Cada canal precisa ter exatamente uma recomendação criativa.")
+    for item in creative_plan:
+        row = as_dict(item)
+        expected = PRIMARY_FORMATS.get(text(row.get("channel_id")))
+        if expected and text(row.get("primary_format_id")) != text(expected.get("id")):
+            raise ValueError("O formato principal não corresponde ao catálogo do canal.")
 
 
 def _group_markdown(

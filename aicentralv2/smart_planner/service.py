@@ -21,7 +21,7 @@ from .catalog import (
     score_label,
 )
 from .places_bridge import apply_places_to_campos, planner_place_catalog, resolve_places
-from .share import public_sheet_url
+from .share import public_document_url
 from .mix import (
     METHODS,
     allocate,
@@ -241,6 +241,8 @@ def wizard_context(row: dict, step_id: str) -> dict:
             score = int(row.get("quality_score") or 0)
         except (TypeError, ValueError):
             score = 0
+    public_token = text(share.get("public_token") or dados.get("public_token"))
+    mode = plan_mode_of(dados)
     return {
         "row": row,
         "dados": dados,
@@ -259,8 +261,8 @@ def wizard_context(row: dict, step_id: str) -> dict:
             "publico": text(campos.get("publico")),
             "canais": f"{len(campos['canais'])} canais" if campos.get("canais") else "",
         },
-        "plan_mode": plan_mode_of(dados),
-        "plan_mode_label": plan_mode_label(plan_mode_of(dados)),
+        "plan_mode": mode,
+        "plan_mode_label": plan_mode_label(mode),
         "presenter_brand": text(dados.get("presenter_brand")) or "centralcomm",
         "presenter_options": presenter_options(),
         "titulo": session_title(row, dados),
@@ -270,9 +272,9 @@ def wizard_context(row: dict, step_id: str) -> dict:
         "fonte_referencias": _fonte_referencias(dados),
         "planejamento": text(dados.get("planejamento")),
         "tem_quadro": bool(as_list(as_dict(row.get("plan_content")).get("sections"))),
-        "share_url": text(share.get("url")) or public_sheet_url(
-            text(share.get("public_token") or dados.get("public_token"))
-        ),
+        "share_url": public_document_url(public_token, "full_plan" if mode == "completo" else "proposal"),
+        "proposal_url": public_document_url(public_token, "proposal"),
+        "full_plan_url": public_document_url(public_token, "full_plan"),
         "canvas_url": editor_href(row.get("session_token"), session_public_token(row)),
         "folha_url": editor_href(row.get("session_token"), session_public_token(row), folha=True),
         "steps": WIZARD_STEPS,

@@ -1,6 +1,8 @@
 from pathlib import Path
 from unittest import TestCase
 
+from flask import Flask, render_template
+
 from aicentralv2.smart_planner.public_view import plan_chapters, public_view
 from aicentralv2.smart_planner.repository import serialize_list_row
 
@@ -10,6 +12,49 @@ TEMPLATES = ROOT / "aicentralv2" / "templates" / "smart_planner"
 
 
 class PublicPlannerTest(TestCase):
+    def test_separate_public_documents_render_with_tabs_and_primary_format(self):
+        row = {
+            "nome_campanha": "Proposta BDMG",
+            "cliente": "BDMG",
+            "dados_detectados": {
+                "plan_mode": "completo",
+                "public_token": "pub-docs",
+                "planejamento": "## Estratégia\nTese.\n\n## Indicadores\nAlcance e frequência.\n\n## Direção criativa\nUma linha visual.\n",
+                "one_page_v2": {
+                    "commercial_defense": {"why_this_mix": ["O mix conecta atenção e resposta."]},
+                    "creative_plan": [{
+                        "channel_id": "youtube",
+                        "primary_format": "Vídeo horizontal · 15s",
+                        "deliverables": {"concepts": 1, "variations": 2, "final_files": 2},
+                    }],
+                },
+                "folha": {
+                    "media": {"channels": [{"id": "youtube", "label": "YouTube", "pct": 100}]},
+                    "sections": [{"cards": [
+                        {"type": "strategy", "body": "Ganhar atenção com uma proposta simples."},
+                        {"type": "creative", "title": "Crédito que move", "body": "Apoio."},
+                        {"type": "defense", "body": "A proposta abre a conversa."},
+                    ]}],
+                },
+            },
+            "plan_content": {"sections": [{"id": "execution", "title": "Execução", "cards": [{"title": "Próximo passo", "body": "Aprovar."}]}]},
+        }
+        proposal = public_view(row, document="proposal")
+        complete = public_view(row, document="full_plan")
+        self.assertTrue(proposal["proposal_url"].endswith("/proposta"))
+        self.assertTrue(complete["full_plan_url"].endswith("/plano"))
+        self.assertEqual(complete["creative_plan"][0]["primary_format"], "Vídeo horizontal · 15s")
+        self.assertEqual([item["label"] for item in complete["full_groups"]], ["Estratégia", "Mídia", "Indicadores", "Criação", "Execução"])
+
+        app = Flask(__name__, template_folder=str(ROOT / "aicentralv2" / "templates"), static_folder=str(ROOT / "aicentralv2" / "static"))
+        with app.test_request_context("/"):
+            proposal_html = render_template("smart_planner/public_document.html", **proposal)
+            complete_html = render_template("smart_planner/public_document.html", **complete)
+        self.assertIn("Mix e investimento", proposal_html)
+        self.assertNotIn("Capítulo 1 de 5", proposal_html)
+        self.assertIn("Capítulo 1 de 5", complete_html)
+        self.assertIn("imagem conceito estática", complete_html)
+
     def test_one_page_only_marks_complete_as_missing(self):
         view = public_view({
             "nome_campanha": "Lançamento cartão",
@@ -388,7 +433,7 @@ class PublicPlannerTest(TestCase):
                 "share": {"public_token": "abc123", "url": "https://host/smart-planner/p/abc123"},
             },
         })
-        self.assertEqual(row["share_url"], "https://host/smart-planner/p/abc123")
+        self.assertEqual(row["share_url"], "/smart-planner/p/abc123/proposta")
         self.assertEqual(row["public_token"], "abc123")
         self.assertEqual(row["href"], "/smart-planner/p/abc123/editar")
         self.assertEqual(row["canvas_href"], "/smart-planner/p/abc123/editar")

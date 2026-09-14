@@ -33,6 +33,34 @@ CHANNEL_CATALOG = {
     "ooh": {"label": "OOH / Painéis", "group": "ooh", "desc": "Painéis digitais e mobiliário"},
 }
 
+# One presentation format per channel. These defaults are a safe fallback for
+# older plans; new plans receive an explicit recommendation from the generator.
+# A video-shaped format is a planning instruction only. Smart Planner produces
+# a static concept image and never invokes a video generator.
+PRIMARY_FORMATS = {
+    "google_ads": {"id": "responsive_search", "label": "Anúncio responsivo de pesquisa", "surface": "display"},
+    "gpt_ads": {"id": "sponsored_answer_card", "label": "Card patrocinado em resposta", "surface": "display"},
+    "youtube": {"id": "video_16_9_15s", "label": "Vídeo horizontal · 15s", "surface": "ctv", "duration_seconds": 15},
+    "meta_ads": {"id": "vertical_9_16", "label": "Imagem vertical · 9:16", "surface": "app"},
+    "tiktok": {"id": "video_9_16_15s", "label": "Vídeo vertical · 15s", "surface": "app", "duration_seconds": 15},
+    "linkedin": {"id": "feed_1_1", "label": "Imagem de feed · 1:1", "surface": "app"},
+    "dv360": {"id": "display_300_250", "label": "Display · 300 × 250", "surface": "display"},
+    "spotify": {"id": "audio_companion_1_1", "label": "Imagem companion · 1:1", "surface": "app"},
+    "netflix": {"id": "ctv_16_9_30s", "label": "Vídeo CTV · 30s", "surface": "ctv", "duration_seconds": 30},
+    "prime_video": {"id": "ctv_16_9_30s", "label": "Vídeo CTV · 30s", "surface": "ctv", "duration_seconds": 30},
+    "disney": {"id": "ctv_16_9_30s", "label": "Vídeo CTV · 30s", "surface": "ctv", "duration_seconds": 30},
+    "hbo_max": {"id": "ctv_16_9_30s", "label": "Vídeo CTV · 30s", "surface": "ctv", "duration_seconds": 30},
+    "globoplay": {"id": "ctv_16_9_30s", "label": "Vídeo CTV · 30s", "surface": "ctv", "duration_seconds": 30},
+    "serasa": {"id": "in_app_1_1", "label": "Imagem in-app · 1:1", "surface": "app"},
+    "g1": {"id": "native_16_9", "label": "Native editorial · 16:9", "surface": "portal"},
+    "uol": {"id": "native_16_9", "label": "Native editorial · 16:9", "surface": "portal"},
+    "r7": {"id": "native_16_9", "label": "Native editorial · 16:9", "surface": "portal"},
+    "cnn": {"id": "native_16_9", "label": "Native editorial · 16:9", "surface": "portal"},
+    "interativos": {"id": "hotspot", "label": "Hotspot interativo", "surface": "portal"},
+    "places": {"id": "place_landscape", "label": "Imagem no ponto · horizontal", "surface": "place"},
+    "ooh": {"id": "dooh_landscape", "label": "Painel digital · horizontal", "surface": "display"},
+}
+
 PRACA_OPTIONS = {
     "nacional": {"label": "Nacional", "hint": "Cobertura Brasil inteiro"},
     "interior": {"label": "Interior", "hint": "Cidades do interior / interiorização"},

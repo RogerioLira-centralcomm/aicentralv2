@@ -26,7 +26,7 @@ Se client.confidential for verdadeiro, o nome do anunciante não pode aparecer. 
 1. Desafio — 2 ou 3 linhas do recorte (público, praça, o que falta). Sem narrativa longa.
 2. Tese — uma frase forte e específica do anunciante.
 3. Recomendação — o que fazer com o mix aprovado, em uma frase.
-4. Papel de cada canal — só os canais da mesa, com o peso que a mesa fechou.
+4. Papel de cada canal — só os canais da mesa, com peso, um formato principal e uma frase de justificativa.
 5. Criativo no canal-herói — headline e imagem no meio de maior %.
 6. Indicadores — só os calculados no bloco estimates, com origem. Sem cálculo livre.
 7. Defesa — por que aprovar este mix; `why_this_mix` com %/R$.
@@ -45,7 +45,7 @@ JSON apenas no schema one_page_v2:
   "challenge": {"title": "", "body": ""},
   "opportunity": {"title": "", "body": ""},
   "thesis": {"statement": "", "supporting_argument": ""},
-  "recommendation": {"summary": "", "audience": "", "message": "", "journey": [], "channel_roles": []},
+  "recommendation": {"summary": "", "audience": "", "message": "", "journey": [], "channel_roles": [{"channel": "", "role": "", "primary_format_id": "", "primary_format": "", "format_rationale": ""}]},
   "benefits": {"audience": [], "brand": [], "operation": []},
   "outputs": [{"name": "", "description": ""}],
   "result_estimates": {"status": "available|not_available", "summary": "", "assumptions": [], "warnings": []},
@@ -58,3 +58,9 @@ JSON apenas no schema one_page_v2:
   },
   "pending_decisions": []
 }
+
+## Limites comerciais
+- O conjunto inteiro deve caber em até 500 palavras, incluindo defesa e pendências.
+- `why_this_plan` e `why_this_mix`: no máximo 3 itens somados, sem repetir a tese.
+- Um único `primary_format_id` por canal. Não liste alternativas.
+- Formato em vídeo descreve o entregável recomendado; `image_prompt` sempre pede uma referência visual estática no canal. Nunca peça vídeo, animação, áudio, frames ou storyboard.

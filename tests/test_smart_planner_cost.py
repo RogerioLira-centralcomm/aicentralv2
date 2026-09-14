@@ -16,6 +16,15 @@ def test_usage_usd_reads_openrouter_cost():
     assert usage_usd(None) is None
 
 
+def test_usage_usd_prices_direct_openai_tokens():
+    usage = {
+        "prompt_tokens": 1_000_000,
+        "completion_tokens": 100_000,
+        "prompt_tokens_details": {"cached_tokens": 200_000},
+    }
+    assert usage_usd(usage, model="openai/gpt-5-mini") == 0.405
+
+
 def test_apply_charge_sums_usd_then_converts():
     first = apply_charge({}, {"cost": 1}, kind="chat", model="x", rate=5.5, source="test")
     second = apply_charge(first, {"cost": 0.5}, kind="image", model="y", rate=5.5, source="test")

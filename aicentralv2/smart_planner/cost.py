@@ -15,7 +15,22 @@ logger = logging.getLogger(__name__)
 _STATE: ContextVar[dict | None] = ContextVar("smart_planner_cost", default=None)
 
 
-def usage_usd(usage: Any) -> float | None:
+MODEL_PRICING_PER_MILLION = {
+    "gpt-5.4": {"input": 2.50, "cached": 0.25, "output": 15.00},
+    "gpt-5-mini": {"input": 0.25, "cached": 0.025, "output": 2.00},
+    "gpt-5-nano": {"input": 0.05, "cached": 0.005, "output": 0.40},
+}
+
+
+def _pricing(model: str) -> dict | None:
+    slug = text(model).lower().split("/")[-1]
+    for prefix, pricing in MODEL_PRICING_PER_MILLION.items():
+        if slug == prefix or slug.startswith(prefix + "-"):
+            return pricing
+    return None
+
+
+def usage_usd(usage: Any, *, model: str = "") -> float | None:
     if not isinstance(usage, dict):
         return None
     for key in ("cost", "total_cost", "cost_usd"):
@@ -26,7 +41,24 @@ def usage_usd(usage: Any) -> float | None:
             return max(0.0, float(value))
         except (TypeError, ValueError):
             continue
-    return None
+    pricing = _pricing(model)
+    if not pricing:
+        return None
+    try:
+        input_tokens = int(usage.get("input_tokens") or usage.get("prompt_tokens") or 0)
+        output_tokens = int(usage.get("output_tokens") or usage.get("completion_tokens") or 0)
+        details = as_dict(usage.get("input_tokens_details") or usage.get("prompt_tokens_details"))
+        cached_tokens = min(input_tokens, int(details.get("cached_tokens") or 0))
+    except (TypeError, ValueError):
+        return None
+    if input_tokens <= 0 and output_tokens <= 0:
+        return None
+    uncached_tokens = max(0, input_tokens - cached_tokens)
+    return (
+        uncached_tokens * pricing["input"]
+        + cached_tokens * pricing["cached"]
+        + output_tokens * pricing["output"]
+    ) / 1_000_000
 
 
 def format_brl(amount: Any, *, usd: Any = 0) -> str:
@@ -76,7 +108,7 @@ def apply_charge(
     rate: float | None = None,
     source: str = "",
 ) -> dict:
-    usd = usage_usd(usage)
+    usd = usage_usd(usage, model=model)
     existing = as_dict(ledger)
     items = [item for item in as_list(existing.get("items")) if isinstance(item, dict)]
     if usd is None or usd <= 0:
@@ -121,7 +153,7 @@ def record(usage: Any, *, kind: str = "", model: str = "") -> dict | None:
     state = _STATE.get()
     if not state:
         return None
-    usd = usage_usd(usage)
+    usd = usage_usd(usage, model=model)
     if usd is None or usd <= 0:
         return state.get("ledger")
     state["ledger"] = apply_charge(

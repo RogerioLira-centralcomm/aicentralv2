@@ -60,31 +60,17 @@
     </label>
   </div>
 
-  <div class="sp-book" id="sp-history-wrap">
-    <table class="sp-ledger" id="sp-history">
-      <caption class="sr-only">Planejamentos deste usuário</caption>
-      <thead>
-        <tr>
-          <th scope="col">Planejamento</th>
-          <th scope="col">Cliente</th>
-          <th class="is-agency" scope="col">Agência</th>
-          <th scope="col">Tipo</th>
-          <th class="is-num" scope="col">Verba</th>
-          <th class="is-period" scope="col">Período</th>
-          <th scope="col">Status</th>
-          <th class="is-when" scope="col">Atualizado</th>
-          <th class="is-actions" scope="col"><span class="sr-only">Ações</span></th>
-        </tr>
-      </thead>
-      <tbody>
+  <div class="sp-book sp-history-cards" id="sp-history-wrap">
+    <div id="sp-history" role="list" aria-label="Planejamentos deste usuário">
         {% for row in rows %}
-        <tr class="{{ 'is-sheet' if row.plan_mode == 'one_page' else 'is-full' }}"
+        <article role="listitem" class="sp-history-card {{ 'is-sheet' if row.plan_mode == 'one_page' else 'is-full' }}"
+            data-sp-history-row
             data-id="{{ row.id }}"
             data-mode="{{ row.plan_mode }}"
             data-cliente="{{ row.cliente }}"
             data-agencia="{{ row.agencia }}"
             data-search="{{ row.titulo }} {{ row.cliente }} {{ row.agencia }} {{ row.objetivo }} {{ row.canais|join(' ') }}">
-          <td class="is-name">
+          <div class="sp-history-main">
             <div class="sp-name">
               <span class="sp-mark" aria-hidden="true">
                 {% if row.logo_url %}
@@ -99,7 +85,7 @@
                 {% else %}
                 <strong>{{ row.titulo }}</strong>
                 {% endif %}
-                {% if row.objetivo %}<p>{{ row.objetivo }}</p>{% endif %}
+                <p>{{ row.cliente or 'Cliente a definir' }}{% if row.agencia %} · {{ row.agencia }}{% endif %}{% if row.objetivo %} · {{ row.objetivo }}{% endif %}</p>
                 {% if row.canais %}
                 <ul class="sp-mix">
                   {% for canal in row.canais[:4] %}
@@ -112,33 +98,23 @@
                 {% endif %}
               </div>
             </div>
-          </td>
-          <td data-label="Cliente">{{ row.cliente or "A definir" }}</td>
-          <td class="is-agency" data-label="Agência">{{ row.agencia or "Direto" }}</td>
-          <td data-label="Tipo">
+          </div>
+          <div class="sp-history-meta">
             <span class="sp-mode {{ 'is-sheet' if row.plan_mode == 'one_page' else 'is-full' }}">{{ row.plan_mode_label }}</span>
-          </td>
-          <td class="is-num" data-label="Verba">{{ row.verba or "—" }}</td>
-          <td class="is-period" data-label="Período">{{ row.periodo or "—" }}</td>
-          <td data-label="Status">
             <span class="sp-status {{ 'is-ready' if row.resume_step == 'canvas' else 'is-open' }}">{{ row.status_label }}</span>
-          </td>
-          <td class="is-when" data-label="Atualizado">{{ row.quando or "—" }}</td>
-          <td class="is-actions">
-            <div class="sp-row-actions">
-              {% if row.href %}
-              <a class="cx-btn cx-btn-sm cx-btn-primary" href="{{ row.href }}">{{ row.resume_action }}</a>
-              {% endif %}
-              {% if row.share_url %}
-              <a class="cx-btn cx-btn-sm cx-btn-ghost" href="{{ row.share_url }}" target="_blank" rel="noopener noreferrer">Link público</a>
-              {% endif %}
-              <button type="button" class="cx-btn cx-btn-sm cx-btn-ghost js-sp-delete" data-id="{{ row.id }}">Excluir</button>
-            </div>
-          </td>
-        </tr>
+            <span class="sp-history-when">{{ row.quando or '—' }}</span>
+          </div>
+          <div class="sp-history-actions">
+            {% if row.href %}<a class="cx-btn cx-btn-sm cx-btn-primary" href="{{ row.href }}">{{ row.resume_action }}</a>{% endif %}
+            <details class="sp-more"><summary aria-label="Mais ações"><i class="fa-solid fa-ellipsis"></i></summary><div>
+              {% if row.share_url %}<a href="{{ row.share_url }}" target="_blank" rel="noopener noreferrer">Abrir link público</a>{% endif %}
+              <span>{{ row.verba or 'Verba a definir' }} · {{ row.periodo or 'Período a definir' }}</span>
+              <button type="button" class="js-sp-delete" data-id="{{ row.id }}">Excluir</button>
+            </div></details>
+          </div>
+        </article>
         {% endfor %}
-      </tbody>
-    </table>
+    </div>
   </div>
   {% endif %}
 

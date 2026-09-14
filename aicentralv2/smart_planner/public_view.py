@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 
-from .catalog import CHANNEL_CATALOG, CHANNEL_LOGOS, OBJETIVO_OPTIONS, PRACA_OPTIONS, objetivo_label
+from .catalog import CHANNEL_CATALOG, CHANNEL_LOGOS, OBJETIVO_OPTIONS, PRIMARY_FORMATS, PRACA_OPTIONS, objetivo_label
 from .helpers import as_bool, as_dict, as_list, normalize_markdown, plan_mode_of, session_title, text
 from .mix import METHODS
 from .pace import format_money, parse_money
-from .share import HOUSE, public_sheet_url
+from .share import HOUSE, public_document_url, public_sheet_url
 
 CHANNEL_COLORS = {
     "google_ads": "#4285F4",
@@ -879,7 +880,65 @@ def _finance_checks(channels: list[dict], months: list[dict], total: int) -> lis
     return warnings
 
 
-def public_view(row: dict) -> dict:
+def _creative_plan_for_public(page: dict, channels: list[dict]) -> list[dict]:
+    generated = {
+        text(as_dict(item).get("channel_id")): as_dict(item)
+        for item in as_list(page.get("creative_plan"))
+        if text(as_dict(item).get("channel_id"))
+    }
+    out = []
+    for channel in channels:
+        channel_id = text(channel.get("id"))
+        item = generated.get(channel_id, {})
+        primary = as_dict(PRIMARY_FORMATS.get(channel_id))
+        deliverables = as_dict(item.get("deliverables"))
+        out.append({
+            "channel_id": channel_id,
+            "channel": text(item.get("channel") or channel.get("label")),
+            "role": text(item.get("role") or channel.get("role")),
+            "primary_format": text(item.get("primary_format") or primary.get("label") or channel.get("format")),
+            "surface": text(item.get("surface") or primary.get("surface")),
+            "duration_seconds": item.get("duration_seconds") or primary.get("duration_seconds"),
+            "format_rationale": text(item.get("format_rationale")),
+            "concepts": int(deliverables.get("concepts") or 1),
+            "variations": int(deliverables.get("variations") or 1),
+            "final_files": int(deliverables.get("final_files") or 1),
+            "image_only": True,
+        })
+    return out
+
+
+def _chapter_group(title: str) -> str:
+    raw = unicodedata.normalize("NFKD", text(title)).encode("ascii", "ignore").decode().lower()
+    if any(word in raw for word in ("indicador", "mensur", "metrica", "otimiz")):
+        return "indicators"
+    if any(word in raw for word in ("criativ", "formato", "entregavel", "output")):
+        return "creative"
+    if any(word in raw for word in ("execu", "risco", "depend", "proximo", "apendice", "objec")):
+        return "execution"
+    if any(word in raw for word in ("midia", "canal", "invest", "voo", "projec", "cenario", "mix")):
+        return "media"
+    return "strategy"
+
+
+def _full_groups(chapters: list[dict], board: list[dict]) -> list[dict]:
+    labels = {
+        "strategy": "Estratégia",
+        "media": "Mídia",
+        "indicators": "Indicadores",
+        "creative": "Criação",
+        "execution": "Execução",
+    }
+    groups = {key: {"id": key, "label": label, "chapters": [], "sections": []} for key, label in labels.items()}
+    for chapter in chapters:
+        groups[_chapter_group(chapter.get("title"))]["chapters"].append(chapter)
+    board_map = {"context": "strategy", "strategy": "strategy", "media": "media", "execution": "execution"}
+    for section in board:
+        groups[board_map.get(text(section.get("id")), _chapter_group(section.get("title")))]["sections"].append(section)
+    return list(groups.values())
+
+
+def public_view(row: dict, document: str | None = None) -> dict:
     dados = as_dict(row.get("dados_detectados"))
     plan = as_dict(row.get("plan_content"))
     share = as_dict(plan.get("share") or as_dict(as_dict(dados.get("folha")).get("share")))
@@ -903,6 +962,7 @@ def public_view(row: dict) -> dict:
         if cards:
             board_sections.append({"id": text(item.get("id")), "title": text(item.get("title") or item.get("id")), "cards": cards})
     chapters = plan_chapters(text(dados.get("planejamento")))
+    page_v2 = as_dict(dados.get("one_page_v2"))
     branding = as_dict(folha.get("branding") or board.get("branding"))
     meta = as_dict(folha.get("meta") or board.get("meta"))
     campanha = as_dict(dados.get("campanha"))
@@ -1036,6 +1096,13 @@ def public_view(row: dict) -> dict:
     updated = text(row.get("updated_at") or dados.get("updated_at"))
     inventory = _inventory(media.get("channels") or [], praca, praca_detalhe)
     assumptions = _assumptions(missing, "metricas" not in missing, bool(inventory))
+    creative_plan = _creative_plan_for_public(page_v2, media.get("channels") or [])
+    proposal_url = public_document_url(token, "proposal")
+    full_plan_url = public_document_url(token, "full_plan")
+    document_url = full_plan_url if document == "full_plan" else proposal_url
+    commercial_defense = as_dict(page_v2.get("commercial_defense"))
+    defense_points = [text(item) for item in as_list(commercial_defense.get("why_this_mix") or commercial_defense.get("why_this_plan")) if text(item)]
+    defense_points.extend(item for item in defense_parts if item not in defense_points)
     return {
         "house": HOUSE,
         "title": title,
@@ -1066,6 +1133,11 @@ def public_view(row: dict) -> dict:
         "chapters": chapters,
         "board": board_sections,
         "share_url": url,
+        "proposal_url": proposal_url,
+        "full_plan_url": full_plan_url,
+        "document": document,
+        "document_url": document_url,
+        "document_label": "Planejamento completo" if document == "full_plan" else "Proposta comercial",
         "public_token": token,
         "default_tab": default_view,
         "default_view": default_view,
@@ -1079,6 +1151,9 @@ def public_view(row: dict) -> dict:
         "strategy_parts": strategy_parts,
         "strategy_board": strategy_board,
         "defense_parts": defense_parts,
+        "defense_points": defense_points[:3],
+        "creative_plan": creative_plan,
+        "full_groups": _full_groups(chapters, board_sections),
         "funnel": funnel,
         "inventory": inventory,
         "inventory_filters": _inventory_filters(inventory),

@@ -18,7 +18,11 @@ logger = logging.getLogger(__name__)
 
 
 def apply_sheet_art(plan: dict, force: bool = False) -> dict:
-    """Gera fundo exclusivo e criativo no canal via GPT Image 2."""
+    """Gera somente a imagem conceitual principal da proposta.
+
+    Fundos existentes continuam válidos, mas um fundo exclusivo deixou de ser
+    uma geração automática. Vídeo, áudio, animação e lotes ficam fora daqui.
+    """
     if not isinstance(plan, dict):
         return plan
     theme = as_dict(plan.get("theme"))
@@ -26,7 +30,8 @@ def apply_sheet_art(plan: dict, force: bool = False) -> dict:
     branding = as_dict(plan.get("branding"))
     hero = as_dict(branding.get("hero"))
     slug = _slug(meta.get("client") or hero.get("name") or theme.get("id") or "folha")
-    if force or _needs_exclusive_bg(theme):
+    background_enabled = os.getenv("SMART_PLANNER_GENERATE_BACKGROUND", "").strip().lower() in {"1", "true", "yes"}
+    if force or (background_enabled and _needs_exclusive_bg(theme)):
         prompt = text(theme.get("bg_prompt")) or _default_bg_prompt(theme, meta)
         theme["bg_url"] = _render(prompt, f"{slug}-bg", aspect_ratio="16:9")
         theme["bg_model"] = resolve_image_model()

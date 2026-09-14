@@ -27,6 +27,11 @@ def public_path(public_token: str) -> str:
     return f"/smart-planner/p/{text(public_token)}"
 
 
+def public_document_path(public_token: str, document: str) -> str:
+    suffix = "plano" if text(document) == "full_plan" else "proposta"
+    return f"{public_path(public_token)}/{suffix}"
+
+
 def public_sheet_url(public_token: str) -> str:
     token = text(public_token)
     if not token:
@@ -41,6 +46,21 @@ def public_sheet_url(public_token: str) -> str:
     return f"{base}{path}" if base else path
 
 
+def public_document_url(public_token: str, document: str) -> str:
+    token = text(public_token)
+    if not token:
+        return ""
+    suffix = "plano" if text(document) == "full_plan" else "proposta"
+    if has_request_context():
+        try:
+            return url_for(f"smart_planner.publico_{suffix}", public_token=token, _external=True)
+        except Exception:
+            pass
+    base = text(os.getenv("BASE_URL")).rstrip("/")
+    path = public_document_path(token, document)
+    return f"{base}{path}" if base else path
+
+
 def share_payload(public_token: str, client: str = "") -> dict:
     token = text(public_token) or make_public_token()
     url = public_sheet_url(token)
@@ -48,6 +68,8 @@ def share_payload(public_token: str, client: str = "") -> dict:
         "public_token": token,
         "path": public_path(token),
         "url": url,
+        "proposal_url": public_document_url(token, "proposal"),
+        "full_plan_url": public_document_url(token, "full_plan"),
         "label": "Abrir o planejamento",
         "pdf_label": "Salvar PDF",
         "title": text(client) or "Página única",

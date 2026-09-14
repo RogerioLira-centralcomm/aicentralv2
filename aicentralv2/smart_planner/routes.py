@@ -154,6 +154,29 @@ def publico(public_token):
     return render_template("smart_planner/public.html", **view)
 
 
+def _public_document(public_token: str, document: str):
+    row = get_by_public_token(public_token)
+    if not row:
+        raise SessionNotFound("Este planejamento não está no ar.")
+    view = public_view(row, document=document)
+    if document == "proposal" and not view.get("tem_folha"):
+        raise SessionNotFound("Esta proposta comercial não está publicada.")
+    if document == "full_plan" and not view.get("tem_completo"):
+        raise SessionNotFound("Este planejamento completo não está publicado.")
+    view["share_url"] = view.get("document_url")
+    return render_template("smart_planner/public_document.html", **view)
+
+
+@bp.route("/p/<public_token>/proposta")
+def publico_proposta(public_token):
+    return _public_document(public_token, "proposal")
+
+
+@bp.route("/p/<public_token>/plano")
+def publico_plano(public_token):
+    return _public_document(public_token, "full_plan")
+
+
 @bp.route("/api/p/<public_token>")
 def api_publico(public_token):
     row = get_by_public_token(public_token)

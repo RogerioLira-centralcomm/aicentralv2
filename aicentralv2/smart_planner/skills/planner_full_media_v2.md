@@ -9,10 +9,11 @@ Detalhe mídia da tese aprovada. Números de volume só os do bloco estimates.
 ## Fases do voo
 ## Projeções e cenários
 
-Tabela de mix: Canal | Papel | Percentual | Verba | Compra | KPI
+Tabela de mix: Canal | Papel | Percentual | Verba | Compra | Formato principal | KPI
 A soma dos percentuais e dos R$ fecha a verba do snapshot.
 Para cada canal: função, público, formato, KPI, risco, dependência, critério de otimização.
 Se houver Places: um bloco por place e ponto. Tabela não soma raios. Apps entram na coluna de formato, só os listados no ponto.
 Voo: use as colunas mensais da configuração. Sem período, não invente semanas.
 Projeções: copie cenários calculados. Sem parâmetro, diga que a estimativa não está disponível.
 Interativos só no portal, nunca como linha de Places.
+Cada canal tem exatamente um formato principal, herdado da página única. Não liste formatos alternativos.

@@ -21,7 +21,7 @@
   }
 
   function rows() {
-    return table ? Array.prototype.slice.call(table.querySelectorAll("tbody tr")) : [];
+    return table ? Array.prototype.slice.call(table.querySelectorAll("[data-sp-history-row]")) : [];
   }
 
   function fillSelect(select, values, allLabel, emptyValue, emptyLabel) {
@@ -137,7 +137,7 @@
       .then(function (payload) {
         if (!payload.success) throw new Error(payload.error || "Falha ao excluir");
         toast("Planejamento excluído.", "success");
-        var row = button.closest("tr");
+        var row = button.closest("[data-sp-history-row]");
         if (row) row.remove();
         hydrateFilters();
         applyFilters();

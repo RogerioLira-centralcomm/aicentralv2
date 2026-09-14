@@ -31,6 +31,29 @@ GENERATED_PREFIX = "/static/uploads/creative_generated/"
 TROCR_PREFIX = "/static/uploads/creative_trocr/"
 TROCR_STILL_PREFIX = "/parametros/api/format-lab/swap/still/"
 TROCR_STILL_NAME = re.compile(r"^[a-f0-9]{32}\.(png|jpg|jpeg|webp)$")
+TROCR_STILL_STEM = re.compile(r"^[a-f0-9]{32}$")
+TROCR_STILL_EXTS = (".png", ".jpg", ".jpeg", ".webp")
+
+
+def still_filename_candidates(filename):
+    name = Path(str(filename or "")).name
+    if not name:
+        return []
+    names = []
+    seen = set()
+    stem = Path(name).stem.lower()
+    suffix = Path(name).suffix.lower()
+    if TROCR_STILL_NAME.fullmatch(name):
+        names.append(name)
+        seen.add(name)
+    if TROCR_STILL_STEM.fullmatch(stem):
+        order = [suffix] if suffix in TROCR_STILL_EXTS else []
+        for ext in (*order, *TROCR_STILL_EXTS):
+            alt = f"{stem}{ext}"
+            if alt not in seen:
+                names.append(alt)
+                seen.add(alt)
+    return names
 
 
 def _safe_trocr_key(key):
@@ -166,17 +189,18 @@ class CreativeAssetStorage:
         return f"{TROCR_STILL_PREFIX}{filename}"
 
     def load_trocr_still(self, filename):
-        name = Path(str(filename or "")).name
-        if not TROCR_STILL_NAME.fullmatch(name):
-            return None
-        path = _trocr_still_root() / name
-        return path if path.is_file() else None
+        for name in still_filename_candidates(filename):
+            path = _trocr_still_root() / name
+            if path.is_file():
+                return path
+        return None
 
     def load_generated_still(self, filename):
-        name = Path(str(filename or "")).name
-        if not TROCR_STILL_NAME.fullmatch(name):
-            return None
-        return self.absolute_generated_path(f"{GENERATED_PREFIX}{name}")
+        for name in still_filename_candidates(filename):
+            path = self.absolute_generated_path(f"{GENERATED_PREFIX}{name}")
+            if path is not None:
+                return path
+        return None
 
     def save_trocr_session(self, key, data):
         name = _safe_trocr_key(key)

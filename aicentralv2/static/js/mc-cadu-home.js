@@ -9,8 +9,10 @@
 
   const takes = document.getElementById("mcCaduTakes");
   const empty = document.getElementById("mcCaduEmpty");
-  const select = document.getElementById("mcCaduHomeClient");
-  if (!takes || !select) return;
+  if (!takes) return;
+
+  const barSelect = document.getElementById("mcCaduBarClient");
+  const homeSelect = document.getElementById("mcCaduHomeClient");
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", boot);
@@ -18,34 +20,51 @@
     boot();
   }
 
-  async function boot() {
+  function boot() {
+    document.addEventListener("cadu:brand-change", (event) => {
+      const id = event.detail?.clientId || Desk.read();
+      if (homeSelect && id) homeSelect.value = id;
+      loadWall(id);
+    });
+    if (homeSelect && !barSelect) {
+      loadHomeSelect();
+    } else {
+      const chosen = Desk.read();
+      if (chosen) loadWall(chosen);
+    }
+  }
+
+  async function loadHomeSelect() {
     let clients = [];
     try {
       const payload = await get("/parametros/api/clients");
       clients = Array.isArray(payload) ? payload : (payload?.items || payload?.clients || []);
     } catch (_error) {
-      select.innerHTML = '<option value="">Não deu para carregar as marcas</option>';
+      homeSelect.innerHTML = '<option value="">Não deu para carregar as marcas</option>';
       return;
     }
     const options = Desk.forSelect(clients, Desk.read());
     const chosen = Desk.pick(options, Desk.read());
-    select.innerHTML = options.length
+    homeSelect.innerHTML = options.length
       ? options.map((item) => {
         const id = String(item.profile_id || item.id || "");
         return `<option value="${escapeHtml(id)}"${id === chosen ? " selected" : ""}>${escapeHtml(Desk.label(item))}</option>`;
       }).join("")
       : '<option value="">Nenhuma marca</option>';
     if (chosen) Desk.write(chosen);
-    select.addEventListener("change", () => {
-      Desk.write(select.value);
-      loadWall(select.value);
+    homeSelect.addEventListener("change", () => {
+      Desk.write(homeSelect.value);
+      loadWall(homeSelect.value);
     });
-    await loadWall(select.value);
+    await loadWall(homeSelect.value);
   }
 
   async function loadWall(clientId) {
     takes.querySelectorAll("[data-run]").forEach((node) => node.remove());
-    if (empty) empty.hidden = false;
+    if (empty) {
+      empty.hidden = false;
+      empty.innerHTML = "<p>Ainda não há peça nesta marca.</p><p>Abra Ajustar e solte o criativo. O histórico aparece aqui.</p>";
+    }
     if (!clientId) return;
     try {
       const query = `?client_id=${encodeURIComponent(clientId)}`;
@@ -83,13 +102,13 @@
     } catch (_error) {
       if (empty) {
         empty.hidden = false;
-        empty.innerHTML = "<p>Não deu para abrir o histórico desta marca.</p><p>Tente de novo ou abra o Still direto.</p>";
+        empty.innerHTML = "<p>Não deu para abrir o histórico desta marca.</p><p>Tente de novo ou abra Ajustar.</p>";
       }
     }
   }
 
   async function get(url) {
-    const response = await fetch(url, { headers: { Accept: "application/json" } });
+    const response = await fetch(url, { credentials: "same-origin", headers: { Accept: "application/json" } });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload.success === false) {
       throw new Error(payload.error || "Falha na leitura.");

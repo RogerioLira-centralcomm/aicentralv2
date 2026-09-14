@@ -4548,15 +4548,15 @@ class CreativeModelingService:
         )
         return memory, filename
 
-    def image_credits(self, user_id=None):
+    def image_credits(self, user_id=None, client_id=None):
         used, monthly = 0, 500
+        crm_id = self._credits_crm_id(client_id)
         try:
             from .db import get_db
 
             conn = get_db()
             with conn.cursor() as cursor:
-                cursor.execute(
-                    """
+                sql = """
                     SELECT COALESCE(p.image_credits_used_current_month, 0) AS used,
                            COALESCE(
                                pd.limit_image_generation,
@@ -4567,17 +4567,48 @@ class CreativeModelingService:
                       LEFT JOIN cadu_plan_definitions pd
                         ON p.id_plan_definition = pd.id
                      WHERE p.plan_status IN ('active', 'trial', 'ativo')
-                     ORDER BY p.id DESC
-                     LIMIT 1
                     """
-                )
+                params = []
+                if crm_id:
+                    sql += " AND p.id_cliente = %s"
+                    params.append(crm_id)
+                sql += " ORDER BY p.id DESC LIMIT 1"
+                cursor.execute(sql, params)
                 row = cursor.fetchone()
                 if row:
                     used = int(row["used"] or 0)
                     monthly = int(row["monthly"] or 500) or 500
         except Exception:
             pass
-        return {"used": used, "monthly": monthly}
+        remaining = max(0, monthly - used)
+        return {
+            "used": used,
+            "monthly": monthly,
+            "remaining": remaining,
+            "client_id": str(client_id or ""),
+        }
+
+    def _credits_crm_id(self, client_id):
+        if client_id in (None, ""):
+            return None
+        try:
+            ident = int(client_id)
+        except (TypeError, ValueError):
+            return None
+        getter = getattr(self.repository, "get_client", None)
+        if not callable(getter):
+            return None
+        try:
+            client = getter(ident)
+        except Exception:
+            return None
+        crm = (client or {}).get("crm_client_id") if isinstance(client, dict) else None
+        if crm in (None, ""):
+            return None
+        try:
+            return int(crm)
+        except (TypeError, ValueError):
+            return None
 
     def _campaign_kv_source(self, campaign):
         brief = campaign.get("creative_brief") if isinstance(campaign, dict) else {}

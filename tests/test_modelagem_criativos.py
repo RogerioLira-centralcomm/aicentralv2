@@ -1105,6 +1105,35 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertEqual(len(urls), 1)
         self.assertEqual(used[0]["id"], 31)
 
+    def test_creditos_contam_restante_da_marca(self):
+        self.repo.get_client = lambda _id: {"id": 10, "crm_client_id": 42}
+        captured = {}
+
+        class Cursor:
+            def execute(self, sql, params=None):
+                captured["sql"] = sql
+                captured["params"] = params
+
+            def fetchone(self):
+                return {"used": 12, "monthly": 500}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+        class Conn:
+            def cursor(self):
+                return Cursor()
+
+        with patch("aicentralv2.db.get_db", return_value=Conn()):
+            data = self.service.image_credits(1, 10)
+        self.assertEqual(data["remaining"], 488)
+        self.assertEqual(data["client_id"], "10")
+        self.assertIn("id_cliente", captured["sql"])
+        self.assertEqual(captured["params"], [42])
+
     def test_logo_completa_vaga_quando_ja_ha_ref_da_campanha(self):
         self.repo.list_client_brand_assets = lambda _client_id: [
             {
@@ -3525,17 +3554,21 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn('extends "base_erp.html"', page)
         self.assertIn("mc-cadu-home", page)
         self.assertIn("mc-cadu-takes", page)
-        self.assertIn("Nova peça", page)
+        self.assertIn("Ajustar peça", page)
         self.assertIn("Ferramentas", page)
         self.assertIn("modelagem_biblioteca", page)
         self.assertIn("modelagem_trocar", page)
-        self.assertIn("modelagem_criativos.css') }}?v=118", page)
+        self.assertIn("modelagem_criativos.css') }}?v=120", page)
         self.assertNotIn("mc-desk.css", page)
         self.assertNotIn("modelagem_criativos.js", page)
         shell = (template_dir / "_mc_shell.html").read_text(encoding="utf-8")
         self.assertIn("mc-cadu-bar", shell)
         self.assertIn("Cadu Media Studio", shell)
         self.assertIn("mc-cadu-nav", shell)
+        self.assertIn(">Ajustar<", shell)
+        self.assertIn("mcCaduCredits", shell)
+        self.assertIn("mcCaduBarClient", shell)
+        self.assertNotIn(">Still<", shell)
         self.assertNotIn("Início", shell)
         self.assertIn("modelagem_biblioteca", shell)
         self.assertIn("modelagem_mesa", shell)
@@ -4293,7 +4326,7 @@ class CreativeFilesContractTest(unittest.TestCase):
             root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html"
         ).read_text(encoding="utf-8")
         self.assertIn("modelagem_criativos.js') }}?v=57", desk)
-        self.assertIn("mc_page_js) }}?v=79", desk)
+        self.assertIn("mc_page_js) }}?v=81", desk)
         self.assertIn("mc-dsa-write-queue.js') }}?v=64", desk)
         self.assertIn("js/mc-dsa-write-queue.js", desk)
         self.assertIn("function loadComposeLibrary", frontend)

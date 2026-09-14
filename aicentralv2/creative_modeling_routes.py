@@ -961,7 +961,10 @@ def api_campaign_html5(cid):
 
 @admin_required_api
 def api_image_credits():
-    return _execute(lambda: _ok(_service().image_credits(session.get("user_id"))))
+    return _execute(lambda: _ok(_service().image_credits(
+        session.get("user_id"),
+        request.args.get("client_id"),
+    )))
 
 
 @admin_required_api

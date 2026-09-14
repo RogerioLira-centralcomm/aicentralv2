@@ -4,19 +4,19 @@
     Cadu Media Studio<sup>®</sup>
   </a>
   <nav class="mc-cadu-nav" aria-label="Cadu Media Studio">
-    <a href="{{ url_for('parametros.modelagem_marcas') }}"{% if mc_page == 'marcas' %} class="is-current" aria-current="page"{% endif %}>Marcas</a>
-    <a id="mcCaduStill" href="{{ url_for('parametros.modelagem_trocar') }}"{% if mc_page == 'trocar' %} class="is-current" aria-current="page"{% endif %}>Still</a>
+    <a id="mcCaduStill" href="{{ url_for('parametros.modelagem_trocar') }}"{% if mc_page == 'trocar' %} class="is-current" aria-current="page"{% endif %}>Ajustar</a>
     <a id="mcCaduVideo" href="{{ url_for('parametros.modelagem_trocar') }}?ws=video">Vídeo</a>
+    <a href="{{ url_for('parametros.modelagem_marcas') }}"{% if mc_page == 'marcas' %} class="is-current" aria-current="page"{% endif %}>Marcas</a>
     <details class="mc-cadu-menu" id="mcCaduMore">
       <summary>Mais</summary>
       <div class="mc-cadu-menu-list">
-        <a href="{{ url_for('parametros.modelagem_biblioteca') }}"{% if mc_page == 'biblioteca' %} aria-current="page"{% endif %}>
-          <strong>Formatos</strong>
-          <span>Catálogo de retângulo e inventário</span>
-        </a>
         <a href="{{ url_for('parametros.modelagem_camadas') }}"{% if mc_page == 'camadas' %} aria-current="page"{% endif %}>
           <strong>Camadas</strong>
           <span>Recorte fiel e cena protegida</span>
+        </a>
+        <a href="{{ url_for('parametros.modelagem_biblioteca') }}"{% if mc_page == 'biblioteca' %} aria-current="page"{% endif %}>
+          <strong>Formatos</strong>
+          <span>Catálogo de retângulo e inventário</span>
         </a>
         <a href="{{ url_for('parametros.modelagem_design-system') }}"{% if mc_page == 'design-system' %} aria-current="page"{% endif %}>
           <strong>Design System</strong>
@@ -64,5 +64,14 @@
     </details>
     {% endif %}
   </nav>
+  <div class="mc-cadu-meta">
+    <label class="mc-cadu-brand">
+      <span class="mc-cadu-brand-label">Marca</span>
+      <select id="mcCaduBarClient" aria-label="Marca desta sessão">
+        <option value="">Marca</option>
+      </select>
+    </label>
+    <p class="mc-cadu-credits" id="mcCaduCredits" hidden></p>
+  </div>
 </header>
 <div id="mcPageAlert" class="cx-alert cx-alert-danger hidden" role="alert"></div>

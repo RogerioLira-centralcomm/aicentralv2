@@ -166,6 +166,16 @@
     await consumeHandoff();
     refreshQuote();
     if (params.get('ws') === 'video' || currentVersion()?.media === 'video') setWorkspace('video');
+    document.addEventListener('cadu:brand-change', async (event) => {
+      const id = String(event.detail?.clientId || '');
+      if (!id || id === String(state.clientId)) return;
+      await persistHistory();
+      selectBrand(id);
+      state.runId = '';
+      const restored = await loadHistory();
+      if (!restored && state.versions.length) schedulePersist();
+      refreshPrompt();
+    });
   }
 
   function bind() {
@@ -349,6 +359,9 @@
     state.clientId = String(id || '');
     if (state.clientId) Desk.write(state.clientId);
     renderClients();
+    const bar = document.getElementById('mcCaduBarClient');
+    if (bar && state.clientId && bar.value !== state.clientId) bar.value = state.clientId;
+    document.dispatchEvent(new CustomEvent('cadu:credits-refresh', { detail: { clientId: state.clientId } }));
   }
 
   function brandHasDna(client) {
@@ -433,15 +446,15 @@
     const text = String(value || '').trim();
     if (text.startsWith('data:image/')) return text;
     const response = await fetch(text, { credentials: 'same-origin' });
-    if (!response.ok) throw new Error('Não deu para ler o still do Studio.');
+    if (!response.ok) throw new Error('Não deu para ler a peça do Studio.');
     const blob = await response.blob();
     if (!String(blob.type || '').startsWith('image/')) {
-      throw new Error('O still do Studio não é uma imagem.');
+      throw new Error('A peça do Studio não é uma imagem.');
     }
     return await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(String(reader.result || ''));
-      reader.onerror = () => reject(new Error('Não deu para ler o still do Studio.'));
+      reader.onerror = () => reject(new Error('Não deu para ler a peça do Studio.'));
       reader.readAsDataURL(blob);
     });
   }
@@ -475,14 +488,14 @@
   async function ingestStill(raw, options) {
     let image = '';
     try {
-      if (!isAllowedStill(raw)) throw new Error('O still do Studio não pôde ser aberto.');
+      if (!isAllowedStill(raw)) throw new Error('A peça do Studio não pôde ser aberta.');
       image = await materializeStill(raw);
     } catch (error) {
-      setStatus(error.message || 'O still do Studio não pôde ser aberto.');
+      setStatus(error.message || 'A peça do Studio não pôde ser aberta.');
       return false;
     }
     if (!image) {
-      setStatus('O still do Studio não pôde ser aberto.');
+      setStatus('A peça do Studio não pôde ser aberta.');
       return false;
     }
     if (!options?.skipReset) {
@@ -512,7 +525,7 @@
       setFormatHint(`Saída ${options.aspect}, vinda do Studio. Depois você pode forçar outra.`);
     }
     setStatus(options?.from === 'studio'
-      ? 'Still do Studio. O OCR roda automaticamente.'
+      ? 'Peça do Studio. O OCR roda automaticamente.'
       : 'Ao enviar uma nova imagem, o OCR é executado automaticamente.');
     await readReference(version, { force: true, reference: image });
     applyHandoffChrome(options);
@@ -535,7 +548,7 @@
       if (window.history.replaceState) {
         window.history.replaceState({}, '', window.location.pathname);
       }
-      setStatus('O Studio não enviou um still. Solte uma imagem para começar.');
+      setStatus('O Studio não enviou uma peça. Solte uma imagem para começar.');
       return false;
     }
     if (payload.clientId) {
@@ -850,9 +863,11 @@
 
   function placeCreative(host) {
     const image = $('mcSwapImage');
+    const video = $('mcSwapVideo');
     const region = $('mcTrocrRegion');
-    if (!host || !image) return;
-    if (image.parentElement !== host) host.appendChild(image);
+    if (!host) return;
+    if (image && image.parentElement !== host) host.appendChild(image);
+    if (video && video.parentElement !== host) host.appendChild(video);
     if (region && region.parentElement !== host) host.appendChild(region);
   }
 
@@ -1446,7 +1461,9 @@
   }
 
   function showPreview(src) {
-    if ($('mcSwapImage') && src) {
+    const current = currentVersion();
+    const clip = current?.media === 'video' && current.video_url;
+    if ($('mcSwapImage') && src && !clip) {
       $('mcSwapImage').src = src;
       $('mcSwapImage').onload = () => {
         fitCreative();
@@ -1457,6 +1474,9 @@
     $('mcSwapDrop').hidden = true;
     $('mcTrocrViewport')?.classList.add('has-image');
     applyPresentation();
+    if (clip) {
+      document.dispatchEvent(new CustomEvent('trocr:version-selected', { detail: current }));
+    }
     renderEditPanels();
     if (state.viewMode === 'compare') renderCompare();
     window.requestAnimationFrame(fitCreative);
@@ -1520,7 +1540,7 @@
     }
     if (active.media === 'video') {
       const length = active.duration ? ` · ${active.duration}s` : '';
-      node.textContent = `Clipe ${active.id} · ${active.name}${length}. Still de origem: ${base ? `${base.id} · ${base.name}` : '—'}.`;
+      node.textContent = `Clipe ${active.id} · ${active.name}${length}. Peça de origem: ${base ? `${base.id} · ${base.name}` : '—'}.`;
       return;
     }
     const route = state.mode === 'typeset' ? 'Tipo na foto.' : '';
@@ -1555,15 +1575,21 @@
     if ($('mcTrocrClipCompareTab')) $('mcTrocrClipCompareTab').hidden = next !== 'video';
     if ($('mcTrocrLead')) {
       $('mcTrocrLead').textContent = next === 'video'
-        ? 'Gere o clipe a partir do still ativo. O histórico é o mesmo.'
-        : 'Edite o still. O clipe entra no mesmo histórico.';
+        ? 'Gere o clipe a partir da peça ativa. O histórico é o mesmo.'
+        : 'Ajuste a peça. O clipe entra no mesmo histórico.';
     }
     if (next === 'video' && state.viewMode === 'compare') setViewMode('view');
     else setViewMode(state.viewMode);
     renderBaseMeta();
     enableGenerate(canGenerate());
-    if (changed && next === 'video' && !options?.silent) {
-      document.dispatchEvent(new Event('trocr:workspace-video'));
+    if (changed && next === 'video') {
+      const clip = currentVersion();
+      if (clip?.media === 'video' && clip.video_url) {
+        document.dispatchEvent(new CustomEvent('trocr:version-selected', { detail: clip }));
+      }
+      if (!options?.silent) {
+        document.dispatchEvent(new Event('trocr:workspace-video'));
+      }
     }
     if (changed && next === 'still') {
       document.dispatchEvent(new Event('trocr:workspace-still'));
@@ -1919,7 +1945,7 @@
     if (!node) return;
     if (state.picking) {
       node.hidden = false;
-      node.textContent = `Arraste a região do ${regionLabel(regionField())} no still.`;
+      node.textContent = `Arraste a região do ${regionLabel(regionField())} na peça.`;
       return;
     }
     if (state.region?.box) {

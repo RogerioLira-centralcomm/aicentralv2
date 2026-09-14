@@ -8,10 +8,16 @@ import mimetypes
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlparse
 
 from ..creative_modeling_repository import CreativeConflictError, CreativeNotFoundError
 from ..creative_modeling_service import _integer, _serialize
-from ..creative_modeling_storage import GENERATED_PREFIX, TROCR_STILL_NAME, TROCR_STILL_PREFIX
+from ..creative_modeling_storage import (
+    GENERATED_PREFIX,
+    TROCR_STILL_NAME,
+    TROCR_STILL_PREFIX,
+    still_filename_candidates,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +136,8 @@ class TrocrStore:
         versions = list(existing.get("versions") or [])
         next_id = f"v{len(versions) + 1}"
         parent_id = str(payload.get("base_id") or existing.get("base_id") or "")
+        parent = next((item for item in versions if str(item.get("id") or "") == parent_id), None)
+        parent_still = str((parent or {}).get("image_url") or "")
         stale = existing.get("revision") not in (None, payload.get("source_revision"), version.get("source_revision"))
         if payload.get("source_revision") not in (None, "", existing.get("revision")):
             stale = True
@@ -143,8 +151,8 @@ class TrocrStore:
             "status": "ready",
             "created_at": datetime.now(timezone.utc).isoformat(),
             "media": "video",
-            "image_url": version.get("poster_url") or version.get("image_url") or "",
-            "thumb_url": version.get("poster_url") or version.get("image_url") or "",
+            "image_url": version.get("poster_url") or version.get("image_url") or parent_still,
+            "thumb_url": version.get("poster_url") or version.get("image_url") or parent_still,
             "video_url": version.get("video_url") or "",
             "master_asset_id": version.get("master_asset_id") or "",
             "poster_asset_id": version.get("poster_asset_id") or "",
@@ -209,8 +217,13 @@ class TrocrStore:
         text = str(raw or "").strip()
         if not text:
             return ""
-        if text.startswith("data:image/") or text.startswith(("https://", "http://")):
+        if text.startswith("data:image/"):
             return text
+        if text.startswith(("https://", "http://")):
+            local = local_still_path(text)
+            if not local:
+                return text
+            text = local
         url = published_still_url(text)
         if not url.startswith(STILL_PREFIXES):
             return text
@@ -221,28 +234,36 @@ class TrocrStore:
         data = Path(path).read_bytes()
         if not data:
             return text
-        mime = mimetypes.guess_type(Path(url).name)[0] or "image/png"
+        mime = mimetypes.guess_type(Path(path).name)[0] or "image/png"
         return f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"
 
     def still_path(self, filename):
         storage = getattr(self.modeling, "storage", None)
         loader = getattr(storage, "load_trocr_still", None)
-        path = loader(filename) if callable(loader) else None
-        if path is not None:
-            return path
         legacy = getattr(storage, "load_generated_still", None)
-        path = legacy(filename) if callable(legacy) else None
-        if path is None:
-            raise CreativeNotFoundError("Still do Trocr não encontrado.")
-        return path
+        names = still_filename_candidates(filename) or [Path(str(filename or "")).name]
+        for name in names:
+            if not name:
+                continue
+            path = loader(name) if callable(loader) else None
+            if path is not None:
+                return path
+            path = legacy(name) if callable(legacy) else None
+            if path is not None:
+                return path
+        raise CreativeNotFoundError("Still do Trocr não encontrado.")
 
     def persist_still(self, raw):
         text = str(raw or "").strip()
         if not text:
             return ""
+        if text.startswith(("https://", "http://")):
+            text = local_still_path(text)
+            if not text:
+                return ""
         if accepted_still(text):
             return text
-        if text.startswith(("https://", "http://", "/static/")):
+        if text.startswith("/static/"):
             return ""
         if not text.startswith("data:image/"):
             return ""
@@ -253,8 +274,15 @@ class TrocrStore:
         saver = private if callable(private) else public
         if not callable(saver) or not encoded:
             return ""
+        output_format = still_data_format(text)
         try:
-            return saver(encoded) or ""
+            return saver(encoded, output_format) or ""
+        except TypeError:
+            try:
+                return saver(encoded) or ""
+            except Exception:
+                logger.exception("Não gravou still do Trocr")
+                return ""
         except Exception:
             logger.exception("Não gravou still do Trocr")
             return ""
@@ -298,10 +326,14 @@ class TrocrStore:
     def store_version(self, item):
         if not isinstance(item, dict):
             return None
-        image_url = self.storeable_image(item.get("image_url") or item.get("image"))
-        if not image_url:
+        is_video = str(item.get("media") or "") == "video" or item.get("origin") == "animate"
+        image_url = self.storeable_image(
+            item.get("image_url") or item.get("image") or item.get("poster_url")
+        )
+        video_url = str(item.get("video_url") or "")
+        if not image_url and not (is_video and video_url):
             return None
-        thumb_url = self.storeable_image(item.get("thumb_url") or item.get("thumb")) or image_url
+        thumb_url = self.storeable_image(item.get("thumb_url") or item.get("thumb") or item.get("poster_url")) or image_url
         created = item.get("created_at") or item.get("createdAt") or datetime.now(timezone.utc).isoformat()
         if hasattr(created, "isoformat"):
             created = created.isoformat()
@@ -323,10 +355,11 @@ class TrocrStore:
         }
         if item.get("camadas_creative_id"):
             packed["camadas_creative_id"] = str(item.get("camadas_creative_id"))
-        if str(item.get("media") or "") == "video" or item.get("origin") == "animate":
+        if is_video:
             packed.update({
                 "media": "video",
-                "video_url": str(item.get("video_url") or ""),
+                "video_url": video_url,
+                "poster_url": str(item.get("poster_url") or image_url or ""),
                 "master_asset_id": str(item.get("master_asset_id") or ""),
                 "poster_asset_id": str(item.get("poster_asset_id") or ""),
                 "seedance_base_asset_id": str(item.get("seedance_base_asset_id") or ""),
@@ -340,6 +373,10 @@ class TrocrStore:
                 "transition_from": str(item.get("transition_from") or ""),
                 "transition_to": str(item.get("transition_to") or ""),
                 "end_card_asset_id": str(item.get("end_card_asset_id") or ""),
+                "voiceover_asset_id": str(item.get("voiceover_asset_id") or ""),
+                "voiceover_script": str(item.get("voiceover_script") or ""),
+                "storyboard_ids": item.get("storyboard_ids") if isinstance(item.get("storyboard_ids"), list) else [],
+                "extended_from": str(item.get("extended_from") or ""),
                 "based_on_stale_revision": bool(item.get("based_on_stale_revision")),
             })
             if item.get("camadas_creative_id"):
@@ -358,12 +395,14 @@ class TrocrStore:
                 continue
             url = published_still_url(item.get("image_url") or "")
             thumb = published_still_url(item.get("thumb_url") or url)
+            poster = published_still_url(item.get("poster_url") or "") or url
             versions.append({
                 **item,
                 "image_url": url,
                 "thumb_url": thumb,
                 "image": url,
                 "thumb": thumb,
+                **({"poster_url": poster} if str(item.get("media") or "") == "video" or item.get("origin") == "animate" else {}),
             })
         pack = store if isinstance(store, dict) else wrap_store(data, client_id)
         active_id = str(data.get("run_id") or pack.get("active_run_id") or "")
@@ -626,8 +665,29 @@ def accepted_still(raw):
     return str(raw or "").strip().startswith(STILL_PREFIXES)
 
 
+def local_still_path(raw):
+    text = str(raw or "").strip()
+    if not text:
+        return ""
+    if text.startswith(("https://", "http://")):
+        path = urlparse(text).path or ""
+        return path if accepted_still(path) else ""
+    return text if accepted_still(text) else ""
+
+
+def still_data_format(raw):
+    header = str(raw or "").split(",", 1)[0].lower()
+    if "image/jpeg" in header or "image/jpg" in header:
+        return "jpg"
+    if "image/webp" in header:
+        return "webp"
+    return "png"
+
+
 def published_still_url(raw):
     text = str(raw or "").strip()
+    if text.startswith(("https://", "http://")):
+        text = local_still_path(text) or text
     if text.startswith(TROCR_STILL_PREFIX):
         return text
     if text.startswith(GENERATED_PREFIX):

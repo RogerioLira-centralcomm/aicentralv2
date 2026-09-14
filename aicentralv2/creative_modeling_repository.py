@@ -608,7 +608,7 @@ class CreativeModelingRepository:
         with self.conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT id, name, sector, tone_of_voice, logo_url,
+                SELECT id, crm_client_id, name, sector, tone_of_voice, logo_url,
                        logo_upload_path, primary_color, secondary_color,
                        website_url, brand_profile, analysis_metadata,
                        price_policy, created_at

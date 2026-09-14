@@ -405,7 +405,7 @@ class AnimateWorker:
             "poster_asset_id": poster_id,
             "video_url": asset_url(master["public_id"]),
             "poster_url": asset_url(poster_id) if poster_id else "",
-            "image_url": asset_url(poster_id) if poster_id else asset_url(master["public_id"]),
+            "image_url": asset_url(poster_id) if poster_id else "",
             "packs": packs,
             "job_id": job_id,
         }

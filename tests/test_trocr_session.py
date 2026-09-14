@@ -153,6 +153,63 @@ class TrocrSessionStoreTest(unittest.TestCase):
             )
         )
 
+    def test_still_path_aceita_extensao_irma(self):
+        with tempfile.TemporaryDirectory() as folder:
+            name = "c86b3398268e48b9bcecadde5cb9ebfd.png"
+            path = Path(folder) / name
+            path.write_bytes(TINY_PNG)
+
+            class _Storage:
+                def load_trocr_still(self, filename):
+                    return path if filename == name else None
+
+                def load_generated_still(self, filename):
+                    return None
+
+            store = TrocrStore(Mock(storage=_Storage()), FakeRepository())
+            self.assertEqual(store.still_path("c86b3398268e48b9bcecadde5cb9ebfd.jpg"), path)
+
+    def test_historico_mantem_video_sem_poster(self):
+        class _MemStorage:
+            def __init__(self):
+                self.sessions = {}
+
+            def save_trocr_session(self, key, data):
+                self.sessions[key] = data
+
+            def load_trocr_session(self, key):
+                return self.sessions.get(key)
+
+        modeling = CreativeModelingService(FakeRepository(), FakeGenerator(), storage=_MemStorage())
+        lab = FormatLabService(modeling)
+        saved = lab.save_swap_history(
+            {
+                "client_id": 10,
+                "revision": 0,
+                "versions": [{
+                    "id": "v2",
+                    "name": "Animação",
+                    "origin": "animate",
+                    "media": "video",
+                    "video_url": "/parametros/api/media/assets/asset_clip/content",
+                }],
+            },
+            user_id=7,
+        )
+        self.assertEqual(saved["versions"][0]["media"], "video")
+        self.assertEqual(
+            saved["versions"][0]["video_url"],
+            "/parametros/api/media/assets/asset_clip/content",
+        )
+
+    def test_persist_still_normaliza_url_absoluta(self):
+        store = TrocrStore(Mock(storage=Mock()), FakeRepository())
+        url = "https://ai.centralcomm.media/parametros/api/format-lab/swap/still/c86b3398268e48b9bcecadde5cb9ebfd.jpg"
+        self.assertEqual(
+            store.persist_still(url),
+            "/parametros/api/format-lab/swap/still/c86b3398268e48b9bcecadde5cb9ebfd.jpg",
+        )
+
     def test_still_path_cai_no_legado_gerado(self):
         with tempfile.TemporaryDirectory() as folder:
             name = "b" * 32 + ".png"

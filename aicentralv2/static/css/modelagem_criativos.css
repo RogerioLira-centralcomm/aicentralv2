@@ -1,6 +1,12 @@
+.erp-main:has(.mc-shell) .erp-page-context {
+  display: none;
+}
+
 .erp-main-content:has(.mc-shell) {
   width: 100%;
   max-width: none;
+  padding: 0;
+  gap: 0;
 }
 
 .erp-main-content:has(.mc-trocr),
@@ -9600,12 +9606,20 @@
 }
 
 .mc-swap-preview img,
+.mc-swap-preview video,
 .mc-trocr-compare img {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: contain;
   transform: scale(var(--mc-trocr-zoom, 1));
+}
+
+.mc-swap-preview img.hidden,
+.mc-swap-preview img[hidden],
+.mc-swap-preview video.hidden,
+.mc-swap-preview video[hidden] {
+  display: none !important;
 }
 
 .mc-swap-preview[hidden],
@@ -12955,22 +12969,22 @@ article.mc-studio .mc-studio-confirm-foot {
   }
 }
 
-/* Cadu Media Studio — barra 80px + home */
+/* Cadu — faixa de ferramenta, encostada no topbar do Central */
 .mc-cadu-bar {
   --mc-cadu-ink: #1a1c19;
   --mc-cadu-mute: #5c6058;
-  --mc-cadu-rule: #b8bbb4;
-  --mc-cadu-floor: #e4e6e2;
+  --mc-cadu-rule: #d5d7d2;
+  --mc-cadu-floor: #eef0ec;
   --mc-cadu-paper: #f4f5f2;
   --mc-cadu-teal: #0f766e;
   position: relative;
   z-index: 60;
   display: flex;
   align-items: center;
-  gap: 1.75rem;
-  height: 80px;
-  min-height: 80px;
-  padding: 0 1.15rem;
+  gap: 1rem;
+  height: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0 1rem;
   overflow: visible;
   border-bottom: 1px solid var(--mc-cadu-rule);
   background: #f4f5f2;
@@ -12980,10 +12994,10 @@ article.mc-studio .mc-studio-confirm-foot {
 .mc-cadu-mark {
   flex: 0 0 auto;
   color: inherit;
-  font-size: 1.05rem;
+  font-size: 0.92rem;
   font-weight: 650;
   letter-spacing: -0.03em;
-  line-height: 1.1;
+  line-height: 1;
   text-decoration: none;
   white-space: nowrap;
 }
@@ -12997,7 +13011,8 @@ article.mc-studio .mc-studio-confirm-foot {
 .mc-cadu-mark:focus-visible,
 .mc-cadu-nav a:focus-visible,
 .mc-cadu-menu summary:focus-visible,
-.mc-cadu-new:focus-visible {
+.mc-cadu-new:focus-visible,
+.mc-cadu-brand select:focus-visible {
   outline: 2px solid var(--mc-cadu-teal);
   outline-offset: 3px;
 }
@@ -13015,13 +13030,13 @@ article.mc-studio .mc-studio-confirm-foot {
 .mc-cadu-menu > summary {
   display: inline-flex;
   align-items: center;
-  height: 36px;
-  padding: 0 0.7rem;
+  height: 2.75rem;
+  padding: 0 0.55rem;
   border: 0;
   background: transparent;
   color: var(--mc-cadu-mute);
   font: inherit;
-  font-size: 0.92rem;
+  font-size: 0.875rem;
   line-height: 1;
   text-decoration: none;
   cursor: pointer;
@@ -13105,15 +13120,60 @@ article.mc-studio .mc-studio-confirm-foot {
   overflow: visible;
 }
 
+.mc-cadu-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-left: auto;
+  min-width: 0;
+}
+
+.mc-cadu-brand {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin: 0;
+}
+
+.mc-cadu-brand-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.mc-cadu-brand select {
+  max-width: 11.5rem;
+  height: 1.85rem;
+  padding: 0 0.45rem;
+  border: 1px solid var(--mc-cadu-rule);
+  background: #fff;
+  color: var(--mc-cadu-ink);
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+.mc-cadu-credits {
+  margin: 0;
+  color: var(--mc-cadu-ink);
+  font-size: 0.8rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
 .mc-cadu-floor {
   --mc-cadu-ink: #1a1c19;
   --mc-cadu-mute: #5c6058;
-  --mc-cadu-rule: #b8bbb4;
+  --mc-cadu-rule: #d5d7d2;
   --mc-cadu-teal: #0f766e;
   display: grid;
-  gap: 2.75rem;
-  padding: 1.6rem 1.15rem 3.5rem;
-  background: #e4e6e2;
+  gap: 2.25rem;
+  padding: 1.25rem 1rem 3rem;
+  background: #eef0ec;
   color: #1a1c19;
 }
 
@@ -13157,15 +13217,6 @@ article.mc-studio .mc-studio-confirm-foot {
 
 .mc-cadu-new:hover {
   background: #0c5f59;
-}
-
-.mc-cadu-wall-brand {
-  margin: 1.15rem 0 1.25rem;
-  max-width: 18rem;
-}
-
-.mc-cadu-wall-brand .cx-label {
-  color: #5c6058;
 }
 
 .mc-cadu-takes {
@@ -13264,12 +13315,13 @@ article.mc-studio .mc-studio-confirm-foot {
 }
 
 .mc-shell:has(.mc-cadu-bar) {
+  gap: 0;
   overflow: visible;
 }
 
 .mc-shell:has(.mc-cadu-bar) .mc-trocr {
-  height: calc(100vh - 12rem);
-  min-height: calc(100vh - 12rem);
+  height: calc(100vh - var(--erp-topbar-h, 3.25rem) - 2.75rem);
+  min-height: 0;
 }
 
 @media (max-width: 960px) {
@@ -13285,9 +13337,15 @@ article.mc-studio .mc-studio-confirm-foot {
 @media (max-width: 720px) {
   .mc-cadu-bar {
     height: auto;
-    min-height: 80px;
+    min-height: 2.75rem;
     flex-wrap: wrap;
-    padding: 0.7rem 0.9rem;
+    padding: 0.35rem 0.75rem;
+  }
+
+  .mc-cadu-meta {
+    width: 100%;
+    margin-left: 0;
+    justify-content: space-between;
   }
 
   .mc-cadu-nav {

@@ -109,6 +109,12 @@ def build_plan(payload=None) -> dict:
         gif_window = "first"
     if audio.get("reference") or data.get("audio_reference"):
         raise ValueError("Áudio de referência não entra com first frame. Descreva a música no texto.")
+    seed = data.get("seed")
+    if seed not in (None, ""):
+        if isinstance(seed, bool) or not isinstance(seed, int) or not 0 <= seed <= 2147483647:
+            raise ValueError("Seed inválida. Use um inteiro entre 0 e 2147483647.")
+    else:
+        seed = None
     plan = {
         "source": {
             "mode": mode,
@@ -152,7 +158,7 @@ def build_plan(payload=None) -> dict:
         "generate_audio": audio_mode != "silence",
         "delivery": delivery,
         "gif_window": gif_window,
-        "seed": data.get("seed"),
+        "seed": seed,
         "keep_aspect": data.get("keep_aspect") is not False,
     }
     plan["prompt"] = build_prompt(plan)

@@ -94,9 +94,9 @@ def mix_voiceover(video_bytes: bytes, audio_bytes: bytes) -> bytes:
                 "-i", str(video),
                 "-i", str(voice),
                 "-filter_complex",
-                "[1:a]aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,volume=1.15[vo];"
+                "[1:a]aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,volume=1.15,apad,asplit=2[side][vo];"
                 "[0:a]aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[bed];"
-                "[bed][vo]sidechaincompress=threshold=0.05:ratio=8:attack=20:release=250[ducked];"
+                "[bed][side]sidechaincompress=threshold=0.05:ratio=8:attack=20:release=250[ducked];"
                 "[ducked][vo]amix=inputs=2:duration=first:dropout_transition=2[a]",
                 "-map", "0:v",
                 "-map", "[a]",
@@ -114,6 +114,7 @@ def mix_voiceover(video_bytes: bytes, audio_bytes: bytes) -> bytes:
                 "-i", str(voice),
                 "-map", "0:v",
                 "-map", "1:a",
+                "-af", "apad",
                 "-c:v", "copy",
                 "-c:a", "aac",
                 "-b:a", "160k",

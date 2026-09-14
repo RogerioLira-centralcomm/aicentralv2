@@ -23,6 +23,7 @@ export function paintAll() {
   paintSaveStatus();
   paintAudioRows();
   updateGenerateEnabled();
+  document.dispatchEvent(new Event("cadu:studio-paint"));
 }
 
 export function syncFormControls() {
@@ -91,9 +92,9 @@ export function paintLibrary() {
   const list = $("mcVideoLibrary");
   const clips = $("mcVideoClips");
   if (!list || !clips) return;
-  const stillMode = state.libTab !== "video";
+  const stillMode = state.libTab === "still";
   list.hidden = !stillMode;
-  clips.hidden = stillMode;
+  clips.hidden = state.libTab !== "video";
   if (!stillMode) {
     paintClips();
     return;
@@ -109,7 +110,7 @@ export function paintLibrary() {
     const thumb = item.thumb_url || item.image_url;
     return `<li class="${item.broken ? "is-broken" : ""}" data-id="${escapeHtml(item.id)}">
       <button type="button" data-id="${escapeHtml(item.id)}" data-action="pick" class="${selected ? "is-selected" : ""}" ${item.broken ? "disabled" : ""}>
-        ${thumb ? `<img src="${escapeHtml(thumb)}" alt="">` : "<span></span>"}
+        ${thumb ? `<img loading="lazy" decoding="async" src="${escapeHtml(thumb)}" alt="">` : "<span></span>"}
         <strong>${escapeHtml(item.name || "Peça")}</strong>
         <small>${item.broken ? "Arquivo indisponível" : selected ? "Na sequência" : "Adicionar cena"}</small>
       </button>
@@ -162,7 +163,7 @@ export function paintClips() {
     const seconds = Number(item.duration || 0);
     return `<li data-clip="${escapeHtml(item.id)}">
       <button type="button" data-clip="${escapeHtml(item.id)}" data-action="play" class="${current ? "is-current" : ""}">
-        ${poster ? `<img src="${escapeHtml(poster)}" alt="">` : `<span class="mc-cadu-video-clip-ph"></span>`}
+        ${poster ? `<img loading="lazy" decoding="async" src="${escapeHtml(poster)}" alt="">` : `<span class="mc-cadu-video-clip-ph"></span>`}
         <strong>${escapeHtml(item.name || "Clipe")}</strong>
         ${seconds ? `<small>${Math.round(seconds)}s</small>` : ""}
       </button>
@@ -221,7 +222,7 @@ export function paintTimeline() {
     const thumb = scene.thumb_url || scene.image_url || "";
     const active = scene.id === state.selectedSceneId;
     return `<button type="button" class="mc-cadu-video-block ${active ? "is-active" : ""}" draggable="true" data-scene="${escapeHtml(scene.id)}" data-index="${index}">
-      ${thumb ? `<img src="${escapeHtml(thumb)}" alt="">` : `<span class="mc-cadu-video-block-ph"></span>`}
+      ${thumb ? `<img loading="lazy" decoding="async" src="${escapeHtml(thumb)}" alt="">` : `<span class="mc-cadu-video-block-ph"></span>`}
       <small>Cena ${index + 1}</small>
       <strong>${escapeHtml(scene.name || `Cena ${index + 1}`)}</strong>
     </button>`;

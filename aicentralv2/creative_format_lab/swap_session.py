@@ -1159,6 +1159,7 @@ def store_with_mirror(store):
 
 
 def normalize_video_project(raw):
+    from ..creative_media.studio import normalize_edit, number
     data = raw if isinstance(raw, dict) else {}
     scene_ids = []
     for item in list(data.get("scene_ids") or []):
@@ -1179,7 +1180,7 @@ def normalize_video_project(raw):
     if quality not in {"draft", "production"}:
         quality = "draft"
     aspect = str(data.get("aspect_ratio") or "16:9").strip() or "16:9"
-    audio_mode = str(audio.get("mode") or "silence").strip().lower()
+    audio_mode = str(audio.get("mode") or "ambient").strip().lower()
     if audio_mode not in {"silence", "ambient", "music", "voice", "voiceover"}:
         audio_mode = "silence"
     voice = str(audio.get("voice") or "male").strip().lower()
@@ -1200,6 +1201,8 @@ def normalize_video_project(raw):
         "duration": duration,
         "quality": quality,
         "scene_ids": scene_ids[:30],
+        "edit": normalize_edit(data.get("edit")),
+        "seed": int(number(data.get("seed"), 0, 0, 2147483647)) if data.get("seed") not in (None, "") else None,
         "script": script,
         "audio": {
             "mode": audio_mode,

@@ -25,10 +25,10 @@ export function showVideo(version) {
   video.pause();
   video.src = src;
   video.poster = version.poster_url || version.image_url || version.image || "";
-  video.muted = true;
+  video.muted = !document.querySelector(".mc-cadu-video-frame");
   video.loop = true;
-  video.controls = true;
-  video.preload = "auto";
+  video.controls = !document.querySelector(".mc-video-studio");
+  video.preload = "metadata";
   video.removeAttribute("hidden");
   video.classList.remove("hidden");
   if (image) {
@@ -38,7 +38,7 @@ export function showVideo(version) {
   const empty = $("mcVideoEmpty");
   if (empty) empty.hidden = true;
   video.load();
-  video.play()?.catch(() => {});
+  if (video.muted) video.play()?.catch(() => {});
   return true;
 }
 

@@ -1,0 +1,226 @@
+import { bindSeedancePanel, paintSeedancePanel } from "./seedance-panel.js";
+import { bindWorkspace, paintTimelinePosition } from "./workspace.js";
+import { state } from './state.js';
+import { get, post } from './api.js';
+import { csrf } from '../trocr/animate-utils.js';
+import { escapeHtml } from './utils.js';
+
+const base = '/parametros/api/format-lab/studio';
+export const defaultEdit = () => ({start:0,end:0,original_volume:1,sound_id:'',sound_volume:.35,sound_offset:0,fade_in:0,fade_out:0,loop:false,video_fade_in:0,video_fade_out:0,grayscale:false,flip:false});
+const fields = {mcStudioOriginal:'original_volume',mcStudioVolume:'sound_volume',mcStudioOffset:'sound_offset',mcStudioFadeIn:'fade_in',mcStudioFadeOut:'fade_out',mcStudioTrimStart:'start',mcStudioTrimEnd:'end',mcStudioLoop:'loop',mcStudioVideoFadeIn:'video_fade_in',mcStudioVideoFadeOut:'video_fade_out',mcStudioGrayscale:'grayscale',mcStudioFlip:'flip'};
+const $ = id => document.getElementById(id);
+let sounds = [], brand = '', dirty, repaint, undo = [], redo = [], baseline = '', restoring = false;
+let soundPlayer = new Audio(), pollTimer, frame, exporting = false, soundRequest = 0;
+const time = value => `${Math.floor((value || 0)/60)}:${String(Math.floor((value || 0)%60)).padStart(2,'0')}`;
+const snapshot = () => JSON.stringify({name:state.name,scenes:state.scenes,script:state.script,audio:state.audio,motion:state.motion,duration:state.duration,quality:state.quality,aspectRatio:state.aspectRatio,seed:state.seed,edit:state.edit});
+
+export function recordStudioChange() {
+  if (restoring || !baseline) return;
+  const next = snapshot();
+  if (next === baseline) return;
+  undo.push(baseline); if (undo.length > 50) undo.shift();
+  redo = []; baseline = next;
+  updateHistory();
+}
+function updateHistory() { if ($('mcStudioUndo')) $('mcStudioUndo').disabled = !undo.length; if ($('mcStudioRedo')) $('mcStudioRedo').disabled = !redo.length; }
+function restoreHistory(from, to) {
+  if (!from.length) return;
+  to.push(snapshot()); restoring = true;
+  Object.assign(state, JSON.parse(from.pop()));
+  baseline = snapshot();
+  if (!state.scenes.some(s => s.id === state.selectedSceneId)) state.selectedSceneId = state.scenes[0]?.id || '';
+  dirty(); repaint(); restoring = false; updateHistory();
+}
+
+export function bindStudio(markDirty, paintAll) {
+  dirty = markDirty; repaint = paintAll;
+  state.edit ||= defaultEdit();
+  bindWorkspace(state, markDirty, paintStudio);
+  bindSeedancePanel(state, markDirty, paintStudio);
+  $('mcStudioUndo')?.addEventListener('click', () => restoreHistory(undo,redo));
+  $('mcStudioRedo')?.addEventListener('click', () => restoreHistory(redo,undo));
+  document.addEventListener('keydown', event => {
+    if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'z' || event.target.closest('input,textarea,[contenteditable]')) return;
+    event.preventDefault(); event.shiftKey ? restoreHistory(redo,undo) : restoreHistory(undo,redo);
+  });
+  for (const [id,key] of Object.entries(fields)) {
+    const input = $(id);
+    input?.addEventListener('input', () => {
+      const value = input.type === 'checkbox' ? input.checked : Math.min(Number(input.max),Math.max(Number(input.min),Number(input.value) || 0));
+      state.edit[key] = value;
+      paintStudio(); syncSound(true);
+    });
+    input?.addEventListener('change', () => { dirty(); });
+  }
+  $('mcStudioRemoveSound')?.addEventListener('click', () => { state.edit.sound_id='';soundPlayer.pause();dirty();paintStudio(); });
+  $('mcStudioSoundFile')?.addEventListener('change', uploadSound);
+  $('mcStudioSoundList')?.addEventListener('click', event => {
+    const button = event.target.closest('[data-sound]');
+    if (!button) return;
+    state.edit.sound_id = button.dataset.sound; state.panelTab='audio';
+    document.querySelectorAll('#mcStudioSoundList audio').forEach(audio => audio.pause());
+    dirty(); repaint(); syncSound(true);
+  });
+  $('mcStudioSoundList')?.addEventListener('play', event => {
+    $('mcSwapVideo')?.pause(); soundPlayer.pause();
+    document.querySelectorAll('#mcStudioSoundList audio').forEach(audio => {if(audio !== event.target) audio.pause();});
+  }, true);
+  $('mcStudioExport')?.addEventListener('click', exportEdit);
+  $('mcStudioPlay')?.addEventListener('click', () => {
+    const video=$('mcSwapVideo'); if (!video?.src) return;
+    if (video.paused) {
+      state.previewMode='clip'; repaint();
+      const end=state.edit.end || video.duration;
+      if (video.currentTime < state.edit.start || video.currentTime >= end) video.currentTime=state.edit.start;
+      video.play().catch(() => status('Não foi possível reproduzir este clipe.'));
+    } else video.pause();
+  });
+  $('mcStudioSeek')?.addEventListener('input', event => {
+    const video=$('mcSwapVideo'); if(video && Number.isFinite(video.duration)) {video.currentTime=Number(event.target.value);syncSound(true);}
+  });
+  const video=$('mcSwapVideo');
+  for (const name of ['loadedmetadata','durationchange','timeupdate','seeked','pause','play','ended']) video?.addEventListener(name, () => {
+    if(name==='play') { document.querySelectorAll('#mcStudioSoundList audio').forEach(a=>a.pause()); cancelAnimationFrame(frame); tick(); }
+    if(name==='pause'||name==='ended') {cancelAnimationFrame(frame);soundPlayer.pause();}
+    if(name==='seeked') { syncSound(true);paintVisual(); }
+    if(name==='play' && video.currentTime<state.edit.start) video.currentTime=state.edit.start;
+    if(name==='loadedmetadata') { video.loop=false;video.volume=state.edit.original_volume;paintVisual(); }
+    paintPlayback();
+  });
+  document.addEventListener('cadu:studio-paint', paintStudio);
+  window.addEventListener('pagehide', () => {soundPlayer.pause();cancelAnimationFrame(frame);clearTimeout(pollTimer);});
+}
+
+export async function resetStudio() {
+  brand=state.clientId; sounds=[]; undo=[];redo=[];baseline=snapshot();updateHistory();
+  soundPlayer.pause();soundPlayer.removeAttribute('src');soundPlayer.load();
+  cancelAnimationFrame(frame);clearTimeout(pollTimer); exporting=false;
+  if($('mcStudioExportStatus')) $('mcStudioExportStatus').hidden=true;
+  await loadSounds();
+  const pending=sessionStorage.getItem(`cadu-export:${brand}`);
+  if(pending) {exporting=true;pollExport(pending,brand);}
+}
+async function loadSounds() {
+  if(!brand) {paintStudio();return;}
+  const client=brand, request=++soundRequest;
+  try {
+    const data=await get(`${base}/sounds?client_id=${encodeURIComponent(client)}`);
+    if(client!==brand || request!==soundRequest)return;
+    sounds=data.items || []; $('mcStudioSoundStatus').textContent='';paintStudio();
+  } catch(error) {if(client===brand)$('mcStudioSoundStatus').textContent=error.message;}
+}
+async function uploadSound(event) {
+  const file=event.target.files?.[0]; event.target.value=''; if(!file)return;
+  if(!brand) {$('mcStudioSoundStatus').textContent='Escolha uma marca.';return;}
+  if(file.size>25*1024*1024) {$('mcStudioSoundStatus').textContent='Envie um áudio de até 25 MB.';return;}
+  const client=brand, form=new FormData();form.append('client_id',client);form.append('file',file);form.append('category',$('mcStudioSoundCategory').value);
+  $('mcStudioSoundFile').disabled=true; $('mcStudioSoundStatus').textContent='Enviando e preparando áudio…';
+  try {
+    const response=await fetch(`${base}/sounds`,{method:'POST',credentials:'same-origin',headers:{'X-Trocr-CSRF-Token':csrf()},body:form});
+    const data=await response.json();if(!response.ok || data.success===false)throw new Error(data.error || 'Falha no envio.');
+    if(client===brand)await loadSounds();
+  }catch(error){if(client===brand)$('mcStudioSoundStatus').textContent=error.message;}
+  finally{$('mcStudioSoundFile').disabled=false;}
+}
+
+let soundListKey='';
+export function paintStudio() {
+  if(!$('mcStudioSounds'))return;
+  paintSeedancePanel();
+  state.edit ||= defaultEdit();
+  $('mcStudioSounds').hidden=state.libTab!=='sound';
+  const rows=sounds.filter(row => row.name.toLocaleLowerCase().includes((state.search||'').toLocaleLowerCase()));
+  const key=JSON.stringify([brand,rows,state.edit.sound_id]);
+  if(key!==soundListKey) {
+    soundListKey=key;
+    $('mcStudioSoundList').innerHTML=rows.map(row=>`<article class="mc-studio-sound"><strong>${escapeHtml(row.name)}</strong><small>${({music:'Música',effect:'Efeito',voice:'Locução'})[row.category] || 'Áudio'} · ${time(row.duration)}</small><audio controls preload="none" src="${escapeHtml(row.url)}"></audio><button type="button" class="mc-cadu-video-ghost" data-sound="${escapeHtml(row.id)}">${row.id===state.edit.sound_id?'Trilha selecionada':'Adicionar à edição'}</button></article>`).join('') || '<p class="mc-cadu-video-hint">Nenhum som encontrado. Envie uma música, efeito ou locução.</p>';
+  }
+  for(const [id,key] of Object.entries(fields)) if($(id)&&document.activeElement!==$(id)) {
+    if($(id).type==='checkbox')$(id).checked=state.edit[key];else $(id).value=state.edit[key];
+  }
+  $('mcStudioOriginalValue').value=`${Math.round(state.edit.original_volume*100)}%`;
+  $('mcStudioVolumeValue').value=`${Math.round(state.edit.sound_volume*100)}%`;
+  const selected=sounds.find(row=>row.id===state.edit.sound_id);
+  const waveform=$('mcStudioWaveform');
+  if(waveform && waveform.dataset.sound!==String(selected?.id||'')){
+    waveform.dataset.sound=selected?.id||'';
+    const values=selected?.waveform || [];
+    waveform.innerHTML=values.map((v,i)=>`<path d="M${i*600/values.length} ${14-Math.min(1,Math.max(0,v))*13}v${Math.min(1,Math.max(0,v))*26}" stroke="currentColor" stroke-width="2"/>`).join('');
+  }
+  $('mcStudioTrackLabel').textContent=selected?.name || (state.edit.sound_id ? 'Trilha indisponível' : 'Nenhuma trilha adicionada');
+  $('mcStudioGenerationAudio').textContent=({silence:'Sem áudio',ambient:'Ambiente',music:'Música',voice:'Voz na geração',voiceover:'Locução separada'})[state.audio.mode] || 'Ambiente';
+  $('mcStudioRemoveSound').disabled=!state.edit.sound_id;
+  $('mcStudioExport').disabled=!state.activeClipId || exporting;
+  if(state.libTab==='sound')$('mcVideoLibHint').textContent='Sons desta marca para a edição do clipe.';
+  if(state.previewMode!=='clip')$('mcSwapVideo')?.pause();
+  paintVisual();
+  paintPlayback();
+}
+function paintVisual() {
+  const video=$('mcSwapVideo');if(!video)return;
+  video.style.filter=state.edit.grayscale?'grayscale(1)':'';
+  video.style.transform=state.edit.flip?'scaleX(-1)':'';
+  const start=state.edit.start, end=Math.min(state.edit.end || video.duration,video.duration);
+  const length=end-start, elapsed=Math.max(0,video.currentTime-start);
+  const fi=Math.min(state.edit.video_fade_in,length), fo=Math.min(state.edit.video_fade_out,length);
+  const opacity=(fi?Math.min(1,elapsed/fi):1)*(fo?Math.min(1,Math.max(0,end-video.currentTime)/fo):1);
+  video.style.opacity=Number.isFinite(opacity)?opacity:1;
+}
+function paintPlayback() {
+  paintTimelinePosition();
+  const video=$('mcSwapVideo'), ready=video && Number.isFinite(video.duration) && video.duration>0 && Boolean(video.getAttribute('src'));
+  $('mcStudioPlay').disabled=!ready;$('mcStudioSeek').disabled=!ready;
+  $('mcStudioPlay').textContent=video?.paused?'Reproduzir clipe':'Pausar';
+  if(ready){$('mcStudioSeek').max=video.duration;$('mcStudioSeek').value=video.currentTime;$('mcStudioTime').value=`${time(video.currentTime)} / ${time(video.duration)}`;}
+  else $('mcStudioTime').value='0:00 / 0:00';
+}
+function tick(){paintVisual();syncSound();paintTimelinePosition();if(!$('mcSwapVideo')?.paused)frame=requestAnimationFrame(tick);}
+function syncSound(force=false){
+  const video=$('mcSwapVideo');if(!video)return;
+  video.volume=state.edit.original_volume;
+  const end=Math.min(state.edit.end || video.duration,video.duration), start=state.edit.start;
+  if(!video.paused && video.currentTime>=end){video.pause();video.currentTime=start;return;}
+  const row=sounds.find(row=>row.id===state.edit.sound_id);
+  if(!row || video.paused || video.hidden || video.muted){soundPlayer.pause();return;}
+  if(soundPlayer.getAttribute('src')!==row.url){soundPlayer.src=row.url;soundPlayer.preload='metadata';force=true;}
+  const elapsed=Math.max(0,video.currentTime-start), length=end-start;
+  let at=state.edit.sound_offset+elapsed;
+  if(state.edit.loop) at%=row.duration;
+  if(at>=row.duration){soundPlayer.pause();return;}
+  const fi=Math.min(state.edit.fade_in,length), fo=Math.min(state.edit.fade_out,length);
+  const fadeIn=fi?Math.min(1,elapsed/fi):1;
+  const fadeOut=fo?Math.min(1,Math.max(0,length-elapsed)/fo):1;
+  soundPlayer.volume=Math.min(1,state.edit.sound_volume*fadeIn*fadeOut);
+  if(force||Math.abs(soundPlayer.currentTime-at)>.2)soundPlayer.currentTime=at;
+  if(soundPlayer.paused)soundPlayer.play().catch(()=>{});
+}
+function status(text, url=''){
+  const node=$('mcStudioExportStatus');node.hidden=false;node.textContent=text;
+  if(url){const a=document.createElement('a');a.href=url;a.textContent='Baixar MP4';node.appendChild(a);}
+}
+async function exportEdit(){
+  if(exporting || !state.activeClipId)return;
+  const video=$('mcSwapVideo'), end=state.edit.end || video?.duration;
+  if(!Number.isFinite(end)||end<=state.edit.start){status('Defina um intervalo de corte válido.');return;}
+  const client=brand, id=crypto.randomUUID().replaceAll('-','');
+  exporting=true;paintStudio();status('Preparando exportação com corte e mixagem…');
+  sessionStorage.setItem(`cadu-export:${client}`,id);
+  try{
+    await post(`${base}/exports`,{client_id:client,clip_id:state.activeClipId,edit:{...state.edit},request_id:id});
+    if(client===brand)pollExport(id,client);
+  }catch(error){sessionStorage.removeItem(`cadu-export:${client}`);if(client===brand){exporting=false;paintStudio();status(error.message);}}
+}
+async function pollExport(id,client){
+  if(client!==brand)return;
+  try{
+    const result=await get(`${base}/exports/${id}?client_id=${encodeURIComponent(client)}`);
+    if(client!==brand)return;
+    if(result.status==='ready'||result.status==='failed'){
+      exporting=false;sessionStorage.removeItem(`cadu-export:${client}`);paintStudio();
+      status(result.status==='ready'?'Exportação pronta. Alterações feitas durante o processamento ficam para a próxima exportação.':result.error,
+        result.status==='ready'?`${base}/exports/${id}/content?client_id=${encodeURIComponent(client)}`:'');return;
+    }
+    status('Exportando corte e mixagem. Você pode continuar editando.');
+  }catch(error){if(client===brand)status(`Não foi possível acompanhar a exportação: ${error.message}`);}
+  if(client===brand)pollTimer=setTimeout(()=>pollExport(id,client),4000);
+}

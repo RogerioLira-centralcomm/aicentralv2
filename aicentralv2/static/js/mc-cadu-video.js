@@ -1,3 +1,4 @@
+import { bindStudio, resetStudio, recordStudioChange, defaultEdit, paintStudio } from "./cadu-video/studio.js";
 import { quoteAnimate, submitAnimate } from "./trocr/animate-api.js";
 import { startPoll } from "./trocr/animate-poller.js";
 import { deleteLibrary, get, loadVideoProject, post, saveVideoProject } from "./cadu-video/api.js";
@@ -39,6 +40,7 @@ async function boot() {
   const params = new URLSearchParams(window.location.search);
   state.activeClipId = params.get("clip") || "";
   bindUi();
+  bindStudio(markDirty, paintAll);
   document.addEventListener("cadu:brand-ready", (event) => applyBrand(event.detail?.clientId));
   document.addEventListener("cadu:brand-change", (event) => {
     applyBrand(event.detail?.clientId, { reset: true });
@@ -71,12 +73,14 @@ function bindUi() {
       if (button.dataset.previewMode === "clip" && !state.activeClipId) return;
       state.previewMode = button.dataset.previewMode || "scene";
       paintCanvas();
+      paintStudio();
     });
   });
   document.getElementById("mcVideoSearch")?.addEventListener("input", (event) => {
     state.search = event.target.value || "";
     paintLibrary();
     paintClips();
+    paintStudio();
   });
   document.getElementById("mcVideoName")?.addEventListener("input", (event) => {
     state.name = event.target.value || "";
@@ -237,6 +241,9 @@ async function applyBrand(id, { reset = false } = {}) {
     resetProjectFields();
     state.library = [];
     state.clips = [];
+    state.edit = defaultEdit();
+    clearClip();
+    await resetStudio();
     paintAll();
     return;
   }
@@ -245,9 +252,19 @@ async function applyBrand(id, { reset = false } = {}) {
     if (!state.clips.length) await loadClips();
     return;
   }
+  clearTimeout(saveTimer);
+  clearTimeout(quoteTimer);
+  saveRequest += 1;
+  state.saving = false;
   state.clientId = next;
-  if (reset) resetProjectFields();
-  await Promise.all([loadLibrary(), loadClips(), restoreProject()]);
+  resetProjectFields();
+  state.edit = defaultEdit();
+  clearClip();
+  await Promise.all([loadLibrary(), loadClips()]);
+  if (state.clientId !== next) return;
+  await restoreProject();
+  if (state.clientId !== next) return;
+  await resetStudio();
   paintAll();
   scheduleQuote();
 }
@@ -259,17 +276,19 @@ async function restoreProject() {
     const data = await loadVideoProject(clientId);
     if (clientId !== state.clientId) return;
     applyProject(data.project || {});
-  } catch (_error) {
-    // Projeto antigo sem endpoint ou vazio — segue com estado limpo.
+  } catch (error) {
+    setStatus(`Não foi possível abrir o projeto: ${error.message}`);
   }
   if (state.activeClipId) {
     const clip = state.clips.find((item) => item.id === state.activeClipId || item.job_id === state.activeClipId);
-    if (clip) await selectClip(clip, { restore: true });
+    if (clip) await selectClip(clip, { restore: false });
   }
 }
 
 function applyProject(project) {
   if (!project || typeof project !== "object") return;
+  state.edit = { ...defaultEdit(), ...(project.edit || {}) };
+  state.seed = project.seed ?? null;
   state.name = project.name || state.name;
   state.aspectRatio = project.aspect_ratio || state.aspectRatio;
   state.duration = Number(project.duration || state.duration) || 8;
@@ -305,6 +324,8 @@ function projectPayload() {
       scene_ids: state.scenes.map((item) => item.id),
       script: state.script,
       audio: state.audio,
+      edit: state.edit,
+      seed: state.seed,
       motion: state.motion,
       active_clip_id: state.activeClipId,
       selected_scene_id: state.selectedSceneId,
@@ -313,6 +334,8 @@ function projectPayload() {
 }
 
 function markDirty() {
+  recordStudioChange();
+  paintStudio();
   state.dirty = true;
   state.saveStatus = "pending";
   state.quote = null;
@@ -337,6 +360,7 @@ async function persistProject() {
     scheduleSave();
     return;
   }
+  const clientId = state.clientId;
   const version = state.requestVersion;
   const request = ++saveRequest;
   state.saving = true;
@@ -344,16 +368,21 @@ async function persistProject() {
   paintSaveStatus();
   try {
     await saveVideoProject(projectPayload());
-    if (request === saveRequest && version === state.requestVersion) {
+    if (clientId === state.clientId && request === saveRequest && version === state.requestVersion) {
       state.dirty = false;
       state.saveStatus = "saved";
     }
-  } catch (_error) {
-    if (request === saveRequest) state.saveStatus = "error";
+  } catch (error) {
+    if (clientId === state.clientId && request === saveRequest) {
+      state.saveStatus = "error";
+      setStatus(error.message);
+    }
   } finally {
-    state.saving = false;
-    paintSaveStatus();
-    if (state.dirty && state.saveStatus !== "error") scheduleSave();
+    if (clientId === state.clientId && request === saveRequest) {
+      state.saving = false;
+      paintSaveStatus();
+      if (state.dirty && state.saveStatus !== "error") scheduleSave();
+    }
   }
 }
 
@@ -447,7 +476,7 @@ function restoreFromClip(clip) {
     alignBeatsToScenes();
   }
   if (clip.quality) state.quality = clip.quality;
-  if (clip.duration) state.duration = Number(clip.duration) || state.duration;
+  if ([5,8,10,15,20,30].includes(Number(clip.duration))) state.duration = Number(clip.duration);
   if (clip.voiceover_script) {
     state.audio.mode = "voiceover";
     state.audio.script = clip.voiceover_script;
@@ -745,6 +774,7 @@ function planBody() {
   return {
     client_id: state.clientId || undefined,
     duration: state.duration,
+    seed: state.seed,
     quality: state.quality,
     aspect_ratio: state.aspectRatio,
     source: { mode: "storyboard", ref_ids: state.scenes.map((item) => item.id) },

@@ -8,6 +8,7 @@
 {% if mc_page_js == 'js/camadas/index.js' %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/camadas-v2.css') }}?v=5">
 {% endif %}
+{% if mc_page_js == 'js/mc-cadu-video.js' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/video-studio.css') }}?v=1">{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -42,7 +43,7 @@
 <script src="{{ url_for('static', filename='js/mc-viewer-shell.js') }}?v=1" defer></script>
 {% endif %}
 {% if mc_page_js == 'js/camadas/index.js' or mc_page_js == 'js/mc-cadu-video.js' %}
-<script type="module" src="{{ url_for('static', filename=mc_page_js) }}?v=15"></script>
+<script type="module" src="{{ url_for('static', filename=mc_page_js) }}?v=16"></script>
 {% else %}
 <script src="{{ url_for('static', filename=mc_page_js) }}?v=83" defer></script>
 {% endif %}

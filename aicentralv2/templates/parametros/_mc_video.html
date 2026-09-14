@@ -1,27 +1,35 @@
-<article class="mc-cadu-video" id="mcSwap" data-csrf="{{ mc_trocr_csrf or '' }}">
-  <header class="mc-cadu-video-toolbar" aria-label="Projeto de vídeo">
+<article class="mc-cadu-video mc-video-studio vs-relative vs-isolate" id="mcSwap" data-csrf="{{ mc_trocr_csrf or '' }}">
+  <header class="mc-cadu-video-toolbar vs-flex vs-items-center vs-justify-between" aria-label="Projeto de vídeo">
     <label class="mc-cadu-video-field is-name"><span class="mc-cadu-video-label">Projeto</span><input id="mcVideoName" type="text" maxlength="120" placeholder="Clipe da marca" autocomplete="off"></label>
     <div class="mc-cadu-video-toolbar-side">
-      <p class="mc-cadu-video-save" id="mcVideoSaveStatus" role="status">Salvo</p>
+      <button type="button" class="mc-cadu-video-ghost" id="mcStudioUndo" disabled aria-label="Desfazer edição">↶</button><button type="button" class="mc-cadu-video-ghost" id="mcStudioRedo" disabled aria-label="Refazer edição">↷</button><button type="button" class="mc-cadu-video-ghost mc-studio-icon" id="mcStudioFocus" aria-label="Ampliar área de edição" aria-pressed="false" title="Ampliar área de edição">⛶</button><button type="button" class="mc-cadu-video-ghost mc-studio-icon" id="mcStudioTheme" aria-label="Usar aparência escura" aria-pressed="false" title="Alternar aparência">◐</button><p class="mc-cadu-video-save" id="mcVideoSaveStatus" role="status">Salvo</p>
       <p class="mc-cadu-video-quote" id="mcVideoQuote">Adicione duas cenas para calcular o custo.</p>
-      <button type="button" class="mc-cadu-new" id="mcVideoGenerate" disabled>Gerar clipe</button>
+      <button type="button" class="mc-cadu-new" id="mcVideoGenerate" disabled>Gerar com IA</button><button type="button" class="mc-cadu-video-ghost" id="mcStudioExport" disabled>Exportar edição</button>
     </div>
   </header>
   <div class="mc-cadu-video-workspace">
     <aside class="mc-cadu-video-lib" id="mcVideoLibDrop" aria-label="Biblioteca de mídia">
-      <div class="mc-cadu-video-lib-head"><h2>Biblioteca</h2><div class="mc-cadu-video-lib-actions">
+      <div class="mc-cadu-video-lib-head"><h2>Biblioteca de mídia</h2><div class="mc-cadu-video-lib-actions">
         <label class="mc-cadu-video-upload"><input id="mcVideoFile" type="file" accept="image/*" hidden>Enviar imagem</label>
         <button type="button" class="mc-cadu-video-ghost" id="mcVideoPurgeBroken" hidden>Remover arquivos indisponíveis</button>
       </div></div>
       <div class="mc-cadu-video-lib-tabs" role="tablist" aria-label="Tipo de mídia">
         <button type="button" id="mcVideoLibStillTab" class="is-active" data-lib-tab="still" role="tab" aria-selected="true" aria-controls="mcVideoLibrary">Peças</button>
         <button type="button" id="mcVideoLibClipTab" data-lib-tab="video" role="tab" aria-selected="false" aria-controls="mcVideoClips">Clipes</button>
+        <button type="button" id="mcStudioSoundsTab" data-lib-tab="sound" role="tab" aria-selected="false" aria-controls="mcStudioSounds">Sons</button>
       </div>
       <label class="mc-cadu-video-search"><span class="mc-cadu-video-label">Buscar</span><input id="mcVideoSearch" type="search" placeholder="Nome da mídia" autocomplete="off"></label>
       <p class="mc-cadu-video-hint" id="mcVideoLibHint">Escolha a marca na barra para ver as peças.</p>
       <ul class="mc-cadu-video-takes" id="mcVideoLibrary" role="tabpanel" aria-labelledby="mcVideoLibStillTab"></ul>
       <ul class="mc-cadu-video-clips" id="mcVideoClips" role="tabpanel" aria-labelledby="mcVideoLibClipTab" hidden></ul>
+      <section id="mcStudioSounds" role="tabpanel" aria-labelledby="mcStudioSoundsTab" hidden>
+        <div class="mc-studio-upload-row"><label class="mc-cadu-video-upload"><input id="mcStudioSoundFile" type="file" accept="audio/mpeg,audio/wav,audio/mp4,audio/ogg,audio/x-m4a,audio/x-wav" hidden>Enviar som</label>
+        <select id="mcStudioSoundCategory" aria-label="Categoria do arquivo enviado"><option value="music">Música</option><option value="effect">Efeito</option><option value="voice">Locução</option></select></div>
+        <p class="mc-cadu-video-hint">MP3, WAV, M4A ou OGG · até 25 MB. Use sons autorizados para sua campanha.</p>
+        <p id="mcStudioSoundStatus" role="status"></p><div id="mcStudioSoundList"></div>
+      </section>
     </aside>
+    <div class="mc-studio-divider" id="mcStudioLibraryResize" role="separator" tabindex="0" aria-label="Largura da biblioteca" aria-orientation="vertical" aria-valuemin="210" aria-valuemax="380" aria-valuenow="250"></div>
     <main class="mc-cadu-video-center">
       <section class="mc-cadu-video-stage" aria-label="Prévia">
         <div class="mc-cadu-video-stage-bar">
@@ -31,12 +39,14 @@
           <button type="button" class="mc-cadu-video-ghost" id="mcVideoNextScene" aria-label="Próxima cena">→</button>
         </div>
         <div class="mc-cadu-video-frame"><img id="mcVideoStill" alt="Prévia da cena selecionada" hidden><video id="mcSwapVideo" playsinline controls preload="metadata" hidden></video><p class="mc-cadu-video-empty" id="mcVideoEmpty">Adicione pelo menos duas cenas para montar o clipe.</p></div>
-        <p class="mc-cadu-video-status" id="mcAnimateStatus" role="status" aria-live="polite"></p><ol class="mc-cadu-video-steps" id="mcAnimateSteps" aria-live="polite" hidden></ol>
+        <p class="mc-cadu-video-status" id="mcAnimateStatus" role="status" aria-live="polite"></p><details class="mc-studio-job-details"><summary>Detalhes da geração</summary><ol class="mc-cadu-video-steps" id="mcAnimateSteps" aria-live="polite" hidden></ol></details>
       </section>
-      <section class="mc-cadu-video-timeline" aria-label="Sequência de cenas"><div class="mc-cadu-video-timeline-tools"><strong>Sequência de cenas</strong><span class="mc-cadu-video-hint" id="mcVideoTimelineHint">Adicione peças da biblioteca para começar.</span></div><div class="mc-cadu-video-track-lane" id="mcVideoScenes"></div></section>
+      <section class="mc-studio-playback" aria-label="Controles de reprodução"><button type="button" id="mcStudioPlay" class="mc-cadu-video-ghost" disabled>Reproduzir clipe</button><input id="mcStudioSeek" type="range" min="0" max="1" step="0.01" value="0" aria-label="Posição no clipe" disabled><output id="mcStudioTime">0:00 / 0:00</output></section>
+
     </main>
+    <div class="mc-studio-divider" id="mcStudioInspectorResize" role="separator" tabindex="0" aria-label="Largura das propriedades" aria-orientation="vertical" aria-valuemin="260" aria-valuemax="420" aria-valuenow="290"></div>
     <aside class="mc-cadu-video-desk" aria-label="Ferramentas do vídeo">
-      <div class="mc-cadu-video-panel-tabs" role="tablist" aria-label="Ferramentas"><button type="button" id="mcVideoSceneTab" class="is-active" data-panel-tab="scene" role="tab" aria-selected="true" aria-controls="mcVideoScenePanel">Cena</button><button type="button" id="mcVideoAudioTab" data-panel-tab="audio" role="tab" aria-selected="false" aria-controls="mcVideoAudioPanel">Áudio</button><button type="button" id="mcVideoSettingsTab" data-panel-tab="video" role="tab" aria-selected="false" aria-controls="mcVideoSettingsPanel">Vídeo</button></div>
+      <div class="mc-cadu-video-panel-tabs" role="tablist" aria-label="Ferramentas"><button type="button" id="mcVideoSceneTab" class="is-active" data-panel-tab="scene" role="tab" aria-selected="true" aria-controls="mcVideoScenePanel">Cena</button><button type="button" id="mcVideoAudioTab" data-panel-tab="audio" role="tab" aria-selected="false" aria-controls="mcVideoAudioPanel">Áudio</button><button type="button" id="mcVideoSettingsTab" data-panel-tab="video" role="tab" aria-selected="false" aria-controls="mcVideoSettingsPanel">Editar</button><button type="button" id="mcVideoSeedanceTab" data-panel-tab="seedance" role="tab" aria-selected="false" aria-controls="mcVideoSeedancePanel">Seedance</button></div>
       <div class="mc-cadu-video-panel-body is-active" id="mcVideoScenePanel" data-panel-pane="scene" role="tabpanel" aria-labelledby="mcVideoSceneTab">
         <div class="mc-cadu-video-desk-head"><h2>Cena <span id="mcVideoSceneIndex">—</span> de <span id="mcVideoSceneCount">0</span></h2><p class="mc-cadu-video-hint" id="mcVideoSceneHint">Adicione uma peça da biblioteca.</p></div>
         <div class="mc-cadu-video-actions"><button type="button" class="mc-cadu-video-ghost" id="mcVideoScriptBtn" disabled>Montar roteiro com IA</button></div>
@@ -48,18 +58,55 @@
         <details class="mc-cadu-video-script-details"><summary>Roteiro completo</summary><label class="mc-cadu-video-script"><span class="mc-cadu-video-label">Texto de todas as cenas</span><textarea id="mcVideoScript" rows="9" placeholder="Cena 1 — abertura"></textarea></label></details>
       </div>
       <div class="mc-cadu-video-panel-body" id="mcVideoAudioPanel" data-panel-pane="audio" role="tabpanel" aria-labelledby="mcVideoAudioTab" hidden>
-        <fieldset class="mc-cadu-video-chips"><legend>Som</legend><label><input type="radio" name="mcVideoAudio" value="silence" checked> Silêncio</label><label><input type="radio" name="mcVideoAudio" value="ambient"> Ambiente</label><label><input type="radio" name="mcVideoAudio" value="music"> Música</label><label><input type="radio" name="mcVideoAudio" value="voice"> Orientação de voz</label><label><input type="radio" name="mcVideoAudio" value="voiceover"> Locução exata</label></fieldset>
-        <label class="mc-cadu-video-field" id="mcVideoVoiceRow" hidden><span class="mc-cadu-video-label">Orientação de voz</span><textarea id="mcVideoVoicePrompt" rows="3" maxlength="400" placeholder="Descreva o tom e o assunto."></textarea></label>
-        <div id="mcVideoVoiceoverRow" hidden><label class="mc-cadu-video-field"><span class="mc-cadu-video-label">Roteiro falado</span><textarea id="mcVideoVoiceover" rows="5" maxlength="800"></textarea></label><fieldset class="mc-cadu-video-chips"><legend>Voz</legend><label><input type="radio" name="mcVideoVoiceGender" value="male" checked> Homem</label><label><input type="radio" name="mcVideoVoiceGender" value="female"> Mulher</label></fieldset><fieldset class="mc-cadu-video-chips"><legend>Velocidade</legend><label><input type="radio" name="mcVideoVoicePace" value="normal" checked> Normal</label><label><input type="radio" name="mcVideoVoicePace" value="fast"> Rápida</label></fieldset><p class="mc-cadu-video-hint" id="mcVideoVoiceoverHint">A locução será combinada com o vídeo depois da geração.</p></div>
-        <label class="mc-cadu-video-field" id="mcVideoMusicRow" hidden><span class="mc-cadu-video-label">Estilo da música</span><input id="mcVideoMusic" type="text" maxlength="160"></label>
+        <div class="mc-studio-mix">
+          <h3>Mixagem do clipe aberto</h3><p class="mc-cadu-video-hint">A prévia e a exportação usam estes ajustes. Abra um clipe na biblioteca para começar.</p>
+          <label class="mc-cadu-video-field"><span>Volume original <output id="mcStudioOriginalValue">100%</output></span><input id="mcStudioOriginal" aria-label="Volume original" type="range" min="0" max="1" step="0.01" value="1"></label>
+          <label class="mc-cadu-video-field"><span>Volume da trilha <output id="mcStudioVolumeValue">35%</output></span><input id="mcStudioVolume" aria-label="Volume da trilha" type="range" min="0" max="1" step="0.01" value="0.35"></label>
+          <label class="mc-cadu-video-field"><span>Começar áudio em (s)</span><input id="mcStudioOffset" type="number" min="0" max="600" step="0.1" value="0"></label>
+          <div class="mc-studio-pair"><label class="mc-cadu-video-field"><span>Fade in (s)</span><input id="mcStudioFadeIn" type="number" min="0" max="10" step="0.1" value="0"></label><label class="mc-cadu-video-field"><span>Fade out (s)</span><input id="mcStudioFadeOut" type="number" min="0" max="10" step="0.1" value="0"></label></div>
+          <label><input id="mcStudioLoop" type="checkbox"> Repetir trilha até o final</label>
+          <button type="button" id="mcStudioRemoveSound" class="mc-cadu-video-ghost">Remover trilha</button>
+        </div>
       </div>
       <div class="mc-cadu-video-panel-body" id="mcVideoSettingsPanel" data-panel-pane="video" role="tabpanel" aria-labelledby="mcVideoSettingsTab" hidden>
+        <div class="mc-studio-mix"><h3>Corte do clipe aberto</h3><p class="mc-cadu-video-hint">Defina o trecho que será exportado. Zero no fim usa a duração completa.</p><div class="mc-studio-pair"><label class="mc-cadu-video-field"><span>Início (s)</span><input id="mcStudioTrimStart" type="number" min="0" max="300" step="0.1" value="0"></label><label class="mc-cadu-video-field"><span>Fim (s)</span><input id="mcStudioTrimEnd" type="number" min="0" max="300" step="0.1" value="0"></label></div></div>
+        <div class="mc-studio-mix"><h3>Efeitos do clipe</h3><div class="mc-studio-pair"><label class="mc-cadu-video-field"><span>Entrada suave (s)</span><input id="mcStudioVideoFadeIn" type="number" min="0" max="10" step="0.1" value="0"></label><label class="mc-cadu-video-field"><span>Saída suave (s)</span><input id="mcStudioVideoFadeOut" type="number" min="0" max="10" step="0.1" value="0"></label></div><label><input id="mcStudioGrayscale" type="checkbox"> Preto e branco</label><label><input id="mcStudioFlip" type="checkbox"> Espelhar horizontalmente</label></div>
+      </div>
+      <div class="mc-cadu-video-panel-body" id="mcVideoSeedancePanel" data-panel-pane="seedance" role="tabpanel" aria-labelledby="mcVideoSeedanceTab" hidden>
+        <div class="mc-studio-model"><span class="mc-studio-model-icon" aria-hidden="true">✦</span><div><h3>Geração de vídeo</h3><p id="mcStudioModel" class="mc-cadu-video-hint">Carregando modelo…</p></div></div>
+        <p class="mc-cadu-video-hint" id="mcStudioCapabilities" role="status"></p><button type="button" class="mc-cadu-video-ghost" id="mcStudioCapabilitiesRetry" hidden>Recarregar parâmetros</button>
         <label class="mc-cadu-video-field"><span class="mc-cadu-video-label">Formato</span><select id="mcVideoAspect"><option value="16:9" selected>16:9</option><option value="9:16">9:16</option><option value="1:1">1:1</option><option value="4:3">4:3</option><option value="3:4">3:4</option><option value="21:9">21:9</option></select></label>
-        <fieldset class="mc-cadu-video-chips"><legend>Duração</legend><label><input type="radio" name="mcVideoDuration" value="8" checked> 8s</label><label><input type="radio" name="mcVideoDuration" value="10"> 10s</label><label><input type="radio" name="mcVideoDuration" value="15"> 15s</label><label><input type="radio" name="mcVideoDuration" value="30"> 30s</label></fieldset>
+        <fieldset class="mc-cadu-video-chips"><legend>Duração</legend><label><input type="radio" name="mcVideoDuration" value="5"> 5s</label><label><input type="radio" name="mcVideoDuration" value="8" checked> 8s</label><label><input type="radio" name="mcVideoDuration" value="10"> 10s</label><label><input type="radio" name="mcVideoDuration" value="15"> 15s</label><label><input type="radio" name="mcVideoDuration" value="20"> 20s</label><label><input type="radio" name="mcVideoDuration" value="30"> 30s</label></fieldset>
         <fieldset class="mc-cadu-video-chips"><legend>Qualidade</legend><label><input type="radio" name="mcVideoQuality" value="draft" checked> Rascunho</label><label><input type="radio" name="mcVideoQuality" value="production"> Produção</label></fieldset>
         <fieldset class="mc-cadu-video-chips"><legend>Movimento</legend><label><input type="radio" name="mcVideoMotion" value="live" checked> Vivo</label><label><input type="radio" name="mcVideoMotion" value="camera"> Câmera</label><label><input type="radio" name="mcVideoMotion" value="people"> Pessoas</label><label><input type="radio" name="mcVideoMotion" value="product"> Produto</label><label><input type="radio" name="mcVideoMotion" value="transition"> Transição</label><label><input type="radio" name="mcVideoMotion" value="free"> Livre</label></fieldset>
         <label class="mc-cadu-video-field"><span class="mc-cadu-video-label">Intensidade</span><select id="mcVideoIntensity"><option value="subtle" selected>Sutil</option><option value="moderate">Moderada</option><option value="expressive">Expressiva</option></select></label><label class="mc-cadu-video-field"><span class="mc-cadu-video-label">O que o vídeo faz</span><textarea id="mcVideoMotionNote" rows="3" maxlength="400" placeholder="Opcional"></textarea></label>
+        <p class="mc-studio-generation-summary" id="mcStudioGenerationSummary"></p>
+        <div class="mc-studio-mix">
+        <h3>Áudio na geração</h3><p class="mc-cadu-video-hint">Escolha o som solicitado ao modelo para o próximo vídeo.</p><fieldset class="mc-cadu-video-chips"><legend>Som</legend><label><input type="radio" name="mcVideoAudio" value="silence"> Sem áudio</label><label><input type="radio" name="mcVideoAudio" value="ambient" checked> Ambiente</label><label><input type="radio" name="mcVideoAudio" value="music"> Música</label><label><input type="radio" name="mcVideoAudio" value="voice"> Orientação de voz</label><label><input type="radio" name="mcVideoAudio" value="voiceover"> Locução exata</label></fieldset>
+        <label class="mc-cadu-video-field" id="mcVideoVoiceRow" hidden><span class="mc-cadu-video-label">Orientação de voz</span><textarea id="mcVideoVoicePrompt" rows="3" maxlength="400" placeholder="Descreva o tom e o assunto."></textarea></label>
+        <div id="mcVideoVoiceoverRow" hidden><label class="mc-cadu-video-field"><span class="mc-cadu-video-label">Roteiro falado</span><textarea id="mcVideoVoiceover" rows="5" maxlength="800"></textarea></label><fieldset class="mc-cadu-video-chips"><legend>Voz</legend><label><input type="radio" name="mcVideoVoiceGender" value="male" checked> Homem</label><label><input type="radio" name="mcVideoVoiceGender" value="female"> Mulher</label></fieldset><fieldset class="mc-cadu-video-chips"><legend>Velocidade</legend><label><input type="radio" name="mcVideoVoicePace" value="normal" checked> Normal</label><label><input type="radio" name="mcVideoVoicePace" value="fast"> Rápida</label></fieldset><p class="mc-cadu-video-hint" id="mcVideoVoiceoverHint">A locução será combinada com o vídeo depois da geração.</p></div>
+        <label class="mc-cadu-video-field" id="mcVideoMusicRow" hidden><span class="mc-cadu-video-label">Estilo da música</span><input id="mcVideoMusic" type="text" maxlength="160"></label>
+        </div>
+        <details class="mc-cadu-video-script-details"><summary>Parâmetros avançados</summary><label class="mc-cadu-video-field"><span class="mc-cadu-video-label">Seed (opcional)</span><input id="mcStudioSeed" type="number" min="0" max="2147483647" step="1" placeholder="Automática"></label><p class="mc-cadu-video-hint">Reutilize uma seed para orientar novas tentativas com os mesmos parâmetros.</p></details>
+        <p class="mc-cadu-video-hint">Os parâmetros se aplicam à próxima geração. Para alterar um clipe pronto, use Editar e Áudio.</p>
       </div>
     </aside>
   </div>
+  <div class="mc-studio-divider is-horizontal" id="mcStudioTimelineResize" role="separator" tabindex="0" aria-label="Altura da timeline" aria-orientation="horizontal" aria-valuemin="190" aria-valuemax="360" aria-valuenow="250"></div>
+  <section class="mc-cadu-video-timeline" aria-label="Timeline de edição">
+    <div class="mc-cadu-video-timeline-tools vs-flex vs-items-center vs-justify-between vs-gap-3">
+      <div class="vs-flex vs-items-center vs-gap-3"><strong>Timeline</strong><span class="mc-studio-badge" id="mcStudioTimelineDuration">Sem clipe</span><button type="button" class="mc-cadu-video-ghost" id="mcStudioMarkIn" title="Definir início no playhead" disabled>Marcar início</button><button type="button" class="mc-cadu-video-ghost" id="mcStudioMarkOut" title="Definir fim no playhead" disabled>Marcar fim</button></div>
+      <label class="mc-studio-zoom vs-flex vs-items-center vs-gap-2"><span>Zoom</span><input id="mcStudioZoom" type="range" min="1" max="5" step="0.25" value="1" aria-label="Zoom da timeline"></label>
+    </div>
+    <div class="mc-studio-timeline-scroll" id="mcStudioTimelineScroll">
+      <div class="mc-studio-track-content" id="mcStudioTrackContent">
+        <div class="mc-studio-ruler" id="mcStudioRuler" aria-hidden="true"></div>
+        <div class="mc-studio-track-row"><span class="mc-studio-track-name">Vídeo</span><div class="mc-studio-clip-track" id="mcStudioClipTrack"><div class="mc-studio-edit-clip" id="mcStudioEditClip" hidden><button type="button" class="mc-studio-trim-handle" id="mcStudioTrimInHandle" aria-label="Ajustar início do corte" title="Arraste para aparar o início"></button><span id="mcStudioClipName">Clipe</span><button type="button" class="mc-studio-trim-handle" id="mcStudioTrimOutHandle" aria-label="Ajustar fim do corte" title="Arraste para aparar o fim"></button></div><span class="mc-studio-track-empty" id="mcStudioTrackEmpty">Abra um clipe gerado para editar corte, efeitos e som.</span></div></div>
+        <div class="mc-studio-track-row"><span class="mc-studio-track-name">Trilha</span><div class="mc-studio-sound-track"><strong id="mcStudioTrackLabel">Nenhuma trilha adicionada</strong><svg id="mcStudioWaveform" viewBox="0 0 600 28" preserveAspectRatio="none" aria-hidden="true"></svg></div></div>
+        <div class="mc-studio-playhead" id="mcStudioEditPlayhead" hidden aria-hidden="true"></div>
+      </div>
+    </div>
+    <details class="mc-studio-storyboard" open><summary>Cenas para geração <span id="mcStudioGenerationAudio">Ambiente</span></summary><div class="mc-cadu-video-track-lane" id="mcVideoScenes"></div><span class="mc-cadu-video-hint" id="mcVideoTimelineHint">Adicione peças da biblioteca para começar.</span></details>
+  </section>
+  <div class="mc-studio-export-status" id="mcStudioExportStatus" role="status" hidden></div>
 </article>

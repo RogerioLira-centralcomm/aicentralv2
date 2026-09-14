@@ -24,11 +24,12 @@ export const state = {
   requestVersion: 0,
   search: "",
   name: "",
+  seed: null,
   aspectRatio: "16:9",
   duration: 8,
   quality: "draft",
   audio: {
-    mode: "silence",
+    mode: "ambient",
     script: "",
     voice: "male",
     pace: "normal",
@@ -54,11 +55,12 @@ export function resetProjectFields() {
   state.activeClipId = "";
   state.selectedSceneId = "";
   state.name = "";
+  state.seed = null;
   state.aspectRatio = "16:9";
   state.duration = 8;
   state.quality = "draft";
   state.audio = {
-    mode: "silence",
+    mode: "ambient",
     script: "",
     voice: "male",
     pace: "normal",

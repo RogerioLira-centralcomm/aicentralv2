@@ -6,7 +6,8 @@
     "dev": "tailwindcss -i ./aicentralv2/static/css/tailwind/input.css -o ./aicentralv2/static/css/tailwind/output.css --watch",
     "build:vanilla": "tailwindcss -c ./tailwind.config.js -i ./aicentralv2/static/css/tailwind/input.css -o ./aicentralv2/static/css/tailwind/output.css --minify",
     "build:legacy": "tailwindcss -c ./tailwind.legacy.config.js -i ./aicentralv2/static/css/tailwind/input.css -o ./aicentralv2/static/css/tailwind/output-legacy.css --minify",
-    "build": "npm run build:vanilla && npm run build:legacy"
+    "build": "npm run build:vanilla && npm run build:legacy && npm run build:studio",
+    "build:studio": "tailwindcss -c ./tailwind.studio.config.js -i ./aicentralv2/static/css/tailwind/video-studio.input.css -o ./aicentralv2/static/css/video-studio.css --minify"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.20",

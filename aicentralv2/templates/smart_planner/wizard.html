@@ -4,7 +4,7 @@
 {% block title %}{{ steps[step_index].title }} · Smart Planner{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=27">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=29">
 {% endblock %}
 
 {% block content %}
@@ -36,7 +36,7 @@
             {% if step_id == 'briefing' %}
               Adicione o contexto da campanha para gerar um planejamento mais preciso.
             {% elif step_id == 'revisao' %}
-              Confira os dados extraídos e a configuração do plano antes de gerar os documentos.
+              Confira o briefing. A gestão de mídia abre no modal — calendário mensal para voos de 2 a 12 meses.
             {% elif step_id == 'canais' %}
               Confira se a verba cobre o voo inteiro antes de gerar o documento. O Gantt começa menor para aprender e solta mais orçamento no meio e no fim.
             {% elif step_id == 'gerar' %}
@@ -147,9 +147,16 @@
       <form id="sp-revisao-form" class="sp-review">
         <section class="sp-complete" data-tom="{{ quality.tom }}" aria-labelledby="sp-complete-title">
           <div class="sp-complete-score">
-            <strong>{{ quality_score }}<small>/100</small></strong>
+            {% set ring = [quality_score, 100]|min %}
+            <div class="sp-score-ring" aria-hidden="true">
+              <svg viewBox="0 0 36 36">
+                <circle class="sp-score-track" cx="18" cy="18" r="15"></circle>
+                <circle class="sp-score-fill" cx="18" cy="18" r="15" stroke-dasharray="{{ (ring * 94.2 / 100)|round(1) }} 94.2"></circle>
+              </svg>
+              <strong>{{ quality_score }}<small>/100</small></strong>
+            </div>
             <label class="sr-only" for="sp-complete-bar">Completude do briefing</label>
-            <progress id="sp-complete-bar" max="100" value="{{ [quality_score, 100]|min }}"></progress>
+            <progress id="sp-complete-bar" max="100" value="{{ ring }}" hidden></progress>
           </div>
           <div>
             <h2 id="sp-complete-title">{{ quality.titulo }}{% if quality.tom == 'baixo' %} — briefing incompleto{% endif %}</h2>
@@ -168,8 +175,11 @@
         <input type="hidden" name="agencia_id" value="{{ campos.agencia_id or '' }}">
         <input type="hidden" name="cx_client_id" value="{{ campos.cx_client_id or '' }}">
 
-        <details class="sp-acc" open>
-          <summary aria-controls="sp-acc-essentials">Informações essenciais</summary>
+        <details class="sp-acc" data-acc="essentials" data-required="sp-field-campanha,sp-field-cliente,sp-objetivo" open>
+          <summary aria-controls="sp-acc-essentials">
+            <span class="sp-acc-title">Informações essenciais</span>
+            <span class="sp-acc-meta" data-acc-meta></span>
+          </summary>
           <div class="sp-bf" id="sp-acc-essentials">
             <label for="sp-field-campanha"><span>Campanha</span><input id="sp-field-campanha" name="campanha" value="{{ campos.campanha }}"></label>
             <label for="sp-field-cliente"><span>Anunciante</span><input id="sp-field-cliente" name="cliente" value="{{ campos.cliente }}"></label>
@@ -190,32 +200,44 @@
           </div>
         </details>
 
-        <details class="sp-acc">
-          <summary aria-controls="sp-acc-audience">Público e mensagem</summary>
+        <details class="sp-acc" data-acc="audience" data-required="sp-field-publico">
+          <summary aria-controls="sp-acc-audience">
+            <span class="sp-acc-title">Público e mensagem</span>
+            <span class="sp-acc-meta" data-acc-meta></span>
+          </summary>
           <div class="sp-bf" id="sp-acc-audience">
             <label for="sp-field-objetivo-texto"><span>Como o anunciante descreveu</span><input id="sp-field-objetivo-texto" name="objetivo_texto" value="{{ campos.objetivo_texto }}"></label>
             <label for="sp-field-publico"><span>Público</span><textarea id="sp-field-publico" name="publico" rows="3">{{ campos.publico }}</textarea></label>
           </div>
         </details>
 
-        <details class="sp-acc">
-          <summary aria-controls="sp-acc-context">Contexto e restrições</summary>
+        <details class="sp-acc" data-acc="context">
+          <summary aria-controls="sp-acc-context">
+            <span class="sp-acc-title">Contexto e restrições</span>
+            <span class="sp-acc-meta" data-acc-meta></span>
+          </summary>
           <div class="sp-bf" id="sp-acc-context">
             <label for="sp-field-contexto"><span>Contexto da campanha</span><textarea id="sp-field-contexto" name="contexto" rows="3">{{ campos.contexto }}</textarea></label>
             <label for="sp-field-observacoes"><span>Observações e restrições</span><textarea id="sp-field-observacoes" name="observacoes" rows="3">{{ campos.observacoes }}</textarea></label>
           </div>
         </details>
 
-        <details class="sp-acc">
-          <summary aria-controls="sp-acc-extracted">Conteúdo extraído</summary>
+        <details class="sp-acc" data-acc="extracted">
+          <summary aria-controls="sp-acc-extracted">
+            <span class="sp-acc-title">Conteúdo extraído</span>
+            <span class="sp-acc-meta" data-acc-meta></span>
+          </summary>
           <div class="sp-bf" id="sp-acc-extracted">
             <label for="sp-field-criativos"><span>Materiais e formatos identificados</span><textarea id="sp-field-criativos" name="criativos" rows="3">{{ campos.criativos }}</textarea></label>
             <p class="sp-acc-note">Confirme, edite ou apague o que a leitura automática trouxe. Campo vazio não entra no plano.</p>
           </div>
         </details>
 
-        <details class="sp-acc" open>
-          <summary aria-controls="sp-acc-narrative">Briefing compilado</summary>
+        <details class="sp-acc" data-acc="narrative" data-required="sp-narrative" open>
+          <summary aria-controls="sp-acc-narrative">
+            <span class="sp-acc-title">Briefing compilado</span>
+            <span class="sp-acc-meta" data-acc-meta></span>
+          </summary>
           <div id="sp-acc-narrative">
             <label class="sp-brief-field" for="sp-narrative">
               <span>Narrativa corrida que segue para a folha e o plano</span>
@@ -226,8 +248,11 @@
         </details>
 
         {% if briefing_original or fonte_referencias %}
-        <details class="sp-acc">
-          <summary aria-controls="sp-acc-source">Briefing original</summary>
+        <details class="sp-acc" data-acc="source">
+          <summary aria-controls="sp-acc-source">
+            <span class="sp-acc-title">Briefing original</span>
+            <span class="sp-acc-meta" data-acc-meta></span>
+          </summary>
           <div id="sp-acc-source">
             <p>O texto do usuário e o apoio revisado. A narrativa pode ser reescrita sem apagar isto.</p>
             <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-original-open">Ver fonte completa</button>
@@ -455,7 +480,7 @@
       <div class="sp-hi-budget">
         <section class="sp-side-card">
           <h2>Configuração do plano</h2>
-          <p>Verba, voo, praça e indicadores. O mix abaixo usa estes números.</p>
+          <p>Verba, voo, praça e indicadores. O modal de mídia usa estes números.</p>
           <div class="sp-bf">
             <label for="sp-field-verba"><span>Verba</span><input id="sp-field-verba" form="sp-revisao-form" name="verba" value="{{ campos.verba }}" placeholder="R$ 80 mil por mês"></label>
             <label for="sp-field-verba-base">
@@ -484,60 +509,90 @@
         </section>
       </div>
       <div class="sp-hi-mix">
-        <section class="sp-side-card sp-mix-desk">
-          <h2>Gestão de canais</h2>
-          <p>Marque o que entra no voo. O método abaixo fecha 100%.</p>
-          <div class="sp-mix-chips" id="sp-mix-chips" hidden></div>
-          <label class="sp-mix-search" for="sp-mix-search" id="sp-mix-search-wrap" hidden>
-            <span class="sr-only">Buscar canal</span>
-            <input class="cx-input" id="sp-mix-search" type="search" placeholder="Buscar canal">
-          </label>
-          <div class="sp-mix-channels" id="sp-mix-channels">
-            {% set shown = namespace(n=0) %}
-            {% for group_key, group_label, group_items in channel_sections %}
-            <div class="sp-mix-group">
-              <h3>{{ group_label }}</h3>
-              <div class="sp-mix-checks">
-                {% for key, meta in group_items %}
-                {% if meta.tipo != 'dados' %}
-                {% set extra = shown.n >= 8 and key not in campos.canais %}
-                {% if not extra %}{% set shown.n = shown.n + 1 %}{% endif %}
-                <label {% if extra %}data-extra="1" hidden{% endif %} data-label="{{ meta.label|lower }}">
-                  <input form="sp-revisao-form" type="checkbox" name="canais" value="{{ key }}" {% if key in campos.canais %}checked{% endif %}>
-                  <span>{{ meta.label }}</span>
-                </label>
-                {% endif %}
-                {% endfor %}
-              </div>
-            </div>
-            {% endfor %}
-          </div>
-          <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-mix-more-btn" hidden>Ver mais canais</button>
-          <h2>Balanceamento de mídia</h2>
-          <p id="sp-mix-hint">
-            {% if campos.objetivo %}
-              Dois métodos indicados para este objetivo. Os outros quatro ficam em mais métodos.
+        <section class="sp-side-card sp-mix-summary">
+          <h2>Gestão de mídia</h2>
+          <p id="sp-mix-summary-copy">
+            {% if mix %}
+              {{ mix|length }} canal{{ 'is' if mix|length != 1 else '' }} · {{ desk.method_label or 'Funil do objetivo' }}
             {% else %}
-              Escolha o objetivo na narrativa para indicar os dois métodos do funil.
+              Abra o modal para marcar canais e fechar 100%.
             {% endif %}
           </p>
-          <div class="sp-mix-picks" id="sp-mix-picks" role="radiogroup" aria-label="Método de mix">
-            {% for method in desk.methods or [] %}
-            {% if method.id in (desk.recommended or []) %}
-            <label class="sp-mix-pick {% if method.id == desk.method %}is-on{% endif %}" data-recommended="1">
-              <input form="sp-revisao-form" type="radio" name="mix_method" value="{{ method.id }}" {% if method.id == desk.method %}checked{% endif %}>
-              <strong>{{ method.label }}</strong>
-              <small>{{ method.summary }}</small>
-            </label>
-            {% endif %}
+          <ul class="sp-mix-snap" id="sp-mix-snap" {% if not desk.weights %}hidden{% endif %}>
+            {% for item in (desk.weights or [])[:4] %}
+            <li><span>{{ item.label }}</span><em>{{ item.pct }}%</em></li>
             {% endfor %}
+          </ul>
+          <div class="sp-cal-mini" id="sp-cal-mini" {% if not pace.editavel %}hidden{% endif %}>
+            {% if pace.editavel %}
+            <p>{{ pace.meses }} meses · começa menor e solta no meio e no fim</p>
+            <ol>
+              {% for key in pace.chaves %}
+              <li title="{{ pace.rotulos[loop.index0] if pace.rotulos and pace.rotulos|length > loop.index0 else key }}">
+                <b style="--pct: {{ ((pace.alocacao[key] / pace.total * 100) if pace.total else 0)|round }}"></b>
+                <span>{{ pace.rotulos[loop.index0] if pace.rotulos and pace.rotulos|length > loop.index0 else key }}</span>
+              </li>
+              {% endfor %}
+            </ol>
+            {% endif %}
           </div>
-          <details class="sp-mix-more" {% if desk.method and desk.method not in (desk.recommended or []) %}open{% endif %}>
-            <summary>Métodos avançados</summary>
-            <div class="sp-mix-picks is-more">
+          <button type="button" class="cx-btn cx-btn-primary cx-btn-sm" id="sp-media-open">Balancear mídia</button>
+        </section>
+        <script type="application/json" id="sp-mix-spec">{{ (desk.spec or {})|tojson }}</script>
+        <script type="application/json" id="sp-pace-boot">{{ (pace or {})|tojson }}</script>
+      </div>
+    </aside>
+
+    <dialog class="sp-media" id="sp-media" aria-labelledby="sp-media-title">
+      <div class="sp-media-sheet">
+        <header>
+          <div>
+            <h2 id="sp-media-title">Gestão de mídia</h2>
+            <p>Canais, método e calendário mensal. Em voos de 2 a 12 meses a mídia progride: aprende no começo e converte no fim.</p>
+          </div>
+          <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-media-close">Fechar</button>
+        </header>
+        <div class="sp-media-grid">
+          <section class="sp-media-mix" aria-labelledby="sp-cb-mix-title">
+            <h3 id="sp-cb-mix-title">Gestão de canais</h3>
+            <div class="sp-mix-chips" id="sp-mix-chips" hidden></div>
+            <label class="sp-mix-search" for="sp-mix-search" id="sp-mix-search-wrap" hidden>
+              <span class="sr-only">Buscar canal</span>
+              <input class="cx-input" id="sp-mix-search" type="search" placeholder="Buscar canal">
+            </label>
+            <div class="sp-mix-channels" id="sp-mix-channels">
+              {% set shown = namespace(n=0) %}
+              {% for group_key, group_label, group_items in channel_sections %}
+              <div class="sp-mix-group">
+                <h3>{{ group_label }}</h3>
+                <div class="sp-mix-checks">
+                  {% for key, meta in group_items %}
+                  {% if meta.tipo != 'dados' %}
+                  {% set extra = shown.n >= 12 and key not in campos.canais %}
+                  {% if not extra %}{% set shown.n = shown.n + 1 %}{% endif %}
+                  <label {% if extra %}data-extra="1" hidden{% endif %} data-label="{{ meta.label|lower }}">
+                    <input form="sp-revisao-form" type="checkbox" name="canais" value="{{ key }}" {% if key in campos.canais %}checked{% endif %}>
+                    <span>{{ meta.label }}</span>
+                  </label>
+                  {% endif %}
+                  {% endfor %}
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-mix-more-btn" hidden>Ver mais canais</button>
+            <h3>Balanceamento de mídia</h3>
+            <p id="sp-mix-hint">
+              {% if campos.objetivo %}
+                Dois métodos indicados para este objetivo. Os outros quatro ficam em mais métodos.
+              {% else %}
+                Escolha o objetivo na narrativa para indicar os dois métodos do funil.
+              {% endif %}
+            </p>
+            <div class="sp-mix-picks" id="sp-mix-picks" role="radiogroup" aria-label="Método de mix">
               {% for method in desk.methods or [] %}
-              {% if method.id not in (desk.recommended or []) %}
-              <label class="sp-mix-pick {% if method.id == desk.method %}is-on{% endif %}">
+              {% if method.id in (desk.recommended or []) %}
+              <label class="sp-mix-pick {% if method.id == desk.method %}is-on{% endif %}" data-recommended="1">
                 <input form="sp-revisao-form" type="radio" name="mix_method" value="{{ method.id }}" {% if method.id == desk.method %}checked{% endif %}>
                 <strong>{{ method.label }}</strong>
                 <small>{{ method.summary }}</small>
@@ -545,27 +600,75 @@
               {% endif %}
               {% endfor %}
             </div>
-          </details>
-          <div class="sp-mix-alloc" id="sp-mix-alloc" aria-live="polite">
-            <p class="sp-mix-empty" id="sp-mix-empty" {% if desk.weights %}hidden{% endif %}>Marque os canais desta campanha para ver o mix.</p>
-            <ul id="sp-mix-bars">
-              {% for item in desk.weights or [] %}
-              <li data-canal="{{ item.id }}">
-                <span>
-                  <strong>{{ item.label }}</strong>
-                  <em>{{ item.pct }}%</em>
-                </span>
-                <i><b data-pct="{{ item.pct }}"></b></i>
-                <input type="range" min="0" max="100" value="{{ item.pct }}" data-canal="{{ item.id }}" aria-label="Percentual de {{ item.label }}">
-              </li>
-              {% endfor %}
-            </ul>
-            <p class="sp-mix-sum" id="sp-mix-sum" {% if not desk.weights %}hidden{% endif %}>Soma {{ desk.weights|sum(attribute='pct') if desk.weights else 0 }}%</p>
-          </div>
-        </section>
-        <script type="application/json" id="sp-mix-spec">{{ (desk.spec or {})|tojson }}</script>
+            <details class="sp-mix-more" {% if desk.method and desk.method not in (desk.recommended or []) %}open{% endif %}>
+              <summary>Métodos avançados</summary>
+              <div class="sp-mix-picks is-more">
+                {% for method in desk.methods or [] %}
+                {% if method.id not in (desk.recommended or []) %}
+                <label class="sp-mix-pick {% if method.id == desk.method %}is-on{% endif %}">
+                  <input form="sp-revisao-form" type="radio" name="mix_method" value="{{ method.id }}" {% if method.id == desk.method %}checked{% endif %}>
+                  <strong>{{ method.label }}</strong>
+                  <small>{{ method.summary }}</small>
+                </label>
+                {% endif %}
+                {% endfor %}
+              </div>
+            </details>
+            <div class="sp-mix-alloc" id="sp-mix-alloc" aria-live="polite">
+              <p class="sp-mix-empty" id="sp-mix-empty" {% if desk.weights %}hidden{% endif %}>Marque os canais desta campanha para ver o mix.</p>
+              <ul id="sp-mix-bars">
+                {% for item in desk.weights or [] %}
+                <li data-canal="{{ item.id }}">
+                  <span>
+                    <strong>{{ item.label }}</strong>
+                    <em>{{ item.pct }}%</em>
+                  </span>
+                  <i><b data-pct="{{ item.pct }}"></b></i>
+                  <input type="range" min="0" max="100" value="{{ item.pct }}" data-canal="{{ item.id }}" aria-label="Percentual de {{ item.label }}">
+                </li>
+                {% endfor %}
+              </ul>
+              <p class="sp-mix-sum" id="sp-mix-sum" {% if not desk.weights %}hidden{% endif %}>Soma {{ desk.weights|sum(attribute='pct') if desk.weights else 0 }}%</p>
+            </div>
+          </section>
+          <section class="sp-media-cal" aria-labelledby="sp-cal-title">
+            <div class="sp-cal-head">
+              <div>
+                <h3 id="sp-cal-title">Calendário de balanceamento</h3>
+                <p id="sp-gantt-note">
+                  {% if pace.editavel %}
+                    Começa menor para aprender. Solta mais verba no meio e no fim. Ajuste o mês.
+                  {% elif pace.meses == 1 %}
+                    Campanha de um mês: a verba entra inteira. O calendário aparece em voos de 2 a 12 meses.
+                  {% else %}
+                    Informe uma duração (90 dias, 3 meses ou set a nov) para ver o voo.
+                  {% endif %}
+                </p>
+              </div>
+              <label class="sp-cal-progress" for="sp-mix-progress">
+                <input type="checkbox" id="sp-mix-progress" {% if desk.progress %}checked{% endif %} {% if not pace.editavel %}disabled{% endif %}>
+                <span>Mídia progressiva</span>
+              </label>
+            </div>
+            <div class="sp-gantt-nums">
+              <p><small>No período</small><strong id="sp-gantt-total">{{ 'R$ {:,}'.format(pace.total).replace(',', '.') if pace.total else '—' }}</strong></p>
+              <p><small>Ritmo mensal</small><strong id="sp-gantt-ritmo">{{ '~R$ {:,}'.format(pace.ritmo).replace(',', '.') + '/mês' if pace.ritmo else '—' }}</strong></p>
+            </div>
+            <div class="sp-gantt" id="sp-gantt" {% if not verba.valor or not pace.parseou %}hidden{% endif %}>
+              <div class="sp-gantt-track" id="sp-gantt-track"></div>
+              <div class="sp-gantt-cols" id="sp-gantt-cols" {% if not pace.editavel %}hidden{% endif %}></div>
+            </div>
+            <div class="sp-cal-table-wrap" id="sp-cal-wrap" {% if not pace.editavel %}hidden{% endif %}>
+              <table class="sp-cal-table" id="sp-cal-table"></table>
+            </div>
+          </section>
+        </div>
+        <footer class="sp-media-foot">
+          <p id="sp-media-status" aria-live="polite"></p>
+          <button type="button" class="cx-btn cx-btn-primary" id="sp-media-apply">Aplicar no plano</button>
+        </footer>
       </div>
-    </aside>
+    </dialog>
     {% endif %}
 
     {% if step_id != 'revisao' %}
@@ -746,6 +849,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=17"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=18"></script>
 <script src="{{ url_for('static', filename='js/smart_planner/guide.js') }}?v=3"></script>
 {% endblock %}

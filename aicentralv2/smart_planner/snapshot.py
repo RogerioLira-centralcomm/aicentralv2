@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from .catalog import CHANNEL_CATALOG, channel_label, objetivo_label
 from .helpers import as_bool, as_dict, as_list, client_display_name, session_title, text
 from .materials import normalize_references
+from .mix import progress_calendar, should_progress
 from .pace import budget_shares, campaign_pace, format_money
 
 
@@ -75,6 +76,14 @@ def build_snapshot(row: dict, dados: dict | None = None) -> dict:
         "channels": canais,
         "mix": mix,
         "mix_method": text(as_dict(campanha.get("mix")).get("method")),
+        "mix_progress": should_progress(pace.get("meses"), campanha.get("mix")),
+        "calendar": progress_calendar(
+            canais,
+            text(row.get("objetivo") or dados.get("objetivo") or campanha.get("objetivo")),
+            text(as_dict(campanha.get("mix")).get("method")),
+            pace,
+            campanha.get("mix"),
+        ),
         "kpis": as_list(dados.get("kpis") or campanha.get("kpis")),
         "brand": {
             "name": text(brand.get("name")),

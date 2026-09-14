@@ -126,6 +126,38 @@ def test_plan_prompt_includes_monthly_flight():
     assert "50%" in block
 
 
+def test_progress_calendar_shifts_toward_conversion():
+    from aicentralv2.smart_planner.mix import progress_calendar, should_progress
+    from aicentralv2.smart_planner.pace import campaign_pace
+
+    assert should_progress(1) is False
+    assert should_progress(6) is True
+    assert should_progress(6, {"progress": False}) is False
+    assert should_progress(18) is False
+
+    pace = campaign_pace({
+        "verba": "R$ 120.000 no total",
+        "verba_valor": 120000,
+        "verba_base": "total",
+        "periodo": "6 meses",
+    }, HOJE)
+    calendar = progress_calendar(
+        ["google_ads", "meta_ads", "netflix", "g1"],
+        "vendas",
+        "funil",
+        pace,
+        {"method": "funil", "progress": True},
+        True,
+    )
+    assert calendar["progress"] is True
+    assert calendar["months"] == 6
+    google = next(row for row in calendar["rows"] if row["id"] == "google_ads")
+    netflix = next(row for row in calendar["rows"] if row["id"] == "netflix")
+    assert google["cells"][0]["pct"] < google["cells"][-1]["pct"]
+    assert netflix["cells"][0]["pct"] > netflix["cells"][-1]["pct"]
+    assert sum(cell["valor"] for cell in google["cells"]) > 0
+
+
 def test_wizard_has_three_synced_steps():
     ids = [item["id"] for item in WIZARD_STEPS]
     assert ids == ["briefing", "revisao", "conclusao"]

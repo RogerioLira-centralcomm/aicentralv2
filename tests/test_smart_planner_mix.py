@@ -113,6 +113,8 @@ class MixEngineTest(unittest.TestCase):
         }, "revisao")
         self.assertEqual(ctx["mix_desk"]["recommended"], ["funil", "eficiencia"])
         self.assertTrue(ctx["mix_desk"]["weights"])
+        self.assertIn("calendar", ctx["mix_desk"])
+        self.assertIn("progress", ctx["mix_desk"])
         self.assertEqual(sum(item["pct"] for item in ctx["mix_desk"]["weights"]), 100)
         self.assertEqual(ctx["campos"]["verba"], "R$ 80 mil")
         self.assertIn("one_page", ctx["cost_options"])
@@ -132,7 +134,13 @@ class MixEngineTest(unittest.TestCase):
         self.assertIn("Salvar rascunho", html)
         self.assertIn("Smart Planner", html)
         self.assertIn("Balanceamento de mídia", html)
+        self.assertIn("Gestão de mídia", html)
         self.assertIn("Gestão de canais", html)
+        self.assertIn('id="sp-media"', html)
+        self.assertIn("Calendário de balanceamento", html)
+        self.assertIn("Mídia progressiva", html)
+        self.assertIn('data-acc="essentials"', html)
+        self.assertIn("data-acc-meta", html)
         self.assertNotIn("Dados da campanha", html)
         review = html.split('id="sp-revisao-form"', 1)[1].split("</form>", 1)[0]
         self.assertNotIn('name="verba"', review)
@@ -162,6 +170,41 @@ class MixEngineTest(unittest.TestCase):
         self.assertIn("GPT-5", guide)
         self.assertIn("Página única", guide)
         self.assertIn("Planejamento completo", guide)
+
+    def test_persist_review_keeps_flight_and_progress(self):
+        from unittest.mock import patch
+
+        from aicentralv2.smart_planner import service
+
+        saved = {}
+
+        def _save(_token, campos, briefing=None):
+            saved.update(campos)
+            saved["briefing"] = briefing
+            return {"ok": True}
+
+        with patch.object(service, "save_campos", side_effect=_save):
+            service.persist_review("tok", {
+                "briefing": "Narrativa",
+                "canais": ["google_ads", "netflix"],
+                "mix": {
+                    "method": "funil",
+                    "progress": True,
+                    "weights": [{"id": "google_ads", "pct": 40}, {"id": "netflix", "pct": 60}],
+                },
+                "verba_alocacao": {"2026-09": 20000, "2026-10": 30000},
+                "campos": {
+                    "objetivo": "vendas",
+                    "verba": "R$ 50.000",
+                    "verba_valor": 50000,
+                    "verba_base": "total",
+                    "periodo": "set a out 2026",
+                },
+            })
+
+        self.assertTrue(saved["mix"]["progress"])
+        self.assertEqual(saved["verba_alocacao"]["2026-09"], 20000)
+        self.assertEqual(saved["verba_alocacao"]["2026-10"], 30000)
 
     def test_rewrite_from_plan_keeps_original(self):
         from contextlib import nullcontext

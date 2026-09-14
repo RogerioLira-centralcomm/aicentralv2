@@ -8,6 +8,7 @@ from .cost import bound_session
 from .catalog import CHANNEL_CATALOG, PLAN_MODES, channel_label
 from .helpers import as_dict, as_list, normalize_markdown, plan_mode_of, text
 from .materials import apoio_block
+from .mix import progress_calendar
 from .pace import budget_shares, campaign_pace, format_money
 from .repository import get_by_token, merge_dados, update_session
 
@@ -131,6 +132,22 @@ def _campaign_block(campanha: dict) -> str:
             lines.append(f"  - {label}: {format_money(int((pace['alocacao'] or {}).get(key) or 0))}")
         if pace.get("como"):
             lines.append(f"- Ritmo: {pace['como']}")
+        calendar = progress_calendar(
+            canais,
+            text(campanha.get("objetivo")),
+            text(mix.get("method")),
+            pace,
+            mix,
+        )
+        if calendar.get("progress") and calendar.get("rows"):
+            lines.append("- Mídia progressiva (aprende no começo, converte no fim):")
+            for row in calendar["rows"]:
+                cells = ", ".join(
+                    f"{label} {cell.get('pct')}%"
+                    for label, cell in zip(calendar.get("labels") or [], row.get("cells") or [])
+                )
+                if cells:
+                    lines.append(f"  - {row.get('label')}: {cells}")
     return "\n".join(lines)
 
 

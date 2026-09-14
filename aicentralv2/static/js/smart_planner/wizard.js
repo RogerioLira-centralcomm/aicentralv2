@@ -239,9 +239,15 @@
     }
   }
 
+  function openMediaModal() {
+    var dlg = document.getElementById("sp-media");
+    if (dlg && typeof dlg.showModal === "function" && !dlg.open) dlg.showModal();
+  }
+
   function focusField(id) {
     var el = typeof id === "string" ? document.getElementById(id) : id;
     if (!el) return;
+    if (el.id === "sp-mix-channels" || el.closest("#sp-media")) openMediaModal();
     var acc = el.closest("details.sp-acc");
     if (acc) acc.open = true;
     if (el.scrollIntoView) {
@@ -663,7 +669,11 @@
     if (!form || !specEl) return;
     var spec = {};
     try { spec = JSON.parse(specEl.textContent || "{}") || {}; } catch (err) { spec = {}; }
-    var desk = document.getElementById("sp-hi-plan") || root;
+    var desk = document.getElementById("sp-wizard") || document.getElementById("sp-hi-plan") || root;
+    var pace = {};
+    try { pace = JSON.parse((document.getElementById("sp-pace-boot") || {}).textContent || "{}") || {}; } catch (err) { pace = {}; }
+    var fixedMonths = {};
+    var ritmoTimer = null;
     var objetivoEl = document.getElementById("sp-objetivo");
     var bars = document.getElementById("sp-mix-bars");
     var empty = document.getElementById("sp-mix-empty");
@@ -827,10 +837,199 @@
         sumEl.textContent = "Soma " + total + "%";
       }
     }
+    function money(value) {
+      return parseInt(String(value || "").replace(/\D/g, ""), 10) || 0;
+    }
+    function formatMoney(value) {
+      return Math.max(0, value).toLocaleString("pt-BR");
+    }
+    function progressOn() {
+      var box = document.getElementById("sp-mix-progress");
+      return !!(box && box.checked && pace.editavel);
+    }
+    function monthValues() {
+      var cols = document.getElementById("sp-gantt-cols");
+      var out = {};
+      if (!cols) return Object.assign({}, pace.alocacao || {});
+      cols.querySelectorAll("[data-chave]").forEach(function (input) {
+        out[input.getAttribute("data-chave")] = money(input.value);
+      });
+      if (!Object.keys(out).length) return Object.assign({}, pace.alocacao || {});
+      return out;
+    }
+    function monthMix(index) {
+      var canais = selectedCanais();
+      var method = selectedMethod();
+      var objetivo = objetivoEl ? objetivoEl.value : "";
+      var months = (pace.chaves || []).length;
+      if (!progressOn() || months <= 1 || method === "manual") {
+        return allocate(canais, objetivo, method, currentWeights());
+      }
+      var early = allocate(canais, "reconhecimento", method === "alcance" ? "funil" : method);
+      var late = allocate(canais, objetivo, method, currentWeights());
+      var t = months > 1 ? index / (months - 1) : 1;
+      var raw = late.map(function (item) {
+        var start = 0;
+        early.forEach(function (row) { if (row.id === item.id) start = row.pct; });
+        return [item.id, (1 - t) * start + t * item.pct];
+      });
+      var pcts = normalizePcts(raw);
+      return late.map(function (item) {
+        return { id: item.id, label: item.label, group: item.group, pct: pcts[item.id] || 0 };
+      });
+    }
+    function paintSummary() {
+      var copy = document.getElementById("sp-mix-summary-copy");
+      var snap = document.getElementById("sp-mix-snap");
+      var weights = currentWeights();
+      var labels = {};
+      Object.keys(spec.labels || {}).forEach(function (key) { labels[key] = spec.labels[key]; });
+      desk.querySelectorAll("#sp-mix-channels input[name='canais']:checked").forEach(function (input) {
+        var name = input.closest("label") && input.closest("label").querySelector("span");
+        if (name) labels[input.value] = name.textContent;
+      });
+      if (copy) {
+        var methodLabel = "";
+        var pick = desk.querySelector(".sp-mix-pick.is-on strong");
+        if (pick) methodLabel = pick.textContent;
+        copy.textContent = weights.length
+          ? weights.length + (weights.length === 1 ? " canal · " : " canais · ") + (methodLabel || "Mix")
+          : "Abra o modal para marcar canais e fechar 100%.";
+      }
+      if (snap) {
+        snap.hidden = weights.length === 0;
+        snap.innerHTML = weights.slice(0, 4).map(function (item) {
+          return "<li><span>" + (labels[item.id] || item.id) + "</span><em>" + item.pct + "%</em></li>";
+        }).join("");
+      }
+    }
+    function paintMiniCal() {
+      var mini = document.getElementById("sp-cal-mini");
+      if (!mini) return;
+      var keys = pace.chaves || [];
+      var labels = pace.rotulos || [];
+      var values = pace.editavel ? monthValues() : (pace.alocacao || {});
+      var total = parseInt(pace.total, 10) || 0;
+      mini.hidden = !pace.editavel || !keys.length;
+      if (mini.hidden) return;
+      mini.innerHTML = "<p>" + keys.length + " meses · começa menor e solta no meio e no fim</p><ol>"
+        + keys.map(function (key, index) {
+          var valor = values[key] || 0;
+          var pct = total > 0 ? Math.round((valor / total) * 100) : 0;
+          return "<li title=\"" + (labels[index] || key) + "\"><b style=\"--pct:" + pct + "\"></b><span>"
+            + (labels[index] || key) + "</span></li>";
+        }).join("") + "</ol>";
+    }
+    function paintGantt() {
+      var track = document.getElementById("sp-gantt-track");
+      var cols = document.getElementById("sp-gantt-cols");
+      var gantt = document.getElementById("sp-gantt");
+      if (!gantt) return;
+      var keys = pace.chaves || [];
+      var labels = pace.rotulos || [];
+      var values = pace.editavel ? monthValues() : (pace.alocacao || {});
+      if (!Object.keys(values).length) values = pace.alocacao || {};
+      var total = parseInt(pace.total, 10) || 0;
+      var verbaEl = document.getElementById("sp-field-verba");
+      var show = money(verbaEl && verbaEl.value) > 0 && (pace.parseou || keys.length);
+      gantt.hidden = !show;
+      gantt.style.setProperty("--months", String(Math.max(1, keys.length)));
+      if (cols) cols.hidden = !pace.editavel;
+      if (pace.editavel && cols && !cols.children.length) {
+        cols.innerHTML = keys.map(function (key, index) {
+          var valor = (pace.alocacao && pace.alocacao[key]) || 0;
+          return "<label><span>" + (labels[index] || key) + "</span><input data-chave=\"" + key
+            + "\" inputmode=\"numeric\" value=\"" + formatMoney(valor) + "\"></label>";
+        }).join("");
+      }
+      if (!track) return;
+      var peak = keys.reduce(function (max, key) { return Math.max(max, values[key] || 0); }, 0) || 1;
+      track.innerHTML = keys.map(function (key, index) {
+        var valor = values[key] || 0;
+        var pct = Math.round((valor / peak) * 100);
+        var tone = index === 0 ? "is-learn" : (index === keys.length - 1 ? "is-release" : "is-mid");
+        return "<div class=\"sp-gantt-col " + tone + (valor <= 0 ? " is-hole" : "") + "\">"
+          + "<span class=\"sp-gantt-stem\"><b style=\"height:" + pct + "%\"></b></span><strong>"
+          + (labels[index] || key) + "</strong><small>R$ " + formatMoney(valor) + "</small></div>";
+      }).join("");
+    }
+    function paintCalendar() {
+      paintGantt();
+      paintMiniCal();
+      var wrap = document.getElementById("sp-cal-wrap");
+      var table = document.getElementById("sp-cal-table");
+      var progress = document.getElementById("sp-mix-progress");
+      if (progress) progress.disabled = !pace.editavel;
+      if (!wrap || !table) return;
+      var keys = pace.chaves || [];
+      wrap.hidden = !pace.editavel || !keys.length;
+      if (wrap.hidden) return;
+      var labels = pace.rotulos || [];
+      var values = monthValues();
+      var weightsByMonth = keys.map(function (_, index) { return monthMix(index); });
+      var channels = weightsByMonth[0] || currentWeights();
+      table.innerHTML = "<thead><tr><th>Canal</th>" + keys.map(function (key, index) {
+        return "<th>" + (labels[index] || key) + "</th>";
+      }).join("") + "</tr></thead><tbody>" + channels.map(function (item) {
+        return "<tr><th>" + item.label + "</th>" + weightsByMonth.map(function (month, index) {
+          var cell = month.filter(function (row) { return row.id === item.id; })[0] || item;
+          var monthTotal = values[keys[index]] || 0;
+          var valor = Math.round(monthTotal * (cell.pct || 0) / 100);
+          return "<td style=\"--pct:" + (cell.pct || 0) + "\"><strong>" + cell.pct
+            + "%</strong><small>R$ " + formatMoney(valor) + "</small></td>";
+        }).join("") + "</tr>";
+      }).join("") + "</tbody>";
+    }
+    function applyPace(next) {
+      var same = (pace.chaves || []).join("|") === ((next && next.chaves) || []).join("|");
+      pace = next || {};
+      if (!same) {
+        fixedMonths = {};
+        var cols = document.getElementById("sp-gantt-cols");
+        if (cols) cols.innerHTML = "";
+      }
+      var note = document.getElementById("sp-gantt-note");
+      var totalEl = document.getElementById("sp-gantt-total");
+      var ritmoEl = document.getElementById("sp-gantt-ritmo");
+      var helper = document.querySelector(".sp-hi-budget .sp-flight-note");
+      if (helper) helper.textContent = pace.helper || "";
+      if (totalEl) totalEl.textContent = pace.total > 0 ? "R$ " + formatMoney(pace.total) : "—";
+      if (ritmoEl) ritmoEl.textContent = pace.ritmo > 0 ? "~R$ " + formatMoney(pace.ritmo) + "/mês" : "—";
+      if (note) {
+        if (pace.editavel) note.textContent = "Começa menor para aprender. Solta mais verba no meio e no fim. Ajuste o mês.";
+        else if (pace.meses === 1) note.textContent = "Campanha de um mês: a verba entra inteira. O calendário aparece em voos de 2 a 12 meses.";
+        else note.textContent = "Informe uma duração (90 dias, 3 meses ou set a nov) para ver o voo.";
+      }
+      var progress = document.getElementById("sp-mix-progress");
+      if (progress && !same && pace.editavel) progress.checked = true;
+      if (progress) progress.disabled = !pace.editavel;
+      paintCalendar();
+    }
+    async function refreshPace() {
+      var verbaEl = document.getElementById("sp-field-verba");
+      var baseEl = document.getElementById("sp-field-verba-base");
+      var periodoEl = document.getElementById("sp-field-periodo");
+      try {
+        var next = await postJson("/smart-planner/api/" + token + "/ritmo", {
+          verba: verbaEl ? verbaEl.value : "",
+          verba_valor: money(verbaEl && verbaEl.value),
+          verba_base: baseEl ? baseEl.value : "total",
+          periodo: periodoEl ? periodoEl.value : "",
+          verba_alocacao: monthValues(),
+        });
+        applyPace(next);
+      } catch (err) { /* ignore live calc */ }
+    }
+    function schedulePace() {
+      window.clearTimeout(ritmoTimer);
+      ritmoTimer = window.setTimeout(refreshPace, 280);
+    }
     function refresh(method) {
       method = method || selectedMethod();
       var weights = allocate(selectedCanais(), objetivoEl ? objetivoEl.value : "", method, currentWeights());
       paintBars(weights);
+      paintSummary();
+      paintCalendar();
     }
     desk.addEventListener("change", function (event) {
       var target = event.target;
@@ -901,6 +1100,82 @@
         fill.style.setProperty("--pct", fill.getAttribute("data-pct") || "0");
       });
     }
+    var mediaDlg = document.getElementById("sp-media");
+    var mediaOpen = document.getElementById("sp-media-open");
+    var mediaClose = document.getElementById("sp-media-close");
+    var mediaApply = document.getElementById("sp-media-apply");
+    if (mediaOpen) {
+      mediaOpen.addEventListener("click", function () {
+        openMediaModal();
+        paintCalendar();
+      });
+    }
+    if (mediaClose && mediaDlg) {
+      mediaClose.addEventListener("click", function () {
+        if (typeof mediaDlg.close === "function") mediaDlg.close();
+      });
+    }
+    if (mediaApply) {
+      mediaApply.addEventListener("click", async function () {
+        var status = document.getElementById("sp-media-status");
+        setLoading(mediaApply, true);
+        if (status) status.textContent = "Aplicando…";
+        try {
+          await postJson("/smart-planner/api/" + token + "/revisao", collectReview());
+          paintSummary();
+          paintMiniCal();
+          if (status) status.textContent = "Aplicado no plano.";
+          toast("Mix e calendário aplicados.", "success");
+          if (mediaDlg && typeof mediaDlg.close === "function") mediaDlg.close();
+        } catch (error) {
+          if (status) status.textContent = "";
+          toast(error.message, "error");
+        } finally {
+          setLoading(mediaApply, false);
+        }
+      });
+    }
+    var verbaEl = document.getElementById("sp-field-verba");
+    var baseEl = document.getElementById("sp-field-verba-base");
+    var periodoEl = document.getElementById("sp-field-periodo");
+    if (verbaEl) verbaEl.addEventListener("input", schedulePace);
+    if (baseEl) baseEl.addEventListener("change", schedulePace);
+    if (periodoEl) periodoEl.addEventListener("input", schedulePace);
+    var cols = document.getElementById("sp-gantt-cols");
+    if (cols) {
+      cols.addEventListener("input", function (event) {
+        var input = event.target.closest("[data-chave]");
+        if (!input || !pace.editavel) return;
+        input.value = formatMoney(money(input.value));
+        fixedMonths[input.getAttribute("data-chave")] = true;
+        var keys = pace.chaves || [];
+        var total = parseInt(pace.total, 10) || 0;
+        var current = monthValues();
+        var locked = 0;
+        var free = [];
+        keys.forEach(function (key) {
+          if (fixedMonths[key]) locked += current[key] || 0;
+          else free.push(key);
+        });
+        var rest = Math.max(0, total - locked);
+        var freeSum = free.reduce(function (sum, key) { return sum + (current[key] || 0); }, 0);
+        free.forEach(function (key, index) {
+          var field = cols.querySelector('[data-chave="' + key + '"]');
+          if (!field) return;
+          var next = freeSum > 0 ? Math.floor(((current[key] || 0) / freeSum) * rest) : Math.floor(rest / Math.max(free.length, 1));
+          if (index === free.length - 1) {
+            var used = free.slice(0, -1).reduce(function (sum, item) { return sum + money(cols.querySelector('[data-chave="' + item + '"]') && cols.querySelector('[data-chave="' + item + '"]').value); }, 0);
+            next = Math.max(0, rest - used);
+          }
+          field.value = formatMoney(next);
+        });
+        paintCalendar();
+      });
+    }
+    var progressBox = document.getElementById("sp-mix-progress");
+    if (progressBox) progressBox.addEventListener("change", paintCalendar);
+    paintSummary();
+    paintCalendar();
 
     function collectReview() {
       var data = new FormData(form);
@@ -911,7 +1186,9 @@
           method: selectedMethod(),
           weights: currentWeights(),
           locked: selectedMethod() === "manual",
+          progress: progressOn(),
         },
+        verba_alocacao: monthValues(),
         campos: {
           campanha: data.get("campanha"),
           cliente: data.get("cliente"),
@@ -955,15 +1232,86 @@
   setupMixDesk();
 
   function setupReviewSections() {
-    document.querySelectorAll(".sp-acc").forEach(function (acc) {
-      var summary = acc.querySelector("summary");
-      if (summary && !summary.getAttribute("aria-expanded")) {
-        summary.setAttribute("aria-expanded", acc.open ? "true" : "false");
-      }
-      acc.addEventListener("toggle", function () {
+    var accs = Array.prototype.slice.call(document.querySelectorAll(".sp-review .sp-acc"));
+    if (!accs.length) return;
+    var form = document.getElementById("sp-revisao-form");
+    var userToggled = false;
+
+    function fieldFilled(el) {
+      if (!el) return false;
+      if (el.type === "checkbox" || el.type === "radio") return el.checked;
+      return String(el.value || "").trim().length > 0;
+    }
+
+    function gapIds() {
+      return Array.prototype.slice.call(document.querySelectorAll(".sp-complete-gaps [data-gap]")).map(function (link) {
+        return gapTarget(link.getAttribute("data-gap") || link.textContent);
+      });
+    }
+
+    function sectionStats(acc) {
+      var fields = acc.querySelectorAll("input:not([type=hidden]):not([type=checkbox]):not([type=radio]), select, textarea");
+      var filled = 0;
+      var total = 0;
+      fields.forEach(function (el) {
+        total += 1;
+        if (fieldFilled(el)) filled += 1;
+      });
+      var required = (acc.getAttribute("data-required") || "").split(",").filter(Boolean);
+      var missing = required.filter(function (id) { return !fieldFilled(document.getElementById(id)); });
+      var hits = gapIds();
+      var hasGap = required.some(function (id) { return hits.indexOf(id) !== -1; })
+        || Array.prototype.some.call(fields, function (el) { return hits.indexOf(el.id) !== -1; });
+      return {
+        filled: filled,
+        total: total,
+        incomplete: missing.length > 0 || hasGap,
+      };
+    }
+
+    function paintMeta() {
+      accs.forEach(function (acc) {
+        var stats = sectionStats(acc);
+        var meta = acc.querySelector("[data-acc-meta]");
+        var summary = acc.querySelector("summary");
+        if (meta) {
+          if (!stats.total) meta.textContent = acc.getAttribute("data-acc") === "source" ? "fonte" : "";
+          else meta.textContent = stats.filled + "/" + stats.total + (stats.incomplete ? " · falta" : "");
+          meta.classList.toggle("is-gap", stats.incomplete);
+        }
+        acc.classList.toggle("is-gap", stats.incomplete);
         if (summary) summary.setAttribute("aria-expanded", acc.open ? "true" : "false");
       });
+    }
+
+    function autoOpen() {
+      if (userToggled) return;
+      var first = accs.filter(function (acc) { return sectionStats(acc).incomplete; })[0];
+      var narrative = accs.filter(function (acc) { return acc.getAttribute("data-acc") === "narrative"; })[0];
+      accs.forEach(function (acc) { acc.open = false; });
+      if (first) first.open = true;
+      else if (narrative) narrative.open = true;
+      else if (accs[0]) accs[0].open = true;
+    }
+
+    accs.forEach(function (acc) {
+      var summary = acc.querySelector("summary");
+      if (summary) summary.setAttribute("aria-expanded", acc.open ? "true" : "false");
+      acc.addEventListener("toggle", function () {
+        if (summary) summary.setAttribute("aria-expanded", acc.open ? "true" : "false");
+        if (!acc.open) return;
+        userToggled = true;
+        accs.forEach(function (other) {
+          if (other !== acc) other.open = false;
+        });
+      });
     });
+    paintMeta();
+    autoOpen();
+    if (form) {
+      form.addEventListener("input", paintMeta);
+      form.addEventListener("change", paintMeta);
+    }
   }
 
   function gapTarget(text) {
@@ -1109,7 +1457,7 @@
     if (genOpen) {
       genOpen.addEventListener("click", async function () {
         var objetivo = document.getElementById("sp-objetivo");
-        var hasCanal = document.querySelector('#sp-hi-plan input[name="canais"]:checked');
+        var hasCanal = document.querySelector('#sp-mix-channels input[name="canais"]:checked');
         if (objetivo && !objetivo.value) {
           focusField("sp-objetivo");
         } else if (!hasCanal) {

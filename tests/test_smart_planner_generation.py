@@ -72,6 +72,8 @@ def test_snapshot_freezes_confirmed_fields():
     assert snapshot["client"]["confidential"] is False
     assert snapshot["client"]["display_name"] == "COPASA"
     assert snapshot["channels"] == ["ooh", "google_ads"]
+    assert "calendar" in snapshot
+    assert "mix_progress" in snapshot
     assert snapshot["pending_decisions"] == ["Confirmar CPM"]
     assert evidence["snapshot_id"] == snapshot["snapshot_id"]
     assert evidence["user_briefing"] == "Preciso divulgar o app."

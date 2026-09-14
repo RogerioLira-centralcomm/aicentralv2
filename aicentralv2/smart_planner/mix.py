@@ -6,7 +6,8 @@ from collections import Counter
 from typing import Any
 
 from .catalog import CHANNEL_CATALOG, CHANNEL_GROUPS, media_channel_keys
-from .helpers import as_dict, as_list, text
+from .helpers import as_bool, as_dict, as_list, text
+from .pace import as_int, format_money
 
 
 METHODS = (
@@ -289,4 +290,111 @@ def spec_for_js() -> dict:
         "labels": {key: meta.get("label", key) for key, meta in CHANNEL_CATALOG.items()},
         "media": media_channel_keys(),
         "defaultGroupWeight": _DEFAULT_GROUP_WEIGHT,
+    }
+
+
+def should_progress(months: Any, mix: Any = None) -> bool:
+    count = as_int(months)
+    if count < 2 or count > 12:
+        return False
+    data = as_dict(mix)
+    if "progress" in data:
+        return as_bool(data.get("progress"))
+    return True
+
+
+def _blend_pcts(early: dict[str, int], late: dict[str, int], keys: list[str], t: float) -> dict[str, int]:
+    ratio = min(max(float(t), 0.0), 1.0)
+    raw = [
+        (key, (1.0 - ratio) * float(early.get(key, 0)) + ratio * float(late.get(key, 0)))
+        for key in keys
+    ]
+    return normalize_pcts(raw)
+
+
+def month_mix_weights(
+    canais: Any,
+    objetivo: str,
+    method: str,
+    months: int,
+    index: int,
+    weights: Any = None,
+    progress: bool = True,
+) -> list[dict]:
+    keys = media_keys(canais)
+    if not keys:
+        return []
+    method = text(method).lower()
+    if method not in METHOD_IDS:
+        method = recommend_methods(objetivo)[0]
+    late = allocate(canais, objetivo, method, weights)
+    if not progress or months <= 1 or method == "manual":
+        return late
+    early = allocate(canais, "reconhecimento", method if method != "alcance" else "funil")
+    early_map = {item["id"]: item["pct"] for item in early}
+    late_map = {item["id"]: item["pct"] for item in late}
+    t = index / (months - 1) if months > 1 else 1.0
+    pcts = _blend_pcts(early_map, late_map, keys, t)
+    labels = {item["id"]: item["label"] for item in late}
+    groups = {item["id"]: item["group"] for item in late}
+    return [
+        {
+            "id": key,
+            "label": labels.get(key, (CHANNEL_CATALOG.get(key) or {}).get("label", key)),
+            "group": groups.get(key, group_of(key)),
+            "pct": pcts.get(key, 0),
+        }
+        for key in keys
+    ]
+
+
+def progress_calendar(
+    canais: Any,
+    objetivo: str,
+    method: str,
+    pace: Any,
+    mix: Any = None,
+    progress: bool | None = None,
+) -> dict:
+    pace = as_dict(pace)
+    keys = [text(key) for key in as_list(pace.get("chaves")) if text(key)]
+    labels = [text(label) for label in as_list(pace.get("rotulos"))]
+    if len(labels) < len(keys):
+        labels.extend(keys[len(labels):])
+    alocacao = {text(key): as_int(value) for key, value in as_dict(pace.get("alocacao")).items()}
+    months = as_int(pace.get("meses")) or len(keys)
+    recipe = as_dict(mix)
+    use_progress = should_progress(months, recipe) if progress is None else bool(progress) and 2 <= months <= 12
+    weights = recipe.get("weights")
+    rows = []
+    for item in allocate(canais, objetivo, method, weights):
+        cells = []
+        for index, key in enumerate(keys):
+            month_weights = month_mix_weights(
+                canais, objetivo, method, months, index, weights, use_progress
+            )
+            pct = next((row["pct"] for row in month_weights if row["id"] == item["id"]), item["pct"])
+            month_total = alocacao.get(key, 0)
+            valor = shares_to_money(month_weights, month_total).get(item["id"], 0)
+            cells.append({
+                "key": key,
+                "pct": pct,
+                "valor": valor,
+                "valor_label": format_money(valor) if valor else "—",
+            })
+        rows.append({
+            "id": item["id"],
+            "label": item["label"],
+            "group": item["group"],
+            "pct": item["pct"],
+            "cells": cells,
+        })
+    return {
+        "months": months,
+        "keys": keys,
+        "labels": labels[: len(keys)],
+        "progress": use_progress,
+        "editavel": bool(pace.get("editavel")),
+        "totals": [{"key": key, "label": labels[i] if i < len(labels) else key, "valor": alocacao.get(key, 0)} for i, key in enumerate(keys)],
+        "rows": rows,
     }

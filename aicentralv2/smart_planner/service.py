@@ -17,7 +17,16 @@ from .catalog import (
     plan_mode_label,
     score_label,
 )
-from .mix import METHODS, allocate, normalize_mix, recommend_methods, shares_to_money, spec_for_js
+from .mix import (
+    METHODS,
+    allocate,
+    normalize_mix,
+    progress_calendar,
+    recommend_methods,
+    shares_to_money,
+    should_progress,
+    spec_for_js,
+)
 from .skills import generation_steps
 from .cost import cost_from_dados, format_brl
 from .models import preview_cost
@@ -123,6 +132,7 @@ def wizard_context(row: dict, step_id: str) -> dict:
         "praca": text(campanha.get("praca") or dados.get("praca")),
         "praca_detalhe": text(campanha.get("praca_detalhe") or dados.get("praca_detalhe")),
         "verba": text(row.get("budget") or campanha.get("verba") or dados.get("verba")),
+        "verba_base": text(campanha.get("verba_base") or dados.get("verba_base")),
         "periodo": text(row.get("prazo") or campanha.get("periodo") or dados.get("periodo")),
         "canais": as_list(campanha.get("canais") or dados.get("canais") or row.get("plataformas_sugeridas")),
         "criativos": text(dados.get("criativos")),
@@ -171,12 +181,23 @@ def wizard_context(row: dict, step_id: str) -> dict:
             "valor_label": format_money(distribuicao.get(key, 0)),
             "pct": shares.get(key, 0),
         })
+    mix_progress = should_progress(pace.get("meses"), campos["mix"])
     mix_desk = {
         "method": method,
+        "method_label": next((item["label"] for item in METHODS if item["id"] == method), "Funil do objetivo"),
         "recommended": recommend_methods(campos["objetivo"]),
         "weights": desk_weights,
         "methods": [dict(item) for item in METHODS],
         "spec": spec_for_js(),
+        "progress": mix_progress,
+        "calendar": progress_calendar(
+            campos["canais"],
+            campos["objetivo"],
+            method,
+            pace,
+            {**campos["mix"], "progress": mix_progress, "weights": desk_weights},
+            mix_progress,
+        ),
     }
     available = []
     seen = set(campos["canais"])
@@ -290,6 +311,10 @@ def persist_review(token: str, payload: dict) -> dict:
     mix_raw = payload.get("mix") if payload.get("mix") is not None else campos.get("mix")
     if isinstance(mix_raw, dict):
         mix = normalize_mix(mix_raw, canais, campos.get("objetivo"))
+        if "progress" in mix_raw or "progress" in payload:
+            mix["progress"] = as_bool(
+                mix_raw.get("progress") if "progress" in mix_raw else payload.get("progress")
+            )
         campos["mix"] = mix
         verba = campaign_verba({
             "verba": campos.get("verba"),
@@ -302,6 +327,21 @@ def persist_review(token: str, payload: dict) -> dict:
             if verba["texto"]:
                 campos["verba"] = verba["texto"]
             campos["canais_verba"] = shares_to_money(mix["weights"], verba["valor"])
+    alocacao_in = payload.get("verba_alocacao") if isinstance(payload.get("verba_alocacao"), dict) else None
+    if alocacao_in is None and isinstance(campos.get("verba_alocacao"), dict):
+        alocacao_in = campos.get("verba_alocacao")
+    if alocacao_in is not None:
+        pace = campaign_pace({
+            "verba": campos.get("verba"),
+            "verba_valor": campos.get("verba_valor"),
+            "verba_base": campos.get("verba_base"),
+            "periodo": campos.get("periodo"),
+            "verba_alocacao": alocacao_in,
+        })
+        if pace["editavel"] and pace["chaves"]:
+            campos["verba_alocacao"] = allocate_months(pace["chaves"], pace["total"], alocacao_in)
+        elif pace.get("alocacao"):
+            campos["verba_alocacao"] = pace["alocacao"]
     return save_campos(token, campos, payload.get("briefing"))
 
 

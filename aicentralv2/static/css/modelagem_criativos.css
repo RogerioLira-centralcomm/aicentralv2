@@ -13536,6 +13536,13 @@ article.mc-studio .mc-studio-confirm-foot {
   font-size: 0.85rem;
 }
 
+.mc-cadu-video-scenes small {
+  display: block;
+  padding: 0 0.45rem 0.45rem;
+  color: #9aa198;
+  font-size: 0.75rem;
+}
+
 .mc-cadu-video-takes .is-selected {
   border-color: #0f766e;
   box-shadow: inset 0 0 0 2px #0f766e;

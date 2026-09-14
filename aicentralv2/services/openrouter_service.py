@@ -331,6 +331,7 @@ def chat_completion(
     presence_penalty: Optional[float] = None,
     response_format: Optional[Dict[str, Any]] = None,
     reasoning: Optional[Dict[str, Any]] = None,
+    provider: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Executa chat/tool-calling com parâmetros conservadores para uso operacional."""
     payload = {
@@ -366,8 +367,17 @@ def chat_completion(
     elif model_omits_sampling(payload.get("model")):
         payload["reasoning"] = {"effort": "low"}
     payload = sanitize_chat_payload(payload)
-    if uses_direct_openai(payload.get("model")):
+    route = str(provider or "").strip().lower()
+    if route == "openai":
+        if not resolve_openai_api_key():
+            raise OpenRouterError("OpenAI não está configurada.")
         return _openai_chat_completion(payload, timeout=timeout)
+    if route != "openrouter" and uses_direct_openai(payload.get("model")):
+        return _openai_chat_completion(payload, timeout=timeout)
+    return _openrouter_chat_completion(payload, timeout=timeout)
+
+
+def _openrouter_chat_completion(payload: Dict[str, Any], *, timeout: int = 90) -> Dict[str, Any]:
     headers = {
         "Authorization": f"Bearer {_api_key()}",
         "Content-Type": "application/json",

@@ -14,9 +14,13 @@ from ..creative_modeling_generation import _json_content
 from .lab_models import JSON_OBJECT
 
 SWAP_MODEL = "openai/gpt-image-2"
-SWAP_READ_MODEL = os.getenv("CREATIVE_FORMAT_SWAP_READ_MODEL", "openai/gpt-5-nano")
+SWAP_READ_MODEL = os.getenv("CREATIVE_FORMAT_SWAP_READ_MODEL", "openai/gpt-4o-mini")
+SWAP_READ_OPENAI_MODEL = os.getenv("CREATIVE_FORMAT_SWAP_READ_OPENAI_MODEL", "gpt-4o-mini")
 SWAP_READ_TEMPERATURE = float(os.getenv("CREATIVE_FORMAT_SWAP_READ_TEMPERATURE", "0") or 0)
 SWAP_READ_MAX_TOKENS = int(os.getenv("CREATIVE_FORMAT_SWAP_READ_MAX_TOKENS", "4000") or 4000)
+OCR_MAX_SIDE = 1280
+OCR_MAX_BYTES = 400_000
+OCR_JPEG_QUALITY = 82
 SWAP_ESTIMATE_USD = 0.22
 SWAP_DRAFT_ESTIMATE_USD = 0.14
 TYPE_ONLY = {"headline", "secondary", "cta", "price"}
@@ -676,16 +680,29 @@ def _ocr_message_content(response):
     return response
 
 
-def _invoke_ocr(text_callable, messages, extra=None):
+def _ocr_kwargs(extra=None):
+    extra = extra if isinstance(extra, dict) else {}
+    model = extra.get("model") or SWAP_READ_MODEL
     kwargs = {
-        "model": SWAP_READ_MODEL,
+        "model": model,
         "max_tokens": SWAP_READ_MAX_TOKENS,
         "temperature": SWAP_READ_TEMPERATURE,
         "response_format": JSON_OBJECT,
-        "reasoning": {"effort": "low"},
     }
-    if extra:
-        kwargs.update(extra)
+    from ..services.openrouter_service import model_omits_sampling
+
+    if model_omits_sampling(model) and "reasoning" not in extra:
+        kwargs["reasoning"] = {"effort": "low"}
+    for key, value in extra.items():
+        if value is None:
+            kwargs.pop(key, None)
+        else:
+            kwargs[key] = value
+    return kwargs
+
+
+def _invoke_ocr(text_callable, messages, extra=None):
+    kwargs = _ocr_kwargs(extra)
     try:
         return text_callable(messages, **kwargs)
     except TypeError:
@@ -694,45 +711,80 @@ def _invoke_ocr(text_callable, messages, extra=None):
             return text_callable(messages, **kwargs)
         except TypeError:
             kwargs.pop("response_format", None)
-            return text_callable(messages, **kwargs)
+            try:
+                return text_callable(messages, **kwargs)
+            except TypeError:
+                kwargs.pop("provider", None)
+                return text_callable(messages, **kwargs)
 
 
-def read_swap_reference(payload=None, *, text_callable=None):
-    payload = payload if isinstance(payload, dict) else {}
-    reference = _reference(payload)
-    if not reference:
-        raise ValueError("Envie uma imagem de referência.")
-    empty = _empty_read()
+def _ocr_runners(text_callable):
+    from ..services.openrouter_service import chat_completion, resolve_openai_api_key
+
     if text_callable is None:
-        return {**empty, "status": "unavailable", "error": "OCR indisponível. Escreva os textos na mão."}
-    system = READ_STRICT_SYSTEM if payload.get("strict") else READ_SYSTEM
-    messages = [
-        {"role": "system", "content": system},
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": "Leia os elementos editáveis deste still."},
-                {"type": "image_url", "image_url": {"url": reference}},
-            ],
-        },
-    ]
+        return []
+    if text_callable is not chat_completion:
+        return [(text_callable, {}), (text_callable, {"reasoning": None})]
+    runners = []
+    if resolve_openai_api_key():
+        runners.append((
+            text_callable,
+            {"model": SWAP_READ_OPENAI_MODEL, "provider": "openai", "reasoning": None},
+        ))
+    runners.append((
+        text_callable,
+        {"model": SWAP_READ_MODEL, "provider": "openrouter", "reasoning": None},
+    ))
+    return runners
+
+
+def prepare_ocr_reference(reference):
+    """JPEG compacto para o modelo. Still grande estoura o nano e devolve JSON inválido."""
+    text = str(reference or "").strip()
+    if not text.startswith("data:image/") or "," not in text:
+        return text
+    _header, encoded = text.split(",", 1)
     try:
-        response = _invoke_ocr(text_callable, messages)
+        raw = base64.b64decode(encoded)
     except Exception:
-        return {**empty, "status": "provider_error", "error": "O provedor de OCR falhou. Escreva na mão ou tente de novo."}
+        return text
+    try:
+        from PIL import Image
+
+        image = Image.open(io.BytesIO(raw))
+        image.load()
+    except Exception:
+        return text
+    width, height = image.size
+    if max(width, height) <= OCR_MAX_SIDE and len(raw) <= OCR_MAX_BYTES:
+        return text
+    rgb = image.convert("RGB")
+    if max(width, height) > OCR_MAX_SIDE:
+        scale = OCR_MAX_SIDE / max(width, height)
+        rgb = rgb.resize(
+            (max(1, int(width * scale)), max(1, int(height * scale))),
+            Image.Resampling.LANCZOS,
+        )
+    out = io.BytesIO()
+    rgb.save(out, format="JPEG", quality=OCR_JPEG_QUALITY, optimize=True)
+    return "data:image/jpeg;base64," + base64.b64encode(out.getvalue()).decode("ascii")
+
+
+def _parse_ocr_dict(response):
     raw = _ocr_message_content(response)
     if isinstance(raw, dict):
-        parsed = raw
-    else:
+        return raw
+    try:
+        parsed = _json_content(raw)
+    except Exception:
         try:
-            parsed = _json_content(raw)
+            parsed = json.loads(str(raw))
         except Exception:
-            try:
-                parsed = json.loads(str(raw))
-            except Exception:
-                return {**empty, "status": "invalid", "error": "A leitura veio inválida. Escreva os textos na mão."}
-    if not isinstance(parsed, dict):
-        return {**empty, "status": "invalid", "error": "A leitura veio inválida. Escreva os textos na mão."}
+            return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+def _finish_ocr_read(parsed):
     from .swap_schema import normalize_read
 
     aspect_hint = match_aspect_ratio(parsed.get("aspect_hint"))
@@ -760,6 +812,47 @@ def read_swap_reference(payload=None, *, text_callable=None):
         "status": _read_status(normalized),
         "error": "",
     }
+
+
+def read_swap_reference(payload=None, *, text_callable=None):
+    payload = payload if isinstance(payload, dict) else {}
+    reference = prepare_ocr_reference(_reference(payload))
+    if not reference:
+        raise ValueError("Envie uma imagem de referência.")
+    empty = _empty_read()
+    if text_callable is None:
+        return {**empty, "status": "unavailable", "error": "OCR indisponível. Escreva os textos na mão."}
+    system = READ_STRICT_SYSTEM if payload.get("strict") else READ_SYSTEM
+    messages = [
+        {"role": "system", "content": system},
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Leia os elementos editáveis deste still."},
+                {"type": "image_url", "image_url": {"url": reference}},
+            ],
+        },
+    ]
+    last_status = "invalid"
+    last_error = "A leitura veio inválida. Escreva os textos na mão."
+    for runner, extra in _ocr_runners(text_callable):
+        try:
+            response = _invoke_ocr(runner, messages, extra)
+        except Exception:
+            last_status = "provider_error"
+            last_error = "O provedor de OCR falhou. Escreva na mão ou tente de novo."
+            continue
+        parsed = _parse_ocr_dict(response)
+        if not isinstance(parsed, dict):
+            last_status = "invalid"
+            last_error = "A leitura veio inválida. Escreva os textos na mão."
+            continue
+        result = _finish_ocr_read(parsed)
+        if result.get("status") != "unreadable":
+            return result
+        last_status = "unreadable"
+        last_error = "A leitura veio vazia. Escreva os textos na mão."
+    return {**empty, "status": last_status, "error": last_error}
 
 
 def swap_reference(payload=None, *, brand=None, image_callable=None):

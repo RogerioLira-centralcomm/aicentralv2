@@ -14,6 +14,7 @@ const state = {
   library: [],
   scenes: [],
   script: null,
+  ocrFailed: false,
   clips: [],
   jobId: "",
   activeClipId: "",
@@ -60,6 +61,7 @@ async function applyBrand(id, { reset = false } = {}) {
   if (reset) {
     state.scenes = [];
     state.script = null;
+    state.ocrFailed = false;
     state.activeClipId = "";
     if ($("mcVideoScript")) $("mcVideoScript").value = "";
     paintScenes();
@@ -191,6 +193,7 @@ function paintScenes() {
         <button type="button" data-remove="${escapeHtml(item.id)}">
           <em>${index + 1}</em>
           <strong>${escapeHtml(item.name || "Cena")}</strong>
+          ${item.headline ? `<small>${escapeHtml(item.headline)}</small>` : ""}
           Remover
         </button>
       </li>`).join("");
@@ -392,18 +395,37 @@ async function buildScript() {
     setStatus("Selecione pelo menos duas cenas.");
     return;
   }
+  if (state.scenes.some((item) => item.broken)) {
+    setStatus("Tire as peças 404 do roteiro.");
+    return;
+  }
   setStatus("Lendo as cenas…");
   try {
     const data = await post("/parametros/api/format-lab/swap/animate/script", {
       client_id: state.clientId || undefined,
       duration: duration(),
       scene_ids: state.scenes.map((item) => item.id),
+      force_ocr: Boolean(state.ocrFailed),
     });
     state.script = data.script;
+    state.ocrFailed = Boolean(data.warnings?.length);
+    (data.scenes || []).forEach((scene) => {
+      const local = state.scenes.find((row) => row.id === scene.id);
+      if (!local) return;
+      local.headline = scene.headline || "";
+      local.support = scene.support || "";
+      local.cta = scene.cta || "";
+      local.ocr = scene.ocr || null;
+    });
     if ($("mcVideoScript")) $("mcVideoScript").value = scriptText(state.script);
     paintScenes();
-    setStatus("Roteiro pronto. Edite se precisar e gere o clipe.");
+    if (data.warnings?.length) {
+      setStatus(data.warnings.join(" "));
+    } else {
+      setStatus("Roteiro pronto. Edite se precisar e gere o clipe.");
+    }
   } catch (error) {
+    state.ocrFailed = true;
     setStatus(error.message);
   }
 }

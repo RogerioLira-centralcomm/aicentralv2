@@ -279,6 +279,45 @@ class TrocrStore:
                     return item, run
         return None, None
 
+    def save_still_ocr(self, payload, scene_id, ocr, user_id=None):
+        payload = payload if isinstance(payload, dict) else {}
+        client_id = optional_client(payload)
+        key = self.session_key(payload, user_id)
+        store = wrap_store(self.read(key, client_id), client_id)
+        run_id, version_id = parse_scene_ref(scene_id)
+        if not version_id:
+            return False
+        slim = slim_context(ocr)
+        changed = False
+        for run in store.get("runs") or []:
+            if not isinstance(run, dict):
+                continue
+            if run_id and str(run.get("run_id") or "") != run_id:
+                continue
+            versions = []
+            run_changed = False
+            for item in run.get("versions") or []:
+                if not isinstance(item, dict):
+                    versions.append(item)
+                    continue
+                if is_video_version(item) or str(item.get("id") or "") != version_id:
+                    versions.append(item)
+                    continue
+                packed = dict(item)
+                packed["ocr"] = slim
+                versions.append(packed)
+                run_changed = True
+                changed = True
+            if run_changed:
+                run["versions"] = versions
+        if not changed:
+            return False
+        packed = store_with_mirror(store)
+        self.write(key, packed, client_id)
+        if client_id and user_id not in (None, ""):
+            self.write(f"user-{user_id}", packed, None)
+        return True
+
     def save(self, payload, user_id=None):
         payload = payload if isinstance(payload, dict) else {}
         client_id = optional_client(payload)

@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 
 from ..creative_media.settings import STORYBOARD_MAX, STORYBOARD_MIN
-from .swap import read_swap_reference
+from ..creative_modeling_generation import _json_content
+from .swap import _ocr_message_content, read_swap_reference
 from .swap_session import slim_context
 
 SCRIPT_SYSTEM = """Você escreve o roteiro de um anúncio em vídeo a partir de stills já lidos.
@@ -14,6 +15,28 @@ Um beat por cena, na mesma ordem e com o mesmo id. purpose é hook, offer, proof
 visual descreve o que já está na foto. motion é um gesto curto. hold diz o que não pode mudar (tipo, preço, logo).
 spoken é a fala, vazia se não houver locução. Sem texto fora do JSON."""
 
+OCR_FAILED = {"unavailable", "provider_error", "invalid", "unreadable"}
+
+
+def usable_ocr(value):
+    data = slim_context(value) if isinstance(value, dict) else None
+    if not data:
+        return None
+    status = str(data.get("status") or "").strip()
+    if status in OCR_FAILED:
+        return None
+    filled = any(
+        str(data.get(key) or "").strip()
+        for key in ("headline", "support", "price", "cta", "dates", "logo_text", "disclaimer", "venue")
+    )
+    if not filled:
+        filled = any(
+            str(item.get("text") or "").strip()
+            for item in (data.get("elements") or [])
+            if isinstance(item, dict)
+        )
+    return data if filled else None
+
 
 def build_video_script(store, payload, user_id=None, text_callable=None):
     data = payload if isinstance(payload, dict) else {}
@@ -21,23 +44,38 @@ def build_video_script(store, payload, user_id=None, text_callable=None):
     if not (STORYBOARD_MIN <= len(ids) <= STORYBOARD_MAX):
         raise ValueError(f"Selecione de {STORYBOARD_MIN} a {STORYBOARD_MAX} cenas.")
     duration = int(data.get("duration") or 8)
+    force = bool(data.get("force_ocr") or data.get("force"))
     scenes = []
+    warnings = []
     for ident in ids:
         item, _run = store.find_still(data, ident, user_id=user_id)
         if not item:
             raise ValueError("Uma cena não está na biblioteca da marca.")
-        ocr = slim_context(item.get("ocr")) if isinstance(item.get("ocr"), dict) else None
+        name = str(item.get("name") or item.get("id") or "cena")
+        ocr = None if force else usable_ocr(item.get("ocr"))
         if not ocr:
             reference = store.materialize_reference(item.get("image_url") or item.get("image") or "")
-            if not reference:
-                raise ValueError("Não foi possível ler um still da cena.")
-            ocr = slim_context(read_swap_reference({"reference": reference}, text_callable=text_callable)) or {}
+            if not str(reference or "").startswith(("data:image/", "https://", "http://")):
+                raise ValueError(f"Não foi possível abrir o still de «{name}». A peça está 404.")
+            read = read_swap_reference({"reference": reference}, text_callable=text_callable)
+            ocr = usable_ocr(read)
+            if ocr:
+                saver = getattr(store, "save_still_ocr", None)
+                if callable(saver):
+                    saver(data, ident, ocr, user_id=user_id)
+            else:
+                ocr = slim_context(read) or {}
+                error = str((read or {}).get("error") or "").strip()
+                warnings.append(error or f"A leitura de «{name}» veio vazia.")
         scenes.append(scene_from_ocr(ident, item, ocr))
+    if warnings and not any(usable_ocr(scene.get("ocr")) for scene in scenes):
+        raise ValueError(warnings[0] if len(warnings) == 1 else "Não deu para ler as cenas. " + " ".join(warnings))
     script = compose_script(scenes, duration, text_callable)
     return {
         "scenes": scenes,
         "script": script,
         "duration": duration,
+        "warnings": warnings,
     }
 
 
@@ -70,6 +108,22 @@ def scene_from_ocr(scene_id, item, ocr):
     }
 
 
+def compose_scenes(scenes):
+    compact = []
+    for scene in scenes or []:
+        compact.append({
+            "id": scene.get("id"),
+            "name": scene.get("name"),
+            "headline": scene.get("headline"),
+            "support": scene.get("support"),
+            "cta": scene.get("cta"),
+            "locked_type": scene.get("locked_type"),
+            "setting": scene.get("setting"),
+            "people": scene.get("people"),
+        })
+    return compact
+
+
 def compose_script(scenes, duration, text_callable=None):
     fallback = fallback_script(scenes)
     if text_callable is None:
@@ -81,7 +135,7 @@ def compose_script(scenes, duration, text_callable=None):
                 {
                     "role": "user",
                     "content": json.dumps(
-                        {"duration": duration, "scenes": scenes},
+                        {"duration": duration, "scenes": compose_scenes(scenes)},
                         ensure_ascii=False,
                     ),
                 },
@@ -89,8 +143,8 @@ def compose_script(scenes, duration, text_callable=None):
             temperature=0.2,
             max_tokens=2400,
         )
-        raw = (response or {}).get("message", {}).get("content") if isinstance(response, dict) else response
-        parsed = raw if isinstance(raw, dict) else json.loads(str(raw or ""))
+        raw = _ocr_message_content(response) if isinstance(response, dict) else response
+        parsed = raw if isinstance(raw, dict) else _json_content(raw)
         beats = parsed.get("beats") if isinstance(parsed, dict) else None
         if not isinstance(beats, list) or len(beats) != len(scenes):
             return fallback

@@ -295,6 +295,31 @@ class OpenAIDirectRoutingTest(unittest.TestCase):
         self.assertIn("max_completion_tokens", post.call_args.kwargs["json"])
         self.assertEqual(post.call_args.kwargs["json"].get("reasoning_effort"), "low")
 
+    def test_chat_provider_openrouter_ignora_chave_openai(self):
+        class _Resp:
+            status_code = 200
+
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {
+                    "choices": [{"message": {"role": "assistant", "content": "ok"}}],
+                    "model": "openai/gpt-4o-mini",
+                    "usage": {},
+                }
+
+        with patch.object(openrouter_service, "resolve_openai_api_key", return_value="sk-test"), patch.object(
+            openrouter_service, "resolve_api_key", return_value="or-test"
+        ), patch("aicentralv2.services.openrouter_service.requests.post", return_value=_Resp()) as post:
+            result = openrouter_service.chat_completion(
+                [{"role": "user", "content": "oi"}],
+                model="openai/gpt-4o-mini",
+                provider="openrouter",
+            )
+        self.assertEqual(result["message"]["content"], "ok")
+        self.assertEqual(post.call_args.args[0], openrouter_service.OPENROUTER_URL)
+
     def test_image_refs_go_to_openai_edits(self):
         import base64
 

@@ -9,6 +9,7 @@ from flask import Blueprint, Flask
 
 from aicentralv2.creative_format_lab.service import FormatLabService
 from aicentralv2.creative_format_lab.swap_session import TrocrStore, published_still_url
+from aicentralv2.creative_format_lab.video_script import build_video_script
 from aicentralv2.creative_modeling_repository import CreativeConflictError, CreativeNotFoundError
 from aicentralv2.creative_modeling_routes import register_creative_modeling_routes
 from aicentralv2.creative_modeling_service import CreativeModelingService
@@ -252,6 +253,79 @@ class TrocrSessionStoreTest(unittest.TestCase):
         self.assertEqual(len(scripted["script"]["beats"]), 2)
         self.assertEqual(scripted["scenes"][0]["id"], stills["items"][0]["id"])
         self.assertEqual(scripted["scenes"][0]["headline"], "Oferta")
+
+    def test_roteiro_rele_ocr_invalido_e_grava_na_peca(self):
+        class _MemStorage:
+            def __init__(self):
+                self.sessions = {}
+
+            def save_trocr_still(self, encoded, output_format="png"):
+                return f"/parametros/api/format-lab/swap/still/{'a' * 32}.png"
+
+            def save_trocr_session(self, key, data):
+                self.sessions[key] = data
+
+            def load_trocr_session(self, key):
+                return self.sessions.get(key)
+
+        modeling = CreativeModelingService(FakeRepository(), FakeGenerator(), storage=_MemStorage())
+        lab = FormatLabService(modeling)
+        png = "data:image/png;base64," + TINY_PNG.hex()
+        first = lab.add_swap_library_still({"client_id": 10, "image": png, "name": "Cena 1", "new_piece": True}, user_id=7)
+        second = lab.add_swap_library_still({"client_id": 10, "image": png, "name": "Cena 2", "new_piece": True}, user_id=7)
+        store = lab._trocr_store()
+        for ident in (first["id"], second["id"]):
+            item, _run = store.find_still({"client_id": 10}, ident, user_id=7)
+            item["ocr"] = {"status": "invalid", "error": "A leitura veio inválida.", "headline": ""}
+            item["image_url"] = png
+        reads = []
+
+        def fake_text(messages, **_kwargs):
+            blob = str(messages)
+            if "Você escreve o roteiro" in blob:
+                return {
+                    "message": {
+                        "content": (
+                            '{"beats":['
+                            f'{{"id":"{first["id"]}","purpose":"hook","visual":"500 MEGA","motion":"Zoom","hold":"Preço","spoken":""}},'
+                            f'{{"id":"{second["id"]}","purpose":"end","visual":"500 MEGA","motion":"Hold","hold":"CTA","spoken":""}}'
+                            "]}"
+                        )
+                    }
+                }
+            reads.append(1)
+            return {"message": {"content": '{"headline":"500 MEGA","cta":"Monte o seu","price":"R$ 99"}'}}
+
+        scripted = build_video_script(
+            store,
+            {"client_id": 10, "scene_ids": [first["id"], second["id"]], "duration": 8},
+            user_id=7,
+            text_callable=fake_text,
+        )
+        self.assertEqual(len(reads), 2)
+        self.assertEqual(scripted["scenes"][0]["headline"], "500 MEGA")
+        self.assertEqual(scripted["scenes"][0]["cta"], "Monte o seu")
+        self.assertEqual(scripted["script"]["beats"][0]["visual"], "500 MEGA")
+        self.assertEqual(scripted["warnings"], [])
+        saved, _run = store.find_still({"client_id": 10}, first["id"], user_id=7)
+        self.assertEqual(saved["ocr"]["headline"], "500 MEGA")
+        self.assertEqual(saved["ocr"]["cta"], "Monte o seu")
+
+        again = build_video_script(
+            store,
+            {"client_id": 10, "scene_ids": [first["id"], second["id"]], "duration": 8},
+            user_id=7,
+        )
+        self.assertEqual(again["scenes"][0]["headline"], "500 MEGA")
+
+        with self.assertRaises(ValueError) as failed:
+            build_video_script(
+                store,
+                {"client_id": 10, "scene_ids": [first["id"], second["id"]], "force_ocr": True},
+                user_id=7,
+                text_callable=lambda *_a, **_k: {"message": {"content": "isso não é json"}},
+            )
+        self.assertIn("inválida", str(failed.exception).lower())
 
     def test_historico_mantem_video_sem_poster(self):
         class _MemStorage:

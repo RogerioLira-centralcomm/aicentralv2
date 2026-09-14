@@ -30,6 +30,7 @@ from aicentralv2.creative_format_lab.close import close_scene
 from aicentralv2.creative_format_lab.swap import (
     build_optimized_prompt,
     build_swap_prompt,
+    prepare_ocr_reference,
     preview_swap_prompt,
     quote_swap,
     read_swap_reference,
@@ -1977,7 +1978,7 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("modelagem_camadas", shell)
         self.assertIn("modelagem_design-system", shell)
         desk = (root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html").read_text(encoding="utf-8")
-        self.assertIn("modelagem_criativos.css') }}?v=123", desk)
+        self.assertIn("modelagem_criativos.css') }}?v=124", desk)
         self.assertIn("js/mc-cadu-nav.js", desk)
         self.assertIn("mc_page_js) }}?v=83", desk)
         self.assertIn("js/mc-viewer-shell.js", desk)
@@ -2112,6 +2113,8 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         video_js = (root / "aicentralv2" / "static" / "js" / "mc-cadu-video.js").read_text(encoding="utf-8")
         self.assertIn("/swap/library", video_js)
         self.assertIn("/animate/script", video_js)
+        self.assertIn("force_ocr", video_js)
+        self.assertIn("Lendo as cenas", video_js)
         self.assertIn("Selecione pelo menos duas cenas", video_js)
         self.assertIn("cadu:brand-ready", video_js)
         self.assertIn("selectClip", video_js)
@@ -2606,6 +2609,104 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
         self.assertEqual(result["headline"], "ATÉ 110GB")
         self.assertEqual(result["price"], "R$ 169,99/mês")
         self.assertEqual(result["status"], "completed")
+
+    def test_ocr_tenta_de_novo_sem_reasoning_quando_json_falha(self):
+        calls = []
+
+        def fake_text(_messages, **kwargs):
+            calls.append(kwargs.get("reasoning"))
+            if len(calls) == 1:
+                return {"message": {"content": "ainda estou lendo"}}
+            return {"message": {"content": '{"headline":"TIM BLACK","cta":"Contratar"}'}}
+
+        result = read_swap_reference(
+            {"reference": "data:image/png;base64,aaa"},
+            text_callable=fake_text,
+        )
+        self.assertEqual(result["headline"], "TIM BLACK")
+        self.assertEqual(result["status"], "completed")
+        self.assertGreaterEqual(len(calls), 2)
+        self.assertIsNone(calls[1])
+
+        from io import BytesIO
+        from PIL import Image
+
+        image = Image.new("RGB", (2000, 1200), (20, 40, 80))
+        raw = BytesIO()
+        image.save(raw, format="PNG")
+        huge = "data:image/png;base64," + __import__("base64").b64encode(raw.getvalue()).decode("ascii")
+        compact = prepare_ocr_reference(huge)
+        self.assertTrue(compact.startswith("data:image/jpeg;base64,"))
+        self.assertLess(len(compact), len(huge))
+
+    def test_ocr_openai_direto_cai_no_openrouter(self):
+        from aicentralv2.services import openrouter_service
+
+        calls = []
+
+        def fake_chat(_messages, **kwargs):
+            calls.append(kwargs.get("provider"))
+            if kwargs.get("provider") == "openai":
+                raise RuntimeError("openai down")
+            return {"message": {"content": '{"headline":"500 MEGA","cta":"Monte o seu"}'}}
+
+        with patch.object(openrouter_service, "resolve_openai_api_key", return_value="sk-test"), patch.object(
+            openrouter_service, "chat_completion", side_effect=fake_chat
+        ):
+            result = read_swap_reference(
+                {"reference": "data:image/png;base64,aaa"},
+                text_callable=openrouter_service.chat_completion,
+            )
+        self.assertEqual(result["headline"], "500 MEGA")
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(calls, ["openai", "openrouter"])
+
+        calls.clear()
+
+        def only_openai(_messages, **kwargs):
+            calls.append(kwargs.get("provider"))
+            if kwargs.get("provider") == "openrouter":
+                raise AssertionError("não deveria cair no OpenRouter")
+            return {"message": {"content": '{"headline":"TIM BLACK","cta":"Contratar"}'}}
+
+        with patch.object(openrouter_service, "resolve_openai_api_key", return_value="sk-test"), patch.object(
+            openrouter_service, "chat_completion", side_effect=only_openai
+        ):
+            first = read_swap_reference(
+                {"reference": "data:image/png;base64,aaa"},
+                text_callable=openrouter_service.chat_completion,
+            )
+        self.assertEqual(first["headline"], "TIM BLACK")
+        self.assertEqual(calls, ["openai"])
+
+        calls.clear()
+        with patch.object(openrouter_service, "resolve_openai_api_key", return_value=""), patch.object(
+            openrouter_service, "chat_completion", side_effect=fake_chat
+        ):
+            routed = read_swap_reference(
+                {"reference": "data:image/png;base64,aaa"},
+                text_callable=openrouter_service.chat_completion,
+            )
+        self.assertEqual(routed["headline"], "500 MEGA")
+        self.assertEqual(calls, ["openrouter"])
+
+        calls.clear()
+
+        def openai_json_ruim(_messages, **kwargs):
+            calls.append(kwargs.get("provider"))
+            if kwargs.get("provider") == "openai":
+                return {"message": {"content": "ainda estou lendo"}}
+            return {"message": {"content": '{"headline":"ATÉ 110GB","price":"R$ 99"}'}}
+
+        with patch.object(openrouter_service, "resolve_openai_api_key", return_value="sk-test"), patch.object(
+            openrouter_service, "chat_completion", side_effect=openai_json_ruim
+        ):
+            recovered = read_swap_reference(
+                {"reference": "data:image/png;base64,aaa"},
+                text_callable=openrouter_service.chat_completion,
+            )
+        self.assertEqual(recovered["headline"], "ATÉ 110GB")
+        self.assertEqual(calls, ["openai", "openrouter"])
 
     def test_cartela_de_elenco_compõe_tipo_sem_image2(self):
         from aicentralv2.creative_format_lab.swap import (

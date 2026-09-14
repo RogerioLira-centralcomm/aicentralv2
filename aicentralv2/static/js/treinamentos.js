@@ -4,10 +4,11 @@
   var root = document.querySelector('[data-training-studio]');
   if (!root) return;
 
-  // FUTURO: quebra do HTML em slides, canvas com drag-and-drop e export PPTX/PDF.
+  // FUTURO: canvas com drag-and-drop e export PPTX/PDF.
   var state = {
     treinamentoId: null,
     sessaoId: null,
+    sessaoSlug: '',
     selection: '',
     range: null,
     pendingFonteId: null,
@@ -143,6 +144,7 @@
 
   function applySessao(sessao) {
     state.sessaoId = sessao.id;
+    state.sessaoSlug = sessao.slug || '';
     state.imagens = sessao.imagens || [];
     state.notas = sessao.notas_instrutor || {};
     editor.innerHTML = sessao.conteudo_html || '';
@@ -150,6 +152,12 @@
     renderThumbs(state.imagens);
     renderNotes(state.notas);
     renderFontes(sessao.fontes || []);
+    var project = document.getElementById('tsProjectBtn');
+    if (project) {
+      project.href = state.sessaoSlug
+        ? '/parametros/treinamentos/projetar/' + encodeURIComponent(state.sessaoSlug)
+        : '/parametros/treinamentos/projetar';
+    }
   }
 
   function renderFontes(fontes) {

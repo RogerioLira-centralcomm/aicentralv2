@@ -67,6 +67,8 @@ ENDPOINT_CONTEXT = {
     "parametros.testes_dv_legado": ("parametros", "testes_dv360_legado"),
     "parametros.modelagem_criativos": ("parametros", "modelagem_criativos"),
     "parametros.treinamentos": ("parametros", "treinamentos"),
+    "parametros.treinamentos_projetar": ("parametros", "treinamentos"),
+    "parametros.treinamentos_projetar_sessao": ("parametros", "treinamentos"),
     "parametros.integracoes": ("parametros", "integracoes"),
     "assinaturas.mesa": ("operacao", "assinaturas"),
     "assinaturas.novo": ("operacao", "assinaturas"),

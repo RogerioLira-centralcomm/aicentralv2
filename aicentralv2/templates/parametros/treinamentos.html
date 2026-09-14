@@ -4,7 +4,7 @@
 {% block page_subtitle %}Studio de conteúdo{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/treinamentos.css') }}?v=6">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/treinamentos.css') }}?v=8">
 {% endblock %}
 
 {% block content %}
@@ -14,6 +14,8 @@
     <h2>Sessões</h2>
     <ol id="tsSessionList"></ol>
     <button type="button" id="tsAddSession" class="ts-enrich">+ Sessão</button>
+    <a id="tsProjectBtn" class="ts-enrich ts-project" href="/parametros/treinamentos/projetar">Projetar sessão</a>
+    <a class="ts-enrich ts-project" href="/parametros/treinamentos/projetar">Projetar manhã</a>
     <button type="button" id="tsIllustrateBtn" class="ts-enrich">Gerar ilustrações</button>
     <button type="button" id="tsEnrichBtn" class="ts-enrich">Enriquecer canais</button>
   </nav>
@@ -179,5 +181,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/treinamentos.js') }}?v=7" defer></script>
+<script src="{{ url_for('static', filename='js/treinamentos.js') }}?v=8" defer></script>
 {% endblock %}

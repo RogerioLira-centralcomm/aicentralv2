@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ deck.titulo }} — Imersão</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/treinamento_slides.css') }}?v=4">
+</head>
+<body>
+  <div class="progress-bar" id="progressBar"></div>
+
+  <div class="deck-tools">
+    <button type="button" class="tool-btn" id="toggleNotes" title="Notas do instrutor (N)">N</button>
+    <button type="button" class="tool-btn" id="toggleIndex" title="Índice (I)">I</button>
+    <button type="button" class="tool-btn" id="toggleFullscreen" title="Tela cheia (F)">F</button>
+    <a class="tool-btn" href="{{ url_for('parametros.treinamentos') }}" title="Voltar ao Studio" style="display:grid;place-items:center;text-decoration:none;">S</a>
+  </div>
+
+  <div class="slide-deck" data-slide-deck>
+    {% for slide in deck.slides %}
+    <section
+      class="slide{% if loop.first %} active{% endif %}"
+      data-layout="{{ slide.layout }}"
+      data-note="{{ slide.note|default('') }}"
+      {% if slide.slug %}data-session="{{ slide.slug }}"{% endif %}
+    >
+      <div class="slide-content">
+        {% if slide.kicker and slide.layout != 'place' %}<p class="kicker">{{ slide.kicker }}</p>{% endif %}
+
+        {% if slide.layout == 'title' or slide.layout == 'section' %}
+          <h1 class="slide-title">{{ slide.title }}</h1>
+          {% if slide.lede %}<p class="lede">{{ slide.lede }}</p>{% endif %}
+          {% if slide.meta %}<p class="meta">{{ slide.meta }}</p>{% endif %}
+
+        {% elif slide.layout == 'statement' %}
+          <h1 class="slide-title">{{ slide.title }}</h1>
+          {% if slide.lede %}<p class="lede">{{ slide.lede }}</p>{% endif %}
+
+        {% elif slide.layout == 'metrics' %}
+          <h2 class="slide-title">{{ slide.title }}</h2>
+          <div class="slide-metrics">
+            {% for item in slide.metrics %}
+            <article class="metric">
+              <p class="value">{{ item.value }}</p>
+              <p class="label">{{ item.label }}</p>
+              {% if item.note %}<span class="note">{{ item.note }}</span>{% endif %}
+            </article>
+            {% endfor %}
+          </div>
+          {% if slide.footnote %}<p class="footnote">{{ slide.footnote }}</p>{% endif %}
+
+        {% elif slide.layout == 'cards' %}
+          <h2 class="slide-title">{{ slide.title }}</h2>
+          <div class="slide-cards">
+            {% for card in slide.cards %}
+            <article class="card">
+              <h3>{{ card.title }}</h3>
+              {% if card.text %}<p>{{ card.text }}</p>{% endif %}
+              {% if card.meta %}<span class="meta">{{ card.meta }}</span>{% endif %}
+            </article>
+            {% endfor %}
+          </div>
+          {% if slide.footnote %}<p class="footnote">{{ slide.footnote }}</p>{% endif %}
+
+        {% elif slide.layout == 'split' %}
+          <h2 class="slide-title">{{ slide.title }}</h2>
+          <div class="slide-split">
+            <div class="split-col">
+              <h3>{{ slide.left.title }}</h3>
+              <ul>{% for item in slide.left.lines %}<li>{{ item }}</li>{% endfor %}</ul>
+            </div>
+            <div class="split-col">
+              <h3>{{ slide.right.title }}</h3>
+              <ul>{% for item in slide.right.lines %}<li>{{ item }}</li>{% endfor %}</ul>
+            </div>
+          </div>
+          {% if slide.footnote %}<p class="footnote">{{ slide.footnote }}</p>{% endif %}
+
+        {% elif slide.layout == 'list' %}
+          <h2 class="slide-title">{{ slide.title }}</h2>
+          <div class="slide-list">
+            <ul>{% for item in slide.lines %}<li>{{ item }}</li>{% endfor %}</ul>
+          </div>
+          {% if slide.footnote %}<p class="footnote">{{ slide.footnote }}</p>{% endif %}
+
+        {% elif slide.layout == 'timeline' %}
+          <h2 class="slide-title">{{ slide.title }}</h2>
+          <div class="slide-timeline">
+            {% for step in slide.steps %}
+            <article class="step">
+              <h3>{{ step.title }}</h3>
+              <p>{{ step.text }}</p>
+            </article>
+            {% endfor %}
+          </div>
+
+        {% elif slide.layout == 'chart' %}
+          <h2 class="slide-title">{{ slide.title }}</h2>
+          {% if slide.lede %}<p class="lede">{{ slide.lede }}</p>{% endif %}
+          <div class="chart-wrap">
+            <canvas id="{{ slide.chart.id }}" data-chart='{{ slide.chart|tojson }}'></canvas>
+          </div>
+          {% if slide.chart.caption %}<p class="footnote">{{ slide.chart.caption }}</p>{% endif %}
+          {% if slide.footnote %}<p class="footnote">{{ slide.footnote }}</p>{% endif %}
+
+        {% elif slide.layout == 'family' %}
+          <h2 class="slide-title">{{ slide.title }}</h2>
+          <div class="slide-family">
+            {% for logo in slide.logos %}
+            <article class="family-card">
+              {% if logo.src %}<img src="{{ logo.src }}" alt="{{ logo.name }}">{% endif %}
+              <div>
+                <h3>{{ logo.name }}</h3>
+                <p>{{ logo.text }}</p>
+              </div>
+            </article>
+            {% endfor %}
+          </div>
+
+        {% elif slide.layout == 'place' %}
+          <div class="place-grid">
+            {% if slide.place.hero %}
+            <img class="place-hero" src="{{ slide.place.hero }}" alt="{{ slide.place.code }} {{ slide.place.title }}">
+            {% endif %}
+            <div class="place-copy">
+              <p class="kicker">{{ slide.place.code }}</p>
+              <h2>{{ slide.place.title }}</h2>
+              <p class="lede">{{ slide.place.subtitle }}</p>
+              <p class="meta">ANAC 2025 · {{ slide.place.pax }} passageiros</p>
+              <p>Endereçáveis no recorte, 4 semanas (estimate): {{ slide.place.addressable }}.</p>
+              <p class="rule">{{ slide.rule }}</p>
+            </div>
+          </div>
+
+        {% elif slide.layout == 'brief' %}
+          <div class="brief">
+            <div class="brief-head">
+              <h2 class="slide-title">{{ slide.title }}</h2>
+              <p class="brief-amount">{{ slide.amount }}</p>
+            </div>
+            {% if slide.lede %}<p class="lede">{{ slide.lede }}</p>{% endif %}
+            <ul>{% for item in slide.lines %}<li>{{ item }}</li>{% endfor %}</ul>
+          </div>
+
+        {% elif slide.layout == 'agenda' %}
+          <h2 class="slide-title">{{ slide.title }}</h2>
+          <div class="slide-agenda">
+            {% for item in slide.lines %}
+            <article class="agenda-item{% if item.tipo == 'intervalo' %} is-break{% endif %}">
+              <small>{{ item.horario }}</small>
+              <strong>{{ item.titulo }}</strong>
+              {% if item.facilitadores %}
+              <small>{{ item.facilitadores|join(' · ') }}</small>
+              {% endif %}
+            </article>
+            {% endfor %}
+          </div>
+
+        {% else %}
+          <h1 class="slide-title">{{ slide.title }}</h1>
+          {% if slide.lede %}<p class="lede">{{ slide.lede }}</p>{% endif %}
+        {% endif %}
+      </div>
+    </section>
+    {% endfor %}
+  </div>
+
+  <div class="nav-controls">
+    <button type="button" class="nav-btn" id="prevSlide" aria-label="Anterior">←</button>
+    <span class="slide-counter"><span id="current">1</span> / <span id="total">{{ deck.slides|length }}</span></span>
+    <button type="button" class="nav-btn" id="nextSlide" aria-label="Próximo">→</button>
+  </div>
+
+  <aside id="presenterNote" class="presenter-note" hidden></aside>
+
+  <nav id="indexPanel" class="index-panel" hidden aria-label="Índice">
+    <p class="kicker">{{ deck.titulo }} · {{ deck.horario }}</p>
+    <p class="lede" style="margin:8px 0 16px">N notas · I índice · F tela cheia · S studio</p>
+    {% if index %}
+      {% for item in index %}
+      <a href="{{ url_for('parametros.treinamentos_projetar_sessao', slug=item.slug) }}">{{ item.horario }} · {{ item.titulo }}</a>
+      {% endfor %}
+      <a href="{{ url_for('parametros.treinamentos_projetar') }}">Manhã inteira</a>
+    {% else %}
+      {% for slide in deck.slides %}
+        {% if slide.title %}
+        <button type="button" class="link" data-jump="{{ loop.index }}">{{ loop.index }} · {{ slide.title }}</button>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+  </nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="{{ url_for('static', filename='js/treinamento_slides.js') }}?v=2"></script>
+</body>
+</html>

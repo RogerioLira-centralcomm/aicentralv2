@@ -2,12 +2,13 @@
 
 import logging
 
-from flask import jsonify, render_template, request, session
+from flask import abort, jsonify, render_template, request, session
 
 from ..auth import admin_required, admin_required_api
 from ..services.openrouter_service import OpenRouterError
 from .repository import TrainingConflictError, TrainingNotFoundError
 from .service import TrainingStudioService
+from .slides import morning_deck, session_deck, session_index
 
 
 logger = logging.getLogger(__name__)
@@ -51,6 +52,19 @@ def _execute(callback):
 @admin_required
 def treinamentos_page():
     return render_template("parametros/treinamentos.html")
+
+
+@admin_required
+def treinamentos_projetar(slug=None):
+    try:
+        deck = session_deck(slug) if slug else morning_deck()
+    except KeyError:
+        abort(404)
+    return render_template(
+        "parametros/treinamento_projetar.html",
+        deck=deck,
+        index=session_index() if slug else None,
+    )
 
 
 @admin_required_api
@@ -192,6 +206,16 @@ def register_training_studio_routes(blueprint):
         "/treinamentos",
         endpoint="treinamentos",
         view_func=treinamentos_page,
+    )
+    blueprint.add_url_rule(
+        "/treinamentos/projetar",
+        endpoint="treinamentos_projetar",
+        view_func=treinamentos_projetar,
+    )
+    blueprint.add_url_rule(
+        "/treinamentos/projetar/<slug>",
+        endpoint="treinamentos_projetar_sessao",
+        view_func=treinamentos_projetar,
     )
     blueprint.add_url_rule(
         "/api/treinamentos/bootstrap",

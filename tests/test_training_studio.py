@@ -107,6 +107,8 @@ class TrainingStudioRoutesTest(unittest.TestCase):
         self.assertIn("tsUploadFile", page)
         self.assertIn("tsFontes", page)
         self.assertIn("9h30–12h30", page)
+        self.assertIn("tsProjectBtn", page)
+        self.assertIn("/parametros/treinamentos/projetar", page)
 
     def test_agenda_has_nine_specialist_sessions(self):
         from aicentralv2.training_studio.agenda import CHANNELS, SESSIONS, session_html
@@ -160,6 +162,47 @@ class TrainingStudioRoutesTest(unittest.TestCase):
         self.assertIn("novo", out)
         self.assertNotIn("velho", out)
         self.assertNotIn("<article class=\"ts-canal\"></article>", out.replace(" ", ""))
+
+
+class TrainingStudioSlidesTest(unittest.TestCase):
+    def test_every_session_has_a_deck(self):
+        from aicentralv2.training_studio.agenda import SESSIONS
+        from aicentralv2.training_studio.slides import morning_deck, session_deck
+
+        seen_charts = set()
+        for item in SESSIONS:
+            deck = session_deck(item["slug"])
+            self.assertEqual(deck["slug"], item["slug"])
+            self.assertGreaterEqual(len(deck["slides"]), 2)
+            for slide in deck["slides"]:
+                self.assertTrue(slide.get("title") or slide.get("place"))
+                chart = (slide.get("chart") or {}).get("id")
+                if chart:
+                    self.assertNotIn(chart, seen_charts)
+                    seen_charts.add(chart)
+        manha = morning_deck()
+        self.assertGreater(len(manha["slides"]), 40)
+        self.assertEqual(manha["slides"][0]["layout"], "title")
+
+    def test_places_deck_uses_catalog_photos(self):
+        from aicentralv2.training_studio.slides import session_deck
+
+        deck = session_deck("dooh-places")
+        places = [slide for slide in deck["slides"] if slide["layout"] == "place"]
+        self.assertEqual(len(places), 4)
+        for slide in places:
+            self.assertTrue(slide["place"]["hero"].startswith("/static/images/places/"))
+            self.assertTrue(slide["place"]["pax"])
+
+    def test_project_template_exists(self):
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parents[1]
+        page = (
+            root / "aicentralv2" / "templates" / "parametros" / "treinamento_projetar.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn("data-slide-deck", page)
+        self.assertIn("chart.js", page.lower())
 
 
 if __name__ == "__main__":

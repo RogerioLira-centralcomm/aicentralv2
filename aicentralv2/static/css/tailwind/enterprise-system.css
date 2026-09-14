@@ -6404,58 +6404,66 @@ dialog.cx-modal-shell::backdrop {
 }
 .cx-canais-rail-head strong {
   display: block;
-  margin-bottom: 8px;
   color: var(--cx-text);
   font-size: 13px;
   font-weight: 700;
-}
-.cx-canais-rail-head input {
-  width: 100%;
-  padding: 7px 10px;
-  border: 1px solid var(--cx-border);
-  border-radius: var(--cx-radius-sm);
-  background: var(--cx-surface);
-  color: var(--cx-text);
-  font-size: 13px;
-}
-.cx-canais-rail-head input:focus {
-  outline: 0;
-  border-color: var(--cx-brand);
-  box-shadow: var(--cx-focus);
 }
 .cx-canais-list {
   overflow-y: auto;
   padding: 6px 0;
 }
-.cx-canais-cats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 10px;
+.cx-canais-bloco + .cx-canais-bloco {
+  margin-top: 2px;
 }
-.cx-canais-cat {
-  flex: 0 0 auto;
-  padding: 4px 10px;
-  border: 1px solid var(--cx-border);
-  border-radius: 999px;
-  background: var(--cx-surface);
-  color: var(--cx-text);
-  font-size: 11.5px;
-  line-height: 1.2;
-  white-space: nowrap;
+.cx-canais-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  width: 100%;
+  margin: 0;
+  padding: 8px 16px;
+  border: 0;
+  background: var(--cx-surface-muted);
+  color: var(--cx-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-align: left;
   cursor: pointer;
 }
-.cx-canais-cat.is-active {
-  border-color: var(--cx-brand);
-  background: var(--cx-brand-soft);
-  color: var(--cx-brand);
-  font-weight: 650;
+.cx-canais-group:hover { color: var(--cx-text); }
+.cx-canais-group:focus-visible {
+  outline: 2px solid var(--cx-brand);
+  outline-offset: -2px;
 }
-.cx-canais-list-empty {
-  margin: 0;
-  padding: 16px;
+.cx-canais-group span { flex: 1 1 auto; }
+.cx-canais-group-n {
+  flex: 0 0 auto;
+  font-style: normal;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
   color: var(--cx-text-muted);
-  font-size: 13px;
+}
+.cx-canais-group::after {
+  content: "";
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  margin-top: -2px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.16s ease;
+}
+.cx-canais-bloco.is-collapsed .cx-canais-group::after {
+  margin-top: 0;
+  transform: rotate(-45deg);
+}
+.cx-canais-bloco.is-collapsed .cx-canais-bloco-body {
+  display: none;
 }
 .cx-canais-item {
   display: grid;
@@ -6471,6 +6479,10 @@ dialog.cx-modal-shell::backdrop {
   color: inherit;
   text-align: left;
   cursor: pointer;
+}
+.cx-canais-item[hidden],
+.cx-canais-group[hidden] {
+  display: none;
 }
 .cx-canais-item:hover { background: var(--cx-surface); }
 .cx-canais-item.is-active {
@@ -6499,6 +6511,7 @@ dialog.cx-modal-shell::backdrop {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  padding: 6px;
   background: var(--cx-surface);
 }
 .cx-canais-item b {
@@ -6675,6 +6688,79 @@ dialog.cx-modal-shell::backdrop {
   background: var(--cx-brand);
   color: #fff;
 }
+.cx-canais-commit {
+  margin: 0 0 22px;
+  padding: 16px 16px 16px 18px;
+  border: 1px solid var(--cx-border);
+  border-left: 3px solid var(--cx-brand);
+  border-radius: 0 var(--cx-radius-sm) var(--cx-radius-sm) 0;
+  background: var(--cx-surface);
+}
+.cx-canais-commit-title {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.cx-canais-commit-who {
+  margin: 0 0 12px;
+  color: var(--cx-text-muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.cx-canais-commit-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.3;
+}
+.cx-canais-commit-meta span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.cx-canais-commit-meta em {
+  font-style: normal;
+  color: var(--cx-text-muted);
+}
+.cx-canais-commit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.cx-canais-commit-actions button {
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid var(--cx-border);
+  border-radius: var(--cx-radius-sm);
+  background: var(--cx-surface);
+  color: var(--cx-text);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.cx-canais-commit-actions button:focus-visible {
+  outline: 2px solid var(--cx-brand);
+  outline-offset: 2px;
+}
+.cx-canais-commit-actions .cx-canais-primary {
+  border-color: var(--cx-brand);
+  background: var(--cx-brand);
+  color: #fff;
+}
+.cx-canais-commit.is-blocked .cx-canais-primary,
+.cx-canais-commit.is-busy .cx-canais-primary {
+  opacity: 0.5;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cx-canais-commit-actions button {
+    transition: none;
+  }
+}
 .cx-canais-ia {
   margin: 0 0 20px;
   padding: 12px 14px;
@@ -6774,10 +6860,7 @@ dialog.cx-modal-shell::backdrop {
     padding-left: max(16px, env(safe-area-inset-left));
     padding-right: max(16px, env(safe-area-inset-right));
   }
-  .cx-canais-rail-head input {
-    font-size: 16px;
-    min-height: 40px;
-  }
+  .cx-canais-group { min-height: 40px; }
   .cx-canais-stage,
   .cx-canais-sessao {
     padding-left: max(20px, env(safe-area-inset-left));

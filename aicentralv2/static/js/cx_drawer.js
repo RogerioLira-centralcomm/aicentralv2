@@ -198,6 +198,7 @@
     }
 
     function close(id) {
+        if (!id && openStack.length) id = openStack[openStack.length - 1].id;
         var idx = -1;
         for (var i = openStack.length - 1; i >= 0; i--) {
             if (openStack[i].id === id) { idx = i; break; }

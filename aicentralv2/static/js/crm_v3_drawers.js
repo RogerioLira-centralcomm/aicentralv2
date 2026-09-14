@@ -1590,9 +1590,14 @@
             && typeof cxDrawer !== 'undefined'
             && typeof cxDrawer.isOpen === 'function'
             && cxDrawer.isOpen(_atividadeDrawerId)) {
-            var aberto = document.getElementById(_atividadeDrawerId);
-            if (aberto) aberto.focus();
-            return _atividadeDrawerId;
+            if (opts.forceNew) {
+                cxDrawer.close(_atividadeDrawerId);
+                _atividadeDrawerId = null;
+            } else {
+                var aberto = document.getElementById(_atividadeDrawerId);
+                if (aberto) aberto.focus();
+                return _atividadeDrawerId;
+            }
         }
         var frag = cloneTpl('cx-drawer-atividade-tpl');
         if (!frag) { toast('Template do drawer não encontrado', true); return; }
@@ -1664,10 +1669,17 @@
         wireAtividadeAutosave(form, atividadeRef, clienteId, meetingEditor, _atividadeDrawerId);
         wireSuggestDate(wrapper, form);
 
+        if (opts.fromCanais) {
+            var hint = wrapper.querySelector('.cx-atividade-roteiro-hint');
+            if (hint) hint.textContent = 'Kit do canal já veio no registro. A pauta fica à direita.';
+        }
         if (opts.gerarRoteiro) {
             var roteiroBtn = wrapper.querySelector('[data-ia-action="gerar-roteiro"]');
             var outEl = wrapper.querySelector('[data-ia-output]');
             if (roteiroBtn) runIA(roteiroBtn, form, outEl, clienteId, wrapper);
+        }
+        if (!atividadeRef.id && form._flushAtividadeSave) {
+            form._flushAtividadeSave();
         }
         return _atividadeDrawerId;
     }
@@ -1712,7 +1724,8 @@
         if (payload.contato_id === '' || payload.contato_id == null) payload.contato_id = null;
         if (!payload.data_prazo) payload.data_prazo = payload.data || null;
         if (!payload.hora) payload.hora = null;
-        if (payload.tipo === 'reuniao' && meetingEditor) {
+        if (raw.canal_produto) payload.canal_produto = raw.canal_produto;
+        if (payload.tipo === 'reuniao' && meetingEditor && payload.hora) {
             payload.meeting = meetingEditor.payload();
             if (!allowGoogleSync) payload.meeting.sync_google = false;
         }
@@ -1735,7 +1748,9 @@
         if (!payload.titulo || !String(payload.titulo).trim() || !payload.data) {
             return Promise.resolve();
         }
-        if (payload.tipo === 'reuniao' && !payload.hora) return Promise.resolve();
+        if (payload.tipo === 'reuniao' && payload.meeting && payload.meeting.sync_google && !payload.hora) {
+            payload.meeting.sync_google = false;
+        }
         if (payload.meeting && payload.meeting.sync_google && !opts.confirmedGoogle) {
             window.showConfirm({
                 title: atividadeRef.id ? 'Atualizar convite' : 'Enviar convite',
@@ -1774,6 +1789,7 @@
                 toast('Atividade salva, mas o convite não foi sincronizado.', true);
             }
             setDrawerSaveHint(drawerId, 'Salvo');
+            refreshAtividadeLists(clienteId);
         }).catch(function (err) {
             setDrawerSaveHint(drawerId, '');
             toast(err.message, true);
@@ -1788,7 +1804,7 @@
         var timer = null;
         var persistFields = {
             titulo: 1, descricao: 1, data: 1, data_prazo: 1, hora: 1,
-            tipo: 1, status: 1, executivo_id: 1, contato_id: 1
+            tipo: 1, status: 1, executivo_id: 1, contato_id: 1, canal_produto: 1
         };
         function schedule() {
             window.clearTimeout(timer);
@@ -2056,6 +2072,38 @@
             }
             select.value = selected;
         }
+    }
+
+    var CANAIS_GRUPOS_COOKIE = 'cx-canais-open';
+
+    function readCookieValue(nome) {
+        var prefix = nome + '=';
+        var hit = document.cookie.split(';').map(function (part) {
+            return part.trim();
+        }).filter(function (part) {
+            return part.indexOf(prefix) === 0;
+        })[0];
+        if (!hit) return null;
+        try {
+            return decodeURIComponent(hit.slice(prefix.length));
+        } catch (err) {
+            return hit.slice(prefix.length);
+        }
+    }
+
+    function writeCookieValue(nome, valor) {
+        document.cookie = nome + '=' + encodeURIComponent(valor || '') +
+            '; path=/; max-age=31536000; SameSite=Lax';
+    }
+
+    function readCanaisGruposAbertos() {
+        var raw = readCookieValue(CANAIS_GRUPOS_COOKIE);
+        if (raw === null) return null;
+        return raw.split(',').map(function (item) { return item.trim(); }).filter(Boolean);
+    }
+
+    function writeCanaisGruposAbertos(abertos) {
+        writeCookieValue(CANAIS_GRUPOS_COOKIE, (abertos || []).join(','));
     }
 
     function loadCanaisCatalogo() {
@@ -4030,6 +4078,90 @@
             '</article>';
     }
 
+    function clienteAberto() {
+        var state = window.crmV3 && window.crmV3.state;
+        var cliente = state && state.cliente;
+        return {
+            id: (state && state.clienteId) || '',
+            nome: (cliente && cliente.nome) || ''
+        };
+    }
+
+    function formatDatePt(iso) {
+        var parts = String(iso || '').split('-');
+        if (parts.length !== 3) return iso || '';
+        return parts[2] + '/' + parts[1];
+    }
+
+    function contextoCanalAtividade(canal) {
+        if (!canal) return '';
+        var assist = canal.assistente || {};
+        var linhas = [];
+        if (assist.quando) linhas.push(assist.quando);
+        else if (canal.descricao) linhas.push(canal.descricao);
+        var fatos = [];
+        if (canal.alcance) fatos.push('Alcance ' + canal.alcance);
+        if (canal.viewability != null) fatos.push('Viewability ' + canal.viewability + '%');
+        if (canal.investimento_minimo) fatos.push('Mínimo ' + canal.investimento_minimo);
+        if (fatos.length) linhas.push(fatos.join('. ') + '.');
+        if (assist.passos && assist.passos.length) {
+            linhas.push('O que fazer:\n' + assist.passos.map(function (passo) {
+                return '- ' + passo;
+            }).join('\n'));
+        }
+        if (assist.evitar) linhas.push('Evitar: ' + assist.evitar);
+        if (assist.proximo_passo) linhas.push('Próximo passo: ' + assist.proximo_passo);
+        var formatos = (canal.formatos || []).slice(0, 5).map(function (fmt) {
+            return fmt && fmt.nome;
+        }).filter(Boolean);
+        if (formatos.length) linhas.push('Formatos: ' + formatos.join(', ') + '.');
+        var recortes = (canal.segmentacoes || []).slice(0, 4).map(function (seg) {
+            return seg && seg.nome;
+        }).filter(Boolean);
+        if (recortes.length) linhas.push('Recortes: ' + recortes.join(', ') + '.');
+        return linhas.filter(Boolean).join('\n\n');
+    }
+
+    function rascunhoAtividadeCanal(canal) {
+        var hoje = new Date();
+        var prazo = addBusinessDays(hoje, 2);
+        return {
+            titulo: 'Apresentar ' + ((canal && canal.nome) || 'canal'),
+            tipo: 'reuniao',
+            data: isoDateLocal(hoje),
+            data_prazo: isoDateLocal(prazo),
+            status: 'pendente',
+            canal_produto: (canal && canal.nome) || '',
+            descricao: contextoCanalAtividade(canal),
+            foco: 'falar_sobre_canal'
+        };
+    }
+
+    function canalCommitHtml(canal) {
+        var aberto = clienteAberto();
+        var draft = rascunhoAtividadeCanal(canal);
+        var bloqueado = !aberto.id;
+        return '<aside class="cx-canais-commit' + (bloqueado ? ' is-blocked' : '') +
+            '" data-canais-commit>' +
+            '<p class="cx-canais-commit-title">' + escapeHtml(draft.titulo) + '</p>' +
+            '<p class="cx-canais-commit-who">' +
+            escapeHtml(bloqueado
+                ? 'Abra um cliente ou agência para gravar'
+                : (aberto.nome || 'Cliente selecionado')) +
+            '</p>' +
+            '<p class="cx-canais-commit-meta">' +
+            '<span><em>Tipo</em> Reunião</span>' +
+            '<span><em>Data</em> ' + escapeHtml(formatDatePt(draft.data)) + '</span>' +
+            '<span><em>Prazo</em> ' + escapeHtml(formatDatePt(draft.data_prazo)) + '</span>' +
+            '<span><em>Kit</em> ' + escapeHtml(draft.canal_produto || 'canal') + '</span>' +
+            '</p>' +
+            '<div class="cx-canais-commit-actions">' +
+            '<button type="button" class="cx-canais-primary" data-canais-gerar' +
+            (bloqueado ? ' disabled' : '') + '>Criar atividade</button>' +
+            '<button type="button" data-canais-abrir-sessao>Ver formatos</button>' +
+            '</div></aside>';
+    }
+
     function renderCanalSessao(host, canal) {
         if (!host || !canal) return;
         var thumbs = (canal.formatos || []).map(function (fmt) {
@@ -4105,11 +4237,7 @@
             lead +
             '<div class="cx-canais-stats">' + stats + '</div>' +
             playbook +
-            '<div class="cx-canais-actions">' +
-            '<button type="button" class="cx-canais-primary" data-canais-gerar>Gerar apresentação</button>' +
-            '<button type="button" data-canais-abrir-sessao>Segmentação e formatos</button>' +
-            '</div>' +
-            '<div class="cx-canais-ia" data-canais-ia hidden></div>' +
+            canalCommitHtml(canal) +
             (thumbsPreview ? '<div class="cx-canais-thumbs">' + thumbsPreview + '</div>' : '') +
             (cols ? '<div class="cx-canais-cols">' + cols + '</div>' : '') +
             (arquivos
@@ -4127,63 +4255,88 @@
         var list = wrapper.querySelector('[data-canais-list]');
         var stage = wrapper.querySelector('[data-canais-stage]');
         var sessao = wrapper.querySelector('[data-canais-sessao]');
-        var busca = wrapper.querySelector('[data-canais-busca]');
-        var cats = wrapper.querySelector('[data-canais-cats]');
-        var emptyList = wrapper.querySelector('[data-canais-list-empty]');
         var picked = null;
-        var categoriaAtiva = '';
-        var lastIaTexto = '';
+
+        function canalItemHtml(canal, ativo) {
+            var on = ativo && canal.slug === ativo.slug ? ' is-active' : '';
+            return '<button type="button" class="cx-canais-item' + on + '" data-canal-slug="' +
+                escapeHtml(canal.slug) + '" data-canal-cat="' +
+                escapeHtml(canal.categoria || '') + '">' +
+                '<span class="cx-canais-mark">' +
+                canalMarkHtml(canal) + '</span>' +
+                '<b>' + escapeHtml(canal.nome) + '</b></button>';
+        }
+
+        function persistCanaisGrupos() {
+            if (!list) return;
+            writeCanaisGruposAbertos($$('.cx-canais-bloco:not(.is-collapsed)', list).map(function (el) {
+                return el.getAttribute('data-canal-grupo') || '';
+            }).filter(Boolean));
+        }
+
+        function grupoAberto(grupo, ativo, salvos, primeiro) {
+            if (salvos) return salvos.indexOf(grupo) !== -1;
+            if (ativo && (ativo.categoria || '') === grupo) return true;
+            if (!ativo && primeiro && grupo === primeiro) return true;
+            return false;
+        }
+
+        function abrirGrupoDoCanal(canal) {
+            if (!list || !canal || !canal.categoria) return;
+            var bloco = null;
+            $$('.cx-canais-bloco', list).forEach(function (el) {
+                if (el.getAttribute('data-canal-grupo') === canal.categoria) bloco = el;
+            });
+            if (!bloco || !bloco.classList.contains('is-collapsed')) return;
+            bloco.classList.remove('is-collapsed');
+            var toggle = bloco.querySelector('[data-canais-grupo-toggle]');
+            if (toggle) toggle.setAttribute('aria-expanded', 'true');
+            persistCanaisGrupos();
+        }
 
         function paint(canais, ativo) {
             if (!list) return;
             canais = sortCanaisAlfabetico(canais);
-            list.innerHTML = canais.map(function (canal) {
-                var on = ativo && canal.slug === ativo.slug ? ' is-active' : '';
-                return '<button type="button" class="cx-canais-item' + on + '" data-canal-slug="' +
-                    escapeHtml(canal.slug) + '" data-canal-cat="' +
-                    escapeHtml(canal.categoria || '') + '">' +
-                    '<span class="cx-canais-mark">' +
-                    canalMarkHtml(canal) + '</span>' +
-                    '<b>' + escapeHtml(canal.nome) + '</b></button>';
-            }).join('');
-            applyCanaisFilter();
-        }
-
-        function paintCats(canais) {
-            if (!cats) return;
-            var seen = (_canaisCatalogo && _canaisCatalogo.grupos && _canaisCatalogo.grupos.length)
+            var grupos = (_canaisCatalogo && _canaisCatalogo.grupos && _canaisCatalogo.grupos.length)
                 ? _canaisCatalogo.grupos.slice()
                 : [];
+            var salvos = readCanaisGruposAbertos();
+            var html = [];
+            var vistos = {};
+            var primeiro = '';
+            grupos.forEach(function (grupo) {
+                if (primeiro) return;
+                if (canais.some(function (canal) { return (canal.categoria || '') === grupo; })) {
+                    primeiro = grupo;
+                }
+            });
+            grupos.forEach(function (grupo) {
+                var itens = canais.filter(function (canal) {
+                    return (canal.categoria || '') === grupo;
+                });
+                if (!itens.length) return;
+                var aberto = grupoAberto(grupo, ativo, salvos, primeiro);
+                html.push('<section class="cx-canais-bloco' + (aberto ? '' : ' is-collapsed') +
+                    '" data-canal-grupo="' + escapeHtml(grupo) + '">' +
+                    '<button type="button" class="cx-canais-group" data-canais-grupo-toggle aria-expanded="' +
+                    (aberto ? 'true' : 'false') + '"><span>' + escapeHtml(grupo) +
+                    '</span><em class="cx-canais-group-n">' + itens.length + '</em></button>' +
+                    '<div class="cx-canais-bloco-body">');
+                itens.forEach(function (canal) {
+                    vistos[canal.slug] = true;
+                    html.push(canalItemHtml(canal, ativo));
+                });
+                html.push('</div></section>');
+            });
             canais.forEach(function (canal) {
-                if (canal.categoria && seen.indexOf(canal.categoria) === -1) seen.push(canal.categoria);
+                if (!vistos[canal.slug]) html.push(canalItemHtml(canal, ativo));
             });
-            cats.innerHTML = '<button type="button" class="cx-canais-cat' +
-                (categoriaAtiva ? '' : ' is-active') + '" data-canais-cat="">Todos</button>' +
-                seen.map(function (nome) {
-                    return '<button type="button" class="cx-canais-cat' +
-                        (categoriaAtiva === nome ? ' is-active' : '') +
-                        '" data-canais-cat="' + escapeHtml(nome) + '">' +
-                        escapeHtml(nome) + '</button>';
-                }).join('');
-        }
-
-        function applyCanaisFilter() {
-            if (!list) return;
-            var q = String((busca && busca.value) || '').toLowerCase();
-            var visiveis = 0;
-            $$('.cx-canais-item', list).forEach(function (item) {
-                var texto = String(item.textContent || '').toLowerCase();
-                var cat = item.getAttribute('data-canal-cat') || '';
-                var hide = !!(q && texto.indexOf(q) === -1) || !!(categoriaAtiva && cat !== categoriaAtiva);
-                item.hidden = hide;
-                if (!hide) visiveis += 1;
-            });
-            if (emptyList) emptyList.hidden = visiveis > 0;
+            list.innerHTML = html.join('');
+            if (ativo) abrirGrupoDoCanal(ativo);
         }
 
         function showCanal(canal, view) {
             picked = canal;
-            lastIaTexto = '';
             paint(_canaisCatalogo || [], canal);
             renderCanalStage(stage, canal);
             if (sessao) {
@@ -4193,65 +4346,60 @@
             setCanaisView(desk, view || (canaisIsCompact() ? 'detail' : 'detail'));
         }
 
-        function clienteAbertoId() {
-            return (window.crmV3 && window.crmV3.state && window.crmV3.state.clienteId) || '';
-        }
-
         function gerarApresentacao() {
             if (!picked) return;
-            var box = stage && stage.querySelector('[data-canais-ia]');
-            var btn = stage && stage.querySelector('[data-canais-gerar]');
-            if (btn) btn.disabled = true;
-            if (box) {
-                box.hidden = false;
-                box.textContent = 'Consultando assistente…';
-            }
-            apiFetch('/ia/gerar-roteiro', {
-                method: 'POST',
-                body: {
-                    titulo: 'Apresentar ' + (picked.nome || 'canal'),
-                    tipo: 'reuniao',
-                    foco: 'falar_sobre_canal',
-                    canal_produto: picked.nome || '',
-                    cliente_id: clienteAbertoId(),
-                    descricao: (picked.assistente && picked.assistente.quando) || picked.descricao || ''
-                }
-            }).then(function (res) {
-                var data = (res && res.data) || res || {};
-                var texto = data.texto || data.descricao || '';
-                lastIaTexto = texto;
-                if (box) {
-                    box.textContent = texto || 'A IA não devolveu texto.';
-                    if (texto) {
-                        box.insertAdjacentHTML('beforeend',
-                            '<div class="cx-canais-actions" style="margin:12px 0 0">' +
-                            '<button type="button" data-canais-abrir-atividade>Abrir como atividade</button>' +
-                            '</div>');
-                    }
-                }
-            }).catch(function (err) {
-                if (box) box.textContent = (err && err.message) || 'Não foi possível gerar a apresentação.';
-            }).then(function () {
-                if (btn) btn.disabled = false;
-            });
-        }
-
-        function abrirAtividadeDoCanal() {
-            var cid = clienteAbertoId();
-            if (!cid) {
-                toast('Selecione um cliente para abrir a atividade', true);
+            var aberto = clienteAberto();
+            if (!aberto.id) {
+                toast('Abra um cliente ou agência para gravar a atividade', true);
                 return;
             }
+            var draft = rascunhoAtividadeCanal(picked);
+            var commit = wrapper.querySelector('[data-canais-commit]');
+            var btn = wrapper.querySelector('[data-canais-gerar]');
+            if (commit) commit.classList.add('is-busy');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Criando…';
+            }
             if (typeof cxDrawer !== 'undefined' && typeof cxDrawer.close === 'function') {
+                if (_atividadeDrawerId && cxDrawer.isOpen && cxDrawer.isOpen(_atividadeDrawerId)) {
+                    cxDrawer.close(_atividadeDrawerId);
+                    _atividadeDrawerId = null;
+                }
                 cxDrawer.close();
             }
-            openDrawerAtividade({
-                titulo: 'Apresentar ' + ((picked && picked.nome) || 'canal'),
-                tipo: 'reuniao',
-                canal_produto: (picked && picked.nome) || '',
-                descricao: lastIaTexto || '',
-                foco: 'falar_sobre_canal'
-            }, cid);
+            apiFetch('/clientes/' + encodeURIComponent(aberto.id) + '/atividades', {
+                method: 'POST',
+                body: {
+                    titulo: draft.titulo,
+                    descricao: draft.descricao,
+                    tipo: draft.tipo,
+                    data: draft.data,
+                    data_prazo: draft.data_prazo,
+                    status: draft.status,
+                    canal_produto: draft.canal_produto
+                }
+            }).then(function (res) {
+                var saved = res.atividade || res.data || {};
+                refreshAtividadeLists(aberto.id);
+                openDrawerAtividade(Object.assign({}, draft, saved), aberto.id, {
+                    gerarRoteiro: true,
+                    forceNew: true,
+                    fromCanais: true
+                });
+            }).catch(function (err) {
+                if (commit) commit.classList.remove('is-busy');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'Criar atividade';
+                }
+                toast(err.message || 'Não foi possível criar a atividade', true);
+                openDrawerAtividade(draft, aberto.id, {
+                    gerarRoteiro: true,
+                    forceNew: true,
+                    fromCanais: true
+                });
+            });
         }
 
         loadCanaisCatalogo().then(function (canais) {
@@ -4259,7 +4407,6 @@
                 return item.slug === slug || item.nome === slug;
             })[0]) || (!canaisIsCompact() && canais[0]) || null;
             picked = atual;
-            paintCats(canais);
             paint(canais, atual);
             if (atual) {
                 renderCanalStage(stage, atual);
@@ -4271,6 +4418,16 @@
 
         if (list) {
             list.addEventListener('click', function (ev) {
+                var toggle = ev.target && ev.target.closest ? ev.target.closest('[data-canais-grupo-toggle]') : null;
+                if (toggle) {
+                    var bloco = toggle.closest('[data-canal-grupo]');
+                    if (!bloco) return;
+                    var abre = bloco.classList.contains('is-collapsed');
+                    bloco.classList.toggle('is-collapsed', !abre);
+                    toggle.setAttribute('aria-expanded', abre ? 'true' : 'false');
+                    persistCanaisGrupos();
+                    return;
+                }
                 var btn = ev.target && ev.target.closest ? ev.target.closest('[data-canal-slug]') : null;
                 if (!btn) return;
                 var found = (_canaisCatalogo || []).filter(function (item) {
@@ -4279,20 +4436,6 @@
                 if (!found) return;
                 showCanal(found, 'detail');
             });
-        }
-        if (cats) {
-            cats.addEventListener('click', function (ev) {
-                var btn = ev.target && ev.target.closest ? ev.target.closest('[data-canais-cat]') : null;
-                if (!btn) return;
-                categoriaAtiva = btn.getAttribute('data-canais-cat') || '';
-                $$('.cx-canais-cat', cats).forEach(function (item) {
-                    item.classList.toggle('is-active', item === btn);
-                });
-                applyCanaisFilter();
-            });
-        }
-        if (busca) {
-            busca.addEventListener('input', applyCanaisFilter);
         }
         wrapper.addEventListener('click', function (ev) {
             var t = ev.target && ev.target.closest ? ev.target : null;
@@ -4314,10 +4457,6 @@
             }
             if (t.closest('[data-canais-gerar]')) {
                 gerarApresentacao();
-                return;
-            }
-            if (t.closest('[data-canais-abrir-atividade]')) {
-                abrirAtividadeDoCanal();
             }
         });
 

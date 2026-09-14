@@ -17,7 +17,7 @@ CANAIS_MIDIA = (
     "iFood", "Uber", "99", "Logan", "Interativos",
 )
 
-CANAIS_EXCLUIDOS = frozenset({"the-trade-desk", "telegram", "ttd"})
+CANAIS_EXCLUIDOS = frozenset({"the-trade-desk", "telegram", "ttd", "google-dv360", "waze"})
 
 GRUPOS = (
     "Portais",
@@ -371,7 +371,6 @@ _LOCAL_LOGOS = {
     "tiktok": f"{_VIEWERS_DIR}/tiktok.svg",
     "linkedin": f"{_VIEWERS_DIR}/linkedin.svg",
     "cnn-brasil": f"{_VIEWERS_DIR}/cnn-brasil.svg",
-    "sbt": f"{_VIEWERS_DIR}/sbt-news.svg",
 }
 _LOGO_ALIAS = {
     "experian-dmp": "experian-portal",
@@ -393,10 +392,17 @@ def _index_canais_logos() -> Dict[str, str]:
 _RESOLVED_LOGOS = _index_canais_logos()
 
 
+def _logo_existe(url: str) -> bool:
+    if not (url or "").startswith("/static/"):
+        return False
+    rel = url[len("/static/"):]
+    return (Path(__file__).resolve().parent / "static" / rel).is_file()
+
+
 def _resolver_logo(slug: str, logo_path: str = "") -> str:
     global _RESOLVED_LOGOS
     encontrado = _RESOLVED_LOGOS.get(slug or "") or (logo_path or "")
-    if encontrado:
+    if encontrado and _logo_existe(encontrado):
         return encontrado
     _RESOLVED_LOGOS = _index_canais_logos()
     return _RESOLVED_LOGOS.get(slug or "") or (logo_path or "")
@@ -1058,7 +1064,7 @@ def listar_canais() -> List[Dict[str, Any]]:
 
 def grupos_canais(canais: Optional[List[Dict[str, Any]]] = None) -> List[str]:
     presentes = {item.get("categoria") for item in (canais or listar_canais()) if item.get("categoria")}
-    return [nome for nome in GRUPOS if nome in presentes]
+    return [nome for nome in GRUPOS if nome in presentes] or list(GRUPOS)
 
 
 def nomes_canais() -> List[str]:

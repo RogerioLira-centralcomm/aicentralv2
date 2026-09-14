@@ -548,6 +548,8 @@ def _apply_meeting_payload(activity, data):
     payload = data.get("meeting")
     if not isinstance(payload, dict):
         return None
+    if not activity.get("hora") and not payload.get("hora"):
+        return None
     meeting = _meeting_draft(activity, payload)
     if payload.get("sync_google"):
         meeting = _sync_meeting(activity, meeting)

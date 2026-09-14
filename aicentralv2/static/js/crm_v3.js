@@ -3825,7 +3825,7 @@
 
     function loadAtividades(clienteId) {
         return api('/clientes/' + encodeURIComponent(clienteId) + '/atividades').then(function (data) {
-            if (state.clienteId !== clienteId) return;
+            if (String(state.clienteId) !== String(clienteId)) return;
             state.atividades = data.atividades || [];
             renderAtividades();
             syncClienteSituacao(clienteId, state.atividades);

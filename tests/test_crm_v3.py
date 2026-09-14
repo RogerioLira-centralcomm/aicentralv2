@@ -1264,6 +1264,41 @@ class CrmTestApiTest(unittest.TestCase):
         self.assertEqual(len(meeting["attendees"]), 1)
         self.assertIn("14:30:00", meeting["starts_at"])
 
+    def test_reuniao_sem_hora_salva_atividade_sem_agenda(self):
+        import os
+        previous = os.environ.get("USE_CRM_V3_STORE")
+        os.environ["USE_CRM_V3_STORE"] = "mock"
+        try:
+            res = self.client.post(
+                "/crm-v3/api/clientes/auto-shopping/atividades",
+                json={
+                    "titulo": "Apresentar 99",
+                    "descricao": "Drive-to-store ou momento de deslocamento.",
+                    "tipo": "reuniao",
+                    "data": "2026-09-14",
+                    "hora": "",
+                    "canal_produto": "99",
+                    "meeting": {
+                        "duration_minutes": 30,
+                        "timezone": "America/Sao_Paulo",
+                        "sync_google": False,
+                        "attendees": [{"email": "marketing@portalautoshopping.com.br"}],
+                    },
+                },
+            )
+            self.assertEqual(res.status_code, 201)
+            payload = res.get_json()
+            atividade = payload.get("atividade") or payload.get("data") or payload
+            self.assertEqual(atividade.get("titulo"), "Apresentar 99")
+            self.assertFalse(payload.get("meeting"))
+            titulos = [item.get("titulo") for item in (store.list_atividades("auto-shopping") or [])]
+            self.assertIn("Apresentar 99", titulos)
+        finally:
+            if previous is None:
+                os.environ.pop("USE_CRM_V3_STORE", None)
+            else:
+                os.environ["USE_CRM_V3_STORE"] = previous
+
     def test_reuniao_sincroniza_meet_e_impede_outro_organizador(self):
         from unittest.mock import patch
 

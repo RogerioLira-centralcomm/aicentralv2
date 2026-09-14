@@ -51,6 +51,34 @@ export function refineMask(elementId, body) {
   }).then(parse);
 }
 
+export function deleteElement(elementId) {
+  return fetch(`${BASE}/elements/${encodeURIComponent(elementId)}`, {
+    method: "DELETE",
+    credentials: "same-origin",
+  }).then(parse);
+}
+
+export function exportCreative(creativeId) {
+  return fetch(`${BASE}/creatives/${encodeURIComponent(creativeId)}/export`, {
+    credentials: "same-origin",
+  }).then(parse);
+}
+
+export function cleanBackground(creativeId) {
+  return fetch(`${BASE}/creatives/${encodeURIComponent(creativeId)}/clean-background`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  }).then(parse);
+}
+
+export function listBrandCollections(brandId) {
+  return fetch(`${BASE}/brands/${encodeURIComponent(brandId)}/collections`, {
+    credentials: "same-origin",
+  }).then(parse);
+}
+
 export function patchElement(elementId, body) {
   return fetch(`${BASE}/elements/${encodeURIComponent(elementId)}`, {
     method: "PATCH",
@@ -91,6 +119,24 @@ export function createCollection(brandId, body) {
 
 export function publishElement(elementId, body) {
   return fetch(`${BASE}/elements/${encodeURIComponent(elementId)}/publish`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {}),
+  }).then(parse);
+}
+
+export function animatePreview(creativeId, body) {
+  return fetch(`${BASE}/creatives/${encodeURIComponent(creativeId)}/animate-preview`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {}),
+  }).then(parse);
+}
+
+export function animateRecompose(creativeId, body) {
+  return fetch(`${BASE}/creatives/${encodeURIComponent(creativeId)}/animate-recompose`, {
     method: "POST",
     credentials: "same-origin",
     headers: { "Content-Type": "application/json" },

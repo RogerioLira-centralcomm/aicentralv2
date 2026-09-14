@@ -42,15 +42,19 @@ export function bindCanvas(store) {
     ctx.clearRect(0, 0, width, height);
     over.clearRect(0, 0, width, height);
     const original = await loadImage(assetUrl(creative.original_path));
-    if (state.stageMode === "original" || state.stageMode === "masks") {
+    const comparing = state.comparing || state.stageMode === "original";
+    if (comparing) {
       if (original) ctx.drawImage(original, 0, 0, width, height);
-    } else if (state.stageMode === "layers") {
+    } else if (state.stageMode === "layers" || state.stageMode === "masks") {
       const layers = [...(state.layers || [])].sort((a, b) => (a.z_index || 0) - (b.z_index || 0));
+      const selected = state.selectedLayerId;
       for (const layer of layers) {
         if (layer.visible === false || layer.type === "text") continue;
         const image = await loadImage(assetUrl(layer.png_path));
         if (!image) continue;
         const box = layerBox(layer);
+        ctx.save();
+        ctx.globalAlpha = selected && layer.id !== selected ? 0.42 : 1;
         ctx.drawImage(
           image,
           (box.x / 100) * width,
@@ -58,18 +62,17 @@ export function bindCanvas(store) {
           (box.w / 100) * width,
           (box.h / 100) * height,
         );
+        ctx.restore();
       }
     }
-    if (state.stageMode === "masks") {
-      const selected = (state.layers || []).find((item) => item.id === state.selectedLayerId);
-      if (selected?.mask_path) {
-        const mask = await loadImage(assetUrl(selected.mask_path));
-        if (mask) {
-          over.save();
-          over.globalAlpha = 0.35;
-          over.drawImage(mask, 0, 0, width, height);
-          over.restore();
-        }
+    const selected = (state.layers || []).find((item) => item.id === state.selectedLayerId);
+    if (state.showMask && selected?.mask_path) {
+      const mask = await loadImage(assetUrl(selected.mask_path));
+      if (mask) {
+        over.save();
+        over.globalAlpha = 0.35;
+        over.drawImage(mask, 0, 0, width, height);
+        over.restore();
       }
     }
   }

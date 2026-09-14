@@ -1,6 +1,7 @@
-import { assetUrl, provenanceLabel, qualityLabel } from "./utils.js";
-import { patchElement, publishElement } from "./api.js";
+import { assetUrl, coverageLabel, layerBox, qualityLabel } from "./utils.js";
+import { deleteElement, patchElement, publishElement, refineMask } from "./api.js";
 import { persistScene } from "./html-preview.js";
+import { replaceLayer } from "./mask-editor.js";
 
 export function bindInspector(store, history, setStatus) {
   const form = document.getElementById("mcCv2Inspector");
@@ -29,6 +30,14 @@ export function bindInspector(store, history, setStatus) {
     document.getElementById("mcCv2FieldLabel").value = layer.label || "";
     document.getElementById("mcCv2FieldText").value = html.text || layer.text || "";
     document.getElementById("mcCv2TextWrap").classList.toggle("hidden", layer.type !== "text");
+    document.getElementById("mcCv2ImageWrap")?.classList.toggle("hidden", layer.type === "text");
+    const box = layerBox(layer);
+    setValue("mcCv2FieldX", box.x);
+    setValue("mcCv2FieldY", box.y);
+    setValue("mcCv2FieldW", box.w);
+    setValue("mcCv2FieldH", box.h);
+    const mask = document.getElementById("mcCv2FieldMask");
+    if (mask) mask.checked = Boolean(store.getState().showMask);
     setValue("mcCv2FieldFont", style.font_family || "Arial, sans-serif");
     setValue("mcCv2FieldSize", style.font_size || 32);
     setValue("mcCv2FieldWeight", style.font_weight || 400);
@@ -42,8 +51,8 @@ export function bindInspector(store, history, setStatus) {
     document.getElementById("mcCv2FieldMeta").textContent = [
       layer.role,
       qualityLabel(layer.quality),
-      provenanceLabel(layer.provenance),
-    ].filter(Boolean).join(" · ");
+      coverageLabel(layer),
+    ].filter(Boolean).join("  ");
     const download = document.getElementById("mcCv2Download");
     if (download) {
       download.hidden = !layer.png_path;
@@ -148,11 +157,44 @@ export function bindInspector(store, history, setStatus) {
       });
       setStatus?.(
         saved.duplicate
-          ? "Este recorte já estava na biblioteca."
-          : "Recorte publicado na biblioteca.",
+          ? "Este recorte já estava na folha."
+          : "Recorte publicado na folha.",
       );
     } catch (error) {
       setStatus?.(error.message || "Não publiquei o recorte.");
+    }
+  });
+  document.getElementById("mcCv2FieldMask")?.addEventListener("change", (event) => {
+    store.setState({ showMask: event.target.checked });
+  });
+  document.getElementById("mcCv2FieldFeather")?.addEventListener("change", async (event) => {
+    const layer = current();
+    if (!layer || layer.type === "text") return;
+    history.push();
+    const updated = await refineMask(layer.id, { feather_px: Number(event.target.value) || 0 });
+    replaceLayer(store, updated);
+  });
+  document.getElementById("mcCv2FieldHalo")?.addEventListener("change", async (event) => {
+    const layer = current();
+    if (!layer || layer.type === "text" || !event.target.checked) return;
+    history.push();
+    const updated = await refineMask(layer.id, { remove_halo: true });
+    replaceLayer(store, updated);
+  });
+  document.getElementById("mcCv2Remove")?.addEventListener("click", async () => {
+    const layer = current();
+    if (!layer) return;
+    if (!window.confirm(`Remover ${layer.label || layer.role} da placa?`)) return;
+    try {
+      const saved = await deleteElement(layer.id);
+      store.setState((state) => ({
+        layers: state.layers.filter((item) => item.id !== layer.id),
+        scene: saved.scene || state.scene,
+        selectedLayerId: null,
+      }));
+      setStatus?.("Acetato removido.");
+    } catch (error) {
+      setStatus?.(error.message || "Não removi o acetato.");
     }
   });
   document.getElementById("mcCv2Download")?.addEventListener("click", () => {

@@ -1,22 +1,28 @@
-<section class="mc-cv2 grid gap-4" id="mcCv2App" aria-labelledby="mcCamadasV2Title">
+<section class="mc-cv2 mc-cv2-bench" id="mcCv2App" aria-labelledby="mcCamadasV2Title">
+  {% include "parametros/_mc_camadas_icons.html" %}
   {% include "parametros/_mc_camadas_toolbar.html" %}
-  <div class="grid gap-3 lg:grid-cols-[14rem_minmax(0,1fr)_18rem]">
+  <div class="cv2-body">
     {% include "parametros/_mc_camadas_library.html" %}
     {% include "parametros/_mc_camadas_stage.html" %}
-    <div class="grid content-start gap-3">
+    <div class="cv2-stack" id="mcCv2Stack">
       {% include "parametros/_mc_camadas_layers.html" %}
       {% include "parametros/_mc_camadas_inspector.html" %}
     </div>
   </div>
-  <footer class="grid gap-2">
-    <ol class="m-0 grid list-none grid-cols-2 gap-2 p-0 text-sm sm:grid-cols-6" id="mcCv2Tally" aria-label="Ordem do trabalho">
-      <li class="border-b-2 border-teal-700 pb-1" data-cv2-step="upload">Upload</li>
-      <li class="border-b-2 border-transparent pb-1 text-stone-500" data-cv2-step="map">Mapeamento</li>
-      <li class="border-b-2 border-transparent pb-1 text-stone-500" data-cv2-step="split">Separação</li>
-      <li class="border-b-2 border-transparent pb-1 text-stone-500" data-cv2-step="review">Revisão</li>
-      <li class="border-b-2 border-transparent pb-1 text-stone-500" data-cv2-step="html">HTML</li>
-      <li class="border-b-2 border-transparent pb-1 text-stone-500" data-cv2-step="library">Biblioteca</li>
+  <footer class="cv2-foot">
+    <ol class="cv2-tally" id="mcCv2Tally" aria-label="Ordem do trabalho">
+      <li data-cv2-step="upload" class="is-current">Upload</li>
+      <li data-cv2-step="read">Leitura</li>
+      <li data-cv2-step="segment">Segmentação</li>
+      <li data-cv2-step="review">Revisão</li>
+      <li data-cv2-step="html">HTML</li>
+      <li data-cv2-step="animation">Animação</li>
+      <li data-cv2-step="publish">Publicação</li>
     </ol>
-    <p class="m-0 text-sm" id="mcCamadasV2Status">Envie um still. Cada pessoa e objeto vira uma camada.</p>
+    <p class="cv2-status" id="mcCamadasV2Status">Solte o criativo ou use Mapear criativo.</p>
+    <button class="cv2-advance" id="mcCv2Advance" type="button">
+      Avançar
+      <svg class="cv2-ico" aria-hidden="true"><use href="#cv2-chevron"/></svg>
+    </button>
   </footer>
 </section>

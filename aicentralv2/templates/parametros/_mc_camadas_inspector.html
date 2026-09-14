@@ -1,19 +1,20 @@
-<section class="grid content-start gap-2 border border-stone-300 bg-white p-3" aria-label="Inspetor">
-  <h3 class="m-0 text-base font-normal">Inspetor</h3>
-  <p class="m-0 text-sm text-stone-500" id="mcCv2InspectorEmpty">Selecione uma camada.</p>
-  <form class="hidden grid gap-2 text-sm" id="mcCv2Inspector">
-    <label class="grid gap-0.5">
-      <span>Nome</span>
-      <input class="border border-stone-300 px-2 py-1" id="mcCv2FieldLabel" name="label" type="text">
+<section class="cv2-inspector" aria-label="Propriedades">
+  <h3>Propriedades</h3>
+  <p class="cv2-count" id="mcCv2InspectorEmpty">Selecione um acetato.</p>
+  <form class="cv2-props hidden" id="mcCv2Inspector">
+    <label>
+      Nome
+      <input id="mcCv2FieldLabel" name="label" type="text">
     </label>
-    <div class="grid gap-2" id="mcCv2TextWrap">
-      <label class="grid gap-0.5">
-        <span>Conteúdo</span>
-        <textarea class="min-h-[4rem] border border-stone-300 px-2 py-1" id="mcCv2FieldText" name="text"></textarea>
+    <p class="cv2-count" id="mcCv2FieldMeta"></p>
+    <div class="cv2-props hidden" id="mcCv2TextWrap">
+      <label>
+        Conteúdo
+        <textarea id="mcCv2FieldText" name="text"></textarea>
       </label>
-      <label class="grid gap-0.5">
-        <span>Família</span>
-        <select class="border border-stone-300 px-2 py-1" id="mcCv2FieldFont">
+      <label>
+        Família
+        <select id="mcCv2FieldFont">
           <option value="Arial, sans-serif">Arial</option>
           <option value="Georgia, serif">Georgia</option>
           <option value="Times New Roman, serif">Times New Roman</option>
@@ -21,54 +22,65 @@
           <option value="Courier New, monospace">Courier New</option>
         </select>
       </label>
-      <div class="grid grid-cols-2 gap-2">
-        <label class="grid gap-0.5">
-          <span>Tamanho</span>
-          <input class="border border-stone-300 px-2 py-1" id="mcCv2FieldSize" max="240" min="8" name="font_size" type="number">
-        </label>
-        <label class="grid gap-0.5">
-          <span>Peso</span>
-          <input class="border border-stone-300 px-2 py-1" id="mcCv2FieldWeight" max="900" min="100" name="font_weight" step="100" type="number">
-        </label>
-        <label class="grid gap-0.5">
-          <span>Entrelinha</span>
-          <input class="border border-stone-300 px-2 py-1" id="mcCv2FieldLeading" max="2.5" min="0.7" name="line_height" step="0.05" type="number">
-        </label>
-        <label class="grid gap-0.5">
-          <span>Tracking</span>
-          <input class="border border-stone-300 px-2 py-1" id="mcCv2FieldTracking" max="1" min="-0.2" name="letter_spacing" step="0.01" type="number">
-        </label>
+      <div class="cv2-prop-row">
+        <label>Tamanho <input id="mcCv2FieldSize" max="240" min="8" name="font_size" type="number"></label>
+        <label>Peso <input id="mcCv2FieldWeight" max="900" min="100" name="font_weight" step="100" type="number"></label>
+        <label>Entrelinha <input id="mcCv2FieldLeading" max="2.5" min="0.7" name="line_height" step="0.05" type="number"></label>
+        <label>Tracking <input id="mcCv2FieldTracking" max="1" min="-0.2" name="letter_spacing" step="0.01" type="number"></label>
       </div>
-      <label class="grid gap-0.5">
-        <span>Alinhamento</span>
-        <select class="border border-stone-300 px-2 py-1" id="mcCv2FieldAlign">
+      <label>
+        Alinhamento
+        <select id="mcCv2FieldAlign">
           <option value="left">Esquerda</option>
           <option value="center">Centro</option>
           <option value="right">Direita</option>
           <option value="justify">Justificado</option>
         </select>
       </label>
-      <label class="grid gap-0.5">
-        <span>Cor</span>
-        <input class="h-8 w-full border border-stone-300" id="mcCv2FieldColor" name="color" type="color">
+      <label>Cor <input id="mcCv2FieldColor" name="color" type="color"></label>
+    </div>
+    <div class="cv2-props" id="mcCv2ImageWrap">
+      <div class="cv2-prop-row">
+        <label>X % <input id="mcCv2FieldX" name="x" type="number" step="0.1"></label>
+        <label>Y % <input id="mcCv2FieldY" name="y" type="number" step="0.1"></label>
+        <label>L % <input id="mcCv2FieldW" name="w" type="number" step="0.1"></label>
+        <label>A % <input id="mcCv2FieldH" name="h" type="number" step="0.1"></label>
+      </div>
+      <label class="cv2-check">
+        <input id="mcCv2FieldMask" name="show_mask" type="checkbox">
+        Exibir máscara
+      </label>
+      <label>
+        Suavizar borda
+        <input id="mcCv2FieldFeather" max="8" min="0" name="feather_px" step="0.5" type="range" value="0">
+      </label>
+      <label class="cv2-check">
+        <input id="mcCv2FieldHalo" name="remove_halo" type="checkbox">
+        Remover halo
       </label>
     </div>
-    <p class="m-0" id="mcCv2FieldMeta"></p>
-    <label class="flex items-center gap-2">
+    <label class="cv2-check">
       <input id="mcCv2FieldVisible" name="visible" type="checkbox">
-      <span>Visível</span>
+      Visível
     </label>
-    <label class="flex items-center gap-2">
+    <label class="cv2-check">
       <input id="mcCv2FieldLocked" name="locked" type="checkbox">
-      <span>Bloqueada</span>
+      Bloqueada
     </label>
-    <label class="flex items-center gap-2">
+    <label class="cv2-check hidden">
       <input id="mcCv2FieldApproved" name="approved" type="checkbox">
-      <span>Aprovada</span>
+      Aprovada
     </label>
-    <div class="flex flex-wrap gap-1">
-      <button class="cx-btn cx-btn-secondary cx-btn-sm" id="mcCv2Download" type="button">Baixar PNG</button>
-      <button class="cx-btn cx-btn-secondary cx-btn-sm" id="mcCv2Publish" type="button">Biblioteca</button>
+    <div class="cv2-chrome-actions">
+      <button class="cv2-text-btn" id="mcCv2Publish" type="button">
+        <svg class="cv2-ico" aria-hidden="true"><use href="#cv2-pin"/></svg>
+        Publicar na folha
+      </button>
+      <button class="cv2-text-btn hidden" id="mcCv2Download" type="button">Baixar PNG</button>
+      <button class="cv2-text-btn cv2-danger" id="mcCv2Remove" type="button">
+        <svg class="cv2-ico" aria-hidden="true"><use href="#cv2-trash"/></svg>
+        Remover
+      </button>
     </div>
   </form>
 </section>

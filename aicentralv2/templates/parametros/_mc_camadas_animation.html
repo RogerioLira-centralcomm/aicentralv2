@@ -1,0 +1,27 @@
+<div class="absolute inset-0 hidden overflow-auto bg-white p-3" id="mcCv2AnimPane" hidden>
+  <div class="grid gap-3">
+    <div class="flex flex-wrap items-baseline justify-between gap-2">
+      <h3 class="m-0 text-base font-normal">Animação</h3>
+      <p class="m-0 text-sm text-stone-500" id="mcCv2AnimMeta">Abra um criativo mapeado para ver placa e overlay.</p>
+    </div>
+    <div class="grid gap-2 sm:grid-cols-3">
+      <figure class="m-0 grid gap-1">
+        <img alt="Placa sem tipo" class="aspect-[4/5] w-full border border-stone-200 bg-stone-100 object-contain" id="mcCv2AnimPlate">
+        <figcaption class="text-sm text-stone-500">Placa</figcaption>
+      </figure>
+      <figure class="m-0 grid gap-1">
+        <img alt="Overlay protegido" class="aspect-[4/5] w-full border border-stone-200 object-contain" id="mcCv2AnimOverlay">
+        <figcaption class="text-sm text-stone-500">Overlay</figcaption>
+      </figure>
+      <figure class="m-0 grid gap-1">
+        <img alt="Composto" class="aspect-[4/5] w-full border border-stone-200 bg-stone-100 object-contain" id="mcCv2AnimComposite">
+        <figcaption class="text-sm text-stone-500">Composto</figcaption>
+      </figure>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <button class="cx-btn cx-btn-secondary" id="mcCv2AnimRefresh" type="button">Atualizar preview</button>
+      <button class="cx-btn cx-btn-primary" id="mcCv2AnimRecompose" type="button" disabled>Recompor overlay</button>
+    </div>
+    <p class="m-0 hidden text-sm text-amber-800" id="mcCv2AnimAhead">A cena mudou depois desta animação. Recompor aplica o overlay novo sem chamar o Seedance.</p>
+  </div>
+</div>

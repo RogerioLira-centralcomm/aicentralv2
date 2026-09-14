@@ -83,6 +83,22 @@ export function cloneLayers(layers) {
   return JSON.parse(JSON.stringify(layers || []));
 }
 
+export function coverageLabel(layer) {
+  const value = Number(layer?.coverage);
+  if (!Number.isFinite(value) || value <= 0) return "";
+  return `${Math.round(value * 100)}% da placa`;
+}
+
+export function needsReview(layer) {
+  return Boolean(layer?.needs_review) || ["review_edge", "leak", "incomplete", "text_overlap", "low_res"].includes(layer?.quality);
+}
+
+export function thumbUrl(layer) {
+  const path = layer?.thumb_path || "";
+  if (!path || path === layer?.png_path || path === layer?.asset_path) return "";
+  return assetUrl(path);
+}
+
 export function composeScene(state) {
   const scene = state?.scene && typeof state.scene === "object"
     ? structuredClone(state.scene)

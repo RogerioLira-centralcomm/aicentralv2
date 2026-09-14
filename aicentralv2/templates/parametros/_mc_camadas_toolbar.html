@@ -1,19 +1,31 @@
-<header class="flex flex-wrap items-center justify-between gap-3 border-b border-stone-300 pb-3">
-  <div class="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-    <h2 id="mcCamadasV2Title" class="m-0 text-2xl font-normal tracking-tight">Camadas</h2>
-    <label class="grid gap-0.5 text-sm">
-      <span class="text-stone-500">Marca</span>
-      <input class="border border-stone-300 bg-white px-2 py-1" id="mcCv2Brand" name="brand_id" type="text" placeholder="id da marca">
+<header class="cv2-chrome">
+  <div class="cv2-chrome-brand">
+    <h2 id="mcCamadasV2Title">Camadas</h2>
+    <label class="cv2-field">
+      <span>Marca</span>
+      <input id="mcCv2Brand" name="brand_id" type="text" placeholder="id da marca" value="">
     </label>
-    <label class="grid gap-0.5 text-sm">
-      <span class="text-stone-500">Coleção</span>
-      <input class="border border-stone-300 bg-white px-2 py-1" id="mcCv2Collection" name="collection_id" type="text" placeholder="opcional">
+    <label class="cv2-field">
+      <span>Coleção</span>
+      <select id="mcCv2Collection" name="collection_id">
+        <option value="">Geral</option>
+      </select>
     </label>
   </div>
-  <div class="flex flex-wrap items-center gap-2">
+  <div class="cv2-chrome-actions">
     <input class="sr-only" id="mcCamadasV2File" name="file" type="file" accept="image/png,image/jpeg,image/webp">
-    <button class="cx-btn cx-btn-primary" id="mcCv2Map" type="button">Mapear criativo</button>
-    <button class="cx-btn cx-btn-secondary" id="mcCv2Clean" type="button" disabled>Limpar fundo</button>
-    <button class="cx-btn cx-btn-secondary" id="mcCv2Save" type="button" disabled>Salvar</button>
+    <button class="cv2-map" id="mcCv2Map" type="button">
+      <svg class="cv2-ico" aria-hidden="true"><use href="#cv2-plus"/></svg>
+      Mapear criativo
+    </button>
+    <button class="cv2-text-btn" id="mcCv2Export" type="button" disabled>
+      <svg class="cv2-ico" aria-hidden="true"><use href="#cv2-sheet"/></svg>
+      Exportar HTML
+    </button>
+    <button class="cv2-text-btn" id="mcCv2Clean" type="button" disabled title="Só limpa poço de foto.">
+      <svg class="cv2-ico" aria-hidden="true"><use href="#cv2-well"/></svg>
+      Limpar fundo
+    </button>
+    <button class="cv2-text-btn hidden" id="mcCv2Save" type="button" disabled>Salvar</button>
   </div>
 </header>

@@ -10,6 +10,28 @@
   background: #fff;
 }
 
+.erp-main-content:has(#mcCv2App),
+.mc-shell:has(#mcCv2App) {
+  padding: 0;
+  gap: 0;
+  background: #141816;
+}
+
+.mc-shell:has(#mcCv2App) .mc-desk-nav {
+  display: none;
+}
+
+.mc-shell:has(#mcCv2App) .mc-chrome {
+  background: #191d1b;
+  border-bottom: 1px solid rgba(215, 221, 210, 0.12);
+}
+
+.mc-shell:has(#mcCv2App) .mc-panel {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
 .mc-shell:has(.mc-trocr) .mc-chrome,
 .mc-shell:has(.mc-studio) .mc-chrome {
   background: #fff;

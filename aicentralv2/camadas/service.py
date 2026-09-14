@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 
 from .analysis.ocr import read_creative
 from .extraction.cutouts import detection_to_row, extract_image_elements
-from .html.compiler import apply_operations
+from .generation import aspect_of, image_from_generation
+from .html.compiler import apply_operations, compile_scene
 from .html.sanitizer import sanitize_scene
 from .html.scene import build_scene, merge_scene, text_elements_from_reading
 from .jobs import spawn, stage_payload
@@ -26,7 +28,12 @@ from .segmentation.contours import contours_from_mask
 from .segmentation.matting import refine_mask
 from .segmentation.provider import segment_all, segment_at
 from .segmentation.quality import REVIEW
+from . import settings as camadas_settings
 from .storage import CamadasStorage, validate_still
+
+PAPER_WELL = "Este still é papel. A tinta já é o wash. A geração só limpa poço de foto."
+CLEAN_UNCONFIGURED = "Limpar fundo não está configurado."
+CLEAN_UNAVAILABLE = "A geração de fundo não está disponível."
 
 logger = logging.getLogger(__name__)
 
@@ -34,12 +41,21 @@ _UNSET = object()
 
 
 class CamadasService:
-    def __init__(self, repository=None, storage=None, text_callable=_UNSET, spawn_job=None, predictor=_UNSET):
+    def __init__(
+        self,
+        repository=None,
+        storage=None,
+        text_callable=_UNSET,
+        spawn_job=None,
+        predictor=_UNSET,
+        image_callable=_UNSET,
+    ):
         self.repository = repository or CamadasRepository()
         self.storage = storage or CamadasStorage()
         self._text_callable = text_callable
         self.spawn_job = spawn_job or spawn
         self._predictor = predictor
+        self._image_callable = image_callable
 
     def create_creative(self, file_storage, payload=None, user_id=None):
         payload = payload if isinstance(payload, dict) else {}
@@ -81,6 +97,26 @@ class CamadasService:
             "status": "queued",
         }
 
+    def find_or_create_from_still(self, file_storage, payload=None, user_id=None):
+        payload = payload if isinstance(payload, dict) else {}
+        validate_still(file_storage)
+        file_storage.stream.seek(0)
+        digest = hashlib.sha256(file_storage.stream.read()).hexdigest()
+        file_storage.stream.seek(0)
+        client_id = optional_int(payload.get("brand_id") or payload.get("client_id"))
+        self.repository.ready()
+        finder = getattr(self.repository, "find_creative_by_sha", None)
+        existing = finder(client_id, digest) if callable(finder) else None
+        if existing:
+            return {
+                "creative_id": existing.get("public_id"),
+                "job_id": "",
+                "status": existing.get("status") or "ready",
+                "reused": True,
+            }
+        created = self.create_creative(file_storage, payload, user_id=user_id)
+        return {**created, "reused": False}
+
     def get_creative(self, creative_id):
         self.repository.ready()
         creative = self.repository.get_creative(creative_id)
@@ -98,7 +134,10 @@ class CamadasService:
             )
         )
         return {
-            "creative": _public_creative(creative),
+            "creative": {
+                **_public_creative(creative),
+                **self._clean_flags(elements),
+            },
             "elements": [_public_element(item) for item in elements],
             "scene": scene,
             "scene_version": int((scene_row or {}).get("version") or 1),
@@ -157,6 +196,15 @@ class CamadasService:
                 )
             self.repository.update_job(job_id, **stage_payload("assembling_scene"))
             rows = list(image_rows) + text_elements_from_reading(reading.get("read_full") or {})
+            for row in rows:
+                if row.get("layer_type") == "text" and not row.get("thumb_path"):
+                    row["thumb_path"] = self.storage.save_text_thumb(
+                        creative_id,
+                        row.get("role") or "text",
+                        row.get("text_content") or "",
+                    )
+                if "needs_review" not in row:
+                    row["needs_review"] = row.get("quality") in REVIEW
             review = [item for item in rows if item.get("quality") in REVIEW]
             if review:
                 warnings.append(f"{len(review)} elementos precisam de revisão")
@@ -280,6 +328,7 @@ class CamadasService:
         crop, box = _cutout(source, updated)
         png_path = self.storage.save_png(creative["public_id"], f"{element_id}-cut", crop)
         mask_path = self.storage.save_png(creative["public_id"], f"{element_id}-mask", updated)
+        thumb_path = self.storage.save_thumb(creative["public_id"], f"{element_id}-cut", crop)
         geometry = contours_from_mask(updated)
         metadata = dict(element.get("metadata") or {})
         metadata.update(geometry)
@@ -288,6 +337,7 @@ class CamadasService:
             bbox=box,
             png_path=png_path,
             mask_path=mask_path,
+            thumb_path=thumb_path,
             metadata=metadata,
         )
         self.repository.save_mask(
@@ -357,9 +407,24 @@ class CamadasService:
         )
         return {
             "assets": assets,
-            "collections": [_public_collection(item) for item in self.repository.list_collections(client_id)],
+            "collections": self.list_brand_collections(brand_id)["collections"],
             "counts": group_counts(rows),
         }
+
+    def list_brand_collections(self, brand_id):
+        self.repository.ready()
+        client_id = optional_int(brand_id)
+        assets = self.repository.list_assets(client_id)
+        counts = {}
+        for item in assets:
+            key = item.get("collection_id")
+            counts[key] = counts.get(key, 0) + 1
+        collections = []
+        for item in self.repository.list_collections(client_id):
+            public = _public_collection(item)
+            public["asset_count"] = counts.get(item.get("id"), 0)
+            collections.append(public)
+        return {"collections": collections}
 
     def create_brand_collection(self, brand_id, payload=None):
         payload = strip_client_injections(payload if isinstance(payload, dict) else {})
@@ -403,6 +468,11 @@ class CamadasService:
             "source_element_id": element.get("public_id"),
             "source_creative_id": creative.get("public_id"),
         }
+        cover = element.get("thumb_path") or element.get("png_path") or ""
+        if cover and not collection.get("cover_thumb_path"):
+            updater = getattr(self.repository, "update_collection", None)
+            if callable(updater):
+                updater(collection.get("public_id"), cover_thumb_path=cover)
         row = self.repository.create_asset(
             {
                 "public_id": new_public_id("asset"),
@@ -415,7 +485,7 @@ class CamadasService:
                 "provenance": provenance,
                 "sha256": sha256,
                 "asset_path": element.get("png_path") or "",
-                "thumb_path": element.get("thumb_path") or element.get("png_path") or "",
+                "thumb_path": element.get("thumb_path") or "",
                 "metadata": metadata,
             }
         )
@@ -474,6 +544,93 @@ class CamadasService:
             "scene": scene,
             "scene_version": int((row or {}).get("version") or 1),
             "placed": True,
+        }
+
+    def delete_element(self, element_id):
+        self.repository.ready()
+        element = self.repository.get_element(element_id)
+        deleter = getattr(self.repository, "delete_element", None)
+        if not callable(deleter):
+            raise ValueError("Não removo este elemento.")
+        deleter(element_id)
+        creative = self.repository.get_creative(element["creative_public_id"])
+        scene = self._refresh_scene(creative)
+        return {
+            "deleted": True,
+            "id": element_id,
+            "scene": scene,
+        }
+
+    def export_creative(self, creative_id):
+        document = self.get_creative(creative_id)
+        return {
+            "html": compile_scene(document.get("scene") or {}),
+            "scene": document.get("scene"),
+            "scene_version": document.get("scene_version") or 1,
+            "name": (document.get("creative") or {}).get("name") or "camadas",
+        }
+
+    def clean_background(self, creative_id):
+        self.repository.ready()
+        creative = self.repository.get_creative(creative_id)
+        elements = self.repository.list_elements(creative["id"])
+        background = next((item for item in elements if item.get("role") == "background"), None)
+        if not background:
+            raise ValueError("Não há fundo nesta peça.")
+        kind = (background.get("metadata") or {}).get("ground_kind") or ""
+        if kind != "image":
+            raise ValueError(PAPER_WELL)
+        image_fn = self._resolve_image_callable()
+        if not callable(image_fn):
+            raise ValueError(CLEAN_UNCONFIGURED if not camadas_settings.image_configured() else CLEAN_UNAVAILABLE)
+        from ..creative_format_lab.decompose import GROUND_PROMPT
+
+        reference = self.storage.as_data_url(creative.get("original_path"))
+        raw = image_fn(
+            GROUND_PROMPT,
+            aspect_ratio=aspect_of(creative.get("width"), creative.get("height")),
+            resolution=camadas_settings.image_resolution(),
+            background="opaque",
+            input_references=[reference] if reference else [],
+        )
+        image = image_from_generation(raw)
+        if image is None:
+            raise ValueError("A geração não devolveu um fundo.")
+        png_path = self.storage.save_png(creative["public_id"], "background-clean", image)
+        thumb_path = self.storage.save_thumb(creative["public_id"], "background-clean", image)
+        metadata = dict(background.get("metadata") or {})
+        metadata["cleaned"] = True
+        self.repository.update_element(
+            background["public_id"],
+            png_path=png_path,
+            thumb_path=thumb_path,
+            provenance="generated",
+            metadata=metadata,
+        )
+        generation = None
+        writer = getattr(self.repository, "create_generation", None)
+        if callable(writer):
+            generation = writer({
+                "public_id": new_public_id("generation"),
+                "creative_id": creative["id"],
+                "provider": "openrouter",
+                "model": camadas_settings.image_model() or "injected",
+                "resolution": camadas_settings.image_resolution(),
+                "prompt": GROUND_PROMPT,
+                "output_path": png_path,
+                "input_hashes": [creative.get("sha256") or ""],
+                "accepted": True,
+            })
+        scene = self._refresh_scene(creative)
+        saved = self.repository.get_element(background["public_id"])
+        return {
+            "element": _public_element(saved),
+            "generation": _public_generation(generation),
+            "scene": scene,
+            "creative": {
+                **_public_creative(creative),
+                **self._clean_flags(self.repository.list_elements(creative["id"])),
+            },
         }
 
     def _open_source(self, creative):
@@ -553,6 +710,40 @@ class CamadasService:
             return self._predictor if callable(self._predictor) else None
         return None
 
+    def _clean_flags(self, elements):
+        background = next((item for item in elements or [] if item.get("role") == "background"), None)
+        kind = ((background or {}).get("metadata") or {}).get("ground_kind") or ""
+        return {
+            "ground_kind": kind,
+            "can_clean_background": kind == "image",
+            "clean_configured": callable(self._resolve_image_callable()),
+        }
+
+    def _resolve_image_callable(self):
+        if self._image_callable is not _UNSET:
+            return self._image_callable if callable(self._image_callable) else None
+        model = camadas_settings.image_model()
+        if not model:
+            return None
+        try:
+            from ..services.openrouter_service import generate_image
+        except Exception:
+            return None
+
+        resolution = camadas_settings.image_resolution()
+
+        def _run(prompt, aspect_ratio="16:9", **kwargs):
+            return generate_image(
+                prompt,
+                aspect_ratio=aspect_ratio,
+                resolution=kwargs.get("resolution") or resolution,
+                background=kwargs.get("background") or "opaque",
+                model=model,
+                input_references=kwargs.get("input_references"),
+            )
+
+        return _run
+
     def _resolve_text_callable(self):
         if self._text_callable is not _UNSET:
             return self._text_callable if callable(self._text_callable) else None
@@ -606,6 +797,9 @@ def _public_element(row):
         "text": row.get("text_content") or "",
         "png_path": row.get("png_path") or "",
         "mask_path": row.get("mask_path") or "",
+        "thumb_path": row.get("thumb_path") or "",
+        "coverage": _coverage(row),
+        "needs_review": _needs_review(row),
         "metadata": row.get("metadata") or {},
     }
 
@@ -618,11 +812,26 @@ def _with_collection(row, collection):
     return data
 
 
+def _public_generation(row):
+    if not row:
+        return None
+    return {
+        "id": row.get("public_id") or "",
+        "model": row.get("model") or "",
+        "resolution": row.get("resolution") or "",
+        "output_path": row.get("output_path") or "",
+        "accepted": bool(row.get("accepted")),
+    }
+
+
 def _public_collection(row):
     return {
         "id": row.get("public_id"),
         "name": row.get("name") or "",
         "brand_id": row.get("client_id"),
+        "cover_thumb_path": row.get("cover_thumb_path") or "",
+        "is_default": bool(row.get("is_default")),
+        "asset_count": int(row.get("asset_count") or 0),
     }
 
 
@@ -640,13 +849,32 @@ def _public_asset(row):
         "provenance": normalize_provenance(row.get("provenance")),
         "sha256": row.get("sha256") or "",
         "asset_path": row.get("asset_path") or "",
-        "thumb_path": row.get("thumb_path") or row.get("asset_path") or "",
+        "thumb_path": row.get("thumb_path") or "",
         "tags": list(meta.get("tags") or []),
         "text": meta.get("text") or "",
         "role": meta.get("role") or row.get("kind") or "",
         "archived": bool(meta.get("archived")),
         "created_at": _iso(row.get("created_at")),
     }
+
+
+def _coverage(row):
+    if row.get("coverage") not in (None, ""):
+        try:
+            return float(row.get("coverage"))
+        except (TypeError, ValueError):
+            pass
+    meta = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
+    try:
+        return float(meta.get("coverage")) if meta.get("coverage") not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _needs_review(row):
+    if row.get("needs_review") is True:
+        return True
+    return (row.get("quality") or "") in REVIEW
 
 
 def _pct(value, default):

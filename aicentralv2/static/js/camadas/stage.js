@@ -9,9 +9,21 @@ export function bindStage(store, history, setStatus) {
   const zoomLabel = document.getElementById("mcCv2ZoomLabel");
   if (!viewport || !world || !canvas) return;
 
+  function fitScale() {
+    const pad = 56;
+    const vw = Math.max(160, viewport.clientWidth - pad);
+    const vh = Math.max(120, viewport.clientHeight - pad);
+    const width = canvas.width || 1;
+    const height = canvas.height || 1;
+    return Math.min(vw / width, vh / height);
+  }
+
   function applyZoom() {
     const zoom = store.getState().zoom || 1;
-    world.style.transform = `translate(-50%, -50%) scale(${zoom})`;
+    const fit = store.getState().creative ? fitScale() : 1;
+    world.style.width = `${canvas.width || 0}px`;
+    world.style.height = `${canvas.height || 0}px`;
+    world.style.transform = `translate(-50%, -50%) scale(${zoom * fit})`;
     if (zoomLabel) zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
   }
 
@@ -35,6 +47,12 @@ export function bindStage(store, history, setStatus) {
   document.getElementById("mcCv2ZoomOut")?.addEventListener("click", () => {
     store.setState({ zoom: Math.max(0.25, (store.getState().zoom || 1) - 0.25) });
   });
+  function holdCompare(on) {
+    store.setState({ comparing: on });
+  }
+  document.getElementById("mcCv2Compare")?.addEventListener("pointerdown", () => holdCompare(true));
+  document.getElementById("mcCv2Compare")?.addEventListener("pointerup", () => holdCompare(false));
+  document.getElementById("mcCv2Compare")?.addEventListener("pointerleave", () => holdCompare(false));
   viewport.addEventListener("wheel", (event) => {
     if (!event.ctrlKey && !event.metaKey) return;
     event.preventDefault();
@@ -86,22 +104,71 @@ export function bindStage(store, history, setStatus) {
   });
 
   window.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      store.setState({ activeTool: "select", stageMode: store.getState().stageMode === "masks" ? "layers" : store.getState().stageMode });
+    const typing = /INPUT|TEXTAREA|SELECT/.test(event.target.tagName);
+    if (event.code === "Space" && !typing) {
+      event.preventDefault();
+      holdCompare(true);
+      return;
     }
+    if (event.key === "Escape") {
+      store.setState({
+        activeTool: "select",
+        stageMode: store.getState().stageMode === "masks" ? "layers" : store.getState().stageMode,
+      });
+      return;
+    }
+    if (typing) return;
+    if (event.key === "1") store.setState({ stageMode: "original" });
+    if (event.key === "2") store.setState({ stageMode: "layers" });
+    if (event.key === "3") store.setState({ stageMode: "html" });
+    if (event.key === "[" || event.key === "]") {
+      const layers = store.getState().layers || [];
+      if (!layers.length) return;
+      const index = layers.findIndex((item) => item.id === store.getState().selectedLayerId);
+      const next = event.key === "]"
+        ? (index + 1) % layers.length
+        : (index - 1 + layers.length) % layers.length;
+      store.setState({ selectedLayerId: layers[next].id });
+    }
+  });
+  window.addEventListener("keyup", (event) => {
+    if (event.code === "Space") holdCompare(false);
   });
 
   store.subscribe(() => {
     applyZoom();
+    const state = store.getState();
     document.querySelectorAll("[data-stage-mode]").forEach((button) => {
-      button.classList.toggle("is-current", button.getAttribute("data-stage-mode") === store.getState().stageMode);
+      button.classList.toggle("is-current", button.getAttribute("data-stage-mode") === state.stageMode);
     });
-    const html = store.getState().stageMode === "html";
-    canvas.classList.toggle("hidden", html);
-    document.getElementById("mcCv2Overlay")?.classList.toggle("hidden", html);
-    document.getElementById("mcCv2Svg")?.classList.toggle("hidden", html);
-    document.getElementById("mcCv2Handles")?.classList.toggle("hidden", html);
+    const html = state.stageMode === "html";
+    const animation = state.stageMode === "animation";
+    const hideStage = html || animation;
+    const app = document.getElementById("mcCv2App");
+    const selected = (state.layers || []).find((item) => item.id === state.selectedLayerId);
+    app?.classList.toggle("is-html", html);
+    app?.classList.toggle("is-image-selected", Boolean(selected && selected.type === "image"));
+    canvas.classList.toggle("hidden", hideStage);
+    document.getElementById("mcCv2Overlay")?.classList.toggle("hidden", hideStage);
+    document.getElementById("mcCv2Svg")?.classList.toggle("hidden", hideStage);
+    document.getElementById("mcCv2Handles")?.classList.toggle("hidden", hideStage);
+    document.getElementById("mcCv2AnimPane")?.classList.toggle("relative", animation);
+    document.getElementById("mcCv2AnimPane")?.classList.toggle("z-10", animation);
+    document.getElementById("mcCv2AnimPane")?.classList.toggle("bg-white", animation);
+    const creative = state.creative;
+    const name = document.getElementById("mcCv2FileName");
+    const size = document.getElementById("mcCv2Size");
+    const ratio = document.getElementById("mcCv2Ratio");
+    if (name) name.textContent = creative?.name || "Sem criativo";
+    if (size) size.textContent = creative ? `${creative.width} × ${creative.height}` : "—";
+    if (ratio && creative?.width && creative?.height) {
+      const value = creative.width / creative.height;
+      ratio.textContent = value >= 1.45 ? "16:9" : value <= 0.75 ? "9:16" : "1:1";
+    } else if (ratio) ratio.textContent = "—";
   });
+  if (typeof ResizeObserver !== "undefined") {
+    new ResizeObserver(() => applyZoom()).observe(viewport);
+  }
   applyZoom();
 }
 

@@ -71,6 +71,12 @@ class CamadasStorage:
         image.save(str(path), format="PNG")
         return f"{PUBLIC_PREFIX}{_safe_id(creative_id)}/{filename}"
 
+    def save_thumb(self, creative_id, name, image, size=96):
+        return self.save_png(creative_id, f"{_safe_file(name)}-th", make_thumb(image, size))
+
+    def save_text_thumb(self, creative_id, name, text, size=96):
+        return self.save_png(creative_id, f"{_safe_file(name)}-th", make_text_thumb(text, size))
+
     def open_image(self, public_path):
         path = self.absolute_path(public_path)
         if path is None:
@@ -137,6 +143,36 @@ def _safe_id(value):
 def _safe_file(value):
     text = "".join(ch for ch in str(value or "layer") if ch.isalnum() or ch in {"-", "_"})
     return text[:80] or "layer"
+
+
+THUMB_WELL = (15, 19, 24, 255)
+THUMB_INK = (215, 221, 210, 255)
+
+
+def make_thumb(image, size=96):
+    from PIL import Image
+
+    size = max(32, int(size or 96))
+    canvas = Image.new("RGBA", (size, size), THUMB_WELL)
+    if image is None:
+        return canvas
+    work = image.convert("RGBA")
+    work.thumbnail((size, size), Image.LANCZOS)
+    left = (size - work.width) // 2
+    top = (size - work.height) // 2
+    canvas.alpha_composite(work, (left, top))
+    return canvas
+
+
+def make_text_thumb(text, size=96):
+    from PIL import Image, ImageDraw
+
+    canvas = Image.new("RGBA", (size, size), THUMB_WELL)
+    draw = ImageDraw.Draw(canvas)
+    words = str(text or "").strip().split()
+    line = " ".join(words[:4]) or "HTML"
+    draw.text((8, size // 3), line[:18], fill=THUMB_INK)
+    return canvas
 
 
 def _image_size(content):

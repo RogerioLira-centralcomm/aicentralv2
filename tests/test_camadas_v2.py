@@ -26,6 +26,7 @@ class FakeRepository:
         self.scenes = {}
         self.collections = {}
         self.assets = {}
+        self.generations = []
         self._pk = 1
 
     def ready(self):
@@ -41,6 +42,13 @@ class FakeRepository:
         }
         self.creatives[row["public_id"]] = row
         return dict(row)
+
+    def find_creative_by_sha(self, client_id, sha256):
+        matches = [
+            row for row in self.creatives.values()
+            if row.get("sha256") == sha256 and (not client_id or row.get("client_id") == client_id)
+        ]
+        return dict(matches[-1]) if matches else None
 
     def get_creative(self, public_id):
         row = self.creatives.get(public_id)
@@ -205,9 +213,22 @@ class FakeRepository:
             "public_id": data.get("public_id") or new_public_id("collection"),
             "client_id": data.get("client_id"),
             "name": data.get("name") or "Geral",
+            "cover_thumb_path": "",
+            "is_default": False,
         }
         self.collections[row["public_id"]] = row
         return dict(row)
+
+    def update_collection(self, public_id, **fields):
+        row = self.collections.get(public_id)
+        if not row:
+            return None
+        row.update(fields)
+        return dict(row)
+
+    def delete_element(self, public_id):
+        for key, rows in list(self.elements.items()):
+            self.elements[key] = [item for item in rows if item.get("public_id") != public_id]
 
     def create_asset(self, data):
         from aicentralv2.camadas.schemas import new_public_id
@@ -219,6 +240,18 @@ class FakeRepository:
             **data,
         }
         self.assets[row["public_id"]] = row
+        return dict(row)
+
+    def create_generation(self, data):
+        from aicentralv2.camadas.schemas import new_public_id
+
+        self._pk += 1
+        row = {
+            "id": self._pk,
+            "public_id": data.get("public_id") or new_public_id("generation"),
+            **data,
+        }
+        self.generations.append(row)
         return dict(row)
 
     def get_asset(self, public_id):
@@ -270,6 +303,15 @@ class FakeStorage:
 
         return hashlib.sha256(str(public_path or "x").encode()).hexdigest()
 
+    def save_png(self, creative_id, name, image):
+        return f"/static/uploads/camadas/{creative_id}/{name}.png"
+
+    def save_thumb(self, creative_id, name, image, size=96):
+        return f"/static/uploads/camadas/{creative_id}/{name}-th.png"
+
+    def save_text_thumb(self, creative_id, name, text, size=96):
+        return f"/static/uploads/camadas/{creative_id}/{name}-th.png"
+
 
 def _still_file(name="still.png"):
     return FileStorage(stream=io.BytesIO(PNG_1PX), filename=name, content_type="image/png")
@@ -309,6 +351,10 @@ class CamadasV2ContractTest(unittest.TestCase):
         ):
             self.assertIn(f"CREATE TABLE IF NOT EXISTS {table}", sql)
         self.assertIn("uq_cx_camadas_assets_client_sha", sql)
+        workspace = (ROOT / "migrations" / "add_camadas_v2_workspace.sql").read_text(encoding="utf-8")
+        self.assertIn("cover_thumb_path", workspace)
+        self.assertIn("needs_review", workspace)
+        self.assertIn("uq_cx_camadas_collections_client_name", workspace)
 
     def test_cena_guarda_dates_e_venue(self):
         from aicentralv2.camadas.html.scene import build_scene, text_elements_from_reading
@@ -507,17 +553,22 @@ class CamadasV2ContractTest(unittest.TestCase):
             "_mc_camadas_layers.html",
             "_mc_camadas_inspector.html",
             "_mc_camadas_html_stage.html",
+            "_mc_camadas_animation.html",
         ):
             text = (templates / name).read_text(encoding="utf-8")
             self.assertTrue(text.strip())
         stage = (templates / "_mc_camadas_stage.html").read_text(encoding="utf-8")
         self.assertIn("data-stage-mode=\"original\"", stage)
         self.assertIn("data-stage-mode=\"layers\"", stage)
-        self.assertIn("data-stage-mode=\"masks\"", stage)
         self.assertIn("data-stage-mode=\"html\"", stage)
+        self.assertIn("data-stage-mode=\"animation\"", stage)
         self.assertIn("mcCv2Canvas", stage)
         shell = (templates / "_mc_camadas_v2.html").read_text(encoding="utf-8")
         self.assertIn("mcCv2App", shell)
+        self.assertIn("mc-cv2-bench", shell)
+        self.assertIn("data-cv2-step=\"read\"", shell)
+        icons = (templates / "_mc_camadas_icons.html").read_text(encoding="utf-8")
+        self.assertIn("cv2-eye", icons)
         js = ROOT / "aicentralv2" / "static" / "js" / "camadas"
         for name in (
             "index.js",
@@ -535,6 +586,7 @@ class CamadasV2ContractTest(unittest.TestCase):
             "asset-library.js",
             "html-preview.js",
             "html-runtime.js",
+            "animation-panel.js",
             "inspector.js",
             "history.js",
             "utils.js",
@@ -551,6 +603,8 @@ class CamadasV2ContractTest(unittest.TestCase):
         css = (ROOT / "aicentralv2" / "static" / "css" / "camadas-v2.css").read_text(encoding="utf-8")
         self.assertIn("mc-cv2-check", css)
         self.assertIn("mc-cv2-handle", css)
+        self.assertIn("--cv2-register", css)
+        self.assertIn("mc-cv2-bench", css)
 
     def test_sam2_e_stub(self):
         from aicentralv2.camadas.segmentation.provider import probe_sam2, sam2_segment_all
@@ -578,6 +632,9 @@ class CamadasV2ContractTest(unittest.TestCase):
         self.assertEqual(people[1]["label"], "Pessoa 02")
         self.assertTrue(people[0]["png_path"])
         self.assertTrue(people[0]["mask_path"])
+        self.assertTrue(people[0]["thumb_path"])
+        self.assertIn("-th.png", people[0]["thumb_path"])
+        self.assertNotEqual(people[0]["thumb_path"], people[0]["png_path"])
         self.assertIn("person", [item["role"] for item in document["scene"]["layers"]])
         backgrounds = [item for item in document["elements"] if item["role"] == "background"]
         self.assertEqual(len(backgrounds), 1)
@@ -841,6 +898,7 @@ class CamadasV2ContractTest(unittest.TestCase):
         self.assertIn("/parametros/api/camadas/v2/elements/<element_id>/publish", rules)
         self.assertIn("/parametros/api/camadas/v2/brands/<brand_id>/assets", rules)
         self.assertIn("/parametros/api/camadas/v2/creatives/<creative_id>/place", rules)
+        self.assertIn("/parametros/api/camadas/v2/creatives/<creative_id>/clean-background", rules)
 
     def test_fluxo_http_backend_completo(self):
         from aicentralv2.camadas.routes import register_camadas_routes
@@ -926,6 +984,162 @@ class CamadasV2ContractTest(unittest.TestCase):
                 },
             )
             self.assertEqual(stale.status_code, 409)
+
+    def test_export_delete_e_collections(self):
+        from aicentralv2.camadas.routes import register_camadas_routes
+        from aicentralv2.camadas.service import CamadasService
+        from aicentralv2.camadas.storage import CamadasStorage
+
+        still, predict = _two_people()
+        service = CamadasService(
+            repository=FakeRepository(),
+            storage=CamadasStorage(root=self._tmp()),
+            text_callable=lambda messages, **_k: {"content": {"headline": "Grito"}},
+            predictor=predict,
+            spawn_job=lambda fn, job_id, creative_id: fn(job_id, creative_id),
+        )
+        created = service.create_creative(_image_file(still), {"brand_id": 10})
+        document = service.get_creative(created["creative_id"])
+        person = next(item for item in document["elements"] if item["role"] == "person")
+        exported = service.export_creative(created["creative_id"])
+        self.assertIn("<!DOCTYPE html>", exported["html"])
+        removed = service.delete_element(person["id"])
+        self.assertTrue(removed["deleted"])
+        leftover = service.get_creative(created["creative_id"])
+        self.assertFalse(any(item["id"] == person["id"] for item in leftover["elements"]))
+        listed = service.list_brand_collections(10)
+        self.assertIn("collections", listed)
+
+        blueprint = Blueprint("parametros", __name__, url_prefix="/parametros")
+        register_camadas_routes(blueprint)
+        app = Flask(__name__)
+        app.secret_key = "test"
+        app.register_blueprint(blueprint)
+        with patch("aicentralv2.camadas.routes._service", return_value=service):
+            client = app.test_client()
+            with client.session_transaction() as sess:
+                sess["user_id"] = 1
+                sess["user_type"] = "admin"
+            packs = client.get("/parametros/api/camadas/v2/brands/10/collections")
+            self.assertEqual(packs.status_code, 200)
+            html = client.get(f"/parametros/api/camadas/v2/creatives/{created['creative_id']}/export")
+            self.assertEqual(html.status_code, 200)
+            self.assertIn("html", html.get_json()["data"])
+
+    def test_limpar_fundo_so_em_foto(self):
+        import base64
+
+        from PIL import Image
+
+        from aicentralv2.camadas.service import PAPER_WELL, CamadasService
+        from aicentralv2.camadas.storage import CamadasStorage
+        from aicentralv2.creative_format_lab.decompose import GROUND_PROMPT
+
+        paper, predict = _two_people()
+        paper_service = CamadasService(
+            repository=FakeRepository(),
+            storage=CamadasStorage(root=self._tmp()),
+            text_callable=lambda messages, **_k: {"content": {}},
+            predictor=predict,
+            spawn_job=lambda fn, job_id, creative_id: fn(job_id, creative_id),
+        )
+        paper_id = paper_service.create_creative(_image_file(paper), {"name": "Papel"})["creative_id"]
+        with self.assertRaises(ValueError) as raised:
+            paper_service.clean_background(paper_id)
+        self.assertEqual(str(raised.exception), PAPER_WELL)
+
+        photo, predict_photo = _lifestyle()
+        calls = []
+
+        def fake_image(prompt, **kwargs):
+            calls.append({"prompt": prompt, **kwargs})
+            well = Image.new("RGB", (240, 120), (12, 90, 40))
+            buffer = io.BytesIO()
+            well.save(buffer, format="PNG")
+            return {"b64_json": base64.b64encode(buffer.getvalue()).decode("ascii")}
+
+        repo = FakeRepository()
+        service = CamadasService(
+            repository=repo,
+            storage=CamadasStorage(root=self._tmp()),
+            text_callable=lambda messages, **_k: {"content": {}},
+            predictor=predict_photo,
+            image_callable=fake_image,
+            spawn_job=lambda fn, job_id, creative_id: fn(job_id, creative_id),
+        )
+        created = service.create_creative(_image_file(photo), {"name": "Foto"})
+        before = service.get_creative(created["creative_id"])
+        self.assertTrue(before["creative"]["can_clean_background"])
+        self.assertTrue(before["creative"]["clean_configured"])
+        people = [item["png_path"] for item in before["elements"] if item["role"] == "person"]
+        background = next(item for item in before["elements"] if item["role"] == "background")
+        cleaned = service.clean_background(created["creative_id"])
+        self.assertEqual(cleaned["element"]["provenance"], "generated")
+        self.assertNotEqual(cleaned["element"]["png_path"], background["png_path"])
+        self.assertTrue(cleaned["element"]["png_path"].endswith("background-clean.png"))
+        after = service.get_creative(created["creative_id"])
+        self.assertEqual(
+            [item["png_path"] for item in after["elements"] if item["role"] == "person"],
+            people,
+        )
+        self.assertEqual(calls[0]["prompt"], GROUND_PROMPT)
+        self.assertEqual(calls[0]["resolution"], "1K")
+        self.assertEqual(len(repo.generations), 1)
+
+        service_text = (ROOT / "aicentralv2" / "camadas" / "service.py").read_text(encoding="utf-8")
+        self.assertNotIn("google/gemini-3-pro-image", service_text)
+        from aicentralv2.config import Config
+
+        self.assertEqual(Config.CAMADAS_V2_IMAGE_MODEL, "")
+        self.assertEqual(Config.CAMADAS_V2_IMAGE_RESOLUTION, "1K")
+
+        captured = {}
+
+        class FakeClean:
+            def clean_background(self, creative_id):
+                captured["id"] = creative_id
+                return {"element": {"id": "el_bg"}}
+
+        blueprint = Blueprint("parametros", __name__, url_prefix="/parametros")
+        from aicentralv2.camadas.routes import register_camadas_routes
+
+        register_camadas_routes(blueprint)
+        app = Flask(__name__)
+        app.secret_key = "test"
+        app.register_blueprint(blueprint)
+        with patch("aicentralv2.camadas.routes._service", return_value=FakeClean()):
+            client = app.test_client()
+            with client.session_transaction() as sess:
+                sess["user_id"] = 1
+                sess["user_type"] = "admin"
+            response = client.post(
+                "/parametros/api/camadas/v2/creatives/crt_ab/clean-background",
+                json={"image_callable": "malicioso"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(captured["id"], "crt_ab")
+
+
+def _lifestyle():
+    from PIL import Image, ImageDraw
+
+    canvas = Image.new("RGB", (240, 120))
+    pixels = canvas.load()
+    for y in range(120):
+        for x in range(240):
+            pixels[x, y] = ((x * 13 + y * 7) % 220, (y * 17 + x) % 180, (x * 5 + y * 3) % 200)
+    draw = ImageDraw.Draw(canvas)
+    draw.ellipse([12, 16, 88, 108], fill=(196, 122, 90))
+    draw.ellipse([150, 16, 226, 108], fill=(196, 122, 90))
+
+    def predict(image):
+        first = Image.new("L", image.size, 0)
+        ImageDraw.Draw(first).ellipse([12, 16, 88, 108], fill=255)
+        second = Image.new("L", image.size, 0)
+        ImageDraw.Draw(second).ellipse([150, 16, 226, 108], fill=255)
+        return [{"label": "person", "mask": first}, {"label": "person", "mask": second}]
+
+    return canvas, predict
 
 
 def _two_people():

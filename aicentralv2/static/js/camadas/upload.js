@@ -13,7 +13,7 @@ export function bindUpload(store, setStatus, setStep) {
       return;
     }
     mapBtn.disabled = true;
-    setStep("map");
+    setStep("upload");
     setStatus("Enviando original.");
     try {
       const created = await createCreative({
@@ -41,8 +41,7 @@ export function bindUpload(store, setStatus, setStep) {
         dirty: false,
         stageMode: "layers",
       });
-      setStep("split");
-      if ((payload.warnings || []).length) setStep("review");
+      setStep("review");
       setStatus(job.message || "Camadas prontas.");
     } catch (error) {
       setStatus(error.message || "Não mapeei o criativo.");

@@ -96,6 +96,27 @@ def api_element_patch(element_id):
 
 
 @admin_required_api
+def api_element_delete(element_id):
+    return _execute(lambda: _ok(_service().delete_element(element_id)))
+
+
+@admin_required_api
+def api_creative_export(creative_id):
+    return _execute(lambda: _ok(_service().export_creative(creative_id)))
+
+
+@admin_required_api
+def api_creative_clean(creative_id):
+    _json()
+    return _execute(lambda: _ok(_service().clean_background(creative_id)))
+
+
+@admin_required_api
+def api_brand_collections_list(brand_id):
+    return _execute(lambda: _ok(_service().list_brand_collections(brand_id)))
+
+
+@admin_required_api
 def api_scene_patch(creative_id):
     payload = _json()
     return _execute(lambda: _ok(_service().patch_scene(creative_id, payload)))
@@ -133,6 +154,31 @@ def api_element_publish(element_id):
 def api_creative_place(creative_id):
     payload = _json()
     return _execute(lambda: _ok(_service().place_asset(creative_id, payload)))
+
+
+def _modeling():
+    from ..creative_modeling_service import CreativeModelingService
+
+    return CreativeModelingService()
+
+
+@admin_required_api
+def api_animate_preview(creative_id):
+    payload = {**_json(), "camadas_creative_id": creative_id}
+    return _execute(
+        lambda: _ok(_modeling().preview_format_lab_animate(payload, session.get("user_id")))
+    )
+
+
+@admin_required_api
+def api_animate_recompose(creative_id):
+    payload = {**_json(), "camadas_creative_id": creative_id}
+    job_id = payload.get("job_id") or ""
+    if not job_id:
+        raise ValueError("Informe o job de animação para recompor.")
+    return _execute(
+        lambda: _ok(_modeling().recompose_format_lab_animate(job_id, payload, session.get("user_id")))
+    )
 
 
 def register_camadas_routes(blueprint):
@@ -175,6 +221,24 @@ def register_camadas_routes(blueprint):
         methods=["PATCH"],
     )
     blueprint.add_url_rule(
+        "/api/camadas/v2/elements/<element_id>",
+        endpoint="camadas_v2_element_delete",
+        view_func=api_element_delete,
+        methods=["DELETE"],
+    )
+    blueprint.add_url_rule(
+        "/api/camadas/v2/creatives/<creative_id>/export",
+        endpoint="camadas_v2_creative_export",
+        view_func=api_creative_export,
+        methods=["GET"],
+    )
+    blueprint.add_url_rule(
+        "/api/camadas/v2/creatives/<creative_id>/clean-background",
+        endpoint="camadas_v2_creative_clean",
+        view_func=api_creative_clean,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
         "/api/camadas/v2/creatives/<creative_id>/scene",
         endpoint="camadas_v2_scene_patch",
         view_func=api_scene_patch,
@@ -194,6 +258,12 @@ def register_camadas_routes(blueprint):
     )
     blueprint.add_url_rule(
         "/api/camadas/v2/brands/<brand_id>/collections",
+        endpoint="camadas_v2_brand_collections_list",
+        view_func=api_brand_collections_list,
+        methods=["GET"],
+    )
+    blueprint.add_url_rule(
+        "/api/camadas/v2/brands/<brand_id>/collections",
         endpoint="camadas_v2_brand_collections_create",
         view_func=api_brand_collections_create,
         methods=["POST"],
@@ -208,6 +278,18 @@ def register_camadas_routes(blueprint):
         "/api/camadas/v2/creatives/<creative_id>/place",
         endpoint="camadas_v2_creative_place",
         view_func=api_creative_place,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/camadas/v2/creatives/<creative_id>/animate-preview",
+        endpoint="camadas_v2_animate_preview",
+        view_func=api_animate_preview,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/camadas/v2/creatives/<creative_id>/animate-recompose",
+        endpoint="camadas_v2_animate_recompose",
+        view_func=api_animate_recompose,
         methods=["POST"],
     )
     blueprint._camadas_v2_registered = True

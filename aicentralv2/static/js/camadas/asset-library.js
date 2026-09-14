@@ -1,17 +1,14 @@
-import { listBrandAssets, placeAsset } from "./api.js";
-import { assetUrl, escapeHtml, provenanceLabel } from "./utils.js";
+import { listBrandAssets, listBrandCollections, placeAsset } from "./api.js";
+import { assetUrl, escapeHtml } from "./utils.js";
 
-const GROUPS = [
-  "person", "product", "logo", "badge", "graphic",
-  "illustration", "background", "composition",
-];
+const GROUPS = ["person", "product", "logo", "badge", "graphic", "background", "composition"];
 
 export function bindLibrary(store, history, setStatus, setStep) {
   const list = document.getElementById("mcCv2LibraryList");
   const search = document.getElementById("mcCv2LibrarySearch");
   const viewport = document.getElementById("mcCv2Viewport");
+  const note = document.getElementById("mcCv2LibraryNote");
   if (!list) return;
-  let kind = "";
 
   function brandId() {
     return document.getElementById("mcCv2Brand")?.value.trim()
@@ -22,21 +19,37 @@ export function bindLibrary(store, history, setStatus, setStep) {
   async function load() {
     const id = brandId();
     if (!id) {
-      store.setState({ assets: [] });
+      store.setState({ assets: [], collections: [] });
       return;
     }
     try {
-      const payload = await listBrandAssets(id, {
-        kind,
-        q: search?.value || "",
-      });
+      const [payload, collections] = await Promise.all([
+        listBrandAssets(id, {
+          q: search?.value || "",
+          collection_id: document.getElementById("mcCv2Collection")?.value || "",
+        }),
+        listBrandCollections(id),
+      ]);
       store.setState({
         assets: payload.assets || [],
-        collections: payload.collections || [],
+        collections: collections.collections || payload.collections || [],
       });
-      if ((payload.assets || []).length) setStep?.("library");
+      paintCollections(collections.collections || payload.collections || []);
+      if ((payload.assets || []).length) setStep?.("publish");
     } catch (error) {
-      setStatus?.(error.message || "Não carreguei a biblioteca.");
+      setStatus?.(error.message || "Não carreguei a folha da marca.");
+    }
+  }
+
+  function paintCollections(collections) {
+    const select = document.getElementById("mcCv2Collection");
+    if (!select) return;
+    const current = select.value;
+    select.innerHTML = `<option value="">Geral</option>${(collections || []).map((item) => (
+      `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)}</option>`
+    )).join("")}`;
+    if (current && [...select.options].some((item) => item.value === current)) {
+      select.value = current;
     }
   }
 
@@ -47,30 +60,29 @@ export function bindLibrary(store, history, setStatus, setStep) {
     GROUPS.forEach((role) => {
       counts[role] = assets.filter((item) => item.kind === role).length;
     });
-    document.querySelectorAll("[data-library-group]").forEach((button) => {
-      const role = button.getAttribute("data-library-group") || "";
-      const node = button.querySelector("span");
-      if (node) node.textContent = String(role ? counts[role] || 0 : counts.all);
-      button.classList.toggle("is-current", role === kind);
+    document.querySelectorAll("[data-library-group]").forEach((node) => {
+      const role = node.getAttribute("data-library-group") || "";
+      const label = node.querySelector("span");
+      if (label) label.textContent = String(counts[role] || 0);
     });
-    if (!assets.length) {
-      list.innerHTML = `<li class="text-sm text-stone-500">${
-        brandId()
-          ? "Nenhum ativo publicado nesta coleção."
-          : "Informe a marca para ver a biblioteca."
-      }</li>`;
-      return;
+    if (note) {
+      note.textContent = brandId()
+        ? (assets.length ? "" : "Nada publicado nesta coleção. Publique um recorte no docket.")
+        : "Escolha a marca para ver a coleção.";
     }
-    list.innerHTML = assets.map((item) => {
-      const thumb = item.thumb_path || item.asset_path;
-      return `<li class="grid gap-1 border border-stone-200 p-1" draggable="true" data-asset-id="${escapeHtml(item.id)}">
-        ${thumb
-          ? `<img class="pointer-events-none h-16 w-full object-contain" src="${escapeHtml(assetUrl(thumb))}" alt="${escapeHtml(item.name || "")}">`
-          : `<p class="m-0 line-clamp-3 text-sm">${escapeHtml(item.text || item.name || "")}</p>`}
-        <span class="text-sm">${escapeHtml(item.name || item.kind)}</span>
-        <span class="text-xs text-stone-500">${escapeHtml(provenanceLabel(item.provenance))}</span>
-      </li>`;
-    }).join("");
+    document.querySelectorAll("[data-library-group]").forEach((node) => {
+      const role = node.getAttribute("data-library-group") || "";
+      const items = assets.filter((item) => item.kind === role);
+      let strip = node.querySelector(".cv2-strip");
+      if (!strip) {
+        strip = document.createElement("ol");
+        strip.className = "cv2-strip";
+        node.appendChild(strip);
+      }
+      strip.hidden = !node.classList.contains("is-open");
+      strip.innerHTML = items.map(thumbItem).join("");
+    });
+    list.innerHTML = "";
   }
 
   async function dropAsset(assetId, point) {
@@ -94,7 +106,7 @@ export function bindLibrary(store, history, setStatus, setStep) {
         dirty: true,
       }));
       setStatus?.("Ativo na cena.");
-      setStep?.("library");
+      setStep?.("publish");
     } catch (error) {
       setStatus?.(error.message || "Não coloquei o ativo na cena.");
     }
@@ -109,11 +121,10 @@ export function bindLibrary(store, history, setStatus, setStep) {
     };
   }
 
-  document.querySelectorAll("[data-library-group]").forEach((button) => {
-    button.addEventListener("click", () => {
-      kind = button.getAttribute("data-library-group") || "";
-      if (brandId()) load();
-      else paint();
+  document.querySelectorAll("[data-library-group]").forEach((node) => {
+    node.querySelector(".cv2-group-toggle")?.addEventListener("click", () => {
+      node.classList.toggle("is-open");
+      paint();
     });
   });
   search?.addEventListener("input", () => {
@@ -121,13 +132,25 @@ export function bindLibrary(store, history, setStatus, setStep) {
     search._timer = window.setTimeout(() => load(), 240);
   });
   document.getElementById("mcCv2Brand")?.addEventListener("change", () => load());
+  document.getElementById("mcCv2Collection")?.addEventListener("change", () => load());
+  document.getElementById("mcCv2LibraryClose")?.addEventListener("click", () => {
+    const closed = document.getElementById("mcCv2App")?.classList.toggle("is-library-closed");
+    sessionStorage.setItem("cv2Library", closed ? "closed" : "open");
+  });
 
-  list.addEventListener("dragstart", (event) => {
+  const groups = document.getElementById("mcCv2LibraryGroups") || list;
+  groups.addEventListener("dragstart", (event) => {
     const item = event.target.closest("[data-asset-id]");
     if (!item) return;
     event.dataTransfer.setData("application/x-camadas-asset", item.getAttribute("data-asset-id"));
     event.dataTransfer.setData("text/plain", item.getAttribute("data-asset-id"));
     event.dataTransfer.effectAllowed = "copy";
+  });
+  groups.addEventListener("click", (event) => {
+    const item = event.target.closest("[data-asset-id]");
+    if (!item) return;
+    groups.querySelectorAll(".cv2-thumb").forEach((node) => node.classList.remove("is-current"));
+    item.classList.add("is-current");
   });
 
   viewport?.addEventListener("dragover", (event) => {
@@ -145,7 +168,19 @@ export function bindLibrary(store, history, setStatus, setStep) {
     dropAsset(assetId, dropPoint(event));
   });
 
+  if (sessionStorage.getItem("cv2Library") === "closed") {
+    document.getElementById("mcCv2App")?.classList.add("is-library-closed");
+  }
+
   store.subscribe(paint);
   paint();
   load();
+}
+
+function thumbItem(item) {
+  const thumb = item.thumb_path && item.thumb_path !== item.asset_path ? item.thumb_path : "";
+  const body = thumb
+    ? `<img src="${escapeHtml(assetUrl(thumb))}" alt="">`
+    : `<p>${escapeHtml(item.text || item.name || "")}</p>`;
+  return `<li class="cv2-thumb${thumb ? "" : " is-empty"}" draggable="true" data-asset-id="${escapeHtml(item.id)}">${body}</li>`;
 }

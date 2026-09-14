@@ -103,6 +103,33 @@ class CamadasRepository:
             raise CamadasNotFoundError("Criativo não encontrado.")
         return _serialize(row)
 
+    def find_creative_by_sha(self, client_id, sha256):
+        if not sha256:
+            return None
+        with self.conn.cursor() as cursor:
+            if client_id:
+                cursor.execute(
+                    """
+                    SELECT * FROM cx_camadas_creatives
+                     WHERE sha256 = %s AND client_id = %s
+                     ORDER BY id DESC
+                     LIMIT 1
+                    """,
+                    (sha256, client_id),
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT * FROM cx_camadas_creatives
+                     WHERE sha256 = %s
+                     ORDER BY id DESC
+                     LIMIT 1
+                    """,
+                    (sha256,),
+                )
+            row = cursor.fetchone()
+        return _serialize(row) if row else None
+
     def update_creative(self, public_id, **fields):
         allowed = {
             "status",
@@ -229,11 +256,13 @@ class CamadasRepository:
                     INSERT INTO cx_camadas_elements (
                         public_id, creative_id, role, label, layer_type,
                         bbox, quality, provenance, visible, locked, z_index,
-                        approved, text_content, png_path, mask_path, thumb_path, metadata
+                        approved, text_content, png_path, mask_path, thumb_path,
+                        coverage, needs_review, metadata
                     ) VALUES (
                         %s, %s, %s, %s, %s,
                         %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s,
+                        %s, %s, %s
                     )
                     RETURNING *
                     """,
@@ -254,6 +283,8 @@ class CamadasRepository:
                         item.get("png_path"),
                         item.get("mask_path"),
                         item.get("thumb_path"),
+                        item.get("coverage"),
+                        bool(item.get("needs_review")),
                         Json(item.get("metadata") or {}),
                     ),
                 )
@@ -297,11 +328,13 @@ class CamadasRepository:
                 INSERT INTO cx_camadas_elements (
                     public_id, creative_id, role, label, layer_type,
                     bbox, quality, provenance, visible, locked, z_index,
-                    approved, text_content, png_path, mask_path, thumb_path, metadata
+                    approved, text_content, png_path, mask_path, thumb_path,
+                    coverage, needs_review, metadata
                 ) VALUES (
                     %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s
                 )
                 RETURNING *
                 """,
@@ -322,6 +355,8 @@ class CamadasRepository:
                     data.get("png_path"),
                     data.get("mask_path"),
                     data.get("thumb_path"),
+                    data.get("coverage"),
+                    bool(data.get("needs_review")),
                     Json(data.get("metadata") or {}),
                 ),
             )
@@ -339,8 +374,12 @@ class CamadasRepository:
             "bbox",
             "png_path",
             "mask_path",
+            "thumb_path",
+            "coverage",
+            "needs_review",
             "metadata",
             "text_content",
+            "provenance",
         }
         assignments = []
         values = []
@@ -371,6 +410,15 @@ class CamadasRepository:
         if not row:
             raise CamadasNotFoundError("Elemento não encontrado.")
         return _serialize(row)
+
+    def delete_element(self, public_id):
+        element = self.get_element(public_id)
+        with self._write() as cursor:
+            cursor.execute(
+                "DELETE FROM cx_camadas_elements WHERE public_id = %s",
+                (public_id,),
+            )
+        return element
 
     def save_mask(self, element_pk, data):
         with self._write() as cursor:
@@ -500,6 +548,32 @@ class CamadasRepository:
             row = cursor.fetchone()
         return _serialize(row)
 
+    def update_collection(self, public_id, **fields):
+        allowed = {"cover_thumb_path", "is_default", "name"}
+        assignments = []
+        values = []
+        for key, value in fields.items():
+            if key not in allowed:
+                continue
+            assignments.append(f"{key} = %s")
+            values.append(value)
+        if not assignments:
+            return self.get_collection(public_id)
+        assignments.append("updated_at = NOW()")
+        values.append(public_id)
+        with self._write() as cursor:
+            cursor.execute(
+                f"""
+                UPDATE cx_camadas_collections
+                   SET {", ".join(assignments)}
+                 WHERE public_id = %s
+             RETURNING *
+                """,
+                tuple(values),
+            )
+            row = cursor.fetchone()
+        return _serialize(row) if row else None
+
     def create_asset(self, data):
         public_id = data.get("public_id") or new_public_id("asset")
         with self._write() as cursor:
@@ -577,3 +651,32 @@ class CamadasRepository:
             cursor.execute(sql, tuple(values))
             rows = cursor.fetchall()
         return [_serialize(row) for row in rows]
+
+    def create_generation(self, data):
+        public_id = data.get("public_id") or new_public_id("generation")
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO cx_camadas_generations (
+                    public_id, creative_id, provider, model, resolution,
+                    prompt, output_path, input_hashes, accepted
+                ) VALUES (
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s
+                )
+                RETURNING *
+                """,
+                (
+                    public_id,
+                    data.get("creative_id"),
+                    data.get("provider") or "openrouter",
+                    data.get("model") or "",
+                    data.get("resolution") or "1K",
+                    data.get("prompt") or "",
+                    data.get("output_path") or "",
+                    Json(data.get("input_hashes") or []),
+                    data.get("accepted"),
+                ),
+            )
+            row = cursor.fetchone()
+        return _serialize(row)

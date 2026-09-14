@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ..segmentation.contours import contours_from_mask
+from ..segmentation.quality import REVIEW as _REVIEW
 
 ROLE_LABELS = {
     "person": "Pessoa",
@@ -42,17 +43,22 @@ def extract_image_elements(source, detections, reading, storage, creative_id):
         quality = detection.get("quality") or {}
         png_path = storage.save_png(creative_id, f"{role}-{counts[role]}", crop)
         mask_path = storage.save_png(creative_id, f"{role}-{counts[role]}-mask", mask.convert("L"))
+        thumb_path = storage.save_thumb(creative_id, f"{role}-{counts[role]}", crop)
         geometry = contours_from_mask(mask)
+        status = quality.get("status") or "review_edge"
         rows.append({
             "role": role,
             "label": label,
             "layer_type": "image",
             "bbox": box,
-            "quality": quality.get("status") or "review_edge",
+            "quality": status,
+            "coverage": quality.get("coverage"),
+            "needs_review": status in _REVIEW,
             "provenance": "recorte_original",
             "z_index": z_index,
             "png_path": png_path,
             "mask_path": mask_path,
+            "thumb_path": thumb_path,
             "metadata": {
                 "engine": detection.get("engine") or "",
                 "coverage": quality.get("coverage"),
@@ -69,15 +75,19 @@ def extract_image_elements(source, detections, reading, storage, creative_id):
     kind = classify_ground(source, field_rgb)
     ground, field = _ground(source, union, field_rgb, kind, cast_ok=accepted > 0)
     ground_path = storage.save_png(creative_id, "background", ground)
+    ground_thumb = storage.save_thumb(creative_id, "background", ground)
     rows.insert(0, {
         "role": "background",
         "label": "Fundo",
         "layer_type": "image",
         "bbox": {"x": 0, "y": 0, "w": 100, "h": 100},
         "quality": "reliable",
+        "coverage": 1.0,
+        "needs_review": False,
         "provenance": "extracted" if kind == "image" and accepted else "reconstructed",
         "z_index": 0,
         "png_path": ground_path,
+        "thumb_path": ground_thumb,
         "metadata": {
             "ground_kind": kind,
             "field": field,
@@ -95,17 +105,22 @@ def detection_to_row(source, detection, storage, creative_id, index=1):
     quality = detection.get("quality") or {}
     png_path = storage.save_png(creative_id, f"{role}-click-{index}", crop)
     mask_path = storage.save_png(creative_id, f"{role}-click-{index}-mask", mask.convert("L"))
+    thumb_path = storage.save_thumb(creative_id, f"{role}-click-{index}", crop)
     geometry = contours_from_mask(mask)
+    status = quality.get("status") or "review_edge"
     return {
         "role": role,
         "label": _numbered(role, index),
         "layer_type": "image",
         "bbox": box,
-        "quality": quality.get("status") or "review_edge",
+        "quality": status,
+        "coverage": quality.get("coverage"),
+        "needs_review": status in _REVIEW,
         "provenance": "recorte_original",
         "z_index": 40,
         "png_path": png_path,
         "mask_path": mask_path,
+        "thumb_path": thumb_path,
         "metadata": {
             "engine": detection.get("engine") or "click",
             "coverage": quality.get("coverage"),
@@ -132,16 +147,20 @@ def _logo_crops(source, reading, storage, creative_id, z_index, counts):
         counts[role] = counts.get(role, 0) + 1
         png_path = storage.save_png(creative_id, f"{role}-{counts[role]}", crop)
         mask_path = storage.save_png(creative_id, f"{role}-{counts[role]}-mask", mask)
+        thumb_path = storage.save_thumb(creative_id, f"{role}-{counts[role]}", crop)
         rows.append({
             "role": role,
             "label": ROLE_LABELS.get(role, role),
             "layer_type": "image",
             "bbox": box,
             "quality": "reliable",
+            "coverage": None,
+            "needs_review": False,
             "provenance": "recorte_original",
             "z_index": z_index,
             "png_path": png_path,
             "mask_path": mask_path,
+            "thumb_path": thumb_path,
             "text_content": str(item.get("text") or ""),
             "metadata": {"engine": "ocr-box"},
         })

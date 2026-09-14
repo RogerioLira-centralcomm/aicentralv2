@@ -11,6 +11,8 @@ const initialState = {
   activeTool: "select",
   job: null,
   dirty: false,
+  comparing: false,
+  showMask: false,
 };
 
 export function createStore(initialValue = initialState) {

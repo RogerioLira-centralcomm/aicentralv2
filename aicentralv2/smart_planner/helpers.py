@@ -59,6 +59,27 @@ def extract_json(payload: str) -> Any:
             return None
 
 
+def strip_markdown(texto: str) -> str:
+    texto = (texto or "").replace("\r\n", "\n").replace("\r", "\n")
+    texto = re.sub(r"```(?:\w+)?\n?([\s\S]*?)```", r"\1", texto)
+    texto = re.sub(r"`([^`]+)`", r"\1", texto)
+    texto = re.sub(r"^#{1,6}\s*", "", texto, flags=re.M)
+    texto = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", texto)
+    texto = re.sub(r"[*_~]{1,3}", "", texto)
+    texto = re.sub(r"^\s*[-*+]\s+", "", texto, flags=re.M)
+    texto = re.sub(r"^\s*\d+\.\s+", "", texto, flags=re.M)
+    texto = re.sub(r"[ \t]+", " ", texto)
+    texto = re.sub(r"\n{3,}", "\n\n", texto)
+    return texto.strip()
+
+
+def looks_like_reference_dump(texto: str) -> bool:
+    raw = (texto or "").lstrip()
+    if not raw:
+        return False
+    return bool(re.search(r"^##\s+(Referência|Notas de apoio)\b", raw, flags=re.I | re.M))
+
+
 def normalize_markdown(texto: str) -> str:
     texto = (texto or "").replace("\r\n", "\n").replace("\r", "\n").strip()
     fenced = re.match(r"^```(?:markdown|md)?\s*\n([\s\S]*?)\n```$", texto, re.I)

@@ -43,6 +43,14 @@ ROLES = {
         "max_tokens": 700,
         "usd": 0.004,
     },
+    "review": {
+        "label": "Revisar referência",
+        "model": _env("SMART_PLANNER_REVIEW_MODEL", "openai/gpt-5-mini"),
+        "temperature": 0.1,
+        "top_k": 20,
+        "max_tokens": 2000,
+        "usd": 0.012,
+    },
     "vision": {
         "label": "Ler imagem",
         "model": _env("SMART_PLANNER_VISION_MODEL", "openai/gpt-5-mini"),

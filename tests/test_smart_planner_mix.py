@@ -122,8 +122,13 @@ class MixEngineTest(unittest.TestCase):
 
     def test_review_template_has_three_columns(self):
         html = (Path(__file__).resolve().parents[1] / "aicentralv2" / "templates" / "smart_planner" / "wizard.html").read_text()
+        self.assertIn('class="sp-hi-plan"', html)
         self.assertIn('class="sp-hi-budget"', html)
         self.assertIn('class="sp-hi-mix"', html)
+        self.assertNotIn("sp-crumb", html)
+        self.assertNotIn("sp-stepper", html)
+        self.assertIn("Salvar rascunho", html)
+        self.assertIn("Smart Planner", html)
         self.assertIn("Balanceamento de mídia", html)
         self.assertIn("Gestão de canais", html)
         self.assertNotIn("Dados da campanha", html)
@@ -143,9 +148,9 @@ class MixEngineTest(unittest.TestCase):
         self.assertIn("data-gen-mode=\"completo\"", html)
         self.assertIn("data-sp-guide", html)
         guide = (Path(__file__).resolve().parents[1] / "aicentralv2" / "templates" / "smart_planner" / "_guide.html").read_text()
-        self.assertIn("Como o plano nasce", guide)
-        self.assertIn("guide-flow.png", guide)
-        self.assertIn("gpt-5.4", guide)
+        self.assertIn("Como funciona o Smart Planner", guide)
+        self.assertIn("Na prática", guide)
+        self.assertIn("GPT-5", guide)
         self.assertIn("Página única", guide)
         self.assertIn("Planejamento completo", guide)
 

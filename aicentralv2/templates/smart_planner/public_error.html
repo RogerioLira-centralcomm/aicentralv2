@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#080808">
-  <title>Planejamento indisponível · Centralcomm</title>
+  <title>Planejamento indisponível · Smart Planner · Centralcomm</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&family=Nunito+Sans:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_public.css') }}?v=1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_public.css') }}?v=2">
 </head>
 <body class="cc-plan">
   <header class="cc-plan-top">
@@ -16,6 +16,7 @@
       <a class="cc-plan-brand" href="{{ house.site }}" target="_blank" rel="noopener noreferrer">
         <img src="{{ house.logo }}" alt="{{ house.name }}">
         <span>{{ house.label }}</span>
+        <em class="cc-plan-product">Smart Planner</em>
       </a>
     </div>
   </header>

@@ -1,41 +1,47 @@
-"""Captura de referências do passo 1 — URL, arquivo e busca online."""
+"""Captura e revisão de referências do passo 1 — URL, arquivo e busca."""
 
 from __future__ import annotations
 
 import base64
+import logging
 import os
 from urllib.parse import urlparse
 
 import requests
 
-from .ai import chat_text, chat_vision
-from .helpers import text
-from .materials import extract_pdf, scrape_url
+from .ai import chat_json, chat_text, chat_vision
+from .catalog import FIELD_SCHEMA
+from .helpers import as_dict, strip_markdown, text
+from .materials import (
+    REFERENCE_PAPEL,
+    extract_pdf,
+    normalize_reference,
+    scrape_url,
+)
+
+logger = logging.getLogger(__name__)
+
+REVIEW_SYSTEM = """Você revisa material de apoio para um briefing de mídia no CentralX.
+Descarte menu, cookie, rodapé, CTA de site e qualquer markdown.
+Organize só o que importa em prosa limpa, em português.
+Não invente verba, KPI, cliente, prazo ou marca que o material não afirma.
+Responda apenas com JSON válido."""
 
 
 def reference_block(kind: str, label: str, body: str) -> str:
     heading = {
-        "url": "Referência — página",
-        "file": "Referência — arquivo",
-        "image": "Referência — imagem",
-        "search": "Referência — dados online",
-    }.get(kind, "Referência")
-    body = (body or "").strip()
-    return f"\n\n## {heading}: {label}\n{body}\n"
+        "url": "página",
+        "file": "arquivo",
+        "image": "imagem",
+        "search": "dados online",
+    }.get(kind, "referência")
+    return (body or "").strip() or f"Apoio da {heading} {label}".strip()
 
 
 def capture_url(url: str) -> dict:
     raw = scrape_url(url)
     label = urlparse(url).netloc or url
-    digest = _digest(raw, kind="url", label=label)
-    return {
-        "kind": "url",
-        "label": label,
-        "url": url,
-        "text": raw,
-        "digest": digest,
-        "bloco": reference_block("url", label, digest),
-    }
+    return _captured("url", label, raw, url=url)
 
 
 def capture_file(path: str, original: str) -> dict:
@@ -48,15 +54,7 @@ def capture_file(path: str, original: str) -> dict:
         kind = "image"
     else:
         raise ValueError("Envie um PDF ou uma imagem (PNG, JPG ou WEBP).")
-    digest = _digest(raw, kind=kind, label=original)
-    return {
-        "kind": kind,
-        "label": original,
-        "name": original,
-        "text": raw,
-        "digest": digest,
-        "bloco": reference_block(kind, original, digest),
-    }
+    return _captured(kind, original, raw, name=original)
 
 
 def capture_search(query: str, briefing: str = "") -> dict:
@@ -64,22 +62,19 @@ def capture_search(query: str, briefing: str = "") -> dict:
     if len(query) < 3:
         raise ValueError("Escreva o que devemos pesquisar.")
     raw = search_web(query, briefing)
-    digest = _digest(raw, kind="search", label=query)
-    return {
-        "kind": "search",
-        "label": query,
-        "text": raw,
-        "digest": digest,
-        "bloco": reference_block("search", query, digest),
-    }
+    return _captured("search", query, raw)
 
 
 def search_web(query: str, briefing: str = "") -> str:
     key = (os.getenv("FIRECRAWL_API_KEY") or "").strip()
     if key:
-        found = _firecrawl_search(query, key)
-        if found:
-            return found
+        hits = _firecrawl_search(query, key)
+        pages = _scrape_search_hits(hits)
+        if pages:
+            return pages
+        listing = _format_search_hits(hits)
+        if listing:
+            return listing
     hint = (briefing or "").strip()[:800]
     prompt = (
         f"Pesquise dados atuais sobre: {query}\n"
@@ -96,34 +91,61 @@ def search_web(query: str, briefing: str = "") -> str:
     )
     if len(raw) < 40:
         raise ValueError("A busca não devolveu conteúdo suficiente.")
-    return raw
+    return "Fonte: conhecimento do modelo, não é página capturada.\n\n" + raw
 
 
-def _firecrawl_search(query: str, key: str) -> str:
-    endpoint = (os.getenv("FIRECRAWL_API_URL") or "https://api.firecrawl.dev/v2/search").strip()
+def review_reference(raw: str, *, kind: str, label: str) -> dict:
+    raw = (raw or "").strip()
+    fallback_papel = REFERENCE_PAPEL.get(kind, "marca")
+    if len(raw) < 80:
+        return {
+            "notas": strip_markdown(raw),
+            "fatos": {},
+            "papel": fallback_papel,
+        }
+    schema = ", ".join(FIELD_SCHEMA)
     try:
-        response = requests.post(
-            endpoint,
-            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-            json={"query": query, "limit": 5, "ignoreInvalidURLs": True},
-            timeout=30,
-        )
-        response.raise_for_status()
-        payload = response.json()
-    except (requests.RequestException, ValueError):
-        return ""
-    data = payload.get("data") or payload
-    rows = data.get("web") or data.get("results") or []
-    parts = []
-    for item in rows[:5]:
-        if not isinstance(item, dict):
-            continue
-        title = text(item.get("title"))
-        snippet = text(item.get("description") or item.get("snippet") or item.get("markdown"))
-        url = text(item.get("url"))
-        if title or snippet:
-            parts.append(" — ".join(part for part in (title, snippet, url) if part))
-    return "\n\n".join(parts)
+        parsed = as_dict(chat_json(
+            REVIEW_SYSTEM,
+            (
+                f"Tipo: {kind}\nRótulo: {label}\n"
+                f"Campos úteis se o material afirmar: {schema}\n\n"
+                "Devolva JSON:\n"
+                '{"notas":"parágrafos sem markdown: o que é, oferta, público implícito, '
+                'praça, prova, restrições",'
+                '"fatos":{"campo":"valor só se o material afirmar"},'
+                '"papel":"marca|campanha|mercado|visual"}\n\n'
+                "Material:\n" + raw[:20000]
+            ),
+            role="review",
+        ))
+    except Exception:
+        logger.exception("Falha ao revisar referência %s", label)
+        parsed = {}
+    notas = strip_markdown(text(parsed.get("notas")) or raw[:2000])
+    fatos = parsed.get("fatos") if isinstance(parsed.get("fatos"), dict) else {}
+    papel = text(parsed.get("papel")).lower()
+    if papel not in {"marca", "campanha", "mercado", "visual"}:
+        papel = fallback_papel
+    if kind == "search":
+        papel = "mercado"
+    return {"notas": notas, "fatos": fatos, "papel": papel}
+
+
+def _captured(kind: str, label: str, raw: str, **extra) -> dict:
+    reviewed = review_reference(raw, kind=kind, label=label)
+    payload = {
+        "kind": kind,
+        "label": label,
+        "text": raw,
+        "digest": reviewed["notas"],
+        "notas": reviewed["notas"],
+        "fatos": reviewed["fatos"],
+        "papel": reviewed["papel"],
+        "bloco": reviewed["notas"],
+        **extra,
+    }
+    return normalize_reference(payload) | payload
 
 
 def _read_image(path: str, ext: str) -> str:
@@ -138,14 +160,64 @@ def _read_image(path: str, ext: str) -> str:
     )
 
 
-def _digest(raw: str, *, kind: str, label: str) -> str:
-    raw = (raw or "").strip()
-    if len(raw) < 80:
-        return raw
-    digest = chat_text(
-        "Você resume referências para um briefing de mídia. "
-        "Fidelidade ao material. Sem inventar número.",
-        f"Resuma em até 180 palavras, em português, esta referência ({kind}: {label}):\n\n{raw[:12000]}",
-        role="digest",
-    )
-    return digest or raw[:900]
+def _firecrawl_search(query: str, key: str) -> list[dict]:
+    endpoint = (os.getenv("FIRECRAWL_API_URL") or "https://api.firecrawl.dev/v2/search").strip()
+    if endpoint.endswith("/scrape"):
+        endpoint = endpoint.rsplit("/scrape", 1)[0] + "/search"
+    elif endpoint.endswith("/v1") or endpoint.endswith("/v2"):
+        endpoint = endpoint + "/search"
+    elif not endpoint.endswith("/search"):
+        endpoint = endpoint.rstrip("/") + "/v2/search"
+    try:
+        response = requests.post(
+            endpoint,
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+            json={"query": query, "limit": 5, "ignoreInvalidURLs": True},
+            timeout=30,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except (requests.RequestException, ValueError):
+        return []
+    data = payload.get("data") or payload
+    rows = data.get("web") or data.get("results") or []
+    hits = []
+    for item in rows[:5]:
+        if not isinstance(item, dict):
+            continue
+        title = text(item.get("title"))
+        snippet = text(item.get("description") or item.get("snippet") or item.get("markdown"))
+        url = text(item.get("url"))
+        if title or snippet or url:
+            hits.append({"title": title, "snippet": snippet, "url": url})
+    return hits
+
+
+def _format_search_hits(hits: list[dict]) -> str:
+    parts = []
+    for item in hits:
+        line = " — ".join(part for part in (item.get("title"), item.get("snippet"), item.get("url")) if part)
+        if line:
+            parts.append(line)
+    return "\n\n".join(parts)
+
+
+def _scrape_search_hits(hits: list[dict], limit: int = 2) -> str:
+    parts = []
+    for item in hits[:limit]:
+        url = text(item.get("url"))
+        title = text(item.get("title"))
+        snippet = text(item.get("snippet"))
+        page = ""
+        if url:
+            try:
+                page = scrape_url(url)
+            except Exception:
+                logger.exception("Falha ao abrir resultado da busca %s", url)
+                page = ""
+        body = page or snippet
+        if not body:
+            continue
+        head = " — ".join(part for part in (title, url) if part)
+        parts.append(f"{head}\n{body[:12000]}" if head else body[:12000])
+    return "\n\n".join(parts)

@@ -1,13 +1,26 @@
-"""Coleta de material: texto, URL e PDF."""
+"""Coleta de material: texto, URL, PDF e dossiê de apoio."""
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from html.parser import HTMLParser
 from typing import Optional
 
 import requests
+
+from .helpers import as_dict, as_list, strip_markdown, text
+
+logger = logging.getLogger(__name__)
+
+REFERENCE_PAPEL = {
+    "url": "marca",
+    "file": "campanha",
+    "image": "visual",
+    "search": "mercado",
+}
+PAPEL_VALIDOS = {"marca", "campanha", "mercado", "visual"}
 
 
 class _TextExtractor(HTMLParser):
@@ -39,6 +52,33 @@ def scrape_url(url: str) -> str:
     url = (url or "").strip()
     if not url.startswith(("http://", "https://")):
         raise ValueError("Informe uma URL http ou https.")
+    scraped = _scrape_firecrawl(url)
+    if scraped:
+        return scraped
+    return _scrape_html(url)
+
+
+def _scrape_firecrawl(url: str) -> str:
+    if not (os.getenv("FIRECRAWL_API_KEY") or "").strip():
+        return ""
+    try:
+        from ..crm_v3_web_scout import _firecrawl_scrape
+        data = _firecrawl_scrape(
+            url,
+            formats=["markdown"],
+            timeout_s=40,
+            only_main_content=True,
+        )
+    except Exception:
+        logger.exception("Firecrawl não capturou %s", url)
+        return ""
+    body = str((data or {}).get("markdown") or (data or {}).get("content") or "").strip()
+    if len(body) < 40:
+        return ""
+    return body[:40000]
+
+
+def _scrape_html(url: str) -> str:
     response = requests.get(
         url,
         timeout=20,
@@ -47,10 +87,10 @@ def scrape_url(url: str) -> str:
     response.raise_for_status()
     parser = _TextExtractor()
     parser.feed(response.text)
-    text = parser.text()
-    if len(text) < 40:
+    extracted = parser.text()
+    if len(extracted) < 40:
         raise ValueError("Não encontramos texto suficiente nesta página.")
-    return text[:40000]
+    return extracted[:40000]
 
 
 def extract_pdf(path: str) -> str:
@@ -65,23 +105,80 @@ def extract_pdf(path: str) -> str:
     parts = []
     for page in reader.pages[:40]:
         parts.append(page.extract_text() or "")
-    text = "\n".join(parts).strip()
-    if len(text) < 40:
+    extracted = "\n".join(parts).strip()
+    if len(extracted) < 40:
         raise ValueError("Não extraímos texto suficiente do PDF.")
-    return text[:40000]
+    return extracted[:40000]
 
 
-def compose_material(text: str, references: Optional[list[dict]] = None) -> str:
+def normalize_reference(item: dict | None) -> dict:
+    raw = as_dict(item)
+    kind = text(raw.get("kind") or "referencia").lower()
+    if kind == "pdf":
+        kind = "file"
+    label = text(raw.get("label") or raw.get("name") or raw.get("url") or kind)
+    notas = strip_markdown(text(raw.get("notas") or raw.get("digest") or raw.get("text")))
+    fatos = raw.get("fatos") if isinstance(raw.get("fatos"), dict) else {}
+    papel = text(raw.get("papel")).lower()
+    if papel not in PAPEL_VALIDOS:
+        papel = REFERENCE_PAPEL.get(kind, "marca")
+    out = {
+        "kind": kind,
+        "label": label,
+        "notas": notas,
+        "fatos": {str(key): value for key, value in fatos.items() if value not in ("", [], None)},
+        "papel": papel,
+    }
+    if raw.get("url"):
+        out["url"] = text(raw.get("url"))
+    if raw.get("name"):
+        out["name"] = text(raw.get("name"))
+    return out
+
+
+def normalize_references(references: Optional[list] = None) -> list[dict]:
+    return [normalize_reference(item) for item in as_list(references) if as_dict(item)]
+
+
+def compose_material(text_in: str, references: Optional[list] = None) -> str:
     blocks = []
-    if (text or "").strip():
-        blocks.append("## Briefing do usuário\n" + text.strip())
-    for item in references or []:
+    user = (text_in or "").strip()
+    if user:
+        blocks.append("Briefing do usuário\n" + user)
+    for item in normalize_references(references):
+        notas = item.get("notas") or ""
+        if not notas:
+            continue
         kind = item.get("kind") or "referencia"
-        label = item.get("name") or item.get("url") or kind
-        body = (item.get("text") or "").strip()
-        if body:
-            blocks.append(f"## Referência ({kind}: {label})\n{body}")
+        label = item.get("label") or kind
+        papel = item.get("papel") or ""
+        head = f"Notas de apoio ({kind}: {label})"
+        if papel:
+            head += f" — papel {papel}"
+        blocks.append(f"{head}\n{notas}")
     return "\n\n".join(blocks).strip()
+
+
+def apoio_notes(dados: dict | None, cap: int = 8000) -> str:
+    fonte = as_dict(as_dict(dados).get("fonte"))
+    refs = normalize_references(fonte.get("referencias") or as_dict(dados).get("referencias"))
+    parts = []
+    for item in refs:
+        notas = item.get("notas") or ""
+        if not notas:
+            continue
+        label = item.get("label") or item.get("url") or item.get("kind")
+        papel = item.get("papel") or ""
+        prefix = f"{label} ({papel}): " if papel else f"{label}: "
+        parts.append(prefix + notas)
+    return "\n\n".join(parts)[:cap].strip()
+
+
+def apoio_block(dados: dict | None, cap: int = 8000) -> str:
+    notes = apoio_notes(dados, cap=cap)
+    if not notes:
+        return ""
+    return "\n\nApoio revisado\n" + notes
 
 
 def save_upload(file_storage, dest_dir: str) -> tuple[str, str]:

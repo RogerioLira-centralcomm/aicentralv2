@@ -356,6 +356,7 @@ def _firecrawl_scrape(
     url: str,
     formats: Optional[list] = None,
     timeout_s: Optional[int] = None,
+    only_main_content: bool = False,
 ) -> Dict[str, Any]:
     """Chama Firecrawl /v2/scrape e devolve `data` bruto.
 
@@ -374,7 +375,7 @@ def _firecrawl_scrape(
         # Não pedimos markdown: o CRM não o consome e ele torna o scrape
         # mais lento em sites grandes.
         "formats": formats or ["branding", "links"],
-        "onlyMainContent": False,
+        "onlyMainContent": bool(only_main_content),
         "timeout": max(5_000, (timeout_s - 5) * 1_000),
         "maxAge": 3_600_000,
         "storeInCache": True,

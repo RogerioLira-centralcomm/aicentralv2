@@ -87,6 +87,15 @@ button { font: inherit; color: inherit; }
   font-weight: 800;
 }
 
+.cc-plan-product {
+  font-style: normal;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.72);
+}
+
 .cc-plan-print {
   border: 0;
   background: transparent;

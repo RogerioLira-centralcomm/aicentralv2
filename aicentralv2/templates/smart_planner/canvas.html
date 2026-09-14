@@ -1,10 +1,10 @@
 {% extends "base_erp.html" %}
 {% block page_label %}Smart Planner{% endblock %}
-{% block page_subtitle %}{{ plan_mode_label }}{% endblock %}
-{% block title %}{{ plan_mode_label }} · {{ titulo }}{% endblock %}
+{% block page_subtitle %}{{ titulo }}{% endblock %}
+{% block title %}{{ titulo }} · Smart Planner{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=5">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=23">
 {% endblock %}
 
 {% block content %}

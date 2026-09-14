@@ -4,6 +4,7 @@ from aicentralv2.smart_planner.brand import (
     briefing_pistas,
     map_plate_channels,
     preserve_seed,
+    search_parties,
     seed_parties,
     snapshot_brand,
 )
@@ -149,6 +150,74 @@ def test_session_title_from_seed():
         {"cliente": "BDMG"},
         {"campanha": {"canais": ["serasa"]}, "cliente": "BDMG"},
     ) == "BDMG"
+
+
+def test_search_parties_lists_recent_with_logo(monkeypatch):
+    captured = {}
+
+    class Cursor:
+        def execute(self, sql, params):
+            captured["sql"] = sql
+            captured["params"] = params
+
+        def fetchall(self):
+            return [
+                {"id_cliente": 44, "nome": "BDMG", "logo_url": "/static/images/marcas/bdmg.png"},
+                {"id_cliente": 8, "nome": "Montana Grill", "logo_url": ""},
+            ]
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    class Conn:
+        def cursor(self):
+            return Cursor()
+
+        def rollback(self):
+            return None
+
+    monkeypatch.setattr("aicentralv2.smart_planner.brand.get_db", lambda: Conn())
+    rows = search_parties("", "cliente", limit=10)
+    assert captured["params"] == [10]
+    assert "data_modificacao" in captured["sql"]
+    assert "cx_clients" in captured["sql"]
+    assert rows[0]["name"] == "BDMG"
+    assert rows[0]["logo_url"] == "/static/images/marcas/bdmg.png"
+    assert rows[1]["logo_url"] == ""
+
+
+def test_search_parties_filters_when_query_has_two_letters(monkeypatch):
+    captured = {}
+
+    class Cursor:
+        def execute(self, sql, params):
+            captured["sql"] = sql
+            captured["params"] = params
+
+        def fetchall(self):
+            return [{"id_cliente": 2, "nome": "BDMG", "logo_url": ""}]
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    class Conn:
+        def cursor(self):
+            return Cursor()
+
+        def rollback(self):
+            return None
+
+    monkeypatch.setattr("aicentralv2.smart_planner.brand.get_db", lambda: Conn())
+    rows = search_parties("bd", "agencia")
+    assert captured["params"][0] == "%bd%"
+    assert "a.key = TRUE" in captured["sql"]
+    assert rows[0]["id"] == 2
 
 
 def test_brand_prompt_block_omits_empty():

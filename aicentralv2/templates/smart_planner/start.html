@@ -1,10 +1,10 @@
 {% extends "base_erp.html" %}
-{% block page_label %}Comercial{% endblock %}
+{% block page_label %}Smart Planner{% endblock %}
 {% block page_subtitle %}Novo planejamento{% endblock %}
 {% block title %}Novo planejamento · Smart Planner{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=12">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=23">
 {% endblock %}
 
 {% block content %}
@@ -15,20 +15,32 @@
       <p>Se houver marca na Modelagem, o quadro já sai com público, produto e identidade.</p>
     </div>
     <div class="sp-head-actions">
-      <button type="button" class="cx-btn cx-btn-ghost" data-sp-guide>Como funciona</button>
-      <a class="cx-btn cx-btn-ghost" href="{{ url_for('smart_planner.index') }}">Voltar aos planejamentos</a>
+      <button type="button" class="cx-btn cx-btn-ghost" data-sp-guide>
+        <i class="fa-regular fa-circle-question" aria-hidden="true"></i>
+        Como funciona
+      </button>
+      <a class="cx-btn cx-btn-ghost" href="{{ url_for('smart_planner.index') }}">
+        <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+        Voltar aos planejamentos
+      </a>
     </div>
   </header>
 
   <div class="sp-parties">
     <label class="cx-field sp-party" data-kind="cliente">
       <span class="cx-label">Cliente final</span>
-      <input class="cx-input js-sp-party" type="text" name="cliente" autocomplete="off" placeholder="Buscar no CRM ou escrever o nome">
+      <span class="sp-party-control">
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <input class="cx-input js-sp-party" type="text" name="cliente" autocomplete="off" placeholder="Buscar no CRM ou escrever o nome">
+      </span>
       <ul class="sp-suggest" hidden></ul>
     </label>
     <label class="cx-field sp-party" data-kind="agencia">
       <span class="cx-label">Agência</span>
-      <input class="cx-input js-sp-party" type="text" name="agencia" autocomplete="off" placeholder="Opcional — preenche se o cliente tiver vínculo">
+      <span class="sp-party-control">
+        <i class="fa-regular fa-building" aria-hidden="true"></i>
+        <input class="cx-input js-sp-party" type="text" name="agencia" autocomplete="off" placeholder="Opcional — preenche se o cliente tiver vínculo">
+      </span>
       <ul class="sp-suggest" hidden></ul>
     </label>
   </div>
@@ -37,28 +49,45 @@
   <h2 class="sp-start-format">O que o anunciante precisa assinar?</h2>
   <div class="sp-formats" id="sp-formats">
     <button type="button" class="sp-format is-priority js-sp-start" data-mode="one_page">
-      <span class="sp-format-mark">Página única</span>
-      <h2>Uma folha para decidir</h2>
-      <p>Recomendação, criativo no canal, um dado de mercado e a defesa. Cabe em uma reunião.</p>
-      <ol class="sp-format-slots">
-        <li>Recomendação</li>
-        <li>Criativo no canal</li>
-        <li>Dado</li>
-        <li>Defesa</li>
-      </ol>
+      <div class="sp-format-copy">
+        <span class="sp-format-pick is-on">
+          <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+          Recomendado
+        </span>
+        <span class="sp-format-mark">Página única</span>
+        <h2>Uma folha para decidir</h2>
+        <p>Recomendação, criativo no canal, um dado de mercado e a defesa. Cabe em uma reunião.</p>
+        <ol class="sp-format-slots">
+          <li>Recomendação</li>
+          <li>Criativo no canal</li>
+          <li>Dado</li>
+          <li>Defesa</li>
+        </ol>
+      </div>
+      <img class="sp-format-art"
+           src="{{ url_for('static', filename='images/smart_planner/format-sheet-active.png') }}?v=2"
+           width="1536" height="1152" alt="">
       <span class="cx-btn cx-btn-primary">Montar página única</span>
     </button>
     <button type="button" class="sp-format js-sp-start" data-mode="completo">
-      <span class="sp-format-mark">Plano completo</span>
-      <h2>Quadro com quatro seções</h2>
-      <p>Contexto, estratégia, mídia e execução. Use quando a campanha precisa de defesa longa.</p>
-      <ol class="sp-format-slots">
-        <li>Contexto</li>
-        <li>Estratégia</li>
-        <li>Mídia</li>
-        <li>Execução</li>
-      </ol>
-      <span class="cx-btn cx-btn-outline">Montar plano completo</span>
+      <div class="sp-format-copy">
+        <span class="sp-format-pick">
+          <i class="fa-regular fa-circle" aria-hidden="true"></i>
+          Plano completo
+        </span>
+        <h2>Quadro com quatro seções</h2>
+        <p>Contexto, estratégia, mídia e execução. Use quando a campanha precisa de defesa longa.</p>
+        <ol class="sp-format-slots">
+          <li>Contexto</li>
+          <li>Estratégia</li>
+          <li>Mídia</li>
+          <li>Execução</li>
+        </ol>
+      </div>
+      <img class="sp-format-art"
+           src="{{ url_for('static', filename='images/smart_planner/format-board-white.png') }}?v=2"
+           width="1536" height="1152" alt="">
+      <span class="cx-btn cx-btn-secondary">Montar plano completo</span>
     </button>
   </div>
 </div>
@@ -66,6 +95,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/start.js') }}?v=3"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/start.js') }}?v=5"></script>
 <script src="{{ url_for('static', filename='js/smart_planner/guide.js') }}?v=2"></script>
 {% endblock %}

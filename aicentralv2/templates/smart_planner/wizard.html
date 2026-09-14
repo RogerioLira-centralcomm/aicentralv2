@@ -4,7 +4,7 @@
 {% block title %}{{ steps[step_index].title }} · Smart Planner{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=12">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=23">
 {% endblock %}
 
 {% block content %}
@@ -12,11 +12,6 @@
      data-token="{{ token }}"
      data-step="{{ step_id }}"
      data-mode="{{ plan_mode }}">
-  <div class="sp-hi-progress" aria-hidden="true">
-    <span>Passo {{ step_number }} de {{ step_total }}</span>
-    <div class="sp-hi-bar"><i style="width: {{ step_progress }}%"></i></div>
-  </div>
-
   <div class="sp-hi-grid {% if step_id == 'revisao' %}is-review{% elif step_id == 'canais' %}is-mix{% elif step_id == 'conclusao' %}is-done{% endif %}">
     <div class="sp-hi-main">
       <header class="sp-hi-head">
@@ -30,15 +25,17 @@
               {{ 'Gerar a página única' if plan_mode == 'one_page' else 'Gerar o plano completo' }}
             {% elif step_id == 'conclusao' %}
               O material está pronto
+            {% elif step_id == 'revisao' %}
+              Revisar briefing
             {% else %}
               {{ steps[step_index].title }}
             {% endif %}
           </h1>
           <p>
             {% if step_id == 'briefing' %}
-              Cole aqui o briefing, notas, e-mails ou o contexto de reuniões. Quanto mais informações, melhores serão as sugestões geradas.
+              Adicione o contexto da campanha para gerar um planejamento mais preciso.
             {% elif step_id == 'revisao' %}
-              A narrativa, o orçamento e o mix saem daqui. O documento — página única ou plano completo — é gerado neste passo.
+              Confira os dados extraídos e a configuração do plano antes de gerar os documentos.
             {% elif step_id == 'canais' %}
               Confira se a verba cobre o voo inteiro antes de gerar o documento. O Gantt começa menor para aprender e solta mais orçamento no meio e no fim.
             {% elif step_id == 'gerar' %}
@@ -55,10 +52,8 @@
           </p>
         </div>
         <div class="sp-hi-head-actions">
+          <p class="sp-live" id="sp-save-live" aria-live="polite"></p>
           <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-sp-guide>Como funciona</button>
-          {% if step_id == 'revisao' and briefing_original %}
-          <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-original-open">Briefing original</button>
-          {% endif %}
           {% if tem_quadro %}
           <a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ url_for('smart_planner.canvas', token=token) }}">Abrir quadro</a>
           {% endif %}
@@ -67,97 +62,173 @@
 
       {% if step_id == 'briefing' %}
       <form id="sp-briefing-form" class="sp-brief">
-        <div class="sp-brief-refs">
-          <div class="sp-brief-refs-head">
-            <span>Enriquecer com referências <em>(opcional)</em></span>
-            <button type="button" class="sp-brief-info" aria-describedby="sp-brief-refs-help" title="Como as referências são usadas">
-              <i class="fa-regular fa-circle-question" aria-hidden="true"></i>
-            </button>
-          </div>
-          <p class="sp-brief-refs-help" id="sp-brief-refs-help">
-            Capturamos o conteúdo e inserimos um resumo no texto abaixo. Você pode editar ou remover o que for inserido.
-          </p>
-          <div class="sp-brief-ref-actions">
-            <button type="button" class="sp-pill" data-ref-open="url"><i class="fa-solid fa-link" aria-hidden="true"></i> Adicionar URL</button>
-            <button type="button" class="sp-pill" data-ref-open="file"><i class="fa-regular fa-file-lines" aria-hidden="true"></i> Adicionar arquivo</button>
-            <button type="button" class="sp-pill" data-ref-open="image"><i class="fa-regular fa-image" aria-hidden="true"></i> Adicionar imagem</button>
-            <button type="button" class="sp-pill" data-ref-open="search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Buscar dados online</button>
-          </div>
-          <ul class="sp-brief-chips" id="sp-brief-chips" hidden></ul>
-        </div>
+        <section class="sp-card" aria-labelledby="sp-import-title">
+          <header class="sp-card-head">
+            <div>
+              <h2 id="sp-import-title">Adicionar conteúdo do briefing</h2>
+              <p id="sp-brief-refs-help">Escolha como deseja inserir as informações da campanha.</p>
+            </div>
+          </header>
+          <div class="sp-importer" id="sp-importer">
+            <div class="sp-importer-tabs" role="tablist" aria-label="Como adicionar conteúdo">
+              <button type="button" class="is-on" role="tab" aria-selected="true" data-ref-tab="text" id="sp-tab-text"><i class="fa-regular fa-file-lines" aria-hidden="true"></i> Colar texto</button>
+              <button type="button" role="tab" aria-selected="false" data-ref-tab="url" id="sp-tab-url"><i class="fa-solid fa-link" aria-hidden="true"></i> Adicionar URL</button>
+              <button type="button" role="tab" aria-selected="false" data-ref-tab="file" id="sp-tab-file"><i class="fa-regular fa-file" aria-hidden="true"></i> Enviar arquivo</button>
+              <button type="button" role="tab" aria-selected="false" data-ref-tab="image" id="sp-tab-image"><i class="fa-regular fa-image" aria-hidden="true"></i> Enviar imagem</button>
+              <button type="button" role="tab" aria-selected="false" data-ref-tab="search" id="sp-tab-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Buscar dados</button>
+            </div>
 
-        <label class="sp-brief-field">
-          <span>Texto do briefing</span>
-          <textarea id="sp-text" name="text" rows="16" placeholder="Cole seu briefing, e-mail, anotações da reunião ou qualquer contexto relevante aqui…">{{ briefing }}</textarea>
-          <span class="sp-brief-kbd" aria-hidden="true"><kbd id="sp-kbd-mod">⌘</kbd> + <kbd>Enter</kbd> para continuar</span>
-        </label>
+            <label class="sp-brief-field" for="sp-text">
+              <span>Texto do briefing</span>
+              <textarea id="sp-text" name="text" rows="16" placeholder="Cole o briefing, e-mail, anotações da reunião ou qualquer contexto relevante…">{{ briefing }}</textarea>
+            </label>
+            <div class="sp-brief-meta">
+              <span id="sp-brief-count">0 / 20.000 caracteres</span>
+              <span class="sp-brief-kbd"><kbd id="sp-kbd-mod">⌘</kbd> + <kbd>Enter</kbd> para continuar</span>
+            </div>
 
-        <div class="sp-brief-foot">
-          <button type="button" class="sp-brief-tips-toggle" id="sp-brief-tips-toggle" aria-expanded="false" aria-controls="sp-brief-tips">
+            <div class="sp-importer-extra" data-ref-pane="url" hidden>
+              <label for="sp-ref-url">URL da página
+                <input class="cx-input" id="sp-ref-url" type="url" placeholder="https://www.exemplo.com/lancamento">
+              </label>
+              <button type="button" class="cx-btn cx-btn-primary" id="sp-ref-url-go">Capturar conteúdo</button>
+            </div>
+
+            <div class="sp-importer-extra" data-ref-pane="search" hidden>
+              <label for="sp-ref-query">O que devemos pesquisar
+                <input class="cx-input" id="sp-ref-query" type="text" placeholder="Marca, produto, categoria ou concorrente">
+              </label>
+              <button type="button" class="cx-btn cx-btn-primary" id="sp-ref-query-go">Buscar dados</button>
+            </div>
+
+            <label class="sp-drop" id="sp-drop-file" for="sp-ref-file">
+              <input id="sp-ref-file" type="file" accept=".pdf,.doc,.docx,.txt,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg,.webp" multiple>
+              <span>Arraste arquivos para cá ou selecione no computador</span>
+              <small>PDF, DOC, TXT, PPT, XLS, PNG, JPG (máx. 50 MB)</small>
+            </label>
+            <input id="sp-ref-file-image" type="file" accept=".png,.jpg,.jpeg,.webp" multiple hidden>
+
+            <p class="sp-status" id="sp-ref-status" hidden></p>
+            <div class="sp-ref-result" id="sp-ref-result" hidden>
+              <p id="sp-ref-digest"></p>
+              <button type="button" class="cx-btn cx-btn-primary" id="sp-ref-insert">Usar como apoio</button>
+            </div>
+
+            <div class="sp-refs-block" id="sp-refs-card">
+              <h3>Fontes adicionadas <span id="sp-refs-count" hidden></span></h3>
+              <p class="sp-empty" id="sp-refs-empty">Nenhuma referência ainda. Ela entra na lista assim que a captura termina.</p>
+              <ul class="sp-brief-cards" id="sp-brief-cards" hidden></ul>
+            </div>
+          </div>
+        </section>
+
+        <details class="sp-brief-tips-box" id="sp-brief-tips-wrap">
+          <summary id="sp-brief-tips-toggle">
             <i class="fa-regular fa-lightbulb" aria-hidden="true"></i>
-            Dicas de briefing
-          </button>
-          <span id="sp-brief-count"></span>
-        </div>
-        <div class="sp-brief-tips" id="sp-brief-tips" hidden>
-          <p>Quanto mais concreto, melhor o plano. Vale registrar:</p>
-          <ul>
-            <li>Quem precisa ser impactado, com comportamento e não só idade.</li>
-            <li>O que já foi tentado antes e o que funcionou ou não.</li>
-            <li>Restrições reais: formato que não pode, aprovação necessária, prazo travado.</li>
-            <li>Verba e período, mesmo aproximados — e diga se ainda não estão fechados.</li>
-            <li>Concorrentes que incomodam e por quê.</li>
-          </ul>
-        </div>
+            Dicas para um briefing melhor
+          </summary>
+          <div class="sp-brief-tips" id="sp-brief-tips">
+            <p>Quanto mais concreto, melhor o plano. Vale registrar:</p>
+            <ul>
+              <li>Quem precisa ser impactado, com comportamento e não só idade.</li>
+              <li>O que já foi tentado antes e o que funcionou ou não.</li>
+              <li>Restrições reais: formato que não pode, aprovação necessária, prazo travado.</li>
+              <li>Verba e período, mesmo aproximados — e diga se ainda não estão fechados.</li>
+              <li>Concorrentes que incomodam e por quê.</li>
+            </ul>
+          </div>
+        </details>
         <p class="sp-status" id="sp-status" hidden></p>
       </form>
       {% endif %}
 
       {% if step_id == 'revisao' %}
       <form id="sp-revisao-form" class="sp-review">
-        <section class="sp-quality is-inline" data-tom="{{ quality.tom }}">
-          <div class="sp-score-ring" aria-label="Nota do briefing: {{ quality_score }} de 100">
-            <svg viewBox="0 0 80 80" aria-hidden="true">
-              <circle cx="40" cy="40" r="34" class="sp-score-track"></circle>
-              <circle cx="40" cy="40" r="34" class="sp-score-fill" style="stroke-dasharray: 213.6; stroke-dashoffset: {{ 213.6 * (1 - ([quality_score, 100]|min) / 100) }}"></circle>
-            </svg>
+        <section class="sp-complete" data-tom="{{ quality.tom }}" aria-labelledby="sp-complete-title">
+          <div class="sp-complete-score">
             <strong>{{ quality_score }}<small>/100</small></strong>
+            <label class="sr-only" for="sp-complete-bar">Completude do briefing</label>
+            <progress id="sp-complete-bar" max="100" value="{{ [quality_score, 100]|min }}"></progress>
           </div>
           <div>
-            <h2>{{ quality.titulo }}</h2>
-            <p>{{ quality.texto }}</p>
+            <h2 id="sp-complete-title">{{ quality.titulo }}{% if quality.tom == 'baixo' %} — briefing incompleto{% endif %}</h2>
+            <p>{{ quality.texto }} {% if gaps %}{{ gaps|length }} pendência{{ 's' if gaps|length != 1 else '' }}.{% endif %}</p>
+            {% if gaps %}
+            <ul class="sp-complete-gaps">
+              {% for gap in gaps[:5] %}
+              <li><a href="#sp-objetivo" data-gap="{{ gap }}">{{ gap }}</a></li>
+              {% endfor %}
+            </ul>
+            {% endif %}
           </div>
         </section>
-        {% if gaps %}
-        <ul class="sp-gaps is-inline">
-          {% for gap in gaps[:4] %}
-          <li>{{ gap }}</li>
-          {% endfor %}
-        </ul>
+
+        <input type="hidden" name="cliente_id" value="{{ campos.cliente_id or '' }}">
+        <input type="hidden" name="agencia_id" value="{{ campos.agencia_id or '' }}">
+        <input type="hidden" name="cx_client_id" value="{{ campos.cx_client_id or '' }}">
+
+        <details class="sp-acc" open>
+          <summary aria-controls="sp-acc-essentials">Informações essenciais</summary>
+          <div class="sp-bf" id="sp-acc-essentials">
+            <label for="sp-field-campanha"><span>Campanha</span><input id="sp-field-campanha" name="campanha" value="{{ campos.campanha }}"></label>
+            <label for="sp-field-cliente"><span>Cliente</span><input id="sp-field-cliente" name="cliente" value="{{ campos.cliente }}"></label>
+            <label for="sp-objetivo">
+              <span>Objetivo</span>
+              <select name="objetivo" id="sp-objetivo">
+                <option value="">Selecione</option>
+                {% for key, label in objetivos.items() %}
+                <option value="{{ key }}" {% if campos.objetivo == key %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label for="sp-field-agencia"><span>Agência</span><input id="sp-field-agencia" name="agencia" value="{{ campos.agencia }}"></label>
+          </div>
+        </details>
+
+        <details class="sp-acc" open>
+          <summary aria-controls="sp-acc-audience">Público e mensagem</summary>
+          <div class="sp-bf" id="sp-acc-audience">
+            <label for="sp-field-objetivo-texto"><span>Como o cliente descreveu</span><input id="sp-field-objetivo-texto" name="objetivo_texto" value="{{ campos.objetivo_texto }}"></label>
+            <label for="sp-field-publico"><span>Público</span><textarea id="sp-field-publico" name="publico" rows="3">{{ campos.publico }}</textarea></label>
+          </div>
+        </details>
+
+        <details class="sp-acc">
+          <summary aria-controls="sp-acc-context">Contexto e restrições</summary>
+          <div class="sp-bf" id="sp-acc-context">
+            <label for="sp-field-contexto"><span>Contexto da campanha</span><textarea id="sp-field-contexto" name="contexto" rows="3">{{ campos.contexto }}</textarea></label>
+            <label for="sp-field-observacoes"><span>Observações e restrições</span><textarea id="sp-field-observacoes" name="observacoes" rows="3">{{ campos.observacoes }}</textarea></label>
+          </div>
+        </details>
+
+        <details class="sp-acc">
+          <summary aria-controls="sp-acc-extracted">Conteúdo extraído</summary>
+          <div class="sp-bf" id="sp-acc-extracted">
+            <label for="sp-field-criativos"><span>Materiais e formatos identificados</span><textarea id="sp-field-criativos" name="criativos" rows="3">{{ campos.criativos }}</textarea></label>
+            <p class="sp-acc-note">Confirme, edite ou apague o que a leitura automática trouxe. Campo vazio não entra no plano.</p>
+          </div>
+        </details>
+
+        <details class="sp-acc" open>
+          <summary aria-controls="sp-acc-narrative">Briefing compilado</summary>
+          <div id="sp-acc-narrative">
+            <label class="sp-brief-field" for="sp-narrative">
+              <span>Narrativa que segue para a folha e o plano</span>
+              <textarea id="sp-narrative" class="sp-narrative" name="briefing" rows="8">{{ briefing }}</textarea>
+            </label>
+            <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-rebrief-btn">Refazer briefing</button>
+          </div>
+        </details>
+
+        {% if briefing_original or fonte_referencias %}
+        <details class="sp-acc">
+          <summary aria-controls="sp-acc-source">Briefing original</summary>
+          <div id="sp-acc-source">
+            <p>O texto do usuário e o apoio revisado. A narrativa pode ser reescrita sem apagar isto.</p>
+            <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-original-open">Ver fonte completa</button>
+          </div>
+        </details>
         {% endif %}
-        <label class="sr-only" for="sp-narrative">Narrativa do briefing</label>
-        <textarea id="sp-narrative" class="sp-narrative" name="briefing" rows="14">{{ briefing }}</textarea>
-        <div class="sp-bf">
-          <label><span>Campanha</span><input name="campanha" value="{{ campos.campanha }}" placeholder="Opcional"></label>
-          <label><span>Cliente</span><input name="cliente" value="{{ campos.cliente }}" placeholder="Opcional"></label>
-          <input type="hidden" name="cliente_id" value="{{ campos.cliente_id or '' }}">
-          <input type="hidden" name="agencia_id" value="{{ campos.agencia_id or '' }}">
-          <input type="hidden" name="cx_client_id" value="{{ campos.cx_client_id or '' }}">
-          <label>
-            <span>Objetivo</span>
-            <select name="objetivo" id="sp-objetivo">
-              <option value="">Vendas, leads, reconhecimento…</option>
-              {% for key, label in objetivos.items() %}
-              <option value="{{ key }}" {% if campos.objetivo == key %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>
-          </label>
-          <label><span>Como o cliente descreveu</span><input name="objetivo_texto" value="{{ campos.objetivo_texto }}"></label>
-          <label><span>Público</span><textarea name="publico" rows="3">{{ campos.publico }}</textarea></label>
-          <label><span>Contexto da campanha</span><textarea name="contexto" rows="3">{{ campos.contexto }}</textarea></label>
-          <label><span>Observações e restrições</span><textarea name="observacoes" rows="3">{{ campos.observacoes }}</textarea></label>
-          <label><span>Agência</span><input name="agencia" value="{{ campos.agencia }}" placeholder="Se houver"></label>
-        </div>
       </form>
       {% endif %}
 
@@ -370,83 +441,80 @@
 
     {% if step_id == 'revisao' %}
     {% set desk = mix_desk or {} %}
-    <aside class="sp-hi-budget" aria-label="Orçamento">
-      <section class="sp-side-card">
-        <h2>Orçamento</h2>
-        <p>Verba, voo e praça. O mix da terceira coluna usa estes números.</p>
-        <div class="sp-bf">
-          <label><span>Verba</span><input form="sp-revisao-form" name="verba" value="{{ campos.verba }}" placeholder="R$ 80 mil por mês"></label>
-          <label>
-            <span>Essa verba é</span>
-            <select form="sp-revisao-form" name="verba_base">
-              <option value="total" {% if verba.base != 'mensal' %}selected{% endif %}>No total</option>
-              <option value="mensal" {% if verba.base == 'mensal' %}selected{% endif %}>Por mês</option>
-            </select>
-          </label>
-          <label><span>Período</span><input form="sp-revisao-form" name="periodo" value="{{ campos.periodo }}" placeholder="90 dias, set a nov"></label>
-          {% if pace and pace.helper %}
-          <p class="sp-flight-note">{{ pace.helper }}</p>
-          {% endif %}
-          <label>
-            <span>Praça</span>
-            <select form="sp-revisao-form" name="praca">
-              <option value="">Não definida</option>
-              {% for key, meta in pracas.items() %}
-              <option value="{{ key }}" {% if campos.praca == key %}selected{% endif %}>{{ meta.label }}</option>
-              {% endfor %}
-            </select>
-          </label>
-          <label><span>Onde exatamente</span><input form="sp-revisao-form" name="praca_detalhe" value="{{ campos.praca_detalhe }}" placeholder="Cidades, UFs ou raio"></label>
-          <label><span>KPIs</span><input form="sp-revisao-form" name="kpis" value="{{ campos.kpis|join(', ') }}" placeholder="Alcance, CPL, vendas"></label>
-        </div>
-      </section>
-    </aside>
-    <aside class="sp-hi-mix" aria-label="Gestão de canais e balanceamento">
-      <section class="sp-side-card sp-mix-desk">
-        <h2>Gestão de canais</h2>
-        <p>Marque o que entra no voo. O método abaixo fecha 100%.</p>
-        <div class="sp-mix-channels">
-          {% for group_key, group_label, group_items in channel_sections %}
-          <div class="sp-mix-group">
-            <h3>{{ group_label }}</h3>
-            <div class="sp-mix-checks">
-              {% for key, meta in group_items %}
-              {% if meta.tipo != 'dados' %}
-              <label>
-                <input form="sp-revisao-form" type="checkbox" name="canais" value="{{ key }}" {% if key in campos.canais %}checked{% endif %}>
-                <span>{{ meta.label }}</span>
-              </label>
-              {% endif %}
-              {% endfor %}
-            </div>
+    <aside class="sp-hi-plan" id="sp-hi-plan" aria-label="Configuração do plano">
+      <div class="sp-hi-budget">
+        <section class="sp-side-card">
+          <h2>Configuração do plano</h2>
+          <p>Verba, voo, praça e indicadores. O mix abaixo usa estes números.</p>
+          <div class="sp-bf">
+            <label for="sp-field-verba"><span>Verba</span><input id="sp-field-verba" form="sp-revisao-form" name="verba" value="{{ campos.verba }}" placeholder="R$ 80 mil por mês"></label>
+            <label for="sp-field-verba-base">
+              <span>Essa verba é</span>
+              <select id="sp-field-verba-base" form="sp-revisao-form" name="verba_base">
+                <option value="total" {% if verba.base != 'mensal' %}selected{% endif %}>No total</option>
+                <option value="mensal" {% if verba.base == 'mensal' %}selected{% endif %}>Por mês</option>
+              </select>
+            </label>
+            <label for="sp-field-periodo"><span>Período</span><input id="sp-field-periodo" form="sp-revisao-form" name="periodo" value="{{ campos.periodo }}" placeholder="90 dias, set a nov"></label>
+            {% if pace and pace.helper %}
+            <p class="sp-flight-note">{{ pace.helper }}</p>
+            {% endif %}
+            <label for="sp-field-praca">
+              <span>Praça</span>
+              <select id="sp-field-praca" form="sp-revisao-form" name="praca">
+                <option value="">Não definida</option>
+                {% for key, meta in pracas.items() %}
+                <option value="{{ key }}" {% if campos.praca == key %}selected{% endif %}>{{ meta.label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label for="sp-field-praca-detalhe"><span>Onde exatamente</span><input id="sp-field-praca-detalhe" form="sp-revisao-form" name="praca_detalhe" value="{{ campos.praca_detalhe }}" placeholder="Cidades, UFs ou raio"></label>
+            <label for="sp-field-kpis"><span>KPIs</span><input id="sp-field-kpis" form="sp-revisao-form" name="kpis" value="{{ campos.kpis|join(', ') }}" placeholder="Alcance, CPL, vendas"></label>
           </div>
-          {% endfor %}
-        </div>
-        <h2>Balanceamento de mídia</h2>
-        <p id="sp-mix-hint">
-          {% if campos.objetivo %}
-            Dois métodos indicados para este objetivo. Os outros quatro ficam em mais métodos.
-          {% else %}
-            Escolha o objetivo na narrativa para indicar os dois métodos do funil.
-          {% endif %}
-        </p>
-        <div class="sp-mix-picks" id="sp-mix-picks" role="radiogroup" aria-label="Método de mix">
-          {% for method in desk.methods or [] %}
-          {% if method.id in (desk.recommended or []) %}
-          <label class="sp-mix-pick {% if method.id == desk.method %}is-on{% endif %}" data-recommended="1">
-            <input form="sp-revisao-form" type="radio" name="mix_method" value="{{ method.id }}" {% if method.id == desk.method %}checked{% endif %}>
-            <strong>{{ method.label }}</strong>
-            <small>{{ method.summary }}</small>
+        </section>
+      </div>
+      <div class="sp-hi-mix">
+        <section class="sp-side-card sp-mix-desk">
+          <h2>Gestão de canais</h2>
+          <p>Marque o que entra no voo. O método abaixo fecha 100%.</p>
+          <div class="sp-mix-chips" id="sp-mix-chips" hidden></div>
+          <label class="sp-mix-search" for="sp-mix-search" id="sp-mix-search-wrap" hidden>
+            <span class="sr-only">Buscar canal</span>
+            <input class="cx-input" id="sp-mix-search" type="search" placeholder="Buscar canal">
           </label>
-          {% endif %}
-          {% endfor %}
-        </div>
-        <details class="sp-mix-more" {% if desk.method and desk.method not in (desk.recommended or []) %}open{% endif %}>
-          <summary>Mais métodos</summary>
-          <div class="sp-mix-picks is-more">
+          <div class="sp-mix-channels" id="sp-mix-channels">
+            {% set shown = namespace(n=0) %}
+            {% for group_key, group_label, group_items in channel_sections %}
+            <div class="sp-mix-group">
+              <h3>{{ group_label }}</h3>
+              <div class="sp-mix-checks">
+                {% for key, meta in group_items %}
+                {% if meta.tipo != 'dados' %}
+                {% set extra = shown.n >= 8 and key not in campos.canais %}
+                {% if not extra %}{% set shown.n = shown.n + 1 %}{% endif %}
+                <label {% if extra %}data-extra="1" hidden{% endif %} data-label="{{ meta.label|lower }}">
+                  <input form="sp-revisao-form" type="checkbox" name="canais" value="{{ key }}" {% if key in campos.canais %}checked{% endif %}>
+                  <span>{{ meta.label }}</span>
+                </label>
+                {% endif %}
+                {% endfor %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-mix-more-btn" hidden>Ver mais canais</button>
+          <h2>Balanceamento de mídia</h2>
+          <p id="sp-mix-hint">
+            {% if campos.objetivo %}
+              Dois métodos indicados para este objetivo. Os outros quatro ficam em mais métodos.
+            {% else %}
+              Escolha o objetivo na narrativa para indicar os dois métodos do funil.
+            {% endif %}
+          </p>
+          <div class="sp-mix-picks" id="sp-mix-picks" role="radiogroup" aria-label="Método de mix">
             {% for method in desk.methods or [] %}
-            {% if method.id not in (desk.recommended or []) %}
-            <label class="sp-mix-pick {% if method.id == desk.method %}is-on{% endif %}">
+            {% if method.id in (desk.recommended or []) %}
+            <label class="sp-mix-pick {% if method.id == desk.method %}is-on{% endif %}" data-recommended="1">
               <input form="sp-revisao-form" type="radio" name="mix_method" value="{{ method.id }}" {% if method.id == desk.method %}checked{% endif %}>
               <strong>{{ method.label }}</strong>
               <small>{{ method.summary }}</small>
@@ -454,25 +522,39 @@
             {% endif %}
             {% endfor %}
           </div>
-        </details>
-        <div class="sp-mix-alloc" id="sp-mix-alloc" aria-live="polite">
-          <p class="sp-mix-empty" id="sp-mix-empty" {% if desk.weights %}hidden{% endif %}>Marque os canais desta campanha para ver o mix.</p>
-          <ul id="sp-mix-bars">
-            {% for item in desk.weights or [] %}
-            <li data-canal="{{ item.id }}">
-              <span>
-                <strong>{{ item.label }}</strong>
-                <em>{{ item.pct }}%</em>
-              </span>
-              <i><b style="width: {{ item.pct }}%"></b></i>
-              <input type="range" min="0" max="100" value="{{ item.pct }}" data-canal="{{ item.id }}" aria-label="Percentual de {{ item.label }}">
-            </li>
-            {% endfor %}
-          </ul>
-          <p class="sp-mix-sum" id="sp-mix-sum" {% if not desk.weights %}hidden{% endif %}>Soma {{ desk.weights|sum(attribute='pct') if desk.weights else 0 }}%</p>
-        </div>
-      </section>
-      <script type="application/json" id="sp-mix-spec">{{ (desk.spec or {})|tojson }}</script>
+          <details class="sp-mix-more" {% if desk.method and desk.method not in (desk.recommended or []) %}open{% endif %}>
+            <summary>Métodos avançados</summary>
+            <div class="sp-mix-picks is-more">
+              {% for method in desk.methods or [] %}
+              {% if method.id not in (desk.recommended or []) %}
+              <label class="sp-mix-pick {% if method.id == desk.method %}is-on{% endif %}">
+                <input form="sp-revisao-form" type="radio" name="mix_method" value="{{ method.id }}" {% if method.id == desk.method %}checked{% endif %}>
+                <strong>{{ method.label }}</strong>
+                <small>{{ method.summary }}</small>
+              </label>
+              {% endif %}
+              {% endfor %}
+            </div>
+          </details>
+          <div class="sp-mix-alloc" id="sp-mix-alloc" aria-live="polite">
+            <p class="sp-mix-empty" id="sp-mix-empty" {% if desk.weights %}hidden{% endif %}>Marque os canais desta campanha para ver o mix.</p>
+            <ul id="sp-mix-bars">
+              {% for item in desk.weights or [] %}
+              <li data-canal="{{ item.id }}">
+                <span>
+                  <strong>{{ item.label }}</strong>
+                  <em>{{ item.pct }}%</em>
+                </span>
+                <i><b data-pct="{{ item.pct }}"></b></i>
+                <input type="range" min="0" max="100" value="{{ item.pct }}" data-canal="{{ item.id }}" aria-label="Percentual de {{ item.label }}">
+              </li>
+              {% endfor %}
+            </ul>
+            <p class="sp-mix-sum" id="sp-mix-sum" {% if not desk.weights %}hidden{% endif %}>Soma {{ desk.weights|sum(attribute='pct') if desk.weights else 0 }}%</p>
+          </div>
+        </section>
+        <script type="application/json" id="sp-mix-spec">{{ (desk.spec or {})|tojson }}</script>
+      </div>
     </aside>
     {% endif %}
 
@@ -504,6 +586,28 @@
       </section>
       {% endif %}
 
+      {% if step_id == 'briefing' %}
+      <section class="sp-side-card">
+        <h2>Contexto do planejamento</h2>
+        <p>Essas informações ajudam a entender melhor o objetivo.</p>
+        <ul class="sp-side-hints">
+          <li><strong>Objetivo da campanha</strong><span>Vendas, gerar leads, awareness.</span></li>
+          <li><strong>Público-alvo</strong><span>Quem queremos alcançar?</span></li>
+          <li><strong>Mercado e concorrência</strong><span>Contexto do setor e players relevantes.</span></li>
+          <li><strong>Referências</strong><span>Links, campanhas ou materiais de apoio.</span></li>
+        </ul>
+      </section>
+      <section class="sp-side-card">
+        <h2>O que será gerado</h2>
+        <p>A partir do briefing, o CentralX gera:</p>
+        <ul class="sp-side-hints">
+          <li><strong>Resumo executivo</strong><span>Visão geral da campanha, objetivos e insights.</span></li>
+          <li><strong>Plano de mídia</strong><span>Canais, formatos, estimativa de investimento e cronograma.</span></li>
+          <li><strong>Recomendação de canais</strong><span>Como chegar no público, mercado e objetivos.</span></li>
+          <li><strong>Documentos comerciais</strong><span>Apresentação, sugestão de roteiro e materiais editáveis.</span></li>
+        </ul>
+      </section>
+      {% else %}
       <section class="sp-side-card">
         <h2>O que vem a seguir?</h2>
         <ol class="sp-trail">
@@ -518,6 +622,7 @@
           {% endfor %}
         </ol>
       </section>
+      {% endif %}
       <div class="sp-secure">
         <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
         <div>
@@ -531,14 +636,15 @@
 
   <footer class="sp-hi-foot">
     {% if step_id == 'briefing' %}
-    <a class="cx-btn cx-btn-ghost" href="{{ url_for('smart_planner.index') }}">Voltar</a>
-    <span class="sp-hi-save" id="sp-autosave-hint">Rascunho salvo neste navegador</span>
+    <a class="cx-btn cx-btn-ghost sp-hi-back" href="{{ url_for('smart_planner.index') }}">Cancelar</a>
+    <span class="sp-hi-save" id="sp-autosave-hint" aria-live="polite"></span>
     <span class="sp-hi-next">Próximo passo: revisar briefing</span>
-    <button type="submit" form="sp-briefing-form" class="cx-btn cx-btn-primary" id="sp-process-btn">Continuar</button>
+    <button type="submit" form="sp-briefing-form" class="cx-btn cx-btn-primary sp-hi-go" id="sp-process-btn" disabled>Continuar</button>
     {% elif step_id == 'revisao' %}
-    <a class="cx-btn cx-btn-ghost" href="{{ url_for('smart_planner.briefing', token=token) }}">Voltar</a>
-    <button type="button" class="cx-btn cx-btn-ghost" id="sp-rebrief-btn">Refazer briefing</button>
-    <button type="button" class="cx-btn cx-btn-primary" id="sp-gen-open">Gerar documentos</button>
+    <a class="cx-btn cx-btn-ghost sp-hi-back" href="{{ url_for('smart_planner.briefing', token=token) }}">Voltar</a>
+    <button type="button" class="cx-btn cx-btn-ghost" id="sp-save-draft">Salvar rascunho</button>
+    <span class="sp-hi-save" id="sp-review-pending">{% if gaps %}{{ gaps|length }} pendência{{ 's' if gaps|length != 1 else '' }}{% endif %}</span>
+    <button type="button" class="cx-btn cx-btn-primary sp-hi-go" id="sp-gen-open">Gerar documentos</button>
     {% elif step_id == 'conclusao' %}
     <a class="cx-btn cx-btn-ghost" href="{{ url_for('smart_planner.index') }}">Planejamentos</a>
     {% else %}
@@ -551,12 +657,27 @@
   <form method="dialog" class="sp-original-sheet">
     <header>
       <div>
-        <h2 id="sp-original-title">Briefing original</h2>
-        <p>O texto que entrou no passo 1. A narrativa da revisão pode ser reescrita sem apagar isto.</p>
+        <h2 id="sp-original-title">Fonte do briefing</h2>
+        <p>O texto do usuário e o apoio revisado. A narrativa da revisão pode ser reescrita sem apagar isto.</p>
       </div>
       <button type="submit" class="cx-btn cx-btn-ghost cx-btn-sm" value="close">Fechar</button>
     </header>
+    {% if briefing_original %}
+    <h3>Texto do usuário</h3>
     <pre>{{ briefing_original }}</pre>
+    {% endif %}
+    {% if fonte_referencias %}
+    <h3>Apoio revisado</h3>
+    <ul class="sp-original-refs">
+      {% for ref in fonte_referencias %}
+      <li>
+        <strong>{{ ref.label }}</strong>
+        {% if ref.papel %}<em>{{ ref.papel }}</em>{% endif %}
+        <p>{{ ref.notas }}</p>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
   </form>
 </dialog>
 
@@ -584,44 +705,6 @@
   </form>
 </dialog>
 
-<dialog class="sp-ref" id="sp-ref" aria-labelledby="sp-ref-title">
-  <form method="dialog" class="sp-ref-sheet">
-    <header>
-      <h2 id="sp-ref-title">Adicionar referência</h2>
-      <button type="submit" class="cx-btn cx-btn-ghost cx-btn-sm" value="close" aria-label="Fechar">Fechar</button>
-    </header>
-    <div class="sp-ref-tabs" role="tablist">
-      <button type="button" class="is-on" data-ref-tab="url">Via URL</button>
-      <button type="button" data-ref-tab="file">Arquivo</button>
-      <button type="button" data-ref-tab="search">Buscar dados</button>
-    </div>
-    <div class="sp-ref-pane is-on" data-ref-pane="url">
-      <label>Cole a URL da página
-        <input class="cx-input" id="sp-ref-url" type="url" placeholder="https://www.exemplo.com/lancamento">
-      </label>
-      <button type="button" class="cx-btn cx-btn-primary" id="sp-ref-url-go">Capturar conteúdo</button>
-    </div>
-    <div class="sp-ref-pane" data-ref-pane="file" hidden>
-      <label class="sp-drop">
-        <input id="sp-ref-file" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp">
-        <span>Arraste o arquivo ou clique para escolher</span>
-        <small>PDF, PNG, JPG ou WEBP</small>
-      </label>
-    </div>
-    <div class="sp-ref-pane" data-ref-pane="search" hidden>
-      <label>O que devemos pesquisar na internet?
-        <input class="cx-input" id="sp-ref-query" type="text" placeholder="Marca, produto, categoria ou concorrente">
-      </label>
-      <button type="button" class="cx-btn cx-btn-primary" id="sp-ref-query-go">Buscar dados</button>
-    </div>
-    <p class="sp-status" id="sp-ref-status" hidden></p>
-    <div class="sp-ref-result" id="sp-ref-result" hidden>
-      <p id="sp-ref-digest"></p>
-      <button type="button" class="cx-btn cx-btn-primary" id="sp-ref-insert">Inserir no briefing</button>
-    </div>
-  </form>
-</dialog>
-
 <div class="sp-compile" id="sp-compile-overlay" hidden>
   <div class="sp-compile-card">
     <span class="sp-compile-icon" aria-hidden="true"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
@@ -635,6 +718,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=9"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=12"></script>
 <script src="{{ url_for('static', filename='js/smart_planner/guide.js') }}?v=2"></script>
 {% endblock %}

@@ -368,6 +368,7 @@ def build_one_page(
     brand: dict | None = None,
     cliente_id=None,
     agencia_id=None,
+    apoio: str = "",
 ) -> dict:
     from .brand import brand_prompt_block
 
@@ -399,6 +400,7 @@ def build_one_page(
             "briefing": briefing[:8000],
             "planejamento": planejamento[:8000],
             "campanha": campanha,
+            "apoio": text(apoio)[:6000],
         })
         cards = cards_from_ai(parsed if isinstance(parsed, dict) else {})
     client = client or branding["client"]["name"]

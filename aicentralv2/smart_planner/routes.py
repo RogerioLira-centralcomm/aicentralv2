@@ -26,8 +26,8 @@ from .catalog import (
     channels_by_group,
     plan_mode_label,
 )
-from .helpers import as_dict
-from .materials import extract_pdf, save_upload, scrape_url
+from .helpers import as_dict, as_list
+from .materials import save_upload
 from .references import capture_file, capture_search, capture_url
 from .brand import brand_for_client, search_parties
 from .logos import lookup_agency_for_client
@@ -199,7 +199,7 @@ def api_partes():
     kind = (request.args.get("kind") or "cliente").strip().lower()
     if kind not in {"cliente", "agencia"}:
         kind = "cliente"
-    rows = search_parties(request.args.get("q") or "", kind)
+    rows = search_parties(request.args.get("q") or "", kind, limit=10)
     return _ok({"rows": rows})
 
 
@@ -280,22 +280,19 @@ def api_processar(token):
             text_in = (request.form.get("text") or "").strip()
             url = (request.form.get("url") or "").strip()
             if url:
-                references.append({"kind": "url", "url": url, "text": scrape_url(url)})
+                references.append(capture_url(url))
             uploaded = request.files.get("file")
             if uploaded and uploaded.filename:
                 dest = os.path.join(current_app.static_folder, "uploads", "smart_planner")
                 path, original = save_upload(uploaded, dest)
-                references.append({
-                    "kind": "pdf",
-                    "name": original,
-                    "text": extract_pdf(path),
-                })
+                references.append(capture_file(path, original))
         else:
             payload = request.get_json(silent=True) or {}
             text_in = (payload.get("text") or "").strip()
+            references.extend(item for item in as_list(payload.get("references")) if isinstance(item, dict))
             url = (payload.get("url") or "").strip()
             if url:
-                references.append({"kind": "url", "url": url, "text": scrape_url(url)})
+                references.append(capture_url(url))
         result = processor.process_briefing(token, text_in, references)
         return _ok({
             "redirect": f"/smart-planner/{token}/revisao",

@@ -44,8 +44,14 @@
     var note = brand.has_identity
       ? "Identidade na Modelagem — público, produto e tom entram no quadro."
       : "Marca na Modelagem, ainda sem identidade completa.";
+    var logo = brand.logo_url
+      ? '<img class="sp-brand-logo" src="' +
+        escapeHtml(brand.logo_url) +
+        '" alt="" width="28" height="28">'
+      : "";
     chip.hidden = false;
     chip.innerHTML =
+      logo +
       "<strong>" +
       escapeHtml(brand.name) +
       "</strong><span>" +
@@ -59,6 +65,57 @@
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+  }
+
+  function initials(name) {
+    var parts = String(name || "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    if (!parts.length) return "?";
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
+  function suggestMark(row) {
+    if (row.logo_url) {
+      return (
+        '<span class="sp-suggest-mark">' +
+        '<img src="' +
+        escapeHtml(row.logo_url) +
+        '" alt="" width="28" height="28" onerror="this.hidden=true; if(this.nextElementSibling) this.nextElementSibling.hidden=false">' +
+        '<span hidden>' +
+        escapeHtml(initials(row.name)) +
+        "</span>" +
+        "</span>"
+      );
+    }
+    return '<span class="sp-suggest-mark"><span>' + escapeHtml(initials(row.name)) + "</span></span>";
+  }
+
+  function renderSuggest(kind, rows) {
+    var list = suggestList(kind);
+    if (!list) return;
+    if (!rows.length) {
+      hideSuggest(kind);
+      return;
+    }
+    list.innerHTML = rows
+      .map(function (row) {
+        return (
+          '<li><button type="button" data-id="' +
+          escapeHtml(row.id) +
+          '" data-name="' +
+          escapeHtml(row.name) +
+          '">' +
+          suggestMark(row) +
+          "<span>" +
+          escapeHtml(row.name) +
+          "</span></button></li>"
+        );
+      })
+      .join("");
+    list.hidden = false;
   }
 
   async function loadMarca(clienteId) {
@@ -83,36 +140,15 @@
   }
 
   async function searchParties(kind, query) {
-    var list = suggestList(kind);
-    if (!list) return;
-    if (query.trim().length < 2) {
-      hideSuggest(kind);
-      return;
-    }
     var response = await fetch(
-      "/smart-planner/api/partes?kind=" + encodeURIComponent(kind) + "&q=" + encodeURIComponent(query),
+      "/smart-planner/api/partes?kind=" +
+        encodeURIComponent(kind) +
+        "&q=" +
+        encodeURIComponent(query || ""),
       { credentials: "same-origin" }
     );
     var payload = await response.json();
-    var rows = ((payload.data || {}).rows) || [];
-    if (!rows.length) {
-      hideSuggest(kind);
-      return;
-    }
-    list.innerHTML = rows
-      .map(function (row) {
-        return (
-          '<li><button type="button" data-id="' +
-          escapeHtml(row.id) +
-          '" data-name="' +
-          escapeHtml(row.name) +
-          '">' +
-          escapeHtml(row.name) +
-          "</button></li>"
-        );
-      })
-      .join("");
-    list.hidden = false;
+    renderSuggest(kind, ((payload.data || {}).rows) || []);
   }
 
   function selectParty(kind, id, name) {
@@ -130,6 +166,11 @@
 
   root.querySelectorAll(".js-sp-party").forEach(function (input) {
     var kind = input.closest(".sp-party").getAttribute("data-kind");
+    input.addEventListener("focus", function () {
+      searchParties(kind, input.value).catch(function () {
+        hideSuggest(kind);
+      });
+    });
     input.addEventListener("input", function () {
       state[kind] = input.value.trim();
       state[kind + "_id"] = null;
@@ -139,7 +180,7 @@
         searchParties(kind, input.value).catch(function () {
           hideSuggest(kind);
         });
-      }, 250);
+      }, 180);
     });
     input.addEventListener("blur", function () {
       window.setTimeout(function () {

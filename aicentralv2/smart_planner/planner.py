@@ -7,8 +7,9 @@ from .brand import brand_prompt_block
 from .cost import bound_session
 from .catalog import CHANNEL_CATALOG, PLAN_MODES, channel_label
 from .helpers import as_dict, as_list, normalize_markdown, plan_mode_of, text
+from .materials import apoio_block
 from .pace import budget_shares, campaign_pace, format_money
-from .repository import get_by_token, merge_dados
+from .repository import get_by_token, merge_dados, update_session
 
 
 PLAN_PROMPT = """Você é planejador de mídia sênior no Brasil. Escreve um planejamento executável, white-label.
@@ -141,29 +142,45 @@ def _folha_block(folha: dict) -> str:
     return "\n\n## Página única (tese já escrita)\nUse esta folha como base. Aprofunde, não contradiga.\n" + body
 
 
-def _pack(briefing: str, campanha: dict, brand: dict | None = None, lastro: str = "", folha: dict | None = None) -> str:
+def _pack(
+    briefing: str,
+    campanha: dict,
+    brand: dict | None = None,
+    lastro: str = "",
+    folha: dict | None = None,
+    apoio: str = "",
+) -> str:
     return (
         briefing[:28000]
         + _campaign_block(campanha)
         + _brand_block(brand)
         + _folha_block(folha or {})
+        + (apoio or "")
         + (f"\n\n## Dados de mercado\n{lastro}" if lastro else "")
     )
 
 
-def research_market(briefing: str, campanha: dict, brand: dict | None = None) -> str:
+def research_market(briefing: str, campanha: dict, brand: dict | None = None, apoio: str = "") -> str:
     raw = chat_text(
         MARKET_PROMPT,
-        briefing[:18000] + _campaign_block(campanha) + _brand_block(brand),
+        briefing[:18000] + _campaign_block(campanha) + _brand_block(brand) + (apoio or ""),
         role="market",
     )
     return normalize_markdown(raw)
 
 
-def generate_plan(briefing: str, campanha: dict, lastro: str = "", brand: dict | None = None, folha: dict | None = None) -> str:
+def generate_plan(
+    briefing: str,
+    campanha: dict,
+    lastro: str = "",
+    brand: dict | None = None,
+    folha: dict | None = None,
+    apoio: str = "",
+) -> str:
     raw = chat_text(
         PLAN_PROMPT,
-        "Passagem 1 — rascunho. Cubra todas as seções com o material abaixo.\n\n" + _pack(briefing, campanha, brand, lastro, folha),
+        "Passagem 1 — rascunho. Cubra todas as seções com o material abaixo.\n\n"
+        + _pack(briefing, campanha, brand, lastro, folha, apoio),
         role="draft",
         timeout=120,
     )
@@ -172,11 +189,17 @@ def generate_plan(briefing: str, campanha: dict, lastro: str = "", brand: dict |
     return normalize_markdown(raw)
 
 
-def improve_plan(document: str, briefing: str, campanha: dict, brand: dict | None = None) -> str:
+def improve_plan(
+    document: str,
+    briefing: str,
+    campanha: dict,
+    brand: dict | None = None,
+    apoio: str = "",
+) -> str:
     raw = chat_text(
         IMPROVE_PROMPT,
         "Passagem 2 — aprofunde este rascunho.\n\n"
-        + _pack(briefing[:12000], campanha, brand)
+        + _pack(briefing[:12000], campanha, brand, apoio=apoio)
         + "\n\n## Rascunho\n"
         + document[:28000],
         role="improve",
@@ -185,11 +208,17 @@ def improve_plan(document: str, briefing: str, campanha: dict, brand: dict | Non
     return normalize_markdown(raw or document)
 
 
-def finalize_plan(document: str, briefing: str, campanha: dict, brand: dict | None = None) -> str:
+def finalize_plan(
+    document: str,
+    briefing: str,
+    campanha: dict,
+    brand: dict | None = None,
+    apoio: str = "",
+) -> str:
     raw = chat_text(
         FINAL_PROMPT,
         "Passagem 3 — versão final.\n\n"
-        + _pack(briefing[:12000], campanha, brand)
+        + _pack(briefing[:12000], campanha, brand, apoio=apoio)
         + "\n\n## Documento\n"
         + document[:28000],
         role="final",
@@ -213,12 +242,13 @@ def run_generation(token: str, mode: str | None = None) -> dict:
     dados = as_dict(row.get("dados_detectados"))
     campanha = dados.get("campanha") if isinstance(dados.get("campanha"), dict) else {}
     brand = as_dict(dados.get("brand"))
+    apoio = apoio_block(dados)
     chosen = (mode or plan_mode_of(dados) or "one_page").strip().lower()
     if chosen not in PLAN_MODES:
         chosen = "one_page"
     merge_dados(token, {"plan_mode": chosen})
     with bound_session(token):
-        market = research_market(briefing, campanha, brand)
+        market = research_market(briefing, campanha, brand, apoio=apoio)
         merge_dados(token, {"mercado": market})
         folha = as_dict(as_dict(get_by_token(token).get("dados_detectados")).get("folha"))
         if not as_list(folha.get("sections")):
@@ -235,9 +265,9 @@ def run_generation(token: str, mode: str | None = None) -> dict:
             })
             merge_dados(token, {"geracao": {"passes": 1, "final": 1, "mode": "one_page"}})
             return {"mercado": market, "planejamento": "", "passes": {}, "folha": folha}
-        draft = generate_plan(briefing, campanha, market, brand, folha)
-        improved = improve_plan(draft, briefing, campanha, brand)
-        final = finalize_plan(improved, briefing, campanha, brand)
+        draft = generate_plan(briefing, campanha, market, brand, folha, apoio)
+        improved = improve_plan(draft, briefing, campanha, brand, apoio)
+        final = finalize_plan(improved, briefing, campanha, brand, apoio)
         merge_dados(token, {
             "planejamento_rascunho": draft,
             "planejamento_passagem2": improved,

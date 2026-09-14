@@ -10,6 +10,7 @@ from .ai import chat_json
 from .catalog import PRACA_OPTIONS, objetivo_label
 from .cost import bound_session
 from .helpers import as_dict, as_list, plan_mode_of, session_title, text
+from .materials import apoio_notes
 from .repository import get_by_token, merge_dados, update_session
 
 SECTIONS = (
@@ -147,6 +148,7 @@ def materialize_folha(token: str, presenter_id: str | None = None) -> dict:
     dados = as_dict(row.get("dados_detectados"))
     briefing = text(row.get("briefing_melhorado") or row.get("briefing_compilado"))
     campanha = as_dict(dados.get("campanha"))
+    apoio = apoio_notes(dados, cap=6000)
     meta = _row_meta(row, dados)
     if not briefing and not meta.get("client"):
         raise ValueError("Informe o cliente final ou o briefing antes de montar a página única.")
@@ -161,6 +163,7 @@ def materialize_folha(token: str, presenter_id: str | None = None) -> dict:
         brand=as_dict(dados.get("brand")),
         cliente_id=dados.get("cliente_id"),
         agencia_id=dados.get("agencia_id"),
+        apoio=apoio,
     )
     merge_dados(token, {
         "folha": plan,

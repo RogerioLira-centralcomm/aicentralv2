@@ -84,83 +84,239 @@
     }, 400);
   }
 
+  function setLive(message) {
+    var live = document.getElementById("sp-save-live");
+    if (live) live.textContent = message || "";
+  }
+
+  function setupStepper() {
+    var current = document.querySelector(".sp-stepper-item.is-current");
+    if (current && !current.getAttribute("aria-current")) {
+      current.setAttribute("aria-current", "step");
+    }
+  }
+
+  function focusField(id) {
+    var el = typeof id === "string" ? document.getElementById(id) : id;
+    if (!el) return;
+    var acc = el.closest("details.sp-acc");
+    if (acc) acc.open = true;
+    if (el.scrollIntoView) {
+      el.scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    }
+    if (typeof el.focus === "function") {
+      window.setTimeout(function () { el.focus(); }, 50);
+    }
+  }
+
   function setupBriefing() {
     var form = document.getElementById("sp-briefing-form");
     var textarea = document.getElementById("sp-text");
     if (!form || !textarea) return;
 
-    var chips = document.getElementById("sp-brief-chips");
+    var importer = document.getElementById("sp-importer");
+    var cards = document.getElementById("sp-brief-cards");
+    var empty = document.getElementById("sp-refs-empty");
+    var refsCount = document.getElementById("sp-refs-count");
     var count = document.getElementById("sp-brief-count");
     var tipsToggle = document.getElementById("sp-brief-tips-toggle");
     var tips = document.getElementById("sp-brief-tips");
     var autosave = document.getElementById("sp-autosave-hint");
     var status = document.getElementById("sp-status");
     var kbd = document.getElementById("sp-kbd-mod");
-    var dialog = document.getElementById("sp-ref");
+    var continueBtn = document.getElementById("sp-process-btn");
     var pending = null;
     var refs = [];
+    var jobs = [];
     var draftKey = "sp_briefing_draft_" + token;
     var isMac = /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent);
     if (kbd && !isMac) kbd.textContent = "Ctrl";
 
+    function escapeHtml(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function kindLabel(kind) {
+      return { url: "página", file: "arquivo", image: "imagem", search: "busca" }[kind] || "apoio";
+    }
+
+    function kindIcon(kind) {
+      return { url: "fa-link", file: "fa-file-lines", image: "fa-image", search: "fa-magnifying-glass" }[kind] || "fa-paperclip";
+    }
+
+    function previewText(value) {
+      var clean = String(value || "").replace(/\s+/g, " ").trim();
+      return clean.length > 160 ? clean.slice(0, 160) + "…" : clean;
+    }
+
+    function growTextarea() {
+      var narrow = window.matchMedia("(max-width: 640px)").matches;
+      textarea.style.height = "auto";
+      var next = Math.min(Math.max(textarea.scrollHeight, narrow ? 200 : 420), narrow ? 340 : 720);
+      textarea.style.height = next + "px";
+    }
+
     function updateCount() {
       if (!count) return;
-      var n = textarea.value.trim().length;
-      count.textContent = n ? n.toLocaleString("pt-BR") + " caracteres" : "";
+      var n = textarea.value.length;
+      count.textContent = n.toLocaleString("pt-BR") + " / 20.000 caracteres";
+    }
+
+    function updateContinue() {
+      var ready = Boolean(textarea.value.trim() || refs.length);
+      if (continueBtn) continueBtn.disabled = !ready;
+    }
+
+    function setDraftStatus(message, type) {
+      if (autosave) autosave.textContent = message || "";
+      setLive(message || "");
+      if (autosave) {
+        autosave.className = "sp-hi-save" + (type ? " is-" + type : "");
+      }
     }
 
     function saveDraft() {
+      setDraftStatus("Salvando…", "");
       try {
         localStorage.setItem(draftKey, JSON.stringify({ text: textarea.value, refs: refs, at: Date.now() }));
-        if (autosave) autosave.textContent = "Rascunho salvo neste navegador";
-      } catch (err) { /* ignore */ }
+        setDraftStatus("Rascunho salvo agora", "ok");
+      } catch (err) {
+        setDraftStatus("Erro ao salvar rascunho", "error");
+      }
     }
 
     function restoreDraft() {
       if (textarea.value.trim()) return;
       try {
         var saved = JSON.parse(localStorage.getItem(draftKey) || "null");
-        if (!saved || !saved.text || Date.now() - (saved.at || 0) > 86400000) return;
-        textarea.value = saved.text;
+        if (!saved || Date.now() - (saved.at || 0) > 86400000) return;
+        if (!saved.text && !(saved.refs && saved.refs.length)) return;
+        if (saved.text) textarea.value = saved.text;
         refs = Array.isArray(saved.refs) ? saved.refs : [];
-        renderChips();
+        renderCards();
         updateCount();
+        growTextarea();
+        updateContinue();
+        setDraftStatus("Rascunho salvo agora", "ok");
       } catch (err) { /* ignore */ }
     }
 
-    function renderChips() {
-      if (!chips) return;
-      chips.hidden = refs.length === 0;
-      chips.innerHTML = refs.map(function (item, index) {
-        return '<li><span>' + item.label + '</span><button type="button" data-ref-remove="' + index + '" aria-label="Remover">×</button></li>';
-      }).join("");
+    function renderCards() {
+      var items = jobs.concat(refs.map(function (item) {
+        return { status: "pronto", ref: item };
+      }));
+      if (cards) {
+        cards.hidden = items.length === 0;
+        cards.innerHTML = items.map(function (item, index) {
+          var job = item.status !== "pronto";
+          var ref = item.ref || item;
+          var notas = ref.notas || ref.digest || "";
+          var statusLabel = item.status === "capturando" ? "Analisando" : item.status === "erro" ? (item.error || "Erro na captura") : "Processado";
+          return (
+            '<li class="sp-brief-card' + (item.status === "erro" ? " is-error" : item.status === "capturando" ? " is-busy" : "") + '">' +
+              '<i class="fa-solid ' + kindIcon(ref.kind || item.kind) + '" aria-hidden="true"></i>' +
+              "<div>" +
+                "<strong>" + escapeHtml(ref.label || ref.url || kindLabel(ref.kind || item.kind)) + "</strong>" +
+                "<em>" + escapeHtml(kindLabel(ref.kind || item.kind)) + (ref.papel ? " · " + escapeHtml(ref.papel) : "") + "</em>" +
+                '<p class="sp-brief-card-status">' + escapeHtml(statusLabel) + "</p>" +
+                (notas ? '<p class="sp-brief-card-preview">' + escapeHtml(previewText(notas)) + "</p>" : "") +
+                (notas ? '<p class="sp-brief-card-full" hidden>' + escapeHtml(notas) + "</p>" : "") +
+              "</div>" +
+              '<div class="sp-brief-card-actions">' +
+                (notas ? '<button type="button" data-ref-expand="' + index + '">Ver</button>' : "") +
+                (item.status === "erro" ? '<button type="button" data-ref-retry="' + item.id + '">Tentar de novo</button>' : "") +
+                (!job ? '<button type="button" data-ref-remove="' + (index - jobs.length) + '" aria-label="Remover">Remover</button>' : "") +
+              "</div>" +
+            "</li>"
+          );
+        }).join("");
+      }
+      if (empty) empty.hidden = items.length > 0;
+      if (refsCount) {
+        refsCount.hidden = items.length === 0;
+        refsCount.textContent = items.length ? "(" + items.length + ")" : "";
+      }
+      updateContinue();
     }
 
-    function selectTab(kind) {
-      var tab = kind === "image" ? "file" : kind;
-      dialog.querySelectorAll("[data-ref-tab]").forEach(function (button) {
-        button.classList.toggle("is-on", button.getAttribute("data-ref-tab") === tab);
+    function setupImporter() {
+      if (!importer) return;
+      var fileInput = document.getElementById("sp-ref-file");
+      var imageInput = document.getElementById("sp-ref-file-image");
+      var drop = document.getElementById("sp-drop-file");
+      function selectTab(kind) {
+        var tab = kind || "text";
+        importer.querySelectorAll("[data-ref-tab]").forEach(function (button) {
+          var on = button.getAttribute("data-ref-tab") === tab;
+          button.classList.toggle("is-on", on);
+          button.setAttribute("aria-selected", on ? "true" : "false");
+        });
+        importer.querySelectorAll("[data-ref-pane]").forEach(function (pane) {
+          var on = pane.getAttribute("data-ref-pane") === tab;
+          pane.hidden = !on;
+          pane.classList.toggle("is-on", on);
+        });
+        if (drop) drop.setAttribute("for", tab === "image" ? "sp-ref-file-image" : "sp-ref-file");
+        if (tab === "url") {
+          var url = document.getElementById("sp-ref-url");
+          if (url) url.focus();
+        }
+        if (tab === "search") {
+          var query = document.getElementById("sp-ref-query");
+          if (query) query.focus();
+        }
+        if (tab === "text") textarea.focus();
+      }
+      importer.querySelectorAll("[data-ref-tab]").forEach(function (button) {
+        button.addEventListener("click", function () {
+          selectTab(button.getAttribute("data-ref-tab"));
+        });
       });
-      dialog.querySelectorAll("[data-ref-pane]").forEach(function (pane) {
-        var on = pane.getAttribute("data-ref-pane") === tab;
-        pane.hidden = !on;
-        pane.classList.toggle("is-on", on);
+      function takeFiles(list) {
+        if (!list) return;
+        Array.prototype.forEach.call(list, function (file) {
+          if (file) captureFile(file);
+        });
+      }
+      if (drop) {
+        ["dragenter", "dragover"].forEach(function (name) {
+          drop.addEventListener(name, function (event) {
+            event.preventDefault();
+            drop.classList.add("is-over");
+          });
+        });
+        ["dragleave", "drop"].forEach(function (name) {
+          drop.addEventListener(name, function (event) {
+            event.preventDefault();
+            drop.classList.remove("is-over");
+          });
+        });
+        drop.addEventListener("drop", function (event) {
+          takeFiles(event.dataTransfer && event.dataTransfer.files);
+        });
+      }
+      [fileInput, imageInput].forEach(function (input) {
+        if (!input) return;
+        input.addEventListener("change", function (event) {
+          takeFiles(event.target.files);
+          event.target.value = "";
+        });
       });
     }
 
-    function openRef(kind) {
-      pending = null;
-      document.getElementById("sp-ref-result").hidden = true;
-      setStatus(document.getElementById("sp-ref-status"), "", "");
-      selectTab(kind);
-      if (typeof dialog.showModal === "function") dialog.showModal();
+    function nextJobId() {
+      return "job-" + Date.now() + "-" + jobs.length;
     }
 
-    async function capture(kind, extra) {
+    async function runCapture(kind, extra, job) {
       var statusEl = document.getElementById("sp-ref-status");
       setStatus(statusEl, "Capturando…", "");
       var captured;
-      if (kind === "file") {
+      if (kind === "file" || kind === "image") {
         var data = new FormData();
         data.append("file", extra);
         var response = await fetch("/smart-planner/api/" + token + "/referencia", {
@@ -175,68 +331,114 @@
         captured = await postJson("/smart-planner/api/" + token + "/referencia", extra);
       }
       pending = captured;
-      document.getElementById("sp-ref-digest").textContent = captured.digest || captured.bloco;
-      document.getElementById("sp-ref-result").hidden = false;
-      setStatus(statusEl, "Confira o resumo e insira no briefing.", "ok");
+      var digest = document.getElementById("sp-ref-digest");
+      var result = document.getElementById("sp-ref-result");
+      if (digest) digest.textContent = captured.notas || captured.digest || captured.bloco || "";
+      if (result) result.hidden = true;
+      setStatus(statusEl, "", "");
+      if (job) {
+        jobs = jobs.filter(function (item) { return item.id !== job.id; });
+      }
+      addRef(captured);
+      return captured;
     }
 
-    document.querySelectorAll("[data-ref-open]").forEach(function (button) {
-      button.addEventListener("click", function () {
-        openRef(button.getAttribute("data-ref-open"));
+    function addRef(captured) {
+      if (!captured) return;
+      refs.push({
+        kind: captured.kind,
+        label: captured.label,
+        url: captured.url || "",
+        name: captured.name || "",
+        notas: captured.notas || captured.digest || "",
+        fatos: captured.fatos || {},
+        papel: captured.papel || "",
       });
-    });
-    dialog.querySelectorAll("[data-ref-tab]").forEach(function (button) {
-      button.addEventListener("click", function () {
-        selectTab(button.getAttribute("data-ref-tab"));
-      });
-    });
-    document.getElementById("sp-ref-url-go").addEventListener("click", async function () {
-      try {
-        await capture("url", { kind: "url", url: document.getElementById("sp-ref-url").value });
-      } catch (error) {
-        setStatus(document.getElementById("sp-ref-status"), error.message, "error");
-      }
-    });
-    document.getElementById("sp-ref-query-go").addEventListener("click", async function () {
-      try {
-        await capture("search", {
-          kind: "search",
-          query: document.getElementById("sp-ref-query").value,
-          briefing: textarea.value,
-        });
-      } catch (error) {
-        setStatus(document.getElementById("sp-ref-status"), error.message, "error");
-      }
-    });
-    document.getElementById("sp-ref-file").addEventListener("change", async function (event) {
-      var file = event.target.files && event.target.files[0];
-      if (!file) return;
-      try {
-        await capture("file", file);
-      } catch (error) {
-        setStatus(document.getElementById("sp-ref-status"), error.message, "error");
-      }
-    });
-    document.getElementById("sp-ref-insert").addEventListener("click", function () {
-      if (!pending) return;
-      textarea.value = (textarea.value.replace(/\s+$/, "") + pending.bloco).trim() + "\n";
-      refs.push({ kind: pending.kind, label: pending.label });
-      renderChips();
-      updateCount();
+      renderCards();
       saveDraft();
-      pending = null;
-      if (typeof dialog.close === "function") dialog.close();
-    });
-    if (chips) {
-      chips.addEventListener("click", function (event) {
-        var button = event.target.closest("[data-ref-remove]");
-        if (!button) return;
-        refs.splice(Number(button.getAttribute("data-ref-remove")), 1);
-        renderChips();
-        saveDraft();
+    }
+
+    function startJob(kind, extra, label) {
+      var job = { id: nextJobId(), status: "capturando", kind: kind, extra: extra, label: label };
+      jobs.push(job);
+      renderCards();
+      runCapture(kind, extra, job).then(function () {
+        renderCards();
+      }).catch(function (error) {
+        job.status = "erro";
+        job.error = error.message;
+        renderCards();
+        setStatus(document.getElementById("sp-ref-status"), error.message, "error");
       });
     }
-    if (tipsToggle && tips) {
+
+    function captureFile(file) {
+      var kind = (file.type || "").indexOf("image/") === 0 ? "image" : "file";
+      startJob(kind, file, file.name);
+    }
+
+    var urlGo = document.getElementById("sp-ref-url-go");
+    if (urlGo) {
+      urlGo.addEventListener("click", function () {
+        var url = document.getElementById("sp-ref-url").value;
+        startJob("url", { kind: "url", url: url }, url);
+      });
+    }
+    var queryGo = document.getElementById("sp-ref-query-go");
+    if (queryGo) {
+      queryGo.addEventListener("click", function () {
+        var query = document.getElementById("sp-ref-query").value;
+        startJob("search", { kind: "search", query: query, briefing: textarea.value }, query);
+      });
+    }
+    document.getElementById("sp-ref-insert").addEventListener("click", function () {
+      if (!pending) return;
+      var already = refs.some(function (item) {
+        return item.label === pending.label && (item.notas || "") === (pending.notas || pending.digest || "");
+      });
+      if (!already) addRef(pending);
+      pending = null;
+      document.getElementById("sp-ref-result").hidden = true;
+    });
+    if (cards) {
+      cards.addEventListener("click", function (event) {
+        var retry = event.target.closest("[data-ref-retry]");
+        if (retry) {
+          var job = jobs.filter(function (item) { return item.id === retry.getAttribute("data-ref-retry"); })[0];
+          if (job) {
+            job.status = "capturando";
+            job.error = "";
+            renderCards();
+            runCapture(job.kind, job.extra, job).then(function () {
+              renderCards();
+            }).catch(function (error) {
+              job.status = "erro";
+              job.error = error.message;
+              renderCards();
+            });
+          }
+          return;
+        }
+        var remove = event.target.closest("[data-ref-remove]");
+        if (remove) {
+          refs.splice(Number(remove.getAttribute("data-ref-remove")), 1);
+          renderCards();
+          saveDraft();
+          return;
+        }
+        var expand = event.target.closest("[data-ref-expand]");
+        if (!expand) return;
+        var card = expand.closest(".sp-brief-card");
+        var full = card && card.querySelector(".sp-brief-card-full");
+        var preview = card && card.querySelector(".sp-brief-card-preview");
+        if (!full) return;
+        var open = full.hidden;
+        full.hidden = !open;
+        if (preview) preview.hidden = open;
+        expand.textContent = open ? "Ocultar" : "Ver";
+      });
+    }
+    if (tipsToggle && tips && tipsToggle.tagName !== "SUMMARY") {
       tipsToggle.addEventListener("click", function () {
         var open = tips.hidden;
         tips.hidden = !open;
@@ -244,13 +446,17 @@
       });
     }
     textarea.addEventListener("input", function () {
+      if (textarea.value.length > 20000) textarea.value = textarea.value.slice(0, 20000);
       updateCount();
+      growTextarea();
+      updateContinue();
       window.clearTimeout(textarea._draft);
       textarea._draft = window.setTimeout(saveDraft, 800);
     });
     textarea.addEventListener("keydown", function (event) {
       if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
+        if (!continueBtn || continueBtn.disabled) return;
         form.requestSubmit();
       }
     });
@@ -259,15 +465,29 @@
       event.preventDefault();
       var button = document.getElementById("sp-process-btn");
       var text = textarea.value.trim();
-      if (!text) {
-        setStatus(status, "Escreva ou cole o briefing, ou adicione uma referência.", "error");
+      if (!text && !refs.length) {
+        setStatus(status, "Escreva o briefing ou adicione uma referência de apoio.", "error");
         textarea.focus();
+        updateContinue();
         return;
       }
       setLoading(button, true);
-      var stop = showCompileOverlay(text);
+      var stop = showCompileOverlay(text || (refs[0] && refs[0].notas) || "");
       try {
-        var result = await postJson("/smart-planner/api/" + token + "/processar", { text: text });
+        var result = await postJson("/smart-planner/api/" + token + "/processar", {
+          text: text,
+          references: refs.map(function (item) {
+            return {
+              kind: item.kind,
+              label: item.label,
+              url: item.url || "",
+              name: item.name || "",
+              notas: item.notas || "",
+              fatos: item.fatos || {},
+              papel: item.papel || "",
+            };
+          }),
+        });
         stop();
         hideCompileOverlay();
         try { localStorage.removeItem(draftKey); } catch (err) { /* ignore */ }
@@ -283,10 +503,15 @@
       }
     });
 
+    setupImporter();
     restoreDraft();
     updateCount();
+    growTextarea();
+    updateContinue();
+    window.addEventListener("resize", growTextarea);
   }
 
+  setupStepper();
   setupBriefing();
 
   function setupMixDesk() {
@@ -295,7 +520,7 @@
     if (!form || !specEl) return;
     var spec = {};
     try { spec = JSON.parse(specEl.textContent || "{}") || {}; } catch (err) { spec = {}; }
-    var desk = document.querySelector(".sp-hi-grid.is-review") || root;
+    var desk = document.getElementById("sp-hi-plan") || root;
     var objetivoEl = document.getElementById("sp-objetivo");
     var bars = document.getElementById("sp-mix-bars");
     var empty = document.getElementById("sp-mix-empty");
@@ -445,10 +670,13 @@
       if (!bars) return;
       bars.innerHTML = weights.map(function (item) {
         return '<li data-canal="' + item.id + '"><span><strong>' + item.label + "</strong><em>" + item.pct
-          + '%</em></span><i><b style="width:' + item.pct + '%"></b></i>'
+          + '%</em></span><i><b data-pct="' + item.pct + '"></b></i>'
           + '<input type="range" min="0" max="100" value="' + item.pct + '" data-canal="' + item.id
           + '" aria-label="Percentual de ' + item.label + '"></li>';
       }).join("");
+      bars.querySelectorAll("b[data-pct]").forEach(function (fill) {
+        fill.style.setProperty("--pct", fill.getAttribute("data-pct") || "0");
+      });
       if (empty) empty.hidden = weights.length > 0;
       if (sumEl) {
         var total = weights.reduce(function (sum, item) { return sum + item.pct; }, 0);
@@ -507,7 +735,7 @@
         var fill = row.querySelector("b");
         var slider = row.querySelector("input[type=range]");
         if (em) em.textContent = value + "%";
-        if (fill) fill.style.width = value + "%";
+        if (fill) fill.style.setProperty("--pct", String(value));
         if (slider && key !== lockedId) slider.value = String(value);
       });
       if (sumEl) {
@@ -525,6 +753,11 @@
       });
     }
     paintPicks();
+    if (bars) {
+      bars.querySelectorAll("b[data-pct]").forEach(function (fill) {
+        fill.style.setProperty("--pct", fill.getAttribute("data-pct") || "0");
+      });
+    }
 
     function collectReview() {
       var data = new FormData(form);
@@ -553,6 +786,7 @@
           praca_detalhe: data.get("praca_detalhe"),
           contexto: data.get("contexto"),
           observacoes: data.get("observacoes"),
+          criativos: data.get("criativos"),
           kpis: data.get("kpis"),
         },
       };
@@ -568,9 +802,137 @@
       }
     });
 
+    setupChannelPicker(desk);
+    setupReviewSections();
+    setupCompleteness();
+    setupReviewAutosave(collectReview);
     setupReviewActions(collectReview);
   }
   setupMixDesk();
+
+  function setupReviewSections() {
+    document.querySelectorAll(".sp-acc").forEach(function (acc) {
+      var summary = acc.querySelector("summary");
+      if (summary && !summary.getAttribute("aria-expanded")) {
+        summary.setAttribute("aria-expanded", acc.open ? "true" : "false");
+      }
+      acc.addEventListener("toggle", function () {
+        if (summary) summary.setAttribute("aria-expanded", acc.open ? "true" : "false");
+      });
+    });
+  }
+
+  function gapTarget(text) {
+    var t = String(text || "").toLowerCase();
+    if (/objetivo/.test(t)) return "sp-objetivo";
+    if (/p[uú]blic/.test(t)) return "sp-field-publico";
+    if (/verba|or[cç]amento|budget/.test(t)) return "sp-field-verba";
+    if (/per[ií]odo|prazo|dura[cç]/.test(t)) return "sp-field-periodo";
+    if (/pra[cç]a|local|cidade/.test(t)) return "sp-field-praca";
+    if (/canal/.test(t)) return "sp-mix-channels";
+    return "sp-objetivo";
+  }
+
+  function setupCompleteness() {
+    document.querySelectorAll(".sp-complete-gaps [data-gap]").forEach(function (link) {
+      var id = gapTarget(link.getAttribute("data-gap") || link.textContent);
+      link.setAttribute("href", "#" + id);
+      link.setAttribute("data-focus", id);
+      link.addEventListener("click", function (event) {
+        event.preventDefault();
+        focusField(id);
+      });
+    });
+  }
+
+  function setupChannelPicker(desk) {
+    var rootDesk = desk || document.getElementById("sp-hi-plan") || root;
+    var searchWrap = document.getElementById("sp-mix-search-wrap");
+    var search = document.getElementById("sp-mix-search");
+    var moreBtn = document.getElementById("sp-mix-more-btn");
+    var chips = document.getElementById("sp-mix-chips");
+    var labels = rootDesk.querySelectorAll(".sp-mix-checks label");
+    if (!labels.length) return;
+    if (labels.length > 8 && searchWrap) searchWrap.hidden = false;
+    var extras = rootDesk.querySelectorAll(".sp-mix-checks label[data-extra]");
+    if (moreBtn && extras.length) {
+      moreBtn.hidden = false;
+      moreBtn.addEventListener("click", function () {
+        var open = moreBtn.getAttribute("aria-expanded") === "true";
+        extras.forEach(function (label) { label.hidden = open; });
+        moreBtn.setAttribute("aria-expanded", open ? "false" : "true");
+        moreBtn.textContent = open ? "Ver mais canais" : "Ver menos canais";
+      });
+    }
+    function paintChips() {
+      if (!chips) return;
+      var selected = Array.prototype.slice.call(rootDesk.querySelectorAll('input[name="canais"]:checked'));
+      chips.hidden = selected.length === 0;
+      chips.innerHTML = selected.map(function (input) {
+        var name = (input.closest("label") && input.closest("label").querySelector("span"));
+        var label = name ? name.textContent : input.value;
+        return '<span class="sp-mix-chip">' + label + '<button type="button" data-uncheck="' + input.value + '" aria-label="Remover ' + label + '">×</button></span>';
+      }).join("");
+    }
+    if (chips) {
+      chips.addEventListener("click", function (event) {
+        var button = event.target.closest("[data-uncheck]");
+        if (!button) return;
+        var input = rootDesk.querySelector('input[name="canais"][value="' + button.getAttribute("data-uncheck") + '"]');
+        if (input) {
+          input.checked = false;
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        paintChips();
+      });
+    }
+    if (search) {
+      search.addEventListener("input", function () {
+        var q = search.value.trim().toLowerCase();
+        labels.forEach(function (label) {
+          var match = !q || (label.getAttribute("data-label") || "").indexOf(q) !== -1;
+          if (q) label.hidden = !match;
+          else label.hidden = label.hasAttribute("data-extra") && moreBtn && moreBtn.getAttribute("aria-expanded") !== "true";
+        });
+      });
+    }
+    rootDesk.addEventListener("change", function (event) {
+      if (event.target && event.target.name === "canais") paintChips();
+    });
+    paintChips();
+  }
+
+  function setupReviewAutosave(collectReview) {
+    var form = document.getElementById("sp-revisao-form");
+    var saveBtn = document.getElementById("sp-save-draft");
+    if (!form || typeof collectReview !== "function") return;
+    var timer = null;
+    async function persist(manual) {
+      setLive("Salvando…");
+      try {
+        await postJson("/smart-planner/api/" + token + "/revisao", collectReview());
+        setLive("Rascunho salvo agora");
+        if (manual) toast("Rascunho salvo.", "success");
+      } catch (error) {
+        setLive("Erro ao salvar rascunho");
+        if (manual) toast(error.message, "error");
+      }
+    }
+    form.addEventListener("input", function () {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(persist, 900);
+    });
+    form.addEventListener("change", function () {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(persist, 400);
+    });
+    if (saveBtn) {
+      saveBtn.addEventListener("click", function () {
+        window.clearTimeout(timer);
+        persist(true);
+      });
+    }
+  }
 
   function setupReviewActions(collectReview) {
     var original = document.getElementById("sp-original");
@@ -601,6 +963,13 @@
     var genOpen = document.getElementById("sp-gen-open");
     if (genOpen) {
       genOpen.addEventListener("click", async function () {
+        var objetivo = document.getElementById("sp-objetivo");
+        var hasCanal = document.querySelector('#sp-hi-plan input[name="canais"]:checked');
+        if (objetivo && !objetivo.value) {
+          focusField("sp-objetivo");
+        } else if (!hasCanal) {
+          focusField("sp-mix-channels");
+        }
         setLoading(genOpen, true);
         try {
           await postJson("/smart-planner/api/" + token + "/revisao", collectReview());

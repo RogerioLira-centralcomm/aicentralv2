@@ -162,28 +162,45 @@ def brand_for_client(crm_client_id: Any) -> dict:
     return snapshot_brand(load_cx_client_for_crm(crm_client_id))
 
 
-def search_parties(query: str, kind: str = "cliente", limit: int = 12) -> list[dict]:
+def search_parties(query: str, kind: str = "cliente", limit: int = 10) -> list[dict]:
     term = text(query)
-    if len(term) < 2:
-        return []
-    like = f"%{term}%"
+    recent = len(term) < 2
     clauses = ["COALESCE(c.status, TRUE) = TRUE"]
-    params: list[Any] = [like, like]
+    params: list[Any] = []
     if kind == "agencia":
         clauses.append("a.key = TRUE")
     else:
         clauses.append("(a.key = FALSE OR a.key IS NULL)")
+    if not recent:
+        clauses.append(
+            "(COALESCE(c.nome_fantasia, '') ILIKE %s OR COALESCE(c.razao_social, '') ILIKE %s)"
+        )
+        like = f"%{term}%"
+        params.extend([like, like])
+    order = (
+        "COALESCE(c.data_modificacao, c.data_cadastro) DESC NULLS LAST, c.id_cliente DESC"
+        if recent
+        else "COALESCE(c.nome_fantasia, c.razao_social), c.id_cliente DESC"
+    )
     sql = f"""
         SELECT c.id_cliente,
-               COALESCE(c.nome_fantasia, c.razao_social) AS nome
+               COALESCE(c.nome_fantasia, c.razao_social) AS nome,
+               COALESCE(
+                 (SELECT COALESCE(cx.logo_upload_path, cx.logo_url)
+                    FROM cx_clients cx
+                   WHERE cx.crm_client_id = c.id_cliente
+                   ORDER BY cx.id DESC
+                   LIMIT 1),
+                 (SELECT web.logo_url
+                    FROM cliente_web_info web
+                   WHERE web.id_cliente = c.id_cliente
+                     AND web.status = 'ok'
+                   LIMIT 1)
+               ) AS logo_url
           FROM tbl_cliente c
           LEFT JOIN tbl_agencia a ON c.pk_id_tbl_agencia = a.id_agencia
          WHERE {' AND '.join(clauses)}
-           AND (
-                COALESCE(c.nome_fantasia, '') ILIKE %s
-             OR COALESCE(c.razao_social, '') ILIKE %s
-           )
-         ORDER BY COALESCE(c.nome_fantasia, c.razao_social)
+         ORDER BY {order}
          LIMIT %s
     """
     params.append(max(1, min(30, int(limit))))
@@ -193,7 +210,11 @@ def search_parties(query: str, kind: str = "cliente", limit: int = 12) -> list[d
             cur.execute(sql, params)
             rows = cur.fetchall() or []
         return [
-            {"id": row.get("id_cliente"), "name": text(row.get("nome"))}
+            {
+                "id": row.get("id_cliente"),
+                "name": text(row.get("nome")),
+                "logo_url": public_logo(row.get("logo_url")),
+            }
             for row in rows
             if text(row.get("nome"))
         ]

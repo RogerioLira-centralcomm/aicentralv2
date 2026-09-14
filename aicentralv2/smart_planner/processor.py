@@ -9,9 +9,11 @@ from .ai import chat_json, chat_text
 from .brand import apply_pistas, briefing_pistas, preserve_seed
 from .cost import bound_session
 from .catalog import CHANNEL_CATALOG, DEVICE_OPTIONS, FIELD_SCHEMA
-from .helpers import as_dict, campaign_from_campos, normalize_markdown, text
-from .materials import compose_material
+from .helpers import as_dict, as_list, campaign_from_campos, looks_like_reference_dump, normalize_markdown, text
+from .materials import compose_material, normalize_references
 from .repository import get_by_token, merge_dados, update_session
+
+SEARCH_LOCKED = {"verba", "kpis", "cliente", "periodo", "campanha", "agencia"}
 
 
 NARRATIVE_PROMPT = """Você é o redator de briefing do Smart Planner no CentralX.
@@ -120,28 +122,30 @@ def _process_briefing(
     dados_atuais = as_dict((row or {}).get("dados_detectados"))
     pistas = briefing_pistas(dados_atuais)
     extracted = extract_fields(material, pistas)
+    refs = normalize_references(references)
     campos = apply_pistas(extracted["campos"], pistas)
+    campos = apply_support_facts(campos, refs)
     origem = "texto escrito ou colado pelo usuário"
-    if references and text_in.strip():
+    if refs and text_in.strip():
         origem = "briefing escrito pelo usuário acompanhado de material de apoio"
-    elif references:
+    elif refs:
         origem = "conteúdo extraído das referências anexadas"
     narrativa = compose_narrative(material, campos, origem)
     dados = dict(campos)
     dados["nome_campanha"] = text(campos.get("campanha"))
     dados["campanha"] = campaign_from_campos(campos)
-    if references:
-        dados["referencias"] = [
-            {"kind": item.get("kind"), "name": item.get("name"), "url": item.get("url")}
-            for item in references
-        ]
-    input_type = "mixed" if references and text_in.strip() else ("pdf" if references else "text")
-    if references and all(item.get("kind") == "url" for item in references) and not text_in.strip():
+    dados["fonte"] = {
+        "briefing": text_in.strip(),
+        "referencias": [_fonte_item(item) for item in refs],
+    }
+    dados["referencias"] = dados["fonte"]["referencias"]
+    input_type = "mixed" if refs and text_in.strip() else ("pdf" if refs else "text")
+    if refs and all(item.get("kind") == "url" for item in refs) and not text_in.strip():
         input_type = "url"
     row = update_session(token, {
         "input_type": input_type,
-        "input_text_original": material,
-        "input_url": next((item.get("url") for item in (references or []) if item.get("url")), None),
+        "input_text_original": text_in.strip(),
+        "input_url": next((item.get("url") for item in refs if item.get("url")), None),
         "briefing_compilado": narrativa,
         "briefing_melhorado": narrativa,
         "quality_score": extracted["score"],
@@ -169,11 +173,59 @@ def _process_briefing(
     }
 
 
+def apply_support_facts(campos: dict, references: list[dict] | None = None) -> dict:
+    merged = dict(campos or {})
+    for item in references or []:
+        fatos = item.get("fatos") if isinstance(item.get("fatos"), dict) else {}
+        locked = item.get("kind") == "search" or item.get("papel") == "mercado"
+        for key, value in fatos.items():
+            if key not in FIELD_SCHEMA or value in ("", [], None):
+                continue
+            if locked and key in SEARCH_LOCKED:
+                continue
+            current = merged.get(key)
+            if current in ("", [], None):
+                merged[key] = value
+    return merged
+
+
+def source_material(row: dict) -> str:
+    dados = as_dict((row or {}).get("dados_detectados"))
+    fonte = as_dict(dados.get("fonte"))
+    user = text(fonte.get("briefing"))
+    refs = as_list(fonte.get("referencias") or dados.get("referencias"))
+    if user:
+        return compose_material(user, refs)
+    original = text((row or {}).get("input_text_original"))
+    if original and not looks_like_reference_dump(original):
+        return compose_material(original, refs)
+    if refs:
+        composed = compose_material("", refs)
+        if len(composed) >= 40:
+            return composed
+    return original or text((row or {}).get("briefing_compilado"))
+
+
+def _fonte_item(item: dict) -> dict:
+    out = {
+        "kind": item.get("kind"),
+        "label": item.get("label"),
+        "notas": item.get("notas"),
+        "fatos": item.get("fatos") if isinstance(item.get("fatos"), dict) else {},
+        "papel": item.get("papel"),
+    }
+    if item.get("url"):
+        out["url"] = item.get("url")
+    if item.get("name"):
+        out["name"] = item.get("name")
+    return out
+
+
 def rewrite_from_plan(token: str) -> dict:
     row = get_by_token(token)
     if not row:
         raise ValueError("Plano não encontrado.")
-    original = text(row.get("input_text_original") or row.get("briefing_compilado"))
+    original = source_material(row)
     if len(original) < 40:
         raise ValueError("Não há briefing original suficiente para reescrever.")
     dados = as_dict(row.get("dados_detectados"))

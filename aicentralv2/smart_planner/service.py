@@ -21,7 +21,8 @@ from .mix import METHODS, allocate, normalize_mix, recommend_methods, shares_to_
 from .cost import cost_from_dados, format_brl
 from .models import preview_cost
 from .logos import presenter_options
-from .helpers import as_dict, as_list, plan_mode_of, session_title, text
+from .helpers import as_dict, as_list, looks_like_reference_dump, plan_mode_of, session_title, text
+from .materials import normalize_references
 from .pace import (
     allocate_months,
     budget_shares,
@@ -84,6 +85,25 @@ def start_plan(plan_mode: str, payload: dict | None = None) -> dict:
 def load_owned(token: str) -> dict:
     user = current_user()
     return get_owned(token, user["user_email"], user["user_id"])
+
+
+def _fonte_referencias(dados: dict) -> list[dict]:
+    fonte = as_dict(as_dict(dados).get("fonte"))
+    return [
+        item for item in normalize_references(fonte.get("referencias") or as_dict(dados).get("referencias"))
+        if item.get("notas")
+    ]
+
+
+def _briefing_original(row: dict, dados: dict) -> str:
+    fonte = as_dict(as_dict(dados).get("fonte"))
+    user = text(fonte.get("briefing"))
+    if user:
+        return user
+    original = text((row or {}).get("input_text_original"))
+    if original and not looks_like_reference_dump(original):
+        return original
+    return ""
 
 
 def wizard_context(row: dict, step_id: str) -> dict:
@@ -198,7 +218,9 @@ def wizard_context(row: dict, step_id: str) -> dict:
         "presenter_options": presenter_options(),
         "titulo": session_title(row, dados),
         "briefing": text(row.get("briefing_melhorado") or row.get("briefing_compilado")),
-        "briefing_original": text(row.get("input_text_original")),
+        "briefing_original": _briefing_original(row, dados),
+        "fonte": as_dict(dados.get("fonte")),
+        "fonte_referencias": _fonte_referencias(dados),
         "planejamento": text(dados.get("planejamento")),
         "tem_quadro": bool(as_list(as_dict(row.get("plan_content")).get("sections"))),
         "share_url": text(share.get("url")),

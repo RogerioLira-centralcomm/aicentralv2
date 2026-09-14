@@ -22,6 +22,7 @@ AUDIO = {
     "ambient": "Soft room tone or environment only. No speech.",
     "music": "Light music bed matching the note. No lyrics that invent a brand name. No speech.",
     "voice": "Optional spoken atmosphere guided by the voice note. Do not promise exact wording.",
+    "voiceover": "No speech. Soft room tone or light music bed only. A separate exact voiceover will be mixed later.",
 }
 
 

@@ -2134,6 +2134,8 @@
       camadas_creative_id: item.camadas_creative_id || '',
       seedance_base_asset_id: item.seedance_base_asset_id || '',
       scene_version: item.scene_version,
+      voiceover_asset_id: item.voiceover_asset_id || '',
+      voiceover_script: item.voiceover_script || '',
     })).filter((item) => item.image || item.video_url);
   }
 
@@ -2260,6 +2262,8 @@
               camadas_creative_id: item.camadas_creative_id || '',
               seedance_base_asset_id: item.seedance_base_asset_id || '',
               scene_version: item.scene_version,
+              voiceover_asset_id: item.voiceover_asset_id || '',
+              voiceover_script: item.voiceover_script || '',
             })),
           });
           applyStoredUrls(saved);

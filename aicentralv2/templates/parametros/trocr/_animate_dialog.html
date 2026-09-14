@@ -69,11 +69,25 @@
         <label><input type="radio" name="mcAnimateAudio" value="ambient"> Ambiente</label>
         <label><input type="radio" name="mcAnimateAudio" value="music"> Música</label>
         <label><input type="radio" name="mcAnimateAudio" value="voice"> Orientação de voz</label>
+        <label><input type="radio" name="mcAnimateAudio" value="voiceover"> Locução exata</label>
       </div>
       <label class="cx-field mt-2" id="mcAnimateVoiceRow" hidden>
         <span class="cx-label">Orientação de voz</span>
         <textarea class="cx-input" id="mcAnimateVoice" rows="2" maxlength="400" placeholder="Tom e assunto. Sem garantia de fala literal."></textarea>
       </label>
+      <div class="mt-2 space-y-2" id="mcAnimateVoiceoverRow" hidden>
+        <label class="cx-field">
+          <span class="cx-label">Roteiro falado</span>
+          <textarea class="cx-input" id="mcAnimateVoiceover" rows="3" maxlength="800" placeholder="Texto literal. Recarregue R$30 e tenha muita internet por até 30 dias."></textarea>
+        </label>
+        <div class="flex flex-wrap gap-4 text-sm">
+          <label><input type="radio" name="mcAnimateVoiceGender" value="male" checked> Homem</label>
+          <label><input type="radio" name="mcAnimateVoiceGender" value="female"> Mulher</label>
+          <label class="ml-2"><input type="radio" name="mcAnimateVoicePace" value="normal" checked> Normal</label>
+          <label><input type="radio" name="mcAnimateVoicePace" value="fast"> Rápida</label>
+        </div>
+        <p class="m-0 text-sm text-slate-500" id="mcAnimateVoiceoverHint">A locução é gerada no Gemini TTS e mixada depois do vídeo.</p>
+      </div>
       <label class="cx-field mt-2" id="mcAnimateMusicRow" hidden>
         <span class="cx-label">Estilo da música</span>
         <input class="cx-input" id="mcAnimateMusic" maxlength="160">

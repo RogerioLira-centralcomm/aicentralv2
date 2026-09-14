@@ -8,6 +8,7 @@ from typing import Dict, Any, List, Optional
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_IMAGE_URL = "https://openrouter.ai/api/v1/images"
 OPENROUTER_VIDEO_URL = "https://openrouter.ai/api/v1/videos"
+OPENROUTER_SPEECH_URL = "https://openrouter.ai/api/v1/audio/speech"
 DEFAULT_IMAGE_MODEL = os.getenv("CREATIVE_IMAGE_MODEL", "openai/gpt-image-2")
 
 
@@ -582,6 +583,111 @@ def download_video(job_id: str, *, index: int = 0, timeout: int = 120) -> bytes:
         raise OpenRouterError(_image_error_message(getattr(exc, "response", None))) from exc
     except (requests.RequestException, ValueError) as exc:
         raise OpenRouterError("Não foi possível baixar o vídeo.") from exc
+
+
+DEFAULT_SPEECH_MODEL = os.getenv("CREATIVE_TTS_MODEL", "google/gemini-3.1-flash-tts-preview")
+AUDIO_MAX_BYTES = _env_int("CREATIVE_AUDIO_MAX_BYTES", 20 * 1024 * 1024)
+
+
+def is_audio_bytes(payload: bytes) -> bool:
+    if not isinstance(payload, (bytes, bytearray)) or len(payload) < 12:
+        return False
+    if payload[:3] == b"ID3" or payload[:2] in (b"\xff\xfb", b"\xff\xf3", b"\xff\xf2", b"\xff\xfa"):
+        return True
+    if payload[:4] == b"RIFF" and payload[8:12] == b"WAVE":
+        return True
+    if payload[:4] == b"fLaC" or payload[:4] == b"OggS":
+        return True
+    return False
+
+
+def _pcm_to_wav(pcm: bytes, *, rate: int = 24000, channels: int = 1, width: int = 2) -> bytes:
+    import io
+    import wave
+
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as wav:
+        wav.setnchannels(channels)
+        wav.setsampwidth(width)
+        wav.setframerate(rate)
+        wav.writeframes(pcm)
+    return buf.getvalue()
+
+
+def generate_speech(
+    text: str,
+    *,
+    model: Optional[str] = None,
+    voice: Optional[str] = None,
+    speed: Optional[float] = None,
+    response_format: str = "mp3",
+    timeout: int = 90,
+) -> bytes:
+    """Sintetiza locução em `POST /api/v1/audio/speech`. Devolve WAV ou MP3."""
+    script = str(text or "").strip()
+    if not script:
+        raise OpenRouterError("O roteiro da locução está vazio.")
+    payload = {
+        "model": (model or DEFAULT_SPEECH_MODEL).strip() or DEFAULT_SPEECH_MODEL,
+        "input": script,
+        "voice": str(voice or "Charon").strip() or "Charon",
+        "response_format": response_format or "mp3",
+    }
+    if speed not in (None, ""):
+        payload["speed"] = float(speed)
+    headers = {
+        "Authorization": f"Bearer {_api_key()}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://centralcomm.media",
+        "X-Title": "CentralX - Studio",
+    }
+    try:
+        response = requests.post(
+            OPENROUTER_SPEECH_URL,
+            headers=headers,
+            json=payload,
+            timeout=max(15, min(int(timeout), 90)),
+        )
+        response.raise_for_status()
+        data = response.content or b""
+        if len(data) > AUDIO_MAX_BYTES:
+            raise OpenRouterError("O áudio retornado excede o tamanho permitido.")
+        ctype = str(response.headers.get("Content-Type") or "").lower()
+        if "json" in ctype or data[:1] in (b"{", b"["):
+            raise OpenRouterError(_speech_error_message(response))
+        if "pcm" in ctype or "l16" in ctype:
+            data = _pcm_to_wav(data)
+        if not is_audio_bytes(data):
+            raise OpenRouterError("O provedor não devolveu um áudio válido.")
+        return data
+    except OpenRouterError:
+        raise
+    except requests.HTTPError as exc:
+        raise OpenRouterError(_speech_error_message(getattr(exc, "response", None))) from exc
+    except (requests.RequestException, ValueError, TypeError) as exc:
+        raise OpenRouterError("Não foi possível gerar a locução.") from exc
+
+
+def _speech_error_message(response):
+    status = getattr(response, "status_code", None)
+    if status in (401, 403):
+        return "A credencial OpenRouter não foi aceita."
+    if status == 402:
+        return "O saldo da conta OpenRouter é insuficiente."
+    if status == 429:
+        return "O OpenRouter limitou as gerações. Aguarde e tente novamente."
+    if status and status >= 500:
+        return "O provedor de áudio está indisponível no momento."
+    detail = ""
+    try:
+        payload = response.json() if response is not None else {}
+        error = payload.get("error") if isinstance(payload, dict) else {}
+        detail = error.get("message") if isinstance(error, dict) else str(error or "")
+    except (AttributeError, TypeError, ValueError):
+        detail = ""
+    if status == 400 and detail:
+        return f"O provedor recusou a locução: {str(detail)[:240]}"
+    return "Não foi possível gerar a locução."
 
 
 # Prompt otimizado para transformar texto em FAQ estruturado

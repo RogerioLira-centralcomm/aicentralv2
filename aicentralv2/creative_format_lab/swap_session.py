@@ -160,6 +160,8 @@ class TrocrStore:
             "transition_from": version.get("transition_from") or "",
             "transition_to": version.get("transition_to") or "",
             "end_card_asset_id": version.get("end_card_asset_id") or "",
+            "voiceover_asset_id": version.get("voiceover_asset_id") or "",
+            "voiceover_script": version.get("voiceover_script") or "",
             "based_on_stale_revision": stale,
         }
         versions.append(row)

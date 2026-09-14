@@ -15,10 +15,11 @@ def job_payload(row, *, scene_ahead=False):
     has_overlay = mode == "protected_scene" or (
         mode == "transition_ab" and bool(source.get("snapshot_a") or source.get("snapshot_b"))
     )
+    has_voiceover = plan.get("audio_mode") == "voiceover"
     stages = [
         {"id": key, "label": label}
         for key, label in UI_STAGES
-        if has_overlay or key != "compositing"
+        if (has_overlay or key != "compositing") and (has_voiceover or key not in {"tts", "mix"})
     ]
     return {
         "job_id": row.get("public_id"),
@@ -31,6 +32,7 @@ def job_payload(row, *, scene_ahead=False):
         "quote": {
             "estimated_cost_usd": quote.get("estimated_cost_usd"),
             "estimated_cost_brl": quote.get("estimated_cost_brl") or quote.get("spent_brl"),
+            "tts_estimated_cost_usd": quote.get("tts_estimated_cost_usd"),
         },
         "eta": {"minimum_seconds": 120, "maximum_seconds": 360},
         "plan": {

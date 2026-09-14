@@ -36,11 +36,15 @@ TRANSITION_WARNING = (
     "Esta transição trava o primeiro e o último quadro. "
     "Música de referência não entra."
 )
+VOICEOVER_WARNING = (
+    "A locução é gerada à parte (Gemini TTS) e mixada no master. "
+    "O Seedance não fala o roteiro. Sem lip-sync."
+)
 
 
 def quote_animate(payload=None):
     data = payload if isinstance(payload, dict) else {}
-    plan = build_plan(data)
+    plan = build_plan({**data, "require_voiceover": False})
     mode = (plan.get("source") or {}).get("mode") or "flattened_still"
     snapshot = (plan.get("source") or {}).get("snapshot")
     unplaced = list((snapshot or {}).get("unplaced_layer_ids") or [])
@@ -53,6 +57,14 @@ def quote_animate(payload=None):
             warning = (
                 "A está mapeada; B entra achatada. "
                 "O overlay do end card só existe se B também estiver no Camadas."
+            )
+    if plan.get("audio_mode") == "voiceover":
+        warning = VOICEOVER_WARNING
+        quote = plan.get("quote") or {}
+        if quote.get("voiceover_fits") is False:
+            warning = (
+                "O roteiro passa do tempo da peça. "
+                "Encurte o texto, use ritmo rápido ou aumente a duração."
             )
     return {
         **public_quote(plan),
@@ -425,6 +437,8 @@ class AnimateService:
         extra.setdefault("scene_version", ((plan.get("source") or {}).get("snapshot") or {}).get("scene_version"))
         extra.setdefault("transition_from", (plan.get("source") or {}).get("base_id") or "")
         extra.setdefault("transition_to", (plan.get("source") or {}).get("to_id") or "")
+        extra.setdefault("voiceover_asset_id", extra.get("voiceover_asset_id") or "")
+        extra.setdefault("voiceover_script", plan.get("voiceover_script") or "")
         stored = self.store.persist_animate(payload, extra, user_id=job.get("user_id"))
         return stored or extra
 

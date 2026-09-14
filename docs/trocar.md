@@ -763,4 +763,5 @@ Continuação do Trocar. Um still vira clipe de 5–30 s. O PNG original permane
 - 4:5 gera frame técnico 3:4 com safe area, recorta o vídeo e só então aplica o overlay.
 - Ativos em `GET /parametros/api/media/assets/<id>/content`.
 - Transição A→B: `first_frame` + `last_frame`, mesma proporção Seedance, sem `input_references`. Overlay B só no último segundo.
+- Locução exata (`audio.mode=voiceover`): roteiro literal via OpenRouter `POST /api/v1/audio/speech` (`google/gemini-3.1-flash-tts-preview`). Homem=`Charon`, mulher=`Kore`. Mix + ducking no ffmpeg depois do Seedance. Sem lip-sync. Sem TTS o modo `voice` continua só orientação.
 - Versão `origin: animate`. Conclusão faz append sem 409.

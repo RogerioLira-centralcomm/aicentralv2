@@ -7,7 +7,8 @@ import logging
 import time
 from datetime import datetime, timezone
 
-from ..services.openrouter_service import download_video, generate_video, poll_video
+from ..services.openrouter_service import download_video, generate_speech, generate_video, poll_video
+from .voiceover import spoken_input
 from .composition.compositor import crop_video, overlay_video
 from .composition.overlay_renderer import render_overlay
 from .composition.plate_renderer import render_plate
@@ -22,7 +23,7 @@ TERMINAL = {"completed", "failed", "cancelled", "expired"}
 
 
 class AnimateWorker:
-    def __init__(self, repository, *, persist_fn=None, materialize_fn=None, video=None):
+    def __init__(self, repository, *, persist_fn=None, materialize_fn=None, video=None, speech=None):
         self.repository = repository
         self.persist_fn = persist_fn
         self.materialize_fn = materialize_fn
@@ -31,6 +32,7 @@ class AnimateWorker:
             "poll": poll_video,
             "download": download_video,
         }
+        self.speech = speech or {"generate": generate_speech}
 
     def run(self, job_id):
         claimed = self.repository.claim_job(job_id)
@@ -264,6 +266,9 @@ class AnimateWorker:
             except Exception:
                 logger.exception("Overlay falhou em %s", job_id)
                 raise RuntimeError("Não foi possível proteger textos e logos no master.")
+        voiceover_id, mixed = self._mix_voiceover(job_id, row, plan, video)
+        if mixed is not None:
+            video = mixed
         self._stage(job_id, "transcode", 82, "Preparando formatos")
         master = self._store_asset(
             job_pk,
@@ -272,7 +277,7 @@ class AnimateWorker:
             "video/mp4",
             ".mp4",
             plan,
-            has_audio=bool(plan.get("generate_audio")),
+            has_audio=bool(plan.get("generate_audio") or plan.get("audio_mode") == "voiceover"),
             width=width,
             height=height,
             protected=protected,
@@ -332,7 +337,9 @@ class AnimateWorker:
             "transition_to": source.get("to_id") or "",
             "end_card_asset_id": "",
             "duration": plan.get("duration"),
-            "has_audio": bool(plan.get("generate_audio")),
+            "has_audio": bool(plan.get("generate_audio") or plan.get("audio_mode") == "voiceover"),
+            "voiceover_asset_id": voiceover_id,
+            "voiceover_script": plan.get("voiceover_script") or "",
             "seedance_base_asset_id": base["public_id"],
             "master_asset_id": master["public_id"],
             "poster_asset_id": poster_id,
@@ -343,7 +350,52 @@ class AnimateWorker:
             "job_id": job_id,
         }
         payload["end_card_asset_id"] = end_card_id
+        if voiceover_id:
+            packs.append({"kind": "voiceover", "asset_id": voiceover_id, "status": "ready"})
         return payload
+
+    def _mix_voiceover(self, job_id, row, plan, video):
+        if plan.get("audio_mode") != "voiceover":
+            return "", None
+        script = str(plan.get("voiceover_script") or "").strip()
+        if not script:
+            raise ValueError("Escreva o roteiro da locução.")
+        self._stage(job_id, "tts", 80, "Gerando locução")
+        audio = self._voiceover_bytes(row, plan)
+        mime = "audio/wav" if audio[:4] == b"RIFF" else "audio/mpeg"
+        suffix = ".wav" if mime == "audio/wav" else ".mp3"
+        stored = self._store_asset(
+            row.get("id"),
+            "voiceover",
+            audio,
+            mime,
+            suffix,
+            plan,
+            has_audio=True,
+        )
+        self._stage(job_id, "mix", 84, "Mixando voz no master")
+        try:
+            return stored["public_id"], transcode.mix_voiceover(video, audio)
+        except Exception:
+            logger.exception("Mix da locução falhou em %s", job_id)
+            raise RuntimeError("Não foi possível mixar a locução no master.")
+
+    def _voiceover_bytes(self, row, plan):
+        version = row.get("version_payload") if isinstance(row.get("version_payload"), dict) else {}
+        asset_id = version.get("voiceover_asset_id")
+        if asset_id:
+            try:
+                asset = self.repository.get_asset(asset_id)
+                path = storage.read_path(asset.get("storage_key"))
+                if path is not None:
+                    return path.read_bytes()
+            except Exception:
+                logger.warning("Locução gravada não pôde ser relida.")
+        return self.speech["generate"](
+            spoken_input(plan.get("voiceover_script") or "", plan.get("voiceover_pace") or "normal"),
+            model=plan.get("tts_model"),
+            voice=plan.get("voiceover_provider_voice") or "Charon",
+        )
 
     def _seedance_base(self, row):
         job_pk = row.get("id")
@@ -394,9 +446,12 @@ class AnimateWorker:
             "duration": plan.get("duration"),
             "has_audio": has_audio,
             "provenance": {
-                "type": "generated_video" if kind != "poster" else "video_poster",
+                "type": (
+                    "generated_speech" if kind == "voiceover"
+                    else "generated_video" if kind != "poster" else "video_poster"
+                ),
                 "provider": "openrouter",
-                "model": plan.get("model"),
+                "model": plan.get("tts_model") if kind == "voiceover" else plan.get("model"),
                 "source_version_id": (plan.get("source") or {}).get("base_id"),
                 "protected_layers": bool(protected),
                 "post_composited": bool(composited),

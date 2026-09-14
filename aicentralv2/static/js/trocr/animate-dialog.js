@@ -26,6 +26,9 @@ export function readForm() {
       mode: audio,
       prompt: $("mcAnimateVoice")?.value || "",
       music_note: $("mcAnimateMusic")?.value || "",
+      script: $("mcAnimateVoiceover")?.value || "",
+      voice: document.querySelector("input[name=mcAnimateVoiceGender]:checked")?.value || "male",
+      pace: document.querySelector("input[name=mcAnimateVoicePace]:checked")?.value || "normal",
     },
     delivery,
     gif_window: document.querySelector("input[name=mcAnimateGifWindow]:checked")?.value || "first",
@@ -45,17 +48,19 @@ export function bindDialog(context) {
       const mode = document.querySelector("input[name=mcAnimateAudio]:checked")?.value;
       $("mcAnimateVoiceRow").hidden = mode !== "voice";
       $("mcAnimateMusicRow").hidden = mode !== "music";
+      $("mcAnimateVoiceoverRow").hidden = mode !== "voiceover";
       refreshQuote(context);
     });
   });
   $("mcAnimateGif")?.addEventListener("change", () => {
     $("mcAnimateGifWindow").hidden = !$("mcAnimateGif").checked;
   });
-  ["mcAnimateDuration", "mcAnimateQuality"].forEach((name) => {
+  ["mcAnimateDuration", "mcAnimateQuality", "mcAnimateVoiceGender", "mcAnimateVoicePace"].forEach((name) => {
     document.querySelectorAll(`input[name=${name}]`).forEach((node) => {
       node.addEventListener("change", () => refreshQuote(context));
     });
   });
+  $("mcAnimateVoiceover")?.addEventListener("input", () => refreshQuote(context));
   $("mcAnimateCancel")?.addEventListener("click", () => dialog.close());
   $("mcAnimateSubmit")?.addEventListener("click", () => submit(context));
   bindLayers(context);
@@ -90,8 +95,16 @@ async function refreshQuote(context) {
     const quote = await quoteAnimate({ ...readForm(), ...context.ids() });
     const usd = quote.estimated_cost_usd ?? "—";
     const brl = quote.estimated_cost_brl ?? quote.spent_brl ?? "—";
-    $("mcAnimateQuote").textContent = `Seedance 2.5 · US$ ${usd} · cerca de R$ ${brl} · 2 a 6 min`;
+    const tts = quote.tts_estimated_cost_usd;
+    const ttsBit = tts != null && tts !== "" ? ` · locução US$ ${tts}` : "";
+    $("mcAnimateQuote").textContent = `Seedance 2.5 · US$ ${usd}${ttsBit} · cerca de R$ ${brl} · 2 a 6 min`;
     if ($("mcAnimateWarn") && quote.warning) $("mcAnimateWarn").textContent = quote.warning;
+    if ($("mcAnimateVoiceoverHint") && quote.voiceover_words != null) {
+      const fits = quote.voiceover_fits !== false;
+      $("mcAnimateVoiceoverHint").textContent = fits
+        ? `${quote.voiceover_words} palavras · cabem em cerca de ${quote.voiceover_budget || "—"}`
+        : `${quote.voiceover_words} palavras · acima de ${quote.voiceover_budget || "—"} para esta duração`;
+    }
   } catch (error) {
     $("mcAnimateQuote").textContent = error.message;
   }

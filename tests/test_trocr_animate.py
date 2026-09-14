@@ -471,6 +471,98 @@ class TrocrAnimateTransitionTest(unittest.TestCase):
         self.assertIn("último quadro", quoted["warning"])
 
 
+class TrocrAnimateVoiceoverTest(unittest.TestCase):
+    def test_roteiro_obrigatorio_e_cabe_na_duracao(self):
+        with self.assertRaises(ValueError) as missing:
+            build_plan({"audio": {"mode": "voiceover"}})
+        self.assertIn("roteiro", str(missing.exception).lower())
+        with self.assertRaises(ValueError) as overflow:
+            build_plan({
+                "duration": 5,
+                "audio": {"mode": "voiceover", "script": "palavra " * 30},
+            })
+        self.assertIn("duração", str(overflow.exception))
+        plan = build_plan({
+            "duration": 10,
+            "quality": "draft",
+            "audio": {
+                "mode": "voiceover",
+                "script": "Recarregue trinta reais e tenha muita internet.",
+                "voice": "male",
+                "pace": "fast",
+            },
+        })
+        self.assertEqual(plan["voiceover_provider_voice"], "Charon")
+        self.assertEqual(plan["tts_model"], "google/gemini-3.1-flash-tts-preview")
+        self.assertIn("No speech", plan["prompt"])
+        self.assertGreater(plan["quote"]["tts_estimated_cost_usd"], 0)
+        self.assertTrue(plan["generate_audio"])
+        quoted = quote_animate({"audio": {"mode": "voiceover"}})
+        self.assertIn("Gemini TTS", quoted["warning"])
+
+    def test_worker_mixa_locucao_sem_seedance_falar_o_roteiro(self):
+        from io import BytesIO
+        from PIL import Image
+
+        plan = build_plan({
+            "duration": 8,
+            "quality": "draft",
+            "aspect_ratio": "1:1",
+            "source": {"mode": "flattened_still", "base_id": "v1"},
+            "audio": {
+                "mode": "voiceover",
+                "script": "Recarregue trinta reais e tenha internet.",
+                "voice": "female",
+                "pace": "normal",
+            },
+        })
+        buf = BytesIO()
+        Image.new("RGB", (64, 64), (12, 12, 12)).save(buf, format="PNG")
+        still = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+        plan["source"]["reference"] = still
+        plan["reference"] = still
+        repo = MemoryMediaRepository()
+        job = repo.create_job({"plan_json": plan, "plan_hash": plan["plan_hash"], "quote_json": plan["quote"]})
+        captured = {}
+        wav = b"RIFF" + b"\x00" * 4 + b"WAVE" + b"\x00" * 20
+
+        def speech(text, **kwargs):
+            captured["input"] = text
+            captured["voice"] = kwargs.get("voice")
+            return wav
+
+        worker = AnimateWorker(
+            repo,
+            persist_fn=lambda _job, _plan, version: version,
+            video={
+                "submit": lambda *a, **k: captured.update(k) or {"id": "or-1", "polling_url": "https://x/or-1", "status": "pending"},
+                "poll": lambda *a, **k: {"id": "or-1", "status": "completed"},
+                "download": lambda *_a, **_k: b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 40,
+            },
+            speech={"generate": speech},
+        )
+        with patch("aicentralv2.creative_media.worker.POLL_INTERVAL", 0):
+            with patch("aicentralv2.creative_media.transcode.mix_voiceover", side_effect=lambda video, _au: video + b"mix"):
+                with patch("aicentralv2.creative_media.transcode.poster_jpg", side_effect=RuntimeError("skip")):
+                    with patch("aicentralv2.creative_media.transcode.small_mp4", side_effect=RuntimeError("skip")):
+                        worker.run(job["public_id"])
+        ready = repo.get_job(job["public_id"])
+        self.assertTrue(ready["version_payload"]["voiceover_asset_id"])
+        self.assertTrue(ready["version_payload"]["has_audio"])
+        self.assertEqual(captured["voice"], "Kore")
+        self.assertNotIn("[excited]", captured["input"])
+        self.assertIn("Recarregue", captured["input"])
+
+    def test_pcm_vira_wav_e_tag_rapida(self):
+        from aicentralv2.creative_media.voiceover import spoken_input
+        from aicentralv2.services.openrouter_service import _pcm_to_wav, is_audio_bytes
+
+        self.assertTrue(spoken_input("Recarregue agora.", "fast").startswith("[excited]"))
+        wav = _pcm_to_wav(b"\x00\x00" * 24)
+        self.assertTrue(is_audio_bytes(wav))
+        self.assertEqual(wav[8:12], b"WAVE")
+
+
 def _jpeg(image):
     from io import BytesIO
     buf = BytesIO()

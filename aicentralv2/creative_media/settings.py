@@ -14,6 +14,14 @@ TOKEN_USD_VIDEO_REF = 0.0000064
 FPS_FOR_QUOTE = 24
 DURATIONS = (5, 8, 10, 15, 20, 30)
 
+TTS_MODEL = os.getenv("CREATIVE_TTS_MODEL", "google/gemini-3.1-flash-tts-preview")
+TTS_INPUT_USD = 0.000001
+TTS_OUTPUT_USD = 0.00002
+TTS_MAX_CHARS = 800
+TTS_MAX_WORDS_PER_SEC = 4.0
+TTS_PACES = {"normal": 2.2, "fast": 3.2}
+TTS_VOICES = {"male": "Charon", "female": "Kore"}
+
 SEEDANCE_RATIOS = ("16:9", "4:3", "1:1", "3:4", "9:16", "21:9")
 
 SIZES = {
@@ -42,6 +50,8 @@ UI_STAGES = (
     ("generate", "Gerando movimento"),
     ("download", "Baixando master"),
     ("compositing", "Protegendo textos e logos"),
+    ("tts", "Gerando locução"),
+    ("mix", "Mixando voz no master"),
     ("transcode", "Preparando formatos"),
     ("persist", "Salvando no histórico"),
     ("ready", "Pronto"),

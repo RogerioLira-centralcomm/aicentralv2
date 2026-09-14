@@ -3558,7 +3558,9 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("Ferramentas", page)
         self.assertIn("modelagem_biblioteca", page)
         self.assertIn("modelagem_trocar", page)
-        self.assertIn("modelagem_criativos.css') }}?v=120", page)
+        self.assertIn("modelagem_criativos.css') }}?v=122", page)
+        self.assertIn("Clipes da marca", page)
+        self.assertIn("modelagem_video", page)
         self.assertNotIn("mc-desk.css", page)
         self.assertNotIn("modelagem_criativos.js", page)
         shell = (template_dir / "_mc_shell.html").read_text(encoding="utf-8")
@@ -3578,7 +3580,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertNotIn("mc-masthead", shell)
         for tab in (
             "preparar", "produzir", "bancada", "desdobrar", "biblioteca",
-            "marcas", "historico", "mesa", "placas", "trocar",
+            "marcas", "historico", "mesa", "placas", "trocar", "video",
             "design-system",
         ):
             self.assertIn(tab, shell)
@@ -4326,7 +4328,7 @@ class CreativeFilesContractTest(unittest.TestCase):
             root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html"
         ).read_text(encoding="utf-8")
         self.assertIn("modelagem_criativos.js') }}?v=57", desk)
-        self.assertIn("mc_page_js) }}?v=81", desk)
+        self.assertIn("mc_page_js) }}?v=82", desk)
         self.assertIn("mc-dsa-write-queue.js') }}?v=64", desk)
         self.assertIn("js/mc-dsa-write-queue.js", desk)
         self.assertIn("function loadComposeLibrary", frontend)

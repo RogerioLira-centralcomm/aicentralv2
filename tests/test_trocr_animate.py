@@ -134,6 +134,8 @@ class TrocrAnimateSessionTest(unittest.TestCase):
         self.assertEqual(created["origin"], "animate")
         self.assertTrue(created["based_on_stale_revision"])
         self.assertEqual(created["media"], "video")
+        self.assertEqual(created["name"], "Clipe 8s")
+        self.assertEqual(created["video_url"], "/parametros/api/media/assets/asset_abc/content")
 
 
 class TrocrAnimateWorkerTest(unittest.TestCase):
@@ -564,18 +566,18 @@ class TrocrAnimateVoiceoverTest(unittest.TestCase):
 
 
 class TrocrAnimateStoryboardTest(unittest.TestCase):
-    def test_storyboard_exige_tres_a_seis(self):
+    def test_storyboard_exige_duas_a_trinta(self):
         with self.assertRaises(ValueError) as missing:
             build_plan({
-                "source": {"mode": "storyboard", "ref_ids": ["v1", "v2"]},
+                "source": {"mode": "storyboard", "ref_ids": ["v1"]},
                 "require_refs": True,
             })
-        self.assertIn("3 a 6", str(missing.exception))
+        self.assertIn("2 a 30", str(missing.exception))
         plan = build_plan({
-            "source": {"mode": "storyboard", "ref_ids": ["v1", "v2", "v3"]},
+            "source": {"mode": "storyboard", "ref_ids": ["v1", "v2"]},
             "require_refs": True,
         })
-        self.assertEqual(plan["source"]["ref_ids"], ["v1", "v2", "v3"])
+        self.assertEqual(plan["source"]["ref_ids"], ["v1", "v2"])
         self.assertIn("storyboard", plan["prompt"])
         quoted = quote_animate({"source": {"mode": "storyboard"}})
         self.assertIn("referências", quoted["warning"])

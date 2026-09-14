@@ -375,6 +375,12 @@ class FormatLabService:
     def save_swap_history(self, payload, user_id=None):
         return self._trocr_store().save(payload, user_id=user_id)
 
+    def load_swap_library(self, payload, user_id=None):
+        return self._trocr_store().library(payload, user_id=user_id)
+
+    def add_swap_library_still(self, payload, user_id=None):
+        return self._trocr_store().add_library_still(payload, user_id=user_id)
+
     def swap_still_path(self, filename):
         return self._trocr_store().still_path(filename)
 
@@ -399,6 +405,9 @@ class FormatLabService:
 
     def quote_animate(self, payload=None):
         return self._animate().quote(payload)
+
+    def script_animate(self, payload=None, user_id=None):
+        return self._animate().script(payload, user_id=user_id)
 
     def submit_animate(self, payload=None, user_id=None):
         return self._animate().submit(payload, user_id=user_id)

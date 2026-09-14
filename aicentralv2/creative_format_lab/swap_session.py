@@ -45,7 +45,127 @@ class TrocrStore:
         client_id = optional_client(payload)
         store = wrap_store(self.read(self.session_key(payload, user_id), client_id), client_id)
         run = pick_run(store, payload.get("run_id"))
-        return _serialize(self.public_history(run, store, client_id))
+        return _serialize(self.public_history(run, store, client_id, media=payload.get("media")))
+
+    def library(self, payload, user_id=None):
+        payload = payload if isinstance(payload, dict) else {}
+        client_id = optional_client(payload)
+        store = wrap_store(self.read(self.session_key(payload, user_id), client_id), client_id)
+        want_video = str(payload.get("media") or "still").strip().lower() == "video"
+        items = []
+        seen = set()
+        for run in store.get("runs") or []:
+            if not isinstance(run, dict):
+                continue
+            run_id = str(run.get("run_id") or "")
+            aspect = str(run.get("aspect_ratio") or "16:9")
+            for item in run.get("versions") or []:
+                if not isinstance(item, dict):
+                    continue
+                video = is_video_version(item)
+                if want_video != video:
+                    continue
+                url = published_still_url(item.get("image_url") or item.get("thumb_url") or "")
+                video_url = str(item.get("video_url") or "")
+                key = video_url or url or f"{run_id}:{item.get('id')}"
+                if not key or key in seen:
+                    continue
+                seen.add(key)
+                version_id = str(item.get("id") or "")
+                items.append({
+                    "id": f"{run_id}:{version_id}" if run_id and version_id else version_id,
+                    "version_id": version_id,
+                    "run_id": run_id,
+                    "name": str(item.get("name") or version_id or "Peça"),
+                    "image_url": url,
+                    "thumb_url": published_still_url(item.get("thumb_url") or url),
+                    "image": url,
+                    "thumb": published_still_url(item.get("thumb_url") or url),
+                    "ocr": slim_context(item.get("ocr")),
+                    "aspect_ratio": aspect,
+                    "created_at": str(item.get("created_at") or run.get("updated_at") or ""),
+                    **({
+                        "media": "video",
+                        "video_url": video_url,
+                        "poster_url": published_still_url(item.get("poster_url") or url),
+                        "job_id": str(item.get("job_id") or ""),
+                        "duration": item.get("duration"),
+                        "storyboard_ids": item.get("storyboard_ids") or [],
+                    } if video else {}),
+                })
+        items.sort(key=lambda row: str(row.get("created_at") or ""), reverse=True)
+        return _serialize({
+            "client_id": client_id or "",
+            "media": "video" if want_video else "still",
+            "items": items,
+        })
+
+    def add_library_still(self, payload, user_id=None):
+        payload = payload if isinstance(payload, dict) else {}
+        image_url = self.storeable_image(payload.get("image") or payload.get("reference") or payload.get("image_url"))
+        if not image_url:
+            raise ValueError("Solte uma imagem para a biblioteca.")
+        client_id = optional_client(payload)
+        key = self.session_key(payload, user_id)
+        store = wrap_store(self.read(key, client_id), client_id)
+        run = pick_run(store, payload.get("run_id"))
+        versions = list(run.get("versions") or [])
+        next_id = f"v{len(versions) + 1}"
+        versions.append({
+            "id": next_id,
+            "attempt": len(versions) + 1,
+            "name": str(payload.get("name") or "Cena"),
+            "origin": "library",
+            "quality": "",
+            "status": "ready",
+            "created_at": utc_now(),
+            "image_url": image_url,
+            "thumb_url": image_url,
+        })
+        run = write_run(run, {
+            "active_id": next_id,
+            "base_id": run.get("base_id") or next_id,
+            "aspect_ratio": payload.get("aspect_ratio") or run.get("aspect_ratio") or "16:9",
+            "title": run.get("title") or "",
+        }, versions, client_id, history_revision(run) + 1)
+        packed = store_with_mirror(put_run(store, run, active=True))
+        self.write(key, packed, client_id)
+        if client_id and user_id not in (None, ""):
+            self.write(f"user-{user_id}", packed, None)
+        return _serialize({
+            "id": f"{run.get('run_id')}:{next_id}",
+            "version_id": next_id,
+            "run_id": run.get("run_id") or "",
+            "name": "Cena",
+            "image_url": image_url,
+            "thumb_url": image_url,
+            "image": image_url,
+            "thumb": image_url,
+            "ocr": None,
+            "aspect_ratio": run.get("aspect_ratio") or "16:9",
+            "created_at": run.get("updated_at") or "",
+        })
+
+    def find_still(self, payload, scene_id, user_id=None):
+        payload = payload if isinstance(payload, dict) else {}
+        client_id = optional_client(payload)
+        store = wrap_store(self.read(self.session_key(payload, user_id), client_id), client_id)
+        run_id, version_id = parse_scene_ref(scene_id)
+        if not version_id:
+            return None, None
+        for run in store.get("runs") or []:
+            if not isinstance(run, dict):
+                continue
+            if run_id and str(run.get("run_id") or "") != run_id:
+                continue
+            for item in run.get("versions") or []:
+                if not isinstance(item, dict):
+                    continue
+                if is_video_version(item):
+                    continue
+                if str(item.get("id") or "") == version_id:
+                    return item, run
+        return None, None
 
     def save(self, payload, user_id=None):
         payload = payload if isinstance(payload, dict) else {}
@@ -144,7 +264,7 @@ class TrocrStore:
         row = {
             "id": next_id,
             "attempt": len(versions) + 1,
-            "name": version.get("name") or "Animação",
+            "name": version.get("name") or clip_name(version.get("duration")),
             "origin": "animate",
             "parent_id": parent_id if parent_id != next_id else "",
             "quality": version.get("quality") or "",
@@ -171,6 +291,7 @@ class TrocrStore:
             "voiceover_asset_id": version.get("voiceover_asset_id") or "",
             "voiceover_script": version.get("voiceover_script") or "",
             "storyboard_ids": version.get("storyboard_ids") or [],
+            "script": version.get("script") if isinstance(version.get("script"), dict) else None,
             "extended_from": version.get("extended_from") or "",
             "based_on_stale_revision": stale,
         }
@@ -310,6 +431,8 @@ class TrocrStore:
                 stored["thumb_url"] = prev.get("thumb_url") or stored["image_url"]
             if prev and prev.get("camadas_creative_id") and not stored.get("camadas_creative_id"):
                 stored["camadas_creative_id"] = prev.get("camadas_creative_id")
+            if prev and is_video_version(prev):
+                stored = keep_video_fields(stored, prev)
             if not stored["id"]:
                 stored["id"] = f"v{len(merged) + 1}"
             if not stored["attempt"]:
@@ -321,6 +444,14 @@ class TrocrStore:
             if ident and ident not in seen:
                 merged.insert(0, orig)
                 seen.add(ident)
+        for prev in existing:
+            if not isinstance(prev, dict) or not prev.get("id"):
+                continue
+            if prev["id"] in seen:
+                continue
+            if is_video_version(prev):
+                merged.append(prev)
+                seen.add(prev["id"])
         return merged
 
     def store_version(self, item):
@@ -376,6 +507,7 @@ class TrocrStore:
                 "voiceover_asset_id": str(item.get("voiceover_asset_id") or ""),
                 "voiceover_script": str(item.get("voiceover_script") or ""),
                 "storyboard_ids": item.get("storyboard_ids") if isinstance(item.get("storyboard_ids"), list) else [],
+                "script": item.get("script") if isinstance(item.get("script"), dict) else None,
                 "extended_from": str(item.get("extended_from") or ""),
                 "based_on_stale_revision": bool(item.get("based_on_stale_revision")),
             })
@@ -387,11 +519,13 @@ class TrocrStore:
         url = self.persist_still(raw)
         return url if accepted_still(url) else ""
 
-    def public_history(self, session, store=None, client_id=None):
+    def public_history(self, session, store=None, client_id=None, media=None):
         data = session if isinstance(session, dict) else {}
         versions = []
         for item in data.get("versions") or []:
             if not isinstance(item, dict):
+                continue
+            if not match_media(item, media):
                 continue
             url = published_still_url(item.get("image_url") or "")
             thumb = published_still_url(item.get("thumb_url") or url)
@@ -402,10 +536,18 @@ class TrocrStore:
                 "thumb_url": thumb,
                 "image": url,
                 "thumb": thumb,
-                **({"poster_url": poster} if str(item.get("media") or "") == "video" or item.get("origin") == "animate" else {}),
+                **({"poster_url": poster} if is_video_version(item) else {}),
             })
         pack = store if isinstance(store, dict) else wrap_store(data, client_id)
         active_id = str(data.get("run_id") or pack.get("active_run_id") or "")
+        runs = []
+        for item in pack.get("runs") or []:
+            if not isinstance(item, dict):
+                continue
+            summary = run_summary(item, active_id, media=media)
+            if media and not summary.get("version_count"):
+                continue
+            runs.append(summary)
         return {
             "client_id": data.get("client_id") or client_id or "",
             "run_id": data.get("run_id") or "",
@@ -417,7 +559,7 @@ class TrocrStore:
             "revision": history_revision(data),
             "updated_at": data.get("updated_at") or "",
             "versions": versions,
-            "runs": [run_summary(item, active_id) for item in pack.get("runs") or [] if isinstance(item, dict)],
+            "runs": runs,
         }
 
     def session_key(self, payload, user_id=None):
@@ -634,11 +776,76 @@ def store_with_mirror(store):
     }
 
 
-def run_summary(run, active_id=""):
-    versions = [item for item in (run.get("versions") or []) if isinstance(item, dict)]
+def clip_name(duration):
+    try:
+        seconds = int(duration)
+    except (TypeError, ValueError):
+        seconds = 0
+    return f"Clipe {seconds}s" if seconds else "Clipe"
+
+
+def is_video_version(item):
+    return str((item or {}).get("media") or "") == "video" or (item or {}).get("origin") == "animate"
+
+
+def match_media(item, media=None):
+    wanted = str(media or "").strip().lower()
+    if wanted not in {"still", "video", "image"}:
+        return True
+    video = is_video_version(item)
+    return video if wanted == "video" else not video
+
+
+def parse_scene_ref(raw):
+    text = str(raw or "").strip()
+    if not text:
+        return "", ""
+    if ":" in text:
+        run_id, version_id = text.split(":", 1)
+        if run_id.startswith("r-") and version_id:
+            return run_id, version_id
+    return "", text
+
+
+def keep_video_fields(stored, previous):
+    packed = dict(stored or {})
+    prev = previous if isinstance(previous, dict) else {}
+    for key in (
+        "video_url",
+        "poster_url",
+        "master_asset_id",
+        "poster_asset_id",
+        "seedance_base_asset_id",
+        "job_id",
+        "source_version_id",
+        "voiceover_asset_id",
+        "voiceover_script",
+        "end_card_asset_id",
+        "extended_from",
+    ):
+        if not packed.get(key) and prev.get(key):
+            packed[key] = prev.get(key)
+    if not packed.get("packs") and prev.get("packs"):
+        packed["packs"] = prev.get("packs")
+    if not packed.get("storyboard_ids") and prev.get("storyboard_ids"):
+        packed["storyboard_ids"] = prev.get("storyboard_ids")
+    if not packed.get("script") and prev.get("script"):
+        packed["script"] = prev.get("script")
+    if packed.get("duration") in (None, "") and prev.get("duration") not in (None, ""):
+        packed["duration"] = prev.get("duration")
+    return packed
+
+
+def run_summary(run, active_id="", media=None):
+    versions = [
+        item for item in (run.get("versions") or [])
+        if isinstance(item, dict) and match_media(item, media)
+    ]
     thumb = ""
     for item in reversed(versions):
-        thumb = published_still_url(item.get("thumb_url") or item.get("image_url") or "")
+        thumb = published_still_url(
+            item.get("poster_url") or item.get("thumb_url") or item.get("image_url") or ""
+        )
         if thumb:
             break
     run_id = str(run.get("run_id") or "")

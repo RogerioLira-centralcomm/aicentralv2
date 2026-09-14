@@ -2,7 +2,7 @@ import { getAnimate } from "./animate-api.js";
 import { animateState } from "./animate-store.js";
 import { $, clock } from "./animate-utils.js";
 
-export function startPoll(jobId, onDone) {
+export function startPoll(jobId, onDone, onFail) {
   stopPoll();
   animateState.jobId = jobId;
   animateState.startedAt = Date.now();
@@ -18,10 +18,11 @@ export function startPoll(jobId, onDone) {
       }
       if (["failed", "cancelled", "expired"].includes(job.status)) {
         stopPoll();
-        $("mcAnimateStatus").textContent = job.error || job.message || "A animação falhou.";
+        setPollStatus(job.error || job.message || "A animação falhou.");
+        onFail?.(job);
       }
     } catch (error) {
-      $("mcAnimateStatus").textContent = error.message;
+      setPollStatus(error.message);
     }
   };
   tick();
@@ -40,10 +41,15 @@ export function stopPoll() {
   animateState.clock = null;
 }
 
+function setPollStatus(message) {
+  if ($("mcAnimateStatus")) $("mcAnimateStatus").textContent = message || "";
+}
+
 function paintProgress(job) {
-  $("mcAnimateStatus").textContent = job.message || job.stage || "";
+  setPollStatus(job.message || job.stage || "");
   const list = $("mcAnimateSteps");
   if (!list) return;
+  list.hidden = false;
   const known = job.ui_stages || [];
   list.innerHTML = known.map((item) => {
     const done = (job.stages || []).some((row) => row.id === item.id);

@@ -36,6 +36,18 @@ def register_trocr_routes(blueprint):
         methods=["GET", "POST"],
     )
     blueprint.add_url_rule(
+        "/api/format-lab/swap/library",
+        endpoint="creative_format_lab_swap_library",
+        view_func=api_format_lab_swap_library,
+        methods=["GET", "POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/swap/animate/script",
+        endpoint="creative_format_lab_animate_script",
+        view_func=api_format_lab_animate_script,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
         "/api/format-lab/swap/still/<filename>",
         endpoint="creative_format_lab_swap_still",
         view_func=api_format_lab_swap_still,
@@ -140,11 +152,36 @@ def api_format_lab_swap_history():
                 {
                     "client_id": request.args.get("client_id"),
                     "run_id": request.args.get("run_id"),
+                    "media": request.args.get("media"),
                 },
                 session.get("user_id"),
             ))
         )
     return execute(lambda: ok(service().save_format_lab_swap_history(json_body(), session.get("user_id"))))
+
+
+@admin_required_api
+@trocr_csrf_required
+def api_format_lab_swap_library():
+    execute, json_body, ok, service = _http()
+    if request.method == "GET":
+        return execute(
+            lambda: ok(service().load_format_lab_swap_library(
+                {
+                    "client_id": request.args.get("client_id"),
+                    "media": request.args.get("media") or "still",
+                },
+                session.get("user_id"),
+            ))
+        )
+    return execute(lambda: ok(service().add_format_lab_swap_library_still(json_body(), session.get("user_id"))))
+
+
+@admin_required_api
+@trocr_csrf_required
+def api_format_lab_animate_script():
+    execute, json_body, ok, service = _http()
+    return execute(lambda: ok(service().script_format_lab_animate(json_body(), session.get("user_id"))))
 
 
 @admin_required_api

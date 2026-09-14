@@ -43,7 +43,9 @@ def build_plan(payload=None) -> dict:
     ref_ids = _collect_ids(source.get("ref_ids") or data.get("ref_ids") or data.get("extra_ids"))
     if mode == "storyboard" and data.get("require_refs"):
         if not (STORYBOARD_MIN <= len(ref_ids) <= STORYBOARD_MAX):
-            raise ValueError("O storyboard precisa de 3 a 6 stills do mesmo run.")
+            raise ValueError(
+                f"O storyboard precisa de {STORYBOARD_MIN} a {STORYBOARD_MAX} stills da marca."
+            )
     snapshot = _ready_snapshot(data.get("scene_snapshot") or source.get("snapshot"))
     snapshot_a = _ready_snapshot(data.get("snapshot_a") or source.get("snapshot_a"))
     snapshot_b = _ready_snapshot(data.get("snapshot_b") or source.get("snapshot_b"))

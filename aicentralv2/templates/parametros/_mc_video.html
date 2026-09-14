@@ -1,0 +1,56 @@
+<article class="mc-cadu-video" id="mcSwap" data-csrf="{{ mc_trocr_csrf or '' }}">
+  <header class="mc-cadu-video-head">
+    <div>
+      <h1>Vídeo</h1>
+      <p>Escolha de duas a trinta peças da marca. O OCR monta o roteiro. O Seedance anima as cenas na ordem.</p>
+    </div>
+    <label class="mc-cadu-video-upload">
+      <input id="mcVideoFile" type="file" accept="image/*" hidden>
+      Soltar still extra
+    </label>
+  </header>
+  <div class="mc-cadu-video-grid">
+    <aside class="mc-cadu-video-lib" aria-label="Biblioteca da marca">
+      <h2>Peças da marca</h2>
+      <p class="mc-cadu-video-hint" id="mcVideoLibHint">Selecione as cenas. A ordem é a do clipe.</p>
+      <ul class="mc-cadu-video-takes" id="mcVideoLibrary"></ul>
+    </aside>
+    <section class="mc-cadu-video-stage">
+      <div class="mc-cadu-video-frame">
+        <video id="mcSwapVideo" playsinline controls preload="metadata" hidden></video>
+        <p class="mc-cadu-video-empty" id="mcVideoEmpty">O clipe aparece aqui quando o Seedance terminar.</p>
+      </div>
+      <div class="mc-cadu-video-history">
+        <h2>Clipes gerados</h2>
+        <ul class="mc-cadu-video-clips" id="mcVideoClips"></ul>
+      </div>
+      <p class="mc-cadu-video-status" id="mcAnimateStatus"></p>
+      <ol class="mc-cadu-video-steps" id="mcAnimateSteps" hidden></ol>
+    </section>
+    <aside class="mc-cadu-video-desk" aria-label="Cenas e roteiro">
+      <h2>Cenas <span id="mcVideoSceneCount">0</span>/30</h2>
+      <ol class="mc-cadu-video-scenes" id="mcVideoScenes"></ol>
+      <p class="mc-cadu-video-hint" id="mcVideoSceneHint">Selecione pelo menos duas cenas.</p>
+      <div class="mc-cadu-video-actions">
+        <button type="button" class="mc-cadu-video-ghost" id="mcVideoScriptBtn" disabled>Montar roteiro</button>
+      </div>
+      <label class="mc-cadu-video-script">
+        <span>Roteiro</span>
+        <textarea id="mcVideoScript" rows="10" placeholder="O OCR descreve cada cena. Edite antes de gerar."></textarea>
+      </label>
+      <fieldset class="mc-cadu-video-chips">
+        <legend>Duração</legend>
+        <label><input type="radio" name="mcVideoDuration" value="8" checked> 8s</label>
+        <label><input type="radio" name="mcVideoDuration" value="10"> 10s</label>
+        <label><input type="radio" name="mcVideoDuration" value="15"> 15s</label>
+        <label><input type="radio" name="mcVideoDuration" value="30"> 30s</label>
+      </fieldset>
+      <fieldset class="mc-cadu-video-chips">
+        <legend>Qualidade</legend>
+        <label><input type="radio" name="mcVideoQuality" value="draft" checked> Rascunho</label>
+        <label><input type="radio" name="mcVideoQuality" value="production"> Produção</label>
+      </fieldset>
+      <button type="button" class="mc-cadu-new" id="mcVideoGenerate" disabled>Gerar clipe</button>
+    </aside>
+  </div>
+</article>

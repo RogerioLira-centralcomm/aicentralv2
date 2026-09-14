@@ -20,7 +20,7 @@ from .composition.overlay_renderer import render_overlay
 from .composition.plate_renderer import render_plate
 from .geometry import crop_box_4x5, prepare_frame
 from .public import asset_url
-from .settings import FALLBACK_MAX_DURATION, FALLBACK_MODEL, POLL_INTERVAL
+from .settings import FALLBACK_MAX_DURATION, FALLBACK_MODEL, POLL_INTERVAL, STORYBOARD_MAX
 from . import storage, transcode
 
 logger = logging.getLogger(__name__)
@@ -214,7 +214,7 @@ class AnimateWorker:
                 refs.append(self._encode_image_ref(_decode_still(raw), plan))
             if not refs:
                 raise ValueError("O storyboard precisa das stills materializadas.")
-            return refs[:6]
+            return refs[:STORYBOARD_MAX]
         if mode == "extend_video":
             url = str((plan.get("source") or {}).get("video_url") or plan.get("video_url") or "")
             if url.startswith(("https://", "http://")) and "openrouter.ai/api/v1/videos/" not in url:

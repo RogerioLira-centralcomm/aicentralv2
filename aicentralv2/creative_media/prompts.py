@@ -75,6 +75,18 @@ def build_prompt(plan: dict) -> str:
             "Advance through them in sequence. Do not jump or invent extra beats. "
             "Hold the final second as a clean end card matching the last still."
         )
+        beats = ((plan.get("script") or {}).get("beats") if isinstance(plan.get("script"), dict) else None) or []
+        if beats:
+            lines = []
+            for index, beat in enumerate(beats, start=1):
+                if not isinstance(beat, dict):
+                    continue
+                lines.append(
+                    f"{index}. {beat.get('purpose') or 'beat'}: {beat.get('visual') or ''} "
+                    f"Motion: {beat.get('motion') or ''} Hold: {beat.get('hold') or ''}"
+                )
+            if lines:
+                hold = hold + "\nBeats:\n" + "\n".join(lines)
     elif mode == "extend_video":
         hold = (
             "Continue the supplied clip. Do not restart the story or recast the opening. "

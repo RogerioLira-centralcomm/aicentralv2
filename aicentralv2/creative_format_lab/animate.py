@@ -41,7 +41,7 @@ VOICEOVER_WARNING = (
     "O Seedance não fala o roteiro. Sem lip-sync."
 )
 STORYBOARD_WARNING = (
-    "O storyboard manda 3 a 6 stills como referências, sem first frame. "
+    "O storyboard manda 2 a 30 stills da marca como referências, sem first frame. "
     "Texto e logo podem variar."
 )
 EXTEND_WARNING = (
@@ -105,8 +105,21 @@ class AnimateService:
     def quote(self, payload=None):
         return quote_animate(payload)
 
+    def script(self, payload=None, user_id=None):
+        from .video_script import build_video_script
+
+        modeling = getattr(self.store, "modeling", None)
+        text_callable = getattr(modeling, "text_callable", None)
+        if text_callable is None and modeling is not None:
+            generator = getattr(modeling, "generator", None)
+            text_callable = getattr(generator, "text_callable", None)
+        return build_video_script(self.store, payload, user_id=user_id, text_callable=text_callable)
+
     def submit(self, payload=None, user_id=None):
         data = payload if isinstance(payload, dict) else {}
+        mode = str((data.get("source") or {}).get("mode") or data.get("source_mode") or "")
+        if mode == "storyboard":
+            return self._submit_storyboard(data, user_id=user_id)
         history = self.store.load(data, user_id=user_id)
         version = _find_version(
             history,
@@ -114,11 +127,8 @@ class AnimateService:
         )
         if not version:
             raise ValueError("Selecione uma versão com still para animar.")
-        mode = str((data.get("source") or {}).get("mode") or data.get("source_mode") or "")
         if mode == "transition_ab":
             return self._submit_transition(data, history, version, user_id=user_id)
-        if mode == "storyboard":
-            return self._submit_storyboard(data, history, version, user_id=user_id)
         if mode == "extend_video":
             return self._submit_extend(data, history, version, user_id=user_id)
         snapshot = self._resolve_snapshot(data, version, user_id=user_id)
@@ -231,27 +241,35 @@ class AnimateService:
         self.spawn_job(self._run, job["public_id"])
         return job_payload(job)
 
-    def _submit_storyboard(self, data, history, version, user_id=None):
+    def _submit_storyboard(self, data, user_id=None):
+        from ..creative_media.settings import STORYBOARD_MAX, STORYBOARD_MIN
+
         ids = _unique_ids(
-            data.get("ref_ids")
+            data.get("scene_ids")
+            or data.get("ref_ids")
             or (data.get("source") or {}).get("ref_ids")
             or data.get("extra_ids")
         )
-        if version.get("id") and version.get("id") not in ids:
-            ids.insert(0, version.get("id"))
-        if not (3 <= len(ids) <= 6):
-            raise ValueError("O storyboard precisa de 3 a 6 stills do mesmo run.")
+        if not (STORYBOARD_MIN <= len(ids) <= STORYBOARD_MAX):
+            raise ValueError(
+                f"O storyboard precisa de {STORYBOARD_MIN} a {STORYBOARD_MAX} stills da marca."
+            )
         stills = []
+        first_run = None
         for ident in ids:
-            item = _find_exact_version(history, ident)
+            item, run = self.store.find_still(data, ident, user_id=user_id)
             if not item:
-                raise ValueError("Uma versão do storyboard não está neste run.")
+                raise ValueError("Uma cena do storyboard não está na biblioteca da marca.")
             if str(item.get("media") or "") == "video":
                 raise ValueError("O storyboard aceita só stills, não clipes.")
             reference = self.store.materialize_reference(item.get("image_url") or item.get("image") or "")
             if not reference:
                 raise ValueError("Não foi possível ler um still do storyboard.")
-            stills.append((ident, reference))
+            stills.append((ident, item, reference, run))
+            if first_run is None:
+                first_run = run
+        version = stills[0][1]
+        script = data.get("script") if isinstance(data.get("script"), dict) else None
         packed = {
             **data,
             "source": {
@@ -267,9 +285,16 @@ class AnimateService:
         plan = build_plan(packed)
         plan["source"]["base_id"] = version.get("id") or ids[0]
         plan["source"]["ref_ids"] = [item[0] for item in stills]
-        plan["source"]["references"] = [item[1] for item in stills]
-        plan["source"]["reference"] = stills[0][1]
-        plan["reference"] = stills[0][1]
+        plan["source"]["references"] = [item[2] for item in stills]
+        plan["source"]["reference"] = stills[0][2]
+        plan["reference"] = stills[0][2]
+        if script:
+            plan["script"] = script
+        history = {
+            "run_id": (first_run or {}).get("run_id") or data.get("run_id") or "",
+            "client_id": data.get("client_id") or (first_run or {}).get("client_id"),
+            "revision": (first_run or {}).get("revision"),
+        }
         job = self.repository.create_job({
             "user_id": user_id,
             "client_id": data.get("client_id") or history.get("client_id"),
@@ -574,11 +599,13 @@ class AnimateService:
         extra.setdefault("voiceover_asset_id", extra.get("voiceover_asset_id") or "")
         extra.setdefault("voiceover_script", plan.get("voiceover_script") or "")
         extra.setdefault("storyboard_ids", (plan.get("source") or {}).get("ref_ids") or extra.get("storyboard_ids") or [])
+        extra.setdefault("script", plan.get("script") if isinstance(plan.get("script"), dict) else extra.get("script"))
         extra.setdefault("extended_from", (plan.get("source") or {}).get("extended_from") or extra.get("extended_from") or "")
         extra.setdefault(
             "name",
             "Extensão" if (plan.get("source") or {}).get("mode") == "extend_video"
-            else "Storyboard" if (plan.get("source") or {}).get("mode") == "storyboard"
+            else f"Clipe {int(plan.get('duration') or extra.get('duration') or 8)}s"
+            if (plan.get("source") or {}).get("mode") == "storyboard"
             else extra.get("name") or "Animação",
         )
         stored = self.store.persist_animate(payload, extra, user_id=job.get("user_id"))

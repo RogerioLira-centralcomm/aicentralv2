@@ -4,7 +4,7 @@
 {% block page_subtitle %}{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=120">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=122">
 {% endblock %}
 
 {% block content %}
@@ -16,7 +16,7 @@
       <div class="mc-cadu-wall-head">
         <div>
           <h1 id="mcCaduWallTitle">Peças da marca</h1>
-          <p>Ajuste o criativo real. O clipe entra no mesmo histórico.</p>
+          <p>Ajuste o criativo real. Cada tentativa fica nesta parede.</p>
         </div>
         <a class="mc-cadu-new" href="{{ url_for('parametros.modelagem_trocar') }}">Ajustar peça</a>
       </div>
@@ -24,6 +24,22 @@
         <li class="mc-cadu-empty" id="mcCaduEmpty">
           <p>Ainda não há peça nesta marca.</p>
           <p>Abra Ajustar e solte o criativo. O histórico aparece aqui.</p>
+        </li>
+      </ul>
+    </section>
+
+    <section class="mc-cadu-wall" aria-labelledby="mcCaduClipsTitle">
+      <div class="mc-cadu-wall-head">
+        <div>
+          <h1 id="mcCaduClipsTitle">Clipes da marca</h1>
+          <p>Duas a trinta cenas da biblioteca viram um clipe.</p>
+        </div>
+        <a class="mc-cadu-new" href="{{ url_for('parametros.modelagem_video') }}">Abrir Vídeo</a>
+      </div>
+      <ul class="mc-cadu-takes" id="mcCaduClips">
+        <li class="mc-cadu-empty" id="mcCaduClipsEmpty">
+          <p>Ainda não há clipe nesta marca.</p>
+          <p>Abra Vídeo, escolha pelo menos duas cenas e gere.</p>
         </li>
       </ul>
     </section>
@@ -36,8 +52,8 @@
           <dd>Troca headline, apoio, gente ou fundo sem perder as versões anteriores.</dd>
         </div>
         <div>
-          <dt><a href="{{ url_for('parametros.modelagem_trocar') }}?ws=video">Vídeo</a></dt>
-          <dd>Anima a peça ativa. O clipe entra na mesma filmstrip.</dd>
+          <dt><a href="{{ url_for('parametros.modelagem_video') }}">Vídeo</a></dt>
+          <dd>Monta 2 a 30 cenas da biblioteca e manda ao Seedance.</dd>
         </div>
         <div>
           <dt><a href="{{ url_for('parametros.modelagem_marcas') }}">Marcas</a></dt>
@@ -70,6 +86,6 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script>
-<script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=2" defer></script>
-<script src="{{ url_for('static', filename='js/mc-cadu-home.js') }}?v=4" defer></script>
+<script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=3" defer></script>
+<script src="{{ url_for('static', filename='js/mc-cadu-home.js') }}?v=6" defer></script>
 {% endblock %}

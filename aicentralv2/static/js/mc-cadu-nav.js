@@ -57,6 +57,9 @@
       clients = Array.isArray(payload) ? payload : (payload?.items || payload?.clients || []);
     } catch (_error) {
       select.innerHTML = '<option value="">Não deu para carregar as marcas</option>';
+      document.dispatchEvent(new CustomEvent("cadu:brand-ready", {
+        detail: { clientId: Desk.read() || "" },
+      }));
       return;
     }
     const options = Desk.forSelect(clients, Desk.read());
@@ -72,6 +75,9 @@
       select.value = chosen;
     }
     await paintCredits(select.value);
+    document.dispatchEvent(new CustomEvent("cadu:brand-ready", {
+      detail: { clientId: select.value || Desk.read() || "" },
+    }));
   }
 
   async function paintCredits(clientId) {

@@ -36,7 +36,7 @@ Autenticação: `admin_required` na página, `admin_required_api` nas rotas JSON
 | Camada | Tecnologia | Onde |
 |---|---|---|
 | Página | Flask + Jinja | `modelagem_desk("trocar")` |
-| CSS | `modelagem_criativos.css` | `?v=120` no desk |
+| CSS | `modelagem_criativos.css` | `?v=122` no desk |
 | Cliente | `mc-trocar.js` (IIFE, sem framework) | `static/js/mc-trocar.js` |
 | OCR | OpenRouter `openai/gpt-5-nano` visão | `read_swap_reference` |
 | Imagem | OpenRouter `openai/gpt-image-2` | `swap_reference` modo `image` / `recrop` |
@@ -751,9 +751,9 @@ Do typeset, depois deste lab:
 
 ## 18. Animar (Seedance 2.5)
 
-Continuação do Trocar. Um still vira clipe de 5–30 s. O PNG original permanece.
+A mesa de Vídeo é `/parametros/modelagem-criativos/video`. Ajustar (`/trocar`) só edita still. `?ws=video` redireciona para `/video`.
 
-A superfície é a aba **Vídeo** (`#mcSwap[data-workspace=video]`). O formulário mora no inspetor, não num modal. Still e clipe compartilham o mesmo histórico e a mesma filmstrip. Download do canvas baixa MP4 quando a versão ativa é vídeo. A Mesa 15s (`/mesa`) não entra neste fluxo.
+O operador escolhe **2 a 30** stills na biblioteca da marca (`GET /swap/library`). O OCR de cada cena vira roteiro (`POST /swap/animate/script`). O Seedance recebe as referências em ordem (`source.mode=storyboard`). A Mesa 15s (`/mesa`) não entra neste fluxo.
 
 - Modelo fixo `bytedance/seedance-2.5`. Rascunho 480p, produção 720p. Sem cair para Mini.
 - Display 1:1 (Spotify, feed, IAB quadrado): o prompt trata a peça como unidade em loop, não filme. Tipo, nomes, datas e logos ficam travados; o motion vai para bandeira, luz e microgesto.
@@ -768,7 +768,8 @@ A superfície é a aba **Vídeo** (`#mcSwap[data-workspace=video]`). O formulár
 - Ativos em `GET /parametros/api/media/assets/<id>/content`.
 - Transição A→B: `first_frame` + `last_frame`, mesma proporção Seedance, sem `input_references`. Overlay B só no último segundo.
 - Locução exata (`audio.mode=voiceover`): roteiro literal via OpenRouter `POST /api/v1/audio/speech` (`google/gemini-3.1-flash-tts-preview`). Homem=`Charon`, mulher=`Kore`. Mix + ducking no ffmpeg depois do Seedance. Sem lip-sync. Sem TTS o modo `voice` continua só orientação.
-- Storyboard (`source.mode=storyboard`): 3 a 6 stills do mesmo run entram só em `input_references`. Sem `frame_images`.
+- Storyboard (`source.mode=storyboard`): 2 a 30 stills da marca entram só em `input_references`. Sem `frame_images`. `POST .../animate/script` devolve o roteiro.
+- Clipe pronto entra no histórico da marca (`GET /swap/library?media=video`). A mesa mostra o filmstrip **Clipes gerados** e o `<video>` no `.mc-cadu-video-frame` com `src` do asset autenticado. Home **Clipes da marca** abre `/video?run=&clip=&client=`.
 - Extensão (`source.mode=extend_video`): `input_references` com `video_url` **HTTPS pública**. Data URL e `unsigned_urls` autenticadas da OpenRouter são recusadas pelo Seedance. Cotação usa `TOKEN_USD_VIDEO_REF`. Sem first frame.
 - Compare: dois clipes do run no mesmo play/pause. Sem job Seedance. Sem lip-sync.
 - Versão `origin: animate`. Conclusão faz append sem 409.

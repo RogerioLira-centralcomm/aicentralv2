@@ -159,10 +159,17 @@ MC_DESKS = {
     },
     "trocar": {
         "title": "Cadu Media Studio®",
-        "lead": "Still, troca, display animado, locução e comparação no mesmo ciclo.",
+        "lead": "Ajuste a peça. Cada tentativa fica no histórico da marca.",
         "panel": "parametros/_mc_trocar.html",
         "studio": False,
         "page_js": "js/mc-trocar.js",
+    },
+    "video": {
+        "title": "Cadu Media Studio®",
+        "lead": "Duas a trinta cenas da biblioteca viram um clipe.",
+        "panel": "parametros/_mc_video.html",
+        "studio": False,
+        "page_js": "js/mc-cadu-video.js",
     },
     "design-system": {
         "title": "Design System Ads",
@@ -193,6 +200,10 @@ def modelagem_desk(page):
     spec = MC_DESKS.get(page)
     if not spec:
         abort(404)
+    if page == "trocar" and request.args.get("ws") == "video":
+        args = request.args.to_dict(flat=True)
+        args.pop("ws", None)
+        return redirect(url_for(".modelagem_video", **args))
     panel = spec["panel"]
     page_js = spec.get("page_js")
     if page == "camadas" and current_app.config.get("CAMADAS_V2_ENABLED"):
@@ -206,7 +217,7 @@ def modelagem_desk(page):
         panel=panel,
         mc_studio_js=spec["studio"],
         mc_page_js=page_js,
-        mc_trocr_csrf=trocr_csrf_token() if page == "trocar" else "",
+        mc_trocr_csrf=trocr_csrf_token() if page in {"trocar", "video"} else "",
     )
 
 
@@ -424,6 +435,26 @@ def api_creative_agent(name):
 @admin_required_api
 def api_formats():
     return _execute(lambda: _ok(_service().list_formats()))
+
+
+@admin_required_api
+def api_format_registry():
+    return _execute(lambda: _ok(_service().format_registry_catalog()))
+
+
+@admin_required_api
+def api_format_registry_entry(key):
+    return _execute(lambda: _ok(_service().format_registry_entry(key)))
+
+
+@admin_required_api
+def api_format_lab_train():
+    return _execute(lambda: _ok(_service().train_format(_json())))
+
+
+@admin_required_api
+def api_format_assets_resolve():
+    return _execute(lambda: _ok(_service().resolve_format_assets(_json())))
 
 
 @admin_required_api
@@ -1576,6 +1607,28 @@ def register_creative_modeling_routes(blueprint):
     )
     blueprint.add_url_rule(
         "/api/formats", endpoint="creative_formats", view_func=api_formats
+    )
+    blueprint.add_url_rule(
+        "/api/format-registry",
+        endpoint="creative_format_registry",
+        view_func=api_format_registry,
+    )
+    blueprint.add_url_rule(
+        "/api/format-registry/<key>",
+        endpoint="creative_format_registry_entry",
+        view_func=api_format_registry_entry,
+    )
+    blueprint.add_url_rule(
+        "/api/format-lab/train",
+        endpoint="creative_format_lab_train",
+        view_func=api_format_lab_train,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-assets/resolve",
+        endpoint="creative_format_assets_resolve",
+        view_func=api_format_assets_resolve,
+        methods=["POST"],
     )
     blueprint.add_url_rule(
         "/api/compose-library",

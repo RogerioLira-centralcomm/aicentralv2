@@ -169,6 +169,90 @@ class TrocrSessionStoreTest(unittest.TestCase):
             store = TrocrStore(Mock(storage=_Storage()), FakeRepository())
             self.assertEqual(store.still_path("c86b3398268e48b9bcecadde5cb9ebfd.jpg"), path)
 
+    def test_biblioteca_achata_stills_e_filtra_video(self):
+        class _MemStorage:
+            def __init__(self):
+                self.n = 0
+                self.sessions = {}
+
+            def save_trocr_still(self, encoded, output_format="png"):
+                self.n += 1
+                return f"/parametros/api/format-lab/swap/still/{'a' * 32}.png"
+
+            def save_trocr_session(self, key, data):
+                self.sessions[key] = data
+
+            def load_trocr_session(self, key):
+                return self.sessions.get(key)
+
+        modeling = CreativeModelingService(FakeRepository(), FakeGenerator(), storage=_MemStorage())
+        lab = FormatLabService(modeling)
+        png = "data:image/png;base64," + TINY_PNG.hex()
+        first = lab.save_swap_history(
+            {
+                "client_id": 10,
+                "revision": 0,
+                "versions": [{"id": "v1", "name": "Original", "origin": "original", "image": png}],
+            },
+            user_id=7,
+        )
+        lab.save_swap_history(
+            {
+                "client_id": 10,
+                "run_id": first["run_id"],
+                "revision": first["revision"],
+                "versions": [
+                    {"id": "v1", "name": "Original", "origin": "original", "image": first["versions"][0]["image_url"]},
+                    {
+                        "id": "v2",
+                        "name": "Animação",
+                        "origin": "animate",
+                        "media": "video",
+                        "video_url": "/parametros/api/media/assets/asset_clip/content",
+                    },
+                ],
+            },
+            user_id=7,
+        )
+        stills = lab.load_swap_library({"client_id": 10, "media": "still"}, user_id=7)
+        clips = lab.load_swap_library({"client_id": 10, "media": "video"}, user_id=7)
+        self.assertEqual(len(stills["items"]), 1)
+        self.assertEqual(stills["items"][0]["version_id"], "v1")
+        self.assertEqual(len(clips["items"]), 1)
+        self.assertEqual(clips["items"][0]["video_url"], "/parametros/api/media/assets/asset_clip/content")
+        only_still = lab.load_swap_history({"client_id": 10, "run_id": first["run_id"], "media": "still"}, user_id=7)
+        self.assertTrue(all(item.get("media") != "video" for item in only_still["versions"]))
+        dropped = lab.save_swap_history(
+            {
+                "client_id": 10,
+                "run_id": first["run_id"],
+                "revision": only_still["revision"],
+                "versions": [
+                    {"id": "v1", "name": "Original", "origin": "original", "image": first["versions"][0]["image_url"]},
+                ],
+            },
+            user_id=7,
+        )
+        self.assertTrue(any(item.get("media") == "video" for item in dropped["versions"]))
+        from aicentralv2.creative_format_lab.video_script import build_video_script
+
+        store = lab._trocr_store()
+        with self.assertRaises(ValueError) as one:
+            build_video_script(store, {"client_id": 10, "scene_ids": [stills["items"][0]["id"]]}, user_id=7)
+        self.assertIn("2 a 30", str(one.exception))
+        extra = lab.add_swap_library_still({"client_id": 10, "image": png, "name": "Cena 2"}, user_id=7)
+        for ident, headline in ((stills["items"][0]["id"], "Oferta"), (extra["id"], "CTA")):
+            item, _run = store.find_still({"client_id": 10}, ident, user_id=7)
+            item["ocr"] = {"headline": headline, "cta": "Vai"}
+        scripted = build_video_script(
+            store,
+            {"client_id": 10, "scene_ids": [stills["items"][0]["id"], extra["id"]], "duration": 8},
+            user_id=7,
+        )
+        self.assertEqual(len(scripted["script"]["beats"]), 2)
+        self.assertEqual(scripted["scenes"][0]["id"], stills["items"][0]["id"])
+        self.assertEqual(scripted["scenes"][0]["headline"], "Oferta")
+
     def test_historico_mantem_video_sem_poster(self):
         class _MemStorage:
             def __init__(self):

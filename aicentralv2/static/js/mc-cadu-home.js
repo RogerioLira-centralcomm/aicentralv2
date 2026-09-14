@@ -9,6 +9,8 @@
 
   const takes = document.getElementById("mcCaduTakes");
   const empty = document.getElementById("mcCaduEmpty");
+  const clips = document.getElementById("mcCaduClips");
+  const clipsEmpty = document.getElementById("mcCaduClipsEmpty");
   if (!takes) return;
 
   const barSelect = document.getElementById("mcCaduBarClient");
@@ -21,16 +23,24 @@
   }
 
   function boot() {
-    document.addEventListener("cadu:brand-change", (event) => {
+    const syncBrand = (event) => {
       const id = event.detail?.clientId || Desk.read();
       if (homeSelect && id) homeSelect.value = id;
-      loadWall(id);
-    });
+      if (id) {
+        loadWall(id);
+        loadClips(id);
+      }
+    };
+    document.addEventListener("cadu:brand-ready", syncBrand);
+    document.addEventListener("cadu:brand-change", syncBrand);
     if (homeSelect && !barSelect) {
       loadHomeSelect();
     } else {
       const chosen = Desk.read();
-      if (chosen) loadWall(chosen);
+      if (chosen) {
+        loadWall(chosen);
+        loadClips(chosen);
+      }
     }
   }
 
@@ -55,49 +65,25 @@
     homeSelect.addEventListener("change", () => {
       Desk.write(homeSelect.value);
       loadWall(homeSelect.value);
+      loadClips(homeSelect.value);
     });
     await loadWall(homeSelect.value);
+    await loadClips(homeSelect.value);
   }
 
   async function loadWall(clientId) {
-    takes.querySelectorAll("[data-run]").forEach((node) => node.remove());
-    if (empty) {
-      empty.hidden = false;
-      empty.innerHTML = "<p>Ainda não há peça nesta marca.</p><p>Abra Ajustar e solte o criativo. O histórico aparece aqui.</p>";
-    }
+    paintLibrary(takes, empty, [], {
+      empty: "<p>Ainda não há peça nesta marca.</p><p>Abra Ajustar e solte o criativo. O histórico aparece aqui.</p>",
+      href: (item) => `/parametros/modelagem-criativos/trocar?run=${encodeURIComponent(item.run_id || "")}&client=${encodeURIComponent(clientId)}`,
+      error: "<p>Não deu para abrir o histórico desta marca.</p><p>Tente de novo ou abra Ajustar.</p>",
+    });
     if (!clientId) return;
     try {
-      const query = `?client_id=${encodeURIComponent(clientId)}`;
-      const data = await get(`/parametros/api/format-lab/swap/history${query}`);
-      const runs = (data?.runs || []).filter((item) => item?.run_id && item.version_count);
-      if (!runs.length && !(data?.versions || []).length) return;
-      const cards = (runs.length ? runs : [{
-        run_id: data.run_id,
-        title: data.title || "Peça",
-        thumb_url: (data.versions || [])[0]?.thumb_url,
-        version_count: (data.versions || []).length,
-        aspect_ratio: data.aspect_ratio,
-        updated_at: data.updated_at,
-        active: true,
-      }]).slice().sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
-      if (empty) empty.hidden = true;
-      cards.slice(0, 12).forEach((run) => {
-        const href = `/parametros/modelagem-criativos/trocar?run=${encodeURIComponent(run.run_id || "")}&client=${encodeURIComponent(clientId)}`;
-        const ratio = String(run.aspect_ratio || "4:5").replace(":", "/");
-        const li = document.createElement("li");
-        li.setAttribute("data-run", run.run_id || "");
-        li.setAttribute("data-ratio", ratio);
-        li.style.setProperty("--take-ratio", ratio);
-        li.innerHTML = `
-          <a href="${href}">
-            ${run.thumb_url ? `<img src="${escapeHtml(run.thumb_url)}" alt="">` : "<span></span>"}
-            <strong>${escapeHtml(run.title || "Peça")}</strong>
-            <small>${run.version_count || 0} versões${run.aspect_ratio ? ` ${escapeHtml(run.aspect_ratio)}` : ""}</small>
-          </a>`;
-        li.querySelector("img")?.addEventListener("error", (event) => {
-          event.target.replaceWith(document.createElement("span"));
-        });
-        takes.appendChild(li);
+      const data = await get(`/parametros/api/format-lab/swap/library?client_id=${encodeURIComponent(clientId)}&media=still`);
+      paintLibrary(takes, empty, data.items || [], {
+        empty: "<p>Ainda não há peça nesta marca.</p><p>Abra Ajustar e solte o criativo. O histórico aparece aqui.</p>",
+        href: (item) => `/parametros/modelagem-criativos/trocar?run=${encodeURIComponent(item.run_id || "")}&client=${encodeURIComponent(clientId)}`,
+        error: "",
       });
     } catch (_error) {
       if (empty) {
@@ -105,6 +91,57 @@
         empty.innerHTML = "<p>Não deu para abrir o histórico desta marca.</p><p>Tente de novo ou abra Ajustar.</p>";
       }
     }
+  }
+
+  async function loadClips(clientId) {
+    if (!clips) return;
+    paintLibrary(clips, clipsEmpty, [], {
+      empty: "<p>Ainda não há clipe nesta marca.</p><p>Abra Vídeo, escolha pelo menos duas cenas e gere.</p>",
+      href: () => "/parametros/modelagem-criativos/video",
+    });
+    if (!clientId) return;
+    try {
+      const data = await get(`/parametros/api/format-lab/swap/library?client_id=${encodeURIComponent(clientId)}&media=video`);
+      paintLibrary(clips, clipsEmpty, data.items || [], {
+        empty: "<p>Ainda não há clipe nesta marca.</p><p>Abra Vídeo, escolha pelo menos duas cenas e gere.</p>",
+        href: (item) => `/parametros/modelagem-criativos/video?run=${encodeURIComponent(item.run_id || "")}&clip=${encodeURIComponent(item.id || "")}&client=${encodeURIComponent(clientId)}`,
+      });
+    } catch (_error) {
+      if (clipsEmpty) {
+        clipsEmpty.hidden = false;
+        clipsEmpty.innerHTML = "<p>Não deu para abrir os clipes desta marca.</p><p>Tente de novo ou abra Vídeo.</p>";
+      }
+    }
+  }
+
+  function paintLibrary(list, emptyNode, items, copy) {
+    if (!list) return;
+    list.querySelectorAll("[data-run]").forEach((node) => node.remove());
+    if (emptyNode) {
+      emptyNode.hidden = false;
+      emptyNode.innerHTML = copy.empty;
+    }
+    if (!items.length) return;
+    if (emptyNode) emptyNode.hidden = true;
+    items.slice(0, 12).forEach((item) => {
+      const href = copy.href(item);
+      const ratio = String(item.aspect_ratio || "4:5").replace(":", "/");
+      const li = document.createElement("li");
+      li.setAttribute("data-run", item.run_id || item.id || "");
+      li.setAttribute("data-ratio", ratio);
+      li.style.setProperty("--take-ratio", ratio);
+      const thumb = item.thumb_url || item.poster_url || item.image_url;
+      li.innerHTML = `
+        <a href="${href}">
+          ${thumb ? `<img src="${escapeHtml(thumb)}" alt="">` : "<span></span>"}
+          <strong>${escapeHtml(item.name || item.title || "Peça")}</strong>
+          <small>${escapeHtml(item.aspect_ratio || "")}</small>
+        </a>`;
+      li.querySelector("img")?.addEventListener("error", (event) => {
+        event.target.replaceWith(document.createElement("span"));
+      });
+      list.appendChild(li);
+    });
   }
 
   async function get(url) {

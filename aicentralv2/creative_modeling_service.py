@@ -1227,6 +1227,15 @@ class CreativeModelingService:
     def save_format_lab_swap_history(self, payload, user_id=None):
         return self._format_lab().save_swap_history(payload, user_id=user_id)
 
+    def load_format_lab_swap_library(self, payload, user_id=None):
+        return self._format_lab().load_swap_library(payload, user_id=user_id)
+
+    def add_format_lab_swap_library_still(self, payload, user_id=None):
+        return self._format_lab().add_swap_library_still(payload, user_id=user_id)
+
+    def script_format_lab_animate(self, payload=None, user_id=None):
+        return self._format_lab().script_animate(payload, user_id=user_id)
+
     def serve_format_lab_swap_still(self, filename):
         return self._format_lab().swap_still_path(filename)
 

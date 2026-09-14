@@ -190,12 +190,16 @@ def _highlights(
     if street and digital:
         out.append({
             "title": "Digital e rua",
-            "text": "O mix junta captura de demanda e lembrança fora da tela.",
+            "text": _clip(" · ".join(text(item.get("label")) for item in rows if text(item.get("label"))), 110),
         })
-    if len(rows) >= 3:
+    if len(rows) >= 2:
         out.append({
             "title": "Canais no mesmo plano",
-            "text": _clip(" · ".join(text(item.get("label")) for item in rows if text(item.get("label"))), 110),
+            "text": _clip(" · ".join(
+                f"{text(item.get('label'))} {item.get('pct')}%"
+                for item in rows
+                if text(item.get("label"))
+            ), 120),
         })
     if len(timeline) > 1 and _first_sentence(how, 110):
         out.append({"title": "Ritmo no período", "text": _first_sentence(how, 110)})
@@ -269,11 +273,8 @@ def _media_board(folha: dict, campos: dict | None = None) -> dict:
             months.append({
                 "label": text(item.get("label")),
                 "amount_label": text(item.get("amount_label")),
-                "amount": _as_pct(item.get("amount")),
+                "amount": _money(item.get("amount") or item.get("amount_label")),
             })
-    peak = max((item["amount"] for item in months), default=0) or 1
-    for item in months:
-        item["bar"] = max(12, round((item["amount"] or 0) / peak * 56))
     how = text(pace.get("how"))
     note = text(as_dict((folha or {}).get("theme")).get("density_note") or how)
     if months and note == how:
@@ -281,10 +282,19 @@ def _media_board(folha: dict, campos: dict | None = None) -> dict:
     method = _method_label(media.get("method_label") or media.get("method") or as_dict((campos or {}).get("mix")).get("method"))
     calendar = as_dict(media.get("calendar"))
     _attach_matrix(channels, months, calendar)
+    _attach_week_bars(channels, months)
+    peak_amt = max((_money(item.get("amount")) for item in months), default=0) or 1
+    for item in months:
+        item["bar"] = max(12, round(_money(item.get("amount")) / peak_amt * 56))
+        item["flight"] = text(item.get("full_label") or item.get("label"))
+    for channel in channels:
+        channel["flight_note"] = _flight_note(channel, months)
+        channel["role_short"] = _clip(text(channel.get("priority") or channel.get("role") or channel.get("goal")), 42)
     total = sum(_money(item.get("amount")) for item in channels) or sum(_money(item.get("amount")) for item in months)
     average = round(total / len(months)) if months and total else 0
     peak = max(months, key=lambda row: _money(row.get("amount")), default={})
     leader = max(channels, key=lambda row: row.get("pct") or 0, default={})
+    weeks = _week_lanes(months)
     return {
         "method_label": method,
         "channels": channels,
@@ -293,7 +303,9 @@ def _media_board(folha: dict, campos: dict | None = None) -> dict:
         "note": note,
         "donut": _donut_style(channels),
         "slices": _donut_slices(channels),
-        "weeks": _week_lanes(months),
+        "weeks": weeks,
+        "week_count": sum(len(item.get("weeks") or []) for item in weeks),
+        "has_weekly": len(months) >= 1 and bool(channels),
         "total": total,
         "total_label": format_money(total) if total else "",
         "average": average,
@@ -387,6 +399,23 @@ INVENTORY_DISCLAIMER = (
     "recomendados ou potenciais. A veiculação final depende de inventário, "
     "segmentação, brand safety, negociação e aprovação."
 )
+INVENTORY_FILTERS = (
+    ("todos", "Todos"),
+    ("plataformas", "Plataformas"),
+    ("portais", "Portais"),
+    ("apps", "Apps"),
+    ("nacional", "Nacional"),
+    ("regional", "Regional"),
+    ("video", "Vídeo"),
+    ("social", "Social"),
+    ("programatica", "Programática"),
+)
+
+OPEN_ITEM_LABELS = {
+    "municipios": "Municípios prioritários",
+    "datas": "Datas exatas do voo",
+    "metricas": "Metas de alcance e frequência",
+}
 
 CHANNEL_PLAYBOOK = {
     "youtube": {
@@ -462,16 +491,62 @@ CREATIVE_PRINCIPLES = (
     "Evitar excesso de texto",
 )
 
-FUNNEL_STEPS = (
-    {"id": "sensibilizar", "title": "Sensibilizar", "text": "Abrir a conversa com escala audiovisual."},
-    {"id": "reforcar", "title": "Reforçar", "text": "Repetir a mensagem no uso diário."},
-    {"id": "sustentar", "title": "Sustentar presença", "text": "Manter cobertura em mais contextos."},
-    {"id": "lembrar", "title": "Estimular lembrança", "text": "Fechar o voo com mais pressão."},
-)
+STRATEGY_LABELS = ("Tese estratégica", "Diretriz", "Objetivo de comunicação")
 
 
 def _paragraphs(value: str) -> list[str]:
     return [chunk.strip() for chunk in re.split(r"\n\s*\n", text(value)) if chunk.strip()]
+
+
+def _strategy_board(
+    parts: list[str],
+    audience: str = "",
+    concept: str = "",
+    support: str = "",
+    defense_lead: str = "",
+) -> list[dict]:
+    """Monta cards só com texto que veio do plano — sem inventar copy."""
+    out = []
+    for index, body in enumerate(parts[:3]):
+        if text(body):
+            out.append({"id": f"strategy-{index}", "title": STRATEGY_LABELS[index], "body": text(body)})
+    if text(audience):
+        out.append({"id": "audience", "title": "Público prioritário", "body": text(audience)})
+    if text(defense_lead):
+        out.append({"id": "mix-role", "title": "Papel do mix", "body": text(defense_lead)})
+    if text(concept):
+        out.append({"id": "concept", "title": "Conceito", "body": text(concept)})
+    if text(support):
+        out.append({"id": "message", "title": "Recomendação de mensagem", "body": text(support)})
+    return out
+
+
+def _funnel_from_channels(channels: list[dict]) -> list[dict]:
+    """Jornada = papel de cada canal no mix aprovado, na ordem de peso."""
+    rows = sorted(
+        [item for item in channels if text(item.get("label"))],
+        key=lambda item: (-(item.get("pct") or 0), text(item.get("label"))),
+    )
+    out = []
+    for item in rows:
+        stage = text(item.get("funnel") or item.get("priority") or "Presença")
+        goal = text(item.get("role") or item.get("goal") or item.get("label"))
+        amount = text(item.get("amount_label"))
+        pct = item.get("pct") or 0
+        detail = goal
+        if pct and amount:
+            detail = f"{goal} · {pct}% · {amount}"
+        elif pct:
+            detail = f"{goal} · {pct}%"
+        out.append({
+            "id": text(item.get("id")) or stage.lower().replace(" ", "-"),
+            "title": stage,
+            "channel": text(item.get("label")),
+            "text": detail,
+            "color": text(item.get("color") or "#1e4d4f"),
+            "pct": pct,
+        })
+    return out
 
 
 def _money(value) -> int:
@@ -584,19 +659,65 @@ def _attach_matrix(channels: list[dict], months: list[dict], calendar: dict | No
     return channels
 
 
+WEEK_WEIGHTS = (12, 18, 28, 42)
+
+
 def _week_lanes(months: list[dict]) -> list[dict]:
     out = []
     for month in months:
         amount = _money(month.get("amount"))
-        parts = _largest_remainder(amount, [12, 18, 28, 42][: 4 if amount else 4])
+        parts = _largest_remainder(amount, list(WEEK_WEIGHTS))
         out.append({
             "label": month.get("full_label") or month.get("label"),
+            "short": text(month.get("label"))[:3].title() or "Mês",
             "weeks": [
-                {"id": f"S{index + 1}", "amount": value, "heat": max(20, 40 + index * 18)}
+                {
+                    "id": f"S{index + 1}",
+                    "amount": value,
+                    "amount_label": format_money(value) if value else "—",
+                    "heat": max(18, round((value / max(parts)) * 100)) if parts and max(parts) and value else 0,
+                }
                 for index, value in enumerate(parts)
             ],
         })
     return out
+
+
+def _attach_week_bars(channels: list[dict], months: list[dict]) -> list[dict]:
+    """Rateia cada célula mensal em 4 semanas (learn-release). Intensidade visual, não data contratada."""
+    peak = 1
+    for channel in channels:
+        week_bars = []
+        for bar in channel.get("bars") or []:
+            month_amount = _money(bar.get("amount"))
+            parts = _largest_remainder(month_amount, list(WEEK_WEIGHTS)) if month_amount else [0, 0, 0, 0]
+            peak = max(peak, max(parts) if parts else 0)
+            for index, value in enumerate(parts):
+                week_bars.append({
+                    "id": f"S{index + 1}",
+                    "amount": value,
+                    "amount_label": format_money(value) if value else "—",
+                    "heat": 0,
+                })
+        channel["week_bars"] = week_bars
+    for channel in channels:
+        for cell in channel.get("week_bars") or []:
+            amount = _money(cell.get("amount"))
+            cell["heat"] = max(14, round((amount / peak) * 100)) if peak and amount else 0
+    return channels
+
+
+def _flight_note(channel: dict, months: list[dict]) -> str:
+    bars = channel.get("bars") or []
+    if not bars:
+        return ""
+    index = max(range(len(bars)), key=lambda i: _money(bars[i].get("amount")))
+    amount = _money(bars[index].get("amount"))
+    if not amount:
+        return f"{text(channel.get('label'))} participa do voo com o peso aprovado."
+    month = months[index] if index < len(months) else {}
+    label = text(month.get("full_label") or month.get("label") or "o período")
+    return f"Maior intensidade em {label} ({bars[index].get('amount_label')})."
 
 
 def _donut_slices(channels: list[dict]) -> list[dict]:
@@ -631,83 +752,117 @@ def _playbook_for(channel: dict) -> dict:
         "buy": "Conforme o plano de compra",
         "status": "Recomendado",
     })
-    book["role"] = text(channel.get("role") or book.get("goal"))
+    book["role"] = text(book.get("goal") or channel.get("role"))
     return book
 
 
 def _inventory(channels: list[dict], praca: str, detalhe: str) -> list[dict]:
     keys = {text(item.get("id")) for item in channels}
-    regional = "interior" in text(praca).lower() or "minas" in text(detalhe).lower()
+    regional = "interior" in text(praca).lower() or "minas" in text(detalhe).lower() or "minas" in text(praca).lower()
     rows = []
     if "youtube" in keys:
-        rows.append({"name": "YouTube", "kind": "Plataforma", "scope": "Nacional", "role": "Escala audiovisual", "buy": "YouTube", "formats": "Vídeo, Shorts, bumper", "status": "Principal", "tags": ["plataformas", "video", "nacional"], "note": "Canal líder do mix."})
+        rows.append({"name": "YouTube", "kind": "Plataforma", "scope": "Nacional", "role": "Escala audiovisual", "buy": "YouTube", "formats": "Vídeo, Shorts, bumper", "status": "Principal", "status_tone": "ok", "tags": ["plataformas", "video", "nacional"], "note": "Canal líder do mix aprovado."})
     if "meta_ads" in keys:
         rows.extend([
-            {"name": "Instagram", "kind": "Social", "scope": "Nacional", "role": "Recorrência visual", "buy": "Meta Ads", "formats": "Feed, Stories, Reels", "status": "Principal", "tags": ["plataformas", "social", "nacional"], "note": "Ambiente de uso diário."},
-            {"name": "Facebook", "kind": "Social", "scope": "Nacional", "role": "Frequência complementar", "buy": "Meta Ads", "formats": "Feed, Stories, vídeo", "status": "Complementar", "tags": ["plataformas", "social", "nacional"], "note": "Reforço da mesma mensagem."},
+            {"name": "Instagram", "kind": "Social", "scope": "Nacional", "role": "Recorrência visual", "buy": "Meta Ads", "formats": "Feed, Stories, Reels", "status": "Principal", "status_tone": "ok", "tags": ["plataformas", "social", "nacional"], "note": "Ambiente de uso diário."},
+            {"name": "Facebook", "kind": "Social", "scope": "Nacional", "role": "Frequência complementar", "buy": "Meta Ads", "formats": "Feed, Stories, vídeo", "status": "Complementar", "status_tone": "ok", "tags": ["plataformas", "social", "nacional"], "note": "Reforço da mesma mensagem."},
         ])
     if "dv360" in keys:
         rows.extend([
-            {"name": "UOL", "kind": "Portal", "scope": "Nacional", "role": "Contexto de notícia e serviço", "buy": "DV360", "formats": "Display, native", "status": "Sujeito a disponibilidade", "tags": ["portais", "nacional", "programatica"], "note": "Inventário potencial."},
-            {"name": "Terra", "kind": "Portal", "scope": "Nacional", "role": "Cobertura adicional", "buy": "DV360", "formats": "Display", "status": "Sujeito a disponibilidade", "tags": ["portais", "nacional", "programatica"], "note": "Recomendado, não contratado."},
-            {"name": "G1", "kind": "Portal", "scope": "Nacional", "role": "Alcance editorial", "buy": "DV360", "formats": "Display, native", "status": "Sujeito a disponibilidade", "tags": ["portais", "nacional", "programatica"], "note": "Depende de inventário e brand safety."},
-            {"name": "R7", "kind": "Portal", "scope": "Nacional", "role": "Presença em notícias", "buy": "DV360", "formats": "Display, vídeo", "status": "Sujeito a disponibilidade", "tags": ["portais", "nacional", "programatica"], "note": "Sujeito a disponibilidade."},
+            {"name": "UOL", "kind": "Portal", "scope": "Nacional", "role": "Contexto de notícia e serviço", "buy": "DV360", "formats": "Display, native", "status": "Potencial", "status_tone": "soft", "tags": ["portais", "nacional", "programatica"], "note": "Inventário potencial, não contratado."},
+            {"name": "Terra", "kind": "Portal", "scope": "Nacional", "role": "Cobertura adicional", "buy": "DV360", "formats": "Display", "status": "Potencial", "status_tone": "soft", "tags": ["portais", "nacional", "programatica"], "note": "Recomendado, não contratado."},
+            {"name": "G1", "kind": "Portal", "scope": "Nacional", "role": "Alcance editorial", "buy": "DV360", "formats": "Display, native", "status": "Potencial", "status_tone": "soft", "tags": ["portais", "nacional", "programatica"], "note": "Depende de inventário e brand safety."},
+            {"name": "R7", "kind": "Portal", "scope": "Nacional", "role": "Presença em notícias", "buy": "DV360", "formats": "Display, vídeo", "status": "Potencial", "status_tone": "soft", "tags": ["portais", "nacional", "programatica"], "note": "Sujeito a disponibilidade."},
         ])
         if regional:
             rows.extend([
-                {"name": "Estado de Minas", "kind": "Portal", "scope": "Regional", "role": "Proximidade editorial", "buy": "DV360", "formats": "Display", "status": "Sujeito a disponibilidade", "tags": ["portais", "regional", "programatica"], "note": "Veículo mineiro potencial."},
-                {"name": "O Tempo", "kind": "Portal", "scope": "Regional", "role": "Cobertura local", "buy": "DV360", "formats": "Display", "status": "Sujeito a disponibilidade", "tags": ["portais", "regional", "programatica"], "note": "Recomendado para o interior de Minas."},
-                {"name": "G1 Minas", "kind": "Portal", "scope": "Regional", "role": "Notícia do estado", "buy": "DV360", "formats": "Display, native", "status": "Sujeito a disponibilidade", "tags": ["portais", "regional", "programatica"], "note": "Segmentação geográfica a validar."},
-                {"name": "Portais do interior", "kind": "Portal", "scope": "Regional", "role": "Capilaridade municipal", "buy": "DV360", "formats": "Display", "status": "Sujeito a disponibilidade", "tags": ["portais", "regional", "programatica"], "note": "Lista final após municípios prioritários."},
+                {"name": "Estado de Minas", "kind": "Portal", "scope": "Regional", "role": "Proximidade editorial", "buy": "DV360", "formats": "Display", "status": "Potencial", "status_tone": "soft", "tags": ["portais", "regional", "programatica"], "note": "Veículo mineiro potencial."},
+                {"name": "O Tempo", "kind": "Portal", "scope": "Regional", "role": "Cobertura local", "buy": "DV360", "formats": "Display", "status": "Potencial", "status_tone": "soft", "tags": ["portais", "regional", "programatica"], "note": "Recomendado para Minas."},
+                {"name": "G1 Minas", "kind": "Portal", "scope": "Regional", "role": "Notícia do estado", "buy": "DV360", "formats": "Display, native", "status": "Potencial", "status_tone": "soft", "tags": ["portais", "regional", "programatica"], "note": "Segmentação geográfica a validar."},
+                {"name": "Portais do interior", "kind": "Portal", "scope": "Regional", "role": "Capilaridade municipal", "buy": "DV360", "formats": "Display", "status": "A validar", "status_tone": "warn", "tags": ["portais", "regional", "programatica"], "note": "Lista final após municípios prioritários."},
             ])
         rows.extend([
-            {"name": "Apps de notícias", "kind": "Aplicativo", "scope": "Nacional", "role": "Presença in-app", "buy": "DV360", "formats": "Display, native", "status": "Sujeito a disponibilidade", "tags": ["apps", "programatica", "nacional"], "note": "Categoria de conteúdo."},
-            {"name": "Apps de clima", "kind": "Aplicativo", "scope": "Nacional", "role": "Contexto utilitário", "buy": "DV360", "formats": "Display", "status": "Sujeito a disponibilidade", "tags": ["apps", "programatica", "nacional"], "note": "Ambiente cotidiano, não contratado."},
-            {"name": "Apps de mobilidade", "kind": "Aplicativo", "scope": "Nacional", "role": "Deslocamento", "buy": "DV360", "formats": "Display", "status": "Sujeito a disponibilidade", "tags": ["apps", "programatica", "nacional"], "note": "Sujeito a inventário."},
+            {"name": "Apps de notícias", "kind": "Aplicativo", "scope": "Nacional", "role": "Presença in-app", "buy": "DV360", "formats": "Display, native", "status": "Potencial", "status_tone": "soft", "tags": ["apps", "programatica", "nacional"], "note": "Categoria de conteúdo, não app nomeado."},
+            {"name": "Apps de clima", "kind": "Aplicativo", "scope": "Nacional", "role": "Contexto utilitário", "buy": "DV360", "formats": "Display", "status": "Potencial", "status_tone": "soft", "tags": ["apps", "programatica", "nacional"], "note": "Ambiente cotidiano, não contratado."},
+            {"name": "Apps de mobilidade", "kind": "Aplicativo", "scope": "Nacional", "role": "Deslocamento", "buy": "DV360", "formats": "Display", "status": "Potencial", "status_tone": "soft", "tags": ["apps", "programatica", "nacional"], "note": "Sujeito a inventário."},
         ])
     return rows
 
 
+def _inventory_filters(rows: list[dict]) -> list[dict]:
+    present = {"todos"}
+    for row in rows:
+        present.update(text(tag) for tag in as_list(row.get("tags")) if text(tag))
+    return [{"id": key, "label": label} for key, label in INVENTORY_FILTERS if key in present]
+
+
 def _reading(channels: list[dict], months: list[dict]) -> list[dict]:
     out = []
-    for item in channels[:3]:
-        role = text(item.get("role") or item.get("label"))
-        out.append({"title": item.get("label"), "text": _first_sentence(role, 110)})
+    ranked = sorted(channels, key=lambda item: (-(item.get("pct") or 0), text(item.get("label"))))
+    for item in ranked[:3]:
+        role = text(item.get("role") or item.get("goal") or item.get("label"))
+        amount = text(item.get("amount_label"))
+        pct = item.get("pct") or 0
+        detail = _first_sentence(role, 140)
+        if pct and amount:
+            detail = f"{detail} ({pct}% · {amount})"
+        elif pct:
+            detail = f"{detail} ({pct}%)"
+        out.append({"title": item.get("label"), "text": detail})
     if months:
         peak = max(months, key=lambda row: _money(row.get("amount")))
         if _money(peak.get("amount")):
+            label = peak.get("full_label") or peak.get("label")
             out.append({
-                "title": peak.get("full_label") or peak.get("label"),
-                "text": f"{peak.get('full_label') or peak.get('label')} concentra a maior intensidade de investimento.",
+                "title": label,
+                "text": f"{label} concentra a maior intensidade de investimento ({peak.get('amount_label')}).",
             })
     return out[:4]
 
 
-def _assumptions(missing: list[str], has_metrics: bool) -> dict:
+def _assumptions(missing: list[str], has_metrics: bool, has_inventory: bool = False) -> dict:
     points = [
         "Inventário depende de disponibilidade, brand safety e negociação.",
-        "Portais e aplicativos desta folha são recomendações, não contratação.",
         "Valores podem ser ajustados na negociação final.",
         "Formatos dependem das peças entregues.",
         "O plano representa uma distribuição estratégica inicial.",
     ]
+    if has_inventory:
+        points.insert(1, "Portais e aplicativos desta folha são recomendações, não contratação.")
     if "municipios" in missing:
         points.insert(0, "Municípios prioritários ainda precisam de validação final.")
     if "datas" in missing:
-        points.insert(1, "Datas exatas do voo ainda não foram confirmadas.")
+        insert_at = 1 if "municipios" in missing else 0
+        points.insert(insert_at, "Datas exatas do voo ainda não foram confirmadas.")
     if not has_metrics:
         points.append("Metas de alcance e impressões dependem de CPM, frequência, segmentação e inventário.")
-    steps = [
-        "Validar municípios atendidos",
-        "Confirmar datas exatas",
-        "Aprovar o mix",
-        "Validar inventário",
-        "Definir metas de alcance e frequência",
+
+    open_items = []
+    for key in ("municipios", "datas"):
+        if key in missing:
+            open_items.append({"id": key, "label": OPEN_ITEM_LABELS[key]})
+    if not has_metrics:
+        open_items.append({"id": "metricas", "label": OPEN_ITEM_LABELS["metricas"]})
+
+    steps = []
+    if "municipios" in missing:
+        steps.append("Validar municípios atendidos")
+    if "datas" in missing:
+        steps.append("Confirmar datas exatas")
+    steps.extend(["Aprovar o mix", "Validar inventário disponível"])
+    if not has_metrics:
+        steps.append("Definir metas de alcance e frequência")
+    steps.extend([
         "Receber especificações criativas",
-        "Confirmar formatos",
+        "Confirmar formatos por canal",
         "Consolidar o plano final de compra",
-    ]
-    return {"points": points, "steps": steps, "missing": missing}
+    ])
+    return {
+        "points": points,
+        "steps": steps,
+        "missing": list(missing),
+        "open_items": open_items,
+    }
 
 
 def _finance_checks(channels: list[dict], months: list[dict], total: int) -> list[str]:
@@ -809,10 +964,23 @@ def public_view(row: dict) -> dict:
     for channel in media.get("channels") or []:
         channel.update(_playbook_for(channel))
         channel["creatives"] = list(CREATIVE_GUIDE.get(text(channel.get("id"))) or [])
+        channel["role_short"] = _clip(
+            text(channel.get("priority") or channel.get("role") or channel.get("goal")),
+            42,
+        )
     strategy_parts = _paragraphs(strategy.get("body"))
     defense_parts = _paragraphs(defense.get("body"))
     concept = text(creative.get("title"))
     support = text(creative.get("body"))
+    strategy_board = _strategy_board(
+        strategy_parts,
+        audience,
+        concept,
+        support,
+        defense_parts[0] if defense_parts else "",
+    )
+    funnel = _funnel_from_channels(media.get("channels") or [])
+    overview = text(strategy_parts[0] if strategy_parts else tagline)
     missing = []
     if "município" in text(strategy.get("body")).lower() or "municipios" in text(strategy.get("body")).lower() or "sem definição" in text(strategy.get("body")).lower():
         missing.append("municipios")
@@ -822,25 +990,58 @@ def public_view(row: dict) -> dict:
         missing.append("metricas")
     if not hero_image and _looks_like_water(title, text(strategy.get("body")), concept, support):
         hero_image = "/static/images/smart_planner/hero-water.svg"
-    nav = [
-        {"id": "visao", "label": "Visão geral"},
-        {"id": "estrategia", "label": "Estratégia"},
-        {"id": "investimento", "label": "Investimento"},
-        {"id": "periodo", "label": "Período e Gantt"},
-        {"id": "canais", "label": "Canais"},
-        {"id": "portais", "label": "Portais e aplicativos"},
-        {"id": "criativos", "label": "Criativos e formatos"},
-        {"id": "premissas", "label": "Premissas"},
-    ]
+
+    plan_mode = plan_mode_of(dados, "one_page")
+    nav_folha = []
+    if tem_folha:
+        nav_folha = [
+            {"id": "visao", "label": "Visão geral", "view": "folha"},
+            {"id": "estrategia", "label": "Estratégia", "view": "folha"},
+            {"id": "investimento", "label": "Investimento", "view": "folha"},
+            {"id": "periodo", "label": "Período e Gantt", "view": "folha"},
+            {"id": "canais", "label": "Canais", "view": "folha"},
+            {"id": "portais", "label": "Portais e aplicativos", "view": "folha"},
+            {"id": "criativos", "label": "Criativos e formatos", "view": "folha"},
+            {"id": "premissas", "label": "Premissas", "view": "folha"},
+        ]
+    nav_plano = []
     if tem_completo:
-        nav.append({"id": "documento", "label": "Documento"})
+        nav_plano.append({"id": "plano-doc", "label": "Documento", "view": "plano"})
+        for index, chapter in enumerate(chapters):
+            label = text(chapter.get("title")) or f"Capítulo {index + 1}"
+            nav_plano.append({
+                "id": f"cap-{index}",
+                "label": _clip(label, 28),
+                "view": "plano",
+            })
+        for index, section in enumerate(board_sections):
+            label = text(section.get("title")) or f"Seção {index + 1}"
+            nav_plano.append({
+                "id": f"board-{index}",
+                "label": _clip(label, 28),
+                "view": "plano",
+            })
+    views = []
+    if tem_folha:
+        views.append({"id": "folha", "label": "Página única"})
+    if tem_completo:
+        views.append({"id": "plano", "label": "Plano completo"})
+    if tem_folha and tem_completo:
+        default_view = "plano" if plan_mode == "completo" else "folha"
+    elif tem_completo:
+        default_view = "plano"
+    else:
+        default_view = "folha"
+    nav = nav_folha if default_view == "folha" else nav_plano
     updated = text(row.get("updated_at") or dados.get("updated_at"))
+    inventory = _inventory(media.get("channels") or [], praca, praca_detalhe)
+    assumptions = _assumptions(missing, "metricas" not in missing, bool(inventory))
     return {
         "house": HOUSE,
         "title": title,
         "client": client,
         "confidential": confidential,
-        "mode": plan_mode_of(dados, "one_page"),
+        "mode": plan_mode,
         "facts": [(item[0], item[1]) for item in facts],
         "fact_items": facts,
         "audience": audience,
@@ -866,18 +1067,25 @@ def public_view(row: dict) -> dict:
         "board": board_sections,
         "share_url": url,
         "public_token": token,
-        "default_tab": "folha" if tem_folha or not tem_completo else "plano",
+        "default_tab": default_view,
+        "default_view": default_view,
+        "views": views,
         "nav": nav,
+        "nav_folha": nav_folha,
+        "nav_plano": nav_plano,
         "concept": concept,
         "support": support,
+        "overview": overview,
         "strategy_parts": strategy_parts,
+        "strategy_board": strategy_board,
         "defense_parts": defense_parts,
-        "funnel": list(FUNNEL_STEPS),
-        "inventory": _inventory(media.get("channels") or [], praca, praca_detalhe),
+        "funnel": funnel,
+        "inventory": inventory,
+        "inventory_filters": _inventory_filters(inventory),
         "inventory_note": INVENTORY_DISCLAIMER,
         "creative_principles": list(CREATIVE_PRINCIPLES),
         "reading_items": _reading(media.get("channels") or [], media.get("months") or []),
-        "assumptions": _assumptions(missing, "metricas" not in missing),
+        "assumptions": assumptions,
         "metric_note": METRIC_UNDEFINED,
         "praca_line": praca_line,
         "updated_at": updated,

@@ -67,6 +67,46 @@ class PublicPlannerTest(TestCase):
         self.assertTrue(view["tem_folha"])
         self.assertTrue(view["tem_completo"])
         self.assertEqual(view["chapters"][0]["title"], "Capa")
+        self.assertEqual([item["id"] for item in view["views"]], ["folha", "plano"])
+        self.assertEqual(view["default_view"], "plano")
+        self.assertEqual(view["nav"][0]["id"], "plano-doc")
+        self.assertTrue(view["nav_folha"])
+        self.assertIn("cap-0", [item["id"] for item in view["nav_plano"]])
+
+    def test_completo_only_uses_plano_view_on_same_link(self):
+        view = public_view({
+            "nome_campanha": "Só documento",
+            "cliente": "Cliente",
+            "dados_detectados": {
+                "plan_mode": "completo",
+                "planejamento": "## Capa\nTexto.\n\n## Mix\nDetalhe.\n",
+            },
+            "plan_content": {"sections": []},
+        })
+        self.assertFalse(view["tem_folha"])
+        self.assertTrue(view["tem_completo"])
+        self.assertEqual(view["views"], [{"id": "plano", "label": "Plano completo"}])
+        self.assertEqual(view["default_view"], "plano")
+        self.assertEqual(view["nav_folha"], [])
+        self.assertEqual(view["nav"][0]["id"], "plano-doc")
+        self.assertNotIn("visao", [item["id"] for item in view["nav"]])
+
+    def test_one_page_with_completo_defaults_to_folha(self):
+        view = public_view({
+            "nome_campanha": "Folha e plano",
+            "cliente": "Cliente",
+            "dados_detectados": {
+                "plan_mode": "one_page",
+                "planejamento": "## Capa\nTexto.\n",
+                "folha": {"sections": [{"cards": [{"type": "strategy", "body": "Tese."}]}]},
+            },
+            "plan_content": {"sections": []},
+        })
+        self.assertTrue(view["tem_folha"])
+        self.assertTrue(view["tem_completo"])
+        self.assertEqual(view["default_view"], "folha")
+        self.assertEqual(view["nav"][0]["id"], "visao")
+        self.assertEqual(len(view["nav_folha"]), 8)
 
     def test_confidential_hides_advertiser_name(self):
         view = public_view({
@@ -109,7 +149,11 @@ class PublicPlannerTest(TestCase):
         self.assertIn("Compartilhar", html)
         self.assertIn("cc-doc-card", html)
         self.assertIn("is-lead", html)
-        self.assertIn("ainda não foi criada", html)
+        self.assertIn("data-cc-view", html)
+        self.assertIn("cc-panel-folha", html)
+        self.assertIn("cc-panel-plano", html)
+        self.assertIn("plano-doc", html)
+        self.assertIn("ainda não tem conteúdo público", html)
         self.assertIn("Centralcomm", error)
         self.assertIn("Smart Planner", error)
         self.assertNotIn("base_erp.html", error)
@@ -293,6 +337,9 @@ class PublicPlannerTest(TestCase):
         self.assertEqual(sum(item["amount"] for item in view["media"]["months"]), 250000)
         self.assertEqual(sum(item["pct"] for item in view["media"]["channels"]), 100)
         self.assertEqual(len(view["nav"]), 8)
+        self.assertEqual(view["views"], [{"id": "folha", "label": "Página única"}])
+        self.assertEqual(view["default_view"], "folha")
+        self.assertEqual(view["nav_plano"], [])
         self.assertTrue(view["hero"]["image"].endswith("hero-water.svg"))
         self.assertTrue(view["inventory"])
         month_from_bars = [
@@ -300,6 +347,34 @@ class PublicPlannerTest(TestCase):
             for index in range(3)
         ]
         self.assertEqual(month_from_bars, [45640, 88357, 116003])
+        board_titles = [item["title"] for item in view["strategy_board"]]
+        self.assertIn("Tese estratégica", board_titles)
+        self.assertIn("Diretriz", board_titles)
+        self.assertIn("Público prioritário", board_titles)
+        self.assertEqual(view["funnel"][0]["channel"], "YouTube")
+        self.assertEqual(view["funnel"][0]["title"], "Sensibilizar")
+        self.assertIn("45%", view["funnel"][0]["text"])
+        self.assertTrue(view["overview"].startswith("Tese sobre economia"))
+        self.assertNotIn("Abrir a conversa com escala audiovisual.", [item["text"] for item in view["funnel"]])
+        self.assertIn("R$ 116.003", view["reading_items"][-1]["text"])
+        youtube = view["media"]["channels"][0]
+        self.assertEqual(len(youtube["week_bars"]), 12)
+        self.assertEqual(sum(cell["amount"] for cell in youtube["week_bars"]), 112500)
+        self.assertGreater(youtube["week_bars"][-1]["heat"], youtube["week_bars"][0]["heat"])
+        self.assertIn("Novembro", youtube["flight_note"])
+        self.assertTrue(view["media"]["has_weekly"])
+        self.assertEqual(view["media"]["week_count"], 12)
+        self.assertEqual(view["media"]["checks"], [])
+        self.assertEqual(youtube["role_short"], "Canal líder")
+        self.assertTrue(view["inventory"])
+        self.assertEqual(view["inventory_filters"][0]["id"], "todos")
+        self.assertIn("portais", [item["id"] for item in view["inventory_filters"]])
+        open_ids = [item["id"] for item in view["assumptions"]["open_items"]]
+        self.assertIn("datas", open_ids)
+        self.assertIn("metricas", open_ids)
+        self.assertNotIn("Validar municípios atendidos", view["assumptions"]["steps"])
+        self.assertIn("Aprovar o mix", view["assumptions"]["steps"])
+        self.assertTrue(any(item.get("status_tone") == "soft" for item in view["inventory"]))
 
     def test_history_row_exposes_public_link(self):
         row = serialize_list_row({

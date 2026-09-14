@@ -51,10 +51,14 @@ from aicentralv2.places.schema import (
     directory_card,
     featured_card,
     format_usd,
+    maps_directions_url,
     match_directory,
     normalize_payload,
+    place_photos,
     public_view,
+    related_cards,
     sum_zone_reaches,
+    type_column_title,
 )
 from aicentralv2.places.service import (
     apply_enrich,
@@ -279,6 +283,32 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertFalse(match_directory(confins, "cnf", "shopping"))
         self.assertTrue(match_directory(sdu, "", "aeroporto"))
 
+    def test_folio_helpers_build_map_photos_and_related(self):
+        self.assertEqual(type_column_title("aeroporto"), "Aeroportos")
+        self.assertIn("-19.63", maps_directions_url({"lat": -19.630503, "lng": -43.96576}))
+        self.assertEqual(maps_directions_url({}), "")
+        photos = place_photos(
+            {
+                "title": "Confins",
+                "media": {"gallery": [{"url": "/g1.jpg", "title": "Fachada"}]},
+                "points": [{"name": "Terminal", "image_url": "/p1.jpg"}],
+            }
+        )
+        self.assertEqual([item["url"] for item in photos], ["/g1.jpg", "/p1.jpg"])
+        related = related_cards(
+            [
+                {
+                    "places": [
+                        {"slug": "confins", "title": "Confins", "city": "bh", "place_type": "aeroporto"},
+                        {"slug": "diamond-mall", "title": "Diamond", "city": "bh", "place_type": "shopping"},
+                        {"slug": "sdu", "title": "SDU", "city": "rj", "place_type": "aeroporto"},
+                    ]
+                }
+            ],
+            {"slug": "confins", "city": "bh", "place_type": "aeroporto"},
+        )
+        self.assertEqual([item["slug"] for item in related], ["diamond-mall", "sdu"])
+
     def test_normalize_keeps_polygon(self):
         payload = normalize_payload(CONFINS["payload"])
         self.assertTrue(payload["zones"][0]["polygon"].startswith("43,43"))
@@ -381,6 +411,12 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertIn("cc-foot", css)
         self.assertIn("cc-hero", css)
         self.assertIn("cc-desk", css)
+        self.assertIn("cc-rail", css)
+        self.assertIn("cc-brief", css)
+        self.assertIn("cc-areas", css)
+        self.assertIn("cc-photos", css)
+        self.assertIn("cc-ask", css)
+        self.assertIn("cc-folio", css)
         self.assertIn("cc-sheet", css)
         self.assertIn("cc-chips", css)
         self.assertIn("cc-inventory", css)
@@ -1176,6 +1212,11 @@ class PlacesPublicRoutesTest(unittest.TestCase):
         self.assertIn("O SDU liga hotel", html)
         self.assertIn("cc-hero", html)
         self.assertIn("cc-desk", html)
+        self.assertIn("cc-rail", html)
+        self.assertIn("cc-brief", html)
+        self.assertIn("cc-areas", html)
+        self.assertIn("cc-ask", html)
+        self.assertIn("Pedir o recorte", html)
         self.assertIn("santos-dumont-hero", html)
         self.assertIn("Isso não é presença no terminal", html)
         self.assertNotIn("Quem vive no entorno", html)
@@ -1190,6 +1231,8 @@ class PlacesPublicRoutesTest(unittest.TestCase):
         self.assertNotIn("proposta", html.lower())
         self.assertNotIn("Falar com especialista", html)
         self.assertNotIn("cc-inquiry", html)
+        self.assertNotIn("Sobre", html)
+        self.assertNotIn("Fale conosco", html)
         self.assertNotIn("Fraunces", html)
         self.assertNotIn("CentralX", html)
         self.assertNotIn("base_erp", html)

@@ -508,9 +508,12 @@
       var on = chip.getAttribute("data-zone") === item.id;
       chip.classList.toggle("is-on", on);
       chip.setAttribute("aria-selected", on ? "true" : "false");
-      if (on && chip.scrollIntoView) {
+      if (on && primed && chip.scrollIntoView) {
         chip.scrollIntoView({ inline: "center", block: "nearest", behavior: reduceMotion ? "auto" : "smooth" });
       }
+    });
+    document.querySelectorAll(".cc-area[data-zone]").forEach(function (card) {
+      card.classList.toggle("is-on", card.getAttribute("data-zone") === item.id);
     });
     Object.keys(layers).forEach(function (key) {
       paintLayer(key, key === item.id);
@@ -558,7 +561,7 @@
       return '<button type="button" class="cc-zone-chip" role="tab" data-zone="' +
         escapeHtml(item.id) + '" data-scope="' + escapeHtml(item.scope || "internal") +
         '" aria-selected="' + (index === 0 ? "true" : "false") + '">' +
-        escapeHtml(item.name) + " <small>" + escapeHtml(item.scope_label || item.radius) + "</small></button>";
+        escapeHtml(item.name) + " <small>" + escapeHtml(item.radius) + "</small></button>";
     }).join("");
     nav.querySelectorAll(".cc-zone-chip").forEach(function (chip) {
       chip.addEventListener("click", function () {
@@ -623,4 +626,56 @@
     var next = catalog.find(function (item) { return item.id === hashId(); });
     if (next) applyItem(next);
   });
+
+  document.querySelectorAll(".cc-area[data-zone]").forEach(function (card) {
+    card.addEventListener("click", function (event) {
+      var item = catalog.find(function (entry) {
+        return entry.id === card.getAttribute("data-zone");
+      });
+      if (!item) return;
+      event.preventDefault();
+      applyItem(item);
+      var mapa = document.getElementById("mapa");
+      if (mapa) mapa.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+    });
+  });
+
+  var ask = document.querySelector("[data-ask-form]");
+  if (ask) {
+    ask.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var status = document.querySelector("[data-ask-status]");
+      var body = {
+        name: (ask.elements.name && ask.elements.name.value) || "",
+        company: (ask.elements.company && ask.elements.company.value) || "",
+        email: (ask.elements.email && ask.elements.email.value) || "",
+        phone: (ask.elements.phone && ask.elements.phone.value) || "",
+        message: (ask.elements.message && ask.elements.message.value) || ""
+      };
+      fetch("/places/api/p/" + encodeURIComponent(place.slug || "") + "/inquiry", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      }).then(function (response) {
+        return response.json().then(function (data) {
+          if (!response.ok || data.success === false) {
+            throw new Error(data.error || "Não foi possível enviar o pedido.");
+          }
+          return data;
+        });
+      }).then(function () {
+        ask.reset();
+        if (status) {
+          status.hidden = false;
+          status.textContent = "Pedido enviado. A mesa responde com o recorte.";
+        }
+      }).catch(function (error) {
+        if (status) {
+          status.hidden = false;
+          status.textContent = error.message || "Não foi possível enviar o pedido.";
+        }
+      });
+    });
+  }
 })();

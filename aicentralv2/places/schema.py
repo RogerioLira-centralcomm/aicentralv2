@@ -404,6 +404,7 @@ def normalize_media(value: Any) -> dict:
         "hero_url": text(data.get("hero_url")),
         "map_url": text(data.get("map_url")),
         "og_url": text(data.get("og_url")),
+        "video_url": text(data.get("video_url")),
         "image_model": text(data.get("image_model")),
         "image_resolution": text(data.get("image_resolution")),
         "images": images,
@@ -665,3 +666,73 @@ def group_directory(items: list) -> list[dict]:
         }
         for column in INDEX_COLUMNS
     ]
+
+
+def type_column_title(place_type: str) -> str:
+    wanted = normalize_choice(place_type, PLACE_TYPES, "aeroporto")
+    for column in INDEX_COLUMNS:
+        if wanted in column["types"]:
+            return column["title"]
+    return TYPE_LABELS.get(wanted, "")
+
+
+def maps_directions_url(geo: dict) -> str:
+    point = as_dict(geo)
+    lat = point.get("lat")
+    lng = point.get("lng")
+    if lat is None or lng is None:
+        return ""
+    return f"https://www.google.com/maps/dir/?api=1&destination={lat},{lng}"
+
+
+def place_photos(place: dict, *, limit: int = 8) -> list[dict]:
+    item = as_dict(place)
+    media = as_dict(item.get("media"))
+    seen = set()
+    photos = []
+    for raw in as_list(media.get("gallery")):
+        row = as_dict(raw)
+        url = text(row.get("url"))
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        photos.append(
+            {
+                "url": url,
+                "title": text(row.get("title")) or text(row.get("kind")) or text(item.get("title")),
+            }
+        )
+        if len(photos) >= limit:
+            return photos
+    for point in as_list(item.get("points")):
+        row = as_dict(point)
+        url = text(row.get("image_url"))
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        photos.append({"url": url, "title": text(row.get("name")) or text(item.get("title"))})
+        if len(photos) >= limit:
+            break
+    return photos
+
+
+def related_cards(groups: list, place: dict, *, limit: int = 3) -> list[dict]:
+    current = as_dict(place)
+    slug = text(current.get("slug"))
+    city = text(current.get("city"))
+    place_type = text(current.get("place_type"))
+    cards = []
+    for column in groups or []:
+        for item in as_list(as_dict(column).get("places")):
+            card = as_dict(item)
+            if not text(card.get("slug")) or text(card.get("slug")) == slug:
+                continue
+            cards.append(card)
+    cards.sort(
+        key=lambda card: (
+            0 if text(card.get("city")) == city else 1,
+            0 if text(card.get("place_type")) == place_type else 1,
+            text(card.get("title")),
+        )
+    )
+    return cards[:limit]

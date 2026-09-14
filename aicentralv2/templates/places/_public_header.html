@@ -4,6 +4,15 @@
       <img src="{{ brand.logo }}" alt="CentralComm">
       <span>Places</span>
     </a>
+    <nav class="cc-types" aria-label="Tipos de lugar">
+      <a href="{{ url_for('places.publico_indice', tipo='aeroporto') }}">Aeroportos</a>
+      <a href="{{ url_for('places.publico_indice', tipo='shopping') }}">Shoppings</a>
+      <a href="{{ url_for('places.publico_indice', tipo='evento') }}">Parques e eventos</a>
+    </nav>
+    <form class="cc-top-find" action="{{ url_for('places.publico_indice') }}" method="get" role="search">
+      <label class="cc-find-label" for="cc-top-q">Buscar place</label>
+      <input id="cc-top-q" name="q" type="search" placeholder="CNF, Iguatemi, BH" autocomplete="off" enterkeyhint="search">
+    </form>
     <button class="cc-menu-btn" type="button" aria-expanded="false" aria-controls="cc-mega" aria-haspopup="true">Lugares</button>
   </div>
   <div class="cc-mega" id="cc-mega" hidden>

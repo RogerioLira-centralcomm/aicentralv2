@@ -12,7 +12,16 @@ from .brand import PUBLIC_TOKENS
 from .images import ImageError
 from .repository import PlaceConflict, PlaceNotFound, PlacesError
 from .research import ResearchError
-from .schema import SOURCE_LABELS, directory_card, featured_card, group_directory
+from .schema import (
+    SOURCE_LABELS,
+    directory_card,
+    featured_card,
+    group_directory,
+    maps_directions_url,
+    place_photos,
+    related_cards,
+    type_column_title,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -54,11 +63,16 @@ def _public_error(message, status=404):
 
 
 def _public_page(place, *, preview=False):
+    chrome = _public_chrome(place.get("slug") if place else "")
     return render_template(
         "places/public.html",
         place=place,
         preview=preview,
-        **_public_chrome(place.get("slug") if place else ""),
+        photos=place_photos(place or {}),
+        related=related_cards(chrome.get("place_groups"), place or {}),
+        maps_url=maps_directions_url((place or {}).get("geo") or {}),
+        type_column=type_column_title((place or {}).get("place_type")),
+        **chrome,
     )
 
 

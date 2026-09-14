@@ -20,6 +20,8 @@ from ..creative_modeling_storage import (
     still_filename_candidates,
 )
 
+from .editor_draft import normalize_editor_draft
+
 logger = logging.getLogger(__name__)
 
 RUN_SCHEMA = "runs-v1"
@@ -888,6 +890,7 @@ class TrocrStore:
             "revision": history_revision(data),
             "updated_at": data.get("updated_at") or "",
             "versions": versions,
+            "editor_draft": data.get("editor_draft"),
             "runs": runs,
         }
 
@@ -1094,6 +1097,11 @@ def write_run(run, payload, versions, client_id, revision):
     data["revision"] = revision
     data["updated_at"] = utc_now()
     data["versions"] = versions[:60]
+    if "editor_draft" in payload:
+        draft = normalize_editor_draft(payload["editor_draft"])
+        if draft and draft["base_id"] not in {str(item.get("id")) for item in versions}:
+            raise ValueError("A versão base da edição não pertence a esta troca.")
+        data["editor_draft"] = draft
     data["title"] = str(payload.get("title") or "").strip() or run_title(data)
     if not data.get("created_at"):
         data["created_at"] = data["updated_at"]
@@ -1174,15 +1182,33 @@ def normalize_video_project(raw):
         duration = int(duration) if duration not in (None, "") else 8
     except (TypeError, ValueError):
         duration = 8
-    if duration not in (5, 8, 10, 15, 20, 30):
+    if duration not in (4, 5, 8, 10, 15, 20, 30):
         duration = 8
     quality = str(data.get("quality") or "draft").strip().lower()
     if quality not in {"draft", "production"}:
         quality = "draft"
     aspect = str(data.get("aspect_ratio") or "16:9").strip() or "16:9"
+    generation_mode = "single_image" if data.get("generation_mode") == "single_image" else "storyboard"
     audio_mode = str(audio.get("mode") or "ambient").strip().lower()
     if audio_mode not in {"silence", "ambient", "music", "voice", "voiceover"}:
         audio_mode = "silence"
+    compositional_audio = any(key in audio for key in ("enabled", "ambience", "narration_mode", "music_enabled"))
+    audio_enabled = audio.get("enabled") is not False if compositional_audio else audio_mode != "silence"
+    narration_mode = str(audio.get("narration_mode") or "none").strip().lower() if compositional_audio else (
+        "guided" if audio_mode == "voice" else "voiceover" if audio_mode == "voiceover" else "none"
+    )
+    if narration_mode not in {"none", "guided", "voiceover"}:
+        narration_mode = "none"
+    ambience = bool(audio.get("ambience")) if compositional_audio else audio_mode == "ambient"
+    music_enabled = bool(audio.get("music_enabled")) if compositional_audio else audio_mode == "music"
+    if not audio_enabled:
+        narration_mode, ambience, music_enabled = "none", False, False
+    audio_mode = (
+        "silence" if not audio_enabled else
+        "voiceover" if narration_mode == "voiceover" else
+        "voice" if narration_mode == "guided" else
+        "music" if music_enabled else "ambient"
+    )
     voice = str(audio.get("voice") or "male").strip().lower()
     if voice not in {"male", "female"}:
         voice = "male"
@@ -1195,9 +1221,29 @@ def normalize_video_project(raw):
     intensity = str(motion.get("intensity") or "subtle").strip().lower()
     if intensity not in {"subtle", "moderate", "expressive"}:
         intensity = "subtle"
+    spend = data.get("spend") if isinstance(data.get("spend"), dict) else {}
+    spend_events = []
+    for item in list(spend.get("events") or [])[-200:]:
+        if not isinstance(item, dict):
+            continue
+        ident = str(item.get("id") or "").strip()[:160]
+        if not ident:
+            continue
+        status = str(item.get("status") or "pending")
+        kind = str(item.get("kind") or "edit")
+        spend_events.append({
+            "id": ident,
+            "kind": kind if kind in {"video", "voice", "image", "edit"} else "edit",
+            "label": str(item.get("label") or "Operação").strip()[:160],
+            "amount_brl": number(item.get("amount_brl"), 0, 0, 1_000_000),
+            "amount_usd": number(item.get("amount_usd"), 0, 0, 1_000_000),
+            "status": status if status in {"pending", "confirmed", "failed"} else "pending",
+            "created_at": str(item.get("created_at") or "")[:40],
+        })
     return {
         "name": str(data.get("name") or "").strip()[:120],
         "aspect_ratio": aspect[:16],
+        "generation_mode": generation_mode,
         "duration": duration,
         "quality": quality,
         "scene_ids": scene_ids[:30],
@@ -1206,6 +1252,11 @@ def normalize_video_project(raw):
         "script": script,
         "audio": {
             "mode": audio_mode,
+            "enabled": audio_enabled,
+            "ambience": ambience,
+            "ambience_note": str(audio.get("ambience_note") or "")[:200],
+            "narration_mode": narration_mode,
+            "music_enabled": music_enabled,
             "script": str(audio.get("script") or "")[:800],
             "voice": voice,
             "pace": pace,
@@ -1217,6 +1268,7 @@ def normalize_video_project(raw):
             "intensity": intensity,
             "note": str(motion.get("note") or "")[:400],
         },
+        "spend": {"events": spend_events},
         "active_clip_id": str(data.get("active_clip_id") or "").strip()[:120],
         "selected_scene_id": str(data.get("selected_scene_id") or "").strip()[:120],
     }

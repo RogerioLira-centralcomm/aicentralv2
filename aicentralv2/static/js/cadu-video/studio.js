@@ -1,18 +1,19 @@
 import { bindSeedancePanel, paintSeedancePanel } from "./seedance-panel.js";
+import { bindAgentPanel, paintAgentPanel } from "./agent-panel.js";
 import { bindWorkspace, paintTimelinePosition } from "./workspace.js";
-import { state } from './state.js';
+import { state, upsertWorkspaceSpend } from './state.js';
 import { get, post } from './api.js';
 import { csrf } from '../trocr/animate-utils.js';
 import { escapeHtml } from './utils.js';
 
 const base = '/parametros/api/format-lab/studio';
-export const defaultEdit = () => ({start:0,end:0,original_volume:1,sound_id:'',sound_volume:.35,sound_offset:0,fade_in:0,fade_out:0,loop:false,video_fade_in:0,video_fade_out:0,grayscale:false,flip:false});
-const fields = {mcStudioOriginal:'original_volume',mcStudioVolume:'sound_volume',mcStudioOffset:'sound_offset',mcStudioFadeIn:'fade_in',mcStudioFadeOut:'fade_out',mcStudioTrimStart:'start',mcStudioTrimEnd:'end',mcStudioLoop:'loop',mcStudioVideoFadeIn:'video_fade_in',mcStudioVideoFadeOut:'video_fade_out',mcStudioGrayscale:'grayscale',mcStudioFlip:'flip'};
+export const defaultEdit = () => ({start:0,end:0,speed:1,original_volume:1,sound_id:'',sound_volume:.35,sound_offset:0,fade_in:0,fade_out:0,loop:false,video_fade_in:0,video_fade_out:0,grayscale:false,flip:false});
+const fields = {mcStudioOriginal:'original_volume',mcStudioVolume:'sound_volume',mcStudioOffset:'sound_offset',mcStudioFadeIn:'fade_in',mcStudioFadeOut:'fade_out',mcStudioTrimStart:'start',mcStudioTrimEnd:'end',mcStudioSpeed:'speed',mcStudioLoop:'loop',mcStudioVideoFadeIn:'video_fade_in',mcStudioVideoFadeOut:'video_fade_out',mcStudioGrayscale:'grayscale',mcStudioFlip:'flip'};
 const $ = id => document.getElementById(id);
 let sounds = [], brand = '', dirty, repaint, undo = [], redo = [], baseline = '', restoring = false;
 let soundPlayer = new Audio(), pollTimer, frame, exporting = false, soundRequest = 0;
 const time = value => `${Math.floor((value || 0)/60)}:${String(Math.floor((value || 0)%60)).padStart(2,'0')}`;
-const snapshot = () => JSON.stringify({name:state.name,scenes:state.scenes,script:state.script,audio:state.audio,motion:state.motion,duration:state.duration,quality:state.quality,aspectRatio:state.aspectRatio,seed:state.seed,edit:state.edit});
+const snapshot = () => JSON.stringify({name:state.name,scenes:state.scenes,script:state.script,audio:state.audio,motion:state.motion,generationMode:state.generationMode,duration:state.duration,quality:state.quality,aspectRatio:state.aspectRatio,seed:state.seed,edit:state.edit});
 
 export function recordStudioChange() {
   if (restoring || !baseline) return;
@@ -37,6 +38,7 @@ export function bindStudio(markDirty, paintAll) {
   state.edit ||= defaultEdit();
   bindWorkspace(state, markDirty, paintStudio);
   bindSeedancePanel(state, markDirty, paintStudio);
+  bindAgentPanel(state, markDirty, paintAll);
   $('mcStudioUndo')?.addEventListener('click', () => restoreHistory(undo,redo));
   $('mcStudioRedo')?.addEventListener('click', () => restoreHistory(redo,undo));
   document.addEventListener('keydown', event => {
@@ -84,7 +86,7 @@ export function bindStudio(markDirty, paintAll) {
     if(name==='pause'||name==='ended') {cancelAnimationFrame(frame);soundPlayer.pause();}
     if(name==='seeked') { syncSound(true);paintVisual(); }
     if(name==='play' && video.currentTime<state.edit.start) video.currentTime=state.edit.start;
-    if(name==='loadedmetadata') { video.loop=false;video.volume=state.edit.original_volume;paintVisual(); }
+    if(name==='loadedmetadata') { video.loop=false;video.volume=state.edit.original_volume;video.playbackRate=state.edit.speed||1;paintVisual(); }
     paintPlayback();
   });
   document.addEventListener('cadu:studio-paint', paintStudio);
@@ -127,6 +129,7 @@ let soundListKey='';
 export function paintStudio() {
   if(!$('mcStudioSounds'))return;
   paintSeedancePanel();
+  paintAgentPanel();
   state.edit ||= defaultEdit();
   $('mcStudioSounds').hidden=state.libTab!=='sound';
   const rows=sounds.filter(row => row.name.toLocaleLowerCase().includes((state.search||'').toLocaleLowerCase()));
@@ -140,6 +143,7 @@ export function paintStudio() {
   }
   $('mcStudioOriginalValue').value=`${Math.round(state.edit.original_volume*100)}%`;
   $('mcStudioVolumeValue').value=`${Math.round(state.edit.sound_volume*100)}%`;
+  if($('mcStudioSpeedValue')) $('mcStudioSpeedValue').value=`${Number(state.edit.speed||1).toFixed(2).replace(/\.00$/,'')}×`;
   const selected=sounds.find(row=>row.id===state.edit.sound_id);
   const waveform=$('mcStudioWaveform');
   if(waveform && waveform.dataset.sound!==String(selected?.id||'')){
@@ -148,7 +152,15 @@ export function paintStudio() {
     waveform.innerHTML=values.map((v,i)=>`<path d="M${i*600/values.length} ${14-Math.min(1,Math.max(0,v))*13}v${Math.min(1,Math.max(0,v))*26}" stroke="currentColor" stroke-width="2"/>`).join('');
   }
   $('mcStudioTrackLabel').textContent=selected?.name || (state.edit.sound_id ? 'Trilha indisponível' : 'Nenhuma trilha adicionada');
-  $('mcStudioGenerationAudio').textContent=({silence:'Sem áudio',ambient:'Ambiente',music:'Música',voice:'Voz na geração',voiceover:'Locução separada'})[state.audio.mode] || 'Ambiente';
+  const audioParts=[];
+  if(state.audio.enabled===false) audioParts.push('Sem áudio');
+  else {
+    if(state.audio.ambience) audioParts.push('Ambiente');
+    if(state.audio.narration_mode==='guided') audioParts.push('Narração nativa');
+    if(state.audio.narration_mode==='voiceover') audioParts.push('Locução exata');
+    if(state.audio.music_enabled) audioParts.push('Música');
+  }
+  $('mcStudioGenerationAudio').textContent=audioParts.join(' + ') || 'Sem áudio';
   $('mcStudioRemoveSound').disabled=!state.edit.sound_id;
   $('mcStudioExport').disabled=!state.activeClipId || exporting;
   if(state.libTab==='sound')$('mcVideoLibHint').textContent='Sons desta marca para a edição do clipe.';
@@ -160,6 +172,7 @@ function paintVisual() {
   const video=$('mcSwapVideo');if(!video)return;
   video.style.filter=state.edit.grayscale?'grayscale(1)':'';
   video.style.transform=state.edit.flip?'scaleX(-1)':'';
+  video.playbackRate=state.edit.speed||1;
   const start=state.edit.start, end=Math.min(state.edit.end || video.duration,video.duration);
   const length=end-start, elapsed=Math.max(0,video.currentTime-start);
   const fi=Math.min(state.edit.video_fade_in,length), fo=Math.min(state.edit.video_fade_out,length);
@@ -183,7 +196,7 @@ function syncSound(force=false){
   const row=sounds.find(row=>row.id===state.edit.sound_id);
   if(!row || video.paused || video.hidden || video.muted){soundPlayer.pause();return;}
   if(soundPlayer.getAttribute('src')!==row.url){soundPlayer.src=row.url;soundPlayer.preload='metadata';force=true;}
-  const elapsed=Math.max(0,video.currentTime-start), length=end-start;
+  const elapsed=Math.max(0,video.currentTime-start)/(state.edit.speed||1), length=(end-start)/(state.edit.speed||1);
   let at=state.edit.sound_offset+elapsed;
   if(state.edit.loop) at%=row.duration;
   if(at>=row.duration){soundPlayer.pause();return;}
@@ -217,6 +230,8 @@ async function pollExport(id,client){
     if(client!==brand)return;
     if(result.status==='ready'||result.status==='failed'){
       exporting=false;sessionStorage.removeItem(`cadu-export:${client}`);paintStudio();
+      upsertWorkspaceSpend({id:`edit:${id}`,kind:'edit',label:'Exportação da edição',amount_brl:0,amount_usd:0,status:result.status==='ready'?'confirmed':'failed',created_at:new Date().toISOString()});
+      dirty();
       status(result.status==='ready'?'Exportação pronta. Alterações feitas durante o processamento ficam para a próxima exportação.':result.error,
         result.status==='ready'?`${base}/exports/${id}/content?client_id=${encodeURIComponent(client)}`:'');return;
     }

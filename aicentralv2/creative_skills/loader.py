@@ -60,6 +60,10 @@ FORMAT_SKILL_PATHS = {
     "youtube-infeed": "formats/video-15/SKILL.md",
 }
 
+VIDEO_SKILL_PATHS = {
+    "seedance-2-5-image-to-video": "video/seedance-2-5-image-to-video.md",
+}
+
 _LEGACY_FORMAT_FILES = {
     "ctv-video-linear-30": "formats/ctv-video-linear-30.md",
     "ctv-video-cta": "formats/ctv-video-linear-30.md",
@@ -108,6 +112,17 @@ def load_format_skill(format_key):
         path = SKILL_ROOT / legacy if legacy else path
     if not path.is_file():
         raise FileNotFoundError(f"Skill de formato não encontrada: {key}")
+    return path.read_text(encoding="utf-8")
+
+
+def load_video_skill(skill_id):
+    key = str(skill_id or "").strip()
+    relative = VIDEO_SKILL_PATHS.get(key)
+    if not relative:
+        raise ValueError(f"Skill de vídeo desconhecida: {key}")
+    path = SKILL_ROOT / relative
+    if not path.is_file():
+        raise FileNotFoundError(f"Skill de vídeo não encontrada: {key}")
     return path.read_text(encoding="utf-8")
 
 

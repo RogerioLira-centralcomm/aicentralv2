@@ -11,6 +11,7 @@ from unittest.mock import patch, Mock
 from flask import Blueprint, Flask, jsonify, request
 
 from aicentralv2.creative_media.studio import normalize_edit, probe, render_clip, register_studio_routes
+from aicentralv2.creative_media.planner import build_plan
 from aicentralv2.creative_media.transcode import mix_voiceover
 from aicentralv2.creative_format_lab.swap_session import normalize_video_project
 
@@ -21,10 +22,83 @@ class ProjectTest(unittest.TestCase):
         self.assertEqual(normalize_video_project({'audio': {'mode': 'silence'}})['audio']['mode'], 'silence')
 
     def test_roundtrip_and_invalid_numbers(self):
-        edit = normalize_edit({'start': 1, 'end': 5, 'original_volume': 0, 'sound_volume': .4, 'loop': True})
+        edit = normalize_edit({'start': 1, 'end': 5, 'speed': .5, 'original_volume': 0, 'sound_volume': .4, 'loop': True})
         self.assertEqual(normalize_video_project({'edit': edit})['edit'], edit)
         self.assertEqual(normalize_edit({'start': float('nan'), 'end': -5, 'sound_volume': 500})['start'], 0)
         self.assertEqual(normalize_edit({'sound_volume': 500})['sound_volume'], 1)
+        self.assertEqual(edit['speed'], .5)
+        self.assertEqual(normalize_edit({'speed': 20})['speed'], 4)
+
+    def test_workspace_spend_roundtrip_is_bounded_and_sanitized(self):
+        project = normalize_video_project({'spend': {'events': [{
+            'id': 'video:job-1', 'kind': 'video', 'label': 'Geração 8s',
+            'amount_brl': 12.34, 'amount_usd': 2.1, 'status': 'confirmed',
+            'created_at': '2026-09-14T20:00:00Z',
+        }]}})
+        self.assertEqual(project['spend']['events'][0]['amount_brl'], 12.34)
+        self.assertEqual(project['spend']['events'][0]['status'], 'confirmed')
+
+    def test_single_image_project_preserves_seedance_mode_and_four_seconds(self):
+        project = normalize_video_project({'generation_mode': 'single_image', 'duration': 4})
+        self.assertEqual(project['generation_mode'], 'single_image')
+        self.assertEqual(project['duration'], 4)
+
+    def test_single_image_vertical_output_and_native_audio_contract(self):
+        plan = build_plan({
+            'source': {'mode': 'flattened_still', 'base_id': 'scene-1'},
+            'duration': 4,
+            'quality': 'production',
+            'aspect_ratio': '9:16',
+            'audio': {'mode': 'ambient'},
+        })
+        self.assertEqual(plan['size'], '720x1280')
+        self.assertEqual(plan['aspect_ratio'], '9:16')
+        self.assertTrue(plan['generate_audio'])
+        self.assertIsNone(plan['seed'])
+
+    def test_audio_composition_supports_narration_music_and_ambience(self):
+        plan = build_plan({
+            'audio': {
+                'enabled': True,
+                'ambience': True,
+                'ambience_note': 'som discreto de loja',
+                'narration_mode': 'guided',
+                'prompt': 'voz brasileira apresenta a oferta visível',
+                'music_enabled': True,
+                'music_note': 'eletrônica moderna e discreta',
+            },
+        })
+        self.assertTrue(plan['generate_audio'])
+        self.assertEqual(plan['audio_mode'], 'voice')
+        self.assertIn('Keep it below narration', plan['prompt'])
+        self.assertIn('som discreto de loja', plan['prompt'])
+
+    def test_exact_voiceover_does_not_create_duplicate_native_speech(self):
+        plan = build_plan({
+            'audio': {
+                'enabled': True,
+                'ambience': False,
+                'narration_mode': 'voiceover',
+                'script': 'Conheça agora a nossa oferta.',
+                'music_enabled': True,
+                'music_note': 'institucional leve',
+            },
+        })
+        self.assertTrue(plan['generate_audio'])
+        self.assertIn('No native speech', plan['prompt'])
+        self.assertIn('background music bed', plan['prompt'])
+
+    def test_audio_composition_roundtrips_and_silence_disables_layers(self):
+        project = normalize_video_project({'audio': {
+            'enabled': False,
+            'ambience': True,
+            'narration_mode': 'guided',
+            'music_enabled': True,
+        }})
+        self.assertEqual(project['audio']['mode'], 'silence')
+        self.assertFalse(project['audio']['ambience'])
+        self.assertEqual(project['audio']['narration_mode'], 'none')
+        self.assertFalse(project['audio']['music_enabled'])
 
 
 @unittest.skipUnless(shutil.which('ffmpeg') and shutil.which('ffprobe'), 'FFmpeg required')
@@ -81,6 +155,13 @@ class MediaTest(unittest.TestCase):
         self.assertEqual(len(pixel), 3)
         self.assertLessEqual(max(pixel) - min(pixel), 2)
         self.assertAlmostEqual(probe(output)[0], 2.4, delta=.15)
+
+    def test_speed_changes_export_duration_and_keeps_audio(self):
+        output = self.root / 'speed.mp4'
+        render_clip(self.voiced, output, normalize_edit({'speed': 2}))
+        duration, streams = probe(output)
+        self.assertAlmostEqual(duration, 1.2, delta=.18)
+        self.assertIn('audio', streams)
 
     def test_export_routes_are_idempotent_and_brand_scoped(self):
         from aicentralv2.creative_media import studio

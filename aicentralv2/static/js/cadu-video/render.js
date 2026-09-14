@@ -31,12 +31,18 @@ export function syncFormControls() {
     $("mcVideoName").value = state.name || "";
   }
   if ($("mcVideoAspect")) $("mcVideoAspect").value = state.aspectRatio || "16:9";
+  const source = document.querySelector(`input[name="mcVideoSource"][value="${state.generationMode || 'storyboard'}"]`);
+  if (source) source.checked = true;
   const duration = document.querySelector(`input[name="mcVideoDuration"][value="${state.duration}"]`);
   if (duration) duration.checked = true;
   const quality = document.querySelector(`input[name="mcVideoQuality"][value="${state.quality}"]`);
   if (quality) quality.checked = true;
-  const audio = document.querySelector(`input[name="mcVideoAudio"][value="${state.audio.mode}"]`);
+  const audio = document.querySelector(`input[name="mcVideoAudioEnabled"][value="${state.audio.enabled === false ? 'off' : 'on'}"]`);
   if (audio) audio.checked = true;
+  const narration = document.querySelector(`input[name="mcVideoNarration"][value="${state.audio.narration_mode || 'none'}"]`);
+  if (narration) narration.checked = true;
+  if ($("mcVideoAmbience")) $("mcVideoAmbience").checked = Boolean(state.audio.ambience);
+  if ($("mcVideoMusicEnabled")) $("mcVideoMusicEnabled").checked = Boolean(state.audio.music_enabled);
   const voice = document.querySelector(`input[name="mcVideoVoiceGender"][value="${state.audio.voice}"]`);
   if (voice) voice.checked = true;
   const pace = document.querySelector(`input[name="mcVideoVoicePace"][value="${state.audio.pace}"]`);
@@ -49,6 +55,9 @@ export function syncFormControls() {
   }
   if ($("mcVideoVoicePrompt") && document.activeElement !== $("mcVideoVoicePrompt")) {
     $("mcVideoVoicePrompt").value = state.audio.prompt || "";
+  }
+  if ($("mcVideoAmbienceNote") && document.activeElement !== $("mcVideoAmbienceNote")) {
+    $("mcVideoAmbienceNote").value = state.audio.ambience_note || "";
   }
   if ($("mcVideoVoiceover") && document.activeElement !== $("mcVideoVoiceover")) {
     $("mcVideoVoiceover").value = state.audio.script || "";
@@ -82,10 +91,13 @@ export function syncFormControls() {
 }
 
 export function paintAudioRows() {
-  const mode = state.audio.mode;
-  if ($("mcVideoVoiceRow")) $("mcVideoVoiceRow").hidden = mode !== "voice";
-  if ($("mcVideoVoiceoverRow")) $("mcVideoVoiceoverRow").hidden = mode !== "voiceover";
-  if ($("mcVideoMusicRow")) $("mcVideoMusicRow").hidden = mode !== "music";
+  const enabled = state.audio.enabled !== false;
+  const narration = state.audio.narration_mode || "none";
+  if ($("mcVideoAudioBuilder")) $("mcVideoAudioBuilder").hidden = !enabled;
+  if ($("mcVideoVoiceRow")) $("mcVideoVoiceRow").hidden = !enabled || narration !== "guided";
+  if ($("mcVideoVoiceoverRow")) $("mcVideoVoiceoverRow").hidden = !enabled || narration !== "voiceover";
+  if ($("mcVideoAmbienceRow")) $("mcVideoAmbienceRow").hidden = !enabled || !state.audio.ambience;
+  if ($("mcVideoMusicRow")) $("mcVideoMusicRow").hidden = !enabled || !state.audio.music_enabled;
 }
 
 export function paintLibrary() {
@@ -183,11 +195,18 @@ export function paintProps() {
     $("mcVideoSceneIndex").textContent = index >= 0 ? String(index + 1) : "—";
   }
   if ($("mcVideoSceneHint")) {
-    $("mcVideoSceneHint").textContent = count < 2
-      ? "Adicione pelo menos duas cenas."
+    $("mcVideoSceneHint").textContent = count === 0
+      ? "Adicione uma peça para começar."
+      : count === 1
+        ? "Uma cena funciona; duas cenas criam uma narrativa mais rica."
       : count > 30
         ? "O clipe aceita no máximo 30 cenas."
         : `${count} cenas na ordem do clipe.`;
+  }
+  if ($("mcVideoSceneAssist")) $("mcVideoSceneAssist").hidden = count !== 1;
+  if ($("mcVideoCreateScene2")) {
+    $("mcVideoCreateScene2").disabled = count !== 1 || state.creatingScene2 || !state.clientId;
+    $("mcVideoCreateScene2").textContent = state.creatingScene2 ? "Criando cena 2…" : "Criar cena 2 com Trocr";
   }
   const props = $("mcVideoProps");
   const scene = state.scenes[index];
@@ -306,14 +325,16 @@ export function paintSaveStatus() {
 }
 
 export function updateGenerateEnabled() {
-  const ready = state.scenes.length >= 2
-    && state.scenes.length <= 30
-    && Boolean(state.script?.beats?.length)
+  const singleImage = state.generationMode === "single_image";
+  const sourceReady = singleImage
+    ? Boolean(state.selectedSceneId)
+    : state.scenes.length >= 2 && state.scenes.length <= 30 && Boolean(state.script?.beats?.length);
+  const ready = sourceReady
     && !state.quoteError && state.quoteStatus === "ready" && !state.generating;
   const button = $("mcVideoGenerate");
   if (!button) return;
   button.disabled = !ready;
-  const reason = !state.clientId ? "Escolha uma marca" : state.scenes.length < 2 ? "Adicione duas cenas" : !state.script?.beats?.length ? "Monte o roteiro" : state.quoteError ? state.quoteError : state.quoteStatus !== "ready" ? "Aguarde o cálculo do custo" : state.generating ? "Gerando clipe" : "";
+  const reason = !state.clientId ? "Escolha uma marca" : singleImage && !state.selectedSceneId ? "Selecione uma imagem" : !singleImage && state.scenes.length < 2 ? "Adicione duas cenas" : !singleImage && !state.script?.beats?.length ? "Monte o roteiro" : state.quoteError ? state.quoteError : state.quoteStatus !== "ready" ? "Aguarde o cálculo do custo" : state.generating ? "Gerando clipe" : "";
   button.title = reason;
   button.setAttribute("aria-label", reason ? `Gerar clipe: ${reason}` : "Gerar clipe");
 }

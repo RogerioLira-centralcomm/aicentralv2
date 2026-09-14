@@ -46,17 +46,19 @@ def format_surface(piece_ratio: str) -> str:
 def build_prompt(plan: dict) -> str:
     motion = MOTION.get(plan.get("motion_preset") or "live", MOTION["live"])
     intensity = INTENSITY.get(plan.get("motion_intensity") or "subtle", INTENSITY["subtle"])
-    audio = AUDIO.get(plan.get("audio_mode") or "silence", AUDIO["silence"])
     note = str(plan.get("motion_note") or "").strip()
     voice = str(plan.get("voice_note") or "").strip()
     music = str(plan.get("music_note") or "").strip()
     extra = []
     if note:
         extra.append(f"User motion note: {note}")
-    if music and plan.get("audio_mode") == "music":
+    if music and plan.get("music_enabled"):
         extra.append(f"Music direction: {music}")
-    if voice and plan.get("audio_mode") == "voice":
+    if voice and plan.get("narration_mode") == "guided":
         extra.append(f"Voice orientation (not a verbatim script): {voice}")
+    ambience = str(plan.get("ambience_note") or "").strip()
+    if ambience and plan.get("ambience"):
+        extra.append(f"Ambient sound direction: {ambience}")
     extras = "\n".join(extra)
     plate = _plate_copy(plan)
     surface = plan.get("format_surface") or format_surface(
@@ -114,9 +116,34 @@ Duration:
 {hold}
 
 Audio:
-{audio}
+{_audio_copy(plan)}
 {extras}
 """.strip()
+
+
+def _audio_copy(plan):
+    if not plan.get("audio_enabled"):
+        return AUDIO["silence"]
+    lines = []
+    narration = plan.get("narration_mode")
+    if narration == "guided":
+        lines.append(
+            "Generate one clear Brazilian Portuguese narration according to the voice orientation. "
+            "Use only facts supplied in that orientation; do not invent prices, conditions or claims."
+        )
+    elif narration == "voiceover":
+        lines.append("No native speech or lip-sync. A separate exact voiceover will be mixed later.")
+    else:
+        lines.append("No speech and no lip-sync.")
+    if plan.get("ambience"):
+        lines.append("Add restrained, scene-matched ambience and synchronized practical sound effects.")
+    if plan.get("music_enabled"):
+        lines.append(
+            "Add an instrumental background music bed with no lyrics. Keep it below narration and dialogue."
+        )
+    if not plan.get("ambience") and not plan.get("music_enabled") and narration != "guided":
+        lines.append("Do not generate native audio.")
+    return " ".join(lines)
 
 
 def _surface_copy(surface, plan):

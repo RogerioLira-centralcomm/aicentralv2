@@ -42,6 +42,7 @@ def normalize_edit(raw):
     return {
         "start": number(data.get("start"), 0, 0, 300),
         "end": number(data.get("end"), 0, 0, 300),
+        "speed": number(data.get("speed"), 1, .25, 4),
         "original_volume": number(data.get("original_volume"), 1, 0, 1),
         "sound_id": str(data.get("sound_id") or "")[:32],
         "sound_volume": number(data.get("sound_volume"), .35, 0, 1),
@@ -104,6 +105,8 @@ def _record(root, ident, kind):
 
 
 def register_studio_routes(blueprint):
+    blueprint.add_url_rule('/api/format-lab/studio/agent/plan', view_func=studio_agent_plan, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/agent/narration', view_func=studio_agent_narration, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/projects', view_func=studio_projects, methods=['GET', 'POST'])
     blueprint.add_url_rule('/api/format-lab/studio/projects/<ident>', view_func=studio_project, methods=['GET', 'POST'])
     blueprint.add_url_rule('/api/format-lab/studio/capabilities', view_func=capabilities)
@@ -112,6 +115,34 @@ def register_studio_routes(blueprint):
     blueprint.add_url_rule('/api/format-lab/studio/exports', view_func=export_clip, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/exports/<ident>', view_func=export_status)
     blueprint.add_url_rule('/api/format-lab/studio/exports/<ident>/content', view_func=export_content)
+
+
+@admin_required_api
+@trocr_csrf_required
+def studio_agent_plan():
+    from ..creative_format_lab.swap_routes import _http
+    from ..services.openrouter_service import chat_completion
+    from .studio_agent import plan_request
+    execute, json_body, ok, _ = _http()
+    def run():
+        data = json_body()
+        _scope(data.get('client_id'))
+        return ok(plan_request(data.get('message'), data.get('context'), text_callable=chat_completion))
+    return execute(run)
+
+
+@admin_required_api
+@trocr_csrf_required
+def studio_agent_narration():
+    from ..creative_format_lab.swap_routes import _http
+    from ..services.openrouter_service import chat_completion
+    from .studio_agent import suggest_narration
+    execute, json_body, ok, _ = _http()
+    def run():
+        data = json_body()
+        _scope(data.get('client_id'))
+        return ok(suggest_narration(data.get('creative'), data.get('duration'), text_callable=chat_completion))
+    return execute(run)
 
 
 @admin_required_api
@@ -157,6 +188,18 @@ def capabilities():
     from .planner import AUDIO_MODES, MOTION_PRESETS
     return jsonify(success=True, data={
         "model": settings.MODEL,
+        "skills": {
+            "single_image": {
+                "id": "seedance-2-5-image-to-video",
+                "label": "Seedance 2.5 · imagem para vídeo",
+                "resolution": "720p",
+                "duration_min": 4,
+                "duration_max": 30,
+                "native_audio": True,
+                "aspect_ratio": "source_image",
+                "supports_seed": False,
+            }
+        },
         "durations": [value for value in settings.DURATIONS if value <= settings.MAX_DURATION],
         "ratios": settings.SEEDANCE_RATIOS,
         "qualities": {"draft": settings.DRAFT_RESOLUTION, "production": settings.PRODUCTION_RESOLUTION},
@@ -235,6 +278,8 @@ def render_clip(source, dest, edit, sound=None):
     length = end - start
     if length < .1 or length > 300:
         raise ValueError('Escolha um intervalo de corte válido, de até 5 minutos.')
+    speed = edit['speed']
+    output_length = length / speed
     command = ['ffmpeg', '-y', '-v', 'error', '-ss', str(start), '-i', str(source)]
     if sound:
         if edit['loop']:
@@ -243,32 +288,47 @@ def render_clip(source, dest, edit, sound=None):
     filters = []
     labels = []
     if 'audio' in streams and edit['original_volume'] > 0:
-        filters += [f"[0:a]asetpts=PTS-STARTPTS,volume={edit['original_volume']},apad[original]"]
+        filters += [f"[0:a]asetpts=PTS-STARTPTS,{_atempo(speed)},volume={edit['original_volume']},apad[original]"]
         labels += ['[original]']
     if sound:
-        filters += [f"[1:a]asetpts=PTS-STARTPTS,volume={edit['sound_volume']},apad,atrim=duration={length},"
-                    f"afade=t=in:d={min(edit['fade_in'], length)},"
-                    f"afade=t=out:st={max(0, length-edit['fade_out'])}:d={min(edit['fade_out'], length)}[sound]"]
+        filters += [f"[1:a]asetpts=PTS-STARTPTS,volume={edit['sound_volume']},apad,atrim=duration={output_length},"
+                    f"afade=t=in:d={min(edit['fade_in'], output_length)},"
+                    f"afade=t=out:st={max(0, output_length-edit['fade_out'])}:d={min(edit['fade_out'], output_length)}[sound]"]
         labels += ['[sound]']
-    command += ['-t', str(length)]
+    command += ['-t', str(output_length)]
     if labels:
         filters += [''.join(labels) + f'amix=inputs={len(labels)}:normalize=0,alimiter=limit=0.95[audio]']
         command += ['-filter_complex', ';'.join(filters), '-map', '0:v:0', '-map', '[audio]', '-c:a', 'aac']
     else:
         command += ['-map', '0:v:0', '-an']
     visual = []
+    if speed != 1:
+        visual.append(f'setpts=(PTS-STARTPTS)/{speed}')
     if edit['grayscale']:
         visual.append('hue=s=0')
     if edit['flip']:
         visual.append('hflip')
     if edit['video_fade_in']:
-        visual.append(f"fade=t=in:d={min(edit['video_fade_in'], length)}")
+        visual.append(f"fade=t=in:d={min(edit['video_fade_in'], output_length)}")
     if edit['video_fade_out']:
-        visual.append(f"fade=t=out:st={max(0, length-edit['video_fade_out'])}:d={min(edit['video_fade_out'], length)}")
+        visual.append(f"fade=t=out:st={max(0, output_length-edit['video_fade_out'])}:d={min(edit['video_fade_out'], output_length)}")
     if visual:
         command += ['-vf', ','.join(visual)]
     command += ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-movflags', '+faststart', str(dest)]
     subprocess.run(command, check=True, capture_output=True, timeout=240)
+
+
+def _atempo(speed):
+    value = float(speed or 1)
+    parts = []
+    while value < .5:
+        parts.append('atempo=0.5')
+        value /= .5
+    while value > 2:
+        parts.append('atempo=2.0')
+        value /= 2
+    parts.append(f'atempo={value}')
+    return ','.join(parts)
 
 
 def _render_job(root, ident, source, edit, sound):

@@ -22,9 +22,13 @@ import {
   Desk,
   alignBeatsToScenes,
   ensureBeat,
+  normalizeAudioState,
+  normalizeWorkspaceSpend,
   resetProjectFields,
   spokenFromBeats,
   state,
+  syncAudioMode,
+  upsertWorkspaceSpend,
 } from "./cadu-video/state.js";
 import { parseScript, scriptText } from "./cadu-video/utils.js";
 
@@ -32,6 +36,7 @@ let quoteTimer = null;
 let saveTimer = null;
 let quoteRequest = 0;
 let saveRequest = 0;
+let narrationRequest = 0;
 
 boot();
 
@@ -58,6 +63,7 @@ function bindUi() {
   document.getElementById("mcVideoLibrary")?.addEventListener("click", onLibraryClick);
   document.getElementById("mcVideoClips")?.addEventListener("click", onClipClick);
   document.getElementById("mcVideoScriptBtn")?.addEventListener("click", buildScript);
+  document.getElementById("mcVideoCreateScene2")?.addEventListener("click", createScene2WithTrocr);
   document.getElementById("mcVideoGenerate")?.addEventListener("click", generate);
   document.getElementById("mcVideoSaveStatus")?.addEventListener("click", () => {
     if (state.saveStatus === "error") persistProject();
@@ -91,6 +97,19 @@ function bindUi() {
     markDirty();
     scheduleQuote();
   });
+  document.querySelectorAll('input[name="mcVideoSource"]').forEach((input) => {
+    input.addEventListener("change", () => {
+      state.generationMode = input.value === "single_image" ? "single_image" : "storyboard";
+      if (state.generationMode === "single_image") {
+        state.quality = "production";
+        state.seed = null;
+        adoptSelectedAspect();
+      }
+      markDirty();
+      scheduleQuote();
+      paintAll();
+    });
+  });
   document.querySelectorAll('input[name="mcVideoDuration"]').forEach((input) => {
     input.addEventListener("change", () => {
       state.duration = Number(input.value || 8);
@@ -106,16 +125,43 @@ function bindUi() {
       scheduleQuote();
     });
   });
-  document.querySelectorAll('input[name="mcVideoAudio"]').forEach((input) => {
+  document.querySelectorAll('input[name="mcVideoAudioEnabled"]').forEach((input) => {
     input.addEventListener("change", () => {
-      state.audio.mode = input.value || "silence";
-      if (state.audio.mode === "voiceover" && !state.audio.script) {
-        state.audio.script = spokenFromBeats();
+      state.audio.enabled = input.value === "on";
+      if (state.audio.enabled && !state.audio.ambience && !state.audio.music_enabled && state.audio.narration_mode === "none") {
+        state.audio.ambience = true;
       }
+      syncAudioMode(state.audio);
       markDirty();
       scheduleQuote();
       paintAll();
     });
+  });
+  document.querySelectorAll('input[name="mcVideoNarration"]').forEach((input) => {
+    input.addEventListener("change", () => {
+      state.audio.narration_mode = input.value || "none";
+      if (state.audio.narration_mode === "voiceover" && !state.audio.script) {
+        state.audio.script = spokenFromBeats();
+      }
+      syncAudioMode(state.audio);
+      markDirty();
+      scheduleQuote();
+      paintAll();
+    });
+  });
+  document.getElementById("mcVideoAmbience")?.addEventListener("change", (event) => {
+    state.audio.ambience = event.target.checked;
+    syncAudioMode(state.audio);
+    markDirty();
+    scheduleQuote();
+    paintAll();
+  });
+  document.getElementById("mcVideoMusicEnabled")?.addEventListener("change", (event) => {
+    state.audio.music_enabled = event.target.checked;
+    syncAudioMode(state.audio);
+    markDirty();
+    scheduleQuote();
+    paintAll();
   });
   document.querySelectorAll('input[name="mcVideoVoiceGender"]').forEach((input) => {
     input.addEventListener("change", () => {
@@ -151,6 +197,10 @@ function bindUi() {
     state.audio.prompt = event.target.value || "";
     markDirty();
   });
+  document.getElementById("mcVideoAmbienceNote")?.addEventListener("input", (event) => {
+    state.audio.ambience_note = event.target.value || "";
+    markDirty();
+  });
   document.getElementById("mcVideoVoiceover")?.addEventListener("input", (event) => {
     state.audio.script = event.target.value || "";
     markDirty();
@@ -161,6 +211,13 @@ function bindUi() {
     state.audio.music_note = event.target.value || "";
     markDirty();
   });
+  document.getElementById("mcVideoMusicPreset")?.addEventListener("change", (event) => {
+    if (event.target.value) state.audio.music_note = event.target.value;
+    markDirty();
+    paintAll();
+  });
+  document.getElementById("mcVideoSuggestNarration")?.addEventListener("click", () => suggestNarration("guided"));
+  document.getElementById("mcVideoSuggestVoiceover")?.addEventListener("click", () => suggestNarration("voiceover"));
   document.getElementById("mcVideoScript")?.addEventListener("change", (event) => {
     state.script = parseScript(event.target.value, state.script, state.scenes);
     alignBeatsToScenes();
@@ -183,6 +240,7 @@ function bindUi() {
     btn.addEventListener("click", () => {
       state.panelTab = btn.getAttribute("data-panel-tab") || "scene";
       paintAll();
+      document.querySelector(".mc-cadu-video-desk")?.scrollTo({ top: 0, behavior: "auto" });
     });
   });
   document.querySelectorAll('[role="tablist"]').forEach((tablist) => {
@@ -216,7 +274,7 @@ function onBeatField() {
   beat.motion = document.getElementById("mcVideoBeatMotion")?.value || "";
   beat.hold = document.getElementById("mcVideoBeatHold")?.value || "";
   beat.spoken = document.getElementById("mcVideoBeatSpoken")?.value || "";
-  if (state.audio.mode === "voiceover") {
+  if (state.audio.narration_mode === "voiceover") {
     state.audio.script = spokenFromBeats();
   }
   const scriptNode = document.getElementById("mcVideoScript");
@@ -289,6 +347,7 @@ function applyProject(project) {
   if (!project || typeof project !== "object") return;
   state.edit = { ...defaultEdit(), ...(project.edit || {}) };
   state.seed = project.seed ?? null;
+  state.generationMode = project.generation_mode === "single_image" ? "single_image" : "storyboard";
   state.name = project.name || state.name;
   state.aspectRatio = project.aspect_ratio || state.aspectRatio;
   state.duration = Number(project.duration || state.duration) || 8;
@@ -297,11 +356,12 @@ function applyProject(project) {
   state.selectedSceneId = project.selected_scene_id || state.selectedSceneId;
   if (project.script && Array.isArray(project.script.beats)) state.script = project.script;
   if (project.audio && typeof project.audio === "object") {
-    state.audio = { ...state.audio, ...project.audio };
+    state.audio = normalizeAudioState(project.audio);
   }
   if (project.motion && typeof project.motion === "object") {
     state.motion = { ...state.motion, ...project.motion };
   }
+  state.spend = normalizeWorkspaceSpend(project.spend);
   const ids = Array.isArray(project.scene_ids) ? project.scene_ids : [];
   if (ids.length) {
     state.scenes = ids
@@ -326,7 +386,9 @@ function projectPayload() {
       audio: state.audio,
       edit: state.edit,
       seed: state.seed,
+      generation_mode: state.generationMode,
       motion: state.motion,
+      spend: state.spend,
       active_clip_id: state.activeClipId,
       selected_scene_id: state.selectedSceneId,
     },
@@ -396,8 +458,74 @@ async function loadLibrary() {
     const keep = new Set(state.library.map((item) => item.id));
     state.scenes = state.scenes.filter((scene) => keep.has(scene.id) && !state.library.find((item) => item.id === scene.id)?.broken);
     paintLibrary();
+    return state.library;
   } catch (error) {
     setStatus(error.message);
+    return [];
+  }
+}
+
+async function createScene2WithTrocr() {
+  if (state.creatingScene2 || state.scenes.length !== 1 || !state.clientId) return;
+  const base = state.scenes[0];
+  const reference = base.image_url || base.image;
+  if (!reference) {
+    setStatus("A primeira cena não possui uma imagem disponível.");
+    return;
+  }
+  const copy = { ...(base.ocr || {}), ...(base.params || {}) };
+  const before = new Set(state.library.map((item) => item.id));
+  state.creatingScene2 = true;
+  paintProps();
+  setStatus("Trocr está criando uma segunda tomada coerente com a primeira…");
+  try {
+    const data = await post("/parametros/api/format-lab/swap", {
+      client_id: state.clientId,
+      reference,
+      base_id: base.version_id || String(base.id || "").split(":").pop(),
+      run_id: base.run_id || undefined,
+      aspect_ratio: state.aspectRatio || base.aspect_ratio || "16:9",
+      quality: "production",
+      force_image: true,
+      use_brand_context: true,
+      scene_variant: 2,
+      scene_index: 2,
+      scene_group: base.scene_group || undefined,
+      headline: copy.headline || base.headline || "",
+      support: copy.support || "",
+      subtitle: copy.subtitle || "",
+      price: copy.price || "",
+      cta: copy.cta || "",
+      logo_text: copy.logo_text || "",
+      dates: copy.dates || "",
+      venue: copy.venue || "",
+      disclaimer: copy.disclaimer || "",
+      ocr: base.ocr || undefined,
+      elements: Array.isArray(base.ocr?.elements) ? base.ocr.elements : undefined,
+      preserve: ["layout", "people", "product", "logo", "text_position", "colors", "graphic"],
+      alter: ["background"],
+      note: "Crie uma segunda tomada da mesma campanha, preserve elenco, produto, marca e texto; varie enquadramento e ambiente para continuar a narrativa.",
+    });
+    if (!data?.image_url && !data?.png_data_url) throw new Error(data?.preview || "O Trocr não devolveu a cena 2.");
+    recordSpend(`trocr:${data.plan_hash || data.image_url || Date.now()}`, "image", "Cena 2 com Trocr", data.quote, "confirmed");
+    markDirty();
+    const items = await loadLibrary();
+    const created = items.find((item) => !before.has(item.id) && (
+      item.image_url === data.image_url ||
+      (item.run_id === base.run_id && Number(item.scene_index) === 2)
+    ));
+    if (!created) throw new Error("A cena foi gerada, mas não apareceu na biblioteca. Recarregue o Studio.");
+    state.scenes = [base, created];
+    state.selectedSceneId = created.id;
+    state.generationMode = "storyboard";
+    alignBeatsToScenes();
+    markDirty();
+    setStatus("Cena 2 pronta. Revise as duas tomadas e monte o roteiro.");
+  } catch (error) {
+    setStatus(error.message);
+  } finally {
+    state.creatingScene2 = false;
+    paintAll();
   }
 }
 
@@ -476,9 +604,11 @@ function restoreFromClip(clip) {
     alignBeatsToScenes();
   }
   if (clip.quality) state.quality = clip.quality;
-  if ([5,8,10,15,20,30].includes(Number(clip.duration))) state.duration = Number(clip.duration);
+  if ([4,5,8,10,15,20,30].includes(Number(clip.duration))) state.duration = Number(clip.duration);
   if (clip.voiceover_script) {
-    state.audio.mode = "voiceover";
+    state.audio.enabled = true;
+    state.audio.narration_mode = "voiceover";
+    syncAudioMode(state.audio);
     state.audio.script = clip.voiceover_script;
   }
   alignBeatsToScenes();
@@ -488,11 +618,19 @@ function restoreFromClip(clip) {
 function selectScene(id) {
   if (!id) return;
   state.selectedSceneId = id;
+  if (state.generationMode === "single_image") adoptSelectedAspect();
   state.previewMode = "scene";
   const empty = document.getElementById("mcVideoEmpty");
   if (empty) empty.hidden = true;
   paintAll();
   markDirty();
+  scheduleQuote();
+}
+
+function adoptSelectedAspect(item = null) {
+  const selected = item || state.scenes.find((row) => row.id === state.selectedSceneId);
+  const ratio = String(selected?.aspect_ratio || "");
+  if (["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"].includes(ratio)) state.aspectRatio = ratio;
 }
 
 function stepScene(delta) {
@@ -530,6 +668,9 @@ function onLibraryClick(event) {
   } else if (state.scenes.length < 30) {
     state.scenes.push(item);
     state.selectedSceneId = item.id;
+    if (state.scenes.length === 1) state.generationMode = "single_image";
+    else if (state.scenes.length === 2) state.generationMode = "storyboard";
+    if (state.generationMode === "single_image") adoptSelectedAspect(item);
   }
   alignBeatsToScenes();
   state.previewMode = "scene";
@@ -615,6 +756,9 @@ async function takeFile(file) {
       if (!item.broken && state.scenes.length < 30) {
         state.scenes.push(item);
         state.selectedSceneId = item.id;
+        if (state.scenes.length === 1) state.generationMode = "single_image";
+        else if (state.scenes.length === 2) state.generationMode = "storyboard";
+        if (state.generationMode === "single_image") adoptSelectedAspect(item);
         alignBeatsToScenes();
       }
       paintAll();
@@ -711,6 +855,10 @@ function removeSelectedScene() {
   if (!state.selectedSceneId) return;
   state.scenes = state.scenes.filter((item) => item.id !== state.selectedSceneId);
   state.selectedSceneId = state.scenes[0]?.id || "";
+  if (state.scenes.length === 1) {
+    state.generationMode = "single_image";
+    adoptSelectedAspect(state.scenes[0]);
+  }
   alignBeatsToScenes();
   paintAll();
   markDirty();
@@ -747,7 +895,7 @@ async function buildScript() {
       local.cta = scene.cta || "";
       local.ocr = scene.ocr || null;
     });
-    if (state.audio.mode === "voiceover") {
+    if (state.audio.narration_mode === "voiceover") {
       state.audio.script = spokenFromBeats() || state.audio.script;
     }
     paintAll();
@@ -767,21 +915,25 @@ function planBody() {
     state.script = parseScript(scriptNode.value, state.script, state.scenes) || state.script;
   }
   alignBeatsToScenes();
-  const audio = { ...state.audio };
-  if (audio.mode === "voiceover" && !audio.script) {
+  const audio = syncAudioMode({ ...state.audio });
+  if (audio.narration_mode === "voiceover" && !audio.script) {
     audio.script = spokenFromBeats();
   }
+  const singleImage = state.generationMode === "single_image";
+  const selected = state.scenes.find((item) => item.id === state.selectedSceneId) || state.scenes[0];
   return {
     client_id: state.clientId || undefined,
     duration: state.duration,
-    seed: state.seed,
-    quality: state.quality,
+    seed: singleImage ? null : state.seed,
+    quality: singleImage ? "production" : state.quality,
     aspect_ratio: state.aspectRatio,
-    source: { mode: "storyboard", ref_ids: state.scenes.map((item) => item.id) },
+    source: singleImage
+      ? { mode: "flattened_still", base_id: selected?.id || "" }
+      : { mode: "storyboard", ref_ids: state.scenes.map((item) => item.id) },
     scene_ids: state.scenes.map((item) => item.id),
     ref_ids: state.scenes.map((item) => item.id),
     script: state.script,
-    require_refs: true,
+    require_refs: !singleImage,
     audio,
     motion: {
       preset: state.motion.preset,
@@ -789,6 +941,47 @@ function planBody() {
       note: state.motion.note,
     },
   };
+}
+
+async function suggestNarration(mode) {
+  if (!state.clientId) return;
+  const request = ++narrationRequest;
+  const buttons = [document.getElementById("mcVideoSuggestNarration"), document.getElementById("mcVideoSuggestVoiceover")];
+  const status = document.getElementById(mode === "voiceover" ? "mcVideoVoiceoverHint" : "mcVideoNarrationStatus");
+  buttons.forEach((button) => { if (button) button.disabled = true; });
+  if (status) status.textContent = "Lendo a peça e preparando uma sugestão…";
+  try {
+    const result = await post("/parametros/api/format-lab/studio/agent/narration", {
+      client_id: state.clientId,
+      duration: state.duration,
+      creative: {
+        scenes: state.scenes.map((scene) => {
+          const beat = (state.script?.beats || []).find((item) => item.id === scene.id) || {};
+          return {
+            name: scene.name || "",
+            headline: scene.headline || "",
+            support: scene.support || "",
+            cta: scene.cta || "",
+            spoken: beat.spoken || "",
+          };
+        }),
+      },
+    });
+    if (request !== narrationRequest) return;
+    state.audio.enabled = true;
+    state.audio.narration_mode = mode;
+    if (mode === "voiceover") state.audio.script = result.script || state.audio.script;
+    else state.audio.prompt = result.prompt || state.audio.prompt;
+    syncAudioMode(state.audio);
+    markDirty();
+    scheduleQuote();
+    paintAll();
+    if (status) status.textContent = result.provider === "ai" ? "Sugestão criada. Revise antes de gerar." : "Rascunho criado com o texto disponível. Revise antes de gerar.";
+  } catch (error) {
+    if (request === narrationRequest && status) status.textContent = error.message;
+  } finally {
+    if (request === narrationRequest) buttons.forEach((button) => { if (button) button.disabled = false; });
+  }
 }
 
 function scheduleQuote() {
@@ -802,7 +995,8 @@ function scheduleQuote() {
 }
 
 async function refreshQuote() {
-  if (state.scenes.length < 2 || !state.script?.beats?.length) {
+  const singleImage = state.generationMode === "single_image";
+  if ((singleImage && !state.selectedSceneId) || (!singleImage && (state.scenes.length < 2 || !state.script?.beats?.length))) {
     state.quote = null;
     state.quoteError = "";
     state.quoteStatus = "idle";
@@ -836,11 +1030,16 @@ async function refreshQuote() {
 }
 
 async function generate() {
-  if (state.scenes.length < 2) {
+  const singleImage = state.generationMode === "single_image";
+  if (singleImage && !state.selectedSceneId) {
+    setStatus("Selecione a imagem que será animada.");
+    return;
+  }
+  if (!singleImage && state.scenes.length < 2) {
     setStatus("Adicione pelo menos duas cenas.");
     return;
   }
-  if (!state.script?.beats?.length) {
+  if (!singleImage && !state.script?.beats?.length) {
     setStatus("Monte o roteiro antes de gerar.");
     return;
   }
@@ -855,6 +1054,10 @@ async function generate() {
     await persistProject();
     const job = await submitAnimate(body);
     state.jobId = job.job_id || job.public_id || "";
+    if (state.jobId) {
+      recordSpend(`video:${state.jobId}`, "video", `Geração de vídeo · ${state.duration}s`, job.quote || state.quote, "pending");
+      markDirty();
+    }
     if (state.jobId) sessionStorage.setItem(JOB_KEY, state.jobId);
     setStatus(job.message || "Gerando o clipe…");
     resume(state.jobId);
@@ -875,6 +1078,7 @@ function resume(jobId) {
     await loadClips({ prefer: version, restore: false });
     const clip = pickClip(version);
     if (clip) await selectClip(clip, { restore: false });
+    recordSpend(`video:${jobId}`, "video", `Geração de vídeo · ${job.plan?.duration || state.duration}s`, job.quote, "confirmed");
     setStatus(job.message || "Clipe pronto.");
     state.generating = false;
     state.previewMode = "clip";
@@ -883,6 +1087,15 @@ function resume(jobId) {
     sessionStorage.removeItem(JOB_KEY);
     setStatus(job?.error || job?.message || "A animação falhou.");
     state.generating = false;
+    recordSpend(`video:${jobId}`, "video", `Geração de vídeo · ${state.duration}s`, job?.quote, "failed");
+    markDirty();
     updateGenerateEnabled();
   });
+}
+
+function recordSpend(id, kind, label, quote, status) {
+  const existing = state.spend?.events?.find((event) => event.id === id);
+  const amountBrl = Number(quote?.estimated_cost_brl ?? quote?.spent_brl ?? quote?.cost_brl ?? existing?.amount_brl ?? 0) || 0;
+  const amountUsd = Number(quote?.estimated_cost_usd ?? quote?.spent_usd ?? quote?.cost_usd ?? existing?.amount_usd ?? 0) || 0;
+  upsertWorkspaceSpend({id, kind, label, amount_brl:amountBrl, amount_usd:amountUsd, status, created_at:new Date().toISOString()});
 }

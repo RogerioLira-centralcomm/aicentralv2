@@ -6,6 +6,7 @@ from .loader import (
     load_bundle,
     load_format_skill,
     load_skill,
+    load_video_skill,
     resolve_pack,
     skill_dir,
 )
@@ -16,6 +17,7 @@ __all__ = [
     "load_bundle",
     "load_format_skill",
     "load_skill",
+    "load_video_skill",
     "resolve_pack",
     "skill_dir",
 ]

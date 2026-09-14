@@ -69,19 +69,36 @@ def build_plan(payload=None) -> dict:
         raise ValueError("Resolução inválida. Use 480p ou 720p.")
     duration = int(data.get("duration") or 8)
     if duration not in DURATIONS or duration > MAX_DURATION:
-        raise ValueError("Duração inválida. Use 5, 8, 10, 15, 20 ou 30 segundos.")
+        raise ValueError("Duração inválida. Use 4, 5, 8, 10, 15, 20 ou 30 segundos.")
     piece = str(data.get("aspect_ratio") or source.get("aspect_ratio") or "16:9")
     seedance = map_aspect(piece)
     width, height = output_size(resolution, seedance)
     motion = data.get("motion") if isinstance(data.get("motion"), dict) else {}
     audio = data.get("audio") if isinstance(data.get("audio"), dict) else {}
-    audio_mode = str(audio.get("mode") or data.get("audio_mode") or "silence")
-    if audio_mode not in AUDIO_MODES:
+    legacy_audio_mode = str(audio.get("mode") or data.get("audio_mode") or "silence")
+    if legacy_audio_mode not in AUDIO_MODES:
         raise ValueError("Modo de som inválido.")
+    compositional = any(key in audio for key in ("enabled", "ambience", "narration_mode", "music_enabled"))
+    audio_enabled = audio.get("enabled") is not False if compositional else legacy_audio_mode != "silence"
+    narration_mode = str(audio.get("narration_mode") or "none") if compositional else (
+        "guided" if legacy_audio_mode == "voice" else "voiceover" if legacy_audio_mode == "voiceover" else "none"
+    )
+    if narration_mode not in {"none", "guided", "voiceover"}:
+        raise ValueError("Modo de narração inválido.")
+    ambience = bool(audio.get("ambience")) if compositional else legacy_audio_mode == "ambient"
+    music_enabled = bool(audio.get("music_enabled")) if compositional else legacy_audio_mode == "music"
+    if not audio_enabled:
+        narration_mode, ambience, music_enabled = "none", False, False
+    audio_mode = (
+        "silence" if not audio_enabled else
+        "voiceover" if narration_mode == "voiceover" else
+        "voice" if narration_mode == "guided" else
+        "music" if music_enabled else "ambient"
+    )
     voiceover_script = ""
     voiceover_voice = "male"
     voiceover_pace = "normal"
-    if audio_mode == "voiceover":
+    if narration_mode == "voiceover":
         required = data.get("require_voiceover") is not False
         voiceover_script = normalize_script(
             audio.get("script") or audio.get("voiceover_script") or data.get("voiceover_script"),
@@ -148,14 +165,19 @@ def build_plan(payload=None) -> dict:
         "motion_intensity": str(motion.get("intensity") or "subtle"),
         "motion_note": str(motion.get("note") or data.get("motion_note") or ""),
         "audio_mode": audio_mode,
+        "audio_enabled": audio_enabled,
+        "ambience": ambience,
+        "ambience_note": str(audio.get("ambience_note") or ""),
+        "narration_mode": narration_mode,
+        "music_enabled": music_enabled,
         "voice_note": str(audio.get("prompt") or audio.get("voice_note") or data.get("voice_note") or ""),
         "music_note": str(audio.get("music_note") or data.get("music_note") or ""),
         "voiceover_script": voiceover_script,
         "voiceover_voice": voiceover_voice,
         "voiceover_pace": voiceover_pace,
-        "voiceover_provider_voice": resolve_voice(voiceover_voice) if audio_mode == "voiceover" else "",
-        "tts_model": TTS_MODEL if audio_mode == "voiceover" else "",
-        "generate_audio": audio_mode != "silence",
+        "voiceover_provider_voice": resolve_voice(voiceover_voice) if narration_mode == "voiceover" else "",
+        "tts_model": TTS_MODEL if narration_mode == "voiceover" else "",
+        "generate_audio": audio_enabled and (ambience or music_enabled or narration_mode == "guided"),
         "delivery": delivery,
         "gif_window": gif_window,
         "seed": seed,
@@ -168,7 +190,7 @@ def build_plan(payload=None) -> dict:
         piece_ratio=piece,
         has_video_reference=mode == "extend_video",
     )
-    if audio_mode == "voiceover" and voiceover_script:
+    if narration_mode == "voiceover" and voiceover_script:
         quote = merge_video_tts_quote(quote, quote_tts(voiceover_script))
         quote["voiceover_words"] = word_count(voiceover_script)
         quote["voiceover_budget"] = budget_words(duration, voiceover_pace)

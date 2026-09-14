@@ -1,5 +1,72 @@
 export const JOB_KEY = "cx-cadu-video-job";
 
+export function normalizeAudioState(raw = {}) {
+  const audio = raw && typeof raw === "object" ? raw : {};
+  const legacy = audio.mode || "ambient";
+  const hasComposition = ["enabled", "ambience", "narration_mode", "music_enabled"]
+    .some((key) => Object.prototype.hasOwnProperty.call(audio, key));
+  const result = {
+    mode: legacy,
+    enabled: hasComposition ? audio.enabled !== false : legacy !== "silence",
+    ambience: hasComposition ? Boolean(audio.ambience) : legacy === "ambient",
+    ambience_note: String(audio.ambience_note || ""),
+    narration_mode: hasComposition
+      ? (["guided", "voiceover"].includes(audio.narration_mode) ? audio.narration_mode : "none")
+      : (legacy === "voice" ? "guided" : legacy === "voiceover" ? "voiceover" : "none"),
+    music_enabled: hasComposition ? Boolean(audio.music_enabled) : legacy === "music",
+    script: String(audio.script || ""),
+    voice: audio.voice === "female" ? "female" : "male",
+    pace: audio.pace === "fast" ? "fast" : "normal",
+    prompt: String(audio.prompt || ""),
+    music_note: String(audio.music_note || ""),
+  };
+  return syncAudioMode(result);
+}
+
+export function syncAudioMode(audio) {
+  if (!audio.enabled) audio.mode = "silence";
+  else if (audio.narration_mode === "voiceover") audio.mode = "voiceover";
+  else if (audio.narration_mode === "guided") audio.mode = "voice";
+  else if (audio.music_enabled) audio.mode = "music";
+  else audio.mode = "ambient";
+  return audio;
+}
+
+export function normalizeWorkspaceSpend(raw = {}) {
+  const events = Array.isArray(raw?.events) ? raw.events : [];
+  return {
+    events: events.slice(-200).map((event) => ({
+      id: String(event?.id || "").slice(0, 160),
+      kind: ["video", "voice", "image", "edit"].includes(event?.kind) ? event.kind : "edit",
+      label: String(event?.label || "Operação").slice(0, 160),
+      amount_brl: Math.max(0, Number(event?.amount_brl) || 0),
+      amount_usd: Math.max(0, Number(event?.amount_usd) || 0),
+      status: ["pending", "confirmed", "failed"].includes(event?.status) ? event.status : "pending",
+      created_at: String(event?.created_at || new Date().toISOString()).slice(0, 40),
+    })).filter((event) => event.id),
+  };
+}
+
+export function upsertWorkspaceSpend(event) {
+  state.spend = normalizeWorkspaceSpend(state.spend);
+  const packed = normalizeWorkspaceSpend({ events: [event] }).events[0];
+  if (!packed) return;
+  const index = state.spend.events.findIndex((item) => item.id === packed.id);
+  if (index >= 0) state.spend.events[index] = { ...state.spend.events[index], ...packed };
+  else state.spend.events.push(packed);
+  state.spend.events = state.spend.events.slice(-200);
+}
+
+export function workspaceSpendTotals() {
+  const events = normalizeWorkspaceSpend(state.spend).events;
+  return {
+    confirmed_brl: events.filter((event) => event.status === "confirmed").reduce((sum, event) => sum + event.amount_brl, 0),
+    pending_brl: events.filter((event) => event.status === "pending").reduce((sum, event) => sum + event.amount_brl, 0),
+    confirmed_count: events.filter((event) => event.status === "confirmed").length,
+    events,
+  };
+}
+
 export const Desk = window.McDeskBrand || {
   read() { return ""; },
   write() {},
@@ -21,15 +88,22 @@ export const state = {
   saveStatus: "saved",
   quoteStatus: "idle",
   generating: false,
+  creatingScene2: false,
   requestVersion: 0,
   search: "",
   name: "",
   seed: null,
+  generationMode: "storyboard",
   aspectRatio: "16:9",
   duration: 8,
   quality: "draft",
   audio: {
     mode: "ambient",
+    enabled: true,
+    ambience: true,
+    ambience_note: "",
+    narration_mode: "none",
+    music_enabled: false,
     script: "",
     voice: "male",
     pace: "normal",
@@ -41,6 +115,7 @@ export const state = {
     intensity: "subtle",
     note: "",
   },
+  spend: { events: [] },
   quote: null,
   quoteError: "",
   saving: false,
@@ -56,11 +131,17 @@ export function resetProjectFields() {
   state.selectedSceneId = "";
   state.name = "";
   state.seed = null;
+  state.generationMode = "storyboard";
   state.aspectRatio = "16:9";
   state.duration = 8;
   state.quality = "draft";
   state.audio = {
     mode: "ambient",
+    enabled: true,
+    ambience: true,
+    ambience_note: "",
+    narration_mode: "none",
+    music_enabled: false,
     script: "",
     voice: "male",
     pace: "normal",
@@ -72,12 +153,14 @@ export function resetProjectFields() {
     intensity: "subtle",
     note: "",
   };
+  state.spend = { events: [] };
   state.quote = null;
   state.quoteError = "";
   state.previewMode = "scene";
   state.saveStatus = "saved";
   state.quoteStatus = "idle";
   state.generating = false;
+  state.creatingScene2 = false;
   state.requestVersion += 1;
   state.dirty = false;
 }

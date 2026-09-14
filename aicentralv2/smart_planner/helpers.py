@@ -235,6 +235,13 @@ def campaign_from_campos(campos: dict) -> dict:
         }
     if "mix" in campos and isinstance(campos.get("mix"), dict):
         out["mix"] = campos["mix"]
+    if "places" in campos:
+        out["places"] = [
+            as_dict(item) for item in as_list(campos.get("places")) if as_dict(item).get("slug")
+        ]
+    if "interativos" in campos:
+        raw = campos.get("interativos")
+        out["interativos"] = raw if isinstance(raw, dict) else {"formats": as_list(raw)}
     return out
 
 

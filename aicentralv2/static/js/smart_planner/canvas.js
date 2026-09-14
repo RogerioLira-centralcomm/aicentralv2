@@ -25,6 +25,21 @@
     table: "Tabela",
   };
 
+  var WIDE_TYPES = {
+    summary: 1,
+    strategy: 1,
+    recommendation: 1,
+    "channel-mix": 1,
+    allocation: 1,
+    table: 1,
+  };
+
+  var LEAD_TYPES = {
+    summary: 1,
+    strategy: 1,
+    recommendation: 1,
+  };
+
   var LEGACY_SLOTS = [
     { type: "summary", label: "Objetivo" },
     { type: "audience", label: "Público" },
@@ -71,6 +86,13 @@
     });
   }
 
+  function hasMarketStat(card) {
+    var stat = String((card && card.stat) || "").trim();
+    if (!stat) return false;
+    var low = stat.toLowerCase();
+    return low !== "premissa" && low.indexOf("informe") === -1;
+  }
+
   function fieldBlock(card, sectionIndex, cardIndex, label, extraFields, hideTitle) {
     var extras = (extraFields || [])
       .map(function (field) {
@@ -83,9 +105,21 @@
         );
       })
       .join("");
-    var body = readonly
-      ? "<p>" + escapeHtml(card.body || "") + "</p>"
-      : '<textarea data-field="body">' + escapeHtml(card.body || "") + "</textarea>";
+    var body = "";
+    if (readonly) {
+      body = String(card.body || "")
+        .split(/\n\n+/)
+        .map(function (para) {
+          return para.trim();
+        })
+        .filter(Boolean)
+        .map(function (para, index) {
+          return '<p class="' + (index ? "" : "is-lead") + '">' + escapeHtml(para) + "</p>";
+        })
+        .join("");
+    } else {
+      body = '<textarea data-field="body">' + escapeHtml(card.body || "") + "</textarea>";
+    }
     var title = "";
     if (!hideTitle) {
       title = readonly
@@ -110,19 +144,17 @@
   }
 
   function factsStrip(meta) {
-    var period = meta.period || "";
-    if (meta.ritmo && period && period.indexOf(meta.ritmo) === -1) {
-      period = period + " · " + meta.ritmo;
-    } else if (!period && meta.ritmo) {
-      period = meta.ritmo;
+    var canais = meta.canais || "";
+    if (meta.mix_method && canais.indexOf(" · ") !== -1) {
+      canais = canais.split(" · ")[0];
     }
     var items = [
       ["Objetivo", meta.objective],
       ["Público", meta.publico],
       ["Verba", meta.budget],
-      ["Período", period],
+      ["Período", meta.period],
       ["Praça", meta.market],
-      ["Canais", meta.canais],
+      ["Canais", canais],
     ].filter(function (item) {
       return item[1];
     });
@@ -155,10 +187,9 @@
   }
 
   function mockup(card, party) {
+    if (!card || !card.image_url) return "";
     var surface = card.surface || "display";
-    var image = card.image_url
-      ? '<img src="' + escapeHtml(card.image_url) + '" alt="">'
-      : "<p>" + escapeHtml(card.body || "Criativo no canal") + "</p>";
+    var image = '<img src="' + escapeHtml(card.image_url) + '" alt="">';
     return (
       '<div class="sp-mockup is-' +
       escapeHtml(surface) +
@@ -181,21 +212,22 @@
         return (
           '<div class="sp-density-row"><span>' +
           escapeHtml(item.label || "") +
+          (extra ? "<small>" + escapeHtml(extra) + "</small>" : "") +
           "</span><i><b style=\"width:" +
           value +
           '%"></b></i><em>' +
           value +
-          "%</em>" +
-          (extra ? "<small>" + escapeHtml(extra) + "</small>" : "") +
-          "</div>"
+          "%</em></div>"
         );
       })
       .join("");
     if (!bars) return "";
+    var caption = theme.density_caption && theme.density_caption !== "Peso do mix"
+      ? "<p>" + escapeHtml(theme.density_caption) + "</p>"
+      : "";
     return (
-      '<div class="sp-density"><p>' +
-      escapeHtml(theme.density_caption || "Peso do mix") +
-      "</p>" +
+      '<div class="sp-density">' +
+      caption +
       bars +
       (theme.density_note ? "<small class=\"sp-density-note\">" + escapeHtml(theme.density_note) + "</small>" : "") +
       "</div>"
@@ -212,11 +244,11 @@
     var cols = months
       .map(function (item) {
         var amount = Number(item.amount) || 0;
-        var height = Math.max(14, Math.round((amount / max) * 100));
+        var height = Math.max(12, Math.round((amount / max) * 56));
         return (
           '<div class="sp-flight-col"><i style="height:' +
           height +
-          '%"></i><span>' +
+          'px"></i><span>' +
           escapeHtml(item.label || "") +
           "</span>" +
           (item.amount_label ? "<em>" + escapeHtml(item.amount_label) + "</em>" : "") +
@@ -246,16 +278,20 @@
               role: item.role,
             };
           }),
-          density_caption: "Peso do mix",
-          density_note: (theme && theme.density_note) || (media.pace && media.pace.how) || "",
+          density_caption: "",
+          density_note: (theme && theme.density_note) || "",
         }
       : theme || {};
+    var how = (media.pace && media.pace.how) || "";
+    if (density.density_note && how && density.density_note === how) {
+      density.density_note = "";
+    }
     var chart = densityChart(density);
     var flight = flightStrip(media.pace || {});
     if (!chart && !flight) return "";
     return (
       '<div class="sp-media-board">' +
-      "<p class=\"sp-media-kicker\">Gestão de mídia</p>" +
+      "<p class=\"sp-exec-kicker\">Gestão de mídia</p>" +
       (media.method_label ? "<p class=\"sp-media-method\">" + escapeHtml(media.method_label) + "</p>" : "") +
       chart +
       flight +
@@ -367,6 +403,7 @@
       "</div>" +
       '<div class="sp-sheet-main">' +
       '<section class="sp-exec-brief">' +
+      '<p class="sp-exec-kicker">Tese e briefing</p>' +
       (strategyIdx >= 0 ? fieldBlock(strategy, sectionIndex, strategyIdx, "Tese e briefing", null, true) : "") +
       "</section>" +
       '<section class="sp-exec-media">' +
@@ -385,14 +422,15 @@
           "</div>"
         : "") +
       (defenseIdx >= 0 ? fieldBlock(defense, sectionIndex, defenseIdx, "Por que aprovar") : "") +
-      (marketIdx >= 0
+      (hasMarketStat(market)
         ? '<div class="sp-market is-compact"><p class="sp-stat">' +
-          escapeHtml(market.stat || "") +
-          '</p><p class="sp-stat-label">' +
-          escapeHtml(market.stat_label || "") +
+          escapeHtml(market.stat) +
           "</p>" +
-          fieldBlock(market, sectionIndex, marketIdx, "Indicadores", ["stat", "stat_label"], true) +
+          (market.stat_label ? '<p class="sp-stat-label">' + escapeHtml(market.stat_label) + "</p>" : "") +
           "</div>"
+        : "") +
+      (marketIdx >= 0 && !readonly
+        ? fieldBlock(market, sectionIndex, marketIdx, "Indicadores", ["stat", "stat_label"], true)
         : "") +
       "</section></div>" +
       shareBlock(share) +
@@ -422,11 +460,24 @@
     var title = readonly
       ? "<strong>" + escapeHtml(card.title || label) + "</strong>"
       : '<input value="' + escapeHtml(card.title) + '" data-field="title">';
-    var body = readonly
-      ? "<p>" + escapeHtml(card.body || "") + "</p>"
-      : '<textarea data-field="body">' + escapeHtml(card.body) + "</textarea>";
+    var body = "";
+    if (readonly) {
+      body = String(card.body || "")
+        .split(/\n\n+/)
+        .map(function (para) {
+          return para.trim();
+        })
+        .filter(Boolean)
+        .map(function (para, index) {
+          return '<p class="' + (index ? "" : "is-lead") + '">' + escapeHtml(para) + "</p>";
+        })
+        .join("");
+    } else {
+      body = '<textarea data-field="body">' + escapeHtml(card.body || "") + "</textarea>";
+    }
     return (
-      '<article class="sp-card' +
+      '<article class="sp-card is-' +
+      escapeHtml(type) +
       (extraClass ? " " + extraClass : "") +
       '" data-section="' +
       sectionIndex +
@@ -472,7 +523,12 @@
       .map(function (section, sectionIndex) {
         var cards = (section.cards || [])
           .map(function (card, cardIndex) {
-            return cardMarkup(card, sectionIndex, cardIndex, "");
+            var extras = [];
+            if (WIDE_TYPES[card.type] || (cardIndex === 0 && LEAD_TYPES[card.type])) {
+              extras.push("is-wide");
+            }
+            if (LEAD_TYPES[card.type] || cardIndex === 0) extras.push("is-lead");
+            return cardMarkup(card, sectionIndex, cardIndex, extras.join(" "));
           })
           .join("");
         return (

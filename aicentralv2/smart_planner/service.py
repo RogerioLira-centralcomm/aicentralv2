@@ -13,10 +13,14 @@ from .catalog import (
     PRACA_OPTIONS,
     WIZARD_STEPS,
     WIZARD_TRAIL,
+    apply_review_defaults,
+    group_kpis_for,
     objetivo_label,
     plan_mode_label,
+    review_score,
     score_label,
 )
+from .places_bridge import apply_places_to_campos, planner_place_catalog, resolve_places
 from .mix import (
     METHODS,
     allocate,
@@ -144,9 +148,12 @@ def wizard_context(row: dict, step_id: str) -> dict:
         "agencia_id": dados.get("agencia_id"),
         "cx_client_id": dados.get("cx_client_id"),
         "anunciante_confidencial": as_bool(dados.get("anunciante_confidencial")),
+        "places": campanha.get("places") or dados.get("places") or [],
+        "interativos": campanha.get("interativos") or dados.get("interativos") or {},
     }
     if isinstance(campos["campanha"], dict):
         campos["campanha"] = text(dados.get("nome_campanha"))
+    campos = apply_review_defaults(apply_places_to_campos(campos, lock_channel=True))
     campos["canais"] = [key for key in campos["canais"] if key in CHANNEL_CATALOG]
     verba = campaign_verba({
         "verba": campos["verba"],
@@ -214,11 +221,12 @@ def wizard_context(row: dict, step_id: str) -> dict:
     analysis = as_dict(row.get("analise_ia"))
     gaps = [text(item) for item in as_list(analysis.get("falta_completar")) if text(item)]
     share = as_dict(as_dict(row.get("plan_content")).get("share"))
-    score = 0
-    try:
-        score = int(row.get("quality_score") or 0)
-    except (TypeError, ValueError):
-        score = 0
+    score = review_score(campos)
+    if not score:
+        try:
+            score = int(row.get("quality_score") or 0)
+        except (TypeError, ValueError):
+            score = 0
     return {
         "row": row,
         "dados": dados,
@@ -277,6 +285,8 @@ def wizard_context(row: dict, step_id: str) -> dict:
             "one_page": [{"id": item["id"], "title": item["title"]} for item in generation_steps("one_page")],
             "completo": [{"id": item["id"], "title": item["title"]} for item in generation_steps("completo")],
         },
+        "places_catalog": planner_place_catalog(),
+        "kpi_suggestions": group_kpis_for(campos.get("canais")),
     }
 
 
@@ -310,6 +320,15 @@ def persist_review(token: str, payload: dict) -> dict:
     ]
     if payload.get("canais") is not None or "canais" in campos:
         campos["canais"] = canais
+    if "places" in payload or "places" in campos:
+        campos["places"] = payload.get("places") if payload.get("places") is not None else campos.get("places")
+    if "interativos" in payload or "interativos" in campos:
+        campos["interativos"] = (
+            payload.get("interativos") if payload.get("interativos") is not None else campos.get("interativos")
+        )
+    campos = apply_review_defaults(apply_places_to_campos(campos, lock_channel=True))
+    canais = [key for key in as_list(campos.get("canais")) if key in CHANNEL_CATALOG]
+    campos["canais"] = canais
     mix_raw = payload.get("mix") if payload.get("mix") is not None else campos.get("mix")
     if isinstance(mix_raw, dict):
         mix = normalize_mix(mix_raw, canais, campos.get("objetivo"))
@@ -425,7 +444,10 @@ def persist_canais(token: str, payload: dict) -> dict:
         "praca_detalhe": text(payload.get("praca_detalhe")) if "praca_detalhe" in payload else text(existing.get("praca_detalhe")),
         "canais": canais,
         "canais_verba": canais_verba,
+        "places": resolve_places(payload.get("places") if "places" in payload else existing.get("places")),
+        "interativos": payload.get("interativos") if "interativos" in payload else existing.get("interativos"),
     }
+    campos = apply_review_defaults(apply_places_to_campos(campos, lock_channel=True))
     if mix is not None:
         campos["mix"] = mix
     if "dispositivos" in payload:

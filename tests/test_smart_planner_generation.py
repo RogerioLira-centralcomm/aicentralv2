@@ -347,7 +347,7 @@ def test_validate_page_rejects_creative_outside_approved_mix():
         ],
     }
     try:
-        _validate_page(_page_with_mix("tiktok"), snapshot, {"status": "not_available"})
+        _validate_page(_page_with_mix("google_ads"), snapshot, {"status": "not_available"})
     except ValueError as exc:
         assert "maior peso" in str(exc)
     else:

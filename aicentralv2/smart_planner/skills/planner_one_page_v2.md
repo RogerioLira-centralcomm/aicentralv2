@@ -9,8 +9,10 @@ Por que este mix é o certo para este anunciante, neste recorte, agora?
 
 ## Mix aprovado (lei)
 O bloco `mix_aprovado` do pack é lei da mesa. Não invente canal, %, R$ ou ordem.
-- `channel_roles` só com canais da mesa. Cada papel em uma frase.
+- `channel_roles` só com canais da mesa, inclusive Places se estiver no mix. Cada papel em uma frase.
 - O criativo (`creative_expression.channel`) vai no canal de **maior peso**.
+- Surface `place` só se Places for o herói — criativo no ponto/app listado. Interativo = surface `portal`.
+- Se houver `places_aprovado`, a tese pode nomear o place e o ponto. Raios não se somam. Sem app inventado.
 - `why_this_mix` cita os % e os R$ reais do snapshot. Sem preset de mercado.
 - Se houver voo de 2 a 12 meses, uma frase que não contradiga o ritmo (começa menor, solta no meio e no fim).
 - Gestão de mídia é o bloco central da folha: o texto defende o balanceamento, não um criativo solto.
@@ -47,7 +49,7 @@ JSON apenas no schema one_page_v2:
   "benefits": {"audience": [], "brand": [], "operation": []},
   "outputs": [{"name": "", "description": ""}],
   "result_estimates": {"status": "available|not_available", "summary": "", "assumptions": [], "warnings": []},
-  "creative_expression": {"channel": "", "surface": "ctv|portal|app|display", "headline": "", "supporting_text": "", "cta": "", "image_prompt": ""},
+  "creative_expression": {"channel": "", "surface": "ctv|portal|app|display|place", "headline": "", "supporting_text": "", "cta": "", "image_prompt": ""},
   "commercial_defense": {
     "why_this_plan": [],
     "why_this_mix": [],

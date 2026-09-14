@@ -81,10 +81,13 @@ def get_by_public_token(public_token: str) -> Optional[dict]:
                 SELECT *
                 FROM cadu_smart_planner_sessions
                 WHERE deleted_at IS NULL
-                  AND dados_detectados->>'public_token' = %s
+                  AND (
+                    dados_detectados->>'public_token' = %s
+                    OR plan_content->'share'->>'public_token' = %s
+                  )
                 LIMIT 1
                 """,
-                (token,),
+                (token, token),
             )
             return cur.fetchone()
         except Exception:
@@ -94,9 +97,10 @@ def get_by_public_token(public_token: str) -> Optional[dict]:
                 SELECT *
                 FROM cadu_smart_planner_sessions
                 WHERE dados_detectados->>'public_token' = %s
+                   OR plan_content->'share'->>'public_token' = %s
                 LIMIT 1
                 """,
-                (token,),
+                (token, token),
             )
             return cur.fetchone()
 
@@ -361,7 +365,7 @@ def save_campos(token: str, campos: dict, briefing_text: str | None = None) -> d
         raise SessionNotFound("Plano não encontrado.")
     dados = as_dict(row.get("dados_detectados"))
     campanha = campaign_from_campos(campos)
-    keep = {"verba_alocacao", "canais_verba", "verba_valor", "verba_base", "mix"}
+    keep = {"verba_alocacao", "canais_verba", "verba_valor", "verba_base", "mix", "places", "interativos"}
     if "canais" in campos:
         keep.add("canais")
     if isinstance(dados.get("campanha"), dict):

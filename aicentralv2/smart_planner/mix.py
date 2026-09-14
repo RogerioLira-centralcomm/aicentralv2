@@ -5,7 +5,17 @@ from __future__ import annotations
 from collections import Counter
 from typing import Any
 
-from .catalog import CHANNEL_CATALOG, CHANNEL_GROUPS, media_channel_keys
+from .catalog import (
+    CHANNEL_CATALOG,
+    CHANNEL_GROUPS,
+    CHANNEL_LOGOS,
+    GROUP_KPIS,
+    INTERATIVOS_FORMATS,
+    PORTAL_CHANNELS,
+    SPECIAL_MIX_IDS,
+    SPECIAL_SUGGESTED_PCT,
+    media_channel_keys,
+)
 from .helpers import as_bool, as_dict, as_list, text
 from .pace import as_int, format_money
 
@@ -212,22 +222,7 @@ def _weight_map(weights: Any) -> dict[str, float]:
     return mapped
 
 
-def allocate(canais: Any, objetivo: str = "", method: str = "funil", weights: Any = None) -> list[dict]:
-    keys = media_keys(canais)
-    if not keys:
-        return []
-    method = text(method).lower()
-    if method not in METHOD_IDS:
-        method = recommend_methods(objetivo)[0]
-    if method == "manual":
-        previous = _weight_map(weights)
-        raw = [(key, previous[key] if key in previous else 0.0) for key in keys]
-    else:
-        groups = [group_of(key) for key in keys]
-        gw = group_weights(method, objetivo, list(dict.fromkeys(groups)))
-        counts = Counter(groups)
-        raw = [(key, gw.get(group_of(key), _DEFAULT_GROUP_WEIGHT) / max(counts[group_of(key)], 1)) for key in keys]
-    pcts = normalize_pcts(raw)
+def _rows_from_pcts(keys: list[str], pcts: dict[str, int]) -> list[dict]:
     return [
         {
             "id": key,
@@ -237,6 +232,49 @@ def allocate(canais: Any, objetivo: str = "", method: str = "funil", weights: An
         }
         for key in keys
     ]
+
+
+def _allocate_core(keys: list[str], objetivo: str, method: str, weights: Any) -> list[dict]:
+    if not keys:
+        return []
+    if method == "manual":
+        previous = _weight_map(weights)
+        raw = [(key, previous[key] if key in previous else 0.0) for key in keys]
+    else:
+        groups = [group_of(key) for key in keys]
+        gw = group_weights(method, objetivo, list(dict.fromkeys(groups)))
+        counts = Counter(groups)
+        raw = [(key, gw.get(group_of(key), _DEFAULT_GROUP_WEIGHT) / max(counts[group_of(key)], 1)) for key in keys]
+    return _rows_from_pcts(keys, normalize_pcts(raw))
+
+
+def allocate(canais: Any, objetivo: str = "", method: str = "funil", weights: Any = None) -> list[dict]:
+    keys = media_keys(canais)
+    if not keys:
+        return []
+    method = text(method).lower()
+    if method not in METHOD_IDS:
+        method = recommend_methods(objetivo)[0]
+    digital = [key for key in keys if key not in SPECIAL_MIX_IDS]
+    special = [key for key in keys if key in SPECIAL_MIX_IDS]
+    if method == "manual" or not special:
+        return _allocate_core(keys, objetivo, method, weights)
+    digital_rows = _allocate_core(digital, objetivo, method, weights)
+    previous = _weight_map(weights)
+    special_raw = [
+        (key, previous[key] if key in previous else float(SPECIAL_SUGGESTED_PCT))
+        for key in special
+    ]
+    if not digital_rows:
+        return _rows_from_pcts(special, normalize_pcts(special_raw))
+    special_share = min(sum(max(pct, 0.0) for _, pct in special_raw), 40.0)
+    if special_share <= 0:
+        special_share = float(SPECIAL_SUGGESTED_PCT * len(special))
+    remaining = max(100.0 - special_share, 0.0)
+    digital_pairs = [(row["id"], float(row["pct"]) * remaining / 100.0) for row in digital_rows]
+    spec_total = sum(max(pct, 0.0) for _, pct in special_raw) or 1.0
+    special_pairs = [(key, special_share * max(pct, 0.0) / spec_total) for key, pct in special_raw]
+    return _rows_from_pcts(keys, normalize_pcts(digital_pairs + special_pairs))
 
 
 def normalize_mix(raw: Any, canais: Any, objetivo: str = "") -> dict:
@@ -289,6 +327,12 @@ def spec_for_js() -> dict:
         "groups": {key: meta.get("group") for key, meta in CHANNEL_CATALOG.items()},
         "labels": {key: meta.get("label", key) for key, meta in CHANNEL_CATALOG.items()},
         "media": media_channel_keys(),
+        "logos": dict(CHANNEL_LOGOS),
+        "kpis": {key: list(value) for key, value in GROUP_KPIS.items()},
+        "specialMix": list(SPECIAL_MIX_IDS),
+        "specialPct": SPECIAL_SUGGESTED_PCT,
+        "portalChannels": list(PORTAL_CHANNELS),
+        "interativosFormats": [dict(item) for item in INTERATIVOS_FORMATS],
         "defaultGroupWeight": _DEFAULT_GROUP_WEIGHT,
     }
 

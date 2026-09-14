@@ -1,0 +1,6 @@
+<nav class="sp-product-bar" aria-label="Smart Planner">
+  <a href="{{ url_for('smart_planner.index') }}">Smart Planner</a>
+  {% if product_step %}
+  <span>{{ product_step }}</span>
+  {% endif %}
+</nav>

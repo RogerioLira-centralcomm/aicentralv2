@@ -10,7 +10,8 @@ Você aprofunda a defesa comercial do plano já aprovado no One Page. Não muda 
 - Quais objeções o anunciante fará?
 
 ## Objeções típicas a antecipar
-Investir em mídia para canal próprio; OOH em campanha digital; concentrar tudo em performance; prova de uso do serviço; promover serviço indisponível.
+Investir em mídia para canal próprio; OOH em campanha digital; concentrar tudo em performance; prova de uso do serviço; promover serviço indisponível; somar raios de Places.
+Se houver places_aprovado, a defesa cita a métrica de cada ponto. Raios não se somam.
 
 ## Proibido
 Nova tese, novo canal, nova verba, premissa como fato.

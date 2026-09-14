@@ -20,6 +20,16 @@ CHANNEL_CATALOG = {
     "uol": {"label": "UOL", "group": "portais", "desc": "Portal, display e native"},
     "r7": {"label": "R7", "group": "portais", "desc": "Portal, display e vídeo"},
     "cnn": {"label": "CNN Brasil", "group": "portais", "desc": "Notícias, display e vídeo"},
+    "interativos": {
+        "label": "Interativos",
+        "group": "portais",
+        "desc": "Hotspot, Quiz, Cube e outros formatos só em portais",
+    },
+    "places": {
+        "label": "Places",
+        "group": "places",
+        "desc": "Aeroportos, shoppings e eventos — pontos e apps no sítio",
+    },
     "ooh": {"label": "OOH / Painéis", "group": "ooh", "desc": "Painéis digitais e mobiliário"},
 }
 
@@ -59,6 +69,8 @@ FIELD_SCHEMA = {
     "verba": "o valor como foi dito, incluindo periodicidade (ex.: \"R$ 80 mil por mês\").",
     "periodo": "datas ou duração (ex.: \"setembro e outubro de 2026\", \"90 dias\").",
     "canais": "array de ids do catálogo de canais.",
+    "places": "array de {slug, point_ids, apps} só com slugs e pontos do catálogo injetado. Vazio se o material não citar um venue publicado.",
+    "interativos": "objeto {formats: []} só se um portal (g1, uol, r7, cnn) estiver nos canais. Formatos: hotspot, cartas, quiz, cube, scratch, 360, countdown, video.",
     "criativos": "materiais disponíveis ou possíveis: formatos, durações, restrições.",
     "dispositivos": "array de ids de dispositivos/superfícies.",
     "kpis": "array de métricas de sucesso citadas.",
@@ -75,21 +87,77 @@ PLAN_MODE_LABELS = {
 
 CHANNEL_GROUPS = {
     "performance": "Performance",
-    "video": "Vídeo",
     "social": "Social",
+    "video": "Vídeo",
+    "ctv": "CTV e streaming",
+    "portais": "Portais",
+    "places": "Places",
     "programmatic": "Programática",
     "audio": "Áudio",
-    "ctv": "CTV e streaming",
     "data": "Dados",
-    "portais": "Portais",
     "ooh": "OOH",
 }
 
 CHANNEL_SHOWCASE = (
-    "netflix", "prime_video", "disney", "hbo_max", "globoplay", "spotify",
-    "youtube", "tiktok", "meta_ads", "linkedin", "google_ads", "dv360",
-    "serasa", "gpt_ads", "g1", "uol", "cnn", "ooh",
+    "google_ads", "gpt_ads", "meta_ads", "tiktok", "linkedin",
+    "youtube", "netflix", "prime_video", "disney", "hbo_max", "globoplay",
+    "g1", "uol", "r7", "cnn", "interativos", "places",
+    "dv360", "spotify", "serasa", "ooh",
 )
+
+PORTAL_CHANNELS = ("g1", "uol", "r7", "cnn")
+SPECIAL_MIX_IDS = frozenset({"places", "interativos"})
+SPECIAL_SUGGESTED_PCT = 8
+DEFAULT_PERIOD = "30 dias"
+DEFAULT_VERBA = "A fechar"
+
+INTERATIVOS_FORMATS = (
+    {"id": "hotspot", "label": "Hotspot"},
+    {"id": "cartas", "label": "Cartas"},
+    {"id": "quiz", "label": "Quiz"},
+    {"id": "cube", "label": "Cube"},
+    {"id": "scratch", "label": "Scratch"},
+    {"id": "360", "label": "360"},
+    {"id": "countdown", "label": "Countdown"},
+    {"id": "video", "label": "Vídeo"},
+)
+
+CHANNEL_LOGOS = {
+    "google_ads": "/static/images/canais/google-dv360.svg",
+    "gpt_ads": "",
+    "youtube": "/static/images/creative-viewers/youtube.svg",
+    "meta_ads": "/static/images/creative-viewers/facebook.svg",
+    "tiktok": "/static/images/creative-viewers/tiktok.svg",
+    "linkedin": "/static/images/creative-viewers/linkedin.svg",
+    "dv360": "/static/images/canais/google-dv360.svg",
+    "spotify": "/static/images/canais/spotify.svg",
+    "netflix": "/static/images/creative-viewers/netflix.png",
+    "prime_video": "/static/images/creative-viewers/prime-video.svg",
+    "disney": "/static/images/creative-viewers/disney-plus.png",
+    "hbo_max": "/static/images/canais/hbo-max.svg",
+    "globoplay": "/static/images/canais/globoplay.png",
+    "serasa": "/static/images/canais/experian-portal.png",
+    "g1": "/static/images/canais/g1-globo.svg",
+    "uol": "/static/images/canais/uol.png",
+    "r7": "/static/images/canais/r7.png",
+    "cnn": "/static/images/creative-viewers/cnn-brasil.svg",
+    "interativos": "/static/images/canais/interativos.svg",
+    "places": "",
+    "ooh": "/static/images/canais/eletromidia.svg",
+}
+
+GROUP_KPIS = {
+    "performance": ("Cliques", "CPC", "Conversões"),
+    "social": ("Alcance", "CTR", "CPL"),
+    "video": ("Visualizações", "CPV"),
+    "ctv": ("Visualizações", "CPV"),
+    "portais": ("Impressões", "Viewability", "Interação"),
+    "places": ("Alcance no sítio", "Apps no ponto", "Endereço 4 semanas"),
+    "programmatic": ("Impressões", "Viewability", "CTR"),
+    "audio": ("Listeners", "Frequência"),
+    "data": ("Cobertura da base", "Match rate"),
+    "ooh": ("Alcance de rua", "OTS", "Frequência"),
+}
 
 WIZARD_STEPS = (
     {"id": "briefing", "title": "Importar briefing", "hint": "Texto, URL, PDF ou imagem"},
@@ -134,7 +202,11 @@ def resume_status(step: str, mode: str = "") -> str:
 def channels_by_group() -> list[tuple[str, str, list[tuple[str, dict]]]]:
     grouped = []
     for group_key, group_label in CHANNEL_GROUPS.items():
-        items = [(key, meta) for key, meta in CHANNEL_CATALOG.items() if meta.get("group") == group_key]
+        items = []
+        for key, meta in CHANNEL_CATALOG.items():
+            if meta.get("group") != group_key:
+                continue
+            items.append((key, {**meta, "logo": CHANNEL_LOGOS.get(key, "")}))
         if items:
             grouped.append((group_key, group_label, items))
     return grouped
@@ -164,5 +236,45 @@ def score_label(score: int) -> dict:
     if score >= 55:
         return {"tom": "medio", "titulo": "Bom", "texto": "Dá para gerar, mas ainda cabe detalhe."}
     if score >= 35:
-        return {"tom": "medio", "titulo": "Regular", "texto": "Complete os pontos ao lado antes de gerar."}
-    return {"tom": "baixo", "titulo": "Incompleto", "texto": "Faltam informações importantes."}
+        return {"tom": "medio", "titulo": "Regular", "texto": "Dá para gerar. Falta só fechar o que ainda está vazio."}
+    return {"tom": "baixo", "titulo": "Incompleto", "texto": "Dá para gerar. Falta só preencher o essencial."}
+
+
+def channel_logo(key: str) -> str:
+    return CHANNEL_LOGOS.get(key, "")
+
+
+def group_kpis_for(canais) -> list[str]:
+    seen = []
+    for key in canais or []:
+        group = (CHANNEL_CATALOG.get(key) or {}).get("group")
+        for item in GROUP_KPIS.get(group, ()):
+            if item not in seen:
+                seen.append(item)
+    return seen
+
+
+def apply_review_defaults(campos: dict) -> dict:
+    out = dict(campos or {})
+    if not str(out.get("periodo") or "").strip():
+        out["periodo"] = DEFAULT_PERIOD
+    if not str(out.get("verba") or "").strip():
+        out["verba"] = DEFAULT_VERBA
+        if not str(out.get("verba_base") or "").strip():
+            out["verba_base"] = "mensal"
+    return out
+
+
+def review_score(campos: dict) -> int:
+    data = campos or {}
+    checks = (
+        bool(str(data.get("campanha") or "").strip()),
+        bool(str(data.get("objetivo") or "").strip()),
+        bool(str(data.get("publico") or "").strip()),
+        bool(str(data.get("verba") or "").strip()),
+        bool(str(data.get("periodo") or "").strip()),
+        bool(str(data.get("praca") or "").strip()),
+        bool(data.get("kpis")),
+        bool(data.get("canais")),
+    )
+    return int(round(100 * sum(1 for item in checks if item) / len(checks)))

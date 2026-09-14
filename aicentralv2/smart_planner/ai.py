@@ -1,13 +1,21 @@
-"""Chamadas OpenRouter para o Smart Planner — família GPT-5 por papel."""
+"""Chamadas da família GPT-5 para o Smart Planner."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from ..services.openrouter_service import OpenRouterError, chat_completion
+from ..services.openrouter_service import OpenRouterError, chat_completion, message_text
 from .cost import record as record_cost
 from .helpers import extract_json, text
 from .models import resolve_role
+
+_LONG_ROLES = {"draft", "improve", "final", "sheet", "compose"}
+
+
+def _role_timeout(role: str, requested: int) -> int:
+    if role in _LONG_ROLES:
+        return max(int(requested or 0), 150)
+    return max(int(requested or 0), 90)
 
 
 def chat_text(
@@ -28,20 +36,13 @@ def chat_text(
     result = chat_completion(
         messages,
         model=spec["model"],
-        timeout=timeout,
+        timeout=_role_timeout(role, timeout),
         max_tokens=max_tokens or spec["max_tokens"],
         temperature=spec["temperature"] if temperature is None else temperature,
         top_k=spec["top_k"] if top_k is None else top_k,
     )
     record_cost(result.get("usage"), kind=role, model=text(result.get("model")) or spec["model"])
-    message = result.get("message") or {}
-    content = message.get("content")
-    if isinstance(content, list):
-        content = "".join(
-            part.get("text", "") if isinstance(part, dict) else str(part)
-            for part in content
-        )
-    return text(content)
+    return text(message_text(result.get("message") or {}))
 
 
 def chat_vision(system: str, image_url: str, *, max_tokens: int = 1800) -> str:
@@ -65,14 +66,7 @@ def chat_vision(system: str, image_url: str, *, max_tokens: int = 1800) -> str:
         top_k=spec["top_k"],
     )
     record_cost(result.get("usage"), kind="vision", model=text(result.get("model")) or spec["model"])
-    message = result.get("message") or {}
-    content = message.get("content")
-    if isinstance(content, list):
-        content = "".join(
-            part.get("text", "") if isinstance(part, dict) else str(part)
-            for part in content
-        )
-    out = text(content)
+    out = text(message_text(result.get("message") or {}))
     if len(out) < 40:
         raise OpenRouterError("Não extraímos texto suficiente desta imagem.")
     return out
@@ -85,6 +79,7 @@ def chat_json(
     role: str = "extract",
     max_tokens: int | None = None,
     temperature: float | None = None,
+    timeout: int | None = None,
 ) -> Any:
     raw = chat_text(
         system,
@@ -92,6 +87,7 @@ def chat_json(
         role=role,
         max_tokens=max_tokens,
         temperature=temperature,
+        timeout=_role_timeout(role, timeout or 90),
     )
     parsed = extract_json(raw)
     if parsed is None:

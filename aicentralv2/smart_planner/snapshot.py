@@ -9,6 +9,7 @@ from .helpers import as_bool, as_dict, as_list, client_display_name, session_tit
 from .materials import normalize_references
 from .mix import progress_calendar, should_progress
 from .pace import budget_shares, campaign_pace, format_money
+from .places_bridge import snapshot_places
 
 
 def build_snapshot(row: dict, dados: dict | None = None) -> dict:
@@ -92,6 +93,8 @@ def build_snapshot(row: dict, dados: dict | None = None) -> dict:
             "audience": text(brand.get("target_audience")),
             "products": brand.get("products_services"),
         },
+        "places": snapshot_places(campanha.get("places") or dados.get("places")),
+        "interativos": as_dict(campanha.get("interativos") or dados.get("interativos")),
         "restrictions": [text(dados.get("observacoes"))] if text(dados.get("observacoes")) else [],
         "sources": sources,
         "assumptions": [],

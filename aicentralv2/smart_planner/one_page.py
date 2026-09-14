@@ -166,7 +166,7 @@ Devolva APENAS JSON:
     "title": "Criativo",
     "body": "",
     "channel": "",
-    "surface": "ctv|portal|app|display",
+    "surface": "ctv|portal|app|display|place",
     "image_prompt": "descrição visual do criativo funcionando no canal"
   },
   "market": {"title": "Mercado", "body": "", "stat": "", "stat_label": ""},
@@ -179,10 +179,12 @@ Regras:
 - A tese é o desafio de mídia do anunciante, não o documento ou o planejamento.
 - Se o nome for confidencial, não o escreva e não descreva a logo da marca.
 - strategy.body é a recomendação executiva em até duas frases: o que fazer e o peso do mix.
-- O criativo precisa parecer inserido no canal (TV, portal, app), não um banner solto.
+- O criativo precisa parecer inserido no canal (TV, portal, app ou place), não um banner solto.
+- Surface "place" só se Places for o canal de maior peso. Interativo = surface portal, nunca place.
+- Se houver places confirmados, não reutilize pitch de aeroporto/portal. Cite o ponto e o app listados. Raios não se somam.
 - market.stat é um número ou uma palavra de decisão (nunca um slogan). Sem inventar percentual sem rotular como premissa.
 - defense.body fecha a reunião: por que este mix, agora, para este anunciante.
-- Use a verba, os canais e o voo mensal da campanha quando existirem.
+- Use a verba, os canais, os places e o voo mensal da campanha quando existirem.
 - Sem agência como herói, sem CentralComm no texto, sem mencionar IA.
 - Se houver identidade da marca (público, produto, tom), use como verdade. Não invente outro posicionamento.
 """
@@ -207,7 +209,9 @@ def _sheet_from_material(payload: dict) -> dict:
     return final if isinstance(final, dict) else (improved if isinstance(improved, dict) else draft)
 
 
-def match_pitch(client: str, agency: str, briefing: str = "") -> dict | None:
+def match_pitch(client: str, agency: str, briefing: str = "", places=None) -> dict | None:
+    if as_list(places):
+        return None
     hay = " ".join(part.lower() for part in (client, agency, briefing) if part)
     if not hay:
         return None
@@ -384,6 +388,15 @@ def enrich_meta(meta: dict, snapshot: dict | None = None, media: dict | None = N
         out["canais"] = f"{len(channels)} canais" + (f" · {method_label}" if method_label else "")
     if method_label:
         out["mix_method"] = method_label
+    place_titles = [
+        text(as_dict(item).get("title") or as_dict(item).get("slug"))
+        for item in as_list(snap.get("places"))
+        if text(as_dict(item).get("title") or as_dict(item).get("slug"))
+    ]
+    if place_titles:
+        out["places"] = ", ".join(place_titles)
+        if not text(out.get("market")):
+            out["market"] = place_titles[0]
     return out
 
 
@@ -463,6 +476,8 @@ def assemble_from_v2(
     plan = empty_one_page(enrich_meta(meta, snap, board), branding, theme, share)
     plan["sections"][0]["cards"] = cards_from_v2(page, snap)
     plan["media"] = board
+    if as_list(snap.get("places")):
+        plan["places"] = as_list(snap.get("places"))
     plan["one_page_v2"] = page
     if core:
         plan["strategy_core"] = {
@@ -519,11 +534,14 @@ META_KEYS = (
     "ritmo",
     "canais",
     "mix_method",
+    "places",
 )
 
 
 def theme_for_snapshot(client: str, agency: str, briefing: str, snapshot: dict | None = None, pitch: dict | None = None) -> dict:
     snap = as_dict(snapshot)
+    if as_list(snap.get("places")):
+        pitch = None
     return compose_theme(
         client,
         agency,
@@ -556,6 +574,7 @@ def empty_one_page(meta: dict, branding: dict, theme: dict | None = None, share:
             "ritmo": incoming.get("ritmo"),
             "canais": incoming.get("canais"),
             "mix_method": incoming.get("mix_method"),
+            "places": incoming.get("places"),
             "presenter": incoming.get("presenter") or (resolved.get("presenter") or {}).get("id") or "centralcomm",
             "createdAt": now,
             "updatedAt": now,
@@ -629,7 +648,7 @@ def build_one_page(
 
     client = text(meta.get("client") or campanha.get("cliente"))
     agency = text(meta.get("agency") or campanha.get("agencia"))
-    pitch = match_pitch(client, agency, briefing)
+    pitch = match_pitch(client, agency, briefing, as_dict(campanha).get("places"))
     partners = list(pitch.get("partners") or []) if pitch else []
     branding = resolve_branding(
         client, agency, presenter_id, partners,

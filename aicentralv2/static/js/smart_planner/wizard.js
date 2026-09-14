@@ -62,6 +62,46 @@
     });
   }
 
+  function readJson(id, fallback) {
+    var node = document.getElementById(id);
+    if (!node || !node.textContent) return fallback;
+    try {
+      return JSON.parse(node.textContent) || fallback;
+    } catch (error) {
+      return fallback;
+    }
+  }
+
+  function portalSelected(canais) {
+    var portals = ((readJson("sp-mix-spec", {}).portalChannels) || ["g1", "uol", "r7", "cnn"]);
+    return (canais || []).some(function (key) { return portals.indexOf(key) !== -1; });
+  }
+
+  function collectPlaces() {
+    var catalog = readJson("sp-places-catalog", []);
+    var out = [];
+    catalog.forEach(function (place) {
+      var box = document.querySelector('input[name="places"][value="' + place.slug + '"]');
+      if (!box || !box.checked) return;
+      var pointIds = Array.prototype.slice.call(document.querySelectorAll('input[name="place_points"][data-place="' + place.slug + '"]:checked')).map(function (el) {
+        return el.value;
+      });
+      var apps = Array.prototype.slice.call(document.querySelectorAll('input[name="place_apps"][data-place="' + place.slug + '"]:checked')).map(function (el) {
+        return el.value;
+      });
+      out.push({ slug: place.slug, title: place.title, point_ids: pointIds, apps: apps });
+    });
+    return out;
+  }
+
+  function collectInterativos() {
+    return {
+      formats: Array.prototype.slice.call(document.querySelectorAll('input[name="interativos_formats"]:checked')).map(function (el) {
+        return el.value;
+      }),
+    };
+  }
+
   function setWaitMeta(eyebrow, title, copy) {
     var eye = document.getElementById("sp-wait-eyebrow");
     var heading = document.getElementById("sp-wait-title");
@@ -752,8 +792,7 @@
       var media = spec.media || [];
       return media.filter(function (key) { return canais.indexOf(key) !== -1; });
     }
-    function allocate(canais, objetivo, method, weights) {
-      var keys = mediaKeys(canais);
+    function allocateCore(keys, objetivo, method, weights) {
       if (!keys.length) return [];
       var raw;
       if (method === "manual") {
@@ -780,6 +819,40 @@
         });
       }
       var pcts = normalizePcts(raw);
+      return keys.map(function (key) {
+        return { id: key, label: (spec.labels || {})[key] || key, group: groupOf(key), pct: pcts[key] || 0 };
+      });
+    }
+    function allocate(canais, objetivo, method, weights) {
+      var keys = mediaKeys(canais);
+      if (!keys.length) return [];
+      var specialIds = spec.specialMix || ["places", "interativos"];
+      var specialPct = spec.specialPct || 8;
+      var digital = keys.filter(function (key) { return specialIds.indexOf(key) === -1; });
+      var special = keys.filter(function (key) { return specialIds.indexOf(key) !== -1; });
+      if (method === "manual" || !special.length) return allocateCore(keys, objetivo, method, weights);
+      var digitalRows = allocateCore(digital, objetivo, method, weights);
+      var prev = {};
+      (weights || []).forEach(function (item) {
+        if (item && item.id) prev[item.id] = Number(item.pct) || 0;
+      });
+      var specialRaw = special.map(function (key) {
+        return [key, prev[key] != null ? prev[key] : specialPct];
+      });
+      if (!digitalRows.length) return allocateCore(special, objetivo, "manual", specialRaw.map(function (item) {
+        return { id: item[0], pct: item[1] };
+      }));
+      var specialShare = Math.min(specialRaw.reduce(function (sum, item) { return sum + Math.max(item[1], 0); }, 0), 40);
+      if (specialShare <= 0) specialShare = specialPct * special.length;
+      var remaining = Math.max(100 - specialShare, 0);
+      var pairs = digitalRows.map(function (row) {
+        return [row.id, row.pct * remaining / 100];
+      });
+      var specTotal = specialRaw.reduce(function (sum, item) { return sum + Math.max(item[1], 0); }, 0) || 1;
+      specialRaw.forEach(function (item) {
+        pairs.push([item[0], specialShare * Math.max(item[1], 0) / specTotal]);
+      });
+      var pcts = normalizePcts(pairs);
       return keys.map(function (key) {
         return { id: key, label: (spec.labels || {})[key] || key, group: groupOf(key), pct: pcts[key] || 0 };
       });
@@ -822,7 +895,9 @@
     function paintBars(weights) {
       if (!bars) return;
       bars.innerHTML = weights.map(function (item) {
-        return '<li data-canal="' + item.id + '"><span><strong>' + item.label + "</strong><em>" + item.pct
+        var logo = (spec.logos || {})[item.id];
+        var mark = logo ? '<img class="sp-mix-logo" src="' + logo + '" alt="">' : "";
+        return '<li data-canal="' + item.id + '"><span>' + mark + "<strong>" + item.label + "</strong><em>" + item.pct
           + '%</em></span><i><b data-pct="' + item.pct + '"></b></i>'
           + '<input type="range" min="0" max="100" value="' + item.pct + '" data-canal="' + item.id
           + '" aria-label="Percentual de ' + item.label + '"></li>';
@@ -1188,6 +1263,8 @@
           locked: selectedMethod() === "manual",
           progress: progressOn(),
         },
+        places: collectPlaces(),
+        interativos: collectInterativos(),
         verba_alocacao: monthValues(),
         campos: {
           campanha: data.get("campanha"),
@@ -1208,6 +1285,8 @@
           observacoes: data.get("observacoes"),
           criativos: data.get("criativos"),
           kpis: data.get("kpis"),
+          places: collectPlaces(),
+          interativos: collectInterativos(),
           anunciante_confidencial: data.get("anunciante_confidencial") === "1" || data.get("anunciante_confidencial") === "on",
         },
       };
@@ -1224,6 +1303,9 @@
     });
 
     setupChannelPicker(desk);
+    setupKpiChips();
+    setupPlacesDesk();
+    setupInterativosDesk();
     setupReviewSections();
     setupCompleteness();
     setupReviewAutosave(collectReview);
@@ -1289,14 +1371,58 @@
       var hasCanal = document.querySelector('#sp-mix-channels input[name="canais"]:checked');
       var state = {
         campanha: fieldFilled(document.getElementById("sp-field-campanha")),
+        objetivo: fieldFilled(document.getElementById("sp-objetivo")),
+        publico: fieldFilled(document.getElementById("sp-field-publico")),
         verba: fieldFilled(document.getElementById("sp-field-verba")),
         periodo: fieldFilled(document.getElementById("sp-field-periodo")),
-        kpis: fieldFilled(document.getElementById("sp-field-kpis")),
+        praca: fieldFilled(document.getElementById("sp-field-praca")),
+        kpis: fieldFilled(document.getElementById("sp-field-kpis")) || !!document.querySelector("#sp-kpi-chips button.is-on"),
         canais: !!hasCanal,
       };
+      var keys = Object.keys(state);
+      var filled = keys.filter(function (key) { return state[key]; }).length;
+      var score = Math.round((filled / keys.length) * 100);
+      var missing = keys.filter(function (key) { return !state[key]; });
       rootChecks.querySelectorAll("[data-check]").forEach(function (item) {
         item.classList.toggle("is-on", !!state[item.getAttribute("data-check")]);
       });
+      var num = document.getElementById("sp-score-num");
+      var fill = document.getElementById("sp-score-fill");
+      var title = document.getElementById("sp-complete-title");
+      var copy = document.getElementById("sp-complete-copy");
+      var bar = document.getElementById("sp-complete-bar");
+      var card = document.querySelector(".sp-complete");
+      if (num) num.innerHTML = score + "<small>/100</small>";
+      if (fill) fill.setAttribute("stroke-dasharray", (score * 94.2 / 100).toFixed(1) + " 94.2");
+      if (bar) bar.value = score;
+      var tom = score >= 70 ? "alto" : score >= 35 ? "medio" : "baixo";
+      if (card) card.setAttribute("data-tom", tom);
+      if (title) title.textContent = score >= 70 ? "Dá para gerar" : score >= 35 ? "Dá para gerar" : "Incompleto";
+      if (copy) {
+        copy.textContent = missing.length
+          ? "Dá para gerar. Falta só " + missing.join(", ") + "."
+          : "Dá para gerar. Os oito campos da mesa estão preenchidos.";
+      }
+      document.querySelectorAll("#sp-complete-gaps [data-gap]").forEach(function (link) {
+        var target = gapTarget(link.getAttribute("data-gap") || link.textContent);
+        var map = {
+          "sp-field-campanha": "campanha",
+          "sp-objetivo": "objetivo",
+          "sp-field-publico": "publico",
+          "sp-field-verba": "verba",
+          "sp-field-periodo": "periodo",
+          "sp-field-praca": "praca",
+          "sp-mix-channels": "canais",
+        };
+        var key = map[target];
+        var li = link.closest("li");
+        if (li) li.hidden = !!(key && state[key]);
+      });
+      var gaps = document.getElementById("sp-complete-gaps");
+      if (gaps) {
+        var visible = Array.prototype.slice.call(gaps.querySelectorAll("li")).filter(function (li) { return !li.hidden; });
+        gaps.hidden = visible.length === 0;
+      }
     }
 
     function autoOpen() {
@@ -1416,6 +1542,156 @@
       if (event.target && event.target.name === "canais") paintChips();
     });
     paintChips();
+  }
+
+  function setupKpiChips() {
+    var box = document.getElementById("sp-kpi-chips");
+    var field = document.getElementById("sp-field-kpis");
+    var spec = readJson("sp-mix-spec", {});
+    if (!box || !field) return;
+    function selectedCanaisNow() {
+      return Array.prototype.slice.call(document.querySelectorAll('#sp-mix-channels input[name="canais"]:checked')).map(function (el) {
+        return el.value;
+      });
+    }
+    function currentList() {
+      return String(field.value || "").split(",").map(function (item) { return item.trim(); }).filter(Boolean);
+    }
+    function paint() {
+      var canais = selectedCanaisNow();
+      var groups = {};
+      canais.forEach(function (key) {
+        var group = (spec.groups || {})[key];
+        (spec.kpis && spec.kpis[group] || []).forEach(function (label) { groups[label] = true; });
+      });
+      var suggestions = Object.keys(groups);
+      var picked = currentList();
+      box.innerHTML = suggestions.map(function (label) {
+        return '<button type="button" data-kpi="' + escapeHtml(label) + '" class="' + (picked.indexOf(label) !== -1 ? "is-on" : "") + '">' + escapeHtml(label) + "</button>";
+      }).join("");
+    }
+    box.addEventListener("click", function (event) {
+      var button = event.target.closest("[data-kpi]");
+      if (!button) return;
+      var label = button.getAttribute("data-kpi");
+      var picked = currentList();
+      var next = picked.indexOf(label) === -1 ? picked.concat([label]) : picked.filter(function (item) { return item !== label; });
+      field.value = next.join(", ");
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+      paint();
+    });
+    document.addEventListener("change", function (event) {
+      if (event.target && event.target.name === "canais") paint();
+    });
+    paint();
+  }
+
+  function setupPlacesDesk() {
+    var desk = document.getElementById("sp-places-desk");
+    var list = document.getElementById("sp-places-list");
+    var catalog = readJson("sp-places-catalog", []);
+    var boot = readJson("sp-places-boot", []);
+    if (!desk || !list) return;
+    var selected = {};
+    boot.forEach(function (item) {
+      if (item && item.slug) selected[item.slug] = item;
+    });
+    function placeChecked() {
+      var box = document.querySelector('#sp-mix-channels input[name="canais"][value="places"]');
+      return !!(box && box.checked);
+    }
+    function paint() {
+      desk.hidden = !placeChecked();
+      if (desk.hidden) return;
+      list.innerHTML = catalog.map(function (place) {
+        var current = selected[place.slug] || {};
+        var on = !!current.slug || !!current.point_ids;
+        var points = (place.points || []).map(function (point) {
+          var checked = (current.point_ids || []).indexOf(point.id) !== -1 || ((current.point_ids || []).length === 0 && on);
+          return '<label><input type="checkbox" name="place_points" data-place="' + place.slug + '" value="' + point.id + '"' + (checked ? " checked" : "") + "> "
+            + escapeHtml(point.name || point.id) + " · " + escapeHtml(point.radius_label || "") + " · " + escapeHtml(point.reach || "A definir") + "</label>";
+        }).join("");
+        var apps = [];
+        (place.points || []).forEach(function (point) {
+          (point.apps || []).forEach(function (name) {
+            if (apps.indexOf(name) === -1) apps.push(name);
+          });
+        });
+        var appHtml = apps.map(function (name) {
+          var checked = (current.apps || []).indexOf(name) !== -1;
+          return '<label><input type="checkbox" name="place_apps" data-place="' + place.slug + '" value="' + escapeHtml(name) + '"' + (checked ? " checked" : "") + "> " + escapeHtml(name) + "</label>";
+        }).join("");
+        return '<article class="sp-place-card">'
+          + '<label><input type="checkbox" name="places" value="' + place.slug + '"' + (on ? " checked" : "") + "> "
+          + escapeHtml(place.title || place.slug) + (place.code ? " · " + escapeHtml(place.code) : "") + "</label>"
+          + (on ? '<div class="sp-place-points">' + points + "</div>" + (appHtml ? '<div class="sp-place-apps">' + appHtml + "</div>" : "") : "")
+          + "</article>";
+      }).join("");
+    }
+    list.addEventListener("change", function (event) {
+      var target = event.target;
+      if (!target) return;
+      if (target.name === "places") {
+        if (target.checked) selected[target.value] = selected[target.value] || { slug: target.value, point_ids: [], apps: [] };
+        else delete selected[target.value];
+        paint();
+        return;
+      }
+      if (target.name === "place_points" || target.name === "place_apps") {
+        var slug = target.getAttribute("data-place");
+        selected[slug] = {
+          slug: slug,
+          point_ids: Array.prototype.slice.call(list.querySelectorAll('input[name="place_points"][data-place="' + slug + '"]:checked')).map(function (el) { return el.value; }),
+          apps: Array.prototype.slice.call(list.querySelectorAll('input[name="place_apps"][data-place="' + slug + '"]:checked')).map(function (el) { return el.value; }),
+        };
+      }
+    });
+    document.addEventListener("change", function (event) {
+      if (event.target && event.target.name === "canais" && event.target.value === "places") paint();
+    });
+    paint();
+  }
+
+  function setupInterativosDesk() {
+    var desk = document.getElementById("sp-interativos-desk");
+    var formats = document.getElementById("sp-interativos-formats");
+    var note = document.getElementById("sp-interativos-note");
+    var spec = readJson("sp-mix-spec", {});
+    var boot = readJson("sp-interativos-boot", {});
+    var box = document.querySelector('#sp-mix-channels input[name="canais"][value="interativos"]');
+    var label = box && box.closest("label");
+    if (!desk || !formats) return;
+    function canaisNow() {
+      return Array.prototype.slice.call(document.querySelectorAll('#sp-mix-channels input[name="canais"]:checked')).map(function (el) {
+        return el.value;
+      });
+    }
+    function paint() {
+      var allowed = portalSelected(canaisNow());
+      if (label) label.classList.toggle("is-off", !allowed);
+      if (box && !allowed && box.checked) box.checked = false;
+      desk.hidden = !(box && box.checked && allowed);
+      if (note) note.textContent = allowed ? "Formatos só nestes portais." : "Interativos entram no portal.";
+      var picked = (boot.formats || []);
+      formats.innerHTML = (spec.interativosFormats || []).map(function (item) {
+        return '<label><input type="checkbox" name="interativos_formats" value="' + item.id + '"'
+          + (picked.indexOf(item.id) !== -1 ? " checked" : "") + "> " + escapeHtml(item.label) + "</label>";
+      }).join("");
+    }
+    document.addEventListener("change", function (event) {
+      if (!event.target) return;
+      if (event.target.name === "canais") {
+        if (event.target.value === "interativos" && event.target.checked && !portalSelected(canaisNow().concat(["interativos"]))) {
+          event.target.checked = false;
+          if (note) note.textContent = "Interativos entram no portal.";
+        }
+        paint();
+      }
+      if (event.target.name === "interativos_formats") {
+        boot.formats = collectInterativos().formats;
+      }
+    });
+    paint();
   }
 
   function setupReviewAutosave(collectReview) {

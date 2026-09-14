@@ -8,9 +8,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&family=Nunito+Sans:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_public.css') }}?v=2">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_public.css') }}?v=6">
 </head>
 <body class="cc-plan">
+  <a class="cc-skip" href="#documento">Ir para o documento</a>
   <header class="cc-plan-top">
     <div class="cc-plan-top-inner">
       <a class="cc-plan-brand" href="{{ house.site }}" target="_blank" rel="noopener noreferrer">
@@ -20,7 +21,7 @@
       </a>
     </div>
   </header>
-  <main class="cc-plan-shell">
+  <main class="cc-plan-shell" id="documento">
     <div class="cc-plan-void">
       <h1>Este planejamento não está no ar</h1>
       <p>{{ mensagem }}</p>

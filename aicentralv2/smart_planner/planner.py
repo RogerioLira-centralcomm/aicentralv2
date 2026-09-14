@@ -7,6 +7,7 @@ from .brand import brand_prompt_block
 from .cost import bound_session
 from .catalog import CHANNEL_CATALOG, PLAN_MODES, channel_label
 from .helpers import as_dict, as_list, normalize_markdown, plan_mode_of, text
+from .places_bridge import places_prompt_block, snapshot_places
 from .materials import apoio_block
 from .mix import progress_calendar
 from .pace import budget_shares, campaign_pace, format_money
@@ -33,6 +34,7 @@ SMART. Meta sem lastro vira Premissa.
 
 ## Território e Praça
 Abrangência do mix. Sem praça: "Praça a definir pelo anunciante".
+Se houver Places confirmados: um bloco por place e ponto, com o próprio raio e o próprio reach. Raios não se somam. App só os listados. Venue não entra como texto solto de praça.
 
 ## Inteligência de Audiência
 Comportamento, hábitos de mídia, jornada e gatilhos do briefing.
@@ -104,6 +106,11 @@ def _campaign_block(campanha: dict) -> str:
         "\n\n## Configuração da campanha",
         f"- Canais: {', '.join(labels) or 'a definir'}",
         f"- Praça: {campanha.get('praca') or 'a definir'} {campanha.get('praca_detalhe') or ''}".rstrip(),
+    ]
+    places_note = places_prompt_block(snapshot_places(campanha.get("places")))
+    if places_note:
+        lines.append(places_note)
+    lines += [
         f"- Verba: {campanha.get('verba') or 'a definir'}",
         f"- Período: {campanha.get('periodo') or 'a definir'}",
         f"- Objetivo: {campanha.get('objetivo') or 'a definir'}",

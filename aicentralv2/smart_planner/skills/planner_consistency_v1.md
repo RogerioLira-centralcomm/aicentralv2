@@ -2,7 +2,7 @@
 
 Compare One Page e Plano Completo. Não reescreva fatos.
 
-Campos imutáveis: cliente, campanha, objetivo, tese, público, verba, período, praça, canais, mix, mensagem, benefícios, outputs, parâmetros de estimativa.
+Campos imutáveis: cliente, campanha, objetivo, tese, público, verba, período, praça, canais, places, interativos, mix, mensagem, benefícios, outputs, parâmetros de estimativa.
 
 Conflito crítico (tese, verba, canal novo, estimativa inventada): reporte.
 Aprofundamento compatível: permitido.

@@ -4,10 +4,12 @@
 {% block title %}{{ titulo }} · Smart Planner{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=30">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=35">
 {% endblock %}
 
 {% block content %}
+{% set product_step = "Documentos" %}
+{% include "smart_planner/_product_bar.html" %}
 <div class="sp-desk {% if plan_mode == 'one_page' %}is-sheet{% endif %}" id="sp-canvas"
      data-token="{{ token }}"
      data-mode="{{ plan_mode }}"
@@ -43,7 +45,7 @@
       <button type="button" class="cx-btn cx-btn-primary" id="sp-canvas-save">Salvar</button>
     </div>
   </header>
-  {% if facts and (facts.cliente or facts.verba or facts.praca or facts.custo or facts.publico or facts.canais) %}
+  {% if plan_mode != 'one_page' and facts and (facts.cliente or facts.verba or facts.praca or facts.custo or facts.publico or facts.canais) %}
   <dl class="sp-facts is-strip">
     <div><dt>Cliente</dt><dd>{{ facts.cliente or "—" }}</dd></div>
     {% if facts.objetivo %}<div><dt>Objetivo</dt><dd>{{ facts.objetivo }}</dd></div>{% endif %}
@@ -64,5 +66,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/canvas.js') }}?v=4"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/canvas.js') }}?v=6"></script>
 {% endblock %}

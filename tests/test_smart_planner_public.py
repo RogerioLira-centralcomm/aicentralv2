@@ -38,6 +38,7 @@ class PublicPlannerTest(TestCase):
         self.assertEqual(view["default_tab"], "folha")
         self.assertEqual(view["sheet"]["strategy"]["body"], "CTV e portais primeiro.")
         self.assertEqual(view["house"]["name"], "Centralcomm")
+        self.assertEqual(view["media"]["channels"], [])
 
     def test_complete_plan_splits_markdown_chapters(self):
         chapters = plan_chapters(
@@ -94,6 +95,12 @@ class PublicPlannerTest(TestCase):
         self.assertNotIn("base_erp.html", html)
         self.assertIn('data-cc-tab="folha"', html)
         self.assertIn('data-cc-tab="plano"', html)
+        self.assertIn("cc-exec-media", html)
+        self.assertIn("Gestão de mídia", html)
+        self.assertIn("cc-exec-brief", html)
+        self.assertIn("cc-exec-creative", html)
+        self.assertIn("cc-doc-card", html)
+        self.assertIn("is-lead", html)
         self.assertIn("ainda não foi criado", html)
         self.assertIn("Centralcomm", error)
         self.assertIn("Smart Planner", error)
@@ -104,6 +111,73 @@ class PublicPlannerTest(TestCase):
         self.assertIn("row.share_url", index)
         self.assertIn('target="_blank"', canvas)
         self.assertIn("share_url", canvas)
+
+    def test_public_view_exposes_media_board_and_exec_facts(self):
+        view = public_view({
+            "nome_campanha": "Lançamento",
+            "cliente": "BDMG",
+            "publico_alvo": "Quem busca crédito em Minas",
+            "dados_detectados": {
+                "plan_mode": "one_page",
+                "folha": {
+                    "meta": {
+                        "objective": "Tráfego",
+                        "publico": "Quem busca crédito em Minas",
+                        "canais": "2 canais · Funil do objetivo",
+                        "ritmo": "Começa menor, solta no meio e no fim.",
+                        "period": "outubro a novembro",
+                    },
+                    "media": {
+                        "method_label": "Funil do objetivo",
+                        "channels": [
+                            {"id": "ooh", "label": "OOH / Painéis", "pct": 60, "amount_label": "R$ 240.000", "role": "Alcance"},
+                            {"id": "google_ads", "label": "Google Ads", "pct": 40, "amount_label": "R$ 160.000"},
+                        ],
+                        "pace": {
+                            "how": "Começa menor, solta no meio e no fim.",
+                            "months": [
+                                {"label": "Out", "amount": 160000, "amount_label": "R$ 160.000"},
+                                {"label": "Nov", "amount": 240000, "amount_label": "R$ 240.000"},
+                            ],
+                        },
+                    },
+                    "sections": [{"cards": [{"type": "strategy", "body": "Tese."}]}],
+                },
+            },
+            "plan_content": {"sections": []},
+        })
+        self.assertEqual(view["media"]["channels"][0]["pct"], 60)
+        self.assertEqual(view["media"]["months"][0]["label"], "Out")
+        self.assertGreater(view["media"]["months"][1]["bar"], view["media"]["months"][0]["bar"])
+        labels = [item[0] for item in view["facts"]]
+        self.assertIn("Público", labels)
+        self.assertIn("Canais", labels)
+        self.assertEqual(dict(view["facts"])["Período"], "outubro a novembro")
+        self.assertEqual(dict(view["facts"])["Canais"], "2 canais")
+        self.assertEqual(view["media"]["how"], "Começa menor, solta no meio e no fim.")
+        self.assertFalse(view["media"]["note"])
+        self.assertFalse(view["show_market"])
+
+    def test_media_only_folha_is_ready(self):
+        view = public_view({
+            "nome_campanha": "Só mix",
+            "cliente": "BDMG",
+            "dados_detectados": {
+                "plan_mode": "one_page",
+                "folha": {
+                    "media": {
+                        "method_label": "Funil do objetivo",
+                        "channels": [{"id": "ooh", "label": "OOH", "pct": 100}],
+                    },
+                    "sections": [{"cards": []}],
+                },
+            },
+            "plan_content": {"sections": []},
+        })
+        self.assertTrue(view["tem_folha"])
+        self.assertFalse(view["tem_completo"])
+        self.assertEqual(view["default_tab"], "folha")
+        self.assertEqual(view["media"]["channels"][0]["label"], "OOH")
 
     def test_history_row_exposes_public_link(self):
         row = serialize_list_row({

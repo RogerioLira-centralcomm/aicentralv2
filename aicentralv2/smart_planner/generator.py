@@ -285,6 +285,35 @@ def _mix_law(snapshot: dict) -> dict:
     }
 
 
+def _places_law(snapshot: dict) -> dict:
+    rows = [as_dict(item) for item in as_list((snapshot or {}).get("places")) if as_dict(item).get("slug")]
+    if not rows:
+        return {}
+    lines = []
+    for place in rows:
+        title = text(place.get("title") or place.get("slug"))
+        for point in as_list(place.get("points")):
+            row = as_dict(point)
+            apps = ", ".join(text(name) for name in as_list(row.get("apps")) if text(name)) or "sem app listado"
+            lines.append(
+                f"{title} · {text(row.get('name') or row.get('id'))} · "
+                f"{text(row.get('radius_label'))} · reach {text(row.get('reach')) or 'A definir'} · apps: {apps}"
+            )
+        if not as_list(place.get("points")):
+            lines.append(title)
+    interativos = as_dict((snapshot or {}).get("interativos"))
+    formats = [text(item) for item in as_list(interativos.get("formats")) if text(item)]
+    return {
+        "lei": (
+            "Só estes places, pontos e apps. Raios não se somam. Cite cada ponto com o próprio raio e o próprio reach. "
+            "App só os listados no ponto. Interativos não são Places — só no portal-herói se interativos estiver no mix."
+        ),
+        "places": lines,
+        "multi": len(rows) > 1,
+        "interativos": formats,
+    }
+
+
 def _pack(snapshot: dict, evidence: dict, core: dict | None = None, estimates: dict | None = None, extra: dict | None = None) -> str:
     snap = dict(snapshot or {})
     client = dict(as_dict(snap.get("client")))
@@ -316,6 +345,9 @@ def _pack(snapshot: dict, evidence: dict, core: dict | None = None, estimates: d
     mix_aprovado = _mix_law(snap)
     if mix_aprovado:
         payload["mix_aprovado"] = mix_aprovado
+    places_aprovado = _places_law(snap)
+    if places_aprovado:
+        payload["places_aprovado"] = places_aprovado
     if extra:
         payload.update(extra)
     payload["estimates_note"] = estimates_note
@@ -441,6 +473,9 @@ def _approved_tokens(snapshot: dict) -> set[str]:
         tokens |= _channel_tokens(item)
     for row in _mix_rows(snapshot):
         tokens |= _channel_tokens(row.get("id"), row.get("label"))
+    for place in as_list((snapshot or {}).get("places")):
+        row = as_dict(place)
+        tokens |= _channel_tokens(row.get("slug"), row.get("title"), "places")
     return tokens
 
 

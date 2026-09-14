@@ -4,10 +4,12 @@
 {% block title %}{{ steps[step_index].title }} · Smart Planner{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=29">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=35">
 {% endblock %}
 
 {% block content %}
+{% set product_step = steps[step_index].title if steps and step_index is not none else "Revisar" %}
+{% include "smart_planner/_product_bar.html" %}
 <div class="sp-hi" id="sp-wizard"
      data-token="{{ token }}"
      data-step="{{ step_id }}"
@@ -151,30 +153,31 @@
             <div class="sp-score-ring" aria-hidden="true">
               <svg viewBox="0 0 36 36">
                 <circle class="sp-score-track" cx="18" cy="18" r="15"></circle>
-                <circle class="sp-score-fill" cx="18" cy="18" r="15" stroke-dasharray="{{ (ring * 94.2 / 100)|round(1) }} 94.2"></circle>
+                <circle class="sp-score-fill" id="sp-score-fill" cx="18" cy="18" r="15" stroke-dasharray="{{ (ring * 94.2 / 100)|round(1) }} 94.2"></circle>
               </svg>
-              <strong>{{ quality_score }}<small>/100</small></strong>
+              <strong id="sp-score-num">{{ quality_score }}<small>/100</small></strong>
             </div>
             <label class="sr-only" for="sp-complete-bar">Completude do briefing</label>
             <progress id="sp-complete-bar" max="100" value="{{ ring }}" hidden></progress>
           </div>
           <div>
-            <h2 id="sp-complete-title">{{ quality.titulo }}{% if quality.tom == 'baixo' %} — briefing incompleto{% endif %}</h2>
-            <p>{{ quality.texto }} {% if gaps %}{{ gaps|length }} pendência{{ 's' if gaps|length != 1 else '' }}.{% endif %}</p>
+            <h2 id="sp-complete-title">{{ quality.titulo }}</h2>
+            <p id="sp-complete-copy">{{ quality.texto }}</p>
             <ul class="sp-complete-checks" id="sp-complete-checks">
               <li data-check="campanha">campanha</li>
+              <li data-check="objetivo">objetivo</li>
+              <li data-check="publico">público</li>
               <li data-check="verba">verba</li>
               <li data-check="periodo">período</li>
+              <li data-check="praca">praça</li>
               <li data-check="kpis">kpis</li>
               <li data-check="canais">canais</li>
             </ul>
-            {% if gaps %}
-            <ul class="sp-complete-gaps">
+            <ul class="sp-complete-gaps" id="sp-complete-gaps" {% if not gaps %}hidden{% endif %}>
               {% for gap in gaps[:5] %}
               <li><a href="#sp-objetivo" data-gap="{{ gap }}">{{ gap }}</a></li>
               {% endfor %}
             </ul>
-            {% endif %}
           </div>
         </section>
 
@@ -488,8 +491,8 @@
         <section class="sp-side-card">
           <h2>Configuração do plano</h2>
           <p>Verba, voo, praça e indicadores.</p>
-          <div class="sp-bf">
-            <label for="sp-field-verba"><span>Verba</span><input id="sp-field-verba" form="sp-revisao-form" name="verba" value="{{ campos.verba }}" placeholder="R$ 80 mil por mês"></label>
+          <div class="sp-bf is-stack">
+            <label for="sp-field-verba"><span>Verba</span><input id="sp-field-verba" form="sp-revisao-form" name="verba" value="{{ campos.verba }}" placeholder="A fechar"></label>
             <label for="sp-field-verba-base">
               <span>Essa verba é</span>
               <select id="sp-field-verba-base" form="sp-revisao-form" name="verba_base">
@@ -497,7 +500,7 @@
                 <option value="mensal" {% if verba.base == 'mensal' %}selected{% endif %}>Por mês</option>
               </select>
             </label>
-            <label for="sp-field-periodo"><span>Período</span><input id="sp-field-periodo" form="sp-revisao-form" name="periodo" value="{{ campos.periodo }}" placeholder="90 dias, set a nov"></label>
+            <label for="sp-field-periodo"><span>Período</span><input id="sp-field-periodo" form="sp-revisao-form" name="periodo" value="{{ campos.periodo }}" placeholder="30 dias"></label>
             {% if pace and pace.helper %}
             <p class="sp-flight-note">{{ pace.helper }}</p>
             {% endif %}
@@ -510,8 +513,12 @@
                 {% endfor %}
               </select>
             </label>
-            <label for="sp-field-praca-detalhe"><span>Onde exatamente</span><input id="sp-field-praca-detalhe" form="sp-revisao-form" name="praca_detalhe" value="{{ campos.praca_detalhe }}" placeholder="Cidades, UFs ou raio"></label>
-            <label for="sp-field-kpis"><span>KPIs</span><input id="sp-field-kpis" form="sp-revisao-form" name="kpis" value="{{ campos.kpis|join(', ') }}" placeholder="Alcance, CPL, vendas"></label>
+            <label for="sp-field-praca-detalhe"><span>Onde exatamente</span><input id="sp-field-praca-detalhe" form="sp-revisao-form" name="praca_detalhe" value="{{ campos.praca_detalhe }}" placeholder="Cidades, UFs — o venue vai em Places"></label>
+            <div class="sp-kpi-box">
+              <span>KPIs</span>
+              <div class="sp-kpi-chips" id="sp-kpi-chips"></div>
+              <input id="sp-field-kpis" form="sp-revisao-form" name="kpis" value="{{ campos.kpis|join(', ') }}" placeholder="Texto extra, se precisar">
+            </div>
           </div>
         </section>
       </div>
@@ -577,8 +584,11 @@
                   {% if meta.tipo != 'dados' %}
                   {% set extra = shown.n >= 12 and key not in campos.canais %}
                   {% if not extra %}{% set shown.n = shown.n + 1 %}{% endif %}
-                  <label {% if extra %}data-extra="1" hidden{% endif %} data-label="{{ meta.label|lower }}">
+                  <label {% if extra %}data-extra="1" hidden{% endif %} data-label="{{ meta.label|lower }}" data-group="{{ group_key }}" {% if key == 'interativos' %}data-needs-portal="1"{% endif %}>
                     <input form="sp-revisao-form" type="checkbox" name="canais" value="{{ key }}" {% if key in campos.canais %}checked{% endif %}>
+                    {% if meta.logo %}
+                    <img class="sp-mix-logo" src="{{ meta.logo }}" alt="">
+                    {% endif %}
                     <span>{{ meta.label }}</span>
                   </label>
                   {% endif %}
@@ -586,8 +596,22 @@
                 </div>
               </div>
               {% endfor %}
+              <p class="sp-mix-ooh-note">OOH é produto da casa, não o foco desta mesa.</p>
+            </div>
+            <div class="sp-places-desk" id="sp-places-desk" hidden>
+              <h3>Places e pontos</h3>
+              <p>Raios não se somam. App só o que o ponto lista.</p>
+              <div id="sp-places-list"></div>
+            </div>
+            <div class="sp-interativos-desk" id="sp-interativos-desk" hidden>
+              <h3>Formatos interativos</h3>
+              <p id="sp-interativos-note">Interativos entram no portal.</p>
+              <div class="sp-kpi-chips" id="sp-interativos-formats"></div>
             </div>
             <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-mix-more-btn" hidden>Ver mais canais</button>
+            <script type="application/json" id="sp-places-boot">{{ (campos.places or [])|tojson }}</script>
+            <script type="application/json" id="sp-places-catalog">{{ (places_catalog or [])|tojson }}</script>
+            <script type="application/json" id="sp-interativos-boot">{{ (campos.interativos or {})|tojson }}</script>
             <h3>Balanceamento de mídia</h3>
             <p id="sp-mix-hint">
               {% if campos.objetivo %}
@@ -856,6 +880,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=19"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=21"></script>
 <script src="{{ url_for('static', filename='js/smart_planner/guide.js') }}?v=3"></script>
 {% endblock %}

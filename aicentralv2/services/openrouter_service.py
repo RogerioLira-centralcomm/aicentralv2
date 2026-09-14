@@ -52,15 +52,58 @@ _NO_SAMPLING_SLUGS = frozenset({"gpt-5", "gpt-5-mini", "gpt-5-nano"})
 
 
 def model_omits_sampling(model=None) -> bool:
-    """GPT-5 mini/nano e o-series recusam temperature/top_p/top_k no OpenAI."""
+    """A família GPT-5 e o-series recusam temperature/top_p/top_k."""
     slug = str(model or "").strip().lower()
     if "/" in slug:
         slug = slug.split("/", 1)[1]
-    if slug in _NO_SAMPLING_SLUGS:
-        return True
-    if slug.startswith(("gpt-5-mini-", "gpt-5-nano-")):
+    if slug in _NO_SAMPLING_SLUGS or slug.startswith("gpt-5"):
         return True
     return slug.startswith(("o1", "o3", "o4-"))
+
+
+def message_text(message) -> str:
+    """Junta content em string, inclusive lista GPT-5 e fallback de reasoning."""
+    if isinstance(message, str):
+        return message.strip()
+    if not isinstance(message, dict):
+        return str(message or "").strip()
+    content = message.get("content")
+    parts = []
+    if isinstance(content, list):
+        for part in content:
+            if isinstance(part, str) and part.strip():
+                parts.append(part)
+            elif isinstance(part, dict):
+                bit = part.get("text") or part.get("content") or part.get("output_text") or ""
+                if bit:
+                    parts.append(str(bit))
+    elif content:
+        parts.append(str(content))
+    text = "\n".join(part for part in parts if str(part).strip()).strip()
+    if text:
+        return text
+    reasoning = message.get("reasoning")
+    if isinstance(reasoning, str) and reasoning.strip():
+        return reasoning.strip()
+    details = message.get("reasoning_details")
+    if isinstance(details, list):
+        bits = []
+        for item in details:
+            if not isinstance(item, dict):
+                continue
+            bit = item.get("text") or item.get("summary") or item.get("content") or ""
+            if bit:
+                bits.append(str(bit))
+        return "\n".join(bits).strip()
+    return ""
+
+
+def _with_message_text(message):
+    data = dict(message or {})
+    text = message_text(data)
+    if text:
+        data["content"] = text
+    return data
 
 
 def sanitize_chat_payload(payload):
@@ -225,7 +268,15 @@ def _openai_chat_completion(payload: Dict[str, Any], *, timeout: int = 90) -> Di
     body.pop("top_k", None)
     body.pop("usage", None)
     body.pop("plugins", None)
-    body.pop("reasoning", None)
+    raw_reasoning = body.pop("reasoning", None)
+    if "reasoning_effort" not in body:
+        effort = ""
+        if isinstance(raw_reasoning, dict):
+            effort = str(raw_reasoning.get("effort") or "").strip()
+        if not effort and model_omits_sampling(body.get("model")):
+            effort = "low"
+        if effort:
+            body["reasoning_effort"] = effort
     max_tokens = body.pop("max_tokens", None)
     if max_tokens is not None and "max_completion_tokens" not in body:
         body["max_completion_tokens"] = max_tokens
@@ -241,14 +292,13 @@ def _openai_chat_completion(payload: Dict[str, Any], *, timeout: int = 90) -> Di
                 OPENAI_CHAT_URL,
                 headers=headers,
                 json=body,
-                timeout=max(5, min(int(timeout), 90)),
+                timeout=max(5, min(int(timeout), 180)),
             )
             last_response = response
             response.raise_for_status()
             result = response.json()
-            message = result["choices"][0]["message"]
             return {
-                "message": message,
+                "message": _with_message_text(result["choices"][0]["message"]),
                 "model": result.get("model") or body["model"],
                 "usage": result.get("usage") or {},
             }
@@ -313,6 +363,8 @@ def chat_completion(
         payload["response_format"] = response_format
     if reasoning:
         payload["reasoning"] = reasoning
+    elif model_omits_sampling(payload.get("model")):
+        payload["reasoning"] = {"effort": "low"}
     payload = sanitize_chat_payload(payload)
     if uses_direct_openai(payload.get("model")):
         return _openai_chat_completion(payload, timeout=timeout)
@@ -329,14 +381,13 @@ def chat_completion(
         try:
             response = requests.post(
                 OPENROUTER_URL, headers=headers, json=payload,
-                timeout=max(5, min(int(timeout), 90)),
+                timeout=max(5, min(int(timeout), 180)),
             )
             last_response = response
             response.raise_for_status()
             result = response.json()
-            message = result["choices"][0]["message"]
             return {
-                "message": message,
+                "message": _with_message_text(result["choices"][0]["message"]),
                 "model": result.get("model") or payload["model"],
                 "usage": result.get("usage") or {},
             }
@@ -606,6 +657,16 @@ def _reference_bytes(item, index: int) -> tuple[bytes, str, str]:
         mime = header.split(";", 1)[0].split(":", 1)[1] or "image/png"
         ext = "jpg" if "jpeg" in mime else "png"
         return base64.b64decode(encoded), mime, f"ref{index}.{ext}"
+    if url.startswith("/static/"):
+        from flask import current_app, has_app_context
+
+        root = current_app.static_folder if has_app_context() and current_app.static_folder else ""
+        path = os.path.join(root, url.split("/static/", 1)[-1]) if root else ""
+        if path and os.path.isfile(path):
+            raw = open(path, "rb").read()
+            mime = "image/png" if raw.startswith(b"\x89PNG") else "image/jpeg"
+            ext = "png" if "png" in mime else "jpg"
+            return raw, mime, f"ref{index}.{ext}"
     if not url.startswith(("https://", "http://")):
         raise OpenRouterError("Referência de imagem inválida.")
     fetched = requests.get(url, timeout=30)

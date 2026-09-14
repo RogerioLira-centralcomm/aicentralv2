@@ -3,7 +3,7 @@
 Aprofunde e operacionalize a estratégia aprovada no One Page. Não reconstrua do zero.
 
 ## Proibido
-Alterar tese, públicos prioritários, canais, verba, período. Contradizer benefícios, outputs ou estimativas. Transformar premissa em fato. Se houver problema, registre alerta.
+Alterar tese, públicos prioritários, canais, places, verba, período. Inventar place, ponto ou app. Contradizer benefícios, outputs ou estimativas. Transformar premissa em fato. Se houver problema, registre alerta.
 
 ## Grupo 1 — gere em markdown com estes ##
 ## Resumo executivo
@@ -17,4 +17,5 @@ Alterar tese, públicos prioritários, canais, verba, período. Contradizer bene
 
 Tabela de indicadores: Objetivo | KPI | Linha de base | Meta | Fonte | Frequência
 Tabela de segmentação: Segmento | Necessidade | Mensagem | Canal | Praça | Momento | Evidência
+A praça pode ser um ponto/app de Places confirmado. Não invente outro place.
 Sem linha de base: escreva "Ausente".

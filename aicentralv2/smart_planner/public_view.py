@@ -35,6 +35,72 @@ def _sheet_cards(plan: dict) -> dict:
     return found
 
 
+def _is_real_stat(stat: str) -> bool:
+    value = text(stat).lower()
+    return bool(value) and value != "premissa" and "informe" not in value
+
+
+def _as_pct(value) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _media_board(folha: dict) -> dict:
+    media = as_dict((folha or {}).get("media"))
+    channels = []
+    for row in as_list(media.get("channels")):
+        item = as_dict(row)
+        label = text(item.get("label") or item.get("id"))
+        if not label:
+            continue
+        channels.append({
+            "id": text(item.get("id")),
+            "label": label,
+            "pct": _as_pct(item.get("pct") or item.get("value")),
+            "amount_label": text(item.get("amount_label")),
+            "role": text(item.get("role")),
+        })
+    if not channels:
+        theme = as_dict((folha or {}).get("theme"))
+        for row in as_list(theme.get("density")):
+            item = as_dict(row)
+            label = text(item.get("label"))
+            if not label:
+                continue
+            channels.append({
+                "label": label,
+                "pct": _as_pct(item.get("value") or item.get("pct")),
+                "amount_label": text(item.get("amount_label")),
+                "role": text(item.get("role")),
+            })
+    pace = as_dict(media.get("pace"))
+    months = []
+    for row in as_list(pace.get("months")):
+        item = as_dict(row)
+        if text(item.get("label")):
+            months.append({
+                "label": text(item.get("label")),
+                "amount_label": text(item.get("amount_label")),
+                "amount": _as_pct(item.get("amount")),
+            })
+    peak = max((item["amount"] for item in months), default=0) or 1
+    for item in months:
+        item["bar"] = max(12, round((item["amount"] or 0) / peak * 56))
+    how = text(pace.get("how"))
+    note = text(as_dict((folha or {}).get("theme")).get("density_note") or how)
+    if months and note == how:
+        note = ""
+    return {
+        "method_label": text(media.get("method_label") or media.get("method")),
+        "channels": channels,
+        "months": months,
+        "how": how,
+        "note": note,
+    }
+
+
 def _is_table_row(line: str) -> bool:
     return line.strip().startswith("|") and line.count("|") >= 2
 
@@ -115,7 +181,13 @@ def public_view(row: dict) -> dict:
     token = text(share.get("public_token") or dados.get("public_token"))
     url = text(share.get("url")) or public_sheet_url(token)
     folha = as_dict(dados.get("folha"))
-    if not _cards(folha) and plan and not _is_board(plan):
+    folha_media = as_dict(folha.get("media"))
+    has_folha_media = bool(
+        as_list(folha_media.get("channels"))
+        or as_list(as_dict(folha_media.get("pace")).get("months"))
+        or as_list(as_dict(folha.get("theme")).get("density"))
+    )
+    if not _cards(folha) and not has_folha_media and plan and not _is_board(plan):
         folha = plan
     sheet = _sheet_cards(folha)
     board = plan if _is_board(plan) else {}
@@ -133,19 +205,32 @@ def public_view(row: dict) -> dict:
     confidential = as_bool(dados.get("anunciante_confidencial"))
     raw_client = text(meta.get("client") or row.get("cliente") or dados.get("cliente") or campanha.get("cliente"))
     client = "Confidencial" if confidential else raw_client
+    period = text(meta.get("period") or row.get("prazo") or campanha.get("periodo") or dados.get("periodo"))
+    media = _media_board(folha)
+    canais = text(meta.get("canais"))
+    method = text(media.get("method_label"))
+    if canais and method and f" · {method}" in canais:
+        canais = canais.replace(f" · {method}", "").strip()
     facts = [
         item
         for item in (
             ("Anunciante", client),
             ("Campanha", text(meta.get("campaign") or row.get("nome_campanha") or dados.get("nome_campanha"))),
+            ("Objetivo", text(meta.get("objective") or row.get("objetivo") or campanha.get("objetivo"))),
+            ("Público", text(meta.get("publico") or row.get("publico_alvo") or dados.get("publico"))),
             ("Verba", text(meta.get("budget") or row.get("budget") or campanha.get("verba") or dados.get("verba"))),
             ("Praça", text(meta.get("market") or campanha.get("praca"))),
-            ("Período", text(meta.get("period") or row.get("prazo") or campanha.get("periodo") or dados.get("periodo"))),
-            ("Objetivo", text(meta.get("objective") or row.get("objetivo") or campanha.get("objetivo"))),
+            ("Places", text(meta.get("places")) or ", ".join(
+                text(as_dict(item).get("title") or as_dict(item).get("slug"))
+                for item in as_list(folha.get("places") or campanha.get("places"))
+                if text(as_dict(item).get("title") or as_dict(item).get("slug"))
+            )),
+            ("Período", period),
+            ("Canais", canais),
         )
         if item[1] and item[1] != title
     ]
-    tem_folha = bool(sheet)
+    tem_folha = bool(sheet) or bool(media.get("channels") or media.get("months"))
     tem_completo = bool(chapters or board_sections)
     return {
         "house": HOUSE,
@@ -155,6 +240,8 @@ def public_view(row: dict) -> dict:
         "facts": facts,
         "branding": branding,
         "sheet": sheet,
+        "media": media,
+        "show_market": _is_real_stat(text(as_dict(sheet.get("market")).get("stat"))),
         "tem_folha": tem_folha,
         "tem_completo": tem_completo,
         "chapters": chapters,

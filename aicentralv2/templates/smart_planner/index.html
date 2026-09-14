@@ -4,10 +4,12 @@
 {% block title %}Smart Planner{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=29">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=35">
 {% endblock %}
 
 {% block content %}
+{% set product_step = "Planejamentos" %}
+{% include "smart_planner/_product_bar.html" %}
 <div class="sp-desk is-book">
   <header class="sp-head">
     <div>

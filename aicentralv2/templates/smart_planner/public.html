@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_public.css') }}?v=2">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_public.css') }}?v=6">
 </head>
 <body class="cc-plan" data-tab="{{ default_tab }}">
   <a class="cc-skip" href="#documento">Ir para o documento</a>
@@ -40,66 +40,125 @@
       {% endif %}
     </header>
 
+    {% if tem_folha and tem_completo %}
     <nav class="cc-plan-tabs" role="tablist" aria-label="Documentos deste planejamento">
       <a href="#folha" role="tab" data-cc-tab="folha" aria-controls="cc-folha" id="tab-folha">Página única</a>
       <a href="#plano" role="tab" data-cc-tab="plano" aria-controls="cc-plano" id="tab-plano">Plano completo</a>
     </nav>
+    {% endif %}
 
-    <section class="cc-plan-panel" id="cc-folha" data-cc-panel="folha" data-ready="{{ '1' if tem_folha else '0' }}" role="tabpanel" aria-labelledby="tab-folha">
-      {% if tem_folha %}
+    {% if tem_folha %}
+    <section class="cc-plan-panel" id="cc-folha" data-cc-panel="folha" data-ready="1" role="tabpanel" aria-labelledby="tab-folha">
       {% set strategy = sheet.strategy or {} %}
       {% set creative = sheet.creative or {} %}
       {% set market = sheet.market or {} %}
       {% set defense = sheet.defense or {} %}
-      {% if strategy.body %}
-      <p class="cc-plan-reco">{{ strategy.body }}</p>
-      {% endif %}
-      <div class="cc-plan-split">
-        {% if creative.body or creative.image_url %}
-        <article class="cc-plan-block">
-          <h2>{{ creative.title or "Criativo no canal" }}</h2>
-          {% if creative.image_url %}
-          <figure class="cc-plan-shot">
-            <img src="{{ creative.image_url }}" alt="">
-          </figure>
-          {% endif %}
-          {% if creative.body %}<p>{{ creative.body }}</p>{% endif %}
-        </article>
+      {% set media = media or {} %}
+      {% set has_brief = strategy.body %}
+      {% set has_media = media.channels or (media.months and media.months|length > 1) or media.method_label %}
+      {% set has_creative = creative.body or creative.image_url or defense.body or show_market %}
+      <div class="cc-exec{% if not has_brief %} is-no-brief{% endif %}{% if not has_media %} is-no-media{% endif %}{% if not has_creative %} is-no-creative{% endif %}">
+        {% if has_brief %}
+        <section class="cc-exec-brief">
+          <p class="cc-exec-kicker">Tese e briefing</p>
+          {% for para in strategy.body.split('\n\n') if para.strip() %}
+          <p class="cc-plan-reco">{{ para.strip() }}</p>
+          {% endfor %}
+        </section>
         {% endif %}
-        {% if market.body or market.stat %}
-        <article class="cc-plan-block is-stat">
-          <h2>{{ market.title or "Dado de mercado" }}</h2>
-          {% if market.stat %}
-          <p class="cc-plan-stat">{{ market.stat }}{% if market.stat_label %} <small>{{ market.stat_label }}</small>{% endif %}</p>
+        {% if has_media %}
+        <section class="cc-exec-media">
+          <p class="cc-exec-kicker">Gestão de mídia</p>
+          {% if media.method_label %}<p class="cc-exec-method">{{ media.method_label }}</p>{% endif %}
+          {% if media.channels %}
+          {% for row in media.channels %}
+          <div class="cc-density-row">
+            <span>
+              {{ row.label }}
+              {% if row.amount_label or row.role %}
+              <small>{% if row.amount_label %}{{ row.amount_label }}{% endif %}{% if row.amount_label and row.role %} · {% endif %}{% if row.role %}{{ row.role }}{% endif %}</small>
+              {% endif %}
+            </span>
+            <i><b style="width: {{ row.pct }}%"></b></i>
+            <em>{{ row.pct }}%</em>
+          </div>
+          {% endfor %}
           {% endif %}
-          {% if market.body %}<p>{{ market.body }}</p>{% endif %}
-        </article>
+          {% if media.months and media.months|length > 1 %}
+          <div class="cc-flight">
+            <p>Voo da campanha</p>
+            <div class="cc-flight-row">
+              {% for month in media.months %}
+              <div class="cc-flight-col">
+                <i style="height: {{ month.bar or 12 }}px"></i>
+                <span>{{ month.label }}</span>
+                {% if month.amount_label %}<em>{{ month.amount_label }}</em>{% endif %}
+              </div>
+              {% endfor %}
+            </div>
+            {% if media.how %}<p class="cc-exec-note">{{ media.how }}</p>{% endif %}
+          </div>
+          {% endif %}
+          {% if media.note %}<p class="cc-exec-note">{{ media.note }}</p>{% endif %}
+        </section>
+        {% endif %}
+        {% if has_creative %}
+        <section class="cc-exec-creative">
+          {% if creative.body or creative.image_url %}
+          <article class="cc-plan-block">
+            <h2>{{ creative.title or "Criativo no canal" }}</h2>
+            {% if creative.image_url %}
+            <figure class="cc-plan-shot">
+              <img src="{{ creative.image_url }}" alt="">
+            </figure>
+            {% endif %}
+            {% if creative.body %}<p>{{ creative.body }}</p>{% endif %}
+          </article>
+          {% endif %}
+          {% if defense.body %}
+          <article class="cc-plan-block is-defense">
+            <h2>{{ defense.title or "Por que aprovar" }}</h2>
+            {% for para in defense.body.split('\n\n') if para.strip() %}
+            <p>{{ para.strip() }}</p>
+            {% endfor %}
+          </article>
+          {% endif %}
+          {% if show_market %}
+          <article class="cc-plan-block is-stat">
+            <h2>{{ market.title or "Indicadores" }}</h2>
+            <p class="cc-plan-stat">{{ market.stat }}{% if market.stat_label %} <small>{{ market.stat_label }}</small>{% endif %}</p>
+            {% if market.body %}<p>{{ market.body }}</p>{% endif %}
+          </article>
+          {% endif %}
+        </section>
         {% endif %}
       </div>
-      {% if defense.body %}
-      <article class="cc-plan-block is-defense">
-        <h2>{{ defense.title or "Defesa" }}</h2>
-        <p>{{ defense.body }}</p>
-      </article>
-      {% endif %}
-      {% else %}
+    </section>
+    {% elif not tem_completo %}
+    <section class="cc-plan-panel" id="cc-folha" data-cc-panel="folha" data-ready="0" role="tabpanel">
       <div class="cc-plan-void">
         <h2>A página única ainda não foi criada</h2>
         <p>Este link só mostra o documento gerado. A folha da reunião ainda não existe nesta campanha.</p>
       </div>
-      {% endif %}
     </section>
+    {% endif %}
 
-    <section class="cc-plan-panel" id="cc-plano" data-cc-panel="plano" data-ready="{{ '1' if tem_completo else '0' }}" role="tabpanel" aria-labelledby="tab-plano" hidden>
-      {% if tem_completo %}
+    {% if tem_completo %}
+    <section class="cc-plan-panel" id="cc-plano" data-cc-panel="plano" data-ready="1" role="tabpanel" aria-labelledby="tab-plano"{% if tem_folha %} hidden{% endif %}>
       {% if chapters %}
       <div class="cc-plan-doc">
         {% for chapter in chapters %}
         <article class="cc-plan-chapter">
           {% if chapter.title %}<h2>{{ chapter.title }}</h2>{% endif %}
+          {% set ns = namespace(lead=true) %}
           {% for block in chapter.blocks %}
             {% if block.type == "p" %}
+            {% if ns.lead %}
+            <p class="is-lead">{{ block.text }}</p>
+            {% set ns.lead = false %}
+            {% else %}
             <p>{{ block.text }}</p>
+            {% endif %}
             {% elif block.type == "ul" %}
             <ul>
               {% for item in block.items %}<li>{{ item }}</li>{% endfor %}
@@ -130,22 +189,22 @@
         <section>
           <h2>{{ section.title }}</h2>
           {% for card in section.cards %}
-          <article>
+          <article class="cc-doc-card{% if card.type %} is-{{ card.type }}{% endif %}{% if loop.first %} is-lead{% endif %}">
             {% if card.title %}<h3>{{ card.title }}</h3>{% endif %}
-            {% if card.body %}<p>{{ card.body }}</p>{% endif %}
+            {% if card.body %}
+            {% for para in card.body.split('\n\n') if para.strip() %}
+            <p{% if loop.first %} class="is-lead"{% endif %}>{{ para.strip() }}</p>
+            {% endfor %}
+            {% endif %}
           </article>
           {% endfor %}
         </section>
         {% endfor %}
       </div>
       {% endif %}
-      {% else %}
-      <div class="cc-plan-void">
-        <h2>O plano completo ainda não foi criado</h2>
-        <p>Esta campanha tem só a página única. O planejamento nas doze seções ainda não foi gerado.</p>
-      </div>
-      {% endif %}
     </section>
+    {% endif %}
+    {# O plano completo ainda não foi criado — só entra no ar quando a mesa gera as doze seções. #}
   </main>
 
   <footer class="cc-plan-foot">
@@ -153,6 +212,6 @@
     <p>{{ house.name }} · {{ house.label }}</p>
   </footer>
 
-  <script src="{{ url_for('static', filename='js/smart_planner/public.js') }}?v=1"></script>
+  <script src="{{ url_for('static', filename='js/smart_planner/public.js') }}?v=3"></script>
 </body>
 </html>

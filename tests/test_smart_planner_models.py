@@ -13,8 +13,10 @@ from aicentralv2.smart_planner.planner import FINAL_PROMPT, IMPROVE_PROMPT, PLAN
 def test_roles_use_gpt5_family():
     extract = resolve_role("extract")
     final = resolve_role("final")
-    assert "gpt-5" in extract["model"]
-    assert "gpt-5" in final["model"]
+    sheet = resolve_role("sheet")
+    assert "gpt-5-mini" in extract["model"]
+    assert "gpt-5.4" in final["model"]
+    assert "gpt-5.4" in sheet["model"]
     assert final["temperature"] <= 0.15
 
 

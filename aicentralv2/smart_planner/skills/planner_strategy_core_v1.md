@@ -18,11 +18,11 @@ Se client.confidential for verdadeiro, não escreva o nome do anunciante. Use �
 
 ## Quando o briefing for incompleto
 Pendências (verba, canal, período, KPI) vão para assumptions e pending, não para a tese.
-Se o material nomear serviços, canais oficiais ou praça, a tese começa por esses nomes.
+Se o material nomear serviços, canais oficiais, praça ou place confirmado, a tese começa por esses nomes. Place entra como território (ponto e app), não como slogan de aeroporto genérico.
 Não abra a tese com “na ausência de briefing”.
 
 ## Proibido
-- Inventar canal, verba, praça ou período.
+- Inventar canal, verba, praça, place, ponto, app ou período.
 - Copiar pitch de outro cliente.
 - Prometer resultado operacional como garantia.
 - Texto que serviria para qualquer marca se o nome fosse removido.

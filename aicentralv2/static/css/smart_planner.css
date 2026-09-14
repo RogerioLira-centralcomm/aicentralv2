@@ -1,5 +1,31 @@
 /* Smart Planner — mesa de mídia no Comercial do CentralX */
 
+.sp-product-bar {
+  display: flex;
+  align-items: baseline;
+  gap: 0.65rem;
+  margin: 0 0 1rem;
+  padding: 0 0 0.75rem;
+  border-bottom: 1px solid var(--cx-border, #e2e8f0);
+  font-size: 0.875rem;
+}
+
+.sp-product-bar a {
+  font-weight: 650;
+  color: inherit;
+  text-decoration: none;
+}
+
+.sp-product-bar span {
+  color: var(--cx-text-muted, #64748b);
+}
+
+.sp-product-bar span::before {
+  content: "·";
+  margin-right: 0.65rem;
+  color: var(--cx-border, #cbd5e1);
+}
+
 .sp-desk {
   --sp-ink: var(--cx-text, #0f172a);
   --sp-paper: var(--cx-surface-muted, #f8fafc);
@@ -15,7 +41,7 @@
 }
 
 .sp-desk.is-sheet {
-  width: min(100%, 58rem);
+  width: min(100%, 76rem);
 }
 
 .sp-stage {
@@ -768,10 +794,10 @@
 
 .sp-board.is-exec {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.25rem 1.5rem;
+  grid-template-columns: 1fr;
+  gap: 2rem 0;
   align-items: start;
-  padding: 0 1.4rem 1.4rem;
+  padding: 0 1.4rem 1.6rem;
 }
 
 .sp-sheet {
@@ -800,9 +826,9 @@
 
 .sp-exec-facts {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
-  gap: 0.65rem 1rem;
-  margin: 0.75rem 0 0;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.7rem 1.1rem;
+  margin: 0.85rem 0 0;
 }
 
 .sp-exec-facts dt {
@@ -813,6 +839,7 @@
 .sp-exec-facts dd {
   margin: 0.15rem 0 0;
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .sp-sheet.is-full .sp-sheet-lead {
@@ -871,15 +898,54 @@
 
 .sp-board-section {
   display: grid;
-  gap: 0.75rem;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem 1.4rem;
   min-width: 0;
+  padding-top: 1.15rem;
+  border-top: 1px solid var(--sp-rule);
+}
+
+.sp-board-section:first-child {
+  padding-top: 0;
+  border-top: 0;
 }
 
 .sp-board-section > h2 {
-  margin: 0;
+  grid-column: 1 / -1;
+  margin: 0 0 0.15rem;
   color: var(--sp-ink);
-  font-size: 1rem;
+  font-size: 1.2rem;
   font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.sp-board.is-exec .sp-card {
+  padding: 0.15rem 0 0.55rem;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.sp-board.is-exec .sp-card.is-wide,
+.sp-board.is-exec .sp-card.is-lead {
+  grid-column: 1 / -1;
+}
+
+.sp-board.is-exec .sp-card.is-lead > strong,
+.sp-board.is-exec .sp-card.is-lead input {
+  font-size: 1.05rem;
+}
+
+.sp-board.is-exec .sp-card.is-lead p.is-lead,
+.sp-board.is-exec .sp-card.is-lead p:first-of-type {
+  font-size: 1.12rem;
+  line-height: 1.4;
+  font-weight: 700;
+}
+
+.sp-board.is-exec .sp-card.is-next-steps ul,
+.sp-board.is-exec .sp-card.is-kpi-group ul {
+  margin-top: 0.35rem;
 }
 
 .sp-card-items {
@@ -1029,6 +1095,16 @@
   grid-area: creative;
 }
 
+.sp-exec-creative .sp-card[data-type="defense"] {
+  margin-top: 1.1rem;
+  padding-top: 0.95rem;
+  border-top: 1px solid var(--sp-rule);
+}
+
+.sp-exec-creative .sp-card[data-type="creative"] strong {
+  font-size: 1.05rem;
+}
+
 .sp-exec-brief .sp-card,
 .sp-exec-creative .sp-card,
 .sp-hero .sp-card,
@@ -1037,17 +1113,30 @@
   padding-right: 0;
 }
 
+.sp-exec-kicker {
+  margin: 0 0 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--sp-fog);
+}
+
 .sp-exec-brief .sp-card p,
 .sp-exec-brief .sp-card textarea {
-  font-size: 1.05rem;
-  line-height: 1.45;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.sp-exec-brief .sp-card p.is-lead,
+.sp-exec-brief .sp-card p:first-of-type {
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 .sp-media-kicker {
   margin: 0;
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 0.8rem;
+  font-weight: 700;
   color: var(--sp-fog);
 }
 
@@ -1084,23 +1173,30 @@
 
 .sp-density-row {
   display: grid;
-  grid-template-columns: minmax(4.5rem, 6.2rem) 1fr 2.4rem;
-  gap: 0.35rem 0.45rem;
+  grid-template-columns: minmax(6.5rem, 8.5rem) 1fr 2.6rem;
+  gap: 0.2rem 0.55rem;
   align-items: center;
-  margin-bottom: 0.45rem;
+  margin-bottom: 0.55rem;
   color: var(--sp-fog);
   font-size: 0.78rem;
 }
 
+.sp-density-row span {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  color: var(--sp-ink);
+  font-weight: 600;
+}
+
 .sp-density-row small {
-  grid-column: 1 / -1;
-  margin-top: -0.2rem;
   color: var(--sp-fog);
+  font-weight: 400;
 }
 
 .sp-density-row i {
   display: block;
-  height: 0.42rem;
+  height: 0.5rem;
   background: color-mix(in srgb, var(--sp-rule) 70%, #fff);
 }
 
@@ -1157,6 +1253,7 @@
   font-size: 0.68rem;
   color: var(--sp-fog);
   text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .sp-flight-col em {
@@ -1285,6 +1382,11 @@
 
   .sp-stage::before {
     display: none;
+  }
+
+  .sp-sheet-main {
+    grid-template-columns: minmax(0, 0.9fr) minmax(16rem, 1.2fr) minmax(0, 0.95fr);
+    break-inside: avoid;
   }
 }
 
@@ -1436,6 +1538,7 @@
   .sp-parties,
   .sp-revisao,
   .sp-board.is-exec,
+  .sp-board-section,
   .sp-split,
   .sp-split.is-3 {
     grid-template-columns: 1fr;
@@ -1457,6 +1560,23 @@
       "media"
       "brief"
       "creative";
+  }
+
+  .sp-density-row {
+    grid-template-columns: 1fr 2.6rem;
+  }
+
+  .sp-density-row span {
+    grid-column: 1 / -1;
+  }
+
+  .sp-flight-row {
+    display: flex;
+    overflow-x: auto;
+  }
+
+  .sp-flight-col {
+    flex: 0 0 3.2rem;
   }
 
   .sp-creative {
@@ -1792,7 +1912,7 @@
   grid-column: 1 / -1;
 }
 
-.sp-card,
+.sp-hi .sp-card,
 .sp-complete,
 .sp-acc {
   margin-bottom: 1rem;
@@ -2670,6 +2790,10 @@
   gap: 0.75rem;
 }
 
+.sp-hi-plan .sp-bf.is-stack {
+  grid-template-columns: 1fr;
+}
+
 @media (max-width: 860px) {
   .sp-bf {
     grid-template-columns: 1fr;
@@ -2685,11 +2809,99 @@
 .sp-bf select,
 .sp-bf textarea {
   width: 100%;
-  padding: 0.55rem 0.65rem;
+  min-height: 2.75rem;
+  padding: 0.7rem 0.75rem;
   border: 1px solid var(--hi-line);
   background: #fff;
   font: inherit;
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
+}
+
+.sp-kpi-box {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.sp-kpi-box > span {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--hi-fog);
+}
+
+.sp-kpi-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.sp-kpi-chips button {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--hi-line);
+  border-radius: 999px;
+  background: #fff;
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.sp-kpi-chips button.is-on {
+  border-color: var(--sp-signal, #1e4d4f);
+  background: color-mix(in srgb, var(--sp-signal, #1e4d4f) 10%, #fff);
+}
+
+.sp-mix-logo {
+  width: 1.1rem;
+  height: 1.1rem;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
+.sp-mix-ooh-note,
+.sp-places-desk p,
+.sp-interativos-desk p {
+  margin: 0.55rem 0 0;
+  color: var(--hi-fog);
+  font-size: 0.75rem;
+}
+
+.sp-places-desk,
+.sp-interativos-desk {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--hi-line);
+}
+
+.sp-places-desk h3,
+.sp-interativos-desk h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--hi-fog);
+}
+
+.sp-place-card {
+  margin: 0.45rem 0;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--hi-line);
+  background: #fff;
+}
+
+.sp-place-card > label {
+  display: flex;
+  gap: 0.4rem;
+  font-weight: 600;
+}
+
+.sp-place-points,
+.sp-place-apps {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.45rem 0 0 1.3rem;
+  font-size: 0.8125rem;
+}
+
+.sp-mix-checks label[data-needs-portal="1"].is-off {
+  opacity: 0.45;
 }
 
 .sp-bf-canais {
@@ -2849,8 +3061,10 @@ body.is-sp-wait {
 .sp-wait {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: 240;
   display: grid;
+  place-items: stretch;
+  padding: 0 1.15rem;
   background: #07110c;
   color: #ecfdf5;
 }
@@ -2862,7 +3076,7 @@ body.is-sp-wait {
 .sp-wait-shell {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  width: min(72rem, calc(100vw - 2rem));
+  width: min(72rem, 100%);
   height: 100dvh;
   max-height: 100dvh;
   margin: 0 auto;
@@ -2917,12 +3131,12 @@ body.is-sp-wait {
 
 .sp-wait-stage h2 {
   margin: 0;
-  max-width: 14ch;
+  max-width: 18ch;
   color: #fff;
-  font-size: clamp(2rem, 4vw, 3.4rem);
+  font-size: clamp(1.7rem, 3.2vw, 2.8rem);
   font-weight: 650;
-  letter-spacing: -0.04em;
-  line-height: 0.95;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
 }
 
 .sp-wait-stage p:not(.sp-wait-eyebrow) {

@@ -20,6 +20,7 @@ def test_match_starter_clients():
     assert match_pitch("BDMG", "Perfil 252")["id"] == "bdmg"
     assert match_pitch("Minas Máquinas", "StaloIn")["id"] == "minas-maquinas"
     assert match_pitch("Outro", "Nenhuma") is None
+    assert match_pitch("BH Airport", "Filadélfia", places=[{"slug": "confins"}]) is None
 
 
 def test_pitch_cards_follow_joao_shape():
@@ -233,5 +234,7 @@ def test_exec_sheet_markup_has_three_columns_and_facts():
     assert '["Público", meta.publico]' in js
     assert '["Canais", meta.canais]' in js
     assert "Gestão de mídia" in js
+    assert "WIDE_TYPES" in js
+    assert "is-lead" in js
     assert "minmax(0, 0.9fr) minmax(18rem, 1.2fr) minmax(0, 0.95fr)" in css
     assert '"media"' in css and '"brief"' in css and '"creative"' in css

@@ -2,19 +2,25 @@
   var root = document.body;
   var tabs = document.querySelectorAll("[data-cc-tab]");
   var panels = document.querySelectorAll("[data-cc-panel]");
-  if (!tabs.length) return;
 
   function known(id) {
     return id === "folha" || id === "plano" ? id : "";
   }
 
+  function ready(id) {
+    return Boolean(document.querySelector('[data-cc-panel="' + id + '"][data-ready="1"]'));
+  }
+
   function fallback() {
-    var ready = document.querySelector('[data-cc-panel="folha"][data-ready="1"]');
-    return ready ? "folha" : "plano";
+    if (ready("folha")) return "folha";
+    if (ready("plano")) return "plano";
+    return "";
   }
 
   function show(id) {
-    var key = known(id) || fallback();
+    var wanted = known(id);
+    var key = wanted && ready(wanted) ? wanted : fallback();
+    if (!key) return;
     root.setAttribute("data-tab", key);
     tabs.forEach(function (tab) {
       var on = tab.getAttribute("data-cc-tab") === key;
@@ -32,6 +38,14 @@
       var key = tab.getAttribute("data-cc-tab");
       if (history.replaceState) history.replaceState(null, "", "#" + key);
       show(key);
+    });
+    tab.addEventListener("keydown", function (event) {
+      if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+      event.preventDefault();
+      var list = Array.prototype.slice.call(tabs);
+      var index = list.indexOf(tab);
+      var next = event.key === "ArrowRight" ? list[index + 1] || list[0] : list[index - 1] || list[list.length - 1];
+      if (next) next.click();
     });
   });
 

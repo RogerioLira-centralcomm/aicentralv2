@@ -9,6 +9,12 @@ from .ai import chat_json, chat_text
 from .brand import apply_pistas, briefing_pistas, preserve_seed
 from .cost import bound_session
 from .catalog import CHANNEL_CATALOG, DEVICE_OPTIONS, FIELD_SCHEMA
+from .places_bridge import (
+    apply_places_to_campos,
+    catalog_prompt_lines,
+    places_prompt_block,
+    snapshot_places,
+)
 from .helpers import (
     as_bool,
     as_dict,
@@ -30,7 +36,9 @@ Redija uma narrativa de mídia em prosa corrida, fiel ao material.
 Não use markdown: sem #, listas com hífen, asteriscos ou negrito.
 Parágrafos curtos. Chame a marca de anunciante, nunca de cliente.
 "Clientes da marca" é público, não o anunciante.
-Não invente verba, prazo, canal, público ou praça que o material não trouxe.
+Não invente verba, prazo, canal, público, praça ou place que o material não trouxe.
+Se houver places confirmados, nomeie o title e o ponto. Raios não se somam. Não descreva app que o catálogo não listou.
+Formatos interativos só existem em portais (G1, UOL, R7, CNN), nunca em app, CTV, OOH ou Places.
 Preserve restrições e observações do anunciante.
 Não mencione agência, ferramenta ou que o texto foi gerado por IA."""
 
@@ -41,6 +49,7 @@ def extract_fields(material: str, pistas: dict | None = None) -> dict:
         f"{key} = {meta['label']}" + (" [fonte de dados]" if meta.get("tipo") == "dados" else "")
         for key, meta in CHANNEL_CATALOG.items()
     )
+    places_lines = catalog_prompt_lines()
     confirmed = {k: v for k, v in (pistas or {}).items() if v not in ("", [], None)}
     if as_bool(confirmed.get("anunciante_confidencial")):
         confirmed.pop("cliente", None)
@@ -53,6 +62,9 @@ Campos a extrair:
 
 Canais válidos (use apenas estes ids em "canais"):
 {canais}
+
+Places publicados (use apenas estes slugs em "places"):
+{places_lines}
 
 Dispositivos válidos: {", ".join(DEVICE_OPTIONS)}
 
@@ -70,6 +82,10 @@ Retorne APENAS JSON válido:
 Regras:
 - Nunca invente. Campo sem base no material vai vazio ("" ou []).
 - Canal só entra quando o material o cita.
+- Canal "places" só entra se o material citar um venue desta lista (aeroporto, shopping ou evento).
+- Nunca invente slug, ponto, raio, reach ou app. App só se existir no ponto escolhido.
+- Interativos só se um portal (g1, uol, r7, cnn) for citado. Formatos interativos não são Places.
+- praca_detalhe é cidade/UF. O venue vai em "places", não misturado como texto solto.
 - cliente é o anunciante (marca que anuncia). Em briefing de agência, a palavra "cliente" do texto = anunciante.
 - "Clientes da Copasa / do banco / da marca" é público, nunca o campo cliente.
 - Se campos já confirmados tiverem cliente, não liste falta de anunciante ou de cliente em falta_completar.
@@ -80,7 +96,10 @@ Regras:
         prompt + "\n\n--- MATERIAL ---\n" + material[:40000],
         role="extract",
     )
-    campos = as_dict(parsed.get("campos") if isinstance(parsed, dict) else {})
+    campos = apply_places_to_campos(
+        as_dict(parsed.get("campos") if isinstance(parsed, dict) else {}),
+        material=material,
+    )
     analysis = {
         "campos": campos,
         "bem_definido": parsed.get("bem_definido") if isinstance(parsed, dict) else [],
@@ -113,6 +132,9 @@ def compose_narrative(material: str, campos: dict, origem: str = "") -> str:
     parts = [NARRATIVE_PROMPT]
     if confidential:
         parts.append("O nome do anunciante é confidencial. Não o escreva. Use apenas 'o anunciante'.")
+    places_note = places_prompt_block(snapshot_places(campos.get("places")))
+    if places_note:
+        parts.append(places_note)
     if compact:
         parts.append(
             "CAMPOS JÁ ESTRUTURADOS\nUse-os como verdade.\n"
@@ -293,6 +315,8 @@ def rewrite_from_plan(token: str) -> dict:
         "observacoes": text(dados.get("observacoes")),
         "kpis": dados.get("kpis") or [],
         "canais": campanha.get("canais") or dados.get("canais") or [],
+        "places": campanha.get("places") or dados.get("places") or [],
+        "interativos": campanha.get("interativos") or dados.get("interativos") or {},
         "mix": campanha.get("mix") or {},
         "anunciante_confidencial": as_bool(dados.get("anunciante_confidencial")),
     }

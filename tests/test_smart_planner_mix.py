@@ -176,6 +176,10 @@ class MixEngineTest(unittest.TestCase):
         self.assertIn("Entendendo o briefing", html)
         self.assertIn("sp-wait-folio", html)
         self.assertIn("sp-wait-dismiss", html)
+        css = (Path(__file__).resolve().parents[1] / "aicentralv2" / "static" / "css" / "smart_planner.css").read_text()
+        self.assertIn("--wait-paper: #eef4f5", css)
+        self.assertIn(".sp-wait:not([hidden])", css)
+        self.assertNotIn("color-mix(in srgb, var(--wait-ink) 54%", css)
         overlay = html.split('id="sp-compile-overlay"', 1)[1].split('id="sp-wait-dismiss"', 1)[0]
         self.assertNotIn("<i>", overlay)
         self.assertNotIn("<span>Cliente</span>", html)

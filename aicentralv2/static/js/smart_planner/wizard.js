@@ -220,6 +220,7 @@
     var dismiss = document.getElementById("sp-wait-dismiss");
     if (!overlay) return function () {};
     overlay.hidden = false;
+    overlay.classList.add("is-open");
     overlay.classList.remove("is-error");
     if (dismiss) dismiss.hidden = true;
     document.body.classList.add("is-sp-wait");
@@ -267,7 +268,7 @@
     var dismiss = document.getElementById("sp-wait-dismiss");
     if (overlay) {
       overlay.hidden = true;
-      overlay.classList.remove("is-error");
+      overlay.classList.remove("is-open", "is-error");
     }
     if (dismiss) dismiss.hidden = true;
     document.body.classList.remove("is-sp-wait");
@@ -290,7 +291,7 @@
       return;
     }
     overlay.hidden = false;
-    overlay.classList.add("is-error");
+    overlay.classList.add("is-open", "is-error");
     document.body.classList.add("is-sp-wait");
     setWaitMeta("Não gerou", "A geração parou", message || "Não foi possível terminar o documento.");
     if (bar) bar.style.width = "100%";

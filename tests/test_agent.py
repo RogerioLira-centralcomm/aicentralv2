@@ -411,6 +411,28 @@ class AgentContractsTest(unittest.TestCase):
         self.assertNotIn("top_k", payload)
         self.assertNotIn("frequency_penalty", payload)
         self.assertNotIn("presence_penalty", payload)
+        self.assertEqual(payload.get("reasoning"), {"effort": "low"})
+
+    @patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"})
+    @patch("aicentralv2.services.openrouter_service.resolve_openai_api_key", return_value="")
+    @patch("aicentralv2.services.openrouter_service.requests.post")
+    def test_gpt54_omits_sampling_params(self, mock_post, _openai_key):
+        response = MagicMock()
+        response.json.return_value = {
+            "model": "openai/gpt-5.4",
+            "choices": [{"message": {"role": "assistant", "content": "ok"}}],
+        }
+        mock_post.return_value = response
+        chat_completion(
+            [{"role": "user", "content": "teste"}],
+            model="openai/gpt-5.4",
+            temperature=0.2,
+        )
+        payload = mock_post.call_args.kwargs["json"]
+        self.assertEqual(payload["model"], "openai/gpt-5.4")
+        self.assertNotIn("temperature", payload)
+        self.assertNotIn("top_p", payload)
+        self.assertEqual(payload.get("reasoning"), {"effort": "low"})
 
     @patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"})
     @patch("aicentralv2.services.openrouter_service.resolve_openai_api_key", return_value="")

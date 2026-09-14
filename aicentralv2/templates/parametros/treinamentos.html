@@ -4,7 +4,7 @@
 {% block page_subtitle %}Studio de conteúdo{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/treinamentos.css') }}?v=3">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/treinamentos.css') }}?v=6">
 {% endblock %}
 
 {% block content %}
@@ -13,6 +13,8 @@
     <p class="ts-sessions-kicker">Imersão · 28/set · 9h30–12h30</p>
     <h2>Sessões</h2>
     <ol id="tsSessionList"></ol>
+    <button type="button" id="tsAddSession" class="ts-enrich">+ Sessão</button>
+    <button type="button" id="tsIllustrateBtn" class="ts-enrich">Gerar ilustrações</button>
     <button type="button" id="tsEnrichBtn" class="ts-enrich">Enriquecer canais</button>
   </nav>
   <section class="ts-editor-pane" aria-label="Editor do treinamento">
@@ -24,6 +26,11 @@
           <i class="fa-solid fa-arrow-up-from-bracket" aria-hidden="true"></i>
           Importar
         </button>
+      </label>
+      <label class="ts-import ts-upload">
+        <i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i>
+        <input id="tsUploadFile" type="file" accept="image/png,image/jpeg,image/webp,application/pdf">
+        <span>PDF ou imagem</span>
       </label>
       <div class="ts-format" role="toolbar" aria-label="Formatação">
         <button type="button" data-cmd="bold" title="Negrito"><strong>B</strong></button>
@@ -54,6 +61,12 @@
       </div>
     </div>
 
+    <aside id="tsNotes" class="ts-notes" hidden>
+      <p class="ts-import-kicker">Notas do instrutor</p>
+      <p id="tsNotesTese"></p>
+      <p id="tsNotesAsk"></p>
+      <p id="tsNotesAvoid"></p>
+    </aside>
     <article id="tsEditor" class="ts-document" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Comece a escrever o conteúdo do treinamento…"></article>
   </section>
 
@@ -64,8 +77,12 @@
       </span>
       <div>
         <strong>Agente</strong>
-        <span>Seu assistente de IA no editor</span>
+        <span>Mesa de especialistas</span>
       </div>
+      <label class="ts-web-toggle" title="OpenAI busca na internet">
+        <input type="checkbox" id="tsWebSearch">
+        Buscar na internet
+      </label>
       <div class="ts-more">
         <button type="button" id="tsMoreToggle" class="ts-icon-btn" aria-label="Mais ações" aria-expanded="false">
           <i class="fa-solid fa-ellipsis"></i>
@@ -87,10 +104,10 @@
       <button type="button" data-action="reescrever" disabled>
         <i class="fa-solid fa-rotate"></i> Reescrever
       </button>
-      <button type="button" data-action="pesquisar" disabled>
+      <button type="button" data-action="pesquisar">
         <i class="fa-solid fa-magnifying-glass"></i> Pesquisar
       </button>
-      <button type="button" data-action="gerar_imagem" disabled>
+      <button type="button" data-action="gerar_imagem">
         <i class="fa-regular fa-image"></i> Gerar imagem
       </button>
       <button type="button" data-action="expandir" disabled>
@@ -145,6 +162,11 @@
       <div id="tsThumbs" class="ts-thumbs-grid"></div>
     </section>
 
+    <section class="ts-fontes" aria-label="Fontes da sessão">
+      <p>Fontes e anexos</p>
+      <ul id="tsFontes"></ul>
+    </section>
+
     <form id="tsChatForm" class="ts-chat">
       <input id="tsChatInput" type="text" placeholder="Peça algo ao agente…" autocomplete="off">
       <button type="submit" class="ts-icon-btn" aria-label="Enviar">
@@ -157,5 +179,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/treinamentos.js') }}?v=3" defer></script>
+<script src="{{ url_for('static', filename='js/treinamentos.js') }}?v=7" defer></script>
 {% endblock %}

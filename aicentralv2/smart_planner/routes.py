@@ -365,14 +365,31 @@ def api_ritmo(token):
         return _error("Não foi possível calcular o voo da campanha.", 500)
 
 
+@bp.route("/api/<token>/gerar/status", methods=["GET"])
+@login_required_api
+def api_gerar_status(token):
+    try:
+        row = load_owned(token)
+        from .progress import progress_view
+        from .skills import decorate_step, generation_steps
+        view = progress_view(row)
+        if not view.get("steps"):
+            mode = (request.args.get("mode") or "").strip() or as_dict(row.get("dados_detectados")).get("plan_mode")
+            view["steps"] = [decorate_step(item) for item in generation_steps(mode or "one_page")]
+            view["mode"] = mode or view.get("mode") or "one_page"
+        return _ok(view)
+    except SessionNotFound as exc:
+        return _error(exc, 404)
+
+
 @bp.route("/api/<token>/gerar", methods=["POST"])
 @login_required_api
 def api_gerar(token):
     try:
         load_owned(token)
         payload = request.get_json(silent=True) or {}
-        planner.run_generation(token, payload.get("plan_mode"))
-        return _ok({"redirect": f"/smart-planner/{token}/conclusao"})
+        data = planner.start_generation(token, payload.get("plan_mode"))
+        return _ok(data)
     except SessionNotFound as exc:
         return _error(exc, 404)
     except (ValueError, OpenRouterError) as exc:

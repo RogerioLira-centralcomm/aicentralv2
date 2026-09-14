@@ -21,8 +21,8 @@ def test_roles_use_gpt5_family():
 def test_one_page_map_has_four_pieces():
     mapped = generation_map("one_page")
     assert [item["id"] for item in mapped["sections"]] == ["strategy", "creative", "market", "defense"]
-    assert len(mapped["passes"]) == 3
-    assert mapped["passes"][2]["n"] == 3
+    assert len(mapped["passes"]) == 2
+    assert mapped["passes"][1]["role"] == "sheet"
     assert not mapped["board"]
 
 
@@ -38,9 +38,9 @@ def test_preview_costs_documents_without_images():
     one = preview_steps("one_page")
     full = preview_steps("completo")
     assert not any("Imagem" in item["label"] for item in one + full)
-    assert any("folha" in item["label"].lower() for item in one)
+    assert any("página única" in item["label"].lower() or "defesa" in item["label"].lower() for item in one)
     assert any("quadro" in item["label"].lower() for item in full)
-    assert any("Passagem 3" in item["label"] for item in full)
+    assert any("Passagem 3" in item["label"] or "Núcleo" in item["label"] for item in full)
     one_cost = preview_cost("one_page")
     full_cost = preview_cost("completo")
     assert full_cost["usd"] > one_cost["usd"]

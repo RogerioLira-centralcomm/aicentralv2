@@ -254,6 +254,94 @@ def cards_from_pitch(pitch: dict) -> list[dict]:
     ]
 
 
+def cards_from_v2(page: dict) -> list[dict]:
+    data = as_dict(page)
+    thesis = as_dict(data.get("thesis"))
+    rec = as_dict(data.get("recommendation"))
+    challenge = as_dict(data.get("challenge"))
+    opportunity = as_dict(data.get("opportunity"))
+    creative = as_dict(data.get("creative_expression"))
+    estimates = as_dict(data.get("result_estimates"))
+    defense = as_dict(data.get("commercial_defense"))
+    benefits = as_dict(data.get("benefits"))
+    strategy_body = "\n\n".join(
+        part for part in (
+            text(thesis.get("statement")),
+            text(thesis.get("supporting_argument")),
+            text(rec.get("summary")),
+            text(challenge.get("body")),
+            text(opportunity.get("body")),
+        ) if part
+    )
+    defense_bits = list(as_list(defense.get("why_this_plan")))
+    defense_bits.extend(text(item) for item in as_list(defense.get("why_this_mix")) if text(item))
+    for item in as_list(defense.get("objections"))[:2]:
+        row = as_dict(item)
+        if text(row.get("objection")):
+            defense_bits.append(f"{text(row.get('objection'))} {text(row.get('response'))}".strip())
+    if text(defense.get("closing_statement")):
+        defense_bits.append(text(defense.get("closing_statement")))
+    for group in ("audience", "brand", "operation"):
+        items = [text(item) for item in as_list(benefits.get(group)) if text(item)]
+        if items:
+            defense_bits.append(f"{group}: " + "; ".join(items[:3]))
+    outputs = [
+        text(as_dict(item).get("name") or item)
+        for item in as_list(data.get("outputs"))
+        if text(as_dict(item).get("name") or item)
+    ]
+    market_body = text(estimates.get("summary")) or "Estimativa ainda não disponível."
+    if outputs:
+        market_body = market_body + "\n\nOutputs: " + "; ".join(outputs[:4])
+    return [
+        _card("strategy", "Tese e recomendação", strategy_body, index=0),
+        _card(
+            "creative",
+            creative.get("headline") or "Criativo no canal",
+            text(creative.get("supporting_text") or creative.get("cta")),
+            {
+                "channel": text(creative.get("channel")),
+                "surface": text(creative.get("surface") or "display"),
+                "image_prompt": text(creative.get("image_prompt")),
+            },
+            index=1,
+        ),
+        _card(
+            "market",
+            "Indicadores e outputs",
+            market_body,
+            {
+                "stat": "Premissa" if estimates.get("status") != "available" else "Calculado",
+                "stat_label": "Origem da estimativa",
+            },
+            index=2,
+        ),
+        _card("defense", "Defesa comercial", "\n\n".join(part for part in defense_bits if part), index=3),
+    ]
+
+
+def assemble_from_v2(
+    meta: dict,
+    branding: dict,
+    theme: dict | None,
+    share: dict | None,
+    page: dict,
+    core: dict | None = None,
+    snapshot_id: str = "",
+) -> dict:
+    plan = empty_one_page(meta, branding, theme, share)
+    plan["sections"][0]["cards"] = cards_from_v2(page)
+    plan["one_page_v2"] = page
+    if core:
+        plan["strategy_core"] = {
+            "id": as_dict(core).get("id"),
+            "thesis": as_dict(core).get("central_thesis"),
+        }
+    if snapshot_id:
+        plan["snapshot_id"] = snapshot_id
+    return plan
+
+
 def cards_from_ai(payload: dict) -> list[dict]:
     data = as_dict(payload)
     creative = as_dict(data.get("creative"))

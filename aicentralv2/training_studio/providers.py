@@ -1,24 +1,52 @@
-"""Provedores de IA trocáveis do Studio de Treinamentos."""
+"""Provedores de IA do Studio — OpenAI direto quando a chave existe."""
 
 import os
 
+import requests
+
 from ..creative_modeling_generation import CreativeGenerationClient, _usage_cost
-from ..services.openrouter_service import OpenRouterError, chat_completion
+from ..services.openrouter_service import (
+    OpenRouterError,
+    chat_completion,
+    generate_image as openai_generate_image,
+    openai_model_slug,
+    resolve_openai_api_key,
+    uses_direct_openai,
+)
 
 
-DEFAULT_TEXT_MODEL = os.getenv("TRAINING_AGENT_MODEL", "anthropic/claude-sonnet-4.5")
-DEFAULT_RESEARCH_MODEL = os.getenv("TRAINING_RESEARCH_MODEL", "perplexity/sonar-pro")
+DEFAULT_TEXT_MODEL = os.getenv("TRAINING_AGENT_MODEL", "openai/gpt-5-mini")
+DEFAULT_RESEARCH_MODEL = os.getenv("TRAINING_RESEARCH_MODEL", "openai/gpt-5-mini")
+SEARCH_DOMAINS = (
+    "datareportal.com",
+    "wearesocial.com",
+    "iab.com",
+    "iab.com.br",
+    "lumen-research.com",
+    "adelaidemetrics.com",
+    "tvisioninsights.com",
+    "kantaribopemedia.com.br",
+)
+RESPONSES_URL = "https://api.openai.com/v1/responses"
 
 
 def usage_cost(usage):
     return _usage_cost(usage) or 0.0
 
 
+def _provider_name(model=None):
+    if uses_direct_openai(model):
+        return "openai"
+    return "openrouter"
+
+
 class TextProvider:
-    def complete(self, messages, *, max_tokens=1600, temperature=0.45, model=None):
+    def complete(self, messages, *, max_tokens=1600, temperature=0.45, model=None, tools=None):
+        chosen = model or DEFAULT_TEXT_MODEL
         response = chat_completion(
             messages,
-            model=model or DEFAULT_TEXT_MODEL,
+            tools=tools,
+            model=chosen,
             max_tokens=max_tokens,
             temperature=temperature,
             timeout=90,
@@ -33,56 +61,111 @@ class TextProvider:
             )
         return {
             "content": str(content).strip(),
-            "model": response.get("model") or DEFAULT_TEXT_MODEL,
+            "model": response.get("model") or chosen,
             "usage": response.get("usage") or {},
             "cost_usd": usage_cost(response.get("usage")),
             "tool_calls": message.get("tool_calls") or [],
+            "provider": _provider_name(chosen),
         }
 
 
 class ResearchProvider:
     def search(self, query, *, context=""):
-        messages = [
-            {
-                "role": "system",
-                "content": (
-                    "Você pesquisa mercado para um treinamento executivo de mídia. "
-                    "Responda em português do Brasil, com fatos atuais, números e fontes. "
-                    "Não invente estatísticas. Se não houver dado confiável, diga isso."
-                ),
+        key = resolve_openai_api_key()
+        if not key:
+            raise OpenRouterError(
+                "OpenAI não está configurada. Cadastre a chave em Integrações."
+            )
+        preferred = ", ".join(SEARCH_DOMAINS)
+        prompt = (
+            "Pesquise para um treinamento de especialistas em mídia. "
+            "Responda em português do Brasil com fatos atuais, números e URLs. "
+            "Não invente estatística. Se não houver dado confiável, diga pendente. "
+            f"Prefira estas fontes quando existirem: {preferred}.\n\n"
+            f"Pesquise: {query}\n\nContexto:\n{context or '(sem seleção)'}"
+        )
+        body = {
+            "model": openai_model_slug(DEFAULT_RESEARCH_MODEL),
+            "input": prompt,
+            "tools": [{"type": "web_search"}],
+        }
+        response = requests.post(
+            RESPONSES_URL,
+            headers={
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json",
             },
-            {
-                "role": "user",
-                "content": (
-                    f"Pesquise: {query}\n\nContexto do trecho:\n{context or '(sem seleção)'}"
-                ),
-            },
-        ]
-        response = chat_completion(
-            messages,
-            model=DEFAULT_RESEARCH_MODEL,
-            max_tokens=1400,
-            temperature=0.2,
+            json=body,
             timeout=90,
         )
-        message = response.get("message") or {}
+        if response.status_code >= 400:
+            raise OpenRouterError(
+                f"A OpenAI recusou a busca: {(response.text or '')[:180]}"
+            )
+        data = response.json()
+        text = _responses_text(data)
+        usage = data.get("usage") or {}
         return {
-            "content": str(message.get("content") or "").strip(),
-            "model": response.get("model") or DEFAULT_RESEARCH_MODEL,
-            "usage": response.get("usage") or {},
-            "cost_usd": usage_cost(response.get("usage")),
+            "content": text or "A busca não devolveu trecho utilizável.",
+            "model": data.get("model") or DEFAULT_RESEARCH_MODEL,
+            "usage": {
+                "prompt_tokens": usage.get("input_tokens"),
+                "completion_tokens": usage.get("output_tokens"),
+            },
+            "cost_usd": usage_cost(usage),
+            "provider": "openai",
+            "citations": _responses_citations(data),
         }
 
 
-class ImageProvider:
-    def __init__(self, client=None):
-        self.client = client or CreativeGenerationClient()
+def _responses_text(data):
+    chunks = []
+    for item in data.get("output") or []:
+        if not isinstance(item, dict):
+            continue
+        for part in item.get("content") or []:
+            if isinstance(part, dict) and part.get("text"):
+                chunks.append(str(part["text"]))
+        if item.get("type") == "message" and item.get("content"):
+            continue
+    if not chunks and data.get("output_text"):
+        chunks.append(str(data["output_text"]))
+    return "\n".join(chunks).strip()
 
+
+def _responses_citations(data):
+    urls = []
+    for item in data.get("output") or []:
+        if not isinstance(item, dict):
+            continue
+        for part in item.get("content") or []:
+            if not isinstance(part, dict):
+                continue
+            for ann in part.get("annotations") or []:
+                url = (ann or {}).get("url")
+                if url and url not in urls:
+                    urls.append(url)
+    return urls
+
+
+class ImageProvider:
     def generate(self, prompt, aspect_ratio="16:9"):
-        generated = self.client.generate_image(
-            prompt,
-            None,
-            aspect_ratio,
+        if resolve_openai_api_key():
+            generated = openai_generate_image(
+                prompt,
+                aspect_ratio=aspect_ratio,
+                model="openai/gpt-image-2",
+            )
+            return {
+                "b64_json": generated.get("b64_json"),
+                "model": generated.get("model") or "gpt-image-2",
+                "usage": generated.get("usage") or {},
+                "cost_usd": usage_cost(generated.get("usage")),
+                "output_format": generated.get("output_format") or "png",
+                "provider": "openai",
+            }
+        generated = CreativeGenerationClient().generate_image(
+            prompt, None, aspect_ratio
         )
         return {
             "b64_json": generated.get("b64_json"),
@@ -90,6 +173,7 @@ class ImageProvider:
             "usage": generated.get("usage") or {},
             "cost_usd": float(generated.get("actual_cost_usd") or 0),
             "output_format": generated.get("output_format") or "png",
+            "provider": "openrouter",
         }
 
 

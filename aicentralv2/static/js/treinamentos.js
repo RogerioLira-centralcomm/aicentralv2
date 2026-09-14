@@ -17,7 +17,8 @@
     guia: {},
     sessoes: [],
     saving: null,
-    enriching: false
+    enriching: false,
+    notas: {}
   };
 
   var editor = document.getElementById('tsEditor');
@@ -36,7 +37,19 @@
       headers: { 'Content-Type': 'application/json' },
       body: options.body ? JSON.stringify(options.body) : undefined
     }).then(function (response) {
-      return response.json().then(function (data) {
+      return response.text().then(function (text) {
+        var data = {};
+        if (text) {
+          try {
+            data = JSON.parse(text);
+          } catch (error) {
+            throw new Error(
+              response.ok
+                ? 'A resposta do servidor não pôde ser lida.'
+                : 'Não foi possível concluir a operação.'
+            );
+          }
+        }
         if (!response.ok || data.success === false) {
           throw new Error(data.error || 'Não foi possível concluir a operação.');
         }
@@ -93,7 +106,7 @@
       var li = document.createElement('li');
       var button = document.createElement('button');
       button.type = 'button';
-      button.className = 'ts-session' + (item.id === state.sessaoId ? ' is-active' : '');
+      button.className = 'ts-session' + (sameSession(item.id) ? ' is-active' : '');
       button.dataset.sessaoId = String(item.id);
       var who = (item.facilitadores || []).join(', ');
       button.innerHTML =
@@ -108,8 +121,12 @@
     });
   }
 
+  function sameSession(sessaoId) {
+    return Number(sessaoId) > 0 && Number(sessaoId) === Number(state.sessaoId);
+  }
+
   function openSession(sessaoId) {
-    if (!sessaoId || sessaoId === state.sessaoId) return;
+    if (!sessaoId || sameSession(sessaoId)) return;
     Promise.resolve(saveDocument()).then(function () {
       return api('/sessoes/' + sessaoId);
     }).then(function (sessao) {
@@ -127,9 +144,34 @@
   function applySessao(sessao) {
     state.sessaoId = sessao.id;
     state.imagens = sessao.imagens || [];
+    state.notas = sessao.notas_instrutor || {};
     editor.innerHTML = sessao.conteudo_html || '';
     renderCost(sessao.consumo, state.consumoTreino);
     renderThumbs(state.imagens);
+    renderNotes(state.notas);
+    renderFontes(sessao.fontes || []);
+  }
+
+  function renderFontes(fontes) {
+    var list = document.getElementById('tsFontes');
+    if (!list) return;
+    list.innerHTML = '';
+    (fontes || []).forEach(function (item) {
+      var li = document.createElement('li');
+      li.innerHTML = '<strong>' + escapeHtml(item.titulo || item.url || 'Fonte') + '</strong>' +
+        (item.resumo ? '<span>' + escapeHtml(String(item.resumo).slice(0, 180)) + '</span>' : '');
+      list.appendChild(li);
+    });
+  }
+
+  function renderNotes(notas) {
+    var box = document.getElementById('tsNotes');
+    notas = notas || {};
+    var has = Boolean(notas.tese || notas.pergunta || notas.nao_repetir);
+    box.hidden = !has;
+    document.getElementById('tsNotesTese').textContent = notas.tese || '';
+    document.getElementById('tsNotesAsk').textContent = notas.pergunta ? 'Pergunta: ' + notas.pergunta : '';
+    document.getElementById('tsNotesAvoid').textContent = notas.nao_repetir ? 'Não repetir: ' + notas.nao_repetir : '';
   }
 
   function renderSwatches(guia) {
@@ -149,7 +191,7 @@
       var button = document.createElement('button');
       button.type = 'button';
       button.title = item.prompt || 'Inserir imagem';
-      button.innerHTML = '<img src="' + item.asset_url + '" alt="">';
+      button.innerHTML = '<img src="' + escapeAttr(item.asset_url) + '" alt="">';
       button.addEventListener('click', function () {
         insertImage(item.asset_url);
       });
@@ -172,6 +214,14 @@
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
+  }
+
+  function escapeAttr(value) {
+    return escapeHtml(value).replace(/"/g, '&quot;');
+  }
+
+  function isTrustedMarkup(html) {
+    return /^(?:\s*)<(?:section|figure|article|p|h[23])\b/i.test(html || '');
   }
 
   function hidePanels() {
@@ -205,7 +255,9 @@
     selectionCard.hidden = !has;
     selectionText.textContent = state.selection;
     root.querySelectorAll('.ts-actions button, #tsMoreMenu button').forEach(function (button) {
-      button.disabled = !has && button.getAttribute('data-action') !== 'continuar';
+      var action = button.getAttribute('data-action');
+      var needsSelection = action === 'reescrever' || action === 'expandir' || action === 'resumir' || action === 'ajustar_tom';
+      button.disabled = needsSelection && !has;
     });
     if (has) {
       var prompt = document.getElementById('tsImagePrompt');
@@ -251,7 +303,7 @@
 
   function insertImage(url) {
     replaceSelection(
-      '<figure class="ts-inline-image"><img src="' + url + '" alt=""></figure>'
+      '<figure class="ts-inline-image"><img src="' + escapeAttr(url) + '" alt=""></figure>'
     );
   }
 
@@ -259,6 +311,7 @@
     extra = extra || {};
     extra.selection = state.selection;
     extra.document = editor.innerText || '';
+    extra.buscar_web = Boolean(document.getElementById('tsWebSearch').checked);
     return extra;
   }
 
@@ -268,6 +321,10 @@
       showPanel(action);
       return;
     }
+    if (action === 'pesquisar' && !extra && !(state.selection && state.selection.trim())) {
+      extra = { instrucao: window.prompt('O que pesquisar?') || '' };
+      if (!extra.instrucao) return;
+    }
     setBusy(true);
     showPanel(action);
     api('/sessoes/' + state.sessaoId + '/agente', {
@@ -276,6 +333,7 @@
     }).then(function (data) {
       renderCost(data.consumo, state.consumoTreino);
       appendChat('assistant', data.content, data.tool_used);
+      applyAgentResult(data);
       if (action === 'pesquisar') {
         state.lastResearch = data.content || '';
         document.getElementById('tsResearchPreview').textContent = state.lastResearch;
@@ -309,6 +367,28 @@
     }[action] || 'Edição';
   }
 
+  function applyAgentResult(data) {
+    if (data.fontes) renderFontes(data.fontes);
+    if (data.sessoes) renderSessions(data.sessoes);
+    if (data.sessao) {
+      var next = data.sessao;
+      var persist = sameSession(next.id) ? Promise.resolve() : Promise.resolve(saveDocument());
+      persist.then(function () {
+        applySessao(next);
+        renderSessions(state.sessoes);
+      });
+      return;
+    }
+    if (data.apply && data.html) {
+      if (data.modo === 'substituir') {
+        editor.innerHTML = data.html;
+      } else {
+        replaceSelection(data.html);
+      }
+      scheduleSave();
+    }
+  }
+
   function bootstrap() {
     api('/treinamentos/bootstrap').then(function (data) {
       state.treinamentoId = data.treinamento.id;
@@ -321,7 +401,7 @@
       (data.mensagens || []).forEach(function (item) {
         appendChat(item.role, item.content, item.tool_used);
       });
-      if (data.pesquisa_pendente) enrichChannels(true);
+      updateSelectionUi();
     }).catch(function (error) {
       notify(error.message, true);
     });
@@ -404,7 +484,15 @@
 
   document.getElementById('tsApplyResearch').addEventListener('click', function () {
     if (!state.lastResearch) return;
-    replaceSelection('<p>' + escapeHtml(state.lastResearch).replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>') + '</p>');
+    if (isTrustedMarkup(state.lastResearch)) {
+      replaceSelection(state.lastResearch);
+      return;
+    }
+    replaceSelection(
+      '<section class="ts-block" data-bloco="dado"><p>' +
+        escapeHtml(state.lastResearch).replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>') +
+        '</p></section>'
+    );
   });
 
   document.getElementById('tsGenerateImage').addEventListener('click', function () {
@@ -466,6 +554,10 @@
     }).then(function (data) {
       renderCost(data.consumo, state.consumoTreino);
       appendChat('assistant', data.content, data.tool_used);
+      applyAgentResult(data);
+      if (data.apply) {
+        return;
+      }
       if (data.image) {
         state.lastImage = data.image;
         showPanel('gerar_imagem');
@@ -489,6 +581,89 @@
 
   document.getElementById('tsEnrichBtn').addEventListener('click', function () {
     enrichChannels(false);
+  });
+
+  document.getElementById('tsAddSession').addEventListener('click', function () {
+    var titulo = window.prompt('Título da nova sessão');
+    if (!titulo || !state.treinamentoId) return;
+    setBusy(true);
+    api('/treinamentos/' + state.treinamentoId + '/sessoes', {
+      method: 'POST',
+      body: { titulo: titulo }
+    }).then(function (data) {
+      if (data.sessoes) renderSessions(data.sessoes);
+      if (data.sessao) openSession(data.sessao.id);
+    }).catch(function (error) {
+      notify(error.message, true);
+    }).finally(function () {
+      setBusy(false);
+    });
+  });
+
+  document.getElementById('tsIllustrateBtn').addEventListener('click', function () {
+    if (!state.treinamentoId) return;
+    setBusy(true);
+    api('/treinamentos/' + state.treinamentoId + '/ilustracoes', { method: 'POST' })
+      .then(function (data) {
+        state.consumoTreino = data.consumo_treinamento || state.consumoTreino;
+        if (data.sessoes) renderSessions(data.sessoes);
+        if (state.sessaoId) return api('/sessoes/' + state.sessaoId);
+      })
+      .then(function (sessao) {
+        if (sessao) applySessao(sessao);
+        notify('Ilustrações geradas.');
+      })
+      .catch(function (error) {
+        notify(error.message, true);
+      })
+      .finally(function () {
+        setBusy(false);
+      });
+  });
+
+  document.getElementById('tsUploadFile').addEventListener('change', function (event) {
+    var file = event.target.files && event.target.files[0];
+    event.target.value = '';
+    if (!file || !state.sessaoId) return;
+    var body = new FormData();
+    body.append('file', file);
+    setBusy(true);
+    fetch('/parametros/api/sessoes/' + state.sessaoId + '/anexos', {
+      method: 'POST',
+      credentials: 'same-origin',
+      body: body
+    }).then(function (response) {
+      return response.json().then(function (data) {
+        if (!response.ok || data.success === false) {
+          throw new Error(data.error || 'Não foi possível enviar o arquivo.');
+        }
+        return data.data;
+      });
+    }).then(function (data) {
+      state.lastResearch = data.classificacao || data.extracted || '';
+      document.getElementById('tsResearchPreview').textContent = state.lastResearch;
+      showPanel('pesquisar');
+      renderCost(data.consumo, state.consumoTreino);
+      if (data.fontes) renderFontes(data.fontes);
+      if (data.apply && data.sessao) {
+        applySessao(data.sessao);
+        notify('Anexo encaixado na sessão.');
+      } else {
+        if (data.html) {
+          state.lastResearch = data.html;
+          document.getElementById('tsResearchPreview').textContent = data.classificacao || data.html;
+        }
+        if (data.sessao_slug) {
+          notify('Anexo classificado para ' + data.sessao_slug + '. Incorpore se estiver certo.');
+        } else {
+          notify('Anexo classificado. Incorpore ao texto se estiver certo.');
+        }
+      }
+    }).catch(function (error) {
+      notify(error.message, true);
+    }).finally(function () {
+      setBusy(false);
+    });
   });
 
   bootstrap();

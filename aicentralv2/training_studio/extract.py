@@ -1,5 +1,6 @@
-"""Importação de URL: fetch + extração do texto principal."""
+"""Importação de URL e extração de PDF."""
 
+import io
 import ipaddress
 import socket
 from urllib.parse import urlparse
@@ -68,3 +69,19 @@ def summarize_page(providers, page):
         temperature=0.2,
     )
     return result
+
+
+def extract_pdf_text(content):
+    try:
+        from PyPDF2 import PdfReader
+    except ImportError as exc:
+        raise ValueError("Leitura de PDF indisponível neste servidor.") from exc
+
+    reader = PdfReader(io.BytesIO(content or b""))
+    pages = []
+    for page in reader.pages[:12]:
+        pages.append(page.extract_text() or "")
+    text = "\n".join(pages).strip()
+    if not text:
+        raise ValueError("Não foi possível ler o texto deste PDF.")
+    return text[:16000]

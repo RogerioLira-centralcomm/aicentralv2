@@ -66,6 +66,83 @@
   font-size: 11px;
 }
 
+.ts-notes {
+  margin: 16px 28px 0;
+  padding: 14px 16px;
+  border: 1px dashed #99f6e4;
+  background: #f0fdfa;
+  border-radius: 12px;
+}
+
+.ts-notes p {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: #134e4a;
+}
+
+.ts-web-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  color: #0f766e;
+  white-space: nowrap;
+}
+
+.ts-upload input {
+  display: none;
+}
+
+.ts-upload span {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.ts-document .ts-instructor-notes {
+  border-left: 3px solid #5eead4;
+  padding: 8px 12px;
+  margin: 0 0 1.2em;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 14px;
+}
+
+.ts-document .ts-sources {
+  margin-top: 2em;
+  padding-top: 1em;
+  border-top: 1px solid #e2e8f0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.ts-document .ts-place-hero,
+.ts-document .ts-place-map {
+  float: none;
+  width: min(100%, 520px);
+  margin: 0 0 12px;
+}
+
+.ts-document .ts-place-point {
+  display: inline-block;
+  width: min(220px, 46%);
+  margin: 0 8px 12px 0;
+  vertical-align: top;
+}
+
+.ts-document .ts-place {
+  margin: 0 0 2em;
+  padding-bottom: 1.5em;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ts-place-kicker {
+  color: #64748b;
+  font-size: 15px;
+}
+
 .ts-enrich {
   display: block;
   width: calc(100% - 16px);
@@ -486,6 +563,37 @@
   position: absolute;
   top: 8px;
   right: 8px;
+}
+
+.ts-fontes {
+  font-size: 12px;
+}
+
+.ts-fontes > p {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #0f766e;
+}
+
+.ts-fontes ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 120px;
+  overflow: auto;
+}
+
+.ts-fontes li {
+  margin: 0 0 8px;
+  color: #475569;
+}
+
+.ts-fontes strong {
+  display: block;
+  color: #0f172a;
 }
 
 .ts-thumbs-grid {

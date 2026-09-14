@@ -107,7 +107,7 @@ class TrainingStudioRepository:
                 """
                 SELECT s.id, s.treinamento_id, s.slug, s.titulo, s.conteudo_html,
                        s.ordem, s.horario_inicio, s.horario_fim, s.facilitadores,
-                       s.tipo, s.created_at, s.updated_at,
+                       s.tipo, s.notas_instrutor, s.created_at, s.updated_at,
                        t.titulo AS treinamento_titulo,
                        t.descricao AS treinamento_descricao,
                        t.guia_estilo
@@ -125,6 +125,7 @@ class TrainingStudioRepository:
         data["imagens"] = self.list_imagens(sessao_id)
         data["consumo"] = self.consumo(sessao_id)
         data["facilitadores"] = list(data.get("facilitadores") or [])
+        data["notas_instrutor"] = dict(data.get("notas_instrutor") or {})
         return data
 
     def list_sessoes(self, treinamento_id):
@@ -132,7 +133,7 @@ class TrainingStudioRepository:
             cursor.execute(
                 """
                 SELECT id, treinamento_id, slug, titulo, ordem, horario_inicio,
-                       horario_fim, facilitadores, tipo, updated_at
+                       horario_fim, facilitadores, tipo, notas_instrutor, updated_at
                   FROM cx_treinamento_sessoes
                  WHERE treinamento_id = %s
                  ORDER BY ordem, id
@@ -143,6 +144,7 @@ class TrainingStudioRepository:
             for row in cursor.fetchall():
                 item = _serialize(row)
                 item["facilitadores"] = list(item.get("facilitadores") or [])
+                item["notas_instrutor"] = dict(item.get("notas_instrutor") or {})
                 rows.append(item)
         return rows
 
@@ -169,6 +171,21 @@ class TrainingStudioRepository:
         if "conteudo_html" in data:
             fields.append("conteudo_html = %s")
             values.append(str(data.get("conteudo_html") or ""))
+        if "notas_instrutor" in data:
+            fields.append("notas_instrutor = %s")
+            values.append(Json(data.get("notas_instrutor") or {}))
+        if "ordem" in data:
+            fields.append("ordem = %s")
+            values.append(int(data.get("ordem") or 0))
+        if "horario_inicio" in data:
+            fields.append("horario_inicio = %s")
+            values.append(str(data.get("horario_inicio") or "")[:5] or None)
+        if "horario_fim" in data:
+            fields.append("horario_fim = %s")
+            values.append(str(data.get("horario_fim") or "")[:5] or None)
+        if "tipo" in data:
+            fields.append("tipo = %s")
+            values.append(str(data.get("tipo") or "bloco")[:20])
         values.append(sessao_id)
         with self._write() as cursor:
             cursor.execute(
@@ -177,6 +194,59 @@ class TrainingStudioRepository:
             )
             if cursor.rowcount == 0:
                 raise TrainingNotFoundError("Sessão não encontrada.")
+        return self.get_sessao(sessao_id)
+
+    def create_sessao(self, treinamento_id, data):
+        from .agenda import SESSIONS
+
+        titulo = str(data.get("titulo") or "").strip()[:200] or "Sessão"
+        slug = str(data.get("slug") or "").strip()[:80]
+        if not slug:
+            slug = _slugify(titulo)
+        after = str(data.get("apos_slug") or "").strip()
+        official = [item["slug"] for item in SESSIONS]
+        ordem = len(official) + 1
+        existing = self.list_sessoes(treinamento_id)
+        if after:
+            for index, item in enumerate(existing):
+                if item.get("slug") == after:
+                    ordem = int(item.get("ordem") or index) + 1
+                    break
+        else:
+            ordem = max((int(item.get("ordem") or 0) for item in existing), default=0) + 1
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                UPDATE cx_treinamento_sessoes
+                   SET ordem = ordem + 1
+                 WHERE treinamento_id = %s AND ordem >= %s
+                """,
+                (treinamento_id, ordem),
+            )
+            cursor.execute(
+                """
+                INSERT INTO cx_treinamento_sessoes (
+                    treinamento_id, slug, titulo, conteudo_html, ordem,
+                    horario_inicio, horario_fim, facilitadores, tipo,
+                    notas_instrutor
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (
+                    treinamento_id,
+                    _unique_slug(cursor, treinamento_id, slug),
+                    titulo,
+                    str(data.get("conteudo_html") or ""),
+                    ordem,
+                    str(data.get("horario_inicio") or "")[:5] or None,
+                    str(data.get("horario_fim") or "")[:5] or None,
+                    list(data.get("facilitadores") or []),
+                    str(data.get("tipo") or "bloco")[:20],
+                    Json(data.get("notas_instrutor") or {}),
+                ),
+            )
+            sessao_id = cursor.fetchone()["id"]
         return self.get_sessao(sessao_id)
 
     def list_fontes(self, sessao_id):
@@ -203,6 +273,31 @@ class TrainingStudioRepository:
                 (sessao_id, url, (titulo or "")[:300], resumo or ""),
             )
             return _serialize(cursor.fetchone())
+
+    def ensure_fonte(self, sessao_id, url, titulo, resumo, incluido=False):
+        url = str(url or "").strip()
+        if not url:
+            return None
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id FROM cx_treinamento_fontes
+                 WHERE sessao_id = %s AND url = %s
+                """,
+                (sessao_id, url),
+            )
+            row = cursor.fetchone()
+        if row:
+            if incluido:
+                return self.apply_fonte(sessao_id, row["id"])
+            for item in self.list_fontes(sessao_id):
+                if item["id"] == row["id"]:
+                    return item
+            return None
+        fonte = self.add_fonte(sessao_id, url, titulo, resumo)
+        if incluido:
+            return self.apply_fonte(sessao_id, fonte["id"])
+        return fonte
 
     def apply_fonte(self, sessao_id, fonte_id):
         with self._write() as cursor:
@@ -279,7 +374,7 @@ class TrainingStudioRepository:
         rows.reverse()
         return rows
 
-    def add_ledger(self, treinamento_id, sessao_id, kind, model, usage, cost_usd, cost_brl, rate, source):
+    def add_ledger(self, treinamento_id, sessao_id, kind, model, usage, cost_usd, cost_brl, rate, source, provider="openai"):
         usage = usage or {}
         with self._write() as cursor:
             cursor.execute(
@@ -289,13 +384,14 @@ class TrainingStudioRepository:
                     prompt_tokens, completion_tokens,
                     cost_usd, cost_brl, usd_brl_rate, usd_brl_source
                 )
-                VALUES (%s, %s, %s, 'openrouter', %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
                 (
                     treinamento_id,
                     sessao_id,
                     kind,
+                    str(provider or "openai")[:40],
                     model,
                     usage.get("prompt_tokens"),
                     usage.get("completion_tokens"),
@@ -360,3 +456,31 @@ class TrainingStudioRepository:
             "cost_brl": _money(totals.get("cost_brl")),
             "by_kind": {},
         }
+
+
+def _slugify(value):
+    import re
+    import unicodedata
+
+    text = unicodedata.normalize("NFKD", str(value or ""))
+    text = text.encode("ascii", "ignore").decode("ascii")
+    text = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+    return text[:80] or "sessao"
+
+
+def _unique_slug(cursor, treinamento_id, slug):
+    base = slug or "sessao"
+    candidate = base
+    index = 2
+    while True:
+        cursor.execute(
+            """
+            SELECT 1 FROM cx_treinamento_sessoes
+             WHERE treinamento_id = %s AND slug = %s
+            """,
+            (treinamento_id, candidate),
+        )
+        if cursor.fetchone() is None:
+            return candidate
+        candidate = f"{base}-{index}"[:80]
+        index += 1

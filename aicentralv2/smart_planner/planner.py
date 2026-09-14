@@ -232,52 +232,10 @@ def review_plan(document: str, briefing: str, campanha: dict, brand: dict | None
 
 
 def run_generation(token: str, mode: str | None = None) -> dict:
-    from . import canvas as canvas_mod
-    row = get_by_token(token)
-    if not row:
-        raise ValueError("Plano não encontrado.")
-    briefing = text(row.get("briefing_melhorado") or row.get("briefing_compilado"))
-    if not briefing:
-        raise ValueError("Processe o briefing antes de gerar o plano.")
-    dados = as_dict(row.get("dados_detectados"))
-    campanha = dados.get("campanha") if isinstance(dados.get("campanha"), dict) else {}
-    brand = as_dict(dados.get("brand"))
-    apoio = apoio_block(dados)
-    chosen = (mode or plan_mode_of(dados) or "one_page").strip().lower()
-    if chosen not in PLAN_MODES:
-        chosen = "one_page"
-    merge_dados(token, {"plan_mode": chosen})
-    with bound_session(token):
-        market = research_market(briefing, campanha, brand, apoio=apoio)
-        merge_dados(token, {"mercado": market})
-        folha = as_dict(as_dict(get_by_token(token).get("dados_detectados")).get("folha"))
-        if not as_list(folha.get("sections")):
-            folha = canvas_mod.materialize_folha(token)
-        if chosen == "one_page":
-            update_session(token, {
-                "plan_content": folha,
-                "schema_version": 3,
-                "canvas_layout": {
-                    "mode": "one_page",
-                    "generatedAt": (folha.get("meta") or {}).get("updatedAt"),
-                    "presenter": (folha.get("meta") or {}).get("presenter"),
-                },
-            })
-            merge_dados(token, {"geracao": {"passes": 1, "final": 1, "mode": "one_page"}})
-            return {"mercado": market, "planejamento": "", "passes": {}, "folha": folha}
-        draft = generate_plan(briefing, campanha, market, brand, folha, apoio)
-        improved = improve_plan(draft, briefing, campanha, brand, apoio)
-        final = finalize_plan(improved, briefing, campanha, brand, apoio)
-        merge_dados(token, {
-            "planejamento_rascunho": draft,
-            "planejamento_passagem2": improved,
-            "planejamento": final,
-            "geracao": {"passes": 3, "final": 3, "mode": "completo"},
-        })
-        canvas_mod.generate_canvas(token)
-    return {
-        "mercado": market,
-        "planejamento": final,
-        "passes": {"1": draft, "2": improved, "3": final},
-        "folha": folha,
-    }
+    from .generator import run_generation as run_skill_pipeline
+    return run_skill_pipeline(token, mode)
+
+
+def start_generation(token: str, mode: str | None = None) -> dict:
+    from .generator import start_generation as start_skill_pipeline
+    return start_skill_pipeline(token, mode)

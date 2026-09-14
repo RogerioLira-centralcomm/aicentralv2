@@ -1,0 +1,22 @@
+{% set stepper_index = 2 if step_id == 'conclusao' else (1 if step_id in ('revisao', 'canais', 'gerar') else 0) %}
+{% set stepper_items = [
+  {"title": "Importar briefing", "hint": "Texto, URL, arquivo ou imagem"},
+  {"title": "Revisar briefing", "hint": "Campos, orçamento e mix"},
+  {"title": "Gerar documentos", "hint": "Página única ou plano completo"},
+] %}
+<nav class="sp-stepper" aria-label="Etapas do planejamento">
+  <ol class="sp-stepper-list">
+    {% for item in stepper_items %}
+    <li class="sp-stepper-item {% if loop.index0 < stepper_index %}is-done{% elif loop.index0 == stepper_index %}is-current{% endif %}"
+        {% if loop.index0 == stepper_index %}aria-current="step"{% endif %}>
+      <span class="sp-stepper-index" aria-hidden="true">
+        {% if loop.index0 < stepper_index %}<i class="fa-solid fa-check"></i>{% else %}{{ loop.index }}{% endif %}
+      </span>
+      <span class="sp-stepper-copy">
+        <strong>{{ item.title }}</strong>
+        <small>{{ item.hint }}</small>
+      </span>
+    </li>
+    {% endfor %}
+  </ol>
+</nav>

@@ -2,9 +2,10 @@
 
 from psycopg.types.json import Json
 
-from .agenda import SESSIONS, session_html
+from .agenda import OBSOLETE_SLUGS, SESSIONS, session_html
 
 IMMERSAO_SLUG = "imersao-midias-complexas"
+AGENDA_REVISION = 3
 
 DEFAULT_STYLE_GUIDE = {
     "palette": [
@@ -32,6 +33,8 @@ DEFAULT_STYLE_GUIDE = {
         "arte do convite: fundo dark, logos no topo, retratos oficiais, "
         "tipografia branca condensada e acento menta"
     ),
+    "audience": "especialistas em mídia",
+    "agenda_revision": AGENDA_REVISION,
 }
 
 SCHEMA_SQL = """
@@ -146,6 +149,7 @@ ALTER TABLE cx_treinamento_sessoes ADD COLUMN IF NOT EXISTS facilitadores TEXT[]
 ALTER TABLE cx_treinamento_sessoes ADD COLUMN IF NOT EXISTS tipo VARCHAR(20) NOT NULL DEFAULT 'bloco';
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cx_treinamento_sessoes_slug
     ON cx_treinamento_sessoes (treinamento_id, slug) WHERE slug IS NOT NULL;
+ALTER TABLE cx_treinamento_sessoes ADD COLUMN IF NOT EXISTS notas_instrutor JSONB NOT NULL DEFAULT '{}'::jsonb;
 """
 
 
@@ -211,6 +215,14 @@ def _seed_imersao(conn, created_by=None):
 
 
 def _upsert_agenda(cursor, treinamento_id):
+    cursor.execute(
+        "SELECT guia_estilo FROM cx_treinamentos WHERE id = %s",
+        (treinamento_id,),
+    )
+    row = cursor.fetchone() or {}
+    guia = dict(row.get("guia_estilo") or {})
+    stored_revision = int(guia.get("agenda_revision") or 0)
+    force = stored_revision < AGENDA_REVISION
     first_id = None
     for item in SESSIONS:
         cursor.execute(
@@ -222,36 +234,20 @@ def _upsert_agenda(cursor, treinamento_id):
         )
         row = cursor.fetchone()
         html = session_html(item)
+        notas = Json(item.get("notas_instrutor") or {})
         if row:
             sessao_id = row["id"]
             current = row.get("conteudo_html") or ""
-            next_html = _refresh_session_html(item["slug"], current, html)
+            next_html = html if force else _refresh_session_html(
+                item["slug"], current, html
+            )
             if next_html is not None:
                 cursor.execute(
                     """
                     UPDATE cx_treinamento_sessoes
                        SET titulo = %s, ordem = %s, horario_inicio = %s,
                            horario_fim = %s, facilitadores = %s, tipo = %s,
-                           conteudo_html = %s, updated_at = NOW()
-                     WHERE id = %s
-                    """,
-                    (
-                        item["titulo"],
-                        item["ordem"],
-                        item["horario_inicio"],
-                        item["horario_fim"],
-                        item["facilitadores"],
-                        item["tipo"],
-                        next_html,
-                        sessao_id,
-                    ),
-                )
-            else:
-                cursor.execute(
-                    """
-                    UPDATE cx_treinamento_sessoes
-                       SET titulo = %s, ordem = %s, horario_inicio = %s,
-                           horario_fim = %s, facilitadores = %s, tipo = %s,
+                           conteudo_html = %s, notas_instrutor = %s,
                            updated_at = NOW()
                      WHERE id = %s
                     """,
@@ -262,6 +258,28 @@ def _upsert_agenda(cursor, treinamento_id):
                         item["horario_fim"],
                         item["facilitadores"],
                         item["tipo"],
+                        next_html,
+                        notas,
+                        sessao_id,
+                    ),
+                )
+            else:
+                cursor.execute(
+                    """
+                    UPDATE cx_treinamento_sessoes
+                       SET titulo = %s, ordem = %s, horario_inicio = %s,
+                           horario_fim = %s, facilitadores = %s, tipo = %s,
+                           notas_instrutor = %s, updated_at = NOW()
+                     WHERE id = %s
+                    """,
+                    (
+                        item["titulo"],
+                        item["ordem"],
+                        item["horario_inicio"],
+                        item["horario_fim"],
+                        item["facilitadores"],
+                        item["tipo"],
+                        notas,
                         sessao_id,
                     ),
                 )
@@ -270,9 +288,10 @@ def _upsert_agenda(cursor, treinamento_id):
                 """
                 INSERT INTO cx_treinamento_sessoes (
                     treinamento_id, slug, titulo, conteudo_html, ordem,
-                    horario_inicio, horario_fim, facilitadores, tipo
+                    horario_inicio, horario_fim, facilitadores, tipo,
+                    notas_instrutor
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
                 (
@@ -285,11 +304,21 @@ def _upsert_agenda(cursor, treinamento_id):
                     item["horario_fim"],
                     item["facilitadores"],
                     item["tipo"],
+                    notas,
                 ),
             )
             sessao_id = cursor.fetchone()["id"]
         if first_id is None:
             first_id = sessao_id
+        _seed_fontes(cursor, sessao_id, item.get("fontes") or [])
+    if OBSOLETE_SLUGS:
+        cursor.execute(
+            """
+            DELETE FROM cx_treinamento_sessoes
+             WHERE treinamento_id = %s AND slug = ANY(%s)
+            """,
+            (treinamento_id, list(OBSOLETE_SLUGS)),
+        )
     cursor.execute(
         """
         DELETE FROM cx_treinamento_sessoes
@@ -299,7 +328,41 @@ def _upsert_agenda(cursor, treinamento_id):
         """,
         (treinamento_id,),
     )
+    if force:
+        guia.update(DEFAULT_STYLE_GUIDE)
+        guia["agenda_revision"] = AGENDA_REVISION
+        cursor.execute(
+            "UPDATE cx_treinamentos SET guia_estilo = %s WHERE id = %s",
+            (Json(guia), treinamento_id),
+        )
     return first_id
+
+
+def _seed_fontes(cursor, sessao_id, fontes):
+    for item in fontes:
+        url = str((item or {}).get("url") or "").strip()
+        if not url:
+            continue
+        cursor.execute(
+            """
+            INSERT INTO cx_treinamento_fontes (
+                sessao_id, url, titulo, resumo, incluido_no_contexto
+            )
+            SELECT %s, %s, %s, %s, TRUE
+             WHERE NOT EXISTS (
+                SELECT 1 FROM cx_treinamento_fontes
+                 WHERE sessao_id = %s AND url = %s
+             )
+            """,
+            (
+                sessao_id,
+                url,
+                str((item or {}).get("titulo") or "")[:300],
+                str((item or {}).get("resumo") or ""),
+                sessao_id,
+                url,
+            ),
+        )
 
 
 _OLD_TIME_MARKERS = (

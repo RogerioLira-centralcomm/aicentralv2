@@ -100,12 +100,12 @@ ROLES = {
         "usd": 0.04,
     },
     "sheet": {
-        "label": "Redigir folha",
+        "label": "Página única · defesa comercial",
         "model": _env("SMART_PLANNER_SHEET_MODEL", "openai/gpt-5.4"),
         "temperature": 0.2,
         "top_k": 30,
-        "max_tokens": 2500,
-        "usd": 0.05,
+        "max_tokens": 6000,
+        "usd": 0.08,
     },
 }
 
@@ -173,9 +173,8 @@ def generation_map(mode: str) -> dict:
             "label": "Página única",
             "document": "Uma folha para o anunciante.",
             "passes": (
-                {"n": 1, "role": "draft", "title": "Rascunho das quatro peças"},
-                {"n": 2, "role": "improve", "title": "Aprofunda com o mix e o voo"},
-                {"n": 3, "role": "final", "title": "Versão final da folha"},
+                {"n": 1, "role": "final", "title": "Núcleo estratégico canônico"},
+                {"n": 2, "role": "sheet", "title": "Página única e defesa comercial"},
             ),
             "sections": list(ONE_PAGE_SECTIONS),
             "board": [],
@@ -186,9 +185,9 @@ def generation_map(mode: str) -> dict:
         "label": "Plano completo",
         "document": "Documento operacional e quadro das quatro seções.",
         "passes": (
-            {"n": 1, "role": "draft", "title": "Rascunho das 12 seções"},
-            {"n": 2, "role": "improve", "title": "Fecha verba, voo e justificação"},
-            {"n": 3, "role": "final", "title": "Versão final do plano"},
+            {"n": 1, "role": "final", "title": "Núcleo e página única"},
+            {"n": 2, "role": "final", "title": "Estratégia, mídia e execução"},
+            {"n": 3, "role": "compose", "title": "Quadro fiel ao núcleo"},
         ),
         "sections": list(COMPLETO_SECTIONS),
         "board": list(COMPLETO_BOARD),
@@ -198,11 +197,9 @@ def generation_map(mode: str) -> dict:
 
 def preview_steps(mode: str) -> list[dict]:
     mode = (mode or "").strip().lower()
-    steps = [ROLES["market"]]
-    if mode == "one_page":
-        steps.extend([ROLES["sheet"]])
-    else:
-        steps.extend([ROLES["sheet"], ROLES["draft"], ROLES["improve"], ROLES["final"], ROLES["compose"]])
+    steps = [ROLES["final"], ROLES["sheet"]]
+    if mode != "one_page":
+        steps.extend([ROLES["final"], ROLES["final"], ROLES["compose"]])
     return [
         {
             "label": item["label"],

@@ -5,6 +5,7 @@ import re
 
 from ..crm_v3_web_scout import _firecrawl_scrape
 from .agenda import CHANNELS
+from .logos import logo_path
 
 
 logger = logging.getLogger(__name__)
@@ -35,6 +36,9 @@ def research_channel(providers, channel):
 
 
 def fetch_logo_url(channel):
+    local = logo_path(channel.get("key"))
+    if local:
+        return local
     data = _firecrawl_scrape(channel["site"], formats=["branding"], timeout_s=35)
     branding = data.get("branding") or {}
     images = branding.get("images") or {}
@@ -57,29 +61,31 @@ def fetch_logo_url(channel):
 
 def render_channel_html(channel, resumo, logo_url=None):
     logo = ""
+    name = _escape(channel["name"])
+    key = _escape(channel["key"])
     if logo_url:
         logo = (
             f'<figure class="ts-inline-image ts-canal-logo">'
-            f'<img src="{logo_url}" alt="Logo {channel["name"]}"></figure>'
+            f'<img src="{_escape(logo_url)}" alt="Logo {name}"></figure>'
         )
     body = _plain_to_html(resumo) if resumo else (
         "<p>Pesquisa sem retorno confiável. Marcar como pendente.</p>"
     )
     return (
-        f'<section class="ts-canal" data-canal="{channel["key"]}" id="canal-{channel["key"]}">'
-        f'<!-- CANAL:{channel["key"]} -->'
-        f"{logo}<h2>{channel['name']}</h2>"
+        f'<article class="ts-canal" data-canal="{key}" id="canal-{key}">'
+        f'<!-- CANAL:{key} -->'
+        f"{logo}<h3>{name}</h3>"
         f"{body}"
-        f'<!-- /CANAL:{channel["key"]} -->'
-        "</section>"
+        f'<!-- /CANAL:{key} -->'
+        "</article>"
     )
 
 
 def replace_channel_block(html, channel_key, block):
     pattern = re.compile(
-        rf'(?:<section class="ts-canal"[^>]*>)?<!-- CANAL:{re.escape(channel_key)} -->'
+        rf'(?:<(?:section|article) class="ts-canal"[^>]*>)?<!-- CANAL:{re.escape(channel_key)} -->'
         rf".*?"
-        rf"<!-- /CANAL:{re.escape(channel_key)} -->(?:</section>)?",
+        rf"<!-- /CANAL:{re.escape(channel_key)} -->(?:</(?:section|article)>)?",
         re.DOTALL,
     )
     if pattern.search(html or ""):
@@ -100,4 +106,5 @@ def _escape(value):
         .replace("&", "&amp;")
         .replace("<", "&lt;")
         .replace(">", "&gt;")
+        .replace('"', "&quot;")
     )

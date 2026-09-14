@@ -3,10 +3,16 @@
 import unittest
 
 from aicentralv2.training_studio.extract import validate_public_url
-from aicentralv2.training_studio.prompts import style_prompt
-from aicentralv2.training_studio.schema import DEFAULT_STYLE_GUIDE
+from aicentralv2.training_studio.logos import logo_path
+from aicentralv2.training_studio.prompts import SYSTEM_PROMPT, style_prompt
+from aicentralv2.training_studio.schema import AGENDA_REVISION, DEFAULT_STYLE_GUIDE
 from aicentralv2.training_studio.service import annotate_consumo, format_brl
-from aicentralv2.training_studio.tools import EDIT_INSTRUCTIONS, edit_text
+from aicentralv2.training_studio.tools import (
+    EDIT_INSTRUCTIONS,
+    edit_text,
+    parse_classification,
+    research_market,
+)
 
 
 class TrainingStudioHelpersTest(unittest.TestCase):
@@ -27,6 +33,10 @@ class TrainingStudioHelpersTest(unittest.TestCase):
         self.assertIn("#5EEAD4", text)
         self.assertIn("MediaHacks", text)
 
+    def test_prompt_is_for_specialists(self):
+        self.assertIn("especialistas em mídia", SYSTEM_PROMPT)
+        self.assertIn("Não defina MRC", SYSTEM_PROMPT)
+
     def test_validate_url_rejects_localhost(self):
         with self.assertRaises(ValueError):
             validate_public_url("http://localhost/secret")
@@ -40,6 +50,27 @@ class TrainingStudioHelpersTest(unittest.TestCase):
     def test_edit_actions_are_known(self):
         self.assertIn("reescrever", EDIT_INSTRUCTIONS)
         self.assertIn("expandir", EDIT_INSTRUCTIONS)
+
+    def test_research_requires_web_toggle(self):
+        with self.assertRaises(ValueError):
+            research_market(object(), "Instagram Brasil", buscar_web=False)
+
+    def test_parse_classification_json(self):
+        data = parse_classification(
+            '{"sessao_slug":"dooh-places","bloco":"case","titulo":"Case","html":"<p>ok</p>","resumo":"ok"}'
+        )
+        self.assertEqual(data["sessao_slug"], "dooh-places")
+        self.assertEqual(data["bloco"], "case")
+        self.assertIn("<p>ok</p>", data["html"])
+
+    def test_parse_classification_rejects_unknown_block(self):
+        data = parse_classification('{"bloco":"hack","html":"<p>x</p>"}')
+        self.assertEqual(data["bloco"], "dado")
+
+    def test_local_logos(self):
+        self.assertTrue(logo_path("linkedin").startswith("/static/"))
+        self.assertTrue(logo_path("g1").startswith("/static/"))
+        self.assertIn("instagram", logo_path("instagram"))
 
 
 class TrainingStudioRoutesTest(unittest.TestCase):
@@ -71,31 +102,50 @@ class TrainingStudioRoutesTest(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("data-training-studio", page)
-        self.assertIn("Cole um link para adicionar contexto", page)
-        self.assertIn("Gerar imagem", page)
-        self.assertIn("tsSessionList", page)
-        self.assertIn("Enriquecer canais", page)
+        self.assertIn("Buscar na internet", page)
+        self.assertIn("tsAddSession", page)
+        self.assertIn("tsUploadFile", page)
+        self.assertIn("tsFontes", page)
         self.assertIn("9h30–12h30", page)
 
-    def test_agenda_has_seven_sessions_and_dinamica(self):
+    def test_agenda_has_nine_specialist_sessions(self):
         from aicentralv2.training_studio.agenda import CHANNELS, SESSIONS, session_html
 
-        self.assertEqual(len(SESSIONS), 7)
+        self.assertEqual(len(SESSIONS), 9)
         slugs = [item["slug"] for item in SESSIONS]
-        self.assertEqual(slugs[0], "mercado-canais")
+        self.assertEqual(slugs[0], "atencao-mercado")
+        self.assertEqual(slugs[2], "dooh-places")
         self.assertEqual(slugs[-1], "dinamica-planos")
         self.assertEqual(SESSIONS[0]["horario_inicio"], "09:30")
-        self.assertEqual(SESSIONS[-1]["horario_inicio"], "11:50")
+        self.assertEqual(SESSIONS[2]["horario_inicio"], "10:00")
         self.assertEqual(SESSIONS[-1]["horario_fim"], "12:30")
+        moeda = session_html(SESSIONS[0])
+        self.assertIn("185 milhões", moeda)
+        self.assertIn("não mau", moeda.lower().replace(" é ", " "))
+        self.assertIn("IAB", moeda)
+        familias = session_html(SESSIONS[1])
+        self.assertIn("Tiro verba daqui", familias)
+        self.assertIn("linkedin", familias)
+        places = session_html(SESSIONS[2])
+        self.assertIn("CNF", places)
+        self.assertIn("CGH", places)
+        self.assertIn("SDU", places)
+        self.assertIn("GIG", places)
+        self.assertIn("/static/images/places/", places)
+        self.assertIn("24,6 mi", places)
         dinamica = session_html(SESSIONS[-1])
-        self.assertIn("ponto alto", dinamica)
+        self.assertIn("Banca", dinamica)
         self.assertIn("R$ 80 mil", dinamica)
-        self.assertIn("R$ 250 mil", dinamica)
-        self.assertIn("R$ 800 mil", dinamica)
         self.assertGreaterEqual(len(CHANNELS), 14)
-        coffee_idx = slugs.index("coffee")
-        self.assertLess(coffee_idx, slugs.index("dinamica-planos"))
-        self.assertEqual(SESSIONS[-1]["titulo"], "Dinâmica e resultado")
+        self.assertEqual(AGENDA_REVISION, 3)
+        self.assertNotIn("<p><figure", places)
+        atencao = next(item for item in SESSIONS if item["slug"] == "atencao-mercado")
+        self.assertTrue(atencao.get("fontes"))
+        self.assertTrue(
+            any("datareportal" in (item.get("url") or "") for item in atencao["fontes"])
+        )
+        places_item = next(item for item in SESSIONS if item["slug"] == "dooh-places")
+        self.assertGreaterEqual(len(places_item.get("fontes") or []), 3)
 
     def test_replace_channel_block(self):
         from aicentralv2.training_studio.research import replace_channel_block

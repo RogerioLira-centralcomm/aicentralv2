@@ -113,6 +113,7 @@
 }
 
 .cx-integration-logo.is-google { background: #f1f5f9; color: #2563eb; }
+.cx-integration-logo.is-openai { background: #eef2ff; color: #312e81; }
 .cx-integration-logo.is-openrouter { background: #ecfdf5; color: #0f766e; }
 .cx-integration-logo.is-higgsfield { background: #fef3c7; color: #92400e; }
 .cx-integration-logo.is-d4sign { background: #e0f2fe; color: #0c4a6e; }

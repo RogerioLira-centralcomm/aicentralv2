@@ -4,7 +4,7 @@
 {% block title %}{{ steps[step_index].title }} · Smart Planner{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=23">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=25">
 {% endblock %}
 
 {% block content %}
@@ -431,6 +431,11 @@
           </li>
           {% endif %}
         </ul>
+        {% if consistency and consistency.consistent %}
+        <p class="sp-done-note">One Page e plano completo estão alinhados na mesma tese.</p>
+        {% elif consistency and consistency.conflicts %}
+        <p class="sp-done-note">Há divergências entre a página única e o plano. Revise antes de apresentar.</p>
+        {% endif %}
         <p class="sp-done-again">
           Precisa refazer?
           <a href="{{ url_for('smart_planner.revisao', token=token) }}">Voltar à revisão</a>
@@ -709,8 +714,10 @@
   <div class="sp-compile-card">
     <span class="sp-compile-icon" aria-hidden="true"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
     <h2>Organizando seu briefing</h2>
+    <p id="sp-compile-engine" class="sp-compile-engine" hidden>OpenAI nativa · skills internas</p>
     <p id="sp-compile-step">Lendo o material enviado…</p>
     <div class="sp-compile-track"><i id="sp-compile-bar"></i></div>
+    <ol class="sp-compile-skills" id="sp-compile-skills" hidden></ol>
     <div class="sp-compile-excerpt" id="sp-compile-excerpt"></div>
   </div>
 </div>
@@ -718,6 +725,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=12"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=15"></script>
 <script src="{{ url_for('static', filename='js/smart_planner/guide.js') }}?v=3"></script>
 {% endblock %}

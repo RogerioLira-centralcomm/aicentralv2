@@ -368,8 +368,9 @@ class AgentContractsTest(unittest.TestCase):
             chat_completion([{"role": "user", "content": "teste"}])
 
     @patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"})
+    @patch("aicentralv2.services.openrouter_service.resolve_openai_api_key", return_value="")
     @patch("aicentralv2.services.openrouter_service.requests.post")
-    def test_openrouter_uses_operational_generation_settings(self, mock_post):
+    def test_openrouter_uses_operational_generation_settings(self, mock_post, _openai_key):
         response = MagicMock()
         response.json.return_value = {
             "model": "openai/gpt-4o-mini",
@@ -389,8 +390,9 @@ class AgentContractsTest(unittest.TestCase):
         self.assertEqual(mock_post.call_args.kwargs["headers"]["X-OpenRouter-Title"], "CentralX")
 
     @patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"})
+    @patch("aicentralv2.services.openrouter_service.resolve_openai_api_key", return_value="")
     @patch("aicentralv2.services.openrouter_service.requests.post")
-    def test_gpt5_mini_omits_sampling_params(self, mock_post):
+    def test_gpt5_mini_omits_sampling_params(self, mock_post, _openai_key):
         response = MagicMock()
         response.json.return_value = {
             "model": "openai/gpt-5-mini",
@@ -411,8 +413,9 @@ class AgentContractsTest(unittest.TestCase):
         self.assertNotIn("presence_penalty", payload)
 
     @patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"})
+    @patch("aicentralv2.services.openrouter_service.resolve_openai_api_key", return_value="")
     @patch("aicentralv2.services.openrouter_service.requests.post")
-    def test_openrouter_unwraps_provider_raw_error(self, mock_post):
+    def test_openrouter_unwraps_provider_raw_error(self, mock_post, _openai_key):
         import json as json_lib
 
         import requests as req
@@ -444,8 +447,9 @@ class AgentContractsTest(unittest.TestCase):
         self.assertEqual(mock_post.call_count, 1)
 
     @patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"})
+    @patch("aicentralv2.services.openrouter_service.resolve_openai_api_key", return_value="")
     @patch("aicentralv2.services.openrouter_service.requests.post")
-    def test_openrouter_retries_only_server_errors(self, mock_post):
+    def test_openrouter_retries_only_server_errors(self, mock_post, _openai_key):
         import requests as req
 
         response = MagicMock()
@@ -458,8 +462,9 @@ class AgentContractsTest(unittest.TestCase):
         self.assertEqual(mock_post.call_count, 2)
 
     @patch.dict("os.environ", {"OPENROUTER_API_KEY": "env-key"}, clear=False)
+    @patch("aicentralv2.services.openrouter_service.resolve_openai_api_key", return_value="")
     @patch("aicentralv2.services.openrouter_service.requests.post")
-    def test_openrouter_prefers_database_key(self, mock_post):
+    def test_openrouter_prefers_database_key(self, mock_post, _openai_key):
         response = MagicMock()
         response.json.return_value = {
             "model": "openai/gpt-4o-mini",

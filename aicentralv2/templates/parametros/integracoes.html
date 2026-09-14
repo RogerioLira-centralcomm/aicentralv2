@@ -5,7 +5,7 @@
 {% block page_subtitle %}Credenciais de integrações{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/integracoes.css') }}?v=4">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/integracoes.css') }}?v=5">
 {% endblock %}
 
 {% block content %}
@@ -14,7 +14,7 @@
     <div>
       <span class="cx-integrations-eyebrow">Configuração do sistema</span>
       <h1>Integrações</h1>
-      <p>Configure os provedores usados pelo Agente, pelo CRM, pela Modelagem de Criativos e pela mesa de assinaturas.</p>
+      <p>Configure os provedores usados pelo Agente, pelo CRM, pelo Smart Planner, pela Modelagem de Criativos e pela mesa de assinaturas.</p>
     </div>
     <div class="cx-integrations-security">
       <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
@@ -63,6 +63,47 @@
         <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-integration-action="validate">Validar configuração</button>
         <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm is-danger" data-integration-action="remove">Remover</button>
         <button type="submit" class="cx-btn cx-btn-primary cx-btn-sm">Salvar Google</button>
+      </footer>
+    </form>
+
+    <form class="cx-integration-card" data-integration-form="openai">
+      <header>
+        <span class="cx-integration-logo is-openai"><i class="fa-solid fa-brain" aria-hidden="true"></i></span>
+        <div>
+          <h2>OpenAI</h2>
+          <p>Chave direta (sk-proj). GPT e GPT Image 2 saem de api.openai.com — Smart Planner, Agente e Modelagem.</p>
+        </div>
+        <span class="cx-integration-status" data-integration-status>Carregando…</span>
+      </header>
+
+      <div class="cx-integration-fields">
+        <label class="is-wide">
+          <span>API key</span>
+          <input name="api_key" type="password" autocomplete="new-password"
+                 placeholder="sk-proj-… — deixe vazio para manter a chave atual">
+          <small data-secret-state>Nenhuma chave armazenada.</small>
+        </label>
+        <label>
+          <span>Modelo de texto <em>opcional</em></span>
+          <input name="default_model" type="text" autocomplete="off"
+                 placeholder="gpt-5-mini">
+        </label>
+        <label>
+          <span>Modelo de imagem</span>
+          <input name="image_model" type="text" autocomplete="off"
+                 placeholder="gpt-image-2">
+        </label>
+      </div>
+
+      <aside>
+        <strong>Direto, sem OpenRouter</strong>
+        <span>A chave fica criptografada no PostgreSQL. Modelos da família GPT usam esta conta. Os demais provedores continuam no OpenRouter.</span>
+      </aside>
+
+      <footer>
+        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-integration-action="validate">Validar configuração</button>
+        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm is-danger" data-integration-action="remove">Remover</button>
+        <button type="submit" class="cx-btn cx-btn-primary cx-btn-sm">Salvar OpenAI</button>
       </footer>
     </form>
 
@@ -211,5 +252,5 @@
 
 {% block scripts %}
 {{ super() }}
-<script src="{{ url_for('static', filename='js/integracoes.js') }}?v=5"></script>
+<script src="{{ url_for('static', filename='js/integracoes.js') }}?v=6"></script>
 {% endblock %}

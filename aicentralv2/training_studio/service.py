@@ -1,15 +1,24 @@
 """Regras de negócio do Studio de Treinamentos."""
 
+from html import escape as html_escape
+
 from ..creative_modeling_fx import brl_from_usd, usd_brl_rate
-from .agenda import CHANNELS
-from .extract import extract_page, summarize_page
+from .agenda import CHANNELS, ILLUSTRATION_SESSIONS, SESSIONS
+from .extract import extract_page, extract_pdf_text, summarize_page
 from .orchestrator import run_chat
 from .prompts import style_prompt
 from .providers import TrainingProviders
-from .repository import TrainingStudioRepository
+from .repository import TrainingNotFoundError, TrainingStudioRepository
 from .research import fetch_logo_url, render_channel_html, replace_channel_block, research_channel
 from .storage import TrainingAssetStorage
-from .tools import edit_text, generate_image, research_market
+from .tools import (
+    classify_attachment,
+    edit_text,
+    format_for_session,
+    generate_image,
+    parse_classification,
+    research_market,
+)
 
 
 def format_brl(value):
@@ -45,8 +54,6 @@ class TrainingStudioService:
         sessao = self.repository.get_sessao(sessao_id)
         treinamento = self.repository.get_treinamento(treinamento_id)
         sessoes = self.repository.list_sessoes(treinamento_id)
-        mercado = next((item for item in sessoes if item.get("slug") == "mercado-canais"), None)
-        fontes = self.repository.list_fontes(mercado["id"]) if mercado else []
         return {
             "treinamento": treinamento,
             "sessao": self._public_sessao(sessao),
@@ -55,13 +62,11 @@ class TrainingStudioService:
             "consumo_treinamento": annotate_consumo(
                 self.repository.consumo_treinamento(treinamento_id)
             ),
-            "pesquisa_pendente": not any(
-                (item.get("url") or "").startswith("canal:") for item in fontes
-            ),
+            "pesquisa_pendente": False,
         }
 
     def enrich_channels(self, treinamento_id):
-        sessao = self.repository.get_sessao_by_slug(treinamento_id, "mercado-canais")
+        sessao = self.repository.get_sessao_by_slug(treinamento_id, "mapa-canais")
         html = sessao.get("conteudo_html") or ""
         existentes = {
             (item.get("url") or "")
@@ -84,7 +89,10 @@ class TrainingStudioService:
             logo_url = None
             try:
                 remote = fetch_logo_url(channel)
-                logo_url = self.storage.save_remote_logo(remote)
+                if str(remote).startswith("/static/"):
+                    logo_url = remote
+                else:
+                    logo_url = self.storage.save_remote_logo(remote)
                 self.repository.add_imagem(
                     sessao["id"], logo_url, f"Logo {channel['name']}"
                 )
@@ -134,6 +142,13 @@ class TrainingStudioService:
     def update_sessao(self, sessao_id, data):
         return self._public_sessao(self.repository.update_sessao(sessao_id, data))
 
+    def create_sessao(self, treinamento_id, data):
+        created = self.repository.create_sessao(treinamento_id, data)
+        return {
+            "sessao": self._public_sessao(created),
+            "sessoes": self.repository.list_sessoes(treinamento_id),
+        }
+
     def consumo(self, sessao_id):
         return annotate_consumo(self.repository.consumo(sessao_id))
 
@@ -170,12 +185,28 @@ class TrainingStudioService:
     def apply_fonte(self, sessao_id, fonte_id):
         return self.repository.apply_fonte(sessao_id, fonte_id)
 
-    def run_action(self, sessao_id, action, selection="", document="", instrucao="", prompt=""):
+    def run_action(
+        self,
+        sessao_id,
+        action,
+        selection="",
+        document="",
+        instrucao="",
+        prompt="",
+        buscar_web=False,
+    ):
         sessao = self.repository.get_sessao(sessao_id)
         fontes = self.repository.context_fontes(sessao_id)
         guia = sessao.get("guia_estilo") or {}
         if action == "pesquisar":
-            result = research_market(self.providers, instrucao or selection, selection)
+            result = research_market(
+                self.providers, instrucao or selection, selection, buscar_web=buscar_web
+            )
+            self._persist_research_fontes(sessao_id, instrucao or selection, result)
+        elif action == "formatar":
+            result = format_for_session(
+                self.providers, instrucao or selection, "", document
+            )
         elif action == "gerar_imagem":
             result = generate_image(
                 self.providers, prompt or instrucao or selection, guia, selection
@@ -204,6 +235,7 @@ class TrainingStudioService:
                     "model": result.get("model"),
                     "usage": result.get("usage") or {},
                     "cost_usd": result.get("cost_usd") or 0,
+                    "provider": result.get("provider"),
                 }
             ],
         )
@@ -228,9 +260,12 @@ class TrainingStudioService:
             "prompt": result.get("prompt") or style_prompt(guia),
             "message": message,
             "consumo": self.consumo(sessao_id),
+            "apply": bool(result.get("apply")),
+            "html": result.get("html") or result.get("content") or "",
+            "fontes": self.repository.list_fontes(sessao_id),
         }
 
-    def run_chat(self, sessao_id, message, selection="", document=""):
+    def run_chat(self, sessao_id, message, selection="", document="", buscar_web=False):
         sessao = self.repository.get_sessao(sessao_id)
         fontes = self.repository.context_fontes(sessao_id)
         result = run_chat(
@@ -240,8 +275,16 @@ class TrainingStudioService:
             document,
             fontes,
             sessao.get("guia_estilo") or {},
+            buscar_web=buscar_web,
         )
         payload = result.get("payload") or {}
+        created = None
+        if (result.get("tool_used") == "pesquisa") or (payload.get("kind") == "pesquisa"):
+            self._persist_research_fontes(sessao_id, message, payload or result)
+        if payload.get("create_session"):
+            created = self.create_sessao(
+                sessao["treinamento_id"], payload["create_session"]
+            )
         if payload.get("b64_json"):
             asset_url = self.storage.save_generated_base64(
                 payload["b64_json"], payload.get("output_format") or "png"
@@ -268,6 +311,150 @@ class TrainingStudioService:
             "image": image or (payload or {}).get("image"),
             "message": saved,
             "consumo": self.consumo(sessao_id),
+            "apply": bool(result.get("apply") or payload.get("apply")),
+            "html": payload.get("html") or "",
+            "modo": payload.get("modo") or "anexar",
+            "sessao": (created or {}).get("sessao"),
+            "sessoes": (created or {}).get("sessoes"),
+            "fontes": self.repository.list_fontes(sessao_id),
+        }
+
+    def _persist_research_fontes(self, sessao_id, query, result):
+        citations = result.get("citations") or []
+        title = (query or "Pesquisa")[:300]
+        resumo = (result.get("content") or "")[:800]
+        if citations:
+            for url in citations[:8]:
+                self.repository.ensure_fonte(sessao_id, url, title, resumo, incluido=True)
+            return
+        self.repository.ensure_fonte(
+            sessao_id,
+            f"pesquisa:{title[:160]}",
+            title,
+            (result.get("content") or "")[:4000],
+            incluido=True,
+        )
+
+    def upload_anexo(self, sessao_id, filename, content, mime=""):
+        sessao = self.repository.get_sessao(sessao_id)
+        asset_url = self.storage.save_upload(filename, content, mime)
+        extracted = ""
+        if (mime or "").startswith("image/"):
+            extracted = f"Imagem enviada: {filename}"
+        elif mime == "application/pdf" or str(filename).lower().endswith(".pdf"):
+            extracted = extract_pdf_text(content)
+        classified = classify_attachment(self.providers, extracted, filename)
+        self._record_costs(
+            sessao["treinamento_id"],
+            sessao_id,
+            [
+                {
+                    "kind": "resumo_url",
+                    "model": classified.get("model"),
+                    "usage": classified.get("usage") or {},
+                    "cost_usd": classified.get("cost_usd") or 0,
+                    "provider": classified.get("provider"),
+                }
+            ],
+        )
+        parsed = classified.get("classificacao") or parse_classification(
+            classified.get("content")
+        )
+        target = sessao
+        slug = parsed.get("sessao_slug") or ""
+        if slug and slug != sessao.get("slug"):
+            try:
+                target = self.repository.get_sessao_by_slug(
+                    sessao["treinamento_id"], slug
+                )
+            except TrainingNotFoundError:
+                target = sessao
+        fonte = self.repository.add_fonte(
+            target["id"],
+            f"anexo:{asset_url}",
+            filename,
+            extracted[:4000],
+        )
+        if (mime or "").startswith("image/"):
+            self.repository.add_imagem(target["id"], asset_url, filename)
+        html = parsed.get("html") or ""
+        if (mime or "").startswith("image/") and asset_url:
+            safe_url = html_escape(asset_url, quote=True)
+            figure = (
+                f'<figure class="ts-inline-image"><img src="{safe_url}" alt=""></figure>'
+            )
+            html = figure + html
+        bloco = html_escape(parsed.get("bloco") or "dado", quote=True)
+        if html:
+            html = f'<section class="ts-block" data-bloco="{bloco}">{html}</section>'
+        applied = False
+        if html:
+            updated = self.repository.update_sessao(
+                target["id"],
+                {"conteudo_html": (target.get("conteudo_html") or "") + html},
+            )
+            target = updated
+            applied = target["id"] == sessao_id
+        return {
+            "fonte": fonte,
+            "asset_url": asset_url,
+            "extracted": extracted,
+            "classificacao": parsed.get("resumo") or classified.get("content") or "",
+            "html": html,
+            "bloco": parsed.get("bloco") or "dado",
+            "sessao_slug": target.get("slug"),
+            "apply": applied,
+            "sessao": self._public_sessao(target) if applied else None,
+            "fontes": self.repository.list_fontes(sessao_id),
+            "consumo": self.consumo(sessao_id),
+        }
+
+    def generate_illustrations(self, treinamento_id):
+        generated = []
+        for item in SESSIONS:
+            if item["slug"] not in ILLUSTRATION_SESSIONS or not item.get("illustration"):
+                continue
+            sessao = self.repository.get_sessao_by_slug(treinamento_id, item["slug"])
+            guia = sessao.get("guia_estilo") or {}
+            result = generate_image(
+                self.providers, item["illustration"], guia
+            )
+            if result.get("b64_json"):
+                asset_url = self.storage.save_generated_base64(
+                    result["b64_json"], result.get("output_format") or "png"
+                )
+                image = self.repository.add_imagem(
+                    sessao["id"], asset_url, result.get("prompt") or item["illustration"]
+                )
+                html = sessao.get("conteudo_html") or ""
+                safe_url = html_escape(asset_url, quote=True)
+                hero = (
+                    f'<figure class="ts-inline-image ts-hero">'
+                    f'<img src="{safe_url}" alt=""></figure>'
+                )
+                if 'class="ts-hero"' not in html:
+                    html = hero + html
+                    self.repository.update_sessao(sessao["id"], {"conteudo_html": html})
+                generated.append(image)
+            self._record_costs(
+                treinamento_id,
+                sessao["id"],
+                [
+                    {
+                        "kind": "imagem",
+                        "model": result.get("model"),
+                        "usage": result.get("usage") or {},
+                        "cost_usd": result.get("cost_usd") or 0,
+                        "provider": result.get("provider"),
+                    }
+                ],
+            )
+        return {
+            "imagens": generated,
+            "sessoes": self.repository.list_sessoes(treinamento_id),
+            "consumo_treinamento": annotate_consumo(
+                self.repository.consumo_treinamento(treinamento_id)
+            ),
         }
 
     def _record_costs(self, treinamento_id, sessao_id, entries):
@@ -284,6 +471,7 @@ class TrainingStudioService:
                 brl_from_usd(cost_usd, rate),
                 rate,
                 source,
+                entry.get("provider") or "openai",
             )
 
     def _public_sessao(self, sessao):

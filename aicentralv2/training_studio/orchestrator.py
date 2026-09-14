@@ -7,14 +7,17 @@ from .prompts import SYSTEM_PROMPT, wrap_untrusted
 from .providers import DEFAULT_TEXT_MODEL, usage_cost
 from .tools import (
     TOOL_DEFINITIONS,
+    apply_to_session,
+    classify_attachment,
     edit_text,
+    format_for_session,
     generate_image,
     research_market,
     fontes_block,
 )
 
 
-MAX_TOOL_CALLS = 3
+MAX_TOOL_CALLS = 4
 
 
 class TrainingAgentError(RuntimeError):
@@ -32,13 +35,24 @@ def _content(message):
     return str(content).strip()
 
 
-def run_chat(providers, message, selection, document, fontes, guia_estilo):
+def run_chat(
+    providers,
+    message,
+    selection,
+    document,
+    fontes,
+    guia_estilo,
+    buscar_web=False,
+):
+    web_state = "ligada" if buscar_web else "desligada"
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {
             "role": "user",
             "content": (
                 f"{message}\n\n"
+                f"Busca na internet: {web_state}. "
+                "Se estiver desligada, não chame pesquisar_mercado.\n\n"
                 f"Seleção atual:\n{selection or '(nenhuma)'}\n\n"
                 f"{wrap_untrusted('documento', (document or '')[:6000])}\n\n"
                 f"{fontes_block(fontes)}"
@@ -53,7 +67,7 @@ def run_chat(providers, message, selection, document, fontes, guia_estilo):
             messages,
             tools=TOOL_DEFINITIONS,
             model=DEFAULT_TEXT_MODEL,
-            max_tokens=1400,
+            max_tokens=1600,
             temperature=0.4,
         )
         costs.append(
@@ -62,6 +76,7 @@ def run_chat(providers, message, selection, document, fontes, guia_estilo):
                 "model": response.get("model") or DEFAULT_TEXT_MODEL,
                 "usage": response.get("usage") or {},
                 "cost_usd": usage_cost(response.get("usage")),
+                "provider": "openai" if str(response.get("model") or "").startswith(("gpt-", "openai/")) else "openrouter",
             }
         )
         assistant = response.get("message") or {}
@@ -73,6 +88,7 @@ def run_chat(providers, message, selection, document, fontes, guia_estilo):
                 "tool_used": last_tool or "edicao",
                 "payload": last_payload,
                 "costs": costs,
+                "apply": bool((last_payload or {}).get("apply")),
             }
         for call in tool_calls[:1]:
             function = call.get("function") or {}
@@ -81,31 +97,18 @@ def run_chat(providers, message, selection, document, fontes, guia_estilo):
                 arguments = json.loads(function.get("arguments") or "{}")
             except json.JSONDecodeError:
                 arguments = {}
-            if name == "editar_texto":
-                result = edit_text(
-                    providers,
-                    arguments.get("acao") or "reescrever",
-                    selection,
-                    document,
-                    fontes,
-                    arguments.get("instrucao") or "",
-                )
-                last_tool = "edicao"
-            elif name == "pesquisar_mercado":
-                result = research_market(
-                    providers, arguments.get("query") or message, selection
-                )
-                last_tool = "pesquisa"
-            elif name == "gerar_imagem":
-                result = generate_image(
-                    providers,
-                    arguments.get("prompt") or selection or message,
-                    guia_estilo,
-                    selection,
-                )
-                last_tool = "imagem"
-            else:
-                raise TrainingAgentError("Ferramenta não permitida.")
+            result = _run_tool(
+                name,
+                arguments,
+                providers,
+                selection,
+                document,
+                fontes,
+                guia_estilo,
+                message,
+                buscar_web,
+            )
+            last_tool = result.get("tool_used") or name
             last_payload = result
             costs.append(
                 {
@@ -113,9 +116,15 @@ def run_chat(providers, message, selection, document, fontes, guia_estilo):
                     "model": result.get("model"),
                     "usage": result.get("usage") or {},
                     "cost_usd": result.get("cost_usd") or 0,
+                    "provider": result.get("provider") or "openai",
                 }
             )
-            tool_content = result.get("content") or result.get("prompt") or "ok"
+            tool_content = (
+                result.get("content")
+                or result.get("html")
+                or result.get("prompt")
+                or "ok"
+            )
             messages.append(
                 {
                     "role": "tool",
@@ -123,9 +132,85 @@ def run_chat(providers, message, selection, document, fontes, guia_estilo):
                     "content": str(tool_content)[:4000],
                 }
             )
+            if result.get("apply") or name == "criar_sessao":
+                return {
+                    "content": result.get("content") or "Aplicado.",
+                    "tool_used": last_tool,
+                    "payload": result,
+                    "costs": costs,
+                    "apply": bool(result.get("apply")),
+                }
     return {
         "content": (last_payload or {}).get("content") or "Consulta concluída.",
         "tool_used": last_tool or "edicao",
         "payload": last_payload,
         "costs": costs,
+        "apply": bool((last_payload or {}).get("apply")),
     }
+
+
+def _run_tool(
+    name,
+    arguments,
+    providers,
+    selection,
+    document,
+    fontes,
+    guia_estilo,
+    message,
+    buscar_web,
+):
+    if name == "editar_texto":
+        return edit_text(
+            providers,
+            arguments.get("acao") or "reescrever",
+            selection,
+            document,
+            fontes,
+            arguments.get("instrucao") or "",
+        )
+    if name == "pesquisar_mercado":
+        return research_market(
+            providers, arguments.get("query") or message, selection, buscar_web
+        )
+    if name == "gerar_imagem":
+        return generate_image(
+            providers,
+            arguments.get("prompt") or selection or message,
+            guia_estilo,
+            selection,
+        )
+    if name == "formatar_para_sessao":
+        return format_for_session(
+            providers,
+            arguments.get("texto") or selection or message,
+            arguments.get("bloco") or "",
+            document,
+        )
+    if name == "aplicar_na_sessao":
+        return apply_to_session(
+            arguments.get("html") or selection,
+            arguments.get("modo") or "anexar",
+        )
+    if name == "organizar_anexo":
+        return classify_attachment(
+            providers,
+            arguments.get("texto") or selection,
+            arguments.get("filename") or "",
+        )
+    if name == "criar_sessao":
+        return {
+            "content": arguments.get("titulo") or "Nova sessão",
+            "tool_used": "sessao",
+            "kind": "texto",
+            "create_session": {
+                "titulo": arguments.get("titulo") or "Nova sessão",
+                "horario_inicio": arguments.get("horario_inicio") or "",
+                "horario_fim": arguments.get("horario_fim") or "",
+                "apos_slug": arguments.get("apos_slug") or "",
+            },
+            "model": None,
+            "usage": {},
+            "cost_usd": 0,
+        }
+    raise TrainingAgentError("Ferramenta não permitida.")

@@ -247,6 +247,7 @@ def wizard_context(row: dict, step_id: str) -> dict:
             "completo": preview_cost("completo", dados),
         },
         "tem_folha": bool(as_list(as_dict(dados.get("folha")).get("sections"))),
+        "consistency": as_dict(dados.get("consistency")),
     }
 
 

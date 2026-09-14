@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 
 from . import one_page
 from .ai import chat_json
+from .skills import load_skill
 from .catalog import PRACA_OPTIONS, objetivo_label
 from .cost import bound_session
-from .helpers import as_dict, as_list, plan_mode_of, session_title, text
+from .helpers import as_dict, as_list, extract_json, plan_mode_of, session_title, text
 from .materials import apoio_notes
 from .repository import get_by_token, merge_dados, update_session
 
@@ -153,6 +155,34 @@ def materialize_folha(token: str, presenter_id: str | None = None) -> dict:
     if not briefing and not meta.get("client"):
         raise ValueError("Informe o cliente final ou o briefing antes de montar a página única.")
     chosen = text(presenter_id) or text(dados.get("presenter_brand")) or "centralcomm"
+    page = as_dict(dados.get("one_page_v2"))
+    if text(as_dict(page.get("thesis")).get("statement")):
+        branding = one_page.resolve_branding(
+            meta.get("client"),
+            meta.get("agency"),
+            chosen,
+            [],
+            cliente_id=dados.get("cliente_id"),
+            agencia_id=dados.get("agencia_id"),
+            brand=as_dict(dados.get("brand")),
+        )
+        theme = one_page.compose_theme(meta.get("client"), meta.get("agency"), briefing, None)
+        share = one_page.share_payload(text(dados.get("public_token")), meta.get("client"))
+        plan = one_page.assemble_from_v2(
+            {**meta, "presenter": branding["presenter"]["id"]},
+            branding,
+            theme,
+            share,
+            page,
+            as_dict(dados.get("strategy_core")),
+            text(as_dict(dados.get("snapshot")).get("snapshot_id")),
+        )
+        merge_dados(token, {
+            "folha": plan,
+            "presenter_brand": plan["meta"]["presenter"],
+            "public_token": plan["share"]["public_token"],
+        })
+        return plan
     plan = one_page.build_one_page(
         meta,
         briefing,
@@ -204,7 +234,7 @@ def generate_canvas(token: str, presenter_id: str | None = None) -> dict:
         if not as_list(folha.get("sections")):
             folha = materialize_folha(token, presenter_id)
         parsed = chat_json(
-            CANVAS_PROMPT,
+            load_skill("planner_canvas_v2") or CANVAS_PROMPT,
             json.dumps(
                 {
                     "plan_mode": mode,
@@ -220,12 +250,82 @@ def generate_canvas(token: str, presenter_id: str | None = None) -> dict:
             role="compose",
         )
         plan = normalize_plan(parsed if isinstance(parsed, dict) else {}, mode, meta)
+        if _card_count(plan) < 4:
+            plan = _fill_from_groups(plan, dados)
         row = update_session(token, {
             "plan_content": plan,
             "schema_version": 2,
             "canvas_layout": {"mode": mode, "generatedAt": plan["meta"]["updatedAt"]},
         })
         return {"plan": plan, "session": row}
+
+
+def _card_count(plan: dict) -> int:
+    return sum(len(as_list(as_dict(section).get("cards"))) for section in as_list((plan or {}).get("sections")))
+
+
+def _fill_from_groups(plan: dict, dados: dict) -> dict:
+    groups = as_dict((dados or {}).get("planejamento_grupos"))
+    core = as_dict((dados or {}).get("strategy_core"))
+    page = as_dict((dados or {}).get("one_page_v2"))
+    thesis = text(core.get("central_thesis")) or text(as_dict(page.get("thesis")).get("statement"))
+    bodies = {
+        "context": [
+            ("summary", "Resumo", text(groups.get("strategy")) or text((dados or {}).get("planejamento"))),
+        ],
+        "strategy": [
+            ("recommendation", "Tese", thesis),
+            ("summary", "Estratégia", text(groups.get("strategy"))),
+        ],
+        "media": [
+            ("channel-mix", "Mídia e mix", text(groups.get("media"))),
+        ],
+        "execution": [
+            ("next-steps", "Execução", text(groups.get("execution"))),
+            ("summary", "Defesa comercial", text(groups.get("defense"))),
+        ],
+    }
+    filled = dict(plan or {})
+    sections = []
+    for section in as_list(filled.get("sections")):
+        item = dict(section)
+        if as_list(item.get("cards")):
+            sections.append(item)
+            continue
+        cards = []
+        for index, (kind, title, body) in enumerate(bodies.get(item.get("id"), ())):
+            excerpt = _plain_excerpt(body)
+            if not excerpt:
+                continue
+            cards.append({
+                "id": f"{item.get('id')}-{index}",
+                "type": kind,
+                "title": title,
+                "body": excerpt,
+                "items": [],
+            })
+        item["cards"] = cards
+        sections.append(item)
+    filled["sections"] = sections
+    return filled
+
+
+def _plain_excerpt(body: str, limit: int = 1800) -> str:
+    raw = text(body).strip()
+    parsed = extract_json(raw)
+    if isinstance(parsed, dict):
+        bits = []
+        for key in ("why_this_plan", "why_this_mix", "expected_benefits"):
+            bits.extend(text(item) for item in as_list(parsed.get(key)) if text(item))
+        if text(parsed.get("approval_argument")):
+            bits.append(text(parsed.get("approval_argument")))
+        raw = "\n".join(bits) or raw
+    lines = []
+    for line in raw.splitlines():
+        if line.strip().startswith("```"):
+            continue
+        lines.append(re.sub(r"^#+\s*", "", line).strip())
+    return "\n".join(part for part in lines if part).strip()[:limit]
 
 
 def save_plan(token: str, plan: dict) -> dict:

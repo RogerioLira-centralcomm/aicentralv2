@@ -28,6 +28,12 @@ PROVIDERS = {
         "secret_fields": ("api_key",),
         "required": ("api_key",),
     },
+    "openai": {
+        "label": "OpenAI",
+        "public_fields": ("default_model", "image_model"),
+        "secret_fields": ("api_key",),
+        "required": ("api_key",),
+    },
     "d4sign": {
         "label": "D4Sign",
         "public_fields": ("uuid_safe", "ambiente"),
@@ -51,6 +57,11 @@ ENV_FIELDS = {
         "default_model": "AGENT_OPENROUTER_MODEL",
         "image_model": "CREATIVE_IMAGE_MODEL",
         "api_key": "OPENROUTER_API_KEY",
+    },
+    "openai": {
+        "default_model": "OPENAI_DEFAULT_MODEL",
+        "image_model": "OPENAI_IMAGE_MODEL",
+        "api_key": "OPENAI_API_KEY",
     },
     "d4sign": {},
 }
@@ -178,6 +189,10 @@ def save_configuration(provider, payload, updated_by):
         existing_secrets = {}
     if provider == "openrouter" and not public.get("image_model"):
         public["image_model"] = "openai/gpt-image-2"
+    if provider == "openai" and not public.get("default_model"):
+        public["default_model"] = "gpt-5-mini"
+    if provider == "openai" and not public.get("image_model"):
+        public["image_model"] = "gpt-image-2"
     if provider == "d4sign" and not public.get("ambiente"):
         public["ambiente"] = "producao"
     if provider == "d4sign" and not submitted_secrets.get("webhook_secret") and not existing_secrets.get("webhook_secret"):
@@ -262,6 +277,9 @@ def validate_configuration(provider):
     if provider == "openrouter":
         valid, message = _validate_openrouter(config)
         return valid, message, {}
+    if provider == "openai":
+        valid, message = _validate_openai(config)
+        return valid, message, {}
     if provider == "d4sign":
         return _validate_d4sign(config)
     return True, (
@@ -294,6 +312,27 @@ def _validate_openrouter(config):
     if response.status_code >= 400:
         return False, "O OpenRouter recusou a validação da chave."
     return True, "Credencial OpenRouter aceita pelo provedor."
+
+
+def _validate_openai(config):
+    import requests
+
+    key = str(config.get("api_key") or "").strip()
+    try:
+        response = requests.get(
+            "https://api.openai.com/v1/models",
+            headers={"Authorization": f"Bearer {key}"},
+            timeout=15,
+        )
+    except requests.RequestException:
+        return False, "Não foi possível validar a chave na OpenAI."
+    if response.status_code in (401, 403):
+        return False, "A credencial OpenAI não foi aceita."
+    if response.status_code == 429:
+        return False, "A OpenAI limitou a validação. Aguarde e tente de novo."
+    if response.status_code >= 400:
+        return False, "A OpenAI recusou a validação da chave."
+    return True, "Credencial OpenAI aceita. Modelos GPT passam a sair direto de api.openai.com."
 
 
 def _validate_d4sign(config):

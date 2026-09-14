@@ -11,6 +11,7 @@ from flask import current_app
 
 GENERATED_PREFIX = "/static/uploads/treinamento_generated/"
 LOGO_PREFIX = "/static/uploads/treinamento_generated/logos/"
+ANEXO_PREFIX = "/static/uploads/treinamento_generated/anexos/"
 
 
 def _root(folder=""):
@@ -61,3 +62,19 @@ class TrainingAssetStorage:
         filename = f"{uuid.uuid4().hex}{extension}"
         (_root("logos") / filename).write_bytes(content)
         return f"{LOGO_PREFIX}{filename}"
+
+    def save_upload(self, filename, content, mime=""):
+        raw = filename or "anexo"
+        suffix = Path(raw).suffix.lower()
+        if suffix not in {".png", ".jpg", ".jpeg", ".webp", ".pdf"}:
+            suffix = {
+                "image/png": ".png",
+                "image/jpeg": ".jpg",
+                "image/webp": ".webp",
+                "application/pdf": ".pdf",
+            }.get(mime, ".bin")
+        if suffix == ".bin":
+            raise ValueError("Envie uma imagem ou um PDF.")
+        name = f"{uuid.uuid4().hex}{suffix}"
+        (_root("anexos") / name).write_bytes(content)
+        return f"{ANEXO_PREFIX}{name}"

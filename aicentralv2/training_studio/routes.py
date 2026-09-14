@@ -93,6 +93,7 @@ def api_agent(sessao_id):
     document = str(payload.get("document") or "")
     instrucao = str(payload.get("instrucao") or "")
     prompt = str(payload.get("prompt") or "")
+    buscar_web = bool(payload.get("buscar_web"))
 
     def run():
         if action:
@@ -104,13 +105,18 @@ def api_agent(sessao_id):
                     document=document,
                     instrucao=instrucao,
                     prompt=prompt,
+                    buscar_web=buscar_web,
                 )
             )
         if not message:
             raise ValueError("Escreva uma instrução ou escolha uma ação.")
         return _ok(
             _service().run_chat(
-                sessao_id, message, selection=selection, document=document
+                sessao_id,
+                message,
+                selection=selection,
+                document=document,
+                buscar_web=buscar_web,
             )
         )
 
@@ -143,6 +149,40 @@ def api_consumo(sessao_id):
 @admin_required_api
 def api_pesquisar_canais(treinamento_id):
     return _execute(lambda: _ok(_service().enrich_channels(treinamento_id)))
+
+
+@admin_required_api
+def api_create_sessao(treinamento_id):
+    return _execute(lambda: _ok(_service().create_sessao(treinamento_id, _json())))
+
+
+@admin_required_api
+def api_illustrations(treinamento_id):
+    return _execute(lambda: _ok(_service().generate_illustrations(treinamento_id)))
+
+
+@admin_required_api
+def api_upload_anexo(sessao_id):
+    upload = request.files.get("file")
+    if upload is None or not upload.filename:
+        return _error("Envie uma imagem ou um PDF.", 400)
+
+    def run():
+        content = upload.read()
+        if not content:
+            raise ValueError("Arquivo vazio.")
+        if len(content) > 12 * 1024 * 1024:
+            raise ValueError("O arquivo passa de 12 MB.")
+        return _ok(
+            _service().upload_anexo(
+                sessao_id,
+                upload.filename,
+                content,
+                upload.mimetype or "",
+            )
+        )
+
+    return _execute(run)
 
 
 def register_training_studio_routes(blueprint):
@@ -203,6 +243,24 @@ def register_training_studio_routes(blueprint):
         "/api/treinamentos/<int:treinamento_id>/pesquisar-canais",
         endpoint="treinamento_pesquisar_canais",
         view_func=api_pesquisar_canais,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/treinamentos/<int:treinamento_id>/sessoes",
+        endpoint="treinamento_criar_sessao",
+        view_func=api_create_sessao,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/treinamentos/<int:treinamento_id>/ilustracoes",
+        endpoint="treinamento_ilustracoes",
+        view_func=api_illustrations,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/sessoes/<int:sessao_id>/anexos",
+        endpoint="sessao_anexos",
+        view_func=api_upload_anexo,
         methods=["POST"],
     )
     blueprint._training_studio_registered = True

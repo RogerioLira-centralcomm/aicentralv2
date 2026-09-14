@@ -1,6 +1,15 @@
-"""Tools exclusivas do Agente Imersão."""
+"""Tools do Agente Imersão."""
 
-from .prompts import EDIT_INSTRUCTIONS, style_prompt, wrap_untrusted
+import json
+import re
+
+from .prompts import (
+    CLASSIFY_ATTACHMENT_SYSTEM,
+    EDIT_INSTRUCTIONS,
+    FORMAT_SESSION_SYSTEM,
+    style_prompt,
+    wrap_untrusted,
+)
 
 
 TOOL_DEFINITIONS = [
@@ -8,14 +17,11 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "editar_texto",
-            "description": "Reescreve, expande, resume, ajusta tom ou continua um trecho do documento.",
+            "description": "Reescreve, expande, resume, ajusta tom ou continua um trecho.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "acao": {
-                        "type": "string",
-                        "enum": list(EDIT_INSTRUCTIONS),
-                    },
+                    "acao": {"type": "string", "enum": list(EDIT_INSTRUCTIONS)},
                     "instrucao": {"type": "string"},
                 },
                 "required": ["acao"],
@@ -27,7 +33,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "pesquisar_mercado",
-            "description": "Pesquisa dados atuais de mercado via Perplexity.",
+            "description": "Pesquisa na internet via OpenAI web_search. Só use se busca_web estiver ligada.",
             "parameters": {
                 "type": "object",
                 "properties": {"query": {"type": "string"}},
@@ -40,11 +46,77 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "gerar_imagem",
-            "description": "Gera uma imagem no guia de estilo do treinamento.",
+            "description": "Gera uma ilustração no guia de estilo do treinamento.",
             "parameters": {
                 "type": "object",
                 "properties": {"prompt": {"type": "string"}},
                 "required": ["prompt"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "formatar_para_sessao",
+            "description": "Formata pesquisa, URL ou anexo em HTML de sessão (h2/h3/p).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "texto": {"type": "string"},
+                    "bloco": {"type": "string"},
+                },
+                "required": ["texto"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "aplicar_na_sessao",
+            "description": "Devolve HTML para gravar no editor da sessão atual.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "html": {"type": "string"},
+                    "modo": {"type": "string", "enum": ["anexar", "substituir"]},
+                },
+                "required": ["html"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "criar_sessao",
+            "description": "Cria uma sessão extra na grade do treinamento.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "titulo": {"type": "string"},
+                    "horario_inicio": {"type": "string"},
+                    "horario_fim": {"type": "string"},
+                    "apos_slug": {"type": "string"},
+                },
+                "required": ["titulo"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "organizar_anexo",
+            "description": "Classifica um anexo na sessão e no bloco certos.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "texto": {"type": "string"},
+                    "filename": {"type": "string"},
+                },
+                "required": ["texto"],
                 "additionalProperties": False,
             },
         },
@@ -88,16 +160,20 @@ def edit_text(providers, acao, selection, document, fontes=None, instrucao=""):
     result["tool_used"] = "edicao"
     result["kind"] = "texto"
     result["acao"] = acao
+    result["apply"] = False
     return result
 
 
-def research_market(providers, query, selection=""):
+def research_market(providers, query, selection="", buscar_web=False):
+    if not buscar_web:
+        raise ValueError("Ligue Buscar na internet para pesquisar.")
     query = (query or selection or "").strip()
     if not query:
         raise ValueError("Informe o que pesquisar ou selecione um trecho.")
     result = providers.research.search(query, context=selection)
     result["tool_used"] = "pesquisa"
     result["kind"] = "pesquisa"
+    result["apply"] = False
     return result
 
 
@@ -111,3 +187,84 @@ def generate_image(providers, prompt, guia_estilo, selection=""):
     result["tool_used"] = "imagem"
     result["kind"] = "imagem"
     return result
+
+
+def format_for_session(providers, texto, bloco="", document=""):
+    texto = (texto or "").strip()
+    if not texto:
+        raise ValueError("Não há conteúdo para formatar.")
+    messages = [
+        {"role": "system", "content": FORMAT_SESSION_SYSTEM},
+        {
+            "role": "user",
+            "content": (
+                f"Bloco sugerido: {bloco or 'dado'}\n\n"
+                f"{wrap_untrusted('material', texto[:10000])}\n\n"
+                f"Documento atual:\n{wrap_untrusted('documento', (document or '')[:4000])}"
+            ),
+        },
+    ]
+    result = providers.text.complete(messages, max_tokens=1800, temperature=0.3)
+    result["tool_used"] = "formatacao"
+    result["kind"] = "texto"
+    result["apply"] = False
+    return result
+
+
+def apply_to_session(html, modo="anexar"):
+    html = (html or "").strip()
+    if not html:
+        raise ValueError("Não há HTML para aplicar.")
+    return {
+        "content": html,
+        "html": html,
+        "modo": modo if modo in {"anexar", "substituir"} else "anexar",
+        "apply": True,
+        "tool_used": "aplicacao",
+        "kind": "texto",
+        "model": None,
+        "usage": {},
+        "cost_usd": 0,
+    }
+
+
+def classify_attachment(providers, texto, filename=""):
+    messages = [
+        {"role": "system", "content": CLASSIFY_ATTACHMENT_SYSTEM},
+        {
+            "role": "user",
+            "content": (
+                f"Arquivo: {filename or 'anexo'}\n\n"
+                f"{wrap_untrusted('anexo', (texto or '')[:12000])}"
+            ),
+        },
+    ]
+    result = providers.text.complete(messages, max_tokens=1200, temperature=0.2)
+    result["tool_used"] = "anexo"
+    result["kind"] = "resumo_url"
+    result["apply"] = False
+    result["classificacao"] = parse_classification(result.get("content"))
+    return result
+
+
+def parse_classification(text):
+    raw = (text or "").strip()
+    if raw.startswith("```"):
+        raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.I).strip()
+    try:
+        data = json.loads(raw)
+    except (TypeError, ValueError):
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    bloco = str(data.get("bloco") or "dado")
+    if bloco not in {"tese", "dado", "case", "formato", "nota_instrutor", "dinamica"}:
+        bloco = "dado"
+    html = str(data.get("html") or "").strip()
+    return {
+        "sessao_slug": str(data.get("sessao_slug") or "").strip(),
+        "bloco": bloco,
+        "titulo": str(data.get("titulo") or "").strip(),
+        "html": html,
+        "resumo": str(data.get("resumo") or raw)[:2000],
+    }

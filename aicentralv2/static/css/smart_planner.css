@@ -2565,8 +2565,85 @@
 }
 
 .sp-compile-card {
-  width: min(36rem, calc(100vw - 2rem));
+  width: min(42rem, calc(100vw - 2rem));
   text-align: center;
+}
+
+.sp-compile-engine {
+  margin: 0 0 0.65rem;
+  color: #86efac;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sp-compile-engine[hidden] {
+  display: none;
+}
+
+.sp-compile-skills {
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+  display: grid;
+  gap: 0.35rem;
+  max-height: min(46vh, 28rem);
+  overflow: auto;
+}
+
+.sp-compile-skills[hidden] {
+  display: none;
+}
+
+.sp-compile-skills li {
+  display: grid;
+  grid-template-columns: 1.1rem minmax(0, 1fr);
+  gap: 0.45rem 0.65rem;
+  align-items: start;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #1f2937;
+  border-radius: 8px;
+  color: #94a3b8;
+  font-size: 0.8125rem;
+}
+
+.sp-compile-skills li i {
+  margin-top: 0.2rem;
+  font-size: 0.7rem;
+}
+
+.sp-compile-skills li strong,
+.sp-compile-skills li span {
+  display: block;
+}
+
+.sp-compile-skills li small {
+  display: block;
+  margin-top: 0.15rem;
+  color: #64748b;
+  font-size: 0.7rem;
+}
+
+.sp-compile-skills li.is-run {
+  border-color: #166534;
+  background: #052e16;
+  color: #ecfdf5;
+}
+
+.sp-compile-skills li.is-done {
+  color: #bbf7d0;
+}
+
+.sp-compile-skills li.is-error {
+  border-color: #7f1d1d;
+  color: #fecaca;
+}
+
+.sp-compile-skills li.is-skip {
+  color: #cbd5e1;
+  opacity: 0.72;
 }
 
 .sp-compile-icon {
@@ -3116,6 +3193,12 @@
   margin: 1rem 0 0;
   color: var(--hi-fog);
   font-size: 0.8125rem;
+}
+
+.sp-done-note {
+  margin: 0.85rem 0 0;
+  color: var(--hi-ink);
+  font-size: 0.875rem;
 }
 
 @media (max-width: 1100px) {

@@ -9,6 +9,7 @@ from aicentralv2.integration_settings_routes import (
     register_integration_settings_routes,
 )
 from aicentralv2.services import integration_credentials
+from aicentralv2.services import openrouter_service
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -74,6 +75,20 @@ class IntegrationCredentialsServiceTest(unittest.TestCase):
             summary = integration_credentials.get_summary("openrouter")
         self.assertEqual(summary["public_config"]["image_model"], "openai/gpt-image-2")
         self.assertNotIn("or-env-key", str(summary))
+
+    def test_openai_summary_uses_environment_until_saved(self):
+        self.app.config["OPENAI_API_KEY"] = "sk-proj-env-test"
+        self.app.config["OPENAI_DEFAULT_MODEL"] = "gpt-5-mini"
+        self.app.config["OPENAI_IMAGE_MODEL"] = "gpt-image-2"
+        with patch("aicentralv2.db.obter_credencial_integracao", return_value=None):
+            summary = integration_credentials.get_summary("openai")
+        self.assertEqual(summary["source"], "environment")
+        self.assertTrue(summary["configured"])
+        self.assertTrue(summary["has_secret"])
+        self.assertEqual(summary["public_config"]["default_model"], "gpt-5-mini")
+        self.assertEqual(summary["public_config"]["image_model"], "gpt-image-2")
+        self.assertNotIn("sk-proj-env-test", str(summary))
+        self.assertNotIn("api_key", summary)
 
     def test_unreadable_secret_does_not_break_summaries(self):
         record = {
@@ -182,8 +197,11 @@ class IntegrationCredentialsContractTest(unittest.TestCase):
         self.assertIn("Google Calendar e Meet", template)
         self.assertIn("Higgsfield", template)
         self.assertIn("OpenRouter", template)
+        self.assertIn("OpenAI", template)
         self.assertIn('data-integration-form="openrouter"', template)
+        self.assertIn('data-integration-form="openai"', template)
         self.assertIn("run_add_openrouter_integration_credential.py", deploy)
+        self.assertIn("run_add_openai_integration_credential.py", deploy)
         self.assertIn("run_add_openrouter_gpt_image_2.py", deploy)
         image_sql = (ROOT / "migrations/add_openrouter_gpt_image_2.sql").read_text()
         self.assertIn("openai/gpt-image-2", image_sql)
@@ -197,6 +215,54 @@ class IntegrationCredentialsContractTest(unittest.TestCase):
         ).read_text()
         self.assertIn("openrouter", openrouter_sql)
         self.assertIn("d4sign", openrouter_sql)
+        openai_sql = (ROOT / "migrations/add_openai_integration_credential.sql").read_text()
+        self.assertIn("openai", openai_sql)
+        d4sign_sql = (ROOT / "migrations/add_d4sign_assinaturas.sql").read_text()
+        self.assertIn("openai", d4sign_sql)
+        self.assertIn("d4sign", d4sign_sql)
+
+
+class OpenAIDirectRoutingTest(unittest.TestCase):
+    def test_strips_openrouter_prefix_for_openai_api(self):
+        self.assertEqual(openrouter_service.openai_model_slug("openai/gpt-5-mini"), "gpt-5-mini")
+        self.assertEqual(openrouter_service.openai_model_slug("gpt-image-2"), "gpt-image-2")
+        self.assertTrue(openrouter_service.is_openai_family("openai/gpt-5.4"))
+        self.assertFalse(openrouter_service.is_openai_family("anthropic/claude-sonnet-4"))
+
+    def test_direct_openai_needs_key_and_gpt_family(self):
+        with patch.object(openrouter_service, "resolve_openai_api_key", return_value=""):
+            self.assertFalse(openrouter_service.uses_direct_openai("openai/gpt-5-mini"))
+        with patch.object(openrouter_service, "resolve_openai_api_key", return_value="sk-test"):
+            self.assertTrue(openrouter_service.uses_direct_openai("openai/gpt-5-mini"))
+            self.assertFalse(openrouter_service.uses_direct_openai("anthropic/claude-sonnet-4"))
+
+    def test_chat_hits_openai_when_key_is_configured(self):
+        class _Resp:
+            status_code = 200
+
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {
+                    "choices": [{"message": {"role": "assistant", "content": "ok"}}],
+                    "model": "gpt-5-mini",
+                    "usage": {"total_tokens": 4},
+                }
+
+        with patch.object(openrouter_service, "resolve_openai_api_key", return_value="sk-test"), patch(
+            "aicentralv2.services.openrouter_service.requests.post", return_value=_Resp()
+        ) as post:
+            result = openrouter_service.chat_completion(
+                [{"role": "user", "content": "oi"}],
+                model="openai/gpt-5-mini",
+            )
+        self.assertEqual(result["message"]["content"], "ok")
+        self.assertEqual(post.call_args.args[0], openrouter_service.OPENAI_CHAT_URL)
+        self.assertEqual(post.call_args.kwargs["json"]["model"], "gpt-5-mini")
+        self.assertNotIn("top_k", post.call_args.kwargs["json"])
+        self.assertNotIn("max_tokens", post.call_args.kwargs["json"])
+        self.assertIn("max_completion_tokens", post.call_args.kwargs["json"])
 
 
 if __name__ == "__main__":

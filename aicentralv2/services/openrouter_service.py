@@ -7,6 +7,8 @@ from typing import Dict, Any, List, Optional
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_IMAGE_URL = "https://openrouter.ai/api/v1/images"
+OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
+OPENAI_IMAGE_URL = "https://api.openai.com/v1/images/generations"
 OPENROUTER_VIDEO_URL = "https://openrouter.ai/api/v1/videos"
 OPENROUTER_SPEECH_URL = "https://openrouter.ai/api/v1/audio/speech"
 DEFAULT_IMAGE_MODEL = os.getenv("CREATIVE_IMAGE_MODEL", "openai/gpt-image-2")
@@ -110,6 +112,37 @@ def _chat_error_message(response):
     return "Não foi possível consultar o provedor de IA."
 
 
+def resolve_openai_api_key() -> str:
+    try:
+        from . import integration_credentials
+
+        config = integration_credentials.get_configuration("openai", include_secrets=True)
+        if config.get("status") == "disabled":
+            return ""
+        key = str(config.get("api_key") or "").strip()
+        if key:
+            return key
+    except Exception:
+        pass
+    return os.getenv("OPENAI_API_KEY", "").strip()
+
+
+def openai_model_slug(model: Optional[str] = None) -> str:
+    slug = str(model or "").strip()
+    if slug.lower().startswith("openai/"):
+        return slug.split("/", 1)[1]
+    return slug
+
+
+def is_openai_family(model: Optional[str] = None) -> bool:
+    slug = openai_model_slug(model).lower()
+    return slug.startswith(("gpt-", "o1", "o3", "o4"))
+
+
+def uses_direct_openai(model: Optional[str] = None) -> bool:
+    return bool(resolve_openai_api_key()) and is_openai_family(model)
+
+
 def resolve_api_key() -> str:
     try:
         from . import integration_credentials
@@ -162,6 +195,76 @@ def _api_key() -> str:
     return key
 
 
+def _openai_chat_error_message(response):
+    status = getattr(response, "status_code", None)
+    detail = ""
+    try:
+        payload = response.json() if response is not None else {}
+        error = payload.get("error") if isinstance(payload, dict) else {}
+        detail = str((error or {}).get("message") or "").strip()
+    except (AttributeError, TypeError, ValueError):
+        detail = ""
+    if status in (401, 403):
+        return "A credencial OpenAI não foi aceita."
+    if status == 429:
+        return "A OpenAI limitou as gerações. Aguarde e tente novamente."
+    if status and status >= 500:
+        return "A OpenAI está indisponível no momento."
+    if detail:
+        return f"A OpenAI recusou a consulta: {detail[:180]}"
+    return "Não foi possível consultar a OpenAI."
+
+
+def _openai_chat_completion(payload: Dict[str, Any], *, timeout: int = 90) -> Dict[str, Any]:
+    key = resolve_openai_api_key()
+    if not key:
+        raise OpenRouterError("OpenAI não está configurada.")
+    body = dict(payload)
+    body["model"] = openai_model_slug(body.get("model"))
+    body.pop("top_k", None)
+    body.pop("usage", None)
+    body.pop("plugins", None)
+    body.pop("reasoning", None)
+    max_tokens = body.pop("max_tokens", None)
+    if max_tokens is not None and "max_completion_tokens" not in body:
+        body["max_completion_tokens"] = max_tokens
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+    }
+    last_error = None
+    last_response = None
+    for attempt in range(2):
+        try:
+            response = requests.post(
+                OPENAI_CHAT_URL,
+                headers=headers,
+                json=body,
+                timeout=max(5, min(int(timeout), 90)),
+            )
+            last_response = response
+            response.raise_for_status()
+            result = response.json()
+            message = result["choices"][0]["message"]
+            return {
+                "message": message,
+                "model": result.get("model") or body["model"],
+                "usage": result.get("usage") or {},
+            }
+        except (requests.RequestException, ValueError, KeyError, IndexError) as exc:
+            last_error = exc
+            last_response = getattr(exc, "response", None) or last_response
+            status = getattr(last_response, "status_code", None)
+            if (
+                attempt == 0
+                and isinstance(exc, requests.RequestException)
+                and (status is None or int(status) >= 500)
+            ):
+                continue
+            break
+    raise OpenRouterError(_openai_chat_error_message(last_response)) from last_error
+
+
 def chat_completion(
     messages: List[Dict[str, Any]],
     tools: Optional[List[Dict[str, Any]]] = None,
@@ -210,6 +313,8 @@ def chat_completion(
     if reasoning:
         payload["reasoning"] = reasoning
     payload = sanitize_chat_payload(payload)
+    if uses_direct_openai(payload.get("model")):
+        return _openai_chat_completion(payload, timeout=timeout)
     headers = {
         "Authorization": f"Bearer {_api_key()}",
         "Content-Type": "application/json",
@@ -377,6 +482,59 @@ def build_image_payload(
     return payload
 
 
+_OPENAI_IMAGE_SIZES = {
+    "1:1": "1024x1024",
+    "4:3": "1536x1024",
+    "3:4": "1024x1536",
+    "16:9": "1536x1024",
+    "9:16": "1024x1536",
+}
+
+
+def _openai_generate_image(payload, *, image_model, output_format, timeout):
+    key = resolve_openai_api_key()
+    if not key:
+        raise OpenRouterError("OpenAI não está configurada.")
+    ratio = str(payload.get("aspect_ratio") or "16:9")
+    body = {
+        "model": openai_model_slug(image_model) or "gpt-image-2",
+        "prompt": payload.get("prompt") or "",
+        "size": _OPENAI_IMAGE_SIZES.get(ratio, "1536x1024"),
+        "quality": payload.get("quality") or "high",
+    }
+    try:
+        response = requests.post(
+            OPENAI_IMAGE_URL,
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+            json=body,
+            timeout=max(30, min(int(timeout), 180)),
+        )
+        response.raise_for_status()
+        data = response.json()
+        images = data.get("data") or []
+        first = images[0] if images else {}
+        encoded = first.get("b64_json") if isinstance(first, dict) else None
+        url = first.get("url") if isinstance(first, dict) else None
+        if not encoded and url:
+            fetched = requests.get(url, timeout=60)
+            fetched.raise_for_status()
+            encoded = base64.b64encode(fetched.content).decode("ascii")
+        if not encoded:
+            raise OpenRouterError("A OpenAI não retornou a imagem.")
+        return {
+            "b64_json": encoded,
+            "model": data.get("model") or body["model"],
+            "usage": data.get("usage") or {},
+            "output_format": output_format,
+        }
+    except OpenRouterError:
+        raise
+    except requests.HTTPError as exc:
+        raise OpenRouterError(_openai_chat_error_message(getattr(exc, "response", None))) from exc
+    except (requests.RequestException, ValueError, KeyError, IndexError) as exc:
+        raise OpenRouterError("Não foi possível gerar a imagem na OpenAI.") from exc
+
+
 def generate_image(
     prompt: str,
     *,
@@ -389,7 +547,7 @@ def generate_image(
     timeout: int = 180,
     input_references=None,
 ) -> Dict[str, Any]:
-    """Gera imagem no GPT Image 2 via OpenRouter (`/api/v1/images`)."""
+    """Gera imagem no GPT Image 2 — OpenAI direto quando a chave está no banco."""
     payload = build_image_payload(
         prompt,
         aspect_ratio=aspect_ratio,
@@ -401,6 +559,10 @@ def generate_image(
         input_references=input_references,
     )
     image_model = payload.get("model") or resolve_image_model(model)
+    if uses_direct_openai(image_model):
+        return _openai_generate_image(
+            payload, image_model=image_model, output_format=output_format, timeout=timeout
+        )
     headers = {
         "Authorization": f"Bearer {_api_key()}",
         "Content-Type": "application/json",

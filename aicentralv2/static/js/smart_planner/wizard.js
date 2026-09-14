@@ -46,17 +46,117 @@
     { text: "Finalizando…", progress: 95 },
   ];
 
-  function showCompileOverlay(inputText) {
+  function escapeHtml(value) {
+    return String(value || "").replace(/[&<>"']/g, function (ch) {
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch];
+    });
+  }
+
+  function renderSkillSteps(steps, currentId) {
+    var list = document.getElementById("sp-compile-skills");
+    if (!list) return;
+    if (!steps || !steps.length) {
+      list.hidden = true;
+      return;
+    }
+    list.hidden = false;
+    list.innerHTML = steps.map(function (item) {
+      var state = item.state || (item.id === currentId ? "running" : "pending");
+      var cls = state === "running" ? "is-run" : state === "done" ? "is-done" : state === "error" ? "is-error" : state === "skipped" ? "is-skip" : "";
+      var icon = state === "running" ? "fa-circle-notch fa-spin" : state === "done" ? "fa-check" : state === "error" ? "fa-triangle-exclamation" : state === "skipped" ? "fa-forward" : "fa-circle";
+      var kind = item.kind_label || item.kind || "";
+      return "<li class=\"" + cls + "\" data-skill=\"" + escapeHtml(item.skill || "") + "\">" +
+        "<i class=\"fa-solid " + icon + "\" aria-hidden=\"true\"></i>" +
+        "<div><strong>" + escapeHtml(item.label || item.skill || "") + "</strong>" +
+        "<span>" + escapeHtml(item.title || "") + "</span>" +
+        (kind ? "<small>" + escapeHtml(kind) + "</small>" : "") +
+        "</div></li>";
+    }).join("");
+    var running = list.querySelector("li.is-run");
+    if (running && running.scrollIntoView) running.scrollIntoView({ block: "nearest" });
+  }
+
+  function applyGenerationProgress(data) {
+    var stepEl = document.getElementById("sp-compile-step");
+    var bar = document.getElementById("sp-compile-bar");
+    var engine = document.getElementById("sp-compile-engine");
+    if (stepEl && data.title) stepEl.textContent = data.title;
+    if (bar) bar.style.width = Math.max(8, Number(data.percent) || 8) + "%";
+    if (engine) {
+      engine.hidden = false;
+      engine.textContent = (data.engine === "openai" ? "OpenAI nativa" : "OpenRouter") + " · " +
+        (data.label || data.skill || "skills internas");
+    }
+    renderSkillSteps(data.steps || [], data.step);
+  }
+
+  function waitForGeneration(mode) {
+    return new Promise(function (resolve, reject) {
+      var started = Date.now();
+      var misses = 0;
+      var timer = window.setInterval(function () {
+        fetch("/smart-planner/api/" + token + "/gerar/status?mode=" + encodeURIComponent(mode || ""), {
+          credentials: "same-origin"
+        }).then(function (response) { return response.json(); }).then(function (payload) {
+          if (!payload || !payload.success) {
+            misses += 1;
+            if (misses >= 8) {
+              window.clearInterval(timer);
+              reject(new Error("Não foi possível acompanhar o progresso da geração."));
+            }
+            return;
+          }
+          misses = 0;
+          var data = payload.data || {};
+          applyGenerationProgress(data);
+          if (data.status === "done") {
+            window.clearInterval(timer);
+            resolve(data);
+          } else if (data.status === "error") {
+            window.clearInterval(timer);
+            reject(new Error(data.error || "Não foi possível gerar o planejamento."));
+          } else if (Date.now() - started > 12 * 60 * 1000) {
+            window.clearInterval(timer);
+            reject(new Error("A geração está demorando demais. Tente de novo."));
+          }
+        }).catch(function () {
+          misses += 1;
+          if (misses >= 8) {
+            window.clearInterval(timer);
+            reject(new Error("A conexão caiu enquanto o plano era gerado."));
+          }
+        });
+      }, 900);
+    });
+  }
+
+  function showCompileOverlay(inputText, mode) {
     var overlay = document.getElementById("sp-compile-overlay");
     var bar = document.getElementById("sp-compile-bar");
     var stepEl = document.getElementById("sp-compile-step");
     var excerpt = document.getElementById("sp-compile-excerpt");
+    var list = document.getElementById("sp-compile-skills");
+    var engine = document.getElementById("sp-compile-engine");
     if (!overlay) return function () {};
     overlay.hidden = false;
-    if (bar) bar.style.width = "0%";
-    if (stepEl) stepEl.textContent = COMPILE_STEPS[0].text;
-    if (excerpt && inputText) {
-      excerpt.textContent = inputText.slice(0, 300).trim() + (inputText.length > 300 ? "…" : "");
+    if (bar) bar.style.width = "8%";
+    if (stepEl) stepEl.textContent = mode ? "Preparando as skills…" : COMPILE_STEPS[0].text;
+    if (engine) engine.hidden = !mode;
+    if (excerpt) {
+      excerpt.hidden = !inputText;
+      if (inputText) excerpt.textContent = inputText.slice(0, 300).trim() + (inputText.length > 300 ? "…" : "");
+    }
+    if (list) {
+      list.hidden = !mode;
+      list.innerHTML = "";
+    }
+    if (mode) {
+      fetch("/smart-planner/api/" + token + "/gerar/status?mode=" + encodeURIComponent(mode), {
+        credentials: "same-origin"
+      }).then(function (response) { return response.json(); }).then(function (payload) {
+        if (payload && payload.success) applyGenerationProgress(payload.data || {});
+      }).catch(function () {});
+      return function () {};
     }
     var index = 0;
     var timer = window.setInterval(function () {
@@ -989,15 +1089,10 @@
         var title = mode === "one_page" ? "Gerando a página única" : "Gerando o planejamento completo";
         var heading = document.querySelector("#sp-compile-overlay h2");
         if (heading) heading.textContent = title;
-        var stop = showCompileOverlay("", title);
-        var stepEl = document.getElementById("sp-compile-step");
-        if (stepEl) {
-          stepEl.textContent = mode === "completo"
-            ? "Escrevendo a tese da página única…"
-            : "Montando a folha…";
-        }
+        var stop = showCompileOverlay("", mode);
         try {
           var result = await postJson("/smart-planner/api/" + token + "/gerar", { plan_mode: mode });
+          if (result.started) await waitForGeneration(mode);
           stop();
           hideCompileOverlay();
           window.setTimeout(function () {

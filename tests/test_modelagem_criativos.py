@@ -3523,17 +3523,19 @@ class CreativeFilesContractTest(unittest.TestCase):
             self.assertNotIn("btn btn-", source)
         page = (template_dir / "modelagem_criativos.html").read_text(encoding="utf-8")
         self.assertIn('extends "base_erp.html"', page)
-        self.assertIn("mc-hub-desks", page)
-        self.assertIn("Bancadas", page)
+        self.assertIn("mc-cadu-home", page)
+        self.assertIn("mc-cadu-takes", page)
+        self.assertIn("Nova peça", page)
+        self.assertIn("Ferramentas", page)
         self.assertIn("modelagem_biblioteca", page)
-        self.assertIn("modelagem_mesa", page)
-        self.assertIn("modelagem_criativos.css') }}?v=70", page)
+        self.assertIn("modelagem_trocar", page)
+        self.assertIn("modelagem_criativos.css') }}?v=116", page)
         self.assertNotIn("mc-desk.css", page)
         self.assertNotIn("modelagem_criativos.js", page)
         shell = (template_dir / "_mc_shell.html").read_text(encoding="utf-8")
-        self.assertIn("mc-header", shell)
-        self.assertIn("mc-chrome", shell)
-        self.assertIn("mc-desk-nav", shell)
+        self.assertIn("mc-cadu-bar", shell)
+        self.assertIn("Cadu Media Studio", shell)
+        self.assertIn("mc-cadu-nav", shell)
         self.assertNotIn("Início", shell)
         self.assertIn("modelagem_biblioteca", shell)
         self.assertIn("modelagem_mesa", shell)
@@ -3543,10 +3545,12 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertNotIn("mc-masthead", shell)
         for tab in (
             "preparar", "produzir", "bancada", "desdobrar", "biblioteca",
-            "marcas", "historico", "extrair", "revisao", "mesa", "lab", "placas", "trocar",
+            "marcas", "historico", "mesa", "placas", "trocar",
             "design-system",
         ):
-            self.assertIn(tab, page)
+            self.assertIn(tab, shell)
+        self.assertNotIn("modelagem_extrair", shell)
+        self.assertNotIn("modelagem_revisao", shell)
         self.assertNotIn("Variações A/B", page)
         generator = (template_dir / "_mc_gerador.html").read_text(encoding="utf-8")
         self.assertIn("mc-generator-workspace", generator)

@@ -150,10 +150,16 @@ class TrainingStudioRoutesTest(unittest.TestCase):
     def test_replace_channel_block(self):
         from aicentralv2.training_studio.research import replace_channel_block
 
-        html = "<!-- CANAL:linkedin -->velho<!-- /CANAL:linkedin -->"
-        out = replace_channel_block(html, "linkedin", "<!-- CANAL:linkedin -->novo<!-- /CANAL:linkedin -->")
+        html = (
+            '<article class="ts-canal"><!-- CANAL:linkedin -->velho'
+            "<!-- /CANAL:linkedin --></article>"
+        )
+        out = replace_channel_block(
+            html, "linkedin", "<!-- CANAL:linkedin -->novo<!-- /CANAL:linkedin -->"
+        )
         self.assertIn("novo", out)
         self.assertNotIn("velho", out)
+        self.assertNotIn("<article class=\"ts-canal\"></article>", out.replace(" ", ""))
 
 
 if __name__ == "__main__":

@@ -48,8 +48,7 @@ export function readForm() {
 }
 
 export function bindDialog(context) {
-  const dialog = $("mcTrocrAnimate");
-  if (!dialog) return;
+  if (!$("mcTrocrAnimate") || !$("mcAnimateForm")) return;
   document.querySelectorAll("input[name=mcAnimateAudio]").forEach((node) => {
     node.addEventListener("change", () => {
       const mode = document.querySelector("input[name=mcAnimateAudio]:checked")?.value;
@@ -68,7 +67,9 @@ export function bindDialog(context) {
     });
   });
   $("mcAnimateVoiceover")?.addEventListener("input", () => refreshQuote(context));
-  $("mcAnimateCancel")?.addEventListener("click", () => dialog.close());
+  $("mcAnimateCancel")?.addEventListener("click", () => {
+    window.__trocrAnimate?.setWorkspace?.("still");
+  });
   $("mcAnimateAbort")?.addEventListener("click", async () => {
     await cancelCurrent();
     $("mcAnimateStatus").textContent = "Geração cancelada.";
@@ -84,11 +85,11 @@ export function bindDialog(context) {
 }
 
 export async function openDialog(context) {
-  const dialog = $("mcTrocrAnimate");
-  if (!dialog) return;
+  if (!$("mcAnimateForm")) return;
   $("mcAnimateForm").classList.remove("hidden");
   $("mcAnimateProgress").classList.add("hidden");
   const linked = Boolean(window.__trocrAnimate?.camadasId?.());
+  const hasStill = Boolean(window.__trocrAnimate?.activeStill?.()?.image);
   const protectedRadio = document.querySelector("input[name=mcAnimateSource][value=protected_scene]");
   const flatRadio = document.querySelector("input[name=mcAnimateSource][value=flattened_still]");
   if (linked && protectedRadio) protectedRadio.checked = true;
@@ -97,12 +98,13 @@ export async function openDialog(context) {
   if (toSelect) delete toSelect.dataset.ready;
   const ratio = context.aspectRatio || "16:9";
   const surface = ratio === "1:1" ? "display 1:1" : ratio;
-  $("mcAnimateLead").textContent = linked
-    ? `${surface} · cena protegida`
-    : `${surface} · still achatado`;
+  if ($("mcAnimateLead")) {
+    if (!hasStill) $("mcAnimateLead").textContent = "Envie um still na aba Still para gerar o clipe.";
+    else if (linked) $("mcAnimateLead").textContent = `${surface} · cena protegida`;
+    else $("mcAnimateLead").textContent = `${surface} · still achatado`;
+  }
   await refreshLayers(context);
   await refreshQuote(context);
-  dialog.showModal();
 }
 
 async function refreshQuote(context) {
@@ -135,7 +137,8 @@ async function submit(context) {
     document.dispatchEvent(new CustomEvent("trocr:animate-started", { detail: job }));
     startPoll(job.job_id, (ready) => {
       document.dispatchEvent(new CustomEvent("trocr:animate-ready", { detail: ready }));
-      $("mcTrocrAnimate")?.close();
+      $("mcAnimateForm")?.classList.remove("hidden");
+      $("mcAnimateProgress")?.classList.add("hidden");
     });
   } catch (error) {
     $("mcAnimateStatus").textContent = error.message;

@@ -1,67 +1,83 @@
 {% extends "base_erp.html" %}
-{% block title %}Modelagem de Criativos — CentralX{% endblock %}
+{% block title %}Cadu Media Studio — Modelagem de Criativos{% endblock %}
 {% block page_label %}Parâmetros{% endblock %}
-{% block page_subtitle %}Modelagem e produção criativa{% endblock %}
+{% block page_subtitle %}Cadu Media Studio{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=70">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=116">
 {% endblock %}
 
 {% block content %}
 {% set mc_page = 'hub' %}
-{% set mc_lead = 'Marca, formatos e produção na mesma mesa. Abra a bancada que precisa.' %}
-<main class="mc-shell" id="mcApp" data-mc-page="hub">
+<main class="mc-shell mc-cadu-home" id="mcApp" data-mc-page="hub">
   {% include "parametros/_mc_shell.html" %}
-  <section class="cx-section" aria-labelledby="mcHubTitle">
-    <div class="cx-section-header">
-      <div>
-        <h2 id="mcHubTitle">Bancadas</h2>
-        <p>Não é fila. Cada tela faz um trabalho. Formatos continua no catálogo técnico.</p>
+  <div class="mc-cadu-floor">
+    <section class="mc-cadu-wall" aria-labelledby="mcCaduWallTitle">
+      <div class="mc-cadu-wall-head">
+        <div>
+          <h1 id="mcCaduWallTitle">As peças</h1>
+          <p>O que o Cadu já guardou nesta marca. Still e clipe no mesmo histórico.</p>
+        </div>
+        <a class="mc-cadu-new" href="{{ url_for('parametros.modelagem_trocar') }}">Nova peça</a>
       </div>
-    </div>
-    <div class="cx-section-body mc-hub-desks">
-      <a class="cx-btn cx-btn-primary" href="{{ url_for('parametros.modelagem_marcas') }}">Marcas</a>
-      <a class="cx-btn cx-btn-primary" href="{{ url_for('parametros.modelagem_biblioteca') }}">Formatos</a>
-      <a class="cx-btn cx-btn-secondary" href="{{ url_for('parametros.modelagem_extrair') }}">Extrair</a>
-      <a class="cx-btn cx-btn-secondary" href="{{ url_for('parametros.modelagem_preparar') }}">Preparar</a>
-      <a class="cx-btn cx-btn-secondary" href="{{ url_for('parametros.modelagem_produzir') }}">Produzir</a>
-      <a class="cx-btn cx-btn-primary" href="{{ url_for('parametros.modelagem_mesa') }}">Lab 15s</a>
-      <a class="cx-btn cx-btn-primary" href="{{ url_for('parametros.modelagem_camadas') }}">Camadas</a>
-      <a class="cx-btn cx-btn-primary" href="{{ url_for('parametros.modelagem_design-system') }}">Design System</a>
-      <a class="cx-btn cx-btn-primary" href="{{ url_for('parametros.modelagem_bancada') }}">Bancada 2.0</a>
-      <a class="cx-btn cx-btn-secondary" href="{{ url_for('parametros.modelagem_revisao') }}">Revisar</a>
-      <a class="cx-btn cx-btn-outline" href="{{ url_for('parametros.modelagem_desdobrar') }}">Desdobrar</a>
-      <a class="cx-btn cx-btn-outline" href="{{ url_for('parametros.modelagem_historico') }}">Histórico</a>
-    </div>
-  </section>
+      <div class="mc-cadu-wall-brand">
+        <label class="cx-field">
+          <span class="cx-label">Marca</span>
+          <select class="cx-select" id="mcCaduHomeClient">
+            <option value="">Carregando marcas…</option>
+          </select>
+        </label>
+      </div>
+      <ul class="mc-cadu-takes" id="mcCaduTakes">
+        <li class="mc-cadu-empty" id="mcCaduEmpty">
+          <p>Ainda não há peça nesta marca.</p>
+          <p>Abra o Still, solte o criativo. O histórico aparece aqui.</p>
+        </li>
+      </ul>
+    </section>
+
+    <section class="mc-cadu-glossary" aria-labelledby="mcCaduToolsTitle">
+      <h2 id="mcCaduToolsTitle">Ferramentas</h2>
+      <dl>
+        <div>
+          <dt><a href="{{ url_for('parametros.modelagem_trocar') }}">Still</a></dt>
+          <dd>Troca headline, apoio, gente ou fundo sem perder as versões anteriores.</dd>
+        </div>
+        <div>
+          <dt><a href="{{ url_for('parametros.modelagem_trocar') }}?ws=video">Vídeo</a></dt>
+          <dd>Anima o still ativo. O clipe entra na mesma filmstrip.</dd>
+        </div>
+        <div>
+          <dt><a href="{{ url_for('parametros.modelagem_marcas') }}">Marcas</a></dt>
+          <dd>Logo, paleta, fontes e regras. Sem oferta de campanha.</dd>
+        </div>
+        <div>
+          <dt><a href="{{ url_for('parametros.modelagem_camadas') }}">Camadas</a></dt>
+          <dd>Recorte fiel. Cena protegida para o vídeo não misturar tipo.</dd>
+        </div>
+        <div>
+          <dt><a href="{{ url_for('parametros.modelagem_biblioteca') }}">Formatos</a></dt>
+          <dd>Retângulo, mecânica e inventário de cada canal.</dd>
+        </div>
+        <div>
+          <dt><a href="{{ url_for('parametros.modelagem_design-system') }}">Design System</a></dt>
+          <dd>Tokens da marca e montagem IAB.</dd>
+        </div>
+        <div>
+          <dt><a href="{{ url_for('parametros.modelagem_historico') }}">Custo</a></dt>
+          <dd>O que já foi gasto em geração nesta mesa.</dd>
+        </div>
+      </dl>
+      <p class="mc-cadu-research-note">
+        Desdobrar, conceito 15s e placas ficam em Pesquisa no menu. Não são o caminho da peça.
+      </p>
+    </section>
+  </div>
 </main>
 {% endblock %}
 
 {% block scripts %}
-<script>
-  (function () {
-    var map = {
-      preparar: "preparar",
-      produzir: "produzir",
-      bancada: "bancada",
-      desdobrar: "desdobrar",
-      formatos: "biblioteca",
-      biblioteca: "biblioteca",
-      marcas: "marcas",
-      historico: "historico",
-      extrair: "extrair",
-      revisao: "revisao",
-      mesa: "mesa",
-      camadas: "camadas",
-      lab: "lab",
-      placas: "placas",
-      conceito: "mesa",
-      trocar: "trocar",
-      ads: "design-system",
-      "design-system": "design-system"
-    };
-    var key = (location.hash || "").replace("#", "");
-    if (map[key]) location.replace("/parametros/modelagem-criativos/" + map[key]);
-  })();
-</script>
+<script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script>
+<script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=1" defer></script>
+<script src="{{ url_for('static', filename='js/mc-cadu-home.js') }}?v=1" defer></script>
 {% endblock %}

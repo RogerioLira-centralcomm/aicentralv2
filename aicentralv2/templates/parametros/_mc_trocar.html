@@ -1,8 +1,12 @@
-<article class="mc-lab mc-swap mc-trocr" id="mcSwap" data-flow="upload" data-csrf="{{ mc_trocr_csrf or '' }}">
+<article class="mc-lab mc-swap mc-trocr" id="mcSwap" data-flow="upload" data-workspace="still" data-csrf="{{ mc_trocr_csrf or '' }}">
   <header class="mc-trocr-pagehead">
     <div>
       <h1>Cadu Media Studio<sup>®</sup></h1>
-      <p>Edite o still, gere o vídeo e compare as versões no mesmo ciclo.</p>
+      <p id="mcTrocrLead">Edite o still. O clipe entra no mesmo histórico.</p>
+      <div class="mc-trocr-workspace" role="tablist" aria-label="Área de trabalho">
+        <button type="button" role="tab" id="mcTrocrWorkspaceStill" data-workspace="still" aria-selected="true" class="is-active">Still</button>
+        <button type="button" role="tab" id="mcTrocrWorkspaceVideo" data-workspace="video" aria-selected="false">Vídeo</button>
+      </div>
     </div>
     <div class="mc-trocr-pagehead-actions">
       <button type="button" class="mc-trocr-text-cta" id="mcTrocrHistoryBtn" disabled>
@@ -21,7 +25,6 @@
   {% include "parametros/trocr/_order.html" %}
   {% include "parametros/trocr/_history.html" %}
   {% include "parametros/trocr/_dialogs.html" %}
-  {% include "parametros/trocr/_animate_dialog.html" %}
   {% include "parametros/trocr/_compare_dialog.html" %}
   {% include "parametros/trocr/_states.html" %}
 </article>

@@ -9179,6 +9179,38 @@
   flex: 0 0 auto;
 }
 
+.mc-trocr-workspace {
+  display: flex;
+  gap: 0.2rem;
+  margin-top: 0.65rem;
+  padding: 0.15rem;
+  width: fit-content;
+  border: 1px solid var(--cx-mesa-gray-200);
+  border-radius: 999px;
+  background: #fff;
+}
+
+.mc-trocr-workspace button {
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.28rem 0.85rem;
+  border-radius: 999px;
+}
+
+.mc-trocr-workspace button.is-active {
+  background: var(--cx-mesa-slate-900);
+  color: #fff;
+  font-weight: 650;
+}
+
+.mc-trocr-workspace button:focus-visible {
+  outline: 2px solid var(--cx-mesa-teal);
+  outline-offset: 2px;
+}
+
 .mc-trocr-preserve-note {
   flex: 0 0 auto;
   align-self: center;
@@ -9942,6 +9974,103 @@
   min-height: 0;
   padding: 0.8rem 0.95rem 1rem;
   overflow: auto;
+}
+
+.mc-swap[data-workspace="video"] #mcTrocrStillPanel,
+.mc-swap[data-workspace="still"] #mcTrocrVideoPanel,
+.mc-swap[data-workspace="video"] #mcTrocrSteps,
+.mc-swap[data-workspace="still"] #mcTrocrVideoSteps,
+.mc-swap[data-workspace="video"] .mc-trocr-still-only,
+.mc-swap[data-workspace="still"] .mc-trocr-video-only,
+.mc-swap[data-workspace="video"] #mcTrocrPickRegion,
+.mc-swap[data-workspace="video"] .mc-trocr-order {
+  display: none;
+}
+
+.mc-swap[data-workspace="video"] #mcTrocrVideoSteps {
+  display: flex;
+}
+
+.mc-swap[data-workspace="video"] .mc-trocr-main {
+  grid-column: 2 / -1;
+}
+
+.mc-trocr-video-lead,
+.mc-trocr-video-warn,
+.mc-trocr-help {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--cx-mesa-slate-700);
+}
+
+.mc-trocr-video-warn {
+  padding: 0.45rem 0.55rem;
+  border: 1px solid #f3d19a;
+  background: #fff8eb;
+  color: #7a4b00;
+}
+
+.mc-trocr-video-form,
+.mc-trocr-video-desk {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.mc-trocr-video-form.hidden,
+.mc-trocr-video-progress.hidden {
+  display: none;
+}
+
+.mc-trocr-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+}
+
+.mc-trocr-video-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--cx-mesa-gray-200);
+}
+
+.mc-trocr-video-progress {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.mc-trocr-video-clock {
+  margin: 0;
+  font-size: 1.8rem;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.mc-trocr-video-stages {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.mc-trocr-video-stages .is-current {
+  color: var(--cx-mesa-slate-900);
+  font-weight: 650;
+}
+
+.mc-trocr-take-still .mc-trocr-take-clip {
+  left: auto;
+  right: 0.3rem;
+  bottom: auto;
+  top: 0.3rem;
 }
 
 .mc-trocr-inspector-head {
@@ -10770,6 +10899,10 @@
   .mc-trocr-order {
     grid-column: auto;
     grid-row: auto;
+  }
+
+  .mc-swap[data-workspace="video"] .mc-trocr-main {
+    grid-column: auto;
   }
 
   .mc-trocr-flow {
@@ -12797,5 +12930,365 @@ article.mc-studio .mc-studio-confirm-foot {
   .mc-trocr-history-body,
   .mc-lab-template-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Cadu Media Studio — barra 80px + home */
+.mc-cadu-bar {
+  --mc-cadu-ink: #1a1c19;
+  --mc-cadu-mute: #5c6058;
+  --mc-cadu-rule: #b8bbb4;
+  --mc-cadu-floor: #e4e6e2;
+  --mc-cadu-paper: #f4f5f2;
+  --mc-cadu-teal: #0f766e;
+  position: relative;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 1.75rem;
+  height: 80px;
+  min-height: 80px;
+  padding: 0 1.15rem;
+  overflow: visible;
+  border-bottom: 1px solid var(--mc-cadu-rule);
+  background: #f4f5f2;
+  color: var(--mc-cadu-ink);
+}
+
+.mc-cadu-mark {
+  flex: 0 0 auto;
+  color: inherit;
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.mc-cadu-mark sup {
+  font-size: 0.55em;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.mc-cadu-mark:focus-visible,
+.mc-cadu-nav a:focus-visible,
+.mc-cadu-menu summary:focus-visible,
+.mc-cadu-new:focus-visible {
+  outline: 2px solid var(--mc-cadu-teal);
+  outline-offset: 3px;
+}
+
+.mc-cadu-nav {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.15rem;
+  min-width: 0;
+  overflow: visible;
+}
+
+.mc-cadu-nav > a,
+.mc-cadu-menu > summary {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 0.7rem;
+  border: 0;
+  background: transparent;
+  color: var(--mc-cadu-mute);
+  font: inherit;
+  font-size: 0.92rem;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.mc-cadu-nav > a.is-current,
+.mc-cadu-nav > a[aria-current="page"] {
+  color: var(--mc-cadu-ink);
+  box-shadow: inset 0 -2px 0 var(--mc-cadu-teal);
+}
+
+.mc-cadu-menu {
+  position: relative;
+}
+
+.mc-cadu-menu > summary {
+  list-style: none;
+}
+
+.mc-cadu-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.mc-cadu-menu[open] > summary {
+  color: var(--mc-cadu-ink);
+}
+
+.mc-cadu-menu-list {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  left: 0;
+  z-index: 80;
+  display: grid;
+  min-width: 17.5rem;
+  padding: 0.45rem 0;
+  border: 1px solid var(--mc-cadu-rule);
+  background: var(--mc-cadu-paper);
+}
+
+.mc-cadu-menu-list a,
+.mc-cadu-menu-list button {
+  display: grid;
+  gap: 0.12rem;
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  border: 0;
+  background: transparent;
+  color: var(--mc-cadu-ink);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.mc-cadu-menu-list a:hover,
+.mc-cadu-menu-list a[aria-current="page"],
+.mc-cadu-menu-list button:hover,
+.mc-cadu-menu-list button.is-current {
+  background: #e8eae5;
+}
+
+.mc-cadu-menu-list strong {
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.mc-cadu-menu-list span {
+  color: var(--mc-cadu-mute);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.mc-cadu-menu-list.is-formats {
+  min-width: 16.5rem;
+  max-height: min(70vh, 28rem);
+  overflow: auto;
+}
+
+.mc-shell.mc-cadu-home {
+  gap: 0;
+  overflow: visible;
+}
+
+.mc-cadu-floor {
+  --mc-cadu-ink: #1a1c19;
+  --mc-cadu-mute: #5c6058;
+  --mc-cadu-rule: #b8bbb4;
+  --mc-cadu-teal: #0f766e;
+  display: grid;
+  gap: 2.75rem;
+  padding: 1.6rem 1.15rem 3.5rem;
+  background: #e4e6e2;
+  color: #1a1c19;
+}
+
+.mc-cadu-wall-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.25rem;
+}
+
+.mc-cadu-wall-head h1,
+.mc-cadu-glossary h2 {
+  margin: 0;
+  font-size: clamp(1.85rem, 3vw, 2.55rem);
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.mc-cadu-wall-head p,
+.mc-cadu-research-note {
+  max-width: 36rem;
+  margin: 0.45rem 0 0;
+  color: #5c6058;
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+
+.mc-cadu-new {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  height: 2.4rem;
+  padding: 0 0.95rem;
+  background: #0f766e;
+  color: #f4f5f2;
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.mc-cadu-new:hover {
+  background: #0c5f59;
+}
+
+.mc-cadu-wall-brand {
+  margin: 1.15rem 0 1.25rem;
+  max-width: 18rem;
+}
+
+.mc-cadu-wall-brand .cx-label {
+  color: #5c6058;
+}
+
+.mc-cadu-takes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mc-cadu-takes li[data-ratio="16/9"] {
+  grid-column: span 2;
+}
+
+.mc-cadu-takes a {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  height: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+
+.mc-cadu-takes img,
+.mc-cadu-takes a > span {
+  display: block;
+  width: 100%;
+  aspect-ratio: var(--take-ratio, 4 / 5);
+  object-fit: cover;
+  background: #222421;
+}
+
+.mc-cadu-takes strong {
+  margin-top: 0.45rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.mc-cadu-takes small {
+  color: #5c6058;
+  font-size: 0.78rem;
+}
+
+.mc-cadu-empty {
+  grid-column: 1 / -1;
+  padding: 2.4rem 0 1rem;
+}
+
+.mc-cadu-empty p {
+  max-width: 28rem;
+  margin: 0 0 0.4rem;
+  color: #5c6058;
+  font-size: 1.05rem;
+  line-height: 1.4;
+}
+
+.mc-cadu-glossary {
+  padding-top: 0.4rem;
+  border-top: 1px solid #b8bbb4;
+}
+
+.mc-cadu-glossary dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.15rem 2.5rem;
+  margin: 1.15rem 0 0;
+}
+
+.mc-cadu-glossary dt {
+  margin: 0;
+}
+
+.mc-cadu-glossary dt a {
+  color: inherit;
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+}
+
+.mc-cadu-glossary dt a:hover {
+  color: #0f766e;
+}
+
+.mc-cadu-glossary dd {
+  max-width: 34rem;
+  margin: 0.2rem 0 0;
+  color: #5c6058;
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.mc-cadu-research-note {
+  margin-top: 1.4rem;
+}
+
+.mc-shell:has(.mc-cadu-bar) {
+  overflow: visible;
+}
+
+.mc-shell:has(.mc-cadu-bar) .mc-trocr {
+  height: calc(100vh - 12rem);
+  min-height: calc(100vh - 12rem);
+}
+
+@media (max-width: 960px) {
+  .mc-cadu-takes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mc-cadu-glossary dl {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .mc-cadu-bar {
+    height: auto;
+    min-height: 80px;
+    flex-wrap: wrap;
+    padding: 0.7rem 0.9rem;
+  }
+
+  .mc-cadu-nav {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .mc-cadu-wall-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .mc-cadu-takes,
+  .mc-cadu-takes li[data-ratio="16/9"] {
+    grid-template-columns: 1fr;
+    grid-column: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mc-cadu-new,
+  .mc-cadu-nav a,
+  .mc-cadu-glossary dt a {
+    transition: none;
   }
 }

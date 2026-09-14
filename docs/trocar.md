@@ -36,7 +36,7 @@ Autenticação: `admin_required` na página, `admin_required_api` nas rotas JSON
 | Camada | Tecnologia | Onde |
 |---|---|---|
 | Página | Flask + Jinja | `modelagem_desk("trocar")` |
-| CSS | `modelagem_criativos.css` | `?v=114` no desk |
+| CSS | `modelagem_criativos.css` | `?v=116` no desk |
 | Cliente | `mc-trocar.js` (IIFE, sem framework) | `static/js/mc-trocar.js` |
 | OCR | OpenRouter `openai/gpt-5-nano` visão | `read_swap_reference` |
 | Imagem | OpenRouter `openai/gpt-image-2` | `swap_reference` modo `image` / `recrop` |
@@ -752,6 +752,8 @@ Do typeset, depois deste lab:
 ## 18. Animar (Seedance 2.5)
 
 Continuação do Trocar. Um still vira clipe de 5–30 s. O PNG original permanece.
+
+A superfície é a aba **Vídeo** (`#mcSwap[data-workspace=video]`). O formulário mora no inspetor, não num modal. Still e clipe compartilham o mesmo histórico e a mesma filmstrip. Download do canvas baixa MP4 quando a versão ativa é vídeo. A Mesa 15s (`/mesa`) não entra neste fluxo.
 
 - Modelo fixo `bytedance/seedance-2.5`. Rascunho 480p, produção 720p. Sem cair para Mini.
 - Display 1:1 (Spotify, feed, IAB quadrado): o prompt trata a peça como unidade em loop, não filme. Tipo, nomes, datas e logos ficam travados; o motion vai para bandeira, luz e microgesto.

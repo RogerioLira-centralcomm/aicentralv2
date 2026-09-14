@@ -48,6 +48,6 @@ function paintProgress(job) {
   list.innerHTML = known.map((item) => {
     const done = (job.stages || []).some((row) => row.id === item.id);
     const current = job.stage === item.id;
-    return `<li class="${current ? "font-medium text-slate-900" : "text-slate-500"}">${done || current ? "●" : "○"} ${item.label}</li>`;
+    return `<li class="${current ? "is-current" : ""}">${done || current ? "●" : "○"} ${item.label}</li>`;
   }).join("");
 }

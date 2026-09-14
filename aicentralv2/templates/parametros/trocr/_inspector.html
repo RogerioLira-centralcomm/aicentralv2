@@ -1,11 +1,9 @@
 {% from "parametros/trocr/_icons.html" import ico %}
 <aside class="mc-trocr-inspector mc-swap-side" id="mcTrocrInspector">
-  <div class="mc-trocr-inspector-edit">
+  <div class="mc-trocr-inspector-edit" id="mcTrocrStillPanel">
     <header class="mc-trocr-inspector-head">
       <h2>Edição</h2>
       <button type="button" class="mc-trocr-text-cta is-muted" id="mcTrocrResetPanel">Limpar campos</button>
-      <button type="button" class="cx-btn cx-btn-secondary cx-btn-sm" id="mcTrocrAnimateBtn" disabled>Gerar vídeo</button>
-      <button type="button" class="cx-btn cx-btn-secondary cx-btn-sm" id="mcTrocrClipCompareBtn" disabled>Comparar clipes</button>
     </header>
 
     <section class="mc-trocr-section">
@@ -67,5 +65,12 @@
         <textarea class="cx-input" id="mcTrocrPrompt" rows="5" readonly placeholder="A mesa monta o texto quando a peça for redesenhada."></textarea>
       </div>
     </details>
+  </div>
+  <div class="mc-trocr-inspector-edit" id="mcTrocrVideoPanel" hidden>
+    <header class="mc-trocr-inspector-head">
+      <h2>Vídeo</h2>
+      <button type="button" class="cx-btn cx-btn-secondary cx-btn-sm" id="mcTrocrClipCompareBtn" disabled>Comparar clipes</button>
+    </header>
+    {% include "parametros/trocr/_animate_dialog.html" %}
   </div>
 </aside>

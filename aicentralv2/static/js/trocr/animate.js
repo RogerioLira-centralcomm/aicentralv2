@@ -14,17 +14,27 @@ function ids() {
   };
 }
 
+function openPanel() {
+  window.__trocrAnimate?.setWorkspace?.("video");
+  openDialog({
+    ids,
+    aspectRatio: ids().aspect_ratio,
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   if (!$("mcTrocrAnimate")) return;
   bindDialog({ ids, aspectRatio: ids().aspect_ratio });
   bindCompare();
   refreshCompareButton();
-  $("mcTrocrAnimateBtn")?.addEventListener("click", () => {
-    document.dispatchEvent(new Event("trocr:animate-open"));
+  document.addEventListener("trocr:workspace-video", () => {
     openDialog({
       ids,
       aspectRatio: ids().aspect_ratio,
     });
+  });
+  document.addEventListener("trocr:workspace-still", () => {
+    hideVideo();
   });
   document.addEventListener("trocr:version-selected", (event) => {
     const version = event.detail || {};
@@ -34,11 +44,15 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   document.addEventListener("trocr:animate-ready", (event) => {
     const version = event.detail?.version;
-    if (version) showVideo(version);
+    if (version) {
+      window.__trocrAnimate?.setWorkspace?.("video", { silent: true });
+      showVideo(version);
+    }
     refreshCompareButton();
   });
   const pending = window.__trocrAnimate?.pendingJobId?.();
   if (pending) {
+    openPanel();
     startPoll(pending, (ready) => {
       document.dispatchEvent(new CustomEvent("trocr:animate-ready", { detail: ready }));
     });

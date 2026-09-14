@@ -51,6 +51,7 @@
     versions: [],
     activeId: '',
     baseId: '',
+    workspace: 'still',
     viewMode: 'view',
     compareIds: ['', ''],
     flow: 'upload',
@@ -130,6 +131,8 @@
       baseId: () => state.activeId || state.baseId,
       aspectRatio: () => state.aspectRatio,
       pendingJobId: () => state.animateJobId || '',
+      setWorkspace,
+      workspace: () => state.workspace,
       camadasId: () => currentVersion()?.camadas_creative_id || '',
       stills: () => state.versions.filter((item) => item.media !== 'video' && item.image).map((item) => ({
         id: item.id,
@@ -156,9 +159,11 @@
         };
       },
     };
-    await Promise.all([loadHistory(), loadViewerCatalog()]);
+    const params = new URLSearchParams(window.location.search);
+    await Promise.all([loadHistory(params.get('run') || undefined), loadViewerCatalog()]);
     await consumeHandoff();
     refreshQuote();
+    if (params.get('ws') === 'video' || currentVersion()?.media === 'video') setWorkspace('video');
   }
 
   function bind() {
@@ -225,9 +230,12 @@
     document.querySelectorAll('input[name="mcTrocrAnalysis"]').forEach((node) => {
       node.addEventListener('change', renderEditPanels);
     });
-    $('mcTrocrAnimateFromGenerate')?.addEventListener('click', () => {
-      $('mcTrocrAnimateBtn')?.click();
+    $('mcTrocrWorkspaceStill')?.addEventListener('click', () => setWorkspace('still'));
+    $('mcTrocrWorkspaceVideo')?.addEventListener('click', () => setWorkspace('video'));
+    $('mcTrocrClipCompareTab')?.addEventListener('click', () => {
+      $('mcTrocrClipCompareBtn')?.click();
     });
+    $('mcTrocrAnimateFromGenerate')?.addEventListener('click', () => setWorkspace('video'));
     document.addEventListener('trocr:animate-ready', (event) => {
       const version = event.detail?.version;
       if (!version) return;
@@ -1189,6 +1197,7 @@
     const version = state.versions.find((item) => item.id === id);
     if (!version) return;
     state.activeId = version.id;
+    if (version.media === 'video') setWorkspace('video');
     showPreview(version.image);
     document.dispatchEvent(new CustomEvent('trocr:version-selected', { detail: version }));
     renderVersions();
@@ -1319,6 +1328,7 @@
         <button type="button" class="mc-trocr-take-still" data-action="view">
           ${item.thumb ? `<img src="${item.thumb}" alt="${escapeHtml(item.name)}">` : '<span class="mc-trocr-thumb"></span>'}
           ${base ? '<em>Base</em>' : ''}
+          ${item.media === 'video' ? `<em class="mc-trocr-take-clip">${item.duration ? `${item.duration}s` : 'Vídeo'}</em>` : ''}
         </button>
         <p>
           <strong>${escapeHtml(item.id)} ${escapeHtml(item.name)}</strong>
@@ -1421,14 +1431,15 @@
   function setViewMode(mode) {
     state.viewMode = mode;
     $('mcTrocrViewBtn')?.classList.toggle('is-active', mode === 'view');
-    $('mcTrocrStillCompareBtn')?.classList.toggle('is-active', mode === 'compare');
-    const hasImage = Boolean(currentVersion()?.image);
-    $('mcSwapDrop').hidden = hasImage;
-    $('mcSwapPreview').hidden = !hasImage || mode === 'compare';
-    $('mcTrocrCompare').hidden = mode !== 'compare' || state.versions.length < 2;
-    $('mcTrocrViewport')?.classList.toggle('has-image', hasImage);
+    $('mcTrocrStillCompareBtn')?.classList.toggle('is-active', mode === 'compare' && state.workspace !== 'video');
+    const current = currentVersion();
+    const hasMedia = Boolean(current?.image || current?.video_url);
+    $('mcSwapDrop').hidden = hasMedia;
+    $('mcSwapPreview').hidden = !hasMedia || mode === 'compare';
+    $('mcTrocrCompare').hidden = mode !== 'compare' || state.versions.length < 2 || state.workspace === 'video';
+    $('mcTrocrViewport')?.classList.toggle('has-image', hasMedia);
     renderEditPanels();
-    if (mode === 'compare') renderCompare();
+    if (mode === 'compare' && state.workspace !== 'video') renderCompare();
     fitCreative();
   }
 
@@ -1505,8 +1516,56 @@
       node.textContent = 'Nenhuma versão selecionada';
       return;
     }
+    if (active.media === 'video') {
+      const length = active.duration ? ` · ${active.duration}s` : '';
+      node.textContent = `Clipe ${active.id} · ${active.name}${length}. Still de origem: ${base ? `${base.id} · ${base.name}` : '—'}.`;
+      return;
+    }
     const route = state.mode === 'typeset' ? 'Tipo na foto.' : '';
     node.textContent = `Editando ${active.id} · ${active.name}. Base ativa: ${base ? `${base.id} · ${base.name}` : '—'}.${route ? ` ${route}` : ''}`;
+  }
+
+  function setWorkspace(mode, options) {
+    const next = mode === 'video' ? 'video' : 'still';
+    const changed = state.workspace !== next;
+    state.workspace = next;
+    $('mcSwap')?.setAttribute('data-workspace', next);
+    $('mcTrocrWorkspaceStill')?.classList.toggle('is-active', next === 'still');
+    $('mcTrocrWorkspaceStill')?.setAttribute('aria-selected', String(next === 'still'));
+    $('mcTrocrWorkspaceVideo')?.classList.toggle('is-active', next === 'video');
+    $('mcTrocrWorkspaceVideo')?.setAttribute('aria-selected', String(next === 'video'));
+    const stillNav = document.getElementById('mcCaduStill');
+    const videoNav = document.getElementById('mcCaduVideo');
+    if (stillNav) {
+      stillNav.classList.toggle('is-current', next === 'still');
+      if (next === 'still') stillNav.setAttribute('aria-current', 'page');
+      else stillNav.removeAttribute('aria-current');
+    }
+    if (videoNav) {
+      videoNav.classList.toggle('is-current', next === 'video');
+      if (next === 'video') videoNav.setAttribute('aria-current', 'page');
+      else videoNav.removeAttribute('aria-current');
+    }
+    if ($('mcTrocrStillPanel')) $('mcTrocrStillPanel').hidden = next === 'video';
+    if ($('mcTrocrVideoPanel')) $('mcTrocrVideoPanel').hidden = next === 'still';
+    if ($('mcTrocrSteps')) $('mcTrocrSteps').hidden = next === 'video';
+    if ($('mcTrocrVideoSteps')) $('mcTrocrVideoSteps').hidden = next === 'still';
+    if ($('mcTrocrClipCompareTab')) $('mcTrocrClipCompareTab').hidden = next !== 'video';
+    if ($('mcTrocrLead')) {
+      $('mcTrocrLead').textContent = next === 'video'
+        ? 'Gere o clipe a partir do still ativo. O histórico é o mesmo.'
+        : 'Edite o still. O clipe entra no mesmo histórico.';
+    }
+    if (next === 'video' && state.viewMode === 'compare') setViewMode('view');
+    else setViewMode(state.viewMode);
+    renderBaseMeta();
+    enableGenerate(canGenerate());
+    if (changed && next === 'video' && !options?.silent) {
+      document.dispatchEvent(new Event('trocr:workspace-video'));
+    }
+    if (changed && next === 'still') {
+      document.dispatchEvent(new Event('trocr:workspace-still'));
+    }
   }
 
   function setFlow(step, error) {
@@ -1608,6 +1667,13 @@
 
   function downloadActive() {
     const version = currentVersion();
+    if (version?.media === 'video' && version.video_url) {
+      const link = document.createElement('a');
+      link.href = version.video_url;
+      link.download = `${version.id}-${(version.name || 'video').replace(/\s+/g, '-')}.mp4`;
+      link.click();
+      return;
+    }
     if (!version?.image) return;
     const link = document.createElement('a');
     link.href = version.image;

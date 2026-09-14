@@ -6,7 +6,7 @@ import logging
 import mimetypes
 import zipfile
 
-from flask import Blueprint, abort, current_app, jsonify, render_template, request, send_file, session
+from flask import Blueprint, abort, current_app, jsonify, redirect, render_template, request, send_file, session, url_for
 from werkzeug.utils import secure_filename
 
 from .auth import admin_required, admin_required_api
@@ -183,8 +183,13 @@ def modelagem_criativos():
     )
 
 
+CADU_RETIRED_DESKS = {"extrair", "revisao", "lab"}
+
+
 @admin_required
 def modelagem_desk(page):
+    if page in CADU_RETIRED_DESKS:
+        return redirect(url_for("parametros.modelagem_criativos"))
     spec = MC_DESKS.get(page)
     if not spec:
         abort(404)

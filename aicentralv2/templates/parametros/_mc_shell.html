@@ -1,45 +1,68 @@
 {% set mc_page = mc_page|default('hub') %}
-<div class="mc-chrome">
-  <a class="mc-header" href="{{ url_for('parametros.modelagem_criativos') }}">Modelagem</a>
-  <nav class="mc-desk-nav" aria-label="Mesas da modelagem">
-    <div class="mc-desk-nav-flow">
-      <a href="{{ url_for('parametros.modelagem_marcas') }}"{% if mc_page == 'marcas' %} class="is-current" aria-current="page"{% endif %}>Marcas</a>
-      <a href="{{ url_for('parametros.modelagem_extrair') }}"{% if mc_page == 'extrair' %} class="is-current" aria-current="page"{% endif %}>Extrair</a>
-      <a href="{{ url_for('parametros.modelagem_preparar') }}"{% if mc_page == 'preparar' %} class="is-current" aria-current="page"{% endif %}>Preparar</a>
-      <a href="{{ url_for('parametros.modelagem_produzir') }}"{% if mc_page == 'produzir' %} class="is-current" aria-current="page"{% endif %}>Produzir</a>
-      <a href="{{ url_for('parametros.modelagem_desdobrar') }}"{% if mc_page == 'desdobrar' %} class="is-current" aria-current="page"{% endif %}>Desdobrar</a>
-      <a href="{{ url_for('parametros.modelagem_revisao') }}"{% if mc_page == 'revisao' %} class="is-current" aria-current="page"{% endif %}>Revisar</a>
-      <a href="{{ url_for('parametros.modelagem_biblioteca') }}"{% if mc_page == 'biblioteca' %} class="is-current" aria-current="page"{% endif %}>Formatos</a>
-      <a href="{{ url_for('parametros.modelagem_bancada') }}"{% if mc_page == 'bancada' %} class="is-current" aria-current="page"{% endif %}>Bancada</a>
-      <a href="{{ url_for('parametros.modelagem_historico') }}"{% if mc_page == 'historico' %} class="is-current" aria-current="page"{% endif %}>Histórico</a>
-    </div>
-    <div class="mc-desk-nav-lab">
-      <a href="{{ url_for('parametros.modelagem_mesa') }}"{% if mc_page == 'mesa' %} class="is-current" aria-current="page"{% endif %}>Studio</a>
-      <a href="{{ url_for('parametros.modelagem_camadas') }}"{% if mc_page == 'camadas' %} class="is-current" aria-current="page"{% endif %}>Camadas</a>
-      <a href="{{ url_for('parametros.modelagem_placas') }}"{% if mc_page == 'placas' %} class="is-current" aria-current="page"{% endif %}>Placas</a>
-      <a href="{{ url_for('parametros.modelagem_trocar') }}"{% if mc_page == 'trocar' %} class="is-current" aria-current="page"{% endif %}>Cadu Media Studio</a>
-      <a href="{{ url_for('parametros.modelagem_design-system') }}"{% if mc_page == 'design-system' %} class="is-current" aria-current="page"{% endif %}>Design System</a>
-      {% if mc_page == 'mesa' %}
-      <details class="mc-desk-drop" id="mcFormatDrop">
-        <summary id="mcFormatSummary">Video 15s · 1920×1080</summary>
-        <div class="mc-desk-drop-menu is-formats" id="mcFormatMenu"></div>
-      </details>
-      {% endif %}
-    </div>
+<header class="mc-cadu-bar" id="mcCaduBar">
+  <a class="mc-cadu-mark" href="{{ url_for('parametros.modelagem_criativos') }}"{% if mc_page == 'hub' %} aria-current="page"{% endif %}>
+    Cadu Media Studio<sup>®</sup>
+  </a>
+  <nav class="mc-cadu-nav" aria-label="Cadu Media Studio">
+    <a href="{{ url_for('parametros.modelagem_marcas') }}"{% if mc_page == 'marcas' %} class="is-current" aria-current="page"{% endif %}>Marcas</a>
+    <a id="mcCaduStill" href="{{ url_for('parametros.modelagem_trocar') }}"{% if mc_page == 'trocar' %} class="is-current" aria-current="page"{% endif %}>Still</a>
+    <a id="mcCaduVideo" href="{{ url_for('parametros.modelagem_trocar') }}?ws=video">Vídeo</a>
+    <details class="mc-cadu-menu" id="mcCaduMore">
+      <summary>Mais</summary>
+      <div class="mc-cadu-menu-list">
+        <a href="{{ url_for('parametros.modelagem_biblioteca') }}"{% if mc_page == 'biblioteca' %} aria-current="page"{% endif %}>
+          <strong>Formatos</strong>
+          <span>Catálogo de retângulo e inventário</span>
+        </a>
+        <a href="{{ url_for('parametros.modelagem_camadas') }}"{% if mc_page == 'camadas' %} aria-current="page"{% endif %}>
+          <strong>Camadas</strong>
+          <span>Recorte fiel e cena protegida</span>
+        </a>
+        <a href="{{ url_for('parametros.modelagem_design-system') }}"{% if mc_page == 'design-system' %} aria-current="page"{% endif %}>
+          <strong>Design System</strong>
+          <span>Tokens e montagem IAB</span>
+        </a>
+        <a href="{{ url_for('parametros.modelagem_bancada') }}"{% if mc_page == 'bancada' %} aria-current="page"{% endif %}>
+          <strong>Bancada</strong>
+          <span>Peça no retângulo, canal no fim</span>
+        </a>
+        <a href="{{ url_for('parametros.modelagem_historico') }}"{% if mc_page == 'historico' %} aria-current="page"{% endif %}>
+          <strong>Custo</strong>
+          <span>O que já foi gasto nesta mesa</span>
+        </a>
+        <a href="{{ url_for('parametros.modelagem_preparar') }}"{% if mc_page == 'preparar' %} aria-current="page"{% endif %}>
+          <strong>Preparar</strong>
+          <span>Brief e batidas do studio antigo</span>
+        </a>
+        <a href="{{ url_for('parametros.modelagem_produzir') }}"{% if mc_page == 'produzir' %} aria-current="page"{% endif %}>
+          <strong>Produzir</strong>
+          <span>Foto e HTML no fluxo antigo</span>
+        </a>
+      </div>
+    </details>
+    <details class="mc-cadu-menu" id="mcCaduResearch">
+      <summary>Pesquisa</summary>
+      <div class="mc-cadu-menu-list">
+        <a href="{{ url_for('parametros.modelagem_desdobrar') }}"{% if mc_page == 'desdobrar' %} aria-current="page"{% endif %}>
+          <strong>Desdobrar</strong>
+          <span>O mesmo anúncio noutros retângulos</span>
+        </a>
+        <a href="{{ url_for('parametros.modelagem_mesa') }}"{% if mc_page == 'mesa' %} aria-current="page"{% endif %}>
+          <strong>Conceito 15s</strong>
+          <span>Roteiro e cenas em teste</span>
+        </a>
+        <a href="{{ url_for('parametros.modelagem_placas') }}"{% if mc_page == 'placas' %} aria-current="page"{% endif %}>
+          <strong>Placas</strong>
+          <span>Kit de retângulos — parado</span>
+        </a>
+      </div>
+    </details>
+    {% if mc_page == 'mesa' %}
+    <details class="mc-cadu-menu" id="mcFormatDrop">
+      <summary id="mcFormatSummary">Video 15s · 1920×1080</summary>
+      <div class="mc-cadu-menu-list is-formats" id="mcFormatMenu"></div>
+    </details>
+    {% endif %}
   </nav>
-</div>
+</header>
 <div id="mcPageAlert" class="cx-alert cx-alert-danger hidden" role="alert"></div>
-<script>
-(() => {
-  const nav = document.querySelector('.mc-desk-nav');
-  if (!nav) return;
-  nav.querySelectorAll('details').forEach((item) => {
-    item.addEventListener('toggle', () => {
-      if (!item.open) return;
-      nav.querySelectorAll('details').forEach((other) => {
-        if (other !== item) other.removeAttribute('open');
-      });
-    });
-  });
-})();
-</script>

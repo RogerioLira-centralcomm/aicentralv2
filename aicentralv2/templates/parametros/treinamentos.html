@@ -4,7 +4,7 @@
 {% block page_subtitle %}Studio de conteúdo{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/treinamentos.css') }}?v=8">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/treinamentos.css') }}?v=9">
 {% endblock %}
 
 {% block content %}
@@ -45,6 +45,12 @@
           <option value="P">Parágrafo</option>
           <option value="H2">Título</option>
           <option value="H3">Subtítulo</option>
+        </select>
+        <button type="button" id="tsAddPage" title="Nova página">Página</button>
+        <select id="tsPageLayout" aria-label="Layout da página">
+          <option value="copy">Só texto</option>
+          <option value="split">Texto + imagem</option>
+          <option value="title">Título</option>
         </select>
       </div>
       <div class="ts-cost" id="tsCost" title="Consumo de IA nesta sessão">
@@ -181,5 +187,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/treinamentos.js') }}?v=8" defer></script>
+<script src="{{ url_for('static', filename='js/treinamentos.js') }}?v=9" defer></script>
 {% endblock %}

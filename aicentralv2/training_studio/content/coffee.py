@@ -1,6 +1,6 @@
 """Intervalo."""
 
-from .markup import h2, notes, p
+from .markup import h2, notes, p, page
 
 NOTAS = {
     "tese": "Escolher o briefing e a unidade de valor.",
@@ -14,11 +14,14 @@ FONTES = []
 
 def html():
     return (
-        h2("Coffee break — 10 minutos")
-        + notes("Quem quiser já escolhe o briefing da banca e a unidade de valor.")
-        + p(
-            "10h35–10h45. Intervalo curto. Fintech (R$ 80 mil), beleza D2C "
-            "(R$ 250 mil) ou food (R$ 800 mil). Pensar família + moeda + "
-            "se o brief pede lugar físico."
+        notes("Quem quiser já escolhe o briefing da banca e a unidade de valor.")
+        + page(
+            "title",
+            h2("Intervalo · escolher a moeda")
+            + p("10h35–10h45. Fintech R$ 80 mil · beleza R$ 250 mil · food R$ 800 mil."),
+        )
+        + page(
+            "copy",
+            p("Pensar família + moeda + se o brief pede lugar físico."),
         )
     )

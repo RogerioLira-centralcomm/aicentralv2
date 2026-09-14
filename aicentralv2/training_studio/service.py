@@ -427,14 +427,9 @@ class TrainingStudioService:
                     sessao["id"], asset_url, result.get("prompt") or item["illustration"]
                 )
                 html = sessao.get("conteudo_html") or ""
-                safe_url = html_escape(asset_url, quote=True)
-                hero = (
-                    f'<figure class="ts-inline-image ts-hero">'
-                    f'<img src="{safe_url}" alt=""></figure>'
-                )
-                if 'class="ts-hero"' not in html:
-                    html = hero + html
-                    self.repository.update_sessao(sessao["id"], {"conteudo_html": html})
+                filled = _fill_art_slot(html, asset_url)
+                if filled:
+                    self.repository.update_sessao(sessao["id"], {"conteudo_html": filled})
                 generated.append(image)
             self._record_costs(
                 treinamento_id,
@@ -480,3 +475,21 @@ class TrainingStudioService:
         data["style_prompt"] = style_prompt(sessao.get("guia_estilo") or {})
         data["mensagens"] = self.repository.list_agent_messages(sessao["id"])
         return data
+
+
+def _fill_art_slot(html, url):
+    empty = '<figure class="ts-page-art" data-slot="ilustracao"></figure>'
+    filled = (
+        f'<figure class="ts-page-art" data-slot="ilustracao">'
+        f'<img src="{html_escape(url, quote=True)}" alt=""></figure>'
+    )
+    text = html or ""
+    if empty in text:
+        return text.replace(empty, filled, 1)
+    if "ts-page-art" in text:
+        return None
+    return (
+        f'<article class="ts-page" data-layout="split">'
+        f'<div class="ts-page-copy"></div>{filled}</article>'
+        + text
+    )

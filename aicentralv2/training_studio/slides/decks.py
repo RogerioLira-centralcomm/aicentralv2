@@ -68,7 +68,7 @@ def _atencao():
         {
             "layout": "title",
             "kicker": "Sessão 1 · 09:30–09:45",
-            "title": "Atenção como moeda de compra",
+            "title": "Comprem atenção, não impressão",
             "lede": "A unidade de valor vem antes do mix.",
             "meta": "Alexandre Borges · Apolo Lira",
         },
@@ -173,7 +173,7 @@ def _canais():
         {
             "layout": "title",
             "kicker": "Sessão 2 · 09:45–10:00",
-            "title": "Quatro famílias de inventário",
+            "title": "De onde sai a verba",
             "lede": "Cada família tem regra de substituição. Não é census.",
             "meta": "Alexandre Borges · Apolo Lira",
         },
@@ -253,7 +253,7 @@ def _places():
         {
             "layout": "title",
             "kicker": "Sessão 3 · 10:00–10:20",
-            "title": "DOOH, geofencing e Places",
+            "title": "O lugar não é a audiência",
             "lede": "Tela no lugar não é audiência do lugar.",
             "meta": "Apolo Lira · Alexandre Borges",
         },
@@ -352,7 +352,7 @@ def _cadu():
         {
             "layout": "title",
             "kicker": "Sessão 4 · 10:20–10:35",
-            "title": "Operar o plano com Cadu",
+            "title": "Cadu começa na restrição",
             "lede": "Cadu é a mesa, não a demo de IA.",
             "meta": "Apolo Lira",
         },
@@ -398,7 +398,7 @@ def _coffee():
         {
             "layout": "title",
             "kicker": "Intervalo · 10:35–10:45",
-            "title": "Coffee break",
+            "title": "Intervalo · escolher a moeda",
             "lede": "Dez minutos. Escolher o briefing e a moeda.",
         },
         {
@@ -419,7 +419,7 @@ def _max():
         {
             "layout": "title",
             "kicker": "Sessão 6 · 10:45–11:20",
-            "title": "Onde o plano quebra em 2026",
+            "title": "O plano quebra no formato",
             "lede": "A verba erra menos do que o formato.",
             "meta": "Max III",
         },
@@ -466,7 +466,7 @@ def _interativos():
         {
             "layout": "title",
             "kicker": "Sessão 7 · 11:20–11:35",
-            "title": "Interativo como prova",
+            "title": "O gesto prova a first-wave",
             "lede": "O mecanismo obriga o gesto. Não é novidade.",
             "meta": "Lucas Facchini",
         },
@@ -516,7 +516,7 @@ def _programatica():
         {
             "layout": "title",
             "kicker": "Sessão 8 · 11:35–11:50",
-            "title": "Formatos e programática de alto padrão",
+            "title": "Aberto não é qualquer impressão",
             "lede": "Agrupar ~30 formatos. Aberto não é qualquer impressão.",
             "meta": "Lucas Facchini",
         },
@@ -573,7 +573,7 @@ def _dinamica():
         {
             "layout": "title",
             "kicker": "Sessão 9 · 11:50–12:30",
-            "title": "Banca de plano",
+            "title": "Banca: moeda, família, first-wave",
             "lede": "20 minutos para montar. 20 para bancar.",
             "meta": "Time",
         },

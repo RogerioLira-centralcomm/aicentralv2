@@ -16,6 +16,13 @@ from aicentralv2.training_studio.tools import (
 
 
 class TrainingStudioHelpersTest(unittest.TestCase):
+    def test_fill_art_slot_replaces_empty_figure(self):
+        from aicentralv2.training_studio.service import _fill_art_slot
+
+        html = '<figure class="ts-page-art" data-slot="ilustracao"></figure>'
+        out = _fill_art_slot(html, "/static/x.png")
+        self.assertIn('src="/static/x.png"', out)
+        self.assertNotIn(html, out)
     def test_format_brl_zero(self):
         self.assertEqual(format_brl(0), "R$ 0,00")
 
@@ -109,6 +116,8 @@ class TrainingStudioRoutesTest(unittest.TestCase):
         self.assertIn("9h30–12h30", page)
         self.assertIn("tsProjectBtn", page)
         self.assertIn("/parametros/treinamentos/projetar", page)
+        self.assertIn("tsAddPage", page)
+        self.assertIn("tsPageLayout", page)
 
     def test_agenda_has_nine_specialist_sessions(self):
         from aicentralv2.training_studio.agenda import CHANNELS, SESSIONS, session_html
@@ -139,7 +148,12 @@ class TrainingStudioRoutesTest(unittest.TestCase):
         self.assertIn("Banca", dinamica)
         self.assertIn("R$ 80 mil", dinamica)
         self.assertGreaterEqual(len(CHANNELS), 14)
-        self.assertEqual(AGENDA_REVISION, 3)
+        self.assertEqual(AGENDA_REVISION, 4)
+        self.assertIn('class="ts-page"', moeda)
+        self.assertIn("ts-page-art", familias)
+        self.assertEqual(SESSIONS[0]["titulo"], "Comprem atenção, não impressão")
+        self.assertEqual(SESSIONS[2]["titulo"], "O lugar não é a audiência")
+        self.assertEqual(SESSIONS[-1]["titulo"], "Banca: moeda, família, first-wave")
         self.assertNotIn("<p><figure", places)
         atencao = next(item for item in SESSIONS if item["slug"] == "atencao-mercado")
         self.assertTrue(atencao.get("fontes"))

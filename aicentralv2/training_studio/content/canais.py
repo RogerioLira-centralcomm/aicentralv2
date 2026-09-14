@@ -1,7 +1,7 @@
 """Sessão 2 — quatro famílias de inventário digital."""
 
 from ..logos import logo_path
-from .markup import block, esc, figure, h2, h3, notes, p, sources
+from .markup import block, esc, figure, h2, h3, notes, p, page, sources
 
 NOTAS = {
     "tese": "Quatro famílias. Cada uma tem regra de substituição. Não é census.",
@@ -39,31 +39,38 @@ def _canal(key, name, body, regra):
 
 def html():
     return (
-        h2("Quatro famílias de inventário digital")
-        + notes(
-            "<strong>Palco · 15 min.</strong> Quatro famílias, um case por "
-            "família no máximo. Outdoor e aeroporto não entram. Fechar cada "
-            "família com a regra de substituição."
+        notes(
+            "<strong>Palco · 15 min.</strong> Uma família por página. "
+            "Um case no máximo. Outdoor fica em Places."
         )
-        + block(
-            "tese",
-            p(
-                "O bloco anterior escolheu a moeda. Este escolhe de onde sai "
-                "e para onde entra a verba. Os cards abaixo usam alcance de "
-                "anúncio do Digital 2026 Brazil (final de 2025) e o que o "
-                "catálogo CentralX já transaciona. Ad reach não é MAU. "
-                "LinkedIn é member.",
+        + page(
+            "title",
+            h2("De onde sai a verba")
+            + p("Quatro famílias. Cada uma tem regra de substituição. Não é census."),
+        )
+        + page(
+            "copy",
+            block(
+                "tese",
+                h3("Pergunta da sala")
+                + p(
+                    "De qual família vocês tirariam 20% do budget deste brief "
+                    "— e para onde mandariam?"
+                )
+                + p(
+                    "Ad reach do Digital 2026 Brazil. Não é MAU. LinkedIn é member."
+                ),
             ),
         )
-        + h2("Social e profissional")
-        + block(
-            "case",
-            p(
-                "Feed versus short-form. B2B versus consumer. A família ganha "
-                "quando o brief precisa de recorte de intenção ou de volume "
-                "de vídeo curto. Perde quando o KPI é dwell longo ou brand "
-                "safety editorial.",
-            )
+        + page(
+            "split",
+            h2("Social e profissional")
+            + block(
+                "case",
+                p(
+                    "Feed versus short-form. B2B versus consumer. Ganha em "
+                    "intenção ou vídeo curto. Perde em dwell longo."
+                )
             + _canal(
                 "linkedin",
                 "LinkedIn",
@@ -100,16 +107,17 @@ def html():
                 ),
                 "o KPI for completion longo ou o legal bloquear UGC.",
             ),
+            ),
         )
-        + h2("Editorial e portais")
-        + block(
-            "case",
-            p(
-                "Contexto e brand safety contra CPM do feed. A família ganha "
-                "na primeira onda de construção quando o cliente precisa de "
-                "adjacência jornalística. Perde quando o brief é performance "
-                "cega em open web.",
-            )
+        + page(
+            "split",
+            h2("Editorial e portais")
+            + block(
+                "case",
+                p(
+                    "Contexto e brand safety contra CPM do feed. Ganha na "
+                    "construção. Perde em performance cega."
+                )
             + _canal(
                 "g1",
                 "g1",
@@ -152,15 +160,17 @@ def html():
                 ),
                 "o legal não assinar ambiente de cobrança / score.",
             ),
+            ),
         )
-        + h2("Utilidade e commerce")
-        + block(
-            "case",
-            p(
-                "Atenção em tarefa, não em lazer. Incrementality contra a "
-                "mídia do próprio app. A família ganha no hábito e no "
-                "deslocamento. Perde quando o KPI é brand fame.",
-            )
+        + page(
+            "split",
+            h2("Utilidade e commerce")
+            + block(
+                "case",
+                p(
+                    "Atenção em tarefa, não em lazer. Incrementality contra "
+                    "a mídia do próprio app."
+                )
             + _canal(
                 "uber",
                 "Uber",
@@ -202,15 +212,17 @@ def html():
                 ),
                 "não houver SKU ou retail data para fechar o loop.",
             ),
+            ),
         )
-        + h2("Ambientes de sessão")
-        + block(
-            "case",
-            p(
-                "Completion e atenção longa. Custo de entrada contra TV e "
-                "portal. A família ganha quando o brief pede dwell. Perde "
-                "quando a verba não paga o floor.",
-            )
+        + page(
+            "split",
+            h2("Ambientes de sessão")
+            + block(
+                "case",
+                p(
+                    "Completion e dwell. Ganha quando o brief pede tempo. "
+                    "Perde quando a verba não paga o floor."
+                )
             + _canal(
                 "spotify",
                 "Spotify",
@@ -258,6 +270,7 @@ def html():
                     "safe. Mesma lógica de floor do Netflix.",
                 ),
                 "o brief for CPA de app e o cliente recusar ambiente de sessão.",
+            ),
             ),
         )
         + sources(

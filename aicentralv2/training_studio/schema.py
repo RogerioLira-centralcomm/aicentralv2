@@ -5,7 +5,7 @@ from psycopg.types.json import Json
 from .agenda import OBSOLETE_SLUGS, SESSIONS, session_html
 
 IMMERSAO_SLUG = "imersao-midias-complexas"
-AGENDA_REVISION = 3
+AGENDA_REVISION = 4
 
 DEFAULT_STYLE_GUIDE = {
     "palette": [

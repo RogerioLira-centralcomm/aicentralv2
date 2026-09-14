@@ -38,7 +38,7 @@ SESSIONS = [
     {
         "slug": "atencao-mercado",
         "ordem": 1,
-        "titulo": "Atenção como moeda de compra",
+        "titulo": "Comprem atenção, não impressão",
         "horario_inicio": "09:30",
         "horario_fim": "09:45",
         "facilitadores": ["Alexandre Borges", "Apolo Lira"],
@@ -54,7 +54,7 @@ SESSIONS = [
     {
         "slug": "mapa-canais",
         "ordem": 2,
-        "titulo": "Quatro famílias de inventário",
+        "titulo": "De onde sai a verba",
         "horario_inicio": "09:45",
         "horario_fim": "10:00",
         "facilitadores": ["Alexandre Borges", "Apolo Lira"],
@@ -70,7 +70,7 @@ SESSIONS = [
     {
         "slug": "dooh-places",
         "ordem": 3,
-        "titulo": "DOOH, geofencing e Places",
+        "titulo": "O lugar não é a audiência",
         "horario_inicio": "10:00",
         "horario_fim": "10:20",
         "facilitadores": ["Apolo Lira", "Alexandre Borges"],
@@ -83,7 +83,7 @@ SESSIONS = [
     {
         "slug": "ia-cadu",
         "ordem": 4,
-        "titulo": "Operar o plano com Cadu",
+        "titulo": "Cadu começa na restrição",
         "horario_inicio": "10:20",
         "horario_fim": "10:35",
         "facilitadores": ["Apolo Lira"],
@@ -99,7 +99,7 @@ SESSIONS = [
     {
         "slug": "coffee",
         "ordem": 5,
-        "titulo": "Coffee break",
+        "titulo": "Intervalo · escolher a moeda",
         "horario_inicio": "10:35",
         "horario_fim": "10:45",
         "facilitadores": [],
@@ -112,7 +112,7 @@ SESSIONS = [
     {
         "slug": "max-formatos",
         "ordem": 6,
-        "titulo": "Onde o plano quebra em 2026",
+        "titulo": "O plano quebra no formato",
         "horario_inicio": "10:45",
         "horario_fim": "11:20",
         "facilitadores": ["Max III"],
@@ -128,7 +128,7 @@ SESSIONS = [
     {
         "slug": "lucas-interativos",
         "ordem": 7,
-        "titulo": "Interativo como prova",
+        "titulo": "O gesto prova a first-wave",
         "horario_inicio": "11:20",
         "horario_fim": "11:35",
         "facilitadores": ["Lucas Facchini"],
@@ -144,7 +144,7 @@ SESSIONS = [
     {
         "slug": "lucas-programatica",
         "ordem": 8,
-        "titulo": "Formatos e programática de alto padrão",
+        "titulo": "Aberto não é qualquer impressão",
         "horario_inicio": "11:35",
         "horario_fim": "11:50",
         "facilitadores": ["Lucas Facchini"],
@@ -160,7 +160,7 @@ SESSIONS = [
     {
         "slug": "dinamica-planos",
         "ordem": 9,
-        "titulo": "Banca de plano",
+        "titulo": "Banca: moeda, família, first-wave",
         "horario_inicio": "11:50",
         "horario_fim": "12:30",
         "facilitadores": ["Time"],

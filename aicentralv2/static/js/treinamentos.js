@@ -309,7 +309,79 @@
     scheduleSave();
   }
 
+  function currentPage() {
+    var node = state.range && state.range.commonAncestorContainer;
+    if (node && node.nodeType === 3) node = node.parentNode;
+    if (node && editor.contains(node)) {
+      var page = node.closest ? node.closest('.ts-page') : null;
+      if (page) return page;
+    }
+    return editor.querySelector('.ts-page:last-of-type');
+  }
+
+  function emptyPageHtml(layout) {
+    layout = layout || 'split';
+    var art = layout === 'split'
+      ? '<figure class="ts-page-art" data-slot="ilustracao"></figure>'
+      : '';
+    return (
+      '<article class="ts-page" data-layout="' + layout + '">' +
+        '<div class="ts-page-copy"><h3>Nova página</h3><p></p></div>' +
+        art +
+      '</article>'
+    );
+  }
+
+  function insertPage() {
+    var layout = (document.getElementById('tsPageLayout') || {}).value || 'split';
+    var page = currentPage();
+    var html = emptyPageHtml(layout);
+    if (page && page.insertAdjacentHTML) {
+      page.insertAdjacentHTML('afterend', html);
+    } else {
+      editor.insertAdjacentHTML('beforeend', html);
+    }
+    scheduleSave();
+  }
+
+  function setPageLayout(layout) {
+    var page = currentPage();
+    if (!page) return;
+    page.setAttribute('data-layout', layout);
+    var art = page.querySelector('.ts-page-art');
+    if (layout === 'split' && !art) {
+      page.insertAdjacentHTML(
+        'beforeend',
+        '<figure class="ts-page-art" data-slot="ilustracao"></figure>'
+      );
+    }
+    if (layout !== 'split' && art && !art.querySelector('img')) {
+      art.remove();
+    }
+    scheduleSave();
+  }
+
   function insertImage(url) {
+    var page = currentPage();
+    var slot = page && page.querySelector('.ts-page-art');
+    var markup = '<img src="' + escapeAttr(url) + '" alt="">';
+    if (slot) {
+      slot.innerHTML = markup;
+      if (page && page.getAttribute('data-layout') === 'copy') {
+        page.setAttribute('data-layout', 'split');
+      }
+      scheduleSave();
+      return;
+    }
+    if (page) {
+      page.setAttribute('data-layout', 'split');
+      page.insertAdjacentHTML(
+        'beforeend',
+        '<figure class="ts-page-art" data-slot="ilustracao">' + markup + '</figure>'
+      );
+      scheduleSave();
+      return;
+    }
     replaceSelection(
       '<figure class="ts-inline-image"><img src="' + escapeAttr(url) + '" alt=""></figure>'
     );
@@ -590,6 +662,17 @@
   document.getElementById('tsEnrichBtn').addEventListener('click', function () {
     enrichChannels(false);
   });
+
+  var addPage = document.getElementById('tsAddPage');
+  if (addPage) {
+    addPage.addEventListener('click', insertPage);
+  }
+  var pageLayout = document.getElementById('tsPageLayout');
+  if (pageLayout) {
+    pageLayout.addEventListener('change', function () {
+      setPageLayout(pageLayout.value);
+    });
+  }
 
   document.getElementById('tsAddSession').addEventListener('click', function () {
     var titulo = window.prompt('Título da nova sessão');

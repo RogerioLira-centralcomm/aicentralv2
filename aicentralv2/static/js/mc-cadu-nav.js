@@ -34,34 +34,48 @@
     if (event.key === "Escape") closeAll();
   });
 
+  let contextRequest = 0;
+  let creditsRequest = 0;
+
+  function publishContext(type, detail) {
+    window.McCaduContext = detail;
+    document.dispatchEvent(new CustomEvent(type, { detail }));
+  }
+
   if (select) {
     select.addEventListener("change", () => {
       Desk.write(select.value);
       paintCredits(select.value);
-      document.dispatchEvent(new CustomEvent("cadu:brand-change", {
-        detail: { clientId: select.value },
-      }));
+      publishContext("cadu:brand-change", { clientId: select.value });
     });
     document.addEventListener("cadu:credits-refresh", (event) => {
       const id = String(event.detail?.clientId || select.value || "");
-      if (id && select.value !== id) select.value = id;
+      // A completed generation from an old brand must not switch the active brand.
+      if (id !== select.value) return;
       paintCredits(id);
     });
+    document.addEventListener("cadu:context-retry", loadContext);
     loadContext();
   }
 
   async function loadContext() {
+    const requestId = ++contextRequest;
+    select.disabled = true;
     let clients = [];
     try {
       const payload = await get("/parametros/api/clients");
       clients = Array.isArray(payload) ? payload : (payload?.items || payload?.clients || []);
     } catch (_error) {
+      if (requestId !== contextRequest) return;
+      select.disabled = false;
       select.innerHTML = '<option value="">Não deu para carregar as marcas</option>';
-      document.dispatchEvent(new CustomEvent("cadu:brand-ready", {
-        detail: { clientId: Desk.read() || "" },
-      }));
+      if (credits) credits.hidden = true;
+      creditsRequest++;
+      publishContext("cadu:brand-ready", { clientId: "", error: true });
       return;
     }
+    if (requestId !== contextRequest) return;
+    select.disabled = false;
     const options = Desk.forSelect(clients, Desk.read());
     const chosen = Desk.pick(options, Desk.read());
     select.innerHTML = options.length
@@ -74,24 +88,32 @@
       Desk.write(chosen);
       select.value = chosen;
     }
-    await paintCredits(select.value);
-    document.dispatchEvent(new CustomEvent("cadu:brand-ready", {
-      detail: { clientId: select.value || Desk.read() || "" },
-    }));
+    if (!chosen) Desk.write("");
+    publishContext("cadu:brand-ready", { clientId: select.value || "" });
+    paintCredits(select.value);
   }
 
   async function paintCredits(clientId) {
     if (!credits) return;
-    const query = clientId ? `?client_id=${encodeURIComponent(clientId)}` : "";
+    const requestId = ++creditsRequest;
+    credits.hidden = true;
+    credits.textContent = "";
+    if (!clientId) return;
+    const query = `?client_id=${encodeURIComponent(clientId)}`;
     try {
       const data = await get(`/parametros/api/image-credits${query}`);
-      const remaining = Number(data?.remaining ?? Math.max(0, Number(data?.monthly || 0) - Number(data?.used || 0)));
+      if (requestId !== creditsRequest || select.value !== clientId) return;
+      const hasBalance = data?.remaining != null;
+      const hasUsage = data?.monthly != null && data?.used != null;
+      if (!hasBalance && !hasUsage) return;
+      const remaining = hasBalance ? Number(data.remaining) : Math.max(0, Number(data.monthly) - Number(data.used));
+      if (!Number.isFinite(remaining)) return;
       const monthly = Number(data?.monthly || 0);
       credits.hidden = false;
       credits.textContent = `${formatCount(remaining)} créditos`;
       credits.title = monthly ? `${formatCount(data?.used || 0)} usados de ${formatCount(monthly)}` : "";
     } catch (_error) {
-      credits.hidden = true;
+      if (requestId === creditsRequest) credits.hidden = true;
     }
   }
 

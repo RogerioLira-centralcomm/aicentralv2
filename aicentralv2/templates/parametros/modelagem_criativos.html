@@ -1,91 +1,69 @@
 {% extends "base_erp.html" %}
-{% block title %}Cadu Media Studio — Modelagem de Criativos{% endblock %}
+{% block title %}Cadu Media Studio — Visão geral{% endblock %}
 {% block page_label %}{% endblock %}
 {% block page_subtitle %}{% endblock %}
-
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=123">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-home.css') }}?v=1">
 {% endblock %}
-
 {% block content %}
-{% set mc_page = 'hub' %}
-<main class="mc-shell mc-cadu-home" id="mcApp" data-mc-page="hub">
-  {% include "parametros/_mc_shell.html" %}
-  <div class="mc-cadu-floor">
-    <section class="mc-cadu-wall" aria-labelledby="mcCaduWallTitle">
-      <div class="mc-cadu-wall-head">
-        <div>
-          <h1 id="mcCaduWallTitle">Peças da marca</h1>
-          <p>Ajuste o criativo real. Cada tentativa fica nesta parede.</p>
-        </div>
-        <a class="mc-cadu-new" href="{{ url_for('parametros.modelagem_trocar') }}">Ajustar peça</a>
-      </div>
-      <ul class="mc-cadu-takes" id="mcCaduTakes">
-        <li class="mc-cadu-empty" id="mcCaduEmpty">
-          <p>Ainda não há peça nesta marca.</p>
-          <p>Abra Ajustar e solte o criativo. O histórico aparece aqui.</p>
-        </li>
-      </ul>
-    </section>
-
-    <section class="mc-cadu-wall" aria-labelledby="mcCaduClipsTitle">
-      <div class="mc-cadu-wall-head">
-        <div>
-          <h1 id="mcCaduClipsTitle">Clipes da marca</h1>
-          <p>Duas a trinta cenas da biblioteca viram um clipe.</p>
-        </div>
-        <a class="mc-cadu-new" href="{{ url_for('parametros.modelagem_video') }}">Abrir Vídeo</a>
-      </div>
-      <ul class="mc-cadu-takes" id="mcCaduClips">
-        <li class="mc-cadu-empty" id="mcCaduClipsEmpty">
-          <p>Ainda não há clipe nesta marca.</p>
-          <p>Abra Vídeo, escolha pelo menos duas cenas e gere.</p>
-        </li>
-      </ul>
-    </section>
-
-    <section class="mc-cadu-glossary" aria-labelledby="mcCaduToolsTitle">
-      <h2 id="mcCaduToolsTitle">Ferramentas</h2>
-      <dl>
-        <div>
-          <dt><a href="{{ url_for('parametros.modelagem_trocar') }}">Ajustar</a></dt>
-          <dd>Troca headline, apoio, gente ou fundo sem perder as versões anteriores.</dd>
-        </div>
-        <div>
-          <dt><a href="{{ url_for('parametros.modelagem_video') }}">Vídeo</a></dt>
-          <dd>Monta 2 a 30 cenas da biblioteca e manda ao Seedance.</dd>
-        </div>
-        <div>
-          <dt><a href="{{ url_for('parametros.modelagem_marcas') }}">Marcas</a></dt>
-          <dd>Logo, paleta, fontes e regras. Sem oferta de campanha.</dd>
-        </div>
-        <div>
-          <dt><a href="{{ url_for('parametros.modelagem_camadas') }}">Camadas</a></dt>
-          <dd>Recorte fiel. Cena protegida para o vídeo não misturar tipo.</dd>
-        </div>
-        <div>
-          <dt><a href="{{ url_for('parametros.modelagem_biblioteca') }}">Formatos</a></dt>
-          <dd>Retângulo, mecânica e inventário de cada canal.</dd>
-        </div>
-        <div>
-          <dt><a href="{{ url_for('parametros.modelagem_design-system') }}">Design System</a></dt>
-          <dd>Tokens da marca e montagem IAB.</dd>
-        </div>
-        <div>
-          <dt><a href="{{ url_for('parametros.modelagem_historico') }}">Custo</a></dt>
-          <dd>O que já foi gasto em geração nesta mesa.</dd>
-        </div>
-      </dl>
-      <p class="mc-cadu-research-note">
-        Desdobrar, conceito 15s e placas ficam em Pesquisa no menu. Não são o caminho da peça.
-      </p>
-    </section>
+{% macro icon(name) %}<i class="fa-solid fa-{{ name }}" aria-hidden="true"></i>{% endmacro %}
+<div class="mc-studio-home" id="mcApp" data-mc-page="hub">
+  <header class="mc-cadu-bar" id="mcCaduBar">
+    <a class="studio-wordmark" href="{{ url_for('parametros.modelagem_criativos') }}" aria-current="page">Cadu <span>Media Studio</span><small>Produto de mídia do Cadu</small></a>
+    <div class="studio-context-controls">
+      <label class="studio-brand-label" for="mcCaduBarClient">Marca ativa</label>
+      <select id="mcCaduBarClient" aria-label="Marca desta sessão"><option value="">Carregando marcas…</option></select>
+      <p id="mcCaduCredits" hidden aria-live="polite"></p>
+    </div>
+  </header>
+  <div class="studio-layout">
+    <nav class="studio-nav" aria-label="Navegação do Media Studio">
+      <a class="is-current" href="{{ url_for('parametros.modelagem_criativos') }}" aria-current="page">{{ icon('house') }} Visão geral</a>
+      <a href="#studioLibrary">{{ icon('layer-group') }} Biblioteca da marca</a>
+      <span class="studio-nav-label">Produção</span>
+      <a data-brand-link href="{{ url_for('parametros.modelagem_trocar') }}">{{ icon('sliders') }} Ajustar peça</a>
+      <a data-brand-link href="{{ url_for('parametros.modelagem_video') }}">{{ icon('film') }} Montar vídeo</a>
+      <span class="studio-nav-label">Identidade</span>
+      <a href="{{ url_for('parametros.modelagem_marcas') }}">{{ icon('swatchbook') }} Marcas</a>
+      <details><summary>Recursos avançados</summary>
+        <a href="{{ url_for('parametros.modelagem_camadas') }}">Camadas</a>
+        <a href="{{ url_for('parametros.modelagem_biblioteca') }}">Formatos</a>
+        <a href="{{ url_for('parametros.modelagem_design-system') }}">Design System</a>
+        <a href="{{ url_for('parametros.modelagem_bancada') }}">Bancada</a>
+        <a href="{{ url_for('parametros.modelagem_historico') }}">Custo</a>
+        <a href="{{ url_for('parametros.modelagem_preparar') }}">Preparar</a>
+        <a href="{{ url_for('parametros.modelagem_produzir') }}">Produzir</a>
+      </details>
+      <details><summary>Pesquisa</summary>
+        <a href="{{ url_for('parametros.modelagem_desdobrar') }}">Desdobrar</a>
+        <a href="{{ url_for('parametros.modelagem_mesa') }}">Conceito 15s</a>
+        <a href="{{ url_for('parametros.modelagem_placas') }}">Placas</a>
+      </details>
+    </nav>
+    <div class="studio-content">
+      <div class="studio-heading"><div><p class="studio-breadcrumb">Cadu / Media Studio</p><h1>Sua produção, em um só lugar.</h1><p>Ajuste peças, monte clipes e retome o trabalho da marca ativa.</p></div><a class="studio-button is-primary" data-brand-link href="{{ url_for('parametros.modelagem_trocar') }}">{{ icon('plus') }} Ajustar peça</a></div>
+      <div class="studio-brand-context"><div>{{ icon('building') }}<div><strong id="studioBrandName">Carregando marca…</strong><p>Biblioteca e histórico da marca selecionada</p></div></div><a href="{{ url_for('parametros.modelagem_marcas') }}">Gerenciar marcas {{ icon('arrow-right') }}</a></div>
+      <section class="studio-actions" aria-label="Começar ou retomar uma produção">
+        <a data-brand-link href="{{ url_for('parametros.modelagem_trocar') }}">{{ icon('sliders') }}<strong>Ajustar peça</strong><p>Importe o criativo e descreva as alterações.</p></a>
+        <a href="#studioLibrary">{{ icon('images') }}<strong>Retomar uma peça</strong><p>Abra um resultado e continue o ajuste.</p></a>
+        <a data-brand-link href="{{ url_for('parametros.modelagem_video') }}">{{ icon('film') }}<strong>Montar vídeo</strong><p>Reúna de 2 a 30 cenas da biblioteca.</p></a>
+        <a href="{{ url_for('parametros.modelagem_marcas') }}">{{ icon('swatchbook') }}<strong>Organizar a marca</strong><p>Reúna logos, cores, fontes e referências.</p></a>
+      </section>
+      <section id="studioLibrary" aria-labelledby="studioLibraryTitle">
+        <div class="studio-library-heading"><div><h2 id="studioLibraryTitle">Biblioteca da marca</h2><p>Peças e clipes para continuar sua produção.</p></div><button class="studio-button" id="studioRefresh" type="button">{{ icon('rotate-right') }} Atualizar</button></div>
+        <div class="studio-toolbar"><div class="studio-filters" role="group" aria-label="Filtrar por tipo de mídia"><button type="button" data-media="all" aria-pressed="true">Todos</button><button type="button" data-media="still" aria-pressed="false">Imagens</button><button type="button" data-media="video" aria-pressed="false">Vídeos</button></div><label class="studio-search">{{ icon('magnifying-glass') }}<input type="search" id="studioSearch" aria-label="Buscar na biblioteca da marca" placeholder="Buscar na biblioteca…"></label></div>
+        <p class="studio-library-status" id="studioStatus" role="status" aria-live="polite">Carregando contexto da marca…</p>
+        <div id="studioErrors"></div>
+        <ul class="studio-grid" id="studioItems" aria-label="Resultados da biblioteca"></ul>
+        <div class="studio-pagination"><button class="studio-button" id="studioMore" type="button" hidden>Mostrar mais</button></div>
+      </section>
+    </div>
   </div>
-</main>
+</div>
 {% endblock %}
-
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script>
-<script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=3" defer></script>
-<script src="{{ url_for('static', filename='js/mc-cadu-home.js') }}?v=7" defer></script>
+<script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=4" defer></script>
+<script src="{{ url_for('static', filename='js/mc-studio-library.js') }}?v=1" defer></script>
+<script src="{{ url_for('static', filename='js/mc-cadu-home.js') }}?v=8" defer></script>
 {% endblock %}

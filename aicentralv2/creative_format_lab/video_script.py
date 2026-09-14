@@ -52,7 +52,7 @@ def build_video_script(store, payload, user_id=None, text_callable=None):
         if not item:
             raise ValueError("Uma cena não está na biblioteca da marca.")
         name = str(item.get("name") or item.get("id") or "cena")
-        ocr = None if force else usable_ocr(item.get("ocr"))
+        ocr = None if force else (usable_ocr(item.get("ocr")) or usable_ocr(item.get("params")))
         if not ocr:
             reference = store.materialize_reference(item.get("image_url") or item.get("image") or "")
             if not str(reference or "").startswith(("data:image/", "https://", "http://")):
@@ -81,30 +81,46 @@ def build_video_script(store, payload, user_id=None, text_callable=None):
 
 def scene_from_ocr(scene_id, item, ocr):
     data = ocr if isinstance(ocr, dict) else {}
+    params = item.get("params") if isinstance(item.get("params"), dict) else {}
+
+    def pick(*keys):
+        for source in (data, params):
+            for key in keys:
+                value = str(source.get(key) or "").strip()
+                if value:
+                    return value
+        return ""
+
     locked = [
         text for text in (
-            data.get("headline"),
-            data.get("support"),
-            data.get("price"),
-            data.get("cta"),
-            data.get("logo_text"),
-            data.get("dates"),
-            data.get("venue"),
+            pick("headline"),
+            pick("support"),
+            pick("price"),
+            pick("cta"),
+            pick("logo_text"),
+            pick("dates"),
+            pick("venue"),
         ) if text
     ]
+    try:
+        people = int(data.get("faces") or params.get("faces") or 0)
+    except (TypeError, ValueError):
+        people = 0
     return {
         "id": scene_id,
-        "version_id": str(item.get("id") or ""),
+        "version_id": str(item.get("id") or item.get("version_id") or ""),
         "name": str(item.get("name") or item.get("id") or "Cena"),
         "image_url": item.get("image_url") or item.get("image") or "",
-        "headline": str(data.get("headline") or ""),
-        "support": str(data.get("support") or ""),
-        "cta": str(data.get("cta") or ""),
-        "people": int(data.get("faces") or 0),
-        "product": str(data.get("style") or ""),
-        "setting": str(data.get("venue") or data.get("dates") or ""),
+        "headline": pick("headline"),
+        "support": pick("support"),
+        "cta": pick("cta"),
+        "people": people,
+        "product": pick("style", "product"),
+        "setting": pick("venue", "dates"),
         "locked_type": locked,
-        "ocr": data,
+        "ocr": data or params,
+        "scene_index": item.get("scene_index") or params.get("scene_index") or 0,
+        "scene_group": str(item.get("scene_group") or params.get("scene_group") or ""),
     }
 
 

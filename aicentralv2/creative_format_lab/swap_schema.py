@@ -54,6 +54,23 @@ ALTER_TOKENS = (
     "graphic",
 )
 _HTML_MARK = re.compile(r"<!doctype\s+html|<html[\s>]|</html>", re.IGNORECASE)
+_PRICE_MARK = re.compile(r"(r\$|\brs\b|\breais\b)", re.I)
+_PRICE_MONEY = re.compile(r"(?<!\d)(?:\d{1,3}(?:\.\d{3})+|\d+)(?:[.,]\d{2})\b")
+_PRICE_INSTALLMENT = re.compile(r"\b\d+\s*x\b", re.I)
+_PERCENT_OFF = re.compile(r"\d+\s*%")
+_PRICE_ZERO = re.compile(r"^r\$\s*0+(?:[.,]0+)?$", re.I)
+_INVENTED_LOGO = {"marca", "logo", "logotipo", "brand", "sua marca"}
+_INVENTED_CTA = {"cta", "botão", "botao", "button"}
+_GENERIC_CTA = {
+    "saiba mais",
+    "saiba mais.",
+    "compre agora",
+    "clique aqui",
+    "encontre a loja",
+    "encontre a peça",
+    "learn more",
+    "shop now",
+}
 
 SwapKind = Literal[
     "type", "face", "name_pill", "logo", "graphic", "product", "background"
@@ -237,8 +254,158 @@ def assign_element_id(role, kind, counters):
     return f"{key}_{counters[key]:02d}"
 
 
+def looks_like_price(text):
+    """Preço é valor em reais. % off, liquidação, R$ 0 e slogan não são preço."""
+    raw = " ".join(str(text or "").split())
+    if not raw:
+        return False
+    if _PRICE_ZERO.match(raw):
+        return False
+    if _PERCENT_OFF.search(raw) and not _PRICE_MARK.search(raw) and not _PRICE_MONEY.search(raw):
+        return False
+    if _PRICE_MARK.search(raw):
+        return True
+    if len(raw) > FIELD_LIMITS["price"]:
+        return False
+    words = raw.split()
+    if len(words) <= 6 and _PRICE_MONEY.search(raw):
+        return True
+    return bool(
+        _PRICE_INSTALLMENT.search(raw)
+        and _PRICE_MONEY.search(raw)
+        and len(words) <= 8
+    )
+
+
+def looks_like_cta(text):
+    raw = " ".join(str(text or "").split())
+    if not raw:
+        return False
+    return raw.casefold() not in _INVENTED_CTA
+
+
+def is_generic_cta(text):
+    raw = " ".join(str(text or "").split()).casefold()
+    return raw in _GENERIC_CTA
+
+
+def looks_like_logo_text(text):
+    raw = " ".join(str(text or "").split())
+    if not raw:
+        return False
+    return raw.casefold() not in _INVENTED_LOGO
+
+
+def sanitize_optional_copy(payload=None):
+    """Preço, CTA e logo são opcionais. OCR não inventa parâmetro que não está na peça."""
+    data = dict(payload) if isinstance(payload, dict) else {}
+    analysis = data.get("analysis") if isinstance(data.get("analysis"), dict) else {}
+    price = str(data.get("price") or "").strip()
+    if price and not looks_like_price(price):
+        data["price"] = ""
+    cta = str(data.get("cta") or "").strip()
+    if cta and not looks_like_cta(cta):
+        data["cta"] = ""
+    elif cta and analysis.get("cta") is False and is_generic_cta(cta):
+        data["cta"] = ""
+    logo = str(data.get("logo_text") or "").strip()
+    if logo and not looks_like_logo_text(logo):
+        data["logo_text"] = ""
+    elements = []
+    for item in data.get("elements") or []:
+        if not isinstance(item, dict):
+            continue
+        row = dict(item)
+        role = str(row.get("role") or "").strip().lower()
+        text = str(row.get("text") or row.get("text_original") or "").strip()
+        original = str(row.get("text_original") or text).strip()
+        if role == "price":
+            if not looks_like_price(text) and not looks_like_price(original):
+                continue
+            if not looks_like_price(text):
+                row["text"] = ""
+            if not looks_like_price(original):
+                row["text_original"] = str(row.get("text") or "")
+        elif role == "cta":
+            keep_text = looks_like_cta(text) or looks_like_cta(original)
+            generic = is_generic_cta(text) or is_generic_cta(original)
+            if not keep_text or (analysis.get("cta") is False and generic):
+                continue
+        elif role == "logo":
+            if text and not looks_like_logo_text(text):
+                row["text"] = ""
+            if original and not looks_like_logo_text(original):
+                row["text_original"] = str(row.get("text") or "")
+            if not row.get("text") and not row.get("text_original") and not row.get("bbox_px"):
+                continue
+        elements.append(row)
+    data["elements"] = elements
+    return data
+
+
+def drop_fake_price(payload=None):
+    """Compat: preço falso sai no sanitize opcional."""
+    return sanitize_optional_copy(payload)
+
+
+PARAM_COPY_KEYS = (
+    "headline",
+    "support",
+    "subtitle",
+    "price",
+    "cta",
+    "logo_text",
+    "dates",
+    "venue",
+    "disclaimer",
+    "note",
+)
+
+
+def scene_index_of(payload=None):
+    data = payload if isinstance(payload, dict) else {}
+    raw = data.get("scene_index")
+    if raw in (None, ""):
+        raw = data.get("scene_variant")
+    try:
+        number = int(raw)
+    except (TypeError, ValueError):
+        return 0
+    return number if number in {1, 2, 3} else 0
+
+
+def piece_params(payload=None, parent=None):
+    """Cópia e tomada persistidas. Preço, CTA e logo só entram se existirem."""
+    data = sanitize_optional_copy(payload if isinstance(payload, dict) else {})
+    parent_data = parent if isinstance(parent, dict) else {}
+    parent_params = parent_data.get("params") if isinstance(parent_data.get("params"), dict) else {}
+    if not parent_params and parent_data:
+        parent_params = parent_data
+    params = {}
+    for key in PARAM_COPY_KEYS:
+        value = str(data.get(key) or "").strip()
+        if not value:
+            value = str(parent_params.get(key) or "").strip()
+        params[key] = value
+    preserve = list(data.get("preserve") or parent_params.get("preserve") or [])
+    alter = list(data.get("alter") or parent_params.get("alter") or [])
+    params["preserve"] = [key for key in PRESERVE_TOKENS if key in set(preserve)]
+    params["alter"] = [key for key in ALTER_TOKENS if key in set(alter)]
+    index = scene_index_of(data) or scene_index_of(parent_params) or scene_index_of(parent_data)
+    group = str(
+        data.get("scene_group")
+        or parent_params.get("scene_group")
+        or parent_data.get("scene_group")
+        or ""
+    ).strip()[:64]
+    params["scene_index"] = index or 1
+    params["scene_group"] = group
+    params["quality"] = str(data.get("quality") or parent_params.get("quality") or "").strip()
+    return params
+
+
 def copy_from_payload(payload=None, *, strict_limits=True):
-    payload = payload if isinstance(payload, dict) else {}
+    payload = sanitize_optional_copy(payload if isinstance(payload, dict) else {})
     note = payload.get("note") or payload.get("instruction") or payload.get("message") or ""
     raw = {
         "headline": payload.get("headline") or "",
@@ -326,7 +493,7 @@ def locks_from_intent(copy, elements):
 
 def apply_swap_schema(payload=None, *, strict_limits=True, source="legacy"):
     """Normaliza um payload legado sem inventar bbox nem fundir dates/subtitle."""
-    data = dict(payload) if isinstance(payload, dict) else {}
+    data = sanitize_optional_copy(payload if isinstance(payload, dict) else {})
     copy = copy_from_payload(data, strict_limits=strict_limits)
     elements, elements_overflow = normalize_elements({**data, **copy.model_dump()}, source=source)
     locks = []

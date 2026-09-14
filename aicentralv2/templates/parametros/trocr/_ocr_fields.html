@@ -2,7 +2,7 @@
   <summary>
     <h3>Ajuste da leitura</h3>
     <span class="mc-trocr-fold-signal" id="mcTrocrReadSignal" hidden></span>
-    <small class="mc-trocr-help" id="mcTrocrOcrHint">A leitura preencheu. Abra só se algo estiver errado.</small>
+    <small class="mc-trocr-help" id="mcTrocrOcrHint">A leitura preencheu o que apareceu. Preço, CTA e logo só se estiverem na peça.</small>
   </summary>
   <p class="mc-trocr-ocr-banner" id="mcTrocrOcrBanner" hidden></p>
   <p class="mc-trocr-read-kicker">Palavras</p>
@@ -28,21 +28,31 @@
       <input class="cx-input" id="mcTrocrVenue" type="text" maxlength="80" placeholder="Mineirinho">
     </label>
   </div>
-  <label class="cx-field">
+  <p class="mc-trocr-opt-add" id="mcTrocrPriceAdd">
+    <button type="button" class="mc-trocr-text-cta" id="mcTrocrPriceAddBtn">Informar preço</button>
+  </p>
+  <label class="cx-field" id="mcTrocrPriceField" hidden>
     <span class="cx-label">Preço</span>
     <input class="cx-input" id="mcTrocrPrice" type="text" maxlength="40" placeholder="R$ 0,00">
+    <small class="mc-trocr-help">Opcional. Só valor em reais.</small>
   </label>
-  <label class="cx-field">
+  <p class="mc-trocr-opt-add" id="mcTrocrCtaAdd">
+    <button type="button" class="mc-trocr-text-cta" id="mcTrocrCtaAddBtn">Informar CTA</button>
+  </p>
+  <label class="cx-field" id="mcTrocrCtaField" hidden>
     <span class="cx-label">CTA</span>
-    <input class="cx-input" id="mcSwapCta" type="text" maxlength="40" placeholder="Encontre a loja">
+    <input class="cx-input" id="mcSwapCta" type="text" maxlength="40" placeholder="O botão da peça, se houver">
   </label>
   <label class="cx-field" id="mcTrocrCta2Field" hidden>
     <span class="cx-label">Segundo CTA</span>
     <input class="cx-input" id="mcTrocrCta2" type="text" maxlength="40" placeholder="Contratar">
   </label>
-  <label class="cx-field">
+  <p class="mc-trocr-opt-add" id="mcTrocrLogoAdd">
+    <button type="button" class="mc-trocr-text-cta" id="mcTrocrLogoAddBtn">Informar marca no quadro</button>
+  </p>
+  <label class="cx-field" id="mcTrocrLogoField" hidden>
     <span class="cx-label">Marca no quadro</span>
-    <input class="cx-input" id="mcTrocrLogo" type="text" maxlength="40" placeholder="Marca">
+    <input class="cx-input" id="mcTrocrLogo" type="text" maxlength="40" placeholder="Wordmark visível, se houver">
   </label>
   <label class="cx-field">
     <span class="cx-label">Disclaimer</span>

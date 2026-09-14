@@ -18,6 +18,8 @@ const state = {
   clips: [],
   jobId: "",
   activeClipId: "",
+  wantedGroup: "",
+  wantedScenes: [],
 };
 
 boot();
@@ -25,6 +27,11 @@ boot();
 async function boot() {
   const params = new URLSearchParams(window.location.search);
   state.activeClipId = params.get("clip") || "";
+  state.wantedGroup = params.get("group") || "";
+  state.wantedScenes = String(params.get("scenes") || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
   document.addEventListener("cadu:brand-ready", (event) => applyBrand(event.detail?.clientId));
   document.addEventListener("cadu:brand-change", (event) => {
     applyBrand(event.detail?.clientId, { reset: true });
@@ -80,19 +87,58 @@ async function loadLibrary() {
   }
   try {
     const data = await get(`/parametros/api/format-lab/swap/library?client_id=${encodeURIComponent(state.clientId)}&media=still`);
-    state.library = data.items || [];
+    state.library = sortLibrary(data.items || []);
     paintLibrary();
+    preselectScenes();
     $("mcVideoLibHint").textContent = libraryHint();
   } catch (error) {
     $("mcVideoLibHint").textContent = error.message;
   }
 }
 
+function sortLibrary(items) {
+  return [...items].sort((a, b) => {
+    const groupA = String(a.scene_group || "");
+    const groupB = String(b.scene_group || "");
+    if (groupA && groupB && groupA !== groupB) return groupB.localeCompare(groupA);
+    if (groupA && !groupB) return -1;
+    if (!groupA && groupB) return 1;
+    const indexA = Number(a.scene_index) || 0;
+    const indexB = Number(b.scene_index) || 0;
+    if (indexA !== indexB) return indexA - indexB;
+    return String(b.created_at || "").localeCompare(String(a.created_at || ""));
+  });
+}
+
+function preselectScenes() {
+  if (state.scenes.length) return;
+  let picks = [];
+  if (state.wantedScenes.length) {
+    const byId = new Map(state.library.map((item) => [item.id, item]));
+    picks = state.wantedScenes.map((id) => byId.get(id)).filter((item) => item && !item.broken);
+  }
+  if (!picks.length && state.wantedGroup) {
+    picks = state.library.filter((item) => (
+      !item.broken && String(item.scene_group || "") === state.wantedGroup
+    ));
+  }
+  if (!picks.length) return;
+  state.scenes = picks.slice(0, 30);
+  paintScenes();
+  $("mcVideoLibHint").textContent = libraryHint();
+}
+
 function libraryHint() {
   if (!state.library.length) return "Ainda não há peça nesta marca. Crie uma nova ou solte um still.";
   const broken = state.library.filter((item) => item.broken).length;
   if (broken) return `${broken} peça${broken === 1 ? "" : "s"} com 404. Apague ou crie uma nova.`;
-  return "Selecione as cenas. A ordem é a do clipe.";
+  if (state.wantedGroup && state.scenes.length >= 2) {
+    return `${state.scenes.length} tomadas da mesma peça já selecionadas. Confira a ordem.`;
+  }
+  if (state.wantedGroup) {
+    return "Tomadas da peça aberta. Selecione pelo menos duas cenas.";
+  }
+  return "Selecione as cenas. A ordem é a do clipe. Prefira tomadas da mesma peça.";
 }
 
 async function loadClips(opts = {}) {
@@ -152,11 +198,14 @@ function paintLibrary() {
   list.innerHTML = state.library.map((item) => {
     const selected = state.scenes.some((scene) => scene.id === item.id);
     const thumb = item.thumb_url || item.image_url;
+    const sceneLabel = Number(item.scene_index) > 0 ? `Cena ${item.scene_index}` : "";
+    const headline = item.headline || item.ocr?.headline || "";
     return `<li class="${item.broken ? "is-broken" : ""}" data-id="${escapeHtml(item.id)}">
       <button type="button" data-id="${escapeHtml(item.id)}" data-action="pick" class="${selected ? "is-selected" : ""}" ${item.broken ? "disabled" : ""}>
         ${thumb ? `<img src="${escapeHtml(thumb)}" alt="">` : "<span></span>"}
         <strong>${escapeHtml(item.name || "Peça")}</strong>
-        ${item.broken ? "<small>404</small>" : ""}
+        ${sceneLabel ? `<small class="mc-cadu-video-scene-tag">${escapeHtml(sceneLabel)}</small>` : ""}
+        ${item.broken ? "<small>404</small>" : (headline ? `<small>${escapeHtml(headline)}</small>` : "")}
       </button>
       <button type="button" class="mc-cadu-video-delete" data-id="${escapeHtml(item.id)}" data-action="delete">Apagar</button>
     </li>`;
@@ -193,6 +242,7 @@ function paintScenes() {
         <button type="button" data-remove="${escapeHtml(item.id)}">
           <em>${index + 1}</em>
           <strong>${escapeHtml(item.name || "Cena")}</strong>
+          ${Number(item.scene_index) > 0 ? `<small>Tomada ${item.scene_index}</small>` : ""}
           ${item.headline ? `<small>${escapeHtml(item.headline)}</small>` : ""}
           Remover
         </button>
@@ -381,7 +431,7 @@ async function removeClip(id) {
 }
 
 function applyLibrary(items) {
-  state.library = items || [];
+  state.library = sortLibrary(items || []);
   const keep = new Set(state.library.map((item) => item.id));
   state.scenes = state.scenes.filter((scene) => keep.has(scene.id) && !state.library.find((item) => item.id === scene.id)?.broken);
   state.script = null;

@@ -24,6 +24,30 @@ OCR_JPEG_QUALITY = 82
 SWAP_ESTIMATE_USD = 0.22
 SWAP_DRAFT_ESTIMATE_USD = 0.14
 TYPE_ONLY = {"headline", "secondary", "cta", "price"}
+SCENE_VARIANT_NOTES = {
+    2: (
+        "Segunda tomada da mesma campanha. Mesmo produto e mesmos textos. "
+        "Mude só o ambiente e o ângulo. Serve de cena 2 para animar."
+    ),
+    3: (
+        "Terceira tomada da mesma campanha. Mesmo produto e mesmos textos. "
+        "Outro ambiente, distinto do still original. Serve de cena 3 para animar."
+    ),
+}
+SCENE_VARIANT_PROMPT = {
+    2: (
+        "This is a second shot of the same campaign for later animation. "
+        "Keep the exact product, logo, typography and offer. "
+        "Change only the scene: new camera angle, new setting, new lighting. "
+        "Do not invent a new product or rewrite the copy."
+    ),
+    3: (
+        "This is a third shot of the same campaign for later animation. "
+        "Keep the exact product, logo, typography and offer. "
+        "Use a different scene from the original still. New angle, setting and light. "
+        "Do not invent a new product or rewrite the copy."
+    ),
+}
 TYPESET_MAX_PIXELS = 20_000_000
 TYPESET_MAX_BYTES = 12_000_000
 PATCH_ROLES = {
@@ -155,15 +179,21 @@ _ROLE_TO_ANALYSIS = {
 }
 
 READ_SYSTEM = """Você lê um still de anúncio. Extraia só o que está visível.
-Não invente oferta, preço, nome ou slogan. Copy em português do Brasil exatamente como aparece, com acento.
+Não invente oferta, preço, CTA, logo, nome ou slogan. Copy em português do Brasil exatamente como aparece, com acento.
+price, cta e logo_text são opcionais. A maioria das peças não tem os três. Se não aparecer, deixe vazio e marque false no analysis.
+price só se houver valor em reais visível (R$ 99,90, 12x de 99,90). Sem R$, price fica vazio. Não escreva R$ 0,00.
+% off, liquidação e desconto percentual vão em headline ou support — nunca em price.
+Não invente Saiba mais, Compre agora, Encontre a loja nem outro CTA se não houver botão ou pill no still.
+logo_text só se o wordmark estiver escrito na peça. Marca, Logo ou o nome da campanha no briefing não valem.
+Peça de conteúdo (depoimento, B2B): nome, cargo, gráfico e a palavra custo na headline não são price.
 Cartela de evento: cada selo de nome é um element role=person. Datas vão em dates. Local vai em venue.
 O grito da peça (É de graça, Entrada franca, etc.) vai em support ou cta — nunca some.
 Bandeirola, fitas ou padrão repetido = graphic true.
 style descreve o que se vê (cor do campo, luz, recorte). Nunca repita estas instruções.
 Se um texto estiver ilegível, deixe vazio. Não corrija português. Retorne JSON puro:
 {
-  "headline": "",
-  "support": "",
+  "headline": "Frete barato nem sempre é o menor custo.",
+  "support": "Atraso, retrabalho e baixa previsibilidade também pesam.",
   "subtitle": "",
   "price": "",
   "cta": "",
@@ -171,24 +201,24 @@ Se um texto estiver ilegível, deixe vazio. Não corrija português. Retorne JSO
   "logo_text": "",
   "dates": "",
   "venue": "",
-  "aspect_hint": "1:1",
-  "style": "fundo azul, pessoa à direita, tipo à esquerda",
+  "aspect_hint": "9:16",
+  "style": "pessoa à frente, caminhão ao fundo, tipo grande embaixo",
   "elements": [
-    {"role": "person", "text": "nome no selo", "note": "onde está"}
+    {"role": "person", "text": "Luciana Menezes", "note": "selo de nome"}
   ],
   "analysis": {
     "background": true,
     "images": true,
     "graphic": false,
-    "logo": true,
+    "logo": false,
     "headline": true,
     "secondary": true,
-    "cta": true,
+    "cta": false,
     "supports": false
   }
 }
 roles válidos: logo, headline, support, cta, product, price, person, background, graphic.
-analysis marca o que está visível. aspect_hint é 16:9, 9:16, 4:5 ou 1:1. Print de celular não muda o aspect da peça."""
+analysis marca só o que está visível. Sem preço, CTA ou logo: false. aspect_hint é 16:9, 9:16, 4:5 ou 1:1. Print de celular não muda o aspect da peça."""
 
 READ_STRICT_SYSTEM = (
     READ_SYSTEM
@@ -382,6 +412,9 @@ def build_optimized_prompt(payload=None, brand=None, operations=None):
             text = str(item).strip()
             if text:
                 lines.append(f"Do not add: {text}.")
+    variant = scene_variant(payload)
+    if variant:
+        lines.append(SCENE_VARIANT_PROMPT[variant])
     if not recrop:
         changed = _copy_from_operations(operations)
         if changed:
@@ -500,6 +533,9 @@ def build_prompt_preview_pt(payload=None, brand=None, operations=None, mode=None
             parts.append(f"CTA: '{cta}'.")
     if note:
         parts.append(note)
+    variant = scene_variant(payload)
+    if variant:
+        parts.append(SCENE_VARIANT_NOTES[variant])
     parts.append(f"Formato de saída {aspect}.")
     parts.append("Rascunho de validação." if quality == "draft" else "Versão de produção, alta fidelidade.")
     risk = swap_risk(payload)
@@ -599,11 +635,46 @@ def prepare_swap(payload=None):
         first = exc.errors()[0] if exc.errors() else {}
         detail = str(first.get("msg") or "").strip() or "O pedido de troca é inválido."
         raise ValueError(detail) from exc
+    data = apply_scene_variant(data)
     if not match_aspect_ratio(data.get("aspect_ratio") or data.get("output")):
         hint = match_aspect_ratio(data.get("aspect_hint"))
         if hint:
             data["aspect_ratio"] = hint
     return data
+
+
+def scene_variant(payload=None):
+    raw = payload.get("scene_variant") if isinstance(payload, dict) else None
+    try:
+        number = int(raw)
+    except (TypeError, ValueError):
+        return 0
+    return number if number in {2, 3} else 0
+
+
+def apply_scene_variant(data):
+    """Mesmos elementos, outra cena. Cena 2 ou 3 para animar depois."""
+    payload = dict(data) if isinstance(data, dict) else {}
+    variant = scene_variant(payload)
+    if not variant:
+        payload.pop("scene_variant", None)
+        return payload
+    from .swap_schema import ALTER_TOKENS, PRESERVE_TOKENS
+
+    payload["scene_variant"] = variant
+    payload["force_image"] = True
+    preserve = set(payload.get("preserve") or [])
+    preserve.update({"layout", "product", "logo", "colors", "style", "text_position"})
+    preserve.discard("background")
+    alter = set(payload.get("alter") or [])
+    alter.add("background")
+    alter.discard("product")
+    payload["preserve"] = [key for key in PRESERVE_TOKENS if key in preserve]
+    payload["alter"] = [key for key in ALTER_TOKENS if key in alter]
+    payload["scene_index"] = variant
+    if not str(payload.get("note") or "").strip():
+        payload["note"] = SCENE_VARIANT_NOTES[variant]
+    return payload
 
 
 def locks_from_read(payload=None):
@@ -808,7 +879,7 @@ def _finish_ocr_read(parsed):
         "locks_overflow": bool(normalized.get("locks_overflow")),
         "elements_overflow": bool(normalized.get("elements_overflow")),
         "overflow": normalized.get("overflow") or [],
-        "analysis": _analysis_from_read(parsed, elements),
+        "analysis": _analysis_from_read({**parsed, **normalized}, elements),
         "status": _read_status(normalized),
         "error": "",
     }
@@ -828,7 +899,7 @@ def read_swap_reference(payload=None, *, text_callable=None):
         {
             "role": "user",
             "content": [
-                {"type": "text", "text": "Leia os elementos editáveis deste still."},
+                {"type": "text", "text": "Leia só o que está escrito neste still. Preço, CTA e logo são opcionais: se não aparecer, deixe vazio. Não invente R$, Saiba mais nem marca."},
                 {"type": "image_url", "image_url": {"url": reference}},
             ],
         },
@@ -1553,6 +1624,8 @@ def _analysis_from_read(parsed, elements):
         present["secondary"] = True
     if parsed.get("cta"):
         present["cta"] = True
+    if parsed.get("logo_text"):
+        present["logo"] = True
     if parsed.get("price") or parsed.get("disclaimer") or parsed.get("dates"):
         present["supports"] = True
     result = {}
@@ -1560,6 +1633,8 @@ def _analysis_from_read(parsed, elements):
         flagged = raw.get(key)
         if present.get(key):
             result[key] = True
+        elif key in {"cta", "logo", "supports"}:
+            result[key] = False
         elif flagged is True or flagged is False:
             result[key] = bool(flagged)
         else:

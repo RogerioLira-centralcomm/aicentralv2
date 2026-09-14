@@ -34,6 +34,7 @@
     production: 'Produção',
     typeset: 'Tipo na foto',
     recrop: 'Recorte + tipo',
+    scene: 'Cena',
     animate: 'Animação',
   };
 
@@ -92,6 +93,10 @@
     pickStart: null,
     revision: 0,
     csrf: '',
+    priceOpen: false,
+    ctaOpen: false,
+    logoOpen: false,
+    sceneGroup: '',
   };
 
   let readAbort = null;
@@ -197,6 +202,7 @@
     ['mcSwapHeadline', 'mcSwapSupport', 'mcTrocrSubtitle', 'mcTrocrDates', 'mcTrocrVenue', 'mcTrocrPrice', 'mcSwapCta', 'mcTrocrCta2', 'mcTrocrLogo', 'mcTrocrDisclaimer', 'mcSwapNote'].forEach((id) => {
       $(id)?.addEventListener('input', () => {
         if (id === 'mcSwapNote') updateNoteCount();
+        if (id === 'mcTrocrPrice' || id === 'mcSwapCta' || id === 'mcTrocrLogo') syncOptionalUi();
         if (state.versions.length) setFlow('edit');
         refreshPrompt();
       });
@@ -217,6 +223,24 @@
     $('mcSwapRun')?.addEventListener('click', () => {
       const quality = (state.mode === 'typeset' || state.mode === 'recrop') ? 'production' : state.quality;
       runSwap(quality);
+    });
+    $('mcTrocrScene2')?.addEventListener('click', () => runSwap(state.quality, { scene_variant: 2 }));
+    $('mcTrocrScene3')?.addEventListener('click', () => runSwap(state.quality, { scene_variant: 3 }));
+    $('mcTrocrAnimateFromGenerate')?.addEventListener('click', openVideoWithScenes);
+    $('mcTrocrPriceAddBtn')?.addEventListener('click', () => {
+      state.priceOpen = true;
+      syncOptionalUi();
+      $('mcTrocrPrice')?.focus();
+    });
+    $('mcTrocrCtaAddBtn')?.addEventListener('click', () => {
+      state.ctaOpen = true;
+      syncOptionalUi();
+      $('mcSwapCta')?.focus();
+    });
+    $('mcTrocrLogoAddBtn')?.addEventListener('click', () => {
+      state.logoOpen = true;
+      syncOptionalUi();
+      $('mcTrocrLogo')?.focus();
     });
     $('mcTrocrDraft')?.addEventListener('click', () => runSwap('draft'));
     $('mcTrocrHistoryBtn')?.addEventListener('click', openHistory);
@@ -465,6 +489,9 @@
       origin: 'original',
       image,
       thumb,
+      scene_index: 1,
+      scene_group: sceneGroup(),
+      params: pieceParams({ scene_index: 1 }),
     }, { persist: false });
     showPreview(image);
     applyHandoffChrome(options);
@@ -532,6 +559,10 @@
 
   function pushVersion(partial, options) {
     const attempt = state.versions.length + 1;
+    const params = partial.params || pieceParams({
+      scene_index: partial.scene_index,
+      scene_variant: partial.origin === 'scene' ? partial.scene_index : undefined,
+    });
     const version = {
       id: `v${attempt}`,
       attempt,
@@ -547,6 +578,9 @@
       qa: partial.qa || null,
       plan_hash: partial.plan_hash || '',
       parent_id: partial.parent_id || (partial.origin === 'original' ? '' : (state.baseId || '')),
+      params,
+      scene_index: Number(partial.scene_index || params.scene_index || 1) || 1,
+      scene_group: partial.scene_group || params.scene_group || sceneGroup(),
     };
     state.versions.push(version);
     state.activeId = version.id;
@@ -592,13 +626,28 @@
   }
 
   function applyRead(data, version, meta) {
-    state.lastRead = data || null;
-    fillFields(data);
-    applyAnalysis(data.analysis || {}, data.elements || []);
+    const clean = { ...(data || {}), price: sanitizePrice(data?.price || '') };
+    clean.elements = withSanitizedPrice(data?.elements || []);
+    state.lastRead = clean;
+    state.priceOpen = Boolean(clean.price);
+    state.ctaOpen = Boolean(clean.cta);
+    state.logoOpen = Boolean(clean.logo_text);
+    fillFields(clean);
+    applyAnalysis(clean.analysis || {}, clean.elements || []);
     renderLocks(data);
     paintOcrStatus(data);
     if (data.aspect_hint && !state.userPickedFormat) selectFormat(data.aspect_hint);
     renderEditPanels();
+    if (version) {
+      version.ocr = clean;
+      version.analysis = clean.analysis || null;
+      version.params = pieceParams({
+        scene_index: version.scene_index || 1,
+        scene_group: version.scene_group || sceneGroup(version),
+      });
+      version.scene_group = version.params.scene_group;
+      version.scene_index = version.params.scene_index;
+    }
     const failed = ['unavailable', 'provider_error', 'invalid', 'unreadable'].includes(data.status);
     if (failed) {
       setFlow('ocr', 'error');
@@ -650,29 +699,79 @@
     }
   }
 
+  function looksLikePrice(text) {
+    const raw = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!raw) return false;
+    const money = /(?:\d{1,3}(?:\.\d{3})+|\d+)(?:[.,]\d{2})\b/.test(raw);
+    const currency = /(r\$|\brs\b|\breais\b)/i.test(raw);
+    if (/\d+\s*%/.test(raw) && !currency && !money) return false;
+    if (currency) return true;
+    if (raw.length > 40) return false;
+    const words = raw.split(' ');
+    if (words.length <= 6 && money) return true;
+    return words.length <= 8 && /\b\d+\s*x\b/i.test(raw) && money;
+  }
+
+  function sanitizePrice(value) {
+    const raw = String(value || '').replace(/\s+/g, ' ').trim();
+    if (!looksLikePrice(raw)) return '';
+    return raw.slice(0, 40);
+  }
+
+  function setField(id, value) {
+    const node = $(id);
+    if (!node) return;
+    const text = String(value || '');
+    const max = Number(node.maxLength);
+    node.value = (max > 0 && text.length > max) ? text.slice(0, max) : text;
+  }
+
   function fillFields(data) {
-    const headline = $('mcSwapHeadline');
-    const support = $('mcSwapSupport');
-    const subtitle = $('mcTrocrSubtitle');
-    const dates = $('mcTrocrDates');
-    const venue = $('mcTrocrVenue');
-    const price = $('mcTrocrPrice');
-    const cta = $('mcSwapCta');
-    const cta2 = $('mcTrocrCta2');
-    const logo = $('mcTrocrLogo');
-    const disclaimer = $('mcTrocrDisclaimer');
     const ctas = (data.elements || []).filter((item) => item.role === 'cta' && item.text);
-    if (headline) headline.value = data.headline || '';
-    if (support) support.value = data.support || '';
-    if (subtitle) subtitle.value = data.subtitle || '';
-    if (dates) dates.value = data.dates || '';
-    if (venue) venue.value = data.venue || '';
-    if (price) price.value = data.price || '';
-    if (cta) cta.value = data.cta || ctas[0]?.text || '';
-    if (cta2) cta2.value = ctas[1]?.text || '';
-    if ($('mcTrocrCta2Field')) $('mcTrocrCta2Field').hidden = !ctas[1] && !cta2?.value;
-    if (logo) logo.value = data.logo_text || '';
-    if (disclaimer) disclaimer.value = data.disclaimer || '';
+    setField('mcSwapHeadline', data.headline || '');
+    setField('mcSwapSupport', data.support || '');
+    setField('mcTrocrSubtitle', data.subtitle || '');
+    setField('mcTrocrDates', data.dates || '');
+    setField('mcTrocrVenue', data.venue || '');
+    setField('mcTrocrPrice', sanitizePrice(data.price || ''));
+    setField('mcSwapCta', data.cta || ctas[0]?.text || '');
+    setField('mcTrocrCta2', ctas[1]?.text || '');
+    if ($('mcTrocrCta2Field')) $('mcTrocrCta2Field').hidden = !ctas[1] && !$('mcTrocrCta2')?.value;
+    setField('mcTrocrLogo', data.logo_text || '');
+    setField('mcTrocrDisclaimer', data.disclaimer || '');
+    syncOptionalUi();
+  }
+
+  function syncPriceUi() {
+    syncOptionalUi();
+  }
+
+  function syncOptionalUi() {
+    const price = Boolean(sanitizePrice($('mcTrocrPrice')?.value || ''));
+    const cta = Boolean(($('mcSwapCta')?.value || '').trim());
+    const logo = Boolean(($('mcTrocrLogo')?.value || '').trim());
+    if (price) state.priceOpen = true;
+    if (cta) state.ctaOpen = true;
+    if (logo) state.logoOpen = true;
+    const showPrice = price || state.priceOpen;
+    const showCta = cta || state.ctaOpen;
+    const showLogo = logo || state.logoOpen;
+    if ($('mcTrocrPriceField')) $('mcTrocrPriceField').hidden = !showPrice;
+    if ($('mcTrocrAlterPrice')) $('mcTrocrAlterPrice').hidden = !showPrice;
+    if ($('mcTrocrPriceAdd')) $('mcTrocrPriceAdd').hidden = showPrice;
+    if ($('mcTrocrCtaField')) $('mcTrocrCtaField').hidden = !showCta;
+    if ($('mcTrocrAlterCta')) $('mcTrocrAlterCta').hidden = !showCta;
+    if ($('mcTrocrCtaAdd')) $('mcTrocrCtaAdd').hidden = showCta;
+    if ($('mcTrocrLogoField')) $('mcTrocrLogoField').hidden = !showLogo;
+    if ($('mcTrocrLogoAdd')) $('mcTrocrLogoAdd').hidden = showLogo;
+    if (!price) {
+      const chip = document.querySelector('input[name="mcTrocrAlter"][value="price"]');
+      if (chip) chip.checked = false;
+    }
+    if (!cta) {
+      const chip = document.querySelector('input[name="mcTrocrAlter"][value="cta"]');
+      if (chip) chip.checked = false;
+    }
   }
 
   function applyAnalysis(analysis, elements) {
@@ -684,8 +783,8 @@
       if (role === 'logo') flags.logo = true;
       if (role === 'headline') flags.headline = true;
       if (role === 'support') flags.secondary = true;
-      if (role === 'cta') flags.cta = true;
-      if (role === 'price') flags.supports = true;
+      if (role === 'cta' && String(item.text || '').trim()) flags.cta = true;
+      if (role === 'price' && looksLikePrice(item.text || item.text_original || '')) flags.supports = true;
       if (role === 'graphic') flags.graphic = true;
     });
     document.querySelectorAll('input[name="mcTrocrAnalysis"]').forEach((node) => {
@@ -699,6 +798,10 @@
     };
     document.querySelectorAll('input[name="mcTrocrPreserve"]').forEach((node) => {
       if (node.value === 'layout' || node.value === 'style') return;
+      if (node.value === 'logo') {
+        node.checked = Boolean(flags.logo);
+        return;
+      }
       const key = Object.keys(preserveMap).find((item) => preserveMap[item] === node.value);
       if (key && flags[key]) node.checked = true;
     });
@@ -937,7 +1040,62 @@
     applyPresentation();
   }
 
-  function editFields() {
+  function withSanitizedPrice(elements) {
+    return (elements || []).reduce((rows, item) => {
+      if (item.role !== 'price') {
+        rows.push(item);
+        return rows;
+      }
+      const text = sanitizePrice(item.text || item.text_original || '');
+      const original = sanitizePrice(item.text_original || item.text || '');
+      if (!text && !original) return rows;
+      rows.push({ ...item, text, text_original: original || text });
+      return rows;
+    }, []);
+  }
+
+  function sceneGroup(version) {
+    if (version?.scene_group) return version.scene_group;
+    const current = version || currentVersion() || baseVersion();
+    if (current?.scene_group) return current.scene_group;
+    if (state.sceneGroup) return state.sceneGroup;
+    const original = state.versions.find((item) => item.origin === 'original') || state.versions[0];
+    const seed = original?.id || state.baseId || 'v1';
+    const group = state.runId ? `${state.runId}:${seed}` : seed;
+    state.sceneGroup = group;
+    return group;
+  }
+
+  function pieceParams(extra) {
+    const fields = extra && extra.headline !== undefined ? extra : { ...editFields(extra), ...extra };
+    const index = Number(extra?.scene_index || fields.scene_index || fields.scene_variant || 1) || 1;
+    const group = extra?.scene_group || fields.scene_group || sceneGroup();
+    return {
+      headline: fields.headline || '',
+      support: fields.support || '',
+      subtitle: fields.subtitle || '',
+      price: sanitizePrice(fields.price || ''),
+      cta: fields.cta || '',
+      logo_text: fields.logo_text || '',
+      dates: fields.dates || '',
+      venue: fields.venue || '',
+      disclaimer: fields.disclaimer || '',
+      note: fields.note || '',
+      preserve: fields.preserve || checkedValues('mcTrocrPreserve'),
+      alter: fields.alter || checkedValues('mcTrocrAlter'),
+      scene_index: index,
+      scene_group: group,
+      quality: fields.quality || state.quality || '',
+    };
+  }
+
+  function applyParams(params) {
+    if (!params) return;
+    fillFields(params);
+    applyEditIntent(params);
+  }
+
+  function editFields(extra) {
     const client = currentClient();
     const read = state.lastRead || {};
     const faces = Number.isInteger(read.faces)
@@ -945,12 +1103,13 @@
       : (read.elements || []).filter((item) => (
         item.kind === 'face' || (item.role === 'person' && !item.text && !item.kind)
       )).length;
+    const variant = Number(extra?.scene_variant || 0);
     return {
       client_id: state.clientId || undefined,
       brand_name: client?.name || '',
       headline: $('mcSwapHeadline')?.value || '',
       support: $('mcSwapSupport')?.value || '',
-      price: $('mcTrocrPrice')?.value || '',
+      price: sanitizePrice($('mcTrocrPrice')?.value || ''),
       cta: $('mcSwapCta')?.value || '',
       note: $('mcSwapNote')?.value || '',
       instruction: $('mcSwapNote')?.value || '',
@@ -963,7 +1122,7 @@
       logo_text: $('mcTrocrLogo')?.value || read.logo_text || '',
       disclaimer: $('mcTrocrDisclaimer')?.value || read.disclaimer || '',
       faces,
-      force_image: Boolean($('mcTrocrForceImage')?.checked),
+      force_image: Boolean($('mcTrocrForceImage')?.checked) || Boolean(variant),
       presentation: state.presentation,
       quality: state.quality,
       use_brand_context: state.brandContext,
@@ -971,19 +1130,23 @@
       alter: checkedValues('mcTrocrAlter'),
       prompt_override: (state.promptEdited || state.promptLocked) ? ($('mcTrocrPrompt')?.value || '') : undefined,
       base_id: state.baseId || undefined,
-      plan_hash: state.planHash || undefined,
+      plan_hash: variant ? undefined : (state.planHash || undefined),
       confirm_conflicts: Boolean($('mcTrocrConfirmConflicts')?.checked),
       ref_width: state.region?.ref_width || undefined,
       ref_height: state.region?.ref_height || undefined,
       regions: state.region?.box ? { [state.region.field]: state.region.box } : undefined,
-      elements: withRegion(withCtas(read.elements || [])),
+      elements: withRegion(withSanitizedPrice(withCtas(read.elements || []))),
+      scene_variant: variant || undefined,
+      scene_index: variant || extra?.scene_index || 1,
+      scene_group: extra?.scene_group || sceneGroup(),
+      ocr: extra?.ocr || state.lastRead || baseVersion()?.ocr || undefined,
     };
   }
 
   function regionField() {
     const alter = checkedValues('mcTrocrAlter');
-    const order = ['price', 'headline', 'cta', 'secondary'];
-    return order.find((item) => alter.includes(item)) || 'price';
+    const order = ['headline', 'cta', 'secondary', 'price'];
+    return order.find((item) => alter.includes(item)) || 'headline';
   }
 
   function withCtas(elements) {
@@ -1023,8 +1186,8 @@
     return rows;
   }
 
-  function payload() {
-    return { ...editFields(), reference: baseVersion()?.image || '' };
+  function payload(extra) {
+    return { ...editFields(extra), reference: baseVersion()?.image || '' };
   }
 
   async function refreshPrompt() {
@@ -1075,34 +1238,40 @@
     }
   }
 
-  async function runSwap(quality) {
+  async function runSwap(quality, extra) {
     const base = baseVersion();
     if (!base?.image) return;
+    const variant = Number(extra?.scene_variant || 0);
+    const fields = editFields(extra);
     state.quality = quality;
     document.querySelectorAll('input[name="mcTrocrQuality"]').forEach((node) => {
       node.checked = node.value === quality;
     });
     highlightQuality();
-    enableGenerate(false);
     setFlow('generate');
-    showWait(quality, state.mode);
-    setStatus(state.mode === 'typeset'
-      ? 'Compondo o tipo na foto…'
-      : (quality === 'draft' ? 'Gerando rascunho…' : 'Gerando produção…'));
+    showWait(quality, variant ? 'image' : state.mode, variant);
+    enableGenerate(false);
+    setStatus(variant
+      ? `Gerando cena ${variant}…`
+      : (state.mode === 'typeset'
+        ? 'Compondo o tipo na foto…'
+        : (quality === 'draft' ? 'Gerando rascunho…' : 'Gerando produção…')));
     hideError();
-    state.lastAction = 'generate';
+    state.lastAction = variant ? `scene-${variant}` : 'generate';
     try {
-      try {
-        await loadPlan();
-      } catch (error) {
-        if (error.name !== 'AbortError') throw error;
-      }
-      if (state.planBlocked && !$('mcTrocrConfirmConflicts')?.checked) {
-        const first = state.conflicts.find((item) => item.blocking) || state.conflicts[0] || {};
-        throw new Error(conflictCopy(first) || 'Ajuste o pedido antes de gerar.');
+      if (!variant) {
+        try {
+          await loadPlan();
+        } catch (error) {
+          if (error.name !== 'AbortError') throw error;
+        }
+        if (state.planBlocked && !$('mcTrocrConfirmConflicts')?.checked) {
+          const first = state.conflicts.find((item) => item.blocking) || state.conflicts[0] || {};
+          throw new Error(conflictCopy(first) || 'Ajuste o pedido antes de gerar.');
+        }
       }
       const data = await request(API.swap, {
-        ...editFields(),
+        ...fields,
         quality,
         reference: base.image,
         base_id: state.baseId || undefined,
@@ -1125,33 +1294,49 @@
       const typeset = data.mode === 'typeset';
       const recrop = data.mode === 'recrop';
       const version = pushVersion({
-        name: typeset ? 'Tipo na foto' : (recrop ? 'Recorte + tipo' : (quality === 'draft' ? 'Rascunho' : 'Produção')),
-        origin: typeset ? 'typeset' : (recrop ? 'recrop' : (quality === 'draft' ? 'draft' : 'production')),
-        quality: typeset ? 'typeset' : quality,
+        name: variant
+          ? `Cena ${variant}`
+          : (typeset ? 'Tipo na foto' : (recrop ? 'Recorte + tipo' : (quality === 'draft' ? 'Rascunho' : 'Produção'))),
+        origin: variant ? 'scene' : (typeset ? 'typeset' : (recrop ? 'recrop' : (quality === 'draft' ? 'draft' : 'production'))),
+        quality: variant ? quality : (typeset ? 'typeset' : quality),
         image: still,
         thumb,
+        ocr: base.ocr || state.lastRead || null,
+        analysis: base.analysis || null,
         qa: data.qa || null,
         plan_hash: data.plan_hash || '',
         parent_id: base.id,
+        scene_index: variant || 1,
+        scene_group: sceneGroup(base),
+        params: pieceParams({
+          ...fields,
+          scene_index: variant || 1,
+          scene_group: sceneGroup(base),
+        }),
       });
+      if (base.ocr) state.cache[version.id] = base.ocr;
       if (data.history) applyStoredUrls(data.history);
       state.compareIds = [base.id, version.id];
       showPreview(still);
       state.promptLocked = false;
       state.promptEdited = false;
       setFlow('review');
-      toast(data.mode === 'typeset'
-        ? 'Tipo composto na foto. Elenco intacto.'
-        : (data.mode === 'recrop'
-          ? 'Formato virado. Tipo composto na foto.'
-          : 'Nova versão criada com sucesso'), 'success');
-      setStatus(data.mode === 'typeset'
-        ? 'Tipo composto na foto original. Os selos de nome não foram redesenhados.'
-        : (data.mode === 'recrop'
-          ? 'O formato virou. Preço e headline entraram na foto.'
-          : (data.logo_used
-            ? 'Nova versão criada. A logo oficial entrou no quadro.'
-            : 'Nova versão criada. Use esta versão como base para continuar editando.')));
+      toast(variant
+        ? `Cena ${variant} pronta. Use como base ou anime as tomadas.`
+        : (data.mode === 'typeset'
+          ? 'Tipo composto na foto. Elenco intacto.'
+          : (data.mode === 'recrop'
+            ? 'Formato virado. Tipo composto na foto.'
+            : 'Nova versão criada com sucesso')), 'success');
+      setStatus(variant
+        ? `Cena ${variant} gerada com os mesmos elementos e outro ambiente.`
+        : (data.mode === 'typeset'
+          ? 'Tipo composto na foto original. Os selos de nome não foram redesenhados.'
+          : (data.mode === 'recrop'
+            ? 'O formato virou. Preço e headline entraram na foto.'
+            : (data.logo_used
+              ? 'Nova versão criada. A logo oficial entrou no quadro.'
+              : 'Nova versão criada. Use esta versão como base para continuar editando.'))));
       renderCompare();
       await persistHistory();
       return version;
@@ -1211,6 +1396,9 @@
       thumb: version.thumb,
       ocr: version.ocr,
       analysis: version.analysis,
+      params: version.params || null,
+      scene_index: version.scene_index || 1,
+      scene_group: version.scene_group || sceneGroup(version),
       asBase: false,
     });
     if (version.ocr) state.cache[copy.id] = version.ocr;
@@ -1248,7 +1436,52 @@
     const version = state.versions.find((item) => item.id === id);
     if (!version) return;
     selectVersion(id);
-    if (version.ocr) applyRead(version.ocr, version, { cached: true });
+    if (version.ocr) {
+      applyRead(version.ocr, version, { cached: true });
+      applyEditIntent(version.params);
+    } else if (version.params) {
+      applyParams(version.params);
+    }
+  }
+
+  function applyEditIntent(params) {
+    if (!params) return;
+    if (Array.isArray(params.preserve)) {
+      document.querySelectorAll('input[name="mcTrocrPreserve"]').forEach((node) => {
+        node.checked = params.preserve.includes(node.value);
+      });
+    }
+    if (Array.isArray(params.alter)) {
+      document.querySelectorAll('input[name="mcTrocrAlter"]').forEach((node) => {
+        node.checked = params.alter.includes(node.value);
+      });
+    }
+    if (params.note != null && $('mcSwapNote')) {
+      $('mcSwapNote').value = params.note;
+      updateNoteCount();
+    }
+    refreshPrompt();
+  }
+
+  function openVideoWithScenes() {
+    const anchor = currentVersion() || baseVersion();
+    if (!anchor?.image && !anchor?.video_url) {
+      setStatus('Gere ou selecione uma peça antes de ir para o vídeo.');
+      return;
+    }
+    const group = sceneGroup(anchor);
+    const takes = state.versions
+      .filter((item) => item.media !== 'video' && item.image)
+      .filter((item) => !item.scene_group || item.scene_group === group)
+      .sort((a, b) => (Number(a.scene_index) || 1) - (Number(b.scene_index) || 1));
+    const ids = takes.map((item) => (
+      state.runId ? `${state.runId}:${item.id}` : item.id
+    ));
+    const query = new URLSearchParams();
+    if (state.clientId) query.set('client', state.clientId);
+    if (group) query.set('group', group);
+    if (ids.length) query.set('scenes', ids.join(','));
+    window.location.href = `/parametros/modelagem-criativos/video?${query.toString()}`;
   }
 
   function onVersionClick(event) {
@@ -1303,7 +1536,7 @@
         </button>
         <p>
           <strong>${escapeHtml(item.id)} ${escapeHtml(item.name)}</strong>
-          <small>${escapeHtml(ORIGIN_LABEL[item.origin] || item.origin)} ${when}${item.parent_id ? ` · de ${escapeHtml(item.parent_id)}` : ''}</small>
+          <small>${escapeHtml(ORIGIN_LABEL[item.origin] || item.origin)}${item.scene_index ? ` · Cena ${item.scene_index}` : ''} ${when}${item.parent_id ? ` · de ${escapeHtml(item.parent_id)}` : ''}</small>
         </p>
         <div class="mc-trocr-take-cta">
           <button type="button" data-action="base">Usar como base</button>
@@ -1462,7 +1695,7 @@
       if (ocrFailed) ocr.open = true;
       if ($('mcTrocrOcrHint') && !ocrFailed) {
         $('mcTrocrOcrHint').textContent = filled
-          ? 'A leitura preencheu. Abra só se algo estiver errado.'
+          ? 'A leitura preencheu o que apareceu. Preço, CTA e logo só se estiverem na peça.'
           : 'Nenhum texto para mostrar.';
       }
     }
@@ -1522,6 +1755,10 @@
   function enableGenerate(enabled) {
     if ($('mcSwapRun')) $('mcSwapRun').disabled = !enabled;
     if ($('mcTrocrDraft')) $('mcTrocrDraft').disabled = !enabled;
+    const waiting = Boolean($('mcTrocrWait') && !$('mcTrocrWait').hidden);
+    const canScene = Boolean(baseVersion()?.image) && !waiting;
+    if ($('mcTrocrScene2')) $('mcTrocrScene2').disabled = !canScene;
+    if ($('mcTrocrScene3')) $('mcTrocrScene3').disabled = !canScene;
     const canAnimate = Boolean(currentVersion()?.image || currentVersion()?.video_url);
     if ($('mcTrocrAnimateBtn')) $('mcTrocrAnimateBtn').disabled = !canAnimate;
     if ($('mcTrocrAnimateFromGenerate')) $('mcTrocrAnimateFromGenerate').disabled = !canAnimate;
@@ -1539,22 +1776,26 @@
     else button.textContent = state.quality === 'draft' ? 'Gerar rascunho' : 'Gerar produção';
   }
 
-  function showWait(quality, mode) {
+  function showWait(quality, mode, variant) {
     const box = $('mcTrocrWait');
     if (!box) return;
     const typeset = mode === 'typeset';
     const draft = quality === 'draft' && !typeset;
     if ($('mcTrocrWaitTitle')) {
-      $('mcTrocrWaitTitle').textContent = typeset
-        ? 'Compondo o tipo na foto'
-        : (draft ? 'Gerando rascunho' : 'Gerando produção');
+      $('mcTrocrWaitTitle').textContent = variant
+        ? `Gerando cena ${variant}`
+        : (typeset
+          ? 'Compondo o tipo na foto'
+          : (draft ? 'Gerando rascunho' : 'Gerando produção'));
     }
     if ($('mcTrocrWaitCopy')) {
-      $('mcTrocrWaitCopy').textContent = typeset
-        ? 'Isso costuma ser imediato.'
-        : (draft
-          ? 'Rascunho costuma levar menos de 30 segundos.'
-          : 'Produção costuma passar de um minuto.');
+      $('mcTrocrWaitCopy').textContent = variant
+        ? 'Mesmos elementos, outro ambiente. A imagem costuma demorar.'
+        : (typeset
+          ? 'Isso costuma ser imediato.'
+          : (draft
+            ? 'Rascunho costuma levar menos de 30 segundos.'
+            : 'Produção costuma passar de um minuto.'));
     }
     waitStarted = Date.now();
     if ($('mcTrocrWaitTime')) $('mcTrocrWaitTime').textContent = '0:00';
@@ -1655,6 +1896,10 @@
     state.replaceSession = true;
     state.forcedFormat = false;
     state.pendingForce = '';
+    state.sceneGroup = '';
+    state.priceOpen = false;
+    state.ctaOpen = false;
+    state.logoOpen = false;
     resetPanel();
     hideError();
     hideWait();
@@ -1705,6 +1950,10 @@
     ['mcSwapHeadline', 'mcSwapSupport', 'mcTrocrSubtitle', 'mcTrocrDates', 'mcTrocrVenue', 'mcTrocrPrice', 'mcSwapCta', 'mcTrocrCta2', 'mcTrocrLogo', 'mcTrocrDisclaimer', 'mcSwapNote', 'mcTrocrPrompt'].forEach((id) => {
       if ($(id)) $(id).value = '';
     });
+    state.priceOpen = false;
+    state.ctaOpen = false;
+    state.logoOpen = false;
+    syncOptionalUi();
     state.promptEdited = false;
     updateNoteCount();
     renderEditPanels();
@@ -1714,6 +1963,8 @@
   function retryLast() {
     hideError();
     if (state.lastAction === 'generate') runSwap(state.quality);
+    else if (state.lastAction === 'scene-2') runSwap(state.quality, { scene_variant: 2 });
+    else if (state.lastAction === 'scene-3') runSwap(state.quality, { scene_variant: 3 });
     else {
       const version = baseVersion();
       if (version) readReference(version, { force: true });
@@ -2145,6 +2396,9 @@
       qa: item.qa || null,
       plan_hash: item.plan_hash || '',
       parent_id: item.parent_id || '',
+      params: item.params || null,
+      scene_index: Number(item.scene_index || item.params?.scene_index || 0) || 0,
+      scene_group: item.scene_group || item.params?.scene_group || '',
       media: item.media || (item.origin === 'animate' ? 'video' : 'image'),
       video_url: item.video_url || '',
       poster_url: item.poster_url || '',
@@ -2181,13 +2435,16 @@
     state.baseId = data?.base_id && state.versions.some((item) => item.id === data.base_id)
       ? data.base_id
       : (state.versions[0]?.id || '');
+    const base = baseVersion();
+    state.sceneGroup = base?.scene_group
+      || state.versions.find((item) => item.scene_group)?.scene_group
+      || '';
     if (data?.aspect_ratio) {
       state.userPickedFormat = true;
       selectFormat(data.aspect_ratio);
     }
     if (data?.revision != null) state.revision = Number(data.revision) || 0;
     const current = currentVersion();
-    const base = baseVersion();
     renderVersions();
     renderBaseMeta();
     renderEditPanels();
@@ -2197,6 +2454,7 @@
     enableGenerate(canGenerate());
     setFlow('review');
     if (base?.ocr) applyRead(base.ocr, base, { cached: true });
+    else if (base?.params) applyParams(base.params);
   }
 
   async function loadHistory(runId) {
@@ -2227,6 +2485,10 @@
       if (item.thumb_url && String(local.thumb || '').startsWith('data:')) local.thumb = item.thumb_url;
       if (item.parent_id && !local.parent_id) local.parent_id = item.parent_id;
       if (item.plan_hash && !local.plan_hash) local.plan_hash = item.plan_hash;
+      if (item.params && !local.params) local.params = item.params;
+      if (item.scene_index && !local.scene_index) local.scene_index = item.scene_index;
+      if (item.scene_group && !local.scene_group) local.scene_group = item.scene_group;
+      if (item.ocr && !local.ocr) local.ocr = item.ocr;
     });
   }
 
@@ -2273,6 +2535,9 @@
               qa: item.qa || null,
               plan_hash: item.plan_hash || '',
               parent_id: item.parent_id || '',
+              params: item.params || null,
+              scene_index: item.scene_index || item.params?.scene_index || 0,
+              scene_group: item.scene_group || item.params?.scene_group || '',
               media: item.media || '',
               video_url: item.video_url || '',
               poster_url: item.poster_url || '',

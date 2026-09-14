@@ -96,16 +96,28 @@ class TrocrStore:
                     continue
                 seen.add(ident)
                 version_id = str(item.get("id") or "")
+                params = slim_context(item.get("params")) if isinstance(item.get("params"), dict) else None
+                ocr = slim_context(item.get("ocr"))
+                headline = ""
+                if isinstance(params, dict):
+                    headline = str(params.get("headline") or "").strip()
+                if not headline and isinstance(ocr, dict):
+                    headline = str(ocr.get("headline") or "").strip()
                 items.append({
                     "id": f"{run_id}:{version_id}" if run_id and version_id else version_id,
                     "version_id": version_id,
                     "run_id": run_id,
                     "name": str(item.get("name") or version_id or "Peça"),
+                    "origin": str(item.get("origin") or ""),
                     "image_url": url,
                     "thumb_url": published_still_url(item.get("thumb_url") or url),
                     "image": url,
                     "thumb": published_still_url(item.get("thumb_url") or url),
-                    "ocr": slim_context(item.get("ocr")),
+                    "ocr": ocr,
+                    "params": params,
+                    "headline": headline,
+                    "scene_index": scene_index_value(item, params),
+                    "scene_group": str(item.get("scene_group") or (params or {}).get("scene_group") or ""),
                     "aspect_ratio": aspect,
                     "created_at": str(item.get("created_at") or run.get("updated_at") or ""),
                     "broken": (not video) and not self.still_alive(url),
@@ -141,6 +153,8 @@ class TrocrStore:
             versions = list(run.get("versions") or [])
         next_id = f"v{len(versions) + 1}"
         piece_name = str(payload.get("name") or "Peça").strip() or "Peça"
+        run_id = str(run.get("run_id") or "")
+        group = f"{run_id}:{next_id}" if run_id else next_id
         versions.append({
             "id": next_id,
             "attempt": len(versions) + 1,
@@ -151,6 +165,9 @@ class TrocrStore:
             "created_at": utc_now(),
             "image_url": image_url,
             "thumb_url": image_url,
+            "scene_index": 1,
+            "scene_group": group,
+            "params": {"scene_index": 1, "scene_group": group},
         })
         run = write_run(run, {
             "active_id": next_id,
@@ -167,11 +184,15 @@ class TrocrStore:
             "version_id": next_id,
             "run_id": run.get("run_id") or "",
             "name": piece_name,
+            "origin": "library",
             "image_url": image_url,
             "thumb_url": image_url,
             "image": image_url,
             "thumb": image_url,
             "ocr": None,
+            "params": {"scene_index": 1, "scene_group": group},
+            "scene_index": 1,
+            "scene_group": group,
             "aspect_ratio": run.get("aspect_ratio") or "16:9",
             "created_at": run.get("updated_at") or "",
         })
@@ -360,7 +381,18 @@ class TrocrStore:
             return
         quality = str(result.get("quality") or payload.get("quality") or "production")
         mode = str(result.get("mode") or "")
-        if mode in {"typeset", "recrop"}:
+        try:
+            variant = int((payload or {}).get("scene_variant") or 0)
+        except (TypeError, ValueError):
+            variant = 0
+        parent_id = str(payload.get("base_id") or existing.get("base_id") or "")
+        parent = next((item for item in versions if str(item.get("id") or "") == parent_id), None)
+        if parent is None and versions:
+            parent = next((item for item in versions if item.get("origin") == "original"), versions[0])
+        if variant in {2, 3}:
+            origin = "scene"
+            name = f"Cena {variant}"
+        elif mode in {"typeset", "recrop"}:
             origin = mode
             name = "Tipo na foto" if mode == "typeset" else "Recorte + tipo"
         elif quality == "draft":
@@ -370,9 +402,10 @@ class TrocrStore:
             origin = "production"
             name = "Produção"
         next_id = f"v{len(versions) + 1}"
-        parent_id = str(payload.get("base_id") or existing.get("base_id") or "")
         if parent_id == next_id:
             parent_id = ""
+        params = generated_params(payload, existing, parent, variant)
+        ocr = generated_ocr(payload, parent, params)
         versions.append({
             "id": next_id,
             "attempt": len(versions) + 1,
@@ -384,6 +417,10 @@ class TrocrStore:
             "created_at": datetime.now(timezone.utc).isoformat(),
             "image_url": image_url,
             "thumb_url": image_url,
+            "ocr": ocr,
+            "params": params,
+            "scene_index": params.get("scene_index") or (variant if variant in {2, 3} else 1),
+            "scene_group": params.get("scene_group") or "",
             "qa": result.get("qa") if isinstance(result.get("qa"), dict) else None,
             "plan_hash": result.get("plan_hash") or payload.get("plan_hash") or "",
         })
@@ -582,6 +619,10 @@ class TrocrStore:
                 stored["thumb_url"] = prev.get("thumb_url") or stored["image_url"]
             if prev and prev.get("camadas_creative_id") and not stored.get("camadas_creative_id"):
                 stored["camadas_creative_id"] = prev.get("camadas_creative_id")
+            if prev:
+                for key in ("params", "scene_group", "scene_index", "ocr"):
+                    if prev.get(key) and not stored.get(key):
+                        stored[key] = prev[key]
             if prev and is_video_version(prev):
                 stored = keep_video_fields(stored, prev)
             if not stored["id"]:
@@ -635,6 +676,7 @@ class TrocrStore:
             "plan_hash": str(item.get("plan_hash") or ""),
             "parent_id": str(item.get("parent_id") or item.get("parentId") or ""),
         }
+        packed = attach_scene_fields(packed, item)
         if item.get("camadas_creative_id"):
             packed["camadas_creative_id"] = str(item.get("camadas_creative_id"))
         if is_video:
@@ -1205,3 +1247,90 @@ def slim_context(value):
             continue
         slim[key] = item
     return slim or None
+
+
+def scene_index_value(item, params=None):
+    from .swap_schema import scene_index_of
+
+    data = item if isinstance(item, dict) else {}
+    number = scene_index_of(data)
+    if number:
+        return number
+    return scene_index_of(params if isinstance(params, dict) else {})
+
+
+def attach_scene_fields(packed, item):
+    from .swap_schema import PARAM_COPY_KEYS, piece_params
+
+    data = item if isinstance(item, dict) else {}
+    raw = data.get("params") if isinstance(data.get("params"), dict) else None
+    if raw or any(str(data.get(key) or "").strip() for key in PARAM_COPY_KEYS) or data.get("scene_group") or data.get("scene_index") or data.get("scene_variant"):
+        packed["params"] = piece_params(raw or data)
+    params = packed.get("params") if isinstance(packed.get("params"), dict) else None
+    index = scene_index_value(data, params)
+    if index:
+        packed["scene_index"] = index
+        if params is not None:
+            params["scene_index"] = index
+    group = str(data.get("scene_group") or (params or {}).get("scene_group") or "").strip()[:64]
+    if group:
+        packed["scene_group"] = group
+        if params is not None:
+            params["scene_group"] = group
+    return packed
+
+
+def generated_params(payload, existing, parent, variant):
+    from .swap_schema import piece_params
+
+    data = dict(payload) if isinstance(payload, dict) else {}
+    if variant in {2, 3}:
+        data["scene_index"] = variant
+    params = piece_params(data, parent)
+    original = None
+    for item in (existing or {}).get("versions") or []:
+        if not isinstance(item, dict):
+            continue
+        if item.get("origin") == "original":
+            original = item
+            break
+        if item.get("scene_group") and original is None:
+            original = item
+    group = str(params.get("scene_group") or "").strip()
+    if not group:
+        group = str(
+            (original or {}).get("scene_group")
+            or (parent or {}).get("scene_group")
+            or ""
+        ).strip()
+    if not group:
+        run_id = str((existing or {}).get("run_id") or data.get("run_id") or "")[:32]
+        anchor = str(
+            (original or {}).get("id")
+            or data.get("base_id")
+            or (existing or {}).get("base_id")
+            or (parent or {}).get("id")
+            or "v1"
+        )
+        group = f"{run_id}:{anchor}" if run_id else anchor
+    params["scene_group"] = group[:64]
+    if variant in {2, 3}:
+        params["scene_index"] = variant
+    elif not params.get("scene_index"):
+        params["scene_index"] = 1
+    return params
+
+
+def generated_ocr(payload, parent, params):
+    from .swap_schema import PARAM_COPY_KEYS
+
+    ocr = slim_context((payload or {}).get("ocr")) or slim_context((parent or {}).get("ocr"))
+    copy = params if isinstance(params, dict) else {}
+    if ocr:
+        for key in PARAM_COPY_KEYS:
+            if copy.get(key) and not ocr.get(key):
+                ocr[key] = copy[key]
+        return ocr
+    if any(copy.get(key) for key in PARAM_COPY_KEYS):
+        return {key: copy.get(key) or "" for key in PARAM_COPY_KEYS}
+    return None

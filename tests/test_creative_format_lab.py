@@ -2063,11 +2063,23 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("Ajuste da leitura", trocar)
         self.assertIn("mcTrocrRisk", trocar)
         self.assertIn("mcTrocrForceImage", trocar)
+        self.assertIn("mcTrocrScene2", trocar)
+        self.assertIn("mcTrocrScene3", trocar)
+        self.assertIn("Mesmos elementos, outra cena para animar.", trocar)
         self.assertIn("mcTrocrRoute", trocar)
         self.assertIn("mcTrocrDates", trocar)
         self.assertIn("mcTrocrSubtitle", trocar)
         self.assertIn("mcTrocrLogo", trocar)
         self.assertIn("mcTrocrDisclaimer", trocar)
+        self.assertIn("mcTrocrPriceField", trocar)
+        self.assertIn("mcTrocrPriceAddBtn", trocar)
+        self.assertIn("Informar preço", trocar)
+        self.assertIn("Informar CTA", trocar)
+        self.assertIn("Informar marca no quadro", trocar)
+        self.assertIn("mcTrocrAlterPrice", trocar)
+        self.assertIn("mcTrocrAlterCta", trocar)
+        self.assertIn("mcTrocrCtaField", trocar)
+        self.assertIn("mcTrocrLogoField", trocar)
         self.assertIn("Tipo na foto", trocar)
         self.assertIn("Compor na foto", trocar)
         self.assertIn("Nada some", trocar)
@@ -2120,6 +2132,9 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("selectClip", video_js)
         self.assertIn("new_piece", video_js)
         self.assertIn("purgeBroken", video_js)
+        self.assertIn("preselectScenes", video_js)
+        self.assertIn("wantedGroup", video_js)
+        self.assertIn("scene_group", video_js)
         self.assertIn('method: "DELETE"', video_js)
         video_page = (root / "aicentralv2" / "templates" / "parametros" / "_mc_video.html").read_text(encoding="utf-8")
         self.assertIn("Clipes gerados", video_page)
@@ -2169,6 +2184,15 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("paintRisk", swap_js)
         self.assertIn("paintRoute", swap_js)
         self.assertIn("force_image", swap_js)
+        self.assertIn("scene_variant", swap_js)
+        self.assertIn("openVideoWithScenes", swap_js)
+        self.assertIn("pieceParams", swap_js)
+        self.assertIn("scene_group", swap_js)
+        self.assertIn("sanitizePrice", swap_js)
+        self.assertIn("looksLikePrice", swap_js)
+        self.assertIn("syncPriceUi", swap_js)
+        self.assertIn("syncOptionalUi", swap_js)
+        self.assertIn("Informar preço", (trocar_dir / "trocr" / "_ocr_fields.html").read_text(encoding="utf-8"))
         self.assertIn("typeset", swap_js)
         self.assertIn("recrop", swap_js)
         self.assertIn("Compor na foto", swap_js)
@@ -2546,6 +2570,121 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
         self.assertTrue(result["analysis"]["logo"])
         self.assertTrue(result["analysis"]["headline"])
         self.assertEqual(result["status"], "completed")
+
+    def test_ocr_campos_opcionais_sem_inventar_preco_cta_logo(self):
+        captured = {}
+
+        def vivara(messages, **_kwargs):
+            captured["system"] = messages[0]["content"]
+            captured["user"] = messages[1]["content"][0]["text"]
+            return {
+                "message": {
+                    "content": {
+                        "headline": "Sua vida em uma joia",
+                        "support": "Monte sua joia e conte a sua história.",
+                        "price": "R$ 0,00",
+                        "cta": "Saiba mais",
+                        "logo_text": "VIVARA",
+                        "analysis": {
+                            "cta": False,
+                            "supports": False,
+                            "logo": True,
+                            "headline": True,
+                        },
+                    }
+                }
+            }
+
+        jewelry = read_swap_reference(
+            {"reference": "data:image/png;base64,aaa"},
+            text_callable=vivara,
+        )
+        self.assertEqual(jewelry["price"], "")
+        self.assertEqual(jewelry["cta"], "")
+        self.assertEqual(jewelry["logo_text"], "VIVARA")
+        self.assertFalse(jewelry["analysis"]["cta"])
+        self.assertFalse(jewelry["analysis"]["supports"])
+        self.assertTrue(jewelry["analysis"]["logo"])
+        self.assertIn("opcionais", captured["system"])
+        self.assertIn("Não invente", captured["user"])
+
+        def aviator(_messages, **_kwargs):
+            return {
+                "message": {
+                    "content": {
+                        "headline": "LIQUI até 50%",
+                        "support": "Liquidação Aviator até 50% Off.",
+                        "price": "Descontos de até 50%.",
+                        "cta": "",
+                        "logo_text": "AVIATOR",
+                        "analysis": {"cta": False, "supports": False, "logo": True},
+                    }
+                }
+            }
+
+        sale = read_swap_reference(
+            {"reference": "data:image/png;base64,aaa"},
+            text_callable=aviator,
+        )
+        self.assertEqual(sale["price"], "")
+        self.assertEqual(sale["cta"], "")
+        self.assertEqual(sale["status"], "completed")
+
+        def bomfim(_messages, **_kwargs):
+            return {
+                "message": {
+                    "content": {
+                        "headline": "Frete barato nem sempre é o menor custo.",
+                        "support": "Atraso, retrabalho e baixa previsibilidade também pesam.",
+                        "price": "CUSTO TOTAL",
+                        "cta": "Entender minha operação",
+                        "logo_text": "Bomfim",
+                        "elements": [{"role": "person", "text": "Luciana Menezes"}],
+                        "analysis": {
+                            "cta": True,
+                            "logo": True,
+                            "supports": False,
+                            "headline": True,
+                        },
+                    }
+                }
+            }
+
+        cargo = read_swap_reference(
+            {"reference": "data:image/png;base64,aaa"},
+            text_callable=bomfim,
+        )
+        self.assertEqual(cargo["price"], "")
+        self.assertEqual(cargo["cta"], "Entender minha operação")
+        self.assertEqual(cargo["logo_text"], "Bomfim")
+        self.assertTrue(cargo["analysis"]["cta"])
+        self.assertFalse(cargo["analysis"]["supports"])
+        self.assertIn("Luciana Menezes", cargo["locks"])
+
+        def telco(_messages, **_kwargs):
+            return {
+                "message": {
+                    "content": {
+                        "headline": "500 MEGA",
+                        "price": "R$ 169,99/mês",
+                        "cta": "Monte o seu",
+                        "logo_text": "TIM",
+                        "analysis": {"cta": True, "logo": True, "supports": True},
+                    }
+                }
+            }
+
+        plan = read_swap_reference(
+            {"reference": "data:image/png;base64,aaa"},
+            text_callable=telco,
+        )
+        self.assertEqual(plan["price"], "R$ 169,99/mês")
+        self.assertEqual(plan["cta"], "Monte o seu")
+        self.assertTrue(plan["analysis"]["supports"])
+        from aicentralv2.creative_format_lab.swap import prepare_swap
+
+        self.assertEqual(prepare_swap({"price": "R$ 0,00", "logo_text": "Marca"})["price"], "")
+        self.assertEqual(prepare_swap({"logo_text": "Marca"})["logo_text"], "")
 
     def test_ocr_aceita_content_em_lista_do_gpt5(self):
         captured = {}
@@ -3195,6 +3334,64 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
         })
         from aicentralv2.creative_format_lab.swap import _lock_list
         self.assertEqual(len(_lock_list(prepared)), 15)
+        slogan = "Descubra Life by Vivara. Cada instante da sua vida também é uma joia"
+        cleaned = prepare_swap({
+            "price": slogan,
+            "headline": "Sua vida em uma joia",
+            "elements": [{"role": "price", "text": slogan, "text_original": slogan}],
+        })
+        self.assertEqual(cleaned["price"], "")
+        self.assertFalse(any(item.get("role") == "price" for item in cleaned["elements"]))
+        read = normalize_read({"price": slogan, "headline": "Sua vida em uma joia"})
+        self.assertEqual(read["price"], "")
+        self.assertNotIn("price", read["overflow"])
+        offer = "Liquidação Aviator até 50% Off. Aproveite a Liquidação Aviator. Descontos de até 50%."
+        offered = prepare_swap({"price": offer, "headline": "LIQUI até 50%"})
+        self.assertEqual(offered["price"], "")
+        self.assertEqual(prepare_swap({"price": "50% Off"})["price"], "")
+        self.assertEqual(prepare_swap({"price": "até 50%"})["price"], "")
+        self.assertEqual(prepare_swap({"price": "R$ 199,90"})["price"], "R$ 199,90")
+        self.assertEqual(prepare_swap({
+            "price": "Frete barato nem sempre é o menor custo.",
+            "headline": "Frete barato nem sempre é o menor custo.",
+        })["price"], "")
+        self.assertEqual(prepare_swap({"price": "CUSTO TOTAL"})["price"], "")
+        self.assertEqual(prepare_swap({"price": "Luciana Menezes"})["price"], "")
+
+    def test_cena_variante_nao_e_noop_e_muda_ambiente(self):
+        from aicentralv2.creative_format_lab.swap import (
+            apply_scene_variant,
+            build_optimized_prompt,
+            prepare_swap,
+            scene_variant,
+        )
+        from aicentralv2.creative_format_lab.swap_plan import build_swap_plan
+
+        self.assertEqual(scene_variant({"scene_variant": 2}), 2)
+        self.assertEqual(scene_variant({"scene_variant": 1}), 0)
+        payload = {
+            "base_id": "v1",
+            "reference": "data:image/png;base64,aaa",
+            "headline": "Sua vida em uma joia",
+            "scene_variant": 2,
+        }
+        prepared = prepare_swap(payload)
+        self.assertEqual(prepared["scene_variant"], 2)
+        self.assertTrue(prepared["force_image"])
+        self.assertIn("background", prepared["alter"])
+        self.assertIn("product", prepared["preserve"])
+        self.assertNotIn("background", prepared["preserve"])
+        plan = build_swap_plan(payload)
+        self.assertFalse(plan["noop"])
+        self.assertFalse(plan["blocked"])
+        self.assertEqual(plan["mode"], "image")
+        prompt = build_optimized_prompt(prepared)
+        self.assertIn("second shot", prompt)
+        self.assertIn("Do not invent a new product", prompt)
+        other = apply_scene_variant({"scene_variant": 3, "preserve": ["background"], "alter": ["product"]})
+        self.assertEqual(other["scene_variant"], 3)
+        self.assertIn("background", other["alter"])
+        self.assertNotIn("product", other["alter"])
 
     def test_plano_unico_hash_conflitos_e_noop(self):
         from aicentralv2.creative_format_lab.swap import (

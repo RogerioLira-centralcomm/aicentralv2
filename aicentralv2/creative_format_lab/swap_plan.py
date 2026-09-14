@@ -21,7 +21,7 @@ from .swap import (
 )
 
 
-PLANNER_VERSION = "trocr-plan-4"
+PLANNER_VERSION = "trocr-plan-5"
 TYPE_FIELDS = {
     "headline": "headline",
     "support": "secondary",
@@ -166,7 +166,7 @@ def _conflicts(data, operations, brand):
             False,
         ))
     note = str(data.get("note") or "").strip()
-    if note:
+    if note and not data.get("scene_variant"):
         hinted = {token for pattern, token in NOTE_HINTS if pattern.search(note)}
         missing = sorted(token for token in hinted if token not in alter and token not in {"logo"})
         if "logo" in hinted and "logo" in preserve:
@@ -181,7 +181,7 @@ def _conflicts(data, operations, brand):
 
 
 def _is_noop(data, operations):
-    if data.get("force_image") or data.get("prompt_override"):
+    if data.get("force_image") or data.get("prompt_override") or data.get("scene_variant"):
         return False
     if needs_recrop(data):
         return False
@@ -260,6 +260,7 @@ def _hash_plan(data, operations, brand):
         "aspect_hint": str(data.get("aspect_hint") or ""),
         "force_image": bool(data.get("force_image")),
         "prompt_override": str(data.get("prompt_override") or ""),
+        "scene_variant": int(data.get("scene_variant") or 0),
         "regions": _region_seed(data, operations),
     }
     raw = json.dumps(seed, ensure_ascii=False, sort_keys=True, separators=(",", ":"))

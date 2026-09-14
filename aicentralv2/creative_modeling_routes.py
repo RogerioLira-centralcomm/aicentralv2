@@ -458,6 +458,20 @@ def api_format_assets_resolve():
 
 
 @admin_required_api
+def api_format_revision():
+    if request.method == "GET":
+        return _execute(
+            lambda: _ok(_service().list_format_revisions(request.args.get("variant_id")))
+        )
+    return _execute(lambda: _ok(_service().create_format_revision(_json())))
+
+
+@admin_required_api
+def api_format_revision_approve():
+    return _execute(lambda: _ok(_service().approve_format_revision(_json())))
+
+
+@admin_required_api
 def api_compose_library():
     return _execute(
         lambda: _ok(
@@ -1628,6 +1642,18 @@ def register_creative_modeling_routes(blueprint):
         "/api/format-assets/resolve",
         endpoint="creative_format_assets_resolve",
         view_func=api_format_assets_resolve,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-revisions",
+        endpoint="creative_format_revisions",
+        view_func=api_format_revision,
+        methods=["GET", "POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/format-revisions/approve",
+        endpoint="creative_format_revisions_approve",
+        view_func=api_format_revision_approve,
         methods=["POST"],
     )
     blueprint.add_url_rule(

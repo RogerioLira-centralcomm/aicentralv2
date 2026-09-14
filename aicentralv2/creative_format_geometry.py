@@ -9,6 +9,11 @@ from .creative_modeling_generation import (
     SUPPORTED_IMAGE_ASPECT_RATIOS,
     normalize_image_aspect_ratio,
 )
+from .creative_format_registry import (
+    default_zone as registry_default_zone,
+    entry as registry_entry,
+    resolve_format_key as resolve_canonical_key,
+)
 
 
 COMPOSE_FAMILIES = frozenset({
@@ -22,6 +27,8 @@ SOCIAL_FORMAT_SLUGS = frozenset({
     "tiktok-vertical", "facebook-feed",
     "linkedin-share", "linkedin-feed", "linkedin-portrait",
     "youtube-infeed", "youtube-shorts",
+    "feed-1x1", "feed-4x5", "story-9x16", "reels-9x16", "shorts-9x16",
+    "linkedin-landscape",
 })
 PORTAL_UNIT_SLUGS = frozenset({
     "hotspot", "cartas", "puxe-descubra", "arraste-descubra", "quiz",
@@ -32,27 +39,53 @@ CTV_FORMAT_SLUGS = frozenset({
     "netflix-pause-banner", "netflix-logo-bumper", "netflix-anuncio-simulado",
     "hbomax-pause-ad", "hbomax-interactive-midroll",
     "disney-pause-plus", "disney-branded-slate",
+    "video-linear-15", "video-cta-15", "video-qr-15",
 })
 FORMAT_IAB_FAMILY = {
+    "iab-medium": {
+        "family": "rectangle",
+        "size": (300, 250),
+        "iab_cousin": "medium_rectangle",
+    },
     "iab-medium-rectangle": {
         "family": "rectangle",
         "size": (300, 250),
         "iab_cousin": "medium_rectangle",
+    },
+    "iab-billboard": {
+        "family": "wide_banner",
+        "size": (970, 250),
+        "iab_cousin": "billboard",
     },
     "iab-leaderboard": {
         "family": "wide_banner",
         "size": (728, 90),
         "iab_cousin": "leaderboard",
     },
+    "iab-mobile": {
+        "family": "wide_banner",
+        "size": (320, 50),
+        "iab_cousin": "mobile_banner",
+    },
     "iab-mobile-banner": {
         "family": "wide_banner",
         "size": (320, 50),
         "iab_cousin": "mobile_banner",
     },
+    "iab-halfpage": {
+        "family": "half_page",
+        "size": (300, 600),
+        "iab_cousin": "half_page",
+    },
     "iab-half-page": {
         "family": "half_page",
         "size": (300, 600),
         "iab_cousin": "half_page",
+    },
+    "iab-skyscraper": {
+        "family": "half_page",
+        "size": (160, 600),
+        "iab_cousin": "skyscraper",
     },
     "netflix-pause-banner": {
         "family": "wide_banner",
@@ -290,14 +323,21 @@ def parse_default_size(value):
 
 
 def format_family_spec(slug, default_size=None):
-    slug = str(slug or "").strip()
-    mapped = dict(FORMAT_IAB_FAMILY.get(slug) or {})
-    if slug in PORTAL_UNIT_SLUGS:
+    raw = str(slug or "").strip()
+    canonical = resolve_canonical_key(raw) or raw
+    mapped = dict(FORMAT_IAB_FAMILY.get(canonical) or FORMAT_IAB_FAMILY.get(raw) or {})
+    registered = registry_entry(canonical)
+    if registered:
+        mapped.setdefault("family", registered.get("geometry_family"))
+        mapped.setdefault("size", (registered["width"], registered["height"]))
+        mapped.setdefault("iab_cousin", registered.get("iab_cousin"))
+    if canonical in PORTAL_UNIT_SLUGS or raw in PORTAL_UNIT_SLUGS:
         mapped.setdefault("family", "portal_unit")
     size = parse_default_size(default_size) or mapped.get("size")
     family = mapped.get("family") or _family_from_size(size)
     spec = {
-        "slug": slug,
+        "slug": raw,
+        "canonical_key": canonical,
         "family": family,
         "size": size,
         "iab_cousin": mapped.get("iab_cousin"),
@@ -305,7 +345,7 @@ def format_family_spec(slug, default_size=None):
         "budget": _budget_for(family, None),
         "composable": family in COMPOSE_FAMILIES,
         "placement_zone": placement_zone_for(
-            family=family, size=size, slug=slug,
+            family=family, size=size, slug=raw,
         ),
     }
     return spec
@@ -313,34 +353,53 @@ def format_family_spec(slug, default_size=None):
 
 def placement_zone_for(family=None, size=None, device=None, slug=None, context=None):
     slug = str(slug or "").strip()
+    canonical = resolve_canonical_key(slug) or slug
     family = str(family or "").strip()
     device = str(device or "").strip().lower()
     context = str(context or "").strip().lower()
     if (
         context in {"tv", "social"}
         or slug in CTV_FORMAT_SLUGS
+        or canonical in CTV_FORMAT_SLUGS
         or slug in SOCIAL_FORMAT_SLUGS
+        or canonical in SOCIAL_FORMAT_SLUGS
         or family in {
             "slate_16x9", "sequence_16x9",
         } | SOCIAL_PAINT_FAMILIES
     ):
         return None
+    registered = registry_entry(canonical)
+    if registered and registered.get("kind") in {"video", "social"}:
+        return None
+    if registered and registered.get("placement_zones"):
+        zone = registry_default_zone(canonical, device=device)
+        if zone:
+            return zone
     width = height = None
     if size and len(size) >= 2:
         width, height = size[0], size[1]
     mobile = device in {"mobile", "celular"}
     if (
-        slug == "iab-mobile-banner"
+        canonical in {"iab-mobile", "iab-mobile-banner"}
+        or slug in {"iab-mobile", "iab-mobile-banner"}
         or (width == 320 and height == 50)
         or (mobile and (family == "wide_banner" or (height is not None and height <= 90)))
     ):
         return "sticky"
-    if family == "wide_banner" or slug == "iab-leaderboard" or (
-        width == 728 and height == 90
+    if (
+        family == "wide_banner"
+        or canonical in {"iab-leaderboard", "iab-billboard"}
+        or slug in {"iab-leaderboard", "iab-billboard"}
+        or (width == 728 and height == 90)
+        or (width == 970 and height == 250)
     ):
         return "leaderboard"
-    if family == "half_page" or slug == "iab-half-page" or (
-        width == 300 and height == 600
+    if (
+        family == "half_page"
+        or canonical in {"iab-halfpage", "iab-half-page", "iab-skyscraper"}
+        or slug in {"iab-half-page", "iab-halfpage", "iab-skyscraper"}
+        or (width == 300 and height == 600)
+        or (width == 160 and height == 600)
     ):
         return "rail"
     return "in_feed"

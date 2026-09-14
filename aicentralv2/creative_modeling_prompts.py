@@ -3,6 +3,14 @@
 from .creative_brand_analysis import format_copy_system_lines
 from .creative_construct_params import locks_from_kv_items, normalize_kv_items
 
+DEMO_MOCK_IMAGE_RULES = """DEMOSTRATIVE MOCK IMAGE
+Create a photographic advertising field for a proof of concept.
+Preserve clean areas for logo, headline and CTA. Do not paint words,
+slogans, logos, buttons or portal/social/streaming chrome inside the image.
+Do not invent marks that were not supplied. Keep essential detail away from edges.
+The image is only a mock; type and brand are applied later in HTML.
+Use the target aspect ratio. Do not recycle one crop for every format."""
+
 ANTI_AI_LOOK = """FORBID AI LOOK
 No glowing rays, particle streams, neural-network lines, wifi magic,
 lens flares, holographic grids or stock “family on a sofa with light trails”.
@@ -450,6 +458,7 @@ def compose_format_mockup_prompt(
         DEVICE_PRESENTATION_RULES.get(
             presentation_context, DEVICE_PRESENTATION_RULES["portal"]
         ),
+        DEMO_MOCK_IMAGE_RULES,
     ]
     if presentation_mode == "four_horizontal":
         sections.append(FOUR_VARIATION_BOARD)

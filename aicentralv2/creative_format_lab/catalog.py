@@ -1,5 +1,6 @@
 """Catálogo 15s: CTV e banners IAB, adapters e composições 4|5."""
 
+from ..creative_format_registry import resolve_format_key as resolve_canonical_key
 from ..creative_skills.visual import list_visual_skills
 
 DURATION_SECONDS = 15
@@ -271,6 +272,7 @@ FORMAT_ALIASES = {
     "iab-banner": "iab-medium",
     "iab-half-page": "iab-halfpage",
     "iab-medium-rectangle": "iab-medium",
+    "iab-mobile-banner": "iab-mobile",
 }
 
 ADAPTERS = {
@@ -665,6 +667,9 @@ def toggles_for_purpose(purpose, *, format_key="video-linear-15"):
 
 def resolve_format_key(format_key):
     key = str(format_key or "").strip()
+    resolved = resolve_canonical_key(key)
+    if resolved:
+        return resolved
     return FORMAT_ALIASES.get(key, key)
 
 

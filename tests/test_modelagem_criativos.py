@@ -1090,6 +1090,44 @@ class CreativeServiceTest(unittest.TestCase):
             storage=FakeStorage(),
         )
 
+    def test_list_formats_expoe_chave_canonica_e_zona(self):
+        listed = self.service.list_formats()
+        self.assertEqual(listed[0]["canonical_key"], "iab-leaderboard")
+        self.assertIn("aliases", listed[0])
+        self.assertEqual(listed[0]["placement_zone"], "leaderboard")
+
+    def test_treino_de_formato_devolve_pipeline(self):
+        result = self.service.train_format({
+            "format_key": "iab-medium-rectangle",
+            "channel": "portal",
+            "device": "desktop",
+            "zone": "in_feed",
+        })
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["path"], "C")
+        self.assertIn("cx-format-ph", result["steps"]["assets"]["placeholder"]["html"])
+
+    def test_revisao_de_formato_fica_imutavel_depois_de_aprovar(self):
+        created = self.service.create_format_revision({
+            "variant_id": "format-service-7",
+            "format_key": "iab-leaderboard",
+            "revision": 1,
+        })
+        approved = self.service.approve_format_revision({
+            "variant_id": "format-service-7",
+            "revision": 1,
+        })
+        self.assertEqual(created["revision"], 1)
+        self.assertEqual(approved["status"], "approved")
+        again = self.service.create_format_revision({
+            "variant_id": "format-service-7",
+            "format_key": "iab-billboard",
+            "revision": 2,
+        })
+        self.assertEqual(again["revision"], 1)
+        self.assertEqual(again["status"], "approved")
+        self.assertEqual(len(self.service.list_format_revisions("format-service-7")), 1)
+
     def test_referencias_aprovadas_da_marca_preenchem_vagas_da_geracao(self):
         self.repo.list_client_brand_assets = lambda _client_id: [
             {
@@ -1996,6 +2034,7 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertEqual([item["scene_count"] for item in listed], [1, 4])
         self.assertIn("direction", listed[1])
         self.assertEqual(listed[1]["direction"]["behavior"], "reveal")
+        self.assertIn("canonical_key", listed[0])
 
     def test_perfil_de_viewer_preserva_hero_e_catalogo_seguro(self):
         self.repo.viewer_profiles[1]["palette"] = {
@@ -3011,6 +3050,18 @@ class CreativeGenerationContractTest(unittest.TestCase):
             ),
             "sticky",
         )
+        self.assertEqual(
+            placement_zone_for(slug="iab-billboard", size=(970, 250)),
+            "leaderboard",
+        )
+        self.assertEqual(
+            placement_zone_for(slug="iab-skyscraper", size=(160, 600)),
+            "rail",
+        )
+        self.assertEqual(
+            placement_zone_for(slug="iab-medium", size=(300, 250)),
+            "in_feed",
+        )
         self.assertIsNone(
             placement_zone_for(
                 family="wide_banner", slug="netflix-pause-banner", context="tv",
@@ -3636,6 +3687,14 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("function socialShellHtml", production_js)
         self.assertIn("data-ad-well", production_js)
         self.assertIn("function resolvePlacementZone", production_js)
+        self.assertIn("function formatCanonicalKey", production_js)
+        self.assertIn("function loadFormatTraining", production_js)
+        self.assertIn("function isolateAdSlot", production_js)
+        self.assertIn("format-lab/train", production_js)
+        self.assertIn("format-revision", production_js)
+        self.assertIn("mc-ad-frame", production_js)
+        self.assertIn("PLACEMENT_NOT_DEFINED", production_js)
+        self.assertIn("cx-format-ph", production_js)
         self.assertIn("function tvPlaybackShellHtml", production_js)
         self.assertIn("function armPauseAd", production_js)
         self.assertIn("O anúncio entra por cima da tela", production_js)
@@ -3667,6 +3726,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("data-zone", public_page)
         self.assertIn("pv-portal-page", public_page)
         self.assertIn("data-ad-zone", public_page)
+        self.assertIn("pv-public-label", public_page)
+        self.assertIn("data-device-switch", public_page)
         self.assertIn("cnn-brasil", public_page)
         self.assertIn("sbt-news", public_page)
         self.assertIn("pv-session", public_page)
@@ -3691,6 +3752,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("pv-player", public_ad)
         self.assertIn("public_collection_asset", public_ad)
         self.assertIn("data-carousel", public_ad)
+        self.assertIn("data-interactive", public_ad)
+        self.assertIn("data-quiz-choice", public_ad)
         self.assertIn("iab_width", public_ad)
         repository_source = (
             root / "aicentralv2" / "creative_modeling_repository.py"
@@ -3702,6 +3765,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertNotIn('src="{{ asset.asset_url }}"', public_page)
         library = (template_dir / "_mc_biblioteca.html").read_text(encoding="utf-8")
         self.assertIn("mcFormatStage", library)
+        self.assertIn("data-library-mode", library)
+        self.assertIn('data-library-mode="revisao"', library)
         self.assertIn("mcAdSlot", library)
         self.assertIn("O anúncio entra na zona do portal no tamanho IAB", library)
         self.assertIn('id="mcStageFootNote"', library)

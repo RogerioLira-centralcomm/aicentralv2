@@ -42,6 +42,17 @@ from .creative_html_compose import (
     render_html5_player,
 )
 from .creative_modeling_fx import annotate_cost, brl_from_usd
+from .creative_format_assets import resolve_assets
+from .creative_format_placeholder import PLACEHOLDER_CSS, render_placeholder
+from .creative_format_registry import (
+    DISCLAIMER,
+    aliases_for,
+    catalog_entries,
+    entry as registry_entry,
+    public_label_for,
+    resolve_format_key as resolve_canonical_key,
+)
+from .format_lab_agents import run_training
 from .creative_format_geometry import (
     ALLOWED_SCENE_COUNTS,
     CTV_FORMAT_SLUGS,
@@ -954,6 +965,10 @@ class CreativeModelingService:
     def list_formats(self):
         formats = self.repository.list_formats()
         for format_data in formats:
+            slug = format_data.get("slug")
+            canonical = resolve_canonical_key(slug) or slug
+            format_data["canonical_key"] = canonical
+            format_data["aliases"] = aliases_for(canonical)
             format_data["scene_count"] = scene_count_for_format(format_data)
             geometry = resolve_format_geometry(format_data)
             format_data["iab_family"] = geometry["family"]
@@ -988,7 +1003,58 @@ class CreativeModelingService:
                         "placement_zone": zone,
                     }
             format_data["placement_zone"] = zone
+            registered = registry_entry(canonical)
+            if registered:
+                format_data["density"] = registered["density"]
+                format_data["required_elements"] = registered["required_elements"]
+                format_data["optional_elements"] = registered["optional_elements"]
+                format_data["forbidden_elements"] = registered["forbidden_elements"]
+                format_data["viewer_types"] = registered["viewer_types"]
+                format_data["recomposition_rules"] = registered["recomposition_rules"]
+                format_data["safe_areas"] = registered["safe_areas"]
         return _serialize(formats)
+
+    def format_registry_catalog(self):
+        return {
+            "formats": catalog_entries(),
+            "disclaimer": DISCLAIMER,
+            "placeholder_css": PLACEHOLDER_CSS,
+        }
+
+    def format_registry_entry(self, key):
+        item = registry_entry(key)
+        if not item:
+            raise ValueError("Formato sem registro canônico.")
+        placeholder = render_placeholder(item["format_key"])
+        return {
+            "format": item,
+            "placeholder": placeholder,
+            "disclaimer": DISCLAIMER,
+        }
+
+    def train_format(self, payload):
+        return run_training(payload if isinstance(payload, dict) else {})
+
+    def resolve_format_assets(self, payload):
+        return resolve_assets(payload if isinstance(payload, dict) else {})
+
+    def list_format_revisions(self, variant_id):
+        from .format_lab_reviews import list_revisions
+        return list_revisions(variant_id)
+
+    def create_format_revision(self, payload):
+        from .format_lab_reviews import create_revision
+        payload = payload if isinstance(payload, dict) else {}
+        return create_revision(
+            payload.get("variant_id"),
+            payload,
+            payload.get("revision") or 1,
+        )
+
+    def approve_format_revision(self, payload):
+        from .format_lab_reviews import approve_revision
+        payload = payload if isinstance(payload, dict) else {}
+        return approve_revision(payload.get("variant_id"), payload.get("revision") or 1)
 
     def list_compose_library(self, family=None, client_id=None):
         family = str(family or "").strip() or None
@@ -6773,6 +6839,11 @@ class CreativeModelingService:
                 )
             asset["placement_zone"] = zone
             asset["iab_family"] = geometry.get("family")
+            source = asset.get("source_type") or "client_creative"
+            asset["source_type"] = source
+            asset["public_label"] = asset.get("public_label") or public_label_for(source)
+            asset["public_enabled"] = asset.get("public_enabled") is not False
+            asset["viewer_disclaimer"] = asset.get("viewer_disclaimer") or DISCLAIMER
             size = geometry.get("size")
             if size:
                 asset["iab_width"], asset["iab_height"] = size
@@ -6801,7 +6872,12 @@ class CreativeModelingService:
                 "viewer_shell_spec": profile["shell_spec"],
                 "viewer_disclaimer": profile["disclaimer"],
             })
-        collection["sessions"] = _collection_sessions(deduplicated_assets)
+        showcase = [
+            asset for asset in deduplicated_assets
+            if asset.get("public_enabled") is not False
+        ]
+        collection["assets"] = showcase
+        collection["sessions"] = _collection_sessions(showcase)
         collection["token"] = token
         nav_rows = []
         if collection.get("client_id") and hasattr(

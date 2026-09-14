@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex,nofollow">
   <title>{{ collection.title }} | Centralcomm</title>
   <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/public_creative_viewer.css') }}?v=10">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/public_creative_viewer.css') }}?v=11">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body class="pv-app" style="--client-primary: {{ collection.primary_color or '#1e4d4f' }}; --client-secondary: {{ collection.secondary_color or '#d6a84b' }}">
@@ -127,6 +127,7 @@
               <h2>{{ asset.title or asset.format_name or 'Criativo' }}</h2>
             </div>
             <div class="pv-tags">
+              <span class="pv-public-label">{{ asset.public_label or 'Prova de conceito' }}</span>
               {% if asset.channel_name %}<span>{{ asset.channel_name }}</span>{% endif %}
               {% if asset.default_size %}<span>{{ asset.default_size }}</span>{% endif %}
               {% if carousel_assets|length > 1 %}<span><i class="fa-solid fa-images"></i> {{ carousel_assets|length }} cenas</span>{% endif %}
@@ -141,6 +142,10 @@
           {% set zone = asset.placement_zone or 'in_feed' %}
           {% set highlights = viewer_sections[0] if viewer_sections else {} %}
           {% set more_news = viewer_sections[1] if viewer_sections|length > 1 else {} %}
+          <div class="pv-device-switch" data-device-switch hidden>
+            <button type="button" data-preview-device="desktop">Desktop</button>
+            <button type="button" data-preview-device="mobile">Mobile</button>
+          </div>
           <div class="pv-environment is-{{ asset.viewer_kind or 'portal' }}{% if asset.viewer_kind != 'tv' %} is-page{% endif %}{% if asset.viewer_kind == 'tv' %} is-playing{% endif %}"
                data-viewer="{{ asset.viewer_slug or 'automatico' }}"
                data-layout="{{ viewer_shell.layout or 'standard' }}"
@@ -314,6 +319,6 @@
     <span>Apresentação preparada pela Centralcomm</span>
     <span>Conteúdo somente para visualização</span>
   </footer>
-  <script src="{{ url_for('static', filename='js/public_creative_viewer.js') }}?v=6"></script>
+  <script src="{{ url_for('static', filename='js/public_creative_viewer.js') }}?v=7"></script>
 </body>
 </html>

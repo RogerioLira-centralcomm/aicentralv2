@@ -1588,3 +1588,29 @@ h2 {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
 }
+
+.pv-public-label {
+  background: #183436;
+  color: #fff;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.pv-device-switch {
+  display: flex;
+  gap: 6px;
+  margin: 0 0 8px;
+}
+.pv-device-switch button {
+  border: 1px solid #d5d8d2;
+  background: #fff;
+  padding: 4px 10px;
+}
+.pv-environment.is-mobile [data-ad-zone="rail"],
+.pv-environment.is-mobile .pv-portal-rail {
+  display: none;
+}
+.pv-environment:not(.is-mobile) [data-ad-zone="sticky"] {
+  display: none;
+}
+.pv-quiz-result { margin: 8px 0 0; font-size: 13px; }
+.pv-ad-unit.is-flipped .pv-image { transform: rotateY(180deg); }

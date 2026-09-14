@@ -319,5 +319,55 @@
     handle.addEventListener('pointermove', move);
     handle.addEventListener('pointerup', () => { dragging = false; });
     handle.addEventListener('pointercancel', () => { dragging = false; });
+    handle.addEventListener('pointerup', () => {
+      dragging = false;
+      handle.classList.add('is-complete');
+    });
+  });
+
+  document.querySelectorAll('[data-interactive="quiz"]').forEach((quiz) => {
+    quiz.querySelectorAll('[data-quiz-choice]').forEach((choice) => {
+      choice.addEventListener('click', () => {
+        quiz.dataset.state = 'result';
+        quiz.querySelectorAll('[data-quiz-choice]').forEach((button) => {
+          button.disabled = true;
+        });
+        const result = quiz.querySelector('[data-quiz-result]');
+        if (result) result.hidden = false;
+      });
+    });
+  });
+
+  document.querySelectorAll('[data-interactive="flip"]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const unit = button.closest('.pv-ad-unit');
+      unit?.classList.toggle('is-flipped');
+      button.textContent = unit?.classList.contains('is-flipped') ? 'Ver frente' : 'Virar carta';
+    });
+  });
+
+  document.querySelectorAll('[data-interactive="hotspot"]').forEach((hotspot) => {
+    hotspot.addEventListener('click', () => {
+      const unit = hotspot.closest('.pv-ad-unit');
+      const note = unit?.querySelector('[data-hotspot-note]');
+      if (note) {
+        note.hidden = false;
+        note.textContent = `Ponto ${hotspot.dataset.hotspot} aberto.`;
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-device-switch]').forEach((switcher) => {
+    switcher.hidden = false;
+    switcher.querySelectorAll('[data-preview-device]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const env = switcher.nextElementSibling;
+        if (!env) return;
+        env.classList.toggle('is-mobile', button.dataset.previewDevice === 'mobile');
+        switcher.querySelectorAll('[data-preview-device]').forEach((item) => {
+          item.setAttribute('aria-current', item === button ? 'true' : 'false');
+        });
+      });
+    });
   });
 })();

@@ -70,12 +70,12 @@ def _placement(row):
             if slug in SOCIAL_DESKTOP
             else {"width": 390, "height": 844}
         )
-    elif size == "728x90":
-        slot = {"x": 12, "y": 18, "width": 76, "height": 12}
+    elif size in {"728x90", "970x250"}:
+        slot = {"x": 12, "y": 14, "width": 76, "height": 18}
         viewport = {"width": 1280, "height": 800}
         zone = "leaderboard"
-    elif size == "300x600":
-        slot = {"x": 70, "y": 16, "width": 23, "height": 68}
+    elif size in {"300x600", "160x600"}:
+        slot = {"x": 72, "y": 16, "width": 23, "height": 68}
         viewport = {"width": 1280, "height": 800}
         zone = "rail"
     elif size == "320x50":
@@ -83,7 +83,7 @@ def _placement(row):
         viewport = {"width": 390, "height": 844}
         zone = "sticky"
     else:
-        slot = {"x": 65, "y": 20, "width": 28, "height": 38}
+        slot = {"x": 8, "y": 38, "width": 54, "height": 28}
         viewport = {"width": 1280, "height": 800}
         zone = "in_feed"
     if slug in {

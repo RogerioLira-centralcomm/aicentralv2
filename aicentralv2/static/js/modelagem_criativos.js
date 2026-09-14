@@ -12,6 +12,10 @@
     campaigns: '/parametros/api/campaigns',
     history: '/parametros/api/history',
     viewerProfiles: '/parametros/api/viewer-profiles',
+    formatRegistry: '/parametros/api/format-registry',
+    formatTrain: '/parametros/api/format-lab/train',
+    formatRevisions: '/parametros/api/format-revisions',
+    formatRevisionApprove: '/parametros/api/format-revisions/approve',
     unfoldings: '/parametros/api/unfoldings',
     readKv: '/parametros/api/unfoldings/read-kv',
     exampleKv: '/parametros/api/unfoldings/example-kv',
@@ -106,6 +110,10 @@
     selectedVariationId: null,
     selectedLibraryTemplateSlug: null,
     selectedLibraryVariationId: null,
+    libraryMode: 'catalogo',
+    formatTraining: null,
+    formatRevisions: [],
+    formatRegistry: null,
   };
 
   const KV_ITEM_ORDER = [
@@ -336,6 +344,11 @@
     quotePreparePath();
     syncUnfoldProgress();
     loadComposeLibrary();
+    api(API.formatRegistry).then((data) => {
+      state.formatRegistry = data;
+    }).catch(() => {
+      state.formatRegistry = state.formatRegistry || null;
+    });
     if (failures.length) {
       setPageError(`Não foi possível carregar ${failures.join(' | ')}`);
     }
@@ -2547,6 +2560,38 @@
     return { width: 390, height: 844 };
   }
 
+  const FORMAT_KEY_ALIASES = {
+    'iab-medium-rectangle': 'iab-medium',
+    'iab-banner': 'iab-medium',
+    'iab-half-page': 'iab-halfpage',
+    'iab-mobile-banner': 'iab-mobile',
+    'instagram-feed': 'feed-1x1',
+    'facebook-feed': 'feed-1x1',
+    'instagram-feed-4x5': 'feed-4x5',
+    'instagram-story': 'story-9x16',
+    'instagram-reels': 'reels-9x16',
+    'tiktok-vertical': 'reels-9x16',
+    'youtube-shorts': 'shorts-9x16',
+    'linkedin-share': 'linkedin-landscape',
+  };
+  const ZONE_SLOTS = {
+    leaderboard: { x: 12, y: 14, width: 76, height: 18 },
+    in_feed: { x: 8, y: 38, width: 54, height: 28 },
+    rail: { x: 72, y: 16, width: 23, height: 68 },
+    sticky: { x: 5, y: 82, width: 90, height: 12 },
+  };
+
+  function formatCanonicalKey(format) {
+    const raw = String(format?.canonical_key || format?.slug || '').trim();
+    return FORMAT_KEY_ALIASES[raw] || raw;
+  }
+
+  function zoneSlotFor(zone, device = 'desktop') {
+    if (device === 'mobile' && zone === 'sticky') return ZONE_SLOTS.sticky;
+    if (device === 'mobile' && zone === 'in_feed') return { x: 7, y: 28, width: 86, height: 36 };
+    return ZONE_SLOTS[zone] || null;
+  }
+
   function clonePlacement(format) {
     if (isSocialFormat(format)) {
       const saved = format.placement_spec || {};
@@ -2558,18 +2603,30 @@
         responsive: saved.responsive || 'scale',
       };
     }
+    const tv = format.channel && ['netflix', 'hbomax', 'disneyplus', 'primevideo'].includes(format.channel);
     const fallback = {
-      context: format.channel && ['netflix', 'hbomax', 'disneyplus', 'primevideo'].includes(format.channel) ? 'tv' : 'portal',
+      context: tv ? 'tv' : 'portal',
       viewport: { width: 1280, height: 800 },
-      slot: { x: 65, y: 20, width: 28, height: 38 },
+      slot: { x: 8, y: 38, width: 54, height: 28 },
       fit: 'contain',
       responsive: 'scale',
     };
     const spec = Object.keys(format.placement_spec || {}).length ? format.placement_spec : fallback;
     const result = JSON.parse(JSON.stringify(spec));
-    if (!result.placement_zone) {
-      const zone = format.placement_zone || resolvePlacementZone(format, result, 'desktop');
-      if (zone) result.placement_zone = zone;
+    if (result.context === 'tv' || result.context === 'social') return result;
+    const zone = format.placement_zone || resolvePlacementZone(format, result, 'desktop');
+    if (!zone) {
+      result.placement_blocked = {
+        status: 'blocked',
+        code: 'PLACEMENT_NOT_DEFINED',
+        format_key: formatCanonicalKey(format),
+        message: 'Formato sem zona de portal definida.',
+      };
+      return result;
+    }
+    result.placement_zone = zone;
+    if (!Object.keys(format.placement_spec || {}).length) {
+      result.slot = zoneSlotFor(zone) || result.slot;
     }
     return result;
   }
@@ -2578,24 +2635,46 @@
     if ((placement?.context || format?.placement_spec?.context) === 'tv') return null;
     if ((placement?.context || format?.placement_spec?.context) === 'social' || isSocialFormat(format)) return null;
     const family = format?.iab_family || '';
-    const slug = format?.slug || '';
+    const slug = formatCanonicalKey(format) || format?.slug || '';
     const size = parseDefaultSize(format?.default_size || format?.target_size);
     const saved = placement?.placement_zone;
-    if (device === 'mobile' || slug === 'iab-mobile-banner' || (size && size.w === 320 && size.h === 50)) {
-      if (family === 'wide_banner' || slug === 'iab-mobile-banner' || slug === 'iab-leaderboard' || (size && size.h <= 90)) {
+    const mobileBanner = slug === 'iab-mobile' || slug === 'iab-mobile-banner' || (size && size.w === 320 && size.h === 50);
+    if (device === 'mobile' || mobileBanner) {
+      if (mobileBanner || family === 'wide_banner' || slug === 'iab-leaderboard' || (size && size.h <= 90)) {
         return 'sticky';
       }
     }
     if (saved && ['leaderboard', 'rail', 'in_feed', 'sticky'].includes(saved) && device !== 'mobile') {
       return saved;
     }
-    if (family === 'wide_banner' || slug === 'iab-leaderboard' || (size && size.w === 728 && size.h === 90)) {
+    if (
+      family === 'wide_banner'
+      || slug === 'iab-leaderboard'
+      || slug === 'iab-billboard'
+      || (size && size.w === 728 && size.h === 90)
+      || (size && size.w === 970 && size.h === 250)
+    ) {
       return 'leaderboard';
     }
-    if (family === 'half_page' || slug === 'iab-half-page' || (size && size.w === 300 && size.h === 600)) {
+    if (
+      family === 'half_page'
+      || slug === 'iab-halfpage'
+      || slug === 'iab-half-page'
+      || slug === 'iab-skyscraper'
+      || (size && size.w === 300 && size.h === 600)
+      || (size && size.w === 160 && size.h === 600)
+    ) {
       return 'rail';
     }
-    return 'in_feed';
+    if (
+      ['iab-medium', 'native-infeed', 'hotspot', 'cartas', 'puxe-descubra', 'arraste-descubra', 'quiz'].includes(slug)
+      || family === 'rectangle'
+      || family === 'portal_unit'
+      || (size && size.w === 300 && size.h === 250)
+    ) {
+      return 'in_feed';
+    }
+    return null;
   }
 
   function iabDisplaySize(format, device = 'desktop') {
@@ -2710,6 +2789,7 @@
           <b data-pause-count>3</b>
           <span>O anúncio entra por cima da tela</span>
         </div>
+        <div class="mc-tv-safe" data-safe-area></div>
       </div>`;
   }
 
@@ -3097,8 +3177,36 @@
     const reference = (format.references || [])[0];
     const visual = reference
       ? `<img class="mc-ad-reference" src="${escapeHtml(reference.asset_url)}" alt="">`
-      : '';
+      : formatPlaceholderHtml(format);
     return `${visual}<span class="mc-ad-demo-layer">${behaviorDemo(format.behavior_spec)}</span><small id="mcAdSlotSize"></small>`;
+  }
+
+  function formatPlaceholderHtml(format) {
+    const server = state.formatTraining?.steps?.assets?.placeholder?.html;
+    if (server && state.formatTraining?.status !== 'blocked') return server;
+    const key = formatCanonicalKey(format);
+    const size = parseDefaultSize(format.default_size || format.target_size) || { w: 300, h: 250 };
+    const required = format.required_elements || ['logo', 'headline', 'cta'];
+    const boxes = required.map((role) => `<section class="cx-format-ph-box is-required is-${escapeHtml(role)}"><span>${escapeHtml(role)}</span></section>`).join('');
+    return `<article class="cx-format-ph" data-format="${escapeHtml(key)}">
+      <header class="cx-format-ph-meta"><strong>${escapeHtml(formatShortName(format) || key)}</strong><span>${size.w}×${size.h}</span></header>
+      <div class="cx-format-ph-brand">MARCA DEMONSTRATIVA</div>
+      <div class="cx-format-ph-anatomy">${boxes}</div>
+      <footer class="cx-format-ph-seal">Placeholder de formato · conteúdo demonstrativo</footer>
+    </article>`;
+  }
+
+  function isolateAdSlot() {
+    const host = $('#mcAdSlotContent');
+    const placeholder = host?.querySelector('.cx-format-ph');
+    if (!placeholder || host.querySelector('iframe.mc-ad-frame')) return;
+    const css = state.formatRegistry?.placeholder_css || '';
+    const frame = document.createElement('iframe');
+    frame.className = 'mc-ad-frame';
+    frame.title = 'Peça isolada';
+    frame.setAttribute('sandbox', 'allow-same-origin');
+    frame.srcdoc = `<!doctype html><html><head><style>html,body{margin:0;width:100%;height:100%;overflow:hidden}${css}</style></head><body>${placeholder.outerHTML}</body></html>`;
+    placeholder.replaceWith(frame);
   }
 
   function behaviorDemo(spec = {}) {
@@ -3157,9 +3265,13 @@
     frame.dataset.zone = zone || '';
     const foot = $('#mcStageFootNote');
     if (foot) {
-      foot.textContent = social
-        ? 'O anúncio preenche o poço da rede neste pixel.'
-        : 'O anúncio entra na zona do portal no tamanho IAB. Arraste para ajuste fino.';
+      if (placement.placement_blocked) {
+        foot.textContent = placement.placement_blocked.message || 'Placement não definido.';
+      } else {
+        foot.textContent = social
+          ? 'O anúncio preenche o poço da rede neste pixel.'
+          : 'O anúncio entra na zona do portal no tamanho IAB. Arraste para ajuste fino.';
+      }
     }
     if (social && well) {
       well.appendChild(slotNode);
@@ -3170,6 +3282,7 @@
       slotNode.style.top = '0';
       slotNode.style.transform = '';
       $('#mcAdSlotContent').innerHTML = variationPreviewHtml(format);
+      isolateAdSlot();
       $('#mcAdSlotSize').textContent = `${iabSize.w} × ${iabSize.h} px`;
       $('#mcResetPlacement').disabled = false;
       syncPlacementFields();
@@ -3196,6 +3309,7 @@
       slotNode.style.transform = '';
     }
     $('#mcAdSlotContent').innerHTML = adCreativeHtml(format);
+    isolateAdSlot();
     $('#mcAdSlotSize').textContent = `${iabSize.w} × ${iabSize.h} px`;
     if (displayPlacement.context === 'tv') {
       frame.classList.add('is-playing');
@@ -3283,6 +3397,90 @@
     }
   }
 
+  function libraryTrainingCard(format) {
+    if (state.libraryMode === 'catalogo') return '';
+    const zone = format.placement_zone || resolvePlacementZone(format, format.placement_spec || {}, state.previewDevice) || 'poço';
+    const required = (format.required_elements || []).join(', ') || 'logo, headline, cta';
+    const optional = (format.optional_elements || []).join(', ') || '—';
+    const siblings = (format.recomposition_rules?.siblings || []).join(', ') || '—';
+    const trained = state.formatTraining;
+    const scores = trained?.steps?.quality?.scores || {};
+    const blocked = trained?.blocked;
+    const path = trained?.path || 'C';
+    const label = trained?.public?.label || 'Placeholder de formato';
+    const scoreRows = Object.entries(scores).map(([key, value]) => (
+      `<li><span>${escapeHtml(key)}</span><strong>${escapeHtml(String(value))}</strong></li>`
+    )).join('');
+    const revisions = (state.formatRevisions || []).map((item) => (
+      `<li>R${item.revision} · ${escapeHtml(item.status)} · ${(item.focus || []).join(', ')}</li>`
+    )).join('');
+    const nextRevision = ((state.formatRevisions || []).at(-1)?.revision || 0) + 1;
+    return `<aside class="mc-training-card" data-mode="${escapeHtml(state.libraryMode)}">
+      <p><strong>Chave</strong> ${escapeHtml(formatCanonicalKey(format))}</p>
+      <p><strong>Zona</strong> ${escapeHtml(String(zone))}</p>
+      <p><strong>Caminho</strong> ${escapeHtml(path)} · ${escapeHtml(label)}</p>
+      <p><strong>Obrigatório</strong> ${escapeHtml(required)}</p>
+      <p><strong>Opcional</strong> ${escapeHtml(optional)}</p>
+      <p><strong>Irmãos</strong> ${escapeHtml(siblings)}</p>
+      <p><strong>Safe</strong> ${escapeHtml(JSON.stringify(format.safe_areas || { inset_pct: 0 }))}</p>
+      ${blocked ? `<p class="mc-training-block">${escapeHtml(blocked.message || blocked.code || 'Bloqueado')}</p>` : ''}
+      ${scoreRows ? `<ol class="mc-training-scores">${scoreRows}</ol>` : ''}
+      ${state.libraryMode === 'revisao' ? `
+        <div class="mc-training-revisions">
+          <strong>Revisões</strong>
+          <ol>${revisions || '<li>Nenhuma revisão ainda.</li>'}</ol>
+          <button class="cx-btn cx-btn-secondary cx-btn-sm" type="button" data-action="format-revision">Criar R${nextRevision}</button>
+          <button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-action="format-revision-approve">Aprovar</button>
+        </div>` : ''}
+    </aside>`;
+  }
+
+  function formatVariantId(format) {
+    return `format-${format?.id || formatCanonicalKey(format)}`;
+  }
+
+  async function loadFormatTraining(format) {
+    if (!format) return;
+    const key = formatCanonicalKey(format);
+    const profile = activeViewerProfile(format, state.placementDraft || clonePlacement(format));
+    const zone = format.placement_zone || resolvePlacementZone(format, state.placementDraft || {}, state.previewDevice);
+    const channel = isSocialFormat(format)
+      ? (socialNetworkKey(format) || 'instagram')
+      : ((format.channel && ['netflix', 'hbomax', 'disneyplus', 'primevideo'].includes(format.channel)) ? 'ctv' : 'portal');
+    try {
+      state.formatTraining = await api(API.formatTrain, {
+        method: 'POST',
+        body: JSON.stringify({
+          format_key: key,
+          channel,
+          device: state.previewDevice === 'mobile' ? 'mobile' : (channel === 'ctv' ? 'tv' : 'desktop'),
+          zone,
+          viewer_slug: profile?.slug || '',
+        }),
+      });
+    } catch (error) {
+      state.formatTraining = {
+        status: 'blocked',
+        blocked: { code: 'TRAIN_FAILED', message: error.message },
+      };
+    }
+  }
+
+  async function refreshLibraryTraining(format, { rerenderStage = false } = {}) {
+    if (!format || state.libraryMode === 'catalogo') return;
+    await loadFormatTraining(format);
+    if (state.libraryMode === 'revisao') {
+      try {
+        const listed = await api(`${API.formatRevisions}?variant_id=${encodeURIComponent(formatVariantId(format))}`);
+        state.formatRevisions = Array.isArray(listed) ? listed : [];
+      } catch (_error) {
+        state.formatRevisions = state.formatRevisions || [];
+      }
+    }
+    if ($('#mcLibraryDetail')) renderLibraryDetail(format);
+    if (rerenderStage) renderFormatStage(format, true);
+  }
+
   function renderLibraryDetail(format) {
     const refs = format.references || [];
     $('#mcLibraryDetail').innerHTML = `
@@ -3290,6 +3488,7 @@
         <div><strong>${escapeHtml(format.name_pt)}</strong><small>${escapeHtml(format.channel_name || format.category || '')}</small></div>
         ${engineBadge(format)}
       </div>
+      ${libraryTrainingCard(format)}
       <label class="mc-library-extract" id="mcLibraryExtractDrop">
         <input id="mcLibraryExtractFile" type="file" accept="image/png,image/jpeg,image/webp" hidden>
         <strong>Solte uma referência</strong>
@@ -5209,11 +5408,14 @@
         renderLibrary();
         renderFormatStage(format);
         state.formatJobs = [];
+        state.formatTraining = null;
+        state.formatRevisions = [];
         renderLibraryDetail(format);
         try {
           state.formatJobs = await api(`${API.formats}/${format.id}/modeling-jobs`);
           renderLibraryDetail(format);
         } catch (error) { toast(error.message, 'error'); }
+        await refreshLibraryTraining(format, { rerenderStage: true });
       }
       return;
     }
@@ -5225,14 +5427,20 @@
         form.elements.default_viewer_profile_id.value = state.selectedViewerProfileId;
       }
       const format = selectedLibraryFormat();
-      if (format) renderFormatStage(format, true);
+      if (format) {
+        renderFormatStage(format, true);
+        refreshLibraryTraining(format, { rerenderStage: true });
+      }
       return;
     }
     const deviceButton = event.target.closest('[data-preview-device]');
     if (deviceButton) {
       state.previewDevice = deviceButton.dataset.previewDevice;
       const format = selectedLibraryFormat();
-      if (format) renderFormatStage(format, true);
+      if (format) {
+        renderFormatStage(format, true);
+        refreshLibraryTraining(format, { rerenderStage: true });
+      }
       renderProductionStage();
       return;
     }
@@ -5409,6 +5617,43 @@
         renderLibrary(); renderLibraryDetail(format);
         $$('[data-studio-detail-tab]')[1]?.click();
         toast(`Referência aprovada no slot ${job.slot}.`, 'success');
+      } catch (error) { toast(error.message, 'error'); }
+    } else if (action === 'format-revision') {
+      const format = selectedLibraryFormat();
+      if (!format) return;
+      try {
+        const created = await api(API.formatRevisions, {
+          method: 'POST',
+          body: JSON.stringify({
+            variant_id: formatVariantId(format),
+            format_key: formatCanonicalKey(format),
+            revision: ((state.formatRevisions || []).at(-1)?.revision || 0) + 1,
+            revision_count: 5,
+            placement: state.placementDraft,
+            quality: state.formatTraining?.steps?.quality,
+          }),
+        });
+        state.formatRevisions = [...(state.formatRevisions || []), created];
+        renderLibraryDetail(format);
+        toast(`Revisão R${created.revision} gravada.`, 'success');
+      } catch (error) { toast(error.message, 'error'); }
+    } else if (action === 'format-revision-approve') {
+      const format = selectedLibraryFormat();
+      const last = (state.formatRevisions || []).at(-1);
+      if (!format || !last) return toast('Crie uma revisão primeiro.', 'warning');
+      try {
+        const approved = await api(API.formatRevisionApprove, {
+          method: 'POST',
+          body: JSON.stringify({
+            variant_id: last.variant_id || formatVariantId(format),
+            revision: last.revision,
+          }),
+        });
+        state.formatRevisions = (state.formatRevisions || []).map((item) => (
+          item.revision === approved.revision ? approved : item
+        ));
+        renderLibraryDetail(format);
+        toast(`Revisão R${approved.revision} aprovada.`, 'success');
       } catch (error) { toast(error.message, 'error'); }
     } else if (action === 'archive-format-mockup') {
       const holder = button.closest('[data-model-job]');
@@ -5811,6 +6056,20 @@
     $('#mcFormatCategory')?.addEventListener('change', renderFormatBrowser);
     bind('#mcLibrarySearch', 'input', renderLibrary);
     bind('#mcLibraryCategory', 'change', renderLibrary);
+    document.querySelectorAll('[data-library-mode]').forEach((button) => {
+      button.addEventListener('click', () => {
+        state.libraryMode = button.getAttribute('data-library-mode') || 'catalogo';
+        document.querySelectorAll('[data-library-mode]').forEach((item) => {
+          item.classList.toggle('is-active', item === button);
+        });
+        document.querySelector('.mc-format-studio-section')?.setAttribute('data-mode', state.libraryMode);
+        const selected = state.formats.find((item) => String(item.id) === String(state.selectedFormatId));
+        if (selected) {
+          renderLibraryDetail(selected);
+          refreshLibraryTraining(selected, { rerenderStage: true });
+        }
+      });
+    });
     document.addEventListener('change', (event) => {
       if (event.target?.id !== 'mcLibraryExtractFile') return;
       extractLibraryReference(event.target.files?.[0]);

@@ -9,9 +9,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_public.css') }}?v=6">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_public.css') }}?v=8">
 </head>
 <body class="cc-plan" data-tab="{{ default_tab }}">
+  {% set hero = hero or {} %}
+  {% set fact_items = fact_items or [] %}
+  {% set highlights = highlights or [] %}
+  {% set media = media or {} %}
+  {% set reading = reading or {} %}
+  {% set audience = audience or "" %}
   <a class="cc-skip" href="#documento">Ir para o documento</a>
 
   <header class="cc-plan-top">
@@ -21,22 +27,38 @@
         <span>{{ house.label }}</span>
         <em class="cc-plan-product">Smart Planner</em>
       </a>
-      <button type="button" class="cc-plan-print" id="cc-print">Salvar PDF</button>
+      <div class="cc-plan-top-actions">
+        {% if client %}<span class="cc-plan-who">{{ client }}</span>{% endif %}
+        <button type="button" class="cc-plan-print" id="cc-print">Salvar PDF</button>
+      </div>
     </div>
   </header>
 
   <main class="cc-plan-shell" id="documento">
-    <header class="cc-plan-mast">
-      <h1>{{ title }}</h1>
-      {% if facts %}
-      <dl class="cc-plan-facts">
-        {% for label, value in facts %}
-        <div>
-          <dt>{{ label }}</dt>
-          <dd>{{ value }}</dd>
-        </div>
-        {% endfor %}
-      </dl>
+    <header class="cc-plan-hero{% if hero.image %} has-shot{% endif %}">
+      <div class="cc-plan-hero-copy">
+        {% if hero.kicker %}<p class="cc-plan-kicker">{{ hero.kicker }}</p>{% endif %}
+        <h1>{{ title }}</h1>
+        {% if hero.tagline %}<p class="cc-plan-tag">{{ hero.tagline }}</p>{% endif %}
+        {% if fact_items %}
+        <ul class="cc-plan-pills">
+          {% for label, value, kind in fact_items %}
+          <li data-fact="{{ kind }}">
+            <i aria-hidden="true"></i>
+            <span>{{ label }}</span>
+            <b>{{ value }}</b>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+      {% if hero.image %}
+      <div class="cc-plan-hero-visual">
+        <figure class="cc-plan-hero-shot">
+          <img src="{{ hero.image }}" alt="">
+        </figure>
+        {% if hero.caption %}<p class="cc-plan-shot-note">{{ hero.caption }}</p>{% endif %}
+      </div>
       {% endif %}
     </header>
 
@@ -58,79 +80,120 @@
       {% set has_media = media.channels or (media.months and media.months|length > 1) or media.method_label %}
       {% set has_creative = creative.body or creative.image_url or defense.body or show_market %}
       <div class="cc-exec{% if not has_brief %} is-no-brief{% endif %}{% if not has_media %} is-no-media{% endif %}{% if not has_creative %} is-no-creative{% endif %}">
-        {% if has_brief %}
-        <section class="cc-exec-brief">
-          <p class="cc-exec-kicker">Tese e briefing</p>
-          {% for para in strategy.body.split('\n\n') if para.strip() %}
-          <p class="cc-plan-reco">{{ para.strip() }}</p>
-          {% endfor %}
+        {% if has_media %}
+        <section class="cc-exec-media" aria-labelledby="cc-mix-title">
+          <div class="cc-mix-head">
+            <h2 id="cc-mix-title">Distribuição do investimento</h2>
+            {% if media.method_label %}<p>{{ media.method_label }}</p>{% endif %}
+          </div>
+          <div class="cc-mix-viz">
+            {% if media.channels %}
+            <div class="cc-donut" style="background: {{ media.donut }}" data-cc-donut>
+              <i>{% if hero.verba %}{{ hero.verba }}{% else %}{{ media.total_pct }}%{% endif %}<small>{% if hero.verba %}no período{% else %}do mix{% endif %}</small></i>
+            </div>
+            <ul class="cc-mix-legend" id="cc-mix-legend">
+              {% for row in media.channels %}
+              <li data-canal="{{ row.id }}" style="--swatch: {{ row.color }}">
+                <button type="button">
+                  {% if row.logo %}<img src="{{ row.logo }}" alt="" width="18" height="18">{% else %}<i></i>{% endif %}
+                  <span>{{ row.label }}</span>
+                  {% if row.amount_label %}<small>{{ row.amount_label }}</small>{% endif %}
+                  <em>{{ row.pct }}%</em>
+                </button>
+              </li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+          </div>
         </section>
         {% endif %}
-        {% if has_media %}
-        <section class="cc-exec-media">
-          <p class="cc-exec-kicker">Gestão de mídia</p>
-          {% if media.method_label %}<p class="cc-exec-method">{{ media.method_label }}</p>{% endif %}
-          {% if media.channels %}
-          {% for row in media.channels %}
-          <div class="cc-density-row">
-            <span>
-              {{ row.label }}
-              {% if row.amount_label or row.role %}
-              <small>{% if row.amount_label %}{{ row.amount_label }}{% endif %}{% if row.amount_label and row.role %} · {% endif %}{% if row.role %}{{ row.role }}{% endif %}</small>
-              {% endif %}
-            </span>
-            <i><b style="width: {{ row.pct }}%"></b></i>
-            <em>{{ row.pct }}%</em>
-          </div>
-          {% endfor %}
+
+        {% if show_market or reading.method or reading.defense %}
+        <section class="cc-exec-goals" aria-labelledby="cc-goals-title">
+          <h2 id="cc-goals-title">Leitura do mix</h2>
+          {% if reading.method %}<p>{{ reading.method }}</p>{% endif %}
+          {% if show_market %}
+          <p class="cc-plan-stat">{{ market.stat }}{% if market.stat_label %} <small>{{ market.stat_label }}</small>{% endif %}</p>
           {% endif %}
-          {% if media.months and media.months|length > 1 %}
-          <div class="cc-flight">
-            <p>Voo da campanha</p>
-            <div class="cc-flight-row">
+          {% if reading.defense %}<p class="cc-plan-read">{{ reading.defense }}</p>{% endif %}
+        </section>
+        {% endif %}
+
+        {% if media.channels and media.months and media.months|length > 1 %}
+        <section class="cc-exec-gantt" aria-labelledby="cc-gantt-title">
+          <div class="cc-mix-head">
+            <h2 id="cc-gantt-title">Cronograma de mídia</h2>
+            {% if media.how %}<p>{{ media.how }}</p>{% endif %}
+          </div>
+          <div class="cc-gantt" style="--months: {{ media.months|length }}">
+            <div class="cc-gantt-head">
+              <span>Canal</span>
+              {% for month in media.months %}<span>{{ month.label }}</span>{% endfor %}
+            </div>
+            {% for row in media.channels %}
+            <div class="cc-gantt-row" data-canal="{{ row.id }}">
+              <span>{{ row.label }}</span>
               {% for month in media.months %}
-              <div class="cc-flight-col">
-                <i style="height: {{ month.bar or 12 }}px"></i>
-                <span>{{ month.label }}</span>
-                {% if month.amount_label %}<em>{{ month.amount_label }}</em>{% endif %}
-              </div>
+              {% set bar = row.bars[loop.index0] if row.bars and row.bars|length > loop.index0 else none %}
+              <b style="--pct: {{ bar.pct if bar else row.pct }}; --tone: {{ row.color }}" title="{{ (bar.pct if bar else row.pct) }}% · {{ (bar.amount_label if bar and bar.amount_label else month.amount_label) or month.label }}"></b>
               {% endfor %}
             </div>
-            {% if media.how %}<p class="cc-exec-note">{{ media.how }}</p>{% endif %}
+            {% endfor %}
           </div>
-          {% endif %}
-          {% if media.note %}<p class="cc-exec-note">{{ media.note }}</p>{% endif %}
         </section>
         {% endif %}
-        {% if has_creative %}
-        <section class="cc-exec-creative">
-          {% if creative.body or creative.image_url %}
-          <article class="cc-plan-block">
-            <h2>{{ creative.title or "Criativo no canal" }}</h2>
-            {% if creative.image_url %}
-            <figure class="cc-plan-shot">
-              <img src="{{ creative.image_url }}" alt="">
-            </figure>
-            {% endif %}
-            {% if creative.body %}<p>{{ creative.body }}</p>{% endif %}
-          </article>
-          {% endif %}
-          {% if defense.body %}
-          <article class="cc-plan-block is-defense">
-            <h2>{{ defense.title or "Por que aprovar" }}</h2>
-            {% for para in defense.body.split('\n\n') if para.strip() %}
-            <p>{{ para.strip() }}</p>
+
+        {% if highlights %}
+        <section class="cc-exec-highlights" aria-labelledby="cc-hi-title">
+          <h2 id="cc-hi-title">Destaques do plano</h2>
+          <ul class="cc-highlights">
+            {% for item in highlights %}
+            <li>
+              <strong>{{ item.title }}</strong>
+              <p>{{ item.text }}</p>
+            </li>
             {% endfor %}
-          </article>
-          {% endif %}
-          {% if show_market %}
-          <article class="cc-plan-block is-stat">
-            <h2>{{ market.title or "Indicadores" }}</h2>
-            <p class="cc-plan-stat">{{ market.stat }}{% if market.stat_label %} <small>{{ market.stat_label }}</small>{% endif %}</p>
-            {% if market.body %}<p>{{ market.body }}</p>{% endif %}
-          </article>
-          {% endif %}
+          </ul>
         </section>
+        {% endif %}
+
+        {% if media.channels %}
+        <section class="cc-exec-table" aria-labelledby="cc-table-title">
+          <h2 id="cc-table-title">Resumo por canal</h2>
+          <div class="cc-plan-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Canal</th>
+                  <th>Papel</th>
+                  <th>Formato</th>
+                  <th>Mix</th>
+                  <th>Investimento</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in media.channels %}
+                <tr data-canal="{{ row.id }}">
+                  <td>
+                    <span class="cc-table-canal">
+                      {% if row.logo %}<img src="{{ row.logo }}" alt="" width="18" height="18">{% endif %}
+                      {{ row.label }}
+                    </span>
+                  </td>
+                  <td>{{ row.role or "—" }}</td>
+                  <td>{{ row.format or "—" }}</td>
+                  <td>{{ row.pct }}%</td>
+                  <td>{{ row.amount_label or "—" }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        {% endif %}
+
+        {% if has_brief and audience %}
+        <p class="cc-exec-note">{{ audience }}</p>
         {% endif %}
       </div>
     </section>
@@ -209,9 +272,12 @@
 
   <footer class="cc-plan-foot">
     <img src="{{ house.logo }}" alt="{{ house.name }}">
-    <p>{{ house.name }} · {{ house.label }}</p>
+    <div>
+      <p>{{ house.name }} · {{ house.label }}</p>
+      <p>Esta folha mostra só o que o briefing informou. Sem dado, o campo fica em branco.</p>
+    </div>
   </footer>
 
-  <script src="{{ url_for('static', filename='js/smart_planner/public.js') }}?v=3"></script>
+  <script src="{{ url_for('static', filename='js/smart_planner/public.js') }}?v=5"></script>
 </body>
 </html>

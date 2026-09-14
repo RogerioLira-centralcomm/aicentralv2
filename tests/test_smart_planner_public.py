@@ -96,9 +96,13 @@ class PublicPlannerTest(TestCase):
         self.assertIn('data-cc-tab="folha"', html)
         self.assertIn('data-cc-tab="plano"', html)
         self.assertIn("cc-exec-media", html)
-        self.assertIn("Gestão de mídia", html)
-        self.assertIn("cc-exec-brief", html)
-        self.assertIn("cc-exec-creative", html)
+        self.assertIn("Distribuição do investimento", html)
+        self.assertIn("cc-plan-hero", html)
+        self.assertIn("cc-donut", html)
+        self.assertIn("cc-exec-gantt", html)
+        self.assertIn("Destaques do plano", html)
+        self.assertIn("Leitura do mix", html)
+        self.assertIn("Resumo por canal", html)
         self.assertIn("cc-doc-card", html)
         self.assertIn("is-lead", html)
         self.assertIn("ainda não foi criado", html)
@@ -157,6 +161,55 @@ class PublicPlannerTest(TestCase):
         self.assertEqual(view["media"]["how"], "Começa menor, solta no meio e no fim.")
         self.assertFalse(view["media"]["note"])
         self.assertFalse(view["show_market"])
+        self.assertTrue(view["media"]["donut"].startswith("conic-gradient"))
+        self.assertEqual(view["media"]["channels"][0]["color"], "#1e4d4f")
+        self.assertEqual(view["media"]["channels"][0]["bars"][0]["pct"], 60)
+        self.assertTrue(view["hero"]["tagline"])
+
+    def test_public_view_prefers_approved_mix_over_theme_density(self):
+        view = public_view({
+            "nome_campanha": "Canais digitais",
+            "cliente": "COPASA",
+            "dados_detectados": {
+                "plan_mode": "one_page",
+                "publico": "Principalmente clientes da Copasa, adultos, usuários de canais digitais em Minas Gerais com um parágrafo longo o bastante para não caber na faixa de fatos.",
+                "campanha": {
+                    "objetivo": "conversao",
+                    "mix": {
+                        "method": "manual",
+                        "weights": [
+                            {"id": "google_ads", "pct": 59},
+                            {"id": "youtube", "pct": 17},
+                            {"id": "ooh", "pct": 24},
+                        ],
+                    },
+                },
+                "folha": {
+                    "theme": {"density": [
+                        {"label": "Serasa", "value": 44},
+                        {"label": "Redes", "value": 36},
+                        {"label": "Interativo", "value": 20},
+                    ]},
+                    "sections": [{"cards": [
+                        {"type": "strategy", "body": "Resolver no digital. Fácil, seguro e mais rápido."},
+                        {"type": "defense", "body": "Google Ads captura a demanda. YouTube ensina o hábito."},
+                    ]}],
+                },
+            },
+            "plan_content": {"sections": []},
+        })
+        labels = [item["label"] for item in view["media"]["channels"]]
+        self.assertEqual(labels, ["Google Ads", "YouTube", "OOH / Painéis"])
+        self.assertEqual(view["media"]["channels"][0]["pct"], 59)
+        self.assertTrue(view["audience"])
+        self.assertNotIn("Principalmente clientes da Copasa, adultos, usuários", dict(view["facts"]).get("Público", ""))
+        self.assertEqual(view["hero"]["tagline"], "Resolver no digital.")
+        self.assertEqual(view["highlights"][0]["text"], "Resolver no digital.")
+        self.assertEqual(view["highlights"][0]["title"], "Foco em conversão")
+        titles = [item["title"] for item in view["highlights"]]
+        self.assertIn("Digital e rua", titles)
+        self.assertIn("Canais no mesmo plano", titles)
+        self.assertEqual(view["reading"]["defense"], "Google Ads captura a demanda.")
 
     def test_media_only_folha_is_ready(self):
         view = public_view({

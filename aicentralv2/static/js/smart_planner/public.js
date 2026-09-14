@@ -57,5 +57,40 @@
     window.print();
   });
 
+  var pinned = "";
+
+  function markCanal(id) {
+    var current = id || pinned;
+    var exec = document.querySelector(".cc-exec");
+    if (exec) exec.classList.toggle("is-picking", Boolean(current));
+    document.querySelectorAll("[data-canal]").forEach(function (node) {
+      var on = Boolean(current && node.getAttribute("data-canal") === current);
+      node.classList.toggle("is-on", on);
+    });
+    document.querySelectorAll("#cc-mix-legend button").forEach(function (button) {
+      var li = button.closest("[data-canal]");
+      var key = li && li.getAttribute("data-canal");
+      button.setAttribute("aria-pressed", pinned && key === pinned ? "true" : "false");
+    });
+  }
+
+  function pinCanal(id) {
+    pinned = pinned === id ? "" : id;
+    markCanal(pinned);
+  }
+
+  document.querySelectorAll("#cc-mix-legend button, .cc-gantt-row, .cc-exec-table tbody tr").forEach(function (node) {
+    var canal = node.getAttribute("data-canal") || (node.closest("[data-canal]") && node.closest("[data-canal]").getAttribute("data-canal"));
+    if (node.tagName === "BUTTON") {
+      node.setAttribute("aria-pressed", "false");
+      node.addEventListener("click", function () { pinCanal(canal); });
+      node.addEventListener("mouseenter", function () { markCanal(canal); });
+    } else {
+      node.addEventListener("click", function () { pinCanal(canal); });
+      node.addEventListener("mouseenter", function () { markCanal(canal); });
+    }
+  });
+  document.querySelector(".cc-exec")?.addEventListener("mouseleave", function () { markCanal(pinned); });
+
   show(location.hash.replace("#", "") || root.getAttribute("data-tab"));
 })();

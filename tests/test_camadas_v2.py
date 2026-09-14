@@ -539,7 +539,7 @@ class CamadasV2ContractTest(unittest.TestCase):
         desk = (ROOT / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html").read_text(
             encoding="utf-8"
         )
-        self.assertIn("mc_page_js) }}?v=76", desk)
+        self.assertIn("mc_page_js) }}?v=79", desk)
         self.assertIn("js/camadas/index.js", desk)
         self.assertIn("camadas-v2.css", desk)
 

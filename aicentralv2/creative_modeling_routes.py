@@ -189,7 +189,7 @@ CADU_RETIRED_DESKS = {"extrair", "revisao", "lab"}
 @admin_required
 def modelagem_desk(page):
     if page in CADU_RETIRED_DESKS:
-        return redirect(url_for("parametros.modelagem_criativos"))
+        return redirect(url_for(".modelagem_criativos"))
     spec = MC_DESKS.get(page)
     if not spec:
         abort(404)

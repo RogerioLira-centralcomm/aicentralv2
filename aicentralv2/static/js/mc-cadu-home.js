@@ -63,7 +63,7 @@
       }]).slice().sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
       if (empty) empty.hidden = true;
       cards.slice(0, 12).forEach((run) => {
-        const href = `/parametros/modelagem-criativos/trocar?run=${encodeURIComponent(run.run_id || "")}`;
+        const href = `/parametros/modelagem-criativos/trocar?run=${encodeURIComponent(run.run_id || "")}&client=${encodeURIComponent(clientId)}`;
         const ratio = String(run.aspect_ratio || "4:5").replace(":", "/");
         const li = document.createElement("li");
         li.setAttribute("data-run", run.run_id || "");
@@ -75,6 +75,9 @@
             <strong>${escapeHtml(run.title || "Peça")}</strong>
             <small>${run.version_count || 0} versões${run.aspect_ratio ? ` ${escapeHtml(run.aspect_ratio)}` : ""}</small>
           </a>`;
+        li.querySelector("img")?.addEventListener("error", (event) => {
+          event.target.replaceWith(document.createElement("span"));
+        });
         takes.appendChild(li);
       });
     } catch (_error) {

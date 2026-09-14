@@ -118,9 +118,12 @@
     renderVersions();
     highlightQuality();
     renderEditPanels();
+    const params = new URLSearchParams(window.location.search);
     try {
       const clients = await request(API.clients);
       state.allClients = Array.isArray(clients) ? clients : (clients?.items || clients?.clients || []);
+      const wantedClient = params.get('client') || params.get('client_id');
+      if (wantedClient) state.clientId = wantedClient;
       applyDeskBrand();
     } catch (_error) {
       setStatus('Não deu para carregar as marcas. Você ainda pode escrever o nome no pedido.');
@@ -159,7 +162,6 @@
         };
       },
     };
-    const params = new URLSearchParams(window.location.search);
     await Promise.all([loadHistory(params.get('run') || undefined), loadViewerCatalog()]);
     await consumeHandoff();
     refreshQuote();

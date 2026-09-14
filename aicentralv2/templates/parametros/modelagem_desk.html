@@ -4,7 +4,7 @@
 {% block page_subtitle %}Modelagem e produção criativa{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=116">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=118">
 {% if mc_page_js == 'js/camadas/index.js' %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/camadas-v2.css') }}?v=5">
 {% endif %}
@@ -13,7 +13,7 @@
 {% block content %}
 <main class="mc-shell" id="mcApp" data-mc-page="{{ mc_page }}">
   {% include "parametros/_mc_shell.html" %}
-  <section class="mc-panel" data-panel="{{ mc_page }}" role="tabpanel">
+  <section class="mc-panel" data-panel="{{ mc_page }}">
     {% include panel %}
   </section>
   {% if mc_page in ['produzir', 'desdobrar'] %}
@@ -45,7 +45,7 @@
 {% if mc_page_js == 'js/camadas/index.js' %}
 <script type="module" src="{{ url_for('static', filename=mc_page_js) }}?v=9"></script>
 {% else %}
-<script src="{{ url_for('static', filename=mc_page_js) }}?v=77" defer></script>
+<script src="{{ url_for('static', filename=mc_page_js) }}?v=79" defer></script>
 {% endif %}
 {% endif %}
 {% endblock %}

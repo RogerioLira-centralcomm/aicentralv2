@@ -598,7 +598,7 @@ def store_with_mirror(store):
 def run_summary(run, active_id=""):
     versions = [item for item in (run.get("versions") or []) if isinstance(item, dict)]
     thumb = ""
-    for item in versions:
+    for item in reversed(versions):
         thumb = published_still_url(item.get("thumb_url") or item.get("image_url") or "")
         if thumb:
             break

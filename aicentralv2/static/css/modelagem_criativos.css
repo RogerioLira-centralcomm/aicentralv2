@@ -21,9 +21,36 @@
   display: none;
 }
 
-.mc-shell:has(#mcCv2App) .mc-chrome {
+.mc-shell:has(#mcCv2App) .mc-chrome,
+.mc-shell:has(#mcCv2App) .mc-cadu-bar {
   background: #191d1b;
   border-bottom: 1px solid rgba(215, 221, 210, 0.12);
+  color: #d7ddd2;
+}
+
+.mc-shell:has(#mcCv2App) .mc-cadu-nav > a,
+.mc-shell:has(#mcCv2App) .mc-cadu-menu > summary {
+  color: rgba(215, 221, 210, 0.72);
+}
+
+.mc-shell:has(#mcCv2App) .mc-cadu-nav > a.is-current,
+.mc-shell:has(#mcCv2App) .mc-cadu-nav > a[aria-current="page"] {
+  color: #f4f5f2;
+}
+
+.mc-shell:has(#mcCv2App) .mc-cadu-menu-list {
+  background: #191d1b;
+  border-color: rgba(215, 221, 210, 0.18);
+}
+
+.mc-shell:has(#mcCv2App) .mc-cadu-menu-list a,
+.mc-shell:has(#mcCv2App) .mc-cadu-menu-list button {
+  color: #d7ddd2;
+}
+
+.mc-shell:has(#mcCv2App) .mc-cadu-menu-list a:hover,
+.mc-shell:has(#mcCv2App) .mc-cadu-menu-list a[aria-current="page"] {
+  background: #222825;
 }
 
 .mc-shell:has(#mcCv2App) .mc-panel {
@@ -9158,18 +9185,13 @@
 }
 
 .mc-trocr-pagehead h1 {
-  margin: 0 0 0.2rem;
-  font-size: 1.2rem;
-  font-weight: 650;
-  letter-spacing: -0.02em;
-}
-
-.mc-trocr-pagehead p {
   margin: 0;
   color: var(--cx-mesa-slate-700);
-  font-size: 0.82rem;
-  line-height: 1.4;
-  max-width: 56ch;
+  font-size: 0.92rem;
+  font-weight: 550;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
+  max-width: 42rem;
 }
 
 .mc-trocr-pagehead-actions {

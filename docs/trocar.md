@@ -36,7 +36,7 @@ Autenticação: `admin_required` na página, `admin_required_api` nas rotas JSON
 | Camada | Tecnologia | Onde |
 |---|---|---|
 | Página | Flask + Jinja | `modelagem_desk("trocar")` |
-| CSS | `modelagem_criativos.css` | `?v=116` no desk |
+| CSS | `modelagem_criativos.css` | `?v=118` no desk |
 | Cliente | `mc-trocar.js` (IIFE, sem framework) | `static/js/mc-trocar.js` |
 | OCR | OpenRouter `openai/gpt-5-nano` visão | `read_swap_reference` |
 | Imagem | OpenRouter `openai/gpt-image-2` | `swap_reference` modo `image` / `recrop` |

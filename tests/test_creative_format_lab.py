@@ -1975,9 +1975,9 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("modelagem_camadas", shell)
         self.assertIn("modelagem_design-system", shell)
         desk = (root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html").read_text(encoding="utf-8")
-        self.assertIn("modelagem_criativos.css') }}?v=116", desk)
+        self.assertIn("modelagem_criativos.css') }}?v=118", desk)
         self.assertIn("js/mc-cadu-nav.js", desk)
-        self.assertIn("mc_page_js) }}?v=77", desk)
+        self.assertIn("mc_page_js) }}?v=79", desk)
         self.assertIn("js/mc-viewer-shell.js", desk)
         self.assertIn("js/mc-desk-brand.js", desk)
         self.assertIn("js/mc-dsa-write-queue.js", desk)
@@ -2092,6 +2092,11 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("loadHistory", swap_js)
         self.assertIn("startNewRun", swap_js)
         self.assertIn("setWorkspace", swap_js)
+        self.assertIn("params.get('ws')", swap_js)
+        self.assertIn("params.get('client')", swap_js)
+        self.assertIn("mcCaduVideo", swap_js)
+        home_js = (root / "aicentralv2" / "static" / "js" / "mc-cadu-home.js").read_text(encoding="utf-8")
+        self.assertIn("&client=", home_js)
         self.assertIn("mc-trocr-take-clip", swap_js)
         self.assertIn("data-workspace", trocar)
         self.assertIn("McViewerShell", swap_js)
@@ -4008,6 +4013,12 @@ class CreativeFormatLabRoutesTest(unittest.TestCase):
 
     def _trocr_headers(self):
         return {"X-Trocr-CSRF-Token": "trocr-test-csrf"}
+
+    def test_mesas_retiradas_voltam_ao_hub(self):
+        for slug in ("extrair", "revisao", "lab"):
+            response = self.client.get(f"/parametros/modelagem-criativos/{slug}")
+            self.assertEqual(response.status_code, 302, slug)
+            self.assertTrue(response.headers["Location"].endswith("/parametros/modelagem-criativos"), slug)
 
     def test_catalogo_e_handoff_bloqueado(self):
         service = Mock()

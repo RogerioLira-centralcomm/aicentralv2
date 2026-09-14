@@ -5,21 +5,39 @@ from unittest.mock import patch
 from flask import Flask
 
 from aicentralv2.places.brand import PUBLIC_TOKENS, zone_color
-from aicentralv2.places.catalog import CONGONHAS, CONFINS, DIAMOND_MALL, GALEAO, IBIRAPUERA, SANTOS_DUMONT, SEED_PLACES
+from aicentralv2.places.catalog import (
+    CONGONHAS,
+    CONFINS,
+    DIAMOND_MALL,
+    GALEAO,
+    IGUATEMI_SP,
+    IBIRAPUERA,
+    SANTOS_DUMONT,
+    SEED_PLACES,
+)
 from aicentralv2.places.repository import PlacesError, inquiry_payload
 from aicentralv2.places.routes import bp as places_bp
 from aicentralv2.places.research import (
+    ENRICH_MODEL,
     FINALIZE_MODEL,
     ResearchError,
+    enrich_points,
     geocode_one,
     polish_one_page,
     refine_generated_fiche,
     search_places,
 )
-from aicentralv2.places.images import _point_prompt, next_image_target, point_matches
+from aicentralv2.places.images import (
+    _hero_prompt,
+    _point_prompt,
+    generate_place_images,
+    next_image_target,
+    point_matches,
+)
+from aicentralv2.places.visual_refs import search_visual_refs, usable_image_url, visual_query
 from aicentralv2.places.pipeline import assemble_fiche, fiche_output
 from aicentralv2.places.schema import format_usd, normalize_payload, public_view, sum_zone_reaches
-from aicentralv2.places.service import apply_images, apply_import, serialize
+from aicentralv2.places.service import apply_enrich, apply_images, apply_import, merge_enrich_points, serialize
 from aicentralv2.places.share import public_path, slugify
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -51,6 +69,10 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertEqual(DIAMOND_MALL["payload"]["metrics"]["passengers"]["value"], 5_400_000)
 
     def test_anac_2025_passenger_labels(self):
+        self.assertEqual(
+            CONFINS["payload"]["media"]["hero_url"],
+            "/static/images/places/generated/confins-hero-bad23d6b.png",
+        )
         self.assertEqual(CONFINS["payload"]["metrics"]["passengers"]["label"], "13,2 mi")
         self.assertEqual(CONFINS["payload"]["metrics"]["passengers"]["value"], 13_183_039)
         self.assertEqual(CONGONHAS["payload"]["metrics"]["passengers"]["label"], "24,6 mi")
@@ -190,8 +212,37 @@ class PlacesCatalogTest(unittest.TestCase):
 
     def test_finalize_uses_gpt5_family(self):
         self.assertIn("gpt-5", FINALIZE_MODEL)
+        self.assertIn("gpt-5", ENRICH_MODEL)
         self.assertTrue(callable(polish_one_page))
         self.assertTrue(callable(refine_generated_fiche))
+        self.assertTrue(callable(enrich_points))
+
+    def test_enrich_points_reads_open_inventory(self):
+        place = serialize(dict(IGUATEMI_SP, id=6, preview_token="preview-igt", status="published"))
+        with patch("aicentralv2.places.research.chat_completion") as chat:
+            chat.return_value = {
+                "model": "openai/gpt-5.4",
+                "usage": {},
+                "message": {
+                    "content": (
+                        '{"lead":"No mall o celular é Instagram.",'
+                        '"notes":"Praça a validar.",'
+                        '"points":[{"id":"igt-mall","apps":[{"name":"Instagram","why":"Stories"}],'
+                        '"portals":[{"name":"G1","why":"intervalo"}],'
+                        '"formats":["Display no app","Banner","Portais"]}]}'
+                    )
+                },
+            }
+            result = enrich_points(place)
+        self.assertEqual(chat.call_args.kwargs["model"], ENRICH_MODEL)
+        self.assertEqual(result["points"][0]["id"], "igt-mall")
+        self.assertEqual(result["points"][0]["apps"][0]["name"], "Instagram")
+        self.assertEqual(result["points"][0]["formats"], ["Display no app", "Portais"])
+        self.assertNotIn("Banner", result["points"][0]["formats"])
+
+    def test_enrich_points_needs_a_point(self):
+        with self.assertRaisesRegex(ResearchError, "ponto"):
+            enrich_points({"title": "Vazio", "payload": {}})
 
     def test_research_prompt_covers_airport_kinds(self):
         from aicentralv2.places import research as research_mod
@@ -234,6 +285,8 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertIn("cc-hero", css)
         self.assertIn("cc-desk", css)
         self.assertIn("cc-sheet", css)
+        self.assertIn("cc-chips", css)
+        self.assertIn("cc-inventory", css)
         self.assertIn("cc-point-photo", css)
         self.assertIn("cc-picks", css)
         self.assertIn("cc-pick-code", css)
@@ -266,6 +319,10 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertIn("Escape", js)
         self.assertIn("is-mega", js)
         self.assertIn("requestClose", js)
+        self.assertIn("paintChannels", js)
+        self.assertIn("channelItems", js)
+        self.assertIn("zoneApps", js)
+        self.assertIn("zonePortals", js)
 
     def test_queue_bar_uses_css_var(self):
         css = ADMIN_CSS.read_text(encoding="utf-8")
@@ -298,6 +355,7 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertNotIn("#0c1a1b", css)
         self.assertIn(".pl-table", css)
         self.assertIn(".pl-queue", css)
+        self.assertIn(".pl-report", css)
         self.assertIn("letter-spacing: 0", css)
 
     def test_desk_is_a_table_and_a_single_trail(self):
@@ -311,12 +369,20 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertNotIn("pl-card", listing)
         self.assertIn("pl-trail", form)
         self.assertIn("Fechar ficha", form)
+        self.assertIn('id="pl-enrich"', form)
+        self.assertIn("Enriquecer pontos", form)
+        self.assertIn("data-inventory-report", form)
         self.assertIn("Gerar fotos que faltam", form)
+        self.assertIn("Firecrawl", form)
+        self.assertIn("Firecrawl", js)
         self.assertNotIn("pl-steps", form)
         self.assertNotIn("GPT Image 2", form)
         self.assertIn("runQueue", js)
         self.assertIn('kind: job.kind', js)
         self.assertIn("Fechando a ficha", js)
+        self.assertIn("/enrich", js)
+        self.assertIn("pl-point-extra", js)
+        self.assertIn("renderInventory", js)
         self.assertIn("data-share-link", form)
         self.assertIn('setAttribute("data-copy"', js)
         self.assertIn('name: "Ponto "', js)
@@ -388,6 +454,74 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertEqual(payload["costs"]["label"], "US$ 0,12")
         self.assertEqual(format_usd(0), "—")
 
+    def test_normalize_keeps_apps_portals_and_inventory(self):
+        payload = normalize_payload(
+            {
+                "points": [
+                    {
+                        "id": "igt-mall",
+                        "name": "Mall",
+                        "kind": "marco",
+                        "lat": -23.5768,
+                        "lng": -46.687,
+                        "reach": "150–230 mil",
+                        "formats": ["Display no app", "Portais"],
+                        "apps": [{"name": "Instagram", "why": "Stories no mall", "confidence": "estimate"}],
+                        "portals": [["G1", "intervalo no café"]],
+                    }
+                ],
+                "inventory": {
+                    "lead": "No mall o celular é Instagram e G1.",
+                    "notes": "A validar o mix da praça.",
+                    "model": "openai/gpt-5.4",
+                    "reviewed_at": "2026-09-14T12:00:00+00:00",
+                },
+            }
+        )
+        point = payload["points"][0]
+        self.assertEqual(point["apps"][0]["name"], "Instagram")
+        self.assertEqual(point["apps"][0]["why"], "Stories no mall")
+        self.assertEqual(point["portals"][0]["name"], "G1")
+        self.assertEqual(point["portals"][0]["why"], "intervalo no café")
+        self.assertEqual(payload["inventory"]["lead"], "No mall o celular é Instagram e G1.")
+        view = public_view({"slug": "iguatemi-sao-paulo", "title": "Iguatemi", "payload": payload})
+        self.assertEqual(view["inventory"]["model"], "openai/gpt-5.4")
+        self.assertEqual(view["points"][0]["apps"][0]["name"], "Instagram")
+
+    def test_merge_enrich_keeps_coords_and_reach(self):
+        merged = merge_enrich_points(
+            [
+                {
+                    "id": "igt-mall",
+                    "name": "Mall",
+                    "lat": -23.5768,
+                    "lng": -46.687,
+                    "reach": "150–230 mil",
+                    "image_url": "/mall.png",
+                    "formats": ["Display"],
+                }
+            ],
+            [
+                {
+                    "id": "igt-mall",
+                    "apps": [{"name": "Instagram", "why": "Stories", "confidence": "estimate"}],
+                    "portals": [{"name": "G1", "why": "intervalo", "confidence": "estimate"}],
+                    "formats": ["Display no app", "Portais"],
+                }
+            ],
+        )
+        self.assertEqual(merged[0]["lat"], -23.5768)
+        self.assertEqual(merged[0]["reach"], "150–230 mil")
+        self.assertEqual(merged[0]["image_url"], "/mall.png")
+        self.assertEqual(merged[0]["apps"][0]["name"], "Instagram")
+        self.assertEqual(merged[0]["formats"], ["Display no app", "Portais"])
+        by_name = merge_enrich_points(
+            [{"id": "igt-mall", "name": "Mall", "lat": -23.57}],
+            [{"name": "Mall", "apps": [{"name": "iFood", "why": "praça", "confidence": "estimate"}]}],
+        )
+        self.assertEqual(by_name[0]["apps"][0]["name"], "iFood")
+        self.assertEqual(by_name[0]["lat"], -23.57)
+
     def test_next_image_is_one_missing_asset(self):
         target = next_image_target(
             {
@@ -430,6 +564,105 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertIn("research", payload["pipeline"]["steps"])
         self.assertEqual(payload["pipeline"]["warnings"][0], "Sem coordenada: X.")
 
+    def test_visual_query_confins_asks_for_the_real_facade(self):
+        query = visual_query(
+            {"title": "Confins", "code": "CNF", "city": "bh", "place_type": "aeroporto"},
+            kind="hero",
+        )
+        self.assertIn("Confins", query)
+        self.assertIn("CNF", query)
+        self.assertIn("fachada", query)
+        self.assertIn("BH Airport", query)
+        interior = visual_query(
+            {"title": "Confins", "code": "CNF", "city": "bh", "place_type": "aeroporto"},
+            kind="point",
+            point={"name": "Terminal", "kind": "terminal"},
+        )
+        self.assertIn("interior", interior)
+
+    def test_visual_refs_skip_instagram_widgets(self):
+        self.assertFalse(usable_image_url("https://lookaside.instagram.com/seo/foo"))
+        self.assertTrue(usable_image_url("https://images.adsttc.com/media/confins.jpg"))
+        self.assertTrue(usable_image_url("data:image/jpeg;base64,abc"))
+
+    def test_search_visual_refs_without_key_is_empty(self):
+        with patch.dict("os.environ", {"FIRECRAWL_API_KEY": ""}, clear=False):
+            self.assertEqual(
+                search_visual_refs({"title": "Confins", "code": "CNF", "city": "bh"}),
+                [],
+            )
+
+    def test_hero_prompt_confins_forbids_wavy_roof(self):
+        prompt = _hero_prompt("Confins", "Belo Horizonte", "CNF")
+        self.assertIn("flat", prompt.lower())
+        self.assertIn("Hadid", prompt)
+        self.assertIn("Bacco", prompt)
+
+    def test_generate_place_images_uses_firecrawl_refs(self):
+        import base64
+        import tempfile
+
+        captured = {}
+
+        def fake_image(prompt, **kwargs):
+            captured["prompt"] = prompt
+            captured["refs"] = kwargs.get("input_references")
+            return {"b64_json": base64.b64encode(b"png-bytes").decode("ascii"), "usage": {}}
+
+        with tempfile.TemporaryDirectory() as tmp, patch(
+            "aicentralv2.places.images.search_visual_refs",
+            return_value=[{"url": "https://images.adsttc.com/confins.jpg", "title": "CNF", "query": "Confins"}],
+        ), patch("aicentralv2.places.images.generate_image", side_effect=fake_image), patch(
+            "aicentralv2.places.images._art_dir",
+            return_value=tmp,
+        ):
+            result = generate_place_images(
+                {"title": "Confins", "code": "CNF", "slug": "confins", "city": "bh", "place_type": "aeroporto"},
+                kind="hero",
+            )
+        self.assertEqual(captured["refs"], ["https://images.adsttc.com/confins.jpg"])
+        self.assertIn("reference photos", captured["prompt"])
+        self.assertTrue(result["hero_url"].startswith("/static/images/places/generated/confins-hero-"))
+        self.assertEqual(result["visual_refs"][0]["url"], "https://images.adsttc.com/confins.jpg")
+
+    def test_generate_place_images_without_refs_still_renders(self):
+        import base64
+        import tempfile
+
+        captured = {}
+
+        def fake_image(prompt, **kwargs):
+            captured["prompt"] = prompt
+            captured["refs"] = kwargs.get("input_references")
+            return {"b64_json": base64.b64encode(b"png-bytes").decode("ascii"), "usage": {}}
+
+        with tempfile.TemporaryDirectory() as tmp, patch(
+            "aicentralv2.places.images.search_visual_refs",
+            return_value=[],
+        ), patch("aicentralv2.places.images.generate_image", side_effect=fake_image), patch(
+            "aicentralv2.places.images._art_dir",
+            return_value=tmp,
+        ):
+            result = generate_place_images(
+                {"title": "Confins", "code": "CNF", "slug": "confins", "city": "bh"},
+                kind="hero",
+            )
+        self.assertFalse(captured["refs"])
+        self.assertNotIn("reference photos", captured["prompt"])
+        self.assertNotIn("visual_refs", result)
+
+    def test_normalize_keeps_visual_refs(self):
+        payload = normalize_payload(
+            {
+                "media": {
+                    "hero_url": "/h.png",
+                    "visual_refs": [{"kind": "hero", "url": "https://images.adsttc.com/confins.jpg", "title": "CNF"}],
+                }
+            }
+        )
+        self.assertEqual(payload["media"]["visual_refs"][0]["url"], "https://images.adsttc.com/confins.jpg")
+        self.assertEqual(payload["media"]["visual_refs"][0]["kind"], "hero")
+
     def test_apply_images_next_generates_only_one(self):
         row = {
             "id": 9,
@@ -454,7 +687,11 @@ class PlacesCatalogTest(unittest.TestCase):
             "aicentralv2.places.service.update_place", side_effect=_save
         ), patch(
             "aicentralv2.places.service.generate_place_images",
-            return_value={"hero_url": "/static/hero.png", "usages": [{"step": "image-hero", "label": "Hero", "usage": {"cost": 0.2}}]},
+            return_value={
+                "hero_url": "/static/hero.png",
+                "visual_refs": [{"kind": "hero", "url": "https://images.adsttc.com/gig.jpg"}],
+                "usages": [{"step": "image-hero", "label": "Hero", "usage": {"cost": 0.2}}],
+            },
         ) as gen_place, patch(
             "aicentralv2.places.service.generate_point_images"
         ) as gen_point:
@@ -463,6 +700,7 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertEqual(gen_place.call_args.kwargs.get("kind") or gen_place.call_args[1].get("kind"), "hero")
         gen_point.assert_not_called()
         self.assertEqual(saved["media"]["hero_url"], "/static/hero.png")
+        self.assertEqual(saved["media"]["visual_refs"][0]["url"], "https://images.adsttc.com/gig.jpg")
         self.assertAlmostEqual(saved["ai_cost_usd"], 0.2)
         self.assertEqual(saved["image_job"]["kind"], "hero")
 
@@ -548,6 +786,84 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertIn("polish", saved["pipeline"]["steps"])
         self.assertTrue(any("Base" in item for item in saved["pipeline"]["warnings"]))
         self.assertEqual(saved["review_changes"], ["fechou"])
+
+    def test_apply_enrich_merges_inventory_without_moving_the_point(self):
+        row = {
+            "id": 6,
+            "slug": "iguatemi-sao-paulo",
+            "code": "IGT",
+            "title": "Iguatemi São Paulo",
+            "city": "sp",
+            "status": "published",
+            "payload": normalize_payload(
+                {
+                    "geo": {"lat": -23.5768, "lng": -46.687},
+                    "points": [
+                        {
+                            "id": "igt-mall",
+                            "name": "Mall",
+                            "kind": "marco",
+                            "lat": -23.5768,
+                            "lng": -46.687,
+                            "reach": "150–230 mil",
+                            "image_url": "/mall.png",
+                        }
+                    ],
+                }
+            ),
+        }
+
+        def _save(_id, record):
+            row.update(record)
+            return row
+
+        with patch("aicentralv2.places.service.get_by_id", return_value=row), patch(
+            "aicentralv2.places.service.update_place", side_effect=_save
+        ), patch(
+            "aicentralv2.places.service.enrich_points",
+            return_value={
+                "model": "openai/gpt-5.4",
+                "usage": {"cost": 0.15},
+                "lead": "No mall o celular é Instagram e G1.",
+                "notes": "Praça ficou a validar.",
+                "points": [
+                    {
+                        "id": "igt-mall",
+                        "apps": [{"name": "Instagram", "why": "Stories no mall", "confidence": "estimate"}],
+                        "portals": [{"name": "G1", "why": "intervalo", "confidence": "estimate"}],
+                        "formats": ["Display no app", "Portais"],
+                    }
+                ],
+            },
+        ):
+            saved = apply_enrich(6)
+        point = saved["points"][0]
+        self.assertEqual(point["lat"], -23.5768)
+        self.assertEqual(point["reach"], "150–230 mil")
+        self.assertEqual(point["image_url"], "/mall.png")
+        self.assertEqual(point["apps"][0]["name"], "Instagram")
+        self.assertEqual(saved["inventory"]["lead"], "No mall o celular é Instagram e G1.")
+        self.assertIn("enrich", saved["pipeline"]["steps"])
+        self.assertAlmostEqual(saved["ai_cost_usd"], 0.15)
+
+    def test_apply_enrich_rejects_empty_research(self):
+        row = {
+            "id": 6,
+            "slug": "iguatemi-sao-paulo",
+            "code": "IGT",
+            "title": "Iguatemi São Paulo",
+            "city": "sp",
+            "status": "published",
+            "payload": normalize_payload({
+                "points": [{"id": "igt-mall", "name": "Mall", "kind": "marco", "lat": -23.57, "lng": -46.68}],
+            }),
+        }
+        with patch("aicentralv2.places.service.get_by_id", return_value=row), patch(
+            "aicentralv2.places.service.enrich_points",
+            return_value={"model": "openai/gpt-5.4", "usage": {}, "lead": "", "notes": "", "points": []},
+        ):
+            with self.assertRaisesRegex(ResearchError, "apps nem portais"):
+                apply_enrich(6)
 
 
 class PlacesPublicRoutesTest(unittest.TestCase):
@@ -662,6 +978,7 @@ class PlacesPublicRoutesTest(unittest.TestCase):
             response = self.client.get("/places/p/confins")
         html = response.get_data(as_text=True)
         self.assertEqual(response.status_code, 200)
+        self.assertIn("confins-hero-bad23d6b.png", html)
         self.assertIn("A validar", html)
         self.assertIn("MG-010", html)
         self.assertIn("cnf-internacional", html)
@@ -678,6 +995,36 @@ class PlacesPublicRoutesTest(unittest.TestCase):
         self.assertIn("No lugar, 2025", html)
         self.assertIn("A validar", html)
         self.assertIn("ibi-bienal", html)
+
+    def test_iguatemi_public_shows_apps_portals_and_report(self):
+        place = serialize(dict(IGUATEMI_SP, id=6, preview_token="preview-igt", status="published"))
+        points = list(place.get("points") or [])
+        if points:
+            points[0] = {
+                **points[0],
+                "apps": [{"name": "Instagram", "why": "Stories no mall", "confidence": "estimate"}],
+                "portals": [{"name": "G1", "why": "intervalo", "confidence": "estimate"}],
+            }
+        place["points"] = points
+        place["inventory"] = {
+            "lead": "No Iguatemi o celular é Instagram e G1.",
+            "notes": "",
+            "model": "openai/gpt-5.4",
+            "reviewed_at": "2026-09-14T12:00:00+00:00",
+        }
+        with patch("aicentralv2.places.service.public_place", return_value=place), patch(
+            "aicentralv2.places.service.public_catalog", return_value=[place]
+        ):
+            response = self.client.get("/places/p/iguatemi-sao-paulo")
+        html = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("zoneApps", html)
+        self.assertIn("zonePortals", html)
+        self.assertIn("Instagram", html)
+        self.assertIn("G1", html)
+        self.assertIn("cc-inventory", html)
+        self.assertIn("No Iguatemi o celular é Instagram e G1.", html)
+        self.assertIn("igt-mall", html)
 
 
 if __name__ == "__main__":

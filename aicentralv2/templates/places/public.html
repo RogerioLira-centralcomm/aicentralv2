@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Nunito+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/places_public.css') }}?v=28">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/places_public.css') }}?v=29">
 </head>
 <body class="cc-place" data-preview="{{ '1' if preview else '0' }}">
   <a class="cc-skip" href="#mapa">Ir para o mapa</a>
@@ -70,12 +70,34 @@
           </div>
         </dl>
         <p class="cc-sheet-meta" id="zoneFormats"{% if not first or not first.formats %} hidden{% endif %}>{% if first and first.formats %}{{ first.formats|join(', ') }}{% endif %}</p>
+        <div class="cc-channels" id="zoneChannels"{% if not first or not (first.apps or first.portals) %} hidden{% endif %}>
+          <div class="cc-channel-group" id="zoneAppsWrap"{% if not first or not first.apps %} hidden{% endif %}>
+            <p class="cc-channel-label">Apps</p>
+            <ul class="cc-chips" id="zoneApps">
+              {% for item in (first.apps if first else []) %}
+              <li{% if item.why %} title="{{ item.why }}"{% endif %}>{{ item.name }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+          <div class="cc-channel-group" id="zonePortalsWrap"{% if not first or not first.portals %} hidden{% endif %}>
+            <p class="cc-channel-label">Portais</p>
+            <ul class="cc-chips" id="zonePortals">
+              {% for item in (first.portals if first else []) %}
+              <li{% if item.why %} title="{{ item.why }}"{% endif %}>{{ item.name }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
       </article>
     </section>
 
     <div class="cc-leaf">
       {% if place.offer.lead %}
       <p class="cc-why">{{ place.offer.lead }}</p>
+      {% endif %}
+
+      {% if place.inventory.lead %}
+      <p class="cc-inventory">{{ place.inventory.lead }}</p>
       {% endif %}
 
       {% if place.catchment.profile or place.catchment.population.label %}
@@ -97,6 +119,6 @@
 
   <script type="application/json" id="cc-place-data">{{ place|tojson }}</script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="{{ url_for('static', filename='js/places_public.js') }}?v=28"></script>
+  <script src="{{ url_for('static', filename='js/places_public.js') }}?v=29"></script>
 </body>
 </html>

@@ -211,6 +211,20 @@ def api_import(place_id):
         return _error("Não foi possível finalizar a importação.", 500)
 
 
+@bp.route("/api/<int:place_id>/enrich", methods=["POST"])
+@login_required_api
+def api_enrich(place_id):
+    try:
+        return _ok(service.apply_enrich(place_id))
+    except PlaceNotFound as exc:
+        return _error(exc, 404)
+    except ResearchError as exc:
+        return _error(exc, 400)
+    except Exception:
+        logger.exception("Falha ao enriquecer pontos do place")
+        return _error("Não foi possível enriquecer os pontos.", 500)
+
+
 @bp.route("/api/<int:place_id>/suggest-points", methods=["POST"])
 @login_required_api
 def api_suggest_points(place_id):

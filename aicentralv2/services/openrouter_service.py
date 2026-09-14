@@ -9,6 +9,7 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_IMAGE_URL = "https://openrouter.ai/api/v1/images"
 OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
 OPENAI_IMAGE_URL = "https://api.openai.com/v1/images/generations"
+OPENAI_IMAGE_EDIT_URL = "https://api.openai.com/v1/images/edits"
 OPENROUTER_VIDEO_URL = "https://openrouter.ai/api/v1/videos"
 OPENROUTER_SPEECH_URL = "https://openrouter.ai/api/v1/audio/speech"
 DEFAULT_IMAGE_MODEL = os.getenv("CREATIVE_IMAGE_MODEL", "openai/gpt-image-2")
@@ -535,6 +536,85 @@ def _openai_generate_image(payload, *, image_model, output_format, timeout):
         raise OpenRouterError("Não foi possível gerar a imagem na OpenAI.") from exc
 
 
+def _openai_edit_image(payload, *, image_model, output_format, timeout, input_references):
+    key = resolve_openai_api_key()
+    if not key:
+        raise OpenRouterError("OpenAI não está configurada.")
+    files = []
+    for index, item in enumerate(list(input_references or [])[:2]):
+        raw, mime, name = _reference_bytes(item, index)
+        files.append(("image[]", (name, raw, mime)))
+    if not files:
+        return _openai_generate_image(
+            payload, image_model=image_model, output_format=output_format, timeout=timeout
+        )
+    ratio = str(payload.get("aspect_ratio") or "16:9")
+    body = {
+        "model": openai_model_slug(image_model) or "gpt-image-2",
+        "prompt": payload.get("prompt") or "",
+        "size": _OPENAI_IMAGE_SIZES.get(ratio, "1536x1024"),
+        "quality": payload.get("quality") or "high",
+    }
+    try:
+        response = requests.post(
+            OPENAI_IMAGE_EDIT_URL,
+            headers={"Authorization": f"Bearer {key}"},
+            data=body,
+            files=files,
+            timeout=max(30, min(int(timeout), 180)),
+        )
+        response.raise_for_status()
+        data = response.json()
+        images = data.get("data") or []
+        first = images[0] if images else {}
+        encoded = first.get("b64_json") if isinstance(first, dict) else None
+        url = first.get("url") if isinstance(first, dict) else None
+        if not encoded and url:
+            fetched = requests.get(url, timeout=60)
+            fetched.raise_for_status()
+            encoded = base64.b64encode(fetched.content).decode("ascii")
+        if not encoded:
+            raise OpenRouterError("A OpenAI não retornou a imagem.")
+        return {
+            "b64_json": encoded,
+            "model": data.get("model") or body["model"],
+            "usage": data.get("usage") or {},
+            "output_format": output_format,
+        }
+    except OpenRouterError:
+        raise
+    except requests.HTTPError as exc:
+        raise OpenRouterError(_openai_chat_error_message(getattr(exc, "response", None))) from exc
+    except (requests.RequestException, ValueError, KeyError, IndexError) as exc:
+        raise OpenRouterError("Não foi possível editar a imagem na OpenAI.") from exc
+
+
+def _reference_bytes(item, index: int) -> tuple[bytes, str, str]:
+    url = ""
+    if isinstance(item, str):
+        url = item
+    elif isinstance(item, dict):
+        image_url = item.get("image_url")
+        if isinstance(image_url, str):
+            url = image_url
+        elif isinstance(image_url, dict):
+            url = str(image_url.get("url") or "")
+        else:
+            url = str(item.get("url") or "")
+    if url.startswith("data:image/"):
+        header, _, encoded = url.partition(",")
+        mime = header.split(";", 1)[0].split(":", 1)[1] or "image/png"
+        ext = "jpg" if "jpeg" in mime else "png"
+        return base64.b64decode(encoded), mime, f"ref{index}.{ext}"
+    if not url.startswith(("https://", "http://")):
+        raise OpenRouterError("Referência de imagem inválida.")
+    fetched = requests.get(url, timeout=30)
+    fetched.raise_for_status()
+    mime = (fetched.headers.get("content-type") or "image/jpeg").split(";", 1)[0]
+    ext = "png" if "png" in mime else "jpg"
+    return fetched.content, mime, f"ref{index}.{ext}"
+
+
 def generate_image(
     prompt: str,
     *,
@@ -560,6 +640,14 @@ def generate_image(
     )
     image_model = payload.get("model") or resolve_image_model(model)
     if uses_direct_openai(image_model):
+        if payload.get("input_references"):
+            return _openai_edit_image(
+                payload,
+                image_model=image_model,
+                output_format=output_format,
+                timeout=timeout,
+                input_references=payload.get("input_references"),
+            )
         return _openai_generate_image(
             payload, image_model=image_model, output_format=output_format, timeout=timeout
         )

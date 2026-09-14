@@ -264,6 +264,39 @@ class OpenAIDirectRoutingTest(unittest.TestCase):
         self.assertNotIn("max_tokens", post.call_args.kwargs["json"])
         self.assertIn("max_completion_tokens", post.call_args.kwargs["json"])
 
+    def test_image_refs_go_to_openai_edits(self):
+        import base64
+
+        class _Resp:
+            status_code = 200
+            headers = {"content-type": "image/jpeg"}
+            content = b"jpg-bytes"
+
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {
+                    "data": [{"b64_json": base64.b64encode(b"png").decode("ascii")}],
+                    "model": "gpt-image-2",
+                    "usage": {},
+                }
+
+        with patch.object(openrouter_service, "resolve_openai_api_key", return_value="sk-test"), patch(
+            "aicentralv2.services.openrouter_service.requests.get", return_value=_Resp()
+        ), patch(
+            "aicentralv2.services.openrouter_service.requests.post", return_value=_Resp()
+        ) as post:
+            result = openrouter_service.generate_image(
+                "fachada",
+                model="openai/gpt-image-2",
+                input_references=["https://images.adsttc.com/confins.jpg"],
+            )
+        self.assertTrue(result["b64_json"])
+        self.assertEqual(post.call_args.args[0], openrouter_service.OPENAI_IMAGE_EDIT_URL)
+        self.assertEqual(post.call_args.kwargs["data"]["model"], "gpt-image-2")
+        self.assertEqual(post.call_args.kwargs["files"][0][0], "image[]")
+
 
 if __name__ == "__main__":
     unittest.main()

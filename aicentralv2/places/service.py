@@ -34,6 +34,7 @@ from .images import (
 from .pipeline import assemble_fiche, fiche_output, image_pack, locate_points, pipeline_record
 from .research import (
     ResearchError,
+    enrich_points,
     finalize_import,
     polish_one_page,
     refine_generated_fiche,
@@ -53,6 +54,7 @@ from .schema import (
     STATUSES,
     TYPE_LABELS,
     as_dict,
+    as_list,
     empty_payload,
     format_usd,
     normalize_choice,
@@ -156,6 +158,8 @@ def _keep_previous(previous: dict, payload: dict) -> dict:
         payload["pipeline"] = previous["pipeline"]
     if not (payload.get("costs") or {}).get("entries") and previous.get("costs"):
         payload["costs"] = previous["costs"]
+    if not (payload.get("inventory") or {}).get("lead") and (previous.get("inventory") or {}).get("lead"):
+        payload["inventory"] = previous["inventory"]
     prev_body = text((previous.get("methodology") or {}).get("body"))
     incoming_body = text((payload.get("methodology") or {}).get("body"))
     default_body = text((empty_payload().get("methodology") or {}).get("body"))
@@ -537,7 +541,14 @@ def apply_images(place_id: int, *, kind: str = "next", point_id: str = "") -> di
         if not target_label and generated:
             target_label = text(generated[0].get("name"))
     media = dict(payload.get("media") or {})
+    incoming_refs = generated_media.pop("visual_refs", None) or []
     media.update({key: value for key, value in generated_media.items() if value and key != "usages"})
+    if incoming_refs:
+        kinds = {text(item.get("kind")) for item in incoming_refs}
+        previous = [
+            item for item in as_list(media.get("visual_refs")) if text(item.get("kind")) not in kinds
+        ]
+        media["visual_refs"] = previous + incoming_refs
     model, resolution = resolve_place_image_spec(place)
     media["image_model"] = model
     media["image_resolution"] = resolution
@@ -587,14 +598,70 @@ def _merge_points(incoming: list, previous: list) -> list:
             continue
         seen.add(key)
         old = old_by_id.get(text(item.get("id"))) or old_by_name.get(name) or {}
-        if old.get("image_url") and not item.get("image_url"):
-            item = dict(item)
-            item["image_url"] = old["image_url"]
-        if old.get("note") and not item.get("note"):
-            item = dict(item)
-            item["note"] = old["note"]
-        merged.append(item)
+        row = dict(item)
+        for key in ("image_url", "note", "commercial", "reach", "formats", "audiences", "apps", "portals"):
+            if old.get(key) and not row.get(key):
+                row[key] = old[key]
+        merged.append(row)
     return merged
+
+
+def merge_enrich_points(points: list, extras: list) -> list:
+    by_id = {text(item.get("id")): item for item in extras or [] if text(item.get("id"))}
+    by_name = {
+        text(item.get("name")).lower(): item
+        for item in extras or []
+        if text(item.get("name"))
+    }
+    merged = []
+    for item in points or []:
+        extra = by_id.get(text(item.get("id"))) or by_name.get(text(item.get("name")).lower()) or {}
+        row = dict(item)
+        if extra.get("apps"):
+            row["apps"] = extra["apps"]
+        if extra.get("portals"):
+            row["portals"] = extra["portals"]
+        if extra.get("formats"):
+            row["formats"] = extra["formats"]
+        merged.append(row)
+    return merged
+
+
+def apply_enrich(place_id: int) -> dict:
+    row = get_by_id(place_id)
+    place = serialize(row)
+    result = enrich_points(place)
+    if not result.get("points") and not result.get("lead"):
+        raise ResearchError("A pesquisa não devolveu apps nem portais. Tente de novo.")
+    payload = normalize_payload(place)
+    previous_inventory = dict(payload.get("inventory") or {})
+    if result.get("points"):
+        payload["points"] = merge_enrich_points(payload.get("points") or [], result.get("points") or [])
+    payload["inventory"] = {
+        "lead": result.get("lead") or previous_inventory.get("lead") or "",
+        "notes": result.get("notes") or previous_inventory.get("notes") or "",
+        "model": text(result.get("model")) or previous_inventory.get("model") or "",
+        "reviewed_at": datetime.now(timezone.utc).isoformat(),
+    }
+    pipeline = dict(payload.get("pipeline") or {})
+    steps = list(pipeline.get("steps") or [])
+    if "enrich" not in steps:
+        steps.append("enrich")
+    pipeline["steps"] = steps
+    models = dict(pipeline.get("models") or {})
+    models["enrich"] = text(result.get("model"))
+    pipeline["models"] = models
+    payload["pipeline"] = pipeline
+    _record_cost(
+        payload,
+        step="enrich",
+        model=text(result.get("model")),
+        usage=result.get("usage"),
+        label="Enriquecer pontos",
+    )
+    record = dict(row)
+    record["payload"] = payload
+    return serialize(update_place(place_id, record))
 
 
 def unpublish_place(place_id: int) -> dict:

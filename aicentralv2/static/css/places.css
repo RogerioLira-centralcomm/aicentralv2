@@ -459,6 +459,71 @@
   overflow-x: auto;
 }
 
+.pl-point-extra td {
+  padding: 0 0.3rem 0.85rem;
+  vertical-align: top;
+}
+
+.pl-point-channels {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.pl-point-extra label {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  color: var(--cx-text-muted, #64748b);
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.pl-report {
+  margin: 1rem 0 0;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--cx-border, #e2e8f0);
+  background: #f8fafc;
+}
+
+.pl-report[hidden] {
+  display: none;
+}
+
+.pl-report-lead {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.pl-report-points {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 0.75rem;
+  margin: 0.85rem 0 0;
+}
+
+.pl-report-card {
+  margin: 0;
+  padding: 0.75rem 0.8rem;
+  border: 1px solid var(--cx-border, #e2e8f0);
+  background: #fff;
+}
+
+.pl-report-card h3 {
+  margin: 0 0 0.4rem;
+  font-size: 0.92rem;
+  font-weight: 750;
+}
+
+.pl-report-card p {
+  margin: 0.25rem 0 0;
+  color: var(--cx-text-muted, #64748b);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
 .pl-trail button:focus-visible {
   outline: 2px solid var(--cx-brand, #1e4d4f);
   outline-offset: 2px;
@@ -522,5 +587,10 @@
   .pl-head-actions .cx-btn,
   .pl-head .cx-btn {
     width: 100%;
+  }
+
+  .pl-point-channels,
+  .pl-report-points {
+    grid-template-columns: 1fr;
   }
 }

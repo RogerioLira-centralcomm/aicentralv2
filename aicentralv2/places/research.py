@@ -11,7 +11,17 @@ from typing import Any
 import requests
 
 from ..services.openrouter_service import OpenRouterError, chat_completion
-from .schema import CITIES, POINT_KINDS, as_dict, as_list, normalize_payload, text
+from .schema import (
+    CITIES,
+    ENRICH_FORMATS,
+    INVENTORY_MAX_ITEMS,
+    POINT_KINDS,
+    as_dict,
+    as_list,
+    normalize_inventory_items,
+    normalize_payload,
+    text,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +34,7 @@ REVIEW_MODEL = os.getenv("PLACES_REVIEW_MODEL") or os.getenv(
     "PLACES_FINALIZE_MODEL", "openai/gpt-5-mini"
 )
 FINALIZE_MODEL = os.getenv("PLACES_FINALIZE_MODEL", "openai/gpt-5-mini")
+ENRICH_MODEL = os.getenv("PLACES_ENRICH_MODEL", "openai/gpt-5.4")
 
 
 class ResearchError(RuntimeError):
@@ -474,6 +485,110 @@ def finalize_import(place: dict, *, research: dict | None = None) -> dict:
         "points": points,
         "review": text(data.get("review")),
         "changes": [text(x) for x in as_list(data.get("changes")) if text(x)],
+    }
+
+
+def _allowed_formats(value: Any) -> list[str]:
+    allowed = {item.lower(): item for item in ENRICH_FORMATS}
+    found = []
+    seen = set()
+    for raw in as_list(value):
+        label = allowed.get(text(raw).lower())
+        if not label or label in seen:
+            continue
+        seen.add(label)
+        found.append(label)
+    return found[:3]
+
+
+def enrich_points(place: dict) -> dict:
+    """Pesquisa aberta: apps e portais vistos/usados em cada raio."""
+    payload = normalize_payload(place)
+    points = [item for item in as_list(payload.get("points")) if text(item.get("name"))]
+    if not points:
+        raise ResearchError("Feche a ficha e tenha ao menos um ponto antes de enriquecer.")
+    locked = {
+        "title": text(place.get("title")),
+        "code": text(place.get("code")),
+        "city": text(place.get("city_label") or place.get("city")),
+        "place_type": text(place.get("place_type") or "aeroporto"),
+        "operator": text(place.get("operator")),
+        "subtitle": text(place.get("subtitle")),
+        "catchment_profile": text(as_dict(payload.get("catchment")).get("profile")),
+        "neighborhoods": as_list(as_dict(payload.get("catchment")).get("neighborhoods")),
+        "points": [
+            {
+                "id": text(item.get("id")),
+                "name": text(item.get("name")),
+                "kind": text(item.get("kind")),
+                "radius": text(item.get("radius_label")),
+                "reach": text(item.get("reach")),
+                "commercial": text(item.get("commercial")),
+                "formats": item.get("formats") or [],
+            }
+            for item in points
+        ],
+    }
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "Você pesquisa o que a pessoa vê e usa no celular em cada raio de um place. "
+                "Inventário aberto: apps e portais reais daquele recorte, sem ficar preso a um catálogo. "
+                "Quem lê compra o raio no celular, não outdoor. "
+                "Frase curta, voz ativa, português do Brasil. "
+                "Proibido: geofence, proposta, HTML5, push, banner, interstitial, "
+                "out-of-home, OOH, inventar MAU, somar raios, inventar número oficial. "
+                "Halo não é o terminal. Mall não é o escritório. "
+                f"Formatos só: {', '.join(ENRICH_FORMATS)}. "
+                f"No máximo {INVENTORY_MAX_ITEMS} apps e {INVENTORY_MAX_ITEMS} portais por ponto. "
+                "confidence: official|estimate|to_validate. "
+                "Responda só JSON."
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                "Devolva JSON: lead (uma frase do mix deste place), notes (o que fechou / o que ficou a validar), "
+                "points (lista de {id, apps, portals, formats}). "
+                "Cada app/portal: {name, why, confidence}. "
+                "why diz o momento no raio, não o job da mídia. "
+                "Exemplo: praça de alimentação → iFood; acesso → Waze; escritório → G1.\n\n"
+                f"travado={json.dumps(locked, ensure_ascii=False)}"
+            ),
+        },
+    ]
+    try:
+        response = chat_completion(
+            messages,
+            model=ENRICH_MODEL,
+            max_tokens=5000,
+            temperature=0.2,
+            timeout=120,
+            response_format={"type": "json_object"},
+        )
+    except OpenRouterError as exc:
+        raise ResearchError(str(exc) or "O enriquecimento dos pontos não respondeu.") from exc
+    data = _json_content((response.get("message") or {}).get("content"))
+    enriched = []
+    for item in as_list(data.get("points")):
+        if not isinstance(item, dict) or not text(item.get("id")):
+            continue
+        enriched.append(
+            {
+                "id": text(item.get("id")),
+                "name": text(item.get("name")),
+                "apps": normalize_inventory_items(item.get("apps")),
+                "portals": normalize_inventory_items(item.get("portals")),
+                "formats": _allowed_formats(item.get("formats")),
+            }
+        )
+    return {
+        "model": response.get("model") or ENRICH_MODEL,
+        "usage": response.get("usage") or {},
+        "lead": text(data.get("lead")),
+        "notes": text(data.get("notes")),
+        "points": enriched,
     }
 
 

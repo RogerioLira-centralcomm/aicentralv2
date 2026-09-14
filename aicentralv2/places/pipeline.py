@@ -196,9 +196,13 @@ def fiche_output(place: dict) -> dict:
                 "lng": item.get("lng"),
                 "image_url": text(item.get("image_url")),
                 "commercial": text(item.get("commercial")),
+                "formats": item.get("formats") or [],
+                "apps": item.get("apps") or [],
+                "portals": item.get("portals") or [],
             }
             for item in as_list(place.get("points"))
         ],
+        "inventory": as_dict(place.get("inventory")),
         "images": image_pack(place),
         "methodology": as_dict(place.get("methodology")),
         "pipeline": as_dict(place.get("pipeline")),

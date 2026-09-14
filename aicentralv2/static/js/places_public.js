@@ -112,6 +112,8 @@
         reach_status: point.reach_status || "estimate",
         commercial: point.commercial || point.note || "",
         formats: point.formats || [],
+        apps: point.apps || [],
+        portals: point.portals || [],
         image: point.image_url || "",
         color: point.color || "#167A3A",
         lat: point.lat,
@@ -128,6 +130,8 @@
         reach_status: zone.reach_status || "estimate",
         commercial: zone.commercial || zone.description || "",
         formats: zone.formats || [],
+        apps: zone.apps || [],
+        portals: zone.portals || [],
         image: zone.image_url || "",
         color: zone.color || "#167A3A"
       };
@@ -161,6 +165,37 @@
       wrap.classList.remove("is-in");
       img.removeAttribute("src");
     }
+  }
+
+  function channelItems(items) {
+    return (items || []).map(function (item) {
+      if (!item) return null;
+      if (typeof item === "string") return { name: item, why: "" };
+      var name = item.name || "";
+      if (!name) return null;
+      return { name: name, why: item.why || "" };
+    }).filter(Boolean);
+  }
+
+  function paintChannelList(id, wrapId, items) {
+    var list = document.getElementById(id);
+    var wrap = document.getElementById(wrapId);
+    var rows = channelItems(items);
+    if (list) {
+      list.innerHTML = rows.map(function (item) {
+        return "<li" + (item.why ? ' title="' + escapeHtml(item.why) + '"' : "") + ">" +
+          escapeHtml(item.name) + "</li>";
+      }).join("");
+    }
+    if (wrap) wrap.hidden = !rows.length;
+    return rows.length;
+  }
+
+  function paintChannels(item) {
+    var apps = paintChannelList("zoneApps", "zoneAppsWrap", item && item.apps);
+    var portals = paintChannelList("zonePortals", "zonePortalsWrap", item && item.portals);
+    var box = document.getElementById("zoneChannels");
+    if (box) box.hidden = !(apps || portals);
   }
 
   function setFlag(id, on) {
@@ -239,6 +274,7 @@
       formats.textContent = (item.formats || []).join(", ");
       formats.hidden = !(item.formats && item.formats.length);
     }
+    paintChannels(item);
     setPhoto("zonePhoto", item.image, item.name);
     var sheet = document.getElementById("cc-detail");
     if (sheet && primed) {

@@ -216,7 +216,7 @@ CONFINS = {
                 ),
             ],
             "media": {
-                "hero_url": "/static/images/places/generated/confins-hero-29d2ce76.png",
+                "hero_url": "/static/images/places/generated/confins-hero-bad23d6b.png",
                 "map_url": "/static/images/places/generated/confins-map-611e4c35.png",
             },
             "zones": [

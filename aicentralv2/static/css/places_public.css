@@ -465,10 +465,42 @@ button, a {
   font-size: 0.82rem;
   font-weight: 700;
 }
+.cc-channels {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0.9rem 0 0;
+}
+.cc-channels[hidden] { display: none; }
+.cc-channel-group[hidden] { display: none; }
+.cc-channel-label {
+  margin: 0 0 0.35rem;
+  color: var(--cc-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.cc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cc-chips li {
+  padding: 0.22rem 0.55rem;
+  border: 1px solid rgba(22, 122, 58, 0.22);
+  background: rgba(22, 122, 58, 0.06);
+  color: var(--cc-ink, #080808);
+  font-size: 0.78rem;
+  font-weight: 750;
+  line-height: 1.25;
+}
 
 .cc-why,
 .cc-halo,
-.cc-note {
+.cc-note,
+.cc-inventory {
   max-width: 36rem;
   margin: 1.15rem 0 0;
   line-height: 1.55;
@@ -481,7 +513,8 @@ button, a {
   line-height: 1.35;
 }
 .cc-halo,
-.cc-note {
+.cc-note,
+.cc-inventory {
   color: var(--cc-muted);
   font-size: var(--cc-fs-meta);
 }

@@ -13,6 +13,12 @@ from flask import current_app, has_app_context
 
 from ..services.openrouter_service import generate_image, resolve_image_model
 from .schema import as_dict, as_list, text
+from .visual_refs import reference_urls, search_visual_refs
+
+GROUNDING = (
+    " Match the real architecture, materials and surroundings in the reference photos. "
+    "Do not invent a different building, a wavy parametric roof, or a generic mega-hub."
+)
 
 logger = logging.getLogger(__name__)
 
@@ -101,15 +107,19 @@ def generate_place_images(place: dict, *, kind: str = "hero") -> dict:
     urls = {}
     usages = []
     if kind in ("hero", "both", "all"):
+        refs = search_visual_refs(place, kind="hero")
         url, usage = _render(
             _hero_prompt(title, city, code),
             f"{slug}-hero",
             "16:9",
             place,
+            refs=refs,
         )
         urls["hero_url"] = url
         usages.append({"step": "image-hero", "label": "Hero", "usage": usage})
+        _attach_refs(urls, "hero", refs)
     if kind in ("og", "both", "all"):
+        refs = search_visual_refs(place, kind="og")
         url, usage = _render(
             (
                 f"Premium share photo of {title} {code} in {city}, Brazil. "
@@ -118,10 +128,13 @@ def generate_place_images(place: dict, *, kind: str = "hero") -> dict:
             f"{slug}-og",
             "16:9",
             place,
+            refs=refs,
         )
         urls["og_url"] = url
         usages.append({"step": "image-og", "label": "Cartão", "usage": usage})
+        _attach_refs(urls, "og", refs)
     if kind in ("map", "all"):
+        refs = search_visual_refs(place, kind="map")
         url, usage = _render(
             (
                 f"Photoreal oblique aerial map of {title} {code} in {city}, Brazil. "
@@ -131,9 +144,11 @@ def generate_place_images(place: dict, *, kind: str = "hero") -> dict:
             f"{slug}-map",
             "16:9",
             place,
+            refs=refs,
         )
         urls["map_url"] = url
         usages.append({"step": "image-map", "label": "Mapa", "usage": usage})
+        _attach_refs(urls, "map", refs)
     urls["usages"] = usages
     return urls
 
@@ -154,8 +169,9 @@ def generate_point_images(place: dict, *, point_id: str = "") -> list[dict]:
             continue
         kind = text(point.get("kind")) or "marco"
         prompt = _point_prompt(title, city, name, kind, point.get("note"))
+        refs = search_visual_refs(place, kind="point", point=point)
         try:
-            url, usage = _render(prompt, f"{slug}-{_slug(pid or name)}-pt", "4:3", place)
+            url, usage = _render(prompt, f"{slug}-{_slug(pid or name)}-pt", "4:3", place, refs=refs)
             generated.append(
                 {
                     "id": pid,
@@ -190,10 +206,10 @@ def generate_point_images(place: dict, *, point_id: str = "") -> list[dict]:
 def _hero_prompt(title: str, city: str, code: str) -> str:
     specifics = {
         "CNF": (
-            "Tancredo Neves / BH Airport Confins: a long modern rectangular glass terminal "
-            "with a straight horizontal canopy and cylindrical columns, set in rolling Minas "
-            "hills and cerrado. Wet curbside at dusk, cars and passengers. "
-            "Forbidden: wavy parametric Hadid roof, Beijing Daxing, generic mega-hub."
+            "Tancredo Neves / BH Airport Confins by Bacco: long horizontal white terminal, "
+            "flat straight roof, two concrete control towers, glass curtain wall, elevated "
+            "curbside and parking deck in cerrado hills at dusk. "
+            "Forbidden: wavy parametric Hadid roof, Beijing Daxing, undulating canopy, generic mega-hub."
         ),
         "CGH": (
             "Congonhas urban airport in the middle of São Paulo: compact terminal, "
@@ -326,8 +342,32 @@ def _named_scene(title: str, city: str, name: str) -> str:
     return scenes.get(key, "")
 
 
-def _render(prompt: str, stem: str, aspect_ratio: str, place: dict | None = None) -> tuple[str, dict]:
+def _attach_refs(urls: dict, kind: str, refs: list[dict]) -> None:
+    packed = [
+        {
+            "kind": kind,
+            "url": text(item.get("url")),
+            "title": text(item.get("title")),
+            "query": text(item.get("query")),
+        }
+        for item in refs
+        if text(item.get("url"))
+    ]
+    if packed:
+        urls.setdefault("visual_refs", []).extend(packed)
+
+
+def _render(
+    prompt: str,
+    stem: str,
+    aspect_ratio: str,
+    place: dict | None = None,
+    refs: list[dict] | None = None,
+) -> tuple[str, dict]:
     model, resolution = resolve_place_image_spec(place or {})
+    images = reference_urls(refs or [])
+    if images:
+        prompt = f"{prompt}{GROUNDING}"
     try:
         result = generate_image(
             prompt,
@@ -336,6 +376,7 @@ def _render(prompt: str, stem: str, aspect_ratio: str, place: dict | None = None
             output_format="png",
             resolution=resolution,
             model=model or resolve_image_model(),
+            input_references=images or None,
         )
     except Exception as exc:
         raise ImageError("Não foi possível gerar a imagem do place.") from exc

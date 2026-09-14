@@ -83,8 +83,34 @@
       .slice(0, 40);
   }
 
+  function formatNamedList(items) {
+    return (items || []).map(function (item) {
+      if (!item) return "";
+      if (typeof item === "string") return item;
+      if (!item.name) return "";
+      return item.why ? (item.name + " — " + item.why) : item.name;
+    }).filter(Boolean).join("; ");
+  }
+
+  function parseNamedList(raw) {
+    return String(raw || "").split(";").map(function (part) {
+      var bits = part.split(/\s[—–-]\s/);
+      if (bits.length === 1) bits = part.split(":");
+      var name = String(bits[0] || "").trim();
+      if (!name) return null;
+      return {
+        name: name,
+        why: String(bits.slice(1).join(" — ") || "").trim(),
+        confidence: "estimate"
+      };
+    }).filter(Boolean);
+  }
+
   function collectPoints() {
-    return Array.prototype.map.call(document.querySelectorAll("#pl-points-body tr"), function (row) {
+    return Array.prototype.map.call(document.querySelectorAll("#pl-points-body tr.pl-point-row"), function (row) {
+      var extra = row.nextElementSibling && row.nextElementSibling.classList.contains("pl-point-extra")
+      ? row.nextElementSibling
+      : null;
       var name = (row.querySelector("[name=point_name]") || {}).value || "";
       var id = (row.querySelector("[name=point_id]") || {}).value || slug(name);
       return {
@@ -95,7 +121,13 @@
         lng: numberOrNull((row.querySelector("[name=point_lng]") || {}).value),
         image_url: (row.querySelector("[name=point_image]") || {}).value || "",
         radius_m: numberOrNull((row.querySelector("[name=point_radius]") || {}).value),
-        reach: (row.querySelector("[name=point_reach]") || {}).value || ""
+        reach: (row.querySelector("[name=point_reach]") || {}).value || "",
+        formats: String(((extra && extra.querySelector("[name=point_formats]") || {}).value) || "")
+          .split(",")
+          .map(function (item) { return item.trim(); })
+          .filter(Boolean),
+        apps: parseNamedList((extra && extra.querySelector("[name=point_apps]") || {}).value),
+        portals: parseNamedList((extra && extra.querySelector("[name=point_portals]") || {}).value)
       };
     }).filter(function (item) {
       return item.name;
@@ -131,6 +163,7 @@
           profile: value("catchment_profile")
         },
         points: collectPoints(),
+        inventory: (place && place.inventory) || {},
         media: {
           hero_url: value("hero_url"),
           map_url: value("map_url"),
@@ -217,7 +250,7 @@
       ? '<img src="' + escapeHtml(item.image_url) + '" alt="">'
       : '<span class="pl-point-empty">sem foto</span>';
     return (
-      "<tr>" +
+      '<tr class="pl-point-row">' +
         '<td class="pl-point-media">' +
           '<input type="hidden" name="point_id" value="' + escapeHtml(id) + '">' +
           '<input type="hidden" name="point_image" value="' + escapeHtml(item.image_url || "") + '">' +
@@ -232,6 +265,15 @@
         "<td>" +
           '<button type="button" class="cx-btn cx-btn-ghost" data-gen-point="' + escapeHtml(id || item.name || "") + '">Gerar foto</button> ' +
           '<button type="button" class="cx-btn cx-btn-ghost" data-remove-point>Tirar</button>' +
+        "</td>" +
+      "</tr>" +
+      '<tr class="pl-point-extra">' +
+        '<td colspan="6">' +
+          '<div class="pl-point-channels">' +
+            '<label>Apps<input class="cx-input" name="point_apps" value="' + escapeHtml(formatNamedList(item.apps)) + '" placeholder="Instagram — Stories na praça; iFood — almoço"></label>' +
+            '<label>Portais<input class="cx-input" name="point_portals" value="' + escapeHtml(formatNamedList(item.portals)) + '" placeholder="G1 — intervalo; Folha — ticket alto"></label>' +
+            '<label>Formatos<input class="cx-input" name="point_formats" value="' + escapeHtml((item.formats || []).join(", ")) + '" placeholder="Display no app, Portais"></label>' +
+          "</div>" +
         "</td>" +
       "</tr>"
     );
@@ -260,7 +302,7 @@
     }).join("");
     var spec = document.querySelector("[data-image-spec]");
     if (spec && data.images && data.images.spec) {
-      spec.textContent = "Uma foto por vez. Modelo " + (data.images.spec.model || "do aeroporto") + " em " + (data.images.spec.resolution || "2K") + ".";
+      spec.textContent = "Uma foto por vez. Busca referência real no Firecrawl e gera no modelo " + (data.images.spec.model || "do aeroporto") + " em " + (data.images.spec.resolution || "2K") + ".";
     }
   }
 
@@ -353,9 +395,54 @@
       qr.hidden = false;
     }
     renderPoints(data.points || []);
+    renderInventory(data);
     renderMedia(data);
     updateTrail();
     bindCopy(root);
+  }
+
+  function formatReviewedAt(raw) {
+    if (!raw) return "";
+    var date = new Date(raw);
+    if (isNaN(date.getTime())) return raw;
+    return date.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+  }
+
+  function renderInventory(data) {
+    var box = document.querySelector("[data-inventory-report]");
+    if (!box) return;
+    var inventory = (data && data.inventory) || {};
+    var points = (data && data.points) || [];
+    var hasLead = !!inventory.lead;
+    var hasItems = points.some(function (item) {
+      return (item.apps && item.apps.length) || (item.portals && item.portals.length);
+    });
+    box.hidden = !(hasLead || hasItems);
+    var lead = document.querySelector("[data-inventory-lead]");
+    if (lead) lead.textContent = inventory.lead || "";
+    var meta = document.querySelector("[data-inventory-meta]");
+    if (meta) {
+      var bits = [];
+      if (inventory.reviewed_at) bits.push(formatReviewedAt(inventory.reviewed_at));
+      if (inventory.model) bits.push(inventory.model.replace(/^openai\//, ""));
+      meta.textContent = bits.join(" · ");
+    }
+    var notes = document.querySelector("[data-inventory-notes]");
+    if (notes) notes.textContent = inventory.notes || "";
+    var list = document.querySelector("[data-inventory-points]");
+    if (!list) return;
+    list.innerHTML = points.filter(function (item) {
+      return item.name && ((item.apps && item.apps.length) || (item.portals && item.portals.length) || (item.formats && item.formats.length));
+    }).map(function (item) {
+      return (
+        '<article class="pl-report-card">' +
+          "<h3>" + escapeHtml(item.name) + "</h3>" +
+          (item.apps && item.apps.length ? "<p><strong>Apps.</strong> " + escapeHtml(formatNamedList(item.apps)) + "</p>" : "") +
+          (item.portals && item.portals.length ? "<p><strong>Portais.</strong> " + escapeHtml(formatNamedList(item.portals)) + "</p>" : "") +
+          (item.formats && item.formats.length ? "<p><strong>Formatos.</strong> " + escapeHtml(item.formats.join(", ")) + "</p>" : "") +
+        "</article>"
+      );
+    }).join("");
   }
 
   function savePlace() {
@@ -461,6 +548,12 @@
   if (importBtn) {
     importBtn.addEventListener("click", function () {
       placeAction("/import", {}, "Ficha fechada. Os pontos já estão na lista.", "Fechando a ficha. Isso leva cerca de um minuto…", "pontos");
+    });
+  }
+  var enrichBtn = document.getElementById("pl-enrich");
+  if (enrichBtn) {
+    enrichBtn.addEventListener("click", function () {
+      placeAction("/enrich", {}, "Pontos enriquecidos. Apps e portais estão na reportina.", "Pesquisando apps e portais de cada raio. Isso leva cerca de um minuto…", "pontos");
     });
   }
 
@@ -592,7 +685,10 @@
       }
       var button = event.target.closest("[data-remove-point]");
       if (button) {
-        button.closest("tr").remove();
+        var row = button.closest("tr");
+        var extra = row && row.nextElementSibling;
+        if (extra && extra.classList.contains("pl-point-extra")) extra.remove();
+        if (row) row.remove();
         drawMarkers();
       }
     });
@@ -610,7 +706,7 @@
       }).addTo(map);
       map.on("click", function (event) {
         if (!pointsBody) return;
-        var n = pointsBody.querySelectorAll("tr").length + 1;
+        var n = pointsBody.querySelectorAll("tr.pl-point-row").length + 1;
         pointsBody.insertAdjacentHTML("beforeend", pointRowHtml({
           name: "Ponto " + n,
           lat: event.latlng.lat.toFixed(6),

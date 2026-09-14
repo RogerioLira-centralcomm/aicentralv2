@@ -68,6 +68,14 @@ SOURCE_LABELS = {
     "estimate": "Estimativa",
     "to_validate": "A validar",
 }
+ENRICH_FORMATS = (
+    "Display no app",
+    "Vídeo no saguão",
+    "Vídeo vertical",
+    "Portais",
+    "7 e 15 dias",
+)
+INVENTORY_MAX_ITEMS = 5
 
 
 def text(value: Any) -> str:
@@ -210,6 +218,48 @@ def normalize_geometry(value: Any) -> dict:
     return {"type": "Polygon", "coordinates": cleaned}
 
 
+def normalize_inventory_item(item: Any) -> dict:
+    if isinstance(item, (list, tuple)) and item:
+        return normalize_inventory_item({"name": item[0], "why": item[1] if len(item) > 1 else ""})
+    if not isinstance(item, dict):
+        name = text(item)
+        return {"name": name, "why": "", "confidence": "estimate"} if name else {}
+    data = as_dict(item)
+    name = text(data.get("name") or data.get("title"))
+    if not name:
+        return {}
+    return {
+        "name": name,
+        "why": text(data.get("why") or data.get("note") or data.get("body")),
+        "confidence": normalize_source_status(data.get("confidence") or data.get("source_status"), "estimate"),
+    }
+
+
+def normalize_inventory_items(value: Any, *, limit: int = INVENTORY_MAX_ITEMS) -> list:
+    items = []
+    seen = set()
+    for raw in as_list(value):
+        item = normalize_inventory_item(raw)
+        key = text(item.get("name")).lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        items.append(item)
+        if len(items) >= limit:
+            break
+    return items
+
+
+def normalize_inventory(value: Any) -> dict:
+    data = as_dict(value)
+    return {
+        "lead": text(data.get("lead")),
+        "reviewed_at": text(data.get("reviewed_at")),
+        "model": text(data.get("model")),
+        "notes": text(data.get("notes")),
+    }
+
+
 def normalize_point(item: Any) -> dict:
     data = as_dict(item)
     kind = normalize_choice(data.get("kind"), POINT_KINDS, "marco")
@@ -228,6 +278,8 @@ def normalize_point(item: Any) -> dict:
         "reach_status": normalize_source_status(data.get("reach_status"), "estimate"),
         "formats": [text(x) for x in as_list(data.get("formats")) if text(x)],
         "audiences": [text(x) for x in as_list(data.get("audiences")) if text(x)],
+        "apps": normalize_inventory_items(data.get("apps")),
+        "portals": normalize_inventory_items(data.get("portals")),
         "commercial": text(data.get("commercial")),
         "color": text(data.get("color")) or zone_color(
             {"terminal": "CORE", "embarque": "DEPARTURES", "premium": "PREMIUM", "mobilidade": "MOBILITY", "halo": "HALO"}.get(kind, "CORE")
@@ -284,6 +336,20 @@ def normalize_media(value: Any) -> dict:
                 "url": url,
             }
         )
+    visual_refs = []
+    for raw in as_list(data.get("visual_refs")):
+        item = as_dict(raw)
+        url = text(item.get("url"))
+        if not url:
+            continue
+        visual_refs.append(
+            {
+                "kind": text(item.get("kind")) or "hero",
+                "url": url,
+                "title": text(item.get("title")),
+                "query": text(item.get("query")),
+            }
+        )
     return {
         "hero_url": text(data.get("hero_url")),
         "map_url": text(data.get("map_url")),
@@ -291,6 +357,7 @@ def normalize_media(value: Any) -> dict:
         "image_model": text(data.get("image_model")),
         "image_resolution": text(data.get("image_resolution")),
         "images": images,
+        "visual_refs": visual_refs,
     }
 
 
@@ -387,6 +454,7 @@ def normalize_payload(value: Any) -> dict:
         "media": normalize_media(media),
         "pipeline": normalize_pipeline(data.get("pipeline")),
         "offer": normalize_offer(data.get("offer")),
+        "inventory": normalize_inventory(data.get("inventory")),
         "costs": normalize_costs(data.get("costs")),
         "methodology": {
             "title": text(methodology.get("title")) or "Como o número é feito",

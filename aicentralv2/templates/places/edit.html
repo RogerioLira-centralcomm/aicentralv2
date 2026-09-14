@@ -5,7 +5,7 @@
 
 {% block styles %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/places.css') }}?v=8">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/places.css') }}?v=9">
 {% endblock %}
 
 {% block content %}
@@ -132,8 +132,9 @@
         <div class="cx-section-header">
           <div>
             <h2 class="cx-section-title">Pontos do raio</h2>
-            <p class="cx-section-description">Entram sozinhos ao fechar a ficha. Sem coordenada, clique no mapa. Foto sai uma a uma.</p>
+            <p class="cx-section-description">Entram sozinhos ao fechar a ficha. Sem coordenada, clique no mapa. Enriquecer lista apps e portais de cada raio.</p>
           </div>
+          <button type="button" class="cx-btn cx-btn-primary" id="pl-enrich">Enriquecer pontos</button>
         </div>
         <div class="cx-section-body">
           <div id="pl-admin-map" class="pl-admin-map"></div>
@@ -145,6 +146,15 @@
             <tbody id="pl-points-body"></tbody>
           </table>
           </div>
+          <aside class="pl-report" data-inventory-report{% if not place.inventory.lead %} hidden{% endif %}>
+            <p class="pl-report-lead" data-inventory-lead>{{ place.inventory.lead }}</p>
+            <p class="pl-help" data-inventory-meta>
+              {% if place.inventory.reviewed_at %}{{ place.inventory.reviewed_at }}{% endif %}
+              {% if place.inventory.model %} · {{ place.inventory.model }}{% endif %}
+            </p>
+            <p class="pl-help" data-inventory-notes>{{ place.inventory.notes }}</p>
+            <div class="pl-report-points" data-inventory-points></div>
+          </aside>
           <div class="pl-panel-nav">
             <button type="button" class="cx-btn cx-btn-ghost" id="pl-add-point">Adicionar ponto</button>
             <button type="button" class="cx-btn cx-btn-secondary" data-next-tab="arte">Ir para as fotos</button>
@@ -156,7 +166,7 @@
         <div class="cx-section-header">
           <div>
             <h2 class="cx-section-title">Fotos do link</h2>
-            <p class="cx-section-description" data-image-spec>Uma foto por vez. Hero, mapa e cada ponto. Cinco de uma vez estouram o tempo.</p>
+            <p class="cx-section-description" data-image-spec>Uma foto por vez. Busca uma foto real no Firecrawl e só então gera. Cinco de uma vez estouram o tempo.</p>
           </div>
         </div>
         <div class="cx-section-body">
@@ -223,5 +233,5 @@
 
 {% block scripts %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="{{ url_for('static', filename='js/places.js') }}?v=8"></script>
+<script src="{{ url_for('static', filename='js/places.js') }}?v=10"></script>
 {% endblock %}

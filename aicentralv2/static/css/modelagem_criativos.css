@@ -13411,14 +13411,31 @@ article.mc-studio .mc-studio-confirm-foot {
   line-height: 1.4;
 }
 
+.mc-cadu-video-lib-head {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.mc-cadu-video-lib-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
 .mc-cadu-video-upload {
   display: inline-flex;
   align-items: center;
   height: 2.2rem;
   padding: 0 0.8rem;
-  border: 1px solid #d5d7d2;
-  background: #fff;
+  border: 1px solid #1a1c19;
+  background: #1a1c19;
+  color: #f4f5f2;
   cursor: pointer;
+}
+
+.mc-cadu-video-lib.is-drop {
+  outline: 2px dashed #0f766e;
+  outline-offset: -6px;
 }
 
 .mc-cadu-video-grid {
@@ -13461,6 +13478,12 @@ article.mc-studio .mc-studio-confirm-foot {
   gap: 0.45rem;
 }
 
+.mc-cadu-video-takes li,
+.mc-cadu-video-clips li {
+  display: grid;
+  gap: 0.3rem;
+}
+
 .mc-cadu-video-takes button,
 .mc-cadu-video-scenes button,
 .mc-cadu-video-clips button {
@@ -13473,6 +13496,29 @@ article.mc-studio .mc-studio-confirm-foot {
   color: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+.mc-cadu-video-delete {
+  height: 1.7rem;
+  border-color: #d5d7d2;
+  background: transparent;
+  color: #5c6058;
+  font-size: 0.75rem;
+}
+
+.mc-cadu-video-takes .is-broken {
+  opacity: 0.88;
+}
+
+.mc-cadu-video-takes .is-broken button[data-action="pick"] {
+  border-color: #b45309;
+  cursor: default;
+}
+
+.mc-cadu-video-takes .is-broken small {
+  padding: 0 0.45rem 0.45rem;
+  color: #b45309;
+  font-size: 0.75rem;
 }
 
 .mc-cadu-video-takes img,

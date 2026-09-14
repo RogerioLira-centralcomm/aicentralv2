@@ -29,16 +29,13 @@ async function boot() {
     applyBrand(event.detail?.clientId, { reset: true });
   });
   $("mcVideoFile")?.addEventListener("change", () => takeFile($("mcVideoFile").files?.[0]));
+  bindDrop($("mcVideoLibDrop"));
   $("mcVideoLibrary")?.addEventListener("click", onLibraryClick);
   $("mcVideoScenes")?.addEventListener("click", onSceneClick);
   $("mcVideoScriptBtn")?.addEventListener("click", buildScript);
   $("mcVideoGenerate")?.addEventListener("click", generate);
-  $("mcVideoClips")?.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-clip]");
-    if (!button) return;
-    const clip = state.clips.find((item) => item.id === button.getAttribute("data-clip"));
-    if (clip) selectClip(clip);
-  });
+  $("mcVideoPurgeBroken")?.addEventListener("click", purgeBroken);
+  $("mcVideoClips")?.addEventListener("click", onClipClick);
   await applyBrand(params.get("client") || Desk.read());
   const pending = sessionStorage.getItem(JOB_KEY);
   if (pending) resume(pending);
@@ -83,12 +80,17 @@ async function loadLibrary() {
     const data = await get(`/parametros/api/format-lab/swap/library?client_id=${encodeURIComponent(state.clientId)}&media=still`);
     state.library = data.items || [];
     paintLibrary();
-    $("mcVideoLibHint").textContent = state.library.length
-      ? "Selecione as cenas. A ordem é a do clipe."
-      : "Ainda não há peça nesta marca. Ajuste uma ou solte um still extra.";
+    $("mcVideoLibHint").textContent = libraryHint();
   } catch (error) {
     $("mcVideoLibHint").textContent = error.message;
   }
+}
+
+function libraryHint() {
+  if (!state.library.length) return "Ainda não há peça nesta marca. Crie uma nova ou solte um still.";
+  const broken = state.library.filter((item) => item.broken).length;
+  if (broken) return `${broken} peça${broken === 1 ? "" : "s"} com 404. Apague ou crie uma nova.`;
+  return "Selecione as cenas. A ordem é a do clipe.";
 }
 
 async function loadClips(opts = {}) {
@@ -147,13 +149,36 @@ function paintLibrary() {
   if (!list) return;
   list.innerHTML = state.library.map((item) => {
     const selected = state.scenes.some((scene) => scene.id === item.id);
-    return `<li>
-      <button type="button" data-id="${escapeHtml(item.id)}" class="${selected ? "is-selected" : ""}">
-        ${item.thumb_url || item.image_url ? `<img src="${escapeHtml(item.thumb_url || item.image_url)}" alt="">` : "<span></span>"}
+    const thumb = item.thumb_url || item.image_url;
+    return `<li class="${item.broken ? "is-broken" : ""}" data-id="${escapeHtml(item.id)}">
+      <button type="button" data-id="${escapeHtml(item.id)}" data-action="pick" class="${selected ? "is-selected" : ""}" ${item.broken ? "disabled" : ""}>
+        ${thumb ? `<img src="${escapeHtml(thumb)}" alt="">` : "<span></span>"}
         <strong>${escapeHtml(item.name || "Peça")}</strong>
+        ${item.broken ? "<small>404</small>" : ""}
       </button>
+      <button type="button" class="mc-cadu-video-delete" data-id="${escapeHtml(item.id)}" data-action="delete">Apagar</button>
     </li>`;
   }).join("");
+  list.querySelectorAll("img").forEach((img) => {
+    img.addEventListener("error", () => markBroken(img.closest("[data-id]")?.getAttribute("data-id")));
+  });
+  paintPurge();
+}
+
+function markBroken(id) {
+  const item = state.library.find((row) => row.id === id);
+  if (!item || item.broken) return;
+  item.broken = true;
+  state.scenes = state.scenes.filter((scene) => scene.id !== id);
+  if ($("mcVideoScript")) $("mcVideoScript").value = "";
+  state.script = null;
+  paintScenes();
+  $("mcVideoLibHint").textContent = libraryHint();
+}
+
+function paintPurge() {
+  const broken = state.library.some((item) => item.broken);
+  if ($("mcVideoPurgeBroken")) $("mcVideoPurgeBroken").hidden = !broken;
 }
 
 function paintScenes() {
@@ -191,21 +216,27 @@ function paintClips() {
     const current = item.id === state.activeClipId;
     const poster = item.poster_url || item.thumb_url || item.image_url || "";
     const seconds = Number(item.duration || 0);
-    return `<li>
-      <button type="button" data-clip="${escapeHtml(item.id)}" class="${current ? "is-current" : ""}">
+    return `<li data-clip="${escapeHtml(item.id)}">
+      <button type="button" data-clip="${escapeHtml(item.id)}" data-action="play" class="${current ? "is-current" : ""}">
         ${poster ? `<img src="${escapeHtml(poster)}" alt="">` : `<span class="mc-cadu-video-clip-ph"></span>`}
         <strong>${escapeHtml(item.name || "Clipe")}</strong>
         ${seconds ? `<small>${Math.round(seconds)}s</small>` : ""}
       </button>
+      <button type="button" class="mc-cadu-video-delete" data-clip="${escapeHtml(item.id)}" data-action="delete">Apagar</button>
     </li>`;
   }).join("");
 }
 
 function onLibraryClick(event) {
-  const button = event.target.closest("[data-id]");
+  const button = event.target.closest("[data-action]");
   if (!button) return;
-  const item = state.library.find((row) => row.id === button.getAttribute("data-id"));
-  if (!item) return;
+  const id = button.getAttribute("data-id");
+  if (button.getAttribute("data-action") === "delete") {
+    removeLibraryItem(id);
+    return;
+  }
+  const item = state.library.find((row) => row.id === id);
+  if (!item || item.broken) return;
   if (state.scenes.some((scene) => scene.id === item.id)) {
     state.scenes = state.scenes.filter((scene) => scene.id !== item.id);
   } else if (state.scenes.length < 30) {
@@ -225,6 +256,32 @@ function onSceneClick(event) {
   paintScenes();
 }
 
+function onClipClick(event) {
+  const button = event.target.closest("[data-action]");
+  if (!button) return;
+  const id = button.getAttribute("data-clip");
+  if (button.getAttribute("data-action") === "delete") {
+    removeClip(id);
+    return;
+  }
+  const clip = state.clips.find((item) => item.id === id);
+  if (clip) selectClip(clip);
+}
+
+function bindDrop(node) {
+  if (!node) return;
+  node.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    node.classList.add("is-drop");
+  });
+  node.addEventListener("dragleave", () => node.classList.remove("is-drop"));
+  node.addEventListener("drop", (event) => {
+    event.preventDefault();
+    node.classList.remove("is-drop");
+    takeFile(event.dataTransfer?.files?.[0]);
+  });
+}
+
 async function takeFile(file) {
   if (!file || !String(file.type || "").startsWith("image/")) return;
   const reader = new FileReader();
@@ -233,17 +290,101 @@ async function takeFile(file) {
       const item = await post("/parametros/api/format-lab/swap/library", {
         client_id: state.clientId || undefined,
         image: String(reader.result || ""),
-        name: file.name || "Cena",
+        name: pieceName(file.name),
+        new_piece: true,
       });
-      state.library.unshift(item);
-      if (state.scenes.length < 30) state.scenes.push(item);
+      state.library = [item, ...state.library.filter((row) => row.id !== item.id)];
+      if (!item.broken && state.scenes.length < 30) state.scenes.push(item);
       paintLibrary();
       paintScenes();
+      $("mcVideoLibHint").textContent = libraryHint();
+      setStatus("Peça nova na biblioteca.");
     } catch (error) {
       setStatus(error.message);
     }
   };
   reader.readAsDataURL(file);
+  if ($("mcVideoFile")) $("mcVideoFile").value = "";
+}
+
+function pieceName(filename) {
+  const stem = String(filename || "").replace(/\.[^.]+$/, "").trim();
+  return stem || "Peça";
+}
+
+async function removeLibraryItem(id) {
+  const item = state.library.find((row) => row.id === id);
+  if (!item) return;
+  if (!item.broken && !window.confirm("Apagar esta peça da biblioteca?")) return;
+  try {
+    const data = await destroy({
+      client_id: state.clientId || undefined,
+      id,
+      media: "still",
+    });
+    applyLibrary(data.items);
+    setStatus("Peça apagada.");
+  } catch (error) {
+    setStatus(error.message);
+  }
+}
+
+async function purgeBroken() {
+  const broken = state.library.filter((item) => item.broken);
+  if (!broken.length) return;
+  try {
+    const data = await destroy({
+      client_id: state.clientId || undefined,
+      ids: broken.map((item) => item.id),
+      broken: true,
+      media: "still",
+    });
+    applyLibrary(data.items);
+    setStatus(broken.length === 1 ? "Peça 404 apagada." : `${broken.length} peças 404 apagadas.`);
+  } catch (error) {
+    setStatus(error.message);
+  }
+}
+
+async function removeClip(id) {
+  const clip = state.clips.find((item) => item.id === id);
+  if (!clip) return;
+  if (!window.confirm("Apagar este clipe?")) return;
+  try {
+    const data = await destroy({
+      client_id: state.clientId || undefined,
+      id,
+      media: "video",
+    });
+    state.clips = (data.items || []).filter((item) => item.video_url);
+    if (state.activeClipId === id) {
+      state.activeClipId = state.clips[0]?.id || "";
+      if (state.clips[0]) selectClip(state.clips[0]);
+      else {
+        if ($("mcSwapVideo")) {
+          $("mcSwapVideo").removeAttribute("src");
+          $("mcSwapVideo").hidden = true;
+        }
+        if ($("mcVideoEmpty")) $("mcVideoEmpty").hidden = false;
+        paintClips();
+      }
+    } else {
+      paintClips();
+    }
+    setStatus("Clipe apagado.");
+  } catch (error) {
+    setStatus(error.message);
+  }
+}
+
+function applyLibrary(items) {
+  state.library = items || [];
+  const keep = new Set(state.library.map((item) => item.id));
+  state.scenes = state.scenes.filter((scene) => keep.has(scene.id) && !state.library.find((item) => item.id === scene.id)?.broken);
+  state.script = null;
+  if ($("mcVideoScript")) $("mcVideoScript").value = "";
+  paintScenes();
+  $("mcVideoLibHint").textContent = libraryHint();
 }
 
 async function buildScript() {
@@ -362,6 +503,19 @@ async function get(url) {
 async function post(url, body) {
   const response = await fetch(url, {
     method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Trocr-CSRF-Token": csrf(),
+    },
+    body: JSON.stringify(body || {}),
+  });
+  return parse(response);
+}
+
+async function destroy(body) {
+  const response = await fetch("/parametros/api/format-lab/swap/library", {
+    method: "DELETE",
     credentials: "same-origin",
     headers: {
       "Content-Type": "application/json",

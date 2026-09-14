@@ -2,16 +2,21 @@
   <header class="mc-cadu-video-head">
     <div>
       <h1>Vídeo</h1>
-      <p>Escolha de duas a trinta peças da marca. O OCR monta o roteiro. O Seedance anima as cenas na ordem.</p>
+      <p>Crie ou escolha de duas a trinta peças da marca. O OCR monta o roteiro. O Seedance anima as cenas na ordem.</p>
     </div>
-    <label class="mc-cadu-video-upload">
-      <input id="mcVideoFile" type="file" accept="image/*" hidden>
-      Soltar still extra
-    </label>
   </header>
   <div class="mc-cadu-video-grid">
-    <aside class="mc-cadu-video-lib" aria-label="Biblioteca da marca">
-      <h2>Peças da marca</h2>
+    <aside class="mc-cadu-video-lib" id="mcVideoLibDrop" aria-label="Biblioteca da marca">
+      <div class="mc-cadu-video-lib-head">
+        <h2>Peças da marca</h2>
+        <div class="mc-cadu-video-lib-actions">
+          <label class="mc-cadu-video-upload">
+            <input id="mcVideoFile" type="file" accept="image/*" hidden>
+            Nova peça
+          </label>
+          <button type="button" class="mc-cadu-video-ghost" id="mcVideoPurgeBroken" hidden>Apagar 404</button>
+        </div>
+      </div>
       <p class="mc-cadu-video-hint" id="mcVideoLibHint">Selecione as cenas. A ordem é a do clipe.</p>
       <ul class="mc-cadu-video-takes" id="mcVideoLibrary"></ul>
     </aside>

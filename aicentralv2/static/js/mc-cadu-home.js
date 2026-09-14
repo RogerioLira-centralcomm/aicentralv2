@@ -137,8 +137,11 @@
           <strong>${escapeHtml(item.name || item.title || "Peça")}</strong>
           <small>${escapeHtml(item.aspect_ratio || "")}</small>
         </a>`;
-      li.querySelector("img")?.addEventListener("error", (event) => {
-        event.target.replaceWith(document.createElement("span"));
+      li.querySelector("img")?.addEventListener("error", () => {
+        li.remove();
+        if (!list.querySelector("[data-run]") && emptyNode) {
+          emptyNode.hidden = false;
+        }
       });
       list.appendChild(li);
     });

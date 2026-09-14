@@ -161,6 +161,13 @@
           <div>
             <h2 id="sp-complete-title">{{ quality.titulo }}{% if quality.tom == 'baixo' %} — briefing incompleto{% endif %}</h2>
             <p>{{ quality.texto }} {% if gaps %}{{ gaps|length }} pendência{{ 's' if gaps|length != 1 else '' }}.{% endif %}</p>
+            <ul class="sp-complete-checks" id="sp-complete-checks">
+              <li data-check="campanha">campanha</li>
+              <li data-check="verba">verba</li>
+              <li data-check="periodo">período</li>
+              <li data-check="kpis">kpis</li>
+              <li data-check="canais">canais</li>
+            </ul>
             {% if gaps %}
             <ul class="sp-complete-gaps">
               {% for gap in gaps[:5] %}
@@ -178,7 +185,7 @@
         <details class="sp-acc" data-acc="essentials" data-required="sp-field-campanha,sp-field-cliente,sp-objetivo" open>
           <summary aria-controls="sp-acc-essentials">
             <span class="sp-acc-title">Informações essenciais</span>
-            <span class="sp-acc-meta" data-acc-meta></span>
+            <span class="sp-acc-meta" data-acc-meta>4 campos</span>
           </summary>
           <div class="sp-bf" id="sp-acc-essentials">
             <label for="sp-field-campanha"><span>Campanha</span><input id="sp-field-campanha" name="campanha" value="{{ campos.campanha }}"></label>
@@ -200,10 +207,10 @@
           </div>
         </details>
 
-        <details class="sp-acc" data-acc="audience" data-required="sp-field-publico">
+        <details class="sp-acc" data-acc="audience" data-required="sp-field-publico" open>
           <summary aria-controls="sp-acc-audience">
             <span class="sp-acc-title">Público e mensagem</span>
-            <span class="sp-acc-meta" data-acc-meta></span>
+            <span class="sp-acc-meta" data-acc-meta>2 campos</span>
           </summary>
           <div class="sp-bf" id="sp-acc-audience">
             <label for="sp-field-objetivo-texto"><span>Como o anunciante descreveu</span><input id="sp-field-objetivo-texto" name="objetivo_texto" value="{{ campos.objetivo_texto }}"></label>
@@ -211,10 +218,10 @@
           </div>
         </details>
 
-        <details class="sp-acc" data-acc="context">
+        <details class="sp-acc" data-acc="context" open>
           <summary aria-controls="sp-acc-context">
             <span class="sp-acc-title">Contexto e restrições</span>
-            <span class="sp-acc-meta" data-acc-meta></span>
+            <span class="sp-acc-meta" data-acc-meta>2 campos</span>
           </summary>
           <div class="sp-bf" id="sp-acc-context">
             <label for="sp-field-contexto"><span>Contexto da campanha</span><textarea id="sp-field-contexto" name="contexto" rows="3">{{ campos.contexto }}</textarea></label>
@@ -222,10 +229,10 @@
           </div>
         </details>
 
-        <details class="sp-acc" data-acc="extracted">
+        <details class="sp-acc" data-acc="extracted" {% if campos.criativos %}open{% endif %}>
           <summary aria-controls="sp-acc-extracted">
             <span class="sp-acc-title">Conteúdo extraído</span>
-            <span class="sp-acc-meta" data-acc-meta></span>
+            <span class="sp-acc-meta" data-acc-meta>1 campo</span>
           </summary>
           <div class="sp-bf" id="sp-acc-extracted">
             <label for="sp-field-criativos"><span>Materiais e formatos identificados</span><textarea id="sp-field-criativos" name="criativos" rows="3">{{ campos.criativos }}</textarea></label>
@@ -233,7 +240,7 @@
           </div>
         </details>
 
-        <details class="sp-acc" data-acc="narrative" data-required="sp-narrative" open>
+        <details class="sp-acc" data-acc="narrative" data-required="sp-narrative">
           <summary aria-controls="sp-acc-narrative">
             <span class="sp-acc-title">Briefing compilado</span>
             <span class="sp-acc-meta" data-acc-meta></span>
@@ -480,7 +487,7 @@
       <div class="sp-hi-budget">
         <section class="sp-side-card">
           <h2>Configuração do plano</h2>
-          <p>Verba, voo, praça e indicadores. O modal de mídia usa estes números.</p>
+          <p>Verba, voo, praça e indicadores.</p>
           <div class="sp-bf">
             <label for="sp-field-verba"><span>Verba</span><input id="sp-field-verba" form="sp-revisao-form" name="verba" value="{{ campos.verba }}" placeholder="R$ 80 mil por mês"></label>
             <label for="sp-field-verba-base">
@@ -849,6 +856,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=18"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=19"></script>
 <script src="{{ url_for('static', filename='js/smart_planner/guide.js') }}?v=3"></script>
 {% endblock %}

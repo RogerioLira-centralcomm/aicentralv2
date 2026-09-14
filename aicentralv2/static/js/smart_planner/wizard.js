@@ -1235,7 +1235,6 @@
     var accs = Array.prototype.slice.call(document.querySelectorAll(".sp-review .sp-acc"));
     if (!accs.length) return;
     var form = document.getElementById("sp-revisao-form");
-    var userToggled = false;
 
     function fieldFilled(el) {
       if (!el) return false;
@@ -1276,7 +1275,7 @@
         var summary = acc.querySelector("summary");
         if (meta) {
           if (!stats.total) meta.textContent = acc.getAttribute("data-acc") === "source" ? "fonte" : "";
-          else meta.textContent = stats.filled + "/" + stats.total + (stats.incomplete ? " · falta" : "");
+          else meta.textContent = stats.total + (stats.total === 1 ? " campo" : " campos");
           meta.classList.toggle("is-gap", stats.incomplete);
         }
         acc.classList.toggle("is-gap", stats.incomplete);
@@ -1284,14 +1283,36 @@
       });
     }
 
+    function paintChecks() {
+      var rootChecks = document.getElementById("sp-complete-checks");
+      if (!rootChecks) return;
+      var hasCanal = document.querySelector('#sp-mix-channels input[name="canais"]:checked');
+      var state = {
+        campanha: fieldFilled(document.getElementById("sp-field-campanha")),
+        verba: fieldFilled(document.getElementById("sp-field-verba")),
+        periodo: fieldFilled(document.getElementById("sp-field-periodo")),
+        kpis: fieldFilled(document.getElementById("sp-field-kpis")),
+        canais: !!hasCanal,
+      };
+      rootChecks.querySelectorAll("[data-check]").forEach(function (item) {
+        item.classList.toggle("is-on", !!state[item.getAttribute("data-check")]);
+      });
+    }
+
     function autoOpen() {
-      if (userToggled) return;
-      var first = accs.filter(function (acc) { return sectionStats(acc).incomplete; })[0];
-      var narrative = accs.filter(function (acc) { return acc.getAttribute("data-acc") === "narrative"; })[0];
-      accs.forEach(function (acc) { acc.open = false; });
-      if (first) first.open = true;
-      else if (narrative) narrative.open = true;
-      else if (accs[0]) accs[0].open = true;
+      accs.forEach(function (acc) {
+        var id = acc.getAttribute("data-acc");
+        var stats = sectionStats(acc);
+        if (id === "narrative" || id === "source") {
+          acc.open = false;
+          return;
+        }
+        if (id === "extracted") {
+          acc.open = stats.filled > 0;
+          return;
+        }
+        acc.open = true;
+      });
     }
 
     accs.forEach(function (acc) {
@@ -1299,18 +1320,20 @@
       if (summary) summary.setAttribute("aria-expanded", acc.open ? "true" : "false");
       acc.addEventListener("toggle", function () {
         if (summary) summary.setAttribute("aria-expanded", acc.open ? "true" : "false");
-        if (!acc.open) return;
-        userToggled = true;
-        accs.forEach(function (other) {
-          if (other !== acc) other.open = false;
-        });
       });
     });
     paintMeta();
+    paintChecks();
     autoOpen();
     if (form) {
-      form.addEventListener("input", paintMeta);
-      form.addEventListener("change", paintMeta);
+      form.addEventListener("input", function () { paintMeta(); paintChecks(); });
+      form.addEventListener("change", function () { paintMeta(); paintChecks(); });
+    }
+    var desk = document.getElementById("sp-wizard") || document.getElementById("sp-hi-plan");
+    if (desk) {
+      desk.addEventListener("change", function (event) {
+        if (event.target && event.target.name === "canais") paintChecks();
+      });
     }
   }
 

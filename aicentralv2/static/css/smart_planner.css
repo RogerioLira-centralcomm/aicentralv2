@@ -1883,6 +1883,42 @@
   accent-color: var(--hi-go);
 }
 
+.sp-complete-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.85rem;
+  margin: 0.65rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sp-complete-checks li {
+  position: relative;
+  padding-left: 1rem;
+  color: var(--hi-fog);
+  font-size: 0.75rem;
+}
+
+.sp-complete-checks li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.35rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 999px;
+}
+
+.sp-complete-checks li.is-on {
+  color: var(--hi-ink);
+}
+
+.sp-complete-checks li.is-on::before {
+  border-color: var(--hi-go);
+  background: var(--hi-go);
+}
+
 .sp-complete-gaps {
   margin: 0.55rem 0 0;
   padding: 0;

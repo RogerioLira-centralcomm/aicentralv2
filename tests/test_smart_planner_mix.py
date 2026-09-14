@@ -141,6 +141,8 @@ class MixEngineTest(unittest.TestCase):
         self.assertIn("Mídia progressiva", html)
         self.assertIn('data-acc="essentials"', html)
         self.assertIn("data-acc-meta", html)
+        self.assertIn("sp-complete-checks", html)
+        self.assertIn("4 campos", html)
         self.assertNotIn("Dados da campanha", html)
         review = html.split('id="sp-revisao-form"', 1)[1].split("</form>", 1)[0]
         self.assertNotIn('name="verba"', review)

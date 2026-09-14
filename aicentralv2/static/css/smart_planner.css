@@ -1903,9 +1903,16 @@
   gap: 1rem;
 }
 
-.sp-review .sp-narrative {
-  min-height: 8rem;
-  max-height: 16rem;
+.sp-review .sp-narrative,
+.sp-review .sp-bf textarea {
+  min-height: 7.5rem;
+  max-height: 14rem;
+  resize: vertical;
+  font-size: 0.875rem;
+}
+
+.sp-review .sp-bf.is-stack {
+  grid-template-columns: 1fr;
 }
 
 .sp-bf .sp-confidential {
@@ -2191,6 +2198,29 @@
 
 .sp-acc-title {
   min-width: 0;
+  font-size: 0.9375rem;
+  font-weight: 650;
+}
+
+.sp-review .sp-acc summary {
+  position: relative;
+  padding-right: 2.4rem;
+}
+
+.sp-review .sp-acc summary::after {
+  content: "";
+  position: absolute;
+  right: 1.1rem;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-right: 2px solid var(--hi-fog);
+  border-bottom: 2px solid var(--hi-fog);
+  transform: rotate(45deg);
+}
+
+.sp-review .sp-acc[open] summary::after {
+  transform: rotate(-135deg);
+  margin-top: 0.15rem;
 }
 
 .sp-acc-meta {
@@ -2465,9 +2495,20 @@
 
 .sp-mix-alloc li > span {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.5rem;
   font-size: 0.8125rem;
+}
+
+.sp-mix-alloc li > span strong {
+  flex: 1;
+  min-width: 0;
+}
+
+.sp-mix-alloc li > span small {
+  color: var(--hi-fog);
+  font-variant-numeric: tabular-nums;
 }
 
 .sp-mix-alloc em {
@@ -2529,6 +2570,18 @@
   font-size: clamp(1.5rem, 2vw, 2rem);
   font-weight: 700;
   letter-spacing: -0.02em;
+}
+
+.sp-hi-grid.is-review .sp-hi-head h1 {
+  font-size: clamp(1.25rem, 1.6vw, 1.5rem);
+}
+
+.sp-hi-grid.is-review .sp-hi-head p {
+  font-size: 0.8125rem;
+}
+
+.sp-hi-grid.is-review {
+  padding-bottom: 4.5rem;
 }
 
 .sp-hi-head p {
@@ -2693,6 +2746,12 @@
   font-weight: 600;
 }
 
+.sp-review .sp-bf span,
+.sp-hi-budget .sp-bf span {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
 .sp-brief-field textarea,
 .sp-narrative {
   width: 100%;
@@ -2817,6 +2876,24 @@
   font-size: 0.9375rem;
 }
 
+.sp-review .sp-bf input,
+.sp-review .sp-bf select,
+.sp-hi-budget .sp-bf input,
+.sp-hi-budget .sp-bf select {
+  min-height: 2.75rem;
+  font-size: 0.875rem;
+}
+
+.sp-review .sp-bf textarea:focus,
+.sp-review .sp-bf input:focus,
+.sp-review .sp-bf select:focus,
+.sp-hi-budget .sp-bf input:focus,
+.sp-hi-budget .sp-bf select:focus {
+  outline: 2px solid color-mix(in srgb, var(--hi-go) 45%, #fff);
+  outline-offset: 1px;
+  border-color: var(--hi-go);
+}
+
 .sp-kpi-box {
   display: grid;
   gap: 0.45rem;
@@ -2849,11 +2926,24 @@
   background: color-mix(in srgb, var(--sp-signal, #1e4d4f) 10%, #fff);
 }
 
-.sp-mix-logo {
-  width: 1.1rem;
-  height: 1.1rem;
+.sp-mix-logo,
+.sp-mix-fallback {
+  width: 1.25rem;
+  height: 1.25rem;
   object-fit: contain;
   flex: 0 0 auto;
+}
+
+.sp-mix-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: #eef2f6;
+  color: #475569;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .sp-mix-ooh-note,
@@ -4212,6 +4302,67 @@ body.is-sp-wait {
   line-height: 1.45;
 }
 
+.sp-media-facts {
+  font-weight: 600;
+  color: var(--hi-ink) !important;
+}
+
+.sp-media-dirty {
+  color: #b45309 !important;
+  font-weight: 650;
+}
+
+.sp-mix-count {
+  margin: 0 0 0.55rem;
+  color: var(--hi-fog);
+  font-size: 0.75rem;
+}
+
+.sp-mix-alloc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.sp-mix-sum.is-bad {
+  color: #b45309;
+  font-weight: 700;
+}
+
+.sp-media-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.sp-cal-empty,
+.sp-week-hint,
+.sp-month-weeks {
+  margin: 0.7rem 0 0;
+  color: var(--hi-fog);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.sp-month-weeks[hidden],
+.sp-week-hint[hidden],
+.sp-cal-empty[hidden] {
+  display: none;
+}
+
+html.is-sp-media,
+html.is-sp-media body {
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-review .sp-acc summary::after {
+    transition: none;
+  }
+}
+
 .sp-media-foot p {
   margin: 0;
 }
@@ -4298,6 +4449,22 @@ body.is-sp-wait {
   top: 0;
   background: #fff;
   z-index: 1;
+}
+
+.sp-cal-table thead th button {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+  text-align: left;
+}
+
+.sp-cal-table thead th[aria-expanded="true"] button {
+  color: var(--hi-go);
 }
 
 .sp-cal-table tbody th {

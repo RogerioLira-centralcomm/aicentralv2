@@ -9,6 +9,7 @@ from aicentralv2.smart_planner.pace import (
     distribute_budget,
     format_money,
     learn_release_weights,
+    pace_payload,
     parse_money,
     parse_periodo,
 )
@@ -38,6 +39,21 @@ def test_parse_periodo_named_range_crosses_year():
     parsed = parse_periodo("set a fev", HOJE)
     assert parsed["meses"] == 6
     assert parsed["helper"].startswith("6 meses")
+
+
+def test_sub_month_campaign_opens_without_gantt_columns():
+    pace = campaign_pace({
+        "verba": "R$ 20.000",
+        "verba_valor": 20000,
+        "verba_base": "total",
+        "periodo": "10 dias",
+    }, HOJE)
+    assert pace["parseou"] is True
+    assert (pace["meses"] or 0) <= 1
+    assert pace["editavel"] is False
+    payload = pace_payload(pace)
+    assert "inicio" in payload
+    assert "fim" in payload
 
 
 def test_one_month_campaign_is_not_column_editable():

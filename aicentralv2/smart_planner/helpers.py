@@ -263,8 +263,32 @@ def session_title(row: dict, dados: dict) -> str:
     return campanha or cliente or "Campanha sem nome"
 
 
-def plan_href(token: str, step: str) -> str:
+def session_public_token(row: dict | None) -> str:
+    dados = as_dict((row or {}).get("dados_detectados"))
+    share = as_dict(as_dict((row or {}).get("plan_content")).get("share"))
+    folha_share = as_dict(as_dict(dados.get("folha")).get("share"))
+    return text(
+        share.get("public_token")
+        or folha_share.get("public_token")
+        or dados.get("public_token")
+    )
+
+
+def editor_href(session_token: str = "", public_token: str = "", folha: bool = False) -> str:
+    pub = text(public_token)
+    sess = text(session_token)
+    suffix = "?folha=1" if folha else ""
+    if pub:
+        return f"/smart-planner/p/{pub}/editar{suffix}"
+    if sess:
+        return f"/smart-planner/{sess}/canvas{suffix}"
+    return "/smart-planner/"
+
+
+def plan_href(token: str, step: str, public_token: str = "") -> str:
     token = text(token)
+    if text(step) == "canvas":
+        return editor_href(token, public_token)
     if not token:
         return "/smart-planner/"
     suffix = {
@@ -273,6 +297,5 @@ def plan_href(token: str, step: str) -> str:
         "canais": "revisao",
         "gerar": "revisao",
         "conclusao": "conclusao",
-        "canvas": "canvas",
     }.get(text(step), "briefing")
     return f"/smart-planner/{token}/{suffix}"

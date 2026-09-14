@@ -193,3 +193,5 @@ class PublicPlannerTest(TestCase):
         })
         self.assertEqual(row["share_url"], "https://host/smart-planner/p/abc123")
         self.assertEqual(row["public_token"], "abc123")
+        self.assertEqual(row["href"], "/smart-planner/p/abc123/editar")
+        self.assertEqual(row["canvas_href"], "/smart-planner/p/abc123/editar")

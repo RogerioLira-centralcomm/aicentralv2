@@ -446,4 +446,6 @@ def pace_payload(pace: dict) -> dict:
         "parseou": bool(pace.get("parseou")),
         "base": text(pace.get("base") or "total"),
         "editavel": bool(pace.get("editavel")),
+        "inicio": text(pace.get("inicio")),
+        "fim": text(pace.get("fim")),
     }

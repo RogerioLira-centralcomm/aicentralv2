@@ -1,6 +1,6 @@
 from aicentralv2.smart_planner.catalog import resume_action, resume_status, score_label
 from aicentralv2.smart_planner.references import reference_block
-from aicentralv2.smart_planner.helpers import plan_href, session_title, text
+from aicentralv2.smart_planner.helpers import editor_href, plan_href, session_public_token, session_title, text
 from aicentralv2.smart_planner.repository import serialize_list_row
 
 
@@ -27,11 +27,18 @@ def test_session_title_prefers_campaign_name():
 
 def test_plan_href_is_stable():
     assert plan_href("abc", "canvas") == "/smart-planner/abc/canvas"
+    assert plan_href("abc", "canvas", "pub") == "/smart-planner/p/pub/editar"
     assert plan_href("abc", "conclusao") == "/smart-planner/abc/conclusao"
     assert plan_href("abc", "canais") == "/smart-planner/abc/revisao"
     assert plan_href("abc", "gerar") == "/smart-planner/abc/revisao"
     assert plan_href("", "canvas") == "/smart-planner/"
     assert plan_href("abc", "missing") == "/smart-planner/abc/briefing"
+    assert editor_href("sess", "pubX") == "/smart-planner/p/pubX/editar"
+    assert editor_href("sess", "pubX", folha=True) == "/smart-planner/p/pubX/editar?folha=1"
+    assert session_public_token({
+        "dados_detectados": {"public_token": "from-dados"},
+        "plan_content": {"share": {"public_token": "from-share"}},
+    }) == "from-share"
 
 
 def test_history_row_links_to_canvas_when_quadro_exists():

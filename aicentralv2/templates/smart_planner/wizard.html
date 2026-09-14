@@ -4,7 +4,7 @@
 {% block title %}{{ steps[step_index].title }} · Smart Planner{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=35">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=36">
 {% endblock %}
 
 {% block content %}
@@ -58,7 +58,7 @@
           <p class="sp-live" id="sp-save-live" aria-live="polite"></p>
           <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-sp-guide>Como funciona</button>
           {% if tem_quadro %}
-          <a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ url_for('smart_planner.canvas', token=token) }}">Abrir quadro</a>
+          <a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ canvas_url }}">Abrir quadro</a>
           {% endif %}
         </div>
       </header>
@@ -185,7 +185,7 @@
         <input type="hidden" name="agencia_id" value="{{ campos.agencia_id or '' }}">
         <input type="hidden" name="cx_client_id" value="{{ campos.cx_client_id or '' }}">
 
-        <details class="sp-acc" data-acc="essentials" data-required="sp-field-campanha,sp-field-cliente,sp-objetivo" open>
+        <details class="sp-acc" data-acc="essentials" data-required="sp-field-campanha,sp-field-cliente,sp-objetivo">
           <summary aria-controls="sp-acc-essentials">
             <span class="sp-acc-title">Informações essenciais</span>
             <span class="sp-acc-meta" data-acc-meta>4 campos</span>
@@ -210,25 +210,25 @@
           </div>
         </details>
 
-        <details class="sp-acc" data-acc="audience" data-required="sp-field-publico" open>
+        <details class="sp-acc" data-acc="audience" data-required="sp-field-publico">
           <summary aria-controls="sp-acc-audience">
             <span class="sp-acc-title">Público e mensagem</span>
             <span class="sp-acc-meta" data-acc-meta>2 campos</span>
           </summary>
-          <div class="sp-bf" id="sp-acc-audience">
-            <label for="sp-field-objetivo-texto"><span>Como o anunciante descreveu</span><input id="sp-field-objetivo-texto" name="objetivo_texto" value="{{ campos.objetivo_texto }}"></label>
-            <label for="sp-field-publico"><span>Público</span><textarea id="sp-field-publico" name="publico" rows="3">{{ campos.publico }}</textarea></label>
+          <div class="sp-bf is-stack" id="sp-acc-audience">
+            <label for="sp-field-objetivo-texto"><span>Como o anunciante descreveu</span><textarea id="sp-field-objetivo-texto" name="objetivo_texto" rows="5">{{ campos.objetivo_texto }}</textarea></label>
+            <label for="sp-field-publico"><span>Público</span><textarea id="sp-field-publico" name="publico" rows="5">{{ campos.publico }}</textarea></label>
           </div>
         </details>
 
-        <details class="sp-acc" data-acc="context" open>
+        <details class="sp-acc" data-acc="context">
           <summary aria-controls="sp-acc-context">
             <span class="sp-acc-title">Contexto e restrições</span>
             <span class="sp-acc-meta" data-acc-meta>2 campos</span>
           </summary>
-          <div class="sp-bf" id="sp-acc-context">
-            <label for="sp-field-contexto"><span>Contexto da campanha</span><textarea id="sp-field-contexto" name="contexto" rows="3">{{ campos.contexto }}</textarea></label>
-            <label for="sp-field-observacoes"><span>Observações e restrições</span><textarea id="sp-field-observacoes" name="observacoes" rows="3">{{ campos.observacoes }}</textarea></label>
+          <div class="sp-bf is-stack" id="sp-acc-context">
+            <label for="sp-field-contexto"><span>Contexto da campanha</span><textarea id="sp-field-contexto" name="contexto" rows="5">{{ campos.contexto }}</textarea></label>
+            <label for="sp-field-observacoes"><span>Observações e restrições</span><textarea id="sp-field-observacoes" name="observacoes" rows="5">{{ campos.observacoes }}</textarea></label>
           </div>
         </details>
 
@@ -237,8 +237,8 @@
             <span class="sp-acc-title">Conteúdo extraído</span>
             <span class="sp-acc-meta" data-acc-meta>1 campo</span>
           </summary>
-          <div class="sp-bf" id="sp-acc-extracted">
-            <label for="sp-field-criativos"><span>Materiais e formatos identificados</span><textarea id="sp-field-criativos" name="criativos" rows="3">{{ campos.criativos }}</textarea></label>
+          <div class="sp-bf is-stack" id="sp-acc-extracted">
+            <label for="sp-field-criativos"><span>Materiais e formatos identificados</span><textarea id="sp-field-criativos" name="criativos" rows="5">{{ campos.criativos }}</textarea></label>
             <p class="sp-acc-note">Confirme, edite ou apague o que a leitura automática trouxe. Campo vazio não entra no plano.</p>
           </div>
         </details>
@@ -435,7 +435,7 @@
         <ul class="sp-done-links">
           {% if plan_mode == 'completo' and tem_quadro %}
           <li>
-            <a class="sp-done-link is-main" href="{{ url_for('smart_planner.canvas', token=token) }}">
+            <a class="sp-done-link is-main" href="{{ canvas_url }}">
               <strong>Abrir o plano completo</strong>
               <small>O quadro nas quatro seções, a partir da página única.</small>
             </a>
@@ -443,14 +443,14 @@
           {% endif %}
           {% if tem_folha %}
           <li>
-            <a class="sp-done-link {% if plan_mode != 'completo' %}is-main{% endif %}" href="{{ url_for('smart_planner.canvas', token=token, folha=1) }}">
+            <a class="sp-done-link {% if plan_mode != 'completo' %}is-main{% endif %}" href="{{ folha_url }}">
               <strong>Abrir a página única</strong>
               <small>{{ 'A tese que o plano completo usou.' if plan_mode == 'completo' else 'A folha pronta para a reunião.' }}</small>
             </a>
           </li>
           {% elif plan_mode != 'completo' %}
           <li>
-            <a class="sp-done-link is-main" href="{{ url_for('smart_planner.canvas', token=token) }}">
+            <a class="sp-done-link is-main" href="{{ canvas_url }}">
               <strong>Abrir a página única</strong>
               <small>A folha pronta para a reunião.</small>
             </a>
@@ -466,7 +466,7 @@
           <li>
             <a class="sp-done-link" href="{{ share_url }}" target="_blank" rel="noopener noreferrer">
               <strong>Link público</strong>
-              <small>{{ share_url }}</small>
+              <small>Abre sem login, para o cliente.</small>
             </a>
           </li>
           {% endif %}
@@ -557,18 +557,21 @@
       </div>
     </aside>
 
-    <dialog class="sp-media" id="sp-media" aria-labelledby="sp-media-title">
+    <dialog class="sp-media" id="sp-media" aria-labelledby="sp-media-title" aria-describedby="sp-media-desc" aria-modal="true">
       <div class="sp-media-sheet">
         <header>
           <div>
             <h2 id="sp-media-title">Gestão de mídia</h2>
-            <p>Canais, método e calendário mensal. Em voos de 2 a 12 meses a mídia progride: aprende no começo e converte no fim.</p>
+            <p id="sp-media-desc">Canais, método e calendário mensal. Em voos de 2 a 12 meses a mídia progride.</p>
+            <p class="sp-media-facts" id="sp-media-facts"></p>
+            <p class="sp-media-dirty" id="sp-media-dirty" hidden>Alterações não aplicadas</p>
           </div>
           <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-media-close">Fechar</button>
         </header>
         <div class="sp-media-grid">
           <section class="sp-media-mix" aria-labelledby="sp-cb-mix-title">
             <h3 id="sp-cb-mix-title">Gestão de canais</h3>
+            <p class="sp-mix-count" id="sp-mix-count" aria-live="polite"></p>
             <div class="sp-mix-chips" id="sp-mix-chips" hidden></div>
             <label class="sp-mix-search" for="sp-mix-search" id="sp-mix-search-wrap" hidden>
               <span class="sr-only">Buscar canal</span>
@@ -587,7 +590,9 @@
                   <label {% if extra %}data-extra="1" hidden{% endif %} data-label="{{ meta.label|lower }}" data-group="{{ group_key }}" {% if key == 'interativos' %}data-needs-portal="1"{% endif %}>
                     <input form="sp-revisao-form" type="checkbox" name="canais" value="{{ key }}" {% if key in campos.canais %}checked{% endif %}>
                     {% if meta.logo %}
-                    <img class="sp-mix-logo" src="{{ meta.logo }}" alt="">
+                    <img class="sp-mix-logo" src="{{ meta.logo }}" alt="" aria-hidden="true">
+                    {% else %}
+                    <span class="sp-mix-fallback" aria-hidden="true">{{ meta.label.split()[0][:1] }}{{ meta.label.split()[1][:1] if meta.label.split()|length > 1 else '' }}</span>
                     {% endif %}
                     <span>{{ meta.label }}</span>
                   </label>
@@ -645,7 +650,11 @@
                 {% endfor %}
               </div>
             </details>
-            <div class="sp-mix-alloc" id="sp-mix-alloc" aria-live="polite">
+            <div class="sp-mix-alloc" id="sp-mix-alloc">
+              <div class="sp-mix-alloc-head">
+                <p class="sp-mix-sum" id="sp-mix-sum" aria-live="polite" {% if not desk.weights %}hidden{% endif %}>Soma {{ desk.weights|sum(attribute='pct') if desk.weights else 0 }}%</p>
+                <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-mix-auto">Distribuir automaticamente</button>
+              </div>
               <p class="sp-mix-empty" id="sp-mix-empty" {% if desk.weights %}hidden{% endif %}>Marque os canais desta campanha para ver o mix.</p>
               <ul id="sp-mix-bars">
                 {% for item in desk.weights or [] %}
@@ -659,7 +668,6 @@
                 </li>
                 {% endfor %}
               </ul>
-              <p class="sp-mix-sum" id="sp-mix-sum" {% if not desk.weights %}hidden{% endif %}>Soma {{ desk.weights|sum(attribute='pct') if desk.weights else 0 }}%</p>
             </div>
           </section>
           <section class="sp-media-cal" aria-labelledby="sp-cal-title">
@@ -689,6 +697,9 @@
               <div class="sp-gantt-track" id="sp-gantt-track"></div>
               <div class="sp-gantt-cols" id="sp-gantt-cols" {% if not pace.editavel %}hidden{% endif %}></div>
             </div>
+            <p class="sp-cal-empty" id="sp-cal-empty" hidden>Informe período e canais para ver o voo mensal.</p>
+            <p class="sp-week-hint" id="sp-week-hint" hidden></p>
+            <div class="sp-month-weeks" id="sp-month-weeks" hidden></div>
             <div class="sp-cal-table-wrap" id="sp-cal-wrap" {% if not pace.editavel %}hidden{% endif %}>
               <table class="sp-cal-table" id="sp-cal-table"></table>
             </div>
@@ -696,7 +707,10 @@
         </div>
         <footer class="sp-media-foot">
           <p id="sp-media-status" aria-live="polite"></p>
-          <button type="button" class="cx-btn cx-btn-primary" id="sp-media-apply">Aplicar no plano</button>
+          <div class="sp-media-actions">
+            <button type="button" class="cx-btn cx-btn-ghost" id="sp-media-cancel">Cancelar</button>
+            <button type="button" class="cx-btn cx-btn-primary" id="sp-media-apply">Aplicar no plano</button>
+          </div>
         </footer>
       </div>
     </dialog>
@@ -880,6 +894,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=21"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=23"></script>
 <script src="{{ url_for('static', filename='js/smart_planner/guide.js') }}?v=3"></script>
 {% endblock %}

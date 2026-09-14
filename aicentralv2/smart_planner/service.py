@@ -21,6 +21,7 @@ from .catalog import (
     score_label,
 )
 from .places_bridge import apply_places_to_campos, planner_place_catalog, resolve_places
+from .share import public_sheet_url
 from .mix import (
     METHODS,
     allocate,
@@ -35,7 +36,17 @@ from .skills import generation_steps
 from .cost import cost_from_dados, format_brl
 from .models import preview_cost
 from .logos import presenter_options
-from .helpers import as_bool, as_dict, as_list, looks_like_reference_dump, plan_mode_of, session_title, text
+from .helpers import (
+    as_bool,
+    as_dict,
+    as_list,
+    editor_href,
+    looks_like_reference_dump,
+    plan_mode_of,
+    session_public_token,
+    session_title,
+    text,
+)
 from .materials import normalize_references
 from .pace import (
     allocate_months,
@@ -256,7 +267,11 @@ def wizard_context(row: dict, step_id: str) -> dict:
         "fonte_referencias": _fonte_referencias(dados),
         "planejamento": text(dados.get("planejamento")),
         "tem_quadro": bool(as_list(as_dict(row.get("plan_content")).get("sections"))),
-        "share_url": text(share.get("url")),
+        "share_url": text(share.get("url")) or public_sheet_url(
+            text(share.get("public_token") or dados.get("public_token"))
+        ),
+        "canvas_url": editor_href(row.get("session_token"), session_public_token(row)),
+        "folha_url": editor_href(row.get("session_token"), session_public_token(row), folha=True),
         "steps": WIZARD_STEPS,
         "trail": WIZARD_TRAIL,
         "step_id": step_id,

@@ -20,6 +20,8 @@ ENDPOINT_CONTEXT = {
     "smart_planner.canais": ("comercial", "smart_planner"),
     "smart_planner.gerar": ("comercial", "smart_planner"),
     "smart_planner.canvas": ("comercial", "smart_planner"),
+    "smart_planner.canvas_editar": ("comercial", "smart_planner"),
+    "smart_planner.publico": ("comercial", "smart_planner"),
     "places.index": ("comercial", "places"),
     "places.novo": ("comercial", "places"),
     "places.editar": ("comercial", "places"),

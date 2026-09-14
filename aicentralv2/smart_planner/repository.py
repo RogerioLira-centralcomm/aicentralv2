@@ -11,7 +11,7 @@ from psycopg.types.json import Json
 from ..db import get_db
 from .catalog import CHANNEL_CATALOG, PRACA_OPTIONS, objetivo_label, plan_mode_label, resume_action, resume_status
 from .cost import cost_from_dados
-from .helpers import as_bool, as_dict, as_list, campaign_from_campos, format_when, plan_href, plan_mode_of, session_title, text
+from .helpers import as_bool, as_dict, as_list, campaign_from_campos, editor_href, format_when, plan_href, plan_mode_of, session_title, text
 from .share import public_sheet_url
 
 logger = logging.getLogger(__name__)
@@ -189,7 +189,7 @@ def list_sessions(user_email: str, user_id: Any = None, limit: int = 80) -> list
                 "resume_step": "briefing",
                 "resume_action": resume_action("briefing"),
                 "href": plan_href(token, "briefing"),
-                "canvas_href": plan_href(token, "canvas") if token else "",
+                "canvas_href": editor_href(token) if token else "",
                 "share_url": "",
                 "public_token": "",
             })
@@ -245,8 +245,8 @@ def serialize_list_row(row: dict) -> dict:
         "updated_at": row.get("updated_at"),
         "resume_step": resume,
         "resume_action": resume_action(resume, mode),
-        "href": plan_href(token, resume),
-        "canvas_href": plan_href(token, "canvas") if token else "",
+        "href": plan_href(token, resume, public_token),
+        "canvas_href": editor_href(token, public_token) if token or public_token else "",
         "share_url": share_url,
         "public_token": public_token,
     }

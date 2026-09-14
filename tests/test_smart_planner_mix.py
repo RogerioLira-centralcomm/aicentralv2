@@ -142,7 +142,15 @@ class MixEngineTest(unittest.TestCase):
         self.assertIn('id="sp-media"', html)
         self.assertIn("Calendário de balanceamento", html)
         self.assertIn("Mídia progressiva", html)
+        self.assertIn("Distribuir automaticamente", html)
+        self.assertIn('aria-modal="true"', html)
+        self.assertIn('name="objetivo_texto"', html)
+        self.assertIn('<textarea id="sp-field-objetivo-texto"', html)
         self.assertIn('data-acc="essentials"', html)
+        review_acc = html.split('id="sp-revisao-form"', 1)[1].split("</form>", 1)[0]
+        self.assertNotRegex(review_acc, r'data-acc="essentials"[^>]*\sopen')
+        self.assertNotRegex(review_acc, r'data-acc="audience"[^>]*\sopen')
+        self.assertNotRegex(review_acc, r'data-acc="context"[^>]*\sopen')
         self.assertIn("data-acc-meta", html)
         self.assertIn("sp-complete-checks", html)
         self.assertIn("4 campos", html)
@@ -208,8 +216,57 @@ class MixEngineTest(unittest.TestCase):
             })
 
         self.assertTrue(saved["mix"]["progress"])
+        self.assertEqual(sum(item["pct"] for item in saved["mix"]["weights"]), 100)
         self.assertEqual(saved["verba_alocacao"]["2026-09"], 20000)
         self.assertEqual(saved["verba_alocacao"]["2026-10"], 30000)
+
+    def test_persist_review_keeps_places_off_when_channel_unchecked(self):
+        from unittest.mock import patch
+
+        from aicentralv2.smart_planner import service
+
+        saved = {}
+
+        def _save(_token, campos, briefing=None):
+            saved.update(campos)
+            return {"ok": True}
+
+        with patch.object(service, "save_campos", side_effect=_save):
+            service.persist_review("tok", {
+                "canais": ["google_ads"],
+                "places": [],
+                "mix": {"method": "funil", "weights": [{"id": "google_ads", "pct": 100}]},
+                "campos": {"objetivo": "vendas", "verba": "R$ 10.000", "periodo": "30 dias"},
+            })
+
+        self.assertNotIn("places", saved.get("canais") or [])
+        self.assertEqual(saved.get("places") or [], [])
+
+    def test_media_modal_js_reverts_and_holds_autosave(self):
+        js = (
+            Path(__file__).resolve().parents[1]
+            / "aicentralv2"
+            / "static"
+            / "js"
+            / "smart_planner"
+            / "wizard.js"
+        ).read_text()
+        self.assertIn("restoreMediaSnapshot", js)
+        self.assertIn("sp-media-will-open", js)
+        self.assertIn("if (!manual && mediaOpen()) return;", js)
+        self.assertIn('if (channel && !channel.checked) return [];', js)
+        self.assertIn("/canais|canal/", js)
+
+    def test_normalize_mix_closes_dirty_percentages(self):
+        mix = normalize_mix(
+            {"method": "manual", "locked": True, "weights": [
+                {"id": "google_ads", "pct": 10},
+                {"id": "netflix", "pct": 10},
+            ]},
+            ["google_ads", "netflix"],
+            "vendas",
+        )
+        self.assertEqual(sum(item["pct"] for item in mix["weights"]), 100)
 
     def test_rewrite_from_plan_keeps_original(self):
         from contextlib import nullcontext

@@ -26,7 +26,7 @@ from .catalog import (
     channels_by_group,
     plan_mode_label,
 )
-from .helpers import as_dict, as_list
+from .helpers import as_dict, as_list, session_public_token
 from .materials import save_upload
 from .references import capture_file, capture_search, capture_url
 from .brand import brand_for_client, search_parties
@@ -173,10 +173,7 @@ def api_publico_qr(public_token):
     return Response(svg, mimetype="image/svg+xml")
 
 
-@bp.route("/<token>/canvas")
-@login_required
-def canvas(token):
-    row = load_owned(token)
+def _render_canvas(row):
     ctx = wizard_context(row, "canvas")
     want_folha = (request.args.get("folha") or "").strip().lower() in {"1", "true", "folha"}
     folha = as_dict(as_dict(row.get("dados_detectados")).get("folha"))
@@ -191,6 +188,29 @@ def canvas(token):
         plan=plan,
         **_page_ctx(**ctx),
     )
+
+
+@bp.route("/p/<public_token>/editar")
+@login_required
+def canvas_editar(public_token):
+    found = get_by_public_token(public_token)
+    if not found:
+        raise SessionNotFound("Este planejamento não está no ar.")
+    return _render_canvas(load_owned(found["session_token"]))
+
+
+@bp.route("/<token>/canvas")
+@login_required
+def canvas(token):
+    row = load_owned(token)
+    public = session_public_token(row)
+    if public:
+        dest = {"public_token": public}
+        folha = (request.args.get("folha") or "").strip()
+        if folha:
+            dest["folha"] = folha
+        return redirect(url_for("smart_planner.canvas_editar", **dest))
+    return _render_canvas(row)
 
 
 @bp.route("/api/partes")

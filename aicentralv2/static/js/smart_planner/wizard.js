@@ -78,6 +78,8 @@
   }
 
   function collectPlaces() {
+    var channel = document.querySelector('#sp-mix-channels input[name="canais"][value="places"]');
+    if (channel && !channel.checked) return [];
     var catalog = readJson("sp-places-catalog", []);
     var out = [];
     catalog.forEach(function (place) {
@@ -95,6 +97,8 @@
   }
 
   function collectInterativos() {
+    var channel = document.querySelector('#sp-mix-channels input[name="canais"][value="interativos"]');
+    if (channel && !channel.checked) return { formats: [] };
     return {
       formats: Array.prototype.slice.call(document.querySelectorAll('input[name="interativos_formats"]:checked')).map(function (el) {
         return el.value;
@@ -280,6 +284,11 @@
   }
 
   function openMediaModal() {
+    var openBtn = document.getElementById("sp-media-open");
+    if (openBtn && !((document.getElementById("sp-media") || {}).open)) {
+      openBtn.click();
+      return;
+    }
     var dlg = document.getElementById("sp-media");
     if (dlg && typeof dlg.showModal === "function" && !dlg.open) dlg.showModal();
   }
@@ -722,6 +731,12 @@
     var more = document.querySelector(".sp-mix-more");
     var picks = document.getElementById("sp-mix-picks");
     var morePicks = document.querySelector(".sp-mix-more .sp-mix-picks");
+    var mediaDlg = document.getElementById("sp-media");
+    var mediaApply = document.getElementById("sp-media-apply");
+    var mediaSnapshot = "";
+    var mediaOpener = null;
+    var mediaApplied = false;
+    var restoringMedia = false;
 
     function selectedCanais() {
       return Array.prototype.slice.call(desk.querySelectorAll('input[name="canais"]:checked')).map(function (el) {
@@ -894,29 +909,185 @@
     }
     function paintBars(weights) {
       if (!bars) return;
+      var budget = budgetTotal();
       bars.innerHTML = weights.map(function (item) {
-        var logo = (spec.logos || {})[item.id];
-        var mark = logo ? '<img class="sp-mix-logo" src="' + logo + '" alt="">' : "";
-        return '<li data-canal="' + item.id + '"><span>' + mark + "<strong>" + item.label + "</strong><em>" + item.pct
-          + '%</em></span><i><b data-pct="' + item.pct + '"></b></i>'
+        var amount = budget > 0 ? Math.round(budget * (item.pct || 0) / 100) : 0;
+        return '<li data-canal="' + item.id + '"><span>' + channelMark(item.id, item.label) + "<strong>"
+          + escapeHtml(item.label) + "</strong><em>" + item.pct + "%</em>"
+          + (budget > 0 ? "<small>" + formatBRL(amount) + "</small>" : "")
+          + '</span><i><b data-pct="' + item.pct + '"></b></i>'
           + '<input type="range" min="0" max="100" value="' + item.pct + '" data-canal="' + item.id
-          + '" aria-label="Percentual de ' + item.label + '"></li>';
+          + '" aria-label="Percentual de ' + escapeHtml(item.label) + '"></li>';
       }).join("");
       bars.querySelectorAll("b[data-pct]").forEach(function (fill) {
         fill.style.setProperty("--pct", fill.getAttribute("data-pct") || "0");
       });
       if (empty) empty.hidden = weights.length > 0;
-      if (sumEl) {
-        var total = weights.reduce(function (sum, item) { return sum + item.pct; }, 0);
-        sumEl.hidden = weights.length === 0;
-        sumEl.textContent = "Soma " + total + "%";
-      }
+      paintMixValidity();
+      paintMediaFacts();
+      paintDirty();
     }
     function money(value) {
       return parseInt(String(value || "").replace(/\D/g, ""), 10) || 0;
     }
     function formatMoney(value) {
       return Math.max(0, value).toLocaleString("pt-BR");
+    }
+    function formatBRL(value) {
+      try {
+        return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(Math.max(0, value || 0));
+      } catch (err) {
+        return "R$ " + formatMoney(value);
+      }
+    }
+    function channelMark(id, label) {
+      var logo = (spec.logos || {})[id];
+      var name = label || (spec.labels || {})[id] || id;
+      if (logo) return '<img class="sp-mix-logo" src="' + escapeHtml(logo) + '" alt="" aria-hidden="true">';
+      var initials = String(name).replace(/[^A-Za-z0-9ÁÉÍÓÚÂÊÔÃÕÇáéíóúâêôãõç]+/g, " ").trim().split(/\s+/).slice(0, 2).map(function (word) {
+        return word.charAt(0);
+      }).join("").toUpperCase() || "?";
+      return '<span class="sp-mix-fallback" aria-hidden="true">' + escapeHtml(initials) + "</span>";
+    }
+    function mixTotal(weights) {
+      return (weights || []).reduce(function (sum, item) { return sum + (Number(item.pct) || 0); }, 0);
+    }
+    function mixValid(weights) {
+      return !!(weights && weights.length && mixTotal(weights) === 100);
+    }
+    function budgetTotal() {
+      return parseInt(pace.total, 10) || money((document.getElementById("sp-field-verba") || {}).value);
+    }
+    function paintMixValidity() {
+      var weights = currentWeights();
+      var total = mixTotal(weights);
+      var ok = mixValid(weights);
+      if (sumEl) {
+        sumEl.hidden = weights.length === 0;
+        sumEl.textContent = weights.length ? "Soma " + total + "%" : "";
+        sumEl.classList.toggle("is-bad", weights.length > 0 && !ok);
+      }
+      if (mediaApply) mediaApply.disabled = !ok;
+      var status = document.getElementById("sp-media-status");
+      if (status) {
+        if (weights.length && !ok) status.textContent = "Ajuste os canais até somar 100%.";
+        else if (status.textContent.indexOf("100%") !== -1) status.textContent = "";
+      }
+    }
+    function paintMediaFacts() {
+      var el = document.getElementById("sp-media-facts");
+      if (!el) return;
+      var parts = [];
+      if (pace.helper) parts.push(pace.helper);
+      else if (pace.inicio && pace.fim) parts.push(pace.inicio + " a " + pace.fim);
+      if (pace.total > 0) parts.push(pace.como || formatBRL(pace.total));
+      var n = selectedCanais().length;
+      parts.push(n + (n === 1 ? " canal" : " canais"));
+      el.textContent = parts.join(" · ");
+    }
+    function paintDirty() {
+      var mark = document.getElementById("sp-media-dirty");
+      if (!mark) return;
+      mark.hidden = !mediaSnapshot || mediaSnapshot === snapshotMedia();
+    }
+    function snapshotMedia() {
+      var progress = document.getElementById("sp-mix-progress");
+      return JSON.stringify({
+        canais: selectedCanais(),
+        mix: currentWeights(),
+        method: selectedMethod(),
+        progress: !!(progress && progress.checked),
+        alocacao: monthValues(),
+      });
+    }
+    function restoreMediaSnapshot(raw) {
+      if (!raw) return;
+      var snap;
+      try { snap = JSON.parse(raw); } catch (err) { return; }
+      restoringMedia = true;
+      try {
+        desk.querySelectorAll('input[name="canais"]').forEach(function (input) {
+          input.checked = (snap.canais || []).indexOf(input.value) !== -1;
+        });
+        if (snap.method) setMethod(snap.method);
+        var progress = document.getElementById("sp-mix-progress");
+        if (progress && snap.progress != null) progress.checked = !!snap.progress;
+        paintBars(allocate(
+          selectedCanais(),
+          objetivoEl ? objetivoEl.value : "",
+          selectedMethod(),
+          snap.mix
+        ));
+        var cols = document.getElementById("sp-gantt-cols");
+        if (cols && snap.alocacao) {
+          Object.keys(snap.alocacao).forEach(function (key) {
+            var field = cols.querySelector('[data-chave="' + key + '"]');
+            if (field) field.value = formatMoney(snap.alocacao[key]);
+          });
+        }
+        paintPicks();
+        paintSummary();
+        paintCalendar();
+        paintDirty();
+        desk.querySelectorAll('input[name="canais"]').forEach(function (input) {
+          if (input.value === "places" || input.value === "interativos") {
+            input.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+        });
+        var anyCanal = desk.querySelector('input[name="canais"]');
+        if (anyCanal) anyCanal.dispatchEvent(new Event("change", { bubbles: true }));
+      } finally {
+        restoringMedia = false;
+      }
+    }
+    function weekHints() {
+      var start = pace.inicio;
+      var end = pace.fim;
+      if (!start || !end || (pace.meses || 0) > 1) return [];
+      var a = new Date(start + "T00:00:00");
+      var b = new Date(end + "T00:00:00");
+      if (isNaN(a.getTime()) || isNaN(b.getTime()) || b < a) return [];
+      var weeks = [];
+      var cursor = new Date(a);
+      var index = 1;
+      while (cursor <= b && index <= 6) {
+        var stop = new Date(cursor);
+        stop.setDate(stop.getDate() + 6);
+        if (stop > b) stop = b;
+        weeks.push("Semana " + index + " · " + cursor.getDate() + "/" + (cursor.getMonth() + 1) + "–" + stop.getDate() + "/" + (stop.getMonth() + 1));
+        cursor.setDate(cursor.getDate() + 7);
+        index += 1;
+      }
+      return weeks;
+    }
+    function monthWeekLabels(key) {
+      var parts = String(key || "").split("-");
+      if (parts.length < 2) return [];
+      var year = Number(parts[0]);
+      var month = Number(parts[1]);
+      if (!year || !month) return [];
+      var start = new Date(year, month - 1, 1);
+      var last = new Date(year, month, 0);
+      if (pace.inicio) {
+        var campaignStart = new Date(pace.inicio + "T00:00:00");
+        if (!isNaN(campaignStart.getTime()) && campaignStart > start) start = campaignStart;
+      }
+      if (pace.fim) {
+        var campaignEnd = new Date(pace.fim + "T00:00:00");
+        if (!isNaN(campaignEnd.getTime()) && campaignEnd < last) last = campaignEnd;
+      }
+      var weeks = [];
+      var cursor = new Date(start);
+      var index = 1;
+      while (cursor <= last && index <= 6) {
+        var stop = new Date(cursor);
+        stop.setDate(stop.getDate() + 6);
+        if (stop > last) stop = last;
+        weeks.push("Semana " + index + " · " + cursor.getDate() + "/" + (cursor.getMonth() + 1) + "–" + stop.getDate() + "/" + (stop.getMonth() + 1));
+        cursor.setDate(cursor.getDate() + 7);
+        index += 1;
+      }
+      return weeks;
     }
     function progressOn() {
       var box = document.getElementById("sp-mix-progress");
@@ -960,8 +1131,8 @@
       var labels = {};
       Object.keys(spec.labels || {}).forEach(function (key) { labels[key] = spec.labels[key]; });
       desk.querySelectorAll("#sp-mix-channels input[name='canais']:checked").forEach(function (input) {
-        var name = input.closest("label") && input.closest("label").querySelector("span");
-        if (name) labels[input.value] = name.textContent;
+        var name = input.closest("label") && input.closest("label").querySelector("span:last-child");
+        if (name && name.textContent) labels[input.value] = name.textContent.trim();
       });
       if (copy) {
         var methodLabel = "";
@@ -974,7 +1145,8 @@
       if (snap) {
         snap.hidden = weights.length === 0;
         snap.innerHTML = weights.slice(0, 4).map(function (item) {
-          return "<li><span>" + (labels[item.id] || item.id) + "</span><em>" + item.pct + "%</em></li>";
+          return "<li><span>" + channelMark(item.id, labels[item.id] || item.id) + " "
+            + escapeHtml(labels[item.id] || item.id) + "</span><em>" + item.pct + "%</em></li>";
         }).join("");
       }
     }
@@ -1031,29 +1203,64 @@
     function paintCalendar() {
       paintGantt();
       paintMiniCal();
+      paintMediaFacts();
       var wrap = document.getElementById("sp-cal-wrap");
       var table = document.getElementById("sp-cal-table");
       var progress = document.getElementById("sp-mix-progress");
+      var emptyCal = document.getElementById("sp-cal-empty");
+      var weekHint = document.getElementById("sp-week-hint");
+      var weekBox = document.getElementById("sp-month-weeks");
+      var expanded = "";
+      if (table) {
+        var openTh = table.querySelector("th[aria-expanded='true']");
+        if (openTh) expanded = openTh.getAttribute("data-month") || "";
+      }
       if (progress) progress.disabled = !pace.editavel;
-      if (!wrap || !table) return;
       var keys = pace.chaves || [];
-      wrap.hidden = !pace.editavel || !keys.length;
-      if (wrap.hidden) return;
+      var canais = selectedCanais();
+      if (emptyCal) emptyCal.hidden = !!(pace.parseou && canais.length);
+      if (weekHint) {
+        var weeks = weekHints();
+        weekHint.hidden = weeks.length === 0;
+        weekHint.textContent = weeks.length ? "Leitura das datas: " + weeks.join(" · ") : "";
+      }
+      if (!wrap || !table) return;
+      wrap.hidden = !pace.editavel || !keys.length || !canais.length;
+      if (wrap.hidden) {
+        if (weekBox) {
+          weekBox.hidden = true;
+          weekBox.textContent = "";
+        }
+        return;
+      }
       var labels = pace.rotulos || [];
       var values = monthValues();
       var weightsByMonth = keys.map(function (_, index) { return monthMix(index); });
       var channels = weightsByMonth[0] || currentWeights();
       table.innerHTML = "<thead><tr><th>Canal</th>" + keys.map(function (key, index) {
-        return "<th>" + (labels[index] || key) + "</th>";
+        return "<th data-month=\"" + escapeHtml(key) + "\" aria-expanded=\"" + (key === expanded ? "true" : "false") + "\"><button type=\"button\">"
+          + escapeHtml(labels[index] || key) + "</button></th>";
       }).join("") + "</tr></thead><tbody>" + channels.map(function (item) {
-        return "<tr><th>" + item.label + "</th>" + weightsByMonth.map(function (month, index) {
-          var cell = month.filter(function (row) { return row.id === item.id; })[0] || item;
-          var monthTotal = values[keys[index]] || 0;
-          var valor = Math.round(monthTotal * (cell.pct || 0) / 100);
-          return "<td style=\"--pct:" + (cell.pct || 0) + "\"><strong>" + cell.pct
-            + "%</strong><small>R$ " + formatMoney(valor) + "</small></td>";
-        }).join("") + "</tr>";
+        return "<tr><th>" + channelMark(item.id, item.label) + " " + escapeHtml(item.label) + "</th>"
+          + weightsByMonth.map(function (month, index) {
+            var cell = month.filter(function (row) { return row.id === item.id; })[0] || item;
+            var monthTotal = values[keys[index]] || 0;
+            var valor = Math.round(monthTotal * (cell.pct || 0) / 100);
+            return "<td style=\"--pct:" + (cell.pct || 0) + "\"><strong>" + cell.pct
+              + "%</strong><small>" + formatBRL(valor) + "</small></td>";
+          }).join("") + "</tr>";
       }).join("") + "</tbody>";
+      if (weekBox) {
+        if (expanded && keys.indexOf(expanded) !== -1) {
+          var monthWeeks = monthWeekLabels(expanded);
+          var monthLabel = labels[keys.indexOf(expanded)] || expanded;
+          weekBox.hidden = monthWeeks.length === 0;
+          weekBox.textContent = monthWeeks.length ? monthLabel + ": " + monthWeeks.join(" · ") : "";
+        } else {
+          weekBox.hidden = true;
+          weekBox.textContent = "";
+        }
+      }
     }
     function applyPace(next) {
       var same = (pace.chaves || []).join("|") === ((next && next.chaves) || []).join("|");
@@ -1107,6 +1314,7 @@
       paintCalendar();
     }
     desk.addEventListener("change", function (event) {
+      if (restoringMedia) return;
       var target = event.target;
       if (!target) return;
       if (target.name === "objetivo") {
@@ -1154,12 +1362,12 @@
         if (em) em.textContent = value + "%";
         if (fill) fill.style.setProperty("--pct", String(value));
         if (slider && key !== lockedId) slider.value = String(value);
+        var moneyEl = row.querySelector("small");
+        var budget = budgetTotal();
+        if (moneyEl && budget > 0) moneyEl.textContent = formatBRL(Math.round(budget * value / 100));
       });
-      if (sumEl) {
-        var total = keys.reduce(function (sum, key) { return sum + (pcts[key] || 0); }, 0);
-        sumEl.hidden = keys.length === 0;
-        sumEl.textContent = "Soma " + total + "%";
-      }
+      paintMixValidity();
+      paintDirty();
     }
     if (bars) {
       bars.addEventListener("input", function (event) {
@@ -1175,23 +1383,140 @@
         fill.style.setProperty("--pct", fill.getAttribute("data-pct") || "0");
       });
     }
-    var mediaDlg = document.getElementById("sp-media");
     var mediaOpen = document.getElementById("sp-media-open");
     var mediaClose = document.getElementById("sp-media-close");
-    var mediaApply = document.getElementById("sp-media-apply");
-    if (mediaOpen) {
-      mediaOpen.addEventListener("click", function () {
-        openMediaModal();
-        paintCalendar();
+    var mediaCancel = document.getElementById("sp-media-cancel");
+    var mediaAuto = document.getElementById("sp-mix-auto");
+    var releaseFocusTrap = null;
+    function isMediaDirty() {
+      return !!(mediaSnapshot && mediaSnapshot !== snapshotMedia());
+    }
+    function confirmCloseMedia() {
+      if (!isMediaDirty()) return true;
+      return window.confirm("Há alterações não aplicadas. Fechar sem salvar?");
+    }
+    function closeMedia() {
+      if (mediaDlg && typeof mediaDlg.close === "function" && mediaDlg.open) mediaDlg.close();
+    }
+    function visibleMediaControls() {
+      if (!mediaDlg) return [];
+      var nodes = mediaDlg.querySelectorAll("a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])");
+      return Array.prototype.filter.call(nodes, function (el) {
+        if (el.hidden || el.closest("[hidden]")) return false;
+        return el.offsetParent !== null;
       });
     }
-    if (mediaClose && mediaDlg) {
-      mediaClose.addEventListener("click", function () {
-        if (typeof mediaDlg.close === "function") mediaDlg.close();
+    function firstMediaControl() {
+      var search = document.getElementById("sp-mix-search");
+      var searchWrap = document.getElementById("sp-mix-search-wrap");
+      if (search && searchWrap && !searchWrap.hidden && search.offsetParent !== null) return search;
+      var channel = mediaDlg && mediaDlg.querySelector('#sp-mix-channels input[name="canais"]');
+      if (channel && !channel.closest("[hidden]")) return channel;
+      var list = visibleMediaControls().filter(function (el) {
+        return el.id !== "sp-media-close" && el.id !== "sp-media-cancel";
+      });
+      return list[0] || (mediaDlg && mediaDlg.querySelector("#sp-media-close"));
+    }
+    function trapMediaFocus(event) {
+      if (!mediaDlg || event.key !== "Tab") return;
+      var list = visibleMediaControls();
+      if (!list.length) return;
+      var first = list[0];
+      var last = list[list.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    function openDeskModal() {
+      var wasOpen = !!(mediaDlg && mediaDlg.open);
+      mediaOpener = document.activeElement;
+      if (!wasOpen) document.dispatchEvent(new Event("sp-media-will-open"));
+      if (mediaDlg && typeof mediaDlg.showModal === "function" && !mediaDlg.open) mediaDlg.showModal();
+      document.documentElement.classList.add("is-sp-media");
+      if (!wasOpen) {
+        mediaApplied = false;
+        mediaSnapshot = snapshotMedia();
+      }
+      var status = document.getElementById("sp-media-status");
+      if (status) status.textContent = "";
+      paintDirty();
+      paintCalendar();
+      paintMixValidity();
+      if (mediaDlg && !wasOpen) {
+        mediaDlg.addEventListener("keydown", trapMediaFocus);
+        releaseFocusTrap = function () {
+          mediaDlg.removeEventListener("keydown", trapMediaFocus);
+        };
+        var first = firstMediaControl();
+        if (first && typeof first.focus === "function") window.setTimeout(function () { first.focus(); }, 30);
+      }
+    }
+    if (mediaOpen) {
+      mediaOpen.addEventListener("click", openDeskModal);
+    }
+    if (mediaDlg) {
+      mediaDlg.addEventListener("cancel", function (event) {
+        if (!confirmCloseMedia()) event.preventDefault();
+      });
+      mediaDlg.addEventListener("close", function () {
+        document.documentElement.classList.remove("is-sp-media");
+        if (releaseFocusTrap) releaseFocusTrap();
+        releaseFocusTrap = null;
+        if (!mediaApplied && mediaSnapshot) restoreMediaSnapshot(mediaSnapshot);
+        mediaApplied = false;
+        mediaSnapshot = "";
+        if (mediaOpener && typeof mediaOpener.focus === "function") mediaOpener.focus();
+        mediaOpener = null;
+      });
+    }
+    function requestCloseMedia() {
+      if (!confirmCloseMedia()) return;
+      closeMedia();
+    }
+    if (mediaClose) mediaClose.addEventListener("click", requestCloseMedia);
+    if (mediaCancel) mediaCancel.addEventListener("click", requestCloseMedia);
+    if (mediaAuto) {
+      mediaAuto.addEventListener("click", function () {
+        var method = selectedMethod() === "manual" ? recommendedFor(objetivoEl ? objetivoEl.value : "")[0] : selectedMethod();
+        if (method === "manual") method = "funil";
+        setMethod(method);
+        refresh(method);
+      });
+    }
+    var calTable = document.getElementById("sp-cal-table");
+    if (calTable) {
+      calTable.addEventListener("click", function (event) {
+        var button = event.target.closest("thead th[data-month] button");
+        if (!button) return;
+        var th = button.closest("[data-month]");
+        var box = document.getElementById("sp-month-weeks");
+        if (!th || !box) return;
+        var key = th.getAttribute("data-month");
+        var open = th.getAttribute("aria-expanded") === "true";
+        calTable.querySelectorAll("thead th[data-month]").forEach(function (item) {
+          item.setAttribute("aria-expanded", "false");
+        });
+        if (open) {
+          box.hidden = true;
+          box.textContent = "";
+          return;
+        }
+        th.setAttribute("aria-expanded", "true");
+        var weeks = monthWeekLabels(key);
+        box.hidden = weeks.length === 0;
+        box.textContent = weeks.length ? (th.textContent || key) + ": " + weeks.join(" · ") : "";
       });
     }
     if (mediaApply) {
       mediaApply.addEventListener("click", async function () {
+        if (!mixValid(currentWeights())) {
+          paintMixValidity();
+          return;
+        }
         var status = document.getElementById("sp-media-status");
         setLoading(mediaApply, true);
         if (status) status.textContent = "Aplicando…";
@@ -1199,9 +1524,12 @@
           await postJson("/smart-planner/api/" + token + "/revisao", collectReview());
           paintSummary();
           paintMiniCal();
+          mediaApplied = true;
+          mediaSnapshot = snapshotMedia();
+          paintDirty();
           if (status) status.textContent = "Aplicado no plano.";
           toast("Mix e calendário aplicados.", "success");
-          if (mediaDlg && typeof mediaDlg.close === "function") mediaDlg.close();
+          closeMedia();
         } catch (error) {
           if (status) status.textContent = "";
           toast(error.message, "error");
@@ -1249,6 +1577,15 @@
     }
     var progressBox = document.getElementById("sp-mix-progress");
     if (progressBox) progressBox.addEventListener("change", paintCalendar);
+    var bootWeights = currentWeights().map(function (item) {
+      return {
+        id: item.id,
+        label: (spec.labels || {})[item.id] || item.id,
+        group: groupOf(item.id),
+        pct: item.pct,
+      };
+    });
+    if (bootWeights.length) paintBars(bootWeights);
     paintSummary();
     paintCalendar();
 
@@ -1426,6 +1763,7 @@
     }
 
     function autoOpen() {
+      var opened = false;
       accs.forEach(function (acc) {
         var id = acc.getAttribute("data-acc");
         var stats = sectionStats(acc);
@@ -1434,10 +1772,16 @@
           return;
         }
         if (id === "extracted") {
-          acc.open = stats.filled > 0;
+          acc.open = !opened && stats.filled > 0;
+          if (acc.open) opened = true;
           return;
         }
-        acc.open = true;
+        if (!opened && stats.incomplete) {
+          acc.open = true;
+          opened = true;
+          return;
+        }
+        acc.open = false;
       });
     }
 
@@ -1470,7 +1814,9 @@
     if (/verba|or[cç]amento|budget/.test(t)) return "sp-field-verba";
     if (/per[ií]odo|prazo|dura[cç]/.test(t)) return "sp-field-periodo";
     if (/pra[cç]a|local|cidade/.test(t)) return "sp-field-praca";
-    if (/canal/.test(t)) return "sp-mix-channels";
+    if (/campanha/.test(t) && !/objetivo/.test(t)) return "sp-field-campanha";
+    if (/canais|canal/.test(t)) return "sp-mix-channels";
+    if (/\bkpis?\b|indicador/.test(t)) return "sp-field-kpis";
     if (/anunciante|cliente/.test(t) && !/p[uú]blic/.test(t)) return "sp-field-cliente";
     return "sp-objetivo";
   }
@@ -1507,13 +1853,20 @@
       });
     }
     function paintChips() {
-      if (!chips) return;
+      var spec = readJson("sp-mix-spec", {});
       var selected = Array.prototype.slice.call(rootDesk.querySelectorAll('input[name="canais"]:checked'));
+      var count = document.getElementById("sp-mix-count");
+      if (count) count.textContent = selected.length ? selected.length + (selected.length === 1 ? " canal selecionado" : " canais selecionados") : "Nenhum canal selecionado";
+      if (!chips) return;
       chips.hidden = selected.length === 0;
       chips.innerHTML = selected.map(function (input) {
-        var name = (input.closest("label") && input.closest("label").querySelector("span"));
+        var name = (input.closest("label") && input.closest("label").querySelector("span:last-child"));
         var label = name ? name.textContent : input.value;
-        return '<span class="sp-mix-chip">' + label + '<button type="button" data-uncheck="' + input.value + '" aria-label="Remover ' + label + '">×</button></span>';
+        var logo = (spec.logos || {})[input.value];
+        var mark = logo
+          ? '<img class="sp-mix-logo" src="' + escapeHtml(logo) + '" alt="" aria-hidden="true">'
+          : '<span class="sp-mix-fallback" aria-hidden="true">' + escapeHtml(String(label).slice(0, 2)) + "</span>";
+        return '<span class="sp-mix-chip">' + mark + escapeHtml(label) + '<button type="button" data-uncheck="' + escapeHtml(input.value) + '" aria-label="Remover ' + escapeHtml(label) + '">×</button></span>';
       }).join("");
     }
     if (chips) {
@@ -1699,7 +2052,12 @@
     var saveBtn = document.getElementById("sp-save-draft");
     if (!form || typeof collectReview !== "function") return;
     var timer = null;
+    function mediaOpen() {
+      var dlg = document.getElementById("sp-media");
+      return !!(dlg && dlg.open);
+    }
     async function persist(manual) {
+      if (!manual && mediaOpen()) return;
       setLive("Salvando…");
       try {
         await postJson("/smart-planner/api/" + token + "/revisao", collectReview());
@@ -1710,11 +2068,20 @@
         if (manual) toast(error.message, "error");
       }
     }
+    function flushPendingReview() {
+      if (!timer) return;
+      window.clearTimeout(timer);
+      timer = null;
+      persist();
+    }
+    document.addEventListener("sp-media-will-open", flushPendingReview);
     form.addEventListener("input", function () {
+      if (mediaOpen()) return;
       window.clearTimeout(timer);
       timer = window.setTimeout(persist, 900);
     });
     form.addEventListener("change", function () {
+      if (mediaOpen()) return;
       window.clearTimeout(timer);
       timer = window.setTimeout(persist, 400);
     });

@@ -1,62 +1,222 @@
 import { quoteAnimate, submitAnimate } from "./trocr/animate-api.js";
-import { showVideo } from "./trocr/animate-player.js";
 import { startPoll } from "./trocr/animate-poller.js";
-import { $, csrf } from "./trocr/animate-utils.js";
+import { deleteLibrary, get, loadVideoProject, post, saveVideoProject } from "./cadu-video/api.js";
+import {
+  clearClip,
+  paintAll,
+  paintCanvas,
+  paintClips,
+  paintLibrary,
+  paintProps,
+  paintQuote,
+  paintTimeline,
+  playClip,
+  setStatus,
+  syncPlayhead,
+  updateGenerateEnabled,
+} from "./cadu-video/render.js";
+import {
+  JOB_KEY,
+  Desk,
+  alignBeatsToScenes,
+  ensureBeat,
+  resetProjectFields,
+  spokenFromBeats,
+  state,
+} from "./cadu-video/state.js";
+import { parseScript, scriptText } from "./cadu-video/utils.js";
 
-const JOB_KEY = "cx-cadu-video-job";
-const Desk = window.McDeskBrand || {
-  read() { return ""; },
-  write() {},
-};
-
-const state = {
-  clientId: "",
-  library: [],
-  scenes: [],
-  script: null,
-  ocrFailed: false,
-  clips: [],
-  jobId: "",
-  activeClipId: "",
-  wantedGroup: "",
-  wantedScenes: [],
-};
+let quoteTimer = null;
+let saveTimer = null;
 
 boot();
 
 async function boot() {
+  if (!document.getElementById("mcSwap")?.classList.contains("mc-cadu-video")) return;
   const params = new URLSearchParams(window.location.search);
   state.activeClipId = params.get("clip") || "";
-  state.wantedGroup = params.get("group") || "";
-  state.wantedScenes = String(params.get("scenes") || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
+  bindUi();
   document.addEventListener("cadu:brand-ready", (event) => applyBrand(event.detail?.clientId));
   document.addEventListener("cadu:brand-change", (event) => {
     applyBrand(event.detail?.clientId, { reset: true });
   });
-  $("mcVideoFile")?.addEventListener("change", () => takeFile($("mcVideoFile").files?.[0]));
-  bindDrop($("mcVideoLibDrop"));
-  $("mcVideoLibrary")?.addEventListener("click", onLibraryClick);
-  $("mcVideoScenes")?.addEventListener("click", onSceneClick);
-  $("mcVideoScriptBtn")?.addEventListener("click", buildScript);
-  $("mcVideoGenerate")?.addEventListener("click", generate);
-  $("mcVideoPurgeBroken")?.addEventListener("click", purgeBroken);
-  $("mcVideoClips")?.addEventListener("click", onClipClick);
   await applyBrand(params.get("client") || Desk.read());
   const pending = sessionStorage.getItem(JOB_KEY);
   if (pending) resume(pending);
 }
 
+function bindUi() {
+  document.getElementById("mcVideoFile")?.addEventListener("change", (event) => {
+    takeFile(event.target.files?.[0]);
+  });
+  bindDrop(document.getElementById("mcVideoLibDrop"));
+  document.getElementById("mcVideoLibrary")?.addEventListener("click", onLibraryClick);
+  document.getElementById("mcVideoClips")?.addEventListener("click", onClipClick);
+  document.getElementById("mcVideoScriptBtn")?.addEventListener("click", buildScript);
+  document.getElementById("mcVideoGenerate")?.addEventListener("click", generate);
+  document.getElementById("mcVideoPurgeBroken")?.addEventListener("click", purgeBroken);
+  document.getElementById("mcVideoPrevScene")?.addEventListener("click", () => stepScene(-1));
+  document.getElementById("mcVideoNextScene")?.addEventListener("click", () => stepScene(1));
+  document.getElementById("mcVideoRemoveScene")?.addEventListener("click", removeSelectedScene);
+  document.getElementById("mcVideoSearch")?.addEventListener("input", (event) => {
+    state.search = event.target.value || "";
+    paintLibrary();
+    paintClips();
+  });
+  document.getElementById("mcVideoName")?.addEventListener("input", (event) => {
+    state.name = event.target.value || "";
+    markDirty();
+  });
+  document.getElementById("mcVideoAspect")?.addEventListener("change", (event) => {
+    state.aspectRatio = event.target.value || "16:9";
+    markDirty();
+    scheduleQuote();
+  });
+  document.querySelectorAll('input[name="mcVideoDuration"]').forEach((input) => {
+    input.addEventListener("change", () => {
+      state.duration = Number(input.value || 8);
+      markDirty();
+      scheduleQuote();
+      paintTimeline();
+    });
+  });
+  document.querySelectorAll('input[name="mcVideoQuality"]').forEach((input) => {
+    input.addEventListener("change", () => {
+      state.quality = input.value || "draft";
+      markDirty();
+      scheduleQuote();
+    });
+  });
+  document.querySelectorAll('input[name="mcVideoAudio"]').forEach((input) => {
+    input.addEventListener("change", () => {
+      state.audio.mode = input.value || "silence";
+      if (state.audio.mode === "voiceover" && !state.audio.script) {
+        state.audio.script = spokenFromBeats();
+      }
+      markDirty();
+      scheduleQuote();
+      paintAll();
+    });
+  });
+  document.querySelectorAll('input[name="mcVideoVoiceGender"]').forEach((input) => {
+    input.addEventListener("change", () => {
+      state.audio.voice = input.value || "male";
+      markDirty();
+      scheduleQuote();
+    });
+  });
+  document.querySelectorAll('input[name="mcVideoVoicePace"]').forEach((input) => {
+    input.addEventListener("change", () => {
+      state.audio.pace = input.value || "normal";
+      markDirty();
+      scheduleQuote();
+    });
+  });
+  document.querySelectorAll('input[name="mcVideoMotion"]').forEach((input) => {
+    input.addEventListener("change", () => {
+      state.motion.preset = input.value || "live";
+      markDirty();
+      scheduleQuote();
+    });
+  });
+  document.getElementById("mcVideoIntensity")?.addEventListener("change", (event) => {
+    state.motion.intensity = event.target.value || "subtle";
+    markDirty();
+    scheduleQuote();
+  });
+  document.getElementById("mcVideoMotionNote")?.addEventListener("input", (event) => {
+    state.motion.note = event.target.value || "";
+    markDirty();
+  });
+  document.getElementById("mcVideoVoicePrompt")?.addEventListener("input", (event) => {
+    state.audio.prompt = event.target.value || "";
+    markDirty();
+  });
+  document.getElementById("mcVideoVoiceover")?.addEventListener("input", (event) => {
+    state.audio.script = event.target.value || "";
+    markDirty();
+    scheduleQuote();
+    paintTimeline();
+  });
+  document.getElementById("mcVideoMusic")?.addEventListener("input", (event) => {
+    state.audio.music_note = event.target.value || "";
+    markDirty();
+  });
+  document.getElementById("mcVideoScript")?.addEventListener("change", (event) => {
+    state.script = parseScript(event.target.value, state.script, state.scenes);
+    alignBeatsToScenes();
+    markDirty();
+    scheduleQuote();
+    paintAll();
+  });
+  ["mcVideoBeatPurpose", "mcVideoBeatVisual", "mcVideoBeatMotion", "mcVideoBeatHold", "mcVideoBeatSpoken"]
+    .forEach((id) => {
+      document.getElementById(id)?.addEventListener("input", onBeatField);
+      document.getElementById(id)?.addEventListener("change", onBeatField);
+    });
+  document.querySelectorAll("[data-lib-tab]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.libTab = btn.getAttribute("data-lib-tab") || "still";
+      paintAll();
+    });
+  });
+  document.querySelectorAll("[data-panel-tab]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.panelTab = btn.getAttribute("data-panel-tab") || "script";
+      paintAll();
+    });
+  });
+  document.getElementById("mcVideoBeats")?.addEventListener("click", (event) => {
+    const node = event.target.closest("[data-scene]");
+    if (!node) return;
+    selectScene(node.getAttribute("data-scene"));
+  });
+  bindTimelineDrag(document.getElementById("mcVideoTrackVideo"));
+  document.getElementById("mcVideoTracks")?.addEventListener("click", (event) => {
+    const node = event.target.closest("[data-scene]");
+    if (!node) return;
+    selectScene(node.getAttribute("data-scene"));
+  });
+  const video = document.getElementById("mcSwapVideo");
+  video?.addEventListener("timeupdate", syncPlayhead);
+  video?.addEventListener("play", syncPlayhead);
+  video?.addEventListener("pause", syncPlayhead);
+}
+
+function onBeatField() {
+  if (!state.selectedSceneId) return;
+  const beat = ensureBeat(state.selectedSceneId);
+  beat.purpose = document.getElementById("mcVideoBeatPurpose")?.value || beat.purpose;
+  beat.visual = document.getElementById("mcVideoBeatVisual")?.value || "";
+  beat.motion = document.getElementById("mcVideoBeatMotion")?.value || "";
+  beat.hold = document.getElementById("mcVideoBeatHold")?.value || "";
+  beat.spoken = document.getElementById("mcVideoBeatSpoken")?.value || "";
+  if (state.audio.mode === "voiceover") {
+    state.audio.script = spokenFromBeats();
+  }
+  const scriptNode = document.getElementById("mcVideoScript");
+  if (scriptNode && document.activeElement !== scriptNode) {
+    scriptNode.value = scriptText(state.script);
+  }
+  markDirty();
+  scheduleQuote();
+  paintProps();
+  paintTimeline();
+  paintQuote();
+}
+
 function currentBrand(id) {
-  return String(id || Desk.read() || $("mcCaduBarClient")?.value || "").trim();
+  return String(id || Desk.read() || document.getElementById("mcCaduBarClient")?.value || "").trim();
 }
 
 async function applyBrand(id, { reset = false } = {}) {
   const next = currentBrand(id);
   if (!next) {
-    if ($("mcVideoLibHint")) $("mcVideoLibHint").textContent = "Escolha a marca na barra para ver as peças.";
+    state.clientId = "";
+    resetProjectFields();
+    state.library = [];
+    state.clips = [];
+    paintAll();
     return;
   }
   if (next === state.clientId && !reset) {
@@ -65,80 +225,104 @@ async function applyBrand(id, { reset = false } = {}) {
     return;
   }
   state.clientId = next;
-  if (reset) {
-    state.scenes = [];
-    state.script = null;
-    state.ocrFailed = false;
-    state.activeClipId = "";
-    if ($("mcVideoScript")) $("mcVideoScript").value = "";
-    paintScenes();
+  if (reset) resetProjectFields();
+  await Promise.all([loadLibrary(), loadClips(), restoreProject()]);
+  paintAll();
+  scheduleQuote();
+}
+
+async function restoreProject() {
+  if (!state.clientId) return;
+  try {
+    const data = await loadVideoProject(state.clientId);
+    applyProject(data.project || {});
+  } catch (_error) {
+    // Projeto antigo sem endpoint ou vazio — segue com estado limpo.
   }
-  await loadLibrary();
-  await loadClips();
+  if (state.activeClipId) {
+    const clip = state.clips.find((item) => item.id === state.activeClipId || item.job_id === state.activeClipId);
+    if (clip) await selectClip(clip, { restore: true });
+  }
+}
+
+function applyProject(project) {
+  if (!project || typeof project !== "object") return;
+  state.name = project.name || state.name;
+  state.aspectRatio = project.aspect_ratio || state.aspectRatio;
+  state.duration = Number(project.duration || state.duration) || 8;
+  state.quality = project.quality || state.quality;
+  state.activeClipId = project.active_clip_id || state.activeClipId;
+  state.selectedSceneId = project.selected_scene_id || state.selectedSceneId;
+  if (project.script && Array.isArray(project.script.beats)) state.script = project.script;
+  if (project.audio && typeof project.audio === "object") {
+    state.audio = { ...state.audio, ...project.audio };
+  }
+  if (project.motion && typeof project.motion === "object") {
+    state.motion = { ...state.motion, ...project.motion };
+  }
+  const ids = Array.isArray(project.scene_ids) ? project.scene_ids : [];
+  if (ids.length) {
+    state.scenes = ids
+      .map((id) => state.library.find((item) => item.id === id))
+      .filter(Boolean);
+    if (!state.selectedSceneId && state.scenes[0]) state.selectedSceneId = state.scenes[0].id;
+    alignBeatsToScenes();
+  }
+  state.dirty = false;
+}
+
+function projectPayload() {
+  return {
+    client_id: state.clientId || undefined,
+    project: {
+      name: state.name,
+      aspect_ratio: state.aspectRatio,
+      duration: state.duration,
+      quality: state.quality,
+      scene_ids: state.scenes.map((item) => item.id),
+      script: state.script,
+      audio: state.audio,
+      motion: state.motion,
+      active_clip_id: state.activeClipId,
+      selected_scene_id: state.selectedSceneId,
+    },
+  };
+}
+
+function markDirty() {
+  state.dirty = true;
+  scheduleSave();
+}
+
+function scheduleSave() {
+  window.clearTimeout(saveTimer);
+  saveTimer = window.setTimeout(persistProject, 900);
+}
+
+async function persistProject() {
+  if (!state.clientId || state.saving) return;
+  state.saving = true;
+  try {
+    await saveVideoProject(projectPayload());
+    state.dirty = false;
+  } catch (_error) {
+    // Autosave silencioso — não bloqueia a mesa.
+  } finally {
+    state.saving = false;
+  }
 }
 
 async function loadLibrary() {
-  const list = $("mcVideoLibrary");
-  if (!list) return;
-  if (!state.clientId) {
-    list.innerHTML = "";
-    $("mcVideoLibHint").textContent = "Escolha a marca na barra para ver as peças.";
-    return;
-  }
+  if (!state.clientId) return;
   try {
     const data = await get(`/parametros/api/format-lab/swap/library?client_id=${encodeURIComponent(state.clientId)}&media=still`);
-    state.library = sortLibrary(data.items || []);
+    state.library = data.items || [];
+    const keep = new Set(state.library.map((item) => item.id));
+    state.scenes = state.scenes.filter((scene) => keep.has(scene.id) && !state.library.find((item) => item.id === scene.id)?.broken);
     paintLibrary();
-    preselectScenes();
-    $("mcVideoLibHint").textContent = libraryHint();
   } catch (error) {
-    $("mcVideoLibHint").textContent = error.message;
+    setStatus(error.message);
   }
-}
-
-function sortLibrary(items) {
-  return [...items].sort((a, b) => {
-    const groupA = String(a.scene_group || "");
-    const groupB = String(b.scene_group || "");
-    if (groupA && groupB && groupA !== groupB) return groupB.localeCompare(groupA);
-    if (groupA && !groupB) return -1;
-    if (!groupA && groupB) return 1;
-    const indexA = Number(a.scene_index) || 0;
-    const indexB = Number(b.scene_index) || 0;
-    if (indexA !== indexB) return indexA - indexB;
-    return String(b.created_at || "").localeCompare(String(a.created_at || ""));
-  });
-}
-
-function preselectScenes() {
-  if (state.scenes.length) return;
-  let picks = [];
-  if (state.wantedScenes.length) {
-    const byId = new Map(state.library.map((item) => [item.id, item]));
-    picks = state.wantedScenes.map((id) => byId.get(id)).filter((item) => item && !item.broken);
-  }
-  if (!picks.length && state.wantedGroup) {
-    picks = state.library.filter((item) => (
-      !item.broken && String(item.scene_group || "") === state.wantedGroup
-    ));
-  }
-  if (!picks.length) return;
-  state.scenes = picks.slice(0, 30);
-  paintScenes();
-  $("mcVideoLibHint").textContent = libraryHint();
-}
-
-function libraryHint() {
-  if (!state.library.length) return "Ainda não há peça nesta marca. Crie uma nova ou solte um still.";
-  const broken = state.library.filter((item) => item.broken).length;
-  if (broken) return `${broken} peça${broken === 1 ? "" : "s"} com 404. Apague ou crie uma nova.`;
-  if (state.wantedGroup && state.scenes.length >= 2) {
-    return `${state.scenes.length} tomadas da mesma peça já selecionadas. Confira a ordem.`;
-  }
-  if (state.wantedGroup) {
-    return "Tomadas da peça aberta. Selecione pelo menos duas cenas.";
-  }
-  return "Selecione as cenas. A ordem é a do clipe. Prefira tomadas da mesma peça.";
 }
 
 async function loadClips(opts = {}) {
@@ -150,7 +334,7 @@ async function loadClips(opts = {}) {
     if (!opts.prefer) state.clips = [];
   }
   const chosen = pickClip(opts.prefer);
-  if (chosen) selectClip(chosen);
+  if (chosen) await selectClip(chosen, { restore: Boolean(opts.restore) });
   else paintClips();
 }
 
@@ -172,112 +356,72 @@ function pickClip(prefer) {
       poster_url: prefer.poster_url || prefer.image_url || prefer.image || "",
       duration: prefer.duration,
       job_id: prefer.job_id || "",
+      script: prefer.script || null,
+      storyboard_ids: prefer.storyboard_ids || [],
+      voiceover_script: prefer.voiceover_script || "",
+      quality: prefer.quality || "",
     };
     state.clips = [synthetic, ...state.clips.filter((item) => item.video_url !== synthetic.video_url)];
     return synthetic;
   }
   if (state.activeClipId) {
-    const current = state.clips.find((item) => (
-      item.id === state.activeClipId || item.job_id === state.activeClipId
-    ));
-    if (current) return current;
+    return state.clips.find((item) => item.id === state.activeClipId || item.job_id === state.activeClipId) || null;
   }
-  return state.clips[0] || null;
+  return null;
 }
 
-function selectClip(clip) {
+async function selectClip(clip, { restore = true } = {}) {
   if (!clip?.video_url) return;
   state.activeClipId = clip.id || clip.job_id || "";
-  showVideo(clip);
+  const still = document.getElementById("mcVideoStill");
+  if (still) still.hidden = true;
+  playClip(clip);
+  if (restore) restoreFromClip(clip);
   paintClips();
+  paintCanvas();
+  markDirty();
+  scheduleQuote();
 }
 
-function paintLibrary() {
-  const list = $("mcVideoLibrary");
-  if (!list) return;
-  list.innerHTML = state.library.map((item) => {
-    const selected = state.scenes.some((scene) => scene.id === item.id);
-    const thumb = item.thumb_url || item.image_url;
-    const sceneLabel = Number(item.scene_index) > 0 ? `Cena ${item.scene_index}` : "";
-    const headline = item.headline || item.ocr?.headline || "";
-    return `<li class="${item.broken ? "is-broken" : ""}" data-id="${escapeHtml(item.id)}">
-      <button type="button" data-id="${escapeHtml(item.id)}" data-action="pick" class="${selected ? "is-selected" : ""}" ${item.broken ? "disabled" : ""}>
-        ${thumb ? `<img src="${escapeHtml(thumb)}" alt="">` : "<span></span>"}
-        <strong>${escapeHtml(item.name || "Peça")}</strong>
-        ${sceneLabel ? `<small class="mc-cadu-video-scene-tag">${escapeHtml(sceneLabel)}</small>` : ""}
-        ${item.broken ? "<small>404</small>" : (headline ? `<small>${escapeHtml(headline)}</small>` : "")}
-      </button>
-      <button type="button" class="mc-cadu-video-delete" data-id="${escapeHtml(item.id)}" data-action="delete">Apagar</button>
-    </li>`;
-  }).join("");
-  list.querySelectorAll("img").forEach((img) => {
-    img.addEventListener("error", () => markBroken(img.closest("[data-id]")?.getAttribute("data-id")));
-  });
-  paintPurge();
-}
-
-function markBroken(id) {
-  const item = state.library.find((row) => row.id === id);
-  if (!item || item.broken) return;
-  item.broken = true;
-  state.scenes = state.scenes.filter((scene) => scene.id !== id);
-  if ($("mcVideoScript")) $("mcVideoScript").value = "";
-  state.script = null;
-  paintScenes();
-  $("mcVideoLibHint").textContent = libraryHint();
-}
-
-function paintPurge() {
-  const broken = state.library.some((item) => item.broken);
-  if ($("mcVideoPurgeBroken")) $("mcVideoPurgeBroken").hidden = !broken;
-}
-
-function paintScenes() {
-  const list = $("mcVideoScenes");
-  const count = state.scenes.length;
-  if ($("mcVideoSceneCount")) $("mcVideoSceneCount").textContent = String(count);
-  if (list) {
-    list.innerHTML = state.scenes.map((item, index) => `
-      <li>
-        <button type="button" data-remove="${escapeHtml(item.id)}">
-          <em>${index + 1}</em>
-          <strong>${escapeHtml(item.name || "Cena")}</strong>
-          ${Number(item.scene_index) > 0 ? `<small>Tomada ${item.scene_index}</small>` : ""}
-          ${item.headline ? `<small>${escapeHtml(item.headline)}</small>` : ""}
-          Remover
-        </button>
-      </li>`).join("");
+function restoreFromClip(clip) {
+  const ids = Array.isArray(clip.storyboard_ids) ? clip.storyboard_ids : [];
+  if (ids.length) {
+    state.scenes = ids
+      .map((id) => state.library.find((item) => item.id === id || item.version_id === id || String(item.id).endsWith(`:${id}`)))
+      .filter(Boolean);
+    if (state.scenes[0]) state.selectedSceneId = state.scenes[0].id;
   }
-  const ready = count >= 2 && count <= 30;
-  if ($("mcVideoSceneHint")) {
-    $("mcVideoSceneHint").textContent = count < 2
-      ? "Selecione pelo menos duas cenas."
-      : count > 30
-        ? "O Seedance aceita no máximo 30 cenas."
-        : `${count} cenas na ordem do clipe.`;
+  if (clip.script && Array.isArray(clip.script.beats)) {
+    state.script = clip.script;
+  } else {
+    alignBeatsToScenes();
   }
-  if ($("mcVideoScriptBtn")) $("mcVideoScriptBtn").disabled = !ready;
-  if ($("mcVideoGenerate")) $("mcVideoGenerate").disabled = !ready || !state.script;
-  paintLibrary();
+  if (clip.quality) state.quality = clip.quality;
+  if (clip.duration) state.duration = Number(clip.duration) || state.duration;
+  if (clip.voiceover_script) {
+    state.audio.mode = "voiceover";
+    state.audio.script = clip.voiceover_script;
+  }
+  alignBeatsToScenes();
+  paintAll();
 }
 
-function paintClips() {
-  const list = $("mcVideoClips");
-  if (!list) return;
-  list.hidden = false;
-  list.innerHTML = state.clips.map((item) => {
-    const current = item.id === state.activeClipId;
-    const poster = item.poster_url || item.thumb_url || item.image_url || "";
-    const seconds = Number(item.duration || 0);
-    return `<li data-clip="${escapeHtml(item.id)}">
-      <button type="button" data-clip="${escapeHtml(item.id)}" data-action="play" class="${current ? "is-current" : ""}">
-        ${poster ? `<img src="${escapeHtml(poster)}" alt="">` : `<span class="mc-cadu-video-clip-ph"></span>`}
-        <strong>${escapeHtml(item.name || "Clipe")}</strong>
-        ${seconds ? `<small>${Math.round(seconds)}s</small>` : ""}
-      </button>
-      <button type="button" class="mc-cadu-video-delete" data-clip="${escapeHtml(item.id)}" data-action="delete">Apagar</button>
-    </li>`;
-  }).join("");
+function selectScene(id) {
+  if (!id) return;
+  state.selectedSceneId = id;
+  state.activeClipId = "";
+  clearClip();
+  const empty = document.getElementById("mcVideoEmpty");
+  if (empty) empty.hidden = true;
+  paintAll();
+  markDirty();
+}
+
+function stepScene(delta) {
+  if (!state.scenes.length) return;
+  const current = Math.max(0, state.scenes.findIndex((item) => item.id === state.selectedSceneId));
+  const next = (current + delta + state.scenes.length) % state.scenes.length;
+  selectScene(state.scenes[next].id);
 }
 
 function onLibraryClick(event) {
@@ -292,21 +436,17 @@ function onLibraryClick(event) {
   if (!item || item.broken) return;
   if (state.scenes.some((scene) => scene.id === item.id)) {
     state.scenes = state.scenes.filter((scene) => scene.id !== item.id);
+    if (state.selectedSceneId === item.id) state.selectedSceneId = state.scenes[0]?.id || "";
   } else if (state.scenes.length < 30) {
     state.scenes.push(item);
+    state.selectedSceneId = item.id;
   }
-  state.script = null;
-  if ($("mcVideoScript")) $("mcVideoScript").value = "";
-  paintScenes();
-}
-
-function onSceneClick(event) {
-  const button = event.target.closest("[data-remove]");
-  if (!button) return;
-  state.scenes = state.scenes.filter((scene) => scene.id !== button.getAttribute("data-remove"));
-  state.script = null;
-  if ($("mcVideoScript")) $("mcVideoScript").value = "";
-  paintScenes();
+  alignBeatsToScenes();
+  state.activeClipId = "";
+  clearClip();
+  paintAll();
+  markDirty();
+  scheduleQuote();
 }
 
 function onClipClick(event) {
@@ -318,7 +458,7 @@ function onClipClick(event) {
     return;
   }
   const clip = state.clips.find((item) => item.id === id);
-  if (clip) selectClip(clip);
+  if (clip) selectClip(clip, { restore: true });
 }
 
 function bindDrop(node) {
@@ -335,6 +475,40 @@ function bindDrop(node) {
   });
 }
 
+function bindTimelineDrag(lane) {
+  if (!lane) return;
+  lane.addEventListener("dragstart", (event) => {
+    const block = event.target.closest("[data-scene]");
+    if (!block) return;
+    state.dragSceneId = block.getAttribute("data-scene") || "";
+    block.classList.add("is-dragging");
+    event.dataTransfer?.setData("text/plain", state.dragSceneId);
+  });
+  lane.addEventListener("dragend", (event) => {
+    event.target.closest(".mc-cadu-video-block")?.classList.remove("is-dragging");
+    state.dragSceneId = "";
+  });
+  lane.addEventListener("dragover", (event) => {
+    event.preventDefault();
+  });
+  lane.addEventListener("drop", (event) => {
+    event.preventDefault();
+    const target = event.target.closest("[data-scene]");
+    const fromId = state.dragSceneId || event.dataTransfer?.getData("text/plain");
+    const toId = target?.getAttribute("data-scene");
+    if (!fromId || !toId || fromId === toId) return;
+    const from = state.scenes.findIndex((item) => item.id === fromId);
+    const to = state.scenes.findIndex((item) => item.id === toId);
+    if (from < 0 || to < 0) return;
+    const [row] = state.scenes.splice(from, 1);
+    state.scenes.splice(to, 0, row);
+    alignBeatsToScenes();
+    paintAll();
+    markDirty();
+    scheduleQuote();
+  });
+}
+
 async function takeFile(file) {
   if (!file || !String(file.type || "").startsWith("image/")) return;
   const reader = new FileReader();
@@ -347,17 +521,22 @@ async function takeFile(file) {
         new_piece: true,
       });
       state.library = [item, ...state.library.filter((row) => row.id !== item.id)];
-      if (!item.broken && state.scenes.length < 30) state.scenes.push(item);
-      paintLibrary();
-      paintScenes();
-      $("mcVideoLibHint").textContent = libraryHint();
+      if (!item.broken && state.scenes.length < 30) {
+        state.scenes.push(item);
+        state.selectedSceneId = item.id;
+        alignBeatsToScenes();
+      }
+      paintAll();
+      markDirty();
+      scheduleQuote();
       setStatus("Peça nova na biblioteca.");
     } catch (error) {
       setStatus(error.message);
     }
   };
   reader.readAsDataURL(file);
-  if ($("mcVideoFile")) $("mcVideoFile").value = "";
+  const input = document.getElementById("mcVideoFile");
+  if (input) input.value = "";
 }
 
 function pieceName(filename) {
@@ -370,7 +549,7 @@ async function removeLibraryItem(id) {
   if (!item) return;
   if (!item.broken && !window.confirm("Apagar esta peça da biblioteca?")) return;
   try {
-    const data = await destroy({
+    const data = await deleteLibrary({
       client_id: state.clientId || undefined,
       id,
       media: "still",
@@ -386,7 +565,7 @@ async function purgeBroken() {
   const broken = state.library.filter((item) => item.broken);
   if (!broken.length) return;
   try {
-    const data = await destroy({
+    const data = await deleteLibrary({
       client_id: state.clientId || undefined,
       ids: broken.map((item) => item.id),
       broken: true,
@@ -404,40 +583,46 @@ async function removeClip(id) {
   if (!clip) return;
   if (!window.confirm("Apagar este clipe?")) return;
   try {
-    const data = await destroy({
+    const data = await deleteLibrary({
       client_id: state.clientId || undefined,
       id,
       media: "video",
     });
     state.clips = (data.items || []).filter((item) => item.video_url);
     if (state.activeClipId === id) {
-      state.activeClipId = state.clips[0]?.id || "";
-      if (state.clips[0]) selectClip(state.clips[0]);
-      else {
-        if ($("mcSwapVideo")) {
-          $("mcSwapVideo").removeAttribute("src");
-          $("mcSwapVideo").hidden = true;
-        }
-        if ($("mcVideoEmpty")) $("mcVideoEmpty").hidden = false;
-        paintClips();
-      }
-    } else {
-      paintClips();
+      state.activeClipId = "";
+      clearClip();
+      paintCanvas();
     }
+    paintClips();
     setStatus("Clipe apagado.");
+    markDirty();
   } catch (error) {
     setStatus(error.message);
   }
 }
 
 function applyLibrary(items) {
-  state.library = sortLibrary(items || []);
+  state.library = items || [];
   const keep = new Set(state.library.map((item) => item.id));
   state.scenes = state.scenes.filter((scene) => keep.has(scene.id) && !state.library.find((item) => item.id === scene.id)?.broken);
-  state.script = null;
-  if ($("mcVideoScript")) $("mcVideoScript").value = "";
-  paintScenes();
-  $("mcVideoLibHint").textContent = libraryHint();
+  if (!state.scenes.some((item) => item.id === state.selectedSceneId)) {
+    state.selectedSceneId = state.scenes[0]?.id || "";
+  }
+  alignBeatsToScenes();
+  paintAll();
+  markDirty();
+  scheduleQuote();
+}
+
+function removeSelectedScene() {
+  if (!state.selectedSceneId) return;
+  state.scenes = state.scenes.filter((item) => item.id !== state.selectedSceneId);
+  state.selectedSceneId = state.scenes[0]?.id || "";
+  alignBeatsToScenes();
+  paintAll();
+  markDirty();
+  scheduleQuote();
 }
 
 async function buildScript() {
@@ -453,7 +638,7 @@ async function buildScript() {
   try {
     const data = await post("/parametros/api/format-lab/swap/animate/script", {
       client_id: state.clientId || undefined,
-      duration: duration(),
+      duration: state.duration,
       scene_ids: state.scenes.map((item) => item.id),
       force_ocr: Boolean(state.ocrFailed),
     });
@@ -467,16 +652,75 @@ async function buildScript() {
       local.cta = scene.cta || "";
       local.ocr = scene.ocr || null;
     });
-    if ($("mcVideoScript")) $("mcVideoScript").value = scriptText(state.script);
-    paintScenes();
-    if (data.warnings?.length) {
-      setStatus(data.warnings.join(" "));
-    } else {
-      setStatus("Roteiro pronto. Edite se precisar e gere o clipe.");
+    if (state.audio.mode === "voiceover") {
+      state.audio.script = spokenFromBeats() || state.audio.script;
     }
+    paintAll();
+    markDirty();
+    scheduleQuote();
+    if (data.warnings?.length) setStatus(data.warnings.join(" "));
+    else setStatus("Roteiro pronto. Edite se precisar e gere o clipe.");
   } catch (error) {
     state.ocrFailed = true;
     setStatus(error.message);
+  }
+}
+
+function planBody() {
+  const scriptNode = document.getElementById("mcVideoScript");
+  if (scriptNode?.value) {
+    state.script = parseScript(scriptNode.value, state.script, state.scenes) || state.script;
+  }
+  alignBeatsToScenes();
+  const audio = { ...state.audio };
+  if (audio.mode === "voiceover" && !audio.script) {
+    audio.script = spokenFromBeats();
+  }
+  return {
+    client_id: state.clientId || undefined,
+    duration: state.duration,
+    quality: state.quality,
+    aspect_ratio: state.aspectRatio,
+    source: { mode: "storyboard", ref_ids: state.scenes.map((item) => item.id) },
+    scene_ids: state.scenes.map((item) => item.id),
+    ref_ids: state.scenes.map((item) => item.id),
+    script: state.script,
+    require_refs: true,
+    audio,
+    motion: {
+      preset: state.motion.preset,
+      intensity: state.motion.intensity,
+      note: state.motion.note,
+    },
+  };
+}
+
+function scheduleQuote() {
+  window.clearTimeout(quoteTimer);
+  quoteTimer = window.setTimeout(refreshQuote, 450);
+}
+
+async function refreshQuote() {
+  if (state.scenes.length < 2 || !state.script?.beats?.length) {
+    state.quote = null;
+    state.quoteError = "";
+    paintQuote();
+    updateGenerateEnabled();
+    return;
+  }
+  try {
+    const quote = await quoteAnimate(planBody());
+    state.quote = quote;
+    state.quoteError = quote.voiceover_fits === false
+      ? "A locução não cabe nesta duração."
+      : "";
+    paintQuote();
+    updateGenerateEnabled();
+  } catch (error) {
+    state.quote = null;
+    state.quoteError = error.message;
+    paintQuote();
+    updateGenerateEnabled();
   }
 }
 
@@ -485,24 +729,15 @@ async function generate() {
     setStatus("Selecione pelo menos duas cenas.");
     return;
   }
-  state.script = parseScript($("mcVideoScript")?.value, state.script);
-  if (!state.script) {
+  if (!state.script?.beats?.length) {
     setStatus("Monte o roteiro antes de gerar.");
     return;
   }
-  const body = {
-    client_id: state.clientId || undefined,
-    duration: duration(),
-    quality: quality(),
-    source: { mode: "storyboard", ref_ids: state.scenes.map((item) => item.id) },
-    scene_ids: state.scenes.map((item) => item.id),
-    ref_ids: state.scenes.map((item) => item.id),
-    script: state.script,
-    require_refs: true,
-  };
+  const body = planBody();
   setStatus("Cotando…");
   try {
     await quoteAnimate(body);
+    await persistProject();
     const job = await submitAnimate(body);
     state.jobId = job.job_id || job.public_id || "";
     if (state.jobId) sessionStorage.setItem(JOB_KEY, state.jobId);
@@ -518,98 +753,13 @@ function resume(jobId) {
   startPoll(jobId, async (job) => {
     sessionStorage.removeItem(JOB_KEY);
     const version = job.version || {};
-    await loadClips({ prefer: version });
+    await loadClips({ prefer: version, restore: false });
+    const clip = pickClip(version);
+    if (clip) await selectClip(clip, { restore: false });
     setStatus(job.message || "Clipe pronto.");
+    markDirty();
   }, (job) => {
     sessionStorage.removeItem(JOB_KEY);
     setStatus(job?.error || job?.message || "A animação falhou.");
   });
-}
-
-function duration() {
-  return Number(document.querySelector('input[name="mcVideoDuration"]:checked')?.value || 8);
-}
-
-function quality() {
-  return document.querySelector('input[name="mcVideoQuality"]:checked')?.value || "draft";
-}
-
-function scriptText(script) {
-  return ((script || {}).beats || []).map((beat, index) => (
-    `Cena ${index + 1} — ${beat.purpose || "beat"}\nVisual: ${beat.visual || ""}\nMovimento: ${beat.motion || ""}\nTrava: ${beat.hold || ""}${beat.spoken ? `\nFala: ${beat.spoken}` : ""}`
-  )).join("\n\n");
-}
-
-function parseScript(text, fallback) {
-  const blocks = String(text || "").split(/\n\s*\n/).map((item) => item.trim()).filter(Boolean);
-  if (!blocks.length) return fallback;
-  const beats = blocks.map((block, index) => {
-    const lines = block.split("\n");
-    const head = lines[0] || "";
-    const purpose = (head.split("—")[1] || fallback?.beats?.[index]?.purpose || "beat").trim();
-    const pick = (label) => {
-      const line = lines.find((row) => row.toLowerCase().startsWith(label));
-      return line ? line.slice(label.length).trim() : "";
-    };
-    return {
-      id: state.scenes[index]?.id || fallback?.beats?.[index]?.id || `scene-${index + 1}`,
-      purpose,
-      visual: pick("visual:") || fallback?.beats?.[index]?.visual || "",
-      motion: pick("movimento:") || fallback?.beats?.[index]?.motion || "",
-      hold: pick("trava:") || fallback?.beats?.[index]?.hold || "",
-      spoken: pick("fala:") || "",
-    };
-  });
-  return { beats };
-}
-
-function setStatus(message) {
-  if ($("mcAnimateStatus")) $("mcAnimateStatus").textContent = message || "";
-}
-
-async function get(url) {
-  const response = await fetch(url, { credentials: "same-origin", headers: { Accept: "application/json" } });
-  return parse(response);
-}
-
-async function post(url, body) {
-  const response = await fetch(url, {
-    method: "POST",
-    credentials: "same-origin",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Trocr-CSRF-Token": csrf(),
-    },
-    body: JSON.stringify(body || {}),
-  });
-  return parse(response);
-}
-
-async function destroy(body) {
-  const response = await fetch("/parametros/api/format-lab/swap/library", {
-    method: "DELETE",
-    credentials: "same-origin",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Trocr-CSRF-Token": csrf(),
-    },
-    body: JSON.stringify(body || {}),
-  });
-  return parse(response);
-}
-
-async function parse(response) {
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok || payload.success === false) {
-    throw new Error(payload.error || "A mesa de vídeo não respondeu.");
-  }
-  return payload.data !== undefined ? payload.data : payload;
-}
-
-function escapeHtml(value) {
-  return String(value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }

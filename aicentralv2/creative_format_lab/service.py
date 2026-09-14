@@ -384,6 +384,12 @@ class FormatLabService:
     def remove_swap_library_items(self, payload, user_id=None):
         return self._trocr_store().remove_library_items(payload, user_id=user_id)
 
+    def load_video_project(self, payload, user_id=None):
+        return self._trocr_store().load_video_project(payload, user_id=user_id)
+
+    def save_video_project(self, payload, user_id=None):
+        return self._trocr_store().save_video_project(payload, user_id=user_id)
+
     def swap_still_path(self, filename):
         return self._trocr_store().still_path(filename)
 

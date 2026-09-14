@@ -572,5 +572,102 @@ class TrocrSessionRoutesTest(unittest.TestCase):
         service.save_format_lab_swap_history.assert_called_once()
 
 
+class TrocrVideoProjectTest(unittest.TestCase):
+    def _lab(self):
+        class _MemStorage:
+            def __init__(self):
+                self.sessions = {}
+
+            def save_trocr_still(self, encoded, output_format="png"):
+                return f"/parametros/api/format-lab/swap/still/{'a' * 32}.png"
+
+            def save_trocr_session(self, key, data):
+                self.sessions[key] = data
+
+            def load_trocr_session(self, key):
+                return self.sessions.get(key)
+
+        modeling = CreativeModelingService(FakeRepository(), FakeGenerator(), storage=_MemStorage())
+        return FormatLabService(modeling)
+
+    def test_video_project_persiste_e_sobrevive_ao_scrub(self):
+        lab = self._lab()
+        png = "data:image/png;base64," + TINY_PNG.hex()
+        first = lab.add_swap_library_still(
+            {"client_id": 10, "image": png, "name": "Cena 1", "new_piece": True},
+            user_id=7,
+        )
+        second = lab.add_swap_library_still(
+            {"client_id": 10, "image": png, "name": "Cena 2", "new_piece": True},
+            user_id=7,
+        )
+        saved = lab.save_video_project(
+            {
+                "client_id": 10,
+                "project": {
+                    "name": "Pré 24",
+                    "duration": 15,
+                    "quality": "production",
+                    "aspect_ratio": "9:16",
+                    "scene_ids": [first["id"], second["id"]],
+                    "script": {"beats": [{"id": first["id"], "purpose": "hook", "visual": "A", "motion": "m", "hold": "h", "spoken": "oi"}]},
+                    "audio": {"mode": "voiceover", "script": "oi tudo bem aqui", "voice": "female", "pace": "fast"},
+                    "motion": {"preset": "camera", "intensity": "moderate", "note": "zoom"},
+                },
+            },
+            user_id=7,
+        )
+        self.assertEqual(saved["project"]["name"], "Pré 24")
+        self.assertEqual(saved["project"]["duration"], 15)
+        self.assertEqual(saved["project"]["audio"]["mode"], "voiceover")
+        loaded = lab.load_video_project({"client_id": 10}, user_id=7)
+        self.assertEqual(loaded["project"]["scene_ids"], [first["id"], second["id"]])
+        self.assertEqual(loaded["project"]["motion"]["preset"], "camera")
+        # Apagar peça não pode apagar o projeto da mesa.
+        lab.remove_swap_library_items({"client_id": 10, "id": second["id"], "media": "still"}, user_id=7)
+        again = lab.load_video_project({"client_id": 10}, user_id=7)
+        self.assertEqual(again["project"]["name"], "Pré 24")
+        self.assertEqual(again["project"]["audio"]["voice"], "female")
+
+    def test_library_video_devolve_script_e_quality(self):
+        lab = self._lab()
+        png = "data:image/png;base64," + TINY_PNG.hex()
+        first = lab.save_swap_history(
+            {
+                "client_id": 10,
+                "active_id": "v1",
+                "base_id": "v1",
+                "revision": 0,
+                "versions": [{"id": "v1", "name": "Original", "origin": "original", "image": png}],
+            },
+            user_id=7,
+        )
+        store = lab._trocr_store()
+        store.persist_animate(
+            {"client_id": 10, "run_id": first["run_id"], "base_id": "v1"},
+            {
+                "video_url": "/parametros/api/media/assets/asset_clip/content",
+                "poster_url": "/parametros/api/media/assets/asset_poster/content",
+                "image_url": "/parametros/api/media/assets/asset_poster/content",
+                "job_id": "anim_restore",
+                "duration": 8,
+                "quality": "draft",
+                "has_audio": True,
+                "voiceover_script": "Recarregue trinta reais agora mesmo.",
+                "storyboard_ids": ["v1", "v2"],
+                "script": {"beats": [{"id": "v1", "purpose": "hook", "visual": "A", "motion": "m", "hold": "h", "spoken": ""}]},
+            },
+            user_id=7,
+        )
+        clips = lab.load_swap_library({"client_id": 10, "media": "video"}, user_id=7)
+        self.assertEqual(len(clips["items"]), 1)
+        clip = clips["items"][0]
+        self.assertEqual(clip["quality"], "draft")
+        self.assertTrue(clip["has_audio"])
+        self.assertEqual(clip["voiceover_script"], "Recarregue trinta reais agora mesmo.")
+        self.assertEqual(clip["script"]["beats"][0]["id"], "v1")
+        self.assertEqual(clip["storyboard_ids"], ["v1", "v2"])
+
+
 if __name__ == "__main__":
     unittest.main()

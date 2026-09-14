@@ -1339,6 +1339,12 @@ class CreativeModelingService:
     def remove_format_lab_swap_library(self, payload, user_id=None):
         return self._format_lab().remove_swap_library_items(payload, user_id=user_id)
 
+    def load_format_lab_video_project(self, payload, user_id=None):
+        return self._format_lab().load_video_project(payload, user_id=user_id)
+
+    def save_format_lab_video_project(self, payload, user_id=None):
+        return self._format_lab().save_video_project(payload, user_id=user_id)
+
     def script_format_lab_animate(self, payload=None, user_id=None):
         return self._format_lab().script_animate(payload, user_id=user_id)
 

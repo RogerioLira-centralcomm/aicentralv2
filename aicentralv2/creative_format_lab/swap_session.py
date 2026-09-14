@@ -127,6 +127,10 @@ class TrocrStore:
                         "poster_url": published_still_url(item.get("poster_url") or url),
                         "job_id": str(item.get("job_id") or ""),
                         "duration": item.get("duration"),
+                        "quality": str(item.get("quality") or ""),
+                        "has_audio": bool(item.get("has_audio")),
+                        "voiceover_script": str(item.get("voiceover_script") or ""),
+                        "script": item.get("script") if isinstance(item.get("script"), dict) else None,
                         "storyboard_ids": item.get("storyboard_ids") or [],
                     } if video else {}),
                 })
@@ -135,6 +139,34 @@ class TrocrStore:
             "client_id": client_id or "",
             "media": "video" if want_video else "still",
             "items": items,
+        })
+
+    def load_video_project(self, payload, user_id=None):
+        payload = payload if isinstance(payload, dict) else {}
+        client_id = optional_client(payload)
+        key = self.session_key(payload, user_id)
+        raw = self.read(key, client_id)
+        editor = raw.get("video_editor") if isinstance(raw, dict) else None
+        return _serialize({
+            "client_id": client_id or "",
+            "project": normalize_video_project(editor),
+        })
+
+    def save_video_project(self, payload, user_id=None):
+        payload = payload if isinstance(payload, dict) else {}
+        client_id = optional_client(payload)
+        key = self.session_key(payload, user_id)
+        raw = self.read(key, client_id)
+        store = wrap_store(raw, client_id)
+        project = normalize_video_project(payload.get("project") if "project" in payload else payload)
+        packed = store_with_mirror(store)
+        packed["video_editor"] = project
+        self.write(key, packed, client_id)
+        if client_id and user_id not in (None, ""):
+            self.write(f"user-{user_id}", packed, None)
+        return _serialize({
+            "client_id": client_id or "",
+            "project": project,
         })
 
     def add_library_still(self, payload, user_id=None):
@@ -260,6 +292,8 @@ class TrocrStore:
             "active_run_id": store.get("active_run_id") or "",
             "runs": runs,
         }
+        if isinstance(store.get("video_editor"), dict):
+            next_store["video_editor"] = store.get("video_editor")
         ids = {str(item.get("run_id") or "") for item in runs}
         if next_store["active_run_id"] not in ids:
             next_store["active_run_id"] = runs[0]["run_id"] if runs else ""
@@ -760,6 +794,8 @@ class TrocrStore:
             "active_run_id": pack.get("active_run_id") or "",
             "runs": runs,
         }
+        if isinstance(pack.get("video_editor"), dict):
+            next_store["video_editor"] = pack.get("video_editor")
         ids = {str(item.get("run_id") or "") for item in runs}
         if next_store["active_run_id"] not in ids:
             next_store["active_run_id"] = runs[0]["run_id"] if runs else ""
@@ -986,6 +1022,7 @@ def is_run_store(data):
 
 
 def wrap_store(session, client_id=None):
+    editor = session.get("video_editor") if isinstance(session, dict) else None
     if is_run_store(session):
         store = {
             "schema": RUN_SCHEMA,
@@ -996,6 +1033,8 @@ def wrap_store(session, client_id=None):
                 if isinstance(item, dict) and item.get("run_id") and run_matches_client(item, client_id)
             ],
         }
+        if isinstance(editor, dict):
+            store["video_editor"] = editor
         if not store["runs"]:
             run = empty_run(client_id)
             store["runs"] = [run]
@@ -1016,13 +1055,19 @@ def wrap_store(session, client_id=None):
             "revision": history_revision(session),
             "versions": list(session.get("versions") or []),
         }
-        return {
+        store = {
             "schema": RUN_SCHEMA,
             "active_run_id": run["run_id"],
             "runs": [run],
         }
+        if isinstance(editor, dict):
+            store["video_editor"] = editor
+        return store
     run = empty_run(client_id)
-    return {"schema": RUN_SCHEMA, "active_run_id": run["run_id"], "runs": [run]}
+    store = {"schema": RUN_SCHEMA, "active_run_id": run["run_id"], "runs": [run]}
+    if isinstance(editor, dict):
+        store["video_editor"] = editor
+    return store
 
 
 def pick_run(store, run_id=None):
@@ -1063,6 +1108,8 @@ def put_run(store, run, active=True):
         "active_run_id": store.get("active_run_id") or "",
         "runs": [],
     }
+    if isinstance((store or {}).get("video_editor"), dict):
+        pack["video_editor"] = store.get("video_editor")
     seen = False
     run_id = str(run.get("run_id") or "")
     for item in store.get("runs") or []:
@@ -1094,7 +1141,7 @@ def run_title(session):
 
 def store_with_mirror(store):
     run = pick_run(store)
-    return {
+    packed = {
         **store,
         "client_id": run.get("client_id") or "",
         "run_id": run.get("run_id") or "",
@@ -1105,6 +1152,70 @@ def store_with_mirror(store):
         "revision": history_revision(run),
         "updated_at": run.get("updated_at") or "",
         "versions": list(run.get("versions") or []),
+    }
+    if isinstance((store or {}).get("video_editor"), dict):
+        packed["video_editor"] = store.get("video_editor")
+    return packed
+
+
+def normalize_video_project(raw):
+    data = raw if isinstance(raw, dict) else {}
+    scene_ids = []
+    for item in list(data.get("scene_ids") or []):
+        text = str(item or "").strip()
+        if text and text not in scene_ids:
+            scene_ids.append(text)
+    script = data.get("script") if isinstance(data.get("script"), dict) else None
+    audio = data.get("audio") if isinstance(data.get("audio"), dict) else {}
+    motion = data.get("motion") if isinstance(data.get("motion"), dict) else {}
+    duration = data.get("duration")
+    try:
+        duration = int(duration) if duration not in (None, "") else 8
+    except (TypeError, ValueError):
+        duration = 8
+    if duration not in (5, 8, 10, 15, 20, 30):
+        duration = 8
+    quality = str(data.get("quality") or "draft").strip().lower()
+    if quality not in {"draft", "production"}:
+        quality = "draft"
+    aspect = str(data.get("aspect_ratio") or "16:9").strip() or "16:9"
+    audio_mode = str(audio.get("mode") or "silence").strip().lower()
+    if audio_mode not in {"silence", "ambient", "music", "voice", "voiceover"}:
+        audio_mode = "silence"
+    voice = str(audio.get("voice") or "male").strip().lower()
+    if voice not in {"male", "female"}:
+        voice = "male"
+    pace = str(audio.get("pace") or "normal").strip().lower()
+    if pace not in {"normal", "fast"}:
+        pace = "normal"
+    preset = str(motion.get("preset") or "live").strip().lower()
+    if preset not in {"live", "camera", "people", "product", "transition", "free"}:
+        preset = "live"
+    intensity = str(motion.get("intensity") or "subtle").strip().lower()
+    if intensity not in {"subtle", "moderate", "expressive"}:
+        intensity = "subtle"
+    return {
+        "name": str(data.get("name") or "").strip()[:120],
+        "aspect_ratio": aspect[:16],
+        "duration": duration,
+        "quality": quality,
+        "scene_ids": scene_ids[:30],
+        "script": script,
+        "audio": {
+            "mode": audio_mode,
+            "script": str(audio.get("script") or "")[:800],
+            "voice": voice,
+            "pace": pace,
+            "prompt": str(audio.get("prompt") or "")[:400],
+            "music_note": str(audio.get("music_note") or "")[:160],
+        },
+        "motion": {
+            "preset": preset,
+            "intensity": intensity,
+            "note": str(motion.get("note") or "")[:400],
+        },
+        "active_clip_id": str(data.get("active_clip_id") or "").strip()[:120],
+        "selected_scene_id": str(data.get("selected_scene_id") or "").strip()[:120],
     }
 
 

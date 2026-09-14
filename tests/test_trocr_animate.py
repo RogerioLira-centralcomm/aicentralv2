@@ -582,6 +582,39 @@ class TrocrAnimateStoryboardTest(unittest.TestCase):
         quoted = quote_animate({"source": {"mode": "storyboard"}})
         self.assertIn("referências", quoted["warning"])
 
+    def test_quote_storyboard_com_locucao(self):
+        quoted = quote_animate({
+            "duration": 8,
+            "quality": "draft",
+            "aspect_ratio": "16:9",
+            "source": {"mode": "storyboard", "ref_ids": ["a", "b"]},
+            "audio": {
+                "mode": "voiceover",
+                "script": "Recarregue trinta reais e tenha muita internet.",
+                "voice": "female",
+                "pace": "normal",
+            },
+        })
+        self.assertEqual(quoted["plan"]["audio_mode"], "voiceover")
+        self.assertGreater(quoted.get("tts_estimated_cost_usd") or 0, 0)
+        self.assertIn("Gemini TTS", quoted["warning"])
+        plan = build_plan({
+            "duration": 8,
+            "quality": "draft",
+            "source": {"mode": "storyboard", "ref_ids": ["a", "b"]},
+            "require_refs": True,
+            "audio": {
+                "mode": "voiceover",
+                "script": "Recarregue trinta reais e tenha muita internet.",
+                "voice": "female",
+                "pace": "normal",
+            },
+            "motion": {"preset": "live", "intensity": "subtle"},
+        })
+        self.assertEqual(plan["source"]["mode"], "storyboard")
+        self.assertEqual(plan["audio_mode"], "voiceover")
+        self.assertEqual(plan["motion_preset"], "live")
+
     def test_extensao_usa_tarifa_de_video_e_sem_frame(self):
         flat = build_plan({"duration": 8, "quality": "production", "aspect_ratio": "16:9"})
         plan = build_plan({

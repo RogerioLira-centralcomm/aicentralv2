@@ -42,6 +42,12 @@ def register_trocr_routes(blueprint):
         methods=["GET", "POST", "DELETE"],
     )
     blueprint.add_url_rule(
+        "/api/format-lab/swap/video-project",
+        endpoint="creative_format_lab_video_project",
+        view_func=api_format_lab_video_project,
+        methods=["GET", "POST"],
+    )
+    blueprint.add_url_rule(
         "/api/format-lab/swap/animate/script",
         endpoint="creative_format_lab_animate_script",
         view_func=api_format_lab_animate_script,
@@ -177,6 +183,20 @@ def api_format_lab_swap_library():
     if request.method == "DELETE":
         return execute(lambda: ok(service().remove_format_lab_swap_library(json_body(), session.get("user_id"))))
     return execute(lambda: ok(service().add_format_lab_swap_library_still(json_body(), session.get("user_id"))))
+
+
+@admin_required_api
+@trocr_csrf_required
+def api_format_lab_video_project():
+    execute, json_body, ok, service = _http()
+    if request.method == "GET":
+        return execute(
+            lambda: ok(service().load_format_lab_video_project(
+                {"client_id": request.args.get("client_id")},
+                session.get("user_id"),
+            ))
+        )
+    return execute(lambda: ok(service().save_format_lab_video_project(json_body(), session.get("user_id"))))
 
 
 @admin_required_api

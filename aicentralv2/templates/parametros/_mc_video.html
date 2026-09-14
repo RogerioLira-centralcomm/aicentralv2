@@ -1,61 +1,219 @@
 <article class="mc-cadu-video" id="mcSwap" data-csrf="{{ mc_trocr_csrf or '' }}">
-  <header class="mc-cadu-video-head">
-    <div>
-      <h1>Vídeo</h1>
-      <p>Crie ou escolha de duas a trinta peças da marca. O OCR monta o roteiro. O Seedance anima as cenas na ordem.</p>
-    </div>
-  </header>
-  <div class="mc-cadu-video-grid">
-    <aside class="mc-cadu-video-lib" id="mcVideoLibDrop" aria-label="Biblioteca da marca">
-      <div class="mc-cadu-video-lib-head">
-        <h2>Peças da marca</h2>
-        <div class="mc-cadu-video-lib-actions">
-          <label class="mc-cadu-video-upload">
-            <input id="mcVideoFile" type="file" accept="image/*" hidden>
-            Nova peça
-          </label>
-          <button type="button" class="mc-cadu-video-ghost" id="mcVideoPurgeBroken" hidden>Apagar 404</button>
-        </div>
-      </div>
-      <p class="mc-cadu-video-hint" id="mcVideoLibHint">Selecione as cenas. A ordem é a do clipe.</p>
-      <ul class="mc-cadu-video-takes" id="mcVideoLibrary"></ul>
-    </aside>
-    <section class="mc-cadu-video-stage">
-      <div class="mc-cadu-video-frame">
-        <video id="mcSwapVideo" playsinline controls preload="metadata" hidden></video>
-        <p class="mc-cadu-video-empty" id="mcVideoEmpty">O clipe aparece aqui quando o Seedance terminar.</p>
-      </div>
-      <div class="mc-cadu-video-history">
-        <h2>Clipes gerados</h2>
-        <ul class="mc-cadu-video-clips" id="mcVideoClips"></ul>
-      </div>
-      <p class="mc-cadu-video-status" id="mcAnimateStatus"></p>
-      <ol class="mc-cadu-video-steps" id="mcAnimateSteps" hidden></ol>
-    </section>
-    <aside class="mc-cadu-video-desk" aria-label="Cenas e roteiro">
-      <h2>Cenas <span id="mcVideoSceneCount">0</span>/30</h2>
-      <ol class="mc-cadu-video-scenes" id="mcVideoScenes"></ol>
-      <p class="mc-cadu-video-hint" id="mcVideoSceneHint">Selecione pelo menos duas cenas.</p>
-      <div class="mc-cadu-video-actions">
-        <button type="button" class="mc-cadu-video-ghost" id="mcVideoScriptBtn" disabled>Montar roteiro</button>
-      </div>
-      <label class="mc-cadu-video-script">
-        <span>Roteiro</span>
-        <textarea id="mcVideoScript" rows="10" placeholder="O OCR descreve cada cena. Edite antes de gerar."></textarea>
+  <header class="mc-cadu-video-toolbar" aria-label="Projeto de vídeo">
+    <div class="mc-cadu-video-toolbar-main">
+      <label class="mc-cadu-video-field is-name">
+        <span class="mc-cadu-video-label">Projeto</span>
+        <input id="mcVideoName" type="text" maxlength="120" placeholder="Clipe da marca" autocomplete="off">
       </label>
-      <fieldset class="mc-cadu-video-chips">
+      <label class="mc-cadu-video-field">
+        <span class="mc-cadu-video-label">Formato</span>
+        <select id="mcVideoAspect" aria-label="Proporção">
+          <option value="16:9" selected>16:9</option>
+          <option value="9:16">9:16</option>
+          <option value="1:1">1:1</option>
+          <option value="4:3">4:3</option>
+          <option value="3:4">3:4</option>
+          <option value="21:9">21:9</option>
+        </select>
+      </label>
+      <fieldset class="mc-cadu-video-chips is-inline">
         <legend>Duração</legend>
         <label><input type="radio" name="mcVideoDuration" value="8" checked> 8s</label>
         <label><input type="radio" name="mcVideoDuration" value="10"> 10s</label>
         <label><input type="radio" name="mcVideoDuration" value="15"> 15s</label>
         <label><input type="radio" name="mcVideoDuration" value="30"> 30s</label>
       </fieldset>
-      <fieldset class="mc-cadu-video-chips">
+      <fieldset class="mc-cadu-video-chips is-inline">
         <legend>Qualidade</legend>
         <label><input type="radio" name="mcVideoQuality" value="draft" checked> Rascunho</label>
         <label><input type="radio" name="mcVideoQuality" value="production"> Produção</label>
       </fieldset>
+    </div>
+    <div class="mc-cadu-video-toolbar-side">
+      <p class="mc-cadu-video-quote" id="mcVideoQuote">Monte duas cenas para cotar.</p>
       <button type="button" class="mc-cadu-new" id="mcVideoGenerate" disabled>Gerar clipe</button>
+    </div>
+  </header>
+
+  <div class="mc-cadu-video-workspace">
+    <aside class="mc-cadu-video-lib" id="mcVideoLibDrop" aria-label="Biblioteca de mídia">
+      <div class="mc-cadu-video-lib-head">
+        <h2>Biblioteca</h2>
+        <div class="mc-cadu-video-lib-actions">
+          <label class="mc-cadu-video-upload">
+            <input id="mcVideoFile" type="file" accept="image/*" hidden>
+            Upload
+          </label>
+          <button type="button" class="mc-cadu-video-ghost" id="mcVideoPurgeBroken" hidden>Apagar 404</button>
+        </div>
+      </div>
+      <div class="mc-cadu-video-lib-tabs" role="tablist" aria-label="Tipo de mídia">
+        <button type="button" class="is-active" data-lib-tab="still" role="tab" aria-selected="true">Peças</button>
+        <button type="button" data-lib-tab="video" role="tab" aria-selected="false">Clipes</button>
+      </div>
+      <label class="mc-cadu-video-search">
+        <span class="mc-cadu-video-label">Buscar</span>
+        <input id="mcVideoSearch" type="search" placeholder="Nome da peça" autocomplete="off">
+      </label>
+      <p class="mc-cadu-video-hint" id="mcVideoLibHint">Escolha a marca na barra para ver as peças.</p>
+      <ul class="mc-cadu-video-takes" id="mcVideoLibrary"></ul>
+      <ul class="mc-cadu-video-clips" id="mcVideoClips" hidden></ul>
+    </aside>
+
+    <section class="mc-cadu-video-stage" aria-label="Preview">
+      <div class="mc-cadu-video-stage-bar">
+        <button type="button" class="mc-cadu-video-ghost" id="mcVideoPrevScene" aria-label="Cena anterior">←</button>
+        <p class="mc-cadu-video-stage-meta" id="mcVideoStageMeta">Cena —</p>
+        <button type="button" class="mc-cadu-video-ghost" id="mcVideoNextScene" aria-label="Próxima cena">→</button>
+      </div>
+      <div class="mc-cadu-video-frame">
+        <img id="mcVideoStill" alt="" hidden>
+        <video id="mcSwapVideo" playsinline controls preload="metadata" hidden></video>
+        <p class="mc-cadu-video-empty" id="mcVideoEmpty">Monte duas cenas na timeline. O clipe aparece aqui depois da geração.</p>
+      </div>
+      <p class="mc-cadu-video-status" id="mcAnimateStatus"></p>
+      <ol class="mc-cadu-video-steps" id="mcAnimateSteps" hidden></ol>
+    </section>
+
+    <aside class="mc-cadu-video-desk" aria-label="Propriedades da cena">
+      <div class="mc-cadu-video-desk-head">
+        <h2>Cena <span id="mcVideoSceneIndex">—</span> / <span id="mcVideoSceneCount">0</span></h2>
+        <p class="mc-cadu-video-hint" id="mcVideoSceneHint">Selecione uma peça na biblioteca.</p>
+      </div>
+      <div class="mc-cadu-video-props" id="mcVideoProps" hidden>
+        <label class="mc-cadu-video-field">
+          <span class="mc-cadu-video-label">Função</span>
+          <select id="mcVideoBeatPurpose">
+            <option value="hook">Abertura</option>
+            <option value="offer">Oferta</option>
+            <option value="proof">Prova</option>
+            <option value="end">Fechamento</option>
+            <option value="beat">Cena</option>
+          </select>
+        </label>
+        <label class="mc-cadu-video-field">
+          <span class="mc-cadu-video-label">Visual</span>
+          <textarea id="mcVideoBeatVisual" rows="2" maxlength="400"></textarea>
+        </label>
+        <label class="mc-cadu-video-field">
+          <span class="mc-cadu-video-label">Movimento</span>
+          <textarea id="mcVideoBeatMotion" rows="2" maxlength="400"></textarea>
+        </label>
+        <label class="mc-cadu-video-field">
+          <span class="mc-cadu-video-label">Trava</span>
+          <textarea id="mcVideoBeatHold" rows="2" maxlength="400"></textarea>
+        </label>
+        <label class="mc-cadu-video-field">
+          <span class="mc-cadu-video-label">Fala desta cena</span>
+          <textarea id="mcVideoBeatSpoken" rows="2" maxlength="400"></textarea>
+        </label>
+        <div class="mc-cadu-video-actions">
+          <button type="button" class="mc-cadu-video-ghost" id="mcVideoRemoveScene">Remover da timeline</button>
+        </div>
+      </div>
     </aside>
   </div>
+
+  <section class="mc-cadu-video-panel" aria-label="Roteiro e configuração">
+    <div class="mc-cadu-video-panel-tabs" role="tablist">
+      <button type="button" class="is-active" data-panel-tab="script" role="tab" aria-selected="true">Roteiro</button>
+      <button type="button" data-panel-tab="voice" role="tab" aria-selected="false">Locução</button>
+      <button type="button" data-panel-tab="config" role="tab" aria-selected="false">Configuração</button>
+    </div>
+
+    <div class="mc-cadu-video-panel-body is-active" data-panel-pane="script">
+      <div class="mc-cadu-video-actions">
+        <button type="button" class="mc-cadu-video-ghost" id="mcVideoScriptBtn" disabled>Montar com IA</button>
+        <span class="mc-cadu-video-hint" id="mcVideoScriptHint">O OCR descreve cada cena. Edite antes de gerar.</span>
+      </div>
+      <div class="mc-cadu-video-beats" id="mcVideoBeats"></div>
+      <label class="mc-cadu-video-script">
+        <span class="mc-cadu-video-label">Texto completo (fallback)</span>
+        <textarea id="mcVideoScript" rows="6" placeholder="Cena 1 — hook&#10;Visual: …&#10;Movimento: …&#10;Trava: …&#10;Fala: …"></textarea>
+      </label>
+    </div>
+
+    <div class="mc-cadu-video-panel-body" data-panel-pane="voice" hidden>
+      <fieldset class="mc-cadu-video-chips">
+        <legend>Som</legend>
+        <label><input type="radio" name="mcVideoAudio" value="silence" checked> Silêncio</label>
+        <label><input type="radio" name="mcVideoAudio" value="ambient"> Ambiente</label>
+        <label><input type="radio" name="mcVideoAudio" value="music"> Música</label>
+        <label><input type="radio" name="mcVideoAudio" value="voice"> Orientação de voz</label>
+        <label><input type="radio" name="mcVideoAudio" value="voiceover"> Locução exata</label>
+      </fieldset>
+      <label class="mc-cadu-video-field" id="mcVideoVoiceRow" hidden>
+        <span class="mc-cadu-video-label">Orientação de voz</span>
+        <textarea id="mcVideoVoicePrompt" rows="2" maxlength="400" placeholder="Tom e assunto. Sem garantia de fala literal."></textarea>
+      </label>
+      <div id="mcVideoVoiceoverRow" hidden>
+        <label class="mc-cadu-video-field">
+          <span class="mc-cadu-video-label">Roteiro falado</span>
+          <textarea id="mcVideoVoiceover" rows="3" maxlength="800" placeholder="Texto literal. Pode juntar as falas das cenas."></textarea>
+        </label>
+        <fieldset class="mc-cadu-video-chips">
+          <legend>Voz</legend>
+          <label><input type="radio" name="mcVideoVoiceGender" value="male" checked> Homem</label>
+          <label><input type="radio" name="mcVideoVoiceGender" value="female"> Mulher</label>
+          <label><input type="radio" name="mcVideoVoicePace" value="normal" checked> Normal</label>
+          <label><input type="radio" name="mcVideoVoicePace" value="fast"> Rápida</label>
+        </fieldset>
+        <p class="mc-cadu-video-hint" id="mcVideoVoiceoverHint">A locução é gerada no Gemini TTS e mixada depois do vídeo.</p>
+      </div>
+      <label class="mc-cadu-video-field" id="mcVideoMusicRow" hidden>
+        <span class="mc-cadu-video-label">Estilo da música</span>
+        <input id="mcVideoMusic" type="text" maxlength="160">
+      </label>
+    </div>
+
+    <div class="mc-cadu-video-panel-body" data-panel-pane="config" hidden>
+      <fieldset class="mc-cadu-video-chips">
+        <legend>Movimento</legend>
+        <label><input type="radio" name="mcVideoMotion" value="live" checked> Vivo</label>
+        <label><input type="radio" name="mcVideoMotion" value="camera"> Câmera</label>
+        <label><input type="radio" name="mcVideoMotion" value="people"> Pessoas</label>
+        <label><input type="radio" name="mcVideoMotion" value="product"> Produto</label>
+        <label><input type="radio" name="mcVideoMotion" value="transition"> Transição</label>
+        <label><input type="radio" name="mcVideoMotion" value="free"> Livre</label>
+      </fieldset>
+      <label class="mc-cadu-video-field">
+        <span class="mc-cadu-video-label">Intensidade</span>
+        <select id="mcVideoIntensity">
+          <option value="subtle" selected>Sutil</option>
+          <option value="moderate">Moderada</option>
+          <option value="expressive">Expressiva</option>
+        </select>
+      </label>
+      <label class="mc-cadu-video-field">
+        <span class="mc-cadu-video-label">O que o vídeo faz</span>
+        <textarea id="mcVideoMotionNote" rows="2" maxlength="400" placeholder="Opcional"></textarea>
+      </label>
+    </div>
+  </section>
+
+  <section class="mc-cadu-video-timeline" aria-label="Timeline do storyboard">
+    <div class="mc-cadu-video-timeline-tools">
+      <strong>Timeline</strong>
+      <span class="mc-cadu-video-hint" id="mcVideoTimelineHint">Arraste para reordenar. Sem corte — o Seedance gera um clipe único.</span>
+    </div>
+    <div class="mc-cadu-video-tracks" id="mcVideoTracks">
+      <div class="mc-cadu-video-track" data-track="video">
+        <span class="mc-cadu-video-track-label">Vídeo</span>
+        <div class="mc-cadu-video-track-lane" id="mcVideoTrackVideo"></div>
+      </div>
+      <div class="mc-cadu-video-track" data-track="text">
+        <span class="mc-cadu-video-track-label">Texto</span>
+        <div class="mc-cadu-video-track-lane" id="mcVideoTrackText"></div>
+      </div>
+      <div class="mc-cadu-video-track" data-track="audio">
+        <span class="mc-cadu-video-track-label">Áudio</span>
+        <div class="mc-cadu-video-track-lane" id="mcVideoTrackAudio"></div>
+      </div>
+      <div class="mc-cadu-video-track" data-track="elements">
+        <span class="mc-cadu-video-track-label">Elementos</span>
+        <div class="mc-cadu-video-track-lane" id="mcVideoTrackElements"></div>
+      </div>
+    </div>
+    <div class="mc-cadu-video-playhead" id="mcVideoPlayhead" hidden></div>
+  </section>
 </article>

@@ -3,7 +3,11 @@
   if (!dialog) return;
   document.querySelectorAll("[data-sp-guide]").forEach(function (button) {
     button.addEventListener("click", function () {
-      if (typeof dialog.showModal === "function") dialog.showModal();
+      if (typeof dialog.showModal === "function") {
+        dialog.showModal();
+        var title = document.getElementById("sp-guide-title");
+        if (title) title.focus();
+      }
     });
   });
   dialog.addEventListener("click", function (event) {

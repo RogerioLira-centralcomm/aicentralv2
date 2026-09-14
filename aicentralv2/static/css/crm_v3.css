@@ -3452,6 +3452,23 @@ img.crm-v3-avatar-mini {
     gap: 14px;
 }
 
+.crm-v3-plano-bloco {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px 6px 6px 8px;
+    border-left: 2px solid #1e4d4f;
+    border-radius: 0 6px 6px 0;
+    background: #f4f7f7;
+}
+
+.crm-v3-cotacao-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
 /* Empty state (nenhuma cotação em NENHUM grupo) — versão rica com
    ícone + hint contextual. Antes era só uma linha de texto cinza que
    deixava dúvida sobre "porque?". Agora explica que cotações da
@@ -6386,6 +6403,25 @@ img.crm-v3-avatar-mini {
     font-size: 10px;
     font-weight: 700;
     line-height: 16px;
+}
+
+.crm-v3-plano-bloco {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin: 0.25rem 0 0.55rem;
+    padding-left: 0.7rem;
+}
+
+.crm-v3-plano-bloco::before {
+    content: "";
+    position: absolute;
+    top: 0.6rem;
+    bottom: 0.6rem;
+    left: 0.2rem;
+    width: 1px;
+    background: #1e4d4f;
 }
 
 .crm-v3-cotacao-tipo--midia { border-color: #bae6fd; background: #f0f9ff; color: #0369a1; }

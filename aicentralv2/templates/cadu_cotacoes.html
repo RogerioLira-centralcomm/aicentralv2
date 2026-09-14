@@ -6,6 +6,7 @@
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_lista.css') }}?v=4">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_plano.css') }}?v=2">
 {% endblock %}
 
 {% block content %}
@@ -118,10 +119,20 @@
             onclick="window.location.href='/cotacoes/{{ cotacao.id }}/abrir'">
 
           <td class="col-cotacao" onclick="event.stopPropagation()">
-            <a href="/cotacoes/{{ cotacao.id }}/abrir" class="cot-lista-num">{{ cotacao.numero_cotacao }}</a>
+            <a href="/cotacoes/{{ cotacao.id }}/abrir" class="cot-lista-num">
+              {% if cotacao.plano_tem_irmas %}
+              <span class="cot-plano-dot{% if cotacao.eh_principal %} is-on{% endif %}" aria-hidden="true"></span>
+              {% endif %}
+              {{ cotacao.numero_cotacao }}
+            </a>
             <div class="cot-lista-sub">{{ cotacao.created_at.strftime('%d/%m/%Y') if cotacao.created_at else '—' }}</div>
             {% set tipo_cotacao = cotacao.tipo_comercial or 'midia' %}
-            <span class="cot-lista-type">{{ {'midia': 'Mídia', 'parceiros': 'Parceiros', 'formatos_interativos': 'Interativos', 'dados': 'Dados'}.get(tipo_cotacao, 'Mídia') }}</span>
+            <div class="cot-lista-flags">
+              <span class="cot-lista-type">{{ {'midia': 'Mídia', 'parceiros': 'Parceiros', 'formatos_interativos': 'Interativos', 'dados': 'Dados'}.get(tipo_cotacao, 'Mídia') }}</span>
+              {% if cotacao.plano_tem_irmas and cotacao.eh_principal %}
+              <span class="cot-plano-chip is-principal">Principal</span>
+              {% endif %}
+            </div>
           </td>
 
           <td>

@@ -194,6 +194,10 @@ class CrmV3MainUiContractTest(unittest.TestCase):
             "migrations/run_add_tipo_comercial_to_cotacoes.py",
             self.deploy,
         )
+        self.assertIn(
+            "migrations/run_add_cotacao_grupo_plano.py",
+            self.deploy,
+        )
         self.assertIn("destino_tipo_comercial", self.cotacao_tipos)
 
     def test_quote_cards_show_type_and_contextual_counterparty(self):

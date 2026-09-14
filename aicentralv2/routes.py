@@ -5379,6 +5379,16 @@ def init_routes(app):
 
             # Obter cotações agrupadas por status
             colunas = db.obter_cotacoes_pipeline(filtros)
+            from collections import Counter
+            from aicentralv2.cotacao_plano import cotacao_conta_em_relatorio
+            _todas_pipeline = [cot for lista in colunas.values() for cot in (lista or [])]
+            _plano_qtd = Counter(
+                str(cot.get('grupo_plano_id') or cot.get('id'))
+                for cot in _todas_pipeline
+            )
+            for lista in colunas.values():
+                for cot in lista or []:
+                    cot['plano_tem_irmas'] = _plano_qtd[str(cot.get('grupo_plano_id') or cot.get('id'))] > 1
 
             def _eh_agencia(cot):
                 if cot.get('agencia_key') is True:
@@ -5411,9 +5421,10 @@ def init_routes(app):
                         }
                         ordem.append(gid)
                     grupos[gid]['cotacoes'].append(cot)
-                    grupos[gid]['valor'] += float(
-                        cot.get('valor_total_bruto') or cot.get('valor_total_proposta') or 0
-                    )
+                    if cotacao_conta_em_relatorio(cot):
+                        grupos[gid]['valor'] += float(
+                            cot.get('valor_total_bruto') or cot.get('valor_total_proposta') or 0
+                        )
                 lista = [grupos[gid] for gid in ordem]
                 lista.sort(key=lambda g: (0 if g['kind'] == 'agencia' else 1, (g['label'] or '').lower()))
                 return lista
@@ -5429,10 +5440,13 @@ def init_routes(app):
             def _valor_coluna(c):
                 return float(c.get('valor_total_bruto') or c.get('valor_total_proposta') or 0)
 
+            def _que_conta(items):
+                return [c for c in items if cotacao_conta_em_relatorio(c)]
+
             totais = {
                 status: {
-                    'count': len(cotacoes),
-                    'valor': sum(_valor_coluna(c) for c in cotacoes)
+                    'count': len(_que_conta(cotacoes)),
+                    'valor': sum(_valor_coluna(c) for c in _que_conta(cotacoes))
                 }
                 for status, cotacoes in colunas.items()
             }
@@ -5442,11 +5456,12 @@ def init_routes(app):
                 + list(colunas.get('Em Acompanhamento') or [])
                 + list(colunas.get('Próximo de Aprovar') or [])
             )
+            ativas_que_contam = _que_conta(cotacoes_ativas)
             metricas_pipeline = {
-                'ativas': len(cotacoes_ativas),
-                'valor_aberto': sum(_valor_coluna(c) for c in cotacoes_ativas),
+                'ativas': len(ativas_que_contam),
+                'valor_aberto': sum(_valor_coluna(c) for c in ativas_que_contam),
                 'sem_movimento': sum(
-                    1 for c in cotacoes_ativas
+                    1 for c in ativas_que_contam
                     if int(c.get('dias_sem_movimento') or 0) > 30
                 ),
             }
@@ -8389,9 +8404,14 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 return jsonify({'success': False, 'message': 'Cotação não encontrada'}), 404
             
             # Copiar dados da cotação (sem ID, timestamps, etc)
+            irmas = db.listar_irmas_cotacao(cotacao_id)
+            grupo_plano_id = (
+                (irmas[0].get('grupo_plano_id') if irmas else None)
+                or cotacao_original.get('grupo_plano_id')
+            )
             dados_nova_cotacao = {
                 'client_id': cotacao_original.get('client_id'),
-                'nome_campanha': f"{cotacao_original.get('nome_campanha', '')} (CÓPIA)",
+                'nome_campanha': cotacao_original.get('nome_campanha') or '',
                 'objetivo_campanha': cotacao_original.get('objetivo_campanha'),
                 'periodo_inicio': cotacao_original.get('periodo_inicio'),
                 'periodo_fim': cotacao_original.get('periodo_fim'),
@@ -8405,6 +8425,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'origem': cotacao_original.get('origem', 'Admin'),
                 'meio': cotacao_original.get('meio'),
                 'tipo_peca': cotacao_original.get('tipo_peca'),
+                'tipo_comercial': cotacao_original.get('tipo_comercial'),
                 'valor_total_proposta': cotacao_original.get('valor_total_proposta'),
                 'agencia_id': cotacao_original.get('agencia_id'),
                 'agencia_user_id': cotacao_original.get('agencia_user_id'),
@@ -8413,6 +8434,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'desconto_total': cotacao_original.get('desconto_total'),
                 'desconto_percentual': cotacao_original.get('desconto_percentual'),
                 'condicoes_comerciais': cotacao_original.get('condicoes_comerciais'),
+                'grupo_plano_id': grupo_plano_id,
+                'eh_principal': False,
             }
 
             # Criar nova cotação

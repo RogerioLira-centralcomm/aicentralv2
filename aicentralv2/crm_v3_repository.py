@@ -1127,31 +1127,30 @@ class CrmV3Repository:
         out: Dict[str, Dict[str, Any]] = {}
         for cid in ids:
             cotacoes = cotacoes_por.get(cid) or []
-            abertas = [c for c in cotacoes if _slug_status_cotacao(c) in status_abertas]
-            aprovadas = [c for c in cotacoes if _slug_status_cotacao(c) == "aprovada"]
-            faturamento = 0.0
-            pipeline = 0.0
-            for c in aprovadas:
-                try:
-                    faturamento += float(c.get("valor_total_proposta") or 0)
-                except (TypeError, ValueError):
-                    pass
-            for c in abertas:
-                try:
-                    pipeline += float(c.get("valor_total_proposta") or 0)
-                except (TypeError, ValueError):
-                    pass
+            from .cotacao_plano import metricas_por_plano
+
+            def _aberta(item):
+                return _slug_status_cotacao(item) in status_abertas
+
+            def _aprovada(item):
+                return _slug_status_cotacao(item) == "aprovada"
+
+            resumo = metricas_por_plano(
+                cotacoes,
+                aberta_fn=_aberta,
+                aprovada_fn=_aprovada,
+            )
             n_contatos = int(contatos_por.get(cid) or 0)
             atv = self._resumo_atividades(atividades_por.get(cid) or [])
             out[str(cid)] = {
                 "contatos": n_contatos,
                 "contatos_total": n_contatos,
-                "oportunidades": len(abertas),
-                "faturamento": self._brl(faturamento),
-                "valor_pis": self._brl(pipeline),
-                "pipeline": pipeline,
-                "cotacoes_abertas": len(abertas),
-                "cotacoes_aprovadas": len(aprovadas),
+                "oportunidades": resumo["oportunidades"],
+                "faturamento": self._brl(resumo["faturamento"]),
+                "valor_pis": self._brl(resumo["pipeline"]),
+                "pipeline": resumo["pipeline"],
+                "cotacoes_abertas": resumo["oportunidades"],
+                "cotacoes_aprovadas": resumo["aprovadas"],
                 "tarefas_abertas": atv["tarefas_abertas"],
                 "ultimo_contato": atv["ultimo_contato"],
                 "proxima_atividade": atv["proxima_atividade"],
@@ -1923,6 +1922,8 @@ class CrmV3Repository:
             "agencia_logo_url": row.get("agencia_logo_url") or "",
             "tipo_comercial": tipo_comercial,
             "tipo_comercial_label": rotulo_tipo_comercial(tipo_comercial),
+            "grupo_plano_id": str(row.get("grupo_plano_id") or row.get("id") or ""),
+            "eh_principal": bool(row.get("eh_principal") if row.get("eh_principal") is not None else True),
         }
 
     # ---------------- Notas / histórico (sales_historico_cliente) ------------

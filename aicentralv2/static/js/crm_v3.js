@@ -1281,8 +1281,11 @@
             : (fallback.contatos != null ? fallback.contatos : (cliente && cliente.qtd_contatos) || 0);
 
         var cotacoes = Array.isArray(state.cotacoes) ? state.cotacoes : [];
-        var cotAbertas = cotacoes.filter(cotacaoEstaAberta);
-        var cotAprovadas = cotacoes.filter(function (c) {
+        var cotQueContam = cotacoes.filter(function (c) {
+            return c.eh_principal !== false;
+        });
+        var cotAbertas = cotQueContam.filter(cotacaoEstaAberta);
+        var cotAprovadas = cotQueContam.filter(function (c) {
             return String(c.status || '').toLowerCase() === 'aprovada';
         });
         var oportunidades = cotAbertas.length;
@@ -3388,6 +3391,13 @@
         return cotacaoEmpresaHtml(c.agencia_nome, c.agencia_logo_url, 'Agência');
     }
 
+    function planoTemIrmas(c) {
+        var key = String((c && c.grupo_plano_id) || (c && c.id) || '');
+        return (state.cotacoes || []).filter(function (item) {
+            return String(item.grupo_plano_id || item.id) === key;
+        }).length > 1;
+    }
+
     function cotacaoTipoHtml(c) {
         var slug = c.tipo_comercial || 'midia';
         var label = c.tipo_comercial_label || {
@@ -3421,6 +3431,7 @@
         var valor = c.valor || (c.valor_total != null ? formatBRL(Number(c.valor_total)) : '');
         var contraparte = cotacaoContraparteHtml(c);
         return (
+            '<div class="crm-v3-cotacao-wrap">' +
             '<button type="button" class="crm-v3-cotacao-card crm-v3-cotacao-card-aberta crm-v3-cotacao-detalhes' +
                 (c.origem === 'vinculado' ? ' crm-v3-cotacao-vinculada' : '') +
                 '" data-cotacao-id="' + escapeHtml(c.id) + '" aria-label="Abrir cotação ' + escapeHtml(titulo) + '">' +
@@ -3432,6 +3443,9 @@
                 ? '<span class="crm-v3-cotacao-company-row">' + contraparte + '</span>'
                 : '') +
             '<span class="crm-v3-cotacao-compact-meta">' +
+                (planoTemIrmas(c)
+                    ? '<span class="cot-plano-dot' + (c.eh_principal !== false ? ' is-on' : '') + '" aria-hidden="true"></span>'
+                    : '') +
                 cotacaoTipoHtml(c) +
                 '<span class="crm-v3-cotacao-status-chip" title="' + escapeHtml(statusLabel) + '">' +
                     '<i class="' + cotacaoStatusIcon(c.status) + '" aria-hidden="true"></i>' +
@@ -3442,7 +3456,12 @@
                         escapeHtml(inicioCampanha) + '</span>'
                     : '') +
             '</span>' +
-            '</button>'
+            '</button>' +
+            (c.eh_principal === false && planoTemIrmas(c)
+                ? '<button type="button" class="cot-plano-text-btn is-primary" data-plano-principal="' +
+                    escapeHtml(c.id) + '">Usar esta nos relatórios</button>'
+                : '') +
+            '</div>'
         );
     }
 
@@ -3523,6 +3542,34 @@
         aprovadas.sort(porDataDesc);
         historico.sort(porDataDesc);
 
+        function agruparPorPlano(lista) {
+            var groups = {};
+            var ordem = [];
+            lista.forEach(function (c) {
+                var key = String(c.grupo_plano_id || c.id);
+                if (!groups[key]) {
+                    groups[key] = [];
+                    ordem.push(key);
+                }
+                groups[key].push(c);
+            });
+            ordem.forEach(function (key) {
+                groups[key].sort(function (a, b) {
+                    var ap = a.eh_principal !== false;
+                    var bp = b.eh_principal !== false;
+                    if (ap !== bp) return ap ? -1 : 1;
+                    return 0;
+                });
+            });
+            return ordem.map(function (key) { return groups[key]; });
+        }
+        function renderBlocos(lista, cardFn) {
+            return agruparPorPlano(lista).map(function (items) {
+                if (items.length === 1) return cardFn(items[0]);
+                return '<div class="crm-v3-plano-bloco">' + items.map(cardFn).join('') + '</div>';
+            }).join('');
+        }
+
         // Se realmente não há nada em nenhum grupo, mostra empty state
         // único no lugar dos 3 headers vazios.
         if (!state.cotacoes.length) {
@@ -3545,7 +3592,7 @@
                     '<span>Em andamento</span>' +
                     '<span class="crm-v3-cotacao-grupo-count">' + emAndamento.length + '</span>' +
                 '</div>' +
-                emAndamento.map(cotacaoCardAberta).join('') +
+                renderBlocos(emAndamento, cotacaoCardAberta) +
                 '</div>';
         }
 
@@ -3557,7 +3604,7 @@
                         '<span>Aprovadas</span>' +
                         '<span class="crm-v3-cotacao-grupo-count">' + aprovadas.length + '</span>' +
                     '</div>' +
-                    aprovadas.map(cotacaoCardAprovada).join('') +
+                    renderBlocos(aprovadas, cotacaoCardAprovada) +
                     '</div>';
         }
 
@@ -3570,12 +3617,31 @@
                         '<span class="crm-v3-cotacao-grupo-count">' + historico.length + '</span>' +
                     '</div>' +
                     '<div class="crm-v3-cotacao-historico-list">' +
-                        historico.map(cotacaoLinhaHistorico).join('') +
+                        renderBlocos(historico, cotacaoLinhaHistorico) +
                     '</div>' +
                     '</div>';
         }
         container.innerHTML = html;
         bindCotacaoLogos(container);
+        container.querySelectorAll('[data-plano-principal]').forEach(function (btn) {
+            btn.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                fetch('/api/cotacoes/' + btn.getAttribute('data-plano-principal') + '/plano/principal', {
+                    method: 'POST',
+                    headers: { Accept: 'application/json' },
+                }).then(function (resp) {
+                    return resp.json().then(function (payload) {
+                        if (!resp.ok || payload.success === false) {
+                            throw new Error(payload.message || 'Não foi possível marcar esta proposta.');
+                        }
+                        window.location.reload();
+                    });
+                }).catch(function (err) {
+                    showToast((err && err.message) || 'Não foi possível marcar esta proposta.', true);
+                });
+            });
+        });
 
         // Delegação de clique para abrir o resumo (funciona para todos
         // os grupos: card aberto, card aprovada e linha histórico).

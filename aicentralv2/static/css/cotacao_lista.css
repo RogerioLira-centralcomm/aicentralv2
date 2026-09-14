@@ -1,12 +1,25 @@
+.cot-lista-num {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .cot-lista-type {
   display: inline-block;
-  margin-top: .2rem;
   border: 1px solid #dbe3e8;
   border-radius: .25rem;
   padding: .08rem .3rem;
   color: #596879;
   font-size: .6rem;
   font-weight: 700;
+}
+
+.cot-lista-flags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.2rem;
 }
 /* Lista /cotacoes — visual ERP vanilla. Query params e IDs não mudam. */
 
@@ -300,6 +313,9 @@
 }
 
 .cot-lista-num {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   font-weight: 700;
   color: var(--cn-brand);
   text-decoration: none;

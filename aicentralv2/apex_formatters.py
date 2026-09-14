@@ -82,30 +82,50 @@ def format_overview_chart(geral_mensal):
     }
 
 
-def format_quotes_chart(cotacoes_semanais, statuses):
-    """
-    Formata dados para o gráfico de cotações semanais por status.
-    Barras empilhadas por status.
-    """
-    if not cotacoes_semanais or not statuses:
+def format_quotes_chart(cotacoes_semanais, tipos=None, statuses=None):
+    """Barras empilhadas por tipo comercial (Mídia, Parceiros, Formatos, Dados)."""
+    from aicentralv2.cotacao_plano import DASHBOARD_TIPOS
+
+    if not cotacoes_semanais:
         return {'categories': [], 'series': []}
+
+    series_spec = tipos or DASHBOARD_TIPOS
+    if statuses and not tipos:
+        return {
+            'categories': [row.get('rotulo', '') for row in cotacoes_semanais],
+            'series': [
+                {
+                    'name': status,
+                    'data': [
+                        int((row.get('status') or {}).get(status, {}).get('quantidade') or 0)
+                        for row in cotacoes_semanais
+                    ],
+                    'currencyValues': [
+                        float((row.get('status') or {}).get(status, {}).get('valor_total') or 0)
+                        for row in cotacoes_semanais
+                    ],
+                    'color': _status_color(status, index),
+                }
+                for index, status in enumerate(statuses)
+            ],
+        }
 
     return {
         'categories': [row.get('rotulo', '') for row in cotacoes_semanais],
         'series': [
             {
-                'name': status,
+                'name': label,
                 'data': [
-                    int((row.get('status') or {}).get(status, {}).get('quantidade') or 0)
+                    int((row.get('tipos') or {}).get(slug, {}).get('quantidade') or 0)
                     for row in cotacoes_semanais
                 ],
                 'currencyValues': [
-                    float((row.get('status') or {}).get(status, {}).get('valor_total') or 0)
+                    float((row.get('tipos') or {}).get(slug, {}).get('valor_total') or 0)
                     for row in cotacoes_semanais
                 ],
-                'color': _status_color(status, index),
+                'color': color,
             }
-            for index, status in enumerate(statuses)
+            for slug, label, color in series_spec
         ],
     }
 

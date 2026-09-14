@@ -143,8 +143,12 @@
         padding: 0 1rem 0.75rem;
     }
     .sales-quarter-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: 100%;
         border-radius: 0.75rem;
-        padding: 0.75rem;
+        padding: 0.75rem 0.65rem;
         background: var(--sales-soft);
         text-align: center;
     }
@@ -166,6 +170,30 @@
         color: var(--sales-primary);
         font-size: 0.75rem;
         font-weight: 750;
+    }
+    .sales-quarter-ticks {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-content: flex-start;
+        gap: 0.35rem 0.55rem;
+        min-height: 1.15rem;
+        margin-top: 0.45rem;
+    }
+    .sales-quarter-tick {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 0.25rem;
+        color: var(--sales-muted);
+        font-size: 0.625rem;
+        font-weight: 650;
+        line-height: 1.2;
+    }
+    .sales-quarter-tick i {
+        width: 0.45rem;
+        height: 0.45rem;
+        border-radius: 999px;
+        background: currentColor;
     }
     .sales-chart-weekly {
         position: relative;
@@ -312,7 +340,7 @@
         <header class="sales-card-header">
             <div>
                 <h2 class="sales-card-title" id="sales-quotes-title">Cotações por semana</h2>
-                <p class="sales-card-subtitle">Consolidado semanal dos três principais executivos, com todos os trimestres de 2026.</p>
+                <p class="sales-card-subtitle">por tipo comercial, valor só da proposta que conta nos relatórios</p>
             </div>
             <span class="sales-card-badge" id="sales-quotes-badge">— cotações</span>
         </header>
@@ -322,6 +350,7 @@
                 <div class="sales-quarter-value" id="sales-quotes-q{{ quarter }}">0</div>
                 <div class="sales-quarter-label">{{ quarter }}º trimestre</div>
                 <div class="sales-quarter-currency" id="sales-quotes-q{{ quarter }}-value">R$ 0,00</div>
+                <div class="sales-quarter-ticks" id="sales-quotes-q{{ quarter }}-ticks" aria-label="Por tipo"></div>
             </div>
             {% endfor %}
         </div>

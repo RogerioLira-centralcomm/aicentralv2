@@ -1,0 +1,94 @@
+{% set plano = plano or {} %}
+{% set irmas = plano.irmas or [] %}
+{% set compacto = compacto|default(false) %}
+{% if compacto %}
+<div class="cot-plano cot-plano-strip" data-plano-root data-cotacao-id="{{ cotacao.id }}">
+  <span class="cot-plano-strip-label">Mesmo briefing</span>
+  {% if plano.aviso_sem_principal %}
+  <span class="cot-plano-aviso cot-plano-aviso-inline">Nenhuma proposta deste briefing conta nos relatórios.</span>
+  {% endif %}
+  {% if plano.tem_irmas %}
+  <ul class="cot-plano-strip-rail">
+    {% for irma in irmas %}
+    <li>
+      <a class="cot-plano-strip-item{% if irma.eh_principal %} is-principal{% endif %}{% if irma.atual %} is-atual{% endif %}"
+         href="{{ url_for('cotacoes.cotacao_abrir', cotacao_id=irma.id) }}"
+         title="{{ irma.tipo_comercial_label }} · {{ irma.status }}">
+        <span class="cot-plano-dot{% if irma.eh_principal %} is-on{% endif %}" aria-hidden="true"></span>
+        <span>{{ irma.numero_cotacao }}</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% if plano.tem_irmas and not plano.eh_principal and plano.principal_numero and not plano.aviso_sem_principal %}
+  <span class="cot-plano-copy cot-plano-copy-inline">Os relatórios continuam em {{ plano.principal_numero }}.</span>
+  {% endif %}
+  {% else %}
+  <span class="cot-plano-copy cot-plano-copy-inline">Ainda não há outras propostas deste briefing.</span>
+  {% endif %}
+  <div class="cot-plano-strip-actions">
+    {% if not plano.eh_principal %}
+    <button type="button" class="cot-plano-text-btn is-primary" data-plano-principal="{{ cotacao.id }}">Usar esta nos relatórios</button>
+    {% endif %}
+    <button type="button" class="cot-plano-text-btn" data-plano-duplicar>Duplicar esta proposta</button>
+  </div>
+</div>
+{% else %}
+<div class="cot-plano cot-plano-sidebar"
+     data-plano-root
+     data-cotacao-id="{{ cotacao.id }}">
+  <p class="cot-plano-title">Mesmo briefing</p>
+  {% if plano.aviso_sem_principal %}
+  <p class="cot-plano-aviso">Nenhuma proposta deste briefing conta nos relatórios.</p>
+  {% elif plano.tem_irmas and not plano.eh_principal and plano.principal_numero %}
+  <p class="cot-plano-copy">Os relatórios continuam em {{ plano.principal_numero }}.</p>
+  {% elif not plano.tem_irmas %}
+  <p class="cot-plano-copy">Ainda não há outras propostas deste briefing.</p>
+  {% else %}
+  <p class="cot-plano-copy">{% if plano.eh_principal %}Esta conta nos relatórios.{% else %}Outra proposta deste briefing conta nos relatórios.{% endif %}</p>
+  {% endif %}
+
+  {% if plano.tem_irmas %}
+  <ul class="cot-plano-rail">
+    {% for irma in irmas %}
+    <li>
+      <a class="cot-plano-item{% if irma.eh_principal %} is-principal{% endif %}{% if irma.atual %} is-atual{% endif %}{% if not irma.eh_principal %} is-dim{% endif %}"
+         href="{{ url_for('cotacoes.cotacao_abrir', cotacao_id=irma.id) }}">
+        <span class="cot-plano-node" aria-hidden="true"></span>
+        <span class="cot-plano-body">
+          <span class="cot-plano-line">
+            <span class="cot-plano-num">{{ irma.numero_cotacao }}</span>
+            <span class="cot-plano-val">R$ {{ '{:,.0f}'.format(irma.valor_total or 0).replace(',', '.') }}</span>
+          </span>
+          <span class="cot-plano-meta">
+            <span>{{ irma.tipo_comercial_label }}</span>
+            <span>{{ irma.status }}</span>
+            {% if irma.eh_principal %}<span class="cot-plano-chip is-principal">Principal</span>{% endif %}
+          </span>
+        </span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <div class="cot-plano-actions">
+    {% if not plano.eh_principal %}
+    <button type="button" class="cx-btn cx-btn-sm cx-btn-primary" data-plano-principal="{{ cotacao.id }}">Usar esta nos relatórios</button>
+    {% endif %}
+    <button type="button" class="cx-btn cx-btn-sm cx-btn-outline" data-plano-duplicar>Duplicar esta proposta</button>
+  </div>
+
+  <details class="cot-plano-menu">
+    <summary>Mais ações</summary>
+    {% if plano.tem_irmas %}
+    <button type="button" class="cx-btn cx-btn-sm cx-btn-outline" data-plano-soltar>Soltar deste briefing</button>
+    {% endif %}
+    <div class="cot-plano-search">
+      <label class="cot-plano-copy" for="cot-plano-busca-{{ cotacao.id }}">Ligar a outra proposta</label>
+      <input id="cot-plano-busca-{{ cotacao.id }}" type="search" data-plano-busca placeholder="Número ou campanha">
+      <div class="cot-plano-results" data-plano-resultados></div>
+    </div>
+  </details>
+</div>
+{% endif %}

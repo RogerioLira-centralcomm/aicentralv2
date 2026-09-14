@@ -6,6 +6,7 @@
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_nova.css') }}?v=7">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_plano.css') }}?v=2">
 <style>
   .tab-nav-item { border-bottom: 2px solid transparent; }
   .tab-nav-item.active { color: #1e4d4f; border-bottom-color: #1e4d4f; font-weight: 600; }
@@ -151,6 +152,7 @@
   </div>
   {% endif %}
 
+  {% if modo == 'editar' %}<div class="cot-editar-com-plano">{% endif %}
   <form id="cotacao_form" method="POST" enctype="multipart/form-data"{% if modo == 'editar' %} data-modo="editar" data-qtd-linhas="{{ resumo_metricas.qtd_linhas if resumo_metricas else 0 }}" data-qtd-audiencias="{{ resumo_metricas.qtd_audiencias if resumo_metricas else 0 }}" data-agencia-inicial="{{ cotacao.agencia_id if cotacao and cotacao.agencia_id else '' }}" data-parceiro-inicial="{{ cotacao.id_parceiro if cotacao and cotacao.id_parceiro else '' }}"{% endif %}>
 
     <!-- Hidden inputs -->
@@ -663,6 +665,10 @@
 
     <input type="hidden" name="origem" value="Admin">
   </form>
+  {% if modo == 'editar' %}
+  {% include 'cotacoes/_plano_haste.html' %}
+  </div>
+  {% endif %}
   {% if modo == 'novo' %}</div>{% endif %}
 
   </div>
@@ -2215,4 +2221,5 @@ document.getElementById('nc_form').addEventListener('submit', async function(e) 
 });
 
 </script>
+<script src="{{ url_for('static', filename='js/cotacao_plano.js') }}?v=2"></script>
 {% endblock %}

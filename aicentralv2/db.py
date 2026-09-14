@@ -23,8 +23,18 @@ from .cotacao_tipos import (
     normalizar_tipo_comercial,
     validar_status_tipo_comercial,
 )
+from .cotacao_plano import (
+    DASHBOARD_TIPOS,
+    agregar_semanas_por_tipo,
+    agregar_trimestres_por_tipo,
+    parse_alvo_id,
+    payload_haste,
+    sql_eh_principal,
+    sql_valor_que_conta,
+)
 import re
 import secrets
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -6903,7 +6913,8 @@ def obter_cotacoes_resumo_lote(cliente_ids):
                     seen.add(eid)
                     empresas.append(eid)
         cursor.execute('''
-            SELECT id, client_id, agencia_id, status, valor_total_proposta
+            SELECT id, client_id, agencia_id, status, valor_total_proposta,
+                   grupo_plano_id, eh_principal
             FROM cadu_cotacoes
             WHERE deleted_at IS NULL
               AND (client_id = ANY(%s) OR agencia_id = ANY(%s))
@@ -8503,12 +8514,20 @@ def obter_cotacoes_filtradas(
                     params.append(status)
             
             # Ordenar: Enviadas primeiro (prioridade), depois por data de período
-            query += f'''
-                ORDER BY 
-                    CASE WHEN {status_expr} = 'Enviada' THEN 0 ELSE 1 END,
-                    c.periodo_inicio DESC NULLS LAST,
-                    c.created_at DESC
-            '''
+            if "grupo_plano_id" in cotacao_cols:
+                query += f'''
+                    ORDER BY
+                        c.grupo_plano_id NULLS LAST,
+                        CASE WHEN COALESCE(c.eh_principal, TRUE) THEN 0 ELSE 1 END,
+                        c.created_at DESC
+                '''
+            else:
+                query += f'''
+                    ORDER BY
+                        CASE WHEN {status_expr} = 'Enviada' THEN 0 ELSE 1 END,
+                        c.periodo_inicio DESC NULLS LAST,
+                        c.created_at DESC
+                '''
             
             cursor.execute(query, params)
             return cursor.fetchall()
@@ -8577,6 +8596,10 @@ def criar_cotacao(client_id, nome_campanha, periodo_inicio, **kwargs):
             # Adicionar campos opcionais
             if kwargs.get('imposto_percentual') is None:
                 kwargs['imposto_percentual'] = obter_imposto_percentual_config()
+            if not kwargs.get('grupo_plano_id'):
+                kwargs['grupo_plano_id'] = str(uuid.uuid4())
+            if kwargs.get('eh_principal') is None:
+                kwargs['eh_principal'] = True
 
             campos_opcionais = [
                 'objetivo_campanha', 'periodo_fim', 'status', 'client_user_id',
@@ -8589,6 +8612,7 @@ def criar_cotacao(client_id, nome_campanha, periodo_inicio, **kwargs):
                 'desconto_total', 'desconto_percentual', 'condicoes_comerciais',
                 'frequencia_impacto', 'premissas', 'observacoes_gerais',
                 'plataforma_campanha', 'imposto_percentual', 'tipo_comercial',
+                'grupo_plano_id', 'eh_principal',
             ]
             
             for campo in campos_opcionais:
@@ -8673,6 +8697,256 @@ def atualizar_cotacao(cotacao_id, **kwargs):
     except Exception as e:
         conn.rollback()
         raise e
+
+
+def _garantir_grupo_plano_id(cursor, cotacao):
+    grupo = cotacao.get("grupo_plano_id")
+    if grupo:
+        return str(grupo), False
+    novo = str(uuid.uuid4())
+    cursor.execute(
+        """
+        UPDATE cadu_cotacoes
+        SET grupo_plano_id = %s,
+            eh_principal = COALESCE(eh_principal, TRUE),
+            updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+        WHERE id = %s AND deleted_at IS NULL
+        """,
+        (novo, cotacao["id"]),
+    )
+    cotacao["grupo_plano_id"] = novo
+    return novo, True
+
+
+def listar_irmas_cotacao(cotacao_id):
+    conn = get_db()
+    try:
+        return _listar_irmas_cotacao(conn, cotacao_id)
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def _listar_irmas_cotacao(conn, cotacao_id):
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT id, grupo_plano_id, eh_principal
+            FROM cadu_cotacoes
+            WHERE id = %s AND deleted_at IS NULL
+            """,
+            (cotacao_id,),
+        )
+        atual = cursor.fetchone()
+        if not atual:
+            return []
+        grupo, wrote = _garantir_grupo_plano_id(cursor, atual)
+        if wrote:
+            conn.commit()
+        cursor.execute(
+            """
+            SELECT
+                c.id,
+                c.numero_cotacao,
+                c.nome_campanha,
+                c.status,
+                c.tipo_comercial,
+                c.valor_total_proposta,
+                c.grupo_plano_id,
+                c.eh_principal,
+                c.client_id,
+                COALESCE(st.descricao, NULLIF(BTRIM(c.status::text), ''), c.status::text)
+                    AS status_display
+            FROM cadu_cotacoes c
+            LEFT JOIN cadu_cotacoes_status st ON TRIM(c.status::text) = st.id::text
+            WHERE c.deleted_at IS NULL
+              AND c.grupo_plano_id = %s
+            ORDER BY COALESCE(c.eh_principal, TRUE) DESC, c.created_at ASC
+            """,
+            (grupo,),
+        )
+        return [dict(row) for row in (cursor.fetchall() or [])]
+
+
+def payload_plano_cotacao(cotacao):
+    if not cotacao:
+        return payload_haste(None)
+    try:
+        irmas = listar_irmas_cotacao(cotacao.get("id"))
+    except Exception:
+        logger.exception("plano: falha ao listar propostas do mesmo briefing")
+        return payload_haste(cotacao)
+    return payload_haste(cotacao, irmas)
+
+
+def marcar_cotacao_principal(cotacao_id):
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, grupo_plano_id, eh_principal
+                FROM cadu_cotacoes
+                WHERE id = %s AND deleted_at IS NULL
+                """,
+                (cotacao_id,),
+            )
+            atual = cursor.fetchone()
+            if not atual:
+                raise ValueError("Cotação não encontrada.")
+            grupo, _wrote = _garantir_grupo_plano_id(cursor, atual)
+            cursor.execute(
+                """
+                UPDATE cadu_cotacoes
+                SET eh_principal = FALSE,
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                WHERE grupo_plano_id = %s
+                  AND deleted_at IS NULL
+                  AND id IS DISTINCT FROM %s
+                """,
+                (grupo, cotacao_id),
+            )
+            cursor.execute(
+                """
+                UPDATE cadu_cotacoes
+                SET eh_principal = TRUE,
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                WHERE id = %s AND deleted_at IS NULL
+                """,
+                (cotacao_id,),
+            )
+            conn.commit()
+        return payload_plano_cotacao(obter_cotacao_por_id(cotacao_id))
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def vincular_cotacao_plano(cotacao_id, alvo_id):
+    alvo_id = parse_alvo_id(alvo_id)
+    if int(cotacao_id) == alvo_id:
+        raise ValueError("Escolha outra proposta para ligar.")
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, grupo_plano_id, client_id, agencia_id
+                FROM cadu_cotacoes
+                WHERE id IN (%s, %s) AND deleted_at IS NULL
+                """,
+                (cotacao_id, alvo_id),
+            )
+            rows = {int(row["id"]): row for row in (cursor.fetchall() or [])}
+            origem = rows.get(int(cotacao_id))
+            alvo = rows.get(alvo_id)
+            if not origem or not alvo:
+                raise ValueError("Cotação não encontrada.")
+            mesmo_cliente = (
+                origem.get("client_id") is not None
+                and origem.get("client_id") == alvo.get("client_id")
+            )
+            mesma_agencia = (
+                origem.get("agencia_id") is not None
+                and origem.get("agencia_id") == alvo.get("agencia_id")
+            )
+            if not (mesmo_cliente or mesma_agencia):
+                raise ValueError(
+                    "Só é possível ligar propostas do mesmo cliente ou da mesma agência."
+                )
+            grupo, _wrote = _garantir_grupo_plano_id(cursor, alvo)
+            cursor.execute(
+                """
+                UPDATE cadu_cotacoes
+                SET grupo_plano_id = %s,
+                    eh_principal = FALSE,
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                WHERE id = %s AND deleted_at IS NULL
+                """,
+                (grupo, cotacao_id),
+            )
+            conn.commit()
+        return payload_plano_cotacao(obter_cotacao_por_id(cotacao_id))
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def desvincular_cotacao_plano(cotacao_id):
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id FROM cadu_cotacoes
+                WHERE id = %s AND deleted_at IS NULL
+                """,
+                (cotacao_id,),
+            )
+            if not cursor.fetchone():
+                raise ValueError("Cotação não encontrada.")
+            cursor.execute(
+                """
+                UPDATE cadu_cotacoes
+                SET grupo_plano_id = %s,
+                    eh_principal = TRUE,
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                WHERE id = %s AND deleted_at IS NULL
+                """,
+                (str(uuid.uuid4()), cotacao_id),
+            )
+            conn.commit()
+        return payload_plano_cotacao(obter_cotacao_por_id(cotacao_id))
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def buscar_cotacoes_para_vincular(cotacao_id, busca=""):
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT id, client_id, agencia_id
+            FROM cadu_cotacoes
+            WHERE id = %s AND deleted_at IS NULL
+            """,
+            (cotacao_id,),
+        )
+        atual = cursor.fetchone()
+        if not atual:
+            return []
+        sql = """
+            SELECT
+                c.id,
+                c.numero_cotacao,
+                c.nome_campanha,
+                c.status,
+                c.tipo_comercial,
+                c.valor_total_proposta,
+                c.grupo_plano_id,
+                c.eh_principal
+            FROM cadu_cotacoes c
+            WHERE c.deleted_at IS NULL
+              AND c.id <> %s
+              AND (
+                    (c.client_id IS NOT NULL AND c.client_id = %s)
+                 OR (c.agencia_id IS NOT NULL AND c.agencia_id = %s)
+              )
+        """
+        params = [
+            cotacao_id,
+            atual.get("client_id"),
+            atual.get("agencia_id"),
+        ]
+        termo = (busca or "").strip()
+        if termo:
+            sql += " AND (c.numero_cotacao ILIKE %s OR c.nome_campanha ILIKE %s)"
+            like = f"%{termo}%"
+            params.extend([like, like])
+        sql += " ORDER BY c.created_at DESC LIMIT 12"
+        cursor.execute(sql, params)
+        return [dict(row) for row in (cursor.fetchall() or [])]
 
 
 def _tipo_cotacao_montagem(cur, cotacao_id):
@@ -10339,6 +10613,8 @@ def obter_cotacoes_pipeline(filtros=None):
                     cot.periodo_fim,
                     cot.agencia_id,
                     cot.tipo_comercial,
+                    cot.grupo_plano_id,
+                    cot.eh_principal,
                     cot.objetivo_campanha,
                     cot.plataforma_campanha,
                     {proxima_acao_select}
@@ -10634,19 +10910,19 @@ def obter_kpis_semanais(semana_inicio, semana_fim, executivo_id=None, cliente_id
             cursor.execute(f'''
                 SELECT 
                     COUNT(*) as cotacoes_criadas,
-                    COALESCE(SUM(valor_total_proposta), 0) as valor_total,
-                    COALESCE(SUM(valor_total_proposta) FILTER (WHERE status = 'Aprovada'), 0) as valor_aprovado,
-                    COUNT(*) FILTER (WHERE status = 'Aprovada') as aprovadas,
-                    COUNT(*) FILTER (WHERE status = 'Rejeitada') as rejeitadas,
-                    COUNT(*) FILTER (WHERE status IN ('Enviada', 'Negociação')) as enviadas,
+                    COALESCE(SUM({sql_valor_que_conta('cadu_cotacoes').replace('cadu_cotacoes.', '')}), 0) as valor_total,
+                    COALESCE(SUM(valor_total_proposta) FILTER (WHERE status = 'Aprovada' AND COALESCE(eh_principal, TRUE)), 0) as valor_aprovado,
+                    COUNT(*) FILTER (WHERE status = 'Aprovada' AND COALESCE(eh_principal, TRUE)) as aprovadas,
+                    COUNT(*) FILTER (WHERE status = 'Rejeitada' AND COALESCE(eh_principal, TRUE)) as rejeitadas,
+                    COUNT(*) FILTER (WHERE status IN ('Enviada', 'Negociação') AND COALESCE(eh_principal, TRUE)) as enviadas,
                     ROUND(
-                        COUNT(*) FILTER (WHERE status = 'Aprovada')::DECIMAL / 
-                        NULLIF(COUNT(*) FILTER (WHERE status IN ('Aprovada', 'Rejeitada')), 0) * 100, 
+                        COUNT(*) FILTER (WHERE status = 'Aprovada' AND COALESCE(eh_principal, TRUE))::DECIMAL / 
+                        NULLIF(COUNT(*) FILTER (WHERE status IN ('Aprovada', 'Rejeitada') AND COALESCE(eh_principal, TRUE)), 0) * 100, 
                         1
                     ) as taxa_conversao,
                     ROUND(
-                        COALESCE(SUM(valor_total_proposta) FILTER (WHERE status = 'Aprovada'), 0) / 
-                        NULLIF(COUNT(*) FILTER (WHERE status = 'Aprovada'), 0),
+                        COALESCE(SUM(valor_total_proposta) FILTER (WHERE status = 'Aprovada' AND COALESCE(eh_principal, TRUE)), 0) / 
+                        NULLIF(COUNT(*) FILTER (WHERE status = 'Aprovada' AND COALESCE(eh_principal, TRUE)), 0),
                         2
                     ) as ticket_medio,
                     ROUND(
@@ -10703,12 +10979,12 @@ def obter_cotacoes_por_executivo_semana(semana_inicio, semana_fim, executivo_id=
                     c.responsavel_comercial as executivo_id,
                     COALESCE(e.nome_completo, 'Não atribuído') as executivo_nome,
                     COUNT(*) as total_cotacoes,
-                    COALESCE(SUM(c.valor_total_proposta), 0) as valor_total,
-                    COUNT(*) FILTER (WHERE c.status = 'Aprovada') as aprovadas,
-                    COUNT(*) FILTER (WHERE c.status = 'Rejeitada') as rejeitadas,
+                    COALESCE(SUM({sql_valor_que_conta('c')}), 0) as valor_total,
+                    COUNT(*) FILTER (WHERE c.status = 'Aprovada' AND {sql_eh_principal('c')}) as aprovadas,
+                    COUNT(*) FILTER (WHERE c.status = 'Rejeitada' AND {sql_eh_principal('c')}) as rejeitadas,
                     ROUND(
-                        COUNT(*) FILTER (WHERE c.status = 'Aprovada')::DECIMAL / 
-                        NULLIF(COUNT(*), 0) * 100, 
+                        COUNT(*) FILTER (WHERE c.status = 'Aprovada' AND {sql_eh_principal('c')})::DECIMAL / 
+                        NULLIF(COUNT(*) FILTER (WHERE {sql_eh_principal('c')}), 0) * 100, 
                         1
                     ) as taxa_conversao
                 FROM cadu_cotacoes c
@@ -16452,7 +16728,7 @@ def get_dashboard_comercial_ano(year=2026):
         'geral_mensal': [],
         'cotacoes_semanais': [],
         'cotacoes_trimestres': [
-            {'trimestre': quarter, 'total': 0, 'valor_total': 0.0, 'status': {}}
+            {'trimestre': quarter, 'total': 0, 'valor_total': 0.0, 'tipos': {}}
             for quarter in range(1, 5)
         ],
         'cotacoes_status': [],
@@ -16557,32 +16833,30 @@ def get_dashboard_comercial_ano(year=2026):
                 SELECT
                     TO_CHAR(DATE_TRUNC('month', c.created_at), 'YYYY-MM') AS mes,
                     c.responsavel_comercial AS executivo_id,
-                    {status_nome_sql} AS status_nome,
+                    COALESCE(c.tipo_comercial, 'midia') AS tipo_comercial,
                     COUNT(*) AS total,
-                    COALESCE(SUM(c.valor_total_proposta), 0) AS valor_total
+                    COALESCE(SUM({sql_valor_que_conta('c')}), 0) AS valor_total
                 FROM cadu_cotacoes c
-                {status_join}
                 WHERE c.deleted_at IS NULL
                   AND c.responsavel_comercial = ANY(%s)
                   AND EXTRACT(YEAR FROM c.created_at) = %s
-                GROUP BY mes, c.responsavel_comercial, status_nome
+                GROUP BY mes, c.responsavel_comercial, COALESCE(c.tipo_comercial, 'midia')
                 ORDER BY mes
             ''', (executive_ids, year))
 
             cotacoes_semanais_raw = _fetch('cotacoes_semanais', f'''
                 SELECT
                     DATE_TRUNC('week', c.created_at)::date AS semana,
-                    {status_nome_sql} AS status_nome,
+                    COALESCE(c.tipo_comercial, 'midia') AS tipo_comercial,
                     COUNT(*) AS total,
-                    COALESCE(SUM(c.valor_total_proposta), 0) AS valor_total
+                    COALESCE(SUM({sql_valor_que_conta('c')}), 0) AS valor_total
                 FROM cadu_cotacoes c
-                {status_join}
                 WHERE c.deleted_at IS NULL
                   AND c.responsavel_comercial = ANY(%s)
                   AND c.created_at >= MAKE_DATE(%s, 1, 1)
                   AND c.created_at < MAKE_DATE(%s + 1, 1, 1)
-                GROUP BY DATE_TRUNC('week', c.created_at), status_nome
-                ORDER BY semana, status_nome
+                GROUP BY DATE_TRUNC('week', c.created_at), COALESCE(c.tipo_comercial, 'midia')
+                ORDER BY semana, tipo_comercial
             ''', (executive_ids, year, year))
 
             liquido_expr = _parse_varchar_to_numeric('p.vr_liquido_pi')
@@ -16699,64 +16973,15 @@ def get_dashboard_comercial_ano(year=2026):
                 'valor_pi': sum(row['valor_pi'] for row in rows),
             })
 
-        quote_statuses = sorted(
-            {
-                row.get('status_nome') or 'Sem status'
-                for row in cotacoes_semanais_raw
-            },
-            key=lambda status: -sum(
-                int(row.get('total') or 0)
-                for row in cotacoes_semanais_raw
-                if (row.get('status_nome') or 'Sem status') == status
-            ),
-        )
         first_day = date(year, 1, 1)
         week_start = first_day - timedelta(days=first_day.weekday())
         year_end = date(year + 1, 1, 1)
-        quote_weeks = []
+        week_starts = []
         while week_start < year_end:
-            status_values = {}
-            for status in quote_statuses:
-                matching = [
-                    row for row in cotacoes_semanais_raw
-                    if row.get('semana') == week_start
-                    and (row.get('status_nome') or 'Sem status') == status
-                ]
-                status_values[status] = {
-                    'quantidade': sum(int(row.get('total') or 0) for row in matching),
-                    'valor_total': sum(float(row.get('valor_total') or 0) for row in matching),
-                }
-            quote_weeks.append({
-                'inicio': week_start.isoformat(),
-                'rotulo': week_start.strftime('%d/%m'),
-                'total': sum(value['quantidade'] for value in status_values.values()),
-                'valor_total': sum(value['valor_total'] for value in status_values.values()),
-                'status': status_values,
-            })
+            week_starts.append(week_start)
             week_start += timedelta(days=7)
-
-        quote_quarters = []
-        for quarter in range(1, 5):
-            quarter_rows = [
-                row for row in cotacoes_mensais
-                if ((int(str(row.get('mes'))[5:7]) - 1) // 3) + 1 == quarter
-            ]
-            status_values = {}
-            for status in quote_statuses:
-                status_rows = [
-                    row for row in quarter_rows
-                    if (row.get('status_nome') or 'Sem status') == status
-                ]
-                status_values[status] = {
-                    'quantidade': sum(int(row.get('total') or 0) for row in status_rows),
-                    'valor_total': sum(float(row.get('valor_total') or 0) for row in status_rows),
-                }
-            quote_quarters.append({
-                'trimestre': quarter,
-                'total': sum(int(row.get('total') or 0) for row in quarter_rows),
-                'valor_total': sum(float(row.get('valor_total') or 0) for row in quarter_rows),
-                'status': status_values,
-            })
+        quote_weeks = agregar_semanas_por_tipo(cotacoes_semanais_raw, week_starts)
+        quote_quarters = agregar_trimestres_por_tipo(cotacoes_mensais)
 
         platforms = sorted({
             row.get('plataforma') or 'Sem plataforma' for row in campanhas_mensais
@@ -16810,7 +17035,7 @@ def get_dashboard_comercial_ano(year=2026):
             'geral_mensal': general,
             'cotacoes_semanais': quote_weeks,
             'cotacoes_trimestres': quote_quarters,
-            'cotacoes_status': quote_statuses,
+            'cotacoes_status': [label for _slug, label, _color in DASHBOARD_TIPOS],
             'campanhas_mensal': campaign_monthly,
             'plataformas': platforms,
             'mes_referencia': months[current_index],
@@ -16818,7 +17043,7 @@ def get_dashboard_comercial_ano(year=2026):
             'resumo_anterior': _summary(previous_index),
             'apex': {
                 'overview': format_overview_chart(general),
-                'quotes': format_quotes_chart(quote_weeks, quote_statuses),
+                'quotes': format_quotes_chart(quote_weeks),
                 'campaigns': format_campaigns_chart(campaign_monthly, platforms),
                 'executivos': format_executives_apex(executives),
             },
@@ -17280,11 +17505,11 @@ def obter_funil_comercial(inicio, fim, executivo_id=None):
             cursor.execute(f'''
                 SELECT
                     COUNT(*) as total,
-                    COUNT(*) FILTER (WHERE c.status IN ('Enviada', 'Negociação')) as enviadas,
-                    COUNT(*) FILTER (WHERE c.status = 'Aprovada') as aprovadas,
-                    COUNT(*) FILTER (WHERE c.status = 'Rejeitada') as rejeitadas,
-                    COALESCE(SUM(c.valor_total_proposta) FILTER (WHERE c.status = 'Aprovada'), 0) as valor_aprovado,
-                    COALESCE(SUM(c.valor_total_proposta), 0) as valor_total
+                    COUNT(*) FILTER (WHERE c.status IN ('Enviada', 'Negociação') AND {sql_eh_principal('c')}) as enviadas,
+                    COUNT(*) FILTER (WHERE c.status = 'Aprovada' AND {sql_eh_principal('c')}) as aprovadas,
+                    COUNT(*) FILTER (WHERE c.status = 'Rejeitada' AND {sql_eh_principal('c')}) as rejeitadas,
+                    COALESCE(SUM({sql_valor_que_conta('c')}) FILTER (WHERE c.status = 'Aprovada'), 0) as valor_aprovado,
+                    COALESCE(SUM({sql_valor_que_conta('c')}), 0) as valor_total
                 FROM cadu_cotacoes c
                 WHERE c.deleted_at IS NULL
                   AND c.created_at >= %s AND c.created_at < %s + INTERVAL '1 day'

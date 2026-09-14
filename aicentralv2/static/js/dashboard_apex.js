@@ -177,6 +177,28 @@
 
     // ========== Quotes Chart ==========
 
+    const QUOTE_TYPE_META = {
+        midia: { label: 'Mídia', color: '#0369a1' },
+        parceiros: { label: 'Parceiros', color: '#6d28d9' },
+        formatos_interativos: { label: 'Formatos', color: '#c2410c' },
+        dados: { label: 'Dados', color: '#047857' },
+    };
+
+    function renderQuarterTicks(quarter, tipos) {
+        const host = document.getElementById(`sales-quotes-q${quarter}-ticks`);
+        if (!host) return;
+        const parts = Object.keys(QUOTE_TYPE_META).map((slug) => {
+            const meta = QUOTE_TYPE_META[slug];
+            const row = (tipos && tipos[slug]) || {};
+            const qty = Number(row.quantidade || 0);
+            const val = Number(row.valor_total || 0);
+            if (!qty && !val) return '';
+            return `<span class="sales-quarter-tick" style="color:${meta.color}">` +
+                `<i aria-hidden="true"></i>${meta.label} ${formatNumber(qty)}</span>`;
+        }).filter(Boolean);
+        host.innerHTML = parts.join('');
+    }
+
     function renderQuotes(apex, quarters) {
         destroyChart('quotes');
 
@@ -185,6 +207,7 @@
             const item = quarters.find(row => Number(row.trimestre) === q);
             setText(`sales-quotes-q${q}`, formatNumber(item?.total || 0));
             setText(`sales-quotes-q${q}-value`, formatCurrency(item?.valor_total || 0));
+            renderQuarterTicks(q, item?.tipos || {});
         }
         const total = quarters.reduce((sum, row) => sum + Number(row.total || 0), 0);
         const totalValue = quarters.reduce((sum, row) => sum + Number(row.valor_total || 0), 0);
@@ -248,6 +271,7 @@
                 intersect: false,
                 custom: function({ series, seriesIndex, dataPointIndex, w }) {
                     const statusNames = apex.series.map(s => s.name);
+                    // nomes das séries = tipos comerciais
                     let html = `<div class="apexcharts-tooltip-custom" style="padding: 8px 12px; font-size: 12px;">`;
                     html += `<div style="font-weight: 600; margin-bottom: 6px;">${apex.categories[dataPointIndex]}</div>`;
                     let totalQty = 0;

@@ -5,6 +5,7 @@
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_pipeline.css') }}?v=10">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_plano.css') }}?v=2">
 {% endblock %}
 
 {% block content %}
@@ -161,6 +162,8 @@
          data-days="{{ dias }}"
          data-value="{{ bruto }}"
          data-type="{{ cotacao.tipo_comercial or 'midia' }}"
+         data-principal="{{ '1' if cotacao.eh_principal else '0' }}"
+         data-grupo="{{ cotacao.grupo_plano_id or '' }}"
          data-search="{{ ((cotacao.cliente_nome or '') ~ ' ' ~ (cotacao.agencia_nome or '') ~ ' ' ~ (cotacao.nome_campanha or ''))|lower|e }}"
          onclick="abrirModalCotacao({{ cotacao.id }})"
          onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); abrirModalCotacao({{ cotacao.id }}); }"
@@ -173,6 +176,9 @@
             <span class="pp-company-name">{{ cotacao.cliente_nome or 'Sem cliente' }}</span>
             {% if is_agencia %}<small>Agência</small>{% endif %}
             {{ pp_quote_type(cotacao.tipo_comercial) }}
+            {% if cotacao.plano_tem_irmas %}
+            <span class="cot-plano-dot{% if cotacao.eh_principal %} is-on{% endif %}" title="{% if cotacao.eh_principal %}Principal{% else %}Mesmo briefing{% endif %}"></span>
+            {% endif %}
           </div>
           {% if not is_agencia and cotacao.agencia_nome and cotacao.agencia_id %}
           <div class="pp-deal-agency" title="{{ cotacao.agencia_nome }}">
@@ -221,6 +227,9 @@
         <div class="pp-hist-name" title="{{ cotacao.cliente_nome or 'Sem cliente' }}">{{ cotacao.cliente_nome or 'Sem cliente' }}</div>
         <div class="pp-hist-meta">
           {{ pp_quote_type(cotacao.tipo_comercial) }}
+          {% if cotacao.plano_tem_irmas %}
+          <span class="cot-plano-dot{% if cotacao.eh_principal %} is-on{% endif %}" aria-hidden="true"></span>
+          {% endif %}
           {{ dias }}d sem movimento
         </div>
       </div>
@@ -391,6 +400,9 @@
         <section class="pp-detail-section">
           <h4>Observações</h4>
           <p id="resumo_observacoes">-</p>
+        </section>
+        <section class="pp-detail-section" id="modal_plano_wrap" hidden>
+          <div id="modal_plano"></div>
         </section>
       </div>
       
@@ -901,6 +913,7 @@ async function abrirModalCotacao(cotacaoId) {
     if (result.success) {
       cotacaoAtualData = result.cotacao;
       preencherModal(result.cotacao);
+      carregarPlanoModal(cotacaoId);
       if (window.CentralXAgent) {
         window.CentralXAgent.setContext({
           module: 'comercial',
@@ -1112,6 +1125,43 @@ function aplicarTipoCotacaoNoDrawer(c) {
   audiencesBlock.hidden = !showAudiences;
   relatedGrid.classList.toggle('is-single', !showAudiences);
   return config;
+}
+
+async function carregarPlanoModal(cotacaoId) {
+  const wrap = document.getElementById('modal_plano_wrap');
+  const host = document.getElementById('modal_plano');
+  if (!wrap || !host) return;
+  wrap.hidden = true;
+  host.innerHTML = '';
+  try {
+    const resp = await fetch(`/api/cotacoes/${cotacaoId}/plano`);
+    const payload = await resp.json();
+    const plano = payload.plano || {};
+    if (!plano.tem_irmas && !plano.aviso_sem_principal) return;
+    host.innerHTML = `
+      <div class="cot-plano cot-plano-strip" data-plano-root data-cotacao-id="${cotacaoId}">
+        <span class="cot-plano-strip-label">Mesmo briefing</span>
+        ${plano.aviso_sem_principal ? '<span class="cot-plano-aviso cot-plano-aviso-inline">Nenhuma proposta deste briefing conta nos relatórios.</span>' : ''}
+        <ul class="cot-plano-strip-rail">${(plano.irmas || []).map((irma) => `
+          <li><a class="cot-plano-strip-item${irma.eh_principal ? ' is-principal' : ''}${irma.atual ? ' is-atual' : ''}"
+                 href="/cotacoes/${irma.id}/abrir"
+                 title="${escapeHtml(irma.tipo_comercial_label || '')} · ${escapeHtml(irma.status || '')}">
+            <span class="cot-plano-dot${irma.eh_principal ? ' is-on' : ''}" aria-hidden="true"></span>
+            <span>${escapeHtml(irma.numero_cotacao)}</span>
+          </a></li>`).join('')}</ul>
+        ${!plano.eh_principal && plano.principal_numero && !plano.aviso_sem_principal
+          ? `<span class="cot-plano-copy cot-plano-copy-inline">Os relatórios continuam em ${escapeHtml(plano.principal_numero)}.</span>`
+          : ''}
+        <div class="cot-plano-strip-actions">
+          ${plano.eh_principal ? '' : `<button type="button" class="cot-plano-text-btn is-primary" data-plano-principal="${cotacaoId}">Usar esta nos relatórios</button>`}
+          <button type="button" class="cot-plano-text-btn" data-plano-duplicar>Duplicar esta proposta</button>
+        </div>
+      </div>`;
+    wrap.hidden = false;
+    if (window.cotacaoPlanoBind) window.cotacaoPlanoBind(host);
+  } catch (_err) {
+    wrap.hidden = true;
+  }
 }
 
 function escapeHtml(valor) {
@@ -1540,4 +1590,5 @@ document.addEventListener('keydown', function(e) {
   }
 });
 </script>
+<script src="{{ url_for('static', filename='js/cotacao_plano.js') }}?v=2"></script>
 {% endblock %}

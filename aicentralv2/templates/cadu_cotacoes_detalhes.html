@@ -6,6 +6,7 @@
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_detalhes.css') }}?v=6">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_plano.css') }}?v=2">
 {% endblock %}
 
 {% block content %}
@@ -2298,6 +2299,11 @@ function calcularVolumeEdit() {
         {% endif %}
       </div>
     </div>
+    {% if cotacao %}
+    {% with compacto=true %}
+    {% include 'cotacoes/_plano_haste.html' %}
+    {% endwith %}
+    {% endif %}
   </header>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -8792,6 +8798,7 @@ async function recalcularValorTotalCotacao() {
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/cotacao_detalhes.js') }}?v=5"></script>
+<script src="{{ url_for('static', filename='js/cotacao_plano.js') }}?v=2"></script>
 {% if cotacao %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {

@@ -6,10 +6,12 @@
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_workspace.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_plano.css') }}?v=2">
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/cotacao_workspace.js') }}?v=2" defer></script>
+<script src="{{ url_for('static', filename='js/cotacao_plano.js') }}?v=2" defer></script>
 {% endblock %}
 
 {% macro dinheiro(valor) -%}
@@ -52,6 +54,11 @@
       </a>
     </div>
   </header>
+  {% with compacto=true %}
+  <div class="cot-workspace-plano">
+    {% include 'cotacoes/_plano_haste.html' %}
+  </div>
+  {% endwith %}
 
   <div class="cot-workspace-layout">
     <aside class="cot-workspace-sidebar" aria-label="Navegação da cotação">

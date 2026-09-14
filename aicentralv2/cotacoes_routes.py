@@ -801,6 +801,14 @@ def cotacoes_list():
             apenas_teste_calculo=False,
         )
         cotacoes = [dict(cotacao) for cotacao in (cotacoes or [])]
+        from collections import Counter
+        plano_counts = Counter(
+            str(cotacao.get('grupo_plano_id') or cotacao.get('id'))
+            for cotacao in cotacoes
+        )
+        for cotacao in cotacoes:
+            gid = str(cotacao.get('grupo_plano_id') or cotacao.get('id'))
+            cotacao['plano_tem_irmas'] = plano_counts[gid] > 1
         vendedores = db.obter_vendedores_centralcomm()
         return render_template(
             'cadu_cotacoes.html',
@@ -1194,6 +1202,7 @@ def cotacao_editar(cotacao_id):
         return render_template(
             'cadu_cotacoes_form.html',
             cotacao=cotacao,
+            plano=db.payload_plano_cotacao(cotacao),
             clientes=clientes,
             vendedores=vendedores,
             briefings=briefings,
@@ -1248,6 +1257,7 @@ def cotacao_workspace(cotacao_id):
         return render_template(
             'cadu_cotacoes_workspace.html',
             cotacao=cotacao,
+            plano=db.payload_plano_cotacao(cotacao),
             workspace=workspace_tipo_comercial(tipo),
             itens=itens,
             campos_item=workspace_tipo_comercial(tipo)["fields"],
@@ -1442,6 +1452,7 @@ def cotacao_detalhes(cotacao_id):
             'cadu_cotacoes_detalhes.html',
             modo='editar',
             cotacao=cotacao,
+            plano=db.payload_plano_cotacao(cotacao),
             cliente=cliente,
             clientes=clientes,
             vendedores=vendedores,
@@ -1820,6 +1831,70 @@ def enviar_email_cotacao_por_tipo_teste(cotacao_id):
     if err:
         return err
     return _delegate_app_view('enviar_email_cotacao_por_tipo', cotacao_id)
+
+
+def _json_plano_erro(exc):
+    return jsonify({'success': False, 'message': str(exc)}), 400
+
+
+@bp.route('/api/cotacoes/<int:cotacao_id>/plano', methods=['GET'])
+@login_required
+def api_cotacao_plano(cotacao_id):
+    cotacao = db.obter_cotacao_por_id(cotacao_id)
+    if not cotacao:
+        return jsonify({'success': False, 'message': 'Cotação não encontrada'}), 404
+    return jsonify({'success': True, 'plano': db.payload_plano_cotacao(cotacao)})
+
+
+@bp.route('/api/cotacoes/<int:cotacao_id>/plano/principal', methods=['POST'])
+@login_required
+def api_cotacao_marcar_principal(cotacao_id):
+    try:
+        return jsonify({'success': True, 'plano': db.marcar_cotacao_principal(cotacao_id)})
+    except ValueError as exc:
+        return _json_plano_erro(exc)
+
+
+@bp.route('/api/cotacoes/<int:cotacao_id>/plano/vincular', methods=['POST'])
+@login_required
+def api_cotacao_vincular_plano(cotacao_id):
+    data = request.get_json(silent=True) or {}
+    try:
+        return jsonify({
+            'success': True,
+            'plano': db.vincular_cotacao_plano(cotacao_id, data.get('alvo_id')),
+        })
+    except (TypeError, ValueError) as exc:
+        return _json_plano_erro(exc)
+
+
+@bp.route('/api/cotacoes/<int:cotacao_id>/plano/desvincular', methods=['POST'])
+@login_required
+def api_cotacao_desvincular_plano(cotacao_id):
+    try:
+        return jsonify({'success': True, 'plano': db.desvincular_cotacao_plano(cotacao_id)})
+    except ValueError as exc:
+        return _json_plano_erro(exc)
+
+
+@bp.route('/api/cotacoes/<int:cotacao_id>/plano/buscar', methods=['GET'])
+@login_required
+def api_cotacao_buscar_vincular(cotacao_id):
+    if not db.obter_cotacao_por_id(cotacao_id):
+        return jsonify({'success': False, 'message': 'Cotação não encontrada'}), 404
+    itens = db.buscar_cotacoes_para_vincular(cotacao_id, request.args.get('q') or '')
+    return jsonify({
+        'success': True,
+        'itens': [
+            {
+                'id': item.get('id'),
+                'numero_cotacao': item.get('numero_cotacao'),
+                'nome_campanha': item.get('nome_campanha'),
+                'valor_total': float(item.get('valor_total_proposta') or 0),
+            }
+            for item in itens
+        ],
+    })
 
 
 @bp.route('/api/cotacoes/<int:cotacao_id>/duplicar', methods=['POST'])

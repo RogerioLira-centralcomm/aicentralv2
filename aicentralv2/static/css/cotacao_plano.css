@@ -1,0 +1,373 @@
+/* Haste de versões do mesmo briefing — um gesto em todas as telas. */
+
+.cot-plano {
+  --cp-ink: #0f172a;
+  --cp-muted: #64748b;
+  --cp-line: #d8dee8;
+  --cp-brand: #1e4d4f;
+  --cp-soft: #e8f1f1;
+  --cp-money: #166534;
+  color: var(--cp-ink);
+}
+
+.cot-plano-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.8125rem;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+}
+
+.cot-plano-copy {
+  margin: 0 0 0.65rem;
+  color: var(--cp-muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.cot-plano-copy-inline {
+  margin: 0;
+}
+
+.cot-plano-aviso {
+  margin: 0 0 0.65rem;
+  padding: 0.4rem 0.5rem;
+  border-left: 2px solid var(--cp-brand);
+  background: var(--cp-soft);
+  color: var(--cp-ink);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.cot-plano-aviso-inline {
+  margin: 0;
+  padding: 0.2rem 0.4rem;
+}
+
+.cot-plano-rail {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cot-plano-rail::before {
+  content: "";
+  position: absolute;
+  top: 0.7rem;
+  bottom: 0.7rem;
+  left: 0.42rem;
+  width: 1px;
+  background: var(--cp-brand);
+}
+
+.cot-plano-item {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.35rem 0.4rem 0.35rem 0;
+  border: 0;
+  border-radius: 0.25rem;
+  background: transparent;
+  text-align: left;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.cot-plano-item.is-atual {
+  background: var(--cp-soft);
+}
+
+.cot-plano-item.is-dim {
+  color: #475569;
+}
+
+.cot-plano-node {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 0.875rem;
+  width: 0.875rem;
+  height: 0.875rem;
+  margin-top: 0.15rem;
+  border: 1.5px solid var(--cp-brand);
+  border-radius: 999px;
+  background: #fff;
+}
+
+.cot-plano-item.is-principal .cot-plano-node {
+  background: var(--cp-brand);
+}
+
+.cot-plano-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.cot-plano-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.cot-plano-num {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.cot-plano-val {
+  color: var(--cp-money);
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cot-plano-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.45rem;
+  margin-top: 0.1rem;
+  color: var(--cp-muted);
+  font-size: 0.6875rem;
+}
+
+.cot-plano-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 0.25rem;
+  padding: 0.05rem 0.3rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+.cot-plano-chip.is-principal {
+  background: var(--cp-soft);
+  color: var(--cp-brand);
+}
+
+.cot-plano-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.65rem;
+}
+
+.cot-plano-menu {
+  margin-top: 0.35rem;
+}
+
+.cot-plano-menu summary {
+  cursor: pointer;
+  color: var(--cp-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  list-style: none;
+}
+
+.cot-plano-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.cot-plano-search {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.cot-plano-search input {
+  width: 100%;
+  border: 1px solid var(--cp-line);
+  border-radius: 0.25rem;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.cot-plano-results {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.cot-editar-com-plano {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.cot-editar-com-plano #cotacao_form {
+  min-width: 0;
+  flex: 1;
+}
+
+.cot-plano-sidebar {
+  position: sticky;
+  top: calc(var(--erp-topbar-h, 3.5rem) + 2.75rem);
+  width: 17.5rem;
+  flex-shrink: 0;
+  padding: 0.5rem 0.65rem 0.65rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.25rem;
+  background: #fff;
+}
+
+.cot-plano-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.7rem;
+  min-width: 0;
+}
+
+.cot-plano-strip-label {
+  flex: 0 0 auto;
+  color: var(--cp-ink);
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.cot-plano-strip-rail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem 0.15rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cot-plano-strip-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 0.25rem;
+  padding: 0.15rem 0.35rem;
+  color: var(--cp-muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.cot-plano-strip-item.is-atual {
+  background: var(--cp-soft);
+  color: var(--cp-ink);
+}
+
+.cot-plano-strip-item.is-principal {
+  color: var(--cp-brand);
+}
+
+.cot-plano-strip-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem 0.65rem;
+  margin-left: auto;
+}
+
+.cot-plano-text-btn {
+  border: 0;
+  background: transparent;
+  color: var(--cp-muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+  cursor: pointer;
+  padding: 0;
+}
+
+.cot-plano-text-btn.is-primary,
+.cot-plano-text-btn:hover {
+  color: var(--cp-brand);
+}
+
+.cot-op-header .cot-plano-strip {
+  margin-top: 0.45rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--cp-line);
+}
+
+.cot-workspace-plano {
+  padding: 0.5rem 1.5rem;
+  border-bottom: 1px solid #dbe3e8;
+  background: #fff;
+}
+
+.pp-detail-section .cot-plano-strip,
+.pp-detail-section .cot-plano-compact {
+  padding: 0;
+}
+
+.cot-plano-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.cot-plano-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border: 1.5px solid var(--cp-brand, #1e4d4f);
+  border-radius: 999px;
+  background: #fff;
+  flex: 0 0 0.5rem;
+}
+
+.cot-plano-dot.is-on {
+  background: var(--cp-brand, #1e4d4f);
+}
+
+.cot-lista-flags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.2rem;
+}
+
+.crm-v3-plano-bloco {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.35rem 0.4rem 0.4rem 0.55rem;
+  border-left: 2px solid var(--cp-brand, #1e4d4f);
+  border-radius: 0 0.25rem 0.25rem 0;
+  background: #f4f7f7;
+}
+
+.crm-v3-cotacao-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.crm-v3-cotacao-wrap > .cot-plano-text-btn,
+.crm-v3-cotacao-wrap > .cx-btn {
+  align-self: flex-start;
+}
+
+@media (max-width: 900px) {
+  .cot-editar-com-plano {
+    flex-direction: column;
+  }
+
+  .cot-plano-sidebar {
+    position: static;
+    order: -1;
+    width: 100%;
+  }
+
+  .cot-workspace-plano {
+    padding-inline: 1rem;
+  }
+
+  .cot-plano-strip-actions {
+    margin-left: 0;
+    width: 100%;
+  }
+}

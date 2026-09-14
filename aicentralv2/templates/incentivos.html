@@ -13,7 +13,7 @@
         {% if incentivos_view %}<span class="text-xs text-gray-500">({{ incentivos_view|length }})</span>{% endif %}
       </div>
       <div class="flex items-center gap-3 flex-wrap">
-        <input type="text" id="searchInput" placeholder="Buscar agência ou BV..."
+        <input type="text" id="searchInput" placeholder="Buscar agência ou Fee_ag..."
                class="text-sm bg-gray-50 border border-gray-200 rounded px-3 py-1.5 text-gray-700 focus:outline-none focus:border-gray-400" style="min-width: 180px;">
         <button type="button" onclick="abrirModalNovo()" class="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors">
           <i class="fas fa-plus mr-1"></i>Novo incentivo
@@ -46,7 +46,7 @@
             <tr>
               <th class="text-left py-2 px-2 text-xs font-medium text-gray-600 uppercase sticky left-0 bg-gray-100 z-10">ID</th>
               <th class="text-left py-2 px-2 text-xs font-medium text-gray-600 uppercase">Agência</th>
-              <th class="text-left py-2 px-2 text-xs font-medium text-gray-600 uppercase">BV</th>
+              <th class="text-left py-2 px-2 text-xs font-medium text-gray-600 uppercase">Fee_ag</th>
               {% for f in faixas %}
               <th class="text-left py-2 px-2 text-xs font-medium text-gray-600 uppercase">Até {{ f|upper }}</th>
               {% endfor %}

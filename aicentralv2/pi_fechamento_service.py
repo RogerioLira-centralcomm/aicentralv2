@@ -110,11 +110,16 @@ def classificar_zona_por_margem(liquido, midia):
     return 5
 
 
-def eh_legado(pi):
+def eh_snapshot_sem_cbase(pi):
+    """PI sem custo-base: usa valores persistidos, sem recálculo de fórmula."""
     if pi.get("cotacao_id"):
         return False
     cbase = _money(pi.get("custo_base_unitario")) or 0.0
     return cbase <= 0
+
+
+def eh_legado(pi):
+    return eh_snapshot_sem_cbase(pi)
 
 
 def calcular_zonas(pi, desvio_pct, ruptura_mult=10.0):
@@ -277,18 +282,21 @@ def calcular_provisionamentos(pi, gasto_real, obj_contratado=0.0, obj_atingido=0
     volume_contr = (float(obj_contratado or 0) / 1000.0) if is_cpm else float(obj_contratado or 0)
     volume_ating = (float(obj_atingido or 0) / 1000.0) if is_cpm else float(obj_atingido or 0)
     gasto = float(gasto_real or 0)
-    if eh_legado(pi):
-        return _provisionamentos_legado(pi, gasto, perc, perc_ag, perc_parc, fonte)
+    if eh_snapshot_sem_cbase(pi):
+        return _provisionamentos_snapshot(pi, gasto, perc, perc_ag, perc_parc, fonte)
     if cbase > 0 and gasto > 0:
         volume = gasto / cbase
     elif volume_ating > 0:
         volume = volume_ating
     else:
         volume = volume_contr
-    soma = mcc + com + inc + imp
-    if cbase > 0 and tf < 1 and soma < 1 and volume > 0:
+    fee_pr = perc_parc / 100.0
+    fee_ag = perc_ag / 100.0
+    soma = mcc + com + inc + imp + fee_pr
+    if cbase > 0 and tf < 1 and soma < 1 and fee_ag < 1 and volume > 0:
         opex = cbase / (1 - tf)
-        preco = opex / (1 - soma)
+        preco_base = opex / (1 - soma)
+        preco = preco_base / (1 - fee_ag) if fee_ag > 0 else preco_base
         bruto = volume * preco
         tf_val = volume * (opex - cbase)
         midia = gasto if gasto > 0 else volume * cbase
@@ -304,9 +312,13 @@ def calcular_provisionamentos(pi, gasto_real, obj_contratado=0.0, obj_atingido=0
     com_val = bruto * com
     inc_val = bruto * inc
     imp_val = bruto * imp
-    com_ag = bruto * (perc_ag / 100.0)
-    liquido = bruto - com_ag
-    com_parc = liquido * (perc_parc / 100.0)
+    if fee_ag > 0 and fee_ag < 1:
+        liquido = bruto * (1.0 - fee_ag)
+        com_ag = bruto - liquido
+    else:
+        liquido = bruto
+        com_ag = 0.0
+    com_parc = bruto * fee_pr if fee_pr > 0 else 0.0
     return {
         "valor_bruto": round(bruto, 2),
         "valor_liquido": round(liquido, 2),
@@ -333,14 +345,16 @@ def calcular_provisionamentos(pi, gasto_real, obj_contratado=0.0, obj_atingido=0
     }
 
 
-def _provisionamentos_legado(pi, gasto, perc, perc_ag, perc_parc, overrides):
+def _provisionamentos_snapshot(pi, gasto, perc, perc_ag, perc_parc, overrides):
+    """Valores históricos persistidos — sem aplicar fórmula de preço."""
     liquido = _money(pi.get("valor_liquido") or pi.get("vr_liquido_pi")) or 0.0
-    if perc_ag and perc_ag < 100:
-        bruto = liquido / (1 - (perc_ag / 100.0))
-    else:
-        bruto = _money(pi.get("valor_bruto") or pi.get("vr_bruto_pi")) or liquido
-    com_ag = bruto - liquido if perc_ag else 0.0
-    com_parc = liquido * (perc_parc / 100.0)
+    bruto = _money(pi.get("valor_bruto") or pi.get("vr_bruto_pi")) or liquido
+    com_ag = _money(pi.get("comissao_agencia") or pi.get("vr_cms_agencia"))
+    if com_ag is None:
+        com_ag = bruto - liquido if bruto and liquido else 0.0
+    com_parc = _money(pi.get("comissao_parceiro") or pi.get("vr_cms_parc_com"))
+    if com_parc is None:
+        com_parc = liquido * (perc_parc / 100.0) if perc_parc else 0.0
     impostos_informados = (
         "impostos" in (overrides or {})
         or _money(pi.get("perc_impostos"))
@@ -389,9 +403,13 @@ def _provisionamentos_legado(pi, gasto, perc, perc_ag, perc_parc, overrides):
             "comissao_agencia": perc_ag,
             "comissao_parceiro": perc_parc,
         },
-        "fonte": "legado",
+        "fonte": "snapshot",
         "total_campanhas": None,
     }
+
+
+def _provisionamentos_legado(pi, gasto, perc, perc_ag, perc_parc, overrides):
+    return _provisionamentos_snapshot(pi, gasto, perc, perc_ag, perc_parc, overrides)
 
 
 def _desvio_pi(pi):
@@ -467,7 +485,7 @@ class PiFechamentoService:
                 gasto_manual = float(gasto_manual)
             except (TypeError, ValueError):
                 gasto_manual = None
-            if gasto_manual is not None and snapshot.get("fonte_dre") == "legado":
+            if gasto_manual is not None and snapshot.get("fonte_dre") in ("legado", "snapshot"):
                 pi = dict(snapshot.get("pi") or {})
                 dre = calcular_provisionamentos(
                     pi,

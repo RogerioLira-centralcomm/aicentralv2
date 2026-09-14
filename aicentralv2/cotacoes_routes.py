@@ -1598,6 +1598,8 @@ def api_preco_calculo_cotacao_teste(cotacao_id):
             agencia_id=cotacao.get('agencia_id'),
             parceiro_id=cotacao.get('id_parceiro'),
             parceiro_percentual=cotacao.get('parceiro_percentual'),
+            fee_ag_percentual=cotacao.get('fee_ag') or cotacao.get('agencia_percentual'),
+            fee_pr_percentual=cotacao.get('fee_pr') or cotacao.get('parceiro_percentual'),
             margem_cc_override=mcc_override,
             fator_desconto=fator_desconto,
         )

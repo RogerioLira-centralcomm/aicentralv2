@@ -36,6 +36,7 @@ from aicentralv2.services.spedy_service import (
     build_spedy_emit_preview,
     build_spedy_transaction_id,
     detect_spedy_environment,
+    resolve_spedy_contato_for_pi,
     extract_invoice_from_order,
     map_spedy_invoice_to_nf_update,
     parse_pi_amount,
@@ -1351,7 +1352,7 @@ def init_routes(app):
                 
                 pk_id_tbl_agencia = request.form.get('pk_id_tbl_agencia', type=int)
                 vendas_central_comm = request.form.get('vendas_central_comm', type=int) or None
-                percentual = request.form.get('percentual', '').strip()
+                percentual = (request.form.get('fee', '') or request.form.get('percentual', '')).strip()
                 id_centralx = request.form.get('id_centralx', '').strip() or None
                 status_val = request.form.get('status', '1')
                 status = status_val == '1'
@@ -1404,7 +1405,7 @@ def init_routes(app):
                     pk_id_aux_agencia=pk_id_tbl_agencia,
                     pk_id_aux_estado=pk_id_aux_estado,
                     vendas_central_comm=vendas_central_comm,
-                    percentual=percentual_valor,
+                    fee=percentual_valor,
                     margem_cc=margem_cc_val,
                     id_centralx=id_centralx,
                     status=status,
@@ -3484,7 +3485,7 @@ def init_routes(app):
                 
                 pk_id_tbl_agencia = request.form.get('pk_id_tbl_agencia', type=int)
                 vendas_central_comm = request.form.get('vendas_central_comm', type=int) or None
-                percentual = request.form.get('percentual', '').strip()
+                percentual = (request.form.get('fee', '') or request.form.get('percentual', '')).strip()
                 id_centralx = request.form.get('id_centralx', '').strip() or None
                 try:
                     classificacao_cliente = _normalizar_classificacao_cliente(request.form.get('classificacao_cliente'))
@@ -3541,7 +3542,7 @@ def init_routes(app):
                     rua=logradouro,
                     numero=numero,
                     complemento=complemento,
-                    percentual=percentual_valor,
+                    fee=percentual_valor,
                     margem_cc=margem_cc_novo,
                     classificacao_cliente=classificacao_cliente,
                     opera_midia=opera_midia,
@@ -8827,7 +8828,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             # Construir query com filtros - buscar em nome_fantasia OU razao_social
             # JOIN com tbl_agencia para filtrar por tipo de agência
             query = '''
-                SELECT c.id_cliente, c.nome_fantasia, c.razao_social, c.cnpj, c.pessoa, c.pk_id_tbl_agencia, a.key as is_agencia, c.percentual
+                SELECT c.id_cliente, c.nome_fantasia, c.razao_social, c.cnpj, c.pessoa, c.pk_id_tbl_agencia, a.key as is_agencia, c.fee, c.fee as percentual
                 FROM tbl_cliente c
                 LEFT JOIN tbl_agencia a ON c.pk_id_tbl_agencia = a.id_agencia
             '''
@@ -10464,6 +10465,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             _mcc_frac, mcc_raw = db.obter_margem_cc_fracao_e_bruto(id_cliente)
             mcc_cad_display = _mcc_cadastro_display(mcc_raw)
 
+            id_parceiro = request.args.get('id_parceiro', type=int)
+            fee_pr = request.args.get('fee_pr') or request.args.get('parceiro_percentual')
             out = db.calcular_preco_unitario_teste_calculo(
                 valor_unitario_tabela=1,
                 nome_plataforma=plataforma,
@@ -10472,6 +10475,9 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 volume_contratado=valor_bruto or 0,
                 imposto_percentual_externo=imp_cfg,
                 agencia_id=id_agencia,
+                parceiro_id=id_parceiro,
+                fee_pr_percentual=fee_pr,
+                fee_ag_percentual=request.args.get('fee_ag'),
             )
             if not out.get('success'):
                 return jsonify(out), 400
@@ -10484,6 +10490,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'perc_com_vendas': _frac_to_pi_percent_display(out.get('com')),
                 'perc_pl_incentivos': _frac_to_pi_percent_display(out.get('inc')),
                 'perc_impostos': _frac_to_pi_percent_display(out.get('imp')),
+                'fee_ag': _frac_to_pi_percent_display(out.get('fee_ag')),
+                'fee_pr': _frac_to_pi_percent_display(out.get('fee_pr')),
                 'warnings': out.get('warnings') or [],
             })
         except Exception as e:
@@ -14339,9 +14347,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         if pi.get('id_cliente') and not cliente:
             erros_eleg.append('Cliente do PI não encontrado.')
 
-        contato = None
-        if pi.get('contato_fin_cliente'):
-            contato = db.obter_contato_por_id(pi['contato_fin_cliente'])
+        contato = resolve_spedy_contato_for_pi(pi)
 
         preview = build_spedy_emit_preview(pi, cliente or {}, contato)
         preview['errors'] = erros_eleg + preview.get('errors', [])
@@ -14396,10 +14402,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         if not cliente:
             return {'error': 'Cliente do PI não encontrado.', **env_info}, 400
 
-        contato = None
-        contato_id = pi.get('contato_fin_cliente')
-        if contato_id:
-            contato = db.obter_contato_por_id(contato_id)
+        contato = resolve_spedy_contato_for_pi(pi)
 
         amount = parse_pi_amount(pi)
         if amount <= 0:

@@ -56,13 +56,13 @@
   <header class="pi-op-panel__head">
     <h2>Previsto, realizado e resultado</h2>
     <p>
-      {% if preview.fonte_dre == 'legado' %}
-      PI legado — o líquido do cabeçalho é a âncora. Imposto sugerido: 15% sobre o líquido quando não houver dado.
+      {% if preview.fonte_dre in ('legado', 'snapshot') %}
+      Valores históricos persistidos — sem recálculo de fórmula (PI sem custo-base).
       {% else %}
       Previsto vem da cotação/cabeçalho; realizado das campanhas; resultado é líquido − mídia.
       {% endif %}
     </p>
-    <span class="pi-dre-fonte is-{{ preview.fonte_dre or 'cotacao' }}">{{ 'Legado' if preview.fonte_dre == 'legado' else 'Cotação' }}</span>
+    <span class="pi-dre-fonte is-{{ preview.fonte_dre or 'cotacao' }}">{{ 'Snapshot' if preview.fonte_dre in ('legado', 'snapshot') else 'Cotação' }}</span>
   </header>
 
   <form id="form_provisionamentos" class="pi-fechamento-form">
@@ -89,9 +89,9 @@
                      value="{{ '%.2f'|format(percentuais[linha.perc] or 0)|replace('.', ',') }}">
               {% elif linha.chave == 'comissoes' %}
               <span class="pi-dre-split">
-                Ag. <input type="text" name="perc_comissao_agencia" inputmode="decimal"
+                Fee_ag <input type="text" name="perc_comissao_agencia" inputmode="decimal"
                            value="{{ '%.2f'|format(percentuais.comissao_agencia or 0)|replace('.', ',') }}" aria-label="% comissão agência">
-                Parc. <input type="text" name="perc_comissao_parceiro" inputmode="decimal"
+                Fee_pr <input type="text" name="perc_comissao_parceiro" inputmode="decimal"
                              value="{{ '%.2f'|format(percentuais.comissao_parceiro or 0)|replace('.', ',') }}" aria-label="% comissão parceiro">
               </span>
               {% else %}

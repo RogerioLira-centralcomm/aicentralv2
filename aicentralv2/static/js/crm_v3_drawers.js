@@ -196,6 +196,8 @@
                 pessoa: 'J',
                 perfil: 'direto',
                 classificacao_cliente: 'Prospecção',
+                fee: 0,
+                fee_ag: 0,
                 bv_percentual: 0,
                 margem_cc: 0
             };
@@ -273,7 +275,9 @@
             if (_optE) payload.responsavel = _optE.textContent.trim();
         }
 
-        payload.bv_percentual = parseFloat(payload.bv_percentual) || 0;
+        payload.fee = parseFloat(payload.fee != null ? payload.fee : payload.fee_ag != null ? payload.fee_ag : payload.bv_percentual) || 0;
+        payload.fee_ag = payload.fee;
+        payload.bv_percentual = payload.fee;
         payload.margem_cc = parseFloat(payload.margem_cc) || 0;
         var end = payload.endereco;
         if (end && typeof end === 'object') {

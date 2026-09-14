@@ -443,8 +443,8 @@
             </select>
           </div>
           <div id="percentual_fields" class="cx-field">
-            <label id="percentual_label" class="text-xs font-medium text-gray-500">BV (%)</label>
-            <input name="percentual" type="text" maxlength="5" class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="0,00" oninput="mascaraPercentual(this)">
+            <label id="percentual_label" class="text-xs font-medium text-gray-500">Fee_ag (%)</label>
+            <input name="fee" type="text" maxlength="5" class="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400" placeholder="0,00" oninput="mascaraPercentual(this)">
           </div>
           <div id="margem_cc_fields" class="cx-field">
             <label class="text-xs font-medium text-gray-500">Margem (%)</label>
@@ -1073,11 +1073,14 @@ async function abrirModalEditar(clienteId) {
     }
 
     // BV (percentual) - formatar com vírgula
-    if (cliente.percentual) {
-      const percentualFormatado = parseFloat(cliente.percentual).toFixed(2).replace('.', ',');
-      document.querySelector('input[name="percentual"]').value = percentualFormatado;
+    var feeVal = cliente.fee != null ? cliente.fee : cliente.percentual;
+    if (feeVal) {
+      const percentualFormatado = parseFloat(feeVal).toFixed(2).replace('.', ',');
+      var feeInput = document.querySelector('input[name="fee"]');
+      if (feeInput) feeInput.value = percentualFormatado;
     } else {
-      document.querySelector('input[name="percentual"]').value = '';
+      var feeInputEmpty = document.querySelector('input[name="fee"]');
+      if (feeInputEmpty) feeInputEmpty.value = '';
     }
 
     // Status do cliente
@@ -1229,7 +1232,7 @@ function atualizarVisibilidadeBv() {
   const pessoa = formCliente.querySelector('input[name="pessoa"]:checked')?.value || 'J';
   const percentualFields = document.getElementById('percentual_fields');
   if (!percentualFields) return;
-  const inputPercentual = percentualFields.querySelector('input[name="percentual"]');
+  const inputPercentual = percentualFields.querySelector('input[name="fee"]');
   const labelPercentual = document.getElementById('percentual_label');
   if (pessoa !== 'J') {
     percentualFields.style.display = 'none';
@@ -1240,7 +1243,7 @@ function atualizarVisibilidadeBv() {
   const opt = sel?.selectedOptions?.[0];
   const agenciaSim = opt && opt.getAttribute('data-agencia-sim') === '1';
   const parceiro = clienteTipoEhParceiro();
-  if (labelPercentual) labelPercentual.textContent = parceiro ? 'Percentual (%)' : 'BV (%)';
+  if (labelPercentual) labelPercentual.textContent = parceiro ? 'Fee_pr (%)' : 'Fee_ag (%)';
   if (parceiro || agenciaSim) {
     percentualFields.style.display = '';
   } else {
@@ -1892,7 +1895,7 @@ function preencherAbaDetalhes(cliente, contatos) {
     <div class="flex items-center md:col-span-2"><span class="font-semibold text-slate-600 w-16">${cliente.pessoa === 'F' ? 'Nome' : 'Fantasia'}:</span><span class="truncate">${cliente.nome_fantasia || '—'}</span></div>
     <div class="flex items-center"><span class="font-semibold text-slate-600 w-16">Executivo:</span><span>${cliente.executivo_nome || '—'}</span></div>
     <div class="flex items-center md:col-span-2"><span class="font-semibold text-slate-600 w-16">Margem CC:</span><span>${(cliente.margem_cc !== undefined && cliente.margem_cc !== null && cliente.margem_cc !== '') ? cliente.margem_cc + '%' : '—'}</span></div>
-    ${cliente.pessoa === 'J' && cliente.agencia_key === true && cliente.percentual ? `<div class="flex items-center"><span class="font-semibold text-slate-600 w-16">BV:</span><span>${parseFloat(cliente.percentual).toFixed(2).replace('.', ',')}%</span></div>` : ''}
+    ${cliente.pessoa === 'J' && cliente.agencia_key === true && (cliente.fee || cliente.percentual) ? `<div class="flex items-center"><span class="font-semibold text-slate-600 w-16">Fee_ag:</span><span>${parseFloat(cliente.fee || cliente.percentual).toFixed(2).replace('.', ',')}%</span></div>` : ''}
     ${cliente.pessoa !== 'F' ? `<div class="flex items-center"><span class="font-semibold text-slate-600 w-16">Insc. Est.:</span><span>${cliente.inscricao_estadual || '—'}</span></div><div class="flex items-center"><span class="font-semibold text-slate-600 w-16">Insc. Mun.:</span><span>${cliente.inscricao_municipal || '—'}</span></div>` : ''}
   `;
 

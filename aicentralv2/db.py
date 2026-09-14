@@ -557,6 +557,16 @@ def init_db(app):
                     ) THEN
                         ALTER TABLE tbl_cliente ADD COLUMN observacoes_comerciais_adicionais TEXT;
                     END IF;
+
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'tbl_cliente' AND column_name = 'percentual'
+                    ) AND NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'tbl_cliente' AND column_name = 'fee'
+                    ) THEN
+                        ALTER TABLE tbl_cliente RENAME COLUMN percentual TO fee;
+                    END IF;
                 END $$;
             ''')
 
@@ -1520,7 +1530,7 @@ def obter_cliente_por_id(id_cliente):
                 COALESCE(c.demanda_dados, FALSE) AS demanda_dados,
                 COALESCE(c.demanda_programatica_canais, FALSE) AS demanda_programatica_canais,
                 c.observacoes_comerciais_adicionais,
-                c.percentual,
+                c.fee,
                 c.margem_cc,
                 c.data_cadastro,
                 c.data_modificacao,
@@ -1807,9 +1817,12 @@ def obter_agencia_principal_cliente(id_cliente):
 
 def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj=None, inscricao_municipal=None, inscricao_estadual=None,
                 status=True, id_centralx=None, bairro=None, cidade=None, rua=None, numero=None, complemento=None, cep=None, pk_id_aux_agencia=None,
-                pk_id_aux_estado=None, vendas_central_comm=None, percentual=None, margem_cc=None, classificacao_cliente='Prospecção',
-                opera_midia=False, demanda_dados=False, demanda_programatica_canais=False, observacoes_comerciais_adicionais=None):
+                pk_id_aux_estado=None, vendas_central_comm=None, fee=None, margem_cc=None, classificacao_cliente='Prospecção',
+                opera_midia=False, demanda_dados=False, demanda_programatica_canais=False, observacoes_comerciais_adicionais=None,
+                percentual=None):
     """Cria um novo cliente"""
+    if fee is None and percentual is not None:
+        fee = percentual
     conn = get_db()
 
     try:
@@ -1819,7 +1832,7 @@ def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj
                     razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal, 
                     inscricao_estadual, status, bairro, cidade, logradouro, numero, 
                     complemento, cep, pk_id_tbl_agencia, id_tipo_cliente, pk_id_aux_estado, vendas_central_comm,
-                    percentual, margem_cc, classificacao_cliente, opera_midia, demanda_dados,
+                    fee, margem_cc, classificacao_cliente, opera_midia, demanda_dados,
                     demanda_programatica_canais, observacoes_comerciais_adicionais
                 ) VALUES (
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
@@ -1829,7 +1842,7 @@ def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj
                 razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal,
                 inscricao_estadual, status, bairro, cidade, rua, numero,
                 complemento, cep, pk_id_aux_agencia, id_tipo_cliente, pk_id_aux_estado, vendas_central_comm,
-                percentual, margem_cc, classificacao_cliente, opera_midia, demanda_dados,
+                fee, margem_cc, classificacao_cliente, opera_midia, demanda_dados,
                 demanda_programatica_canais, observacoes_comerciais_adicionais
             ))
             
@@ -1844,9 +1857,12 @@ def criar_cliente(razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj
 def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, pessoa='J', cnpj=None, inscricao_municipal=None, 
                      inscricao_estadual=None, status=True, id_centralx=None, bairro=None, cidade=None, rua=None, 
                      numero=None, complemento=None, cep=None, pk_id_aux_agencia=None, pk_id_aux_estado=None, vendas_central_comm=None,
-                     percentual=None, margem_cc=None, classificacao_cliente='Prospecção', opera_midia=False,
-                     demanda_dados=False, demanda_programatica_canais=False, observacoes_comerciais_adicionais=None):
+                     fee=None, margem_cc=None, classificacao_cliente='Prospecção', opera_midia=False,
+                     demanda_dados=False, demanda_programatica_canais=False, observacoes_comerciais_adicionais=None,
+                     percentual=None):
     """Atualiza um cliente existente"""
+    if fee is None and percentual is not None:
+        fee = percentual
     conn = get_db()
 
     try:
@@ -1869,7 +1885,7 @@ def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, 
                     pk_id_tbl_agencia = %s,
                     pk_id_aux_estado = %s,
                     id_tipo_cliente = %s,
-                    percentual = %s,
+                    fee = %s,
                     margem_cc = %s,
                     classificacao_cliente = %s,
                     opera_midia = %s,
@@ -1883,7 +1899,7 @@ def atualizar_cliente(id_cliente, razao_social, nome_fantasia, id_tipo_cliente, 
                 razao_social, nome_fantasia, pessoa, cnpj, inscricao_municipal,
                 inscricao_estadual, status, bairro, cidade, rua, numero,
                 complemento, cep, pk_id_aux_agencia, pk_id_aux_estado, id_tipo_cliente,
-                percentual, margem_cc, classificacao_cliente, opera_midia, demanda_dados,
+                fee, margem_cc, classificacao_cliente, opera_midia, demanda_dados,
                 demanda_programatica_canais, observacoes_comerciais_adicionais, vendas_central_comm, id_cliente
             ))
             
@@ -1914,8 +1930,11 @@ _CLIENTE_INLINE_EDITABLE = {
     # Comercial
     "classificacao_cliente": "classificacao_cliente",
     "classificacao": "classificacao_cliente",
-    "percentual": "percentual",
-    "bv_percentual": "percentual",
+    "fee": "fee",
+    "fee_ag": "fee",
+    "fee_pr": "fee",
+    "percentual": "fee",
+    "bv_percentual": "fee",
     "margem_cc": "margem_cc",
     "opera_midia": "opera_midia",
     "demanda_dados": "demanda_dados",
@@ -1960,7 +1979,7 @@ _CLIENTE_INLINE_BOOL_COLS = {
     "opera_midia", "demanda_dados", "demanda_programatica_canais"
 }
 # Colunas numeric (float/decimal) — converte "" → NULL, string BRL → float.
-_CLIENTE_INLINE_NUMERIC_COLS = {"percentual", "margem_cc"}
+_CLIENTE_INLINE_NUMERIC_COLS = {"fee", "margem_cc"}
 # Colunas inteiras — converte "" → NULL, string → int.
 _CLIENTE_INLINE_INT_COLS = {
     "pk_id_aux_estado", "vendas_central_comm", "id_tipo_cliente",
@@ -8555,8 +8574,10 @@ def obter_cotacao_por_id(cotacao_id):
                     br.status as briefing_status,
                     parc.nome_fantasia as parceiro_nome,
                     cont_parc.nome_completo as parceiro_user_nome,
-                    ag.percentual as agencia_percentual,
-                    parc.percentual as parceiro_percentual
+                    ag.fee as fee_ag,
+                    ag.fee as agencia_percentual,
+                    parc.fee as fee_pr,
+                    parc.fee as parceiro_percentual
                 FROM cadu_cotacoes c
                 LEFT JOIN tbl_cliente cli ON c.client_id = cli.id_cliente
                 LEFT JOIN tbl_contato_cliente resp ON c.responsavel_comercial = resp.id_contato_cliente
@@ -13716,10 +13737,21 @@ def gerar_pi_de_cotacao(cotacao_id, codigo_pi_cc=None):
     if soma_liquido > 0:
         valor_liquido = soma_liquido
 
-    perc_agencia = parse_valor_monetario_para_float(cotacao.get('agencia_percentual'))
-    perc_parceiro = parse_valor_monetario_para_float(cotacao.get('parceiro_percentual'))
-    comissao_agencia = round(valor_bruto * perc_agencia / 100, 2) if perc_agencia else 0
-    comissao_parceiro = round(valor_liquido * perc_parceiro / 100, 2) if perc_parceiro else 0
+    perc_agencia = parse_valor_monetario_para_float(
+        cotacao.get('fee_ag') or cotacao.get('agencia_percentual')
+    )
+    perc_parceiro = parse_valor_monetario_para_float(
+        cotacao.get('fee_pr') or cotacao.get('parceiro_percentual')
+    )
+    fee_ag_frac = _percentual_cotacao_para_fracao(perc_agencia)
+    fee_pr_frac = _percentual_cotacao_para_fracao(perc_parceiro)
+    if valor_bruto > 0 and fee_ag_frac > 0:
+        comissao_agencia = round(valor_bruto * fee_ag_frac, 2)
+        if valor_liquido <= 0:
+            valor_liquido = round(valor_bruto * (1.0 - fee_ag_frac), 2)
+    else:
+        comissao_agencia = round(valor_bruto - valor_liquido, 2) if valor_bruto and valor_liquido else 0
+    comissao_parceiro = round(valor_bruto * fee_pr_frac, 2) if valor_bruto and fee_pr_frac > 0 else 0
     valor_liquido_pr = round(valor_liquido - comissao_parceiro, 2) if valor_liquido else 0
 
     def _to_float(v):
@@ -14721,18 +14753,16 @@ def calcular_preco_unitario_teste_calculo(
     agencia_id=None,
     parceiro_id=None,
     parceiro_percentual=None,
+    fee_ag_percentual=None,
+    fee_pr_percentual=None,
     margem_cc_override=None,
     fator_desconto=1.0,
 ):
     """
-    Opex = (val_tab * fator_desconto)/(1-TF); Preço = Opex/(1-(Mcc+Com+Inc+Imp+Parc)).
-    Inc (incentivo) só entra se a cotação tiver agência; busca em cadu_pi_incentivos pela agência.
-    Parc (parceiro regional) entra se a cotação tiver parceiro (% do cadastro do parceiro).
-    imposto_percentual_externo: ex. 15 → fração 0,15.
-    margem_cc_override: opcional. Se informado e estiver entre 0.0 e 1.0 (ou 0 e 100 em
-    percentual), substitui o Mcc lido do cadastro do cliente.
-    fator_desconto: multiplicador aplicado a `valor_unitario_tabela` antes do cálculo (default 1.0).
-    Retorna dict com frações, valores monetários e warnings.
+    Opex = (val_tab * fator_desconto)/(1-TF)
+    Preço_base = Opex/(1-(Mcc+Com+Inc+FeePR+Imp))
+    Preço_unit = Preço_base × 1/(1-Fee_ag) quando houver agência.
+    Inc só entra com agência; FeePR com parceiro regional.
     """
     warnings = []
     val_tab = float(valor_unitario_tabela or 0)
@@ -14802,15 +14832,25 @@ def calcular_preco_unitario_teste_calculo(
         elif inc_provisionado_maximo:
             warnings.append('Incentivo provisionado no máximo (faixa 2000k) para esta agência.')
 
+    fee_pr_input = fee_pr_percentual if fee_pr_percentual is not None else parceiro_percentual
     tem_parceiro = _cotacao_tem_parceiro_para_parc(parceiro_id)
     if not tem_parceiro:
-        parc = 0.0
-        parceiro_pct_cadastro = 0.0
+        fee_pr = 0.0
+        fee_pr_pct_cadastro = 0.0
     else:
-        parceiro_pct_cadastro = parse_valor_monetario_para_float(parceiro_percentual)
-        parc = _percentual_cotacao_para_fracao(parceiro_percentual)
-        if parc <= 0:
-            warnings.append('Percentual do parceiro regional zerado ou não informado; usando 0.')
+        fee_pr_pct_cadastro = parse_valor_monetario_para_float(fee_pr_input)
+        fee_pr = _percentual_cotacao_para_fracao(fee_pr_input)
+        if fee_pr <= 0:
+            warnings.append('Fee_pr do parceiro regional zerado ou não informado; usando 0.')
+
+    if tem_agencia:
+        fee_ag_pct_cadastro = parse_valor_monetario_para_float(fee_ag_percentual)
+        fee_ag = _percentual_cotacao_para_fracao(fee_ag_percentual)
+        if fee_ag <= 0:
+            warnings.append('Fee_ag da agência zerado ou não informado; usando 0.')
+    else:
+        fee_ag = 0.0
+        fee_ag_pct_cadastro = 0.0
 
     try:
         imp_pct = float(imposto_percentual_externo)
@@ -14818,20 +14858,24 @@ def calcular_preco_unitario_teste_calculo(
         imp_pct = obter_imposto_percentual_config()
     imp = imp_pct / 100.0 if imp_pct > 1 else imp_pct
 
-    soma = (mcc or 0) + (com or 0) + (inc or 0) + (imp or 0) + (parc or 0)
+    soma = (mcc or 0) + (com or 0) + (inc or 0) + (imp or 0) + (fee_pr or 0)
     if soma >= 1:
         return {
             'success': False,
-            'message': 'Soma de Mcc+COM+Inc+Imp+Parc deve ser menor que 100%.',
-            'detalhe': {'mcc': mcc, 'com': com, 'inc': inc, 'imp': imp, 'parc': parc},
+            'message': 'Soma de Mcc+COM+Inc+FeePR+Imp deve ser menor que 100%.',
+            'detalhe': {'mcc': mcc, 'com': com, 'inc': inc, 'imp': imp, 'fee_pr': fee_pr},
         }
+
+    if fee_ag >= 1:
+        return {'success': False, 'message': 'Fee_ag deve ser menor que 100%.'}
 
     denom_margens = 1.0 - soma
     if denom_margens <= 0:
         return {'success': False, 'message': 'Denominador de margens inválido.'}
 
     opex = val_tab_efetivo / (1.0 - tf)
-    preco = opex / denom_margens
+    preco_base = opex / denom_margens
+    preco = preco_base / (1.0 - fee_ag) if fee_ag > 0 else preco_base
 
     return {
         'success': True,
@@ -14847,9 +14891,15 @@ def calcular_preco_unitario_teste_calculo(
         'inc_volume_base': inc_vol_base,
         'inc_provisionado_maximo': inc_provisionado_maximo,
         'imp': imp,
-        'parc': parc,
-        'parceiro_percentual': parceiro_pct_cadastro,
+        'fee_pr': fee_pr,
+        'fee_ag': fee_ag,
+        'parc': fee_pr,
+        'fee_pr_percentual': fee_pr_pct_cadastro,
+        'fee_ag_percentual': fee_ag_pct_cadastro,
+        'parceiro_percentual': fee_pr_pct_cadastro,
         'parceiro_com_cotacao': tem_parceiro,
+        'incentivo_com_agencia_cotacao': tem_agencia,
+        'preco_base': round(preco_base, 6),
         'opex_unit': round(opex, 6),
         'preco_unit': round(preco, 6),
         'val_tab': round(val_tab, 6),
@@ -14861,51 +14911,64 @@ def calcular_preco_unitario_teste_calculo(
     }
 
 
-def _multiplicador_bruto_de_liquido_cotacao(perc_agencia, perc_parceiro=None):
-    """Bruto = líquido ÷ (1 − % agência). Parceiro não altera o gross-up."""
-    pa = parse_valor_monetario_para_float(perc_agencia)
-    if pa <= 0 or pa >= 100:
-        return 1.0
-    return 1.0 / (1.0 - pa / 100.0)
+def _fee_ag_fracao_de_cotacao(cotacao):
+    raw = None
+    if cotacao:
+        raw = cotacao.get('fee_ag')
+        if raw in (None, ''):
+            raw = cotacao.get('agencia_percentual')
+    return _percentual_cotacao_para_fracao(raw)
 
 
-def calcular_comissoes_cotacao_de_liquido(liquido, perc_agencia=0, perc_parceiro=0):
-    """Comissões sobre o Valor Líq.; bruto = gross-up pela taxa de agência."""
-    liq = parse_valor_monetario_para_float(liquido)
-    pa = parse_valor_monetario_para_float(perc_agencia)
-    pp = parse_valor_monetario_para_float(perc_parceiro)
-    if liq <= 0:
+def derivar_investimento_de_preco(volume_efetivo, preco_unit, fee_ag_frac=0.0, fee_pr_frac=0.0):
+    """Deriva bruto/líquido/comissões a partir do preço unitário (Fee_ag embutido no preço)."""
+    vol = parse_valor_monetario_para_float(volume_efetivo)
+    preco = parse_valor_monetario_para_float(preco_unit)
+    fa = float(fee_ag_frac or 0.0)
+    if vol <= 0 or preco <= 0:
         return {
-            'investimento_liquido': 0.0,
             'investimento_bruto': 0.0,
+            'investimento_liquido': 0.0,
             'comissao_agencia': 0.0,
             'comissao_parceiro': 0.0,
-            'perc_comissao_agencia': pa,
-            'perc_comissao_parceiro': pp,
         }
-    com_ag = liq * pa / 100.0 if pa > 0 else 0.0
-    mult = _multiplicador_bruto_de_liquido_cotacao(pa)
-    bruto = liq * mult
+    bruto = vol * preco
+    if fa > 0 and fa < 1:
+        liquido = bruto * (1.0 - fa)
+        com_ag = bruto - liquido
+    else:
+        liquido = bruto
+        com_ag = 0.0
+    fp = float(fee_pr_frac or 0.0)
+    com_parc = round(bruto * fp, 2) if fp > 0 else 0.0
     return {
-        'investimento_liquido': round(liq, 2),
         'investimento_bruto': round(bruto, 2),
+        'investimento_liquido': round(liquido, 2),
         'comissao_agencia': round(com_ag, 2),
-        'comissao_parceiro': 0.0,
-        'perc_comissao_agencia': pa,
-        'perc_comissao_parceiro': pp,
+        'comissao_parceiro': com_parc,
     }
 
 
-def calcular_comissoes_cotacao_de_bruto(bruto, perc_agencia=0, perc_parceiro=0):
-    """Deriva Valor Líq. a partir do bruto já com gross-up de agência."""
-    b = parse_valor_monetario_para_float(bruto)
-    pa = parse_valor_monetario_para_float(perc_agencia)
-    pp = parse_valor_monetario_para_float(perc_parceiro)
-    if b <= 0:
-        return calcular_comissoes_cotacao_de_liquido(0, pa, pp)
-    fator = obter_fator_liquido_de_agencia(pa)
-    liq = b * fator
-    return calcular_comissoes_cotacao_de_liquido(liq, pa, pp)
+def derivar_investimento_de_liquido_informado(liquido, fee_ag_frac=0.0):
+    """Converte Valor Líq. informado em bruto (Fee_ag no preço, sem gross-up legado)."""
+    liq = parse_valor_monetario_para_float(liquido)
+    fa = float(fee_ag_frac or 0.0)
+    if liq <= 0:
+        return {'investimento_liquido': 0.0, 'investimento_bruto': 0.0, 'comissao_agencia': 0.0}
+    if fa > 0 and fa < 1:
+        bruto = liq / (1.0 - fa)
+    else:
+        bruto = liq
+    return {
+        'investimento_liquido': round(liq, 2),
+        'investimento_bruto': round(bruto, 2),
+        'comissao_agencia': round(bruto - liq, 2),
+    }
+
+
+def corrigir_comissoes_linha_inconsistente(linha, cotacao):
+    """Alias público — correção pontual de linhas com bruto/líquido inconsistentes."""
+    return normalizar_comissoes_linha_cotacao_legado(linha, cotacao)
 
 
 def normalizar_comissoes_linha_cotacao_legado(linha, cotacao):
@@ -14917,8 +14980,8 @@ def normalizar_comissoes_linha_cotacao_legado(linha, cotacao):
     """
     if not linha or not cotacao:
         return linha
-    pa = parse_valor_monetario_para_float(cotacao.get('agencia_percentual'))
-    if pa <= 0 or pa >= 100:
+    fee_ag_frac = _fee_ag_fracao_de_cotacao(cotacao)
+    if fee_ag_frac <= 0 or fee_ag_frac >= 1:
         return linha
     liq = parse_valor_monetario_para_float(linha.get('investimento_liquido'))
     bruto = parse_valor_monetario_para_float(linha.get('investimento_bruto'))
@@ -14930,49 +14993,52 @@ def normalizar_comissoes_linha_cotacao_legado(linha, cotacao):
         return linha
     kpi = (linha.get('objetivo_kpi') or '').strip().upper()
     vol_ef = (vol / 1000.0) if kpi == 'CPM' else vol
-    liquido_from_vol = vol_ef * preco
-    fator = 1.0 - pa / 100.0
+    bruto_from_vol = vol_ef * preco
+    liquido_from_vol = bruto_from_vol * (1.0 - fee_ag_frac)
     tol = max(0.02, bruto * 1e-4)
-    if abs(liquido_from_vol - liq) <= tol:
+    if abs(bruto_from_vol - bruto) <= tol and abs(liquido_from_vol - liq) <= tol:
         return linha
-    if abs(bruto - liquido_from_vol) <= tol and abs(liq - bruto * fator) <= tol:
-        bruto_esperado = liq / fator if fator > 0 else liq
-        if abs(bruto - bruto_esperado) <= tol:
-            return linha
-        cms = calcular_comissoes_cotacao_de_liquido(liquido_from_vol, pa)
+    if abs(bruto - bruto_from_vol) <= tol and abs(liq - liquido_from_vol) > tol:
         linha = dict(linha)
-        linha['investimento_liquido'] = cms['investimento_liquido']
-        linha['investimento_bruto'] = cms['investimento_bruto']
+        linha['investimento_liquido'] = round(liquido_from_vol, 2)
+        linha['investimento_bruto'] = round(bruto_from_vol, 2)
     return linha
 
 
-def obter_fator_liquido_de_agencia(perc_agencia):
-    """Fator Valor Líq. ÷ Valor Bruto (1 − % agência)."""
-    pa = parse_valor_monetario_para_float(perc_agencia)
-    if pa <= 0 or pa >= 100:
+def obter_fator_liquido_de_agencia(fee_ag_percentual):
+    """Fator Valor Líq. ÷ Valor Bruto (1 − Fee_ag)."""
+    fa = _percentual_cotacao_para_fracao(fee_ag_percentual)
+    if fa <= 0 or fa >= 1:
         return 1.0
-    return 1.0 - pa / 100.0
+    return 1.0 - fa
 
 
 def obter_fator_liquido_cotacao(cotacao):
-    """Fator líquido/bruto (Valor Líq. ÷ Valor Bruto) — gross-up só pela agência."""
+    """Fator líquido/bruto com Fee_ag embutido no preço."""
     if not cotacao:
         return 1.0
-    return obter_fator_liquido_de_agencia(cotacao.get('agencia_percentual'))
+    raw = cotacao.get('fee_ag')
+    if raw in (None, ''):
+        raw = cotacao.get('agencia_percentual')
+    return obter_fator_liquido_de_agencia(raw)
 
 
 def derivar_investimento_bruto_de_liquido(liquido, cotacao):
-    """Deriva Valor Bruto a partir do Valor Líq. informado (gross-up agência)."""
-    pa = cotacao.get('agencia_percentual') if cotacao else 0
-    pp = cotacao.get('parceiro_percentual') if cotacao else 0
-    return calcular_comissoes_cotacao_de_liquido(liquido, pa, pp)['investimento_bruto']
+    """Deriva Valor Bruto a partir do Valor Líq. informado."""
+    return derivar_investimento_de_liquido_informado(
+        liquido, _fee_ag_fracao_de_cotacao(cotacao)
+    )['investimento_bruto']
 
 
 def derivar_investimento_liquido_de_bruto(bruto, cotacao):
     """Deriva Valor Líq. a partir do bruto (vol × preço unitário)."""
-    pa = cotacao.get('agencia_percentual') if cotacao else 0
-    pp = cotacao.get('parceiro_percentual') if cotacao else 0
-    return calcular_comissoes_cotacao_de_bruto(bruto, pa, pp)['investimento_liquido']
+    fa = _fee_ag_fracao_de_cotacao(cotacao)
+    b = parse_valor_monetario_para_float(bruto)
+    if b <= 0:
+        return 0.0
+    if fa > 0 and fa < 1:
+        return round(b * (1.0 - fa), 2)
+    return round(b, 2)
 
 
 def _volume_efetivo_cotacao(volume, kpi):
@@ -15085,6 +15151,8 @@ def calcular_breakdown_linha_cotacao(cotacao, data, imposto_percentual=None):
         agencia_id=cotacao.get('agencia_id'),
         parceiro_id=cotacao.get('id_parceiro'),
         parceiro_percentual=cotacao.get('parceiro_percentual'),
+        fee_ag_percentual=cotacao.get('fee_ag') or cotacao.get('agencia_percentual'),
+        fee_pr_percentual=cotacao.get('fee_pr') or cotacao.get('parceiro_percentual'),
         margem_cc_override=parse_valor_monetario_para_float(margem_cc_override) if margem_cc_override not in (None, '') else None,
         fator_desconto=fator_desconto,
     )
@@ -15097,17 +15165,20 @@ def calcular_breakdown_linha_cotacao(cotacao, data, imposto_percentual=None):
         raise ValueError('Preço unitário inválido após cálculo.')
 
     is_cpm = objetivo_kpi == 'CPM'
-    perc_agencia = parse_valor_monetario_para_float(cotacao.get('agencia_percentual'))
-    perc_parceiro = parse_valor_monetario_para_float(cotacao.get('parceiro_percentual'))
+    fee_ag_pct = parse_valor_monetario_para_float(
+        cotacao.get('fee_ag') or cotacao.get('agencia_percentual')
+    )
+    fee_pr_pct = parse_valor_monetario_para_float(
+        cotacao.get('fee_pr') or cotacao.get('parceiro_percentual')
+    )
+    fee_ag_frac = float(out.get('fee_ag') or 0.0)
+    fee_pr_frac = float(out.get('fee_pr') or 0.0)
 
     if investimento_liquido_in > 0:
-        cms = calcular_comissoes_cotacao_de_liquido(
-            investimento_liquido_in, perc_agencia, perc_parceiro
-        )
+        cms = derivar_investimento_de_liquido_informado(investimento_liquido_in, fee_ag_frac)
         investimento_liquido = cms['investimento_liquido']
         investimento_bruto = cms['investimento_bruto']
         comissao_agencia = cms['comissao_agencia']
-        comissao_parceiro = 0.0
         if volume_in > 0:
             volume_contratado = volume_in
             volume_efetivo = (volume_contratado / 1000.0) if is_cpm else float(volume_contratado)
@@ -15118,23 +15189,14 @@ def calcular_breakdown_linha_cotacao(cotacao, data, imposto_percentual=None):
     elif volume_in > 0:
         volume_contratado = volume_in
         volume_efetivo = (volume_contratado / 1000.0) if is_cpm else float(volume_contratado)
-        liquido_pricing = volume_efetivo * preco_unit
-        cms = calcular_comissoes_cotacao_de_liquido(
-            liquido_pricing, perc_agencia, perc_parceiro
-        )
+        cms = derivar_investimento_de_preco(volume_efetivo, preco_unit, fee_ag_frac, fee_pr_frac)
         investimento_liquido = cms['investimento_liquido']
         investimento_bruto = cms['investimento_bruto']
         comissao_agencia = cms['comissao_agencia']
-        comissao_parceiro = 0.0
     else:
-        bruto_pricing = investimento_bruto_in
-        cms = calcular_comissoes_cotacao_de_bruto(
-            bruto_pricing, perc_agencia, perc_parceiro
-        )
-        investimento_liquido = cms['investimento_liquido']
-        investimento_bruto = cms['investimento_bruto']
-        comissao_agencia = cms['comissao_agencia']
-        comissao_parceiro = 0.0
+        investimento_bruto = investimento_bruto_in
+        investimento_liquido = derivar_investimento_liquido_de_bruto(investimento_bruto, cotacao)
+        comissao_agencia = round(investimento_bruto - investimento_liquido, 2)
         volume_efetivo = investimento_bruto / preco_unit
         volume_contratado = round(volume_efetivo * 1000.0) if is_cpm else round(volume_efetivo)
         volume_efetivo = (volume_contratado / 1000.0) if is_cpm else float(volume_contratado)
@@ -15144,8 +15206,8 @@ def calcular_breakdown_linha_cotacao(cotacao, data, imposto_percentual=None):
     com = float(out.get('com') or 0.0)
     inc = float(out.get('inc') or 0.0)
     imp = float(out.get('imp') or 0.0)
-    parc = float(out.get('parc') or 0.0)
-    comissao_parceiro = round(investimento_bruto * parc, 2) if parc > 0 else 0.0
+    fee_pr = float(out.get('fee_pr') or out.get('parc') or 0.0)
+    comissao_parceiro = round(investimento_bruto * fee_pr, 2) if fee_pr > 0 else 0.0
 
     val_tech_fee = max(opex_unit - valor_tabela * fator_desconto, 0.0) * volume_efetivo
     val_margem_cc = investimento_bruto * mcc
@@ -15171,14 +15233,19 @@ def calcular_breakdown_linha_cotacao(cotacao, data, imposto_percentual=None):
         'volume_contratado': int(volume_contratado),
         'investimento_bruto': round(investimento_bruto, 2),
         'investimento_liquido': round(investimento_liquido, 2),
-        'perc_comissao_agencia': perc_agencia,
-        'perc_comissao_parceiro': perc_parceiro,
+        'perc_comissao_agencia': fee_ag_pct,
+        'perc_comissao_parceiro': fee_pr_pct,
+        'fee_ag': fee_ag_pct,
+        'fee_pr': fee_pr_pct,
         'comissao_agencia': round(comissao_agencia, 2),
         'comissao_parceiro': round(comissao_parceiro, 2),
         'custo_midia': custo_midia,
         'valor_total': round(investimento_bruto, 2),
         'fator_desconto': fator_desconto,
-        'parc': parc,
+        'parc': fee_pr,
+        'perc_fee_pr': fee_pr,
+        'val_fee_pr': round(investimento_bruto * fee_pr, 2) if fee_pr > 0 else 0.0,
+        'preco_base': out.get('preco_base'),
         'parceiro_com_cotacao': bool(out.get('parceiro_com_cotacao')),
         'val_comissao_parceiro': round(comissao_parceiro, 2),
         'opex_unit': round(opex_unit, 6),
@@ -21037,7 +21104,8 @@ def obter_incentivos():
                 SELECT
                     i.id,
                     i.cliente_id,
-                    cli.percentual AS bv,
+                    cli.fee AS fee_ag,
+                    cli.fee AS bv,
                     {cols},
                     i.created_at,
                     i.updated_at,
@@ -21064,7 +21132,8 @@ def obter_incentivo_por_id(id_incentivo):
                 SELECT
                     i.id,
                     i.cliente_id,
-                    cli.percentual AS bv,
+                    cli.fee AS fee_ag,
+                    cli.fee AS bv,
                     {cols},
                     i.created_at,
                     i.updated_at,
@@ -21100,7 +21169,8 @@ def obter_incentivo_por_cliente_id(cliente_id):
                 SELECT
                     i.id,
                     i.cliente_id,
-                    cli.percentual AS bv,
+                    cli.fee AS fee_ag,
+                    cli.fee AS bv,
                     {cols},
                     i.created_at,
                     i.updated_at,

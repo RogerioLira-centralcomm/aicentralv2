@@ -565,51 +565,45 @@ function _lerFatorDescontoInput(prefix) {
 }
 
 // ============================================
-// PERCENTUAL DE COMISSÃO (AGÊNCIA / PARCEIRO)
+// FEE AG / FEE PR (Fee_ag embutido no preço unitário)
 // ============================================
+var _feeAg = null;
+var _feePr = null;
 var _percAgencia = null;
 var _percParceiro = null;
 {% if cotacao and cotacao.agencia_id %}
-  _percAgencia = {{ cotacao.agencia_percentual|default('null', true) }};
+  _feeAg = {{ cotacao.fee_ag|default(cotacao.agencia_percentual|default('null', true), true) }};
+  _percAgencia = _feeAg;
 {% endif %}
 {% if cotacao and cotacao.id_parceiro %}
-  _percParceiro = {{ cotacao.parceiro_percentual|default('null', true) }};
+  _feePr = {{ cotacao.fee_pr|default(cotacao.parceiro_percentual|default('null', true), true) }};
+  _percParceiro = _feePr;
 {% endif %}
 
 var _comissaoAvisado = false;
 
-function obterMultiplicadorBrutoDeLiquido() {
-  var pa = Number(_percAgencia) || 0;
-  if (pa <= 0 || pa >= 100) return 1;
-  if (pa <= 0 && _percAgencia !== null) {
-    if (!_comissaoAvisado) {
-      _comissaoAvisado = true;
-      showToast('Atenção: percentual de comissão da agência zerado ou não informado. Valor Líq. será igual ao bruto derivado.', 'warning', 8000);
-    }
-  }
-  return 1 / (1 - pa / 100);
+function obterFatorFeeAg() {
+  var fa = Number(_feeAg != null ? _feeAg : _percAgencia) || 0;
+  if (fa <= 0 || fa >= 100) return 1;
+  return 1 - fa / 100;
 }
 
 function obterFatorLiquidoCotacao() {
-  var pa = Number(_percAgencia) || 0;
-  if (pa <= 0 || pa >= 100) return 1;
-  return 1 - pa / 100;
-}
-
-function obterFatorBrutoDeLiquido() {
-  return obterMultiplicadorBrutoDeLiquido();
+  return obterFatorFeeAg();
 }
 
 function derivarBrutoDeLiquido(liquido) {
   var liq = Number(liquido) || 0;
   if (liq <= 0) return 0;
-  return Math.round(liq * obterMultiplicadorBrutoDeLiquido() * 100) / 100;
+  var f = obterFatorFeeAg();
+  if (f >= 1 || f <= 0) return liq;
+  return Math.round((liq / f) * 100) / 100;
 }
 
 function derivarLiquidoDeBruto(bruto) {
   var b = Number(bruto) || 0;
   if (b <= 0) return 0;
-  return Math.round(b * obterFatorLiquidoCotacao() * 100) / 100;
+  return Math.round(b * obterFatorFeeAg() * 100) / 100;
 }
 
 function formatarPercentualCadastro(pct) {
@@ -645,9 +639,9 @@ function obterInvestimentoBrutoLinha(prefix, j) {
 
 function calcularComissoesDeLiquido(liquido) {
   var liq = Number(liquido) || 0;
-  var pa = _percAgencia !== null ? (Number(_percAgencia) || 0) : 0;
-  var comAg = (_percAgencia !== null && pa > 0) ? liq * pa / 100 : 0;
+  var pa = _feeAg !== null ? (Number(_feeAg) || 0) : (_percAgencia !== null ? (Number(_percAgencia) || 0) : 0);
   var bruto = liq > 0 ? derivarBrutoDeLiquido(liq) : 0;
+  var comAg = bruto > 0 ? bruto - liq : 0;
   return {
     perc_agencia: pa,
     comissao_agencia: Math.round(comAg * 100) / 100,
@@ -691,16 +685,24 @@ function obterParceiroRegCalculo(prefix, j) {
 }
 
 function obterLiquidoPricingLinha(prefix, j) {
-  return obterBrutoPricingLinha(prefix, j);
+  var bruto = obterBrutoPricingLinha(prefix, j);
+  return derivarLiquidoDeBruto(bruto);
 }
 
 function calcularComissoesDeBruto(brutoPricing) {
-  // vol×preço = Valor Líq.; comissões derivam do líquido com gross-up para bruto
-  return calcularComissoesDeLiquido(Number(brutoPricing) || 0);
+  var bruto = Number(brutoPricing) || 0;
+  var liq = derivarLiquidoDeBruto(bruto);
+  var pa = _feeAg !== null ? (Number(_feeAg) || 0) : 0;
+  return {
+    perc_agencia: pa,
+    comissao_agencia: Math.round((bruto - liq) * 100) / 100,
+    investimento_liquido: Math.round(liq * 100) / 100,
+    investimento_bruto: Math.round(bruto * 100) / 100
+  };
 }
 
 function calcularComissoesIntermediarios(brutoPricing) {
-  return calcularComissoesDeLiquido(Number(brutoPricing) || 0);
+  return calcularComissoesDeBruto(Number(brutoPricing) || 0);
 }
 
 function htmlComissoesIntermediario(liquido, brutoPricing) {
@@ -850,9 +852,11 @@ function atualizarInvestimentoBrutoCampo(prefix) {
 function atualizarComissaoPercentual(percentual, temVinculo, tipo) {
   _comissaoAvisado = false;
   if (tipo === 'agencia') {
-    _percAgencia = temVinculo ? percentual : null;
+    _feeAg = temVinculo ? percentual : null;
+    _percAgencia = _feeAg;
   } else if (tipo === 'parceiro') {
-    _percParceiro = temVinculo ? percentual : null;
+    _feePr = temVinculo ? percentual : null;
+    _percParceiro = _feePr;
   }
 }
 
@@ -1638,23 +1642,38 @@ function preencherResumoPrecificacaoTeste(prefix, j, volEnviadoApi) {
         (j.inc_provisionado_maximo ? 'Provisão máxima (2000k) — agência com incentivo.' : 'Faixa por volume (agência).') +
         '</td>';
 
+  var feePrFrac = Number(j.fee_pr != null ? j.fee_pr : j.parc) || 0;
+  var feeAgFrac = Number(j.fee_ag) || 0;
+  var precoBase = Number(j.preco_base) || 0;
+
   var parcLinha =
     !parceiroCalc
-      ? '<td class="py-2 px-3 font-medium text-gray-800">Parceiro Reg</td>' +
+      ? '<td class="py-2 px-3 font-medium text-gray-800">FeePR</td>' +
         '<td class="py-2 px-3 align-top font-mono tabular-nums text-gray-900">' +
         pctFmt(0) +
         '</td><td class="py-2 px-3 text-gray-600">Sem parceiro regional na cotação.</td>'
-      : '<td class="py-2 px-3 font-medium text-gray-800">Parceiro Reg</td>' +
+      : '<td class="py-2 px-3 font-medium text-gray-800">FeePR</td>' +
         '<td class="py-2 px-3 align-top font-mono tabular-nums text-gray-900">' +
         formatarTaxaIntermediario(parceiroCalc.pct, parceiroCalc.val) +
-        '</td><td class="py-2 px-3 text-gray-600">Taxa do parceiro regional (entra na soma de margens).</td>';
+        '</td><td class="py-2 px-3 text-gray-600">Fee do parceiro regional (denominador de margens).</td>';
+
+  var feeAgLinha =
+    feeAgFrac <= 0
+      ? '<td class="py-2 px-3 font-medium text-gray-800">Fee_ag</td>' +
+        '<td class="py-2 px-3 align-top font-mono tabular-nums text-gray-900">' +
+        pctFmt(0) +
+        '</td><td class="py-2 px-3 text-gray-600">Sem agência na cotação.</td>'
+      : '<td class="py-2 px-3 font-medium text-gray-800">Fee_ag</td>' +
+        '<td class="py-2 px-3 align-top font-mono tabular-nums text-gray-900">' +
+        pctFmt(feeAgFrac) +
+        '</td><td class="py-2 px-3 text-gray-600">Multiplicador 1/(1−Fee_ag) após margens.</td>';
 
   var formulaVol =
     kpi === 'CPM'
       ? '(Valor Líq. → bruto ÷ preço unit.) × 1.000'
       : 'Valor Líq. → bruto ÷ preço unit.';
 
-  var sumMargens = (Number(j.mcc) || 0) + (Number(j.com) || 0) + (Number(j.inc) || 0) + (Number(j.imp) || 0) + (Number(j.parc) || 0);
+  var sumMargens = (Number(j.mcc) || 0) + (Number(j.com) || 0) + (Number(j.inc) || 0) + (Number(j.imp) || 0) + feePrFrac;
 
   var html = [];
   html.push(
@@ -1673,8 +1692,9 @@ function preencherResumoPrecificacaoTeste(prefix, j, volEnviadoApi) {
     '<div class="rounded-lg border border-emerald-100 bg-white/90 px-3 py-2.5 shadow-sm">' +
       '<div class="text-[10px] font-semibold uppercase tracking-wide text-emerald-900 mb-1.5">Como é calculado</div>' +
       '<ul class="text-[11px] text-gray-800 leading-relaxed space-y-1.5 list-none pl-0">' +
-      '<li><span class="text-gray-500 font-medium">1)</span> Opex unitário = <span class="font-mono text-[10px] sm:text-[11px] break-all">Valor unitário de tabela ÷ (1 − TF)</span></li>' +
-      '<li><span class="text-gray-500 font-medium">2)</span> Preço unitário = <span class="font-mono text-[10px] sm:text-[11px] break-all">Opex unitário ÷ (1 − Mcc − COM − Inc − Imp − Parc)</span></li>' +
+      '<li><span class="text-gray-500 font-medium">1)</span> Opex = <span class="font-mono text-[10px] sm:text-[11px] break-all">Vt ÷ (1 − TF)</span></li>' +
+      '<li><span class="text-gray-500 font-medium">2)</span> Preço_base = <span class="font-mono text-[10px] sm:text-[11px] break-all">Opex ÷ (1 − Mcc − COM − Inc − FeePR − Imp)</span></li>' +
+      '<li><span class="text-gray-500 font-medium">3)</span> Preço_unit = <span class="font-mono text-[10px] sm:text-[11px] break-all">Preço_base × 1/(1 − Fee_ag)</span></li>' +
       '</ul>' +
       '<div class="mt-2.5 pt-2 border-t border-gray-100 text-[10px] text-gray-600 leading-snug space-y-1">' +
       '<div><span class="font-medium text-gray-700">Com estes números:</span> Vt = ' +
@@ -1689,26 +1709,29 @@ function preencherResumoPrecificacaoTeste(prefix, j, volEnviadoApi) {
       ') = <strong class="text-gray-900">' +
       formatarMoeda(j.opex_unit) +
       '</strong></div>' +
-      '<div>Soma margens = Mcc + COM + Inc + Imp + Parc = ' +
+      '<div>Soma margens = Mcc + COM + Inc + FeePR + Imp = ' +
       pctFmt(j.mcc) +
       ' + ' +
       pctFmt(j.com) +
       ' + ' +
       pctFmt(j.inc) +
       ' + ' +
-      pctFmt(j.imp) +
+      pctFmt(feePrFrac) +
       ' + ' +
-      pctFmt(j.parc) +
+      pctFmt(j.imp) +
       ' = <strong class="text-gray-900">' +
       pctFmt(sumMargens) +
       '</strong></div>' +
-      '<div>Preço = ' +
+      '<div>Preço_base = ' +
       formatarMoeda(j.opex_unit) +
       ' ÷ (1 − ' +
       pctFmt(sumMargens) +
-      ') = <strong class="text-emerald-900">' +
-      formatarMoeda(j.preco_unit) +
+      ') = <strong class="text-gray-900">' +
+      formatarMoeda(precoBase || (j.opex_unit / (1 - sumMargens))) +
       '</strong></div>' +
+      (feeAgFrac > 0
+        ? '<div>Preço_unit = Preço_base × 1/(1 − ' + pctFmt(feeAgFrac) + ') = <strong class="text-emerald-900">' + formatarMoeda(j.preco_unit) + '</strong></div>'
+        : '<div>Preço_unit = <strong class="text-emerald-900">' + formatarMoeda(j.preco_unit) + '</strong></div>') +
       '</div>' +
       '</div>'
   );
@@ -1863,13 +1886,15 @@ function preencherResumoPrecificacaoTeste(prefix, j, volEnviadoApi) {
   html.push('<tr class="border-b border-gray-100 bg-white">' + parcLinha + '</tr>');
 
   html.push(
-    '<tr class="bg-white">' +
+    '<tr class="border-b border-gray-100 bg-gray-50/50">' +
       '<td class="py-2 px-3 font-medium text-gray-800">Imp</td>' +
       '<td class="py-2 px-3 font-mono tabular-nums text-gray-900">' +
       pctFmt(j.imp) +
       '</td>' +
       '<td class="py-2 px-3 text-gray-600">' + escHtml(impostoCotacaoDescricao()) + '</td></tr>'
   );
+
+  html.push('<tr class="border-b border-gray-100 bg-white">' + feeAgLinha + '</tr>');
 
   html.push('</tbody></table></div>');
   html.push('</div>');
@@ -2053,20 +2078,6 @@ async function aplicarFormulaPrecoUnitarioTeste(pref) {
   }
 }
 
-function calcularValorNegociadoLegacy(pref) {
-  var p = _calcPrefix(pref);
-  var valorTabela = parseMoeda(document.getElementById(p + 'valor_unitario_tabela').value);
-  if (p === 'edit_') {
-    document.getElementById(p + 'valor_unitario').value = formatarMoeda(valorTabela);
-    derivarValorPendente(p);
-    return;
-  }
-  if (valorTabela > 0) {
-    document.getElementById(p + 'valor_unitario').value = formatarMoeda(valorTabela);
-    derivarValorPendente(p);
-  }
-}
-
 async function calcularValorNegociadoAsync(pref) {
   var p = _calcPrefix(pref);
   if (precificacaoTesteSatisfeita(p)) {
@@ -2074,7 +2085,7 @@ async function calcularValorNegociadoAsync(pref) {
     return;
   }
   limparResumoPrecificacaoTeste(p);
-  calcularValorNegociadoLegacy(p);
+  showToast('Preencha plataforma, valor tabela, KPI e Valor Líq. ou volume para calcular o preço.', 'warning');
 }
 
 function calcularValorNegociado() {

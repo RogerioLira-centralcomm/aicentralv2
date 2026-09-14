@@ -2325,7 +2325,8 @@
             setClienteFormValue('vendas_central_comm', cliente.vendas_central_comm || '');
             setClienteFormValue('pk_id_tbl_agencia', cliente.pk_id_tbl_agencia || '');
             setClienteFormValue('margem_cc', cliente.margem_cc === null || cliente.margem_cc === undefined ? '' : String(parseInt(cliente.margem_cc, 10)));
-            setClienteFormValue('percentual', cliente.percentual ? parseFloat(cliente.percentual).toFixed(2).replace('.', ',') : '');
+            var feeVal = cliente.fee != null ? cliente.fee : cliente.percentual;
+            setClienteFormValue('fee', feeVal ? parseFloat(feeVal).toFixed(2).replace('.', ',') : '');
             setClienteFormValue('inscricao_estadual', cliente.inscricao_estadual || '');
             setClienteFormValue('inscricao_municipal', cliente.inscricao_municipal || '');
             setClienteFormValue('cep', cliente.cep || '');

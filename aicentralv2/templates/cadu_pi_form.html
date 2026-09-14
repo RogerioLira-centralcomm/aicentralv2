@@ -682,7 +682,7 @@
         <div class="pi-edit-section__head"><div><h2>Comissões de intermediários</h2><p>Distribuição comercial e valores líquidos do PI.</p></div></div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
           <div>
-            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">% Com. Agência</label>
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">% Fee_ag</label>
             <input type="text" name="perc_comissao_agencia" id="input_perc_comissao_agencia" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ '%.2f'|format(pi.perc_comissao_agencia|float) if pi and pi.perc_comissao_agencia else '' }}">
           </div>
           <div>
@@ -693,7 +693,7 @@
             </div>
           </div>
           <div>
-            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">% Com. Parceiro</label>
+            <label class="block text-[10px] font-medium text-gray-600 mb-0.5">% Fee_pr</label>
             <input type="text" name="perc_comissao_parceiro" id="input_perc_comissao_parceiro" class="w-full text-[10px] border border-gray-200 rounded px-2 py-1 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none" placeholder="0,00" value="{{ '%.2f'|format(pi.perc_comissao_parceiro|float) if pi and pi.perc_comissao_parceiro else '' }}">
           </div>
           <div>
@@ -936,13 +936,14 @@
 
   function calcValores() {
     var bruto = parseBRL(els.valorBruto().value);
-    var percAg = parseBRL(els.percComissaoAg().value);
-    var comissaoAg = (bruto > 0 && percAg > 0) ? bruto * percAg / 100 : 0;
+    var feeAgPct = parseBRL(els.percComissaoAg().value);
+    var feeAgFrac = feeAgPct > 0 ? feeAgPct / 100 : 0;
+    var liquido = bruto > 0 ? (feeAgFrac > 0 ? bruto * (1 - feeAgFrac) : bruto) : 0;
+    var comissaoAg = bruto > 0 ? bruto - liquido : 0;
     els.comissaoAg().value = comissaoAg > 0 ? formatBRL(comissaoAg) : '';
-    var liquido = bruto > 0 ? bruto - comissaoAg : 0;
     els.valorLiquido().value = liquido > 0 ? formatBRL(liquido) : '';
-    var percParc = parseBRL(els.percComissaoParc().value);
-    var comissaoParc = (liquido > 0 && percParc > 0) ? liquido * percParc / 100 : 0;
+    var feePrPct = parseBRL(els.percComissaoParc().value);
+    var comissaoParc = (bruto > 0 && feePrPct > 0) ? bruto * feePrPct / 100 : 0;
     els.comissaoParc().value = comissaoParc > 0 ? formatBRL(comissaoParc) : '';
     var liquidoPR = liquido - comissaoParc;
     els.valorLiquidoPR().value = liquido > 0 ? formatBRL(liquidoPR) : '';
@@ -997,6 +998,8 @@
     if (execId) params.set('resp_comercial', execId);
     var agenciaId = els.agenciaHidden().value;
     if (agenciaId) params.set('id_agencia', agenciaId);
+    var parceiroId = els.parceiroHidden().value;
+    if (parceiroId) params.set('id_parceiro', parceiroId);
     var bruto = parseBRL(els.valorBruto().value);
     if (bruto > 0) params.set('valor_bruto', String(bruto));
 
@@ -1122,6 +1125,8 @@
     var com = (parsePercent(els.percComVendas().value)    || 0) / 100;
     var inc = (parsePercent(els.percPlIncentivos().value) || 0) / 100;
     var imp = (parsePercent(els.percImpostos().value)     || 0) / 100;
+    var feePr = (parsePercent(els.percComissaoParc().value) || 0) / 100;
+    var feeAg = (parsePercent(els.percComissaoAg().value) || 0) / 100;
     var cpm = meta ? meta.checked : false;
 
     if (cbase <= 0 || obj <= 0) {
@@ -1136,14 +1141,15 @@
       return;
     }
     var opex = cbase / (1 - tf);
-    var soma = mcc + com + inc + imp;
-    if (soma >= 1) {
+    var soma = mcc + com + inc + imp + feePr;
+    if (soma >= 1 || feeAg >= 1) {
       clearCalculadoraOutputs({ preservePersistedFinancials: true });
-      if (warning) { warning.textContent = 'Soma de Margem CC + Comissão + Incentivo + Impostos deve ser menor que 100%.'; warning.classList.remove('hidden'); }
+      if (warning) { warning.textContent = 'Soma de margens (Mcc+COM+Inc+FeePR+Imp) deve ser < 100% e Fee_ag < 100%.'; warning.classList.remove('hidden'); }
       if (!PI_HAS_PERSISTED_VALOR_BRUTO) calcValores();
       return;
     }
-    var preco  = opex / (1 - soma);
+    var precoBase = opex / (1 - soma);
+    var preco  = feeAg > 0 ? precoBase / (1 - feeAg) : precoBase;
     var volume = cpm ? (obj / 1000) : obj;
     var bruto  = volume * preco;
     var midia  = volume * cbase;

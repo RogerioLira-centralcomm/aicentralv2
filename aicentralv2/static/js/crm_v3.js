@@ -1443,7 +1443,7 @@
             cliente.classificacao_cliente || cliente.classificacao);
         setEditableDisplay('#crm-v3-info-cnpj', cliente.cnpj);
         setEditableDisplay('#crm-v3-info-cidade-only', cliente.cidade);
-        setEditableDisplay('#crm-v3-info-bv', fmtPct(cliente.bv_percentual));
+        setEditableDisplay('#crm-v3-info-bv', fmtPct(cliente.fee != null ? cliente.fee : cliente.bv_percentual));
         setEditableDisplay('#crm-v3-info-margem', fmtPct(cliente.margem_cc));
         setEditableDisplay('#crm-v3-info-opera', yesno(cliente.opera_midia), { alwaysFilled: true });
         setEditableDisplay('#crm-v3-info-demanda-dados', yesno(cliente.demanda_dados), { alwaysFilled: true });
@@ -5185,7 +5185,9 @@
             case 'observacoes_comerciais_adicionais':
                 return c.observacoes_comerciais_adicionais;
             case 'nota_executivo_vendas': return c.nota_executivo;
-            case 'percentual': return c.bv_percentual;
+            case 'percentual':
+            case 'fee':
+            case 'fee_ag': return c.fee != null ? c.fee : c.bv_percentual;
             case 'cnpj': return c.cnpj;
             case 'cidade': return c.cidade || (c.endereco && c.endereco.cidade);
             case 'cep': return c.cep || (c.endereco && c.endereco.cep);

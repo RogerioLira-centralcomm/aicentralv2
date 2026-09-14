@@ -110,13 +110,28 @@
   </div>
 </td>
 
-<td class="pi-fiscal-nf" data-label="NF">
+<td class="pi-fiscal-nf" data-label="NF" onclick="event.stopPropagation()">
   <div class="pi-nf-cell">
     {% if pi.get('nf_id') %}
     {% if pi.get('nf_numero_nota') %}
     <strong class="pi-nf-number">NF {{ pi.nf_numero_nota }}</strong>
     {% endif %}
     <span class="pi-nf-state">{{ pi.nf_status_descricao or 'Emitida' }}</span>
+    {% if origem_lista == 'faturamento' and pi.get('nf_spedy_status') in ['enqueued', 'received', 'processing', 'creating'] %}
+    <button type="button"
+            onclick='continuarConfirmacaoSpedy({{ pi.id_pi }}, {{ pi.nf_id }})'
+            class="pi-nf-action mt-1"
+            title="Confirmar emissão Spedy">
+      <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>Confirmar NF
+    </button>
+    {% endif %}
+    {% elif origem_lista == 'faturamento' %}
+    <button type="button"
+            onclick='abrirModalSpedy({{ pi.id_pi }}, {{ pi_info|tojson }})'
+            class="cx-btn cx-btn-sm cx-btn-primary"
+            title="Gerar NFS-e via Spedy">
+      <i class="fa-solid fa-file-invoice" aria-hidden="true"></i>Gerar NF
+    </button>
     {% else %}
     <span class="cx-cell-empty empty-na">Sem NF</span>
     {% endif %}
@@ -176,8 +191,8 @@
       {% else %}
       {% if origem_lista == 'faturamento' %}
       <button type="button" role="menuitem"
-              onclick='abrirModalImportarNf({{ pi.id_pi }}, {{ pi_info|tojson }})'>
-        <i class="fa-solid fa-file-import" aria-hidden="true"></i>Importar NF
+              onclick='abrirModalSpedy({{ pi.id_pi }}, {{ pi_info|tojson }})'>
+        <i class="fa-solid fa-file-invoice" aria-hidden="true"></i>Gerar NF via Spedy
       </button>
       {% endif %}
       <button type="button" role="menuitem"

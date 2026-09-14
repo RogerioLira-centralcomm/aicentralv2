@@ -133,22 +133,21 @@ class FechamentoServiceTest(unittest.TestCase):
         self.assertEqual(classificar_zona_por_margem(1000, 1100), 4)
         self.assertEqual(classificar_zona_por_margem(1000, 1300), 5)
 
-    def test_legado_ancora_liquido_e_imposto_15(self):
+    def test_snapshot_sem_cbase_usa_valores_persistidos(self):
         pi = {
             "valor_liquido": 1000,
-            "valor_bruto": 0,
+            "valor_bruto": 1250,
+            "comissao_agencia": 250,
             "perc_comissao_agencia": 20,
             "custo_base_unitario": 0,
             "cotacao_id": None,
         }
         self.assertTrue(eh_legado(pi))
         dre = calcular_provisionamentos(pi, 400)
-        self.assertEqual(dre["fonte"], "legado")
+        self.assertEqual(dre["fonte"], "snapshot")
         self.assertEqual(dre["valor_liquido"], 1000)
         self.assertEqual(dre["valor_bruto"], 1250)
-        self.assertEqual(dre["impostos"], 150)
-        self.assertEqual(dre["tech_fee"], 0)
-        self.assertEqual(dre["margem_cc"], 0)
+        self.assertEqual(dre["comissao_agencia"], 250)
         self.assertEqual(dre["margem_liquida_calculada"], 600)
 
     def test_preview_sem_custo_base_usa_zona_por_margem(self):
@@ -161,7 +160,7 @@ class FechamentoServiceTest(unittest.TestCase):
             operacao=operacao,
         )
         preview = service.preview(10)
-        self.assertEqual(preview["fonte_dre"], "legado")
+        self.assertEqual(preview["fonte_dre"], "snapshot")
         self.assertEqual(preview["zona_base"], "margem")
         self.assertIn("Base: margem", preview["zona_explicacao"])
         self.assertEqual(preview["dre_realizado"]["resultado"], preview["margem_liquida_calculada"])

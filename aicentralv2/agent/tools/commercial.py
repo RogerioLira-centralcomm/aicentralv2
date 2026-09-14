@@ -267,7 +267,8 @@ def consultar_cliente(
         "note": client.get("nota_executivo") or "",
         "email": client.get("email") or "",
         "phone": client.get("telefone") or "",
-        "bv_percent": client.get("bv_percentual"),
+        "fee_ag": client.get("fee_ag") or client.get("fee") or client.get("bv_percentual"),
+        "bv_percent": client.get("fee_ag") or client.get("fee") or client.get("bv_percentual"),
         "margin": client.get("margem_cc"),
         "profile": client.get("perfil") or "",
     })

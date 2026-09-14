@@ -1070,7 +1070,475 @@ GALEAO = {
     ),
 }
 
-SEED_PLACES = (CONFINS, CONGONHAS, SANTOS_DUMONT, GALEAO)
+DIAMOND_MALL = {
+    "slug": "diamond-mall",
+    "place_type": "shopping",
+    "city": "bh",
+    "status": "published",
+    "title": "Diamond Mall",
+    "code": "DMM",
+    "operator": "Multiplan · Belo Horizonte",
+    "subtitle": "O mall de Lourdes. Quem entra na loja e quem só passou na Savassi são recortes diferentes.",
+    "payload": normalize_payload(
+        {
+            "metrics": {
+                "passengers": _metric(
+                    5_400_000,
+                    "5,4 mi",
+                    source="Multiplan — tráfego 2025",
+                    source_status="official",
+                    note="Visitas no ano. Não é device único nem presença no raio.",
+                ),
+                "four_weeks": _metric(
+                    415_385,
+                    "~415 mil",
+                    source="Derivado do tráfego Multiplan 2025",
+                    source_status="estimate",
+                    note="Anual ÷ 13. Movimentos físicos, não devices únicos.",
+                ),
+                "addressable": _metric(
+                    100_000,
+                    "80–120 mil",
+                    source="Estimativa endereçável no mall, 4 semanas",
+                    source_status="estimate",
+                    note=ADDRESSABLE_NOTE,
+                ),
+            },
+            "catchment": {
+                "neighborhoods": ["Lourdes", "Funcionários", "Savassi"],
+                "profile": "Quem compra no mall e quem almoça na Savassi. O prédio não é o bairro.",
+            },
+            "geo": _geo(-19.9376, -43.9387, 16),
+            "points": [
+                _fence(
+                    {
+                        "id": "dmm-mall",
+                        "name": "Mall",
+                        "kind": "marco",
+                        "lat": -19.9376,
+                        "lng": -43.9387,
+                        "radius_m": 180,
+                        "radius_label": "180 m",
+                        "reach": "80–120 mil",
+                        "formats": ["Display no app", "Portais"],
+                        "audiences": ["Quem entrou no mall"],
+                        "commercial": "Quem cruzou a porta. É o recorte que a campanha compra primeiro.",
+                    }
+                ),
+                _fence(
+                    {
+                        "id": "dmm-food",
+                        "name": "Praça e quarto piso",
+                        "kind": "pessoas",
+                        "lat": -19.9379,
+                        "lng": -43.9382,
+                        "radius_m": 120,
+                        "radius_label": "120 m",
+                        "reach": "35–55 mil",
+                        "formats": ["Vídeo vertical", "Display"],
+                        "audiences": ["Gastronomia"],
+                        "commercial": "Quem parou para comer. Raio curto, intenção alta.",
+                    }
+                ),
+                _fence(
+                    {
+                        "id": "dmm-parking",
+                        "name": "Estacionamento",
+                        "kind": "mobilidade",
+                        "lat": -19.9384,
+                        "lng": -43.9394,
+                        "radius_m": 250,
+                        "radius_label": "250 m",
+                        "reach": "40–65 mil",
+                        "formats": APPS,
+                        "audiences": ["Mobilidade"],
+                        "commercial": "Quem veio de carro. Não some ao mall.",
+                    }
+                ),
+                _fence(
+                    {
+                        "id": "dmm-savassi",
+                        "name": "Savassi",
+                        "kind": "halo",
+                        "lat": -19.9362,
+                        "lng": -43.9361,
+                        "radius_m": 800,
+                        "radius_label": "800 m",
+                        "reach": "50–80 mil",
+                        "formats": ["Portais", "Display"],
+                        "audiences": ["Quem está no bairro"],
+                        "commercial": "O bairro. Separado de quem entrou no mall.",
+                    }
+                ),
+            ],
+            "media": {"hero_url": "/static/images/places/generated/diamond-mall-hero.png"},
+            "offer": _offer(
+                "No Diamond você compra quem entrou no mall — não quem só passou na Savassi.",
+                [
+                    ("No mall", "Display e portais para quem cruzou a porta."),
+                    ("Na praça", "Vídeo para quem parou para comer."),
+                    ("No bairro", "Portais para a Savassi, sem fingir que a pessoa entrou."),
+                ],
+            ),
+            "methodology": {
+                "title": "Como o número é feito",
+                "body": (
+                    "Visitas do shopping não são o que a campanha compra. "
+                    "O número do ponto é quem dá para alcançar neste raio, no celular, em 4 semanas. "
+                    "Os raios não se somam."
+                ),
+            },
+        }
+    ),
+}
+
+IGUATEMI_SP = {
+    "slug": "iguatemi-sao-paulo",
+    "place_type": "shopping",
+    "city": "sp",
+    "status": "published",
+    "title": "Iguatemi São Paulo",
+    "code": "IGT",
+    "operator": "Iguatemi · Faria Lima",
+    "subtitle": "O mall da Faria Lima. Ticket alto. O escritório ao lado é outro recorte.",
+    "payload": normalize_payload(
+        {
+            "metrics": {
+                "passengers": _metric(
+                    10_000_000,
+                    "~10 mi",
+                    source="Estimativa de visitas no ano",
+                    source_status="to_validate",
+                    note="Ordem de grandeza. A validar com o operador.",
+                ),
+                "four_weeks": _metric(
+                    769_231,
+                    "~770 mil",
+                    source="Derivado da estimativa anual",
+                    source_status="to_validate",
+                    note="Anual ÷ 13. A validar.",
+                ),
+                "addressable": _metric(
+                    180_000,
+                    "150–230 mil",
+                    source="Estimativa endereçável no mall, 4 semanas",
+                    source_status="estimate",
+                    note=ADDRESSABLE_NOTE,
+                ),
+            },
+            "catchment": {
+                "neighborhoods": ["Itaim Bibi", "Jardim Paulistano", "Pinheiros"],
+                "profile": "Quem compra no Iguatemi e quem trabalha na Faria Lima. O mall não é o escritório.",
+            },
+            "geo": _geo(-23.5768, -46.6870, 16),
+            "points": [
+                _fence(
+                    {
+                        "id": "igt-mall",
+                        "name": "Mall",
+                        "kind": "marco",
+                        "lat": -23.5768,
+                        "lng": -46.6870,
+                        "radius_m": 200,
+                        "radius_label": "200 m",
+                        "reach": "150–230 mil",
+                        "formats": ["Display no app", "Portais premium"],
+                        "audiences": ["Quem entrou no mall"],
+                        "commercial": "Quem cruzou a porta do Iguatemi. Recorte premium.",
+                    }
+                ),
+                _fence(
+                    {
+                        "id": "igt-food",
+                        "name": "Gastronomia",
+                        "kind": "pessoas",
+                        "lat": -23.5773,
+                        "lng": -46.6864,
+                        "radius_m": 130,
+                        "radius_label": "130 m",
+                        "reach": "60–95 mil",
+                        "formats": ["Vídeo vertical", "Display"],
+                        "audiences": ["Almoço e jantar"],
+                        "commercial": "Quem parou na praça. Raio curto.",
+                    }
+                ),
+                _fence(
+                    {
+                        "id": "igt-faria-lima",
+                        "name": "Faria Lima",
+                        "kind": "halo",
+                        "lat": -23.5749,
+                        "lng": -46.6898,
+                        "radius_m": 700,
+                        "radius_label": "700 m",
+                        "reach": "90–140 mil",
+                        "formats": ["Portais", "Display"],
+                        "audiences": ["Escritório"],
+                        "commercial": "Quem trabalha na avenida. Não entrou no mall.",
+                    }
+                ),
+            ],
+            "media": {"hero_url": "/static/images/places/generated/iguatemi-sp-hero.png"},
+            "offer": _offer(
+                "No Iguatemi você alcança quem entrou no mall — a Faria Lima é outro recorte.",
+                [
+                    ("No mall", "Display e portais premium para quem cruzou a porta."),
+                    ("Na praça", "Vídeo para o almoço e o jantar."),
+                    ("Na avenida", "Portais para o escritório, sem somar ao mall."),
+                ],
+            ),
+            "methodology": {
+                "title": "Como o número é feito",
+                "body": (
+                    "O tráfego anual do mall ainda calibra. "
+                    "O número do ponto é quem dá para alcançar neste raio, no celular, em 4 semanas. "
+                    "Os raios não se somam."
+                ),
+            },
+        }
+    ),
+}
+
+IBIRAPUERA = {
+    "slug": "ibirapuera",
+    "place_type": "evento",
+    "city": "sp",
+    "status": "published",
+    "title": "Ibirapuera",
+    "code": "IBI",
+    "operator": "Urbia / Prefeitura de São Paulo",
+    "subtitle": "O parque fica. O show, a Bienal e o domingo são recortes. Compre o portão, não os 17 milhões.",
+    "payload": normalize_payload(
+        {
+            "metrics": {
+                "passengers": _metric(
+                    17_000_000,
+                    "17 mi",
+                    source="Urbia — visitantes 2025",
+                    source_status="official",
+                    note="Passagens pelo parque no ano. Domingo pesa. Não é presença num evento.",
+                ),
+                "four_weeks": _metric(
+                    1_307_692,
+                    "~1,31 mi",
+                    source="Derivado dos 17 mi de 2025",
+                    source_status="estimate",
+                    note="Anual ÷ 13. Mistura domingo, terça e dia de show.",
+                ),
+                "addressable": _metric(
+                    260_000,
+                    "200–320 mil",
+                    source="Estimativa endereçável no parque, 4 semanas",
+                    source_status="estimate",
+                    note=ADDRESSABLE_NOTE,
+                ),
+            },
+            "catchment": {
+                "neighborhoods": ["Vila Mariana", "Moema", "Paraíso"],
+                "profile": "Quem corre no gramado, quem vai à Bienal e quem mora em volta. O evento não é o entorno.",
+            },
+            "geo": _geo(-23.5874, -46.6576, 15),
+            "points": [
+                _fence(
+                    {
+                        "id": "ibi-oca",
+                        "name": "Oca e portão 10",
+                        "kind": "marco",
+                        "lat": -23.5874,
+                        "lng": -46.6576,
+                        "radius_m": 250,
+                        "radius_label": "250 m",
+                        "reach": "80–130 mil",
+                        "formats": ["Display no app", "Portais"],
+                        "audiences": ["Quem entra pelo portão"],
+                        "commercial": "A porta do parque e da Oca. Onde o evento começa.",
+                    }
+                ),
+                _fence(
+                    {
+                        "id": "ibi-gramado",
+                        "name": "Gramado",
+                        "kind": "pessoas",
+                        "lat": -23.5886,
+                        "lng": -46.6560,
+                        "radius_m": 400,
+                        "radius_label": "400 m",
+                        "reach": "120–180 mil",
+                        "formats": ["Vídeo vertical", "Display"],
+                        "audiences": ["Lazer e esporte"],
+                        "commercial": "Quem ficou no gramado. Domingo é outro volume.",
+                    }
+                ),
+                _fence(
+                    {
+                        "id": "ibi-bienal",
+                        "name": "Pavilhão da Bienal",
+                        "kind": "marco",
+                        "lat": -23.5898,
+                        "lng": -46.6602,
+                        "radius_m": 200,
+                        "radius_label": "200 m",
+                        "reach": "25–60 mil",
+                        "reach_status": "to_validate",
+                        "formats": ["Portais", "Display"],
+                        "audiences": ["Quem foi ao evento"],
+                        "commercial": "Só no período do evento. Fora da agenda, o número cai.",
+                    }
+                ),
+                _fence(
+                    {
+                        "id": "ibi-vila",
+                        "name": "Vila Mariana",
+                        "kind": "halo",
+                        "lat": -23.5899,
+                        "lng": -46.6346,
+                        "radius_m": 1200,
+                        "radius_label": "1,2 km",
+                        "reach": "90–150 mil",
+                        "formats": ["Portais"],
+                        "audiences": ["Quem mora ao lado"],
+                        "commercial": "O bairro. Não é quem entrou no parque.",
+                    }
+                ),
+            ],
+            "media": {"hero_url": "/static/images/places/generated/ibirapuera-hero.png"},
+            "offer": _offer(
+                "No Ibirapuera você compra o portão, o gramado ou o dia do evento — não os 17 milhões do ano.",
+                [
+                    ("No portão", "Display para quem entra pela Oca."),
+                    ("No gramado", "Vídeo para o domingo e a corrida."),
+                    ("No evento", "Portais só enquanto o pavilhão está aberto."),
+                ],
+            ),
+            "methodology": {
+                "title": "Como o número é feito",
+                "body": (
+                    "17 milhões no ano misturam terça vazia e domingo cheio. "
+                    "O número do ponto é quem dá para alcançar neste raio, no celular, em 4 semanas. "
+                    "Evento no pavilhão não se soma ao gramado."
+                ),
+            },
+        }
+    ),
+}
+
+EXPOMINAS = {
+    "slug": "expominas",
+    "place_type": "evento",
+    "city": "bh",
+    "status": "published",
+    "title": "Expominas",
+    "code": "EXP",
+    "operator": "Gameleira · Belo Horizonte",
+    "subtitle": "O pavilhão fica. A feira passa. Compre o dia do evento, não o bairro da Gameleira.",
+    "payload": normalize_payload(
+        {
+            "metrics": {
+                "passengers": _metric(
+                    None,
+                    "Agenda",
+                    source="O volume segue a feira, não o calendário do ano",
+                    source_status="to_validate",
+                    note="Sem um número anual estável. O recorte é o evento.",
+                ),
+                "four_weeks": _metric(
+                    80_000,
+                    "50–110 mil",
+                    source="Estimativa numa janela com evento",
+                    source_status="to_validate",
+                    note="Quatro semanas com feira no pavilhão. Sem evento, o número cai.",
+                ),
+                "addressable": _metric(
+                    22_000,
+                    "15–35 mil",
+                    source="Estimativa endereçável no evento, 4 semanas",
+                    source_status="estimate",
+                    note=ADDRESSABLE_NOTE,
+                ),
+            },
+            "catchment": {
+                "neighborhoods": ["Gameleira", "Alto Barroca", "Nova Gameleira"],
+                "profile": "Quem foi à feira e quem mora na Gameleira. O pavilhão não é o bairro.",
+            },
+            "geo": _geo(-19.9308, -44.0005, 16),
+            "points": [
+                _fence(
+                    {
+                        "id": "exp-pavilhao",
+                        "name": "Pavilhão",
+                        "kind": "marco",
+                        "lat": -19.9308,
+                        "lng": -44.0005,
+                        "radius_m": 220,
+                        "radius_label": "220 m",
+                        "reach": "15–35 mil",
+                        "formats": ["Display no app", "Portais"],
+                        "audiences": ["Quem entrou na feira"],
+                        "commercial": "Quem passou a catraca. Só vale com evento.",
+                    }
+                ),
+                _fence(
+                    {
+                        "id": "exp-acesso",
+                        "name": "Acesso e ônibus",
+                        "kind": "mobilidade",
+                        "lat": -19.9296,
+                        "lng": -43.9988,
+                        "radius_m": 350,
+                        "radius_label": "350 m",
+                        "reach": "10–20 mil",
+                        "formats": APPS,
+                        "audiences": ["Chegada"],
+                        "commercial": "Quem chegou de ônibus ou de carro. Fora do pavilhão.",
+                    }
+                ),
+                _fence(
+                    {
+                        "id": "exp-gameleira",
+                        "name": "Gameleira",
+                        "kind": "halo",
+                        "lat": -19.9338,
+                        "lng": -43.9980,
+                        "radius_m": 900,
+                        "radius_label": "900 m",
+                        "reach": "25–45 mil",
+                        "formats": ["Portais"],
+                        "audiences": ["Quem mora ao lado"],
+                        "commercial": "O bairro. Não é presença na feira.",
+                    }
+                ),
+            ],
+            "media": {"hero_url": "/static/images/places/generated/expominas-hero.png"},
+            "offer": _offer(
+                "Na Expominas você compra o dia da feira — a Gameleira é outro recorte.",
+                [
+                    ("No pavilhão", "Display para quem passou a catraca."),
+                    ("Na chegada", "Apps para o acesso e o ônibus."),
+                    ("No bairro", "Portais na Gameleira, sem somar à feira."),
+                ],
+            ),
+            "methodology": {
+                "title": "Como o número é feito",
+                "body": (
+                    "Sem feira no pavilhão o número cai. "
+                    "O recorte é o evento naqueles dias, no celular. "
+                    "Os raios não se somam."
+                ),
+            },
+        }
+    ),
+}
+
+SEED_PLACES = (
+    CONFINS,
+    CONGONHAS,
+    SANTOS_DUMONT,
+    GALEAO,
+    DIAMOND_MALL,
+    IGUATEMI_SP,
+    IBIRAPUERA,
+    EXPOMINAS,
+)
 
 CITY_ORDER = ("bh", "sp", "rj")
 TYPE_ORDER = ("aeroporto", "shopping", "evento")

@@ -46,7 +46,17 @@ POINT_RADIUS = {
 }
 
 CITY_LABELS = {"bh": "Belo Horizonte", "sp": "São Paulo", "rj": "Rio de Janeiro"}
-TYPE_LABELS = {"aeroporto": "Aeroporto", "shopping": "Shopping", "evento": "Área de evento"}
+TYPE_LABELS = {"aeroporto": "Aeroporto", "shopping": "Shopping", "evento": "Parques e eventos"}
+TRAFFIC_LABELS = {
+    "aeroporto": "No avião, 2025",
+    "shopping": "No shopping, 2025",
+    "evento": "No lugar, 2025",
+}
+INDEX_COLUMNS = (
+    {"id": "aeroporto", "title": "Aeroportos", "types": ("aeroporto",)},
+    {"id": "shopping", "title": "Shoppings", "types": ("shopping",)},
+    {"id": "evento", "title": "Parques e eventos", "types": ("evento",)},
+)
 STATUS_LABELS = {
     "draft": "Rascunho",
     "published": "Publicado",
@@ -412,5 +422,35 @@ def public_view(row: dict) -> dict:
         "city_label": CITY_LABELS.get(normalize_choice(row.get("city"), CITIES, "bh"), ""),
         "type_label": TYPE_LABELS.get(normalize_choice(row.get("place_type"), PLACE_TYPES, "aeroporto"), ""),
         "status_label": STATUS_LABELS.get(normalize_choice(row.get("status"), STATUSES, "draft"), ""),
+        "traffic_label": TRAFFIC_LABELS.get(normalize_choice(row.get("place_type"), PLACE_TYPES, "aeroporto"), TRAFFIC_LABELS["aeroporto"]),
         **payload,
     }
+
+
+def directory_card(item: dict) -> dict:
+    media = as_dict(item.get("media"))
+    metrics = as_dict(item.get("metrics"))
+    addressable = as_dict(metrics.get("addressable"))
+    place_type = normalize_choice(item.get("place_type"), PLACE_TYPES, "aeroporto")
+    return {
+        "slug": text(item.get("slug")),
+        "title": text(item.get("title")),
+        "code": text(item.get("code")),
+        "place_type": place_type,
+        "type_label": TYPE_LABELS.get(place_type, ""),
+        "city_label": text(item.get("city_label")) or CITY_LABELS.get(normalize_choice(item.get("city"), CITIES, "bh"), ""),
+        "hero_url": text(media.get("hero_url")),
+        "reach": text(addressable.get("label")),
+    }
+
+
+def group_directory(items: list) -> list[dict]:
+    cards = [directory_card(item) for item in items if text(item.get("slug"))]
+    return [
+        {
+            "id": column["id"],
+            "title": column["title"],
+            "places": [card for card in cards if card["place_type"] in column["types"]],
+        }
+        for column in INDEX_COLUMNS
+    ]

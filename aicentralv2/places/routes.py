@@ -12,7 +12,7 @@ from .brand import PUBLIC_TOKENS
 from .images import ImageError
 from .repository import PlaceConflict, PlaceNotFound, PlacesError
 from .research import ResearchError
-from .schema import SOURCE_LABELS
+from .schema import SOURCE_LABELS, group_directory
 
 logger = logging.getLogger(__name__)
 
@@ -27,27 +27,29 @@ def _error(message, status=400):
     return jsonify({"success": False, "error": str(message)}), status
 
 
-def _places_nav(_current_slug=""):
+def _public_catalog():
     try:
-        catalog = service.public_catalog()
+        return service.public_catalog()
     except Exception:
-        catalog = []
-    return [
-        {
-            "slug": item.get("slug"),
-            "title": item.get("title"),
-            "code": item.get("code") or "",
-        }
-        for item in catalog
-        if item.get("slug")
-    ]
+        return []
+
+
+def _public_chrome(current_slug=""):
+    catalog = _public_catalog()
+    return {
+        "brand": PUBLIC_TOKENS,
+        "source_labels": SOURCE_LABELS,
+        "places_nav": catalog,
+        "place_groups": group_directory(catalog),
+        "current_slug": current_slug or "",
+    }
 
 
 def _public_error(message, status=404):
     return render_template(
         "places/public_error.html",
         mensagem=message,
-        brand=PUBLIC_TOKENS,
+        **_public_chrome(),
     ), status
 
 
@@ -55,10 +57,8 @@ def _public_page(place, *, preview=False):
     return render_template(
         "places/public.html",
         place=place,
-        brand=PUBLIC_TOKENS,
-        source_labels=SOURCE_LABELS,
         preview=preview,
-        places_nav=_places_nav(place.get("slug") if place else ""),
+        **_public_chrome(place.get("slug") if place else ""),
     )
 
 
@@ -277,8 +277,7 @@ def publico_indice():
     return render_template(
         "places/public_index.html",
         places=places,
-        brand=PUBLIC_TOKENS,
-        source_labels=SOURCE_LABELS,
+        **_public_chrome(),
     )
 
 

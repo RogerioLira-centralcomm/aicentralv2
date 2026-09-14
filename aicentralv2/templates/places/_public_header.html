@@ -1,0 +1,32 @@
+<header class="cc-top">
+  <div class="cc-top-inner">
+    <a class="cc-brand" href="{{ url_for('places.publico_indice') }}">
+      <img src="{{ brand.logo }}" alt="CentralComm">
+      <span>Places</span>
+    </a>
+    <button class="cc-menu-btn" type="button" aria-expanded="false" aria-controls="cc-mega" aria-haspopup="true">Lugares</button>
+  </div>
+  <div class="cc-mega" id="cc-mega" hidden>
+    <div class="cc-mega-board">
+      {% for col in place_groups %}
+      <section class="cc-mega-col" data-col="{{ col.id }}">
+        <h2>{{ col.title }}</h2>
+        {% for item in col.places %}
+        <a class="cc-mega-item" href="{{ url_for('places.publico', slug=item.slug) }}"{% if item.slug == current_slug %} aria-current="page"{% endif %}>
+          {% if item.hero_url %}
+          <img src="{{ item.hero_url }}" alt="">
+          {% endif %}
+          <span>
+            <strong>{{ item.code or item.title }}</strong>
+            <em>{{ item.title }}{% if item.city_label %} · {{ item.city_label }}{% endif %}</em>
+          </span>
+        </a>
+        {% else %}
+        <p class="cc-col-empty">O próximo place entra aqui.</p>
+        {% endfor %}
+      </section>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="cc-scrim" id="cc-scrim" hidden></div>
+</header>

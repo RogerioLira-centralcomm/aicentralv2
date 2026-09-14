@@ -1,4 +1,89 @@
 (function () {
+  var btn = document.querySelector(".cc-menu-btn");
+  var mega = document.getElementById("cc-mega");
+  var scrim = document.getElementById("cc-scrim");
+  var canHover = window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  var closeTimer;
+  var ignoreDoc = false;
+  var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function setMega(open) {
+    if (!btn || !mega) return;
+    window.clearTimeout(closeTimer);
+    mega.hidden = !open;
+    if (scrim) scrim.hidden = !open;
+    btn.setAttribute("aria-expanded", open ? "true" : "false");
+    document.documentElement.classList.toggle("is-mega", open);
+  }
+  function openMega() { setMega(true); }
+  function closeMega() { setMega(false); }
+  function requestClose() {
+    window.clearTimeout(closeTimer);
+    closeTimer = window.setTimeout(closeMega, 140);
+  }
+
+  if (scrim && scrim.parentNode !== document.body) {
+    document.body.appendChild(scrim);
+  }
+
+  if (btn && mega) {
+    btn.addEventListener("click", function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      var willOpen = mega.hidden;
+      if (canHover) {
+        if (willOpen) openMega();
+      } else if (willOpen) {
+        openMega();
+      } else {
+        closeMega();
+      }
+      ignoreDoc = true;
+      window.setTimeout(function () { ignoreDoc = false; }, 0);
+      if (willOpen && event.detail === 0) {
+        var first = mega.querySelector(".cc-mega-item");
+        if (first) first.focus();
+      }
+    });
+    if (canHover) {
+      btn.addEventListener("mouseenter", openMega);
+      btn.addEventListener("mouseleave", requestClose);
+      mega.addEventListener("mouseenter", function () { window.clearTimeout(closeTimer); });
+      mega.addEventListener("mouseleave", requestClose);
+    }
+    if (scrim) scrim.addEventListener("click", closeMega);
+    mega.addEventListener("keydown", function (event) {
+      var items = Array.prototype.slice.call(mega.querySelectorAll(".cc-mega-item"));
+      if (!items.length) return;
+      var index = items.indexOf(document.activeElement);
+      if (index < 0) index = 0;
+      if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+        items[(index + 1) % items.length].focus();
+        event.preventDefault();
+      } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+        items[(index - 1 + items.length) % items.length].focus();
+        event.preventDefault();
+      } else if (event.key === "Home") {
+        items[0].focus();
+        event.preventDefault();
+      } else if (event.key === "End") {
+        items[items.length - 1].focus();
+        event.preventDefault();
+      }
+    });
+    document.addEventListener("click", function (event) {
+      if (ignoreDoc || mega.hidden) return;
+      if (mega.contains(event.target) || btn.contains(event.target)) return;
+      closeMega();
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") {
+        closeMega();
+        btn.focus();
+      }
+    });
+  }
+
   var dataNode = document.getElementById("cc-place-data");
   if (!dataNode) return;
   var place = {};
@@ -15,7 +100,6 @@
   var map;
   var layers = {};
   var primed = false;
-  var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   function items() {
     if (points.length) return points.map(function (point) {
@@ -28,7 +112,6 @@
         reach_status: point.reach_status || "estimate",
         commercial: point.commercial || point.note || "",
         formats: point.formats || [],
-        audiences: point.audiences || [],
         image: point.image_url || "",
         color: point.color || "#167A3A",
         lat: point.lat,
@@ -45,7 +128,6 @@
         reach_status: zone.reach_status || "estimate",
         commercial: zone.commercial || zone.description || "",
         formats: zone.formats || [],
-        audiences: zone.audiences || [],
         image: zone.image_url || "",
         color: zone.color || "#167A3A"
       };
@@ -65,14 +147,6 @@
     if (node) node.textContent = value || "";
   }
 
-  function fillList(id, values, className) {
-    var node = document.getElementById(id);
-    if (!node) return;
-    node.innerHTML = (values || []).map(function (item) {
-      return "<" + className + ">" + escapeHtml(item) + "</" + className + ">";
-    }).join("");
-  }
-
   function setPhoto(id, url, name) {
     var img = document.getElementById(id);
     var wrap = img && img.closest(".cc-point-photo");
@@ -89,14 +163,24 @@
     }
   }
 
-  function toggleWrap(id, values) {
-    var node = document.getElementById(id);
-    if (node) node.hidden = !(values && values.length);
-  }
-
   function setFlag(id, on) {
     var node = document.getElementById(id);
     if (node) node.hidden = !on;
+  }
+
+  function hashId() {
+    try {
+      return decodeURIComponent((location.hash || "").replace(/^#/, ""));
+    } catch (error) {
+      return (location.hash || "").replace(/^#/, "");
+    }
+  }
+
+  function persist(item) {
+    if (!item || !item.id || !history.replaceState) return;
+    var next = "#" + encodeURIComponent(item.id);
+    if (location.hash === next) return;
+    history.replaceState(null, "", next);
   }
 
   function zoomFor(radius) {
@@ -142,9 +226,6 @@
         chip.scrollIntoView({ inline: "center", block: "nearest", behavior: reduceMotion ? "auto" : "smooth" });
       }
     });
-    document.querySelectorAll(".cc-gallery-card").forEach(function (card) {
-      card.classList.toggle("is-on", card.getAttribute("data-point") === item.id);
-    });
     Object.keys(layers).forEach(function (key) {
       paintLayer(key, key === item.id);
     });
@@ -152,13 +233,25 @@
     setText("zoneCommercial", item.commercial);
     setText("zoneRadius", item.radius);
     setText("zoneReach", item.reach);
-    setText("cc-map-label", item.name + " · " + item.radius);
     setFlag("zoneReachFlag", item.reach_status === "to_validate");
-    fillList("zoneFormats", item.formats, "span");
-    fillList("zoneAudiences", item.audiences, "div");
-    toggleWrap("zoneFormatsWrap", item.formats);
-    toggleWrap("zoneAudiencesWrap", item.audiences);
+    var formats = document.getElementById("zoneFormats");
+    if (formats) {
+      formats.textContent = (item.formats || []).join(", ");
+      formats.hidden = !(item.formats && item.formats.length);
+    }
     setPhoto("zonePhoto", item.image, item.name);
+    var sheet = document.getElementById("cc-detail");
+    if (sheet && primed) {
+      sheet.classList.remove("is-swap");
+      void sheet.offsetWidth;
+      sheet.classList.add("is-swap");
+      var title = document.getElementById("zoneName") || sheet;
+      var box = title.getBoundingClientRect();
+      if (box.top > window.innerHeight - 160) {
+        sheet.scrollIntoView({ block: "start", behavior: reduceMotion ? "auto" : "smooth" });
+      }
+    }
+    persist(item);
     if (map && item.lat != null) {
       var zoom = zoomFor(item.radius_m);
       if (!primed || reduceMotion) {
@@ -175,7 +268,7 @@
     nav.innerHTML = catalog.map(function (item, index) {
       return '<button type="button" class="cc-zone-chip" role="tab" data-zone="' +
         escapeHtml(item.id) + '" aria-selected="' + (index === 0 ? "true" : "false") + '">' +
-        escapeHtml(item.name) + "<small>" + escapeHtml(item.radius) + "</small></button>";
+        escapeHtml(item.name) + " <small>" + escapeHtml(item.radius) + "</small></button>";
     }).join("");
     nav.querySelectorAll(".cc-zone-chip").forEach(function (chip) {
       chip.addEventListener("click", function () {
@@ -197,15 +290,6 @@
       event.preventDefault();
     });
   }
-
-  document.querySelectorAll(".cc-gallery-card").forEach(function (card) {
-    card.addEventListener("click", function () {
-      var item = catalog.find(function (entry) { return entry.id === card.getAttribute("data-point"); });
-      applyItem(item);
-      var mapa = document.getElementById("mapa");
-      if (mapa) mapa.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
-    });
-  });
 
   var mapNode = document.getElementById("cc-map");
   if (mapNode && typeof L !== "undefined") {
@@ -239,5 +323,14 @@
     });
   }
 
-  if (catalog[0]) applyItem(catalog[0]);
+  var wanted = hashId();
+  var opening = catalog.find(function (item) { return item.id === wanted; }) || catalog[0];
+  if (opening) applyItem(opening);
+  if (wanted && opening && document.getElementById("mapa")) {
+    document.getElementById("mapa").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+  }
+  window.addEventListener("hashchange", function () {
+    var next = catalog.find(function (item) { return item.id === hashId(); });
+    if (next) applyItem(next);
+  });
 })();

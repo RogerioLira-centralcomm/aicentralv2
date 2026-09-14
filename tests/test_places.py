@@ -5,7 +5,7 @@ from unittest.mock import patch
 from flask import Flask
 
 from aicentralv2.places.brand import PUBLIC_TOKENS, zone_color
-from aicentralv2.places.catalog import CONGONHAS, CONFINS, GALEAO, SANTOS_DUMONT, SEED_PLACES
+from aicentralv2.places.catalog import CONGONHAS, CONFINS, DIAMOND_MALL, GALEAO, IBIRAPUERA, SANTOS_DUMONT, SEED_PLACES
 from aicentralv2.places.repository import PlacesError, inquiry_payload
 from aicentralv2.places.routes import bp as places_bp
 from aicentralv2.places.research import (
@@ -34,9 +34,21 @@ ADMIN_EDIT = ROOT / "aicentralv2" / "templates" / "places" / "edit.html"
 class PlacesCatalogTest(unittest.TestCase):
     def test_seed_has_four_airports(self):
         self.assertEqual(
-            [item["slug"] for item in SEED_PLACES],
+            [item["slug"] for item in SEED_PLACES if item["place_type"] == "aeroporto"],
             ["confins", "congonhas", "santos-dumont", "galeao"],
         )
+
+    def test_seed_has_shoppings_and_event_venues(self):
+        self.assertEqual(
+            [item["slug"] for item in SEED_PLACES if item["place_type"] == "shopping"],
+            ["diamond-mall", "iguatemi-sao-paulo"],
+        )
+        self.assertEqual(
+            [item["slug"] for item in SEED_PLACES if item["place_type"] == "evento"],
+            ["ibirapuera", "expominas"],
+        )
+        self.assertEqual(IBIRAPUERA["payload"]["metrics"]["passengers"]["label"], "17 mi")
+        self.assertEqual(DIAMOND_MALL["payload"]["metrics"]["passengers"]["value"], 5_400_000)
 
     def test_anac_2025_passenger_labels(self):
         self.assertEqual(CONFINS["payload"]["metrics"]["passengers"]["label"], "13,2 mi")
@@ -139,9 +151,10 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertEqual(view["offer"]["lines"][0]["title"], "No T1")
 
     def test_each_airport_has_its_own_offer(self):
-        leads = {item["payload"]["offer"]["lead"] for item in SEED_PLACES}
+        airports = [item for item in SEED_PLACES if item["place_type"] == "aeroporto"]
+        leads = {item["payload"]["offer"]["lead"] for item in airports}
         self.assertEqual(len(leads), 4)
-        for item in SEED_PLACES:
+        for item in airports:
             self.assertGreaterEqual(len(item["payload"]["offer"]["lines"]), 3)
             format_sets = {tuple(point["formats"]) for point in item["payload"]["points"]}
             self.assertGreater(len(format_sets), 1)
@@ -218,18 +231,27 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertIn("safe-area-inset", css)
         self.assertIn("cc-zone-chip", css)
         self.assertIn("cc-foot", css)
-        self.assertIn("cc-gallery", css)
+        self.assertIn("cc-hero", css)
+        self.assertIn("cc-desk", css)
+        self.assertIn("cc-sheet", css)
         self.assertIn("cc-point-photo", css)
-        self.assertIn("cc-map-art", css)
-        self.assertIn("cc-map-label", css)
+        self.assertIn("cc-picks", css)
+        self.assertIn("cc-pick-code", css)
+        self.assertIn("display: block", css)
+        self.assertIn("cc-board", css)
+        self.assertIn("cc-mega", css)
+        self.assertIn("cc-menu-btn", css)
+        self.assertIn("cc-scrim", css)
+        self.assertIn("position: sticky", css)
+        self.assertIn("cursor: pointer", css)
         self.assertIn("cc-flag", css)
         self.assertIn("cc-flag[hidden]", css)
-        self.assertIn("cc-air-code", css)
         self.assertIn("minmax(0, 36rem)", css)
         self.assertIn(":focus-visible", css)
         self.assertIn("100svh", css)
         self.assertIn("leaflet-container", css)
-        self.assertIn("cc-gallery-cap", css)
+        self.assertNotIn("cc-gallery", css)
+        self.assertNotIn("cc-air-code", css)
         self.assertNotIn(".cc-docs", css)
         self.assertNotIn(".cc-overlay", css)
 
@@ -240,6 +262,10 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertIn("is-in", js)
         self.assertIn("prefers-reduced-motion", js)
         self.assertIn("ArrowRight", js)
+        self.assertIn("cc-mega", js)
+        self.assertIn("Escape", js)
+        self.assertIn("is-mega", js)
+        self.assertIn("requestClose", js)
 
     def test_queue_bar_uses_css_var(self):
         css = ADMIN_CSS.read_text(encoding="utf-8")
@@ -543,9 +569,14 @@ class PlacesPublicRoutesTest(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn("Santos Dumont", html)
         self.assertIn("95–150 mil", html)
-        self.assertIn("cc-air-code", html)
+        self.assertIn("cc-pick-code", html)
+        self.assertIn("cc-board", html)
+        self.assertIn("cc-mega", html)
+        self.assertIn("Aeroportos", html)
+        self.assertIn("Shoppings", html)
+        self.assertIn("Parques e eventos", html)
         self.assertIn("SDU", html)
-        self.assertNotIn("sdu-hero.jpg", html)
+        self.assertIn("santos-dumont-hero", html)
         self.assertNotIn("--cx-", html)
 
     def test_public_place_renders_catchment(self):
@@ -555,16 +586,16 @@ class PlacesPublicRoutesTest(unittest.TestCase):
             response = self.client.get("/places/p/santos-dumont")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("Quem vive no entorno", html)
-        self.assertIn("96 mil", html)
+        self.assertIn("96 mil moram no entorno", html)
         self.assertIn("Ir para o mapa", html)
-        self.assertIn("O que você compra", html)
         self.assertIn("O SDU liga hotel", html)
-        self.assertIn("cc-map-label", html)
-        self.assertIn("4 semanas no halo", html)
-        self.assertNotIn("Não some ao terminal", html)
-        self.assertIn("Como o número é feito", html)
-        self.assertIn("Quem a campanha atinge", html)
+        self.assertIn("cc-hero", html)
+        self.assertIn("cc-desk", html)
+        self.assertIn("santos-dumont-hero", html)
+        self.assertIn("Isso não é presença no terminal", html)
+        self.assertNotIn("Quem vive no entorno", html)
+        self.assertNotIn("O que você compra", html)
+        self.assertNotIn("Quem a campanha atinge", html)
         self.assertNotIn("Página única", html)
         self.assertNotIn("Plano completo", html)
         self.assertNotIn("geofence", html.lower())
@@ -594,7 +625,7 @@ class PlacesPublicRoutesTest(unittest.TestCase):
         self.assertEqual(page.status_code, 200)
         self.assertNotIn("/login", page.headers.get("Location", ""))
 
-    def test_public_place_shows_point_gallery_and_map_art(self):
+    def test_public_place_shows_point_photo_in_the_sheet(self):
         place = dict(self.place)
         media = dict(place.get("media") or {})
         media["map_url"] = "/static/images/places/sdu-map.jpg"
@@ -615,11 +646,11 @@ class PlacesPublicRoutesTest(unittest.TestCase):
         ):
             response = self.client.get("/places/p/santos-dumont")
         html = response.get_data(as_text=True)
-        self.assertIn("Como é o ponto", html)
-        self.assertIn("cc-gallery", html)
-        self.assertIn("cc-gallery-cap", html)
+        self.assertIn("cc-sheet", html)
+        self.assertIn("cc-point-photo", html)
         self.assertIn("sdu-hero.jpg", html)
-        self.assertNotIn("<figcaption>", html)
+        self.assertIn("Terminal Santos Dumont", html)
+        self.assertNotIn("cc-gallery", html)
         self.assertNotIn("cc-map-art", html)
         self.assertNotIn("cc-docs", html)
 
@@ -632,8 +663,21 @@ class PlacesPublicRoutesTest(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertEqual(response.status_code, 200)
         self.assertIn("A validar", html)
-        self.assertIn("Na estrada", html)
+        self.assertIn("MG-010", html)
         self.assertIn("cnf-internacional", html)
+
+    def test_ibirapuera_public_is_an_event_sheet(self):
+        place = serialize(dict(IBIRAPUERA, id=7, preview_token="preview-ibi", status="published"))
+        with patch("aicentralv2.places.service.public_place", return_value=place), patch(
+            "aicentralv2.places.service.public_catalog", return_value=[place]
+        ):
+            response = self.client.get("/places/p/ibirapuera")
+        html = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("No Ibirapuera você compra o portão", html)
+        self.assertIn("No lugar, 2025", html)
+        self.assertIn("A validar", html)
+        self.assertIn("ibi-bienal", html)
 
 
 if __name__ == "__main__":

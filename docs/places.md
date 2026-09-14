@@ -18,7 +18,7 @@ Migration: `migrations/add_cx_places.sql` + `migrations/run_add_cx_places.py`
 
 ## V1
 
-Aeroportos publicados: Confins (CNF), Congonhas (CGH), Santos Dumont (SDU), Galeão (GIG).
+Publicados: aeroportos Confins (CNF), Congonhas (CGH), Santos Dumont (SDU), Galeão (GIG); shoppings Diamond Mall (DMM) e Iguatemi São Paulo (IGT); parques e eventos Ibirapuera (IBI) e Expominas (EXP). Shoppings e eventos entram com texto e mapa; as fotos do hero saem depois.
 
 Passageiros ANAC 2025:
 
@@ -36,7 +36,7 @@ Bacia residencial (Censo 2022, recorte oficial — não é presença no terminal
 
 4 semanas físicas = anual ÷ 13 (estimate). Endereçáveis em apps e portais ≈ únicos (×0,62) × 0,38. Pontos não se somam. Halo não é presença no terminal. Pistas do SDU não são zona comercial. Internacional do CNF (~4–5%) fica 8–14 mil endereçáveis, a validar.
 
-Shoppings e áreas de evento existem como tipo. Sem mapa, o status vira `mapping`. SP e RJ têm mais pontos a mapear.
+O índice público é um diretório em três colunas (Aeroportos, Shoppings, Parques e eventos), com foto no card. O header abre um mega menu com as mesmas colunas. Sem mapa, o status vira `mapping`.
 
 ## Dois visuais
 
@@ -49,7 +49,7 @@ Shoppings e áreas de evento existem como tipo. Sem mapa, o status vira `mapping
 
 A API do estúdio devolve a mesma ficha em `fiche` (identity, metrics, catchment, offer, points, images, pipeline) e o pacote visual em `images` (`spec.model`, `spec.resolution`, `hero_url`, `points[].url`, `errors`). `media` guarda `image_model`, `image_resolution` e `images[]`. `pipeline` lista os passos (`research → finalize → refine → geocode → polish → images`), modelos e avisos (ponto militar, avenida corrigida, coordenada faltando).
 
-A one-page pública não usa hero gerado no índice: o cartão é o código IATA. O mapa é satélite (Esri); o círculo é o recorte. As fotos vêm do OpenRouter por aeroporto: Confins e SDU no GPT Image 2; Congonhas no Nano Banana Pro 1K; Galeão no Seedream 5 Lite 2K. Internacional do CNF leva o selo “A validar”. Importação: pesquisa (Sonar) → finalize (GPT-5) → refine da ficha gerada → geocode curto → polish da one-page.
+A one-page pública é uma folha, não um site: hero com a foto do place, mapa satélite (Esri) com o círculo do recorte e a ficha daquele ponto. Índice usa a foto hero com o código IATA por cima. Sem galeria, cards de oferta nem seção de bacia — o Censo entra numa linha (“mora no entorno, não é presença no terminal”). Internacional do CNF leva o selo “A validar”. As fotos vêm do OpenRouter por aeroporto: Confins e SDU no GPT Image 2; Congonhas no Nano Banana Pro 1K; Galeão no Seedream 5 Lite 2K. Importação: pesquisa (Sonar) → finalize (GPT-5) → refine da ficha gerada → geocode curto → polish da one-page.
 
 Endereçáveis em 4 semanas (estimate, não somar):
 

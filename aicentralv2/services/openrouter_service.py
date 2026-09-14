@@ -398,29 +398,89 @@ def generate_image(
         raise OpenRouterError("Não foi possível gerar a imagem.") from exc
 
 
+DEFAULT_VIDEO_MODEL = os.getenv("CREATIVE_VIDEO_MODEL", "bytedance/seedance-2.5")
+VIDEO_MAX_BYTES = _env_int("CREATIVE_VIDEO_MAX_BYTES", 80 * 1024 * 1024)
+
+
+def build_video_payload(
+    prompt: str,
+    *,
+    model: Optional[str] = None,
+    duration: int = 8,
+    resolution: Optional[str] = None,
+    aspect_ratio: Optional[str] = None,
+    size: Optional[str] = None,
+    generate_audio: bool = False,
+    frame_images=None,
+    input_references=None,
+    seed=None,
+    watermark: bool = False,
+    req_key: Optional[str] = None,
+    output_format: str = "mp4",
+) -> Dict[str, Any]:
+    """Monta o body de `POST /api/v1/videos`. Não mistura frame_images com refs."""
+    frames = [item for item in list(frame_images or []) if isinstance(item, dict)][:2]
+    refs = [item for item in list(input_references or []) if isinstance(item, dict)]
+    if frames and refs:
+        raise ValueError("Não envie frame_images e input_references no mesmo pedido.")
+    payload = {
+        "model": (model or DEFAULT_VIDEO_MODEL).strip() or DEFAULT_VIDEO_MODEL,
+        "prompt": prompt,
+        "duration": max(4, min(int(duration or 8), 30)),
+        "generate_audio": bool(generate_audio),
+    }
+    if size:
+        payload["size"] = str(size)
+    else:
+        payload["resolution"] = resolution or "720p"
+        payload["aspect_ratio"] = aspect_ratio or "16:9"
+    if frames:
+        payload["frame_images"] = frames
+    if refs:
+        payload["input_references"] = refs
+    if seed not in (None, ""):
+        payload["seed"] = int(seed)
+    parameters = {
+        "watermark": bool(watermark),
+        "output_format": output_format or "mp4",
+    }
+    if req_key:
+        parameters["req_key"] = str(req_key)
+    payload["provider"] = {"options": {"seed": {"parameters": parameters}}}
+    return payload
+
+
 def generate_video(
     prompt: str,
     *,
-    model: str = "bytedance/seedance-2.0-mini",
+    model: Optional[str] = None,
     duration: int = 5,
     resolution: str = "720p",
     aspect_ratio: str = "16:9",
+    size: Optional[str] = None,
     generate_audio: bool = False,
     frame_images=None,
+    input_references=None,
+    seed=None,
+    req_key: Optional[str] = None,
+    watermark: bool = False,
     timeout: int = 90,
 ) -> Dict[str, Any]:
     """Submete vídeo assíncrono no OpenRouter (`POST /api/v1/videos`)."""
-    payload = {
-        "model": model or "bytedance/seedance-2.0-mini",
-        "prompt": prompt,
-        "duration": max(4, min(int(duration or 5), 15)),
-        "resolution": resolution or "720p",
-        "aspect_ratio": aspect_ratio or "16:9",
-        "generate_audio": bool(generate_audio),
-    }
-    frames = [item for item in list(frame_images or []) if isinstance(item, dict)]
-    if frames:
-        payload["frame_images"] = frames[:2]
+    payload = build_video_payload(
+        prompt,
+        model=model,
+        duration=duration,
+        resolution=resolution,
+        aspect_ratio=aspect_ratio,
+        size=size,
+        generate_audio=generate_audio,
+        frame_images=frame_images,
+        input_references=input_references,
+        seed=seed,
+        watermark=watermark,
+        req_key=req_key,
+    )
     headers = {
         "Authorization": f"Bearer {_api_key()}",
         "Content-Type": "application/json",
@@ -441,6 +501,7 @@ def generate_video(
             "id": data.get("id") or "",
             "polling_url": data.get("polling_url") or "",
             "status": data.get("status") or "pending",
+            "generation_id": data.get("generation_id") or "",
             "model": payload["model"],
             "usage": data.get("usage") or {},
         }
@@ -465,6 +526,7 @@ def poll_video(job_id: str, polling_url: Optional[str] = None, timeout: int = 60
         return {
             "id": data.get("id") or job_id,
             "status": data.get("status") or "pending",
+            "generation_id": data.get("generation_id") or "",
             "polling_url": data.get("polling_url") or url,
             "unsigned_urls": list(data.get("unsigned_urls") or []),
             "error": data.get("error") or "",
@@ -475,6 +537,51 @@ def poll_video(job_id: str, polling_url: Optional[str] = None, timeout: int = 60
         raise OpenRouterError(_image_error_message(getattr(exc, "response", None))) from exc
     except (requests.RequestException, ValueError, KeyError) as exc:
         raise OpenRouterError("Não foi possível consultar o vídeo.") from exc
+
+
+def is_mp4_bytes(payload: bytes) -> bool:
+    return isinstance(payload, (bytes, bytearray)) and len(payload) >= 12 and payload[4:8] == b"ftyp"
+
+
+def download_video(job_id: str, *, index: int = 0, timeout: int = 120) -> bytes:
+    """Baixa o MP4 com a API key. As unsigned_urls exigem Authorization."""
+    ident = str(job_id or "").strip()
+    if not ident:
+        raise OpenRouterError("O job de vídeo não tem identificador.")
+    url = f"{OPENROUTER_VIDEO_URL}/{ident}/content"
+    headers = {
+        "Authorization": f"Bearer {_api_key()}",
+        "HTTP-Referer": "https://centralcomm.media",
+        "X-Title": "CentralX - Studio",
+    }
+    try:
+        response = requests.get(
+            url,
+            headers=headers,
+            params={"index": max(0, int(index or 0))},
+            timeout=max(15, min(int(timeout), 180)),
+            stream=True,
+        )
+        response.raise_for_status()
+        chunks = []
+        total = 0
+        for chunk in response.iter_content(64 * 1024):
+            if not chunk:
+                continue
+            total += len(chunk)
+            if total > VIDEO_MAX_BYTES:
+                raise OpenRouterError("O vídeo retornado excede o tamanho permitido.")
+            chunks.append(chunk)
+        data = b"".join(chunks)
+        if not is_mp4_bytes(data):
+            raise OpenRouterError("O provedor não devolveu um MP4 válido.")
+        return data
+    except OpenRouterError:
+        raise
+    except requests.HTTPError as exc:
+        raise OpenRouterError(_image_error_message(getattr(exc, "response", None))) from exc
+    except (requests.RequestException, ValueError) as exc:
+        raise OpenRouterError("Não foi possível baixar o vídeo.") from exc
 
 
 # Prompt otimizado para transformar texto em FAQ estruturado

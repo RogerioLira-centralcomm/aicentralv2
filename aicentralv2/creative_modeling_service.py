@@ -1230,6 +1230,36 @@ class CreativeModelingService:
     def serve_format_lab_swap_still(self, filename):
         return self._format_lab().swap_still_path(filename)
 
+    def quote_format_lab_animate(self, payload=None):
+        return self._format_lab().quote_animate(payload)
+
+    def submit_format_lab_animate(self, payload=None, user_id=None):
+        return self._format_lab().submit_animate(payload, user_id=user_id)
+
+    def format_lab_animate_status(self, job_id):
+        return self._format_lab().animate_status(job_id)
+
+    def retry_format_lab_animate(self, job_id, user_id=None):
+        return self._format_lab().retry_animate(job_id, user_id=user_id)
+
+    def cancel_format_lab_animate(self, job_id):
+        return self._format_lab().cancel_animate(job_id)
+
+    def format_lab_animate_layers(self, payload=None, user_id=None):
+        return self._format_lab().animate_layers(payload, user_id=user_id)
+
+    def map_format_lab_animate_camadas(self, payload=None, user_id=None):
+        return self._format_lab().map_animate_camadas(payload, user_id=user_id)
+
+    def preview_format_lab_animate(self, payload=None, user_id=None):
+        return self._format_lab().preview_animate(payload, user_id=user_id)
+
+    def recompose_format_lab_animate(self, job_id, payload=None, user_id=None):
+        return self._format_lab().recompose_animate(job_id, payload, user_id=user_id)
+
+    def serve_media_asset(self, asset_id):
+        return self._format_lab().media_asset_file(asset_id)
+
     def close_format_lab_session(self, session_id, payload, user_id=None):
         return self._format_lab().close(session_id, payload, user_id=user_id)
 

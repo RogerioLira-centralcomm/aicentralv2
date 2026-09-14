@@ -18,10 +18,13 @@ logger = logging.getLogger(__name__)
 RUN_SCHEMA = "runs-v1"
 RUNS_LIMIT = 24
 
+MEDIA_ASSET_PREFIX = "/parametros/api/media/assets/"
+
 STILL_PREFIXES = (
     "/static/uploads/creative_generated/",
     "/static/uploads/creative_trocr/",
     TROCR_STILL_PREFIX,
+    MEDIA_ASSET_PREFIX,
 )
 
 
@@ -120,6 +123,83 @@ class TrocrStore:
             user_id=user_id,
         )
 
+    def persist_animate(self, payload, version, user_id=None):
+        """Append de vídeo. Sem CAS — um job de minutos não pode morrer por edição paralela."""
+        payload = payload if isinstance(payload, dict) else {}
+        existing = self.load(payload, user_id=user_id)
+        versions = list(existing.get("versions") or [])
+        next_id = f"v{len(versions) + 1}"
+        parent_id = str(payload.get("base_id") or existing.get("base_id") or "")
+        stale = existing.get("revision") not in (None, payload.get("source_revision"), version.get("source_revision"))
+        if payload.get("source_revision") not in (None, "", existing.get("revision")):
+            stale = True
+        row = {
+            "id": next_id,
+            "attempt": len(versions) + 1,
+            "name": version.get("name") or "Animação",
+            "origin": "animate",
+            "parent_id": parent_id if parent_id != next_id else "",
+            "quality": version.get("quality") or "",
+            "status": "ready",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "media": "video",
+            "image_url": version.get("poster_url") or version.get("image_url") or "",
+            "thumb_url": version.get("poster_url") or version.get("image_url") or "",
+            "video_url": version.get("video_url") or "",
+            "master_asset_id": version.get("master_asset_id") or "",
+            "poster_asset_id": version.get("poster_asset_id") or "",
+            "duration": version.get("duration"),
+            "has_audio": bool(version.get("has_audio")),
+            "packs": version.get("packs") or [],
+            "job_id": version.get("job_id") or "",
+            "source_version_id": version.get("source_version_id") or parent_id,
+            "camadas_creative_id": version.get("camadas_creative_id") or "",
+            "seedance_base_asset_id": version.get("seedance_base_asset_id") or "",
+            "scene_version": version.get("scene_version"),
+            "protected_layers": bool(version.get("protected_layers")),
+            "transition_from": version.get("transition_from") or "",
+            "transition_to": version.get("transition_to") or "",
+            "end_card_asset_id": version.get("end_card_asset_id") or "",
+            "based_on_stale_revision": stale,
+        }
+        versions.append(row)
+        saved = self.save(
+            {
+                **payload,
+                "run_id": existing.get("run_id") or payload.get("run_id"),
+                "versions": versions,
+                "active_id": next_id,
+                "base_id": existing.get("base_id") or (versions[0]["id"] if versions else next_id),
+                "aspect_ratio": existing.get("aspect_ratio") or payload.get("aspect_ratio") or "16:9",
+            },
+            user_id=user_id,
+        )
+        created = next((item for item in saved.get("versions") or [] if item.get("id") == next_id), row)
+        return created
+
+    def attach_camadas(self, payload, version_id, creative_id, user_id=None):
+        payload = payload if isinstance(payload, dict) else {}
+        existing = self.load(payload, user_id=user_id)
+        versions = []
+        for item in existing.get("versions") or []:
+            if not isinstance(item, dict):
+                continue
+            row = dict(item)
+            if str(row.get("id") or "") == str(version_id or ""):
+                row["camadas_creative_id"] = str(creative_id or "")
+            versions.append(row)
+        return self.save(
+            {
+                "client_id": payload.get("client_id") or existing.get("client_id"),
+                "run_id": existing.get("run_id") or payload.get("run_id"),
+                "versions": versions,
+                "active_id": existing.get("active_id"),
+                "base_id": existing.get("base_id"),
+                "aspect_ratio": existing.get("aspect_ratio"),
+            },
+            user_id=user_id,
+        )
+
     def materialize_reference(self, raw):
         """Still autenticado vira data URL. OpenRouter e o OCR não leem caminho relativo."""
         text = str(raw or "").strip()
@@ -196,6 +276,8 @@ class TrocrStore:
                 stored["origin"] = "original"
                 stored["image_url"] = prev.get("image_url") or stored["image_url"]
                 stored["thumb_url"] = prev.get("thumb_url") or stored["image_url"]
+            if prev and prev.get("camadas_creative_id") and not stored.get("camadas_creative_id"):
+                stored["camadas_creative_id"] = prev.get("camadas_creative_id")
             if not stored["id"]:
                 stored["id"] = f"v{len(merged) + 1}"
             if not stored["attempt"]:
@@ -219,7 +301,7 @@ class TrocrStore:
         created = item.get("created_at") or item.get("createdAt") or datetime.now(timezone.utc).isoformat()
         if hasattr(created, "isoformat"):
             created = created.isoformat()
-        return {
+        packed = {
             "id": str(item.get("id") or ""),
             "attempt": item.get("attempt") or 0,
             "name": str(item.get("name") or item.get("id") or "versão"),
@@ -235,6 +317,30 @@ class TrocrStore:
             "plan_hash": str(item.get("plan_hash") or ""),
             "parent_id": str(item.get("parent_id") or item.get("parentId") or ""),
         }
+        if item.get("camadas_creative_id"):
+            packed["camadas_creative_id"] = str(item.get("camadas_creative_id"))
+        if str(item.get("media") or "") == "video" or item.get("origin") == "animate":
+            packed.update({
+                "media": "video",
+                "video_url": str(item.get("video_url") or ""),
+                "master_asset_id": str(item.get("master_asset_id") or ""),
+                "poster_asset_id": str(item.get("poster_asset_id") or ""),
+                "seedance_base_asset_id": str(item.get("seedance_base_asset_id") or ""),
+                "duration": item.get("duration"),
+                "has_audio": bool(item.get("has_audio")),
+                "packs": item.get("packs") if isinstance(item.get("packs"), list) else [],
+                "job_id": str(item.get("job_id") or ""),
+                "source_version_id": str(item.get("source_version_id") or ""),
+                "scene_version": item.get("scene_version"),
+                "protected_layers": bool(item.get("protected_layers")),
+                "transition_from": str(item.get("transition_from") or ""),
+                "transition_to": str(item.get("transition_to") or ""),
+                "end_card_asset_id": str(item.get("end_card_asset_id") or ""),
+                "based_on_stale_revision": bool(item.get("based_on_stale_revision")),
+            })
+            if item.get("camadas_creative_id"):
+                packed["camadas_creative_id"] = str(item.get("camadas_creative_id"))
+        return packed
 
     def storeable_image(self, raw):
         url = self.persist_still(raw)

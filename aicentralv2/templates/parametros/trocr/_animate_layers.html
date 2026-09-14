@@ -1,0 +1,47 @@
+<fieldset id="mcAnimateSourceBox">
+  <legend class="mb-2 text-sm font-medium">Fonte</legend>
+  <label class="mb-2 flex cursor-pointer gap-2 text-sm">
+    <input type="radio" name="mcAnimateSource" value="flattened_still" checked>
+    <span>Still achatado</span>
+  </label>
+  <label class="flex cursor-pointer gap-2 text-sm">
+    <input type="radio" name="mcAnimateSource" value="protected_scene">
+    <span>Cena protegida (Camadas)</span>
+  </label>
+  <label class="mt-2 flex cursor-pointer gap-2 text-sm">
+    <input type="radio" name="mcAnimateSource" value="transition_ab">
+    <span>Transição A → B</span>
+  </label>
+  <p class="mt-2 text-sm text-slate-600" id="mcAnimateSourceHint">Texto e logo podem variar no Seedance.</p>
+  <div class="mt-3 hidden space-y-3" id="mcAnimateTransitionWrap">
+    <p class="text-sm text-slate-600">A é a versão ativa. Escolha B no mesmo formato.</p>
+    <label class="cx-field">
+      <span class="cx-label">Versão B</span>
+      <select class="cx-select" id="mcAnimateToId"></select>
+    </label>
+    <div class="grid grid-cols-2 gap-2" id="mcAnimatePair">
+      <figure class="m-0 grid gap-1">
+        <div class="relative overflow-hidden border border-slate-200 bg-slate-50">
+          <img alt="Versão A" class="aspect-[4/5] w-full object-contain" id="mcAnimateThumbA">
+          <span class="pointer-events-none absolute inset-[6%] hidden border border-dashed border-teal-700/70" id="mcAnimateSafeA"></span>
+        </div>
+        <figcaption class="text-sm text-slate-500" id="mcAnimateCapA">A</figcaption>
+      </figure>
+      <figure class="m-0 grid gap-1">
+        <div class="relative overflow-hidden border border-slate-200 bg-slate-50">
+          <img alt="Versão B" class="aspect-[4/5] w-full object-contain" id="mcAnimateThumbB">
+          <span class="pointer-events-none absolute inset-[6%] hidden border border-dashed border-teal-700/70" id="mcAnimateSafeB"></span>
+        </div>
+        <figcaption class="text-sm text-slate-500" id="mcAnimateCapB">B</figcaption>
+      </figure>
+    </div>
+  </div>
+  <div class="mt-3 hidden space-y-2" id="mcAnimateLayersWrap">
+    <div class="flex flex-wrap items-center gap-2">
+      <button type="button" class="cx-btn cx-btn-secondary cx-btn-sm" id="mcAnimateMap">Mapear agora</button>
+      <span class="text-sm text-slate-500" id="mcAnimateMapStatus"></span>
+    </div>
+    <p class="hidden text-sm text-amber-800" id="mcAnimateUnplaced"></p>
+    <ul class="m-0 max-h-40 list-none space-y-1 overflow-y-auto p-0 text-sm" id="mcAnimateLayerList"></ul>
+  </div>
+</fieldset>

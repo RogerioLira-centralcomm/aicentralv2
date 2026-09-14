@@ -34,6 +34,7 @@
     production: 'Produção',
     typeset: 'Tipo na foto',
     recrop: 'Recorte + tipo',
+    animate: 'Animação',
   };
 
   const Desk = window.McDeskBrand || {
@@ -123,6 +124,31 @@
     } catch (_error) {
       setStatus('Não deu para carregar as marcas. Você ainda pode escrever o nome no pedido.');
     }
+    window.__trocrAnimate = {
+      runId: () => state.runId,
+      clientId: () => state.clientId,
+      baseId: () => state.activeId || state.baseId,
+      aspectRatio: () => state.aspectRatio,
+      pendingJobId: () => state.animateJobId || '',
+      camadasId: () => currentVersion()?.camadas_creative_id || '',
+      stills: () => state.versions.filter((item) => item.media !== 'video' && item.image).map((item) => ({
+        id: item.id,
+        name: item.name,
+        image: item.image,
+        thumb: item.thumb || item.image,
+        camadas_creative_id: item.camadas_creative_id || '',
+      })),
+      activeStill: () => {
+        const current = currentVersion();
+        if (!current) return {};
+        return {
+          id: current.id,
+          name: current.name,
+          image: current.image,
+          thumb: current.thumb || current.image,
+        };
+      },
+    };
     await Promise.all([loadHistory(), loadViewerCatalog()]);
     await consumeHandoff();
     refreshQuote();
@@ -191,6 +217,21 @@
     });
     document.querySelectorAll('input[name="mcTrocrAnalysis"]').forEach((node) => {
       node.addEventListener('change', renderEditPanels);
+    });
+    $('mcTrocrAnimateFromGenerate')?.addEventListener('click', () => {
+      $('mcTrocrAnimateBtn')?.click();
+    });
+    document.addEventListener('trocr:animate-ready', (event) => {
+      const version = event.detail?.version;
+      if (!version) return;
+      applyHistoryFromAnimate(version, event.detail);
+    });
+    document.addEventListener('trocr:camadas-linked', (event) => {
+      const current = currentVersion();
+      const creativeId = event.detail?.camadas_creative_id || event.detail?.creative_id;
+      if (!current || !creativeId) return;
+      current.camadas_creative_id = creativeId;
+      persistHistory();
     });
     $('mcSwapRun')?.addEventListener('click', () => {
       const quality = (state.mode === 'typeset' || state.mode === 'recrop') ? 'production' : state.quality;
@@ -1142,9 +1183,17 @@
     if (!version) return;
     state.activeId = version.id;
     showPreview(version.image);
+    document.dispatchEvent(new CustomEvent('trocr:version-selected', { detail: version }));
     renderVersions();
     renderBaseMeta();
     renderCompare();
+  }
+
+  function applyHistoryFromAnimate(version, job) {
+    loadHistory().then(() => {
+      const match = state.versions.find((item) => item.job_id === job.job_id || item.video_url === version.video_url);
+      if (match) selectVersion(match.id);
+    }).catch(() => {});
   }
 
   function useAsBase(id) {
@@ -1477,6 +1526,9 @@
   function enableGenerate(enabled) {
     if ($('mcSwapRun')) $('mcSwapRun').disabled = !enabled;
     if ($('mcTrocrDraft')) $('mcTrocrDraft').disabled = !enabled;
+    const canAnimate = Boolean(currentVersion()?.image || currentVersion()?.video_url);
+    if ($('mcTrocrAnimateBtn')) $('mcTrocrAnimateBtn').disabled = !canAnimate;
+    if ($('mcTrocrAnimateFromGenerate')) $('mcTrocrAnimateFromGenerate').disabled = !canAnimate;
   }
 
   function paintGoLabel() {
@@ -2073,7 +2125,16 @@
       qa: item.qa || null,
       plan_hash: item.plan_hash || '',
       parent_id: item.parent_id || '',
-    })).filter((item) => item.image);
+      media: item.media || (item.origin === 'animate' ? 'video' : 'image'),
+      video_url: item.video_url || '',
+      poster_url: item.poster_url || '',
+      job_id: item.job_id || '',
+      duration: item.duration,
+      packs: item.packs || [],
+      camadas_creative_id: item.camadas_creative_id || '',
+      seedance_base_asset_id: item.seedance_base_asset_id || '',
+      scene_version: item.scene_version,
+    })).filter((item) => item.image || item.video_url);
   }
 
   function applyHistoryMeta(data) {
@@ -2108,6 +2169,7 @@
     renderEditPanels();
     if (!current) return;
     showPreview(current.image);
+    document.dispatchEvent(new CustomEvent('trocr:version-selected', { detail: current }));
     enableGenerate(canGenerate());
     setFlow('review');
     if (base?.ocr) applyRead(base.ocr, base, { cached: true });
@@ -2187,6 +2249,17 @@
               qa: item.qa || null,
               plan_hash: item.plan_hash || '',
               parent_id: item.parent_id || '',
+              media: item.media || '',
+              video_url: item.video_url || '',
+              poster_url: item.poster_url || '',
+              job_id: item.job_id || '',
+              duration: item.duration,
+              packs: item.packs || [],
+              master_asset_id: item.master_asset_id || '',
+              poster_asset_id: item.poster_asset_id || '',
+              camadas_creative_id: item.camadas_creative_id || '',
+              seedance_base_asset_id: item.seedance_base_asset_id || '',
+              scene_version: item.scene_version,
             })),
           });
           applyStoredUrls(saved);

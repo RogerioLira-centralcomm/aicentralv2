@@ -746,3 +746,21 @@ Do typeset, depois deste lab:
 - `presentation` não muda o PNG. É moldura no canvas (viewers do Produzir quando não é `final`).
 - `quality` no typeset é ignorada (sempre `typeset`). No Image 2, rascunho manda `medium` e produção manda `high`.
 - Sem `OPENROUTER_API_KEY` / integração, OCR e Image 2 não rodam; typeset roda se a referência for data URL.
+
+---
+
+## 18. Animar (Seedance 2.5)
+
+Continuação do Trocar. Um still vira clipe de 5–30 s. O PNG original permanece.
+
+- Modelo fixo `bytedance/seedance-2.5`. Rascunho 480p, produção 720p. Sem cair para Mini.
+- `POST /api/format-lab/swap/animate/quote` e `POST .../animate` (CSRF). `GET .../animate/<job_id>` só lê.
+- Worker em thread (`creative_media.worker`) baixa, transcodifica e grava. GET não materializa.
+- Still achatado ou **cena protegida** (`protected_scene`): snapshot imutável da Camadas no job. Sem snapshot válido → 400.
+- Placa sem tipo/logo vai ao Seedance. Overlay PNG entra depois. `seedance_base` fica separado do master.
+- `POST .../animate/map` liga a versão a `crt_*` (reuso por sha256). `POST .../animate/<job_id>/recompose` reaplica overlay sem Seedance.
+- GET de status pode trazer `scene_ahead: true` se a cena live passou da versão do snapshot.
+- 4:5 gera frame técnico 3:4 com safe area, recorta o vídeo e só então aplica o overlay.
+- Ativos em `GET /parametros/api/media/assets/<id>/content`.
+- Transição A→B: `first_frame` + `last_frame`, mesma proporção Seedance, sem `input_references`. Overlay B só no último segundo.
+- Versão `origin: animate`. Conclusão faz append sem 409.

@@ -235,6 +235,8 @@ class FormatLabService:
 
             brand = self._swap_brand(payload) if payload.get("use_brand_context") is not False else {}
             return _serialize(build_swap_plan(payload, brand)["quote"])
+        if str(payload.get("kind") or "") == "animate":
+            return _serialize(self.quote_animate(payload))
         return _serialize(quote_concept(payload))
 
     def read_swap(self, payload, user_id=None):
@@ -375,6 +377,55 @@ class FormatLabService:
 
     def swap_still_path(self, filename):
         return self._trocr_store().still_path(filename)
+
+    def _media_repository(self):
+        repo = getattr(self, "_media_repo", None)
+        if repo is not None:
+            return repo
+        try:
+            from ..creative_media.repository import MediaRepository
+
+            self._media_repo = MediaRepository().ready()
+        except Exception:
+            from ..creative_media.repository import MemoryMediaRepository
+
+            self._media_repo = MemoryMediaRepository()
+        return self._media_repo
+
+    def _animate(self):
+        from .animate import AnimateService
+
+        return AnimateService(self._trocr_store(), self._media_repository())
+
+    def quote_animate(self, payload=None):
+        return self._animate().quote(payload)
+
+    def submit_animate(self, payload=None, user_id=None):
+        return self._animate().submit(payload, user_id=user_id)
+
+    def animate_status(self, job_id):
+        return self._animate().status(job_id)
+
+    def retry_animate(self, job_id, user_id=None):
+        return self._animate().retry(job_id, user_id=user_id)
+
+    def cancel_animate(self, job_id):
+        return self._animate().cancel(job_id)
+
+    def animate_layers(self, payload=None, user_id=None):
+        return self._animate().layers(payload, user_id=user_id)
+
+    def map_animate_camadas(self, payload=None, user_id=None):
+        return self._animate().map_camadas(payload, user_id=user_id)
+
+    def preview_animate(self, payload=None, user_id=None):
+        return self._animate().preview(payload, user_id=user_id)
+
+    def recompose_animate(self, job_id, payload=None, user_id=None):
+        return self._animate().recompose(job_id, payload, user_id=user_id)
+
+    def media_asset_file(self, asset_id):
+        return self._animate().asset_file(asset_id)
 
     def list_campaigns(self):
         return _serialize(list_campaign_models())

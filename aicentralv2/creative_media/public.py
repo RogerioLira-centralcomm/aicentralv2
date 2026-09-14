@@ -1,0 +1,54 @@
+"""Payload do job para o browser. Sem polling_url."""
+
+from __future__ import annotations
+
+from .settings import UI_STAGES
+
+
+def job_payload(row, *, scene_ahead=False):
+    row = row if isinstance(row, dict) else {}
+    plan = row.get("plan_json") if isinstance(row.get("plan_json"), dict) else {}
+    quote = row.get("quote_json") if isinstance(row.get("quote_json"), dict) else {}
+    version = row.get("version_payload") if isinstance(row.get("version_payload"), dict) else None
+    mode = (plan.get("source") or {}).get("mode") or "flattened_still"
+    source = plan.get("source") or {}
+    has_overlay = mode == "protected_scene" or (
+        mode == "transition_ab" and bool(source.get("snapshot_a") or source.get("snapshot_b"))
+    )
+    stages = [
+        {"id": key, "label": label}
+        for key, label in UI_STAGES
+        if has_overlay or key != "compositing"
+    ]
+    return {
+        "job_id": row.get("public_id"),
+        "status": row.get("status") or "queued",
+        "stage": row.get("stage") or "queued",
+        "progress": int(row.get("progress") or 0),
+        "message": row.get("message") or "",
+        "stages": list(row.get("stages") or []),
+        "error": row.get("error_message") or "",
+        "quote": {
+            "estimated_cost_usd": quote.get("estimated_cost_usd"),
+            "estimated_cost_brl": quote.get("estimated_cost_brl") or quote.get("spent_brl"),
+        },
+        "eta": {"minimum_seconds": 120, "maximum_seconds": 360},
+        "plan": {
+            "model": plan.get("model"),
+            "duration": plan.get("duration"),
+            "resolution": plan.get("resolution"),
+            "aspect_ratio": plan.get("aspect_ratio"),
+            "piece_ratio": plan.get("piece_ratio"),
+            "audio_mode": plan.get("audio_mode"),
+            "source": plan.get("source"),
+        },
+        "ui_stages": stages,
+        "scene_ahead": bool(scene_ahead),
+        "version": version,
+    }
+
+
+def asset_url(asset_id):
+    if not asset_id:
+        return ""
+    return f"/parametros/api/media/assets/{asset_id}/content"

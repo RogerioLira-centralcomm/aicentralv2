@@ -73,6 +73,15 @@ class SmartPlannerReferencesTest(unittest.TestCase):
             reviewed = review_reference("x" * 120, kind="search", label="churrasco BH")
         self.assertEqual(reviewed["papel"], "mercado")
 
+    def test_review_search_uses_selected_scope(self):
+        with patch("aicentralv2.smart_planner.references.chat_json", return_value={
+            "notas": "A marca lançou uma nova campanha.",
+            "fatos": {},
+            "papel": "mercado",
+        }):
+            reviewed = review_reference("x" * 120, kind="search", label="lançamentos", scope="campanhas")
+        self.assertEqual(reviewed["papel"], "campanha")
+
     def test_capture_url_returns_reviewed_notes_not_heading_block(self):
         with patch("aicentralv2.smart_planner.references.scrape_url", return_value="x" * 200), patch(
             "aicentralv2.smart_planner.references.review_reference",
@@ -101,6 +110,44 @@ class SmartPlannerReferencesTest(unittest.TestCase):
             captured = capture_search("churrasco minas")
         self.assertEqual(captured["papel"], "mercado")
         self.assertIn("aquecido", captured["notas"])
+
+    def test_search_scope_guides_query_and_reference_role(self):
+        with patch.dict("os.environ", {"FIRECRAWL_API_KEY": "fc-test"}, clear=False), patch(
+            "aicentralv2.smart_planner.references._firecrawl_search",
+            return_value=[{"title": "Case", "snippet": "Campanha recente", "url": ""}],
+        ) as search, patch(
+            "aicentralv2.smart_planner.references.review_reference",
+            return_value={"notas": "Campanha recente da marca.", "fatos": {}, "papel": "campanha"},
+        ):
+            captured = capture_search("ações recentes", "Marca XPTO", "campanhas")
+        self.assertEqual(captured["scope"], "campanhas")
+        self.assertEqual(captured["source_mode"], "web")
+        self.assertEqual(captured["papel"], "campanha")
+        self.assertIn("campanhas recentes", search.call_args.args[0])
+        self.assertIn("Marca XPTO", search.call_args.args[0])
+
+    def test_search_scope_falls_back_without_breaking_old_clients(self):
+        with patch(
+            "aicentralv2.smart_planner.references.search_web",
+            return_value="Conteúdo público suficiente sobre a categoria e seu comportamento.",
+        ), patch(
+            "aicentralv2.smart_planner.references.review_reference",
+            return_value={"notas": "Resumo público.", "fatos": {}, "papel": "mercado"},
+        ):
+            captured = capture_search("categoria regional", scope="desconhecido")
+        self.assertEqual(captured["scope"], "briefing")
+        self.assertEqual(captured["source_mode"], "web")
+
+    def test_search_origin_survives_reference_normalization(self):
+        normalized = normalize_reference({
+            "kind": "search",
+            "label": "mercado regional",
+            "notas": "Mercado em expansão.",
+            "scope": "mercado",
+            "source_mode": "web",
+        })
+        self.assertEqual(normalized["scope"], "mercado")
+        self.assertEqual(normalized["source_mode"], "web")
 
     def test_capture_file_and_image_go_through_review(self):
         with patch(
@@ -288,6 +335,11 @@ class SmartPlannerReferencesTest(unittest.TestCase):
         self.assertIn("Usar como apoio", html)
         self.assertIn("Fonte do briefing", html)
         self.assertNotIn("Inserir no briefing", html)
+        self.assertIn('name="sp-search-scope"', html)
+        self.assertIn("Campanhas", html)
+        self.assertIn("Mercado", html)
+        self.assertIn("sp-search-suggestions", html)
+        self.assertIn("Descobrir informações", html)
         self.assertIn("references: refs.map", js)
         self.assertNotIn("textarea.value", insert.split("if (cards)", 1)[0])
 

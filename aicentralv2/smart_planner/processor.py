@@ -288,6 +288,10 @@ def _fonte_item(item: dict) -> dict:
         out["url"] = item.get("url")
     if item.get("name"):
         out["name"] = item.get("name")
+    if item.get("kind") == "search" and item.get("scope"):
+        out["scope"] = item.get("scope")
+    if item.get("kind") == "search" and item.get("source_mode"):
+        out["source_mode"] = item.get("source_mode")
     return out
 
 

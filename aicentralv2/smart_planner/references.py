@@ -27,6 +27,39 @@ Organize só o que importa em prosa limpa, em português.
 Não invente verba, KPI, cliente, prazo ou marca que o material não afirma.
 Responda apenas com JSON válido."""
 
+SEARCH_FOCUS = {
+    "briefing": {
+        "label": "completar o briefing",
+        "instruction": "identifique lacunas, contexto e fatos públicos que ajudem a sustentar o briefing",
+        "papel": "campanha",
+    },
+    "marca": {
+        "label": "entender a marca",
+        "instruction": "priorize posicionamento, produtos, público, presença e movimentos recentes da marca",
+        "papel": "marca",
+    },
+    "cliente": {
+        "label": "conhecer o cliente",
+        "instruction": "priorize atuação, praças, prioridades de negócio e oportunidades de comunicação do anunciante",
+        "papel": "marca",
+    },
+    "agencia": {
+        "label": "conhecer a agência",
+        "instruction": "priorize especialidades, portfólio, clientes atendidos e trabalhos recentes da agência",
+        "papel": "marca",
+    },
+    "campanhas": {
+        "label": "explorar campanhas",
+        "instruction": "priorize campanhas recentes, mensagens, canais utilizados e movimentos dos concorrentes",
+        "papel": "campanha",
+    },
+    "mercado": {
+        "label": "ler o mercado",
+        "instruction": "priorize tendências, comportamento, dados públicos e mudanças na categoria",
+        "papel": "mercado",
+    },
+}
+
 
 def reference_block(kind: str, label: str, body: str) -> str:
     heading = {
@@ -57,29 +90,37 @@ def capture_file(path: str, original: str) -> dict:
     return _captured(kind, original, raw, name=original)
 
 
-def capture_search(query: str, briefing: str = "") -> dict:
+def capture_search(query: str, briefing: str = "", scope: str = "mercado") -> dict:
     query = (query or "").strip()
     if len(query) < 3:
         raise ValueError("Escreva o que devemos pesquisar.")
-    raw = search_web(query, briefing)
-    return _captured("search", query, raw)
+    scope = scope if scope in SEARCH_FOCUS else "briefing"
+    raw = search_web(query, briefing, scope)
+    source_mode = "model" if raw.startswith("Fonte: conhecimento do modelo") else "web"
+    return _captured("search", query, raw, scope=scope, source_mode=source_mode)
 
 
-def search_web(query: str, briefing: str = "") -> str:
+def search_web(query: str, briefing: str = "", scope: str = "mercado") -> str:
     from ..services.integration_credentials import resolve_firecrawl_api_key
 
+    focus = SEARCH_FOCUS.get(scope, SEARCH_FOCUS["briefing"])
+    search_query = f"{query}. Foco: {focus['instruction']}"
+    hint = strip_markdown((briefing or "").strip())[:500]
+    if hint:
+        search_query += f". Contexto do briefing: {hint}"
     key = resolve_firecrawl_api_key()
     if key:
-        hits = _firecrawl_search(query, key)
+        hits = _firecrawl_search(search_query, key)
         pages = _scrape_search_hits(hits)
         if pages:
             return pages
         listing = _format_search_hits(hits)
         if listing:
             return listing
-    hint = (briefing or "").strip()[:800]
+    hint = strip_markdown((briefing or "").strip())[:800]
     prompt = (
         f"Pesquise dados atuais sobre: {query}\n"
+        f"Objetivo da descoberta: {focus['instruction']}.\n"
         "Devolva um resumo factual em português, com fontes nomeadas quando souber.\n"
         "Não invente número de verba, KPI ou audiência."
     )
@@ -96,7 +137,7 @@ def search_web(query: str, briefing: str = "") -> str:
     return "Fonte: conhecimento do modelo, não é página capturada.\n\n" + raw
 
 
-def review_reference(raw: str, *, kind: str, label: str) -> dict:
+def review_reference(raw: str, *, kind: str, label: str, scope: str = "mercado") -> dict:
     raw = (raw or "").strip()
     fallback_papel = REFERENCE_PAPEL.get(kind, "marca")
     if len(raw) < 80:
@@ -130,12 +171,12 @@ def review_reference(raw: str, *, kind: str, label: str) -> dict:
     if papel not in {"marca", "campanha", "mercado", "visual"}:
         papel = fallback_papel
     if kind == "search":
-        papel = "mercado"
+        papel = SEARCH_FOCUS.get(scope, SEARCH_FOCUS["briefing"])["papel"]
     return {"notas": notas, "fatos": fatos, "papel": papel}
 
 
 def _captured(kind: str, label: str, raw: str, **extra) -> dict:
-    reviewed = review_reference(raw, kind=kind, label=label)
+    reviewed = review_reference(raw, kind=kind, label=label, scope=text(extra.get("scope")))
     payload = {
         "kind": kind,
         "label": label,

@@ -381,6 +381,10 @@
       return { url: "fa-link", file: "fa-file-lines", image: "fa-image", search: "fa-magnifying-glass" }[kind] || "fa-paperclip";
     }
 
+    function scopeLabel(scope) {
+      return { briefing: "briefing", marca: "marca", cliente: "cliente", agencia: "agência", campanhas: "campanhas", mercado: "mercado" }[scope] || "";
+    }
+
     function previewText(value) {
       var clean = String(value || "").replace(/\s+/g, " ").trim();
       return clean.length > 160 ? clean.slice(0, 160) + "…" : clean;
@@ -448,13 +452,13 @@
           var job = item.status !== "pronto";
           var ref = item.ref || item;
           var notas = ref.notas || ref.digest || "";
-          var statusLabel = item.status === "capturando" ? "Analisando" : item.status === "erro" ? (item.error || "Erro na captura") : "Processado";
+          var statusLabel = item.status === "capturando" ? ((ref.kind || item.kind) === "search" ? "Pesquisando fontes" : "Analisando") : item.status === "erro" ? (item.error || "Erro na captura") : "Processado";
           return (
             '<li class="sp-brief-card' + (item.status === "erro" ? " is-error" : item.status === "capturando" ? " is-busy" : "") + '">' +
               '<i class="fa-solid ' + kindIcon(ref.kind || item.kind) + '" aria-hidden="true"></i>' +
               "<div>" +
                 "<strong>" + escapeHtml(ref.label || ref.url || kindLabel(ref.kind || item.kind)) + "</strong>" +
-                "<em>" + escapeHtml(kindLabel(ref.kind || item.kind)) + (ref.papel ? " · " + escapeHtml(ref.papel) : "") + "</em>" +
+                "<em>" + escapeHtml(kindLabel(ref.kind || item.kind)) + (ref.scope ? " · " + escapeHtml(scopeLabel(ref.scope)) : ref.papel ? " · " + escapeHtml(ref.papel) : "") + (ref.source_mode === "model" ? " · apoio do modelo" : ref.source_mode === "web" ? " · fontes públicas" : "") + "</em>" +
                 '<p class="sp-brief-card-status">' + escapeHtml(statusLabel) + "</p>" +
                 (notas ? '<p class="sp-brief-card-preview">' + escapeHtml(previewText(notas)) + "</p>" : "") +
                 (notas ? '<p class="sp-brief-card-full" hidden>' + escapeHtml(notas) + "</p>" : "") +
@@ -547,7 +551,7 @@
 
     async function runCapture(kind, extra, job) {
       var statusEl = document.getElementById("sp-ref-status");
-      setStatus(statusEl, "Capturando…", "");
+      setStatus(statusEl, kind === "search" ? "Buscando fontes públicas e organizando os achados…" : "Capturando…", "");
       var captured;
       if (kind === "file" || kind === "image") {
         var data = new FormData();
@@ -586,6 +590,8 @@
         notas: captured.notas || captured.digest || "",
         fatos: captured.fatos || {},
         papel: captured.papel || "",
+        scope: captured.scope || "",
+        source_mode: captured.source_mode || "",
       });
       renderCards();
       saveDraft();
@@ -618,10 +624,104 @@
       });
     }
     var queryGo = document.getElementById("sp-ref-query-go");
+    var queryInput = document.getElementById("sp-ref-query");
+    var discovery = {
+      briefing: {
+        title: "Completar o briefing",
+        help: "Encontre contexto, provas e informações que ainda não aparecem no texto.",
+        placeholder: "Ex.: dados que sustentem a oportunidade descrita no briefing",
+        suggestions: ["Que informações faltam neste briefing?", "Quais fatos ajudam a defender esta oportunidade?", "Que contexto recente muda esta campanha?"]
+      },
+      marca: {
+        title: "Entender a marca",
+        help: "Descubra posicionamento, produtos, público, presença e movimentos recentes.",
+        placeholder: "Ex.: posicionamento, produtos e público da marca",
+        suggestions: ["Qual é o posicionamento atual da marca?", "Quais produtos e públicos são prioritários?", "Quais movimentos recentes da marca importam?"]
+      },
+      cliente: {
+        title: "Conhecer o cliente",
+        help: "Investigue atuação, praças, prioridades de negócio e oportunidades de comunicação.",
+        placeholder: "Ex.: atuação, prioridades e oportunidades do cliente",
+        suggestions: ["Onde o cliente atua e compete?", "Quais prioridades de negócio estão públicas?", "Que oportunidades de comunicação existem?"]
+      },
+      agencia: {
+        title: "Conhecer a agência",
+        help: "Encontre especialidades, portfólio, clientes atendidos e trabalhos recentes.",
+        placeholder: "Ex.: portfólio e campanhas recentes da agência",
+        suggestions: ["Quais são as especialidades da agência?", "Quais clientes e setores aparecem no portfólio?", "Quais campanhas recentes se destacam?"]
+      },
+      campanhas: {
+        title: "Explorar campanhas",
+        help: "Procure lançamentos, mensagens, canais usados, aprendizados e referências da categoria.",
+        placeholder: "Ex.: campanhas recentes da marca e de concorrentes",
+        suggestions: ["Quais campanhas recentes a marca lançou?", "Como os concorrentes estão se comunicando?", "Quais mensagens e canais aparecem na categoria?"]
+      },
+      mercado: {
+        title: "Ler o mercado",
+        help: "Busque tendências, comportamento, dados públicos e mudanças na categoria.",
+        placeholder: "Ex.: tendências e comportamento do consumidor neste mercado",
+        suggestions: ["Quais tendências recentes afetam este mercado?", "Como o comportamento do consumidor mudou?", "Que dados públicos ajudam a dimensionar a oportunidade?"]
+      }
+    };
+
+    function selectedSearchScope() {
+      var selected = document.querySelector('input[name="sp-search-scope"]:checked');
+      return selected ? selected.value : "briefing";
+    }
+
+    function paintDiscoveryGuide() {
+      var scope = selectedSearchScope();
+      var config = discovery[scope] || discovery.briefing;
+      var title = document.getElementById("sp-search-scope-title");
+      var help = document.getElementById("sp-search-scope-help");
+      var suggestions = document.getElementById("sp-search-suggestions");
+      var context = document.getElementById("sp-search-context");
+      if (title) title.textContent = config.title;
+      if (help) help.textContent = config.help;
+      if (queryInput) queryInput.placeholder = config.placeholder;
+      if (context) {
+        context.textContent = textarea.value.trim()
+          ? "Vamos cruzar a pesquisa com o briefing acima para trazer achados mais específicos."
+          : "Sem briefing ainda: inclua na pergunta o nome da marca, cliente ou mercado para melhorar os resultados.";
+      }
+      if (suggestions) {
+        suggestions.innerHTML = config.suggestions.map(function (suggestion) {
+          return '<button type="button" data-search-suggestion="' + escapeHtml(suggestion) + '">' + escapeHtml(suggestion) + "</button>";
+        }).join("");
+      }
+    }
+
+    document.querySelectorAll('input[name="sp-search-scope"]').forEach(function (input) {
+      input.addEventListener("change", paintDiscoveryGuide);
+    });
+    var suggestions = document.getElementById("sp-search-suggestions");
+    if (suggestions) {
+      suggestions.addEventListener("click", function (event) {
+        var button = event.target.closest("[data-search-suggestion]");
+        if (!button || !queryInput) return;
+        queryInput.value = button.getAttribute("data-search-suggestion") || "";
+        queryInput.focus();
+      });
+    }
+    paintDiscoveryGuide();
+    textarea.addEventListener("input", paintDiscoveryGuide);
     if (queryGo) {
       queryGo.addEventListener("click", function () {
-        var query = document.getElementById("sp-ref-query").value;
-        startJob("search", { kind: "search", query: query, briefing: textarea.value }, query);
+        var query = queryInput ? queryInput.value.trim() : "";
+        if (!query) {
+          setStatus(document.getElementById("sp-ref-status"), "Escolha uma sugestão ou escreva o que deseja descobrir.", "error");
+          if (queryInput) queryInput.focus();
+          return;
+        }
+        var scope = selectedSearchScope();
+        startJob("search", { kind: "search", scope: scope, query: query, briefing: textarea.value }, (discovery[scope] || discovery.briefing).title + ": " + query);
+      });
+    }
+    if (queryInput) {
+      queryInput.addEventListener("keydown", function (event) {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        if (queryGo) queryGo.click();
       });
     }
     document.getElementById("sp-ref-insert").addEventListener("click", function () {

@@ -291,7 +291,11 @@ def api_referencia(token):
         if kind == "url":
             captured = capture_url(payload.get("url") or "")
         elif kind == "search":
-            captured = capture_search(payload.get("query") or "", payload.get("briefing") or "")
+            captured = capture_search(
+                payload.get("query") or "",
+                payload.get("briefing") or "",
+                payload.get("scope") or "briefing",
+            )
         else:
             return _error("Escolha URL, arquivo ou busca online.", 400)
         return _ok(captured)

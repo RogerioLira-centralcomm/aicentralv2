@@ -2027,6 +2027,89 @@
   display: none;
 }
 
+.sp-discovery-scope {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.sp-discovery-scope legend {
+  margin-bottom: 0.55rem;
+  color: var(--hi-ink);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.sp-discovery-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.sp-discovery-options label { position: relative; cursor: pointer; }
+.sp-discovery-options input { position: absolute; opacity: 0; pointer-events: none; }
+.sp-discovery-options span {
+  display: flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--hi-line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--hi-ink);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: center;
+}
+.sp-discovery-options input:checked + span { border-color: var(--hi-go); background: var(--hi-go); color: #fff; }
+.sp-discovery-options input:focus-visible + span { outline: 2px solid var(--hi-go); outline-offset: 2px; }
+
+.sp-discovery-guide {
+  width: 100%;
+  padding: 0.8rem;
+  border-left: 3px solid var(--hi-go);
+  background: color-mix(in srgb, var(--hi-go) 7%, #fff);
+}
+.sp-discovery-guide > strong { font-size: 0.9rem; }
+.sp-discovery-guide > p,
+.sp-discovery-action p { margin: 0.25rem 0 0; color: var(--hi-fog); font-size: 0.8rem; }
+.sp-discovery-suggestions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.65rem; }
+.sp-discovery-suggestions button {
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--hi-line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--hi-ink);
+  font: inherit;
+  font-size: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+}
+.sp-discovery-suggestions button:hover { border-color: var(--hi-go); }
+.sp-discovery-action { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 1rem; }
+.sp-discovery-action p { max-width: 34rem; }
+.sp-discovery-how {
+  width: 100%;
+  border-top: 1px solid var(--hi-line);
+  padding-top: 0.65rem;
+  color: var(--hi-fog);
+  font-size: 0.78rem;
+}
+.sp-discovery-how summary {
+  width: fit-content;
+  color: var(--hi-ink);
+  font-weight: 700;
+  cursor: pointer;
+}
+.sp-discovery-how ol {
+  margin: 0.65rem 0 0;
+  padding-left: 1.25rem;
+  line-height: 1.55;
+}
+
 .sp-refs-block {
   margin-top: 1.1rem;
 }
@@ -4239,6 +4322,10 @@ body.is-sp-wait {
     grid-column: 1 / -1;
   }
 
+  .sp-discovery-options { grid-template-columns: 1fr 1fr; }
+  .sp-discovery-action { align-items: stretch; flex-direction: column; }
+  .sp-discovery-action .cx-btn { width: 100%; justify-content: center; }
+
   .sp-acc summary {
     min-height: 2.75rem;
     display: flex;
@@ -5206,4 +5293,3 @@ html.is-sp-media body {
     grid-template-columns: 1fr;
   }
 }
-

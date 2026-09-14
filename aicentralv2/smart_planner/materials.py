@@ -135,6 +135,10 @@ def normalize_reference(item: dict | None) -> dict:
         out["url"] = text(raw.get("url"))
     if raw.get("name"):
         out["name"] = text(raw.get("name"))
+    if kind == "search" and text(raw.get("scope")):
+        out["scope"] = text(raw.get("scope"))
+    if kind == "search" and text(raw.get("source_mode")) in {"web", "model"}:
+        out["source_mode"] = text(raw.get("source_mode"))
     return out
 
 

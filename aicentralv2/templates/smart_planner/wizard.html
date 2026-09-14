@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,600;7..72,700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=39">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=41">
 {% endblock %}
 
 {% block content %}
@@ -101,10 +101,37 @@
             </div>
 
             <div class="sp-importer-extra" data-ref-pane="search" hidden>
+              <fieldset class="sp-discovery-scope">
+                <legend>O que você quer descobrir?</legend>
+                <div class="sp-discovery-options">
+                  <label><input type="radio" name="sp-search-scope" value="briefing" checked><span>Briefing</span></label>
+                  <label><input type="radio" name="sp-search-scope" value="marca"><span>Marca</span></label>
+                  <label><input type="radio" name="sp-search-scope" value="cliente"><span>Cliente</span></label>
+                  <label><input type="radio" name="sp-search-scope" value="agencia"><span>Agência</span></label>
+                  <label><input type="radio" name="sp-search-scope" value="campanhas"><span>Campanhas</span></label>
+                  <label><input type="radio" name="sp-search-scope" value="mercado"><span>Mercado</span></label>
+                </div>
+              </fieldset>
+              <div class="sp-discovery-guide">
+                <strong id="sp-search-scope-title">Completar o briefing</strong>
+                <p id="sp-search-scope-help">Encontre contexto, provas e informações que ainda não aparecem no texto.</p>
+                <div class="sp-discovery-suggestions" id="sp-search-suggestions" aria-label="Sugestões de busca"></div>
+              </div>
               <label for="sp-ref-query">O que devemos pesquisar
-                <input class="cx-input" id="sp-ref-query" type="text" placeholder="Marca, produto, categoria ou concorrente">
+                <input class="cx-input" id="sp-ref-query" type="text" placeholder="Ex.: dados que sustentem a oportunidade descrita no briefing">
               </label>
-              <button type="button" class="cx-btn cx-btn-primary" id="sp-ref-query-go">Buscar dados</button>
+              <div class="sp-discovery-action">
+                <p id="sp-search-context">O texto do briefing será usado como contexto para tornar a busca mais específica.</p>
+                <button type="button" class="cx-btn cx-btn-primary" id="sp-ref-query-go">Descobrir informações</button>
+              </div>
+              <details class="sp-discovery-how">
+                <summary>Como a descoberta vira referência</summary>
+                <ol>
+                  <li>Buscamos fontes públicas usando a pergunta e o briefing.</li>
+                  <li>Abrimos os resultados mais úteis e removemos menus e ruído.</li>
+                  <li>A IA resume os fatos e adiciona o apoio ao planejamento, com a origem identificada.</li>
+                </ol>
+              </details>
             </div>
 
             <label class="sp-drop" id="sp-drop-file" for="sp-ref-file">
@@ -890,6 +917,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=27"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=29"></script>
 <script src="{{ url_for('static', filename='js/smart_planner/guide.js') }}?v=3"></script>
 {% endblock %}

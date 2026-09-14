@@ -5,7 +5,7 @@
 
 {% block styles %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/places.css') }}?v=9">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/places.css') }}?v=10">
 {% endblock %}
 
 {% block content %}
@@ -119,6 +119,9 @@
             <label>No celular em 4 semanas<input class="cx-input" name="catchment_impacted_label" value="{{ place.catchment.impacted.label }}"></label>
             <label class="pl-span">Bairros<input class="cx-input" name="catchment_neighborhoods" value="{{ place.catchment.neighborhoods|join(', ') }}"></label>
             <label class="pl-span">Perfil da região<input class="cx-input" name="catchment_profile" value="{{ place.catchment.profile }}"></label>
+            <label>Investimento, 4 semanas<input class="cx-input" name="investment_label" value="{{ place.investment.label }}" placeholder="R$ 18–32 mil"></label>
+            <label class="pl-span">Defesa de venda<input class="cx-input" name="defense_lead" value="{{ place.defense.lead }}" placeholder="Por que este place interessa"></label>
+            <label class="pl-span">Corpo da defesa<input class="cx-input" name="defense_body" value="{{ place.defense.body }}"></label>
           </div>
           <p class="pl-help" data-research-notes>{{ place.research.review or place.research.notes }}</p>
           <div class="pl-panel-nav">
@@ -166,7 +169,7 @@
         <div class="cx-section-header">
           <div>
             <h2 class="cx-section-title">Fotos do link</h2>
-            <p class="cx-section-description" data-image-spec>Uma foto por vez. Busca uma foto real no Firecrawl e só então gera. Cinco de uma vez estouram o tempo.</p>
+            <p class="cx-section-description" data-image-spec>Primeiro o Firecrawl busca a foto real. Você marca a referência fiel. Só então a IA gera a nova. Uma foto por vez.</p>
           </div>
         </div>
         <div class="cx-section-body">
@@ -176,6 +179,14 @@
             <div class="pl-queue-bar" aria-hidden="true"><span data-queue-bar></span></div>
             <ol class="pl-queue-list" data-queue-list></ol>
           </div>
+          <div class="pl-gallery" data-gallery>
+            <div class="pl-gallery-head">
+              <h3>Galeria fiel</h3>
+              <p>Fotos reais do lugar. Clique para usar como referência da geração.</p>
+            </div>
+            <div class="pl-gallery-grid" data-gallery-grid></div>
+            <p class="pl-help" data-gallery-empty>Ainda não tem foto real. Busque no Firecrawl antes de gerar.</p>
+          </div>
           <div class="pl-media" data-media-pack></div>
           <div class="pl-grid">
             <label class="pl-span">Hero<input class="cx-input" name="hero_url" value="{{ place.media.hero_url }}"></label>
@@ -183,7 +194,8 @@
             <label class="pl-span">Cartão do link<input class="cx-input" name="og_url" value="{{ place.media.og_url }}"></label>
           </div>
           <div class="pl-head-actions">
-            <button type="button" class="cx-btn cx-btn-primary" id="pl-gen-queue">Gerar fotos que faltam</button>
+            <button type="button" class="cx-btn cx-btn-primary" id="pl-collect-gallery">Buscar fotos reais</button>
+            <button type="button" class="cx-btn cx-btn-outline" id="pl-gen-queue">Gerar fotos que faltam</button>
             <button type="button" class="cx-btn cx-btn-outline" id="pl-gen-hero">Só o hero</button>
             <button type="button" class="cx-btn cx-btn-outline" id="pl-gen-map">Só o mapa</button>
           </div>
@@ -233,5 +245,5 @@
 
 {% block scripts %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="{{ url_for('static', filename='js/places.js') }}?v=10"></script>
+<script src="{{ url_for('static', filename='js/places.js') }}?v=12"></script>
 {% endblock %}

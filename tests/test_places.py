@@ -11,10 +11,12 @@ from aicentralv2.places.catalog import (
     DIAMOND_MALL,
     GALEAO,
     IGUATEMI_SP,
+    EXPOMINAS,
     IBIRAPUERA,
     SANTOS_DUMONT,
     SEED_PLACES,
 )
+from aicentralv2.places.venues import VENUE_PLACES
 from aicentralv2.places.repository import PlacesError, inquiry_payload
 from aicentralv2.places.routes import bp as places_bp
 from aicentralv2.places.research import (
@@ -34,10 +36,35 @@ from aicentralv2.places.images import (
     next_image_target,
     point_matches,
 )
-from aicentralv2.places.visual_refs import search_visual_refs, usable_image_url, visual_query
+from aicentralv2.places.visual_refs import (
+    _score,
+    official_pages,
+    scrape_page_images,
+    search_visual_refs,
+    select_gallery,
+    selected_gallery_refs,
+    usable_image_url,
+    visual_query,
+)
 from aicentralv2.places.pipeline import assemble_fiche, fiche_output
-from aicentralv2.places.schema import format_usd, normalize_payload, public_view, sum_zone_reaches
-from aicentralv2.places.service import apply_enrich, apply_images, apply_import, merge_enrich_points, serialize
+from aicentralv2.places.schema import (
+    directory_card,
+    featured_card,
+    format_usd,
+    match_directory,
+    normalize_payload,
+    public_view,
+    sum_zone_reaches,
+)
+from aicentralv2.places.service import (
+    apply_enrich,
+    apply_images,
+    apply_import,
+    collect_place_gallery,
+    merge_enrich_points,
+    select_place_gallery,
+    serialize,
+)
 from aicentralv2.places.share import public_path, slugify
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -57,16 +84,37 @@ class PlacesCatalogTest(unittest.TestCase):
         )
 
     def test_seed_has_shoppings_and_event_venues(self):
-        self.assertEqual(
-            [item["slug"] for item in SEED_PLACES if item["place_type"] == "shopping"],
-            ["diamond-mall", "iguatemi-sao-paulo"],
-        )
-        self.assertEqual(
-            [item["slug"] for item in SEED_PLACES if item["place_type"] == "evento"],
-            ["ibirapuera", "expominas"],
-        )
+        shoppings = [item["slug"] for item in SEED_PLACES if item["place_type"] == "shopping"]
+        events = [item["slug"] for item in SEED_PLACES if item["place_type"] == "evento"]
+        self.assertIn("diamond-mall", shoppings)
+        self.assertIn("iguatemi-sao-paulo", shoppings)
+        self.assertIn("bh-shopping", shoppings)
+        self.assertIn("barra-shopping", shoppings)
+        self.assertIn("ibirapuera", events)
+        self.assertIn("expominas", events)
+        self.assertIn("maracana", events)
+        self.assertGreaterEqual(len(shoppings), 10)
+        self.assertGreaterEqual(len(events), 6)
         self.assertEqual(IBIRAPUERA["payload"]["metrics"]["passengers"]["label"], "17 mi")
         self.assertEqual(DIAMOND_MALL["payload"]["metrics"]["passengers"]["value"], 5_400_000)
+
+    def test_each_city_has_at_least_five_venues(self):
+        venues = [item for item in SEED_PLACES if item["place_type"] in ("shopping", "evento")]
+        for city in ("bh", "sp", "rj"):
+            self.assertGreaterEqual(len([item for item in venues if item["city"] == city]), 5)
+
+    def test_places_carry_defense_and_four_week_investment(self):
+        for item in SEED_PLACES:
+            payload = item["payload"]
+            self.assertTrue(payload["investment"]["label"])
+            self.assertTrue(all(point["investment"] for point in payload["points"]))
+            self.assertTrue(all(point["defense"] for point in payload["points"]))
+        for item in VENUE_PLACES:
+            self.assertTrue(item["payload"]["defense"]["lead"])
+            self.assertTrue(item["payload"]["media"]["hero_url"].startswith("/static/images/places/gallery/"))
+            self.assertTrue(item["payload"]["points"][0]["image_url"].startswith("/static/images/places/gallery/"))
+            hero = ROOT / "aicentralv2" / item["payload"]["media"]["hero_url"].lstrip("/")
+            self.assertTrue(hero.exists(), hero)
 
     def test_anac_2025_passenger_labels(self):
         self.assertEqual(
@@ -165,6 +213,43 @@ class PlacesCatalogTest(unittest.TestCase):
             self.assertTrue(item["payload"]["points"])
             self.assertTrue(all(point["lat"] is not None for point in item["payload"]["points"]))
 
+    def test_points_sit_on_the_site_not_the_arp(self):
+        for item in SEED_PLACES:
+            scopes = []
+            for point in item["payload"]["points"]:
+                self.assertIn(point["scope"], ("internal", "external"))
+                self.assertTrue(point["scope_label"])
+                if point["kind"] == "halo":
+                    self.assertEqual(point["scope"], "external")
+                else:
+                    self.assertEqual(point["scope"], "internal")
+                scopes.append(point["scope"])
+            if "external" in scopes:
+                last_internal = max(i for i, scope in enumerate(scopes) if scope == "internal")
+                first_external = min(i for i, scope in enumerate(scopes) if scope == "external")
+                self.assertLess(last_internal, first_external)
+
+        terminal = next(item for item in CONFINS["payload"]["points"] if item["id"] == "cnf-terminal")
+        self.assertAlmostEqual(terminal["lat"], -19.630503, places=4)
+        self.assertGreater(abs(terminal["lat"] - (-19.624445)), 0.004)
+
+        sdu = next(item for item in SANTOS_DUMONT["payload"]["points"] if item["id"] == "sdu-terminal")
+        self.assertGreater(abs(sdu["lng"] - (-43.163056)), 0.003)
+
+        gig = next(item for item in GALEAO["payload"]["points"] if item["id"] == "gig-terminal")
+        self.assertGreater(abs(gig["lng"] - (-43.2585631)), 0.008)
+
+        mall = DIAMOND_MALL["payload"]["geo"]
+        self.assertGreater(abs(mall["lat"] - (-19.9376)), 0.006)
+        self.assertEqual(DIAMOND_MALL["payload"]["catchment"]["neighborhoods"][0], "Santo Agostinho")
+
+        expo = next(item for item in EXPOMINAS["payload"]["points"] if item["id"] == "exp-pavilhao")
+        self.assertGreater(abs(expo["lng"] - (-44.0005)), 0.008)
+
+        lima = next(item for item in IGUATEMI_SP["payload"]["points"] if item["id"] == "igt-faria-lima")
+        self.assertEqual(lima["scope"], "external")
+        self.assertGreater(abs(lima["lat"] - IGUATEMI_SP["payload"]["geo"]["lat"]), 0.006)
+
     def test_public_view_labels_city_and_type(self):
         view = public_view(CONGONHAS)
         self.assertEqual(view["city_label"], "São Paulo")
@@ -181,6 +266,18 @@ class PlacesCatalogTest(unittest.TestCase):
             format_sets = {tuple(point["formats"]) for point in item["payload"]["points"]}
             self.assertGreater(len(format_sets), 1)
             self.assertTrue(all(point.get("image_url") for point in item["payload"]["points"]))
+
+    def test_directory_card_carries_geo_and_search_fields(self):
+        confins = directory_card(serialize(dict(CONFINS, id=1, preview_token="x", status="published")))
+        sdu = directory_card(serialize(dict(SANTOS_DUMONT, id=3, preview_token="y", status="published")))
+        self.assertEqual(confins["code"], "CNF")
+        self.assertAlmostEqual(confins["lat"], -19.630503)
+        self.assertTrue(confins["href"].endswith("/places/p/confins"))
+        self.assertEqual(featured_card([sdu, confins])["slug"], "confins")
+        self.assertTrue(match_directory(confins, "cnf"))
+        self.assertTrue(match_directory(confins, "Belo"))
+        self.assertFalse(match_directory(confins, "cnf", "shopping"))
+        self.assertTrue(match_directory(sdu, "", "aeroporto"))
 
     def test_normalize_keeps_polygon(self):
         payload = normalize_payload(CONFINS["payload"])
@@ -287,6 +384,11 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertIn("cc-sheet", css)
         self.assertIn("cc-chips", css)
         self.assertIn("cc-inventory", css)
+        self.assertIn("cc-night", css)
+        self.assertIn("cc-find", css)
+        self.assertIn("cc-atlas", css)
+        self.assertIn("cc-mesa", css)
+        self.assertIn(".cc-pick[hidden]", css)
         self.assertIn("cc-point-photo", css)
         self.assertIn("cc-picks", css)
         self.assertIn("cc-pick-code", css)
@@ -299,6 +401,10 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertIn("cursor: pointer", css)
         self.assertIn("cc-flag", css)
         self.assertIn("cc-flag[hidden]", css)
+        self.assertIn("cc-scope", css)
+        self.assertIn("cc-defense", css)
+        self.assertIn("cc-fiche", css)
+        self.assertIn('data-scope="external"', css)
         self.assertIn("minmax(0, 36rem)", css)
         self.assertIn(":focus-visible", css)
         self.assertIn("100svh", css)
@@ -323,6 +429,13 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertIn("channelItems", js)
         self.assertIn("zoneApps", js)
         self.assertIn("zonePortals", js)
+        self.assertIn("zoneScope", js)
+        self.assertIn("zoneInvest", js)
+        self.assertIn("data-scope", js)
+        self.assertIn("bootIndex", js)
+        self.assertIn("URLSearchParams", js)
+        self.assertIn('params.set("q"', js)
+        self.assertIn('params.set("tipo"', js)
 
     def test_queue_bar_uses_css_var(self):
         css = ADMIN_CSS.read_text(encoding="utf-8")
@@ -355,6 +468,7 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertNotIn("#0c1a1b", css)
         self.assertIn(".pl-table", css)
         self.assertIn(".pl-queue", css)
+        self.assertIn(".pl-gallery", css)
         self.assertIn(".pl-report", css)
         self.assertIn("letter-spacing: 0", css)
 
@@ -375,6 +489,10 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertIn("Gerar fotos que faltam", form)
         self.assertIn("Firecrawl", form)
         self.assertIn("Firecrawl", js)
+        self.assertIn("pl-collect-gallery", form)
+        self.assertIn("data-gallery-grid", form)
+        self.assertIn("/gallery", js)
+        self.assertIn("reference_ids", js)
         self.assertNotIn("pl-steps", form)
         self.assertNotIn("GPT Image 2", form)
         self.assertIn("runQueue", js)
@@ -579,11 +697,39 @@ class PlacesCatalogTest(unittest.TestCase):
             point={"name": "Terminal", "kind": "terminal"},
         )
         self.assertIn("interior", interior)
+        halo = visual_query(
+            {"title": "Confins", "code": "CNF", "city": "bh", "place_type": "aeroporto"},
+            kind="point",
+            point={"name": "MG-010", "kind": "halo"},
+        )
+        self.assertIn("bairro", halo)
+        self.assertNotIn("interior", halo)
+
+    def test_visual_query_iguatemi_asks_faria_lima_not_jk(self):
+        query = visual_query(
+            {
+                "title": "Iguatemi São Paulo",
+                "code": "IGT",
+                "city": "sp",
+                "city_label": "São Paulo",
+                "place_type": "shopping",
+            },
+            kind="hero",
+        )
+        self.assertIn("Faria Lima", query)
+        self.assertIn("Jardim Paulistano", query)
+        self.assertNotIn("JK", query)
+
+    def test_visual_refs_penalize_jk_iguatemi(self):
+        jk = _score({"url": "https://cdn.example/jk-iguatemi-fachada.jpg", "title": "JK Iguatemi"})
+        real = _score({"url": "https://cdn.example/iguatemi-faria-lima.jpg", "title": "Iguatemi Faria Lima"})
+        self.assertLess(jk, real)
 
     def test_visual_refs_skip_instagram_widgets(self):
         self.assertFalse(usable_image_url("https://lookaside.instagram.com/seo/foo"))
         self.assertTrue(usable_image_url("https://images.adsttc.com/media/confins.jpg"))
         self.assertTrue(usable_image_url("data:image/jpeg;base64,abc"))
+        self.assertTrue(usable_image_url("/static/images/places/gallery/cnf.jpg"))
 
     def test_search_visual_refs_without_key_is_empty(self):
         with patch.dict("os.environ", {"FIRECRAWL_API_KEY": ""}, clear=False):
@@ -610,7 +756,7 @@ class PlacesCatalogTest(unittest.TestCase):
             return {"b64_json": base64.b64encode(b"png-bytes").decode("ascii"), "usage": {}}
 
         with tempfile.TemporaryDirectory() as tmp, patch(
-            "aicentralv2.places.images.search_visual_refs",
+            "aicentralv2.places.images.resolve_generation_refs",
             return_value=[{"url": "https://images.adsttc.com/confins.jpg", "title": "CNF", "query": "Confins"}],
         ), patch("aicentralv2.places.images.generate_image", side_effect=fake_image), patch(
             "aicentralv2.places.images._art_dir",
@@ -637,7 +783,7 @@ class PlacesCatalogTest(unittest.TestCase):
             return {"b64_json": base64.b64encode(b"png-bytes").decode("ascii"), "usage": {}}
 
         with tempfile.TemporaryDirectory() as tmp, patch(
-            "aicentralv2.places.images.search_visual_refs",
+            "aicentralv2.places.images.resolve_generation_refs",
             return_value=[],
         ), patch("aicentralv2.places.images.generate_image", side_effect=fake_image), patch(
             "aicentralv2.places.images._art_dir",
@@ -662,6 +808,118 @@ class PlacesCatalogTest(unittest.TestCase):
         )
         self.assertEqual(payload["media"]["visual_refs"][0]["url"], "https://images.adsttc.com/confins.jpg")
         self.assertEqual(payload["media"]["visual_refs"][0]["kind"], "hero")
+
+    def test_normalize_keeps_gallery(self):
+        payload = normalize_payload(
+            {
+                "media": {
+                    "gallery": [
+                        {
+                            "id": "cnf-hero",
+                            "kind": "hero",
+                            "url": "/static/images/places/gallery/cnf.jpg",
+                            "source_url": "https://images.adsttc.com/confins.jpg",
+                            "selected": True,
+                        }
+                    ]
+                }
+            }
+        )
+        self.assertEqual(payload["media"]["gallery"][0]["id"], "cnf-hero")
+        self.assertTrue(payload["media"]["gallery"][0]["selected"])
+
+    def test_official_pages_cover_seed_codes(self):
+        self.assertTrue(official_pages({"code": "CNF"}))
+        self.assertIn("bh-airport", official_pages({"code": "CNF"})[0])
+        for item in SEED_PLACES:
+            self.assertTrue(official_pages({"code": item["code"]}), item["code"])
+
+    def test_scrape_page_images_reads_og(self):
+        class Fake:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {
+                    "data": {
+                        "metadata": {"ogImage": "https://images.adsttc.com/confins.jpg", "title": "CNF"},
+                        "markdown": "![hall](https://images.adsttc.com/saguao.jpg)",
+                    }
+                }
+
+        with patch.dict("os.environ", {"FIRECRAWL_API_KEY": "fc-test"}, clear=False), patch(
+            "aicentralv2.places.visual_refs.requests.post", return_value=Fake()
+        ):
+            refs = scrape_page_images("https://www.bh-airport.com.br/", kind="hero")
+        urls = [item["url"] for item in refs]
+        self.assertIn("https://images.adsttc.com/confins.jpg", urls)
+        self.assertIn("https://images.adsttc.com/saguao.jpg", urls)
+
+    def test_selected_gallery_wins_over_search(self):
+        place = {
+            "title": "Confins",
+            "code": "CNF",
+            "media": {
+                "gallery": [
+                    {
+                        "id": "pick",
+                        "kind": "hero",
+                        "url": "/static/images/places/gallery/cnf.jpg",
+                        "selected": True,
+                    }
+                ]
+            },
+        }
+        picked = selected_gallery_refs(place, kind="hero")
+        self.assertEqual(picked[0]["id"], "pick")
+
+    def test_select_gallery_marks_one_hero(self):
+        rows = select_gallery(
+            [
+                {"id": "a", "kind": "hero", "url": "/a.jpg", "selected": True},
+                {"id": "b", "kind": "hero", "url": "/b.jpg", "selected": False},
+            ],
+            "b",
+        )
+        self.assertFalse(rows[0]["selected"])
+        self.assertTrue(rows[1]["selected"])
+
+    def test_collect_and_select_gallery_persist(self):
+        row = {
+            "id": 9,
+            "slug": "confins",
+            "code": "CNF",
+            "title": "Confins",
+            "city": "bh",
+            "status": "draft",
+            "payload": normalize_payload({}),
+        }
+
+        def _save(_id, record):
+            row["payload"] = record["payload"]
+            return row
+
+        incoming = [
+            {
+                "id": "pick",
+                "kind": "hero",
+                "url": "/static/images/places/gallery/cnf.jpg",
+                "source_url": "https://images.adsttc.com/confins.jpg",
+                "title": "CNF",
+                "query": "Confins",
+            }
+        ]
+        with patch("aicentralv2.places.service.get_by_id", return_value=row), patch(
+            "aicentralv2.places.service.update_place", side_effect=_save
+        ), patch("aicentralv2.places.service.collect_visual_refs", return_value=incoming):
+            saved = collect_place_gallery(9, kind="hero")
+        self.assertEqual(saved["media"]["gallery"][0]["id"], "pick")
+        self.assertTrue(saved["media"]["gallery"][0]["selected"])
+        with patch("aicentralv2.places.service.get_by_id", return_value=row), patch(
+            "aicentralv2.places.service.update_place", side_effect=_save
+        ):
+            selected = select_place_gallery(9, "pick")
+        self.assertTrue(selected["media"]["gallery"][0]["selected"])
 
     def test_apply_images_next_generates_only_one(self):
         row = {
@@ -893,6 +1151,15 @@ class PlacesPublicRoutesTest(unittest.TestCase):
         self.assertIn("Parques e eventos", html)
         self.assertIn("SDU", html)
         self.assertIn("santos-dumont-hero", html)
+        self.assertIn("cc-find", html)
+        self.assertIn("cc-atlas", html)
+        self.assertIn("cc-index-data", html)
+        self.assertIn("CNF, Iguatemi ou Belo Horizonte", html)
+        self.assertIn("O lugar vira audiência.", html)
+        self.assertNotIn("Sobre", html)
+        self.assertNotIn("Fale conosco", html)
+        self.assertNotIn("Ver todos", html)
+        self.assertNotIn("20+", html)
         self.assertNotIn("--cx-", html)
 
     def test_public_place_renders_catchment(self):
@@ -982,6 +1249,11 @@ class PlacesPublicRoutesTest(unittest.TestCase):
         self.assertIn("A validar", html)
         self.assertIn("MG-010", html)
         self.assertIn("cnf-internacional", html)
+        self.assertIn("No sítio", html)
+        self.assertIn("-19.630503", html)
+        self.assertIn("cc-scope", html)
+        self.assertIn("Investimento, 4 semanas", html)
+        self.assertIn("R$", html)
 
     def test_ibirapuera_public_is_an_event_sheet(self):
         place = serialize(dict(IBIRAPUERA, id=7, preview_token="preview-ibi", status="published"))
@@ -1025,6 +1297,21 @@ class PlacesPublicRoutesTest(unittest.TestCase):
         self.assertIn("cc-inventory", html)
         self.assertIn("No Iguatemi o celular é Instagram e G1.", html)
         self.assertIn("igt-mall", html)
+
+    def test_bh_shopping_public_shows_defense_and_photo(self):
+        mall = next(item for item in VENUE_PLACES if item["slug"] == "bh-shopping")
+        place = serialize(dict(mall, id=20, preview_token="preview-bhs", status="published"))
+        with patch("aicentralv2.places.service.public_place", return_value=place), patch(
+            "aicentralv2.places.service.public_catalog", return_value=[place]
+        ):
+            response = self.client.get("/places/p/bh-shopping")
+        html = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("É o mall regional do sul de BH", html)
+        self.assertIn("Investimento, 4 semanas", html)
+        self.assertIn("bh-shopping-hero", html)
+        self.assertIn("cc-defense", html)
+        self.assertNotIn("cc-gallery", html)
 
 
 if __name__ == "__main__":

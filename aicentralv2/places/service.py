@@ -31,6 +31,7 @@ from .images import (
     next_image_target,
     resolve_place_image_spec,
 )
+from .visual_refs import collect_visual_refs, gallery_items_by_ids, merge_gallery, select_gallery
 from .pipeline import assemble_fiche, fiche_output, image_pack, locate_points, pipeline_record
 from .research import (
     ResearchError,
@@ -490,10 +491,52 @@ def apply_suggested_points(place_id: int, raw_points: list | None = None) -> dic
     return serialize(update_place(place_id, record))
 
 
-def apply_images(place_id: int, *, kind: str = "next", point_id: str = "") -> dict:
+def collect_place_gallery(place_id: int, *, kind: str = "hero", point_id: str = "") -> dict:
+    place = serialize(get_by_id(place_id))
+    payload = normalize_payload(place)
+    point = next(
+        (
+            item
+            for item in payload.get("points") or []
+            if text(item.get("id")) == text(point_id) or text(item.get("name")) == text(point_id)
+        ),
+        None,
+    ) if point_id else None
+    incoming = collect_visual_refs(place, kind=kind or "hero", point=point)
+    if incoming and not any(item.get("selected") for item in incoming):
+        incoming[0]["selected"] = True
+    media = dict(payload.get("media") or {})
+    media["gallery"] = merge_gallery(media.get("gallery"), incoming)
+    if incoming:
+        kinds = {text(item.get("kind")) for item in incoming}
+        previous = [item for item in as_list(media.get("visual_refs")) if text(item.get("kind")) not in kinds]
+        media["visual_refs"] = previous + [
+            {"kind": text(item.get("kind")), "url": text(item.get("url")), "title": text(item.get("title")), "query": text(item.get("query"))}
+            for item in incoming
+            if text(item.get("url"))
+        ]
+    payload["media"] = media
+    record = dict(place)
+    record["payload"] = payload
+    return serialize(update_place(place_id, record))
+
+
+def select_place_gallery(place_id: int, item_id: str) -> dict:
+    place = serialize(get_by_id(place_id))
+    payload = normalize_payload(place)
+    media = dict(payload.get("media") or {})
+    media["gallery"] = select_gallery(media.get("gallery"), item_id)
+    payload["media"] = media
+    record = dict(place)
+    record["payload"] = payload
+    return serialize(update_place(place_id, record))
+
+
+def apply_images(place_id: int, *, kind: str = "next", point_id: str = "", reference_ids=None) -> dict:
     place = serialize(get_by_id(place_id))
     payload = normalize_payload(place)
     kind = (kind or "next").lower()
+    chosen = gallery_items_by_ids(place, reference_ids)
     target_label = ""
     if kind in ("next", "points") and not (kind == "point" and point_id):
         target = next_image_target(place, points_only=(kind == "points"))
@@ -508,15 +551,16 @@ def apply_images(place_id: int, *, kind: str = "next", point_id: str = "") -> di
         target_label = target.get("label") or ""
     errors = []
     generated_media = {}
+    generated = []
     usages = []
     if kind not in ("points", "point"):
         try:
-            generated_media = generate_place_images(place, kind=kind)
+            generated_media = generate_place_images(place, kind=kind, refs=chosen or None)
             usages.extend(generated_media.pop("usages", []) or [])
         except ImageError as exc:
             errors.append(str(exc))
     if kind in ("point", "all", "both"):
-        generated = generate_point_images(place, point_id=point_id if kind == "point" else "")
+        generated = generate_point_images(place, point_id=point_id if kind == "point" else "", refs=chosen or None)
         errors.extend(text(item.get("error")) for item in generated if item.get("error"))
         by_id = {text(item.get("id")): item for item in generated if item.get("image_url")}
         by_name = {text(item.get("name")).lower(): item for item in generated if item.get("image_url")}
@@ -542,6 +586,10 @@ def apply_images(place_id: int, *, kind: str = "next", point_id: str = "") -> di
             target_label = text(generated[0].get("name"))
     media = dict(payload.get("media") or {})
     incoming_refs = generated_media.pop("visual_refs", None) or []
+    incoming_gallery = generated_media.pop("gallery", None) or []
+    if kind in ("point", "all", "both"):
+        for item in generated if kind in ("point", "all", "both") else []:
+            incoming_gallery.extend(as_list(item.get("gallery")))
     media.update({key: value for key, value in generated_media.items() if value and key != "usages"})
     if incoming_refs:
         kinds = {text(item.get("kind")) for item in incoming_refs}
@@ -549,6 +597,8 @@ def apply_images(place_id: int, *, kind: str = "next", point_id: str = "") -> di
             item for item in as_list(media.get("visual_refs")) if text(item.get("kind")) not in kinds
         ]
         media["visual_refs"] = previous + incoming_refs
+    if incoming_gallery:
+        media["gallery"] = merge_gallery(media.get("gallery"), incoming_gallery)
     model, resolution = resolve_place_image_spec(place)
     media["image_model"] = model
     media["image_resolution"] = resolution

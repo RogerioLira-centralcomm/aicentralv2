@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Nunito+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/places_public.css') }}?v=29">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/places_public.css') }}?v=33">
 </head>
 <body class="cc-place" data-preview="{{ '1' if preview else '0' }}">
   <a class="cc-skip" href="#mapa">Ir para o mapa</a>
@@ -43,6 +43,10 @@
             <dt>No celular, 4 semanas</dt>
             <dd>{{ place.metrics.addressable.label or place.metrics.four_weeks.label or '—' }}</dd>
           </div>
+          <div>
+            <dt>Investimento, 4 semanas</dt>
+            <dd>{{ place.investment.label or '—' }}</dd>
+          </div>
         </dl>
       </figcaption>
     </figure>
@@ -57,7 +61,9 @@
           <img id="zonePhoto"{% if first and first.image_url %} src="{{ first.image_url }}" alt="{{ first.name }}"{% endif %}>
         </figure>
         <h2 id="zoneName">{% if first %}{{ first.name }}{% endif %}</h2>
-        <p id="zoneCommercial">{% if first %}{{ first.commercial or first.note }}{% endif %}</p>
+        <p class="cc-scope" id="zoneScope">{% if first %}{{ first.scope_label }}{% endif %}</p>
+        <p class="cc-fiche" id="zoneFiche">{{ place.type_label }} · {{ place.city_label }}{% if place.operator %} · {{ place.operator }}{% endif %}</p>
+        <p id="zoneCommercial">{% if first %}{{ first.defense or first.commercial or first.note }}{% endif %}</p>
         <dl class="cc-sheet-facts">
           <div>
             <dt>Raio que a campanha compra</dt>
@@ -67,6 +73,10 @@
             <dt>No celular, 4 semanas</dt>
             <dd id="zoneReach">{% if first %}{{ first.reach }}{% endif %}</dd>
             <em class="cc-flag" id="zoneReachFlag"{% if not first or first.reach_status != 'to_validate' %} hidden{% endif %}>A validar</em>
+          </div>
+          <div>
+            <dt>Investimento, 4 semanas</dt>
+            <dd id="zoneInvest">{% if first %}{{ first.investment or place.investment.label }}{% endif %}</dd>
           </div>
         </dl>
         <p class="cc-sheet-meta" id="zoneFormats"{% if not first or not first.formats %} hidden{% endif %}>{% if first and first.formats %}{{ first.formats|join(', ') }}{% endif %}</p>
@@ -92,6 +102,10 @@
     </section>
 
     <div class="cc-leaf">
+      {% if place.defense.lead or place.defense.body %}
+      <p class="cc-defense">{% if place.defense.lead %}<strong>{{ place.defense.lead }}</strong> {% endif %}{{ place.defense.body }}</p>
+      {% endif %}
+
       {% if place.offer.lead %}
       <p class="cc-why">{{ place.offer.lead }}</p>
       {% endif %}
@@ -119,6 +133,6 @@
 
   <script type="application/json" id="cc-place-data">{{ place|tojson }}</script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="{{ url_for('static', filename='js/places_public.js') }}?v=29"></script>
+  <script src="{{ url_for('static', filename='js/places_public.js') }}?v=32"></script>
 </body>
 </html>

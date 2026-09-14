@@ -164,10 +164,23 @@
         },
         points: collectPoints(),
         inventory: (place && place.inventory) || {},
+        metrics: (place && place.metrics) || {},
+        offer: (place && place.offer) || {},
+        methodology: (place && place.methodology) || {},
+        investment: {
+          label: value("investment_label") || ((place && place.investment && place.investment.label) || ""),
+          source_status: "to_validate"
+        },
+        defense: {
+          lead: value("defense_lead") || ((place && place.defense && place.defense.lead) || ""),
+          body: value("defense_body") || ((place && place.defense && place.defense.body) || "")
+        },
         media: {
           hero_url: value("hero_url"),
           map_url: value("map_url"),
-          og_url: value("og_url")
+          og_url: value("og_url"),
+          visual_refs: (place.media && place.media.visual_refs) || [],
+          gallery: (place.media && place.media.gallery) || []
         }
       }
     };
@@ -302,8 +315,33 @@
     }).join("");
     var spec = document.querySelector("[data-image-spec]");
     if (spec && data.images && data.images.spec) {
-      spec.textContent = "Uma foto por vez. Busca referência real no Firecrawl e gera no modelo " + (data.images.spec.model || "do aeroporto") + " em " + (data.images.spec.resolution || "2K") + ".";
+      spec.textContent = "Firecrawl busca a foto real; você marca a referência; o modelo " + (data.images.spec.model || "do aeroporto") + " gera em " + (data.images.spec.resolution || "2K") + ". Uma foto por vez.";
     }
+    renderGallery(data);
+  }
+
+  function renderGallery(data) {
+    var grid = document.querySelector("[data-gallery-grid]");
+    var empty = document.querySelector("[data-gallery-empty]");
+    if (!grid) return;
+    var items = ((data && data.media) || {}).gallery || [];
+    grid.innerHTML = items.map(function (item) {
+      var label = item.title || item.query || item.kind || "Foto real";
+      var cls = item.selected ? " is-on" : "";
+      return "<button type=\"button\" class=\"pl-gallery-item" + cls + "\" data-gallery-id=\"" +
+        escapeHtml(item.id || "") + "\">" +
+        "<img src=\"" + escapeHtml(item.url) + "\" alt=\"\">" +
+        "<span>" + escapeHtml(label) + (item.selected ? " · referência" : "") + "</span></button>";
+    }).join("");
+    if (empty) empty.hidden = !!items.length;
+  }
+
+  function selectedReferenceIds() {
+    return (((place.media || {}).gallery || []).filter(function (item) {
+      return item.selected && item.id;
+    }).map(function (item) {
+      return item.id;
+    }));
   }
 
   function applyPlace(data) {
@@ -339,6 +377,11 @@
     if (impacted.label) setValue("catchment_impacted_label", impacted.label);
     if (catchment.neighborhoods) setValue("catchment_neighborhoods", catchment.neighborhoods.join(", "));
     if (catchment.profile) setValue("catchment_profile", catchment.profile);
+    var investment = data.investment || {};
+    var defense = data.defense || {};
+    if (investment.label) setValue("investment_label", investment.label);
+    if (defense.lead) setValue("defense_lead", defense.lead);
+    if (defense.body) setValue("defense_body", defense.body);
     if (data.media) {
       if (data.media.hero_url) setValue("hero_url", data.media.hero_url);
       if (data.media.map_url) setValue("map_url", data.media.map_url);
@@ -601,7 +644,8 @@
     if (!placeId) return Promise.reject(new Error("Salve o place primeiro."));
     return jsonFetch("/places/api/" + placeId + "/images", "POST", {
       kind: job.kind,
-      point_id: job.point_id || ""
+      point_id: job.point_id || "",
+      reference_ids: selectedReferenceIds()
     }).then(function (result) {
       if (!result.ok || !result.body.success) {
         throw new Error((result.body && result.body.error) || "Não foi possível gerar a foto.");
@@ -643,6 +687,47 @@
     return savePlace().then(next);
   }
 
+  var collectBtn = document.getElementById("pl-collect-gallery");
+  if (collectBtn) {
+    collectBtn.addEventListener("click", function () {
+      var placeId = root.getAttribute("data-place-id");
+      if (!placeId || busy) return;
+      setBusy(true, "Buscando fotos reais no Firecrawl…");
+      savePlace().then(function () {
+        return jsonFetch("/places/api/" + placeId + "/gallery", "POST", { kind: "hero" });
+      }).then(function (result) {
+        if (!result.ok || !result.body.success) {
+          throw new Error((result.body && result.body.error) || "Não foi possível buscar as fotos reais.");
+        }
+        applyPlace(result.body.data || {});
+        toast(statusNode, "Fotos reais na galeria. Marque a referência e gere.");
+      }).catch(function (error) {
+        toast(statusNode, error.message, true);
+      }).finally(function () {
+        setBusy(false);
+      });
+    });
+  }
+  var galleryGrid = document.querySelector("[data-gallery-grid]");
+  if (galleryGrid) {
+    galleryGrid.addEventListener("click", function (event) {
+      var button = event.target.closest("[data-gallery-id]");
+      var placeId = root.getAttribute("data-place-id");
+      if (!button || !placeId || busy) return;
+      setBusy(true, "Marcando a referência…");
+      jsonFetch("/places/api/" + placeId + "/gallery/select", "POST", { id: button.getAttribute("data-gallery-id") }).then(function (result) {
+        if (!result.ok || !result.body.success) {
+          throw new Error((result.body && result.body.error) || "Não foi possível escolher a foto.");
+        }
+        applyPlace(result.body.data || {});
+        toast(statusNode, "Referência marcada. Agora gere a foto nova.");
+      }).catch(function (error) {
+        toast(statusNode, error.message, true);
+      }).finally(function () {
+        setBusy(false);
+      });
+    });
+  }
   var queueBtn = document.getElementById("pl-gen-queue");
   if (queueBtn) queueBtn.addEventListener("click", function () {
     if (busy) return;

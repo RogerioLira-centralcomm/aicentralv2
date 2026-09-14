@@ -12,7 +12,7 @@ from .brand import PUBLIC_TOKENS
 from .images import ImageError
 from .repository import PlaceConflict, PlaceNotFound, PlacesError
 from .research import ResearchError
-from .schema import SOURCE_LABELS, group_directory
+from .schema import SOURCE_LABELS, directory_card, featured_card, group_directory
 
 logger = logging.getLogger(__name__)
 
@@ -250,6 +250,7 @@ def api_images(place_id):
                 place_id,
                 kind=body.get("kind") or "next",
                 point_id=body.get("point_id") or "",
+                reference_ids=body.get("reference_ids") or body.get("reference_id") or [],
             )
         )
     except PlaceNotFound as exc:
@@ -259,6 +260,41 @@ def api_images(place_id):
     except Exception:
         logger.exception("Falha ao gerar imagens do place")
         return _error("Não foi possível gerar as imagens.", 500)
+
+
+@bp.route("/api/<int:place_id>/gallery", methods=["POST"])
+@login_required_api
+def api_gallery(place_id):
+    try:
+        body = request.get_json(silent=True) or {}
+        return _ok(
+            service.collect_place_gallery(
+                place_id,
+                kind=body.get("kind") or "hero",
+                point_id=body.get("point_id") or "",
+            )
+        )
+    except PlaceNotFound as exc:
+        return _error(exc, 404)
+    except Exception:
+        logger.exception("Falha ao buscar fotos reais do place")
+        return _error("Não foi possível buscar as fotos reais.", 500)
+
+
+@bp.route("/api/<int:place_id>/gallery/select", methods=["POST"])
+@login_required_api
+def api_gallery_select(place_id):
+    try:
+        body = request.get_json(silent=True) or {}
+        item_id = (body.get("id") or body.get("item_id") or "").strip()
+        if not item_id:
+            return _error("Escolha uma foto da galeria.", 400)
+        return _ok(service.select_place_gallery(place_id, item_id))
+    except PlaceNotFound as exc:
+        return _error(exc, 404)
+    except Exception:
+        logger.exception("Falha ao escolher a foto de referência")
+        return _error("Não foi possível escolher a foto.", 500)
 
 
 @bp.route("/api/<int:place_id>/publish", methods=["POST"])
@@ -288,9 +324,12 @@ def publico_indice():
     except Exception:
         logger.exception("Falha ao listar places públicos")
         places = []
+    cards = [directory_card(item) for item in places if item.get("slug")]
     return render_template(
         "places/public_index.html",
         places=places,
+        cards=cards,
+        featured=featured_card(cards),
         **_public_chrome(),
     )
 

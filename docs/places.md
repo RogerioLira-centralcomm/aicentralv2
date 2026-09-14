@@ -62,6 +62,6 @@ Endereçáveis em 4 semanas (estimate, não somar):
 
 Lista em tabela: código, place, cidade, status, passageiros, endereçáveis, pontos, fotos, custo de IA e link copiável.
 
-Uma trilha no cadastro: Lugar → Bacia → Pontos → Arte → Publicar. Fechar a ficha pesquisa a região, fecha o texto e já entra os pontos (com ou sem coordenada). As fotos saem uma a uma — hero, mapa, depois cada ponto — com fila na tela de arte. Cinco imagens no mesmo request estouram o timeout.
+Uma trilha no cadastro: Lugar → Bacia → Pontos → Arte → Publicar. Fechar a ficha pesquisa a região, fecha o texto e já entra os pontos (com ou sem coordenada). Na Arte, o Firecrawl busca e raspa o site oficial, a galeria guarda a foto real e você marca a referência. Só então a IA gera a nova (hero, mapa, ponto), uma por vez. Cinco imagens no mesmo request estouram o timeout. `media.gallery` fica no JSONB; as cópias vão para `static/images/places/gallery/`.
 
 Fluxo: buscar o lugar → fechar ficha → pontos entram sozinhos → gerar fotos → publicar o link. A one-page é para agência ou cliente final que vai comprar.

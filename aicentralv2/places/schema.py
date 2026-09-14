@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .brand import zone_color
+from .brand import TYPE_PIN_COLORS, zone_color
 
 PLACE_TYPES = ("aeroporto", "shopping", "evento")
 CITIES = ("bh", "sp", "rj")
@@ -33,6 +33,10 @@ POINT_LABELS = {
     "premium": "Premium",
     "halo": "Halo",
 }
+POINT_SCOPES = ("internal", "external")
+SCOPE_LABELS = {"internal": "No sítio", "external": "Halo"}
+INTERNAL_KINDS = ("terminal", "embarque", "premium", "mobilidade", "marco", "pessoas")
+EXTERNAL_KINDS = ("halo", "bairro", "densidade")
 POINT_RADIUS = {
     "terminal": 300,
     "embarque": 250,
@@ -260,9 +264,27 @@ def normalize_inventory(value: Any) -> dict:
     }
 
 
+def infer_point_scope(kind: str, value: Any = None) -> str:
+    raw = text(value).lower()
+    if raw in POINT_SCOPES:
+        return raw
+    if kind in EXTERNAL_KINDS:
+        return "external"
+    if kind in INTERNAL_KINDS:
+        return "internal"
+    return "internal"
+
+
+def sort_place_points(points: list) -> list:
+    internals = [item for item in points if text(item.get("scope")) != "external"]
+    externals = [item for item in points if text(item.get("scope")) == "external"]
+    return internals + externals
+
+
 def normalize_point(item: Any) -> dict:
     data = as_dict(item)
     kind = normalize_choice(data.get("kind"), POINT_KINDS, "marco")
+    scope = infer_point_scope(kind, data.get("scope"))
     radius_m = _float(data.get("radius_m"))
     radius_m = int(radius_m) if radius_m else POINT_RADIUS.get(kind, 400)
     return {
@@ -270,6 +292,8 @@ def normalize_point(item: Any) -> dict:
         "name": text(data.get("name")),
         "kind": kind,
         "kind_label": POINT_LABELS.get(kind, "Marco"),
+        "scope": scope,
+        "scope_label": SCOPE_LABELS[scope],
         "lat": _float(data.get("lat")),
         "lng": _float(data.get("lng")),
         "radius_m": radius_m,
@@ -281,6 +305,8 @@ def normalize_point(item: Any) -> dict:
         "apps": normalize_inventory_items(data.get("apps")),
         "portals": normalize_inventory_items(data.get("portals")),
         "commercial": text(data.get("commercial")),
+        "defense": text(data.get("defense") or data.get("commercial")),
+        "investment": text(data.get("investment")),
         "color": text(data.get("color")) or zone_color(
             {"terminal": "CORE", "embarque": "DEPARTURES", "premium": "PREMIUM", "mobilidade": "MOBILITY", "halo": "HALO"}.get(kind, "CORE")
         ),
@@ -350,6 +376,30 @@ def normalize_media(value: Any) -> dict:
                 "query": text(item.get("query")),
             }
         )
+    gallery = []
+    seen = set()
+    for raw in as_list(data.get("gallery")):
+        item = as_dict(raw)
+        url = text(item.get("url") or item.get("source_url"))
+        if not url:
+            continue
+        gid = text(item.get("id")) or url
+        if gid in seen:
+            continue
+        seen.add(gid)
+        gallery.append(
+            {
+                "id": gid,
+                "kind": text(item.get("kind")) or "hero",
+                "point_id": text(item.get("point_id")),
+                "url": url,
+                "source_url": text(item.get("source_url")) or url,
+                "page_url": text(item.get("page_url")),
+                "title": text(item.get("title")),
+                "query": text(item.get("query")),
+                "selected": bool(item.get("selected")),
+            }
+        )
     return {
         "hero_url": text(data.get("hero_url")),
         "map_url": text(data.get("map_url")),
@@ -358,6 +408,7 @@ def normalize_media(value: Any) -> dict:
         "image_resolution": text(data.get("image_resolution")),
         "images": images,
         "visual_refs": visual_refs,
+        "gallery": gallery,
     }
 
 
@@ -382,6 +433,46 @@ def normalize_offer(value: Any) -> dict:
         if title:
             lines.append({"title": title, "body": body})
     return {"lead": text(data.get("lead")), "lines": lines}
+
+
+def normalize_defense(value: Any, *, fallback: str = "") -> dict:
+    data = as_dict(value)
+    lead = text(data.get("lead"))
+    body = text(data.get("body") or data.get("text"))
+    if not lead:
+        lead = fallback
+    return {"lead": lead, "body": body}
+
+
+def infer_place_investment(addressable_value: Any) -> dict:
+    value = addressable_value if isinstance(addressable_value, (int, float)) and not isinstance(addressable_value, bool) else 0
+    if value >= 250_000:
+        label, mid = "R$ 55–95 mil", 75_000
+    elif value >= 150_000:
+        label, mid = "R$ 40–70 mil", 55_000
+    elif value >= 80_000:
+        label, mid = "R$ 28–48 mil", 38_000
+    elif value >= 40_000:
+        label, mid = "R$ 18–32 mil", 25_000
+    else:
+        label, mid = "R$ 12–22 mil", 17_000
+    return metric_stat(
+        mid,
+        label,
+        source="Ordem de grandeza para o recorte no celular, 4 semanas",
+        source_status="to_validate",
+        note="Não é cotação. Serve para a defesa de venda do ponto.",
+    )
+
+
+def infer_point_investment(kind: str, place_label: str = "") -> str:
+    if kind in ("halo", "bairro"):
+        return "R$ 10–18 mil"
+    if kind in ("pessoas", "mobilidade", "embarque"):
+        return "R$ 14–26 mil"
+    if kind == "premium":
+        return "R$ 18–32 mil"
+    return text(place_label) or "R$ 18–32 mil"
 
 
 def usage_cost_usd(usage: Any) -> float:
@@ -438,22 +529,36 @@ def normalize_payload(value: Any) -> dict:
     metrics = as_dict(data.get("metrics"))
     media = as_dict(data.get("media"))
     methodology = as_dict(data.get("methodology"))
+    offer = normalize_offer(data.get("offer"))
+    addressable = normalize_metric(metrics.get("addressable"))
+    raw_investment = as_dict(data.get("investment") or metrics.get("investment"))
+    investment = normalize_metric(raw_investment) if text(raw_investment.get("label")) or raw_investment.get("value") is not None else infer_place_investment(addressable.get("value"))
+    points = sort_place_points(
+        [item for item in (normalize_point(raw) for raw in as_list(data.get("points"))) if item["name"]]
+    )
+    for point in points:
+        if not text(point.get("investment")):
+            point["investment"] = infer_point_investment(point.get("kind"), investment.get("label"))
+        if not text(point.get("defense")):
+            point["defense"] = text(point.get("commercial"))
     return {
         "metrics": {
             "passengers": normalize_metric(metrics.get("passengers")),
             "four_weeks": normalize_metric(metrics.get("four_weeks")),
-            "addressable": normalize_metric(metrics.get("addressable")),
+            "addressable": addressable,
             "impacted": normalize_metric(metrics.get("impacted") or metrics.get("four_weeks")),
         },
         "geo": normalize_geo(data.get("geo")),
-        "points": [item for item in (normalize_point(raw) for raw in as_list(data.get("points"))) if item["name"]],
+        "points": points,
         "research": normalize_research(data.get("research")),
         "catchment": normalize_catchment(data.get("catchment")),
         "zones": [normalize_zone(item) for item in as_list(data.get("zones"))],
         "audiences": [normalize_audience(item) for item in as_list(data.get("audiences")) if normalize_audience(item)["title"]],
         "media": normalize_media(media),
         "pipeline": normalize_pipeline(data.get("pipeline")),
-        "offer": normalize_offer(data.get("offer")),
+        "offer": offer,
+        "defense": normalize_defense(data.get("defense")),
+        "investment": investment,
         "inventory": normalize_inventory(data.get("inventory")),
         "costs": normalize_costs(data.get("costs")),
         "methodology": {
@@ -499,17 +604,55 @@ def directory_card(item: dict) -> dict:
     media = as_dict(item.get("media"))
     metrics = as_dict(item.get("metrics"))
     addressable = as_dict(metrics.get("addressable"))
+    passengers = as_dict(metrics.get("passengers"))
+    geo = as_dict(item.get("geo"))
     place_type = normalize_choice(item.get("place_type"), PLACE_TYPES, "aeroporto")
+    slug = text(item.get("slug"))
     return {
-        "slug": text(item.get("slug")),
+        "slug": slug,
         "title": text(item.get("title")),
         "code": text(item.get("code")),
+        "subtitle": text(item.get("subtitle")),
         "place_type": place_type,
         "type_label": TYPE_LABELS.get(place_type, ""),
+        "traffic_label": TRAFFIC_LABELS.get(place_type, TRAFFIC_LABELS["aeroporto"]),
+        "city": normalize_choice(item.get("city"), CITIES, "bh"),
         "city_label": text(item.get("city_label")) or CITY_LABELS.get(normalize_choice(item.get("city"), CITIES, "bh"), ""),
         "hero_url": text(media.get("hero_url")),
         "reach": text(addressable.get("label")),
+        "passengers": text(passengers.get("label")),
+        "lat": geo.get("lat"),
+        "lng": geo.get("lng"),
+        "color": TYPE_PIN_COLORS.get(place_type, TYPE_PIN_COLORS["aeroporto"]),
+        "href": f"/places/p/{slug}" if slug else "",
     }
+
+
+def featured_card(cards: list) -> dict:
+    rows = [as_dict(item) for item in cards if text(as_dict(item).get("slug"))]
+    for slug in ("confins",):
+        for item in rows:
+            if text(item.get("slug")) == slug:
+                return item
+    for item in rows:
+        if text(item.get("hero_url")):
+            return item
+    return rows[0] if rows else {}
+
+
+def match_directory(card: dict, q: str = "", tipo: str = "") -> bool:
+    item = as_dict(card)
+    wanted = text(tipo).lower()
+    if wanted and text(item.get("place_type")) != wanted:
+        return False
+    needle = text(q).lower().strip()
+    if not needle:
+        return True
+    blob = " ".join(
+        text(item.get(key))
+        for key in ("title", "code", "city_label", "type_label", "slug", "subtitle")
+    ).lower()
+    return needle in blob
 
 
 def group_directory(items: list) -> list[dict]:

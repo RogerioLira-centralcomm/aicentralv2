@@ -24,6 +24,11 @@ ZONE_COLORS = {
     "MOBILITY": "#2A6D70",
     "HALO": "#C48A1A",
 }
+TYPE_PIN_COLORS = {
+    "aeroporto": "#167A3A",
+    "shopping": "#F5A623",
+    "evento": "#1E4D4F",
+}
 
 
 def zone_color(zone_type: str, fallback: str = "") -> str:

@@ -304,7 +304,7 @@ button, a {
 }
 .cc-facts {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 12rem));
+  grid-template-columns: repeat(3, minmax(0, 11rem));
   gap: 1rem;
   margin: 1.05rem 0 0;
 }
@@ -369,6 +369,7 @@ button, a {
   font-size: 0.72rem;
   font-weight: 700;
 }
+.cc-zone-chip[data-scope="external"] { border-style: dashed; }
 .cc-zone-chip:active { border-color: var(--cc-teal); }
 .cc-zone-chip.is-on {
   border-color: var(--cc-green);
@@ -424,17 +425,33 @@ button, a {
   letter-spacing: -0.03em;
   line-height: 1.15;
 }
+.cc-scope {
+  margin: 0.25rem 0 0;
+  color: var(--cc-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
 .cc-sheet > p {
   margin: 0.4rem 0 0;
   color: var(--cc-muted);
   font-size: var(--cc-fs-body);
   line-height: 1.5;
 }
+.cc-sheet > p.cc-scope {
+  margin: 0.25rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
 .cc-sheet-facts {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.85rem;
   margin: 0.9rem 0 0;
+}
+.cc-sheet-facts > div:last-child {
+  grid-column: 1 / -1;
 }
 .cc-sheet-facts dt {
   margin: 0;
@@ -497,6 +514,26 @@ button, a {
   line-height: 1.25;
 }
 
+.cc-fiche {
+  margin: 0.2rem 0 0;
+  color: var(--cc-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.cc-defense {
+  max-width: 36rem;
+  margin: 1.15rem 0 0;
+  line-height: 1.55;
+  font-size: var(--cc-fs-body);
+}
+.cc-defense strong {
+  display: block;
+  margin: 0 0 0.25rem;
+  font-family: var(--cc-display);
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
 .cc-why,
 .cc-halo,
 .cc-note,
@@ -530,7 +567,161 @@ button, a {
 .cc-foot img { width: 1.7rem; height: auto; }
 .cc-foot p { margin: 0; }
 
-.cc-index { padding: 0 0 calc(2.5rem + env(safe-area-inset-bottom)); }
+.cc-index { padding: 0; background: var(--cc-black); color: #fff; }
+.cc-night { background: var(--cc-black); color: #fff; }
+.cc-index-hero {
+  position: relative;
+  margin: 0;
+  min-height: min(52vh, 28rem);
+  overflow: hidden;
+  background: var(--cc-black);
+}
+.cc-index-hero img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+}
+.cc-index-hero figcaption {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: inherit;
+  width: var(--cc-page);
+  margin: 0 auto;
+  padding: 4.4rem 0 1.4rem;
+  background: linear-gradient(180deg, rgba(8, 8, 8, 0.1) 18%, rgba(8, 8, 8, 0.78) 80%);
+}
+.cc-index-hero h1 {
+  max-width: 14ch;
+  margin: 0;
+  font-family: var(--cc-display);
+  font-size: var(--cc-fs-page);
+  font-weight: 900;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  hyphens: none;
+}
+.cc-find-bar {
+  padding: 1rem 0 1.15rem;
+  background: var(--cc-black);
+}
+.cc-find-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+.cc-find {
+  display: flex;
+  gap: 0.45rem;
+  max-width: 36rem;
+}
+.cc-find input {
+  flex: 1;
+  min-height: 2.85rem;
+  min-width: 0;
+  padding: 0.55rem 0.9rem;
+  border: 0;
+  background: #fff;
+  color: var(--cc-ink);
+  font: inherit;
+}
+.cc-find button {
+  min-height: 2.85rem;
+  padding: 0 1.05rem;
+  border: 0;
+  background: var(--cc-lime);
+  color: var(--cc-black);
+  font-weight: 800;
+  cursor: pointer;
+}
+.cc-find-help {
+  max-width: 36rem;
+  margin: 0.7rem 0 0;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: var(--cc-fs-meta);
+  line-height: 1.45;
+}
+.cc-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.8rem;
+}
+.cc-filter button {
+  min-height: 2.1rem;
+  padding: 0.25rem 0.8rem;
+  border: 0;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cc-filter button.is-on {
+  background: var(--cc-lime);
+  color: var(--cc-black);
+}
+.cc-find-empty {
+  margin: 0.75rem 0 0;
+  max-width: 36rem;
+  color: #fff;
+  font-size: var(--cc-fs-meta);
+  line-height: 1.45;
+}
+.cc-atlas {
+  position: relative;
+  background: #0b0f0c;
+}
+.cc-atlas-map {
+  height: min(42vh, 26rem);
+  min-height: 16rem;
+}
+.cc-atlas-card {
+  position: absolute;
+  left: max(0.75rem, calc((100% - var(--cc-page)) / 2));
+  bottom: 0.85rem;
+  z-index: 5;
+  min-width: 11rem;
+  max-width: 16rem;
+  padding: 0.7rem 0.85rem 0.75rem;
+  background: rgba(8, 8, 8, 0.88);
+  color: #fff;
+}
+.cc-atlas-code {
+  margin: 0;
+  font-family: var(--cc-display);
+  font-size: 1.55rem;
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  line-height: 0.9;
+  color: var(--cc-lime);
+}
+.cc-atlas-name,
+.cc-atlas-meta {
+  margin: 0.28rem 0 0;
+  font-size: var(--cc-fs-meta);
+}
+.cc-atlas-meta { color: rgba(255, 255, 255, 0.7); }
+.cc-mesa {
+  background: var(--cc-canvas);
+  color: var(--cc-ink);
+  padding: 1.35rem 0 calc(2.5rem + env(safe-area-inset-bottom));
+}
+.cc-pick.is-on {
+  outline: 2px solid var(--cc-lime);
+  outline-offset: -3px;
+}
+.cc-col[hidden],
+.cc-pick[hidden],
+.cc-atlas-card[hidden],
+.cc-find-empty[hidden],
+#cc-open[hidden] { display: none; }
 .cc-board {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -630,6 +821,8 @@ button, a {
 }
 
 @media (hover: hover) and (pointer: fine) {
+  .cc-filter button:hover { background: rgba(255, 255, 255, 0.16); }
+  .cc-filter button.is-on:hover { background: var(--cc-lime); }
   .cc-pick img { transition: transform 280ms ease; }
   .cc-pick:hover img { transform: scale(1.04); }
   .cc-zone-chip { transition: background 140ms ease, color 140ms ease, border-color 140ms ease; }
@@ -662,7 +855,15 @@ button, a {
   .cc-col .cc-pick { min-height: 15.5rem; }
   .cc-facts { grid-template-columns: 1fr 1fr; gap: 0.7rem; }
   .cc-why { font-size: 1.12rem; }
-  .cc-index-head { margin: 1rem 0 0.95rem; }
+  .cc-find-bar {
+    position: sticky;
+    top: calc(var(--cc-bar) + env(safe-area-inset-top));
+    z-index: 18;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .cc-index-hero { min-height: 36vh; }
+  .cc-index-hero figcaption { padding-top: 2.4rem; }
+  .cc-atlas-map { height: 32vh; min-height: 13rem; }
   .cc-sheet h2 { font-size: 1.25rem; }
 }
 

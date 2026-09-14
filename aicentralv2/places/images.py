@@ -13,7 +13,12 @@ from flask import current_app, has_app_context
 
 from ..services.openrouter_service import generate_image, resolve_image_model
 from .schema import as_dict, as_list, text
-from .visual_refs import reference_urls, search_visual_refs
+from .visual_refs import (
+    collect_visual_refs,
+    materialize_reference_urls,
+    reference_urls,
+    selected_gallery_refs,
+)
 
 GROUNDING = (
     " Match the real architecture, materials and surroundings in the reference photos. "
@@ -95,7 +100,22 @@ def image_queue(place: dict) -> list[dict]:
     return jobs
 
 
-def generate_place_images(place: dict, *, kind: str = "hero") -> dict:
+def resolve_generation_refs(
+    place: dict,
+    *,
+    kind: str = "hero",
+    point: dict | None = None,
+    refs: list[dict] | None = None,
+) -> list[dict]:
+    if refs:
+        return list(refs)
+    picked = selected_gallery_refs(place, kind=kind, point=point)
+    if picked:
+        return picked
+    return collect_visual_refs(place, kind=kind, point=point)
+
+
+def generate_place_images(place: dict, *, kind: str = "hero", refs: list[dict] | None = None) -> dict:
     title = text(place.get("title")) or "place"
     city = text(place.get("city_label") or place.get("city"))
     code = text(place.get("code"))
@@ -107,7 +127,7 @@ def generate_place_images(place: dict, *, kind: str = "hero") -> dict:
     urls = {}
     usages = []
     if kind in ("hero", "both", "all"):
-        refs = search_visual_refs(place, kind="hero")
+        refs = resolve_generation_refs(place, kind="hero", refs=refs)
         url, usage = _render(
             _hero_prompt(title, city, code),
             f"{slug}-hero",
@@ -119,7 +139,7 @@ def generate_place_images(place: dict, *, kind: str = "hero") -> dict:
         usages.append({"step": "image-hero", "label": "Hero", "usage": usage})
         _attach_refs(urls, "hero", refs)
     if kind in ("og", "both", "all"):
-        refs = search_visual_refs(place, kind="og")
+        refs = resolve_generation_refs(place, kind="og", refs=refs if kind == "og" else None)
         url, usage = _render(
             (
                 f"Premium share photo of {title} {code} in {city}, Brazil. "
@@ -134,7 +154,7 @@ def generate_place_images(place: dict, *, kind: str = "hero") -> dict:
         usages.append({"step": "image-og", "label": "Cartão", "usage": usage})
         _attach_refs(urls, "og", refs)
     if kind in ("map", "all"):
-        refs = search_visual_refs(place, kind="map")
+        refs = resolve_generation_refs(place, kind="map", refs=refs if kind == "map" else None)
         url, usage = _render(
             (
                 f"Photoreal oblique aerial map of {title} {code} in {city}, Brazil. "
@@ -153,11 +173,12 @@ def generate_place_images(place: dict, *, kind: str = "hero") -> dict:
     return urls
 
 
-def generate_point_images(place: dict, *, point_id: str = "") -> list[dict]:
+def generate_point_images(place: dict, *, point_id: str = "", refs: list[dict] | None = None) -> list[dict]:
     title = text(place.get("title")) or "place"
     city = text(place.get("city_label") or place.get("city"))
     slug = _slug(place.get("slug") or title)
     wanted = text(point_id)
+    incoming_refs = refs
     generated = []
     for index, raw in enumerate(as_list(place.get("points"))):
         point = as_dict(raw)
@@ -169,9 +190,9 @@ def generate_point_images(place: dict, *, point_id: str = "") -> list[dict]:
             continue
         kind = text(point.get("kind")) or "marco"
         prompt = _point_prompt(title, city, name, kind, point.get("note"))
-        refs = search_visual_refs(place, kind="point", point=point)
+        point_refs = resolve_generation_refs(place, kind="point", point=point, refs=incoming_refs)
         try:
-            url, usage = _render(prompt, f"{slug}-{_slug(pid or name)}-pt", "4:3", place, refs=refs)
+            url, usage = _render(prompt, f"{slug}-{_slug(pid or name)}-pt", "4:3", place, refs=point_refs)
             generated.append(
                 {
                     "id": pid,
@@ -184,6 +205,7 @@ def generate_point_images(place: dict, *, point_id: str = "") -> list[dict]:
                     "image_url": url,
                     "usage": usage,
                     "index": index,
+                    "gallery": point_refs,
                 }
             )
         except ImageError as exc:
@@ -226,6 +248,26 @@ def _hero_prompt(title: str, city: str, code: str) -> str:
             "two long runways (10/28 and 15/33) beside Guanabara Bay, access via Avenida "
             "Vinte de Janeiro. Forbidden: Santos Dumont downtown, a single short runway, "
             "Congonhas squeezed into city blocks."
+        ),
+        "DMM": (
+            "Diamond Mall in Lourdes / Savassi, Belo Horizonte: compact Multiplan urban mall, "
+            "stone and glass street facade on a city block, trees and traffic, dusk. "
+            "Forbidden: geodesic glass dome, crystal polygon, generic luxury atrium, airport."
+        ),
+        "IGT": (
+            "Iguatemi São Paulo on Faria Lima: low luxury mall with landscaped garden, "
+            "white canopies, jacarandas and the Faria Lima towers behind, golden hour. "
+            "Forbidden: generic marble hotel drop-off, a single glass box, airport."
+        ),
+        "IBI": (
+            "Ibirapuera Park, São Paulo: Niemeyer's white Oca dome and the long concrete "
+            "marquee by the lake, towers of Vila Mariana behind, late afternoon. "
+            "Forbidden: a generic city park, tropical beach, invented sculpture."
+        ),
+        "EXP": (
+            "Expominas in Gameleira, Belo Horizonte: white barrel-vault exhibition halls, "
+            "wide empty forecourt, hills of the west region behind, overcast day. "
+            "Forbidden: airport hangar, stadium, generic convention center in Dubai."
         ),
     }
     extra = specifics.get(code.upper(), "Architecture and setting as they really are.")
@@ -343,18 +385,26 @@ def _named_scene(title: str, city: str, name: str) -> str:
 
 
 def _attach_refs(urls: dict, kind: str, refs: list[dict]) -> None:
-    packed = [
-        {
-            "kind": kind,
-            "url": text(item.get("url")),
-            "title": text(item.get("title")),
-            "query": text(item.get("query")),
-        }
-        for item in refs
-        if text(item.get("url"))
-    ]
+    packed = []
+    gallery = []
+    for item in refs:
+        url = text(item.get("url") or item.get("source_url"))
+        if not url:
+            continue
+        packed.append(
+            {
+                "kind": kind,
+                "url": url,
+                "title": text(item.get("title")),
+                "query": text(item.get("query")),
+            }
+        )
+        row = dict(item)
+        row["kind"] = kind
+        gallery.append(row)
     if packed:
         urls.setdefault("visual_refs", []).extend(packed)
+        urls.setdefault("gallery", []).extend(gallery)
 
 
 def _render(
@@ -365,7 +415,7 @@ def _render(
     refs: list[dict] | None = None,
 ) -> tuple[str, dict]:
     model, resolution = resolve_place_image_spec(place or {})
-    images = reference_urls(refs or [])
+    images = materialize_reference_urls(reference_urls(refs or []))
     if images:
         prompt = f"{prompt}{GROUNDING}"
     try:

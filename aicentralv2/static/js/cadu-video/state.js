@@ -16,7 +16,12 @@ export const state = {
   activeClipId: "",
   selectedSceneId: "",
   libTab: "still",
-  panelTab: "script",
+  panelTab: "scene",
+  previewMode: "scene",
+  saveStatus: "saved",
+  quoteStatus: "idle",
+  generating: false,
+  requestVersion: 0,
   search: "",
   name: "",
   aspectRatio: "16:9",
@@ -67,6 +72,11 @@ export function resetProjectFields() {
   };
   state.quote = null;
   state.quoteError = "";
+  state.previewMode = "scene";
+  state.saveStatus = "saved";
+  state.quoteStatus = "idle";
+  state.generating = false;
+  state.requestVersion += 1;
   state.dirty = false;
 }
 

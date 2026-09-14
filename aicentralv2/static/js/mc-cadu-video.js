@@ -9,6 +9,7 @@ import {
   paintLibrary,
   paintProps,
   paintQuote,
+  paintSaveStatus,
   paintTimeline,
   playClip,
   setStatus,
@@ -28,6 +29,8 @@ import { parseScript, scriptText } from "./cadu-video/utils.js";
 
 let quoteTimer = null;
 let saveTimer = null;
+let quoteRequest = 0;
+let saveRequest = 0;
 
 boot();
 
@@ -54,10 +57,22 @@ function bindUi() {
   document.getElementById("mcVideoClips")?.addEventListener("click", onClipClick);
   document.getElementById("mcVideoScriptBtn")?.addEventListener("click", buildScript);
   document.getElementById("mcVideoGenerate")?.addEventListener("click", generate);
+  document.getElementById("mcVideoSaveStatus")?.addEventListener("click", () => {
+    if (state.saveStatus === "error") persistProject();
+  });
   document.getElementById("mcVideoPurgeBroken")?.addEventListener("click", purgeBroken);
   document.getElementById("mcVideoPrevScene")?.addEventListener("click", () => stepScene(-1));
   document.getElementById("mcVideoNextScene")?.addEventListener("click", () => stepScene(1));
   document.getElementById("mcVideoRemoveScene")?.addEventListener("click", removeSelectedScene);
+  document.getElementById("mcVideoMoveBefore")?.addEventListener("click", () => moveSelectedScene(-1));
+  document.getElementById("mcVideoMoveAfter")?.addEventListener("click", () => moveSelectedScene(1));
+  document.querySelectorAll("[data-preview-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (button.dataset.previewMode === "clip" && !state.activeClipId) return;
+      state.previewMode = button.dataset.previewMode || "scene";
+      paintCanvas();
+    });
+  });
   document.getElementById("mcVideoSearch")?.addEventListener("input", (event) => {
     state.search = event.target.value || "";
     paintLibrary();
@@ -162,17 +177,23 @@ function bindUi() {
   });
   document.querySelectorAll("[data-panel-tab]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      state.panelTab = btn.getAttribute("data-panel-tab") || "script";
+      state.panelTab = btn.getAttribute("data-panel-tab") || "scene";
       paintAll();
     });
   });
-  document.getElementById("mcVideoBeats")?.addEventListener("click", (event) => {
-    const node = event.target.closest("[data-scene]");
-    if (!node) return;
-    selectScene(node.getAttribute("data-scene"));
+  document.querySelectorAll('[role="tablist"]').forEach((tablist) => {
+    tablist.addEventListener("keydown", (event) => {
+      if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+      const tabs = [...tablist.querySelectorAll('[role="tab"]')];
+      const current = tabs.indexOf(document.activeElement);
+      if (current < 0) return;
+      event.preventDefault();
+      tabs[(current + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length].click();
+      tabs[(current + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length].focus();
+    });
   });
-  bindTimelineDrag(document.getElementById("mcVideoTrackVideo"));
-  document.getElementById("mcVideoTracks")?.addEventListener("click", (event) => {
+  bindTimelineDrag(document.getElementById("mcVideoScenes"));
+  document.getElementById("mcVideoScenes")?.addEventListener("click", (event) => {
     const node = event.target.closest("[data-scene]");
     if (!node) return;
     selectScene(node.getAttribute("data-scene"));
@@ -233,8 +254,10 @@ async function applyBrand(id, { reset = false } = {}) {
 
 async function restoreProject() {
   if (!state.clientId) return;
+  const clientId = state.clientId;
   try {
-    const data = await loadVideoProject(state.clientId);
+    const data = await loadVideoProject(clientId);
+    if (clientId !== state.clientId) return;
     applyProject(data.project || {});
   } catch (_error) {
     // Projeto antigo sem endpoint ou vazio — segue com estado limpo.
@@ -291,7 +314,16 @@ function projectPayload() {
 
 function markDirty() {
   state.dirty = true;
+  state.saveStatus = "pending";
+  state.quote = null;
+  state.quoteError = "";
+  state.quoteStatus = "idle";
+  state.requestVersion += 1;
+  paintSaveStatus();
+  paintQuote();
+  updateGenerateEnabled();
   scheduleSave();
+  scheduleQuote();
 }
 
 function scheduleSave() {
@@ -300,22 +332,37 @@ function scheduleSave() {
 }
 
 async function persistProject() {
-  if (!state.clientId || state.saving) return;
+  if (!state.clientId) return;
+  if (state.saving) {
+    scheduleSave();
+    return;
+  }
+  const version = state.requestVersion;
+  const request = ++saveRequest;
   state.saving = true;
+  state.saveStatus = "saving";
+  paintSaveStatus();
   try {
     await saveVideoProject(projectPayload());
-    state.dirty = false;
+    if (request === saveRequest && version === state.requestVersion) {
+      state.dirty = false;
+      state.saveStatus = "saved";
+    }
   } catch (_error) {
-    // Autosave silencioso — não bloqueia a mesa.
+    if (request === saveRequest) state.saveStatus = "error";
   } finally {
     state.saving = false;
+    paintSaveStatus();
+    if (state.dirty && state.saveStatus !== "error") scheduleSave();
   }
 }
 
 async function loadLibrary() {
   if (!state.clientId) return;
+  const clientId = state.clientId;
   try {
-    const data = await get(`/parametros/api/format-lab/swap/library?client_id=${encodeURIComponent(state.clientId)}&media=still`);
+    const data = await get(`/parametros/api/format-lab/swap/library?client_id=${encodeURIComponent(clientId)}&media=still`);
+    if (clientId !== state.clientId) return;
     state.library = data.items || [];
     const keep = new Set(state.library.map((item) => item.id));
     state.scenes = state.scenes.filter((scene) => keep.has(scene.id) && !state.library.find((item) => item.id === scene.id)?.broken);
@@ -327,8 +374,10 @@ async function loadLibrary() {
 
 async function loadClips(opts = {}) {
   if (!state.clientId) return;
+  const clientId = state.clientId;
   try {
-    const data = await get(`/parametros/api/format-lab/swap/library?client_id=${encodeURIComponent(state.clientId)}&media=video`);
+    const data = await get(`/parametros/api/format-lab/swap/library?client_id=${encodeURIComponent(clientId)}&media=video`);
+    if (clientId !== state.clientId) return;
     state.clips = (data.items || []).filter((item) => item.video_url);
   } catch (_error) {
     if (!opts.prefer) state.clips = [];
@@ -373,6 +422,7 @@ function pickClip(prefer) {
 async function selectClip(clip, { restore = true } = {}) {
   if (!clip?.video_url) return;
   state.activeClipId = clip.id || clip.job_id || "";
+  state.previewMode = "clip";
   const still = document.getElementById("mcVideoStill");
   if (still) still.hidden = true;
   playClip(clip);
@@ -409,8 +459,7 @@ function restoreFromClip(clip) {
 function selectScene(id) {
   if (!id) return;
   state.selectedSceneId = id;
-  state.activeClipId = "";
-  clearClip();
+  state.previewMode = "scene";
   const empty = document.getElementById("mcVideoEmpty");
   if (empty) empty.hidden = true;
   paintAll();
@@ -424,6 +473,18 @@ function stepScene(delta) {
   selectScene(state.scenes[next].id);
 }
 
+function moveSelectedScene(delta) {
+  const from = state.scenes.findIndex((item) => item.id === state.selectedSceneId);
+  const to = from + delta;
+  if (from < 0 || to < 0 || to >= state.scenes.length) return;
+  const [scene] = state.scenes.splice(from, 1);
+  state.scenes.splice(to, 0, scene);
+  alignBeatsToScenes();
+  paintAll();
+  markDirty();
+  scheduleQuote();
+}
+
 function onLibraryClick(event) {
   const button = event.target.closest("[data-action]");
   if (!button) return;
@@ -435,15 +496,14 @@ function onLibraryClick(event) {
   const item = state.library.find((row) => row.id === id);
   if (!item || item.broken) return;
   if (state.scenes.some((scene) => scene.id === item.id)) {
-    state.scenes = state.scenes.filter((scene) => scene.id !== item.id);
-    if (state.selectedSceneId === item.id) state.selectedSceneId = state.scenes[0]?.id || "";
+    selectScene(item.id);
+    return;
   } else if (state.scenes.length < 30) {
     state.scenes.push(item);
     state.selectedSceneId = item.id;
   }
   alignBeatsToScenes();
-  state.activeClipId = "";
-  clearClip();
+  state.previewMode = "scene";
   paintAll();
   markDirty();
   scheduleQuote();
@@ -511,15 +571,17 @@ function bindTimelineDrag(lane) {
 
 async function takeFile(file) {
   if (!file || !String(file.type || "").startsWith("image/")) return;
+  const clientId = state.clientId;
   const reader = new FileReader();
   reader.onload = async () => {
     try {
       const item = await post("/parametros/api/format-lab/swap/library", {
-        client_id: state.clientId || undefined,
+        client_id: clientId || undefined,
         image: String(reader.result || ""),
         name: pieceName(file.name),
         new_piece: true,
       });
+      if (clientId !== state.clientId) return;
       state.library = [item, ...state.library.filter((row) => row.id !== item.id)];
       if (!item.broken && state.scenes.length < 30) {
         state.scenes.push(item);
@@ -572,7 +634,7 @@ async function purgeBroken() {
       media: "still",
     });
     applyLibrary(data.items);
-    setStatus(broken.length === 1 ? "Peça 404 apagada." : `${broken.length} peças 404 apagadas.`);
+    setStatus(broken.length === 1 ? "Arquivo indisponível removido." : `${broken.length} arquivos indisponíveis removidos.`);
   } catch (error) {
     setStatus(error.message);
   }
@@ -591,6 +653,7 @@ async function removeClip(id) {
     state.clips = (data.items || []).filter((item) => item.video_url);
     if (state.activeClipId === id) {
       state.activeClipId = "";
+      state.previewMode = "scene";
       clearClip();
       paintCanvas();
     }
@@ -627,14 +690,16 @@ function removeSelectedScene() {
 
 async function buildScript() {
   if (state.scenes.length < 2) {
-    setStatus("Selecione pelo menos duas cenas.");
+    setStatus("Adicione pelo menos duas cenas.");
     return;
   }
   if (state.scenes.some((item) => item.broken)) {
-    setStatus("Tire as peças 404 do roteiro.");
+    setStatus("Remova os arquivos indisponíveis do roteiro.");
     return;
   }
   setStatus("Lendo as cenas…");
+  const version = state.requestVersion;
+  const clientId = state.clientId;
   try {
     const data = await post("/parametros/api/format-lab/swap/animate/script", {
       client_id: state.clientId || undefined,
@@ -642,6 +707,7 @@ async function buildScript() {
       scene_ids: state.scenes.map((item) => item.id),
       force_ocr: Boolean(state.ocrFailed),
     });
+    if (version !== state.requestVersion || clientId !== state.clientId) return;
     state.script = data.script;
     state.ocrFailed = Boolean(data.warnings?.length);
     (data.scenes || []).forEach((scene) => {
@@ -697,6 +763,11 @@ function planBody() {
 
 function scheduleQuote() {
   window.clearTimeout(quoteTimer);
+  state.quote = null;
+  state.quoteError = "";
+  state.quoteStatus = "idle";
+  paintQuote();
+  updateGenerateEnabled();
   quoteTimer = window.setTimeout(refreshQuote, 450);
 }
 
@@ -704,21 +775,31 @@ async function refreshQuote() {
   if (state.scenes.length < 2 || !state.script?.beats?.length) {
     state.quote = null;
     state.quoteError = "";
+    state.quoteStatus = "idle";
     paintQuote();
     updateGenerateEnabled();
     return;
   }
+  const request = ++quoteRequest;
+  const version = state.requestVersion;
+  state.quoteStatus = "loading";
+  paintQuote();
+  updateGenerateEnabled();
   try {
     const quote = await quoteAnimate(planBody());
+    if (request !== quoteRequest || version !== state.requestVersion) return;
     state.quote = quote;
     state.quoteError = quote.voiceover_fits === false
       ? "A locução não cabe nesta duração."
       : "";
+    state.quoteStatus = state.quoteError ? "error" : "ready";
     paintQuote();
     updateGenerateEnabled();
   } catch (error) {
+    if (request !== quoteRequest || version !== state.requestVersion) return;
     state.quote = null;
     state.quoteError = error.message;
+    state.quoteStatus = "error";
     paintQuote();
     updateGenerateEnabled();
   }
@@ -726,7 +807,7 @@ async function refreshQuote() {
 
 async function generate() {
   if (state.scenes.length < 2) {
-    setStatus("Selecione pelo menos duas cenas.");
+    setStatus("Adicione pelo menos duas cenas.");
     return;
   }
   if (!state.script?.beats?.length) {
@@ -734,9 +815,13 @@ async function generate() {
     return;
   }
   const body = planBody();
+  const version = state.requestVersion;
+  state.generating = true;
+  updateGenerateEnabled();
   setStatus("Cotando…");
   try {
     await quoteAnimate(body);
+    if (version !== state.requestVersion) throw new Error("O projeto mudou. Confira o custo atualizado antes de gerar.");
     await persistProject();
     const job = await submitAnimate(body);
     state.jobId = job.job_id || job.public_id || "";
@@ -745,11 +830,15 @@ async function generate() {
     resume(state.jobId);
   } catch (error) {
     setStatus(error.message);
+    state.generating = false;
+    updateGenerateEnabled();
   }
 }
 
 function resume(jobId) {
   if (!jobId) return;
+  state.generating = true;
+  updateGenerateEnabled();
   startPoll(jobId, async (job) => {
     sessionStorage.removeItem(JOB_KEY);
     const version = job.version || {};
@@ -757,9 +846,13 @@ function resume(jobId) {
     const clip = pickClip(version);
     if (clip) await selectClip(clip, { restore: false });
     setStatus(job.message || "Clipe pronto.");
+    state.generating = false;
+    state.previewMode = "clip";
     markDirty();
   }, (job) => {
     sessionStorage.removeItem(JOB_KEY);
     setStatus(job?.error || job?.message || "A animação falhou.");
+    state.generating = false;
+    updateGenerateEnabled();
   });
 }

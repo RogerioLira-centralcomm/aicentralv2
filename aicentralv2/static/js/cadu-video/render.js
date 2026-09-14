@@ -17,10 +17,10 @@ export function paintAll() {
   paintLibrary();
   paintClips();
   paintProps();
-  paintBeats();
   paintTimeline();
   paintCanvas();
   paintQuote();
+  paintSaveStatus();
   paintAudioRows();
   updateGenerateEnabled();
 }
@@ -65,11 +65,13 @@ export function syncFormControls() {
     const on = btn.getAttribute("data-lib-tab") === state.libTab;
     btn.classList.toggle("is-active", on);
     btn.setAttribute("aria-selected", on ? "true" : "false");
+    btn.tabIndex = on ? 0 : -1;
   });
   document.querySelectorAll("[data-panel-tab]").forEach((btn) => {
     const on = btn.getAttribute("data-panel-tab") === state.panelTab;
     btn.classList.toggle("is-active", on);
     btn.setAttribute("aria-selected", on ? "true" : "false");
+    btn.tabIndex = on ? 0 : -1;
   });
   document.querySelectorAll("[data-panel-pane]").forEach((pane) => {
     const on = pane.getAttribute("data-panel-pane") === state.panelTab;
@@ -109,9 +111,9 @@ export function paintLibrary() {
       <button type="button" data-id="${escapeHtml(item.id)}" data-action="pick" class="${selected ? "is-selected" : ""}" ${item.broken ? "disabled" : ""}>
         ${thumb ? `<img src="${escapeHtml(thumb)}" alt="">` : "<span></span>"}
         <strong>${escapeHtml(item.name || "Peça")}</strong>
-        ${item.broken ? "<small>404</small>" : ""}
+        <small>${item.broken ? "Arquivo indisponível" : selected ? "Na sequência" : "Adicionar cena"}</small>
       </button>
-      <button type="button" class="mc-cadu-video-delete" data-id="${escapeHtml(item.id)}" data-action="delete">Apagar</button>
+      <button type="button" class="mc-cadu-video-delete" data-id="${escapeHtml(item.id)}" data-action="delete">Excluir da biblioteca</button>
     </li>`;
   }).join("");
   list.querySelectorAll("img").forEach((img) => {
@@ -134,10 +136,11 @@ export function libraryHint() {
     if (!state.clips.length) return "Ainda não há clipe nesta marca.";
     return "Abra um clipe para restaurar cenas e roteiro.";
   }
-  if (!state.library.length) return "Ainda não há peça nesta marca. Faça upload ou solte um still.";
+  if (!state.library.length) return "Ainda não há peças nesta marca. Envie uma imagem para começar.";
+  if (state.search && !state.library.some((item) => String(item.name || "").toLowerCase().includes(state.search.toLowerCase()))) return "Nenhuma peça corresponde à busca.";
   const broken = state.library.filter((item) => item.broken).length;
-  if (broken) return `${broken} peça${broken === 1 ? "" : "s"} com 404. Apague ou crie uma nova.`;
-  return "Clique para adicionar à timeline. A ordem é a do clipe.";
+  if (broken) return `${broken} arquivo${broken === 1 ? " está" : "s estão"} indisponível${broken === 1 ? "" : "is"}.`;
+  return "Adicione peças e organize a ordem do clipe.";
 }
 
 function paintPurge() {
@@ -180,9 +183,9 @@ export function paintProps() {
   }
   if ($("mcVideoSceneHint")) {
     $("mcVideoSceneHint").textContent = count < 2
-      ? "Selecione pelo menos duas cenas."
+      ? "Adicione pelo menos duas cenas."
       : count > 30
-        ? "O Seedance aceita no máximo 30 cenas."
+        ? "O clipe aceita no máximo 30 cenas."
         : `${count} cenas na ordem do clipe.`;
   }
   const props = $("mcVideoProps");
@@ -207,83 +210,27 @@ export function paintProps() {
     $("mcVideoBeatSpoken").value = beat.spoken || "";
   }
   if ($("mcVideoScriptBtn")) $("mcVideoScriptBtn").disabled = count < 2 || count > 30;
-}
-
-export function paintBeats() {
-  const host = $("mcVideoBeats");
-  if (!host) return;
-  const beats = (state.script || {}).beats || [];
-  if (!beats.length) {
-    host.innerHTML = `<p class="mc-cadu-video-hint">Monte o roteiro com IA ou edite o texto completo abaixo.</p>`;
-    return;
-  }
-  host.innerHTML = beats.map((beat, index) => {
-    const active = beat.id === state.selectedSceneId;
-    return `<article class="mc-cadu-video-beat ${active ? "is-active" : ""}" data-scene="${escapeHtml(beat.id)}">
-      <strong>Cena ${index + 1} — ${escapeHtml(beat.purpose || "beat")}</strong>
-      <small>${escapeHtml(beat.visual || "Sem visual")}</small>
-      ${beat.spoken ? `<small>Fala: ${escapeHtml(beat.spoken)}</small>` : ""}
-    </article>`;
-  }).join("");
+  if ($("mcVideoMoveBefore")) $("mcVideoMoveBefore").disabled = index <= 0;
+  if ($("mcVideoMoveAfter")) $("mcVideoMoveAfter").disabled = index < 0 || index >= count - 1;
 }
 
 export function paintTimeline() {
-  const video = $("mcVideoTrackVideo");
-  const text = $("mcVideoTrackText");
-  const audio = $("mcVideoTrackAudio");
-  const elements = $("mcVideoTrackElements");
-  if (!video || !text || !audio || !elements) return;
-  const total = Math.max(state.scenes.length, 1);
+  const video = $("mcVideoScenes");
+  if (!video) return;
   video.innerHTML = state.scenes.map((scene, index) => {
     const thumb = scene.thumb_url || scene.image_url || "";
     const active = scene.id === state.selectedSceneId;
     return `<button type="button" class="mc-cadu-video-block ${active ? "is-active" : ""}" draggable="true" data-scene="${escapeHtml(scene.id)}" data-index="${index}">
       ${thumb ? `<img src="${escapeHtml(thumb)}" alt="">` : `<span class="mc-cadu-video-block-ph"></span>`}
+      <small>Cena ${index + 1}</small>
       <strong>${escapeHtml(scene.name || `Cena ${index + 1}`)}</strong>
-      <small>${Math.round(state.duration / total)}s</small>
-    </button>`;
-  }).join("");
-  text.innerHTML = state.scenes.map((scene, index) => {
-    const beat = beatFor(scene.id);
-    const label = beat?.visual || scene.headline || scene.name || `Cena ${index + 1}`;
-    const active = scene.id === state.selectedSceneId;
-    return `<button type="button" class="mc-cadu-video-block ${active ? "is-active" : ""}" data-scene="${escapeHtml(scene.id)}">
-      <strong>${escapeHtml(label)}</strong>
-      <small>${escapeHtml(beat?.purpose || "texto")}</small>
-    </button>`;
-  }).join("");
-  const spoken = spokenFromBeatsSafe();
-  if (state.audio.mode === "voiceover" && (state.audio.script || spoken)) {
-    audio.innerHTML = `<div class="mc-cadu-video-block" data-kind="audio">
-      <strong>Locução</strong>
-      <small>${escapeHtml((state.audio.script || spoken).slice(0, 48))}</small>
-    </div>`;
-  } else if (state.audio.mode === "silence") {
-    audio.innerHTML = `<div class="mc-cadu-video-block" data-kind="audio"><strong>Silêncio</strong><small>—</small></div>`;
-  } else {
-    audio.innerHTML = `<div class="mc-cadu-video-block" data-kind="audio"><strong>${escapeHtml(state.audio.mode)}</strong><small>no plano</small></div>`;
-  }
-  elements.innerHTML = state.scenes.map((scene) => {
-    const beat = beatFor(scene.id);
-    const hold = beat?.hold || (scene.ocr?.logo_text || scene.ocr?.price || "");
-    const active = scene.id === state.selectedSceneId;
-    return `<button type="button" class="mc-cadu-video-block ${active ? "is-active" : ""}" data-scene="${escapeHtml(scene.id)}">
-      <strong>${escapeHtml(hold || "—")}</strong>
-      <small>trava</small>
     </button>`;
   }).join("");
   if ($("mcVideoTimelineHint")) {
     $("mcVideoTimelineHint").textContent = state.scenes.length
-      ? "Arraste na faixa Vídeo para reordenar. Sem corte — o Seedance gera um clipe único."
-      : "Adicione peças na biblioteca para montar a timeline.";
+      ? "Arraste para reordenar ou use os comandos da cena."
+      : "Adicione peças da biblioteca para começar.";
   }
-}
-
-function spokenFromBeatsSafe() {
-  return ((state.script || {}).beats || [])
-    .map((beat) => String(beat.spoken || "").trim())
-    .filter(Boolean)
-    .join(" ");
 }
 
 export function paintCanvas() {
@@ -293,7 +240,7 @@ export function paintCanvas() {
   const selected = state.scenes.find((item) => item.id === state.selectedSceneId) || state.scenes[0];
   const index = selected ? state.scenes.findIndex((item) => item.id === selected.id) + 1 : 0;
   if ($("mcVideoStageMeta")) {
-    if (state.activeClipId && video && !video.hidden && video.getAttribute("src")) {
+    if (state.previewMode === "clip" && state.activeClipId && video?.getAttribute("src")) {
       $("mcVideoStageMeta").textContent = "Clipe gerado";
     } else if (selected) {
       $("mcVideoStageMeta").textContent = `Cena ${index} · ${selected.name || "peça"}`;
@@ -301,7 +248,15 @@ export function paintCanvas() {
       $("mcVideoStageMeta").textContent = "Cena —";
     }
   }
-  if (state.activeClipId && video && video.getAttribute("src") && !video.hidden) {
+  const showClip = state.previewMode === "clip" && state.activeClipId && video?.getAttribute("src");
+  document.querySelectorAll("[data-preview-mode]").forEach((button) => {
+    const active = button.dataset.previewMode === state.previewMode;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+    if (button.dataset.previewMode === "clip") button.disabled = !state.activeClipId || !video?.getAttribute("src");
+  });
+  if (showClip) {
+    video.hidden = false;
     if (still) still.hidden = true;
     if (empty) empty.hidden = true;
     return;
@@ -330,20 +285,36 @@ export function paintQuote() {
     node.textContent = state.quoteError;
     return;
   }
+  if (state.quoteStatus === "loading") {
+    node.textContent = "Calculando custo…";
+    return;
+  }
   if (state.quote) {
     const warning = state.quote.warning ? ` · ${state.quote.warning}` : "";
     node.textContent = `${formatMoney(state.quote)}${warning}`.slice(0, 160);
     return;
   }
-  node.textContent = state.scenes.length >= 2 ? "Cotando…" : "Monte duas cenas para cotar.";
+  node.textContent = state.scenes.length >= 2 ? "Custo pendente" : "Adicione duas cenas para calcular o custo.";
+}
+
+export function paintSaveStatus() {
+  const node = $("mcVideoSaveStatus");
+  if (!node) return;
+  node.textContent = ({ pending: "Alterações pendentes", saving: "Salvando…", saved: "Salvo", error: "Falha ao salvar — tentar novamente" })[state.saveStatus] || "Salvo";
+  node.classList.toggle("is-error", state.saveStatus === "error");
 }
 
 export function updateGenerateEnabled() {
   const ready = state.scenes.length >= 2
     && state.scenes.length <= 30
     && Boolean(state.script?.beats?.length)
-    && !state.quoteError;
-  if ($("mcVideoGenerate")) $("mcVideoGenerate").disabled = !ready;
+    && !state.quoteError && state.quoteStatus === "ready" && !state.generating;
+  const button = $("mcVideoGenerate");
+  if (!button) return;
+  button.disabled = !ready;
+  const reason = !state.clientId ? "Escolha uma marca" : state.scenes.length < 2 ? "Adicione duas cenas" : !state.script?.beats?.length ? "Monte o roteiro" : state.quoteError ? state.quoteError : state.quoteStatus !== "ready" ? "Aguarde o cálculo do custo" : state.generating ? "Gerando clipe" : "";
+  button.title = reason;
+  button.setAttribute("aria-label", reason ? `Gerar clipe: ${reason}` : "Gerar clipe");
 }
 
 export function syncPlayhead() {
@@ -355,7 +326,7 @@ export function syncPlayhead() {
     return;
   }
   head.hidden = false;
-  const lane = $("mcVideoTrackVideo");
+  const lane = $("mcVideoScenes");
   if (!lane) return;
   const rect = lane.getBoundingClientRect();
   const root = timeline.getBoundingClientRect();

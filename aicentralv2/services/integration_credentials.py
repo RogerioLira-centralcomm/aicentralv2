@@ -34,6 +34,12 @@ PROVIDERS = {
         "secret_fields": ("api_key",),
         "required": ("api_key",),
     },
+    "firecrawl": {
+        "label": "Firecrawl",
+        "public_fields": (),
+        "secret_fields": ("api_key",),
+        "required": ("api_key",),
+    },
     "d4sign": {
         "label": "D4Sign",
         "public_fields": ("uuid_safe", "ambiente"),
@@ -62,6 +68,9 @@ ENV_FIELDS = {
         "default_model": "OPENAI_DEFAULT_MODEL",
         "image_model": "OPENAI_IMAGE_MODEL",
         "api_key": "OPENAI_API_KEY",
+    },
+    "firecrawl": {
+        "api_key": "FIRECRAWL_API_KEY",
     },
     "d4sign": {},
 }
@@ -280,6 +289,9 @@ def validate_configuration(provider):
     if provider == "openai":
         valid, message = _validate_openai(config)
         return valid, message, {}
+    if provider == "firecrawl":
+        valid, message = _validate_firecrawl(config)
+        return valid, message, {}
     if provider == "d4sign":
         return _validate_d4sign(config)
     return True, (
@@ -333,6 +345,49 @@ def _validate_openai(config):
     if response.status_code >= 400:
         return False, "A OpenAI recusou a validação da chave."
     return True, "Credencial OpenAI aceita. Modelos GPT passam a sair direto de api.openai.com."
+
+
+def resolve_firecrawl_api_key() -> str:
+    try:
+        config = get_configuration("firecrawl", include_secrets=True)
+        if config.get("status") == "disabled":
+            return ""
+        key = str(config.get("api_key") or "").strip()
+        if key:
+            return key
+    except Exception:
+        pass
+    return str(_setting("FIRECRAWL_API_KEY") or "").strip()
+
+
+def _validate_firecrawl(config):
+    import requests
+
+    key = str(config.get("api_key") or "").strip()
+    try:
+        response = requests.get(
+            "https://api.firecrawl.dev/v2/team/credit-usage",
+            headers={"Authorization": f"Bearer {key}"},
+            timeout=15,
+        )
+    except requests.RequestException:
+        return False, "Não foi possível validar a chave no Firecrawl."
+    if response.status_code in (401, 403):
+        return False, "A credencial Firecrawl não foi aceita."
+    if response.status_code == 402:
+        return False, "O saldo da conta Firecrawl é insuficiente."
+    if response.status_code >= 400:
+        return False, "O Firecrawl recusou a validação da chave."
+    remaining = None
+    try:
+        remaining = (response.json() or {}).get("data", {}).get("remainingCredits")
+    except ValueError:
+        remaining = None
+    if remaining is None:
+        return True, "Credencial Firecrawl aceita. Places, Planner e CRM já podem buscar referências."
+    return True, (
+        f"Credencial Firecrawl aceita. Créditos restantes: {remaining}."
+    )
 
 
 def _validate_d4sign(config):

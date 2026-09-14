@@ -41,6 +41,9 @@ class SmartPlannerReferencesTest(unittest.TestCase):
     def test_scrape_url_falls_back_to_html_parser(self):
         html = "<html><body><nav>Menu</nav><p>" + ("Conteúdo principal da campanha. " * 8) + "</p></body></html>"
         with patch.dict("os.environ", {"FIRECRAWL_API_KEY": ""}, clear=False), patch(
+            "aicentralv2.services.integration_credentials.resolve_firecrawl_api_key",
+            return_value="",
+        ), patch(
             "aicentralv2.smart_planner.materials.requests.get"
         ) as get:
             get.return_value.text = html

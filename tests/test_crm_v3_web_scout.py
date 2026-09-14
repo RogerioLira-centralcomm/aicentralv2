@@ -266,21 +266,29 @@ class WebScoutRoutesTest(unittest.TestCase):
         self.assertEqual(payload["web_info"]["status"], "ok")
         obter.assert_called_once_with("7")
 
-    @patch.object(scout, "refresh_web_info")
-    @patch.object(scout, "obter_web_info")
-    @patch.object(crm_v3_routes.store, "get_cliente")
-    def test_refresh_expoe_timeout_com_status_http_200(
-        self, get_cliente, obter, refresh
-    ):
-        get_cliente.return_value = {"id": 7, "site_url": "cliente.com.br"}
-        obter.return_value = None
-        refresh.return_value = {
-            "status": "erro",
-            "dominio": "cliente.com.br",
-            "erro_mensagem": "O site demorou mais de 45s para responder.",
+    def test_refresh_expoe_timeout_com_status_http_200(self):
+        fake_store = type("Store", (), {})()
+        fake_store.get_cliente = lambda cliente_id: {
+            "id": 7,
+            "site_url": "cliente.com.br",
         }
-
-        response = self.client.post("/crm-v3/api/clientes/7/web-info/refresh", json={})
+        original = crm_v3_routes.__dict__["store"]
+        crm_v3_routes.store = fake_store
+        try:
+            with patch.object(scout, "obter_web_info", return_value=None), patch.object(
+                scout,
+                "refresh_web_info",
+                return_value={
+                    "status": "erro",
+                    "dominio": "cliente.com.br",
+                    "erro_mensagem": "O site demorou mais de 45s para responder.",
+                },
+            ):
+                response = self.client.post(
+                    "/crm-v3/api/clientes/7/web-info/refresh", json={}
+                )
+        finally:
+            crm_v3_routes.store = original
         payload = response.get_json()
 
         self.assertEqual(response.status_code, 200)

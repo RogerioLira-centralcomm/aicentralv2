@@ -15051,9 +15051,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             if not url:
                 return jsonify({'success': False, 'message': 'URL obrigatória'}), 400
 
-            firecrawl_key = os.environ.get('FIRECRAWL_API_KEY', '')
+            from aicentralv2.services.integration_credentials import resolve_firecrawl_api_key
+            firecrawl_key = resolve_firecrawl_api_key()
             if not firecrawl_key:
-                return jsonify({'success': False, 'message': 'FIRECRAWL_API_KEY não configurada'}), 500
+                return jsonify({'success': False, 'message': 'Firecrawl não configurada em Integrações.'}), 500
 
             fc_resp = http_requests.post(
                 'https://api.firecrawl.dev/v1/scrape',
@@ -15287,9 +15288,10 @@ Se não encontrar um campo, deixe vazio. Não invente dados.'''
             if not url:
                 return jsonify({'success': False, 'message': 'Lead não possui URL do site'}), 400
 
-            firecrawl_key = os.environ.get('FIRECRAWL_API_KEY', '')
+            from aicentralv2.services.integration_credentials import resolve_firecrawl_api_key
+            firecrawl_key = resolve_firecrawl_api_key()
             if not firecrawl_key:
-                return jsonify({'success': False, 'message': 'FIRECRAWL_API_KEY não configurada'}), 500
+                return jsonify({'success': False, 'message': 'Firecrawl não configurada em Integrações.'}), 500
 
             fc_resp = http_requests.post(
                 'https://api.firecrawl.dev/v1/scrape',

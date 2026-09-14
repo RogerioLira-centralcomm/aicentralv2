@@ -372,7 +372,9 @@ def _deduplicate_candidates(candidates, domain, limit=40):
 
 
 def _firecrawl_image_search(domain):
-    key = os.getenv("FIRECRAWL_API_KEY", "").strip()
+    from .services.integration_credentials import resolve_firecrawl_api_key
+
+    key = resolve_firecrawl_api_key()
     if not key:
         return []
     endpoint = _firecrawl_url().rsplit("/scrape", 1)[0] + "/search"

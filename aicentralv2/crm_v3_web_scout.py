@@ -41,8 +41,8 @@ Fluxo:
    GET /web-info ◀───────────── retorna dados
 
 Segurança e observabilidade:
-- FIRECRAWL_API_KEY vem de env. Se ausente, marca status='erro' com
-  mensagem clara em vez de estourar 500.
+- A chave Firecrawl vem de Integrações (banco) ou do env. Se ausente,
+  marca status='erro' com mensagem clara em vez de estourar 500.
 - Timeout configurável e uma repetição para falhas transitórias.
 - Log estruturado em `aicentral.crm_v3.web_scout` (mesma família dos
   outros módulos).
@@ -364,9 +364,11 @@ def _firecrawl_scrape(
     ausente, HTTP != 2xx, timeout). Timeout, conexão e HTTP 5xx recebem
     somente uma nova tentativa; erros definitivos não gastam créditos.
     """
-    api_key = os.environ.get("FIRECRAWL_API_KEY", "").strip()
+    from .services.integration_credentials import resolve_firecrawl_api_key
+
+    api_key = resolve_firecrawl_api_key()
     if not api_key:
-        raise RuntimeError("FIRECRAWL_API_KEY não configurada")
+        raise RuntimeError("Firecrawl não configurada em Integrações.")
 
     timeout_s = timeout_s or _firecrawl_timeout()
     payload = {

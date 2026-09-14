@@ -59,7 +59,9 @@ def scrape_url(url: str) -> str:
 
 
 def _scrape_firecrawl(url: str) -> str:
-    if not (os.getenv("FIRECRAWL_API_KEY") or "").strip():
+    from ..services.integration_credentials import resolve_firecrawl_api_key
+
+    if not resolve_firecrawl_api_key():
         return ""
     try:
         from ..crm_v3_web_scout import _firecrawl_scrape

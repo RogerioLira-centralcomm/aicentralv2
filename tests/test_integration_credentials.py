@@ -76,6 +76,20 @@ class IntegrationCredentialsServiceTest(unittest.TestCase):
         self.assertEqual(summary["public_config"]["image_model"], "openai/gpt-image-2")
         self.assertNotIn("or-env-key", str(summary))
 
+    def test_firecrawl_summary_uses_environment_until_saved(self):
+        self.app.config["FIRECRAWL_API_KEY"] = "fc-env-test"
+        with patch("aicentralv2.db.obter_credencial_integracao", return_value=None):
+            summary = integration_credentials.get_summary("firecrawl")
+            self.assertEqual(
+                integration_credentials.resolve_firecrawl_api_key(),
+                "fc-env-test",
+            )
+        self.assertEqual(summary["source"], "environment")
+        self.assertTrue(summary["configured"])
+        self.assertTrue(summary["has_secret"])
+        self.assertNotIn("fc-env-test", str(summary))
+        self.assertNotIn("api_key", summary)
+
     def test_openai_summary_uses_environment_until_saved(self):
         self.app.config["OPENAI_API_KEY"] = "sk-proj-env-test"
         self.app.config["OPENAI_DEFAULT_MODEL"] = "gpt-5-mini"
@@ -198,10 +212,13 @@ class IntegrationCredentialsContractTest(unittest.TestCase):
         self.assertIn("Higgsfield", template)
         self.assertIn("OpenRouter", template)
         self.assertIn("OpenAI", template)
+        self.assertIn("Firecrawl", template)
         self.assertIn('data-integration-form="openrouter"', template)
         self.assertIn('data-integration-form="openai"', template)
+        self.assertIn('data-integration-form="firecrawl"', template)
         self.assertIn("run_add_openrouter_integration_credential.py", deploy)
         self.assertIn("run_add_openai_integration_credential.py", deploy)
+        self.assertIn("run_add_firecrawl_integration_credential.py", deploy)
         self.assertIn("run_add_openrouter_gpt_image_2.py", deploy)
         image_sql = (ROOT / "migrations/add_openrouter_gpt_image_2.sql").read_text()
         self.assertIn("openai/gpt-image-2", image_sql)
@@ -217,8 +234,13 @@ class IntegrationCredentialsContractTest(unittest.TestCase):
         self.assertIn("d4sign", openrouter_sql)
         openai_sql = (ROOT / "migrations/add_openai_integration_credential.sql").read_text()
         self.assertIn("openai", openai_sql)
+        firecrawl_sql = (
+            ROOT / "migrations/add_firecrawl_integration_credential.sql"
+        ).read_text()
+        self.assertIn("firecrawl", firecrawl_sql)
         d4sign_sql = (ROOT / "migrations/add_d4sign_assinaturas.sql").read_text()
         self.assertIn("openai", d4sign_sql)
+        self.assertIn("firecrawl", d4sign_sql)
         self.assertIn("d4sign", d4sign_sql)
 
 
@@ -227,7 +249,14 @@ class OpenAIDirectRoutingTest(unittest.TestCase):
         self.assertEqual(openrouter_service.openai_model_slug("openai/gpt-5-mini"), "gpt-5-mini")
         self.assertEqual(openrouter_service.openai_model_slug("gpt-image-2"), "gpt-image-2")
         self.assertTrue(openrouter_service.is_openai_family("openai/gpt-5.4"))
+        self.assertTrue(openrouter_service.model_omits_sampling("openai/gpt-5.4"))
+        self.assertTrue(openrouter_service.model_omits_sampling("openai/gpt-5-mini"))
+        self.assertFalse(openrouter_service.model_omits_sampling("openai/gpt-4o-mini"))
         self.assertFalse(openrouter_service.is_openai_family("anthropic/claude-sonnet-4"))
+        self.assertEqual(
+            openrouter_service.message_text({"content": [{"type": "text", "text": '{"ok": true}'}]}),
+            '{"ok": true}',
+        )
 
     def test_direct_openai_needs_key_and_gpt_family(self):
         with patch.object(openrouter_service, "resolve_openai_api_key", return_value=""):
@@ -262,7 +291,9 @@ class OpenAIDirectRoutingTest(unittest.TestCase):
         self.assertEqual(post.call_args.kwargs["json"]["model"], "gpt-5-mini")
         self.assertNotIn("top_k", post.call_args.kwargs["json"])
         self.assertNotIn("max_tokens", post.call_args.kwargs["json"])
+        self.assertNotIn("temperature", post.call_args.kwargs["json"])
         self.assertIn("max_completion_tokens", post.call_args.kwargs["json"])
+        self.assertEqual(post.call_args.kwargs["json"].get("reasoning_effort"), "low")
 
     def test_image_refs_go_to_openai_edits(self):
         import base64

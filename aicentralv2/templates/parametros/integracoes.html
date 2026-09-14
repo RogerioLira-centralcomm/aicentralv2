@@ -5,7 +5,7 @@
 {% block page_subtitle %}Credenciais de integrações{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/integracoes.css') }}?v=5">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/integracoes.css') }}?v=6">
 {% endblock %}
 
 {% block content %}
@@ -14,7 +14,7 @@
     <div>
       <span class="cx-integrations-eyebrow">Configuração do sistema</span>
       <h1>Integrações</h1>
-      <p>Configure os provedores usados pelo Agente, pelo CRM, pelo Smart Planner, pela Modelagem de Criativos e pela mesa de assinaturas.</p>
+      <p>Configure os provedores usados pelo Agente, pelo CRM, pelo Smart Planner, pelos Places, pela Modelagem de Criativos e pela mesa de assinaturas.</p>
     </div>
     <div class="cx-integrations-security">
       <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
@@ -145,6 +145,37 @@
         <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-integration-action="validate">Validar configuração</button>
         <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm is-danger" data-integration-action="remove">Remover</button>
         <button type="submit" class="cx-btn cx-btn-primary cx-btn-sm">Salvar OpenRouter</button>
+      </footer>
+    </form>
+
+    <form class="cx-integration-card" data-integration-form="firecrawl">
+      <header>
+        <span class="cx-integration-logo is-firecrawl"><i class="fa-solid fa-fire" aria-hidden="true"></i></span>
+        <div>
+          <h2>Firecrawl</h2>
+          <p>Busca e scrape de referências reais — Places, Smart Planner, CRM e Modelagem.</p>
+        </div>
+        <span class="cx-integration-status" data-integration-status>Carregando…</span>
+      </header>
+
+      <div class="cx-integration-fields">
+        <label class="is-wide">
+          <span>API key</span>
+          <input name="api_key" type="password" autocomplete="new-password"
+                 placeholder="fc-… — deixe vazio para manter a chave atual">
+          <small data-secret-state>Nenhuma chave armazenada.</small>
+        </label>
+      </div>
+
+      <aside>
+        <strong>Fotos e páginas reais</strong>
+        <span>A chave fica criptografada no PostgreSQL. Sem ela, Places gera só com texto e o Planner cai no resumo de IA.</span>
+      </aside>
+
+      <footer>
+        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-integration-action="validate">Validar configuração</button>
+        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm is-danger" data-integration-action="remove">Remover</button>
+        <button type="submit" class="cx-btn cx-btn-primary cx-btn-sm">Salvar Firecrawl</button>
       </footer>
     </form>
 

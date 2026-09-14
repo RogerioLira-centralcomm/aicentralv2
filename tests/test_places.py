@@ -732,7 +732,9 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertTrue(usable_image_url("/static/images/places/gallery/cnf.jpg"))
 
     def test_search_visual_refs_without_key_is_empty(self):
-        with patch.dict("os.environ", {"FIRECRAWL_API_KEY": ""}, clear=False):
+        with patch.dict("os.environ", {"FIRECRAWL_API_KEY": ""}, clear=False), patch(
+            "aicentralv2.places.visual_refs._api_key", return_value=""
+        ):
             self.assertEqual(
                 search_visual_refs({"title": "Confins", "code": "CNF", "city": "bh"}),
                 [],

@@ -66,7 +66,9 @@ def capture_search(query: str, briefing: str = "") -> dict:
 
 
 def search_web(query: str, briefing: str = "") -> str:
-    key = (os.getenv("FIRECRAWL_API_KEY") or "").strip()
+    from ..services.integration_credentials import resolve_firecrawl_api_key
+
+    key = resolve_firecrawl_api_key()
     if key:
         hits = _firecrawl_search(query, key)
         pages = _scrape_search_hits(hits)

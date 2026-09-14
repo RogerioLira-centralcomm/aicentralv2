@@ -450,7 +450,12 @@ def _score(item: dict[str, Any]) -> int:
 
 
 def _api_key() -> str:
-    return (os.getenv("FIRECRAWL_API_KEY") or "").strip()
+    try:
+        from aicentralv2.services.integration_credentials import resolve_firecrawl_api_key
+
+        return resolve_firecrawl_api_key()
+    except Exception:
+        return (os.getenv("FIRECRAWL_API_KEY") or "").strip()
 
 
 def _search_url() -> str:

@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#080808">
+  <meta name="theme-color" content="#f4f5f7">
   <title>CentralComm Places</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Nunito+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/places_public.css') }}?v=34">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/places_public.css') }}?v=39">
 </head>
 <body class="cc-place cc-index">
   <a class="cc-skip" href="#cc-q">Ir para a busca</a>
@@ -20,51 +20,44 @@
       {% if featured.hero_url %}
       <img id="cc-index-hero-img" src="{{ featured.hero_url }}" alt="{{ featured.title }}">
       {% endif %}
-      <figcaption>
-        <h1>O lugar vira audiência.</h1>
-        {% if featured.passengers or featured.reach %}
-        <dl class="cc-facts" id="cc-index-facts">
-          {% if featured.passengers %}
-          <div>
-            <dt>{{ featured.traffic_label }}</dt>
-            <dd id="cc-index-passengers">{{ featured.passengers }}</dd>
-          </div>
-          {% endif %}
-          {% if featured.reach %}
-          <div>
-            <dt>No celular, 4 semanas</dt>
-            <dd id="cc-index-reach">{{ featured.reach }}</dd>
-          </div>
-          {% endif %}
-        </dl>
-        {% endif %}
-      </figcaption>
     </figure>
     <div class="cc-find-bar" id="busca">
       <div class="cc-index-shell">
-        <form class="cc-find" role="search">
-          <label class="cc-find-label" for="cc-q">Buscar place</label>
-          <input id="cc-q" name="q" type="search" placeholder="CNF, Iguatemi ou Belo Horizonte" autocomplete="off" enterkeyhint="search">
-          <button type="submit" id="cc-open" hidden>Abrir</button>
-        </form>
-        <p class="cc-find-help">Toque o recorte. A folha mostra o raio que a campanha compra no celular.</p>
-        <div class="cc-filter" role="group" aria-label="Tipo de lugar">
-          <button type="button" data-tipo="" class="is-on">Todos</button>
-          <button type="button" data-tipo="aeroporto">Aeroportos</button>
-          <button type="button" data-tipo="shopping">Shoppings</button>
-          <button type="button" data-tipo="evento">Parques e eventos</button>
+        <div class="cc-find-head">
+          <h1>O lugar vira audiência.</h1>
+          {% if featured.passengers or featured.reach %}
+          <dl class="cc-facts" id="cc-index-facts">
+            {% if featured.passengers %}
+            <div>
+              <dt id="cc-index-traffic">{{ featured.traffic_label }}</dt>
+              <dd id="cc-index-passengers">{{ featured.passengers }}</dd>
+            </div>
+            {% endif %}
+            {% if featured.reach %}
+            <div>
+              <dt>No celular, 4 semanas</dt>
+              <dd id="cc-index-reach">{{ featured.reach }}</dd>
+            </div>
+            {% endif %}
+          </dl>
+          {% endif %}
+        </div>
+        <div class="cc-find-tools">
+          <form class="cc-find" role="search">
+            <label class="cc-find-label" for="cc-q">Buscar place</label>
+            <input id="cc-q" name="q" type="search" placeholder="CNF, Iguatemi ou Belo Horizonte" autocomplete="off" enterkeyhint="search">
+            <button type="submit" id="cc-open" hidden>Abrir</button>
+          </form>
+          <div class="cc-filter" role="group" aria-label="Tipo de lugar">
+            <button type="button" data-tipo="" class="is-on">Todos</button>
+            <button type="button" data-tipo="aeroporto">Aeroportos</button>
+            <button type="button" data-tipo="shopping">Shoppings</button>
+            <button type="button" data-tipo="evento">Parques e eventos</button>
+          </div>
         </div>
         <p class="cc-find-empty" id="cc-empty" hidden></p>
       </div>
     </div>
-    <section class="cc-atlas" id="mapa">
-      <div class="cc-atlas-map" id="cc-atlas" aria-label="Mapa dos places"></div>
-      <aside class="cc-atlas-card" id="cc-atlas-card" hidden>
-        <p class="cc-atlas-code" id="cc-atlas-code"></p>
-        <p class="cc-atlas-name" id="cc-atlas-name"></p>
-        <p class="cc-atlas-meta" id="cc-atlas-meta"></p>
-      </aside>
-    </section>
   </div>
   <main class="cc-mesa" id="conteudo">
     <div class="cc-index-shell">
@@ -72,30 +65,40 @@
         {% for col in place_groups %}
         <section class="cc-col" id="{{ col.id }}" data-col="{{ col.id }}">
           <h2>{{ col.title }}</h2>
-          {% for item in col.places %}
-          <a class="cc-pick" href="{{ url_for('places.publico', slug=item.slug) }}" data-slug="{{ item.slug }}">
-            {% if item.hero_url %}
-            <img src="{{ item.hero_url }}" alt="">
-            {% endif %}
-            <span class="cc-pick-code">{{ item.code or item.title[:3] }}</span>
-            <span class="cc-pick-meta">
-              <strong>{{ item.title }}</strong>
-              <em>{% if item.reach %}{{ item.reach }} no celular, em 4 semanas{% else %}{{ item.city_label }}{% endif %}</em>
-            </span>
-          </a>
-          {% else %}
-          <p class="cc-col-empty">O próximo place entra aqui.</p>
-          {% endfor %}
+          <div class="cc-picks">
+            {% for item in col.places %}
+            <a class="cc-pick" href="{{ url_for('places.publico', slug=item.slug) }}" data-slug="{{ item.slug }}">
+              {% if item.hero_url %}
+              <img src="{{ item.hero_url }}" alt="">
+              {% endif %}
+              <span class="cc-pick-code">{{ item.code or item.title[:3] }}</span>
+              <span class="cc-pick-meta">
+                <strong>{{ item.title }}</strong>
+                <em>{% if item.reach %}{{ item.reach }} no celular, em 4 semanas{% else %}{{ item.city_label }}{% endif %}</em>
+              </span>
+            </a>
+            {% else %}
+            <p class="cc-col-empty">O próximo place entra aqui.</p>
+            {% endfor %}
+          </div>
         </section>
         {% endfor %}
       </div>
-      <footer class="cc-foot">
-        <img src="{{ brand.logo }}" alt="CentralComm">
-        <p>CentralComm Places</p>
-      </footer>
     </div>
   </main>
+  <section class="cc-atlas" id="mapa">
+    <div class="cc-atlas-map" id="cc-atlas" aria-label="Mapa dos places"></div>
+    <aside class="cc-atlas-card" id="cc-atlas-card" hidden>
+      <p class="cc-atlas-code" id="cc-atlas-code"></p>
+      <p class="cc-atlas-name" id="cc-atlas-name"></p>
+      <p class="cc-atlas-meta" id="cc-atlas-meta"></p>
+    </aside>
+  </section>
+  <footer class="cc-foot">
+    <img src="{{ brand.logo }}" alt="CentralComm">
+    <p>CentralComm Places</p>
+  </footer>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="{{ url_for('static', filename='js/places_public.js') }}?v=34"></script>
+  <script src="{{ url_for('static', filename='js/places_public.js') }}?v=39"></script>
 </body>
 </html>

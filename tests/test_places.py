@@ -428,6 +428,7 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertIn("cc-point-photo", css)
         self.assertIn("cc-picks", css)
         self.assertIn("cc-pick-code", css)
+        self.assertIn("auto-fill", css)
         self.assertIn("display: block", css)
         self.assertIn("cc-board", css)
         self.assertIn("cc-mega", css)
@@ -472,6 +473,9 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertIn("URLSearchParams", js)
         self.assertIn('params.set("q"', js)
         self.assertIn('params.set("tipo"', js)
+        self.assertIn(".cc-types [data-tipo]", js)
+        self.assertIn("IntersectionObserver", js)
+        self.assertIn("scheduleFit", js)
 
     def test_queue_bar_uses_css_var(self):
         css = ADMIN_CSS.read_text(encoding="utf-8")
@@ -1182,6 +1186,7 @@ class PlacesPublicRoutesTest(unittest.TestCase):
         self.assertIn("Santos Dumont", html)
         self.assertIn("95–150 mil", html)
         self.assertIn("cc-pick-code", html)
+        self.assertIn("cc-picks", html)
         self.assertIn("cc-board", html)
         self.assertIn("cc-mega", html)
         self.assertIn("Aeroportos", html)

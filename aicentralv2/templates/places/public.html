@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Nunito+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/places_public.css') }}?v=34">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/places_public.css') }}?v=39">
 </head>
 <body class="cc-place cc-folio" data-preview="{{ '1' if preview else '0' }}">
   <a class="cc-skip" href="#mapa">Ir para o mapa</a>
@@ -267,7 +267,7 @@
           <textarea name="message" rows="3"></textarea>
         </label>
         <button type="submit" class="cc-btn">Pedir o recorte</button>
-        <p class="cc-ask-status" data-ask-status hidden></p>
+        <p class="cc-ask-status" data-ask-status role="status" hidden></p>
       </form>
     </section>
 
@@ -300,6 +300,6 @@
 
   <script type="application/json" id="cc-place-data">{{ place|tojson }}</script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="{{ url_for('static', filename='js/places_public.js') }}?v=34"></script>
+  <script src="{{ url_for('static', filename='js/places_public.js') }}?v=39"></script>
 </body>
 </html>

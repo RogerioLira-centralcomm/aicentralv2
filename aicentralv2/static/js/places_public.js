@@ -5,6 +5,7 @@
   var canHover = window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
   var closeTimer;
   var ignoreDoc = false;
+  var hoverOpened = false;
   var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   function setMega(open) {
@@ -30,14 +31,12 @@
     btn.addEventListener("click", function (event) {
       event.preventDefault();
       event.stopPropagation();
-      var willOpen = mega.hidden;
-      if (canHover) {
-        if (willOpen) openMega();
-      } else if (willOpen) {
+      if (mega.hidden) {
         openMega();
-      } else {
+      } else if (!canHover || !hoverOpened) {
         closeMega();
       }
+      hoverOpened = false;
       ignoreDoc = true;
       window.setTimeout(function () { ignoreDoc = false; }, 0);
       if (willOpen && event.detail === 0) {
@@ -46,7 +45,10 @@
       }
     });
     if (canHover) {
-      btn.addEventListener("mouseenter", openMega);
+      btn.addEventListener("mouseenter", function () {
+        hoverOpened = true;
+        openMega();
+      });
       btn.addEventListener("mouseleave", requestClose);
       mega.addEventListener("mouseenter", function () { window.clearTimeout(closeTimer); });
       mega.addEventListener("mouseleave", requestClose);
@@ -77,10 +79,10 @@
       closeMega();
     });
     document.addEventListener("keydown", function (event) {
-      if (event.key === "Escape") {
-        closeMega();
-        btn.focus();
-      }
+      if (event.key !== "Escape" || mega.hidden) return;
+      closeMega();
+      btn.focus();
+      event.preventDefault();
     });
   }
 
@@ -100,11 +102,13 @@
     var empty = document.getElementById("cc-empty");
     var form = document.querySelector(".cc-find");
     var chips = Array.prototype.slice.call(document.querySelectorAll(".cc-filter [data-tipo]"));
+    var typeLinks = Array.prototype.slice.call(document.querySelectorAll(".cc-types [data-tipo]"));
     var picks = Array.prototype.slice.call(document.querySelectorAll(".cc-pick[data-slug]"));
     var cols = Array.prototype.slice.call(document.querySelectorAll(".cc-col[data-col]"));
     var state = { q: "", tipo: "" };
     var atlas;
     var markers = {};
+    var fitTimer;
 
     function bySlug(slug) {
       return places.find(function (item) { return item.slug === slug; });
@@ -141,11 +145,27 @@
       var img = document.getElementById("cc-index-hero-img");
       var passengers = document.getElementById("cc-index-passengers");
       var reach = document.getElementById("cc-index-reach");
+      var traffic = document.getElementById("cc-index-traffic");
       if (!item) return;
       if (img && item.hero_url) {
-        img.src = item.hero_url;
-        img.alt = item.title || "";
+        var current = img.getAttribute("src") || "";
+        var next = item.hero_url;
+        if (current !== next && current.indexOf(next) < 0) {
+          img.alt = item.title || "";
+          if (reduceMotion) {
+            img.src = next;
+          } else {
+            img.classList.add("is-swap");
+            window.setTimeout(function () {
+              img.src = next;
+              img.onload = function () {
+                img.classList.remove("is-swap");
+              };
+            }, 90);
+          }
+        }
       }
+      if (traffic && item.traffic_label) traffic.textContent = item.traffic_label;
       if (passengers && item.passengers) passengers.textContent = item.passengers;
       if (reach && item.reach) reach.textContent = item.reach;
     }
@@ -172,16 +192,22 @@
 
     function fitMap(rows) {
       if (!atlas) return;
+      var size = atlas.getSize && atlas.getSize();
+      if (size && (size.x < 8 || size.y < 8)) return;
       var pts = rows.filter(function (item) { return item.lat != null && item.lng != null; });
       if (!pts.length) return;
       if (pts.length === 1) {
         var zoom = pts[0].place_type === "aeroporto" ? 13 : 15;
-        if (reduceMotion) atlas.setView([pts[0].lat, pts[0].lng], zoom);
-        else atlas.flyTo([pts[0].lat, pts[0].lng], zoom, { duration: 0.45 });
+        atlas.setView([pts[0].lat, pts[0].lng], zoom);
         return;
       }
       var bounds = L.latLngBounds(pts.map(function (item) { return [item.lat, item.lng]; }));
       atlas.fitBounds(bounds.pad(0.22));
+    }
+
+    function scheduleFit(rows) {
+      window.clearTimeout(fitTimer);
+      fitTimer = window.setTimeout(function () { fitMap(rows); }, 180);
     }
 
     function apply() {
@@ -202,6 +228,11 @@
       chips.forEach(function (chip) {
         var on = (chip.getAttribute("data-tipo") || "") === state.tipo;
         chip.classList.toggle("is-on", on);
+      });
+      typeLinks.forEach(function (link) {
+        var on = (link.getAttribute("data-tipo") || "") === state.tipo;
+        if (on) link.setAttribute("aria-current", "page");
+        else link.removeAttribute("aria-current");
       });
       if (input && input.value !== state.q) input.value = state.q;
       if (openBtn) {
@@ -235,14 +266,21 @@
       });
       var focus = rows.length === 1 ? rows[0] : null;
       paintCard(focus);
-      paintHero(focus || bySlug(featuredSlug) || places[0]);
-      fitMap(rows);
+      paintHero(focus || ((state.tipo || state.q) && rows[0]) || bySlug(featuredSlug) || places[0]);
+      scheduleFit(rows);
       writeQuery();
     }
 
     chips.forEach(function (chip) {
       chip.addEventListener("click", function () {
         state.tipo = chip.getAttribute("data-tipo") || "";
+        apply();
+      });
+    });
+    typeLinks.forEach(function (link) {
+      link.addEventListener("click", function (event) {
+        event.preventDefault();
+        state.tipo = link.getAttribute("data-tipo") || "";
         apply();
       });
     });
@@ -253,6 +291,7 @@
       });
       input.addEventListener("keydown", function (event) {
         if (event.key === "Escape") {
+          if (mega && !mega.hidden) return;
           state.q = "";
           state.tipo = "";
           apply();
@@ -317,6 +356,14 @@
       window.addEventListener("resize", function () {
         if (atlas) atlas.invalidateSize();
       });
+      if (window.IntersectionObserver) {
+        var atlasWatch = new IntersectionObserver(function (entries) {
+          if (!entries.some(function (entry) { return entry.isIntersecting; })) return;
+          atlas.invalidateSize();
+          fitMap(visible());
+        }, { threshold: 0.15 });
+        atlasWatch.observe(mapNode);
+      }
     }
 
     var query = readQuery();
@@ -463,7 +510,7 @@
   }
 
   function persist(item) {
-    if (!item || !item.id || !history.replaceState) return;
+    if (!primed || !item || !item.id || !history.replaceState) return;
     var next = "#" + encodeURIComponent(item.id);
     if (location.hash === next) return;
     history.replaceState(null, "", next);
@@ -543,16 +590,16 @@
         sheet.scrollIntoView({ block: "start", behavior: reduceMotion ? "auto" : "smooth" });
       }
     }
-    persist(item);
+    if (primed) persist(item);
     if (map && item.lat != null) {
       var zoom = zoomFor(item.radius_m);
       if (!primed || reduceMotion) {
         map.setView([item.lat, item.lng], zoom);
-        primed = true;
       } else {
         map.flyTo([item.lat, item.lng], zoom, { duration: 0.55 });
       }
     }
+    primed = true;
   }
 
   var catalog = items();
@@ -614,6 +661,13 @@
     window.addEventListener("resize", function () {
       if (map) map.invalidateSize();
     });
+    if (window.IntersectionObserver) {
+      var mapWatch = new IntersectionObserver(function (entries) {
+        if (!entries.some(function (entry) { return entry.isIntersecting; }) || !map) return;
+        map.invalidateSize();
+      }, { threshold: 0.15 });
+      mapWatch.observe(mapNode);
+    }
   }
 
   var wanted = hashId();
@@ -645,6 +699,9 @@
     ask.addEventListener("submit", function (event) {
       event.preventDefault();
       var status = document.querySelector("[data-ask-status]");
+      var send = ask.querySelector("[type=submit]");
+      if (send && send.disabled) return;
+      if (send) send.disabled = true;
       var body = {
         name: (ask.elements.name && ask.elements.name.value) || "",
         company: (ask.elements.company && ask.elements.company.value) || "",
@@ -675,6 +732,8 @@
           status.hidden = false;
           status.textContent = error.message || "Não foi possível enviar o pedido.";
         }
+      }).then(function () {
+        if (send) send.disabled = false;
       });
     });
   }

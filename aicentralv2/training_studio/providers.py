@@ -17,6 +17,7 @@ from ..services.openrouter_service import (
 
 DEFAULT_TEXT_MODEL = os.getenv("TRAINING_AGENT_MODEL", "openai/gpt-5-mini")
 DEFAULT_RESEARCH_MODEL = os.getenv("TRAINING_RESEARCH_MODEL", "openai/gpt-5-mini")
+DEFAULT_VISION_MODEL = os.getenv("TRAINING_VISION_MODEL", "google/gemini-2.5-flash")
 SEARCH_DOMAINS = (
     "datareportal.com",
     "wearesocial.com",
@@ -148,6 +149,42 @@ def _responses_citations(data):
     return urls
 
 
+class VisionProvider:
+    def interpret(self, prompt, image_urls, *, system="", model=None):
+        chosen = model or DEFAULT_VISION_MODEL
+        parts = [{"type": "text", "text": prompt}]
+        for url in list(image_urls or [])[:6]:
+            if not url:
+                continue
+            parts.append({"type": "image_url", "image_url": {"url": url}})
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": parts})
+        response = chat_completion(
+            messages,
+            model=chosen,
+            max_tokens=900,
+            temperature=0.2,
+            timeout=90,
+        )
+        message = response.get("message") or {}
+        content = message.get("content") or ""
+        if isinstance(content, list):
+            content = "\n".join(
+                str(part.get("text") or "")
+                for part in content
+                if isinstance(part, dict)
+            )
+        return {
+            "content": str(content).strip(),
+            "model": response.get("model") or chosen,
+            "usage": response.get("usage") or {},
+            "cost_usd": usage_cost(response.get("usage")),
+            "provider": _provider_name(chosen),
+        }
+
+
 class ImageProvider:
     def generate(self, prompt, aspect_ratio="16:9"):
         if resolve_openai_api_key():
@@ -178,19 +215,22 @@ class ImageProvider:
 
 
 class TrainingProviders:
-    def __init__(self, text=None, research=None, image=None):
+    def __init__(self, text=None, research=None, image=None, vision=None):
         self.text = text or TextProvider()
         self.research = research or ResearchProvider()
         self.image = image or ImageProvider()
+        self.vision = vision or VisionProvider()
 
 
 __all__ = [
     "DEFAULT_RESEARCH_MODEL",
     "DEFAULT_TEXT_MODEL",
+    "DEFAULT_VISION_MODEL",
     "ImageProvider",
     "OpenRouterError",
     "ResearchProvider",
     "TextProvider",
     "TrainingProviders",
+    "VisionProvider",
     "usage_cost",
 ]

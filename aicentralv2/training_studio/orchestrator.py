@@ -9,6 +9,7 @@ from .tools import (
     TOOL_DEFINITIONS,
     apply_to_session,
     classify_attachment,
+    compose_slide,
     edit_text,
     format_for_session,
     generate_image,
@@ -43,22 +44,38 @@ def run_chat(
     fontes,
     guia_estilo,
     buscar_web=False,
+    page_html="",
+    surface="",
+    history=None,
 ):
     web_state = "ligada" if buscar_web else "desligada"
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    for item in history or []:
+        role = item.get("role")
+        content = str(item.get("content") or "").strip()
+        if role not in {"user", "assistant"} or not content:
+            continue
+        prefix = ""
+        if item.get("tool_used") and role == "assistant":
+            prefix = f"[{item.get('tool_used')}] "
+        if item.get("surface"):
+            prefix = f"{prefix}({item.get('surface')}) "
+        messages.append({"role": role, "content": f"{prefix}{content[:800]}"})
+    messages.append(
         {
             "role": "user",
             "content": (
                 f"{message}\n\n"
                 f"Busca na internet: {web_state}. "
-                "Se estiver desligada, não chame pesquisar_mercado.\n\n"
+                "Se estiver desligada, não chame pesquisar_mercado.\n"
+                f"Página em foco: {surface or 'roteiro'}.\n\n"
                 f"Seleção atual:\n{selection or '(nenhuma)'}\n\n"
-                f"{wrap_untrusted('documento', (document or '')[:6000])}\n\n"
+                f"{wrap_untrusted('pagina', (page_html or '')[:5000])}\n\n"
+                f"{wrap_untrusted('documento', (document or '')[:4000])}\n\n"
                 f"{fontes_block(fontes)}"
             ),
-        },
-    ]
+        }
+    )
     costs = []
     last_tool = None
     last_payload = None
@@ -90,7 +107,8 @@ def run_chat(
                 "costs": costs,
                 "apply": bool((last_payload or {}).get("apply")),
             }
-        for call in tool_calls[:1]:
+        applied = False
+        for call in tool_calls:
             function = call.get("function") or {}
             name = function.get("name")
             try:
@@ -107,6 +125,7 @@ def run_chat(
                 guia_estilo,
                 message,
                 buscar_web,
+                page_html,
             )
             last_tool = result.get("tool_used") or name
             last_payload = result
@@ -133,13 +152,15 @@ def run_chat(
                 }
             )
             if result.get("apply") or name == "criar_sessao":
-                return {
-                    "content": result.get("content") or "Aplicado.",
-                    "tool_used": last_tool,
-                    "payload": result,
-                    "costs": costs,
-                    "apply": bool(result.get("apply")),
-                }
+                applied = True
+        if applied:
+            return {
+                "content": (last_payload or {}).get("content") or "Aplicado.",
+                "tool_used": last_tool,
+                "payload": last_payload,
+                "costs": costs,
+                "apply": bool((last_payload or {}).get("apply")),
+            }
     return {
         "content": (last_payload or {}).get("content") or "Consulta concluída.",
         "tool_used": last_tool or "edicao",
@@ -159,6 +180,7 @@ def _run_tool(
     guia_estilo,
     message,
     buscar_web,
+    page_html="",
 ):
     if name == "editar_texto":
         return edit_text(
@@ -198,6 +220,15 @@ def _run_tool(
             arguments.get("texto") or selection,
             arguments.get("filename") or "",
         )
+    if name in {"gerar_slide", "reorganizar_slide"}:
+        return compose_slide(
+            providers,
+            arguments.get("instrucao") or selection or message,
+            page_html,
+            arguments.get("layout") or "",
+            arguments.get("instrucao") or "",
+            "gerar" if name == "gerar_slide" else "reorganizar",
+        )
     if name == "criar_sessao":
         return {
             "content": arguments.get("titulo") or "Nova sessão",
@@ -208,6 +239,8 @@ def _run_tool(
                 "horario_inicio": arguments.get("horario_inicio") or "",
                 "horario_fim": arguments.get("horario_fim") or "",
                 "apos_slug": arguments.get("apos_slug") or "",
+                "conteudo_html": arguments.get("html") or "",
+                "tipo": "fonte",
             },
             "model": None,
             "usage": {},

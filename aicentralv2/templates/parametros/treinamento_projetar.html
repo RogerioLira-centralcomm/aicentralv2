@@ -65,6 +65,18 @@
           </div>
           {% if slide.footnote %}<p class="footnote">{{ slide.footnote }}</p>{% endif %}
 
+        {% elif slide.layout == 'visual' %}
+          <h2 class="slide-title">{{ slide.title }}</h2>
+          <div class="slide-split">
+            <div class="split-col">
+              {% if slide.lede %}<p class="lede">{{ slide.lede }}</p>{% endif %}
+              {% if slide.lines %}<ul>{% for item in slide.lines %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+            </div>
+            <div class="split-col">
+              {% if slide.image %}<img src="{{ slide.image }}" alt="" style="width:100%;height:auto;border-radius:8px;object-fit:cover">{% endif %}
+            </div>
+          </div>
+
         {% elif slide.layout == 'split' %}
           <h2 class="slide-title">{{ slide.title }}</h2>
           <div class="slide-split">

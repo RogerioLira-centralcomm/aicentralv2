@@ -66,6 +66,12 @@
   font-size: 11px;
 }
 
+.ts-sessions button.ts-session[data-tipo="fonte"] strong:before {
+  content: "Fonte ";
+  color: #0f766e;
+  font-weight: 650;
+}
+
 .ts-notes {
   margin: 16px 28px 0;
   padding: 14px 16px;
@@ -78,6 +84,38 @@
   margin: 0 0 6px;
   font-size: 13px;
   color: #134e4a;
+}
+
+.ts-focus {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #071422;
+  color: #e2e8f0;
+}
+
+.ts-focus p {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #99f6e4;
+}
+
+.ts-focus button {
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 10px;
+  margin-right: 6px;
+  background: #5eead4;
+  color: #071422;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ts-import-plan {
+  margin: 10px 20px 0;
+  color: #0f766e;
+  font-size: 13px;
 }
 
 .ts-web-toggle {
@@ -341,15 +379,47 @@ a.ts-project {
 }
 
 .ts-document .ts-page:before {
-  content: "Página " counter(ts-page);
+  content: "Roteiro " counter(ts-page);
   position: absolute;
   top: 10px;
   right: 16px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: .04em;
-  text-transform: uppercase;
   color: #0f766e;
+}
+
+.ts-document .ts-page[data-surface="slide"] {
+  aspect-ratio: 16 / 9;
+  min-height: 0;
+  padding: 6% 7%;
+  border: 0;
+  border-radius: 6px;
+  background: #071422;
+  color: #f8fafc;
+  box-shadow: 0 22px 48px rgba(7, 20, 34, .28);
+}
+
+.ts-document .ts-page[data-surface="slide"]:before {
+  content: "Palco " counter(ts-page);
+  color: #5eead4;
+}
+
+.ts-document .ts-page[data-surface="slide"] h2,
+.ts-document .ts-page[data-surface="slide"] h3 {
+  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: #f8fafc;
+}
+
+.ts-document .ts-page[data-surface="slide"] p,
+.ts-document .ts-page[data-surface="slide"] li {
+  color: #e2e8f0;
+}
+
+.ts-document .ts-page.is-focus {
+  outline: 2px solid #5eead4;
+  outline-offset: 3px;
 }
 
 .ts-document .ts-page[data-layout="split"],
@@ -769,6 +839,288 @@ a.ts-project {
 .ts-busy {
   opacity: .6;
   pointer-events: none;
+}
+
+.ts-import-modal {
+  width: min(1080px, calc(100vw - 32px));
+  max-height: calc(100vh - 40px);
+  padding: 0;
+  border: 1px solid #123047;
+  border-radius: 18px;
+  background: #f8fafc;
+  color: #071422;
+  box-shadow: 0 32px 80px rgba(7, 20, 34, .35);
+}
+
+.ts-import-modal::backdrop {
+  background: rgba(7, 20, 34, .62);
+}
+
+.ts-import-modal form {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 40px);
+}
+
+.ts-import-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px 0;
+}
+
+.ts-import-modal-head p {
+  margin: 0;
+  color: #0f766e;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.ts-import-modal-head h2 {
+  margin: 2px 0 0;
+  font-size: 22px;
+  letter-spacing: -.03em;
+}
+
+.ts-import-modal-url {
+  display: flex;
+  gap: 8px;
+  margin: 14px 20px 0;
+  padding: 6px 6px 6px 14px;
+  border: 1px solid #d6dee8;
+  border-radius: 999px;
+  background: #fff;
+}
+
+.ts-import-modal-url input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  font-size: 14px;
+  background: transparent;
+}
+
+.ts-import-modal-url button {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 16px;
+  background: #071422;
+  color: #f8fafc;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ts-import-pipeline {
+  display: flex;
+  gap: 8px;
+  list-style: none;
+  margin: 14px 20px 0;
+  padding: 0;
+  overflow-x: auto;
+}
+
+.ts-import-pipeline li {
+  flex: 1;
+  min-width: 120px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #eef2f6;
+  color: #475569;
+  font-size: 11px;
+}
+
+.ts-import-pipeline li strong {
+  display: block;
+  font-size: 12px;
+  color: #071422;
+}
+
+.ts-import-pipeline li[data-status="ok"] {
+  background: #ecfdf5;
+  color: #0f766e;
+}
+
+.ts-import-pipeline li[data-status="error"] {
+  background: #fff1f2;
+  color: #9f1239;
+}
+
+.ts-import-pipeline li[data-status="run"] {
+  background: #071422;
+  color: #99f6e4;
+}
+
+.ts-import-pipeline li[data-status="run"] strong {
+  color: #5eead4;
+}
+
+.ts-import-body {
+  display: grid;
+  grid-template-columns: minmax(240px, 38%) 1fr;
+  gap: 16px;
+  min-height: 320px;
+  margin: 16px 20px 0;
+  overflow: auto;
+}
+
+.ts-import-body[hidden],
+.ts-import-pipeline[hidden],
+.ts-import-empty[hidden],
+.ts-import-tab[hidden] {
+  display: none;
+}
+
+.ts-import-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  background: #071422;
+  color: #e2e8f0;
+}
+
+.ts-import-stage-media {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #0a1f33;
+}
+
+.ts-import-stage-media img,
+.ts-import-stage-media iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  object-fit: cover;
+}
+
+.ts-import-stage p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #99f6e4;
+}
+
+.ts-import-board {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+}
+
+.ts-import-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px;
+  border-bottom: 1px solid #eef2f6;
+}
+
+.ts-import-tabs button {
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.ts-import-tabs button[aria-selected="true"] {
+  background: #071422;
+  color: #5eead4;
+}
+
+.ts-import-tab {
+  flex: 1;
+  min-height: 180px;
+  padding: 14px 16px 16px;
+  overflow: auto;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #334155;
+}
+
+.ts-import-tab h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  color: #071422;
+}
+
+.ts-import-frames {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.ts-import-frames label {
+  display: block;
+  margin: 0;
+  cursor: pointer;
+}
+
+.ts-import-frames img {
+  display: block;
+  width: 100%;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.ts-import-frames span {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.ts-import-empty {
+  margin: 18px 20px 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.ts-import-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px 20px 18px;
+}
+
+.ts-import-modal-foot .ts-btn-primary {
+  width: auto;
+}
+
+.ts-import-modal-foot button:not(.ts-btn-ghost):not(.ts-btn-primary) {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: #e2e8f0;
+  color: #071422;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.ts-import-modal-foot button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+@media (max-width: 820px) {
+  .ts-import-body {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 1100px) {

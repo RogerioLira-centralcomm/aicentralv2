@@ -50,6 +50,120 @@ class TrainingStudioHelpersTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_public_url("ftp://example.com")
 
+    def test_parse_youtube_id(self):
+        from aicentralv2.training_studio.youtube import parse_storyboard_level, parse_youtube_id
+
+        self.assertEqual(
+            parse_youtube_id("https://www.youtube.com/watch?v=c8o1RttjqZw"),
+            "c8o1RttjqZw",
+        )
+        self.assertEqual(parse_youtube_id("https://youtu.be/c8o1RttjqZw"), "c8o1RttjqZw")
+        self.assertEqual(
+            parse_youtube_id("https://www.youtube.com/embed/c8o1RttjqZw"),
+            "c8o1RttjqZw",
+        )
+        self.assertIsNone(parse_youtube_id("https://example.com/watch?v=c8o1RttjqZw"))
+        spec = (
+            "https://i.ytimg.com/sb/c8o1RttjqZw/storyboard3_L$L/$N.jpg?sqp=x|"
+            "48#27#100#10#10#0#default#rs$aaa|"
+            "80#45#154#10#10#5000#M$M#rs$bbb|"
+            "320#180#154#3#3#5000#M$M#rs$ccc"
+        )
+        level = parse_storyboard_level(spec)
+        self.assertEqual(level["width"], 320)
+        self.assertEqual(level["cols"], 3)
+        self.assertIn("L2/M0.jpg", level["sheet_url"](0))
+        self.assertIn("sigh=ccc", level["sheet_url"](0))
+
+    def test_caption_and_briefing_html(self):
+        from aicentralv2.training_studio.extract import _session_html
+        from aicentralv2.training_studio.youtube import _parse_caption_body
+
+        text = _parse_caption_body(
+            '{"events":[{"segs":[{"utf8":"Agentes "},{"utf8":"autônomos"}]}]}'
+        )
+        self.assertEqual(text, "Agentes autônomos")
+        html = _session_html("Astra", "```html\n<p>Tese</p>\n```")
+        self.assertIn('class="ts-page"', html)
+        self.assertIn("<p>Tese</p>", html)
+        self.assertIn("ts-page-art", html)
+
+    def test_import_plan_splits_long_video(self):
+        from aicentralv2.training_studio.import_plan import (
+            build_import_sessions,
+            is_large_import,
+            preview_import_plan,
+        )
+
+        payload = {
+            "titulo": "GPT-6 Astra",
+            "autor": "InvestNews",
+            "duracao_s": 760,
+            "transcript": "x" * 2000,
+            "briefing_html": "<h2>Tese</h2><p>Agentes.</p>",
+            "frames": ["/static/a.jpg", "/static/b.jpg", "/static/c.jpg", "/static/d.jpg"],
+        }
+        self.assertTrue(is_large_import(payload))
+        plan = preview_import_plan(payload)
+        self.assertGreaterEqual(len(plan), 2)
+        sessions = build_import_sessions(payload)
+        self.assertIn("data-surface=\"slide\"", sessions[0]["conteudo_html"])
+        self.assertTrue(any("quadros" in item["titulo"] for item in sessions))
+
+    def test_schema_keeps_import_and_vision_cost(self):
+        from aicentralv2.training_studio.schema import SCHEMA_PATCH_SQL, SCHEMA_SQL
+
+        self.assertIn("cx_treinamento_importacoes", SCHEMA_PATCH_SQL)
+        self.assertIn("palco_json", SCHEMA_PATCH_SQL)
+        self.assertIn("applied_mode", SCHEMA_PATCH_SQL)
+        self.assertIn("visao_video", SCHEMA_SQL)
+        self.assertIn("visao_video", SCHEMA_PATCH_SQL)
+        self.assertIn("importacao_id", SCHEMA_PATCH_SQL)
+
+    def test_merge_import_keeps_transcript(self):
+        from aicentralv2.training_studio.service import _merge_import_payload
+
+        packed = _merge_import_payload(
+            {"titulo": "Astra"},
+            {
+                "transcript": "agentes autônomos",
+                "frames": [{"asset_url": "/static/a.png"}],
+                "autor": "InvestNews",
+            },
+            {"titulo": "fallback"},
+        )
+        self.assertEqual(packed["titulo"], "Astra")
+        self.assertEqual(packed["autor"], "InvestNews")
+        self.assertEqual(packed["transcript"], "agentes autônomos")
+        self.assertEqual(packed["frame_urls"], ["/static/a.png"])
+
+    def test_live_deck_prefers_stored_palco(self):
+        from aicentralv2.training_studio.slides.live import deck_from_sessao
+
+        deck = deck_from_sessao(
+            {
+                "titulo": "Astra",
+                "slug": "fonte-astra",
+                "conteudo_html": "<p>ignore</p>",
+                "palco_json": [{"layout": "title", "title": "Agentes", "lede": "Tese"}],
+            }
+        )
+        self.assertEqual(deck["slides"][0]["title"], "Agentes")
+
+    def test_live_deck_prefers_palco_pages(self):
+        from aicentralv2.training_studio.slides.live import deck_from_html
+
+        html = (
+            '<article class="ts-page" data-layout="copy" data-surface="roteiro">'
+            '<div class="ts-page-copy"><h2>Nota</h2><p>Fica no editor.</p></div></article>'
+            '<article class="ts-page" data-layout="title" data-surface="slide">'
+            '<div class="ts-page-copy"><h2>Comprem atenção</h2><p>Unidade de valor.</p></div></article>'
+        )
+        deck = deck_from_html({"titulo": "Fonte", "slug": "fonte-astra", "conteudo_html": html})
+        self.assertEqual(len(deck["slides"]), 1)
+        self.assertEqual(deck["slides"][0]["title"], "Comprem atenção")
+        self.assertTrue(deck["live"])
+
     def test_edit_requires_selection(self):
         with self.assertRaises(ValueError):
             edit_text(object(), "reescrever", "", "documento")
@@ -118,6 +232,12 @@ class TrainingStudioRoutesTest(unittest.TestCase):
         self.assertIn("/parametros/treinamentos/projetar", page)
         self.assertIn("tsAddPage", page)
         self.assertIn("tsPageLayout", page)
+        self.assertIn("tsImportModal", page)
+        self.assertIn("tsImportApplyRoteiro", page)
+        self.assertIn("tsFocus", page)
+        self.assertIn("Gerar palco", page)
+        self.assertIn("tsSurfaceBtn", page)
+        self.assertIn("Criar sessão", page)
 
     def test_agenda_has_nine_specialist_sessions(self):
         from aicentralv2.training_studio.agenda import CHANNELS, SESSIONS, session_html

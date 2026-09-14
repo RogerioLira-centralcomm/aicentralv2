@@ -12,6 +12,7 @@
     selection: '',
     range: null,
     pendingFonteId: null,
+    pendingImport: null,
     lastImage: null,
     lastEdit: '',
     lastResearch: '',
@@ -26,7 +27,7 @@
   var costEl = document.getElementById('tsCost');
   var selectionCard = document.getElementById('tsSelectionCard');
   var selectionText = document.getElementById('tsSelectionText');
-  var importCard = document.getElementById('tsImportCard');
+  var importModal = document.getElementById('tsImportModal');
   var thumbs = document.getElementById('tsThumbs');
   var chatLog = document.getElementById('tsChatLog');
 
@@ -109,6 +110,7 @@
       button.type = 'button';
       button.className = 'ts-session' + (sameSession(item.id) ? ' is-active' : '');
       button.dataset.sessaoId = String(item.id);
+      button.dataset.tipo = item.tipo || 'bloco';
       var who = (item.facilitadores || []).join(', ');
       button.innerHTML =
         '<small>' + escapeHtml((item.horario_inicio || '') + '–' + (item.horario_fim || '')) + '</small>' +
@@ -152,6 +154,7 @@
     renderThumbs(state.imagens);
     renderNotes(state.notas);
     renderFontes(sessao.fontes || []);
+    markFocusPage();
     var project = document.getElementById('tsProjectBtn');
     if (project) {
       project.href = state.sessaoSlug
@@ -319,13 +322,14 @@
     return editor.querySelector('.ts-page:last-of-type');
   }
 
-  function emptyPageHtml(layout) {
+  function emptyPageHtml(layout, surface) {
     layout = layout || 'split';
+    surface = surface || 'roteiro';
     var art = layout === 'split'
       ? '<figure class="ts-page-art" data-slot="ilustracao"></figure>'
       : '';
     return (
-      '<article class="ts-page" data-layout="' + layout + '">' +
+      '<article class="ts-page" data-layout="' + layout + '" data-surface="' + surface + '">' +
         '<div class="ts-page-copy"><h3>Nova página</h3><p></p></div>' +
         art +
       '</article>'
@@ -387,16 +391,91 @@
     );
   }
 
+  function pageSurface(page) {
+    return (page && page.getAttribute('data-surface')) || 'roteiro';
+  }
+
+  function pageIndex(page) {
+    if (!page) return 0;
+    return Array.prototype.indexOf.call(editor.querySelectorAll('.ts-page'), page) + 1;
+  }
+
+  function markFocusPage() {
+    editor.querySelectorAll('.ts-page.is-focus').forEach(function (item) {
+      item.classList.remove('is-focus');
+    });
+    var page = currentPage();
+    if (page) page.classList.add('is-focus');
+    var focus = document.getElementById('tsFocus');
+    var label = document.getElementById('tsFocusLabel');
+    if (!focus || !label) return;
+    if (!page) {
+      focus.hidden = true;
+      return;
+    }
+    focus.hidden = false;
+    label.textContent =
+      (pageSurface(page) === 'slide' ? 'Palco ' : 'Roteiro ') +
+      pageIndex(page) +
+      ' · o agente age nesta página';
+    var surfaceBtn = document.getElementById('tsSurfaceBtn');
+    if (surfaceBtn) {
+      surfaceBtn.textContent = pageSurface(page) === 'slide' ? 'Roteiro' : 'Palco';
+    }
+  }
+
+  function replaceCurrentPage(html) {
+    var page = currentPage();
+    if (!page) {
+      editor.insertAdjacentHTML('beforeend', html);
+      scheduleSave();
+      return;
+    }
+    page.insertAdjacentHTML('afterend', html);
+    var next = page.nextElementSibling;
+    page.remove();
+    if (next && next.classList.contains('ts-page')) {
+      state.range = null;
+      next.scrollIntoView({ block: 'nearest' });
+    }
+    scheduleSave();
+    markFocusPage();
+  }
+
+  function applyTextToPage(text) {
+    var html = '<p>' + escapeHtml(text).replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>') + '</p>';
+    if (state.range && state.selection && state.selection.trim()) {
+      replaceSelection(html);
+      return;
+    }
+    var page = currentPage();
+    var copy = page && page.querySelector('.ts-page-copy');
+    if (copy) {
+      var last = copy.querySelector('p:last-of-type');
+      if (last) last.outerHTML = html;
+      else copy.insertAdjacentHTML('beforeend', html);
+      scheduleSave();
+      return;
+    }
+    replaceSelection(html);
+  }
+
   function payload(extra) {
     extra = extra || {};
+    var page = currentPage();
     extra.selection = state.selection;
     extra.document = editor.innerText || '';
+    extra.page_html = page ? page.outerHTML : '';
+    extra.surface = pageSurface(page);
     extra.buscar_web = Boolean(document.getElementById('tsWebSearch').checked);
     return extra;
   }
 
   function runAction(action, extra) {
     if (!state.sessaoId) return;
+    if ((action === 'gerar_slide' || action === 'reorganizar_slide') && !currentPage()) {
+      insertPage();
+    }
     if (action === 'gerar_imagem' && !extra) {
       showPanel(action);
       return;
@@ -406,7 +485,7 @@
       if (!extra.instrucao) return;
     }
     setBusy(true);
-    showPanel(action);
+    showPanel(action === 'gerar_slide' || action === 'reorganizar_slide' ? 'reescrever' : action);
     api('/sessoes/' + state.sessaoId + '/agente', {
       method: 'POST',
       body: payload(Object.assign({ action: action }, extra || {}))
@@ -426,9 +505,9 @@
           renderThumbs(state.imagens);
         }
       } else {
-        state.lastEdit = data.content || '';
+        state.lastEdit = data.html || data.content || '';
         document.getElementById('tsPanelEditTitle').textContent = titleFor(action);
-        document.getElementById('tsEditPreview').textContent = state.lastEdit;
+        document.getElementById('tsEditPreview').textContent = data.content || '';
       }
     }).catch(function (error) {
       notify(error.message, true);
@@ -443,7 +522,9 @@
       expandir: 'Expandir',
       resumir: 'Resumir',
       ajustar_tom: 'Ajustar tom',
-      continuar: 'Continuar'
+      continuar: 'Continuar',
+      gerar_slide: 'Gerar palco',
+      reorganizar_slide: 'Reorganizar palco'
     }[action] || 'Edição';
   }
 
@@ -462,6 +543,8 @@
     if (data.apply && data.html) {
       if (data.modo === 'substituir') {
         editor.innerHTML = data.html;
+      } else if (data.modo === 'pagina' || /class="[^"]*ts-page/.test(data.html)) {
+        replaceCurrentPage(data.html);
       } else {
         replaceSelection(data.html);
       }
@@ -523,6 +606,7 @@
     if (!editor.contains(range.commonAncestorContainer)) return;
     rememberRange();
     updateSelectionUi();
+    markFocusPage();
   });
 
   root.querySelectorAll('.ts-format [data-cmd]').forEach(function (button) {
@@ -559,7 +643,11 @@
 
   document.getElementById('tsApplyEdit').addEventListener('click', function () {
     if (!state.lastEdit) return;
-    replaceSelection('<p>' + escapeHtml(state.lastEdit).replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>') + '</p>');
+    if (/class="[^"]*ts-page/.test(state.lastEdit)) {
+      replaceCurrentPage(state.lastEdit);
+      return;
+    }
+    applyTextToPage(state.lastEdit);
   });
 
   document.getElementById('tsApplyResearch').addEventListener('click', function () {
@@ -583,42 +671,217 @@
     if (state.lastImage) insertImage(state.lastImage.asset_url);
   });
 
-  document.getElementById('tsImportBtn').addEventListener('click', function () {
-    var url = document.getElementById('tsImportUrl').value.trim();
-    if (!url || !state.sessaoId) return;
-    setBusy(true);
+  function openImportModal(url) {
+    var field = document.getElementById('tsImportModalUrl');
+    field.value = url || document.getElementById('tsImportUrl').value.trim();
+    if (importModal && typeof importModal.showModal === 'function') {
+      importModal.showModal();
+    }
+    if (field.value && !state.pendingImport) {
+      runImport(field.value);
+    }
+  }
+
+  function renderImportPipeline(steps) {
+    var list = document.getElementById('tsImportPipeline');
+    list.innerHTML = '';
+    list.hidden = !steps || !steps.length;
+    (steps || []).forEach(function (step) {
+      var li = document.createElement('li');
+      li.setAttribute('data-status', step.status || 'wait');
+      li.innerHTML = '<strong>' + escapeHtml(step.label) + '</strong>' + escapeHtml(step.detail || '');
+      list.appendChild(li);
+    });
+  }
+
+  function showImportTab(name) {
+    document.querySelectorAll('.ts-import-tabs [data-tab]').forEach(function (button) {
+      button.setAttribute('aria-selected', button.getAttribute('data-tab') === name ? 'true' : 'false');
+    });
+    document.querySelectorAll('.ts-import-tab').forEach(function (panel) {
+      panel.hidden = panel.getAttribute('data-tab') !== name;
+    });
+  }
+
+  function selectedImportFrames() {
+    var boxes = document.querySelectorAll('#tsImportTabQuadros input[type="checkbox"]:checked');
+    return Array.prototype.map.call(boxes, function (box) {
+      return box.value;
+    });
+  }
+
+  function renderImportResult(data) {
+    state.pendingImport = data;
+    state.pendingFonteId = data.fonte && data.fonte.id;
+    document.getElementById('tsImportEmpty').hidden = true;
+    document.getElementById('tsImportBody').hidden = false;
+    document.getElementById('tsImportApply').disabled = !state.pendingFonteId;
+    document.getElementById('tsImportApplyRoteiro').disabled = !state.pendingFonteId;
+    renderImportPipeline(data.pipeline || []);
+    var stage = document.getElementById('tsImportStageMedia');
+    if (data.embed_url) {
+      stage.innerHTML = '<iframe src="' + escapeAttr(data.embed_url) + '" title="' + escapeAttr(data.titulo) + '" allow="encrypted-media; picture-in-picture" allowfullscreen></iframe>';
+    } else if (data.hero_url) {
+      stage.innerHTML = '<img src="' + escapeAttr(data.hero_url) + '" alt="">';
+    } else {
+      stage.innerHTML = '';
+    }
+    var mins = data.duracao_s ? Math.round(data.duracao_s / 60) + ' min' : 'página';
+    document.getElementById('tsImportMeta').textContent =
+      (data.kind === 'youtube' ? 'YouTube · ' : 'Página · ') +
+      (data.autor ? data.autor + ' · ' : '') +
+      mins;
+    document.getElementById('tsImportTabFonte').innerHTML =
+      '<h3>' + escapeHtml(data.titulo || data.url) + '</h3>' +
+      '<p>' + escapeHtml(data.autor || data.url) + '</p>' +
+      '<p>' + escapeHtml(data.resumo || 'Sem resumo.') + '</p>';
+    var spoken = data.transcript || data.descricao || '';
+    document.getElementById('tsImportTabTexto').innerHTML =
+      '<p>' + escapeHtml(data.transcript_source === 'legendas' ? 'Transcrição (legendas)' : (data.transcript_source === 'firecrawl' ? 'Texto da página do vídeo' : 'Descrição do player')) + '</p>' +
+      '<p>' + escapeHtml(spoken || 'Não houve fala extraída. O briefing usou descrição e quadros.') + '</p>';
+    var frames = data.frames || [];
+    document.getElementById('tsImportTabQuadros').innerHTML = frames.length
+      ? '<div class="ts-import-frames">' + frames.map(function (frame, index) {
+          var url = frame.asset_url || frame.source_url;
+          return '<label><input type="checkbox" value="' + escapeAttr(url) + '"' + (index < 2 ? ' checked' : '') + '><img src="' + escapeAttr(url) + '" alt=""><span>' + escapeHtml(frame.label || 'Quadro') + '</span></label>';
+        }).join('') + '</div>'
+      : '<p>Nenhum quadro deste vídeo ficou disponível.</p>';
+    document.getElementById('tsImportTabBriefing').innerHTML = data.briefing_html || '<p>Sem briefing.</p>';
+    var plan = document.getElementById('tsImportPlan');
+    if (plan) {
+      var items = data.plan || [];
+      plan.hidden = !items.length;
+      plan.textContent = items.length
+        ? (items.length === 1
+          ? 'Vamos abrir 1 sessão: ' + items[0].titulo
+          : 'Fonte longa: ' + items.length + ' sessões — ' + items.map(function (item) { return item.titulo; }).join(' · '))
+        : '';
+    }
+    showImportTab(data.kind === 'youtube' ? 'quadros' : 'fonte');
+    if (data.imagens) {
+      state.imagens = (state.imagens || []).concat(data.imagens);
+      renderThumbs(state.imagens);
+    }
+  }
+
+  function runImport(url) {
+    if (!url) return;
+    if (!state.sessaoId) {
+      notify('Abra uma sessão antes de importar.', true);
+      return;
+    }
+    document.getElementById('tsImportUrl').value = url;
+    document.getElementById('tsImportEmpty').hidden = true;
+    document.getElementById('tsImportBody').hidden = true;
+    document.getElementById('tsImportApply').disabled = true;
+    document.getElementById('tsImportApplyRoteiro').disabled = true;
+    renderImportPipeline([
+      { key: 'detect', label: 'Fonte', status: 'run', detail: 'Lendo a URL' },
+      { key: 'firecrawl', label: 'Firecrawl', status: 'wait', detail: 'Página' },
+      { key: 'gemini', label: 'Gemini', status: 'wait', detail: 'Visão' },
+      { key: 'gpt', label: 'GPT OpenAI', status: 'wait', detail: 'Briefing' }
+    ]);
+    var runBtn = document.getElementById('tsImportRun');
+    runBtn.disabled = true;
+    runBtn.textContent = 'Lendo…';
     api('/sessoes/' + state.sessaoId + '/importar-url', {
       method: 'POST',
       body: { url: url }
     }).then(function (data) {
-      state.pendingFonteId = data.fonte.id;
-      document.getElementById('tsImportTitle').textContent = data.fonte.titulo || data.fonte.url;
-      document.getElementById('tsImportSummary').textContent = data.fonte.resumo;
-      importCard.hidden = false;
+      renderImportResult(data);
       renderCost(data.consumo, state.consumoTreino);
     }).catch(function (error) {
+      renderImportPipeline([{ key: 'detect', label: 'Fonte', status: 'error', detail: error.message }]);
+      document.getElementById('tsImportEmpty').hidden = false;
+      document.getElementById('tsImportEmpty').textContent = error.message;
       notify(error.message, true);
     }).finally(function () {
-      setBusy(false);
+      runBtn.disabled = false;
+      runBtn.textContent = 'Ler';
+    });
+  }
+
+  function applyImportedFonte(mode) {
+    if (!state.pendingFonteId || !state.sessaoId) return;
+    var pending = state.pendingImport || {};
+    api('/sessoes/' + state.sessaoId + '/fontes/' + state.pendingFonteId + '/aplicar', {
+      method: 'POST',
+      body: {
+        mode: mode,
+        importacao_id: pending.importacao && pending.importacao.id,
+        titulo: pending.titulo || '',
+        autor: pending.autor || '',
+        url: pending.url || '',
+        briefing_html: pending.briefing_html || '',
+        transcript: pending.transcript || '',
+        descricao: pending.descricao || '',
+        duracao_s: pending.duracao_s || 0,
+        hero_url: pending.hero_url || '',
+        frame_urls: selectedImportFrames()
+      }
+    }).then(function (data) {
+      if (data.sessoes) renderSessions(data.sessoes);
+      if (data.fontes) renderFontes(data.fontes);
+      if (data.imagens) {
+        state.imagens = data.imagens;
+        renderThumbs(state.imagens);
+      }
+      if (data.sessao) applySessao(data.sessao);
+      if (importModal && importModal.open) importModal.close();
+      state.pendingImport = null;
+      var count = (data.criadas || []).length;
+      notify(
+        mode === 'sessions'
+          ? (count > 1 ? count + ' sessões criadas a partir da fonte.' : 'Sessão nova criada com a fonte.')
+          : 'Fonte adicionada ao contexto desta sessão.'
+      );
+    }).catch(function (error) {
+      notify(error.message, true);
+    });
+  }
+
+  document.getElementById('tsImportBtn').addEventListener('click', function () {
+    openImportModal(document.getElementById('tsImportUrl').value.trim());
+  });
+
+  document.getElementById('tsImportUrl').addEventListener('keydown', function (event) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      openImportModal(event.target.value.trim());
+    }
+  });
+
+  document.getElementById('tsImportRun').addEventListener('click', function () {
+    runImport(document.getElementById('tsImportModalUrl').value.trim());
+  });
+
+  document.getElementById('tsImportModalUrl').addEventListener('keydown', function (event) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      runImport(event.target.value.trim());
+    }
+  });
+
+  document.querySelectorAll('.ts-import-tabs [data-tab]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      showImportTab(button.getAttribute('data-tab'));
     });
   });
 
   document.getElementById('tsImportApply').addEventListener('click', function () {
-    if (!state.pendingFonteId) return;
-    api('/sessoes/' + state.sessaoId + '/fontes/' + state.pendingFonteId + '/aplicar', {
-      method: 'POST'
-    }).then(function () {
-      importCard.hidden = true;
-      notify('Fonte adicionada ao contexto da sessão.');
-    }).catch(function (error) {
-      notify(error.message, true);
-    });
+    applyImportedFonte('context');
   });
 
-  document.getElementById('tsImportDismiss').addEventListener('click', function () {
-    importCard.hidden = true;
-    state.pendingFonteId = null;
+  document.getElementById('tsImportApplyRoteiro').addEventListener('click', function () {
+    applyImportedFonte('sessions');
   });
+
+  if (importModal) {
+    importModal.addEventListener('close', function () {
+      if (!importModal.open) return;
+      state.pendingImport = null;
+    });
+  }
 
   document.getElementById('tsChatForm').addEventListener('submit', function (event) {
     event.preventDefault();
@@ -671,6 +934,24 @@
   if (pageLayout) {
     pageLayout.addEventListener('change', function () {
       setPageLayout(pageLayout.value);
+    });
+  }
+  var surfaceBtn = document.getElementById('tsSurfaceBtn');
+  if (surfaceBtn) {
+    surfaceBtn.addEventListener('click', function () {
+      var page = currentPage();
+      if (!page) {
+        insertPage();
+        page = editor.querySelector('.ts-page:last-of-type');
+      }
+      if (!page) return;
+      var next = pageSurface(page) === 'slide' ? 'roteiro' : 'slide';
+      page.setAttribute('data-surface', next);
+      if (next === 'slide' && page.getAttribute('data-layout') === 'copy') {
+        page.setAttribute('data-layout', 'statement');
+      }
+      scheduleSave();
+      markFocusPage();
     });
   }
 

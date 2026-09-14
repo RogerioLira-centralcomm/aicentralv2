@@ -4,7 +4,10 @@
 {% block page_subtitle %}Studio de conteúdo{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/treinamentos.css') }}?v=9">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/treinamentos.css') }}?v=12">
 {% endblock %}
 
 {% block content %}
@@ -23,7 +26,7 @@
     <header class="ts-toolbar">
       <label class="ts-import">
         <i class="fa-solid fa-link" aria-hidden="true"></i>
-        <input id="tsImportUrl" type="url" placeholder="Cole um link para adicionar contexto" autocomplete="off">
+        <input id="tsImportUrl" type="url" placeholder="Cole um link — página ou YouTube" autocomplete="off">
         <button type="button" id="tsImportBtn" class="ts-import-btn">
           <i class="fa-solid fa-arrow-up-from-bracket" aria-hidden="true"></i>
           Importar
@@ -52,6 +55,7 @@
           <option value="split">Texto + imagem</option>
           <option value="title">Título</option>
         </select>
+        <button type="button" id="tsSurfaceBtn" title="Roteiro ou palco 16:9">Palco</button>
       </div>
       <div class="ts-cost" id="tsCost" title="Consumo de IA nesta sessão">
         Sessão <strong>R$ 0,00</strong>
@@ -59,15 +63,51 @@
       </div>
     </header>
 
-    <div id="tsImportCard" class="ts-import-card" hidden>
-      <p class="ts-import-kicker">Resumo da página</p>
-      <h3 id="tsImportTitle"></h3>
-      <p id="tsImportSummary"></p>
-      <div class="ts-import-actions">
-        <button type="button" id="tsImportApply">Adicionar como contexto desta sessão</button>
-        <button type="button" id="tsImportDismiss" class="ts-btn-ghost">Descartar</button>
-      </div>
-    </div>
+    <dialog id="tsImportModal" class="ts-import-modal" aria-labelledby="tsImportModalTitle">
+      <form method="dialog" id="tsImportForm">
+        <header class="ts-import-modal-head">
+          <div>
+            <p>Ingestão</p>
+            <h2 id="tsImportModalTitle">Importar fonte</h2>
+          </div>
+          <button type="submit" value="cancel" class="ts-icon-btn" aria-label="Fechar">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </header>
+        <label class="ts-import-modal-url">
+          <input id="tsImportModalUrl" type="url" placeholder="https://…" autocomplete="off">
+          <button type="button" id="tsImportRun">Ler</button>
+        </label>
+        <ol id="tsImportPipeline" class="ts-import-pipeline" hidden></ol>
+        <div id="tsImportBody" class="ts-import-body" hidden>
+          <aside class="ts-import-stage">
+            <div id="tsImportStageMedia" class="ts-import-stage-media"></div>
+            <p id="tsImportMeta"></p>
+          </aside>
+          <div class="ts-import-board">
+            <nav class="ts-import-tabs" role="tablist" aria-label="Resultado da ingestão">
+              <button type="button" role="tab" data-tab="fonte" aria-selected="true">Fonte</button>
+              <button type="button" role="tab" data-tab="texto" aria-selected="false">Texto</button>
+              <button type="button" role="tab" data-tab="quadros" aria-selected="false">Quadros</button>
+              <button type="button" role="tab" data-tab="briefing" aria-selected="false">Briefing</button>
+            </nav>
+            <section id="tsImportTabFonte" class="ts-import-tab" data-tab="fonte"></section>
+            <section id="tsImportTabTexto" class="ts-import-tab" data-tab="texto" hidden></section>
+            <section id="tsImportTabQuadros" class="ts-import-tab" data-tab="quadros" hidden></section>
+            <section id="tsImportTabBriefing" class="ts-import-tab" data-tab="briefing" hidden></section>
+          </div>
+        </div>
+        <p id="tsImportEmpty" class="ts-import-empty">
+          A fonte vira sessão nova. Se for longa, separamos tese, quadros e fala para o instrutor organizar.
+        </p>
+        <p id="tsImportPlan" class="ts-import-plan" hidden></p>
+        <footer class="ts-import-modal-foot">
+          <button type="submit" value="cancel" class="ts-btn-ghost">Descartar</button>
+          <button type="button" id="tsImportApply" disabled>Só contexto</button>
+          <button type="button" id="tsImportApplyRoteiro" class="ts-btn-primary" disabled>Criar sessão</button>
+        </footer>
+      </form>
+    </dialog>
 
     <aside id="tsNotes" class="ts-notes" hidden>
       <p class="ts-import-kicker">Notas do instrutor</p>
@@ -106,6 +146,14 @@
     <section id="tsSelectionCard" class="ts-selection" hidden>
       <p>Texto selecionado</p>
       <blockquote id="tsSelectionText"></blockquote>
+    </section>
+
+    <section id="tsFocus" class="ts-focus" hidden>
+      <p id="tsFocusLabel">Nenhuma página em foco</p>
+      <div>
+        <button type="button" data-action="gerar_slide">Gerar palco</button>
+        <button type="button" data-action="reorganizar_slide">Reorganizar</button>
+      </div>
     </section>
 
     <div class="ts-actions" role="toolbar" aria-label="Ações do agente">
@@ -187,5 +235,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/treinamentos.js') }}?v=9" defer></script>
+<script src="{{ url_for('static', filename='js/treinamentos.js') }}?v=12" defer></script>
 {% endblock %}

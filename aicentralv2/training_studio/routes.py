@@ -8,7 +8,7 @@ from ..auth import admin_required, admin_required_api
 from ..services.openrouter_service import OpenRouterError
 from .repository import TrainingConflictError, TrainingNotFoundError
 from .service import TrainingStudioService
-from .slides import morning_deck, session_deck, session_index
+from .slides import session_index
 
 
 logger = logging.getLogger(__name__)
@@ -56,14 +56,13 @@ def treinamentos_page():
 
 @admin_required
 def treinamentos_projetar(slug=None):
-    try:
-        deck = session_deck(slug) if slug else morning_deck()
-    except KeyError:
+    deck, _sessao = _service().project_slug(slug)
+    if not deck:
         abort(404)
     return render_template(
         "parametros/treinamento_projetar.html",
         deck=deck,
-        index=session_index() if slug else None,
+        index=session_index() if slug and not deck.get("live") else None,
     )
 
 
@@ -95,7 +94,8 @@ def api_import_url(sessao_id):
 
 @admin_required_api
 def api_apply_fonte(sessao_id, fonte_id):
-    return _execute(lambda: _ok(_service().apply_fonte(sessao_id, fonte_id)))
+    payload = _json(optional=True)
+    return _execute(lambda: _ok(_service().apply_import(sessao_id, fonte_id, payload)))
 
 
 @admin_required_api
@@ -108,6 +108,8 @@ def api_agent(sessao_id):
     instrucao = str(payload.get("instrucao") or "")
     prompt = str(payload.get("prompt") or "")
     buscar_web = bool(payload.get("buscar_web"))
+    page_html = str(payload.get("page_html") or "")
+    surface = str(payload.get("surface") or "")
 
     def run():
         if action:
@@ -120,6 +122,8 @@ def api_agent(sessao_id):
                     instrucao=instrucao,
                     prompt=prompt,
                     buscar_web=buscar_web,
+                    page_html=page_html,
+                    surface=surface,
                 )
             )
         if not message:
@@ -131,6 +135,8 @@ def api_agent(sessao_id):
                 selection=selection,
                 document=document,
                 buscar_web=buscar_web,
+                page_html=page_html,
+                surface=surface,
             )
         )
 

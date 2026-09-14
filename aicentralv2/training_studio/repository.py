@@ -107,7 +107,8 @@ class TrainingStudioRepository:
                 """
                 SELECT s.id, s.treinamento_id, s.slug, s.titulo, s.conteudo_html,
                        s.ordem, s.horario_inicio, s.horario_fim, s.facilitadores,
-                       s.tipo, s.notas_instrutor, s.created_at, s.updated_at,
+                       s.tipo, s.origem, s.notas_instrutor, s.palco_json,
+                       s.importacao_id, s.created_at, s.updated_at,
                        t.titulo AS treinamento_titulo,
                        t.descricao AS treinamento_descricao,
                        t.guia_estilo
@@ -126,6 +127,9 @@ class TrainingStudioRepository:
         data["consumo"] = self.consumo(sessao_id)
         data["facilitadores"] = list(data.get("facilitadores") or [])
         data["notas_instrutor"] = dict(data.get("notas_instrutor") or {})
+        data["palco_json"] = list(data.get("palco_json") or [])
+        if data.get("importacao_id"):
+            data["importacao"] = self.get_importacao(data["importacao_id"])
         return data
 
     def list_sessoes(self, treinamento_id):
@@ -133,7 +137,8 @@ class TrainingStudioRepository:
             cursor.execute(
                 """
                 SELECT id, treinamento_id, slug, titulo, ordem, horario_inicio,
-                       horario_fim, facilitadores, tipo, notas_instrutor, updated_at
+                       horario_fim, facilitadores, tipo, origem, importacao_id,
+                       notas_instrutor, updated_at
                   FROM cx_treinamento_sessoes
                  WHERE treinamento_id = %s
                  ORDER BY ordem, id
@@ -169,8 +174,20 @@ class TrainingStudioRepository:
             fields.append("titulo = %s")
             values.append(str(data.get("titulo") or "").strip()[:200] or "Sessão")
         if "conteudo_html" in data:
+            html = str(data.get("conteudo_html") or "")
             fields.append("conteudo_html = %s")
-            values.append(str(data.get("conteudo_html") or ""))
+            values.append(html)
+            fields.append("palco_json = %s")
+            values.append(Json(_palco_json(html, {"titulo": data.get("titulo")})))
+        if "palco_json" in data:
+            fields.append("palco_json = %s")
+            values.append(Json(data.get("palco_json") or []))
+        if "importacao_id" in data:
+            fields.append("importacao_id = %s")
+            values.append(data.get("importacao_id") or None)
+        if "origem" in data:
+            fields.append("origem = %s")
+            values.append(str(data.get("origem") or "extra")[:20])
         if "notas_instrutor" in data:
             fields.append("notas_instrutor = %s")
             values.append(Json(data.get("notas_instrutor") or {}))
@@ -223,27 +240,32 @@ class TrainingStudioRepository:
                 """,
                 (treinamento_id, ordem),
             )
+            html = str(data.get("conteudo_html") or "")
+            origem = str(data.get("origem") or ("fonte" if data.get("tipo") == "fonte" else "extra"))[:20]
             cursor.execute(
                 """
                 INSERT INTO cx_treinamento_sessoes (
                     treinamento_id, slug, titulo, conteudo_html, ordem,
                     horario_inicio, horario_fim, facilitadores, tipo,
-                    notas_instrutor
+                    origem, importacao_id, notas_instrutor, palco_json
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
                 (
                     treinamento_id,
                     _unique_slug(cursor, treinamento_id, slug),
                     titulo,
-                    str(data.get("conteudo_html") or ""),
+                    html,
                     ordem,
                     str(data.get("horario_inicio") or "")[:5] or None,
                     str(data.get("horario_fim") or "")[:5] or None,
                     list(data.get("facilitadores") or []),
                     str(data.get("tipo") or "bloco")[:20],
+                    origem,
+                    data.get("importacao_id") or None,
                     Json(data.get("notas_instrutor") or {}),
+                    Json(data.get("palco_json") or _palco_json(html, {"titulo": titulo})),
                 ),
             )
             sessao_id = cursor.fetchone()["id"]
@@ -253,7 +275,8 @@ class TrainingStudioRepository:
         with self.conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT id, sessao_id, url, titulo, resumo, incluido_no_contexto, created_at
+                SELECT id, sessao_id, url, titulo, resumo, incluido_no_contexto,
+                       importacao_id, kind, payload, created_at
                   FROM cx_treinamento_fontes
                  WHERE sessao_id = %s
                  ORDER BY created_at DESC, id DESC
@@ -262,19 +285,41 @@ class TrainingStudioRepository:
             )
             return [_serialize(row) for row in cursor.fetchall()]
 
-    def add_fonte(self, sessao_id, url, titulo, resumo):
+    def add_fonte(self, sessao_id, url, titulo, resumo, *, kind="page", importacao_id=None, payload=None):
         with self._write() as cursor:
             cursor.execute(
                 """
-                INSERT INTO cx_treinamento_fontes (sessao_id, url, titulo, resumo)
-                VALUES (%s, %s, %s, %s)
-                RETURNING id, sessao_id, url, titulo, resumo, incluido_no_contexto, created_at
+                INSERT INTO cx_treinamento_fontes (
+                    sessao_id, url, titulo, resumo, kind, importacao_id, payload
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                RETURNING id, sessao_id, url, titulo, resumo, incluido_no_contexto,
+                          importacao_id, kind, payload, created_at
                 """,
-                (sessao_id, url, (titulo or "")[:300], resumo or ""),
+                (
+                    sessao_id,
+                    url,
+                    (titulo or "")[:300],
+                    resumo or "",
+                    str(kind or "page")[:20],
+                    importacao_id,
+                    Json(payload or {}),
+                ),
             )
             return _serialize(cursor.fetchone())
 
-    def ensure_fonte(self, sessao_id, url, titulo, resumo, incluido=False):
+    def ensure_fonte(
+        self,
+        sessao_id,
+        url,
+        titulo,
+        resumo,
+        incluido=False,
+        *,
+        kind="page",
+        importacao_id=None,
+        payload=None,
+    ):
         url = str(url or "").strip()
         if not url:
             return None
@@ -294,7 +339,15 @@ class TrainingStudioRepository:
                 if item["id"] == row["id"]:
                     return item
             return None
-        fonte = self.add_fonte(sessao_id, url, titulo, resumo)
+        fonte = self.add_fonte(
+            sessao_id,
+            url,
+            titulo,
+            resumo,
+            kind=kind,
+            importacao_id=importacao_id,
+            payload=payload,
+        )
         if incluido:
             return self.apply_fonte(sessao_id, fonte["id"])
         return fonte
@@ -306,7 +359,8 @@ class TrainingStudioRepository:
                 UPDATE cx_treinamento_fontes
                    SET incluido_no_contexto = TRUE
                  WHERE id = %s AND sessao_id = %s
-                RETURNING id, sessao_id, url, titulo, resumo, incluido_no_contexto, created_at
+                RETURNING id, sessao_id, url, titulo, resumo, incluido_no_contexto,
+                          importacao_id, kind, payload, created_at
                 """,
                 (fonte_id, sessao_id),
             )
@@ -322,7 +376,8 @@ class TrainingStudioRepository:
         with self.conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT id, sessao_id, asset_url, thumb_url, prompt, created_at
+                SELECT id, sessao_id, asset_url, thumb_url, prompt, kind,
+                       importacao_id, meta, created_at
                   FROM cx_treinamento_imagens
                  WHERE sessao_id = %s
                  ORDER BY created_at DESC, id DESC
@@ -332,29 +387,164 @@ class TrainingStudioRepository:
             )
             return [_serialize(row) for row in cursor.fetchall()]
 
-    def add_imagem(self, sessao_id, asset_url, prompt, thumb_url=None):
+    def add_imagem(
+        self,
+        sessao_id,
+        asset_url,
+        prompt,
+        thumb_url=None,
+        *,
+        kind="gerada",
+        importacao_id=None,
+        meta=None,
+    ):
         with self._write() as cursor:
             cursor.execute(
                 """
-                INSERT INTO cx_treinamento_imagens (sessao_id, asset_url, thumb_url, prompt)
-                VALUES (%s, %s, %s, %s)
-                RETURNING id, sessao_id, asset_url, thumb_url, prompt, created_at
+                INSERT INTO cx_treinamento_imagens (
+                    sessao_id, asset_url, thumb_url, prompt, kind, importacao_id, meta
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                RETURNING id, sessao_id, asset_url, thumb_url, prompt, kind,
+                          importacao_id, meta, created_at
                 """,
-                (sessao_id, asset_url, thumb_url or asset_url, prompt or ""),
+                (
+                    sessao_id,
+                    asset_url,
+                    thumb_url or asset_url,
+                    prompt or "",
+                    str(kind or "gerada")[:20],
+                    importacao_id,
+                    Json(meta or {}),
+                ),
             )
             return _serialize(cursor.fetchone())
 
-    def add_agent_message(self, sessao_id, role, content, tool_used=None, display=None):
+    def add_importacao(self, treinamento_id, sessao_id, data):
+        data = data or {}
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO cx_treinamento_importacoes (
+                    treinamento_id, sessao_id, kind, url, video_id, titulo, autor,
+                    duracao_s, transcript, transcript_source, descricao,
+                    interpretacao, briefing_html, texto, pipeline, frames, costs,
+                    hero_url, embed_url, status
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING *
+                """,
+                (
+                    treinamento_id,
+                    sessao_id,
+                    str(data.get("kind") or "page")[:20],
+                    data.get("url") or "",
+                    (data.get("video_id") or "")[:20] or None,
+                    (data.get("titulo") or "")[:300],
+                    (data.get("autor") or "")[:200],
+                    int(data.get("duracao_s") or 0),
+                    data.get("transcript") or "",
+                    str(data.get("transcript_source") or "")[:40],
+                    data.get("descricao") or "",
+                    data.get("interpretacao") or data.get("resumo") or "",
+                    data.get("briefing_html") or "",
+                    data.get("texto") or "",
+                    Json(data.get("pipeline") or []),
+                    Json(data.get("frames") or []),
+                    Json(data.get("costs") or []),
+                    data.get("hero_url") or "",
+                    data.get("embed_url") or "",
+                    str(data.get("status") or "ingested")[:20],
+                ),
+            )
+            return _hydrate_importacao(cursor.fetchone())
+
+    def update_importacao(self, importacao_id, data):
+        if not importacao_id:
+            return None
+        fields = []
+        values = []
+        if "status" in data:
+            fields.append("status = %s")
+            values.append(str(data.get("status") or "ingested")[:20])
+        if "applied_mode" in data:
+            fields.append("applied_mode = %s")
+            values.append(str(data.get("applied_mode") or "")[:20] or None)
+        if data.get("applied"):
+            fields.append("applied_at = NOW()")
+        if "sessao_id" in data:
+            fields.append("sessao_id = %s")
+            values.append(data.get("sessao_id") or None)
+        if not fields:
+            return self.get_importacao(importacao_id)
+        values.append(importacao_id)
+        with self._write() as cursor:
+            cursor.execute(
+                f"UPDATE cx_treinamento_importacoes SET {', '.join(fields)} WHERE id = %s",
+                values,
+            )
+        return self.get_importacao(importacao_id)
+
+    def get_importacao(self, importacao_id):
+        if not importacao_id:
+            return None
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT * FROM cx_treinamento_importacoes WHERE id = %s",
+                (importacao_id,),
+            )
+            row = cursor.fetchone()
+        return _hydrate_importacao(row)
+
+    def list_importacoes(self, treinamento_id, limit=20):
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, treinamento_id, sessao_id, kind, url, video_id, titulo,
+                       autor, duracao_s, transcript_source, hero_url, embed_url,
+                       status, applied_mode, applied_at, created_at
+                  FROM cx_treinamento_importacoes
+                 WHERE treinamento_id = %s
+                 ORDER BY created_at DESC, id DESC
+                 LIMIT %s
+                """,
+                (treinamento_id, int(limit)),
+            )
+            return [_serialize(row) for row in cursor.fetchall()]
+
+    def add_agent_message(
+        self,
+        sessao_id,
+        role,
+        content,
+        tool_used=None,
+        display=None,
+        *,
+        surface=None,
+        selection=None,
+        importacao_id=None,
+    ):
         with self._write() as cursor:
             cursor.execute(
                 """
                 INSERT INTO cx_treinamento_agent_mensagens (
-                    sessao_id, role, content, tool_used, display_payload
+                    sessao_id, role, content, tool_used, display_payload,
+                    surface, selection, importacao_id
                 )
-                VALUES (%s, %s, %s, %s, %s)
-                RETURNING id, sessao_id, role, content, tool_used, display_payload, created_at
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id, sessao_id, role, content, tool_used, display_payload,
+                          surface, selection, importacao_id, created_at
                 """,
-                (sessao_id, role, content or "", tool_used, Json(display or {})),
+                (
+                    sessao_id,
+                    role,
+                    content or "",
+                    tool_used,
+                    Json(display or {}),
+                    (surface or (display or {}).get("surface") or "")[:20] or None,
+                    (selection or "")[:4000],
+                    importacao_id or (display or {}).get("importacao_id"),
+                ),
             )
             return _serialize(cursor.fetchone())
 
@@ -362,7 +552,8 @@ class TrainingStudioRepository:
         with self.conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT id, sessao_id, role, content, tool_used, display_payload, created_at
+                SELECT id, sessao_id, role, content, tool_used, display_payload,
+                       surface, selection, importacao_id, created_at
                   FROM cx_treinamento_agent_mensagens
                  WHERE sessao_id = %s
                  ORDER BY created_at DESC, id DESC
@@ -456,6 +647,22 @@ class TrainingStudioRepository:
             "cost_brl": _money(totals.get("cost_brl")),
             "by_kind": {},
         }
+
+
+def _hydrate_importacao(row):
+    if not row:
+        return None
+    data = _serialize(row)
+    data["pipeline"] = list(data.get("pipeline") or [])
+    data["frames"] = list(data.get("frames") or [])
+    data["costs"] = list(data.get("costs") or [])
+    return data
+
+
+def _palco_json(html, sessao=None):
+    from .slides.live import slides_payload
+
+    return slides_payload(html, sessao)
 
 
 def _slugify(value):

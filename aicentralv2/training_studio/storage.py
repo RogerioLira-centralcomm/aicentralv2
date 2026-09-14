@@ -63,6 +63,17 @@ class TrainingAssetStorage:
         (_root("logos") / filename).write_bytes(content)
         return f"{LOGO_PREFIX}{filename}"
 
+    def save_bytes(self, content, output_format="jpg"):
+        output_format = (output_format or "jpg").lower().lstrip(".")
+        extensions = {"png": ".png", "jpeg": ".jpg", "jpg": ".jpg", "webp": ".webp"}
+        extension = extensions.get(output_format, ".jpg")
+        payload = content or b""
+        if not payload:
+            raise ValueError("Quadro vazio.")
+        filename = f"{uuid.uuid4().hex}{extension}"
+        (_root("quadros") / filename).write_bytes(payload)
+        return f"{GENERATED_PREFIX}quadros/{filename}"
+
     def save_upload(self, filename, content, mime=""):
         raw = filename or "anexo"
         suffix = Path(raw).suffix.lower()

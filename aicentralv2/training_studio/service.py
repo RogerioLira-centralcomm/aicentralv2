@@ -4,15 +4,19 @@ from html import escape as html_escape
 
 from ..creative_modeling_fx import brl_from_usd, usd_brl_rate
 from .agenda import CHANNELS, ILLUSTRATION_SESSIONS, SESSIONS
-from .extract import extract_page, extract_pdf_text, summarize_page
+from .extract import extract_pdf_text, ingest_url
+from .import_plan import build_import_sessions, preview_import_plan
 from .orchestrator import run_chat
 from .prompts import style_prompt
 from .providers import TrainingProviders
 from .repository import TrainingNotFoundError, TrainingStudioRepository
 from .research import fetch_logo_url, render_channel_html, replace_channel_block, research_channel
+from .slides import deck_from_sessao
+from .youtube import parse_youtube_id
 from .storage import TrainingAssetStorage
 from .tools import (
     classify_attachment,
+    compose_slide,
     edit_text,
     format_for_session,
     generate_image,
@@ -59,6 +63,7 @@ class TrainingStudioService:
             "sessao": self._public_sessao(sessao),
             "sessoes": sessoes,
             "mensagens": self.repository.list_agent_messages(sessao_id),
+            "importacoes": self.repository.list_importacoes(treinamento_id),
             "consumo_treinamento": annotate_consumo(
                 self.repository.consumo_treinamento(treinamento_id)
             ),
@@ -157,33 +162,206 @@ class TrainingStudioService:
 
     def import_url(self, sessao_id, url):
         sessao = self.repository.get_sessao(sessao_id)
-        page = extract_page(url)
-        summary = summarize_page(self.providers, page)
-        self._record_costs(
+        ingested = ingest_url(url, self.providers, self.storage)
+        self._record_costs(sessao["treinamento_id"], sessao_id, ingested.get("costs") or [])
+        resumo = ingested.get("resumo") or ingested.get("transcript") or ""
+        frames = [
+            {key: value for key, value in frame.items() if key != "data_url"}
+            for frame in (ingested.get("frames") or [])
+        ]
+        importacao = self.repository.add_importacao(
             sessao["treinamento_id"],
             sessao_id,
-            [
-                {
-                    "kind": "resumo_url",
-                    "model": summary.get("model"),
-                    "usage": summary.get("usage") or {},
-                    "cost_usd": summary.get("cost_usd") or 0,
-                }
-            ],
+            {
+                **ingested,
+                "video_id": parse_youtube_id(ingested.get("url") or url),
+                "frames": frames,
+            },
         )
         fonte = self.repository.add_fonte(
             sessao_id,
-            page["url"],
-            page["titulo"],
-            summary.get("content") or "",
+            ingested.get("url") or url,
+            ingested.get("titulo") or url,
+            resumo,
+            kind=ingested.get("kind") or "page",
+            importacao_id=importacao.get("id"),
+            payload={
+                "autor": ingested.get("autor") or "",
+                "duracao_s": ingested.get("duracao_s") or 0,
+                "transcript_source": ingested.get("transcript_source") or "",
+            },
         )
+        imagens = []
+        for frame in frames:
+            asset_url = frame.get("asset_url")
+            if not asset_url:
+                continue
+            image = self.repository.add_imagem(
+                sessao_id,
+                asset_url,
+                f"{ingested.get('titulo') or 'vídeo'} · {frame.get('label') or 'quadro'}",
+                kind="quadro",
+                importacao_id=importacao.get("id"),
+                meta={
+                    "label": frame.get("label") or "",
+                    "second": frame.get("second") or 0,
+                },
+            )
+            frame["image_id"] = image.get("id")
+            imagens.append(image)
         return {
             "fonte": fonte,
+            "importacao": importacao,
+            "kind": ingested.get("kind") or "page",
+            "titulo": ingested.get("titulo") or "",
+            "autor": ingested.get("autor") or "",
+            "url": ingested.get("url") or url,
+            "resumo": resumo,
+            "transcript": ingested.get("transcript") or "",
+            "transcript_source": ingested.get("transcript_source") or "",
+            "descricao": ingested.get("descricao") or "",
+            "briefing_html": ingested.get("briefing_html") or "",
+            "frames": frames,
+            "hero_url": ingested.get("hero_url") or "",
+            "embed_url": ingested.get("embed_url") or "",
+            "duracao_s": ingested.get("duracao_s") or 0,
+            "pipeline": ingested.get("pipeline") or [],
+            "imagens": imagens,
+            "plan": preview_import_plan(ingested),
             "consumo": self.consumo(sessao_id),
         }
 
     def apply_fonte(self, sessao_id, fonte_id):
         return self.repository.apply_fonte(sessao_id, fonte_id)
+
+    def apply_import(self, sessao_id, fonte_id, data=None):
+        data = data or {}
+        fonte = self.repository.apply_fonte(sessao_id, fonte_id)
+        sessao = self.repository.get_sessao(sessao_id)
+        importacao = self.repository.get_importacao(
+            data.get("importacao_id") or fonte.get("importacao_id")
+        )
+        packed = _merge_import_payload(data, importacao, fonte)
+        mode = str(data.get("mode") or ("sessions" if data.get("insert_html") else "context"))
+        frame_urls = [
+            url
+            for url in (data.get("frame_urls") or packed.get("frame_urls") or [])
+            if isinstance(url, str) and url.startswith(("/static/", "https://"))
+        ]
+        if mode == "sessions":
+            created = self._materialize_import_sessions(
+                sessao, fonte, packed, frame_urls, importacao
+            )
+            first = created[0] if created else self._public_sessao(sessao)
+            self.repository.update_importacao(
+                (importacao or {}).get("id"),
+                {
+                    "status": "applied_sessions",
+                    "applied_mode": "sessions",
+                    "applied": True,
+                    "sessao_id": first.get("id") or sessao_id,
+                },
+            )
+            return {
+                "fonte": fonte,
+                "apply": True,
+                "mode": "sessions",
+                "sessao": first,
+                "criadas": created,
+                "sessoes": self.repository.list_sessoes(sessao["treinamento_id"]),
+                "fontes": self.repository.list_fontes(first.get("id") or sessao_id),
+                "imagens": self.repository.list_imagens(first.get("id") or sessao_id),
+                "consumo": self.consumo(sessao_id),
+            }
+        self.repository.update_importacao(
+            (importacao or {}).get("id"),
+            {
+                "status": "applied_context",
+                "applied_mode": "context",
+                "applied": True,
+                "sessao_id": sessao_id,
+            },
+        )
+        return {
+            "fonte": fonte,
+            "apply": False,
+            "mode": "context",
+            "sessao": None,
+            "sessoes": self.repository.list_sessoes(sessao["treinamento_id"]),
+            "fontes": self.repository.list_fontes(sessao_id),
+            "imagens": self.repository.list_imagens(sessao_id),
+            "consumo": self.consumo(sessao_id),
+        }
+
+    def _materialize_import_sessions(self, sessao, fonte, data, frame_urls, importacao=None):
+        importacao_id = (importacao or {}).get("id") or fonte.get("importacao_id")
+        plans = build_import_sessions(
+            {
+                "titulo": data.get("titulo") or fonte.get("titulo") or "Fonte",
+                "autor": data.get("autor") or "",
+                "url": data.get("url") or fonte.get("url") or "",
+                "briefing_html": data.get("briefing_html") or "",
+                "transcript": data.get("transcript") or "",
+                "descricao": data.get("descricao") or "",
+                "duracao_s": data.get("duracao_s") or 0,
+                "hero_url": data.get("hero_url") or (frame_urls[0] if frame_urls else ""),
+            },
+            frame_urls,
+        )
+        created = []
+        after = sessao.get("slug") or ""
+        for plan in plans:
+            item = self.repository.create_sessao(
+                sessao["treinamento_id"],
+                {
+                    "titulo": plan["titulo"],
+                    "tipo": plan.get("tipo") or "fonte",
+                    "origem": "fonte",
+                    "importacao_id": importacao_id,
+                    "conteudo_html": plan.get("conteudo_html") or "",
+                    "notas_instrutor": plan.get("notas_instrutor") or {},
+                    "apos_slug": after,
+                },
+            )
+            copied = self.repository.add_fonte(
+                item["id"],
+                fonte.get("url") or "",
+                fonte.get("titulo") or plan["titulo"],
+                fonte.get("resumo") or "",
+                kind=fonte.get("kind") or "page",
+                importacao_id=importacao_id,
+                payload=fonte.get("payload") or {},
+            )
+            self.repository.apply_fonte(item["id"], copied["id"])
+            for url in frame_urls[:6]:
+                self.repository.add_imagem(
+                    item["id"],
+                    url,
+                    plan["titulo"],
+                    kind="quadro",
+                    importacao_id=importacao_id,
+                )
+            created.append(self._public_sessao(item))
+            after = item.get("slug") or after
+        return created
+
+    def project_slug(self, slug):
+        from .slides import session_deck
+
+        if not slug:
+            from .slides import morning_deck
+
+            return morning_deck(), None
+        try:
+            return session_deck(slug), None
+        except KeyError:
+            pass
+        treinamento_id, _sessao_id = self.repository.ready()
+        try:
+            sessao = self.repository.get_sessao_by_slug(treinamento_id, slug)
+        except TrainingNotFoundError:
+            return None, None
+        return deck_from_sessao(sessao), sessao
 
     def run_action(
         self,
@@ -194,11 +372,22 @@ class TrainingStudioService:
         instrucao="",
         prompt="",
         buscar_web=False,
+        page_html="",
+        surface="",
     ):
         sessao = self.repository.get_sessao(sessao_id)
-        fontes = self.repository.context_fontes(sessao_id)
+        fontes = self._agent_fontes(sessao)
         guia = sessao.get("guia_estilo") or {}
-        if action == "pesquisar":
+        if action in {"gerar_slide", "reorganizar_slide"}:
+            result = compose_slide(
+                self.providers,
+                instrucao or selection,
+                page_html,
+                "",
+                instrucao,
+                "gerar" if action == "gerar_slide" else "reorganizar",
+            )
+        elif action == "pesquisar":
             result = research_market(
                 self.providers, instrucao or selection, selection, buscar_web=buscar_web
             )
@@ -244,13 +433,25 @@ class TrainingStudioService:
             "user",
             instrucao or prompt or selection or action,
             tool_used=result.get("tool_used"),
+            surface=surface,
+            selection=selection,
+            importacao_id=sessao.get("importacao_id"),
         )
         message = self.repository.add_agent_message(
             sessao_id,
             "assistant",
             result.get("content") or "",
             tool_used=result.get("tool_used"),
-            display={"acao": action, "image": result.get("image")},
+            display={
+                "acao": action,
+                "image": result.get("image"),
+                "surface": surface,
+                "apply": bool(result.get("apply")),
+                "modo": result.get("modo") or "",
+            },
+            surface=surface,
+            selection=selection,
+            importacao_id=sessao.get("importacao_id"),
         )
         return {
             "content": result.get("content") or "",
@@ -262,12 +463,14 @@ class TrainingStudioService:
             "consumo": self.consumo(sessao_id),
             "apply": bool(result.get("apply")),
             "html": result.get("html") or result.get("content") or "",
+            "modo": result.get("modo") or "anexar",
             "fontes": self.repository.list_fontes(sessao_id),
         }
 
-    def run_chat(self, sessao_id, message, selection="", document="", buscar_web=False):
+    def run_chat(self, sessao_id, message, selection="", document="", buscar_web=False, page_html="", surface=""):
         sessao = self.repository.get_sessao(sessao_id)
-        fontes = self.repository.context_fontes(sessao_id)
+        fontes = self._agent_fontes(sessao)
+        history = self.repository.list_agent_messages(sessao_id, limit=8)
         result = run_chat(
             self.providers,
             message,
@@ -276,15 +479,20 @@ class TrainingStudioService:
             fontes,
             sessao.get("guia_estilo") or {},
             buscar_web=buscar_web,
+            page_html=page_html,
+            surface=surface,
+            history=history,
         )
         payload = result.get("payload") or {}
         created = None
         if (result.get("tool_used") == "pesquisa") or (payload.get("kind") == "pesquisa"):
             self._persist_research_fontes(sessao_id, message, payload or result)
         if payload.get("create_session"):
-            created = self.create_sessao(
-                sessao["treinamento_id"], payload["create_session"]
-            )
+            spec = dict(payload["create_session"])
+            if sessao.get("importacao_id") and not spec.get("importacao_id"):
+                spec["importacao_id"] = sessao["importacao_id"]
+                spec["origem"] = spec.get("origem") or "fonte"
+            created = self.create_sessao(sessao["treinamento_id"], spec)
         if payload.get("b64_json"):
             asset_url = self.storage.save_generated_base64(
                 payload["b64_json"], payload.get("output_format") or "png"
@@ -297,13 +505,28 @@ class TrainingStudioService:
         else:
             image = None
         self._record_costs(sessao["treinamento_id"], sessao_id, result.get("costs") or [])
-        self.repository.add_agent_message(sessao_id, "user", message)
+        self.repository.add_agent_message(
+            sessao_id,
+            "user",
+            message,
+            surface=surface,
+            selection=selection,
+            importacao_id=sessao.get("importacao_id"),
+        )
         saved = self.repository.add_agent_message(
             sessao_id,
             "assistant",
             result.get("content") or "",
             tool_used=result.get("tool_used"),
-            display={"image": (payload or {}).get("image")},
+            display={
+                "image": (payload or {}).get("image"),
+                "surface": surface,
+                "apply": bool(result.get("apply") or payload.get("apply")),
+                "modo": payload.get("modo") or "",
+            },
+            surface=surface,
+            selection=selection,
+            importacao_id=sessao.get("importacao_id"),
         )
         return {
             "content": result.get("content") or "",
@@ -456,10 +679,13 @@ class TrainingStudioService:
         rate, source = usd_brl_rate()
         for entry in entries or []:
             cost_usd = float(entry.get("cost_usd") or 0)
+            kind = str(entry.get("kind") or "texto")
+            if kind not in {"texto", "pesquisa", "imagem", "resumo_url", "visao_video", "slide"}:
+                kind = "texto"
             self.repository.add_ledger(
                 treinamento_id,
                 sessao_id,
-                entry.get("kind") or "texto",
+                kind,
                 entry.get("model"),
                 entry.get("usage") or {},
                 cost_usd,
@@ -469,12 +695,64 @@ class TrainingStudioService:
                 entry.get("provider") or "openai",
             )
 
+    def _agent_fontes(self, sessao):
+        fontes = list(self.repository.context_fontes(sessao["id"]))
+        importacao = sessao.get("importacao")
+        if not importacao:
+            return fontes
+        snippet = (
+            importacao.get("interpretacao")
+            or importacao.get("texto")
+            or importacao.get("transcript")
+            or ""
+        )[:1200]
+        attached = False
+        for item in fontes:
+            if item.get("importacao_id") == importacao.get("id"):
+                if snippet and len(str(item.get("resumo") or "")) < 80:
+                    item["resumo"] = snippet
+                attached = True
+        if not attached:
+            fontes.insert(
+                0,
+                {
+                    "titulo": importacao.get("titulo") or "Importação",
+                    "url": importacao.get("url") or "",
+                    "resumo": snippet,
+                    "kind": importacao.get("kind") or "page",
+                    "importacao_id": importacao.get("id"),
+                },
+            )
+        return fontes
+
     def _public_sessao(self, sessao):
         data = dict(sessao)
         data["consumo"] = annotate_consumo(sessao.get("consumo") or {})
         data["style_prompt"] = style_prompt(sessao.get("guia_estilo") or {})
         data["mensagens"] = self.repository.list_agent_messages(sessao["id"])
         return data
+
+
+def _merge_import_payload(data, importacao, fonte):
+    data = data or {}
+    importacao = importacao or {}
+    fonte = fonte or {}
+    frames = importacao.get("frames") or []
+    frame_urls = [
+        item.get("asset_url") if isinstance(item, dict) else item
+        for item in frames
+    ]
+    return {
+        "titulo": data.get("titulo") or importacao.get("titulo") or fonte.get("titulo") or "",
+        "autor": data.get("autor") or importacao.get("autor") or "",
+        "url": data.get("url") or importacao.get("url") or fonte.get("url") or "",
+        "briefing_html": data.get("briefing_html") or importacao.get("briefing_html") or "",
+        "transcript": data.get("transcript") or importacao.get("transcript") or "",
+        "descricao": data.get("descricao") or importacao.get("descricao") or "",
+        "duracao_s": data.get("duracao_s") or importacao.get("duracao_s") or 0,
+        "hero_url": data.get("hero_url") or importacao.get("hero_url") or "",
+        "frame_urls": [url for url in frame_urls if url],
+    }
 
 
 def _fill_art_slot(html, url):

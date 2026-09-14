@@ -7,6 +7,7 @@ from .prompts import (
     CLASSIFY_ATTACHMENT_SYSTEM,
     EDIT_INSTRUCTIONS,
     FORMAT_SESSION_SYSTEM,
+    SLIDE_SYSTEM,
     style_prompt,
     wrap_untrusted,
 )
@@ -99,8 +100,45 @@ TOOL_DEFINITIONS = [
                     "horario_inicio": {"type": "string"},
                     "horario_fim": {"type": "string"},
                     "apos_slug": {"type": "string"},
+                    "html": {"type": "string"},
                 },
                 "required": ["titulo"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "gerar_slide",
+            "description": "Gera uma página de palco 16:9 a partir do trecho ou da página em foco.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "layout": {
+                        "type": "string",
+                        "enum": ["title", "statement", "split", "metrics"],
+                    },
+                    "instrucao": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "reorganizar_slide",
+            "description": "Reorganiza o palco em foco sem mudar o sentido.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "layout": {
+                        "type": "string",
+                        "enum": ["title", "statement", "split", "metrics"],
+                    },
+                    "instrucao": {"type": "string"},
+                },
                 "additionalProperties": False,
             },
         },
@@ -129,7 +167,10 @@ def fontes_block(fontes):
         return ""
     parts = []
     for item in fontes:
-        parts.append(f"- {item.get('titulo') or item.get('url')}: {item.get('resumo')}")
+        kind = item.get("kind") or ""
+        label = item.get("titulo") or item.get("url") or "fonte"
+        prefix = f"[{kind}] " if kind else ""
+        parts.append(f"- {prefix}{label}: {item.get('resumo')}")
     return wrap_untrusted("fontes da sessão", "\n".join(parts))
 
 
@@ -209,6 +250,64 @@ def format_for_session(providers, texto, bloco="", document=""):
     result["kind"] = "texto"
     result["apply"] = False
     return result
+
+
+def compose_slide(providers, texto, page_html="", layout="", instrucao="", acao="gerar"):
+    texto = (texto or "").strip() or _plain_page(page_html)
+    if not texto:
+        raise ValueError("Abra uma página ou selecione um trecho para o palco.")
+    verb = (
+        "Gere um palco novo a partir deste material."
+        if acao == "gerar"
+        else "Reorganize este palco. Preserve o sentido. Uma ideia só."
+    )
+    messages = [
+        {"role": "system", "content": SLIDE_SYSTEM},
+        {
+            "role": "user",
+            "content": (
+                f"{verb}\n"
+                f"Layout sugerido: {layout or 'escolha o menor que caiba'}.\n"
+                f"Instrução: {instrucao or '(nenhuma)'}\n\n"
+                f"{wrap_untrusted('pagina', (page_html or '')[:8000])}\n\n"
+                f"{wrap_untrusted('trecho', (texto or '')[:6000])}"
+            ),
+        },
+    ]
+    result = providers.text.complete(messages, max_tokens=1200, temperature=0.25)
+    html = _as_slide_html(result.get("content") or "", layout)
+    result["content"] = html
+    result["html"] = html
+    result["tool_used"] = "slide"
+    result["kind"] = "slide"
+    result["apply"] = True
+    result["modo"] = "pagina"
+    return result
+
+
+def _plain_page(html):
+    text = re.sub(r"<[^>]+>", " ", html or "")
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _as_slide_html(raw, layout=""):
+    html = str(raw or "").strip()
+    if html.startswith("```"):
+        html = re.sub(r"^```(?:html)?\s*|\s*```$", "", html, flags=re.I).strip()
+    if "ts-page" in html:
+        if 'data-surface=' not in html:
+            html = html.replace("<article", '<article data-surface="slide"', 1)
+        return html
+    layout = layout or "statement"
+    art = (
+        '<figure class="ts-page-art" data-slot="ilustracao"></figure>'
+        if layout == "split"
+        else ""
+    )
+    return (
+        f'<article class="ts-page" data-layout="{layout}" data-surface="slide">'
+        f'<div class="ts-page-copy">{html}</div>{art}</article>'
+    )
 
 
 def apply_to_session(html, modo="anexar"):

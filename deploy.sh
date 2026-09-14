@@ -38,7 +38,8 @@ sudo systemctl stop aicentralv2 2>/dev/null || true
 SERVICE_STOPPED=1
 sleep 2
 
-# Garantir que nenhum gunicorn ficou vivo
+# Garantir que nenhum worker órfão ficou vivo. O stop explícito acima evita que
+# o Restart=always do systemd recrie o processo durante esta limpeza.
 sudo pkill -9 -f "gunicorn.*run:app" 2>/dev/null || true
 sleep 1
 
@@ -49,7 +50,9 @@ if sudo ss -tlnp 2>/dev/null | grep -q ':8001'; then
     sleep 2
 fi
 
-sudo rm -f gunicorn.pid
+# Compatibilidade com versões anteriores do service, que criavam esse pidfile.
+# A unidade atual não usa mais PID file: o systemd é a única fonte de estado.
+sudo rm -f /var/www/aicentralv2/gunicorn.pid
 echo "  > OK"
 
 # 2. Atualizar codigo
@@ -186,6 +189,9 @@ echo "[7/9] Atualizando schemas e dados..."
 "$VENV_PYTHON" migrations/run_add_openai_integration_credential.py
 "$VENV_PYTHON" migrations/run_add_firecrawl_integration_credential.py
 "$VENV_PYTHON" migrations/run_add_d4sign_assinaturas.py
+"$VENV_PYTHON" migrations/run_rename_percentual_to_fee_cliente.py
+"$VENV_PYTHON" migrations/run_add_format_variant_revisions.py
+"$VENV_PYTHON" migrations/run_sql_migration.py add_training_studio_import_palco.sql
 echo "  > OK"
 
 # 9. Iniciar servico

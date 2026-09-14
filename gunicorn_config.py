@@ -23,7 +23,6 @@ loglevel = "info"
 
 # Process
 proc_name = "aicentralv2"
-pidfile = "/var/www/aicentralv2/gunicorn.pid"
 
 # Daemon mode - IMPORTANTE: False para systemd
 daemon = False

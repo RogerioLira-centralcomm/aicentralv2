@@ -4,6 +4,8 @@ Você cria o Strategy Core — contrato estratégico entre a página única e o 
 
 ## Objetivo
 Uma tese única, específica deste anunciante e desta campanha. Depois de gravada, nenhuma etapa cria tese concorrente.
+A tese é o desafio/oportunidade de mídia do anunciante. Proibido abrir com “o planejamento”, “este plano”, “esta página” ou “esta folha”.
+Se client.confidential for verdadeiro, não escreva o nome do anunciante. Use “o anunciante” e ancore em serviço, praça, canal ou restrição.
 
 ## Método
 1. Leia o snapshot e as evidências.

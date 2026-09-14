@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from .catalog import CHANNEL_CATALOG, channel_label, objetivo_label
-from .helpers import as_dict, as_list, session_title, text
+from .helpers import as_bool, as_dict, as_list, client_display_name, session_title, text
 from .materials import normalize_references
 from .pace import budget_shares, campaign_pace, format_money
 
@@ -41,13 +41,17 @@ def build_snapshot(row: dict, dados: dict | None = None) -> dict:
         })
     pending = as_list(as_dict(row.get("analise_ia")).get("falta_completar"))
     snapshot_id = f"campaign_{text(row.get('id') or row.get('session_token') or 'tmp')}_r{int(datetime.now(timezone.utc).timestamp())}"
+    client_name = text(row.get("cliente") or dados.get("cliente") or campanha.get("cliente"))
+    confidential = as_bool(dados.get("anunciante_confidencial"))
     return {
         "snapshot_id": snapshot_id,
         "client": {
-            "name": text(row.get("cliente") or dados.get("cliente") or campanha.get("cliente")),
+            "name": client_name,
             "id": dados.get("cliente_id"),
             "agency": text(dados.get("agencia") or campanha.get("agencia")),
             "agency_id": dados.get("agencia_id"),
+            "confidential": confidential,
+            "display_name": client_display_name(confidential=confidential, name=client_name),
         },
         "campaign": {
             "name": session_title(row, dados),

@@ -72,7 +72,7 @@ ONE_PAGE_STEPS = (
     {"id": "core", "skill": "planner_strategy_core_v1", "title": "Escrevendo o núcleo estratégico", "kind": "llm"},
     {"id": "estimates", "skill": "planner_estimation_v1", "title": "Calculando indicadores", "kind": "python"},
     {"id": "one_page", "skill": "planner_one_page_v2", "title": "Redigindo a página única e a defesa", "kind": "llm"},
-    {"id": "validate", "skill": "planner_consistency_v1", "title": "Conferindo tese, anunciante e canais", "kind": "python"},
+    {"id": "validate", "skill": "planner_consistency_v1", "title": "Conferindo tese, canais e confidencialidade", "kind": "python"},
     {"id": "images", "skill": "planner_image_v2", "title": "Gerando expressão visual", "kind": "image"},
     {"id": "publish", "skill": "planner_truth_v1", "title": "Publicando a folha", "kind": "python"},
 )

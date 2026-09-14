@@ -4,7 +4,7 @@
 {% block title %}Novo planejamento · Smart Planner{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=23">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=27">
 {% endblock %}
 
 {% block content %}
@@ -28,7 +28,7 @@
 
   <div class="sp-parties">
     <label class="cx-field sp-party" data-kind="cliente">
-      <span class="cx-label">Cliente final</span>
+      <span class="cx-label">Anunciante</span>
       <span class="sp-party-control">
         <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
         <input class="cx-input js-sp-party" type="text" name="cliente" autocomplete="off" placeholder="Buscar no CRM ou escrever o nome">
@@ -39,12 +39,16 @@
       <span class="cx-label">Agência</span>
       <span class="sp-party-control">
         <i class="fa-regular fa-building" aria-hidden="true"></i>
-        <input class="cx-input js-sp-party" type="text" name="agencia" autocomplete="off" placeholder="Opcional — preenche se o cliente tiver vínculo">
+        <input class="cx-input js-sp-party" type="text" name="agencia" autocomplete="off" placeholder="Opcional — preenche se o anunciante tiver vínculo">
       </span>
       <ul class="sp-suggest" hidden></ul>
     </label>
   </div>
   <div class="sp-brand-chip" id="sp-brand-chip" hidden></div>
+  <label class="sp-confidential">
+    <input type="checkbox" name="anunciante_confidencial" id="sp-start-confidential" value="1">
+    <span>Nome confidencial nos documentos</span>
+  </label>
 
   <h2 class="sp-start-format">O que o anunciante precisa assinar?</h2>
   <div class="sp-formats" id="sp-formats">
@@ -95,6 +99,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/start.js') }}?v=5"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/start.js') }}?v=6"></script>
 <script src="{{ url_for('static', filename='js/smart_planner/guide.js') }}?v=3"></script>
 {% endblock %}

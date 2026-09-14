@@ -48,10 +48,10 @@ OBJETIVO_OPTIONS = {
 
 FIELD_SCHEMA = {
     "campanha": "nome da campanha ou do que está sendo anunciado. Vazio se não houver.",
-    "cliente": "anunciante / cliente final. Vazio se não houver.",
-    "agencia": "agência que representa o anunciante. Vazio se o cliente for direto.",
+    "cliente": "anunciante (marca que anuncia). Em briefing de agência, a palavra cliente = anunciante. Vazio se o material não nomear. Nunca use 'clientes da marca' aqui — isso é público.",
+    "agencia": "agência que representa o anunciante. Vazio se o anunciante for direto.",
     "objetivo": "um de: reconhecimento, consideracao, conversao, trafego, leads, vendas, retencao. Vazio se não der para dizer.",
-    "objetivo_texto": "o objetivo como o cliente descreveu, com as palavras dele.",
+    "objetivo_texto": "o objetivo como o anunciante descreveu, com as palavras dele.",
     "contexto": "o que motivou a campanha: momento, histórico, concorrência, sazonalidade.",
     "publico": "quem precisa ser impactado, em texto corrido: comportamento, consumo de mídia, momento de vida ou de compra.",
     "praca": "exatamente nacional, interior, geolocalizada ou vazio.",
@@ -63,7 +63,7 @@ FIELD_SCHEMA = {
     "dispositivos": "array de ids de dispositivos/superfícies.",
     "kpis": "array de métricas de sucesso citadas.",
     "observacoes": "toda informação relevante sem campo próprio.",
-    "nao_informado": "array com os nomes dos campos que o cliente disse não ter.",
+    "nao_informado": "array com os nomes dos campos que o anunciante disse não ter.",
 }
 
 PLAN_MODES = ("completo", "one_page")

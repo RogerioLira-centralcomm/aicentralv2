@@ -11,7 +11,7 @@ from psycopg.types.json import Json
 from ..db import get_db
 from .catalog import CHANNEL_CATALOG, PRACA_OPTIONS, objetivo_label, plan_mode_label, resume_action, resume_status
 from .cost import cost_from_dados
-from .helpers import as_dict, as_list, campaign_from_campos, format_when, plan_href, plan_mode_of, session_title, text
+from .helpers import as_bool, as_dict, as_list, campaign_from_campos, format_when, plan_href, plan_mode_of, session_title, text
 from .share import public_sheet_url
 
 logger = logging.getLogger(__name__)
@@ -262,6 +262,7 @@ def create_session(user: dict, plan_mode: str, seed: dict | None = None) -> dict
         "brand": as_dict(seed.get("brand")),
         "publico": text(seed.get("publico")),
         "contexto": text(seed.get("contexto")),
+        "anunciante_confidencial": as_bool(seed.get("anunciante_confidencial")),
         "campanha": {
             "agencia": text(seed.get("agencia")),
             "canais": canais,

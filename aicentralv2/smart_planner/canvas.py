@@ -11,7 +11,7 @@ from .ai import chat_json
 from .skills import load_skill
 from .catalog import PRACA_OPTIONS, objetivo_label
 from .cost import bound_session
-from .helpers import as_dict, as_list, extract_json, plan_mode_of, session_title, text
+from .helpers import as_bool, as_dict, as_list, client_display_name, extract_json, plan_mode_of, session_title, text
 from .materials import apoio_notes
 from .repository import get_by_token, merge_dados, update_session
 
@@ -118,9 +118,11 @@ def normalize_plan(payload: dict, mode: str, meta: dict, branding: dict | None =
 def _row_meta(row: dict, dados: dict) -> dict:
     campanha = as_dict(dados.get("campanha"))
     praca_key = text(campanha.get("praca") or dados.get("praca"))
+    raw_client = text(row.get("cliente") or dados.get("cliente") or campanha.get("cliente"))
+    confidential = as_bool(dados.get("anunciante_confidencial"))
     return {
         "title": session_title(row, dados),
-        "client": text(row.get("cliente") or dados.get("cliente") or campanha.get("cliente")),
+        "client": client_display_name(confidential=confidential, name=raw_client) if confidential else raw_client,
         "agency": text(dados.get("agencia") or campanha.get("agencia")),
         "campaign": text(row.get("nome_campanha") or dados.get("nome_campanha")),
         "budget": text(row.get("budget") or campanha.get("verba") or dados.get("verba")),
@@ -157,15 +159,23 @@ def materialize_folha(token: str, presenter_id: str | None = None) -> dict:
     chosen = text(presenter_id) or text(dados.get("presenter_brand")) or "centralcomm"
     page = as_dict(dados.get("one_page_v2"))
     if text(as_dict(page.get("thesis")).get("statement")):
+        confidential = as_bool(dados.get("anunciante_confidencial"))
         branding = one_page.resolve_branding(
-            meta.get("client"),
+            meta.get("client") if not confidential else "",
             meta.get("agency"),
             chosen,
             [],
-            cliente_id=dados.get("cliente_id"),
+            cliente_id=None if confidential else dados.get("cliente_id"),
             agencia_id=dados.get("agencia_id"),
-            brand=as_dict(dados.get("brand")),
+            brand={} if confidential else as_dict(dados.get("brand")),
         )
+        if confidential:
+            branding["client"] = {
+                "id": None,
+                "name": meta.get("client") or "Anunciante",
+                "logo_url": "",
+                "source": "confidential",
+            }
         theme = one_page.compose_theme(meta.get("client"), meta.get("agency"), briefing, None)
         share = one_page.share_payload(text(dados.get("public_token")), meta.get("client"))
         plan = one_page.assemble_from_v2(

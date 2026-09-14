@@ -222,6 +222,7 @@
             cliente_id: state.cliente_id,
             agencia: agencia,
             agencia_id: state.agencia_id,
+            anunciante_confidencial: Boolean(document.getElementById("sp-start-confidential") && document.getElementById("sp-start-confidential").checked),
           }),
         });
         var payload = await response.json();

@@ -8,7 +8,7 @@ from aicentralv2.smart_planner.brand import (
     seed_parties,
     snapshot_brand,
 )
-from aicentralv2.smart_planner.helpers import session_title
+from aicentralv2.smart_planner.helpers import name_leaks_in, redact_advertiser, session_title
 from aicentralv2.smart_planner.logos import resolve_branding
 from aicentralv2.smart_planner.repository import serialize_list_row
 
@@ -111,6 +111,67 @@ def test_seed_parties_free_name_has_no_brand():
     assert seed["agencia"] == "Casa"
     assert seed["cliente_id"] is None
     assert seed["brand"] == {}
+    assert seed["anunciante_confidencial"] is False
+
+
+def test_name_leaks_uses_word_boundary():
+    assert name_leaks_in("COPASA", "A COPASA precisa do app.")
+    assert not name_leaks_in("COPASA", "A copasaica não é a marca.")
+    assert "COPASA" not in redact_advertiser("A COPASA precisa do app.", "COPASA")
+
+
+def test_create_session_persists_confidential(monkeypatch):
+    from aicentralv2.smart_planner.repository import create_session
+
+    captured = {}
+
+    class Cursor:
+        def execute(self, sql, params):
+            captured["params"] = params
+
+        def fetchone(self):
+            return {"session_token": "tok", "dados_detectados": captured["params"][4]}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    class Conn:
+        def cursor(self):
+            return Cursor()
+
+        def commit(self):
+            return None
+
+        def rollback(self):
+            return None
+
+    monkeypatch.setattr("aicentralv2.smart_planner.repository.get_db", lambda: Conn())
+    row = create_session(
+        {"user_id": 1, "user_email": "a@b.com", "user_name": "A"},
+        "one_page",
+        {"cliente": "COPASA", "anunciante_confidencial": True},
+    )
+    dados = captured["params"][4]
+    if hasattr(dados, "obj"):
+        dados = dados.obj
+    assert dados["anunciante_confidencial"] is True
+    assert row["session_token"] == "tok"
+
+
+def test_seed_parties_keeps_confidential_flag():
+    seed = seed_parties({"cliente": "COPASA", "anunciante_confidencial": True})
+    assert seed["anunciante_confidencial"] is True
+
+
+def test_preserve_seed_keeps_confidential_flag():
+    merged = preserve_seed(
+        {"anunciante_confidencial": True, "cliente": "COPASA", "plan_mode": "one_page"},
+        {"cliente": "COPASA", "objetivo": "conversao"},
+    )
+    assert merged["anunciante_confidencial"] is True
 
 
 def test_resolve_branding_prefers_brand_snapshot():
@@ -150,6 +211,18 @@ def test_session_title_from_seed():
         {"cliente": "BDMG"},
         {"campanha": {"canais": ["serasa"]}, "cliente": "BDMG"},
     ) == "BDMG"
+    assert session_title(
+        {"cliente": "COPASA"},
+        {"anunciante_confidencial": True, "cliente": "COPASA"},
+    ) == "Anunciante"
+    assert session_title(
+        {"nome_campanha": "COPASA Digital", "cliente": "COPASA"},
+        {"anunciante_confidencial": True, "cliente": "COPASA", "nome_campanha": "COPASA Digital"},
+    ) == "Anunciante"
+    assert session_title(
+        {"nome_campanha": "Campanha digital", "cliente": "COPASA"},
+        {"anunciante_confidencial": True, "cliente": "COPASA", "nome_campanha": "Campanha digital"},
+    ) == "Campanha digital"
 
 
 def test_search_parties_lists_recent_with_logo(monkeypatch):

@@ -1,6 +1,6 @@
 # planner_one_page_v2
 
-Você redige a página única: peça de defesa comercial do planejamento, não quatro textos genéricos.
+Você redige a página única: defesa da recomendação de mídia deste anunciante, não quatro textos genéricos.
 
 O papel `sheet` é o gerador executivo desta folha.
 
@@ -22,8 +22,10 @@ Skill-base + snapshot + Strategy Core + estimates + esta skill.
 Sintetize o núcleo. Não invente outra tese. Não use pitch estático de outro cliente.
 
 ## Teste de especificidade
-Se o nome do cliente sumir, o texto ainda precisa parecer desta campanha.
+Se o nome do anunciante sumir, o texto ainda precisa parecer desta campanha.
 Nomeie serviços, praça ou canais confirmados. Pendências ficam em pending_decisions, não no primeiro período da tese.
+Não abra a tese falando do planejamento, deste plano ou desta página.
+Se client.confidential for verdadeiro, o nome do anunciante não pode aparecer. Use “o anunciante”.
 
 ## Saída
 JSON apenas no schema one_page_v2:

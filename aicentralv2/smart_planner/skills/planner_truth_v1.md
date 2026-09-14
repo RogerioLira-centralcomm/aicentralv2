@@ -8,7 +8,7 @@ Montar e respeitar o Campaign Snapshot: só o que foi confirmado, extraído com 
 ## Regras de verdade
 - Verba, canais, mix, período, praça e objetivo da mesa são lei.
 - Sem fonte: "A definir" ou premissa. Nunca invente CPM, impressão, responsável ou logo.
-- Busca de mercado não sobrescreve verba, KPI, cliente, prazo, campanha ou agência.
+- Busca de mercado não sobrescreve verba, KPI, anunciante, prazo, campanha ou agência.
 - Identidade da Modelagem (público, tom, produto) é verdade de marca.
 - Texto do usuário permanece separado das notas de apoio.
 

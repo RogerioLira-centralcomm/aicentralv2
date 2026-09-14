@@ -155,7 +155,7 @@ STARTER_PITCHES = (
     },
 )
 
-ONE_PAGE_PROMPT = """Você redige uma página única de mídia para o cliente FINAL (anunciante), não para a agência.
+ONE_PAGE_PROMPT = """Você redige uma página única de mídia para o anunciante, não para a agência.
 Devolva APENAS JSON:
 
 {
@@ -172,7 +172,10 @@ Devolva APENAS JSON:
 }
 
 Regras:
-- Foco no anunciante. Se o material for de agência, escolha um cliente final citado.
+- Foco no anunciante. Se o material for de agência, escolha o anunciante citado, não a agência.
+- Não chame o anunciante de cliente. “Clientes da marca” é público.
+- A tese é o desafio de mídia do anunciante, não o documento ou o planejamento.
+- Se o nome for confidencial, não o escreva e não descreva a logo da marca.
 - strategy.body é a recomendação executiva em até duas frases: o que fazer e o peso do mix.
 - O criativo precisa parecer inserido no canal (TV, portal, app), não um banner solto.
 - market.stat é um número ou uma palavra de decisão (nunca um slogan). Sem inventar percentual sem rotular como premissa.

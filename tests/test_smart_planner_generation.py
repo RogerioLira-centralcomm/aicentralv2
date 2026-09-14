@@ -5,6 +5,7 @@ from aicentralv2.smart_planner.canvas import _card_count, _fill_from_groups, _pl
 from aicentralv2.smart_planner.generator import (
     _as_plan_markdown,
     _material_hash,
+    _pack,
     _require_llm,
     _stale_generation,
     _usable_core,
@@ -68,6 +69,8 @@ def test_snapshot_freezes_confirmed_fields():
     evidence = build_evidence(snapshot)
     assert snapshot["snapshot_id"].startswith("campaign_123_")
     assert snapshot["client"]["name"] == "COPASA"
+    assert snapshot["client"]["confidential"] is False
+    assert snapshot["client"]["display_name"] == "COPASA"
     assert snapshot["channels"] == ["ooh", "google_ads"]
     assert snapshot["pending_decisions"] == ["Confirmar CPM"]
     assert evidence["snapshot_id"] == snapshot["snapshot_id"]
@@ -223,6 +226,70 @@ def test_validate_page_requires_client_and_rejects_foreign_channel():
     }
     _validate_page(ok, {"client": {"name": "BDMG"}, "channels": ["ooh"]}, {"status": "not_available"})
     assert ok["result_estimates"]["status"] == "not_available"
+
+
+def test_pack_redacts_confidential_advertiser():
+    packed = _pack(
+        {
+            "client": {"name": "COPASA", "confidential": True, "display_name": "Anunciante"},
+            "brand": {"name": "COPASA"},
+            "briefing": "A COPASA precisa divulgar o app oficial em Minas.",
+        },
+        {"briefing": "Material da COPASA.", "user_briefing": "Texto da COPASA."},
+        {},
+    )
+    assert "COPASA" not in packed
+    assert "Anunciante" in packed
+
+
+def test_material_hash_changes_when_confidential_toggles():
+    row = {
+        "briefing_melhorado": "Divulgar o app.",
+        "dados_detectados": {"campanha": {"canais": ["ooh"]}, "anunciante_confidencial": False},
+    }
+    other = {
+        "briefing_melhorado": "Divulgar o app.",
+        "dados_detectados": {"campanha": {"canais": ["ooh"]}, "anunciante_confidencial": True},
+    }
+    assert _material_hash(row) != _material_hash(other)
+
+
+def test_validate_page_allows_thesis_without_advertiser_name():
+    page = {
+        "thesis": {"statement": "Partir dos canais oficiais e levar cada demanda ao autosserviço."},
+        "recommendation": {"summary": "OOH e portais no recorte de Minas.", "channel_roles": [{"channel": "ooh"}]},
+        "result_estimates": {"status": "not_available"},
+    }
+    _validate_page(page, {"client": {"name": "COPASA"}, "channels": ["ooh"]}, {"status": "not_available"})
+
+
+def test_validate_page_rejects_meta_thesis_and_confidential_leak():
+    meta = {
+        "thesis": {"statement": "Este planejamento recomenda OOH e portais para a campanha."},
+        "recommendation": {"summary": "Organizar a jornada oficial.", "channel_roles": [{"channel": "ooh"}]},
+        "result_estimates": {"status": "not_available"},
+    }
+    try:
+        _validate_page(meta, {"client": {"name": "COPASA"}, "channels": ["ooh"]}, {"status": "not_available"})
+    except ValueError as exc:
+        assert "planejamento" in str(exc)
+    else:
+        raise AssertionError("deveria rejeitar tese sobre o planejamento")
+    leak = {
+        "thesis": {"statement": "A COPASA precisa levar cada demanda ao canal oficial."},
+        "recommendation": {"summary": "OOH no recorte mineiro.", "channel_roles": [{"channel": "ooh"}]},
+        "result_estimates": {"status": "not_available"},
+    }
+    try:
+        _validate_page(
+            leak,
+            {"client": {"name": "COPASA", "confidential": True}, "channels": ["ooh"]},
+            {"status": "not_available"},
+        )
+    except ValueError as exc:
+        assert "confidencial" in str(exc)
+    else:
+        raise AssertionError("deveria rejeitar vazamento do nome")
 
 
 def test_defense_json_becomes_markdown():

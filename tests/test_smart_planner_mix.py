@@ -119,6 +119,8 @@ class MixEngineTest(unittest.TestCase):
         self.assertIn("completo", ctx["cost_options"])
         self.assertGreater(ctx["cost_options"]["completo"]["usd"], ctx["cost_options"]["one_page"]["usd"])
         self.assertEqual(ctx["briefing_original"], "")
+        self.assertTrue(ctx["wait_steps"]["one_page"])
+        self.assertGreater(len(ctx["wait_steps"]["completo"]), len(ctx["wait_steps"]["one_page"]))
 
     def test_review_template_has_three_columns(self):
         html = (Path(__file__).resolve().parents[1] / "aicentralv2" / "templates" / "smart_planner" / "wizard.html").read_text()
@@ -143,6 +145,13 @@ class MixEngineTest(unittest.TestCase):
         self.assertIn('id="sp-gen"', html)
         self.assertIn('id="sp-original"', html)
         self.assertIn("Gerar documentos", html)
+        self.assertIn("<span>Anunciante</span>", html)
+        self.assertIn("Nome confidencial nos documentos", html)
+        self.assertIn("Narrativa corrida", html)
+        self.assertIn('class="sp-wait"', html)
+        self.assertIn('id="sp-wait-gen-steps"', html)
+        self.assertIn("Entendendo o briefing", html)
+        self.assertNotIn("<span>Cliente</span>", html)
         self.assertIn("Refazer briefing", html)
         self.assertIn("data-gen-mode=\"one_page\"", html)
         self.assertIn("data-gen-mode=\"completo\"", html)

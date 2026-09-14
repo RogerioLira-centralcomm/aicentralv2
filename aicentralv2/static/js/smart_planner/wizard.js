@@ -37,14 +37,24 @@
     return payload.data || {};
   }
 
-  var COMPILE_STEPS = [
-    { text: "Lendo o material enviado…", progress: 10 },
-    { text: "Identificando informações-chave…", progress: 25 },
-    { text: "Estruturando o briefing…", progress: 45 },
-    { text: "Validando dados da campanha…", progress: 65 },
-    { text: "Organizando para análise…", progress: 85 },
-    { text: "Finalizando…", progress: 95 },
+  var BRIEF_STEPS = [
+    { id: "read", title: "Interpretando o briefing", copy: "Lendo e organizando o material" },
+    { id: "goal", title: "Identificando o objetivo", copy: "Entendendo a meta da campanha" },
+    { id: "audience", title: "Estruturando o público", copy: "Analisando audiência e recorte" },
+    { id: "channels", title: "Organizando os canais", copy: "Selecionando os meios citados" },
+    { id: "narrative", title: "Consolidando a narrativa", copy: "Preparando a revisão" },
   ];
+
+  function generationWaitSteps(mode) {
+    var node = document.getElementById("sp-wait-gen-steps");
+    if (!node || !node.textContent) return [];
+    try {
+      var catalog = JSON.parse(node.textContent) || {};
+      return catalog[mode] || catalog.one_page || [];
+    } catch (error) {
+      return [];
+    }
+  }
 
   function escapeHtml(value) {
     return String(value || "").replace(/[&<>"']/g, function (ch) {
@@ -52,42 +62,73 @@
     });
   }
 
-  function renderSkillSteps(steps, currentId) {
+  function setWaitMeta(eyebrow, title, copy) {
+    var eye = document.getElementById("sp-wait-eyebrow");
+    var heading = document.getElementById("sp-wait-title");
+    var stepEl = document.getElementById("sp-compile-step");
+    if (eye) eye.textContent = eyebrow;
+    if (heading) heading.textContent = title;
+    if (stepEl && copy) stepEl.textContent = copy;
+  }
+
+  function setWaitProgress(done, total) {
+    var frac = document.getElementById("sp-wait-frac");
+    var bar = document.getElementById("sp-compile-bar");
+    var safeTotal = Math.max(1, Number(total) || 1);
+    var safeDone = Math.max(0, Math.min(safeTotal, Number(done) || 0));
+    if (frac) frac.textContent = safeDone + " de " + safeTotal;
+    if (bar) bar.style.width = Math.max(8, Math.round((safeDone / safeTotal) * 100)) + "%";
+  }
+
+  function renderWaitSteps(steps, currentId) {
     var list = document.getElementById("sp-compile-skills");
     if (!list) return;
     if (!steps || !steps.length) {
-      list.hidden = true;
+      list.innerHTML = "";
       return;
     }
-    list.hidden = false;
-    list.innerHTML = steps.map(function (item) {
-      var state = item.state || (item.id === currentId ? "running" : "pending");
+    var pivot = steps.findIndex(function (row) { return row.id && row.id === currentId; });
+    list.innerHTML = steps.map(function (item, index) {
+      var state = item.state;
+      if (!state) {
+        if (pivot >= 0) state = index < pivot ? "done" : index === pivot ? "running" : "pending";
+        else state = "pending";
+      }
       var cls = state === "running" ? "is-run" : state === "done" ? "is-done" : state === "error" ? "is-error" : state === "skipped" ? "is-skip" : "";
-      var icon = state === "running" ? "fa-circle-notch fa-spin" : state === "done" ? "fa-check" : state === "error" ? "fa-triangle-exclamation" : state === "skipped" ? "fa-forward" : "fa-circle";
-      var kind = item.kind_label || item.kind || "";
-      return "<li class=\"" + cls + "\" data-skill=\"" + escapeHtml(item.skill || "") + "\">" +
-        "<i class=\"fa-solid " + icon + "\" aria-hidden=\"true\"></i>" +
-        "<div><strong>" + escapeHtml(item.label || item.skill || "") + "</strong>" +
-        "<span>" + escapeHtml(item.title || "") + "</span>" +
-        (kind ? "<small>" + escapeHtml(kind) + "</small>" : "") +
-        "</div></li>";
+      var title = item.title || item.label || item.skill || "";
+      var copy = item.copy || "";
+      if (copy && copy === title) copy = "";
+      return "<li class=\"" + cls + "\">" +
+        "<i aria-hidden=\"true\"></i>" +
+        "<div><strong>" + escapeHtml(title) + "</strong>" +
+        (copy ? "<span>" + escapeHtml(copy) + "</span>" : "") + "</div></li>";
     }).join("");
-    var running = list.querySelector("li.is-run");
-    if (running && running.scrollIntoView) running.scrollIntoView({ block: "nearest" });
+    var done = steps.filter(function (item) { return item.state === "done"; }).length;
+    var running = steps.some(function (item) { return item.state === "running"; });
+    var current = pivot >= 0 ? pivot + 1 : (running ? done + 1 : Math.max(done, steps.length && done === steps.length ? steps.length : 1));
+    if (done === steps.length) current = steps.length;
+    setWaitProgress(current, steps.length);
   }
 
   function applyGenerationProgress(data) {
-    var stepEl = document.getElementById("sp-compile-step");
-    var bar = document.getElementById("sp-compile-bar");
-    var engine = document.getElementById("sp-compile-engine");
-    if (stepEl && data.title) stepEl.textContent = data.title;
-    if (bar) bar.style.width = Math.max(8, Number(data.percent) || 8) + "%";
-    if (engine) {
-      engine.hidden = false;
-      engine.textContent = (data.engine === "openai" ? "OpenAI nativa" : "OpenRouter") + " · " +
-        (data.label || data.skill || "skills internas");
+    var mode = (data.mode || root.getAttribute("data-mode") || "").toLowerCase();
+    var steps = data.steps && data.steps.length ? data.steps : generationWaitSteps(mode);
+    setWaitMeta(
+      "Gerando",
+      mode === "one_page" ? "Construindo a página única" : "Construindo o planejamento",
+      data.title || "Redigindo a recomendação de mídia."
+    );
+    renderWaitSteps(steps, data.step);
+    if (data.total) {
+      var current = Number(data.index || 0) + (data.status === "done" ? 1 : 1);
+      if (data.status === "done") current = Number(data.total);
+      else current = Math.min(Number(data.total), Number(data.index || 0) + 1);
+      setWaitProgress(current, data.total);
     }
-    renderSkillSteps(data.steps || [], data.step);
+    if (data.percent) {
+      var bar = document.getElementById("sp-compile-bar");
+      if (bar) bar.style.width = Math.max(8, Number(data.percent) || 8) + "%";
+    }
   }
 
   function waitForGeneration(mode) {
@@ -132,25 +173,19 @@
 
   function showCompileOverlay(inputText, mode) {
     var overlay = document.getElementById("sp-compile-overlay");
-    var bar = document.getElementById("sp-compile-bar");
-    var stepEl = document.getElementById("sp-compile-step");
-    var excerpt = document.getElementById("sp-compile-excerpt");
-    var list = document.getElementById("sp-compile-skills");
-    var engine = document.getElementById("sp-compile-engine");
     if (!overlay) return function () {};
     overlay.hidden = false;
-    if (bar) bar.style.width = "8%";
-    if (stepEl) stepEl.textContent = mode ? "Preparando as skills…" : COMPILE_STEPS[0].text;
-    if (engine) engine.hidden = !mode;
-    if (excerpt) {
-      excerpt.hidden = !inputText;
-      if (inputText) excerpt.textContent = inputText.slice(0, 300).trim() + (inputText.length > 300 ? "…" : "");
-    }
-    if (list) {
-      list.hidden = !mode;
-      list.innerHTML = "";
-    }
+    document.body.classList.add("is-sp-wait");
     if (mode) {
+      setWaitMeta(
+        "Gerando",
+        mode === "one_page" ? "Construindo a página única" : "Construindo o planejamento",
+        "Preparando a recomendação de mídia."
+      );
+      var planned = generationWaitSteps(mode);
+      renderWaitSteps(planned.map(function (item, index) {
+        return { id: item.id, title: item.title, state: index === 0 ? "running" : "pending" };
+      }), (planned[0] || {}).id);
       fetch("/smart-planner/api/" + token + "/gerar/status?mode=" + encodeURIComponent(mode), {
         credentials: "same-origin"
       }).then(function (response) { return response.json(); }).then(function (payload) {
@@ -158,16 +193,23 @@
       }).catch(function () {});
       return function () {};
     }
+    setWaitMeta("Processando", "Entendendo o briefing", BRIEF_STEPS[0].copy);
+    renderWaitSteps(BRIEF_STEPS.map(function (item, index) {
+      return { id: item.id, title: item.title, copy: item.copy, state: index === 0 ? "running" : "pending" };
+    }), BRIEF_STEPS[0].id);
     var index = 0;
     var timer = window.setInterval(function () {
       index += 1;
-      if (index >= COMPILE_STEPS.length) {
+      if (index >= BRIEF_STEPS.length) {
         window.clearInterval(timer);
         return;
       }
-      if (stepEl) stepEl.textContent = COMPILE_STEPS[index].text;
-      if (bar) bar.style.width = COMPILE_STEPS[index].progress + "%";
-    }, 600);
+      renderWaitSteps(BRIEF_STEPS.map(function (item, stepIndex) {
+        var state = stepIndex < index ? "done" : stepIndex === index ? "running" : "pending";
+        return { id: item.id, title: item.title, copy: item.copy, state: state };
+      }), BRIEF_STEPS[index].id);
+      setWaitMeta("Processando", "Entendendo o briefing", BRIEF_STEPS[index].copy);
+    }, 700);
     return function () {
       window.clearInterval(timer);
     };
@@ -178,10 +220,11 @@
     var bar = document.getElementById("sp-compile-bar");
     var stepEl = document.getElementById("sp-compile-step");
     if (bar) bar.style.width = "100%";
-    if (stepEl) stepEl.textContent = "Pronto!";
+    if (stepEl) stepEl.textContent = "Pronto.";
     window.setTimeout(function () {
       if (overlay) overlay.hidden = true;
-    }, 400);
+      document.body.classList.remove("is-sp-wait");
+    }, 280);
   }
 
   function setLive(message) {
@@ -888,6 +931,7 @@
           observacoes: data.get("observacoes"),
           criativos: data.get("criativos"),
           kpis: data.get("kpis"),
+          anunciante_confidencial: data.get("anunciante_confidencial") === "1" || data.get("anunciante_confidencial") === "on",
         },
       };
     }
@@ -930,6 +974,7 @@
     if (/per[ií]odo|prazo|dura[cç]/.test(t)) return "sp-field-periodo";
     if (/pra[cç]a|local|cidade/.test(t)) return "sp-field-praca";
     if (/canal/.test(t)) return "sp-mix-channels";
+    if (/anunciante|cliente/.test(t) && !/p[uú]blic/.test(t)) return "sp-field-cliente";
     return "sp-objetivo";
   }
 
@@ -1086,9 +1131,6 @@
       button.addEventListener("click", async function () {
         var mode = button.getAttribute("data-gen-mode");
         if (genDlg && typeof genDlg.close === "function") genDlg.close();
-        var title = mode === "one_page" ? "Gerando a página única" : "Gerando o planejamento completo";
-        var heading = document.querySelector("#sp-compile-overlay h2");
-        if (heading) heading.textContent = title;
         var stop = showCompileOverlay("", mode);
         try {
           var result = await postJson("/smart-planner/api/" + token + "/gerar", { plan_mode: mode });

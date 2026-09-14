@@ -15,7 +15,19 @@ from .brand import brand_prompt_block
 from .catalog import PLAN_MODES
 from .cost import bound_session
 from .estimates import calculate_estimates, format_estimates_for_prompt
-from .helpers import as_dict, as_list, extract_json, normalize_markdown, plan_mode_of, text
+from .helpers import (
+    as_bool,
+    as_dict,
+    as_list,
+    client_display_name,
+    extract_json,
+    name_leaks_in,
+    normalize_markdown,
+    plan_mode_of,
+    redact_advertiser,
+    text,
+    thesis_is_meta,
+)
 from .images import apply_sheet_art
 from .progress import finish_progress, mark_step, start_progress
 from .repository import get_by_token, merge_dados, update_session
@@ -226,11 +238,41 @@ def _run(token: str, mode: str) -> dict:
     }
 
 
+def _redact_pack(payload: dict, name: str) -> dict:
+    data = dict(payload or {})
+    for key in ("briefing", "user_briefing"):
+        if text(data.get(key)):
+            data[key] = redact_advertiser(text(data.get(key)), name)
+    sources = []
+    for item in as_list(data.get("sources")):
+        row = dict(as_dict(item))
+        if text(row.get("notas")):
+            row["notas"] = redact_advertiser(text(row.get("notas")), name)
+        sources.append(row)
+    if sources:
+        data["sources"] = sources
+    return data
+
+
 def _pack(snapshot: dict, evidence: dict, core: dict | None = None, estimates: dict | None = None, extra: dict | None = None) -> str:
     snap = dict(snapshot or {})
+    client = dict(as_dict(snap.get("client")))
+    secret = text(client.get("name"))
+    if client.get("confidential"):
+        display = client_display_name(client)
+        client["name"] = display
+        client["display_name"] = display
+        snap["client"] = client
+        brand = dict(as_dict(snap.get("brand")))
+        if brand:
+            brand["name"] = display
+            snap["brand"] = brand
+        snap = _redact_pack(snap, secret)
     if len(text(snap.get("briefing"))) > 8000:
         snap["briefing"] = text(snap.get("briefing"))[:8000]
     pack_evidence = dict(evidence or {})
+    if client.get("confidential"):
+        pack_evidence = _redact_pack(pack_evidence, secret)
     if len(text(pack_evidence.get("briefing"))) > 8000:
         pack_evidence["briefing"] = text(pack_evidence.get("briefing"))[:8000]
     estimates_note = format_estimates_for_prompt(estimates or {})
@@ -238,7 +280,7 @@ def _pack(snapshot: dict, evidence: dict, core: dict | None = None, estimates: d
         "snapshot": snap,
         "evidence": pack_evidence,
         "strategy_core": core or {},
-        "brand": brand_prompt_block(as_dict((snapshot or {}).get("brand"))),
+        "brand": brand_prompt_block(as_dict(snap.get("brand"))),
     }
     if extra:
         payload.update(extra)
@@ -286,17 +328,26 @@ def _materialize_folha(token: str, snapshot: dict, page: dict, core: dict) -> di
     row = get_by_token(token)
     dados = as_dict(row.get("dados_detectados"))
     meta = canvas_mod._row_meta(row, dados)
-    client = text((snapshot.get("client") or {}).get("name") or meta.get("client"))
-    agency = text((snapshot.get("client") or {}).get("agency") or meta.get("agency"))
+    client_info = as_dict(snapshot.get("client"))
+    confidential = bool(client_info.get("confidential"))
+    client = client_display_name(client_info, name=text(client_info.get("name") or meta.get("client")))
+    agency = text(client_info.get("agency") or meta.get("agency"))
     branding = one_page.resolve_branding(
-        client,
+        client if not confidential else "",
         agency,
         text(dados.get("presenter_brand")) or "centralcomm",
         [],
-        cliente_id=dados.get("cliente_id"),
+        cliente_id=None if confidential else dados.get("cliente_id"),
         agencia_id=dados.get("agencia_id"),
-        brand=as_dict(dados.get("brand")),
+        brand={} if confidential else as_dict(dados.get("brand")),
     )
+    if confidential:
+        branding["client"] = {
+            "id": None,
+            "name": client,
+            "logo_url": "",
+            "source": "confidential",
+        }
     theme = one_page.compose_theme(client, agency, text(snapshot.get("briefing")), None)
     share = one_page.share_payload(text(dados.get("public_token")), client)
     plan = one_page.assemble_from_v2(
@@ -322,9 +373,13 @@ def _validate_page(page: dict, snapshot: dict, estimates: dict) -> None:
     rec = text(as_dict(page.get("recommendation")).get("summary"))
     if len(rec) < 12:
         raise ValueError("A recomendação da página única voltou vazia. Gere novamente.")
-    client = text(as_dict((snapshot or {}).get("client")).get("name"))
-    if client and client.lower() not in f"{thesis} {rec}".lower():
-        raise ValueError("A tese não nomeia o anunciante. Gere novamente.")
+    client_info = as_dict((snapshot or {}).get("client"))
+    client = text(client_info.get("name"))
+    blob = json.dumps(page or {}, ensure_ascii=False, default=str)
+    if thesis_is_meta(thesis):
+        raise ValueError("A tese fala do planejamento, não do anunciante. Gere novamente.")
+    if client_info.get("confidential") and name_leaks_in(client, blob):
+        raise ValueError("A tese vazou o nome confidencial do anunciante. Gere novamente.")
     approved = {text(item) for item in as_list((snapshot or {}).get("channels")) if text(item)}
     mix_ids = {text(as_dict(row).get("id")) for row in as_list((snapshot or {}).get("mix")) if text(as_dict(row).get("id"))}
     extras = []
@@ -369,15 +424,11 @@ def _group_markdown(
 def _consistency_check(snapshot: dict, core: dict, page: dict, planejamento: str) -> dict:
     parsed = as_dict(chat_json(
         load_skill("planner_truth_v1") + "\n\n" + load_skill("planner_consistency_v1"),
-        json.dumps(
-            {
-                "snapshot": snapshot,
-                "strategy_core": core,
-                "one_page": page,
-                "planejamento": (planejamento or "")[:20000],
-            },
-            ensure_ascii=False,
-            default=str,
+        _pack(
+            snapshot,
+            {"briefing": text((snapshot or {}).get("briefing")), "user_briefing": text((snapshot or {}).get("user_briefing"))},
+            core,
+            extra={"one_page": page, "planejamento": (planejamento or "")[:20000]},
         ),
         role=skill_role("planner_consistency_v1"),
     ))
@@ -392,7 +443,7 @@ def _cover_markdown(snapshot: dict, core: dict) -> str:
     campaign = as_dict(snapshot.get("campaign"))
     return "\n".join((
         "## Capa e controle da versão",
-        f"Cliente: {text(client.get('name')) or 'A definir'}",
+        f"Anunciante: {client_display_name(client) or 'A definir'}",
         f"Campanha: {text(campaign.get('name')) or 'A definir'}",
         f"Período: {text(as_dict(snapshot.get('period')).get('raw')) or 'A definir'}",
         f"Praça: {text(as_dict(snapshot.get('geography')).get('praca')) or 'A definir'}",
@@ -413,6 +464,7 @@ def _material_hash(row: dict) -> str:
         "periodo": campanha.get("periodo") or (row or {}).get("prazo"),
         "objetivo": (row or {}).get("objetivo") or dados.get("objetivo") or campanha.get("objetivo"),
         "media_params": dados.get("media_params") or campanha.get("media_params"),
+        "anunciante_confidencial": as_bool(dados.get("anunciante_confidencial")),
     }
     raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]

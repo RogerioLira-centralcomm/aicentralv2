@@ -42,6 +42,92 @@ def text(value: Any) -> str:
     return str(value).strip()
 
 
+def as_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    return text(value).lower() in {"1", "true", "yes", "on", "sim"}
+
+
+_NAME_STOP = {
+    "de", "da", "do", "dos", "das", "e", "em", "o", "a", "os", "as", "para",
+    "mg", "sa", "s.a", "s/a",
+}
+_WEAK_NAME = {
+    "banco", "marca", "casa", "grupo", "brasil", "minas", "geral", "gerais",
+    "digital", "campanha", "cliente", "anunciante",
+}
+_META_THESIS = re.compile(
+    r"^\s*(o planejamento|este planejamento|este plano|esta p[aá]gina|"
+    r"esta folha|esta one page|o presente plano)\b",
+    re.I,
+)
+
+
+def advertiser_tokens(name: str) -> list[str]:
+    raw = text(name)
+    if not raw:
+        return []
+    tokens = [raw]
+    for part in re.findall(r"[A-Za-zÀ-ÿ0-9.]{4,}", raw):
+        cleaned = part.strip(".")
+        if len(cleaned) >= 4 and cleaned.lower() not in _NAME_STOP:
+            tokens.append(cleaned)
+    seen: list[str] = []
+    keys: set[str] = set()
+    for token in tokens:
+        key = token.lower()
+        if key not in keys:
+            keys.add(key)
+            seen.append(token)
+    return seen
+
+
+def _token_pattern(token: str) -> re.Pattern:
+    return re.compile(r"(?<![A-Za-zÀ-ÿ0-9])" + re.escape(token) + r"(?![A-Za-zÀ-ÿ0-9])", re.I)
+
+
+def name_leaks_in(name: str, blob: str) -> bool:
+    hay = text(blob)
+    if not hay:
+        return False
+    tokens = advertiser_tokens(name)
+    if not tokens:
+        return False
+    full = tokens[0]
+    if _token_pattern(full).search(hay):
+        return True
+    return any(
+        _token_pattern(token).search(hay)
+        for token in tokens[1:]
+        if token.lower() not in _WEAK_NAME
+    )
+
+
+def redact_advertiser(blob: str, name: str) -> str:
+    out = text(blob)
+    if not out or not text(name):
+        return out
+    for token in sorted(advertiser_tokens(name), key=len, reverse=True):
+        if token.lower() in _WEAK_NAME and token.lower() != text(name).lower():
+            continue
+        out = _token_pattern(token).sub("o anunciante", out)
+    return out
+
+
+def thesis_is_meta(statement: str) -> bool:
+    return bool(_META_THESIS.search(text(statement)))
+
+
+def client_display_name(client: dict | None = None, *, confidential: bool = False, name: str = "") -> str:
+    data = client if isinstance(client, dict) else {}
+    hidden = confidential or as_bool(data.get("confidential"))
+    if hidden:
+        return "Anunciante"
+    return text(data.get("display_name") or data.get("name") or name)
+
+
 def extract_json(payload: str) -> Any:
     raw = (payload or "").strip()
     if raw.startswith("```"):
@@ -163,6 +249,10 @@ def session_title(row: dict, dados: dict) -> str:
         raw_name = dados.get("campanha")
     campanha = text(raw_name)
     cliente = text(row.get("cliente") or dados.get("cliente") or dados.get("anunciante"))
+    if as_bool((dados or {}).get("anunciante_confidencial")):
+        if campanha and not name_leaks_in(cliente, campanha):
+            return campanha
+        return "Anunciante"
     return campanha or cliente or "Campanha sem nome"
 
 

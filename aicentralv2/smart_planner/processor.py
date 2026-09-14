@@ -9,7 +9,16 @@ from .ai import chat_json, chat_text
 from .brand import apply_pistas, briefing_pistas, preserve_seed
 from .cost import bound_session
 from .catalog import CHANNEL_CATALOG, DEVICE_OPTIONS, FIELD_SCHEMA
-from .helpers import as_dict, as_list, campaign_from_campos, looks_like_reference_dump, normalize_markdown, text
+from .helpers import (
+    as_bool,
+    as_dict,
+    as_list,
+    campaign_from_campos,
+    looks_like_reference_dump,
+    redact_advertiser,
+    strip_markdown,
+    text,
+)
 from .materials import compose_material, normalize_references
 from .repository import get_by_token, merge_dados, update_session
 
@@ -17,9 +26,12 @@ SEARCH_LOCKED = {"verba", "kpis", "cliente", "periodo", "campanha", "agencia"}
 
 
 NARRATIVE_PROMPT = """Você é o redator de briefing do Smart Planner no CentralX.
-Redija um briefing de mídia claro, em markdown, fiel ao material.
+Redija uma narrativa de mídia em prosa corrida, fiel ao material.
+Não use markdown: sem #, listas com hífen, asteriscos ou negrito.
+Parágrafos curtos. Chame a marca de anunciante, nunca de cliente.
+"Clientes da marca" é público, não o anunciante.
 Não invente verba, prazo, canal, público ou praça que o material não trouxe.
-Use títulos ## curtos. Preserve restrições e observações do cliente.
+Preserve restrições e observações do anunciante.
 Não mencione agência, ferramenta ou que o texto foi gerado por IA."""
 
 
@@ -29,10 +41,10 @@ def extract_fields(material: str, pistas: dict | None = None) -> dict:
         f"{key} = {meta['label']}" + (" [fonte de dados]" if meta.get("tipo") == "dados" else "")
         for key, meta in CHANNEL_CATALOG.items()
     )
-    pistas_json = json.dumps(
-        {k: v for k, v in (pistas or {}).items() if v not in ("", [], None)},
-        ensure_ascii=False,
-    )
+    confirmed = {k: v for k, v in (pistas or {}).items() if v not in ("", [], None)}
+    if as_bool(confirmed.get("anunciante_confidencial")):
+        confirmed.pop("cliente", None)
+    pistas_json = json.dumps(confirmed, ensure_ascii=False)
     prompt = f"""Você é o extrator de campos do Smart Planner no CentralX.
 Leia o material e devolva os campos estruturados e uma avaliação de prontidão.
 
@@ -58,6 +70,9 @@ Retorne APENAS JSON válido:
 Regras:
 - Nunca invente. Campo sem base no material vai vazio ("" ou []).
 - Canal só entra quando o material o cita.
+- cliente é o anunciante (marca que anuncia). Em briefing de agência, a palavra "cliente" do texto = anunciante.
+- "Clientes da Copasa / do banco / da marca" é público, nunca o campo cliente.
+- Se campos já confirmados tiverem cliente, não liste falta de anunciante ou de cliente em falta_completar.
 - score de 0 a 100. Pesa mais: objetivo, público, verba, período e praça.
 """
     parsed = chat_json(
@@ -69,7 +84,10 @@ Regras:
     analysis = {
         "campos": campos,
         "bem_definido": parsed.get("bem_definido") if isinstance(parsed, dict) else [],
-        "falta_completar": parsed.get("falta_completar") if isinstance(parsed, dict) else [],
+        "falta_completar": _drop_advertiser_gaps(
+            parsed.get("falta_completar") if isinstance(parsed, dict) else [],
+            pistas,
+        ),
     }
     return {
         "campos": campos,
@@ -80,13 +98,21 @@ Regras:
 
 def compose_narrative(material: str, campos: dict, origem: str = "") -> str:
     compact = {}
+    confidential = as_bool((campos or {}).get("anunciante_confidencial"))
     for key, value in (campos or {}).items():
+        if key == "anunciante_confidencial":
+            continue
         if isinstance(value, list):
             value = ", ".join(str(item) for item in value if item)
         value = text(value)
         if value:
             compact[key] = value
+    if confidential:
+        compact.pop("cliente", None)
+        material = redact_advertiser(material, text((campos or {}).get("cliente")))
     parts = [NARRATIVE_PROMPT]
+    if confidential:
+        parts.append("O nome do anunciante é confidencial. Não o escreva. Use apenas 'o anunciante'.")
     if compact:
         parts.append(
             "CAMPOS JÁ ESTRUTURADOS\nUse-os como verdade.\n"
@@ -101,7 +127,10 @@ def compose_narrative(material: str, campos: dict, origem: str = "") -> str:
     )
     if not raw:
         raise OpenRouterError("O compositor não devolveu texto.")
-    return normalize_markdown(raw)
+    narrativa = strip_markdown(raw)
+    if confidential:
+        narrativa = redact_advertiser(narrativa, text((campos or {}).get("cliente")))
+    return narrativa
 
 
 def process_briefing(token: str, text_in: str, references: list[dict] | None = None) -> dict:
@@ -130,6 +159,9 @@ def _process_briefing(
         origem = "briefing escrito pelo usuário acompanhado de material de apoio"
     elif refs:
         origem = "conteúdo extraído das referências anexadas"
+    campos["anunciante_confidencial"] = as_bool(
+        dados_atuais.get("anunciante_confidencial") or pistas.get("anunciante_confidencial")
+    )
     narrativa = compose_narrative(material, campos, origem)
     dados = dict(campos)
     dados["nome_campanha"] = text(campos.get("campanha"))
@@ -162,6 +194,7 @@ def _process_briefing(
     current["plan_mode"] = current.get("plan_mode") or dados_atuais.get("plan_mode") or "completo"
     current["cliente"] = text(campos.get("cliente")) or current.get("cliente")
     current["agencia"] = text(campos.get("agencia")) or current.get("agencia")
+    current["anunciante_confidencial"] = as_bool(dados_atuais.get("anunciante_confidencial"))
     current.pop("cost", None)
     row = merge_dados(token, current)
     return {
@@ -171,6 +204,21 @@ def _process_briefing(
         "score": extracted["score"],
         "analysis": extracted["analysis"],
     }
+
+
+def _drop_advertiser_gaps(items, pistas: dict | None) -> list:
+    if not text((pistas or {}).get("cliente")):
+        return [text(item) for item in as_list(items) if text(item)]
+    out = []
+    for item in as_list(items):
+        low = text(item).lower()
+        if not low:
+            continue
+        mentions_adv = "anunciante" in low or "nome do cliente" in low
+        if mentions_adv or (low.startswith("cliente") and "público" not in low and "publico" not in low):
+            continue
+        out.append(item)
+    return out
 
 
 def apply_support_facts(campos: dict, references: list[dict] | None = None) -> dict:
@@ -246,6 +294,7 @@ def rewrite_from_plan(token: str) -> dict:
         "kpis": dados.get("kpis") or [],
         "canais": campanha.get("canais") or dados.get("canais") or [],
         "mix": campanha.get("mix") or {},
+        "anunciante_confidencial": as_bool(dados.get("anunciante_confidencial")),
     }
     with bound_session(token):
         narrativa = compose_narrative(

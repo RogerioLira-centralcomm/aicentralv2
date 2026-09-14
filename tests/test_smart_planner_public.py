@@ -67,6 +67,21 @@ class PublicPlannerTest(TestCase):
         self.assertTrue(view["tem_completo"])
         self.assertEqual(view["chapters"][0]["title"], "Capa")
 
+    def test_confidential_hides_advertiser_name(self):
+        view = public_view({
+            "nome_campanha": "Campanha digital",
+            "cliente": "COPASA",
+            "dados_detectados": {
+                "plan_mode": "one_page",
+                "anunciante_confidencial": True,
+                "folha": {"sections": [{"cards": [{"type": "strategy", "body": "Tese."}]}]},
+            },
+            "plan_content": {"sections": []},
+        })
+        self.assertEqual(view["client"], "Confidencial")
+        self.assertIn(("Anunciante", "Confidencial"), view["facts"])
+        self.assertNotIn("COPASA", str(view["facts"]))
+
     def test_public_page_is_centralcomm_not_centralx(self):
         html = (TEMPLATES / "public.html").read_text()
         error = (TEMPLATES / "public_error.html").read_text()

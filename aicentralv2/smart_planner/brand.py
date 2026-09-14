@@ -7,12 +7,12 @@ from typing import Any
 
 from ..db import get_db
 from .catalog import CHANNEL_CATALOG
-from .helpers import as_dict, as_list, text
+from .helpers import as_bool, as_dict, as_list, text
 from .logos import lookup_agency_for_client, lookup_party_by_id, public_logo
 
 logger = logging.getLogger(__name__)
 
-SEED_KEYS = ("plan_mode", "cliente_id", "agencia_id", "cx_client_id", "brand")
+SEED_KEYS = ("plan_mode", "cliente_id", "agencia_id", "cx_client_id", "brand", "anunciante_confidencial")
 
 PLATE_TO_CHANNEL = {
     "instagram": "meta_ads",
@@ -243,6 +243,7 @@ def briefing_pistas(dados: dict) -> dict:
         "publico": text(dados.get("publico") or brand.get("target_audience")),
         "contexto": " ".join(part for part in contexto_parts if part),
         "canais": [key for key in canais if key in CHANNEL_CATALOG],
+        "anunciante_confidencial": as_bool(dados.get("anunciante_confidencial")),
     }
 
 
@@ -306,6 +307,7 @@ def seed_parties(payload: dict) -> dict:
         "publico": text(brand.get("target_audience")),
         "contexto": " ".join(part for part in contexto_parts if part),
         "canais": as_list(brand.get("canais")),
+        "anunciante_confidencial": as_bool(payload.get("anunciante_confidencial")),
     }
 
 

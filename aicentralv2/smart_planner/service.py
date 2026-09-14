@@ -18,10 +18,11 @@ from .catalog import (
     score_label,
 )
 from .mix import METHODS, allocate, normalize_mix, recommend_methods, shares_to_money, spec_for_js
+from .skills import generation_steps
 from .cost import cost_from_dados, format_brl
 from .models import preview_cost
 from .logos import presenter_options
-from .helpers import as_dict, as_list, looks_like_reference_dump, plan_mode_of, session_title, text
+from .helpers import as_bool, as_dict, as_list, looks_like_reference_dump, plan_mode_of, session_title, text
 from .materials import normalize_references
 from .pace import (
     allocate_months,
@@ -132,6 +133,7 @@ def wizard_context(row: dict, step_id: str) -> dict:
         "cliente_id": dados.get("cliente_id"),
         "agencia_id": dados.get("agencia_id"),
         "cx_client_id": dados.get("cx_client_id"),
+        "anunciante_confidencial": as_bool(dados.get("anunciante_confidencial")),
     }
     if isinstance(campos["campanha"], dict):
         campos["campanha"] = text(dados.get("nome_campanha"))
@@ -248,6 +250,10 @@ def wizard_context(row: dict, step_id: str) -> dict:
         },
         "tem_folha": bool(as_list(as_dict(dados.get("folha")).get("sections"))),
         "consistency": as_dict(dados.get("consistency")),
+        "wait_steps": {
+            "one_page": [{"id": item["id"], "title": item["title"]} for item in generation_steps("one_page")],
+            "completo": [{"id": item["id"], "title": item["title"]} for item in generation_steps("completo")],
+        },
     }
 
 
@@ -268,6 +274,12 @@ def persist_review(token: str, payload: dict) -> dict:
             campos[key] = None
     if "kpis" in campos:
         campos["kpis"] = _as_kpis(campos.get("kpis"))
+    if "anunciante_confidencial" in campos or "anunciante_confidencial" in payload:
+        campos["anunciante_confidencial"] = as_bool(
+            campos.get("anunciante_confidencial")
+            if "anunciante_confidencial" in campos
+            else payload.get("anunciante_confidencial")
+        )
     canais = [
         str(key)
         for key in as_list(payload.get("canais") if payload.get("canais") is not None else campos.get("canais"))

@@ -288,6 +288,39 @@ class SmartPlannerReferencesTest(unittest.TestCase):
         self.assertIn("references: refs.map", js)
         self.assertNotIn("textarea.value", insert.split("if (cards)", 1)[0])
 
+    def test_narrative_prompt_is_prose_and_strips_markdown(self):
+        self.assertNotIn("Use títulos ##", processor.NARRATIVE_PROMPT)
+        self.assertIn("não use markdown", processor.NARRATIVE_PROMPT.lower())
+        self.assertIn("anunciante", processor.NARRATIVE_PROMPT.lower())
+        with patch.object(processor, "chat_text", return_value="## Anunciante\n**COPASA** leva o app."):
+            out = processor.compose_narrative("x" * 80, {"cliente": "COPASA"})
+        self.assertNotIn("##", out)
+        self.assertNotIn("**", out)
+        self.assertIn("COPASA", out)
+
+    def test_narrative_redacts_confidential_name(self):
+        with patch.object(processor, "chat_text", return_value="A COPASA leva o app oficial."):
+            out = processor.compose_narrative(
+                "A COPASA precisa divulgar o app.",
+                {"cliente": "COPASA", "anunciante_confidencial": True},
+            )
+        self.assertNotIn("COPASA", out)
+        self.assertIn("o anunciante", out.lower())
+
+    def test_extract_drops_advertiser_gap_when_seeded(self):
+        gaps = processor._drop_advertiser_gaps(
+            ["nome do anunciante", "verba", "clientes da Copasa no público"],
+            {"cliente": "COPASA"},
+        )
+        self.assertNotIn("nome do anunciante", gaps)
+        self.assertIn("verba", gaps)
+
+    def test_start_page_asks_advertiser_and_confidential(self):
+        html = (Path(__file__).resolve().parents[1] / "aicentralv2" / "templates" / "smart_planner" / "start.html").read_text()
+        self.assertIn("Anunciante", html)
+        self.assertIn("Nome confidencial nos documentos", html)
+        self.assertNotIn("Cliente final", html)
+
 
 if __name__ == "__main__":
     unittest.main()

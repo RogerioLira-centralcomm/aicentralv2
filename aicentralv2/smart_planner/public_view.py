@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from .helpers import as_dict, as_list, normalize_markdown, plan_mode_of, session_title, text
+from .helpers import as_bool, as_dict, as_list, normalize_markdown, plan_mode_of, session_title, text
 from .share import HOUSE, public_sheet_url
 
 BOARD_IDS = ("context", "strategy", "media", "execution")
@@ -130,11 +130,13 @@ def public_view(row: dict) -> dict:
     meta = as_dict(folha.get("meta") or board.get("meta"))
     campanha = as_dict(dados.get("campanha"))
     title = session_title(row, dados)
-    client = text(meta.get("client") or row.get("cliente") or dados.get("cliente") or campanha.get("cliente"))
+    confidential = as_bool(dados.get("anunciante_confidencial"))
+    raw_client = text(meta.get("client") or row.get("cliente") or dados.get("cliente") or campanha.get("cliente"))
+    client = "Confidencial" if confidential else raw_client
     facts = [
         item
         for item in (
-            ("Cliente", client),
+            ("Anunciante", client),
             ("Campanha", text(meta.get("campaign") or row.get("nome_campanha") or dados.get("nome_campanha"))),
             ("Verba", text(meta.get("budget") or row.get("budget") or campanha.get("verba") or dados.get("verba"))),
             ("Praça", text(meta.get("market") or campanha.get("praca"))),

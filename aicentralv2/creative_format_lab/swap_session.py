@@ -162,6 +162,8 @@ class TrocrStore:
             "end_card_asset_id": version.get("end_card_asset_id") or "",
             "voiceover_asset_id": version.get("voiceover_asset_id") or "",
             "voiceover_script": version.get("voiceover_script") or "",
+            "storyboard_ids": version.get("storyboard_ids") or [],
+            "extended_from": version.get("extended_from") or "",
             "based_on_stale_revision": stale,
         }
         versions.append(row)

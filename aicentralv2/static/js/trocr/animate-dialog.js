@@ -1,5 +1,5 @@
 import { cancelAnimate, quoteAnimate, submitAnimate } from "./animate-api.js";
-import { bindLayers, layerIntents, refreshLayers, selectedToId, sourceMode } from "./animate-layers.js";
+import { bindLayers, layerIntents, refreshLayers, selectedExtendId, selectedRefIds, selectedToId, sourceMode } from "./animate-layers.js";
 import { startPoll } from "./animate-poller.js";
 import { animateState } from "./animate-store.js";
 import { $ } from "./animate-utils.js";
@@ -32,9 +32,16 @@ export function readForm() {
     },
     delivery,
     gif_window: document.querySelector("input[name=mcAnimateGifWindow]:checked")?.value || "first",
-    source: { mode: sourceMode(), to_id: selectedToId() },
+    source: {
+      mode: sourceMode(),
+      to_id: selectedToId(),
+      ref_ids: selectedRefIds(),
+      extended_from: selectedExtendId(),
+    },
     to_id: selectedToId(),
-    extra_ids: selectedToId() ? [selectedToId()] : [],
+    extra_ids: sourceMode() === "storyboard" ? selectedRefIds() : (selectedToId() ? [selectedToId()] : []),
+    ref_ids: selectedRefIds(),
+    extended_from: selectedExtendId(),
     layer_intents: layerIntents(),
     camadas_creative_id: window.__trocrAnimate?.camadasId?.() || "",
   };
@@ -62,12 +69,18 @@ export function bindDialog(context) {
   });
   $("mcAnimateVoiceover")?.addEventListener("input", () => refreshQuote(context));
   $("mcAnimateCancel")?.addEventListener("click", () => dialog.close());
+  $("mcAnimateAbort")?.addEventListener("click", async () => {
+    await cancelCurrent();
+    $("mcAnimateStatus").textContent = "Geração cancelada.";
+  });
   $("mcAnimateSubmit")?.addEventListener("click", () => submit(context));
   bindLayers(context);
   document.querySelectorAll("input[name=mcAnimateSource]").forEach((node) => {
     node.addEventListener("change", () => refreshQuote(context));
   });
   $("mcAnimateToId")?.addEventListener("change", () => refreshQuote(context));
+  $("mcAnimateExtendId")?.addEventListener("change", () => refreshQuote(context));
+  document.addEventListener("trocr:animate-source", () => refreshQuote(context));
 }
 
 export async function openDialog(context) {
@@ -82,9 +95,11 @@ export async function openDialog(context) {
   else if (flatRadio) flatRadio.checked = true;
   const toSelect = $("mcAnimateToId");
   if (toSelect) delete toSelect.dataset.ready;
+  const ratio = context.aspectRatio || "16:9";
+  const surface = ratio === "1:1" ? "display 1:1" : ratio;
   $("mcAnimateLead").textContent = linked
-    ? `${context.aspectRatio || "16:9"} · cena protegida`
-    : `${context.aspectRatio || "16:9"} · still achatado`;
+    ? `${surface} · cena protegida`
+    : `${surface} · still achatado`;
   await refreshLayers(context);
   await refreshQuote(context);
   dialog.showModal();
@@ -97,7 +112,7 @@ async function refreshQuote(context) {
     const brl = quote.estimated_cost_brl ?? quote.spent_brl ?? "—";
     const tts = quote.tts_estimated_cost_usd;
     const ttsBit = tts != null && tts !== "" ? ` · locução US$ ${tts}` : "";
-    $("mcAnimateQuote").textContent = `Seedance 2.5 · US$ ${usd}${ttsBit} · cerca de R$ ${brl} · 2 a 6 min`;
+    $("mcAnimateQuote").textContent = `Vídeo · US$ ${usd}${ttsBit} · cerca de R$ ${brl} · 2 a 6 min`;
     if ($("mcAnimateWarn") && quote.warning) $("mcAnimateWarn").textContent = quote.warning;
     if ($("mcAnimateVoiceoverHint") && quote.voiceover_words != null) {
       const fits = quote.voiceover_fits !== false;

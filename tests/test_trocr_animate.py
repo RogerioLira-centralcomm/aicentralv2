@@ -563,6 +563,202 @@ class TrocrAnimateVoiceoverTest(unittest.TestCase):
         self.assertEqual(wav[8:12], b"WAVE")
 
 
+class TrocrAnimateStoryboardTest(unittest.TestCase):
+    def test_storyboard_exige_tres_a_seis(self):
+        with self.assertRaises(ValueError) as missing:
+            build_plan({
+                "source": {"mode": "storyboard", "ref_ids": ["v1", "v2"]},
+                "require_refs": True,
+            })
+        self.assertIn("3 a 6", str(missing.exception))
+        plan = build_plan({
+            "source": {"mode": "storyboard", "ref_ids": ["v1", "v2", "v3"]},
+            "require_refs": True,
+        })
+        self.assertEqual(plan["source"]["ref_ids"], ["v1", "v2", "v3"])
+        self.assertIn("storyboard", plan["prompt"])
+        quoted = quote_animate({"source": {"mode": "storyboard"}})
+        self.assertIn("referências", quoted["warning"])
+
+    def test_extensao_usa_tarifa_de_video_e_sem_frame(self):
+        flat = build_plan({"duration": 8, "quality": "production", "aspect_ratio": "16:9"})
+        plan = build_plan({
+            "duration": 8,
+            "quality": "production",
+            "aspect_ratio": "16:9",
+            "source": {"mode": "extend_video", "extended_from": "v3"},
+        })
+        self.assertLess(plan["quote"]["estimated_cost_usd"], flat["quote"]["estimated_cost_usd"])
+        self.assertTrue(plan["quote"]["has_video_reference"])
+        self.assertIn("Continue the supplied clip", plan["prompt"])
+        quoted = quote_animate({"source": {"mode": "extend_video"}})
+        self.assertIn("referência de vídeo", quoted["warning"])
+
+    def test_worker_storyboard_manda_refs_sem_frames(self):
+        from io import BytesIO
+        from PIL import Image
+
+        buf = BytesIO()
+        Image.new("RGB", (64, 64), (20, 20, 20)).save(buf, format="PNG")
+        still = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+        plan = build_plan({
+            "duration": 5,
+            "quality": "draft",
+            "aspect_ratio": "1:1",
+            "source": {"mode": "storyboard", "ref_ids": ["v1", "v2", "v3"], "base_id": "v1"},
+            "require_refs": True,
+        })
+        plan["source"]["references"] = [still, still, still]
+        plan["source"]["reference"] = still
+        plan["reference"] = still
+        repo = MemoryMediaRepository()
+        job = repo.create_job({"plan_json": plan, "plan_hash": plan["plan_hash"], "quote_json": plan["quote"]})
+        captured = {}
+
+        def submit(*_a, **kwargs):
+            captured["frames"] = kwargs.get("frame_images")
+            captured["refs"] = kwargs.get("input_references")
+            return {"id": "or-1", "polling_url": "https://x/or-1", "status": "pending"}
+
+        worker = AnimateWorker(
+            repo,
+            persist_fn=lambda _job, _plan, version: version,
+            video={
+                "submit": submit,
+                "poll": lambda *a, **k: {"id": "or-1", "status": "completed"},
+                "download": lambda *_a, **_k: b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 40,
+            },
+        )
+        with patch("aicentralv2.creative_media.worker.POLL_INTERVAL", 0):
+            with patch("aicentralv2.creative_media.transcode.poster_jpg", side_effect=RuntimeError("skip")):
+                with patch("aicentralv2.creative_media.transcode.small_mp4", side_effect=RuntimeError("skip")):
+                    worker.run(job["public_id"])
+        self.assertFalse(captured["frames"])
+        self.assertEqual(len(captured["refs"]), 3)
+        self.assertEqual(captured["refs"][0]["type"], "image_url")
+        ready = repo.get_job(job["public_id"])
+        self.assertEqual(ready["version_payload"]["storyboard_ids"], ["v1", "v2", "v3"])
+
+    def test_worker_extensao_exige_https_publico(self):
+        plan = build_plan({
+            "duration": 5,
+            "quality": "draft",
+            "aspect_ratio": "1:1",
+            "source": {"mode": "extend_video", "extended_from": "v2", "base_id": "v2"},
+        })
+        plan["source"]["reference"] = "data:video/mp4;base64,AAAA"
+        repo = MemoryMediaRepository()
+        job = repo.create_job({"plan_json": plan, "plan_hash": plan["plan_hash"], "quote_json": plan["quote"]})
+        worker = AnimateWorker(
+            repo,
+            persist_fn=lambda _job, _plan, version: version,
+            video={
+                "submit": lambda *a, **k: {"id": "or-1", "status": "completed"},
+                "poll": lambda *a, **k: {"id": "or-1", "status": "completed"},
+                "download": lambda *_a, **_k: b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 40,
+            },
+        )
+        with patch("aicentralv2.creative_media.worker.POLL_INTERVAL", 0):
+            with self.assertRaises(ValueError) as blocked:
+                worker.run(job["public_id"])
+        self.assertIn("HTTPS pública", str(blocked.exception))
+
+        plan["source"]["video_url"] = "https://cdn.example.com/clip.mp4"
+        captured = {}
+
+        def submit(*_a, **kwargs):
+            captured["frames"] = kwargs.get("frame_images")
+            captured["refs"] = kwargs.get("input_references")
+            return {"id": "or-1", "polling_url": "https://x/or-1", "status": "pending"}
+
+        job2 = repo.create_job({"plan_json": plan, "plan_hash": plan["plan_hash"], "quote_json": plan["quote"]})
+        worker.video = {
+            "submit": submit,
+            "poll": lambda *a, **k: {"id": "or-1", "status": "completed"},
+            "download": lambda *_a, **_k: b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 40,
+        }
+        with patch("aicentralv2.creative_media.worker.POLL_INTERVAL", 0):
+            with patch("aicentralv2.creative_media.transcode.poster_jpg", side_effect=RuntimeError("skip")):
+                with patch("aicentralv2.creative_media.transcode.small_mp4", side_effect=RuntimeError("skip")):
+                    worker.run(job2["public_id"])
+        self.assertFalse(captured["frames"])
+        self.assertEqual(captured["refs"][0]["video_url"]["url"], "https://cdn.example.com/clip.mp4")
+
+
+class TrocrAnimateDisplayTest(unittest.TestCase):
+    def test_prompt_1x1_e_display_em_loop_nao_filme(self):
+        plan = build_plan({
+            "duration": 8,
+            "quality": "production",
+            "aspect_ratio": "1:1",
+            "source": {"mode": "flattened_still", "base_id": "v1"},
+            "motion": {"preset": "live", "intensity": "subtle"},
+            "audio": {"mode": "music", "music_note": "forró leve de festa junina"},
+        })
+        self.assertEqual(plan["format_surface"], "display_square")
+        self.assertEqual(plan["aspect_ratio"], "1:1")
+        self.assertEqual(plan["size"], "960x960")
+        self.assertIn("display loop", plan["prompt"])
+        self.assertIn("finished square display", plan["prompt"])
+        self.assertIn("artist names", plan["prompt"])
+        self.assertIn("Do not restack", plan["prompt"])
+        self.assertIn("forró leve", plan["prompt"])
+        from aicentralv2.creative_format_geometry import _family_from_size, format_direction
+        self.assertEqual(_family_from_size((640, 640)), "square_1x1")
+        direction = format_direction({
+            "slug": "instagram-feed",
+            "default_size": "640x640",
+            "mechanic": "static_display",
+        }, 1)
+        self.assertEqual(direction["orientation"], "square")
+        self.assertIn("aprovado", direction["beats"][0]["job"])
+
+    def test_worker_cai_no_fallback_quando_seedance_barra_pessoa_real(self):
+        from io import BytesIO
+        from PIL import Image
+        from aicentralv2.services.openrouter_service import OpenRouterError
+
+        plan = build_plan({
+            "duration": 8,
+            "quality": "draft",
+            "aspect_ratio": "1:1",
+            "source": {"mode": "flattened_still", "base_id": "v1"},
+        })
+        buf = BytesIO()
+        Image.new("RGB", (64, 64), (80, 40, 160)).save(buf, format="PNG")
+        still = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+        plan["reference"] = still
+        repo = MemoryMediaRepository()
+        job = repo.create_job({"plan_json": plan, "plan_hash": plan["plan_hash"], "quote_json": plan["quote"]})
+        models = []
+
+        def submit(_prompt, **kwargs):
+            models.append(kwargs.get("model"))
+            if kwargs.get("model") == "bytedance/seedance-2.5":
+                raise OpenRouterError("O Seedance recusou o still: a imagem parece ter uma pessoa real.")
+            return {"id": "or-fallback", "status": "pending"}
+
+        worker = AnimateWorker(
+            repo,
+            persist_fn=lambda _job, _plan, version: version,
+            video={
+                "submit": submit,
+                "poll": lambda *a, **k: {"id": "or-fallback", "status": "completed"},
+                "download": lambda *_a, **_k: b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 40,
+            },
+        )
+        with patch("aicentralv2.creative_media.worker.POLL_INTERVAL", 0):
+            with patch("aicentralv2.creative_media.transcode.poster_jpg", side_effect=RuntimeError("skip")):
+                with patch("aicentralv2.creative_media.transcode.small_mp4", side_effect=RuntimeError("skip")):
+                    worker.run(job["public_id"])
+        self.assertEqual(models[0], "bytedance/seedance-2.5")
+        self.assertEqual(models[1], "kwaivgi/kling-v3.0-pro")
+        ready = repo.get_job(job["public_id"])
+        self.assertEqual(ready["status"], "ready")
+        self.assertEqual((ready.get("plan_json") or {}).get("model"), "kwaivgi/kling-v3.0-pro")
+        self.assertTrue((ready.get("plan_json") or {}).get("model_fallback"))
+
+
 def _jpeg(image):
     from io import BytesIO
     buf = BytesIO()

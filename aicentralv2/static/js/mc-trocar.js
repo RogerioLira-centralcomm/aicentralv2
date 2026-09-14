@@ -138,6 +138,13 @@
         thumb: item.thumb || item.image,
         camadas_creative_id: item.camadas_creative_id || '',
       })),
+      videos: () => state.versions.filter((item) => item.media === 'video' && item.video_url).map((item) => ({
+        id: item.id,
+        name: item.name,
+        video_url: item.video_url,
+        poster_url: item.poster_url || item.thumb || item.image,
+        image: item.image,
+      })),
       activeStill: () => {
         const current = currentVersion();
         if (!current) return {};
@@ -258,7 +265,7 @@
       enableGenerate(canGenerate());
     });
     $('mcTrocrViewBtn')?.addEventListener('click', () => setViewMode('view'));
-    $('mcTrocrCompareBtn')?.addEventListener('click', () => setViewMode('compare'));
+    $('mcTrocrStillCompareBtn')?.addEventListener('click', () => setViewMode('compare'));
     $('mcTrocrZoomIn')?.addEventListener('click', () => setZoom(state.zoom + 0.1));
     $('mcTrocrZoomOut')?.addEventListener('click', () => setZoom(state.zoom - 0.1));
     $('mcTrocrZoomFit')?.addEventListener('click', () => setZoom(1));
@@ -1303,7 +1310,7 @@
         : versionLabel;
     }
     if (!list) return;
-    if ($('mcTrocrCompareBtn')) $('mcTrocrCompareBtn').disabled = state.versions.length < 2;
+    if ($('mcTrocrStillCompareBtn')) $('mcTrocrStillCompareBtn').disabled = state.versions.length < 2;
     list.innerHTML = state.versions.map((item) => {
       const current = item.id === state.activeId;
       const base = item.id === state.baseId;
@@ -1414,7 +1421,7 @@
   function setViewMode(mode) {
     state.viewMode = mode;
     $('mcTrocrViewBtn')?.classList.toggle('is-active', mode === 'view');
-    $('mcTrocrCompareBtn')?.classList.toggle('is-active', mode === 'compare');
+    $('mcTrocrStillCompareBtn')?.classList.toggle('is-active', mode === 'compare');
     const hasImage = Boolean(currentVersion()?.image);
     $('mcSwapDrop').hidden = hasImage;
     $('mcSwapPreview').hidden = !hasImage || mode === 'compare';
@@ -1529,6 +1536,8 @@
     const canAnimate = Boolean(currentVersion()?.image || currentVersion()?.video_url);
     if ($('mcTrocrAnimateBtn')) $('mcTrocrAnimateBtn').disabled = !canAnimate;
     if ($('mcTrocrAnimateFromGenerate')) $('mcTrocrAnimateFromGenerate').disabled = !canAnimate;
+    const canCompare = state.versions.filter((item) => item.media === 'video' && item.video_url).length >= 2;
+    if ($('mcTrocrClipCompareBtn')) $('mcTrocrClipCompareBtn').disabled = !canCompare;
   }
 
   function paintGoLabel() {
@@ -2136,6 +2145,8 @@
       scene_version: item.scene_version,
       voiceover_asset_id: item.voiceover_asset_id || '',
       voiceover_script: item.voiceover_script || '',
+      storyboard_ids: item.storyboard_ids || [],
+      extended_from: item.extended_from || '',
     })).filter((item) => item.image || item.video_url);
   }
 
@@ -2264,6 +2275,8 @@
               scene_version: item.scene_version,
               voiceover_asset_id: item.voiceover_asset_id || '',
               voiceover_script: item.voiceover_script || '',
+              storyboard_ids: item.storyboard_ids || [],
+              extended_from: item.extended_from || '',
             })),
           });
           applyStoredUrls(saved);

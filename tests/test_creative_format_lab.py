@@ -2039,7 +2039,7 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("9:16", trocar)
         self.assertIn("Rotacionar layout", trocar)
         self.assertIn("mcSwapElements", trocar)
-        self.assertIn("Editar criativo com IA", trocar)
+        self.assertIn("Cadu Media Studio", trocar)
         self.assertIn("Texto técnico", trocar)
         self.assertIn("mcTrocrOrder", trocar)
         self.assertIn("Ajuste da leitura", trocar)

@@ -2561,6 +2561,8 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertEqual(result["payload"]["duration_seconds"], 3)
         self.assertEqual(result["payload"]["source_asset_id"], 1)
         self.assertEqual(len(result["payload"]["image_inputs"]), 1)
+        self.assertIn("in-banner", result["payload"]["script"])
+        self.assertIn("loop", result["payload"]["script"])
         self.assertEqual(self.repo.jobs[-1]["args"][3], "display_motion_payload")
 
     def test_link_publico_usa_token_criptografico_e_preserva_ordem(self):
@@ -4535,6 +4537,23 @@ class CreativeUnfoldContractTest(unittest.TestCase):
         )
         self.assertIn("COMPLETE SOCIAL ADVERTISEMENT", prompt)
         self.assertIn("Coleção Outono", prompt)
+        self.assertIn("complete square display", apply_render_mode_to_prompt(
+            "Premium still of the product.",
+            "native",
+            feed,
+            {"cta": "Conheça"},
+            flow_kind="unfold",
+            locks={"headline": "Coleção Outono", "cta": "Conheça a coleção"},
+        ))
+        square = format_direction({
+            "slug": "instagram-feed",
+            "default_size": "640x640",
+            "mechanic": "static_display",
+        }, 1)
+        self.assertEqual(square["orientation"], "square")
+        self.assertIn("aprovado", square["beats"][0]["job"])
+        self.assertIn("still já for um display", BRIEF_SYSTEM)
+        self.assertIn("still já for um display", SCENE_BEAT_SYSTEM)
         self.assertIn("LOCK BLOCK FOR GPT IMAGE 2", prompt)
         self.assertNotIn("composed later", prompt)
         leader = apply_render_mode_to_prompt(

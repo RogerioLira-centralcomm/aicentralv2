@@ -15,6 +15,14 @@ export function selectedToId() {
   return $("mcAnimateToId")?.value || "";
 }
 
+export function selectedRefIds() {
+  return Array.from(document.querySelectorAll("input[name=mcAnimateRef]:checked")).map((node) => node.value);
+}
+
+export function selectedExtendId() {
+  return $("mcAnimateExtendId")?.value || "";
+}
+
 export function layerIntents() {
   const mapping = {};
   document.querySelectorAll("[data-layer-intent]").forEach((node) => {
@@ -32,12 +40,21 @@ export function bindLayers(context) {
   });
   $("mcAnimateMap")?.addEventListener("click", () => mapNow(context));
   $("mcAnimateToId")?.addEventListener("change", () => paintTransition(context));
+  $("mcAnimateExtendId")?.addEventListener("change", () => paintExtend());
 }
 
 export async function refreshLayers(context) {
   toggleSource();
   if (sourceMode() === "transition_ab") {
     paintTransition(context);
+    return;
+  }
+  if (sourceMode() === "storyboard") {
+    paintStoryboard();
+    return;
+  }
+  if (sourceMode() === "extend_video") {
+    paintExtend();
     return;
   }
   if (sourceMode() !== "protected_scene") return;
@@ -59,6 +76,8 @@ function toggleSource() {
   const mode = sourceMode();
   if ($("mcAnimateLayersWrap")) $("mcAnimateLayersWrap").classList.toggle("hidden", mode !== "protected_scene");
   if ($("mcAnimateTransitionWrap")) $("mcAnimateTransitionWrap").classList.toggle("hidden", mode !== "transition_ab");
+  if ($("mcAnimateStoryWrap")) $("mcAnimateStoryWrap").classList.toggle("hidden", mode !== "storyboard");
+  if ($("mcAnimateExtendWrap")) $("mcAnimateExtendWrap").classList.toggle("hidden", mode !== "extend_video");
   if (mode === "transition_ab") {
     const motion = document.querySelector("input[name=mcAnimateMotion][value=transition]");
     if (motion) motion.checked = true;
@@ -67,6 +86,8 @@ function toggleSource() {
     $("mcAnimateSourceHint").textContent = {
       protected_scene: "Textos e logos entram depois, como overlay.",
       transition_ab: "Esta transição trava o primeiro e o último quadro. Música de referência não entra.",
+      storyboard: "3 a 6 stills viram referências. Sem first frame.",
+      extend_video: "Continua o clipe. Cotação com referência de vídeo.",
     }[mode] || "Texto e logo podem variar no Seedance.";
   }
 }
@@ -95,6 +116,45 @@ function paintTransition(context) {
   const showSafe = ratio === "4:5";
   $("mcAnimateSafeA")?.classList.toggle("hidden", !showSafe);
   $("mcAnimateSafeB")?.classList.toggle("hidden", !showSafe);
+}
+
+function paintStoryboard() {
+  const list = $("mcAnimateStoryList");
+  const stills = window.__trocrAnimate?.stills?.() || [];
+  const selected = new Set(selectedRefIds());
+  if (!selected.size) stills.slice(0, 3).forEach((item) => selected.add(item.id));
+  if (list) {
+    list.innerHTML = stills.map((item) => (
+      `<li class="grid grid-cols-[auto_1fr] items-center gap-2">
+        <input type="checkbox" name="mcAnimateRef" value="${escapeHtml(item.id)}"${selected.has(item.id) ? " checked" : ""}>
+        <span class="truncate">${escapeHtml(item.name || item.id)}</span>
+      </li>`
+    )).join("");
+    list.querySelectorAll("input[name=mcAnimateRef]").forEach((node) => {
+      node.addEventListener("change", () => {
+        paintStoryCount();
+        document.dispatchEvent(new Event("trocr:animate-source"));
+      });
+    });
+  }
+  paintStoryCount();
+}
+
+function paintStoryCount() {
+  const count = selectedRefIds().length;
+  if ($("mcAnimateStoryCount")) {
+    $("mcAnimateStoryCount").textContent = `${count} selecionada${count === 1 ? "" : "s"} · use 3 a 6`;
+  }
+}
+
+function paintExtend() {
+  const select = $("mcAnimateExtendId");
+  const clips = window.__trocrAnimate?.videos?.() || [];
+  if (!select) return;
+  const current = select.value;
+  select.innerHTML = clips.map((item) => (
+    `<option value="${escapeHtml(item.id)}"${item.id === current ? " selected" : ""}>${escapeHtml(item.name || item.id)}</option>`
+  )).join("");
 }
 
 function paintLayers(data) {

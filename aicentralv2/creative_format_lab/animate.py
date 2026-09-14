@@ -40,6 +40,14 @@ VOICEOVER_WARNING = (
     "A locução é gerada à parte (Gemini TTS) e mixada no master. "
     "O Seedance não fala o roteiro. Sem lip-sync."
 )
+STORYBOARD_WARNING = (
+    "O storyboard manda 3 a 6 stills como referências, sem first frame. "
+    "Texto e logo podem variar."
+)
+EXTEND_WARNING = (
+    "A extensão continua o clipe escolhido. Sem first frame. "
+    "A cotação usa a tarifa de referência de vídeo."
+)
 
 
 def quote_animate(payload=None):
@@ -58,6 +66,10 @@ def quote_animate(payload=None):
                 "A está mapeada; B entra achatada. "
                 "O overlay do end card só existe se B também estiver no Camadas."
             )
+    if mode == "storyboard":
+        warning = STORYBOARD_WARNING
+    if mode == "extend_video":
+        warning = EXTEND_WARNING
     if plan.get("audio_mode") == "voiceover":
         warning = VOICEOVER_WARNING
         quote = plan.get("quote") or {}
@@ -105,6 +117,10 @@ class AnimateService:
         mode = str((data.get("source") or {}).get("mode") or data.get("source_mode") or "")
         if mode == "transition_ab":
             return self._submit_transition(data, history, version, user_id=user_id)
+        if mode == "storyboard":
+            return self._submit_storyboard(data, history, version, user_id=user_id)
+        if mode == "extend_video":
+            return self._submit_extend(data, history, version, user_id=user_id)
         snapshot = self._resolve_snapshot(data, version, user_id=user_id)
         if snapshot:
             data = {
@@ -214,6 +230,124 @@ class AnimateService:
         })
         self.spawn_job(self._run, job["public_id"])
         return job_payload(job)
+
+    def _submit_storyboard(self, data, history, version, user_id=None):
+        ids = _unique_ids(
+            data.get("ref_ids")
+            or (data.get("source") or {}).get("ref_ids")
+            or data.get("extra_ids")
+        )
+        if version.get("id") and version.get("id") not in ids:
+            ids.insert(0, version.get("id"))
+        if not (3 <= len(ids) <= 6):
+            raise ValueError("O storyboard precisa de 3 a 6 stills do mesmo run.")
+        stills = []
+        for ident in ids:
+            item = _find_exact_version(history, ident)
+            if not item:
+                raise ValueError("Uma versão do storyboard não está neste run.")
+            if str(item.get("media") or "") == "video":
+                raise ValueError("O storyboard aceita só stills, não clipes.")
+            reference = self.store.materialize_reference(item.get("image_url") or item.get("image") or "")
+            if not reference:
+                raise ValueError("Não foi possível ler um still do storyboard.")
+            stills.append((ident, reference))
+        packed = {
+            **data,
+            "source": {
+                **(data.get("source") if isinstance(data.get("source"), dict) else {}),
+                "mode": "storyboard",
+                "base_id": version.get("id") or ids[0],
+                "ref_ids": [item[0] for item in stills],
+            },
+            "ref_ids": [item[0] for item in stills],
+            "extra_ids": [item[0] for item in stills],
+            "require_refs": True,
+        }
+        plan = build_plan(packed)
+        plan["source"]["base_id"] = version.get("id") or ids[0]
+        plan["source"]["ref_ids"] = [item[0] for item in stills]
+        plan["source"]["references"] = [item[1] for item in stills]
+        plan["source"]["reference"] = stills[0][1]
+        plan["reference"] = stills[0][1]
+        job = self.repository.create_job({
+            "user_id": user_id,
+            "client_id": data.get("client_id") or history.get("client_id"),
+            "run_id": history.get("run_id") or data.get("run_id") or "",
+            "source_version_id": version.get("id") or "",
+            "source_revision": history.get("revision"),
+            "plan_json": plan,
+            "plan_hash": plan.get("plan_hash"),
+            "quote_json": plan.get("quote") or {},
+            "model": plan.get("model"),
+            "seed": plan.get("seed"),
+        })
+        self.spawn_job(self._run, job["public_id"])
+        return job_payload(job)
+
+    def _submit_extend(self, data, history, version, user_id=None):
+        clip_id = str(
+            data.get("extended_from")
+            or (data.get("source") or {}).get("extended_from")
+            or version.get("id")
+            or ""
+        )
+        clip = _find_exact_version(history, clip_id) or version
+        if str(clip.get("media") or "") != "video":
+            raise ValueError("Selecione um clipe para estender.")
+        reference = self._materialize_video(clip)
+        if not reference:
+            raise ValueError("Não foi possível ler o clipe de origem.")
+        packed = {
+            **data,
+            "source": {
+                **(data.get("source") if isinstance(data.get("source"), dict) else {}),
+                "mode": "extend_video",
+                "base_id": clip.get("id") or "",
+                "extended_from": clip.get("id") or "",
+            },
+            "extended_from": clip.get("id") or "",
+        }
+        plan = build_plan(packed)
+        plan["source"]["base_id"] = clip.get("id") or ""
+        plan["source"]["extended_from"] = clip.get("id") or ""
+        plan["source"]["reference"] = reference
+        plan["reference"] = reference
+        job = self.repository.create_job({
+            "user_id": user_id,
+            "client_id": data.get("client_id") or history.get("client_id"),
+            "run_id": history.get("run_id") or data.get("run_id") or "",
+            "source_version_id": clip.get("id") or "",
+            "source_revision": history.get("revision"),
+            "plan_json": plan,
+            "plan_hash": plan.get("plan_hash"),
+            "quote_json": plan.get("quote") or {},
+            "model": plan.get("model"),
+            "seed": plan.get("seed"),
+        })
+        self.spawn_job(self._run, job["public_id"])
+        return job_payload(job)
+
+    def _materialize_video(self, version):
+        asset_id = str((version or {}).get("master_asset_id") or "")
+        if asset_id:
+            try:
+                path, mime = self.asset_file(asset_id)
+                raw = path.read_bytes()
+                if raw:
+                    return f"data:{mime or 'video/mp4'};base64,{base64.b64encode(raw).decode('ascii')}"
+            except Exception:
+                pass
+        url = str((version or {}).get("video_url") or "")
+        if url.startswith("data:video/") and "," in url:
+            return url
+        if url.startswith(("http://", "https://")):
+            import requests
+
+            response = requests.get(url, timeout=60)
+            response.raise_for_status()
+            return "data:video/mp4;base64," + base64.b64encode(response.content).decode("ascii")
+        return ""
 
     def status(self, job_id):
         try:
@@ -439,6 +573,14 @@ class AnimateService:
         extra.setdefault("transition_to", (plan.get("source") or {}).get("to_id") or "")
         extra.setdefault("voiceover_asset_id", extra.get("voiceover_asset_id") or "")
         extra.setdefault("voiceover_script", plan.get("voiceover_script") or "")
+        extra.setdefault("storyboard_ids", (plan.get("source") or {}).get("ref_ids") or extra.get("storyboard_ids") or [])
+        extra.setdefault("extended_from", (plan.get("source") or {}).get("extended_from") or extra.get("extended_from") or "")
+        extra.setdefault(
+            "name",
+            "Extensão" if (plan.get("source") or {}).get("mode") == "extend_video"
+            else "Storyboard" if (plan.get("source") or {}).get("mode") == "storyboard"
+            else extra.get("name") or "Animação",
+        )
         stored = self.store.persist_animate(payload, extra, user_id=job.get("user_id"))
         return stored or extra
 
@@ -546,6 +688,15 @@ class AnimateService:
             if int(live.get("scene_version") or 0) > int((snap or {}).get("scene_version") or 0):
                 return True
         return False
+
+
+def _unique_ids(raw):
+    ids = []
+    for item in list(raw or []):
+        text = str(item or "").strip()
+        if text and text not in ids:
+            ids.append(text)
+    return ids
 
 
 def _find_exact_version(history, version_id):

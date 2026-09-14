@@ -96,6 +96,9 @@ UNFOLD_SOCIAL_COMPLETE = """COMPLETE SOCIAL ADVERTISEMENT
 Paint the finished advertising piece, including locked headline, supporting
 line, CTA and logo, inside the target social rectangle.
 The first attached image is the KV: treat it as visual truth, not mood.
+If the KV is already a complete square display (lineup, dates, names,
+sponsor lockup), keep that composition. Do not restack into visual-on-top
+and headline-in-a-lower-band.
 Do not invent a device mockup, feed chrome, like-bar or extra UI.
 Keep every locked string verbatim in Brazilian Portuguese."""
 

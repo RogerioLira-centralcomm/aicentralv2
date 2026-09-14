@@ -7,14 +7,20 @@ import logging
 import time
 from datetime import datetime, timezone
 
-from ..services.openrouter_service import download_video, generate_speech, generate_video, poll_video
+from ..services.openrouter_service import (
+    download_video,
+    generate_speech,
+    generate_video,
+    is_real_person_block,
+    poll_video,
+)
 from .voiceover import spoken_input
 from .composition.compositor import crop_video, overlay_video
 from .composition.overlay_renderer import render_overlay
 from .composition.plate_renderer import render_plate
 from .geometry import crop_box_4x5, prepare_frame
 from .public import asset_url
-from .settings import POLL_INTERVAL
+from .settings import FALLBACK_MAX_DURATION, FALLBACK_MODEL, POLL_INTERVAL
 from . import storage, transcode
 
 logger = logging.getLogger(__name__)
@@ -42,19 +48,9 @@ class AnimateWorker:
             plan = claimed.get("plan_json") or {}
             self._stage(job_id, "prepare", 8, "Preparando composição")
             frames = self._frames(plan)
-            self._stage(job_id, "submit", 18, "Enviando ao Seedance")
-            submitted = self.video["submit"](
-                plan.get("prompt") or "",
-                model=plan.get("model"),
-                duration=plan.get("duration") or 8,
-                resolution=plan.get("resolution") or "720p",
-                aspect_ratio=plan.get("aspect_ratio") or "16:9",
-                size=plan.get("size"),
-                generate_audio=bool(plan.get("generate_audio")),
-                frame_images=frames,
-                seed=plan.get("seed"),
-                req_key=plan.get("plan_hash"),
-            )
+            refs = self._references(plan)
+            self._stage(job_id, "submit", 18, "Enviando ao modelo")
+            submitted = self._submit(job_id, plan, frames, refs)
             self.repository.update_job(
                 job_id,
                 provider_job_id=submitted.get("id") or "",
@@ -168,12 +164,74 @@ class AnimateWorker:
             )
         raise TimeoutError("A geração excedeu o tempo máximo.")
 
+    def _submit(self, job_id, plan, frames, refs):
+        kwargs = {
+            "model": plan.get("model"),
+            "duration": plan.get("duration") or 8,
+            "resolution": plan.get("resolution") or "720p",
+            "aspect_ratio": plan.get("aspect_ratio") or "16:9",
+            "size": plan.get("size"),
+            "generate_audio": bool(plan.get("generate_audio")),
+            "frame_images": frames or None,
+            "input_references": refs or None,
+            "seed": plan.get("seed"),
+            "req_key": plan.get("plan_hash"),
+        }
+        try:
+            return self.video["submit"](plan.get("prompt") or "", **kwargs)
+        except Exception as exc:
+            fallback = (FALLBACK_MODEL or "").strip()
+            if not fallback or fallback == kwargs["model"] or not is_real_person_block(exc):
+                raise
+            logger.warning("Seedance recusou pessoa real em %s; tentando %s", job_id, fallback)
+            self._stage(job_id, "submit", 22, "Reenviando sem o filtro de pessoa real")
+            kwargs["model"] = fallback
+            kwargs["size"] = None
+            kwargs["duration"] = min(int(kwargs["duration"] or 8), FALLBACK_MAX_DURATION)
+            if str(fallback).startswith("kwaivgi/kling"):
+                kwargs["resolution"] = "720p"
+            submitted = self.video["submit"](plan.get("prompt") or "", **kwargs)
+            plan["model"] = fallback
+            plan["model_fallback"] = True
+            self.repository.update_job(job_id, plan_json=plan)
+            return submitted
+
     def _frames(self, plan):
+        mode = (plan.get("source") or {}).get("mode") or ""
+        if mode in {"storyboard", "extend_video"}:
+            return []
         first = self._encode_frame(self._plate_bytes(plan), plan, "first_frame")
         frames = [first]
-        if (plan.get("source") or {}).get("mode") == "transition_ab":
+        if mode == "transition_ab":
             frames.append(self._encode_frame(self._plate_bytes(plan, side="b"), plan, "last_frame"))
         return frames
+
+    def _references(self, plan):
+        mode = (plan.get("source") or {}).get("mode") or ""
+        if mode == "storyboard":
+            refs = []
+            for raw in (plan.get("source") or {}).get("references") or []:
+                refs.append(self._encode_image_ref(_decode_still(raw), plan))
+            if not refs:
+                raise ValueError("O storyboard precisa das stills materializadas.")
+            return refs[:6]
+        if mode == "extend_video":
+            url = str((plan.get("source") or {}).get("video_url") or plan.get("video_url") or "")
+            if url.startswith(("https://", "http://")) and "openrouter.ai/api/v1/videos/" not in url:
+                return [{"type": "video_url", "video_url": {"url": url}}]
+            raise ValueError(
+                "A extensão precisa de uma URL HTTPS pública do clipe. "
+                "Data URL e a URL autenticada da OpenRouter não entram no Seedance."
+            )
+        return []
+
+    def _encode_image_ref(self, raw, plan):
+        prepared = prepare_frame(raw, plan.get("piece_ratio") or "16:9", plan.get("resolution") or "720p")
+        encoded = base64.b64encode(prepared).decode("ascii")
+        return {
+            "type": "image_url",
+            "image_url": {"url": f"data:image/jpeg;base64,{encoded}"},
+        }
 
     def _encode_frame(self, raw, plan, frame_type):
         prepared = prepare_frame(raw, plan.get("piece_ratio") or "16:9", plan.get("resolution") or "720p")
@@ -340,6 +398,8 @@ class AnimateWorker:
             "has_audio": bool(plan.get("generate_audio") or plan.get("audio_mode") == "voiceover"),
             "voiceover_asset_id": voiceover_id,
             "voiceover_script": plan.get("voiceover_script") or "",
+            "storyboard_ids": source.get("ref_ids") or [],
+            "extended_from": source.get("extended_from") or "",
             "seedance_base_asset_id": base["public_id"],
             "master_asset_id": master["public_id"],
             "poster_asset_id": poster_id,
@@ -486,8 +546,15 @@ def _optional_still(value):
 
 
 def _decode_still(value):
+    data = _decode_media(value)
+    if not data:
+        raise ValueError("Still inválido para o first frame.")
+    return data
+
+
+def _decode_media(value):
     text = str(value or "")
-    if text.startswith("data:image/") and "," in text:
+    if text.startswith("data:") and "," in text:
         return base64.b64decode(text.split(",", 1)[1])
     if text.startswith(("http://", "https://")):
         import requests
@@ -495,4 +562,4 @@ def _decode_still(value):
         response = requests.get(text, timeout=30)
         response.raise_for_status()
         return response.content
-    raise ValueError("Still inválido para o first frame.")
+    return b""

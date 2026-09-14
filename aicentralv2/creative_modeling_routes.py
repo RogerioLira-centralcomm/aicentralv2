@@ -158,8 +158,8 @@ MC_DESKS = {
         "page_js": "js/mc-camadas.js",
     },
     "trocar": {
-        "title": "Editar criativo com IA",
-        "lead": "Envie um criativo, ajuste o que deseja alterar e gere novas versões sem perder as anteriores.",
+        "title": "Cadu Media Studio®",
+        "lead": "Still, troca, display animado, locução e comparação no mesmo ciclo.",
         "panel": "parametros/_mc_trocar.html",
         "studio": False,
         "page_js": "js/mc-trocar.js",

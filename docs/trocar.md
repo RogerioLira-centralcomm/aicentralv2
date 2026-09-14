@@ -2,7 +2,7 @@
 
 Editor generativo de criativo a partir de **uma imagem de entrada**. Troca um item da peça — headline, apoio, preço, CTA, pessoas, fundo — e guarda cada tentativa no histórico.
 
-A mesa vive em `/parametros/modelagem-criativos/trocar`. Na tela o produto se chama **Trocr**. O chrome da Modelagem não muda.
+A mesa vive em `/parametros/modelagem-criativos/trocar`. Na tela o produto se chama **Cadu Media Studio®**. O chrome da Modelagem não muda. URLs e IDs internos continuam `trocar` / `trocr`.
 
 Não é a Mesa de Conceito 15s. Não monta roteiro, não fecha HTML de canal e não recorta camadas. Uma foto basta.
 
@@ -754,6 +754,8 @@ Do typeset, depois deste lab:
 Continuação do Trocar. Um still vira clipe de 5–30 s. O PNG original permanece.
 
 - Modelo fixo `bytedance/seedance-2.5`. Rascunho 480p, produção 720p. Sem cair para Mini.
+- Display 1:1 (Spotify, feed, IAB quadrado): o prompt trata a peça como unidade em loop, não filme. Tipo, nomes, datas e logos ficam travados; o motion vai para bandeira, luz e microgesto.
+- Se o Seedance recusar still com pessoa real (`PrivacyInformation`), o worker tenta uma vez `CREATIVE_VIDEO_FALLBACK_MODEL` (padrão `kwaivgi/kling-v3.0-pro`). Sem exceção ByteDance no OpenRouter.
 - `POST /api/format-lab/swap/animate/quote` e `POST .../animate` (CSRF). `GET .../animate/<job_id>` só lê.
 - Worker em thread (`creative_media.worker`) baixa, transcodifica e grava. GET não materializa.
 - Still achatado ou **cena protegida** (`protected_scene`): snapshot imutável da Camadas no job. Sem snapshot válido → 400.
@@ -764,4 +766,7 @@ Continuação do Trocar. Um still vira clipe de 5–30 s. O PNG original permane
 - Ativos em `GET /parametros/api/media/assets/<id>/content`.
 - Transição A→B: `first_frame` + `last_frame`, mesma proporção Seedance, sem `input_references`. Overlay B só no último segundo.
 - Locução exata (`audio.mode=voiceover`): roteiro literal via OpenRouter `POST /api/v1/audio/speech` (`google/gemini-3.1-flash-tts-preview`). Homem=`Charon`, mulher=`Kore`. Mix + ducking no ffmpeg depois do Seedance. Sem lip-sync. Sem TTS o modo `voice` continua só orientação.
+- Storyboard (`source.mode=storyboard`): 3 a 6 stills do mesmo run entram só em `input_references`. Sem `frame_images`.
+- Extensão (`source.mode=extend_video`): `input_references` com `video_url` **HTTPS pública**. Data URL e `unsigned_urls` autenticadas da OpenRouter são recusadas pelo Seedance. Cotação usa `TOKEN_USD_VIDEO_REF`. Sem first frame.
+- Compare: dois clipes do run no mesmo play/pause. Sem job Seedance. Sem lip-sync.
 - Versão `origin: animate`. Conclusão faz append sem 409.

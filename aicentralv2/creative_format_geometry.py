@@ -207,13 +207,13 @@ FAMILY_BUDGET = {
         "summary": "respeitar a mecânica; no máximo 3 marcadores ligados",
     },
     "square_1x1": {
-        "max_marks": 1,
+        "max_marks": 2,
         "max_headlines": 1,
         "max_ctas": 1,
         "max_icons": 0,
-        "max_copy_blocks": 2,
+        "max_copy_blocks": 4,
         "allow_leader_lines": False,
-        "summary": "peça social completa: 1 headline, 1 CTA, marca intacta",
+        "summary": "peça 1:1 completa: headline, datas/nomes, até 2 marcas; display aprovado não se reempilha",
     },
     "story_9x16": {
         "max_marks": 1,
@@ -624,8 +624,8 @@ _FAMILY_LAYOUT = {
         "9:16 portrait. Visual in the usable center. Copy below. CTA above the lower safe area.",
     ),
     "square_1x1": (
-        "Quadrado. Visual no bloco superior, título na faixa de baixo, CTA no rodapé.",
-        "Square. Visual in the upper block, headline in the lower band, CTA in the footer.",
+        "Quadrado 1:1. Peça nova: visual no bloco superior, título na faixa de baixo, CTA no rodapé. Display já aprovado (elenco, datas, nomes, lockup): preserve a composição — não reempilhe.",
+        "Square 1:1. New piece: visual in the upper block, headline in the lower band, CTA in the footer. Finished approved display (lineup, dates, names, lockup): keep that composition — do not restack.",
     ),
     "landscape_social": (
         "Paisagem social. Visual à esquerda, título e CTA empilhados à direita.",
@@ -668,8 +668,8 @@ _STATIC_FAMILY_BEATS = {
     ),
     "square_1x1": (
         "composicao_final",
-        "Feed quadrado",
-        "Quadrado. Visual no bloco de cima, título na faixa de baixo, CTA centrado no rodapé.",
+        "Display quadrado",
+        "Unidade 1:1 completa neste retângulo. Se o still já é um display aprovado (elenco, datas, nomes, lockup), preserve essa composição — não reempilhe visual em cima e título embaixo. Peça nova: visual no bloco de cima, título na faixa de baixo, CTA no rodapé.",
         ["background", "images", "title", "text", "logo", "cta"],
     ),
     "landscape_social": (

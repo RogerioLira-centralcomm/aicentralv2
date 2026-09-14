@@ -12,6 +12,14 @@
     <input type="radio" name="mcAnimateSource" value="transition_ab">
     <span>Transição A → B</span>
   </label>
+  <label class="mt-2 flex cursor-pointer gap-2 text-sm">
+    <input type="radio" name="mcAnimateSource" value="storyboard">
+    <span>Storyboard 3–6 stills</span>
+  </label>
+  <label class="mt-2 flex cursor-pointer gap-2 text-sm">
+    <input type="radio" name="mcAnimateSource" value="extend_video">
+    <span>Estender clipe</span>
+  </label>
   <p class="mt-2 text-sm text-slate-600" id="mcAnimateSourceHint">Texto e logo podem variar no Seedance.</p>
   <div class="mt-3 hidden space-y-3" id="mcAnimateTransitionWrap">
     <p class="text-sm text-slate-600">A é a versão ativa. Escolha B no mesmo formato.</p>
@@ -35,6 +43,18 @@
         <figcaption class="text-sm text-slate-500" id="mcAnimateCapB">B</figcaption>
       </figure>
     </div>
+  </div>
+  <div class="mt-3 hidden space-y-2" id="mcAnimateStoryWrap">
+    <p class="text-sm text-slate-600">Marque 3 a 6 stills do mesmo run, na ordem do clipe.</p>
+    <p class="text-sm text-slate-500" id="mcAnimateStoryCount">0 selecionadas</p>
+    <ul class="m-0 max-h-48 list-none space-y-1 overflow-y-auto p-0 text-sm" id="mcAnimateStoryList"></ul>
+  </div>
+  <div class="mt-3 hidden space-y-2" id="mcAnimateExtendWrap">
+    <p class="text-sm text-slate-600">Continua o clipe. Sem first frame.</p>
+    <label class="cx-field">
+      <span class="cx-label">Clipe de origem</span>
+      <select class="cx-select" id="mcAnimateExtendId"></select>
+    </label>
   </div>
   <div class="mt-3 hidden space-y-2" id="mcAnimateLayersWrap">
     <div class="flex flex-wrap items-center gap-2">

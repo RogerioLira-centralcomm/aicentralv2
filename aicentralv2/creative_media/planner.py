@@ -7,7 +7,7 @@ import json
 
 from .composition.scene_snapshot import snapshot_fingerprint, validate_snapshot
 from .geometry import map_aspect, output_size
-from .prompts import build_prompt
+from .prompts import build_prompt, format_surface
 from .quoting import merge_video_tts_quote, quote_tts, quote_video
 from .settings import (
     DRAFT_RESOLUTION,
@@ -15,6 +15,8 @@ from .settings import (
     MAX_DURATION,
     MODEL,
     PRODUCTION_RESOLUTION,
+    STORYBOARD_MAX,
+    STORYBOARD_MIN,
     TTS_MODEL,
 )
 from .voiceover import (
@@ -36,8 +38,12 @@ def build_plan(payload=None) -> dict:
     data = payload if isinstance(payload, dict) else {}
     source = data.get("source") if isinstance(data.get("source"), dict) else {}
     mode = str(source.get("mode") or data.get("source_mode") or "flattened_still")
-    if mode not in {"flattened_still", "protected_scene", "transition_ab"}:
+    if mode not in {"flattened_still", "protected_scene", "transition_ab", "storyboard", "extend_video"}:
         raise ValueError("Modo de origem inválido.")
+    ref_ids = _collect_ids(source.get("ref_ids") or data.get("ref_ids") or data.get("extra_ids"))
+    if mode == "storyboard" and data.get("require_refs"):
+        if not (STORYBOARD_MIN <= len(ref_ids) <= STORYBOARD_MAX):
+            raise ValueError("O storyboard precisa de 3 a 6 stills do mesmo run.")
     snapshot = _ready_snapshot(data.get("scene_snapshot") or source.get("snapshot"))
     snapshot_a = _ready_snapshot(data.get("snapshot_a") or source.get("snapshot_a"))
     snapshot_b = _ready_snapshot(data.get("snapshot_b") or source.get("snapshot_b"))
@@ -106,6 +112,8 @@ def build_plan(payload=None) -> dict:
             "mode": mode,
             "base_id": str(source.get("base_id") or data.get("base_id") or ""),
             "to_id": str(source.get("to_id") or data.get("to_id") or (data.get("extra_ids") or [None])[0] or ""),
+            "ref_ids": ref_ids,
+            "extended_from": str(source.get("extended_from") or data.get("extended_from") or ""),
             "run_id": str(data.get("run_id") or ""),
             "piece_ratio": piece,
             "camadas_creative_id": str(
@@ -124,6 +132,7 @@ def build_plan(payload=None) -> dict:
         "quality": quality,
         "aspect_ratio": seedance,
         "piece_ratio": piece,
+        "format_surface": format_surface(piece),
         "width": width,
         "height": height,
         "size": f"{width}x{height}",
@@ -149,6 +158,7 @@ def build_plan(payload=None) -> dict:
         duration=duration,
         resolution=resolution,
         piece_ratio=piece,
+        has_video_reference=mode == "extend_video",
     )
     if audio_mode == "voiceover" and voiceover_script:
         quote = merge_video_tts_quote(quote, quote_tts(voiceover_script))
@@ -179,6 +189,7 @@ def public_quote(plan: dict) -> dict:
         "voiceover_words": quote.get("voiceover_words"),
         "voiceover_budget": quote.get("voiceover_budget"),
         "voiceover_fits": quote.get("voiceover_fits"),
+        "has_video_reference": quote.get("has_video_reference"),
         "exchange_rate": quote.get("exchange_rate"),
         "exchange_rate_at": quote.get("exchange_rate_at"),
     }
@@ -187,6 +198,15 @@ def public_quote(plan: dict) -> dict:
 def _hashable(plan):
     skip = {"quote", "prompt"}
     return {key: value for key, value in plan.items() if key not in skip}
+
+
+def _collect_ids(raw):
+    ids = []
+    for item in list(raw or []):
+        text = str(item or "").strip()
+        if text and text not in ids:
+            ids.append(text)
+    return ids
 
 
 def _ready_snapshot(raw):

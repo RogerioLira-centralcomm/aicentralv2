@@ -270,6 +270,48 @@ def _image_error_message(response):
     return "Não foi possível gerar a imagem."
 
 
+def _video_error_message(response):
+    status = getattr(response, "status_code", None)
+    if status in (401, 403):
+        return "A credencial OpenRouter não foi aceita."
+    if status == 402:
+        return "O saldo da conta OpenRouter é insuficiente."
+    if status == 429:
+        return "O OpenRouter limitou as gerações. Aguarde e tente novamente."
+    if status and status >= 500:
+        return "O provedor de vídeo está indisponível no momento."
+    detail = ""
+    try:
+        payload = response.json() if response is not None else {}
+        error = payload.get("error") if isinstance(payload, dict) else {}
+        detail = str(error.get("message") or error.get("code") or "")
+    except (AttributeError, TypeError, ValueError):
+        detail = ""
+    lower = detail.lower()
+    if is_real_person_block(detail):
+        return "O Seedance recusou o still: a imagem parece ter uma pessoa real."
+    if "only https" in lower or "invalid reference url" in lower:
+        return "A referência de vídeo precisa ser uma URL HTTPS pública. Data URL e URL autenticada não entram."
+    if "resource download failed" in lower:
+        return "O Seedance não conseguiu baixar o vídeo de referência. Use uma URL HTTPS pública."
+    if status == 400 and detail:
+        return f"O provedor recusou o vídeo: {detail[:240]}"
+    return "Não foi possível enviar o vídeo."
+
+
+def is_real_person_block(exc_or_text):
+    """True quando o provedor (Seedance) recusa still com pessoa real."""
+    text = str(getattr(exc_or_text, "args", [exc_or_text])[0] if not isinstance(exc_or_text, str) else exc_or_text)
+    if not text and exc_or_text is not None:
+        text = str(exc_or_text)
+    lower = text.lower()
+    return (
+        "pessoa real" in lower
+        or "real person" in lower
+        or "privacyinformation" in lower
+    )
+
+
 GPT_IMAGE_BACKGROUNDS = frozenset({"auto", "opaque"})
 
 
@@ -507,7 +549,7 @@ def generate_video(
             "usage": data.get("usage") or {},
         }
     except requests.HTTPError as exc:
-        raise OpenRouterError(_image_error_message(getattr(exc, "response", None))) from exc
+        raise OpenRouterError(_video_error_message(getattr(exc, "response", None))) from exc
     except (requests.RequestException, ValueError, KeyError) as exc:
         raise OpenRouterError("Não foi possível enviar o vídeo.") from exc
 
@@ -535,7 +577,7 @@ def poll_video(job_id: str, polling_url: Optional[str] = None, timeout: int = 60
             "model": data.get("model") or "",
         }
     except requests.HTTPError as exc:
-        raise OpenRouterError(_image_error_message(getattr(exc, "response", None))) from exc
+        raise OpenRouterError(_video_error_message(getattr(exc, "response", None))) from exc
     except (requests.RequestException, ValueError, KeyError) as exc:
         raise OpenRouterError("Não foi possível consultar o vídeo.") from exc
 
@@ -580,7 +622,7 @@ def download_video(job_id: str, *, index: int = 0, timeout: int = 120) -> bytes:
     except OpenRouterError:
         raise
     except requests.HTTPError as exc:
-        raise OpenRouterError(_image_error_message(getattr(exc, "response", None))) from exc
+        raise OpenRouterError(_video_error_message(getattr(exc, "response", None))) from exc
     except (requests.RequestException, ValueError) as exc:
         raise OpenRouterError("Não foi possível baixar o vídeo.") from exc
 

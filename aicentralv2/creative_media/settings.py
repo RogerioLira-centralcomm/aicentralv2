@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 
 MODEL = os.getenv("CREATIVE_VIDEO_MODEL", "bytedance/seedance-2.5")
+FALLBACK_MODEL = os.getenv("CREATIVE_VIDEO_FALLBACK_MODEL", "kwaivgi/kling-v3.0-pro")
+FALLBACK_MAX_DURATION = max(4, min(int(os.getenv("CREATIVE_VIDEO_FALLBACK_MAX_SECONDS", "8") or 8), 10))
 DRAFT_RESOLUTION = os.getenv("CREATIVE_VIDEO_DRAFT_RESOLUTION", "480p")
 PRODUCTION_RESOLUTION = os.getenv("CREATIVE_VIDEO_PRODUCTION_RESOLUTION", "720p")
 POLL_INTERVAL = max(3, int(os.getenv("CREATIVE_VIDEO_POLL_INTERVAL_SECONDS", "5") or 5))
@@ -13,6 +15,8 @@ TOKEN_USD = 0.0000107
 TOKEN_USD_VIDEO_REF = 0.0000064
 FPS_FOR_QUOTE = 24
 DURATIONS = (5, 8, 10, 15, 20, 30)
+STORYBOARD_MIN = 3
+STORYBOARD_MAX = 6
 
 TTS_MODEL = os.getenv("CREATIVE_TTS_MODEL", "google/gemini-3.1-flash-tts-preview")
 TTS_INPUT_USD = 0.000001
@@ -45,7 +49,7 @@ SIZES = {
 
 UI_STAGES = (
     ("prepare", "Preparando composição"),
-    ("submit", "Enviando ao Seedance"),
+    ("submit", "Enviando ao modelo"),
     ("queue", "Aguardando na fila"),
     ("generate", "Gerando movimento"),
     ("download", "Baixando master"),

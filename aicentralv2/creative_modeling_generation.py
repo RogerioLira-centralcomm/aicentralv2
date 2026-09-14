@@ -56,8 +56,12 @@ headline, CTA, logo). Um banner horizontal não usa a grade de um story
 vertical. Não invente outra composição.
 Preserve a bíblia visual e o DNA da marca. Não recicle a composição anterior.
 A mensagem da campanha, a oferta do pack e o CTA são trava: não invente
-história, produto ou benefício paralelos. Proibido raios, partículas, redes
-neurais, glow de conexão e still com cara de IA.
+história, produto ou benefício paralelos. Se o still já for um display
+completo (1:1, IAB, elenco, datas, nomes, lockup), preserve essa composição:
+toda copy visível, nome, data e logo é trava. Não reempilhe visual em cima e
+título embaixo. Display animado é o mesmo retângulo em loop, não um filme.
+Proibido raios, partículas, redes neurais, glow de conexão e still com cara
+de IA.
 Se campaign_pack existir, ele é a oferta desta campanha: use extracted e as
 imagens do pack. Logo e cores só assinam. creative_line não recicla oferta.
 Retorne JSON puro com:
@@ -71,7 +75,11 @@ Crie um roteiro que conecte exatamente quatro imagens na ordem informada.
 Retorne JSON puro com:
 {"title":"...", "duration_seconds":15, "voiceover_pt":"...",
 "shots":[{"position":1,"seconds":"0-3","direction":"..."}],
-"endcard":"..."}. Não cite plataformas como se fossem a marca anunciante."""
+"endcard":"..."}. Não cite plataformas como se fossem a marca anunciante.
+Se format.direction.orientation for quadrado ou o still for um display
+completo (1:1, IAB, elenco, datas, nomes, lockup), os quatro shots acontecem
+dentro da mesma unidade: motion decorativo, tipo e faces travados, loop que
+fecha no still aprovado. Não recorte nem invente copy. Display não é filme."""
 
 BRIEF_SYSTEM = """Você é estrategista e diretor de criação publicitária.
 Reescreva o briefing em português do Brasil sem inventar ofertas, preços,
@@ -82,7 +90,11 @@ NESTE retângulo: format.direction.orientation e format.direction.layout
 dizem se o formato é horizontal ou vertical e onde sentam visual, título,
 logo e CTA. Cenas de um leaderboard raso não são as de um story 9:16.
 CTA só na última batida e só se format.direction marcar CTA. Respeite
-format.direction.size_label. Retorne somente JSON puro:
+format.direction.size_label. Se o still já for um display completo (1:1,
+IAB, elenco, datas, nomes, lockup), preserve essa composição: toda copy
+visível é trava. Não reempilhe o quadrado em visual-em-cima / título-embaixo.
+Display animado é o mesmo retângulo em loop, não um filme 16:9. Retorne
+somente JSON puro:
 {"campaign_text":"...", "cta_text":"...", "visual_bible":"...",
 "scenes":[{"position":1,"role":"gancho","description":"..."}]}.
 Para quatro cenas, use os roles dos beats do formato. Para uma cena, use
@@ -570,11 +582,13 @@ def build_display_motion_payload(job_id, asset, aspect_ratio):
         "aspect_ratio": aspect_ratio or "16:9",
         "duration_seconds": 3,
         "script": (
-            "Animate this approved advertising creative for exactly 3 seconds. "
-            "Preserve its layout, typography, brand colors, logo, product, CTA and "
-            "advertising-format mechanism. Use restrained premium motion only: subtle "
-            "depth, parallax, light movement and a clear interaction cue. Do not add, "
-            "remove, rewrite or crop any content. End on the complete static keyframe."
+            "Animate this approved display unit for exactly 3 seconds as an in-banner "
+            "loop, not a film. Keep the exact composition: headline, dates, names, "
+            "tagline, logos and footer lockup stay still. Motion lives in decoration "
+            "(flags, paper, light, fabric) and tiny natural micro-movement of people. "
+            "No lip-sync, no extra limbs, no restack into visual-on-top / headline-below. "
+            "First and last frames match the approved still. Do not add, remove, rewrite "
+            "or crop any content."
         ),
         "image_inputs": [{"position": 1, "asset_url": asset["asset_url"]}],
         "source_asset_id": asset["id"],

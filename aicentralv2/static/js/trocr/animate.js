@@ -1,3 +1,4 @@
+import { bindCompare, refreshCompareButton } from "./animate-compare.js";
 import { bindDialog, openDialog } from "./animate-dialog.js";
 import { hideVideo, showVideo } from "./animate-player.js";
 import { startPoll } from "./animate-poller.js";
@@ -16,6 +17,8 @@ function ids() {
 document.addEventListener("DOMContentLoaded", () => {
   if (!$("mcTrocrAnimate")) return;
   bindDialog({ ids, aspectRatio: ids().aspect_ratio });
+  bindCompare();
+  refreshCompareButton();
   $("mcTrocrAnimateBtn")?.addEventListener("click", () => {
     document.dispatchEvent(new Event("trocr:animate-open"));
     openDialog({
@@ -27,10 +30,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const version = event.detail || {};
     if (version.media === "video" && version.video_url) showVideo(version);
     else hideVideo();
+    refreshCompareButton();
   });
   document.addEventListener("trocr:animate-ready", (event) => {
     const version = event.detail?.version;
     if (version) showVideo(version);
+    refreshCompareButton();
   });
   const pending = window.__trocrAnimate?.pendingJobId?.();
   if (pending) {

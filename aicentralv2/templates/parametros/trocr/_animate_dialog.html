@@ -1,8 +1,8 @@
 <dialog id="mcTrocrAnimate" class="w-[min(40rem,calc(100vw-2rem))] max-h-[90vh] overflow-y-auto rounded-lg border border-slate-200 bg-white p-0 text-slate-900 shadow-xl">
   <form method="dialog" class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
     <div>
-      <h2 class="m-0 text-lg font-semibold">Animar esta peça</h2>
-      <p class="m-0 text-sm text-slate-500" id="mcAnimateLead">Still único. Seedance 2.5.</p>
+      <h2 class="m-0 text-lg font-semibold">Gerar vídeo</h2>
+      <p class="m-0 text-sm text-slate-500" id="mcAnimateLead">Cadu Media Studio® · still único</p>
     </div>
     <button type="submit" class="mc-trocr-text-cta is-muted" value="cancel">Fechar</button>
   </form>
@@ -30,11 +30,11 @@
       <legend class="mb-2 text-sm font-medium">Qualidade</legend>
       <label class="mb-2 flex cursor-pointer gap-2 text-sm">
         <input type="radio" name="mcAnimateQuality" value="draft" checked>
-        <span><strong>Rascunho</strong> · 480p · Seedance 2.5</span>
+        <span><strong>Rascunho</strong> · 480p</span>
       </label>
       <label class="flex cursor-pointer gap-2 text-sm">
         <input type="radio" name="mcAnimateQuality" value="production">
-        <span><strong>Produção</strong> · 720p · Seedance 2.5</span>
+        <span><strong>Produção</strong> · 720p</span>
       </label>
     </fieldset>
 
@@ -108,14 +108,15 @@
     <p class="text-sm text-slate-600" id="mcAnimateQuote">Cote antes de gerar.</p>
     <footer class="flex justify-end gap-3 border-t border-slate-100 pt-4">
       <button type="button" class="mc-trocr-text-cta is-muted" id="mcAnimateCancel">Cancelar</button>
-      <button type="button" class="cx-btn cx-btn-primary" id="mcAnimateSubmit">Animar</button>
+      <button type="button" class="cx-btn cx-btn-primary" id="mcAnimateSubmit">Gerar vídeo</button>
     </footer>
   </div>
 
   <div id="mcAnimateProgress" class="hidden space-y-4 px-5 py-6">
     <p class="text-4xl font-semibold tabular-nums" id="mcAnimateClock">0:00</p>
-    <p class="text-sm text-slate-500">Tempo provável: 2 a 6 minutos</p>
+    <p class="text-sm text-slate-500">Tempo provável: 2 a 6 minutos. Pode fechar este box — o clipe entra no histórico.</p>
     <ol class="space-y-2 text-sm" id="mcAnimateSteps"></ol>
     <p class="text-sm text-slate-600" id="mcAnimateStatus">Preparando…</p>
+    <button type="button" class="mc-trocr-text-cta is-muted" id="mcAnimateAbort">Cancelar geração</button>
   </div>
 </dialog>

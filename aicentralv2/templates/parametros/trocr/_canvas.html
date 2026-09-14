@@ -6,6 +6,13 @@
       <button type="button" data-view="compare" id="mcTrocrStillCompareBtn">Comparar peças</button>
     </div>
     <div class="mc-trocr-canvas-tools">
+      <button type="button" id="trocrToggleLeft" aria-expanded="false" aria-label="Elementos">Camadas</button>
+      <button type="button" id="trocrToggleRight" aria-expanded="false" aria-label="Propriedades">Painel</button>
+      <button type="button" id="trocrFocus" aria-pressed="false">Foco</button>
+      <button type="button" id="trocrGuides" aria-pressed="false">Áreas seguras</button>
+      <button type="button" id="trocrOpenWorkspace">Editar elemento</button>
+      <button type="button" class="mc-trocr-tool" id="trocrUndo" aria-label="Desfazer edição" title="Desfazer edição" disabled>↶</button>
+      <button type="button" class="mc-trocr-tool" id="trocrRedo" aria-label="Refazer edição" title="Refazer edição" disabled>↷</button>
       <button type="button" class="mc-trocr-tool" id="mcTrocrZoomOut" aria-label="Diminuir zoom">{{ ico('minus') }}</button>
       <span class="mc-trocr-zoom" id="mcTrocrZoomLabel">Caber</span>
       <button type="button" class="mc-trocr-tool" id="mcTrocrZoomIn" aria-label="Aumentar zoom">{{ ico('plus') }}</button>
@@ -18,7 +25,7 @@
   </header>
   <p class="mc-trocr-base-meta" id="mcTrocrBaseMeta">Nenhuma versão selecionada</p>
   <div class="mc-swap-stage mc-trocr-stage" id="mcTrocrViewport" data-presentation="final">
-    <div class="mc-swap-drop" id="mcSwapDrop">
+    <div class="mc-swap-drop" id="mcSwapDrop" role="button" tabindex="0" aria-label="Enviar imagem de referência">
       <input id="mcSwapFile" type="file" accept="image/*" hidden>
       <span class="mc-trocr-drop-ico">{{ ico('image') }}</span>
       <strong>Solte a referência</strong>
@@ -31,6 +38,7 @@
       </div>
       <div class="mc-trocr-frame" data-mockup="final">
         <img id="mcSwapImage" alt="Peça do anúncio" class="h-full w-full object-contain">
+        <div id="trocrElementOverlays" class="trocr-element-overlays"></div>
         <div class="mc-trocr-region" id="mcTrocrRegion" hidden>
           <div class="mc-trocr-region-box" id="mcTrocrRegionBox" hidden></div>
         </div>

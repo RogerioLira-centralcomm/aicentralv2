@@ -11,6 +11,8 @@ from .swap_csrf import trocr_csrf_required
 
 
 def register_trocr_routes(blueprint):
+    from .editor_routes import register_editor_routes
+    register_editor_routes(blueprint)
     from ..creative_media.studio import register_studio_routes
     register_studio_routes(blueprint)
     blueprint.add_url_rule(

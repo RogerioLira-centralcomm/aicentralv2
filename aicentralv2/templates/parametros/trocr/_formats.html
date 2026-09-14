@@ -1,0 +1,14 @@
+<details class="trocr-format-tray" aria-label="Formatos de saída">
+  <summary>Formatos</summary>
+  <header><div><h2>Formato de saída</h2><p id="mcTrocrFormatHint">Escolha o destino da próxima geração. As versões ficam no histórico.</p></div><button type="button" class="mc-trocr-text-cta" id="mcTrocrRotate">Rotacionar layout</button></header>
+  <fieldset id="mcTrocrFormats" class="trocr-format-options">
+    <legend class="sr-only">Formato da próxima geração</legend>
+    {% for ratio, label, channel in [('16:9', 'Horizontal', 'YouTube / CTV'), ('1:1', 'Quadrado', 'Feed'), ('9:16', 'Vertical', 'Stories / Reels'), ('4:5', 'Retrato', 'Feed')] %}
+    <label class="trocr-format-card">
+      <input type="radio" name="mcSwapOut" value="{{ ratio }}" {% if ratio == '16:9' %}checked{% endif %}>
+      <span class="trocr-format-shape" style="--format-ratio:{{ ratio|replace(':',' / ') }}" aria-hidden="true"></span>
+      <span><strong>{{ ratio }} · {{ label }}</strong><small>{{ channel }}</small></span>
+    </label>
+    {% endfor %}
+  </fieldset>
+</details>

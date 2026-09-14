@@ -97,13 +97,18 @@
     ctaOpen: false,
     logoOpen: false,
     sceneGroup: '',
+    editorDraft: null,
+    selectedRegionField: '',
+    generating: false,
   };
 
+  let editor = null;
   let readAbort = null;
   let promptAbort = null;
   let promptTimer = 0;
   let persistTimer = 0;
   let persistBusy = false;
+  let persistPromise = null;
   let persistAgain = false;
   let waitTimer = 0;
   let waitStarted = 0;
@@ -117,6 +122,41 @@
   async function boot() {
     state.csrf = $('mcSwap')?.dataset?.csrf || '';
     bind();
+    editor = window.TrocrEditor?.({ state, selectFormat, syncOptionalUi, renderEditPanels,
+      paintRegionBox, refreshPrompt, schedulePersist, persistHistory, fitCreative,
+      imageContentRect, togglePickRegion, highlightQuality });
+    $('trocrOpenWorkspace')?.addEventListener('click', async () => {
+      try {
+        if (editor?.isDirty() && !await persistHistory()) return;
+        const { openWorkspace } = await import('./trocr/workspace.js?v=1');
+        await openWorkspace({ state, baseVersion, focusBase: async () => { selectVersion(state.baseId); await $('mcSwapImage').decode(); }, acceptResult: async (image, job) => {
+          const response = await fetch(image, {credentials:'same-origin'});
+          if (!response.ok) throw new Error('O resultado está salvo, mas não foi possível adicioná-lo ao histórico da peça.');
+          const blob = await response.blob();
+          const storedImage = await new Promise((resolve,reject) => {const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(blob);});
+          const version = pushVersion({ image: storedImage, thumb: await makeThumb(image), name: 'Edição por elemento',
+            origin: 'image', quality: 'production', parent_id: state.baseId, asBase: false,
+            params: pieceParams({ note: 'Operação ' + job.id }) });
+          state.compareIds = [state.baseId, version.id]; showPreview(image); renderCompare();
+          await persistHistory();
+        }});
+      } catch (error) { showError('Edição por elemento', error.message, 'edit'); }
+    });
+    ['Left', 'Right'].forEach((side) => $('trocrToggle' + side)?.addEventListener('click', () => {
+      const root = $('mcSwap'), name = 'show-' + side.toLowerCase();
+      if (window.innerWidth < 1100) root.classList.remove('show-' + (side === 'Left' ? 'right' : 'left'));
+      root.classList.toggle(name);
+      $('trocrToggle' + side).setAttribute('aria-expanded', String(window.innerWidth < 1100 ? root.classList.contains(name) : !root.classList.contains(name)));
+      fitCreative();
+    }));
+    $('trocrFocus')?.addEventListener('click', () => {
+      const active = $('mcSwap').classList.toggle('trocr-focus');
+      $('trocrFocus').setAttribute('aria-pressed', String(active)); fitCreative();
+    });
+    $('trocrGuides')?.addEventListener('click', () => {
+      const active = $('mcTrocrViewport').classList.toggle('trocr-show-guides');
+      $('trocrGuides').setAttribute('aria-pressed', String(active));
+    });
     applyRatio(state.aspectRatio);
     applyPresentation();
     renderFlow();
@@ -139,7 +179,7 @@
     document.addEventListener('cadu:brand-change', async (event) => {
       const id = String(event.detail?.clientId || '');
       if (!id || id === String(state.clientId)) return;
-      await persistHistory();
+      if (editor?.isDirty() && !await persistHistory()) return;
       selectBrand(id);
       state.runId = '';
       const restored = await loadHistory();
@@ -149,9 +189,11 @@
   }
 
   function bind() {
+    document.querySelector('[data-dismiss-error]')?.addEventListener('click', hideError);
     const drop = $('mcSwapDrop');
     const input = $('mcSwapFile');
     drop?.addEventListener('click', () => input?.click());
+    drop?.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); input?.click(); } });
     drop?.addEventListener('dragover', (event) => {
       event.preventDefault();
       drop.classList.add('is-dragging');
@@ -164,7 +206,7 @@
     });
     input?.addEventListener('change', () => takeFile(input.files?.[0]));
     $('mcSwapClient')?.addEventListener('change', async (event) => {
-      await persistHistory();
+      if (editor?.isDirty() && !await persistHistory()) { event.target.value = state.clientId; return; }
       selectBrand(event.target.value);
       state.runId = '';
       const restored = await loadHistory();
@@ -305,7 +347,7 @@
       const previous = state.versions[state.versions.length - 2] || state.versions[0];
       if (previous) selectVersion(previous.id);
     });
-    $('mcTrocrResetPanel')?.addEventListener('click', resetPanel);
+    $('mcTrocrResetPanel')?.addEventListener('click', () => { resetPanel(); editor?.changed(); });
     $('mcTrocrNewPiece')?.addEventListener('click', onNewPiece);
     $('mcTrocrRotate')?.addEventListener('click', rotateLayout);
     $('mcTrocrVersions')?.addEventListener('click', onVersionClick);
@@ -316,7 +358,7 @@
     $('mcTrocrReelToggle')?.addEventListener('click', () => {
       setReelCollapsed(!$('mcTrocrReel')?.classList.contains('is-collapsed'));
     });
-    setReelCollapsed(window.localStorage.getItem('cx-trocr-reel') === '1');
+    try { setReelCollapsed(window.localStorage.getItem('cx-trocr-reel') !== '0'); } catch (_) { setReelCollapsed(true); }
   }
 
   function currentClient() {
@@ -558,7 +600,7 @@
   }
 
   function pushVersion(partial, options) {
-    const attempt = state.versions.length + 1;
+    const attempt = Math.max(0, ...state.versions.map((item) => Number(String(item.id).replace(/^v/, '')) || 0)) + 1;
     const params = partial.params || pieceParams({
       scene_index: partial.scene_index,
       scene_variant: partial.origin === 'scene' ? partial.scene_index : undefined,
@@ -602,13 +644,16 @@
       return;
     }
     if (readAbort) readAbort.abort();
-    readAbort = new AbortController();
+    const controller = new AbortController();
+    readAbort = controller;
+    const readContext = `${state.clientId}:${state.baseId}`;
     setFlow('ocr');
     setStatus('OCR processando…');
     hideError();
     try {
       const reference = await downscaleImage(source, 1280, 0.82, { forceJpeg: true });
-      const data = await request(API.read, { reference }, { signal: readAbort.signal });
+      const data = await request(API.read, { reference }, { signal: controller.signal });
+      if (controller.signal.aborted || readContext !== `${state.clientId}:${state.baseId}`) return;
       state.cache[version.id] = data;
       version.ocr = data;
       version.analysis = data.analysis || null;
@@ -662,7 +707,8 @@
     setStatus(ocrStatusCopy(data, meta));
     refreshPrompt();
     renderBaseMeta();
-    schedulePersist();
+    editor?.reset();
+    if (!meta?.cached) schedulePersist();
   }
 
   function ocrStatusCopy(data, meta) {
@@ -1145,6 +1191,7 @@
 
   function regionField() {
     const alter = checkedValues('mcTrocrAlter');
+    if (state.selectedRegionField && alter.includes(state.selectedRegionField)) return state.selectedRegionField;
     const order = ['headline', 'cta', 'secondary', 'price'];
     return order.find((item) => alter.includes(item)) || 'headline';
   }
@@ -1193,10 +1240,15 @@
   async function refreshPrompt() {
     updateNoteCount();
     if (!baseVersion()?.image) return;
+    state.planHash = '';
+    state.planSeq += 1;
     window.clearTimeout(promptTimer);
     promptTimer = window.setTimeout(() => {
       loadPlan().catch((error) => {
         if (error.name === 'AbortError') return;
+        state.planBlocked = true;
+        enableGenerate(false);
+        setStatus('Não foi possível atualizar a prévia. Edite o pedido ou tente novamente.');
       });
     }, 220);
   }
@@ -1206,15 +1258,17 @@
     if (promptAbort) promptAbort.abort();
     promptAbort = new AbortController();
     const seq = ++state.planSeq;
+    const contextKey = `${state.clientId}:${state.runId}:${state.baseId}`;
     const fields = { ...editFields() };
     delete fields.plan_hash;
     const data = await request(API.prompt, fields, { signal: promptAbort.signal });
-    if (seq !== state.planSeq) return data;
+    if (seq !== state.planSeq || contextKey !== `${state.clientId}:${state.runId}:${state.baseId}`) throw new DOMException('Plano substituído', 'AbortError');
     applyPlan(data);
     return data;
   }
 
   function applyPlan(data) {
+    editor?.showPlan(data);
     state.optimizedPrompt = data.prompt || '';
     if (!state.promptEdited) {
       state.optimizedPreview = data.preview || data.prompt || '';
@@ -1240,9 +1294,11 @@
 
   async function runSwap(quality, extra) {
     const base = baseVersion();
-    if (!base?.image) return;
+    if (!base?.image || state.generating) return;
+    state.generating = true;
+    editor?.setBusy(true);
     const variant = Number(extra?.scene_variant || 0);
-    const fields = editFields(extra);
+    let fields;
     state.quality = quality;
     document.querySelectorAll('input[name="mcTrocrQuality"]').forEach((node) => {
       node.checked = node.value === quality;
@@ -1259,22 +1315,20 @@
     hideError();
     state.lastAction = variant ? `scene-${variant}` : 'generate';
     try {
+      if (editor?.isDirty() && !await persistHistory()) throw new Error('Salve a edição antes de gerar.');
       if (!variant) {
-        try {
-          await loadPlan();
-        } catch (error) {
-          if (error.name !== 'AbortError') throw error;
-        }
+        await loadPlan();
         if (state.planBlocked && !$('mcTrocrConfirmConflicts')?.checked) {
           const first = state.conflicts.find((item) => item.blocking) || state.conflicts[0] || {};
           throw new Error(conflictCopy(first) || 'Ajuste o pedido antes de gerar.');
         }
       }
+      fields = editFields(extra);
       const data = await request(API.swap, {
         ...fields,
         quality,
         reference: base.image,
-        base_id: state.baseId || undefined,
+        base_id: base.id,
         revision: state.revision || 0,
       });
       state.planHash = data.plan_hash || state.planHash;
@@ -1306,6 +1360,7 @@
         qa: data.qa || null,
         plan_hash: data.plan_hash || '',
         parent_id: base.id,
+        asBase: false,
         scene_index: variant || 1,
         scene_group: sceneGroup(base),
         params: pieceParams({
@@ -1345,6 +1400,9 @@
       showError('Falha ao gerar nova versão', error.message, 'generate');
       setStatus(error.message);
     } finally {
+      state.generating = false;
+      editor?.setBusy(false);
+      editor?.render();
       hideWait();
       enableGenerate(canGenerate());
     }
@@ -1371,6 +1429,9 @@
   function useAsBase(id) {
     const version = state.versions.find((item) => item.id === id);
     if (!version) return;
+    state.region = null;
+    state.editorDraft = null;
+    state.selectedRegionField = '';
     state.baseId = version.id;
     state.activeId = version.id;
     state.promptEdited = false;
@@ -1485,6 +1546,7 @@
   }
 
   function onVersionClick(event) {
+    if (state.generating) return;
     const button = event.target.closest('button[data-action]');
     const card = event.target.closest('[data-version]');
     if (!card) return;
@@ -1590,8 +1652,9 @@
   function fitCreative() {
     const stage = $('mcTrocrViewport');
     if (!stage?.classList.contains('has-image')) return;
+    const image = $('mcSwapImage');
     const [wide, tall] = String(state.aspectRatio || '16:9').split(':').map(Number);
-    const ratio = wide && tall ? wide / tall : 16 / 9;
+    const ratio = image?.naturalWidth && image?.naturalHeight ? image.naturalWidth / image.naturalHeight : (wide && tall ? wide / tall : 16 / 9);
     const pad = 20;
     const availW = Math.max(96, stage.clientWidth - pad);
     const availH = Math.max(96, stage.clientHeight - pad);
@@ -1665,6 +1728,7 @@
   }
 
   function renderEditPanels() {
+    editor?.render();
     const ready = Boolean(baseVersion()?.image || currentVersion()?.image);
     ['mcTrocrOcr', 'mcSwapRead', 'mcTrocrPreserveAlter', 'mcTrocrEditBlock'].forEach((id) => {
       if ($(id)) $(id).hidden = !ready;
@@ -1692,7 +1756,7 @@
     ].filter((id) => Boolean($(id)?.value)).length;
     const ocrFailed = Boolean(banner && !banner.hidden);
     if (ocr && ocr.tagName === 'DETAILS') {
-      if (ocrFailed) ocr.open = true;
+      if (ocrFailed || ready) ocr.open = true;
       if ($('mcTrocrOcrHint') && !ocrFailed) {
         $('mcTrocrOcrHint').textContent = filled
           ? 'A leitura preencheu o que apareceu. Preço, CTA e logo só se estiverem na peça.'
@@ -1739,6 +1803,7 @@
   }
 
   function renderFlow() {
+    if ($('trocrCompactState')) $('trocrCompactState').textContent = state.flowError ? 'Erro' : ({upload:'Enviar peça',ocr:'Lendo',analysis:'Lendo',edit:'Editando',generate:'Gerando',review:'Concluído'}[state.flow] || 'Editando');
     const currentIndex = FLOW.indexOf(state.flow);
     document.querySelectorAll('#mcTrocrSteps [data-step]').forEach((node) => {
       const index = FLOW.indexOf(node.getAttribute('data-step'));
@@ -1873,7 +1938,7 @@
         'A troca atual fica no histórico da marca. Começar outro conjunto?',
       );
       if (!ok) return;
-      await persistHistory();
+      if (!await persistHistory()) return;
     }
     await startNewRun();
     setStatus('Solte uma imagem. PNG ou JPG.');
@@ -1888,6 +1953,9 @@
     state.activeId = '';
     state.baseId = '';
     state.lastRead = null;
+    state.editorDraft = null;
+    state.selectedRegionField = '';
+    editor?.reset();
     state.planHash = '';
     state.planBlocked = false;
     state.planNoop = false;
@@ -1961,6 +2029,7 @@
   }
 
   function retryLast() {
+    if (state.lastAction === 'save') { persistHistory(); return; }
     hideError();
     if (state.lastAction === 'generate') runSwap(state.quality);
     else if (state.lastAction === 'scene-2') runSwap(state.quality, { scene_variant: 2 });
@@ -2082,7 +2151,7 @@
   }
 
   function canMarkOnImage() {
-    if (state.viewMode !== 'view' || !baseVersion()?.image) return false;
+    if (state.viewMode !== 'view' || state.activeId !== state.baseId || !baseVersion()?.image) return false;
     if ($('mcTrocrWait') && !$('mcTrocrWait').hidden) return false;
     return state.mode === 'typeset'
       || state.mode === 'recrop'
@@ -2141,6 +2210,7 @@
   }
 
   function togglePickRegion() {
+    if (!baseVersion()?.image || state.activeId !== state.baseId || state.generating) return;
     state.picking = !state.picking;
     $('mcTrocrViewport')?.classList.toggle('is-picking', state.picking);
     $('mcTrocrPickRegion')?.classList.toggle('is-on', state.picking);
@@ -2235,16 +2305,18 @@
     paintRegionHint();
     refreshPrompt();
     setStatus(`Região do ${regionLabel(state.region.field)} marcada.`);
+    editor?.changed();
   }
 
   function paintRegionBox() {
+    editor?.queueOverlay();
     const layer = $('mcTrocrRegion');
     const node = $('mcTrocrRegionBox');
     const img = $('mcSwapImage');
     if (!layer || !node) return;
-    if (!state.region?.box || !img) {
+    if (!state.region?.box || !img || state.activeId !== state.baseId || state.presentation !== 'final') {
       node.hidden = true;
-      layer.hidden = !state.picking;
+      layer.hidden = !state.picking || state.activeId !== state.baseId;
       return;
     }
     const content = imageContentRect(img);
@@ -2310,6 +2382,7 @@
   }
 
   function canGenerate() {
+    if (state.generating) return false;
     if (!baseVersion()?.image) return false;
     if (state.conflicts.some((item) => item.code === 'needs_region')) return false;
     if (state.planBlocked && !$('mcTrocrConfirmConflicts')?.checked) return false;
@@ -2424,6 +2497,10 @@
 
   function applyHistory(data) {
     applyHistoryMeta(data);
+    state.region = null;
+    state.selectedRegionField = '';
+    state.editorDraft = null;
+    state.lastRead = null;
     state.versions = hydrateVersions(data?.versions || []);
     state.cache = {};
     state.versions.forEach((item) => {
@@ -2448,13 +2525,23 @@
     renderVersions();
     renderBaseMeta();
     renderEditPanels();
-    if (!current) return;
+    if (!current) {
+      resetPanel();
+      if ($('mcSwapPreview')) $('mcSwapPreview').hidden = true;
+      if ($('mcSwapDrop')) $('mcSwapDrop').hidden = false;
+      $('mcSwapImage')?.removeAttribute('src');
+      setFlow('upload');
+      editor?.reset();
+      return;
+    }
     showPreview(current.image);
     document.dispatchEvent(new CustomEvent('trocr:version-selected', { detail: current }));
     enableGenerate(canGenerate());
     setFlow('review');
     if (base?.ocr) applyRead(base.ocr, base, { cached: true });
     else if (base?.params) applyParams(base.params);
+    state.editorDraft = data?.editor_draft || null;
+    editor?.reset(state.editorDraft);
   }
 
   async function loadHistory(runId) {
@@ -2462,7 +2549,7 @@
       const data = await request(`${API.history}${historyQuery(runId === undefined ? '' : runId)}`);
       applyHistoryMeta(data);
       if (!data?.versions?.length) {
-        renderVersions();
+        applyHistory(data);
         return false;
       }
       if (data.client_id && !state.clientId) {
@@ -2493,19 +2580,28 @@
   }
 
   function schedulePersist() {
+    if (!state.versions.length) return;
+    editor?.saveStatus('dirty');
     window.clearTimeout(persistTimer);
     persistTimer = window.setTimeout(() => {
       persistHistory().catch(() => {});
     }, 400);
   }
 
-  async function persistHistory() {
+  function persistHistory() {
+    if (persistPromise) { persistAgain = true; return persistPromise; }
+    persistPromise = performPersistHistory().finally(() => { persistPromise = null; });
+    return persistPromise;
+  }
+
+  async function performPersistHistory() {
     if (!state.versions.length) return null;
     if (persistBusy) {
       persistAgain = true;
       return null;
     }
     persistBusy = true;
+    editor?.saveStatus('saving');
     window.clearTimeout(persistTimer);
     let saved = null;
     try {
@@ -2520,6 +2616,7 @@
             base_id: state.baseId,
             aspect_ratio: state.aspectRatio,
             revision: state.revision || 0,
+            editor_draft: editor?.snapshot() || state.editorDraft,
             versions: state.versions.filter((item) => item.media !== 'video').map((item) => ({
               id: item.id,
               attempt: item.attempt,
@@ -2558,20 +2655,20 @@
           applyStoredUrls(saved);
           state.replaceSession = false;
         } catch (error) {
-          if (!String(error.message || '').toLowerCase().includes('histórico mudou')) {
-            return null;
-          }
-          const data = await request(`${API.history}${historyQuery()}`);
-          state.revision = Number(data?.revision) || 0;
-          if (state.replaceSession) {
-            persistAgain = true;
-          } else {
-            applyHistory(data);
-            return null;
-          }
+          const conflict = error.status === 409 || String(error.message || '').toLowerCase().includes('histórico mudou');
+          editor?.saveStatus('error', conflict
+            ? 'Conflito entre abas · edição preservada'
+            : 'Falha ao salvar · tente novamente');
+          state.lastAction = 'save';
+          showError('Edição ainda não salva', conflict
+            ? 'Outra aba atualizou esta peça. Sua edição continua nesta tela. Baixe uma cópia da edição antes de recarregar o histórico.'
+            : error.message, 'save');
+          return null;
         }
       } while (persistAgain);
       renderVersions();
+      editor?.saveStatus('saved');
+      if (state.lastAction === 'save') hideError();
       return saved;
     } finally {
       persistBusy = false;
@@ -2599,11 +2696,13 @@
       throw new Error('Sua sessão expirou. Entre de novo para continuar.');
     }
     if (!response.ok || payload.success === false) {
-      throw new Error(payload.message || payload.error || (
+      const error = new Error(payload.message || payload.error || (
         response.status >= 500
           ? 'O servidor não concluiu. Tente de novo.'
           : 'Não deu para trocar o anúncio.'
       ));
+      error.status = response.status;
+      throw error;
     }
     return payload.data || payload;
   }
@@ -2640,11 +2739,12 @@
   }
 
   async function onRunClick(event) {
+    if (state.generating) return;
     const button = event.target.closest('[data-run]');
     if (!button) return;
     const runId = button.getAttribute('data-run');
     if (!runId || runId === state.runId) return;
-    await persistHistory();
+    if (editor?.isDirty() && !await persistHistory()) return;
     const restored = await loadHistory(runId);
     if (!restored) {
       state.runId = runId;

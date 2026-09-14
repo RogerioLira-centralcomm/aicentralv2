@@ -2,10 +2,12 @@
 <aside class="mc-trocr-inspector mc-swap-side" id="mcTrocrInspector">
   <div class="mc-trocr-inspector-edit" id="mcTrocrStillPanel">
     <header class="mc-trocr-inspector-head">
-      <h2>Edição</h2>
+      <h2>Conteúdo da peça</h2>
       <button type="button" class="mc-trocr-text-cta is-muted" id="mcTrocrResetPanel">Limpar campos</button>
     </header>
 
+    {% include "parametros/trocr/_ocr_fields.html" %}
+    <details class="mc-trocr-fold trocr-parameters"><summary>Parâmetros da peça</summary>
     <section class="mc-trocr-section">
       <label class="cx-field">
         <span class="cx-label">Marca</span>
@@ -24,20 +26,6 @@
     </section>
 
     <section class="mc-trocr-section">
-      <div class="mc-trocr-format-head">
-        <fieldset class="mc-swap-out mc-trocr-chips" id="mcTrocrFormats">
-          <legend>Formato de saída</legend>
-          <span class="mc-trocr-orient">Horizontal</span>
-          <label><input type="radio" name="mcSwapOut" value="16:9" checked> 16:9 CTV</label>
-          <span class="mc-trocr-orient">Vertical</span>
-          <label><input type="radio" name="mcSwapOut" value="9:16"> 9:16 Stories</label>
-          <label><input type="radio" name="mcSwapOut" value="4:5"> 4:5 Feed</label>
-          <span class="mc-trocr-orient">Quadrado</span>
-          <label><input type="radio" name="mcSwapOut" value="1:1"> 1:1 Quadrado</label>
-        </fieldset>
-        <button type="button" class="mc-trocr-text-cta" id="mcTrocrRotate">{{ ico('rotate') }} Rotacionar layout</button>
-      </div>
-      <p class="mc-trocr-format-hint" id="mcTrocrFormatHint">A saída começa no formato mais próximo da peça. Depois você força outro.</p>
       <fieldset class="mc-trocr-chips">
         <legend>Como ver no canvas</legend>
         <label><input type="radio" name="mcTrocrPresent" value="final" checked> Peça final</label>
@@ -48,7 +36,8 @@
       <div class="mc-trocr-viewer-picks" id="mcTrocrViewerPicks" hidden></div>
     </section>
 
-    {% include "parametros/trocr/_ocr_fields.html" %}
+    </details>
+
 
     <details class="mc-trocr-fold mc-trocr-prompt-fold" id="mcTrocrTechFold">
       <summary>

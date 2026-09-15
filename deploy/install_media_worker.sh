@@ -28,6 +28,8 @@ from pathlib import Path
 out,root,python,user,model=sys.argv[1:]
 if any(c in value for value in (root,python,user,model) for c in '\n\r"%'):
     raise SystemExit('Caminho/usuário incompatível com a unidade systemd.')
+if not root.startswith('/') or not python.startswith('/') or not model.startswith('/'):
+    raise SystemExit('A unidade systemd requer caminhos absolutos.')
 Path(out).write_text(f'''[Unit]
 Description=Cadu Media durable worker
 After=network-online.target
@@ -35,12 +37,12 @@ Wants=network-online.target
 [Service]
 Type=simple
 User={user}
-WorkingDirectory="{root}"
-Environment="PATH={Path(python).parent}:/usr/local/bin:/usr/bin:/bin"
-Environment="AICENTRAL_ENV=production"
-Environment="MEDIA_WORKER_MODE=supervised"
-Environment="MEDIA_TRANSCRIBE_MODEL_PATH={model}"
-ExecStart="{python}" -m aicentralv2.creative_media.queue_worker
+WorkingDirectory={root}
+Environment=PATH={Path(python).parent}:/usr/local/bin:/usr/bin:/bin
+Environment=AICENTRAL_ENV=production
+Environment=MEDIA_WORKER_MODE=supervised
+Environment=MEDIA_TRANSCRIBE_MODEL_PATH={model}
+ExecStart={python} -m aicentralv2.creative_media.queue_worker
 Restart=always
 RestartSec=5
 TimeoutStopSec=600
@@ -49,6 +51,9 @@ WantedBy=multi-user.target
 ''')
 PY
 sudo -u "$studio_user" env MEDIA_TRANSCRIBE_MODEL_PATH="$studio_model" "$studio_python" -m aicentralv2.creative_media.queue_worker --check
+if command -v systemd-analyze >/dev/null; then
+    systemd-analyze verify "$studio_unit"
+fi
 sudo install -m 644 "$studio_unit" /etc/systemd/system/cadu-media-worker.service
 sudo mkdir -p /etc/systemd/system/aicentralv2.service.d
 printf '[Service]\nEnvironment="MEDIA_WORKER_MODE=supervised"\n' | sudo tee /etc/systemd/system/aicentralv2.service.d/media-worker.conf >/dev/null

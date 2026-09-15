@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import logging
+import threading
+from datetime import datetime, timedelta, timezone
 
 from ..services.openrouter_service import OpenRouterError
 from .ai import chat_json, chat_text
@@ -29,6 +32,7 @@ from .materials import compose_material, normalize_references
 from .repository import get_by_token, merge_dados, update_session
 
 SEARCH_LOCKED = {"verba", "kpis", "cliente", "periodo", "campanha", "agencia"}
+logger = logging.getLogger(__name__)
 
 
 NARRATIVE_PROMPT = """Você é o redator de briefing do Smart Planner no CentralX.
@@ -155,12 +159,18 @@ def compose_narrative(material: str, campos: dict, origem: str = "") -> str:
     return narrativa
 
 
-def process_briefing(token: str, text_in: str, references: list[dict] | None = None) -> dict:
+def process_briefing(
+    token: str,
+    text_in: str,
+    references: list[dict] | None = None,
+    *,
+    processing: bool = False,
+) -> dict:
     material = compose_material(text_in, references)
     if len(material) < 40:
         raise ValueError("Escreva o briefing ou adicione uma referência com mais detalhe.")
     with bound_session(token):
-        return _process_briefing(token, text_in, references, material)
+        return _process_briefing(token, text_in, references, material, processing=processing)
 
 
 def _process_briefing(
@@ -168,10 +178,14 @@ def _process_briefing(
     text_in: str,
     references: list[dict] | None,
     material: str,
+    *,
+    processing: bool = False,
 ) -> dict:
     row = get_by_token(token)
     dados_atuais = as_dict((row or {}).get("dados_detectados"))
     pistas = briefing_pistas(dados_atuais)
+    if processing:
+        _mark_processing(token, "extract", "Identificando as informações do briefing", 1)
     extracted = extract_fields(material, pistas)
     refs = normalize_references(references)
     campos = apply_pistas(extracted["campos"], pistas)
@@ -184,6 +198,8 @@ def _process_briefing(
     campos["anunciante_confidencial"] = as_bool(
         dados_atuais.get("anunciante_confidencial") or pistas.get("anunciante_confidencial")
     )
+    if processing:
+        _mark_processing(token, "narrative", "Redigindo a revisão para você conferir", 2)
     narrativa = compose_narrative(material, campos, origem)
     dados = dict(campos)
     dados["nome_campanha"] = text(campos.get("campanha"))
@@ -196,6 +212,8 @@ def _process_briefing(
     input_type = "mixed" if refs and text_in.strip() else ("pdf" if refs else "text")
     if refs and all(item.get("kind") == "url" for item in refs) and not text_in.strip():
         input_type = "url"
+    if processing:
+        _mark_processing(token, "save", "Salvando a revisão", 3)
     row = update_session(token, {
         "input_type": input_type,
         "input_text_original": text_in.strip(),
@@ -226,6 +244,78 @@ def _process_briefing(
         "score": extracted["score"],
         "analysis": extracted["analysis"],
     }
+
+
+def start_processing(token: str, text_in: str, references: list[dict] | None = None) -> dict:
+    """Executa a leitura do briefing fora da requisição HTTP.
+
+    Duas chamadas ao modelo podem ultrapassar o timeout do Gunicorn. O estado
+    persistido também permite que a tela se recupere após refresh.
+    """
+    row = get_by_token(token)
+    if not row:
+        raise ValueError("Plano não encontrado.")
+    material = compose_material(text_in, references)
+    if len(material) < 40:
+        raise ValueError("Escreva o briefing ou adicione uma referência com mais detalhe.")
+    current = as_dict(as_dict(row.get("dados_detectados")).get("processamento"))
+    if current.get("status") == "running" and not _stale_processing(current):
+        return {"started": True, "already": True, "redirect": f"/smart-planner/{token}/revisao"}
+    _mark_processing(token, "read", "Lendo e organizando o material", 0, status="running")
+
+    from flask import current_app, has_app_context
+    if not has_app_context():
+        _run_processing(token, text_in, references)
+    else:
+        app = current_app._get_current_object()
+
+        def runner():
+            with app.app_context():
+                _run_processing(token, text_in, references)
+
+        threading.Thread(target=runner, daemon=True, name=f"sp-brief-{token[:12]}").start()
+    return {"started": True, "redirect": f"/smart-planner/{token}/revisao"}
+
+
+def processing_view(row: dict) -> dict:
+    return as_dict(as_dict((row or {}).get("dados_detectados")).get("processamento")) or {
+        "status": "idle", "step": "", "title": "", "index": 0, "total": 4,
+    }
+
+
+def _run_processing(token: str, text_in: str, references: list[dict] | None) -> None:
+    try:
+        result = process_briefing(token, text_in, references, processing=True)
+        _mark_processing(token, "done", "Revisão pronta", 4, status="done", score=result["score"])
+    except Exception as exc:
+        logger.exception("Processamento de briefing falhou: %s", token)
+        _mark_processing(token, "error", "Não foi possível processar o briefing", 0, status="error", error=str(exc))
+    finally:
+        try:
+            from ..db import close_db
+            close_db()
+        except Exception:
+            pass
+
+
+def _mark_processing(token: str, step: str, title: str, index: int, *, status: str = "running", **extra) -> None:
+    merge_dados(token, {"processamento": {
+        "status": status,
+        "step": step,
+        "title": title,
+        "index": index,
+        "total": 4,
+        "updatedAt": datetime.now(timezone.utc).isoformat(),
+        **extra,
+    }})
+
+
+def _stale_processing(data: dict, *, minutes: int = 15) -> bool:
+    try:
+        updated = datetime.fromisoformat(text(data.get("updatedAt")).replace("Z", "+00:00"))
+        return updated < datetime.now(timezone.utc) - timedelta(minutes=minutes)
+    except ValueError:
+        return True
 
 
 def _drop_advertiser_gaps(items, pistas: dict | None) -> list:

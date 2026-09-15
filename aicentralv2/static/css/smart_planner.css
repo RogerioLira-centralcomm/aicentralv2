@@ -3554,6 +3554,13 @@ body.is-sp-wait {
   opacity: 0.5;
 }
 
+.sp-wait-steps li.sp-wait-more {
+  grid-template-columns: auto minmax(0, 1fr);
+  color: var(--wait-fog);
+  font-size: 0.8rem;
+  padding-top: 0.6rem;
+}
+
 .sp-wait-dismiss {
   justify-self: start;
   margin-top: 0.65rem;

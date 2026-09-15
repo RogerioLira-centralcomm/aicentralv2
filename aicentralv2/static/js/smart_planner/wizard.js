@@ -39,10 +39,9 @@
 
   var BRIEF_STEPS = [
     { id: "read", title: "Interpretando o briefing", copy: "Lendo e organizando o material" },
-    { id: "goal", title: "Identificando o objetivo", copy: "Entendendo a meta da campanha" },
-    { id: "audience", title: "Estruturando o público", copy: "Analisando audiência e recorte" },
-    { id: "channels", title: "Organizando os canais", copy: "Selecionando os meios citados" },
-    { id: "narrative", title: "Consolidando a narrativa", copy: "Preparando a revisão" },
+    { id: "extract", title: "Extraindo as informações", copy: "Identificando os dados confirmados" },
+    { id: "narrative", title: "Consolidando a narrativa", copy: "Redigindo a revisão para você conferir" },
+    { id: "save", title: "Preparando a revisão", copy: "Salvando as informações" },
   ];
 
   function generationWaitSteps(mode) {
@@ -132,7 +131,16 @@
       return;
     }
     var pivot = steps.findIndex(function (row) { return row.id && row.id === currentId; });
-    list.innerHTML = steps.map(function (item, index) {
+    var visibleIndexes = steps.map(function (_item, index) { return index; });
+    if (steps.length > 6) {
+      var runningIndex = pivot >= 0 ? pivot : 0;
+      var doneIndexes = steps.map(function (item, index) { return item.state === "done" ? index : -1; }).filter(function (index) { return index >= 0; });
+      visibleIndexes = doneIndexes.slice(-2).concat([runningIndex]).filter(function (index, position, values) {
+        return index >= 0 && values.indexOf(index) === position;
+      }).sort(function (a, b) { return a - b; });
+    }
+    list.innerHTML = visibleIndexes.map(function (index) {
+      var item = steps[index];
       var state = item.state;
       if (!state) {
         if (pivot >= 0) state = index < pivot ? "done" : index === pivot ? "running" : "pending";
@@ -146,7 +154,9 @@
         "<span class=\"sp-wait-dot\" aria-hidden=\"true\"></span>" +
         "<div><strong>" + escapeHtml(title) + "</strong>" +
         (copy ? "<span>" + escapeHtml(copy) + "</span>" : "") + "</div></li>";
-    }).join("");
+    }).join("") + (steps.length > visibleIndexes.length
+      ? "<li class=\"sp-wait-more\"><span aria-hidden=\"true\">·</span><div>" + (steps.length - visibleIndexes.length) + " etapas serão concluídas em seguida.</div></li>"
+      : "");
     var done = steps.filter(function (item) { return item.state === "done"; }).length;
     var running = steps.some(function (item) { return item.state === "running"; });
     var current = pivot >= 0 ? pivot + 1 : (running ? done + 1 : Math.max(done, steps.length && done === steps.length ? steps.length : 1));
@@ -215,6 +225,40 @@
     });
   }
 
+  function waitForBriefing() {
+    return new Promise(function (resolve, reject) {
+      var started = Date.now();
+      var misses = 0;
+      var timer = window.setInterval(function () {
+        fetch("/smart-planner/api/" + token + "/processar/status", { credentials: "same-origin" })
+          .then(function (response) { return response.json(); })
+          .then(function (payload) {
+            if (!payload || !payload.success) {
+              misses += 1;
+              if (misses >= 8) { window.clearInterval(timer); reject(new Error("Não foi possível acompanhar o processamento do briefing.")); }
+              return;
+            }
+            misses = 0;
+            var data = payload.data || {};
+            var index = Math.max(0, Number(data.index) || 0);
+            var steps = BRIEF_STEPS.map(function (item, stepIndex) {
+              return { id: item.id, title: item.title, copy: item.copy, state: stepIndex < index ? "done" : stepIndex === index ? "running" : "pending" };
+            });
+            if (data.status === "done") steps = steps.map(function (item) { return { id: item.id, title: item.title, copy: item.copy, state: "done" }; });
+            setWaitMeta("Processando", data.status === "done" ? "Revisão pronta" : BRIEF_STEPS[index].title, data.title || BRIEF_STEPS[index].copy);
+            renderWaitSteps(steps, data.step);
+            setWaitProgress(data.status === "done" ? BRIEF_STEPS.length : index + 1, BRIEF_STEPS.length);
+            if (data.status === "done") { window.clearInterval(timer); resolve(data); }
+            else if (data.status === "error") { window.clearInterval(timer); reject(new Error(data.error || "Não foi possível processar o briefing.")); }
+            else if (Date.now() - started > 12 * 60 * 1000) { window.clearInterval(timer); reject(new Error("O processamento está demorando demais. Tente novamente.")); }
+          }).catch(function () {
+            misses += 1;
+            if (misses >= 8) { window.clearInterval(timer); reject(new Error("A conexão caiu enquanto o briefing era processado.")); }
+          });
+      }, 900);
+    });
+  }
+
   function showCompileOverlay(inputText, mode) {
     var overlay = document.getElementById("sp-compile-overlay");
     var dismiss = document.getElementById("sp-wait-dismiss");
@@ -245,21 +289,8 @@
     renderWaitSteps(BRIEF_STEPS.map(function (item, index) {
       return { id: item.id, title: item.title, copy: item.copy, state: index === 0 ? "running" : "pending" };
     }), BRIEF_STEPS[0].id);
-    var index = 0;
-    var timer = window.setInterval(function () {
-      index += 1;
-      if (index >= BRIEF_STEPS.length) {
-        window.clearInterval(timer);
-        return;
-      }
-      renderWaitSteps(BRIEF_STEPS.map(function (item, stepIndex) {
-        var state = stepIndex < index ? "done" : stepIndex === index ? "running" : "pending";
-        return { id: item.id, title: item.title, copy: item.copy, state: state };
-      }), BRIEF_STEPS[index].id);
-      setWaitMeta("Processando", "Entendendo o briefing", BRIEF_STEPS[index].copy);
-    }, 700);
     return function () {
-      window.clearInterval(timer);
+      return undefined;
     };
   }
 
@@ -821,6 +852,7 @@
             };
           }),
         });
+        if (result.started) await waitForBriefing();
         stop();
         hideCompileOverlay();
         try { localStorage.removeItem(draftKey); } catch (err) { /* ignore */ }

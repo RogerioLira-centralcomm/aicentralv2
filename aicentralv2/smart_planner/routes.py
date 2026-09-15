@@ -355,11 +355,7 @@ def api_processar(token):
             url = (payload.get("url") or "").strip()
             if url:
                 references.append(capture_url(url))
-        result = processor.process_briefing(token, text_in, references)
-        return _ok({
-            "redirect": f"/smart-planner/{token}/revisao",
-            "score": result["score"],
-        })
+        return _ok(processor.start_processing(token, text_in, references))
     except SessionNotFound as exc:
         return _error(exc, 404)
     except (ValueError, OpenRouterError) as exc:
@@ -367,6 +363,15 @@ def api_processar(token):
     except Exception:
         logger.exception("Falha ao processar briefing")
         return _error("Não foi possível processar o briefing.", 500)
+
+
+@bp.route("/api/<token>/processar/status", methods=["GET"])
+@login_required_api
+def api_processar_status(token):
+    try:
+        return _ok(processor.processing_view(load_owned(token)))
+    except SessionNotFound as exc:
+        return _error(exc, 404)
 
 
 @bp.route("/api/<token>/revisao", methods=["POST"])

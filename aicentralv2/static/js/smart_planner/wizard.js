@@ -2146,6 +2146,7 @@
         return '<article class="sp-place-card">'
           + '<label><input type="checkbox" name="places" value="' + place.slug + '"' + (on ? " checked" : "") + "> "
           + escapeHtml(place.title || place.slug) + (place.code ? " · " + escapeHtml(place.code) : "") + "</label>"
+          + (place.investment_label ? '<p class="sp-place-investment">Mínimo: ' + escapeHtml(place.investment_label) + '</p>' : '<p class="sp-place-investment is-unknown">Mínimo comercial a confirmar</p>')
           + (on ? '<div class="sp-place-points">' + points + "</div>" + (appHtml ? '<div class="sp-place-apps">' + appHtml + "</div>" : "") : "")
           + "</article>";
       }).join("");

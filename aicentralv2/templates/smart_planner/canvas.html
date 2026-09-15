@@ -4,7 +4,7 @@
 {% block title %}{{ titulo }} · Smart Planner{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=40">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=43">
 {% endblock %}
 
 {% block content %}
@@ -30,18 +30,24 @@
   <div class="sp-hi-grid is-review is-folha">
     <div class="sp-hi-main">
       <header class="sp-hi-head">
-        <div>
+        <div class="sp-hi-head__title">
+          <a class="sp-hi-back" href="{{ url_for('smart_planner.index') }}" aria-label="Voltar aos planejamentos" title="Planejamentos"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></a>
+          <div>
           <h1>Editar página única</h1>
-          <p>Só a folha: tese, criativo, mídia e defesa. O link público mostra o documento ao cliente.</p>
+          <p>Uma folha para a reunião: tese, protótipo visual, mídia, dado e defesa.</p>
+          </div>
         </div>
         <div class="sp-hi-head-actions">
           <p class="sp-live" id="sp-save-live" aria-live="polite"></p>
-          <a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ url_for('smart_planner.index') }}">Planejamentos</a>
+          <div class="sp-hi-head-actions__support">
           {% if share_url %}
-          <a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ share_url }}" target="_blank" rel="noopener noreferrer">Link publicado</a>
+          <a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ share_url }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>Link publicado</a>
           {% endif %}
+          </div>
+          <div class="sp-hi-head-actions__commit">
           <button type="button" class="cx-btn cx-btn-secondary cx-btn-sm" id="sp-canvas-regen">Gerar de novo</button>
           <button type="button" class="cx-btn cx-btn-primary cx-btn-sm" id="sp-canvas-save">Salvar</button>
+          </div>
         </div>
       </header>
 
@@ -63,8 +69,8 @@
 
         <details class="sp-acc" data-acc="creative" open id="sp-acc-creative">
           <summary aria-controls="sp-acc-creative-body">
-            <span class="sp-acc-title">Criativo no canal</span>
-            <span class="sp-acc-meta">texto e imagens</span>
+            <span class="sp-acc-title">Protótipo visual no canal</span>
+            <span class="sp-acc-meta">uma peça conceitual</span>
           </summary>
           <div class="sp-bf is-stack" id="sp-acc-creative-body">
             <label for="sp-field-creative-title"><span>Título</span>
@@ -82,12 +88,15 @@
                 </select>
               </label>
             </div>
-            <label for="sp-field-creative"><span>Descrição do criativo</span>
+            <label for="sp-field-creative"><span>O que o protótipo mostra</span>
               <textarea id="sp-field-creative" name="creative_body" rows="4">{{ creative.body or '' }}</textarea>
             </label>
-            <label for="sp-field-image-prompt"><span>Prompt da imagem</span>
+            <details class="sp-creative-direction">
+              <summary>Direção visual avançada</summary>
+              <label for="sp-field-image-prompt"><span>Orientação para gerar a imagem</span>
               <textarea id="sp-field-image-prompt" name="creative_image_prompt" rows="3">{{ creative.image_prompt or '' }}</textarea>
             </label>
+            </details>
             <input type="hidden" id="sp-field-image-url" name="creative_image_url" value="{{ creative.image_url or '' }}">
             <div class="sp-gallery" id="sp-gallery" aria-label="Imagens geradas">
               {% if gallery %}
@@ -105,7 +114,7 @@
           </div>
         </details>
 
-        <details class="sp-acc" data-acc="media" open id="sp-acc-media">
+        <details class="sp-acc" data-acc="media" id="sp-acc-media">
           <summary aria-controls="sp-acc-media-body">
             <span class="sp-acc-title">Gestão de mídia</span>
             <span class="sp-acc-meta">leitura do plano</span>
@@ -145,7 +154,7 @@
           </div>
         </details>
 
-        <details class="sp-acc" data-acc="market" open id="sp-acc-market">
+        <details class="sp-acc" data-acc="market" id="sp-acc-market">
           <summary aria-controls="sp-acc-market-body">
             <span class="sp-acc-title">Mercado</span>
             <span class="sp-acc-meta">dado e leitura</span>
@@ -165,7 +174,7 @@
           </div>
         </details>
 
-        <details class="sp-acc" data-acc="defense" open id="sp-acc-defense">
+        <details class="sp-acc" data-acc="defense" id="sp-acc-defense">
           <summary aria-controls="sp-acc-defense-body">
             <span class="sp-acc-title">Defesa</span>
             <span class="sp-acc-meta">1 campo</span>
@@ -180,7 +189,7 @@
           </div>
         </details>
 
-        <details class="sp-acc" data-acc="brand" open id="sp-acc-brand">
+        <details class="sp-acc" data-acc="brand" id="sp-acc-brand">
           <summary aria-controls="sp-acc-brand-body">
             <span class="sp-acc-title">Marca</span>
             <span class="sp-acc-meta">Cadu Media Studio</span>
@@ -245,20 +254,6 @@
           {% for item in folha_checks or [] %}
           <li class="{% if item.done %}is-done{% endif %}" data-check="{{ item.id }}">
             <a href="{{ item.href }}">{{ item.label }}</a>
-          </li>
-          {% endfor %}
-        </ul>
-      </section>
-      <section class="sp-side-card">
-        <h2>Plano completo</h2>
-        <p>Seções previstas ou já criadas. Esta tela não edita o plano completo.</p>
-        <ul class="sp-complete-checks sp-editor-checks is-completo" id="sp-completo-checks">
-          {% for item in completo_checks or [] %}
-          <li class="{% if item.done %}is-done{% else %}is-planned{% endif %}" data-check="{{ item.id }}">
-            <a href="{{ item.href }}" {% if item.external %}target="_blank" rel="noopener noreferrer"{% endif %}>
-              {{ item.label }}
-              <small>{{ 'Criada' if item.done else 'Prevista' }}</small>
-            </a>
           </li>
           {% endfor %}
         </ul>

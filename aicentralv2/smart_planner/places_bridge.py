@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from .catalog import CHANNEL_CATALOG, INTERATIVOS_FORMATS, PORTAL_CHANNELS
@@ -74,11 +75,22 @@ def _compact_point(point: dict) -> dict:
     }
 
 
+def _investment_minimum(value: Any) -> int:
+    """Return the floor of a published Brazilian investment range, in BRL."""
+    raw = text(value).lower().replace(".", "")
+    match = re.search(r"(\d+(?:,\d+)?)\s*(mil|k)?", raw)
+    if not match:
+        return 0
+    number = float(match.group(1).replace(",", "."))
+    return int(number * (1000 if match.group(2) in {"mil", "k"} else 1))
+
+
 def _compact_place(row: dict) -> dict:
     data = as_dict(row)
     metrics = as_dict(data.get("metrics"))
     addressable = as_dict(metrics.get("addressable"))
     four_weeks = as_dict(metrics.get("four_weeks"))
+    investment = as_dict(data.get("investment"))
     points = [_compact_point(item) for item in as_list(data.get("points")) if text(as_dict(item).get("id"))]
     return {
         "slug": text(data.get("slug")),
@@ -94,7 +106,22 @@ def _compact_place(row: dict) -> dict:
             "addressable": text(addressable.get("label")),
             "four_weeks": text(four_weeks.get("label")),
         },
+        "investment_label": text(investment.get("label")),
+        "investment_min_brl": _investment_minimum(investment.get("label") or investment.get("value")),
     }
+
+
+def places_minimum(raw: Any, catalog: list[dict] | None = None) -> dict:
+    """Commercial floor for unique selected Places; points never double the floor."""
+    selected = resolve_places(raw, catalog)
+    index = catalog_by_slug(catalog)
+    items = []
+    for item in selected:
+        place = index.get(text(item.get("slug"))) or {}
+        minimum = int(place.get("investment_min_brl") or 0)
+        if minimum:
+            items.append({"slug": item["slug"], "title": place.get("title") or item["slug"], "minimum_brl": minimum})
+    return {"minimum_brl": sum(item["minimum_brl"] for item in items), "items": items, "missing": [item["slug"] for item in selected if not int((index.get(text(item.get("slug"))) or {}).get("investment_min_brl") or 0)]}
 
 
 def _seed_catalog() -> list[dict]:

@@ -90,11 +90,18 @@ def _default_bg_prompt(theme: dict, meta: dict) -> str:
 
 
 def _default_creative_prompt(card: dict, meta: dict, hero: dict) -> str:
-    client = text(hero.get("name") or meta.get("client") or "the brand")
+    client = text(meta.get("client") or hero.get("name"))
     surface = text(card.get("surface") or "display")
     body = text(card.get("body") or "an ad in the channel")
+    if not client:
+        return (
+            f"Photoreal planning-support image for a {surface} media proposal: {body}. "
+            "Show the relevant persona, place, product-use moment or action. "
+            "No invented brand, logo, campaign copy or agency identity."
+        )
     return (
         f"Photoreal {surface} mockup of {client} advertising in-channel: {body}. "
+        "Use the advertiser identity and supplied assets when available; never invent a logo. "
         "The ad is inserted in the medium, not a loose banner. No agency logos."
     )
 

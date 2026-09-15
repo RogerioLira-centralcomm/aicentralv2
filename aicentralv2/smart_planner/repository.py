@@ -204,6 +204,9 @@ def serialize_list_row(row: dict) -> dict:
     praca_key = text(campanha.get("praca") or dados.get("praca"))
     plan = as_dict(row.get("plan_content"))
     has_canvas = bool(as_list(plan.get("sections")))
+    folha = as_dict(dados.get("folha"))
+    has_sheet = bool(as_list(folha.get("sections"))) or (plan_mode_of(dados) == "one_page" and has_canvas)
+    has_full_plan = plan_mode_of(dados) == "completo" and has_canvas
     has_plan_text = bool(text(dados.get("planejamento")))
     has_briefing = bool(text(row.get("briefing_melhorado") or row.get("briefing_compilado")))
     mode = plan_mode_of(dados)
@@ -236,6 +239,10 @@ def serialize_list_row(row: dict) -> dict:
         "canais": canais,
         "plan_mode": mode,
         "plan_mode_label": plan_mode_label(mode),
+        "has_sheet": has_sheet,
+        "has_full_plan": has_full_plan,
+        "sheet_href": editor_href(token, public_token, folha=True) if has_sheet and (token or public_token) else "",
+        "full_plan_href": plan_href(token, "canvas", public_token) if has_full_plan else "",
         "status": resume,
         "status_label": resume_status(resume, mode),
         "tem_planejamento": has_plan_text or has_canvas,

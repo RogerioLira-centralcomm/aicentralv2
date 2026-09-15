@@ -10,6 +10,7 @@ from aicentralv2.smart_planner.places_bridge import (
     resolve_places,
     snapshot_places,
     suggest_places_from_material,
+    places_minimum,
 )
 from aicentralv2.smart_planner.snapshot import build_snapshot
 
@@ -78,6 +79,17 @@ CATALOG = [
 
 
 class PlacesBridgeTest(unittest.TestCase):
+    def test_places_minimum_sums_unique_places_not_points(self):
+        catalog = [
+            {"slug": "a", "title": "A", "points": [{"id": "a-1"}, {"id": "a-2"}], "investment_min_brl": 18000},
+            {"slug": "b", "title": "B", "points": [{"id": "b-1"}], "investment_min_brl": 28000},
+        ]
+        result = places_minimum([
+            {"slug": "a", "point_ids": ["a-1", "a-2"]},
+            {"slug": "b", "point_ids": ["b-1"]},
+        ], catalog)
+        self.assertEqual(result["minimum_brl"], 46000)
+        self.assertEqual(len(result["items"]), 2)
     def test_drops_invented_slug_and_app(self):
         resolved = resolve_places(
             [{"slug": "aeroporto-inventado", "point_ids": ["gate"], "apps": ["Uber"]}],

@@ -4,7 +4,7 @@
 {% block title %}Smart Planner{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=35">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=43">
 {% endblock %}
 
 {% block content %}
@@ -63,10 +63,10 @@
   <div class="sp-book sp-history-cards" id="sp-history-wrap">
     <div id="sp-history" role="list" aria-label="Planejamentos deste usuário">
         {% for row in rows %}
-        <article role="listitem" class="sp-history-card {{ 'is-sheet' if row.plan_mode == 'one_page' else 'is-full' }}"
+        <article role="listitem" class="sp-history-card {{ 'is-sheet' if row.has_sheet else '' }} {{ 'is-full' if row.has_full_plan else '' }}"
             data-sp-history-row
             data-id="{{ row.id }}"
-            data-mode="{{ row.plan_mode }}"
+            data-mode="{{ row.plan_mode }}" data-documents="{{ 'one_page ' if row.has_sheet else '' }}{{ 'completo' if row.has_full_plan else '' }}"
             data-cliente="{{ row.cliente }}"
             data-agencia="{{ row.agencia }}"
             data-search="{{ row.titulo }} {{ row.cliente }} {{ row.agencia }} {{ row.objetivo }} {{ row.canais|join(' ') }}">
@@ -100,12 +100,18 @@
             </div>
           </div>
           <div class="sp-history-meta">
-            <span class="sp-mode {{ 'is-sheet' if row.plan_mode == 'one_page' else 'is-full' }}">{{ row.plan_mode_label }}</span>
+            <span class="sp-mode is-campaign">Campanha</span>
+            {% if row.has_sheet %}<span class="sp-doc-state is-sheet">Página única</span>{% endif %}
+            {% if row.has_full_plan %}<span class="sp-doc-state is-full">Plano completo</span>{% endif %}
             <span class="sp-status {{ 'is-ready' if row.resume_step == 'canvas' else 'is-open' }}">{{ row.status_label }}</span>
             <span class="sp-history-when">{{ row.quando or '—' }}</span>
           </div>
           <div class="sp-history-actions">
-            {% if row.href %}<a class="cx-btn cx-btn-sm cx-btn-primary" href="{{ row.href }}">{{ row.resume_action }}</a>{% endif %}
+            <div class="sp-document-actions">
+              {% if row.sheet_href %}<a class="cx-btn cx-btn-sm cx-btn-secondary" href="{{ row.sheet_href }}">Página única</a>{% endif %}
+              {% if row.full_plan_href %}<a class="cx-btn cx-btn-sm cx-btn-primary" href="{{ row.full_plan_href }}">Plano completo</a>{% endif %}
+              {% if not row.sheet_href and not row.full_plan_href and row.href %}<a class="cx-btn cx-btn-sm cx-btn-primary" href="{{ row.href }}">{{ row.resume_action }}</a>{% endif %}
+            </div>
             <details class="sp-more"><summary aria-label="Mais ações"><i class="fa-solid fa-ellipsis"></i></summary><div>
               {% if row.share_url %}<a href="{{ row.share_url }}" target="_blank" rel="noopener noreferrer">Abrir link público</a>{% endif %}
               <span>{{ row.verba or 'Verba a definir' }} · {{ row.periodo or 'Período a definir' }}</span>

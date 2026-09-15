@@ -10,6 +10,7 @@ from aicentralv2.smart_planner.one_page import (
     match_pitch,
     normalize_one_page,
 )
+from aicentralv2.smart_planner.images import _default_creative_prompt
 from aicentralv2.smart_planner.images import apply_sheet_art
 from aicentralv2.smart_planner.theme import compose_theme, density_note_from_pace, hero_party, resolve_market_id
 
@@ -223,7 +224,8 @@ def test_folha_editor_is_enterprise_form_not_pitch_sheet():
     assert "sp-gallery" in html
     assert "Criar marca no Cadu Media Studio" in html
     assert "sp-folha-checks" in html
-    assert "sp-completo-checks" in html
+    assert "sp-completo-checks" not in html
+    assert "Protótipo visual no canal" in html
     assert "renderPitchSheet" not in js
     assert "shareBlock" not in js
     assert "applyTheme" not in js
@@ -234,6 +236,12 @@ def test_folha_editor_is_enterprise_form_not_pitch_sheet():
     # Quadro completo ainda existe fora do editor da folha
     assert "renderBoard" in js
     assert "sp-board" in html
+
+
+def test_creative_prompt_does_not_invent_a_brand_when_client_is_missing():
+    prompt = _default_creative_prompt({"surface": "display", "body": "visitantes no aeroporto"}, {}, {})
+    assert "No invented brand" in prompt
+    assert "persona" in prompt
 
 
 def test_row_meta_exposes_audience_and_channel_count():

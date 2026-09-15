@@ -414,6 +414,8 @@ def api_canais(token):
         return _ok({"redirect": f"/smart-planner/{token}/revisao"})
     except SessionNotFound as exc:
         return _error(exc, 404)
+    except ValueError as exc:
+        return _error(exc, 422)
     except Exception:
         logger.exception("Falha ao salvar canais")
         return _error("Não foi possível salvar canais e verba.", 500)

@@ -72,7 +72,7 @@
     var query = ((search && search.value) || "").trim().toLowerCase();
     var hay = (row.getAttribute("data-search") || "").toLowerCase();
     if (query && hay.indexOf(query) === -1) return false;
-    if (activeMode && row.getAttribute("data-mode") !== activeMode) return false;
+    if (activeMode && (row.getAttribute("data-documents") || "").split(/\s+/).indexOf(activeMode) === -1) return false;
     var cliente = (row.getAttribute("data-cliente") || "").trim();
     var agencia = (row.getAttribute("data-agencia") || "").trim();
     if (clientFilter && clientFilter.value === "__none__" && cliente) return false;

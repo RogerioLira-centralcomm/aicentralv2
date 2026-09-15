@@ -8,24 +8,29 @@
 <meta property="og:type" content="website"><meta property="og:title" content="Cadu Workspace"><meta property="og:description" content="{{ description }}"><meta property="og:url" content="{{ canonical }}"><meta property="og:image" content="{{ product_url('workspace', '/assets/workspace-icon-192.png') }}">
 <script type="application/ld+json">{{ {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Cadu Workspace","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":canonical,"description":description}|tojson }}</script>
 {% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-public.css') }}?v=1">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-public.css') }}?v=3">{% endblock %}
 {% block content %}
 {% include 'cadu_workspace/_public_nav.html' %}
 <section class="ws-hero">
-  <div class="ws-hero-copy"><img src="{{ url_for('cadu_workspace.workspace_icon', size=64) }}" alt=""><h1>O contexto certo, antes do trabalho de campanha.</h1><p>O Workspace reúne conta, time, projetos e referências. Você escolhe o trabalho em andamento e segue para o produto Cadu adequado, sem reconstruir o briefing a cada etapa.</p><div class="ws-actions"><a href="{{ url_for('cadu_workspace.dashboard') }}">{{ 'Abrir meu Workspace' if session.get('user_id') else 'Entrar para organizar o time' }}</a><a href="{{ url_for('cadu_workspace.public_page', page='como-funciona') }}">Ver como o fluxo funciona</a></div></div>
-  <div class="ws-context-map" aria-label="Um time conecta clientes e projetos aos produtos Cadu">
-    <div class="ws-map-source"><span>Time</span><strong>Seu time de mídia</strong><small>pessoas e permissões</small></div>
-    <div class="ws-map-rail"><i></i><div><span>Cliente</span><b>Marca ativa</b></div><div><span>Projeto</span><b>Briefing e referências</b></div></div>
-    <div class="ws-map-products"><a href="{{ product_url('planner') }}"><b>Planner</b><span>estruturar</span></a><a href="{{ product_url('studio') }}"><b>Studio</b><span>produzir</span></a><a href="{{ product_url('skills') }}"><b>Skills</b><span>reutilizar</span></a><a href="{{ product_url('connect') }}"><b>Connect</b><span>conectar</span></a></div>
+  <div class="ws-hero-copy"><p class="ws-eyebrow">Workspace</p><h1>Uma campanha, cinco ambientes, um contexto.</h1><p>Workspace mantém time, cliente, marca, projeto e referências ligados enquanto cada ambiente faz sua parte do trabalho. O briefing continua com a equipe — do planejamento à operação.</p><div class="ws-actions"><a href="{{ url_for('cadu_workspace.dashboard') }}">{{ 'Abrir Workspace' if session.get('user_id') else 'Organizar meu time' }}</a><a href="#ambientes">Conhecer os ambientes</a></div></div>
+  <div class="ws-context-map" aria-label="Workspace conecta os ambientes de campanha">
+    <div class="ws-map-source"><img src="{{ url_for('cadu_maintenance_product_icon', family='workspace', size=48) }}" alt=""><span>Contexto compartilhado</span><strong>Workspace</strong><small>time, cliente, projeto e referências</small></div>
+    <div class="ws-map-rail"><div><span>Cliente</span><b>Marca ativa</b></div><div><span>Projeto</span><b>Briefing e decisões</b></div></div>
+    <div class="ws-map-products" id="ambientes">
+      <a href="{{ product_url('planner') }}"><img src="{{ url_for('cadu_maintenance_product_icon', family='planner', size=32) }}" alt=""><span><b>Planner</b><small>planejar</small></span></a>
+      <a href="{{ product_url('skills') }}"><img src="{{ url_for('cadu_maintenance_product_icon', family='skills', size=32) }}" alt=""><span><b>Skills</b><small>especializar</small></span></a>
+      <a href="{{ product_url('studio') }}"><img src="{{ url_for('cadu_maintenance_product_icon', family='studio', size=32) }}" alt=""><span><b>Studio</b><small>produzir</small></span></a>
+      <a href="{{ product_url('connect') }}"><img src="{{ url_for('cadu_maintenance_product_icon', family='connect', size=32) }}" alt=""><span><b>Connect</b><small>operar</small></span></a>
+    </div>
   </div>
 </section>
-<section class="ws-public-section ws-public-intro"><h2>Uma conta para o time que faz a campanha acontecer.</h2><p>O Workspace cuida do que acompanha o trabalho: quem entra, qual cliente está ativo, a que projeto cada entrega pertence e quais recursos o time pode usar.</p></section>
+<section class="ws-public-section ws-public-intro"><h2>O Workspace não é mais uma ferramenta na campanha.</h2><p>É a camada que evita recomeços. Ele mantém a mesma base de trabalho quando a equipe muda de ambiente, de responsabilidade ou de etapa.</p></section>
 <section class="ws-public-capabilities">
-  <article><h3>Alinhe antes de executar</h3><p>Projetos reúnem decisões, marcas e referências para cada frente entrar na campanha com o mesmo contexto.</p></article>
-  <article><h3>Troque de produto sem perder o fio</h3><p>Planejamento, criação, skills e conexões continuam ligados ao mesmo trabalho.</p></article>
-  <article><h3>Cuide do time em um só lugar</h3><p>Pessoas, plano, créditos, integrações e ajuda usam a mesma conta Cadu.</p></article>
+  <article><h3>Comece com o que é comum</h3><p>Cliente, marca, projeto e briefing deixam de ser arquivos dispersos e passam a acompanhar o trabalho.</p></article>
+  <article><h3>Mude de ambiente sem começar de novo</h3><p>Planner, Skills, Studio e Connect recebem o mesmo contexto no momento em que entram na campanha.</p></article>
+  <article><h3>Administre a operação uma vez</h3><p>Pessoas, permissões, créditos e integrações pertencem ao time — não a uma tela isolada.</p></article>
 </section>
-<section class="ws-flow"><header><h2>Do pedido à entrega, cada produto faz uma parte.</h2><a href="{{ url_for('cadu_workspace.public_page', page='como-funciona') }}">Ver o fluxo completo</a></header><ol><li><span>Workspace</span><b>Define o contexto</b><p>Time, cliente, projeto, marca e referências.</p></li><li><span>Planner e Skills</span><b>Estruturam o raciocínio</b><p>Objetivos, métodos, canais e critérios de decisão.</p></li><li><span>Studio e Connect</span><b>Produzem e conectam</b><p>Peças, formatos, contas, campanhas e relatórios.</p></li></ol></section>
+<section class="ws-flow"><header><h2>Do pedido à entrega, cada ambiente tem uma função clara.</h2><a href="{{ url_for('cadu_workspace.public_page', page='como-funciona') }}">Ver como o contexto acompanha o fluxo</a></header><ol><li><span>Workspace</span><b>Guarda o que é comum</b><p>Time, cliente, projeto, marca e referências.</p></li><li><span>Planner e Skills</span><b>Estruturam a decisão</b><p>Objetivos, métodos, canais e critérios para seguir.</p></li><li><span>Studio e Connect</span><b>Transformam decisão em operação</b><p>Peças, formatos, contas, campanhas e relatórios.</p></li></ol></section>
 <section class="ws-trust"><div><h2>O que é público fica público. O trabalho do seu time, não.</h2><p>Estas páginas explicam o produto. Projetos, arquivos, skills personalizadas, créditos, clientes, campanhas, contas e relatórios pedem acesso e respeitam o contexto do time.</p></div><a href="{{ url_for('cadu_workspace.public_page', page='ajuda') }}">Privacidade e acesso</a></section>
 <section class="ws-closing"><h2>Comece organizando o contexto. Continue no produto certo.</h2><div class="ws-actions"><a href="{{ url_for('cadu_workspace.dashboard') }}">Entrar no Workspace</a><a href="{{ url_for('cadu_workspace.public_page', page='contato') }}">Falar com a equipe</a></div></section>
 {% endblock %}

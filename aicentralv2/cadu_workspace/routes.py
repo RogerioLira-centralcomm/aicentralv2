@@ -74,7 +74,7 @@ def product_entry(product):
     if not item:
         abort(404)
     entry = dict(zip(("name", "eyebrow", "title", "description"), item))
-    entry["icon"] = "cadu-icon.png" if product == "cadu" else f"{product}-2d.svg"
+    entry["icon_family"] = "workspace" if product == "cadu" else product
     # A página pública do Cadu também mora no Workspace: o domínio cadu.* é a
     # aplicação PHP autenticada e não deve receber links para uma rota Flask.
     entry_host = "workspace" if product == "cadu" else product

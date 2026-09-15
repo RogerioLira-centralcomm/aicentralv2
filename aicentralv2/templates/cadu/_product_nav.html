@@ -1,5 +1,4 @@
 <header class="cadu-universal-nav">
-  <a class="cadu-universal-brand" href="{{ product_url('workspace') }}"><span>C</span><b>Cadu</b></a>
   {% include 'cadu/_product_switch.html' %}
   <span class="cadu-universal-spacer"></span>
   {% if session.get('user_id') %}<a class="cadu-universal-account" href="{{ product_url('workspace', '/workspace/app') }}">{{ session.get('user_name', 'Minha conta') }}</a>{% else %}<a class="cadu-universal-enter" href="{{ product_url('auth', '/login') }}">Entrar</a>{% endif %}

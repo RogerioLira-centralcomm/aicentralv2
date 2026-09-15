@@ -1,13 +1,13 @@
 :root {
-  --auth-brand: #1e4d4f;
-  --auth-brand-deep: #123638;
-  --auth-brand-soft: #e8f1f1;
-  --auth-signal: #f3b71b;
-  --auth-lime: #9ccf31;
-  --auth-paper: #f5f7f5;
-  --auth-ink: #172524;
-  --auth-muted: #64706d;
-  --auth-line: #dce4e1;
+  --auth-brand: #00ab4e;
+  --auth-brand-deep: #008f41;
+  --auth-brand-soft: #e8fff3;
+  --auth-signal: #06f17b;
+  --auth-lime: #06f17b;
+  --auth-paper: #f7f8fa;
+  --auth-ink: #333842;
+  --auth-muted: #69717e;
+  --auth-line: #e1e4eb;
   --auth-danger: #b42318;
   --auth-success: #157347;
   --auth-radius: 10px;
@@ -36,7 +36,7 @@ body.auth-public {
   margin: 0;
   background: var(--auth-paper);
   color: var(--auth-ink);
-  font-family: "Manrope", sans-serif;
+  font-family: "DM Sans", sans-serif;
   font-size: 14px;
   line-height: 1.55;
 }
@@ -233,6 +233,15 @@ body[data-auth-page="reset-password"] .auth-page-content {
   margin-bottom: 1.35rem;
 }
 
+.auth-login-logo {
+  display: block;
+  width: auto;
+  height: 38px;
+  margin: 0 0 1.4rem;
+  object-fit: contain;
+  object-position: left center;
+}
+
 .auth-header h1 {
   margin: 0;
   color: var(--auth-ink);
@@ -289,6 +298,11 @@ body[data-auth-page="reset-password"] .auth-page-content {
 .auth-provider-button:hover {
   background: #f7f9fb;
   border-color: #aebdca;
+}
+
+.auth-provider-help--legal {
+  margin-top: 0.55rem;
+  text-align: center;
 }
 
 .auth-google-mark {

@@ -58,9 +58,15 @@ def _resolve_google_user(identity: dict) -> dict:
 @bp.get("")
 @bp.get("/")
 def index():
-    target = product_url("centralx") if session.get("is_centralcomm") else product_url("cadu")
     if session.get("user_id"):
-        return redirect(target, code=302)
+        if session.get("is_centralcomm"):
+            return redirect(product_url("centralx"), code=302)
+        # Cadu permanece em PHP; entre nele pela troca de ticket para criar
+        # também a sessão PHP, em vez de cair numa página sem PHPSESSID.
+        return redirect(
+            url_for("cadu_identity.issue_cadu_ticket", next=product_url("cadu")),
+            code=302,
+        )
     return redirect(url_for("login", next=product_url("cadu")), code=302)
 
 

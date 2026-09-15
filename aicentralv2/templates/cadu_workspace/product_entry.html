@@ -1,0 +1,5 @@
+{% extends 'cadu_portals/base.html' %}
+{% block title %}{{ entry.name }} — Cadu{% endblock %}
+{% block product_id %}{{ product }}{% endblock %}
+{% block meta %}<link rel="canonical" href="{{ canonical }}">{% endblock %}
+{% block content %}<section class="portal-entry"><p>{{ entry.eyebrow }}</p><h1>{{ entry.title }}</h1><div><p>{{ entry.description }}</p><a class="portal-primary" href="{{ product_url('auth', '/login') }}?next={{ product_url(product)|urlencode }}">Entrar em {{ entry.name }}</a></div></section>{% endblock %}

@@ -13,18 +13,7 @@
 </head>
 <body class="portal portal--{% block product_id %}cadu{% endblock %}">
   <a class="portal-skip" href="#content">Ir para o conteúdo</a>
-  <header class="portal-nav">
-    <a class="portal-brand" href="{{ product_url('cadu') }}"><span class="portal-mark">C</span><span><small>Ecossistema</small><strong>Cadu</strong></span></a>
-    <nav aria-label="Produtos Cadu">
-      <a href="{{ product_url('centralx') }}">CentralX</a>
-      <a href="{{ product_url('workspace') }}">Workspace</a>
-      <a href="{{ product_url('studio') }}">Studio</a>
-      <a href="{{ product_url('planner') }}">Planner</a>
-      <a href="{{ product_url('skills') }}">Skills</a>
-      <a href="{{ product_url('connect') }}">Agentes</a>
-    </nav>
-    <a class="portal-account" href="{{ product_url('auth') }}">{{ session.get('user_name', 'Entrar') }}</a>
-  </header>
+  {% set cadu_active_product = self.product_id()|trim %}{% include 'cadu/_product_nav.html' %}
   <main id="content" tabindex="-1">{% block content %}{% endblock %}</main>
 </body>
 </html>

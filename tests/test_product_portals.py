@@ -125,6 +125,15 @@ class ProductPortalsTest(TestCase):
         self.assertNotIn("/workspace/app", sitemap)
         self.assertEqual(client.get("/workspace/assets/workspace-icon-64.png").status_code, 200)
 
+    def test_product_menu_keeps_the_public_cadu_entry_on_workspace(self):
+        client = _app().test_client()
+        response = client.get("/entrada/cadu", headers={"Host": "workspace.centralcomm.media"})
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn('href="https://workspace.centralcomm.media/entrada/cadu"', html)
+        self.assertNotIn('href="https://cadu.centralcomm.media/entrada/cadu"', html)
+        self.assertIn('rel="canonical" href="https://workspace.centralcomm.media/entrada/cadu"', html)
+
     @mock.patch("aicentralv2.cadu_connect.routes.link_campaign_project", return_value=True)
     def test_agents_links_campaign_to_project_inside_client_context(self, link):
         client = _app().test_client()
@@ -152,6 +161,18 @@ class ProductPortalsTest(TestCase):
         response = client.get("/auth/", headers={"Host": "auth.centralcomm.media"})
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.headers["Location"], "https://ai.centralcomm.media/")
+
+    def test_identity_enters_php_cadu_through_the_sso_handoff(self):
+        app = _app()
+        client = app.test_client()
+        with client.session_transaction() as sess:
+            sess.update(user_id=7, user_name="Cliente", is_centralcomm=False)
+        response = client.get("/auth/", headers={"Host": "auth.centralcomm.media"})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response.headers["Location"],
+            "/auth/sso/to-cadu?next=https://cadu.centralcomm.media/",
+        )
 
     def test_cadu_google_access_uses_existing_php_flow(self):
         client = _app().test_client()

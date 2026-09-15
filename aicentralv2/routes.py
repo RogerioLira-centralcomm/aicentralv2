@@ -1198,29 +1198,49 @@ def init_routes(app):
             (urlparse(next_target).hostname or '').lower()
             == (urlparse(product_url('centralx')).hostname or '').lower()
         )
+        is_cadu_access = (
+            (urlparse(next_target).hostname or '').lower()
+            == (urlparse(product_url('cadu')).hostname or '').lower()
+        )
+
+        def authenticated_destination():
+            """Enter PHP Cadu through the one-time session handoff."""
+            if is_cadu_access:
+                return url_for('cadu_identity.issue_cadu_ticket', next=next_target)
+            return next_target
+
         login_context = {
             'next_target': next_target,
             'is_centralx_access': is_centralx_access,
         }
         if 'user_id' in session:
-            if session.get('is_centralcomm', False):
-                return redirect(next_target)
-            else:
-                return redirect(url_for('subscription_checkout'))
+            # Uma sessão Cadu existente deve seguir para o produto pedido.
+            # Somente o CentralX exige que a conta seja da CentralComm.
+            if not is_centralx_access or session.get('is_centralcomm', False):
+                return redirect(authenticated_destination())
+            session.clear()
         
         # POST - processar login
         if request.method == 'POST':
             from aicentralv2.auth import compose_login_email, persist_login_session
 
-            email = compose_login_email(
-                request.form.get('email_local') or request.form.get('email', '')
-            )
+            raw_email = request.form.get('email_local') or request.form.get('email', '')
+            # CentralX continua limitado à identidade corporativa. Para Cadu,
+            # reutilizamos o email/senha já cadastrados no PHP, inclusive nos
+            # domínios dos clientes.
+            if is_centralx_access:
+                email = compose_login_email(raw_email)
+            else:
+                from aicentralv2.auth import normalize_login_email
+                email = normalize_login_email(raw_email)
             password = request.form.get('password', '')
             
             if not email or not password:
                 flash(
-                    'Use o email @centralcomm.media e preencha a senha.'
-                    if not email else 'Preencha todos os campos.',
+                    (
+                        'Use o email @centralcomm.media e preencha a senha.'
+                        if is_centralx_access else 'Informe o email cadastrado no Cadu e preencha a senha.'
+                    ) if not email else 'Preencha todos os campos.',
                     'error',
                 )
                 return render_template('login_tailwind.html', **login_context)
@@ -1258,10 +1278,13 @@ def init_routes(app):
                 app.logger.info(f"Login: {user['nome_completo']} ({email}) - Type: {session['user_type']} - CENTRALCOMM: {is_centralcomm}")
                 flash(f'Bem-vindo, {user["nome_completo"]}!', 'success')
                 
-                if is_centralcomm:
-                    return redirect(next_target)
-                else:
-                    return redirect(url_for('subscription_checkout'))
+                # O destino decide a política: o CentralX é interno; os
+                # produtos Cadu aceitam a conta existente do cliente.
+                if is_centralx_access and not is_centralcomm:
+                    session.clear()
+                    flash('O CentralX é restrito à equipe CentralComm.', 'error')
+                    return render_template('login_tailwind.html', **login_context)
+                return redirect(authenticated_destination())
             else:
                 flash('Email ou senha incorretos.', 'error')
         
@@ -1295,14 +1318,12 @@ def init_routes(app):
             return redirect(url_for('index'))
         
         if request.method == 'POST':
-            from aicentralv2.auth import compose_login_email
+            from aicentralv2.auth import normalize_login_email
 
-            email = compose_login_email(
-                request.form.get('email_local') or request.form.get('email', '')
-            )
+            email = normalize_login_email(request.form.get('email', ''))
 
             if not email:
-                flash('Use o email @centralcomm.media.', 'error')
+                flash('Informe o email cadastrado no Cadu.', 'error')
                 return render_template('forgot_password_tailwind.html')
 
             contato = db.obter_contato_por_email(email)

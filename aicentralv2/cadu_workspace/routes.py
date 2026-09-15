@@ -57,6 +57,28 @@ PUBLIC_PAGES = {
     },
 }
 
+PRODUCT_ENTRIES = {
+    "cadu": ("Cadu", "Inteligência de mídia", "Traga a decisão de mídia para um só lugar.", "Pesquise públicos, formatos, canais e ferramentas de campanha a partir do contexto da sua organização."),
+    "workspace": ("Workspace", "Conta e contexto", "Comece pelo contexto certo.", "Organize pessoas, projetos, créditos e o acesso da sua organização antes de abrir uma solução especializada."),
+    "planner": ("Planner", "Planejamento de mídia", "Planeje antes de investir.", "Estruture objetivos, público, canais e recomendações em um plano pronto para a próxima decisão."),
+    "studio": ("Studio", "Criação de conteúdo", "Crie para o formato que importa.", "Transforme uma direção criativa em peças, variações e formatos preparados para a campanha."),
+    "skills": ("Skills", "Conhecimento especialista", "Aplique o método certo no momento certo.", "Encontre skills e agentes especializados para pesquisar, decidir e executar com mais contexto."),
+    "connect": ("Agentes", "Conexões e operação", "Conecte a operação ao trabalho.", "Organize integrações, campanhas e agentes que fazem os sistemas avançarem juntos."),
+}
+
+
+@bp.get("/entrada/<product>")
+def product_entry(product):
+    product = str(product or "").lower()
+    item = PRODUCT_ENTRIES.get(product)
+    if not item:
+        abort(404)
+    entry = dict(zip(("name", "eyebrow", "title", "description"), item))
+    # A página pública do Cadu também mora no Workspace: o domínio cadu.* é a
+    # aplicação PHP autenticada e não deve receber links para uma rota Flask.
+    entry_host = "workspace" if product == "cadu" else product
+    return render_template("cadu_workspace/product_entry.html", product=product, entry=entry, canonical=product_url(entry_host, f"/entrada/{product}"))
+
 
 @bp.get("/workspace/<page>")
 def public_page(page):

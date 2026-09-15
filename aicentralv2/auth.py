@@ -8,6 +8,10 @@ from flask import session, redirect, url_for, flash, jsonify, request
 
 LOGIN_EMAIL_DOMAIN = "centralcomm.media"
 _LOGIN_LOCAL_RE = re.compile(r"^[a-z0-9](?:[a-z0-9._+-]*[a-z0-9])?$", re.I)
+_EMAIL_RE = re.compile(
+    r"^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$",
+    re.I,
+)
 
 
 def login_email_local_part(value):
@@ -31,6 +35,18 @@ def compose_login_email(local_or_full):
     if not _LOGIN_LOCAL_RE.match(raw):
         return None
     return f"{raw}@{LOGIN_EMAIL_DOMAIN}"
+
+
+def normalize_login_email(value):
+    """Normaliza um email usado pela conta Cadu.
+
+    O Cadu PHP já possui contas em domínios de clientes. O Auth precisa
+    reconhecer exatamente essas mesmas credenciais, sem transformar o email
+    em uma conta CentralComm. A abreviação sem domínio continua reservada ao
+    login interno, tratada por :func:`compose_login_email`.
+    """
+    email = (value or "").strip().lower()
+    return email if _EMAIL_RE.fullmatch(email) else None
 
 
 def persist_login_session():

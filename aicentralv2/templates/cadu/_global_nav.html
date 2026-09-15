@@ -1,5 +1,5 @@
 <header class="cadu-global-nav">
-  {% set cadu_home = product_url('cadu') if product_url is defined else url_for('cadu_skills.start') %}
+  {% set cadu_home = url_for('cadu_identity.issue_cadu_ticket', next=product_url('cadu')) if session.get('user_id') and product_url is defined else (product_url('cadu') if product_url is defined else url_for('cadu_skills.start')) %}
   {% set centralx_home = product_url('centralx') if product_url is defined else '/' %}
   {% set auth_home = product_url('auth') if product_url is defined else url_for('login') %}
   <a class="cadu-product-switch" href="{{ url_for('cadu_skills.marketplace') }}" aria-label="Cadu Skills">

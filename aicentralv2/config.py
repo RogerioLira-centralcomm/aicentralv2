@@ -48,7 +48,12 @@ class Config:
 	CADU_FINANCE_URL = os.getenv('CADU_FINANCE_URL', f"{CADU_URL.rstrip('/')}/financeiro")
 	CADU_INTEGRATIONS_URL = os.getenv('CADU_INTEGRATIONS_URL', f"{CADU_URL.rstrip('/')}/integracoes")
 	CADU_HELP_URL = os.getenv('CADU_HELP_URL', f"{CADU_URL.rstrip('/')}/ajuda")
-	CADU_SSO_CONSUME_URL = os.getenv('CADU_SSO_CONSUME_URL', '')
+	# Endpoint PHP que troca um ticket único pelo PHPSESSID local. Mantém os
+	# cookies separados, mas permite que o Auth seja a porta única de entrada.
+	CADU_SSO_CONSUME_URL = os.getenv(
+		'CADU_SSO_CONSUME_URL',
+		f"{CADU_URL.rstrip('/')}/sso-consume.php",
+	)
 	# Durante a transição, o PHP continua dono do cadastro/login Google do Cadu.
 	CADU_GOOGLE_LOGIN_URL = os.getenv(
 		'CADU_GOOGLE_LOGIN_URL',

@@ -19,7 +19,7 @@ O destino original define a política. CentralX usa o cliente interno do Flask, 
 ## Python para PHP
 
 1. O usuário abre `/auth/sso/to-cadu` já autenticado no Flask.
-2. O Flask cria o ticket da mesma forma e redireciona para `CADU_SSO_CONSUME_URL`.
+2. O Flask cria o ticket da mesma forma e redireciona para `CADU_SSO_CONSUME_URL` (`https://cadu.centralcomm.media/sso-consume.php`).
 3. O PHP valida e consome a linha dentro de uma transação, cria `PHPSESSID` e redireciona para `target_url`.
 
 ## Regras obrigatórias
@@ -33,3 +33,9 @@ O destino original define a política. CentralX usa o cliente interno do Flask, 
 - O cookie Flask deve usar nome próprio, `Secure`, `HttpOnly`, `SameSite=Lax` e domínio `.centralcomm.media` em produção.
 - A primeira troca de `session` para `centralx_session` exige um novo login uma única vez; faça essa mudança junto da publicação do Auth.
 - O cookie PHP continua separado. Nenhuma linguagem precisa conhecer a chave ou o formato da sessão da outra.
+
+## Entrada centralizada
+
+- `https://cadu.centralcomm.media/login` e `login.php` não validam mais senha: redirecionam para `https://auth.centralcomm.media/login` com o destino Cadu em `next`.
+- O formulário no Auth valida a mesma tabela e os mesmos hashes (bcrypt e MD5 legado) que o PHP usava. A senha não é enviada ao PHP depois disso.
+- Ao abrir Cadu a partir do Auth, `/auth/sso/to-cadu` emite o ticket e `sso-consume.php` cria o `PHPSESSID` local. A navbar PHP deve apontar **Workspace/Conta** para `https://workspace.centralcomm.media/workspace/app` e **Sair** para `https://auth.centralcomm.media/logout`.

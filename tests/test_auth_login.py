@@ -8,6 +8,7 @@ from aicentralv2.auth import (
     LOGIN_EMAIL_DOMAIN,
     compose_login_email,
     login_email_local_part,
+    normalize_login_email,
     persist_login_session,
 )
 from aicentralv2.config import Config, ProductionConfig, TestingConfig
@@ -35,6 +36,11 @@ class ComposeLoginEmailTests(unittest.TestCase):
     def test_extrai_parte_local(self):
         self.assertEqual(login_email_local_part("Apolo@centralcomm.media"), "apolo")
         self.assertEqual(login_email_local_part("marina"), "marina")
+
+    def test_normaliza_email_de_cliente_cadu_sem_restringir_dominio(self):
+        self.assertEqual(normalize_login_email(" Pessoa@Cliente.com.br "), "pessoa@cliente.com.br")
+        self.assertIsNone(normalize_login_email("pessoa"))
+        self.assertIsNone(normalize_login_email("pessoa@"))
 
 
 class SessionPersistenceConfigTests(unittest.TestCase):

@@ -87,6 +87,9 @@ class CaduSkillsTest(TestCase):
         self.assertIn("Copiar instrução para GPT", html)
         self.assertIn("Copiar instrução para Claude", html)
         self.assertIn("O que vem no pacote", html)
+        self.assertIn('class="sk-page-index"', html)
+        self.assertIn('data-page-position>01 / 06', html)
+        self.assertIn('href="#experimentar" data-page-link', html)
 
         install = client.get("/skills/install/cadu-media-planning")
         self.assertEqual(install.status_code, 200)

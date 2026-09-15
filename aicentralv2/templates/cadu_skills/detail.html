@@ -45,13 +45,19 @@
   </header>
 
   <div class="sk-document sk-product-document">
-    <nav aria-label="Conteúdo da página">
-      <b>Nesta página</b>
-      <a href="#o-que-faz">O que faz</a>
-      {% if package %}<a href="#pacote">O que vem no pacote</a><a href="#instalar">Como instalar</a>{% endif %}
-      <a href="#como-usar">Como usar</a>
-      <a href="#instrucoes">Instruções</a>
-      <a href="#experimentar">Experimentar</a>
+    {% set page_section_count = 6 if package else 4 %}
+    <nav class="sk-page-index" data-page-index aria-label="Nesta página" style="--page-progress: {{ (100 / page_section_count)|round|int }}%">
+      <div class="sk-page-index__status">
+        <span>Nesta página</span>
+        <strong data-page-position>01 / {{ '%02d'|format(page_section_count) }}</strong>
+      </div>
+      <div class="sk-page-index__links" data-page-links>
+        <a class="is-active" href="#o-que-faz" data-page-link aria-current="location"><span>01</span>O que faz</a>
+        {% if package %}<a href="#pacote" data-page-link><span>02</span>Pacote</a><a href="#instalar" data-page-link><span>03</span>Instalar</a>{% endif %}
+        <a href="#como-usar" data-page-link><span>{{ '04' if package else '02' }}</span>Como usar</a>
+        <a href="#instrucoes" data-page-link><span>{{ '05' if package else '03' }}</span>Instruções</a>
+        <a href="#experimentar" data-page-link><span>{{ '06' if package else '04' }}</span>Experimentar</a>
+      </div>
     </nav>
 
     <div class="sk-product-content">

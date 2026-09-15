@@ -1,16 +1,22 @@
 <header class="cadu-global-nav">
+  {% set cadu_home = product_url('cadu') if product_url is defined else url_for('cadu_skills.start') %}
+  {% set centralx_home = product_url('centralx') if product_url is defined else '/' %}
+  {% set auth_home = product_url('auth') if product_url is defined else url_for('login') %}
   <a class="cadu-product-switch" href="{{ url_for('cadu_skills.marketplace') }}" aria-label="Cadu Skills">
     <img src="{{ url_for('cadu_skills.skills_icon', size=64) }}" alt="">
     <span><small>Ecossistema Cadu</small><strong>Skills</strong></span>
   </a>
   <span class="cadu-nav-spacer"></span>
   {% if session.get('user_id') %}
-    <a class="cadu-context-link" href="{{ url_for('index') }}"><small>Área de trabalho</small><strong>{{ session.get('user_name', 'Minha conta') }}</strong></a>
+    {% if product_url is defined %}<a class="cadu-nav-link" href="{{ product_url('studio') }}">Studio</a>
+    <a class="cadu-nav-link" href="{{ product_url('planner') }}">Planner</a>
+    <a class="cadu-nav-link" href="{{ product_url('connect') }}">Connect</a>{% endif %}
+    <a class="cadu-context-link" href="{{ centralx_home }}"><small>Área de trabalho</small><strong>{{ session.get('user_name', 'Minha conta') }}</strong></a>
     <a class="cadu-credit-link" href="{{ url_for('cadu_skills.studio') }}">Créditos</a>
-    <a class="cadu-avatar" href="{{ url_for('cadu_skills.studio') }}" aria-label="Abrir conta">{{ session.get('user_name', 'U')[:2]|upper }}</a>
+    <a class="cadu-avatar" href="{{ auth_home }}" aria-label="Abrir conta">{{ session.get('user_name', 'U')[:2]|upper }}</a>
   {% else %}
-    <a class="cadu-nav-link" href="{{ url_for('cadu_skills.start') }}">Conhecer o Cadu</a>
-    <a class="cadu-nav-link" href="{{ url_for('login', next=request.path) }}">Entrar</a>
+    <a class="cadu-nav-link" href="{{ cadu_home }}">Conhecer o Cadu</a>
+    <a class="cadu-nav-link" href="{{ product_url('auth', '/login') if product_url is defined else url_for('login') }}">Entrar</a>
     <a class="cadu-nav-action" href="{{ url_for('cadu_skills.start') }}">Solicitar acesso</a>
   {% endif %}
 </header>

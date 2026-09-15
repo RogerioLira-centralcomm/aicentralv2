@@ -25,6 +25,23 @@
   <div class="cx-integrations-feedback" data-integration-feedback hidden role="status"></div>
 
   <section class="cx-integrations-grid" aria-label="Provedores">
+    {% for provider, title, description, domain in [
+      ('google_login_cadu', 'Google Login — Cadu', 'Entrada de clientes e parceiros externos previamente aprovados na base.', ''),
+      ('google_login_centralx', 'Google Login — CentralX', 'Entrada interna, restrita às contas corporativas da CentralComm.', 'centralcomm.media')
+    ] %}
+    <form class="cx-integration-card" data-integration-form="{{ provider }}">
+      <header><span class="cx-integration-logo is-google"><i class="fa-brands fa-google" aria-hidden="true"></i></span><div><h2>{{ title }}</h2><p>{{ description }}</p></div><span class="cx-integration-status" data-integration-status>Carregando…</span></header>
+      <div class="cx-integration-fields">
+        <label><span>Client ID</span><input name="client_id" type="text" autocomplete="off" placeholder="000000.apps.googleusercontent.com"></label>
+        <label><span>Client secret</span><input name="client_secret" type="password" autocomplete="new-password" placeholder="Deixe vazio para manter"><small data-secret-state>Nenhum segredo armazenado.</small></label>
+        <label class="is-wide"><span>Redirect URI</span><input name="redirect_uri" type="url" value="https://auth.centralcomm.media/auth/google/callback"></label>
+        {% if domain %}<label class="is-wide"><span>Domínio permitido</span><input name="allowed_domain" placeholder="centralcomm.media" readonly></label>{% endif %}
+      </div>
+      <aside><strong>{% if domain %}Gestão interna{% else %}Família Cadu{% endif %}</strong><span>Login usa somente identidade Google; Calendar e APIs são autorizados separadamente.</span></aside>
+      <footer><button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-integration-action="validate">Validar configuração</button><button type="button" class="cx-btn cx-btn-ghost cx-btn-sm is-danger" data-integration-action="remove">Remover</button><button type="submit" class="cx-btn cx-btn-primary cx-btn-sm">Salvar Google</button></footer>
+    </form>
+    {% endfor %}
+
     <form class="cx-integration-card" data-integration-form="google_calendar">
       <header>
         <span class="cx-integration-logo is-google"><i class="fa-brands fa-google" aria-hidden="true"></i></span>

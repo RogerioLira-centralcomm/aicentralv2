@@ -32,6 +32,27 @@ class Config:
 	
 	# URL base da aplicação (para acesso externo às imagens)
 	BASE_URL = os.getenv('BASE_URL', 'http://localhost:5000')
+	CENTRALX_URL = os.getenv('CENTRALX_URL', BASE_URL)
+	CADU_URL = os.getenv('CADU_URL', 'https://cadu.centralcomm.media')
+	STUDIO_URL = os.getenv('STUDIO_URL', 'https://studio.centralcomm.media')
+	SKILLS_URL = os.getenv('SKILLS_URL', 'https://skills.centralcomm.media')
+	PLANNER_URL = os.getenv('PLANNER_URL', 'https://planner.centralcomm.media')
+	CONNECT_URL = os.getenv('CONNECT_URL', 'https://connect.centralcomm.media')
+	AUTH_URL = os.getenv('AUTH_URL', 'https://auth.centralcomm.media')
+	CADU_SSO_CONSUME_URL = os.getenv('CADU_SSO_CONSUME_URL', '')
+	# Durante a transição, o PHP continua dono do cadastro/login Google do Cadu.
+	CADU_GOOGLE_LOGIN_URL = os.getenv(
+		'CADU_GOOGLE_LOGIN_URL',
+		f"{CADU_URL.rstrip('/')}/google-login.php",
+	)
+	# Login Google centralizado: cliente interno e cliente externo separados.
+	GOOGLE_CENTRALX_CLIENT_ID = os.getenv('GOOGLE_CENTRALX_CLIENT_ID', '')
+	GOOGLE_CENTRALX_CLIENT_SECRET = os.getenv('GOOGLE_CENTRALX_CLIENT_SECRET', '')
+	GOOGLE_CENTRALX_REDIRECT_URI = os.getenv('GOOGLE_CENTRALX_REDIRECT_URI', f"{AUTH_URL.rstrip('/')}/auth/google/callback")
+	GOOGLE_CENTRALX_DOMAIN = os.getenv('GOOGLE_CENTRALX_DOMAIN', 'centralcomm.media')
+	GOOGLE_CADU_CLIENT_ID = os.getenv('GOOGLE_CADU_CLIENT_ID', '')
+	GOOGLE_CADU_CLIENT_SECRET = os.getenv('GOOGLE_CADU_CLIENT_SECRET', '')
+	GOOGLE_CADU_REDIRECT_URI = os.getenv('GOOGLE_CADU_REDIRECT_URI', f"{AUTH_URL.rstrip('/')}/auth/google/callback")
 
 	# Sessão persistente: o login permanece neste dispositivo sem checkbox.
 	SESSION_LIFETIME_DAYS = int(os.getenv('SESSION_LIFETIME_DAYS', '365'))
@@ -39,6 +60,12 @@ class Config:
 	SESSION_REFRESH_EACH_REQUEST = True
 	SESSION_COOKIE_HTTPONLY = True
 	SESSION_COOKIE_SAMESITE = 'Lax'
+	# O fallback preserva sessões atuais. Ative `centralx_session` no rollout
+	# coordenado; mudar o nome encerra uma vez os cookies Flask anteriores.
+	SESSION_COOKIE_NAME = os.getenv('SESSION_COOKIE_NAME', 'session')
+	# Em produção, configure `.centralcomm.media` para compartilhar somente a
+	# sessão Flask entre CentralX, Studio, Planner, Skills, Connect e Auth.
+	SESSION_COOKIE_DOMAIN = os.getenv('SESSION_COOKIE_DOMAIN') or None
 	SESSION_COOKIE_SECURE = os.getenv(
 		'SESSION_COOKIE_SECURE',
 		'true' if BASE_URL.startswith('https') else 'false',

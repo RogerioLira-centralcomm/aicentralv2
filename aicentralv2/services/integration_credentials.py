@@ -10,6 +10,18 @@ from flask import current_app
 
 
 PROVIDERS = {
+    "google_login_centralx": {
+        "label": "Google Login — CentralX interno",
+        "public_fields": ("client_id", "redirect_uri", "allowed_domain"),
+        "secret_fields": ("client_secret",),
+        "required": ("client_id", "redirect_uri", "client_secret", "allowed_domain"),
+    },
+    "google_login_cadu": {
+        "label": "Google Login — Cadu e família",
+        "public_fields": ("client_id", "redirect_uri"),
+        "secret_fields": ("client_secret",),
+        "required": ("client_id", "redirect_uri", "client_secret"),
+    },
     "google_calendar": {
         "label": "Google Calendar e Meet",
         "public_fields": ("client_id", "redirect_uri"),
@@ -49,6 +61,17 @@ PROVIDERS = {
 }
 
 ENV_FIELDS = {
+    "google_login_centralx": {
+        "client_id": "GOOGLE_CENTRALX_CLIENT_ID",
+        "redirect_uri": "GOOGLE_CENTRALX_REDIRECT_URI",
+        "allowed_domain": "GOOGLE_CENTRALX_DOMAIN",
+        "client_secret": "GOOGLE_CENTRALX_CLIENT_SECRET",
+    },
+    "google_login_cadu": {
+        "client_id": "GOOGLE_CADU_CLIENT_ID",
+        "redirect_uri": "GOOGLE_CADU_REDIRECT_URI",
+        "client_secret": "GOOGLE_CADU_CLIENT_SECRET",
+    },
     "google_calendar": {
         "client_id": "GOOGLE_OAUTH_CLIENT_ID",
         "redirect_uri": "GOOGLE_OAUTH_REDIRECT_URI",
@@ -296,7 +319,7 @@ def validate_configuration(provider):
         return _validate_d4sign(config)
     return True, (
         "Credencial Google pronta para iniciar OAuth."
-        if provider == "google_calendar"
+        if provider.startswith("google_")
         else "Credencial Higgsfield armazenada e pronta para uso."
     ), {}
 
@@ -451,7 +474,7 @@ def _register_d4sign_vault_webhook(config, uuid_safe):
 
 
 def _validate_public(provider, config):
-    if provider == "google_calendar" and config.get("redirect_uri"):
+    if provider.startswith("google_") and config.get("redirect_uri"):
         parsed = urlparse(config["redirect_uri"])
         if parsed.scheme not in ("https", "http") or not parsed.netloc:
             raise IntegrationCredentialError("Redirect URI do Google inválida.")

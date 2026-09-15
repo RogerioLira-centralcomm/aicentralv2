@@ -1,6 +1,6 @@
 {% extends "base_auth_public.html" %}
 
-{% block title %}Entrar — CentralX{% endblock %}
+{% block title %}Entrar — Cadu Auth{% endblock %}
 {% block page_name %}login{% endblock %}
 {% block scene_message %}Organize a operação. Enxergue a próxima decisão.{% endblock %}
 
@@ -8,11 +8,16 @@
 {% set submitted_email = request.form.get('email_local') or request.form.get('email') or '' %}
 {% set email_local = submitted_email.split('@')[0] %}
 <header class="auth-header">
-  <h1>Acesse o CentralX</h1>
-  <p>Entre com o email da CentralComm para continuar.</p>
+  {% if is_centralx_access %}
+  <h1>Acesse o CentralX</h1><p>Área interna. Entre com sua conta CentralComm.</p>
+  {% else %}
+  <h1>Planeje, crie e conecte. Comece por aqui.</h1><p>Uma conta para toda a família Cadu. No primeiro acesso, seu espaço e o plano Free são criados automaticamente.</p>
+  {% endif %}
 </header>
 
+{% if is_centralx_access %}
 <form action="{{ url_for('login') }}" method="POST" class="auth-form" id="loginForm" data-auth-form>
+  {% if request.values.get('next') %}<input type="hidden" name="next" value="{{ request.values.get('next') }}">{% endif %}
   <div class="auth-field">
     <label class="auth-label" for="email_local">Email</label>
     <div class="auth-email-lock" data-email-lock>
@@ -72,4 +77,19 @@
     <i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i>
   </button>
 </form>
+<div class="auth-provider-divider"><span>ou</span></div>
+<a class="auth-provider-button" href="{{ url_for('cadu_identity.google_login', next=next_target) }}">
+  <i class="fa-brands fa-google auth-google-icon" aria-hidden="true"></i>
+  <span>Continuar com Google corporativo</span>
+</a>
+<p class="auth-access-switch">Não é da equipe CentralComm? <a class="auth-link" href="{{ url_for('login', next=product_url('cadu')) }}">Acesse o Cadu</a></p>
+{% else %}
+<a class="auth-provider-button auth-provider-button--primary" href="{{ url_for('cadu_identity.google_login', next=next_target) }}">
+  <i class="fa-brands fa-google auth-google-icon" aria-hidden="true"></i><span>Criar conta ou entrar com Google</span>
+</a>
+<p class="auth-provider-help">O cadastro é aberto e continua protegido pelo fluxo Google já usado no Cadu.</p>
+<div class="auth-provider-divider"><span>ou</span></div>
+<a class="auth-button auth-button--secondary" href="{{ product_url('cadu', '/login') }}">Entrar com email e senha</a>
+<p class="auth-access-switch">Equipe CentralComm? <a class="auth-link" href="{{ url_for('login', next=product_url('centralx')) }}">Acesso interno CentralX</a></p>
+{% endif %}
 {% endblock %}

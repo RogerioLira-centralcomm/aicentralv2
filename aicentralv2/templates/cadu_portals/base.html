@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}Cadu{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-portals.css') }}?v=1">
+</head>
+<body class="portal portal--{% block product_id %}cadu{% endblock %}">
+  <a class="portal-skip" href="#content">Ir para o conteúdo</a>
+  <header class="portal-nav">
+    <a class="portal-brand" href="{{ product_url('cadu') }}"><span class="portal-mark">C</span><span><small>Ecossistema</small><strong>Cadu</strong></span></a>
+    <nav aria-label="Produtos Cadu">
+      <a href="{{ product_url('centralx') }}">CentralX</a>
+      <a href="{{ product_url('studio') }}">Studio</a>
+      <a href="{{ product_url('planner') }}">Planner</a>
+      <a href="{{ product_url('skills') }}">Skills</a>
+      <a href="{{ product_url('connect') }}">Connect</a>
+    </nav>
+    <a class="portal-account" href="{{ product_url('auth') }}">{{ session.get('user_name', 'Entrar') }}</a>
+  </header>
+  <main id="content" tabindex="-1">{% block content %}{% endblock %}</main>
+</body>
+</html>

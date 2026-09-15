@@ -3,6 +3,7 @@ AIcentralv2 - Sistema de Autenticação
 """
 import re
 from functools import wraps
+from urllib.parse import urlencode
 from flask import session, redirect, url_for, flash, jsonify, request
 
 LOGIN_EMAIL_DOMAIN = "centralcomm.media"
@@ -36,13 +37,24 @@ def persist_login_session():
     """Marca a sessão como permanente. O cookie sobrevive ao fechar o navegador."""
     session.permanent = True
 
+
+def login_url(next_url=None):
+    """Point protected product pages to the canonical identity host."""
+    try:
+        from .product_domains import product_url
+        target = product_url("auth", "/login")
+        destination = next_url or request.url
+        return f"{target}?{urlencode({'next': destination})}"
+    except Exception:
+        return url_for('login')
+
 def login_required(f):
     """Decorador para proteger rotas que exigem login"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
             flash('Por favor, faça login para acessar esta página.', 'error')
-            return redirect(url_for('login'))
+            return redirect(login_url())
         return f(*args, **kwargs)
     return decorated_function
 
@@ -53,7 +65,7 @@ def admin_required(f):
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
             flash('Por favor, faça login para acessar esta página.', 'warning')
-            return redirect(url_for('login'))
+            return redirect(login_url())
         
         user_type = session.get('user_type', 'client')
         if user_type not in ['admin', 'superadmin']:
@@ -70,7 +82,7 @@ def superadmin_required(f):
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
             flash('Por favor, faça login para acessar esta página.', 'warning')
-            return redirect(url_for('login'))
+            return redirect(login_url())
         
         user_type = session.get('user_type', 'client')
         if user_type != 'superadmin':
@@ -114,7 +126,7 @@ def finance_admin_required(f):
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
             flash('Por favor, faça login para acessar esta página.', 'warning')
-            return redirect(url_for('login'))
+            return redirect(login_url())
         if not is_finance_admin():
             flash('Acesso restrito ao time financeiro.', 'error')
             return redirect(url_for('index'))

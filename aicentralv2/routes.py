@@ -1187,9 +1187,24 @@ def init_routes(app):
     @app.route('/login', methods=['GET', 'POST'])
     def login():
         """Página de login"""
+        from aicentralv2.product_domains import product_url, safe_product_target
+
+        next_target = safe_product_target(
+            request.values.get('next'),
+            product_url('cadu'),
+        )
+        from urllib.parse import urlparse
+        is_centralx_access = (
+            (urlparse(next_target).hostname or '').lower()
+            == (urlparse(product_url('centralx')).hostname or '').lower()
+        )
+        login_context = {
+            'next_target': next_target,
+            'is_centralx_access': is_centralx_access,
+        }
         if 'user_id' in session:
             if session.get('is_centralcomm', False):
-                return redirect(url_for('index'))
+                return redirect(next_target)
             else:
                 return redirect(url_for('subscription_checkout'))
         
@@ -1208,7 +1223,7 @@ def init_routes(app):
                     if not email else 'Preencha todos os campos.',
                     'error',
                 )
-                return render_template('login_tailwind.html')
+                return render_template('login_tailwind.html', **login_context)
             
             user = db.verificar_credenciais(email, password)
             
@@ -1216,17 +1231,17 @@ def init_routes(app):
                 # Verificar se é um usuário inativo
                 if isinstance(user, dict) and user.get('inactive_user'):
                     flash('Usuário inativo. Entre em contato com o administrador.', 'error')
-                    return render_template('login_tailwind.html')
+                    return render_template('login_tailwind.html', **login_context)
                 
                 cliente_id = user.get('pk_id_tbl_cliente')
                 if not cliente_id:
                     flash('Acesso restrito. Cliente não autorizado.', 'error')
-                    return render_template('login_tailwind.html')
+                    return render_template('login_tailwind.html', **login_context)
 
                 cliente = db.obter_cliente_por_id(cliente_id)
                 if not cliente:
                     flash('Acesso restrito. Cliente não autorizado.', 'error')
-                    return render_template('login_tailwind.html')
+                    return render_template('login_tailwind.html', **login_context)
 
                 is_centralcomm = cliente.get('nome_fantasia', '').upper() == 'CENTRALCOMM'
 
@@ -1244,14 +1259,14 @@ def init_routes(app):
                 flash(f'Bem-vindo, {user["nome_completo"]}!', 'success')
                 
                 if is_centralcomm:
-                    return redirect(url_for('index'))
+                    return redirect(next_target)
                 else:
                     return redirect(url_for('subscription_checkout'))
             else:
                 flash('Email ou senha incorretos.', 'error')
         
         # GET - mostrar página de login
-        return render_template('login_tailwind.html')
+        return render_template('login_tailwind.html', **login_context)
     
     # ==================== LOGOUT ====================
     
@@ -1260,7 +1275,8 @@ def init_routes(app):
         """Logout"""
         session.clear()
         flash('Logout realizado!', 'success')
-        return redirect(url_for('login'))
+        from aicentralv2.product_domains import product_url
+        return redirect(product_url('auth', '/login'))
     
     # ==================== INDEX ====================
     

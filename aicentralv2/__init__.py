@@ -129,6 +129,7 @@ def create_app(config_class=Config):
     def inject_config():
         from flask import session
         from .erp_page_context import resolve_page_context, uses_legacy_daisy
+        from .product_domains import product_url
         
         # Verificar se usuário é CENTRALCOMM; reutiliza o mesmo contato para o modal Meu perfil
         is_cc_user = False
@@ -157,6 +158,7 @@ def create_app(config_class=Config):
             cx_page_context=resolve_page_context(),
             cx_uses_legacy_daisy=uses_legacy_daisy(),
             is_erp_nav_item_active=is_erp_nav_item_active,
+            product_url=product_url,
         )
 
     # Registrar teardown (fechar conexão)
@@ -228,6 +230,12 @@ def create_app(config_class=Config):
         from .cadu_skills import bp as cadu_skills_bp
         app.register_blueprint(cadu_skills_bp)
 
+        from .cadu_connect import bp as cadu_connect_bp
+        app.register_blueprint(cadu_connect_bp)
+
+        from .cadu_identity import bp as cadu_identity_bp
+        app.register_blueprint(cadu_identity_bp)
+
         from .agent import bp as agent_bp
         app.register_blueprint(agent_bp)
 
@@ -245,6 +253,9 @@ def create_app(config_class=Config):
         # após o deploy. Restrito a superadmin (auth.py).
         from .admin_migrations_routes import bp as admin_migrations_bp
         app.register_blueprint(admin_migrations_bp)
+
+        from .product_domains import register_product_host_routing
+        register_product_host_routing(app)
 
         # Redirect da rota legada /teste-crm para /crm-v3 (mantido 1-2 sprints)
         from flask import redirect as _redirect, url_for as _url_for

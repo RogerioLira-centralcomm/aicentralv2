@@ -37,6 +37,43 @@
     preload.src = source;
   }
 
+  function setupProductShowcase() {
+    var root = document.querySelector('[data-auth-products]');
+    if (!root) return;
+    var tabs = Array.prototype.slice.call(root.querySelectorAll('[data-auth-product-tab]'));
+    var panels = Array.prototype.slice.call(root.querySelectorAll('[data-auth-product-panel]'));
+
+    function selectProduct(slug, focus) {
+      tabs.forEach(function (tab) {
+        var active = tab.dataset.authProductTab === slug;
+        tab.setAttribute('aria-selected', active ? 'true' : 'false');
+        tab.tabIndex = active ? 0 : -1;
+        if (active && focus) tab.focus();
+      });
+      panels.forEach(function (panel) {
+        var active = panel.dataset.authProductPanel === slug;
+        panel.hidden = !active;
+        panel.classList.toggle('is-active', active);
+      });
+    }
+
+    tabs.forEach(function (tab, index) {
+      tab.addEventListener('click', function () {
+        selectProduct(tab.dataset.authProductTab, false);
+      });
+      tab.addEventListener('keydown', function (event) {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        var next = index;
+        if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = tabs.length - 1;
+        else if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+        else next = (index - 1 + tabs.length) % tabs.length;
+        selectProduct(tabs[next].dataset.authProductTab, true);
+      });
+    });
+  }
+
   function setupPasswordToggles() {
     document.querySelectorAll('[data-password-toggle]').forEach(function (button) {
       button.addEventListener('click', function () {
@@ -243,6 +280,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     setupViewportLock();
     selectCity();
+    setupProductShowcase();
     setupPasswordToggles();
     setupPasswordStrength();
     setupMatchingPasswords();

@@ -1,0 +1,29 @@
+{% extends 'cadu_portals/base.html' %}
+{% block title %}Connect — Cadu{% endblock %}
+{% block product_id %}connect{% endblock %}
+{% block content %}
+<section class="portal-hero">
+  <div>
+    <p class="portal-context">Cadu Connect</p>
+    <h1>Dados confiáveis antes da próxima decisão.</h1>
+    <p>Conecte contas e relatórios, confira identificadores, período e moeda, e só então use essas informações no planejamento.</p>
+  </div>
+  <aside class="connect-signal" aria-label="Estado das conexões">
+    <span></span><span></span><span></span><span></span><span></span>
+    <strong>Entrada preparada</strong>
+    <small>As integrações existentes continuam no CentralX enquanto o Connect evolui.</small>
+  </aside>
+</section>
+<section class="portal-ledger" aria-labelledby="connect-next">
+  <header><h2 id="connect-next">Próximas conexões</h2><p>Escopo inicial do produto</p></header>
+  <ol>
+    <li><span>Contas de mídia</span><p>Meta, Google, TikTok e DV360 com permissões explícitas.</p><em>Em preparação</em></li>
+    <li><span>Relatórios</span><p>Importação e validação de campanha, ID, período e moeda.</p><em>Base existente</em></li>
+    <li><span>Pendências</span><p>Uma fila clara para dados ausentes ou que precisam de revisão humana.</p><em>Próxima etapa</em></li>
+  </ol>
+  <div class="portal-actions">
+    <a class="portal-primary" href="{{ product_url('centralx', '/parametros') }}">Abrir parâmetros no CentralX</a>
+    <span>Conectado como {{ account_name }}</span>
+  </div>
+</section>
+{% endblock %}

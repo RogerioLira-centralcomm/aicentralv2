@@ -21,7 +21,9 @@ echo "  > Instalando snippet global..."
 sudo cp "$SNIPPET_SRC" /etc/nginx/conf.d/aicentralv2-upload-limits.conf
 
 patched=0
-for f in /etc/nginx/sites-enabled/* /etc/nginx/sites-available/* /etc/nginx/conf.d/*; do
+# Altere apenas arquivos efetivamente carregados pelo Nginx. A cópia em
+# sites-available pode ser uma configuração histórica e não deve ser mutada.
+for f in /etc/nginx/sites-enabled/* /etc/nginx/conf.d/*; do
     [ -f "$f" ] || continue
     case "$f" in
         */aicentralv2-upload-limits.conf) continue ;;
@@ -40,10 +42,6 @@ for f in /etc/nginx/sites-enabled/* /etc/nginx/sites-available/* /etc/nginx/conf
     if ! sed -n '/^[[:space:]]*server_name[[:space:]]/,/;/p' "$f" | grep -q 'workspace\.centralcomm\.media'; then
         sudo sed -i '/^[[:space:]]*server_name[[:space:]]/,/;/ { /;[[:space:]]*$/ s/;[[:space:]]*$/ workspace.centralcomm.media;/; }' "$f"
         echo "  > workspace.centralcomm.media adicionado ao server_name"
-    fi
-    if ! sed -n '/^[[:space:]]*server_name[[:space:]]/,/;/p' "$f" | grep -q 'cadu\.centralcomm\.media'; then
-        sudo sed -i '/^[[:space:]]*server_name[[:space:]]/,/;/ { /;[[:space:]]*$/ s/;[[:space:]]*$/ cadu.centralcomm.media;/; }' "$f"
-        echo "  > cadu.centralcomm.media adicionado ao server_name"
     fi
     echo "  > client_max_body_size 256M em $(basename "$f")"
     patched=$((patched + 1))

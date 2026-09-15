@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf }}">
+  <title>{{ title }} — Cadu {{ spec.name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-family.css') }}">
+  <script defer src="{{ url_for('static', filename='js/cadu-family.js') }}"></script>
+  {% if product == 'studio' and module == 'copy-ads' %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-copy-ads.css') }}">
+  <script defer src="{{ url_for('static', filename='js/cadu-copy-ads.js') }}"></script>
+  {% endif %}
+</head>
+<body data-product="{{ product }}" data-authenticated="{{ 'true' if user else 'false' }}">
+<a class="family-skip" href="#content">Ir para o conteúdo</a>
+<header class="family-nav">
+  {% set family_products = [('workspace', 'Workspace', 'cadu-icon.png'), ('studio', 'Studio', 'studio-icon.png'), ('planner', 'Planner', 'planner-icon.png'), ('skills', 'Skills', 'skills-icon.png'), ('connect', 'Connect', 'connect-icon.png')] %}
+  {% set active_icon = (family_products | selectattr('0', 'equalto', product) | map(attribute='2') | first | default('cadu-icon.png')) %}
+  <details class="family-switch"><summary><img src="{{ url_for('static', filename='images/cadu/products/' ~ active_icon) }}" alt=""><span>{{ spec.name }}</span><span class="family-chevron" aria-hidden="true">⌄</span></summary><nav aria-label="Soluções CentralComm">
+    {% for slug, name, icon in family_products %}<a href="{{ product_url(slug, '/familia/' ~ slug ~ '/' if slug in products else '/') }}" {% if slug == product %}aria-current="page"{% endif %}><img src="{{ url_for('static', filename='images/cadu/products/' ~ icon) }}" alt=""><span>{{ name }}</span></a>{% endfor %}
+  </nav></details>
+  {% if user %}<form id="family-context" class="family-context">
+    <label>Cliente<select name="client_id" aria-label="Cliente">{% for client in clients %}<option value="{{ client.id }}" {% if client.id == selected.client_id %}selected{% endif %}>{{ client.name }}</option>{% endfor %}</select></label>
+    <label>Marca<select name="brand_ref" aria-label="Marca"><option value="">Todas as marcas</option>{% for item in entities if item.kind == 'brand' %}<option value="{{ item.ref }}" {% if session.get('family_context', {}).get('brand_ref') == item.ref %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select></label>
+    <label>Projeto<select name="project_ref" aria-label="Projeto"><option value="">Todos os projetos</option>{% for item in entities if item.kind == 'project' %}<option value="{{ item.ref }}" {% if session.get('family_context', {}).get('project_ref') == item.ref %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select></label>
+  </form>{% endif %}
+  <div class="family-nav-actions">
+    {% if profile %}<button id="conversation-open" aria-controls="conversation-panel" aria-expanded="false">Conversas</button>{% endif %}
+    {% if user %}<a class="family-account" href="{{ product_url('workspace', '/familia/workspace/perfil') }}" title="{{ user.name }}">{{ user.name }}</a>{% else %}<a class="family-primary" href="{{ login_url }}">Entrar</a>{% endif %}
+  </div>
+</header>
+<div class="family-layout">
+<aside class="family-modules"><nav aria-label="Áreas de {{ spec.name }}">{% for key, item in spec.modules.items() %}<a href="{{ url_for('cadu_family.page', product=product, module=key) }}" {% if key == module %}aria-current="page"{% endif %}>{{ item[0] }}</a>{% endfor %}</nav></aside>
+<main id="content" tabindex="-1">
+  <header class="family-page-head"><div><p>{{ spec.name }}{% if selected %} / {{ selected.client_name }}{% endif %}</p><h1>{{ title }}</h1></div>
+  {% if product == 'studio' %}<a href="{{ product_url('workspace', '/familia/workspace/marcas') }}">Gerenciar marcas no Workspace</a>{% endif %}</header>
+  <p id="family-feedback" role="status" aria-live="polite"></p>
+  {% if not user %}<section class="family-welcome"><h2>Seu trabalho, no contexto certo.</h2><p>Entre para acessar {{ title|lower }}, selecionar seus clientes e continuar seus projetos.</p><a class="family-primary" href="{{ login_url }}">Entrar na minha conta</a></section>
+  {% elif module == 'copy-ads' and product == 'studio' %}
+    {% include 'cadu_family/copy_ads.html' %}
+  {% elif module == 'perfil' and product == 'workspace' %}
+    <form id="family-profile" class="family-form"><label>Nome<input name="name" value="{{ user.name }}" minlength="2" maxlength="150" required autocomplete="name"></label><label>Email<input value="{{ user.email }}" readonly autocomplete="email"></label><label>Telefone<input name="phone" value="{{ user.phone or '' }}" maxlength="40" autocomplete="tel"></label><button class="family-primary">Salvar perfil</button></form>
+  {% elif module == 'clientes' and product == 'workspace' %}
+    <p>Clientes que sua conta está autorizada a acessar.</p><div class="family-list">{% for client in clients %}<article><h2>{{ client.name }}</h2><span>{{ {'admin':'Administrador', 'member':'Membro', 'viewer':'Leitura'}.get(client.role, client.role) }}</span><button data-client="{{ client.id }}">Selecionar cliente</button></article>{% endfor %}</div>
+  {% elif module in ['projetos', 'marcas'] and product == 'workspace' %}
+    {% set kind = 'brand' if module == 'marcas' else 'project' %}
+    <div class="family-list">{% for item in entities if item.kind == kind %}<article><div><h2>{{ item.name }}</h2>{% if item.needs_review %}<p>Vínculo entre cadastros pendente de revisão.</p>{% endif %}</div><button data-entity-select="{{ item.ref }}" data-kind="{{ kind }}">Usar {{ 'marca' if kind == 'brand' else 'projeto' }}</button></article>{% else %}<p>Nenhum registro para este cliente. Crie o primeiro abaixo.</p>{% endfor %}</div>
+    {% if selected.role != 'viewer' %}<details class="family-create"><summary>Criar {{ 'marca' if kind == 'brand' else 'projeto' }}</summary><form id="family-create-entity" class="family-form"><input type="hidden" name="kind" value="{{ kind }}"><label>Nome<input name="name" minlength="2" maxlength="150" required></label><label>Descrição<textarea name="description" maxlength="10000"></textarea></label><label>Instruções para o contexto<textarea name="instructions" maxlength="20000"></textarea></label><button class="family-primary">Criar</button></form></details>{% endif %}
+  {% elif records %}
+    <div class="family-table-wrap"><table><thead><tr>{% for key in records[0] %}<th>{{ {'name':'Nome','email':'Email','status':'Status','number':'Número','total':'Total','due_date':'Vencimento','paid_at':'Pagamento','month':'Mês','tokens':'Tokens','plan_type':'Plano','plan_status':'Situação','tokens_monthly_limit':'Limite mensal','objective':'Objetivo','budget':'Investimento','periodo_inicio':'Início','periodo_fim':'Fim'}.get(key,key|replace('_',' ')|capitalize) }}</th>{% endfor %}</tr></thead><tbody>{% for row in records %}<tr>{% for value in row.values() %}<td>{{ value if value is not none else '—' }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
+  {% else %}
+    <section class="family-welcome"><h2>{{ title }}</h2><p>Esta área está sendo integrada à nova experiência. Os dados existentes continuam preservados.</p>{% if legacy_url %}<a class="family-primary" href="{{ legacy_url }}">Abrir ferramenta atual</a>{% else %}<p>O acesso integrado será disponibilizado após a validação deste módulo.</p>{% endif %}</section>
+  {% endif %}
+</main></div>
+{% if profile %}
+<div id="conversation-backdrop" hidden></div>
+<aside id="conversation-panel" aria-label="Conversas Cadu" role="dialog" aria-modal="true" hidden tabindex="-1">
+  <header><div><h2>Conversas</h2><p>{{ profile }}</p></div><button id="conversation-close" aria-label="Fechar conversas">Fechar</button></header>
+  <label class="conversation-width">Largura do painel<input id="conversation-width" type="range" min="340" max="640" value="420" aria-label="Largura do painel de conversas"></label>
+  <div id="conversation-history" aria-live="polite">{% if user %}Carregando conversas…{% else %}Converse sobre seus clientes, projetos e planos depois de entrar.{% endif %}</div>
+  <div class="conversation-resources"><span>Anexos</span><span>Contexto do cliente</span><span>Histórico</span></div>
+  <form id="conversation-form">
+    <label for="conversation-message">Mensagem</label>
+    <textarea id="conversation-message" maxlength="20000" required placeholder="{{ 'Descreva o que você precisa organizar' if user else 'Entre para conversar com o Cadu' }}" {% if not user %}disabled{% endif %}></textarea>
+    {% if user %}
+    <label for="conversation-mode">Modo do Cadu</label>
+    <select id="conversation-mode" disabled><option value="ideias">Carregando modos…</option></select>
+    <div class="conversation-resources">
+      <button type="button" id="conversation-new">Nova conversa</button>
+      <button type="button" id="conversation-stop" hidden>Interromper</button>
+      <button type="submit" id="conversation-send" class="family-primary">Enviar</button>
+    </div>
+    {% else %}<a class="family-primary" href="{{ login_url }}">Entrar para enviar</a>{% endif %}
+  </form>
+  <p id="conversation-status" role="status"></p>
+</aside>{% endif %}
+</body></html>

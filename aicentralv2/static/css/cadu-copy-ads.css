@@ -1,0 +1,15 @@
+.copy-workbench{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:32px;align-items:start}
+.copy-workbench .family-form{max-width:none;margin:0}
+.copy-notice{max-width:78ch;color:#536259;font-size:.9rem}
+.copy-preview{border-left:2px solid #007f3b;padding:0 0 0 24px;min-width:0}
+.copy-preview h2{margin-top:0}
+.copy-preview p{white-space:pre-wrap;overflow-wrap:anywhere}
+.copy-preview article{padding:12px 0;border-bottom:1px solid #dce3df}
+#copy-fields{display:grid;gap:20px}
+#copy-fields label{display:grid;gap:8px}
+#copy-fields textarea{min-height:96px;resize:vertical;width:100%;box-sizing:border-box}
+#copy-fields small{color:#536259}
+#copy-fields [aria-invalid=true]{border-color:#a52a25}
+#copy-fields .copy-over-limit{color:#a52a25}
+#copy-status{min-height:1.5em;margin:12px 0}
+@media(max-width:820px){.copy-workbench{grid-template-columns:1fr;gap:28px}.copy-preview{border-left:0;border-top:2px solid #007f3b;padding:20px 0 0}}

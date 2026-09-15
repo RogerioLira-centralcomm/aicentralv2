@@ -1,0 +1,22 @@
+<section aria-label="Editor de Copy Ads" id="copy-ads">
+  <p>Prepare os textos do anúncio conforme o formato e confira seus limites antes de exportar.</p>
+  <p class="copy-notice">Editor em migração. Os limites vêm do catálogo legado; geração por IA e histórico ainda não estão disponíveis. O rascunho não é salvo no servidor.</p>
+  <div id="copy-status" role="status" aria-live="polite">Carregando formatos…</div>
+  <button type="button" id="copy-retry" hidden>Tentar carregar novamente</button>
+  <div class="copy-workbench">
+    <form id="copy-editor" class="family-form">
+      <label for="copy-format">Formato do anúncio</label>
+      <select id="copy-format" required disabled><option value="">Selecione um formato</option></select>
+      <p id="copy-format-description"></p>
+      <ul id="copy-specs"></ul>
+      <div id="copy-fields"></div>
+      <button type="submit" class="family-primary" id="copy-validate" disabled>Validar textos</button>
+    </form>
+    <section class="copy-preview" aria-labelledby="copy-preview-title">
+      <h2 id="copy-preview-title">Prévia dos textos</h2>
+      <p>Conteúdo textual, sem simulação do posicionamento da plataforma.</p>
+      <div id="copy-preview-content"><p>Selecione um formato para começar.</p></div>
+      <button type="button" id="copy-export" disabled>Exportar rascunho em texto</button>
+    </section>
+  </div>
+</section>

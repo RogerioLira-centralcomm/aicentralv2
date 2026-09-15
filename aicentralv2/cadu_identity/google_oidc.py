@@ -77,9 +77,10 @@ def exchange_code(code: str, state: str) -> dict:
         raise GoogleLoginError("A resposta do Google está incompleta.")
     config = _configuration(realm)
 
-    response = requests.post(
-        TOKEN_URL,
-        data={
+    try:
+        response = requests.post(
+            TOKEN_URL,
+            data={
             "code": code,
             "client_id": config["client_id"],
             "client_secret": config["client_secret"],
@@ -87,13 +88,16 @@ def exchange_code(code: str, state: str) -> dict:
             "grant_type": "authorization_code",
             "code_verifier": verifier,
         },
-        timeout=20,
-    )
+            timeout=20,
+            allow_redirects=False,
+        )
+    except requests.RequestException as exc:
+        raise GoogleLoginError("Não foi possível conectar ao Google. Inicie o login novamente.") from exc
     try:
         payload = response.json()
     except ValueError as exc:
         raise GoogleLoginError("O Google não devolveu uma resposta válida.") from exc
-    if not response.ok or not payload.get("id_token"):
+    if not response.ok or not isinstance(payload, dict) or not payload.get("id_token"):
         raise GoogleLoginError("Não foi possível confirmar o login com Google.")
 
     try:
@@ -109,6 +113,9 @@ def exchange_code(code: str, state: str) -> dict:
     if identity.get("email_verified") is not True:
         raise GoogleLoginError("O email desta conta Google não está verificado.")
     email = str(identity.get("email") or "").strip().lower()
+    from ..auth import normalize_login_email
+    if not identity.get('sub') or not normalize_login_email(email):
+        raise GoogleLoginError("A conta Google não retornou uma identidade completa.")
     allowed_domain = str(config.get("allowed_domain") or "").strip().lower()
     if allowed_domain and not email.endswith(f"@{allowed_domain}"):
         raise GoogleLoginError("Use uma conta Google autorizada pela organização.")

@@ -2251,6 +2251,29 @@ def buscar_contato_por_token(token):
         return cursor.fetchone()
 
 
+def redefinir_senha_por_token(token, senha_hash):
+    """Consume a valid reset token atomically with the password update."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                UPDATE tbl_contato_cliente c
+                   SET senha = %s, reset_token = NULL, reset_token_expires = NULL,
+                       data_modificacao = CURRENT_TIMESTAMP
+                  FROM tbl_cliente cli
+                 WHERE c.pk_id_tbl_cliente = cli.id_cliente
+                   AND c.reset_token = %s AND c.reset_token_expires > NOW()
+                   AND c.status = TRUE AND cli.status = TRUE
+             RETURNING c.id_contato_cliente, c.email, c.nome_completo
+            ''', (senha_hash, token))
+            contato = cursor.fetchone()
+        conn.commit()
+        return contato
+    except Exception:
+        conn.rollback()
+        raise
+
+
 def limpar_reset_token(contato_id):
     """Limpa token de reset após uso"""
     conn = get_db()

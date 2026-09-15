@@ -6,7 +6,7 @@ import hashlib
 import secrets
 from urllib.parse import urlencode
 
-from flask import Blueprint, current_app, flash, redirect, request, session, url_for
+from flask import Blueprint, current_app, flash, has_app_context, redirect, request, session, url_for
 
 from .. import db
 from ..auth import login_required, persist_login_session
@@ -41,17 +41,19 @@ def _start_flask_session(user: dict, auth_method: str = "sso_ticket") -> None:
 
 
 def _resolve_google_user(identity: dict) -> dict:
-    """Resolve an existing internal CentralX account."""
+    """Resolve existing active accounts only; never provision or modify records."""
     email = identity["email"]
     found = db.obter_contato_por_email(email)
 
-    if identity["realm"] != "centralx":
+    native_cadu = (identity["realm"] == "cadu" and has_app_context()
+                   and current_app.config.get("CADU_GOOGLE_NATIVE_ENABLED", False))
+    if identity["realm"] != "centralx" and not native_cadu:
         raise GoogleLoginError("O cadastro Google do Cadu é concluído pelo aplicativo Cadu.")
-    if not email.endswith("@centralcomm.media"):
+    if identity["realm"] == "centralx" and not email.endswith("@centralcomm.media"):
         raise GoogleLoginError("O CentralX aceita somente contas Google @centralcomm.media.")
     user = db.obter_contato_por_id(found["id_contato_cliente"]) if found else None
     if not user or not user.get("status") or not user.get("cliente_status"):
-        raise GoogleLoginError("Esta conta Google não possui acesso ativo ao CentralX.")
+        raise GoogleLoginError("Esta conta Google não possui acesso ativo ao produto. Use uma conta já cadastrada.")
     return user
 
 
@@ -61,13 +63,16 @@ def index():
     if session.get("user_id"):
         if session.get("is_centralcomm"):
             return redirect(product_url("centralx"), code=302)
+        if current_app.config.get("CADU_GOOGLE_NATIVE_ENABLED", False):
+            return redirect(product_url("workspace"), code=302)
         # Cadu permanece em PHP; entre nele pela troca de ticket para criar
         # também a sessão PHP, em vez de cair numa página sem PHPSESSID.
         return redirect(
             url_for("cadu_identity.issue_cadu_ticket", next=product_url("cadu")),
             code=302,
         )
-    return redirect(url_for("login", next=product_url("cadu")), code=302)
+    destination = "workspace" if current_app.config.get("CADU_GOOGLE_NATIVE_ENABLED", False) else "cadu"
+    return redirect(url_for("login", next=product_url(destination)), code=302)
 
 
 @bp.get("/google")
@@ -76,7 +81,8 @@ def google_login():
         target = safe_product_target(
             request.args.get("next"), product_url("centralx")
         )
-        if _google_realm(target) == "cadu":
+        realm = _google_realm(target)
+        if realm == "cadu" and not current_app.config.get("CADU_GOOGLE_NATIVE_ENABLED", False):
             login_url = str(
                 current_app.config.get("CADU_GOOGLE_LOGIN_URL")
                 or product_url("cadu", "/google-login.php")
@@ -87,7 +93,7 @@ def google_login():
             query = urlencode({"v3": "1", "nav": "/v3", "return_to": target})
             return redirect(f"{login_url}{separator}{query}", code=302)
         session["google_auth_next"] = target
-        return redirect(google_authorization_url("centralx"), code=302)
+        return redirect(google_authorization_url(realm), code=302)
     except GoogleLoginError as exc:
         flash(str(exc), "error")
         return redirect(url_for("login"), code=302)

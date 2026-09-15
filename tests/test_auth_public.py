@@ -16,7 +16,7 @@ class AuthPublicLayoutTests(unittest.TestCase):
         self.assertIn("interactive-widget=overlays-content", base)
         self.assertIn('class="auth-root"', base)
         self.assertIn("auth-public.css", base)
-        self.assertIn("?v=7", base)
+        self.assertRegex(base, r"auth-public\.css[^\n]+\?v=\d+")
         self.assertIn("visualViewport", js)
         self.assertIn("is-keyboard-open", js)
         self.assertIn("--vvh", css)
@@ -27,7 +27,7 @@ class AuthPublicLayoutTests(unittest.TestCase):
         self.assertIn("cadu-icon.png", base)
         self.assertIn("planner-icon.png", base)
         self.assertIn("setupProductShowcase", js)
-        self.assertIn("recuperados por dia", base)
+        self.assertIn('class="auth-scene-impact"', base)
         self.assertIn("-webkit-text-size-adjust: 100%", css)
         self.assertIn("body.auth-public", css)
         self.assertIn("display: none", css)
@@ -48,14 +48,16 @@ class AuthPublicLayoutTests(unittest.TestCase):
         self.assertNotIn("Manter acesso neste dispositivo", login)
         self.assertIn("{% extends \"base_auth_public.html\" %}", login)
 
-    def test_login_e_recuperacao_usam_dominio_centralcomm(self):
+    def test_dominio_corporativo_apenas_no_login_interno(self):
         login = (TEMPLATES / "login_tailwind.html").read_text(encoding="utf-8")
         forgot = (TEMPLATES / "forgot_password_tailwind.html").read_text(encoding="utf-8")
         css = (STATIC / "css" / "auth-public.css").read_text(encoding="utf-8")
         js = (STATIC / "js" / "auth-public.js").read_text(encoding="utf-8")
 
         self.assertIn("auth-email-lock", login)
-        self.assertIn("auth-email-lock", forgot)
+        self.assertNotIn("auth-email-lock", forgot)
+        self.assertIn('type="email"', forgot)
+        self.assertIn('name="email"', forgot)
         self.assertIn("auth-email-domain", css)
         self.assertIn("setupCorporateEmail", js)
         self.assertIn("centralcomm.media", js)

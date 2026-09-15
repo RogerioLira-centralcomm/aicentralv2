@@ -235,6 +235,9 @@ def create_app(config_class=Config):
         from .cadu_workspace import bp as cadu_workspace_bp
         app.register_blueprint(cadu_workspace_bp)
 
+        from .cadu_family import register as register_cadu_family
+        register_cadu_family(app)
+
         from .cadu_connect import bp as cadu_connect_bp
         app.register_blueprint(cadu_connect_bp)
 

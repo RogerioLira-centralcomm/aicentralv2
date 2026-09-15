@@ -65,6 +65,8 @@ class Config:
 	GOOGLE_CENTRALX_REDIRECT_URI = os.getenv('GOOGLE_CENTRALX_REDIRECT_URI', f"{AUTH_URL.rstrip('/')}/auth/google/callback")
 	GOOGLE_CENTRALX_DOMAIN = os.getenv('GOOGLE_CENTRALX_DOMAIN', 'centralcomm.media')
 	GOOGLE_CADU_CLIENT_ID = os.getenv('GOOGLE_CADU_CLIENT_ID', '')
+	# Opt-in after isolated validation; existing production behavior is preserved.
+	CADU_GOOGLE_NATIVE_ENABLED = os.getenv('CADU_GOOGLE_NATIVE_ENABLED', '0') == '1'
 	GOOGLE_CADU_CLIENT_SECRET = os.getenv('GOOGLE_CADU_CLIENT_SECRET', '')
 	GOOGLE_CADU_REDIRECT_URI = os.getenv('GOOGLE_CADU_REDIRECT_URI', f"{AUTH_URL.rstrip('/')}/auth/google/callback")
 

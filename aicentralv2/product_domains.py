@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 from datetime import datetime
 from pathlib import Path
@@ -40,12 +40,21 @@ def _configured_host(config_key: str) -> str:
 def safe_product_target(value: str | None, fallback: str = "/") -> str:
     """Accept relative URLs or HTTPS URLs on a configured product host only."""
     raw = str(value or "").strip()
-    if raw.startswith("/") and not raw.startswith("//"):
+    # Browsers normalize backslashes and controls differently from urlparse.
+    decoded = unquote(raw)
+    if any(ord(char) < 32 or ord(char) == 127 for char in decoded) or '\\' in decoded:
+        return fallback
+    if raw.startswith("/") and not decoded.startswith("//"):
         return raw
-    parsed = urlparse(raw)
-    hostname = (parsed.hostname or "").lower()
+    try:
+        parsed = urlparse(raw)
+        hostname = (parsed.hostname or "").lower()
+        port = parsed.port
+    except ValueError:
+        return fallback
     allowed = {_configured_host(key) for key in PRODUCT_CONFIG_KEYS.values()}
-    if parsed.scheme in {"http", "https"} and hostname and hostname in allowed:
+    if (parsed.scheme in {"http", "https"} and hostname and hostname in allowed
+            and not parsed.username and not parsed.password and port in (None, 443)):
         # Production products are HTTPS. Normalizing also handles an internal
         # reverse proxy that forwarded the original request as HTTP.
         return parsed._replace(scheme="https").geturl()

@@ -1191,7 +1191,7 @@ def init_routes(app):
 
         next_target = safe_product_target(
             request.values.get('next'),
-            product_url('cadu'),
+            product_url('workspace' if app.config.get('CADU_GOOGLE_NATIVE_ENABLED', False) else 'cadu'),
         )
         from urllib.parse import urlparse
         is_centralx_access = (
@@ -1259,7 +1259,7 @@ def init_routes(app):
                     return render_template('login_tailwind.html', **login_context)
 
                 cliente = db.obter_cliente_por_id(cliente_id)
-                if not cliente:
+                if not cliente or not cliente.get('status'):
                     flash('Acesso restrito. Cliente não autorizado.', 'error')
                     return render_template('login_tailwind.html', **login_context)
 
@@ -1328,18 +1328,13 @@ def init_routes(app):
 
             contato = db.obter_contato_por_email(email)
 
-            if contato:
-                # Verificar se o usuário está ativo
-                if not contato['status']:
-                    app.logger.warning(f"Tentativa de recuperação de senha - Usuário inativo: {email}")
-                    flash('Conta inativa. Entre em contato com o administrador.', 'error')
-                    return render_template('forgot_password_tailwind.html')
-                    
+            if contato and contato.get('status'):
                 try:
                     reset_token = secrets.token_urlsafe(32)
                     expires = datetime.utcnow() + timedelta(hours=1)
                     db.atualizar_reset_token(email, reset_token, expires)
-                    reset_link = url_for('reset_password', token=reset_token, _external=True)
+                    from aicentralv2.product_domains import product_url
+                    reset_link = product_url('auth', url_for('reset_password', token=reset_token))
                     
                     send_password_reset_email(
                         user_email=contato['email'],
@@ -1347,12 +1342,9 @@ def init_routes(app):
                         reset_link=reset_link,
                         expires_hours=1
                     )
-                    flash('Email enviado!', 'success')
                 except Exception as e:
-                    app.logger.error(f"Erro: {e}")
-                    flash('Erro ao processar.', 'error')
-            else:
-                flash('Se o email existir, receberá instruções.', 'info')
+                    app.logger.error('Falha ao processar recuperação de senha', exc_info=True)
+            flash('Se a conta estiver ativa, você receberá instruções de recuperação.', 'info')
 
             return render_template('forgot_password_tailwind.html')
 
@@ -1372,8 +1364,8 @@ def init_routes(app):
             return redirect(url_for('forgot_password'))
         
         if request.method == 'POST':
-            nova_senha = request.form.get('password', '').strip()
-            confirmar_senha = request.form.get('confirm_password', '').strip()
+            nova_senha = request.form.get('password', '')
+            confirmar_senha = request.form.get('confirm_password', '')
             
             # Validações
             if not nova_senha or not confirmar_senha:
@@ -1392,17 +1384,10 @@ def init_routes(app):
                 # Atualizar senha usando bcrypt (mesmo padrão do sistema)
                 nova_senha_hash = db.gerar_senha_hash(nova_senha)
                 
-                conn = db.get_db()
-                with conn.cursor() as cursor:
-                    cursor.execute('''
-                        UPDATE tbl_contato_cliente
-                        SET senha = %s,
-                            reset_token = NULL,
-                            reset_token_expires = NULL,
-                            data_modificacao = CURRENT_TIMESTAMP
-                        WHERE id_contato_cliente = %s
-                    ''', (nova_senha_hash, contato['id_contato_cliente']))
-                conn.commit()
+                contato = db.redefinir_senha_por_token(token, nova_senha_hash)
+                if not contato:
+                    flash('Link inválido ou expirado. Solicite um novo.', 'error')
+                    return redirect(url_for('forgot_password'))
                 
                 # Enviar email de confirmação
                 try:

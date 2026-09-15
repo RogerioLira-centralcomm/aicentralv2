@@ -1,0 +1,190 @@
+"""Dify chat using the existing PHP conversation and message tables."""
+import json
+from uuid import UUID, uuid4
+
+from flask import abort, session
+
+from . import context, dify, repository
+from .catalog import PROFILES
+
+
+def modes(user_id):
+    return repository.rows('''SELECT s.slug AS id, s.title, s.default_prompt,
+                                    COALESCE(p.prompt, s.default_prompt) AS prompt
+                               FROM cadu_chat_skills s
+                          LEFT JOIN cadu_chat_skill_user_prompts p
+                                 ON p.skill_slug = s.slug AND p.id_contato_cliente = %s
+                              WHERE s.is_active = TRUE ORDER BY s.sort_order, s.id''', (user_id,))
+
+
+def prepare(data, selected):
+    dify.settings()  # Fail before storing a turn if the provider is not configured.
+    user = context.identity()
+    query = str(data.get('message') or '').strip()
+    if not query or len(query) > 20000 or data.get('profile') not in PROFILES:
+        abort(400, description='Informe uma mensagem de até 20.000 caracteres e uma solução válida.')
+    try:
+        run_id = str(UUID(str(data.get('request_id'))))
+    except (ValueError, TypeError):
+        abort(400, description='Identificador de envio inválido.')
+    profile = data['profile']
+    existing = data.get('conversation_id')
+    conversation_id = str(existing or uuid4())
+    chosen = next((mode for mode in modes(user['id']) if mode['id'] == data.get('mode', 'ideias')), None)
+    if chosen is None:
+        abort(400, description='Modo de contexto inválido.')
+    inventory = {item['ref']: item for item in context.inventory(selected['client_id'])}
+    saved_context = session.get('family_context') or {}
+    project_ref = saved_context.get('project_ref')
+    brand_ref = saved_context.get('brand_ref')
+    for ref in (project_ref, brand_ref):
+        if ref and ref not in inventory:
+            abort(409, description='O contexto mudou. Selecione o projeto e a marca novamente.')
+    upload_ids = data.get('files') or []
+    if not isinstance(upload_ids, list) or len(upload_ids) > 5:
+        abort(400, description='Anexe no máximo cinco arquivos por mensagem.')
+    uploads = repository.rows('''SELECT id, provider_id, kind, name FROM cadu_family_chat_uploads
+                                 WHERE id::text = ANY(%s) AND user_id = %s AND client_id = %s''',
+                              ([str(value) for value in upload_ids], user['id'], selected['client_id'])) if upload_ids else []
+    if len(uploads) != len(set(str(value) for value in upload_ids)):
+        abort(403, description='Um arquivo não pertence a este cliente ou usuário.')
+    project_context = ''
+    if project_ref and project_ref.startswith('ci:'):
+        records = repository.rows('''SELECT nome, descricao, instrucoes, publico, posicionamento, tom_de_voz
+                                     FROM cadu_ci_projetos WHERE id = %s AND id_cliente = %s''',
+                                  (project_ref[3:], selected['client_id']))
+        project_context = json.dumps(records, ensure_ascii=False, default=str)[:24000]
+    old = repository.conversation_messages(user['id'], selected['client_id'], conversation_id) if existing else []
+    history = '\n'.join(item['role'] + ': ' + (item['content'] or '') for item in (old or []))[-24000:]
+    conn = repository.get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('SELECT id_cliente FROM tbl_cliente WHERE id_cliente = %s FOR UPDATE', (user['organization_id'],))
+            current_plan = repository.plan(user['organization_id'])
+            cur.execute('''SELECT COALESCE(SUM(quantidade), 0) AS used FROM cadu_token_usage
+                           WHERE id_cliente = %s AND created_at >= DATE_TRUNC('month', NOW())''', (user['organization_id'],))
+            if cur.fetchone()['used'] >= int(current_plan.get('tokens_monthly_limit') or 0):
+                abort(409, description='O limite de tokens foi atingido. Confira o plano no Workspace.')
+            cur.execute('SELECT id FROM cadu_family_chat_runs WHERE id = %s', (run_id,))
+            if cur.fetchone():
+                abort(409, description='Este envio já foi recebido. Atualize o histórico antes de tentar novamente.')
+            if existing:
+                cur.execute('''SELECT id, dify_conversation_id, total_mensagens FROM cadu_conversations
+                               WHERE id = %s AND id_contato_cliente = %s AND id_cliente = %s FOR UPDATE''',
+                            (conversation_id, user['id'], selected['client_id']))
+                conversation = cur.fetchone()
+                if not conversation:
+                    abort(404)
+                cur.execute('SELECT id FROM cadu_family_chat_runs WHERE conversation_id = %s AND status = \'running\'', (conversation_id,))
+                if cur.fetchone():
+                    abort(409, description='Aguarde a resposta atual ou interrompa a geração.')
+            else:
+                cur.execute('''INSERT INTO cadu_conversations
+                        (id, id_cliente, id_contato_cliente, titulo, status, total_mensagens, projeto_id, created_at, updated_at)
+                        VALUES (%s, %s, %s, %s, 'active', 0, %s, NOW(), NOW())''',
+                        (conversation_id, selected['client_id'], user['id'], query[:120],
+                         project_ref[3:] if project_ref and project_ref.startswith('ci:') else None))
+                conversation = {'dify_conversation_id': None, 'total_mensagens': 0}
+            cur.execute('''INSERT INTO cadu_family_conversation_context
+                    (conversation_id, user_id, organization_id, client_id, profile, project_ref, brand_ref)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING''',
+                    (conversation_id, user['id'], user['organization_id'], selected['client_id'], profile, project_ref, brand_ref))
+            cur.execute('SELECT * FROM cadu_family_conversation_context WHERE conversation_id = %s', (conversation_id,))
+            bound = cur.fetchone()
+            if (bound['user_id'], bound['organization_id'], bound['client_id'], bound['profile'], bound['project_ref'], bound['brand_ref']) != (
+                    user['id'], user['organization_id'], selected['client_id'], profile, project_ref, brand_ref):
+                abort(409, description='Esta conversa pertence a outro perfil ou contexto. Abra uma nova conversa.')
+            cur.execute('''INSERT INTO cadu_family_chat_runs (id, conversation_id, user_id, client_id, status)
+                           VALUES (%s, %s, %s, %s, 'running')''', (run_id, conversation_id, user['id'], selected['client_id']))
+            cur.execute('''INSERT INTO cadu_conversation_messages (id, conversation_id, role, content, files, created_at)
+                           VALUES (%s, %s, 'user', %s, %s::jsonb, NOW())''',
+                        (str(uuid4()), conversation_id, query, json.dumps([{'id': str(row['id']), 'name': row['name']} for row in uploads])))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    inputs = {'nome_usuario': user['name'], 'nome_cliente': selected['client_name'],
+              'skill_id': chosen['id'], 'skill_context': chosen['prompt'] + '\nPerfil: ' + PROFILES[profile],
+              'files_context': '', 'projeto_context': project_context,
+              'is_first_message': 'true' if not conversation['total_mensagens'] else 'false',
+              'saudacao_permitida': 'sim' if query.lower().strip('!.? ') in ('oi', 'olá', 'bom dia', 'boa tarde', 'boa noite') and not conversation['total_mensagens'] else 'nao',
+              'turn_index': str(int(conversation['total_mensagens'] or 0) // 2 + 1)}
+    payload = {'query': query, 'user': 'user-' + str(user['id']), 'inputs': inputs, 'response_mode': 'streaming',
+               'files': [{'type': row['kind'], 'transfer_method': 'local_file', 'upload_file_id': row['provider_id']} for row in uploads]}
+    if conversation['dify_conversation_id']:
+        payload['conversation_id'] = conversation['dify_conversation_id']
+    elif existing:
+        if history:
+            payload['query'] = '[Histórico da conversa]\n' + history + '\n[Mensagem atual]\n' + query
+    return {'run_id': run_id, 'conversation_id': conversation_id, 'payload': payload,
+            'organization_id': user['organization_id'], 'user_id': user['id']}
+
+
+def stream(run):
+    answer, state, provider_id, usage, task_id = '', 'failed', None, {}, None
+    def event(kind, **values):
+        return 'data: ' + json.dumps({'event': kind, **values}, ensure_ascii=False) + '\n\n'
+    try:
+        yield event('start', conversation_id=run['conversation_id'], run_id=run['run_id'])
+        for data in dify.events(run['payload']):
+            provider_id = data.get('conversation_id') or provider_id
+            if data.get('task_id'):
+                task_id = data['task_id']
+                conn = repository.get_db()
+                with conn.cursor() as cur:
+                    cur.execute('UPDATE cadu_family_chat_runs SET task_id = %s WHERE id = %s', (data['task_id'], run['run_id']))
+                conn.commit()
+            kind = data.get('event')
+            if kind in ('message', 'agent_message'):
+                chunk = str(data.get('answer') or '')
+                answer += chunk
+                yield event('message', text=chunk)
+            elif kind == 'message_replace':
+                answer = str(data.get('answer') or '')
+                yield event('replace', text=answer)
+            elif kind == 'message_end':
+                usage = (data.get('metadata') or {}).get('usage') or {}
+                state = 'completed'
+            elif kind == 'error':
+                raise dify.DifyUnavailable('O Dify não concluiu a resposta. Tente novamente.')
+        if state != 'completed':
+            raise dify.DifyUnavailable('A geração terminou antes da confirmação do Dify.')
+    except GeneratorExit:
+        state = 'stopped'
+        if task_id:
+            try:
+                dify.stop(task_id, run['payload']['user'])
+            except Exception:
+                pass  # Persist the partial response even if the provider is unreachable.
+        raise
+    except Exception:
+        yield event('error', message='A geração foi interrompida. Consulte o histórico antes de enviar novamente.')
+    finally:
+        conn = repository.get_db()
+        try:
+            with conn.cursor() as cur:
+                message_id = str(uuid4())
+                prompt_tokens = max(0, int(usage.get('prompt_tokens') or 0))
+                completion_tokens = max(0, int(usage.get('completion_tokens') or 0))
+                cur.execute('''INSERT INTO cadu_conversation_messages
+                       (id, conversation_id, role, content, tokens_entrada, tokens_saida, metadata, created_at)
+                       VALUES (%s, %s, 'assistant', %s, %s, %s, %s::jsonb, NOW())''',
+                       (message_id, run['conversation_id'], answer,
+                        prompt_tokens, completion_tokens, json.dumps({'status': state})))
+                for kind, quantity in (('entrada', prompt_tokens), ('saida', completion_tokens)):
+                    if quantity:
+                        cur.execute('''INSERT INTO cadu_token_usage
+                            (conversation_id, message_id, id_cliente, id_contato_cliente, tipo, quantidade, modelo)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s)''',
+                            (run['conversation_id'], message_id, run['organization_id'], run['user_id'], kind, quantity, 'dify'))
+                cur.execute('''UPDATE cadu_conversations SET dify_conversation_id = COALESCE(dify_conversation_id, %s),
+                        total_tokens_entrada = COALESCE(total_tokens_entrada, 0) + %s,
+                        total_tokens_saida = COALESCE(total_tokens_saida, 0) + %s,
+                        total_mensagens = (SELECT COUNT(*) FROM cadu_conversation_messages WHERE conversation_id = %s),
+                        updated_at = NOW() WHERE id = %s''', (provider_id, prompt_tokens, completion_tokens, run['conversation_id'], run['conversation_id']))
+                cur.execute('UPDATE cadu_family_chat_runs SET status = %s, finished_at = NOW() WHERE id = %s', (state, run['run_id']))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+    yield event('done', conversation_id=run['conversation_id'], status=state)

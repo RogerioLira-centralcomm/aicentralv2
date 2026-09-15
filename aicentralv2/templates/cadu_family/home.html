@@ -1,0 +1,20 @@
+<section class="family-onboarding" aria-labelledby="family-introduction">
+  <div><h2 id="family-introduction">{{ landing.heading }}</h2><p>{{ landing.body }}</p>
+    {% if not user %}<a class="family-primary" href="{{ login_url }}">Entrar na minha conta</a>{% endif %}
+  </div>
+  <img src="{{ url_for('static', filename='images/cadu/products/' ~ landing.image) }}" alt="" width="1672" height="941">
+</section>
+<section class="family-home-links" aria-label="Começar em {{ spec.name }}">
+  {% for key, label, description in landing.links %}
+  <a href="{{ url_for('cadu_family.page', product=product, module=key) }}"><h2>{{ label }}</h2><p>{{ description }}</p><span>Abrir {{ spec.modules[key][0]|lower }}</span></a>
+  {% endfor %}
+</section>
+{% if user and product == 'workspace' %}
+<section class="family-home-projects" aria-labelledby="family-projects-title"><h2 id="family-projects-title">Projetos do cliente selecionado</h2>
+  <div class="family-list">{% for item in (entities | selectattr('kind', 'equalto', 'project') | list)[:4] %}
+    <article><div><h3>{{ item.name }}</h3>{% if item.needs_review %}<p>Vínculo entre cadastros pendente de revisão.</p>{% endif %}</div><button data-entity-select="{{ item.ref }}" data-kind="project">Selecionar projeto</button></article>
+  {% else %}<p>Nenhum projeto disponível neste cliente. Selecione outro cliente ou consulte a área de projetos.</p>{% endfor %}</div>
+  <a href="{{ url_for('cadu_family.page', product='workspace', module='projetos') }}">Ver todos os projetos</a>
+</section>
+{% endif %}
+<p class="family-migration-note">Experiência em migração. A disponibilidade de cada ferramenta é informada na sua área; os dados existentes permanecem preservados.</p>

@@ -1,0 +1,7 @@
+{% if records %}
+    <div class="family-table-wrap"><table><thead><tr>{% for key in records[0] %}<th>{{ {'name':'Nome','email':'Email','status':'Status','number':'Número','total':'Total','due_date':'Vencimento','paid_at':'Pagamento','month':'Mês','tokens':'Tokens','plan_type':'Plano','plan_status':'Situação','tokens_monthly_limit':'Limite mensal','objective':'Objetivo','budget':'Investimento','periodo_inicio':'Início','periodo_fim':'Fim'}.get(key,key|replace('_',' ')|capitalize) }}</th>{% endfor %}</tr></thead><tbody>{% for row in records %}<tr>{% for value in row.values() %}<td>{{ value if value is not none else '—' }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
+{% else %}
+
+    <section class="family-welcome"><h2>{{ title }}</h2><p>Esta área está sendo integrada à nova experiência. Os dados existentes continuam preservados.</p>{% if legacy_url %}<a class="family-primary" href="{{ legacy_url }}">Abrir ferramenta atual</a>{% else %}<p>O acesso integrado será disponibilizado após a validação deste módulo.</p>{% endif %}</section>
+
+{% endif %}

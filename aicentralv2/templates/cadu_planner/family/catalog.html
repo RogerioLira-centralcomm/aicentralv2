@@ -1,0 +1,26 @@
+<section class="planner-catalog" aria-labelledby="catalog-title">
+  <div class="planner-catalog-heading">
+    <div><h2 id="catalog-title">{{ title }}</h2><p>Referências para o plano do cliente selecionado.</p></div>
+    <form method="get" role="search"><label for="catalog-search">Buscar {{ title|lower }}</label><input id="catalog-search" name="q" value="{{ request.args.get('q', '') }}" maxlength="100" autocomplete="off"><button class="family-primary" type="submit">Buscar</button></form>
+  </div>
+  {% if records %}
+  <div class="planner-catalog-grid">
+  {% for row in records %}
+    <article class="planner-catalog-card">
+      <p class="planner-catalog-type">{{ row.category or ('Formato' if module == 'formatos' else 'Audiência') }}</p>
+      <h3>{{ row.name }}</h3>
+      {% if row.description %}<p>{{ row.description }}</p>{% endif %}
+      <dl>
+        {% if row.audience %}<div><dt>Alcance</dt><dd>{{ row.audience }}</dd></div>{% endif %}
+        {% if row.dimensions %}<div><dt>Dimensões</dt><dd>{{ row.dimensions }}</dd></div>{% endif %}
+        {% if row.files %}<div><dt>Arquivos</dt><dd>{{ row.files }}</dd></div>{% endif %}
+      </dl>
+      <button type="button" class="planner-catalog-detail" data-catalog-kind="{{ module }}" data-catalog-id="{{ row.id }}" aria-haspopup="dialog">Ver dados do catálogo</button>
+    </article>
+  {% endfor %}
+  </div>
+  {% else %}<div class="family-welcome"><h2>Nenhum resultado encontrado</h2><p>Ajuste a busca ou confira outro termo.</p></div>{% endif %}
+</section>
+<dialog id="planner-catalog-dialog" class="planner-catalog-dialog" aria-labelledby="planner-catalog-dialog-title">
+  <article><header><h2 id="planner-catalog-dialog-title">Detalhes do catálogo</h2><button type="button" data-catalog-close aria-label="Fechar detalhes">Fechar</button></header><div id="planner-catalog-dialog-content" aria-live="polite"></div></article>
+</dialog>

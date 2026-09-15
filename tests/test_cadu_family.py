@@ -89,6 +89,64 @@ class FamilyTest(TestCase):
             self.assertEqual('id="conversation-panel"' in html, product != 'studio')
         self.assertEqual(self.client.get('/familia/unknown/').status_code, 404)
 
+    def test_authenticated_shell_has_compact_authorized_context(self):
+        self.login()
+        response = self.client.get('/familia/workspace/clientes')
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn('class="family-context-menu"', html)
+        self.assertIn('Cliente selecionado', html)
+        for field in ('client_id', 'brand_ref', 'project_ref'):
+            self.assertIn(f'name="{field}"', html)
+        self.assertIn('/familia/workspace/consumo', html)
+
+    def test_guest_shell_does_not_expose_context_or_account_usage(self):
+        html = self.client.get('/familia/workspace/').get_data(as_text=True)
+        self.assertNotIn('class="family-context-menu"', html)
+        self.assertNotIn('class="family-credits"', html)
+        self.assertIn('Entrar na minha conta', html)
+
+    def test_product_homepages_are_distinct_and_public(self):
+        from aicentralv2.cadu_family.catalog import LANDINGS, PRODUCTS
+        for product, landing in LANDINGS.items():
+            with self.subTest(product=product):
+                response = self.client.get(f'/familia/{product}/')
+                self.assertEqual(response.status_code, 200)
+                html = response.get_data(as_text=True)
+                self.assertIn(landing['title'], html)
+                self.assertIn('Experiência em migração', html)
+                self.assertNotIn('id="family-context"', html)
+                for module, _, _ in landing['links']:
+                    self.assertIn(module, PRODUCTS[product]['modules'])
+                    self.assertIn(f'/familia/{product}/{module}', html)
+                asset = ROOT / 'aicentralv2/static/images/cadu/products' / landing['image']
+                self.assertTrue(asset.is_file())
+        self.actor.assert_not_called()
+
+    def test_every_product_module_has_one_explicit_sidebar_group(self):
+        from aicentralv2.cadu_family.catalog import PRODUCTS
+        for product, spec in PRODUCTS.items():
+            with self.subTest(product=product):
+                grouped = [key for _, keys in spec['navigation'] for key in keys]
+                self.assertCountEqual(grouped, spec['modules'])
+                self.assertEqual(len(grouped), len(set(grouped)))
+
+    def test_workspace_home_only_lists_authorized_inventory(self):
+        self.login()
+        self.entities.return_value = [{**ENTITIES[0], 'name': '<script>untrusted</script>'}]
+        response = self.client.get('/familia/workspace/')
+        html = response.get_data(as_text=True)
+        self.assertIn('Projetos do cliente selecionado', html)
+        self.assertIn('&lt;script&gt;untrusted&lt;/script&gt;', html)
+        self.assertNotIn('<script>untrusted</script>', html)
+        self.entities.assert_called_with(12)
+
+    def test_connect_home_does_not_query_reports(self):
+        self.login()
+        with mock.patch('aicentralv2.cadu_connect.repository.campaigns_for_client') as reports:
+            self.assertEqual(self.client.get('/familia/connect/').status_code, 200)
+            reports.assert_not_called()
+
     def test_pilot_product_switch_stays_on_python_family_routes(self):
         html = self.client.get('/familia/workspace/').get_data(as_text=True)
         for product in ('workspace', 'studio', 'planner', 'connect'):
@@ -130,3 +188,37 @@ class FamilyTest(TestCase):
             response = self.client.get('/familia/api/conversations/foreign/messages')
         self.assertEqual(response.status_code, 404)
         read.assert_called_once_with(7, 12, 'foreign')
+
+    def test_planner_catalog_requires_authorized_actor(self):
+        self.assertEqual(self.client.get('/familia/api/planner/catalog/canais').status_code, 401)
+        self.login()
+        with mock.patch('aicentralv2.cadu_planner.catalog.repository.catalog', return_value=[]) as catalog:
+            response = self.client.get('/familia/api/planner/catalog/canais?q=video&limit=2')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), {'kind': 'canais', 'records': []})
+        catalog.assert_called_once_with('canais', 'video')
+
+    def test_planner_catalog_rejects_unknown_kind_and_out_of_range_limit(self):
+        self.login()
+        self.assertEqual(self.client.get('/familia/api/planner/catalog/cotacoes').status_code, 404)
+        self.assertEqual(self.client.get('/familia/api/planner/catalog/formatos?limit=31').status_code, 400)
+
+    def test_planner_catalog_detail_uses_projected_row_and_auth_context(self):
+        self.login()
+        row = {'id': 3, 'name': 'Vídeo', 'description': 'Formato', 'dimensions': '1920×1080'}
+        with mock.patch('aicentralv2.cadu_planner.catalog.repository.rows', return_value=[row]) as rows:
+            response = self.client.get('/familia/api/planner/catalog/formatos/3')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), {'kind': 'formatos', 'record': row})
+        sql, params = rows.call_args.args
+        self.assertIn('FROM cadu_formatos', sql)
+        self.assertEqual(params, (3,))
+
+    def test_planner_catalog_cards_are_only_in_logged_in_planner(self):
+        self.login()
+        with mock.patch('aicentralv2.cadu_planner.pages.repository.catalog', return_value=[{'id': 1, 'name': 'Canal'}]):
+            html = self.client.get('/familia/planner/canais').get_data(as_text=True)
+        self.assertIn('planner-catalog-grid', html)
+        self.assertIn('data-catalog-kind="canais"', html)
+        self.assertIn('cadu_planner/catalog.js', html)
+        self.assertNotIn('href="/familia/api/planner/catalog/', html)

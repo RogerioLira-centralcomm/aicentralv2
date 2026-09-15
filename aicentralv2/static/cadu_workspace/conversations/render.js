@@ -1,0 +1,65 @@
+/* Deliberately bounded Markdown subset. Raw model HTML is never trusted. */
+(() => {
+  'use strict';
+  const escape = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const visible = value => String(value || '').replace(/<(think|thinking|analysis)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi, '');
+  function inline(value) {
+    const tokens = /(`[^`\n]+`|\*\*[^*\n]+\*\*|\*[^*\n]+\*|\[[^\]\n]+\]\([^\s)]+\))/g;
+    let output = '', position = 0;
+    for (const match of value.matchAll(tokens)) {
+      output += escape(value.slice(position, match.index));
+      const token = match[0];
+      if (token.startsWith('`')) output += '<code>' + escape(token.slice(1, -1)) + '</code>';
+      else if (token.startsWith('**')) output += '<strong>' + escape(token.slice(2, -2)) + '</strong>';
+      else if (token.startsWith('*')) output += '<em>' + escape(token.slice(1, -1)) + '</em>';
+      else {
+        const link = token.match(/^\[([^\]]+)\]\((.+)\)$/);
+        // No relative, data, javascript or embedded image URLs from model output.
+        output += /^https?:\/\//i.test(link[2])
+          ? '<a target="_blank" rel="noopener noreferrer" href="' + escape(link[2]) + '">' + escape(link[1]) + '</a>'
+          : escape(token);
+      }
+      position = match.index + token.length;
+    }
+    return output + escape(value.slice(position));
+  }
+  const cells = line => line.trim().replace(/^\||\|$/g, '').split('|').map(cell => cell.trim());
+  function html(value) {
+    const lines = visible(value).replace(/\r\n?/g, '\n').split('\n');
+    const result = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+      const fence = line.match(/^\s*```(.*)$/);
+      if (fence) {
+        const code = [];
+        while (++i < lines.length && !/^\s*```\s*$/.test(lines[i])) code.push(lines[i]);
+        result.push('<figure class="conversation-code"><figcaption>' + escape(fence[1].trim() || 'Código') + '</figcaption><pre><code>' + escape(code.join('\n')) + '</code></pre></figure>');
+      } else if (line.includes('|') && lines[i + 1]?.includes('|') && cells(lines[i + 1]).every(cell => /^:?-{3,}:?$/.test(cell))) {
+        const headers = cells(line); i++;
+        let rows = '';
+        while (i + 1 < lines.length && lines[i + 1].includes('|') && lines[i + 1].trim()) {
+          const row = cells(lines[++i]);
+          rows += '<tr>' + headers.map((_, index) => '<td>' + inline(row[index] || '') + '</td>').join('') + '</tr>';
+        }
+        result.push('<div class="conversation-table" tabindex="0" role="region" aria-label="Tabela da resposta"><table><thead><tr>' + headers.map(cell => '<th scope="col">' + inline(cell) + '</th>').join('') + '</tr></thead><tbody>' + rows + '</tbody></table></div>');
+      } else if (/^#{1,6}\s/.test(line)) {
+        result.push('<h4>' + inline(line.replace(/^#{1,6}\s+/, '')) + '</h4>');
+      } else if (/^\s*(?:[-*+] |\d+\. )/.test(line)) {
+        const ordered = /^\s*\d+\./.test(line), tag = ordered ? 'ol' : 'ul';
+        const pattern = ordered ? /^\s*\d+\.\s+/ : /^\s*[-*+]\s+/;
+        const items = [];
+        do { items.push('<li>' + inline(lines[i].replace(pattern, '')) + '</li>'); i++; } while (i < lines.length && pattern.test(lines[i]));
+        i--; result.push('<' + tag + '>' + items.join('') + '</' + tag + '>');
+      } else if (/^>\s?/.test(line)) result.push('<blockquote>' + inline(line.replace(/^>\s?/, '')) + '</blockquote>');
+      else result.push('<p>' + inline(line) + '</p>');
+    }
+    return result.join('');
+  }
+  function render(node, value, streaming = false) {
+    node.classList.add('conversation-rich');
+    if (streaming) node.textContent = visible(value);
+    else node.innerHTML = html(value); // Only locally generated, escaped, allowlisted markup.
+  }
+  globalThis.CaduConversationRenderer = {html, visible, render};
+})();

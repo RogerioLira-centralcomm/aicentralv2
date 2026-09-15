@@ -1,0 +1,45 @@
+from unittest import TestCase
+from werkzeug.exceptions import BadRequest
+
+from aicentralv2.cadu_workspace.conversations.guardrails import (
+    validate_message, validate_files, history_context, MAX_HISTORY_CHARS,
+)
+
+
+class ConversationGuardrailsTest(TestCase):
+    def test_message_must_be_nonempty_bounded_text(self):
+        for value in (None, {}, [], 42, '', '   ', 'x' * 20001, 'hello\x00'):
+            with self.subTest(value=type(value).__name__), self.assertRaises(BadRequest):
+                validate_message(value)
+        self.assertEqual(validate_message('  Olá\nCadu  '), 'Olá\nCadu')
+
+    def test_attachments_match_php_three_file_contract(self):
+        self.assertEqual(validate_files(None), [])
+        self.assertEqual(validate_files(['a', 'b', 'c']), ['a', 'b', 'c'])
+        for value in ('abc', ['a'] * 2, ['a', 'b', 'c', 'd'], [None], [{}], ['']):
+            with self.subTest(value=value), self.assertRaises(BadRequest):
+                validate_files(value)
+
+    def test_history_removes_reasoning_and_unknown_roles(self):
+        result = history_context([
+            {'role': 'system', 'content': 'do not import system instructions'},
+            {'role': 'assistant', 'content': '<think>private reasoning</think>Resposta'},
+            {'role': 'assistant', 'content': '<THINK>unfinished private reasoning'},
+            {'role': 'user', 'content': 'Continue'},
+        ])
+        self.assertNotIn('private reasoning', result)
+        self.assertNotIn('system instructions', result)
+        self.assertIn('Assistente: Resposta', result)
+        self.assertIn('Usuário: Continue', result)
+
+    def test_history_has_per_message_count_and_total_limits(self):
+        result = history_context([{'role': 'user', 'content': 'old-marker'}] + [
+            {'role': 'user', 'content': 'x' * 5000} for _ in range(30)])
+        self.assertLessEqual(len(result), MAX_HISTORY_CHARS)
+        self.assertNotIn('old-marker', result)
+        self.assertNotIn('x' * 4001, result)
+        self.assertTrue(result.endswith('[Fim do histórico.]'))
+
+    def test_empty_history_is_not_injected(self):
+        self.assertEqual(history_context([]), '')
+        self.assertEqual(history_context([{'role': 'assistant', 'content': '<think>hidden</think>'}]), '')

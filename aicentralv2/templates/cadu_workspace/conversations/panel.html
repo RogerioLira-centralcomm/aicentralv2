@@ -1,0 +1,28 @@
+<div id="conversation-backdrop" hidden></div>
+<aside id="conversation-panel" aria-label="Conversas Cadu" role="dialog" aria-modal="true" hidden tabindex="-1">
+  <header><div><h2>Conversas</h2><p>{{ profile }}</p></div><button id="conversation-close" aria-label="Fechar conversas">Fechar</button></header>
+  {% if user %}<div class="conversation-navigation"><button type="button" id="conversation-list">Histórico</button><button type="button" id="conversation-new">Nova conversa</button></div>{% endif %}
+  <div class="conversation-context">{{ selected.client_name if selected else 'Entre para usar seu contexto' }}<small>{{ 'Cliente selecionado na navbar' if selected else 'Workspace · SmartPlanner · Connect' }}</small></div>
+  <label class="conversation-width">Largura do painel<input id="conversation-width" type="range" min="360" max="720" value="480" aria-label="Largura do painel de conversas"></label>
+  <div id="conversation-history" aria-live="polite">{% if user %}Carregando conversas…{% else %}Converse sobre seus clientes, projetos e planos depois de entrar.{% endif %}</div>
+  <form id="conversation-form">
+    <div id="conversation-attachments" aria-label="Arquivos selecionados" hidden></div>
+    <label for="conversation-message">Mensagem</label>
+    <textarea id="conversation-message" maxlength="20000" placeholder="{{ 'Digite sua mensagem ou anexe um arquivo…' if user else 'Entre para conversar com o Cadu' }}" {% if not user %}disabled{% endif %}></textarea>
+    <div class="conversation-toolbar">
+      <button type="button" id="conversation-attach" disabled aria-describedby="conversation-upload-help">Anexar</button>
+      <input id="conversation-file-input" type="file" multiple hidden accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.txt,.csv,.md,.json">
+    {% if user %}
+    <label for="conversation-mode">Modo do Cadu</label>
+    <select id="conversation-mode" disabled><option value="ideias">Carregando modos…</option></select>
+    <div class="conversation-resources">
+      <button type="button" id="conversation-stop" hidden>Interromper</button>
+      <button type="submit" id="conversation-send" class="family-primary" disabled>Enviar</button>
+    </div>
+    {% else %}<a class="family-primary" href="{{ login_url }}">Entrar para enviar</a>{% endif %}
+    </div>
+    <p class="conversation-shortcuts">Enter envia · Shift+Enter quebra a linha</p>
+    <p id="conversation-upload-help">Até 3 arquivos de 15 MB. Imagens, PDF ou texto. Arquivos serão enviados ao Dify somente ao enviar a mensagem.</p>
+  </form>
+  <p id="conversation-status" role="status"></p>
+</aside>

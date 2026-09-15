@@ -8,7 +8,8 @@ from werkzeug.exceptions import HTTPException
 from ..auth import login_url
 from ..product_domains import product_url
 from . import context, repository
-from .catalog import ADMIN_MODULES, PRODUCTS, PROFILES
+from .catalog import ADMIN_MODULES, LANDINGS, PRODUCTS, PROFILES
+from . import product_pages
 
 bp = Blueprint('cadu_family', __name__, url_prefix='/familia')
 
@@ -33,7 +34,7 @@ def protect():
         # Fail closed for new mutation routes too. Context changes only the
         # session; Copy Ads validation only reads the catalog.
         read_only_posts = {'cadu_family.set_context', 'cadu_family.copy_validate',
-                           'cadu_family.conversation_send'}
+                           'cadu_family.conversation_send', 'cadu_family.conversation_preflight'}
         if (not current_app.config.get('CADU_FAMILY_WRITES_ENABLED', False)
                 and request.endpoint not in read_only_posts):
             abort(403, description='Migração em modo de consulta. Gravações não estão habilitadas.')
@@ -154,6 +155,23 @@ def copy_formats():
     return jsonify(formats=copy_ads.formats())
 
 
+@bp.get('/api/planner/catalog/<kind>')
+def planner_catalog(kind):
+    """Read-only catalog for SmartPlanner and future approved chat cards."""
+    from ..cadu_planner import catalog
+    context.identity()
+    context.resolve()
+    return jsonify(kind=kind, records=catalog.query(kind, request.args.get('q', ''), request.args.get('limit', 20)))
+
+
+@bp.get('/api/planner/catalog/<kind>/<item_id>')
+def planner_catalog_detail(kind, item_id):
+    from ..cadu_planner import catalog
+    context.identity()
+    context.resolve()
+    return jsonify(kind=kind, record=catalog.detail(kind, item_id))
+
+
 @bp.post('/api/studio/copy-ads/validate')
 def copy_validate():
     from . import copy_ads
@@ -181,6 +199,44 @@ def conversation_send():
     run = chat.prepare(data, selected)
     return Response(stream_with_context(chat.stream(run)), mimetype='text/event-stream',
                     headers={'X-Accel-Buffering': 'no'})
+
+
+@bp.get('/api/conversations/capabilities')
+def conversation_capabilities():
+    from ..cadu_workspace.conversations.attachments import ACCEPT, MAX_BYTES
+    context.identity()
+    selected = context.resolve()
+    enabled = bool(current_app.config.get('CADU_FAMILY_CHAT_ENABLED', False)
+                   and current_app.config.get('CADU_FAMILY_WRITES_ENABLED', False)
+                   and selected['role'] in ('admin', 'member'))
+    return jsonify(send=enabled, attachments=enabled, max_files=3, max_bytes=MAX_BYTES,
+                   accept=ACCEPT, external_tools=False)
+
+
+@bp.post('/api/conversations/preflight')
+def conversation_preflight():
+    from ..cadu_workspace.conversations.guardrails import validate_message, require_available_intent
+    writable_context()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        abort(400)
+    message = validate_message(data.get('message'))
+    return jsonify(intent=require_available_intent(message))
+
+
+@bp.post('/api/conversations/uploads')
+def conversation_upload():
+    from ..cadu_workspace.conversations import attachments
+    selected = writable_context()
+    user = context.identity()
+    if not current_app.config.get('CADU_FAMILY_CHAT_ENABLED', False):
+        abort(503, description='Anexos ainda não foram habilitados nesta instalação.')
+    # Bound multipart parsing as well as the individual file read.
+    request.max_content_length = attachments.MAX_BYTES + 65536
+    files = request.files.getlist('file')
+    if len(files) != 1 or len(request.files) != 1:
+        abort(400, description='Envie um arquivo de cada vez.')
+    return jsonify(file=attachments.upload(files[0], user, selected)), 201
 
 
 @bp.get('/api/conversations/modes')
@@ -237,26 +293,14 @@ def page(product, module=None):
         entities = context.inventory(selected['client_id'])
         if product == 'workspace' and module in ADMIN_MODULES:
             context.require_admin()
-        if product == 'workspace':
-            if module == 'equipe': records = repository.team(user['organization_id'])
-            if module == 'planos': records = [repository.plan(user['organization_id'])]
-            if module == 'consumo': records = repository.consumption(user['organization_id'])
-            if module == 'faturamento': records = repository.invoices(user['organization_id'])
-            if module == 'integracoes': records = repository.integrations(user['organization_id'])
-        if product == 'planner' and module == 'cotacoes':
-            records = repository.quotes(selected['client_id'])
-        if product == 'planner' and module in ('audiencias', 'canais', 'formatos', 'interativos'):
-            records = repository.catalog(module, request.args.get('q', ''))
-        if product == 'connect':
-            from ..cadu_connect.repository import campaigns_for_client
-            records = campaigns_for_client(selected['client_id'])
+        records = product_pages.load_records(product, module, user, selected, request.args.get('q', ''))
     token = session.setdefault('family_csrf', secrets.token_urlsafe(32))
     # PHP currently knows the actor's organization, not an agency's selected client.
     # Never hand off to the wrong tenant while the adapter is pending.
     legacy_url = None
     if user and legacy and selected['client_id'] == user['organization_id']:
         legacy_url = product_url('auth', '/auth/sso/to-cadu') + '?' + urlencode({'next': product_url('cadu', legacy)})
-    return render_template('cadu_family/page.html', product=product, spec=spec, module=module,
-        title=title, products=PRODUCTS, user=user, selected=selected, clients=clients,
+    return render_template(product_pages.page_template(product), product=product, spec=spec, module=module,
+        title=title, products=PRODUCTS, landing=LANDINGS[product], user=user, selected=selected, clients=clients,
         entities=entities, records=records, profile=PROFILES.get(product), csrf=token,
         legacy_url=legacy_url, login_url=login_url(), product_url=product_url)

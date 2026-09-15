@@ -1,0 +1,8 @@
+{% extends 'cadu_family/page.html' %}
+{% block product_content %}
+{% if module == 'inicio' %}{% include 'cadu_planner/family/home.html' %}
+{% elif not user %}{% include 'cadu_family/guest.html' %}
+{% elif module in ('canais', 'formatos', 'audiencias') %}{% include 'cadu_planner/family/catalog.html' %}
+{% else %}{% include 'cadu_family/records.html' %}
+{% endif %}
+{% endblock %}

@@ -5,7 +5,7 @@ from flask import g
 
 def family_table_available(name):
     """Inspect schema without creating it; do not swallow connectivity errors."""
-    if name not in {'cadu_family_client_access', 'cadu_family_entity_links', 'cadu_family_conversation_context'}:
+    if name not in {'cadu_family_client_access', 'cadu_family_entity_links', 'cadu_family_conversation_context', 'cadu_family_chat_uploads'}:
         raise ValueError('Unsupported family table')
     cache = g.setdefault('family_schema', {})
     if name not in cache:

@@ -1,0 +1,7 @@
+{% extends 'cadu_family/page.html' %}
+{% block product_content %}
+{% if module == 'inicio' %}{% include 'cadu_workspace/family/home.html' %}
+{% elif not user %}{% include 'cadu_family/guest.html' %}
+{% else %}{% include 'cadu_workspace/family/account.html' %}
+{% endif %}
+{% endblock %}

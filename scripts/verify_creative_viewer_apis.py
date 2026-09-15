@@ -22,12 +22,20 @@ def main():
         "/parametros/api/unfoldings",
         "/parametros/api/image-tiers",
     )
+    # The application's production cookie is scoped to ``centralcomm.media``.
+    # Flask's test client defaults to ``localhost``; in that case it correctly
+    # refuses the scoped cookie and every request below looks unauthenticated.
+    # Use a host covered by the configured cookie domain for both the session
+    # write and the API calls.
+    cookie_domain = (app.config.get("SESSION_COOKIE_DOMAIN") or "localhost").lstrip(".")
+    base_url = f"https://{cookie_domain}"
+
     with app.test_client() as client:
-        with client.session_transaction() as session:
+        with client.session_transaction(base_url=base_url) as session:
             session["user_id"] = -1
             session["user_type"] = "admin"
         for path in paths:
-            response = client.get(path)
+            response = client.get(path, base_url=base_url)
             payload = response.get_json(silent=True)
             if response.status_code != 200 or not (
                 isinstance(payload, dict) and payload.get("success") is True

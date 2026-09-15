@@ -117,18 +117,21 @@ export function paintLibrary() {
     return String(item.name || "").toLowerCase().includes(query)
       || String(item.headline || "").toLowerCase().includes(query);
   });
-  list.innerHTML = rows.map((item) => {
-    const selected = state.scenes.some((scene) => scene.id === item.id);
+  const selectedRows = rows.filter((item) => state.scenes.some((scene) => scene.id === item.id));
+  const availableRows = rows.filter((item) => !state.scenes.some((scene) => scene.id === item.id));
+  const card = (item, selected) => {
     const thumb = item.thumb_url || item.image_url;
     return `<li class="${item.broken ? "is-broken" : ""}" data-id="${escapeHtml(item.id)}">
-      <button type="button" data-id="${escapeHtml(item.id)}" data-action="pick" class="${selected ? "is-selected" : ""}" ${item.broken ? "disabled" : ""}>
+      <button type="button" data-id="${escapeHtml(item.id)}" data-action="${selected ? "select" : "pick"}" class="${selected ? "is-selected" : ""}" ${item.broken ? "disabled" : ""}>
         ${thumb ? `<img loading="lazy" decoding="async" src="${escapeHtml(thumb)}" alt="">` : "<span></span>"}
         <strong>${escapeHtml(item.name || "Peça")}</strong>
-        <small>${item.broken ? "Arquivo indisponível" : selected ? "Na sequência" : "Adicionar cena"}</small>
+        <small>${item.broken ? "Arquivo indisponível" : selected ? "Na sequência · abrir" : "Adicionar à sequência"}</small>
       </button>
+      ${selected ? `<button type="button" class="mc-cadu-video-remove" data-id="${escapeHtml(item.id)}" data-action="remove">Remover da sequência</button>` : ""}
       <button type="button" class="mc-cadu-video-delete" data-id="${escapeHtml(item.id)}" data-action="delete">Excluir da biblioteca</button>
     </li>`;
-  }).join("");
+  };
+  list.innerHTML = `${selectedRows.length ? `<li class="mc-studio-library-group"><strong>Na sequência deste vídeo</strong><small>${selectedRows.length} de 30 cenas</small></li>${selectedRows.map((item) => card(item, true)).join("")}` : ""}${availableRows.length ? `<li class="mc-studio-library-group"><strong>Disponíveis para adicionar</strong><small>Estas peças ainda não entram no vídeo.</small></li>${availableRows.map((item) => card(item, false)).join("")}` : ""}`;
   list.querySelectorAll("img").forEach((img) => {
     img.addEventListener("error", () => {
       const id = img.closest("[data-id]")?.getAttribute("data-id");
@@ -203,10 +206,10 @@ export function paintProps() {
         ? "O clipe aceita no máximo 30 cenas."
         : `${count} cenas na ordem do clipe.`;
   }
-  if ($("mcVideoSceneAssist")) $("mcVideoSceneAssist").hidden = count !== 1;
+  if ($("mcVideoSceneAssist")) $("mcVideoSceneAssist").hidden = count < 1 || count >= 30;
   if ($("mcVideoCreateScene2")) {
-    $("mcVideoCreateScene2").disabled = count !== 1 || state.creatingScene2 || !state.clientId;
-    $("mcVideoCreateScene2").textContent = state.creatingScene2 ? "Criando cena 2…" : "Criar cena 2 com Trocr";
+    $("mcVideoCreateScene2").disabled = count < 1 || count >= 30 || state.creatingScene2 || !state.clientId;
+    $("mcVideoCreateScene2").textContent = state.creatingScene2 ? `Criando imagem ${count + 1}…` : "Criar próxima imagem";
   }
   const props = $("mcVideoProps");
   const scene = state.scenes[index];
@@ -237,14 +240,16 @@ export function paintProps() {
 export function paintTimeline() {
   const video = $("mcVideoScenes");
   if (!video) return;
+  const purpose = { hook: "Abertura", beat: "Desenvolvimento", offer: "Oferta", proof: "Prova", end: "Fechamento" };
   video.innerHTML = state.scenes.map((scene, index) => {
     const thumb = scene.thumb_url || scene.image_url || "";
     const active = scene.id === state.selectedSceneId;
-    return `<button type="button" class="mc-cadu-video-block ${active ? "is-active" : ""}" draggable="true" data-scene="${escapeHtml(scene.id)}" data-index="${index}">
+    const role = purpose[beatFor(scene.id)?.purpose] || "Desenvolvimento";
+    return `<article class="mc-studio-scene-clip ${active ? "is-active" : ""}"><button type="button" class="mc-cadu-video-block" draggable="true" data-scene="${escapeHtml(scene.id)}" data-index="${index}">
       ${thumb ? `<img loading="lazy" decoding="async" src="${escapeHtml(thumb)}" alt="">` : `<span class="mc-cadu-video-block-ph"></span>`}
-      <small>Cena ${index + 1}</small>
+      <small>${role}</small>
       <strong>${escapeHtml(scene.name || `Cena ${index + 1}`)}</strong>
-    </button>`;
+    </button><details class="mc-studio-scene-menu"><summary aria-label="Ações da cena ${index + 1}" title="Ações da cena">•••</summary><button type="button" data-scene-remove="${escapeHtml(scene.id)}">Excluir cena</button></details></article>`;
   }).join("");
   if ($("mcVideoTimelineHint")) {
     $("mcVideoTimelineHint").textContent = state.scenes.length

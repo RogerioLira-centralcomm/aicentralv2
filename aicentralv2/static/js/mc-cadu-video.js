@@ -63,7 +63,7 @@ function bindUi() {
   document.getElementById("mcVideoLibrary")?.addEventListener("click", onLibraryClick);
   document.getElementById("mcVideoClips")?.addEventListener("click", onClipClick);
   document.getElementById("mcVideoScriptBtn")?.addEventListener("click", buildScript);
-  document.getElementById("mcVideoCreateScene2")?.addEventListener("click", createScene2WithTrocr);
+  document.getElementById("mcVideoCreateScene2")?.addEventListener("click", createNextSceneWithTrocr);
   document.getElementById("mcVideoGenerate")?.addEventListener("click", generate);
   document.getElementById("mcVideoSaveStatus")?.addEventListener("click", () => {
     if (state.saveStatus === "error") persistProject();
@@ -256,9 +256,21 @@ function bindUi() {
   });
   bindTimelineDrag(document.getElementById("mcVideoScenes"));
   document.getElementById("mcVideoScenes")?.addEventListener("click", (event) => {
+    const remove = event.target.closest("[data-scene-remove]");
+    if (remove) {
+      event.preventDefault();
+      state.selectedSceneId = remove.getAttribute("data-scene-remove") || "";
+      removeSelectedScene();
+      return;
+    }
     const node = event.target.closest("[data-scene]");
     if (!node) return;
     selectScene(node.getAttribute("data-scene"));
+  });
+  document.getElementById("mcStudioAddAudio")?.addEventListener("click", () => {
+    state.libTab = "sound";
+    paintAll();
+    document.querySelector(".mc-cadu-video-lib")?.scrollTo({ top: 0, behavior: "auto" });
   });
   const video = document.getElementById("mcSwapVideo");
   video?.addEventListener("timeupdate", syncPlayhead);
@@ -465,19 +477,20 @@ async function loadLibrary() {
   }
 }
 
-async function createScene2WithTrocr() {
-  if (state.creatingScene2 || state.scenes.length !== 1 || !state.clientId) return;
-  const base = state.scenes[0];
+async function createNextSceneWithTrocr() {
+  if (state.creatingScene2 || !state.scenes.length || state.scenes.length >= 30 || !state.clientId) return;
+  const base = state.scenes.find((scene) => scene.id === state.selectedSceneId) || state.scenes[state.scenes.length - 1];
+  const nextIndex = state.scenes.length + 1;
   const reference = base.image_url || base.image;
   if (!reference) {
-    setStatus("A primeira cena não possui uma imagem disponível.");
+    setStatus("A cena em foco não possui uma imagem disponível.");
     return;
   }
   const copy = { ...(base.ocr || {}), ...(base.params || {}) };
   const before = new Set(state.library.map((item) => item.id));
   state.creatingScene2 = true;
   paintProps();
-  setStatus("Trocr está criando uma segunda tomada coerente com a primeira…");
+  setStatus(`Trocr está criando a imagem ${nextIndex} da sequência…`);
   try {
     const data = await post("/parametros/api/format-lab/swap", {
       client_id: state.clientId,
@@ -488,8 +501,8 @@ async function createScene2WithTrocr() {
       quality: "production",
       force_image: true,
       use_brand_context: true,
-      scene_variant: 2,
-      scene_index: 2,
+      scene_variant: nextIndex,
+      scene_index: nextIndex,
       scene_group: base.scene_group || undefined,
       headline: copy.headline || base.headline || "",
       support: copy.support || "",
@@ -504,23 +517,23 @@ async function createScene2WithTrocr() {
       elements: Array.isArray(base.ocr?.elements) ? base.ocr.elements : undefined,
       preserve: ["layout", "people", "product", "logo", "text_position", "colors", "graphic"],
       alter: ["background"],
-      note: "Crie uma segunda tomada da mesma campanha, preserve elenco, produto, marca e texto; varie enquadramento e ambiente para continuar a narrativa.",
+      note: "Crie a próxima tomada da mesma campanha, preserve elenco, produto, marca e texto; varie enquadramento e ambiente para continuar a narrativa.",
     });
-    if (!data?.image_url && !data?.png_data_url) throw new Error(data?.preview || "O Trocr não devolveu a cena 2.");
-    recordSpend(`trocr:${data.plan_hash || data.image_url || Date.now()}`, "image", "Cena 2 com Trocr", data.quote, "confirmed");
+    if (!data?.image_url && !data?.png_data_url) throw new Error(data?.preview || "O Trocr não devolveu a próxima imagem.");
+    recordSpend(`trocr:${data.plan_hash || data.image_url || Date.now()}`, "image", `Imagem ${nextIndex} da sequência`, data.quote, "confirmed");
     markDirty();
     const items = await loadLibrary();
     const created = items.find((item) => !before.has(item.id) && (
       item.image_url === data.image_url ||
-      (item.run_id === base.run_id && Number(item.scene_index) === 2)
+      (item.run_id === base.run_id && Number(item.scene_index) === nextIndex)
     ));
     if (!created) throw new Error("A cena foi gerada, mas não apareceu na biblioteca. Recarregue o Studio.");
-    state.scenes = [base, created];
+    state.scenes.push(created);
     state.selectedSceneId = created.id;
     state.generationMode = "storyboard";
     alignBeatsToScenes();
     markDirty();
-    setStatus("Cena 2 pronta. Revise as duas tomadas e monte o roteiro.");
+    setStatus(`Imagem ${nextIndex} pronta. Revise a sequência e monte o roteiro.`);
   } catch (error) {
     setStatus(error.message);
   } finally {
@@ -660,9 +673,14 @@ function onLibraryClick(event) {
     removeLibraryItem(id);
     return;
   }
+  if (button.getAttribute("data-action") === "remove") {
+    state.selectedSceneId = id;
+    removeSelectedScene();
+    return;
+  }
   const item = state.library.find((row) => row.id === id);
   if (!item || item.broken) return;
-  if (state.scenes.some((scene) => scene.id === item.id)) {
+  if (button.getAttribute("data-action") === "select" || state.scenes.some((scene) => scene.id === item.id)) {
     selectScene(item.id);
     return;
   } else if (state.scenes.length < 30) {

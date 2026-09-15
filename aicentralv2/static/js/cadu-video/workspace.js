@@ -1,6 +1,7 @@
 /* Panel geometry and timeline gestures, independent of network and render jobs. */
 const $ = id => document.getElementById(id);
 const prefsKey='cadu-studio-workspace-v1';
+const themeCookie='cadu-studio-theme';
 const clamp=(value,low,high)=>Math.max(low,Math.min(high,value));
 let state, changed, paint, prefs={}, observer, lastRuler='', lastTimeline='', trackWidth=1;
 const seconds=value => `${Math.floor(value/60)}:${String(Math.floor(value%60)).padStart(2,'0')}`;
@@ -11,10 +12,10 @@ export function bindWorkspace(project, commit, refresh) {
   try {prefs=JSON.parse(localStorage.getItem(prefsKey)||'{}');} catch {prefs={};}
   if(!prefs || typeof prefs!=='object')prefs={};
   const root=$('mcSwap');
-  root.dataset.theme=prefs.theme==='dark'?'dark':'light';
+  root.dataset.theme=readTheme();
   applyThemeLabel();
   $('mcStudioTheme').addEventListener('click',()=>{
-    root.dataset.theme=root.dataset.theme==='dark'?'light':'dark';prefs.theme=root.dataset.theme;savePrefs();applyThemeLabel();
+    root.dataset.theme=root.dataset.theme==='dark'?'light':'dark';prefs.theme=root.dataset.theme;savePrefs();saveTheme(root.dataset.theme);applyThemeLabel();
   });
   $('mcStudioFocus').addEventListener('click',()=>{
     const on=root.classList.toggle('is-focus');$('mcStudioFocus').setAttribute('aria-pressed',String(on));
@@ -87,6 +88,8 @@ export function bindWorkspace(project, commit, refresh) {
   window.addEventListener('pagehide',()=>observer?.disconnect());
 }
 function savePrefs(){try{localStorage.setItem(prefsKey,JSON.stringify(prefs));}catch{/* Workspace stays usable without storage. */}}
+function readTheme(){const value=document.cookie.split('; ').find(row=>row.startsWith(`${themeCookie}=`))?.split('=')[1];return value==='light'||value==='dark'?value:'dark';}
+function saveTheme(theme){document.cookie=`${themeCookie}=${theme}; path=/; max-age=31536000; SameSite=Lax`;}
 function applyThemeLabel(){const dark=$('mcSwap').dataset.theme==='dark';$('mcStudioTheme').setAttribute('aria-pressed',String(dark));$('mcStudioTheme').setAttribute('aria-label',dark?'Usar aparência clara':'Usar aparência escura');}
 function seekAt(event,node){const video=getVideo();if(!Number.isFinite(video?.duration))return;const rect=node.getBoundingClientRect();video.currentTime=clamp((event.clientX-rect.left)/rect.width,0,1)*video.duration;}
 function updateTrim(key,value){const duration=getVideo()?.duration;if(!Number.isFinite(duration))return;state.edit[key]=key==='start'?clamp(value,0,(state.edit.end||duration)-.1):clamp(value,state.edit.start+.1,duration);}

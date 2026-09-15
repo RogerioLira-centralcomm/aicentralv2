@@ -136,7 +136,7 @@ export function paintStudio() {
   const key=JSON.stringify([brand,rows,state.edit.sound_id]);
   if(key!==soundListKey) {
     soundListKey=key;
-    $('mcStudioSoundList').innerHTML=rows.map(row=>`<article class="mc-studio-sound"><strong>${escapeHtml(row.name)}</strong><small>${({music:'Música',effect:'Efeito',voice:'Locução'})[row.category] || 'Áudio'} · ${time(row.duration)}</small><audio controls preload="none" src="${escapeHtml(row.url)}"></audio><button type="button" class="mc-cadu-video-ghost" data-sound="${escapeHtml(row.id)}">${row.id===state.edit.sound_id?'Trilha selecionada':'Adicionar à edição'}</button></article>`).join('') || '<p class="mc-cadu-video-hint">Nenhum som encontrado. Envie uma música, efeito ou locução.</p>';
+  $('mcStudioSoundList').innerHTML=rows.map(row=>`<article class="mc-studio-sound"><strong>${escapeHtml(row.name)}</strong><small>${({music:'Música',effect:'Efeito',ambient:'Ambiente',voice:'Locução'})[row.category] || 'Áudio'} · ${time(row.duration)}</small><audio controls preload="none" src="${escapeHtml(row.url)}"></audio><button type="button" class="mc-cadu-video-ghost" data-sound="${escapeHtml(row.id)}">${row.id===state.edit.sound_id?'Trilha selecionada':'Adicionar à edição'}</button></article>`).join('') || '<p class="mc-cadu-video-hint">Nenhum som encontrado. Envie música, efeito, ambiente ou locução.</p>';
   }
   for(const [id,key] of Object.entries(fields)) if($(id)&&document.activeElement!==$(id)) {
     if($(id).type==='checkbox')$(id).checked=state.edit[key];else $(id).value=state.edit[key];
@@ -151,7 +151,9 @@ export function paintStudio() {
     const values=selected?.waveform || [];
     waveform.innerHTML=values.map((v,i)=>`<path d="M${i*600/values.length} ${14-Math.min(1,Math.max(0,v))*13}v${Math.min(1,Math.max(0,v))*26}" stroke="currentColor" stroke-width="2"/>`).join('');
   }
-  $('mcStudioTrackLabel').textContent=selected?.name || (state.edit.sound_id ? 'Trilha indisponível' : 'Nenhuma trilha adicionada');
+  const category={music:'Música',effect:'Efeitos',ambient:'Ambiente',voice:'Locução'}[selected?.category] || 'Áudio';
+  $('mcStudioTrackLabel').textContent=selected?.name || (state.edit.sound_id ? 'Áudio indisponível' : 'Nenhum áudio adicionado');
+  if($('mcStudioAudioTrackName')) $('mcStudioAudioTrackName').textContent=category;
   const audioParts=[];
   if(state.audio.enabled===false) audioParts.push('Sem áudio');
   else {

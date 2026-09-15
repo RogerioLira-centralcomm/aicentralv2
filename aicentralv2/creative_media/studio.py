@@ -249,7 +249,7 @@ def sounds():
         except (subprocess.SubprocessError, OSError):
             peaks = []
         row = {'waveform': peaks, 'id': ident, 'name': str(upload.filename or 'Áudio').replace('\\', '/').split('/')[-1][:120],
-               'duration': round(duration, 2), 'category': request.form.get('category') if request.form.get('category') in {'music', 'effect', 'voice'} else 'music',
+               'duration': round(duration, 2), 'category': request.form.get('category') if request.form.get('category') in {'music', 'effect', 'ambient', 'voice'} else 'music',
                'url': f'/parametros/api/format-lab/studio/sounds/{ident}?client_id={int(client)}',
                'created_at': time.time()}
         _write(root / f'sound-{ident}.json', row)

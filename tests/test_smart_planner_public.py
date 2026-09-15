@@ -3,7 +3,7 @@ from unittest import TestCase
 
 from flask import Flask, render_template
 
-from aicentralv2.smart_planner.public_view import plan_chapters, public_view
+from aicentralv2.smart_planner.public_view import format_public_updated, plan_chapters, public_view
 from aicentralv2.smart_planner.repository import serialize_list_row
 
 
@@ -117,6 +117,35 @@ class PublicPlannerTest(TestCase):
         self.assertEqual(view["nav"][0]["id"], "plano-doc")
         self.assertTrue(view["nav_folha"])
         self.assertIn("cap-0", [item["id"] for item in view["nav_plano"]])
+
+    def test_complete_plan_renders_nested_markdown_without_tokens(self):
+        chapters = plan_chapters(
+            "## Indicadores\n"
+            "### UTM recomendado\n"
+            "Use **leads qualificados** em `utm_campaign`.\n\n"
+            "1. Validar origem\n"
+            "   - Meta Ads\n"
+            "   - Places\n\n"
+            "| KPI | Meta |\n| --- | --- |\n| CTR | *A definir* |\n"
+        )
+        blocks = chapters[0]["blocks"]
+        self.assertEqual([block["type"] for block in blocks], ["heading", "p", "list", "table"])
+        self.assertIn("<strong>leads qualificados</strong>", blocks[1]["html"])
+        self.assertIn("<code>utm_campaign</code>", blocks[1]["html"])
+        self.assertTrue(blocks[2]["ordered"])
+        self.assertEqual(blocks[2]["items"][0]["children"][0]["type"], "list")
+        self.assertIn("<em>A definir</em>", blocks[3]["rows"][0][1])
+
+    def test_public_context_has_friendly_updated_time_and_executive_fallback(self):
+        view = public_view({
+            "nome_campanha": "Campanha X", "cliente": "Cliente", "updated_at": "2026-09-15T00:02:45+00:00",
+            "dados_detectados": {"plan_mode": "completo", "planejamento": "## Estratégia\nTexto.", "folha": {"sections": [{"cards": [{"type": "strategy", "body": "Tese."}]}]}},
+            "plan_content": {"sections": []},
+        })
+        self.assertTrue(view["updated_at"].startswith("Atualizado"))
+        self.assertEqual(len(view["executive_facts"]), 5)
+        self.assertFalse(view["hero"]["has_image"])
+        self.assertEqual(format_public_updated("not-a-date")["label"], "Atualizado em not-a-date")
 
     def test_completo_only_uses_plano_view_on_same_link(self):
         view = public_view({

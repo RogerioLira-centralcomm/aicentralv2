@@ -37,6 +37,13 @@ from .snapshot import build_evidence, build_snapshot
 
 logger = logging.getLogger(__name__)
 
+GROUP_CONTRACTS = {
+    "planner_full_strategy_v2": ("Resumo executivo", "Framework de indicadores", "Estratégia de comunicação"),
+    "planner_full_media_v2": ("Estratégia de mídia", "Mix e investimento", "Fases do voo"),
+    "planner_full_execution_v1": ("Direção criativa", "Mensuração", "Riscos e dependências"),
+    "planner_commercial_defense_v1": ("Por que este plano",),
+}
+
 
 def start_generation(token: str, mode: str | None = None) -> dict:
     row = get_by_token(token)
@@ -218,8 +225,12 @@ def _run(token: str, mode: str) -> dict:
 
     cover = _cover_markdown(snapshot, core)
     final = normalize_markdown("\n\n".join(part for part in (cover, strategy_md, media_md, execution_md, defense_md) if part))
+    quality = _validate_plan_markdown(final)
+    if not quality["valid"]:
+        raise ValueError("O documento completo não passou na validação editorial: " + "; ".join(quality["errors"]))
     merge_dados(token, {
         "planejamento": final,
+        "planning_quality": quality,
         "planejamento_grupos": {
             "strategy": strategy_md,
             "media": media_md,
@@ -614,8 +625,44 @@ def _group_markdown(
             extra={"one_page": page, "pagina_unica": canvas_mod.folha_text(folha)},
         )
     )
-    raw = chat_text(system, user, role=skill_role(skill), timeout=120)
-    return normalize_markdown(raw)
+    errors = []
+    for attempt in range(2):
+        retry = "" if not attempt else "\n\nA versão anterior falhou na estrutura. Use exatamente os títulos solicitados, sem bloco de código e sem comentários."
+        raw = chat_text(system, user + retry, role=skill_role(skill), timeout=120)
+        candidate = normalize_markdown(raw)
+        valid, errors = _validate_group_markdown(skill, candidate)
+        if valid:
+            return candidate
+    raise ValueError(f"O grupo {skill} não passou na validação editorial: {'; '.join(errors)}")
+
+
+def _validate_group_markdown(skill: str, markdown: str) -> tuple[bool, list[str]]:
+    """Reject malformed LLM chapters before they reach a public document."""
+    value = normalize_markdown(markdown)
+    headings = re.findall(r"(?m)^##\s+(.+?)\s*$", value)
+    expected = GROUP_CONTRACTS.get(skill, ())
+    errors = []
+    if "```" in value:
+        errors.append("bloco de código não permitido")
+    if not headings:
+        errors.append("sem capítulos de nível ##")
+    missing = [title for title in expected if title.lower() not in {item.lower() for item in headings}]
+    if missing:
+        errors.append("faltam capítulos: " + ", ".join(missing))
+    if len(value.strip()) < 160:
+        errors.append("conteúdo insuficiente")
+    return not errors, errors
+
+
+def _validate_plan_markdown(markdown: str) -> dict:
+    value = normalize_markdown(markdown)
+    headings = re.findall(r"(?m)^##\s+(.+?)\s*$", value)
+    errors = []
+    if "```" in value:
+        errors.append("há bloco de código não renderizável")
+    if len(headings) < 8:
+        errors.append("documento com capítulos insuficientes")
+    return {"valid": not errors, "errors": errors, "chapter_count": len(headings), "validated_at": datetime.now(timezone.utc).isoformat()}
 
 
 def _consistency_check(snapshot: dict, core: dict, page: dict, planejamento: str) -> dict:

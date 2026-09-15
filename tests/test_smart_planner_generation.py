@@ -11,6 +11,8 @@ from aicentralv2.smart_planner.generator import (
     _stale_generation,
     _usable_core,
     _usable_page,
+    _validate_group_markdown,
+    _validate_plan_markdown,
     _validate_page,
     start_generation,
 )
@@ -43,6 +45,26 @@ def test_internal_skills_are_versioned_packages():
     assert "mix aprovado" in page.lower()
     assert "gestão de mídia" in page.lower()
     assert load_skill("missing_skill") == ""
+
+
+def test_group_markdown_contract_requires_expected_chapters_and_rejects_fences():
+    valid, errors = _validate_group_markdown(
+        "planner_full_media_v2",
+        "## Estratégia de mídia\nTexto suficiente para o bloco com contexto operacional e critérios de decisão.\n\n## Mix e investimento\nTabela e leitura que explicam a distribuição aprovada, o papel de cada canal e o fechamento da verba.\n\n## Fases do voo\nDetalhe operacional da cadência, dos marcos de otimização e das dependências de aprovação.",
+    )
+    assert valid is True
+    assert errors == []
+    valid, errors = _validate_group_markdown("planner_full_media_v2", "## Estratégia de mídia\n```\nrascunho\n```")
+    assert valid is False
+    assert any("bloco de código" in error for error in errors)
+
+
+def test_full_document_quality_rejects_insufficient_chapters():
+    failed = _validate_plan_markdown("## Capa\nVersão.")
+    assert failed["valid"] is False
+    assert "capítulos insuficientes" in failed["errors"][0]
+    passed = _validate_plan_markdown("\n\n".join(f"## Capítulo {index}\nTexto." for index in range(8)))
+    assert passed["valid"] is True
 
 
 def test_snapshot_freezes_confirmed_fields():

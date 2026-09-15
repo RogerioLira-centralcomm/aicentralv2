@@ -1,10 +1,15 @@
 <!doctype html>
+{% macro render_list(block) -%}
+  <{{ 'ol' if block.ordered else 'ul' }}>
+  {% for item in block['items'] %}<li>{{ item.html|safe }}{% for child in item.children %}{{ render_list(child) }}{% endfor %}</li>{% endfor %}
+  </{{ 'ol' if block.ordered else 'ul' }}>
+{%- endmacro %}
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{{ document_label }} · {{ title }}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_public_v3.css') }}?v=1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_public_v3.css') }}?v=2">
 </head>
 <body class="spv3 spv3-{{ document or 'proposal' }}">
   <header class="spv3-topbar">
@@ -13,7 +18,7 @@
       <span>{{ house.label }}</span>
     </a>
     <div class="spv3-actions">
-      <span class="spv3-updated">Atualizado {{ updated_at }}</span>
+      <span class="spv3-updated" title="{{ updated_at_title }}">{{ updated_at }}</span>
       <button type="button" class="spv3-btn is-quiet" data-copy-link>Copiar link</button>
       <button type="button" class="spv3-btn" data-print>Salvar PDF</button>
     </div>
@@ -31,6 +36,21 @@
         <span><small>{{ label }}</small><strong>{{ value }}</strong></span>
         {% endfor %}
       </div>
+    </section>
+
+    <section class="spv3-executive" aria-label="Painel executivo">
+      <figure class="spv3-executive-visual{% if not hero.has_image %} is-fallback{% endif %}">
+        {% if hero.has_image %}<img src="{{ hero.image }}" alt="Imagem conceitual de {{ title }}">{% else %}<div><strong>Conceito visual</strong><span>Gere uma peça no editor para completar esta leitura.</span></div>{% endif %}
+        <figcaption>Imagem conceitual gerada por IA — não representa fotografia da campanha.</figcaption>
+      </figure>
+      <div class="spv3-executive-copy">
+        <p class="spv3-executive-label">Leitura executiva</p>
+        <h2>{{ hero.tagline or overview }}</h2>
+        <p>{{ overview or 'A recomendação consolidada está detalhada nos capítulos a seguir.' }}</p>
+      </div>
+      <dl class="spv3-executive-facts">
+        {% for label, value in executive_facts %}<div><dt>{{ label }}</dt><dd>{{ value }}</dd></div>{% endfor %}
+      </dl>
     </section>
 
     {% if document == 'proposal' %}
@@ -97,8 +117,8 @@
         {% for item in creative_plan %}<article><span class="spv3-eyebrow">{{ item.channel }}</span><h3>{{ item.primary_format }}</h3><p>{{ item.role }}</p><dl><div><dt>Conceito</dt><dd>{{ item.concepts }}</dd></div><div><dt>Variações</dt><dd>{{ item.variations }}</dd></div><div><dt>Arquivos finais</dt><dd>{{ item.final_files }}</dd></div></dl>{% if item.duration_seconds %}<small>O Smart Planner entrega uma imagem conceito estática para orientar a futura produção de {{ item.duration_seconds }}s.</small>{% else %}<small>Entrega atual: imagem conceito estática.</small>{% endif %}</article>{% endfor %}
       </div>
       {% endif %}
-      {% for chapter in group.chapters %}<article class="spv3-chapter"><h3>{{ chapter.title }}</h3>{% for block in chapter.blocks %}{% if block.type == 'p' %}<p>{{ block.text }}</p>{% elif block.type == 'ul' %}<ul>{% for item in block['items'] %}<li>{{ item }}</li>{% endfor %}</ul>{% elif block.type == 'table' %}<div class="spv3-scroll"><table><thead><tr>{% for cell in block.head %}<th>{{ cell }}</th>{% endfor %}</tr></thead><tbody>{% for row in block.rows %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>{% endif %}{% endfor %}</article>{% endfor %}
-      {% for section in group.sections %}<article class="spv3-chapter"><h3>{{ section.title }}</h3><div class="spv3-board">{% for card in section.cards %}<div><strong>{{ card.title }}</strong><p>{{ card.body }}</p></div>{% endfor %}</div></article>{% endfor %}
+      {% for chapter in group.chapters %}<article class="spv3-chapter"><h3>{{ chapter.title }}</h3>{% for block in chapter.blocks %}{% if block.type == 'p' %}<p>{{ block.html|safe }}</p>{% elif block.type == 'heading' %}<h{{ block.level }} class="spv3-content-heading">{{ block.html|safe }}</h{{ block.level }}>{% elif block.type == 'list' %}{{ render_list(block) }}{% elif block.type == 'code' %}<pre><code>{{ block.text }}</code></pre>{% elif block.type == 'table' %}<div class="spv3-scroll"><table><thead><tr>{% for cell in block.head %}<th>{{ cell|safe }}</th>{% endfor %}</tr></thead><tbody>{% for row in block.rows %}<tr>{% for cell in row %}<td>{{ cell|safe }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>{% endif %}{% endfor %}</article>{% endfor %}
+      {% for section in group.sections %}<article class="spv3-chapter"><h3>{{ section.title }}</h3><div class="spv3-board">{% for card in section.cards %}<div><strong>{{ card.title_html|safe }}</strong><p>{{ card.body_html|safe }}</p></div>{% endfor %}</div></article>{% endfor %}
       {% if not group.chapters and not group.sections and group.id not in ('media','creative') %}<div class="spv3-empty-section">Este capítulo será detalhado na próxima revisão do planejamento.</div>{% endif %}
     </section>
     {% endfor %}

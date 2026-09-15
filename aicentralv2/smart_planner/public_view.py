@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone
+from html import escape
 import unicodedata
 
 from .catalog import CHANNEL_CATALOG, CHANNEL_LOGOS, OBJETIVO_OPTIONS, PRIMARY_FORMATS, PRACA_OPTIONS, objetivo_label
@@ -328,12 +330,80 @@ def _is_sep_row(cells: list[str]) -> bool:
     return all(re.fullmatch(r":?-{3,}:?", cell.replace(" ", "")) for cell in cells if cell)
 
 
+_HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
+_LIST_ITEM = re.compile(r"^(\s*)([-*+]|\d+[.)])\s+(.+?)\s*$")
+
+
+def _inline_html(value: str) -> str:
+    """Render the small, safe subset of inline Markdown emitted by the planner.
+
+    Content is escaped first.  The public template can therefore safely mark this
+    derived value as HTML without turning an LLM response into executable markup.
+    """
+    out = escape(text(value), quote=False)
+    placeholders: list[str] = []
+
+    def code(match):
+        placeholders.append(f"<code>{escape(match.group(1), quote=False)}</code>")
+        return f"\x00CODE{len(placeholders) - 1}\x00"
+
+    out = re.sub(r"`([^`\n]+)`", code, out)
+    out = re.sub(r"\*\*(.+?)\*\*|__(.+?)__", lambda m: f"<strong>{m.group(1) or m.group(2)}</strong>", out)
+    out = re.sub(r"(?<!\*)\*([^*\n]+)\*(?!\*)|(?<!_)_([^_\n]+)_(?!_)", lambda m: f"<em>{m.group(1) or m.group(2)}</em>", out)
+    for index, item in enumerate(placeholders):
+        out = out.replace(f"\x00CODE{index}\x00", item)
+    return out
+
+
+def _consume_list(lines: list[str], start: int, base_indent: int) -> tuple[dict, int]:
+    first = _LIST_ITEM.match(lines[start])
+    ordered = bool(first and first.group(2)[0].isdigit())
+    items: list[dict] = []
+    i = start
+    while i < len(lines):
+        match = _LIST_ITEM.match(lines[i])
+        if not match or len(match.group(1).expandtabs(2)) != base_indent:
+            break
+        is_ordered = match.group(2)[0].isdigit()
+        if is_ordered != ordered:
+            break
+        item = {"html": _inline_html(match.group(3)), "children": []}
+        i += 1
+        while i < len(lines):
+            nested = _LIST_ITEM.match(lines[i])
+            if nested and len(nested.group(1).expandtabs(2)) > base_indent:
+                child, i = _consume_list(lines, i, len(nested.group(1).expandtabs(2)))
+                item["children"].append(child)
+                continue
+            if not lines[i].strip():
+                i += 1
+                break
+            if nested or len(lines[i]) - len(lines[i].lstrip()) <= base_indent:
+                break
+            item["html"] += " " + _inline_html(lines[i].strip())
+            i += 1
+        items.append(item)
+    return {"type": "list", "ordered": ordered, "items": items}, i
+
+
 def _blocks(raw: str) -> list[dict]:
     lines = raw.replace("\r\n", "\n").split("\n")
     blocks: list[dict] = []
     i = 0
     while i < len(lines):
         line = lines[i]
+        if line.strip().startswith("```"):
+            fence = line.strip()[:3]
+            language = line.strip()[3:].strip()
+            i += 1
+            code = []
+            while i < len(lines) and not lines[i].strip().startswith(fence):
+                code.append(lines[i])
+                i += 1
+            if i < len(lines):
+                i += 1
+            blocks.append({"type": "code", "language": language, "text": "\n".join(code)})
+            continue
         if _is_table_row(line):
             rows = []
             while i < len(lines) and _is_table_row(lines[i]):
@@ -342,27 +412,29 @@ def _blocks(raw: str) -> list[dict]:
                     rows.append(cells)
                 i += 1
             if rows:
-                blocks.append({"type": "table", "head": rows[0], "rows": rows[1:]})
+                blocks.append({"type": "table", "head": [_inline_html(cell) for cell in rows[0]], "rows": [[_inline_html(cell) for cell in row] for row in rows[1:]]})
             continue
         stripped = line.strip()
-        if stripped.startswith(("- ", "* ")):
-            items = []
-            while i < len(lines) and lines[i].strip().startswith(("- ", "* ")):
-                items.append(lines[i].strip()[2:].strip())
-                i += 1
-            if items:
-                blocks.append({"type": "ul", "items": items})
+        heading = _HEADING.match(stripped)
+        if heading:
+            blocks.append({"type": "heading", "level": min(heading.group(1).count("#"), 4), "html": _inline_html(heading.group(2))})
+            i += 1
+            continue
+        list_match = _LIST_ITEM.match(line)
+        if list_match:
+            block, i = _consume_list(lines, i, len(list_match.group(1).expandtabs(2)))
+            blocks.append(block)
             continue
         if stripped:
             chunk = [stripped]
             i += 1
             while i < len(lines):
                 nxt = lines[i]
-                if not nxt.strip() or nxt.startswith("##") or _is_table_row(nxt) or nxt.strip().startswith(("- ", "* ")):
+                if not nxt.strip() or _HEADING.match(nxt.strip()) or _is_table_row(nxt) or _LIST_ITEM.match(nxt) or nxt.strip().startswith("```"):
                     break
                 chunk.append(nxt.strip())
                 i += 1
-            blocks.append({"type": "p", "text": " ".join(chunk)})
+            blocks.append({"type": "p", "html": _inline_html(" ".join(chunk))})
             continue
         i += 1
     return blocks
@@ -391,6 +463,32 @@ def plan_chapters(markdown: str) -> list[dict]:
         if chapter["title"] or blocks:
             out.append({"title": chapter["title"], "blocks": blocks})
     return out
+
+
+def format_public_updated(value) -> dict:
+    """Human-friendly publication time plus an exact value for hover/audit."""
+    raw = text(value)
+    if not raw:
+        return {"label": "", "title": ""}
+    try:
+        when = value if isinstance(value, datetime) else datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return {"label": f"Atualizado em {raw}", "title": raw}
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    now = datetime.now(when.tzinfo)
+    seconds = max(0, int((now - when).total_seconds()))
+    if seconds < 60:
+        label = "Atualizado agora"
+    elif seconds < 3600:
+        label = f"Atualizado há {seconds // 60} min"
+    elif seconds < 86400:
+        label = f"Atualizado há {seconds // 3600} h"
+    elif seconds < 172800:
+        label = f"Atualizado ontem às {when.strftime('%H:%M')}"
+    else:
+        label = f"Atualizado em {when.strftime('%d/%m/%Y às %H:%M')}"
+    return {"label": label, "title": when.isoformat()}
 
 
 WATER_MARKERS = ("água", "agua", "reservatório", "reservatorio", "torneira")
@@ -960,7 +1058,14 @@ def public_view(row: dict, document: str | None = None) -> dict:
         item = as_dict(section)
         cards = [as_dict(card) for card in as_list(item.get("cards")) if text(as_dict(card).get("body") or as_dict(card).get("title"))]
         if cards:
-            board_sections.append({"id": text(item.get("id")), "title": text(item.get("title") or item.get("id")), "cards": cards})
+            board_sections.append({
+                "id": text(item.get("id")),
+                "title": text(item.get("title") or item.get("id")),
+                "cards": [
+                    {**card, "title_html": _inline_html(card.get("title")), "body_html": _inline_html(card.get("body"))}
+                    for card in cards
+                ],
+            })
     chapters = plan_chapters(text(dados.get("planejamento")))
     page_v2 = as_dict(dados.get("one_page_v2"))
     branding = as_dict(folha.get("branding") or board.get("branding"))
@@ -1094,6 +1199,7 @@ def public_view(row: dict, document: str | None = None) -> dict:
         default_view = "folha"
     nav = nav_folha if default_view == "folha" else nav_plano
     updated = text(row.get("updated_at") or dados.get("updated_at"))
+    updated_display = format_public_updated(row.get("updated_at") or dados.get("updated_at"))
     inventory = _inventory(media.get("channels") or [], praca, praca_detalhe)
     assumptions = _assumptions(missing, "metricas" not in missing, bool(inventory))
     creative_plan = _creative_plan_for_public(page_v2, media.get("channels") or [])
@@ -1117,6 +1223,7 @@ def public_view(row: dict, document: str | None = None) -> dict:
         "media": media,
         "hero": {
             "image": hero_image,
+            "has_image": bool(hero_image),
             "kicker": "Planejamento de mídia",
             "tagline": tagline,
             "caption": praca_detalhe or praca,
@@ -1163,7 +1270,15 @@ def public_view(row: dict, document: str | None = None) -> dict:
         "assumptions": assumptions,
         "metric_note": METRIC_UNDEFINED,
         "praca_line": praca_line,
-        "updated_at": updated,
+        "updated_at": updated_display["label"] or updated,
+        "updated_at_title": updated_display["title"] or updated,
+        "executive_facts": [
+            ("Verba", verba or "A definir"),
+            ("Período", period or "A definir"),
+            ("Objetivo", objective_label or "A definir"),
+            ("Mix", f"{media.get('total_pct') or 0}% alocado" if media.get("channels") else "A definir"),
+            ("Metas", "Pendentes de validação" if "metricas" in missing else "Definidas no plano"),
+        ],
         "period_count": len(media.get("months") or []),
         "channel_count": len(media.get("channels") or []),
     }

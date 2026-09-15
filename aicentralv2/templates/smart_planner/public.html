@@ -1,4 +1,7 @@
 <!DOCTYPE html>
+{% macro render_list(block) -%}
+<{{ 'ol' if block.ordered else 'ul' }}>{% for item in block['items'] %}<li>{{ item.html|safe }}{% for child in item.children %}{{ render_list(child) }}{% endfor %}</li>{% endfor %}</{{ 'ol' if block.ordered else 'ul' }}>
+{%- endmacro %}
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
@@ -102,7 +105,7 @@
           {% endfor %}
         </ul>
         {% endif %}
-        {% if updated_at %}<p class="cc-updated">Atualizado em {{ updated_at }}</p>{% endif %}
+        {% if updated_at %}<p class="cc-updated" title="{{ updated_at_title }}">{{ updated_at }}</p>{% endif %}
       </div>
       {% if hero.image %}
       <figure class="cc-hero-shot">
@@ -568,16 +571,20 @@
           {% set ns = namespace(lead=true) %}
           {% for block in chapter.blocks %}
             {% if block.type == "p" %}
-            <p{% if ns.lead %} class="is-lead"{% endif %}>{{ block.text }}</p>
+            <p{% if ns.lead %} class="is-lead"{% endif %}>{{ block.html|safe }}</p>
             {% set ns.lead = false %}
-            {% elif block.type == "ul" %}
-            <ul>{% for item in block.items %}<li>{{ item }}</li>{% endfor %}</ul>
+            {% elif block.type == "heading" %}
+            <h{{ block.level }}>{{ block.html|safe }}</h{{ block.level }}>
+            {% elif block.type == "list" %}
+            {{ render_list(block) }}
+            {% elif block.type == "code" %}
+            <pre><code>{{ block.text }}</code></pre>
             {% elif block.type == "table" %}
             <div class="cc-table-wrap">
               <table class="cc-table">
-                {% if block.head %}<thead><tr>{% for cell in block.head %}<th>{{ cell }}</th>{% endfor %}</tr></thead>{% endif %}
+                {% if block.head %}<thead><tr>{% for cell in block.head %}<th>{{ cell|safe }}</th>{% endfor %}</tr></thead>{% endif %}
                 <tbody>
-                {% for row in block.rows %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}
+                {% for row in block.rows %}<tr>{% for cell in row %}<td>{{ cell|safe }}</td>{% endfor %}</tr>{% endfor %}
                 </tbody>
               </table>
             </div>
@@ -593,11 +600,9 @@
           <h3>{{ section.title }}</h3>
           {% for card in section.cards %}
           <article class="cc-card cc-doc-card{% if card.type %} is-{{ card.type }}{% endif %}{% if loop.first %} is-lead{% endif %}">
-            {% if card.title %}<h4>{{ card.title }}</h4>{% endif %}
+            {% if card.title %}<h4>{{ card.title_html|safe }}</h4>{% endif %}
             {% if card.body %}
-            {% for para in card.body.split('\n\n') if para.strip() %}
-            <p{% if loop.first %} class="is-lead"{% endif %}>{{ para.strip() }}</p>
-            {% endfor %}
+            <p class="is-lead">{{ card.body_html|safe }}</p>
             {% endif %}
           </article>
           {% endfor %}

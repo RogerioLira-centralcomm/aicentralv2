@@ -157,11 +157,17 @@ def studio_projects():
     from . import studio_projects as repository
     execute, json_body, ok, _ = _http()
     def run():
+        store = _project_store(repository)
         if request.method == 'GET':
-            root = _scope(request.args.get('client_id'))
-            return ok({'items': repository.listing(root, int(request.args.get('offset', 0)))})
+            client_id = request.args.get('client_id')
+            root = _scope(client_id)
+            if hasattr(store, 'import_legacy'):
+                store.import_legacy(root, client_id)
+            return ok({'items': store.listing(client_id, int(request.args.get('offset', 0)))})
         data = json_body()
-        return ok(repository.save(_scope(data.get('client_id')), data.get('document')))
+        client_id = data.get('client_id')
+        _scope(client_id)
+        return ok(store.save(client_id, data.get('document')))
     return execute(run)
 
 
@@ -174,16 +180,42 @@ def studio_project(ident):
     execute, json_body, ok, _ = _http()
     def run():
         if not _ID.fullmatch(ident):
-            raise ValueError('Projeto inválido.')
+            # PostgreSQL projects use UUIDs; local legacy projects use a compact hex id.
+            try:
+                uuid.UUID(ident)
+            except ValueError:
+                raise ValueError('Projeto inválido.')
+        store = _project_store(repository)
         if request.method == 'GET':
             revision = request.args.get('revision')
-            return ok(repository.read(_scope(request.args.get('client_id')), ident, int(revision) if revision else None))
+            client_id = request.args.get('client_id')
+            _scope(client_id)
+            return ok(store.read(client_id, ident, int(revision) if revision else None))
         data = json_body()
         try:
-            return ok(repository.save(_scope(data.get('client_id')), data.get('document'), ident, data.get('expected_revision')))
+            client_id = data.get('client_id')
+            _scope(client_id)
+            return ok(store.save(client_id, data.get('document'), ident, data.get('expected_revision')))
         except repository.RevisionConflict as error:
             return jsonify(success=False, error=str(error), code='revision_conflict'), 409
     return execute(run)
+
+
+def _project_store(repository):
+    """Use Postgres in the application; retain the file store only for test isolation."""
+    from flask import current_app
+    if current_app.testing or not current_app.config.get('STUDIO_PROJECTS_POSTGRES', False):
+        class LocalStore:
+            def listing(self, client_id, offset): return repository.listing(_scope(client_id), offset)
+            def read(self, client_id, ident, revision=None): return repository.read(_scope(client_id), ident, revision)
+            def save(self, client_id, document, project_id=None, expected_revision=0): return repository.save(_scope(client_id), document, project_id, expected_revision)
+        return LocalStore()
+    from .. import db
+    connection = db.get_db()
+    # The media schema is idempotent and carries the studio-project tables too.
+    from .schema import ensure_schema
+    ensure_schema(connection)
+    return repository.PostgresProjectRepository(connection)
 
 
 @admin_required_api

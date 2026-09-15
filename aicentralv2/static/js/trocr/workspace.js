@@ -6,6 +6,7 @@ export async function openWorkspace(api) {
   const run = api.state.runId;
   if (!client || !run || !api.baseVersion()?.image) throw new Error('Escolha uma marca e abra uma peça primeiro.');
   const context = `${client}:${run}`;
+  const intent = api.intent && typeof api.intent === 'object' ? api.intent : null;
   const current = () => context === `${api.state.clientId}:${api.state.runId}`;
   const endpoint = '/parametros/api/format-lab/swap/editor/';
   const url = (path) => `${endpoint}${path}?client_id=${encodeURIComponent(client)}`;
@@ -69,6 +70,15 @@ export async function openWorkspace(api) {
     </details><div data-results></div>`;
   root.append(panel);
   const $ = (q) => panel.querySelector(q);
+  if (intent) {
+    const role = ['person', 'product', 'background'].includes(intent.role) ? intent.role : 'product';
+    $('[data-role]').value = role;
+    $('[data-action]').value = intent.action === 'erase' ? 'erase' : 'replace';
+    $('[data-instruction]').value = intent.action === 'erase'
+      ? `Apagar ${String(intent.label || 'este item').toLocaleLowerCase()} e reconstruir o fundo de forma natural.`
+      : `Trocar ${String(intent.label || 'este item').toLocaleLowerCase()} preservando o restante da peça.`;
+    $('[data-reference-label]').hidden = intent.action === 'erase';
+  }
   const overlay = document.createElement('canvas'); overlay.className = 'trocr-mask-overlay'; overlay.hidden = true;
   document.querySelector('#mcSwapImage').parentElement.append(overlay);
   const cursor=document.createElement('div');cursor.className='trocr-brush-cursor';cursor.hidden=true;document.body.append(cursor);
@@ -160,7 +170,17 @@ export async function openWorkspace(api) {
     }
     if(doc.base_asset!==asset.id){doc.protected_masks=[];Object.values(doc.formats||{}).forEach(f=>{f.stale=true;});}
     doc.base_asset = asset.id; doc.base_version = base.id; doc.width = asset.width; doc.height = asset.height;
-    selectionUndo=[];selectionRedo=[];selectionButtons();resetMask(); dirty = true; await save(); render();
+    selectionUndo=[];selectionRedo=[];selectionButtons();resetMask();
+    if (Array.isArray(intent?.box) && intent.box.length === 4) {
+      const [x1,y1,x2,y2] = intent.box.map(Number);
+      if ([x1,y1,x2,y2].every(Number.isFinite) && x2 > x1 && y2 > y1) {
+        maskCtx.fillStyle = '#fff';
+        maskCtx.fillRect(Math.max(0, x1), Math.max(0, y1), Math.min(mask.width, x2) - Math.max(0, x1), Math.min(mask.height, y2) - Math.max(0, y1));
+        maskDirty = true; overlay.hidden = false; redraw();
+        status('A região identificada foi pré-selecionada. Ajuste o contorno antes de gerar.');
+      }
+    }
+    dirty = true; await save(); render();
   }
   function resetMask(clearDraft=true) {
     if(clearDraft){doc.selection={};maskDirty=false;}

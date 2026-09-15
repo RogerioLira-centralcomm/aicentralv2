@@ -1,7 +1,7 @@
 <aside class="trocr-elements" aria-label="Elementos da peça">
-  <header><h2>Elementos</h2><span id="trocrElementCount">0</span></header>
+  <header><div><h2>Itens da peça</h2><p class="trocr-sidebar-intro">Itens detectados na imagem</p></div><span id="trocrElementCount">0</span></header>
   <label class="trocr-search"><span class="sr-only">Buscar elemento</span><input id="trocrElementSearch" type="search" placeholder="Buscar elemento…"></label>
-  <p class="trocr-helper">Selecione um texto para editar ou marcar sua região.</p>
+  <p class="trocr-helper">Selecione no canvas ou na lista para trocar, apagar ou ajustar uma região.</p>
   <details class="trocr-helper"><summary>Revisar a leitura</summary><p>Confira nomes, datas e preços no original. Mesmo com confiança alta, o OCR pode errar letras estilizadas e números. A caixa localiza o texto; não é um recorte do elemento.</p></details>
   <div id="trocrElementList" class="trocr-element-list"></div>
   <p id="trocrElementEmpty" class="trocr-empty">Envie uma peça para identificar seus elementos.</p>
@@ -10,6 +10,10 @@
     <h3 id="trocrSelectedName">Elemento selecionado</h3>
     <p id="trocrSelectedHint" class="trocr-helper"></p>
     <button type="button" class="cx-btn cx-btn-secondary" id="trocrMarkSelected">Marcar região na peça</button>
+    <div class="trocr-selection-actions" id="trocrSelectionActions" hidden>
+      <button type="button" class="cx-btn cx-btn-secondary" id="trocrReplaceSelected">Trocar este item</button>
+      <button type="button" class="cx-btn cx-btn-secondary is-danger" id="trocrRemoveSelected">Apagar este item</button>
+    </div>
     <fieldset id="trocrRegionGeometry" class="trocr-region-geometry" hidden>
       <legend>Região do texto · px</legend>
       <label>X<input type="number" id="trocrRegionX" min="0" step="1"></label>

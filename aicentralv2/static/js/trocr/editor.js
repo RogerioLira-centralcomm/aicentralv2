@@ -210,11 +210,16 @@
       if (row) {
         $('trocrSelectedName').textContent = row.label;
         const markable = ['headline', 'support', 'price', 'cta'].includes(row.role);
+        const editableObject = ['person', 'product', 'background', 'graphic'].includes(row.role);
         $('trocrMarkSelected').hidden = !markable;
         $('trocrMarkSelected').disabled = state.activeId !== state.baseId || state.generating;
         $('trocrSelectedHint').textContent = state.activeId !== state.baseId
           ? 'Visualize a versão base para marcar uma região.'
           : markable ? 'Marque a área do texto na imagem base. A alteração será incluída no próximo pedido.' : 'Use o assistente para solicitar mudanças neste elemento.';
+        $('trocrSelectionActions').hidden = !editableObject;
+        if (editableObject) $('trocrSelectedHint').textContent = row.box
+          ? 'A região identificada será levada para a seleção fina. Revise o contorno antes de gerar.'
+          : 'Marque o contorno do item na peça para trocar ou apagar somente esta área.';
       }
       const region = state.region;
       const regionRole = row?.role === 'support' ? 'secondary' : row?.role;
@@ -306,6 +311,11 @@
         if (!state.picking) api.togglePickRegion();
         api.refreshPrompt(); changed();
       });
+      [['trocrReplaceSelected', 'replace'], ['trocrRemoveSelected', 'erase']].forEach(([id, action]) => $(id)?.addEventListener('click', () => {
+        const row = entries().find((item) => item.id === selected);
+        if (!row || !['person', 'product', 'background', 'graphic'].includes(row.role)) return;
+        document.dispatchEvent(new CustomEvent('trocr:edit-selection', {detail: {action, role: row.role, label: row.label, box: row.box || null}}));
+      }));
       ['trocrRegionX','trocrRegionY','trocrRegionWidth','trocrRegionHeight'].forEach((id) => $(id)?.addEventListener('change', () => {
         if (!state.region || state.activeId !== state.baseId || state.generating) return;
         const [x,y,w,h]=['trocrRegionX','trocrRegionY','trocrRegionWidth','trocrRegionHeight'].map((key)=>$(key).valueAsNumber);

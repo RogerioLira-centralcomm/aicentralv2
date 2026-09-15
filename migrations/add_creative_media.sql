@@ -57,3 +57,26 @@ CREATE TABLE IF NOT EXISTS cx_media_assets (
 
 CREATE INDEX IF NOT EXISTS idx_cx_media_assets_job
     ON cx_media_assets (job_id, kind);
+
+-- Projetos do editor: documento atual para leitura rápida e histórico imutável
+-- para recuperação segura em caso de edição concorrente.
+CREATE TABLE IF NOT EXISTS cx_studio_projects (
+    id UUID PRIMARY KEY,
+    client_id INTEGER NOT NULL REFERENCES cx_clients(id) ON DELETE CASCADE,
+    name VARCHAR(120) NOT NULL,
+    revision INTEGER NOT NULL DEFAULT 1,
+    document JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_cx_studio_projects_client_updated
+    ON cx_studio_projects (client_id, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS cx_studio_project_revisions (
+    project_id UUID NOT NULL REFERENCES cx_studio_projects(id) ON DELETE CASCADE,
+    revision INTEGER NOT NULL,
+    document JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (project_id, revision)
+);

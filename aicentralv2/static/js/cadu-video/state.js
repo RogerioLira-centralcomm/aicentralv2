@@ -93,6 +93,8 @@ export const state = {
   requestVersion: 0,
   search: "",
   name: "",
+  projectId: "",
+  projects: [],
   seed: null,
   generationMode: "storyboard",
   aspectRatio: "16:9",

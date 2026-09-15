@@ -102,6 +102,12 @@ function bindUi() {
     state.name = event.target.value || "";
     markDirty();
   });
+  document.getElementById("mcStudioProjectSelect")?.addEventListener("change", async (event) => {
+    const projectId = event.target.value;
+    if (!projectId || projectId === state.projectId) return;
+    await openProject(projectId);
+  });
+  document.getElementById("mcStudioNewProject")?.addEventListener("click", newProject);
   document.getElementById("mcVideoAspect")?.addEventListener("change", (event) => {
     state.aspectRatio = event.target.value || "16:9";
     state.aspectExplicit = true;
@@ -320,6 +326,8 @@ async function applyBrand(id, { reset = false } = {}) {
   const next = currentBrand(id);
   if (!next) {
     state.clientId = "";
+    state.projectId = "";
+    state.projects = [];
     resetProjectFields();
     state.library = [];
     state.clips = [];
@@ -339,6 +347,8 @@ async function applyBrand(id, { reset = false } = {}) {
   saveRequest += 1;
   state.saving = false;
   state.clientId = next;
+  state.projectId = "";
+  state.projects = [];
   resetProjectFields();
   state.edit = defaultEdit();
   clearClip();
@@ -357,6 +367,8 @@ async function restoreProject() {
   try {
     const data = await loadVideoProject(clientId);
     if (clientId !== state.clientId) return;
+    state.projects = data.items || [];
+    state.projectId = data.activeId || "";
     applyProject(data.project || {});
   } catch (error) {
     setStatus(`Não foi possível abrir o projeto: ${error.message}`);
@@ -365,6 +377,30 @@ async function restoreProject() {
     const clip = state.clips.find((item) => item.id === state.activeClipId || item.job_id === state.activeClipId);
     if (clip) await selectClip(clip, { restore: false });
   }
+}
+
+async function openProject(projectId) {
+  if (!state.clientId || projectId === state.projectId) return;
+  if (state.dirty) await persistProject();
+  const clientId = state.clientId;
+  try {
+    const data = await loadVideoProject(clientId, projectId);
+    if (clientId !== state.clientId) return;
+    resetProjectFields(); state.edit = defaultEdit(); clearClip();
+    state.projects = data.items || state.projects;
+    state.projectId = data.activeId || "";
+    applyProject(data.project || {});
+    await resetStudio(); paintAll(); scheduleQuote();
+  } catch (error) {
+    setStatus(`Não foi possível abrir o projeto: ${error.message}`); paintAll();
+  }
+}
+
+async function newProject() {
+  if (!state.clientId) return;
+  if (state.dirty) await persistProject();
+  resetProjectFields(); state.edit = defaultEdit(); state.projectId = ""; state.name = "Novo projeto";
+  clearClip(); await resetStudio(); markDirty(); await persistProject(); paintAll();
 }
 
 function applyProject(project) {
@@ -459,8 +495,14 @@ async function persistProject() {
   state.saveStatus = "saving";
   paintSaveStatus();
   try {
-    await saveVideoProject(projectPayload());
+    const saved = await saveVideoProject(projectPayload());
     if (clientId === state.clientId && request === saveRequest && version === state.requestVersion) {
+      state.projectId = saved.activeId || state.projectId;
+      if (saved.item) {
+        const index = state.projects.findIndex((item) => String(item.id) === String(saved.item.id));
+        if (index >= 0) state.projects[index] = {...state.projects[index], ...saved.item};
+        else state.projects.unshift(saved.item);
+      }
       state.dirty = false;
       state.saveStatus = "saved";
     }

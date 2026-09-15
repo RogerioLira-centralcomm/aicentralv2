@@ -48,18 +48,20 @@ export async function deleteLibrary(body) {
 const projectVersions = new Map();
 const projectsUrl = '/parametros/api/format-lab/studio/projects';
 
-export async function loadVideoProject(clientId) {
+export async function loadVideoProject(clientId, projectId = "") {
   const key = String(clientId);
   projectVersions.delete(key);
   const list = await get(`${projectsUrl}?client_id=${encodeURIComponent(key)}`);
-  if (list.items.length) {
-    const saved = await get(`${projectsUrl}/${list.items[0].id}?client_id=${encodeURIComponent(key)}`);
+  const items = Array.isArray(list.items) ? list.items : [];
+  const chosen = items.find((item) => String(item.id) === String(projectId)) || items[0];
+  if (chosen) {
+    const saved = await get(`${projectsUrl}/${chosen.id}?client_id=${encodeURIComponent(key)}`);
     projectVersions.set(key, {id:saved.id, revision:saved.revision});
-    return {project:saved.document};
+    return {project:saved.document, items, activeId:saved.id};
   }
   const legacy = await get(`/parametros/api/format-lab/swap/video-project?client_id=${encodeURIComponent(key)}`);
   projectVersions.set(key, {id:null, revision:0});
-  return legacy;
+  return {...legacy, items:[], activeId:""};
 }
 
 export async function saveVideoProject(body) {
@@ -70,5 +72,5 @@ export async function saveVideoProject(body) {
     document:{...body.project, schema_version:1},
   });
   projectVersions.set(key, {id:saved.id, revision:saved.revision});
-  return {project:saved.document};
+  return {project:saved.document, activeId:saved.id, item:{id:saved.id,name:saved.name,revision:saved.revision,updated_at:saved.updated_at}};
 }

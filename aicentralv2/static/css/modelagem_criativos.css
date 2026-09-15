@@ -10504,6 +10504,31 @@
   cursor: default;
 }
 
+.trocr-selection-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
+.trocr-selection-actions .cx-btn {
+  min-height: 34px;
+  border-radius: 9px;
+  font-weight: 650;
+}
+
+.trocr-selection-actions .is-danger {
+  color: #a33b31;
+  border-color: #e7b7b0;
+  background: #fff7f6;
+}
+
+.trocr-selection-actions .is-danger:hover,
+.trocr-selection-actions .is-danger:focus-visible {
+  color: #7c2d25;
+  background: #fde9e6;
+}
+
 .mc-trocr-help,
 .mc-trocr-count,
 .mc-trocr-status {

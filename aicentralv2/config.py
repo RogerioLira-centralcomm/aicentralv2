@@ -58,6 +58,7 @@ class Config:
 	DB_NAME = os.getenv('DB_NAME', 'aicentralv2')
 	DB_USER = os.getenv('DB_USER', 'postgres')
 	DB_PASSWORD = os.getenv('DB_PASSWORD', '')
+	STUDIO_PROJECTS_POSTGRES = os.getenv('STUDIO_PROJECTS_POSTGRES', 'true').lower() in ('true', '1', 'yes', 'on')
 	
 	# Email (Flask-Mail)
 	MAIL_SERVER = os.getenv('MAIL_SERVER', 'smtp.gmail.com')

@@ -31,6 +31,20 @@ export function syncFormControls() {
   if ($("mcVideoName") && document.activeElement !== $("mcVideoName")) {
     $("mcVideoName").value = state.name || "";
   }
+  const projectPicker = $("mcStudioProjectSelect");
+  if (projectPicker && document.activeElement !== projectPicker) {
+    const active = String(state.projectId || "");
+    projectPicker.replaceChildren();
+    if (!state.projects.length) {
+      const option = new Option("Novo projeto (ainda não salvo)", "");
+      option.selected = !active;
+      projectPicker.add(option);
+    } else state.projects.forEach((project) => {
+      const option = new Option(String(project.name || "Projeto sem nome"), String(project.id));
+      option.selected = String(project.id) === active;
+      projectPicker.add(option);
+    });
+  }
   if ($("mcVideoAspect")) $("mcVideoAspect").value = state.aspectRatio || "16:9";
   if ($("mcStudioProjectAspect")) $("mcStudioProjectAspect").value=state.aspectRatio || "16:9";
   const source = document.querySelector(`input[name="mcVideoSource"][value="${state.generationMode || 'storyboard'}"]`);

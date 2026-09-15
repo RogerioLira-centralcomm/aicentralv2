@@ -125,11 +125,11 @@
     editor = window.TrocrEditor?.({ state, selectFormat, syncOptionalUi, renderEditPanels,
       paintRegionBox, refreshPrompt, schedulePersist, persistHistory, fitCreative,
       imageContentRect, togglePickRegion, highlightQuality });
-    $('trocrOpenWorkspace')?.addEventListener('click', async () => {
+    async function openElementWorkspace(intent = null) {
       try {
         if (editor?.isDirty() && !await persistHistory()) return;
         const { openWorkspace } = await import('./trocr/workspace.js?v=1');
-        await openWorkspace({ state, baseVersion, focusBase: async () => { selectVersion(state.baseId); await $('mcSwapImage').decode(); }, acceptResult: async (image, job) => {
+        await openWorkspace({ state, intent, baseVersion, focusBase: async () => { selectVersion(state.baseId); await $('mcSwapImage').decode(); }, acceptResult: async (image, job) => {
           const response = await fetch(image, {credentials:'same-origin'});
           if (!response.ok) throw new Error('O resultado está salvo, mas não foi possível adicioná-lo ao histórico da peça.');
           const blob = await response.blob();
@@ -141,7 +141,9 @@
           await persistHistory();
         }});
       } catch (error) { showError('Edição por elemento', error.message, 'edit'); }
-    });
+    }
+    $('trocrOpenWorkspace')?.addEventListener('click', () => openElementWorkspace());
+    document.addEventListener('trocr:edit-selection', (event) => openElementWorkspace(event.detail));
     ['Left', 'Right'].forEach((side) => $('trocrToggle' + side)?.addEventListener('click', () => {
       const root = $('mcSwap'), name = 'show-' + side.toLowerCase();
       if (window.innerWidth < 1100) root.classList.remove('show-' + (side === 'Left' ? 'right' : 'left'));

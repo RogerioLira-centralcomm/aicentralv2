@@ -95,6 +95,7 @@ def _package_details(skill):
         "archive_sha256": hashlib.sha256(archive).hexdigest(),
         "download_url": _public_url("cadu_skills.download_skill", slug=skill["slug"]),
         "install_url": _public_url("cadu_skills.install_skill", slug=skill["slug"]),
+        "instructions_url": _public_url("cadu_skills.install_skill", slug=skill["slug"], format="md"),
         "detail_url": _public_url("cadu_skills.detail", slug=skill["slug"]),
     }
 
@@ -174,6 +175,14 @@ def install_skill(slug):
     package = _package_details(skill) if skill and skill.get("installable") else None
     if not skill or not package:
         abort(404)
+    if request.args.get("format") != "md":
+        response = current_app.make_response(render_template("cadu_skills/install.html", skill=skill, package=package))
+        response.headers.update({
+            "Cache-Control": "public, max-age=300",
+            "Link": f'<{package["download_url"]}>; rel="alternate"; type="application/zip", <{package["instructions_url"]}>; rel="alternate"; type="text/markdown"',
+        })
+        return response
+
     capabilities = "\n".join(f"- {item}" for item in skill.get("capabilities") or ())
     content = f"""---
 name: {skill['slug']}
@@ -183,21 +192,16 @@ download: {package['download_url']}
 sha256: {package['archive_sha256']}
 ---
 
-# Instalar {skill['name']}
+# Instalar {skill['name']} em 2 passos
 
-Pacote oficial Cadu/CentralX, distribuído como uma pasta de Agent Skill com `SKILL.md` e referências carregadas sob demanda.
+1. Baixe o ZIP: {package['download_url']}
+2. Envie o ZIP completo ao seu ambiente GPT/Codex ou Claude e diga: **Instale esta skill.**
 
-## Instrução para o agente
+O ZIP já contém a pasta `{skill['slug']}`, o `SKILL.md` e todas as referências necessárias. Não envie os arquivos separadamente.
 
-Baixe o ZIP em `{package['download_url']}`, confira o SHA-256 `{package['archive_sha256']}`, extraia preservando a pasta `{skill['slug']}` e instale-a no diretório de skills configurado no seu ambiente. Leia `SKILL.md` antes do primeiro uso e mantenha os arquivos de `references/` ao lado dele.
+## Para automações
 
-## GPT e Codex
-
-Use o ZIP completo como upload de skill. A API de Skills da OpenAI aceita um arquivo ZIP ou os arquivos do diretório; não envie somente o `SKILL.md`, pois este pacote usa referências.
-
-## Claude
-
-Importe o ZIP completo no recurso de Agent Skills disponível no seu ambiente ou extraia a pasta no diretório de skills configurado. Preserve os caminhos relativos para que Claude encontre as referências.
+Baixe o arquivo indicado em `download`, valide o SHA-256 e instale o ZIP como uma única skill. Leia `SKILL.md` antes do primeiro uso.
 
 ## O que esta skill faz
 

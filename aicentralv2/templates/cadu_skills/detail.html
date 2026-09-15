@@ -22,18 +22,13 @@
     <aside class="sk-install-console" aria-labelledby="install-title">
       <div class="sk-install-console__head">
         <span class="sk-status-dot" aria-hidden="true"></span>
-        <div><small>Pacote público</small><b id="install-title">Pronto para instalar</b></div>
+        <div><small>Pacote completo</small><b id="install-title">Instale em 2 passos</b></div>
       </div>
-      <label for="install-address">Endereço de instalação</label>
-      <div class="sk-install-address">
-        <code id="install-address">{{ package.install_url }}</code>
-        <button type="button" data-copy-value="{{ package.install_url }}" data-copy-label="Copiar endereço">Copiar</button>
-      </div>
-      <div class="sk-install-actions">
-        <a class="sk-button" href="{{ url_for('cadu_skills.download_skill', slug=skill.slug) }}">Instalar skill</a>
-        <button class="sk-button sk-button--quiet" type="button" data-copy-value="Instale a skill oficial Cadu disponível em {{ package.install_url }}. Leia as instruções públicas, baixe o ZIP indicado, preserve toda a estrutura do pacote e confirme quando a skill estiver pronta para uso." data-copy-label="Copiar para o agente">Copiar para o agente</button>
-      </div>
-      <p>Fonte canônica para GPT/Codex e Claude, com ZIP, estrutura e checksum do pacote.</p>
+      <ol class="sk-install-steps">
+        <li><span>1</span><div><b>Baixe o pacote</b><small>Um ZIP com tudo dentro.</small></div><a class="sk-button" href="{{ url_for('cadu_skills.download_skill', slug=skill.slug) }}" download>Baixar ZIP</a></li>
+        <li><span>2</span><div><b>Arraste no seu agente</b><small>GPT/Codex ou Claude.</small></div><button type="button" data-copy-value="Instale esta skill usando o arquivo ZIP que vou anexar. Preserve o pacote completo e leia o SKILL.md antes de usar." data-copy-label="Copiar frase">Copiar frase</button></li>
+      </ol>
+      <a class="sk-install-help" href="{{ package.install_url }}">Ver instruções e detalhes técnicos</a>
     </aside>
     {% else %}
     <aside class="sk-install-console sk-install-console--preview">
@@ -94,21 +89,21 @@
       </section>
 
       <section id="instalar" class="sk-install-section">
-        <div class="sk-section-heading"><span>Instalação</span><h2>Um endereço, dois ecossistemas</h2></div>
-        <p>Cole o endereço público no agente ou baixe o ZIP. O pacote usa o padrão de Agent Skills com <code>SKILL.md</code> e referências em caminhos relativos.</p>
+        <div class="sk-section-heading"><span>Instalação</span><h2>Baixe. Arraste. Pronto.</h2></div>
+        <p>O ZIP já leva o <code>SKILL.md</code> e todas as referências. Baixe uma vez e envie o arquivo completo ao ambiente onde deseja usar a skill.</p>
         <div class="sk-agent-install-grid">
           <article>
             <header><span class="sk-agent-mark">GPT</span><div><b>GPT e Codex</b><small>ZIP completo ou arquivos do diretório</small></div></header>
-            <p>Envie o ZIP como skill. Na API OpenAI, o pacote pode ser criado a partir de um ZIP ou de todos os arquivos do diretório.</p>
-            <button type="button" data-copy-value="Instale a skill {{ skill.slug }} usando {{ package.install_url }}. Baixe o ZIP informado nessa página, preserve SKILL.md e references/, valide o checksum e confirme a instalação." data-copy-label="Copiar instrução para GPT">Copiar instrução para GPT</button>
+            <p>Envie o ZIP completo como skill e diga “Instale esta skill”. Na API OpenAI, use o mesmo ZIP na criação da skill.</p>
+            <a href="{{ url_for('cadu_skills.download_skill', slug=skill.slug) }}" download>Baixar ZIP para GPT/Codex</a>
           </article>
           <article>
             <header><span class="sk-agent-mark sk-agent-mark--claude">C</span><div><b>Claude</b><small>Agent Skill com referências</small></div></header>
-            <p>Importe o ZIP no recurso de Skills disponível no seu ambiente. Ao extrair manualmente, mantenha toda a pasta e os caminhos relativos.</p>
-            <button type="button" data-copy-value="Instale a Agent Skill {{ skill.slug }} usando {{ package.install_url }}. Importe o ZIP completo indicado, preserve SKILL.md e references/, valide o checksum e confirme a instalação." data-copy-label="Copiar instrução para Claude">Copiar instrução para Claude</button>
+            <p>Importe o mesmo ZIP no recurso de Skills disponível. O pacote já preserva a estrutura e os caminhos relativos.</p>
+            <a href="{{ url_for('cadu_skills.download_skill', slug=skill.slug) }}" download>Baixar ZIP para Claude</a>
           </article>
         </div>
-        <div class="sk-integrity-row"><span>SHA-256</span><code>{{ package.archive_sha256 }}</code><button type="button" data-copy-value="{{ package.archive_sha256 }}" data-copy-label="Copiar checksum">Copiar</button></div>
+        <details class="sk-install-technical"><summary>Instalação avançada e integridade</summary><div class="sk-integrity-row"><span>SHA-256</span><code>{{ package.archive_sha256 }}</code><button type="button" data-copy-value="{{ package.archive_sha256 }}" data-copy-label="Copiar checksum">Copiar</button></div><p>Instruções para automação: <a href="{{ package.instructions_url }}">Markdown</a></p></details>
       </section>
       {% endif %}
 

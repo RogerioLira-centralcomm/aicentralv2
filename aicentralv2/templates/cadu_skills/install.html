@@ -1,0 +1,33 @@
+{% extends 'cadu_skills/base.html' %}
+{% block title %}Instalar {{ skill.name }} — Cadu Skills{% endblock %}
+{% block content %}
+<article class="sk-install-guide">
+  <a class="sk-back" href="{{ url_for('cadu_skills.detail', slug=skill.slug) }}">← Voltar para a skill</a>
+  <header>
+    <p class="sk-kicker">Skill oficial Cadu</p>
+    <h1>Baixe. Arraste. Pronto.</h1>
+    <p>Um único arquivo instala <b>{{ skill.name }}</b> com todas as referências necessárias.</p>
+  </header>
+
+  <ol class="sk-install-guide__steps">
+    <li>
+      <span>1</span>
+      <div><h2>Baixe o ZIP</h2><p>O pacote já está completo. Não extraia nem separe os arquivos.</p></div>
+      <a class="sk-button" href="{{ url_for('cadu_skills.download_skill', slug=skill.slug) }}" download>Baixar {{ skill.slug }}.zip</a>
+    </li>
+    <li>
+      <span>2</span>
+      <div><h2>Arraste no seu agente</h2><p>Envie o ZIP ao GPT/Codex ou Claude e diga apenas:</p><blockquote>Instale esta skill.</blockquote></div>
+      <button class="sk-copy" type="button" data-copy-value="Instale esta skill." data-copy-label="Copiar frase">Copiar frase</button>
+    </li>
+  </ol>
+
+  <p class="sk-install-guide__done"><span aria-hidden="true">✓</span> O agente deve confirmar quando a skill estiver pronta para uso.</p>
+
+  <details class="sk-install-guide__technical">
+    <summary>Precisa instalar por API ou validar o pacote?</summary>
+    <p>A API de Skills da OpenAI aceita este ZIP diretamente. Para outras automações, use as <a href="{{ package.instructions_url }}">instruções em Markdown</a>.</p>
+    <dl><div><dt>Arquivos</dt><dd>{{ package.file_count }}</dd></div><div><dt>Tamanho</dt><dd>{{ (package.archive_size / 1024)|round|int }} KB</dd></div><div><dt>SHA-256</dt><dd><code>{{ package.archive_sha256 }}</code></dd></div></dl>
+  </details>
+</article>
+{% endblock %}

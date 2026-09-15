@@ -7,6 +7,10 @@ import os
 from pathlib import Path
 
 import psycopg
+from dotenv import load_dotenv
+
+ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(ROOT / '.env')
 
 DB_NAME = os.getenv('DB_NAME', 'aicentral_db')
 DB_USER = os.getenv('DB_USER', 'postgres')

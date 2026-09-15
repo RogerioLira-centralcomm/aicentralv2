@@ -1,3 +1,4 @@
+import {paintCompositionCanvas} from './composition.js';
 import { hideVideo, showVideo } from "../trocr/animate-player.js";
 import { beatFor, state } from "./state.js";
 import { escapeHtml, formatMoney, scriptText } from "./utils.js";
@@ -31,6 +32,7 @@ export function syncFormControls() {
     $("mcVideoName").value = state.name || "";
   }
   if ($("mcVideoAspect")) $("mcVideoAspect").value = state.aspectRatio || "16:9";
+  if ($("mcStudioProjectAspect")) $("mcStudioProjectAspect").value=state.aspectRatio || "16:9";
   const source = document.querySelector(`input[name="mcVideoSource"][value="${state.generationMode || 'storyboard'}"]`);
   if (source) source.checked = true;
   const duration = document.querySelector(`input[name="mcVideoDuration"][value="${state.duration}"]`);
@@ -223,6 +225,7 @@ export function paintProps() {
   if ($("mcVideoBeatVisual") && document.activeElement !== $("mcVideoBeatVisual")) {
     $("mcVideoBeatVisual").value = beat.visual || "";
   }
+  if ($("mcVideoBeatTransition")) $("mcVideoBeatTransition").value = beat.transition || "cut";
   if ($("mcVideoBeatMotion") && document.activeElement !== $("mcVideoBeatMotion")) {
     $("mcVideoBeatMotion").value = beat.motion || "";
   }
@@ -259,6 +262,7 @@ export function paintTimeline() {
 }
 
 export function paintCanvas() {
+  if(paintCompositionCanvas())return;
   const still = $("mcVideoStill");
   const empty = $("mcVideoEmpty");
   const video = $("mcSwapVideo");

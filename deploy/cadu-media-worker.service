@@ -1,0 +1,18 @@
+[Unit]
+Description=Cadu Media durable worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/aicentralv2
+Environment=MEDIA_WORKER_MODE=supervised
+ExecStart=/var/www/aicentralv2/venv/bin/python -m aicentralv2.creative_media.queue_worker
+Restart=always
+RestartSec=5
+TimeoutStopSec=300
+KillSignal=SIGTERM
+
+[Install]
+WantedBy=multi-user.target

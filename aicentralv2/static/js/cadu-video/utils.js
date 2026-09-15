@@ -8,7 +8,7 @@ export function escapeHtml(value) {
 
 export function scriptText(script) {
   return ((script || {}).beats || []).map((beat, index) => (
-    `Cena ${index + 1} — ${beat.purpose || "beat"}\nVisual: ${beat.visual || ""}\nMovimento: ${beat.motion || ""}\nTrava: ${beat.hold || ""}${beat.spoken ? `\nFala: ${beat.spoken}` : ""}`
+    `Cena ${index + 1} — ${beat.purpose || "beat"}\nVisual: ${beat.visual || ""}\nMovimento: ${beat.motion || ""}\nTransição: ${beat.transition || "cut"}\nTrava: ${beat.hold || ""}${beat.spoken ? `\nFala: ${beat.spoken}` : ""}`
   )).join("\n\n");
 }
 
@@ -28,6 +28,7 @@ export function parseScript(text, fallback, scenes = []) {
       purpose,
       visual: pick("visual:") || fallback?.beats?.[index]?.visual || "",
       motion: pick("movimento:") || fallback?.beats?.[index]?.motion || "",
+      transition: pick("transição:") || fallback?.beats?.[index]?.transition || "cut",
       hold: pick("trava:") || fallback?.beats?.[index]?.hold || "",
       spoken: pick("fala:") || fallback?.beats?.[index]?.spoken || "",
     };
@@ -46,4 +47,8 @@ export function formatMoney(quote) {
   if (res) parts.push(res);
   if (quote.voiceover_fits === false) parts.push("locução longa");
   return parts.join(" · ") || "Cotação pronta.";
+}
+
+export function newId(){
+  return typeof crypto.randomUUID==='function'?crypto.randomUUID():Array.from(crypto.getRandomValues(new Uint8Array(16)),value=>value.toString(16).padStart(2,'0')).join('');
 }

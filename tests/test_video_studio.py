@@ -196,6 +196,7 @@ class MediaTest(unittest.TestCase):
     def app(self):
         app = Flask(__name__, instance_path=str(self.root / 'instance'))
         app.secret_key = 'test-only'
+        app.config['MEDIA_WORKER_MODE'] = 'thread'
         bp = Blueprint('studio_test', __name__, url_prefix='/parametros')
         register_studio_routes(bp)
         app.register_blueprint(bp)

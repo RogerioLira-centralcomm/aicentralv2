@@ -402,6 +402,9 @@ class FormatLabService:
 
             self._media_repo = MediaRepository().ready()
         except Exception:
+            from flask import current_app, has_app_context
+            if has_app_context() and not current_app.testing:
+                raise ValueError("O armazenamento de jobs está indisponível. A geração não foi iniciada.")
             from ..creative_media.repository import MemoryMediaRepository
 
             self._media_repo = MemoryMediaRepository()

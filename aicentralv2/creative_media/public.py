@@ -23,6 +23,9 @@ def job_payload(row, *, scene_ahead=False):
     ]
     return {
         "job_id": row.get("public_id"),
+        "client_id": row.get("client_id"),
+        "created_at": row.get("created_at").isoformat() if hasattr(row.get("created_at"), "isoformat") else row.get("created_at"),
+        "preview_images": plan.get("preview_images") or [],
         "status": row.get("status") or "queued",
         "stage": row.get("stage") or "queued",
         "progress": int(row.get("progress") or 0),
@@ -42,7 +45,7 @@ def job_payload(row, *, scene_ahead=False):
             "aspect_ratio": plan.get("aspect_ratio"),
             "piece_ratio": plan.get("piece_ratio"),
             "audio_mode": plan.get("audio_mode"),
-            "source": plan.get("source"),
+            "source": {key:source[key] for key in ("mode","base_id","ref_ids","to_id","camadas_creative_id") if key in source},
         },
         "ui_stages": stages,
         "scene_ahead": bool(scene_ahead),

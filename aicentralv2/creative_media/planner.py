@@ -161,6 +161,14 @@ def build_plan(payload=None) -> dict:
         "width": width,
         "height": height,
         "size": f"{width}x{height}",
+        "script": {
+            "beats": [
+                {key: str(beat.get(key) or "")[:400]
+                 for key in ("id", "purpose", "visual", "motion", "hold", "spoken", "transition")}
+                for beat in (data["script"].get("beats") or [])[:30]
+                if isinstance(beat, dict)
+            ]
+        } if isinstance(data.get("script"), dict) and isinstance(data["script"].get("beats", []), list) else {"beats": []},
         "motion_preset": preset,
         "motion_intensity": str(motion.get("intensity") or "subtle"),
         "motion_note": str(motion.get("note") or data.get("motion_note") or ""),

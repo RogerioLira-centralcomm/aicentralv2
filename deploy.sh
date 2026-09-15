@@ -195,6 +195,9 @@ echo "[7/9] Atualizando schemas e dados..."
 "$VENV_PYTHON" migrations/run_sql_migration.py add_training_studio_import_palco.sql
 echo "  > OK"
 
+# Worker de mídia: dependências, modelo local e serviço supervisionado.
+MEDIA_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_media_worker.sh
+
 # 9. Iniciar servico
 echo ""
 echo "[8/9] Iniciando servico..."

@@ -38,8 +38,11 @@ def number(raw, default, low, high):
 
 
 def normalize_edit(raw):
+    from .studio_layers import normalize_layers
     data = raw if isinstance(raw, dict) else {}
     return {
+        "layers": normalize_layers(data.get("layers")),
+        "output_ratio": data.get("output_ratio") if data.get("output_ratio") in {"16:9","9:16","1:1","4:5","3:4","4:3","21:9"} else "",
         "start": number(data.get("start"), 0, 0, 300),
         "end": number(data.get("end"), 0, 0, 300),
         "speed": number(data.get("speed"), 1, .25, 4),
@@ -105,6 +108,8 @@ def _record(root, ident, kind):
 
 
 def register_studio_routes(blueprint):
+    from .studio_media import register
+    register(blueprint)
     blueprint.add_url_rule('/api/format-lab/studio/agent/plan', view_func=studio_agent_plan, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/agent/narration', view_func=studio_agent_narration, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/projects', view_func=studio_projects, methods=['GET', 'POST'])
@@ -201,7 +206,7 @@ def capabilities():
             }
         },
         "durations": [value for value in settings.DURATIONS if value <= settings.MAX_DURATION],
-        "ratios": settings.SEEDANCE_RATIOS,
+        "ratios": [*settings.SEEDANCE_RATIOS, "4:5"],
         "qualities": {"draft": settings.DRAFT_RESOLUTION, "production": settings.PRODUCTION_RESOLUTION},
         "audio_modes": AUDIO_MODES,
         "motion_presets": MOTION_PRESETS,
@@ -219,7 +224,8 @@ def sounds():
         root = _scope(client)
         if request.method == 'GET':
             rows = sorted((json.loads(p.read_text()) for p in root.glob('sound-*.json')), key=lambda row: row.get('created_at', 0), reverse=True)
-            return ok({"items": rows})
+            from .studio_media import public_sounds
+            return ok({"items": rows + public_sounds()[1]})
         if not ffmpeg_available():
             raise ValueError('O processamento de áudio não está disponível no servidor.')
         upload = request.files.get('file')
@@ -302,6 +308,10 @@ def render_clip(source, dest, edit, sound=None):
     else:
         command += ['-map', '0:v:0', '-an']
     visual = []
+    if edit.get('output_ratio'):
+        from .studio_composition import output_dimensions
+        width,height=output_dimensions({'ratio':edit['output_ratio'],'resolution':720})
+        visual.append(f'scale={width}:{height}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1')
     if speed != 1:
         visual.append(f'setpts=(PTS-STARTPTS)/{speed}')
     if edit['grayscale']:
@@ -331,17 +341,33 @@ def _atempo(speed):
     return ','.join(parts)
 
 
-def _render_job(root, ident, source, edit, sound):
+def _render_job(root, ident, source, edit, sound, release_slot=True):
     path = root / f'export-{ident}.json'
+    envelope = json.loads(path.read_text()) if path.exists() else {}
+    _write(path, {**envelope, 'id':ident, 'status':'rendering'})
     try:
-        render_clip(source, root / f'{ident}.mp4', edit, sound)
-        _write(path, {'id': ident, 'status': 'ready', 'created_at': time.time()})
+        work = envelope.get('work') or {}
+        if work.get('composition'):
+            from .studio_composition import render_composition
+            render_composition(work['composition'], work['sources'], work['sounds'], root / f'{ident}.mp4')
+        elif edit.get('layers'):
+            from .studio_layers import render_layers
+            intermediate = root / f'{ident}-base.mp4'
+            try:
+                render_clip(source, intermediate, edit, sound)
+                render_layers(intermediate, root / f'{ident}.mp4', edit['layers'])
+            finally:
+                intermediate.unlink(missing_ok=True)
+        else:
+            render_clip(source, root / f'{ident}.mp4', edit, sound)
+        _write(path, {**envelope, 'id': ident, 'status': 'ready', 'created_at': time.time()})
     except Exception:
         logger.exception("Studio export failed: %s", ident)
         (root / f'{ident}.mp4').unlink(missing_ok=True)
-        _write(path, {'id': ident, 'status': 'failed', 'error': 'Não foi possível exportar. Verifique o intervalo de corte e tente novamente.', 'created_at': time.time()})
+        _write(path, {**envelope, 'id': ident, 'status': 'failed', 'error': 'Não foi possível exportar. Verifique o intervalo de corte e tente novamente.', 'created_at': time.time()})
     finally:
-        _SLOTS.release()
+        if release_slot:
+            _SLOTS.release()
 
 
 @admin_required_api
@@ -352,17 +378,18 @@ def export_clip():
     def run():
         data = json_body()
         root = _scope(data.get('client_id'))
-        rows = service().load_format_lab_swap_library({'client_id': data.get('client_id'), 'media': 'video'}, session.get('user_id'))
-        clip = next((r for r in rows.get('items', []) if r.get('id') == data.get('clip_id')), None)
-        match = re.fullmatch(r'/parametros/api/media/assets/([\w-]+)/content', str((clip or {}).get('video_url') or ''))
-        if not match:
-            raise ValueError('Abra um clipe gerado desta marca antes de exportar.')
-        source, _ = service().serve_media_asset(match.group(1))
+        from .studio_media import resolve_clip, public_sounds
+        source = resolve_clip(root, data.get('client_id'), data.get('clip_id'), service())
         edit = normalize_edit(data.get('edit'))
         sound = None
         if edit['sound_id']:
-            _record(root, edit['sound_id'], 'sound')
-            sound = root / f"{edit['sound_id']}.m4a"
+            public_root, catalog = public_sounds()
+            public = next((r for r in catalog if r['id'] == edit['sound_id']), None)
+            if public:
+                sound = public_root / public['filename']
+            else:
+                _record(root, edit['sound_id'], 'sound')
+                sound = root / f"{edit['sound_id']}.m4a"
         if not ffmpeg_available():
             raise ValueError('A exportação não está disponível no servidor.')
         ident = str(data.get('request_id') or '')
@@ -372,9 +399,13 @@ def export_clip():
         # Exclusive creation makes retries idempotent, including across web workers.
         try:
             with path.open('x') as handle:
-                json.dump({'id': ident, 'status': 'rendering', 'created_at': time.time()}, handle)
+                json.dump({'id': ident, 'status': 'queued', 'created_at': time.time(), 'user_id': session.get('user_id'), 'work': {'source':str(source), 'sound':str(sound) if sound else '', 'edit':edit}}, handle)
         except FileExistsError:
-            return ok(json.loads(path.read_text()))
+            return ok(export_public(json.loads(path.read_text())))
+        from .jobs import worker_mode, wake_worker
+        if worker_mode() in {'process', 'supervised'}:
+            wake_worker()
+            return ok({'id':ident, 'status':'queued'})
         if not _SLOTS.acquire(blocking=False):
             path.unlink(missing_ok=True)
             raise ValueError('Há exportações em andamento. Tente novamente em instantes.')
@@ -394,9 +425,9 @@ def export_status(ident):
     execute, _, ok, _ = _http()
     def run():
         _, row = _record(_scope(request.args.get('client_id')), ident, 'export')
-        if row['status'] == 'rendering' and time.time() - row['created_at'] > 300:
+        if row['status'] == 'rendering' and not row.get('work') and time.time() - row['created_at'] > 600:
             row.update(status='failed', error='A exportação foi interrompida. Tente novamente.')
-        return ok(row)
+        return ok(export_public(row))
     return execute(run)
 
 
@@ -411,3 +442,7 @@ def export_content(ident):
             raise ValueError('A exportação ainda não está pronta.')
         return send_file(root / f'{ident}.mp4', mimetype='video/mp4', as_attachment=True, download_name='cadu-studio.mp4', conditional=True)
     return execute(run)
+
+
+def export_public(row):
+    return {key:row[key] for key in ('id','status','created_at','error') if key in row}

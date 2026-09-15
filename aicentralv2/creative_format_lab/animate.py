@@ -144,18 +144,24 @@ class AnimateService:
                 "scene_snapshot": snapshot,
                 "camadas_creative_id": snapshot.get("creative_id"),
             }
+        reference = self.store.materialize_reference(version.get("image_url") or version.get("image") or "")
+        if data.get('aspect_explicit') is False or not data.get('aspect_ratio'):
+            from ..creative_media.geometry import infer_reference_aspect
+            inferred = infer_reference_aspect(reference)
+            if inferred:
+                data = {**data, 'aspect_ratio': inferred}
         plan = build_plan(data)
         if plan["source"]["mode"] == "protected_scene":
             snap = plan["source"].get("snapshot")
             if not snap:
                 raise ValueError("A composição protegida exige um snapshot da cena. Mapeie a peça no Camadas.")
             validate_snapshot(snap)
-        reference = self.store.materialize_reference(version.get("image_url") or version.get("image") or "")
         if not reference:
             raise ValueError("Não foi possível ler o still da versão.")
         plan["source"]["base_id"] = version.get("id") or ""
         plan["source"]["reference"] = reference
         plan["reference"] = reference
+        plan["preview_images"] = [version.get("image_url")] if str(version.get("image_url") or "").startswith("/") else []
         job = self.repository.create_job({
             "user_id": user_id,
             "client_id": data.get("client_id") or history.get("client_id"),
@@ -282,14 +288,18 @@ class AnimateService:
             "extra_ids": [item[0] for item in stills],
             "require_refs": True,
         }
+        if data.get('aspect_explicit') is False or not data.get('aspect_ratio'):
+            from ..creative_media.geometry import infer_reference_aspect
+            inferred = infer_reference_aspect(stills[0][2])
+            if inferred:
+                packed['aspect_ratio'] = inferred
         plan = build_plan(packed)
         plan["source"]["base_id"] = version.get("id") or ids[0]
         plan["source"]["ref_ids"] = [item[0] for item in stills]
         plan["source"]["references"] = [item[2] for item in stills]
         plan["source"]["reference"] = stills[0][2]
         plan["reference"] = stills[0][2]
-        if script:
-            plan["script"] = script
+        plan["preview_images"] = [item[1].get("image_url") or item[1].get("thumb_url") for item in stills if str(item[1].get("image_url") or item[1].get("thumb_url") or "").startswith("/")]
         history = {
             "run_id": (first_run or {}).get("run_id") or data.get("run_id") or "",
             "client_id": data.get("client_id") or (first_run or {}).get("client_id"),
@@ -338,6 +348,7 @@ class AnimateService:
         plan["source"]["extended_from"] = clip.get("id") or ""
         plan["source"]["reference"] = reference
         plan["reference"] = reference
+        plan["preview_images"] = [version.get("image_url")] if str(version.get("image_url") or "").startswith("/") else []
         job = self.repository.create_job({
             "user_id": user_id,
             "client_id": data.get("client_id") or history.get("client_id"),

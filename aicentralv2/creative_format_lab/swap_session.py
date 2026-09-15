@@ -478,6 +478,10 @@ class TrocrStore:
         payload = payload if isinstance(payload, dict) else {}
         existing = self.load(payload, user_id=user_id)
         versions = list(existing.get("versions") or [])
+        if version.get('job_id'):
+            previous = next((item for item in versions if item.get('job_id') == version['job_id'] and item.get('master_asset_id') == version.get('master_asset_id')), None)
+            if previous:
+                return previous
         next_id = f"v{len(versions) + 1}"
         parent_id = str(payload.get("base_id") or existing.get("base_id") or "")
         parent = next((item for item in versions if str(item.get("id") or "") == parent_id), None)
@@ -1168,6 +1172,7 @@ def store_with_mirror(store):
 
 def normalize_video_project(raw):
     from ..creative_media.studio import normalize_edit, number
+    from ..creative_media.studio_composition import normalize_composition
     data = raw if isinstance(raw, dict) else {}
     scene_ids = []
     for item in list(data.get("scene_ids") or []):
@@ -1243,11 +1248,14 @@ def normalize_video_project(raw):
     return {
         "name": str(data.get("name") or "").strip()[:120],
         "aspect_ratio": aspect[:16],
+        "aspect_explicit": data.get("aspect_explicit") is True,
         "generation_mode": generation_mode,
         "duration": duration,
         "quality": quality,
         "scene_ids": scene_ids[:30],
         "edit": normalize_edit(data.get("edit")),
+        "composition": {**normalize_composition(data.get("composition")), "enabled": data["composition"].get("enabled") is True} if isinstance(data.get("composition"),dict) else None,
+        "clip_edits": {str(key)[:120]: normalize_edit(value) for key, value in list((data.get("clip_edits") if isinstance(data.get("clip_edits"), dict) else {}).items())[:100]},
         "seed": int(number(data.get("seed"), 0, 0, 2147483647)) if data.get("seed") not in (None, "") else None,
         "script": script,
         "audio": {

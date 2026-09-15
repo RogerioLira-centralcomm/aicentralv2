@@ -76,6 +76,7 @@ export const state = {
   clientId: "",
   library: [],
   clips: [],
+  sounds: [],
   scenes: [],
   script: null,
   ocrFailed: false,
@@ -95,6 +96,8 @@ export const state = {
   seed: null,
   generationMode: "storyboard",
   aspectRatio: "16:9",
+  aspectExplicit: false,
+  aspectPending: null,
   duration: 8,
   quality: "draft",
   audio: {
@@ -124,6 +127,7 @@ export const state = {
 };
 
 export function resetProjectFields() {
+  state.clipEdits={};state.aspectExplicit=false;state.aspectPending=null;state.composition=null;
   state.scenes = [];
   state.script = null;
   state.ocrFailed = false;

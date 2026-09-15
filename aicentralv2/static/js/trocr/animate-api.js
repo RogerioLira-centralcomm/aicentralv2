@@ -1,3 +1,4 @@
+import {showProcessing,updateProcessing} from '../media-progress.js';
 import { csrf } from "./animate-utils.js";
 
 const BASE = "/parametros/api/format-lab/swap/animate";
@@ -27,12 +28,13 @@ export function quoteAnimate(body) {
 }
 
 export function submitAnimate(body) {
+  showProcessing({status:"preparing", message:"Enviando o projeto…", preview_images:body.preview_images||[], plan:body});
   return fetch(BASE, {
     method: "POST",
     credentials: "same-origin",
     headers: headers(),
     body: JSON.stringify(body || {}),
-  }).then(parse);
+  }).then(parse).then(job=>{updateProcessing({...job,adopt_pending:true});return job;}).catch(error=>{updateProcessing({status:"failed",error:error.message});throw error;});
 }
 
 export function getAnimate(jobId) {

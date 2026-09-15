@@ -1,4 +1,6 @@
-import { bindStudio, resetStudio, recordStudioChange, defaultEdit, paintStudio } from "./cadu-video/studio.js";
+import {showProcessing,updateProcessing,followingJob} from './media-progress.js';
+import {sourceAspect} from './cadu-video/aspect.js';
+import { bindStudio, resetStudio, recordStudioChange, defaultEdit, paintStudio, resetClipHistory } from "./cadu-video/studio.js";
 import { quoteAnimate, submitAnimate } from "./trocr/animate-api.js";
 import { startPoll } from "./trocr/animate-poller.js";
 import { deleteLibrary, get, loadVideoProject, post, saveVideoProject } from "./cadu-video/api.js";
@@ -46,16 +48,24 @@ async function boot() {
   state.activeClipId = params.get("clip") || "";
   bindUi();
   bindStudio(markDirty, paintAll);
+  document.addEventListener('cadu:resume-job',event=>{if(!state.generating){state.jobId=event.detail.job_id;resume(state.jobId);}});
+  document.addEventListener('cadu:job-open',async event=>{
+    if(String(event.detail.client_id)!==String(state.clientId))return;
+    await loadClips({prefer:event.detail.version,restore:false});
+  });
   document.addEventListener("cadu:brand-ready", (event) => applyBrand(event.detail?.clientId));
   document.addEventListener("cadu:brand-change", (event) => {
     applyBrand(event.detail?.clientId, { reset: true });
   });
   await applyBrand(params.get("client") || Desk.read());
   const pending = sessionStorage.getItem(JOB_KEY);
-  if (pending) resume(pending);
+  if (pending && !state.generating) resume(pending);
 }
 
 function bindUi() {
+  document.getElementById("mcStudioProjectAspect")?.addEventListener("change",event=>{
+    const input=document.getElementById("mcVideoAspect");input.value=event.target.value;input.dispatchEvent(new Event("change"));
+  });
   document.getElementById("mcVideoFile")?.addEventListener("change", (event) => {
     takeFile(event.target.files?.[0]);
   });
@@ -94,6 +104,7 @@ function bindUi() {
   });
   document.getElementById("mcVideoAspect")?.addEventListener("change", (event) => {
     state.aspectRatio = event.target.value || "16:9";
+    state.aspectExplicit = true;
     markDirty();
     scheduleQuote();
   });
@@ -225,7 +236,7 @@ function bindUi() {
     scheduleQuote();
     paintAll();
   });
-  ["mcVideoBeatPurpose", "mcVideoBeatVisual", "mcVideoBeatMotion", "mcVideoBeatHold", "mcVideoBeatSpoken"]
+  ["mcVideoBeatTransition", "mcVideoBeatPurpose", "mcVideoBeatVisual", "mcVideoBeatMotion", "mcVideoBeatHold", "mcVideoBeatSpoken"]
     .forEach((id) => {
       document.getElementById(id)?.addEventListener("input", onBeatField);
       document.getElementById(id)?.addEventListener("change", onBeatField);
@@ -283,6 +294,7 @@ function onBeatField() {
   const beat = ensureBeat(state.selectedSceneId);
   beat.purpose = document.getElementById("mcVideoBeatPurpose")?.value || beat.purpose;
   beat.visual = document.getElementById("mcVideoBeatVisual")?.value || "";
+  beat.transition = document.getElementById("mcVideoBeatTransition")?.value || "cut";
   beat.motion = document.getElementById("mcVideoBeatMotion")?.value || "";
   beat.hold = document.getElementById("mcVideoBeatHold")?.value || "";
   beat.spoken = document.getElementById("mcVideoBeatSpoken")?.value || "";
@@ -357,11 +369,14 @@ async function restoreProject() {
 
 function applyProject(project) {
   if (!project || typeof project !== "object") return;
+  state.clipEdits = project.clip_edits || {};
+  state.composition = project.composition || null;
   state.edit = { ...defaultEdit(), ...(project.edit || {}) };
   state.seed = project.seed ?? null;
   state.generationMode = project.generation_mode === "single_image" ? "single_image" : "storyboard";
   state.name = project.name || state.name;
   state.aspectRatio = project.aspect_ratio || state.aspectRatio;
+  state.aspectExplicit = project.aspect_explicit === true;
   state.duration = Number(project.duration || state.duration) || 8;
   state.quality = project.quality || state.quality;
   state.activeClipId = project.active_clip_id || state.activeClipId;
@@ -391,12 +406,15 @@ function projectPayload() {
     project: {
       name: state.name,
       aspect_ratio: state.aspectRatio,
+      aspect_explicit: state.aspectExplicit,
       duration: state.duration,
       quality: state.quality,
       scene_ids: state.scenes.map((item) => item.id),
       script: state.script,
       audio: state.audio,
       edit: state.edit,
+      composition:state.composition,
+      clip_edits: {...(state.clipEdits || {}), ...(state.activeClipId ? {[state.activeClipId]:state.edit} : {})},
       seed: state.seed,
       generation_mode: state.generationMode,
       motion: state.motion,
@@ -546,14 +564,18 @@ async function loadClips(opts = {}) {
   if (!state.clientId) return;
   const clientId = state.clientId;
   try {
-    const data = await get(`/parametros/api/format-lab/swap/library?client_id=${encodeURIComponent(clientId)}&media=video`);
+    const results = await Promise.allSettled([
+      get(`/parametros/api/format-lab/swap/library?client_id=${encodeURIComponent(clientId)}&media=video`),
+      get(`/parametros/api/format-lab/studio/clips?client_id=${encodeURIComponent(clientId)}`),
+    ]);
     if (clientId !== state.clientId) return;
-    state.clips = (data.items || []).filter((item) => item.video_url);
+    state.clips = results.flatMap(result => result.status === 'fulfilled' ? result.value.items || [] : []).filter(item => item.video_url);
+    if (results.some(result => result.status === 'rejected')) setStatus('Parte da biblioteca está indisponível. Os vídeos carregados continuam acessíveis.');
   } catch (_error) {
     if (!opts.prefer) state.clips = [];
   }
   const chosen = pickClip(opts.prefer);
-  if (chosen) await selectClip(chosen, { restore: Boolean(opts.restore) });
+  if (chosen && opts.select !== false) await selectClip(chosen, { restore: Boolean(opts.restore) });
   else paintClips();
 }
 
@@ -589,13 +611,27 @@ function pickClip(prefer) {
   return null;
 }
 
+document.addEventListener("cadu:clip-imported", event => {
+  state.clips.unshift(event.detail);
+  state.libTab = "video";
+  selectClip(event.detail, {restore:false}).then(paintAll);
+});
+
 async function selectClip(clip, { restore = true } = {}) {
   if (!clip?.video_url) return;
+  const switching = state.activeClipId !== (clip.id || clip.job_id);
+  if (switching) {
+    state.clipEdits ||= {};
+    if (state.activeClipId) state.clipEdits[state.activeClipId] = structuredClone(state.edit);
+    state.edit = structuredClone(state.clipEdits[clip.id || clip.job_id] || defaultEdit());
+    resetClipHistory();
+  }
   state.activeClipId = clip.id || clip.job_id || "";
   state.previewMode = "clip";
   const still = document.getElementById("mcVideoStill");
   if (still) still.hidden = true;
   playClip(clip);
+  document.dispatchEvent(new CustomEvent("cadu:clip-selected"));
   if (restore) restoreFromClip(clip);
   paintClips();
   paintCanvas();
@@ -631,7 +667,6 @@ function restoreFromClip(clip) {
 function selectScene(id) {
   if (!id) return;
   state.selectedSceneId = id;
-  if (state.generationMode === "single_image") adoptSelectedAspect();
   state.previewMode = "scene";
   const empty = document.getElementById("mcVideoEmpty");
   if (empty) empty.hidden = true;
@@ -640,10 +675,16 @@ function selectScene(id) {
   scheduleQuote();
 }
 
+let aspectRequest=0;
 function adoptSelectedAspect(item = null) {
-  const selected = item || state.scenes.find((row) => row.id === state.selectedSceneId);
-  const ratio = String(selected?.aspect_ratio || "");
-  if (["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"].includes(ratio)) state.aspectRatio = ratio;
+  if(state.aspectExplicit)return;
+  const selected = item || state.scenes[0];
+  if(!selected)return;
+  const request=++aspectRequest, client=state.clientId;
+  state.aspectPending=sourceAspect(selected).then(ratio=>{
+    if(request!==aspectRequest||client!==state.clientId||state.aspectExplicit||!state.scenes.some(s=>s.id===selected.id))return;
+    if(ratio){state.aspectRatio=ratio;paintAll();markDirty();}
+  });
 }
 
 function stepScene(delta) {
@@ -836,16 +877,18 @@ async function removeClip(id) {
   if (!clip) return;
   if (!window.confirm("Apagar este clipe?")) return;
   try {
-    const data = await deleteLibrary({
-      client_id: state.clientId || undefined,
-      id,
-      media: "video",
-    });
-    state.clips = (data.items || []).filter((item) => item.video_url);
+    if (id.startsWith('upload:')) {
+      await post('/parametros/api/format-lab/studio/archive-clip', {client_id:state.clientId, clip_id:id});
+    } else {
+      await deleteLibrary({client_id:state.clientId || undefined,id,media:'video'});
+    }
+    state.clips = state.clips.filter(item => item.id !== id);
+    delete state.clipEdits?.[id];
     if (state.activeClipId === id) {
       state.activeClipId = "";
       state.previewMode = "scene";
       clearClip();
+      document.dispatchEvent(new Event("cadu:clip-cleared"));
       paintCanvas();
     }
     paintClips();
@@ -941,10 +984,12 @@ function planBody() {
   const selected = state.scenes.find((item) => item.id === state.selectedSceneId) || state.scenes[0];
   return {
     client_id: state.clientId || undefined,
+    preview_images: state.scenes.map(scene=>scene.image_url||scene.thumb_url).filter(Boolean),
     duration: state.duration,
     seed: singleImage ? null : state.seed,
     quality: singleImage ? "production" : state.quality,
     aspect_ratio: state.aspectRatio,
+    aspect_explicit: state.aspectExplicit,
     source: singleImage
       ? { mode: "flattened_still", base_id: selected?.id || "" }
       : { mode: "storyboard", ref_ids: state.scenes.map((item) => item.id) },
@@ -1061,9 +1106,11 @@ async function generate() {
     setStatus("Monte o roteiro antes de gerar.");
     return;
   }
+  await state.aspectPending;
   const body = planBody();
   const version = state.requestVersion;
   state.generating = true;
+  showProcessing({status:"preparing",message:"Conferindo roteiro, formato e custo…",preview_images:body.preview_images,plan:body});
   updateGenerateEnabled();
   setStatus("Cotando…");
   try {
@@ -1080,6 +1127,7 @@ async function generate() {
     setStatus(job.message || "Gerando o clipe…");
     resume(state.jobId);
   } catch (error) {
+    updateProcessing({status:"failed",error:error.message});
     setStatus(error.message);
     state.generating = false;
     updateGenerateEnabled();
@@ -1090,18 +1138,19 @@ function resume(jobId) {
   if (!jobId) return;
   state.generating = true;
   updateGenerateEnabled();
+  const client=state.clientId;
   startPoll(jobId, async (job) => {
+    if(client!==state.clientId)return;
     sessionStorage.removeItem(JOB_KEY);
     const version = job.version || {};
-    await loadClips({ prefer: version, restore: false });
-    const clip = pickClip(version);
-    if (clip) await selectClip(clip, { restore: false });
+    const follow=followingJob(jobId);
+    await loadClips({ prefer: version, restore: false, select:follow });
     recordSpend(`video:${jobId}`, "video", `Geração de vídeo · ${job.plan?.duration || state.duration}s`, job.quote, "confirmed");
     setStatus(job.message || "Clipe pronto.");
     state.generating = false;
-    state.previewMode = "clip";
     markDirty();
   }, (job) => {
+    if(client!==state.clientId)return;
     sessionStorage.removeItem(JOB_KEY);
     setStatus(job?.error || job?.message || "A animação falhou.");
     state.generating = false;

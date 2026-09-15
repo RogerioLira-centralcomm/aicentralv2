@@ -56,6 +56,7 @@ UI_STAGES = (
     ("compositing", "Protegendo textos e logos"),
     ("tts", "Gerando locução"),
     ("mix", "Mixando voz no master"),
+    ("validate", "Validando formato, duração e áudio"),
     ("transcode", "Preparando formatos"),
     ("persist", "Salvando no histórico"),
     ("ready", "Pronto"),

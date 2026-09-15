@@ -85,7 +85,8 @@ def build_prompt(plan: dict) -> str:
                     continue
                 lines.append(
                     f"{index}. {beat.get('purpose') or 'beat'}: {beat.get('visual') or ''} "
-                    f"Motion: {beat.get('motion') or ''} Hold: {beat.get('hold') or ''}"
+                    f"Motion: {beat.get('motion') or ''} Hold: {beat.get('hold') or ''} "
+                    f"Transition to next scene: {beat.get('transition') or 'cut'}."
                 )
             if lines:
                 hold = hold + "\nBeats:\n" + "\n".join(lines)

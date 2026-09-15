@@ -1,0 +1,3 @@
+# Local speech recognition and encrypted browser push, installed with the worker.
+faster-whisper==1.2.1
+pywebpush==2.1.2

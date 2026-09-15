@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import threading
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from psycopg.types.json import Json
 
@@ -89,11 +89,29 @@ class MemoryMediaRepository:
             row = self.jobs.get(str(public_id or ""))
             if not row:
                 raise MediaNotFoundError("Job não encontrado.")
-            if row.get("locked_at") and row.get("status") not in {"queued", "failed"}:
+            if row.get("status") not in {"queued", "running", "provider_pending", "provider_running"}:
+                return None
+            if row.get("locked_at") and row.get("updated_at", utc_now()) > utc_now()-timedelta(minutes=10):
                 return None
             row["locked_at"] = utc_now()
+            row["status"] = "running"
             row["attempt"] = int(row.get("attempt") or 0) + 1
             return deepcopy(row)
+
+    def heartbeat(self, public_id, locked_at):
+        with self._lock:
+            row=self.jobs.get(public_id)
+            if row and row.get('locked_at')==locked_at and row['status'] in {'running','provider_pending','provider_running'}:
+                row['updated_at']=utc_now()
+
+    def runnable_jobs(self):
+        return [r['public_id'] for r in self.jobs.values()
+                if r['status'] in {'queued','running','provider_pending','provider_running'}
+                and (not r.get('locked_at') or r['updated_at'] < utc_now()-timedelta(minutes=10))]
+
+    def list_jobs(self, client_id, user_id):
+        return [deepcopy(r) for r in sorted(self.jobs.values(), key=lambda r:r['id'], reverse=True)
+                if str(r.get('client_id')) == str(client_id) and r.get('user_id') == user_id][:50]
 
     def add_asset(self, payload):
         public_id = payload.get("public_id") or new_id("asset")
@@ -235,11 +253,12 @@ class MediaRepository:
             cursor.execute(
                 """
                 UPDATE cx_media_jobs
-                   SET locked_at = NOW(),
+                   SET locked_at = NOW(), status = 'running',
                        attempt = attempt + 1,
                        updated_at = NOW()
                  WHERE public_id = %s
-                   AND (locked_at IS NULL OR status IN ('queued', 'failed'))
+                   AND status IN ('queued', 'running', 'provider_pending', 'provider_running')
+                   AND (locked_at IS NULL OR updated_at < NOW() - INTERVAL '10 minutes')
              RETURNING *
                 """,
                 (public_id,),
@@ -247,6 +266,31 @@ class MediaRepository:
             row = cursor.fetchone()
         self.conn.commit()
         return dict(row) if row else None
+
+    def heartbeat(self, public_id, locked_at):
+        with self.conn.cursor() as cursor:
+            cursor.execute("""UPDATE cx_media_jobs SET updated_at=NOW()
+                WHERE public_id=%s AND locked_at=%s
+                AND status IN ('running','provider_pending','provider_running')""",(public_id,locked_at))
+        self.conn.commit()
+
+    def runnable_jobs(self):
+        with self.conn.cursor() as cursor:
+            cursor.execute("""SELECT public_id FROM cx_media_jobs
+                WHERE status IN ('queued','running','provider_pending','provider_running')
+                AND (locked_at IS NULL OR updated_at < NOW() - INTERVAL '10 minutes')
+                ORDER BY created_at LIMIT 50""")
+            rows = cursor.fetchall()
+        self.conn.commit()
+        return [row['public_id'] for row in rows]
+
+    def list_jobs(self, client_id, user_id):
+        with self.conn.cursor() as cursor:
+            cursor.execute("""SELECT * FROM cx_media_jobs WHERE client_id = %s AND user_id = %s
+                ORDER BY created_at DESC LIMIT 50""", (client_id,user_id))
+            rows = cursor.fetchall()
+        self.conn.commit()
+        return [dict(row) for row in rows]
 
     def add_asset(self, payload):
         public_id = payload.get("public_id") or new_id("asset")

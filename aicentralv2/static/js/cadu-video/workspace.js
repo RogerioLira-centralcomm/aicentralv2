@@ -13,6 +13,17 @@ export function bindWorkspace(project, commit, refresh) {
   if(!prefs || typeof prefs!=='object')prefs={};
   const root=$('mcSwap');
   root.dataset.theme=readTheme();
+  document.querySelectorAll('[data-studio-section]').forEach(button=>button.addEventListener('click',()=>{
+    root.classList.remove('is-library-collapsed');$('mcStudioCollapseLibrary').setAttribute('aria-pressed','false');
+    document.querySelector(`[data-lib-tab="${button.dataset.studioSection}"]`)?.click();
+  }));
+  document.querySelectorAll('[data-studio-panel]').forEach(button=>button.addEventListener('click',()=>{
+    root.classList.remove('is-inspector-collapsed');$('mcStudioCollapseInspector').setAttribute('aria-pressed','false');
+    document.querySelector(`[data-panel-tab="${button.dataset.studioPanel}"]`)?.click();
+  }));
+  for(const [id,className] of [['mcStudioCollapseLibrary','is-library-collapsed'],['mcStudioCollapseInspector','is-inspector-collapsed']]){
+    $(id)?.addEventListener('click',()=>$(id).setAttribute('aria-pressed',String(root.classList.toggle(className))));
+  }
   applyThemeLabel();
   $('mcStudioTheme').addEventListener('click',()=>{
     root.dataset.theme=root.dataset.theme==='dark'?'light':'dark';prefs.theme=root.dataset.theme;savePrefs();saveTheme(root.dataset.theme);applyThemeLabel();

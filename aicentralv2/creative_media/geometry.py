@@ -13,7 +13,7 @@ def map_aspect(piece_ratio: str) -> str:
         return "3:4"
     if raw in SEEDANCE_RATIOS:
         return raw
-    return "16:9"
+    raise ValueError("Formato inválido. Escolha uma proporção de saída suportada.")
 
 
 def output_size(resolution: str, seedance_ratio: str) -> tuple[int, int]:
@@ -27,11 +27,11 @@ def needs_safe_area(piece_ratio: str) -> bool:
 
 def prepare_frame(image_bytes: bytes, piece_ratio: str, resolution: str) -> bytes:
     """4:5 vira canvas 3:4 com a peça centrada (safe area). Outros ratios só reencodam JPEG."""
-    from PIL import Image
+    from PIL import Image, ImageOps
 
     seedance = map_aspect(piece_ratio)
     width, height = output_size(resolution, seedance)
-    source = Image.open(BytesIO(image_bytes)).convert("RGB")
+    source = ImageOps.exif_transpose(Image.open(BytesIO(image_bytes))).convert("RGB")
     canvas = Image.new("RGB", (width, height), (8, 8, 10))
     if needs_safe_area(piece_ratio):
         safe_w, safe_h = width, int(round(width * 5 / 4))
@@ -68,9 +68,20 @@ def crop_4x5(image) -> object:
 
 
 def _fit(image, width, height):
-    fitted = image.copy()
-    fitted.thumbnail((width, height))
-    if fitted.size == (width, height):
-        return fitted
-    canvas = image.resize((width, height))
+    from PIL import Image, ImageOps
+    fitted = ImageOps.contain(image, (width, height), method=Image.Resampling.LANCZOS)
+    canvas = Image.new("RGB", (width, height), (8, 8, 10))
+    canvas.paste(fitted, ((width-fitted.width)//2, (height-fitted.height)//2))
     return canvas
+
+
+def infer_reference_aspect(reference):
+    import base64
+    import math
+    from PIL import Image, ImageOps
+    if not str(reference).startswith('data:'):
+        return None
+    image = ImageOps.exif_transpose(Image.open(BytesIO(base64.b64decode(reference.split(',',1)[1]))))
+    ratio = image.width / image.height
+    choices = (*SEEDANCE_RATIOS, '4:5')
+    return min(choices, key=lambda item: abs(math.log(ratio / (int(item.split(':')[0])/int(item.split(':')[1])))))

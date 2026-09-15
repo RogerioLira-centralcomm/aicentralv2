@@ -496,9 +496,9 @@ class TrocrAnimateVoiceoverTest(unittest.TestCase):
         })
         self.assertEqual(plan["voiceover_provider_voice"], "Charon")
         self.assertEqual(plan["tts_model"], "google/gemini-3.1-flash-tts-preview")
-        self.assertIn("No speech", plan["prompt"])
+        self.assertIn("No native speech", plan["prompt"])
         self.assertGreater(plan["quote"]["tts_estimated_cost_usd"], 0)
-        self.assertTrue(plan["generate_audio"])
+        self.assertFalse(plan["generate_audio"])  # Exact TTS is mixed later; no duplicate native track.
         quoted = quote_animate({"audio": {"mode": "voiceover"}})
         self.assertIn("Gemini TTS", quoted["warning"])
 
@@ -799,3 +799,18 @@ def _jpeg(image):
     buf = BytesIO()
     image.convert("RGB").save(buf, format="JPEG", quality=90)
     return buf.getvalue()
+
+
+# These orchestration tests use placeholder MP4 bytes. Actual stream validation
+# and wrong-format rejection are covered by test_studio_jobs_delivery.py.
+def setUpModule():
+    global _media_validation_patch
+    def metadata(_payload, plan, **_kwargs):
+        return {'width':plan.get('width',1280),'height':plan.get('height',720),
+                'duration':plan.get('duration',8),'has_audio':bool(plan.get('generate_audio') or plan.get('audio_mode')=='voiceover')}
+    _media_validation_patch = patch('aicentralv2.creative_media.validation.validate_delivery', side_effect=metadata)
+    _media_validation_patch.start()
+
+
+def tearDownModule():
+    _media_validation_patch.stop()

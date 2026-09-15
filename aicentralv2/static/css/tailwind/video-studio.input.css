@@ -223,3 +223,75 @@
 .mc-studio-agent-warnings p { margin:0; }
 .mc-studio-agent-impact { margin:0; padding:8px; border-radius:5px; background:var(--mc-cadu-paper); color:var(--mc-cadu-mute); font-size:10px; line-height:1.4; }
 .mc-video-studio #mcVideoAudioPanel > .mc-studio-mix:first-child, .mc-video-studio #mcVideoSettingsPanel > .mc-studio-mix:first-child { border:0; margin:0; padding:0; }
+
+/* Keep media and inspector geometry independent of intrinsic content. */
+.mc-video-studio .mc-cadu-video-frame { position:relative; display:block; }
+.mc-video-studio .mc-cadu-video-frame > :is(img,video) { position:absolute; inset:0; width:100%; height:100%; object-fit:contain !important; aspect-ratio:auto; }
+.mc-video-studio .mc-cadu-video-frame > .mc-cadu-video-empty { position:absolute; inset:0; margin:auto; height:max-content; }
+.mc-video-studio .mc-cadu-video-panel-tabs { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:0; flex-wrap:nowrap; min-width:0; }
+.mc-video-studio .mc-cadu-video-panel-tabs button { min-width:0; padding:0 2px; white-space:nowrap; }
+.mc-video-studio .mc-cadu-video-panel-body { min-width:0; overflow-wrap:anywhere; }
+.mc-video-studio [hidden] { display:none !important; }
+.mc-studio-video-row { height:72px; }
+.mc-studio-filmstrip { position:absolute; inset:3px 0; display:flex; pointer-events:none; }
+.mc-studio-filmstrip img { width:12.5%; min-width:0; height:100%; object-fit:contain; background:#000; }
+.mc-studio-filmstrip + .mc-studio-edit-clip { background:color-mix(in srgb,var(--vs-track) 24%,transparent); }
+.mc-studio-filmstrip + .mc-studio-edit-clip span { background:#000b; color:white; border-radius:3px; }
+.mc-video-studio .mc-cadu-video-track-lane { overflow-x:auto; }
+.mc-studio-scene-clip { flex:0 0 144px; min-width:144px; }
+.mc-video-studio .mc-cadu-video-block { grid-template-columns:minmax(0,1fr); gap:4px; }
+.mc-video-studio .mc-cadu-video-block img { width:100%; height:70px; object-fit:contain; background:#000; }
+.mc-video-studio .mc-cadu-video-block strong { display:block; font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+@font-face { font-family:StudioOpenSans; src:url('/static/fonts/OpenSans-Regular.ttf') format('truetype'); font-display:swap; }
+.mc-studio-text-card { display:grid; gap:8px; margin:12px 0; padding:10px; border:1px solid var(--mc-cadu-rule); border-radius:5px; font-size:12px; }
+.mc-studio-text-card :is(input,textarea,select) { max-width:100%; min-width:0; }
+
+.mc-studio-text-track { position:relative; overflow:hidden; background:var(--mc-cadu-floor); }
+.mc-studio-text-track span { position:absolute; top:4px; bottom:4px; padding:5px; box-sizing:border-box; font-size:11px; background:#765394; color:white; border-radius:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* Editing desk: narrow tool rail, collapsible media and contextual inspector. */
+.mc-video-studio {grid-template-columns:60px minmax(0,1fr);--vs-library:230px;--vs-inspector:280px;--vs-timeline:290px}
+.mc-video-studio[data-theme="dark"]{--mc-cadu-paper:#20252b;--mc-cadu-floor:#14191f;--vs-control:#2b323a;--vs-hover:#36424c;--vs-accent:#b2e2f2;--vs-selected:#244250;--vs-track:#315266}
+.mc-video-studio>.mc-cadu-video-toolbar{grid-column:1/-1;grid-row:1}
+.mc-video-studio>.mc-studio-rail{grid-column:1;grid-row:2}
+.mc-video-studio>.mc-cadu-video-workspace{grid-column:2;grid-row:2}
+.mc-video-studio>#mcStudioTimelineResize{grid-column:1/-1;grid-row:3}
+.mc-video-studio>.mc-cadu-video-timeline{grid-column:1/-1;grid-row:4}
+.mc-video-studio>.mc-studio-export-status{grid-column:1/-1;grid-row:5}
+.mc-studio-rail{display:flex;flex-direction:column;align-items:stretch;gap:8px;padding:12px 4px;background:var(--mc-cadu-floor);border-right:1px solid var(--mc-cadu-rule)}
+.mc-studio-rail button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;border:0;border-radius:9px;background:transparent;color:var(--mc-cadu-mute);padding:9px 2px;cursor:pointer}
+.mc-studio-rail button:hover,.mc-studio-rail button:focus-visible{color:var(--vs-accent);background:var(--vs-hover)}
+.mc-studio-rail span{font-size:22px;line-height:1}.mc-studio-rail small{font-size:10px}
+.mc-video-studio .mc-cadu-video-lib,.mc-video-studio .mc-cadu-video-desk{margin:8px 0;border-radius:12px}
+.mc-video-studio .mc-cadu-video-frame{border-radius:14px}
+.mc-video-studio.is-library-collapsed .mc-cadu-video-workspace{grid-template-columns:0 0 minmax(0,1fr) 5px var(--vs-inspector)}
+.mc-video-studio.is-inspector-collapsed .mc-cadu-video-workspace{grid-template-columns:var(--vs-library) 5px minmax(0,1fr) 0 0}
+.mc-video-studio.is-library-collapsed.is-inspector-collapsed .mc-cadu-video-workspace{grid-template-columns:0 0 minmax(0,1fr) 0 0}
+.mc-video-studio.is-library-collapsed :is(.mc-cadu-video-lib,#mcStudioLibraryResize),.mc-video-studio.is-inspector-collapsed :is(.mc-cadu-video-desk,#mcStudioInspectorResize){visibility:hidden;padding:0;margin:0;overflow:hidden}
+.mc-video-studio .mc-studio-project-format{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--mc-cadu-mute);white-space:nowrap}
+.mc-studio-project-format select{background:var(--vs-control);color:var(--mc-cadu-ink);border:1px solid var(--mc-cadu-rule);padding:6px;border-radius:6px}
+@media(max-width:1100px){.mc-video-studio .mc-cadu-video-toolbar{flex-wrap:wrap}.mc-video-studio .mc-cadu-video-toolbar-side{flex-wrap:wrap}.mc-studio-project-format span{display:none}}
+@media(max-width:900px){.mc-video-studio{grid-template-columns:minmax(0,1fr)}.mc-video-studio>.mc-studio-rail{display:none}.mc-video-studio>.mc-cadu-video-workspace{grid-column:1}.mc-video-studio.is-library-collapsed .mc-cadu-video-lib,.mc-video-studio.is-inspector-collapsed .mc-cadu-video-desk{visibility:visible;padding:14px;overflow:auto}}
+.mc-composition-panel{display:grid;gap:10px;padding-bottom:18px;border-bottom:1px solid var(--mc-cadu-rule);font-size:12px}
+.mc-composition-panel details{padding:8px 0;border-top:1px solid var(--mc-cadu-rule)}
+.mc-composition-panel summary{cursor:pointer;font-weight:600}
+.mc-composition-panel :is(label,fieldset,#mcCompositionControls){display:grid;gap:7px}
+.mc-composition-panel :is(input,textarea,select){min-width:0;width:100%;padding:7px;border:1px solid var(--mc-cadu-rule);border-radius:5px;background:var(--vs-control);color:var(--mc-cadu-ink)}
+.mc-composition-panel input[type=checkbox]{width:auto}
+.mc-composition-panel fieldset{margin:10px 0;padding:8px;border:1px solid var(--mc-cadu-rule)}
+.mc-composition-actions{display:flex;gap:4px;flex-wrap:wrap}.mc-composition-actions button,.mc-composition-panel fieldset button{padding:6px;border:1px solid var(--mc-cadu-rule);border-radius:4px;background:var(--vs-control);color:var(--mc-cadu-ink);cursor:pointer}
+.mc-composition-lane{display:flex;gap:6px;min-width:100%;overflow-x:auto;padding:5px 0}
+.mc-composition-lane button{min-width:110px;flex-basis:110px;max-width:350px;display:grid;padding:3px;text-align:left;background:var(--vs-track);color:var(--mc-cadu-ink);border:1px solid var(--mc-cadu-rule);border-radius:7px;cursor:grab;overflow:hidden}
+.mc-composition-lane button.is-selected{border:2px solid var(--vs-accent)}.mc-composition-lane img{height:64px;width:100%;object-fit:contain;background:#000}.mc-composition-lane :is(strong,small){font-size:11px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:3px}
+.mc-composition-audio-lane,.mc-composition-caption-lane{padding:6px 12px;background:#264a43;color:#c1e6da;border-radius:5px;font-size:12px;margin:4px 0}.mc-composition-caption-lane{background:#473a58;color:#e8d9f4}
+.mc-composition-caption{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin:8px 0}.mc-composition-caption textarea{grid-column:1/-1}
+#mcCompositionCaptions{max-height:300px;overflow:auto}
+.mc-video-studio.is-composition :is(.mc-studio-timeline-scroll,.mc-studio-storyboard,#mcStudioMarkIn,#mcStudioMarkOut){display:none}
+.mc-video-studio:not(.is-composition) #mcCompositionControls{display:none}
+
+/* Live composition occupies the same fixed stage as the exact render. */
+#mcCompositionLiveCanvas { position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000; }
+#mcCompositionLiveCanvas[hidden],#mcCompositionLiveControls[hidden]{display:none!important}
+#mcSwap.is-live-composition .mc-studio-playback:not(#mcCompositionLiveControls){display:none}
+.mc-keyframes fieldset{margin-top:8px;padding:8px;border:1px solid #414952;border-radius:6px}
+.mc-keyframes input{min-width:0;width:100%}

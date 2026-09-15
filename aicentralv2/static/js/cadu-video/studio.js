@@ -1,19 +1,26 @@
+import {bindComposition,paintComposition,paintCompositionCanvas,syncCompositionPlayback,exportComposition} from './composition.js';
+import {showProcessing,updateProcessing} from '../media-progress.js';
+import {bindJobCenter,resetJobCenter} from './job-center.js';
+import {bindTextLayers,paintTextLayers,paintTextPreview} from './text-layers.js';
+import {bindMediaEditor} from './media-editor.js';
 import { bindSeedancePanel, paintSeedancePanel } from "./seedance-panel.js";
 import { bindAgentPanel, paintAgentPanel } from "./agent-panel.js";
 import { bindWorkspace, paintTimelinePosition } from "./workspace.js";
 import { state, upsertWorkspaceSpend } from './state.js';
 import { get, post } from './api.js';
 import { csrf } from '../trocr/animate-utils.js';
-import { escapeHtml } from './utils.js';
+import { escapeHtml, newId } from './utils.js';
 
 const base = '/parametros/api/format-lab/studio';
-export const defaultEdit = () => ({start:0,end:0,speed:1,original_volume:1,sound_id:'',sound_volume:.35,sound_offset:0,fade_in:0,fade_out:0,loop:false,video_fade_in:0,video_fade_out:0,grayscale:false,flip:false});
+export const defaultEdit = () => ({layers:[],start:0,end:0,speed:1,original_volume:1,sound_id:'',sound_volume:.35,sound_offset:0,fade_in:0,fade_out:0,loop:false,video_fade_in:0,video_fade_out:0,grayscale:false,flip:false});
 const fields = {mcStudioOriginal:'original_volume',mcStudioVolume:'sound_volume',mcStudioOffset:'sound_offset',mcStudioFadeIn:'fade_in',mcStudioFadeOut:'fade_out',mcStudioTrimStart:'start',mcStudioTrimEnd:'end',mcStudioSpeed:'speed',mcStudioLoop:'loop',mcStudioVideoFadeIn:'video_fade_in',mcStudioVideoFadeOut:'video_fade_out',mcStudioGrayscale:'grayscale',mcStudioFlip:'flip'};
 const $ = id => document.getElementById(id);
 let sounds = [], brand = '', dirty, repaint, undo = [], redo = [], baseline = '', restoring = false;
 let soundPlayer = new Audio(), pollTimer, frame, exporting = false, soundRequest = 0;
 const time = value => `${Math.floor((value || 0)/60)}:${String(Math.floor((value || 0)%60)).padStart(2,'0')}`;
-const snapshot = () => JSON.stringify({name:state.name,scenes:state.scenes,script:state.script,audio:state.audio,motion:state.motion,generationMode:state.generationMode,duration:state.duration,quality:state.quality,aspectRatio:state.aspectRatio,seed:state.seed,edit:state.edit});
+const snapshot = () => JSON.stringify({name:state.name,scenes:state.scenes,script:state.script,audio:state.audio,motion:state.motion,generationMode:state.generationMode,duration:state.duration,quality:state.quality,aspectRatio:state.aspectRatio,aspectExplicit:state.aspectExplicit,seed:state.seed,edit:state.edit,composition:state.composition});
+
+export function resetClipHistory() { undo=[]; redo=[]; baseline=snapshot(); updateHistory(); }
 
 export function recordStudioChange() {
   if (restoring || !baseline) return;
@@ -37,6 +44,10 @@ export function bindStudio(markDirty, paintAll) {
   dirty = markDirty; repaint = paintAll;
   state.edit ||= defaultEdit();
   bindWorkspace(state, markDirty, paintStudio);
+  bindJobCenter();
+  bindMediaEditor(markDirty, paintAll, loadSounds);
+  bindTextLayers(markDirty);
+  bindComposition(markDirty,paintAll);
   bindSeedancePanel(state, markDirty, paintStudio);
   bindAgentPanel(state, markDirty, paintAll);
   $('mcStudioUndo')?.addEventListener('click', () => restoreHistory(undo,redo));
@@ -59,6 +70,9 @@ export function bindStudio(markDirty, paintAll) {
   $('mcStudioSoundList')?.addEventListener('click', event => {
     const button = event.target.closest('[data-sound]');
     if (!button) return;
+    if(state.composition?.enabled){
+      const row=sounds.find(item=>item.id===button.dataset.sound);if(row)document.dispatchEvent(new CustomEvent('cadu:composition-sound',{detail:row}));return;
+    }
     state.edit.sound_id = button.dataset.sound; state.panelTab='audio';
     document.querySelectorAll('#mcStudioSoundList audio').forEach(audio => audio.pause());
     dirty(); repaint(); syncSound(true);
@@ -72,6 +86,7 @@ export function bindStudio(markDirty, paintAll) {
     const video=$('mcSwapVideo'); if (!video?.src) return;
     if (video.paused) {
       state.previewMode='clip'; repaint();
+      if(state.composition?.enabled){video.play().catch(()=>status("Não foi possível reproduzir."));return;}
       const end=state.edit.end || video.duration;
       if (video.currentTime < state.edit.start || video.currentTime >= end) video.currentTime=state.edit.start;
       video.play().catch(() => status('Não foi possível reproduzir este clipe.'));
@@ -94,11 +109,12 @@ export function bindStudio(markDirty, paintAll) {
 }
 
 export async function resetStudio() {
-  brand=state.clientId; sounds=[]; undo=[];redo=[];baseline=snapshot();updateHistory();
+  if (!state.activeClipId) document.dispatchEvent(new Event("cadu:clip-cleared"));
+  brand=state.clientId; sounds=[];state.sounds=[]; undo=[];redo=[];baseline=snapshot();updateHistory();
   soundPlayer.pause();soundPlayer.removeAttribute('src');soundPlayer.load();
   cancelAnimationFrame(frame);clearTimeout(pollTimer); exporting=false;
   if($('mcStudioExportStatus')) $('mcStudioExportStatus').hidden=true;
-  await loadSounds();
+  await Promise.allSettled([loadSounds(),resetJobCenter()]);
   const pending=sessionStorage.getItem(`cadu-export:${brand}`);
   if(pending) {exporting=true;pollExport(pending,brand);}
 }
@@ -108,7 +124,7 @@ async function loadSounds() {
   try {
     const data=await get(`${base}/sounds?client_id=${encodeURIComponent(client)}`);
     if(client!==brand || request!==soundRequest)return;
-    sounds=data.items || []; $('mcStudioSoundStatus').textContent='';paintStudio();
+    sounds=data.items || [];state.sounds=sounds; $('mcStudioSoundStatus').textContent='';paintStudio();
   } catch(error) {if(client===brand)$('mcStudioSoundStatus').textContent=error.message;}
 }
 async function uploadSound(event) {
@@ -128,6 +144,8 @@ async function uploadSound(event) {
 let soundListKey='';
 export function paintStudio() {
   if(!$('mcStudioSounds'))return;
+  paintComposition();
+  paintTextLayers();
   paintSeedancePanel();
   paintAgentPanel();
   state.edit ||= defaultEdit();
@@ -136,7 +154,7 @@ export function paintStudio() {
   const key=JSON.stringify([brand,rows,state.edit.sound_id]);
   if(key!==soundListKey) {
     soundListKey=key;
-  $('mcStudioSoundList').innerHTML=rows.map(row=>`<article class="mc-studio-sound"><strong>${escapeHtml(row.name)}</strong><small>${({music:'Música',effect:'Efeito',ambient:'Ambiente',voice:'Locução'})[row.category] || 'Áudio'} · ${time(row.duration)}</small><audio controls preload="none" src="${escapeHtml(row.url)}"></audio><button type="button" class="mc-cadu-video-ghost" data-sound="${escapeHtml(row.id)}">${row.id===state.edit.sound_id?'Trilha selecionada':'Adicionar à edição'}</button></article>`).join('') || '<p class="mc-cadu-video-hint">Nenhum som encontrado. Envie música, efeito, ambiente ou locução.</p>';
+  $('mcStudioSoundList').innerHTML=rows.map(row=>`<article class="mc-studio-sound"><strong>${escapeHtml(row.name)}</strong><small>${({music:'Música',effect:'Efeito',ambient:'Ambiente',voice:'Locução'})[row.category] || 'Áudio'} · ${row.duration < 1 ? `${Math.round(row.duration*1000)} ms` : `${row.duration.toFixed(1)} s`}</small>${row.license ? `<small>${escapeHtml(row.author)} · ${escapeHtml(row.license)} · <a href="${escapeHtml(row.source_url)}" target="_blank" rel="noopener">Origem e licença</a></small>` : ""}<audio controls preload="none" src="${escapeHtml(row.url)}"></audio><button type="button" class="mc-cadu-video-ghost" data-sound="${escapeHtml(row.id)}">${row.id===state.edit.sound_id?'Trilha selecionada':'Adicionar à edição'}</button></article>`).join('') || '<p class="mc-cadu-video-hint">Nenhum som encontrado. Envie música, efeito, ambiente ou locução.</p>';
   }
   for(const [id,key] of Object.entries(fields)) if($(id)&&document.activeElement!==$(id)) {
     if($(id).type==='checkbox')$(id).checked=state.edit[key];else $(id).value=state.edit[key];
@@ -152,7 +170,7 @@ export function paintStudio() {
     waveform.innerHTML=values.map((v,i)=>`<path d="M${i*600/values.length} ${14-Math.min(1,Math.max(0,v))*13}v${Math.min(1,Math.max(0,v))*26}" stroke="currentColor" stroke-width="2"/>`).join('');
   }
   const category={music:'Música',effect:'Efeitos',ambient:'Ambiente',voice:'Locução'}[selected?.category] || 'Áudio';
-  $('mcStudioTrackLabel').textContent=selected?.name || (state.edit.sound_id ? 'Áudio indisponível' : 'Nenhum áudio adicionado');
+  $('mcStudioTrackLabel').textContent=selected?.name || (state.edit.sound_id ? 'Áudio indisponível' : 'Nenhuma trilha adicional');
   if($('mcStudioAudioTrackName')) $('mcStudioAudioTrackName').textContent=category;
   const audioParts=[];
   if(state.audio.enabled===false) audioParts.push('Sem áudio');
@@ -164,21 +182,25 @@ export function paintStudio() {
   }
   $('mcStudioGenerationAudio').textContent=audioParts.join(' + ') || 'Sem áudio';
   $('mcStudioRemoveSound').disabled=!state.edit.sound_id;
-  $('mcStudioExport').disabled=!state.activeClipId || exporting;
-  if(state.libTab==='sound')$('mcVideoLibHint').textContent='Sons desta marca para a edição do clipe.';
+  $('mcStudioExport').disabled=(state.composition?.enabled?!state.composition.items.length:!state.activeClipId) || exporting;
+  if(state.libTab==='sound')$('mcVideoLibHint').textContent='Sons enviados e 100 efeitos públicos CC0 do Kenney.';
   if(state.previewMode!=='clip')$('mcSwapVideo')?.pause();
   paintVisual();
   paintPlayback();
 }
 function paintVisual() {
+  if(state.composition?.enabled){paintCompositionCanvas();return;}
+  paintTextPreview();
   const video=$('mcSwapVideo');if(!video)return;
   video.style.filter=state.edit.grayscale?'grayscale(1)':'';
   video.style.transform=state.edit.flip?'scaleX(-1)':'';
   video.playbackRate=state.edit.speed||1;
+  video.volume=state.edit.original_volume;
   const start=state.edit.start, end=Math.min(state.edit.end || video.duration,video.duration);
-  const length=end-start, elapsed=Math.max(0,video.currentTime-start);
+  const speed=state.edit.speed||1;
+  const length=(end-start)/speed, elapsed=Math.max(0,video.currentTime-start)/speed;
   const fi=Math.min(state.edit.video_fade_in,length), fo=Math.min(state.edit.video_fade_out,length);
-  const opacity=(fi?Math.min(1,elapsed/fi):1)*(fo?Math.min(1,Math.max(0,end-video.currentTime)/fo):1);
+  const opacity=(fi?Math.min(1,elapsed/fi):1)*(fo?Math.min(1,Math.max(0,end-video.currentTime)/speed/fo):1);
   video.style.opacity=Number.isFinite(opacity)?opacity:1;
 }
 function paintPlayback() {
@@ -192,11 +214,12 @@ function paintPlayback() {
 function tick(){paintVisual();syncSound();paintTimelinePosition();if(!$('mcSwapVideo')?.paused)frame=requestAnimationFrame(tick);}
 function syncSound(force=false){
   const video=$('mcSwapVideo');if(!video)return;
+  if(syncCompositionPlayback()){soundPlayer.pause();return;}
   video.volume=state.edit.original_volume;
   const end=Math.min(state.edit.end || video.duration,video.duration), start=state.edit.start;
   if(!video.paused && video.currentTime>=end){video.pause();video.currentTime=start;return;}
   const row=sounds.find(row=>row.id===state.edit.sound_id);
-  if(!row || video.paused || video.hidden || video.muted){soundPlayer.pause();return;}
+  if(!row || video.paused || video.hidden){soundPlayer.pause();return;}
   if(soundPlayer.getAttribute('src')!==row.url){soundPlayer.src=row.url;soundPlayer.preload='metadata';force=true;}
   const elapsed=Math.max(0,video.currentTime-start)/(state.edit.speed||1), length=(end-start)/(state.edit.speed||1);
   let at=state.edit.sound_offset+elapsed;
@@ -214,22 +237,26 @@ function status(text, url=''){
   if(url){const a=document.createElement('a');a.href=url;a.textContent='Baixar MP4';node.appendChild(a);}
 }
 async function exportEdit(){
+  if(state.composition?.enabled){await exportComposition(false);return;}
   if(exporting || !state.activeClipId)return;
   const video=$('mcSwapVideo'), end=state.edit.end || video?.duration;
   if(!Number.isFinite(end)||end<=state.edit.start){status('Defina um intervalo de corte válido.');return;}
-  const client=brand, id=crypto.randomUUID().replaceAll('-','');
+  const client=brand, id=newId().replaceAll('-','');
   exporting=true;paintStudio();status('Preparando exportação com corte e mixagem…');
+  showProcessing({job_id:`export:${id}`,kind:'export',title:'Exportando edição',background_supported:false,status:'queued',message:'Salvando a edição para renderizar…',plan:{aspect_ratio:state.aspectRatio},ui_stages:[{id:'queued',label:'Na fila'},{id:'rendering',label:'Renderizando vídeo, textos e áudio'},{id:'ready',label:'Pronto para baixar'}]});
   sessionStorage.setItem(`cadu-export:${client}`,id);
   try{
-    await post(`${base}/exports`,{client_id:client,clip_id:state.activeClipId,edit:{...state.edit},request_id:id});
+    await post(`${base}/exports`,{client_id:client,clip_id:state.activeClipId,edit:{...state.edit,output_ratio:state.aspectRatio},request_id:id});
+    updateProcessing({job_id:`export:${id}`,kind:"export",status:"queued",background_supported:true,message:"Edição salva. Aguardando processamento."});
     if(client===brand)pollExport(id,client);
-  }catch(error){sessionStorage.removeItem(`cadu-export:${client}`);if(client===brand){exporting=false;paintStudio();status(error.message);}}
+  }catch(error){sessionStorage.removeItem(`cadu-export:${client}`);if(client===brand){exporting=false;paintStudio();status(error.message);updateProcessing({job_id:`export:${id}`,status:'failed',error:error.message});}}
 }
 async function pollExport(id,client){
   if(client!==brand)return;
   try{
     const result=await get(`${base}/exports/${id}?client_id=${encodeURIComponent(client)}`);
     if(client!==brand)return;
+    updateProcessing({...result,job_id:`export:${id}`,kind:"export",stage:result.status,message:result.status==="ready"?"Exportação pronta.":"Renderizando sua edição…",version:result.status==="ready"?{video_url:`${base}/exports/${id}/content?client_id=${encodeURIComponent(client)}`}:undefined});
     if(result.status==='ready'||result.status==='failed'){
       exporting=false;sessionStorage.removeItem(`cadu-export:${client}`);paintStudio();
       upsertWorkspaceSpend({id:`edit:${id}`,kind:'edit',label:'Exportação da edição',amount_brl:0,amount_usd:0,status:result.status==='ready'?'confirmed':'failed',created_at:new Date().toISOString()});

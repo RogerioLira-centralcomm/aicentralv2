@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import logging
 import time
+import threading
 from datetime import datetime, timezone
 
 from ..services.openrouter_service import (
@@ -25,6 +26,10 @@ from . import storage, transcode
 
 logger = logging.getLogger(__name__)
 
+class JobCancelled(Exception):
+    pass
+
+
 TERMINAL = {"completed", "failed", "cancelled", "expired"}
 
 
@@ -44,25 +49,32 @@ class AnimateWorker:
         claimed = self.repository.claim_job(job_id)
         if claimed is None:
             return self.repository.get_job(job_id)
+        lease_stop = self._heartbeat(job_id, claimed.get("locked_at"))
         try:
             plan = claimed.get("plan_json") or {}
-            self._stage(job_id, "prepare", 8, "Preparando composição")
-            frames = self._frames(plan)
-            refs = self._references(plan)
-            self._stage(job_id, "submit", 18, "Enviando ao modelo")
-            submitted = self._submit(job_id, plan, frames, refs)
-            self.repository.update_job(
-                job_id,
-                provider_job_id=submitted.get("id") or "",
-                provider_polling_url=submitted.get("polling_url") or "",
-                status="provider_pending",
-            )
-            status = self._wait(job_id, submitted)
-            if status.get("status") != "completed":
-                raise RuntimeError(status.get("error") or "A geração falhou.")
-            self._stage(job_id, "download", 72, "Baixando master")
-            raw = self.video["download"](submitted.get("id") or status.get("id"))
-            version = self._packs(job_id, claimed, plan, raw)
+            version = claimed.get('version_payload')
+            if not (isinstance(version,dict) and version.get('master_asset_id')):
+                if claimed.get('provider_job_id'):
+                    submitted = {'id':claimed['provider_job_id'], 'polling_url':claimed.get('provider_polling_url'), 'status':'pending'}
+                else:
+                    if claimed.get('stage') == 'submit' and int(claimed.get('attempt') or 0) > 1:
+                        raise RuntimeError('O envio ao provedor foi interrompido sem confirmação. Revise o job antes de gerar novamente para evitar cobrança duplicada.')
+                    self._stage(job_id, "prepare", 8, "Preparando composição")
+                    frames = self._frames(plan)
+                    refs = self._references(plan)
+                    self._stage(job_id, "submit", 18, "Enviando ao modelo")
+                    submitted = self._submit(job_id, plan, frames, refs)
+                    if not submitted.get('id'):
+                        raise RuntimeError('O provedor não confirmou o identificador da geração. Revise antes de tentar novamente.')
+                    self.repository.update_job(job_id, provider_job_id=submitted['id'],
+                        provider_polling_url=submitted.get('polling_url') or '', status='provider_pending')
+                status = self._wait(job_id, submitted)
+                if status.get("status") != "completed":
+                    raise RuntimeError(status.get("error") or "A geração falhou.")
+                self._stage(job_id, "download", 72, "Baixando master")
+                raw = self.video["download"](submitted.get("id") or status.get("id"))
+                version = self._packs(job_id, claimed, plan, raw)
+                self.repository.update_job(job_id, version_payload=version)
             self._stage(job_id, "persist", 94, "Salvando no histórico")
             if callable(self.persist_fn):
                 stored = self.persist_fn(claimed, plan, version) or version
@@ -79,6 +91,8 @@ class AnimateWorker:
                 locked_at=None,
             )
             return self.repository.get_job(job_id)
+        except JobCancelled:
+            return self.repository.get_job(job_id)
         except Exception as exc:
             logger.exception("Animação %s falhou", job_id)
             self.repository.update_job(
@@ -92,6 +106,23 @@ class AnimateWorker:
                 locked_at=None,
             )
             raise
+        finally:
+            lease_stop.set()
+
+    def _heartbeat(self, job_id, locked_at):
+        from contextlib import nullcontext
+        from flask import current_app, has_app_context
+        stop=threading.Event()
+        app=current_app._get_current_object() if has_app_context() else None
+        def beat():
+            while not stop.wait(20):
+                try:
+                    with app.app_context() if app else nullcontext():
+                        self.repository.heartbeat(job_id,locked_at)
+                except Exception:
+                    logger.exception('Could not renew job lease: %s',job_id)
+        threading.Thread(target=beat,daemon=True,name=f'lease-{job_id}').start()
+        return stop
 
     def retry_transcode(self, job_id):
         row = self.repository.get_job(job_id)
@@ -150,6 +181,8 @@ class AnimateWorker:
         deadline = time.time() + 15 * 60
         status = submitted
         while time.time() < deadline:
+            if self.repository.get_job(job_id).get("status") == "cancelled":
+                raise JobCancelled()
             current = str(status.get("status") or "pending")
             if current == "pending":
                 self._stage(job_id, "queue", 32, "Aguardando na fila", persist="provider_pending")
@@ -278,6 +311,8 @@ class AnimateWorker:
             protected=False,
             composited=False,
         )
+        from .validation import validate_delivery
+        validate_delivery(raw, plan, technical=True)
         video = raw
         width = plan.get("width")
         height = plan.get("height")
@@ -286,8 +321,8 @@ class AnimateWorker:
             try:
                 video = crop_video(raw, int(width), int(height), piece)
                 _left, _top, width, height = crop_box_4x5(int(width), int(height))
-            except Exception:
-                logger.warning("Crop 4:5 falhou em %s", job_id)
+            except Exception as error:
+                raise RuntimeError("Não foi possível entregar o formato 4:5 solicitado.") from error
         source = plan.get("source") or {}
         mode = source.get("mode") or ""
         snapshot = source.get("snapshot")
@@ -327,7 +362,10 @@ class AnimateWorker:
         voiceover_id, mixed = self._mix_voiceover(job_id, row, plan, video)
         if mixed is not None:
             video = mixed
-        self._stage(job_id, "transcode", 82, "Preparando formatos")
+        self._stage(job_id, "validate", 88, "Validando formato, duração e áudio")
+        metadata = validate_delivery(video, plan)
+        width, height = metadata["width"], metadata["height"]
+        self._stage(job_id, "transcode", 90, "Preparando formatos")
         master = self._store_asset(
             job_pk,
             "master",
@@ -335,7 +373,7 @@ class AnimateWorker:
             "video/mp4",
             ".mp4",
             plan,
-            has_audio=bool(plan.get("generate_audio") or plan.get("audio_mode") == "voiceover"),
+            has_audio=metadata["has_audio"],
             width=width,
             height=height,
             protected=protected,
@@ -395,7 +433,10 @@ class AnimateWorker:
             "transition_to": source.get("to_id") or "",
             "end_card_asset_id": "",
             "duration": plan.get("duration"),
-            "has_audio": bool(plan.get("generate_audio") or plan.get("audio_mode") == "voiceover"),
+            "has_audio": metadata["has_audio"],
+            "width": width,
+            "height": height,
+            "aspect_ratio": piece,
             "voiceover_asset_id": voiceover_id,
             "voiceover_script": plan.get("voiceover_script") or "",
             "storyboard_ids": source.get("ref_ids") or [],
@@ -443,6 +484,9 @@ class AnimateWorker:
     def _voiceover_bytes(self, row, plan):
         version = row.get("version_payload") if isinstance(row.get("version_payload"), dict) else {}
         asset_id = version.get("voiceover_asset_id")
+        if not asset_id:
+            existing = self.repository.list_assets(job_id=row.get("id"), kind="voiceover")
+            asset_id = existing[0]["public_id"] if existing else None
         if asset_id:
             try:
                 asset = self.repository.get_asset(asset_id)
@@ -520,6 +564,8 @@ class AnimateWorker:
 
     def _stage(self, job_id, stage, progress, message, persist=None):
         row = self.repository.get_job(job_id)
+        if row.get("status") == "cancelled":
+            raise JobCancelled()
         stages = list(row.get("stages") or [])
         now = datetime.now(timezone.utc).isoformat()
         found = next((item for item in stages if item.get("id") == stage), None)

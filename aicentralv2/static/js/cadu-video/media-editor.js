@@ -68,13 +68,20 @@ export function bindMediaEditor(dirty,paint,reloadSounds) {
     if(file.size>150*1024*1024){status.textContent='Envie um vídeo de até 150 MB.';return;}
     event.target.disabled=true;status.textContent='Enviando vídeo e preparando quadros e áudio…';
     const form=new FormData();form.append('file',file);form.append('client_id',client);form.append('kind','import');
+    form.append('autocut',JSON.stringify({enabled:$('mcImportAutoCut')?.checked===true,mode:$('mcImportCutMode')?.value,max_cuts:Number($('mcImportCutLimit')?.value)||30,transition:$('mcImportTransition')?.value}));
     try{
-      const response=await fetch(`${base}/tasks`,{method:'POST',credentials:'same-origin',headers:{'X-Trocr-CSRF-Token':csrf()},body:form});
-      const result=await response.json();if(!response.ok||result.success===false)throw new Error(result.error||'Falha ao importar vídeo.');
+      const started=Date.now();
+      const result=await new Promise((resolve,reject)=>{
+        const xhr=new XMLHttpRequest();xhr.open('POST',`${base}/tasks`);xhr.setRequestHeader('X-Trocr-CSRF-Token',csrf());xhr.responseType='json';
+        xhr.upload.onprogress=e=>{status.textContent=`Enviando vídeo${e.lengthComputable?' · '+Math.round(e.loaded/e.total*100)+'%':''} · ${Math.floor((Date.now()-started)/1000)}s. Mantenha a página aberta até concluir o envio.`;};
+        xhr.onerror=()=>reject(new Error('Envio interrompido. Tente novamente.'));
+        xhr.onload=()=>xhr.status>=200&&xhr.status<300&&xhr.response?.success!==false?resolve(xhr.response):reject(new Error(xhr.response?.error||'Falha ao importar vídeo.'));
+        xhr.send(form);
+      });
       const ready=await awaitMediaTask(result.data||result,client,{overlay:true,title:'Preparando vídeo e quadros'});
       if(client!==state.clientId)return;
       document.dispatchEvent(new CustomEvent('cadu:clip-imported',{detail:ready}));
-      status.textContent='Vídeo pronto. Arraste as bordas na timeline para cortar; ajuste áudio, velocidade e fades em Editar.';
+      status.textContent=ready.autocut_warning || (ready.autocut ? `${ready.autocut.cuts.length} cortes preparados · ${ready.autocut.removed_duration.toFixed(1)}s removidos. Revise a montagem e restaure cortes quando necessário.` : 'Vídeo pronto. Arraste as bordas na timeline para cortar; ajuste áudio, velocidade e fades em Editar.');
     }catch(error){if(client===state.clientId)status.textContent=error.message;}
     finally{event.target.disabled=false;}
   });

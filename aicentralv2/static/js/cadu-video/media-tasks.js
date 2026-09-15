@@ -9,7 +9,7 @@ export async function awaitMediaTask(row,client,{overlay=false,title='Preparando
     if(signal?.aborted)throw new DOMException('Aborted','AbortError');
     await new Promise(resolve=>setTimeout(resolve,1200));
     row=await get(`${base}/tasks/${row.id}?client_id=${encodeURIComponent(client)}`);
-    if(overlay)updateProcessing({...row,job_id:id,stage:row.status});
+    if(overlay)updateProcessing({...row,job_id:id,stage:row.status,message:row.stage||undefined});
   }
   if(row.status==='failed')throw new Error(row.error||'Falha no processamento.');
   return row.result;

@@ -5,6 +5,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 from .studio import number, probe
+from .studio_caption_style import normalize_style
+from .studio_audio import normalize as normalize_audio, filters as audio_filters
 from .studio_layers import normalize_layers, render_layers
 
 TRANSITIONS={'cut','fade','fadeblack','slideleft','wipeleft'}
@@ -13,7 +15,7 @@ TRANSITIONS={'cut','fade','fadeblack','slideleft','wipeleft'}
 def normalize_composition(raw):
     raw=raw if isinstance(raw,dict) else {}
     items=[]
-    for row in (raw.get('items') if isinstance(raw.get('items'),list) else [])[:30]:
+    for row in (raw.get('items') if isinstance(raw.get('items'),list) else [])[:120]:
         if not isinstance(row,dict):continue
         kind='image' if row.get('kind')=='image' else 'video'
         start=number(row.get('in'),0,0,300);end=number(row.get('out'),0,0,300)
@@ -21,10 +23,10 @@ def normalize_composition(raw):
             'kind':kind,'in':start,'out':end,'duration':number(row.get('duration'),4,.2,300),
             'speed':number(row.get('speed'),1,.25,4),'volume':number(row.get('volume'),1,0,1),
             'fit':'cover' if row.get('fit')=='cover' else 'contain',
-            'keyframes':normalize_keyframes(row.get('keyframes')),
+            'keyframes':normalize_keyframes(row.get('keyframes')),'voice':normalize_audio(row.get('voice')),
             'motion':'zoom' if row.get('motion')=='zoom' else 'none',
             'transition':row.get('transition') if row.get('transition') in TRANSITIONS else 'cut',
-            'transition_duration':number(row.get('transition_duration'),.4,.1,2)})
+            'transition_duration':number(row.get('transition_duration'),.4,.05,2)})
     audio=[]
     for row in (raw.get('audio') if isinstance(raw.get('audio'),list) else [])[:8]:
         if not isinstance(row,dict):continue
@@ -32,13 +34,13 @@ def normalize_composition(raw):
             'in':number(row.get('in'),0,0,600),'duration':number(row.get('duration'),10,.1,600),
             'volume':number(row.get('volume'),.35,0,1),'muted':row.get('muted') is True,
             'fade_in':number(row.get('fade_in'),0,0,10),'fade_out':number(row.get('fade_out'),0,0,10),
-            'loop':row.get('loop') is True})
+            'voice':normalize_audio(row.get('voice')),'loop':row.get('loop') is True})
     captions=[]
     for row in (raw.get('captions') if isinstance(raw.get('captions'),list) else [])[:500]:
         if not isinstance(row,dict):continue
         start=number(row.get('start'),0,0,600);end=number(row.get('end'),0,0,600)
         if end>start:captions.append({'start':start,'end':end,'text':str(row.get('text') or '')[:300]})
-    return {'items':items,'audio':audio,'captions':captions,'layers':normalize_layers(raw.get('layers')),
+    return {'items':items,'audio':audio,'captions':captions,'caption_style':normalize_style(raw.get('caption_style')),'layers':normalize_layers(raw.get('layers')),
             'ratio':raw.get('ratio') if raw.get('ratio') in {'16:9','9:16','1:1','4:5','3:4','4:3','21:9'} else '16:9',
             'resolution':1080 if raw.get('resolution')==1080 else 720,
             'fps':24 if raw.get('fps')==24 else 30}
@@ -77,7 +79,7 @@ def render_composition(composition, sources, sounds, dest):
             visual+=f',setsar=1,setpts=(PTS-STARTPTS)/{item["speed"] if video else 1},fps={fps},format=yuv420p'
             if not video and item['motion']=='zoom':
                 visual+=f",zoompan=z='min(1+on*0.08/{max(1,round(length*fps))},1.08)':x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':d=1:s={width}x{height}:fps={fps}"
-            audio=(f'asetpts=PTS-STARTPTS,{_atempo(item["speed"])},volume={item["volume"]},' if native else '')+f'apad,atrim=duration={length},aresample=48000,aformat=channel_layouts=stereo'
+            audio=(f'{audio_filters(item.get("voice"))},asetpts=PTS-STARTPTS,{_atempo(item["speed"])},volume={item["volume"]},' if native else '')+f'apad,atrim=duration={length},aresample=48000,aformat=channel_layouts=stereo,afade=t=in:d=0.005,afade=t=out:st={max(0,length-.005)}:d=0.005'
             command+=['-map','0:v:0','-map','0:a:0' if native else '1:a:0','-vf',visual,'-af',audio,'-t',str(length),'-c:v','libx264','-preset','veryfast','-crf','20','-c:a','aac',str(path)]
             run(command)
             if item.get('keyframes'):
@@ -105,7 +107,7 @@ def render_composition(composition, sources, sounds, dest):
                 command+=['-ss',str(track['in']),'-i',str(source)]
                 length=min(track['duration'],max(.1,total-track['start']))
                 volume=0 if track['muted'] else track['volume']
-                filters.append(f'[{index}:a]asetpts=PTS-STARTPTS,atrim=duration={length},volume={volume},afade=t=in:d={min(track["fade_in"],length)},afade=t=out:st={max(0,length-track["fade_out"])}:d={min(track["fade_out"],length)},adelay={round(track["start"]*1000)}:all=1[a{index}]')
+                filters.append(f'[{index}:a]{audio_filters(track.get("voice"))},asetpts=PTS-STARTPTS,atrim=duration={length},volume={volume},afade=t=in:d={min(track["fade_in"],length)},afade=t=out:st={max(0,length-track["fade_out"])}:d={min(track["fade_out"],length)},adelay={round(track["start"]*1000)}:all=1[a{index}]')
                 labels.append(f'[a{index}]')
             filters.append(''.join(labels)+f'amix=inputs={len(labels)}:duration=first:normalize=0,alimiter=limit=.95[a]')
             mixed=temp/'mixed.mp4';run(command+['-filter_complex_threads','1','-filter_complex',';'.join(filters),'-map','0:v:0','-map','[a]','-c:v','copy','-c:a','aac','-t',str(total),str(mixed)]);merged=mixed
@@ -114,9 +116,11 @@ def render_composition(composition, sources, sounds, dest):
         if composition['captions']:
             from .studio_captions import render_captions
             captioned=temp/'captioned.mp4'
-            render_captions(merged,captioned,composition['captions'],width,height,total,fps)
+            render_captions(merged,captioned,composition['captions'],width,height,total,fps,composition.get('caption_style'))
             merged=captioned
-        run(['-i',str(merged),'-map','0','-c','copy','-movflags','+faststart',str(dest)])
+        # Concat/AAC packet padding must not accumulate into the exported timeline.
+        total=round(total*fps)/fps
+        run(['-i',str(merged),'-map','0:v:0','-map','0:a:0','-vf',f'trim=duration={total},setpts=PTS-STARTPTS','-af',f'atrim=duration={total},asetpts=PTS-STARTPTS','-t',str(total),'-c:v','libx264','-preset','veryfast','-crf','20','-c:a','aac','-movflags','+faststart',str(dest)])
         return {'duration':total,'width':width,'height':height,'fps':fps}
 
 

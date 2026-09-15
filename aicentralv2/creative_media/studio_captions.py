@@ -1,4 +1,4 @@
-"""Timed captions with ASS control sequences escaped before FFmpeg."""
+"""Timed caption export with shared font and style settings."""
 def ass_time(seconds):
     value=round(seconds*100)
     return f'{value//360000}:{value//6000%60:02}:{value//100%60:02}.{value%100:02}'
@@ -24,32 +24,18 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     path.write_text(header+'\n'.join(lines),encoding='utf-8')
 
 
-def render_captions(source, dest, captions, width, height, duration, fps):
+def render_captions(source, dest, captions, width, height, duration, fps, style=None):
     """Sparse PNG timeline works even on FFmpeg builds without libass."""
     import subprocess
     import tempfile
     from pathlib import Path
-    from PIL import Image, ImageDraw, ImageFont
-    font=ImageFont.truetype(str(Path(__file__).resolve().parents[1]/'static/fonts/OpenSans-Regular.ttf'),round(height*.045))
+    from .studio_caption_style import caption_image
     events=sorted({0.,duration,*[max(0,min(duration,row[key])) for row in captions for key in ('start','end')]})
     with tempfile.TemporaryDirectory(prefix='cadu-captions-') as directory:
         root=Path(directory);lines=['ffconcat version 1.0'];last=None
         for index,(start,end) in enumerate(zip(events,events[1:])):
-            image=Image.new('RGBA',(width,height));draw=ImageDraw.Draw(image)
-            content=[]
-            for row in captions:
-                if not row['start']<=start<row['end']:continue
-                for paragraph in row['text'].splitlines():
-                    line=''
-                    for word in paragraph.split():
-                        candidate=f'{line} {word}'.strip()
-                        if draw.textlength(candidate,font=font)>width*.86 and line:
-                            content.append(line);line=word
-                        else:line=candidate
-                    content.append(line)
-            text='\n'.join(content)
-            if text:
-                draw.multiline_text((width//2,round(height*.91)),text,font=font,anchor='md',align='center',fill='white',stroke_width=2,stroke_fill='black')
+            text='\n'.join(row['text'] for row in captions if row['start']<=start<row['end'])
+            image=caption_image(text,width,height,style)
             path=root/f'caption-{index}.png';image.save(path);last=path
             lines.extend([f"file '{path}'",f'option framerate {fps}',f'duration {end-start:.6f}'])
         if last:lines.extend([f"file '{last}'",f'option framerate {fps}'])

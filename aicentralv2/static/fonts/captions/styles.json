@@ -1,0 +1,211 @@
+{
+  "fonts": [
+    {
+      "id": "open",
+      "name": "Open Sans",
+      "file": "OpenSans-Regular.ttf"
+    },
+    {
+      "id": "lato",
+      "name": "Lato",
+      "file": "captions/Lato-Regular.ttf"
+    },
+    {
+      "id": "lato_bold",
+      "name": "Lato Bold",
+      "file": "captions/Lato-Bold.ttf"
+    },
+    {
+      "id": "anton",
+      "name": "Anton",
+      "file": "captions/Anton-Regular.ttf"
+    },
+    {
+      "id": "lora",
+      "name": "Lora",
+      "file": "captions/Lora-Regular.ttf"
+    }
+  ],
+  "presets": [
+    {
+      "id": "classic",
+      "name": "Clássica",
+      "style": {
+        "font": "open",
+        "size": 0.045,
+        "x": 0.5,
+        "y": 0.86,
+        "color": "#ffffff",
+        "outline_color": "#000000",
+        "outline": 0.06,
+        "background": "#000000",
+        "background_opacity": 0,
+        "uppercase": false,
+        "align": "center",
+        "preset": "classic"
+      }
+    },
+    {
+      "id": "bold",
+      "name": "Impacto",
+      "style": {
+        "font": "anton",
+        "size": 0.055,
+        "x": 0.5,
+        "y": 0.86,
+        "color": "#ffffff",
+        "outline_color": "#000000",
+        "outline": 0.06,
+        "background": "#000000",
+        "background_opacity": 0,
+        "uppercase": true,
+        "align": "center",
+        "preset": "bold"
+      }
+    },
+    {
+      "id": "yellow",
+      "name": "Amarelo destaque",
+      "style": {
+        "font": "lato_bold",
+        "size": 0.045,
+        "x": 0.5,
+        "y": 0.86,
+        "color": "#ffe34d",
+        "outline_color": "#000000",
+        "outline": 0.08,
+        "background": "#000000",
+        "background_opacity": 0,
+        "uppercase": false,
+        "align": "center",
+        "preset": "yellow"
+      }
+    },
+    {
+      "id": "box",
+      "name": "Caixa escura",
+      "style": {
+        "font": "lato",
+        "size": 0.045,
+        "x": 0.5,
+        "y": 0.86,
+        "color": "#ffffff",
+        "outline_color": "#000000",
+        "outline": 0,
+        "background": "#000000",
+        "background_opacity": 0.85,
+        "uppercase": false,
+        "align": "center",
+        "preset": "box"
+      }
+    },
+    {
+      "id": "light",
+      "name": "Caixa clara",
+      "style": {
+        "font": "lato_bold",
+        "size": 0.045,
+        "x": 0.5,
+        "y": 0.86,
+        "color": "#192331",
+        "outline_color": "#000000",
+        "outline": 0,
+        "background": "#ffffff",
+        "background_opacity": 0.95,
+        "uppercase": false,
+        "align": "center",
+        "preset": "light"
+      }
+    },
+    {
+      "id": "cinema",
+      "name": "Cinema",
+      "style": {
+        "font": "lora",
+        "size": 0.04,
+        "x": 0.5,
+        "y": 0.9,
+        "color": "#ffffff",
+        "outline_color": "#000000",
+        "outline": 0.03,
+        "background": "#000000",
+        "background_opacity": 0,
+        "uppercase": false,
+        "align": "center",
+        "preset": "cinema"
+      }
+    },
+    {
+      "id": "mint",
+      "name": "Menta",
+      "style": {
+        "font": "lato_bold",
+        "size": 0.045,
+        "x": 0.5,
+        "y": 0.86,
+        "color": "#76f5cc",
+        "outline_color": "#000000",
+        "outline": 0.08,
+        "background": "#000000",
+        "background_opacity": 0,
+        "uppercase": false,
+        "align": "center",
+        "preset": "mint"
+      }
+    },
+    {
+      "id": "blue",
+      "name": "Azul editorial",
+      "style": {
+        "font": "lato_bold",
+        "size": 0.045,
+        "x": 0.5,
+        "y": 0.86,
+        "color": "#ffffff",
+        "outline_color": "#000000",
+        "outline": 0,
+        "background": "#174bba",
+        "background_opacity": 0.95,
+        "uppercase": false,
+        "align": "center",
+        "preset": "blue"
+      }
+    },
+    {
+      "id": "pink",
+      "name": "Rosa pop",
+      "style": {
+        "font": "anton",
+        "size": 0.045,
+        "x": 0.5,
+        "y": 0.86,
+        "color": "#ff89d2",
+        "outline_color": "#000000",
+        "outline": 0.09,
+        "background": "#000000",
+        "background_opacity": 0,
+        "uppercase": true,
+        "align": "center",
+        "preset": "pink"
+      }
+    },
+    {
+      "id": "minimal",
+      "name": "Minimalista",
+      "style": {
+        "font": "lato",
+        "size": 0.035,
+        "x": 0.5,
+        "y": 0.86,
+        "color": "#ffffff",
+        "outline_color": "#000000",
+        "outline": 0.03,
+        "background": "#000000",
+        "background_opacity": 0,
+        "uppercase": false,
+        "align": "center",
+        "preset": "minimal"
+      }
+    }
+  ]
+}

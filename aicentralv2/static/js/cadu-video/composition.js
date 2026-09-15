@@ -1,3 +1,4 @@
+import {bindCaptionStyle,paintCaptionStyle} from './caption-style.js';
 import {deliveryOptions,downloadExport,beginDownload,updateDownload} from './delivery.js';
 import {paintLivePreview,previewTime,seekLivePreview,schedule} from './live-preview.js';
 import {keyframeEditor,bindKeyframes} from './keyframes.js';
@@ -10,7 +11,7 @@ const $=id=>document.getElementById(id),base='/parametros/api/format-lab/studio'
 let dirty,refresh,signature='',dragId='',rendering=false;
 export const emptyComposition=()=>({enabled:false,items:[],audio:[],captions:[],selected:'',resolution:720,fps:30,preview_url:'',preview_valid:false});
 const comp=()=>state.composition ||= emptyComposition();
-const fingerprint=()=>JSON.stringify({items:comp().items,audio:comp().audio,captions:comp().captions,resolution:comp().resolution,fps:comp().fps,ratio:state.aspectRatio,layers:state.edit?.layers||[]});
+const fingerprint=()=>JSON.stringify({items:comp().items,audio:comp().audio,captions:comp().captions,caption_style:comp().caption_style,resolution:comp().resolution,fps:comp().fps,ratio:state.aspectRatio,layers:state.edit?.layers||[]});
 const item=()=>comp().items.find(row=>row.id===comp().selected);
 const asset=row=>(row?.kind==='image'?state.library:state.clips).find(source=>source.id===row?.asset_id);
 const length=row=>row.kind==='image'?row.duration:Math.max(.1,((row.out||asset(row)?.duration||4)-row.in)/row.speed);
@@ -18,11 +19,21 @@ export function compositionDuration(){return comp().items.reduce((total,row,inde
 function changed(){comp().preview_valid=false;dirty();paintComposition();paintCompositionCanvas();}
 export function bindComposition(commit,paint){
   dirty=commit;refresh=paint;
+  bindCaptionStyle(comp,changed);
+  document.addEventListener('cadu:apply-autocut',event=>{
+    const source=event.detail,analysis=source.autocut;if(!analysis)return;
+    comp().autocut={asset_id:source.id,...structuredClone(analysis)};
+    rebuildAutoCuts();
+  });
+  $('mcCompositionControls')?.addEventListener('click',event=>{
+    if(event.target.dataset.restoreCut!==undefined){comp().autocut.cuts.splice(Number(event.target.dataset.restoreCut),1);rebuildAutoCuts();}
+    if(event.target.dataset.restoreAll!==undefined){comp().autocut.cuts=[];rebuildAutoCuts();}
+  });
   bindKeyframes($('mcCompositionControls'),()=>item(),changed,row=>Math.max(0,previewTime()-(schedule(comp().items).find(r=>r.row.id===row.id)?.start||0)));
   $('mcCompositionMode')?.addEventListener('click',()=>{comp().enabled=!comp().enabled;dirty();refresh();paintComposition();});
   $('mcCompositionAdd')?.addEventListener('click',()=>{
     const value=$('mcCompositionAsset').value;const kind=value.startsWith('image:')?'image':'video',id=value.slice(kind.length+1);
-    const source=(kind==='image'?state.library:state.clips).find(row=>row.id===id);if(!source||comp().items.length>=30)return;
+    const source=(kind==='image'?state.library:state.clips).find(row=>row.id===id);if(!source||comp().items.length>=120)return;
     const row={id:newId(),asset_id:id,kind,in:0,out:Number(source.duration)||0,duration:4,speed:1,volume:1,fit:'contain',motion:'none',transition:'cut',transition_duration:.4};
     comp().items.push(row);comp().selected=row.id;comp().enabled=true;changed();refresh();seekLivePreview(schedule(comp().items).find(r=>r.row.id===row.id)?.start||0);
   });
@@ -39,17 +50,19 @@ export function bindComposition(commit,paint){
   });
   $('mcCompositionControls')?.addEventListener('change',event=>{
     const input=event.target,row=item(),key=input.dataset.composeKey;if(!row||!key)return;
+    if(key==='voice_amount'){row.voice={preset:row.voice?.preset||'clean',amount:Math.max(0,Math.min(1,Number(input.value)||0))};changed();return;}
+    if(key==='voice'){row.voice={preset:input.value,amount:.5};changed();return;}
     row[key]=input.type==='number'?Math.min(Number(input.max),Math.max(Number(input.min),Number(input.value)||0)):input.value;changed();
   });
   $('mcCompositionControls')?.addEventListener('click',event=>{
     const action=event.target.dataset.composeAction,row=item();if(!action||!row)return;
     const index=comp().items.indexOf(row);
     if(action==='delete'){comp().items.splice(index,1);comp().selected=comp().items[Math.min(index,comp().items.length-1)]?.id||'';}
-    if(action==='duplicate'&&comp().items.length<30){const copy={...row,id:newId()};comp().items.splice(index+1,0,copy);comp().selected=copy.id;}
-    if(action==='split'&&comp().items.length<30){
+    if(action==='duplicate'&&comp().items.length<120){const copy={...row,id:newId()};comp().items.splice(index+1,0,copy);comp().selected=copy.id;}
+    if(action==='split'&&comp().items.length<120){
       const copy={...row,id:newId()};
       if(row.kind==='image'){if(row.duration<.4)return;row.duration/=2;copy.duration=row.duration;}
-      else{const end=row.out||asset(row)?.duration,at=comp().preview_valid?$('mcSwapVideo').currentTime:row.in+Math.max(0,previewTime()-(schedule(comp().items).find(r=>r.row.id===row.id)?.start||0))*row.speed;if(!(at>row.in+.1&&at<end-.1)){notify('Posicione a reprodução dentro do clipe para dividir.');return;}row.out=at;copy.in=at;copy.out=end;}
+      else{const end=row.out||asset(row)?.duration,at=row.in+Math.max(0,(comp().preview_valid?$('mcSwapVideo').currentTime:previewTime())-(schedule(comp().items).find(r=>r.row.id===row.id)?.start||0))*row.speed;if(!(at>row.in+.1&&at<end-.1)){notify('Posicione a reprodução dentro do clipe para dividir.');return;}row.out=at;copy.in=at;copy.out=end;}
       row.transition='cut';comp().items.splice(index+1,0,copy);comp().selected=copy.id;
     }
     if(action==='before'&&index>0){comp().items.splice(index,1);comp().items.splice(index-1,0,row);}
@@ -62,6 +75,8 @@ export function bindComposition(commit,paint){
   });
   $('mcCompositionAudio')?.addEventListener('change',event=>{
     const input=event.target,row=comp().audio[Number(input.dataset.audioIndex)],key=input.dataset.audioKey;if(!row||!key)return;
+    if(key==='voice_amount'){row.voice={preset:row.voice?.preset||'clean',amount:Math.max(0,Math.min(1,Number(input.value)||0))};changed();return;}
+    if(key==='voice'){row.voice={preset:input.value,amount:.5};changed();return;}
     row[key]=input.type==='checkbox'?input.checked:Math.min(Number(input.max),Math.max(Number(input.min),Number(input.value)||0));changed();
   });
   $('mcCompositionAudio')?.addEventListener('click',event=>{const index=event.target.dataset.audioRemove;if(index!==undefined){comp().audio.splice(Number(index),1);changed();}});
@@ -90,9 +105,23 @@ export function bindComposition(commit,paint){
     const url=URL.createObjectURL(new Blob([toSrt(comp().captions)],{type:'application/x-subrip;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='legendas.srt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   });
 }
+function rebuildAutoCuts(){
+  const c=comp(),a=c.autocut;if(!a)return;
+  const kept=[];let cursor=0;
+  for(const cut of a.cuts){if(cut.in>cursor+.1)kept.push([cursor,cut.in]);cursor=cut.out;}
+  if(a.duration>cursor+.1)kept.push([cursor,a.duration]);
+  c.items=kept.map(([start,end])=>({id:newId(),asset_id:a.asset_id,kind:'video',in:start,out:end,duration:end-start,speed:1,volume:1,fit:'contain',motion:'none',transition:'cut',transition_duration:.1}));
+  for(let i=0;i<c.items.length-1;i++){if(a.cuts[i]?.reason==='Pausa'){c.items[i].transition=a.options.transition;c.items[i].transition_duration=Math.min(a.options.transition_duration,a.options.mode==='aggressive'?.05:.1);}}
+  // Audio remains attached to each source interval: trim/move/speed stay synchronized.
+  // Dissolves require more silent handles than these speech-preserving cuts retain.
+  c.selected=c.items[0]?.id||'';c.enabled=true;c.audio=[];c.captions=[];
+  changed();refresh();seekLivePreview(0);
+}
+function voiceControl(row,index){return `<label>Melhorar voz<select ${index===undefined?'data-compose-key="voice"':`data-audio-index="${index}" data-audio-key="voice"`}>${[['off','Original'],['clean','Voz limpa'],['warm','Voz encorpada'],['denoise','Reduzir ruído']].map(([v,t])=>`<option value="${v}" ${(row.voice?.preset||'off')===v?'selected':''}>${t}</option>`).join('')}</select></label><label>Intensidade<input type="number" min="0" max="1" step=".1" value="${row.voice?.amount??.5}" ${index===undefined?'data-compose-key="voice_amount"':`data-audio-index="${index}" data-audio-key="voice_amount"`}></label><small>Use “Renderizar prévia da montagem” para ouvir o tratamento aplicado na exportação.</small>`;}
 function number(key,label,value,min,max,step='.1',extra=''){return `<label>${label}<input type="number" min="${min}" max="${max}" step="${step}" value="${Number(value)||0}" ${extra||`data-compose-key="${key}"`}></label>`;}
 export function paintComposition(){
   if(!$('mcCompositionTracks'))return;
+  paintCaptionStyle();
   const c=comp(),row=item();if(c.preview_valid&&c.preview_signature!==fingerprint())c.preview_valid=false;$('mcCompositionMode').setAttribute('aria-pressed',String(c.enabled));$('mcCompositionMode').textContent=c.enabled?'Montagem ativa':'Montar sequência';
   $('mcSwap').classList.toggle('is-composition',c.enabled);$('mcCompositionTracks').hidden=!c.enabled;
   const selectedAsset=$('mcCompositionAsset').value;
@@ -102,8 +131,9 @@ export function paintComposition(){
   $('mcCompositionDuration').textContent=`${compositionDuration().toFixed(1)}s · ${c.items.length} itens${c.preview_valid?' · Prévia atualizada':' · Prévia instantânea'}`;
   $('mcCompositionTracks').innerHTML=`<div class="mc-composition-lane">${c.items.map((row,i)=>{const source=asset(row);return `<button type="button" draggable="true" class="${row.id===c.selected?'is-selected':''}" data-composition-item="${esc(row.id)}" style="flex-grow:${length(row)}"><img src="${esc(source?.thumb_url||source?.poster_url||source?.image_url||'')}" alt=""><strong>${i+1}. ${esc(source?.name||'Mídia indisponível')}</strong><small>${length(row).toFixed(1)}s · ${esc(row.transition)}</small></button>`;}).join('')}</div>${c.audio.map((track,i)=>`<div class="mc-composition-audio-lane" style="opacity:${track.muted ? .45 : 1}"><span>♫ ${i+1} · ${esc(track.name||'Áudio')} · ${track.start}s → ${(track.start+track.duration).toFixed(1)}s ${track.muted?'· Mudo':''}</span></div>`).join('')}${c.captions.length?`<div class="mc-composition-caption-lane">CC · ${c.captions.length} legendas editáveis</div>`:''}`;
   const select=(key,label,values)=>`<label>${label}<select data-compose-key="${key}">${values.map(([value,text])=>`<option value="${value}" ${row?.[key]===value?'selected':''}>${text}</option>`).join('')}</select></label>`;
-  $('mcCompositionControls').innerHTML=row?`<h4>${esc(asset(row)?.name||'Item selecionado')}</h4><div class="mc-studio-pair">${row.kind==='image'?number('duration','Duração (s)',row.duration,.2,300):number('in','Entrada (s)',row.in,0,300)+number('out','Saída (s)',row.out,0,300)+number('speed','Velocidade',row.speed,.25,4,'.25')}${number('volume','Volume original',row.volume,0,1,'.05')}</div>${select('fit','Enquadramento',[['contain','Caber sem cortar'],['cover','Preencher com corte central']])}${row.kind==='image'?select('motion','Animação da imagem',[['none','Fixa'],['zoom','Zoom suave']]):''}${select('transition','Próxima cena',[['cut','Corte'],['fade','Dissolver'],['fadeblack','Passar pelo preto'],['slideleft','Deslizar'],['wipeleft','Revelar']])}${number('transition_duration','Duração da transição',row.transition_duration,.1,2)}${keyframeEditor(row.keyframes)}<div class="mc-composition-actions">${[['split','Dividir'],['duplicate','Duplicar'],['before','Antes'],['after','Depois'],['delete','Excluir']].map(([a,t])=>`<button type="button" data-compose-action="${a}">${t}</button>`).join('')}</div>`:'<p>Adicione e selecione uma mídia na sequência.</p>';
-  $('mcCompositionAudio').innerHTML=c.audio.map((track,i)=>`<fieldset><legend>${esc(track.name||`Áudio ${i+1}`)}</legend><div class="mc-studio-pair">${[['start','Posição (s)',600],['in','Cortar início (s)',600],['duration','Duração (s)',600],['volume','Volume',1],['fade_in','Fade in (s)',10],['fade_out','Fade out (s)',10]].map(([key,label,max])=>number(key,label,track[key],0,max,'.1',`data-audio-index="${i}" data-audio-key="${key}"`)).join('')}</div><label><input type="checkbox" data-audio-index="${i}" data-audio-key="muted" ${track.muted?'checked':''}> Mutar faixa</label><label><input type="checkbox" data-audio-index="${i}" data-audio-key="loop" ${track.loop?'checked':''}> Repetir</label><button type="button" data-audio-remove="${i}">Remover faixa</button></fieldset>`).join('');
+  $('mcCompositionControls').innerHTML=row?`<h4>${esc(asset(row)?.name||'Item selecionado')}</h4><div class="mc-studio-pair">${row.kind==='image'?number('duration','Duração (s)',row.duration,.2,300):number('in','Entrada (s)',row.in,0,300)+number('out','Saída (s)',row.out,0,300)+number('speed','Velocidade',row.speed,.25,4,'.25')}${number('volume','Volume original',row.volume,0,1,'.05')}</div>${select('fit','Enquadramento',[['contain','Caber sem cortar'],['cover','Preencher com corte central']])}${row.kind==='image'?select('motion','Animação da imagem',[['none','Fixa'],['zoom','Zoom suave']]):''}${select('transition','Próxima cena',[['cut','Corte'],['fade','Dissolver'],['fadeblack','Passar pelo preto'],['slideleft','Deslizar'],['wipeleft','Revelar']])}${number('transition_duration','Duração da transição',row.transition_duration,.05,2)}${voiceControl(row)}${keyframeEditor(row.keyframes)}<div class="mc-composition-actions">${[['split','Dividir'],['duplicate','Duplicar'],['before','Antes'],['after','Depois'],['delete','Excluir']].map(([a,t])=>`<button type="button" data-compose-action="${a}">${t}</button>`).join('')}</div>`:'<p>Adicione e selecione uma mídia na sequência.</p>';
+  if(c.autocut)$('mcCompositionControls').insertAdjacentHTML('beforeend',`<details><summary>Revisar cortes automáticos (${c.autocut.cuts.length})</summary><p>Restaurar reconstrói a montagem importada. Faça esta revisão antes dos ajustes manuais.</p>${c.autocut.options.transition!=='cut'?'<p>Transições curtas nas pausas; corte seco nas hesitações para preservar palavras.</p>':''}${c.autocut.cuts.map((cut,i)=>`<p>${cut.in.toFixed(2)}–${cut.out.toFixed(2)}s · ${esc(cut.reason)} <button type="button" data-restore-cut="${i}">Restaurar</button></p>`).join('')}<button type="button" data-restore-all>Restaurar original</button>${c.autocut.review.map(r=>`<p>${r.in.toFixed(2)}s · ${esc(r.reason)}</p>`).join('')}</details>`);
+  $('mcCompositionAudio').innerHTML=c.audio.map((track,i)=>`<fieldset><legend>${esc(track.name||`Áudio ${i+1}`)}</legend><div class="mc-studio-pair">${[['start','Posição (s)',600],['in','Cortar início (s)',600],['duration','Duração (s)',600],['volume','Volume',1],['fade_in','Fade in (s)',10],['fade_out','Fade out (s)',10]].map(([key,label,max])=>number(key,label,track[key],0,max,'.1',`data-audio-index="${i}" data-audio-key="${key}"`)).join('')}</div>${voiceControl(track,i)}<label><input type="checkbox" data-audio-index="${i}" data-audio-key="muted" ${track.muted?'checked':''}> Mutar faixa</label><label><input type="checkbox" data-audio-index="${i}" data-audio-key="loop" ${track.loop?'checked':''}> Repetir</label><button type="button" data-audio-remove="${i}">Remover faixa</button></fieldset>`).join('');
   $('mcCompositionCaptions').innerHTML=c.captions.map((row,i)=>`<div class="mc-composition-caption"><input aria-label="Início da legenda ${i+1}" type="number" min="0" max="600" step=".1" value="${row.start}" data-caption="${i}" data-caption-key="start"><input aria-label="Fim da legenda ${i+1}" type="number" min="0" max="600" step=".1" value="${row.end}" data-caption="${i}" data-caption-key="end"><textarea aria-label="Legenda ${i+1}" maxlength="300" data-caption="${i}" data-caption-key="text">${esc(row.text)}</textarea><button type="button" data-caption-remove="${i}" aria-label="Excluir legenda ${i+1}">Excluir</button></div>`).join('');
   $('mcCompositionResolution').value=c.resolution;$('mcCompositionFps').value=c.fps;
 }

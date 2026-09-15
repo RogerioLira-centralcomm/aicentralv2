@@ -20,6 +20,13 @@
         <label class="mc-cadu-video-upload"><input id="mcVideoFile" type="file" accept="image/*" hidden>Enviar imagem</label><label class="mc-cadu-video-upload"><input id="mcStudioVideoFile" type="file" accept="video/mp4,video/quicktime,video/webm" hidden>Enviar vídeo</label>
         <button type="button" class="mc-cadu-video-ghost" id="mcVideoPurgeBroken" hidden>Remover arquivos indisponíveis</button>
       </div></div>
+      <details class="mc-import-options"><summary>Cortes na importação</summary>
+        <label><input id="mcImportAutoCut" type="checkbox" checked> Cortar pausas automaticamente</label>
+        <label>Intensidade<select id="mcImportCutMode"><option value="moderate">Moderado · preservar o ritmo</option><option value="aggressive">Agressivo · pausas mais curtas</option></select></label>
+        <label>Máximo de cortes<input id="mcImportCutLimit" type="number" min="1" max="30" value="30"></label>
+        <label>Transição<select id="mcImportTransition"><option value="cut">Corte seco</option><option value="fade">Dissolver</option><option value="fadeblack">Passar pelo preto</option></select></label>
+        <p>O original é preservado. Repetições ambíguas ficam para revisão.</p>
+      </details>
       <div class="mc-cadu-video-lib-tabs" role="tablist" aria-label="Tipo de mídia">
         <button type="button" id="mcVideoLibStillTab" class="is-active" data-lib-tab="still" role="tab" aria-selected="true" aria-controls="mcVideoLibrary">Peças</button>
         <button type="button" id="mcVideoLibClipTab" data-lib-tab="video" role="tab" aria-selected="false" aria-controls="mcVideoClips">Clipes</button>
@@ -83,7 +90,7 @@
           <button type="button" class="mc-cadu-video-ghost" id="mcCompositionAdd">Adicionar mídia</button>
           <div id="mcCompositionControls"></div>
           <details><summary>Áudio multifaixa</summary><p>Ative a montagem e adicione sons pela biblioteca. Até oito faixas independentes.</p><div id="mcCompositionAudio"></div></details>
-          <details><summary>Legendas</summary><button type="button" class="mc-cadu-video-ghost" id="mcCompositionTranscribe">Gerar legendas do áudio</button><label class="mc-cadu-video-upload"><input id="mcCompositionCaptionFile" type="file" accept=".srt" hidden>Importar SRT</label><button type="button" class="mc-cadu-video-ghost" id="mcCompositionCaptionAdd">Nova legenda</button><button type="button" class="mc-cadu-video-ghost" id="mcCompositionCaptionDownload">Baixar SRT</button><div id="mcCompositionCaptions"></div></details>
+          <details><summary>Legendas</summary><button type="button" class="mc-cadu-video-ghost" id="mcCompositionTranscribe">Gerar legendas do áudio</button><label class="mc-cadu-video-upload"><input id="mcCompositionCaptionFile" type="file" accept=".srt" hidden>Importar SRT</label><button type="button" class="mc-cadu-video-ghost" id="mcCompositionCaptionAdd">Nova legenda</button><button type="button" class="mc-cadu-video-ghost" id="mcCompositionCaptionDownload">Baixar SRT</button><details class="mc-caption-style-panel"><summary>Estilo das legendas · 10 modelos</summary><div id="mcCaptionStyle" aria-label="Estilo de todas as legendas">Carregando fontes e modelos…</div></details><div id="mcCompositionCaptions"></div></details>
           <div class="mc-studio-pair"><label>Resolução<select id="mcCompositionResolution"><option value="720">720p</option><option value="1080">1080p</option></select></label><label>Quadros/s<select id="mcCompositionFps"><option value="24">24</option><option value="30" selected>30</option></select></label></div>
           <button type="button" class="mc-cadu-video-ghost" id="mcCompositionPreview">Renderizar prévia da montagem</button>
           <p class="mc-cadu-video-hint">A prévia renderizada inclui cortes, transições, áudio, textos e legendas. Transições sobrepõem as cenas pelo tempo escolhido.</p>

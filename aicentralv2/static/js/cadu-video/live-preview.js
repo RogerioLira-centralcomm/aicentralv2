@@ -1,3 +1,4 @@
+import {drawCaptions} from './caption-style.js';
 import {state} from './state.js';
 import {valuesAt} from './keyframes.js';
 const $=id=>document.getElementById(id);
@@ -16,6 +17,7 @@ function ensure(){
   $('mcLivePlay').onclick=()=>{playing=!playing;if(at>=total())at=0;last=performance.now();tick(last);};
   $('mcLiveSeek').oninput=event=>{at=Number(event.target.value);draw();};
   window.addEventListener('pagehide',stop);
+  document.addEventListener('cadu:caption-fonts-ready',()=>{if(active)draw();});
 }
 function total(){return schedule(state.composition?.items||[]).at(-1)?.end||0;}
 function stop(){playing=false;cancelAnimationFrame(frame);for(const value of [...media.values(),...music.values()])if(value.pause)value.pause();}
@@ -25,7 +27,7 @@ export function paintLivePreview(){
   canvas.hidden=!active;bar.hidden=!active;$('mcSwap').classList.toggle('is-live-composition',active);
   if(!active){stop();return false;}
   $('mcSwapVideo').pause();$('mcSwapVideo').hidden=true;$('mcVideoStill').hidden=true;$('mcVideoEmpty').hidden=true;
-  const key=JSON.stringify([c.items,c.audio,c.captions,state.edit.layers,state.aspectRatio,state.clientId,state.sounds?.map(r=>[r.id,r.url])]);
+  const key=JSON.stringify([c.items,c.audio,c.captions,c.caption_style,state.edit.layers,state.aspectRatio,state.clientId,state.sounds?.map(r=>[r.id,r.url])]);
   if(key!==revision){stop();revision=key;at=Math.min(at,total());const used=new Set(c.items.map(r=>r.id));for(const [id,value] of media)if(!used.has(id)){if(value.pause){value.pause();value.removeAttribute('src');value.load();}media.delete(id);}for(const audio of music.values()){audio.pause();audio.removeAttribute('src');audio.load();}music.clear();}
   const [a,b]=state.aspectRatio.split(':').map(Number);canvas.width=a>=b?960:Math.round(960*a/b);canvas.height=a>=b?Math.round(960*b/a):960;
   draw();return true;
@@ -86,9 +88,7 @@ function draw(){
     ctx.save();ctx.translate(w*k.x,h*k.y);ctx.rotate(k.rotation*Math.PI/180);ctx.scale(k.scale,k.scale);ctx.globalAlpha=k.opacity*alpha;ctx.font=`${h*row.size}px StudioOpenSans`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=row.color;ctx.strokeStyle='#000';ctx.lineWidth=2;
     const lines=row.text.split('\n');lines.forEach((line,i)=>{const y=(i-(lines.length-1)/2)*h*row.size*1.35;ctx.strokeText(line,0,y);ctx.fillText(line,0,y);});ctx.restore();
   }
-  ctx.font=`${h*.045}px StudioOpenSans`;ctx.textAlign='center';ctx.textBaseline='bottom';ctx.fillStyle='#fff';ctx.strokeStyle='#000';ctx.lineWidth=3;
-  const lines=[];for(const row of c.captions)if(at>=row.start&&at<row.end){let line='';for(const word of row.text.split(/\s+/)){const next=`${line} ${word}`.trim();if(ctx.measureText(next).width>w*.86&&line){lines.push(line);line=word;}else line=next;}if(line)lines.push(line);}
-  lines.forEach((line,i)=>{const y=h*.91-(lines.length-1-i)*h*.055;ctx.strokeText(line,w/2,y);ctx.fillText(line,w/2,y);});
+  drawCaptions(ctx,c,at,w,h);
   $('mcLiveSeek').max=total();$('mcLiveSeek').value=at;$('mcLiveTime').value=`${at.toFixed(1)} / ${total().toFixed(1)}s`;$('mcLivePlay').textContent=playing?'Pausar montagem':'Reproduzir montagem';
   // Preload the next source, keeping only the active and adjacent video decoders.
   const next=plan.find(r=>r.start>at);if(next)element(next.row);

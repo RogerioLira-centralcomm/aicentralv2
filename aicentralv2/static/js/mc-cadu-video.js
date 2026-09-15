@@ -614,7 +614,7 @@ function pickClip(prefer) {
 document.addEventListener("cadu:clip-imported", event => {
   state.clips.unshift(event.detail);
   state.libTab = "video";
-  selectClip(event.detail, {restore:false}).then(paintAll);
+  selectClip(event.detail, {restore:false}).then(()=>{paintAll();if(event.detail.autocut)document.dispatchEvent(new CustomEvent('cadu:apply-autocut',{detail:event.detail}));});
 });
 
 async function selectClip(clip, { restore = true } = {}) {

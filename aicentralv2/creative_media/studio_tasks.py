@@ -12,7 +12,7 @@ from .studio import _scope, _record, _write, probe, waveform
 
 
 def public(row):
-    return {key:row[key] for key in ('id','kind','status','created_at','error','result') if key in row}
+    return {key:row[key] for key in ('id','kind','status','created_at','stage','error','result') if key in row}
 
 
 def register(bp):
@@ -45,7 +45,10 @@ def submit():
                         handle.write(chunk)
             except Exception:
                 source.unlink(missing_ok=True);raise
-            work={'source':str(source),'name':Path(upload.filename or 'Vídeo enviado').name[:120]}
+            from .studio_autocut import options
+            try:cut_options=json.loads(data.get('autocut') or '{}')
+            except (ValueError,TypeError):raise ValueError('Parâmetros de corte inválidos.')
+            work={'source':str(source),'name':Path(upload.filename or 'Vídeo enviado').name[:120],'autocut':options(cut_options)}
         elif kind=='transcribe' and data.get('composition'):
             composition=normalize_composition(data['composition']);composition['captions']=[];composition['layers']=[]
             if not composition['items']:raise ValueError('Adicione uma mídia à sequência.')
@@ -86,9 +89,10 @@ def transcribe(source):
     if not model_path or not Path(model_path).is_dir():raise ValueError('Modelo de transcrição não preparado no servidor.')
     model=WhisperModel(model_path,device='cpu',compute_type='int8',cpu_threads=2,local_files_only=True)
     segments,info=model.transcribe(str(source),beam_size=5,vad_filter=True,word_timestamps=True)
-    rows=[]
+    rows=[];timed_words=[]
     for segment in segments:
         words=list(segment.words or [])
+        timed_words.extend({'start':float(w.start),'end':float(w.end),'text':w.word.strip(),'probability':float(getattr(w,'probability',0))} for w in words)
         if not words:
             if segment.text.strip():rows.append({'start':round(float(segment.start),3),'end':round(float(segment.end),3),'text':segment.text.strip()[:300]})
             continue
@@ -99,7 +103,7 @@ def transcribe(source):
             group.append(word)
         if group:rows.append({'start':round(float(group[0].start),3),'end':round(float(group[-1].end),3),'text':''.join(w.word for w in group).strip()})
         if len(rows)>500:raise ValueError('Transcrição excede 500 legendas. Divida o projeto.')
-    return {'captions':rows,'language':info.language}
+    return {'captions':rows,'words':timed_words,'language':info.language}
 
 
 def run_task(root,ident):
@@ -109,12 +113,24 @@ def run_task(root,ident):
     try:
         kind=row['kind'];client=row['client_id']
         if kind=='import':
+            _write(path,{**row,'status':'processing','stage':'Validando vídeo'})
             duration,streams=probe(source)
             if 'video' not in streams or not 0<duration<=300:raise ValueError('Envie um vídeo com até cinco minutos.')
             dest=root/f'{ident}.mp4'
+            _write(path,{**row,'status':'processing','stage':'Preparando vídeo e áudio'})
             subprocess.run(['ffmpeg','-y','-v','error','-protocol_whitelist','file,pipe','-format_whitelist','mov,matroska,webm','-i',str(source),'-map','0:v:0','-map','0:a:0?','-map_metadata','-1','-vf','scale=trunc(iw*sar/2)*2:trunc(ih/2)*2,setsar=1','-c:v','libx264','-preset','veryfast','-crf','20','-pix_fmt','yuv420p','-c:a','aac','-b:a','128k','-movflags','+faststart',str(dest)],check=True,capture_output=True,timeout=300)
             meta=inspect_clip(dest,root,client,'upload:'+ident)
             result={'id':'upload:'+ident,'name':work['name'],'duration':meta['duration'],'has_audio':meta['has_audio'],'video_url':f'/parametros/api/format-lab/studio/clips/{ident}/content?client_id={client}','poster_url':meta['frames'][0]['url'],'created_at':row['created_at']}
+            if work.get('autocut',{}).get('enabled') and meta['has_audio']:
+                _write(path,{**row,'status':'processing','stage':'Analisando pausas e fala'})
+                try:
+                    from .studio_autocut import analyze,silences
+                    speech=transcribe(dest)
+                    result['autocut']=analyze(meta['duration'],speech['words'],silences(dest,meta['duration'],work['autocut']['mode']),work['autocut'])
+                except Exception:
+                    result['autocut_warning']='Análise automática indisponível. O vídeo original está pronto para edição; confira a transcrição instalada no servidor.'
+            elif work.get('autocut',{}).get('enabled'):
+                result['autocut_warning']='Vídeo sem áudio: nenhum corte automático aplicado.'
             _write(root/f'clip-{ident}.json',result)
         elif kind=='inspect':result=inspect_clip(source,root,client,work['clip_id'])
         elif kind=='extract':
@@ -138,5 +154,7 @@ def run_task(root,ident):
         message=str(error) if isinstance(error,ValueError) else 'Não foi possível processar a mídia. Confira o arquivo e tente novamente.'
         _write(path,{**row,'status':'failed','error':message[:300]})
     finally:
-        if row['kind']=='import' and source:source.unlink(missing_ok=True)
+        if row['kind']=='import' and source and source.exists():
+            # Preserve the exact original upload, independent from the editing copy.
+            source.replace(root/f'{ident}.original')
         if work.get('composition') and source:source.unlink(missing_ok=True)

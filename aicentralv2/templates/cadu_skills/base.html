@@ -1,0 +1,4 @@
+{% extends 'cadu_skills/public_base.html' %}
+{% block styles %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-skills.css') }}?v=2">{% endblock %}
+{% block content %}<div class="cadu-skills-page">{% block skills_content %}{% endblock %}</div>{% endblock %}
+{% block scripts %}{{ super() }}<script src="{{ url_for('static', filename='js/cadu-skills.js') }}?v=2" defer></script>{% endblock %}

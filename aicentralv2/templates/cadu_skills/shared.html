@@ -1,0 +1,8 @@
+{% extends 'cadu_skills/base.html' %}{% block title %}{{ shared.name }} — Cadu Skills{% endblock %}{% block content %}
+<article class="sk-directory-detail">
+  <a class="sk-back" href="{{ url_for('cadu_skills.marketplace') }}">← Cadu Skills</a>
+  <div class="sk-directory-title"><div><span>Skill premium compartilhada</span><h1>{{ shared.name }}</h1><p>{{ shared.summary }}</p></div></div>
+  <section><h2>Skill personalizada</h2><p>Esta versão foi preparada para uma equipe, cliente ou marca. O link não aparece no catálogo público e pode ser revogado pelo responsável.</p></section>
+  <section><h2>Acesso e execução</h2><p>{% if shared.permission == 'run' %}Entre na conta autorizada para executar esta skill. Cada consulta usa os créditos do plano da organização.{% else %}Este link permite visualizar a configuração publicada. A execução permanece restrita à equipe autorizada.{% endif %}</p>{% if not session.get('user_id') %}<a class="sk-button" href="{{ url_for('login', next=request.path) }}">Entrar para continuar</a>{% endif %}</section>
+</article>
+{% endblock %}

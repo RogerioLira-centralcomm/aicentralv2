@@ -1,0 +1,14 @@
+/* Preference only, never authentication. Cookie contains validated fixture IDs. */
+(function(root){
+ 'use strict';
+ const clients={centralcomm:[{id:'cadu',name:'Cadu',projects:[{id:'launch',name:'Lançamento Cadu'},{id:'institutional',name:'Campanha institucional'}]},{id:'demo',name:'Cliente demonstração',projects:[{id:'campaign',name:'Campanha de lançamento'}]}],agency:[{id:'agency-client',name:'Cliente da agência',projects:[{id:'pilot',name:'Projeto piloto'}]}]};
+ const organizations={centralcomm:'Centralcomm',agency:'Agência exemplo'}, key='cadu-context-v3', maxAge=30*86400000;
+ function valid(input){const s=input&&typeof input==='object'?input:{};const org=Object.hasOwn(organizations,s.org)?s.org:'centralcomm';const client=clients[org].find(c=>c.id===s.client)||clients[org][0];const project=client.projects.find(p=>p.id===s.project)||client.projects[0];return {org,client:client.id,project:project.id,brand:s.brand==='Marca demonstração'?s.brand:'Cadu'};}
+ let data={current:valid(),recent:{},expires:Date.now()+maxAge}, storage='memory';
+ try{const cookie=document.cookie.split('; ').find(c=>c.startsWith(key+'='));const saved=JSON.parse(localStorage.getItem(key)||(cookie?decodeURIComponent(cookie.slice(key.length+1)):'null'));if(saved&&saved.expires>Date.now()){data={current:valid(saved.current),recent:saved.recent&&typeof saved.recent==='object'?saved.recent:{},expires:saved.expires};}}catch{}
+ function save(){data.expires=Date.now()+maxAge;data.recent[data.current.org+':'+data.current.client]=data.current.project;try{localStorage.setItem(key,JSON.stringify(data));storage='local';}catch{}if(location.protocol!=='file:'){try{document.cookie=key+'='+encodeURIComponent(JSON.stringify({current:data.current,expires:data.expires}))+'; Max-Age=2592000; Path=/parametros/prototipos-cadu; SameSite=Lax'+(location.protocol==='https:'?'; Secure':'');if(document.cookie.includes(key+'='))storage='cookie';}catch{}}}
+ function current(){const c=clients[data.current.org].find(c=>c.id===data.current.client);return {...data.current,organization:organizations[data.current.org],clientName:c.name,projectName:c.projects.find(p=>p.id===data.current.project).name};}
+ function change(patch){const next={...data.current,...patch};if(patch.org!==undefined&&patch.org!==data.current.org){next.client=clients[patch.org]?.[0].id;next.project=null;}if(patch.client!==undefined||patch.org!==undefined)next.project=data.recent[next.org+':'+next.client]||null;data.current=valid(next);save();return current();}
+ function clear(){data={current:valid(),recent:{},expires:Date.now()+maxAge};try{localStorage.removeItem(key);document.cookie=key+'=; Max-Age=0; Path=/parametros/prototipos-cadu; SameSite=Lax';}catch{}storage='memory';return current();}
+ save();root.CaduContext={clients,organizations,current,change,clear,storage:()=>storage};
+})(globalThis);

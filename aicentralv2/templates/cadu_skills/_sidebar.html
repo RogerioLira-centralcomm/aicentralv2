@@ -1,0 +1,8 @@
+<nav class="cadu-skills-sidebar" aria-label="Navegação do Cadu Skills">
+  <small>Cadu Skills</small>
+  <a class="{% if request.endpoint == 'cadu_skills.marketplace' %}is-active{% endif %}" href="{{ url_for('cadu_skills.marketplace') }}">Catálogo público</a>
+  <a class="{% if request.endpoint == 'cadu_skills.detail' %}is-active{% endif %}" href="{{ url_for('cadu_skills.detail', slug='cadu-media-planning') }}">Exemplos</a>
+  {% if session.get('user_id') %}<a class="{% if request.endpoint == 'cadu_skills.studio' %}is-active{% endif %}" href="{{ url_for('cadu_skills.studio') }}">Minhas Skills</a>{% endif %}
+  <hr>
+  <a href="{{ url_for('cadu_skills.start') }}">Skills para equipes</a>
+</nav>

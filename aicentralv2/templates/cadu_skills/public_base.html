@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}Cadu Skills{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="icon" href="{{ url_for('cadu_skills.skills_icon', size=32) }}"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  {% block styles %}{% endblock %}
+</head>
+<body class="cadu-public-shell">
+  <a class="cadu-skip-link" href="#main-content">Ir para o conteúdo</a>
+  {% include 'cadu/_global_nav.html' %}
+  <div class="cadu-app-shell">
+    {% include 'cadu_skills/_sidebar.html' %}
+    <main id="main-content" tabindex="-1">{% block content %}{% endblock %}</main>
+  </div>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

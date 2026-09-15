@@ -1,0 +1,16 @@
+<header class="cadu-global-nav">
+  <a class="cadu-product-switch" href="{{ url_for('cadu_skills.marketplace') }}" aria-label="Cadu Skills">
+    <img src="{{ url_for('cadu_skills.skills_icon', size=64) }}" alt="">
+    <span><small>Ecossistema Cadu</small><strong>Skills</strong></span>
+  </a>
+  <span class="cadu-nav-spacer"></span>
+  {% if session.get('user_id') %}
+    <a class="cadu-context-link" href="{{ url_for('index') }}"><small>Área de trabalho</small><strong>{{ session.get('user_name', 'Minha conta') }}</strong></a>
+    <a class="cadu-credit-link" href="{{ url_for('cadu_skills.studio') }}">Créditos</a>
+    <a class="cadu-avatar" href="{{ url_for('cadu_skills.studio') }}" aria-label="Abrir conta">{{ session.get('user_name', 'U')[:2]|upper }}</a>
+  {% else %}
+    <a class="cadu-nav-link" href="{{ url_for('cadu_skills.start') }}">Conhecer o Cadu</a>
+    <a class="cadu-nav-link" href="{{ url_for('login', next=request.path) }}">Entrar</a>
+    <a class="cadu-nav-action" href="{{ url_for('cadu_skills.start') }}">Solicitar acesso</a>
+  {% endif %}
+</header>

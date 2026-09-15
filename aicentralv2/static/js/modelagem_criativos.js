@@ -2474,6 +2474,7 @@
     state.activeStepId = step.id;
     const format = state.formats.find((item) => Number(item.id) === Number(step.format_template_id)) || {};
     const assets = step.assets || [];
+    const auditClientId = state.campaign?.client?.id;
     $('#mcInspectorBody').innerHTML = `
       <div class="mc-inspector-section">
         <strong>Variação ${escapeHtml(variation.label)} · Step ${step.position}</strong>
@@ -2504,6 +2505,7 @@
         <div class="mc-inspector-actions">
           ${assets.filter((asset) => asset.status === 'done').map((asset) => `<button class="cx-btn cx-btn-secondary cx-btn-sm" data-action="approve-asset" data-asset-id="${asset.id}" type="button">Aprovar #${asset.id}</button>`).join('')}
           ${assets.filter((asset) => asset.status === 'approved').map((asset) => `<button class="cx-btn cx-btn-outline cx-btn-sm" data-action="promote-asset" data-asset-id="${asset.id}" data-format-id="${format.id}" type="button">Usar como referência</button>`).join('')}
+          ${assets.length && auditClientId ? `<button class="cx-btn cx-btn-outline cx-btn-sm" type="button" data-action="open-creative-line" data-client-id="${auditClientId}"><i class="fa-solid fa-fingerprint" aria-hidden="true"></i> Auditar marca</button>` : ''}
         </div>
       </div>
       ${format.media_type === 'video' ? renderVideoControls(step) : ''}`;
@@ -3756,6 +3758,30 @@
     renderCreativeLineWorkspace();
   }
 
+  function setCreativeLineTab(tab) {
+    const selected = ['evidence', 'dna', 'application'].includes(tab) ? tab : 'evidence';
+    $$('[data-creative-tab]').forEach((button) => {
+      const active = button.dataset.creativeTab === selected;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-selected', String(active));
+    });
+    $$('[data-creative-panel]').forEach((panel) => {
+      const active = panel.dataset.creativePanel === selected;
+      panel.classList.toggle('is-active', active);
+      panel.hidden = !active;
+    });
+  }
+
+  function openCreativeLine(clientId) {
+    if (!clientId) return;
+    selectBrand(clientId);
+    const client = creativeLineClient();
+    const line = client?.brand_profile?.creative_line;
+    setCreativeLineTab(line?.signature_summary ? 'dna' : 'evidence');
+    const dialog = $('#mcCreativeLine');
+    if (dialog && !dialog.open) dialog.showModal();
+  }
+
   function renderClients() {
     const root = $('#mcClientTableBody');
     if (!root) return;
@@ -3771,6 +3797,7 @@
           </span>
         </button>
         <div class="mc-inspector-actions">
+          <button class="cx-btn cx-btn-outline cx-btn-sm" data-action="open-creative-line" data-client-id="${client.id}" type="button"><i class="fa-solid fa-fingerprint" aria-hidden="true"></i> Auditar linha</button>
           <button class="cx-btn cx-btn-secondary cx-btn-sm" data-action="open-logo" data-client-id="${client.id}" type="button">Logo</button>
           <button class="cx-btn cx-btn-danger cx-btn-sm" data-action="delete-client" data-client-id="${client.id}" type="button">Remover</button>
         </div>
@@ -3955,18 +3982,35 @@
       <p class="mc-creative-signature">${escapeHtml(line.signature_summary)}</p>
       ${(line.caveats || []).length ? `<div class="mc-creative-caveats">${line.caveats.map((item) => `<span>${escapeHtml(item)}</span>`).join('')}</div>` : ''}
       ${(line.color_palette || []).length ? `<div class="mc-creative-palette">${line.color_palette.map((color) => `<span style="--brand-color:${escapeHtml(color.hex)}" title="${escapeHtml(color.name)}"></span>`).join('')}</div>` : ''}
-      <div class="mc-creative-rules">${sections.map(([title, values]) => `<details><summary>${escapeHtml(title)} <span>${values.length}</span></summary><ul>${values.map((value) => `<li>${escapeHtml(value)}</li>`).join('')}</ul></details>`).join('')}</div>
-      ${line.gpt_image_instruction ? `<details class="mc-gpt-instruction"><summary>Instrução enviada ao GPT Image 2</summary><pre>${escapeHtml(line.gpt_image_instruction)}</pre></details>` : ''}`;
+      <div class="mc-creative-rules">${sections.map(([title, values]) => `<details><summary>${escapeHtml(title)} <span>${values.length}</span></summary><ul>${values.map((value) => `<li>${escapeHtml(value)}</li>`).join('')}</ul></details>`).join('')}</div>`;
+  }
+
+  function renderCreativeLineApplication(line) {
+    const root = $('#mcCreativeLineApplication');
+    if (!root) return;
+    if (!line?.signature_summary) {
+      root.innerHTML = `<div class="mc-creative-application-empty"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i><strong>Pronto para aplicar quando o DNA estiver aprendido</strong><p>Adicione peças reais na aba Evidências e gere a análise para criar instruções consistentes para novos criativos.</p></div>`;
+      return;
+    }
+    root.innerHTML = `
+      <header><span class="mc-creative-application-icon"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i></span><div><h3>Direção pronta para criação</h3><p>Esta síntese acompanha a geração para manter a linha visual da marca.</p></div></header>
+      <section><span class="mc-creative-application-label">Assinatura da marca</span><p>${escapeHtml(line.signature_summary)}</p></section>
+      <section class="mc-creative-application-instruction"><span class="mc-creative-application-label">Instrução para o gerador</span><pre>${escapeHtml(line.gpt_image_instruction || 'A análise consolidada será aplicada automaticamente aos próximos criativos da marca.')}</pre></section>`;
   }
 
   function renderCreativeLineWorkspace() {
     const client = creativeLineClient();
     const library = $('#mcCreativeLineLibrary');
     const analyze = $('#mcAnalyzeCreativeLine');
+    const title = $('#mcBrandAuditTitle');
+    const description = $('#mcCreativeLineDescription');
     if (!client) {
       library.innerHTML = '<p>Selecione uma marca para ver sua memória visual.</p>';
       analyze.disabled = true;
       renderCreativeLineResult(null);
+      renderCreativeLineApplication(null);
+      if (title) title.textContent = 'Linha criativa da marca';
+      if (description) description.textContent = 'Reúna evidências reais e transforme-as em regras de criação.';
       return;
     }
     const assets = (client.brand_assets || []).filter(
@@ -3980,7 +4024,10 @@
       </article>`).join('') : '<p>Nenhum criativo real salvo para esta marca.</p>';
     analyze.disabled = !(assets.length || state.creativeLineFiles.length);
     renderCreativeLineResult(client.brand_profile?.creative_line);
+    renderCreativeLineApplication(client.brand_profile?.creative_line);
     renderBrandInventory(client);
+    if (title) title.textContent = client.name;
+    if (description) description.textContent = client.brand_profile?.creative_line?.signature_summary || 'Reúna evidências reais e transforme-as em regras de criação.';
   }
 
   function brandFileKey(file) {
@@ -5869,8 +5916,9 @@
     } else if (action === 'close-publish') {
       $('#mcPublishDialog')?.close();
     } else if (action === 'open-creative-line') {
-      selectBrand(button.dataset.clientId);
-      $('#mcCreativeLine').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      openCreativeLine(button.dataset.clientId);
+    } else if (action === 'close-creative-line') {
+      $('#mcCreativeLine')?.close();
     } else if (action === 'open-logo') {
       $('#mcLogoForm [name="client_id"]').value = button.dataset.clientId;
       $('#mcLogoDialog').showModal();
@@ -5987,6 +6035,11 @@
       state.creativeLineFiles = [];
       renderCreativeLineUploads();
       selectBrand(event.target.value || null);
+    });
+    bind('#mcCreativeLine', 'click', (event) => {
+      const tab = event.target.closest('[data-creative-tab]');
+      if (tab) setCreativeLineTab(tab.dataset.creativeTab);
+      if (event.target.closest('[data-action="close-creative-line"]')) $('#mcCreativeLine')?.close();
     });
     bind('#mcCreativeLineUploads', 'click', (event) => {
       const remove = event.target.closest('[data-creative-remove]');

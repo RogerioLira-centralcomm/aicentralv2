@@ -1978,7 +1978,7 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("modelagem_camadas", shell)
         self.assertIn("modelagem_design-system", shell)
         desk = (root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html").read_text(encoding="utf-8")
-        self.assertIn("modelagem_criativos.css') }}?v=126", desk)
+        self.assertIn("modelagem_criativos.css') }}?v=127", desk)
         self.assertIn("js/mc-cadu-nav.js", desk)
         self.assertIn("mc_page_js) }}?v=83", desk)
         self.assertIn("mc_page_js) }}?v=15", desk)

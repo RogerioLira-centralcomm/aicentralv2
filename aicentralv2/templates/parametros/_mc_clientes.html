@@ -144,50 +144,56 @@
     </footer>
   </form>
 
-  <section class="mc-brand-col mc-creative-line" id="mcCreativeLine" data-brand-col="audit" aria-labelledby="mcBrandAuditTitle">
-    <header class="mc-brand-col-head">
-      <div>
-        <h2 id="mcBrandAuditTitle">Auditoria criativa</h2>
-        <p>Inventário do que a leitura já achou, depois as peças reais fecham o DNA.</p>
-      </div>
-      <label class="cx-field">
-        <span class="cx-label">Marca para aprender</span>
-        <select class="cx-select" id="mcCreativeLineClient">
-          <option value="">Selecione um perfil</option>
-        </select>
+</div>
+
+<dialog class="cx-modal mc-creative-audit-modal" id="mcCreativeLine" aria-labelledby="mcBrandAuditTitle">
+  <header class="mc-creative-audit-header">
+    <div class="mc-creative-audit-brand">
+      <span class="mc-creative-audit-kicker">Auditoria criativa</span>
+      <h2 id="mcBrandAuditTitle">Linha criativa da marca</h2>
+      <p id="mcCreativeLineDescription">Reúna evidências reais e transforme-as em regras de criação.</p>
+    </div>
+    <div class="mc-creative-audit-actions">
+      <label class="cx-field mc-creative-audit-select">
+        <span class="mc-visually-hidden">Marca para aprender</span>
+        <select class="cx-select" id="mcCreativeLineClient"><option value="">Selecione um perfil</option></select>
       </label>
-    </header>
-    <div class="mc-creative-line-workspace">
+      <button class="cx-btn cx-btn-ghost cx-btn-sm" type="button" data-action="close-creative-line" aria-label="Fechar auditoria">Fechar</button>
+    </div>
+  </header>
+  <nav class="mc-creative-audit-tabs" aria-label="Etapas da auditoria" role="tablist">
+    <button class="is-active" id="mcCreativeTabEvidence" type="button" role="tab" aria-selected="true" aria-controls="mcCreativePanelEvidence" data-creative-tab="evidence">Evidências</button>
+    <button id="mcCreativeTabDna" type="button" role="tab" aria-selected="false" aria-controls="mcCreativePanelDna" data-creative-tab="dna">DNA criativo</button>
+    <button id="mcCreativeTabApplication" type="button" role="tab" aria-selected="false" aria-controls="mcCreativePanelApplication" data-creative-tab="application">Aplicação</button>
+  </nav>
+  <div class="mc-creative-audit-content">
+    <section class="mc-creative-audit-panel is-active" id="mcCreativePanelEvidence" role="tabpanel" aria-labelledby="mcCreativeTabEvidence" data-creative-panel="evidence">
       <section class="mc-brand-inventory" id="mcBrandInventory" aria-label="Assets identificados da marca">
         <p>Selecione uma marca para ver logo, paleta, fontes, peças e regras já identificadas.</p>
       </section>
       <div class="mc-creative-evidence">
+        <div class="mc-creative-evidence-heading"><div><h3>Peças reais da marca</h3><p>Use campanhas aprovadas, key visuals, displays ou social para fechar o DNA.</p></div><span>Até 6 peças</span></div>
         <div class="mc-brand-dropzone" id="mcCreativeLineDropzone" role="button" tabindex="0">
           <input class="mc-visually-hidden" name="creative_line_images" type="file" accept=".png,.jpg,.jpeg,.webp" multiple tabindex="-1">
           <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
-          <span><strong>Solte criativos reais da marca</strong><small>Campanhas aprovadas, key visuals, displays ou social. PNG, JPG ou WEBP.</small></span>
+          <span><strong>Adicionar criativos reais</strong><small>PNG, JPG ou WEBP de até 5 MB.</small></span>
         </div>
         <div class="mc-creative-upload-strip" id="mcCreativeLineUploads" hidden></div>
-        <div class="mc-creative-library" id="mcCreativeLineLibrary">
-          <p>Selecione uma marca para ver sua memória visual.</p>
-        </div>
-        <footer>
-          <span id="mcCreativeLineStatus" aria-live="polite">A análise usa até seis peças representativas.</span>
-          <button class="cx-btn cx-btn-primary" id="mcAnalyzeCreativeLine" type="button" disabled>
-            <i class="fa-solid fa-brain" aria-hidden="true"></i> Aprender linha criativa
-          </button>
-        </footer>
+        <div class="mc-creative-library" id="mcCreativeLineLibrary"><p>Selecione uma marca para ver sua memória visual.</p></div>
       </div>
-      <aside class="mc-creative-dna" id="mcCreativeLineResult">
-        <div class="mc-creative-dna-empty">
-          <i class="fa-solid fa-fingerprint" aria-hidden="true"></i>
-          <strong>DNA criativo ainda não analisado</strong>
-          <p>Adicione peças consistentes para gerar regras de composição, fotografia, tipografia e instruções para o GPT Image 2.</p>
-        </div>
-      </aside>
-    </div>
-  </section>
-</div>
+    </section>
+    <section class="mc-creative-audit-panel" id="mcCreativePanelDna" role="tabpanel" aria-labelledby="mcCreativeTabDna" data-creative-panel="dna" hidden>
+      <aside class="mc-creative-dna" id="mcCreativeLineResult"></aside>
+    </section>
+    <section class="mc-creative-audit-panel" id="mcCreativePanelApplication" role="tabpanel" aria-labelledby="mcCreativeTabApplication" data-creative-panel="application" hidden>
+      <div class="mc-creative-application" id="mcCreativeLineApplication"></div>
+    </section>
+  </div>
+  <footer class="mc-creative-audit-footer">
+    <span id="mcCreativeLineStatus" aria-live="polite">A análise usa até seis peças representativas.</span>
+    <button class="cx-btn cx-btn-primary" id="mcAnalyzeCreativeLine" type="button" disabled><i class="fa-solid fa-brain" aria-hidden="true"></i> Aprender linha criativa</button>
+  </footer>
+</dialog>
 
 <dialog class="cx-modal" id="mcLogoDialog">
   <form method="dialog">

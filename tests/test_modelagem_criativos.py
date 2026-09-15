@@ -3829,7 +3829,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("mc-brand-studio", clients)
         self.assertIn('data-brand-col="add"', clients)
         self.assertIn('data-brand-col="edit"', clients)
-        self.assertIn('data-brand-col="audit"', clients)
+        self.assertIn('class="cx-modal mc-creative-audit-modal"', clients)
         self.assertIn('id="mcClientForm"', clients)
         self.assertIn('id="mcNewBrand"', clients)
         self.assertIn('id="mcAnalyzeBrand"', clients)
@@ -3842,6 +3842,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn('id="mcBrandInventory"', clients)
         self.assertIn('id="mcCreativeLineDropzone"', clients)
         self.assertIn('id="mcCreativeLineResult"', clients)
+        self.assertIn('id="mcCreativePanelApplication"', clients)
+        self.assertIn('data-creative-tab="evidence"', clients)
         self.assertIn('class="mc-visually-hidden"', clients)
         self.assertNotIn('class="cx-input" name="brand_image"', clients)
         historico = (template_dir / "_mc_historico.html").read_text(encoding="utf-8")
@@ -4443,7 +4445,7 @@ class CreativeFilesContractTest(unittest.TestCase):
         desk = (
             root / "aicentralv2" / "templates" / "parametros" / "modelagem_desk.html"
         ).read_text(encoding="utf-8")
-        self.assertIn("modelagem_criativos.js') }}?v=57", desk)
+        self.assertIn("modelagem_criativos.js') }}?v=58", desk)
         self.assertIn("mc_page_js) }}?v=83", desk)
         self.assertIn("mc-dsa-write-queue.js') }}?v=64", desk)
         self.assertIn("js/mc-dsa-write-queue.js", desk)

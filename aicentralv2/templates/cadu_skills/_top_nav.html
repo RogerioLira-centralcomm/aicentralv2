@@ -1,0 +1,22 @@
+{% set active = request.endpoint %}
+<header class="cadu-skills-top-nav">
+  <details class="sk-top-menu">
+    <summary aria-label="Abrir navegação do Cadu Skills"><img src="{{ url_for('static', filename='images/cadu/products/skills-icon.png') }}" alt=""><span>Cadu Skills</span><i aria-hidden="true">⌄</i></summary>
+    <div class="sk-top-menu__panel">
+      <section class="sk-top-menu__section"><span class="sk-top-menu__label">Navegar no Skills</span><nav aria-label="Navegação do Cadu Skills">
+        {% if session.get('user_id') %}<a class="{{ 'is-active' if active == 'cadu_skills.marketplace' and not request.args.get('catalog') else '' }}" href="{{ url_for('cadu_skills.marketplace') }}"><span aria-hidden="true">□</span>Área de trabalho</a>{% endif %}
+        <a class="{{ 'is-active' if active == 'cadu_skills.marketplace' and (not session.get('user_id') or request.args.get('catalog')) else '' }}" href="{{ url_for('cadu_skills.marketplace', catalog=1) if session.get('user_id') else url_for('cadu_skills.marketplace') }}" {% if active == 'cadu_skills.marketplace' %}aria-current="page"{% endif %}><span aria-hidden="true">⌘</span>Catálogo</a>
+        <a class="{{ 'is-active' if active == 'cadu_skills.detail' else '' }}" href="{{ url_for('cadu_skills.detail', slug='cadu-media-planning') }}" {% if active == 'cadu_skills.detail' %}aria-current="page"{% endif %}><span aria-hidden="true">↗</span>Experimentar</a>
+        <a class="{{ 'is-active' if active == 'cadu_skills.agents' else '' }}" href="{{ url_for('cadu_skills.agents') }}" {% if active == 'cadu_skills.agents' %}aria-current="page"{% endif %}><span aria-hidden="true">◌</span>Agentes</a>
+        {% if session.get('user_id') %}<a class="{{ 'is-active' if active == 'cadu_skills.studio' else '' }}" href="{{ url_for('cadu_skills.studio') }}" {% if active == 'cadu_skills.studio' %}aria-current="page"{% endif %}><span aria-hidden="true">□</span>Minhas skills</a>{% endif %}
+        {% if session.get('user_type') in ['admin', 'superadmin'] %}<a class="{{ 'is-active' if active == 'cadu_skills.management' else '' }}" href="{{ url_for('cadu_skills.management') }}"><span aria-hidden="true">⚙</span>Gestão</a>{% endif %}
+      </nav></section>
+      <section class="sk-top-menu__section sk-top-menu__products"><span class="sk-top-menu__label">Produtos Cadu</span><nav aria-label="Outros produtos Cadu">
+        {% set products = [('workspace', 'Workspace', 'workspace-2d.svg'), ('planner', 'Planner', 'planner-2d.svg'), ('studio', 'Studio', 'studio-2d.svg'), ('connect', 'Connect', 'connect-2d.svg')] %}
+        {% for slug, name, icon in products %}{% if session.get('user_id') %}{% set href = product_url(slug) %}{% else %}{% set href = product_url(slug, '/entrada/' ~ slug) %}{% endif %}<a href="{{ href }}"><img src="{{ url_for('static', filename='images/cadu/products/' ~ icon) }}" alt="">{{ name }}</a>{% endfor %}
+      </nav></section>
+    </div>
+  </details>
+  <span class="cadu-skills-top-nav__spacer"></span>
+  {% if session.get('user_id') %}<a class="cadu-skills-top-nav__account" href="{{ product_url('workspace', '/workspace/app') }}">{{ session.get('user_name', 'Minha conta') }}</a>{% else %}<a class="cadu-skills-top-nav__enter" href="{{ product_url('auth', '/login') }}">Entrar</a>{% endif %}
+</header>

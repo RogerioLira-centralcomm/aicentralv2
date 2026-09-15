@@ -5,7 +5,8 @@ from flask import g
 
 def family_table_available(name):
     """Inspect schema without creating it; do not swallow connectivity errors."""
-    if name not in {'cadu_family_client_access', 'cadu_family_entity_links', 'cadu_family_conversation_context', 'cadu_family_chat_uploads'}:
+    if name not in {'cadu_family_client_access', 'cadu_family_entity_links', 'cadu_family_conversation_context',
+                    'cadu_family_chat_uploads', 'cadu_family_project_brands'}:
         raise ValueError('Unsupported family table')
     cache = g.setdefault('family_schema', {})
     if name not in cache:
@@ -78,6 +79,36 @@ def entity_links(client_id):
     return rows('''SELECT source || ':' || source_id AS ref,
                          canonical_source || ':' || canonical_id AS canonical_ref
                     FROM cadu_family_entity_links WHERE client_id = %s''', (client_id,))
+
+
+def project_brand_links(client_id):
+    """Return explicit business relationships; aliases stay in entity_links."""
+    if not family_table_available('cadu_family_project_brands'):
+        return []
+    return rows('''SELECT project_ref, brand_ref
+                    FROM cadu_family_project_brands
+                   WHERE client_id = %s
+                ORDER BY project_ref, brand_ref''', (client_id,))
+
+
+def set_project_brand_link(client_id, user_id, project_ref, brand_ref, linked):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            if linked:
+                cur.execute('''INSERT INTO cadu_family_project_brands
+                               (client_id, project_ref, brand_ref, created_by)
+                               VALUES (%s, %s, %s, %s)
+                               ON CONFLICT (client_id, project_ref, brand_ref) DO NOTHING''',
+                            (client_id, project_ref, brand_ref, user_id))
+            else:
+                cur.execute('''DELETE FROM cadu_family_project_brands
+                                WHERE client_id = %s AND project_ref = %s AND brand_ref = %s''',
+                            (client_id, project_ref, brand_ref))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
 
 
 def profile_update(user_id, name, phone):

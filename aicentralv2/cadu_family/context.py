@@ -45,6 +45,17 @@ def inventory(client_id):
         if item['canonical_ref'] not in known:
             item['canonical_ref'] = item['ref']
             item['needs_review'] = True
+        item['related_refs'] = []
+        item['related_names'] = []
+    by_ref = {item['ref']: item for item in items}
+    for link in repository.project_brand_links(context['client_id']):
+        project, brand = by_ref.get(link['project_ref']), by_ref.get(link['brand_ref'])
+        # Never expose a stale relationship to an entity the selected client cannot see.
+        if project and brand and project['kind'] == 'project' and brand['kind'] == 'brand':
+            project['related_refs'].append(brand['ref'])
+            project['related_names'].append(brand['name'])
+            brand['related_refs'].append(project['ref'])
+            brand['related_names'].append(project['name'])
     return items
 
 

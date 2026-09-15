@@ -2,7 +2,7 @@
 import secrets
 from urllib.parse import urlencode
 
-from flask import Blueprint, Response, abort, current_app, jsonify, make_response, render_template, request, session, stream_with_context
+from flask import Blueprint, Response, abort, current_app, jsonify, make_response, redirect, render_template, request, session, stream_with_context
 from werkzeug.exceptions import HTTPException
 
 from ..auth import login_url
@@ -129,6 +129,20 @@ def edit_entity(ref):
     return jsonify(success=True)
 
 
+@bp.put('/api/project-brand-links')
+def set_project_brand_link():
+    selected = writable_context()
+    data = request.get_json(silent=True) or {}
+    project_ref, brand_ref, linked = data.get('project_ref'), data.get('brand_ref'), data.get('linked')
+    if not isinstance(project_ref, str) or not isinstance(brand_ref, str) or not isinstance(linked, bool):
+        abort(400, description='Informe projeto, marca e o estado do vínculo.')
+    items = {item['ref']: item for item in context.inventory(selected['client_id'])}
+    if (items.get(project_ref) or {}).get('kind') != 'project' or (items.get(brand_ref) or {}).get('kind') != 'brand':
+        abort(403, description='Projeto ou marca não pertencem ao cliente selecionado.')
+    repository.set_project_brand_link(selected['client_id'], context.identity()['id'], project_ref, brand_ref, linked)
+    return jsonify(success=True)
+
+
 @bp.patch('/api/profile')
 def edit_profile():
     user = context.identity()
@@ -172,20 +186,6 @@ def planner_catalog_detail(kind, item_id):
     return jsonify(kind=kind, record=catalog.detail(kind, item_id))
 
 
-@bp.post('/api/studio/copy-ads/validate')
-def copy_validate():
-    from . import copy_ads
-    context.resolve()
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
-        abort(400)
-    spec = next((row for row in copy_ads.formats() if str(row['id']) == str(data.get('format_id'))), None)
-    if spec is None:
-        abort(404, description='Formato indisponível. Atualize o catálogo.')
-    return jsonify(copy_ads.validate_copy(spec, data.get('values')))
-
-
-@bp.post('/api/conversations/send')
 @bp.get('/api/planner/documents')
 def planner_documents():
     """Read-only SmartPlanner document index in the selected authorized client."""
@@ -303,6 +303,20 @@ def planner_doc_export(doc_id):
                      download_name='documento-%s.pdf' % doc_id)
 
 
+@bp.post('/api/studio/copy-ads/validate')
+def copy_validate():
+    from . import copy_ads
+    context.resolve()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        abort(400)
+    spec = next((row for row in copy_ads.formats() if str(row['id']) == str(data.get('format_id'))), None)
+    if spec is None:
+        abort(404, description='Formato indisponível. Atualize o catálogo.')
+    return jsonify(copy_ads.validate_copy(spec, data.get('values')))
+
+
+@bp.post('/api/conversations/send')
 def conversation_send():
     selected = writable_context()
     data = request.get_json(silent=True) or {}
@@ -390,6 +404,30 @@ def messages(conversation_id):
     if result is None:
         abort(404)
     return jsonify(messages=result)
+
+
+@bp.get('/workspace/marcas/sistema')
+def workspace_brand_system():
+    """Mount the former Studio brand editor inside the Workspace shell.
+
+    The editor still talks to the legacy adapter during the staged migration,
+    but its navigation, configured host and ownership are Workspace-only.
+    """
+    if not session.get('user_id'):
+        return redirect(login_url(request.full_path))
+    user = context.require_admin()
+    selected = context.resolve()
+    clients = context.authorized_clients()
+    entities = context.inventory(selected['client_id'])
+    token = session.setdefault('family_csrf', secrets.token_urlsafe(32))
+    return render_template(
+        'cadu_workspace/brand_system.html', product='workspace',
+        spec=PRODUCTS['workspace'], module='marcas', title='Sistema de marca',
+        products=PRODUCTS, landing=LANDINGS['workspace'], user=user,
+        selected=selected, clients=clients, entities=entities,
+        records=[], profile=PROFILES.get('workspace'), csrf=token,
+        legacy_url=None, login_url=login_url(), product_url=product_url,
+    )
 
 
 @bp.get('/<product>/')

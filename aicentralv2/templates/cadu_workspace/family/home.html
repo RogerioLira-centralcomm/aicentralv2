@@ -1,1 +1,15 @@
+{% if user %}
+{% set projects = entities | selectattr('kind', 'equalto', 'project') | list %}
+{% set brands = entities | selectattr('kind', 'equalto', 'brand') | list %}
+{% set pending = entities | selectattr('needs_review') | list %}
+<section class="ws-context-overview" aria-labelledby="workspace-context-title">
+  <header><div><h2 id="workspace-context-title">Contexto que acompanha o trabalho</h2><p>Cliente, marcas e projetos definem o que cada ferramenta pode consultar, criar e manter associado.</p></div><a href="{{ url_for('cadu_family.page', product='workspace', module='clientes') }}">Trocar cliente</a></header>
+  <div class="ws-context-chain" aria-label="Relação do contexto selecionado">
+    <article><span>Cliente ativo</span><strong>{{ selected.client_name }}</strong><small>{{ {'admin':'Administrador', 'member':'Membro', 'viewer':'Leitura'}.get(selected.role, selected.role) }}</small></article>
+    <article><span>Marcas</span><strong>{{ brands|length }}</strong><small>{% if brands %}Disponíveis para Studio e Skills{% else %}Cadastre a primeira marca{% endif %}</small><a href="{{ url_for('cadu_family.page', product='workspace', module='marcas') }}">Organizar marcas</a></article>
+    <article><span>Projetos</span><strong>{{ projects|length }}</strong><small>{% if projects %}Disponíveis para Planner e Connect{% else %}Crie o primeiro projeto{% endif %}</small><a href="{{ url_for('cadu_family.page', product='workspace', module='projetos') }}">Organizar projetos</a></article>
+  </div>
+  {% if pending %}<p class="ws-context-review"><b>{{ pending|length }} vínculo{{ 's' if pending|length != 1 }} para revisar.</b> Há cadastros vindos de outra origem sem equivalência confirmada; revise antes de usá-los como contexto compartilhado.</p>{% endif %}
+</section>
+{% endif %}
 {% include 'cadu_family/home.html' %}

@@ -31,6 +31,17 @@
       catch (error) { feedback.textContent = error.message; button.disabled = false; }
     });
   }
+  document.querySelectorAll('[data-project-brand-link]').forEach(input => input.addEventListener('change', async () => {
+    input.disabled = true;
+    try {
+      await api('project-brand-links', 'PUT', {project_ref: input.dataset.projectRef, brand_ref: input.dataset.brandRef, linked: input.checked});
+      location.reload();
+    } catch (error) {
+      input.checked = !input.checked;
+      input.disabled = false;
+      feedback.textContent = error.message;
+    }
+  }));
   document.querySelectorAll('.family-switch, .family-context-menu').forEach(details => {
     details.addEventListener('toggle', () => {
       if (details.open) document.querySelectorAll('.family-switch, .family-context-menu').forEach(other => {

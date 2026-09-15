@@ -1,0 +1,18 @@
+{% extends "cadu_family/page.html" %}
+
+{% block product_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=127">
+{% endblock %}
+
+{% block product_content %}
+<section class="mc-shell mc-workspace-brand-system" id="mcApp" data-mc-page="marcas">
+  <section class="mc-panel" data-panel="marcas">
+    {% include "parametros/_mc_clientes.html" %}
+  </section>
+</section>
+{% endblock %}
+
+{% block product_scripts %}
+<script src="{{ url_for('static', filename='js/modelagem_criativos.js') }}?v=58" defer></script>
+<script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script>
+{% endblock %}

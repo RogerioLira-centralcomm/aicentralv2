@@ -22,7 +22,8 @@ class FamilyTest(TestCase):
         self.app.context_processor(lambda: {'product_url': product_url})
         register(self.app)
         self.client = self.app.test_client()
-        for name, result in [('actor', USER), ('clients', CLIENTS), ('entities', ENTITIES), ('entity_links', [])]:
+        for name, result in [('actor', USER), ('clients', CLIENTS), ('entities', ENTITIES),
+                             ('entity_links', []), ('project_brand_links', [])]:
             patch = mock.patch('aicentralv2.cadu_family.repository.' + name, return_value=result)
             setattr(self, name, patch.start())
             self.addCleanup(patch.stop)
@@ -33,6 +34,9 @@ class FamilyTest(TestCase):
 
     def post(self, path, data):
         return self.client.post('/familia/api/' + path, json=data, headers={'X-CSRF-Token': 'token'})
+
+    def put(self, path, data):
+        return self.client.put('/familia/api/' + path, json=data, headers={'X-CSRF-Token': 'token'})
 
     def test_visitor_cannot_read_or_mutate(self):
         for path in ('context', 'conversations', 'conversations/id/messages'):
@@ -75,6 +79,17 @@ class FamilyTest(TestCase):
         with mock.patch('aicentralv2.cadu_family.repository.create_entity') as create:
             self.assertEqual(self.post('entities', {'name': 'Teste', 'kind': 'project'}).status_code, 403)
             create.assert_not_called()
+
+    def test_project_brand_link_requires_enabled_writes_and_authorized_entities(self):
+        self.login()
+        payload = {'project_ref': 'ci:project', 'brand_ref': 'studio:3', 'linked': True}
+        with mock.patch('aicentralv2.cadu_family.repository.set_project_brand_link') as save:
+            self.assertEqual(self.put('project-brand-links', payload).status_code, 403)
+            save.assert_not_called()
+            self.app.config['CADU_FAMILY_WRITES_ENABLED'] = True
+            self.assertEqual(self.put('project-brand-links', payload).status_code, 200)
+            save.assert_called_once_with(12, 7, 'ci:project', 'studio:3', True)
+            self.assertEqual(self.put('project-brand-links', {**payload, 'brand_ref': 'ci:project'}).status_code, 403)
 
     def test_member_cannot_read_billing(self):
         self.login()
@@ -222,3 +237,47 @@ class FamilyTest(TestCase):
         self.assertIn('data-catalog-kind="canais"', html)
         self.assertIn('cadu_planner/catalog.js', html)
         self.assertNotIn('href="/familia/api/planner/catalog/', html)
+
+    def test_planner_document_preview_requires_context_and_does_not_expose_html(self):
+        self.assertEqual(self.client.get('/familia/api/planner/documents/3').status_code, 401)
+        self.login()
+        document = {'id': 3, 'title': 'Plano', 'type': 'briefing', 'status': 'published', 'is_owner': True}
+        with mock.patch('aicentralv2.cadu_planner.docs.document_preview', return_value=(document, 'Texto seguro')) as preview:
+            response = self.client.get('/familia/api/planner/documents/3')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), {'document': document, 'preview': 'Texto seguro'})
+        preview.assert_called_once_with(12, 7, 3)
+
+    def test_planner_document_index_requires_context(self):
+        self.assertEqual(self.client.get('/familia/api/planner/documents').status_code, 401)
+        self.login()
+        with mock.patch('aicentralv2.cadu_planner.docs.list_documents', return_value=[]) as documents:
+            response = self.client.get('/familia/api/planner/documents')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), {'documents': []})
+        documents.assert_called_once_with(12, 7)
+
+    def test_planner_docs_write_routes_require_flag_and_carry_authorized_context(self):
+        self.login()
+        payload = {'title': 'Plano', 'type': 'briefing', 'html': '<p>Seguro</p>'}
+        with mock.patch('aicentralv2.cadu_planner.docs.create_document') as create:
+            self.assertEqual(self.post('planner/docs', payload).status_code, 403)
+            create.assert_not_called()
+        self.app.config['CADU_FAMILY_WRITES_ENABLED'] = True
+        document = {'id': 4, **payload, 'status': 'draft', 'is_owner': True}
+        with mock.patch('aicentralv2.cadu_planner.docs.create_document', return_value=document) as create:
+            response = self.post('planner/docs', payload)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.get_json(), {'document': document})
+        create.assert_called_once_with(12, 7, payload)
+
+    def test_planner_docs_save_uses_context_and_csrf(self):
+        self.login()
+        self.app.config['CADU_FAMILY_WRITES_ENABLED'] = True
+        saved = {'id': 4, 'title': 'Atualizado', 'status': 'published', 'is_owner': True}
+        with mock.patch('aicentralv2.cadu_planner.docs.save_document', return_value=saved) as save:
+            response = self.client.put('/familia/api/planner/docs/4', json={'title': 'Atualizado'},
+                                       headers={'X-CSRF-Token': 'token'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), {'document': saved})
+        save.assert_called_once_with(12, 7, 4, {'title': 'Atualizado'})

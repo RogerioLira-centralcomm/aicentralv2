@@ -30,6 +30,19 @@ CREATE TABLE IF NOT EXISTS cadu_family_conversation_context (
 );
 CREATE INDEX IF NOT EXISTS cadu_family_conversation_owner
     ON cadu_family_conversation_context (organization_id, user_id, client_id);
+-- A project may serve more than one brand and a brand may participate in
+-- more than one project. These are product relationships, not ID aliases.
+CREATE TABLE IF NOT EXISTS cadu_family_project_brands (
+    client_id INTEGER NOT NULL REFERENCES tbl_cliente(id_cliente),
+    project_ref TEXT NOT NULL,
+    brand_ref TEXT NOT NULL,
+    created_by INTEGER NOT NULL REFERENCES tbl_contato_cliente(id_contato_cliente),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (client_id, project_ref, brand_ref),
+    CHECK (project_ref <> brand_ref)
+);
+CREATE INDEX IF NOT EXISTS cadu_family_project_brands_project
+    ON cadu_family_project_brands (client_id, project_ref);
 CREATE TABLE IF NOT EXISTS cadu_family_report_projects (
     campaign_id INTEGER PRIMARY KEY REFERENCES cadu_pi_campanha(id_campanha),
     client_id INTEGER NOT NULL REFERENCES tbl_cliente(id_cliente),

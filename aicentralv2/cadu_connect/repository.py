@@ -7,6 +7,77 @@ def _db():
     return get_db()
 
 
+def accounts_for_workspace_context(organization_id: int, *, workspace_client_id: int,
+                                   workspace_project_ref: Optional[str] = None) -> list[dict]:
+    try:
+        with _db().cursor() as cursor:
+            cursor.execute(
+                """SELECT DISTINCT a.id, a.organization_id, a.provider,
+                          a.external_account_id, a.name, a.status,
+                          a.credential_provider, a.last_synced_at
+                     FROM cadu_connect_accounts a
+                LEFT JOIN cadu_connect_account_scopes scope ON scope.account_id = a.id
+                    WHERE a.organization_id = %s
+                      AND scope.workspace_client_id = %s
+                      AND (%s IS NULL OR scope.workspace_project_ref = %s)
+                 ORDER BY a.provider, a.name""",
+                (organization_id, workspace_client_id, workspace_project_ref, workspace_project_ref),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+    except Exception:
+        # A instalação sem a migration continua navegável até o deploy do schema.
+        return []
+
+
+def create_account(*, organization_id: int, provider: str,
+                   external_account_id: str, name: str, credential_provider: Optional[str],
+                   user_id: int) -> dict:
+    conn = _db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """INSERT INTO cadu_connect_accounts
+                    (organization_id, provider, external_account_id, name,
+                     credential_provider, created_by, updated_by)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                 RETURNING id, organization_id, provider, external_account_id,
+                           name, status, credential_provider, last_synced_at""",
+                (organization_id, provider, external_account_id, name,
+                 credential_provider, user_id, user_id),
+            )
+            row = cursor.fetchone()
+        conn.commit()
+        return dict(row)
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def add_account_scope(*, account_id: int, organization_id: int, workspace_client_id: int,
+                      workspace_project_ref: Optional[str] = None,
+                      workspace_brand_ref: Optional[str] = None, user_id: int) -> dict:
+    """Attach an account to a validated Workspace client/project/brand context."""
+    conn = _db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT 1 FROM cadu_connect_accounts WHERE id = %s AND organization_id = %s", (account_id, organization_id))
+            if not cursor.fetchone():
+                raise ValueError("Conta não encontrada nesta organização.")
+            cursor.execute(
+                """INSERT INTO cadu_connect_account_scopes
+                    (account_id, workspace_client_id, workspace_project_ref, workspace_brand_ref, created_by)
+                    VALUES (%s, %s, %s, %s, %s)
+                 RETURNING id, account_id, workspace_client_id, workspace_project_ref, workspace_brand_ref""",
+                (account_id, workspace_client_id, workspace_project_ref, workspace_brand_ref, user_id),
+            )
+            row = cursor.fetchone()
+        conn.commit()
+        return dict(row)
+    except Exception:
+        conn.rollback()
+        raise
+
+
 def campaigns_for_client(client_id: int, *, project_id: Optional[int] = None) -> list[dict]:
     try:
         with _db().cursor() as cursor:

@@ -44,11 +44,17 @@ def index():
         client for client in targets["clients"] if int(client.get("id") or 0) == session_client_id
     ]
     requested_client_id = request.args.get("client_id", type=int)
+    requested_project_id = request.args.get("project_id", type=int)
     permitted_ids = {int(client["id"]) for client in permitted_clients}
-    client_id = requested_client_id if is_portfolio_operator and requested_client_id in permitted_ids else session_client_id
+    if is_portfolio_operator and requested_client_id is None:
+        client_id = 0
+    else:
+        client_id = requested_client_id if is_portfolio_operator and requested_client_id in permitted_ids else session_client_id
     active_client = next((client for client in permitted_clients if int(client["id"]) == client_id), None)
     projects = [row for row in targets["projects"] if int(row.get("client_id") or 0) == client_id]
-    selected_project = workspace_project_context(client_id, projects)
+    selected_project = next((project for project in projects if project["id"] == requested_project_id), None)
+    if selected_project is None:
+        selected_project = workspace_project_context(client_id, projects)
     campaigns = campaigns_for_client(client_id, project_id=selected_project["id"] if selected_project else None)
     accounts = []
     # Integrações globais pertencem à operação interna. Administradores de
@@ -72,7 +78,9 @@ def index():
         "cadu_portals/connect.html",
         account_name=(active_client or {}).get("name") or session.get("user_name") or "Minha conta",
         active_client=active_client,
+        workspace_clients=permitted_clients,
         is_portfolio_operator=is_portfolio_operator,
+        portfolio_mode=is_portfolio_operator and requested_client_id is None,
         client_portfolio=portfolio_for_clients(permitted_clients) if is_portfolio_operator else [],
         accounts=accounts, campaigns=campaigns, projects=projects, selected_project=selected_project,
         reports=[row for row in campaigns if row.get("link_dash")],

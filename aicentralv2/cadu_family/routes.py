@@ -2,7 +2,7 @@
 import secrets
 from urllib.parse import urlencode
 
-from flask import Blueprint, Response, abort, current_app, jsonify, render_template, request, session, stream_with_context
+from flask import Blueprint, Response, abort, current_app, jsonify, make_response, render_template, request, session, stream_with_context
 from werkzeug.exceptions import HTTPException
 
 from ..auth import login_url
@@ -186,6 +186,123 @@ def copy_validate():
 
 
 @bp.post('/api/conversations/send')
+@bp.get('/api/planner/documents')
+def planner_documents():
+    """Read-only SmartPlanner document index in the selected authorized client."""
+    from ..cadu_planner import docs
+    user, selected = context.identity(), context.resolve()
+    return jsonify(documents=docs.list_documents(selected['client_id'], user['id']))
+
+
+@bp.get('/api/planner/documents/<int:document_id>')
+def planner_document_preview(document_id):
+    from ..cadu_planner import docs
+    user, selected = context.identity(), context.resolve()
+    document, preview = docs.document_preview(selected['client_id'], user['id'], document_id)
+    return jsonify(document=document, preview=preview)
+
+
+@bp.get('/api/planner/places')
+def planner_places():
+    from ..cadu_planner import places
+    context.identity()
+    context.resolve()
+    return jsonify(records=places.catalog(request.args.get('q', '')))
+
+
+@bp.get('/api/planner/places/<slug>')
+def planner_place_detail(slug):
+    from ..cadu_planner import places
+    context.identity()
+    context.resolve()
+    return jsonify(record=places.detail(slug))
+
+
+@bp.get('/api/planner/selections')
+def planner_selections():
+    from ..cadu_planner import selections
+    user, selected = context.identity(), context.resolve()
+    return jsonify(selections=selections.list_selected(selected['client_id'], user['id']))
+
+
+@bp.post('/api/planner/selections/toggle')
+def planner_selection_toggle():
+    from ..cadu_planner import selections
+    selected = writable_context()
+    user = context.identity()
+    return jsonify(selections.toggle(selected['client_id'], user['id'], request.get_json(silent=True) or {}))
+
+
+@bp.get('/api/planner/docs')
+def planner_docs():
+    from ..cadu_planner import docs
+    user, selected = context.identity(), context.resolve()
+    return jsonify(documents=docs.list_documents(selected['client_id'], user['id']), templates=docs.templates(selected['client_id']))
+
+
+@bp.post('/api/planner/docs')
+def planner_docs_create():
+    from ..cadu_planner import docs
+    selected = writable_context()
+    user = context.identity()
+    return jsonify(document=docs.create_document(selected['client_id'], user['id'], request.get_json(silent=True) or {})), 201
+
+
+@bp.get('/api/planner/docs/<int:doc_id>')
+def planner_doc_detail(doc_id):
+    from ..cadu_planner import docs
+    user, selected = context.identity(), context.resolve()
+    return jsonify(document=docs.get_document(selected['client_id'], user['id'], doc_id))
+
+
+@bp.put('/api/planner/docs/<int:doc_id>')
+def planner_doc_save(doc_id):
+    from ..cadu_planner import docs
+    selected = writable_context()
+    user = context.identity()
+    return jsonify(document=docs.save_document(selected['client_id'], user['id'], doc_id, request.get_json(silent=True) or {}))
+
+
+@bp.post('/api/planner/docs/<int:doc_id>/duplicate')
+def planner_doc_duplicate(doc_id):
+    from ..cadu_planner import docs
+    selected = writable_context()
+    user = context.identity()
+    return jsonify(document=docs.duplicate_document(selected['client_id'], user['id'], doc_id)), 201
+
+
+@bp.post('/api/planner/docs/<int:doc_id>/share')
+def planner_doc_share(doc_id):
+    from ..cadu_planner import docs
+    selected = writable_context()
+    user = context.identity()
+    data = request.get_json(silent=True) or {}
+    return jsonify(document=docs.share_document(selected['client_id'], user['id'], doc_id, data.get('enabled', True)))
+
+
+@bp.get('/planner/docs/public/<token>')
+def planner_doc_public(token):
+    from ..cadu_planner import docs
+    # Documents originate in a legacy HTML editor. The sanitizer removes active
+    # content and this sandbox is a second boundary for every public share.
+    response = make_response(render_template('cadu_planner/public_doc.html', document=docs.public_document(token)))
+    response.headers['Content-Security-Policy'] = "sandbox; default-src 'none'; img-src https: data:; style-src 'unsafe-inline'; font-src https: data:"
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    return response
+
+
+@bp.post('/api/planner/docs/<int:doc_id>/export')
+def planner_doc_export(doc_id):
+    from io import BytesIO
+    from flask import send_file
+    from ..cadu_planner import docs
+    selected = writable_context()
+    user = context.identity()
+    document = docs.get_document(selected['client_id'], user['id'], doc_id)
+    return send_file(BytesIO(docs.export_pdf(document)), mimetype='application/pdf', as_attachment=True,
+                     download_name='documento-%s.pdf' % doc_id)
+
+
 def conversation_send():
     selected = writable_context()
     data = request.get_json(silent=True) or {}

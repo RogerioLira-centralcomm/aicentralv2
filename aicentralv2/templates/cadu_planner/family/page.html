@@ -2,7 +2,8 @@
 {% block product_content %}
 {% if module == 'inicio' %}{% include 'cadu_planner/family/home.html' %}
 {% elif not user %}{% include 'cadu_family/guest.html' %}
-{% elif module in ('canais', 'formatos', 'audiencias') %}{% include 'cadu_planner/family/catalog.html' %}
+{% elif module in ('canais', 'formatos', 'audiencias', 'interativos', 'places') %}{% include 'cadu_planner/family/catalog.html' %}
+{% elif module == 'docs' %}{% include 'cadu_planner/family/docs.html' %}
 {% else %}{% include 'cadu_family/records.html' %}
 {% endif %}
 {% endblock %}

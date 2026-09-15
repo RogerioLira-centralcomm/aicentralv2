@@ -1,0 +1,9 @@
+<section class="planner-docs" data-planner-docs>
+  <header><div><h2>Docs</h2><p>Revise os documentos do cliente selecionado e use-os como referência no planejamento.</p></div><button class="family-primary" type="button" disabled aria-describedby="docs-migration-note">Criação em preparação</button></header>
+  <p id="docs-migration-note" class="planner-doc-note">A criação, edição e compartilhamento serão habilitados após a confirmação explícita de cada ação. Os documentos existentes seguem preservados.</p>
+  <div class="planner-doc-grid" data-doc-list>
+  {% for row in records %}<article data-doc-id="{{ row.id }}"><p>{{ row.type }}</p><h3>{{ row.title }}</h3><small>Atualizado em {{ row.updated_at }}</small><button type="button" data-doc-open="{{ row.id }}">Abrir</button></article>
+  {% else %}<p class="family-welcome">Nenhum documento neste cliente. Crie o primeiro a partir de um template.</p>{% endfor %}
+  </div>
+</section>
+<dialog class="planner-doc-dialog" data-doc-dialog aria-labelledby="planner-doc-heading"><article><header><div><p data-doc-type></p><h2 id="planner-doc-heading" data-doc-heading>Documento</h2></div><button type="button" data-doc-close aria-label="Fechar documento">Fechar</button></header><p class="planner-doc-meta" data-doc-meta></p><div class="planner-doc-preview" data-doc-preview aria-live="polite"></div></article></dialog>

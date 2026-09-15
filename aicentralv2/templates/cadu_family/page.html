@@ -17,11 +17,16 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-copy-ads.css') }}">
   <script defer src="{{ url_for('static', filename='js/cadu-copy-ads.js') }}"></script>
   {% endif %}
-  {% if product == 'planner' and module in ('canais', 'formatos', 'audiencias') %}
+  {% if product == 'planner' and module in ('canais', 'formatos', 'audiencias', 'interativos', 'places') %}
   <script defer src="{{ url_for('static', filename='cadu_planner/catalog.js') }}"></script>
   {% endif %}
 </head>
 <body data-product="{{ product }}" data-authenticated="{{ 'true' if user else 'false' }}">
+  {% if product == 'planner' and module == 'docs' %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-docs.css') }}">
+  <script defer src="{{ url_for('static', filename='cadu_planner/docs.js') }}"></script>
+  {% endif %}
+  {% block product_head_scripts %}{% endblock %}
 <a class="family-skip" href="#content">Ir para o conteúdo</a>
 <header class="family-nav">
   {% set family_products = [('workspace', 'Workspace', 'cadu-icon.png'), ('studio', 'Studio', 'studio-icon.png'), ('planner', 'SmartPlanner', 'planner-icon.png'), ('skills', 'Skills', 'skills-icon.png'), ('connect', 'Connect', 'connect-icon.png')] %}

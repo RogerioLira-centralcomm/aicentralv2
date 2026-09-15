@@ -8,7 +8,7 @@ from werkzeug.exceptions import BadRequest, NotFound
 
 from ..cadu_family import repository
 
-KINDS = {'canais', 'formatos', 'audiencias'}
+KINDS = {'canais', 'formatos', 'audiencias', 'interativos'}
 
 
 def query(kind, value='', limit=20):
@@ -45,6 +45,9 @@ def detail(kind, value):
         'formatos': '''SELECT id, nome AS name, descricao AS description,
                               dimensoes AS dimensions, formatos_arquivo AS files
                          FROM cadu_formatos WHERE id = %s AND is_active = TRUE LIMIT 1''',
+        'interativos': '''SELECT id, nome AS name, descricao AS description,
+                                 dimensoes AS dimensions, formatos_arquivo AS files
+                            FROM cadu_formatos WHERE id = %s AND is_active = TRUE AND is_interativo = TRUE LIMIT 1''',
     }[kind]
     records = repository.rows(sql, (record_id,))
     if not records:

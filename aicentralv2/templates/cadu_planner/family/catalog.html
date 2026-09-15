@@ -15,7 +15,8 @@
         {% if row.dimensions %}<div><dt>Dimensões</dt><dd>{{ row.dimensions }}</dd></div>{% endif %}
         {% if row.files %}<div><dt>Arquivos</dt><dd>{{ row.files }}</dd></div>{% endif %}
       </dl>
-      <button type="button" class="planner-catalog-detail" data-catalog-kind="{{ module }}" data-catalog-id="{{ row.id }}" aria-haspopup="dialog">Ver dados do catálogo</button>
+      <button type="button" class="planner-catalog-detail" data-catalog-kind="{{ module }}" data-catalog-id="{{ row.slug if module == 'places' else row.id }}" aria-haspopup="dialog">{{ 'Ver pontos e dados' if module == 'places' else 'Ver dados do catálogo' }}</button>
+      <button type="button" class="planner-catalog-select" data-planner-select data-catalog-kind="{{ module }}" data-catalog-id="{{ row.slug if module == 'places' else row.id }}">Selecionar para o plano</button>
     </article>
   {% endfor %}
   </div>

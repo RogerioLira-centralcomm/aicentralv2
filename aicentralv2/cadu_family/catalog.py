@@ -13,13 +13,14 @@ PRODUCTS = {
         'faturamento': ('Faturamento', '/checkout-plano'),
     }},
     'planner': {'name': 'SmartPlanner', 'navigation': (
-        ('Planejamento', ('inicio', 'planos', 'audiencias', 'canais', 'formatos', 'interativos')),
+        ('Planejamento', ('inicio', 'planos', 'audiencias', 'canais', 'formatos', 'interativos', 'places')),
         ('Entregas', ('docs', 'cotacoes')),
     ), 'modules': {
         'inicio': ('Visão geral', None),
         'planos': ('Planos de mídia', None), 'audiencias': ('Audiências', '/audiencias'),
         'canais': ('Canais', '/canais'), 'formatos': ('Formatos', '/formatos'),
         'interativos': ('Interativos', '/interativos'), 'docs': ('Docs', '/smart-docs'),
+        'places': ('Places', '/places'),
         'cotacoes': ('Cotações', '/cotacoes'),
     }},
     'studio': {'name': 'Studio', 'navigation': (

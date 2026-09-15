@@ -1,15 +1,15 @@
 {% extends "base_auth_public.html" %}
 
-{% block title %}Criar conta — CentralComm{% endblock %}
+{% block title %}Ativar conta — Cadu{% endblock %}
 {% block page_name %}invite{% endblock %}
-{% block scene_message %}Um convite. Uma conta. O trabalho continua.{% endblock %}
+{% block workspace_class %}auth-workspace--signup{% endblock %}
 
 {% block content %}
 <header class="auth-header">
-  <p class="auth-overline">{% if invite %}Seu acesso está pronto{% else %}Convite{% endif %}</p>
-  <h1>{% if invite %}Crie sua conta e entre no workspace.{% else %}Este convite não está disponível.{% endif %}</h1>
+  <p class="auth-overline">{% if invite %}Ativação de acesso{% else %}Convite{% endif %}</p>
+  <h1>{% if invite %}Sua conta Cadu começa aqui.{% else %}Este convite não está disponível.{% endif %}</h1>
   {% if invite %}
-  <p>Você foi convidado para {{ cliente_nome }}. Confirme seus dados e crie uma senha para começar.</p>
+  <p>Você foi convidado para {{ cliente_nome }}. Confirme sua identificação e proteja o acesso à sua operação.</p>
   {% endif %}
 </header>
 
@@ -31,96 +31,126 @@
   </div>
   {% endif %}
 
-  <form method="POST" action="{{ url_for('aceitar_convite_submit', token=token) }}" class="auth-form" data-auth-form>
-    <div class="auth-field">
-      <label class="auth-label" for="invite-email">Email</label>
-      <div class="auth-input-wrap">
-        <i class="auth-input-icon fa-regular fa-envelope" aria-hidden="true"></i>
-        <input class="auth-input" type="email" id="invite-email" value="{{ invite.email }}" readonly>
-      </div>
-    </div>
+  <form
+    method="POST"
+    action="{{ url_for('aceitar_convite_submit', token=token) }}"
+    class="auth-form auth-signup-form"
+    data-auth-form
+    data-auth-signup
+    data-signup-start-step="{{ signup_start_step|default(2 if errors else 1, true) }}"
+  >
+    <nav class="auth-signup-progress" aria-label="Etapas para ativar a conta">
+      <ol>
+        <li data-signup-progress="1" aria-current="step"><span>1</span><b>Identificação</b></li>
+        <li data-signup-progress="2"><span>2</span><b>Segurança</b></li>
+      </ol>
+    </nav>
 
-    <div class="auth-field">
-      <label class="auth-label" for="nome">Nome completo</label>
-      <div class="auth-input-wrap">
-        <i class="auth-input-icon fa-regular fa-user" aria-hidden="true"></i>
-        <input
-          class="auth-input"
-          type="text"
-          id="nome"
-          name="nome"
-          value="{{ nome|default('', true) }}"
-          placeholder="Seu nome"
-          autocomplete="name"
-          required
-          minlength="3"
-        >
+    <section class="auth-signup-stage" data-signup-step="1" aria-labelledby="signup-identification-title">
+      <div class="auth-signup-stage-heading">
+        <p class="auth-signup-eyebrow">Etapa 1 de 2</p>
+        <h2 id="signup-identification-title" tabindex="-1">Confirme sua identificação</h2>
+        <p>Seu convite foi emitido para este email. Use seu nome como ele deve aparecer para a equipe.</p>
       </div>
-    </div>
 
-    <div class="auth-field">
-      <label class="auth-label" for="senha">Criar senha</label>
-      <div class="auth-input-wrap">
-        <i class="auth-input-icon fa-solid fa-lock" aria-hidden="true"></i>
-        <input
-          class="auth-input has-action"
-          type="password"
-          id="senha"
-          name="senha"
-          placeholder="Mínimo 8 caracteres"
-          autocomplete="new-password"
-          required
-          minlength="8"
-          data-password-strength
-        >
-        <button
-          class="auth-password-toggle"
-          type="button"
-          data-password-toggle="senha"
-          aria-label="Mostrar senha"
-          aria-pressed="false"
-        >
-          <i class="fa-regular fa-eye" aria-hidden="true"></i>
+      <div class="auth-field">
+        <label class="auth-label" for="invite-email">Email autorizado</label>
+        <div class="auth-input-wrap">
+          <i class="auth-input-icon fa-regular fa-envelope" aria-hidden="true"></i>
+          <input class="auth-input" type="email" id="invite-email" value="{{ invite.email }}" readonly aria-describedby="invite-email-note">
+        </div>
+        <p class="auth-field-note" id="invite-email-note"><i class="fa-solid fa-lock" aria-hidden="true"></i> Vinculado ao convite; não pode ser alterado.</p>
+      </div>
+
+      <div class="auth-field">
+        <label class="auth-label" for="nome">Nome completo</label>
+        <div class="auth-input-wrap">
+          <i class="auth-input-icon fa-regular fa-user" aria-hidden="true"></i>
+          <input
+            class="auth-input"
+            type="text"
+            id="nome"
+            name="nome"
+            value="{{ nome|default('', true) }}"
+            placeholder="Como sua equipe deve chamar você"
+            autocomplete="name"
+            required
+            minlength="3"
+          >
+        </div>
+      </div>
+
+      <button class="auth-submit" type="button" data-signup-next>
+        Continuar
+        <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+      </button>
+    </section>
+
+    <section class="auth-signup-stage" data-signup-step="2" aria-labelledby="signup-security-title" hidden>
+      <div class="auth-signup-stage-heading">
+        <p class="auth-signup-eyebrow">Etapa 2 de 2</p>
+        <h2 id="signup-security-title" tabindex="-1">Proteja seu acesso</h2>
+        <p>Crie uma senha exclusiva para o Cadu. Ela protege sua conta em todas as soluções autorizadas.</p>
+      </div>
+
+      <div class="auth-field">
+        <label class="auth-label" for="senha">Criar senha</label>
+        <div class="auth-input-wrap">
+          <i class="auth-input-icon fa-solid fa-lock" aria-hidden="true"></i>
+          <input
+            class="auth-input has-action"
+            type="password"
+            id="senha"
+            name="senha"
+            placeholder="Mínimo 8 caracteres"
+            autocomplete="new-password"
+            required
+            minlength="8"
+            data-password-strength
+          >
+          <button class="auth-password-toggle" type="button" data-password-toggle="senha" aria-label="Mostrar senha" aria-pressed="false">
+            <i class="fa-regular fa-eye" aria-hidden="true"></i>
+          </button>
+        </div>
+        <div class="auth-strength" aria-live="polite">
+          <div class="auth-strength-track"><div class="auth-strength-bar" id="passwordStrengthBar"></div></div>
+          <div class="auth-strength-text" id="passwordStrengthText"></div>
+        </div>
+      </div>
+
+      <div class="auth-field">
+        <label class="auth-label" for="confirmar_senha">Confirme a senha</label>
+        <div class="auth-input-wrap">
+          <i class="auth-input-icon fa-solid fa-lock" aria-hidden="true"></i>
+          <input
+            class="auth-input has-action"
+            type="password"
+            id="confirmar_senha"
+            name="confirmar_senha"
+            placeholder="Repita a senha"
+            autocomplete="new-password"
+            required
+            minlength="8"
+            data-password-confirm="senha"
+          >
+          <button class="auth-password-toggle" type="button" data-password-toggle="confirmar_senha" aria-label="Mostrar senha" aria-pressed="false">
+            <i class="fa-regular fa-eye" aria-hidden="true"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="auth-signup-actions">
+        <button class="auth-button auth-button--quiet" type="button" data-signup-back>
+          <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+          Voltar
+        </button>
+        <button type="submit" class="auth-submit">
+          <span class="auth-spinner" aria-hidden="true"></span>
+          <span class="auth-button-label">Ativar minha conta</span>
+          <i class="fa-solid fa-check" aria-hidden="true"></i>
         </button>
       </div>
-      <div class="auth-strength" aria-live="polite">
-        <div class="auth-strength-track"><div class="auth-strength-bar" id="passwordStrengthBar"></div></div>
-        <div class="auth-strength-text" id="passwordStrengthText"></div>
-      </div>
-    </div>
-
-    <div class="auth-field">
-      <label class="auth-label" for="confirmar_senha">Confirme a senha</label>
-      <div class="auth-input-wrap">
-        <i class="auth-input-icon fa-solid fa-lock" aria-hidden="true"></i>
-        <input
-          class="auth-input has-action"
-          type="password"
-          id="confirmar_senha"
-          name="confirmar_senha"
-          placeholder="Repita a senha"
-          autocomplete="new-password"
-          required
-          minlength="8"
-          data-password-confirm="senha"
-        >
-        <button
-          class="auth-password-toggle"
-          type="button"
-          data-password-toggle="confirmar_senha"
-          aria-label="Mostrar senha"
-          aria-pressed="false"
-        >
-          <i class="fa-regular fa-eye" aria-hidden="true"></i>
-        </button>
-      </div>
-    </div>
-
-    <button type="submit" class="auth-submit">
-      <span class="auth-spinner" aria-hidden="true"></span>
-      <span class="auth-button-label">Criar minha conta</span>
-      <i class="fa-solid fa-check" aria-hidden="true"></i>
-    </button>
+    </section>
   </form>
 
   {% if invite.expires_at %}

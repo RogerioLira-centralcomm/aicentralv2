@@ -917,6 +917,144 @@ body[data-auth-page="reset-password"] .auth-page-content {
   }
 }
 
+/* Invite activation: deliberately two decisions, not a decorative wizard. */
+.auth-workspace--signup .auth-page-content {
+  min-height: 0;
+}
+
+.auth-signup-form {
+  gap: 1.25rem;
+}
+
+.auth-signup-progress ol {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.auth-signup-progress li {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.55rem;
+  border-bottom: 2px solid var(--auth-line);
+  padding: 0 0 0.7rem;
+  color: #798783;
+  font-size: 12px;
+}
+
+.auth-signup-progress li + li {
+  padding-left: 0.75rem;
+}
+
+.auth-signup-progress span {
+  display: grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: 0 0 auto;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 11px;
+  place-items: center;
+}
+
+.auth-signup-progress b {
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auth-signup-progress li.is-active,
+.auth-signup-progress li.is-complete {
+  border-color: var(--auth-brand);
+  color: var(--auth-brand-deep);
+}
+
+.auth-signup-progress li.is-active span,
+.auth-signup-progress li.is-complete span {
+  border-color: var(--auth-brand);
+  background: var(--auth-brand);
+  color: #fff;
+}
+
+.auth-signup-stage {
+  display: grid;
+  gap: 1rem;
+}
+
+.auth-signup-stage[hidden] {
+  display: none;
+}
+
+.auth-signup-stage-heading {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.auth-signup-eyebrow {
+  margin: 0;
+  color: var(--auth-brand);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.auth-signup-stage h2 {
+  margin: 0;
+  color: var(--auth-ink);
+  font-size: 1.35rem;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.auth-signup-stage-heading > p:last-child,
+.auth-field-note {
+  margin: 0;
+  color: var(--auth-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.auth-field-note i {
+  margin-right: 0.25rem;
+  color: var(--auth-brand);
+}
+
+.auth-signup-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 0.42fr) minmax(0, 0.58fr);
+  gap: 0.65rem;
+}
+
+.auth-button--quiet {
+  border-color: var(--auth-line);
+  background: #fff;
+  color: var(--auth-ink);
+}
+
+.auth-button--quiet:hover {
+  border-color: #9eaeaa;
+  background: #f7faf8;
+  color: var(--auth-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-signup-progress li,
+  .auth-signup-progress span {
+    transition: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .auth-signup-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 420px) {
   .auth-scene {
     height: clamp(120px, 20vh, 148px);

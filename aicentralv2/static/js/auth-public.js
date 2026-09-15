@@ -160,6 +160,49 @@
     });
   }
 
+  function setupSignupFlow() {
+    document.querySelectorAll('[data-auth-signup]').forEach(function (form) {
+      var steps = Array.prototype.slice.call(form.querySelectorAll('[data-signup-step]'));
+      var progress = Array.prototype.slice.call(form.querySelectorAll('[data-signup-progress]'));
+      var name = form.elements.nome;
+      if (!steps.length || !name) return;
+
+      function showStep(stepNumber, focusHeading) {
+        steps.forEach(function (step) {
+          var active = Number(step.dataset.signupStep) === stepNumber;
+          step.hidden = !active;
+          step.setAttribute('aria-hidden', active ? 'false' : 'true');
+        });
+        progress.forEach(function (item) {
+          var active = Number(item.dataset.signupProgress) === stepNumber;
+          item.classList.toggle('is-active', active);
+          item.classList.toggle('is-complete', Number(item.dataset.signupProgress) < stepNumber);
+          if (active) item.setAttribute('aria-current', 'step');
+          else item.removeAttribute('aria-current');
+        });
+        if (focusHeading) {
+          var heading = form.querySelector('[data-signup-step="' + stepNumber + '"] h2');
+          if (heading) heading.focus();
+        }
+      }
+
+      form.querySelectorAll('[data-signup-next]').forEach(function (button) {
+        button.addEventListener('click', function () {
+          if (!name.checkValidity()) {
+            name.reportValidity();
+            return;
+          }
+          showStep(2, true);
+        });
+      });
+      form.querySelectorAll('[data-signup-back]').forEach(function (button) {
+        button.addEventListener('click', function () { showStep(1, true); });
+      });
+
+      showStep(Number(form.dataset.signupStartStep) === 2 ? 2 : 1, false);
+    });
+  }
+
   function setupFlashMessages() {
     document.querySelectorAll('[data-auth-flash-close]').forEach(function (button) {
       button.addEventListener('click', function () {
@@ -204,6 +247,7 @@
     setupMatchingPasswords();
     setupCorporateEmail();
     setupForms();
+    setupSignupFlow();
     setupFlashMessages();
   });
 })();

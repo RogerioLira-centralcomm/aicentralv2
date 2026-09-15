@@ -2907,12 +2907,14 @@ def init_routes(app):
         
         if errors:
             cliente_nome = invite.get('cliente_nome') or invite.get('cliente_razao') or 'Cliente'
+            signup_start_step = 1 if any(error.startswith('Nome ') for error in errors) else 2
             return render_template('aceitar_convite.html', 
                                    invite=invite, 
                                    cliente_nome=cliente_nome,
                                    token=token,
                                    errors=errors,
-                                   nome=nome)
+                                   nome=nome,
+                                   signup_start_step=signup_start_step)
         
         try:
             role_mapping = {
@@ -2954,10 +2956,17 @@ def init_routes(app):
                 except Exception as email_error:
                     app.logger.warning('Boas-vindas do Workspace não enviadas: %s', email_error)
                 
+                from aicentralv2.auth import persist_login_session
+
+                session.clear()
+                persist_login_session()
                 session['user_id'] = contato_id
                 session['user_name'] = nome
                 session['user_email'] = invite['email']
                 session['cliente_id'] = invite['id_cliente']
+                session['user_type'] = user_type
+                session['is_centralcomm'] = True
+                session['user_photo_url'] = ''
                 
                 flash('Conta criada com sucesso! Bem-vindo!', 'success')
                 return redirect(url_for('index'))

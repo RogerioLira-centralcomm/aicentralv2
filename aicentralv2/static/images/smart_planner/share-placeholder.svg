@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Smart Planner</title>
+  <desc id="desc">Prévia de um planejamento de mídia do Centralcomm</desc>
+  <rect width="1200" height="630" fill="#f3f7f7"/>
+  <rect x="64" y="58" width="1072" height="514" rx="18" fill="#ffffff" stroke="#d9e4e4" stroke-width="2"/>
+  <rect x="112" y="108" width="120" height="12" rx="6" fill="#1e4d4f"/>
+  <text x="112" y="190" fill="#173c3e" font-family="Arial, sans-serif" font-size="54" font-weight="700">Smart Planner</text>
+  <text x="112" y="236" fill="#5e7077" font-family="Arial, sans-serif" font-size="25">Planejamento de mídia para decisão comercial</text>
+  <rect x="112" y="292" width="410" height="158" rx="12" fill="#edf5f5"/>
+  <rect x="560" y="292" width="238" height="158" rx="12" fill="#f5f7f8"/>
+  <rect x="826" y="292" width="238" height="158" rx="12" fill="#f5f7f8"/>
+  <rect x="144" y="330" width="280" height="13" rx="6" fill="#1e4d4f" opacity=".8"/>
+  <rect x="144" y="364" width="232" height="10" rx="5" fill="#9ab3b4"/>
+  <rect x="144" y="392" width="190" height="10" rx="5" fill="#9ab3b4"/>
+  <rect x="592" y="330" width="96" height="10" rx="5" fill="#89a5a7"/>
+  <rect x="592" y="365" width="164" height="38" rx="8" fill="#1e4d4f"/>
+  <rect x="858" y="330" width="98" height="10" rx="5" fill="#89a5a7"/>
+  <rect x="858" y="365" width="150" height="10" rx="5" fill="#b4c6c7"/>
+  <rect x="858" y="397" width="112" height="10" rx="5" fill="#b4c6c7"/>
+  <text x="112" y="515" fill="#5e7077" font-family="Arial, sans-serif" font-size="20">Centralcomm</text>
+</svg>

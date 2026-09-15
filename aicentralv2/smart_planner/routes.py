@@ -28,7 +28,7 @@ from .catalog import (
 )
 from .helpers import as_dict, as_list, session_public_token
 from .materials import save_upload
-from .references import capture_file, capture_search, capture_url
+from .references import capture_file, capture_search, capture_url, discover_campaigns
 from .brand import brand_for_client, search_parties
 from .editor import editor_context
 from .images import regenerate_creative
@@ -41,6 +41,7 @@ from .service import (
     persist_canais,
     persist_review,
     ritmo_from_payload,
+    recent_plans,
     start_plan,
     wizard_context,
 )
@@ -70,6 +71,7 @@ def _page_ctx(**extra):
         "plan_mode_labels": PLAN_MODE_LABELS,
         "presenter_options": presenter_options(),
         "presenter_brand": "centralcomm",
+        "recent_plans": recent_plans(),
     }
     ctx.update(extra)
     return ctx
@@ -329,6 +331,22 @@ def api_referencia(token):
     except Exception:
         logger.exception("Falha ao capturar referência")
         return _error("Não foi possível capturar a referência.", 500)
+
+
+@bp.route("/api/<token>/campanhas/pesquisa", methods=["POST"])
+@login_required_api
+def api_campaign_discovery(token):
+    try:
+        load_owned(token)
+        payload = request.get_json(silent=True) or {}
+        return _ok(discover_campaigns(payload.get("query") or "", payload.get("briefing") or ""))
+    except SessionNotFound as exc:
+        return _error(exc, 404)
+    except (ValueError, OpenRouterError) as exc:
+        return _error(exc, 422)
+    except Exception:
+        logger.exception("Falha ao pesquisar campanhas")
+        return _error("Não foi possível pesquisar campanhas agora.", 500)
 
 
 @bp.route("/api/<token>/processar", methods=["POST"])

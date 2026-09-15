@@ -8,7 +8,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>{{ document_label }} · {{ title }}</title>
+  <title>{{ document_label }} · {{ title }} · Centralcomm</title>
+  <link rel="icon" type="image/png" href="{{ house.logo }}">
+  <meta name="description" content="{{ title }} — {{ document_label }} preparado no Smart Planner.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Centralcomm Smart Planner">
+  <meta property="og:title" content="{{ document_label }} · {{ title }}">
+  <meta property="og:description" content="{{ overview or 'Planejamento de mídia preparado no Smart Planner.' }}">
+  <meta property="og:url" content="{{ document_url }}">
+  <meta property="og:image" content="{{ share_image }}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ document_label }} · {{ title }}">
+  <meta name="twitter:image" content="{{ share_image }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_public_v3.css') }}?v=2">
 </head>
 <body class="spv3 spv3-{{ document or 'proposal' }}">

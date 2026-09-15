@@ -383,8 +383,6 @@
     var empty = document.getElementById("sp-refs-empty");
     var refsCount = document.getElementById("sp-refs-count");
     var count = document.getElementById("sp-brief-count");
-    var tipsToggle = document.getElementById("sp-brief-tips-toggle");
-    var tips = document.getElementById("sp-brief-tips");
     var autosave = document.getElementById("sp-autosave-hint");
     var status = document.getElementById("sp-status");
     var kbd = document.getElementById("sp-kbd-mod");
@@ -477,6 +475,8 @@
       var items = jobs.concat(refs.map(function (item) {
         return { status: "pronto", ref: item };
       }));
+      var refsBlock = document.getElementById("sp-refs-card");
+      if (refsBlock) refsBlock.hidden = items.length === 0;
       if (cards) {
         cards.hidden = items.length === 0;
         cards.innerHTML = items.map(function (item, index) {
@@ -515,7 +515,8 @@
       if (!importer) return;
       var fileInput = document.getElementById("sp-ref-file");
       var imageInput = document.getElementById("sp-ref-file-image");
-      var drop = document.getElementById("sp-drop-file");
+      var fileDrop = document.getElementById("sp-drop-file");
+      var imageDrop = document.getElementById("sp-drop-image");
       function selectTab(kind) {
         var tab = kind || "text";
         importer.querySelectorAll("[data-ref-tab]").forEach(function (button) {
@@ -523,20 +524,6 @@
           button.classList.toggle("is-on", on);
           button.setAttribute("aria-selected", on ? "true" : "false");
         });
-        importer.querySelectorAll("[data-ref-pane]").forEach(function (pane) {
-          var on = pane.getAttribute("data-ref-pane") === tab;
-          pane.hidden = !on;
-          pane.classList.toggle("is-on", on);
-        });
-        if (drop) drop.setAttribute("for", tab === "image" ? "sp-ref-file-image" : "sp-ref-file");
-        if (tab === "url") {
-          var url = document.getElementById("sp-ref-url");
-          if (url) url.focus();
-        }
-        if (tab === "search") {
-          var query = document.getElementById("sp-ref-query");
-          if (query) query.focus();
-        }
         if (tab === "text") textarea.focus();
       }
       importer.querySelectorAll("[data-ref-tab]").forEach(function (button) {
@@ -550,7 +537,8 @@
           if (file) captureFile(file);
         });
       }
-      if (drop) {
+      function bindDrop(drop) {
+        if (!drop) return;
         ["dragenter", "dragover"].forEach(function (name) {
           drop.addEventListener(name, function (event) {
             event.preventDefault();
@@ -567,6 +555,8 @@
           takeFiles(event.dataTransfer && event.dataTransfer.files);
         });
       }
+      bindDrop(fileDrop);
+      bindDrop(imageDrop);
       [fileInput, imageInput].forEach(function (input) {
         if (!input) return;
         input.addEventListener("change", function (event) {
@@ -650,111 +640,73 @@
     var urlGo = document.getElementById("sp-ref-url-go");
     if (urlGo) {
       urlGo.addEventListener("click", function () {
-        var url = document.getElementById("sp-ref-url").value;
-        startJob("url", { kind: "url", url: url }, url);
-      });
-    }
-    var queryGo = document.getElementById("sp-ref-query-go");
-    var queryInput = document.getElementById("sp-ref-query");
-    var discovery = {
-      briefing: {
-        title: "Completar o briefing",
-        help: "Encontre contexto, provas e informações que ainda não aparecem no texto.",
-        placeholder: "Ex.: dados que sustentem a oportunidade descrita no briefing",
-        suggestions: ["Que informações faltam neste briefing?", "Quais fatos ajudam a defender esta oportunidade?", "Que contexto recente muda esta campanha?"]
-      },
-      marca: {
-        title: "Entender a marca",
-        help: "Descubra posicionamento, produtos, público, presença e movimentos recentes.",
-        placeholder: "Ex.: posicionamento, produtos e público da marca",
-        suggestions: ["Qual é o posicionamento atual da marca?", "Quais produtos e públicos são prioritários?", "Quais movimentos recentes da marca importam?"]
-      },
-      cliente: {
-        title: "Conhecer o cliente",
-        help: "Investigue atuação, praças, prioridades de negócio e oportunidades de comunicação.",
-        placeholder: "Ex.: atuação, prioridades e oportunidades do cliente",
-        suggestions: ["Onde o cliente atua e compete?", "Quais prioridades de negócio estão públicas?", "Que oportunidades de comunicação existem?"]
-      },
-      agencia: {
-        title: "Conhecer a agência",
-        help: "Encontre especialidades, portfólio, clientes atendidos e trabalhos recentes.",
-        placeholder: "Ex.: portfólio e campanhas recentes da agência",
-        suggestions: ["Quais são as especialidades da agência?", "Quais clientes e setores aparecem no portfólio?", "Quais campanhas recentes se destacam?"]
-      },
-      campanhas: {
-        title: "Explorar campanhas",
-        help: "Procure lançamentos, mensagens, canais usados, aprendizados e referências da categoria.",
-        placeholder: "Ex.: campanhas recentes da marca e de concorrentes",
-        suggestions: ["Quais campanhas recentes a marca lançou?", "Como os concorrentes estão se comunicando?", "Quais mensagens e canais aparecem na categoria?"]
-      },
-      mercado: {
-        title: "Ler o mercado",
-        help: "Busque tendências, comportamento, dados públicos e mudanças na categoria.",
-        placeholder: "Ex.: tendências e comportamento do consumidor neste mercado",
-        suggestions: ["Quais tendências recentes afetam este mercado?", "Como o comportamento do consumidor mudou?", "Que dados públicos ajudam a dimensionar a oportunidade?"]
-      }
-    };
-
-    function selectedSearchScope() {
-      var selected = document.querySelector('input[name="sp-search-scope"]:checked');
-      return selected ? selected.value : "briefing";
-    }
-
-    function paintDiscoveryGuide() {
-      var scope = selectedSearchScope();
-      var config = discovery[scope] || discovery.briefing;
-      var title = document.getElementById("sp-search-scope-title");
-      var help = document.getElementById("sp-search-scope-help");
-      var suggestions = document.getElementById("sp-search-suggestions");
-      var context = document.getElementById("sp-search-context");
-      if (title) title.textContent = config.title;
-      if (help) help.textContent = config.help;
-      if (queryInput) queryInput.placeholder = config.placeholder;
-      if (context) {
-        context.textContent = textarea.value.trim()
-          ? "Vamos cruzar a pesquisa com o briefing acima para trazer achados mais específicos."
-          : "Sem briefing ainda: inclua na pergunta o nome da marca, cliente ou mercado para melhorar os resultados.";
-      }
-      if (suggestions) {
-        suggestions.innerHTML = config.suggestions.map(function (suggestion) {
-          return '<button type="button" data-search-suggestion="' + escapeHtml(suggestion) + '">' + escapeHtml(suggestion) + "</button>";
-        }).join("");
-      }
-    }
-
-    document.querySelectorAll('input[name="sp-search-scope"]').forEach(function (input) {
-      input.addEventListener("change", paintDiscoveryGuide);
-    });
-    var suggestions = document.getElementById("sp-search-suggestions");
-    if (suggestions) {
-      suggestions.addEventListener("click", function (event) {
-        var button = event.target.closest("[data-search-suggestion]");
-        if (!button || !queryInput) return;
-        queryInput.value = button.getAttribute("data-search-suggestion") || "";
-        queryInput.focus();
-      });
-    }
-    paintDiscoveryGuide();
-    textarea.addEventListener("input", paintDiscoveryGuide);
-    if (queryGo) {
-      queryGo.addEventListener("click", function () {
-        var query = queryInput ? queryInput.value.trim() : "";
-        if (!query) {
-          setStatus(document.getElementById("sp-ref-status"), "Escolha uma sugestão ou escreva o que deseja descobrir.", "error");
-          if (queryInput) queryInput.focus();
+        var urlInput = document.getElementById("sp-ref-url");
+        var url = urlInput ? urlInput.value.trim() : "";
+        if (!url) {
+          setStatus(document.getElementById("sp-ref-status"), "Informe uma URL para ler a fonte.", "error");
+          if (urlInput) urlInput.focus();
           return;
         }
-        var scope = selectedSearchScope();
-        startJob("search", { kind: "search", scope: scope, query: query, briefing: textarea.value }, (discovery[scope] || discovery.briefing).title + ": " + query);
+        startJob("url", { kind: "url", url: url }, url);
+        closeCampaignModal();
       });
     }
-    if (queryInput) {
-      queryInput.addEventListener("keydown", function (event) {
-        if (event.key !== "Enter") return;
-        event.preventDefault();
-        if (queryGo) queryGo.click();
+    var campaignModal = document.getElementById("sp-campaign-modal");
+    var sourcesOpen = document.getElementById("sp-sources-open");
+    var campaignOpen = document.getElementById("sp-campaign-research-open");
+    var campaignSearch = document.getElementById("sp-campaign-search");
+    var campaignQuery = document.getElementById("sp-campaign-query");
+    var campaignResults = document.getElementById("sp-campaign-results");
+    var campaignStatus = document.getElementById("sp-campaign-status");
+    function closeCampaignModal() { if (campaignModal && campaignModal.open) campaignModal.close(); }
+    function setSourceMode(mode) {
+      if (!campaignModal) return;
+      campaignModal.querySelectorAll("[data-source-mode]").forEach(function (button) {
+        var active = button.getAttribute("data-source-mode") === mode;
+        button.classList.toggle("is-on", active);
+        button.setAttribute("aria-selected", active ? "true" : "false");
       });
+      campaignModal.querySelectorAll("[data-source-pane]").forEach(function (pane) {
+        pane.hidden = pane.getAttribute("data-source-pane") !== mode;
+      });
+      var focusId = mode === "url" ? "sp-ref-url" : mode === "campaign" ? "sp-campaign-query" : "";
+      var focus = focusId && document.getElementById(focusId);
+      if (focus) window.setTimeout(function () { focus.focus(); }, 0);
     }
+    function openSources(mode) {
+      if (!campaignModal) return;
+      setSourceMode(mode || "url");
+      if (!campaignModal.open) campaignModal.showModal();
+    }
+    function renderCampaignResults(items) {
+      if (!campaignResults) return;
+      campaignResults.innerHTML = (items || []).map(function (item, index) {
+        var image = item.image_url ? '<img src="' + escapeHtml(item.image_url) + '" alt="" loading="lazy">' : '<div class="sp-campaign-result-placeholder"><i class="fa-regular fa-image" aria-hidden="true"></i></div>';
+        return '<article class="sp-campaign-result">' + image + '<div><strong>' + escapeHtml(item.title) + '</strong><p>' + escapeHtml(previewText(item.snippet)) + '</p><small>' + (item.source_mode === "web" ? "Fonte pública" : "Resumo de apoio") + '</small></div>' + (item.url ? '<button type="button" data-campaign-source="' + index + '">Usar fonte</button>' : '') + '</article>';
+      }).join("") || '<p class="sp-empty">Nenhuma campanha encontrada. Tente uma marca ou categoria mais específica.</p>';
+      campaignResults._items = items || [];
+    }
+    async function searchCampaigns() {
+      var query = campaignQuery ? campaignQuery.value.trim() : "";
+      if (!query) { if (campaignStatus) campaignStatus.textContent = "Informe a marca, campanha ou categoria."; return; }
+      if (campaignStatus) campaignStatus.textContent = "Pesquisando fontes públicas e imagens de campanha…";
+      if (campaignResults) campaignResults.innerHTML = '<div class="sp-campaign-loading"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Organizando referências</div>';
+      try {
+        var data = await postJson("/smart-planner/api/" + token + "/campanhas/pesquisa", { query: query, briefing: textarea.value });
+        if (campaignStatus) campaignStatus.textContent = (data.items || []).length + " fontes encontradas.";
+        renderCampaignResults(data.items);
+      } catch (error) { if (campaignStatus) campaignStatus.textContent = error.message; if (campaignResults) campaignResults.innerHTML = ""; }
+    }
+    if (sourcesOpen) sourcesOpen.addEventListener("click", function () { openSources("url"); });
+    if (campaignOpen) campaignOpen.addEventListener("click", function () { openSources("campaign"); });
+    if (campaignSearch) campaignSearch.addEventListener("click", searchCampaigns);
+    if (campaignQuery) campaignQuery.addEventListener("keydown", function (event) { if (event.key === "Enter") { event.preventDefault(); searchCampaigns(); } });
+    if (campaignModal) {
+      campaignModal.querySelectorAll("[data-source-mode]").forEach(function (button) { button.addEventListener("click", function () { setSourceMode(button.getAttribute("data-source-mode")); }); });
+      campaignModal.querySelectorAll("[data-close-campaign-modal]").forEach(function (button) { button.addEventListener("click", closeCampaignModal); });
+      campaignModal.addEventListener("click", function (event) { if (event.target === campaignModal) closeCampaignModal(); });
+    }
+    if (campaignResults) campaignResults.addEventListener("click", function (event) { var button = event.target.closest("[data-campaign-source]"); if (!button) return; var item = (campaignResults._items || [])[Number(button.getAttribute("data-campaign-source"))]; if (!item || !item.url) return; startJob("url", { kind: "url", url: item.url }, item.title || item.url); closeCampaignModal(); });
     document.getElementById("sp-ref-insert").addEventListener("click", function () {
       if (!pending) return;
       var already = refs.some(function (item) {
@@ -802,13 +754,6 @@
         expand.textContent = open ? "Ocultar" : "Ver";
       });
     }
-    if (tipsToggle && tips && tipsToggle.tagName !== "SUMMARY") {
-      tipsToggle.addEventListener("click", function () {
-        var open = tips.hidden;
-        tips.hidden = !open;
-        tipsToggle.setAttribute("aria-expanded", open ? "true" : "false");
-      });
-    }
     textarea.addEventListener("input", function () {
       if (textarea.value.length > 20000) textarea.value = textarea.value.slice(0, 20000);
       updateCount();
@@ -849,6 +794,8 @@
               notas: item.notas || "",
               fatos: item.fatos || {},
               papel: item.papel || "",
+              scope: item.scope || "",
+              source_mode: item.source_mode || "",
             };
           }),
         });

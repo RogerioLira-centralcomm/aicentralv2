@@ -100,6 +100,30 @@ def capture_search(query: str, briefing: str = "", scope: str = "mercado") -> di
     return _captured("search", query, raw, scope=scope, source_mode=source_mode)
 
 
+def discover_campaigns(query: str, briefing: str = "") -> dict:
+    """Return current Firecrawl search candidates for the campaign-research modal."""
+    from ..services.integration_credentials import resolve_firecrawl_api_key
+
+    query = (query or "").strip()
+    if len(query) < 3:
+        raise ValueError("Informe a marca, campanha ou categoria a pesquisar.")
+    key = resolve_firecrawl_api_key()
+    if not key:
+        captured = capture_search(query, briefing, "campanhas")
+        return {"query": query, "items": [{"title": captured["label"], "snippet": captured["notas"], "url": "", "image_url": "", "source_mode": captured["source_mode"]}]}
+    hits = _firecrawl_search(f"{query}. Foco: {SEARCH_FOCUS['campanhas']['instruction']}", key)
+    return {
+        "query": query,
+        "items": [{
+            "title": text(item.get("title")) or "Fonte de campanha",
+            "snippet": text(item.get("snippet")),
+            "url": text(item.get("url")),
+            "image_url": text(item.get("image_url") or item.get("image") or item.get("imageUrl")),
+            "source_mode": "web",
+        } for item in hits],
+    }
+
+
 def search_web(query: str, briefing: str = "", scope: str = "mercado") -> str:
     from ..services.integration_credentials import resolve_firecrawl_api_key
 
@@ -232,7 +256,7 @@ def _firecrawl_search(query: str, key: str) -> list[dict]:
         snippet = text(item.get("description") or item.get("snippet") or item.get("markdown"))
         url = text(item.get("url"))
         if title or snippet or url:
-            hits.append({"title": title, "snippet": snippet, "url": url})
+            hits.append({"title": title, "snippet": snippet, "url": url, "image_url": text(item.get("imageUrl") or item.get("image_url") or item.get("image"))})
     return hits
 
 

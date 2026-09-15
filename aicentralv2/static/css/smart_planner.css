@@ -2038,6 +2038,34 @@
   color: #fff;
 }
 
+.sp-importer-tabs .sp-campaign-research-open { border-color:#b8d4d5; background:#edf7f7; color:#174b4d; }
+.sp-campaign-modal { width:min(52rem, calc(100vw - 2rem)); max-height:min(46rem, calc(100vh - 2rem)); padding:0; border:0; border-radius:16px; color:var(--hi-ink); box-shadow:0 24px 80px rgba(11,35,37,.28); }
+.sp-campaign-modal::backdrop { background:rgba(14,35,37,.58); backdrop-filter:blur(5px); }
+.sp-campaign-modal > header { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; padding:1.3rem 1.4rem 1rem; border-bottom:1px solid var(--hi-line); background:var(--hi-surface,#f7fbfb); }
+.sp-campaign-modal header span { color:#327274; font-size:.72rem; font-weight:700; }
+.sp-campaign-modal h2 { margin:.15rem 0; font-size:1.25rem; }
+.sp-campaign-modal header p { max-width:39rem; margin:0; color:var(--hi-fog); font-size:.84rem; }
+.sp-campaign-modal-search { display:flex; gap:.6rem; padding:1rem 1.4rem .65rem; }
+.sp-campaign-modal-search input { min-width:0; flex:1; }
+.sp-campaign-modal-status { margin:0; padding:0 1.4rem .8rem; color:var(--hi-fog); font-size:.8rem; }
+.sp-campaign-results { display:grid; gap:.65rem; max-height:27rem; overflow:auto; padding:0 1.4rem 1.4rem; }
+.sp-campaign-result { display:grid; grid-template-columns:7.5rem minmax(0,1fr) auto; gap:.8rem; align-items:center; min-height:6rem; padding:.65rem; border:1px solid #dce7e7; border-radius:10px; background:#fff; }
+.sp-campaign-result img,.sp-campaign-result-placeholder { width:7.5rem; height:5rem; border-radius:7px; object-fit:cover; background:#e8f1f1; }
+.sp-campaign-result-placeholder { display:grid; place-items:center; color:#6b9293; }
+.sp-campaign-result strong { font-size:.86rem; }
+.sp-campaign-result p { margin:.25rem 0; color:var(--hi-fog); font-size:.78rem; line-height:1.4; }
+.sp-campaign-result small { color:#5a8586; font-size:.71rem; }
+.sp-campaign-result button { padding:.42rem .6rem; border:1px solid #b8d4d5; border-radius:7px; background:#fff; color:#1d5b5e; font:inherit; font-size:.76rem; font-weight:700; cursor:pointer; }
+.sp-campaign-loading { display:flex; align-items:center; justify-content:center; min-height:10rem; gap:.55rem; color:#487778; font-size:.85rem; }
+.sp-source-modes { display:flex; gap:.4rem; overflow:auto; padding:1rem 1.4rem 0; border-bottom:1px solid var(--hi-line); }
+.sp-source-modes button { flex:0 0 auto; padding:.45rem .65rem; border:1px solid var(--hi-line); border-radius:7px 7px 0 0; background:#fff; color:var(--hi-fog); font:inherit; font-size:.78rem; font-weight:700; cursor:pointer; }
+.sp-source-modes button.is-on { border-color:var(--hi-go); background:var(--hi-go); color:#fff; }
+.sp-source-pane { padding:1rem 1.4rem 1.4rem; }
+.sp-source-pane label:not(.sp-drop) { display:grid; gap:.4rem; color:var(--hi-ink); font-size:.84rem; font-weight:700; }
+.sp-source-pane .cx-btn { margin-top:.7rem; }
+.sp-source-pane .sp-drop { min-height:10rem; margin:0; }
+@media (max-width:640px) { .sp-campaign-modal > header,.sp-campaign-modal-search { padding-left:1rem; padding-right:1rem; } .sp-campaign-results { padding:0 1rem 1rem; } .sp-campaign-result { grid-template-columns:5.5rem minmax(0,1fr); } .sp-campaign-result img,.sp-campaign-result-placeholder { width:5.5rem; height:4rem; } .sp-campaign-result button { grid-column:2; justify-self:start; } }
+
 .sp-importer-pane,
 .sp-importer-extra {
   display: grid;
@@ -2974,8 +3002,8 @@
 }
 
 #sp-text {
-  min-height: 14rem;
-  max-height: 22rem;
+  min-height: 10rem;
+  max-height: 20rem;
 }
 
 .sp-brief-meta {
@@ -5204,6 +5232,27 @@ html.is-sp-media body {
 .sp-head-actions .cx-btn { min-height: 2.15rem; border-radius: 8px; font-weight: 650; }
 .sp-hi-plan { top: calc(var(--erp-topbar-h, 0px) + 4rem); }
 @media (max-width: 860px) { .sp-hi-head-actions__commit { width: 100%; padding: .5rem 0 0; border-top: 1px solid var(--hi-line, #dfe5e7); border-left: 0; } }
+
+/* Navegação de trabalho: ações e histórico ficam na barra do produto, não no título da etapa. */
+.sp-product-bar { display:flex; align-items:center; gap:.8rem; min-height:3.4rem; }
+.sp-product-bar__link { color:var(--hi-fog, #62727c); font-size:.82rem; font-weight:650; text-decoration:none; }
+.sp-product-bar__history { position:relative; }
+.sp-product-bar__history summary { display:flex; align-items:center; gap:.35rem; color:var(--hi-ink, #173c3e); cursor:pointer; font-size:.82rem; font-weight:650; list-style:none; }
+.sp-product-bar__history summary::-webkit-details-marker { display:none; }
+.sp-product-bar__history summary i { font-size:.65rem; color:var(--hi-fog, #62727c); }
+.sp-product-bar__history > div { position:absolute; z-index:20; top:calc(100% + .55rem); left:0; display:grid; width:min(23rem, calc(100vw - 2rem)); max-height:26rem; overflow:auto; padding:.4rem; border:1px solid var(--hi-line, #dfe5e7); border-radius:9px; background:#fff; box-shadow:0 14px 36px rgba(23,57,61,.14); }
+.sp-product-bar__history > div a { display:grid; gap:.1rem; padding:.55rem .65rem; border-radius:6px; color:var(--hi-ink, #173c3e); text-decoration:none; }
+.sp-product-bar__history > div a:hover,.sp-product-bar__history > div a:focus-visible,.sp-product-bar__history > div a.is-current { background:var(--hi-wash, #f3f7f7); }
+.sp-product-bar__history strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.8rem; }
+.sp-product-bar__history small,.sp-product-bar__history p { margin:0; color:var(--hi-fog, #62727c); font-size:.72rem; }
+.sp-product-bar__history > div .sp-product-bar__all { margin-top:.3rem; border-top:1px solid var(--hi-line, #dfe5e7); border-radius:0; font-size:.76rem; font-weight:700; }
+.sp-product-bar__actions { display:flex; align-items:center; gap:.4rem; margin-left:auto; }
+.sp-product-bar__actions .sp-live { color:var(--hi-fog, #62727c); font-size:.75rem; white-space:nowrap; }
+.sp-product-bar__current::before,.sp-product-bar__actions .sp-live::before { display:none; }
+.sp-hi-head { min-height:auto; margin-bottom:.9rem; padding-bottom:.7rem; }
+.sp-hi-head h1 { font-size:clamp(1.15rem, 1.5vw, 1.35rem); letter-spacing:-.01em; }
+.sp-hi-head p { margin:.2rem 0 0; font-size:.85rem; }
+@media (max-width:760px) { .sp-product-bar { flex-wrap:wrap; gap:.55rem; padding-block:.45rem; } .sp-product-bar__actions { width:100%; margin-left:0; } .sp-product-bar__actions .cx-btn-primary { margin-left:auto; } }
 
 .sp-gallery-item {
   margin: 0;

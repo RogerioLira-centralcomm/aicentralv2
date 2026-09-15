@@ -218,6 +218,9 @@ class PublicPlannerTest(TestCase):
         self.assertIn("cc-hero", html)
         self.assertIn("cc-donut", html)
         self.assertIn("cc-gantt", html)
+        self.assertIn('property="og:image"', html)
+        self.assertIn('name="twitter:card" content="summary_large_image"', html)
+        self.assertIn('rel="icon"', html)
         self.assertIn("Visão geral", html)
         self.assertIn("Salvar PDF", html)
         self.assertIn("Compartilhar", html)
@@ -242,6 +245,15 @@ class PublicPlannerTest(TestCase):
         self.assertIn("Criar marca no Cadu Media Studio", canvas)
         self.assertNotIn("sp-qr", canvas)
         self.assertNotIn("sp-mockup", canvas)
+
+    def test_public_view_always_exposes_a_share_image(self):
+        view = public_view({
+            "nome_campanha": "Lançamento",
+            "cliente": "Marca exemplo",
+            "dados_detectados": {"folha": {"sections": [{"cards": [{"type": "strategy", "body": "Tese."}]}]}},
+            "plan_content": {"sections": []},
+        })
+        self.assertIn("share-placeholder.svg", view["share_image"])
 
     def test_public_view_exposes_media_board_and_exec_facts(self):
         view = public_view({

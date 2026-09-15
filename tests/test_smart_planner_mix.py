@@ -186,7 +186,7 @@ class MixEngineTest(unittest.TestCase):
         self.assertIn("Refazer briefing", html)
         self.assertIn("data-gen-mode=\"one_page\"", html)
         self.assertIn("data-gen-mode=\"completo\"", html)
-        self.assertIn("data-sp-guide", html)
+        self.assertIn("_product_bar.html", html)
         guide = (Path(__file__).resolve().parents[1] / "aicentralv2" / "templates" / "smart_planner" / "_guide.html").read_text()
         self.assertIn("Como funciona o Smart Planner", guide)
         self.assertIn("Na prática", guide)

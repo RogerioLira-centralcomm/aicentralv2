@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,600;7..72,700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=43">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=45">
 {% endblock %}
 
 {% block content %}
@@ -24,7 +24,7 @@
         <div>
           <h1>
             {% if step_id == 'briefing' %}
-              Informações do briefing
+              Briefing
             {% elif step_id == 'canais' %}
               Orçamento, canais e praça
             {% elif step_id == 'gerar' %}
@@ -39,7 +39,7 @@
           </h1>
           <p>
             {% if step_id == 'briefing' %}
-              Adicione o contexto da campanha para gerar um planejamento mais preciso.
+              Registre o essencial da oportunidade. Fontes entram apenas quando ajudarem a fechar a recomendação.
             {% elif step_id == 'revisao' %}
               Confira o briefing. Mix e calendário ficam à vista; o modal só entra para balancear.
             {% elif step_id == 'canais' %}
@@ -57,13 +57,6 @@
             {% endif %}
           </p>
         </div>
-        <div class="sp-hi-head-actions">
-          <p class="sp-live" id="sp-save-live" aria-live="polite"></p>
-          <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-sp-guide>Como funciona</button>
-          {% if tem_quadro %}
-          <a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ canvas_url }}">Abrir quadro</a>
-          {% endif %}
-        </div>
       </header>
 
       {% if step_id == 'briefing' %}
@@ -71,75 +64,25 @@
         <section class="sp-card" aria-labelledby="sp-import-title">
           <header class="sp-card-head">
             <div>
-              <h2 id="sp-import-title">Adicionar conteúdo do briefing</h2>
-              <p id="sp-brief-refs-help">Escolha como deseja inserir as informações da campanha.</p>
+              <h2 id="sp-import-title">Comece com o essencial</h2>
+              <p id="sp-brief-refs-help">Descreva a oportunidade em poucas linhas. A pesquisa de campanhas complementa o contexto público.</p>
             </div>
           </header>
           <div class="sp-importer" id="sp-importer">
             <div class="sp-importer-tabs" role="tablist" aria-label="Como adicionar conteúdo">
-              <button type="button" class="is-on" role="tab" aria-selected="true" data-ref-tab="text" id="sp-tab-text"><i class="fa-regular fa-file-lines" aria-hidden="true"></i> Colar texto</button>
-              <button type="button" role="tab" aria-selected="false" data-ref-tab="url" id="sp-tab-url"><i class="fa-solid fa-link" aria-hidden="true"></i> Adicionar URL</button>
-              <button type="button" role="tab" aria-selected="false" data-ref-tab="file" id="sp-tab-file"><i class="fa-regular fa-file" aria-hidden="true"></i> Enviar arquivo</button>
-              <button type="button" role="tab" aria-selected="false" data-ref-tab="image" id="sp-tab-image"><i class="fa-regular fa-image" aria-hidden="true"></i> Enviar imagem</button>
-              <button type="button" role="tab" aria-selected="false" data-ref-tab="search" id="sp-tab-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Buscar dados</button>
+              <button type="button" class="is-on" role="tab" aria-selected="true" data-ref-tab="text" id="sp-tab-text"><i class="fa-regular fa-file-lines" aria-hidden="true"></i> Escrever briefing</button>
+              <button type="button" class="sp-campaign-research-open" id="sp-sources-open"><i class="fa-solid fa-plus" aria-hidden="true"></i> Adicionar fontes</button>
+              <button type="button" class="sp-campaign-research-open" id="sp-campaign-research-open"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Pesquisar campanhas</button>
             </div>
 
             <label class="sp-brief-field" for="sp-text">
-              <span>Texto do briefing</span>
-              <textarea id="sp-text" name="text" rows="16" placeholder="Cole o briefing, e-mail, anotações da reunião ou qualquer contexto relevante…">{{ briefing }}</textarea>
+              <span>O que a campanha precisa resolver?</span>
+              <textarea id="sp-text" name="text" rows="10" placeholder="Ex.: BDMG quer ampliar a consideração de crédito para pequenos negócios em Minas Gerais, com uma campanha de abril a junho e verba inicial de R$ 150 mil.">{{ briefing }}</textarea>
             </label>
             <div class="sp-brief-meta">
               <span id="sp-brief-count">0 / 20.000 caracteres</span>
               <span class="sp-brief-kbd"><kbd id="sp-kbd-mod">⌘</kbd> + <kbd>Enter</kbd> para continuar</span>
             </div>
-
-            <div class="sp-importer-extra" data-ref-pane="url" hidden>
-              <label for="sp-ref-url">URL da página
-                <input class="cx-input" id="sp-ref-url" type="url" placeholder="https://www.exemplo.com/lancamento">
-              </label>
-              <button type="button" class="cx-btn cx-btn-primary" id="sp-ref-url-go">Capturar conteúdo</button>
-            </div>
-
-            <div class="sp-importer-extra" data-ref-pane="search" hidden>
-              <fieldset class="sp-discovery-scope">
-                <legend>O que você quer descobrir?</legend>
-                <div class="sp-discovery-options">
-                  <label><input type="radio" name="sp-search-scope" value="briefing" checked><span>Briefing</span></label>
-                  <label><input type="radio" name="sp-search-scope" value="marca"><span>Marca</span></label>
-                  <label><input type="radio" name="sp-search-scope" value="cliente"><span>Cliente</span></label>
-                  <label><input type="radio" name="sp-search-scope" value="agencia"><span>Agência</span></label>
-                  <label><input type="radio" name="sp-search-scope" value="campanhas"><span>Campanhas</span></label>
-                  <label><input type="radio" name="sp-search-scope" value="mercado"><span>Mercado</span></label>
-                </div>
-              </fieldset>
-              <div class="sp-discovery-guide">
-                <strong id="sp-search-scope-title">Completar o briefing</strong>
-                <p id="sp-search-scope-help">Encontre contexto, provas e informações que ainda não aparecem no texto.</p>
-                <div class="sp-discovery-suggestions" id="sp-search-suggestions" aria-label="Sugestões de busca"></div>
-              </div>
-              <label for="sp-ref-query">O que devemos pesquisar
-                <input class="cx-input" id="sp-ref-query" type="text" placeholder="Ex.: dados que sustentem a oportunidade descrita no briefing">
-              </label>
-              <div class="sp-discovery-action">
-                <p id="sp-search-context">O texto do briefing será usado como contexto para tornar a busca mais específica.</p>
-                <button type="button" class="cx-btn cx-btn-primary" id="sp-ref-query-go">Descobrir informações</button>
-              </div>
-              <details class="sp-discovery-how">
-                <summary>Como a descoberta vira referência</summary>
-                <ol>
-                  <li>Buscamos fontes públicas usando a pergunta e o briefing.</li>
-                  <li>Abrimos os resultados mais úteis e removemos menus e ruído.</li>
-                  <li>A IA resume os fatos e adiciona o apoio ao planejamento, com a origem identificada.</li>
-                </ol>
-              </details>
-            </div>
-
-            <label class="sp-drop" id="sp-drop-file" for="sp-ref-file">
-              <input id="sp-ref-file" type="file" accept=".pdf,.doc,.docx,.txt,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg,.webp" multiple>
-              <span>Arraste arquivos para cá ou selecione no computador</span>
-              <small>PDF, DOC, TXT, PPT, XLS, PNG, JPG (máx. 50 MB)</small>
-            </label>
-            <input id="sp-ref-file-image" type="file" accept=".png,.jpg,.jpeg,.webp" multiple hidden>
 
             <p class="sp-status" id="sp-ref-status" hidden></p>
             <div class="sp-ref-result" id="sp-ref-result" hidden>
@@ -147,7 +90,7 @@
               <button type="button" class="cx-btn cx-btn-primary" id="sp-ref-insert">Usar como apoio</button>
             </div>
 
-            <div class="sp-refs-block" id="sp-refs-card">
+            <div class="sp-refs-block" id="sp-refs-card" hidden>
               <h3>Fontes adicionadas <span id="sp-refs-count" hidden></span></h3>
               <p class="sp-empty" id="sp-refs-empty">Nenhuma referência ainda. Ela entra na lista assim que a captura termina.</p>
               <ul class="sp-brief-cards" id="sp-brief-cards" hidden></ul>
@@ -155,24 +98,38 @@
           </div>
         </section>
 
-        <details class="sp-brief-tips-box" id="sp-brief-tips-wrap">
-          <summary id="sp-brief-tips-toggle">
-            <i class="fa-regular fa-lightbulb" aria-hidden="true"></i>
-            Dicas para um briefing melhor
-          </summary>
-          <div class="sp-brief-tips" id="sp-brief-tips">
-            <p>Quanto mais concreto, melhor o plano. Vale registrar:</p>
-            <ul>
-              <li>Quem precisa ser impactado, com comportamento e não só idade.</li>
-              <li>O que já foi tentado antes e o que funcionou ou não.</li>
-              <li>Restrições reais: formato que não pode, aprovação necessária, prazo travado.</li>
-              <li>Verba e período, mesmo aproximados — e diga se ainda não estão fechados.</li>
-              <li>Concorrentes que incomodam e por quê.</li>
-            </ul>
-          </div>
-        </details>
         <p class="sp-status" id="sp-status" hidden></p>
       </form>
+      <dialog class="sp-campaign-modal" id="sp-campaign-modal" aria-labelledby="sp-campaign-modal-title">
+        <header>
+          <div><span>Fontes de apoio</span><h2 id="sp-campaign-modal-title">Enriqueça o briefing</h2><p>Adicione somente evidências que ajudem a fechar a recomendação comercial.</p></div>
+          <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-close-campaign-modal>Fechar</button>
+        </header>
+        <div class="sp-source-modes" role="tablist" aria-label="Tipo de fonte">
+          <button type="button" class="is-on" role="tab" aria-selected="true" data-source-mode="url"><i class="fa-solid fa-link" aria-hidden="true"></i> URL</button>
+          <button type="button" role="tab" aria-selected="false" data-source-mode="file"><i class="fa-regular fa-file-lines" aria-hidden="true"></i> Arquivo</button>
+          <button type="button" role="tab" aria-selected="false" data-source-mode="image"><i class="fa-regular fa-image" aria-hidden="true"></i> Imagem</button>
+          <button type="button" role="tab" aria-selected="false" data-source-mode="campaign"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Campanhas</button>
+        </div>
+        <section class="sp-source-pane" role="tabpanel" data-source-pane="url">
+          <label for="sp-ref-url">URL da página ou campanha<input class="cx-input" id="sp-ref-url" type="url" placeholder="https://www.exemplo.com/campanha"></label>
+          <button type="button" class="cx-btn cx-btn-primary" id="sp-ref-url-go">Ler URL</button>
+        </section>
+        <section class="sp-source-pane" role="tabpanel" data-source-pane="file" hidden>
+          <label class="sp-drop" id="sp-drop-file" for="sp-ref-file"><input id="sp-ref-file" type="file" accept=".pdf" multiple><span>Selecione PDF ou arraste aqui</span><small>PDF até 50 MB</small></label>
+        </section>
+        <section class="sp-source-pane" role="tabpanel" data-source-pane="image" hidden>
+          <label class="sp-drop" id="sp-drop-image" for="sp-ref-file-image"><input id="sp-ref-file-image" type="file" accept=".png,.jpg,.jpeg,.webp" multiple><span>Selecione imagem ou arraste aqui</span><small>PNG, JPG ou WEBP até 50 MB</small></label>
+        </section>
+        <section class="sp-source-pane" role="tabpanel" data-source-pane="campaign" hidden>
+        <div class="sp-campaign-modal-search">
+          <input class="cx-input" id="sp-campaign-query" type="search" placeholder="Marca, campanha ou categoria">
+          <button type="button" class="cx-btn cx-btn-primary" id="sp-campaign-search">Pesquisar</button>
+        </div>
+        <p class="sp-campaign-modal-status" id="sp-campaign-status" aria-live="polite">Pesquise para encontrar fontes atuais.</p>
+        <div class="sp-campaign-results" id="sp-campaign-results"></div>
+        </section>
+      </dialog>
       {% endif %}
 
       {% if step_id == 'revisao' %}
@@ -807,13 +764,6 @@
         </ol>
       </section>
       {% endif %}
-      <div class="sp-secure">
-        <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
-        <div>
-          <strong>Seus dados estão seguros</strong>
-          <p>As informações do briefing são confidenciais e utilizadas apenas para gerar seu planejamento.</p>
-        </div>
-      </div>
     </aside>
     {% endif %}
   </div>

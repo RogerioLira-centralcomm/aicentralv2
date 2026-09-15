@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import re
+import os
 from datetime import datetime, timezone
 from html import escape
 import unicodedata
+
+from flask import has_request_context, url_for
 
 from .catalog import CHANNEL_CATALOG, CHANNEL_LOGOS, OBJETIVO_OPTIONS, PRIMARY_FORMATS, PRACA_OPTIONS, objetivo_label
 from .helpers import as_bool, as_dict, as_list, normalize_markdown, plan_mode_of, session_title, text
@@ -106,6 +109,19 @@ def _clip(value: str, limit: int = FACT_LIMIT) -> str:
     if " " in cut:
         cut = cut.rsplit(" ", 1)[0]
     return cut.rstrip(".,;:") + "…"
+
+
+def _public_asset_url(value: str) -> str:
+    """Make local creative assets usable by social crawlers outside the app."""
+    asset = text(value)
+    if asset.startswith(("https://", "http://")):
+        return asset
+    if asset.startswith("/static/") and has_request_context():
+        return url_for("static", filename=asset.removeprefix("/static/"), _external=True)
+    if asset.startswith("/"):
+        base = text(os.getenv("BASE_URL")).rstrip("/")
+        return f"{base}{asset}" if base else asset
+    return asset
 
 
 def _first_sentence(value: str, limit: int = 140) -> str:
@@ -1155,6 +1171,7 @@ def public_view(row: dict, document: str | None = None) -> dict:
         missing.append("metricas")
     if not hero_image and _looks_like_water(title, text(strategy.get("body")), concept, support):
         hero_image = "/static/images/smart_planner/hero-water.svg"
+    share_image = _public_asset_url(hero_image or "/static/images/smart_planner/share-placeholder.svg")
 
     plan_mode = plan_mode_of(dados, "one_page")
     nav_folha = []
@@ -1229,6 +1246,7 @@ def public_view(row: dict, document: str | None = None) -> dict:
             "caption": praca_detalhe or praca,
             "verba": verba,
         },
+        "share_image": share_image,
         "highlights": highlights,
         "reading": {
             "method": method,

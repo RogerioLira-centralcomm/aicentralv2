@@ -99,6 +99,15 @@ def history_payload() -> dict:
     }
 
 
+def recent_plans(limit: int = 20) -> list[dict]:
+    """Compact history used by the internal Smart Planner navigation."""
+    user = current_user()
+    try:
+        return list_sessions(user["user_email"], user["user_id"], limit=limit)
+    except Exception:
+        return []
+
+
 def start_plan(plan_mode: str, payload: dict | None = None) -> dict:
     mode = (plan_mode or "").strip().lower()
     if mode not in PLAN_MODES:

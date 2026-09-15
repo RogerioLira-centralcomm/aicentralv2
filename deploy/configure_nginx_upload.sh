@@ -34,8 +34,11 @@ for f in /etc/nginx/sites-enabled/* /etc/nginx/sites-available/* /etc/nginx/conf
     else
         sudo sed -i '/server[[:space:]]*{/a\    client_max_body_size 256M;' "$f"
     fi
-    if ! grep -q 'workspace\.centralcomm\.media' "$f"; then
-        sudo sed -i '/server_name/,/;/ { /;/ s/[[:space:]]*;/ workspace.centralcomm.media;/; }' "$f"
+    # Limite a verificacao e a alteracao ao bloco server_name. Procurar o
+    # arquivo inteiro pode confundir um hostname inserido acidentalmente em
+    # outro directive (por exemplo, access_log).
+    if ! sed -n '/^[[:space:]]*server_name[[:space:]]/,/;/p' "$f" | grep -q 'workspace\.centralcomm\.media'; then
+        sudo sed -i '/^[[:space:]]*server_name[[:space:]]/,/;/ { /;[[:space:]]*$/ s/;[[:space:]]*$/ workspace.centralcomm.media;/; }' "$f"
         echo "  > workspace.centralcomm.media adicionado ao server_name"
     fi
     echo "  > client_max_body_size 256M em $(basename "$f")"

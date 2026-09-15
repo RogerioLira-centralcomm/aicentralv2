@@ -64,6 +64,20 @@ if git status --porcelain -- node_modules 2>/dev/null | grep -q .; then
     git checkout -- node_modules 2>/dev/null || \
         git restore -- node_modules 2>/dev/null || true
 fi
+
+# video-studio.css e gerado pelo build Tailwind. Uma versao gerada no servidor
+# pode divergir do arquivo versionado e impedir o pull; preservamos uma copia
+# para auditoria e o build abaixo recria o arquivo a partir da fonte atualizada.
+STUDIO_CSS="aicentralv2/static/css/video-studio.css"
+if ! git diff --quiet -- "$STUDIO_CSS"; then
+    backup_dir="logs/deploy-backups"
+    mkdir -p "$backup_dir"
+    backup_file="$backup_dir/video-studio.$(date +%Y%m%d-%H%M%S).css"
+    cp "$STUDIO_CSS" "$backup_file"
+    echo "  > CSS gerado localmente salvo em $backup_file; restaurando versao do Git..."
+    git restore --source=HEAD --worktree -- "$STUDIO_CSS" 2>/dev/null || \
+        git checkout -- "$STUDIO_CSS"
+fi
 git pull origin main 2>&1
 # Renormalizar line endings apos pull
 git checkout -- . 2>/dev/null || true

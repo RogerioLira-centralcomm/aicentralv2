@@ -295,3 +295,16 @@
 #mcSwap.is-live-composition .mc-studio-playback:not(#mcCompositionLiveControls){display:none}
 .mc-keyframes fieldset{margin-top:8px;padding:8px;border:1px solid #414952;border-radius:6px}
 .mc-keyframes input{min-width:0;width:100%}
+
+.mc-studio-export-format{display:flex;align-items:center;gap:8px;font-size:12px}.mc-studio-export-format select{background:#2a3139;color:inherit;border:1px solid #414952;border-radius:6px;padding:7px;max-width:180px}
+
+/* The download action keeps a fixed footprint while showing elapsed time. */
+.mc-studio-export-format{position:relative;gap:8px}
+.mc-studio-export-format select{width:240px;max-width:100%;font-variant-numeric:tabular-nums;transition:border-color .15s,background-color .15s}
+.mc-studio-export-format.is-downloading select{opacity:1;color:#d9f3fc;background:#243c48;border-color:#9bd1e3;padding-left:30px;cursor:progress}
+.mc-download-spinner{display:none;position:absolute;left:54px;top:50%;width:13px;height:13px;margin-top:-7px;border:2px solid #ffffff30;border-top-color:#b7e5f5;border-radius:50%;pointer-events:none}
+.is-downloading .mc-download-spinner{display:block;animation:mc-download-spin .8s linear infinite}
+.mc-studio-export-format.is-download-ready select{border-color:#8dceb1;background:#213a32}
+.mc-studio-export-format.is-download-failed select{border-color:#e6aaa3}
+@keyframes mc-download-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.is-downloading .mc-download-spinner{animation:none}.mc-studio-export-format select{transition:none}}

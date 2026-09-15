@@ -1,3 +1,4 @@
+import {deliveryOptions,downloadExport,beginDownload,updateDownload,clearDownload} from './delivery.js';
 import {bindComposition,paintComposition,paintCompositionCanvas,syncCompositionPlayback,exportComposition} from './composition.js';
 import {showProcessing,updateProcessing} from '../media-progress.js';
 import {bindJobCenter,resetJobCenter} from './job-center.js';
@@ -81,7 +82,7 @@ export function bindStudio(markDirty, paintAll) {
     $('mcSwapVideo')?.pause(); soundPlayer.pause();
     document.querySelectorAll('#mcStudioSoundList audio').forEach(audio => {if(audio !== event.target) audio.pause();});
   }, true);
-  $('mcStudioExport')?.addEventListener('click', exportEdit);
+  $('mcStudioExportFormat')?.addEventListener('change',event=>{if(event.target.value&&event.target.value!=='__progress'){const format=event.target.value;clearDownload();event.target.value=format;exportEdit();}});
   $('mcStudioPlay')?.addEventListener('click', () => {
     const video=$('mcSwapVideo'); if (!video?.src) return;
     if (video.paused) {
@@ -109,6 +110,7 @@ export function bindStudio(markDirty, paintAll) {
 }
 
 export async function resetStudio() {
+  clearDownload();
   if (!state.activeClipId) document.dispatchEvent(new Event("cadu:clip-cleared"));
   brand=state.clientId; sounds=[];state.sounds=[]; undo=[];redo=[];baseline=snapshot();updateHistory();
   soundPlayer.pause();soundPlayer.removeAttribute('src');soundPlayer.load();
@@ -116,7 +118,7 @@ export async function resetStudio() {
   if($('mcStudioExportStatus')) $('mcStudioExportStatus').hidden=true;
   await Promise.allSettled([loadSounds(),resetJobCenter()]);
   const pending=sessionStorage.getItem(`cadu-export:${brand}`);
-  if(pending) {exporting=true;pollExport(pending,brand);}
+  if(pending) {exporting=true;beginDownload(pending,brand);pollExport(pending,brand);}
 }
 async function loadSounds() {
   if(!brand) {paintStudio();return;}
@@ -182,7 +184,7 @@ export function paintStudio() {
   }
   $('mcStudioGenerationAudio').textContent=audioParts.join(' + ') || 'Sem áudio';
   $('mcStudioRemoveSound').disabled=!state.edit.sound_id;
-  $('mcStudioExport').disabled=(state.composition?.enabled?!state.composition.items.length:!state.activeClipId) || exporting;
+  $('mcStudioExportFormat').disabled=(state.composition?.enabled?!state.composition.items.length:!state.activeClipId) || exporting || $('mcStudioExportFormat').dataset.busy==='1';
   if(state.libTab==='sound')$('mcVideoLibHint').textContent='Sons enviados e 100 efeitos públicos CC0 do Kenney.';
   if(state.previewMode!=='clip')$('mcSwapVideo')?.pause();
   paintVisual();
@@ -241,28 +243,30 @@ async function exportEdit(){
   if(exporting || !state.activeClipId)return;
   const video=$('mcSwapVideo'), end=state.edit.end || video?.duration;
   if(!Number.isFinite(end)||end<=state.edit.start){status('Defina um intervalo de corte válido.');return;}
-  const client=brand, id=newId().replaceAll('-','');
+  const client=brand, id=newId().replaceAll('-',''),delivery=deliveryOptions();
+  beginDownload(id,client,delivery.format);
   exporting=true;paintStudio();status('Preparando exportação com corte e mixagem…');
-  showProcessing({job_id:`export:${id}`,kind:'export',title:'Exportando edição',background_supported:false,status:'queued',message:'Salvando a edição para renderizar…',plan:{aspect_ratio:state.aspectRatio},ui_stages:[{id:'queued',label:'Na fila'},{id:'rendering',label:'Renderizando vídeo, textos e áudio'},{id:'ready',label:'Pronto para baixar'}]});
+
   sessionStorage.setItem(`cadu-export:${client}`,id);
   try{
-    await post(`${base}/exports`,{client_id:client,clip_id:state.activeClipId,edit:{...state.edit,output_ratio:state.aspectRatio},request_id:id});
+    await post(`${base}/exports`,{client_id:client,clip_id:state.activeClipId,edit:{...state.edit,output_ratio:state.aspectRatio},request_id:id,delivery});
     updateProcessing({job_id:`export:${id}`,kind:"export",status:"queued",background_supported:true,message:"Edição salva. Aguardando processamento."});
     if(client===brand)pollExport(id,client);
-  }catch(error){sessionStorage.removeItem(`cadu-export:${client}`);if(client===brand){exporting=false;paintStudio();status(error.message);updateProcessing({job_id:`export:${id}`,status:'failed',error:error.message});}}
+  }catch(error){updateDownload({id,status:'failed'});sessionStorage.removeItem(`cadu-export:${client}`);if(client===brand){exporting=false;paintStudio();status(error.message);updateProcessing({job_id:`export:${id}`,status:'failed',error:error.message});}}
 }
 async function pollExport(id,client){
   if(client!==brand)return;
   try{
     const result=await get(`${base}/exports/${id}?client_id=${encodeURIComponent(client)}`);
     if(client!==brand)return;
-    updateProcessing({...result,job_id:`export:${id}`,kind:"export",stage:result.status,message:result.status==="ready"?"Exportação pronta.":"Renderizando sua edição…",version:result.status==="ready"?{video_url:`${base}/exports/${id}/content?client_id=${encodeURIComponent(client)}`}:undefined});
+    updateDownload(result);
+    updateProcessing({...result,job_id:`export:${id}`,kind:"export",auto_download:true,stage:result.status,message:result.status==="ready"?"Exportação pronta.":"Renderizando sua edição…",version:result.status==="ready"?{video_url:`${base}/exports/${id}/content?client_id=${encodeURIComponent(client)}&format=mp4&inline=1`}:undefined});
     if(result.status==='ready'||result.status==='failed'){
       exporting=false;sessionStorage.removeItem(`cadu-export:${client}`);paintStudio();
       upsertWorkspaceSpend({id:`edit:${id}`,kind:'edit',label:'Exportação da edição',amount_brl:0,amount_usd:0,status:result.status==='ready'?'confirmed':'failed',created_at:new Date().toISOString()});
       dirty();
-      status(result.status==='ready'?'Exportação pronta. Alterações feitas durante o processamento ficam para a próxima exportação.':result.error,
-        result.status==='ready'?`${base}/exports/${id}/content?client_id=${encodeURIComponent(client)}`:'');return;
+      if(result.status==='ready')downloadExport(result,client);
+      status(result.status==='ready'?`Download iniciado: ${result.filename||'criativo'}.`:result.error);return;
     }
     status('Exportando corte e mixagem. Você pode continuar editando.');
   }catch(error){if(client===brand)status(`Não foi possível acompanhar a exportação: ${error.message}`);}

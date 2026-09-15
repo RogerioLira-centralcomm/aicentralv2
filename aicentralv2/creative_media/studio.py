@@ -360,7 +360,9 @@ def _render_job(root, ident, source, edit, sound, release_slot=True):
                 intermediate.unlink(missing_ok=True)
         else:
             render_clip(source, root / f'{ident}.mp4', edit, sound)
-        _write(path, {**envelope, 'id': ident, 'status': 'ready', 'created_at': time.time()})
+        from .studio_delivery import finish_delivery
+        delivery_result=finish_delivery(root,ident,envelope)
+        _write(path, {**envelope, **delivery_result, 'id': ident, 'status': 'ready', 'created_at': time.time()})
     except Exception:
         logger.exception("Studio export failed: %s", ident)
         (root / f'{ident}.mp4').unlink(missing_ok=True)
@@ -399,9 +401,14 @@ def export_clip():
         # Exclusive creation makes retries idempotent, including across web workers.
         try:
             with path.open('x') as handle:
-                json.dump({'id': ident, 'status': 'queued', 'created_at': time.time(), 'user_id': session.get('user_id'), 'work': {'source':str(source), 'sound':str(sound) if sound else '', 'edit':edit}}, handle)
+                from .studio_delivery import reserve_delivery
+                delivery=reserve_delivery(root,data,service(),edit.get('output_ratio'))
+                json.dump({'delivery':delivery,'id': ident, 'status': 'queued', 'created_at': time.time(), 'user_id': session.get('user_id'), 'work': {'source':str(source), 'sound':str(sound) if sound else '', 'edit':edit}}, handle)
         except FileExistsError:
             return ok(export_public(json.loads(path.read_text())))
+        except Exception:
+            path.unlink(missing_ok=True)
+            raise
         from .jobs import worker_mode, wake_worker
         if worker_mode() in {'process', 'supervised'}:
             wake_worker()
@@ -440,9 +447,13 @@ def export_content(ident):
         _, row = _record(root, ident, 'export')
         if row['status'] != 'ready':
             raise ValueError('A exportação ainda não está pronta.')
-        return send_file(root / f'{ident}.mp4', mimetype='video/mp4', as_attachment=True, download_name='cadu-studio.mp4', conditional=True)
+        kind=request.args.get('format') or row.get('format','mp4')
+        if kind not in {'mp4','gif','html'} or not (root/f'{ident}.{kind}').is_file():raise ValueError('Formato indisponível nesta exportação.')
+        name=row.get('filename','cadu_studio.mp4')
+        if kind!=row.get('format','mp4'):name=str(Path(name).with_suffix('.'+kind))
+        return send_file(root / f'{ident}.{kind}', mimetype={'mp4':'video/mp4','gif':'image/gif','html':'text/html'}[kind], as_attachment=request.args.get('inline')!='1', download_name=name, conditional=True)
     return execute(run)
 
 
 def export_public(row):
-    return {key:row[key] for key in ('id','status','created_at','error') if key in row}
+    return {key:row[key] for key in ('id','status','created_at','error','filename','format','download_url','public_url') if key in row}

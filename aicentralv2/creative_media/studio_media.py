@@ -58,6 +58,8 @@ def register(blueprint):
     register_tasks(blueprint)
     from .studio_push import register as register_push
     register_push(blueprint)
+    from .studio_delivery import register as register_delivery
+    register_delivery(blueprint)
     blueprint.add_url_rule('/api/format-lab/studio/composition/exports', view_func=composition_export, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/jobs', view_func=job_list)
     blueprint.add_url_rule('/api/format-lab/studio/archive-clip', view_func=archive_clip, methods=['POST'])
@@ -212,8 +214,10 @@ def composition_export():
             with path.open('x') as handle:json.dump({'id':ident,'status':'preparing','created_at':time.time()},handle)
         except FileExistsError:return ok(export_public(json.loads(path.read_text())))
         try:
+            from .studio_delivery import reserve_delivery
+            delivery=reserve_delivery(root,data,service(),composition['ratio'])
             sources,sounds=resolve_inputs(root,client,composition,service(),ident)
-            _write(path,{'id':ident,'status':'queued','created_at':time.time(),
+            _write(path,{'delivery':delivery,'id':ident,'status':'queued','created_at':time.time(),
                          'user_id':session.get('user_id'),'work':{'source':sources[0],'sound':'','edit':{},'composition':composition,'sources':sources,'sounds':sounds}})
             if worker_mode() in {'process','supervised'}:wake_worker()
             else:

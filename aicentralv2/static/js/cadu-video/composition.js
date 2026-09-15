@@ -1,3 +1,4 @@
+import {deliveryOptions,downloadExport,beginDownload,updateDownload} from './delivery.js';
 import {paintLivePreview,previewTime,seekLivePreview,schedule} from './live-preview.js';
 import {keyframeEditor,bindKeyframes} from './keyframes.js';
 import {mediaTask} from './media-tasks.js';
@@ -128,26 +129,30 @@ export function syncCompositionPlayback(){
 export async function exportComposition(preview=false){
   const c=comp();if(rendering||!c.items.length)return;
   if(c.captions.some(row=>!Number.isFinite(row.start)||!Number.isFinite(row.end)||row.end<=row.start)){notify('Corrija o início e o fim das legendas antes de renderizar.');return;}
-  const client=state.clientId,id=newId().replaceAll('-',''),snapshot=fingerprint();
+  const client=state.clientId,id=newId().replaceAll('-',''),snapshot=fingerprint(),delivery=deliveryOptions(preview);
+  if(!preview)beginDownload(id,client,delivery.format);
   const composition={...structuredClone(c),ratio:state.aspectRatio,layers:structuredClone(state.edit.layers||[])};
-  rendering=true;showProcessing({job_id:`export:${id}`,kind:'export',title:preview?'Preparando prévia':'Renderizando montagem',background_supported:false,status:'queued',message:'Salvando a sequência…',preview_images:c.items.map(row=>asset(row)?.thumb_url||asset(row)?.poster_url||asset(row)?.image_url).filter(Boolean),plan:{aspect_ratio:state.aspectRatio,duration:compositionDuration()},ui_stages:[{id:'queued',label:'Na fila'},{id:'rendering',label:'Compondo cenas, áudio e legendas'},{id:'ready',label:'Pronto'}]});
+  $('mcStudioExportFormat').dataset.busy='1';$('mcStudioExportFormat').disabled=true;
+  rendering=true;if(preview)showProcessing({job_id:`export:${id}`,kind:'export',title:preview?'Preparando prévia':'Renderizando montagem',background_supported:false,status:'queued',message:'Salvando a sequência…',preview_images:c.items.map(row=>asset(row)?.thumb_url||asset(row)?.poster_url||asset(row)?.image_url).filter(Boolean),plan:{aspect_ratio:state.aspectRatio,duration:compositionDuration()},ui_stages:[{id:'queued',label:'Na fila'},{id:'rendering',label:'Compondo cenas, áudio e legendas'},{id:'ready',label:'Pronto'}]});
   try{
-    await post(`${base}/composition/exports`,{client_id:client,request_id:id,composition});
+    await post(`${base}/composition/exports`,{client_id:client,request_id:id,composition,delivery});
     updateProcessing({job_id:`export:${id}`,status:'queued',background_supported:true});
     const poll=async()=>{
-      if(client!==state.clientId){rendering=false;return;}
+      if(client!==state.clientId){rendering=false;delete $('mcStudioExportFormat').dataset.busy;refresh();return;}
       try{
-        const result=await get(`${base}/exports/${id}?client_id=${encodeURIComponent(client)}`),url=`${base}/exports/${id}/content?client_id=${encodeURIComponent(client)}`;
-        updateProcessing({...result,job_id:`export:${id}`,kind:'export',stage:result.status,version:result.status==='ready'?{video_url:url}:undefined,message:result.status==='ready'?'Montagem concluída.':'Renderizando sequência…'});
+        const result=await get(`${base}/exports/${id}?client_id=${encodeURIComponent(client)}`),url=`${base}/exports/${id}/content?client_id=${encodeURIComponent(client)}&format=mp4&inline=1`;
+        if(!preview)updateDownload(result);
+        updateProcessing({...result,job_id:`export:${id}`,kind:'export',auto_download:!preview,stage:result.status,version:result.status==='ready'?{video_url:url}:undefined,message:result.status==='ready'?'Montagem concluída.':'Renderizando sequência…'});
         if(['ready','failed'].includes(result.status)){
-          rendering=false;
+          rendering=false;delete $('mcStudioExportFormat').dataset.busy;refresh();
+          if(result.status==='ready'&&!preview)downloadExport(result,client);
           if(result.status==='ready'&&snapshot===fingerprint()){comp().preview_url=url;comp().preview_valid=true;comp().preview_signature=snapshot;dirty();paintComposition();paintCompositionCanvas();}
           return;
         }
-      }catch(error){notify(`Acompanhamento interrompido: ${error.message}. Consulte Renderizações.`);rendering=false;return;}
+      }catch(error){if(!preview)updateDownload({id,status:'failed'});notify(`Acompanhamento interrompido: ${error.message}. Consulte Renderizações.`);rendering=false;delete $('mcStudioExportFormat').dataset.busy;refresh();return;}
       setTimeout(poll,3000);
     };poll();
-  }catch(error){rendering=false;updateProcessing({job_id:`export:${id}`,status:'failed',error:error.message});}
+  }catch(error){if(!preview)updateDownload({id,status:'failed'});rendering=false;delete $('mcStudioExportFormat').dataset.busy;refresh();updateProcessing({job_id:`export:${id}`,status:'failed',error:error.message});}
 }
 export function parseSrt(text){
   const time=value=>{const [h,m,s]=value.replace(',','.').split(':').map(Number);return h*3600+m*60+s;};

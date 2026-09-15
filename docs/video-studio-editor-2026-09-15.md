@@ -95,3 +95,16 @@ node tests/frontend/mc-studio-workflow.test.cjs
 - A biblioteca contém 100 efeitos CC0; não representa um catálogo de músicas comerciais.
 - A meta “80%” não foi medida contra o backlog completo. Recursos avançados desse backlog, como tracking, máscaras, ducking assistido e colaboração, não são declarados concluídos por esta entrega.
 - Após o deploy, validar uma geração real do provedor, reinício do serviço durante um trabalho e recebimento de push em dispositivo inscrito. Esses testes externos não foram executados aqui.
+
+## Download e distribuição
+
+- O dropdown **Baixar** oferece MP4, GIF sem áudio e HTML com vídeo público. Escolher uma opção inicia a exportação e dispara o download ao concluir, sem link adicional no rodapé.
+- Destino: pasta/configuração de downloads do navegador. O site não pode ignorar a preferência do navegador de perguntar onde salvar.
+- Nomes: `marca_v003_nome_do_criativo_9x16_720x1280.mp4`; nomes normalizados sem espaços/acentos e versões reservadas no servidor por marca e criativo. Repetir o mesmo request id preserva a versão.
+- MP4 conserva áudio. GIF usa paleta otimizada, 12 fps, lado máximo de 640 px e nome com suas dimensões reais.
+- HTML publica exclusivamente o MP4 daquela exportação por URL com token aleatório. Página e reprodução dispensam login; arquivos privados e demais projetos continuam protegidos. O HTML baixado referencia esse vídeo hospedado, portanto precisa de conexão e da manutenção do arquivo no servidor.
+- Testes: exportação real dos três formatos, cabeçalho de download, nomes/versionamento, GIF válido e acesso anônimo/range do vídeo público. Teste Chrome confirma download a partir da seleção do dropdown, sem outro clique.
+
+### Espera no dropdown
+
+O próprio seletor mostra spinner, estado real (fila/preparando), formato e tempo decorrido em `mm:ss`. A exportação não abre um modal que esconda o andamento: a edição continua disponível. Ao terminar, o seletor confirma o início do download e volta à escolha de formatos. Redução de movimento é respeitada e `aria-busy` indica processamento. O contador mede preparação no servidor; a transferência do arquivo passa ao gerenciador de downloads do navegador.

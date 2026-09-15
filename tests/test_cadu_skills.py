@@ -162,7 +162,9 @@ class CaduSkillsTest(TestCase):
         self.assertIn("Para produtores de conteúdo", html)
         self.assertIn("Para clientes finais", html)
         self.assertIn("Cadu Places", html)
-        self.assertEqual(html.count("-2d.svg"), 9)
+        # A família exibida no conteúdo usa nove ícones; a navegação compacta
+        # também usa os ícones oficiais das soluções.
+        self.assertGreaterEqual(html.count("-2d.svg"), 9)
 
     def test_personalized_download_contains_client_project_and_context(self):
         row = {

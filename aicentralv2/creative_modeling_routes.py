@@ -569,6 +569,11 @@ def api_archive_format_mockup(job_id):
 
 
 @admin_required_api
+def api_brand_sources():
+    return _execute(lambda: _ok(_service().list_brand_sources()))
+
+
+@admin_required_api
 def api_clients():
     if request.method == "POST":
         return _execute(lambda: _ok(_service().create_client(_json()), 201))
@@ -1728,6 +1733,12 @@ def register_creative_modeling_routes(blueprint):
         endpoint="creative_archive_format_mockup",
         view_func=api_archive_format_mockup,
         methods=["DELETE"],
+    )
+    blueprint.add_url_rule(
+        "/api/brand-sources",
+        endpoint="creative_brand_sources",
+        view_func=api_brand_sources,
+        methods=["GET"],
     )
     blueprint.add_url_rule(
         "/api/clients",

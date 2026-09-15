@@ -545,12 +545,40 @@ class CreativeModelingRepository:
         with self.conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT id, name, sector, tone_of_voice, logo_url,
+                SELECT id, crm_client_id, name, sector, tone_of_voice, logo_url,
                        logo_upload_path, primary_color, secondary_color,
                        website_url, brand_profile, analysis_metadata,
                        price_policy, created_at
                   FROM cx_clients
                  ORDER BY created_at DESC, id DESC
+                """
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def list_brand_sources(self):
+        """Public brand information from active CRM clients and agencies."""
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT crm.id_cliente AS crm_client_id,
+                       COALESCE(NULLIF(crm.nome_fantasia, ''), crm.razao_social,
+                                'Cliente #' || crm.id_cliente::text) AS name,
+                       CASE WHEN ag.key = TRUE OR lower(ag.display) IN ('sim', 's')
+                            THEN 'Agência' ELSE 'Cliente' END AS kind,
+                       COALESCE(NULLIF(to_jsonb(crm)->>'site_url', ''),
+                                NULLIF(web.dominio, '')) AS website_url,
+                       web.logo_url, web.descricao AS brand_summary,
+                       cx.id AS profile_id
+                  FROM tbl_cliente crm
+                  LEFT JOIN tbl_agencia ag ON ag.id_agencia = crm.pk_id_tbl_agencia
+                  LEFT JOIN cliente_web_info web ON web.id_cliente = crm.id_cliente
+                  LEFT JOIN LATERAL (
+                      SELECT id FROM cx_clients
+                       WHERE crm_client_id = crm.id_cliente
+                       ORDER BY id LIMIT 1
+                  ) cx ON TRUE
+                 WHERE crm.status = TRUE
+                 ORDER BY name, crm.id_cliente
                 """
             )
             return [dict(row) for row in cursor.fetchall()]

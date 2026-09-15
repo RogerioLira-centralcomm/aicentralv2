@@ -3660,6 +3660,54 @@
     if (status) status.textContent = '';
   }
 
+  let brandSources = [];
+
+  function renderBrandSources() {
+    const select = $('#mcBrandSourceSelect');
+    if (!select) return;
+    const previous = select.value;
+    const normalize = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const query = normalize($('#mcBrandSourceSearch').value.trim());
+    const matches = brandSources.filter((source) => normalize(`${source.name} ${source.kind}`).includes(query));
+    select.innerHTML = `<option value="">${matches.length ? 'Selecione um cadastro' : 'Nenhum cadastro encontrado'}</option>`
+      + matches.map((source) => `<option value="${source.crm_client_id}">${escapeHtml(source.name)} — ${escapeHtml(source.kind)}</option>`).join('');
+    if (matches.some((source) => String(source.crm_client_id) === previous)) select.value = previous;
+    $('#mcImportBrandSource').disabled = !select.value;
+  }
+
+  async function loadBrandSources() {
+    if (!$('#mcBrandSourceSelect')) return;
+    try {
+      brandSources = await api('/parametros/api/brand-sources');
+      renderBrandSources();
+    } catch (error) {
+      $('#mcBrandSourceSelect').innerHTML = '<option value="">Base indisponível</option>';
+      $('#mcBrandSourceStatus').textContent = `${error.message} Recarregue a página para tentar novamente.`;
+    }
+  }
+
+  function importBrandSource() {
+    const source = brandSources.find((item) => String(item.crm_client_id) === $('#mcBrandSourceSelect').value);
+    if (!source) return;
+    // A saved profile takes precedence over CRM defaults and is updated in place.
+    const existing = state.clients.find((item) => Number(item.id) === Number(source.profile_id)
+      || Number(item.crm_client_id) === Number(source.crm_client_id));
+    selectBrand(existing?.id || null);
+    const form = $('#mcClientForm');
+    setFormValue(form, 'crm_client_id', source.crm_client_id);
+    let website = source.website_url || '';
+    if (website && !/^https?:\/\//i.test(website)) website = `https://${website}`;
+    const defaults = { name: source.name, website_url: website, logo_url: source.logo_url, brand_summary: source.brand_summary };
+    Object.entries(defaults).forEach(([name, value]) => {
+      if (!form.elements[name].value.trim()) setFormValue(form, name, value);
+    });
+    renderBrandInventory({ ...(existing || {}), name: form.elements.name.value,
+      logo_url: form.elements.logo_url.value, website_url: form.elements.website_url.value,
+      brand_profile: { ...(existing?.brand_profile || {}), brand_summary: form.elements.brand_summary.value } });
+    $('#mcBrandSourceStatus').textContent = `${source.kind} ${source.name}: informações importadas. Revise e salve o perfil para usar na geração.`;
+    $('#mcClientFormStatus').textContent = 'Dados da base preenchidos. Você pode completar a leitura pelo site.';
+  }
+
   function fillBrandForm(client) {
     const form = $('#mcClientForm');
     if (!form) return;
@@ -3672,6 +3720,7 @@
     const guidelines = profile.creative_guidelines
       || [...(line.composition_rules || []), ...(line.must_preserve || [])].slice(0, 4).join(' ');
     [
+      ['crm_client_id', client.crm_client_id],
       ['name', client.name],
       ['sector', client.sector],
       ['website_url', client.website_url],
@@ -4214,6 +4263,7 @@
       const formData = new FormData(form);
       const current = selectedBrand();
       const data = {
+        crm_client_id: formData.get('crm_client_id') || undefined,
         name: formData.get('name'),
         sector: formData.get('sector'),
         website_url: formData.get('website_url'),
@@ -4254,6 +4304,8 @@
           ? await api(`${API.clients}/${current.id}`, { method: 'PUT', body: JSON.stringify(data) })
           : await api(API.clients, { method: 'POST', body: JSON.stringify(data) });
         const clientId = saved.id || current.id;
+        const source = brandSources.find((item) => Number(item.crm_client_id) === Number(data.crm_client_id));
+        if (source) source.profile_id = clientId;
         await persistBrandUploads(clientId);
         state.clients = await api(API.clients);
         state.campaignClients = await api(API.campaignClients);
@@ -5893,6 +5945,10 @@
       if (!Number.isInteger(index) || !state.enhancedBrief?.scenes?.[index]) return;
       state.enhancedBrief.scenes[index].description = event.target.value;
     });
+    bind('#mcBrandSourceSearch', 'input', renderBrandSources);
+    bind('#mcBrandSourceSelect', 'change', () => { $('#mcImportBrandSource').disabled = !$('#mcBrandSourceSelect').value; });
+    bind('#mcImportBrandSource', 'click', importBrandSource);
+    loadBrandSources();
     bind('#mcClientForm', 'submit', saveClient);
     $('#mcNewBrand')?.addEventListener('click', () => selectBrand(null));
     $('#mcClientTableBody')?.addEventListener('click', (event) => {

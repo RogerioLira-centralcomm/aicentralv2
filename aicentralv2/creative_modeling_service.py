@@ -1610,6 +1610,9 @@ class CreativeModelingService:
                 )
         return _serialize(clients)
 
+    def list_brand_sources(self):
+        return _serialize(self.repository.list_brand_sources())
+
     def list_campaign_clients(self):
         clients = [
             hydrate_client_from_creative_line(client)

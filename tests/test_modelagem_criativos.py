@@ -1835,6 +1835,19 @@ class CreativeServiceTest(unittest.TestCase):
             "chrome",
         )
 
+    def test_importacao_preserva_vinculo_e_informacoes_da_agencia(self):
+        self.service.create_client({
+            "name": "Agência da base", "crm_client_id": 42,
+            "website_url": "https://agencia.example.com",
+            "logo_url": "https://agencia.example.com/logo.png",
+            "brand_summary": "Agência de comunicação e mídia.",
+        })
+        saved = self.repo.clients[0]
+        self.assertEqual(saved["crm_client_id"], 42)
+        self.assertEqual(saved["website_url"], "https://agencia.example.com")
+        self.assertEqual(saved["logo_url"], "https://agencia.example.com/logo.png")
+        self.assertEqual(saved["brand_profile"]["brand_summary"], "Agência de comunicação e mídia.")
+
     def test_cliente_valida_cores_e_salva_identidade(self):
         result = self.service.create_client(
             {
@@ -3492,6 +3505,26 @@ class CreativeRoutesTest(unittest.TestCase):
         self.assertEqual(video.status_code, 200)
         service.publish_campaign.assert_called()
         service.prepare_campaign_video.assert_called_once_with(40)
+
+    def test_base_de_marcas_exige_admin_e_inclui_agencia_sem_perfil(self):
+        url = "/parametros/api/brand-sources"
+        self.assertEqual(self.client.get(url).status_code, 401)
+        with self.client.session_transaction() as session:
+            session["user_id"] = 1
+            session["user_type"] = "client"
+        self.assertEqual(self.client.get(url).status_code, 403)
+        with self.client.session_transaction() as session:
+            session["user_type"] = "admin"
+        service = Mock()
+        service.list_brand_sources.return_value = [{
+            "crm_client_id": 42, "name": "Agência", "kind": "Agência",
+            "profile_id": None, "website_url": None, "logo_url": None,
+        }]
+        with patch("aicentralv2.creative_modeling_routes._service", return_value=service):
+            response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["data"][0]["crm_client_id"], 42)
+        self.assertIsNone(response.get_json()["data"][0]["profile_id"])
 
     def test_api_atualiza_cliente(self):
         service = Mock()

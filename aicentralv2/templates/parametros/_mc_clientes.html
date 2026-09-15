@@ -1,16 +1,29 @@
 <div class="mc-brand-studio">
   <section class="mc-brand-col" data-brand-col="add" aria-labelledby="mcBrandAddTitle">
     <header class="mc-brand-col-head">
-      <h2 id="mcBrandAddTitle">Adicionar</h2>
-      <p>Traga o site e as peças. A leitura preenche o perfil ao lado.</p>
+      <h2 id="mcBrandAddTitle">Importar marca</h2>
+      <p>Comece com um cliente ou agência da nossa base.</p>
     </header>
     <div class="mc-brand-col-body">
+      <section class="mc-brand-source" aria-labelledby="mcBrandSourceTitle">
+        <strong id="mcBrandSourceTitle">Clientes e agências</strong>
+        <label class="cx-field">
+          <span class="cx-label">Buscar na base</span>
+          <input class="cx-input" id="mcBrandSourceSearch" type="search" placeholder="Nome do cliente ou agência" autocomplete="off">
+        </label>
+        <label class="cx-field">
+          <span class="cx-label">Cadastro</span>
+          <select class="cx-select" id="mcBrandSourceSelect"><option value="">Carregando cadastros…</option></select>
+        </label>
+        <button class="cx-btn cx-btn-secondary" id="mcImportBrandSource" type="button" disabled>Importar informações</button>
+        <p class="mc-section-note" id="mcBrandSourceStatus" aria-live="polite">Logo, site e descrição disponíveis serão preenchidos no perfil.</p>
+      </section>
       <section class="mc-brand-import" aria-labelledby="mcBrandImportTitle">
         <div class="mc-brand-import-copy">
           <span class="mc-brand-import-icon"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i></span>
           <div>
-            <strong id="mcBrandImportTitle">Entender marca automaticamente</strong>
-            <p>Informe o site e, se ajudar, envie uma logo ou peça.</p>
+            <strong id="mcBrandImportTitle">Completar pelo site</strong>
+            <p>Analise o site para completar o contexto da marca.</p>
           </div>
         </div>
         <div class="mc-brand-import-fields">
@@ -53,6 +66,7 @@
   </section>
 
   <form class="mc-brand-col mc-brand-form" id="mcClientForm" data-brand-col="edit">
+    <input type="hidden" name="crm_client_id">
     <header class="mc-brand-col-head">
       <div>
         <h2>Editar</h2>

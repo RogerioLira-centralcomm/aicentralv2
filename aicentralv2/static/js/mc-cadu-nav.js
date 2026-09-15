@@ -63,7 +63,8 @@
     select.disabled = true;
     let clients = [];
     try {
-      const payload = await get("/parametros/api/clients");
+      // O Studio contratado opera exclusivamente sobre o perfil 174.
+      const payload = await get("/parametros/api/clients?client_id=174");
       clients = Array.isArray(payload) ? payload : (payload?.items || payload?.clients || []);
     } catch (_error) {
       if (requestId !== contextRequest) return;

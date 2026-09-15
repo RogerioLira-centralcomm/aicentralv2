@@ -99,17 +99,9 @@ def register_product_host_routing(app) -> None:
             response.headers["Cache-Control"] = "no-store, max-age=0"
             return response
 
-        auth_host = _configured_host("AUTH_URL")
-        known_hosts = {_configured_host(key) for key in PRODUCT_CONFIG_KEYS.values()}
-        identity_endpoints = {"login", "forgot_password", "reset_password"}
-        if (
-            request.method == "GET"
-            and request.endpoint in identity_endpoints
-            and host in known_hosts
-            and host != auth_host
-        ):
-            query = f"?{request.query_string.decode('utf-8')}" if request.query_string else ""
-            return redirect(product_url("auth", request.path) + query, code=302)
+        # Login é atendido no host do produto. Isso mantém cookies e estado
+        # isolados entre CentralX e a família Cadu, inclusive quando há uma
+        # sessão antiga de outro produto no mesmo navegador.
         if request.path != "/":
             return None
         for config_key, endpoint in endpoints.items():

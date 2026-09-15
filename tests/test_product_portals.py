@@ -29,6 +29,8 @@ def _app():
         WORKSPACE_URL="https://workspace.centralcomm.media",
         AUTH_URL="https://auth.centralcomm.media",
         CADU_GOOGLE_LOGIN_URL="https://cadu.centralcomm.media/google-login.php",
+        # O fixture usa um único cliente entre hosts para injetar sessões de
+        # teste; a configuração de produção permanece host-only.
         SESSION_COOKIE_DOMAIN="centralcomm.media",
     )
     app.add_url_rule("/login", "login", lambda: "login")
@@ -63,24 +65,21 @@ class ProductPortalsTest(TestCase):
                 self.assertEqual(response.status_code, 302)
                 self.assertEqual(response.headers["Location"], path)
 
-    def test_login_get_is_canonical_on_the_auth_domain(self):
+    def test_login_stays_on_the_product_domain(self):
         client = _app().test_client()
         response = client.get(
             "/login?next=https%3A%2F%2Fplanner.centralcomm.media%2F",
             headers={"Host": "ai.centralcomm.media"},
         )
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(
-            response.headers["Location"],
-            "https://auth.centralcomm.media/login?next=https%3A%2F%2Fplanner.centralcomm.media%2F",
-        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_data(as_text=True), "login")
 
     def test_connect_requires_login_and_renders_for_a_session(self):
         app = _app()
         client = app.test_client()
         response = client.get("/connect/", headers={"Host": "connect.centralcomm.media"})
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(response.headers["Location"].startswith("https://auth.centralcomm.media/login?"))
+        self.assertTrue(response.headers["Location"].startswith("/login?"))
         with client.session_transaction() as sess:
             sess.update(user_id=7, cliente_id=12, user_name="Apolo", user_email="apolo@centralcomm.media")
         with mock.patch("aicentralv2.cadu_connect.routes.campaigns_for_client", return_value=[]), \

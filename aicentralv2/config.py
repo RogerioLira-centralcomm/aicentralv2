@@ -78,12 +78,12 @@ class Config:
 	SESSION_REFRESH_EACH_REQUEST = True
 	SESSION_COOKIE_HTTPONLY = True
 	SESSION_COOKIE_SAMESITE = 'Lax'
-	# O fallback preserva sessões atuais. Ative `centralx_session` no rollout
-	# coordenado; mudar o nome encerra uma vez os cookies Flask anteriores.
-	SESSION_COOKIE_NAME = os.getenv('SESSION_COOKIE_NAME', 'session')
-	# A sessão Flask é única para toda a família Cadu. Em ambiente local, defina
-	# SESSION_COOKIE_DOMAIN vazio para manter o cookie restrito ao host local.
-	SESSION_COOKIE_DOMAIN = os.getenv('SESSION_COOKIE_DOMAIN', 'centralcomm.media') or None
+	# Produtos e CentralX não compartilham identidade. Um nome novo evita que o
+	# cookie legado `session`, emitido para .centralcomm.media, seja interpretado
+	# no Workspace, Skills ou demais produtos. Como o domínio é host-only, a
+	# mesma pessoa precisa autenticar diretamente em cada produto.
+	SESSION_COOKIE_NAME = 'centralcomm_product_session'
+	SESSION_COOKIE_DOMAIN = None
 	SESSION_COOKIE_SECURE = os.getenv(
 		'SESSION_COOKIE_SECURE',
 		'true' if BASE_URL.startswith('https') else 'false',

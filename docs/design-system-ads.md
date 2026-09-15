@@ -1,6 +1,6 @@
 # Design System Ads — Advertising Operating System
 
-Documentação completa da mesa **Design System Ads** no CentralX: contrato, fluxos de **marca** e **campanha**, payloads, prompts, modelos e profundidade operacional.
+Documentação completa da mesa **Design System Ads** no Cadu Studio: contrato, fluxos de **marca** e **campanha**, payloads, prompts, modelos e profundidade operacional.
 
 > Isto **não** é o design system do site nem o tema DaisyUI do ERP. É o **Advertising Operating System** da marca: como ela se comporta em 300×250, 728×90, 970×250, 320×50, feed 1:1 / 4:5 e LinkedIn.
 
@@ -15,7 +15,7 @@ Brand DNA
 
 Mesa em produção:
 
-[https://ai.centralcomm.media/parametros/modelagem-criativos/design-system](https://ai.centralcomm.media/parametros/modelagem-criativos/design-system)
+[https://studio.centralcomm.media/parametros/modelagem-criativos/design-system](https://studio.centralcomm.media/parametros/modelagem-criativos/design-system)
 
 ---
 
@@ -44,7 +44,7 @@ O specimen é o **anúncio**, não a folha do site. `970×250` não encolhe para
 | | |
 |---|---|
 | URL | `/parametros/modelagem-criativos/design-system` |
-| Produção | `https://ai.centralcomm.media/parametros/modelagem-criativos/design-system` |
+| Produção | `https://studio.centralcomm.media/parametros/modelagem-criativos/design-system` |
 | Desk | `MC_DESKS["design-system"]` em `creative_modeling_routes.py` |
 | Template | `templates/parametros/_mc_design_system.html` |
 | JS | `static/js/mc-design-system.js` |
@@ -991,7 +991,7 @@ O agente de anúncio recebe o dossiê `fidelity` + `agent` (lavagem é CSS, defa
 
 ## 15. Sequência operacional (marca → campanha → peça)
 
-1. Abrir [a mesa](https://ai.centralcomm.media/parametros/modelagem-criativos/design-system).
+1. Abrir [a mesa](https://studio.centralcomm.media/parametros/modelagem-criativos/design-system).
 2. Escolher a **marca** (ou deixar CentralComm Ads).
 3. **Montar a marca** — loop assenta DNA, contraste, review e trilhas. GPT Image 2 só o que faltar; asset da marca entra como referência.
 4. Ajustar tinta / copy / intents no catálogo. Contraste precisa passar 4.5:1.

@@ -2,7 +2,7 @@
 <nav class="cadu-skills-sidebar" aria-label="Navegação do Cadu Skills">
   <div class="sk-side-group sk-side-solutions">
     <span class="sk-side-label">Soluções</span>
-    {% set solutions = [('workspace', 'Workspace', 'workspace-2d.svg'), ('planner', 'Planner', 'planner-2d.svg'), ('studio', 'Studio', 'studio-2d.svg'), ('skills', 'Skills', 'skills-2d.svg'), ('connect', 'Connect', 'connect-2d.svg'), ('places', 'Places', 'places-2d.svg')] %}
+    {% set solutions = [('workspace', 'Workspace', 'workspace-2d.svg'), ('planner', 'Planner', 'planner-2d.svg'), ('studio', 'Studio', 'studio-2d.svg'), ('skills', 'Skills', 'skills-2d.svg'), ('connect', 'Connect', 'connect-2d.svg')] %}
     {% for slug, name, icon in solutions %}
       {% if session.get('user_id') %}{% set href = product_url(slug) %}{% else %}{% set href = product_url(slug, '/entrada/' ~ slug) %}{% endif %}
       <a class="sk-side-solution {{ 'is-active' if slug == 'skills' else '' }}" href="{{ href }}" title="{{ name }}" {% if slug == 'skills' %}aria-current="page"{% endif %}><img src="{{ url_for('static', filename='images/cadu/products/' ~ icon) }}" alt=""><span>{{ name }}</span></a>

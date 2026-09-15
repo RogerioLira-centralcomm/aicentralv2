@@ -55,6 +55,7 @@ LANDINGS = {
         'image': 'planner.png',
         'links': [('planos', 'Planos de mídia', 'Acompanhe a integração da experiência de planejamento.'),
                   ('audiencias', 'Explorar audiências', 'Consulte referências para o seu planejamento.'),
+                  ('places', 'Explorar Places', 'Veja produtos, pontos e alcance dos lugares publicados.'),
                   ('cotacoes', 'Consultar cotações', 'Acesse as cotações do cliente selecionado.')],
     },
     'studio': {

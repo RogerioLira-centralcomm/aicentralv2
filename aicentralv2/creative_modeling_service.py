@@ -9,6 +9,8 @@ import os
 import re
 import secrets
 
+from flask import current_app, has_app_context
+
 from .creative_brand_analysis import (
     CreativeBrandAnalyzer,
     _compact_web_evidence,
@@ -43,6 +45,16 @@ from .creative_html_compose import (
 )
 from .creative_modeling_fx import annotate_cost, brl_from_usd
 from .creative_format_assets import resolve_assets
+
+
+def _studio_public_url(path):
+    """Return Studio as the canonical public origin, even outside a request."""
+    base = (
+        current_app.config.get("STUDIO_URL")
+        if has_app_context()
+        else os.getenv("STUDIO_URL", "https://studio.centralcomm.media")
+    )
+    return f"{str(base).rstrip('/')}/{str(path).lstrip('/')}"
 from .creative_format_placeholder import PLACEHOLDER_CSS, render_placeholder
 from .creative_format_registry import (
     DISCLAIMER,
@@ -860,7 +872,7 @@ def _public_catalog(collection, nav_rows, token):
                 "title": row.get("title") or row.get("campaign_name"),
                 "campaign_name": row.get("campaign_name") or row.get("title"),
                 "current": camp_token == token,
-                "href": f"/criativos/publico/{camp_token}",
+                "href": _studio_public_url(f"/criativos/publico/{camp_token}"),
                 "channels": [],
             }
             brand["campaign_order"].append(camp_token)
@@ -875,7 +887,7 @@ def _public_catalog(collection, nav_rows, token):
             "href": (
                 f"#session-{channel_key}"
                 if camp_token == token
-                else f"/criativos/publico/{camp_token}#session-{channel_key}"
+                else _studio_public_url(f"/criativos/publico/{camp_token}#session-{channel_key}")
             ),
         })
     campaigns = []
@@ -6814,7 +6826,7 @@ class CreativeModelingService:
         )
         return {
             **collection,
-            "public_url": f"/criativos/publico/{token}",
+            "public_url": _studio_public_url(f"/criativos/publico/{token}"),
             "asset_count": len(asset_ids),
         }
 
@@ -6823,7 +6835,7 @@ class CreativeModelingService:
             _integer(campaign_id, "Campanha")
         )
         for row in rows:
-            row["public_url"] = f"/criativos/publico/{row['token']}"
+            row["public_url"] = _studio_public_url(f"/criativos/publico/{row['token']}")
         return _serialize(rows)
 
     def revoke_public_collection(self, campaign_id, collection_id):

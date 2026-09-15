@@ -50,6 +50,8 @@ class SessionPersistenceConfigTests(unittest.TestCase):
         self.assertTrue(Config.SESSION_REFRESH_EACH_REQUEST)
         self.assertTrue(Config.SESSION_COOKIE_HTTPONLY)
         self.assertEqual(Config.SESSION_COOKIE_SAMESITE, "Lax")
+        self.assertEqual(Config.SESSION_COOKIE_NAME, "centralcomm_product_session")
+        self.assertIsNone(Config.SESSION_COOKIE_DOMAIN)
         self.assertTrue(ProductionConfig.SESSION_COOKIE_SECURE)
         self.assertFalse(TestingConfig.SESSION_COOKIE_SECURE)
 

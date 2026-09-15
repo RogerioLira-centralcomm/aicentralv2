@@ -146,6 +146,12 @@ class FamilyTest(TestCase):
                 self.assertCountEqual(grouped, spec['modules'])
                 self.assertEqual(len(grouped), len(set(grouped)))
 
+    def test_planner_exposes_places_as_an_internal_catalog(self):
+        from aicentralv2.cadu_family.catalog import LANDINGS, PRODUCTS
+        self.assertIn('places', PRODUCTS['planner']['modules'])
+        self.assertIn('places', [key for _, keys in PRODUCTS['planner']['navigation'] for key in keys])
+        self.assertIn('places', [key for key, _, _ in LANDINGS['planner']['links']])
+
     def test_workspace_home_only_lists_authorized_inventory(self):
         self.login()
         self.entities.return_value = [{**ENTITIES[0], 'name': '<script>untrusted</script>'}]

@@ -28,7 +28,8 @@
       if (!response.ok) throw new Error(data.error || 'Não foi possível carregar os detalhes.');
       dialog.querySelector('h2').textContent = data.record.name || 'Detalhes do catálogo';
       const list = document.createElement('dl');
-      [['Descrição', data.record.description], ['Categoria', data.record.category], ['Cidade', data.record.city], ['Alcance', data.record.audience], ['Dimensões', data.record.dimensions], ['Arquivos aceitos', data.record.files], ['Pontos', (data.record.points || []).map(item => item.name).join(', ')]].forEach(([label, value]) => { const item = row(label, value); if (item) list.append(item); });
+      const points = (data.record.points || []).map(item => item.audience ? `${item.name} — ${item.audience}` : item.name).join(', ');
+      [['Descrição', data.record.description], ['Categoria', data.record.category], ['Cidade', data.record.city], ['Alcance', data.record.audience], ['Dimensões', data.record.dimensions], ['Arquivos aceitos', data.record.files], ['Pontos e alcance', points]].forEach(([label, value]) => { const item = row(label, value); if (item) list.append(item); });
       content.replaceChildren(list.childElementCount ? list : Object.assign(document.createElement('p'), {textContent: 'Não há detalhes adicionais para este item.'}));
     } catch (error) { content.replaceChildren(Object.assign(document.createElement('p'), {textContent: error.message})); }
   }));

@@ -1,15 +1,16 @@
-{% extends "base_erp.html" %}
+{% extends "cadu_portals/base.html" %}
 {% block title %}Cadu Media Studio — Visão geral{% endblock %}
-{% block page_label %}{% endblock %}
-{% block page_subtitle %}{% endblock %}
+{% block product_id %}studio{% endblock %}
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-home.css') }}?v=1">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-navigation.css') }}?v=1">
 {% endblock %}
 {% block content %}
 {% macro icon(name) %}<i class="fa-solid fa-{{ name }}" aria-hidden="true"></i>{% endmacro %}
-<div class="mc-studio-home" id="mcApp" data-mc-page="hub">
+<div class="mc-studio-home" id="mcApp" data-mc-page="hub" data-brand-manage-url="{{ product_url('workspace', '/familia/workspace/marcas/sistema') }}">
   <header class="mc-cadu-bar" id="mcCaduBar">
     <a class="studio-wordmark" href="{{ url_for('parametros.modelagem_criativos') }}" aria-current="page">Cadu <span>Media Studio</span><small>Produto de mídia do Cadu</small></a>
+    <nav class="studio-quick-nav" aria-label="Atalhos do Studio"><a href="{{ url_for('parametros.modelagem_trocar') }}">Ajustar</a><a href="{{ url_for('parametros.modelagem_video') }}">Vídeo</a><a class="studio-design-system-link" href="{{ url_for('parametros.modelagem_design-system') }}"><img src="{{ url_for('static', filename='images/cadu/products/studio-2d.svg') }}" alt="">Design System Ads</a></nav>
     <div class="studio-context-controls">
       <label class="studio-brand-label" for="mcCaduBarClient">Marca ativa</label>
       <select id="mcCaduBarClient" aria-label="Marca desta sessão"><option value="">Carregando marcas…</option></select>
@@ -17,37 +18,14 @@
     </div>
   </header>
   <div class="studio-layout">
-    <nav class="studio-nav" aria-label="Navegação do Media Studio">
-      <a class="is-current" href="{{ url_for('parametros.modelagem_criativos') }}" aria-current="page">{{ icon('house') }} Visão geral</a>
-      <a href="#studioLibrary">{{ icon('layer-group') }} Biblioteca da marca</a>
-      <span class="studio-nav-label">Produção</span>
-      <a data-brand-link href="{{ url_for('parametros.modelagem_trocar') }}">{{ icon('sliders') }} Ajustar peça</a>
-      <a data-brand-link href="{{ url_for('parametros.modelagem_video') }}">{{ icon('film') }} Montar vídeo</a>
-      <span class="studio-nav-label">Identidade</span>
-      <a href="{{ url_for('parametros.modelagem_marcas') }}">{{ icon('swatchbook') }} Marcas</a>
-      <details><summary>Recursos avançados</summary>
-        <a href="{{ url_for('parametros.modelagem_camadas') }}">Camadas</a>
-        <a href="{{ url_for('parametros.modelagem_biblioteca') }}">Formatos</a>
-        <a href="{{ url_for('parametros.modelagem_design-system') }}">Design System</a>
-        <a href="{{ url_for('parametros.modelagem_bancada') }}">Bancada</a>
-        <a href="{{ url_for('parametros.modelagem_historico') }}">Custo</a>
-        <a href="{{ url_for('parametros.modelagem_preparar') }}">Preparar</a>
-        <a href="{{ url_for('parametros.modelagem_produzir') }}">Produzir</a>
-      </details>
-      <details><summary>Pesquisa</summary>
-        <a href="{{ url_for('parametros.modelagem_desdobrar') }}">Desdobrar</a>
-        <a href="{{ url_for('parametros.modelagem_mesa') }}">Conceito 15s</a>
-        <a href="{{ url_for('parametros.modelagem_placas') }}">Placas</a>
-      </details>
-    </nav>
     <div class="studio-content">
       <div class="studio-heading"><div><p class="studio-breadcrumb">Cadu / Media Studio</p><h1>Sua produção, em um só lugar.</h1><p>Ajuste peças, monte clipes e retome o trabalho da marca ativa.</p></div><a class="studio-button is-primary" data-brand-link href="{{ url_for('parametros.modelagem_trocar') }}">{{ icon('plus') }} Ajustar peça</a></div>
-      <div class="studio-brand-context"><div>{{ icon('building') }}<div><strong id="studioBrandName">Carregando marca…</strong><p>Biblioteca e histórico da marca selecionada</p></div></div><a href="{{ url_for('parametros.modelagem_marcas') }}">Gerenciar marcas {{ icon('arrow-right') }}</a></div>
+      <div class="studio-brand-context"><div>{{ icon('building') }}<div><strong id="studioBrandName">Carregando marca…</strong><p>Biblioteca e histórico da marca selecionada</p></div></div><a href="{{ product_url('workspace', '/familia/workspace/marcas/sistema') }}">Gerenciar marcas no Workspace {{ icon('arrow-right') }}</a></div>
       <section class="studio-actions" aria-label="Começar ou retomar uma produção">
         <a data-brand-link href="{{ url_for('parametros.modelagem_trocar') }}">{{ icon('sliders') }}<strong>Ajustar peça</strong><p>Importe o criativo e descreva as alterações.</p></a>
         <a href="#studioLibrary">{{ icon('images') }}<strong>Retomar uma peça</strong><p>Abra um resultado e continue o ajuste.</p></a>
         <a data-brand-link href="{{ url_for('parametros.modelagem_video') }}">{{ icon('film') }}<strong>Montar vídeo</strong><p>Reúna de 2 a 30 cenas da biblioteca.</p></a>
-        <a href="{{ url_for('parametros.modelagem_marcas') }}">{{ icon('swatchbook') }}<strong>Organizar a marca</strong><p>Reúna logos, cores, fontes e referências.</p></a>
+        <a href="{{ product_url('workspace', '/familia/workspace/marcas/sistema') }}">{{ icon('swatchbook') }}<strong>Organizar a marca</strong><p>Reúna logos, cores, fontes e referências no Workspace.</p></a>
       </section>
       <section id="studioLibrary" aria-labelledby="studioLibraryTitle">
         <div class="studio-library-heading"><div><h2 id="studioLibraryTitle">Biblioteca da marca</h2><p>Peças e clipes para continuar sua produção.</p></div><button class="studio-button" id="studioRefresh" type="button">{{ icon('rotate-right') }} Atualizar</button></div>

@@ -5,11 +5,13 @@ import json
 import logging
 import mimetypes
 import zipfile
+from functools import wraps
+from urllib.parse import urlparse
 
 from flask import Blueprint, abort, current_app, jsonify, redirect, render_template, request, send_file, session, url_for
 from werkzeug.utils import secure_filename
 
-from .auth import admin_required, admin_required_api
+from .auth import admin_required, admin_required_api, login_required, login_required_api
 from .creative_format_lab.swap_csrf import get_or_create_token as trocr_csrf_token
 from .creative_format_lab.swap_routes import register_trocr_routes
 from .creative_modeling_generation import OpenRouterError
@@ -19,9 +21,11 @@ from .creative_modeling_repository import (
 )
 from .creative_modeling_service import CreativeModelingService
 from .creative_modeling_storage import ClientLogoStorage, CreativeAssetStorage
+from .product_domains import product_url
 
 
 logger = logging.getLogger(__name__)
+STUDIO_CLIENT_ID = 174
 public_bp = Blueprint(
     "creative_public", __name__, url_prefix="/criativos/publico"
 )
@@ -70,6 +74,56 @@ def _execute(callback):
     except Exception as exc:
         logger.exception("Erro na Modelagem de Criativos")
         return _error("Não foi possível concluir a solicitação.", 500, _run_extra(exc))
+
+
+def _configured_product_host(product):
+    key = {'centralx': 'CENTRALX_URL', 'studio': 'STUDIO_URL', 'workspace': 'WORKSPACE_URL'}[product]
+    return (urlparse(str(current_app.config.get(key) or '')).hostname or '').lower()
+
+
+def _host_redirect(product):
+    """Move legacy HTML entrypoints without touching API or persisted content."""
+    destination = _configured_product_host(product)
+    current = (request.host.split(':', 1)[0] or '').lower()
+    if not destination or current == destination:
+        return None
+    query = ('?' + request.query_string.decode('utf-8')) if request.query_string else ''
+    return redirect(product_url(product, request.path) + query, code=302)
+
+
+def _studio_client_scope():
+    """Restrict the standalone Studio to its contracted brand profile."""
+    return STUDIO_CLIENT_ID if (
+        (request.host.split(':', 1)[0] or '').lower() == _configured_product_host('studio')
+    ) else None
+
+
+def studio_or_admin_required(view):
+    """Cadu Studio has its own login; CentralX keeps the internal guard."""
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        guard = login_required if _studio_client_scope() else admin_required
+        return guard(view)(*args, **kwargs)
+    return wrapped
+
+
+def studio_or_admin_required_api(view):
+    """Apply the product login on Studio without widening CentralX APIs."""
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        guard = login_required_api if _studio_client_scope() else admin_required_api
+        return guard(view)(*args, **kwargs)
+    return wrapped
+
+
+def studio_brand_required(view):
+    """The standalone Studio must never accept another brand profile."""
+    @wraps(view)
+    def wrapped(client_id, *args, **kwargs):
+        if _studio_client_scope() and str(client_id) != str(STUDIO_CLIENT_ID):
+            return _error("Esta marca não está disponível neste Studio.", 403)
+        return view(client_id, *args, **kwargs)
+    return wrapped
 
 
 MC_DESKS = {
@@ -181,8 +235,11 @@ MC_DESKS = {
 }
 
 
-@admin_required
+@studio_or_admin_required
 def modelagem_criativos():
+    redirected = _host_redirect('studio')
+    if redirected:
+        return redirected
     return render_template(
         "parametros/modelagem_criativos.html",
         mc_page="hub",
@@ -193,13 +250,24 @@ def modelagem_criativos():
 CADU_RETIRED_DESKS = {"extrair", "revisao", "lab"}
 
 
-@admin_required
+@studio_or_admin_required
 def modelagem_desk(page):
     if page in CADU_RETIRED_DESKS:
         return redirect(url_for(".modelagem_criativos"))
     spec = MC_DESKS.get(page)
     if not spec:
         abort(404)
+    if page == 'marcas':
+        redirected = _host_redirect('workspace')
+        if redirected:
+            return redirected
+        if _configured_product_host('workspace'):
+            query = ('?' + request.query_string.decode('utf-8')) if request.query_string else ''
+            return redirect(product_url('workspace', '/familia/workspace/marcas/sistema') + query, code=302)
+    else:
+        redirected = _host_redirect('studio')
+        if redirected:
+            return redirected
     if page == "trocar" and request.args.get("ws") == "video":
         args = request.args.to_dict(flat=True)
         args.pop("ws", None)
@@ -210,7 +278,7 @@ def modelagem_desk(page):
         panel = "parametros/_mc_camadas_v2.html"
         page_js = "js/camadas/index.js"
     return render_template(
-        "parametros/modelagem_desk.html",
+        "cadu_studio/desk.html" if _studio_client_scope() else "parametros/modelagem_desk.html",
         mc_page=page,
         mc_title=spec["title"],
         mc_lead=spec["lead"],
@@ -218,6 +286,7 @@ def modelagem_desk(page):
         mc_studio_js=spec["studio"],
         mc_page_js=page_js,
         mc_trocr_csrf=trocr_csrf_token() if page in {"trocar", "video"} else "",
+        mc_workspace_brands=page == 'marcas' and _configured_product_host('workspace') == (request.host.split(':', 1)[0] or '').lower(),
     )
 
 
@@ -573,14 +642,23 @@ def api_brand_sources():
     return _execute(lambda: _ok(_service().list_brand_sources()))
 
 
-@admin_required_api
+@studio_or_admin_required_api
 def api_clients():
     if request.method == "POST":
+        if _studio_client_scope():
+            return _error("O cadastro de marcas é administrado fora deste Studio.", 403)
         return _execute(lambda: _ok(_service().create_client(_json()), 201))
-    return _execute(lambda: _ok(_service().list_clients()))
+    def list_scoped_clients():
+        clients = _service().list_clients()
+        scoped_client_id = _studio_client_scope()
+        if scoped_client_id:
+            clients = [item for item in clients if int(item.get("id") or 0) == scoped_client_id]
+        return _ok(clients)
+    return _execute(list_scoped_clients)
 
 
-@admin_required_api
+@studio_or_admin_required_api
+@studio_brand_required
 def api_brand_design_system(client_id):
     if request.method == "POST":
         from .design_system_ads.commands import parse_optional_revision
@@ -596,7 +674,8 @@ def api_brand_design_system(client_id):
     return _execute(lambda: _ok(_service().get_brand_design_system(client_id)))
 
 
-@admin_required_api
+@studio_or_admin_required_api
+@studio_brand_required
 def api_refine_brand_design_system(client_id):
     from .design_system_ads.commands import parse_refine_brand
 
@@ -613,7 +692,8 @@ def api_refine_brand_design_system(client_id):
     )
 
 
-@admin_required_api
+@studio_or_admin_required_api
+@studio_brand_required
 def api_approve_brand_design_system(client_id):
     from .design_system_ads.commands import parse_approve_brand
 
@@ -627,7 +707,8 @@ def api_approve_brand_design_system(client_id):
     )
 
 
-@admin_required_api
+@studio_or_admin_required_api
+@studio_brand_required
 def api_patch_brand_design_system(client_id):
     from .design_system_ads.commands import parse_patch_brand
 
@@ -646,7 +727,8 @@ def api_patch_brand_design_system(client_id):
     )
 
 
-@admin_required_api
+@studio_or_admin_required_api
+@studio_brand_required
 def api_compose_brand_design_system(client_id):
     from .design_system_ads.commands import parse_optional_revision
 
@@ -660,7 +742,8 @@ def api_compose_brand_design_system(client_id):
     )
 
 
-@admin_required_api
+@studio_or_admin_required_api
+@studio_brand_required
 def api_loop_brand_design_system(client_id):
     from .design_system_ads.commands import parse_optional_revision
 
@@ -674,7 +757,8 @@ def api_loop_brand_design_system(client_id):
     )
 
 
-@admin_required_api
+@studio_or_admin_required_api
+@studio_brand_required
 def api_generate_brand_track(client_id, track_id):
     from .design_system_ads.commands import parse_optional_revision
 
@@ -691,7 +775,8 @@ def api_generate_brand_track(client_id, track_id):
     )
 
 
-@admin_required_api
+@studio_or_admin_required_api
+@studio_brand_required
 def api_validate_brand_design_system_render(client_id):
     from .design_system_ads.commands import parse_validate_render
 
@@ -707,7 +792,8 @@ def api_validate_brand_design_system_render(client_id):
     )
 
 
-@admin_required_api
+@studio_or_admin_required_api
+@studio_brand_required
 def api_adapt_brand_design_system(client_id):
     from .design_system_ads.commands import parse_adapt
 
@@ -1014,11 +1100,14 @@ def api_campaign_html5(cid):
     return _execute(execute)
 
 
-@admin_required_api
+@studio_or_admin_required_api
 def api_image_credits():
+    client_id = request.args.get("client_id")
+    if _studio_client_scope() and str(client_id) != str(STUDIO_CLIENT_ID):
+        return _error("Esta marca não está disponível neste Studio.", 403)
     return _execute(lambda: _ok(_service().image_credits(
         session.get("user_id"),
-        request.args.get("client_id"),
+        client_id,
     )))
 
 
@@ -1352,6 +1441,9 @@ def api_revoke_public_collection(cid, collection_id):
 
 @public_bp.get("/<token>")
 def public_collection(token):
+    redirected = _host_redirect('studio')
+    if redirected:
+        return redirected
     try:
         collection = _service().public_collection(token)
     except CreativeNotFoundError:
@@ -1365,6 +1457,9 @@ def public_collection(token):
 
 @public_bp.get("/<token>/download")
 def public_collection_download(token):
+    redirected = _host_redirect('studio')
+    if redirected:
+        return redirected
     try:
         collection = _service().public_collection(token)
         return _collection_zip(collection["assets"], collection["title"])
@@ -1374,6 +1469,9 @@ def public_collection_download(token):
 
 @public_bp.get("/<token>/asset/<int:asset_id>")
 def public_collection_asset(token, asset_id):
+    redirected = _host_redirect('studio')
+    if redirected:
+        return redirected
     try:
         asset = _service().public_collection_asset(token, asset_id)
         path = CreativeAssetStorage().absolute_generated_path(asset["asset_url"])
@@ -2087,7 +2185,8 @@ def modeling_ux_template_edit(slug):
     return render_template("parametros/lab/template_edit.html", template_slug=slug)
 
 
-@admin_required
+@studio_or_admin_required
+@studio_brand_required
 def design_system_brand_specimen(client_id):
     try:
         html = _service().render_brand_design_system(

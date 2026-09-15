@@ -5,6 +5,7 @@ import re
 from functools import wraps
 from urllib.parse import urlencode
 from flask import session, redirect, url_for, flash, jsonify, request
+from werkzeug.routing import BuildError
 
 LOGIN_EMAIL_DOMAIN = "centralcomm.media"
 _LOGIN_LOCAL_RE = re.compile(r"^[a-z0-9](?:[a-z0-9._+-]*[a-z0-9])?$", re.I)
@@ -55,14 +56,20 @@ def persist_login_session():
 
 
 def login_url(next_url=None):
-    """Point protected product pages to the canonical identity host."""
+    """Keep authentication on the product host that requested it.
+
+    CentralX and the Cadu products intentionally keep separate sessions. A
+    relative URL lets Workspace, Skills and the other products render their
+    own login instead of inheriting the CentralX/Auth cookie.
+    """
+    destination = next_url or request.url
     try:
-        from .product_domains import product_url
-        target = product_url("auth", "/login")
-        destination = next_url or request.url
-        return f"{target}?{urlencode({'next': destination})}"
-    except Exception:
-        return url_for('login')
+        path = url_for('login')
+    except BuildError:
+        # Lightweight product mounts may not register the full auth blueprint,
+        # but their host still owns the same direct login route in production.
+        path = '/login'
+    return f"{path}?{urlencode({'next': destination})}"
 
 def login_required(f):
     """Decorador para proteger rotas que exigem login"""

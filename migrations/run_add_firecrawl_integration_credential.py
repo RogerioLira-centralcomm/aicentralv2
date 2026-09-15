@@ -37,7 +37,21 @@ def main():
         row_factory=dict_row,
     ) as conn:
         with conn.cursor() as cursor:
-            cursor.execute(SQL_PATH.read_text(encoding="utf-8"))
+            # Esta migration é executada em todo deploy. Em bancos que já
+            # receberam providers adicionados depois do Firecrawl, reaplicar o
+            # SQL antigo reduziria a lista aceita pelo CHECK e falharia ao
+            # validar registros existentes. Só altere a constraint se o
+            # provider ainda não estiver liberado.
+            cursor.execute(
+                """
+                SELECT pg_get_constraintdef(oid) AS definition
+                  FROM pg_constraint
+                 WHERE conname = 'system_integration_credentials_provider_check'
+                """
+            )
+            current = ((cursor.fetchone() or {}).get("definition") or "")
+            if "firecrawl" not in current:
+                cursor.execute(SQL_PATH.read_text(encoding="utf-8"))
             if encrypted:
                 cursor.execute(
                     """

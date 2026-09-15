@@ -9,6 +9,9 @@ fi
 # Script de Deploy - AIcentral v2
 set -e
 SERVICE_STOPPED=0
+# O servidor de produção atende a aplicação em :8001 pelo gunicorn.service.
+# Não iniciar aicentralv2.service em paralelo: ele disputa a mesma porta.
+APP_SERVICE="gunicorn.service"
 
 restore_service_on_error() {
     local exit_code=$?
@@ -16,7 +19,7 @@ restore_service_on_error() {
     if [ "$SERVICE_STOPPED" = "1" ]; then
         echo ""
         echo "  > Falha no deploy; tentando restaurar o serviço..."
-        sudo systemctl start aicentralv2 2>/dev/null || true
+        sudo systemctl start "$APP_SERVICE" 2>/dev/null || true
     fi
     exit "$exit_code"
 }
@@ -34,7 +37,7 @@ echo ""
 
 # 1. Parar servico ANTES de tudo
 echo "[1/7] Parando servico..."
-sudo systemctl stop aicentralv2 2>/dev/null || true
+sudo systemctl stop "$APP_SERVICE" 2>/dev/null || true
 SERVICE_STOPPED=1
 sleep 2
 
@@ -157,10 +160,9 @@ find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 find . -type f -name "*.pyc" -delete 2>/dev/null || true
 echo "  > OK"
 
-# 6. Atualizar systemd
+# 6. Recarregar systemd (o unit principal e gerenciado no servidor)
 echo ""
-echo "[5/8] Atualizando systemd..."
-sudo cp aicentralv2.service /etc/systemd/system/
+echo "[5/8] Recarregando systemd..."
 sudo systemctl daemon-reload
 echo "  > OK"
 
@@ -220,10 +222,10 @@ MEDIA_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_media_worker.sh
 # 9. Iniciar servico
 echo ""
 echo "[8/9] Iniciando servico..."
-sudo systemctl start aicentralv2
+sudo systemctl start "$APP_SERVICE"
 sleep 3
 
-if sudo systemctl is-active --quiet aicentralv2; then
+if sudo systemctl is-active --quiet "$APP_SERVICE"; then
     SERVICE_STOPPED=0
     trap - ERR
     echo "  > Servico ativo!"
@@ -236,7 +238,7 @@ else
     echo "=== Teste manual de import ==="
     venv/bin/python -c "from run import app; print('import OK')" 2>&1 || true
     echo ""
-    sudo journalctl -u aicentralv2 -n 30 --no-pager 2>&1 | cat
+    sudo journalctl -u "$APP_SERVICE" -n 30 --no-pager 2>&1 | cat
     exit 1
 fi
 

@@ -38,12 +38,12 @@ PUBLIC_PAGES = {
     "como-funciona": {
         "title": "Como funciona",
         "description": "Entenda como o Cadu Workspace preserva o contexto entre projetos, pessoas e produtos.",
-        "lead": "Um ponto de partida para organizar o trabalho antes de planejar, criar ou conectar dados.",
+        "lead": "Um ponto de partida para o time organizar o trabalho antes de planejar, criar ou conectar dados.",
     },
     "planos": {
         "title": "Planos",
         "description": "Conheça a estrutura de planos e créditos do ecossistema Cadu.",
-        "lead": "A mesma conta atende toda a família Cadu. Capacidade, créditos e número de usuários variam por plano.",
+        "lead": "A mesma conta atende todo o time no Cadu. Capacidade, créditos e número de pessoas variam por plano.",
     },
     "ajuda": {
         "title": "Ajuda",
@@ -58,12 +58,12 @@ PUBLIC_PAGES = {
 }
 
 PRODUCT_ENTRIES = {
-    "cadu": ("Cadu", "Inteligência de mídia", "Traga a decisão de mídia para um só lugar.", "Pesquise públicos, formatos, canais e ferramentas de campanha a partir do contexto da sua organização."),
-    "workspace": ("Workspace", "Conta e contexto", "Comece pelo contexto certo.", "Organize pessoas, projetos, créditos e o acesso da sua organização antes de abrir uma solução especializada."),
+    "cadu": ("Cadu", "Inteligência de mídia", "Traga a decisão de mídia para um só lugar.", "Pesquise públicos, formatos, canais e ferramentas de campanha a partir do contexto do seu time."),
+    "workspace": ("Workspace", "Conta e contexto", "Comece pelo contexto certo.", "Organize o time, os projetos, os créditos e os acessos antes de abrir uma solução especializada."),
     "planner": ("Planner", "Planejamento de mídia", "Planeje antes de investir.", "Estruture objetivos, público, canais e recomendações em um plano pronto para a próxima decisão."),
     "studio": ("Studio", "Criação de conteúdo", "Crie para o formato que importa.", "Transforme uma direção criativa em peças, variações e formatos preparados para a campanha."),
     "skills": ("Skills", "Conhecimento especialista", "Aplique o método certo no momento certo.", "Encontre skills e agentes especializados para pesquisar, decidir e executar com mais contexto."),
-    "connect": ("Agentes", "Conexões e operação", "Conecte a operação ao trabalho.", "Organize integrações, campanhas e agentes que fazem os sistemas avançarem juntos."),
+    "connect": ("Connect", "Conexões e operação", "Conecte a operação ao trabalho.", "Organize integrações, campanhas e agentes que fazem os sistemas avançarem juntos."),
 }
 
 
@@ -74,6 +74,7 @@ def product_entry(product):
     if not item:
         abort(404)
     entry = dict(zip(("name", "eyebrow", "title", "description"), item))
+    entry["icon"] = "cadu-icon.png" if product == "cadu" else f"{product}-2d.svg"
     # A página pública do Cadu também mora no Workspace: o domínio cadu.* é a
     # aplicação PHP autenticada e não deve receber links para uma rota Flask.
     entry_host = "workspace" if product == "cadu" else product

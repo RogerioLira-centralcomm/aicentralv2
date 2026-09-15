@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f4f5f7">
   <meta name="description" content="{{ place.subtitle }}">
   <link rel="canonical" href="{{ request.url_root.rstrip('/') }}/places/p/{{ place.slug }}">
-  <link rel="icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/cc_logo.png') }}">
   <meta property="og:type" content="website">
   <meta property="og:title" content="{{ place.title }} · CentralComm Places">
   <meta property="og:description" content="{{ place.subtitle }}">
@@ -18,10 +18,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Nunito+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/places_public.css') }}?v=41">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/places_public.css') }}?v=44">
 </head>
 <body class="cc-place cc-folio" data-preview="{{ '1' if preview else '0' }}">
-  <a class="cc-skip" href="#ponto">Ir para a ficha do ponto</a>
+  <a class="cc-skip" href="#recortes">Ir para os recortes</a>
 
   {% if preview %}
   <p class="cc-preview" role="status">Prévia interna. Este link ainda não é o público.</p>
@@ -29,269 +29,149 @@
 
   {% include "places/_public_header.html" %}
 
-  <main id="conteudo">
-    <figure class="cc-hero">
-      {% if place.media.hero_url %}
-      <img src="{{ place.media.hero_url }}" alt="{{ place.title }}">
-      {% endif %}
-    </figure>
-
-    <section class="cc-intro" id="visao">
-      <div class="cc-intro-copy">
-        <p class="cc-crumb">
-          <a href="{{ url_for('places.publico_indice', tipo=place.place_type) }}">{{ type_column }}</a>
-          <span>{{ place.city_label }}</span>
-          {% if place.code %}<span>{{ place.code }}</span>{% endif %}
-        </p>
-        <p class="cc-kicker">{{ place.type_label }}</p>
-        {% if place.code %}<p class="cc-stamp">{{ place.code }}</p>{% endif %}
+  <main id="conteudo" class="cc-public-onepage">
+    <section class="cc-public-hero" id="visao">
+      <figure>
+        {% if place.media.hero_url %}<img src="{{ place.media.hero_url }}" alt="{{ place.title }}">{% endif %}
+      </figure>
+      <div class="cc-public-hero-copy">
+        <p class="cc-crumb"><a href="{{ url_for('places.publico_indice', tipo=place.place_type) }}">{{ type_column }}</a><span>{{ place.city_label }}</span></p>
+        <p class="cc-kicker">{{ place.type_label }}{% if place.code %} · {{ place.code }}{% endif %}</p>
         <h1>{{ place.title }}{% if place.city_label %} — {{ place.city_label }}{% endif %}</h1>
-        <p class="cc-lead">{{ place.subtitle }}</p>
-        <p class="cc-actions">
-          <a class="cc-btn" href="#ponto">Ver ficha do ponto</a>
-          {% if place.media.video_url %}
-          <a class="cc-btn cc-btn-ghost" href="{{ place.media.video_url }}">Ver vídeo do local</a>
-          {% endif %}
-        </p>
-      </div>
-      <aside class="cc-intro-data" aria-label="Números do place">
-        <dl class="cc-intro-facts">
+        <p class="cc-public-lead">{{ place.subtitle }}</p>
+        <dl class="cc-public-metrics" aria-label="Números principais">
           <div>
-            <dt>{{ place.traffic_label }}</dt>
+            <dt><svg class="cc-icon" aria-hidden="true"><use href="#cc-icon-flow"></use></svg><span>{{ place.traffic_label }}</span></dt>
             <dd>{{ place.metrics.passengers.label or '—' }}</dd>
           </div>
           <div>
-            <dt>No celular, 4 semanas</dt>
+            <dt><svg class="cc-icon" aria-hidden="true"><use href="#cc-icon-audience"></use></svg><span>Audiência estimada · 4 semanas</span></dt>
             <dd>{{ place.metrics.addressable.label or place.metrics.four_weeks.label or '—' }}</dd>
           </div>
           <div>
-            <dt>Investimento, 4 semanas</dt>
+            <dt><svg class="cc-icon" aria-hidden="true"><use href="#cc-icon-investment"></use></svg><span>Investimento estimado · 4 semanas</span></dt>
             <dd>{{ place.investment.label or '—' }}</dd>
           </div>
-          <div>
-            <dt>Localização</dt>
-            <dd>
-              {% if maps_url %}
-              <a href="{{ maps_url }}" rel="noopener noreferrer" target="_blank">Como chegar</a>
-              {% else %}
-              {{ place.city_label or '—' }}
-              {% endif %}
-            </dd>
-          </div>
         </dl>
-      </aside>
+        <div class="cc-actions">
+          <a class="cc-btn" href="#recortes">Ver recortes disponíveis</a>
+          {% if maps_url %}<a class="cc-text-link" href="{{ maps_url }}" rel="noopener noreferrer" target="_blank">Ver localização</a>{% endif %}
+        </div>
+      </div>
     </section>
 
-    <nav class="cc-brief" aria-label="Seções da folha">
-      <a href="#visao">Visão geral</a>
-      <a href="#ponto">Ponto</a>
-      <a href="#plano">Plano</a>
-      <a href="#publico">Público e dados</a>
-      {% if photos %}
-      <a href="#fotos">Fotos</a>
-      {% endif %}
-      <a href="#pedido">Pedir o recorte</a>
-    </nav>
-
-    <section class="cc-overview">
-      <div class="cc-overview-copy">
-        <h2>Um recorte no celular, não o movimento do lugar.</h2>
-        {% if place.defense.lead or place.defense.body %}
-        <p class="cc-defense">{% if place.defense.lead %}<strong>{{ place.defense.lead }}</strong> {% endif %}{{ place.defense.body }}</p>
-        {% endif %}
-        {% if place.offer.lead %}
-        <p class="cc-why">{{ place.offer.lead }}</p>
-        {% endif %}
-        {% if place.inventory.lead %}
-        <p class="cc-inventory">{{ place.inventory.lead }}</p>
-        {% endif %}
+    <section class="cc-public-thesis">
+      <div>
+        <h2>O lugar abre a conversa. O recorte cria a audiência.</h2>
+        {% if place.defense.lead or place.defense.body %}<p class="cc-defense"><strong>{{ place.defense.lead }}</strong> {{ place.defense.body }}</p>{% endif %}
+        {% if place.offer.lead %}<p class="cc-why">{{ place.offer.lead }}</p>{% endif %}
       </div>
-      <dl class="cc-fiche-card">
-        <div>
-          <dt>Cidade</dt>
-          <dd>{{ place.city_label or '—' }}</dd>
-        </div>
-        {% if place.code %}
-        <div>
-          <dt>Código</dt>
-          <dd>{{ place.code }}</dd>
-        </div>
-        {% endif %}
-        <div>
-          <dt>Tipo</dt>
-          <dd>{{ place.type_label }}</dd>
-        </div>
-        <div>
-          <dt>{{ place.traffic_label }}</dt>
-          <dd>{{ place.metrics.passengers.label or '—' }}</dd>
-        </div>
-        {% if place.operator %}
-        <div>
-          <dt>Operação</dt>
-          <dd>{{ place.operator }}</dd>
-        </div>
-        {% endif %}
-        <div>
-          <dt>Endereço</dt>
-          <dd>{{ place.city_label }}{% if place.code %} · {{ place.code }}{% endif %}</dd>
-        </div>
+      <dl class="cc-public-fiche">
+        {% if place.operator %}<div><dt>Operação</dt><dd>{{ place.operator }}</dd></div>{% endif %}
+        <div><dt>Bacia de influência</dt><dd>{{ place.catchment.neighborhoods|join(' · ') or place.city_label }}</dd></div>
+        {% if place.catchment.population.label %}<div><dt>Moradores no entorno</dt><dd>{{ place.catchment.population.label }} <small>não é presença no lugar</small></dd></div>{% endif %}
       </dl>
     </section>
 
     {% if place.points %}
-    <section class="cc-areas" id="ponto">
-      <header class="cc-block-head">
-        <h2>{{ 'Fichas dos pontos' if place.points|length > 1 else 'Ficha do ponto' }}</h2>
-        <p>O investimento e os formatos dependem do ponto comercial e da validação de inventário.</p>
+    <section class="cc-public-section" id="recortes">
+      <header class="cc-public-heading">
+        <h2>Escolha o recorte que faz sentido</h2>
+        <p>Os alcances se sobrepõem. O plano começa por um ponto principal e não soma pessoas que atravessaram mais de uma área.</p>
       </header>
-      {% for point in place.points %}
-      <div class="cc-point-table-wrap">
-        {% if point.image_url %}<img class="cc-point-table-photo" src="{{ point.image_url }}" alt="{{ point.name }}">{% endif %}
-        <table class="cc-point-table">
-          <tbody>
-            <tr><th>Ponto comercial</th><td>{{ point.name }} · {{ point.scope_label }}</td></tr>
-            {% if point.inside or (point.note and 'validar' not in point.note|lower) %}<tr><th>O que há dentro</th><td>{{ point.inside|join(' · ') or point.note }}</td></tr>{% endif %}
-            {% if point.target_audience or place.target_audience %}<tr><th>Público-alvo</th><td>{{ point.target_audience|join(' · ') or place.target_audience|join(' · ') }}</td></tr>{% endif %}
-            {% if point.reach %}<tr><th>Alcance no celular · 4 semanas</th><td>{{ point.reach }}</td></tr>{% endif %}
-            {% if point.formats %}<tr><th>Formatos</th><td>{{ point.formats|join(' · ') }}</td></tr>{% endif %}
-            {% if point.apps or point.portals %}<tr><th>Canais</th><td>{{ point.apps|map(attribute='name')|join(' · ') }}{% if point.apps and point.portals %} · {% endif %}{{ point.portals|map(attribute='name')|join(' · ') }}</td></tr>{% endif %}
-            <tr><th>Investimento · 4 semanas</th><td>{{ point.investment or place.investment.label or 'Sob consulta' }}</td></tr>
-          </tbody>
-        </table>
+      <div class="cc-recort-grid">
+        {% for point in place.points %}
+        <article class="cc-recort-card{% if point.scope == 'external' %} is-halo{% endif %}">
+          <header>
+            <svg class="cc-icon cc-recort-icon" aria-hidden="true"><use href="{% if point.scope == 'external' %}#cc-icon-radius{% else %}#cc-icon-pin{% endif %}"></use></svg>
+            <div><span>{{ point.scope_label }}</span><h3>{{ point.name }}</h3></div>
+          </header>
+          <dl>
+            {% if point.reach %}<div><dt>Audiência · 4 semanas</dt><dd>{{ point.reach }}</dd></div>{% endif %}
+            <div><dt>Investimento</dt><dd>{{ point.investment or place.investment.label }}</dd></div>
+          </dl>
+          {% if point.commercial or point.defense %}<p>{{ point.commercial or point.defense }}</p>{% endif %}
+          {% if point.formats %}<small>{{ point.formats|join(' · ') }}</small>{% endif %}
+        </article>
+        {% endfor %}
       </div>
-      {% endfor %}
     </section>
     {% endif %}
 
-    <section class="cc-plan" id="plano">
-      <header class="cc-block-head">
-        <h2>Plano de presença</h2>
-        <p>{{ place.planning.objective or 'Definimos os canais e o modelo de presença a partir do objetivo da marca.' }}</p>
-      </header>
-      <div class="cc-plan-grid">
-        <div class="cc-plan-item">
-          <h3>Canais no plano</h3>
-          <ul>
-            {% for channel in place.planning.channels %}<li>{{ channel }}</li>{% else %}<li>Display em apps</li><li>Vídeo vertical</li><li>Retargeting de 7 e 15 dias</li>{% endfor %}
-          </ul>
-        </div>
-        <div class="cc-plan-item">
-          <h3>Modelos de entrega</h3>
-          <ul>
-            {% for model in place.planning.models %}<li>{{ model }}</li>{% else %}<li>Alcance</li><li>Consideração</li><li>Recorrência</li>{% endfor %}
-          </ul>
-        </div>
-        <div class="cc-plan-item cc-plan-note">
-          <h3>Como usar este recorte</h3>
-          <p>{{ place.planning.note or 'A mesa ajusta mix, frequência e verba depois de validar inventário e segmentação.' }}</p>
-        </div>
+    <section class="cc-audience-cycle" id="audiencia">
+      <div class="cc-audience-cycle-head">
+        <p>{{ place.audience_plan.window }}</p>
+        <h2>{{ place.audience_plan.title }}</h2>
+        <strong>{{ place.metrics.addressable.label or place.metrics.four_weeks.label }} dispositivos endereçáveis estimados no recorte principal.</strong>
       </div>
+      <ol>
+        {% for step in place.audience_plan.steps %}
+        <li>
+          <span class="cc-cycle-icon" aria-hidden="true">
+            <svg class="cc-icon"><use href="{% if loop.index == 1 %}#cc-icon-pin{% elif loop.index == 2 %}#cc-icon-audience{% elif loop.index == 3 %}#cc-icon-media{% else %}#cc-icon-reuse{% endif %}"></use></svg>
+          </span>
+          <div><small>0{{ loop.index }}</small><h3>{{ step.title }}</h3><p>{{ step.body }}</p></div>
+        </li>
+        {% endfor %}
+      </ol>
+      <p class="cc-audience-reuse">{{ place.audience_plan.reuse_note }}</p>
     </section>
 
-    <section class="cc-audience" id="publico">
-      <header class="cc-block-head">
-        <h2>Demografia do recorte</h2>
-        <p>O entorno não é presença no lugar. A campanha compra o raio no celular e cruza os dados antes de contratar.</p>
-      </header>
-      {% if place.catchment.profile or place.catchment.population.label %}
-      <p class="cc-halo">
-        {% if place.catchment.population.label %}{{ place.catchment.population.label }} moram no entorno{% if place.catchment.neighborhoods %} ({{ place.catchment.neighborhoods|join(', ') }}){% endif %}. Isso não é presença {{ 'no terminal' if place.place_type == 'aeroporto' else 'no mall' if place.place_type == 'shopping' else 'no evento' }}. {% endif %}{{ place.catchment.profile }}
-      </p>
-      {% endif %}
-      <dl class="cc-sheet-facts">
-        <div>
-          <dt>Público-alvo</dt>
-          <dd>{{ place.target_audience|join(' · ') or 'Sob consulta' }}</dd>
-        </div>
-        <div>
-          <dt>Renda</dt>
-          <dd>{{ place.income.label or 'Sob consulta' }}</dd>
-        </div>
-        <div>
-          <dt>Densidade</dt>
-          <dd>{{ place.catchment.density.label or 'Sob consulta' }}</dd>
-        </div>
-      </dl>
-      <div class="cc-weekly" aria-label="Movimentação por dia da semana">
-        <p><strong>Movimentação por dia</strong> <span>{{ place.weekly_movement.note or 'Índices disponíveis sob consulta.' }}</span></p>
-        <div class="cc-weekly-bars">
-          {% for day in ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'] %}
-          {% set value = place.weekly_movement.values[loop.index0] %}
-          <span title="{{ day }}{% if value is not none %}: {{ value }}%{% endif %}"><i style="height: {{ value or 8 }}%"></i><b>{{ day }}</b></span>
+    <section class="cc-public-insights" id="publico">
+      <div class="cc-channel-panel">
+        <header class="cc-public-heading">
+          <h2>Top 15 apps e sites</h2>
+          <p>Ranking de afinidade estimada para planejar o inventário deste lugar. Não representa medição observada nem audiência exclusiva.</p>
+        </header>
+        {% if place.inventory.lead %}<p class="cc-inventory">{{ place.inventory.lead }}</p>{% endif %}
+        <ol class="cc-channel-ranking">
+          {% for channel in place.channel_ranking %}
+          <li>
+            <span class="cc-channel-rank">{{ channel.rank }}</span>
+            <span class="cc-channel-mark" style="--channel-color: {{ channel.color }}" aria-hidden="true">
+              {% if channel.icon %}<img src="{{ url_for('static', filename=channel.icon) }}" alt="">{% else %}<b>{{ channel.short }}</b>{% endif %}
+            </span>
+            <div class="cc-channel-copy">
+              <strong>
+                {% if channel.url %}<a href="{{ channel.url }}" rel="noopener external" target="_blank" aria-label="Abrir site oficial de {{ channel.name }}">{{ channel.name }}<svg class="cc-icon" aria-hidden="true"><use href="#cc-icon-external"></use></svg></a>{% else %}{{ channel.name }}{% endif %}
+              </strong>
+              <small>{{ channel.kind }} · {{ channel.why }}</small>
+            </div>
+          </li>
           {% endfor %}
-        </div>
+        </ol>
+        <p class="cc-channel-source">Base nacional: <a href="https://www.similarweb.com/pt/top-websites/brazil/" rel="noopener noreferrer" target="_blank">Similarweb, ago/2026</a> e <a href="https://datareportal.com/digital-in-brazil" rel="noopener noreferrer" target="_blank">DataReportal</a>. A ordem é ajustada por afinidade com o tipo de lugar e deve ser validada antes da compra.</p>
       </div>
-      {% if place.methodology.body %}
-      <p class="cc-note">{{ place.methodology.body }}</p>
-      {% endif %}
+      <aside class="cc-demo-panel">
+        <header class="cc-public-heading"><h2>Quem tende a estar aqui</h2><p>Perfil estimado para orientar o briefing. A contratação final deve validar composição e disponibilidade no parceiro de dados.</p></header>
+        <dl>
+          <div><svg class="cc-icon" aria-hidden="true"><use href="#cc-icon-age"></use></svg><dt>Faixa etária provável</dt><dd>{{ place.demographics.age }}</dd></div>
+          <div><svg class="cc-icon" aria-hidden="true"><use href="#cc-icon-people"></use></svg><dt>Composição</dt><dd>{{ place.demographics.gender }}</dd></div>
+          <div><svg class="cc-icon" aria-hidden="true"><use href="#cc-icon-investment"></use></svg><dt>Poder de compra</dt><dd>{{ place.demographics.income }}</dd></div>
+          <div><svg class="cc-icon" aria-hidden="true"><use href="#cc-icon-route"></use></svg><dt>Origem e ocasião</dt><dd>{{ place.demographics.origin }}</dd></div>
+        </dl>
+        <div class="cc-demo-tags" aria-label="Interesses prováveis">{% for item in place.target_audience %}<span>{{ item }}</span>{% endfor %}</div>
+        {% if place.catchment.profile %}<p class="cc-demo-context">{{ place.catchment.profile }}</p>{% endif %}
+        {% if place.methodology.body %}<p class="cc-note">{{ place.methodology.body }}</p>{% endif %}
+      </aside>
     </section>
 
     {% if photos %}
-    <section class="cc-photos" id="fotos">
-      <header class="cc-block-head">
-        <h2>Fotos do lugar</h2>
-        <p>Referências do sítio e dos pontos. A campanha usa o raio, não a foto.</p>
-      </header>
-      <ul class="cc-photo-grid">
-        {% for shot in photos %}
-        <li>
-          <img src="{{ shot.url }}" alt="{{ shot.title }}">
-          <span>{{ shot.title }}</span>
-        </li>
-        {% endfor %}
-      </ul>
+    <section class="cc-public-section cc-public-photos" id="fotos">
+      <header class="cc-public-heading"><h2>O lugar em três imagens</h2><p>Referências visuais para reconhecer o sítio. A segmentação é feita pelo recorte, não pela fotografia.</p></header>
+      <ul>{% for shot in photos[:3] %}<li><img src="{{ shot.url }}" alt="{{ shot.title }}"><span>{{ shot.title }}</span></li>{% endfor %}</ul>
     </section>
     {% endif %}
 
-    <section class="cc-ask" id="pedido">
-      <div class="cc-ask-copy">
-        <h2>Leve a marca neste recorte.</h2>
-        <p>Nome e um contato. A mesa devolve o raio, os apps e a verba de 4 semanas.</p>
+    <section class="cc-public-close" aria-labelledby="cc-close-title">
+      <svg class="cc-icon" aria-hidden="true"><use href="#cc-icon-seller"></use></svg>
+      <div>
+        <p class="cc-kicker">Próximo passo</p>
+        <h2 id="cc-close-title">Valide o plano com quem enviou este material.</h2>
+        <p>Esta página é uma referência comercial. O vendedor responsável confirma recorte, disponibilidade de inventário e investimento antes da campanha.</p>
       </div>
-      <form class="cc-ask-form" data-ask-form>
-        <label>
-          <span>Nome</span>
-          <input name="name" type="text" autocomplete="name" required>
-        </label>
-        <label>
-          <span>Empresa</span>
-          <input name="company" type="text" autocomplete="organization">
-        </label>
-        <label>
-          <span>E-mail</span>
-          <input name="email" type="email" autocomplete="email">
-        </label>
-        <label>
-          <span>WhatsApp</span>
-          <input name="phone" type="tel" autocomplete="tel">
-        </label>
-        <label class="is-wide">
-          <span>O que quer alcançar</span>
-          <textarea name="message" rows="3"></textarea>
-        </label>
-        <button type="submit" class="cc-btn">Pedir o recorte</button>
-        <p class="cc-ask-status" data-ask-status role="status" hidden></p>
-      </form>
+      <p class="cc-public-close-note">Sem formulário e sem cadastro.<br>Conversa direta com o atendimento.</p>
     </section>
-
-    {% if related %}
-    <section class="cc-related">
-      <header class="cc-block-head">
-        <h2>Outros places</h2>
-      </header>
-      <div class="cc-related-grid">
-        {% for item in related %}
-        <a class="cc-related-card" href="{{ item.href }}">
-          {% if item.hero_url %}
-          <img src="{{ item.hero_url }}" alt="">
-          {% endif %}
-          <strong>{{ item.code or item.title }}</strong>
-          <em>{{ item.title }} · {{ item.city_label }}</em>
-        </a>
-        {% endfor %}
-      </div>
-    </section>
-    {% endif %}
 
     <div class="cc-leaf">
       <footer class="cc-foot">
@@ -301,7 +181,22 @@
     </div>
   </main>
 
+  <svg class="cc-icon-sprite" aria-hidden="true">
+    <symbol id="cc-icon-flow" viewBox="0 0 24 24"><path d="M4 18h16M6 15V9m6 6V5m6 10v-3"/><path d="m4 8 5-3 4 2 7-4"/></symbol>
+    <symbol id="cc-icon-audience" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2"/></symbol>
+    <symbol id="cc-icon-investment" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h4m-4 4h7m3-4h.01"/></symbol>
+    <symbol id="cc-icon-pin" viewBox="0 0 24 24"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+    <symbol id="cc-icon-radius" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="10"/></symbol>
+    <symbol id="cc-icon-media" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8m-4-4v4m-3-9 2-2 2 2 3-3"/></symbol>
+    <symbol id="cc-icon-reuse" viewBox="0 0 24 24"><path d="M20 7h-6V1m6 6a9 9 0 0 0-15.5-3M4 17h6v6m-6-6a9 9 0 0 0 15.5 3"/></symbol>
+    <symbol id="cc-icon-age" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 22a8 8 0 0 1 16 0"/></symbol>
+    <symbol id="cc-icon-people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2"/><path d="M3 20a6 6 0 0 1 12 0m0-4a4 4 0 0 1 6 3.5"/></symbol>
+    <symbol id="cc-icon-route" viewBox="0 0 24 24"><circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M7.5 16.5 16.5 7.5M6 4v6m-3-3h6m9 7v6m-3-3h6"/></symbol>
+    <symbol id="cc-icon-seller" viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4V5Z"/><path d="M8 9h8m-8 3h5"/></symbol>
+    <symbol id="cc-icon-external" viewBox="0 0 24 24"><path d="M14 5h5v5m0-5-8 8"/><path d="M18 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+  </svg>
+
   <script type="application/json" id="cc-place-data">{{ place|tojson }}</script>
-  <script src="{{ url_for('static', filename='js/places_public.js') }}?v=40"></script>
+  <script src="{{ url_for('static', filename='js/places_public.js') }}?v=42"></script>
 </body>
 </html>

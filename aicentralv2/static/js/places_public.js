@@ -31,6 +31,7 @@
     btn.addEventListener("click", function (event) {
       event.preventDefault();
       event.stopPropagation();
+      var willOpen = mega.hidden;
       if (mega.hidden) {
         openMega();
       } else if (!canHover || !hoverOpened) {
@@ -694,47 +695,4 @@
     });
   });
 
-  var ask = document.querySelector("[data-ask-form]");
-  if (ask) {
-    ask.addEventListener("submit", function (event) {
-      event.preventDefault();
-      var status = document.querySelector("[data-ask-status]");
-      var send = ask.querySelector("[type=submit]");
-      if (send && send.disabled) return;
-      if (send) send.disabled = true;
-      var body = {
-        name: (ask.elements.name && ask.elements.name.value) || "",
-        company: (ask.elements.company && ask.elements.company.value) || "",
-        email: (ask.elements.email && ask.elements.email.value) || "",
-        phone: (ask.elements.phone && ask.elements.phone.value) || "",
-        message: (ask.elements.message && ask.elements.message.value) || ""
-      };
-      fetch("/places/api/p/" + encodeURIComponent(place.slug || "") + "/inquiry", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      }).then(function (response) {
-        return response.json().then(function (data) {
-          if (!response.ok || data.success === false) {
-            throw new Error(data.error || "Não foi possível enviar o pedido.");
-          }
-          return data;
-        });
-      }).then(function () {
-        ask.reset();
-        if (status) {
-          status.hidden = false;
-          status.textContent = "Pedido enviado. A mesa responde com o recorte.";
-        }
-      }).catch(function (error) {
-        if (status) {
-          status.hidden = false;
-          status.textContent = error.message || "Não foi possível enviar o pedido.";
-        }
-      }).then(function () {
-        if (send) send.disabled = false;
-      });
-    });
-  }
 })();

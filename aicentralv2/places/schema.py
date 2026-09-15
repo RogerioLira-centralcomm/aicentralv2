@@ -79,7 +79,7 @@ ENRICH_FORMATS = (
     "Portais",
     "7 e 15 dias",
 )
-INVENTORY_MAX_ITEMS = 5
+INVENTORY_MAX_ITEMS = 15
 
 
 def text(value: Any) -> str:
@@ -88,6 +88,13 @@ def text(value: Any) -> str:
     if isinstance(value, (dict, list, tuple)):
         return ""
     return str(value).strip()
+
+
+def hex_color(value: Any, fallback: str = "#167A3A") -> str:
+    candidate = text(value)
+    if len(candidate) == 7 and candidate[0] == "#" and all(char in "0123456789abcdefABCDEF" for char in candidate[1:]):
+        return candidate
+    return fallback
 
 
 def as_dict(value: Any) -> dict:
@@ -261,6 +268,54 @@ def normalize_inventory(value: Any) -> dict:
         "reviewed_at": text(data.get("reviewed_at")),
         "model": text(data.get("model")),
         "notes": text(data.get("notes")),
+    }
+
+
+def normalize_channel_ranking(value: Any) -> list[dict]:
+    rows = []
+    seen = set()
+    for raw in as_list(value):
+        data = as_dict(raw)
+        name = text(data.get("name") or data.get("title"))
+        key = name.lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        rows.append(
+            {
+                "rank": len(rows) + 1,
+                "name": name,
+                "kind": text(data.get("kind")) or "app/site",
+                "why": text(data.get("why") or data.get("note")),
+                "confidence": normalize_source_status(data.get("confidence"), "estimate"),
+                "short": text(data.get("short"))[:3],
+                "color": hex_color(data.get("color")),
+                "url": text(data.get("url")) if text(data.get("url")).startswith("https://") else "",
+                "icon": text(data.get("icon")) if text(data.get("icon")).startswith("images/") else "",
+            }
+        )
+        if len(rows) >= 15:
+            break
+    return rows
+
+
+def normalize_demographics(value: Any) -> dict:
+    data = as_dict(value)
+    return {key: text(data.get(key)) for key in ("age", "gender", "income", "origin")}
+
+
+def normalize_audience_plan(value: Any) -> dict:
+    data = as_dict(value)
+    steps = []
+    for raw in as_list(data.get("steps"))[:4]:
+        row = as_dict(raw)
+        if text(row.get("title")):
+            steps.append({"title": text(row.get("title")), "body": text(row.get("body"))})
+    return {
+        "window": text(data.get("window")),
+        "title": text(data.get("title")),
+        "steps": steps,
+        "reuse_note": text(data.get("reuse_note")),
     }
 
 
@@ -595,6 +650,9 @@ def normalize_payload(value: Any) -> dict:
         "defense": normalize_defense(data.get("defense")),
         "investment": investment,
         "inventory": normalize_inventory(data.get("inventory")),
+        "channel_ranking": normalize_channel_ranking(data.get("channel_ranking")),
+        "demographics": normalize_demographics(data.get("demographics")),
+        "audience_plan": normalize_audience_plan(data.get("audience_plan")),
         "costs": normalize_costs(data.get("costs")),
         "methodology": {
             "title": text(methodology.get("title")) or "Como o número é feito",
@@ -617,20 +675,32 @@ def empty_payload() -> dict:
 def public_view(row: dict) -> dict:
     payload = normalize_payload(row.get("payload"))
     slug = text(row.get("slug"))
+    place_type = normalize_choice(row.get("place_type"), PLACE_TYPES, "aeroporto")
+    city = normalize_choice(row.get("city"), CITIES, "bh")
+    from .audience import enrich_public_payload
+
+    payload = normalize_payload(
+        enrich_public_payload(
+            payload,
+            place_type=place_type,
+            slug=slug,
+            city_label=CITY_LABELS.get(city, ""),
+        )
+    )
     return {
         "id": row.get("id"),
         "slug": slug,
-        "place_type": normalize_choice(row.get("place_type"), PLACE_TYPES, "aeroporto"),
-        "city": normalize_choice(row.get("city"), CITIES, "bh"),
+        "place_type": place_type,
+        "city": city,
         "status": normalize_choice(row.get("status"), STATUSES, "draft"),
         "title": text(row.get("title")),
         "code": text(row.get("code")),
         "operator": text(row.get("operator")),
         "subtitle": text(row.get("subtitle")),
-        "city_label": CITY_LABELS.get(normalize_choice(row.get("city"), CITIES, "bh"), ""),
-        "type_label": TYPE_LABELS.get(normalize_choice(row.get("place_type"), PLACE_TYPES, "aeroporto"), ""),
+        "city_label": CITY_LABELS.get(city, ""),
+        "type_label": TYPE_LABELS.get(place_type, ""),
         "status_label": STATUS_LABELS.get(normalize_choice(row.get("status"), STATUSES, "draft"), ""),
-        "traffic_label": TRAFFIC_LABELS.get(normalize_choice(row.get("place_type"), PLACE_TYPES, "aeroporto"), TRAFFIC_LABELS["aeroporto"]),
+        "traffic_label": TRAFFIC_LABELS.get(place_type, TRAFFIC_LABELS["aeroporto"]),
         **payload,
     }
 

@@ -177,6 +177,12 @@ def _keep_previous(previous: dict, payload: dict) -> dict:
         payload["costs"] = previous["costs"]
     if not (payload.get("inventory") or {}).get("lead") and (previous.get("inventory") or {}).get("lead"):
         payload["inventory"] = previous["inventory"]
+    if not payload.get("channel_ranking") and previous.get("channel_ranking"):
+        payload["channel_ranking"] = previous["channel_ranking"]
+    if not any((payload.get("demographics") or {}).values()) and previous.get("demographics"):
+        payload["demographics"] = previous["demographics"]
+    if not (payload.get("audience_plan") or {}).get("steps") and previous.get("audience_plan"):
+        payload["audience_plan"] = previous["audience_plan"]
     prev_body = text((previous.get("methodology") or {}).get("body"))
     incoming_body = text((payload.get("methodology") or {}).get("body"))
     default_body = text((empty_payload().get("methodology") or {}).get("body"))

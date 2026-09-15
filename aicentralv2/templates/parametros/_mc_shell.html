@@ -1,12 +1,15 @@
 {% set mc_page = mc_page|default('hub') %}
 <header class="mc-cadu-bar" id="mcCaduBar">
-  <a class="mc-cadu-mark" href="{{ url_for('parametros.modelagem_criativos') }}"{% if mc_page == 'hub' %} aria-current="page"{% endif %}>
-    Cadu Media Studio<sup>®</sup>
+  <a class="mc-cadu-mark" href="{{ product_url('workspace', '/familia/workspace/marcas') if mc_workspace_brands else url_for('parametros.modelagem_criativos') }}"{% if mc_page == 'hub' %} aria-current="page"{% endif %}>
+    {{ 'Workspace · Sistema da marca' if mc_workspace_brands else 'Cadu Media Studio' }}<sup>®</sup>
   </a>
   <nav class="mc-cadu-nav" aria-label="Cadu Media Studio">
+    {% if mc_workspace_brands %}
+    <a href="{{ product_url('workspace', '/familia/workspace/marcas') }}">Voltar às marcas</a>
+    {% else %}
     <a id="mcCaduStill" href="{{ url_for('parametros.modelagem_trocar') }}"{% if mc_page == 'trocar' %} class="is-current" aria-current="page"{% endif %}>Ajustar</a>
     <a id="mcCaduVideo" href="{{ url_for('parametros.modelagem_video') }}"{% if mc_page == 'video' %} class="is-current" aria-current="page"{% endif %}>Vídeo</a>
-    <a href="{{ url_for('parametros.modelagem_marcas') }}"{% if mc_page == 'marcas' %} class="is-current" aria-current="page"{% endif %}>Marcas</a>
+    <a href="{{ product_url('workspace', '/familia/workspace/marcas/sistema') }}">Marcas</a>
     <details class="mc-cadu-menu" id="mcCaduMore">
       <summary>Mais</summary>
       <div class="mc-cadu-menu-list">
@@ -62,6 +65,7 @@
       <summary id="mcFormatSummary">Video 15s · 1920×1080</summary>
       <div class="mc-cadu-menu-list is-formats" id="mcFormatMenu"></div>
     </details>
+    {% endif %}
     {% endif %}
   </nav>
   <div class="mc-cadu-meta">

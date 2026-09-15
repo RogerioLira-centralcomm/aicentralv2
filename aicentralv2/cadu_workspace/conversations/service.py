@@ -8,6 +8,7 @@ from ...cadu_family import context, dify, repository
 from ...cadu_family.catalog import PROFILES
 from .guardrails import validate_message, validate_files, history_context, require_available_intent
 from .provider_events import ProviderEvents
+from . import catalog_tools
 
 
 def modes(user_id):
@@ -133,7 +134,7 @@ def prepare(data, selected):
         if history:
             payload['query'] = '[Histórico da conversa]\n' + history + '\n[Mensagem atual]\n' + query
     return {'run_id': run_id, 'conversation_id': conversation_id, 'payload': payload,
-            'organization_id': user['organization_id'], 'user_id': user['id']}
+            'organization_id': user['organization_id'], 'user_id': user['id'], 'profile': profile}
 
 
 def stream(run):
@@ -152,6 +153,9 @@ def stream(run):
                     cur.execute('UPDATE cadu_family_chat_runs SET task_id = %s WHERE id = %s', (data['task_id'], run['run_id']))
                 conn.commit()
             projected = provider.feed(data)
+            card = catalog_tools.project(data, run.get('profile'))
+            if card:
+                projected.append(card)
             answer, usage = provider.answer, provider.usage
             state = 'completed' if provider.completed else 'failed'
             for item in projected:

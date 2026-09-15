@@ -1,7 +1,9 @@
 import json
-from unittest import TestCase
+from unittest import TestCase, mock
 
 from aicentralv2.cadu_workspace.conversations.provider_events import ProviderEvents
+from aicentralv2.cadu_workspace.conversations import catalog_tools
+from aicentralv2.cadu_planner import docs
 from tests.test_cadu_family_chat import ChatStreamTest
 
 
@@ -67,6 +69,43 @@ class ProviderProjectionTest(TestCase):
         self.assertEqual(adapter.feed({'event': 'message_replace', 'answer': ''}), [{'event': 'replace', 'text': ''}])
 
 
+class CatalogToolProjectionTest(TestCase):
+    def test_only_planner_allowlisted_tool_gets_projected_card(self):
+        with mock.patch.object(catalog_tools.catalog, 'query', return_value=[{'id': 1, 'name': 'Vídeo'}]) as query:
+            card = catalog_tools.project({'event': 'tool_call', 'tool': 'channel_search', 'tool_input': '{"search":"vídeo","limit":2}'}, 'planner')
+        self.assertEqual(card, {'event': 'catalog', 'catalog_kind': 'canais', 'records': [{'id': 1, 'name': 'Vídeo'}]})
+        query.assert_called_once_with('canais', 'vídeo', 2)
+
+    def test_tool_card_does_not_run_for_other_profiles_or_unknown_tools(self):
+        with mock.patch.object(catalog_tools.catalog, 'query') as query:
+            self.assertIsNone(catalog_tools.project({'tool': 'channel_search', 'tool_input': '{}'}, 'workspace'))
+            self.assertIsNone(catalog_tools.project({'tool': 'web_scrape', 'tool_input': '{}'}, 'planner'))
+        query.assert_not_called()
+
+    def test_untrusted_tool_input_is_bounded_and_invalid_input_is_not_executed(self):
+        with mock.patch.object(catalog_tools.catalog, 'query') as query:
+            self.assertIsNone(catalog_tools.project({'tool': 'channel_search', 'tool_input': '{bad'}, 'planner'))
+            self.assertIsNone(catalog_tools.project({'tool': 'channel_search', 'tool_input': 'x' * 4097}, 'planner'))
+        query.assert_not_called()
+
+    def test_detail_rejects_missing_id_and_catalog_errors_do_not_break_stream(self):
+        self.assertIsNone(catalog_tools.project({'tool': 'format_detail', 'tool_input': '{}'}, 'planner'))
+        with mock.patch.object(catalog_tools.catalog, 'detail', side_effect=RuntimeError('private')):
+            self.assertIsNone(catalog_tools.project({'tool': 'format_detail', 'tool_input': '{"id": 2}'}, 'planner'))
+
+
+class PlannerDocumentPreviewTest(TestCase):
+    def test_preview_never_returns_stored_html(self):
+        raw = {'id': 4, 'title': 'Teste', 'type': 'doc', 'status': 'draft', 'updated_at': 'now', 'is_owner': True,
+               'html': '<h1>Plano</h1><script>alert(1)</script><p>Seguro</p>'}
+        with mock.patch.object(docs, 'get_document', return_value=raw):
+            document, preview = docs.document_preview(12, 7, 4)
+        self.assertNotIn('html', document)
+        self.assertNotIn('<script>', preview)
+        self.assertIn('Plano', preview)
+        self.assertIn('Seguro', preview)
+
+
 class RichStreamPersistenceTest(ChatStreamTest):
     def test_final_only_answer_is_delivered_and_saved(self):
         events = self.events([{'event': 'message_end', 'answer': 'Resposta completa'}])
@@ -85,3 +124,12 @@ class RichStreamPersistenceTest(ChatStreamTest):
     def test_error_after_message_end_is_not_saved_as_success(self):
         events = self.events([{'event': 'message_end', 'answer': 'Parcial'}, {'event': 'error'}])
         self.assertEqual(events[-1]['status'], 'failed')
+
+    def test_planner_catalog_card_is_emitted_without_exposing_tool_input(self):
+        self.run['profile'] = 'planner'
+        with mock.patch('aicentralv2.cadu_workspace.conversations.catalog_tools.catalog.query', return_value=[{'id': 2, 'name': 'Social'}]):
+            events = self.events([{'event': 'tool_call', 'tool': 'channel_search', 'tool_input': '{"search":"social"}'},
+                                  {'event': 'message_end'}])
+        card = next(item for item in events if item['event'] == 'catalog')
+        self.assertEqual(card['records'], [{'id': 2, 'name': 'Social'}])
+        self.assertNotIn('tool_input', card)

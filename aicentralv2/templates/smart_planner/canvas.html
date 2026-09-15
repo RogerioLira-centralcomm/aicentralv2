@@ -236,10 +236,10 @@
               </select>
             </label>
             {% if brand.needs_create %}
-            <p class="sp-acc-note">Não há marca do anunciante no Cadu Media Studio. Crie o perfil para usar logo, paleta e peças no planejamento.</p>
-            <a class="cx-btn cx-btn-primary cx-btn-sm" href="{{ brand.create_url }}" target="_blank" rel="noopener noreferrer">Criar marca no Cadu Media Studio</a>
+            <p class="sp-acc-note">Não há marca do anunciante no Workspace. Crie o perfil para usar logo, paleta e peças no planejamento.</p>
+            <a class="cx-btn cx-btn-primary cx-btn-sm" href="{{ brand.create_url }}" target="_blank" rel="noopener noreferrer">Criar marca no Workspace</a>
             {% else %}
-            <a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ brand.marcas_url }}" target="_blank" rel="noopener noreferrer">Abrir em Marcas</a>
+            <a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ brand.marcas_url }}" target="_blank" rel="noopener noreferrer">Abrir no Workspace</a>
             {% endif %}
           </div>
         </details>

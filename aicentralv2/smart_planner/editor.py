@@ -7,6 +7,8 @@ from pathlib import Path
 
 from flask import current_app, has_app_context
 
+from ..product_domains import product_url
+
 from .brand import brand_for_client, snapshot_brand, load_cx_client_for_crm
 from .canvas import SECTIONS
 from .helpers import as_dict, as_list, plan_mode_of, text
@@ -204,14 +206,18 @@ def _brand_panel(dados: dict, folha: dict) -> dict:
     asset_count = len(assets)
     logo = public_logo(brand.get("logo_url") or client_party.get("logo_url"))
     has_identity = bool(brand.get("has_identity") or logo or brand.get("brand_summary"))
-    marcas_url = "/parametros/modelagem-criativos/marcas"
+    marcas_path = "/familia/workspace/marcas/sistema"
     params = []
     if cliente_id:
         params.append(f"crm_client_id={cliente_id}")
     if brand.get("id"):
         params.append(f"creative_client_id={brand.get('id')}")
     if params:
-        marcas_url = f"{marcas_url}?{'&'.join(params)}"
+        marcas_path = f"{marcas_path}?{'&'.join(params)}"
+    # This context is also assembled by exports and background callers that do
+    # not have an active Flask app. Preserve the relative Workspace hand-off
+    # there; browser requests still resolve to the configured Workspace host.
+    marcas_url = product_url("workspace", marcas_path) if has_app_context() else marcas_path
     return {
         "client": {
             "name": text(brand.get("name") or client_party.get("name")),

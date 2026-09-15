@@ -108,8 +108,26 @@ o identificador é inteiro positivo e as respostas usam projeções pequenas:
 As telas Canais, Formatos e Audiências do SmartPlanner agora têm busca e cartões
 responsivos; o botão de detalhe abre modal acessível e obtém o dado pelo contrato
 Python. O texto de catálogo é sempre inserido como texto, não HTML. Esta é a base
-que Conversas usará para cartões de resultados; o agente ainda não invoca esses
-catálogos via Dify e nenhum fluxo mutável foi habilitado.
+que Conversas usa para cartões de resultados: no perfil SmartPlanner, os aliases
+permitidos de busca/detalhe de canal, formato e audiência são projetados em cartões
+somente de leitura durante o streaming. O adaptador ignora qualquer outro nome de
+ferramenta, input malformado e falha de catálogo; não transmite `tool_input`,
+observações, SQL, URLs ou raciocínio ao browser. Nenhum fluxo mutável foi habilitado.
+
+## Entrega iniciada: Docs do Cadu Media/SmartPlanner
+
+Docs agora tem leitura no SmartPlanner por meio de `GET /familia/api/planner/documents`
+e `GET /familia/api/planner/documents/{id}`. As duas rotas derivam cliente e ator
+da sessão, aplicam a regra de proprietário ou documento compartilhado e não aceitam
+`client_id` do navegador. A prévia devolve uma projeção de metadados e texto limitado
+a 20.000 caracteres; o HTML persistido não é enviado nem inserido na página.
+
+A tela mostra documentos existentes e abre prévia responsiva em modal. Criação,
+edição, duplicação, publicação, compartilhamento e exportação permanecem fora desta
+entrega: exigirão uma prévia de alteração/efeito, confirmação explícita, chave
+idempotente e nova verificação de proprietário no servidor. Conversas ainda não
+cria ou modifica Docs; a próxima integração será uma referência de documento
+autorizada no contexto do agente, sem tratar o conteúdo como instrução confiável.
 
 ## Eventos Dify: diferenças e reconstrução desta revisão
 

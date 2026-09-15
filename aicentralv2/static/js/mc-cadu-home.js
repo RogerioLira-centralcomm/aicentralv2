@@ -53,7 +53,7 @@
       const text = state.context === 'loading' ? 'Carregando contexto da marca…' : state.context === 'error' ? 'Não foi possível carregar as marcas. Use Atualizar para tentar novamente.' : 'Nenhuma marca disponível. Cadastre uma marca para começar.';
       status.textContent = text;
       if (state.context === 'loading') skeleton();
-      else empty('Sua produção começa com uma marca', text, '/parametros/modelagem-criativos/marcas', 'Gerenciar marcas');
+      else empty('Sua produção começa com uma marca', text, app.dataset.brandManageUrl || '/familia/workspace/marcas', 'Gerenciar marcas');
       return;
     }
     view.errors.forEach(media => {

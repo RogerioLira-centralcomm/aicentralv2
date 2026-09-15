@@ -68,6 +68,19 @@
     if (Array.isArray(files)) files.forEach(file => { const name = document.createElement('small'); name.textContent = file.name || 'Anexo'; entry.append(name); });
     history.append(entry); return text;
   }
+  function addCatalogCard(data) {
+    if (!Array.isArray(data.records) || !data.records.length) return;
+    const card = document.createElement('section'); card.className = 'conversation-catalog-card';
+    const heading = document.createElement('h4'); heading.textContent = ({canais:'Canais', formatos:'Formatos', audiencias:'Audiências'})[data.catalog_kind] || 'Catálogo'; card.append(heading);
+    const list = document.createElement('ul');
+    data.records.forEach(record => {
+      const item = document.createElement('li'), name = document.createElement('strong'), detail = document.createElement('span');
+      name.textContent = record.name || 'Item do catálogo';
+      detail.textContent = record.description || record.category || record.dimensions || '';
+      item.append(name); if (detail.textContent) item.append(detail); list.append(item);
+    });
+    card.append(list); history.append(card); card.scrollIntoView({block:'nearest'});
+  }
   opener.addEventListener('click', async () => {
     panel.hidden = false; backdrop.hidden = false; background.forEach(node => node.inert = true); document.body.style.overflow = 'hidden'; opener.setAttribute('aria-expanded', 'true'); panel.focus();
     if (document.body.dataset.authenticated !== 'true' || sending || initialized) return;
@@ -149,6 +162,7 @@
             CaduConversationRenderer.render(output, answer, true);
           }
           else if (data.event === 'progress') status.textContent = data.message;
+          else if (data.event === 'catalog') addCatalogCard(data);
           else if (data.event === 'error') status.textContent = data.message;
           else if (data.event === 'done') {
             completed = true;

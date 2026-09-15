@@ -63,6 +63,22 @@ class CaduSkillsTest(TestCase):
         self.assertIn("agente de teste", detail.get_data(as_text=True).lower())
         self.assertEqual(client.get("/skills/assets/skills-icon-64.png").status_code, 200)
 
+    @mock.patch("aicentralv2.cadu_skills.routes.credit_position", return_value={"configured": True, "available": 18})
+    @mock.patch("aicentralv2.cadu_skills.routes.list_customizations", return_value=[])
+    @mock.patch("aicentralv2.cadu_skills.routes.all_cadu_skills", return_value=[CADU_MEDIA_PLANNING])
+    def test_logged_user_enters_the_skills_workspace_and_keeps_catalog_available(self, _skills, _customizations, _credit):
+        client = _app().test_client()
+        with client.session_transaction() as session:
+            session.update(user_id=7, cliente_id=12)
+        response = client.get("/skills/")
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn("Skills para o trabalho em andamento", html)
+        self.assertIn("18", html)
+        self.assertIn("Explorar catálogo", html)
+        response = client.get("/skills/?catalog=1")
+        self.assertIn("Top 10 para experimentar", response.get_data(as_text=True))
+
     @mock.patch("aicentralv2.cadu_skills.routes.record_event", return_value=True)
     def test_official_skill_download_is_a_complete_zip(self, _event):
         client = _app().test_client()

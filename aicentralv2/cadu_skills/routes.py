@@ -143,6 +143,14 @@ def skills_icon(size):
 @bp.get("")
 @bp.get("/")
 def marketplace():
+    if session.get("user_id") and request.args.get("catalog") != "1":
+        client_id = int(session.get("cliente_id") or 0)
+        skills = all_cadu_skills()
+        return render_template(
+            "cadu_skills/workspace.html", skills=skills,
+            customizations=list_customizations(client_id=client_id),
+            credit_position=credit_position(client_id),
+        )
     top = _top_skills()
     top_slugs = {item["slug"] for item in top}
     all_skills = all_cadu_skills()

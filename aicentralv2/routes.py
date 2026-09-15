@@ -4129,6 +4129,30 @@ def init_routes(app):
         return redirect(url_for('tipos_cliente'))
     
     # ==================== CADU AUDIÊNCIAS - ROTAS ====================
+
+    @app.route('/cadu/inteligencia-audiencias')
+    @login_required
+    def cadu_inteligencia_audiencias():
+        """Painel de leitura do catálogo V2 para mídia, criação e vendas."""
+        try:
+            filtros = {
+                'plataforma_id': request.args.get('plataforma_id', type=int),
+                'market_slug': request.args.get('market_slug', '').strip() or None,
+                'catalog_role': request.args.get('catalog_role', '').strip() or None,
+                'funnel_stage': request.args.get('funnel_stage', '').strip() or None,
+            }
+            report = db.obter_cadu_inteligencia_audiencias(filtros)
+            return render_template(
+                'cadu_inteligencia_audiencias.html',
+                report=report,
+                filtros=filtros,
+                plataformas=db.obter_cadu_plataformas(),
+                mercados=db.obter_cadu_taxonomia_mercados(),
+            )
+        except Exception as e:
+            app.logger.error(f"Erro ao carregar inteligência de audiências: {str(e)}")
+            flash('Não foi possível consolidar o catálogo de audiências.', 'error')
+            return redirect(url_for('cadu_audiencias'))
     
     @app.route('/cadu-audiencias')
     @login_required
@@ -4436,6 +4460,45 @@ def init_routes(app):
                 return jsonify({'error': 'Audiência não encontrada'}), 404
         except Exception as e:
             app.logger.error(f"Erro ao buscar audiência: {str(e)}")
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/cadu-audiencias/taxonomia/mercados')
+    @login_required
+    def api_cadu_audiencias_taxonomia_mercados():
+        """Mercados ativos da taxonomia V2 para filtros e novas interfaces."""
+        try:
+            return jsonify({'markets': db.obter_cadu_taxonomia_mercados()})
+        except Exception as e:
+            app.logger.error(f"Erro ao listar mercados da taxonomia: {str(e)}")
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/cadu/inteligencia-audiencias')
+    @login_required
+    def api_cadu_inteligencia_audiencias():
+        """Versão JSON do painel para integrações e relatórios internos."""
+        try:
+            filtros = {
+                'plataforma_id': request.args.get('plataforma_id', type=int),
+                'market_slug': request.args.get('market_slug', '').strip() or None,
+                'catalog_role': request.args.get('catalog_role', '').strip() or None,
+                'funnel_stage': request.args.get('funnel_stage', '').strip() or None,
+            }
+            return jsonify(db.obter_cadu_inteligencia_audiencias(filtros))
+        except Exception as e:
+            app.logger.error(f"Erro ao gerar API de inteligência de audiências: {str(e)}")
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/cadu-audiencia/<int:audiencia_id>/taxonomia')
+    @login_required
+    def api_cadu_audiencia_taxonomia(audiencia_id):
+        """Classificação V2 sem alterar a resposta da API legada de audiência."""
+        try:
+            taxonomy = db.obter_cadu_audiencia_taxonomia(audiencia_id)
+            if taxonomy is None:
+                return jsonify({'error': 'Taxonomia não encontrada'}), 404
+            return jsonify(taxonomy)
+        except Exception as e:
+            app.logger.error(f"Erro ao buscar taxonomia da audiência: {str(e)}")
             return jsonify({'error': str(e)}), 500
 
     # ==================== GERAÇÃO DE IMAGENS PARA AUDIÊNCIAS ====================

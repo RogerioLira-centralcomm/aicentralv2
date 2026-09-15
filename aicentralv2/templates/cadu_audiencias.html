@@ -204,8 +204,12 @@ select.cx-select:focus {
               </td>
               <td class="py-2 px-3">
                 <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="block">
-                  <div class="font-medium text-gray-800 hover:text-gray-600">{{ audiencia.nome }}</div>
+                  <div class="font-medium text-gray-800 hover:text-gray-600">{{ audiencia.taxonomy_canonical_name or audiencia.nome }}</div>
+                  {% if audiencia.taxonomy_canonical_name and audiencia.taxonomy_canonical_name != audiencia.nome %}
+                  <div class="text-xs text-gray-400 line-clamp-1">Importado: {{ audiencia.nome }}</div>
+                  {% else %}
                   <div class="text-xs text-gray-400">Clique para ver/editar</div>
+                  {% endif %}
                 </a>
               </td>
               <td class="py-2 px-3">
@@ -216,7 +220,13 @@ select.cx-select:focus {
                 {% endif %}
               </td>
               <td class="py-2 px-3">
-                {% if audiencia.categoria_nome %}
+                {% if audiencia.taxonomy_primary_market_nome %}
+                  <div class="text-gray-800 font-medium">{{ audiencia.taxonomy_primary_market_nome }}</div>
+                  <div class="text-xs text-gray-400">V2 · {{ audiencia.taxonomy_catalog_role }}</div>
+                {% elif audiencia.taxonomy_market_scope == 'transversal' %}
+                  <div class="text-gray-700">Transversal</div>
+                  <div class="text-xs text-gray-400">V2 · {{ audiencia.taxonomy_catalog_role }}</div>
+                {% elif audiencia.categoria_nome %}
                   <span class="text-gray-700">{{ audiencia.categoria_nome }}</span>
                 {% else %}
                   <span class="text-gray-400 italic">-</span>
@@ -337,7 +347,7 @@ select.cx-select:focus {
           <div class="p-3">
             <a href="{{ url_for('cadu_audiencia_detalhes', audiencia_id=audiencia.id) }}" class="block mb-2">
               <h3 class="font-semibold text-sm text-gray-800 hover:text-gray-600 line-clamp-2 mb-1" style="min-height: 2.5rem;">
-                {{ audiencia.nome }}
+                {{ audiencia.taxonomy_canonical_name or audiencia.nome }}
               </h3>
             </a>
             
@@ -353,7 +363,7 @@ select.cx-select:focus {
               <div class="flex items-start gap-1">
                 <i class="fas fa-folder text-gray-400 mt-0.5"></i>
                 <span class="text-gray-600 line-clamp-1">
-                  {{ audiencia.categoria_nome or '-' }}
+                  {{ audiencia.taxonomy_primary_market_nome or ('Transversal' if audiencia.taxonomy_market_scope == 'transversal' else audiencia.categoria_nome or '-') }}
                 </span>
               </div>
               {% if audiencia.subcategoria_nome %}
@@ -435,7 +445,7 @@ select.cx-select:focus {
           <div class="space-y-2 text-xs">
             <div class="flex justify-between">
               <span class="text-slate-500">Categoria:</span>
-              <span class="font-medium">{{ audiencia.categoria_nome or '-' }}</span>
+              <span class="font-medium">{{ audiencia.taxonomy_primary_market_nome or ('Transversal' if audiencia.taxonomy_market_scope == 'transversal' else audiencia.categoria_nome or '-') }}</span>
             </div>
             <div class="flex justify-between">
               <span class="text-slate-500">Subcategoria:</span>

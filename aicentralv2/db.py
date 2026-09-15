@@ -3514,6 +3514,173 @@ class CaduAudiencias:
 
 # ==================== CADU AUDIÊNCIAS - CRUD ====================
 
+def obter_cadu_taxonomia_mercados():
+    """Retorna os mercados ativos da taxonomia V2, em ordem de navegação."""
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT slug, nome, descricao, ordem_exibicao
+            FROM cadu_taxonomy_markets
+            WHERE is_active = TRUE
+            ORDER BY ordem_exibicao, nome
+        ''')
+        return cursor.fetchall()
+
+
+def obter_cadu_audiencia_taxonomia(id_audiencia):
+    """Retorna a classificação V2 e todos os mercados relacionados."""
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT
+                tax.*,
+                market.nome AS primary_market_nome,
+                COALESCE(
+                    jsonb_agg(
+                        jsonb_build_object(
+                            'slug', rel.market_slug,
+                            'nome', rel_market.nome,
+                            'relation_type', rel.relation_type
+                        )
+                        ORDER BY rel.relation_type, rel_market.ordem_exibicao
+                    ) FILTER (WHERE rel.market_slug IS NOT NULL),
+                    '[]'::jsonb
+                ) AS related_markets
+            FROM cadu_audience_taxonomy tax
+            LEFT JOIN cadu_taxonomy_markets market ON market.slug = tax.primary_market_slug
+            LEFT JOIN cadu_audience_market_relations rel ON rel.audience_id = tax.audience_id
+            LEFT JOIN cadu_taxonomy_markets rel_market ON rel_market.slug = rel.market_slug
+            WHERE tax.audience_id = %s
+            GROUP BY tax.audience_id, market.nome
+        ''', (id_audiencia,))
+        return cursor.fetchone()
+
+
+def obter_cadu_inteligencia_audiencias(filtros=None):
+    """Consolida o catálogo V2 para planejamento, curadoria e apoio comercial.
+
+    Não calcula performance ou preço: o painel só expõe inventário, classificação
+    e estado de qualidade que possam ser sustentados pela base atual.
+    """
+    filtros = filtros or {}
+    conditions = []
+    params = []
+
+    plataforma_id = filtros.get('plataforma_id')
+    if plataforma_id:
+        conditions.append('a.plataforma_id = %s')
+        params.append(plataforma_id)
+    market_slug = filtros.get('market_slug')
+    if market_slug:
+        conditions.append('(t.primary_market_slug = %s OR EXISTS (\n'
+                          ' SELECT 1 FROM cadu_audience_market_relations relation\n'
+                          ' WHERE relation.audience_id = a.id AND relation.market_slug = %s\n'
+                          '))')
+        params.extend([market_slug, market_slug])
+    catalog_role = filtros.get('catalog_role')
+    if catalog_role:
+        conditions.append('t.catalog_role = %s')
+        params.append(catalog_role)
+    funnel_stage = filtros.get('funnel_stage')
+    if funnel_stage:
+        conditions.append('t.funnel_stages @> ARRAY[%s]::TEXT[]')
+        params.append(funnel_stage)
+
+    where = ('WHERE ' + ' AND '.join(conditions)) if conditions else ''
+    base = f'''
+        FROM cadu_audiencias a
+        LEFT JOIN cadu_audiencias_plataformas p ON p.id = a.plataforma_id
+        LEFT JOIN cadu_audience_taxonomy t ON t.audience_id = a.id
+        LEFT JOIN cadu_taxonomy_markets market ON market.slug = t.primary_market_slug
+        {where}
+    '''
+
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute(f'''
+            SELECT
+                COUNT(*) AS total,
+                COUNT(*) FILTER (WHERE a.is_active) AS active,
+                COUNT(*) FILTER (WHERE t.market_scope = 'vertical') AS vertical,
+                COUNT(*) FILTER (WHERE t.market_scope = 'transversal') AS transversal,
+                COUNT(*) FILTER (WHERE t.curation_status IN ('draft', 'quarantined')) AS pending_curation,
+                COUNT(*) FILTER (WHERE t.data_quality_status IN ('unverified', 'expired')) AS pending_validation,
+                COUNT(*) FILTER (WHERE COALESCE(a.quoted_count, 0) > 0) AS quoted,
+                COUNT(DISTINCT COALESCE(p.nome, NULLIF(TRIM(a.fonte), ''), 'Sem canal')) AS channels
+            {base}
+        ''', params)
+        summary = cursor.fetchone() or {}
+
+        cursor.execute(f'''
+            SELECT
+                COALESCE(p.nome, NULLIF(TRIM(a.fonte), ''), 'Sem canal') AS name,
+                COUNT(*) AS total,
+                COUNT(*) FILTER (WHERE a.is_active) AS active,
+                COUNT(*) FILTER (WHERE t.market_scope = 'vertical') AS vertical,
+                COUNT(*) FILTER (WHERE t.catalog_role = 'formato/inventário') AS formats,
+                COUNT(*) FILTER (WHERE t.catalog_role = 'contexto/afinidade de conteúdo') AS contexts
+            {base}
+            GROUP BY 1
+            ORDER BY total DESC, name
+        ''', params)
+        channels = cursor.fetchall()
+
+        cursor.execute(f'''
+            SELECT related_market.slug, related_market.nome AS name,
+                   related_market.ordem_exibicao, COUNT(DISTINCT a.id) AS total
+            FROM cadu_audiencias a
+            LEFT JOIN cadu_audiencias_plataformas p ON p.id = a.plataforma_id
+            LEFT JOIN cadu_audience_taxonomy t ON t.audience_id = a.id
+            LEFT JOIN cadu_taxonomy_markets market ON market.slug = t.primary_market_slug
+            JOIN cadu_audience_market_relations relation ON relation.audience_id = a.id
+            JOIN cadu_taxonomy_markets related_market ON related_market.slug = relation.market_slug
+            {where}
+            GROUP BY related_market.slug, related_market.nome, related_market.ordem_exibicao
+            ORDER BY total DESC, related_market.ordem_exibicao
+        ''', params)
+        markets = cursor.fetchall()
+
+        cursor.execute(f'''
+            SELECT t.catalog_role AS name, COUNT(*) AS total
+            {base}
+            GROUP BY t.catalog_role
+            ORDER BY total DESC, name
+        ''', params)
+        roles = cursor.fetchall()
+
+        cursor.execute(f'''
+            SELECT stage AS name, COUNT(DISTINCT a.id) AS total
+            FROM cadu_audiencias a
+            LEFT JOIN cadu_audiencias_plataformas p ON p.id = a.plataforma_id
+            LEFT JOIN cadu_audience_taxonomy t ON t.audience_id = a.id
+            LEFT JOIN cadu_taxonomy_markets market ON market.slug = t.primary_market_slug
+            CROSS JOIN LATERAL unnest(COALESCE(t.funnel_stages, ARRAY[]::TEXT[])) AS stage
+            {where}
+            GROUP BY stage
+            ORDER BY total DESC, stage
+        ''', params)
+        objectives = cursor.fetchall()
+
+        cursor.execute(f'''
+            SELECT
+                COALESCE(t.data_quality_status, 'unverified') AS name,
+                COUNT(*) AS total
+            {base}
+            GROUP BY 1
+            ORDER BY total DESC, name
+        ''', params)
+        quality = cursor.fetchall()
+
+    return {
+        'summary': summary,
+        'channels': channels,
+        'markets': markets,
+        'roles': roles,
+        'objectives': objectives,
+        'quality': quality,
+        'filters': filtros,
+    }
+
 def obter_cadu_audiencias(plataforma_id=None):
     """Retorna audiências do catálogo, opcionalmente filtradas por plataforma"""
     conn = get_db()
@@ -3539,10 +3706,22 @@ def obter_cadu_audiencias(plataforma_id=None):
                     a.updated_at,
                     a.imagem_url,
                     cat.nome as categoria_nome,
-                    sub.nome as subcategoria_nome
+                    sub.nome as subcategoria_nome,
+                    tax.catalog_role as taxonomy_catalog_role,
+                    tax.market_scope as taxonomy_market_scope,
+                    tax.canonical_name as taxonomy_canonical_name,
+                    market.nome as taxonomy_primary_market_nome,
+                    tax.primary_submarket as taxonomy_primary_submarket,
+                    tax.b2b_b2c_orientation as taxonomy_b2b_b2c_orientation,
+                    tax.signal_types as taxonomy_signal_types,
+                    tax.funnel_stages as taxonomy_funnel_stages,
+                    tax.classification_confidence as taxonomy_confidence,
+                    tax.curation_status as taxonomy_curation_status
                 FROM cadu_audiencias a
                 LEFT JOIN cadu_categorias cat ON a.categoria_id = cat.id
                 LEFT JOIN cadu_subcategorias sub ON a.subcategoria_id = sub.id
+                LEFT JOIN cadu_audience_taxonomy tax ON tax.audience_id = a.id
+                LEFT JOIN cadu_taxonomy_markets market ON market.slug = tax.primary_market_slug
             '''
             params = []
             if plataforma_id is not None:
@@ -3622,11 +3801,37 @@ def obter_cadu_audiencia_por_id(id_audiencia):
                     a.*,
                     c.nome as categoria_nome,
                     s.nome as subcategoria_nome,
-                    COALESCE(p.nome, NULLIF(TRIM(a.fonte), '')) AS plataforma_nome
+                    COALESCE(p.nome, NULLIF(TRIM(a.fonte), '')) AS plataforma_nome,
+                    tax.catalog_role AS taxonomy_catalog_role,
+                    tax.market_scope AS taxonomy_market_scope,
+                    tax.canonical_name AS taxonomy_canonical_name,
+                    tax.primary_market_slug AS taxonomy_primary_market_slug,
+                    market.nome AS taxonomy_primary_market_nome,
+                    tax.primary_submarket AS taxonomy_primary_submarket,
+                    tax.b2b_b2c_orientation AS taxonomy_b2b_b2c_orientation,
+                    tax.signal_types AS taxonomy_signal_types,
+                    tax.funnel_stages AS taxonomy_funnel_stages,
+                    tax.classification_confidence AS taxonomy_confidence,
+                    tax.migration_action AS taxonomy_migration_action,
+                    tax.curation_status AS taxonomy_curation_status,
+                    tax.taxonomy_version AS taxonomy_version,
+                    tax.classification_source AS taxonomy_source,
+                    tax.data_quality_status AS taxonomy_data_quality_status,
+                    tax.data_origin AS taxonomy_data_origin,
+                    tax.source_reference AS taxonomy_source_reference,
+                    tax.source_observed_at AS taxonomy_source_observed_at,
+                    tax.data_valid_until AS taxonomy_data_valid_until,
+                    tax.methodology_note AS taxonomy_methodology_note,
+                    tax.is_estimated AS taxonomy_is_estimated,
+                    tax.available_channels AS taxonomy_available_channels,
+                    tax.geographic_scope AS taxonomy_geographic_scope,
+                    tax.activation_restrictions AS taxonomy_activation_restrictions
                 FROM cadu_audiencias a
                 LEFT JOIN cadu_categorias c ON a.categoria_id = c.id
                 LEFT JOIN cadu_subcategorias s ON a.subcategoria_id = s.id
                 LEFT JOIN cadu_audiencias_plataformas p ON a.plataforma_id = p.id
+                LEFT JOIN cadu_audience_taxonomy tax ON tax.audience_id = a.id
+                LEFT JOIN cadu_taxonomy_markets market ON market.slug = tax.primary_market_slug
                 WHERE a.id = %s
             ''', (id_audiencia,))
             return cursor.fetchone()

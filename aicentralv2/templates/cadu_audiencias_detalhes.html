@@ -9,7 +9,7 @@
   <!-- Header -->
   <div class="flex items-center justify-between mb-3">
     <div class="flex items-center gap-3">
-      <h1 class="text-lg font-bold">{{ audiencia.nome }}</h1>
+      <h1 class="text-lg font-bold">{{ audiencia.taxonomy_canonical_name or audiencia.nome }}</h1>
       <span class="cx-badge {% if audiencia.is_active %}badge-success{% else %}badge-error{% endif %}">
         {{ 'Ativa' if audiencia.is_active else 'Inativa' }}
       </span>
@@ -36,6 +36,9 @@
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
           <div><span class="text-slate-500">ID Sistema:</span> <strong>#{{ audiencia.id }}</strong></div>
           <div><span class="text-slate-500">ID Plataforma:</span> <code class="bg-slate-100 px-1 rounded text-xs">{{ audiencia.id_audiencia_plataforma }}</code></div>
+          {% if audiencia.taxonomy_canonical_name and audiencia.taxonomy_canonical_name != audiencia.nome %}
+          <div class="col-span-2"><span class="text-slate-500">Nome importado:</span> {{ audiencia.nome }}</div>
+          {% endif %}
           <div><span class="text-slate-500">Slug:</span> {{ audiencia.slug }}</div>
           <div><span class="text-slate-500">Fonte:</span> <span class="cx-badge">{{ audiencia.fonte or '-' }}</span></div>
           <div><span class="text-slate-500">Categoria:</span> {{ audiencia.categoria_nome or '-' }}</div>
@@ -44,6 +47,30 @@
       </div>
 
       <!-- Público e Comercial -->
+      {% if audiencia.taxonomy_catalog_role %}
+      <div class="bg-white rounded-lg shadow p-3">
+        <h2 class="text-sm font-bold mb-2 border-b pb-1"><i class="fas fa-compass mr-2 text-[#1e4d4f]"></i>Taxonomia V2</h2>
+        <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+          <div><span class="text-slate-500">Tipo:</span> <strong>{{ audiencia.taxonomy_catalog_role }}</strong></div>
+          <div><span class="text-slate-500">Escopo:</span> {{ audiencia.taxonomy_market_scope }}</div>
+          <div><span class="text-slate-500">Mercado:</span> {{ audiencia.taxonomy_primary_market_nome or 'Transversal' }}</div>
+          <div><span class="text-slate-500">Submercado:</span> {{ audiencia.taxonomy_primary_submarket or '-' }}</div>
+          <div><span class="text-slate-500">Orientação:</span> {{ audiencia.taxonomy_b2b_b2c_orientation }}</div>
+          <div><span class="text-slate-500">Curadoria:</span> {{ audiencia.taxonomy_curation_status }}</div>
+        </div>
+        {% if audiencia.taxonomy_signal_types %}
+        <div class="mt-2 text-sm">
+          <span class="text-slate-500">Sinais:</span> {{ audiencia.taxonomy_signal_types|join(', ') }}
+        </div>
+        {% endif %}
+        {% if audiencia.taxonomy_funnel_stages %}
+        <div class="mt-1 text-sm">
+          <span class="text-slate-500">Funil:</span> {{ audiencia.taxonomy_funnel_stages|join(' → ') }}
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+
       <div class="bg-white rounded-lg shadow p-3">
         <h2 class="text-sm font-bold mb-2 border-b pb-1"><i class="fas fa-users mr-2 text-[#1e4d4f]"></i>Público & Comercial</h2>
         <div class="grid grid-cols-3 gap-2 text-sm mb-2">

@@ -1332,16 +1332,17 @@ def init_routes(app):
                 try:
                     reset_token = secrets.token_urlsafe(32)
                     expires = datetime.utcnow() + timedelta(hours=1)
-                    db.atualizar_reset_token(email, reset_token, expires)
+                    token_saved = db.atualizar_reset_token(email, reset_token, expires)
                     from aicentralv2.product_domains import product_url
                     reset_link = product_url('auth', url_for('reset_password', token=reset_token))
                     
-                    send_password_reset_email(
-                        user_email=contato['email'],
-                        user_name=contato['nome_completo'],
-                        reset_link=reset_link,
-                        expires_hours=1
-                    )
+                    if token_saved:
+                        send_password_reset_email(
+                            user_email=contato['email'],
+                            user_name=contato['nome_completo'],
+                            reset_link=reset_link,
+                            expires_hours=1
+                        )
                 except Exception as e:
                     app.logger.error('Falha ao processar recuperação de senha', exc_info=True)
             flash('Se a conta estiver ativa, você receberá instruções de recuperação.', 'info')

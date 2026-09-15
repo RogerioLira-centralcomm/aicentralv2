@@ -1,5 +1,17 @@
 """Narrow projections of existing data. Query errors must never grant access."""
 from ..db import get_db
+from flask import g
+
+
+def family_table_available(name):
+    """Inspect schema without creating it; do not swallow connectivity errors."""
+    if name not in {'cadu_family_client_access', 'cadu_family_entity_links', 'cadu_family_conversation_context'}:
+        raise ValueError('Unsupported family table')
+    cache = g.setdefault('family_schema', {})
+    if name not in cache:
+        result = rows('SELECT to_regclass(%s) IS NOT NULL AS available', ('public.' + name,))
+        cache[name] = bool(result and result[0]['available'])
+    return cache[name]
 
 
 def rows(sql, params=()):
@@ -20,6 +32,11 @@ def actor(user_id):
 
 
 def clients(user):
+    if not family_table_available('cadu_family_client_access'):
+        # Absence of migration never implies agency access to other clients.
+        return rows('''SELECT id_cliente AS id, nome_fantasia AS name, %s AS role
+                         FROM tbl_cliente WHERE id_cliente = %s AND status = TRUE''',
+                    (account_role(user), user['organization_id']))
     return rows('''SELECT c.id_cliente AS id, c.nome_fantasia AS name,
                          CASE WHEN c.id_cliente = %s THEN %s ELSE a.role END AS role
                     FROM tbl_cliente c
@@ -56,6 +73,8 @@ def entities(client_id):
 
 
 def entity_links(client_id):
+    if not family_table_available('cadu_family_entity_links'):
+        return []
     return rows('''SELECT source || ':' || source_id AS ref,
                          canonical_source || ':' || canonical_id AS canonical_ref
                     FROM cadu_family_entity_links WHERE client_id = %s''', (client_id,))
@@ -96,6 +115,24 @@ def conversations(user_id):
     return rows('''SELECT id, titulo AS title, updated_at, total_mensagens AS message_count
                     FROM cadu_conversations WHERE id_contato_cliente = %s
                 ORDER BY updated_at DESC LIMIT 100''', (user_id,))
+
+
+def conversation_history(user, client_id):
+    if not family_table_available('cadu_family_conversation_context'):
+        return rows('''SELECT id, titulo AS title, updated_at, NULL AS profile,
+                              NULL AS project_ref, NULL AS brand_ref
+                         FROM cadu_conversations
+                        WHERE id_contato_cliente = %s AND id_cliente = %s
+                     ORDER BY updated_at DESC LIMIT 100''', (user['id'], client_id))
+    return rows('''SELECT c.id, c.titulo AS title, c.updated_at, x.profile,
+                         x.project_ref, x.brand_ref
+                    FROM cadu_conversations c
+               LEFT JOIN cadu_family_conversation_context x ON x.conversation_id = c.id
+                   WHERE c.id_contato_cliente = %s AND c.id_cliente = %s
+                     AND (x.conversation_id IS NULL OR
+                          (x.user_id = %s AND x.organization_id = %s AND x.client_id = %s))
+                ORDER BY c.updated_at DESC LIMIT 100''',
+                (user['id'], client_id, user['id'], user['organization_id'], client_id))
 
 
 def invoices(organization_id):
@@ -150,6 +187,35 @@ def conversation_messages(user_id, client_id, conversation_id):
                      AND role IN ('user', 'assistant') ORDER BY created_at, id LIMIT 500''', (conversation_id,))
 
 
+def count_distinct_entities(active_refs, links):
+    """Count explicit ID equivalence groups, never infer identity from names."""
+    parent = {}
+
+    def root(ref):
+        parent.setdefault(ref, ref)
+        while parent[ref] != ref:
+            parent[ref] = parent[parent[ref]]
+            ref = parent[ref]
+        return ref
+
+    for link in links:
+        source, target = root(link['ref']), root(link['canonical_ref'])
+        parent[source] = target
+    return len({root(ref) for ref in active_refs})
+
+
+def active_entity_count(client_id):
+    active = rows('''SELECT 'ci:' || id::text AS ref FROM cadu_ci_projetos
+                     WHERE id_cliente = %s AND status = 'ativo'
+                     UNION ALL
+                    SELECT 'projects:' || id::text FROM cadu_projetos
+                     WHERE id_cliente = %s AND deleted_at IS NULL
+                     UNION ALL
+                    SELECT 'studio:' || id::text FROM cx_clients WHERE crm_client_id = %s''',
+                  (client_id, client_id, client_id))
+    return count_distinct_entities([row['ref'] for row in active], entity_links(client_id))
+
+
 def create_entity(client_id, user_id, payload):
     """Write to the PHP source of truth and serialize the plan limit per client."""
     from uuid import uuid4
@@ -161,8 +227,7 @@ def create_entity(client_id, user_id, payload):
                            WHERE id_cliente = %s AND plan_status = 'active' LIMIT 1''', (client_id,))
             current = cur.fetchone()
             limit = 10 if current and current['plan_type'] in ('pro', 'enterprise') else 1
-            cur.execute("SELECT COUNT(*) AS count FROM cadu_ci_projetos WHERE id_cliente = %s AND status = 'ativo'", (client_id,))
-            if cur.fetchone()['count'] >= limit:
+            if active_entity_count(client_id) >= limit:
                 raise ValueError(f'O plano permite {limit} projeto(s)/marca(s) ativos.')
             entity_id = str(uuid4())
             cur.execute('''INSERT INTO cadu_ci_projetos

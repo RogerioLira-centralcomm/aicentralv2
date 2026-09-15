@@ -76,6 +76,14 @@ class PasswordFlowTest(TestCase):
             reset.assert_called_once_with('test-token', 'hash')
             send.assert_not_called()
 
+    def test_recovery_never_emails_a_token_that_was_not_saved(self):
+        with mock.patch('aicentralv2.routes.db.obter_contato_por_email', return_value=USER), \
+             mock.patch('aicentralv2.routes.db.atualizar_reset_token', return_value=False), \
+             mock.patch('aicentralv2.routes.send_password_reset_email') as send:
+            response = self.post('/forgot-password', {'email': USER['email']})
+            self.assertEqual(response.status_code, 200)
+            send.assert_not_called()
+
     def test_reset_preserves_spaces_and_only_notifies_after_success(self):
         password = ' test-password '
         with mock.patch('aicentralv2.routes.db.buscar_contato_por_token', return_value=USER), \

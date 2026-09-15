@@ -102,3 +102,14 @@ As verificações de cookie são feitas pelo cliente de testes Flask. Não compr
 - Testados token expirado, token já consumido, senhas divergentes, preservação de espaços na senha, sucesso e rollback. Nenhuma operação foi executada no banco real.
 
 Pendências reais desta frente: entrega do email e callback Google no ambiente de homologação, compatibilidade dos hashes de contas piloto, testes de proxy/cookies entre domínios publicados, política de limitação de tentativas e proteção CSRF completa das rotas Auth. Não ativar a migração considerando apenas os testes simulados.
+
+## Correções após revisão
+
+- Ausência das tabelas auxiliares: detectada por `to_regclass`, sem DDL. Sem tabela de grants, somente a organização do usuário é listada. Sem mapeamentos, nenhuma equivalência é presumida. Sem contexto de conversas, o histórico legado permanece filtrado por usuário e cliente. Erros de conexão continuam propagados.
+- Modos e histórico passaram a carregar independentemente no frontend. Falha de modos bloqueia geração, mas não impede consultar histórico. Sintaxe JavaScript verificada; comportamento de falha ainda precisa de teste no navegador.
+- Recuperação só envia email se a atualização do token afetar registros. Caso contrário, mantém a resposta genérica sem enviar link inválido.
+- Admissão de gerações serializada por organização sob lock de linha, com recusa enquanto houver execução `running`. Essa restrição é conservadora e reduz concorrência. Ainda não implementa reserva de tokens por resposta, reconciliação de uso sem `message_end` ou recuperação de execuções abandonadas; não é um limite rígido de custo.
+- Limite de projetos/marcas agora consulta as três fontes. Equivalências são agrupadas somente pelos mapeamentos explícitos de IDs, inclusive cadeias. Registros sem correspondência continuam separados até revisão. No legado `cadu_projetos`, a contagem considera os não excluídos; confirmar política de arquivamento antes de ativar gravações.
+- Testes adicionados em `tests/test_cadu_review_fixes.py` e `tests/test_cadu_password_flows.py`; nenhum acesso ao banco real foi feito na validação.
+
+Gravações, migrações SQL e ativação de produção continuam não executadas. Ainda é necessário validar as consultas contra banco isolado com esquema real, concorrência com transações PostgreSQL reais e compatibilidade dos dados antes de liberar o piloto operacional.

@@ -144,17 +144,7 @@ def edit_profile():
 def conversation_history():
     user = context.identity()
     selected = context.resolve()
-    # Unclassified legacy threads are restricted to their original client.
-    return jsonify(conversations=repository.rows('''
-        SELECT c.id, c.titulo AS title, c.updated_at, x.profile,
-               x.project_ref, x.brand_ref
-          FROM cadu_conversations c
-     LEFT JOIN cadu_family_conversation_context x ON x.conversation_id = c.id
-         WHERE c.id_contato_cliente = %s AND c.id_cliente = %s
-           AND (x.conversation_id IS NULL OR
-                (x.user_id = %s AND x.organization_id = %s AND x.client_id = %s))
-      ORDER BY c.updated_at DESC LIMIT 100''',
-        (user['id'], selected['client_id'], user['id'], user['organization_id'], selected['client_id'])))
+    return jsonify(conversations=repository.conversation_history(user, selected['client_id']))
 
 
 @bp.get('/api/studio/copy-ads/formats')

@@ -49,10 +49,16 @@
     panel.hidden = false; backdrop.hidden = false; background.forEach(node => node.inert = true); document.body.style.overflow = 'hidden'; opener.setAttribute('aria-expanded', 'true'); panel.focus();
     if (document.body.dataset.authenticated !== 'true') return;
     if (sending) return;
+    mode.disabled = true;
+    api('conversations/modes').then(data => {
+      mode.replaceChildren(...data.modes.map(item => new Option(item.title, item.id)));
+      mode.disabled = !data.modes.length;
+      if (!data.modes.length) status.textContent = 'Nenhum modo disponível. Você ainda pode consultar o histórico.';
+    }).catch(() => {
+      mode.replaceChildren(new Option('Modos indisponíveis', ''));
+      status.textContent = 'Não foi possível carregar os modos. O histórico continua disponível; reabra o painel para tentar novamente.';
+    });
     try {
-      const modes = await api('conversations/modes');
-      mode.replaceChildren(...modes.modes.map(item => new Option(item.title, item.id)));
-      mode.disabled = !modes.modes.length;
       const data = await api('conversations'); history.replaceChildren();
       for (const thread of data.conversations) {
         const row = document.createElement('article');

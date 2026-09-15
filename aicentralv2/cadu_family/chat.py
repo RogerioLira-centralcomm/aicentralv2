@@ -17,6 +17,21 @@ def modes(user_id):
                               WHERE s.is_active = TRUE ORDER BY s.sort_order, s.id''', (user_id,))
 
 
+def lock_organization_generation(cur, organization_id):
+    """Serialize admission until provider accounting for the previous run ends.
+
+    This prevents concurrent requests spending the same observed balance.
+    It is not a per-response token cap or a replacement for usage reconciliation.
+    Stale runs fail closed until reconciled; never expire an active run blindly.
+    """
+    cur.execute('SELECT id_cliente FROM tbl_cliente WHERE id_cliente = %s FOR UPDATE', (organization_id,))
+    cur.execute('''SELECT r.id FROM cadu_family_chat_runs r
+                     JOIN cadu_family_conversation_context c ON c.conversation_id = r.conversation_id
+                    WHERE c.organization_id = %s AND r.status = 'running' LIMIT 1''', (organization_id,))
+    if cur.fetchone():
+        abort(409, description='Há uma geração em andamento nesta organização. Aguarde sua conclusão antes de enviar outra.')
+
+
 def prepare(data, selected):
     dify.settings()  # Fail before storing a turn if the provider is not configured.
     user = context.identity()
@@ -59,7 +74,7 @@ def prepare(data, selected):
     conn = repository.get_db()
     try:
         with conn.cursor() as cur:
-            cur.execute('SELECT id_cliente FROM tbl_cliente WHERE id_cliente = %s FOR UPDATE', (user['organization_id'],))
+            lock_organization_generation(cur, user['organization_id'])
             current_plan = repository.plan(user['organization_id'])
             cur.execute('''SELECT COALESCE(SUM(quantidade), 0) AS used FROM cadu_token_usage
                            WHERE id_cliente = %s AND created_at >= DATE_TRUNC('month', NOW())''', (user['organization_id'],))

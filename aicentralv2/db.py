@@ -2218,8 +2218,9 @@ def atualizar_reset_token(email, token, expires):
                   AND c.status = TRUE  -- Apenas usuários ativos
                   AND cli.status = TRUE  -- Apenas clientes ativos
             ''', (token, expires, email.lower().strip()))
-
+            updated = cursor.rowcount > 0
         conn.commit()
+        return updated
 
     except Exception as e:
         conn.rollback()

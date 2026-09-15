@@ -87,7 +87,7 @@ class ProductPortalsTest(TestCase):
              mock.patch("aicentralv2.cadu_connect.routes.customization_targets", return_value={"clients": [], "projects": []}):
             response = client.get("/connect/", headers={"Host": "connect.centralcomm.media"})
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Cadu Agentes", response.get_data(as_text=True))
+        self.assertIn("Connect", response.get_data(as_text=True))
 
     def test_workspace_has_public_site_and_private_app_reusing_cadu_php(self):
         app = _app()
@@ -145,6 +145,20 @@ class ProductPortalsTest(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         link.assert_called_once_with(31, client_id=12, project_id=5, user_id=7)
+
+    def test_connect_applies_a_verified_workspace_project_filter(self):
+        app = _app()
+        client = app.test_client()
+        with client.session_transaction() as sess:
+            sess.update(user_id=7, cliente_id=12, user_name="Apolo",
+                        family_context={"client_id": 12, "project_ref": "projects:5"})
+        targets = {"clients": [], "projects": [{"id": 5, "client_id": 12, "name": "Lançamento"}]}
+        with mock.patch("aicentralv2.cadu_connect.routes.campaigns_for_client", return_value=[]) as campaigns, \
+             mock.patch("aicentralv2.cadu_connect.routes.customization_targets", return_value=targets):
+            response = client.get("/connect/", headers={"Host": "connect.centralcomm.media"})
+        self.assertEqual(response.status_code, 200)
+        campaigns.assert_called_once_with(12, project_id=5)
+        self.assertIn("Lançamento", response.get_data(as_text=True))
 
     def test_deploy_creates_agents_campaign_project_context(self):
         deploy = (ROOT / "deploy.sh").read_text()

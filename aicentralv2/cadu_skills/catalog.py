@@ -16,7 +16,25 @@ CADU_MEDIA_PLANNING = {
     "credit_cost": 2,
     "model": "openai/gpt-4o-mini",
     "featured": True,
+    "rank": 1,
+    "status": "published",
+    "is_testable": True,
+    "image_url": "/static/images/cadu/products/skills.png",
+    "instructions": """Você é o especialista de planejamento de mídia do Cadu. Congele objetivo, público, praça, período, verba, conversão, restrições e fontes num Campaign Snapshot. Crie uma única tese específica antes do mix. Selecione somente canais, audiências e formatos dos catálogos Cadu disponíveis; diferencie fato, evidência, premissa e pendência. Cada canal precisa de papel, audiência, um formato principal, KPI, risco, dependência e critério de otimização. Feche o mix em 100% e na verba confirmada. Não invente alcance, preço, CPM, disponibilidade ou resultado. Termine auditando conflitos entre snapshot, tese, mix, criação e mensuração.""",
     "path": ROOT / "media-planning" / "SKILL.md",
+    "installable": True,
+    "official": True,
+    "tagline": "Do briefing ao plano auditável, sem inventar mídia.",
+    "capabilities": (
+        "Campaign Snapshot e tese única", "Mix, verba e voo consistentes",
+        "Canais, audiências e formatos CentralX", "Auditoria final de conflitos",
+    ),
+    "use_steps": (
+        "Informe objetivo, público, praça, período, verba e restrições.",
+        "Peça uma tese e um mix inicial ou envie um plano para revisão.",
+        "Valide pendências comerciais antes de aprovar ou ativar mídia.",
+    ),
+    "outputs": ("Resumo executivo", "Tabela de mix", "Voo", "KPIs", "Riscos e próximos passos"),
     "prompts": (
         "Monte um mix inicial para uma campanha regional de consideração.",
         "Revise este plano e identifique inconsistências de verba e KPI.",
@@ -24,7 +42,109 @@ CADU_MEDIA_PLANNING = {
     ),
 }
 
-PUBLIC_SKILLS = (CADU_MEDIA_PLANNING,)
+CADU_OFFICIAL_SPECS = (
+    {
+        "slug": "cadu-channel-intelligence",
+        "name": "Inteligência de canais Cadu",
+        "category": "Inteligência de mídia",
+        "summary": "Compara canais da CentralX com audiências e formatos realmente compatíveis.",
+        "description": "Shortlist, papel de canal, adequação, riscos e validações comerciais com dados do catálogo Cadu.",
+        "credit_cost": 1,
+        "model": "openai/gpt-4o-mini",
+        "featured": True,
+        "rank": 101,
+        "status": "published",
+        "is_testable": True,
+        "image_url": "/static/images/cadu/products/skills.png",
+        "instructions": "Você é o especialista de canais do Cadu. Congele objetivo, público, praça, período, verba e ação esperada. Compare somente canais presentes no catálogo Cadu, validando para cada um audiência relacionada, formato compatível, dispositivo, mínimo comercial, qualidade e data do snapshot. Entregue Canal | Papel | Audiência | Formato | Evidência | Limitação | Validação. Diferencie dado, inferência e pendência; não invente preço, alcance, disponibilidade ou resultado.",
+        "path": ROOT / "channel-intelligence" / "SKILL.md",
+        "installable": True,
+        "official": True,
+        "tagline": "Escolha canais pelo papel que cumprem — e pela mídia que realmente suportam.",
+        "capabilities": (
+            "Shortlist por objetivo e público", "Relação canal–audiência",
+            "Compatibilidade de formatos", "Riscos e validações comerciais",
+        ),
+        "use_steps": (
+            "Descreva objetivo, público, praça, período e ação esperada.",
+            "Peça uma comparação ou envie sua shortlist atual.",
+            "Confirme as validações indicadas antes de fechar o mix.",
+        ),
+        "outputs": ("Matriz comparativa", "Recomendação", "Limitações", "Validações"),
+        "prompts": (
+            "Compare os canais Cadu adequados para este objetivo e público.",
+            "Revise esta shortlist e encontre incompatibilidades de audiência ou formato.",
+        ),
+    },
+    {
+        "slug": "cadu-audience-intelligence",
+        "name": "Inteligência de audiências Cadu",
+        "category": "Dados e audiência",
+        "summary": "Qualifica audiências por mercado, sinais, funil, canal, origem e qualidade.",
+        "description": "Segmentação defendível com taxonomia, disponibilidade, restrições e evidências da base Cadu.",
+        "credit_cost": 1,
+        "model": "openai/gpt-4o-mini",
+        "featured": True,
+        "rank": 102,
+        "status": "published",
+        "is_testable": True,
+        "image_url": "/static/images/cadu/products/skills.png",
+        "instructions": "Você é o estrategista de audiências do Cadu. Traduza o briefing em mercado, B2B/B2C, sinais, funil, geografia e canais. Use somente audiências do catálogo; exclua itens inativos, inválidos ou em quarentena e sinalize dados estimados, vencidos ou não verificados. Use lacunas de verificação para orientar curadoria, sem promover status por conta própria. Não use preço de custo ou preço de venda. Não confunda conceito, afinidade, perfil, tática e formato. Entregue Audiência | Papel | Sinais | Funil | Mercado | Canal | Qualidade | Evidência | Restrição. Não invente tamanho, CPM, match rate ou performance.",
+        "path": ROOT / "audience-intelligence" / "SKILL.md",
+        "installable": True,
+        "official": True,
+        "tagline": "Transforme públicos disponíveis em segmentação defensável.",
+        "capabilities": (
+            "Busca por mercado e funil", "Qualidade e origem dos dados",
+            "Canais de ativação", "Restrições e lacunas de verificação",
+        ),
+        "use_steps": (
+            "Informe mercado, objetivo, geografia e canais possíveis.",
+            "Peça públicos prioritários ou a auditoria de uma seleção existente.",
+            "Use as lacunas de verificação para concluir a curadoria humana.",
+        ),
+        "outputs": ("Matriz de audiências", "Prioridades", "Exclusões", "Backlog de verificação"),
+        "prompts": (
+            "Encontre as audiências mais defensáveis para este briefing.",
+            "Audite esta seleção de públicos por qualidade, canal e restrições.",
+        ),
+    },
+    {
+        "slug": "cadu-format-intelligence",
+        "name": "Inteligência de formatos Cadu",
+        "category": "Formatos e criação",
+        "summary": "Escolhe formatos viáveis por canal, dispositivo, objetivo e capacidade criativa.",
+        "description": "Formato principal, especificação, adaptação e checklist técnico conectados ao inventário Cadu.",
+        "credit_cost": 1,
+        "model": "openai/gpt-4o-mini",
+        "featured": True,
+        "rank": 103,
+        "status": "published",
+        "is_testable": True,
+        "image_url": "/static/images/cadu/products/skills.png",
+        "instructions": "Você é o especialista de formatos do Cadu. Confirme canal, objetivo, mensagem, dispositivo, placement, duração e ativos. Escolha um formato principal existente e compatível no catálogo, distinguindo formato, peça, placement, compra e add-on. Entregue Canal | Formato | Chave | Dimensão/duração | Dispositivo | Uso | Arquivos | Restrições | Validação. Não invente inventário e não afirme que vídeo, áudio ou animação foram produzidos.",
+        "path": ROOT / "format-intelligence" / "SKILL.md",
+        "installable": True,
+        "official": True,
+        "tagline": "Converta estratégia em uma entrega criativa tecnicamente viável.",
+        "capabilities": (
+            "Formato principal por canal", "Dimensão, dispositivo e placement",
+            "Arquivos e elementos obrigatórios", "Checklist de produção e aceite",
+        ),
+        "use_steps": (
+            "Informe canal, objetivo, mensagem, dispositivo e ativos disponíveis.",
+            "Peça um formato principal ou audite uma especificação existente.",
+            "Confirme requisitos comerciais ausentes antes da produção.",
+        ),
+        "outputs": ("Especificação técnica", "Formato principal", "Restrições", "Checklist de aceite"),
+        "prompts": (
+            "Escolha o formato principal para cada canal desta campanha.",
+            "Transforme esta recomendação em checklist técnico de produção.",
+        ),
+    },
+)
+
+CADU_OFFICIAL_SKILLS = (CADU_MEDIA_PLANNING, *CADU_OFFICIAL_SPECS)
 
 DIRECTORY_ROWS = """
 short-video-production|Produção de vídeos curtos|Vídeo e áudio
@@ -164,6 +284,96 @@ def _directory():
 
 
 DIRECTORY_SKILLS = _directory()
+
+
+_TOP_SPECS = (
+    (
+        "copywriting-skills", "Copy para campanhas", "Conteúdo",
+        "Transforma briefing e oferta em mensagens claras para anúncios, landing pages e CRM.",
+        "Você é o especialista de copy do Cadu. Identifique público, promessa, prova, objeção e ação. Entregue até três alternativas curtas, sem clichês, superlativos vazios ou alegações sem fonte. Preserve termos obrigatórios e sinalize riscos de conformidade.",
+        ("Crie três linhas de anúncio para uma campanha de consideração.", "Revise esta copy e deixe a promessa mais específica."),
+    ),
+    (
+        "competitor-analysis", "Análise de concorrentes", "Estratégia",
+        "Organiza concorrentes, posicionamentos, mensagens e espaços ainda pouco explorados.",
+        "Você é o analista competitivo do Cadu. Separe fatos fornecidos, inferências e perguntas em aberto. Compare proposta, público, mensagem, canal e prova. Não presuma dados atuais nem invente participação de mercado. Termine com oportunidades testáveis.",
+        ("Monte uma matriz simples para comparar três concorrentes.", "Quais espaços de comunicação parecem pouco explorados?"),
+    ),
+    (
+        "content-planning", "Planejamento de conteúdo", "Conteúdo",
+        "Converte objetivos de comunicação em pilares, pautas e uma cadência sustentável.",
+        "Você é o planejador editorial do Cadu. Conecte cada pauta a um objetivo, público, formato e sinal de sucesso. Evite calendários volumosos sem tese. Entregue uma estrutura enxuta que uma equipe consiga produzir e medir.",
+        ("Crie quatro pilares editoriais para esta marca.", "Organize duas semanas de conteúdo com uma meta por pauta."),
+    ),
+    (
+        "script-writing", "Roteiros para campanhas", "Conteúdo",
+        "Escreve roteiros curtos para peças audiovisuais sem gerar vídeo ou áudio.",
+        "Você é o roteirista de teste do Cadu. Gere somente roteiro em texto: cenas, fala ou locução, texto em tela e duração estimada. Nunca prometa gerar, editar ou renderizar vídeo ou áudio. Limite a entrega a 60 segundos e preserve fatos fornecidos.",
+        ("Escreva um roteiro vertical de 20 segundos.", "Transforme esta ideia em roteiro com cenas e texto na tela."),
+    ),
+    (
+        "social-listening", "Escuta de redes sociais", "Dados",
+        "Estrutura temas, sinais e perguntas para acompanhar conversas sobre uma marca.",
+        "Você é o analista de escuta do Cadu. Trabalhe apenas com dados entregues pelo usuário. Agrupe temas, intenção, risco e oportunidade; diferencie volume de relevância e não simule acesso a redes sociais. Indique consultas e fontes necessárias.",
+        ("Organize estes comentários por tema e intenção.", "Crie um plano de monitoramento para o lançamento."),
+    ),
+    (
+        "data-analytics", "Análise de desempenho", "Dados",
+        "Transforma tabelas e indicadores em diagnóstico, decisão e próximo teste.",
+        "Você é o analista de desempenho do Cadu. Valide período, unidade, base de comparação e qualidade dos dados. Mostre cálculo quando houver números. Separe correlação de causalidade e termine com decisões e verificações prioritárias.",
+        ("Leia estes indicadores e destaque três decisões.", "Compare os períodos e explique o que ainda não pode ser concluído."),
+    ),
+    (
+        "brand-operation", "Operação de marca", "Marca",
+        "Organiza regras, ativos e decisões para manter a marca consistente no trabalho diário.",
+        "Você é o guardião operacional de marca do Cadu. Use somente regras e ativos fornecidos. Classifique o que é obrigatório, preferencial e proibido; encontre conflitos e produza um checklist curto para produção e aprovação.",
+        ("Transforme estas regras de marca em checklist.", "Revise este briefing contra as restrições da marca."),
+    ),
+    (
+        "conversion-optimization", "Otimização de conversão", "Crescimento",
+        "Prioriza hipóteses para reduzir atrito e melhorar a próxima ação do público.",
+        "Você é o especialista de conversão do Cadu. Mapeie etapa, intenção, fricção, evidência e métrica. Não trate opinião como resultado. Priorize poucas hipóteses por impacto, confiança e esforço e descreva como testar cada uma.",
+        ("Encontre os principais atritos desta página.", "Priorize cinco testes para melhorar a conversão."),
+    ),
+    (
+        "advertising", "Planejamento de publicidade", "Mídia",
+        "Conecta mensagem, canal, formato e mensuração em uma campanha coerente.",
+        "Você é o estrategista de publicidade do Cadu. Comece pela tarefa de comunicação e pela ação esperada. Relacione canais e formatos a papéis claros, sem inventar custos ou alcance. Entregue arquitetura, mensagens, KPIs e dependências.",
+        ("Estruture uma campanha de lançamento em três fases.", "Relacione canais, formatos e KPI para esta campanha."),
+    ),
+)
+
+
+def _top_skills():
+    skills = [CADU_MEDIA_PLANNING]
+    for rank, (slug, name, category, summary, instructions, prompts) in enumerate(_TOP_SPECS, start=2):
+        skills.append({
+            "slug": slug,
+            "name": name,
+            "category": category,
+            "summary": summary,
+            "description": summary,
+            "credit_cost": 1,
+            "model": "openai/gpt-4o-mini",
+            "featured": rank <= 3,
+            "rank": rank,
+            "status": "published",
+            "is_testable": True,
+            "image_url": "/static/images/cadu/products/skills.png",
+            "instructions": instructions,
+            "prompts": prompts,
+        })
+    return tuple(skills)
+
+
+TOP_SKILLS = _top_skills()
+CATALOG_SKILLS = tuple({item["slug"]: item for item in (*TOP_SKILLS, *CADU_OFFICIAL_SKILLS)}.values())
+PUBLIC_SKILLS = CATALOG_SKILLS
+_TOP_SLUGS = {item["slug"] for item in TOP_SKILLS}
+# O diretório original tem 100 referências externas. As 90 não promovidas
+# permanecem para descoberta; skills próprias adicionais vêm do banco e também
+# são executáveis quando publicadas com instruções.
+DEFERRED_SKILLS = tuple(item for item in DIRECTORY_SKILLS if item["slug"] not in _TOP_SLUGS)[:90]
 
 
 def get_public_skill(slug: str):

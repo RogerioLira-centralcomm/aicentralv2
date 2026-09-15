@@ -1,8 +1,14 @@
 {% extends 'cadu_skills/base.html' %}{% block title %}{{ shared.name }} — Cadu Skills{% endblock %}{% block content %}
-<article class="sk-directory-detail">
-  <a class="sk-back" href="{{ url_for('cadu_skills.marketplace') }}">← Cadu Skills</a>
-  <div class="sk-directory-title"><div><span>Skill premium compartilhada</span><h1>{{ shared.name }}</h1><p>{{ shared.summary }}</p></div></div>
-  <section><h2>Skill personalizada</h2><p>Esta versão foi preparada para uma equipe, cliente ou marca. O link não aparece no catálogo público e pode ser revogado pelo responsável.</p></section>
-  <section><h2>Acesso e execução</h2><p>{% if shared.permission == 'run' %}Entre na conta autorizada para executar esta skill. Cada consulta usa os créditos do plano da organização.{% else %}Este link permite visualizar a configuração publicada. A execução permanece restrita à equipe autorizada.{% endif %}</p>{% if not session.get('user_id') %}<a class="sk-button" href="{{ url_for('login', next=request.path) }}">Entrar para continuar</a>{% endif %}</section>
+<article class="sk-directory-detail sk-shared-detail">
+  <span class="sk-unlisted">Link privado · não listado no marketplace</span>
+  <div class="sk-directory-title"><div><span>{{ shared.base_name }}</span><h1>{{ shared.name }}</h1><p>{{ shared.custom_summary or shared.summary }}</p></div></div>
+  <section><h2>Contexto desta versão</h2><p>Preparada para <strong>{{ shared.client_name or 'uma organização Cadu' }}</strong>{% if shared.project_name %}, no projeto <strong>{{ shared.project_name }}</strong>{% endif %}. O responsável pode revogar este endereço a qualquer momento.</p></section>
+  {% if shared.instructions %}<section><h2>Como a skill trabalha</h2><div class="sk-instructions">{{ shared.instructions }}</div></section>{% endif %}
+  <section><h2>{% if shared.permission == 'run' %}Experimentar com o agente{% else %}Acesso de consulta{% endif %}</h2>
+    {% if shared.permission != 'run' %}<p>Este link apresenta a configuração publicada. A execução está desativada para este compartilhamento.</p>
+    {% elif allowed_to_run %}<p>A resposta usa o contexto personalizado acima e debita {{ shared.credit_cost }} crédito{{ 's' if shared.credit_cost != 1 }} do plano do cliente.</p><form class="sk-shared-run" data-shared-run data-url="{{ url_for('cadu_skills.shared_skill_run', token=token) }}"><textarea minlength="12" required placeholder="Descreva o que você precisa produzir…"></textarea><button class="sk-button" type="submit">Executar skill</button><span data-run-status></span><div data-run-answer hidden></div></form>
+    {% elif session.get('user_id') %}<p>Você entrou com uma organização diferente da proprietária desta skill.</p>
+    {% else %}<p>Entre com a conta autorizada. Cada execução usa os créditos do plano da organização.</p><a class="sk-button" href="{{ url_for('login', next=request.path) }}">Entrar para continuar</a>{% endif %}
+  </section>
 </article>
 {% endblock %}

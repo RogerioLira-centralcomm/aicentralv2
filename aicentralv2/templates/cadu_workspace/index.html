@@ -1,0 +1,17 @@
+{% extends 'cadu_portals/base.html' %}
+{% block title %}Workspace — Cadu{% endblock %}
+{% block product_id %}workspace{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=2">{% endblock %}
+{% block content %}
+<section class="workspace-head">
+  <div><p class="portal-context">Cadu Workspace</p><h1>Conta, contexto e operação da sua organização.</h1><p>Administre o que é comum a todos os produtos sem misturar a execução de cada agente.</p></div>
+  <aside><span>Organização ativa</span><b>{{ session.get('user_name', 'Minha organização') }}</b><small>{{ credit.available if credit.configured else 'Plano no Cadu' }}{% if credit.configured %} créditos disponíveis{% endif %}</small></aside>
+</section>
+<nav class="workspace-tabs" aria-label="Administração do Workspace"><a class="is-active" href="{{ url_for('cadu_workspace.dashboard') }}">Visão geral</a>{% for name, description, href, owner in sections %}<a href="{{ href }}">{{ name }}</a>{% endfor %}</nav>
+<section class="workspace-admin-list"><header><h2>Administração da conta</h2><p>As funções existentes continuam no Cadu PHP.</p></header>{% for name, description, href, owner in sections %}<a href="{{ href }}"><span><b>{{ name }}</b><small>{{ description }}</small></span><em>{{ owner }}</em><strong>Abrir</strong></a>{% endfor %}</section>
+<section class="workspace-operational">
+  <article><header><h2>Projetos</h2><span>{{ projects|length }}</span></header>{% for item in projects[:5] %}<p><b>{{ item.name }}</b><small>Projeto do cliente atual</small></p>{% else %}<div class="workspace-empty">Nenhum projeto vinculado a esta organização.</div>{% endfor %}</article>
+  <article><header><h2>Skills personalizadas</h2><span>{{ customizations|length }}</span></header>{% for item in customizations[:5] %}<p><b>{{ item.name }}</b><small>{{ item.project_name or 'Sem projeto' }} · {{ item.status }}</small></p>{% else %}<div class="workspace-empty">Nenhuma skill personalizada nesta organização.</div>{% endfor %}<a href="{{ url_for('cadu_workspace.my_skills') }}">Ver todas as skills</a></article>
+  <article><header><h2>Agentes e campanhas</h2></header><p><b>Contas, MCPs e relatórios</b><small>Gerenciados no produto Agentes.</small></p><p><b>Campanhas por cliente</b><small>Organização e vínculo com projetos pelo client_id.</small></p><a href="{{ product_url('connect') }}">Abrir Agentes</a></article>
+</section>
+{% endblock %}

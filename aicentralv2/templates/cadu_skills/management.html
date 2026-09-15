@@ -1,0 +1,86 @@
+{% extends 'base_erp.html' %}
+{% block title %}Gestão de Skills — CentralX{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-skills-management.css') }}?v=1"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-skills-personalized.css') }}?v=1"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-skills-links.css') }}?v=1">{% endblock %}
+{% block content %}
+<main class="skills-management" data-skills-management>
+  <header class="skills-management__head">
+    <div><p>Cadu Skills</p><h1>Gestão das skills próprias</h1><span>As 10 primeiras ficam em destaque e todas as skills próprias publicadas do Cadu podem ser testadas. As outras {{ deferred_count }} são referências externas.</span></div>
+    <a class="cx-btn cx-btn-ghost" href="{{ url_for('cadu_skills.marketplace') }}" target="_blank" rel="noreferrer">Abrir produto público</a>
+  </header>
+  <section class="skills-metrics" aria-label="Resumo de uso">
+    <div><span>Visualizações</span><strong>{{ totals.views }}</strong></div>
+    <div><span>Cópias</span><strong>{{ totals.copies }}</strong></div>
+    <div><span>Ativações no agente</span><strong>{{ totals.installs }}</strong></div>
+    <div><span>Testes concluídos</span><strong>{{ totals.runs }}</strong></div>
+  </section>
+  <section class="skills-ledger">
+    <header><div><h2>Skills próprias do Cadu</h2><p>Ranking, conteúdo, imagem, custo e disponibilidade de teste.</p></div><span>Top 10 em destaque · uso verificável</span></header>
+    <div class="skills-ledger__table">
+      <div class="skills-ledger__labels"><span>Posição</span><span>Skill</span><span>Sinais</span><span>Estado</span><span></span></div>
+      {% for skill in skills %}
+      <article data-managed-skill="{{ skill.slug }}">
+        <b class="skills-rank">{{ '%02d'|format(skill.display_rank or skill.rank) }}</b>
+        <div class="skills-identity"><img src="{{ skill.image_url }}" alt=""><span><strong>{{ skill.name }}</strong><small>{{ skill.category }} · {{ skill.credit_cost }} crédito{{ 's' if skill.credit_cost != 1 }}</small></span></div>
+        <div class="skills-signals"><b>{{ skill.engagements }}</b><span>{{ skill.views }} views · {{ skill.copies }} cópias · {{ skill.installs }} ativações · {{ skill.runs }} testes</span></div>
+        <div class="skills-state"><span class="is-{{ skill.status }}">{{ skill.status }}</span><small>{{ 'Teste ativo' if skill.is_testable else 'Teste pausado' }}</small></div>
+        <button class="cx-btn cx-btn-ghost cx-btn-sm" type="button" data-edit-skill>Editar</button>
+        <form class="skills-editor" data-skill-form data-url="{{ url_for('cadu_skills.management_update', slug=skill.slug) }}" hidden>
+          <div class="skills-editor__preview"><img src="{{ skill.image_url }}" alt=""><span><b>{{ skill.name }}</b><small>{{ skill.summary }}</small></span></div>
+          <label>Nome<input name="name" value="{{ skill.name }}" maxlength="180" required></label>
+          <label>Categoria<input name="category" value="{{ skill.category }}" maxlength="100" required></label>
+          <label class="is-wide">Resumo<textarea name="summary" rows="2" maxlength="1200" required>{{ skill.summary }}</textarea></label>
+          <label class="is-wide">URL da imagem<input name="image_url" type="url" value="{{ skill.image_url }}" placeholder="https://..."></label>
+          <label>Posição<input name="display_rank" type="number" min="1" max="999" value="{{ skill.display_rank or skill.rank or 999 }}"></label>
+          <label>Custo em créditos<input name="credit_cost" type="number" min="1" max="100" value="{{ skill.credit_cost }}"></label>
+          <label>Modelo<input name="model" value="{{ skill.model }}" maxlength="100"></label>
+          <label>Estado<select name="status"><option value="published" {% if skill.status == 'published' %}selected{% endif %}>Publicado</option><option value="draft" {% if skill.status == 'draft' %}selected{% endif %}>Rascunho</option><option value="archived" {% if skill.status == 'archived' %}selected{% endif %}>Arquivado</option></select></label>
+          <label class="is-wide">Instruções instaladas no agente<textarea name="instructions" rows="8" maxlength="30000" required>{{ skill.instructions }}</textarea></label>
+          <label class="skills-editor__check"><input name="is_testable" type="checkbox" {% if skill.is_testable %}checked{% endif %}> Disponível no agente de teste</label>
+          <div class="skills-editor__actions"><span data-form-status></span><button type="button" class="cx-btn cx-btn-ghost" data-cancel-skill>Cancelar</button><button class="cx-btn cx-btn-primary" type="submit">Salvar skill</button></div>
+        </form>
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+  <section class="skills-ledger skills-custom-ledger">
+    <header><div><h2>Skills personalizadas por cliente</h2><p>Versões geradas por usuários, vinculadas ao client_id, projeto e marca.</p></div><span>{{ customizations|length }} personalizaç{{ 'ão' if customizations|length == 1 else 'ões' }}</span></header>
+    <label class="skills-custom-search">Buscar cliente, projeto ou skill<input type="search" placeholder="Digite para filtrar" data-custom-search></label>
+    <div class="skills-ledger__table skills-custom-table">
+      <div class="skills-ledger__labels"><span>Skill / base</span><span>Cliente / projeto</span><span>Uso</span><span>Estado</span><span>Ações</span></div>
+      {% for item in customizations %}
+      <article data-custom-skill data-search="{{ item.name }} {{ item.base_name }} {{ item.client_name }} {{ item.project_name }}">
+        <div class="skills-identity"><span><strong>{{ item.name }}</strong><small>Base: {{ item.base_name }}</small></span></div>
+        <div class="skills-custom-owner"><strong>{{ item.client_name or ('Cliente #' ~ item.client_id) }}</strong><small>{{ item.project_name or 'Sem projeto vinculado' }}{% if item.brand_id %} · Marca #{{ item.brand_id }}{% endif %}</small></div>
+        <div class="skills-signals"><b>{{ item.run_count }}</b><span>testes · {{ item.active_links }} links ativos</span></div>
+        <div class="skills-state"><span class="is-{{ item.status }}">{{ item.status }}</span><small>{{ item.credit_cost }} crédito{{ 's' if item.credit_cost != 1 }} / teste</small></div>
+        <div class="skills-custom-actions">
+          <button class="cx-btn cx-btn-ghost cx-btn-sm" type="button" data-open-custom-links>Vínculos</button>
+          <a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ url_for('cadu_skills.customization_download', customization_id=item.id) }}">Baixar</a>
+          <button class="cx-btn cx-btn-ghost cx-btn-sm" type="button" data-create-link data-url="{{ url_for('cadu_skills.customization_link', customization_id=item.id) }}">Criar link</button>
+          {% if item.active_links %}<button class="cx-btn cx-btn-ghost cx-btn-sm" type="button" data-revoke-links data-url="{{ url_for('cadu_skills.customization_revoke_links', customization_id=item.id) }}">Revogar links</button>{% endif %}
+          <button class="cx-btn cx-btn-primary cx-btn-sm" type="button" data-open-custom-test>Testar</button>
+        </div>
+        <form class="skills-custom-test skills-custom-links" data-custom-links data-url="{{ url_for('cadu_skills.customization_link_targets', customization_id=item.id) }}" hidden>
+          <div class="skills-custom-fields"><label>Cliente<select name="client_id" required>{% for client in clients %}<option value="{{ client.id }}" {% if client.id == item.client_id %}selected{% endif %}>{{ client.name }}</option>{% endfor %}</select></label><label>Projeto<select name="project_id"><option value="">Sem projeto</option>{% for project in projects %}<option value="{{ project.id }}" data-client-id="{{ project.client_id }}" {% if project.id == item.project_id %}selected{% endif %}>{{ project.name }}</option>{% endfor %}</select></label><label>Marca (ID)<input name="brand_id" type="number" min="1" value="{{ item.brand_id or '' }}" placeholder="Opcional"></label></div>
+          <div class="skills-editor__actions"><span data-links-status></span><button type="button" class="cx-btn cx-btn-ghost" data-close-custom-links>Cancelar</button><button class="cx-btn cx-btn-primary" type="submit">Salvar vínculos</button></div>
+        </form>
+        <div class="skills-custom-link" data-custom-link hidden>
+          <select aria-label="Permissão do link"><option value="view">Somente visualizar</option><option value="run">Visualizar e executar</option></select>
+          <output data-link-output></output><button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-copy-link hidden>Copiar</button>
+          <small data-link-status></small>
+        </div>
+        <form class="skills-custom-test" data-custom-test data-url="{{ url_for('cadu_skills.customization_test', customization_id=item.id) }}" hidden>
+          <label>Pedido para o agente<textarea name="prompt" rows="3" minlength="12" placeholder="Descreva o que deseja testar com o contexto deste cliente…" required></textarea></label>
+          <label class="skills-editor__check"><input name="confirm_charge" type="checkbox" required> Confirmo o uso de {{ item.credit_cost }} crédito{{ 's' if item.credit_cost != 1 }} do plano de {{ item.client_name or ('cliente #' ~ item.client_id) }}.</label>
+          <div class="skills-editor__actions"><span data-test-status></span><button type="button" class="cx-btn cx-btn-ghost" data-close-custom-test>Cancelar</button><button class="cx-btn cx-btn-primary" type="submit">Executar teste</button></div>
+          <div class="skills-custom-answer" data-test-answer hidden></div>
+        </form>
+      </article>
+      {% else %}
+      <div class="skills-custom-empty">As skills criadas por usuários aparecerão aqui após a migration e o primeiro vínculo com um cliente.</div>
+      {% endfor %}
+    </div>
+  </section>
+</main>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/cadu-skills-management.js') }}?v=1" defer></script>{% endblock %}

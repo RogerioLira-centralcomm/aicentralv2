@@ -1,29 +1,12 @@
 {% extends 'cadu_portals/base.html' %}
-{% block title %}Connect — Cadu{% endblock %}
-{% block product_id %}connect{% endblock %}
+{% block title %}Agentes — Cadu{% endblock %}
+{% block product_id %}agents{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-agents.css') }}?v=1">{% endblock %}
 {% block content %}
-<section class="portal-hero">
-  <div>
-    <p class="portal-context">Cadu Connect</p>
-    <h1>Dados confiáveis antes da próxima decisão.</h1>
-    <p>Conecte contas e relatórios, confira identificadores, período e moeda, e só então use essas informações no planejamento.</p>
-  </div>
-  <aside class="connect-signal" aria-label="Estado das conexões">
-    <span></span><span></span><span></span><span></span><span></span>
-    <strong>Entrada preparada</strong>
-    <small>As integrações existentes continuam no CentralX enquanto o Connect evolui.</small>
-  </aside>
-</section>
-<section class="portal-ledger" aria-labelledby="connect-next">
-  <header><h2 id="connect-next">Próximas conexões</h2><p>Escopo inicial do produto</p></header>
-  <ol>
-    <li><span>Contas de mídia</span><p>Meta, Google, TikTok e DV360 com permissões explícitas.</p><em>Em preparação</em></li>
-    <li><span>Relatórios</span><p>Importação e validação de campanha, ID, período e moeda.</p><em>Base existente</em></li>
-    <li><span>Pendências</span><p>Uma fila clara para dados ausentes ou que precisam de revisão humana.</p><em>Próxima etapa</em></li>
-  </ol>
-  <div class="portal-actions">
-    <a class="portal-primary" href="{{ product_url('centralx', '/parametros') }}">Abrir parâmetros no CentralX</a>
-    <span>Conectado como {{ account_name }}</span>
-  </div>
-</section>
+<section class="agents-head"><div><p class="portal-context">Cadu Agentes</p><h1>Contas, MCPs e campanhas com contexto.</h1><p>Organize as fontes usadas pelos agentes, acompanhe relatórios e relacione cada campanha ao cliente e projeto corretos.</p></div><aside><span>Organização</span><b>{{ account_name }}</b><small>Contexto protegido por client_id</small></aside></section>
+<nav class="agents-tabs"><a class="is-active" href="#contas">Contas e MCPs</a><a href="#campanhas">Campanhas</a><a href="#relatorios">Relatórios</a><a href="{{ product_url('skills', '/agentes') }}">Capacidades</a></nav>
+<section class="agents-section" id="contas"><header><div><h2>Contas e integrações dos agentes</h2><p>Credenciais globais aparecem somente para administradores; conexões da organização continuam no Cadu PHP.</p></div><a href="{{ integrations_url }}">Administrar integrações</a></header><div class="agents-connections">{% for account in accounts %}<article><span class="agents-health {{ 'is-ready' if account.configured else '' }}"></span><div><b>{{ account.label or account.provider }}</b><small>{{ 'Configurada' if account.configured else 'Configuração necessária' }} · {{ account.source }}</small></div></article>{% else %}<div class="agents-empty"><b>Nenhuma credencial global é exibida para esta conta.</b><p>Use Integrações no Cadu para conectar contas autorizadas à organização.</p></div>{% endfor %}</div></section>
+<section class="agents-section" id="campanhas"><header><div><h2>Campanhas e projetos</h2><p>O vínculo abaixo não altera o PI: adiciona contexto para agentes e relatórios.</p></div><span>{{ campaigns|length }} campanhas</span></header><div class="agents-campaigns"><div class="agents-labels"><span>Campanha</span><span>Plataforma</span><span>Estado</span><span>Projeto relacionado</span></div>{% for campaign in campaigns %}<article><div><b>{{ campaign.nome_campanha or ('Campanha #' ~ campaign.id_campanha) }}</b><small>{{ campaign.mes_ref_comp or 'Sem competência' }}</small></div><span>{{ campaign.platform_name or 'Sem plataforma' }}</span><span>{{ campaign.status_name or 'Sem estado' }}</span><form data-campaign-project data-url="{{ url_for('cadu_connect.campaign_project', campaign_id=campaign.id_campanha) }}"><select name="project_id"><option value="">Sem projeto</option>{% for project in projects %}<option value="{{ project.id }}" {% if project.id == campaign.project_id %}selected{% endif %}>{{ project.name }}</option>{% endfor %}</select><button type="submit">Salvar</button><small data-status></small></form></article>{% else %}<div class="agents-empty"><b>Nenhuma campanha encontrada para este client_id.</b><p>Quando uma campanha for criada no Cadu, ela aparecerá aqui para organização.</p></div>{% endfor %}</div></section>
+<section class="agents-section" id="relatorios"><header><div><h2>Relatórios conectados</h2><p>Links já registrados nas campanhas, sem copiar ou publicar dados privados.</p></div><span>{{ reports|length }} disponíveis</span></header><div class="agents-reports">{% for report in reports %}<a href="{{ report.link_dash }}" target="_blank" rel="noopener noreferrer"><b>{{ report.nome_campanha or ('Campanha #' ~ report.id_campanha) }}</b><small>{{ report.project_name or 'Sem projeto relacionado' }}</small><strong>Abrir relatório</strong></a>{% else %}<div class="agents-empty">Nenhum relatório conectado às campanhas deste cliente.</div>{% endfor %}</div></section>
+<script src="{{ url_for('static', filename='js/cadu-agents.js') }}?v=1" defer></script>
 {% endblock %}

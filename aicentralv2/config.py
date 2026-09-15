@@ -38,7 +38,16 @@ class Config:
 	SKILLS_URL = os.getenv('SKILLS_URL', 'https://skills.centralcomm.media')
 	PLANNER_URL = os.getenv('PLANNER_URL', 'https://planner.centralcomm.media')
 	CONNECT_URL = os.getenv('CONNECT_URL', 'https://connect.centralcomm.media')
+	WORKSPACE_URL = os.getenv('WORKSPACE_URL', 'https://workspace.centralcomm.media')
 	AUTH_URL = os.getenv('AUTH_URL', 'https://auth.centralcomm.media')
+	# O PHP permanece dono destas telas; os caminhos podem ser ajustados sem
+	# duplicar regras de usuários, assinatura, créditos ou cobrança no Flask.
+	CADU_USERS_URL = os.getenv('CADU_USERS_URL', f"{CADU_URL.rstrip('/')}/usuarios")
+	CADU_PLANS_URL = os.getenv('CADU_PLANS_URL', f"{CADU_URL.rstrip('/')}/planos")
+	CADU_CREDITS_URL = os.getenv('CADU_CREDITS_URL', f"{CADU_URL.rstrip('/')}/creditos")
+	CADU_FINANCE_URL = os.getenv('CADU_FINANCE_URL', f"{CADU_URL.rstrip('/')}/financeiro")
+	CADU_INTEGRATIONS_URL = os.getenv('CADU_INTEGRATIONS_URL', f"{CADU_URL.rstrip('/')}/integracoes")
+	CADU_HELP_URL = os.getenv('CADU_HELP_URL', f"{CADU_URL.rstrip('/')}/ajuda")
 	CADU_SSO_CONSUME_URL = os.getenv('CADU_SSO_CONSUME_URL', '')
 	# Durante a transição, o PHP continua dono do cadastro/login Google do Cadu.
 	CADU_GOOGLE_LOGIN_URL = os.getenv(
@@ -64,7 +73,7 @@ class Config:
 	# coordenado; mudar o nome encerra uma vez os cookies Flask anteriores.
 	SESSION_COOKIE_NAME = os.getenv('SESSION_COOKIE_NAME', 'session')
 	# Em produção, configure `.centralcomm.media` para compartilhar somente a
-	# sessão Flask entre CentralX, Studio, Planner, Skills, Connect e Auth.
+	# sessão Flask entre CentralX, Studio, Planner, Skills, Connect, Workspace e Auth.
 	SESSION_COOKIE_DOMAIN = os.getenv('SESSION_COOKIE_DOMAIN') or None
 	SESSION_COOKIE_SECURE = os.getenv(
 		'SESSION_COOKIE_SECURE',

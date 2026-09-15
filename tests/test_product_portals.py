@@ -1,10 +1,11 @@
 from pathlib import Path
-from unittest import TestCase
+from unittest import TestCase, mock
 
 from flask import Flask
 
 from aicentralv2.cadu_connect.routes import bp as connect_bp
 from aicentralv2.cadu_identity.routes import bp as identity_bp
+from aicentralv2.cadu_workspace.routes import bp as workspace_bp
 from aicentralv2.product_domains import product_url, register_product_host_routing, safe_product_target
 
 
@@ -25,6 +26,7 @@ def _app():
         SKILLS_URL="https://skills.centralcomm.media",
         PLANNER_URL="https://planner.centralcomm.media",
         CONNECT_URL="https://connect.centralcomm.media",
+        WORKSPACE_URL="https://workspace.centralcomm.media",
         AUTH_URL="https://auth.centralcomm.media",
         CADU_GOOGLE_LOGIN_URL="https://cadu.centralcomm.media/google-login.php",
         SESSION_COOKIE_DOMAIN="centralcomm.media",
@@ -34,9 +36,11 @@ def _app():
     app.add_url_rule("/", "index", lambda: "centralx")
     app.add_url_rule("/studio", "parametros.modelagem_criativos", lambda: "studio")
     app.add_url_rule("/skills/", "cadu_skills.marketplace", lambda: "skills")
+    app.add_url_rule("/skills/agentes", "cadu_skills.agents", lambda: "agents")
     app.add_url_rule("/smart-planner/", "smart_planner.index", lambda: "planner")
     app.register_blueprint(connect_bp)
     app.register_blueprint(identity_bp)
+    app.register_blueprint(workspace_bp)
     app.context_processor(lambda: {"product_url": product_url})
     register_product_host_routing(app)
     return app
@@ -51,6 +55,7 @@ class ProductPortalsTest(TestCase):
             "studio.centralcomm.media": "/studio",
             "skills.centralcomm.media": "/skills/",
             "planner.centralcomm.media": "/smart-planner/",
+            "workspace.centralcomm.media": "/workspace/",
         }
         for host, path in expected.items():
             with self.subTest(host=host):
@@ -77,10 +82,67 @@ class ProductPortalsTest(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertTrue(response.headers["Location"].startswith("https://auth.centralcomm.media/login?"))
         with client.session_transaction() as sess:
-            sess.update(user_id=7, user_name="Apolo", user_email="apolo@centralcomm.media")
-        response = client.get("/connect/", headers={"Host": "connect.centralcomm.media"})
+            sess.update(user_id=7, cliente_id=12, user_name="Apolo", user_email="apolo@centralcomm.media")
+        with mock.patch("aicentralv2.cadu_connect.routes.campaigns_for_client", return_value=[]), \
+             mock.patch("aicentralv2.cadu_connect.routes.customization_targets", return_value={"clients": [], "projects": []}):
+            response = client.get("/connect/", headers={"Host": "connect.centralcomm.media"})
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Cadu Connect", response.get_data(as_text=True))
+        self.assertIn("Cadu Agentes", response.get_data(as_text=True))
+
+    def test_workspace_has_public_site_and_private_app_reusing_cadu_php(self):
+        app = _app()
+        client = app.test_client()
+        response = client.get("/workspace/", headers={"Host": "workspace.centralcomm.media"})
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn("O contexto certo", html)
+        self.assertIn('rel="canonical" href="https://workspace.centralcomm.media/"', html)
+        self.assertEqual(client.get("/workspace/app", headers={"Host": "workspace.centralcomm.media"}).status_code, 302)
+        for page in ("como-funciona", "planos", "ajuda", "contato"):
+            with self.subTest(page=page):
+                public = client.get(f"/workspace/{page}", headers={"Host": "workspace.centralcomm.media"})
+                self.assertEqual(public.status_code, 200)
+                self.assertIn('name="description"', public.get_data(as_text=True))
+        with client.session_transaction() as sess:
+            sess.update(user_id=7, cliente_id=12, user_name="Apolo")
+        with mock.patch("aicentralv2.cadu_workspace.routes.customization_targets", return_value={"clients": [], "projects": []}), \
+             mock.patch("aicentralv2.cadu_workspace.routes.list_customizations", return_value=[]), \
+             mock.patch("aicentralv2.cadu_workspace.routes.credit_position", return_value={"available": 20, "monthly": 20, "configured": True}):
+            response = client.get("/workspace/app", headers={"Host": "workspace.centralcomm.media"})
+            self.assertEqual(response.status_code, 200)
+            html = response.get_data(as_text=True)
+            self.assertIn("Administração da conta", html)
+            for label in ("Usuários", "Planos", "Créditos", "Financeiro", "Integrações"):
+                self.assertIn(label, html)
+        self.assertEqual(client.get("/workspace/agentes", headers={"Host": "workspace.centralcomm.media"}).headers["Location"], "/skills/agentes")
+        robots = client.get("/robots.txt", headers={"Host": "workspace.centralcomm.media"}).get_data(as_text=True)
+        self.assertIn("Allow: /workspace/", robots)
+        self.assertIn("Disallow: /workspace/app", robots)
+        llms = client.get("/llms.txt", headers={"Host": "workspace.centralcomm.media"}).get_data(as_text=True)
+        self.assertIn("Páginas públicas", llms)
+        sitemap = client.get("/sitemap.xml", headers={"Host": "workspace.centralcomm.media"}).get_data(as_text=True)
+        self.assertIn("https://workspace.centralcomm.media/planos", sitemap)
+        self.assertNotIn("/workspace/app", sitemap)
+        self.assertEqual(client.get("/workspace/assets/workspace-icon-64.png").status_code, 200)
+
+    @mock.patch("aicentralv2.cadu_connect.routes.link_campaign_project", return_value=True)
+    def test_agents_links_campaign_to_project_inside_client_context(self, link):
+        client = _app().test_client()
+        with client.session_transaction() as sess:
+            sess.update(user_id=7, cliente_id=12)
+        response = client.post(
+            "/connect/api/campaigns/31/project", json={"project_id": 5},
+            headers={"Host": "connect.centralcomm.media"},
+        )
+        self.assertEqual(response.status_code, 200)
+        link.assert_called_once_with(31, client_id=12, project_id=5, user_id=7)
+
+    def test_deploy_creates_agents_campaign_project_context(self):
+        deploy = (ROOT / "deploy.sh").read_text()
+        sql = (ROOT / "migrations" / "add_cadu_agent_campaign_projects.sql").read_text()
+        self.assertIn("run_add_cadu_agent_campaign_projects.py", deploy)
+        self.assertIn("campaign_id INTEGER PRIMARY KEY", sql)
+        self.assertIn("client_id INTEGER NOT NULL", sql)
 
     def test_identity_has_no_dashboard_and_redirects_to_product(self):
         app = _app()

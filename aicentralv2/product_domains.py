@@ -14,6 +14,7 @@ PRODUCT_CONFIG_KEYS = {
     "skills": "SKILLS_URL",
     "planner": "PLANNER_URL",
     "connect": "CONNECT_URL",
+    "workspace": "WORKSPACE_URL",
     "auth": "AUTH_URL",
 }
 
@@ -56,6 +57,7 @@ def register_product_host_routing(app) -> None:
         "STUDIO_URL": "parametros.modelagem_criativos",
         "SKILLS_URL": "cadu_skills.marketplace",
         "PLANNER_URL": "smart_planner.index",
+        "WORKSPACE_URL": "cadu_workspace.index",
     }
 
     @app.before_request

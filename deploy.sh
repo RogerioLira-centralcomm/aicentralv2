@@ -192,6 +192,9 @@ echo "[7/9] Atualizando schemas e dados..."
 "$VENV_PYTHON" migrations/run_add_d4sign_assinaturas.py
 "$VENV_PYTHON" migrations/run_add_google_login_credentials.py
 "$VENV_PYTHON" migrations/run_add_cadu_sso_tickets.py
+"$VENV_PYTHON" migrations/run_add_cadu_skills_marketplace.py
+"$VENV_PYTHON" migrations/run_add_cadu_skills_management.py
+"$VENV_PYTHON" migrations/run_add_cadu_agent_campaign_projects.py
 "$VENV_PYTHON" migrations/run_rename_percentual_to_fee_cliente.py
 "$VENV_PYTHON" migrations/run_add_format_variant_revisions.py
 "$VENV_PYTHON" migrations/run_sql_migration.py add_training_studio_import_palco.sql

@@ -10,8 +10,8 @@
   {% if session.get('user_id') %}
     {% if product_url is defined %}<a class="cadu-nav-link" href="{{ product_url('studio') }}">Studio</a>
     <a class="cadu-nav-link" href="{{ product_url('planner') }}">Planner</a>
-    <a class="cadu-nav-link" href="{{ product_url('connect') }}">Connect</a>{% endif %}
-    <a class="cadu-context-link" href="{{ centralx_home }}"><small>Área de trabalho</small><strong>{{ session.get('user_name', 'Minha conta') }}</strong></a>
+    <a class="cadu-nav-link" href="{{ product_url('connect') }}">Agentes</a>{% endif %}
+    <a class="cadu-context-link" href="{{ product_url('workspace') if product_url is defined else centralx_home }}"><small>Workspace</small><strong>{{ session.get('user_name', 'Minha conta') }}</strong></a>
     <a class="cadu-credit-link" href="{{ url_for('cadu_skills.studio') }}">Créditos</a>
     <a class="cadu-avatar" href="{{ auth_home }}" aria-label="Abrir conta">{{ session.get('user_name', 'U')[:2]|upper }}</a>
   {% else %}

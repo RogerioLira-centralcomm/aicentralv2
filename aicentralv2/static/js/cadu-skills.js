@@ -1,1 +1,78 @@
-document.addEventListener('DOMContentLoaded',()=>{const form=document.querySelector('[data-search]'),items=[...document.querySelectorAll('[data-item]')],empty=document.querySelector('[data-empty]');let category='all';const filter=()=>{if(!form)return;const q=form.querySelector('input').value.trim().toLocaleLowerCase('pt-BR');let shown=0;items.forEach(item=>{const visible=(!q||(item.dataset.text||'').toLocaleLowerCase('pt-BR').includes(q))&&(category==='all'||item.dataset.category===category);item.hidden=!visible;if(visible)shown++});empty.hidden=shown!==0};if(form){form.addEventListener('submit',e=>{e.preventDefault();filter()});form.querySelector('input').addEventListener('input',filter)}document.querySelectorAll('[data-category]').forEach(button=>button.addEventListener('click',()=>{category=button.dataset.category;document.querySelectorAll('[data-category]').forEach(x=>x.classList.toggle('is-active',x===button));filter()}));document.querySelectorAll('[data-prompt]').forEach(button=>button.addEventListener('click',()=>{const composer=document.querySelector('[data-composer],[data-public-composer]');composer.value=button.textContent.trim();composer.focus()}));const run=document.querySelector('[data-run]');if(run)run.addEventListener('click',async()=>{const message=document.querySelector('[data-message]'),composer=document.querySelector('[data-composer]');message.hidden=false;if(!composer.value.trim()){message.textContent='Escreva uma tarefa ou escolha um prompt inicial.';return}run.disabled=true;try{const response=await fetch(run.dataset.url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:composer.value.trim()})});const data=await response.json();message.textContent=data.error||'Solicitação recebida.'}catch(error){message.textContent='Não foi possível iniciar o teste agora.'}finally{run.disabled=false}});const preview=document.querySelector('[data-public-preview]');if(preview)preview.addEventListener('click',async()=>{const composer=document.querySelector('[data-public-composer]'),answer=document.querySelector('[data-public-answer]');answer.hidden=false;if(composer.value.trim().length<12){answer.textContent='Conte um pouco mais sobre a campanha.';return}preview.disabled=true;try{const response=await fetch(preview.dataset.url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:composer.value.trim()})});const data=await response.json();answer.textContent=data.answer||data.error;if(data.state){document.querySelectorAll('[data-remaining]').forEach(x=>x.textContent=data.state.remaining);document.querySelector('[data-ecosystem-invite]').hidden=!data.state.show_ecosystem_invite;if(!data.state.allowed)preview.disabled=true}else preview.disabled=false}catch(error){answer.textContent='Não foi possível consultar a prévia agora.';preview.disabled=false}})});
+document.addEventListener('DOMContentLoaded', () => {
+  const normalize = value => (value || '').toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const show = (node, value) => { node.textContent = value || ''; node.hidden = !value; };
+  const copyText = async value => {
+    if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(value);
+    const field = document.createElement('textarea');
+    field.value = value; field.setAttribute('readonly', ''); field.style.position = 'fixed'; field.style.opacity = '0';
+    document.body.appendChild(field); field.select();
+    const copied = document.execCommand('copy'); field.remove();
+    if (!copied) throw new Error('copy unavailable');
+  };
+  const search = document.querySelector('[data-search]');
+  if (search) {
+    const input = search.querySelector('input');
+    const filter = () => {
+      const query = normalize(input.value);
+      const active = document.querySelector('[data-categories] .is-active')?.dataset.category || 'all';
+      let visible = 0;
+      document.querySelectorAll('[data-item]').forEach(item => {
+        item.hidden = !(normalize(item.dataset.text).includes(query) && (active === 'all' || item.dataset.category === active));
+        if (!item.hidden) visible += 1;
+      });
+      const empty = document.querySelector('[data-empty]'); if (empty) empty.hidden = visible > 0;
+    };
+    search.addEventListener('submit', event => { event.preventDefault(); filter(); });
+    input.addEventListener('input', filter);
+    document.querySelector('[data-categories]')?.addEventListener('click', event => {
+      const button = event.target.closest('[data-category]'); if (!button) return;
+      event.currentTarget.querySelectorAll('button').forEach(item => item.classList.toggle('is-active', item === button)); filter();
+    });
+  }
+  document.querySelectorAll('[data-prompt]').forEach(button => button.addEventListener('click', () => {
+    const composer = document.querySelector('[data-public-composer], [data-composer]');
+    if (composer) { composer.value = button.textContent.trim(); composer.focus(); }
+  }));
+  const publicButton = document.querySelector('[data-public-preview]');
+  publicButton?.addEventListener('click', async () => {
+    const composer = document.querySelector('[data-public-composer]'), answer = document.querySelector('[data-public-answer]');
+    publicButton.disabled = true; show(answer, 'Executando a skill…');
+    try {
+      const response = await fetch(publicButton.dataset.url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({prompt:composer.value})});
+      const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Não foi possível executar a skill.');
+      show(answer, body.answer); document.querySelector('[data-remaining]').textContent = body.state.remaining;
+      const invite = document.querySelector('[data-ecosystem-invite]'); if (invite) invite.hidden = !body.state.show_ecosystem_invite;
+    } catch (error) { show(answer, error.message); } finally { publicButton.disabled = false; }
+  });
+  document.querySelector('[data-copy-skill]')?.addEventListener('click', async event => {
+    const button = event.currentTarget, content = document.querySelector('[data-skill-instructions]')?.textContent || '';
+    try { await copyText(content); button.textContent = 'Instruções copiadas'; fetch(button.dataset.url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({event:'copy'})}); }
+    catch (_) { button.textContent = 'Não foi possível copiar'; }
+  });
+  document.querySelectorAll('[data-copy-value]').forEach(button => button.addEventListener('click', async () => {
+    const original = button.dataset.copyLabel || button.textContent;
+    try {
+      await copyText(button.dataset.copyValue || ''); button.textContent = 'Copiado';
+    } catch (_) { button.textContent = 'Não foi possível copiar'; }
+    window.setTimeout(() => { button.textContent = original; }, 1800);
+  }));
+  const runButton = document.querySelector('[data-run]');
+  runButton?.addEventListener('click', async () => {
+    const answer = document.querySelector('[data-message]'); runButton.disabled = true; show(answer, 'Executando e verificando créditos…');
+    try {
+      const response = await fetch(runButton.dataset.url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({prompt:document.querySelector('[data-composer]').value})});
+      const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Não foi possível executar.');
+      show(answer, `${body.answer}\n\n${body.charged_credits} crédito(s) utilizado(s). Saldo: ${body.remaining_credits}.`);
+    } catch (error) { show(answer, error.message); } finally { runButton.disabled = false; }
+  });
+  const sharedForm = document.querySelector('[data-shared-run]');
+  sharedForm?.addEventListener('submit', async event => {
+    event.preventDefault(); const button = sharedForm.querySelector('button[type="submit"]'), status = sharedForm.querySelector('[data-run-status]'), answer = sharedForm.querySelector('[data-run-answer]');
+    button.disabled = true; status.textContent = 'Executando e verificando créditos…'; answer.hidden = true;
+    try {
+      const response = await fetch(sharedForm.dataset.url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({prompt:sharedForm.querySelector('textarea').value})});
+      const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Não foi possível executar.');
+      status.textContent = `${body.charged_credits} crédito(s) utilizado(s). Saldo: ${body.remaining_credits}.`; show(answer, body.answer);
+    } catch (error) { status.textContent = error.message; } finally { button.disabled = false; }
+  });
+});

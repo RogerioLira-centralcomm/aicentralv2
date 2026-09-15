@@ -1296,6 +1296,8 @@
     const base = baseVersion();
     if (!base?.image || state.generating) return;
     state.generating = true;
+    if ($('mcTrocrNewPiece')) $('mcTrocrNewPiece').disabled = true;
+    if ($('mcTrocrNewEdit')) $('mcTrocrNewEdit').disabled = true;
     editor?.setBusy(true);
     const variant = Number(extra?.scene_variant || 0);
     let fields;
@@ -1401,6 +1403,8 @@
       setStatus(error.message);
     } finally {
       state.generating = false;
+      if ($('mcTrocrNewPiece')) $('mcTrocrNewPiece').disabled = false;
+      renderVersions();
       editor?.setBusy(false);
       editor?.render();
       hideWait();
@@ -1426,7 +1430,9 @@
     }).catch(() => {});
   }
 
-  function useAsBase(id) {
+  async function useAsBase(id) {
+    if (state.generating || state.startingNewPiece) return;
+    if (editor?.isDirty() && !await persistHistory()) return;
     const version = state.versions.find((item) => item.id === id);
     if (!version) return;
     state.region = null;
@@ -1569,7 +1575,10 @@
     const list = $('mcTrocrVersions');
     const count = $('mcTrocrVersionCount');
     const create = $('mcTrocrNewEdit');
-    if (create) create.disabled = !state.versions.length;
+    if (create) {
+      create.disabled = !state.versions.length || state.generating;
+      create.title = currentVersion() ? `Continuar a partir de ${currentVersion().name}; as versões anteriores serão mantidas` : 'Envie uma imagem para começar';
+    }
     const historyCount = state.runs.length || state.versions.length;
     if ($('mcTrocrHistoryBtn')) $('mcTrocrHistoryBtn').disabled = !historyCount;
     if ($('mcTrocrOpenHistory')) $('mcTrocrOpenHistory').disabled = !historyCount;
@@ -1932,16 +1941,25 @@
   }
 
   async function onNewPiece() {
+    if (state.generating || state.startingNewPiece) return;
+    state.startingNewPiece = true;
+    try {
     if (state.versions.length) {
       const ok = await askConfirm(
-        'Nova troca',
-        'A troca atual fica no histórico da marca. Começar outro conjunto?',
+        'Começar uma nova peça?',
+        'Vamos salvar esta peça e suas versões no histórico da marca antes de abrir outra imagem.',
       );
       if (!ok) return;
       if (!await persistHistory()) return;
     }
     await startNewRun();
     setStatus('Solte uma imagem. PNG ou JPG.');
+    $('mcSwapDrop')?.focus();
+    } catch (error) {
+      toast(error.message || 'Não foi possível abrir outra peça. Tente novamente.', 'error');
+    } finally {
+      state.startingNewPiece = false;
+    }
   }
 
   async function startFresh(options) {
@@ -1987,8 +2005,8 @@
   }
 
   async function startNewRun() {
-    await startFresh({ persistEmpty: false });
     await resetHistory();
+    await startFresh({ persistEmpty: false });
   }
 
   async function resetHistory() {
@@ -2006,7 +2024,7 @@
     try {
       applyHistoryMeta(await request(API.history, body));
     } catch (error) {
-      if (!String(error.message || '').toLowerCase().includes('histórico mudou')) return;
+      if (!String(error.message || '').toLowerCase().includes('histórico mudou')) throw error;
       const data = await request(`${API.history}${historyQuery()}`);
       state.revision = Number(data?.revision) || 0;
       applyHistoryMeta(await request(API.history, { ...body, revision: state.revision }));

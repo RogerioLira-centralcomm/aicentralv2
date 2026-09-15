@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Cadu Media 3.0 — em construção</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('cadu_maintenance_product_icon', family='workspace', size=32) }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-maintenance.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-maintenance-motion.css') }}">
+</head>
+<body>
+  <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+  <main>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Cadu Media 3.0"><span class="brand-mark"><img src="{{ url_for('cadu_maintenance_product_icon', family='workspace', size=64) }}" alt=""></span><span>Cadu <b>Media</b><small>3.0</small></span></a>
+      <p class="status"><i></i> Construção em andamento</p>
+    </header>
+
+    <section class="hero" aria-labelledby="page-title">
+      <div class="hero-copy">
+        <p class="kicker">Uma nova plataforma de mídia</p>
+        <h1 id="page-title">Estamos redesenhando o jeito de fazer mídia.</h1>
+        <p class="intro">O Cadu Media 3.0 está conectando estratégia, criação e operação em uma experiência só. Voltamos em 14 de outubro.</p>
+        <div class="countdown" data-release="{{ release_at.isoformat() }}" aria-label="Contagem regressiva até 14 de outubro">
+          <div><strong data-days>--</strong><span>dias</span></div><div><strong data-hours>--</strong><span>horas</span></div><div><strong data-minutes>--</strong><span>minutos</span></div><div><strong data-seconds>--</strong><span>segundos</span></div>
+        </div>
+        <p class="date-note">Reabertura prevista para 14/10/2026</p>
+      </div>
+      <div class="signal" data-signal aria-hidden="true">
+        <div class="signal-grid"></div><div class="orb orb-a"></div><div class="orb orb-b"></div><div class="signal-center"><span>Cadu</span><b>3.0</b></div>
+        <span class="signal-label label-a">planejar</span><span class="signal-label label-b">criar</span><span class="signal-label label-c">ativar</span>
+      </div>
+    </section>
+
+    <section class="family" aria-labelledby="family-title">
+      <div class="section-intro"><p class="kicker">Uma família, um contexto</p><h2 id="family-title">Tudo que sua operação precisa para avançar.</h2></div>
+      <div class="product-grid">
+        {% for product in [('workspace', 'Workspace', 'Conta, projetos e contexto compartilhado.'), ('planner', 'Planner', 'Decisões de mídia com direção e clareza.'), ('studio', 'Studio', 'Criação para cada formato e cada campanha.'), ('connect', 'Connect', 'Integrações, agentes e operação em fluxo.'), ('skills', 'Skills', 'Conhecimento especialista no momento certo.')] %}
+        <article class="product {{ product[0] }}"><span class="product-icon"><img src="{{ url_for('cadu_maintenance_product_icon', family=product[0], size=48) }}" alt=""></span><div><h3>{{ product[1] }}</h3><p>{{ product[2] }}</p></div></article>
+        {% endfor %}
+      </div>
+    </section>
+    <footer>Uma plataforma CentralComm <span>•</span> Cadu Media 3.0</footer>
+  </main>
+  <script src="{{ url_for('static', filename='js/cadu-maintenance.js') }}"></script>
+</body>
+</html>

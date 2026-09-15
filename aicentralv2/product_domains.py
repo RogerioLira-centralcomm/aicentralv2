@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from urllib.parse import urlparse
 
-from flask import current_app, redirect, request, url_for
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+from flask import current_app, make_response, redirect, render_template, request, send_file, url_for
 
 
 PRODUCT_CONFIG_KEYS = {
@@ -51,6 +55,14 @@ def safe_product_target(value: str | None, fallback: str = "/") -> str:
 def register_product_host_routing(app) -> None:
     """Give each product domain a useful root while legacy paths remain valid."""
 
+    @app.get("/cadu-assets/<family>/icon-<int:size>.png")
+    def cadu_maintenance_product_icon(family: str, size: int):
+        """Approved Cadu 3.0 symbols, exposed only for the public pause page."""
+        if family not in {"workspace", "studio", "connect", "skills", "planner"} or size not in {16, 20, 24, 32, 40, 48, 64, 96, 128, 192, 512, 1024}:
+            return "", 404
+        asset = Path(app.root_path).parent / "output" / "mockups" / "brand-assets" / "icons-2d" / family / f"icon-{size}.png"
+        return send_file(asset, mimetype="image/png", max_age=86400)
+
     endpoints = {
         "AUTH_URL": "cadu_identity.index",
         "CONNECT_URL": "cadu_connect.index",
@@ -63,6 +75,21 @@ def register_product_host_routing(app) -> None:
     @app.before_request
     def route_product_root():
         host = (request.host.split(":", 1)[0] or "").lower()
+        cadu_host = _configured_host("CADU_URL") or "cadu.centralcomm.media"
+
+        # O domínio do Cadu passa à experiência 3.0: links antigos são contidos
+        # aqui, sem envolver CentralX nem o aplicativo PHP desativado.
+        release_at = datetime(2026, 10, 14, tzinfo=ZoneInfo("America/Sao_Paulo"))
+        if (
+            request.method in {"GET", "HEAD"}
+            and request.endpoint not in {"static", "cadu_maintenance_product_icon"}
+            and host == cadu_host
+            and datetime.now(ZoneInfo("America/Sao_Paulo")) < release_at
+        ):
+            response = make_response(render_template("cadu_maintenance.html", release_at=release_at))
+            response.headers["Cache-Control"] = "no-store, max-age=0"
+            return response
+
         auth_host = _configured_host("AUTH_URL")
         known_hosts = {_configured_host(key) for key in PRODUCT_CONFIG_KEYS.values()}
         identity_endpoints = {"login", "forgot_password", "reset_password"}

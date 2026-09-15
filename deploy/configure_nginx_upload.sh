@@ -41,6 +41,10 @@ for f in /etc/nginx/sites-enabled/* /etc/nginx/sites-available/* /etc/nginx/conf
         sudo sed -i '/^[[:space:]]*server_name[[:space:]]/,/;/ { /;[[:space:]]*$/ s/;[[:space:]]*$/ workspace.centralcomm.media;/; }' "$f"
         echo "  > workspace.centralcomm.media adicionado ao server_name"
     fi
+    if ! sed -n '/^[[:space:]]*server_name[[:space:]]/,/;/p' "$f" | grep -q 'cadu\.centralcomm\.media'; then
+        sudo sed -i '/^[[:space:]]*server_name[[:space:]]/,/;/ { /;[[:space:]]*$/ s/;[[:space:]]*$/ cadu.centralcomm.media;/; }' "$f"
+        echo "  > cadu.centralcomm.media adicionado ao server_name"
+    fi
     echo "  > client_max_body_size 256M em $(basename "$f")"
     patched=$((patched + 1))
 done

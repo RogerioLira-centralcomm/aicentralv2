@@ -8,7 +8,7 @@ from pathlib import Path
 from flask import request, session, current_app
 from ..auth import admin_required_api
 from ..creative_format_lab.swap_csrf import trocr_csrf_required
-from .studio import _scope, _record, _write, probe, waveform
+from .studio import _scope, _record, _write, probe, waveform_levels
 
 
 def public(row):
@@ -138,7 +138,8 @@ def run_task(root,ident):
             if 'audio' not in streams:raise ValueError('Este vídeo não contém áudio.')
             dest=root/f'{ident}.m4a'
             subprocess.run(['ffmpeg','-y','-v','error','-i',str(source),'-map','0:a:0','-vn','-c:a','aac','-b:a','128k',str(dest)],check=True,capture_output=True,timeout=120)
-            result={'id':ident,'name':'Áudio extraído do vídeo','category':'voice','duration':duration,'waveform':waveform(dest),'url':f'/parametros/api/format-lab/studio/sounds/{ident}?client_id={client}','created_at':row['created_at']}
+            levels=waveform_levels(dest)
+            result={'id':ident,'name':'Áudio extraído do vídeo','category':'voice','duration':duration,'waveform':levels['overview'],'waveform_levels':levels,'url':f'/parametros/api/format-lab/studio/sounds/{ident}?client_id={client}','created_at':row['created_at']}
             _write(root/f'sound-{ident}.json',result)
         else:
             if work.get('composition'):

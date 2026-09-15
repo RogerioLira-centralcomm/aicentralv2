@@ -33,10 +33,12 @@ class EditorMediaTest(unittest.TestCase):
             self.assertEqual(meta.status_code,200,meta.json)
             self.assertEqual(len(meta.json['data']['frames']),8)
             self.assertTrue(meta.json['data']['waveform'])
+            self.assertGreater(len(meta.json['data']['waveform_levels']['detail']),len(meta.json['data']['waveform_levels']['overview']))
             with client.get(meta.json['data']['frames'][0]['url']) as frame:self.assertEqual(frame.status_code,200)
             self.assertEqual(client.post(base+'/inspect',json={**body,'client_id':32},headers=headers).status_code,400)
             extracted=client.post(base+'/extract-audio',json=body,headers=headers)
             self.assertEqual(extracted.status_code,200,extracted.json)
+            self.assertGreater(len(extracted.json['data']['waveform_levels']['medium']),len(extracted.json['data']['waveform']))
             from aicentralv2.creative_media import studio
             export_body={**body,'request_id':'b'*32,'edit':{'output_ratio':'9:16','start':.2,'end':2,'original_volume':0,'sound_id':public_sounds()[1][0]['id'],'loop':True,'layers':[{'text':'Oferta','start':0,'end':1.5,'animation':'fade'}]}}
             with patch.object(studio._POOL,'submit',side_effect=lambda fn,*args:fn(*args)):

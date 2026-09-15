@@ -39,13 +39,15 @@ export function bindMediaEditor(dirty,paint,reloadSounds) {
       const result=await mediaTask('inspect',{client_id:client,clip_id:clip});
       if(ticket!==request || client!==state.clientId || clip!==state.activeClipId)return;
       info=result;
+      const clipRow=state.clips.find(row=>row.id===clip||row.job_id===clip);
+      if(clipRow){clipRow.waveform=result.waveform||[];clipRow.waveform_levels=result.waveform_levels||null;clipRow.frames=result.frames||[];}
       $('mcStudioOriginalLabel').textContent=result.has_audio?'Áudio original do vídeo':'Vídeo sem faixa de áudio';
       $('mcStudioExtractAudio').disabled=!result.has_audio;$('mcStudioMuteOriginal').disabled=!result.has_audio;
       peaks('mcStudioOriginalWaveform',result.waveform);
       $('mcStudioFilmstrip').replaceChildren(...result.frames.map(frame=>{
         const image=document.createElement('img');image.src=frame.url;image.alt=`Quadro em ${frame.time.toFixed(1)}s`;image.loading='lazy';return image;
       }));
-      paintMute();
+      paintMute();paint();
     }catch(error){if(ticket===request && client===state.clientId)$('mcStudioOriginalLabel').textContent=`Análise indisponível: ${error.message}`;}
   });
   $('mcStudioExtractAudio')?.addEventListener('click',async()=>{

@@ -45,19 +45,25 @@ function sync(value,time,rate,volume,on){
   if(Number.isFinite(value.duration)&&Math.abs(value.currentTime-time)>(playing?.18:.025))value.currentTime=Math.max(0,Math.min(value.duration,time));
   if(playing&&on){if(value.paused)value.play().catch(()=>{});}else value.pause();
 }
+function gainAt(points,time){
+  if(!points?.length)return 1;const rows=[...points].sort((a,b)=>a.time-b.time);
+  if(time<=rows[0].time)return rows[0].gain;
+  for(let i=1;i<rows.length;i++)if(time<rows[i].time){const a=rows[i-1],b=rows[i],p=(time-a.time)/Math.max(.001,b.time-a.time);return a.gain+(b.gain-a.gain)*p;}
+  return rows.at(-1).gain;
+}
 function draw(){
   if(!active)return;
   const c=state.composition,ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height,plan=schedule(c.items),visible=plan.filter(r=>at>=r.start&&at<r.end),lastItem=plan.at(-1);
   if(!visible.length&&at===total()&&lastItem)visible.push(lastItem);
   ctx.fillStyle='#000';ctx.fillRect(0,0,w,h);
-  const used=new Set();
+  const used=new Set(),hasSolo=c.audio.some(track=>track.solo&&!track.muted);
   for(const entry of visible){
     const {row,start,overlap}=entry,local=Math.max(0,at-start),value=element(row);if(!value)continue;used.add(row.id);
     const index=plan.indexOf(entry),previous=plan[index-1],next=plan[index+1];
     let gain=1;
     if(overlap&&local<overlap)gain=local/overlap;
     if(next?.overlap&&at>next.start)gain=Math.min(gain,(entry.end-at)/next.overlap);
-    if(row.kind==='video')sync(value,row.in+local*row.speed,row.speed,row.volume*gain,true);
+    if(row.kind==='video')sync(value,row.in+local*row.speed,row.speed,hasSolo?0:row.volume*gain,true);
     const iw=value.videoWidth||value.naturalWidth,ih=value.videoHeight||value.naturalHeight;if(!iw||!ih)continue;
     const k=valuesAt(row.keyframes,local),mode=row.fit==='cover'?Math.max(w/iw,h/ih):Math.min(w/iw,h/ih),zoom=row.motion==='zoom'?1+.08*Math.min(1,local/length(row)):1;
     const p=overlap?Math.min(1,local/overlap):1,transition=previous?.row.transition;
@@ -79,7 +85,7 @@ function draw(){
     let audio=music.get(i);if(!audio){const sound=state.sounds?.find(r=>r.id===track.sound_id);audio=new Audio(sound?.url||`/parametros/api/format-lab/studio/sounds/${encodeURIComponent(track.sound_id)}?client_id=${encodeURIComponent(state.clientId)}`);audio.preload='auto';music.set(i,audio);}
     let offset=track.in+Math.max(0,time);if(track.loop&&Number.isFinite(audio.duration)&&audio.duration>0)offset%=audio.duration;
     const gain=Math.min(1,track.fade_in?Math.max(0,time)/track.fade_in:1,track.fade_out?Math.max(0,track.duration-time)/track.fade_out:1);
-    sync(audio,offset,1,track.muted?0:track.volume*gain,on);
+    sync(audio,offset,1,track.muted||(hasSolo&&!track.solo)?0:track.volume*gain*gainAt(track.gain_points,time),on);
   }
   for(const row of state.edit.layers||[]){
     if(row.hidden||at<row.start||at>=row.end)continue;
@@ -90,6 +96,7 @@ function draw(){
   }
   drawCaptions(ctx,c,at,w,h);
   $('mcLiveSeek').max=total();$('mcLiveSeek').value=at;$('mcLiveTime').value=`${at.toFixed(1)} / ${total().toFixed(1)}s`;$('mcLivePlay').textContent=playing?'Pausar montagem':'Reproduzir montagem';
+  document.dispatchEvent(new CustomEvent('cadu:preview-time',{detail:at}));
   // Preload the next source, keeping only the active and adjacent video decoders.
   const next=plan.find(r=>r.start>at);if(next)element(next.row);
 }

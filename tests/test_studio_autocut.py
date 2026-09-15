@@ -34,6 +34,27 @@ class AutoCutTest(unittest.TestCase):
         self.assertEqual(len(c['items']),31)
         self.assertEqual(c['items'][0]['voice']['preset'],'warm')
 
+    def test_review_selection_and_restore_snapshot_survive_normalization(self):
+        original={'items':[{'id':'clip-a','kind':'video','out':3}],
+                  'audio':[{'sound_id':'music-a','duration':3}],
+                  'captions':[{'start':.5,'end':1.2,'text':'Legenda original'}],
+                  'selected':'clip-a','selected_audio':0}
+        c=normalize_composition({**original,'selected_audio':0,'autocut':{
+            'cuts':[{'in':1.2,'out':1.8,'reason':'silence'}],
+            'decisions':['silence:1.20:1.80'],
+            'review':[{'in':2.1,'out':2.4,'reason':'hesitation','score':.8}],
+            'duration':3,'removed_duration':.6,'applied':True,
+            'options':{'mode':'aggressive','transition':'fade','transition_duration':.08},
+            'original':original,
+        }})
+        self.assertEqual(c['selected'],'clip-a')
+        self.assertEqual(c['selected_audio'],0)
+        self.assertTrue(c['autocut']['applied'])
+        self.assertEqual(c['autocut']['decisions'],['silence:1.20:1.80'])
+        self.assertEqual(c['autocut']['review'][0]['reason'],'hesitation')
+        self.assertEqual(c['autocut']['original']['captions'][0]['text'],'Legenda original')
+        self.assertEqual(c['autocut']['original']['selected_audio'],0)
+
     def test_audio_filters_render_and_preserve_duration(self):
         with tempfile.TemporaryDirectory() as folder:
             dest=Path(folder)/'clean.wav'

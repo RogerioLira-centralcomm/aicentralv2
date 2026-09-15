@@ -9,7 +9,7 @@ from pathlib import Path
 from flask import request, send_file, session
 from ..auth import admin_required_api
 from ..creative_format_lab.swap_csrf import trocr_csrf_required
-from .studio import _scope, _record, _write, probe, waveform
+from .studio import _scope, _record, _write, probe, waveform_levels
 
 
 def public_sounds():
@@ -37,7 +37,10 @@ def inspect_clip(source, root, client, ident):
     key = hashlib.sha256(f'{ident}:{stat.st_size}:{stat.st_mtime_ns}'.encode()).hexdigest()[:32]
     cache = root / f'inspect-{key}.json'
     if cache.exists():
-        return json.loads(cache.read_text())
+        cached=json.loads(cache.read_text())
+        if cached.get('has_audio') and not cached.get('waveform_levels'):
+            levels=waveform_levels(source);cached['waveform']=levels['overview'];cached['waveform_levels']=levels;_write(cache,cached)
+        return cached
     duration, streams = probe(source)
     if 'video' not in streams or not 0 < duration <= 300:
         raise ValueError('Use um vídeo com até 5 minutos.')
@@ -47,8 +50,9 @@ def inspect_clip(source, root, client, ident):
         dest = root / f'frame-{key}-{index}.jpg'
         subprocess.run(['ffmpeg','-y','-v','error','-ss',str(at),'-i',str(source),'-frames:v','1','-vf','scale=192:108:force_original_aspect_ratio=decrease,pad=192:108:(ow-iw)/2:(oh-ih)/2','-threads','1',str(dest)],check=True,capture_output=True,timeout=30)
         frames.append({'time': round(at, 3), 'url': f'/parametros/api/format-lab/studio/frames/{key}/{index}?client_id={int(client)}'})
+    levels=waveform_levels(source) if 'audio' in streams else {'overview':[],'medium':[],'detail':[]}
     row = {'duration': duration, 'has_audio': 'audio' in streams, 'frames': frames,
-           'waveform': waveform(source) if 'audio' in streams else []}
+           'waveform': levels['overview'], 'waveform_levels':levels}
     _write(cache, row)
     return row
 
@@ -156,7 +160,8 @@ def extract_audio():
             raise ValueError('Este vídeo não contém uma faixa de áudio.')
         ident=uuid.uuid4().hex; dest=root / f'{ident}.m4a'
         subprocess.run(['ffmpeg','-y','-v','error','-i',str(source),'-map','0:a:0','-vn','-c:a','aac','-b:a','128k',str(dest)],check=True,capture_output=True,timeout=90)
-        row={'id':ident,'name':'Áudio extraído do vídeo','category':'voice','duration':duration,'waveform':waveform(dest),'url':f'/parametros/api/format-lab/studio/sounds/{ident}?client_id={int(client)}','created_at':time.time()}
+        levels=waveform_levels(dest)
+        row={'id':ident,'name':'Áudio extraído do vídeo','category':'voice','duration':duration,'waveform':levels['overview'],'waveform_levels':levels,'url':f'/parametros/api/format-lab/studio/sounds/{ident}?client_id={int(client)}','created_at':time.time()}
         _write(root / f'sound-{ident}.json',row)
         return ok(row)
     return execute(run)

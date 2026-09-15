@@ -14,7 +14,7 @@ class CompositionTest(unittest.TestCase):
     def setUpClass(cls):
         cls.temp=tempfile.TemporaryDirectory();cls.root=Path(cls.temp.name)
         cls.video=cls.root/'clip.mp4';cls.image=cls.root/'image.jpg';cls.sound=cls.root/'sound.wav'
-        subprocess.run(['ffmpeg','-y','-v','error','-f','lavfi','-i','color=blue:s=72x128:d=1.5:r=24','-c:v','libx264','-pix_fmt','yuv420p',str(cls.video)],check=True)
+        subprocess.run(['ffmpeg','-y','-v','error','-f','lavfi','-i','color=blue:s=72x128:d=1.5:r=24','-f','lavfi','-i','sine=frequency=220:duration=1.5','-shortest','-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac',str(cls.video)],check=True)
         subprocess.run(['ffmpeg','-y','-v','error','-f','lavfi','-i','sine=frequency=440:duration=1.5',str(cls.sound)],check=True)
         Image.new('RGB',(90,160),'red').save(cls.image)
 
@@ -25,7 +25,7 @@ class CompositionTest(unittest.TestCase):
         c=normalize_composition({'ratio':'9:16','fps':24,'items':[
             {'kind':'video','in':.2,'out':1.2,'transition':'fade','transition_duration':.2},
             {'kind':'image','duration':1,'motion':'zoom'}],
-            'audio':[{'sound_id':'a','duration':1.5,'volume':.2,'fade_in':.1},{'sound_id':'b','start':.3,'duration':.8,'muted':True}],
+            'audio':[{'sound_id':'a','duration':1.5,'volume':.2,'fade_in':.1,'solo':True,'gain_points':[{'time':.2,'gain':1.5},{'time':.8,'gain':.25}]},{'sound_id':'b','start':.3,'duration':.8,'muted':True}],
             'layers':[{'text':'OFERTA','start':.2,'end':1,'size':.08,'animation':'fade'}],
             'captions':[{'start':.4,'end':1.5,'text':'Conheça a oferta'}]})
         output=self.root/'composed.mp4'
@@ -34,6 +34,8 @@ class CompositionTest(unittest.TestCase):
         self.assertEqual((meta['width'],meta['height']),(720,1280))
         self.assertAlmostEqual(meta['duration'],1.8,delta=.15)
         self.assertTrue(meta['has_audio'])
+        self.assertTrue(c['audio'][0]['solo'])
+        self.assertEqual(c['audio'][0]['gain_points'][1],{'time':.8,'gain':.25})
         pixel=subprocess.check_output(['ffmpeg','-v','error','-ss','1.6','-i',str(output),'-vf','scale=1:1','-frames:v','1','-f','rawvideo','-pix_fmt','rgb24','-'])
         self.assertGreater(pixel[0],pixel[2])
 
@@ -41,6 +43,14 @@ class CompositionTest(unittest.TestCase):
         c=normalize_composition({'ratio':'1:1','items':[{'kind':'video','in':0,'out':.5,'volume':0},{'kind':'image','duration':.5}]})
         output=self.root/'cut.mp4';render_composition(c,[self.video,self.image],[],output)
         self.assertAlmostEqual(inspect_video(output.read_bytes())['duration'],1,delta=.15)
+
+    def test_solo_track_mutes_original_video_audio(self):
+        c=normalize_composition({'items':[{'kind':'video','in':0,'out':1}],
+                                 'audio':[{'sound_id':'a','duration':1,'volume':0,'solo':True}]})
+        output=self.root/'solo.mp4';render_composition(c,[self.video],[self.sound],output)
+        probe=subprocess.run(['ffmpeg','-v','info','-i',str(output),'-af','volumedetect','-f','null','-'],capture_output=True,text=True,check=True)
+        volume_line=next(line for line in probe.stderr.splitlines() if 'mean_volume:' in line)
+        self.assertLess(float(volume_line.split('mean_volume:',1)[1].split('dB',1)[0]),-80)
 
     def test_image_keyframes_preserve_output_geometry(self):
         c=normalize_composition({'ratio':'9:16','fps':24,'items':[{'kind':'image','duration':.5,'keyframes':[{'time':0,'scale':.5,'rotation':0,'opacity':1},{'time':.5,'scale':.8,'rotation':30,'opacity':.5}]}]})

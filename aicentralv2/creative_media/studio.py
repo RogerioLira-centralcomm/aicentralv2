@@ -70,16 +70,22 @@ def probe(path):
     return duration, {row.get("codec_type") for row in data.get("streams", [])}
 
 
-def waveform(path):
+def waveform_levels(path):
     result = subprocess.run(['ffmpeg', '-v', 'error', '-i', str(path), '-vn', '-ac', '1', '-ar', '1000', '-f', 's16le', '-'], capture_output=True, check=True, timeout=30)
     samples = array('h')
     samples.frombytes(result.stdout)
     if not samples:
-        return []
-    step = max(1, len(samples) // 96)
-    peaks = [max(abs(value) for value in samples[i:i+step]) / 32768 for i in range(0, len(samples), step)][:96]
-    scale = max(peaks) or 1
-    return [round(value / scale, 3) for value in peaks]
+        return {'overview':[],'medium':[],'detail':[]}
+    def peaks(count):
+        step=max(1,(len(samples)+count-1)//count)
+        values=[max(abs(value) for value in samples[i:i+step])/32768 for i in range(0,len(samples),step)][:count]
+        scale=max(values) or 1
+        return [round(value/scale,3) for value in values]
+    return {'overview':peaks(96),'medium':peaks(384),'detail':peaks(1536)}
+
+
+def waveform(path):
+    return waveform_levels(path)['overview']
 
 
 def _write(path, data):
@@ -283,10 +289,10 @@ def sounds():
         finally:
             source.unlink(missing_ok=True)
         try:
-            peaks = waveform(dest)
+            levels = waveform_levels(dest);peaks=levels['overview']
         except (subprocess.SubprocessError, OSError):
-            peaks = []
-        row = {'waveform': peaks, 'id': ident, 'name': str(upload.filename or 'Áudio').replace('\\', '/').split('/')[-1][:120],
+            levels={'overview':[],'medium':[],'detail':[]};peaks=[]
+        row = {'waveform': peaks, 'waveform_levels': levels, 'id': ident, 'name': str(upload.filename or 'Áudio').replace('\\', '/').split('/')[-1][:120],
                'duration': round(duration, 2), 'category': request.form.get('category') if request.form.get('category') in {'music', 'effect', 'ambient', 'voice'} else 'music',
                'url': f'/parametros/api/format-lab/studio/sounds/{ident}?client_id={int(client)}',
                'created_at': time.time()}

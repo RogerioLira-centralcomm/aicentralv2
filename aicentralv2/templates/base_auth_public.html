@@ -17,7 +17,12 @@
 <body class="auth-public{% if is_centralx_host|default(false) %} auth-public--centralx{% endif %}" data-auth-page="{% block page_name %}access{% endblock %}">
   <main class="auth-layout">
     {% set active_product = active_auth_product|default('workspace', true) %}
-    {% if not is_centralx_host|default(false) %}
+    {% if is_centralx_host|default(false) %}
+    <aside class="auth-scene auth-product-showcase auth-scene--centralx" aria-label="CentralX">
+      <img class="auth-scene-image" src="{{ url_for('static', filename='images/centralx-login-3d-v1.png') }}" alt="">
+      <div class="auth-scene-shade"></div>
+    </aside>
+    {% else %}
     <aside class="auth-scene auth-product-showcase" aria-label="{{ 'CentralX' if is_centralx_host|default(false) else 'Contexto da solução Cadu' }}">
       {% set auth_products = [
         ('workspace','Workspace','Sua operação de mídia, conectada de ponta a ponta.','Planeje, crie e acompanhe sem trocar de contexto.','cadu-hub.png','cadu-icon.png'),
@@ -63,10 +68,6 @@
           {% block content %}{% endblock %}
         </div>
 
-        <footer class="auth-footer">
-          <span>{% if not is_centralx_host|default(false) %}<i class="fa-solid fa-shield-halved" aria-hidden="true"></i> {% endif %}Acesso protegido</span>
-          <span>{{ 'CentralX' if is_centralx_host|default(false) else 'Cadu' }} © 2026</span>
-        </footer>
       </div>
     </section>
   </main>

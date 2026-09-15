@@ -200,12 +200,14 @@ def create_app(config_class=Config):
         )
         from .camadas.routes import register_camadas_routes
         from .integration_settings_routes import register_integration_settings_routes
+        from .server_monitor_routes import register_server_monitor_routes
         from .training_studio.routes import register_training_studio_routes
 
         register_creative_modeling_routes(parametros_bp)
         register_camadas_routes(parametros_bp)
         register_modeling_ux_lab(app)
         register_integration_settings_routes(parametros_bp)
+        register_server_monitor_routes(parametros_bp)
         register_training_studio_routes(parametros_bp)
         app.register_blueprint(dv360_bp)
         app.register_blueprint(dv360_pages_bp)

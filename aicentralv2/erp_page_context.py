@@ -72,6 +72,7 @@ ENDPOINT_CONTEXT = {
     "parametros.treinamentos_projetar": ("parametros", "treinamentos"),
     "parametros.treinamentos_projetar_sessao": ("parametros", "treinamentos"),
     "parametros.integracoes": ("parametros", "integracoes"),
+    "parametros.monitoramento_servidor": ("parametros", "monitoramento_servidor"),
     "assinaturas.mesa": ("operacao", "assinaturas"),
     "assinaturas.novo": ("operacao", "assinaturas"),
     "assinaturas.viewer": ("operacao", "assinaturas"),

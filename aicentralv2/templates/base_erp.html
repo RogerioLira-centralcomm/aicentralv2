@@ -697,6 +697,7 @@
         {'group': 'Sistema e diagnóstico', 'label': 'Assistente IA', 'endpoint': 'intelligence.index', 'match_prefix': 'intelligence.', 'url': url_for('intelligence.index'), 'icon': 'fa-robot'},
         {'group': 'Sistema e diagnóstico', 'label': 'KPIs (legado)', 'endpoint': 'parametros.lista_old_kpi', 'url': url_for('parametros.lista_old_kpi'), 'icon': 'fa-chart-line'},
         {'group': 'Sistema e diagnóstico', 'label': 'Logs de auditoria', 'endpoint': 'logs_auditoria', 'url': url_for('logs_auditoria'), 'icon': 'fa-clipboard-list'},
+        {'group': 'Sistema e diagnóstico', 'label': 'Monitoramento do servidor', 'endpoint': 'parametros.monitoramento_servidor', 'url': url_for('parametros.monitoramento_servidor'), 'icon': 'fa-heart-pulse'},
         {'group': 'Sistema e diagnóstico', 'label': 'Migrations do banco', 'endpoint': 'admin_migrations.page', 'url': url_for('admin_migrations.page'), 'icon': 'fa-database', 'superadmin_only': true},
         {'group': 'Sistema e diagnóstico', 'label': 'Teste Brevo', 'endpoint': 'brevo_test.formulario_teste_brevo', 'url': url_for('brevo_test.formulario_teste_brevo'), 'icon': 'fa-envelope-open-text'},
         {'group': 'Sistema e diagnóstico', 'label': 'Testes DV360', 'endpoint': 'parametros.testes_dv', 'match_endpoints': ['parametros.testes_dv_legado', 'dv360_pages.diagnostico'], 'url': url_for('parametros.testes_dv'), 'icon': 'fa-vial'}

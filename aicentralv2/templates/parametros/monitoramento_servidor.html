@@ -1,0 +1,45 @@
+{% extends 'base_erp.html' %}
+
+{% block title %}Monitoramento do servidor — CentralX{% endblock %}
+{% block page_label %}Parâmetros{% endblock %}
+{% block page_subtitle %}Saúde do ambiente CentralX{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/server-monitor.css') }}?v=1">
+{% endblock %}
+
+{% block content %}
+<main class="server-monitor" data-server-monitor data-api-url="{{ url_for('parametros.api_server_monitor') }}">
+  <header class="monitor-head">
+    <div>
+      <a class="monitor-back" href="{{ url_for('parametros.integracoes') }}"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Parâmetros</a>
+      <div class="monitor-title-line"><span class="monitor-pulse" aria-hidden="true"></span><h1>Centro de operações</h1></div>
+      <p>Uma leitura única da infraestrutura que mantém o CentralX disponível.</p>
+    </div>
+    <div class="monitor-head-actions">
+      <span class="monitor-updated" data-monitor-updated>Atualizando dados…</span>
+      <button class="cx-btn cx-btn-primary" type="button" data-monitor-refresh><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Atualizar agora</button>
+    </div>
+  </header>
+
+  <section class="monitor-command" aria-label="Estado do ambiente">
+    <div class="monitor-command-status"><span class="monitor-status-dot" data-server-dot></span><div><span>Ambiente de produção</span><strong data-server-status>Carregando status</strong></div></div>
+    <dl><div><dt>Servidor</dt><dd data-server-name>—</dd></div><div><dt>Disponível há</dt><dd data-server-uptime>—</dd></div><div><dt>Sistema</dt><dd data-server-platform>—</dd></div></dl>
+  </section>
+
+  <section class="monitor-section">
+    <div class="monitor-section-title"><div><h2>Capacidade do ambiente</h2><p>O limite de atenção começa em 80%; a intervenção, em 85%.</p></div><span>Atualização em tempo real</span></div>
+    <div class="resource-grid">
+      <article class="resource-card"><div class="resource-icon is-cpu"><i class="fa-solid fa-microchip" aria-hidden="true"></i></div><div class="resource-copy"><span>Processamento</span><strong data-resource-cpu>—</strong><small data-resource-cpu-detail>—</small></div><div class="resource-meter"><i data-resource-cpu-bar></i></div></article>
+      <article class="resource-card"><div class="resource-icon is-memory"><i class="fa-solid fa-memory" aria-hidden="true"></i></div><div class="resource-copy"><span>Memória</span><strong data-resource-memory>—</strong><small data-resource-memory-detail>—</small></div><div class="resource-meter"><i data-resource-memory-bar></i></div></article>
+      <article class="resource-card"><div class="resource-icon is-disk"><i class="fa-solid fa-hard-drive" aria-hidden="true"></i></div><div class="resource-copy"><span>Espaço em disco</span><strong data-resource-disk>—</strong><small data-resource-disk-detail>—</small></div><div class="resource-meter"><i data-resource-disk-bar></i></div></article>
+    </div>
+  </section>
+
+  <div class="monitor-columns">
+    <section class="monitor-panel monitor-domains"><header><div><h2>Domínios conectados</h2><p>DNS e TLS validados a cada atualização.</p></div><span class="monitor-counter" data-domain-count>0 domínios</span></header><div class="domain-list" data-domain-list></div><footer>Produtos CentralComm são carregados da configuração do ambiente. Para incluir serviços extras, use <code>CENTRALX_MONITOR_DOMAINS</code>.</footer></section>
+    <section class="monitor-panel monitor-alerts"><header><div><h2>Sinais que pedem atenção</h2><p>O que precisa de ação antes de impactar pessoas.</p></div></header><div class="alert-list" data-alert-list></div></section>
+  </div>
+</main>
+<script src="{{ url_for('static', filename='js/server-monitor.js') }}?v=1" defer></script>
+{% endblock %}

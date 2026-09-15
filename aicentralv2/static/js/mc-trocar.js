@@ -2135,17 +2135,15 @@
         : (blocked
           ? 'Ajuste o pedido antes de gerar.'
           : (typeset
-            ? 'O texto novo entra na foto. A imagem não muda.'
+            ? 'O texto novo entra na foto.'
             : (recrop
-              ? 'O formato muda. O texto entra na foto depois.'
+              ? 'O formato será recomposto.'
               : (risk?.level === 'high'
                 ? safeReason(risk, 'Os selos desta cartela costumam embaralhar se a peça for redesenhada.')
-                : 'A peça é redesenhada com o pedido.'))));
+                : 'A peça será redesenhada.'))));
     }
     paintCost(quote);
     paintRisk(risk, state.mode);
-    const destLead = document.querySelector('.mc-trocr-dest-lead');
-    if (destLead) destLead.hidden = typeset || noop || blocked;
     if ($('mcTrocrQualityBox')) $('mcTrocrQualityBox').hidden = typeset || noop || blocked;
     if ($('mcTrocrDraft')) $('mcTrocrDraft').hidden = true;
     paintGoLabel();

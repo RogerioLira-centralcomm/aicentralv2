@@ -319,3 +319,74 @@
   color:#e8f5f0;
 }
 .trocr-editor .trocr-workspace .trocr-campaign-fold { border-bottom-color:var(--tr-border); }
+
+/* The assistant gives one decision, not a stack of competing alarms. */
+.trocr-editor .mc-trocr-route {
+  gap:4px;
+  padding:10px;
+  border-color:#3e7770;
+  background:#213a38;
+  color:var(--tr-ink);
+}
+.trocr-editor .mc-trocr-route-copy,
+.trocr-editor .mc-trocr-route .mc-trocr-dest-lead { color:var(--tr-subtle); }
+.trocr-editor .trocr-guidance {
+  display:none;
+  gap:8px;
+  padding:10px;
+  border-left:3px solid #e6a64b;
+  background:#3a3031;
+}
+.trocr-editor .trocr-guidance:has(.mc-trocr-note:not([hidden]), .mc-trocr-risk:not([hidden]), .mc-trocr-conflicts:not([hidden])) { display:grid; }
+.trocr-editor .trocr-guidance-title {
+  margin:0;
+  color:#ffd58e;
+  font-size:11px;
+  font-weight:700;
+}
+.trocr-editor .trocr-guidance :is(.mc-trocr-note, .mc-trocr-risk, .mc-trocr-conflicts) {
+  margin:0;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:var(--tr-ink);
+}
+.trocr-editor .trocr-guidance .mc-trocr-risk { color:#ffd1c9; }
+.trocr-editor .trocr-guidance .mc-trocr-conflicts ul { gap:6px; }
+.trocr-editor .trocr-guidance .mc-trocr-conflicts li {
+  padding:0;
+  border:0;
+  background:transparent;
+  color:#ffd1c9;
+}
+.trocr-editor .trocr-guidance .mc-trocr-conflicts li + li { padding-top:6px; border-top:1px solid #64484a; }
+.trocr-editor .trocr-guidance .mc-trocr-confirm {
+  padding-top:8px;
+  border-top:1px solid #64484a;
+  color:var(--tr-ink);
+}
+.trocr-editor :is(.mc-trocr-force, .mc-trocr-status, .mc-trocr-region-hint, .mc-trocr-qa) { color:var(--tr-muted); }
+.trocr-editor .mc-trocr-status {
+  margin:0;
+  font-size:11px;
+  line-height:1.35;
+}
+.trocr-editor .mc-trocr-quality {
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:6px;
+}
+.trocr-editor .mc-trocr-quality legend { grid-column:1 / -1; margin:0; }
+.trocr-editor .mc-trocr-quality label {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  min-height:36px;
+  padding:6px 8px;
+  border:1px solid var(--tr-border);
+  background:var(--tr-floor);
+}
+.trocr-editor .mc-trocr-quality label:has(input:checked) {
+  border-color:var(--tr-accent);
+  background:var(--tr-selected);
+  color:var(--tr-ink);
+}

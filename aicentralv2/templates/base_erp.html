@@ -659,6 +659,7 @@
             {'group': 'Despesas', 'label': 'Gestão de reembolsos', 'endpoint': 'financeiro.gestao_reembolsos', 'url': url_for('financeiro.gestao_reembolsos'), 'icon': 'fa-money-check-dollar', 'finance_admin_only': true}
         ]},
         {'section': 'Cadu', 'items': [
+            {'group': 'Gestão', 'label': 'Créditos por cliente', 'endpoint': 'cadu_creditos_lista', 'match_endpoints': ['cadu_creditos_detalhe'], 'url': url_for('cadu_creditos_lista'), 'icon': 'fa-coins', 'central_only': true},
             {'group': 'Audiências', 'label': 'Audiências', 'endpoint': 'cadu_audiencias', 'match_endpoints': ['cadu_audiencia_nova', 'cadu_audiencia_editar', 'cadu_audiencia_detalhes'], 'url': url_for('cadu_audiencias'), 'icon': 'fa-users-viewfinder'},
             {'group': 'Audiências', 'label': 'Categorias', 'endpoint': 'cadu_categorias', 'match_endpoints': ['cadu_categorias_novo', 'cadu_categorias_editar', 'cadu_categorias_detalhes'], 'url': url_for('cadu_categorias'), 'icon': 'fa-tags'},
             {'group': 'Audiências', 'label': 'Interesses', 'endpoint': 'interesse_produto_listar', 'url': url_for('interesse_produto_listar'), 'icon': 'fa-star'},

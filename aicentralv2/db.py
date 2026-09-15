@@ -4450,6 +4450,190 @@ def obter_planos_clientes(filtros=None):
         raise e
 
 
+def obter_gestao_creditos_clientes(filtros=None):
+    """Posição mensal de créditos por plano, com ajustes do livro de movimentos."""
+    conn = get_db()
+    filtros = filtros or {}
+    query = '''
+        SELECT p.id AS plan_id, p.id_cliente, p.plan_status, p.valid_from, p.valid_until,
+               cli.nome_fantasia, cli.razao_social,
+               COALESCE(pd.plan_name, p.plan_type, 'Sem plano') AS plan_name,
+               COALESCE(pd.limit_image_generation, p.image_credits_monthly, 0) AS monthly_limit,
+               COALESCE(p.image_credits_used_current_month, 0) AS used,
+               COALESCE(SUM(CASE
+                   WHEN m.movement_type IN ('addition', 'bonus', 'purchase') THEN m.amount
+                   WHEN m.movement_type = 'withdrawal' THEN -m.amount
+                   ELSE 0 END), 0) AS adjustments,
+               COALESCE(SUM(CASE WHEN m.movement_type = 'bonus' THEN m.amount ELSE 0 END), 0) AS bonuses,
+               COUNT(m.id) AS movement_count
+          FROM cadu_client_plans p
+          JOIN tbl_cliente cli ON cli.id_cliente = p.id_cliente
+          LEFT JOIN cadu_plan_definitions pd ON pd.id = p.id_plan_definition
+          LEFT JOIN cadu_credit_movements m ON m.plan_id = p.id
+            AND m.created_at >= DATE_TRUNC('month', CURRENT_TIMESTAMP)
+            AND m.created_at < DATE_TRUNC('month', CURRENT_TIMESTAMP) + INTERVAL '1 month'
+         WHERE 1=1
+    '''
+    params = []
+    if filtros.get('plan_status'):
+        query += ' AND p.plan_status = %s'
+        params.append(filtros['plan_status'])
+    if filtros.get('cliente_id'):
+        query += ' AND p.id_cliente = %s'
+        params.append(filtros['cliente_id'])
+    if filtros.get('search'):
+        query += " AND (cli.nome_fantasia ILIKE %s OR cli.razao_social ILIKE %s)"
+        term = f"%{filtros['search']}%"
+        params.extend([term, term])
+    query += '''
+        GROUP BY p.id, cli.nome_fantasia, cli.razao_social, pd.plan_name,
+                 pd.limit_image_generation
+        ORDER BY (p.plan_status = 'active') DESC, cli.nome_fantasia, p.created_at DESC
+    '''
+    with conn.cursor() as cursor:
+        cursor.execute(query, params)
+        return cursor.fetchall()
+
+
+def obter_gestao_creditos_plano(plan_id, movement_limit=100):
+    """Retorna plano, posição mensal e movimentos recentes."""
+    rows = obter_gestao_creditos_clientes({'plan_status': None})
+    summary = next((row for row in rows if int(row['plan_id']) == int(plan_id)), None)
+    if not summary:
+        return None
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT id, movement_type, amount, reason, reference,
+                   created_by, created_by_name, created_at
+              FROM cadu_credit_movements
+             WHERE plan_id = %s
+             ORDER BY created_at DESC, id DESC
+             LIMIT %s
+        ''', (plan_id, movement_limit))
+        summary['movements'] = cursor.fetchall()
+        cursor.execute('''
+            SELECT id, package_name, credits, amount_paid, payment_status,
+                   reference, notes, created_by_name, purchased_at
+              FROM cadu_credit_purchases
+             WHERE plan_id = %s
+             ORDER BY purchased_at DESC, id DESC
+             LIMIT 50
+        ''', (plan_id,))
+        summary['purchases'] = cursor.fetchall()
+    return summary
+
+
+def obter_pacotes_creditos(apenas_ativos=True):
+    conn = get_db()
+    query = 'SELECT * FROM cadu_credit_packages'
+    if apenas_ativos:
+        query += ' WHERE is_active = true'
+    query += ' ORDER BY display_order, credits, id'
+    with conn.cursor() as cursor:
+        cursor.execute(query)
+        return cursor.fetchall()
+
+
+def registrar_compra_creditos(plan_id, package_id, reference=None, notes=None,
+                              created_by=None, created_by_name=None):
+    """Registra uma compra paga e credita o pacote em uma única transação."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT id, id_cliente FROM cadu_client_plans WHERE id = %s FOR UPDATE
+            ''', (plan_id,))
+            plan = cursor.fetchone()
+            if not plan:
+                raise ValueError('Plano não encontrado.')
+            cursor.execute('''
+                SELECT id, name, credits, price FROM cadu_credit_packages
+                 WHERE id = %s AND is_active = true
+            ''', (package_id,))
+            package = cursor.fetchone()
+            if not package:
+                raise ValueError('Pacote não encontrado ou inativo.')
+            cursor.execute('''
+                INSERT INTO cadu_credit_purchases
+                    (plan_id, id_cliente, package_id, package_name, credits, amount_paid,
+                     reference, notes, created_by, created_by_name)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            ''', (plan_id, plan['id_cliente'], package['id'], package['name'], package['credits'],
+                  package['price'], reference or None, notes or None, created_by, created_by_name))
+            purchase_id = cursor.fetchone()['id']
+            cursor.execute('''
+                INSERT INTO cadu_credit_movements
+                    (plan_id, id_cliente, movement_type, amount, reason, reference,
+                     created_by, created_by_name)
+                VALUES (%s, %s, 'purchase', %s, %s, %s, %s, %s)
+            ''', (plan_id, plan['id_cliente'], package['credits'],
+                  'Compra do ' + package['name'], reference or f'COMPRA-{purchase_id}',
+                  created_by, created_by_name))
+        conn.commit()
+        return purchase_id
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def criar_movimento_creditos(plan_id, movement_type, amount, reason,
+                              reference=None, created_by=None, created_by_name=None):
+    """Registra movimento e sincroniza o contador de uso na mesma transação."""
+    from aicentralv2.cadu_credits import movement_effect
+
+    effect = movement_effect(movement_type, amount)
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT p.id, p.id_cliente,
+                       COALESCE(p.image_credits_used_current_month, 0) AS used,
+                       COALESCE(pd.limit_image_generation, p.image_credits_monthly, 0) AS monthly_limit,
+                       COALESCE((SELECT SUM(CASE
+                           WHEN m.movement_type IN ('addition', 'bonus', 'purchase') THEN m.amount
+                           WHEN m.movement_type = 'withdrawal' THEN -m.amount ELSE 0 END)
+                         FROM cadu_credit_movements m
+                        WHERE m.plan_id = p.id
+                          AND m.created_at >= DATE_TRUNC('month', CURRENT_TIMESTAMP)
+                          AND m.created_at < DATE_TRUNC('month', CURRENT_TIMESTAMP) + INTERVAL '1 month'), 0) AS adjustments
+                  FROM cadu_client_plans p
+                  LEFT JOIN cadu_plan_definitions pd ON pd.id = p.id_plan_definition
+                 WHERE p.id = %s FOR UPDATE OF p
+            ''', (plan_id,))
+            plan = cursor.fetchone()
+            if not plan:
+                raise ValueError('Plano não encontrado.')
+            new_used = int(plan['used']) + effect['usage_delta']
+            if new_used < 0:
+                raise ValueError('O estorno não pode superar os créditos usados no mês.')
+            available = int(plan['monthly_limit']) + int(plan['adjustments']) - int(plan['used'])
+            if movement_type in ('usage', 'withdrawal') and int(amount) > available:
+                raise ValueError('A quantidade supera o saldo disponível do cliente.')
+            if effect['usage_delta']:
+                cursor.execute('''
+                    UPDATE cadu_client_plans
+                       SET image_credits_used_current_month = %s,
+                           updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                     WHERE id = %s
+                ''', (new_used, plan_id))
+            cursor.execute('''
+                INSERT INTO cadu_credit_movements
+                    (plan_id, id_cliente, movement_type, amount, reason, reference,
+                     created_by, created_by_name)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            ''', (plan_id, plan['id_cliente'], movement_type, int(amount), reason,
+                  reference or None, created_by, created_by_name))
+            movement_id = cursor.fetchone()['id']
+        conn.commit()
+        return movement_id
+    except Exception:
+        conn.rollback()
+        raise
+
+
 def obter_plano_por_id(plan_id):
     """Retorna informações de um plano específico"""
     conn = get_db()

@@ -573,6 +573,143 @@ def init_routes(app):
             flash('Erro ao carregar lista de planos.', 'error')
             return redirect(url_for('index'))
 
+    @app.route('/cadu/creditos')
+    @login_required
+    def cadu_creditos_lista():
+        """Gestão interna do saldo e consumo de créditos dos clientes Cadu."""
+        import calendar
+        from aicentralv2.cadu_credits import calculate_credit_position, build_credit_recommendation
+
+        if session.get('user_type', 'client') not in ['admin', 'superadmin'] and not is_centralcomm_user():
+            flash('Você não tem permissão para acessar esta página.', 'error')
+            return redirect(url_for('index'))
+        filtros = {
+            'plan_status': request.args.get('plan_status', 'active'),
+            'search': request.args.get('search', '').strip(),
+        }
+        try:
+            planos = db.obter_gestao_creditos_clientes(filtros)
+            plan_definitions = db.obter_plan_definitions()
+            plan_options = [
+                {'id': item.get('id'), 'name': item.get('plan_name'),
+                 'limit': item.get('limit_image_generation') or 0}
+                for item in plan_definitions
+            ]
+            today = datetime.now().date()
+            days_in_month = calendar.monthrange(today.year, today.month)[1]
+            for plano in planos:
+                plano['credit_position'] = calculate_credit_position(
+                    plano.get('monthly_limit'), plano.get('used'), plano.get('adjustments')
+                )
+                plano['recommendation'] = build_credit_recommendation(
+                    plano['credit_position'], today.day, days_in_month, plan_options
+                )
+            totais = {
+                'allowance': sum(p['credit_position']['allowance'] for p in planos),
+                'adjustments': sum(p['credit_position']['adjustments'] for p in planos),
+                'used': sum(p['credit_position']['used'] for p in planos),
+                'available': sum(p['credit_position']['available'] for p in planos),
+                'opportunities': sum(
+                    p['recommendation']['level'] in ('critical', 'attention', 'opportunity') for p in planos
+                ),
+            }
+            return render_template('cadu_creditos_lista.html', planos=planos, filtros=filtros, totais=totais)
+        except Exception as exc:
+            app.logger.error('Erro ao carregar gestão de créditos: %s', exc, exc_info=True)
+            flash('A gestão de créditos ainda não está disponível. Verifique a migração do banco.', 'error')
+            return render_template('cadu_creditos_lista.html', planos=[], filtros=filtros,
+                                   totais={'allowance': 0, 'adjustments': 0, 'used': 0,
+                                           'available': 0, 'opportunities': 0})
+
+    @app.route('/cadu/creditos/<int:plan_id>', methods=['GET', 'POST'])
+    @login_required
+    def cadu_creditos_detalhe(plan_id):
+        """Extrato de um plano e inclusão auditável de movimentos."""
+        import calendar
+        from aicentralv2.cadu_credits import (
+            MOVEMENT_LABELS, calculate_credit_position, build_credit_recommendation,
+        )
+
+        if session.get('user_type', 'client') not in ['admin', 'superadmin'] and not is_centralcomm_user():
+            flash('Você não tem permissão para acessar esta página.', 'error')
+            return redirect(url_for('index'))
+        dialog_to_open = None
+        form_error = None
+        if request.method == 'POST':
+            action = request.form.get('action', 'movement')
+            if action == 'purchase':
+                try:
+                    purchase_id = db.registrar_compra_creditos(
+                        plan_id, int(request.form.get('package_id', 0)),
+                        reference=request.form.get('purchase_reference', '').strip(),
+                        notes=request.form.get('purchase_notes', '').strip(),
+                        created_by=session.get('user_id'), created_by_name=session.get('user_name'),
+                    )
+                    registrar_auditoria(
+                        acao='CREATE', modulo='CREDITOS_CADU',
+                        descricao=f'Compra de pacote registrada no plano {plan_id}',
+                        registro_id=purchase_id, registro_tipo='cadu_credit_purchases',
+                        dados_novos={'plan_id': plan_id, 'package_id': request.form.get('package_id')},
+                    )
+                    flash('Compra registrada e créditos liberados.', 'success')
+                    return redirect(url_for('cadu_creditos_detalhe', plan_id=plan_id))
+                except (TypeError, ValueError) as exc:
+                    form_error = str(exc)
+                    dialog_to_open = 'purchaseDialog'
+                except Exception as exc:
+                    app.logger.error('Erro ao registrar compra de créditos: %s', exc, exc_info=True)
+                    form_error = 'Não foi possível registrar a compra.'
+                    dialog_to_open = 'purchaseDialog'
+            else:
+                movement_type = request.form.get('movement_type', '').strip()
+                reason = request.form.get('reason', '').strip()
+                try:
+                    amount = int(request.form.get('amount', 0))
+                    if movement_type not in MOVEMENT_LABELS or movement_type == 'purchase':
+                        raise ValueError('Selecione um tipo de movimentação válido.')
+                    if not reason:
+                        raise ValueError('Informe o motivo da movimentação.')
+                    movement_id = db.criar_movimento_creditos(
+                        plan_id, movement_type, amount, reason,
+                        reference=request.form.get('reference', '').strip(),
+                        created_by=session.get('user_id'), created_by_name=session.get('user_name'),
+                    )
+                    registrar_auditoria(
+                        acao='CREATE', modulo='CREDITOS_CADU',
+                        descricao=f'{MOVEMENT_LABELS[movement_type]} de {amount} crédito(s) no plano {plan_id}',
+                        registro_id=movement_id, registro_tipo='cadu_credit_movements',
+                        dados_novos={'plan_id': plan_id, 'tipo': movement_type, 'quantidade': amount,
+                                     'motivo': reason},
+                    )
+                    flash('Movimentação registrada e saldo atualizado.', 'success')
+                    return redirect(url_for('cadu_creditos_detalhe', plan_id=plan_id))
+                except (TypeError, ValueError) as exc:
+                    form_error = str(exc)
+                    dialog_to_open = 'movementDialog'
+                except Exception as exc:
+                    app.logger.error('Erro ao movimentar créditos do plano %s: %s', plan_id, exc, exc_info=True)
+                    form_error = 'Não foi possível registrar a movimentação.'
+                    dialog_to_open = 'movementDialog'
+        plano = db.obter_gestao_creditos_plano(plan_id)
+        if not plano:
+            flash('Plano não encontrado.', 'error')
+            return redirect(url_for('cadu_creditos_lista'))
+        plano['credit_position'] = calculate_credit_position(
+            plano.get('monthly_limit'), plano.get('used'), plano.get('adjustments')
+        )
+        today = datetime.now().date()
+        plan_options = [{'id': item.get('id'), 'name': item.get('plan_name'),
+                         'limit': item.get('limit_image_generation') or 0}
+                        for item in db.obter_plan_definitions()]
+        plano['recommendation'] = build_credit_recommendation(
+            plano['credit_position'], today.day,
+            calendar.monthrange(today.year, today.month)[1], plan_options,
+        )
+        return render_template('cadu_creditos_detalhe.html', plano=plano,
+                               movement_labels=MOVEMENT_LABELS,
+                               packages=db.obter_pacotes_creditos(),
+                               dialog_to_open=dialog_to_open, form_error=form_error)
+
     @app.route('/contratos/novo')
     @login_required
     def contrato_novo():

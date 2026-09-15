@@ -10,36 +10,37 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/output.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/auth-public.css') }}?v=7">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/auth-public.css') }}?v=8">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   {% block styles %}{% endblock %}
 </head>
 <body class="auth-public" data-auth-page="{% block page_name %}access{% endblock %}">
   <main class="auth-layout">
-    <aside class="auth-scene auth-product-showcase" aria-label="Conheça os produtos Cadu" data-auth-products>
+    <aside class="auth-scene auth-product-showcase" aria-label="Conheça o Workspace Cadu" data-auth-products>
       {% set auth_products = [
-        ('cadu','Cadu','Uma operação inteira. Um único contexto.','30–60 min recuperados por dia','cadu-hub.png','cadu-icon.png'),
-        ('studio','Studio','Criação pronta para cada formato.','2–4 h viram 15–40 min','studio.png','studio-icon.png'),
-        ('planner','Planner','Estratégia clara antes de investir.','1–2 dias viram 30–90 min','planner.png','planner-icon.png'),
-        ('skills','Skills','Conhecimento especialista, quando precisar.','1–3 h viram 10–30 min','skills.png','skills-icon.png'),
-        ('connect','Connect','Sistemas que fazem o trabalho avançar.','30–90 min recuperados por dia','connect.png','connect-icon.png')
+        ('workspace','Workspace','Sua operação de mídia, conectada de ponta a ponta.','Planeje, crie e acompanhe sem trocar de contexto.','cadu-hub.png','cadu-icon.png'),
+        ('studio','Studio','Transforme briefing em peças prontas para veicular.','Criação adaptada para cada canal e formato.','studio.png','studio-icon.png'),
+        ('planner','Planner','Encontre a melhor decisão antes de investir.','Dados, públicos e estratégia no mesmo lugar.','planner.png','planner-icon.png'),
+        ('skills','Skills','Especialistas de IA para o trabalho que não pode esperar.','Uma conversa para avançar a próxima entrega.','skills.png','skills-icon.png'),
+        ('connect','Connect','Faça seus sistemas trabalharem juntos.','Menos operação manual. Mais tempo para decidir.','connect.png','connect-icon.png')
       ] %}
       {% for slug, name, description, impact, image, icon in auth_products %}
       <div class="auth-product-scene{{ ' is-active' if loop.first }}" data-auth-product-panel="{{ slug }}" {% if not loop.first %}hidden{% endif %}>
         <img class="auth-scene-image" src="{{ url_for('static', filename='images/cadu/products/' ~ image) }}" alt="">
         <div class="auth-scene-shade"></div>
         <div class="auth-scene-copy">
+          <p class="auth-scene-kicker"><span class="auth-scene-pulse"></span>Workspace Cadu</p>
           <p class="auth-scene-city"><img src="{{ url_for('static', filename='images/cadu/products/' ~ icon) }}" alt=""><span>{{ name }}</span></p>
           <p class="auth-scene-message">{{ description }}</p>
-          <p class="auth-scene-impact"><strong>{{ impact }}</strong><span>Estimativa conforme volume e processo.</span></p>
+          <p class="auth-scene-impact">{{ impact }}</p>
         </div>
       </div>
       {% endfor %}
-      <div class="auth-product-tabs" role="tablist" aria-label="Produtos Cadu">
+      <nav class="auth-product-tabs" aria-label="Soluções CentralComm">
         {% for slug, name, description, impact, image, icon in auth_products %}
-        <button type="button" role="tab" aria-selected="{{ 'true' if loop.first else 'false' }}" tabindex="{{ '0' if loop.first else '-1' }}" data-auth-product-tab="{{ slug }}"><img src="{{ url_for('static', filename='images/cadu/products/' ~ icon) }}" alt=""><span>{{ name }}</span></button>
+        <a href="{{ product_url(slug) }}" data-auth-product-tab="{{ slug }}" {% if loop.first %}aria-current="page"{% endif %}><img src="{{ url_for('static', filename='images/cadu/products/' ~ icon) }}" alt=""><span>{{ name }}</span></a>
         {% endfor %}
-      </div>
+      </nav>
     </aside>
 
     <section class="auth-workspace {% block workspace_class %}{% endblock %}">
@@ -65,8 +66,8 @@
         </div>
 
         <footer class="auth-footer">
-          <span><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Ambiente seguro</span>
-          <span>Workspace Cadu © 2026</span>
+          <span><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Acesso protegido</span>
+          <span>CentralComm © 2026</span>
         </footer>
       </div>
     </section>

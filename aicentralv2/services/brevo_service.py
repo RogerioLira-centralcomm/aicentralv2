@@ -23,6 +23,23 @@ LISTA_USUARIOS_ATIVOS = 21
 LISTA_CONVITES_PENDENTES = 22
 LISTA_USUARIOS_INATIVOS = 23
 
+# A assinatura é única (contato@centralcomm.media); a aparência identifica o produto.
+PRODUCT_EMAIL_BRANDS = {
+    "workspace": {"name": "Workspace", "accent": "#E6493B", "deep": "#2D1215", "soft": "#FFF0EE", "signal": "#FFC3BA"},
+    "studio": {"name": "Studio", "accent": "#8E5CFF", "deep": "#211344", "soft": "#F2EDFF", "signal": "#C9B2FF"},
+    "planner": {"name": "Planner", "accent": "#1473E6", "deep": "#102B53", "soft": "#EAF3FF", "signal": "#A9D1FF"},
+    "skills": {"name": "Skills", "accent": "#D85B12", "deep": "#3B1E0B", "soft": "#FFF1E7", "signal": "#FFC89C"},
+    "connect": {"name": "Connect", "accent": "#007E78", "deep": "#092D31", "soft": "#E5F7F4", "signal": "#9DE0D8"},
+}
+
+
+def product_email_brand(product: str = "workspace") -> Dict[str, str]:
+    """Tokens visuais para e-mails transacionais de cada solução."""
+    key = str(product or "workspace").strip().lower()
+    if key not in PRODUCT_EMAIL_BRANDS:
+        raise ValueError(f"Produto de e-mail inválido: {product}")
+    return PRODUCT_EMAIL_BRANDS[key]
+
 # Listas na pasta Contatos (Brevo): "[Vendedor] - Clientes" / "[Vendedor] - Leads"
 LISTA_CONTATOS_LUISA_CLIENTES = 37
 LISTA_CONTATOS_LUISA_LEADS = 36
@@ -508,6 +525,16 @@ def get_brevo_service() -> BrevoService:
     return _brevo_service
 
 
+def get_brevo_product_service(product: str = "workspace") -> BrevoService:
+    """Cria um remetente Brevo para uma solução, sem misturar suas caixas."""
+    key = str(product or "workspace").strip().upper()
+    product_email_brand(key)
+    return BrevoService(
+        sender_name=current_app.config.get(f"BREVO_{key}_SENDER_NAME"),
+        sender_email=current_app.config.get(f"BREVO_{key}_SENDER_EMAIL"),
+    )
+
+
 def _brevo_leads_lista_executivo_sem_21(
     service: BrevoService,
     email: str,
@@ -656,7 +683,7 @@ def enviar_email_convite(
     Returns:
         Dict com resultado do envio
     """
-    service = get_brevo_service()
+    service = get_brevo_product_service("workspace")
     
     # Extrair token do link (formato: .../aceitar-convite?token=XXX)
     token = invite_link.split('token=')[-1] if 'token=' in invite_link else ''
@@ -670,6 +697,7 @@ def enviar_email_convite(
         "TOKEN": token,
         "EXPIRA_EM": expires_at
     }
+    params["BRAND"] = product_email_brand("workspace")
     
     # Adicionar contato à lista de convites pendentes
     service.adicionar_contato(
@@ -683,7 +711,7 @@ def enviar_email_convite(
         template_name="convite-usuario.html",
         to_email=to_email,
         to_name=to_name or "Usuário",
-        subject=f"Você foi convidado para o Cadu por {invited_by}",
+        subject=f"Seu convite para o Workspace chegou — enviado por {invited_by}",
         params=params,
         template_folder="emails/externos"
     )
@@ -711,7 +739,7 @@ def enviar_email_boas_vindas(
     Returns:
         Dict com resultado do envio
     """
-    service = get_brevo_service()
+    service = get_brevo_product_service("workspace")
     
     # Extrair primeiro nome
     primeiro_nome = to_name.split()[0] if to_name else "Usuário"
@@ -726,6 +754,7 @@ def enviar_email_boas_vindas(
         "LINK_LOGIN": login_link or "",
         "TOKEN": token or ""
     }
+    params["BRAND"] = product_email_brand("workspace")
     
     # Mover da lista de pendentes para ativos
     service.mover_para_lista(
@@ -738,7 +767,7 @@ def enviar_email_boas_vindas(
         template_name="bem-vindo.html",
         to_email=to_email,
         to_name=to_name,
-        subject="Bem-vindo ao Cadu!",
+        subject="Sua conta do Workspace está pronta",
         params=params,
         template_folder="emails/externos"
     )
@@ -762,7 +791,7 @@ def enviar_email_reset_senha(
     Returns:
         Dict com resultado do envio
     """
-    service = get_brevo_service()
+    service = get_brevo_product_service("workspace")
     
     # Extrair primeiro nome
     primeiro_nome = to_name.split()[0] if to_name else "Usuário"
@@ -777,12 +806,13 @@ def enviar_email_reset_senha(
         "MINUTOS_VALIDADE": minutos_validade,
         "HORAS_VALIDADE": expires_hours
     }
+    params["BRAND"] = product_email_brand("workspace")
     
     return service.enviar_email_com_template(
         template_name="reset-senha.html",
         to_email=to_email,
         to_name=to_name,
-        subject="Recuperação de Senha - Cadu",
+        subject="Redefina sua senha do Workspace",
         params=params,
         template_folder="emails/externos"
     )
@@ -802,72 +832,18 @@ def enviar_email_senha_alterada(
     Returns:
         Dict com resultado do envio
     """
-    service = get_brevo_service()
+    service = get_brevo_product_service("workspace")
     
     # Extrair primeiro nome
     primeiro_nome = to_name.split()[0] if to_name else "Usuário"
     
-    # Como não existe template específico, enviar HTML direto
-    html_content = f"""
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Senha Alterada - Cadu</title>
-</head>
-<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
-    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#f4f4f5;">
-        <tr>
-            <td style="padding:40px 15px;">
-                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="520" align="center" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.08);">
-                    <tr>
-                        <td style="background-color:#ffffff;padding:24px 32px;text-align:center;border-bottom:1px solid #e5e7eb;">
-                            <img src="https://cadu.centralcomm.media/assets/images/cadu-logo-variant-2.png" alt="Cadu" width="100" style="display:block;margin:0 auto;">
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="background:linear-gradient(135deg,#10b981 0%,#059669 100%);padding:20px 32px;text-align:center;">
-                            <span style="color:#ffffff;font-size:15px;font-weight:700;">✓ Senha Alterada com Sucesso</span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding:32px;">
-                            <p style="margin:0 0 16px;font-size:14px;color:#333842;">
-                                Olá, <strong>{primeiro_nome}</strong>
-                            </p>
-                            <p style="margin:0 0 24px;font-size:13px;color:#6b7280;line-height:1.6;">
-                                Sua senha do Cadu foi alterada com sucesso. Se você realizou esta alteração, nenhuma ação adicional é necessária.
-                            </p>
-                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#fef2f2;border-radius:6px;border-left:4px solid #ef4444;">
-                                <tr>
-                                    <td style="padding:16px;">
-                                        <span style="font-size:12px;color:#991b1b;">
-                                            <strong>Não foi você?</strong> Se você não alterou sua senha, entre em contato conosco imediatamente ou solicite uma nova recuperação de senha.
-                                        </span>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="background-color:#F7F8FA;padding:20px 32px;text-align:center;border-top:1px solid #e5e7eb;">
-                            <span style="font-size:11px;color:#9ca3af;">Este é um email automático. Por favor, não responda.</span>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>
-    """
-    
-    return service.enviar_email(
+    return service.enviar_email_com_template(
+        template_name="senha-alterada.html",
         to_email=to_email,
         to_name=to_name,
-        subject="Senha Alterada - Cadu",
-        html_content=html_content
+        subject="Sua senha do Workspace foi alterada",
+        params={"PRIMEIRO_NOME": primeiro_nome, "BRAND": product_email_brand("workspace")},
+        template_folder="emails/externos",
     )
 
 

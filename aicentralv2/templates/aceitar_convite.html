@@ -1,14 +1,15 @@
 {% extends "base_auth_public.html" %}
 
-{% block title %}Aceitar convite — CentralX{% endblock %}
+{% block title %}Criar conta — CentralComm{% endblock %}
 {% block page_name %}invite{% endblock %}
 {% block scene_message %}Um convite. Uma conta. O trabalho continua.{% endblock %}
 
 {% block content %}
 <header class="auth-header">
-  <h1>{% if invite %}Crie sua conta{% else %}Convite indisponível{% endif %}</h1>
+  <p class="auth-overline">{% if invite %}Seu acesso está pronto{% else %}Convite{% endif %}</p>
+  <h1>{% if invite %}Crie sua conta e entre no workspace.{% else %}Este convite não está disponível.{% endif %}</h1>
   {% if invite %}
-  <p>Você foi convidado para {{ cliente_nome }}. Defina nome e senha para entrar no CentralX.</p>
+  <p>Você foi convidado para {{ cliente_nome }}. Confirme seus dados e crie uma senha para começar.</p>
   {% endif %}
 </header>
 
@@ -66,10 +67,10 @@
           type="password"
           id="senha"
           name="senha"
-          placeholder="Mínimo 6 caracteres"
+          placeholder="Mínimo 8 caracteres"
           autocomplete="new-password"
           required
-          minlength="6"
+          minlength="8"
           data-password-strength
         >
         <button
@@ -100,7 +101,8 @@
           placeholder="Repita a senha"
           autocomplete="new-password"
           required
-          minlength="6"
+          minlength="8"
+          data-password-confirm="senha"
         >
         <button
           class="auth-password-toggle"
@@ -122,7 +124,7 @@
   </form>
 
   {% if invite.expires_at %}
-  <p class="auth-help">Este convite expira em {{ invite.expires_at.strftime('%d/%m/%Y às %H:%M') }}.</p>
+  <p class="auth-help"><i class="fa-regular fa-clock" aria-hidden="true"></i> Este convite expira em {{ invite.expires_at.strftime('%d/%m/%Y às %H:%M') }}.</p>
   {% endif %}
 {% else %}
 <p class="auth-error">Convite inválido ou não encontrado.</p>

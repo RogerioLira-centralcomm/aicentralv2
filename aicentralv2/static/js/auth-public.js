@@ -46,8 +46,8 @@
     function selectProduct(slug, focus) {
       tabs.forEach(function (tab) {
         var active = tab.dataset.authProductTab === slug;
-        tab.setAttribute('aria-selected', active ? 'true' : 'false');
-        tab.tabIndex = active ? 0 : -1;
+        if (active) tab.setAttribute('aria-current', 'page');
+        else tab.removeAttribute('aria-current');
         if (active && focus) tab.focus();
       });
       panels.forEach(function (panel) {
@@ -58,9 +58,6 @@
     }
 
     tabs.forEach(function (tab, index) {
-      tab.addEventListener('click', function () {
-        selectProduct(tab.dataset.authProductTab, false);
-      });
       tab.addEventListener('keydown', function (event) {
         if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
         event.preventDefault();
@@ -129,19 +126,29 @@
     var password = document.getElementById('new_password');
     var confirmation = document.getElementById('new_password_confirm');
     var error = document.getElementById('confirmPasswordError');
-    if (!form || !password || !confirmation || !error) return;
-
-    function validateMatch() {
-      var mismatched = confirmation.value && password.value !== confirmation.value;
-      confirmation.setCustomValidity(mismatched ? 'As senhas não coincidem.' : '');
-      confirmation.setAttribute('aria-invalid', mismatched ? 'true' : 'false');
-      error.textContent = mismatched ? 'As senhas não coincidem.' : '';
-      return !mismatched;
+    if (form && password && confirmation && error) {
+      function validateResetMatch() {
+        var mismatched = confirmation.value && password.value !== confirmation.value;
+        confirmation.setCustomValidity(mismatched ? 'As senhas não coincidem.' : '');
+        confirmation.setAttribute('aria-invalid', mismatched ? 'true' : 'false');
+        error.textContent = mismatched ? 'As senhas não coincidem.' : '';
+      }
+      password.addEventListener('input', validateResetMatch);
+      confirmation.addEventListener('input', validateResetMatch);
+      form.addEventListener('submit', validateResetMatch);
     }
 
-    password.addEventListener('input', validateMatch);
-    confirmation.addEventListener('input', validateMatch);
-    form.addEventListener('submit', validateMatch);
+    document.querySelectorAll('[data-password-confirm]').forEach(function (confirmationField) {
+      var original = document.getElementById(confirmationField.dataset.passwordConfirm);
+      if (!original) return;
+      function validateInviteMatch() {
+        var mismatched = confirmationField.value && original.value !== confirmationField.value;
+        confirmationField.setCustomValidity(mismatched ? 'As senhas não coincidem.' : '');
+        confirmationField.setAttribute('aria-invalid', mismatched ? 'true' : 'false');
+      }
+      original.addEventListener('input', validateInviteMatch);
+      confirmationField.addEventListener('input', validateInviteMatch);
+    });
   }
 
   var LOGIN_EMAIL_DOMAIN = 'centralcomm.media';

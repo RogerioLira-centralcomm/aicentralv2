@@ -115,6 +115,18 @@ class Config:
 	BREVO_API_KEY = os.getenv('BREVO_API_KEY', '')
 	BREVO_SENDER_NAME = os.getenv('BREVO_SENDER_NAME', 'Cadu')
 	BREVO_SENDER_EMAIL = os.getenv('BREVO_SENDER_EMAIL', 'contato@centralcomm.media')
+	# Um único endereço operacional no Brevo; o nome e a identidade visual
+	# mudam por produto. Workspace é dono dos e-mails de acesso e senha.
+	BREVO_WORKSPACE_SENDER_NAME = os.getenv('BREVO_WORKSPACE_SENDER_NAME', 'Workspace CentralComm')
+	BREVO_WORKSPACE_SENDER_EMAIL = BREVO_SENDER_EMAIL
+	BREVO_STUDIO_SENDER_NAME = os.getenv('BREVO_STUDIO_SENDER_NAME', 'Studio CentralComm')
+	BREVO_STUDIO_SENDER_EMAIL = BREVO_SENDER_EMAIL
+	BREVO_PLANNER_SENDER_NAME = os.getenv('BREVO_PLANNER_SENDER_NAME', 'Planner CentralComm')
+	BREVO_PLANNER_SENDER_EMAIL = BREVO_SENDER_EMAIL
+	BREVO_SKILLS_SENDER_NAME = os.getenv('BREVO_SKILLS_SENDER_NAME', 'Skills CentralComm')
+	BREVO_SKILLS_SENDER_EMAIL = BREVO_SENDER_EMAIL
+	BREVO_CONNECT_SENDER_NAME = os.getenv('BREVO_CONNECT_SENDER_NAME', 'Connect CentralComm')
+	BREVO_CONNECT_SENDER_EMAIL = BREVO_SENDER_EMAIL
 	FINANCEIRO_HANDOFF_EMAILS = os.getenv('FINANCEIRO_HANDOFF_EMAILS', '')
 	PI_HANDOFF_GATE = os.getenv('PI_HANDOFF_GATE', 'true').lower() in ('true', '1', 'yes', 'on')
 	CAMADAS_V2_ENABLED = os.getenv('CAMADAS_V2_ENABLED', 'false').lower() in ('true', '1', 'yes', 'on')

@@ -1,21 +1,22 @@
+<style>
+  .cadu-product-switch{position:relative;display:block;padding:0}.cadu-product-switch summary{display:flex;align-items:center;gap:8px;min-height:42px;padding:6px 8px;cursor:pointer;list-style:none}.cadu-product-switch summary::-webkit-details-marker{display:none}.cadu-product-switch summary img,.cadu-product-switch nav img{width:22px;height:22px;border-radius:5px;object-fit:contain}.cadu-product-switch summary>span{display:block;font-size:13px;font-weight:700}.cadu-product-switch .product-chevron{font-size:13px;color:var(--muted);transition:transform .15s ease}.cadu-product-switch[open] .product-chevron{transform:rotate(180deg)}.cadu-product-switch nav{position:absolute;top:calc(100% + 6px);left:0;display:grid;width:180px;padding:5px;border:1px solid var(--line);border-radius:10px;background:#fff;box-shadow:0 12px 30px rgba(16,33,59,.14)}.cadu-product-switch nav a{display:flex;align-items:center;gap:10px;min-height:40px;padding:8px;border-radius:7px;font-size:13px;font-weight:650;text-decoration:none}.cadu-product-switch nav a:hover{background:var(--soft)}
+</style>
 <header class="cadu-global-nav">
-  {% set cadu_home = url_for('cadu_identity.issue_cadu_ticket', next=product_url('cadu')) if session.get('user_id') and product_url is defined else (product_url('cadu') if product_url is defined else url_for('cadu_skills.start')) %}
+  {% set cadu_home = product_url('workspace') if product_url is defined else url_for('cadu_skills.start') %}
   {% set centralx_home = product_url('centralx') if product_url is defined else '/' %}
   {% set auth_home = product_url('auth') if product_url is defined else url_for('login') %}
-  <a class="cadu-product-switch" href="{{ url_for('cadu_skills.marketplace') }}" aria-label="Cadu Skills">
-    <img src="{{ url_for('cadu_skills.skills_icon', size=64) }}" alt="">
-    <span><small>Ecossistema Cadu</small><strong>Skills</strong></span>
-  </a>
+  {% set family_products = [('workspace', 'Workspace', 'cadu-icon.png'), ('studio', 'Studio', 'studio-icon.png'), ('planner', 'Planner', 'planner-icon.png'), ('skills', 'Skills', 'skills-icon.png'), ('connect', 'Connect', 'connect-icon.png')] %}
+  <details class="cadu-product-switch">
+    <summary><img src="{{ url_for('static', filename='images/cadu/products/skills-icon.png') }}" alt=""><span>Skills</span><span class="product-chevron" aria-hidden="true">⌄</span></summary>
+    <nav aria-label="Soluções CentralComm">{% for slug, name, icon in family_products %}<a href="{{ product_url(slug) }}"><img src="{{ url_for('static', filename='images/cadu/products/' ~ icon) }}" alt=""><span>{{ name }}</span></a>{% endfor %}</nav>
+  </details>
   <span class="cadu-nav-spacer"></span>
   {% if session.get('user_id') %}
-    {% if product_url is defined %}<a class="cadu-nav-link" href="{{ product_url('studio') }}">Studio</a>
-    <a class="cadu-nav-link" href="{{ product_url('planner') }}">Planner</a>
-    <a class="cadu-nav-link" href="{{ product_url('connect') }}">Agentes</a>{% endif %}
     <a class="cadu-context-link" href="{{ product_url('workspace') if product_url is defined else centralx_home }}"><small>Workspace</small><strong>{{ session.get('user_name', 'Minha conta') }}</strong></a>
     <a class="cadu-credit-link" href="{{ url_for('cadu_skills.studio') }}">Créditos</a>
     <a class="cadu-avatar" href="{{ auth_home }}" aria-label="Abrir conta">{{ session.get('user_name', 'U')[:2]|upper }}</a>
   {% else %}
-    <a class="cadu-nav-link" href="{{ cadu_home }}">Conhecer o Cadu</a>
+    <a class="cadu-nav-link" href="{{ cadu_home }}">Workspace</a>
     <a class="cadu-nav-link" href="{{ product_url('auth', '/login') if product_url is defined else url_for('login') }}">Entrar</a>
     <a class="cadu-nav-action" href="{{ url_for('cadu_skills.start') }}">Solicitar acesso</a>
   {% endif %}

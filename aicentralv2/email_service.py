@@ -119,7 +119,7 @@ def send_password_changed_email(user_email, user_name):
     return result.get('success', False)
 
 
-def send_welcome_email(user_email, user_name):
+def send_welcome_email(user_email, user_name, cliente_nome='', login_link=None):
     """
     Envia email de boas-vindas via Brevo
     
@@ -132,7 +132,9 @@ def send_welcome_email(user_email, user_name):
     """
     result = enviar_email_boas_vindas(
         to_email=user_email,
-        to_name=user_name
+        to_name=user_name,
+        cliente_nome=cliente_nome,
+        login_link=login_link,
     )
     return result.get('success', False)
 

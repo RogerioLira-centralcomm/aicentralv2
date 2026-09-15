@@ -19,7 +19,7 @@ from aicentralv2.campanhas_pi_list import (
     group_pis_by_invoice_status,
 )
 from aicentralv2.email_service import (
-    send_password_reset_email, send_password_changed_email, send_invite_email,
+    send_password_reset_email, send_password_changed_email, send_invite_email, send_welcome_email,
     send_subscription_confirmation_email, send_new_subscription_internal_email
 )
 from aicentralv2.services.openrouter_image_extract import extract_fields_from_image_bytes, get_available_models
@@ -1384,8 +1384,8 @@ def init_routes(app):
                 flash('As senhas não coincidem!', 'error')
                 return render_template('reset_password_tailwind.html', token=token, user=contato)
             
-            if len(nova_senha) < 6:
-                flash('A senha deve ter no mínimo 6 caracteres!', 'error')
+            if len(nova_senha) < 8:
+                flash('A senha deve ter no mínimo 8 caracteres.', 'error')
                 return render_template('reset_password_tailwind.html', token=token, user=contato)
             
             try:
@@ -2877,6 +2877,8 @@ def init_routes(app):
         if invite['expires_at'] and invite['expires_at'] < datetime.now():
             return render_template('aceitar_convite.html', 
                                    error='Este convite expirou.')
+
+        cliente_nome = invite.get('cliente_nome') or invite.get('cliente_razao') or 'sua equipe'
         
         # Obter dados do formulário
         nome = request.form.get('nome', '').strip()
@@ -2887,8 +2889,8 @@ def init_routes(app):
         errors = []
         if not nome or len(nome) < 3:
             errors.append('Nome deve ter pelo menos 3 caracteres.')
-        if not senha or len(senha) < 6:
-            errors.append('Senha deve ter pelo menos 6 caracteres.')
+        if not senha or len(senha) < 8:
+            errors.append('A senha deve ter pelo menos 8 caracteres.')
         if senha != confirmar_senha:
             errors.append('As senhas não conferem.')
         
@@ -2927,6 +2929,19 @@ def init_routes(app):
             
             if contato_id:
                 db.aceitar_invite(invite['id'], contato_id)
+
+                # O Workspace é a origem única de acesso e onboarding.
+                # Falha no aviso não desfaz uma conta criada com sucesso.
+                try:
+                    from aicentralv2.product_domains import product_url
+                    send_welcome_email(
+                        user_email=invite['email'],
+                        user_name=nome,
+                        cliente_nome=cliente_nome,
+                        login_link=product_url('workspace'),
+                    )
+                except Exception as email_error:
+                    app.logger.warning('Boas-vindas do Workspace não enviadas: %s', email_error)
                 
                 session['user_id'] = contato_id
                 session['user_name'] = nome

@@ -1,6 +1,8 @@
 /* Shared visual language with the dark Video Studio. */
 .mc-shell[data-mc-page="trocar"] {
-  --tr-ink:#e2e6ec; --tr-muted:#a2adbb; --tr-border:#383e48;
+  /* The editor has three readable text levels; never use opacity to create one. */
+  --tr-ink:#f2f5f8; --tr-muted:#b8c2ce; --tr-subtle:#d2d9e2;
+  --tr-border:#4b5563; --tr-control:#343b46;
   --tr-panel:#292e36; --tr-floor:#20242b; --tr-canvas:#15181d;
   --tr-accent:#4bd1ae; --tr-selected:#1e4941;
   color-scheme:dark;
@@ -276,3 +278,44 @@
 .trocr-editor .trocr-ocr-review small { color:#e9bf6b; }
 .trocr-editor dialog::backdrop { background:#0009; }
 @media(prefers-reduced-motion:reduce) { .trocr-editor * { animation:none!important; transition:none!important; } }
+
+/* Dark-mode audit — inherited light-desk rules cannot define contrast here. */
+.trocr-editor :is(.mc-trocr-fold > summary, .mc-trocr-fold > summary h3, .mc-trocr-section h3, .mc-trocr-read-kicker, .mc-trocr-quality legend, .mc-trocr-quality label, .mc-trocr-toggle, .mc-trocr-chips, .mc-trocr-prompt-fold) {
+  color:var(--tr-ink);
+}
+.trocr-editor :is(.mc-trocr-help, .mc-trocr-brand-hint, .mc-trocr-quality small, .mc-trocr-read-kicker, .mc-trocr-toggle small, .mc-trocr-chips small) {
+  color:var(--tr-muted);
+}
+.trocr-editor :is(.cx-input, .cx-select, .trocr-region-geometry input) {
+  background:var(--tr-control);
+  color:var(--tr-ink);
+  caret-color:var(--tr-accent);
+}
+.trocr-editor :is(.cx-input, .cx-select, .trocr-region-geometry input)::placeholder {
+  color:var(--tr-muted);
+  opacity:1;
+}
+.trocr-editor :is(.cx-input, .cx-select, .trocr-region-geometry input):disabled {
+  background:#3b424d;
+  border-color:#566170;
+  color:var(--tr-subtle);
+  opacity:1;
+  -webkit-text-fill-color:var(--tr-subtle);
+}
+.trocr-editor .mc-trocr-text-cta { color:#79e5c9; }
+.trocr-editor .mc-trocr-text-cta.is-muted { color:var(--tr-muted); }
+.trocr-editor .mc-trocr-text-cta:not(:disabled):hover { color:#c9ffef; background:transparent; }
+.trocr-editor .mc-trocr-text-cta:disabled,
+.trocr-editor .cx-btn:disabled {
+  opacity:1;
+  background:#3b424d;
+  border-color:#566170;
+  color:var(--tr-muted);
+  cursor:not-allowed;
+}
+.trocr-editor .cx-btn-primary:disabled {
+  background:#4a7068;
+  border-color:#4a7068;
+  color:#e8f5f0;
+}
+.trocr-editor .trocr-workspace .trocr-campaign-fold { border-bottom-color:var(--tr-border); }

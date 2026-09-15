@@ -89,7 +89,7 @@
 
       <section id="instalar" class="sk-install-section">
         <div class="sk-section-heading"><span>Instalação</span><h2>Um endereço, dois ecossistemas</h2></div>
-        <p>Cole o endereço público no agente ou baixe o ZIP. O pacote usa o padrão de Agent Skills com `SKILL.md` e referências em caminhos relativos.</p>
+        <p>Cole o endereço público no agente ou baixe o ZIP. O pacote usa o padrão de Agent Skills com <code>SKILL.md</code> e referências em caminhos relativos.</p>
         <div class="sk-agent-install-grid">
           <article>
             <header><span class="sk-agent-mark">GPT</span><div><b>GPT e Codex</b><small>ZIP completo ou arquivos do diretório</small></div></header>
@@ -126,9 +126,31 @@
         <p>O agente de teste já está preparado com esta skill. Cada sessão pode concluir até {{ preview_state.limit }} testes gratuitos.</p>
         <div class="sk-presets">{% for prompt in skill.prompts %}<button type="button" data-prompt>{{ prompt }}</button>{% endfor %}</div>
         <textarea data-public-composer rows="5" maxlength="4000" placeholder="Descreva uma tarefa real, com contexto e restrições..."></textarea>
-        <div class="sk-preview-action"><small><span data-remaining>{{ preview_state.remaining }}</span> testes gratuitos restantes</small><button class="sk-button" data-public-preview data-url="{{ url_for('cadu_skills.public_preview', slug=skill.slug) }}">Executar no agente de teste</button></div>
+        <div class="sk-preview-action"><small><span data-remaining>{{ preview_state.remaining }}</span> testes gratuitos restantes</small><button class="sk-button" data-public-preview data-run-label="Executar no agente de teste" data-url="{{ url_for('cadu_skills.public_preview', slug=skill.slug) }}" {% if not preview_state.allowed %}disabled{% endif %}>{{ 'Executar no agente de teste' if preview_state.allowed else 'Prévias concluídas' }}</button></div>
         <div class="sk-answer" data-public-answer hidden></div>
-        <aside class="sk-ecosystem-invite" data-ecosystem-invite {% if not preview_state.show_ecosystem_invite %}hidden{% endif %}><div><b>Continue no seu espaço Cadu</b><p>Use contexto de cliente e marca, histórico e créditos controlados em uma área autenticada.</p></div><a class="sk-button" href="{{ url_for('cadu_skills.start') }}">Conhecer o ecossistema</a></aside>
+        <aside class="sk-ecosystem-invite" data-ecosystem-invite data-stage="{{ preview_state.ecosystem_stage }}" {% if not preview_state.show_ecosystem_invite %}hidden{% endif %}>
+          <header>
+            <span class="sk-ecosystem-signal" aria-hidden="true"></span>
+            <div><small>Cadu · inteligência para comunicação</small><h3>Você experimentou uma skill. O Cadu conecta o trabalho inteiro.</h3></div>
+            <span class="sk-ecosystem-count"><b data-preview-count>{{ preview_state.count }}</b>/{{ preview_state.limit }} experiências</span>
+          </header>
+          <p class="sk-ecosystem-discover">A próxima resposta pode ficar mais forte quando a skill conhece a marca, o cliente, os canais e o histórico da campanha.</p>
+          <p class="sk-ecosystem-family">Agora imagine essa inteligência trabalhando com seus projetos, referências e equipe em um único ecossistema.</p>
+          <div class="sk-audience-paths" aria-label="Cadu por perfil">
+            <article><img src="{{ url_for('static', filename='images/cadu/products/planner-2d.svg') }}" alt=""><b>Para agências</b><p>Planeje, defenda e acompanhe campanhas com método compartilhado.</p><span>Smart Planner · Skills · CRM</span></article>
+            <article><img src="{{ url_for('static', filename='images/cadu/products/studio-2d.svg') }}" alt=""><b>Para produtores de conteúdo</b><p>Transforme briefing e marca em peças adaptadas para cada mídia.</p><span>Cadu Studio · Skills · Connect</span></article>
+            <article><img src="{{ url_for('static', filename='images/cadu/products/workspace-2d.svg') }}" alt=""><b>Para clientes finais</b><p>Entenda decisões, aprove materiais e acompanhe entregas com clareza.</p><span>Planner · Places · Workspace</span></article>
+          </div>
+          <div class="sk-product-family" aria-label="Família de produtos Cadu">
+            <span><img src="{{ url_for('static', filename='images/cadu/products/skills-2d.svg') }}" alt=""><b>Cadu Skills</b><small>especialistas instaláveis</small></span>
+            <span><img src="{{ url_for('static', filename='images/cadu/products/planner-2d.svg') }}" alt=""><b>Smart Planner</b><small>estratégia e mídia</small></span>
+            <span><img src="{{ url_for('static', filename='images/cadu/products/studio-2d.svg') }}" alt=""><b>Cadu Studio</b><small>produção criativa</small></span>
+            <span><img src="{{ url_for('static', filename='images/cadu/products/connect-2d.svg') }}" alt=""><b>Cadu Connect</b><small>agentes e integrações</small></span>
+            <span><img src="{{ url_for('static', filename='images/cadu/products/places-2d.svg') }}" alt=""><b>Cadu Places</b><small>inteligência de lugares</small></span>
+            <span><img src="{{ url_for('static', filename='images/cadu/products/workspace-2d.svg') }}" alt=""><b>Workspace</b><small>clientes e projetos</small></span>
+          </div>
+          <footer><p>Escolha seu perfil e veja como o Cadu entra no seu fluxo.</p><a class="sk-button" href="{{ url_for('cadu_skills.start') }}">Conhecer a família Cadu</a></footer>
+        </aside>
       </section>
     </div>
   </div>

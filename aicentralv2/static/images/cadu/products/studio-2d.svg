@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="title">
+  <title id="title">Peça criativa sendo produzida</title><rect width="240" height="160" rx="18" fill="#fff"/>
+  <rect x="34" y="25" width="172" height="110" rx="10" fill="#fff" stroke="#10213b" stroke-width="4"/><path d="M34 49h172" stroke="#10213b" stroke-width="4"/>
+  <rect x="51" y="66" width="88" height="53" rx="5" fill="#dce9f5"/><circle cx="72" cy="82" r="8" fill="#e87922"/><path d="m55 113 27-25 17 16 15-13 21 22" fill="#4c7aae"/>
+  <path d="M157 70h31M157 84h25M157 111h31" stroke="#10213b" stroke-width="4" stroke-linecap="round"/><rect x="156" y="94" width="22" height="7" rx="3.5" fill="#69d59c"/>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="title">
+  <title id="title">Planejamento de campanha em etapas</title><rect width="240" height="160" rx="18" fill="#fff"/>
+  <rect x="31" y="29" width="178" height="103" rx="10" fill="#fff" stroke="#10213b" stroke-width="4"/><path d="M31 52h178" stroke="#10213b" stroke-width="4"/>
+  <circle cx="49" cy="41" r="4" fill="#e87922"/><circle cx="63" cy="41" r="4" fill="#4c7aae"/>
+  <path d="M53 91h129" stroke="#cbd6e3" stroke-width="6" stroke-linecap="round"/><path d="M53 91h76" stroke="#e87922" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="53" cy="91" r="8" fill="#10213b"/><circle cx="129" cy="91" r="8" fill="#e87922"/><circle cx="182" cy="91" r="8" fill="#fff" stroke="#10213b" stroke-width="3"/>
+  <path d="M53 111h42M110 111h30M155 111h27" stroke="#4c7aae" stroke-width="4" stroke-linecap="round"/>
+</svg>

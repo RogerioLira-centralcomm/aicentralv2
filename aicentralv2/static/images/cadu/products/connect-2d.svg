@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="title">
+  <title id="title">Agentes e ferramentas conectados</title><rect width="240" height="160" rx="18" fill="#fff"/>
+  <path d="m69 52 51 28 52-30M120 80v47M69 52l-18 55M172 50l19 57M51 107l69 20 71-20" fill="none" stroke="#4c7aae" stroke-width="4"/>
+  <circle cx="120" cy="80" r="23" fill="#10213b"/><path d="M108 80h24M120 68v24" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="69" cy="52" r="14" fill="#e87922" stroke="#10213b" stroke-width="3"/><circle cx="172" cy="50" r="14" fill="#fff2e7" stroke="#10213b" stroke-width="3"/>
+  <circle cx="51" cy="107" r="14" fill="#69d59c" stroke="#10213b" stroke-width="3"/><circle cx="120" cy="127" r="14" fill="#fff" stroke="#10213b" stroke-width="3"/><circle cx="191" cy="107" r="14" fill="#dce9f5" stroke="#10213b" stroke-width="3"/>
+</svg>

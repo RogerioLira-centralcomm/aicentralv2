@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="title">
+  <title id="title">Equipe aprovando projetos no workspace</title><rect width="240" height="160" rx="18" fill="#fff"/>
+  <path d="M35 53h68l11 14h91v64H35z" fill="#fff2e7" stroke="#10213b" stroke-width="4" stroke-linejoin="round"/><path d="M35 53V37h60l12 16" fill="#dce9f5" stroke="#10213b" stroke-width="4" stroke-linejoin="round"/>
+  <circle cx="77" cy="87" r="13" fill="#4c7aae"/><path d="M55 117c3-14 12-21 22-21s19 7 22 21" fill="#4c7aae"/>
+  <circle cx="137" cy="87" r="13" fill="#e87922"/><path d="M115 117c3-14 12-21 22-21s19 7 22 21" fill="#e87922"/>
+  <circle cx="179" cy="91" r="19" fill="#69d59c" stroke="#10213b" stroke-width="3"/><path d="m169 91 7 7 13-16" fill="none" stroke="#10213b" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

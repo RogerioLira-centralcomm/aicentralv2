@@ -210,7 +210,15 @@ Importe o ZIP completo no recurso de Agent Skills disponível no seu ambiente ou
 - SHA-256: `{package['archive_sha256']}`
 - Página pública: {package['detail_url']}
 """
-    return Response(content, mimetype="text/markdown; charset=utf-8")
+    return Response(
+        content,
+        content_type="text/markdown; charset=utf-8",
+        headers={
+            "Cache-Control": "public, max-age=300",
+            "Content-Disposition": f'inline; filename="{skill["slug"]}-install.md"',
+            "Link": f'<{package["download_url"]}>; rel="alternate"; type="application/zip"',
+        },
+    )
 
 
 @bp.get("/<slug>/download")

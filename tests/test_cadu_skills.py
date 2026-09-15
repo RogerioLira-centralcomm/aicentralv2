@@ -91,6 +91,8 @@ class CaduSkillsTest(TestCase):
         install = client.get("/skills/install/cadu-media-planning")
         self.assertEqual(install.status_code, 200)
         self.assertIn("text/markdown", install.content_type)
+        self.assertIn("inline", install.headers["Content-Disposition"])
+        self.assertIn("application/zip", install.headers["Link"])
         body = install.get_data(as_text=True)
         self.assertIn("# Instalar Planejamento de mídia Cadu", body)
         self.assertIn("/skills/cadu-media-planning/download", body)
@@ -135,8 +137,24 @@ class CaduSkillsTest(TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.get_json()["state"]["count"], expected)
             self.assertEqual(response.get_json()["answer"], "Plano de teste")
+            expected_stage = "discover" if expected == 2 else "family" if expected == 3 else ""
+            self.assertEqual(response.get_json()["state"]["ecosystem_stage"], expected_stage)
         self.assertEqual(client.post("/skills/api/public/cadu-media-planning/preview", json={"prompt": "Planeje uma campanha regional de varejo"}).status_code, 429)
         self.assertFalse(consultation_state(3, is_client=True)["show_ecosystem_invite"])
+
+    @mock.patch("aicentralv2.cadu_skills.routes.record_event", return_value=True)
+    def test_public_skill_presents_cadu_family_after_second_preview(self, _event):
+        client = _app().test_client()
+        with client.session_transaction() as sess:
+            sess["skill_preview_cadu-media-planning"] = 2
+        response = client.get("/skills/cadu-media-planning")
+        html = response.get_data(as_text=True)
+        self.assertIn('data-stage="discover"', html)
+        self.assertIn("Para agências", html)
+        self.assertIn("Para produtores de conteúdo", html)
+        self.assertIn("Para clientes finais", html)
+        self.assertIn("Cadu Places", html)
+        self.assertEqual(html.count("-2d.svg"), 9)
 
     def test_personalized_download_contains_client_project_and_context(self):
         row = {

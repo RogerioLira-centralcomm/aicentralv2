@@ -34,15 +34,30 @@ document.addEventListener('DOMContentLoaded', () => {
     if (composer) { composer.value = button.textContent.trim(); composer.focus(); }
   }));
   const publicButton = document.querySelector('[data-public-preview]');
+  const applyPreviewState = state => {
+    if (!state) return;
+    const remaining = document.querySelector('[data-remaining]'); if (remaining) remaining.textContent = state.remaining;
+    const invite = document.querySelector('[data-ecosystem-invite]');
+    if (invite) {
+      invite.hidden = !state.show_ecosystem_invite;
+      invite.dataset.stage = state.ecosystem_stage || '';
+      const count = invite.querySelector('[data-preview-count]'); if (count) count.textContent = state.count;
+      if (!invite.hidden) invite.scrollIntoView({behavior:'smooth', block:'nearest'});
+    }
+    publicButton.disabled = !state.allowed;
+    publicButton.textContent = state.allowed ? publicButton.dataset.runLabel : 'Prévias concluídas';
+  };
   publicButton?.addEventListener('click', async () => {
     const composer = document.querySelector('[data-public-composer]'), answer = document.querySelector('[data-public-answer]');
     publicButton.disabled = true; show(answer, 'Executando a skill…');
     try {
       const response = await fetch(publicButton.dataset.url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({prompt:composer.value})});
-      const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Não foi possível executar a skill.');
-      show(answer, body.answer); document.querySelector('[data-remaining]').textContent = body.state.remaining;
-      const invite = document.querySelector('[data-ecosystem-invite]'); if (invite) invite.hidden = !body.state.show_ecosystem_invite;
-    } catch (error) { show(answer, error.message); } finally { publicButton.disabled = false; }
+      const body = await response.json(); applyPreviewState(body.state);
+      if (!response.ok) throw new Error(body.error || 'Não foi possível executar a skill.');
+      show(answer, body.answer);
+    } catch (error) { show(answer, error.message); } finally {
+      if (publicButton.textContent !== 'Prévias concluídas') publicButton.disabled = false;
+    }
   });
   document.querySelector('[data-copy-skill]')?.addEventListener('click', async event => {
     const button = event.currentTarget, content = document.querySelector('[data-skill-instructions]')?.textContent || '';

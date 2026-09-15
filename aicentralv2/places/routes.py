@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import logging
 
-from flask import Blueprint, jsonify, redirect, render_template, request, session, url_for
+from io import BytesIO
+
+from flask import Blueprint, jsonify, redirect, render_template, request, send_file, session, url_for
 
 from ..auth import login_required, login_required_api
 from . import service
@@ -12,6 +14,7 @@ from .brand import PUBLIC_TOKENS
 from .images import ImageError
 from .repository import PlaceConflict, PlaceNotFound, PlacesError
 from .research import ResearchError
+from . import documents
 from .schema import (
     SOURCE_LABELS,
     directory_card,
@@ -167,6 +170,44 @@ def api_update(place_id):
     except Exception:
         logger.exception("Falha ao salvar place")
         return _error("Não foi possível salvar o place.", 500)
+
+
+@bp.route("/api/<int:place_id>/documents", methods=["GET", "POST"])
+@login_required_api
+def api_documents(place_id):
+    try:
+        if request.method == "GET":
+            return _ok(documents.list_documents(place_id))
+        body = request.get_json(silent=True) or {}
+        kind = body.get("document_type") or "proposal_deck"
+        return _ok(documents.save_document(place_id, kind, body, session.get("user_id")))
+    except (PlaceNotFound, ValueError) as exc:
+        return _error(exc, 404 if isinstance(exc, PlaceNotFound) else 400)
+    except Exception:
+        logger.exception("Falha ao salvar documento de place")
+        return _error("Não foi possível montar o documento.", 500)
+
+
+@bp.route("/api/documents/<int:document_id>/export", methods=["POST"])
+@login_required_api
+def api_document_export(document_id):
+    try:
+        exported, artifact = documents.export_document(document_id, session.get("user_id"))
+        return send_file(BytesIO(artifact), mimetype=exported["mime_type"], as_attachment=True, download_name=exported["filename"])
+    except PlaceNotFound as exc:
+        return _error(exc, 404)
+    except Exception:
+        logger.exception("Falha ao exportar documento de place")
+        return _error("Não foi possível gerar o PDF.", 500)
+
+
+@bp.route("/api/document-exports/<int:export_id>")
+@login_required_api
+def api_document_download(export_id):
+    exported = documents.get_export(export_id)
+    if not exported:
+        return _error("Exportação não encontrada.", 404)
+    return send_file(BytesIO(bytes(exported["artifact"])), mimetype=exported["mime_type"], as_attachment=True, download_name=exported["filename"])
 
 
 @bp.route("/api/search")

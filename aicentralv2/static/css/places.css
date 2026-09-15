@@ -210,7 +210,7 @@
 
 .pl-form {
   display: grid;
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
 .pl-panel {
@@ -219,6 +219,13 @@
   border-radius: var(--cx-radius-lg, 0.75rem);
   background: var(--cx-surface, #fff);
 }
+
+/* Edição é uma mesa contínua: cada bloco atualiza o próximo sem trocar de aba. */
+.pl-panel { scroll-margin-top: calc(var(--erp-topbar-h, 0px) + 1rem); }
+.pl-panel .cx-section-header { align-items:flex-start; gap:1rem; }
+.pl-panel .cx-section-header > .pl-head-actions { margin-left:auto; justify-content:flex-end; }
+.pl-form-status { position:sticky; top:calc(var(--erp-topbar-h, 0px) + .75rem); z-index:12; margin:0; }
+@media (max-width:720px) { .pl-panel .cx-section-header { flex-direction:column; } .pl-panel .cx-section-header > .pl-head-actions { margin-left:0; justify-content:flex-start; } }
 
 .pl-grid {
   display: grid;
@@ -606,6 +613,22 @@
   padding-top: 0.25rem;
 }
 
+/* Guia do produto: mesma disciplina visual do Smart Planner, com vocabulário de Places. */
+.pl-guide { width: min(900px, calc(100vw - 32px)); border: 0; border-radius: 22px; padding: 0; color: #172033; box-shadow: 0 22px 70px rgba(15, 23, 42, .28); }
+.pl-guide::backdrop { background: rgba(15, 23, 42, .48); }
+.pl-guide-sheet { padding: 28px 30px 26px; }
+.pl-guide-head { display: flex; gap: 22px; align-items: flex-start; justify-content: space-between; }
+.pl-guide-head h2 { margin: 0; font-size: 1.75rem; letter-spacing: -.035em; }
+.pl-guide-head p { margin: 6px 0 0; color: #62718a; max-width: 590px; }
+.pl-guide-flow { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr; align-items: center; gap: 10px; margin: 22px 0; padding: 20px; border-radius: 16px; background: #e8f1f1; }
+.pl-guide-flow article { display: grid; justify-items: center; gap: 7px; text-align: center; font-size: .78rem; color: #526078; }
+.pl-guide-flow i { color: #1e4d4f; font-size: 1.25rem; }.pl-guide-flow strong { color: #172033; font-size: .88rem; }.pl-guide-flow b { color: #5c888a; font-size: 1.25rem; }
+.pl-guide-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }.pl-guide-columns h3 { margin: 0 0 12px; font-size: 1rem; }
+.pl-guide-columns ol, .pl-guide-columns ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }.pl-guide-columns ol { counter-reset: guide; }
+.pl-guide-columns ol li { counter-increment: guide; position: relative; padding-left: 28px; }.pl-guide-columns ol li::before { content: counter(guide); position: absolute; left: 0; color: #1e4d4f; font-weight: 800; }
+.pl-guide-columns li { display: grid; gap: 3px; color: #62718a; font-size: .87rem; line-height: 1.4; }.pl-guide-columns li strong { color: #172033; }.pl-guide-columns ul li { grid-template-columns: 18px 1fr; }.pl-guide-columns ul i { color: #1e4d4f; padding-top: 2px; }
+.pl-document-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }.pl-document-grid label { display: grid; gap: 6px; font-weight: 700; font-size: .83rem; }.pl-document-warnings { margin: 12px 0; padding: 10px 14px 10px 30px; color: #8a5b11; background: #fff8e6; border-radius: 8px; }.pl-document-history { margin-top: 16px; display: grid; gap: 7px; }.pl-document-history a { color: #1e4d4f; font-weight: 700; }
+
 @media (prefers-reduced-motion: reduce) {
   .pl-queue-bar span {
     transition: none;
@@ -641,7 +664,14 @@
   }
 
   .pl-point-channels,
-  .pl-report-points {
+  .pl-report-points,
+  .pl-document-grid,
+  .pl-guide-columns {
     grid-template-columns: 1fr;
   }
+
+  .pl-guide-sheet { padding: 22px; }
+  .pl-guide-flow { grid-template-columns: 1fr; }
+  .pl-guide-flow b { transform: rotate(90deg); }
+  .pl-guide-head { flex-direction: column; }
 }

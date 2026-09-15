@@ -5,7 +5,7 @@
 
 {% block styles %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/places.css') }}?v=10">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/places.css') }}?v=11">
 {% endblock %}
 
 {% block content %}
@@ -30,6 +30,7 @@
         </div>
       </div>
       <div class="pl-head-actions">
+        <button type="button" class="cx-btn cx-btn-ghost" data-places-guide-open>Como funciona</button>
         <a class="cx-btn cx-btn-outline" data-share-link href="{{ place.share_url or '#' }}" target="_blank" rel="noopener noreferrer"{% if not place.share_url %} hidden{% endif %}>
           {{ 'Página pública' if place.status == 'published' else 'Prévia' }}
         </a>
@@ -38,22 +39,14 @@
       </div>
     </header>
 
-    <nav class="pl-trail" aria-label="Passos do cadastro">
-      <button type="button" class="is-on" data-tab="lugar"><span>1</span> Lugar</button>
-      <button type="button" data-tab="bacia"><span>2</span> Bacia</button>
-      <button type="button" data-tab="pontos"><span>3</span> Pontos</button>
-      <button type="button" data-tab="arte"><span>4</span> Arte</button>
-      <button type="button" data-tab="publicar"><span>5</span> Publicar</button>
-    </nav>
-
     <p class="pl-form-status" hidden></p>
 
     <form id="pl-form" class="pl-form">
-      <section class="cx-section pl-panel" data-panel="lugar">
+      <section class="cx-section pl-panel" id="pl-section-lugar" data-panel="lugar">
         <div class="cx-section-header">
           <div>
-            <h2 class="cx-section-title">Achar o lugar</h2>
-            <p class="cx-section-description">Busque no mapa, confira o código e siga para fechar a ficha.</p>
+            <h2 class="cx-section-title">Base do place</h2>
+            <p class="cx-section-description">Identidade, localização e o recorte comercial que a campanha compra.</p>
           </div>
         </div>
         <div class="cx-section-body">
@@ -87,19 +80,20 @@
             <label>Longitude<input class="cx-input" name="geo_lng" value="{{ place.geo.lng or '' }}" inputmode="decimal"></label>
             <label class="pl-span">O que se compra aqui<input class="cx-input" name="subtitle" value="{{ place.subtitle }}" placeholder="O raio que a campanha compra neste place"></label>
           </div>
-          <div class="pl-panel-nav">
-            <button type="button" class="cx-btn cx-btn-primary" data-next-tab="bacia">Continuar para a bacia</button>
-          </div>
         </div>
       </section>
 
-      <section class="cx-section pl-panel" data-panel="bacia" hidden>
+      <section class="cx-section pl-panel" id="pl-section-bacia" data-panel="bacia">
         <div class="cx-section-header">
           <div>
-            <h2 class="cx-section-title">Fechar a ficha</h2>
-            <p class="cx-section-description">Um passo: pesquisa a região, fecha o texto e já entra os pontos no mapa.</p>
+            <h2 class="cx-section-title">Contexto e evidências</h2>
+            <p class="cx-section-description">Atualize dados públicos, revise a narrativa e escolha o que deve entrar na proposta.</p>
           </div>
-          <button type="button" class="cx-btn cx-btn-primary" id="pl-import">Fechar ficha</button>
+          <div class="pl-head-actions">
+            <button type="button" class="cx-btn cx-btn-outline" id="pl-research">Buscar dados públicos</button>
+            <button type="button" class="cx-btn cx-btn-outline" id="pl-review">Revisar informações</button>
+            <button type="button" class="cx-btn cx-btn-primary" id="pl-import">Atualizar ficha e pontos</button>
+          </div>
         </div>
         <div class="cx-section-body">
           <div class="pl-warnings" data-pipeline-warnings hidden></div>
@@ -129,18 +123,14 @@
             <label class="pl-span">Corpo da defesa<input class="cx-input" name="defense_body" value="{{ place.defense.body }}"></label>
           </div>
           <p class="pl-help" data-research-notes>{{ place.research.review or place.research.notes }}</p>
-          <div class="pl-panel-nav">
-            <button type="button" class="cx-btn cx-btn-ghost" data-next-tab="lugar">Voltar</button>
-            <button type="button" class="cx-btn cx-btn-secondary" data-next-tab="pontos">Ver pontos</button>
-          </div>
         </div>
       </section>
 
-      <section class="cx-section pl-panel" data-panel="pontos" hidden>
+      <section class="cx-section pl-panel" id="pl-section-pontos" data-panel="pontos">
         <div class="cx-section-header">
           <div>
-            <h2 class="cx-section-title">Pontos do raio</h2>
-            <p class="cx-section-description">Entram sozinhos ao fechar a ficha. Sem coordenada, clique no mapa. Enriquecer lista apps e portais de cada raio.</p>
+            <h2 class="cx-section-title">Pontos e inventário</h2>
+            <p class="cx-section-description">Edite o raio no mapa. O enriquecimento atualiza apps, portais e formatos de cada ponto sem sobrescrever a escolha manual.</p>
           </div>
           <button type="button" class="cx-btn cx-btn-primary" id="pl-enrich">Enriquecer pontos</button>
         </div>
@@ -163,18 +153,15 @@
             <p class="pl-help" data-inventory-notes>{{ place.inventory.notes }}</p>
             <div class="pl-report-points" data-inventory-points></div>
           </aside>
-          <div class="pl-panel-nav">
-            <button type="button" class="cx-btn cx-btn-ghost" id="pl-add-point">Adicionar ponto</button>
-            <button type="button" class="cx-btn cx-btn-secondary" data-next-tab="arte">Ir para as fotos</button>
-          </div>
+          <div class="pl-panel-nav"><button type="button" class="cx-btn cx-btn-ghost" id="pl-add-point">Adicionar ponto</button></div>
         </div>
       </section>
 
-      <section class="cx-section pl-panel" data-panel="arte" hidden>
+      <section class="cx-section pl-panel" id="pl-section-arte" data-panel="arte">
         <div class="cx-section-header">
           <div>
-            <h2 class="cx-section-title">Fotos do link</h2>
-            <p class="cx-section-description" data-image-spec>Primeiro o Firecrawl busca a foto real. Você marca a referência fiel. Só então a IA gera a nova. Uma foto por vez.</p>
+            <h2 class="cx-section-title">Fotos e prévia do link</h2>
+            <p class="cx-section-description" data-image-spec>Busque referências reais, aprove a foto que representa o lugar e gere somente o que estiver faltando.</p>
           </div>
         </div>
         <div class="cx-section-body">
@@ -205,10 +192,6 @@
             <button type="button" class="cx-btn cx-btn-outline" id="pl-gen-hero">Só o hero</button>
             <button type="button" class="cx-btn cx-btn-outline" id="pl-gen-map">Só o mapa</button>
           </div>
-          <div class="pl-panel-nav">
-            <button type="button" class="cx-btn cx-btn-ghost" data-next-tab="pontos">Voltar aos pontos</button>
-            <button type="button" class="cx-btn cx-btn-secondary" data-next-tab="publicar">Ir para publicar</button>
-          </div>
         </div>
       </section>
 
@@ -217,11 +200,43 @@
         <div class="pl-gallery-review-grid" data-gallery-review-grid></div>
       </dialog>
 
-      <section class="cx-section pl-panel" data-panel="publicar" hidden>
+      <dialog class="pl-guide" data-places-guide aria-labelledby="pl-guide-title">
+        <form method="dialog" class="pl-guide-sheet">
+          <header class="pl-guide-head"><div><h2 id="pl-guide-title" tabindex="-1">Como funciona o Places</h2><p>Transforme um lugar em uma proposta comercial consistente, com evidências e inventário revisáveis.</p></div><button class="cx-btn cx-btn-ghost" value="close">Fechar</button></header>
+          <div class="pl-guide-flow" aria-hidden="true">
+            <article><i class="fa-solid fa-location-dot"></i><strong>Lugar</strong><span>Localize e defina o recorte.</span></article><b>→</b>
+            <article><i class="fa-solid fa-magnifying-glass-chart"></i><strong>Evidências</strong><span>Busque dados e confirme fontes.</span></article><b>→</b>
+            <article><i class="fa-solid fa-map-location-dot"></i><strong>Pontos</strong><span>Escolha inventário e raios.</span></article><b>→</b>
+            <article><i class="fa-regular fa-file-lines"></i><strong>Proposta</strong><span>Publique ou exporte o documento.</span></article>
+          </div>
+          <div class="pl-guide-columns"><section><h3>Na prática</h3><ol><li><strong>Busque o lugar</strong><span>Comece pelo nome e confirme a localização.</span></li><li><strong>Revise as evidências</strong><span>Dados públicos são referência; a fonte define o que pode ser apresentado.</span></li><li><strong>Monte o ponto comercial</strong><span>Edite raio, formatos, apps e portais sem perder a escolha manual.</span></li><li><strong>Publique ou exporte</strong><span>Use a prévia para o link e o documento para a conversa comercial.</span></li></ol></section><section><h3>O que o sistema faz</h3><ul><li><i class="fa-solid fa-globe"></i><span>Pesquisa e reúne referências públicas.</span></li><li><i class="fa-solid fa-camera"></i><span>Prioriza fotos reais aprovadas antes de qualquer geração.</span></li><li><i class="fa-solid fa-shield-halved"></i><span>Indica dados que precisam de validação comercial.</span></li><li><i class="fa-solid fa-wand-magic-sparkles"></i><span>Organiza o documento, mas não inventa números ou inventário.</span></li></ul></section></div>
+        </form>
+      </dialog>
+
+      {% if place.id %}
+      <section class="cx-section pl-panel" id="pl-section-documentos" data-panel="documentos">
+        <div class="cx-section-header"><div><h2 class="cx-section-title">Documento comercial</h2><p class="cx-section-description">Monte uma versão revisável com os dados aprovados deste place. A exportação fica salva no histórico.</p></div></div>
+        <div class="cx-section-body">
+          <div class="pl-document-grid">
+            <label>Tipo de documento<select class="cx-select" data-document-type><option value="proposal_deck">Proposta comercial · deck 16:9</option><option value="technical_sheet">Ficha técnica · A4</option></select></label>
+            <label>Agência<input class="cx-input" data-document-agency placeholder="Opcional"></label>
+            <label>Campanha<input class="cx-input" data-document-campaign placeholder="Opcional"></label>
+            <label>Marca<input class="cx-input" data-document-brand value="CentralComm"></label>
+            <label class="pl-span">Orientação para o agente<input class="cx-input" data-document-instruction placeholder="Ex.: destaque o inventário premium e mantenha a proposta objetiva."></label>
+          </div>
+          <p class="pl-help" data-document-status>Salve um rascunho para revisar a proposta antes de exportar.</p>
+          <ul class="pl-document-warnings" data-document-warnings hidden></ul>
+          <div class="pl-head-actions"><button type="button" class="cx-btn cx-btn-outline" data-document-save>Montar</button><button type="button" class="cx-btn cx-btn-outline" data-document-review>Revisar consistência</button><button type="button" class="cx-btn cx-btn-primary" data-document-export disabled>Exportar PDF</button></div>
+          <div class="pl-document-history" data-document-history></div>
+        </div>
+      </section>
+      {% endif %}
+
+      <section class="cx-section pl-panel" id="pl-section-publicar" data-panel="publicar">
         <div class="cx-section-header">
           <div>
-            <h2 class="cx-section-title">Publicar o link</h2>
-            <p class="cx-section-description">A one-page é o que a agência ou o cliente abre para decidir.</p>
+            <h2 class="cx-section-title">Publicação</h2>
+            <p class="cx-section-description">Revise a prévia, publique quando estiver pronta e envie o link comercial.</p>
           </div>
         </div>
         <div class="cx-section-body">
@@ -256,5 +271,5 @@
 
 {% block scripts %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="{{ url_for('static', filename='js/places.js') }}?v=12"></script>
+<script src="{{ url_for('static', filename='js/places.js') }}?v=13"></script>
 {% endblock %}

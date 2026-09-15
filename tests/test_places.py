@@ -1,4 +1,5 @@
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -70,6 +71,7 @@ from aicentralv2.places.service import (
     serialize,
 )
 from aicentralv2.places.share import public_path, slugify
+from aicentralv2.places.documents import _content as document_content, _pdf as document_pdf, _quality as document_quality, filename as document_filename
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_CSS = ROOT / "aicentralv2" / "static" / "css" / "places_public.css"
@@ -78,6 +80,29 @@ ADMIN_CSS = ROOT / "aicentralv2" / "static" / "css" / "places.css"
 ADMIN_JS = ROOT / "aicentralv2" / "static" / "js" / "places.js"
 ADMIN_INDEX = ROOT / "aicentralv2" / "templates" / "places" / "index.html"
 ADMIN_EDIT = ROOT / "aicentralv2" / "templates" / "places" / "edit.html"
+
+
+class PlacesDocumentsTest(unittest.TestCase):
+    def test_document_filename_and_pdf_formats(self):
+        place = dict(SANTOS_DUMONT, id=3, created_at=datetime(2026, 9, 15, tzinfo=timezone.utc))
+        snapshot = {"title": "Santos Dumont", "subtitle": "Recorte", "points": [], "target_audience": [], "investment": {}, "planning": {}, "defense": {}, "offer": {}, "media": {}, "methodology": {}}
+        document = {"document_type": "proposal_deck", "agency_name": "Agência Ágil", "campaign_name": "Lançamento", "version": 2, "brand_name": "CentralComm", "source_snapshot": snapshot, "content": document_content(snapshot)}
+        self.assertEqual(document_filename(document, place), "agencia-agil-lancamento-santos-dumont-2026-09-15-v2.pdf")
+        pdf, pages = document_pdf(document, place)
+        self.assertTrue(pdf.startswith(b"%PDF"))
+        self.assertGreaterEqual(pages, 2)
+
+    def test_document_quality_exposes_missing_commercial_data(self):
+        report = document_quality({"points": [], "media": {}, "investment": {}})
+        self.assertFalse(report["ok"])
+        self.assertGreaterEqual(len(report["warnings"]), 2)
+
+    def test_documents_migration_and_deploy_are_registered(self):
+        migration = (ROOT / "migrations" / "add_cx_place_documents.sql").read_text()
+        deploy = (ROOT / "deploy.sh").read_text()
+        self.assertIn("cx_place_documents", migration)
+        self.assertIn("cx_place_document_exports", migration)
+        self.assertIn("run_add_cx_place_documents.py", deploy)
 
 
 class PlacesCatalogTest(unittest.TestCase):
@@ -512,7 +537,7 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertIn(".pl-report", css)
         self.assertIn("letter-spacing: 0", css)
 
-    def test_desk_is_a_table_and_a_single_trail(self):
+    def test_desk_is_a_table_and_a_single_editing_flow(self):
         listing = ADMIN_INDEX.read_text(encoding="utf-8")
         form = ADMIN_EDIT.read_text(encoding="utf-8")
         js = ADMIN_JS.read_text(encoding="utf-8")
@@ -521,8 +546,11 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertIn("data-copy", listing)
         self.assertIn('target="_blank"', listing)
         self.assertNotIn("pl-card", listing)
-        self.assertIn("pl-trail", form)
-        self.assertIn("Fechar ficha", form)
+        self.assertNotIn("pl-trail", form)
+        self.assertIn("Contexto e evidências", form)
+        self.assertIn("Buscar dados públicos", form)
+        self.assertIn("Revisar informações", form)
+        self.assertIn("Atualizar ficha e pontos", form)
         self.assertIn('id="pl-enrich"', form)
         self.assertIn("Enriquecer pontos", form)
         self.assertIn("data-inventory-report", form)
@@ -1297,7 +1325,7 @@ class PlacesPublicRoutesTest(unittest.TestCase):
         self.assertNotIn("cc-map-art", html)
         self.assertNotIn("cc-docs", html)
 
-    def test_confins_public_shows_validate_and_offer(self):
+    def test_confins_public_shows_points_and_offer(self):
         place = serialize(dict(CONFINS, id=1, preview_token="preview-cnf", status="published"))
         with patch("aicentralv2.places.service.public_place", return_value=place), patch(
             "aicentralv2.places.service.public_catalog", return_value=[place]
@@ -1306,9 +1334,9 @@ class PlacesPublicRoutesTest(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertEqual(response.status_code, 200)
         self.assertIn("confins-hero-bad23d6b.png", html)
-        self.assertIn("A validar", html)
+        self.assertIn("Sob consulta", html)
         self.assertIn("MG-010", html)
-        self.assertIn("Ficha do ponto", html)
+        self.assertIn("Fichas dos pontos", html)
         self.assertIn("No sítio", html)
         self.assertIn("-19.630503", html)
         self.assertIn("Ponto comercial", html)
@@ -1325,7 +1353,7 @@ class PlacesPublicRoutesTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("No Ibirapuera você compra o portão", html)
         self.assertIn("No lugar, 2025", html)
-        self.assertIn("A validar", html)
+        self.assertIn("Sob consulta", html)
         self.assertIn("ibi-bienal", html)
 
     def test_iguatemi_public_shows_apps_portals_and_report(self):

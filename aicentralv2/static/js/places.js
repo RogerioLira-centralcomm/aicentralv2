@@ -221,24 +221,10 @@
     if (on && message) toast(statusNode, message);
   }
 
-  function currentTab() {
-    var params = new URLSearchParams(window.location.search);
-    return params.get("tab") || "lugar";
-  }
-
   function showTab(tab) {
     var id = tab || "lugar";
-    document.querySelectorAll(".pl-trail button").forEach(function (button) {
-      button.classList.toggle("is-on", button.getAttribute("data-tab") === id);
-    });
-    document.querySelectorAll("[data-panel]").forEach(function (panel) {
-      panel.hidden = panel.getAttribute("data-panel") !== id;
-    });
-    if (window.history && window.history.replaceState) {
-      var url = new URL(window.location.href);
-      url.searchParams.set("tab", id);
-      window.history.replaceState({}, "", url.pathname + url.search);
-    }
+    var panel = document.querySelector('[data-panel="' + id + '"]');
+    if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });
     if (id === "pontos") window.setTimeout(ensureMap, 40);
   }
 
@@ -250,9 +236,7 @@
       arte: !!(place.media && (place.media.hero_url || place.media.map_url)),
       publicar: place.status === "published"
     };
-    document.querySelectorAll(".pl-trail button").forEach(function (button) {
-      button.classList.toggle("is-done", !!done[button.getAttribute("data-tab")]);
-    });
+    root.setAttribute("data-place-ready", done.publicar ? "published" : done.arte ? "ready" : "draft");
   }
 
   function kindOptions(selected) {
@@ -385,8 +369,7 @@
     if (data.id) {
       root.setAttribute("data-place-id", String(data.id));
       if (window.history && window.history.replaceState) {
-        var tab = currentTab();
-        window.history.replaceState({}, "", "/places/" + data.id + "?tab=" + encodeURIComponent(tab));
+        window.history.replaceState({}, "", "/places/" + data.id + (window.location.hash || ""));
       }
     }
     if (data.title) setValue("title", data.title);
@@ -557,12 +540,6 @@
     });
   });
 
-  document.querySelectorAll(".pl-trail button").forEach(function (button) {
-    button.addEventListener("click", function () {
-      showTab(button.getAttribute("data-tab"));
-    });
-  });
-
   document.querySelectorAll("[data-next-tab]").forEach(function (button) {
     button.addEventListener("click", function () {
       showTab(button.getAttribute("data-next-tab"));
@@ -598,7 +575,7 @@
             if (item.city) setValue("city", item.city);
             setValue("geo_lat", numberOrNull(item.lat));
             setValue("geo_lng", numberOrNull(item.lng));
-            toast(statusNode, "Lugar preenchido. Continue para fechar a ficha.");
+            toast(statusNode, "Lugar preenchido. Agora você pode enriquecer os dados abaixo.");
             showTab("bacia");
           });
         });
@@ -637,6 +614,14 @@
       placeAction("/import", {}, "Ficha fechada. Os pontos já estão na lista.", "Fechando a ficha. Isso leva cerca de um minuto…", "pontos");
     });
   }
+  var researchBtn = document.getElementById("pl-research");
+  if (researchBtn) researchBtn.addEventListener("click", function () {
+    placeAction("/research", {}, "Dados públicos atualizados. Revise os campos destacados antes de salvar.", "Buscando dados públicos…", "bacia");
+  });
+  var reviewBtn = document.getElementById("pl-review");
+  if (reviewBtn) reviewBtn.addEventListener("click", function () {
+    placeAction("/review", {}, "Informações revisadas. Ajuste o que precisar antes de publicar.", "Revisando as informações…", "bacia");
+  });
   var enrichBtn = document.getElementById("pl-enrich");
   if (enrichBtn) {
     enrichBtn.addEventListener("click", function () {
@@ -891,6 +876,77 @@
     });
   }
 
+  var guide = document.querySelector("[data-places-guide]");
+  var guideOpen = document.querySelector("[data-places-guide-open]");
+  if (guide && guideOpen) {
+    guideOpen.addEventListener("click", function () {
+      if (guide.showModal) guide.showModal(); else guide.setAttribute("open", "open");
+      window.setTimeout(function () { var title = guide.querySelector("h2"); if (title) title.focus(); }, 0);
+    });
+    guide.addEventListener("click", function (event) {
+      if (event.target === guide) guide.close();
+    });
+  }
+
+  var documentState = null;
+  var documentType = document.querySelector("[data-document-type]");
+  var documentAgency = document.querySelector("[data-document-agency]");
+  var documentCampaign = document.querySelector("[data-document-campaign]");
+  var documentBrand = document.querySelector("[data-document-brand]");
+  var documentInstruction = document.querySelector("[data-document-instruction]");
+  var documentStatus = document.querySelector("[data-document-status]");
+  var documentWarnings = document.querySelector("[data-document-warnings]");
+  var documentHistory = document.querySelector("[data-document-history]");
+  var documentExport = document.querySelector("[data-document-export]");
+  var placeIdForDocument = root.getAttribute("data-place-id");
+
+  function documentPayload(review) {
+    return { document_type: documentType.value, agency_name: documentAgency.value, campaign_name: documentCampaign.value,
+      brand_name: documentBrand.value || "CentralComm", agent_instruction: documentInstruction.value, review: !!review };
+  }
+  function renderDocument(doc) {
+    documentState = doc || null;
+    if (!doc) return;
+    documentAgency.value = doc.agency_name || ""; documentCampaign.value = doc.campaign_name || "";
+    documentBrand.value = doc.brand_name || "CentralComm"; documentInstruction.value = doc.agent_instruction || "";
+    documentStatus.textContent = "Versão " + doc.version + " · " + (doc.status === "reviewed" ? "revisada" : doc.status === "exported" ? "exportada" : "rascunho");
+    var warnings = (doc.quality_report && doc.quality_report.warnings) || [];
+    documentWarnings.hidden = !warnings.length;
+    documentWarnings.innerHTML = warnings.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("");
+    documentExport.disabled = false;
+  }
+  function loadDocuments() {
+    if (!placeIdForDocument || !documentHistory) return;
+    jsonFetch("/places/api/" + placeIdForDocument + "/documents", "GET").then(function (result) {
+      if (!result.ok || !result.body.success) return;
+      var docs = result.body.data || [];
+      var selected = docs.filter(function (item) { return item.document_type === documentType.value; })[0];
+      if (selected) renderDocument(selected);
+      documentHistory.innerHTML = docs.map(function (item) { return "<span>" + escapeHtml(item.document_type === "proposal_deck" ? "Deck 16:9" : "Ficha A4") + " · v" + item.version + " · " + escapeHtml(item.status) + "</span>"; }).join("");
+    });
+  }
+  function saveDocument(review) {
+    if (!placeIdForDocument || busy) return;
+    setBusy(true, review ? "Revisando consistência…" : "Montando documento…");
+    jsonFetch("/places/api/" + placeIdForDocument + "/documents", "POST", documentPayload(review)).then(function (result) {
+      if (!result.ok || !result.body.success) throw new Error((result.body || {}).error || "Não foi possível salvar o documento.");
+      renderDocument(result.body.data); loadDocuments(); toast(statusNode, review ? "Documento revisado." : "Rascunho montado.");
+    }).catch(function (error) { toast(statusNode, error.message, true); }).finally(function () { setBusy(false); });
+  }
+  document.querySelectorAll("[data-document-save]").forEach(function (button) { button.addEventListener("click", function () { saveDocument(false); }); });
+  document.querySelectorAll("[data-document-review]").forEach(function (button) { button.addEventListener("click", function () { saveDocument(true); }); });
+  if (documentType) documentType.addEventListener("change", function () { documentState = null; documentExport.disabled = true; loadDocuments(); });
+  if (documentExport) documentExport.addEventListener("click", function () {
+    if (!documentState || busy) return;
+    setBusy(true, "Gerando PDF…");
+    fetch("/places/api/documents/" + documentState.id + "/export", { method: "POST", credentials: "same-origin" }).then(function (response) {
+      if (!response.ok) throw new Error("Não foi possível exportar o PDF.");
+      var disposition = response.headers.get("Content-Disposition") || "";
+      var match = disposition.match(/filename=\"?([^\";]+)\"?/); return response.blob().then(function (blob) { return { blob: blob, name: match ? match[1] : "proposta-places.pdf" }; });
+    }).then(function (file) { var url = URL.createObjectURL(file.blob); var a = document.createElement("a"); a.href = url; a.download = file.name; a.click(); URL.revokeObjectURL(url); toast(statusNode, "PDF exportado e salvo no histórico."); loadDocuments(); }).catch(function (error) { toast(statusNode, error.message, true); }).finally(function () { setBusy(false); });
+  });
+  if (documentType) loadDocuments();
+
   applyPlace(place);
-  showTab(currentTab());
+  window.setTimeout(ensureMap, 60);
 })();

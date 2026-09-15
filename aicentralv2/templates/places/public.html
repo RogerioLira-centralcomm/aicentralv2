@@ -5,8 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f4f5f7">
   <meta name="description" content="{{ place.subtitle }}">
+  <link rel="canonical" href="{{ request.url_root.rstrip('/') }}/places/p/{{ place.slug }}">
+  <link rel="icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ place.title }} · CentralComm Places">
+  <meta property="og:description" content="{{ place.subtitle }}">
   {% if place.media.og_url or place.media.hero_url %}
   <meta property="og:image" content="{{ place.media.og_url or place.media.hero_url }}">
+  <meta name="twitter:card" content="summary_large_image">
   {% endif %}
   <title>{{ place.title }}{% if place.code %} ({{ place.code }}){% endif %} · CentralComm Places</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,7 +22,6 @@
 </head>
 <body class="cc-place cc-folio" data-preview="{{ '1' if preview else '0' }}">
   <a class="cc-skip" href="#ponto">Ir para a ficha do ponto</a>
-  {% set first = (place.points or [None])[0] %}
 
   {% if preview %}
   <p class="cc-preview" role="status">Prévia interna. Este link ainda não é o público.</p>
@@ -133,26 +138,28 @@
       </dl>
     </section>
 
-    {% if first %}
+    {% if place.points %}
     <section class="cc-areas" id="ponto">
       <header class="cc-block-head">
-        <h2>Ficha do ponto</h2>
-        <p>Um único ponto comercial por lugar. Não há cobrança por subdivisões internas.</p>
+        <h2>{{ 'Fichas dos pontos' if place.points|length > 1 else 'Ficha do ponto' }}</h2>
+        <p>O investimento e os formatos dependem do ponto comercial e da validação de inventário.</p>
       </header>
+      {% for point in place.points %}
       <div class="cc-point-table-wrap">
-        {% if first.image_url %}<img class="cc-point-table-photo" src="{{ first.image_url }}" alt="{{ first.name }}">{% endif %}
+        {% if point.image_url %}<img class="cc-point-table-photo" src="{{ point.image_url }}" alt="{{ point.name }}">{% endif %}
         <table class="cc-point-table">
           <tbody>
-            <tr><th>Ponto comercial</th><td>{{ first.name }} · {{ first.scope_label }}</td></tr>
-            <tr><th>O que há dentro</th><td>{{ first.inside|join(' · ') or first.note or 'A validar' }}</td></tr>
-            <tr><th>Público-alvo</th><td>{{ first.target_audience|join(' · ') or place.target_audience|join(' · ') or 'A validar' }}</td></tr>
-            <tr><th>Alcance no celular · 4 semanas</th><td>{{ first.reach or 'A validar' }}</td></tr>
-            <tr><th>Formatos</th><td>{{ first.formats|join(' · ') or 'A validar' }}</td></tr>
-            {% if first.apps or first.portals %}<tr><th>Canais</th><td>{{ first.apps|map(attribute='name')|join(' · ') }}{% if first.apps and first.portals %} · {% endif %}{{ first.portals|map(attribute='name')|join(' · ') }}</td></tr>{% endif %}
-            <tr><th>Investimento · 4 semanas</th><td>{{ first.investment or place.investment.label or 'A validar' }}</td></tr>
+            <tr><th>Ponto comercial</th><td>{{ point.name }} · {{ point.scope_label }}</td></tr>
+            {% if point.inside or (point.note and 'validar' not in point.note|lower) %}<tr><th>O que há dentro</th><td>{{ point.inside|join(' · ') or point.note }}</td></tr>{% endif %}
+            {% if point.target_audience or place.target_audience %}<tr><th>Público-alvo</th><td>{{ point.target_audience|join(' · ') or place.target_audience|join(' · ') }}</td></tr>{% endif %}
+            {% if point.reach %}<tr><th>Alcance no celular · 4 semanas</th><td>{{ point.reach }}</td></tr>{% endif %}
+            {% if point.formats %}<tr><th>Formatos</th><td>{{ point.formats|join(' · ') }}</td></tr>{% endif %}
+            {% if point.apps or point.portals %}<tr><th>Canais</th><td>{{ point.apps|map(attribute='name')|join(' · ') }}{% if point.apps and point.portals %} · {% endif %}{{ point.portals|map(attribute='name')|join(' · ') }}</td></tr>{% endif %}
+            <tr><th>Investimento · 4 semanas</th><td>{{ point.investment or place.investment.label or 'Sob consulta' }}</td></tr>
           </tbody>
         </table>
       </div>
+      {% endfor %}
     </section>
     {% endif %}
 
@@ -194,19 +201,19 @@
       <dl class="cc-sheet-facts">
         <div>
           <dt>Público-alvo</dt>
-          <dd>{{ place.target_audience|join(' · ') or 'A validar' }}</dd>
+          <dd>{{ place.target_audience|join(' · ') or 'Sob consulta' }}</dd>
         </div>
         <div>
           <dt>Renda</dt>
-          <dd>{{ place.income.label or 'A validar' }}</dd>
+          <dd>{{ place.income.label or 'Sob consulta' }}</dd>
         </div>
         <div>
           <dt>Densidade</dt>
-          <dd>{{ place.catchment.density.label or 'A validar' }}</dd>
+          <dd>{{ place.catchment.density.label or 'Sob consulta' }}</dd>
         </div>
       </dl>
       <div class="cc-weekly" aria-label="Movimentação por dia da semana">
-        <p><strong>Movimentação por dia</strong> <span>{{ place.weekly_movement.note or 'A validar com fonte de mobilidade.' }}</span></p>
+        <p><strong>Movimentação por dia</strong> <span>{{ place.weekly_movement.note or 'Índices disponíveis sob consulta.' }}</span></p>
         <div class="cc-weekly-bars">
           {% for day in ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'] %}
           {% set value = place.weekly_movement.values[loop.index0] %}
@@ -289,7 +296,7 @@
     <div class="cc-leaf">
       <footer class="cc-foot">
         <img src="{{ brand.logo }}" alt="CentralComm">
-        <p>CentralComm Places · {{ place.title }}{% if place.code %} ({{ place.code }}){% endif %}</p>
+        <p>CentralComm Places · {{ place.title }}{% if place.code %} ({{ place.code }}){% endif %} · Documento comercial sujeito à validação de inventário.</p>
       </footer>
     </div>
   </main>

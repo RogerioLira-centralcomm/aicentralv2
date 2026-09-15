@@ -119,4 +119,15 @@ def exchange_code(code: str, state: str) -> dict:
     allowed_domain = str(config.get("allowed_domain") or "").strip().lower()
     if allowed_domain and not email.endswith(f"@{allowed_domain}"):
         raise GoogleLoginError("Use uma conta Google autorizada pela organização.")
-    return {"email": email, "name": str(identity.get("name") or ""), "sub": str(identity.get("sub") or ""), "realm": realm}
+    # A foto é um detalhe de sessão, nunca uma fonte de autorização. Só será
+    # usada quando o contato ainda não possui foto própria no Cadu.
+    picture = str(identity.get("picture") or "").strip()
+    if not picture.startswith("https://"):
+        picture = ""
+    return {
+        "email": email,
+        "name": str(identity.get("name") or ""),
+        "picture": picture,
+        "sub": str(identity.get("sub") or ""),
+        "realm": realm,
+    }

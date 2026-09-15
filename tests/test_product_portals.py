@@ -174,17 +174,18 @@ class ProductPortalsTest(TestCase):
             "/auth/sso/to-cadu?next=https://cadu.centralcomm.media/",
         )
 
-    def test_cadu_google_access_uses_existing_php_flow(self):
-        client = _app().test_client()
-        response = client.get(
-            "/auth/google?next=https%3A%2F%2Fplanner.centralcomm.media%2F",
-            headers={"Host": "auth.centralcomm.media"},
-        )
+    def test_cadu_google_access_starts_from_central_auth(self):
+        app = _app()
+        app.config["CADU_GOOGLE_NATIVE_ENABLED"] = True
+        client = app.test_client()
+        with mock.patch("aicentralv2.cadu_identity.routes.google_authorization_url", return_value="https://accounts.google.com/o/oauth2/v2/auth") as authorize:
+            response = client.get(
+                "/auth/google?next=https%3A%2F%2Fplanner.centralcomm.media%2F",
+                headers={"Host": "auth.centralcomm.media"},
+            )
         self.assertEqual(response.status_code, 302)
-        target = response.headers["Location"]
-        self.assertTrue(target.startswith("https://cadu.centralcomm.media/google-login.php?"))
-        self.assertIn("v3=1", target)
-        self.assertIn("return_to=https%3A%2F%2Fplanner.centralcomm.media%2F", target)
+        self.assertEqual(response.headers["Location"], "https://accounts.google.com/o/oauth2/v2/auth")
+        authorize.assert_called_once_with("cadu")
 
     def test_redirect_targets_are_limited_to_product_hosts(self):
         app = _app()

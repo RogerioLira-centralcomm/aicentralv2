@@ -75,6 +75,7 @@ class GoogleIdentityTest(TestCase):
             "email": "apolo@centralcomm.media",
             "email_verified": True,
             "name": "Apolo",
+            "picture": "https://lh3.googleusercontent.com/a/photo",
             "nonce": "nonce",
         }
         with app.test_request_context("/"):
@@ -91,6 +92,7 @@ class GoogleIdentityTest(TestCase):
             ):
                 result = exchange_code("code", "state")
             self.assertEqual(result["email"], "apolo@centralcomm.media")
+            self.assertEqual(result["picture"], "https://lh3.googleusercontent.com/a/photo")
             sent = post.call_args.kwargs["data"]
             self.assertEqual(sent["grant_type"], "authorization_code")
             self.assertEqual(sent["code_verifier"], "verifier")

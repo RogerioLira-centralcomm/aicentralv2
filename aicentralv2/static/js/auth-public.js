@@ -1,76 +1,6 @@
 (function () {
   'use strict';
 
-  var cities = {
-    bh: { name: 'Belo Horizonte', position: '52% center' },
-    rio: { name: 'Rio de Janeiro', position: '48% center' }
-  };
-
-  function selectCity() {
-    var image = document.getElementById('authCityImage');
-    var label = document.getElementById('authCityName');
-    if (!image || !label) return;
-
-    var cityKey = null;
-    try {
-      cityKey = sessionStorage.getItem('cx-auth-city');
-      if (!cities[cityKey]) {
-        cityKey = Math.random() >= 0.5 ? 'rio' : 'bh';
-        sessionStorage.setItem('cx-auth-city', cityKey);
-      }
-    } catch (error) {
-      cityKey = new Date().getDate() % 2 ? 'bh' : 'rio';
-    }
-
-    var source = cityKey === 'rio' ? image.dataset.rioSrc : image.dataset.bhSrc;
-    image.classList.add('is-changing');
-    var preload = new Image();
-    preload.onload = function () {
-      image.src = source;
-      image.style.objectPosition = cities[cityKey].position;
-      label.textContent = cities[cityKey].name;
-      image.classList.remove('is-changing');
-    };
-    preload.onerror = function () {
-      image.classList.remove('is-changing');
-    };
-    preload.src = source;
-  }
-
-  function setupProductShowcase() {
-    var root = document.querySelector('[data-auth-products]');
-    if (!root) return;
-    var tabs = Array.prototype.slice.call(root.querySelectorAll('[data-auth-product-tab]'));
-    var panels = Array.prototype.slice.call(root.querySelectorAll('[data-auth-product-panel]'));
-
-    function selectProduct(slug, focus) {
-      tabs.forEach(function (tab) {
-        var active = tab.dataset.authProductTab === slug;
-        if (active) tab.setAttribute('aria-current', 'page');
-        else tab.removeAttribute('aria-current');
-        if (active && focus) tab.focus();
-      });
-      panels.forEach(function (panel) {
-        var active = panel.dataset.authProductPanel === slug;
-        panel.hidden = !active;
-        panel.classList.toggle('is-active', active);
-      });
-    }
-
-    tabs.forEach(function (tab, index) {
-      tab.addEventListener('keydown', function (event) {
-        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-        event.preventDefault();
-        var next = index;
-        if (event.key === 'Home') next = 0;
-        else if (event.key === 'End') next = tabs.length - 1;
-        else if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
-        else next = (index - 1 + tabs.length) % tabs.length;
-        selectProduct(tabs[next].dataset.authProductTab, true);
-      });
-    });
-  }
-
   function setupPasswordToggles() {
     document.querySelectorAll('[data-password-toggle]').forEach(function (button) {
       button.addEventListener('click', function () {
@@ -239,23 +169,6 @@
     });
   }
 
-  window.showToast = window.showToast || function (message, type) {
-    var container = document.querySelector('.auth-flashes');
-    if (!container) {
-      container = document.createElement('div');
-      container.className = 'auth-flashes';
-      container.setAttribute('aria-live', 'polite');
-      var content = document.querySelector('.auth-page-content');
-      if (content) content.before(container);
-    }
-    if (!container) return;
-    var flash = document.createElement('div');
-    flash.className = 'auth-flash auth-flash--' + (type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'info');
-    flash.innerHTML = '<i class="fa-solid fa-circle-info" aria-hidden="true"></i><span></span>';
-    flash.querySelector('span').textContent = message;
-    container.appendChild(flash);
-  };
-
   function setupViewportLock() {
     var root = document.documentElement;
 
@@ -286,8 +199,6 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     setupViewportLock();
-    selectCity();
-    setupProductShowcase();
     setupPasswordToggles();
     setupPasswordStrength();
     setupMatchingPasswords();

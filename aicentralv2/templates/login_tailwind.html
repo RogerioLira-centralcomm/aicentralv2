@@ -1,6 +1,6 @@
 {% extends "base_auth_public.html" %}
 
-{% block title %}Entrar — Workspace Cadu{% endblock %}
+{% block title %}Entrar — Cadu{% endblock %}
 {% block page_name %}login{% endblock %}
 {% block scene_message %}Organize a operação. Enxergue a próxima decisão.{% endblock %}
 
@@ -8,13 +8,17 @@
 {% set submitted_email = request.form.get('email_local') or request.form.get('email') or '' %}
 {% set email_local = submitted_email.split('@')[0] %}
 <header class="auth-header">
-  <a class="auth-login-brand" href="{{ product_url('workspace') }}" aria-label="Ir para o Workspace">
+  <a class="auth-login-brand" href="{{ product_url('workspace') }}" aria-label="Ir para o Cadu">
     <img class="auth-login-logo" src="{{ url_for('static', filename='images/cadu-logo-variant-2.png', v='20260915') }}" alt="Cadu">
   </a>
   {% if is_centralx_access %}
-  <p class="auth-overline">CentralComm</p><h1>Entre para conduzir o próximo movimento.</h1><p>O ambiente interno para planejar, criar e operar campanhas com o time.</p>
+  <p class="auth-overline">Acesso interno</p><h1>Entre na operação Cadu.</h1><p>Use sua conta corporativa para acessar o ambiente de trabalho da CentralComm.</p>
   {% else %}
-  <p class="auth-overline">Workspace Cadu</p><h1>Todo o trabalho de mídia, em um só lugar.</h1><p>Acesse seus produtos, projetos e créditos para transformar estratégia em campanha.</p>
+  <p class="auth-overline">Conta Cadu</p><h1>Acesse sua conta.</h1><p>Uma conta para continuar seu trabalho em todas as soluções Cadu.</p>
+  <div class="auth-destination" aria-label="Destino após o login">
+    <img src="{{ url_for('static', filename='images/cadu/products/' ~ auth_destination_icon) }}" alt="">
+    <span>Você continuará para <strong>{{ auth_destination_name }}</strong></span>
+  </div>
   {% endif %}
 </header>
 

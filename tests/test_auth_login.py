@@ -45,7 +45,7 @@ class ComposeLoginEmailTests(unittest.TestCase):
 
 class SessionPersistenceConfigTests(unittest.TestCase):
     def test_sessao_permanente_renova_a_cada_request(self):
-        self.assertGreaterEqual(Config.SESSION_LIFETIME_DAYS, 365)
+        self.assertEqual(Config.SESSION_LIFETIME_DAYS, 180)
         self.assertEqual(Config.PERMANENT_SESSION_LIFETIME, timedelta(days=Config.SESSION_LIFETIME_DAYS))
         self.assertTrue(Config.SESSION_REFRESH_EACH_REQUEST)
         self.assertTrue(Config.SESSION_COOKIE_HTTPONLY)

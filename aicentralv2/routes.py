@@ -1203,6 +1203,26 @@ def init_routes(app):
             == (urlparse(product_url('cadu')).hostname or '').lower()
         )
 
+        # Auth é uma única porta de entrada da plataforma Cadu. A solução
+        # solicitada não muda o fluxo, apenas dá contexto ao acesso e à cena
+        # editorial apresentada antes do redirecionamento pós-login.
+        destination_host = (urlparse(next_target).hostname or '').lower()
+        auth_products = {
+            'workspace': ('Workspace', 'cadu-hub.png', 'Organize o contexto do trabalho.'),
+            'studio': ('Studio', 'studio.png', 'Transforme briefing em peças prontas para veicular.'),
+            'planner': ('Planner', 'planner.png', 'Encontre a melhor decisão antes de investir.'),
+            'skills': ('Skills', 'skills.png', 'Acesse especialistas para cada tarefa.'),
+            'connect': ('Connect', 'connect.png', 'Conecte dados, canais e operação.'),
+        }
+        active_auth_product = next(
+            (
+                slug for slug in auth_products
+                if destination_host == (urlparse(product_url(slug)).hostname or '').lower()
+            ),
+            'workspace',
+        )
+        auth_destination = auth_products[active_auth_product]
+
         def authenticated_destination():
             """Enter PHP Cadu through the one-time session handoff."""
             if is_cadu_access:
@@ -1212,6 +1232,10 @@ def init_routes(app):
         login_context = {
             'next_target': next_target,
             'is_centralx_access': is_centralx_access,
+            'active_auth_product': active_auth_product,
+            'auth_destination_name': auth_destination[0],
+            'auth_destination_icon': auth_destination[1],
+            'auth_destination_statement': auth_destination[2],
         }
         if 'user_id' in session:
             # Uma sessão Cadu existente deve seguir para o produto pedido.
@@ -1274,6 +1298,7 @@ def init_routes(app):
                 session['user_type'] = user.get('user_type', 'client')
                 session['is_finance_admin'] = bool(user.get('is_finance_admin'))
                 session['is_centralcomm'] = is_centralcomm
+                session['user_photo_url'] = str(user.get('foto_url') or '')
                 
                 app.logger.info(f"Login: {user['nome_completo']} ({email}) - Type: {session['user_type']} - CENTRALCOMM: {is_centralcomm}")
                 flash(f'Bem-vindo, {user["nome_completo"]}!', 'success')

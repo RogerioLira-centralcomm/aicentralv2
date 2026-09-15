@@ -30,8 +30,8 @@ class NativeIdentityTest(TestCase):
         with self.client.session_transaction(base_url='https://auth.centralcomm.media') as current:
             current['google_auth_next'] = 'https://studio.centralcomm.media/'
             current['family_context'] = {'client_id': 999}
-        with mock.patch('aicentralv2.cadu_identity.routes.exchange_code', return_value={'realm': 'cadu', 'email': USER['email'], 'sub': 'google-user'}), \
-             mock.patch('aicentralv2.cadu_identity.routes.db.obter_contato_por_email', return_value=USER), \
+        with mock.patch('aicentralv2.cadu_identity.routes.exchange_code', return_value={'realm': 'cadu', 'email': USER['email'], 'sub': 'google-user', 'picture': 'https://lh3.googleusercontent.com/a/photo'}), \
+            mock.patch('aicentralv2.cadu_identity.routes.db.obter_contato_por_email', return_value=USER), \
              mock.patch('aicentralv2.cadu_identity.routes.db.obter_contato_por_id', return_value=USER), \
              mock.patch('aicentralv2.cadu_identity.routes.db.obter_cliente_por_id', return_value={'nome_fantasia': 'Cliente'}), \
              mock.patch('aicentralv2.cadu_identity.routes.db.get_db') as database:
@@ -47,6 +47,18 @@ class NativeIdentityTest(TestCase):
         self.assertIsNone(self.client.get('/test-session', base_url='https://unrelated.test').json['user'])
         with self.client.session_transaction(base_url='https://auth.centralcomm.media') as current:
             self.assertNotIn('family_context', current)
+            self.assertEqual(current['user_photo_url'], 'https://lh3.googleusercontent.com/a/photo')
+
+    def test_saved_cadu_photo_has_priority_over_google_picture(self):
+        from aicentralv2.cadu_identity.routes import _start_flask_session
+        with self.app.test_request_context('/'):
+            with mock.patch('aicentralv2.cadu_identity.routes.db.obter_cliente_por_id', return_value={'nome_fantasia': 'Cliente'}):
+                _start_flask_session(
+                    {**USER, 'foto_url': '/static/uploads/contatos/pessoa.png'},
+                    auth_method='google',
+                    google_picture='https://lh3.googleusercontent.com/a/photo',
+                )
+            self.assertEqual(session['user_photo_url'], '/static/uploads/contatos/pessoa.png')
 
     def test_existing_account_and_active_organization_required(self):
         with self.app.app_context():

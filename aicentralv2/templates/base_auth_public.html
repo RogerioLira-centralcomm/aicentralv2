@@ -4,19 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=overlays-content">
   <meta name="color-scheme" content="light">
-  <title>{% block title %}Workspace Cadu{% endblock %}</title>
+  <title>{% block title %}Cadu{% endblock %}</title>
   <link href="{{ url_for('static', filename='images/cadu/products/cadu-icon.png') }}" rel="icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/output.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/auth-public.css') }}?v=8">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/auth-public.css') }}?v=10">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   {% block styles %}{% endblock %}
 </head>
 <body class="auth-public" data-auth-page="{% block page_name %}access{% endblock %}">
   <main class="auth-layout">
-    <aside class="auth-scene auth-product-showcase" aria-label="Conheça o Workspace Cadu" data-auth-products>
+    {% set active_product = active_auth_product|default('workspace', true) %}
+    <aside class="auth-scene auth-product-showcase" aria-label="Contexto da solução Cadu">
       {% set auth_products = [
         ('workspace','Workspace','Sua operação de mídia, conectada de ponta a ponta.','Planeje, crie e acompanhe sem trocar de contexto.','cadu-hub.png','cadu-icon.png'),
         ('studio','Studio','Transforme briefing em peças prontas para veicular.','Criação adaptada para cada canal e formato.','studio.png','studio-icon.png'),
@@ -25,22 +26,19 @@
         ('connect','Connect','Faça seus sistemas trabalharem juntos.','Menos operação manual. Mais tempo para decidir.','connect.png','connect-icon.png')
       ] %}
       {% for slug, name, description, impact, image, icon in auth_products %}
-      <div class="auth-product-scene{{ ' is-active' if loop.first }}" data-auth-product-panel="{{ slug }}" {% if not loop.first %}hidden{% endif %}>
+      {% if slug == active_product %}
+      <div class="auth-product-scene is-active" data-auth-product-panel="{{ slug }}">
         <img class="auth-scene-image" src="{{ url_for('static', filename='images/cadu/products/' ~ image) }}" alt="">
         <div class="auth-scene-shade"></div>
         <div class="auth-scene-copy">
-          <p class="auth-scene-kicker"><span class="auth-scene-pulse"></span>Workspace Cadu</p>
+          <p class="auth-scene-kicker">Cadu <span aria-hidden="true">/</span> Soluções</p>
           <p class="auth-scene-city"><img src="{{ url_for('static', filename='images/cadu/products/' ~ icon) }}" alt=""><span>{{ name }}</span></p>
           <p class="auth-scene-message">{{ description }}</p>
           <p class="auth-scene-impact">{{ impact }}</p>
         </div>
       </div>
+      {% endif %}
       {% endfor %}
-      <nav class="auth-product-tabs" aria-label="Soluções CentralComm">
-        {% for slug, name, description, impact, image, icon in auth_products %}
-        <a href="{{ product_url(slug) }}" data-auth-product-tab="{{ slug }}" {% if loop.first %}aria-current="page"{% endif %}><img src="{{ url_for('static', filename='images/cadu/products/' ~ icon) }}" alt=""><span>{{ name }}</span></a>
-        {% endfor %}
-      </nav>
     </aside>
 
     <section class="auth-workspace {% block workspace_class %}{% endblock %}">
@@ -67,12 +65,12 @@
 
         <footer class="auth-footer">
           <span><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Acesso protegido</span>
-          <span>CentralComm © 2026</span>
+          <span>Cadu © 2026</span>
         </footer>
       </div>
     </section>
   </main>
-  <script src="{{ url_for('static', filename='js/auth-public.js') }}?v=5"></script>
+  <script src="{{ url_for('static', filename='js/auth-public.js') }}?v=7"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

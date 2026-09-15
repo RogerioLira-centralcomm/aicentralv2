@@ -54,7 +54,7 @@ class Config:
 		'CADU_SSO_CONSUME_URL',
 		f"{CADU_URL.rstrip('/')}/sso-consume.php",
 	)
-	# Durante a transição, o PHP continua dono do cadastro/login Google do Cadu.
+	# Fallback legado para instalações que ainda não migraram o Google SSO.
 	CADU_GOOGLE_LOGIN_URL = os.getenv(
 		'CADU_GOOGLE_LOGIN_URL',
 		f"{CADU_URL.rstrip('/')}/google-login.php",
@@ -65,13 +65,15 @@ class Config:
 	GOOGLE_CENTRALX_REDIRECT_URI = os.getenv('GOOGLE_CENTRALX_REDIRECT_URI', f"{AUTH_URL.rstrip('/')}/auth/google/callback")
 	GOOGLE_CENTRALX_DOMAIN = os.getenv('GOOGLE_CENTRALX_DOMAIN', 'centralcomm.media')
 	GOOGLE_CADU_CLIENT_ID = os.getenv('GOOGLE_CADU_CLIENT_ID', '')
-	# Opt-in after isolated validation; existing production behavior is preserved.
-	CADU_GOOGLE_NATIVE_ENABLED = os.getenv('CADU_GOOGLE_NATIVE_ENABLED', '0') == '1'
+	# O Auth Cadu é o único iniciador do SSO. As credenciais são lidas da
+	# configuração criptografada `google_login_cadu` no banco; a variável só
+	# permite desativar explicitamente esse caminho durante uma contingência.
+	CADU_GOOGLE_NATIVE_ENABLED = os.getenv('CADU_GOOGLE_NATIVE_ENABLED', '1') == '1'
 	GOOGLE_CADU_CLIENT_SECRET = os.getenv('GOOGLE_CADU_CLIENT_SECRET', '')
 	GOOGLE_CADU_REDIRECT_URI = os.getenv('GOOGLE_CADU_REDIRECT_URI', f"{AUTH_URL.rstrip('/')}/auth/google/callback")
 
 	# Sessão persistente: o login permanece neste dispositivo sem checkbox.
-	SESSION_LIFETIME_DAYS = int(os.getenv('SESSION_LIFETIME_DAYS', '365'))
+	SESSION_LIFETIME_DAYS = int(os.getenv('SESSION_LIFETIME_DAYS', '180'))
 	PERMANENT_SESSION_LIFETIME = timedelta(days=SESSION_LIFETIME_DAYS)
 	SESSION_REFRESH_EACH_REQUEST = True
 	SESSION_COOKIE_HTTPONLY = True
@@ -79,9 +81,9 @@ class Config:
 	# O fallback preserva sessões atuais. Ative `centralx_session` no rollout
 	# coordenado; mudar o nome encerra uma vez os cookies Flask anteriores.
 	SESSION_COOKIE_NAME = os.getenv('SESSION_COOKIE_NAME', 'session')
-	# Em produção, configure `.centralcomm.media` para compartilhar somente a
-	# sessão Flask entre CentralX, Studio, Planner, Skills, Connect, Workspace e Auth.
-	SESSION_COOKIE_DOMAIN = os.getenv('SESSION_COOKIE_DOMAIN') or None
+	# A sessão Flask é única para toda a família Cadu. Em ambiente local, defina
+	# SESSION_COOKIE_DOMAIN vazio para manter o cookie restrito ao host local.
+	SESSION_COOKIE_DOMAIN = os.getenv('SESSION_COOKIE_DOMAIN', 'centralcomm.media') or None
 	SESSION_COOKIE_SECURE = os.getenv(
 		'SESSION_COOKIE_SECURE',
 		'true' if BASE_URL.startswith('https') else 'false',

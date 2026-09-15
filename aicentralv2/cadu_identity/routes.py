@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import secrets
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 from flask import Blueprint, current_app, flash, has_app_context, redirect, request, session, url_for
 
@@ -15,7 +15,6 @@ from .google_oidc import GoogleLoginError, authorization_url as google_authoriza
 
 
 def _google_realm(target: str) -> str:
-    from urllib.parse import urlparse
     centralx_host = (urlparse(product_url("centralx")).hostname or "").lower()
     return "centralx" if (urlparse(target).hostname or "").lower() == centralx_host else "cadu"
 
@@ -23,7 +22,7 @@ def _google_realm(target: str) -> str:
 bp = Blueprint("cadu_identity", __name__, url_prefix="/auth")
 
 
-def _start_flask_session(user: dict, auth_method: str = "sso_ticket") -> None:
+def _start_flask_session(user: dict, auth_method: str = "sso_ticket", google_picture: str = "") -> None:
     client_id = user.get("pk_id_tbl_cliente")
     client = db.obter_cliente_por_id(client_id) if client_id else None
     session.clear()
@@ -37,7 +36,18 @@ def _start_flask_session(user: dict, auth_method: str = "sso_ticket") -> None:
         is_finance_admin=bool(user.get("is_finance_admin")),
         is_centralcomm=bool(client and str(client.get("nome_fantasia") or "").upper() == "CENTRALCOMM"),
         auth_method=auth_method,
+        # A imagem cadastrada pelo próprio usuário no Cadu sempre prevalece.
+        # A imagem da identidade Google é somente um fallback de sessão.
+        user_photo_url=str(user.get("foto_url") or google_picture or ""),
     )
+
+
+def _authenticated_destination(target: str) -> str:
+    """Preserve the PHP session handoff when the requested app is legacy Cadu."""
+    cadu_host = (urlparse(product_url("cadu")).hostname or "").lower()
+    if (urlparse(target).hostname or "").lower() == cadu_host:
+        return url_for("cadu_identity.issue_cadu_ticket", next=target)
+    return target
 
 
 def _resolve_google_user(identity: dict) -> dict:
@@ -112,9 +122,13 @@ def google_callback():
     try:
         identity = exchange_code(request.args.get("code") or "", request.args.get("state") or "")
         user = _resolve_google_user(identity)
-        _start_flask_session(user, auth_method="google")
+        _start_flask_session(
+            user,
+            auth_method="google",
+            google_picture=str(identity.get("picture") or ""),
+        )
         session["google_identity_sub"] = identity["sub"]
-        return redirect(target, code=303)
+        return redirect(_authenticated_destination(target), code=303)
     except GoogleLoginError as exc:
         current_app.logger.warning("Login Google recusado: %s", exc)
         flash(str(exc), "error")

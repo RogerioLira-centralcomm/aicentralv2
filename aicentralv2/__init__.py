@@ -139,6 +139,12 @@ def create_app(config_class=Config):
             try:
                 contato = db.obter_contato_por_id(session['user_id'])
                 perfil_contato = contato
+                # A foto definida no cadastro é a fonte principal. Quando a
+                # conta ainda não tem uma, o avatar recebido no SSO Google é
+                # mantido apenas na sessão e disponibilizado a todos os shells.
+                if perfil_contato and not perfil_contato.get('foto_url') and session.get('user_photo_url'):
+                    perfil_contato = dict(perfil_contato)
+                    perfil_contato['foto_url'] = session['user_photo_url']
                 try:
                     perfil_google = db.obter_conexao_google_usuario(session['user_id'])
                 except Exception:

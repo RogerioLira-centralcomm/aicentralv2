@@ -51,6 +51,10 @@ def create_app(config_class=Config):
                 static_url_path='/static',
                 static_folder='static')
     app.config.from_object(config_class)
+    # The same deployment serves multiple hosts. Select a distinct, host-only
+    # cookie for CentralX before any request opens a Flask session.
+    from .product_domains import ProductSessionInterface
+    app.session_interface = ProductSessionInterface()
 
     from werkzeug.exceptions import RequestEntityTooLarge
 

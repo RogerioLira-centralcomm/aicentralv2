@@ -78,11 +78,12 @@ class Config:
 	SESSION_REFRESH_EACH_REQUEST = True
 	SESSION_COOKIE_HTTPONLY = True
 	SESSION_COOKIE_SAMESITE = 'Lax'
-	# Produtos e CentralX não compartilham identidade. Um nome novo evita que o
-	# cookie legado `session`, emitido para .centralcomm.media, seja interpretado
-	# no Workspace, Skills ou demais produtos. Como o domínio é host-only, a
-	# mesma pessoa precisa autenticar diretamente em cada produto.
-	SESSION_COOKIE_NAME = 'centralcomm_product_session'
+	# CentralX e Cadu são identidades independentes. Além de cookies host-only,
+	# cada família usa um nome próprio para que cookies legados nunca sejam lidos
+	# por engano quando os dois ambientes usam a mesma aplicação Flask.
+	SESSION_COOKIE_NAME = 'cadu_product_session'
+	CENTRALX_SESSION_COOKIE_NAME = 'centralx_session'
+	CADU_SESSION_COOKIE_NAME = 'cadu_product_session'
 	SESSION_COOKIE_DOMAIN = None
 	SESSION_COOKIE_SECURE = os.getenv(
 		'SESSION_COOKIE_SECURE',

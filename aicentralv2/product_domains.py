@@ -9,6 +9,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from flask import current_app, make_response, redirect, render_template, request, send_file, url_for
+from flask.sessions import SecureCookieSessionInterface
 
 
 PRODUCT_CONFIG_KEYS = {
@@ -35,6 +36,20 @@ def product_url(product: str, path: str = "/") -> str:
 
 def _configured_host(config_key: str) -> str:
     return (urlparse(str(current_app.config.get(config_key) or "")).hostname or "").lower()
+
+
+def is_centralx_request() -> bool:
+    """Whether the current request belongs to CentralX, never the Cadu hub."""
+    return (request.host.split(":", 1)[0] or "").lower() == _configured_host("CENTRALX_URL")
+
+
+class ProductSessionInterface(SecureCookieSessionInterface):
+    """Keep CentralX's signed session separate from every Cadu product cookie."""
+
+    def get_cookie_name(self, app):
+        if is_centralx_request():
+            return app.config["CENTRALX_SESSION_COOKIE_NAME"]
+        return app.config["CADU_SESSION_COOKIE_NAME"]
 
 
 def safe_product_target(value: str | None, fallback: str = "/") -> str:

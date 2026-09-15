@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=overlays-content">
   <meta name="color-scheme" content="light">
   <title>{% block title %}Cadu{% endblock %}</title>
-  <link href="{{ url_for('static', filename='images/cadu/products/cadu-icon.png') }}" rel="icon">
+  <link href="{{ url_for('static', filename='images/cc_logo.png' if is_centralx_host|default(false) else 'images/cadu/products/cadu-icon.png') }}" rel="icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..700&display=swap" rel="stylesheet">
@@ -17,7 +17,18 @@
 <body class="auth-public" data-auth-page="{% block page_name %}access{% endblock %}">
   <main class="auth-layout">
     {% set active_product = active_auth_product|default('workspace', true) %}
-    <aside class="auth-scene auth-product-showcase" aria-label="Contexto da solução Cadu">
+    <aside class="auth-scene auth-product-showcase" aria-label="{{ 'CentralX' if is_centralx_host|default(false) else 'Contexto da solução Cadu' }}">
+      {% if is_centralx_host|default(false) %}
+      <div class="auth-product-scene is-active" data-auth-product-panel="centralx">
+        <div class="auth-scene-shade"></div>
+        <div class="auth-scene-copy">
+          <p class="auth-scene-kicker">CentralComm <span aria-hidden="true">/</span> CentralX</p>
+          <p class="auth-scene-city"><img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt=""><span>CentralX</span></p>
+          <p class="auth-scene-message">Operação de mídia da CentralComm.</p>
+          <p class="auth-scene-impact">Planejamento, criação e gestão no ambiente interno.</p>
+        </div>
+      </div>
+      {% else %}
       {% set auth_products = [
         ('workspace','Workspace','Sua operação de mídia, conectada de ponta a ponta.','Planeje, crie e acompanhe sem trocar de contexto.','cadu-hub.png','cadu-icon.png'),
         ('studio','Studio','Transforme briefing em peças prontas para veicular.','Criação adaptada para cada canal e formato.','studio.png','studio-icon.png'),
@@ -39,6 +50,7 @@
       </div>
       {% endif %}
       {% endfor %}
+      {% endif %}
     </aside>
 
     <section class="auth-workspace {% block workspace_class %}{% endblock %}">
@@ -65,7 +77,7 @@
 
         <footer class="auth-footer">
           <span><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Acesso protegido</span>
-          <span>Cadu © 2026</span>
+          <span>{{ 'CentralX' if is_centralx_host|default(false) else 'Cadu' }} © 2026</span>
         </footer>
       </div>
     </section>

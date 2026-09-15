@@ -12,6 +12,7 @@ from aicentralv2.auth import (
     persist_login_session,
 )
 from aicentralv2.config import Config, ProductionConfig, TestingConfig
+from aicentralv2.product_domains import ProductSessionInterface
 from aicentralv2.routes import login_required
 
 
@@ -50,7 +51,9 @@ class SessionPersistenceConfigTests(unittest.TestCase):
         self.assertTrue(Config.SESSION_REFRESH_EACH_REQUEST)
         self.assertTrue(Config.SESSION_COOKIE_HTTPONLY)
         self.assertEqual(Config.SESSION_COOKIE_SAMESITE, "Lax")
-        self.assertEqual(Config.SESSION_COOKIE_NAME, "centralcomm_product_session")
+        self.assertEqual(Config.SESSION_COOKIE_NAME, "cadu_product_session")
+        self.assertEqual(Config.CENTRALX_SESSION_COOKIE_NAME, "centralx_session")
+        self.assertEqual(Config.CADU_SESSION_COOKIE_NAME, "cadu_product_session")
         self.assertIsNone(Config.SESSION_COOKIE_DOMAIN)
         self.assertTrue(ProductionConfig.SESSION_COOKIE_SECURE)
         self.assertFalse(TestingConfig.SESSION_COOKIE_SECURE)
@@ -61,6 +64,19 @@ class SessionPersistenceConfigTests(unittest.TestCase):
         with app.test_request_context("/login"):
             persist_login_session()
             self.assertTrue(session.permanent)
+
+    def test_centralx_usa_nome_de_cookie_diferente_do_cadu(self):
+        app = Flask(__name__)
+        app.config.update(
+            CENTRALX_URL="https://ai.centralcomm.media",
+            CENTRALX_SESSION_COOKIE_NAME="centralx_session",
+            CADU_SESSION_COOKIE_NAME="cadu_product_session",
+        )
+        interface = ProductSessionInterface()
+        with app.test_request_context("/login", headers={"Host": "ai.centralcomm.media"}):
+            self.assertEqual(interface.get_cookie_name(app), "centralx_session")
+        with app.test_request_context("/login", headers={"Host": "auth.centralcomm.media"}):
+            self.assertEqual(interface.get_cookie_name(app), "cadu_product_session")
 
 
 class LoginRequiredPersistenceTests(unittest.TestCase):

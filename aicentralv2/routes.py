@@ -1187,14 +1187,19 @@ def init_routes(app):
     @app.route('/login', methods=['GET', 'POST'])
     def login():
         """Página de login"""
-        from aicentralv2.product_domains import product_url, safe_product_target
+        from aicentralv2.product_domains import is_centralx_request, product_url, safe_product_target
 
-        next_target = safe_product_target(
-            request.values.get('next'),
-            product_url('workspace' if app.config.get('CADU_GOOGLE_NATIVE_ENABLED', False) else 'cadu'),
+        centralx_host = is_centralx_request()
+        # CentralX owns its entry point. Do not let a Cadu `next` parameter
+        # turn its login into the platform-wide Cadu/Workspace access screen.
+        next_target = (
+            product_url('centralx') if centralx_host else safe_product_target(
+                request.values.get('next'),
+                product_url('workspace' if app.config.get('CADU_GOOGLE_NATIVE_ENABLED', False) else 'cadu'),
+            )
         )
         from urllib.parse import urlparse
-        is_centralx_access = (
+        is_centralx_access = centralx_host or (
             (urlparse(next_target).hostname or '').lower()
             == (urlparse(product_url('centralx')).hostname or '').lower()
         )
@@ -1232,6 +1237,7 @@ def init_routes(app):
         login_context = {
             'next_target': next_target,
             'is_centralx_access': is_centralx_access,
+            'is_centralx_host': centralx_host,
             'active_auth_product': active_auth_product,
             'auth_destination_name': auth_destination[0],
             'auth_destination_icon': auth_destination[1],
@@ -1323,8 +1329,8 @@ def init_routes(app):
         """Logout"""
         session.clear()
         flash('Logout realizado!', 'success')
-        from aicentralv2.product_domains import product_url
-        return redirect(product_url('auth', '/login'))
+        from aicentralv2.product_domains import is_centralx_request, product_url
+        return redirect(url_for('login') if is_centralx_request() else product_url('auth', '/login'))
     
     # ==================== INDEX ====================
     

@@ -1,6 +1,6 @@
 {% extends "base_auth_public.html" %}
 
-{% block title %}Entrar — Cadu{% endblock %}
+{% block title %}{{ 'Entrar — CentralX' if is_centralx_host else 'Entrar — Cadu' }}{% endblock %}
 {% block page_name %}login{% endblock %}
 {% block scene_message %}Organize a operação. Enxergue a próxima decisão.{% endblock %}
 
@@ -8,11 +8,11 @@
 {% set submitted_email = request.form.get('email_local') or request.form.get('email') or '' %}
 {% set email_local = submitted_email.split('@')[0] %}
 <header class="auth-header">
-  <a class="auth-login-brand" href="{{ product_url('workspace') }}" aria-label="Ir para o Cadu">
-    <img class="auth-login-logo" src="{{ url_for('static', filename='images/cadu-logo-variant-2.png', v='20260915') }}" alt="Cadu">
+  <a class="auth-login-brand" href="{{ product_url('centralx') if is_centralx_host else product_url('workspace') }}" aria-label="Ir para {{ 'o CentralX' if is_centralx_host else 'o Cadu' }}">
+    <img class="auth-login-logo" src="{{ url_for('static', filename='images/cc_logo.png' if is_centralx_host else 'images/cadu-logo-variant-2.png', v='20260915') }}" alt="{{ 'CentralX' if is_centralx_host else 'Cadu' }}">
   </a>
   {% if is_centralx_access %}
-  <p class="auth-overline">Acesso interno</p><h1>Entre na operação Cadu.</h1><p>Use sua conta corporativa para acessar o ambiente de trabalho da CentralComm.</p>
+  <p class="auth-overline">CentralX</p><h1>Entre na operação CentralX.</h1><p>Use sua conta corporativa para acessar o ambiente interno da CentralComm.</p>
   {% else %}
   <p class="auth-overline">Conta Cadu</p><h1>Acesse sua conta.</h1><p>Uma conta para continuar seu trabalho em todas as soluções Cadu.</p>
   <div class="auth-destination" aria-label="Destino após o login">
@@ -89,7 +89,7 @@
   <i class="fa-brands fa-google auth-google-icon" aria-hidden="true"></i>
   <span>Continuar com Google corporativo</span>
 </a>
-<p class="auth-access-switch">Não é da equipe CentralComm? <a class="auth-link" href="{{ url_for('login', next=product_url('cadu')) }}">Acesse o Cadu</a></p>
+{% if not is_centralx_host %}<p class="auth-access-switch">Não é da equipe CentralComm? <a class="auth-link" href="{{ url_for('login', next=product_url('cadu')) }}">Acesse o Cadu</a></p>{% endif %}
 {% else %}
 <a class="auth-provider-button" href="{{ url_for('cadu_identity.google_login', next=next_target) }}">
   <i class="fa-brands fa-google auth-google-icon" aria-hidden="true"></i><span>Continuar com Google</span>

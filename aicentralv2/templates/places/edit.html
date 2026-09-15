@@ -116,6 +116,11 @@
             </label>
             <label>Densidade<input class="cx-input" name="catchment_density_label" value="{{ place.catchment.density.label }}"></label>
             <label>Fonte densidade<input class="cx-input" name="catchment_density_source" value="{{ place.catchment.density.source }}"></label>
+            <label class="pl-span">Público-alvo<input class="cx-input" name="target_audience" value="{{ place.target_audience|join(', ') }}" placeholder="Ex.: quem está no terminal, viajantes recorrentes"></label>
+            <label>Renda<input class="cx-input" name="income_label" value="{{ place.income.label }}" placeholder="Ex.: renda média domiciliar"></label>
+            <label>Fonte renda<input class="cx-input" name="income_source" value="{{ place.income.source }}"></label>
+            <label class="pl-span">Movimentação Dom–Sáb<input class="cx-input" name="weekly_movement_values" value="{{ place.weekly_movement.values|join(', ') }}" placeholder="7 índices de 0 a 100 separados por vírgula"></label>
+            <label class="pl-span">Fonte movimentação<input class="cx-input" name="weekly_movement_source" value="{{ place.weekly_movement.source }}"></label>
             <label>No celular em 4 semanas<input class="cx-input" name="catchment_impacted_label" value="{{ place.catchment.impacted.label }}"></label>
             <label class="pl-span">Bairros<input class="cx-input" name="catchment_neighborhoods" value="{{ place.catchment.neighborhoods|join(', ') }}"></label>
             <label class="pl-span">Perfil da região<input class="cx-input" name="catchment_profile" value="{{ place.catchment.profile }}"></label>
@@ -182,10 +187,11 @@
           <div class="pl-gallery" data-gallery>
             <div class="pl-gallery-head">
               <h3>Galeria fiel</h3>
-              <p>Fotos reais do lugar. Clique para usar como referência da geração.</p>
+            <p>Foto real primeiro. A IA apenas faz melhoria editorial e preserva enquadramento e tom de cor.</p>
             </div>
             <div class="pl-gallery-grid" data-gallery-grid></div>
             <p class="pl-help" data-gallery-empty>Ainda não tem foto real. Busque no Firecrawl antes de gerar.</p>
+            <button type="button" class="cx-btn cx-btn-outline" id="pl-gallery-manager">Revisar referências</button>
           </div>
           <div class="pl-media" data-media-pack></div>
           <div class="pl-grid">
@@ -205,6 +211,11 @@
           </div>
         </div>
       </section>
+
+      <dialog class="pl-gallery-modal" data-gallery-modal aria-labelledby="pl-gallery-modal-title">
+        <header><div><h2 id="pl-gallery-modal-title">Revisar referências visuais</h2><p>Aprove só imagens que representem este lugar e o ponto comercial. A IA preserva a foto aprovada e faz somente melhoria editorial.</p></div><button type="button" class="cx-btn cx-btn-ghost" data-gallery-close>Fechar</button></header>
+        <div class="pl-gallery-review-grid" data-gallery-review-grid></div>
+      </dialog>
 
       <section class="cx-section pl-panel" data-panel="publicar" hidden>
         <div class="cx-section-header">

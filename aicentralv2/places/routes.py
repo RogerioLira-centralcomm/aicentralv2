@@ -311,6 +311,23 @@ def api_gallery_select(place_id):
         return _error("Não foi possível escolher a foto.", 500)
 
 
+@bp.route("/api/<int:place_id>/gallery/review", methods=["POST"])
+@login_required_api
+def api_gallery_review(place_id):
+    try:
+        body = request.get_json(silent=True) or {}
+        item_id = (body.get("id") or "").strip()
+        action = (body.get("action") or "").strip().lower()
+        if not item_id or action not in {"approve", "reject", "select"}:
+            return _error("Informe a referência e a ação de revisão.", 400)
+        return _ok(service.review_place_gallery(place_id, item_id, action, body.get("note") or ""))
+    except (PlaceNotFound, ValueError) as exc:
+        return _error(exc, 404 if isinstance(exc, PlaceNotFound) else 400)
+    except Exception:
+        logger.exception("Falha ao revisar referência visual")
+        return _error("Não foi possível revisar a referência.", 500)
+
+
 @bp.route("/api/<int:place_id>/publish", methods=["POST"])
 @login_required_api
 def api_publish(place_id):

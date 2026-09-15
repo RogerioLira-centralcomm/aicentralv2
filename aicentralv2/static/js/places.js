@@ -73,6 +73,12 @@
     return Number.isFinite(n) ? n : null;
   }
 
+  function weeklyValues(raw) {
+    return String(raw || "").split(",").map(function (item) {
+      return numberOrNull(item.trim());
+    }).slice(0, 7);
+  }
+
   function slug(value) {
     return String(value || "")
       .toLowerCase()
@@ -161,6 +167,13 @@
           impacted: { label: value("catchment_impacted_label"), source_status: "estimate" },
           neighborhoods: value("catchment_neighborhoods").split(",").map(function (item) { return item.trim(); }).filter(Boolean),
           profile: value("catchment_profile")
+        },
+        target_audience: value("target_audience").split(",").map(function (item) { return item.trim(); }).filter(Boolean),
+        income: {
+          label: value("income_label"), source: value("income_source"), source_status: "to_validate"
+        },
+        weekly_movement: {
+          values: weeklyValues(value("weekly_movement_values")), source: value("weekly_movement_source"), source_status: "to_validate"
         },
         points: collectPoints(),
         inventory: (place && place.inventory) || {},
@@ -331,14 +344,36 @@
       return "<button type=\"button\" class=\"pl-gallery-item" + cls + "\" data-gallery-id=\"" +
         escapeHtml(item.id || "") + "\">" +
         "<img src=\"" + escapeHtml(item.url) + "\" alt=\"\">" +
-        "<span>" + escapeHtml(label) + (item.selected ? " · referência" : "") + "</span></button>";
+        "<span>" + escapeHtml(label) + (item.selected ? " · referência" : "") + (item.review_status === "approved" ? " · aprovada" : item.review_status === "rejected" ? " · rejeitada" : " · pendente") + "</span></button>";
     }).join("");
     if (empty) empty.hidden = !!items.length;
+    renderGalleryReview(data);
+  }
+
+  function renderGalleryReview(data) {
+    var grid = document.querySelector("[data-gallery-review-grid]");
+    if (!grid) return;
+    var items = ((data && data.media) || {}).gallery || [];
+    if (!items.length) {
+      grid.innerHTML = "<p class=\"pl-help\">Ainda não há referências. Use ‘Buscar fotos reais’ para iniciar a curadoria.</p>";
+      return;
+    }
+    grid.innerHTML = items.map(function (item) {
+      var state = item.review_status || "pending";
+      var label = item.title || item.query || item.kind || "Foto real";
+      return "<article class=\"pl-gallery-review-card is-" + escapeHtml(state) + "\">" +
+        "<img src=\"" + escapeHtml(item.url) + "\" alt=\"\">" +
+        "<div><p>" + escapeHtml(label) + "</p><div class=\"pl-gallery-review-actions\">" +
+        "<button type=\"button\" class=\"cx-btn cx-btn-secondary\" data-gallery-review=\"select\" data-gallery-id=\"" + escapeHtml(item.id || "") + "\">Usar na geração</button>" +
+        "<button type=\"button\" class=\"cx-btn cx-btn-ghost\" data-gallery-review=\"approve\" data-gallery-id=\"" + escapeHtml(item.id || "") + "\">Aprovar</button>" +
+        "<button type=\"button\" class=\"cx-btn cx-btn-ghost\" data-gallery-review=\"reject\" data-gallery-id=\"" + escapeHtml(item.id || "") + "\">Não corresponde</button>" +
+        "</div></div></article>";
+    }).join("");
   }
 
   function selectedReferenceIds() {
     return (((place.media || {}).gallery || []).filter(function (item) {
-      return item.selected && item.id;
+      return item.selected && item.review_status === "approved" && item.id;
     }).map(function (item) {
       return item.id;
     }));
@@ -377,6 +412,15 @@
     if (impacted.label) setValue("catchment_impacted_label", impacted.label);
     if (catchment.neighborhoods) setValue("catchment_neighborhoods", catchment.neighborhoods.join(", "));
     if (catchment.profile) setValue("catchment_profile", catchment.profile);
+    if (data.target_audience) setValue("target_audience", data.target_audience.join(", "));
+    if (data.income) {
+      if (data.income.label) setValue("income_label", data.income.label);
+      if (data.income.source) setValue("income_source", data.income.source);
+    }
+    if (data.weekly_movement) {
+      if (data.weekly_movement.values) setValue("weekly_movement_values", data.weekly_movement.values.filter(function (item) { return item != null; }).join(", "));
+      if (data.weekly_movement.source) setValue("weekly_movement_source", data.weekly_movement.source);
+    }
     var investment = data.investment || {};
     var defense = data.defense || {};
     if (investment.label) setValue("investment_label", investment.label);
@@ -728,6 +772,32 @@
       });
     });
   }
+  var galleryModal = document.querySelector("[data-gallery-modal]");
+  var galleryManager = document.getElementById("pl-gallery-manager");
+  if (galleryManager && galleryModal) {
+    galleryManager.addEventListener("click", function () {
+      renderGalleryReview(place);
+      if (galleryModal.showModal) galleryModal.showModal();
+      else galleryModal.setAttribute("open", "open");
+    });
+  }
+  document.querySelectorAll("[data-gallery-close]").forEach(function (button) {
+    button.addEventListener("click", function () { if (galleryModal) galleryModal.close(); });
+  });
+  var reviewGrid = document.querySelector("[data-gallery-review-grid]");
+  if (reviewGrid) reviewGrid.addEventListener("click", function (event) {
+    var button = event.target.closest("[data-gallery-review]");
+    var placeId = root.getAttribute("data-place-id");
+    if (!button || !placeId || busy) return;
+    setBusy(true, "Salvando revisão da referência…");
+    jsonFetch("/places/api/" + placeId + "/gallery/review", "POST", {
+      id: button.getAttribute("data-gallery-id"), action: button.getAttribute("data-gallery-review")
+    }).then(function (result) {
+      if (!result.ok || !result.body.success) throw new Error((result.body && result.body.error) || "Não foi possível salvar a revisão.");
+      applyPlace(result.body.data || {});
+      toast(statusNode, "Referência revisada.");
+    }).catch(function (error) { toast(statusNode, error.message, true); }).finally(function () { setBusy(false); });
+  });
   var queueBtn = document.getElementById("pl-gen-queue");
   if (queueBtn) queueBtn.addEventListener("click", function () {
     if (busy) return;

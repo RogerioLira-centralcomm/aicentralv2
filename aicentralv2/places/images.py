@@ -21,8 +21,11 @@ from .visual_refs import (
 )
 
 GROUNDING = (
-    " Match the real architecture, materials and surroundings in the reference photos. "
-    "Do not invent a different building, a wavy parametric roof, or a generic mega-hub."
+    " Use the approved reference photos as the source image: preserve their architecture, "
+    "camera angle, composition, materials, surroundings and overall color temperature. "
+    "Apply only restrained editorial enhancement (exposure, contrast, clarity and light cleanup). "
+    "Do not invent, remove or relocate buildings, people, signs, roads or landscape elements; "
+    "do not turn the place into a generic mega-hub or a stylized rendering."
 )
 
 logger = logging.getLogger(__name__)

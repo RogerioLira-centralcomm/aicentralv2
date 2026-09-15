@@ -31,7 +31,7 @@ from .images import (
     next_image_target,
     resolve_place_image_spec,
 )
-from .visual_refs import collect_visual_refs, gallery_items_by_ids, merge_gallery, select_gallery
+from .visual_refs import collect_visual_refs, gallery_items_by_ids, merge_gallery, select_gallery, selected_gallery_refs
 from .pipeline import assemble_fiche, fiche_output, image_pack, locate_points, pipeline_record
 from .research import (
     ResearchError,
@@ -77,18 +77,26 @@ def _user_id():
 
 
 def ensure_seed() -> int:
+    """Cria o catálogo inicial sem regravar fichas já curadas na base.
+
+    A página pública chama esta função para garantir o primeiro boot. Atualizar
+    registros existentes aqui apagaria ajustes feitos no backoffice ou em
+    migrações de dados, por isso o seed é exclusivamente de inserção.
+    """
     created = 0
     for item in SEED_PLACES:
         existing = get_by_slug(item["slug"])
+        if existing:
+            continue
         row = {
             **item,
-            "preview_token": (existing or {}).get("preview_token") or make_preview_token(),
+            "preview_token": make_preview_token(),
             "published_at": datetime.now(timezone.utc) if item.get("status") == "published" else None,
             "created_by": _user_id(),
         }
         before = count_places()
         upsert_seed(row)
-        if not existing and count_places() > before:
+        if count_places() > before:
             created += 1
     return created
 
@@ -153,6 +161,14 @@ def _keep_previous(previous: dict, payload: dict) -> dict:
         payload["offer"] = previous["offer"]
     if not (payload.get("audiences") or []) and previous.get("audiences"):
         payload["audiences"] = previous["audiences"]
+    if not (payload.get("target_audience") or []) and previous.get("target_audience"):
+        payload["target_audience"] = previous["target_audience"]
+    if not text((payload.get("income") or {}).get("label")) and text((previous.get("income") or {}).get("label")):
+        payload["income"] = previous["income"]
+    if not any(item is not None for item in ((payload.get("weekly_movement") or {}).get("values") or [])) and any(
+        item is not None for item in ((previous.get("weekly_movement") or {}).get("values") or [])
+    ):
+        payload["weekly_movement"] = previous["weekly_movement"]
     if not (payload.get("research") or {}).get("notes") and previous.get("research"):
         payload["research"] = previous["research"]
     if not (payload.get("pipeline") or {}).get("steps") and previous.get("pipeline"):
@@ -333,6 +349,9 @@ def apply_research(place_id: int) -> dict:
     result = research_region(place)
     payload = normalize_payload(place)
     payload["catchment"] = result["catchment"]
+    payload["target_audience"] = result.get("target_audience") or payload.get("target_audience") or []
+    payload["income"] = result.get("income") or payload.get("income") or {}
+    payload["weekly_movement"] = result.get("weekly_movement") or payload.get("weekly_movement") or {}
     payload["research"] = {
         **result["research"],
         "reviewed_at": "",
@@ -532,11 +551,46 @@ def select_place_gallery(place_id: int, item_id: str) -> dict:
     return serialize(update_place(place_id, record))
 
 
+def review_place_gallery(place_id: int, item_id: str, action: str, note: str = "") -> dict:
+    """Registra decisão humana sobre uma referência sem apagar seu histórico."""
+    place = serialize(get_by_id(place_id))
+    payload = normalize_payload(place)
+    media = dict(payload.get("media") or {})
+    gallery = list(media.get("gallery") or [])
+    found = False
+    for item in gallery:
+        if text(item.get("id")) != text(item_id):
+            continue
+        found = True
+        if action == "approve":
+            item["review_status"] = "approved"
+        elif action == "reject":
+            item["review_status"] = "rejected"
+            item["selected"] = False
+        elif action == "select":
+            gallery = select_gallery(gallery, item_id)
+            for selected in gallery:
+                if text(selected.get("id")) == text(item_id):
+                    selected["review_status"] = "approved"
+        else:
+            raise ValueError("Ação de revisão inválida.")
+        if note:
+            item["review_note"] = text(note)
+        break
+    if not found:
+        raise ValueError("Referência não encontrada.")
+    media["gallery"] = gallery
+    payload["media"] = media
+    record = dict(place)
+    record["payload"] = payload
+    return serialize(update_place(place_id, record))
+
+
 def apply_images(place_id: int, *, kind: str = "next", point_id: str = "", reference_ids=None) -> dict:
     place = serialize(get_by_id(place_id))
     payload = normalize_payload(place)
     kind = (kind or "next").lower()
-    chosen = gallery_items_by_ids(place, reference_ids)
+    chosen = [item for item in gallery_items_by_ids(place, reference_ids) if text(item.get("review_status")) == "approved"]
     target_label = ""
     if kind in ("next", "points") and not (kind == "point" and point_id):
         target = next_image_target(place, points_only=(kind == "points"))
@@ -549,6 +603,12 @@ def apply_images(place_id: int, *, kind: str = "next", point_id: str = "", refer
         kind = target["kind"]
         point_id = target.get("point_id") or ""
         target_label = target.get("label") or ""
+    if not chosen:
+        point = next((item for item in payload.get("points") or [] if text(item.get("id")) == text(point_id)), None)
+        reference_kind = "point" if kind == "point" else ("hero" if kind in ("all", "both", "next") else kind)
+        chosen = selected_gallery_refs(place, kind=reference_kind, point=point)
+    if not chosen:
+        raise ImageError("Aprove uma foto real no gerenciador de referências antes de gerar com IA.")
     errors = []
     generated_media = {}
     generated = []

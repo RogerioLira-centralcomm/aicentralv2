@@ -109,6 +109,12 @@ def assemble_fiche(place: dict, *, researched=None, finalized=None, refined=None
                 "radius_label": f"{radius_m} m" if radius_m < 1000 else f"{radius_m / 1000:.1f} km".replace(".0", ""),
             }
         )
+    # O catálogo comercial vende um lugar por vez. Subdivisões encontradas
+    # na pesquisa são contexto do único ponto, nunca itens de cobrança.
+    if points:
+        primary = dict(points[0])
+        primary["inside"] = [item["name"] for item in points[1:] if item.get("name")]
+        points = [primary]
     return {
         "subtitle": text(refined.get("subtitle") or finalized.get("subtitle") or place.get("subtitle")),
         "operator": text(refined.get("operator") or place.get("operator")),

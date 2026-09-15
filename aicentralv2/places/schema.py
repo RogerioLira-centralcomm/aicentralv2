@@ -313,6 +313,34 @@ def normalize_point(item: Any) -> dict:
         "source": text(data.get("source")),
         "note": text(data.get("note")),
         "image_url": text(data.get("image_url")),
+        "inside": [text(x) for x in as_list(data.get("inside")) if text(x)],
+        "target_audience": [text(x) for x in as_list(data.get("target_audience")) if text(x)],
+    }
+
+
+def normalize_weekly_movement(value: Any) -> dict:
+    data = as_dict(value)
+    values = []
+    for raw in as_list(data.get("values"))[:7]:
+        number = _float(raw)
+        values.append(max(0, min(100, round(number))) if number is not None else None)
+    values.extend([None] * (7 - len(values)))
+    return {
+        "values": values,
+        "source": text(data.get("source")),
+        "source_status": normalize_source_status(data.get("source_status"), "to_validate"),
+        "note": text(data.get("note")),
+    }
+
+
+def normalize_planning(value: Any) -> dict:
+    data = as_dict(value)
+    return {
+        "objective": text(data.get("objective")),
+        "channels": [text(item) for item in as_list(data.get("channels")) if text(item)],
+        "models": [text(item) for item in as_list(data.get("models")) if text(item)],
+        "source_status": normalize_source_status(data.get("source_status"), "to_validate"),
+        "note": text(data.get("note")),
     }
 
 
@@ -398,6 +426,8 @@ def normalize_media(value: Any) -> dict:
                 "title": text(item.get("title")),
                 "query": text(item.get("query")),
                 "selected": bool(item.get("selected")),
+                "review_status": text(item.get("review_status")) or "pending",
+                "review_note": text(item.get("review_note")),
             }
         )
     return {
@@ -555,6 +585,10 @@ def normalize_payload(value: Any) -> dict:
         "catchment": normalize_catchment(data.get("catchment")),
         "zones": [normalize_zone(item) for item in as_list(data.get("zones"))],
         "audiences": [normalize_audience(item) for item in as_list(data.get("audiences")) if normalize_audience(item)["title"]],
+        "target_audience": [text(x) for x in as_list(data.get("target_audience")) if text(x)],
+        "income": normalize_metric(data.get("income")),
+        "weekly_movement": normalize_weekly_movement(data.get("weekly_movement")),
+        "planning": normalize_planning(data.get("planning")),
         "media": normalize_media(media),
         "pipeline": normalize_pipeline(data.get("pipeline")),
         "offer": offer,

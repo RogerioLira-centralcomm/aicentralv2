@@ -135,7 +135,7 @@ def research_region(place: dict) -> dict:
             "role": "system",
             "content": (
                 "Você pesquisa a bacia de um place comercial no Brasil. "
-                "Foco: densidade, bairros, pessoas que moram na região e pontos principais. "
+                "Foco: público-alvo, renda, densidade, dias de maior movimento e um ponto comercial. "
                 "Não invente estatística. Se o número não tiver fonte, marque to_validate. "
                 "Responda só JSON válido."
             ),
@@ -148,9 +148,11 @@ def research_region(place: dict) -> dict:
                 "Devolva JSON com: "
                 "population_label, population_value, population_source, population_status, "
                 "density_label, density_source, density_status, "
+                "target_audience (lista curta), income_label, income_source, income_status, "
+                "weekly_movement_values (7 índices de 0 a 100, domingo a sábado), weekly_movement_source, weekly_movement_status, "
                 "impacted_label, neighborhoods (lista), profile, notes, "
                 "sources (lista de {title, url}), "
-                "points (lista de {name, kind, note}) onde kind é "
+                "points (lista de UM {name, kind, note}) onde kind é "
                 "bairro|densidade|pessoas|marco|mobilidade|terminal|embarque|premium|halo. "
                 "Se for aeroporto: bacia é o recorte residencial (ilha, distritos ou municípios do corredor), "
                 "não só o bairro do sítio. Inclua terminal, embarque, internacional se houver fonte, "
@@ -218,6 +220,16 @@ def research_region(place: dict) -> dict:
             "neighborhoods": neighborhoods,
             "profile": profile,
         },
+        "target_audience": [text(item) for item in as_list(data.get("target_audience")) if text(item)][:6],
+        "income": {
+            "label": text(data.get("income_label")), "source": text(data.get("income_source")),
+            "source_status": text(data.get("income_status")) or "to_validate",
+        },
+        "weekly_movement": {
+            "values": as_list(data.get("weekly_movement_values"))[:7],
+            "source": text(data.get("weekly_movement_source")),
+            "source_status": text(data.get("weekly_movement_status")) or "to_validate",
+        },
         "research": {
             "query": f"{title} {city} densidade bairros pessoas",
             "notes": notes,
@@ -274,7 +286,7 @@ def refine_generated_fiche(place: dict, *, draft: dict | None = None) -> dict:
                 "neighborhoods (lista curta de nomes reais), "
                 "offer_lead, offer_lines (3 {title,body}), methodology_body, "
                 "audiences (6 pares {title,body}), "
-                "points (lista de {name, kind, note, commercial} — kind: "
+                "points (lista de UM {name, kind, note, commercial} — kind: "
                 "terminal|embarque|premium|mobilidade|halo).\n\n"
                 f"travado={json.dumps(locked, ensure_ascii=False)}"
             ),

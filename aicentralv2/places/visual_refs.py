@@ -276,9 +276,9 @@ def selected_gallery_refs(place: dict, *, kind: str = "hero", point: dict | None
             continue
         if kind == "point" and point_id and text(row.get("point_id")) not in ("", point_id):
             continue
-        if row.get("selected"):
+        if row.get("selected") and text(row.get("review_status")) == "approved":
             selected.append(row)
-        else:
+        elif text(row.get("review_status")) == "approved":
             fallback.append(row)
     picked = selected or fallback[:2]
     return [item for item in picked if usable_image_url(text(item.get("url") or item.get("source_url")))][:2]

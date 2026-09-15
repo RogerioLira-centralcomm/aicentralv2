@@ -541,6 +541,11 @@ class PlacesCatalogTest(unittest.TestCase):
         self.assertIn("/enrich", js)
         self.assertIn("pl-point-extra", js)
         self.assertIn("renderInventory", js)
+        self.assertIn('name="target_audience"', form)
+        self.assertIn('name="income_label"', form)
+        self.assertIn('name="weekly_movement_values"', form)
+        self.assertIn("weeklyValues", js)
+        self.assertIn("weekly_movement", js)
         self.assertIn("data-share-link", form)
         self.assertIn('setAttribute("data-copy"', js)
         self.assertIn('name: "Ponto "', js)
@@ -566,7 +571,8 @@ class PlacesCatalogTest(unittest.TestCase):
             },
         )
         names = [item["name"] for item in fiche["points"]]
-        self.assertEqual(names, ["Terminal T2", "Vinte de Janeiro"])
+        self.assertEqual(names, ["Terminal T2"])
+        self.assertEqual(fiche["points"][0]["inside"], ["Vinte de Janeiro"])
         self.assertTrue(any("Base" in item or "corrigido" in item.lower() for item in fiche["warnings"]))
         self.assertTrue(all(item["id"] for item in fiche["points"]))
 
@@ -908,6 +914,7 @@ class PlacesCatalogTest(unittest.TestCase):
                         "kind": "hero",
                         "url": "/static/images/places/gallery/cnf.jpg",
                         "selected": True,
+                        "review_status": "approved",
                     }
                 ]
             },
@@ -974,6 +981,7 @@ class PlacesCatalogTest(unittest.TestCase):
             "payload": normalize_payload(
                 {
                     "geo": {"lat": -22.81, "lng": -43.25},
+                    "media": {"gallery": [{"id": "ref", "kind": "hero", "url": "https://images.example/gig.jpg", "selected": True, "review_status": "approved"}]},
                     "points": [{"id": "gig-t2", "name": "T2", "kind": "terminal", "lat": -22.81, "lng": -43.25}],
                 }
             ),
@@ -1015,6 +1023,7 @@ class PlacesCatalogTest(unittest.TestCase):
             "payload": normalize_payload(
                 {
                     "geo": {"lat": -22.81, "lng": -43.25},
+                    "media": {"gallery": [{"id": "ref", "kind": "hero", "url": "https://images.example/gig.jpg", "selected": True, "review_status": "approved"}]},
                     "points": [
                         {"id": "gig-t2", "name": "T2", "kind": "terminal", "lat": -22.81, "lng": -43.25},
                         {"id": "gig-ilha", "name": "Ilha", "kind": "halo", "lat": -22.81, "lng": -43.20},
@@ -1213,13 +1222,14 @@ class PlacesPublicRoutesTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
         self.assertIn("96 mil moram no entorno", html)
-        self.assertIn("Ir para o mapa", html)
+        self.assertIn("Ir para a ficha do ponto", html)
         self.assertIn("O SDU liga hotel", html)
         self.assertIn("cc-hero", html)
-        self.assertIn("cc-desk", html)
-        self.assertIn("cc-rail", html)
+        self.assertIn("cc-point-table", html)
+        self.assertIn("cc-intro-data", html)
         self.assertIn("cc-brief", html)
         self.assertIn("cc-areas", html)
+        self.assertIn("cc-plan", html)
         self.assertIn("cc-ask", html)
         self.assertIn("Pedir o recorte", html)
         self.assertIn("santos-dumont-hero", html)
@@ -1231,7 +1241,7 @@ class PlacesPublicRoutesTest(unittest.TestCase):
         self.assertNotIn("Plano completo", html)
         self.assertNotIn("geofence", html.lower())
         self.assertIn("cc_logo.png", html)
-        self.assertIn("cc-map", html)
+        self.assertNotIn('id="cc-map"', html)
         self.assertIn("cc-foot", html)
         self.assertNotIn("proposta", html.lower())
         self.assertNotIn("Falar com especialista", html)
@@ -1279,8 +1289,8 @@ class PlacesPublicRoutesTest(unittest.TestCase):
         ):
             response = self.client.get("/places/p/santos-dumont")
         html = response.get_data(as_text=True)
-        self.assertIn("cc-sheet", html)
-        self.assertIn("cc-point-photo", html)
+        self.assertIn("cc-point-table", html)
+        self.assertIn("cc-point-table-photo", html)
         self.assertIn("sdu-hero.jpg", html)
         self.assertIn("Terminal Santos Dumont", html)
         self.assertNotIn("cc-gallery", html)
@@ -1298,10 +1308,10 @@ class PlacesPublicRoutesTest(unittest.TestCase):
         self.assertIn("confins-hero-bad23d6b.png", html)
         self.assertIn("A validar", html)
         self.assertIn("MG-010", html)
-        self.assertIn("cnf-internacional", html)
+        self.assertIn("Ficha do ponto", html)
         self.assertIn("No sítio", html)
         self.assertIn("-19.630503", html)
-        self.assertIn("cc-scope", html)
+        self.assertIn("Ponto comercial", html)
         self.assertIn("Investimento, 4 semanas", html)
         self.assertIn("R$", html)
 
@@ -1340,13 +1350,12 @@ class PlacesPublicRoutesTest(unittest.TestCase):
             response = self.client.get("/places/p/iguatemi-sao-paulo")
         html = response.get_data(as_text=True)
         self.assertEqual(response.status_code, 200)
-        self.assertIn("zoneApps", html)
-        self.assertIn("zonePortals", html)
+        self.assertIn("Canais", html)
         self.assertIn("Instagram", html)
         self.assertIn("G1", html)
         self.assertIn("cc-inventory", html)
         self.assertIn("No Iguatemi o celular é Instagram e G1.", html)
-        self.assertIn("igt-mall", html)
+        self.assertIn("Ponto comercial", html)
 
     def test_bh_shopping_public_shows_defense_and_photo(self):
         mall = next(item for item in VENUE_PLACES if item["slug"] == "bh-shopping")

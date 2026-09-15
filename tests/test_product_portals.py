@@ -133,6 +133,16 @@ class ProductPortalsTest(TestCase):
         self.assertNotIn('href="https://cadu.centralcomm.media/entrada/cadu"', html)
         self.assertIn('rel="canonical" href="https://workspace.centralcomm.media/entrada/cadu"', html)
 
+    def test_product_switch_is_compact_alphabetical_and_uses_product_icons(self):
+        client = _app().test_client()
+        html = client.get("/workspace/", headers={"Host": "workspace.centralcomm.media"}).get_data(as_text=True)
+        labels = ("Connect", "Planner", "Skills", "Studio", "Workspace")
+        menu = html.split('aria-label="Produtos Cadu">', 1)[1].split("</nav>", 1)[0]
+        offsets = [menu.index(f">{label}</span>") for label in labels]
+        self.assertEqual(offsets, sorted(offsets))
+        for icon in ("connect-2d.svg", "planner-2d.svg", "skills-2d.svg", "studio-2d.svg", "workspace-2d.svg"):
+            self.assertIn(f"images/cadu/products/{icon}", html)
+
     @mock.patch("aicentralv2.cadu_connect.routes.link_campaign_project", return_value=True)
     def test_agents_links_campaign_to_project_inside_client_context(self, link):
         client = _app().test_client()

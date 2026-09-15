@@ -5,6 +5,7 @@
   <meta name="csrf-token" content="{{ csrf }}">
   <title>{{ title }} — Cadu {{ spec.name }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-family.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-product-switch.css') }}?v=1">
   {% if product == 'workspace' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-family.css') }}?v=1">{% endif %}
   {% block product_styles %}{% endblock %}
   <script defer src="{{ url_for('static', filename='js/cadu-family.js') }}"></script>
@@ -31,11 +32,7 @@
 <body data-product="{{ product }}" data-authenticated="{{ 'true' if user else 'false' }}">
 <a class="family-skip" href="#content">Ir para o conteúdo</a>
 <header class="family-nav">
-  {% set family_products = [('workspace', 'Workspace', 'cadu-icon.png'), ('studio', 'Studio', 'studio-icon.png'), ('planner', 'SmartPlanner', 'planner-icon.png'), ('skills', 'Skills', 'skills-icon.png'), ('connect', 'Connect', 'connect-icon.png')] %}
-  {% set active_icon = (family_products | selectattr('0', 'equalto', product) | map(attribute='2') | first | default('cadu-icon.png')) %}
-  <details class="family-switch"><summary><img src="{{ url_for('static', filename='images/cadu/products/' ~ active_icon) }}" alt=""><span>{{ spec.name }}</span><span class="family-chevron" aria-hidden="true">⌄</span></summary><nav aria-label="Soluções CentralComm">
-    {% for slug, name, icon in family_products %}<a href="{{ product_url(slug, '/familia/' ~ slug ~ '/' if slug in products else '/') }}" {% if slug == product %}aria-current="page"{% endif %}><img src="{{ url_for('static', filename='images/cadu/products/' ~ icon) }}" alt=""><span>{{ name }}</span></a>{% endfor %}
-  </nav></details>
+  {% set cadu_active_product = product %}{% set product_switch_path = '/familia/' %}{% include 'cadu/_product_switch.html' %}
   {% if user %}<details class="family-context-menu"><summary><span><small>Cliente selecionado</small><strong>{{ selected.client_name }}</strong></span><span aria-hidden="true">⌄</span></summary><form id="family-context" class="family-context">
     <label>Cliente<select name="client_id" aria-label="Cliente">{% for client in clients %}<option value="{{ client.id }}" {% if client.id == selected.client_id %}selected{% endif %}>{{ client.name }}</option>{% endfor %}</select></label>
     <label>Marca<select name="brand_ref" aria-label="Marca"><option value="">Todas as marcas</option>{% for item in entities if item.kind == 'brand' %}<option value="{{ item.ref }}" {% if session.get('family_context', {}).get('brand_ref') == item.ref %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select></label>

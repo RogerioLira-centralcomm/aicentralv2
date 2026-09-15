@@ -1,4 +1,5 @@
 <nav class="sp-product-bar" aria-label="Smart Planner">
+  {% set cadu_active_product = 'planner' %}{% include 'cadu/_product_switch.html' %}
   <a href="{{ url_for('smart_planner.index') }}"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i><span>Smart Planner</span></a>
   <a class="sp-product-bar__link" href="{{ url_for('smart_planner.index') }}">Planejamentos</a>
   <details class="sp-product-bar__history">

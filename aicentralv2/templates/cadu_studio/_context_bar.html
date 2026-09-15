@@ -1,5 +1,6 @@
 {% set mc_page = mc_page|default('hub') %}
 <header class="mc-cadu-bar mc-cadu-bar--studio" id="mcCaduBar">
+  {% set cadu_active_product = 'studio' %}{% include 'cadu/_product_switch.html' %}
   <a class="mc-cadu-mark" href="{{ url_for('parametros.modelagem_criativos') }}">Cadu Media Studio<sup>®</sup></a>
   <nav class="mc-cadu-nav" aria-label="Atalhos do Cadu Media Studio"><a id="mcCaduStill" href="{{ url_for('parametros.modelagem_trocar') }}"{% if mc_page == 'trocar' %} class="is-current" aria-current="page"{% endif %}>Ajustar</a><a id="mcCaduVideo" href="{{ url_for('parametros.modelagem_video') }}"{% if mc_page == 'video' %} class="is-current" aria-current="page"{% endif %}>Vídeo</a><a class="mc-cadu-dsa-link" href="{{ url_for('parametros.modelagem_design-system') }}"{% if mc_page == 'design-system' %} aria-current="page"{% endif %}><img src="{{ url_for('static', filename='images/cadu/products/studio-2d.svg') }}" alt="">Design System Ads</a></nav>
   <div class="mc-cadu-meta"><label class="mc-cadu-brand"><span class="mc-cadu-brand-label">Marca</span><select id="mcCaduBarClient" aria-label="Marca desta sessão"><option value="">Marca</option></select></label><p class="mc-cadu-credits" id="mcCaduCredits" hidden></p></div>

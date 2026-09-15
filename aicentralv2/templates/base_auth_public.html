@@ -14,21 +14,11 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   {% block styles %}{% endblock %}
 </head>
-<body class="auth-public" data-auth-page="{% block page_name %}access{% endblock %}">
+<body class="auth-public{% if is_centralx_host|default(false) %} auth-public--centralx{% endif %}" data-auth-page="{% block page_name %}access{% endblock %}">
   <main class="auth-layout">
     {% set active_product = active_auth_product|default('workspace', true) %}
+    {% if not is_centralx_host|default(false) %}
     <aside class="auth-scene auth-product-showcase" aria-label="{{ 'CentralX' if is_centralx_host|default(false) else 'Contexto da solução Cadu' }}">
-      {% if is_centralx_host|default(false) %}
-      <div class="auth-product-scene is-active" data-auth-product-panel="centralx">
-        <div class="auth-scene-shade"></div>
-        <div class="auth-scene-copy">
-          <p class="auth-scene-kicker">CentralComm <span aria-hidden="true">/</span> CentralX</p>
-          <p class="auth-scene-city"><img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt=""><span>CentralX</span></p>
-          <p class="auth-scene-message">Operação de mídia da CentralComm.</p>
-          <p class="auth-scene-impact">Planejamento, criação e gestão no ambiente interno.</p>
-        </div>
-      </div>
-      {% else %}
       {% set auth_products = [
         ('workspace','Workspace','Sua operação de mídia, conectada de ponta a ponta.','Planeje, crie e acompanhe sem trocar de contexto.','cadu-hub.png','cadu-icon.png'),
         ('studio','Studio','Transforme briefing em peças prontas para veicular.','Criação adaptada para cada canal e formato.','studio.png','studio-icon.png'),
@@ -42,16 +32,14 @@
         <img class="auth-scene-image" src="{{ url_for('static', filename='images/cadu/products/' ~ image) }}" alt="">
         <div class="auth-scene-shade"></div>
         <div class="auth-scene-copy">
-          <p class="auth-scene-kicker">Cadu <span aria-hidden="true">/</span> Soluções</p>
-          <p class="auth-scene-city"><img src="{{ url_for('static', filename='images/cadu/products/' ~ icon) }}" alt=""><span>{{ name }}</span></p>
           <p class="auth-scene-message">{{ description }}</p>
           <p class="auth-scene-impact">{{ impact }}</p>
         </div>
       </div>
       {% endif %}
       {% endfor %}
-      {% endif %}
     </aside>
+    {% endif %}
 
     <section class="auth-workspace {% block workspace_class %}{% endblock %}">
       <div class="auth-workspace-inner">
@@ -76,7 +64,7 @@
         </div>
 
         <footer class="auth-footer">
-          <span><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Acesso protegido</span>
+          <span>{% if not is_centralx_host|default(false) %}<i class="fa-solid fa-shield-halved" aria-hidden="true"></i> {% endif %}Acesso protegido</span>
           <span>{{ 'CentralX' if is_centralx_host|default(false) else 'Cadu' }} © 2026</span>
         </footer>
       </div>

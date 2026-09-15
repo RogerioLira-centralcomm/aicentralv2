@@ -1206,6 +1206,20 @@ body[data-auth-page="reset-password"] .auth-page-content {
 .auth-access-switch { margin-top: 1.2rem; }
 .auth-footer { color: #7b8882; }
 
+/* CentralX is a standalone internal product: one calm access surface, without
+   the Cadu product scene or duplicated product marks. */
+.auth-public--centralx .auth-layout {
+  display: block;
+}
+
+.auth-public--centralx .auth-workspace {
+  box-shadow: none;
+}
+
+.auth-public--centralx .auth-workspace-inner {
+  width: min(100%, 460px);
+}
+
 @media (max-width: 860px) {
   .auth-login-brand { margin-bottom: 1.45rem; }
   .auth-overline { margin-bottom: .6rem; }

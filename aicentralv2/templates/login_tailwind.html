@@ -12,7 +12,7 @@
     <img class="auth-login-logo" src="{{ url_for('static', filename='images/cc_logo.png' if is_centralx_host else 'images/cadu-logo-variant-2.png', v='20260915') }}" alt="{{ 'CentralX' if is_centralx_host else 'Cadu' }}">
   </a>
   {% if is_centralx_access %}
-  <p class="auth-overline">CentralX</p><h1>Entre na operação CentralX.</h1><p>Use sua conta corporativa para acessar o ambiente interno da CentralComm.</p>
+  <h1>Entre na operação CentralX.</h1><p>Use sua conta corporativa para acessar o ambiente interno da CentralComm.</p>
   {% else %}
   <p class="auth-overline">Conta Cadu</p><h1>Acesse sua conta.</h1><p>Uma conta para continuar seu trabalho em todas as soluções Cadu.</p>
   <div class="auth-destination" aria-label="Destino após o login">

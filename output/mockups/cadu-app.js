@@ -5,7 +5,7 @@ const products=[
  {id:'studio',asset:'studio',name:'Media Studio',purpose:'Criar, adaptar e organizar mídia',color:'#7456e8',action:'#6344cf',soft:'#f1edfc',domain:'studio.centralcomm.media',nav:[['Visão geral','studio'],['Biblioteca','studio-library'],['Criar','studio-create'],['Editar','studio-edit'],['Recursos','studio-resources']]},
  {id:'connect',asset:'connect',name:'Connect',purpose:'Contas de anúncio e dados confiáveis',color:'#1976e9',action:'#1363c5',soft:'#eaf2fd',domain:'connect.centralcomm.media',nav:[['Contas','connect'],['Sincronizações','connect-sync'],['Relatórios','connect-reports'],['Pendências','connect-pending']]},
  {id:'skills',asset:'skills',name:'Skills',purpose:'Conhecimento para pessoas e agentes',color:'#e87922',action:'#a94d08',soft:'#fff2e7',domain:'skills.centralcomm.media',nav:[['Catálogo público','skills'],['Exemplos','skills-examples'],['Minhas Skills','skills-private']]},
- {id:'planner',asset:'planner',name:'Smart Planner',purpose:'Objetivos, canais e plano de mídia',color:'#18b978',action:'#087d4d',soft:'#e8f7ef',domain:'Endereço a definir',nav:[['Planos em andamento','planner'],['Objetivos','planner-objectives'],['Públicos e canais','planner-channels'],['Calendário','planner-calendar']]}
+ {id:'planner',asset:'planner',name:'Smart Planner',purpose:'Objetivos, canais e plano de mídia',color:'#18b978',action:'#087d4d',soft:'#e8f7ef',domain:'planner.centralcomm.media',nav:[['Planos em andamento','planner'],['Objetivos','planner-objectives'],['Públicos e canais','planner-channels'],['Calendário','planner-calendar']]}
 ];
 const escapeHTML=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let context=CaduContext.current(), steps={}, dismissed={}, view='workspace';

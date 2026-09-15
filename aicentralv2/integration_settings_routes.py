@@ -1,6 +1,8 @@
 """Central administrativa de credenciais globais."""
 
-from flask import current_app, jsonify, render_template, request, session
+from pathlib import Path
+
+from flask import current_app, jsonify, render_template, request, send_from_directory, session
 
 from . import db
 from .auth import admin_required, admin_required_api
@@ -20,6 +22,22 @@ def _error(message, status=400):
 
 
 def register_integration_settings_routes(blueprint):
+    def _cadu_mockups_root():
+        return Path(current_app.root_path).parent / "output" / "mockups"
+
+    @blueprint.route("/prototipos-cadu")
+    @admin_required
+    def prototipos_cadu():
+        prototype_files = sorted(
+            path.name for path in _cadu_mockups_root().glob("*.html") if path.is_file()
+        )
+        return render_template("parametros/prototipos_cadu.html", prototype_files=prototype_files)
+
+    @blueprint.route("/prototipos-cadu/<path:filename>")
+    @admin_required
+    def prototipos_cadu_asset(filename):
+        return send_from_directory(_cadu_mockups_root(), filename)
+
     @blueprint.route("/integracoes")
     @admin_required
     def integracoes():

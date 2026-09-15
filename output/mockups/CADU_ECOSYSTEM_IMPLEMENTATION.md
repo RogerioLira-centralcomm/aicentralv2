@@ -19,7 +19,7 @@ Entregáveis comuns às cinco famílias:
 
 O seletor global usa ícones raster 2D de 20–24px. Ao trocar de produto, o front mantém a organização, a marca e o usuário como contexto de SSO visual; o backend futuro decide o acesso e redireciona para o subdomínio correto.
 
-## Fase 1 — Cadu Hub
+## Fase 1 — Cadu Workspace
 
 **Papel:** comando e contexto compartilhado.
 
@@ -56,7 +56,7 @@ O seletor global usa ícones raster 2D de 20–24px. Ao trocar de produto, o fro
 
 - Cor: laranja `#E87922`.
 - Key visual: documentação real — páginas, prompt de exemplo, bloco de código, navegação de tópicos e relação com os produtos; não ilustração tecnológica genérica.
-- Home: busca, categorias, skills em destaque, exemplos e rota clara para autenticar no Hub.
+- Home: busca, categorias, skills em destaque, exemplos e rota clara para autenticar no Workspace.
 - Componentes: busca de documentação, sidebar de capítulos, breadcrumb, bloco de código, exemplo copiável, tabela de referência, callout e resultado de busca.
 - Onboarding: descobrir; testar exemplo; levar a Skill ao ambiente autenticado.
 

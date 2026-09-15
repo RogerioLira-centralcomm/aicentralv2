@@ -22,5 +22,7 @@ function render(){
   $('#filter').innerHTML=[['all','Todos'],...Object.entries(products).map(([k,p])=>[k,p.name])].map(x=>`<button class="${x[0]===family?'active':''}" data-family="${x[0]}">${x[1]}</button>`).join('');
   document.querySelectorAll('[data-family]').forEach(b=>b.onclick=()=>{family=b.dataset.family;render()});
 }
+products.hub.name='Cadu Workspace';
 render();
+const workspaceEmailText=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let workspaceEmailNode;while(workspaceEmailNode=workspaceEmailText.nextNode()){let parent=workspaceEmailNode.parentElement;if(parent&&parent.tagName!=='SCRIPT'&&parent.tagName!=='STYLE')workspaceEmailNode.nodeValue=workspaceEmailNode.nodeValue.replaceAll('Cadu Hub','Cadu Workspace').replace(/\bHub\b/g,'Workspace')}
 </script></html>

@@ -20,8 +20,9 @@ path=download_model('small',output_dir=sys.argv[1])
 WhisperModel(path,device='cpu',compute_type='int8',local_files_only=True)
 print('Modelo de transcrição preparado.')
 PY
-studio_unit="$(mktemp)"
-trap 'rm -f "$studio_unit"' EXIT
+studio_unit_dir="$(mktemp -d)"
+studio_unit="$studio_unit_dir/cadu-media-worker.service"
+trap 'rm -rf "$studio_unit_dir"' EXIT
 "$studio_python" - "$studio_unit" "$studio_root" "$studio_python" "$studio_user" "$studio_model" <<'PY'
 import sys
 from pathlib import Path

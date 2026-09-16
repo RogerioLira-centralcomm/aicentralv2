@@ -42,7 +42,7 @@ html[data-cadu-theme="dark"] body[data-product="workspace"] {
   --cadu-shell-ink:var(--cadu-ink); --cadu-shell-muted:var(--cadu-muted);
   --cadu-surface-soft:var(--cadu-hover);
 }
-html[data-cadu-theme="dark"] body[data-product="workspace"] :is(.workspace-conversation-next,.workspace-conversations) {
+html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-conversations {
   background:var(--cadu-surface); color:var(--cadu-ink); border-color:var(--cadu-line);
 }
 html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-conversation-sidebar {
@@ -63,8 +63,6 @@ html[data-cadu-theme="dark"] body[data-product="workspace"] :is(.conversation-na
 html[data-cadu-theme="dark"] body[data-product="workspace"] :is(.conversation-code figcaption,.conversation-table th) {background:#25313d;color:var(--cadu-ink)}
 html[data-cadu-theme="dark"] body[data-product="workspace"] .conversation-code pre {background:#121922;color:#eef3f7}
 html[data-cadu-theme="dark"] body[data-product="workspace"] :is(.conversation-code,.conversation-table th,.conversation-table td) {border-color:#3c4957}
-html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-conversation-next a {color:var(--cadu-ink)}
-html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-conversation-next a:hover b {color:#a5eadc}
 html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-app-user>div .cadu-theme-toggle {background:transparent;color:var(--cadu-ink)}
 #mcSwap #mcStudioTheme {display:none!important}
 .cadu-theme-toggle {display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:8px 12px;border:1px solid var(--cadu-line);border-radius:6px;background:var(--cadu-surface);color:var(--cadu-ink);font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}

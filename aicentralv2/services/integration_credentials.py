@@ -52,6 +52,12 @@ PROVIDERS = {
         "secret_fields": ("api_key",),
         "required": ("api_key",),
     },
+    "brevo": {
+        "label": "Brevo",
+        "public_fields": (),
+        "secret_fields": ("api_key", "webhook_token"),
+        "required": ("api_key",),
+    },
     "d4sign": {
         "label": "D4Sign",
         "public_fields": ("uuid_safe", "ambiente"),
@@ -94,6 +100,9 @@ ENV_FIELDS = {
     },
     "firecrawl": {
         "api_key": "FIRECRAWL_API_KEY",
+    },
+    "brevo": {
+        "api_key": "BREVO_API_KEY",
     },
     "d4sign": {},
 }
@@ -315,6 +324,9 @@ def validate_configuration(provider):
     if provider == "firecrawl":
         valid, message = _validate_firecrawl(config)
         return valid, message, {}
+    if provider == "brevo":
+        valid, message = _validate_brevo(config)
+        return valid, message, {}
     if provider == "d4sign":
         return _validate_d4sign(config)
     return True, (
@@ -411,6 +423,55 @@ def _validate_firecrawl(config):
     return True, (
         f"Credencial Firecrawl aceita. Créditos restantes: {remaining}."
     )
+
+
+def resolve_brevo_api_key() -> str:
+    """Retorna a chave Brevo ativa, priorizando o cofre criptografado."""
+    try:
+        config = get_configuration("brevo", include_secrets=True)
+        if config.get("status") == "disabled":
+            return ""
+        key = str(config.get("api_key") or "").strip()
+        if key:
+            return key
+    except Exception:
+        pass
+    return str(_setting("BREVO_API_KEY") or "").strip()
+
+
+def resolve_brevo_webhook_token() -> str:
+    """Token exclusivo usado para autenticar eventos recebidos da Brevo."""
+    try:
+        config = get_configuration("brevo", include_secrets=True)
+        if config.get("status") == "disabled":
+            return ""
+        token = str(config.get("webhook_token") or "").strip()
+        if token:
+            return token
+    except Exception:
+        pass
+    return str(_setting("BREVO_WEBHOOK_TOKEN") or "").strip()
+
+
+def _validate_brevo(config):
+    import requests
+
+    key = str(config.get("api_key") or "").strip()
+    try:
+        response = requests.get(
+            "https://api.brevo.com/v3/account",
+            headers={"accept": "application/json", "api-key": key},
+            timeout=15,
+        )
+    except requests.RequestException:
+        return False, "Não foi possível validar a chave na Brevo."
+    if response.status_code in (401, 403):
+        return False, "A credencial Brevo não foi aceita."
+    if response.status_code == 429:
+        return False, "A Brevo limitou a validação. Aguarde e tente de novo."
+    if response.status_code >= 400:
+        return False, "A Brevo recusou a validação da chave."
+    return True, "Credencial Brevo aceita. Os envios transacionais estão prontos."
 
 
 def _validate_d4sign(config):

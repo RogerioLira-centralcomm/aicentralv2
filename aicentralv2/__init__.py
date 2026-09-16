@@ -280,6 +280,8 @@ def create_app(config_class=Config):
 
         from .brevo_test_routes import bp as brevo_test_bp
         app.register_blueprint(brevo_test_bp)
+        from .brevo_webhook_routes import bp as brevo_webhook_bp
+        app.register_blueprint(brevo_webhook_bp)
 
         from .crm_v3_routes import bp as crm_v3_bp
         app.register_blueprint(crm_v3_bp)

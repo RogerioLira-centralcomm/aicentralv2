@@ -90,6 +90,20 @@ class IntegrationCredentialsServiceTest(unittest.TestCase):
         self.assertNotIn("fc-env-test", str(summary))
         self.assertNotIn("api_key", summary)
 
+    def test_brevo_summary_uses_environment_until_saved(self):
+        self.app.config["BREVO_API_KEY"] = "brevo-env-test"
+        with patch("aicentralv2.db.obter_credencial_integracao", return_value=None):
+            summary = integration_credentials.get_summary("brevo")
+            self.assertEqual(
+                integration_credentials.resolve_brevo_api_key(),
+                "brevo-env-test",
+            )
+        self.assertEqual(summary["source"], "environment")
+        self.assertTrue(summary["configured"])
+        self.assertTrue(summary["has_secret"])
+        self.assertNotIn("brevo-env-test", str(summary))
+        self.assertNotIn("api_key", summary)
+
     def test_openai_summary_uses_environment_until_saved(self):
         self.app.config["OPENAI_API_KEY"] = "sk-proj-env-test"
         self.app.config["OPENAI_DEFAULT_MODEL"] = "gpt-5-mini"
@@ -219,6 +233,7 @@ class IntegrationCredentialsContractTest(unittest.TestCase):
         self.assertIn("run_add_openrouter_integration_credential.py", deploy)
         self.assertIn("run_add_openai_integration_credential.py", deploy)
         self.assertIn("run_add_firecrawl_integration_credential.py", deploy)
+        self.assertIn("run_add_brevo_integration_credential.py", deploy)
         self.assertIn("run_add_openrouter_gpt_image_2.py", deploy)
         image_sql = (ROOT / "migrations/add_openrouter_gpt_image_2.sql").read_text()
         self.assertIn("openai/gpt-image-2", image_sql)
@@ -238,6 +253,10 @@ class IntegrationCredentialsContractTest(unittest.TestCase):
             ROOT / "migrations/add_firecrawl_integration_credential.sql"
         ).read_text()
         self.assertIn("firecrawl", firecrawl_sql)
+        brevo_sql = (
+            ROOT / "migrations/add_brevo_integration_credential.sql"
+        ).read_text()
+        self.assertIn("brevo", brevo_sql)
         d4sign_sql = (ROOT / "migrations/add_d4sign_assinaturas.sql").read_text()
         self.assertIn("openai", d4sign_sql)
         self.assertIn("firecrawl", d4sign_sql)

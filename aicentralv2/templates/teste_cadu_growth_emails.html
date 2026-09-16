@@ -1,0 +1,82 @@
+{% extends 'base_erp.html' %}
+{% block page_label %}Parâmetros{% endblock %}
+{% block page_subtitle %}Homologação de campanhas Cadu{% endblock %}
+{% block title %}Testes de e-mail Cadu — CentralComm AI{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-5">
+  <div class="max-w-xl">
+    <h1 class="text-xl font-semibold">Testar modelos de e-mail</h1>
+    <p class="text-sm text-base-content/70 mt-1">Escolha as peças. O teste real vai somente para <strong>{{ recipient }}</strong>.</p>
+  </div>
+
+  <form id="growth-form" method="post" class="space-y-4">
+    <fieldset class="border border-base-200 rounded-xl bg-base-100 overflow-hidden">
+      <legend class="sr-only">Modelos para testar</legend>
+      <div class="px-5 pt-4 pb-3 border-b border-base-200">
+        <p class="font-medium text-sm">Peças</p>
+        <p class="text-sm text-base-content/60 mt-0.5">Marque apenas o que quer revisar ou enviar.</p>
+      </div>
+      <div class="divide-y divide-base-200">
+        {% for key, label in model_choices %}
+        <label class="flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-base-200/40 transition-colors">
+          <input type="checkbox" name="models" value="{{ key }}" class="checkbox checkbox-sm checkbox-primary" {% if key in selected_models %}checked{% endif %}>
+          <span class="text-sm font-medium">{{ label }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+
+    <div id="selection-message" class="hidden text-sm text-error" role="status"></div>
+    <div class="flex flex-wrap gap-2">
+      <button type="submit" name="mode" value="preview" class="btn btn-ghost btn-sm">Gerar prévia</button>
+      <button id="open-send-confirmation" type="button" class="btn btn-primary btn-sm gap-2"><i class="fa-solid fa-paper-plane"></i>Enviar testes</button>
+    </div>
+  </form>
+
+  {% if result %}
+  <section class="border border-base-200 rounded-xl bg-base-100 p-5" aria-live="polite">
+    <div class="flex flex-wrap items-start justify-between gap-2">
+      <div><h2 class="font-medium">Resultado</h2><p class="text-sm text-base-content/65 mt-1">{{ result.notice }}</p></div>
+      {% if result.success %}<span class="badge badge-success badge-sm">Concluído</span>{% else %}<span class="badge badge-error badge-sm">Revisar</span>{% endif %}
+    </div>
+    {% if result.results %}
+    <div class="overflow-x-auto mt-4"><table class="table table-sm"><thead><tr><th>Peça</th><th>Assunto</th><th>Status</th></tr></thead><tbody>{% for item in result.results %}<tr><td>{{ item.label }}</td><td>{{ item.subject|default('—') }}</td><td>{% if item.success %}<span class="text-success">{% if result.dry_run %}Prévia pronta{% else %}Enviado{% endif %}</span>{% else %}<span class="text-error">Falhou</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+    {% endif %}
+  </section>
+  {% endif %}
+</div>
+
+<dialog id="send-confirmation" class="modal">
+  <div class="modal-box max-w-md">
+    <h2 class="text-lg font-semibold">Enviar testes para Apolo?</h2>
+    <p id="confirmation-copy" class="text-sm text-base-content/70 mt-2">Os modelos selecionados serão enviados exclusivamente para {{ recipient }}.</p>
+    <div class="modal-action">
+      <button type="button" id="close-send-confirmation" class="btn btn-ghost btn-sm">Cancelar</button>
+      <button type="submit" form="growth-form" name="mode" value="send" class="btn btn-primary btn-sm">Confirmar envio</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>Fechar</button></form>
+</dialog>
+
+<script>
+(() => {
+  const form = document.getElementById('growth-form');
+  const dialog = document.getElementById('send-confirmation');
+  const message = document.getElementById('selection-message');
+  const confirmationCopy = document.getElementById('confirmation-copy');
+  const selected = () => [...form.querySelectorAll('input[name="models"]:checked')];
+  document.getElementById('open-send-confirmation').addEventListener('click', () => {
+    const count = selected().length;
+    if (!count) {
+      message.textContent = 'Selecione ao menos uma peça para enviar.';
+      message.classList.remove('hidden');
+      return;
+    }
+    message.classList.add('hidden');
+    confirmationCopy.textContent = `${count} modelo(s) será(ão) enviado(s) exclusivamente para {{ recipient }}.`;
+    dialog.showModal();
+  });
+  document.getElementById('close-send-confirmation').addEventListener('click', () => dialog.close());
+})();
+</script>
+{% endblock %}

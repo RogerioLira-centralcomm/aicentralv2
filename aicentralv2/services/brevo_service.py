@@ -187,8 +187,14 @@ class BrevoService:
     
     @property
     def _api_key(self) -> str:
-        """Retorna a API key configurada"""
-        return self.api_key or self._get_config('BREVO_API_KEY', '')
+        """Retorna a API key, priorizando o cofre criptografado."""
+        if self.api_key:
+            return self.api_key
+        try:
+            from .integration_credentials import resolve_brevo_api_key
+            return resolve_brevo_api_key()
+        except Exception:
+            return self._get_config('BREVO_API_KEY', '')
     
     @property
     def _sender(self) -> Dict[str, str]:

@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from flask import current_app, jsonify, request, send_file, session
 
-from ..auth import admin_required_api
+from .studio_auth import studio_or_admin_required_api
 from ..creative_media.storage import media_root
 from .editor_workspace import Conflict, MAX_FILE, Workspace
 from .swap_csrf import trocr_csrf_required
@@ -39,7 +39,7 @@ def respond(work):
         return jsonify({'success': False, 'error': str(exc)}), 400
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def collection(collection):
     def action():
@@ -85,7 +85,7 @@ def launch(store, ident):
     _POOL.submit(run)
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def record(collection, ident):
     def action():
@@ -104,7 +104,7 @@ def record(collection, ident):
     return respond(action)
 
 
-@admin_required_api
+@studio_or_admin_required_api
 def asset_content(ident):
     try:
         store = workspace()
@@ -117,13 +117,13 @@ def asset_content(ident):
         return jsonify({'success': False, 'error': str(exc)}), 404
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def cancel_job(ident):
     return respond(lambda: workspace().cancel(ident))
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def retry_job(ident):
     def action():

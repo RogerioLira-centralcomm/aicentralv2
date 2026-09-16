@@ -234,9 +234,27 @@ MC_DESKS = {
     },
 }
 
+# The Studio owns its host, so product-facing URLs stay short. The older
+# ``/studio/modelagem-criativos/...`` routes remain as compatibility entries.
+STUDIO_SHORT_ROUTES = {
+    "modelagem_trocar": "imagem",
+    "modelagem_video": "video",
+    "modelagem_camadas": "camadas",
+    "modelagem_biblioteca": "formatos",
+    "modelagem_bancada": "bancada",
+    "modelagem_historico": "historico",
+    "modelagem_preparar": "roteiro",
+    "modelagem_produzir": "producao",
+    "modelagem_desdobrar": "desdobrar",
+    "modelagem_mesa": "mesa",
+    "modelagem_placas": "placas",
+}
+
 
 @studio_or_admin_required
 def modelagem_criativos():
+    if request.blueprint == "studio" and request.endpoint == "studio.modelagem_criativos":
+        return redirect(url_for("studio_product.studio_home"), code=302)
     redirected = _host_redirect('studio')
     if redirected:
         return redirected
@@ -252,22 +270,24 @@ CADU_RETIRED_DESKS = {"extrair", "revisao", "lab"}
 
 @studio_or_admin_required
 def modelagem_desk(page):
+    # Brand guidance belongs to Workspace, where the brand itself and its
+    # governance live. Keep legacy Studio URLs as a direct compatibility hop.
+    if page in {"marcas", "design-system"}:
+        query = ('?' + request.query_string.decode('utf-8')) if request.query_string else ''
+        return redirect(
+            product_url('workspace', '/familia/workspace/marcas/sistema') + query,
+            code=302,
+        )
+    if request.blueprint == "studio" and request.endpoint == f"studio.modelagem_{page}":
+        return redirect(url_for(f"studio_product.studio_{page}"), code=302)
     if page in CADU_RETIRED_DESKS:
         return redirect(url_for(".modelagem_criativos"))
     spec = MC_DESKS.get(page)
     if not spec:
         abort(404)
-    if page == 'marcas':
-        redirected = _host_redirect('workspace')
-        if redirected:
-            return redirected
-        if _configured_product_host('workspace'):
-            query = ('?' + request.query_string.decode('utf-8')) if request.query_string else ''
-            return redirect(product_url('workspace', '/familia/workspace/marcas/sistema') + query, code=302)
-    else:
-        redirected = _host_redirect('studio')
-        if redirected:
-            return redirected
+    redirected = _host_redirect('studio')
+    if redirected:
+        return redirected
     if page == "trocar" and request.args.get("ws") == "video":
         args = request.args.to_dict(flat=True)
         args.pop("ws", None)
@@ -296,22 +316,22 @@ def modelagem_desk(page):
     )
 
 
-@admin_required_api
+@studio_or_admin_required_api
 def api_format_lab_formats():
     return _execute(lambda: _ok(_service().format_lab_formats()))
 
 
-@admin_required_api
+@studio_or_admin_required_api
 def api_format_lab_campaigns():
     return _execute(lambda: _ok(_service().format_lab_campaigns()))
 
 
-@admin_required_api
+@studio_or_admin_required_api
 def api_format_lab_campaign(slug):
     return _execute(lambda: _ok(_service().format_lab_campaign(slug)))
 
 
-@admin_required_api
+@studio_or_admin_required_api
 def api_format_lab_sessions():
     if request.method == "GET":
         def _list_sessions():
@@ -2180,6 +2200,22 @@ def register_creative_modeling_routes(blueprint):
         methods=["POST"],
     )
     blueprint._creative_modeling_registered = True
+
+
+def register_studio_product_routes(blueprint):
+    """Register short, product-owned workspace URLs on the Studio host."""
+    blueprint.add_url_rule("/", endpoint="studio_home", view_func=modelagem_criativos)
+    blueprint.add_url_rule(
+        "/direcao-de-marca",
+        endpoint="studio_workspace_brand",
+        view_func=lambda: modelagem_desk("design-system"),
+    )
+    for endpoint, path in STUDIO_SHORT_ROUTES.items():
+        page = endpoint.removeprefix("modelagem_")
+        blueprint.add_url_rule(
+            f"/{path}", endpoint=f"studio_{page}",
+            view_func=lambda page=page: modelagem_desk(page),
+        )
 
 
 @admin_required

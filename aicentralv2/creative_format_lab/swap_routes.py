@@ -6,7 +6,7 @@ import mimetypes
 
 from flask import request, send_file, session
 
-from ..auth import admin_required_api
+from .studio_auth import studio_or_admin_required_api
 from .swap_csrf import trocr_csrf_required
 
 
@@ -131,28 +131,28 @@ def _http():
     return _execute, _json, _ok, _service
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def api_format_lab_swap():
     execute, json_body, ok, service = _http()
     return execute(lambda: ok(service().swap_format_lab(json_body(), session.get("user_id"))))
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def api_format_lab_swap_read():
     execute, json_body, ok, service = _http()
     return execute(lambda: ok(service().read_format_lab_swap(json_body(), session.get("user_id"))))
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def api_format_lab_swap_prompt():
     execute, json_body, ok, service = _http()
     return execute(lambda: ok(service().preview_format_lab_swap(json_body(), session.get("user_id"))))
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def api_format_lab_swap_history():
     execute, json_body, ok, service = _http()
@@ -170,7 +170,7 @@ def api_format_lab_swap_history():
     return execute(lambda: ok(service().save_format_lab_swap_history(json_body(), session.get("user_id"))))
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def api_format_lab_swap_library():
     execute, json_body, ok, service = _http()
@@ -189,7 +189,7 @@ def api_format_lab_swap_library():
     return execute(lambda: ok(service().add_format_lab_swap_library_still(json_body(), session.get("user_id"))))
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def api_format_lab_video_project():
     execute, json_body, ok, service = _http()
@@ -203,14 +203,14 @@ def api_format_lab_video_project():
     return execute(lambda: ok(service().save_format_lab_video_project(json_body(), session.get("user_id"))))
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def api_format_lab_animate_script():
     execute, json_body, ok, service = _http()
     return execute(lambda: ok(service().script_format_lab_animate(json_body(), session.get("user_id"))))
 
 
-@admin_required_api
+@studio_or_admin_required_api
 def api_format_lab_swap_still(filename):
     execute, _json_body, _ok, service = _http()
 
@@ -222,69 +222,69 @@ def api_format_lab_swap_still(filename):
     return execute(_send)
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def api_format_lab_animate_quote():
     execute, json_body, ok, service = _http()
     return execute(lambda: ok(service().quote_format_lab_animate(json_body())))
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def api_format_lab_animate():
     execute, json_body, ok, service = _http()
     return execute(lambda: ok(service().submit_format_lab_animate(json_body(), session.get("user_id"))))
 
 
-@admin_required_api
+@studio_or_admin_required_api
 def api_format_lab_animate_status(job_id):
     execute, _json_body, ok, service = _http()
     return execute(lambda: ok(service().format_lab_animate_status(job_id)))
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def api_format_lab_animate_retry(job_id):
     execute, _json_body, ok, service = _http()
     return execute(lambda: ok(service().retry_format_lab_animate(job_id, session.get("user_id"))))
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def api_format_lab_animate_cancel(job_id):
     execute, _json_body, ok, service = _http()
     return execute(lambda: ok(service().cancel_format_lab_animate(job_id)))
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def api_format_lab_animate_layers():
     execute, json_body, ok, service = _http()
     return execute(lambda: ok(service().format_lab_animate_layers(json_body(), session.get("user_id"))))
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def api_format_lab_animate_map():
     execute, json_body, ok, service = _http()
     return execute(lambda: ok(service().map_format_lab_animate_camadas(json_body(), session.get("user_id"))))
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def api_format_lab_animate_preview():
     execute, json_body, ok, service = _http()
     return execute(lambda: ok(service().preview_format_lab_animate(json_body(), session.get("user_id"))))
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def api_format_lab_animate_recompose(job_id):
     execute, json_body, ok, service = _http()
     return execute(lambda: ok(service().recompose_format_lab_animate(job_id, json_body(), session.get("user_id"))))
 
 
-@admin_required_api
+@studio_or_admin_required_api
 def api_media_asset(asset_id):
     execute, _json_body, _ok, service = _http()
 

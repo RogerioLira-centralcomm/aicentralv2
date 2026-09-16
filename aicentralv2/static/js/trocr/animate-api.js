@@ -1,7 +1,8 @@
 import {showProcessing,updateProcessing} from '../media-progress.js';
 import { csrf } from "./animate-utils.js";
 
-const BASE = "/parametros/api/format-lab/swap/animate";
+const apiRoot = document.getElementById('mcCaduBar')?.dataset.mcApiRoot || '/parametros/api';
+const BASE = `${apiRoot}/format-lab/swap/animate`;
 
 async function parse(response) {
   const payload = await response.json();

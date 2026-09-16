@@ -101,7 +101,7 @@ def register_product_host_routing(app) -> None:
     endpoints = {
         "AUTH_URL": "cadu_identity.index",
         "CONNECT_URL": "cadu_connect.index",
-        "STUDIO_URL": "studio.modelagem_criativos",
+        "STUDIO_URL": "studio_product.studio_home",
         "SKILLS_URL": "cadu_skills.marketplace",
         # The planner product is customer-facing.  The legacy Smart Planner
         # remains an internal CentralX tool reached from the CentralX menu.

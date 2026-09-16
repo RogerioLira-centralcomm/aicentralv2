@@ -13,10 +13,11 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from urllib.parse import urlparse
 
-from flask import request, session, send_file
+from flask import current_app, request, session, send_file
 
-from ..auth import admin_required_api
+from ..creative_format_lab.studio_auth import studio_or_admin_required_api
 from ..creative_format_lab.swap_csrf import trocr_csrf_required
 from .storage import media_root
 from .transcode import ffmpeg_available
@@ -27,6 +28,11 @@ _POOL = ThreadPoolExecutor(max_workers=2, thread_name_prefix="studio-export")
 _SLOTS = threading.BoundedSemaphore(2)
 _MAX_UPLOAD = 25 * 1024 * 1024
 _ID = re.compile(r"^[a-f0-9]{32}$")
+
+
+def _api_root():
+    studio_host = urlparse(str(current_app.config.get("STUDIO_URL") or "")).hostname
+    return "/studio/api" if studio_host and request.host.split(":", 1)[0].lower() == studio_host.lower() else "/parametros/api"
 
 
 def number(raw, default, low, high):
@@ -128,7 +134,7 @@ def register_studio_routes(blueprint):
     blueprint.add_url_rule('/api/format-lab/studio/exports/<ident>/content', view_func=export_content)
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def studio_agent_plan():
     from ..creative_format_lab.swap_routes import _http
@@ -142,7 +148,7 @@ def studio_agent_plan():
     return execute(run)
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def studio_agent_narration():
     from ..creative_format_lab.swap_routes import _http
@@ -156,7 +162,7 @@ def studio_agent_narration():
     return execute(run)
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def studio_projects():
     from ..creative_format_lab.swap_routes import _http
@@ -177,7 +183,7 @@ def studio_projects():
     return execute(run)
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def studio_project(ident):
     from flask import jsonify
@@ -224,7 +230,7 @@ def _project_store(repository):
     return repository.PostgresProjectRepository(connection)
 
 
-@admin_required_api
+@studio_or_admin_required_api
 def capabilities():
     from flask import jsonify
     from . import settings
@@ -252,7 +258,7 @@ def capabilities():
     })
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def sounds():
     from ..creative_format_lab.swap_routes import _http
@@ -294,14 +300,14 @@ def sounds():
             levels={'overview':[],'medium':[],'detail':[]};peaks=[]
         row = {'waveform': peaks, 'waveform_levels': levels, 'id': ident, 'name': str(upload.filename or 'Áudio').replace('\\', '/').split('/')[-1][:120],
                'duration': round(duration, 2), 'category': request.form.get('category') if request.form.get('category') in {'music', 'effect', 'ambient', 'voice'} else 'music',
-               'url': f'/parametros/api/format-lab/studio/sounds/{ident}?client_id={int(client)}',
+               'url': f'{_api_root()}/format-lab/studio/sounds/{ident}?client_id={int(client)}',
                'created_at': time.time()}
         _write(root / f'sound-{ident}.json', row)
         return ok(row)
     return execute(run)
 
 
-@admin_required_api
+@studio_or_admin_required_api
 def sound_content(ident):
     from ..creative_format_lab.swap_routes import _http
     execute, _, _, _ = _http()
@@ -410,7 +416,7 @@ def _render_job(root, ident, source, edit, sound, release_slot=True):
             _SLOTS.release()
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def export_clip():
     from ..creative_format_lab.swap_routes import _http
@@ -464,7 +470,7 @@ def export_clip():
     return execute(run)
 
 
-@admin_required_api
+@studio_or_admin_required_api
 def export_status(ident):
     from ..creative_format_lab.swap_routes import _http
     execute, _, ok, _ = _http()
@@ -476,7 +482,7 @@ def export_status(ident):
     return execute(run)
 
 
-@admin_required_api
+@studio_or_admin_required_api
 def export_content(ident):
     from ..creative_format_lab.swap_routes import _http
     execute, _, _, _ = _http()

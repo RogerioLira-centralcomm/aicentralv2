@@ -8,7 +8,8 @@ export async function openWorkspace(api) {
   const context = `${client}:${run}`;
   const intent = api.intent && typeof api.intent === 'object' ? api.intent : null;
   const current = () => context === `${api.state.clientId}:${api.state.runId}`;
-  const endpoint = '/parametros/api/format-lab/swap/editor/';
+  const apiRoot = document.getElementById('mcCaduBar')?.dataset.mcApiRoot || '/parametros/api';
+  const endpoint = `${apiRoot}/format-lab/swap/editor/`;
   const url = (path) => `${endpoint}${path}?client_id=${encodeURIComponent(client)}`;
   const assetUrl = (id, thumb = false) => `${url(`assets/${id}/content`)}${thumb ? '&thumbnail=1' : ''}`;
   const call = async (path, body) => {

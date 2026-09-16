@@ -60,6 +60,16 @@ def create_app(config_class=Config):
         transição. Dentro do domínio Studio, porém, todo link interno deve
         apontar para o blueprint próprio e nunca para ``/parametros``.
         """
+        if endpoint == "modelagem_design-system":
+            from .product_domains import product_url
+            return product_url("workspace", "/familia/workspace/marcas/sistema")
+        if request.blueprint == "studio_product":
+            from .creative_modeling_routes import STUDIO_SHORT_ROUTES
+            if endpoint == "modelagem_criativos":
+                return url_for("studio_product.studio_home", **values)
+            if endpoint in STUDIO_SHORT_ROUTES:
+                page = endpoint.removeprefix("modelagem_")
+                return url_for(f"studio_product.studio_{page}", **values)
         blueprint = "studio" if request.blueprint == "studio" else "parametros"
         return url_for(f"{blueprint}.{endpoint}", **values)
     # The same deployment serves multiple hosts. CentralX remains host-only;
@@ -231,6 +241,7 @@ def create_app(config_class=Config):
         from .creative_modeling_routes import (
             public_bp as creative_public_bp,
             register_creative_modeling_routes,
+            register_studio_product_routes,
             register_modeling_ux_lab,
         )
         from .camadas.routes import register_camadas_routes
@@ -244,6 +255,10 @@ def create_app(config_class=Config):
         register_creative_modeling_routes(studio_bp)
         register_camadas_routes(studio_bp)
         app.register_blueprint(studio_bp)
+
+        studio_product_bp = Blueprint("studio_product", __name__)
+        register_studio_product_routes(studio_product_bp)
+        app.register_blueprint(studio_product_bp)
 
         register_creative_modeling_routes(parametros_bp)
         register_camadas_routes(parametros_bp)
@@ -274,8 +289,11 @@ def create_app(config_class=Config):
         from .cadu_skills import bp as cadu_skills_bp
         app.register_blueprint(cadu_skills_bp)
 
-        from .cadu_workspace import bp as cadu_workspace_bp
+        from .cadu_workspace import bp as cadu_workspace_bp, brand_api_bp as workspace_brand_api_bp
+        from .creative_modeling_routes import register_creative_modeling_routes
+        register_creative_modeling_routes(workspace_brand_api_bp)
         app.register_blueprint(cadu_workspace_bp)
+        app.register_blueprint(workspace_brand_api_bp)
 
         from .cadu_family import register as register_cadu_family
         register_cadu_family(app)

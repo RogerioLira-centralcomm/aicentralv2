@@ -1,13 +1,16 @@
 (function () {
+  // The editor is served by the Studio product, but its private APIs are
+  // mounted under /studio/api. Backoffice keeps its own /parametros/api root.
+  const apiRoot = document.getElementById('mcCaduBar')?.dataset.mcApiRoot || '/parametros/api';
   const API = {
-    swap: '/parametros/api/format-lab/swap',
-    read: '/parametros/api/format-lab/swap/read',
-    prompt: '/parametros/api/format-lab/swap/prompt',
-    history: '/parametros/api/format-lab/swap/history',
-    quote: '/parametros/api/format-lab/quote',
-    clients: '/parametros/api/clients',
-    viewers: '/parametros/api/viewer-profiles',
-    formats: '/parametros/api/formats',
+    swap: `${apiRoot}/format-lab/swap`,
+    read: `${apiRoot}/format-lab/swap/read`,
+    prompt: `${apiRoot}/format-lab/swap/prompt`,
+    history: `${apiRoot}/format-lab/swap/history`,
+    quote: `${apiRoot}/format-lab/quote`,
+    clients: `${apiRoot}/clients`,
+    viewers: `${apiRoot}/viewer-profiles`,
+    formats: `${apiRoot}/formats`,
   };
   const OUTPUTS = [
     { ratio: '16:9', family: 'h', value: 16 / 9 },
@@ -128,7 +131,7 @@
     async function openElementWorkspace(intent = null) {
       try {
         if (editor?.isDirty() && !await persistHistory()) return;
-        const { openWorkspace } = await import('./trocr/workspace.js?v=1');
+        const { openWorkspace } = await import('./trocr/workspace.js?v=2');
         await openWorkspace({ state, intent, baseVersion, focusBase: async () => { selectVersion(state.baseId); await $('mcSwapImage').decode(); }, acceptResult: async (image, job) => {
           const response = await fetch(image, {credentials:'same-origin'});
           if (!response.ok) throw new Error('O resultado está salvo, mas não foi possível adicioná-lo ao histórico da peça.');

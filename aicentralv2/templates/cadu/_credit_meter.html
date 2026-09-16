@@ -2,8 +2,8 @@
 {% set credit_available = cadu_nav_credit.available | int if cadu_nav_credit and cadu_nav_credit.configured else 0 %}
 {% set credit_used = [credit_total - credit_available, 0] | max %}
 {% set credit_usage = ([((credit_used * 100) / credit_total) | round | int, 100] | min) if credit_total else 0 %}
-<a class="{{ credit_meter_class }} cadu-credit-meter{% if credit_usage >= 90 %} is-critical{% elif credit_usage >= 70 %} is-warning{% endif %}" href="{{ credit_meter_href }}" data-credit-usage="{{ credit_usage }}" aria-label="{% if credit_total %}{{ credit_usage }}% dos créditos usados{% else %}Ver créditos e consumo{% endif %}" title="{% if credit_total %}{{ credit_usage }}% usados · {{ credit_available }} disponíveis{% else %}Ver créditos e consumo{% endif %}">
-  <span class="cadu-credit-meter__copy"><small>Uso de créditos</small><strong>{% if credit_total %}{{ credit_usage }}% usado{% else %}—{% endif %}</strong></span>
+<a class="{{ credit_meter_class }} cadu-credit-meter{% if credit_usage >= 90 %} is-critical{% elif credit_usage >= 70 %} is-warning{% endif %}" href="{{ credit_meter_href }}" data-credit-usage="{{ credit_usage }}" aria-label="{% if credit_total %}{{ credit_available }} créditos disponíveis. Ver consumo e créditos.{% else %}Ver créditos e consumo{% endif %}" title="{% if credit_total %}{{ credit_available }} disponíveis · {{ credit_usage }}% usado. Ver consumo e créditos.{% else %}Ver créditos e consumo{% endif %}">
+  <span class="cadu-credit-meter__copy"><small>Créditos da equipe</small><strong>{% if credit_total %}{{ credit_available }} disponíveis{% else %}Ver saldo{% endif %}</strong></span>
   <span class="cadu-credit-meter__track" aria-hidden="true"><i style="--cadu-credit-usage:{{ credit_usage }}%"></i></span>
   <span class="cadu-credit-meter__vu" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
 </a>

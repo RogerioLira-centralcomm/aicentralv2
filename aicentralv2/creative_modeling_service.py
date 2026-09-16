@@ -923,12 +923,17 @@ def _public_catalog(collection, nav_rows, token):
 
 class CreativeModelingService:
     def __init__(
-        self, repository=None, generator=None, storage=None, brand_analyzer=None
+        self, repository=None, generator=None, storage=None, brand_analyzer=None,
+        credit_ledger=None,
     ):
         self.repository = repository or CreativeModelingRepository()
         self.generator = generator or CreativeGenerationClient()
         self.storage = storage or CreativeAssetStorage()
         self.brand_analyzer = brand_analyzer or CreativeBrandAnalyzer()
+        if credit_ledger is None:
+            from .cadu_tool_billing import ToolTokenLedger
+            credit_ledger = ToolTokenLedger()
+        self.credit_ledger = credit_ledger
 
     def _append_brand_references(self, client_id, data_urls, job_id=None, engine=None):
         if (
@@ -2960,8 +2965,11 @@ class CreativeModelingService:
             saved_assets.append(asset_data)
         return saved_assets
 
-    def analyze_brand(self, website_url=None, image=None):
-        return _serialize(self.brand_analyzer.analyze(website_url, image))
+    def analyze_brand(self, website_url=None, image=None, billing_callback=None):
+        return _serialize(self.brand_analyzer.analyze(website_url, image, billing_callback=billing_callback))
+
+    def review_brand_analysis(self, analysis, progress=None, billing_callback=None):
+        return _serialize(self.brand_analyzer.review_pack(analysis, progress=progress, billing_callback=billing_callback))
 
     def upload_client_brand_assets(
         self, client_id, files, primary_logo=False, role="reference"
@@ -4004,11 +4012,11 @@ class CreativeModelingService:
         estimate = self._estimate("image", tier["name"], image_model)
         # Uma geração de imagem só segue para o provedor quando houver saldo
         # compartilhado. O débito definitivo acontece com o uso retornado.
-        from .cadu_tool_billing import ToolTokenLedger, cost_token_equivalent
+        from .cadu_tool_billing import cost_token_equivalent
         credit_client_id = self._credits_crm_id(context.get("client_id")) or context.get("client_id")
         if not credit_client_id or not created_by:
             raise ValueError("Não foi possível identificar cliente e usuário para debitar esta geração.")
-        credit_ledger = ToolTokenLedger()
+        credit_ledger = self.credit_ledger
         credit_ledger.assert_available(credit_client_id, cost_token_equivalent(estimate))
         job_id = self.repository.create_generation_job(
             context["campaign_id"],

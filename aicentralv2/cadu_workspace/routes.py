@@ -2,14 +2,17 @@
 
 from pathlib import Path
 import calendar
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
+from io import BytesIO
 import json
 import re
+import threading
 from typing import Optional
 from urllib.parse import urlparse
 from uuid import uuid4
 import secrets
 
+from werkzeug.datastructures import FileStorage
 from werkzeug.exceptions import HTTPException
 
 from flask import Blueprint, Response, abort, current_app, g, jsonify, redirect, render_template, request, send_file, session, url_for
@@ -255,6 +258,31 @@ def _workspace_integration_data(client_id: int, organization_id: int) -> dict:
         'accounts': accounts,
         'connected_count': sum(str(item.get('status') or '').lower() in {'active', 'connected', 'ready'}
                                for item in accounts),
+        # These are product capabilities, not tenant connections.  A connector
+        # only becomes an account in the list above after its authorization is
+        # completed in Reports, where credentials stay isolated from Workspace.
+        'priority_connectors': (
+            {
+                'name': 'Canva', 'icon': 'fa-solid fa-wand-magic-sparkles',
+                'summary': 'Leve kits de marca, criativos e aprovações para o mesmo fluxo de trabalho.',
+                'scope': 'Criação e identidade',
+            },
+            {
+                'name': 'Google Drive', 'icon': 'fa-brands fa-google-drive',
+                'summary': 'Vincule pastas e arquivos de briefing à marca, ao projeto e às conversas.',
+                'scope': 'Arquivos e contexto',
+            },
+            {
+                'name': 'ERP da agência', 'icon': 'fa-solid fa-building-columns',
+                'summary': 'Conecte jobs, clientes e aprovações da operação sem duplicar cadastros.',
+                'scope': 'Operação e jobs',
+            },
+        ),
+        'coming_soon_connectors': (
+            {'name': 'Meta Business Suite', 'icon': 'fa-brands fa-meta'},
+            {'name': 'Slack', 'icon': 'fa-brands fa-slack'},
+            {'name': 'Notion', 'icon': 'fa-solid fa-note-sticky'},
+        ),
     }
 
 
@@ -333,6 +361,14 @@ def _workspace_brands(client_id: int, query: str = "") -> list[dict]:
             )
             brands = [dict(row) for row in cursor.fetchall()]
             for brand in brands:
+                for field in ('brand_profile', 'analysis_metadata'):
+                    if isinstance(brand.get(field), str):
+                        try:
+                            brand[field] = json.loads(brand[field])
+                        except (TypeError, ValueError):
+                            brand[field] = {}
+                    elif not isinstance(brand.get(field), dict):
+                        brand[field] = {}
                 name = str(brand.get('name') or '').strip()
                 brand['display_logo'] = public_logo(brand.get('logo_upload_path') or brand.get('logo_url'))
                 brand['display_initials'] = ''.join(
@@ -428,6 +464,177 @@ def _merge_brand_analysis(brand: dict, analysis: dict) -> dict:
     return {'profile': profile, 'metadata': metadata}
 
 
+def _brand_review_pack(brand: dict) -> dict:
+    """Normalize the pending/approved analysis contract stored with a brand."""
+    metadata = brand.get('analysis_metadata') or {}
+    pack = metadata.get('review_pack') if isinstance(metadata, dict) else {}
+    if not isinstance(pack, dict):
+        return {}
+    reviews = [item for item in pack.get('reviews', []) if isinstance(item, dict)]
+    return {
+        'status': str(pack.get('status') or 'pending_approval'),
+        'job_id': pack.get('job_id'),
+        'stage': str(pack.get('stage') or ''),
+        'index': int(pack.get('index') or 0),
+        'total': int(pack.get('total') or 4),
+        'message': str(pack.get('message') or ''),
+        'error': str(pack.get('error') or ''),
+        'input': pack.get('input') if isinstance(pack.get('input'), dict) else {},
+        'created_at': pack.get('created_at'),
+        'updated_at': pack.get('updated_at'),
+        'approved_at': pack.get('approved_at'),
+        'reviews': reviews[:3],
+        'analysis': pack.get('analysis') if isinstance(pack.get('analysis'), dict) else {},
+    }
+
+
+def _brand_analysis_proposal(analysis: dict) -> dict:
+    """Keep only the reviewable proposal, not scrape candidates or provider traces."""
+    allowed = {
+        'name', 'sector', 'website_url', 'brand_summary', 'tone_of_voice',
+        'primary_color', 'secondary_color', 'color_palette', 'logo_url',
+        'target_audience', 'products_services', 'differentiators', 'proof_points',
+        'ad_segments', 'creative_guidelines', 'campaign_opportunities',
+        'visual_motifs', 'mandatory_elements', 'forbidden_elements', 'fonts',
+        'confidence', 'sources',
+    }
+    return {key: value for key, value in analysis.items() if key in allowed}
+
+
+def _ensure_brand_audit_credit(client_id: int) -> None:
+    """Avoid starting a paid provider workflow when the client has no balance."""
+    try:
+        from ..cadu_tool_billing import ToolTokenLedger
+        available = ToolTokenLedger().available(client_id)
+    except Exception:
+        current_app.logger.exception('Não foi possível consultar créditos para auditoria de marca')
+        abort(503, description='Não foi possível consultar os créditos da organização agora.')
+    if available <= 0:
+        abort(409, description='Não há créditos disponíveis para analisar esta marca. Abra Créditos e consumo para verificar ou comprar um novo lote.')
+
+
+def _brand_audit_credit_gate(client_id: int):
+    """Keep a useful credit message when the audit form submits with fetch."""
+    try:
+        _ensure_brand_audit_credit(client_id)
+    except HTTPException as exc:
+        if request.accept_mimetypes.best == 'application/json':
+            return jsonify({'ok': False, 'error': exc.description}), exc.code
+        raise
+    return None
+
+
+def _brand_review_is_stale(pack: dict) -> bool:
+    """A web worker cannot survive a process restart; make that recoverable."""
+    if pack.get('status') not in {'queued', 'running'}:
+        return False
+    value = str(pack.get('updated_at') or pack.get('created_at') or '')
+    try:
+        updated = datetime.fromisoformat(value.replace('Z', '+00:00'))
+    except ValueError:
+        return False
+    if updated.tzinfo is None:
+        updated = updated.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) - updated > timedelta(minutes=15)
+
+
+def _save_brand_review_job(client_id: int, brand_id: int, job_id: str, **changes) -> bool:
+    """Atomically update the current job without letting an older worker win."""
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """SELECT analysis_metadata FROM cx_clients
+                     WHERE id = %s AND crm_client_id = %s FOR UPDATE""",
+                (brand_id, client_id),
+            )
+            row = cursor.fetchone()
+            if not row:
+                connection.rollback()
+                return False
+            metadata = row.get('analysis_metadata') if isinstance(row, dict) else row[0]
+            if isinstance(metadata, str):
+                metadata = json.loads(metadata or '{}')
+            metadata = dict(metadata or {})
+            current = dict(metadata.get('review_pack') or {})
+            if current.get('job_id') != job_id:
+                connection.rollback()
+                return False
+            analysis_metadata = changes.pop('analysis_metadata', None)
+            if isinstance(analysis_metadata, dict):
+                # These are useful audit metrics, while the proposed identity
+                # remains inside review_pack until a human approves it.
+                metadata.update(analysis_metadata)
+            current.update(changes)
+            current['updated_at'] = datetime.utcnow().isoformat() + 'Z'
+            metadata['review_pack'] = current
+            cursor.execute(
+                """UPDATE cx_clients SET analysis_metadata = %s::jsonb, updated_at = NOW()
+                     WHERE id = %s AND crm_client_id = %s""",
+                (json.dumps(metadata), brand_id, client_id),
+            )
+        connection.commit()
+        return True
+    except Exception:
+        connection.rollback()
+        raise
+
+
+def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id: str, website_url: str, images: list[dict]):
+    """Run slow model work outside the browser request, retaining visible progress."""
+    app = current_app._get_current_object()
+
+    def runner():
+        with app.app_context():
+            try:
+                _save_brand_review_job(client_id, brand_id, job_id,
+                    status='running', stage='evidence', index=1, total=4,
+                    message='Organizando evidências oficiais.', error='')
+                restored_images = [
+                    FileStorage(stream=BytesIO(item['content']), filename=item['filename'], content_type=item.get('content_type'))
+                    for item in images
+                ]
+                from ..creative_modeling_service import CreativeModelingService
+                from ..cadu_tool_billing import ToolTokenLedger, charge_from_provider
+                service = CreativeModelingService()
+                ledger = ToolTokenLedger()
+
+                def bill(stage, provider_result, model):
+                    """One durable, idempotent ledger movement per provider call."""
+                    charge_from_provider(
+                        ledger=ledger, idempotency_key=f'workspace-brand:{job_id}:{stage}',
+                        client_id=client_id, user_id=user_id, tool='Auditoria de marca', stage=stage,
+                        provider_result=provider_result, model=model,
+                        metadata={'brand_id': brand_id, 'job_id': job_id, 'source': 'workspace'},
+                    )
+
+                analysis = service.analyze_brand(website_url, restored_images, billing_callback=bill)
+                if not isinstance(analysis, dict) or not analysis.get('analysis_metadata'):
+                    raise ValueError('A análise não retornou evidências suficientes.')
+                proposal = _brand_analysis_proposal(analysis)
+
+                def progress(review_id, title, position, total):
+                    _save_brand_review_job(client_id, brand_id, job_id,
+                        status='running', stage=review_id, index=position + 1, total=total + 1,
+                        message=f'{title}: preparando parecer.')
+
+                reviews = service.review_brand_analysis(proposal, progress=progress, billing_callback=bill)
+                if not isinstance(reviews, list) or len(reviews) != 3:
+                    raise ValueError('As três revisões da marca não foram concluídas.')
+                _save_brand_review_job(client_id, brand_id, job_id,
+                    status='pending_approval', stage='complete', index=4, total=4,
+                    message='Três pareceres estão prontos para decisão.', error='',
+                    analysis=proposal, reviews=reviews,
+                    analysis_metadata=analysis.get('analysis_metadata') or {})
+            except Exception as exc:
+                current_app.logger.exception('Não foi possível auditar a marca %s', brand_id)
+                _save_brand_review_job(client_id, brand_id, job_id,
+                    status='failed', stage='failed', message='A análise precisa ser tentada novamente.',
+                    error=str(exc)[:360])
+
+    threading.Thread(target=runner, daemon=True, name=f'brand-review-{job_id[:12]}').start()
+
+
 def _brand_linked_projects(client_id: int, brand_id: int) -> list[dict]:
     """Return only projects from this organization that explicitly use a brand."""
     try:
@@ -443,6 +650,22 @@ def _brand_linked_projects(client_id: int, brand_id: int) -> list[dict]:
         project for project in _workspace_projects(client_id, status='todos')
         if f"ci:{project['id']}" in project_refs
     ]
+
+
+def _project_brand_guidance(brand: dict) -> dict:
+    """Small, approved-only identity projection for a project dossier."""
+    profile = brand.get('brand_profile') or {}
+    pack = _brand_review_pack(brand)
+    return {
+        'id': brand.get('id'),
+        'name': brand.get('name') or 'Marca',
+        'color': brand.get('primary_color') or '#176b5e',
+        'status': pack.get('status') or 'not_reviewed',
+        'summary': profile.get('brand_summary') or profile.get('positioning') or '',
+        'tone': profile.get('tone_of_voice') or '',
+        'mandatory': list(profile.get('mandatory_elements') or [])[:3],
+        'forbidden': list(profile.get('forbidden_elements') or [])[:3],
+    }
 
 
 def _workspace_projects(client_id: int, query: str = "", status: str = "ativos") -> list[dict]:
@@ -731,6 +954,7 @@ def _workspace_project(client_id: int, project_id: str) -> Optional[dict]:
         project['brands'] = [brand for brand in _workspace_brands(client_id) if f"studio:{brand['id']}" in linked]
     except Exception:
         project['brands'] = []
+    project['brand_guidance'] = [_project_brand_guidance(brand) for brand in project['brands']]
     try:
         with get_db().cursor() as cursor:
             cursor.execute(
@@ -1419,9 +1643,12 @@ def brand_detail(brand_id):
     brand.setdefault('analysis_metadata', {})
     brand.setdefault('activity', [])
     brand.setdefault('readiness', {'score': 0, 'missing': ['diretrizes de identidade']})
+    brand['review_pack'] = _brand_review_pack(brand)
+    can_manage_brand = session.get('user_type') in {'admin', 'superadmin'}
     studio_base = product_url('studio', '/studio/modelagem-criativos')
     return render_template(
         'cadu_workspace/brand_detail.html', brand=brand,
+        can_manage_brand=can_manage_brand,
         linked_projects=_brand_linked_projects(client_id, brand_id),
         legacy_creatives_url=f'{studio_base}/trocar?client_id={brand_id}',
         legacy_uploads_url=f'{studio_base}/trocar?client_id={brand_id}&panel=uploads',
@@ -1521,25 +1748,185 @@ def set_primary_brand_asset(brand_id, asset_id):
 @bp.post('/workspace/app/marcas/<int:brand_id>/auditoria')
 @login_required
 def audit_brand(brand_id):
-    """Extract evidence with the mature analyzer and persist it in this organization."""
+    """Queue a slow, reviewable brand audit without holding the browser open."""
     if not _workspace_api_csrf():
         abort(403, description='Atualize a página e tente novamente.')
+    _workspace_team_admin()
     client_id = int(session.get('cliente_id') or 0)
     brand = _workspace_brand(client_id, brand_id)
     if not brand:
         abort(404)
+    credit_response = _brand_audit_credit_gate(client_id)
+    if credit_response is not None:
+        return credit_response
     website_url = (request.form.get('website_url') or brand.get('website_url') or '').strip()[:2000]
     images = [item for item in request.files.getlist('images') if item and item.filename][:4]
     if not website_url and not images:
         abort(400, description='Informe o site ou envie uma imagem de referência.')
+    image_payload = []
     connection = None
     try:
-        from ..creative_modeling_service import CreativeModelingService
-        analysis = CreativeModelingService().analyze_brand(website_url, images)
-        if not isinstance(analysis, dict) or not analysis.get('analysis_metadata'):
-            raise ValueError('A análise não retornou evidências suficientes.')
-        merged = _merge_brand_analysis(brand, analysis)
+        for item in images:
+            image_payload.append({
+                'filename': item.filename,
+                'content_type': item.mimetype,
+                'content': item.read(),
+            })
+        job_id = uuid4().hex
+        metadata = dict(brand.get('analysis_metadata') or {})
+        metadata['review_pack'] = {
+            'job_id': job_id,
+            'status': 'queued',
+            'stage': 'queued',
+            'index': 0,
+            'total': 4,
+            'message': 'A auditoria entrou na fila.',
+            'error': '',
+            'created_at': datetime.utcnow().isoformat() + 'Z',
+            'input': {'website_url': website_url, 'has_images': bool(image_payload)},
+            'analysis': {},
+            'reviews': [],
+        }
         connection = get_db()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """UPDATE cx_clients
+                      SET analysis_metadata = %s::jsonb,
+                          updated_at = NOW()
+                    WHERE id = %s AND crm_client_id = %s
+                RETURNING id""",
+                (json.dumps(metadata), brand_id, client_id),
+            )
+            if not cursor.fetchone():
+                abort(404)
+        connection.commit()
+    except HTTPException:
+        if connection is not None:
+            connection.rollback()
+        raise
+    except Exception:
+        if connection is not None:
+            connection.rollback()
+        current_app.logger.exception('Não foi possível auditar a marca %s', brand_id)
+        abort(503, description='Não foi possível iniciar a auditoria agora. Tente novamente.')
+    _start_brand_review_job(client_id, int(session.get('user_id') or 0), brand_id, job_id, website_url, image_payload)
+    if request.accept_mimetypes.best == 'application/json':
+        return jsonify({
+            'ok': True, 'job_id': job_id, 'status': 'queued',
+            'status_url': url_for('cadu_workspace.brand_audit_status', brand_id=brand_id),
+        }), 202
+    return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id, audit='queued'), code=303)
+
+
+@bp.get('/workspace/app/marcas/<int:brand_id>/auditoria/status')
+@login_required
+def brand_audit_status(brand_id):
+    client_id = int(session.get('cliente_id') or 0)
+    brand = _workspace_brand(client_id, brand_id)
+    if not brand:
+        abort(404)
+    pack = _brand_review_pack(brand)
+    if pack.get('job_id') and _brand_review_is_stale(pack):
+        try:
+            _save_brand_review_job(
+                client_id, brand_id, pack['job_id'], status='failed', stage='failed',
+                message='A auditoria foi interrompida antes de terminar.',
+                error='A sessão de processamento expirou. Tente novamente para reiniciar a análise.',
+            )
+            pack.update({
+                'status': 'failed', 'stage': 'failed',
+                'message': 'A auditoria foi interrompida antes de terminar.',
+                'error': 'A sessão de processamento expirou. Tente novamente para reiniciar a análise.',
+            })
+        except Exception:
+            current_app.logger.exception('Não foi possível encerrar auditoria de marca expirada')
+    return jsonify({
+        'status': pack.get('status') or 'not_started', 'stage': pack.get('stage'),
+        'index': pack.get('index', 0), 'total': pack.get('total', 4),
+        'message': pack.get('message'), 'error': pack.get('error'),
+        'review_count': len(pack.get('reviews') or []), 'updated_at': pack.get('updated_at'),
+    })
+
+
+@bp.post('/workspace/app/marcas/<int:brand_id>/auditoria/repetir')
+@login_required
+def retry_brand_audit(brand_id):
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    _workspace_team_admin()
+    client_id = int(session.get('cliente_id') or 0)
+    brand = _workspace_brand(client_id, brand_id)
+    if not brand:
+        abort(404)
+    credit_response = _brand_audit_credit_gate(client_id)
+    if credit_response is not None:
+        return credit_response
+    pack = _brand_review_pack(brand)
+    website_url = str((brand.get('analysis_metadata') or {}).get('review_pack', {}).get('input', {}).get('website_url') or '').strip()
+    if pack.get('status') != 'failed' or not website_url:
+        abort(409, description='Para repetir uma auditoria com imagens, reenvie as referências no formulário.')
+    job_id = uuid4().hex
+    metadata = dict(brand.get('analysis_metadata') or {})
+    metadata['review_pack'] = {
+        'job_id': job_id, 'status': 'queued', 'stage': 'queued', 'index': 0, 'total': 4,
+        'message': 'A auditoria entrou novamente na fila.', 'error': '',
+        'created_at': datetime.utcnow().isoformat() + 'Z',
+        'input': {'website_url': website_url, 'has_images': False}, 'analysis': {}, 'reviews': [],
+    }
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """UPDATE cx_clients SET analysis_metadata = %s::jsonb, updated_at = NOW()
+                     WHERE id = %s AND crm_client_id = %s RETURNING id""",
+                (json.dumps(metadata), brand_id, client_id),
+            )
+            if not cursor.fetchone():
+                abort(404)
+        connection.commit()
+    except HTTPException:
+        connection.rollback()
+        raise
+    except Exception:
+        connection.rollback()
+        current_app.logger.exception('Não foi possível repetir a auditoria da marca %s', brand_id)
+        abort(503, description='Não foi possível repetir a auditoria agora.')
+    _start_brand_review_job(client_id, int(session.get('user_id') or 0), brand_id, job_id, website_url, [])
+    if request.accept_mimetypes.best == 'application/json':
+        return jsonify({'ok': True, 'job_id': job_id, 'status': 'queued',
+                        'status_url': url_for('cadu_workspace.brand_audit_status', brand_id=brand_id)}), 202
+    return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id, audit='queued'), code=303)
+
+
+@bp.post('/workspace/app/marcas/<int:brand_id>/revisoes/aprovar')
+@login_required
+def approve_brand_reviews(brand_id):
+    """Promote a human-approved proposal to the brand context used by projects."""
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    _workspace_team_admin()
+    client_id = int(session.get('cliente_id') or 0)
+    brand = _workspace_brand(client_id, brand_id)
+    if not brand:
+        abort(404)
+    pack = _brand_review_pack(brand)
+    analysis = pack.get('analysis')
+    if pack.get('status') != 'pending_approval' or not analysis:
+        abort(409, description='Não há uma proposta de análise aguardando aprovação.')
+    merged = _merge_brand_analysis(brand, analysis)
+    metadata = dict(merged['metadata'])
+    review_pack = dict(metadata.get('review_pack') or pack)
+    review_pack.update({
+        'status': 'approved',
+        'approved_at': datetime.utcnow().isoformat() + 'Z',
+        'approved_by': int(session.get('user_id') or 0),
+        # Keep the evidence and reviews for audit, but do not use the proposal
+        # as a second source of truth after its values enter brand_profile.
+        'analysis': analysis,
+    })
+    metadata['review_pack'] = review_pack
+    connection = get_db()
+    try:
         with connection.cursor() as cursor:
             cursor.execute(
                 """UPDATE cx_clients
@@ -1557,23 +1944,19 @@ def audit_brand(brand_id):
                 (analysis.get('sector'), analysis.get('website_url'), analysis.get('logo_url'),
                  analysis.get('primary_color'), analysis.get('secondary_color'),
                  analysis.get('tone_of_voice'), json.dumps(merged['profile']),
-                 json.dumps(merged['metadata']), brand_id, client_id),
+                 json.dumps(metadata), brand_id, client_id),
             )
             if not cursor.fetchone():
                 abort(404)
         connection.commit()
     except HTTPException:
-        if connection is not None:
-            connection.rollback()
+        connection.rollback()
         raise
-    except ValueError as exc:
-        abort(400, description=str(exc))
     except Exception:
-        if connection is not None:
-            connection.rollback()
-        current_app.logger.exception('Não foi possível auditar a marca %s', brand_id)
-        abort(503, description='Não foi possível concluir a auditoria agora. Tente novamente.')
-    return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id, audit='completed'), code=303)
+        connection.rollback()
+        current_app.logger.exception('Não foi possível aprovar a revisão da marca %s', brand_id)
+        abort(503, description='Não foi possível aprovar a análise agora. Tente novamente.')
+    return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id, review='approved'), code=303)
 
 
 @bp.get('/workspace/app/marcas/<int:brand_id>/sistema')

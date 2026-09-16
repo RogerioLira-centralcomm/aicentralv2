@@ -44,6 +44,10 @@ class WorkspaceBillingAndIntegrationsTest(TestCase):
         accounts.assert_called_once_with(44, workspace_client_id=12)
         self.assertEqual(data['connected_count'], 1)
         self.assertEqual(data['accounts'][0]['provider_label'], 'Google Ads')
+        self.assertEqual([item['name'] for item in data['priority_connectors']], [
+            'Canva', 'Google Drive', 'ERP da agência',
+        ])
+        self.assertEqual(len(data['coming_soon_connectors']), 3)
 
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_billing_data', return_value={
         'summary': {'open_total': 1299.9, 'open_count': 1, 'overdue_count': 1, 'paid_count': 2},
@@ -72,6 +76,11 @@ class WorkspaceBillingAndIntegrationsTest(TestCase):
 
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_integration_data', return_value={
         'connected_count': 1,
+        'priority_connectors': [{
+            'name': 'Canva', 'icon': 'fa-solid fa-wand-magic-sparkles',
+            'summary': 'Criativos e aprovações.', 'scope': 'Criação e identidade',
+        }],
+        'coming_soon_connectors': [{'name': 'Slack', 'icon': 'fa-brands fa-slack'}],
         'accounts': [{
             'provider': 'google_ads', 'provider_label': 'Google Ads',
             'name': 'Conta mídia', 'external_account_id': '123-456',
@@ -87,8 +96,11 @@ class WorkspaceBillingAndIntegrationsTest(TestCase):
         html = response.get_data(as_text=True)
 
         self.assertEqual(response.status_code, 200)
+        self.assertIn('Conexões prioritárias', html)
+        self.assertIn('Canva', html)
+        self.assertIn('Em breve', html)
         self.assertIn('Conta mídia', html)
-        self.assertIn('Operação no Reports', html)
+        self.assertIn('Contas já autorizadas', html)
         self.assertIn('Abrir contas no Reports', html)
         self.assertNotIn('client_secret', html)
         self.assertNotIn('api_key', html)

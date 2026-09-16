@@ -94,6 +94,16 @@ Retorne apenas JSON:
 Use entre 3 e 6 cores, ordenadas por importância. Não deduza tipografia, cor ou
 estilo que não esteja visível. Use português do Brasil."""
 
+WORKSPACE_BRAND_REVIEW_SYSTEMS = (
+    ('evidencias', 'Evidências', 'Você é um pesquisador de evidências de marca. Revise a análise recebida e separe somente fatos sustentados de hipóteses. Não crie fatos.'),
+    ('estrategia', 'Estratégia', 'Você é um estrategista de marca sênior. Revise a análise recebida para testar posicionamento, público, diferenciais e oportunidades. Não transforme hipótese em fato.'),
+    ('direcao_criativa', 'Direção criativa', 'Você é um diretor criativo de marca. Revise a análise recebida para testar consistência visual, tom, regras de execução e riscos criativos. Não invente diretrizes sem evidência.'),
+)
+
+WORKSPACE_BRAND_REVIEW_CONTRACT = """Retorne somente JSON válido neste formato:
+{"summary":"parecer objetivo em até 600 caracteres","findings":["até 5 conclusões utilizáveis"],"concerns":["até 4 incertezas, conflitos ou lacunas"],"confidence":0.0,"decision":"ready ou needs_review"}
+Use português do Brasil. confidence é de 0 a 1. Uma fonte ausente, divergência ou inferência relevante precisa aparecer em concerns e resultar em needs_review."""
+
 CREATIVE_LINE_SYSTEM = """Você é diretor de criação sênior especializado em
 transformar campanhas anteriores em um sistema visual reutilizável para
 GPT Image 2. Analise o conjunto como uma família, não como peças isoladas.
@@ -835,7 +845,7 @@ class CreativeBrandAnalyzer:
         self.model = model or DEFAULT_BRAND_MODEL
         self.visual_model = visual_model or DEFAULT_VISUAL_BRAND_MODEL
 
-    def analyze(self, url=None, image=None):
+    def analyze(self, url=None, image=None, billing_callback=None):
         normalized_url = _normalized_public_url(url)
         image_content = _image_parts(image)
         if not normalized_url and not image_content:
@@ -867,6 +877,8 @@ class CreativeBrandAnalyzer:
             temperature=0.15,
             timeout=60,
         )
+        if callable(billing_callback):
+            billing_callback('leitura_da_marca', text_response, self.model)
         result = _json_content(text_response["message"].get("content"))
         visual_parts = image_content + _visual_evidence_parts(evidence)
         visual_response = None
@@ -905,6 +917,8 @@ class CreativeBrandAnalyzer:
                     temperature=0.05,
                     timeout=60,
                 )
+                if callable(billing_callback):
+                    billing_callback('leitura_visual', visual_response, self.visual_model)
                 visual_result = _json_content(
                     visual_response["message"].get("content")
                 )
@@ -1011,6 +1025,50 @@ class CreativeBrandAnalyzer:
                 "assets_found": len(asset_candidates),
             },
         }
+
+    def review_pack(self, analysis, progress=None, billing_callback=None):
+        """Ask three scoped reviewers to critique an extracted brand proposal."""
+        if not isinstance(analysis, dict):
+            raise ValueError('A análise de marca precisa estar disponível para revisão.')
+        safe_analysis = {
+            key: value for key, value in analysis.items()
+            if key not in {'asset_candidates', 'analysis_metadata'}
+        }
+        reviews = []
+        total = len(WORKSPACE_BRAND_REVIEW_SYSTEMS)
+        for position, (review_id, title, remit) in enumerate(WORKSPACE_BRAND_REVIEW_SYSTEMS, start=1):
+            if callable(progress):
+                progress(review_id, title, position, total)
+            response = self.llm(
+                [
+                    {'role': 'system', 'content': remit + '\n\n' + WORKSPACE_BRAND_REVIEW_CONTRACT},
+                    {'role': 'user', 'content': json.dumps({'analysis': safe_analysis}, ensure_ascii=False, default=str)},
+                ],
+                model=self.model,
+                max_tokens=900,
+                temperature=0.1,
+                timeout=45,
+            )
+            if callable(billing_callback):
+                billing_callback(f'parecer_{review_id}', response, self.model)
+            result = _json_content(response['message'].get('content'))
+            confidence = result.get('confidence')
+            try:
+                confidence = max(0, min(1, float(confidence)))
+            except (TypeError, ValueError):
+                confidence = 0
+            decision = str(result.get('decision') or 'needs_review').lower()
+            reviews.append({
+                'id': review_id,
+                'title': title,
+                'status': 'ready' if decision == 'ready' else 'needs_review',
+                'summary': _text(result.get('summary'), 600),
+                'findings': _string_list(result.get('findings'), limit=5, item_limit=360),
+                'concerns': _string_list(result.get('concerns'), limit=4, item_limit=360),
+                'confidence': confidence,
+                'model': response.get('model') or self.model,
+            })
+        return reviews
 
     def analyze_creative_line(self, image_data_urls, client, logo_data_url=None):
         images = [

@@ -34,13 +34,13 @@ A primeira entrega do plano já está implementada no produto:
 - presets de legenda reorganizados para leitura e seleção rápidas;
 - fluxo coberto por testes de navegador e testes de renderização.
 
-O ripple delete do modelo atual também foi concluído: `Shift + Delete` e a ação
+O ripple do modelo atual também foi concluído: `Shift + Delete` e a ação
 “Remover e fechar” retiram o item, fecham a sequência, reposicionam áudio que
-participa do ripple e ajustam ou removem legendas atingidas. Continuam nas fases
-seguintes o ripple trim durante o arraste entre grupos vinculados, beat grid,
-sincronização automática por correlação, proxy/cache de mídia e contrato de
-projeto v3. A ordem e os critérios de aceite dessas etapas permanecem definidos
-abaixo.
+participa do ripple e ajustam ou removem legendas atingidas. Aparar um clipe
+também desloca áudio e legendas posteriores pelo delta real da junção. Continuam
+nas fases seguintes os grupos explícitos de vínculo do contrato v3, beat grid,
+sincronização automática por correlação e proxy/cache de mídia. A ordem e os
+critérios de aceite dessas etapas permanecem definidos abaixo.
 
 ## Resultado esperado
 

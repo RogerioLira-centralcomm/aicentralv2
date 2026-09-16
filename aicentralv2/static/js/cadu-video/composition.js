@@ -29,6 +29,19 @@ function rippleCaption(row,start,end){
   if(captionStart<start)return {...row,end:start};
   return {...row,start,end:captionEnd-gap};
 }
+function shiftFollowing(boundary,delta){
+  if(Math.abs(delta)<.0001)return;
+  const c=comp();
+  c.audio.forEach(track=>{
+    if(track.ripple===false||(Number(track.start)||0)<boundary-.0001)return;
+    track.start=Math.max(0,(Number(track.start)||0)+delta);
+    if(Number.isFinite(Number(track.sync_origin)))track.sync_origin=Math.max(0,Number(track.sync_origin)+delta);
+  });
+  c.captions=c.captions.map(caption=>{
+    if((Number(caption.start)||0)<boundary-.0001)return caption;
+    return {...caption,start:Math.max(0,caption.start+delta),end:Math.max(.03,caption.end+delta)};
+  });
+}
 function rippleDelete(row){
   const c=comp(),before=schedule(c.items),entry=before.find(planRow=>planRow.row.id===row.id),index=c.items.indexOf(row);
   if(index<0||!entry)return false;
@@ -72,13 +85,13 @@ export function bindComposition(commit,paint){
     beginClipTrim:(id,edge)=>{
       const row=comp().items.find(entry=>entry.id===id);if(!row)return null;
       const source=asset(row),original={in:Number(row.in)||0,out:Number(row.out)||Number(source?.duration)||Number(row.duration)||4,duration:Number(row.duration)||4},originalLength=length(row);
-      const entry=schedule(comp().items).find(planRow=>planRow.row.id===id),baseEnd=entry?.end||length(row),snap=makeSnapper([baseEnd]);
+      const index=comp().items.indexOf(row),next=comp().items[index+1],entry=schedule(comp().items).find(planRow=>planRow.row.id===id),nextStart=schedule(comp().items).find(planRow=>planRow.row.id===next?.id)?.start,baseEnd=entry?.end||length(row),snap=makeSnapper([baseEnd]);
       return (delta,done,options)=>{
         const target=snap(baseEnd+(edge==='out'?delta:-delta),options),applied=edge==='out'?target.value-baseEnd:baseEnd-target.value;
         if(row.kind==='image')row.duration=Math.max(.2,original.duration+(edge==='out'?applied:-applied));
         else if(edge==='in')row.in=Math.max(0,Math.min(original.out-.1,original.in+applied*row.speed));
         else row.out=Math.max(original.in+.1,Math.min(Number(source?.duration)||300,original.out+applied*row.speed));
-        const visualDelta=edge==='in'?originalLength-length(row):length(row)-originalLength;comp().preview_valid=false;if(done){signature='';changed();}return {delta:visualDelta,...(target.snap===undefined?{}:{snap:target.snap})};
+        const visualDelta=edge==='in'?originalLength-length(row):length(row)-originalLength;comp().preview_valid=false;if(done){if(next&&Number.isFinite(nextStart)){const moved=schedule(comp().items).find(planRow=>planRow.row.id===next.id)?.start-nextStart;shiftFollowing(nextStart,moved);}signature='';changed();}return {delta:visualDelta,...(target.snap===undefined?{}:{snap:target.snap})};
       };
     },
     beginAudioGesture:(index,edge)=>{

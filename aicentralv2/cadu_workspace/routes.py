@@ -1664,7 +1664,7 @@ def create_project_document(project_id):
         from ..cadu_planner import docs
         document = docs.create_document(
             client_id, int(session['user_id']),
-            {'title': title, 'type': 'plano', 'html': content, 'project_id': project_id},
+            {'title': title, 'type': 'plano', 'html': docs.markdown_to_safe_html(content), 'project_id': project_id},
         )
         return jsonify({'success': True, 'document': {
             key: document.get(key) for key in ('id', 'title', 'type', 'status', 'updated_at')

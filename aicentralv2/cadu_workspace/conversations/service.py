@@ -312,9 +312,16 @@ def build_run(run_id, conversation_id, user, selected, chosen, profile,
     if isinstance(routing, dict) and routing.get('solution') and routing.get('complexity'):
         route_note = '\nRoteamento interno: solução=%s; complexidade=%s.' % (
             routing['solution'], routing['complexity'])
+    context_protocol = (
+        '\nContexto recebido em projeto_context é um JSON com duas áreas: '
+        'contexto_projeto_privado contém somente dados confidenciais do projeto selecionado; '
+        'base_cadu_global_publicada contém conhecimento institucional publicado da Centralcomm. '
+        'Não trate a Base Cadu como informação do cliente, não revele contexto privado fora da resposta necessária '
+        'e, se houver conflito, priorize o contexto privado do projeto para decisões daquele projeto.'
+    )
     inputs = {'nome_usuario': user['name'], 'nome_cliente': selected['client_name'], 'profile': profile,
               'skill_id': chosen['id'], 'skill_context': chosen['prompt'] + '\nPerfil: ' + PROFILES[profile]
-              + '\nA especialização foi escolhida automaticamente pelo pedido do usuário.' + route_note,
+              + '\nA especialização foi escolhida automaticamente pelo pedido do usuário.' + context_protocol + route_note,
               'files_context': '', 'projeto_context': project_context,
               'is_first_message': 'true' if not conversation['total_mensagens'] else 'false',
               'saudacao_permitida': 'sim' if query.lower().strip('!.? ') in ('oi', 'olá', 'bom dia', 'boa tarde', 'boa noite') and not conversation['total_mensagens'] else 'nao',

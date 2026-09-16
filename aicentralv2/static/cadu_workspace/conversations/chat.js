@@ -267,7 +267,7 @@
         if (button.dataset.conversationId === id) button.setAttribute('aria-current', 'page');
         else button.removeAttribute('aria-current');
       });
-      for (const message of result.messages) addMessage(message.role, message.content, message.files, message.metadata);
+      for (const message of result.messages) addMessage(message.role, message.content, message.files, message.metadata, result.context?.project_ref || '');
       setConversationUrl(id);
       status.textContent = result.context ? 'Conversa retomada com o projeto, marca e perfil de origem.' : 'Conversa anterior carregada. O próximo envio usará o contexto ativo.';
       return true;
@@ -339,7 +339,38 @@
     });
     if (list.childElementCount) { card.append(list); history.append(card); }
   }
-  function addMessage(role, content, files = [], metadata = {}) {
+  function planTitle(content) {
+    const heading = String(content || '').match(/^#{1,6}\s+(.+)$/m);
+    return (heading?.[1] || 'Plano Cadu').replace(/[*`]/g, '').trim().slice(0, 255) || 'Plano Cadu';
+  }
+  function addSavePlanAction(text, content, projectRef) {
+    if (!text || !content?.trim() || typeof projectRef !== 'string' || !projectRef.startsWith('ci:')) return;
+    const projectId = projectRef.slice(3);
+    if (!/^[a-f0-9-]{36}$/i.test(projectId) || text.parentElement?.querySelector('[data-save-plan]')) return;
+    const actions = document.createElement('div'); actions.className = 'conversation-message-actions';
+    const save = document.createElement('button'); save.type = 'button'; save.dataset.savePlan = projectId;
+    save.textContent = 'Salvar como plano no projeto';
+    save.addEventListener('click', async () => {
+      save.disabled = true;
+      try {
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
+        const response = await fetch('/workspace/api/projetos/' + encodeURIComponent(projectId) + '/documentos', {
+          method: 'POST', credentials: 'same-origin',
+          headers: {'Content-Type': 'application/json', ...(csrf ? {'X-CSRF-Token': csrf} : {})},
+          body: JSON.stringify({title: planTitle(content), content})
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Não foi possível salvar o plano.');
+        save.textContent = 'Plano salvo no projeto';
+        status.textContent = 'Plano salvo no projeto selecionado.';
+      } catch (error) {
+        save.disabled = false;
+        status.textContent = error.message || 'Não foi possível salvar o plano.';
+      }
+    });
+    actions.append(save); text.parentElement?.append(actions);
+  }
+  function addMessage(role, content, files = [], metadata = {}, projectRef = '') {
     const entry = document.createElement('article'); entry.className = 'conversation-message ' + (role === 'user' ? 'from-user' : 'from-cadu');
     const label = document.createElement('strong'); label.textContent = role === 'user' ? 'Você' : 'Cadu';
     const text = document.createElement('div');
@@ -349,6 +380,7 @@
     CaduConversationRenderer.renderFiles(entry, files);
     history.append(entry);
     if (role === 'assistant') addSources(metadata?.project_sources);
+    if (role === 'assistant') addSavePlanAction(text, content, projectRef);
     return text;
   }
   function addCatalogCard(data) {
@@ -512,6 +544,7 @@
     input.disabled = true; attachments.lock(true);
     stop.hidden = false;
     controller = new AbortController(); status.textContent = 'Conectando ao Cadu…';
+    const runProjectRef = activeContext?.project_ref || projectSelect?.value || '';
     let completed = false, output = null, answer = '', recovered = null;
     try {
       await api('conversations/preflight', 'POST', {message});
@@ -569,6 +602,7 @@
       status.textContent = error.name === 'AbortError' ? 'Envio interrompido. Confira o histórico antes de reenviar; arquivos já recebidos pelo servidor podem ter sido preservados.' : error.message;
     } finally {
       flushStreaming(output, answer);
+      if (completed) addSavePlanAction(output, answer, runProjectRef);
       sending = false; mode.disabled = false; stop.hidden = true; controller = null;
       input.disabled = false; attachments.lock(false); updateSend();
       if (recovered) {

@@ -60,8 +60,22 @@ def stream_case(base_url, api_key, label, query, expected_complexity):
 def main():
     key = os.getenv('CADU_DIFY_API_KEY', '').strip()
     base_url = os.getenv('CADU_DIFY_BASE_URL', 'https://api.dify.ai/v1').strip()
+    # Production normally stores this credential in the CentralX vault. Keep
+    # env vars useful for isolated CI, but exercise the same resolution path
+    # used by the chat when this script runs on the application host.
     if not key:
-        raise SystemExit('CADU_DIFY_API_KEY não está configurada neste ambiente.')
+        try:
+            from aicentralv2 import create_app
+            from aicentralv2.services.integration_credentials import resolve_dify_configuration
+            app = create_app()
+            with app.app_context():
+                resolved_url, resolved_key = resolve_dify_configuration()
+            key = str(resolved_key or '').strip()
+            base_url = str(resolved_url or base_url).strip()
+        except Exception:
+            key = ''
+    if not key:
+        raise SystemExit('A credencial Dify não está configurada no cofre CentralX nem em CADU_DIFY_API_KEY.')
     results = [stream_case(base_url, key, *case) for case in CASES]
     print(json.dumps(results, ensure_ascii=False, indent=2))
 

@@ -33,6 +33,8 @@ def test_payload_keeps_automatic_route_inside_the_server_owned_skill_context():
                     'planner', '', {'dify_conversation_id': None, 'total_mensagens': 0}, 'Monte um plano.', [], None, '',
                     {'solution': 'planejamento', 'complexity': 'alta'})
     assert 'solução=planejamento; complexidade=alta' in run['payload']['inputs']['skill_context']
+    assert 'contexto_projeto_privado' in run['payload']['inputs']['skill_context']
+    assert 'base_cadu_global_publicada' in run['payload']['inputs']['skill_context']
 
 
 def test_context_packet_keeps_workspace_and_base_cadu_in_distinct_fields(monkeypatch):

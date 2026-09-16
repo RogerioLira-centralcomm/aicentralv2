@@ -26,6 +26,53 @@ _JS_URL = re.compile(r"\s(?:href|src)\s*=\s*(?:\"\s*javascript:[^\"]*\"|'\s*java
 _TAGS = re.compile(r"<[^>]+>")
 
 
+def markdown_to_safe_html(value):
+    """Small safe Markdown projection for plans created from a chat response.
+
+    The chat renderer accepts a deliberately bounded Markdown dialect.  Keep
+    the stored SmartDoc equally predictable and escape every model-provided
+    character before adding the few allowed tags.
+    """
+    lines = str(value or '').replace('\r\n', '\n').replace('\r', '\n').split('\n')
+    output, items, ordered = [], [], None
+
+    def inline(text):
+        text = escape(text, quote=False)
+        text = re.sub(r'`([^`\n]+)`', r'<code>\1</code>', text)
+        text = re.sub(r'\*\*([^*\n]+)\*\*', r'<strong>\1</strong>', text)
+        return re.sub(r'\*([^*\n]+)\*', r'<em>\1</em>', text)
+
+    def flush_items():
+        nonlocal items, ordered
+        if items:
+            tag = 'ol' if ordered else 'ul'
+            output.append('<%s>%s</%s>' % (tag, ''.join('<li>%s</li>' % inline(item) for item in items), tag))
+        items, ordered = [], None
+
+    for raw in lines:
+        text = raw.strip()
+        marker = re.match(r'^(?:([-*+])|(\d+)\.)\s+(.+)$', text)
+        if marker:
+            is_ordered = bool(marker.group(2))
+            if items and ordered != is_ordered:
+                flush_items()
+            ordered = is_ordered
+            items.append(marker.group(3))
+            continue
+        flush_items()
+        if not text:
+            continue
+        heading = re.match(r'^#{1,6}\s+(.+)$', text)
+        if heading:
+            output.append('<h2>%s</h2>' % inline(heading.group(1)))
+        elif text.startswith('>'):
+            output.append('<blockquote>%s</blockquote>' % inline(text[1:].lstrip()))
+        else:
+            output.append('<p>%s</p>' % inline(text))
+    flush_items()
+    return ''.join(output) or '<p></p>'
+
+
 def _available(name):
     row = repository.rows("SELECT to_regclass(%s) IS NOT NULL AS available", ("public." + name,))
     return bool(row and row[0]["available"])

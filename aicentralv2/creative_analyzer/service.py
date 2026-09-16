@@ -5,15 +5,16 @@ from __future__ import annotations
 import time
 import uuid
 
-from .processor import ImageCreativeAnalyzer
+from .processor import ImageCreativeAnalyzer, VideoCreativeAnalyzer
 from .storage import AnalyzerStorage
 
 
 class AnalyzerService:
-    def __init__(self, repository, storage=None, image_analyzer=None):
+    def __init__(self, repository, storage=None, image_analyzer=None, video_analyzer=None):
         self.repository = repository
         self.storage = storage or AnalyzerStorage()
         self.image_analyzer = image_analyzer or ImageCreativeAnalyzer()
+        self.video_analyzer = video_analyzer or VideoCreativeAnalyzer()
 
     def analyze_image(self, upload, *, user_id, client_id, context="", brand_ref=None, project_ref=None):
         public_id = str(uuid.uuid4())
@@ -29,6 +30,7 @@ class AnalyzerService:
                 "brand_ref": str(brand_ref or "")[:160] or None,
                 "project_ref": str(project_ref or "")[:160] or None,
                 "original_name": saved["original_name"],
+                "media_type": "image",
                 "mime_type": saved["mime_type"],
                 "format": saved["format"],
                 "thumbnail_url": f"/studio/api/analyzer/assets/{public_id}/thumbnail",
@@ -70,4 +72,63 @@ class AnalyzerService:
                 self.repository.finish_run(
                     run_id, "failed", duration_ms=int((time.monotonic() - started) * 1000), error=exc
                 )
+            raise
+
+    def analyze_video(self, upload, *, user_id, client_id, context="", brand_ref=None, project_ref=None):
+        public_id = str(uuid.uuid4())
+        saved = self.storage.save_video(public_id, upload)
+        analysis = None
+        run_id = None
+        started = time.monotonic()
+        try:
+            analysis = self.repository.create_analysis({
+                "public_id": public_id, "user_id": user_id, "client_id": client_id,
+                "brand_ref": str(brand_ref or "")[:160] or None,
+                "project_ref": str(project_ref or "")[:160] or None,
+                "original_name": saved["original_name"], "media_type": "video",
+                "mime_type": saved["mime_type"], "format": saved["format"],
+                "thumbnail_url": f"/studio/api/analyzer/assets/{public_id}/thumbnail",
+                "context_text": str(context or "")[:2000] or None,
+            })
+            self.repository.add_asset(analysis["id"], {
+                "kind": "source", "position": 0, "storage_key": saved["source_key"],
+                "mime_type": saved["mime_type"], "sha256": saved["sha256"],
+                "size_bytes": saved["size_bytes"], "width": saved["width"], "height": saved["height"],
+                "duration_seconds": saved["duration"],
+                "metadata": {"has_audio": saved["has_audio"], "video_codec": saved["video_codec"], "audio_codec": saved["audio_codec"]},
+            })
+            self.repository.add_asset(analysis["id"], {
+                "kind": "thumbnail", "position": 0, "storage_key": saved["thumbnail_key"],
+                "mime_type": "image/jpeg", "width": saved["width"], "height": saved["height"],
+            })
+            for frame in saved["frames"]:
+                self.repository.add_asset(analysis["id"], {
+                    "kind": "frame", "position": frame["position"], "storage_key": frame["storage_key"],
+                    "mime_type": frame["mime_type"], "sha256": frame["sha256"],
+                    "size_bytes": frame["size_bytes"], "width": saved["width"], "height": saved["height"],
+                    "frame_time_seconds": frame["second"],
+                })
+            run_id = self.repository.start_run(analysis["id"], "video_analysis", "openrouter")
+            result = self.video_analyzer.analyze(
+                saved["frames"], context=context,
+                technical={
+                    "mime_type": saved["mime_type"], "format": saved["format"],
+                    "width": saved["width"], "height": saved["height"], "size_bytes": saved["size_bytes"],
+                    "sha256": saved["sha256"], "duration_seconds": saved["duration"],
+                    "has_audio": saved["has_audio"], "video_codec": saved["video_codec"],
+                    "audio_codec": saved["audio_codec"], "frames_count": 4,
+                },
+            )
+            duration_ms = int((time.monotonic() - started) * 1000)
+            result["technical"]["duration_ms"] = duration_ms
+            completed = self.repository.complete_analysis(public_id, result)
+            self.repository.finish_run(run_id, "complete", duration_ms=duration_ms, usage=result["technical"].get("usage"))
+            return completed
+        except Exception as exc:
+            if analysis:
+                self.repository.fail_analysis(public_id, exc)
+            else:
+                self.storage.remove(public_id)
+            if run_id:
+                self.repository.finish_run(run_id, "failed", duration_ms=int((time.monotonic() - started) * 1000), error=exc)
             raise

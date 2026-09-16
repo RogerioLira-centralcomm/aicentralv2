@@ -182,6 +182,8 @@ Execução: backend e frontend implementados. O upload valida os pixels, limita 
 
 Critério de saída: vídeo processa quatro momentos verificáveis e gera laudo completo mesmo quando a extração client-side não existe.
 
+Execução: implementada. MP4, MOV e WebM são validados por conteúdo com ffprobe, limitados a 5 minutos/200 MB e processados no backend. Quatro frames são extraídos em abertura, hook, desenvolvimento e CTA; quando o contêiner declara duração além do último frame real, o extrator recua e registra o tempo efetivamente usado. Fonte, thumbnail e frames ficam no storage privado e no inventário de ativos. O laudo recebe métricas específicas de vídeo e a tela privada oferece player e comparação dos quatro quadros. Áudio é registrado como presença/codecs, sem inferir música ou narração. Teste com vídeo sintético real e áudio confirmou FFmpeg/ffprobe; a chamada ao provedor externo permanece pendente de mídia autorizada.
+
 ### Fase 4 — relatório interativo e integração com a Biblioteca
 
 - visual arrojado do Studio com mídia em movimento e transições funcionais, respeitando redução de movimento;

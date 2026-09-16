@@ -1,6 +1,7 @@
 """Rotas da primeira fase do Creative Analyzer no Studio."""
 
 from urllib.parse import urlparse
+from pathlib import Path
 
 from flask import abort, current_app, jsonify, render_template, request, send_file, session
 
@@ -60,7 +61,7 @@ def analyzer_history():
     items, next_offset = _repository().list_history(
         session.get("user_id"), _client_id(), limit=limit, offset=offset
     )
-    return jsonify(items=items, next_offset=next_offset, mode="read-only")
+    return jsonify(items=items, next_offset=next_offset, mode="unified")
 
 
 def _private_payload(row):
@@ -82,12 +83,10 @@ def analyzer_create():
         return jsonify(error="Escolha uma imagem."), 400
     repository = _repository()
     try:
-        row = AnalyzerService(repository).analyze_image(
-            upload,
-            user_id=session.get("user_id"),
-            client_id=_client_id(),
-            context=request.form.get("context", ""),
-        )
+        service = AnalyzerService(repository)
+        extension = Path(upload.filename or "").suffix.lower()
+        method = service.analyze_video if extension in {".mp4", ".mov", ".webm"} else service.analyze_image
+        row = method(upload, user_id=session.get("user_id"), client_id=_client_id(), context=request.form.get("context", ""))
     except ValueError as exc:
         return jsonify(error=str(exc)), 400
     except OpenRouterError as exc:
@@ -110,7 +109,7 @@ def analyzer_detail(public_id):
 
 @studio_or_admin_required_api
 def analyzer_asset(public_id, kind):
-    if kind not in {"source", "thumbnail"}:
+    if kind not in {"source", "thumbnail", "frame-0", "frame-1", "frame-2", "frame-3"}:
         abort(404)
     if not _repository().get_analysis(str(public_id), _client_id()):
         abort(404)

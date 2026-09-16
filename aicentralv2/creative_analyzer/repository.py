@@ -221,14 +221,15 @@ class AnalyzerRepository:
                     thumbnail_url, context_text
                 ) VALUES (
                     %s, %s, %s, %s, %s,
-                    'processing', %s, 'image', %s, %s,
+                    'processing', %s, %s, %s, %s,
                     %s, %s
                 ) RETURNING *
                 """,
                 (
                     payload["public_id"], payload["user_id"], payload["client_id"],
                     payload.get("brand_ref"), payload.get("project_ref"),
-                    payload["original_name"], payload["mime_type"], payload.get("format"),
+                    payload["original_name"], payload.get("media_type") or "image",
+                    payload["mime_type"], payload.get("format"),
                     payload.get("thumbnail_url"), payload.get("context_text"),
                 ),
             )
@@ -242,14 +243,15 @@ class AnalyzerRepository:
                 """
                 INSERT INTO public.studio_creative_analysis_assets (
                     analysis_id, kind, position, storage_key, mime_type, sha256,
-                    size_bytes, width, height, metadata_json
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    size_bytes, width, height, duration_seconds, frame_time_seconds, metadata_json
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
                 (
                     analysis_id, payload["kind"], payload.get("position"),
                     payload["storage_key"], payload["mime_type"], payload.get("sha256"),
                     payload.get("size_bytes"), payload.get("width"), payload.get("height"),
+                    payload.get("duration_seconds"), payload.get("frame_time_seconds"),
                     Json(payload.get("metadata") or {}),
                 ),
             )

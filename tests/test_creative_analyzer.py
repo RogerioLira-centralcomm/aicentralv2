@@ -1,4 +1,7 @@
 import io
+import json
+import shutil
+import subprocess
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -7,11 +10,11 @@ from unittest import TestCase, mock
 from flask import Blueprint, Flask
 from werkzeug.datastructures import FileStorage
 
-from aicentralv2.creative_analyzer.processor import normalize_result
+from aicentralv2.creative_analyzer.processor import VideoCreativeAnalyzer, normalize_result
 from aicentralv2.creative_analyzer.repository import legacy_item, merge_history
 from aicentralv2.creative_analyzer.routes import register_api_routes, register_product_routes
 from aicentralv2.creative_analyzer.service import AnalyzerService
-from aicentralv2.creative_analyzer.storage import AnalyzerStorage
+from aicentralv2.creative_analyzer.storage import AnalyzerStorage, four_frame_seconds
 from aicentralv2.product_domains import product_url
 
 
@@ -121,6 +124,49 @@ class CreativeAnalyzerImageTest(TestCase):
         self.assertIn(("asset", "thumbnail"), repository.events)
         self.assertIn(("complete", 82), repository.events)
 
+    def test_video_uses_exactly_four_backend_frames(self):
+        if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
+            self.skipTest("FFmpeg indisponível")
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "input.mp4"
+            subprocess.run(
+                [
+                    "ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i", "color=c=#245f55:s=320x180:r=12",
+                    "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=44100", "-t", "1.2",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", str(source),
+                ],
+                check=True, capture_output=True, timeout=30,
+            )
+            with source.open("rb") as handle:
+                upload = FileStorage(stream=handle, filename="filme.mp4", content_type="video/mp4")
+                saved = AnalyzerStorage(Path(folder) / "storage").save_video("video-id", upload)
+            self.assertEqual(len(saved["frames"]), 4)
+            self.assertTrue(saved["has_audio"])
+            seconds = [frame["second"] for frame in saved["frames"]]
+            self.assertEqual(len(four_frame_seconds(1.2)), 4)
+            self.assertEqual(seconds, sorted(seconds))
+            self.assertTrue(all(0 <= second <= saved["duration"] for second in seconds))
+            self.assertTrue(all(Path(frame["storage_key"]).is_file() for frame in saved["frames"]))
+
+    def test_video_processor_sends_four_frames_in_each_pass(self):
+        calls = []
+
+        def provider(messages, **kwargs):
+            images = [part for part in messages[1]["content"] if part.get("type") == "image_url"]
+            calls.append(len(images))
+            if len(calls) == 1:
+                content = {"texts": {}, "attention_sequence": [], "narrative": {}}
+            else:
+                content = {"score": {"geral": 70}, "video_metrics": {"hook_strength": 64}}
+            return {"message": {"content": json.dumps(content)}, "model": "test-model", "usage": {}}
+
+        frames = [{"position": index, "second": float(index), "data_url": "data:image/jpeg;base64,AA=="} for index in range(4)]
+        result = VideoCreativeAnalyzer(provider).analyze(frames, technical={"has_audio": True})
+        self.assertEqual(calls, [4, 4])
+        self.assertEqual(result["video_metrics"]["hook_strength"], 64)
+        self.assertEqual(result["technical"]["architecture"], "video_four_frames_two_pass")
+        self.assertEqual(len(result["technical"]["frame_seconds"]), 4)
+
 
 class CreativeAnalyzerRoutesTest(TestCase):
     def setUp(self):
@@ -196,6 +242,23 @@ class CreativeAnalyzerRoutesTest(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.get_json()["analysis"]["status"], "complete")
         service.return_value.analyze_image.assert_called_once()
+
+    def test_video_upload_selects_backend_video_pipeline(self):
+        self.login()
+        completed = {
+            "public_id": "6d71570e-959c-49de-b829-8ad201a71464",
+            "original_name": "film.mp4", "media_type": "video", "status": "complete", "result_json": {},
+        }
+        with mock.patch("aicentralv2.creative_analyzer.routes.AnalyzerService") as service:
+            service.return_value.analyze_video.return_value = completed
+            response = self.client.post(
+                "/studio/api/analyzer/analyses",
+                data={"file": (io.BytesIO(b"not-used"), "film.mp4")},
+                headers={"Host": "studio.centralcomm.media", "X-Trocr-CSRF-Token": "csrf"},
+            )
+        self.assertEqual(response.status_code, 201)
+        service.return_value.analyze_video.assert_called_once()
+        service.return_value.analyze_image.assert_not_called()
 
     def test_migration_is_additive(self):
         sql = (ROOT / "migrations" / "add_studio_creative_analyzer.sql").read_text()

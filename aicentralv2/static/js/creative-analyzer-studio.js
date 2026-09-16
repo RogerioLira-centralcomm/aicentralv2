@@ -55,6 +55,31 @@
     title.append(element('p', 'analyzer-section-note', 'Resultado da análise'), element('h2', '', analysis.original_name || 'Criativo'));
     head.append(title, element('strong', 'analyzer-result-score', String(value(report, 'score.geral', 0))));
     result.appendChild(head);
+    const media = element('div', `analyzer-result-media is-${analysis.media_type || 'image'}`);
+    if (analysis.media_type === 'video') {
+      const video = document.createElement('video');
+      video.controls = true;
+      video.preload = 'metadata';
+      video.src = `/studio/api/analyzer/assets/${encodeURIComponent(analysis.public_id)}/source`;
+      media.appendChild(video);
+      const strip = element('div', 'analyzer-frame-strip');
+      for (let index = 0; index < 4; index += 1) {
+        const figure = document.createElement('figure');
+        const image = document.createElement('img');
+        image.src = `/studio/api/analyzer/assets/${encodeURIComponent(analysis.public_id)}/frame-${index}`;
+        image.alt = `Frame ${index + 1} do vídeo`;
+        image.loading = 'lazy';
+        figure.append(image, element('figcaption', '', `Frame ${index + 1}`));
+        strip.appendChild(figure);
+      }
+      media.appendChild(strip);
+    } else if (analysis.thumbnail_url) {
+      const image = document.createElement('img');
+      image.src = analysis.thumbnail_url;
+      image.alt = `Prévia de ${analysis.original_name || 'criativo'}`;
+      media.appendChild(image);
+    }
+    if (media.childElementCount) result.appendChild(media);
     const areas = element('div', 'analyzer-result-areas');
     const specs = [
       ['Visão geral', value(report, 'score.explanations.geral', 'Diagnóstico concluído.'), `Clareza ${value(report, 'score.clareza', 0)} / Impacto ${value(report, 'score.impacto_visual', 0)}`],
@@ -137,7 +162,7 @@
     } finally {
       uploadLoading = false;
       button.disabled = false;
-      button.textContent = 'Analisar imagem';
+      button.textContent = 'Analisar criativo';
     }
   });
   load(true);

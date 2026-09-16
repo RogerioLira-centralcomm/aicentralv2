@@ -26,8 +26,8 @@
     </section>
 
     <form class="analyzer-drop" id="analyzerUpload" aria-labelledby="newAnalysisTitle">
-      <div><span>Nova análise</span><h2 id="newAnalysisTitle">Envie uma imagem</h2><p>PNG, JPG ou WebP, até 15 MB. Vídeo entra na próxima fase com quatro frames.</p><label class="analyzer-context">Contexto da campanha <input name="context" maxlength="2000" placeholder="Objetivo, oferta ou canal (opcional)"></label></div>
-      <div class="analyzer-upload-actions"><label class="analyzer-file">Escolher imagem<input id="analyzerFile" name="file" type="file" accept="image/png,image/jpeg,image/webp" required></label><button type="submit">Analisar imagem</button></div>
+      <div><span>Nova análise</span><h2 id="newAnalysisTitle">Envie uma imagem ou vídeo</h2><p>Imagem até 15 MB; MP4, MOV ou WebM de até 5 minutos e 200 MB. Vídeos são lidos em quatro momentos.</p><label class="analyzer-context">Contexto da campanha <input name="context" maxlength="2000" placeholder="Objetivo, oferta ou canal (opcional)"></label></div>
+      <div class="analyzer-upload-actions"><label class="analyzer-file">Escolher criativo<input id="analyzerFile" name="file" type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime,video/webm" required></label><button type="submit">Analisar criativo</button></div>
     </form>
 
     <section class="analyzer-result" id="analyzerResult" aria-live="polite" hidden></section>

@@ -11,9 +11,11 @@
   }
   const panel = document.getElementById('conversation-panel');
   if (!panel) return;
+  const pageMode = panel.dataset.conversationPage === 'true';
   const opener = document.getElementById('conversation-open');
   const backdrop = document.getElementById('conversation-backdrop');
   const history = document.getElementById('conversation-history');
+  const recent = document.getElementById('conversation-recent');
   const status = document.getElementById('conversation-status');
   let conversationId = null, runId = null, sending = false, controller = null;
   let initialized = false, canSend = false;
@@ -38,25 +40,33 @@
     updateSend();
   });
   const background = [document.querySelector('.family-nav'), document.querySelector('.family-layout')];
-  const close = () => { panel.hidden = true; backdrop.hidden = true; background.forEach(node => node.inert = false); document.body.style.overflow = ''; opener.setAttribute('aria-expanded', 'false'); opener.focus(); };
+  const close = () => {
+    if (pageMode) return;
+    panel.hidden = true; backdrop.hidden = true; background.forEach(node => { if (node) node.inert = false; }); document.body.style.overflow = '';
+    opener?.setAttribute('aria-expanded', 'false'); opener?.focus();
+  };
   async function loadHistory() {
     if (sending) return;
+    const target = recent || history;
     try {
-      const data = await api('conversations'); history.replaceChildren(); conversationId = null;
-      for (const thread of data.conversations) {
+      const data = await api('conversations'); target.replaceChildren(); conversationId = null;
+      if (recent) history.innerHTML = '<div class="workspace-conversation-empty"><strong>Como posso ajudar?</strong><span>Use esta conversa para reunir informações do cliente e seguir para Planner, Skills, Studio ou Connect.</span></div>';
+      for (const thread of data.conversations.slice(0, 15)) {
         const row = document.createElement('article');
-        const button = document.createElement('button'); button.textContent = thread.title; row.append(button); history.append(row);
+        const button = document.createElement('button'); button.textContent = thread.title; row.append(button); target.append(row);
         button.addEventListener('click', async () => {
           if (sending) return;
           try {
             const result = await api('conversations/' + encodeURIComponent(thread.id) + '/messages');
             history.replaceChildren(); conversationId = thread.id;
+            recent?.querySelectorAll('[aria-current]').forEach(node => node.removeAttribute('aria-current'));
+            button.setAttribute('aria-current', 'page');
             for (const message of result.messages) addMessage(message.role, message.content, message.files);
           } catch (error) { status.textContent = error.message; }
         });
       }
-      if (!data.conversations.length) history.textContent = 'Nenhuma conversa para este cliente. Comece uma nova mensagem abaixo.';
-    } catch (error) { history.textContent = error.message; }
+      if (!data.conversations.length) target.textContent = 'Nenhuma conversa para este cliente.';
+    } catch (error) { target.textContent = error.message; }
   }
   function addMessage(role, content, files = []) {
     const entry = document.createElement('article'); entry.className = 'conversation-message ' + (role === 'user' ? 'from-user' : 'from-cadu');
@@ -81,15 +91,14 @@
     });
     card.append(list); history.append(card); card.scrollIntoView({block:'nearest'});
   }
-  opener.addEventListener('click', async () => {
-    panel.hidden = false; backdrop.hidden = false; background.forEach(node => node.inert = true); document.body.style.overflow = 'hidden'; opener.setAttribute('aria-expanded', 'true'); panel.focus();
+  async function initialize() {
     if (document.body.dataset.authenticated !== 'true' || sending || initialized) return;
     initialized = true;
     mode.disabled = true;
     api('conversations/capabilities').then(data => {
       canSend = data.send === true; attachments.configure(data); updateSend();
       if (!canSend) status.textContent = 'Modo de consulta: envio e anexos ainda não estão habilitados nesta instalação.';
-    }).catch(() => { canSend = false; updateSend(); initialized = false; status.textContent = 'Não foi possível verificar a disponibilidade. Feche e reabra o painel para tentar novamente.'; });
+    }).catch(() => { canSend = false; updateSend(); initialized = false; status.textContent = 'Não foi possível verificar a disponibilidade. Tente recarregar a página.'; });
     api('conversations/modes').then(data => {
       mode.replaceChildren(...data.modes.map(item => new Option(item.title, item.id)));
       mode.disabled = !data.modes.length;
@@ -98,14 +107,19 @@
     }).catch(() => {
       mode.replaceChildren(new Option('Modos indisponíveis', ''));
       initialized = false; updateSend();
-      status.textContent = 'Não foi possível carregar os modos. O histórico continua disponível; reabra o painel para tentar novamente.';
+      status.textContent = 'Não foi possível carregar os modos. O histórico continua disponível.';
     });
     await loadHistory();
+  }
+  opener?.addEventListener('click', async () => {
+    panel.hidden = false; backdrop.hidden = false; background.forEach(node => node.inert = true); document.body.style.overflow = 'hidden'; opener.setAttribute('aria-expanded', 'true'); panel.focus();
+    await initialize();
   });
+  if (pageMode) initialize();
   document.getElementById('conversation-list')?.addEventListener('click', loadHistory);
-  document.getElementById('conversation-close').addEventListener('click', close); backdrop.addEventListener('click', close);
+  document.getElementById('conversation-close')?.addEventListener('click', close); backdrop?.addEventListener('click', close);
   document.addEventListener('keydown', event => {
-    if (panel.hidden) return;
+    if (pageMode || panel.hidden) return;
     if (event.key === 'Escape') { event.preventDefault(); close(); }
     if (event.key !== 'Tab') return;
     const nodes = [...panel.querySelectorAll('a[href],button,input,textarea,select')].filter(node => !node.disabled && node.getClientRects().length);
@@ -114,10 +128,11 @@
     if (event.shiftKey && (document.activeElement === nodes[0] || document.activeElement === panel)) { event.preventDefault(); nodes.at(-1).focus(); }
     else if (!event.shiftKey && document.activeElement === nodes.at(-1)) { event.preventDefault(); nodes[0].focus(); }
   });
-  document.getElementById('conversation-width').addEventListener('input', event => panel.style.setProperty('--panel-width', event.target.value + 'px'));
+  document.getElementById('conversation-width')?.addEventListener('input', event => panel.style.setProperty('--panel-width', event.target.value + 'px'));
   document.getElementById('conversation-new')?.addEventListener('click', () => {
     if (sending) return;
-    conversationId = null; history.replaceChildren(); status.textContent = '';
+    conversationId = null; history.innerHTML = pageMode ? '<div class="workspace-conversation-empty"><strong>Como posso ajudar?</strong><span>Use esta conversa para reunir informações do cliente e seguir para Planner, Skills, Studio ou Connect.</span></div>' : ''; status.textContent = '';
+    recent?.querySelectorAll('[aria-current]').forEach(node => node.removeAttribute('aria-current'));
     document.getElementById('conversation-message').focus();
   });
   document.getElementById('conversation-stop')?.addEventListener('click', async () => {

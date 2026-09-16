@@ -9,7 +9,7 @@
   {% if product == 'workspace' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-family.css') }}?v=1">{% endif %}
   {% block product_styles %}{% endblock %}
   <script defer src="{{ url_for('static', filename='js/cadu-family.js') }}"></script>
-  {% if profile %}
+  {% if product == 'workspace' and module == 'conversas' %}
   <link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/chat.css') }}">
   <script defer src="{{ url_for('static', filename='cadu_workspace/conversations/stream.js') }}"></script>
   <script defer src="{{ url_for('static', filename='cadu_workspace/conversations/attachments.js') }}"></script>
@@ -33,6 +33,18 @@
 <a class="family-skip" href="#content">Ir para o conteúdo</a>
 <header class="family-nav">
   {% set cadu_active_product = product %}{% set product_switch_path = '/familia/' %}{% include 'cadu/_product_switch.html' %}
+  <span class="family-nav-divider" aria-hidden="true"></span>
+  <nav class="family-product-nav" aria-label="Navegação de {{ spec.name }}">
+    {% if user %}
+      <a href="{{ url_for('cadu_family.page', product=product, module='inicio') }}" {% if module == 'inicio' %}aria-current="page"{% endif %}>Visão geral</a>
+      {% for group, keys in spec.navigation %}{% set group_keys = keys | reject('equalto', 'inicio') | list %}
+        {% if group_keys %}
+          {% if group_keys|length == 1 %}{% set key = group_keys[0] %}<a href="{{ url_for('cadu_family.page', product=product, module=key) }}" {% if module == key %}aria-current="page"{% endif %}>{{ spec.modules[key][0] }}</a>
+          {% else %}<details class="family-product-menu"><summary {% if module in group_keys %}aria-current="page"{% endif %}>{{ group }} <span aria-hidden="true">⌄</span></summary><div>{% for key in group_keys %}<a href="{{ url_for('cadu_family.page', product=product, module=key) }}" {% if module == key %}aria-current="page"{% endif %}>{{ spec.modules[key][0] }}</a>{% endfor %}</div></details>{% endif %}
+        {% endif %}
+      {% endfor %}
+    {% else %}<a href="{{ url_for('cadu_family.page', product=product, module='inicio') }}" aria-current="page">Visão geral</a>{% endif %}
+  </nav>
   {% if user %}<details class="family-context-menu"><summary><span><small>Cliente selecionado</small><strong>{{ selected.client_name }}</strong></span><span aria-hidden="true">⌄</span></summary><form id="family-context" class="family-context">
     <label>Cliente<select name="client_id" aria-label="Cliente">{% for client in clients %}<option value="{{ client.id }}" {% if client.id == selected.client_id %}selected{% endif %}>{{ client.name }}</option>{% endfor %}</select></label>
     <label>Marca<select name="brand_ref" aria-label="Marca"><option value="">Todas as marcas</option>{% for item in entities if item.kind == 'brand' %}<option value="{{ item.ref }}" {% if session.get('family_context', {}).get('brand_ref') == item.ref %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select></label>
@@ -40,18 +52,15 @@
     <p class="family-context-help">Ao trocar de cliente, marca e projeto serão redefinidos. Sua organização de acesso permanece a mesma.</p>
   </form></details>{% endif %}
   <div class="family-nav-actions">
-    {% if profile %}<button id="conversation-open" aria-controls="conversation-panel" aria-expanded="false">Conversas</button>{% endif %}
-    {% if user %}<a class="family-credits" href="{{ product_url('workspace', '/familia/workspace/consumo') }}">Créditos e consumo</a><a class="family-account" href="{{ product_url('workspace', '/familia/workspace/perfil') }}" title="{{ user.name }}">{{ user.name }}</a>{% else %}<a class="family-primary" href="{{ login_url }}">Entrar</a>{% endif %}
+    {% if user %}<details class="family-account-menu"><summary aria-label="Abrir opções da conta">{{ user.name[:2] | upper }}</summary><div><strong>{{ user.name }}</strong><a href="{{ url_for('cadu_family.page', product='workspace', module='perfil') }}">Perfil</a><a href="{{ url_for('cadu_family.page', product='workspace', module='consumo') }}">Créditos e consumo</a></div></details>{% else %}<a class="family-primary" href="{{ login_url }}">Entrar</a>{% endif %}
   </div>
 </header>
 <div class="family-layout">
-<aside class="family-modules" aria-label="Navegação de {{ spec.name }}"><nav aria-label="Áreas de {{ spec.name }}">{% for group, keys in spec.navigation %}<section class="family-module-group" aria-label="{{ group }}"><b>{{ group }}</b>{% for key in keys %}{% set item = spec.modules[key] %}<a href="{{ url_for('cadu_family.page', product=product, module=key) }}" {% if key == module %}aria-current="page"{% endif %}>{{ item[0] }}</a>{% endfor %}</section>{% endfor %}</nav></aside>
 <main id="content" tabindex="-1">
   <header class="family-page-head"><div><p>{{ spec.name }}{% if selected %} / {{ selected.client_name }}{% endif %}</p><h1>{{ landing.title if module == 'inicio' else title }}</h1>{% if module == 'inicio' %}<p class="family-page-intro">{{ landing.intro }}</p>{% endif %}</div>
   {% if product == 'studio' %}<a href="{{ product_url('workspace', '/familia/workspace/marcas') }}">Gerenciar marcas no Workspace</a>{% endif %}</header>
   <p id="family-feedback" role="status" aria-live="polite"></p>
   {% block product_content %}{% endblock %}
 </main></div>
-{% if profile %}{% include 'cadu_workspace/conversations/panel.html' %}{% endif %}
 {% block product_scripts %}{% endblock %}
 </body></html>

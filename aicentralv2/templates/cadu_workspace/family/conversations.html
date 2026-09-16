@@ -1,0 +1,25 @@
+<section class="workspace-conversations" aria-labelledby="workspace-conversations-title">
+  <aside class="workspace-conversation-sidebar" aria-label="Histórico de conversas">
+    <div><p class="workspace-eyebrow">Workspace</p><h2>Conversas</h2><button type="button" id="conversation-new">Nova conversa</button></div>
+    <nav id="conversation-recent" aria-label="Últimas 15 conversas">Carregando conversas…</nav>
+    <a class="workspace-conversation-account" href="{{ url_for('cadu_family.page', product='workspace', module='perfil') }}"><span>{{ user.name[:2] | upper }}</span><strong>{{ user.name }}</strong><small>Configurações</small></a>
+  </aside>
+  <section id="conversation-panel" data-conversation-page="true" aria-labelledby="workspace-conversations-title" tabindex="-1">
+    <header><div><p class="workspace-eyebrow">{{ selected.client_name }}</p><h2 id="workspace-conversations-title">Converse no contexto do projeto</h2><p>O contexto de cliente, marca e projeto acompanha esta conversa.</p></div></header>
+    <div class="conversation-context">{{ selected.client_name }}<small>Cliente selecionado no Workspace</small></div>
+    <div id="conversation-history" aria-live="polite"><div class="workspace-conversation-empty"><strong>Como posso ajudar?</strong><span>Use esta conversa para reunir informações do cliente e seguir para Planner, Skills, Studio ou Connect.</span></div></div>
+    <form id="conversation-form">
+      <div id="conversation-attachments" aria-label="Arquivos selecionados" hidden></div>
+      <label for="conversation-message">Mensagem</label>
+      <textarea id="conversation-message" maxlength="20000" placeholder="Escreva uma mensagem…"></textarea>
+      <div class="conversation-toolbar">
+        <button type="button" id="conversation-attach" disabled aria-describedby="conversation-upload-help">Anexar</button>
+        <input id="conversation-file-input" type="file" multiple hidden accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.txt,.csv,.md,.json">
+        <label for="conversation-mode">Modo</label><select id="conversation-mode" disabled><option value="ideias">Carregando modos…</option></select>
+        <div class="conversation-resources"><button type="button" id="conversation-stop" hidden>Interromper</button><button type="submit" id="conversation-send" class="family-primary" disabled>Enviar</button></div>
+      </div>
+      <p class="conversation-shortcuts">Enter envia · Shift+Enter quebra a linha</p><p id="conversation-upload-help">Até 3 arquivos de 15 MB. Imagens, PDF ou texto.</p>
+    </form>
+    <p id="conversation-status" role="status"></p>
+  </section>
+</section>

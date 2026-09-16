@@ -108,13 +108,20 @@ def create_document(client_id, actor_id, data):
             raise NotFound("Template indisponível.")
         base = available[template_id].get("html") or ""
     html = sanitize_html(data.get("html", base))
+    project_id = data.get('project_id') or None
+    if project_id:
+        project = repository.rows('''SELECT id FROM cadu_ci_projetos
+                                      WHERE id = %s AND id_cliente = %s AND status <> 'arquivado' LIMIT 1''',
+                                  (str(project_id), client_id))
+        if not project:
+            raise NotFound('Projeto indisponível para receber este documento.')
     conn = get_db()
     try:
         with conn.cursor() as cur:
             cur.execute('''INSERT INTO cadu_artifacts
-                (id_cliente, id_contato_cliente, titulo, tipo, status, conteudo_html, template_id, share_enabled)
-                VALUES (%s, %s, %s, %s, 'draft', %s, %s, FALSE) RETURNING id''',
-                (client_id, actor_id, title, kind, html, template_id))
+                (id_cliente, id_contato_cliente, projeto_id, titulo, tipo, status, conteudo_html, template_id, share_enabled)
+                VALUES (%s, %s, %s, %s, %s, 'draft', %s, %s, FALSE) RETURNING id''',
+                (client_id, actor_id, project_id, title, kind, html, template_id))
             doc_id = cur.fetchone()["id"]
         conn.commit()
         return get_document(client_id, actor_id, doc_id)

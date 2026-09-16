@@ -154,11 +154,16 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query):
 
 
 def project_sources(project_context):
-    """Return only the cited, user-safe source projection from a context packet."""
+    """Return cited sources without confusing private project and global Base Cadu."""
     try:
-        values = json.loads(project_context or '{}').get('fontes_verificadas') or []
+        packet = json.loads(project_context or '{}')
     except (TypeError, ValueError):
         return []
+    # Older conversations stored project fields at the root. New packets make
+    # the boundary explicit, but retaining this fallback keeps their history
+    # readable after the upgrade.
+    private_context = packet.get('contexto_projeto_privado', packet)
+    values = private_context.get('fontes_verificadas') or [] if isinstance(private_context, dict) else []
     sources = []
     for value in values[:4]:
         if not isinstance(value, dict):
@@ -166,23 +171,36 @@ def project_sources(project_context):
         title = str(value.get('fonte') or 'Fonte sem título').strip()[:250]
         excerpt = str(value.get('trecho') or '').strip()[:1000]
         sources.append({'title': title or 'Fonte sem título', 'excerpt': excerpt})
+    for value in (packet.get('base_cadu_global_publicada') or [])[:4]:
+        if not isinstance(value, dict):
+            continue
+        title = str(value.get('fonte') or 'Documento institucional').strip()[:250]
+        excerpt = str(value.get('trecho') or '').strip()[:1000]
+        sources.append({'title': 'Base Cadu — ' + (title or 'Documento institucional'), 'excerpt': excerpt})
     return sources
 
 
-def include_institutional_context(project_context, query):
-    """Attach only published Base Cadu excerpts; drafts never reach a chat."""
+def contextual_packet(project_context, query):
+    """Keep private Workspace RAG and published institutional RAG separate.
+
+    Dify currently declares one string variable named ``projeto_context``.
+    Until its app schema gains a second variable, this explicit envelope keeps
+    backward compatibility while preventing the global Base Cadu from being
+    mistaken for private project material.
+    """
     try:
         from ...cadu_skills import knowledge
         entries = knowledge.context(query)
     except Exception:
         entries = []
-    if not entries:
-        return project_context
     try:
-        packet = json.loads(project_context) if project_context else {}
+        private_context = json.loads(project_context) if project_context else {}
     except (TypeError, ValueError):
-        packet = {}
-    packet['base_centralcomm_publicada'] = entries
+        private_context = {'contexto_legacy': str(project_context or '')[:4000]}
+    packet = {
+        'contexto_projeto_privado': private_context,
+        'base_cadu_global_publicada': entries,
+    }
     return json.dumps(packet, ensure_ascii=False)[:24000]
 
 
@@ -221,7 +239,7 @@ def prepare(data, selected):
                               ([str(value) for value in upload_ids], user['id'], selected['client_id'])) if upload_ids else []
     if len(uploads) != len(set(str(value) for value in upload_ids)):
         abort(403, description='Um arquivo não pertence a este cliente ou usuário.')
-    project_context = include_institutional_context(
+    project_context = contextual_packet(
         project_knowledge_context(project_ref, brand_ref, selected['client_id'], query), query)
     old = repository.conversation_messages(user['id'], selected['client_id'], conversation_id) if existing else []
     history = history_context(old or [])

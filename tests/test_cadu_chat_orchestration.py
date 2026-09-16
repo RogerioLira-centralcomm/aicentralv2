@@ -33,3 +33,18 @@ def test_payload_keeps_automatic_route_inside_the_server_owned_skill_context():
                     'planner', '', {'dify_conversation_id': None, 'total_mensagens': 0}, 'Monte um plano.', [], None, '',
                     {'solution': 'planejamento', 'complexity': 'alta'})
     assert 'solução=planejamento; complexidade=alta' in run['payload']['inputs']['skill_context']
+
+
+def test_context_packet_keeps_workspace_and_base_cadu_in_distinct_fields(monkeypatch):
+    from aicentralv2.cadu_workspace.conversations import service
+    from aicentralv2.cadu_skills import knowledge
+
+    monkeypatch.setattr(knowledge, 'context', lambda query: [
+        {'fonte': 'Identidade Centralcomm', 'tipo': 'markdown', 'trecho': 'Institucional.'}
+    ])
+    packet = service.contextual_packet('{"projeto":{"nome":"Lançamento"},"fontes_verificadas":[{"fonte":"Briefing","trecho":"Privado"}]}', 'plano')
+    values = __import__('json').loads(packet)
+    assert values['contexto_projeto_privado']['projeto']['nome'] == 'Lançamento'
+    assert values['base_cadu_global_publicada'][0]['fonte'] == 'Identidade Centralcomm'
+    sources = service.project_sources(packet)
+    assert {item['title'] for item in sources} == {'Briefing', 'Base Cadu — Identidade Centralcomm'}

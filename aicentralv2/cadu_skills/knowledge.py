@@ -1,5 +1,6 @@
 """Versioned institutional knowledge used by every Cadu solution."""
 import re
+from pathlib import Path
 
 
 def _db():
@@ -86,3 +87,25 @@ def context(query, limit=3):
             return [{'fonte': row['title'], 'tipo': row['kind'], 'trecho': row['content']} for row in cur.fetchall()]
     except Exception:
         return []
+
+
+def install_seed(actor_id):
+    """Create editable draft templates once; examples are never published."""
+    seed_dir = Path(__file__).with_name('knowledge_seed')
+    definitions = (
+        ('Centralcomm — identidade e posicionamento', 'markdown', '01-centralcomm-identidade.md'),
+        ('Centralcomm — serviços e soluções', 'markdown', '02-servicos-e-solucoes.md'),
+        ('Canais, formatos e places', 'csv', '03-canais-formatos-places.csv'),
+        ('Audiências e programática', 'csv', '04-audiencias-e-programatica.csv'),
+        ('Cases e evidências aprovadas', 'csv', '05-cases-e-evidencias.csv'),
+    )
+    existing = {str(row.get('title') or '').strip() for row in documents()}
+    created = []
+    for title, kind, filename in definitions:
+        if title in existing:
+            continue
+        result = save({'title': title, 'kind': kind,
+                       'content': (seed_dir / filename).read_text(encoding='utf-8'),
+                       'source_note': 'Modelo inicial CentralX — complete, valide e publique.'}, actor_id)
+        created.append(result['id'])
+    return created

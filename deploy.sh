@@ -226,6 +226,7 @@ fi
 "$VENV_PYTHON" migrations/run_add_format_variant_revisions.py
 "$VENV_PYTHON" migrations/run_sql_migration.py add_training_studio_import_palco.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_workspace_projects.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_docs_compat.sql
 echo "  > OK"
 
 # Worker de mídia: dependências, modelo local e serviço supervisionado.

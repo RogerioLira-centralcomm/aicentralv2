@@ -545,6 +545,18 @@ def knowledge_save():
         return jsonify({'success': False, 'error': str(exc)}), 400
 
 
+@bp.post('/api/gestao/base/modelos')
+@admin_required_api
+def knowledge_seed():
+    from . import knowledge
+    try:
+        created = knowledge.install_seed(int(session['user_id']))
+        return jsonify(success=True, created=len(created), message=(f'{len(created)} documento(s) criado(s) como rascunho.' if created else 'A estrutura inicial já existe.'))
+    except Exception:
+        current_app.logger.exception('Falha ao instalar modelos da Base Cadu')
+        return jsonify(success=False, error='Não foi possível criar os modelos agora.'), 503
+
+
 @bp.post('/api/gestao/base/<int:document_id>/publicar')
 @admin_required_api
 def knowledge_publish(document_id):

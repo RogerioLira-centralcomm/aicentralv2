@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS cadu_artifacts (
     id BIGSERIAL PRIMARY KEY,
     id_cliente INTEGER NOT NULL,
     id_contato_cliente INTEGER,
+    projeto_id UUID,
     titulo VARCHAR(255) NOT NULL,
     tipo VARCHAR(40) NOT NULL DEFAULT 'documento',
     status VARCHAR(20) NOT NULL DEFAULT 'draft',
@@ -18,6 +19,7 @@ CREATE TABLE IF NOT EXISTS cadu_artifacts (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE cadu_artifacts ADD COLUMN IF NOT EXISTS template_id INTEGER;
+ALTER TABLE cadu_artifacts ADD COLUMN IF NOT EXISTS projeto_id UUID;
 ALTER TABLE cadu_artifacts ADD COLUMN IF NOT EXISTS branding_id INTEGER;
 ALTER TABLE cadu_artifacts ADD COLUMN IF NOT EXISTS share_enabled BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE cadu_artifacts ADD COLUMN IF NOT EXISTS share_token VARCHAR(128);
@@ -25,6 +27,8 @@ ALTER TABLE cadu_artifacts ADD COLUMN IF NOT EXISTS export_config JSONB NOT NULL
 ALTER TABLE cadu_artifacts ADD COLUMN IF NOT EXISTS allow_download BOOLEAN NOT NULL DEFAULT FALSE;
 CREATE UNIQUE INDEX IF NOT EXISTS ux_cadu_artifacts_share_token ON cadu_artifacts (share_token) WHERE share_token IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_cadu_artifacts_client_recent ON cadu_artifacts (id_cliente, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cadu_artifacts_project_recent ON cadu_artifacts (projeto_id, id_cliente, updated_at DESC)
+    WHERE projeto_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS cadu_docs_templates (
     id BIGSERIAL PRIMARY KEY, id_cliente INTEGER, slug VARCHAR(120) NOT NULL,

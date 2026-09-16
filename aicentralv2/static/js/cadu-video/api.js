@@ -1,5 +1,9 @@
 import { csrf } from "../trocr/animate-utils.js";
 
+export const apiRoot = document.getElementById('mcCaduBar')?.dataset.mcApiRoot || '/parametros/api';
+export const studioApi = `${apiRoot}/format-lab/studio`;
+export const swapApi = `${apiRoot}/format-lab/swap`;
+
 async function parse(response) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload.success === false) {
@@ -8,7 +12,16 @@ async function parse(response) {
     error.code = payload.code;
     throw error;
   }
-  return payload.data !== undefined ? payload.data : payload;
+  return normalizeUrls(payload.data !== undefined ? payload.data : payload);
+}
+
+function normalizeUrls(value) {
+  if (typeof value === 'string') return value.replace(/^\/parametros\/api\//, `${apiRoot}/`);
+  if (Array.isArray(value)) return value.map(normalizeUrls);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, normalizeUrls(item)]));
+  }
+  return value;
 }
 
 export async function get(url) {
@@ -33,7 +46,7 @@ export async function post(url, body) {
 }
 
 export async function deleteLibrary(body) {
-  const response = await fetch("/parametros/api/format-lab/swap/library", {
+  const response = await fetch(`${swapApi}/library`, {
     method: "DELETE",
     credentials: "same-origin",
     headers: {
@@ -46,7 +59,7 @@ export async function deleteLibrary(body) {
 }
 
 const projectVersions = new Map();
-const projectsUrl = '/parametros/api/format-lab/studio/projects';
+const projectsUrl = `${studioApi}/projects`;
 
 export async function loadVideoProject(clientId, projectId = "") {
   const key = String(clientId);
@@ -59,7 +72,7 @@ export async function loadVideoProject(clientId, projectId = "") {
     projectVersions.set(key, {id:saved.id, revision:saved.revision});
     return {project:saved.document, items, activeId:saved.id};
   }
-  const legacy = await get(`/parametros/api/format-lab/swap/video-project?client_id=${encodeURIComponent(key)}`);
+  const legacy = await get(`${swapApi}/video-project?client_id=${encodeURIComponent(key)}`);
   projectVersions.set(key, {id:null, revision:0});
   return {...legacy, items:[], activeId:""};
 }

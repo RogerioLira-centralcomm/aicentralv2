@@ -3,7 +3,7 @@ import {sourceAspect} from './cadu-video/aspect.js';
 import { bindStudio, resetStudio, recordStudioChange, defaultEdit, paintStudio, resetClipHistory } from "./cadu-video/studio.js";
 import { quoteAnimate, submitAnimate } from "./trocr/animate-api.js";
 import { startPoll } from "./trocr/animate-poller.js";
-import { deleteLibrary, get, loadVideoProject, post, saveVideoProject } from "./cadu-video/api.js";
+import { deleteLibrary, get, loadVideoProject, post, saveVideoProject, studioApi, swapApi } from "./cadu-video/api.js?v=2";
 import {
   clearClip,
   paintAll,
@@ -524,7 +524,7 @@ async function loadLibrary() {
   if (!state.clientId) return;
   const clientId = state.clientId;
   try {
-    const data = await get(`/parametros/api/format-lab/swap/library?client_id=${encodeURIComponent(clientId)}&media=still`);
+    const data = await get(`${swapApi}/library?client_id=${encodeURIComponent(clientId)}&media=still`);
     if (clientId !== state.clientId) return;
     state.library = data.items || [];
     const keep = new Set(state.library.map((item) => item.id));
@@ -552,7 +552,7 @@ async function createNextSceneWithTrocr() {
   paintProps();
   setStatus(`Trocr está criando a imagem ${nextIndex} da sequência…`);
   try {
-    const data = await post("/parametros/api/format-lab/swap", {
+    const data = await post(`${swapApi}`, {
       client_id: state.clientId,
       reference,
       base_id: base.version_id || String(base.id || "").split(":").pop(),
@@ -607,8 +607,8 @@ async function loadClips(opts = {}) {
   const clientId = state.clientId;
   try {
     const results = await Promise.allSettled([
-      get(`/parametros/api/format-lab/swap/library?client_id=${encodeURIComponent(clientId)}&media=video`),
-      get(`/parametros/api/format-lab/studio/clips?client_id=${encodeURIComponent(clientId)}`),
+      get(`${swapApi}/library?client_id=${encodeURIComponent(clientId)}&media=video`),
+      get(`${studioApi}/clips?client_id=${encodeURIComponent(clientId)}`),
     ]);
     if (clientId !== state.clientId) return;
     state.clips = results.flatMap(result => result.status === 'fulfilled' ? result.value.items || [] : []).filter(item => item.video_url);
@@ -846,7 +846,7 @@ async function takeFile(file) {
   const reader = new FileReader();
   reader.onload = async () => {
     try {
-      const item = await post("/parametros/api/format-lab/swap/library", {
+      const item = await post(`${swapApi}/library`, {
         client_id: clientId || undefined,
         image: String(reader.result || ""),
         name: pieceName(file.name),
@@ -920,7 +920,7 @@ async function removeClip(id) {
   if (!window.confirm("Apagar este clipe?")) return;
   try {
     if (id.startsWith('upload:')) {
-      await post('/parametros/api/format-lab/studio/archive-clip', {client_id:state.clientId, clip_id:id});
+      await post(`${studioApi}/archive-clip`, {client_id:state.clientId, clip_id:id});
     } else {
       await deleteLibrary({client_id:state.clientId || undefined,id,media:'video'});
     }
@@ -981,7 +981,7 @@ async function buildScript() {
   const version = state.requestVersion;
   const clientId = state.clientId;
   try {
-    const data = await post("/parametros/api/format-lab/swap/animate/script", {
+    const data = await post(`${swapApi}/animate/script`, {
       client_id: state.clientId || undefined,
       duration: state.duration,
       scene_ids: state.scenes.map((item) => item.id),
@@ -1056,7 +1056,7 @@ async function suggestNarration(mode) {
   buttons.forEach((button) => { if (button) button.disabled = true; });
   if (status) status.textContent = "Lendo a peça e preparando uma sugestão…";
   try {
-    const result = await post("/parametros/api/format-lab/studio/agent/narration", {
+    const result = await post(`${studioApi}/agent/narration`, {
       client_id: state.clientId,
       duration: state.duration,
       creative: {

@@ -1,8 +1,8 @@
 import {mediaTask,awaitMediaTask} from './media-tasks.js';
 import {state} from './state.js';
-import {post} from './api.js';
+import {post, studioApi} from './api.js?v=2';
 import {csrf} from '../trocr/animate-utils.js';
-const base='/parametros/api/format-lab/studio';
+const base=studioApi;
 const $=id=>document.getElementById(id);
 let request=0, info=null, volume=1, musicVolume=.35;
 function peaks(id, values=[]) {

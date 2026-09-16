@@ -2210,6 +2210,9 @@ def register_studio_product_routes(blueprint):
         endpoint="studio_workspace_brand",
         view_func=lambda: modelagem_desk("design-system"),
     )
+    from .creative_media.studio_delivery import public_player, public_video
+    blueprint.add_url_rule("/public/<token>", endpoint="studio_public_video", view_func=public_player)
+    blueprint.add_url_rule("/public/<token>/video", endpoint="studio_public_video_file", view_func=public_video)
     for endpoint, path in STUDIO_SHORT_ROUTES.items():
         page = endpoint.removeprefix("modelagem_")
         blueprint.add_url_rule(

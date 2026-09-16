@@ -59,13 +59,15 @@ def finish_delivery(root,ident,envelope):
         from PIL import Image
         with Image.open(root/f'{ident}.gif') as image:stream={'width':image.width,'height':image.height}
     if kind=='html':
-        token=delivery['public_token'];public_url=f'/parametros/studio/public/{token}'
+        token=delivery['public_token'];public_url=f'/public/{token}'
         body=player(f"{delivery['brand']} · {delivery['creative']}",delivery['origin']+public_url+'/video')
         (root/f'{ident}.html').write_text(body,encoding='utf-8')
         public_root=media_root()/'studio-public';public_root.mkdir(parents=True,exist_ok=True)
         _write(public_root/f'{token}.json',{'scope':root.name,'id':ident})
     return {'filename':filename(delivery,stream['width'],stream['height']),'format':kind,
-            'download_url':f'/parametros/api/format-lab/studio/exports/{ident}/content?client_id={delivery["client_id"]}&format={kind}',
+            # The worker has no request host. The browser builds the private
+            # download URL from its own product API root.
+            'download_url':'',
             'public_url':public_url}
 
 

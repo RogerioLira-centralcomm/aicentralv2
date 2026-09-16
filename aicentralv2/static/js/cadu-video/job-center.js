@@ -1,6 +1,6 @@
 import {toSrt} from './composition.js';
 import {enablePush} from './push.js';
-import {get} from './api.js';
+import {get,studioApi} from './api.js?v=2';
 import {state} from './state.js';
 import {showJobs,showProcessing,updateProcessing,notify} from '../media-progress.js';
 let jobs=[],exports=[],tasks=[],timer,request=0,brand='',initialized=false;
@@ -22,7 +22,7 @@ export async function resetJobCenter(){
 async function refresh(initial=false){
   const ticket=++request,client=brand;
   try{
-    const result=await get(`/parametros/api/format-lab/studio/jobs?client_id=${encodeURIComponent(client)}`);
+    const result=await get(`${studioApi}/jobs?client_id=${encodeURIComponent(client)}`);
     if(ticket!==request||brand!==client||state.clientId!==client)return;
     jobs=result.items||[];exports=result.exports||[];tasks=result.tasks||[];
     for(const job of jobs)updateProcessing(job);

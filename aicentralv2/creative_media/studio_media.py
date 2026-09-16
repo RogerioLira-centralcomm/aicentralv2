@@ -7,9 +7,9 @@ import uuid
 from pathlib import Path
 
 from flask import request, send_file, session
-from ..auth import admin_required_api
+from ..creative_format_lab.studio_auth import studio_or_admin_required_api
 from ..creative_format_lab.swap_csrf import trocr_csrf_required
-from .studio import _scope, _record, _write, probe, waveform_levels
+from .studio import _api_root, _scope, _record, _write, probe, waveform_levels
 
 
 def public_sounds():
@@ -25,7 +25,7 @@ def resolve_clip(root, client, ident, service):
     import re
     rows = service.load_format_lab_swap_library({'client_id': client, 'media': 'video'}, session.get('user_id'))
     clip = next((r for r in rows.get('items', []) if r.get('id') == ident), None)
-    match = re.fullmatch(r'/parametros/api/media/assets/([\w-]+)/content', str((clip or {}).get('video_url') or ''))
+    match = re.fullmatch(r'/(?:parametros|studio)/api/media/assets/([\w-]+)/content', str((clip or {}).get('video_url') or ''))
     if not match:
         raise ValueError('Abra um vídeo desta marca antes de editar.')
     source, _ = service.serve_media_asset(match.group(1))
@@ -49,7 +49,7 @@ def inspect_clip(source, root, client, ident):
         at = duration * index / 8
         dest = root / f'frame-{key}-{index}.jpg'
         subprocess.run(['ffmpeg','-y','-v','error','-ss',str(at),'-i',str(source),'-frames:v','1','-vf','scale=192:108:force_original_aspect_ratio=decrease,pad=192:108:(ow-iw)/2:(oh-ih)/2','-threads','1',str(dest)],check=True,capture_output=True,timeout=30)
-        frames.append({'time': round(at, 3), 'url': f'/parametros/api/format-lab/studio/frames/{key}/{index}?client_id={int(client)}'})
+        frames.append({'time': round(at, 3), 'url': f'{_api_root()}/format-lab/studio/frames/{key}/{index}?client_id={int(client)}'})
     levels=waveform_levels(source) if 'audio' in streams else {'overview':[],'medium':[],'detail':[]}
     row = {'duration': duration, 'has_audio': 'audio' in streams, 'frames': frames,
            'waveform': levels['overview'], 'waveform_levels':levels}
@@ -74,7 +74,7 @@ def register(blueprint):
     blueprint.add_url_rule('/api/format-lab/studio/frames/<ident>/<int:index>', view_func=frame_content)
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def clips():
     from ..creative_format_lab.swap_routes import _http
@@ -102,7 +102,7 @@ def clips():
                 raise ValueError('Envie um vídeo de até 5 minutos.')
             subprocess.run(['ffmpeg','-y','-v','error','-protocol_whitelist','file,pipe','-format_whitelist','mov,matroska,webm','-i',str(source),'-map','0:v:0','-map','0:a:0?','-map_metadata','-1','-vf','scale=trunc(iw*sar/2)*2:trunc(ih/2)*2,setsar=1','-c:v','libx264','-preset','veryfast','-crf','20','-pix_fmt','yuv420p','-c:a','aac','-b:a','128k','-movflags','+faststart',str(dest)],check=True,capture_output=True,timeout=240)
             meta = inspect_clip(dest, root, client, 'upload:'+ident)
-            row = {'id':'upload:'+ident,'name':Path(upload.filename or 'Vídeo enviado').name[:120], 'duration':meta['duration'],'has_audio':meta['has_audio'],'video_url':f'/parametros/api/format-lab/studio/clips/{ident}/content?client_id={int(client)}','poster_url':meta['frames'][0]['url'],'created_at':time.time()}
+            row = {'id':'upload:'+ident,'name':Path(upload.filename or 'Vídeo enviado').name[:120], 'duration':meta['duration'],'has_audio':meta['has_audio'],'video_url':f'{_api_root()}/format-lab/studio/clips/{ident}/content?client_id={int(client)}','poster_url':meta['frames'][0]['url'],'created_at':time.time()}
             _write(root / f'clip-{ident}.json', row)
             return ok(row)
         except (subprocess.SubprocessError, OSError) as error:
@@ -113,7 +113,7 @@ def clips():
     return execute(run)
 
 
-@admin_required_api
+@studio_or_admin_required_api
 def clip_content(ident):
     from ..creative_format_lab.swap_routes import _http
     execute, _, _, _ = _http()
@@ -123,7 +123,7 @@ def clip_content(ident):
     return execute(run)
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def inspect():
     from ..creative_format_lab.swap_routes import _http
@@ -135,7 +135,7 @@ def inspect():
     return execute(run)
 
 
-@admin_required_api
+@studio_or_admin_required_api
 def frame_content(ident,index):
     from ..creative_format_lab.swap_routes import _http
     execute, _, _, _ = _http()
@@ -147,7 +147,7 @@ def frame_content(ident,index):
     return execute(run)
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def extract_audio():
     from ..creative_format_lab.swap_routes import _http
@@ -161,13 +161,13 @@ def extract_audio():
         ident=uuid.uuid4().hex; dest=root / f'{ident}.m4a'
         subprocess.run(['ffmpeg','-y','-v','error','-i',str(source),'-map','0:a:0','-vn','-c:a','aac','-b:a','128k',str(dest)],check=True,capture_output=True,timeout=90)
         levels=waveform_levels(dest)
-        row={'id':ident,'name':'Áudio extraído do vídeo','category':'voice','duration':duration,'waveform':levels['overview'],'waveform_levels':levels,'url':f'/parametros/api/format-lab/studio/sounds/{ident}?client_id={int(client)}','created_at':time.time()}
+        row={'id':ident,'name':'Áudio extraído do vídeo','category':'voice','duration':duration,'waveform':levels['overview'],'waveform_levels':levels,'url':f'{_api_root()}/format-lab/studio/sounds/{ident}?client_id={int(client)}','created_at':time.time()}
         _write(root / f'sound-{ident}.json',row)
         return ok(row)
     return execute(run)
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def archive_clip():
     from ..creative_format_lab.swap_routes import _http
@@ -183,7 +183,7 @@ def archive_clip():
     return execute(run)
 
 
-@admin_required_api
+@studio_or_admin_required_api
 def job_list():
     from ..creative_format_lab.swap_routes import _http
     from .public import job_payload
@@ -200,7 +200,7 @@ def job_list():
     return execute(run)
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def composition_export():
     from ..creative_format_lab.swap_routes import _http

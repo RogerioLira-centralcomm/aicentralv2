@@ -1,4 +1,5 @@
 import {state} from './state.js';
+import {studioApi} from './api.js?v=2';
 export function deliveryOptions(preview=false){
   const brand=document.getElementById('mcCaduBarClient')?.selectedOptions?.[0]?.textContent?.trim()||`marca_${state.clientId}`;
   return {format:preview?'mp4':document.getElementById('mcStudioExportFormat')?.value||'mp4',brand,creative:document.getElementById('mcVideoName')?.value.trim()||state.name||'criativo'};
@@ -6,7 +7,7 @@ export function deliveryOptions(preview=false){
 export function downloadExport(result,client){
   if(result.status!=='ready')return;
   const key=`cadu-downloaded:${result.id}`;if(sessionStorage.getItem(key))return;
-  const url=result.download_url||`/parametros/api/format-lab/studio/exports/${result.id}/content?client_id=${encodeURIComponent(client)}`;
+  const url=result.download_url||`${studioApi}/exports/${result.id}/content?client_id=${encodeURIComponent(client)}`;
   const anchor=document.createElement('a');anchor.href=url;anchor.download=result.filename||'';anchor.hidden=true;
   document.body.appendChild(anchor);anchor.click();anchor.remove();sessionStorage.setItem(key,'1');
 }

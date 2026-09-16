@@ -6,7 +6,7 @@ import uuid
 import subprocess
 from pathlib import Path
 from flask import request, session, current_app
-from ..auth import admin_required_api
+from ..creative_format_lab.studio_auth import studio_or_admin_required_api
 from ..creative_format_lab.swap_csrf import trocr_csrf_required
 from .studio import _scope, _record, _write, probe, waveform_levels
 
@@ -20,7 +20,7 @@ def register(bp):
     bp.add_url_rule('/api/format-lab/studio/tasks/<ident>',view_func=status)
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def submit():
     from ..creative_format_lab.swap_routes import _http
@@ -70,7 +70,7 @@ def submit():
     return execute(run)
 
 
-@admin_required_api
+@studio_or_admin_required_api
 def status(ident):
     from ..creative_format_lab.swap_routes import _http
     execute,_,ok,_=_http()

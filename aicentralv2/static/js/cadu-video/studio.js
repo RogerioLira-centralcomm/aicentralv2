@@ -8,11 +8,11 @@ import { bindSeedancePanel, paintSeedancePanel } from "./seedance-panel.js";
 import { bindAgentPanel, paintAgentPanel } from "./agent-panel.js";
 import { bindWorkspace, paintTimelinePosition } from "./workspace.js";
 import { state, upsertWorkspaceSpend } from './state.js';
-import { get, post } from './api.js';
+import { get, post, studioApi } from './api.js?v=2';
 import { csrf } from '../trocr/animate-utils.js';
 import { escapeHtml, newId } from './utils.js';
 
-const base = '/parametros/api/format-lab/studio';
+const base = studioApi;
 export const defaultEdit = () => ({layers:[],start:0,end:0,speed:1,original_volume:1,sound_id:'',sound_volume:.35,sound_offset:0,fade_in:0,fade_out:0,loop:false,video_fade_in:0,video_fade_out:0,grayscale:false,flip:false});
 const fields = {mcStudioOriginal:'original_volume',mcStudioVolume:'sound_volume',mcStudioOffset:'sound_offset',mcStudioFadeIn:'fade_in',mcStudioFadeOut:'fade_out',mcStudioTrimStart:'start',mcStudioTrimEnd:'end',mcStudioSpeed:'speed',mcStudioLoop:'loop',mcStudioVideoFadeIn:'video_fade_in',mcStudioVideoFadeOut:'video_fade_out',mcStudioGrayscale:'grayscale',mcStudioFlip:'flip'};
 const $ = id => document.getElementById(id);

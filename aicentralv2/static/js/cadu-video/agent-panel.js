@@ -1,4 +1,4 @@
-import { post } from './api.js';
+import { post, studioApi } from './api.js?v=2';
 import { syncAudioMode, workspaceSpendTotals } from './state.js';
 
 const $ = id => document.getElementById(id);
@@ -26,7 +26,7 @@ async function requestPlan(event) {
   try {
     const selected = state.scenes.find(item => item.id === state.selectedSceneId);
     const clip = state.clips.find(item => item.id === state.activeClipId || item.job_id === state.activeClipId);
-    plan = await post('/parametros/api/format-lab/studio/agent/plan', {
+    plan = await post(`${studioApi}/agent/plan`, {
       client_id: state.clientId,
       message,
       context: {

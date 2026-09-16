@@ -5,7 +5,7 @@ import json
 import time
 from urllib.parse import urlsplit
 from flask import request,session,send_file,current_app
-from ..auth import admin_required_api
+from ..creative_format_lab.studio_auth import studio_or_admin_required_api
 from ..creative_format_lab.swap_csrf import trocr_csrf_required
 from .studio import _scope,_write
 from .storage import media_root
@@ -49,12 +49,12 @@ def register(bp):
 
 def service_worker():
     response=send_file(current_app.static_folder+'/js/studio-notifications.js',mimetype='application/javascript',max_age=0)
-    response.headers['Service-Worker-Allowed']='/parametros/'
+    response.headers['Service-Worker-Allowed']='/studio/' if request.path.startswith('/studio/') else '/parametros/'
     response.headers['Cache-Control']='no-cache'
     return response
 
 
-@admin_required_api
+@studio_or_admin_required_api
 @trocr_csrf_required
 def subscription():
     from ..creative_format_lab.swap_routes import _http

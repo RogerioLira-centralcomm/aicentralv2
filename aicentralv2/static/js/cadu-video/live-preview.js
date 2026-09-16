@@ -1,6 +1,7 @@
 import {drawCaptions} from './caption-style.js';
 import {state} from './state.js';
 import {valuesAt} from './keyframes.js';
+import {studioApi} from './api.js?v=2';
 const $=id=>document.getElementById(id);
 let canvas,bar,playing=false,at=0,last=0,frame=0,revision='',media=new Map(),music=new Map(),active=false;
 const source=row=>(row.kind==='image'?state.library:state.clips).find(r=>r.id===row.asset_id);
@@ -82,7 +83,7 @@ function draw(){
   for(const [id,value] of media)if(value.pause&&!used.has(id))value.pause();
   for(let i=0;i<c.audio.length;i++){
     const track=c.audio[i],time=at-track.start,on=time>=0&&time<track.duration;
-    let audio=music.get(i);if(!audio){const sound=state.sounds?.find(r=>r.id===track.sound_id);audio=new Audio(sound?.url||`/parametros/api/format-lab/studio/sounds/${encodeURIComponent(track.sound_id)}?client_id=${encodeURIComponent(state.clientId)}`);audio.preload='auto';music.set(i,audio);}
+  let audio=music.get(i);if(!audio){const sound=state.sounds?.find(r=>r.id===track.sound_id);audio=new Audio(sound?.url||`${studioApi}/sounds/${encodeURIComponent(track.sound_id)}?client_id=${encodeURIComponent(state.clientId)}`);audio.preload='auto';music.set(i,audio);}
     let offset=track.in+Math.max(0,time);if(track.loop&&Number.isFinite(audio.duration)&&audio.duration>0)offset%=audio.duration;
     const gain=Math.min(1,track.fade_in?Math.max(0,time)/track.fade_in:1,track.fade_out?Math.max(0,track.duration-time)/track.fade_out:1);
     sync(audio,offset,1,track.muted||(hasSolo&&!track.solo)?0:track.volume*gain*gainAt(track.gain_points,time),on);

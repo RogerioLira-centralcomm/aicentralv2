@@ -1,6 +1,6 @@
-import {get,post} from './api.js';
+import {get,post,studioApi} from './api.js?v=2';
 import {showProcessing,updateProcessing} from '../media-progress.js';
-const base='/parametros/api/format-lab/studio';
+const base=studioApi;
 export async function awaitMediaTask(row,client,{overlay=false,title='Preparando mídia',signal}={}){
   if(!row?.kind)return row; // Compatibility with cached inspections and older servers.
   const id=`task:${row.id}`;

@@ -1,4 +1,4 @@
-import { get } from './api.js';
+import { get, studioApi } from './api.js?v=2';
 const $=id=>document.getElementById(id);
 let state, commit, capabilities=null;
 export function bindSeedancePanel(project, changed, refresh){
@@ -14,7 +14,7 @@ async function loadCapabilities(){
   $('mcStudioCapabilities').textContent='Consultando parâmetros disponíveis…';
   $('mcStudioCapabilitiesRetry').hidden=true;
   try{
-    const data=await get('/parametros/api/format-lab/studio/capabilities');
+    const data=await get(`${studioApi}/capabilities`);
     if(!data.model||!Array.isArray(data.durations)||!data.qualities)throw new Error('Parâmetros indisponíveis.');
     capabilities=data;
     $('mcStudioModel').textContent=data.model;

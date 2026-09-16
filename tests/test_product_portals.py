@@ -282,7 +282,7 @@ class ProductPortalsTest(TestCase):
     def test_product_switch_is_compact_and_keeps_workspace_first(self):
         client = _app().test_client()
         html = client.get("/workspace/", headers={"Host": "workspace.centralcomm.media"}).get_data(as_text=True)
-        labels = ("Workspace", "Planner", "Studio", "Connect", "Skills")
+        labels = ("Workspace", "Planner", "Studio", "Reports", "Skills")
         menu = html.split('aria-label="Produtos Cadu">', 1)[1].split("</nav>", 1)[0]
         offsets = [menu.index(f">{label}</span>") for label in labels]
         self.assertEqual(offsets, sorted(offsets))

@@ -76,7 +76,7 @@ class CaduSkillsTest(TestCase):
         self.assertIn("Nunca prometa gerar", script["instructions"])
 
     def test_official_family_is_installable_and_has_catalogs(self):
-        self.assertEqual(len(CADU_OFFICIAL_SKILLS), 4)
+        self.assertEqual(len(CADU_OFFICIAL_SKILLS), 5)
         for skill in CADU_OFFICIAL_SKILLS:
             self.assertTrue(skill["installable"])
             self.assertTrue(Path(skill["path"]).is_file())
@@ -97,16 +97,16 @@ class CaduSkillsTest(TestCase):
         response = client.get("/skills/")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("Top 10 para experimentar", html)
+        self.assertIn("Cadu Gold", html)
         self.assertIn("Família oficial Cadu", html)
-        self.assertIn("Mais 90 referências", html)
-        self.assertIn("Produção de vídeos curtos", html)
+        self.assertIn("Personalizar por projeto", html)
         self.assertIn("Cadu Skills", html)
         self.assertIn('class="cadu-skills-top-nav"', html)
-        self.assertNotIn('class="cadu-skills-sidebar"', html)
+        self.assertIn('class="sk-catalog-sidebar"', html)
+        self.assertIn("Você recebe", html)
         detail = client.get("/skills/cadu-media-planning")
         self.assertEqual(detail.status_code, 200)
-        self.assertIn("agente de teste", detail.get_data(as_text=True).lower())
+        self.assertIn("Baixar ZIP da skill", detail.get_data(as_text=True))
         self.assertEqual(client.get("/skills/assets/skills-icon-64.png").status_code, 200)
 
     @mock.patch("aicentralv2.cadu_skills.routes.credit_position", return_value={"configured": True, "available": 18})
@@ -123,7 +123,7 @@ class CaduSkillsTest(TestCase):
         self.assertIn("18", html)
         self.assertIn("Explorar catálogo", html)
         response = client.get("/skills/?catalog=1")
-        self.assertIn("Top 10 para experimentar", response.get_data(as_text=True))
+        self.assertIn("Uma família curta, diferenças claras.", response.get_data(as_text=True))
 
     @mock.patch("aicentralv2.cadu_skills.routes.record_event", return_value=True)
     def test_official_skill_download_is_a_complete_zip(self, _event):
@@ -144,14 +144,11 @@ class CaduSkillsTest(TestCase):
         detail = client.get("/skills/cadu-media-planning")
         self.assertEqual(detail.status_code, 200)
         html = detail.get_data(as_text=True)
-        self.assertIn("Instale em 2 passos", html)
+        self.assertIn("Por que não um agente genérico?", html)
         self.assertIn("/skills/install/cadu-media-planning", html)
-        self.assertIn("Baixar ZIP para GPT/Codex", html)
-        self.assertIn("Baixar ZIP para Claude", html)
-        self.assertIn("O que vem no pacote", html)
-        self.assertIn('class="sk-page-index"', html)
-        self.assertIn('data-page-position>01 / 06', html)
-        self.assertIn('href="#experimentar" data-page-link', html)
+        self.assertIn("Baixar ZIP da skill", html)
+        self.assertIn("Personalizar para cliente ou projeto", html)
+        self.assertIn("Uso real em planejamento e produção.", html)
 
         install = client.get("/skills/install/cadu-media-planning")
         self.assertEqual(install.status_code, 200)
@@ -213,20 +210,16 @@ class CaduSkillsTest(TestCase):
         self.assertFalse(consultation_state(3, is_client=True)["show_ecosystem_invite"])
 
     @mock.patch("aicentralv2.cadu_skills.routes.record_event", return_value=True)
-    def test_public_skill_presents_cadu_family_after_second_preview(self, _event):
+    def test_public_skill_is_an_editorial_installation_page(self, _event):
         client = _app().test_client()
-        with client.session_transaction() as sess:
-            sess["skill_preview_cadu-media-planning"] = 2
         response = client.get("/skills/cadu-media-planning")
         html = response.get_data(as_text=True)
-        self.assertIn('data-stage="discover"', html)
-        self.assertIn("Para agências", html)
-        self.assertIn("Para produtores de conteúdo", html)
-        self.assertIn("Para clientes finais", html)
-        self.assertIn("Cadu Places", html)
-        # A família exibida no conteúdo usa nove ícones; a navegação compacta
-        # também usa os ícones oficiais das soluções.
-        self.assertGreaterEqual(html.count("-2d.svg"), 9)
+        self.assertIn("Como a skill trabalha", html)
+        self.assertIn("Instalar e adaptar", html)
+        self.assertNotIn("Agente de teste", html)
+        personal = client.get("/skills/personalizar")
+        self.assertEqual(personal.status_code, 200)
+        self.assertIn("Uma skill que já conhece o trabalho.", personal.get_data(as_text=True))
 
     def test_personalized_download_contains_client_project_and_context(self):
         row = {
@@ -257,12 +250,12 @@ class CaduSkillsTest(TestCase):
         self.assertEqual(client.get("/skills/gestao").status_code, 302)
 
     @mock.patch("aicentralv2.cadu_skills.routes.managed_skills", side_effect=lambda rows: [dict(item, views=0, copies=0, installs=0, runs=0, engagements=0, display_rank=item["rank"]) for item in rows])
-    def test_internal_management_is_not_exposed_in_the_skills_product_navigation(self, _managed):
+    def test_internal_management_is_exposed_only_to_administrators_in_catalog_navigation(self, _managed):
         client = _app().test_client()
         with client.session_transaction() as session:
             session.update(user_id=7, user_type="admin", cliente_id=12)
         html = client.get("/skills/?catalog=1").get_data(as_text=True)
-        self.assertNotIn('href="/skills/gestao"', html)
+        self.assertIn('href="/skills/gestao"', html)
 
     @mock.patch("aicentralv2.cadu_skills.routes.all_cadu_skills", return_value=[CADU_MEDIA_PLANNING])
     def test_agent_desk_lives_inside_cadu_skills(self, _skills):

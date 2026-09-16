@@ -7,6 +7,30 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 
+CADU_GOLD = {
+    "slug": "cadu-gold",
+    "name": "Cadu Gold — estratégia à entrega",
+    "category": "Método completo",
+    "summary": "A skill completa para transformar um briefing em decisão, plano, públicos, canais e especificação de produção.",
+    "description": "Um especialista-orquestrador para quem precisa fechar a campanha inteira com o mesmo contexto, as mesmas premissas e um rastro claro de validações.",
+    "credit_cost": 3,
+    "model": "openai/gpt-4o-mini",
+    "featured": True,
+    "rank": 0,
+    "status": "published",
+    "is_testable": False,
+    "image_url": "/static/images/cadu/skills/catalog-hero-media-intelligence.png",
+    "instructions": "Você é o Cadu Gold. Congele briefing, objetivo, público, praça, período, verba, ativos e restrições. Produza uma tese, mix, canais, audiências, formatos, KPIs, riscos e validações como uma decisão única. Diferencie fato, evidência, premissa e pendência. Não invente preço, alcance, disponibilidade ou performance.",
+    "path": ROOT / "gold" / "SKILL.md",
+    "installable": True,
+    "official": True,
+    "tagline": "Uma campanha inteira, um contexto só, nenhuma decisão desconectada.",
+    "capabilities": ("Tese e plano de mídia", "Canais, audiências e formatos compatíveis", "Especificação de produção", "Auditoria de riscos e pendências"),
+    "use_steps": ("Envie o briefing e as restrições confirmadas.", "Peça a decisão completa ou uma auditoria do plano atual.", "Valide apenas as pendências comerciais indicadas."),
+    "outputs": ("Campaign Snapshot", "Estratégia e mix", "Matriz de decisões", "Checklist de validação"),
+    "prompts": ("Organize esta campanha do briefing à especificação de produção.",),
+}
+
 CADU_MEDIA_PLANNING = {
     "slug": "cadu-media-planning",
     "name": "Planejamento de mídia Cadu",
@@ -144,7 +168,7 @@ CADU_OFFICIAL_SPECS = (
     },
 )
 
-CADU_OFFICIAL_SKILLS = (CADU_MEDIA_PLANNING, *CADU_OFFICIAL_SPECS)
+CADU_OFFICIAL_SKILLS = (CADU_GOLD, CADU_MEDIA_PLANNING, *CADU_OFFICIAL_SPECS)
 
 DIRECTORY_ROWS = """
 short-video-production|Produção de vídeos curtos|Vídeo e áudio

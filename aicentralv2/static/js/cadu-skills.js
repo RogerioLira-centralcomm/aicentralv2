@@ -9,25 +9,57 @@ document.addEventListener('DOMContentLoaded', () => {
     const copied = document.execCommand('copy'); field.remove();
     if (!copied) throw new Error('copy unavailable');
   };
-  const search = document.querySelector('[data-search]');
-  if (search) {
+  const catalog = document.querySelector('[data-catalog]');
+  if (catalog) {
+    const search = catalog.querySelector('[data-search]');
     const input = search.querySelector('input');
-    const filter = () => {
-      const query = normalize(input.value);
-      const active = document.querySelector('[data-categories] .is-active')?.dataset.category || 'all';
-      let visible = 0;
-      document.querySelectorAll('[data-item]').forEach(item => {
-        item.hidden = !(normalize(item.dataset.text).includes(query) && (active === 'all' || item.dataset.category === active));
-        if (!item.hidden) visible += 1;
-      });
-      const empty = document.querySelector('[data-empty]'); if (empty) empty.hidden = visible > 0;
+    const rows = [...catalog.querySelectorAll('[data-item]')];
+    const empty = catalog.querySelector('[data-empty]');
+    const title = catalog.querySelector('[data-catalog-title]');
+    const eyebrow = catalog.querySelector('[data-catalog-eyebrow]');
+    const summary = catalog.querySelector('[data-catalog-summary]');
+    const activeFilter = catalog.querySelector('[data-active-filter]');
+    const activeFilterText = activeFilter.querySelector('span');
+    const labels = {
+      top: ['Biblioteca', 'Skills Cadu', 'Métodos instaláveis para decisões de mídia, público e produção.'],
+      official: ['Inteligência proprietária', 'Família oficial Cadu', 'Especialistas instaláveis que conectam planejamento, canais, audiências e formatos.'],
+      directory: ['Diretório de referências', 'Todas as referências', 'Capacidades disponíveis para consulta e comparação.'],
+      all: ['Catálogo completo', 'Encontre a skill para a tarefa', 'Compare resultados, método e acesso antes de abrir uma skill.'],
     };
-    search.addEventListener('submit', event => { event.preventDefault(); filter(); });
-    input.addEventListener('input', filter);
-    document.querySelector('[data-categories]')?.addEventListener('click', event => {
-      const button = event.target.closest('[data-category]'); if (!button) return;
-      event.currentTarget.querySelectorAll('button').forEach(item => item.classList.toggle('is-active', item === button)); filter();
-    });
+    const params = new URLSearchParams(window.location.search);
+    let state = {query: params.get('q') || '', category: params.get('category') || '', collection: params.get('collection') || 'official'};
+    input.value = state.query;
+    const updateUrl = () => {
+      const next = new URLSearchParams();
+      if (state.query) next.set('q', state.query);
+      if (state.category) next.set('category', state.category);
+      if (state.collection && state.collection !== 'official') next.set('collection', state.collection);
+      const suffix = next.toString(); window.history.replaceState({}, '', `${window.location.pathname}${suffix ? `?${suffix}` : ''}${window.location.hash}`);
+    };
+    const collectionMatch = (row, collection) => collection === 'all' || row.dataset.collection.split(' ').includes(collection);
+    const render = () => {
+      const query = normalize(state.query); let visible = 0;
+      rows.forEach(row => {
+        const showRow = normalize(row.dataset.text).includes(query) && (!state.category || row.dataset.category === state.category) && collectionMatch(row, state.collection);
+        row.hidden = !showRow; if (showRow) visible += 1;
+      });
+      catalog.querySelectorAll('[data-collection-link]').forEach(link => link.classList.toggle('is-active', link.dataset.collectionLink === state.collection));
+      catalog.querySelectorAll('[data-category-link]').forEach(link => link.classList.toggle('is-active', link.dataset.categoryLink === state.category));
+      const [eyebrowText, titleText, summaryText] = labels[state.collection] || labels.all;
+      eyebrow.textContent = state.category ? 'Categoria' : eyebrowText;
+      title.textContent = state.category || titleText;
+      summary.textContent = state.category ? `${visible} skill${visible === 1 ? '' : 's'} para comparar nesta categoria.` : summaryText;
+      const filterName = state.category || (state.collection !== 'official' ? titleText : '');
+      activeFilter.hidden = !filterName; activeFilterText.textContent = filterName;
+      empty.hidden = visible > 0; updateUrl();
+    };
+    search.addEventListener('submit', event => { event.preventDefault(); state.query = input.value.trim(); render(); });
+    input.addEventListener('input', () => { state.query = input.value.trim(); render(); });
+    catalog.querySelectorAll('[data-collection-link]').forEach(link => link.addEventListener('click', () => { state.collection = link.dataset.collectionLink; state.category = ''; render(); }));
+    catalog.querySelectorAll('[data-category-link]').forEach(link => link.addEventListener('click', () => { state.category = link.dataset.categoryLink; state.collection = 'all'; render(); }));
+    catalog.querySelector('[data-active-filter] button')?.addEventListener('click', () => { state = {query: '', category: '', collection: 'official'}; input.value = ''; render(); });
+    catalog.querySelector('[data-clear-search]')?.addEventListener('click', () => { state = {query: '', category: '', collection: 'all'}; input.value = ''; render(); });
+    render();
   }
   const pageIndex = document.querySelector('[data-page-index]');
   if (pageIndex) {

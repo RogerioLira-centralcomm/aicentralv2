@@ -11,7 +11,7 @@ from flask import Blueprint, Response, abort, current_app, jsonify, redirect, re
 from ..auth import admin_required, admin_required_api, login_required, login_required_api
 from ..services.openrouter_service import OpenRouterError
 from .catalog import (
-    CADU_MEDIA_PLANNING, CADU_OFFICIAL_SKILLS, CATALOG_SKILLS,
+    CADU_GOLD, CADU_MEDIA_PLANNING, CADU_OFFICIAL_SKILLS, CATALOG_SKILLS,
     DEFERRED_SKILLS, DIRECTORY_SKILLS, TOP_SKILLS,
 )
 from .agents import CADU_AGENTS
@@ -39,6 +39,56 @@ def _top_skills():
 
 def all_cadu_skills():
     return all_owned_skills(CATALOG_SKILLS)
+
+
+_OUTPUT_BY_CATEGORY = {
+    "Planejamento de mídia": "Plano de mídia auditável",
+    "Inteligência de mídia": "Shortlist comparativa de canais",
+    "Dados e audiência": "Matriz de audiência e qualidade",
+    "Formatos e criação": "Especificação técnica de produção",
+    "Conteúdo": "Pauta, calendário ou roteiro",
+    "Dados": "Diagnóstico e próximos testes",
+    "Estratégia": "Tese e plano de ação",
+    "Crescimento": "Backlog de experimentos",
+    "Marca": "Regras e decisões de marca",
+    "Mídia": "Recomendação de mídia",
+    "Vendas": "Fluxo de conversão",
+    "Governança": "Checklist de conformidade",
+    "Imagem e design": "Direção visual aplicável",
+    "Vídeo e áudio": "Plano de produção",
+    "Influência": "Matriz de creators",
+    "Relacionamento": "Fluxo de relacionamento",
+    "Operação": "Processo operacional",
+    "Automação": "Sequência automatizável",
+    "Criação": "Fluxo de criação",
+}
+
+
+def _catalog_row(skill, collection):
+    """Add presentation metadata without making catalogue records a second taxonomy."""
+    item = dict(skill)
+    category = item.get("category", "")
+    outputs = item.get("outputs") or ()
+    item["collection"] = collection
+    item["result_label"] = outputs[0] if outputs else _OUTPUT_BY_CATEGORY.get(category, "Resultado orientado à tarefa")
+    item["preview_kind"] = {
+        "Planejamento de mídia": "matrix", "Inteligência de mídia": "comparison",
+        "Dados e audiência": "audience", "Formatos e criação": "checklist",
+        "Conteúdo": "calendar", "Dados": "dashboard",
+    }.get(category, "brief")
+    return item
+
+
+def _article(skill):
+    """Editorial framing for the public installation pages."""
+    kind = _catalog_row(skill, "official")["preview_kind"]
+    difference = {
+        "matrix": "Sem a skill, o plano costuma nascer como uma lista de canais. Com ela, cada escolha tem função, orçamento, KPI e pendência.",
+        "comparison": "Sem a skill, a shortlist depende de memória e preferência. Com ela, canal, público, formato e restrição são comparados lado a lado.",
+        "audience": "Sem a skill, público vira rótulo amplo. Com ela, sinais, funil, origem e qualidade ficam explícitos antes da ativação.",
+        "checklist": "Sem a skill, criação recebe uma recomendação vaga. Com ela, a equipe recebe formato, placement, ativos e critérios de aceite.",
+    }.get(kind, "Sem a skill, agentes generalistas respondem por partes. Com ela, uma mesma decisão preserva contexto, evidência e próximos passos.")
+    return {"visual": kind, "difference": difference, "models": ("GPT e Codex", "Claude", "Agente interno com contexto de projeto")}
 
 
 def _skill(slug):
@@ -155,11 +205,18 @@ def marketplace():
     top_slugs = {item["slug"] for item in top}
     all_skills = all_cadu_skills()
     official_slugs = {item["slug"] for item in CADU_OFFICIAL_SKILLS}
-    official = [item for item in all_skills if item["slug"] in official_slugs]
+    official = sorted((item for item in all_skills if item["slug"] in official_slugs), key=lambda item: item.get("rank", 999))
     owned = [item for item in all_skills if item["slug"] not in top_slugs | official_slugs]
+    directory = list(DEFERRED_SKILLS)
+    catalog_rows = [_catalog_row(item, "official") for item in official] + [_catalog_row(item, "owned") for item in owned]
+    category_counts = {}
+    for item in catalog_rows:
+        category = item.get("category") or "Sem categoria"
+        category_counts[category] = category_counts.get(category, 0) + 1
     return render_template(
         "cadu_skills/marketplace.html", top_skills=top,
-        official_skills=official, cadu_skills=owned, skills=DEFERRED_SKILLS,
+        official_skills=official, cadu_skills=owned, skills=directory,
+        catalog_rows=catalog_rows, category_counts=sorted(category_counts.items()),
         featured=top[0] if top else CADU_MEDIA_PLANNING,
     )
 
@@ -170,11 +227,15 @@ def detail(slug):
     if not skill:
         abort(404)
     record_event(slug, "view", actor=_actor(), user_id=session.get("user_id"))
-    state = consultation_state(session.get(f"skill_preview_{slug}", 0), is_client=bool(session.get("user_id")))
     return render_template(
-        "cadu_skills/detail.html", skill=skill, preview_state=state,
+        "cadu_skills/detail.html", skill=skill, article=_article(skill),
         package=_package_details(skill) if skill.get("installable") else None,
     )
+
+
+@bp.get("/personalizar")
+def personalize():
+    return render_template("cadu_skills/personalize.html", gold=CADU_GOLD)
 
 
 @bp.get("/install/<slug>")

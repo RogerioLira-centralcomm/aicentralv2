@@ -1,50 +1,24 @@
 {% extends 'cadu_skills/base.html' %}
 {% block title %}Skills — Cadu{% endblock %}
 {% block content %}
-<section class="sk-directory-head">
-  <div><p class="sk-kicker">Cadu Skills</p><h1>Um especialista para cada trabalho.</h1><p>As 10 skills principais já estão instaladas no agente de teste. Escolha uma, descreva a tarefa e avalie o método antes de usar créditos no seu espaço.</p></div>
-  <form class="sk-search" data-search><input type="search" placeholder="Buscar nas 100 skills" aria-label="Buscar skills"><button>Buscar</button></form>
-</section>
-{% if official_skills %}
-<section class="sk-library sk-library--directory" aria-labelledby="official-family-title">
-  <header><div><p class="sk-kicker">Inteligência proprietária</p><h2 id="official-family-title">Família oficial Cadu</h2><p>Especialistas instaláveis conectados à base CentralX: planejamento, canais, audiências e formatos.</p></div><span><b>{{ official_skills|length }}</b> skills instaláveis</span></header>
-  <div class="sk-top-grid" data-results>
-    {% for skill in official_skills %}
-    <a class="sk-top-skill" href="{{ url_for('cadu_skills.detail', slug=skill.slug) }}" data-item data-category="{{ skill.category }}" data-text="{{ skill.name }} {{ skill.category }} {{ skill.summary }}">
-      <span class="sk-top-rank">CX</span>
-      <img src="{{ skill.image_url }}" alt="">
-      <span class="sk-top-copy"><small>{{ skill.category }}</small><b>{{ skill.name }}</b><em>{{ skill.summary }}</em></span>
-      <span class="sk-top-proof"><b>ZIP</b><small>pacote completo</small></span>
-      <strong>Ver e instalar</strong>
-    </a>
-    {% endfor %}
+<div class="sk-catalog-shell" data-catalog>
+  <aside class="sk-catalog-sidebar" aria-label="Navegação do catálogo">
+    <section><p>Biblioteca</p><a href="#familia" data-collection-link="official">Skills Cadu <span>{{ official_skills|length }}</span></a><a href="{{ url_for('cadu_skills.personalize') }}">Personalizar por projeto</a></section>
+    <section><p>Categorias</p><nav>{% for category, count in category_counts %}<a href="#catalogo" data-category-link="{{ category }}">{{ category }} <span>{{ count }}</span></a>{% endfor %}</nav></section>
+    <section><p>Acessos</p><a href="{{ url_for('cadu_skills.detail', slug='cadu-gold') }}">Baixar Cadu Gold</a><a href="{{ url_for('cadu_skills.agents') }}">Modelos e agentes</a>{% if session.get('user_id') %}<a href="{{ url_for('cadu_skills.marketplace') }}">Workspace</a><a href="{{ url_for('cadu_skills.studio') }}">Minhas skills</a>{% endif %}{% if session.get('user_type') in ['admin', 'superadmin'] %}<a href="{{ url_for('cadu_skills.management') }}">Gestão</a>{% endif %}</section>
+  </aside>
+  <div class="sk-catalog-content">
+    <section class="sk-catalog-hero" id="familia" aria-labelledby="skills-title">
+      <img src="{{ url_for('static', filename='images/cadu/skills/catalog-hero-media-intelligence.png') }}" alt="Documentos de trabalho com matriz de mídia, comparação de canais, audiências e checklist de produção.">
+      <div><p>Cadu Skills · Inteligência proprietária</p><h1 id="skills-title">Uma Gold para o todo. Especialistas para cada decisão.</h1><span>Instale o método completo ou escolha a skill que resolve a etapa crítica da sua campanha.</span><footer><a class="sk-button" href="{{ url_for('cadu_skills.detail', slug='cadu-gold') }}">Conhecer Cadu Gold</a><a class="sk-button sk-button--quiet" href="#fluxo">Comparar especialistas</a></footer></div>
+    </section>
+    <section class="sk-family-flow" id="fluxo" aria-labelledby="family-title"><header><p>Família oficial Cadu</p><h2 id="family-title">Um método que segue a decisão até a execução.</h2></header><div>{% for skill in official_skills %}<a href="{{ url_for('cadu_skills.detail', slug=skill.slug) }}"><span>{{ loop.index }}</span><b>{{ skill.name|replace(' Cadu', '') }}</b><small>{{ skill.outputs[0] if skill.outputs else skill.summary }}</small></a>{% endfor %}</div></section>
+    <section class="sk-catalog-list" id="catalogo" aria-labelledby="catalog-title">
+      <header><div><p data-catalog-eyebrow>Escolha por necessidade</p><h2 id="catalog-title" data-catalog-title>Uma família curta, diferenças claras.</h2><span data-catalog-summary>Compare o resultado, o momento de uso e o tipo de decisão que cada skill organiza.</span></div><form class="sk-search" data-search><input type="search" placeholder="Buscar por tarefa, resultado ou categoria" aria-label="Buscar skills"><button>Buscar</button></form></header>
+      <div class="sk-active-filter" data-active-filter hidden><span></span><button type="button">Limpar filtro</button></div>
+      <div class="sk-visual-table" role="list" data-results>{% for skill in catalog_rows %}{% set is_official = 'official' in skill.collection %}<a role="listitem" class="sk-visual-row" href="{{ url_for('cadu_skills.detail', slug=skill.slug) }}" data-item data-collection="{{ skill.collection }}" data-category="{{ skill.category }}" data-text="{{ skill.name }} {{ skill.category }} {{ skill.summary }} {{ skill.result_label }}"><span class="sk-artifact sk-artifact--{{ skill.preview_kind }}" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="sk-visual-name"><small>{{ skill.category }}</small><b>{{ skill.name }}</b><em>{{ skill.summary }}</em></span><span class="sk-visual-result"><small>Você recebe</small><b>{{ skill.result_label }}</b></span><span class="sk-visual-proof"><b>{{ 'Gold' if skill.slug == 'cadu-gold' else 'Focada' }}</b><small>instalável</small></span><strong>Conhecer e instalar</strong></a>{% endfor %}</div>
+      <div class="sk-empty" data-empty hidden><b>Nenhuma skill encontrada.</b><span>Tente remover um filtro ou buscar outra tarefa.</span><button type="button" data-clear-search>Ver catálogo completo</button></div>
+    </section>
   </div>
-</section>
-{% endif %}
-<section class="sk-library sk-library--directory">
-  <header><div><h2>Top 10 para experimentar</h2><p>Curadas pelo time Cadu, com instruções próprias e execução limitada.</p></div><span><b>10</b> instaladas</span></header>
-  <div class="sk-top-grid" data-results>
-    {% for skill in top_skills %}
-    <a class="sk-top-skill" href="{{ url_for('cadu_skills.detail', slug=skill.slug) }}" data-item data-category="{{ skill.category }}" data-text="{{ skill.name }} {{ skill.category }} {{ skill.summary }}">
-      <span class="sk-top-rank">{{ '%02d'|format(skill.display_rank or skill.rank) }}</span>
-      <img src="{{ skill.image_url }}" alt="">
-      <span class="sk-top-copy"><small>{{ skill.category }}</small><b>{{ skill.name }}</b><em>{{ skill.summary }}</em></span>
-      <span class="sk-top-proof"><b>{{ skill.engagements }}</b><small>interações verificadas</small></span>
-      <strong>Experimentar</strong>
-    </a>
-    {% endfor %}
-  </div>
-  <div class="sk-empty" data-empty hidden>Nenhuma skill encontrada para esta busca.</div>
-  {% if cadu_skills %}
-  <section class="sk-owned-library" aria-labelledby="cadu-owned-title">
-    <header><div><h2 id="cadu-owned-title">Todas as skills do Cadu</h2><p>Skills próprias publicadas também estão instaladas e podem ser testadas.</p></div><span><b>{{ cadu_skills|length }}</b> adicionais</span></header>
-    <div class="sk-table">{% for skill in cadu_skills %}<a class="sk-row" href="{{ url_for('cadu_skills.detail', slug=skill.slug) }}" data-item data-category="{{ skill.category }}" data-text="{{ skill.name }} {{ skill.category }} {{ skill.summary }}"><span class="sk-index">Cadu</span><span><b>{{ skill.name }}</b><small>{{ skill.summary }}</small></span><em>{{ skill.category }}</em><strong>Experimentar</strong></a>{% endfor %}</div>
-  </section>
-  {% endif %}
-  <details class="sk-deferred">
-    <summary><span><b>Mais 90 referências</b><small>Disponíveis para consulta; ainda não instaladas no agente de teste.</small></span><strong>Explorar diretório</strong></summary>
-    <div class="sk-filterline" data-categories><button class="is-active" data-category="all">Todas</button>{% for category in skills|map(attribute='category')|unique %}<button data-category="{{ category }}">{{ category }}</button>{% endfor %}</div>
-    <div class="sk-table" data-deferred-results>{% for skill in skills %}<a class="sk-row" href="{{ url_for('cadu_skills.directory_detail', slug=skill.slug) }}" data-item data-category="{{ skill.category }}" data-text="{{ skill.name }} {{ skill.category }} {{ skill.summary }}"><span class="sk-index">{{ '%03d'|format(loop.index) }}</span><span><b>{{ skill.name }}</b><small>{{ skill.summary }}</small></span><em>{{ skill.category }}</em><strong>Ver referência</strong></a>{% endfor %}</div>
-  </details>
-</section>
+</div>
 {% endblock %}

@@ -13,21 +13,20 @@
     <div class="conversation-composer-shell">
       <textarea id="conversation-message" maxlength="20000" placeholder="{{ 'Digite sua mensagem ou anexe um arquivo…' if chat_authenticated else 'Entre para conversar com o Cadu' }}" disabled></textarea>
       <div class="conversation-toolbar">
-        <button type="button" id="conversation-attach" disabled aria-describedby="conversation-upload-help" aria-label="Anexar arquivo" title="Anexar arquivo">+</button>
+        <button type="button" id="conversation-attach" disabled aria-describedby="conversation-upload-help" aria-label="Anexar arquivo" title="Anexar arquivo"><span aria-hidden="true">+</span></button>
         <input id="conversation-file-input" type="file" multiple hidden accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.txt,.csv,.md,.json,.docx,.xlsx,.pptx">
       {% if chat_authenticated %}
       <label for="conversation-mode">Modo do Cadu</label>
       <select id="conversation-mode" disabled><option value="ideias">Carregando modos…</option></select>
-      <button type="button" id="conversation-mode-edit" disabled aria-label="Personalizar modo" title="Personalizar modo">•••</button>
+        <button type="button" id="conversation-mode-edit" disabled aria-label="Personalizar modo" title="Personalizar modo"><span aria-hidden="true">•••</span></button>
       <div class="conversation-resources">
         <button type="button" id="conversation-stop" hidden>Interromper</button>
-        <button type="submit" id="conversation-send" class="family-primary" disabled aria-label="Enviar mensagem" title="Enviar mensagem">↑</button>
+        <button type="submit" id="conversation-send" class="family-primary" disabled aria-label="Enviar mensagem" title="Enviar mensagem"><span aria-hidden="true">↑</span></button>
       </div>
       {% else %}<a class="family-primary" href="{{ login_url }}">Entrar para enviar</a>{% endif %}
       </div>
     </div>
-    <p class="conversation-shortcuts">Enter envia · Shift+Enter quebra a linha</p>
-    <p id="conversation-upload-help">Até 3 arquivos de 15 MB. Imagens, PDF ou texto. Arquivos serão enviados ao Dify somente ao enviar a mensagem.</p>
+    <div class="conversation-composer-notes"><p class="conversation-shortcuts">Enter envia <span aria-hidden="true">·</span> Shift+Enter cria uma linha</p><p id="conversation-upload-help">Até 3 arquivos de 15 MB. Imagens, PDF, texto e Office.</p></div>
   </form>
   <p id="conversation-status" role="status"></p>
   {% if chat_authenticated %}<dialog id="conversation-mode-dialog" aria-labelledby="conversation-mode-dialog-title"><form id="conversation-mode-form"><header><div><h2 id="conversation-mode-dialog-title">Personalizar modo</h2><p id="conversation-mode-dialog-description">Estas instruções valem somente para a sua conta.</p></div></header><label for="conversation-mode-prompt">Instruções para o Cadu</label><textarea id="conversation-mode-prompt" maxlength="3000" required></textarea><footer><button type="button" id="conversation-mode-reset">Restaurar padrão</button><span></span><button type="button" id="conversation-mode-cancel">Cancelar</button><button type="submit" class="family-primary">Salvar</button></footer></form></dialog>{% endif %}

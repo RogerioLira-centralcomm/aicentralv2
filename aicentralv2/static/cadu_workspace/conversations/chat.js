@@ -374,7 +374,9 @@
         canReplay = capabilities.replay === true;
         attachments.configure({...capabilities, attachments: canSend && capabilities.attachments === true});
         initialized = true;
-        status.textContent = !canSend ? 'Envio indisponível. Você pode consultar seu histórico.' : mode.disabled ? 'Nenhum modo disponível. Consulte o histórico.' : '';
+        status.textContent = !canSend
+          ? (capabilities.reason || 'Envio indisponível. Você pode consultar seu histórico.')
+          : mode.disabled ? 'Nenhum modo disponível. Consulte o histórico.' : '';
       } catch (error) {
         canSend = false; mode.disabled = true; attachments.configure({attachments:false});
         status.textContent = unavailableMessage('Não foi possível iniciar as conversas', error);

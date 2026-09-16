@@ -559,13 +559,27 @@ def conversation_run_events(run_id):
 @bp.get('/api/conversations/capabilities')
 def conversation_capabilities():
     from ..cadu_workspace.conversations.attachments import ACCEPT, MAX_BYTES
+    from . import dify
     context.identity()
     selected = context.resolve()
     enabled = bool(current_app.config.get('CADU_FAMILY_CHAT_ENABLED', False)
                    and current_app.config.get('CADU_FAMILY_WRITES_ENABLED', False)
                    and selected['role'] in ('admin', 'member'))
+    reason = ''
+    if not current_app.config.get('CADU_FAMILY_WRITES_ENABLED', False):
+        reason = 'As conversas estão em modo de consulta enquanto as alterações do Workspace são preparadas.'
+    elif not current_app.config.get('CADU_FAMILY_CHAT_ENABLED', False):
+        reason = 'As conversas ainda não foram habilitadas nesta instalação.'
+    elif selected['role'] not in ('admin', 'member'):
+        reason = 'Sua conta não tem permissão para iniciar conversas neste espaço.'
+    else:
+        try:
+            dify.settings()
+        except dify.DifyUnavailable:
+            enabled = False
+            reason = 'A conexão do Cadu está sendo configurada. Você ainda pode consultar suas conversas anteriores.'
     return jsonify(send=enabled, attachments=enabled, replay=bool(current_app.config.get('CADU_CHAT_WORKER_ENABLED', False)), max_files=3, max_bytes=MAX_BYTES,
-                   accept=ACCEPT, external_tools=False)
+                   accept=ACCEPT, external_tools=False, reason=reason)
 
 
 @bp.post('/api/conversations/preflight')

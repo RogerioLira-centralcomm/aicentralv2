@@ -169,6 +169,23 @@ def project_sources(project_context):
     return sources
 
 
+def include_institutional_context(project_context, query):
+    """Attach only published Base Cadu excerpts; drafts never reach a chat."""
+    try:
+        from ...cadu_skills import knowledge
+        entries = knowledge.context(query)
+    except Exception:
+        entries = []
+    if not entries:
+        return project_context
+    try:
+        packet = json.loads(project_context) if project_context else {}
+    except (TypeError, ValueError):
+        packet = {}
+    packet['base_centralcomm_publicada'] = entries
+    return json.dumps(packet, ensure_ascii=False)[:24000]
+
+
 def prepare(data, selected):
     dify.settings()  # Fail before storing a turn if the provider is not configured.
     user = context.identity()
@@ -204,7 +221,8 @@ def prepare(data, selected):
                               ([str(value) for value in upload_ids], user['id'], selected['client_id'])) if upload_ids else []
     if len(uploads) != len(set(str(value) for value in upload_ids)):
         abort(403, description='Um arquivo não pertence a este cliente ou usuário.')
-    project_context = project_knowledge_context(project_ref, brand_ref, selected['client_id'], query)
+    project_context = include_institutional_context(
+        project_knowledge_context(project_ref, brand_ref, selected['client_id'], query), query)
     old = repository.conversation_messages(user['id'], selected['client_id'], conversation_id) if existing else []
     history = history_context(old or [])
     conn = repository.get_db()

@@ -528,6 +528,33 @@ def management():
     )
 
 
+@bp.get('/gestao/base')
+@admin_required
+def knowledge_management():
+    from . import knowledge
+    return render_template('cadu_skills/knowledge.html', documents=knowledge.documents())
+
+
+@bp.post('/api/gestao/base')
+@admin_required_api
+def knowledge_save():
+    from . import knowledge
+    try:
+        return jsonify({'success': True, **knowledge.save(request.get_json(silent=True) or {}, int(session['user_id']))})
+    except (ValueError, TypeError) as exc:
+        return jsonify({'success': False, 'error': str(exc)}), 400
+
+
+@bp.post('/api/gestao/base/<int:document_id>/publicar')
+@admin_required_api
+def knowledge_publish(document_id):
+    from . import knowledge
+    try:
+        return jsonify(success=True, version=knowledge.publish(document_id, int(session['user_id'])))
+    except ValueError as exc:
+        return jsonify(success=False, error=str(exc)), 400
+
+
 @bp.post("/api/gestao/<slug>")
 @admin_required_api
 def management_update(slug):

@@ -5,7 +5,7 @@
 <main class="skills-management" data-skills-management>
   <header class="skills-management__head">
     <div><p>Cadu Skills</p><h1>Gestão das skills próprias</h1><span>As 10 primeiras ficam em destaque e todas as skills próprias publicadas do Cadu podem ser testadas. As outras {{ deferred_count }} são referências externas.</span></div>
-    <a class="cx-btn cx-btn-ghost" href="{{ url_for('cadu_skills.marketplace') }}" target="_blank" rel="noreferrer">Abrir produto público</a>
+    <div><a class="cx-btn cx-btn-ghost" href="{{ url_for('cadu_skills.knowledge_management') }}">Base Cadu</a> <a class="cx-btn cx-btn-ghost" href="{{ url_for('cadu_skills.marketplace') }}" target="_blank" rel="noreferrer">Abrir produto público</a></div>
   </header>
   <section class="skills-metrics" aria-label="Resumo de uso">
     <div><span>Visualizações</span><strong>{{ totals.views }}</strong></div>

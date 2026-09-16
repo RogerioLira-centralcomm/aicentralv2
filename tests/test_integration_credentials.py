@@ -102,6 +102,17 @@ class IntegrationCredentialsServiceTest(unittest.TestCase):
         self.assertNotIn("dify-env-test", str(summary))
         self.assertNotIn("api_key", summary)
 
+    def test_dify_summary_uses_live_environment_when_database_secret_is_unreadable(self):
+        self.app.config["CADU_DIFY_API_KEY"] = "dify-env-test"
+        self.app.config["CADU_DIFY_BASE_URL"] = "https://dify.example/v1"
+        old_cipher = Fernet(Fernet.generate_key()).encrypt(b'{"api_key":"old-key"}').decode()
+        record = {"provider": "dify", "public_config": {"base_url": "https://api.dify.ai/v1"}, "encrypted_secret": old_cipher, "status": "active"}
+        with patch("aicentralv2.db.obter_credencial_integracao", return_value=record):
+            summary = integration_credentials.get_summary("dify")
+        self.assertEqual(summary["source"], "environment")
+        self.assertTrue(summary["configured"])
+        self.assertFalse(summary["unreadable_secret"])
+
     def test_brevo_summary_uses_environment_until_saved(self):
         self.app.config["BREVO_API_KEY"] = "brevo-env-test"
         with patch("aicentralv2.db.obter_credencial_integracao", return_value=None):

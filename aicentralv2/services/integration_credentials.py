@@ -192,6 +192,17 @@ def get_configuration(provider, include_secrets=False):
             unreadable = bool(record.get("encrypted_secret"))
         source = "database"
         status = record.get("status") or "active"
+        # A rotated database encryption key must not make a working deployment
+        # look unconfigured. When the server still has a complete provider
+        # configuration in its protected environment, it is the live fallback
+        # used by the runtime and should be reported as such in the console.
+        if unreadable:
+            environment = _environment_configuration(provider)
+            required = PROVIDERS[provider]["required"]
+            if all(environment.get(field) for field in required):
+                config = environment
+                source = "environment"
+                unreadable = False
     else:
         config = _environment_configuration(provider)
         source = "environment"

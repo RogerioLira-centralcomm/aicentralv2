@@ -2,8 +2,10 @@ from pathlib import Path
 from unittest import TestCase, mock
 
 from flask import Flask
+from jinja2 import TemplateNotFound
 
 from aicentralv2.cadu_connect.routes import bp as connect_bp
+from aicentralv2.cadu_connect import routes as connect_routes
 from aicentralv2.cadu_identity.routes import bp as identity_bp
 from aicentralv2.cadu_workspace.routes import bp as workspace_bp
 from aicentralv2.product_domains import ProductSessionInterface, product_url, register_product_host_routing, safe_product_target
@@ -109,6 +111,27 @@ class ProductPortalsTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("Connect", response.get_data(as_text=True))
+
+    def test_connect_falls_back_to_the_operational_screen_when_entry_cannot_render(self):
+        app = _app()
+        client = app.test_client()
+        with client.session_transaction() as sess:
+            sess.update(user_id=7, cliente_id=12, user_name="Apolo")
+
+        original_render = connect_routes.render_template
+
+        def render_with_missing_entry(template, **context):
+            if template == "cadu_connect/entry.html":
+                raise TemplateNotFound(template)
+            return original_render(template, **context)
+
+        with mock.patch("aicentralv2.cadu_connect.routes.campaigns_for_client", return_value=[]), \
+             mock.patch("aicentralv2.cadu_connect.routes.customization_targets", return_value={"clients": [], "projects": []}), \
+             mock.patch("aicentralv2.cadu_connect.routes.render_template", side_effect=render_with_missing_entry):
+            response = client.get("/connect/", headers={"Host": "connect.centralcomm.media"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Conectores MCP", response.get_data(as_text=True))
 
     @mock.patch("aicentralv2.db.obter_gestao_creditos_clientes", return_value=[{
         "monthly_limit": 100, "used": 35, "adjustments": 10,

@@ -94,8 +94,7 @@ def index():
         {"name": "Meta Ads", "scope": "Campanhas, conjuntos, criativos e insights", "kind": "MCP", "state": "Disponível", "tone": "meta"},
         {"name": "Google Ads", "scope": "Busca, vídeo, performance e conversões", "kind": "MCP", "state": "Disponível", "tone": "google"},
     ]
-    return render_template(
-        "cadu_connect/entry.html",
+    page_context = dict(
         account_name=(selected_project or {}).get("name") or "Projetos",
         active_client=active_client,
         is_portfolio_operator=is_portfolio_operator,
@@ -105,6 +104,13 @@ def index():
         connected_count=len([account for account in accounts if account.get("configured")]),
         integrations_url=current_app.config.get("CADU_INTEGRATIONS_URL") or "https://cadu.centralcomm.media/integracoes",
     )
+    try:
+        return render_template("cadu_connect/entry.html", **page_context)
+    except Exception:
+        # Connect não pode indisponibilizar a operação caso a entrada editorial
+        # ainda esteja incompatível com uma dependência do servidor em produção.
+        current_app.logger.exception("Falha ao renderizar a entrada do Connect; usando a tela operacional.")
+        return render_template("cadu_portals/connect.html", **page_context)
 
 
 @bp.post("/api/campaigns/<int:campaign_id>/project")

@@ -198,6 +198,13 @@ class ToolTokenLedger:
                 )
                 row = dict(cursor.fetchone())
             conn.commit()
+            # Notification work happens only after the debit is durable; an
+            # unavailable mail provider must never alter the commercial ledger.
+            try:
+                from .cadu_credit_alerts import notify_balance
+                notify_balance(charge.client_id, usage_id=row.get("id"))
+            except Exception:
+                pass
             return row
         except Exception:
             conn.rollback()

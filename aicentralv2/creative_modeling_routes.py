@@ -156,6 +156,13 @@ def studio_brand_required(view):
 
 
 MC_DESKS = {
+    "criar": {
+        "title": "Criar uma peça",
+        "lead": "O projeto traz o contexto. Você define a direção e leva a peça para o editor.",
+        "panel": "",
+        "studio": False,
+        "page_js": "js/mc-studio-create.js",
+    },
     "preparar": {
         "title": "Roteiro da campanha",
         "lead": "Marca, brief, formato e batidas. O HTML fecha a peça.",
@@ -266,6 +273,7 @@ MC_DESKS = {
 # The Studio owns its host, so product-facing URLs stay short. The older
 # ``/studio/modelagem-criativos/...`` routes remain as compatibility entries.
 STUDIO_SHORT_ROUTES = {
+    "modelagem_criar": "criar",
     "modelagem_trocar": "imagem",
     "modelagem_video": "video",
     "modelagem_camadas": "camadas",
@@ -331,7 +339,8 @@ def modelagem_desk(page):
     # Creative Modeling is a Studio product surface. Every desk uses the same
     # standalone frame, so its navigation and work area never inherit CentralX.
     template = (
-        "cadu_studio/trocr.html" if page == "trocar"
+        "cadu_studio/create.html" if page == "criar"
+        else "cadu_studio/trocr.html" if page == "trocar"
         else "cadu_studio/desk.html"
     )
     return render_template(
@@ -342,7 +351,7 @@ def modelagem_desk(page):
         panel=panel,
         mc_studio_js=spec["studio"],
         mc_page_js=page_js,
-        mc_trocr_csrf=trocr_csrf_token() if page in {"trocar", "video"} else "",
+        mc_trocr_csrf=trocr_csrf_token() if page in {"criar", "trocar", "video"} else "",
         mc_workspace_brands=page == 'marcas' and _configured_product_host('workspace') == (request.host.split(':', 1)[0] or '').lower(),
     )
 

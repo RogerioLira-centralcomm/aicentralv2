@@ -123,9 +123,13 @@ def register_studio_routes(blueprint):
     from .studio_media import register
     register(blueprint)
     blueprint.add_url_rule('/api/format-lab/studio/agent/plan', view_func=studio_agent_plan, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/create/directions', view_func=studio_create_directions, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/agent/narration', view_func=studio_agent_narration, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/projects', view_func=studio_projects, methods=['GET', 'POST'])
     blueprint.add_url_rule('/api/format-lab/studio/projects/<ident>', view_func=studio_project, methods=['GET', 'POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/projects/<ident>/creation-history', view_func=studio_project_creation_history, methods=['GET'])
+    blueprint.add_url_rule('/api/format-lab/studio/projects/<ident>/directions/<direction_id>/select', view_func=studio_project_select_direction, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/projects/<ident>/items', view_func=studio_project_items, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/capabilities', view_func=capabilities)
     blueprint.add_url_rule('/api/format-lab/studio/sounds', view_func=sounds, methods=['GET', 'POST'])
     blueprint.add_url_rule('/api/format-lab/studio/sounds/<ident>', view_func=sound_content)
@@ -145,6 +149,55 @@ def studio_agent_plan():
         data = json_body()
         _scope(data.get('client_id'))
         return ok(plan_request(data.get('message'), data.get('context'), text_callable=chat_completion))
+    return execute(run)
+
+
+@studio_or_admin_required_api
+@trocr_csrf_required
+def studio_create_directions():
+    from ..creative_format_lab.swap_routes import _http
+    from ..services.openrouter_service import chat_completion
+    from . import studio_create
+    execute, json_body, ok, _ = _http()
+
+    def run():
+        data = json_body()
+        client_id = data.get('client_id')
+        _scope(client_id)
+        user_id = session.get('user_id')
+        if not user_id:
+            raise ValueError('Entre novamente para gerar direções.')
+        count = max(1, min(int(data.get('count') or 1), 5))
+        project_id = str(data.get('project_id') or '')
+        if not project_id:
+            raise ValueError('Selecione um projeto antes de gerar direções.')
+        # The balance gate occurs before the provider receives the request.
+        studio_create.assert_available(client_id, count)
+        history = _creation_history()
+        run_id = history.start(project_id, client_id, user_id, data.get('prompt'), data.get('context'), count) if history else None
+        try:
+            if history:
+                history.add_references(project_id, client_id, user_id, data.get('references'))
+            result, provider = studio_create.create(data, chat_completion)
+            charged, remaining = studio_create.charge(
+                provider, int(client_id), int(user_id), result['count'], project_id, run_id,
+            )
+        except Exception as error:
+            if history:
+                history.fail(run_id, project_id, client_id, str(error))
+            raise
+        if history:
+            try:
+                history.complete(run_id, project_id, client_id, user_id, result, charged)
+            except Exception:
+                # A successful provider call and a durable credit charge must
+                # not be presented as a failed creative generation. The run is
+                # kept pending so it can be reconciled without a second debit.
+                logger.exception('Studio direction history completion failed for %s', run_id)
+                result['history_sync_pending'] = True
+        result.update({'charged_credits': charged, 'remaining_credits': remaining})
+        return ok(result)
+
     return execute(run)
 
 
@@ -213,6 +266,69 @@ def studio_project(ident):
     return execute(run)
 
 
+@studio_or_admin_required_api
+def studio_project_creation_history(ident):
+    from ..creative_format_lab.swap_routes import _http
+    execute, _, ok, _ = _http()
+    def run():
+        try:
+            uuid.UUID(ident)
+        except ValueError:
+            raise ValueError('Projeto inválido.')
+        client_id = request.args.get('client_id')
+        _scope(client_id)
+        history = _creation_history()
+        if not history:
+            return ok({'runs': [], 'items': []})
+        return ok(history.history(ident, client_id, request.args.get('limit', 30)))
+    return execute(run)
+
+
+@studio_or_admin_required_api
+@trocr_csrf_required
+def studio_project_select_direction(ident, direction_id):
+    from ..creative_format_lab.swap_routes import _http
+    execute, json_body, ok, _ = _http()
+    def run():
+        try:
+            uuid.UUID(ident)
+            uuid.UUID(direction_id)
+        except ValueError:
+            raise ValueError('Direção inválida.')
+        data = json_body()
+        client_id = data.get('client_id')
+        _scope(client_id)
+        history = _creation_history()
+        if not history:
+            return ok({'id': direction_id})
+        return ok({'id': history.select_direction(direction_id, ident, client_id)})
+    return execute(run)
+
+
+@studio_or_admin_required_api
+@trocr_csrf_required
+def studio_project_items(ident):
+    from ..creative_format_lab.swap_routes import _http
+    execute, json_body, ok, _ = _http()
+    def run():
+        try:
+            uuid.UUID(ident)
+        except ValueError:
+            raise ValueError('Projeto inválido.')
+        data = json_body()
+        client_id = data.get('client_id')
+        _scope(client_id)
+        user_id = session.get('user_id')
+        if not user_id:
+            raise ValueError('Entre novamente para vincular o ativo.')
+        history = _creation_history()
+        if not history:
+            return ok({'id': ''})
+        item_id = history.add_item(ident, client_id, user_id, data.get('kind'), data.get('title'), data.get('asset_url'), data.get('metadata'))
+        return ok({'id': item_id})
+    return execute(run)
+
+
 def _project_store(repository):
     """Use Postgres in the application; retain the file store only for test isolation."""
     from flask import current_app
@@ -228,6 +344,22 @@ def _project_store(repository):
     from .schema import ensure_schema
     ensure_schema(connection)
     return repository.PostgresProjectRepository(connection)
+
+
+def _creation_history():
+    """The shared database is the source of truth for a project timeline.
+
+    The isolated SQLite test mode intentionally keeps the UI usable without
+    writing an unrelated local history database.
+    """
+    if current_app.testing or not current_app.config.get('STUDIO_PROJECTS_POSTGRES', False):
+        return None
+    from .. import db
+    from .schema import ensure_schema
+    from .studio_history import StudioCreationHistory
+    connection = db.get_db()
+    ensure_schema(connection)
+    return StudioCreationHistory(connection)
 
 
 @studio_or_admin_required_api

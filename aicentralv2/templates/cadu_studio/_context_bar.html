@@ -4,23 +4,14 @@
     {% set cadu_active_product = 'studio' %}{% include "cadu/_product_switch.html" %}
   </div>
   <nav class="mc-cadu-nav" aria-label="Navegação do Studio">
-    <a href="{{ studio_url('modelagem_criativos') }}"{% if mc_page == 'hub' %} class="is-current" aria-current="page"{% endif %}>Visão geral</a>
-    <a id="mcCaduStill" href="{{ studio_url('modelagem_trocar') }}"{% if mc_page == 'trocar' %} class="is-current" aria-current="page"{% endif %}>Imagem</a>
-    <a id="mcCaduVideo" href="{{ studio_url('modelagem_video') }}"{% if mc_page == 'video' %} class="is-current" aria-current="page"{% endif %}>Vídeo</a>
-    <a href="{{ product_url('studio', '/analyzer') }}"{% if mc_page == 'analyzer' %} class="is-current" aria-current="page"{% endif %}>Analyzer</a>
+    <a href="{{ studio_url('modelagem_criar') }}"{% if mc_page == 'criar' %} class="is-current" aria-current="page"{% endif %}>Criar</a>
+    <a id="mcCaduStill" href="{{ studio_url('modelagem_trocar') }}"{% if mc_page == 'trocar' %} class="is-current" aria-current="page"{% endif %}>Editar</a>
+    <a id="mcCaduVideo" href="{{ studio_url('modelagem_video') }}"{% if mc_page == 'video' %} class="is-current" aria-current="page"{% endif %}>Vídeos</a>
+    <a href="{{ studio_url('modelagem_criativos') }}#studioLibrary"{% if mc_page == 'hub' %} class="is-current" aria-current="page"{% endif %}>Biblioteca</a>
   </nav>
   <div class="mc-cadu-meta">
-    <details class="mc-cadu-menu studio-tools-menu">
-      <summary aria-label="Abrir ferramentas"{% if mc_page in ('camadas', 'biblioteca', 'bancada', 'historico', 'desdobrar', 'mesa', 'design-system') %} class="is-current"{% endif %}>Ferramentas</summary>
-      <div class="mc-cadu-menu-list">
-        <a href="{{ studio_url('modelagem_camadas') }}"{% if mc_page == 'camadas' %} aria-current="page"{% endif %}><strong>Camadas</strong><span>Organize a composição</span></a>
-        <a href="{{ studio_url('modelagem_biblioteca') }}"{% if mc_page == 'biblioteca' %} aria-current="page"{% endif %}><strong>Formatos</strong><span>Layout, entrega e preview</span></a>
-        <a href="{{ product_url('workspace', '/workspace/app/marcas') }}"><strong>Marca</strong><span>Identidade e regras</span></a>
-        <a href="{{ studio_url('modelagem_bancada') }}"{% if mc_page == 'bancada' %} aria-current="page"{% endif %}><strong>Bancada</strong><span>Explore possibilidades</span></a>
-        <a href="{{ studio_url('modelagem_historico') }}"{% if mc_page == 'historico' %} aria-current="page"{% endif %}><strong>Histórico</strong><span>Retome uma criação</span></a>
-      </div>
-    </details>
-    <label class="mc-cadu-brand" for="mcCaduBarClient"><span class="mc-cadu-brand-label">Marca ativa</span><select id="mcCaduBarClient" aria-label="Marca ativa"><option value="">Carregando marcas…</option></select></label>
+    <label class="mc-cadu-project" for="mcCaduProject"><span>Projeto</span><select id="mcCaduProject" aria-label="Projeto ativo" disabled><option value="">Carregando projetos…</option></select></label>
+    <label class="mc-cadu-brand mc-cadu-brand--internal" for="mcCaduBarClient"><span class="mc-cadu-brand-label">Marca ativa</span><select id="mcCaduBarClient" aria-label="Marca ativa" tabindex="-1"><option value="">Carregando marcas…</option></select></label>
     {% set credit_meter_class = 'mc-cadu-credits' %}{% set credit_meter_href = product_url('workspace', '/workspace/app/creditos') %}{% include 'cadu/_credit_meter.html' %}
     <details class="mc-studio-user">
       <summary aria-label="Abrir conta de {{ session.get('user_name', 'usuário') }}"><span class="mc-studio-account">{% set avatar_photo=(perfil_contato or {}).get('foto_url') or session.get('user_photo_url') %}{% set avatar_badge=(perfil_contato or {}).get('cadu_avatar_badge') %}{% set avatar_alt='Foto de ' ~ session.get('user_name', 'usuário') %}{% include 'cadu/_user_avatar_image.html' %}</span></summary>

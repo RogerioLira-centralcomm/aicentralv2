@@ -1,0 +1,90 @@
+{% extends "cadu_portals/base.html" %}
+{% block title %}Criar — Cadu Studio{% endblock %}
+{% block product_id %}studio{% endblock %}
+{% block navigation %}{% endblock %}
+{% block styles %}
+<meta name="trocr-csrf-token" content="{{ mc_trocr_csrf }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-navigation.css') }}?v=7">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-create.css') }}?v=2">
+{% endblock %}
+{% block content %}
+<main class="studio-create" id="studioCreate" data-api-root="{{ '/studio/api' if request.blueprint in ('studio', 'studio_product') else '/parametros/api' }}">
+  {% include "cadu_studio/_context_bar.html" %}
+  <div class="studio-create__workspace">
+    <aside class="studio-create__controls" aria-label="Direção da peça">
+      <section class="studio-create__project">
+        <p>Contexto do projeto</p>
+        <strong id="studioCreateProject">Escolha um projeto</strong>
+        <span id="studioCreateBrand">A marca e o briefing aparecem aqui.</span>
+      </section>
+
+      <section class="studio-create__identity" aria-labelledby="createIdentityTitle">
+        <h2 id="createIdentityTitle">Identidade aplicada</h2>
+        <div class="studio-create__swatches" id="studioCreateSwatches" aria-label="Paleta da marca"><i></i><i></i><i></i><i></i></div>
+        <div class="studio-create__tokens" id="studioCreateTokens"><span>Tom da marca</span><span>Ativos do projeto</span></div>
+      </section>
+
+      <fieldset class="studio-create__segmented">
+        <legend>Objetivo da peça</legend>
+        <label><input type="radio" name="purpose" value="campanha" checked><span>Campanha</span></label>
+        <label><input type="radio" name="purpose" value="portal"><span>Portal</span></label>
+        <label><input type="radio" name="purpose" value="ctv"><span>CTV</span></label>
+      </fieldset>
+
+      <fieldset class="studio-create__checks">
+        <legend>Canais</legend>
+        <label><input type="checkbox" name="channel" value="web" checked> Web</label>
+        <label><input type="checkbox" name="channel" value="social" checked> Social</label>
+        <label><input type="checkbox" name="channel" value="ctv"> CTV</label>
+        <label><input type="checkbox" name="channel" value="dooh"> DOOH</label>
+      </fieldset>
+
+      <fieldset class="studio-create__ratios">
+        <legend>Proporção</legend>
+        <label><input type="radio" name="ratio" value="1:1"><span><b class="ratio-square"></b>1:1</span></label>
+        <label><input type="radio" name="ratio" value="4:5"><span><b class="ratio-portrait"></b>4:5</span></label>
+        <label><input type="radio" name="ratio" value="9:16" checked><span><b class="ratio-story"></b>9:16</span></label>
+        <label><input type="radio" name="ratio" value="16:9"><span><b class="ratio-landscape"></b>16:9</span></label>
+      </fieldset>
+
+      <details class="studio-create__iab">
+        <summary>Formatos IAB <span>opcional</span></summary>
+        <div><button type="button">300 × 250</button><button type="button">728 × 90</button><button type="button">300 × 600</button><button type="button">970 × 250</button><button type="button">320 × 50</button></div>
+      </details>
+
+      <label class="studio-create__range">Intensidade da direção <output id="studioCreateIntensity">70%</output><input id="studioCreateRange" type="range" min="0" max="100" value="70"></label>
+
+      <section class="studio-create__references" aria-labelledby="createRefsTitle">
+        <div><h2 id="createRefsTitle">Referências</h2><small id="studioCreateReferenceCount">0 de 2</small></div>
+        <p id="studioCreateReferenceHint">Escolha imagens da biblioteca depois de selecionar o projeto.</p>
+        <div class="studio-create__reference-list" id="studioCreateReferences"></div>
+      </section>
+    </aside>
+
+    <section class="studio-create__stage" aria-labelledby="studioCreateTitle">
+      <header><div><p id="studioCreatePath">Criar</p><h1 id="studioCreateTitle">Uma direção clara vira uma peça forte.</h1></div><span id="studioCreateFormat">9:16 · Story</span></header>
+      <div class="studio-create__canvas" id="studioCreateCanvas" aria-live="polite">
+        <div class="studio-create__empty"><strong>Comece com uma direção</strong><span>Selecione um projeto ou descreva o que a campanha precisa comunicar.</span></div>
+      </div>
+      <footer><button type="button" class="studio-create__secondary" id="studioCreateContinue" disabled>Continuar editando</button><a class="studio-create__primary is-disabled" id="studioCreateEditor" aria-disabled="true" href="{{ studio_url('modelagem_trocar') }}">Abrir no editor completo</a></footer>
+    </section>
+
+    <aside class="studio-create__agent" aria-label="Agente criativo">
+      <header><h2>Agente criativo</h2><p id="studioCreateAgentContext">Selecione um projeto para incluir o contexto da marca.</p></header>
+      <label for="studioCreatePrompt">Descreva a direção</label>
+      <textarea id="studioCreatePrompt" rows="5" placeholder="Ex.: campanha de lançamento que mostre o produto no momento de uso, com linguagem leve e direta."></textarea>
+      <p class="studio-create__agent-label">Sugestões rápidas</p>
+      <div class="studio-create__suggestions"><button type="button" data-suggestion="Lançamento de campanha">Lançamento de campanha</button><button type="button" data-suggestion="Peça para portal">Peça para portal</button><button type="button" data-suggestion="Criativo de CTV">Criativo de CTV</button></div>
+      <fieldset class="studio-create__direction-count"><legend>Direções</legend><label><input type="radio" name="directionCount" value="1"> 1</label><label><input type="radio" name="directionCount" value="3"> 3</label><label><input type="radio" name="directionCount" value="5" checked> 5</label><small id="studioCreateCreditHint">Verificando créditos…</small></fieldset>
+      <button type="button" class="studio-create__generate" id="studioCreateGenerate">Gerar 5 direções</button>
+      <section class="studio-create__directions" id="studioCreateDirections" aria-live="polite"><p>As cinco direções aparecerão aqui para você escolher uma antes de gerar a imagem.</p></section>
+      <section class="studio-create__history" aria-labelledby="studioCreateHistoryTitle"><div><h3 id="studioCreateHistoryTitle">Histórico do projeto</h3><small>Direções e itens vinculados</small></div><div id="studioCreateHistory"><p>O histórico deste projeto aparecerá aqui.</p></div></section>
+    </aside>
+  </div>
+</main>
+{% endblock %}
+{% block portal_scripts %}
+<script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script>
+<script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=6" defer></script>
+<script src="{{ url_for('static', filename='js/mc-studio-create.js') }}?v=2" defer></script>
+{% endblock %}

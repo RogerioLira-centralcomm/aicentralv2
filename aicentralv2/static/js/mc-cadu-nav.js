@@ -13,7 +13,21 @@
 
   const menus = Array.from(bar.querySelectorAll("details.mc-cadu-menu"));
   const select = document.getElementById("mcCaduBarClient");
+  const projectSelect = document.getElementById("mcCaduProject");
   const credits = document.getElementById("mcCaduCredits");
+  const accountCredit = String(credits?.dataset.accountCredit || "");
+
+  function paintAccountCredit() {
+    if (!credits || !accountCredit) return;
+    const value = accountCredit.replace(/\s*créditos?$/i, "");
+    const label = document.createElement("small");
+    const balance = document.createElement("strong");
+    label.textContent = "Créditos";
+    balance.textContent = value;
+    credits.replaceChildren(label, balance);
+    credits.dataset.creditState = "account";
+    credits.hidden = false;
+  }
 
   function closeAll(except) {
     menus.forEach((item) => {
@@ -37,6 +51,7 @@
 
   let contextRequest = 0;
   let creditsRequest = 0;
+  let projectsRequest = 0;
 
   function publishContext(type, detail) {
     window.McCaduContext = detail;
@@ -48,6 +63,7 @@
       Desk.write(select.value);
       paintCredits(select.value);
       publishContext("cadu:brand-change", { clientId: select.value });
+      loadProjects(select.value);
     });
     document.addEventListener("cadu:credits-refresh", (event) => {
       const id = String(event.detail?.clientId || select.value || "");
@@ -70,7 +86,7 @@
       if (requestId !== contextRequest) return;
       select.disabled = false;
       select.innerHTML = '<option value="">Não deu para carregar as marcas</option>';
-      if (credits) credits.hidden = true;
+      paintAccountCredit();
       creditsRequest++;
       publishContext("cadu:brand-ready", { clientId: "", error: true });
       return;
@@ -92,14 +108,53 @@
     if (!chosen) Desk.write("");
     publishContext("cadu:brand-ready", { clientId: select.value || "" });
     paintCredits(select.value);
+    loadProjects(select.value);
+  }
+
+  if (projectSelect) {
+    projectSelect.addEventListener("change", () => {
+      const clientId = String(select?.value || "");
+      const projectId = String(projectSelect.value || "");
+      try { localStorage.setItem(`cadu-studio-project:${clientId}`, projectId); } catch (_error) {}
+      publishContext("cadu:project-change", { clientId, projectId });
+    });
+  }
+
+  async function loadProjects(clientId) {
+    if (!projectSelect) return;
+    const requestId = ++projectsRequest;
+    projectSelect.disabled = true;
+    projectSelect.innerHTML = '<option value="">Carregando projetos…</option>';
+    if (!clientId) {
+      projectSelect.innerHTML = '<option value="">Sem projeto disponível</option>';
+      return;
+    }
+    try {
+      const payload = await get(`${apiRoot}/format-lab/studio/projects?client_id=${encodeURIComponent(clientId)}`);
+      if (requestId !== projectsRequest) return;
+      const items = Array.isArray(payload?.items) ? payload.items : [];
+      const saved = (() => { try { return localStorage.getItem(`cadu-studio-project:${clientId}`) || ""; } catch (_error) { return ""; } })();
+      const chosen = items.some((item) => String(item.id) === saved) ? saved : String(items[0]?.id || "");
+      projectSelect.innerHTML = items.length
+        ? items.map((item) => `<option value="${escapeHtml(item.id)}"${String(item.id) === chosen ? " selected" : ""}>${escapeHtml(item.name || "Projeto sem nome")}</option>`).join("")
+        : '<option value="">Nenhum projeto</option>';
+      projectSelect.disabled = !items.length;
+      publishContext("cadu:project-ready", { clientId: String(clientId), projectId: chosen, items });
+    } catch (_error) {
+      if (requestId !== projectsRequest) return;
+      projectSelect.innerHTML = '<option value="">Não foi possível carregar</option>';
+      projectSelect.disabled = true;
+      publishContext("cadu:project-ready", { clientId: String(clientId), projectId: "", error: true, items: [] });
+    }
   }
 
   async function paintCredits(clientId) {
     if (!credits) return;
     const requestId = ++creditsRequest;
-    credits.hidden = true;
-    credits.textContent = "";
-    if (!clientId) return;
+    if (!clientId) {
+      paintAccountCredit();
+      return;
+    }
     const query = `?client_id=${encodeURIComponent(clientId)}`;
     try {
       const data = await get(`${apiRoot}/image-credits${query}`);
@@ -120,7 +175,7 @@
           : `${formatCount(remaining)} tokens`;
       credits.title = monthly ? `${formatCount(data?.used || 0)} usados de ${formatCount(monthly)}` : "";
     } catch (_error) {
-      if (requestId === creditsRequest) credits.hidden = true;
+      if (requestId === creditsRequest) paintAccountCredit();
     }
   }
 

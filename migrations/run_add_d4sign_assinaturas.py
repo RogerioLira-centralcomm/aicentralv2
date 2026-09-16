@@ -12,14 +12,27 @@ from psycopg.rows import dict_row
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
 SQL_PATH = Path(__file__).with_name("add_d4sign_assinaturas.sql")
-PROVIDERS = ("google_calendar", "higgsfield", "openrouter", "openai", "firecrawl", "d4sign")
+PROVIDERS = (
+    "google_login_cadu",
+    "google_login_centralx",
+    "google_calendar",
+    "higgsfield",
+    "openrouter",
+    "openai",
+    "firecrawl",
+    "brevo",
+    "d4sign",
+)
 CONSTRAINT_SQL = """
 ALTER TABLE system_integration_credentials
     DROP CONSTRAINT IF EXISTS system_integration_credentials_provider_check;
 
 ALTER TABLE system_integration_credentials
     ADD CONSTRAINT system_integration_credentials_provider_check
-    CHECK (provider IN ('google_calendar', 'higgsfield', 'openrouter', 'openai', 'firecrawl', 'd4sign'));
+    CHECK (provider IN (
+        'google_login_cadu', 'google_login_centralx', 'google_calendar',
+        'higgsfield', 'openrouter', 'openai', 'firecrawl', 'brevo', 'd4sign'
+    ));
 """
 
 

@@ -260,6 +260,9 @@ class IntegrationCredentialsContractTest(unittest.TestCase):
         d4sign_sql = (ROOT / "migrations/add_d4sign_assinaturas.sql").read_text()
         self.assertIn("openai", d4sign_sql)
         self.assertIn("firecrawl", d4sign_sql)
+        self.assertIn("brevo", d4sign_sql)
+        self.assertIn("google_login_cadu", d4sign_sql)
+        self.assertIn("google_login_centralx", d4sign_sql)
         self.assertIn("d4sign", d4sign_sql)
 
 

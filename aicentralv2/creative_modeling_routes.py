@@ -1121,9 +1121,20 @@ def api_image_credits():
 
 @admin_required_api
 def api_create_variation(cid):
-    return _execute(
-        lambda: _ok(_service().create_variation(cid, _json(optional=True)), 201)
-    )
+    def create():
+        created = _service().create_variation(cid, _json(optional=True))
+        try:
+            from .services.cadu_product_emails import send_piece_ready
+            send_piece_ready(
+                recipient_email=str(session.get("user_email") or ""),
+                recipient_name=str(session.get("user_name") or ""),
+                title=str(created.get("name") or created.get("notes") or "Nova peça"),
+                url=product_url("studio", "/parametros/modelagem-criativos/trocar"), kind="piece",
+            )
+        except Exception:
+            logger.exception("Não enviou a notificação da nova peça")
+        return _ok(created, 201)
+    return _execute(create)
 
 
 @admin_required_api

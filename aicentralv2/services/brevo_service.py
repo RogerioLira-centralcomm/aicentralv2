@@ -25,11 +25,11 @@ LISTA_USUARIOS_INATIVOS = 23
 
 # A assinatura é única (contato@centralcomm.media); a aparência identifica o produto.
 PRODUCT_EMAIL_BRANDS = {
-    "workspace": {"name": "Workspace", "accent": "#E6493B", "deep": "#2D1215", "soft": "#FFF0EE", "signal": "#FFC3BA"},
-    "studio": {"name": "Studio", "accent": "#8E5CFF", "deep": "#211344", "soft": "#F2EDFF", "signal": "#C9B2FF"},
-    "planner": {"name": "Planner", "accent": "#1473E6", "deep": "#102B53", "soft": "#EAF3FF", "signal": "#A9D1FF"},
-    "skills": {"name": "Skills", "accent": "#D85B12", "deep": "#3B1E0B", "soft": "#FFF1E7", "signal": "#FFC89C"},
-    "connect": {"name": "Connect", "accent": "#007E78", "deep": "#092D31", "soft": "#E5F7F4", "signal": "#9DE0D8"},
+    "workspace": {"name": "Workspace", "accent": "#009F8A", "deep": "#083B35", "soft": "#E9F6F3", "signal": "#9BE3D7", "icon_url": "https://cadu.centralcomm.media/static/images/cadu/products/workspace-2d.svg"},
+    "studio": {"name": "Studio", "accent": "#8E5CFF", "deep": "#211344", "soft": "#F2EDFF", "signal": "#C9B2FF", "icon_url": "https://cadu.centralcomm.media/static/images/cadu/products/studio-2d.svg"},
+    "planner": {"name": "Planner", "accent": "#1473E6", "deep": "#102B53", "soft": "#EAF3FF", "signal": "#A9D1FF", "icon_url": "https://cadu.centralcomm.media/static/images/cadu/products/planner-2d.svg"},
+    "skills": {"name": "Skills", "accent": "#D85B12", "deep": "#3B1E0B", "soft": "#FFF1E7", "signal": "#FFC89C", "icon_url": "https://cadu.centralcomm.media/static/images/cadu/products/skills-2d.svg"},
+    "connect": {"name": "Connect", "accent": "#1976E9", "deep": "#102B53", "soft": "#EAF2FD", "signal": "#A9D1FF", "icon_url": "https://cadu.centralcomm.media/static/images/cadu/products/connect-2d.svg"},
 }
 
 

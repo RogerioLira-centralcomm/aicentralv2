@@ -340,7 +340,6 @@ def credit_position(client_id: int) -> dict:
                   FROM cadu_credits_extras
                  WHERE id_cliente = %s
                    AND status = 'active'
-                   AND tokens_used < tokens_amount
                    AND (expires_at IS NULL OR expires_at > NOW())
                 """,
                 (client_id,),
@@ -351,8 +350,13 @@ def credit_position(client_id: int) -> dict:
                 (client_id,),
             )
             configured = bool(cursor.fetchone()) or bool(lots.get('granted'))
-            return {"available": max(0, int(lots.get("available") or 0)),
-                    "monthly": int(lots.get("granted") or 0), "configured": configured}
+            return {
+                "available": max(0, int(lots.get("available") or 0)),
+                # Kept for existing shells; this is the total of active credit
+                # lots, not a monthly plan allowance.
+                "monthly": int(lots.get("granted") or 0),
+                "configured": configured,
+            }
     except Exception:
         return {"available": 0, "monthly": 0, "configured": False}
 

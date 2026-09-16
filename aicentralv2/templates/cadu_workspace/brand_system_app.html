@@ -6,6 +6,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=6">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=127">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-brand-system.css') }}?v=1">
 {% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
@@ -16,7 +17,7 @@
     <header class="workspace-page-head">
       <a href="{{ url_for('cadu_workspace.brand_detail', brand_id=brand.id) }}">← {{ brand.name }}</a>
       <h1>Sistema de marca</h1>
-      <p>Auditoria, ativos, DNA criativo e tokens para uso em toda a organização.</p>
+      <p>DNA criativo, regras e tokens da marca para uso em toda a organização.</p>
     </header>
     <section class="mc-shell mc-workspace-brand-system" id="mcApp" data-mc-page="marcas" data-api-prefix="/workspace">
       <section class="mc-panel" data-panel="marcas">

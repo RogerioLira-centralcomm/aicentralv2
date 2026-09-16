@@ -8,6 +8,7 @@ from aicentralv2.cadu_connect.routes import bp as connect_bp
 from aicentralv2.cadu_connect import routes as connect_routes
 from aicentralv2.cadu_identity.routes import bp as identity_bp
 from aicentralv2.cadu_workspace.routes import bp as workspace_bp
+from aicentralv2.cadu_workspace import routes as workspace_routes
 from aicentralv2.product_domains import ProductSessionInterface, product_url, register_product_host_routing, safe_product_target
 
 
@@ -60,23 +61,19 @@ class ProductPortalsTest(TestCase):
     def test_each_product_domain_has_a_root_entry(self):
         client = _app().test_client()
         expected = {
-            "auth.centralcomm.media": "/auth/",
-            "connect.centralcomm.media": None,
-            "studio.centralcomm.media": None,
-            "skills.centralcomm.media": "/skills/",
-            "planner.centralcomm.media": "/familia/planner/",
-            "workspace.centralcomm.media": "/workspace/",
+            "auth.centralcomm.media": (302, "/auth/"),
+            "connect.centralcomm.media": (200, None),
+            "studio.centralcomm.media": (200, None),
+            "skills.centralcomm.media": (302, "/skills/"),
+            "planner.centralcomm.media": (302, "/familia/planner/"),
+            "workspace.centralcomm.media": (302, "/workspace/"),
         }
-        for host, path in expected.items():
+        for host, (status, path) in expected.items():
             with self.subTest(host=host):
                 response = client.get("/", headers={"Host": host})
+                self.assertEqual(response.status_code, status)
                 if host == "studio.centralcomm.media":
-                    self.assertEqual(response.status_code, 200)
                     self.assertEqual(response.get_data(as_text=True), "studio portal")
-                else:
-                    self.assertEqual(response.status_code, 302)
-                if path is None and host != "studio.centralcomm.media":
-                    self.assertTrue(response.headers["Location"].startswith("/login?next="))
                 elif path is not None:
                     self.assertEqual(response.headers["Location"], path)
 
@@ -107,7 +104,10 @@ class ProductPortalsTest(TestCase):
     def test_workspace_and_skills_legacy_family_entries_reach_their_products(self):
         client = _app().test_client()
         cases = (
-            ("workspace.centralcomm.media", "/familia/workspace/", "https://workspace.centralcomm.media/workspace/"),
+            ("workspace.centralcomm.media", "/familia/workspace/", "https://workspace.centralcomm.media/workspace/app"),
+            ("workspace.centralcomm.media", "/familia/workspace/projetos", "https://workspace.centralcomm.media/workspace/app/projetos"),
+            ("workspace.centralcomm.media", "/familia/workspace/consumo", "https://workspace.centralcomm.media/workspace/app/creditos"),
+            ("workspace.centralcomm.media", "/familia/workspace/marcas/sistema?creative_client_id=31", "https://workspace.centralcomm.media/workspace/app/marcas/31?creative_client_id=31"),
             ("skills.centralcomm.media", "/familia/skills/minhas-skills", "https://skills.centralcomm.media/skills/"),
         )
         for host, path, location in cases:
@@ -125,12 +125,18 @@ class ProductPortalsTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_data(as_text=True), "login")
 
-    def test_connect_requires_login_and_renders_for_a_session(self):
+    def test_connect_has_a_public_entry_and_renders_the_workspace_for_a_session(self):
         app = _app()
         client = app.test_client()
-        response = client.get("/", headers={"Host": "connect.centralcomm.media"})
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(response.headers["Location"].startswith("/login?"))
+        with mock.patch("aicentralv2.cadu_connect.routes.customization_targets") as targets:
+            response = client.get("/", headers={"Host": "connect.centralcomm.media"})
+        self.assertEqual(response.status_code, 200)
+        public_html = response.get_data(as_text=True)
+        self.assertIn("Tudo o que comprova o trabalho, no contexto certo.", public_html)
+        self.assertIn("Entrar no Reports", public_html)
+        self.assertIn("Criar conta", public_html)
+        self.assertNotIn('class="connect-entry-sidebar"', public_html)
+        targets.assert_not_called()
         with client.session_transaction(headers={"Host": "connect.centralcomm.media"}) as sess:
             sess.update(user_id=7, cliente_id=12, user_name="Apolo", user_email="apolo@centralcomm.media")
         with mock.patch("aicentralv2.cadu_connect.routes.campaigns_for_client", return_value=[]), \
@@ -138,11 +144,11 @@ class ProductPortalsTest(TestCase):
             response = client.get("/", headers={"Host": "connect.centralcomm.media"})
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("Connect", html)
-        self.assertIn("Projetos conectados ao trabalho.", html)
-        self.assertIn("Projetos", html)
-        self.assertIn("contas, marcas, arquivos e relatórios", html)
-        self.assertIn('cadu-connect-sidebar.css?v=2', html)
+        self.assertIn("Reports", html)
+        self.assertIn("O que precisa de decisão agora.", html)
+        self.assertIn("Clientes e projetos", html)
+        self.assertIn("relatórios de mídia por cliente", html)
+        self.assertIn('reports-home.css?v=3', html)
         self.assertNotIn("Carteira de clientes", html)
 
     def test_workspace_session_is_reused_by_connect(self):
@@ -156,7 +162,7 @@ class ProductPortalsTest(TestCase):
             response = client.get("/", headers={"Host": "connect.centralcomm.media"})
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Connect", response.get_data(as_text=True))
+        self.assertIn("Reports", response.get_data(as_text=True))
 
     def test_connect_falls_back_to_the_operational_screen_when_entry_cannot_render(self):
         app = _app()
@@ -167,7 +173,7 @@ class ProductPortalsTest(TestCase):
         original_render = connect_routes.render_template
 
         def render_with_missing_entry(template, **context):
-            if template == "cadu_connect/entry.html":
+            if template == "cadu_connect/reports_home.html":
                 raise TemplateNotFound(template)
             return original_render(template, **context)
 
@@ -179,9 +185,9 @@ class ProductPortalsTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Conectores MCP", response.get_data(as_text=True))
 
-    @mock.patch("aicentralv2.db.obter_gestao_creditos_clientes", return_value=[{
-        "monthly_limit": 100, "used": 35, "adjustments": 10,
-    }])
+    @mock.patch("aicentralv2.cadu_workspace.routes.credit_position", return_value={
+        "configured": True, "available": 75, "monthly": 110,
+    })
     @mock.patch("aicentralv2.db.obter_planos_clientes", return_value=[{
         "plan_status": "active", "plan_definition_name": "Equipe",
         "pd_tokens_monthly_limit": 500, "pd_limit_image_generation": 100,
@@ -246,16 +252,27 @@ class ProductPortalsTest(TestCase):
             sess.update(user_id=7, cliente_id=12, user_name="Apolo")
         conversations = client.get("/workspace/app/conversas", headers={"Host": "workspace.centralcomm.media"})
         self.assertIn('data-theme-mode="preference"', conversations.get_data(as_text=True))
+        sidebar_projects = [{"id": str(index), "nome": f"Projeto {index}"} for index in range(1, 7)]
         with mock.patch("aicentralv2.cadu_workspace.routes.customization_targets", return_value={"clients": [], "projects": []}), \
              mock.patch("aicentralv2.cadu_workspace.routes.list_customizations", return_value=[]), \
-             mock.patch("aicentralv2.cadu_workspace.routes.credit_position", return_value={"available": 20, "monthly": 20, "configured": True}):
+             mock.patch("aicentralv2.cadu_workspace.routes.credit_position", return_value={"available": 20, "monthly": 20, "configured": True}), \
+             mock.patch("aicentralv2.cadu_workspace.routes._workspace_sidebar_projects", return_value=sidebar_projects):
             response = client.get("/workspace/app", headers={"Host": "workspace.centralcomm.media"})
             self.assertEqual(response.status_code, 200)
             html = response.get_data(as_text=True)
             self.assertIn("Administração da conta", html)
             self.assertIn('workspace-app-shell workspace-app-shell--home', html)
             self.assertIn('class="workspace-sidebar-balance"', html)
-            self.assertIn('class="workspace-nav-abbr"', html)
+            self.assertIn('class="workspace-nav-icon"', html)
+            self.assertIn('fa-solid fa-house', html)
+            self.assertIn('fa-solid fa-comment-dots', html)
+            self.assertIn('fa-solid fa-folder-open', html)
+            self.assertIn('fa-solid fa-plug', html)
+            self.assertIn('fa-solid fa-wand-magic-sparkles', html)
+            self.assertNotIn('class="workspace-nav-abbr"', html)
+            self.assertNotIn('title="Marcas"', html)
+            self.assertIn('class="workspace-recent-projects"', html)
+            self.assertLess(html.index('title="Projeto 1"'), html.index('title="Projeto 6"'))
             self.assertIn('data-cadu-sidebar-mobile-close', html)
             for label in ("Usuários", "Planos", "Créditos", "Financeiro", "Integrações"):
                 self.assertIn(label, html)
@@ -269,6 +286,25 @@ class ProductPortalsTest(TestCase):
         self.assertIn("https://workspace.centralcomm.media/planos", sitemap)
         self.assertNotIn("/workspace/app", sitemap)
         self.assertEqual(client.get("/workspace/assets/workspace-icon-64.png").status_code, 200)
+
+    def test_workspace_sidebar_prioritizes_last_opened_projects_and_limits_six(self):
+        app = _app()
+        cursor = mock.MagicMock()
+        cursor.__enter__.return_value = cursor
+        cursor.fetchall.return_value = [
+            {"id": str(index), "nome": f"Projeto {index}"} for index in range(1, 8)
+        ]
+        connection = mock.MagicMock()
+        connection.cursor.return_value = cursor
+
+        with app.test_request_context("/workspace/app", headers={"Host": "workspace.centralcomm.media"}):
+            from flask import session
+            session.update(user_id=7, cliente_id=12, workspace_recent_project_ids=["4", "2"])
+            with mock.patch("aicentralv2.cadu_workspace.routes.get_db", return_value=connection):
+                projects = workspace_routes._workspace_sidebar_projects(12)
+            self.assertEqual([item["id"] for item in projects], ["4", "2", "1", "3", "5", "6"])
+            workspace_routes._remember_workspace_project("5")
+            self.assertEqual(session["workspace_recent_project_ids"], ["5", "4", "2"])
 
     def test_product_menu_keeps_the_public_cadu_entry_on_workspace(self):
         client = _app().test_client()

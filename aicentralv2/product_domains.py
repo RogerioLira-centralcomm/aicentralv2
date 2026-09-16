@@ -35,6 +35,47 @@ def product_url(product: str, path: str = "/") -> str:
     return f"{base}{clean_path}" if base else clean_path
 
 
+_WORKSPACE_LEGACY_SECTIONS = {
+    "": "/workspace/app",
+    "inicio": "/workspace/app",
+    "clientes": "/workspace/app",
+    "conversas": "/workspace/app/conversas",
+    "workflows": "/workspace/app/conversas",
+    "projetos": "/workspace/app/projetos",
+    "marcas": "/workspace/app/marcas",
+    "equipe": "/workspace/app/equipe",
+    "usuarios": "/workspace/app/equipe",
+    "integracoes": "/workspace/app/integracoes",
+    "planos": "/workspace/app/planos",
+    "consumo": "/workspace/app/creditos",
+    "creditos": "/workspace/app/creditos",
+    "faturamento": "/workspace/app/faturamento",
+    "financeiro": "/workspace/app/faturamento",
+    "perfil": "/workspace/app/perfil",
+    "conta": "/workspace/app/perfil",
+    "organizacao": "/workspace/app/organizacao",
+}
+
+
+def canonical_workspace_legacy_path(path: str, brand_id: str | int | None = None) -> str:
+    """Translate the retired Family Workspace surface to its native app.
+
+    Old links remain valid, but no longer render a second Workspace shell.
+    ``brand_id`` lets the former generic brand-system entry land on the
+    corresponding native brand record instead of losing the selected brand.
+    """
+    clean = str(path or "").split("?", 1)[0].strip("/")
+    prefix = "familia/workspace"
+    if clean == prefix:
+        clean = ""
+    elif clean.startswith(f"{prefix}/"):
+        clean = clean[len(prefix) + 1:]
+    if clean == "marcas/sistema":
+        value = str(brand_id or "").strip()
+        return f"/workspace/app/marcas/{value}" if value.isdigit() and int(value) > 0 else "/workspace/app/marcas"
+    return _WORKSPACE_LEGACY_SECTIONS.get(clean, "/workspace/app")
+
+
 def _configured_host(config_key: str) -> str:
     return (urlparse(str(current_app.config.get(config_key) or "")).hostname or "").lower()
 
@@ -122,7 +163,7 @@ def register_product_host_routing(app) -> None:
             "CONNECT_URL": ("/familia/connect", "connect", "/"),
             "STUDIO_URL": ("/familia/studio", "studio", "/studio/modelagem-criativos"),
             "SKILLS_URL": ("/familia/skills", "skills", "/skills/"),
-            "WORKSPACE_URL": ("/familia/workspace", "workspace", "/workspace/"),
+            "WORKSPACE_URL": ("/familia/workspace", "workspace", "/workspace/app"),
         }
         legacy_entry = legacy_product_entries.get(next(
             (key for key in legacy_product_entries if host == _configured_host(key)),
@@ -136,7 +177,16 @@ def register_product_host_routing(app) -> None:
                 or request.path.startswith(f"{legacy_entry[0]}/")
             )
         ):
-            target = product_url(legacy_entry[1], legacy_entry[2])
+            legacy_path = legacy_entry[2]
+            if legacy_entry[1] == "workspace":
+                legacy_path = canonical_workspace_legacy_path(
+                    request.path,
+                    request.args.get("creative_client_id")
+                    or request.args.get("brand_id")
+                    or request.args.get("crm_client_id")
+                    or request.args.get("client_id"),
+                )
+            target = product_url(legacy_entry[1], legacy_path)
             if request.query_string:
                 target = f"{target}?{request.query_string.decode('utf-8')}"
             return redirect(target, code=302)

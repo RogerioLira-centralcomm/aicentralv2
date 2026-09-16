@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS cadu_family_conversation_context (
     user_id INTEGER NOT NULL REFERENCES tbl_contato_cliente(id_contato_cliente),
     organization_id INTEGER NOT NULL REFERENCES tbl_cliente(id_cliente),
     client_id INTEGER NOT NULL REFERENCES tbl_cliente(id_cliente),
-    profile TEXT NOT NULL CHECK (profile IN ('workspace', 'planner', 'connect')),
+    profile TEXT NOT NULL CHECK (profile IN ('workspace', 'planner', 'connect', 'skills')),
     project_ref TEXT,
     brand_ref TEXT,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

@@ -70,6 +70,23 @@ _OUTPUT_BY_CATEGORY = {
     "Criação": "Fluxo de criação",
 }
 
+# Public pages use editorial photography of real working people. This is a
+# deliberate counterpoint to generic futuristic/AI visual language.
+_PEOPLE_COVERS = {
+    "Planejamento de mídia": "https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=1400&q=85",
+    "Inteligência de mídia": "https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=1400&q=85",
+    "Dados e audiência": "https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=1400&q=85",
+    "Formatos e criação": "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1400&q=85",
+    "Conteúdo": "https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=1400&q=85",
+    "Dados": "https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=1400&q=85",
+}
+_DEFAULT_PEOPLE_COVER = "https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=1400&q=85"
+
+
+def _people_cover(skill):
+    """A calm, human image for each public skill page."""
+    return _PEOPLE_COVERS.get(skill.get("category"), _DEFAULT_PEOPLE_COVER)
+
 
 def _catalog_row(skill, collection):
     """Add presentation metadata without making catalogue records a second taxonomy."""
@@ -237,6 +254,7 @@ def detail(slug):
     return render_template(
         "cadu_skills/detail.html", skill=skill, article=_article(skill),
         package=_package_details(skill) if skill.get("installable") else None,
+        cover_image=_people_cover(skill),
     )
 
 
@@ -270,10 +288,13 @@ sha256: {package['archive_sha256']}
 
 # Instalar {skill['name']} em 2 passos
 
-1. Baixe o ZIP: {package['download_url']}
-2. Envie o ZIP completo ao seu ambiente GPT/Codex ou Claude e diga: **Instale esta skill.**
+```bash
+npx skills add {package['download_url']}
+```
 
-O ZIP já contém a pasta `{skill['slug']}`, o `SKILL.md` e todas as referências necessárias. Não envie os arquivos separadamente.
+Instale esta skill com o comando padrão para projetos que usam a CLI `skills`. O pacote contém a pasta `{skill['slug']}`, o `SKILL.md` e todas as referências necessárias.
+
+Se o ambiente não tiver a CLI, baixe o ZIP e envie o pacote completo ao GPT/Codex ou Claude, solicitando a instalação da skill.
 
 ## Para automações
 
@@ -321,7 +342,7 @@ def directory_detail(slug):
     skill = next((item for item in DIRECTORY_SKILLS if item["slug"] == slug), None)
     if not skill:
         abort(404)
-    return render_template("cadu_skills/directory_detail.html", skill=skill)
+    return render_template("cadu_skills/directory_detail.html", skill=skill, cover_image=_people_cover(skill))
 
 
 @bp.get("/agentes")

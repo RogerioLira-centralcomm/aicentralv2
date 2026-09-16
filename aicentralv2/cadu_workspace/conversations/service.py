@@ -36,6 +36,60 @@ def lock_organization_generation(cur, organization_id):
         abort(409, description='Há uma geração em andamento nesta organização. Aguarde sua conclusão antes de enviar outra.')
 
 
+def project_knowledge_context(project_ref, brand_ref, client_id, query):
+    """Build a small, attributable context packet for an authorized project.
+
+    The Dify input remains a string for compatibility, but every record is
+    scoped by the selected client.  Indexed excerpts are optional so older
+    databases keep the existing project-only behavior.
+    """
+    if not isinstance(project_ref, str) or not project_ref.startswith('ci:'):
+        return ''
+    project_id = project_ref[3:]
+    try:
+        projects = repository.rows('''SELECT nome, descricao, instrucoes, publico, posicionamento, tom_de_voz
+                                        FROM cadu_ci_projetos WHERE id = %s AND id_cliente = %s''',
+                                   (project_id, client_id))
+    except Exception:
+        return ''
+    if not projects:
+        return ''
+    packet = {'projeto': projects[0]}
+    if isinstance(brand_ref, str) and brand_ref.startswith('studio:'):
+        try:
+            brands = repository.rows('''SELECT name, sector, brand_profile
+                                           FROM cx_clients
+                                          WHERE id = %s AND crm_client_id = %s''',
+                                     (brand_ref[7:], client_id))
+            if brands:
+                brand = brands[0]
+                if isinstance(brand.get('brand_profile'), str):
+                    try:
+                        brand['brand_profile'] = json.loads(brand['brand_profile'])
+                    except (TypeError, ValueError):
+                        brand['brand_profile'] = {}
+                packet['marca'] = brand
+        except Exception:
+            pass
+    terms = ' '.join(str(query or '').split())[:400]
+    if terms:
+        try:
+            sources = repository.rows('''SELECT titulo, LEFT(conteudo, 1000) AS trecho
+                                          FROM cadu_ci_chunks
+                                         WHERE projeto_id = %s AND id_cliente = %s
+                                           AND to_tsvector('portuguese', conteudo) @@ plainto_tsquery('portuguese', %s)
+                                      ORDER BY ordem ASC LIMIT 4''', (project_id, client_id, terms))
+            packet['fontes_verificadas'] = [
+                {'fonte': row.get('titulo') or 'Fonte sem título', 'trecho': row.get('trecho') or ''}
+                for row in sources
+            ]
+        except Exception:
+            # Indexing is additive. A missing legacy chunks table must never
+            # suppress the explicitly saved project context.
+            packet['fontes_verificadas'] = []
+    return json.dumps(packet, ensure_ascii=False, default=str)[:24000]
+
+
 def prepare(data, selected):
     dify.settings()  # Fail before storing a turn if the provider is not configured.
     user = context.identity()
@@ -69,12 +123,7 @@ def prepare(data, selected):
                               ([str(value) for value in upload_ids], user['id'], selected['client_id'])) if upload_ids else []
     if len(uploads) != len(set(str(value) for value in upload_ids)):
         abort(403, description='Um arquivo não pertence a este cliente ou usuário.')
-    project_context = ''
-    if project_ref and project_ref.startswith('ci:'):
-        records = repository.rows('''SELECT nome, descricao, instrucoes, publico, posicionamento, tom_de_voz
-                                     FROM cadu_ci_projetos WHERE id = %s AND id_cliente = %s''',
-                                  (project_ref[3:], selected['client_id']))
-        project_context = json.dumps(records, ensure_ascii=False, default=str)[:24000]
+    project_context = project_knowledge_context(project_ref, brand_ref, selected['client_id'], query)
     old = repository.conversation_messages(user['id'], selected['client_id'], conversation_id) if existing else []
     history = history_context(old or [])
     conn = repository.get_db()
@@ -155,7 +204,8 @@ def build_run(run_id, conversation_id, user, selected, chosen, profile,
         if history:
             payload['query'] = '[Histórico da conversa]\n' + history + '\n[Mensagem atual]\n' + query
     return {'run_id': run_id, 'conversation_id': conversation_id, 'payload': payload,
-            'organization_id': user['organization_id'], 'user_id': user['id'], 'profile': profile}
+            'organization_id': user['organization_id'], 'client_id': selected['client_id'],
+            'user_id': user['id'], 'profile': profile}
 
 
 def stream(run):
@@ -174,7 +224,7 @@ def stream(run):
                     cur.execute('UPDATE cadu_family_chat_runs SET task_id = %s WHERE id = %s', (data['task_id'], run['run_id']))
                 conn.commit()
             projected = provider.feed(data)
-            card = catalog_tools.project(data, run.get('profile'))
+            card = catalog_tools.project(data, run.get('profile'), run.get('client_id'), run.get('user_id'))
             if card:
                 projected.append(card)
             answer, usage = provider.answer, provider.usage

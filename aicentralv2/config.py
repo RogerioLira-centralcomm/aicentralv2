@@ -93,6 +93,20 @@ class Config:
 		'SESSION_COOKIE_SECURE',
 		'true' if BASE_URL.startswith('https') else 'false',
 	).lower() in ('true', '1', 'yes')
+
+	# Rollout da família Cadu. Todos os recursos mutáveis permanecem fechados
+	# por padrão e só podem ser habilitados explicitamente no ambiente depois
+	# das migrações e verificações de produção.
+	CADU_FAMILY_ENABLED = os.getenv('CADU_FAMILY_ENABLED', '0').lower() in ('true', '1', 'yes', 'on')
+	CADU_FAMILY_WRITES_ENABLED = os.getenv('CADU_FAMILY_WRITES_ENABLED', '0').lower() in ('true', '1', 'yes', 'on')
+	CADU_FAMILY_CHAT_ENABLED = os.getenv('CADU_FAMILY_CHAT_ENABLED', '0').lower() in ('true', '1', 'yes', 'on')
+	CADU_CHAT_WORKER_ENABLED = os.getenv('CADU_CHAT_WORKER_ENABLED', '0').lower() in ('true', '1', 'yes', 'on')
+	CADU_DIFY_API_KEY = os.getenv('CADU_DIFY_API_KEY', '')
+	CADU_DIFY_BASE_URL = os.getenv('CADU_DIFY_BASE_URL', 'https://api.dify.ai/v1').rstrip('/')
+	CADU_LEGACY_ASSET_BASE_URL = os.getenv('CADU_LEGACY_ASSET_BASE_URL', '')
+	# Volume persistente para fontes privadas dos projetos do Workspace. Sem
+	# configuração, preserva o diretório de instância usado pelos ambientes legados.
+	WORKSPACE_SOURCE_STORAGE_DIR = os.getenv('WORKSPACE_SOURCE_STORAGE_DIR', '')
     
 	# Projeto
 	PROJECT_NAME = 'AIcentralv2'

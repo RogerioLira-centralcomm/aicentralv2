@@ -215,10 +215,15 @@ def integrations(organization_id):
 def catalog(module, query=''):
     search = '%' + query[:100] + '%'
     if module == 'audiencias':
-        return rows('''SELECT a.id, a.nome AS name, a.descricao_curta AS description,
-                             a.publico_estimado AS audience, c.nome AS category
+        return rows('''SELECT a.id, a.nome AS name, COALESCE(a.descricao_curta, a.descricao) AS description,
+                             a.publico_estimado AS audience, a.imagem_url AS image_url,
+                             a.perfil_socioeconomico, a.propensao_compra, a.tamanho,
+                             a.id_audiencia_plataforma AS platform_audience_id,
+                             c.nome AS category, s.nome AS subcategory, p.nome AS platform
                         FROM cadu_audiencias a
                    LEFT JOIN cadu_categorias c ON c.id = a.categoria_id
+                   LEFT JOIN cadu_subcategorias s ON s.id = a.subcategoria_id
+                   LEFT JOIN cadu_audiencias_plataformas p ON p.id = a.plataforma_id
                        WHERE a.is_active = TRUE
                          AND (a.nome ILIKE %s OR COALESCE(a.descricao_curta, '') ILIKE %s
                               OR COALESCE(a.descricao, '') ILIKE %s OR COALESCE(c.nome, '') ILIKE %s)

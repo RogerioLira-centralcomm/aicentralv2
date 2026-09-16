@@ -12,9 +12,13 @@ ALIASES = {
     'canal_buscar': 'canais', 'canal_detalhe': 'canais',
     'format_search': 'formatos', 'format_detail': 'formatos',
     'formato_buscar': 'formatos', 'formato_detalhe': 'formatos',
+    'interactive_search': 'interativos', 'interactive_detail': 'interativos',
+    'interativo_buscar': 'interativos', 'interativo_detalhe': 'interativos',
     'audience_search': 'audiencias', 'audience_detail': 'audiencias',
 }
-DETAIL_ALIASES = {'channel_detail', 'canal_detalhe', 'format_detail', 'formato_detalhe', 'audience_detail'}
+DETAIL_ALIASES = {'channel_detail', 'canal_detalhe', 'format_detail', 'formato_detalhe',
+                  'interactive_detail', 'interativo_detalhe', 'audience_detail'}
+DOCUMENT_ALIASES = {'document_preview', 'smartdoc_preview', 'documento_previa'}
 
 
 def _params(value):
@@ -29,17 +33,33 @@ def _params(value):
     return parsed if isinstance(parsed, dict) else None
 
 
-def project(event, profile):
+def project(event, profile, client_id=None, actor_id=None):
     """Return a client-safe card or None. Exceptions stay local to the tool."""
     if profile != 'planner' or not isinstance(event, dict):
         return None
     raw_name = event.get('tool') or event.get('tool_name')
-    if not isinstance(raw_name, str) or raw_name not in ALIASES:
+    if not isinstance(raw_name, str):
         return None
-    kind = ALIASES[raw_name]
     params = _params(event.get('tool_input') if 'tool_input' in event else event.get('input'))
     if params is None:
         return None
+    if raw_name in DOCUMENT_ALIASES:
+        if not isinstance(client_id, int) or not isinstance(actor_id, int):
+            return None
+        try:
+            document_id = int(params.get('id'))
+            if document_id < 1:
+                return None
+            from ...cadu_planner import docs
+            document, preview = docs.document_preview(client_id, actor_id, document_id)
+            return {'event': 'document', 'document': {
+                key: document.get(key) for key in ('id', 'title', 'type', 'status', 'updated_at', 'is_owner')
+            }, 'preview': preview[:3000]}
+        except Exception:
+            return None
+    if raw_name not in ALIASES:
+        return None
+    kind = ALIASES[raw_name]
     try:
         if raw_name in DETAIL_ALIASES:
             item_id = params.get('id')

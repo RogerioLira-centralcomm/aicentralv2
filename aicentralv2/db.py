@@ -1382,6 +1382,7 @@ def obter_contato_por_id(contato_id):
                 c.cohorts,
                 c.user_type,
                 c.foto_url,
+                c.cadu_avatar_badge,
                 c.wasender_session_id,
                 COALESCE(c.wasender_ativo, FALSE) AS wasender_ativo,
                 CASE
@@ -1446,6 +1447,7 @@ def obter_contatos_por_cliente(id_cliente):
                 c.telefone,
                 c.telefone_secundario,
                 c.status,
+                c.user_type,
                 c.data_cadastro,
                 c.pk_id_tbl_setor,
                 c.pk_id_tbl_cargo,
@@ -4721,34 +4723,116 @@ def obter_gestao_creditos_clientes(filtros=None):
     '''
     with conn.cursor() as cursor:
         cursor.execute(query, params)
+    return cursor.fetchall()
+
+
+def obter_administracao_creditos_cadu(filtros=None):
+    """Saldo comercial e consumo real do CADU por cliente.
+
+    ``cadu_token_usage`` é a fonte do Chat de Conversas/Famílias; já
+    ``cadu_tools_token_usage`` registra as demais ferramentas internas.
+    Os dois fluxos são mantidos separados no retorno para auditoria.
+    """
+    filtros = filtros or {}
+    query = '''
+        WITH lots AS (
+            SELECT id_cliente,
+                   COALESCE(SUM(tokens_amount) FILTER (
+                       WHERE status = 'active'
+                         AND (expiration_date IS NULL OR expiration_date > NOW())
+                   ), 0) AS granted,
+                   COALESCE(SUM(tokens_used) FILTER (
+                       WHERE status = 'active'
+                         AND (expiration_date IS NULL OR expiration_date > NOW())
+                   ), 0) AS used_from_lots,
+                   COALESCE(SUM(tokens_amount - tokens_used) FILTER (
+                       WHERE status = 'active'
+                         AND (expiration_date IS NULL OR expiration_date > NOW())
+                   ), 0) AS available,
+                   COALESCE(SUM(tokens_amount - tokens_used) FILTER (
+                       WHERE status = 'active'
+                         AND expiration_date IS NOT NULL AND expiration_date <= NOW()
+                   ), 0) AS expired_available
+              FROM cadu_credits_extras
+             GROUP BY id_cliente
+        ), tool_usage AS (
+            SELECT id_cliente, COALESCE(SUM(tokens_total), 0) AS tokens,
+                   COALESCE(SUM(custo_interno), 0) AS cost, MAX(created_at) AS last_used
+              FROM cadu_tools_token_usage
+             GROUP BY id_cliente
+        ), family_chat AS (
+            SELECT id_cliente, COALESCE(SUM(quantidade), 0) AS tokens,
+                   COALESCE(SUM(custo_estimado), 0) AS cost, MAX(created_at) AS last_used
+              FROM cadu_token_usage
+             GROUP BY id_cliente
+        )
+        SELECT p.id AS plan_id, p.id_cliente, p.plan_status,
+               cli.nome_fantasia, cli.razao_social,
+               COALESCE(pd.plan_name, p.plan_type, 'Sem plano') AS plan_name,
+               COALESCE(l.granted, 0) AS granted_tokens,
+               COALESCE(l.used_from_lots, 0) AS credited_tokens_used,
+               COALESCE(l.available, 0) AS available_tokens,
+               COALESCE(l.expired_available, 0) AS expired_tokens,
+               COALESCE(t.tokens, 0) AS tool_tokens,
+               COALESCE(t.cost, 0) AS tool_cost,
+               COALESCE(f.tokens, 0) AS family_chat_tokens,
+               COALESCE(f.cost, 0) AS family_chat_cost,
+               GREATEST(t.last_used, f.last_used) AS last_used
+          FROM cadu_client_plans p
+          JOIN tbl_cliente cli ON cli.id_cliente = p.id_cliente
+          LEFT JOIN cadu_plan_definitions pd ON pd.id = p.id_plan_definition
+          LEFT JOIN lots l ON l.id_cliente = p.id_cliente
+          LEFT JOIN tool_usage t ON t.id_cliente = p.id_cliente
+          LEFT JOIN family_chat f ON f.id_cliente = p.id_cliente
+         WHERE 1=1
+    '''
+    params = []
+    if filtros.get('plan_status'):
+        query += ' AND p.plan_status = %s'
+        params.append(filtros['plan_status'])
+    if filtros.get('search'):
+        query += ' AND (cli.nome_fantasia ILIKE %s OR cli.razao_social ILIKE %s)'
+        params.extend([f"%{filtros['search']}%", f"%{filtros['search']}%"])
+    query += ' ORDER BY cli.nome_fantasia, p.id DESC'
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute(query, params)
         return cursor.fetchall()
 
 
 def obter_gestao_creditos_plano(plan_id, movement_limit=100):
-    """Retorna plano, posição mensal e movimentos recentes."""
-    rows = obter_gestao_creditos_clientes({'plan_status': None})
+    """Retorna o extrato operacional do CADU para o plano informado."""
+    rows = obter_administracao_creditos_cadu({'plan_status': None})
     summary = next((row for row in rows if int(row['plan_id']) == int(plan_id)), None)
     if not summary:
         return None
+    summary['monthly_limit'] = int(summary.get('granted_tokens') or 0)
+    summary['used'] = int(summary.get('credited_tokens_used') or 0)
+    summary['adjustments'] = 0
     conn = get_db()
     with conn.cursor() as cursor:
         cursor.execute('''
-            SELECT id, movement_type, amount, reason, reference,
-                   created_by, created_by_name, created_at
-              FROM cadu_credit_movements
-             WHERE plan_id = %s
+            SELECT id, 'usage' AS movement_type, tokens_total AS amount,
+                   CONCAT('Ferramenta: ', tool_name,
+                          CASE WHEN stage_name IS NULL THEN '' ELSE ' · ' || stage_name END) AS reason,
+                   session_id AS reference, id_contato_cliente AS created_by,
+                   NULL::varchar AS created_by_name, created_at
+              FROM cadu_tools_token_usage
+             WHERE id_cliente = %s
              ORDER BY created_at DESC, id DESC
              LIMIT %s
-        ''', (plan_id, movement_limit))
+        ''', (summary['id_cliente'], movement_limit))
         summary['movements'] = cursor.fetchall()
         cursor.execute('''
-            SELECT id, package_name, credits, amount_paid, payment_status,
-                   reference, notes, created_by_name, purchased_at
-              FROM cadu_credit_purchases
-             WHERE plan_id = %s
-             ORDER BY purchased_at DESC, id DESC
+            SELECT id, 'Lote de créditos' AS package_name, tokens_amount AS credits,
+                   0::numeric AS amount_paid, status AS payment_status,
+                   invoice_id::text AS reference, NULL::varchar AS notes,
+                   NULL::varchar AS created_by_name, purchase_date AS purchased_at
+              FROM cadu_credits_extras
+             WHERE id_cliente = %s
+             ORDER BY purchase_date DESC NULLS LAST, id DESC
              LIMIT 50
-        ''', (plan_id,))
+        ''', (summary['id_cliente'],))
         summary['purchases'] = cursor.fetchall()
     return summary
 

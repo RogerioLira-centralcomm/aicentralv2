@@ -5,8 +5,8 @@
 <section class="ws-context-overview" aria-labelledby="workspace-context-title">
   <header><div><h2 id="workspace-context-title">Contexto que acompanha o trabalho</h2><p>Marcas e projetos definem o que cada ferramenta pode consultar, criar e manter associado.</p></div></header>
   <div class="ws-context-chain" aria-label="Relação do contexto selecionado">
-    <article><span>Marcas</span><strong>{{ brands|length }}</strong><small>{% if brands %}Disponíveis para Studio e Skills{% else %}Cadastre a primeira marca{% endif %}</small><a href="{{ url_for('cadu_family.page', product='workspace', module='marcas') }}">Organizar marcas</a></article>
-    <article><span>Projetos</span><strong>{{ projects|length }}</strong><small>{% if projects %}Disponíveis para Planner e Connect{% else %}Crie o primeiro projeto{% endif %}</small><a href="{{ url_for('cadu_family.page', product='workspace', module='projetos') }}">Organizar projetos</a></article>
+    <article><span>Marcas</span><strong>{{ brands|length }}</strong><small>{% if brands %}Disponíveis para Studio e Skills{% else %}Cadastre a primeira marca{% endif %}</small><a href="{{ product_url('workspace', '/workspace/app/marcas') }}">Organizar marcas</a></article>
+    <article><span>Projetos</span><strong>{{ projects|length }}</strong><small>{% if projects %}Disponíveis para Planner e Reports{% else %}Crie o primeiro projeto{% endif %}</small><a href="{{ product_url('workspace', '/workspace/app/projetos') }}">Organizar projetos</a></article>
   </div>
   {% if pending %}<p class="ws-context-review"><b>{{ pending|length }} vínculo{{ 's' if pending|length != 1 }} para revisar.</b> Há cadastros vindos de outra origem sem equivalência confirmada; revise antes de usá-los como contexto compartilhado.</p>{% endif %}
 </section>

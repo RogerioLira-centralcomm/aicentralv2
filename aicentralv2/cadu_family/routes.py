@@ -7,7 +7,7 @@ from werkzeug.exceptions import HTTPException
 from urllib.parse import urlparse
 
 from ..auth import login_url
-from ..product_domains import product_url
+from ..product_domains import canonical_workspace_legacy_path, product_url
 from . import context, repository
 from .catalog import ADMIN_MODULES, LANDINGS, PRODUCTS, PROFILES
 from . import product_pages
@@ -621,26 +621,13 @@ def messages(conversation_id):
 
 @bp.get('/workspace/marcas/sistema')
 def workspace_brand_system():
-    """Mount the former Studio brand editor inside the Workspace shell.
-
-    The editor still talks to the legacy adapter during the staged migration,
-    but its navigation, configured host and ownership are Workspace-only.
-    """
-    if not session.get('user_id'):
-        return redirect(login_url(request.full_path))
-    user = context.require_admin()
-    selected = context.resolve()
-    clients = context.authorized_clients()
-    entities = context.inventory(selected['client_id'])
-    token = session.setdefault('family_csrf', secrets.token_urlsafe(32))
-    return render_template(
-        'cadu_workspace/brand_system.html', product='workspace',
-        spec=PRODUCTS['workspace'], module='marcas', title='Sistema de marca',
-        products=PRODUCTS, landing=LANDINGS['workspace'], user=user,
-        selected=selected, clients=clients, entities=entities,
-        records=[], profile=PROFILES.get('workspace'), csrf=token,
-        legacy_url=None, login_url=login_url(), product_url=product_url,
-    )
+    """Keep shared links alive without maintaining a second brand interface."""
+    brand_id = (request.args.get('creative_client_id') or request.args.get('brand_id')
+                or request.args.get('crm_client_id') or request.args.get('client_id'))
+    target = product_url('workspace', canonical_workspace_legacy_path('marcas/sistema', brand_id))
+    if request.query_string:
+        target = f"{target}?{request.query_string.decode('utf-8')}"
+    return redirect(target, code=302)
 
 
 @bp.get('/<product>/')
@@ -648,6 +635,11 @@ def workspace_brand_system():
 def page(product, module=None):
     if product not in PRODUCTS:
         abort(404)
+    if product == 'workspace':
+        target = product_url('workspace', canonical_workspace_legacy_path(module or ''))
+        if request.query_string:
+            target = f"{target}?{request.query_string.decode('utf-8')}"
+        return redirect(target, code=302)
     spec = PRODUCTS[product]
     module = module or next(iter(spec['modules']))
     if module not in spec['modules']:

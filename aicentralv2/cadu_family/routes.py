@@ -311,6 +311,22 @@ def planner_plan_update(plan_id):
     return jsonify(plan=plans.update_briefing(selected['client_id'], user['id'], plan_id, request.get_json(silent=True) or {}))
 
 
+@bp.post('/api/planner/plans/<plan_id>/briefing-review')
+def planner_plan_briefing_review(plan_id):
+    """Apply the Planner's transparent three-pass review to a saved briefing."""
+    from ..cadu_planner import revisions
+    selected = writable_context()
+    user = context.identity()
+    return jsonify(revisions.review_briefing(selected['client_id'], user['id'], plan_id))
+
+
+@bp.get('/api/planner/plans/<plan_id>/briefing-review/estimate')
+def planner_plan_briefing_review_estimate(plan_id):
+    from ..cadu_planner import revisions
+    user, selected = context.identity(), context.resolve()
+    return jsonify(estimated_tokens=revisions.briefing_estimate(selected['client_id'], user['id'], plan_id), passes=3)
+
+
 @bp.put('/api/planner/plans/<plan_id>/allocations')
 def planner_plan_allocations(plan_id):
     from ..cadu_planner import plans
@@ -389,6 +405,21 @@ def planner_doc_save(doc_id):
     selected = writable_context()
     user = context.identity()
     return jsonify(document=docs.save_document(selected['client_id'], user['id'], doc_id, request.get_json(silent=True) or {}))
+
+
+@bp.post('/api/planner/docs/<int:doc_id>/review')
+def planner_doc_review(doc_id):
+    from ..cadu_planner import revisions
+    selected = writable_context()
+    user = context.identity()
+    return jsonify(revisions.review_document(selected['client_id'], user['id'], doc_id))
+
+
+@bp.get('/api/planner/docs/<int:doc_id>/review/estimate')
+def planner_doc_review_estimate(doc_id):
+    from ..cadu_planner import revisions
+    user, selected = context.identity(), context.resolve()
+    return jsonify(estimated_tokens=revisions.document_estimate(selected['client_id'], user['id'], doc_id), passes=3)
 
 
 @bp.post('/api/planner/docs/<int:doc_id>/duplicate')

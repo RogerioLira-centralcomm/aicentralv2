@@ -6,7 +6,7 @@ from decimal import Decimal, InvalidOperation
 from datetime import date
 
 from psycopg.types.json import Json
-from werkzeug.exceptions import BadRequest, NotFound
+from werkzeug.exceptions import BadRequest, Conflict, NotFound
 
 from ..cadu_family import repository
 from ..db import get_db
@@ -111,6 +111,11 @@ def get_plan(client_id, actor_id, plan_id):
                                                         created_at, accepted_at, closed_at
                                                    FROM cadu_planner_quote_requests
                                                   WHERE plan_id = %s ORDER BY created_at DESC''', (str(plan_id),)) if _commercial_available() else []
+    try:
+        from .revisions import history
+        plan['review_history'] = history(client_id, actor_id, plan_id=str(plan_id))
+    except Exception:
+        plan['review_history'] = []
     plan['readiness'] = readiness(plan)
     return plan
 
@@ -153,15 +158,19 @@ def _clean_label(value):
     return ' '.join(str(value or '').split())[:180] or None
 
 
-def update_briefing(client_id, actor_id, plan_id, payload):
+def update_briefing(client_id, actor_id, plan_id, payload, *, expected_updated_at=None):
     """Store the small, decision-facing brief that guides a media plan."""
     plan = get_plan(client_id, actor_id, plan_id)
     briefing = _clean_briefing(payload.get('briefing'))
     with get_db() as conn, conn.cursor() as cur:
         cur.execute('''UPDATE cadu_planner_plans
                           SET briefing = %s, advertiser_name = %s, campaign_name = %s, updated_at = NOW()
-                        WHERE id = %s''', (Json(briefing), _clean_label(payload.get('advertiser_name')),
-                                           _clean_label(payload.get('campaign_name')), str(plan['id'])))
+                        WHERE id = %s AND (%s IS NULL OR updated_at IS NOT DISTINCT FROM %s)
+                     RETURNING id''', (Json(briefing), _clean_label(payload.get('advertiser_name')),
+                                       _clean_label(payload.get('campaign_name')), str(plan['id']),
+                                       expected_updated_at, expected_updated_at))
+        if not cur.fetchone():
+            raise Conflict('O plano foi alterado enquanto a revisão estava em andamento. Atualize a página e tente novamente.')
     return get_plan(client_id, actor_id, plan_id)
 
 

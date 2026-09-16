@@ -14,7 +14,7 @@ from psycopg.types.json import Json
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Paragraph, SimpleDocTemplate
-from werkzeug.exceptions import BadRequest, NotFound
+from werkzeug.exceptions import BadRequest, Conflict, NotFound
 
 from ..cadu_family import repository
 from ..db import get_db
@@ -76,7 +76,13 @@ def get_document(client_id, actor_id, doc_id):
                                      FROM cadu_artifacts WHERE {where} LIMIT 1''', [actor_id, *params])
     if not records:
         raise NotFound("Documento indisponível.")
-    return records[0]
+    document = records[0]
+    try:
+        from .revisions import history
+        document['review_history'] = history(client_id, actor_id, document_id=int(doc_id))
+    except Exception:
+        document['review_history'] = []
+    return document
 
 
 def document_preview(client_id, actor_id, doc_id):
@@ -117,7 +123,7 @@ def create_document(client_id, actor_id, data):
         raise
 
 
-def save_document(client_id, actor_id, doc_id, data):
+def save_document(client_id, actor_id, doc_id, data, *, expected_updated_at=None):
     current = get_document(client_id, actor_id, doc_id)
     if not current["is_owner"]:
         raise BadRequest("Somente o autor pode editar este documento.")
@@ -133,8 +139,11 @@ def save_document(client_id, actor_id, doc_id, data):
     try:
         with conn.cursor() as cur:
             cur.execute('''UPDATE cadu_artifacts SET titulo = %s, status = %s, conteudo_html = %s,
-                           updated_at = NOW() WHERE id = %s AND id_cliente = %s AND id_contato_cliente = %s''',
-                        (title, status, html, doc_id, client_id, actor_id))
+                           updated_at = NOW() WHERE id = %s AND id_cliente = %s AND id_contato_cliente = %s
+                             AND (%s IS NULL OR updated_at IS NOT DISTINCT FROM %s) RETURNING id''',
+                        (title, status, html, doc_id, client_id, actor_id, expected_updated_at, expected_updated_at))
+            if not cur.fetchone():
+                raise Conflict('O documento foi alterado enquanto a revisão estava em andamento. Atualize e tente novamente.')
         conn.commit()
     except Exception:
         conn.rollback()

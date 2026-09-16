@@ -61,6 +61,31 @@
       current = data.document; heading.textContent = current.title; meta.textContent = 'Alterações salvas agora'; preview.textContent = content.textContent.trim() || 'Este documento não possui texto para prévia.'; showPreview();
     } catch (error) { meta.textContent = error.message; }
   });
+  actions.querySelector('[data-doc-review]').addEventListener('click', async event => {
+    if (!current) return;
+    const button = event.currentTarget;
+    if (!editor.hidden) {
+      meta.textContent = 'Salve as alterações do documento antes de pedir uma revisão.';
+      return;
+    }
+    button.disabled = true;
+    meta.textContent = 'O Cadu está fazendo as três revisões…';
+    try {
+      const estimate = await request('/' + current.id + '/review/estimate');
+      if (!window.confirm(`O Cadu fará ${estimate.passes} revisões e pode usar até ${estimate.estimated_tokens.toLocaleString('pt-BR')} créditos. Continuar?`)) {
+        meta.textContent = 'Revisão cancelada.';
+        return;
+      }
+      meta.textContent = 'O Cadu está fazendo as três revisões…';
+      const data = await request('/' + current.id + '/review', {method: 'POST', body: '{}'});
+      current = data.document;
+      content.innerHTML = current.html || '';
+      preview.textContent = content.textContent.trim() || 'Este documento não possui texto para prévia.';
+      meta.textContent = `Versão ${data.review.applied_pass} aplicada${data.review.charged_tokens ? ` · ${data.review.charged_tokens} créditos usados` : ''}.`;
+      showPreview();
+    } catch (error) { meta.textContent = error.message; }
+    finally { button.disabled = false; }
+  });
   actions.querySelector('[data-doc-duplicate]').addEventListener('click', async () => {
     if (!current) return;
     try { await request('/' + current.id + '/duplicate', {method: 'POST', body: '{}'}); window.location.reload(); } catch (error) { meta.textContent = error.message; }

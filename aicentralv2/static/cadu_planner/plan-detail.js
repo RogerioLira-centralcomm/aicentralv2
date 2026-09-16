@@ -31,6 +31,27 @@
     try { await request('/familia/api/planner/plans/' + encodeURIComponent(planId), 'PUT', {briefing, advertiser_name: briefing.advertiser_name, campaign_name: briefing.campaign_name}); status.textContent = 'Direção salva.'; }
     catch (error) { status.textContent = error.message; }
   });
+  desk.querySelector('[data-plan-briefing-review]')?.addEventListener('click', async event => {
+    const button = event.currentTarget;
+    const status = desk.querySelector('[data-plan-review-status]');
+    button.disabled = true;
+    status.textContent = 'Salvando a direção antes da revisão…';
+    try {
+      const form = desk.querySelector('[data-plan-briefing]');
+      const briefing = Object.fromEntries(new FormData(form).entries());
+      await request('/familia/api/planner/plans/' + encodeURIComponent(planId), 'PUT', {briefing, advertiser_name: briefing.advertiser_name, campaign_name: briefing.campaign_name});
+      const estimate = await request('/familia/api/planner/plans/' + encodeURIComponent(planId) + '/briefing-review/estimate', 'GET');
+      if (!window.confirm(`O Cadu fará ${estimate.passes} revisões e pode usar até ${estimate.estimated_tokens.toLocaleString('pt-BR')} créditos. Continuar?`)) {
+        status.textContent = 'Revisão cancelada.';
+        button.disabled = false;
+        return;
+      }
+      status.textContent = 'O Cadu está fazendo as três revisões…';
+      const result = await request('/familia/api/planner/plans/' + encodeURIComponent(planId) + '/briefing-review', 'POST', {});
+      status.textContent = `Versão ${result.review.applied_pass} aplicada${result.review.charged_tokens ? ` · ${result.review.charged_tokens} créditos usados` : ''}.`;
+      window.setTimeout(() => window.location.reload(), 700);
+    } catch (error) { status.textContent = error.message; button.disabled = false; }
+  });
   desk.querySelector('[data-save-allocations]')?.addEventListener('click', async event => {
     const button = event.currentTarget, status = desk.querySelector('[data-allocation-save-status]');
     const allocations = [...desk.querySelectorAll('[data-allocation-row]')].map(row => ({
@@ -71,6 +92,9 @@
       quoteButton.disabled = true;
     } catch (error) { quoteStatus.textContent = error.message; }
   });
+  const reviewDialog = desk.querySelector('[data-planner-review-dialog]');
+  desk.querySelector('[data-planner-review-open]')?.addEventListener('click', () => reviewDialog?.showModal());
+  desk.querySelectorAll('[data-planner-review-close]').forEach(button => button.addEventListener('click', () => reviewDialog?.close()));
   const comparison = desk.querySelector('[data-plan-comparison]');
   if (comparison) {
     const items = JSON.parse(comparison.dataset.items || '[]');

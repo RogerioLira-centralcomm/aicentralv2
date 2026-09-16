@@ -1204,7 +1204,8 @@ function resume(jobId) {
 
 function recordSpend(id, kind, label, quote, status) {
   const existing = state.spend?.events?.find((event) => event.id === id);
+  const amountTokens = Number(quote?.estimated_tokens ?? existing?.amount_tokens ?? 0) || 0;
   const amountBrl = Number(quote?.estimated_cost_brl ?? quote?.spent_brl ?? quote?.cost_brl ?? existing?.amount_brl ?? 0) || 0;
   const amountUsd = Number(quote?.estimated_cost_usd ?? quote?.spent_usd ?? quote?.cost_usd ?? existing?.amount_usd ?? 0) || 0;
-  upsertWorkspaceSpend({id, kind, label, amount_brl:amountBrl, amount_usd:amountUsd, status, created_at:new Date().toISOString()});
+  upsertWorkspaceSpend({id, kind, label, amount_tokens:amountTokens, amount_brl:amountBrl, amount_usd:amountUsd, status, created_at:new Date().toISOString()});
 }

@@ -123,6 +123,11 @@
     return document.getElementById(id);
   }
 
+  function requestId(prefix) {
+    const random = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    return `${prefix || 'studio'}-${random}`;
+  }
+
   async function boot() {
     state.csrf = $('mcSwap')?.dataset?.csrf || '';
     bind();
@@ -680,7 +685,11 @@
     hideError();
     try {
       const reference = await downscaleImage(source, 1280, 0.82, { forceJpeg: true });
-      const data = await request(API.read, { reference }, { signal: controller.signal });
+      const data = await request(API.read, {
+        reference,
+        client_id: state.clientId || undefined,
+        request_id: requestId('ocr'),
+      }, { signal: controller.signal });
       if (controller.signal.aborted || readContext !== `${state.clientId}:${state.baseId}`) return;
       state.cache[version.id] = data;
       version.ocr = data;
@@ -1439,6 +1448,7 @@
         reference: base.image,
         initial_reference: initial?.id !== base.id ? (initial?.image || '') : '',
         variation_index: testVariant || undefined,
+        request_id: requestId(testVariant ? `image-${testVariant.toLowerCase()}` : 'image'),
         base_id: base.id,
         revision: state.revision || 0,
       });
@@ -2217,10 +2227,10 @@
 
   function paintCost(quote) {
     if (!$('mcSwapCost')) return;
-    const credits = Math.max(0, Number(quote?.image_credits ?? (state.generationStrategy === 'ab' ? 2 : 1)) || 0);
-    const tokens = Math.max(0, Number(quote?.agent_tokens_estimate || 0) || 0);
-    const creditLabel = `${credits} crédito${credits === 1 ? '' : 's'} de imagem`;
-    $('mcSwapCost').textContent = tokens ? `${creditLabel} · até ${tokens.toLocaleString('pt-BR')} tokens` : `${creditLabel} · tokens do agente conforme uso`;
+    const tokens = Math.max(0, Number(quote?.estimated_tokens || quote?.agent_tokens_estimate || 0) || 0);
+    $('mcSwapCost').textContent = tokens
+      ? `Estimativa: ${tokens.toLocaleString('pt-BR')} créditos de tokens`
+      : 'Consumo calculado em créditos de tokens';
   }
 
   function paintRoute(risk, mode, quote, plan) {

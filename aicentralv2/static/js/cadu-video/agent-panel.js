@@ -122,8 +122,8 @@ export function paintAgentPanel() {
 function paintWorkspaceSpend() {
   if (!state) return;
   const totals = workspaceSpendTotals();
-  if ($('mcStudioSpendConfirmed')) $('mcStudioSpendConfirmed').textContent = money(totals.confirmed_brl);
-  if ($('mcStudioSpendPending')) $('mcStudioSpendPending').textContent = money(totals.pending_brl);
+  if ($('mcStudioSpendConfirmed')) $('mcStudioSpendConfirmed').textContent = tokens(totals.confirmed_tokens);
+  if ($('mcStudioSpendPending')) $('mcStudioSpendPending').textContent = tokens(totals.pending_tokens);
   if ($('mcStudioSpendMeta')) $('mcStudioSpendMeta').textContent = totals.confirmed_count
     ? `${totals.confirmed_count} ${totals.confirmed_count === 1 ? 'operação concluída' : 'operações concluídas'} neste workspace.`
     : 'Nenhuma operação contabilizada.';
@@ -133,7 +133,7 @@ function paintWorkspaceSpend() {
   totals.events.slice().reverse().slice(0, 12).forEach(event => {
     const item = document.createElement('li');
     const label = document.createElement('span'); label.textContent = event.label;
-    const value = document.createElement('strong'); value.textContent = event.status === 'failed' ? 'Falhou' : money(event.amount_brl);
+    const value = document.createElement('strong'); value.textContent = event.status === 'failed' ? 'Falhou' : tokens(event.amount_tokens);
     item.append(label, value);
     item.dataset.status = event.status;
     list.append(item);
@@ -143,8 +143,8 @@ function paintWorkspaceSpend() {
   }
 }
 
-function money(value) {
-  return Number(value || 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+function tokens(value) {
+  return `${Number(value || 0).toLocaleString('pt-BR')} tokens`;
 }
 
 function formatDuration(value) {

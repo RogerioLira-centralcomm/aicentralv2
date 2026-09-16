@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from datetime import datetime, timezone
 
 from ..creative_modeling_fx import annotate_cost, usd_brl_rate
@@ -50,6 +51,7 @@ def quote_video(
         "exchange_rate_source": source,
         "exchange_rate_at": datetime.now(timezone.utc).isoformat(),
         "estimated_cost_brl": packed.get("spent_brl"),
+        "estimated_tokens": int(math.ceil(tokens)),
     })
     return packed
 
@@ -60,6 +62,7 @@ def quote_tts(script: str) -> dict:
     usd = round(chars * TTS_INPUT_USD + audio_tokens * TTS_OUTPUT_USD, 4) if chars else 0.0
     return {
         "estimated_cost_usd": usd,
+        "estimated_tokens": chars + audio_tokens,
         "model": TTS_MODEL,
         "characters": chars,
     }
@@ -80,10 +83,13 @@ def merge_video_tts_quote(video: dict, tts: dict) -> dict:
     merged.update({
         "video_estimated_cost_usd": video_usd,
         "tts_estimated_cost_usd": tts_usd,
+        "video_estimated_tokens": int(video.get("estimated_tokens") or 0),
+        "tts_estimated_tokens": int(tts.get("estimated_tokens") or 0),
         "tts_model": tts.get("model"),
         "estimated_cost_usd": total,
         "estimated_cost_brl": packed.get("spent_brl"),
         "spent_brl": packed.get("spent_brl"),
         "spent_usd": packed.get("spent_usd"),
+        "estimated_tokens": int(video.get("estimated_tokens") or 0) + int(tts.get("estimated_tokens") or 0),
     })
     return merged

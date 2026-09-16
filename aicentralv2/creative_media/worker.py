@@ -34,7 +34,7 @@ TERMINAL = {"completed", "failed", "cancelled", "expired"}
 
 
 class AnimateWorker:
-    def __init__(self, repository, *, persist_fn=None, materialize_fn=None, video=None, speech=None):
+    def __init__(self, repository, *, persist_fn=None, materialize_fn=None, video=None, speech=None, billing_fn=None):
         self.repository = repository
         self.persist_fn = persist_fn
         self.materialize_fn = materialize_fn
@@ -44,6 +44,7 @@ class AnimateWorker:
             "download": download_video,
         }
         self.speech = speech or {"generate": generate_speech}
+        self.billing_fn = billing_fn
 
     def run(self, job_id):
         claimed = self.repository.claim_job(job_id)
@@ -71,6 +72,8 @@ class AnimateWorker:
                 status = self._wait(job_id, submitted)
                 if status.get("status") != "completed":
                     raise RuntimeError(status.get("error") or "A geração falhou.")
+                if callable(self.billing_fn):
+                    self.billing_fn(claimed, plan, "video", status)
                 self._stage(job_id, "download", 72, "Baixando master")
                 raw = self.video["download"](submitted.get("id") or status.get("id"))
                 version = self._packs(job_id, claimed, plan, raw)
@@ -495,11 +498,17 @@ class AnimateWorker:
                     return path.read_bytes()
             except Exception:
                 logger.warning("Locução gravada não pôde ser relida.")
-        return self.speech["generate"](
+        audio = self.speech["generate"](
             spoken_input(plan.get("voiceover_script") or "", plan.get("voiceover_pace") or "normal"),
             model=plan.get("tts_model"),
             voice=plan.get("voiceover_provider_voice") or "Charon",
         )
+        if callable(self.billing_fn):
+            self.billing_fn(row, plan, "tts", {
+                "model": plan.get("tts_model"),
+                "usage": {},
+            })
+        return audio
 
     def _seedance_base(self, row):
         job_pk = row.get("id")

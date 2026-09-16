@@ -156,6 +156,7 @@ class TrocrAnimateWorkerTest(unittest.TestCase):
         job = repo.create_job({"plan_json": plan, "plan_hash": plan["plan_hash"], "quote_json": plan["quote"]})
         fake_mp4 = b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 40
         persisted = {}
+        billed = []
 
         def persist(_job, _plan, version):
             persisted["version"] = version
@@ -166,9 +167,15 @@ class TrocrAnimateWorkerTest(unittest.TestCase):
             persist_fn=persist,
             video={
                 "submit": lambda *a, **k: {"id": "or-1", "polling_url": "https://x/or-1", "status": "pending"},
-                "poll": lambda *a, **k: {"id": "or-1", "status": "completed"},
+                "poll": lambda *a, **k: {
+                    "id": "or-1", "status": "completed",
+                    "usage": {"input_tokens": 12, "output_tokens": 34, "total_tokens": 46},
+                },
                 "download": lambda *_a, **_k: fake_mp4,
             },
+            billing_fn=lambda row, billed_plan, stage, result: billed.append(
+                (row, billed_plan, stage, result)
+            ),
         )
         with patch("aicentralv2.creative_media.worker.POLL_INTERVAL", 0):
             with patch("aicentralv2.creative_media.transcode.poster_jpg", side_effect=RuntimeError("skip")):
@@ -180,6 +187,8 @@ class TrocrAnimateWorkerTest(unittest.TestCase):
         self.assertTrue(persisted["version"]["master_asset_id"])
         self.assertNotIn("polling_url", ready.get("version_payload") or {})
         self.assertTrue(persisted["version"]["seedance_base_asset_id"])
+        self.assertEqual([item[2] for item in billed], ["video"])
+        self.assertEqual(billed[0][3]["usage"]["total_tokens"], 46)
 
 
 def _scene_snapshot(version=1, headline="OFERTA"):

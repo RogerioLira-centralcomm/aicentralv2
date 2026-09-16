@@ -33,8 +33,8 @@ def job_payload(row, *, scene_ahead=False):
         "stages": list(row.get("stages") or []),
         "error": row.get("error_message") or "",
         "quote": {
+            "estimated_tokens": quote.get("estimated_tokens"),
             "estimated_cost_usd": quote.get("estimated_cost_usd"),
-            "estimated_cost_brl": quote.get("estimated_cost_brl") or quote.get("spent_brl"),
             "tts_estimated_cost_usd": quote.get("tts_estimated_cost_usd"),
         },
         "eta": {"minimum_seconds": 120, "maximum_seconds": 360},

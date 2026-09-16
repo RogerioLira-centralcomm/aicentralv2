@@ -263,7 +263,7 @@ async function pollExport(id,client){
     updateProcessing({...result,job_id:`export:${id}`,kind:"export",auto_download:true,stage:result.status,message:result.status==="ready"?"Exportação pronta.":"Renderizando sua edição…",version:result.status==="ready"?{video_url:`${base}/exports/${id}/content?client_id=${encodeURIComponent(client)}&format=mp4&inline=1`}:undefined});
     if(result.status==='ready'||result.status==='failed'){
       exporting=false;sessionStorage.removeItem(`cadu-export:${client}`);paintStudio();
-      upsertWorkspaceSpend({id:`edit:${id}`,kind:'edit',label:'Exportação da edição',amount_brl:0,amount_usd:0,status:result.status==='ready'?'confirmed':'failed',created_at:new Date().toISOString()});
+      upsertWorkspaceSpend({id:`edit:${id}`,kind:'edit',label:'Exportação da edição',amount_tokens:0,amount_brl:0,amount_usd:0,status:result.status==='ready'?'confirmed':'failed',created_at:new Date().toISOString()});
       dirty();
       if(result.status==='ready')downloadExport(result,client);
       status(result.status==='ready'?`Download iniciado: ${result.filename||'criativo'}.`:result.error);return;

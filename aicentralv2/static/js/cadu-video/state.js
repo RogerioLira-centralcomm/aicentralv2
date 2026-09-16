@@ -39,6 +39,7 @@ export function normalizeWorkspaceSpend(raw = {}) {
       id: String(event?.id || "").slice(0, 160),
       kind: ["video", "voice", "image", "edit"].includes(event?.kind) ? event.kind : "edit",
       label: String(event?.label || "Operação").slice(0, 160),
+      amount_tokens: Math.max(0, Number(event?.amount_tokens) || 0),
       amount_brl: Math.max(0, Number(event?.amount_brl) || 0),
       amount_usd: Math.max(0, Number(event?.amount_usd) || 0),
       status: ["pending", "confirmed", "failed"].includes(event?.status) ? event.status : "pending",
@@ -60,6 +61,8 @@ export function upsertWorkspaceSpend(event) {
 export function workspaceSpendTotals() {
   const events = normalizeWorkspaceSpend(state.spend).events;
   return {
+    confirmed_tokens: events.filter((event) => event.status === "confirmed").reduce((sum, event) => sum + event.amount_tokens, 0),
+    pending_tokens: events.filter((event) => event.status === "pending").reduce((sum, event) => sum + event.amount_tokens, 0),
     confirmed_brl: events.filter((event) => event.status === "confirmed").reduce((sum, event) => sum + event.amount_brl, 0),
     pending_brl: events.filter((event) => event.status === "pending").reduce((sum, event) => sum + event.amount_brl, 0),
     confirmed_count: events.filter((event) => event.status === "confirmed").length,

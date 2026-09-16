@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from datetime import datetime, timezone
 
 from ..creative_modeling_generation import OpenRouterError
@@ -241,13 +242,16 @@ class FormatLabService:
 
     def read_swap(self, payload, user_id=None):
         payload = self._swap_payload(payload)
+        self._assert_tool_balance(payload, user_id, 3000)
+        provider_calls = []
         try:
             result = read_swap_reference(
                 payload,
-                text_callable=self._text_callable(payload),
+                text_callable=self._metered_text_callable(payload, provider_calls),
             )
         except ValueError as exc:
             raise CreativeConflictError(str(exc)) from exc
+        self._charge_provider_calls(payload, user_id, "studio.image", "ocr", provider_calls, media=False)
         return _serialize(result)
 
     def preview_swap(self, payload, user_id=None):
@@ -347,6 +351,17 @@ class FormatLabService:
     def swap(self, payload, user_id=None):
         payload = self._swap_payload(payload)
         brand = self._swap_brand(payload) if payload.get("use_brand_context") is not False else {}
+        from .swap import quote_swap
+        from ..cadu_tool_billing import estimated_credit_tokens
+
+        quote = quote_swap(payload)
+        estimated_tokens = int(quote.get("estimated_tokens") or estimated_credit_tokens(
+            cost_usd=quote.get("estimated_cost_usd") or 0,
+        ))
+        preview = preview_swap_prompt(payload, brand)
+        if not preview.get("noop") and preview.get("mode") not in {"noop", "typeset"}:
+            self._assert_tool_balance(payload, user_id, estimated_tokens)
+        provider_calls = []
         try:
             result = swap_reference(
                 payload,
@@ -355,13 +370,17 @@ class FormatLabService:
                     **payload,
                     "generate": True,
                     "image_quality": image_quality(payload),
-                }),
+                }, usage_sink=provider_calls),
             )
         except ValueError as exc:
             raise CreativeConflictError(str(exc)) from exc
         result["brand_name"] = payload.get("brand_name") or brand.get("name") or ""
         if result.get("noop") or result.get("mode") == "noop" or not result.get("png_data_url"):
             return _serialize(result)
+        self._charge_provider_calls(
+            payload, user_id, "studio.image", "generation", provider_calls,
+            media=True, fallback_cost_usd=quote.get("estimated_cost_usd") or 0,
+        )
         store = self._trocr_store()
         image_url = store.persist_still(result.get("png_data_url"))
         if image_url:
@@ -420,7 +439,7 @@ class FormatLabService:
     def _animate(self):
         from .animate import AnimateService
 
-        return AnimateService(self._trocr_store(), self._media_repository())
+        return AnimateService(self._trocr_store(), self._media_repository(), ledger=self._tool_ledger())
 
     def quote_animate(self, payload=None):
         return self._animate().quote(payload)
@@ -1350,7 +1369,7 @@ class FormatLabService:
         generator = getattr(self.modeling, "generator", None)
         return getattr(generator, "text_callable", None)
 
-    def _image_callable(self, payload):
+    def _image_callable(self, payload, usage_sink=None):
         if payload.get("generate") is False:
             return None
         if payload.get("image_callable"):
@@ -1371,6 +1390,8 @@ class FormatLabService:
             if quality:
                 kwargs["quality"] = quality
             result = generate(prompt, **kwargs)
+            if isinstance(usage_sink, list) and isinstance(result, dict):
+                usage_sink.append(dict(result))
             raw = result.get("b64_json") if isinstance(result, dict) else None
             if not raw:
                 return None
@@ -1378,6 +1399,81 @@ class FormatLabService:
             return base64.b64decode(raw)
 
         return _run
+
+    def _metered_text_callable(self, payload, usage_sink):
+        call = self._text_callable(payload)
+        if not callable(call):
+            return call
+
+        def _run(*args, **kwargs):
+            result = call(*args, **kwargs)
+            if isinstance(result, dict):
+                usage_sink.append(dict(result))
+            return result
+
+        return _run
+
+    def _tool_ledger(self):
+        configured = getattr(self.modeling, "tool_token_ledger", None)
+        if configured is not None:
+            return configured
+        from ..cadu_tool_billing import ToolTokenLedger
+        return ToolTokenLedger()
+
+    def _billing_identity(self, payload, user_id):
+        client_id = payload.get("client_id") if isinstance(payload, dict) else None
+        if user_id in (None, ""):
+            return None
+        if client_id in (None, ""):
+            raise CreativeConflictError("Selecione o cliente que pagará esta execução.")
+        try:
+            return int(client_id), int(user_id)
+        except (TypeError, ValueError) as exc:
+            raise CreativeConflictError("Cliente ou usuário inválido para cobrança.") from exc
+
+    def _assert_tool_balance(self, payload, user_id, estimated_tokens):
+        identity = self._billing_identity(payload, user_id)
+        if identity is None:
+            return
+        try:
+            self._tool_ledger().assert_available(identity[0], estimated_tokens)
+        except ValueError as exc:
+            raise CreativeConflictError(str(exc)) from exc
+
+    def _charge_provider_calls(
+        self, payload, user_id, tool, stage, calls, *, media, fallback_cost_usd=0,
+    ):
+        identity = self._billing_identity(payload, user_id)
+        if identity is None or not calls:
+            return []
+        from ..cadu_tool_billing import charge_from_provider, cost_token_equivalent, usage_tokens
+
+        base_key = str(payload.get("request_id") or uuid.uuid4())
+        charged = []
+        for index, result in enumerate(calls, start=1):
+            actual = (
+                result.get("actual_cost_usd")
+                or (result.get("usage") or {}).get("cost")
+                or fallback_cost_usd
+            )
+            provider_tokens = usage_tokens(result.get("usage"))[2]
+            media_tokens = max(0, cost_token_equivalent(actual) - provider_tokens) if media else 0
+            try:
+                charged.append(charge_from_provider(
+                    ledger=self._tool_ledger(),
+                    idempotency_key=f"{base_key}:{stage}:{index}",
+                    client_id=identity[0],
+                    user_id=identity[1],
+                    tool=tool,
+                    stage=stage,
+                    provider_result=result,
+                    fallback_cost_usd=fallback_cost_usd,
+                    media_tokens=media_tokens,
+                    metadata={"run_id": payload.get("run_id"), "base_id": payload.get("base_id")},
+                ))
+            except ValueError as exc:
+                raise CreativeConflictError(str(exc)) from exc
+        return charged
 
     def _bill_prompt(self, campaign_id, session_id, user_id, metadata):
         from .storyboard import PROMPT_ESTIMATE_USD, quote_concept

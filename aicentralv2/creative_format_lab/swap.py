@@ -228,22 +228,27 @@ READ_STRICT_SYSTEM = (
 
 
 def quote_swap(payload=None):
+    from ..cadu_tool_billing import estimated_credit_tokens
+
     payload = payload if isinstance(payload, dict) else {}
     variation_count = 2 if str(payload.get("variation_count") or "1") == "2" else 1
     if swap_mode(payload) == "typeset":
-        return annotate_cost({
+        quote = annotate_cost({
             "estimated_cost_usd": 0,
             "model": "typeset",
             "passes": 0,
             "image_credits": 0,
-            "agent_tokens_estimate": 600,
+            "agent_tokens_estimate": 0,
             "quality": "typeset",
             "later": {"image": False, "video": False},
             "output_formats": list(OUTPUT_FORMATS),
         })
+        quote["estimated_tokens"] = 0
+        quote.pop("spent_brl", None)
+        return quote
     quality = _quality(payload)
     estimate = (SWAP_DRAFT_ESTIMATE_USD if quality == "draft" else SWAP_ESTIMATE_USD) * variation_count
-    return annotate_cost({
+    quote = annotate_cost({
         "estimated_cost_usd": estimate,
         "model": SWAP_MODEL,
         "passes": variation_count,
@@ -253,6 +258,9 @@ def quote_swap(payload=None):
         "later": {"image": True, "video": False},
         "output_formats": list(OUTPUT_FORMATS),
     })
+    quote["estimated_tokens"] = estimated_credit_tokens(cost_usd=estimate)
+    quote.pop("spent_brl", None)
+    return quote
 
 
 def match_aspect_ratio(value):

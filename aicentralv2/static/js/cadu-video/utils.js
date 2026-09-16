@@ -38,15 +38,13 @@ export function parseScript(text, fallback, scenes = []) {
 
 export function formatMoney(quote) {
   if (!quote) return "";
-  const brl = quote.estimated_cost_brl;
-  const usd = quote.estimated_cost_usd;
+  const tokens = Number(quote.estimated_tokens || 0);
   const res = quote.resolution || "";
   const parts = [];
-  if (brl != null) parts.push(`R$ ${Number(brl).toFixed(2)}`);
-  else if (usd != null) parts.push(`US$ ${Number(usd).toFixed(2)}`);
+  if (tokens) parts.push(`${tokens.toLocaleString('pt-BR')} créditos de tokens`);
   if (res) parts.push(res);
   if (quote.voiceover_fits === false) parts.push("locução longa");
-  return parts.join(" · ") || "Cotação pronta.";
+  return parts.join(" · ") || "Estimativa em tokens pronta.";
 }
 
 export function newId(){

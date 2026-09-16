@@ -96,11 +96,12 @@ def quote_animate(payload=None):
 
 
 class AnimateService:
-    def __init__(self, store, repository, spawn_job=None, camadas=None):
+    def __init__(self, store, repository, spawn_job=None, camadas=None, ledger=None):
         self.store = store
         self.repository = repository
         self.spawn_job = spawn_job or spawn
         self.camadas = camadas
+        self.ledger = ledger
 
     def quote(self, payload=None):
         return quote_animate(payload)
@@ -162,6 +163,7 @@ class AnimateService:
         plan["source"]["reference"] = reference
         plan["reference"] = reference
         plan["preview_images"] = [version.get("image_url")] if str(version.get("image_url") or "").startswith("/") else []
+        self._assert_plan_balance(data.get("client_id") or history.get("client_id"), user_id, plan)
         job = self.repository.create_job({
             "user_id": user_id,
             "client_id": data.get("client_id") or history.get("client_id"),
@@ -232,6 +234,7 @@ class AnimateService:
         plan["source"]["reference"] = ref_a
         plan["source"]["reference_b"] = ref_b
         plan["reference"] = ref_a
+        self._assert_plan_balance(data.get("client_id") or history.get("client_id"), user_id, plan)
         job = self.repository.create_job({
             "user_id": user_id,
             "client_id": data.get("client_id") or history.get("client_id"),
@@ -305,6 +308,7 @@ class AnimateService:
             "client_id": data.get("client_id") or (first_run or {}).get("client_id"),
             "revision": (first_run or {}).get("revision"),
         }
+        self._assert_plan_balance(data.get("client_id") or history.get("client_id"), user_id, plan)
         job = self.repository.create_job({
             "user_id": user_id,
             "client_id": data.get("client_id") or history.get("client_id"),
@@ -349,6 +353,7 @@ class AnimateService:
         plan["source"]["reference"] = reference
         plan["reference"] = reference
         plan["preview_images"] = [version.get("image_url")] if str(version.get("image_url") or "").startswith("/") else []
+        self._assert_plan_balance(data.get("client_id") or history.get("client_id"), user_id, plan)
         job = self.repository.create_job({
             "user_id": user_id,
             "client_id": data.get("client_id") or history.get("client_id"),
@@ -586,7 +591,49 @@ class AnimateService:
             self.repository,
             persist_fn=self._persist,
             materialize_fn=self._materialize,
+            billing_fn=self._bill_provider if self.ledger is not None else None,
         )
+
+    def _assert_plan_balance(self, client_id, user_id, plan):
+        if self.ledger is None or user_id in (None, ""):
+            return
+        if client_id in (None, ""):
+            raise ValueError("Selecione o cliente que pagará esta execução.")
+        estimated = int((plan.get("quote") or {}).get("estimated_tokens") or 0)
+        self.ledger.assert_available(int(client_id), estimated)
+
+    def _bill_provider(self, job, plan, stage, provider_result):
+        if self.ledger is None:
+            return None
+        from decimal import Decimal
+        from ..cadu_tool_billing import ToolCharge, usage_tokens
+
+        quote = plan.get("quote") if isinstance(plan.get("quote"), dict) else {}
+        usage = provider_result.get("usage") if isinstance(provider_result, dict) else {}
+        incoming, outgoing, total = usage_tokens(usage)
+        if stage == "tts":
+            charged = int(quote.get("tts_estimated_tokens") or 0)
+            cost = quote.get("tts_estimated_cost_usd") or 0
+            model = plan.get("tts_model") or "tts"
+        else:
+            charged = total or int(quote.get("video_estimated_tokens") or quote.get("estimated_tokens") or 0)
+            cost = (usage or {}).get("cost") or quote.get("video_estimated_cost_usd") or quote.get("estimated_cost_usd") or 0
+            model = provider_result.get("model") or plan.get("model") or "video"
+        return self.ledger.charge(ToolCharge(
+            idempotency_key=f"studio-video:{job.get('public_id')}:{stage}",
+            client_id=int(job.get("client_id")),
+            user_id=int(job.get("user_id")),
+            tool="studio.video",
+            stage=stage,
+            model=str(model),
+            input_tokens=incoming,
+            output_tokens=outgoing,
+            provider_total_tokens=total,
+            charged_tokens=charged,
+            internal_cost_usd=Decimal(str(cost or 0)),
+            additional_cost_usd=Decimal(str(cost or 0)),
+            metadata={"job_id": job.get("public_id"), "run_id": job.get("run_id")},
+        ))
 
     def _materialize(self, plan):
         return (plan.get("source") or {}).get("reference") or plan.get("reference") or ""

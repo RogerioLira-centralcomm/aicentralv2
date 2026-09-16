@@ -219,8 +219,8 @@ def public_quote(plan: dict) -> dict:
         "duration": plan.get("duration"),
         "resolution": plan.get("resolution"),
         "aspect_ratio": plan.get("aspect_ratio"),
+        "estimated_tokens": quote.get("estimated_tokens"),
         "estimated_cost_usd": quote.get("estimated_cost_usd"),
-        "estimated_cost_brl": quote.get("estimated_cost_brl") or quote.get("spent_brl"),
         "video_estimated_cost_usd": quote.get("video_estimated_cost_usd"),
         "tts_estimated_cost_usd": quote.get("tts_estimated_cost_usd"),
         "tts_model": plan.get("tts_model") or quote.get("tts_model"),
@@ -228,8 +228,6 @@ def public_quote(plan: dict) -> dict:
         "voiceover_budget": quote.get("voiceover_budget"),
         "voiceover_fits": quote.get("voiceover_fits"),
         "has_video_reference": quote.get("has_video_reference"),
-        "exchange_rate": quote.get("exchange_rate"),
-        "exchange_rate_at": quote.get("exchange_rate_at"),
     }
 
 

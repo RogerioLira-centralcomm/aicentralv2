@@ -5,6 +5,7 @@ from flask import Blueprint, current_app, jsonify, render_template, request, ses
 
 from ..auth import login_required, login_required_api
 from ..cadu_skills.repository import customization_targets
+from ..cadu_family import repository as family_repository
 from ..services import integration_credentials
 from .repository import campaigns_for_client, link_campaign_project, portfolio_for_clients
 
@@ -55,6 +56,14 @@ def index():
     selected_project = next((project for project in projects if project["id"] == requested_project_id), None)
     if selected_project is None:
         selected_project = workspace_project_context(client_id, projects)
+    # Connect starts with work, not a client portfolio.  Brands come from the
+    # same scoped Workspace inventory used by the other Cadu products.
+    brands = []
+    if client_id:
+        try:
+            brands = [item for item in family_repository.entities(client_id) if item.get("kind") == "brand"]
+        except Exception:
+            brands = []
     campaigns = campaigns_for_client(client_id, project_id=selected_project["id"] if selected_project else None)
     accounts = []
     # Integrações globais pertencem à operação interna. Administradores de
@@ -69,20 +78,16 @@ def index():
     mcp_catalog = [
         {"name": "Meta Ads", "scope": "Campanhas, conjuntos, criativos e insights", "kind": "MCP", "state": "Disponível", "tone": "meta"},
         {"name": "Google Ads", "scope": "Busca, vídeo, performance e conversões", "kind": "MCP", "state": "Disponível", "tone": "google"},
-        {"name": "Google Campaign Manager", "scope": "Veiculação, inventário e relatórios", "kind": "MCP", "state": "Planejado", "tone": "google"},
-        {"name": "Display & Video 360", "scope": "Programática, audiência e performance", "kind": "MCP", "state": "Planejado", "tone": "google"},
-        {"name": "LinkedIn Ads", "scope": "Campanhas B2B e públicos profissionais", "kind": "MCP", "state": "Planejado", "tone": "linkedin"},
-        {"name": "TikTok Ads", "scope": "Campanhas, criativos e métricas", "kind": "MCP", "state": "Planejado", "tone": "tiktok"},
     ]
     return render_template(
-        "cadu_portals/connect.html",
+        "cadu_connect/entry.html",
         account_name=(active_client or {}).get("name") or session.get("user_name") or "Minha conta",
         active_client=active_client,
         workspace_clients=permitted_clients,
         is_portfolio_operator=is_portfolio_operator,
         portfolio_mode=is_portfolio_operator and requested_client_id is None,
         client_portfolio=portfolio_for_clients(permitted_clients) if is_portfolio_operator else [],
-        accounts=accounts, campaigns=campaigns, projects=projects, selected_project=selected_project,
+        accounts=accounts, campaigns=campaigns, projects=projects, brands=brands, selected_project=selected_project,
         reports=[row for row in campaigns if row.get("link_dash")],
         mcp_catalog=mcp_catalog,
         connected_count=len([account for account in accounts if account.get("configured")]),

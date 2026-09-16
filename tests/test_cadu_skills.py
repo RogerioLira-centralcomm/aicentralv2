@@ -19,6 +19,10 @@ def _app():
     app = Flask(__name__, template_folder=str(ROOT / "aicentralv2" / "templates"), static_folder=str(ROOT / "aicentralv2" / "static"))
     app.secret_key = "test"
     app.add_url_rule("/login", endpoint="login", view_func=lambda: "login")
+    app.add_url_rule(
+        "/product-icons/<family>-<int:size>.svg", endpoint="cadu_maintenance_product_icon",
+        view_func=lambda family, size: "",
+    )
     app.register_blueprint(bp)
     app.context_processor(lambda: {"product_url": lambda product, path="": f"/{product}{path}"})
     return app
@@ -212,6 +216,14 @@ class CaduSkillsTest(TestCase):
     def test_management_requires_admin(self):
         client = _app().test_client()
         self.assertEqual(client.get("/skills/gestao").status_code, 302)
+
+    @mock.patch("aicentralv2.cadu_skills.routes.managed_skills", side_effect=lambda rows: [dict(item, views=0, copies=0, installs=0, runs=0, engagements=0, display_rank=item["rank"]) for item in rows])
+    def test_internal_management_is_not_exposed_in_the_skills_product_navigation(self, _managed):
+        client = _app().test_client()
+        with client.session_transaction() as session:
+            session.update(user_id=7, user_type="admin", cliente_id=12)
+        html = client.get("/skills/?catalog=1").get_data(as_text=True)
+        self.assertNotIn('href="/skills/gestao"', html)
 
     @mock.patch("aicentralv2.cadu_skills.routes.all_cadu_skills", return_value=[CADU_MEDIA_PLANNING])
     def test_agent_desk_lives_inside_cadu_skills(self, _skills):

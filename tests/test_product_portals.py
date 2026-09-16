@@ -89,7 +89,14 @@ class ProductPortalsTest(TestCase):
              mock.patch("aicentralv2.cadu_connect.routes.customization_targets", return_value={"clients": [], "projects": []}):
             response = client.get("/connect/", headers={"Host": "connect.centralcomm.media"})
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Connect", response.get_data(as_text=True))
+        html = response.get_data(as_text=True)
+        self.assertIn("Connect", html)
+        self.assertIn("Meta Ads", html)
+        self.assertIn("Google Ads", html)
+        self.assertIn('class="connect-app-nav"', html)
+        self.assertIn('cadu-connect-navigation.css?v=2', html)
+        for unavailable_mcp in ("Google Campaign Manager", "Display & Video 360", "LinkedIn Ads", "TikTok Ads"):
+            self.assertNotIn(unavailable_mcp, html)
 
     def test_workspace_session_is_reused_by_connect(self):
         app = _app()

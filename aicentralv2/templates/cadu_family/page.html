@@ -35,7 +35,7 @@
 <a class="family-skip" href="#content">Ir para o conteúdo</a>
 {% set sidebar_product = product in ('workspace', 'planner', 'connect') %}
 <header class="family-nav {{ 'family-nav--sidebar' if sidebar_product else '' }}">
-  {% set cadu_active_product = product %}{% include 'cadu/_product_switch.html' %}
+  {% if not sidebar_product %}{% set cadu_active_product = product %}{% include 'cadu/_product_switch.html' %}{% endif %}
   {% if not sidebar_product %}<span class="family-nav-divider" aria-hidden="true"></span>
   <nav class="family-product-nav" aria-label="Navegação de {{ spec.name }}">
     {% if user %}
@@ -54,7 +54,7 @@
     <p class="family-context-help">Marcas e projetos pertencem ao ambiente da sua conta.</p>
   </form></details>{% endif %}
   <div class="family-nav-actions">
-    {% if user %}<a class="family-credit-link" href="{{ url_for('cadu_family.page', product='workspace', module='consumo') }}" aria-label="Ver créditos disponíveis"><small>Créditos</small><strong>{% if cadu_nav_credit and cadu_nav_credit.configured %}{{ cadu_nav_credit.available }}{% else %}—{% endif %}</strong></a><details class="family-account-menu"><summary aria-label="Abrir opções da conta">{% if session.get('user_photo_url') %}<img src="{{ session.get('user_photo_url') }}" alt="">{% else %}{{ user.name[:2] | upper }}{% endif %}</summary><div><strong>{{ user.name }}</strong><small>{{ session.get('user_email', '') }}</small><a href="{{ url_for('cadu_family.page', product='workspace', module='inicio') }}">Abrir Workspace</a><a href="{{ url_for('cadu_family.page', product='workspace', module='consumo') }}">Créditos e consumo{% if cadu_nav_credit and cadu_nav_credit.configured %}<span>{{ cadu_nav_credit.available }} disponíveis</span>{% endif %}</a><a href="{{ url_for('cadu_family.page', product='workspace', module='perfil') }}">Perfil</a></div></details>{% else %}<a class="family-primary" href="{{ login_url }}">Entrar</a>{% endif %}
+    {% if user and not sidebar_product %}<a class="family-credit-link" href="{{ url_for('cadu_family.page', product='workspace', module='consumo') }}" aria-label="Ver créditos disponíveis"><small>Créditos</small><strong>{% if cadu_nav_credit and cadu_nav_credit.configured %}{{ cadu_nav_credit.available }}{% else %}—{% endif %}</strong></a><details class="family-account-menu"><summary aria-label="Abrir opções da conta">{% if session.get('user_photo_url') %}<img src="{{ session.get('user_photo_url') }}" alt="">{% else %}{{ user.name[:2] | upper }}{% endif %}</summary><div><strong>{{ user.name }}</strong><small>{{ session.get('user_email', '') }}</small><a href="{{ url_for('cadu_family.page', product='workspace', module='inicio') }}">Abrir Workspace</a><a href="{{ url_for('cadu_family.page', product='workspace', module='consumo') }}">Créditos e consumo{% if cadu_nav_credit and cadu_nav_credit.configured %}<span>{{ cadu_nav_credit.available }} disponíveis</span>{% endif %}</a><a href="{{ url_for('cadu_family.page', product='workspace', module='perfil') }}">Perfil</a></div></details>{% elif not user %}<a class="family-primary" href="{{ login_url }}">Entrar</a>{% endif %}
   </div>
 </header>
 {# A variação com lateral existe somente depois da autenticação. Sem essa
@@ -63,6 +63,7 @@
 <div class="family-layout {{ 'family-layout--sidebar' if user and sidebar_product else '' }}">
 {% if user and sidebar_product %}
   <aside class="family-modules" aria-label="Seções de {{ spec.name }}">
+    <div class="family-sidebar-product">{% set cadu_active_product = product %}{% include 'cadu/_product_switch.html' %}</div>
     <nav>
       {% for group, keys in spec.navigation %}
       <div class="family-module-group"><b>{{ group }}</b>
@@ -75,8 +76,11 @@
       <div><h2 id="workspace-sidebar-history-title">Recentes</h2><a href="{{ url_for('cadu_family.page', product='workspace', module='conversas') }}">Ver todas</a></div>
       {% if module == 'conversas' %}<button type="button" id="conversation-new">Nova conversa</button><nav id="conversation-recent" aria-label="Últimas 15 conversas">Carregando conversas…</nav>{% else %}<p>Abra Conversas para acessar seu histórico e agentes.</p>{% endif %}
     </section>
-    <a class="family-sidebar-account" href="{{ url_for('cadu_family.page', product='workspace', module='perfil') }}"><span>{{ user.name[:2] | upper }}</span><strong>{{ user.name }}</strong><small>Configurações</small></a>
     {% endif %}
+    <div class="family-sidebar-account">
+      <a class="family-sidebar-credits" href="{{ url_for('cadu_family.page', product='workspace', module='consumo') }}"><span>Créditos</span><strong>{% if cadu_nav_credit and cadu_nav_credit.configured %}{{ cadu_nav_credit.available }} disponíveis{% else %}Ver consumo{% endif %}</strong></a>
+      <a class="family-sidebar-user" href="{{ url_for('cadu_family.page', product='workspace', module='perfil') }}"><span>{{ user.name[:2] | upper }}</span><strong>{{ user.name }}</strong><small>{{ session.get('user_email', 'Configurações da conta') }}</small></a>
+    </div>
   </aside>
 {% endif %}
 <main id="content" tabindex="-1">

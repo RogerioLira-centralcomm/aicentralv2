@@ -11,7 +11,7 @@
   {% endif %}
   <span class="cadu-universal-spacer"></span>
   {% if session.get('user_id') %}
-  <a class="cadu-universal-credit" href="{{ product_url('workspace', '/workspace/app') }}" aria-label="Ver créditos disponíveis">
+  <a class="cadu-universal-credit" href="{{ product_url('workspace', '/workspace/app/creditos') }}" aria-label="Ver créditos disponíveis">
     <small>Créditos</small><strong>{% if cadu_nav_credit and cadu_nav_credit.configured %}{{ cadu_nav_credit.available }}{% else %}—{% endif %}</strong>
   </a>
   <details class="cadu-universal-user">
@@ -23,7 +23,7 @@
       <strong>{{ session.get('user_name', 'Minha conta') }}</strong>
       <small>{{ session.get('user_email', '') }}</small>
       <a href="{{ product_url('workspace', '/workspace/app') }}">Abrir Workspace</a>
-      <a href="{{ product_url('workspace', '/workspace/app') }}">Créditos e consumo{% if cadu_nav_credit and cadu_nav_credit.configured %}<span>{{ cadu_nav_credit.available }} disponíveis</span>{% endif %}</a>
+      <a href="{{ product_url('workspace', '/workspace/app/creditos') }}">Créditos e consumo{% if cadu_nav_credit and cadu_nav_credit.configured %}<span>{{ cadu_nav_credit.available }} disponíveis</span>{% endif %}</a>
       <a href="{{ product_url('workspace', '/workspace/minhas-skills') }}">Minhas skills</a>
       <a href="{{ product_url('auth', '/logout') }}">Sair</a>
     </div>

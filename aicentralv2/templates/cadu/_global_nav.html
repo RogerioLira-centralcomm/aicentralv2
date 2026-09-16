@@ -3,7 +3,6 @@
 </style>
 <header class="cadu-global-nav">
   {% set cadu_home = product_url('workspace') if product_url is defined else url_for('cadu_skills.start') %}
-  {% set centralx_home = product_url('centralx') if product_url is defined else '/' %}
   {% set auth_home = product_url('auth') if product_url is defined else url_for('login') %}
   {% set family_products = [('workspace', 'Workspace', 'cadu-icon.png'), ('studio', 'Studio', 'studio-icon.png'), ('planner', 'Planner', 'planner-icon.png'), ('skills', 'Skills', 'skills-icon.png'), ('connect', 'Connect', 'connect-icon.png')] %}
   <details class="cadu-product-switch">
@@ -12,8 +11,8 @@
   </details>
   <span class="cadu-nav-spacer"></span>
   {% if session.get('user_id') %}
-    <a class="cadu-context-link" href="{{ product_url('workspace') if product_url is defined else centralx_home }}"><small>Workspace</small><strong>{{ session.get('user_name', 'Minha conta') }}</strong></a>
-    <a class="cadu-credit-link" href="{{ url_for('cadu_skills.studio') }}">Créditos</a>
+    <a class="cadu-context-link" href="{{ product_url('workspace') if product_url is defined else cadu_home }}"><small>Workspace</small><strong>{{ session.get('user_name', 'Minha conta') }}</strong></a>
+    <a class="cadu-credit-link" href="{{ product_url('workspace', '/workspace/app/creditos') }}">Créditos</a>
     <a class="cadu-avatar" href="{{ auth_home }}" aria-label="Abrir conta">{% if session.get('user_photo_url') %}<img src="{{ session.get('user_photo_url') }}" alt="Foto de {{ session.get('user_name', 'usuário') }}">{% else %}{{ session.get('user_name', 'U')[:2]|upper }}{% endif %}</a>
   {% else %}
     <a class="cadu-nav-link" href="{{ cadu_home }}">Workspace</a>

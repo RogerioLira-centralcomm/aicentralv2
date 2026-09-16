@@ -102,6 +102,8 @@ def legacy_item(row, legacy_origin):
         "created_at": _iso(row.get("created_at")),
         "result_url": f"{origin}/creative-analyzer/{uuid}" if uuid else f"{origin}/creative-analyzer?carregar={row.get('id')}",
         "opens_legacy": True,
+        "project_ref": None,
+        "project_name": "Acervo anterior",
     }
 
 
@@ -126,6 +128,8 @@ def studio_item(row):
         "created_at": _iso(row.get("created_at")),
         "result_url": f"/analyzer/{public_id}",
         "opens_legacy": False,
+        "project_ref": row.get("project_ref") or None,
+        "project_name": row.get("project_name") or None,
     }
 
 
@@ -188,20 +192,69 @@ class AnalyzerRepository:
     def _studio(self, user_id, client_id, fetch_limit):
         if not self._columns("studio_creative_analyses"):
             return []
+        has_projects = bool(self._columns("cadu_ci_projetos"))
+        project_column = "project.nome AS project_name" if has_projects else "NULL AS project_name"
+        project_join = (
+            "LEFT JOIN public.cadu_ci_projetos project "
+            "ON analysis.project_ref = CONCAT('ci:', project.id::text) "
+            "AND project.id_cliente = analysis.client_id"
+            if has_projects else ""
+        )
         with self.connection.cursor() as cursor:
             cursor.execute(
-                """
-                SELECT id, public_id, original_name, media_type, mime_type,
-                       format, thumbnail_url, score_geral, creative_type,
-                       funnel, status, result_json, created_at
-                  FROM public.studio_creative_analyses
-                 WHERE client_id = %s
-                 ORDER BY created_at DESC
+                f"""
+                SELECT analysis.id, analysis.public_id, analysis.original_name,
+                       analysis.media_type, analysis.mime_type, analysis.format,
+                       analysis.thumbnail_url, analysis.score_geral,
+                       analysis.creative_type, analysis.funnel, analysis.status,
+                       analysis.result_json, analysis.project_ref,
+                       analysis.created_at, {project_column}
+                  FROM public.studio_creative_analyses analysis
+                  {project_join}
+                 WHERE analysis.client_id = %s
+                 ORDER BY analysis.created_at DESC
                  LIMIT %s
                 """,
                 (client_id, fetch_limit),
             )
             return [dict(row) for row in cursor.fetchall()]
+
+    def list_projects(self, client_id):
+        if not self._columns("cadu_ci_projetos"):
+            return []
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, nome, cor, updated_at
+                  FROM public.cadu_ci_projetos
+                 WHERE id_cliente = %s AND status = 'ativo'
+                 ORDER BY updated_at DESC, nome
+                """,
+                (client_id,),
+            )
+            return [
+                {
+                    "ref": f"ci:{row['id']}",
+                    "name": row.get("nome") or "Projeto sem nome",
+                    "color": row.get("cor") or "#45615a",
+                }
+                for row in map(dict, cursor.fetchall())
+            ]
+
+    def project_exists(self, project_ref, client_id):
+        value = str(project_ref or "")
+        if not value.startswith("ci:") or not value[3:]:
+            return False
+        if not self._columns("cadu_ci_projetos"):
+            return False
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                """SELECT 1 FROM public.cadu_ci_projetos
+                    WHERE id::text = %s AND id_cliente = %s AND status = 'ativo'
+                    LIMIT 1""",
+                (value[3:], client_id),
+            )
+            return cursor.fetchone() is not None
 
     def list_history(self, user_id, client_id, limit=24, offset=0):
         fetch_limit = offset + limit + 1

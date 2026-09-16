@@ -1,6 +1,6 @@
 # Creative Analyzer no Studio — mapa e execução em fases
 
-Estado em 16/09/2026: Fases 0, 1 e 5 concluídas; pipelines de imagem e vídeo das Fases 2 e 3 implementados, com smoke test externo pendente de uma mídia autorizada. A Fase 4 está parcialmente entregue. Nenhuma análise, mídia ou URL legada foi apagada ou substituída.
+Estado em 16/09/2026: Fases 0, 1, 4 e 5 concluídas; pipelines de imagem e vídeo das Fases 2 e 3 implementados, com smoke test externo pendente de uma mídia autorizada. Nenhuma análise, mídia ou URL legada foi apagada ou substituída.
 
 ## Resultado esperado
 
@@ -195,7 +195,7 @@ Execução: implementada. MP4, MOV e WebM são validados por conteúdo com ffpro
 
 Critério de saída: experiência completa em desktop e mobile, sem folhas ou scripts do CentralX.
 
-Execução: parcial. A entrada ganhou direção visual própria do Studio, movimento funcional com preferência de redução de movimento, relatório privado em quatro áreas, player de vídeo e comparação dos quatro frames. Agrupamento por projeto, heatmap sobre a mídia e envio aos editores/Biblioteca continuam pendentes.
+Execução: concluída. A entrada ganhou direção visual própria do Studio, movimento funcional com preferência de redução de movimento, relatório privado em quatro áreas, player de vídeo e comparação dos quatro frames. O mapa estimado de atenção é desenhado sobre a mídia e explicita que não representa rastreamento observado. Análises novas podem ser vinculadas apenas a projetos ativos da organização; o histórico forma seções por projeto e separa o acervo anterior. Imagens e vídeos seguem para a Biblioteca e abrem diretamente no editor correspondente usando os contratos nativos do Studio. Estados de carregamento/erro, teclado, responsividade e redução de movimento foram preservados sem folhas ou scripts do CentralX.
 
 ### Fase 5 — compartilhamento público novo
 

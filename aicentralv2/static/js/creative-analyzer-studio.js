@@ -7,9 +7,12 @@
   const form = document.getElementById('analyzerUpload');
   const file = document.getElementById('analyzerFile');
   const result = document.getElementById('analyzerResult');
+  const project = document.getElementById('analyzerProject');
   let nextOffset = 0;
   let historyLoading = false;
   let uploadLoading = false;
+  let historyItems = [];
+  const transferred = new Map();
 
   const element = (name, className, text) => {
     const node = document.createElement(name);
@@ -23,7 +26,7 @@
     link.href = item.result_url;
     if (item.opens_legacy) link.rel = 'noopener';
     const media = element('div', 'analyzer-card-media');
-    if (item.thumbnail && String(item.thumbnail).startsWith('data:image/')) {
+    if (item.thumbnail && /^(data:image\/|https:\/\/|\/studio\/api\/analyzer\/)/.test(String(item.thumbnail))) {
       const image = document.createElement('img');
       image.src = item.thumbnail;
       image.alt = '';
@@ -41,21 +44,84 @@
     return link;
   }
 
+  function renderHistory() {
+    grid.replaceChildren();
+    const groups = new Map();
+    historyItems.forEach(item => {
+      const key = item.opens_legacy ? 'legacy' : (item.project_ref || 'unassigned');
+      if (!groups.has(key)) groups.set(key, { name: item.project_name || (key === 'unassigned' ? 'Sem projeto' : 'Acervo anterior'), items: [] });
+      groups.get(key).items.push(item);
+    });
+    groups.forEach(group => {
+      const section = element('section', 'analyzer-project-group');
+      const heading = element('header');
+      heading.append(element('h3', '', group.name), element('span', '', `${group.items.length} ${group.items.length === 1 ? 'análise' : 'análises'}`));
+      const shelf = element('div', 'analyzer-grid');
+      group.items.forEach(item => shelf.appendChild(card(item)));
+      section.append(heading, shelf);
+      grid.appendChild(section);
+    });
+  }
+
   const value = (object, path, fallback = '—') => {
     let current = object;
     for (const key of path.split('.')) current = current && current[key];
     return current === null || current === undefined || current === '' ? fallback : current;
   };
 
+  const clampCoordinate = value => Math.max(0, Math.min(100, Number(value) || 0));
+
+  function attentionMap(analysis, report) {
+    const hierarchy = report.attention_analysis?.visual_hierarchy || {};
+    let sequence = Array.isArray(hierarchy.sequence) ? hierarchy.sequence.filter(item => item && item.x != null && item.y != null).slice(0, 8) : [];
+    if (!sequence.length && hierarchy.first_fixation_coords) {
+      sequence = [{ element: hierarchy.first_fixation || 'Primeira fixação', ...hierarchy.first_fixation_coords }];
+    }
+    if (!sequence.length || !analysis.thumbnail_url) return null;
+    const section = element('section', 'analyzer-attention-map');
+    const heading = element('header');
+    heading.append(element('h3', '', 'Caminho estimado do olhar'), element('p', '', 'A posição indica a ordem provável de leitura, não rastreamento observado.'));
+    const stage = element('figure', 'analyzer-attention-stage');
+    const image = document.createElement('img');
+    image.src = analysis.thumbnail_url;
+    image.alt = `Mapa de atenção de ${analysis.original_name || 'criativo'}`;
+    const overlay = element('div', 'analyzer-attention-overlay');
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 100 100');
+    svg.setAttribute('aria-hidden', 'true');
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    line.setAttribute('points', sequence.map(item => `${clampCoordinate(item.x)},${clampCoordinate(item.y)}`).join(' '));
+    svg.appendChild(line);
+    overlay.appendChild(svg);
+    sequence.forEach((item, index) => {
+      const marker = element('span', 'analyzer-attention-point', String(index + 1));
+      marker.style.left = `${clampCoordinate(item.x)}%`;
+      marker.style.top = `${clampCoordinate(item.y)}%`;
+      marker.title = item.element || `Fixação ${index + 1}`;
+      overlay.appendChild(marker);
+    });
+    stage.append(image, overlay);
+    const list = element('ol', 'analyzer-attention-sequence');
+    sequence.forEach(item => list.appendChild(element('li', '', item.element || 'Elemento visual')));
+    section.append(heading, stage, list);
+    return section;
+  }
+
   function renderResult(analysis) {
     const report = analysis.result_json || {};
     result.replaceChildren();
     const head = element('header');
     const title = element('div');
-    title.append(element('p', 'analyzer-section-note', 'Resultado da análise'), element('h2', '', analysis.original_name || 'Criativo'));
+    title.append(element('h2', '', analysis.original_name || 'Criativo'));
     const actions = element('div', 'analyzer-result-actions');
     const share = shareButton(analysis.public_id, actions);
-    actions.append(share, element('strong', 'analyzer-result-score', String(value(report, 'score.geral', 0))));
+    const library = element('button', '', 'Adicionar à Biblioteca');
+    library.type = 'button';
+    library.addEventListener('click', () => sendToLibrary(analysis, library));
+    const editor = element('button', '', analysis.media_type === 'video' ? 'Abrir editor de vídeo' : 'Abrir editor de imagem');
+    editor.type = 'button';
+    editor.addEventListener('click', () => openEditor(analysis, editor));
+    actions.append(library, editor, share, element('strong', 'analyzer-result-score', String(value(report, 'score.geral', 0))));
     head.append(title, actions);
     result.appendChild(head);
     const media = element('div', `analyzer-result-media is-${analysis.media_type || 'image'}`);
@@ -83,6 +149,8 @@
       media.appendChild(image);
     }
     if (media.childElementCount) result.appendChild(media);
+    const map = attentionMap(analysis, report);
+    if (map) result.appendChild(map);
     const areas = element('div', 'analyzer-result-areas');
     const specs = [
       ['Visão geral', value(report, 'score.explanations.geral', 'Diagnóstico concluído.'), `Clareza ${value(report, 'score.clareza', 0)} / Impacto ${value(report, 'score.impacto_visual', 0)}`],
@@ -98,6 +166,76 @@
     result.appendChild(areas);
     result.hidden = false;
     result.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  }
+
+  async function sourceBlob(analysis) {
+    const response = await fetch(`/studio/api/analyzer/assets/${encodeURIComponent(analysis.public_id)}/source`);
+    if (!response.ok) throw new Error('Não foi possível ler o arquivo desta análise.');
+    return response.blob();
+  }
+
+  function dataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('Não foi possível preparar a imagem.'));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function transferToLibrary(analysis) {
+    if (transferred.has(analysis.public_id)) return transferred.get(analysis.public_id);
+    const promise = (async () => {
+      const blob = await sourceBlob(analysis);
+      let response;
+      if (analysis.media_type === 'video') {
+        const body = new FormData();
+        body.append('client_id', root.dataset.clientId);
+        body.append('file', blob, analysis.original_name || 'criativo.mp4');
+        response = await fetch(root.dataset.libraryVideoUrl, {
+          method: 'POST', body, headers: { Accept: 'application/json', 'X-Trocr-CSRF-Token': root.dataset.csrf },
+        });
+      } else {
+        response = await fetch(root.dataset.libraryStillUrl, {
+          method: 'POST',
+          headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Trocr-CSRF-Token': root.dataset.csrf },
+          body: JSON.stringify({ client_id: root.dataset.clientId, image: await dataUrl(blob), name: analysis.original_name, new_piece: true }),
+        });
+      }
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.success === false) throw new Error(payload.error || 'Não foi possível adicionar à Biblioteca.');
+      return payload.data !== undefined ? payload.data : payload;
+    })();
+    transferred.set(analysis.public_id, promise);
+    try { return await promise; } catch (error) { transferred.delete(analysis.public_id); throw error; }
+  }
+
+  async function sendToLibrary(analysis, button) {
+    button.disabled = true;
+    button.textContent = 'Adicionando…';
+    try {
+      await transferToLibrary(analysis);
+      button.textContent = 'Na Biblioteca';
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = error.message || 'Tentar novamente';
+    }
+  }
+
+  async function openEditor(analysis, button) {
+    button.disabled = true;
+    button.textContent = 'Preparando editor…';
+    try {
+      const item = await transferToLibrary(analysis);
+      const target = new URL(analysis.media_type === 'video' ? root.dataset.videoEditorUrl : root.dataset.imageEditorUrl, window.location.origin);
+      target.searchParams.set('client', root.dataset.clientId);
+      if (analysis.media_type === 'video' && item.id) target.searchParams.set('clip', item.id);
+      if (analysis.media_type !== 'video' && item.run_id) target.searchParams.set('run', item.run_id);
+      window.location.assign(target.toString());
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = error.message || 'Tentar novamente';
+    }
   }
 
   function shareButton(id, actions) {
@@ -167,6 +305,7 @@
     more.disabled = true;
     if (reset) {
       nextOffset = 0;
+      historyItems = [];
       grid.replaceChildren();
     }
     status.hidden = false;
@@ -178,16 +317,34 @@
       const response = await fetch(url, { headers: { Accept: 'application/json' } });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || 'Não foi possível carregar as análises.');
-      (payload.items || []).forEach(item => grid.appendChild(card(item)));
+      historyItems.push(...(payload.items || []));
+      renderHistory();
       nextOffset = payload.next_offset;
       more.hidden = nextOffset === null || nextOffset === undefined;
-      status.textContent = grid.children.length ? `${grid.children.length} análises carregadas.` : 'Nenhuma análise encontrada para esta marca.';
+      status.textContent = historyItems.length ? `${historyItems.length} análises em ${grid.children.length} projetos ou acervos.` : 'Nenhuma análise encontrada para esta marca.';
     } catch (error) {
       status.textContent = error.message || 'Não foi possível carregar as análises.';
       more.hidden = true;
     } finally {
       historyLoading = false;
       more.disabled = false;
+    }
+  }
+
+  async function loadProjects() {
+    try {
+      const response = await fetch(root.dataset.projectsUrl, { headers: { Accept: 'application/json' } });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error();
+      (payload.items || []).forEach(item => {
+        const option = document.createElement('option');
+        option.value = item.ref;
+        option.textContent = item.name;
+        project.appendChild(option);
+      });
+    } catch (_error) {
+      project.disabled = true;
+      project.title = 'Projetos indisponíveis neste momento';
     }
   }
 
@@ -221,6 +378,7 @@
       button.textContent = 'Analisar criativo';
     }
   });
+  loadProjects();
   load(true);
   if (root.dataset.analysisId) loadDetail(root.dataset.analysisId).catch(error => { status.textContent = error.message; });
 })();

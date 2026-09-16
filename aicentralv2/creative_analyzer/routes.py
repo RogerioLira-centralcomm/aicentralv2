@@ -67,6 +67,11 @@ def analyzer_history():
     return jsonify(items=items, next_offset=next_offset, mode="unified")
 
 
+@studio_or_admin_required_api
+def analyzer_projects():
+    return jsonify(items=_repository().list_projects(_client_id()))
+
+
 def _private_payload(row):
     if not row:
         abort(404)
@@ -86,10 +91,21 @@ def analyzer_create():
         return jsonify(error="Escolha uma imagem."), 400
     repository = _repository()
     try:
+        client_id = _client_id()
+        project_ref = str(request.form.get("project_ref") or "").strip()[:160] or None
+        if project_ref and not repository.project_exists(project_ref, client_id):
+            return jsonify(error="Escolha um projeto ativo desta organização."), 400
         service = AnalyzerService(repository)
         extension = Path(upload.filename or "").suffix.lower()
         method = service.analyze_video if extension in {".mp4", ".mov", ".webm"} else service.analyze_image
-        row = method(upload, user_id=session.get("user_id"), client_id=_client_id(), context=request.form.get("context", ""))
+        row = method(
+            upload,
+            user_id=session.get("user_id"),
+            client_id=client_id,
+            context=request.form.get("context", ""),
+            brand_ref=f"studio:{client_id}",
+            project_ref=project_ref,
+        )
     except ValueError as exc:
         return jsonify(error=str(exc)), 400
     except OpenRouterError as exc:
@@ -177,6 +193,11 @@ def analyzer_public_asset(token, kind):
 
 
 def register_api_routes(blueprint):
+    blueprint.add_url_rule(
+        "/api/analyzer/projects",
+        endpoint="creative_analyzer_projects",
+        view_func=analyzer_projects,
+    )
     blueprint.add_url_rule(
         "/api/analyzer/history",
         endpoint="creative_analyzer_history",

@@ -6,14 +6,14 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-navigation.css') }}?v=5">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/creative-analyzer-studio.css') }}?v=1">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/creative-analyzer-share.css') }}?v=1">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/creative-analyzer-interactive.css') }}?v=1">
 {% endblock %}
 {% block content %}
-<div class="studio-analyzer" id="creativeAnalyzer" data-mc-page="analyzer" data-history-url="{{ url_for('studio.creative_analyzer_history') }}" data-create-url="{{ url_for('studio.creative_analyzer_create') }}" data-detail-root="/studio/api/analyzer/analyses/" data-share-suffix="/share" data-csrf="{{ analyzer_csrf }}"{% if analysis_id %} data-analysis-id="{{ analysis_id }}"{% endif %}>
+<div class="studio-analyzer" id="creativeAnalyzer" data-mc-page="analyzer" data-client-id="174" data-history-url="{{ url_for('studio.creative_analyzer_history') }}" data-projects-url="{{ url_for('studio.creative_analyzer_projects') }}" data-create-url="{{ url_for('studio.creative_analyzer_create') }}" data-detail-root="/studio/api/analyzer/analyses/" data-library-still-url="/studio/api/format-lab/swap/library" data-library-video-url="/studio/api/format-lab/studio/clips" data-image-editor-url="{{ product_url('studio', '/imagem') }}" data-video-editor-url="{{ product_url('studio', '/video') }}" data-share-suffix="/share" data-csrf="{{ analyzer_csrf }}"{% if analysis_id %} data-analysis-id="{{ analysis_id }}"{% endif %}>
   {% include "cadu_studio/_context_bar.html" %}
   <main class="analyzer-main">
     <section class="analyzer-intro" aria-labelledby="analyzerTitle">
       <div>
-        <p class="analyzer-product-name">Creative Analyzer</p>
         <h1 id="analyzerTitle">Veja o que a peça comunica — e onde ela perde atenção.</h1>
         <p>Diagnóstico visual, atenção, mensagem, público e adequação por canal para imagens e vídeos.</p>
       </div>
@@ -27,16 +27,16 @@
     </section>
 
     <form class="analyzer-drop" id="analyzerUpload" aria-labelledby="newAnalysisTitle">
-      <div><span>Nova análise</span><h2 id="newAnalysisTitle">Envie uma imagem ou vídeo</h2><p>Imagem até 15 MB; MP4, MOV ou WebM de até 5 minutos e 200 MB. Vídeos são lidos em quatro momentos.</p><label class="analyzer-context">Contexto da campanha <input name="context" maxlength="2000" placeholder="Objetivo, oferta ou canal (opcional)"></label></div>
+      <div><span>Nova análise</span><h2 id="newAnalysisTitle">Envie uma imagem ou vídeo</h2><p>Imagem até 15 MB; MP4, MOV ou WebM de até 5 minutos e 200 MB. Vídeos são lidos em quatro momentos.</p><div class="analyzer-input-row"><label class="analyzer-context">Projeto <select id="analyzerProject" name="project_ref"><option value="">Sem projeto</option></select></label><label class="analyzer-context">Contexto da campanha <input name="context" maxlength="2000" placeholder="Objetivo, oferta ou canal (opcional)"></label></div></div>
       <div class="analyzer-upload-actions"><label class="analyzer-file">Escolher criativo<input id="analyzerFile" name="file" type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime,video/webm" required></label><button type="submit">Analisar criativo</button></div>
     </form>
 
     <section class="analyzer-result" id="analyzerResult" aria-live="polite" hidden></section>
 
     <section class="analyzer-history" aria-labelledby="historyTitle">
-      <header><div><p class="analyzer-section-note">Acervo preservado</p><h2 id="historyTitle">Análises anteriores</h2></div><p>Itens antigos abrem no endereço original. Nenhum upload foi movido ou apagado.</p></header>
+      <header><div><h2 id="historyTitle">Análises anteriores</h2></div><p>Itens antigos abrem no endereço original. Nenhum upload foi movido ou apagado.</p></header>
       <p class="analyzer-status" id="analyzerStatus" role="status">Carregando análises…</p>
-      <div class="analyzer-grid" id="analyzerGrid"></div>
+      <div class="analyzer-projects" id="analyzerGrid"></div>
       <button class="analyzer-more" id="analyzerMore" type="button" hidden>Mostrar mais</button>
     </section>
   </main>

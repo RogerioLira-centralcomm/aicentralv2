@@ -222,6 +222,20 @@ class CreativeAnalyzerRoutesTest(TestCase):
         self.assertEqual(response.status_code, 200)
         repository.return_value.list_history.assert_called_once_with(7, 174, limit=24, offset=0)
 
+    def test_projects_are_loaded_only_from_the_studio_client(self):
+        self.login()
+        with mock.patch("aicentralv2.creative_analyzer.routes._repository") as repository:
+            repository.return_value.list_projects.return_value = [
+                {"ref": "ci:project-1", "name": "Lançamento", "color": "#123456"}
+            ]
+            response = self.client.get(
+                "/studio/api/analyzer/projects?client_id=999",
+                headers={"Host": "studio.centralcomm.media"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["items"][0]["name"], "Lançamento")
+        repository.return_value.list_projects.assert_called_once_with(174)
+
     def test_image_upload_requires_csrf(self):
         self.login()
         response = self.client.post(
@@ -249,6 +263,41 @@ class CreativeAnalyzerRoutesTest(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.get_json()["analysis"]["status"], "complete")
         service.return_value.analyze_image.assert_called_once()
+
+    def test_upload_rejects_project_from_another_organization(self):
+        self.login()
+        with mock.patch("aicentralv2.creative_analyzer.routes._repository") as repository, \
+             mock.patch("aicentralv2.creative_analyzer.routes.AnalyzerService") as service:
+            repository.return_value.project_exists.return_value = False
+            response = self.client.post(
+                "/studio/api/analyzer/analyses",
+                data={"file": (io.BytesIO(b"not-used"), "piece.png"), "project_ref": "ci:foreign"},
+                headers={"Host": "studio.centralcomm.media", "X-Trocr-CSRF-Token": "csrf"},
+            )
+        self.assertEqual(response.status_code, 400)
+        repository.return_value.project_exists.assert_called_once_with("ci:foreign", 174)
+        service.assert_not_called()
+
+    def test_upload_persists_studio_brand_and_valid_project_refs(self):
+        self.login()
+        completed = {
+            "public_id": "6d71570e-959c-49de-b829-8ad201a71464",
+            "original_name": "piece.png", "status": "complete", "result_json": {},
+        }
+        with mock.patch("aicentralv2.creative_analyzer.routes._repository") as repository, \
+             mock.patch("aicentralv2.creative_analyzer.routes.AnalyzerService") as service:
+            repository.return_value.project_exists.return_value = True
+            service.return_value.analyze_image.return_value = completed
+            response = self.client.post(
+                "/studio/api/analyzer/analyses",
+                data={"file": (io.BytesIO(b"not-used"), "piece.png"), "project_ref": "ci:project-1"},
+                headers={"Host": "studio.centralcomm.media", "X-Trocr-CSRF-Token": "csrf"},
+            )
+        self.assertEqual(response.status_code, 201)
+        kwargs = service.return_value.analyze_image.call_args.kwargs
+        self.assertEqual(kwargs["client_id"], 174)
+        self.assertEqual(kwargs["brand_ref"], "studio:174")
+        self.assertEqual(kwargs["project_ref"], "ci:project-1")
 
     def test_video_upload_selects_backend_video_pipeline(self):
         self.login()

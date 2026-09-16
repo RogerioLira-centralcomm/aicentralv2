@@ -25,11 +25,11 @@ LISTA_USUARIOS_INATIVOS = 23
 
 # A assinatura é única (contato@centralcomm.media); a aparência identifica o produto.
 PRODUCT_EMAIL_BRANDS = {
-    "workspace": {"name": "Workspace", "accent": "#009F8A", "deep": "#083B35", "soft": "#E9F6F3", "signal": "#9BE3D7", "icon_url": "https://cadu.centralcomm.media/static/images/cadu/products/workspace-2d.svg"},
-    "studio": {"name": "Studio", "accent": "#8E5CFF", "deep": "#211344", "soft": "#F2EDFF", "signal": "#C9B2FF", "icon_url": "https://cadu.centralcomm.media/static/images/cadu/products/studio-2d.svg"},
-    "planner": {"name": "Planner", "accent": "#1473E6", "deep": "#102B53", "soft": "#EAF3FF", "signal": "#A9D1FF", "icon_url": "https://cadu.centralcomm.media/static/images/cadu/products/planner-2d.svg"},
-    "skills": {"name": "Skills", "accent": "#D85B12", "deep": "#3B1E0B", "soft": "#FFF1E7", "signal": "#FFC89C", "icon_url": "https://cadu.centralcomm.media/static/images/cadu/products/skills-2d.svg"},
-    "connect": {"name": "Connect", "accent": "#1976E9", "deep": "#102B53", "soft": "#EAF2FD", "signal": "#A9D1FF", "icon_url": "https://cadu.centralcomm.media/static/images/cadu/products/connect-2d.svg"},
+    "workspace": {"name": "Workspace", "accent": "#007D6D", "deep": "#10213B", "soft": "#E9F6F3", "signal": "#009F8A", "icon_url": "https://cadu.centralcomm.media/static/images/cadu/brand-icons/workspace-192.png"},
+    "studio": {"name": "Media Studio", "accent": "#6344CF", "deep": "#10213B", "soft": "#F1EDFC", "signal": "#7456E8", "icon_url": "https://cadu.centralcomm.media/static/images/cadu/brand-icons/studio-192.png"},
+    "planner": {"name": "Smart Planner", "accent": "#087D4D", "deep": "#10213B", "soft": "#E8F7EF", "signal": "#18B978", "icon_url": "https://cadu.centralcomm.media/static/images/cadu/brand-icons/planner-192.png"},
+    "skills": {"name": "Skills", "accent": "#A94D08", "deep": "#10213B", "soft": "#FFF2E7", "signal": "#E87922", "icon_url": "https://cadu.centralcomm.media/static/images/cadu/brand-icons/skills-192.png"},
+    "connect": {"name": "Connect", "accent": "#1363C5", "deep": "#10213B", "soft": "#EAF2FD", "signal": "#1976E9", "icon_url": "https://cadu.centralcomm.media/static/images/cadu/brand-icons/connect-192.png"},
 }
 
 

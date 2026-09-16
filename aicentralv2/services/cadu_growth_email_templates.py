@@ -14,9 +14,13 @@ from aicentralv2.services.brevo_service import get_brevo_product_service, produc
 
 # Nunca aceitar o destinatário por formulário: a suíte é exclusiva de homologação.
 BREVO_GROWTH_TEST_RECIPIENT = "apolo@centralcomm.media"
-GROWTH_EMAIL_HEADER_IMAGE_URL = (
-    "https://cadu.centralcomm.media/static/images/cadu/email/growth-identity-v1.png"
-)
+GROWTH_EMAIL_HEADER_IMAGE_URLS = {
+    "workspace": "https://cadu.centralcomm.media/static/images/cadu/email/workspace-growth-v2.png",
+    "studio": "https://cadu.centralcomm.media/static/images/cadu/email/studio-growth-v2.png",
+    "connect": "https://cadu.centralcomm.media/static/images/cadu/email/connect-growth-v2.png",
+    "skills": "https://cadu.centralcomm.media/static/images/cadu/email/skills-growth-v2.png",
+    "planner": "https://cadu.centralcomm.media/static/images/cadu/email/planner-growth-v2.png",
+}
 
 GROWTH_EMAIL_MODELS: Dict[str, Dict[str, str]] = {
     "conversa-para-plano": {
@@ -115,7 +119,7 @@ def build_growth_email(model_key: str, *, body: str | None = None) -> Dict[str, 
         "product": product,
         "params": {
             "BRAND": product_email_brand(product),
-            "HEADER_IMAGE_URL": GROWTH_EMAIL_HEADER_IMAGE_URL,
+            "HEADER_IMAGE_URL": GROWTH_EMAIL_HEADER_IMAGE_URLS[product],
             "TITLE": model["title"],
             "DESCRIPTION": model["description"],
             "BODY_HTML": _format_body_html(body or model["default_body"]),

@@ -28,7 +28,7 @@ class CaduGrowthEmailTemplateTests(unittest.TestCase):
                 html = render_growth_email(key)
                 self.assertIn("CentralComm", html)
                 self.assertIn("https://cadu.centralcomm.media", html)
-                self.assertIn("growth-identity-v1.png", html)
+                self.assertIn(f"{GROWTH_EMAIL_MODELS[key]['product']}-growth-v2.png", html)
                 self.assertIn('class="email-illustration"', html)
                 self.assertIn("<strong>", html)
                 self.assertNotIn("**", html)

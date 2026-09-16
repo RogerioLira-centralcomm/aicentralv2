@@ -5,7 +5,7 @@
   {% if session.get('user_id') %}<meta name="csrf-token" content="{{ session.get('family_csrf', '') }}">{% endif %}
   <title>{% block title %}Cadu Skills{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="icon" href="{{ url_for('cadu_skills.skills_icon', size=32) }}"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='images/cadu/brand-icons/skills-192.png') }}"><link rel="apple-touch-icon" sizes="192x192" href="{{ url_for('static', filename='images/cadu/brand-icons/skills-192.png') }}"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-portals.css') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-shell-tokens.css') }}?v=1">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-app-sidebar.css') }}?v=3">

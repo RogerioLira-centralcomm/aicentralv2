@@ -20,6 +20,7 @@ from ..cadu_connect.repository import accounts_for_workspace_context
 from ..cadu_skills.repository import credit_position, list_customizations
 from ..db import get_db
 from ..product_domains import product_url
+from ..smart_planner.logos import public_logo
 from . import project_sources
 
 
@@ -319,7 +320,7 @@ def _workspace_brands(client_id: int, query: str = "") -> list[dict]:
             cursor.execute(
                 """SELECT c.id, c.name, c.sector, c.tone_of_voice, c.website_url, c.primary_color,
                           c.secondary_color, c.logo_url, c.logo_upload_path, c.brand_profile,
-                          c.analysis_metadata, c.updated_at,
+                          c.analysis_metadata, c.created_at AS updated_at,
                           COUNT(a.id) FILTER (WHERE a.status = 'approved') AS asset_count,
                           COUNT(a.id) FILTER (WHERE a.role = 'logo' AND a.is_primary) AS has_logo
                      FROM cx_clients c
@@ -327,10 +328,18 @@ def _workspace_brands(client_id: int, query: str = "") -> list[dict]:
                     WHERE c.crm_client_id = %s
                       AND c.name ILIKE %s
                  GROUP BY c.id
-                 ORDER BY c.updated_at DESC NULLS LAST, c.name""",
+                 ORDER BY c.created_at DESC NULLS LAST, c.name""",
                 (client_id, '%' + query[:100] + '%'),
             )
-            return [dict(row) for row in cursor.fetchall()]
+            brands = [dict(row) for row in cursor.fetchall()]
+            for brand in brands:
+                name = str(brand.get('name') or '').strip()
+                brand['display_logo'] = public_logo(brand.get('logo_upload_path') or brand.get('logo_url'))
+                brand['display_initials'] = ''.join(
+                    word[0] for word in re.findall(r"[\wÀ-ÿ]+", name)[:2]
+                ).upper() or 'M'
+                brand['display_color'] = brand.get('primary_color') or '#176b5e'
+            return brands
     except Exception:
         return []
 
@@ -456,7 +465,7 @@ def _workspace_projects(client_id: int, query: str = "", status: str = "ativos")
                  GROUP BY p.id ORDER BY p.updated_at DESC""",
                 (client_id, '%' + query[:100] + '%', '%' + query[:100] + '%'),
             )
-            return [dict(row) for row in cursor.fetchall()]
+            return _attach_project_identity(client_id, [dict(row) for row in cursor.fetchall()])
     except Exception:
         # Older Cadu databases may still be missing narrative/RAG migrations.
         # Keep the dossier visible and let its missing capabilities read as empty.
@@ -475,9 +484,33 @@ def _workspace_projects(client_id: int, query: str = "", status: str = "ativos")
                 records = [dict(row) for row in cursor.fetchall()]
                 for record in records:
                     record.update({'tom_de_voz': '', 'publico': '', 'posicionamento': ''})
-                return records
+                return _attach_project_identity(client_id, records)
         except Exception:
             return []
+
+
+def _attach_project_identity(client_id: int, projects: list[dict]) -> list[dict]:
+    """Add the linked brand mark while keeping older dossiers presentable."""
+    if not projects:
+        return projects
+    try:
+        brands_by_ref = {f"studio:{brand['id']}": brand for brand in _workspace_brands(client_id)}
+        links_by_project: dict[str, list[dict]] = {}
+        for link in family_repository.project_brand_links(client_id):
+            brand = brands_by_ref.get(str(link.get('brand_ref') or ''))
+            if brand:
+                links_by_project.setdefault(str(link.get('project_ref') or ''), []).append(brand)
+    except Exception:
+        links_by_project = {}
+
+    for project in projects:
+        name = str(project.get('nome') or '').strip()
+        brand = next(iter(links_by_project.get(f"ci:{project.get('id')}", [])), {})
+        project['thumbnail_url'] = public_logo(brand.get('logo_upload_path') or brand.get('logo_url')) if brand else ''
+        project['thumbnail_label'] = str(brand.get('name') or name)
+        project['thumbnail_initials'] = ''.join(word[0] for word in re.findall(r"[\wÀ-ÿ]+", name)[:2]).upper() or 'P'
+        project['thumbnail_color'] = brand.get('primary_color') or project.get('cor') or '#176b5e'
+    return projects
 
 
 def _workspace_data_health() -> dict:
@@ -801,7 +834,7 @@ PRODUCT_ENTRIES = {
     "planner": ("Planner", "Planejamento de mídia", "Planeje antes de investir.", "Estruture objetivos, público, canais e recomendações em um plano pronto para a próxima decisão."),
     "studio": ("Studio", "Criação de conteúdo", "Crie para o formato que importa.", "Transforme uma direção criativa em peças, variações e formatos preparados para a campanha."),
     "skills": ("Skills", "Conhecimento especialista", "Aplique o método certo no momento certo.", "Encontre skills e agentes especializados para pesquisar, decidir e executar com mais contexto."),
-    "connect": ("Connect", "Conexões e operação", "Conecte a operação ao trabalho.", "Organize integrações, campanhas e agentes que fazem os sistemas avançarem juntos."),
+    "connect": ("Reports", "Relatórios e operação", "Conecte a operação ao trabalho.", "Organize integrações, campanhas e agentes que fazem os sistemas avançarem juntos."),
 }
 
 # Cada carregamento escolhe no servidor um recorte editorial diferente, sem
@@ -852,7 +885,7 @@ def workspace_icon(size):
     return send_file(asset, mimetype="image/png", max_age=86400)
 
 
-@bp.get("/workspace/app")
+@bp.get("/app")
 @login_required
 def dashboard():
     client_id = int(session.get("cliente_id") or 0)
@@ -872,6 +905,13 @@ def dashboard():
         customizations=customizations, credit=credit_position(client_id), hero=secrets.choice(WORKSPACE_APP_HEROES),
         data_health=_workspace_data_health(),
     )
+
+
+@bp.get("/workspace/app")
+@login_required
+def legacy_dashboard_url():
+    """Preserve favoritos antigos e exponha a entrada curta do produto."""
+    return redirect(url_for("cadu_workspace.dashboard"), code=308)
 
 
 @bp.get('/workspace/app/conversas')

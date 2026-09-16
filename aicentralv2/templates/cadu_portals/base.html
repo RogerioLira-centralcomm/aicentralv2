@@ -1,11 +1,16 @@
+{% set portal_product %}{% block product_id %}cadu{% endblock %}{% endset %}
+{% set portal_product = portal_product|trim %}
+{% set portal_name = {'workspace': 'Cadu Workspace', 'workspace-public': 'Cadu Workspace', 'planner': 'Cadu Planner', 'studio': 'Cadu Studio', 'connect': 'Cadu Reports', 'skills': 'Cadu Skills'}.get(portal_product, 'Cadu') %}
+{% set portal_icon = {'workspace': 'workspace-192.png', 'workspace-public': 'workspace-192.png', 'planner': 'planner-192.png', 'studio': 'studio-192.png', 'connect': 'connect-192.png', 'skills': 'skills-192.png'}.get(portal_product) %}
 <!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   {% if session.get('user_id') %}<meta name="csrf-token" content="{{ session.get('family_csrf', '') }}">{% endif %}
-  <title>{% block title %}Cadu{% endblock %}</title>
+  <title>{% block title %}{{ portal_name }}{% endblock %}</title>
   {% block meta %}{% endblock %}
+  {% if portal_icon %}<link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='images/cadu/brand-icons/' ~ portal_icon) }}"><link rel="apple-touch-icon" sizes="192x192" href="{{ url_for('static', filename='images/cadu/brand-icons/' ~ portal_icon) }}">{% else %}<link rel="icon" type="image/png" href="{{ url_for('static', filename='images/cadu/products/cadu-icon.png') }}">{% endif %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -14,15 +19,13 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-product-switch.css') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-nav-compact.css') }}?v=1">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-app-sidebar.css') }}?v=3">
-  {% if self.product_id()|trim == 'workspace' %}<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">{% endif %}
+  {% if portal_product in ('workspace', 'connect') %}<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">{% endif %}
   {% block styles %}{% endblock %}
-  {% set cadu_theme_product = self.product_id()|trim %}{% include 'cadu/_theme_head.html' %}
+  {% set cadu_theme_product = portal_product %}{% include 'cadu/_theme_head.html' %}
 </head>
-{% set portal_product %}{% block product_id %}cadu{% endblock %}{% endset %}
-{% set portal_product = portal_product|trim %}
 <body class="portal portal--{{ portal_product }}" data-product="{{ portal_product }}" data-authenticated="{{ 'true' if session.get('user_id') else 'false' }}">
   <a class="portal-skip" href="#content">Ir para o conteúdo</a>
-  {% block navigation %}{% set cadu_active_product = self.product_id()|trim %}{% include 'cadu/_product_nav.html' %}{% endblock %}
+  {% block navigation %}{% set cadu_active_product = portal_product %}{% include 'cadu/_product_nav.html' %}{% endblock %}
   <main id="content" tabindex="-1">{% block content %}{% endblock %}</main>
   <footer class="cadu-family-footer" aria-label="Cadu Media">
     <a class="cadu-family-footer__brand" href="{{ product_url('cadu') }}">Cadu Media</a>

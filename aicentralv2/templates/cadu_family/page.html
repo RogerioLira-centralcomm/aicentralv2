@@ -4,7 +4,8 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="csrf-token" content="{{ csrf }}">
   <title>{{ title }} — Cadu {{ spec.name }}</title>
-  {% if product == 'planner' %}<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/cadu/products/planner-icon.png') }}">{% endif %}
+  {% set family_icon = {'workspace': 'workspace-192.png', 'planner': 'planner-192.png', 'studio': 'studio-192.png', 'connect': 'connect-192.png', 'skills': 'skills-192.png'}.get(product, 'workspace-192.png') %}
+  <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='images/cadu/brand-icons/' ~ family_icon) }}"><link rel="apple-touch-icon" sizes="192x192" href="{{ url_for('static', filename='images/cadu/brand-icons/' ~ family_icon) }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-family.css') }}?v=5">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-family-sidebar.css') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-app-sidebar.css') }}?v=3">

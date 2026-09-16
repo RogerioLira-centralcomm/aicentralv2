@@ -24,7 +24,7 @@ from flask import (
 from werkzeug.utils import secure_filename
 
 from aicentralv2 import db
-from aicentralv2.auth import login_required
+from aicentralv2.auth import centralcomm_required, centralcomm_required_api, login_required
 from aicentralv2.cotacao_tipos import (
     campos_item_tipo_comercial,
     destino_tipo_comercial,
@@ -766,6 +766,65 @@ def _intermediario_cotacao_alterado(update_data):
 
 
 # --- HTML ---
+
+
+@bp.route('/cotacoes/solicitacoes-planner')
+@centralcomm_required
+def solicitacoes_planner():
+    """Commercial inbox for the external Planner, separate from legacy sessions."""
+    from aicentralv2.cadu_planner import commercial
+    try:
+        requests = commercial.list_requests(
+            session['user_id'], session.get('user_type') in {'admin', 'superadmin'}
+        )
+    except Exception as exc:
+        current_app.logger.error('solicitacoes_planner: %s', exc, exc_info=True)
+        flash(str(exc), 'error')
+        requests = []
+    return render_template(
+        'cadu_planner/commercial_requests.html', requests=requests,
+        api_prefix='/api/cotacoes/solicitacoes-planner',
+        scopes={'full_operation': 'Operação completa', 'media_inventory': 'Inventário de mídia', 'specific_channels': 'Canais específicos'},
+        statuses={'requested': 'Solicitada', 'in_review': 'Em análise', 'needs_information': 'Precisa de informações', 'proposal_available': 'Proposta disponível', 'approved': 'Aprovada', 'closed': 'Encerrada'},
+    )
+
+
+def _planner_commercial_actor():
+    return session['user_id'], session.get('user_type') in {'admin', 'superadmin'}
+
+
+@bp.route('/api/cotacoes/solicitacoes-planner', methods=['GET'])
+@centralcomm_required_api
+def api_solicitacoes_planner():
+    from aicentralv2.cadu_planner import commercial
+    actor_id, is_admin = _planner_commercial_actor()
+    return jsonify({'success': True, 'requests': commercial.list_requests(actor_id, is_admin)})
+
+
+@bp.route('/api/cotacoes/solicitacoes-planner/<uuid:request_id>/assumir', methods=['POST'])
+@centralcomm_required_api
+def api_assumir_solicitacao_planner(request_id):
+    from aicentralv2.cadu_planner import commercial
+    actor_id, is_admin = _planner_commercial_actor()
+    return jsonify({'success': True, 'request': commercial.accept_request(request_id, actor_id, is_admin)})
+
+
+@bp.route('/api/cotacoes/solicitacoes-planner/<uuid:request_id>/vincular-cotacao', methods=['POST'])
+@centralcomm_required_api
+def api_vincular_cotacao_solicitacao_planner(request_id):
+    from aicentralv2.cadu_planner import commercial
+    actor_id, is_admin = _planner_commercial_actor()
+    payload = request.get_json(silent=True) or {}
+    return jsonify({'success': True, 'request': commercial.link_crm_quote(request_id, actor_id, payload.get('crm_quote_id'), is_admin)})
+
+
+@bp.route('/api/cotacoes/solicitacoes-planner/<uuid:request_id>/status', methods=['POST'])
+@centralcomm_required_api
+def api_status_solicitacao_planner(request_id):
+    from aicentralv2.cadu_planner import commercial
+    actor_id, is_admin = _planner_commercial_actor()
+    payload = request.get_json(silent=True) or {}
+    return jsonify({'success': True, 'request': commercial.update_status(request_id, actor_id, payload.get('status'), is_admin)})
 
 
 @bp.route('/cotacoes')

@@ -34,6 +34,9 @@
       <div class="pp-views">
         <a href="{{ url_for('crm_pipeline') }}">Pipeline</a>
         <a href="{{ url_for('cotacoes.cotacoes_list') }}" class="is-on">Lista</a>
+        {% if session.get('is_centralcomm') %}
+        <a href="{{ url_for('cotacoes.solicitacoes_planner') }}">Planner</a>
+        {% endif %}
       </div>
       <span class="cot-lista-count" id="totalCotacoes">{{ cotacoes|length if cotacoes else 0 }} {{ 'cotação' if (cotacoes|length if cotacoes else 0) == 1 else 'cotações' }}</span>
       <a href="{{ url_for('cotacoes.cotacao_nova') }}" class="cx-btn cx-btn-primary">Nova cotação</a>

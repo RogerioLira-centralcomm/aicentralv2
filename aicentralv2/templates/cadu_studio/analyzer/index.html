@@ -1,0 +1,46 @@
+{% extends "cadu_portals/base.html" %}
+{% block title %}Creative Analyzer — Cadu Studio{% endblock %}
+{% block product_id %}studio{% endblock %}
+{% block navigation %}{% endblock %}
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-navigation.css') }}?v=5">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/creative-analyzer-studio.css') }}?v=1">
+{% endblock %}
+{% block content %}
+<div class="studio-analyzer" id="creativeAnalyzer" data-mc-page="analyzer" data-history-url="{{ url_for('studio.creative_analyzer_history') }}"{% if analysis_id %} data-analysis-id="{{ analysis_id }}"{% endif %}>
+  {% include "cadu_studio/_context_bar.html" %}
+  <main class="analyzer-main">
+    <section class="analyzer-intro" aria-labelledby="analyzerTitle">
+      <div>
+        <p class="analyzer-product-name">Creative Analyzer</p>
+        <h1 id="analyzerTitle">Veja o que a peça comunica — e onde ela perde atenção.</h1>
+        <p>Diagnóstico visual, atenção, mensagem, público e adequação por canal para imagens e vídeos.</p>
+      </div>
+      <div class="analyzer-scan" aria-hidden="true">
+        <div class="analyzer-scan-line"></div>
+        <figure><i></i><figcaption>abertura</figcaption></figure>
+        <figure><i></i><figcaption>hook</figcaption></figure>
+        <figure><i></i><figcaption>narrativa</figcaption></figure>
+        <figure><i></i><figcaption>CTA</figcaption></figure>
+      </div>
+    </section>
+
+    <section class="analyzer-drop" aria-labelledby="newAnalysisTitle">
+      <div><span>Nova análise</span><h2 id="newAnalysisTitle">Imagem ou vídeo</h2><p>O processamento nativo será ativado na próxima fase. Seu histórico atual já está disponível abaixo.</p></div>
+      <button type="button" disabled>Enviar criativo</button>
+    </section>
+
+    <section class="analyzer-history" aria-labelledby="historyTitle">
+      <header><div><p class="analyzer-section-note">Acervo preservado</p><h2 id="historyTitle">Análises anteriores</h2></div><p>Itens antigos abrem no endereço original. Nenhum upload foi movido ou apagado.</p></header>
+      <p class="analyzer-status" id="analyzerStatus" role="status">Carregando análises…</p>
+      <div class="analyzer-grid" id="analyzerGrid"></div>
+      <button class="analyzer-more" id="analyzerMore" type="button" hidden>Mostrar mais</button>
+    </section>
+  </main>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script>
+<script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=5" defer></script>
+<script src="{{ url_for('static', filename='js/creative-analyzer-studio.js') }}?v=1" defer></script>
+{% endblock %}

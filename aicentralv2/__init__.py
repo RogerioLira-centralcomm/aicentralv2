@@ -254,10 +254,14 @@ def create_app(config_class=Config):
         studio_bp = Blueprint("studio", __name__, url_prefix="/studio")
         register_creative_modeling_routes(studio_bp)
         register_camadas_routes(studio_bp)
+        from .creative_analyzer import register_api_routes as register_creative_analyzer_api
+        register_creative_analyzer_api(studio_bp)
         app.register_blueprint(studio_bp)
 
         studio_product_bp = Blueprint("studio_product", __name__)
         register_studio_product_routes(studio_product_bp)
+        from .creative_analyzer import register_product_routes as register_creative_analyzer_product
+        register_creative_analyzer_product(studio_product_bp)
         app.register_blueprint(studio_product_bp)
 
         register_creative_modeling_routes(parametros_bp)

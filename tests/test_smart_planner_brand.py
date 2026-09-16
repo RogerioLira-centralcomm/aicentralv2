@@ -86,6 +86,22 @@ def test_snapshot_brand_is_compact():
     assert "brand_dna" not in snap
 
 
+def test_snapshot_brand_keeps_logo_and_key_asset_for_image_generation():
+    snap = snapshot_brand({
+        "id": 9,
+        "name": "Marca teste",
+        "logo_url": "https://cdn.example.test/logo.png",
+        "brand_assets": [
+            {"role": "product", "asset_url": "https://cdn.example.test/product.jpg"},
+            {"role": "other", "asset_url": "https://cdn.example.test/ignore.jpg"},
+        ],
+    })
+    assert snap["image_references"] == [
+        "https://cdn.example.test/logo.png",
+        "https://cdn.example.test/product.jpg",
+    ]
+
+
 def test_apply_pistas_keeps_confirmed_client():
     merged = apply_pistas(
         {"cliente": "Outro", "agencia": "", "publico": "do briefing", "canais": ["g1"]},

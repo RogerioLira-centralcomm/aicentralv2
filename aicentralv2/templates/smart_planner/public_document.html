@@ -41,7 +41,7 @@
     <section class="spv3-titlebar">
       <div>
         <span class="spv3-eyebrow">{{ document_label }}</span>
-        <h1>{{ title }}</h1>
+        <h1>{% if brand_logo %}<img class="spv3-client-logo" src="{{ brand_logo }}" alt="{{ title }}">{% endif %}{{ title }}</h1>
         <p>{{ client }}{% if praca_line %} · {{ praca_line }}{% endif %}</p>
       </div>
       <div class="spv3-facts" aria-label="Resumo do planejamento">
@@ -67,16 +67,10 @@
     </section>
 
     {% if document == 'proposal' %}
-    <nav class="spv3-tabs" role="tablist" aria-label="Proposta comercial">
-      <button role="tab" aria-selected="true" aria-controls="tab-proposta" id="control-proposta">Proposta</button>
-      <button role="tab" aria-selected="false" aria-controls="tab-mix" id="control-mix" tabindex="-1">Mix e investimento</button>
-      <button role="tab" aria-selected="false" aria-controls="tab-referencias" id="control-referencias" tabindex="-1">Referências</button>
-    </nav>
-
-    <section class="spv3-panel" id="tab-proposta" role="tabpanel" aria-labelledby="control-proposta">
+    <section class="spv3-panel spv3-executive-plan" id="plano-executivo">
       <div class="spv3-hero">
         <div class="spv3-hero-copy">
-          <span class="spv3-eyebrow">A oportunidade</span>
+          <span class="spv3-eyebrow">Direção recomendada</span>
           <h2>{{ hero.tagline or overview }}</h2>
           {% if audience %}<p><strong>Público prioritário.</strong> {{ audience }}</p>{% endif %}
           {% if concept %}<div class="spv3-concept"><small>Conceito recomendado</small><strong>{{ concept }}</strong><p>{{ support }}</p></div>{% endif %}
@@ -87,13 +81,14 @@
         </figure>
       </div>
       <div class="spv3-defense">
-        <div><span class="spv3-eyebrow">Por que aprovar</span><h3>Uma proposta clara para avançar</h3></div>
+        <div><span class="spv3-eyebrow">Leitura executiva</span><h3>O que sustenta este plano</h3></div>
         <ol>{% for item in defense_points %}<li>{{ item }}</li>{% endfor %}</ol>
       </div>
     </section>
 
-    <section class="spv3-panel" id="tab-mix" role="tabpanel" aria-labelledby="control-mix" hidden>
-      <header class="spv3-section-head"><div><span class="spv3-eyebrow">Recomendação</span><h2>O papel de cada canal</h2></div><p>{{ reading.defense }}</p></header>
+    {% if has_approved_mix %}
+    <section class="spv3-panel spv3-flow-section" id="mix">
+      <header class="spv3-section-head"><div><span class="spv3-eyebrow">Mix aprovado</span><h2>O papel de cada canal</h2></div><p>{{ reading.defense }}</p></header>
       <div class="spv3-mix-layout">
         <div class="spv3-donut" style="background:{{ media.donut }}"><span><strong>{{ media.total_pct }}%</strong> do mix</span></div>
         <div class="spv3-channel-list">
@@ -104,12 +99,13 @@
       </div>
       {% if media.months %}<div class="spv3-timeline">{% for month in media.months %}<span><small>{{ month.full_label or month.label }}</small><strong>{{ month.amount_label }}</strong><i style="height:{{ month.bar }}px"></i></span>{% endfor %}</div>{% endif %}
     </section>
+    {% endif %}
 
-    <section class="spv3-panel" id="tab-referencias" role="tabpanel" aria-labelledby="control-referencias" hidden>
-      <header class="spv3-section-head"><div><span class="spv3-eyebrow">Base da proposta</span><h2>Referências e premissas</h2></div><p>O que sustenta a recomendação e o que será validado antes da compra.</p></header>
+    <section class="spv3-panel spv3-flow-section" id="premissas">
+      <header class="spv3-section-head"><div><span class="spv3-eyebrow">Base de decisão</span><h2>Referências e premissas</h2></div><p>Informações que sustentam o plano e pontos que ainda dependem de validação.</p></header>
       <div class="spv3-reference-grid">
         {% if show_market %}<article><span class="spv3-eyebrow">Dado de mercado</span><strong>{{ sheet.market.stat }}</strong><p>{{ sheet.market.body }}</p></article>{% endif %}
-        <article><span class="spv3-eyebrow">Critério do mix</span><strong>{{ media.method_label or 'Recomendação estratégica' }}</strong><p>{{ media.note or media.how }}</p></article>
+        {% if has_approved_mix %}<article><span class="spv3-eyebrow">Critério do mix</span><strong>{{ media.method_label or 'Recomendação estratégica' }}</strong><p>{{ media.note or media.how }}</p></article>{% endif %}
         <article><span class="spv3-eyebrow">Premissas</span><ul>{% for item in assumptions.points[:5] %}<li>{{ item }}</li>{% endfor %}</ul></article>
       </div>
     </section>
@@ -137,7 +133,7 @@
     {% endfor %}
     {% endif %}
   </main>
-  <footer class="spv3-footer"><span>{{ house.name }} · {{ document_label }}</span><span>Documento confidencial para avaliação comercial</span></footer>
+  <footer class="spv3-footer"><span>{{ house.name }} · {{ document_label }}</span><span>Documento confidencial de planejamento</span></footer>
   <script>window.SMART_PLANNER_PUBLIC_URL = {{ document_url|tojson }};</script>
   <script src="{{ url_for('static', filename='js/smart_planner/public-document.js') }}?v=1"></script>
 </body>

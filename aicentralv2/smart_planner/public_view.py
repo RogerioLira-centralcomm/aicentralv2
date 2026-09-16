@@ -1226,6 +1226,8 @@ def public_view(row: dict, document: str | None = None) -> dict:
     commercial_defense = as_dict(page_v2.get("commercial_defense"))
     defense_points = [text(item) for item in as_list(commercial_defense.get("why_this_mix") or commercial_defense.get("why_this_plan")) if text(item)]
     defense_points.extend(item for item in defense_parts if item not in defense_points)
+    approved_mix = bool(media.get("channels")) and int(media.get("total_pct") or 0) > 0
+    client_brand = as_dict(branding.get("client") or branding.get("hero"))
     return {
         "house": HOUSE,
         "title": title,
@@ -1262,7 +1264,7 @@ def public_view(row: dict, document: str | None = None) -> dict:
         "full_plan_url": full_plan_url,
         "document": document,
         "document_url": document_url,
-        "document_label": "Planejamento completo" if document == "full_plan" else "Proposta comercial",
+        "document_label": "Planejamento completo" if document == "full_plan" else "Plano de mídia executivo",
         "public_token": token,
         "default_tab": default_view,
         "default_view": default_view,
@@ -1288,13 +1290,15 @@ def public_view(row: dict, document: str | None = None) -> dict:
         "assumptions": assumptions,
         "metric_note": METRIC_UNDEFINED,
         "praca_line": praca_line,
+        "brand_logo": text(client_brand.get("logo_url")),
+        "has_approved_mix": approved_mix,
         "updated_at": updated_display["label"] or updated,
         "updated_at_title": updated_display["title"] or updated,
         "executive_facts": [
             ("Verba", verba or "A definir"),
             ("Período", period or "A definir"),
             ("Objetivo", objective_label or "A definir"),
-            ("Mix", f"{media.get('total_pct') or 0}% alocado" if media.get("channels") else "A definir"),
+            ("Mix", f"{media.get('total_pct')}% alocado" if approved_mix else "A definir"),
             ("Metas", "Pendentes de validação" if "metricas" in missing else "Definidas no plano"),
         ],
         "period_count": len(media.get("months") or []),

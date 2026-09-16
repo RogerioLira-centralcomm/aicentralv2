@@ -12,7 +12,7 @@ TEMPLATES = ROOT / "aicentralv2" / "templates" / "smart_planner"
 
 
 class PublicPlannerTest(TestCase):
-    def test_separate_public_documents_render_with_tabs_and_primary_format(self):
+    def test_separate_public_documents_render_as_executive_plan_and_primary_format(self):
         row = {
             "nome_campanha": "Proposta BDMG",
             "cliente": "BDMG",
@@ -50,7 +50,8 @@ class PublicPlannerTest(TestCase):
         with app.test_request_context("/"):
             proposal_html = render_template("smart_planner/public_document.html", **proposal)
             complete_html = render_template("smart_planner/public_document.html", **complete)
-        self.assertIn("Mix e investimento", proposal_html)
+        self.assertIn("Plano de mídia executivo", proposal_html)
+        self.assertNotIn('role="tablist" aria-label="Proposta comercial"', proposal_html)
         self.assertNotIn("Capítulo 1 de 5", proposal_html)
         self.assertIn("Capítulo 1 de 5", complete_html)
         self.assertIn("imagem conceito estática", complete_html)

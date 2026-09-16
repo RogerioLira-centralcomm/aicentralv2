@@ -40,7 +40,7 @@ def apply_sheet_art(plan: dict, force: bool = False) -> dict:
     if creative and (force or not text(creative.get("image_url"))):
         prompt = text(creative.get("image_prompt")) or _default_creative_prompt(creative, meta, hero)
         ratio = "4:3" if text(creative.get("surface")) == "app" else "16:9"
-        creative["image_url"] = _render(prompt, f"{slug}-creative", aspect_ratio=ratio)
+        creative["image_url"] = _render(prompt, f"{slug}-creative", aspect_ratio=ratio, references=_brand_references(branding, hero))
         creative["image_model"] = resolve_image_model()
     return plan
 
@@ -59,7 +59,7 @@ def regenerate_creative(plan: dict) -> dict:
     slug = _slug(meta.get("client") or hero.get("name") or theme.get("id") or "folha")
     prompt = text(creative.get("image_prompt")) or _default_creative_prompt(creative, meta, hero)
     ratio = "4:3" if text(creative.get("surface")) == "app" else "16:9"
-    creative["image_url"] = _render(prompt, f"{slug}-creative", aspect_ratio=ratio)
+    creative["image_url"] = _render(prompt, f"{slug}-creative", aspect_ratio=ratio, references=_brand_references(branding, hero))
     creative["image_model"] = resolve_image_model()
     return plan
 
@@ -100,13 +100,28 @@ def _default_creative_prompt(card: dict, meta: dict, hero: dict) -> str:
             "No invented brand, logo, campaign copy or agency identity."
         )
     return (
-        f"Photoreal {surface} mockup of {client} advertising in-channel: {body}. "
-        "Use the advertiser identity and supplied assets when available; never invent a logo. "
-        "The ad is inserted in the medium, not a loose banner. No agency logos."
+        f"Premium, photoreal campaign key visual for {client}, shown as a real {surface} advertising placement. "
+        f"Campaign context: {body}. Use the supplied brand reference as the exact identity source: preserve its logo, "
+        "palette and product cues; do not invent a substitute logo or typography. Show a believable Brazilian audience, "
+        "place and product-use moment, with the ad naturally integrated into the screen or editorial environment. "
+        "This must look like art-directed commercial photography, not an abstract background, bokeh wallpaper, generic "
+        "AI illustration or dashboard. Keep the composition simple, with one focal scene and clear negative space. "
+        "No agency marks, no readable promotional copy, no prices, no QR code and no watermark."
     )
 
 
-def _render(prompt: str, stem: str, aspect_ratio: str) -> str:
+def _brand_references(branding: dict, hero: dict) -> list[str]:
+    client = as_dict(branding.get("client"))
+    refs = as_list(client.get("image_references"))
+    if not refs:
+        refs = as_list(as_dict(branding.get("brand")).get("image_references"))
+    logo = text(client.get("logo_url") or hero.get("logo_url"))
+    if logo:
+        refs.insert(0, logo)
+    return list(dict.fromkeys(text(item) for item in refs if text(item)))[:2]
+
+
+def _render(prompt: str, stem: str, aspect_ratio: str, references: list[str] | None = None) -> str:
     result = generate_image(
         prompt,
         aspect_ratio=aspect_ratio,
@@ -114,6 +129,7 @@ def _render(prompt: str, stem: str, aspect_ratio: str) -> str:
         output_format="png",
         resolution="2K",
         model=resolve_image_model(),
+        input_references=references or None,
     )
     record_cost(result.get("usage"), kind="image", model=text(result.get("model")))
     raw = base64.b64decode(result["b64_json"])

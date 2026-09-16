@@ -99,6 +99,11 @@ def snapshot_brand(client: dict | None) -> dict:
         "creative_guidelines": text(context.get("creative_guidelines")),
         "palette": [text(item) for item in as_list(context.get("palette")) if text(item)][:6],
         "canais": canais,
+        # These are intentionally URLs, not image bytes.  The image service uses
+        # at most two of them as references when it creates a campaign visual.
+        # Keeping them on the snapshot means a later regeneration sees the same
+        # approved identity that the planner saw at intake.
+        "image_references": _brand_image_references(client, context),
     }
     snapshot["has_identity"] = bool(
         snapshot["brand_summary"]
@@ -108,6 +113,22 @@ def snapshot_brand(client: dict | None) -> dict:
         or snapshot["logo_url"]
     )
     return snapshot
+
+
+def _brand_image_references(client: dict, context: dict) -> list[str]:
+    """Return the logo plus one useful visual asset for image-to-image generation."""
+    refs = [
+        public_logo(context.get("logo_url") or client.get("logo_upload_path") or client.get("logo_url")),
+    ]
+    preferred_roles = {"logo", "product", "hero", "campaign", "key_visual", "packshot"}
+    for item in as_list(client.get("brand_assets")):
+        asset = as_dict(item)
+        if text(asset.get("role")).lower() not in preferred_roles:
+            continue
+        url = text(asset.get("stored_url") or asset.get("asset_url") or asset.get("source_url"))
+        if url:
+            refs.append(url)
+    return list(dict.fromkeys(item for item in refs if text(item)))[:2]
 
 
 def load_cx_client_for_crm(crm_client_id: Any) -> dict | None:

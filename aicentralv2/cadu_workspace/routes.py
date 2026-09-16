@@ -580,7 +580,7 @@ def _save_brand_review_job(client_id: int, brand_id: int, job_id: str, **changes
         raise
 
 
-def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id: str, website_url: str, images: list[dict]):
+def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id: str, website_url: str, images: list[dict], proposal=None):
     """Run slow model work outside the browser request, retaining visible progress."""
     app = current_app._get_current_object()
 
@@ -608,10 +608,24 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                         metadata={'brand_id': brand_id, 'job_id': job_id, 'source': 'workspace'},
                     )
 
-                analysis = service.analyze_brand(website_url, restored_images, billing_callback=bill)
-                if not isinstance(analysis, dict) or not analysis.get('analysis_metadata'):
-                    raise ValueError('A análise não retornou evidências suficientes.')
-                proposal = _brand_analysis_proposal(analysis)
+                analysis_metadata = {}
+                if isinstance(proposal, dict) and proposal:
+                    # A prior attempt already paid for and saved the evidence
+                    # extraction. Resume from that durable checkpoint.
+                    proposal = _brand_analysis_proposal(proposal)
+                    _save_brand_review_job(client_id, brand_id, job_id,
+                        status='running', stage='evidence_reused', index=1, total=4,
+                        message='Retomando a proposta já extraída.')
+                else:
+                    analysis = service.analyze_brand(website_url, restored_images, billing_callback=bill)
+                    if not isinstance(analysis, dict) or not analysis.get('analysis_metadata'):
+                        raise ValueError('A análise não retornou evidências suficientes.')
+                    proposal = _brand_analysis_proposal(analysis)
+                    analysis_metadata = analysis.get('analysis_metadata') or {}
+                    _save_brand_review_job(client_id, brand_id, job_id,
+                        status='running', stage='evidence_complete', index=1, total=4,
+                        message='Evidências organizadas. Iniciando os pareceres.',
+                        analysis=proposal, analysis_metadata=analysis_metadata)
 
                 def progress(review_id, title, position, total):
                     _save_brand_review_job(client_id, brand_id, job_id,
@@ -625,7 +639,7 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                     status='pending_approval', stage='complete', index=4, total=4,
                     message='Três pareceres estão prontos para decisão.', error='',
                     analysis=proposal, reviews=reviews,
-                    analysis_metadata=analysis.get('analysis_metadata') or {})
+                    analysis_metadata=analysis_metadata)
             except Exception as exc:
                 current_app.logger.exception('Não foi possível auditar a marca %s', brand_id)
                 _save_brand_review_job(client_id, brand_id, job_id,
@@ -1867,11 +1881,12 @@ def retry_brand_audit(brand_id):
         abort(409, description='Para repetir uma auditoria com imagens, reenvie as referências no formulário.')
     job_id = uuid4().hex
     metadata = dict(brand.get('analysis_metadata') or {})
+    checkpoint = pack.get('analysis') if isinstance(pack.get('analysis'), dict) else {}
     metadata['review_pack'] = {
         'job_id': job_id, 'status': 'queued', 'stage': 'queued', 'index': 0, 'total': 4,
-        'message': 'A auditoria entrou novamente na fila.', 'error': '',
+        'message': 'Retomando a proposta salva.' if checkpoint else 'A auditoria entrou novamente na fila.', 'error': '',
         'created_at': datetime.utcnow().isoformat() + 'Z',
-        'input': {'website_url': website_url, 'has_images': False}, 'analysis': {}, 'reviews': [],
+        'input': {'website_url': website_url, 'has_images': False}, 'analysis': checkpoint, 'reviews': [],
     }
     connection = get_db()
     try:
@@ -1891,7 +1906,7 @@ def retry_brand_audit(brand_id):
         connection.rollback()
         current_app.logger.exception('Não foi possível repetir a auditoria da marca %s', brand_id)
         abort(503, description='Não foi possível repetir a auditoria agora.')
-    _start_brand_review_job(client_id, int(session.get('user_id') or 0), brand_id, job_id, website_url, [])
+    _start_brand_review_job(client_id, int(session.get('user_id') or 0), brand_id, job_id, website_url, [], proposal=checkpoint)
     if request.accept_mimetypes.best == 'application/json':
         return jsonify({'ok': True, 'job_id': job_id, 'status': 'queued',
                         'status_url': url_for('cadu_workspace.brand_audit_status', brand_id=brand_id)}), 202

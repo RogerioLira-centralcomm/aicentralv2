@@ -1,4 +1,5 @@
 from io import BytesIO
+import json
 from unittest import TestCase, mock
 
 from flask import Flask
@@ -206,6 +207,29 @@ class WorkspaceBrandsTest(TestCase):
 
         self.assertEqual(response.status_code, 409)
         self.assertEqual(response.json['error'], 'Não há créditos disponíveis para analisar esta marca.')
+
+    @mock.patch('aicentralv2.cadu_workspace.routes._start_brand_review_job')
+    @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
+    @mock.patch('aicentralv2.cadu_workspace.routes._ensure_brand_audit_credit')
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand')
+    def test_retry_reuses_the_saved_evidence_checkpoint(self, workspace_brand, _ensure_credit, get_db, start_job):
+        checkpoint = {'brand_summary': 'Base já extraída.', 'tone_of_voice': 'Claro'}
+        workspace_brand.return_value = {
+            'id': 81, 'analysis_metadata': {'review_pack': {
+                'status': 'failed', 'input': {'website_url': 'https://example.com'}, 'analysis': checkpoint,
+            }},
+        }
+        connection = mock.MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = {'id': 81}
+        get_db.return_value = connection
+
+        response = _client().post('/workspace/app/marcas/81/auditoria/repetir', data={'_csrf': 'known-token'})
+
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(start_job.call_args.kwargs['proposal'], checkpoint)
+        persisted = json.loads(cursor.execute.call_args.args[1][0])
+        self.assertEqual(persisted['review_pack']['analysis'], checkpoint)
 
     @mock.patch('aicentralv2.creative_modeling_service.CreativeModelingService')
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand', return_value=None)

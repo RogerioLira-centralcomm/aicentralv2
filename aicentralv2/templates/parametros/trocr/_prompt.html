@@ -1,9 +1,14 @@
-<section class="mc-trocr-section" id="mcTrocrEditBlock" hidden>
-  <h2>O que mudar</h2>
-  <p class="mc-trocr-help" id="mcTrocrPromptHint">Uma frase basta: o item novo e o que não pode mexer.</p>
-  <label class="cx-field">
-    <textarea class="cx-input" id="mcSwapNote" rows="3" maxlength="500" placeholder="Trocar o preço para R$ 99,90. Manter as pessoas e o fundo."></textarea>
+<section class="mc-trocr-section trocr-agent-composer" id="mcTrocrEditBlock">
+  <div class="trocr-agent-heading"><span class="trocr-agent-mark" aria-hidden="true">✦</span><div><h2>Agente de imagem</h2><p class="mc-trocr-help" id="mcTrocrPromptHint">Peça a alteração, o formato e as variações na mesma mensagem.</p></div></div>
+  <label class="cx-field trocr-agent-input">
+    <textarea class="cx-input" id="mcSwapNote" rows="5" maxlength="500" placeholder="Ex.: Crie duas variações A/B em 9:16 para Reels. Destaque Carnaval, mantenha as pessoas e use a referência anexada."></textarea>
     <small class="mc-trocr-count" id="mcTrocrNoteCount">0/500</small>
   </label>
-  {% include "parametros/trocr/_preserve_alter.html" %}
+  <div class="trocr-agent-actions">
+    <button type="button" class="mc-trocr-text-cta" id="mcTrocrAgentAttach">＋ Referência</button>
+    <span id="mcTrocrAgentReference">Nenhuma referência</span>
+    <button type="button" class="cx-btn cx-btn-primary" id="mcTrocrAgentSend">Enviar ao agente</button>
+  </div>
+  <p class="trocr-agent-shortcut">Enter envia · Shift + Enter quebra a linha</p>
+  <div hidden>{% include "parametros/trocr/_preserve_alter.html" %}</div>
 </section>

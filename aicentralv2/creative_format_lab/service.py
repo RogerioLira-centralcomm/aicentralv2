@@ -335,6 +335,13 @@ class FormatLabService:
         )
         if reference:
             payload["reference"] = reference
+        initial_reference = self._trocr_store().materialize_reference(
+            payload.get("initial_reference") or ""
+        )
+        if initial_reference:
+            payload["initial_reference"] = initial_reference
+        else:
+            payload.pop("initial_reference", None)
         return payload
 
     def swap(self, payload, user_id=None):

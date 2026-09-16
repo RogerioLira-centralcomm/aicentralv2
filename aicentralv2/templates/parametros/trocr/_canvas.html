@@ -10,7 +10,7 @@
       <button type="button" id="trocrToggleRight" aria-expanded="false" aria-label="Ajustes">Ajustes</button>
       <button type="button" id="trocrFocus" aria-pressed="false">Foco</button>
       <button type="button" id="trocrGuides" aria-pressed="false">Áreas seguras</button>
-      <button type="button" id="trocrOpenWorkspace">Selecionar item</button>
+      <button type="button" id="trocrOpenWorkspace">Seleção precisa</button>
       <button type="button" class="mc-trocr-tool" id="trocrUndo" aria-label="Desfazer edição" title="Desfazer edição" disabled>↶</button>
       <button type="button" class="mc-trocr-tool" id="trocrRedo" aria-label="Refazer edição" title="Refazer edição" disabled>↷</button>
       <button type="button" class="mc-trocr-tool" id="mcTrocrZoomOut" aria-label="Diminuir zoom">{{ ico('minus') }}</button>
@@ -23,13 +23,16 @@
       <button type="button" class="mc-trocr-tool" id="mcTrocrFullscreen" aria-label="Tela cheia">{{ ico('expand') }}</button>
     </div>
   </header>
+  <p class="trocr-canvas-selection-hint" id="trocrCanvasSelectionHint" hidden><strong>Elementos identificados.</strong> Clique nas caixas sobre a peça para selecionar, trocar ou excluir.</p>
   <p class="mc-trocr-base-meta" id="mcTrocrBaseMeta">Nenhuma versão selecionada</p>
   <div class="mc-swap-stage mc-trocr-stage" id="mcTrocrViewport" data-presentation="final">
     <div class="mc-swap-drop" id="mcSwapDrop" role="button" tabindex="0" aria-label="Enviar imagem de referência">
       <input id="mcSwapFile" type="file" accept="image/*" hidden>
       <span class="mc-trocr-drop-ico">{{ ico('image') }}</span>
-      <strong>Solte a referência</strong>
-      <p>Ao enviar uma nova imagem, o OCR é executado automaticamente.</p>
+      <strong>Envie uma peça para começar</strong>
+      <p>Clique para escolher ou arraste uma imagem. O Studio identifica textos e elementos automaticamente.</p>
+      <span class="mc-trocr-upload-cta" aria-hidden="true">Escolher imagem</span>
+      <small>PNG ou JPG · até 256 MB</small>
     </div>
     <figure class="mc-swap-preview" id="mcSwapPreview" hidden>
       <div class="mc-trocr-device mc-production-device" id="mcTrocrDevice" hidden>

@@ -75,6 +75,7 @@
     viewerPicked: false,
     presentation: 'final',
     quality: 'draft',
+    generationStrategy: 'single',
     brandContext: false,
     promptEdited: false,
     promptLocked: false,
@@ -260,6 +261,13 @@
     document.querySelectorAll('input[name="mcTrocrAnalysis"]').forEach((node) => {
       node.addEventListener('change', renderEditPanels);
     });
+    document.querySelectorAll('input[name="mcTrocrVariation"]').forEach((node) => {
+      node.addEventListener('change', () => {
+        if (!node.checked) return;
+        state.generationStrategy = node.value === 'ab' ? 'ab' : 'single';
+        paintGoLabel();
+      });
+    });
     document.addEventListener('trocr:camadas-linked', (event) => {
       const current = currentVersion();
       const creativeId = event.detail?.camadas_creative_id || event.detail?.creative_id;
@@ -269,7 +277,14 @@
     });
     $('mcSwapRun')?.addEventListener('click', () => {
       const quality = (state.mode === 'typeset' || state.mode === 'recrop') ? 'production' : state.quality;
-      runSwap(quality);
+      runRequestedGeneration(quality);
+    });
+    $('mcTrocrAgentSend')?.addEventListener('click', submitAgentRequest);
+    $('mcTrocrAgentAttach')?.addEventListener('click', () => $('mcSwapFile')?.click());
+    $('mcSwapNote')?.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
+      event.preventDefault();
+      submitAgentRequest();
     });
     $('mcTrocrScene2')?.addEventListener('click', () => runSwap(state.quality, { scene_variant: 2 }));
     $('mcTrocrScene3')?.addEventListener('click', () => runSwap(state.quality, { scene_variant: 3 }));
@@ -407,7 +422,7 @@
     if (!hint) return;
     const client = currentClient();
     if (!state.clients.length) {
-      hint.textContent = 'Nenhuma marca com perfil. O pedido segue só com a foto.';
+      hint.textContent = 'Nenhuma marca disponível. Você ainda pode editar usando apenas a imagem.';
       return;
     }
     if (!client) {
@@ -427,7 +442,7 @@
     const select = $('mcSwapClient');
     if (!select) return;
     if (!state.clients.length) {
-      select.innerHTML = '<option value="">Nenhuma marca com perfil</option>';
+      select.innerHTML = '<option value="">Editar sem marca</option>';
       syncBrandOption();
       return;
     }
@@ -448,8 +463,16 @@
       setStatus('Solte uma imagem. PNG ou JPG.');
       return;
     }
+    const pendingInstruction = $('mcSwapNote')?.value || '';
     const reader = new FileReader();
-    reader.onload = () => ingestStill(String(reader.result || ''));
+    reader.onload = async () => {
+      const loaded = await ingestStill(String(reader.result || ''));
+      if (!loaded) return;
+      if ($('mcSwapNote') && pendingInstruction) $('mcSwapNote').value = pendingInstruction;
+      if ($('mcTrocrAgentReference')) $('mcTrocrAgentReference').textContent = file.name || 'Referência anexada';
+      updateNoteCount();
+      refreshPrompt();
+    };
     reader.readAsDataURL(file);
   }
 
@@ -885,6 +908,11 @@
     state.viewerPicked = false;
     applyRatio(ratio);
     applyPresentation();
+    const summary = $('mcTrocrFormatSummary');
+    if (summary) {
+      const label = ({'16:9':'Horizontal','9:16':'Vertical','4:5':'Retrato','1:1':'Quadrado'})[ratio] || '';
+      summary.textContent = `${ratio}${label ? ` · ${label}` : ''}`;
+    }
   }
 
   function familyOf(ratio) {
@@ -1191,6 +1219,7 @@
       scene_index: variant || extra?.scene_index || 1,
       scene_group: extra?.scene_group || sceneGroup(),
       ocr: extra?.ocr || state.lastRead || baseVersion()?.ocr || undefined,
+      variation_count: state.generationStrategy === 'ab' ? 2 : 1,
     };
   }
 
@@ -1239,7 +1268,13 @@
   }
 
   function payload(extra) {
-    return { ...editFields(extra), reference: baseVersion()?.image || '' };
+    const base = baseVersion();
+    const initial = initialVersion();
+    return {
+      ...editFields(extra),
+      reference: base?.image || '',
+      initial_reference: initial?.id !== base?.id ? (initial?.image || '') : '',
+    };
   }
 
   async function refreshPrompt() {
@@ -1297,6 +1332,69 @@
     }
   }
 
+  async function runRequestedGeneration(quality) {
+    if (state.generationStrategy !== 'ab') return runSwap(quality);
+    const anchorId = state.baseId;
+    const results = [];
+    for (const testVariant of ['A', 'B']) {
+      if (state.baseId !== anchorId) state.baseId = anchorId;
+      const result = await runSwap(quality, { test_variant: testVariant });
+      if (result) results.push(result);
+    }
+    if (results.length === 2) {
+      state.compareIds = results.map((item) => item.id);
+      setViewMode('compare');
+      toast('Teste A/B pronto para comparar', 'success');
+      setStatus('As duas alternativas partiram da mesma base e mantiveram a peça inicial como referência.');
+    }
+    return results;
+  }
+
+  function applyAgentDirectives(instruction) {
+    const text = String(instruction || '').toLocaleLowerCase('pt-BR');
+    let ratio = '';
+    if (/\b(9\s*:\s*16|vertical|reels?|stories?|story)\b/.test(text)) ratio = '9:16';
+    else if (/\b(4\s*:\s*5|retrato)\b/.test(text)) ratio = '4:5';
+    else if (/\b(1\s*:\s*1|quadrad[oa]|feed quadrado)\b/.test(text)) ratio = '1:1';
+    else if (/\b(16\s*:\s*9|horizontal|youtube|ctv)\b/.test(text)) ratio = '16:9';
+    if (ratio) {
+      state.userPickedFormat = true;
+      state.forcedFormat = sourceRatioValue() != null && ratio !== nearestOutput(sourceRatioValue());
+      selectFormat(ratio);
+      setFormatHint(`O agente definiu ${ratio} a partir do pedido.`);
+    }
+    state.generationStrategy = /\b(teste\s*a\s*\/?\s*b|a\s*\/?\s*b|duas\s+varia(?:ç|c)[õo]es|2\s+varia(?:ç|c)[õo]es)\b/.test(text) ? 'ab' : 'single';
+    state.quality = /\b(produ(?:ç|c)[ãa]o|final|alta\s+qualidade)\b/.test(text) ? 'production' : 'draft';
+    if ($('mcTrocrForceImage') && state.generationStrategy === 'ab') $('mcTrocrForceImage').checked = true;
+    document.querySelectorAll('input[name="mcTrocrVariation"]').forEach((node) => { node.checked = node.value === state.generationStrategy; });
+    document.querySelectorAll('input[name="mcTrocrQuality"]').forEach((node) => { node.checked = node.value === state.quality; });
+    paintGoLabel();
+  }
+
+  async function submitAgentRequest() {
+    if (state.generating) return;
+    const instruction = ($('mcSwapNote')?.value || '').trim();
+    if (!instruction) {
+      $('mcSwapNote')?.focus();
+      setStatus('Descreva o que o agente deve criar ou alterar.');
+      return;
+    }
+    if (!baseVersion()?.image) {
+      setStatus('Anexe uma imagem de referência para o agente começar.');
+      $('mcSwapFile')?.click();
+      return;
+    }
+    applyAgentDirectives(instruction);
+    if ($('mcTrocrAgentSend')) $('mcTrocrAgentSend').disabled = true;
+    setStatus('O agente está entendendo o pedido e preparando a geração…');
+    try {
+      await refreshQuote();
+      await runRequestedGeneration(state.quality);
+    } finally {
+      if ($('mcTrocrAgentSend')) $('mcTrocrAgentSend').disabled = false;
+    }
+  }
+
   async function runSwap(quality, extra) {
     const base = baseVersion();
     if (!base?.image || state.generating) return;
@@ -1305,6 +1403,7 @@
     if ($('mcTrocrNewEdit')) $('mcTrocrNewEdit').disabled = true;
     editor?.setBusy(true);
     const variant = Number(extra?.scene_variant || 0);
+    const testVariant = String(extra?.test_variant || '');
     let fields;
     state.quality = quality;
     document.querySelectorAll('input[name="mcTrocrQuality"]').forEach((node) => {
@@ -1314,7 +1413,9 @@
     setFlow('generate');
     showWait(quality, variant ? 'image' : state.mode, variant);
     enableGenerate(false);
-    setStatus(variant
+    setStatus(testVariant
+      ? `Gerando alternativa ${testVariant} da mesma base…`
+      : variant
       ? `Gerando cena ${variant}…`
       : (state.mode === 'typeset'
         ? 'Compondo o tipo na foto…'
@@ -1331,10 +1432,13 @@
         }
       }
       fields = editFields(extra);
+      const initial = initialVersion();
       const data = await request(API.swap, {
         ...fields,
         quality,
         reference: base.image,
+        initial_reference: initial?.id !== base.id ? (initial?.image || '') : '',
+        variation_index: testVariant || undefined,
         base_id: base.id,
         revision: state.revision || 0,
       });
@@ -1355,7 +1459,9 @@
       const typeset = data.mode === 'typeset';
       const recrop = data.mode === 'recrop';
       const version = pushVersion({
-        name: variant
+        name: testVariant
+          ? `Teste ${testVariant}`
+          : variant
           ? `Cena ${variant}`
           : (typeset ? 'Tipo na foto' : (recrop ? 'Recorte + tipo' : (quality === 'draft' ? 'Rascunho' : 'Produção'))),
         origin: variant ? 'scene' : (typeset ? 'typeset' : (recrop ? 'recrop' : (quality === 'draft' ? 'draft' : 'production'))),
@@ -1376,6 +1482,7 @@
           scene_group: sceneGroup(base),
         }),
       });
+      if (!testVariant && !variant) state.baseId = version.id;
       if (base.ocr) state.cache[version.id] = base.ocr;
       if (data.history) applyStoredUrls(data.history);
       state.compareIds = [base.id, version.id];
@@ -1383,14 +1490,18 @@
       state.promptLocked = false;
       state.promptEdited = false;
       setFlow('review');
-      toast(variant
+      toast(testVariant
+        ? `Alternativa ${testVariant} pronta`
+        : variant
         ? `Cena ${variant} pronta. Use como base ou anime as tomadas.`
         : (data.mode === 'typeset'
           ? 'Tipo composto na foto. Elenco intacto.'
           : (data.mode === 'recrop'
             ? 'Formato virado. Tipo composto na foto.'
             : 'Nova versão criada com sucesso')), 'success');
-      setStatus(variant
+      setStatus(testVariant
+        ? `Alternativa ${testVariant} criada a partir da mesma base do teste.`
+        : variant
         ? `Cena ${variant} gerada com os mesmos elementos e outro ambiente.`
         : (data.mode === 'typeset'
           ? 'Tipo composto na foto original. Os selos de nome não foram redesenhados.'
@@ -1744,12 +1855,13 @@
   function renderEditPanels() {
     editor?.render();
     const ready = Boolean(baseVersion()?.image || currentVersion()?.image);
-    ['mcTrocrOcr', 'mcSwapRead', 'mcTrocrPreserveAlter', 'mcTrocrEditBlock'].forEach((id) => {
+    ['mcTrocrOcr', 'mcSwapRead', 'mcTrocrPreserveAlter'].forEach((id) => {
       if ($(id)) $(id).hidden = !ready;
     });
     const generate = document.querySelector('.mc-trocr-generate');
     if (generate) generate.hidden = !ready;
     $('mcTrocrViewport')?.classList.toggle('has-image', ready && $('mcSwapDrop')?.hidden);
+    if ($('trocrCanvasSelectionHint')) $('trocrCanvasSelectionHint').hidden = !ready;
     const filled = Boolean(
       $('mcSwapHeadline')?.value
       || $('mcSwapSupport')?.value
@@ -1798,6 +1910,7 @@
       node.textContent = 'Nenhuma versão selecionada';
       return;
     }
+    if ($('mcTrocrAgentReference')) $('mcTrocrAgentReference').textContent = `${active.name || 'Peça'} anexada`;
     if (active.media === 'video') {
       const length = active.duration ? ` · ${active.duration}s` : '';
       node.textContent = `Clipe ${active.id} · ${active.name}${length}. Peça de origem: ${base ? `${base.id} · ${base.name}` : '—'}.`;
@@ -1852,7 +1965,8 @@
     else if (state.mode === 'blocked' || state.planBlocked) button.textContent = 'Gerar bloqueado';
     else if (state.mode === 'typeset') button.textContent = 'Compor na foto';
     else if (state.mode === 'recrop') button.textContent = 'Recortar e compor';
-    else button.textContent = state.quality === 'draft' ? 'Gerar rascunho' : 'Gerar produção';
+    else if (state.generationStrategy === 'ab') button.textContent = 'Gerar teste A/B';
+    else button.textContent = state.quality === 'draft' ? 'Gerar versão' : 'Gerar produção';
   }
 
   function showWait(quality, mode, variant) {
@@ -2102,9 +2216,11 @@
   }
 
   function paintCost(quote) {
-    if (!$('mcSwapCost') || quote?.spent_brl == null) return;
-    const value = Number(quote.spent_brl);
-    $('mcSwapCost').textContent = value === 0 ? 'R$ 0' : `R$ ${value.toFixed(2)}`;
+    if (!$('mcSwapCost')) return;
+    const credits = Math.max(0, Number(quote?.image_credits ?? (state.generationStrategy === 'ab' ? 2 : 1)) || 0);
+    const tokens = Math.max(0, Number(quote?.agent_tokens_estimate || 0) || 0);
+    const creditLabel = `${credits} crédito${credits === 1 ? '' : 's'} de imagem`;
+    $('mcSwapCost').textContent = tokens ? `${creditLabel} · até ${tokens.toLocaleString('pt-BR')} tokens` : `${creditLabel} · tokens do agente conforme uso`;
   }
 
   function paintRoute(risk, mode, quote, plan) {
@@ -2428,6 +2544,10 @@
 
   function baseVersion() {
     return state.versions.find((item) => item.id === state.baseId) || currentVersion();
+  }
+
+  function initialVersion() {
+    return state.versions.find((item) => item.origin === 'original') || state.versions[0] || baseVersion();
   }
 
   function checkedValues(name) {

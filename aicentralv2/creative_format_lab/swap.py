@@ -229,21 +229,26 @@ READ_STRICT_SYSTEM = (
 
 def quote_swap(payload=None):
     payload = payload if isinstance(payload, dict) else {}
+    variation_count = 2 if str(payload.get("variation_count") or "1") == "2" else 1
     if swap_mode(payload) == "typeset":
         return annotate_cost({
             "estimated_cost_usd": 0,
             "model": "typeset",
             "passes": 0,
+            "image_credits": 0,
+            "agent_tokens_estimate": 600,
             "quality": "typeset",
             "later": {"image": False, "video": False},
             "output_formats": list(OUTPUT_FORMATS),
         })
     quality = _quality(payload)
-    estimate = SWAP_DRAFT_ESTIMATE_USD if quality == "draft" else SWAP_ESTIMATE_USD
+    estimate = (SWAP_DRAFT_ESTIMATE_USD if quality == "draft" else SWAP_ESTIMATE_USD) * variation_count
     return annotate_cost({
         "estimated_cost_usd": estimate,
         "model": SWAP_MODEL,
-        "passes": 1,
+        "passes": variation_count,
+        "image_credits": variation_count,
+        "agent_tokens_estimate": 900,
         "quality": quality,
         "later": {"image": True, "video": False},
         "output_formats": list(OUTPUT_FORMATS),
@@ -300,8 +305,11 @@ def swap_input_references(payload=None, brand=None):
     reference = _reference(payload)
     if reference:
         refs.append(reference)
+    initial_reference = str((payload or {}).get("initial_reference") or "").strip()
+    if initial_reference and initial_reference not in refs:
+        refs.append(initial_reference)
     preserve = set(_token_list(payload.get("preserve"), PRESERVE_LABELS))
-    if "logo" in preserve:
+    if "logo" in preserve or len(refs) >= 2:
         return refs[:2]
     if _quality(payload) == "production" or payload.get("use_brand_context") is not False:
         logo = swap_logo_url(payload, brand)
@@ -328,7 +336,7 @@ def build_optimized_prompt(payload=None, brand=None, operations=None):
         or brand.get("primary_color")
         or ""
     ).strip()
-    has_logo = bool(swap_logo_url(payload, brand))
+    has_logo = bool(swap_logo_url(payload, brand)) and not bool(payload.get("initial_reference"))
     quality = _quality(payload)
     use_brand = payload.get("use_brand_context") is not False
     preserve = _token_list(payload.get("preserve"), PRESERVE_LABELS)
@@ -342,6 +350,7 @@ def build_optimized_prompt(payload=None, brand=None, operations=None):
         "Keep the original lighting, color grade, materials and photography. Do not add a new light ribbon or energy streak.",
         "Do not add player chrome, app UI or extra frames that are not in the reference.",
     ]
+    variation = str(payload.get("variation_index") or "").strip().upper()
     if recrop:
         lines = [
             "Recrop the attached advertising still to the output frame. Keep the same person, wardrobe, lighting and brand color field.",
@@ -357,6 +366,16 @@ def build_optimized_prompt(payload=None, brand=None, operations=None):
         lines.insert(2, "Do not redesign the layout.")
     else:
         lines.insert(1, "Swap only the advertised brand, product and copy. Do not redesign the layout.")
+    if payload.get("initial_reference"):
+        lines.insert(
+            1,
+            "The first attachment is the latest approved working version. The second is the original continuity anchor. "
+            "Preserve the same people, identity, products, logos and recurring graphic elements across both; do not drift or replace them.",
+        )
+    if variation in {"A", "B"}:
+        lines.append(
+            f"Create controlled test variation {variation}. Keep the same campaign, message and locked elements; vary only composition emphasis and visual treatment enough for an A/B comparison."
+        )
     if quality == "draft":
         lines.append("This is a draft preview. Prefer a clear, fast interpretation over extra micro-detail.")
     else:
@@ -992,7 +1011,7 @@ def swap_reference(payload=None, *, brand=None, image_callable=None):
         painted["preview"] = build_prompt_preview_pt(
             payload, brand, operations=plan.get("operations"), mode="recrop"
         )
-        painted["logo_used"] = len(refs) > 1
+        painted["logo_used"] = bool(swap_logo_url(payload, brand) in refs)
         painted["quote"] = quote_swap(payload)
         return _with_plan(painted, plan)
     return _with_plan({
@@ -1001,7 +1020,7 @@ def swap_reference(payload=None, *, brand=None, image_callable=None):
             payload, brand, operations=plan.get("operations"), mode="image"
         ),
         "reference": refs[0][:80],
-        "logo_used": len(refs) > 1,
+        "logo_used": bool(swap_logo_url(payload, brand) in refs),
         "aspect_ratio": aspect_ratio,
         "quality": quality,
         "model": SWAP_MODEL,

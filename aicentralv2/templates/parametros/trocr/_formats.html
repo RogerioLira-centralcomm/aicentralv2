@@ -1,6 +1,6 @@
-<details class="trocr-format-tray" aria-label="Formatos de saída">
-  <summary>Formatos</summary>
-  <header><div><h2>Formato de saída</h2><p id="mcTrocrFormatHint">Escolha o destino da próxima geração. As versões ficam no histórico.</p></div><button type="button" class="mc-trocr-text-cta" id="mcTrocrRotate">Rotacionar layout</button></header>
+<details class="trocr-format-tray" aria-label="Formatos de saída" hidden>
+  <summary><span>Formato de saída</span><strong id="mcTrocrFormatSummary">16:9 · Horizontal</strong></summary>
+  <header><div><h2>Enquadramento da próxima versão</h2><p id="mcTrocrFormatHint">O Studio detecta a orientação da peça. Confirme ou escolha outro formato.</p></div><button type="button" class="mc-trocr-text-cta" id="mcTrocrRotate">Girar layout</button></header>
   <fieldset id="mcTrocrFormats" class="trocr-format-options">
     <legend class="sr-only">Formato da próxima geração</legend>
     {% for ratio, label, channel in [('16:9', 'Horizontal', 'YouTube / CTV'), ('1:1', 'Quadrado', 'Feed'), ('9:16', 'Vertical', 'Stories / Reels'), ('4:5', 'Retrato', 'Feed')] %}

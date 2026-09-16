@@ -1,6 +1,6 @@
 <section class="mc-trocr-section mc-trocr-generate" hidden data-route="image">
-  <p class="mc-trocr-cost" id="mcSwapCost">R$ —</p>
-  <fieldset class="mc-trocr-quality" id="mcTrocrQualityBox">
+  <p class="mc-trocr-cost" id="mcSwapCost">1 crédito de imagem · tokens do agente</p>
+  <fieldset class="mc-trocr-quality" id="mcTrocrQualityBox" hidden>
     <legend>Destino</legend>
     <label>
       <input type="radio" name="mcTrocrQuality" value="draft" checked>
@@ -15,12 +15,18 @@
       </span>
     </label>
   </fieldset>
-  <div class="mc-trocr-actions">
-    <button class="cx-btn cx-btn-primary" type="button" id="mcSwapRun" disabled>Gerar rascunho</button>
+  <fieldset class="mc-trocr-variation" id="mcTrocrVariationBox" hidden>
+    <legend>Variações</legend>
+    <label><input type="radio" name="mcTrocrVariation" value="single" checked><span><strong>Uma versão</strong><small>Continua a edição atual</small></span></label>
+    <label><input type="radio" name="mcTrocrVariation" value="ab"><span><strong>Teste A/B</strong><small>Duas alternativas da mesma base</small></span></label>
+  </fieldset>
+  <p class="mc-trocr-reference-chain" id="mcTrocrReferenceChain">A geração usa a peça inicial e a última base aprovada.</p>
+  <div class="mc-trocr-actions" hidden>
+    <button class="cx-btn cx-btn-primary" type="button" id="mcSwapRun" disabled>Executar pedido</button>
     <button class="cx-btn cx-btn-secondary" type="button" id="mcTrocrAnimateFromGenerate" disabled>Gerar vídeo</button>
   </div>
-  <div class="mc-trocr-scene-pack">
-    <p class="mc-trocr-scene-lead">Mesmos elementos, outra cena para animar.</p>
+  <div class="mc-trocr-scene-pack" hidden>
+    <p class="mc-trocr-scene-lead">Cenas adicionais para animação.</p>
     <div class="mc-trocr-scene-actions">
       <button class="cx-btn cx-btn-secondary" type="button" id="mcTrocrScene2" disabled>Cena 2</button>
       <button class="cx-btn cx-btn-secondary" type="button" id="mcTrocrScene3" disabled>Cena 3</button>

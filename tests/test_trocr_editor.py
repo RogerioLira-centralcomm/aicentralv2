@@ -77,3 +77,34 @@ class TrocrEditorDraftTest(unittest.TestCase):
         self.assertEqual(set(controls.formats), {"16:9", "9:16", "1:1", "4:5"})
         for ident in ("mcSwapRun", "mcTrocrInspector", "mcTrocrOrder", "trocrElementList", "trocrProperties", "trocrAi"):
             self.assertIn(ident, controls.ids)
+
+    def test_standalone_studio_receives_editor_layout_and_clear_upload_entry(self):
+        root = Path(__file__).resolve().parents[1]
+        css = (root / "aicentralv2" / "static" / "css" / "trocr-editor.css").read_text(encoding="utf-8")
+        video_css = (root / "aicentralv2" / "static" / "css" / "video-studio.css").read_text(encoding="utf-8")
+        page = Environment(loader=FileSystemLoader(root / "aicentralv2" / "templates")) \
+            .get_template("parametros/_mc_trocar.html").render()
+        self.assertIn(":is(.mc-shell,.trocr-product) .mc-trocr.trocr-editor", css)
+        self.assertIn('.trocr-editor[data-flow="upload"] .mc-trocr-main', css)
+        for shared_color in ("#e2e6ec", "#a2adbb", "#383e48", "#20242b", "#292e36", "#4bd1ae", "#1e4941"):
+            with self.subTest(shared_color=shared_color):
+                self.assertIn(shared_color, css)
+                self.assertIn(shared_color, video_css)
+        self.assertIn("Envie uma peça para começar", page)
+        self.assertIn("Nova peça", page)
+        self.assertIn("Elementos clicáveis", page)
+        self.assertIn("Formato de saída", page)
+        self.assertIn("Teste A/B", page)
+        self.assertIn('data-editor-tab="ai"', page)
+        self.assertIn("Agente de imagem", page)
+        self.assertIn("Enviar ao agente", page)
+        self.assertIn("Enter envia", page)
+
+    def test_generation_keeps_initial_and_latest_reference(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "aicentralv2" / "static" / "js" / "mc-trocar.js").read_text(encoding="utf-8")
+        self.assertIn("initial_reference", source)
+        self.assertIn("runRequestedGeneration", source)
+        self.assertIn("['A', 'B']", source)
+        self.assertIn("submitAgentRequest", source)
+        self.assertIn("applyAgentDirectives", source)

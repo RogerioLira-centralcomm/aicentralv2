@@ -2551,6 +2551,35 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
         )
         self.assertEqual(refs, ["data:image/png;base64,aaa"])
 
+    def test_quote_expoe_creditos_e_tokens_sem_preco_para_o_usuario(self):
+        single = quote_swap({"quality": "draft"})
+        ab = quote_swap({"quality": "draft", "variation_count": 2})
+        self.assertEqual(single["image_credits"], 1)
+        self.assertEqual(ab["image_credits"], 2)
+        self.assertGreater(single["agent_tokens_estimate"], 0)
+        self.assertEqual(ab["estimated_cost_usd"], single["estimated_cost_usd"] * 2)
+
+    def test_refinamento_usa_ultima_e_inicial_como_ancoras(self):
+        refs = swap_input_references(
+            {
+                "reference": "data:image/png;base64,latest",
+                "initial_reference": "data:image/png;base64,initial",
+            },
+            brand={"logo_url": "https://cdn.example/logo.png"},
+        )
+        self.assertEqual(refs, [
+            "data:image/png;base64,latest",
+            "data:image/png;base64,initial",
+        ])
+        prompt = build_optimized_prompt({
+            "reference": refs[0],
+            "initial_reference": refs[1],
+            "variation_index": "B",
+            "note": "Dar mais destaque ao Carnaval",
+        })
+        self.assertIn("original continuity anchor", prompt)
+        self.assertIn("test variation B", prompt)
+
     def test_le_elementos_da_referencia(self):
         def fake_text(_messages, **_kwargs):
             return {

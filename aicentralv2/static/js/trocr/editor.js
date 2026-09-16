@@ -165,16 +165,11 @@
       if (!row) return;
       selected = id;
       document.querySelectorAll('.trocr-field-selected').forEach((node) => node.classList.remove('trocr-field-selected'));
-      if (row.field) {
-        setTab('properties');
-        const field = $(row.field);
-        if ($('mcTrocrOcr')) $('mcTrocrOcr').open = true;
-        const label = field?.closest('label');
-        if (label) { label.hidden = false; label.classList.add('trocr-field-selected'); }
-        field?.focus({ preventScroll: true });
-        label?.scrollIntoView({ block: 'nearest', behavior: 'auto' });
-      } else {
-        setTab('ai');
+      setTab('ai');
+      const note = $('mcSwapNote');
+      if (note) {
+        note.placeholder = `Peça ao agente para trocar, excluir ou ajustar ${row.text || row.label}.`;
+        note.focus({ preventScroll: true });
       }
       render();
     }
@@ -287,6 +282,7 @@
       document.querySelectorAll('[data-editor-tab]').forEach((node) => {
         node.addEventListener('click', () => setTab(node.dataset.editorTab));
         node.addEventListener('keydown', (event) => {
+          if (document.querySelectorAll('[data-editor-tab]').length < 2) return;
           if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
           event.preventDefault();
           const name = event.key === 'Home' ? 'properties' : event.key === 'End' ? 'ai' : node.dataset.editorTab === 'ai' ? 'properties' : 'ai';
@@ -298,9 +294,7 @@
         if (button) { event.stopPropagation(); select(button.dataset.elementId); }
       }));
       $('trocrElementSearch')?.addEventListener('input', render);
-      $('trocrShowFields')?.addEventListener('click', () => {
-        setTab('properties'); $('mcTrocrOcr').open = true; $('mcSwapHeadline')?.focus();
-      });
+      $('trocrShowFields')?.addEventListener('click', () => { setTab('ai'); $('mcSwapNote')?.focus(); });
       $('trocrMarkSelected')?.addEventListener('click', () => {
         const row = entries().find((item) => item.id === selected);
         if (!row || state.activeId !== state.baseId) return;

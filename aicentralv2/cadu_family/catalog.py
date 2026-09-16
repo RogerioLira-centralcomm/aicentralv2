@@ -80,6 +80,6 @@ LANDINGS = {
 PROFILES = {
     'workspace': 'Organização de marcas e projetos',
     'planner': 'Objetivos, públicos e planejamento de mídia',
-    'connect': 'Análise de relatórios e organização por cliente',
+    'connect': 'Ferramentas conectadas ao contexto de projetos e marcas',
 }
 ADMIN_MODULES = {'equipe', 'integracoes', 'planos', 'faturamento'}

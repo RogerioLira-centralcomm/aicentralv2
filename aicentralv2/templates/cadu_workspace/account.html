@@ -1,0 +1,14 @@
+{% extends 'cadu_portals/base.html' %}
+{% block title %}{{ {'equipe': 'Usuários e equipe', 'planos': 'Plano', 'creditos': 'Créditos'}[section] }} — Cadu Workspace{% endblock %}
+{% block product_id %}workspace{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=2"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-account.css') }}?v=1">{% endblock %}
+{% block content %}
+<section class="workspace-page-head"><a href="{{ url_for('cadu_workspace.dashboard') }}">← Workspace</a>{% if section == 'equipe' %}<h1>Usuários e equipe.</h1><p>Pessoas e convites já cadastrados no Cadu. As permissões permanecem na fonte original durante a migração.</p>{% elif section == 'planos' %}<h1>Plano da organização.</h1><p>Contrato e limites existentes no Cadu, agora visíveis no Workspace.</p>{% else %}<h1>Créditos e consumo.</h1><p>Saldo de geração e consumo acumulado do plano atual.</p>{% endif %}</section>
+{% if section == 'equipe' %}
+<section class="workspace-data-list">{% for person in account.people %}<article><div><strong>{{ person.nome_completo }}</strong><small>{{ person.email }}</small></div><span>{{ person.cargo or person.setor or 'Membro da organização' }}</span><em class="{{ 'is-active' if person.status else '' }}">{{ 'Ativo' if person.status else 'Inativo' }}{% if person.invite_status %} · {{ person.invite_status }}{% endif %}</em></article>{% else %}<div class="workspace-empty">Nenhuma pessoa foi encontrada para esta organização.</div>{% endfor %}</section>
+{% elif section == 'planos' %}
+{% set plan = account.plan %}<section class="workspace-account-summary"><div><span>Plano atual</span><strong>{{ plan.plan_definition_name or plan.plan_type or 'Não configurado' }}</strong><small>{{ plan.plan_status or 'Sem status' }}</small></div><div><span>Limite de tokens</span><strong>{{ plan.pd_tokens_monthly_limit or plan.tokens_monthly_limit or 0 }}</strong><small>por mês</small></div><div><span>Créditos de imagem</span><strong>{{ plan.pd_limit_image_generation or plan.image_credits_monthly or 0 }}</strong><small>por mês</small></div></section><p class="workspace-account-note">Os dados são lidos diretamente do plano ativo no Cadu PHP.</p>
+{% else %}
+{% set position = account.position %}{% if position %}<section class="workspace-account-summary"><div><span>Disponíveis</span><strong>{{ position.available }}</strong><small>créditos de imagem</small></div><div><span>Usados no mês</span><strong>{{ position.used }}</strong><small>do consumo registrado no Cadu</small></div><div><span>Limite do mês</span><strong>{{ position.effective_limit }}</strong><small>{% if position.adjustments %}inclui {{ position.adjustments }} de ajustes{% else %}sem ajustes neste ciclo{% endif %}</small></div></section>{% else %}<div class="workspace-empty">Não há um plano ativo com créditos configurados.</div>{% endif %}
+{% endif %}
+{% endblock %}

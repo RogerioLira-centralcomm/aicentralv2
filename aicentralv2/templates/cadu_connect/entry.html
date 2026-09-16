@@ -1,0 +1,41 @@
+{% extends 'cadu_portals/base.html' %}
+{% block title %}Connect — Cadu{% endblock %}
+{% block product_id %}connect{% endblock %}
+{% block navigation %}{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-connect-entry.css') }}?v=1">{% endblock %}
+{% block content %}
+<header class="connect-entry-nav">
+  {% set cadu_active_product = 'connect' %}{% include 'cadu/_product_switch.html' %}
+  <span class="connect-entry-divider" aria-hidden="true"></span><span class="connect-entry-name">Connect</span>
+  <a class="connect-entry-workspace" href="{{ product_url('workspace', '/workspace/app') }}">Abrir Workspace</a>
+  <span class="connect-entry-avatar" aria-label="{{ session.get('user_name', 'Usuário') }}">{{ session.get('user_name', 'U')[:1]|upper }}</span>
+</header>
+<div class="connect-entry">
+  <section class="connect-entry-hero" aria-labelledby="connect-entry-title">
+    <div><p>Connect organiza a operação por trabalho</p><h1 id="connect-entry-title">Dê continuidade ao que sua marca já começou.</h1><p class="connect-entry-lead">Escolha um projeto, conecte as ferramentas certas e mantenha dados, contas e entregas no mesmo fluxo.</p></div>
+    <div class="connect-entry-map" aria-hidden="true"><span class="map-project">projeto</span><span class="map-brand">marca</span><span class="map-tool map-tool-a">dados</span><span class="map-tool map-tool-b">mídia</span><span class="map-tool map-tool-c">entrega</span><i></i></div>
+  </section>
+
+  <section class="connect-entry-context" aria-labelledby="connect-projects-title">
+    <header><div><p>Seu espaço de trabalho</p><h2 id="connect-projects-title">Projetos em andamento</h2></div><a href="{{ product_url('workspace', '/workspace/app') }}">Gerenciar projetos</a></header>
+    <div class="connect-project-grid">
+      {% for project in projects %}
+      <a class="connect-project-card {{ 'is-active' if selected_project and selected_project.id == project.id }}" href="{{ url_for('cadu_connect.index', client_id=project.client_id, project_id=project.id) }}"><span>Projeto</span><h3>{{ project.name }}</h3><small>{{ 'Em contexto' if selected_project and selected_project.id == project.id else 'Abrir ferramentas' }}</small></a>
+      {% else %}
+      <div class="connect-entry-empty"><strong>Nenhum projeto selecionado.</strong><p>Crie ou selecione um projeto no Workspace para organizar as novas ferramentas do Connect.</p><a href="{{ product_url('workspace', '/workspace/app') }}">Ir para projetos</a></div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="connect-entry-tools" aria-labelledby="connect-tools-title">
+    <header><p>Ferramentas em desenvolvimento</p><h2 id="connect-tools-title">O que você quer conectar a este trabalho?</h2></header>
+    <div class="connect-tool-grid">
+      <article><span class="connect-tool-number">01</span><h3>Contas de mídia</h3><p>Centralize fontes autorizadas e deixe as contas prontas para o projeto.</p><button type="button" disabled>Em preparação</button></article>
+      <article><span class="connect-tool-number">02</span><h3>Dados e relatórios</h3><p>Traga leituras de campanha para a mesma conversa do time.</p><button type="button" disabled>Em preparação</button></article>
+      <article><span class="connect-tool-number">03</span><h3>Conectores</h3><p>Ative integrações conforme a necessidade real da operação.</p><button type="button" disabled>Em preparação</button></article>
+    </div>
+  </section>
+
+  <section class="connect-entry-brands" aria-labelledby="connect-brands-title"><div><p>Identidade disponível</p><h2 id="connect-brands-title">Marcas que acompanham o projeto.</h2></div><div class="connect-brand-list">{% for brand in brands %}<span>{{ brand.name }}</span>{% else %}<p>As marcas vinculadas aparecerão aqui quando forem organizadas no Workspace.</p>{% endfor %}</div></section>
+</div>
+{% endblock %}

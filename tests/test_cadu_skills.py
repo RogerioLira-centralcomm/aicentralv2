@@ -8,7 +8,7 @@ from aicentralv2.cadu_skills.catalog import (
 )
 from aicentralv2.cadu_skills.consultations import consultation_state
 from aicentralv2.cadu_skills.credits import balance_from_ledger
-from aicentralv2.cadu_skills.repository import customization_as_skill, customization_markdown
+from aicentralv2.cadu_skills.repository import credit_position, customization_as_skill, customization_markdown
 from aicentralv2.cadu_skills.routes import bp
 
 
@@ -29,6 +29,33 @@ def _app():
 
 
 class CaduSkillsTest(TestCase):
+    @mock.patch("aicentralv2.cadu_skills.repository._db")
+    def test_credit_position_keeps_cadu_php_image_usage_in_the_nav_balance(self, db):
+        cursor = mock.MagicMock()
+        cursor.fetchone.return_value = {"id": 9, "monthly_limit": 100, "legacy_used": 37}
+        cursor.fetchall.return_value = []
+        db.return_value.cursor.return_value.__enter__.return_value = cursor
+
+        self.assertEqual(
+            credit_position(12),
+            {"available": 63, "monthly": 100, "configured": True},
+        )
+
+    @mock.patch("aicentralv2.cadu_skills.repository._db")
+    def test_credit_position_combines_legacy_usage_with_skills_ledger(self, db):
+        cursor = mock.MagicMock()
+        cursor.fetchone.return_value = {"id": 9, "monthly_limit": 100, "legacy_used": 30}
+        cursor.fetchall.return_value = [
+            {"kind": "monthly_grant", "amount": 100},
+            {"kind": "capture", "amount": -12},
+        ]
+        db.return_value.cursor.return_value.__enter__.return_value = cursor
+
+        self.assertEqual(
+            credit_position(12),
+            {"available": 58, "monthly": 100, "configured": True},
+        )
+
     def test_catalog_promotes_ten_and_defers_ninety(self):
         self.assertEqual(len(TOP_SKILLS), 10)
         self.assertEqual(len(DEFERRED_SKILLS), 90)

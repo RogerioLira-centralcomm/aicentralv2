@@ -13,6 +13,30 @@ from ..product_domains import product_url
 bp = Blueprint("cadu_workspace", __name__)
 
 
+def _php_account_data(client_id: int) -> dict:
+    """Read the established Cadu PHP records; Workspace owns no account copy."""
+    from .. import db
+    from ..cadu_credits import calculate_credit_position
+
+    try:
+        people = [dict(row) for row in db.obter_contatos_por_cliente(client_id)]
+        plans = [dict(row) for row in db.obter_planos_clientes({"cliente_id": client_id})]
+        credit_rows = [dict(row) for row in db.obter_gestao_creditos_clientes({
+            "cliente_id": client_id, "plan_status": "active",
+        })]
+    except Exception:
+        people, plans, credit_rows = [], [], []
+
+    plan = next((row for row in plans if row.get("plan_status") == "active"), plans[0] if plans else {})
+    credit = credit_rows[0] if credit_rows else {}
+    position = calculate_credit_position(
+        credit.get("monthly_limit", plan.get("pd_limit_image_generation", plan.get("image_credits_monthly", 0))),
+        credit.get("used", plan.get("image_credits_used_current_month", 0)),
+        credit.get("adjustments", 0),
+    ) if plan or credit else None
+    return {"people": people, "plan": plan, "credit": credit, "position": position}
+
+
 def _workspace_host_only():
     expected = (urlparse(str(current_app.config.get("WORKSPACE_URL") or "")).hostname or "").lower()
     actual = request.host.split(":", 1)[0].lower()
@@ -109,9 +133,9 @@ def dashboard():
     projects = [item for item in targets["projects"] if int(item.get("client_id") or 0) == client_id]
     customizations = list_customizations(client_id=client_id)
     sections = (
-        ("Usuários", "Pessoas, convites e permissões da organização.", _cadu_area("CADU_USERS_URL", "/usuarios"), "PHP Cadu"),
-        ("Planos", "Plano contratado, limites e recursos habilitados.", _cadu_area("CADU_PLANS_URL", "/planos"), "PHP Cadu"),
-        ("Créditos", "Saldo, consumo e histórico compartilhado entre produtos.", _cadu_area("CADU_CREDITS_URL", "/creditos"), "PHP Cadu"),
+        ("Usuários e equipe", "Pessoas, convites e permissões da organização.", url_for("cadu_workspace.account_page", section="equipe"), "Workspace"),
+        ("Planos", "Plano contratado, limites e recursos habilitados.", url_for("cadu_workspace.account_page", section="planos"), "Workspace"),
+        ("Créditos", "Saldo, consumo e histórico compartilhado entre produtos.", url_for("cadu_workspace.account_page", section="creditos"), "Workspace"),
         ("Financeiro", "Faturas, pagamentos e dados de cobrança.", _cadu_area("CADU_FINANCE_URL", "/financeiro"), "PHP Cadu"),
         ("Integrações", "Conexões multiproduto já administradas pelo Cadu.", _cadu_area("CADU_INTEGRATIONS_URL", "/integracoes"), "PHP Cadu"),
         ("Ajuda", "Orientação de uso e canais de atendimento.", _cadu_area("CADU_HELP_URL", "/ajuda"), "PHP Cadu"),
@@ -119,6 +143,19 @@ def dashboard():
     return render_template(
         "cadu_workspace/index.html", sections=sections, projects=projects,
         customizations=customizations, credit=credit_position(client_id),
+    )
+
+
+@bp.get("/workspace/app/<section>")
+@login_required
+def account_page(section):
+    aliases = {"usuarios": "equipe", "equipe": "equipe", "planos": "planos", "creditos": "creditos"}
+    section = aliases.get(section)
+    if section is None:
+        abort(404)
+    return render_template(
+        "cadu_workspace/account.html", section=section,
+        account=_php_account_data(int(session.get("cliente_id") or 0)),
     )
 
 

@@ -91,12 +91,11 @@ class ProductPortalsTest(TestCase):
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
         self.assertIn("Connect", html)
-        self.assertIn("Meta Ads", html)
-        self.assertIn("Google Ads", html)
-        self.assertIn('class="connect-app-nav"', html)
-        self.assertIn('cadu-connect-navigation.css?v=2', html)
-        for unavailable_mcp in ("Google Campaign Manager", "Display & Video 360", "LinkedIn Ads", "TikTok Ads"):
-            self.assertNotIn(unavailable_mcp, html)
+        self.assertIn("Dê continuidade ao que sua marca já começou.", html)
+        self.assertIn("Projetos em andamento", html)
+        self.assertIn("Marcas que acompanham o projeto.", html)
+        self.assertIn('cadu-connect-entry.css?v=1', html)
+        self.assertNotIn("Carteira de clientes", html)
 
     def test_workspace_session_is_reused_by_connect(self):
         app = _app()
@@ -110,6 +109,34 @@ class ProductPortalsTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("Connect", response.get_data(as_text=True))
+
+    @mock.patch("aicentralv2.db.obter_gestao_creditos_clientes", return_value=[{
+        "monthly_limit": 100, "used": 35, "adjustments": 10,
+    }])
+    @mock.patch("aicentralv2.db.obter_planos_clientes", return_value=[{
+        "plan_status": "active", "plan_definition_name": "Equipe",
+        "pd_tokens_monthly_limit": 500, "pd_limit_image_generation": 100,
+    }])
+    @mock.patch("aicentralv2.db.obter_contatos_por_cliente", return_value=[{
+        "nome_completo": "Apolo", "email": "apolo@centralcomm.media", "status": True,
+        "cargo": "Administrador", "invite_status": None,
+    }])
+    def test_workspace_imports_php_account_data_for_team_plan_and_credits(self, _people, _plans, _credits):
+        client = _app().test_client()
+        with client.session_transaction() as sess:
+            sess.update(user_id=7, cliente_id=12, user_name="Apolo")
+
+        team = client.get("/workspace/app/equipe", headers={"Host": "workspace.centralcomm.media"})
+        self.assertEqual(team.status_code, 200)
+        self.assertIn("Apolo", team.get_data(as_text=True))
+        self.assertIn("Administrador", team.get_data(as_text=True))
+
+        plan = client.get("/workspace/app/planos", headers={"Host": "workspace.centralcomm.media"})
+        self.assertIn("Equipe", plan.get_data(as_text=True))
+        self.assertIn("500", plan.get_data(as_text=True))
+
+        credits = client.get("/workspace/app/creditos", headers={"Host": "workspace.centralcomm.media"})
+        self.assertIn("75", credits.get_data(as_text=True))
 
     def test_workspace_public_nav_is_single_and_shows_signed_in_identity(self):
         app = _app()

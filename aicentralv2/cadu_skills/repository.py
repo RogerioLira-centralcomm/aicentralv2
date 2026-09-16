@@ -328,7 +328,9 @@ def credit_position(client_id: int) -> dict:
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT p.id, COALESCE(pd.limit_image_generation, p.image_credits_monthly, 0) AS monthly_limit
+                SELECT p.id,
+                       COALESCE(pd.limit_image_generation, p.image_credits_monthly, 0) AS monthly_limit,
+                       COALESCE(p.image_credits_used_current_month, 0) AS legacy_used
                   FROM cadu_client_plans p
              LEFT JOIN cadu_plan_definitions pd ON pd.id = p.id_plan_definition
                  WHERE p.id_cliente = %s AND p.plan_status = 'active'
@@ -348,8 +350,16 @@ def credit_position(client_id: int) -> dict:
             )
             rows = cursor.fetchall()
             balance = balance_from_ledger(rows)
-            available = balance.available if rows else int(plan["monthly_limit"] or 0)
-            return {"available": available, "monthly": int(plan["monthly_limit"] or 0), "configured": True}
+            monthly = int(plan["monthly_limit"] or 0)
+            legacy_used = int(plan["legacy_used"] or 0)
+
+            # O Studio/Cadu PHP registra gerações no contador do plano. O
+            # ledger foi adicionado depois para as Skills e não deve fazer a
+            # navbar parecer que esse consumo deixou de existir. Quando o
+            # ledger já iniciou o ciclo, ele também contém as reservas e
+            # capturas das Skills; subtraímos o uso legado dele.
+            available = balance.available - legacy_used if balance.granted else monthly - legacy_used
+            return {"available": max(0, available), "monthly": monthly, "configured": True}
     except Exception:
         return {"available": 0, "monthly": 0, "configured": False}
 

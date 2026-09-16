@@ -9,6 +9,9 @@
   bindDialog(document.querySelector('[data-project-quality-dialog]'), '[data-project-quality-open]', '[data-project-quality-close]');
   const brandDialog = document.querySelector('[data-project-brand-dialog]');
   bindDialog(brandDialog, '[data-project-brand-open]', '[data-project-brand-close]');
+  brandDialog?.querySelectorAll('input[name="brand_ids"]').forEach(input => input.addEventListener('change', () => {
+    if (input.checked) brandDialog.querySelectorAll('input[name="brand_ids"]').forEach(other => { if (other !== input) other.checked = false; });
+  }));
   bindDialog(document.querySelector('[data-project-identity-dialog]'), '[data-project-identity-open]', '[data-project-identity-close]');
   bindDialog(document.querySelector('[data-project-sources-dialog]'), '[data-project-sources-open]', '[data-project-sources-close]');
   const qualityHelp = document.querySelector('.workspace-project-quality-dialog__body section:nth-child(2) > p');

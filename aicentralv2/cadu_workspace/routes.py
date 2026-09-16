@@ -1018,6 +1018,18 @@ def _workspace_project(client_id: int, project_id: str) -> Optional[dict]:
             project['images'] = [dict(row) for row in cursor.fetchall()]
     except Exception:
         project['images'] = []
+    try:
+        with get_db().cursor() as cursor:
+            cursor.execute(
+                """SELECT public_id, original_name, media_type, thumbnail_url, status, created_at
+                     FROM studio_creative_analyses
+                    WHERE client_id = %s AND project_ref = %s
+                 ORDER BY created_at DESC LIMIT 24""",
+                (client_id, f'ci:{project_id}'),
+            )
+            project['creative_analyses'] = [dict(row) for row in cursor.fetchall()]
+    except Exception:
+        project['creative_analyses'] = []
     project['context_health'] = _project_context_health(project)
     project['activity'] = _project_recent_activity(project)
     return project
@@ -1337,7 +1349,8 @@ def update_project_brands(project_id):
     client_id = int(session.get('cliente_id') or 0)
     _editable_workspace_project(client_id, project_id)
     valid_ids = {str(item['id']) for item in _workspace_brands(client_id)}
-    wanted = {value for value in request.form.getlist('brand_ids') if value in valid_ids}
+    wanted = {next((value for value in request.form.getlist('brand_ids') if value in valid_ids), '')}
+    wanted.discard('')
     project_ref = f'ci:{project_id}'
     try:
         existing = {str(item.get('brand_ref') or '') for item in family_repository.project_brand_links(client_id)
@@ -1389,8 +1402,13 @@ def import_project_brand(project_id):
                 RETURNING id''', (client_id, name, website_url, json.dumps(metadata)))
             brand_id = int(cursor.fetchone()['id'])
         connection.commit()
+        project_ref = f'ci:{project_id}'
+        for link in family_repository.project_brand_links(client_id):
+            brand_ref = str(link.get('brand_ref') or '')
+            if link.get('project_ref') == project_ref and brand_ref.startswith('studio:'):
+                family_repository.set_project_brand_link(client_id, session.get('user_id'), project_ref, brand_ref, False)
         family_repository.set_project_brand_link(
-            client_id, session.get('user_id'), f'ci:{project_id}', f'studio:{brand_id}', True,
+            client_id, session.get('user_id'), project_ref, f'studio:{brand_id}', True,
         )
     except Exception:
         connection.rollback()

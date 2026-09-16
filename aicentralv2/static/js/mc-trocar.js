@@ -1550,7 +1550,7 @@
     if (state.clientId) query.set('client', state.clientId);
     if (group) query.set('group', group);
     if (ids.length) query.set('scenes', ids.join(','));
-    window.location.href = `/parametros/modelagem-criativos/video?${query.toString()}`;
+    window.location.href = `/studio/modelagem-criativos/video?${query.toString()}`;
   }
 
   function onVersionClick(event) {

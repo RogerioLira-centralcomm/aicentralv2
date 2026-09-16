@@ -5,19 +5,23 @@
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=127">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/trocr-editor.css') }}?v=6">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/trocr-standalone.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/trocr-standalone.css') }}?v=3">
 {% endblock %}
 {% block content %}
 <div class="trocr-product" id="mcApp" data-mc-page="trocar">
   <header class="trocr-product-bar" id="mcCaduBar">
-    <a class="trocr-product-mark" href="{{ url_for('parametros.modelagem_criativos') }}" aria-label="Media Studio">
-      <span aria-hidden="true">T</span><strong>Trocr</strong><small>Media Studio</small>
-    </a>
-    <nav aria-label="Ferramentas do Media Studio">
-      <a href="{{ url_for('parametros.modelagem_criativos') }}">Visão geral</a>
-      <a class="is-current" aria-current="page" href="{{ url_for('parametros.modelagem_trocar') }}">Editar imagem</a>
-      <a href="{{ url_for('parametros.modelagem_video') }}">Criar vídeo</a>
-      <details class="trocr-product-menu mc-cadu-menu"><summary>Ferramentas</summary><div class="trocr-product-menu-list"><a href="{{ url_for('parametros.modelagem_camadas') }}">Camadas</a><a href="{{ url_for('parametros.modelagem_biblioteca') }}">Biblioteca</a><a href="{{ url_for('parametros.modelagem_design_system') }}">Design System</a><a href="{{ url_for('parametros.modelagem_historico') }}">Histórico</a></div></details>
+    <div class="trocr-product-identity">
+      {% set cadu_active_product = 'studio' %}{% include 'cadu/_product_switch.html' %}
+      <span class="trocr-product-divider" aria-hidden="true"></span>
+      <a class="trocr-product-mark" href="{{ studio_url('modelagem_criativos') }}" aria-label="Cadu Studio">
+        <span aria-hidden="true">S</span><strong>Trocr</strong><small>Cadu Studio</small>
+      </a>
+    </div>
+    <nav aria-label="Ferramentas do Cadu Studio">
+      <a href="{{ studio_url('modelagem_criativos') }}">Visão geral</a>
+      <a class="is-current" aria-current="page" href="{{ studio_url('modelagem_trocar') }}">Editar imagem</a>
+      <a href="{{ studio_url('modelagem_video') }}">Criar vídeo</a>
+      <details class="trocr-product-menu mc-cadu-menu"><summary>Ferramentas</summary><div class="trocr-product-menu-list"><a href="{{ studio_url('modelagem_camadas') }}">Camadas</a><a href="{{ studio_url('modelagem_biblioteca') }}">Biblioteca</a><a href="{{ studio_url('modelagem_design-system') }}">Design System</a><a href="{{ studio_url('modelagem_historico') }}">Histórico</a></div></details>
     </nav>
     <label class="trocr-product-brand">
       <span>Marca ativa</span>

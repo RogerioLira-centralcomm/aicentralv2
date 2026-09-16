@@ -1127,7 +1127,7 @@ def api_create_variation(cid):
                 recipient_email=str(session.get("user_email") or ""),
                 recipient_name=str(session.get("user_name") or ""),
                 title=str(created.get("name") or created.get("notes") or "Nova peça"),
-                url=product_url("studio", "/parametros/modelagem-criativos/trocar"), kind="piece",
+                url=product_url("studio", "/studio/modelagem-criativos/trocar"), kind="piece",
             )
         except Exception:
             logger.exception("Não enviou a notificação da nova peça")

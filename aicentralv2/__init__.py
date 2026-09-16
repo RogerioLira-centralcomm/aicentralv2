@@ -4,7 +4,7 @@ AICENTRAL V2 - Inicialização da Aplicação
 =====================================================
 """
 
-from flask import Flask
+from flask import Blueprint, Flask, request, url_for
 from flask_mail import Mail
 from .config import Config
 import logging
@@ -51,6 +51,17 @@ def create_app(config_class=Config):
                 static_url_path='/static',
                 static_folder='static')
     app.config.from_object(config_class)
+
+    @app.template_global()
+    def studio_url(endpoint, **values):
+        """Resolve telas de criação no produto Studio, sem acoplar a CentralX.
+
+        As mesmas telas ainda podem ser abertas no backoffice durante a
+        transição. Dentro do domínio Studio, porém, todo link interno deve
+        apontar para o blueprint próprio e nunca para ``/parametros``.
+        """
+        blueprint = "studio" if request.blueprint == "studio" else "parametros"
+        return url_for(f"{blueprint}.{endpoint}", **values)
     # The same deployment serves multiple hosts. CentralX remains host-only;
     # Cadu products share a dedicated SSO cookie before any request opens a
     # Flask session.
@@ -226,6 +237,13 @@ def create_app(config_class=Config):
         from .integration_settings_routes import register_integration_settings_routes
         from .server_monitor_routes import register_server_monitor_routes
         from .training_studio.routes import register_training_studio_routes
+
+        # Studio owns its public work surface.  Keep the old Parametros
+        # registration below for internal CentralX compatibility only.
+        studio_bp = Blueprint("studio", __name__, url_prefix="/studio")
+        register_creative_modeling_routes(studio_bp)
+        register_camadas_routes(studio_bp)
+        app.register_blueprint(studio_bp)
 
         register_creative_modeling_routes(parametros_bp)
         register_camadas_routes(parametros_bp)

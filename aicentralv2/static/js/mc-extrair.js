@@ -86,11 +86,11 @@
         const saved = payload.data?.saved_variation;
         const query = saved?.id ? `?variation=${encodeURIComponent(saved.id)}` : '';
         if (openBancada) {
-          openBancada.href = `/parametros/modelagem-criativos/bancada${query}`;
+          openBancada.href = `/studio/modelagem-criativos/bancada${query}`;
           openBancada.classList.remove('hidden');
         }
         if (saved?.id && openPrepare) {
-          openPrepare.href = `/parametros/modelagem-criativos/preparar?variation=${encodeURIComponent(saved.id)}`;
+          openPrepare.href = `/studio/modelagem-criativos/preparar?variation=${encodeURIComponent(saved.id)}`;
           openPrepare.classList.remove('hidden');
           setStep(3);
           const parts = payload.data?.params || {};

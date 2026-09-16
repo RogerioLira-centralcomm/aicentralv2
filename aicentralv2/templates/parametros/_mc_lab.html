@@ -6,32 +6,32 @@
         <p>O still de aprovação tem fundo, camadas isoladas e margem segura. O chrome do canal entra só quando a peça é checada.</p>
       </div>
       <p>
-        <a class="cx-btn cx-btn-primary" href="{{ url_for('parametros.modelagem_mesa') }}">Abrir o conceito</a>
-        <a class="cx-btn cx-btn-secondary" href="{{ url_for('parametros.modelagem_placas') }}">Ver as placas</a>
+        <a class="cx-btn cx-btn-primary" href="{{ studio_url('modelagem_mesa') }}">Abrir o conceito</a>
+        <a class="cx-btn cx-btn-secondary" href="{{ studio_url('modelagem_placas') }}">Ver as placas</a>
       </p>
     </div>
   </section>
   <ol class="mc-lab-plates">
     <li>
-      <a href="{{ url_for('parametros.modelagem_placas') }}">
+      <a href="{{ studio_url('modelagem_placas') }}">
         <strong>Kit da marca</strong>
         <span>Todos os retângulos na mesma tinta. Um texto-piloto.</span>
       </a>
     </li>
     <li>
-      <a href="{{ url_for('parametros.modelagem_mesa') }}">
+      <a href="{{ studio_url('modelagem_mesa') }}">
         <strong>Conceito 15s</strong>
         <span>Quatro ou cinco cenas no formato escolhido.</span>
       </a>
     </li>
     <li>
-      <a href="{{ url_for('parametros.modelagem_trocar') }}">
+      <a href="{{ studio_url('modelagem_trocar') }}">
         <strong>Cadu Media Studio®</strong>
         <span>Still, troca, display animado e comparação no mesmo ciclo.</span>
       </a>
     </li>
     <li>
-      <a href="{{ url_for('parametros.modelagem_design-system') }}">
+      <a href="{{ studio_url('modelagem_design-system') }}">
         <strong>Design System Ads</strong>
         <span>Tabela de tokens e specimen Tailwind da marca.</span>
       </a>

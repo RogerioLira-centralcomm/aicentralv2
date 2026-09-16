@@ -7,7 +7,7 @@ from ..auth import login_required, login_required_api
 from ..cadu_skills.repository import customization_targets
 from ..cadu_family import repository as family_repository
 from ..services import integration_credentials
-from .repository import campaigns_for_client, link_campaign_project
+from .repository import accounts_for_workspace_context, campaigns_for_client, files_for_workspace_context, link_campaign_project
 
 
 bp = Blueprint("cadu_connect", __name__, url_prefix="/connect")
@@ -17,18 +17,14 @@ def workspace_project_context(projects: list[dict]) -> Optional[dict]:
     """Use the shared Workspace project when it is available to this user.
 
     A Family selection can contain projects from other legacy sources. Connect
-    campaigns only support cadu_projetos IDs, so every other source is ignored
-    instead of being guessed from a name.
+    Projects are selected by their qualified source reference; campaign links
+    remain guarded separately where a legacy numeric ID is required.
     """
     selected = session.get("family_context") or {}
     ref = selected.get("project_ref")
-    if not isinstance(ref, str) or not ref.startswith("projects:"):
+    if not isinstance(ref, str) or ":" not in ref:
         return None
-    try:
-        project_id = int(ref.split(":", 1)[1])
-    except ValueError:
-        return None
-    return next((project for project in projects if project.get("id") == project_id), None)
+    return next((project for project in projects if project.get("ref") == ref), None)
 
 
 def attach_workspace_brands(projects: list[dict]) -> list[dict]:
@@ -49,15 +45,33 @@ def attach_workspace_brands(projects: list[dict]) -> list[dict]:
             links = family_repository.project_brand_links(client_id)
         except Exception:
             entities, links = {}, []
-        brands_by_project = {f"projects:{project['id']}": [] for project in client_projects}
+        brands_by_project = {project.get("ref") or f"projects:{project['id']}": [] for project in client_projects}
         for link in links:
             project_ref = link.get("project_ref")
             brand = entities.get(link.get("brand_ref"))
             if project_ref in brands_by_project and brand:
                 brands_by_project[project_ref].append(brand.get("name"))
         for project in client_projects:
-            project["brands"] = brands_by_project.get(f"projects:{project['id']}", [])
+            project["brands"] = brands_by_project.get(project.get("ref") or f"projects:{project['id']}", [])
     return projects
+
+
+def workspace_projects(client_id: int, legacy_projects: list[dict]) -> list[dict]:
+    """Join Cadu PHP, CI and Studio projects by explicit source reference."""
+    items = {}
+    for row in legacy_projects:
+        project = dict(row, ref=f"projects:{row['id']}", source="projects")
+        items[project["ref"]] = project
+    try:
+        for entity in family_repository.entities(client_id):
+            if entity.get("kind") == "project" and entity.get("ref"):
+                items.setdefault(entity["ref"], {
+                    "id": None, "ref": entity["ref"], "name": entity.get("name") or "Projeto sem nome",
+                    "source": entity.get("source") or "workspace", "client_id": client_id,
+                })
+    except Exception:
+        pass
+    return attach_workspace_brands(list(items.values()))
 
 
 @bp.get("")
@@ -76,20 +90,25 @@ def index():
     # already scoped to the signed-in organization.
     if not is_portfolio_operator and not permitted_ids and session_client_id:
         permitted_ids.add(session_client_id)
-    projects = [dict(row) for row in targets["projects"] if int(row.get("client_id") or 0) in permitted_ids]
-    projects = attach_workspace_brands(projects)
-    selected_project = next((project for project in projects if project["id"] == requested_project_id), None)
+    legacy_projects = [dict(row) for row in targets["projects"] if int(row.get("client_id") or 0) in permitted_ids]
+    projects = workspace_projects(session_client_id, legacy_projects)
+    selected_project = next((project for project in projects if project.get("ref") == request.args.get("project_ref")), None)
+    if selected_project is None:
+        selected_project = next((project for project in projects if project.get("id") == requested_project_id), None)
     if selected_project is None:
         selected_project = workspace_project_context(projects)
     active_client_id = int(selected_project.get("client_id") or 0) if selected_project else session_client_id
     active_client = next((client for client in permitted_clients if int(client["id"]) == active_client_id), None)
-    campaigns = campaigns_for_client(active_client_id, project_id=selected_project["id"] if selected_project else None) if active_client_id else []
-    accounts = []
+    campaigns = campaigns_for_client(active_client_id, project_id=(selected_project or {}).get("id")) if active_client_id else []
+    accounts = accounts_for_workspace_context(
+        int(session.get("organization_id") or session_client_id or 0), workspace_client_id=active_client_id,
+        workspace_project_ref=(selected_project or {}).get("ref"),
+    ) if active_client_id else []
     # Integrações globais pertencem à operação interna. Administradores de
     # clientes externos enxergam e gerenciam somente as conexões do Cadu PHP.
     if is_portfolio_operator:
         try:
-            accounts = integration_credentials.list_summaries()
+            accounts = accounts or integration_credentials.list_summaries()
         except Exception:
             accounts = []
     # Catálogo de conectores suportados pelo produto. O estado de autorização
@@ -103,6 +122,7 @@ def index():
         active_client=active_client,
         is_portfolio_operator=is_portfolio_operator,
         accounts=accounts, campaigns=campaigns, projects=projects, selected_project=selected_project,
+        files=files_for_workspace_context(active_client_id),
         reports=[row for row in campaigns if row.get("link_dash")],
         mcp_catalog=mcp_catalog,
         connected_count=len([account for account in accounts if account.get("configured")]),

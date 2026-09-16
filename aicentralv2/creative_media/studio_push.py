@@ -104,7 +104,7 @@ def deliver(root,repository):
                     digest=hashlib.sha256(f'{sub["id"]}:{ident}:{status}'.encode()).hexdigest()[:32]
                     checkpoint=path.parent/f'push-delivery-{digest}.json';delivery=json.loads(checkpoint.read_text()) if checkpoint.exists() else {}
                     if delivery.get('sent') or delivery.get('attempts',0)>=5 or delivery.get('retry_at',0)>time.time():continue
-                    payload={'title':'Cadu Media Studio','body':'Seu trabalho está pronto.' if status=='ready' else 'Um trabalho precisa de atenção.','tag':ident,'url':f'/parametros/modelagem-criativos/video?client={sub["client_id"]}#render={ident}'}
+                    payload={'title':'Cadu Studio','body':'Seu trabalho está pronto.' if status=='ready' else 'Um trabalho precisa de atenção.','tag':ident,'url':f'/studio/modelagem-criativos/video?client={sub["client_id"]}#render={ident}'}
                     try:
                         webpush(subscription_info=sub['subscription'],data=json.dumps(payload),vapid_private_key=str(keys()[0]),vapid_claims={'sub':sub['origin']},ttl=86400,timeout=10)
                         _write(checkpoint,{'sent':True,'at':time.time()});sent+=1

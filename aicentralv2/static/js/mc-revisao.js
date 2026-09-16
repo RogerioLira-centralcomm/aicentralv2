@@ -38,8 +38,8 @@
     imageUrl = '';
     if (openProduce) {
       openProduce.href = id
-        ? `/parametros/modelagem-criativos/produzir?campaign=${encodeURIComponent(id)}`
-        : '/parametros/modelagem-criativos/produzir';
+        ? `/studio/modelagem-criativos/produzir?campaign=${encodeURIComponent(id)}`
+        : '/studio/modelagem-criativos/produzir';
     }
     if (!id) return;
     const [detailRes, assetsRes] = await Promise.all([

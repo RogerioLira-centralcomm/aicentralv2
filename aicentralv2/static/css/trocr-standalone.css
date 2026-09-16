@@ -7,6 +7,14 @@ body.portal--studio { min-width:320px; background:#171b21; }
   height:56px; display:grid; grid-template-columns:minmax(130px,1fr) auto minmax(190px,1fr); align-items:center; gap:18px; padding:0 18px;
   border-bottom:1px solid #3e4754; background:#20262e;
 }
+.trocr-product-identity { display:flex; align-items:center; gap:10px; min-width:0; }
+.trocr-product-bar .cadu-product-switch summary { min-height:36px; border-radius:7px; color:#edf1f5; }
+.trocr-product-bar .cadu-product-switch summary > i { color:#aebac7; }
+.trocr-product-bar .cadu-product-switch[open] summary,.trocr-product-bar .cadu-product-switch summary:hover { background:#2b343e; }
+.trocr-product-bar .cadu-product-switch nav { border-color:#46515d; background:#242c35; box-shadow:0 16px 32px #090d1299; }
+.trocr-product-bar .cadu-product-switch nav a { color:#edf1f5; }
+.trocr-product-bar .cadu-product-switch nav a:hover,.trocr-product-bar .cadu-product-switch nav a.is-current { background:#303b46; color:#6be0c1; }
+.trocr-product-divider { width:1px; height:24px; flex:0 0 auto; background:#3e4754; }
 .trocr-product-mark { display:grid; grid-template-columns:28px auto; column-gap:8px; align-items:center; color:#f2f5f8; text-decoration:none; }
 .trocr-product-mark > span { grid-row:1 / span 2; display:grid; place-items:center; width:28px; height:28px; border-radius:7px; background:#4bd1ae; color:#17211f; font-size:15px; font-weight:800; }
 .trocr-product-mark strong { font-size:14px; letter-spacing:-.02em; }
@@ -43,6 +51,8 @@ body.portal--studio { min-width:320px; background:#171b21; }
 @media (max-width:540px) { .trocr-product #mcTrocrClipCompare > div > div { grid-template-columns:1fr; } }
 @media (max-width:700px) {
   .trocr-product-bar { height:auto; min-height:56px; display:flex; flex-wrap:wrap; gap:8px 12px; padding:8px 12px; }
+  .trocr-product-identity { gap:0; }
+  .trocr-product-identity .trocr-product-divider,.trocr-product-identity .trocr-product-mark { display:none; }
   .trocr-product-bar nav { order:3; width:100%; height:32px; justify-content:flex-start; }
   .trocr-product-brand { min-width:130px; }
   .trocr-product .mc-trocr.trocr-editor { height:calc(100dvh - 104px); }

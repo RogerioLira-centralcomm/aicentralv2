@@ -90,7 +90,7 @@
     const link = node('a');
     const params = new URLSearchParams({ run: String(item.run_id || ''), client: clientId });
     if (item.media === 'video') params.set('clip', String(item.id || ''));
-    link.href = `/parametros/modelagem-criativos/${item.media === 'video' ? 'video' : 'trocar'}?${params}`;
+    link.href = `/studio/modelagem-criativos/${item.media === 'video' ? 'video' : 'trocar'}?${params}`;
     const thumb = node('div', 'studio-thumb');
     const src = safeImage(item.thumb_url || item.poster_url || item.image_url);
     const fallback = node('span', '', 'Prévia indisponível');

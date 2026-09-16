@@ -35,7 +35,7 @@
 <a class="family-skip" href="#content">Ir para o conteúdo</a>
 {% set sidebar_product = product in ('workspace', 'planner', 'connect') %}
 <header class="family-nav {{ 'family-nav--sidebar' if sidebar_product else '' }}">
-  {% set cadu_active_product = product %}{% set product_switch_path = '/familia/' %}{% include 'cadu/_product_switch.html' %}
+  {% set cadu_active_product = product %}{% include 'cadu/_product_switch.html' %}
   {% if not sidebar_product %}<span class="family-nav-divider" aria-hidden="true"></span>
   <nav class="family-product-nav" aria-label="Navegação de {{ spec.name }}">
     {% if user %}

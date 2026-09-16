@@ -1,10 +1,10 @@
 {% extends "cadu_portals/base.html" %}
-{% block title %}{{ mc_title }} — Cadu Media Studio{% endblock %}
+{% block title %}{{ mc_title }} — Cadu Studio{% endblock %}
 {% block product_id %}studio{% endblock %}
 {% block navigation %}{% endblock %}
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=127">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-navigation.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-navigation.css') }}?v=3">
 {% if mc_page_js == 'js/camadas/index.js' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/camadas-v2.css') }}?v=5">{% endif %}
 {% if mc_page_js == 'js/mc-cadu-video.js' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/video-studio.css') }}?v=6">{% endif %}
 {% if mc_page == 'trocar' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trocr-editor.css') }}?v=5">{% endif %}

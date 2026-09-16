@@ -29,6 +29,32 @@ def accounts_for_workspace_context(organization_id: int, *, workspace_client_id:
         return []
 
 
+def files_for_workspace_context(client_id: int) -> list[dict]:
+    """Read the existing Workspace, brand and Studio file indexes in one view."""
+    if not client_id:
+        return []
+    try:
+        with _db().cursor() as cursor:
+            cursor.execute("""SELECT name, kind, created_at, 'workspace' AS source
+                                FROM cadu_family_chat_uploads WHERE client_id = %s
+                               ORDER BY created_at DESC LIMIT 30""", (client_id,))
+            files = [dict(row) for row in cursor.fetchall()]
+            cursor.execute("""SELECT filename AS name, role AS kind, created_at, 'marca' AS source
+                                FROM cx_client_brand_assets
+                               WHERE client_id = %s AND status = 'approved'
+                               ORDER BY created_at DESC LIMIT 30""", (client_id,))
+            files.extend(dict(row) for row in cursor.fetchall())
+            cursor.execute("""SELECT COALESCE(filename, 'Criativo gerado') AS name,
+                                     COALESCE(media_type, 'creative') AS kind,
+                                     created_at, 'studio' AS source
+                                FROM cx_generated_assets WHERE client_id = %s
+                               ORDER BY created_at DESC LIMIT 30""", (client_id,))
+            files.extend(dict(row) for row in cursor.fetchall())
+    except Exception:
+        return []
+    return sorted(files, key=lambda item: item.get("created_at") or "", reverse=True)[:60]
+
+
 def create_account(*, organization_id: int, provider: str,
                    external_account_id: str, name: str, credential_provider: Optional[str],
                    user_id: int) -> dict:

@@ -1,9 +1,6 @@
 {% set active = request.endpoint %}
 <header class="cadu-skills-top-nav">
-  <details class="skills-solution-switch">
-    <summary aria-label="Trocar solução"><img src="{{ url_for('cadu_maintenance_product_icon', family='skills', size=32) }}" alt=""><span>Skills</span><i aria-hidden="true">⌄</i></summary>
-    <nav aria-label="Soluções"><a href="{{ product_url('workspace') }}"><img src="{{ url_for('cadu_maintenance_product_icon', family='workspace', size=32) }}" alt="">Workspace</a><a href="{{ product_url('planner') }}"><img src="{{ url_for('cadu_maintenance_product_icon', family='planner', size=32) }}" alt="">Planner</a><a href="{{ product_url('skills') }}" aria-current="page"><img src="{{ url_for('cadu_maintenance_product_icon', family='skills', size=32) }}" alt="">Skills <b aria-label="Selecionado">✓</b></a><a href="{{ product_url('studio') }}"><img src="{{ url_for('cadu_maintenance_product_icon', family='studio', size=32) }}" alt="">Studio</a><a href="{{ product_url('connect') }}"><img src="{{ url_for('cadu_maintenance_product_icon', family='connect', size=32) }}" alt="">Connect</a></nav>
-  </details>
+  {% set cadu_active_product = 'skills' %}{% include 'cadu/_product_switch.html' %}
   <span class="skills-nav-divider" aria-hidden="true"></span>
   <nav class="skills-product-nav" aria-label="Navegação do Skills">
     {% if session.get('user_id') %}<a href="{{ url_for('cadu_skills.marketplace') }}" {% if active == 'cadu_skills.marketplace' and not request.args.get('catalog') %}aria-current="page"{% endif %}>Visão geral</a>{% endif %}

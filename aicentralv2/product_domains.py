@@ -101,7 +101,7 @@ def register_product_host_routing(app) -> None:
     endpoints = {
         "AUTH_URL": "cadu_identity.index",
         "CONNECT_URL": "cadu_connect.index",
-        "STUDIO_URL": "parametros.modelagem_criativos",
+        "STUDIO_URL": "studio.modelagem_criativos",
         "SKILLS_URL": "cadu_skills.marketplace",
         # The planner product is customer-facing.  The legacy Smart Planner
         # remains an internal CentralX tool reached from the CentralX menu.
@@ -118,8 +118,8 @@ def register_product_host_routing(app) -> None:
         # Family pilot can still target /familia/<product>/ and sub-pages;
         # resolve every such legacy entry before the gated blueprint can 404.
         legacy_product_entries = {
-            "CONNECT_URL": ("/familia/connect", "connect", "/connect/"),
-            "STUDIO_URL": ("/familia/studio", "studio", "/parametros/modelagem-criativos"),
+            "CONNECT_URL": ("/familia/connect", "connect", "/"),
+            "STUDIO_URL": ("/familia/studio", "studio", "/studio/modelagem-criativos"),
             "SKILLS_URL": ("/familia/skills", "skills", "/skills/"),
             "WORKSPACE_URL": ("/familia/workspace", "workspace", "/workspace/"),
         }
@@ -136,6 +136,31 @@ def register_product_host_routing(app) -> None:
             )
         ):
             target = product_url(legacy_entry[1], legacy_entry[2])
+            if request.query_string:
+                target = f"{target}?{request.query_string.decode('utf-8')}"
+            return redirect(target, code=302)
+
+        # Connect is useful directly at its product domain.  Keep /connect as
+        # a compatibility alias, but do not leave it in a customer URL.
+        if request.method in {"GET", "HEAD"} and host == _configured_host("CONNECT_URL"):
+            if request.path.rstrip("/") == "/connect":
+                target = product_url("connect", "/")
+                if request.query_string:
+                    target = f"{target}?{request.query_string.decode('utf-8')}"
+                return redirect(target, code=302)
+            if request.path == "/":
+                return app.view_functions["cadu_connect.index"]()
+
+        # Parametros was the first host for Creative Modeling.  On the Studio
+        # domain it is now a compatibility entry only: keep shared links alive
+        # while making the address and browser history product-owned.
+        if (
+            request.method in {"GET", "HEAD"}
+            and host == _configured_host("STUDIO_URL")
+            and request.path.startswith("/parametros/modelagem-criativos")
+        ):
+            suffix = request.path.removeprefix("/parametros/modelagem-criativos")
+            target = product_url("studio", f"/studio/modelagem-criativos{suffix}")
             if request.query_string:
                 target = f"{target}?{request.query_string.decode('utf-8')}"
             return redirect(target, code=302)

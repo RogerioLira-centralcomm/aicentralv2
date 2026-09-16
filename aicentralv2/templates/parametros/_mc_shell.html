@@ -1,42 +1,42 @@
 {% set mc_page = mc_page|default('hub') %}
 <header class="mc-cadu-bar" id="mcCaduBar">
-  <a class="mc-cadu-mark" href="{{ product_url('workspace', '/familia/workspace/marcas') if mc_workspace_brands else url_for('parametros.modelagem_criativos') }}"{% if mc_page == 'hub' %} aria-current="page"{% endif %}>
+  <a class="mc-cadu-mark" href="{{ product_url('workspace', '/familia/workspace/marcas') if mc_workspace_brands else studio_url('modelagem_criativos') }}"{% if mc_page == 'hub' %} aria-current="page"{% endif %}>
     {{ 'Workspace · Sistema da marca' if mc_workspace_brands else 'Cadu Media Studio' }}<sup>®</sup>
   </a>
   <nav class="mc-cadu-nav" aria-label="Cadu Media Studio">
     {% if mc_workspace_brands %}
     <a href="{{ product_url('workspace', '/familia/workspace/marcas') }}">Voltar às marcas</a>
     {% else %}
-    <a id="mcCaduStill" href="{{ url_for('parametros.modelagem_trocar') }}"{% if mc_page == 'trocar' %} class="is-current" aria-current="page"{% endif %}>Ajustar</a>
-    <a id="mcCaduVideo" href="{{ url_for('parametros.modelagem_video') }}"{% if mc_page == 'video' %} class="is-current" aria-current="page"{% endif %}>Vídeo</a>
+    <a id="mcCaduStill" href="{{ studio_url('modelagem_trocar') }}"{% if mc_page == 'trocar' %} class="is-current" aria-current="page"{% endif %}>Ajustar</a>
+    <a id="mcCaduVideo" href="{{ studio_url('modelagem_video') }}"{% if mc_page == 'video' %} class="is-current" aria-current="page"{% endif %}>Vídeo</a>
     <details class="mc-cadu-menu" id="mcCaduMore">
       <summary>Mais</summary>
       <div class="mc-cadu-menu-list">
-        <a href="{{ url_for('parametros.modelagem_camadas') }}"{% if mc_page == 'camadas' %} aria-current="page"{% endif %}>
+        <a href="{{ studio_url('modelagem_camadas') }}"{% if mc_page == 'camadas' %} aria-current="page"{% endif %}>
           <strong>Camadas</strong>
           <span>Recorte fiel e cena protegida</span>
         </a>
-        <a href="{{ url_for('parametros.modelagem_biblioteca') }}"{% if mc_page == 'biblioteca' %} aria-current="page"{% endif %}>
+        <a href="{{ studio_url('modelagem_biblioteca') }}"{% if mc_page == 'biblioteca' %} aria-current="page"{% endif %}>
           <strong>Formatos</strong>
           <span>Catálogo de retângulo e inventário</span>
         </a>
-        <a href="{{ url_for('parametros.modelagem_design-system') }}"{% if mc_page == 'design-system' %} aria-current="page"{% endif %}>
+        <a href="{{ studio_url('modelagem_design-system') }}"{% if mc_page == 'design-system' %} aria-current="page"{% endif %}>
           <strong>Design System</strong>
           <span>Tokens e montagem IAB</span>
         </a>
-        <a href="{{ url_for('parametros.modelagem_bancada') }}"{% if mc_page == 'bancada' %} aria-current="page"{% endif %}>
+        <a href="{{ studio_url('modelagem_bancada') }}"{% if mc_page == 'bancada' %} aria-current="page"{% endif %}>
           <strong>Bancada</strong>
           <span>Peça no retângulo, canal no fim</span>
         </a>
-        <a href="{{ url_for('parametros.modelagem_historico') }}"{% if mc_page == 'historico' %} aria-current="page"{% endif %}>
+        <a href="{{ studio_url('modelagem_historico') }}"{% if mc_page == 'historico' %} aria-current="page"{% endif %}>
           <strong>Custo</strong>
           <span>O que já foi gasto nesta mesa</span>
         </a>
-        <a href="{{ url_for('parametros.modelagem_preparar') }}"{% if mc_page == 'preparar' %} aria-current="page"{% endif %}>
+        <a href="{{ studio_url('modelagem_preparar') }}"{% if mc_page == 'preparar' %} aria-current="page"{% endif %}>
           <strong>Preparar</strong>
           <span>Brief e batidas do studio antigo</span>
         </a>
-        <a href="{{ url_for('parametros.modelagem_produzir') }}"{% if mc_page == 'produzir' %} aria-current="page"{% endif %}>
+        <a href="{{ studio_url('modelagem_produzir') }}"{% if mc_page == 'produzir' %} aria-current="page"{% endif %}>
           <strong>Produzir</strong>
           <span>Foto e HTML no fluxo antigo</span>
         </a>
@@ -45,15 +45,15 @@
     <details class="mc-cadu-menu" id="mcCaduResearch">
       <summary>Pesquisa</summary>
       <div class="mc-cadu-menu-list">
-        <a href="{{ url_for('parametros.modelagem_desdobrar') }}"{% if mc_page == 'desdobrar' %} aria-current="page"{% endif %}>
+        <a href="{{ studio_url('modelagem_desdobrar') }}"{% if mc_page == 'desdobrar' %} aria-current="page"{% endif %}>
           <strong>Desdobrar</strong>
           <span>O mesmo anúncio noutros retângulos</span>
         </a>
-        <a href="{{ url_for('parametros.modelagem_mesa') }}"{% if mc_page == 'mesa' %} aria-current="page"{% endif %}>
+        <a href="{{ studio_url('modelagem_mesa') }}"{% if mc_page == 'mesa' %} aria-current="page"{% endif %}>
           <strong>Conceito 15s</strong>
           <span>Roteiro e cenas em teste</span>
         </a>
-        <a href="{{ url_for('parametros.modelagem_placas') }}"{% if mc_page == 'placas' %} aria-current="page"{% endif %}>
+        <a href="{{ studio_url('modelagem_placas') }}"{% if mc_page == 'placas' %} aria-current="page"{% endif %}>
           <strong>Placas</strong>
           <span>Kit de retângulos — parado</span>
         </a>

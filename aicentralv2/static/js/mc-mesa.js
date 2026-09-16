@@ -283,7 +283,7 @@
       status('O still é grande demais para passar ao Trocr. Baixe a referência e solte no editor.');
       return;
     }
-    window.location.href = '/parametros/modelagem-criativos/trocar?from=studio';
+    window.location.href = '/studio/modelagem-criativos/trocar?from=studio';
   }
 
   function showScene(index) {

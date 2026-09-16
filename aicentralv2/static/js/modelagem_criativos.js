@@ -282,7 +282,7 @@
     const dest = deskPath(name);
     const page = $('#mcApp')?.dataset.mcPage;
     if (page && page !== dest && dest !== 'hub') {
-      window.location.href = `/parametros/modelagem-criativos/${dest}`;
+      window.location.href = `/studio/modelagem-criativos/${dest}`;
       return;
     }
     $$('#mcTabs [data-tab]').forEach((tab) => {
@@ -1259,7 +1259,7 @@
         const sceneId = production?.scenes?.[0]?.id || created.created_scene_id;
         toast('Produção iniciada.', 'success');
         if ($('#mcApp')?.dataset.mcPage !== 'produzir') {
-          window.location.href = `/parametros/modelagem-criativos/produzir?campaign=${encodeURIComponent(campaign.id)}`;
+          window.location.href = `/studio/modelagem-criativos/produzir?campaign=${encodeURIComponent(campaign.id)}`;
           return;
         }
         await selectCampaign(campaign.id, sceneId);

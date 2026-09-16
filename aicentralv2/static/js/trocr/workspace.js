@@ -340,7 +340,7 @@ export async function openWorkspace(api) {
     if(previous.operations[0]?.action!=='format' && JSON.stringify(previous.operations.map(operationKey))!==JSON.stringify(doc.operations.map(operationKey)))throw new Error('O pedido foi alterado. Gere as novas operações; a tentativa anterior permanece no histórico.');
     job=await call(`jobs/${doc.last_job}/retry`,{});doc.active_job=job.id;await save();await follow(job.id);
   });
-  $('[data-pieces]').onchange=()=>{const id=$('[data-pieces]').value;if(!id)return;if(dirty){status('Salve a edição antes de abrir outra peça.');return;}window.location.assign(`/parametros/modelagem-criativos/trocar?client=${encodeURIComponent(client)}&run=${encodeURIComponent(id)}`);};
+  $('[data-pieces]').onchange=()=>{const id=$('[data-pieces]').value;if(!id)return;if(dirty){status('Salve a edição antes de abrir outra peça.');return;}window.location.assign(`/studio/modelagem-criativos/trocar?client=${encodeURIComponent(client)}&run=${encodeURIComponent(id)}`);};
   $('[data-campaign]').onchange=safe(async () => {doc.campaign_id=$('[data-campaign]').value||null;dirty=true;await save();renderCampaigns();});
   async function campaignDialog(existing) {
     const dialog=document.createElement('dialog'); dialog.className='trocr-campaign-dialog';

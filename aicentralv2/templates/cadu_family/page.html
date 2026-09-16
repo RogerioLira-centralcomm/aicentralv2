@@ -54,7 +54,7 @@
 </head>
 <body data-product="{{ product }}" data-module="{{ module }}" data-authenticated="{{ 'true' if user else 'false' }}">
 <a class="family-skip" href="#content">Ir para o conteúdo</a>
-{% set sidebar_product = product in ('workspace', 'planner', 'connect') %}
+{% set sidebar_product = user and product in ('workspace', 'planner', 'connect') %}
 {% set planner_workspace = user and product == 'planner' %}
 {% if not planner_workspace %}
 <header class="family-nav {{ 'family-nav--sidebar' if sidebar_product else '' }}">
@@ -78,6 +78,7 @@
   </form></details>{% endif %}
   <div class="family-nav-actions">
     {% if user and not sidebar_product %}<a class="family-credit-link" href="{{ url_for('cadu_family.page', product='workspace', module='consumo') }}" aria-label="Ver créditos disponíveis"><small>Créditos</small><strong>{% if cadu_nav_credit and cadu_nav_credit.configured %}{{ cadu_nav_credit.available }}{% else %}—{% endif %}</strong></a><details class="family-account-menu"><summary aria-label="Abrir opções da conta">{% if session.get('user_photo_url') %}<img src="{{ session.get('user_photo_url') }}" alt="">{% else %}{{ user.name[:2] | upper }}{% endif %}</summary><div><strong>{{ user.name }}</strong><small>{{ session.get('user_email', '') }}</small><a href="{{ url_for('cadu_family.page', product='workspace', module='inicio') }}">Abrir Workspace</a><a href="{{ url_for('cadu_family.page', product='workspace', module='consumo') }}">Créditos e consumo{% if cadu_nav_credit and cadu_nav_credit.configured %}<span>{{ cadu_nav_credit.available }} disponíveis</span>{% endif %}</a><a href="{{ url_for('cadu_family.page', product='workspace', module='perfil') }}">Perfil</a></div></details>{% elif not user %}<a class="family-primary" href="{{ login_url }}">Entrar</a>{% endif %}
+    {% if not user %}<a class="family-register" href="{{ product_url('auth', '/login') }}">Criar conta</a>{% endif %}
   </div>
 </header>
 {% endif %}

@@ -14,7 +14,7 @@
       <textarea id="conversation-message" maxlength="20000" placeholder="{{ 'Digite sua mensagem ou anexe um arquivo…' if chat_authenticated else 'Entre para conversar com o Cadu' }}" disabled></textarea>
       <div class="conversation-toolbar">
         <button type="button" id="conversation-attach" disabled aria-describedby="conversation-upload-help" aria-label="Anexar arquivo" title="Anexar arquivo">+</button>
-        <input id="conversation-file-input" type="file" multiple hidden accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.txt,.csv,.md,.json">
+        <input id="conversation-file-input" type="file" multiple hidden accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.txt,.csv,.md,.json,.docx,.xlsx,.pptx">
       {% if chat_authenticated %}
       <label for="conversation-mode">Modo do Cadu</label>
       <select id="conversation-mode" disabled><option value="ideias">Carregando modos…</option></select>

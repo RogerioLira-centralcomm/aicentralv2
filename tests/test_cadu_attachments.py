@@ -1,5 +1,6 @@
 from io import BytesIO
 from unittest import TestCase, mock
+from zipfile import ZipFile
 
 from PIL import Image
 from werkzeug.datastructures import FileStorage
@@ -12,6 +13,14 @@ from werkzeug.exceptions import Conflict
 
 
 class AttachmentValidationTest(TestCase):
+    @staticmethod
+    def office_package(part):
+        data = BytesIO()
+        with ZipFile(data, 'w') as archive:
+            archive.writestr('[Content_Types].xml', '<Types/>')
+            archive.writestr(part, '<document/>')
+        return data.getvalue()
+
     def test_image_content_is_verified_not_browser_mime(self):
         data = BytesIO(); Image.new('RGB', (2, 2)).save(data, format='PNG'); data.seek(0)
         file, kind, size = attachments.validate(FileStorage(data, filename='../../imagem.png', content_type='text/html'))
@@ -34,6 +43,17 @@ class AttachmentValidationTest(TestCase):
         file, kind, _ = attachments.validate(FileStorage(BytesIO('Olá'.encode()), filename='a.md'))
         self.assertEqual(kind, 'document')
         self.assertEqual(file.mimetype, 'text/markdown')
+
+    def test_validates_real_office_packages_without_extracting_them(self):
+        for name, part, mime in (
+            ('brief.docx', 'word/document.xml', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
+            ('dados.xlsx', 'xl/workbook.xml', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
+            ('roteiro.pptx', 'ppt/presentation.xml', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'),
+        ):
+            with self.subTest(name=name):
+                file, kind, _ = attachments.validate(FileStorage(BytesIO(self.office_package(part)), filename=name))
+                self.assertEqual(kind, 'document')
+                self.assertEqual(file.mimetype, mime)
 
     def test_upload_saves_scoped_reference_without_exposing_provider_id(self):
         db = mock.MagicMock()

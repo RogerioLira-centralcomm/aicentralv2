@@ -27,7 +27,7 @@
       for (const file of files) {
         if (this.items.length >= 3) { this.status.textContent = 'Anexe no máximo três arquivos.'; break; }
         if (!file.size || file.size > 15 * 1024 * 1024) { this.status.textContent = 'Cada arquivo deve ter entre 1 byte e 15 MB.'; continue; }
-        if (!/\.(png|jpe?g|webp|gif|pdf|txt|csv|md|json)$/i.test(file.name)) { this.status.textContent = 'Formato ainda não disponível. Use imagem, PDF ou texto.'; continue; }
+        if (!/\.(png|jpe?g|webp|gif|pdf|txt|csv|md|json|docx|xlsx|pptx)$/i.test(file.name)) { this.status.textContent = 'Formato ainda não disponível. Use imagem, PDF, texto ou Office.'; continue; }
         const preview = /^image\/(png|jpeg|webp|gif)$/.test(file.type) ? URL.createObjectURL(file) : null;
         this.items.push({file, preview, id:null, state:'Pronto para enviar', progress:null});
       }

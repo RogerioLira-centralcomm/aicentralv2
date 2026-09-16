@@ -1206,18 +1206,35 @@ body[data-auth-page="reset-password"] .auth-page-content {
 .auth-access-switch { margin-top: 1.2rem; }
 .auth-footer { color: #7b8882; }
 
-/* CentralX uses one bespoke 3D operation scene instead of product chrome. */
+/* CentralX uses an editorial city scene: people, media and the connected
+   operation, while the form remains a separate quiet surface. */
 .auth-scene--centralx .auth-scene-image {
   width: 100%;
   height: 100%;
   top: 0;
   left: 0;
-  object-position: center;
-  filter: saturate(.9) contrast(1.04) brightness(.82);
+  object-position: 62% center;
+  filter: saturate(.88) contrast(1.02) brightness(.78);
 }
 
 .auth-scene--centralx .auth-scene-shade {
-  background: linear-gradient(120deg, rgba(3, 35, 23, .54), rgba(3, 35, 23, .12) 66%);
+  background: linear-gradient(110deg, rgba(3, 26, 24, .28), rgba(3, 26, 24, .04) 70%);
+}
+
+@media (max-width: 860px) {
+  .auth-scene--centralx {
+    height: 172px;
+    min-height: calc(172px + env(safe-area-inset-top));
+    max-height: calc(172px + env(safe-area-inset-top));
+  }
+
+  .auth-scene--centralx .auth-scene-image {
+    object-position: 62% 48%;
+  }
+
+  .auth-public--centralx .auth-workspace {
+    height: calc(100% - 172px - env(safe-area-inset-top));
+  }
 }
 
 @media (max-width: 860px) {

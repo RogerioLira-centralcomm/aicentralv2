@@ -4,7 +4,7 @@
 {% block navigation %}{% endblock %}
 {% block styles %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-home.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-home.css') }}?v=3">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-navigation.css') }}?v=2">
 {% endblock %}
 {% block content %}
@@ -16,9 +16,21 @@
     <div class="mc-cadu-meta studio-context-controls"><label class="studio-brand-label" for="mcCaduBarClient">Marca ativa</label><select id="mcCaduBarClient" aria-label="Marca desta sessão"><option value="">Carregando marcas…</option></select><p id="mcCaduCredits" hidden aria-live="polite"></p></div>
   </header>
   <div class="studio-layout"><div class="studio-content">
-    <div class="studio-heading"><div><p class="studio-breadcrumb">Media Studio</p><h1>Comece pela peça. Termine no vídeo.</h1><p>O Studio reúne os dois fluxos de produção da sua marca: ajuste de imagem e montagem de vídeo.</p></div><a class="studio-button is-primary" data-brand-link href="{{ url_for('parametros.modelagem_trocar') }}">{{ icon('plus') }} Ajustar imagem</a></div>
-    <div class="studio-brand-context"><div>{{ icon('building') }}<div><strong id="studioBrandName">Carregando marca…</strong><p>Biblioteca e histórico da marca selecionada</p></div></div><a href="{{ product_url('workspace', '/familia/workspace/marcas/sistema') }}">Gerenciar marca {{ icon('arrow-right') }}</a></div>
-    <section class="studio-actions" aria-label="Ferramentas do Studio"><a data-brand-link href="{{ url_for('parametros.modelagem_trocar') }}">{{ icon('sliders') }}<strong>Ajustar imagem</strong><p>Importe um criativo e descreva o que deve mudar.</p></a><a data-brand-link href="{{ url_for('parametros.modelagem_video') }}">{{ icon('film') }}<strong>Criar vídeo</strong><p>Reúna cenas da biblioteca e monte o clipe.</p></a><a href="#studioLibrary">{{ icon('images') }}<strong>Retomar uma peça</strong><p>Abra um resultado e continue a produção.</p></a></section>
+    <section class="studio-hero" aria-labelledby="studioWelcomeTitle">
+      <div class="studio-hero-copy">
+        <p class="studio-breadcrumb"><span></span> Media Studio</p>
+        <h1 id="studioWelcomeTitle">A próxima peça começa com uma boa direção.</h1>
+        <p class="studio-lead">Da referência ao frame final: ajuste imagens, componha cenas e transforme o repertório da sua marca em mídia pronta para veicular.</p>
+        <div class="studio-hero-actions"><a class="studio-button is-primary" data-brand-link href="{{ url_for('parametros.modelagem_trocar') }}">{{ icon('sparkles') }} Criar a partir de uma peça</a><a class="studio-text-action" data-brand-link href="{{ url_for('parametros.modelagem_video') }}">Montar um vídeo {{ icon('arrow-right') }}</a></div>
+      </div>
+      <div class="studio-stage" aria-hidden="true">
+        <div class="studio-stage-glow"></div><div class="studio-stage-grid"></div>
+        <div class="studio-stage-canvas"><span class="studio-stage-tag">PEÇA EM PROCESSO</span><div class="studio-stage-copy"><b>Onde a marca<br>ganha movimento.</b><small>FRAME 01 / 24</small></div><div class="studio-stage-orbit orbit-one"></div><div class="studio-stage-orbit orbit-two"></div></div>
+        <div class="studio-stage-chip chip-format">1080 × 1350</div><div class="studio-stage-chip chip-status"><i></i> Direção pronta</div>
+      </div>
+    </section>
+    <div class="studio-brand-context"><div>{{ icon('building') }}<div><span class="studio-context-label">Trabalhando com</span><strong id="studioBrandName">Carregando marca…</strong><p>Biblioteca, identidade e histórico preservados em cada criação.</p></div></div><a href="{{ product_url('workspace', '/familia/workspace/marcas/sistema') }}">Gerenciar marca {{ icon('arrow-right') }}</a></div>
+    <section class="studio-actions" aria-label="Começar no Studio"><a data-brand-link href="{{ url_for('parametros.modelagem_trocar') }}"><span class="studio-action-number">01</span>{{ icon('sliders') }}<strong>Ajustar uma peça</strong><p>Traga um criativo e indique com precisão o que precisa mudar.</p><em>Editar imagem {{ icon('arrow-right') }}</em></a><a data-brand-link href="{{ url_for('parametros.modelagem_video') }}"><span class="studio-action-number">02</span>{{ icon('film') }}<strong>Construir um vídeo</strong><p>Organize cenas, ritmo e texto em uma sequência de marca.</p><em>Abrir editor {{ icon('arrow-right') }}</em></a><a href="#studioLibrary"><span class="studio-action-number">03</span>{{ icon('images') }}<strong>Continuar criando</strong><p>Retome uma peça, uma variação ou um clipe que ficou em aberto.</p><em>Ver biblioteca {{ icon('arrow-right') }}</em></a></section>
     <section id="studioLibrary" aria-labelledby="studioLibraryTitle"><div class="studio-library-heading"><div><h2 id="studioLibraryTitle">Biblioteca da marca</h2><p>Peças e clipes para continuar sua produção.</p></div><button class="studio-button" id="studioRefresh" type="button">{{ icon('rotate-right') }} Atualizar</button></div><div class="studio-toolbar"><div class="studio-filters" role="group" aria-label="Filtrar por tipo"><button type="button" data-media="all" aria-pressed="true">Todos</button><button type="button" data-media="still" aria-pressed="false">Imagens</button><button type="button" data-media="video" aria-pressed="false">Vídeos</button></div><label class="studio-search">{{ icon('magnifying-glass') }}<input type="search" id="studioSearch" aria-label="Buscar na biblioteca" placeholder="Buscar na biblioteca…"></label></div><p class="studio-library-status" id="studioStatus" role="status">Carregando contexto da marca…</p><div id="studioErrors"></div><ul class="studio-grid" id="studioItems" aria-label="Resultados da biblioteca"></ul><div class="studio-pagination"><button class="studio-button" id="studioMore" type="button" hidden>Mostrar mais</button></div></section>
   </div></div>
 </div>

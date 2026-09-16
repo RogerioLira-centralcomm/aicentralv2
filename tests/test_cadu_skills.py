@@ -98,7 +98,8 @@ class CaduSkillsTest(TestCase):
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
         self.assertIn("Cadu Gold", html)
-        self.assertIn("Família oficial Cadu", html)
+        self.assertIn("Top 10 para conhecer", html)
+        self.assertIn("Mais referências de mercado", html)
         self.assertIn("Personalizar por projeto", html)
         self.assertIn("Cadu Skills", html)
         self.assertIn('class="cadu-skills-top-nav"', html)
@@ -112,18 +113,17 @@ class CaduSkillsTest(TestCase):
     @mock.patch("aicentralv2.cadu_skills.routes.credit_position", return_value={"configured": True, "available": 18})
     @mock.patch("aicentralv2.cadu_skills.routes.list_customizations", return_value=[])
     @mock.patch("aicentralv2.cadu_skills.routes.all_cadu_skills", return_value=[CADU_MEDIA_PLANNING])
-    def test_logged_user_enters_the_skills_workspace_and_keeps_catalog_available(self, _skills, _customizations, _credit):
+    def test_logged_user_enters_the_shared_skills_catalog(self, _skills, _customizations, _credit):
         client = _app().test_client()
         with client.session_transaction() as session:
             session.update(user_id=7, cliente_id=12)
         response = client.get("/skills/")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("Skills para o trabalho em andamento", html)
-        self.assertIn("18", html)
-        self.assertIn("Explorar catálogo", html)
-        response = client.get("/skills/?catalog=1")
-        self.assertIn("Uma família curta, diferenças claras.", response.get_data(as_text=True))
+        self.assertIn("Escolha o método certo para a próxima decisão.", html)
+        self.assertIn("Workspace", html)
+        self.assertIn("Minhas skills", html)
+        self.assertNotIn('class="skills-product-nav"', html)
 
     @mock.patch("aicentralv2.cadu_skills.routes.record_event", return_value=True)
     def test_official_skill_download_is_a_complete_zip(self, _event):

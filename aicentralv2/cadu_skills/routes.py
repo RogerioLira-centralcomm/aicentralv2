@@ -193,14 +193,8 @@ def skills_icon(size):
 @bp.get("")
 @bp.get("/")
 def marketplace():
-    if session.get("user_id") and request.args.get("catalog") != "1":
-        client_id = int(session.get("cliente_id") or 0)
-        skills = all_cadu_skills()
-        return render_template(
-            "cadu_skills/workspace.html", skills=skills,
-            customizations=list_customizations(client_id=client_id),
-            credit_position=credit_position(client_id),
-        )
+    # The catalogue is the shared entry point. Private work stays available
+    # from the contextual links in its sidebar instead of becoming a second home.
     top = _top_skills()
     top_slugs = {item["slug"] for item in top}
     all_skills = all_cadu_skills()
@@ -208,7 +202,12 @@ def marketplace():
     official = sorted((item for item in all_skills if item["slug"] in official_slugs), key=lambda item: item.get("rank", 999))
     owned = [item for item in all_skills if item["slug"] not in top_slugs | official_slugs]
     directory = list(DEFERRED_SKILLS)
-    catalog_rows = [_catalog_row(item, "official") for item in official] + [_catalog_row(item, "owned") for item in owned]
+    # The market ranking remains a Top 10 comparison in its own right. A Cadu
+    # skill may also appear here when it is relevant to the ranking, while the
+    # Cadu table continues to be the canonical place to browse the collection.
+    market_rows = [_catalog_row(item, "market") for item in top]
+    directory_rows = [_catalog_row(item, "directory") for item in directory]
+    catalog_rows = [_catalog_row(item, "official") for item in official] + market_rows + directory_rows + [_catalog_row(item, "owned") for item in owned]
     category_counts = {}
     for item in catalog_rows:
         category = item.get("category") or "Sem categoria"
@@ -216,6 +215,7 @@ def marketplace():
     return render_template(
         "cadu_skills/marketplace.html", top_skills=top,
         official_skills=official, cadu_skills=owned, skills=directory,
+        market_rows=market_rows, directory_rows=directory_rows,
         catalog_rows=catalog_rows, category_counts=sorted(category_counts.items()),
         featured=top[0] if top else CADU_MEDIA_PLANNING,
     )

@@ -21,19 +21,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const activeFilter = catalog.querySelector('[data-active-filter]');
     const activeFilterText = activeFilter.querySelector('span');
     const labels = {
-      top: ['Biblioteca', 'Skills Cadu', 'Métodos instaláveis para decisões de mídia, público e produção.'],
+      market: ['Curadoria de mercado', 'Top 10 para conhecer', 'Capacidades relevantes para comunicação, conteúdo, dados e crescimento.'],
       official: ['Inteligência proprietária', 'Família oficial Cadu', 'Especialistas instaláveis que conectam planejamento, canais, audiências e formatos.'],
       directory: ['Diretório de referências', 'Todas as referências', 'Capacidades disponíveis para consulta e comparação.'],
       all: ['Catálogo completo', 'Encontre a skill para a tarefa', 'Compare resultados, método e acesso antes de abrir uma skill.'],
     };
     const params = new URLSearchParams(window.location.search);
-    let state = {query: params.get('q') || '', category: params.get('category') || '', collection: params.get('collection') || 'official'};
+    let state = {query: params.get('q') || '', category: params.get('category') || '', collection: params.get('collection') || 'all'};
     input.value = state.query;
     const updateUrl = () => {
       const next = new URLSearchParams();
       if (state.query) next.set('q', state.query);
       if (state.category) next.set('category', state.category);
-      if (state.collection && state.collection !== 'official') next.set('collection', state.collection);
+      if (state.collection && state.collection !== 'all') next.set('collection', state.collection);
       const suffix = next.toString(); window.history.replaceState({}, '', `${window.location.pathname}${suffix ? `?${suffix}` : ''}${window.location.hash}`);
     };
     const collectionMatch = (row, collection) => collection === 'all' || row.dataset.collection.split(' ').includes(collection);
@@ -43,13 +43,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const showRow = normalize(row.dataset.text).includes(query) && (!state.category || row.dataset.category === state.category) && collectionMatch(row, state.collection);
         row.hidden = !showRow; if (showRow) visible += 1;
       });
+      catalog.querySelectorAll('[data-table-group]').forEach(group => {
+        group.hidden = ![...group.querySelectorAll('[data-item]')].some(row => !row.hidden);
+      });
       catalog.querySelectorAll('[data-collection-link]').forEach(link => link.classList.toggle('is-active', link.dataset.collectionLink === state.collection));
       catalog.querySelectorAll('[data-category-link]').forEach(link => link.classList.toggle('is-active', link.dataset.categoryLink === state.category));
       const [eyebrowText, titleText, summaryText] = labels[state.collection] || labels.all;
       eyebrow.textContent = state.category ? 'Categoria' : eyebrowText;
       title.textContent = state.category || titleText;
       summary.textContent = state.category ? `${visible} skill${visible === 1 ? '' : 's'} para comparar nesta categoria.` : summaryText;
-      const filterName = state.category || (state.collection !== 'official' ? titleText : '');
+      const filterName = state.category || (state.collection !== 'all' ? titleText : '');
       activeFilter.hidden = !filterName; activeFilterText.textContent = filterName;
       empty.hidden = visible > 0; updateUrl();
     };
@@ -57,7 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
     input.addEventListener('input', () => { state.query = input.value.trim(); render(); });
     catalog.querySelectorAll('[data-collection-link]').forEach(link => link.addEventListener('click', () => { state.collection = link.dataset.collectionLink; state.category = ''; render(); }));
     catalog.querySelectorAll('[data-category-link]').forEach(link => link.addEventListener('click', () => { state.category = link.dataset.categoryLink; state.collection = 'all'; render(); }));
-    catalog.querySelector('[data-active-filter] button')?.addEventListener('click', () => { state = {query: '', category: '', collection: 'official'}; input.value = ''; render(); });
+    catalog.querySelector('[data-active-filter] button')?.addEventListener('click', () => { state = {query: '', category: '', collection: 'all'}; input.value = ''; render(); });
     catalog.querySelector('[data-clear-search]')?.addEventListener('click', () => { state = {query: '', category: '', collection: 'all'}; input.value = ''; render(); });
     render();
   }

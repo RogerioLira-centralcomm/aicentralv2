@@ -1,5 +1,7 @@
 """Credenciais globais de integrações, criptografadas no PostgreSQL."""
 
+import base64
+import hashlib
 import json
 import os
 import secrets
@@ -131,16 +133,29 @@ def _setting(name):
 
 def _fernet():
     key = _setting("INTEGRATION_CREDENTIALS_KEY")
-    if not key:
+    if key:
+        try:
+            return Fernet(key.encode())
+        except (ValueError, TypeError) as exc:
+            raise IntegrationCredentialError(
+                "INTEGRATION_CREDENTIALS_KEY não é uma chave Fernet válida."
+            ) from exc
+
+    # The dedicated credential key is preferred, but its absence must not make
+    # the integrations console unusable.  Derive a separate Fernet key from
+    # CentralX's already-required application secret; nothing is persisted or
+    # exposed, and the domain separator prevents reusing SECRET_KEY directly.
+    app_secret = str(_setting("SECRET_KEY") or "").strip()
+    if not app_secret:
         raise IntegrationCredentialError(
-            "Configure INTEGRATION_CREDENTIALS_KEY no servidor antes de salvar segredos."
+            "Configure SECRET_KEY no servidor antes de salvar segredos."
         )
-    try:
-        return Fernet(key.encode())
-    except (ValueError, TypeError) as exc:
-        raise IntegrationCredentialError(
-            "INTEGRATION_CREDENTIALS_KEY não é uma chave Fernet válida."
-        ) from exc
+    derived_key = base64.urlsafe_b64encode(
+        hashlib.sha256(
+            b"centralx:integration-credentials:v1:" + app_secret.encode("utf-8")
+        ).digest()
+    )
+    return Fernet(derived_key)
 
 
 def encrypt_secrets(secrets):

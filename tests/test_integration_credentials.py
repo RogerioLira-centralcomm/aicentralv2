@@ -42,6 +42,17 @@ class IntegrationCredentialsServiceTest(unittest.TestCase):
             "google-secret",
         )
 
+    def test_encrypts_with_secret_key_when_dedicated_key_is_unset(self):
+        self.app.config["INTEGRATION_CREDENTIALS_KEY"] = ""
+        encrypted = integration_credentials.encrypt_secrets(
+            {"api_key": "dify-secret"}
+        )
+        self.assertNotIn("dify-secret", encrypted)
+        self.assertEqual(
+            integration_credentials.decrypt_secrets(encrypted)["api_key"],
+            "dify-secret",
+        )
+
     def test_summary_never_returns_secret(self):
         encrypted = integration_credentials.encrypt_secrets(
             {"api_key": "higgsfield-secret"}

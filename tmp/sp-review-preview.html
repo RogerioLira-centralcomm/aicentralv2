@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Revisar briefing · Smart Planner</title>
+  <link rel="stylesheet" href="/aicentralv2/static/css/smart_planner.css?v=29">
+  <style>
+    :root { --hi-line: #e5e7eb; --hi-paper: #fff; --hi-ink: #111827; --hi-fog: #64748b; --hi-go: #1e4d4f; }
+    body { margin: 0; background: #f8fafc; color: #111827; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+    .erp-topbar { display: flex; align-items: center; min-height: 3.25rem; padding: 0 1rem; border-bottom: 1px solid #e5e7eb; background: #fff; }
+    .sp-hi { padding: 1rem 1.25rem 6rem; }
+    .cx-btn { appearance: none; border: 1px solid #e5e7eb; background: #fff; border-radius: 8px; padding: .4rem .7rem; font: inherit; cursor: pointer; }
+    .cx-btn-primary { background: #1e4d4f; color: #fff; border-color: #1e4d4f; }
+    .cx-btn-ghost { background: #fff; }
+    .cx-btn-sm { font-size: .8125rem; }
+    .cx-input { width: 100%; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .sp-hi-foot { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: .75rem; align-items: center; padding: .75rem 1.25rem; background: #fff; border-top: 1px solid #e5e7eb; }
+    .sp-bf { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; }
+    .sp-bf label, .sp-brief-field { display: grid; gap: .25rem; font-size: .8125rem; }
+    .sp-bf input, .sp-bf select, .sp-bf textarea, .sp-narrative { width: 100%; padding: .45rem .55rem; border: 1px solid #e5e7eb; border-radius: 8px; font: inherit; }
+    .sp-side-card { padding: 1rem; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; display: grid; gap: .75rem; }
+    .sp-side-card h2 { margin: 0; font-size: 1rem; }
+  </style>
+</head>
+<body>
+  <header class="erp-topbar"><strong>CentralX</strong><span style="margin-left:auto;font-size:.85rem;color:#64748b">Smart Planner</span></header>
+  <div class="sp-hi" id="sp-wizard" data-step="revisao">
+    <div class="sp-hi-grid is-review">
+      <div class="sp-hi-main">
+        <header class="sp-hi-head">
+          <div>
+            <h1>Revisar briefing</h1>
+            <p>Confira o briefing. A gestão de mídia abre no modal — calendário mensal para voos de 2 a 12 meses.</p>
+          </div>
+        </header>
+        <form id="sp-revisao-form" class="sp-review">
+          <section class="sp-complete" data-tom="medio">
+            <div class="sp-complete-score">
+              <div class="sp-score-ring">
+                <svg viewBox="0 0 36 36">
+                  <circle class="sp-score-track" cx="18" cy="18" r="15"></circle>
+                  <circle class="sp-score-fill" cx="18" cy="18" r="15" stroke-dasharray="56.5 94.2"></circle>
+                </svg>
+                <strong>60<small>/100</small></strong>
+              </div>
+            </div>
+            <div>
+              <h2>Bom, mas ainda cabe detalhe</h2>
+              <p>Dá para gerar, mas ainda há 2 pendências.</p>
+              <ul class="sp-complete-gaps">
+                <li><a href="#sp-field-publico" data-gap="público">Público ainda vago</a></li>
+              </ul>
+            </div>
+          </section>
+          <details class="sp-acc" data-acc="essentials" open>
+            <summary><span class="sp-acc-title">Informações essenciais</span><span class="sp-acc-meta">4/4</span></summary>
+            <div class="sp-bf">
+              <label><span>Campanha</span><input value="Campanha Copasa Digital"></label>
+              <label><span>Anunciante</span><input value="COPASA MG"></label>
+              <label><span>Objetivo</span><select><option selected>Conversão</option></select></label>
+              <label><span>Agência</span><input value="Faz2Com"></label>
+            </div>
+          </details>
+          <details class="sp-acc is-gap" data-acc="audience">
+            <summary><span class="sp-acc-title">Público e mensagem</span><span class="sp-acc-meta is-gap">1/2 · falta</span></summary>
+            <div class="sp-bf">
+              <label><span>Como o anunciante descreveu</span><input value="Aumentar o uso dos canais digitais"></label>
+              <label><span>Público</span><textarea id="sp-field-publico" rows="3"></textarea></label>
+            </div>
+          </details>
+          <details class="sp-acc" data-acc="context">
+            <summary><span class="sp-acc-title">Contexto e restrições</span><span class="sp-acc-meta">2/2</span></summary>
+            <div class="sp-bf">
+              <label><span>Contexto</span><textarea rows="2">Alta incidência de clientes no presencial.</textarea></label>
+              <label><span>Observações</span><textarea rows="2">Sem meta numérica definida.</textarea></label>
+            </div>
+          </details>
+          <details class="sp-acc" data-acc="narrative">
+            <summary><span class="sp-acc-title">Briefing compilado</span><span class="sp-acc-meta">1/1</span></summary>
+            <label class="sp-brief-field"><span>Narrativa corrida</span><textarea class="sp-narrative" rows="4">A Copasa precisa deslocar atendimento presencial para app e WhatsApp em Minas Gerais.</textarea></label>
+          </details>
+        </form>
+      </div>
+      <aside class="sp-hi-plan">
+        <section class="sp-side-card">
+          <h2>Configuração do plano</h2>
+          <p>Verba, voo, praça e indicadores. O modal de mídia usa estes números.</p>
+          <div class="sp-bf">
+            <label><span>Verba</span><input value="R$ 80.000"></label>
+            <label><span>Essa verba é</span><select><option>No total</option></select></label>
+            <label><span>Período</span><input value="6 meses"></label>
+            <p class="sp-flight-note">6 meses · set a fev 2026/2027</p>
+          </div>
+        </section>
+        <section class="sp-side-card sp-mix-summary">
+          <h2>Gestão de mídia</h2>
+          <p>4 canais · Funil do objetivo</p>
+          <ul class="sp-mix-snap">
+            <li><span>Google Ads</span><em>28%</em></li>
+            <li><span>Meta Ads</span><em>24%</em></li>
+            <li><span>G1</span><em>26%</em></li>
+            <li><span>OOH / Painéis</span><em>22%</em></li>
+          </ul>
+          <div class="sp-cal-mini">
+            <p>6 meses · começa menor e solta no meio e no fim</p>
+            <ol>
+              <li><b style="--pct:10"></b><span>Set</span></li>
+              <li><b style="--pct:14"></b><span>Out</span></li>
+              <li><b style="--pct:18"></b><span>Nov</span></li>
+              <li><b style="--pct:20"></b><span>Dez</span></li>
+              <li><b style="--pct:19"></b><span>Jan</span></li>
+              <li><b style="--pct:19"></b><span>Fev</span></li>
+            </ol>
+          </div>
+          <button type="button" class="cx-btn cx-btn-primary cx-btn-sm" id="sp-media-open">Balancear mídia</button>
+        </section>
+      </aside>
+    </div>
+    <footer class="sp-hi-foot">
+      <button class="cx-btn cx-btn-ghost">Voltar</button>
+      <button class="cx-btn cx-btn-ghost">Salvar rascunho</button>
+      <span class="sp-hi-save">2 pendências</span>
+      <button class="cx-btn cx-btn-primary" style="margin-left:auto">Gerar documentos</button>
+    </footer>
+  </div>
+  <dialog class="sp-media" id="sp-media">
+    <div class="sp-media-sheet">
+      <header>
+        <div>
+          <h2>Gestão de mídia</h2>
+          <p>Canais, método e calendário mensal. Em voos de 2 a 12 meses a mídia progride: aprende no começo e converte no fim.</p>
+        </div>
+        <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-media-close">Fechar</button>
+      </header>
+      <div class="sp-media-grid">
+        <section class="sp-media-mix">
+          <h3>Gestão de canais</h3>
+          <div class="sp-mix-checks">
+            <label><input type="checkbox" checked><span>Google Ads</span></label>
+            <label><input type="checkbox" checked><span>Meta Ads</span></label>
+            <label><input type="checkbox" checked><span>G1</span></label>
+            <label><input type="checkbox" checked><span>OOH / Painéis</span></label>
+          </div>
+          <h3>Balanceamento de mídia</h3>
+          <label class="sp-mix-pick is-on"><strong>Funil do objetivo</strong><small>Pesa os grupos pelo estágio da campanha.</small></label>
+          <div class="sp-mix-alloc">
+            <ul>
+              <li><span><strong>Google Ads</strong><em>28%</em></span><i><b style="--pct:28"></b></i></li>
+              <li><span><strong>Meta Ads</strong><em>24%</em></span><i><b style="--pct:24"></b></i></li>
+              <li><span><strong>G1</strong><em>26%</em></span><i><b style="--pct:26"></b></i></li>
+              <li><span><strong>OOH</strong><em>22%</em></span><i><b style="--pct:22"></b></i></li>
+            </ul>
+          </div>
+        </section>
+        <section class="sp-media-cal">
+          <div class="sp-cal-head">
+            <div>
+              <h3>Calendário de balanceamento</h3>
+              <p>Começa menor para aprender. Solta mais verba no meio e no fim. Ajuste o mês.</p>
+            </div>
+            <label class="sp-cal-progress"><input type="checkbox" checked><span>Mídia progressiva</span></label>
+          </div>
+          <div class="sp-gantt-nums">
+            <p><small>No período</small><strong>R$ 80.000</strong></p>
+            <p><small>Ritmo mensal</small><strong>~R$ 13.333/mês</strong></p>
+          </div>
+          <div class="sp-gantt">
+            <div class="sp-gantt-track" style="--months:6">
+              <div class="sp-gantt-col is-learn"><span class="sp-gantt-stem"><b style="height:48%"></b></span><strong>Set</strong><small>R$ 8.200</small></div>
+              <div class="sp-gantt-col is-mid"><span class="sp-gantt-stem"><b style="height:62%"></b></span><strong>Out</strong><small>R$ 10.600</small></div>
+              <div class="sp-gantt-col is-mid"><span class="sp-gantt-stem"><b style="height:78%"></b></span><strong>Nov</strong><small>R$ 13.400</small></div>
+              <div class="sp-gantt-col is-mid"><span class="sp-gantt-stem"><b style="height:92%"></b></span><strong>Dez</strong><small>R$ 15.800</small></div>
+              <div class="sp-gantt-col is-mid"><span class="sp-gantt-stem"><b style="height:88%"></b></span><strong>Jan</strong><small>R$ 15.200</small></div>
+              <div class="sp-gantt-col is-release"><span class="sp-gantt-stem"><b style="height:100%"></b></span><strong>Fev</strong><small>R$ 16.800</small></div>
+            </div>
+          </div>
+          <div class="sp-cal-table-wrap">
+            <table class="sp-cal-table">
+              <thead><tr><th>Canal</th><th>Set</th><th>Out</th><th>Nov</th><th>Dez</th><th>Jan</th><th>Fev</th></tr></thead>
+              <tbody>
+                <tr><th>Google Ads</th><td style="--pct:18"><strong>18%</strong><small>R$ 1.476</small></td><td style="--pct:20"><strong>20%</strong><small>R$ 2.120</small></td><td style="--pct:23"><strong>23%</strong><small>R$ 3.082</small></td><td style="--pct:25"><strong>25%</strong><small>R$ 3.950</small></td><td style="--pct:27"><strong>27%</strong><small>R$ 4.104</small></td><td style="--pct:28"><strong>28%</strong><small>R$ 4.704</small></td></tr>
+                <tr><th>Meta Ads</th><td style="--pct:16"><strong>16%</strong><small>R$ 1.312</small></td><td style="--pct:18"><strong>18%</strong><small>R$ 1.908</small></td><td style="--pct:20"><strong>20%</strong><small>R$ 2.680</small></td><td style="--pct:22"><strong>22%</strong><small>R$ 3.476</small></td><td style="--pct:23"><strong>23%</strong><small>R$ 3.496</small></td><td style="--pct:24"><strong>24%</strong><small>R$ 4.032</small></td></tr>
+                <tr><th>G1</th><td style="--pct:34"><strong>34%</strong><small>R$ 2.788</small></td><td style="--pct:32"><strong>32%</strong><small>R$ 3.392</small></td><td style="--pct:30"><strong>30%</strong><small>R$ 4.020</small></td><td style="--pct:28"><strong>28%</strong><small>R$ 4.424</small></td><td style="--pct:27"><strong>27%</strong><small>R$ 4.104</small></td><td style="--pct:26"><strong>26%</strong><small>R$ 4.368</small></td></tr>
+                <tr><th>OOH</th><td style="--pct:32"><strong>32%</strong><small>R$ 2.624</small></td><td style="--pct:30"><strong>30%</strong><small>R$ 3.180</small></td><td style="--pct:27"><strong>27%</strong><small>R$ 3.618</small></td><td style="--pct:25"><strong>25%</strong><small>R$ 3.950</small></td><td style="--pct:23"><strong>23%</strong><small>R$ 3.496</small></td><td style="--pct:22"><strong>22%</strong><small>R$ 3.696</small></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+      <footer class="sp-media-foot">
+        <p>Mix e calendário entram no plano ao aplicar.</p>
+        <button type="button" class="cx-btn cx-btn-primary" id="sp-media-apply">Aplicar no plano</button>
+      </footer>
+    </div>
+  </dialog>
+  <script>
+    var dlg = document.getElementById("sp-media");
+    document.getElementById("sp-media-open").onclick = function () { dlg.showModal(); };
+    document.getElementById("sp-media-close").onclick = function () { dlg.close(); };
+    document.getElementById("sp-media-apply").onclick = function () { dlg.close(); };
+    document.querySelectorAll(".sp-review .sp-acc").forEach(function (acc) {
+      acc.addEventListener("toggle", function () {
+        if (!acc.open) return;
+        document.querySelectorAll(".sp-review .sp-acc").forEach(function (other) {
+          if (other !== acc) other.open = false;
+        });
+      });
+    });
+  </script>
+</body>
+</html>

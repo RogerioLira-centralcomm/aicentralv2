@@ -1,0 +1,342 @@
+{
+  "checks": [
+    {
+      "route": "workspace",
+      "width": 1440,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "studio",
+      "width": 1440,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "connect",
+      "width": 1440,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "skills",
+      "width": 1440,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "planner",
+      "width": 1440,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "plans",
+      "width": 1440,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "credits",
+      "width": 1440,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "skills-private",
+      "width": 1440,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "integrations",
+      "width": 1440,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "ecosystem",
+      "width": 1440,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "studio-library",
+      "width": 1440,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "studio-edit",
+      "width": 1440,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "connect-reports",
+      "width": 1440,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "planner-objectives",
+      "width": 1440,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "workspace",
+      "width": 1024,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "studio",
+      "width": 1024,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "connect",
+      "width": 1024,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "skills",
+      "width": 1024,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "planner",
+      "width": 1024,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "plans",
+      "width": 1024,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "credits",
+      "width": 1024,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "skills-private",
+      "width": 1024,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "integrations",
+      "width": 1024,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "ecosystem",
+      "width": 1024,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "studio-library",
+      "width": 1024,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "studio-edit",
+      "width": 1024,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "connect-reports",
+      "width": 1024,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "planner-objectives",
+      "width": 1024,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "workspace",
+      "width": 768,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "studio",
+      "width": 768,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "connect",
+      "width": 768,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "skills",
+      "width": 768,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "planner",
+      "width": 768,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "plans",
+      "width": 768,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "credits",
+      "width": 768,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "skills-private",
+      "width": 768,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "integrations",
+      "width": 768,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "ecosystem",
+      "width": 768,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "studio-library",
+      "width": 768,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "studio-edit",
+      "width": 768,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "connect-reports",
+      "width": 768,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "planner-objectives",
+      "width": 768,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "workspace",
+      "width": 390,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "studio",
+      "width": 390,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "connect",
+      "width": 390,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "skills",
+      "width": 390,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "planner",
+      "width": 390,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "plans",
+      "width": 390,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "credits",
+      "width": 390,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "skills-private",
+      "width": 390,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "integrations",
+      "width": 390,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "ecosystem",
+      "width": 390,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "studio-library",
+      "width": 390,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "studio-edit",
+      "width": 390,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "connect-reports",
+      "width": 390,
+      "overflow": false,
+      "broken": []
+    },
+    {
+      "route": "planner-objectives",
+      "width": 390,
+      "overflow": false,
+      "broken": []
+    }
+  ],
+  "errors": [],
+  "interactions": "passed"
+}

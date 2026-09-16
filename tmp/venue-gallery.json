@@ -1,0 +1,207 @@
+{
+  "bh-shopping": {
+    "hero": [
+      "/static/images/places/gallery/bh-shopping-hero-6d07d975.jpg",
+      "/static/images/places/gallery/bh-shopping-hero-4cddd28e.jpg",
+      "/static/images/places/gallery/bh-shopping-hero-b858874a.jpg",
+      "/static/images/places/gallery/bh-shopping-hero-908a5413.jpg"
+    ],
+    "point_id": "bhs-core",
+    "point": [
+      "/static/images/places/gallery/bh-shopping-point-b858874a.jpg",
+      "/static/images/places/gallery/bh-shopping-point-908a5413.jpg",
+      "/static/images/places/gallery/bh-shopping-point-aeeaa837.jpg"
+    ]
+  },
+  "patio-savassi": {
+    "hero": [
+      "/static/images/places/gallery/patio-savassi-hero-e1082692.jpg",
+      "/static/images/places/gallery/patio-savassi-hero-48b7971e.png",
+      "/static/images/places/gallery/patio-savassi-hero-51123178.jpg",
+      "/static/images/places/gallery/patio-savassi-hero-8b72f587.jpg"
+    ],
+    "point_id": "psv-core",
+    "point": [
+      "/static/images/places/gallery/patio-savassi-point-e1082692.jpg",
+      "/static/images/places/gallery/patio-savassi-point-19ca3bc9.jpg",
+      "/static/images/places/gallery/patio-savassi-point-8b72f587.jpg"
+    ]
+  },
+  "minas-shopping": {
+    "hero": [
+      "/static/images/places/gallery/minas-shopping-hero-bfb6ac91.jpg",
+      "/static/images/places/gallery/minas-shopping-hero-85a6e313.jpg",
+      "/static/images/places/gallery/minas-shopping-hero-a6a97906.jpg"
+    ],
+    "point_id": "mns-core",
+    "point": [
+      "/static/images/places/gallery/minas-shopping-point-85a6e313.jpg",
+      "/static/images/places/gallery/minas-shopping-point-a6a97906.jpg",
+      "/static/images/places/gallery/minas-shopping-point-73cdd5d7.png"
+    ]
+  },
+  "shopping-del-rey": {
+    "hero": [
+      "https://shoppingdelrey.com.br/data/files/00/E6/E7/4C/3D0B8810BEBBE788180808FF/imagem%20shopping%201904%20x%20760-min.png",
+      "https://shoppingdelrey.com.br/data/files/29/73/94/B2/21E50A1002D5210AC968F9C2/27450%20-%20MOBILE%20-%20Sorteio%20Setembro%20-%20Shopping%20Del%20Rey.png",
+      "https://shoppingdelrey.com.br/data/files/92/33/40/09/11E50A1002D5210AC968F9C2/27450%20-%20BANNER%20DESK%20-%20Sorteio%20Setembro%20-%20Shopping%20Del%20Rey.png",
+      "https://shoppingdelrey.com.br/data/files/1B/56/E9/19/7ACDB91007F89CB92698F9C2/banner-site_750x422px%20_9_.png"
+    ],
+    "point_id": "dry-core",
+    "point": [
+      "https://shoppingdelrey.com.br/data/files/29/73/94/B2/21E50A1002D5210AC968F9C2/27450%20-%20MOBILE%20-%20Sorteio%20Setembro%20-%20Shopping%20Del%20Rey.png",
+      "https://shoppingdelrey.com.br/data/files/92/33/40/09/11E50A1002D5210AC968F9C2/27450%20-%20BANNER%20DESK%20-%20Sorteio%20Setembro%20-%20Shopping%20Del%20Rey.png",
+      "https://shoppingdelrey.com.br/data/files/1B/56/E9/19/7ACDB91007F89CB92698F9C2/banner-site_750x422px%20_9_.png"
+    ]
+  },
+  "mercado-central-bh": {
+    "hero": [
+      "/static/images/places/gallery/mercado-central-bh-hero-542e14d7.jpg",
+      "/static/images/places/gallery/mercado-central-bh-hero-4734c663.jpg",
+      "/static/images/places/gallery/mercado-central-bh-hero-a898b226.jpg",
+      "/static/images/places/gallery/mercado-central-bh-hero-946542dd.png"
+    ],
+    "point_id": "mcb-core",
+    "point": [
+      "/static/images/places/gallery/mercado-central-bh-point-542e14d7.jpg",
+      "/static/images/places/gallery/mercado-central-bh-point-4f45ef67.jpg",
+      "/static/images/places/gallery/mercado-central-bh-point-4734c663.jpg"
+    ]
+  },
+  "shopping-morumbi": {
+    "hero": [
+      "/static/images/places/gallery/shopping-morumbi-hero-183dc36b.jpg",
+      "/static/images/places/gallery/shopping-morumbi-hero-c5f274cb.jpg",
+      "/static/images/places/gallery/shopping-morumbi-hero-575b3fd5.jpg",
+      "/static/images/places/gallery/shopping-morumbi-hero-2c14988d.jpg"
+    ],
+    "point_id": "smb-core",
+    "point": [
+      "/static/images/places/gallery/shopping-morumbi-point-183dc36b.jpg",
+      "/static/images/places/gallery/shopping-morumbi-point-b46dd7be.jpg",
+      "/static/images/places/gallery/shopping-morumbi-point-bc6daf7b.jpg"
+    ]
+  },
+  "jk-iguatemi": {
+    "hero": [
+      "/static/images/places/gallery/jk-iguatemi-hero-6d730adf.jpg",
+      "/static/images/places/gallery/jk-iguatemi-hero-d2dd8611.jpg",
+      "/static/images/places/gallery/jk-iguatemi-hero-8b2defab.jpg",
+      "/static/images/places/gallery/jk-iguatemi-hero-9755240c.jpg"
+    ],
+    "point_id": "jki-core",
+    "point": [
+      "/static/images/places/gallery/jk-iguatemi-point-7d46fc7e.jpg",
+      "/static/images/places/gallery/jk-iguatemi-point-1b6f2baf.jpg",
+      "/static/images/places/gallery/jk-iguatemi-point-a739dffa.jpg"
+    ]
+  },
+  "shopping-eldorado": {
+    "hero": [
+      "https://www.shoppingeldorado.com.br/data/files/AA/83/DF/F2/BE417810345F7078180808FF/1904%20x%20760.jpg",
+      "https://www.shoppingeldorado.com.br/data/files/7D/47/FA/63/8A290A106E19290ABCDBF9C2/02.%20Banner%20Site%20Home%20Mobile%20_750x422_.png",
+      "https://www.shoppingeldorado.com.br/data/files/DB/F2/43/AF/8B290A106E19290ABCDBF9C2/Banner%20Site%20-%20Home%20_Desktop_%20-%20OK.png",
+      "https://www.shoppingeldorado.com.br/data/files/D4/67/AB/3D/36DEF91077819CF9BCDBF9C2/BANNER%20MOBILE%20-%20APP%20_750%20x%20422%20px_%20_1_.png"
+    ],
+    "point_id": "eld-core",
+    "point": [
+      "https://www.shoppingeldorado.com.br/data/files/7D/47/FA/63/8A290A106E19290ABCDBF9C2/02.%20Banner%20Site%20Home%20Mobile%20_750x422_.png",
+      "https://www.shoppingeldorado.com.br/data/files/DB/F2/43/AF/8B290A106E19290ABCDBF9C2/Banner%20Site%20-%20Home%20_Desktop_%20-%20OK.png",
+      "https://www.shoppingeldorado.com.br/data/files/D4/67/AB/3D/36DEF91077819CF9BCDBF9C2/BANNER%20MOBILE%20-%20APP%20_750%20x%20422%20px_%20_1_.png"
+    ]
+  },
+  "parque-villa-lobos": {
+    "hero": [
+      "/static/images/places/gallery/parque-villa-lobos-hero-a4db48b7.jpg",
+      "/static/images/places/gallery/parque-villa-lobos-hero-0f57dc6f.jpg",
+      "/static/images/places/gallery/parque-villa-lobos-hero-00b3c47c.jpg"
+    ],
+    "point_id": "vlb-core",
+    "point": [
+      "/static/images/places/gallery/parque-villa-lobos-point-a4db48b7.jpg",
+      "/static/images/places/gallery/parque-villa-lobos-point-ac578fd5.jpg",
+      "/static/images/places/gallery/parque-villa-lobos-point-e82aaa98.jpg"
+    ]
+  },
+  "mercado-municipal-sp": {
+    "hero": [
+      "/static/images/places/gallery/mercado-municipal-sp-hero-330abeb7.jpg",
+      "/static/images/places/gallery/mercado-municipal-sp-hero-90ebf699.jpg",
+      "/static/images/places/gallery/mercado-municipal-sp-hero-066c9a4d.jpg",
+      "/static/images/places/gallery/mercado-municipal-sp-hero-d58fdef0.jpg"
+    ],
+    "point_id": "msp-core",
+    "point": [
+      "/static/images/places/gallery/mercado-municipal-sp-point-31f95c0f.jpg",
+      "/static/images/places/gallery/mercado-municipal-sp-point-c30d5a8a.jpg",
+      "/static/images/places/gallery/mercado-municipal-sp-point-3365eec0.jpg"
+    ]
+  },
+  "barra-shopping": {
+    "hero": [
+      "/static/images/places/gallery/barra-shopping-hero-5e8b304d.jpg",
+      "/static/images/places/gallery/barra-shopping-hero-1ed0b729.jpg",
+      "/static/images/places/gallery/barra-shopping-hero-77ccad64.jpg",
+      "/static/images/places/gallery/barra-shopping-hero-780d0072.jpg"
+    ],
+    "point_id": "brs-core",
+    "point": [
+      "/static/images/places/gallery/barra-shopping-point-7afa07fa.jpg",
+      "/static/images/places/gallery/barra-shopping-point-b672ad3a.jpg",
+      "/static/images/places/gallery/barra-shopping-point-9afc7a44.jpg"
+    ]
+  },
+  "rio-sul": {
+    "hero": [
+      "/static/images/places/gallery/rio-sul-hero-16be8a3f.jpg",
+      "/static/images/places/gallery/rio-sul-hero-ecacdcb1.jpg",
+      "/static/images/places/gallery/rio-sul-hero-beccd264.png",
+      "/static/images/places/gallery/rio-sul-hero-aa869829.png"
+    ],
+    "point_id": "rsl-core",
+    "point": [
+      "/static/images/places/gallery/rio-sul-point-beccd264.png",
+      "/static/images/places/gallery/rio-sul-point-aa869829.png",
+      "/static/images/places/gallery/rio-sul-point-155791ee.png"
+    ]
+  },
+  "shopping-leblon": {
+    "hero": [
+      "/static/images/places/gallery/shopping-leblon-hero-395b5c56.jpg"
+    ],
+    "point_id": "lbn-core",
+    "point": [
+      "/static/images/places/gallery/shopping-leblon-point-cc89785e.jpg",
+      "/static/images/places/gallery/shopping-leblon-point-104eb8ae.jpg",
+      "/static/images/places/gallery/shopping-leblon-point-952d248e.jpg"
+    ]
+  },
+  "maracana": {
+    "hero": [
+      "/static/images/places/gallery/maracana-hero-4d1d4643.jpg",
+      "/static/images/places/gallery/maracana-hero-40b43a2d.jpg",
+      "/static/images/places/gallery/maracana-hero-02e1906f.jpg",
+      "/static/images/places/gallery/maracana-hero-e06e36cd.jpg"
+    ],
+    "point_id": "mar-core",
+    "point": [
+      "/static/images/places/gallery/maracana-point-4d9c7642.jpg",
+      "/static/images/places/gallery/maracana-point-a4f1d27d.jpg",
+      "/static/images/places/gallery/maracana-point-55633c0b.jpg"
+    ]
+  },
+  "parque-lage": {
+    "hero": [
+      "/static/images/places/gallery/parque-lage-hero-57801413.png",
+      "/static/images/places/gallery/parque-lage-hero-c5ce7404.jpg",
+      "/static/images/places/gallery/parque-lage-hero-ceab7ea0.png",
+      "/static/images/places/gallery/parque-lage-hero-6ae4b4e4.png"
+    ],
+    "point_id": "plg-core",
+    "point": [
+      "/static/images/places/gallery/parque-lage-point-57801413.png",
+      "/static/images/places/gallery/parque-lage-point-c5ce7404.jpg",
+      "/static/images/places/gallery/parque-lage-point-ceab7ea0.png"
+    ]
+  }
+}

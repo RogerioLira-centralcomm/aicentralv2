@@ -62,7 +62,7 @@ def create_app(config_class=Config):
         """
         if endpoint == "modelagem_design-system":
             from .product_domains import product_url
-            return product_url("workspace", "/familia/workspace/marcas/sistema")
+            return product_url("workspace", "/workspace/app/marcas")
         if request.blueprint == "studio_product":
             from .creative_modeling_routes import STUDIO_SHORT_ROUTES
             if endpoint == "modelagem_criativos":

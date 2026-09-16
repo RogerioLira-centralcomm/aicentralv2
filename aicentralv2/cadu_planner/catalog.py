@@ -38,7 +38,7 @@ def detail(kind, value):
     sql = {
         'audiencias': '''SELECT a.id, a.nome AS name, COALESCE(a.descricao, a.descricao_curta) AS description,
                                  a.descricao_curta, a.descricao_comercial, a.caso_uso_principal,
-                                 a.insights_planejamento, a.diferenciais_competitivos, a.tags,
+                                 a.insights_planejamento, a.diferenciais_competitivos, a.tags, a.imagem_url AS image_url,
                                  a.publico_estimado AS audience, a.tamanho, a.fonte,
                                  a.perfil_socioeconomico, a.propensao_compra, a.sazonalidade,
                                  a.demografia_homens, a.demografia_mulheres, a.idade_18_24,

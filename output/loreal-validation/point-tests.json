@@ -1,0 +1,72 @@
+[
+  {
+    "target": "pote",
+    "point": [
+      0.66,
+      0.63
+    ],
+    "tolerance": 20,
+    "coverage": 0.0,
+    "warning": "O clique alcançou apenas uma pequena área, não necessariamente o elemento inteiro. Amplie para revisar e complete com laço ou pincel."
+  },
+  {
+    "target": "pote",
+    "point": [
+      0.66,
+      0.63
+    ],
+    "tolerance": 48,
+    "coverage": 0.0002,
+    "warning": "O clique alcançou apenas uma pequena área, não necessariamente o elemento inteiro. Amplie para revisar e complete com laço ou pincel."
+  },
+  {
+    "target": "pote",
+    "point": [
+      0.66,
+      0.63
+    ],
+    "tolerance": 80,
+    "coverage": 0.0006,
+    "warning": "O clique alcançou apenas uma pequena área, não necessariamente o elemento inteiro. Amplie para revisar e complete com laço ou pincel."
+  },
+  {
+    "target": "serum",
+    "point": [
+      0.875,
+      0.65
+    ],
+    "tolerance": 20,
+    "coverage": 0.0007,
+    "warning": "O clique alcançou apenas uma pequena área, não necessariamente o elemento inteiro. Amplie para revisar e complete com laço ou pincel."
+  },
+  {
+    "target": "serum",
+    "point": [
+      0.875,
+      0.65
+    ],
+    "tolerance": 48,
+    "coverage": 0.0121,
+    "warning": null
+  },
+  {
+    "target": "serum",
+    "tolerance": 80,
+    "error": "Não foi possível sugerir um contorno confiável aqui. Use o pincel para selecionar manualmente."
+  },
+  {
+    "target": "fundo",
+    "tolerance": 20,
+    "error": "Não foi possível sugerir um contorno confiável aqui. Use o pincel para selecionar manualmente."
+  },
+  {
+    "target": "fundo",
+    "tolerance": 48,
+    "error": "Não foi possível sugerir um contorno confiável aqui. Use o pincel para selecionar manualmente."
+  },
+  {
+    "target": "fundo",
+    "tolerance": 80,
+    "error": "Não foi possível sugerir um contorno confiável aqui. Use o pincel para selecionar manualmente."
+  }
+]

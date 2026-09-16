@@ -206,7 +206,7 @@ def _brand_panel(dados: dict, folha: dict) -> dict:
     asset_count = len(assets)
     logo = public_logo(brand.get("logo_url") or client_party.get("logo_url"))
     has_identity = bool(brand.get("has_identity") or logo or brand.get("brand_summary"))
-    marcas_path = "/familia/workspace/marcas/sistema"
+    marcas_path = f"/workspace/app/marcas/{brand.get('id')}" if brand.get("id") else "/workspace/app/marcas"
     params = []
     if cliente_id:
         params.append(f"crm_client_id={cliente_id}")

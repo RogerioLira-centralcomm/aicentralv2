@@ -1,0 +1,72 @@
+<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>L’Oréal · teste real</title><style>body{font:14px system-ui;max-width:1000px;margin:24px auto;padding:16px;color:#18232d}img{max-width:100%}h1{font-size:24px}li{margin:8px}pre{white-space:pre-wrap}</style><h1>L’Oréal — OCR e seleção</h1><img src="original.webp"><h2>Resultado: aprovação parcial</h2><p>Apple Vision local encontrou duas instâncias e contornos aproximados do pote e do sérum. A máscara ainda exige revisão de bordas, base e reflexos. Esta segmentação semântica não é o motor por cor do editor.</p><img src="foreground-mask.png"><h2>OCR sem correção silenciosa</h2><ul><li>NEW — 100%</li><li>MIDNIGHT CREAM — 50%</li><li>L&#x27;ORÉAL — 50%</li><li>PARIS — 100%</li><li>&quot; 0) — 30%</li><li>Emily em Paris começa a — 100%</li><li>Anúncio 1 de 2 • 52 — 100%</li><li>LON — 50%</li><li>MIONRA — 30%</li></ul><p>Textos pequenos de embalagem não aprovados. A imagem também inclui interface do player; texto do player deve ficar fora das alterações do anúncio.</p><h2>Teste do motor do editor</h2><p>Nove combinações de ponto e tolerância. Seleção por cor não delimitou os produtos inteiros. Adicionado aviso para regiões menores que 0,1% da imagem. Sem geração de substituição neste teste.</p><pre>[
+  {
+    &quot;target&quot;: &quot;pote&quot;,
+    &quot;point&quot;: [
+      0.66,
+      0.63
+    ],
+    &quot;tolerance&quot;: 20,
+    &quot;coverage&quot;: 0.0,
+    &quot;warning&quot;: &quot;O clique alcançou apenas uma pequena área, não necessariamente o elemento inteiro. Amplie para revisar e complete com laço ou pincel.&quot;
+  },
+  {
+    &quot;target&quot;: &quot;pote&quot;,
+    &quot;point&quot;: [
+      0.66,
+      0.63
+    ],
+    &quot;tolerance&quot;: 48,
+    &quot;coverage&quot;: 0.0002,
+    &quot;warning&quot;: &quot;O clique alcançou apenas uma pequena área, não necessariamente o elemento inteiro. Amplie para revisar e complete com laço ou pincel.&quot;
+  },
+  {
+    &quot;target&quot;: &quot;pote&quot;,
+    &quot;point&quot;: [
+      0.66,
+      0.63
+    ],
+    &quot;tolerance&quot;: 80,
+    &quot;coverage&quot;: 0.0006,
+    &quot;warning&quot;: &quot;O clique alcançou apenas uma pequena área, não necessariamente o elemento inteiro. Amplie para revisar e complete com laço ou pincel.&quot;
+  },
+  {
+    &quot;target&quot;: &quot;serum&quot;,
+    &quot;point&quot;: [
+      0.875,
+      0.65
+    ],
+    &quot;tolerance&quot;: 20,
+    &quot;coverage&quot;: 0.0007,
+    &quot;warning&quot;: &quot;O clique alcançou apenas uma pequena área, não necessariamente o elemento inteiro. Amplie para revisar e complete com laço ou pincel.&quot;
+  },
+  {
+    &quot;target&quot;: &quot;serum&quot;,
+    &quot;point&quot;: [
+      0.875,
+      0.65
+    ],
+    &quot;tolerance&quot;: 48,
+    &quot;coverage&quot;: 0.0121,
+    &quot;warning&quot;: null
+  },
+  {
+    &quot;target&quot;: &quot;serum&quot;,
+    &quot;tolerance&quot;: 80,
+    &quot;error&quot;: &quot;Não foi possível sugerir um contorno confiável aqui. Use o pincel para selecionar manualmente.&quot;
+  },
+  {
+    &quot;target&quot;: &quot;fundo&quot;,
+    &quot;tolerance&quot;: 20,
+    &quot;error&quot;: &quot;Não foi possível sugerir um contorno confiável aqui. Use o pincel para selecionar manualmente.&quot;
+  },
+  {
+    &quot;target&quot;: &quot;fundo&quot;,
+    &quot;tolerance&quot;: 48,
+    &quot;error&quot;: &quot;Não foi possível sugerir um contorno confiável aqui. Use o pincel para selecionar manualmente.&quot;
+  },
+  {
+    &quot;target&quot;: &quot;fundo&quot;,
+    &quot;tolerance&quot;: 80,
+    &quot;error&quot;: &quot;Não foi possível sugerir um contorno confiável aqui. Use o pincel para selecionar manualmente.&quot;
+  }
+]</pre><p>15 testes automatizados passaram. Validação local; navegador autenticado e publicação pendentes.</p></html>

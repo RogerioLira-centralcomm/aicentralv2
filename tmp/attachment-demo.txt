@@ -1,0 +1,1 @@
+Arquivo fictício para validar o composer local do Cadu.

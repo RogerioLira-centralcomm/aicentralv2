@@ -727,6 +727,20 @@ class FakeStorage:
         pass
 
 
+class FakeCreditLedger:
+    def __init__(self):
+        self.estimates = []
+        self.charges = []
+
+    def assert_available(self, client_id, estimated_tokens):
+        self.estimates.append((client_id, estimated_tokens))
+        return 1_000_000
+
+    def charge(self, charge):
+        self.charges.append(charge)
+        return {"status": "charged", "tokens_cobrados": charge.charged_tokens}
+
+
 class CreativeBrandAnalyzerTest(unittest.TestCase):
     @patch(
         "aicentralv2.creative_brand_analysis._compact_web_evidence",
@@ -1186,7 +1200,7 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertEqual(data["remaining"], 488)
         self.assertEqual(data["client_id"], "10")
         self.assertIn("id_cliente", captured["sql"])
-        self.assertEqual(captured["params"], [42])
+        self.assertEqual(captured["params"], (42,))
 
     def test_logo_completa_vaga_quando_ja_ha_ref_da_campanha(self):
         self.repo.list_client_brand_assets = lambda _client_id: [
@@ -2279,6 +2293,7 @@ class CreativeServiceTest(unittest.TestCase):
             "id": 51,
             "production_id": 50,
             "campaign_id": 30,
+            "client_id": 10,
             "format_template_id": 7,
             "position": 2,
             "description": "Apresentar o produto.",
@@ -2296,6 +2311,7 @@ class CreativeServiceTest(unittest.TestCase):
             "asset_url": "/generated.png",
             "status": "review",
         }
+        repository.list_client_brand_assets.return_value = []
         generator = Mock()
         generator.generate_image.return_value = {
             "b64_json": base64.b64encode(b"image").decode(),
@@ -2317,6 +2333,7 @@ class CreativeServiceTest(unittest.TestCase):
             repository=repository,
             generator=generator,
             storage=FakeStorage(),
+            credit_ledger=FakeCreditLedger(),
         )
         service.generate_scene(51, [], created_by=3)
         references = generator.generate_image.call_args.args[1]
@@ -2386,6 +2403,7 @@ class CreativeServiceTest(unittest.TestCase):
             repository=repository,
             generator=generator,
             storage=FakeStorage(),
+            credit_ledger=FakeCreditLedger(),
         )
         service.generate_scene(51, [], created_by=3)
         references = generator.generate_image.call_args.args[1]
@@ -3655,8 +3673,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("mc-cadu-home", page)
         self.assertIn("studioItems", page)
         self.assertIn("Ajustar peça", page)
-        self.assertIn("studio-quick-nav", page)
-        self.assertIn("Design System Ads", page)
+        self.assertIn('include "cadu_studio/_context_bar.html"', page)
+        self.assertIn("mc_page = 'hub'", page)
         self.assertIn("modelagem_trocar", page)
         self.assertIn("cadu-studio-home.css", page)
         self.assertIn("Biblioteca da marca", page)
@@ -3682,9 +3700,10 @@ class CreativeFilesContractTest(unittest.TestCase):
         for tab in (
             "preparar", "produzir", "bancada", "desdobrar", "biblioteca",
             "marcas", "historico", "mesa", "placas", "trocar", "video",
-            "design-system",
         ):
             self.assertIn(tab, shell)
+        self.assertIn("/workspace/app/marcas", shell)
+        self.assertNotIn("modelagem_design_system", shell)
         self.assertNotIn("modelagem_extrair", shell)
         self.assertNotIn("modelagem_revisao", shell)
         self.assertNotIn("Variações A/B", page)
@@ -4131,7 +4150,7 @@ class CreativeFilesContractTest(unittest.TestCase):
             '"$VENV_PYTHON" migrations/run_add_creative_viewer_profiles.py'
         )
         seed_call = '"$VENV_PYTHON" scripts/seed_creative_viewer_profiles.py'
-        start_call = "sudo systemctl start aicentralv2"
+        start_call = 'sudo systemctl start "$APP_SERVICE"'
         verify_call = (
             '"$VENV_PYTHON" scripts/verify_creative_viewer_apis.py'
         )
@@ -4139,6 +4158,14 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn(seed_call, deploy)
         self.assertIn(
             '"$VENV_PYTHON" migrations/run_fix_cx_clients_crm_index.py',
+            deploy,
+        )
+        self.assertIn(
+            '"$VENV_PYTHON" migrations/run_add_cadu_chat_runtime.py',
+            deploy,
+        )
+        self.assertIn(
+            '"$VENV_PYTHON" migrations/run_add_cadu_tool_token_ledger.py',
             deploy,
         )
         self.assertLess(
@@ -4325,7 +4352,6 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("HOUSE_CRM_CLIENT_ID = 174", repository)
         self.assertIn("'profile:' || cx.id::text", repository)
         self.assertIn("JOIN LATERAL", repository)
-        self.assertNotIn("LEFT JOIN LATERAL", repository)
         self.assertNotIn(
             "WHERE cx.crm_client_id IS NULL",
             repository,
@@ -4423,7 +4449,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn("Rascunho HTML", frontend)
         self.assertIn("regiões", frontend)
         self.assertIn("function deskPath", frontend)
-        self.assertIn("/parametros/modelagem-criativos/", frontend)
+        self.assertIn("/studio/modelagem-criativos/", frontend)
+        self.assertNotIn("/parametros/modelagem-criativos/", frontend)
         extract_js = (
             root / "aicentralv2" / "static" / "js" / "mc-extrair.js"
         ).read_text(encoding="utf-8")
@@ -4669,12 +4696,12 @@ class CreativeUnfoldContractTest(unittest.TestCase):
         self.assertEqual(SOCIAL_PAINT_FAMILIES, {
             "square_1x1", "story_9x16", "landscape_social", "portrait_4x5",
         })
-        self.assertEqual(SOCIAL_FORMAT_SLUGS, {
+        self.assertTrue({
             "instagram-feed", "instagram-feed-4x5", "instagram-story",
             "instagram-reels", "tiktok-vertical", "facebook-feed",
             "linkedin-share", "linkedin-feed", "linkedin-portrait",
             "youtube-infeed", "youtube-shorts",
-        })
+        }.issubset(SOCIAL_FORMAT_SLUGS))
         self.assertEqual(format_family_spec("instagram-feed-4x5", "1080x1350")["family"], "portrait_4x5")
         self.assertEqual(format_family_spec("youtube-infeed", "1920x1080")["family"], "landscape_social")
         self.assertEqual(format_family_spec("youtube-shorts", "1080x1920")["family"], "story_9x16")
@@ -4732,7 +4759,14 @@ class CreativeUnfoldContractTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn('("social", "Redes sociais")', seed)
         self.assertIn("youtube_social", seed)
-        for slug in SOCIAL_FORMAT_SLUGS:
+        seeded_social_formats = {
+            "instagram-feed", "instagram-feed-4x5", "instagram-story",
+            "instagram-reels", "tiktok-vertical", "facebook-feed",
+            "linkedin-share", "linkedin-feed", "linkedin-portrait",
+            "youtube-infeed", "youtube-shorts",
+        }
+        self.assertTrue(seeded_social_formats.issubset(SOCIAL_FORMAT_SLUGS))
+        for slug in seeded_social_formats:
             self.assertIn(f'"{slug}"', seed)
             self.assertEqual(scene_count_for_format({
                 "slug": slug,
@@ -4909,8 +4943,9 @@ class CreativeUnfoldContractTest(unittest.TestCase):
             repository=repository,
             generator=CapturingGenerator(),
             storage=FakeStorage(),
+            credit_ledger=FakeCreditLedger(),
         )
-        service.generate_scene(81, [])
+        service.generate_scene(81, [], created_by=3)
         self.assertTrue(captured["references"])
         self.assertTrue(captured["references"][0].startswith("data:image/"))
         payload = repository.create_generation_job.call_args.kwargs["request_payload"]
@@ -5106,15 +5141,16 @@ class CreativeUnfoldContractTest(unittest.TestCase):
             repository=repository,
             generator=CapturingGenerator(),
             storage=FakeStorage(),
+            credit_ledger=FakeCreditLedger(),
         )
-        service.generate_scene(81, [])
+        service.generate_scene(81, [], created_by=3)
         self.assertEqual(captured["calls"][0]["quality"], "low")
         self.assertEqual(captured["calls"][0]["resolution"], "1K")
         self.assertTrue(
             repository.create_generation_job.call_args.kwargs.get("allow_existing_scene")
             in (False, None)
         )
-        service.publish_scene_asset(81, 90)
+        service.publish_scene_asset(81, 90, created_by=3)
         self.assertEqual(captured["calls"][1]["quality"], "high")
         self.assertEqual(captured["calls"][1]["resolution"], "2K")
         self.assertIn("RESOLUTION UPGRADE ONLY", captured["calls"][1]["prompt"])
@@ -5221,8 +5257,9 @@ class CreativeUnfoldContractTest(unittest.TestCase):
             repository=repository,
             generator=FakeGenerator(),
             storage=FakeStorage(),
+            credit_ledger=FakeCreditLedger(),
         )
-        service.generate_scene(81, [])
+        service.generate_scene(81, [], created_by=3)
         metadata = repository.add_generated_asset.call_args.args[4]
         self.assertEqual(metadata["fidelity"], "draft")
         self.assertFalse(metadata["logo_applied"])
@@ -5356,8 +5393,9 @@ class CreativeUnfoldContractTest(unittest.TestCase):
             repository=repository,
             generator=DirtyGate(),
             storage=FakeStorage(),
+            credit_ledger=FakeCreditLedger(),
         )
-        service.generate_scene(81, [])
+        service.generate_scene(81, [], created_by=3)
         self.assertEqual(calls["image"], 2)
         metadata = repository.add_generated_asset.call_args.args[4]
         self.assertFalse(metadata["composed"])

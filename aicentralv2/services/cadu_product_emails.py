@@ -30,12 +30,12 @@ def send_piece_ready(*, recipient_email: str, recipient_name: str, title: str, u
 
 WORKSPACE_ONBOARDING = (
     (0, "Boas-vindas ao Workspace", "Conheça o lugar onde seu time organiza o trabalho.", "Abrir Workspace", "/workspace/app"),
-    (1, "Comece por um projeto", "Dê um nome ao trabalho que sua equipe vai conduzir.", "Ver projetos", "/familia/workspace/projetos"),
-    (3, "Organize sua marca", "Referências, identidades e decisões começam pela marca.", "Ver marcas", "/familia/workspace/marcas"),
+    (1, "Comece por um projeto", "Dê um nome ao trabalho que sua equipe vai conduzir.", "Ver projetos", "/workspace/app/projetos"),
+    (3, "Organize sua marca", "Referências, identidades e decisões começam pela marca.", "Ver marcas", "/workspace/app/marcas"),
     (5, "Traga sua equipe", "Convide as pessoas que vão decidir e produzir junto.", "Ver equipe", "/workspace/app/equipe"),
     (7, "Planeje antes de produzir", "Use o Planner para transformar objetivo em direção de mídia.", "Abrir Planner", "/"),
     (10, "Sua primeira peça", "O Studio parte da marca e do projeto para criar com contexto.", "Abrir Studio", "/"),
-    (14, "Conecte o que importa", "Prepare as ferramentas e fontes que entram no seu fluxo.", "Abrir Connect", "/connect/"),
+    (14, "Transforme dados de campanha em uma leitura clara", "Reúna fontes, revise indicadores e compartilhe um report que sustenta a próxima decisão.", "Abrir Reports", "/"),
     (18, "Skills para decisões recorrentes", "Escolha uma capacidade especializada para o próximo passo.", "Abrir Skills", "/skills/"),
     (22, "Acompanhe seus créditos", "Veja o saldo compartilhado antes de iniciar uma execução.", "Ver créditos", "/workspace/app/creditos"),
     (28, "Seu contexto está pronto", "Projetos, marcas e equipe agora acompanham o trabalho entre produtos.", "Abrir Workspace", "/workspace/app"),

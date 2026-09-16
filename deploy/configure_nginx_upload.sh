@@ -39,10 +39,12 @@ for f in /etc/nginx/sites-enabled/* /etc/nginx/conf.d/*; do
     # Limite a verificacao e a alteracao ao bloco server_name. Procurar o
     # arquivo inteiro pode confundir um hostname inserido acidentalmente em
     # outro directive (por exemplo, access_log).
-    if ! sed -n '/^[[:space:]]*server_name[[:space:]]/,/;/p' "$f" | grep -q 'workspace\.centralcomm\.media'; then
-        sudo sed -i '/^[[:space:]]*server_name[[:space:]]/,/;/ { /;[[:space:]]*$/ s/;[[:space:]]*$/ workspace.centralcomm.media;/; }' "$f"
-        echo "  > workspace.centralcomm.media adicionado ao server_name"
-    fi
+    for domain in workspace.centralcomm.media reports.centralcomm.media; do
+        if ! sed -n '/^[[:space:]]*server_name[[:space:]]/,/;/p' "$f" | grep -q "$domain"; then
+            sudo sed -i "/^[[:space:]]*server_name[[:space:]]/,/;/ { /;[[:space:]]*$/ s/;[[:space:]]*$/ $domain;/; }" "$f"
+            echo "  > $domain adicionado ao server_name"
+        fi
+    done
     echo "  > client_max_body_size 256M em $(basename "$f")"
     patched=$((patched + 1))
 done

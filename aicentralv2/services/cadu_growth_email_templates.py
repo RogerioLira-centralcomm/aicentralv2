@@ -9,17 +9,18 @@ from typing import Any, Dict, Iterable, List, Tuple
 from flask import current_app, has_request_context, render_template
 from markupsafe import Markup, escape
 
+from aicentralv2.product_domains import product_url
 from aicentralv2.services.brevo_service import get_brevo_product_service, product_email_brand
 
 
 # Nunca aceitar o destinatário por formulário: a suíte é exclusiva de homologação.
 BREVO_GROWTH_TEST_RECIPIENT = "apolo@centralcomm.media"
-GROWTH_EMAIL_HEADER_IMAGE_URLS = {
-    "workspace": "https://cadu.centralcomm.media/static/images/cadu/email/workspace-growth-v2.png",
-    "studio": "https://cadu.centralcomm.media/static/images/cadu/email/studio-growth-v2.png",
-    "connect": "https://cadu.centralcomm.media/static/images/cadu/email/connect-growth-v2.png",
-    "skills": "https://cadu.centralcomm.media/static/images/cadu/email/skills-growth-v2.png",
-    "planner": "https://cadu.centralcomm.media/static/images/cadu/email/planner-growth-v2.png",
+GROWTH_EMAIL_BAND_URLS = {
+    "workspace": "https://ai.centralcomm.media/static/images/cadu/email/bands/workspace-band-v2.png",
+    "studio": "https://ai.centralcomm.media/static/images/cadu/email/bands/studio-band-v2.png",
+    "connect": "https://ai.centralcomm.media/static/images/cadu/email/bands/connect-band-v2.png",
+    "skills": "https://ai.centralcomm.media/static/images/cadu/email/bands/skills-band-v2.png",
+    "planner": "https://ai.centralcomm.media/static/images/cadu/email/bands/planner-band-v2.png",
 }
 
 GROWTH_EMAIL_MODELS: Dict[str, Dict[str, str]] = {
@@ -66,12 +67,32 @@ GROWTH_EMAIL_MODELS: Dict[str, Dict[str, str]] = {
     "formatos": {
         "label": "Formatos → especificação de entrega",
         "product": "studio",
-        "subject": "Defina o formato antes de pedir a próxima peça",
-        "title": "Defina o formato antes de pedir a próxima peça.",
-        "description": "A criação trabalha melhor quando a entrega já foi decidida.",
+        "subject": "Antes de editar, defina onde e como o criativo precisa performar",
+        "title": "Antes de editar, defina onde e como o criativo precisa performar.",
+        "description": "Edição, vídeo e formato funcionam melhor quando respondem ao contexto certo.",
         "cta_label": "Ver Formatos",
         "cta_path": "/formatos",
-        "default_body": "Antes de pedir uma peça, confirme **dispositivo, placement, dimensão ou duração, ativos e limitações técnicas**. Esse alinhamento evita que a criação descubra restrições quando já está produzindo.\n\nEm Formatos, encontre a entrega compatível com o canal prioritário e registre o que é obrigatório, preferencial ou proibido. A peça continua criativa, mas nasce pronta para o contexto em que será vista.",
+        "default_body": "Antes de editar um vídeo ou adaptar uma imagem, confirme **placement, dimensão ou duração, ativos disponíveis e limitações técnicas**. Esse alinhamento evita que a edição descubra restrições tarde demais.\n\nEm Formatos, encontre a entrega compatível com o canal prioritário e registre o que é obrigatório, preferencial ou proibido. A análise do criativo fica mais útil quando compara peças feitas para o contexto em que serão vistas.",
+    },
+    "connect-reports": {
+        "label": "Reports → reports que sustentam decisões",
+        "product": "connect",
+        "subject": "Um report útil mostra o que mudou e qual decisão vem depois",
+        "title": "Um report útil mostra o que mudou e qual decisão vem depois.",
+        "description": "Dados só viram gestão quando ganham contexto, leitura e próximo passo.",
+        "cta_label": "Abrir Reports",
+        "cta_path": "/",
+        "default_body": "Um número isolado não explica uma campanha. Um bom report conecta **período, indicador, objetivo, contexto e a decisão que o time precisa tomar**. Assim, a conversa deixa de ser uma lista de métricas e passa a orientar a gestão.\n\nNo Reports, organize fontes autorizadas, revise os dados antes de usar e registre a leitura que acompanha cada mudança. O report fica pronto para o cliente entender o que aconteceu — e para o time saber o que fazer em seguida.",
+    },
+    "skills-conhecimento-reutilizavel": {
+        "label": "Skills → conhecimento que o time reutiliza",
+        "product": "skills",
+        "subject": "Transforme uma boa orientação em conhecimento que o time consegue reutilizar",
+        "title": "Transforme uma boa orientação em conhecimento que o time consegue reutilizar.",
+        "description": "Exemplos, contexto e instruções certos evitam que cada projeto recomece do zero.",
+        "cta_label": "Abrir Skills",
+        "cta_path": "/skills/",
+        "default_body": "Uma orientação útil não precisa ficar presa a uma conversa ou a uma pessoa. Quando você reúne **objetivo, contexto, exemplos aprovados e limites claros**, o time passa a aplicar o mesmo raciocínio com mais consistência.\n\nEm Skills, organize o que deve ser repetido: como analisar, qual referência usar, o que evitar e como revisar o resultado. A próxima pessoa começa com conhecimento confiável — e não apenas com uma página em branco.",
     },
     "smart-docs": {
         "label": "Smart Docs → decisão documentada",
@@ -90,8 +111,8 @@ def list_growth_email_model_choices() -> List[Tuple[str, str]]:
     return [(key, model["label"]) for key, model in GROWTH_EMAIL_MODELS.items()]
 
 
-def _absolute_url(path: str) -> str:
-    return f"{str(current_app.config.get('CADU_URL') or 'https://cadu.centralcomm.media').rstrip('/')}{path}"
+def _absolute_url(product: str, path: str) -> str:
+    return product_url(product, path)
 
 
 def _format_body_html(text: str) -> Markup:
@@ -119,12 +140,12 @@ def build_growth_email(model_key: str, *, body: str | None = None) -> Dict[str, 
         "product": product,
         "params": {
             "BRAND": product_email_brand(product),
-            "HEADER_IMAGE_URL": GROWTH_EMAIL_HEADER_IMAGE_URLS[product],
+            "BRAND_BAND_URL": GROWTH_EMAIL_BAND_URLS[product],
             "TITLE": model["title"],
             "DESCRIPTION": model["description"],
             "BODY_HTML": _format_body_html(body or model["default_body"]),
             "CTA_LABEL": model["cta_label"],
-            "CTA_URL": _absolute_url(model["cta_path"]),
+            "CTA_URL": _absolute_url(product, model["cta_path"]),
         },
     }
 

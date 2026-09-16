@@ -1,0 +1,16 @@
+{
+  "generation": "image_gen real; resultado processado pelo backend local, sem chamada ao adaptador de produ\u00e7\u00e3o",
+  "status": "succeeded",
+  "size": [
+    640,
+    640
+  ],
+  "outside_mask_changed_pixels": 0,
+  "reload_preserved": true,
+  "mask_box": [
+    479,
+    177,
+    594,
+    247
+  ]
+}

@@ -6,11 +6,7 @@
       <p>Transforme uma direção em peça, vídeo e variação. Aqui, a marca entra no processo sem tirar a graça de criar.</p>
       <a class="family-primary" href="{{ product_url('studio', '/imagem') }}">Começar uma criação</a>
     </div>
-    <div class="studio-family-canvas" aria-hidden="true">
-      <span class="studio-family-sun"></span><span class="studio-family-star star-one">✦</span><span class="studio-family-star star-two">✳</span>
-      <div class="studio-family-poster"><small>IDEIAS EM MOVIMENTO</small><strong>faz<br>barulho.</strong><i></i></div>
-      <div class="studio-family-note note-one">cor + ritmo</div><div class="studio-family-note note-two">boa ideia</div>
-    </div>
+    <div class="studio-family-canvas"><img src="{{ url_for('static', filename='images/cadu/home-heroes/studio-hero-v1.jpg') }}" alt="" width="1440" height="480" fetchpriority="high"></div>
   </div>
 
   <section class="studio-family-paths" aria-labelledby="studio-family-paths-title">
@@ -18,9 +14,9 @@
     <div>
       <a class="studio-family-path studio-family-path--peach" href="{{ product_url('studio', '/imagem') }}"><span>✎</span><h3>Dar nova cara</h3><p>Traga uma peça e indique com precisão o que deve mudar.</p><b>Editar imagem</b></a>
       <a class="studio-family-path studio-family-path--yellow" href="{{ product_url('studio', '/video') }}"><span>◉</span><h3>Colocar em movimento</h3><p>Reúna cenas, defina o ritmo e transforme a ideia em vídeo.</p><b>Criar vídeo</b></a>
-      <a class="studio-family-path studio-family-path--lilac" href="{{ product_url('workspace', '/familia/workspace/marcas/sistema') }}"><span>↗</span><h3>Alinhar a marca</h3><p>Deixe referências, cores e regras prontas para a criação.</p><b>Abrir sistema de marca</b></a>
+      <a class="studio-family-path studio-family-path--lilac" href="{{ product_url('workspace', '/workspace/app/marcas') }}"><span>↗</span><h3>Alinhar a marca</h3><p>Deixe referências, cores e regras prontas para a criação.</p><b>Abrir sistema de marca</b></a>
     </div>
   </section>
 
-  <aside class="studio-family-reminder"><span aria-hidden="true">✦</span><p><strong>A marca dá o ponto de partida.</strong> As decisões e os experimentos continuam sendo seus.</p><a href="{{ product_url('workspace', '/familia/workspace/marcas/sistema') }}">Ver sistema de marca</a></aside>
+  <aside class="studio-family-reminder"><span aria-hidden="true">✦</span><p><strong>A marca dá o ponto de partida.</strong> As decisões e os experimentos continuam sendo seus.</p><a href="{{ product_url('workspace', '/workspace/app/marcas') }}">Ver sistema de marca</a></aside>
 </section>

@@ -28,12 +28,15 @@ class CaduGrowthEmailTemplateTests(unittest.TestCase):
                 html = render_growth_email(key)
                 self.assertIn("CentralComm", html)
                 self.assertIn("https://cadu.centralcomm.media", html)
-                self.assertIn(f"{GROWTH_EMAIL_MODELS[key]['product']}-growth-v2.png", html)
-                self.assertIn('class="email-illustration"', html)
+                self.assertIn(f"{GROWTH_EMAIL_MODELS[key]['product']}-band-v2.png", html)
+                self.assertIn('class="brand-band"', html)
                 self.assertIn("<strong>", html)
                 self.assertNotIn("**", html)
                 self.assertIn('name="color-scheme" content="light only"', html)
                 self.assertIn("@media only screen and (max-width:620px)", html)
+                self.assertIn("@media only screen and (max-width:380px)", html)
+                self.assertIn('class="action-row"', html)
+                self.assertIn('class="footer"', html)
                 self.assertGreater(len(html), 900)
 
     def test_dry_run_executes_all_models_sem_brevo(self):
@@ -50,6 +53,19 @@ class CaduGrowthEmailTemplateTests(unittest.TestCase):
         self.assertTrue(result["success"])
         self.assertEqual(result["selected_model_keys"], ["places", "audiencias"])
         self.assertEqual([item["model_key"] for item in result["results"]], ["places", "audiencias"])
+
+    def test_primeiro_email_oficial_cobre_todas_as_familias(self):
+        official_models = [
+            "conversa-para-plano", "audiencias", "formatos",
+            "connect-reports", "skills-conhecimento-reutilizavel",
+        ]
+        with self.app.app_context():
+            result = run_growth_email_test_suite(dry_run=True, model_keys=official_models)
+        self.assertTrue(result["success"])
+        self.assertEqual(
+            {GROWTH_EMAIL_MODELS[key]["product"] for key in official_models},
+            {"workspace", "planner", "studio", "connect", "skills"},
+        )
 
     def test_suite_rejeita_selecao_vazia(self):
         with self.app.app_context():

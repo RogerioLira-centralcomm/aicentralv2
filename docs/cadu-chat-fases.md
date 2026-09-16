@@ -94,9 +94,28 @@ Verificação: 58 testes Python selecionados passaram, incluindo seis novos test
 
 Extração, RAG, fontes do projeto e identidade de marca com autorização e referências verificáveis.
 
+### 5a — consulta verificável do dossiê (implementada localmente)
+
+- A consulta de fontes do projeto agora exige o token CSRF vinculado à sessão, além da autenticação e do escopo já aplicado por `projeto_id` e `id_cliente`.
+- A API retorna somente a fonte identificável e o trecho correspondente. Não expõe score, metadados internos, caminho de armazenamento ou registros de outro projeto.
+- A interface informa a quantidade de fontes encontradas, identifica cada trecho como fonte e bloqueia novas consultas enquanto a resposta está em andamento.
+- Notas revisadas pelo time podem ser armazenadas como fontes textuais e divididas em trechos determinísticos, sem chamada externa de IA. A criação permanece dependente da autorização do projeto.
+- No envio ao Cadu, o pacote de contexto inclui o projeto, a marca vinculada e até quatro trechos com fonte atribuída. A busca é limitada ao mesmo `client_id`; se a indexação legada não estiver disponível, o chat segue somente com o contexto explícito do projeto.
+
+Verificação: testes locais cobrem CSRF ausente, recorte de resposta para fonte/trecho, escopo de organização e a criação de notas indexáveis. Não foram aplicadas migrações nem realizadas consultas no banco de produção.
+
 ## Fase 6 — ferramentas
 
 Catálogos e Docs, pesquisa e diagnósticos, imagens e variações. Cada recurso precisa de entrada validada, execução, resultado persistido, recuperação e confirmação proporcional ao efeito.
+
+### 6a — cartões de catálogo do Planner (implementado localmente)
+
+- O adaptador de eventos do provedor aceita somente buscas e detalhes declarados para canais, formatos, audiências e interativos.
+- Interativos passam a usar o mesmo contrato dos demais catálogos: parâmetros JSON limitados, consulta somente leitura e no máximo dez registros no cartão.
+- SmartDocs podem ser apresentados como prévia textual quando o provedor solicita um identificador explícito; a leitura usa as verificações de cliente e autor já existentes, sem expor HTML armazenado, compartilhar ou editar o documento.
+- Os cartões aparecem apenas no perfil Planner; não selecionam itens, não atualizam planos e não executam pesquisa, geração ou qualquer ação externa.
+
+Verificação: testes cobrem busca, detalhe e bloqueio fora do perfil Planner. A confirmação e a seleção continuam acontecendo na mesa de mídia, em um passo explícito do usuário.
 
 ## Fase 7 — paridade e lançamento
 

@@ -86,7 +86,7 @@ def index():
         return render_template(
             "cadu_connect/entry.html",
             projects=[], selected_project=None, accounts=[], campaigns=[], files=[], reports=[], mcp_catalog=[],
-            connected_count=0, active_client=None, is_portfolio_operator=False, account_name="Connect",
+            connected_count=0, active_client=None, is_portfolio_operator=False, account_name="Reports",
         )
     targets = customization_targets()
     is_portfolio_operator = bool(session.get("is_centralcomm") or session.get("user_type") == "superadmin")

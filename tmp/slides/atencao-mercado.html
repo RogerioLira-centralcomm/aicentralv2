@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Atenção como moeda de compra — Imersão</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="http://localhost/static/css/treinamento_slides.css?v=1">
+</head>
+<body>
+  <div class="progress-bar" id="progressBar"></div>
+
+  <div class="deck-tools">
+    <button type="button" class="tool-btn" id="toggleNotes" title="Notas do instrutor (N)">N</button>
+    <button type="button" class="tool-btn" id="toggleIndex" title="Índice (I)">I</button>
+    <button type="button" class="tool-btn" id="toggleFullscreen" title="Tela cheia (F)">F</button>
+    <a class="tool-btn" href="http://localhost/parametros/treinamentos" title="Voltar ao Studio" style="display:grid;place-items:center;text-decoration:none;">S</a>
+  </div>
+
+  <div class="slide-deck" data-slide-deck>
+    
+    <section
+      class="slide active"
+      data-layout="title"
+      data-note=""
+      
+    >
+      <div class="slide-content">
+        <p class="kicker">Sessão 1 · 09:30–09:45</p>
+
+        
+          <h1 class="slide-title">Atenção como moeda de compra</h1>
+          <p class="lede">A unidade de valor vem antes do mix.</p>
+          <p class="meta">Alexandre Borges · Apolo Lira</p>
+
+        
+      </div>
+    </section>
+    
+    <section
+      class="slide"
+      data-layout="statement"
+      data-note="Abrir com a pergunta. Os números existem para provar saturação e bases incomparáveis — não para impressionar alcance."
+      
+    >
+      <div class="slide-content">
+        <p class="kicker">Pergunta da sala</p>
+
+        
+          <h1 class="slide-title">No último plano que vocês aprovaram, a unidade de valor era a mesma do KPI do cliente?</h1>
+          
+
+        
+      </div>
+    </section>
+    
+    <section
+      class="slide"
+      data-layout="split"
+      data-note=""
+      
+    >
+      <div class="slide-content">
+        <p class="kicker">Tese</p>
+
+        
+          <h2 class="slide-title">Viewability é a porta. Não é o impacto.</h2>
+          <div class="slide-split">
+            <div class="split-col">
+              <h3>O que a mesa já compra</h3>
+              <ul><li>MRC: 50% dos pixels por 1s no display, 2s no vídeo</li><li>Fecha plano em impressão viewable</li><li>Compra oportunidade, não olhar</li></ul>
+            </div>
+            <div class="split-col">
+              <h3>IAB + CIMM, nov/2025</h3>
+              <ul><li>Atenção complementa viewability</li><li>Não substitui a porta técnica</li><li>Não vira KPI único de campanha</li></ul>
+            </div>
+          </div>
+          <p class="footnote">Attention Measurement Playbook for Marketers — IAB / CIMM</p>
+
+        
+      </div>
+    </section>
+    
+    <section
+      class="slide"
+      data-layout="chart"
+      data-note=""
+      
+    >
+      <div class="slide-content">
+        <p class="kicker">Saturação · datar no palco</p>
+
+        
+          <h2 class="slide-title">O Brasil não é o mundo médio</h2>
+          <p class="lede">9h09 contra 6h38. Frequência sobe. Substituição fica opaca.</p>
+          <div class="chart-wrap">
+            <canvas id="atencao-tela" data-chart='{"caption": "Horas online por dia. 6h38 = 6,63. 9h09 = 9,15.", "data": [6.63, 9.15], "id": "atencao-tela", "labels": ["Mundo adulto (GWI)", "Brasil (jan/2025)"], "suffix": "h", "type": "bar"}'></canvas>
+          </div>
+          <p class="footnote">Horas online por dia. 6h38 = 6,63. 9h09 = 9,15.</p>
+          <p class="footnote">Digital 2025 Global Overview · Digital 2025 Brazil (jan/2025). O Digital 2026 não republicou 9h09 na página livre.</p>
+
+        
+      </div>
+    </section>
+    
+    <section
+      class="slide"
+      data-layout="metrics"
+      data-note=""
+      
+    >
+      <div class="slide-content">
+        <p class="kicker">Digital 2026 Brazil · out/2025</p>
+
+        
+          <h2 class="slide-title">185 milhões online. 150 milhões de identidades.</h2>
+          <div class="slide-metrics">
+            
+            <article class="metric">
+              <p class="value">213 mi</p>
+              <p class="label">População</p>
+              <span class="note">Brasil</span>
+            </article>
+            
+            <article class="metric">
+              <p class="value">185 mi</p>
+              <p class="label">Internet</p>
+              <span class="note">86,9%</span>
+            </article>
+            
+            <article class="metric">
+              <p class="value">150 mi</p>
+              <p class="label">Redes</p>
+              <span class="note">identidades, 70,4%</span>
+            </article>
+            
+            <article class="metric">
+              <p class="value">5,56 bi</p>
+              <p class="label">Mundo online</p>
+              <span class="note">Digital 2025</span>
+            </article>
+            
+          </div>
+          <p class="footnote">Identidade não é indivíduo único. Não misturar jan/25 com out/25.</p>
+
+        
+      </div>
+    </section>
+    
+    <section
+      class="slide"
+      data-layout="chart"
+      data-note=""
+      
+    >
+      <div class="slide-content">
+        <p class="kicker">Ad reach · final de 2025</p>
+
+        
+          <h2 class="slide-title">Não some estas bases. LinkedIn nem entra na coluna.</h2>
+          
+          <div class="chart-wrap">
+            <canvas id="atencao-reach" data-chart='{"caption": "Alcance de an\u00fancio, Digital 2026 Brazil. *LinkedIn = membros cadastrados, n\u00e3o MAU.", "data": [150, 147, 131, 109, 90], "id": "atencao-reach", "labels": ["YouTube", "Instagram", "TikTok 18+", "Facebook", "LinkedIn*"], "suffix": " mi", "type": "bar"}'></canvas>
+          </div>
+          <p class="footnote">Alcance de anúncio, Digital 2026 Brazil. *LinkedIn = membros cadastrados, não MAU.</p>
+          <p class="footnote">Ferramentas das plataformas. Ad reach ≠ MAU. 90 mi do LinkedIn não se compara com 147 mi do Instagram.</p>
+
+        
+      </div>
+    </section>
+    
+    <section
+      class="slide"
+      data-layout="cards"
+      data-note=""
+      
+    >
+      <div class="slide-content">
+        <p class="kicker">Três métricas, três autorizações</p>
+
+        
+          <h2 class="slide-title">Não some Lumen com Adelaide.</h2>
+          <div class="slide-cards">
+            
+            <article class="card">
+              <h3>Lumen</h3>
+              <p>Olho no anúncio. MPU ~8% olhado, ~1,3s. 1.000 TVs ~6.000 attentive seconds.</p>
+              <span class="meta">Autoriza formato × formato. Não autoriza ROAS.</span>
+            </article>
+            
+            <article class="card">
+              <h3>TVision</h3>
+              <p>Pessoa na sala + olho na TV. UK: ~20% sem ninguém; 30s ~11,8s de atenção visual.</p>
+              <span class="meta">Autoriza CTV/TV. Não autoriza feed mobile.</span>
+            </article>
+            
+            <article class="card">
+              <h3>Adelaide AU</h3>
+              <p>0 a 100. Qualidade do placement. Não é duração de olhar.</p>
+              <span class="meta">Autoriza planning. Não traduzir AU em segundos.</span>
+            </article>
+            
+          </div>
+          
+
+        
+      </div>
+    </section>
+    
+    <section
+      class="slide"
+      data-layout="statement"
+      data-note="Não definir MRC. Não listar 16 canais. Não tratar ad reach como MAU."
+      
+    >
+      <div class="slide-content">
+        <p class="kicker">Regra de briefing</p>
+
+        
+          <h1 class="slide-title">Uma unidade de valor para a primeira onda. E o que ela não prova.</h1>
+          <p class="lede">Viewability, attentive second, AU, VTR qualificado ou CPA de teste. Sem isso, o mix vira lista de logos.</p>
+
+        
+      </div>
+    </section>
+    
+  </div>
+
+  <div class="nav-controls">
+    <button type="button" class="nav-btn" id="prevSlide" aria-label="Anterior">←</button>
+    <span class="slide-counter"><span id="current">1</span> / <span id="total">8</span></span>
+    <button type="button" class="nav-btn" id="nextSlide" aria-label="Próximo">→</button>
+  </div>
+
+  <aside id="presenterNote" class="presenter-note" hidden></aside>
+
+  <nav id="indexPanel" class="index-panel" hidden aria-label="Índice">
+    <p class="kicker">Atenção como moeda de compra · 09:30–09:45</p>
+    <p class="lede" style="margin:8px 0 16px">N notas · I índice · F tela cheia · S studio</p>
+    
+      
+      <a href="http://localhost/parametros/treinamentos/projetar/atencao-mercado">09:30–09:45 · Atenção como moeda de compra</a>
+      
+      <a href="http://localhost/parametros/treinamentos/projetar/mapa-canais">09:45–10:00 · Quatro famílias de inventário</a>
+      
+      <a href="http://localhost/parametros/treinamentos/projetar/dooh-places">10:00–10:20 · DOOH, geofencing e Places</a>
+      
+      <a href="http://localhost/parametros/treinamentos/projetar/ia-cadu">10:20–10:35 · Operar o plano com Cadu</a>
+      
+      <a href="http://localhost/parametros/treinamentos/projetar/coffee">10:35–10:45 · Coffee break</a>
+      
+      <a href="http://localhost/parametros/treinamentos/projetar/max-formatos">10:45–11:20 · Onde o plano quebra em 2026</a>
+      
+      <a href="http://localhost/parametros/treinamentos/projetar/lucas-interativos">11:20–11:35 · Interativo como prova</a>
+      
+      <a href="http://localhost/parametros/treinamentos/projetar/lucas-programatica">11:35–11:50 · Formatos e programática de alto padrão</a>
+      
+      <a href="http://localhost/parametros/treinamentos/projetar/dinamica-planos">11:50–12:30 · Banca de plano</a>
+      
+      <a href="http://localhost/parametros/treinamentos/projetar">Manhã inteira</a>
+    
+  </nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="http://localhost/static/js/treinamento_slides.js?v=1"></script>
+</body>
+</html>

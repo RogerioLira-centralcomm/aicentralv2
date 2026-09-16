@@ -33,7 +33,7 @@ PRODUCTS = {
         'creative-analyzer': ('Creative Analyzer', '/creative-analyzer'),
         'copy-ads': ('Copy Ads', '/ferramentas-copy'),
     }},
-    'connect': {'name': 'Connect', 'navigation': (
+    'connect': {'name': 'Reports', 'navigation': (
         ('Operação', ('inicio', 'relatorios')),
     ), 'modules': {'inicio': ('Visão geral', None), 'relatorios': ('Relatórios', None)}},
 }

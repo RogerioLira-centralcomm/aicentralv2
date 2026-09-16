@@ -29,7 +29,7 @@ PRODUCT_EMAIL_BRANDS = {
     "studio": {"name": "Media Studio", "accent": "#6344CF", "deep": "#10213B", "soft": "#F1EDFC", "signal": "#7456E8", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/studio-192.png"},
     "planner": {"name": "Smart Planner", "accent": "#087D4D", "deep": "#10213B", "soft": "#E8F7EF", "signal": "#18B978", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/planner-192.png"},
     "skills": {"name": "Skills", "accent": "#A94D08", "deep": "#10213B", "soft": "#FFF2E7", "signal": "#E87922", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/skills-192.png"},
-    "connect": {"name": "Connect", "accent": "#1363C5", "deep": "#10213B", "soft": "#EAF2FD", "signal": "#1976E9", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/connect-192.png"},
+    "connect": {"name": "Reports", "accent": "#1363C5", "deep": "#10213B", "soft": "#EAF2FD", "signal": "#1976E9", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/connect-192.png"},
 }
 
 

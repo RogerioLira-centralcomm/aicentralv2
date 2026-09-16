@@ -1,0 +1,792 @@
+<!DOCTYPE html><html lang=pt-BR><head><meta charset=utf-8>
+<style>.erp-main-content:has(.ts-shell) {
+  padding: 0;
+}
+
+.ts-shell {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 320px;
+  width: 100%;
+  max-width: none;
+  min-height: calc(100vh - 72px);
+  background: var(--cx-surface, #fff);
+  color: var(--cx-text, #0f172a);
+}
+
+.ts-sessions {
+  border-right: 1px solid var(--cx-border, #e2e8f0);
+  background: var(--cx-surface-muted, #f8fafc);
+  padding: 16px 12px 20px;
+}
+
+.ts-sessions-kicker,
+.ts-sessions h2 {
+  margin: 0 8px;
+}
+
+.ts-sessions-kicker {
+  color: var(--cx-brand, #1e4d4f);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.ts-sessions h2 {
+  margin: 4px 8px 12px;
+  font-size: 16px;
+  color: var(--cx-text, #0f172a);
+}
+
+.ts-sessions ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ts-sessions button.ts-session {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  color: var(--cx-text, #0f172a);
+}
+
+.ts-sessions button.ts-session.is-active,
+.ts-sessions button.ts-session:hover {
+  background: var(--cx-brand-soft, #e8f1f1);
+}
+
+.ts-sessions button.ts-session small {
+  display: block;
+  color: var(--cx-text-muted, #64748b);
+  font-size: 11px;
+}
+
+.ts-notes {
+  margin: 16px 28px 0;
+  padding: 14px 16px;
+  border: 1px dashed #99f6e4;
+  background: #f0fdfa;
+  border-radius: 12px;
+}
+
+.ts-notes p {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: #134e4a;
+}
+
+.ts-web-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  color: #0f766e;
+  white-space: nowrap;
+}
+
+.ts-upload input {
+  display: none;
+}
+
+.ts-upload span {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.ts-document .ts-instructor-notes {
+  border-left: 3px solid #5eead4;
+  padding: 8px 12px;
+  margin: 0 0 1.2em;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 14px;
+}
+
+.ts-document .ts-sources {
+  margin-top: 2em;
+  padding-top: 1em;
+  border-top: 1px solid #e2e8f0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.ts-document .ts-place-hero,
+.ts-document .ts-place-map {
+  float: none;
+  width: min(100%, 520px);
+  margin: 0 0 12px;
+}
+
+.ts-document .ts-place-point {
+  display: inline-block;
+  width: min(220px, 46%);
+  margin: 0 8px 12px 0;
+  vertical-align: top;
+}
+
+.ts-document .ts-place {
+  margin: 0 0 2em;
+  padding-bottom: 1.5em;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ts-place-kicker {
+  color: #64748b;
+  font-size: 15px;
+}
+
+.ts-enrich {
+  display: block;
+  width: calc(100% - 16px);
+  margin: 14px 8px 0;
+  border: 1px solid var(--cx-border, #e2e8f0);
+  background: var(--cx-surface, #fff);
+  color: var(--cx-brand, #1e4d4f);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+}
+
+a.ts-project {
+  background: #071422;
+  color: #5eead4;
+  border-color: #071422;
+}
+
+.ts-editor-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-right: 1px solid var(--cx-border, #e2e8f0);
+}
+
+.ts-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 22px;
+  border-bottom: 1px solid #eef2f6;
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: #fff;
+}
+
+.ts-import {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 6px 8px 6px 14px;
+  color: #94a3b8;
+}
+
+.ts-import input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  font-size: 13px;
+  color: #0f172a;
+  background: transparent;
+}
+
+.ts-import-btn,
+.ts-format button,
+.ts-format select {
+  border: 0;
+  background: transparent;
+  color: #475569;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ts-import-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.ts-import-btn:hover,
+.ts-format button:hover {
+  background: #f1f5f9;
+}
+
+.ts-format {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ts-format button {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.ts-format select {
+  padding: 4px 6px;
+  border-radius: 8px;
+}
+
+.ts-cost {
+  margin-left: auto;
+  white-space: nowrap;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.ts-cost strong {
+  color: #0f766e;
+}
+
+.ts-import-card {
+  margin: 16px 28px 0;
+  padding: 16px 18px;
+  border: 1px solid #ccfbf1;
+  background: #f0fdfa;
+  border-radius: 16px;
+}
+
+.ts-import-kicker,
+.ts-selection p,
+.ts-thumbs > p,
+.ts-image-result > p {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #0f766e;
+}
+
+.ts-import-card h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.ts-import-card p {
+  margin: 0;
+  color: #334155;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.ts-import-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ts-document {
+  flex: 1;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 28px 32px 80px;
+  outline: none;
+  font-size: 17px;
+  line-height: 1.7;
+  color: var(--cx-text, #0f172a);
+}
+
+.ts-document:empty:before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+}
+
+.ts-document ::selection {
+  background: #ccfbf1;
+}
+
+.ts-document p {
+  margin: 0 0 1.2em;
+}
+
+.ts-document {
+  counter-reset: ts-page;
+}
+
+.ts-document .ts-page {
+  counter-increment: ts-page;
+  position: relative;
+  display: grid;
+  gap: 20px;
+  min-height: 280px;
+  margin: 0 0 28px;
+  padding: 28px 28px 24px;
+  border: 1px solid #d9e2ec;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, #fff, #f8fafc);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, .04);
+}
+
+.ts-document .ts-page:before {
+  content: "Página " counter(ts-page);
+  position: absolute;
+  top: 10px;
+  right: 16px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #0f766e;
+}
+
+.ts-document .ts-page[data-layout="split"],
+.ts-document .ts-page[data-layout="media"] {
+  grid-template-columns: minmax(0, 1.1fr) minmax(180px, .9fr);
+  align-items: center;
+}
+
+.ts-document .ts-page-copy {
+  min-width: 0;
+}
+
+.ts-document .ts-page-copy > :last-child {
+  margin-bottom: 0;
+}
+
+.ts-document .ts-page-art,
+.ts-document .ts-page .ts-inline-image {
+  float: none;
+  width: 100%;
+  margin: 0;
+  min-height: 180px;
+  border-radius: 12px;
+  background: #071422;
+  overflow: hidden;
+}
+
+.ts-document .ts-page-art:empty {
+  background:
+    repeating-linear-gradient(
+      -12deg,
+      #0c2236,
+      #0c2236 12px,
+      #071422 12px,
+      #071422 24px
+    );
+  border: 1px dashed #5eead4;
+}
+
+.ts-document .ts-page-art:empty:after {
+  content: "Ilustração";
+  display: grid;
+  place-items: center;
+  height: 180px;
+  color: #5eead4;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.ts-document .ts-page-art img,
+.ts-document .ts-page .ts-inline-image img {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+}
+
+.ts-document .ts-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  margin: 0 0 1em;
+}
+
+.ts-document .ts-metric {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #071422;
+  color: #f8fafc;
+}
+
+.ts-document .ts-metric-value {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 750;
+  color: #5eead4;
+}
+
+.ts-document .ts-metric-label,
+.ts-document .ts-metric-note {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: rgba(248, 250, 252, .7);
+}
+
+.ts-document .ts-inline-image {
+  float: left;
+  width: min(240px, 42%);
+  margin: 6px 24px 16px 0;
+}
+
+.ts-document .ts-inline-image img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.ts-agent {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 16px 16px;
+  background: var(--cx-surface-muted, #f8fafc);
+  border-left: 1px solid var(--cx-border, #e2e8f0);
+}
+
+.ts-agent-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ts-agent-head strong {
+  display: block;
+  font-size: 15px;
+}
+
+.ts-agent-head span {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.ts-agent-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #ecfdf5;
+  color: #0f766e;
+}
+
+.ts-more {
+  margin-left: auto;
+  position: relative;
+}
+
+.ts-icon-btn {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: #fff;
+  color: #475569;
+  cursor: pointer;
+}
+
+.ts-more-menu {
+  position: absolute;
+  right: 0;
+  top: 36px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, .08);
+  min-width: 160px;
+  padding: 6px;
+  z-index: 5;
+}
+
+.ts-more-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.ts-more-menu button:hover {
+  background: #f1f5f9;
+}
+
+.ts-selection {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 12px 14px;
+}
+
+.ts-selection blockquote {
+  margin: 0;
+  padding: 10px 12px;
+  background: #ecfdf5;
+  border-radius: 12px;
+  color: #134e4a;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.ts-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.ts-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  border-radius: 999px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+}
+
+.ts-actions button.is-active {
+  border-color: #5eead4;
+  color: #0f766e;
+}
+
+.ts-actions button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.ts-panel {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.ts-panel header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.ts-badge {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.ts-badge[data-tool="edicao"] { background: #e0f2fe; color: #075985; }
+.ts-badge[data-tool="pesquisa"] { background: #fef3c7; color: #92400e; }
+.ts-badge[data-tool="imagem"] { background: #d1fae5; color: #065f46; }
+
+.ts-preview,
+.ts-panel textarea {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #334155;
+  background: #fff;
+  min-height: 88px;
+  white-space: pre-wrap;
+}
+
+.ts-style-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 12px 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.ts-swatches {
+  display: flex;
+  gap: 6px;
+}
+
+.ts-swatches i {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  display: inline-block;
+  border: 1px solid rgba(15, 23, 42, .08);
+}
+
+.ts-btn-primary,
+.ts-import-actions button:first-child {
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  background: var(--cx-brand, #1e4d4f);
+  color: #fff;
+  font-weight: 700;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.ts-canal-logo {
+  max-width: 72px;
+  float: none;
+  margin: 0 0 8px;
+}
+
+.ts-btn-ghost {
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.ts-image-frame {
+  position: relative;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.ts-image-frame img {
+  display: block;
+  width: 100%;
+}
+
+.ts-image-frame .ts-icon-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+.ts-fontes {
+  font-size: 12px;
+}
+
+.ts-fontes > p {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #0f766e;
+}
+
+.ts-fontes ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 120px;
+  overflow: auto;
+}
+
+.ts-fontes li {
+  margin: 0 0 8px;
+  color: #475569;
+}
+
+.ts-fontes strong {
+  display: block;
+  color: #0f172a;
+}
+
+.ts-thumbs-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.ts-thumbs-grid button {
+  border: 0;
+  padding: 0;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.ts-thumbs-grid img {
+  display: block;
+  width: 100%;
+  height: 52px;
+  object-fit: cover;
+}
+
+.ts-chat {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.ts-chat input {
+  flex: 1;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 9px 12px;
+  font-size: 13px;
+}
+
+.ts-chat-log {
+  max-height: 140px;
+  overflow: auto;
+  font-size: 12px;
+  color: #475569;
+}
+
+.ts-chat-log article {
+  margin-bottom: 8px;
+}
+
+.ts-busy {
+  opacity: .6;
+  pointer-events: none;
+}
+
+@media (max-width: 1100px) {
+  .ts-shell {
+    grid-template-columns: 1fr;
+  }
+  .ts-sessions,
+  .ts-agent {
+    border-left: 0;
+    border-right: 0;
+    border-top: 1px solid var(--cx-border, #e2e8f0);
+  }
+}
+
+body{background:#e2e8f0;margin:0;padding:24px}
+.sess{font:700 14px/1.3 IBM Plex Sans,sans-serif;color:#0f766e;margin:40px 0 12px}
+.ts-document{max-width:920px;margin:0 auto;background:#fff}
+</style></head><body>
+<h1 class='sess'>09:30 Comprem atenção, não impressão</h1><article class='ts-document'><aside class="ts-instructor-notes" data-bloco="nota_instrutor"><p><strong>Palco · 15 min.</strong> Uma página, uma ideia. Números para saturação e bases incomparáveis — não para alcance.</p></aside><article class="ts-page" data-layout="title"><div class="ts-page-copy"><h2>Comprem atenção, não impressão</h2><p>A unidade de valor vem antes do mix.</p></div></article><article class="ts-page" data-layout="copy"><div class="ts-page-copy"><h3>Pergunta da sala</h3><p>No último plano que vocês aprovaram, a unidade de valor era a mesma do KPI do cliente?</p></div></article><article class="ts-page" data-layout="split"><div class="ts-page-copy"><section class="ts-block" data-bloco="tese"><h3>Viewability é a porta. Não é o impacto.</h3><p>MRC continua sendo a porta técnica. Quem fecha plano em impressão viewable compra oportunidade, não olhar.</p><p>IAB + CIMM, nov/2025: atenção complementa viewability. Não substitui. Não vira KPI único.</p></section></div><figure class="ts-page-art" data-slot="ilustracao"></figure></article><article class="ts-page" data-layout="copy"><div class="ts-page-copy"><section class="ts-block" data-bloco="dado"><h3>O Brasil não é o mundo médio</h3><div class="ts-metrics"><article class="ts-metric"><p class="ts-metric-value">185 milhões</p><p class="ts-metric-label">Internet BR</p><p class="ts-metric-note">out/2025</p></article><article class="ts-metric"><p class="ts-metric-value">150 milhões</p><p class="ts-metric-label">Identidades</p><p class="ts-metric-note">não é UU</p></article><article class="ts-metric"><p class="ts-metric-value">9h09</p><p class="ts-metric-label">Tela BR</p><p class="ts-metric-note">jan/2025</p></article><article class="ts-metric"><p class="ts-metric-value">6h38</p><p class="ts-metric-label">Mundo adulto</p><p class="ts-metric-note">GWI</p></article></div><p>Datar no palco. Não misturar jan/25 com out/25. Identidade não é indivíduo.</p></section></div></article><article class="ts-page" data-layout="split"><div class="ts-page-copy"><section class="ts-block" data-bloco="dado"><h3>Ad reach não é MAU</h3><ul><li>YouTube: 150 milhões</li><li>Instagram: 147 milhões — 87,3% dos adultos 18+</li><li>TikTok: 131 milhões com 18+</li><li>Facebook: 109 milhões</li><li>LinkedIn: 90 milhões de <strong>membros cadastrados</strong>, não MAU</li></ul><p>Comparar 90 mi do LinkedIn com 147 mi do Instagram é erro de mesa.</p></section></div><figure class="ts-page-art" data-slot="ilustracao"></figure></article><article class="ts-page" data-layout="copy"><div class="ts-page-copy"><section class="ts-block" data-bloco="tese"><h3>Três métricas. Três autorizações.</h3><ul><li><strong>Lumen</strong> — formato × formato. Não autoriza ROAS.</li><li><strong>TVision</strong> — CTV/TV. Não autoriza feed.</li><li><strong>Adelaide AU</strong> — planning. Não traduzir em segundos.</li></ul><p>Uma unidade de valor para a primeira onda — e o que ela <em>não</em> prova.</p></section></div></article><footer class="ts-sources" data-bloco="fonte"><p>Fontes</p><ul><li><a href="https://datareportal.com/reports/digital-2025-global-overview-report">Digital 2025 Global Overview</a></li><li><a href="https://datareportal.com/reports/digital-2026-brazil">Digital 2026 Brazil</a></li><li><a href="https://www.iab.com/wp-content/uploads/2025/11/CIMM_IAB_Attention_Measurement_Playbook_for_Marketers_November_2025.pdf">IAB + CIMM, nov/2025</a></li><li><a href="https://lumen-research.com/white-papers/attentive-seconds-one-currency-to-rule-them-all/">Lumen — Attentive seconds</a></li><li><a href="https://lumen-research.com/blog/viewability-tv-ads/">Lumen + TVision</a></li><li><a href="https://www.adelaidemetrics.com/blog/attention-metrics-vs-viewability-vs-duration">Adelaide — AU</a></li></ul></footer></article><h1 class='sess'>09:45 De onde sai a verba</h1><article class='ts-document'><aside class="ts-instructor-notes" data-bloco="nota_instrutor"><p><strong>Palco · 15 min.</strong> Uma família por página. Um case no máximo. Outdoor fica em Places.</p></aside><article class="ts-page" data-layout="title"><div class="ts-page-copy"><h2>De onde sai a verba</h2><p>Quatro famílias. Cada uma tem regra de substituição. Não é census.</p></div></article><article class="ts-page" data-layout="copy"><div class="ts-page-copy"><section class="ts-block" data-bloco="tese"><h3>Pergunta da sala</h3><p>De qual família vocês tirariam 20% do budget deste brief — e para onde mandariam?</p><p>Ad reach do Digital 2026 Brazil. Não é MAU. LinkedIn é member.</p></section></div></article><article class="ts-page" data-layout="split"><div class="ts-page-copy"><h2>Social e profissional</h2><section class="ts-block" data-bloco="case"><p>Feed versus short-form. B2B versus consumer. Ganha em intenção ou vídeo curto. Perde em dwell longo.</p><article class="ts-canal" data-canal="linkedin" id="canal-linkedin"><!-- CANAL:linkedin --><figure class="ts-inline-image ts-canal-logo"><img src="/static/images/creative-viewers/linkedin.svg" alt="Logo LinkedIn"></figure><h3>LinkedIn</h3><p><strong>O que se compra.</strong> 90 milhões de membros no Brasil (final de 2025) — base cadastrada, não MAU. Sponsored Content, document, thought leader, lead gen. O CentralX opera o canal no catálogo B2B.</p><p><strong>Case — pendente de fonte pública com número.</strong> Não inventar CPL. Usar o que o time trouxer no anexo.</p><p><strong>Tiro verba daqui se…</strong> o KPI for reach consumer ou o criativo só existir em 9:16.</p><!-- /CANAL:linkedin --></article><article class="ts-canal" data-canal="instagram" id="canal-instagram"><!-- CANAL:instagram --><figure class="ts-inline-image ts-canal-logo"><img src="/static/images/creative-viewers/instagram.svg" alt="Logo Instagram"></figure><h3>Instagram</h3><p><strong>O que se compra.</strong> 147 milhões de ad reach (87,3% dos adultos 18+). Reels, Stories, feed. Catálogo CentralX: formatos 9:16 e 4:5.</p><p><strong>Case — pendente</strong> com ROAS público. Sem número, não abrir.</p><p><strong>Tiro verba daqui se…</strong> o brief for B2B de consideração e o feed estiver canibalizando frequência.</p><!-- /CANAL:instagram --></article><article class="ts-canal" data-canal="tiktok" id="canal-tiktok"><!-- CANAL:tiktok --><figure class="ts-inline-image ts-canal-logo"><img src="/static/images/creative-viewers/tiktok.svg" alt="Logo TikTok"></figure><h3>TikTok</h3><p><strong>O que se compra.</strong> 131 milhões 18+ (80,3% dos adultos). In-feed, Spark, TopView. Ambiente de vídeo curto — estático aqui é desperdício. O Max retoma isso depois do coffee.</p><p><strong>Tiro verba daqui se…</strong> o KPI for completion longo ou o legal bloquear UGC.</p><!-- /CANAL:tiktok --></article></section></div><figure class="ts-page-art" data-slot="ilustracao"></figure></article><article class="ts-page" data-layout="split"><div class="ts-page-copy"><h2>Editorial e portais</h2><section class="ts-block" data-bloco="case"><p>Contexto e brand safety contra CPM do feed. Ganha na construção. Perde em performance cega.</p><article class="ts-canal" data-canal="g1" id="canal-g1"><!-- CANAL:g1 --><figure class="ts-inline-image ts-canal-logo"><img src="/static/images/canais/g1-globo.svg" alt="Logo g1"></figure><h3>g1</h3><p><strong>O que se compra.</strong> Maior portal de notícia do país no catálogo CentralX. Display, native, takeover. Viewability de portal ≠ atenção de portal — o Lucas separa as famílias de formato às 11h35.</p><p><strong>Tiro verba daqui se…</strong> o inventário aberto estiver sem deal e sem adjacência.</p><!-- /CANAL:g1 --></article><article class="ts-canal" data-canal="cnn" id="canal-cnn"><!-- CANAL:cnn --><figure class="ts-inline-image ts-canal-logo"><img src="/static/images/creative-viewers/cnn-brasil.svg" alt="Logo CNN Brasil"></figure><h3>CNN Brasil</h3><p><strong>O que se compra.</strong> Portal + TV. Alcance declarado no catálogo: cerca de 36,5 milhões/mês no portal em 2024. Classe AB como recorte de venda, não como censo.</p><p><strong>Tiro verba daqui se…</strong> o brief for massa e o CPM não pagar o contexto.</p><!-- /CANAL:cnn --></article><article class="ts-canal" data-canal="sbt" id="canal-sbt"><!-- CANAL:sbt --><figure class="ts-inline-image ts-canal-logo"><img src="/static/images/canais/sbt.png" alt="Logo SBT"></figure><h3>SBT</h3><p><strong>O que se compra.</strong> Portal, +SBT e SBT News. Copa 2026 no catálogo como janela — não como garantia de share. Logo real do acervo CentralX.</p><p><strong>Tiro verba daqui se…</strong> o cliente exigir ambiente news premium e o adjacente não aguentar.</p><!-- /CANAL:sbt --></article><article class="ts-canal" data-canal="serasa" id="canal-serasa"><!-- CANAL:serasa --><figure class="ts-inline-image ts-canal-logo"><img src="/static/images/canais/experian-portal.png" alt="Logo Serasa"></figure><h3>Serasa</h3><p><strong>O que se compra.</strong> Intenção de crédito e serviço financeiro no portal Experian. Alto contexto, baixo glamour. Serve fintech — o briefing A da banca.</p><p><strong>Tiro verba daqui se…</strong> o legal não assinar ambiente de cobrança / score.</p><!-- /CANAL:serasa --></article></section></div><figure class="ts-page-art" data-slot="ilustracao"></figure></article><article class="ts-page" data-layout="split"><div class="ts-page-copy"><h2>Utilidade e commerce</h2><section class="ts-block" data-bloco="case"><p>Atenção em tarefa, não em lazer. Incrementality contra a mídia do próprio app.</p><article class="ts-canal" data-canal="uber" id="canal-uber"><!-- CANAL:uber --><figure class="ts-inline-image ts-canal-logo"><img src="/static/images/canais/uber.svg" alt="Logo Uber"></figure><h3>Uber</h3><p><strong>O que se compra.</strong> Display e vídeo no app durante a corrida. Dwell de espera, não de feed. Logo do acervo CentralX.</p><p><strong>Tiro verba daqui se…</strong> o brief for consideração longa e o criativo precisar de som.</p><!-- /CANAL:uber --></article><article class="ts-canal" data-canal="99" id="canal-99"><!-- CANAL:99 --><figure class="ts-inline-image ts-canal-logo"><img src="/static/images/canais/99.svg" alt="Logo 99"></figure><h3>99</h3><p><strong>O que se compra.</strong> Mesma família da Uber, outra base. Não somar as duas como UU nacional.</p><p><strong>Tiro verba daqui se…</strong> já houver teto de frequência em mobility na praça.</p><!-- /CANAL:99 --></article><article class="ts-canal" data-canal="ifood" id="canal-ifood"><!-- CANAL:ifood --><figure class="ts-inline-image ts-canal-logo"><img src="/static/images/canais/ifood.svg" alt="Logo iFood"></figure><h3>iFood</h3><p><strong>O que se compra.</strong> Home, busca e intersticial no app. Canibaliza mídia própria do marketplace — escrever a restrição no brief da rede de food.</p><p><strong>Case público 2025 — pendente</strong> até o agente buscar com a web ligada ou o instrutor anexar PDF.</p><p><strong>Tiro verba daqui se…</strong> o cliente já paga mídia interna do app e o incremental não aparece.</p><!-- /CANAL:ifood --></article><article class="ts-canal" data-canal="amazon" id="canal-amazon"><!-- CANAL:amazon --><figure class="ts-inline-image ts-canal-logo"><img src="/static/images/canais/amazon-music.png" alt="Logo Amazon"></figure><h3>Amazon</h3><p><strong>O que se compra.</strong> Retail media e, no catálogo, áudio Amazon Music. Não tratar Prime Video aqui — vídeo de sessão está na família seguinte.</p><p><strong>Tiro verba daqui se…</strong> não houver SKU ou retail data para fechar o loop.</p><!-- /CANAL:amazon --></article></section></div><figure class="ts-page-art" data-slot="ilustracao"></figure></article><article class="ts-page" data-layout="split"><div class="ts-page-copy"><h2>Ambientes de sessão</h2><section class="ts-block" data-bloco="case"><p>Completion e dwell. Ganha quando o brief pede tempo. Perde quando a verba não paga o floor.</p><article class="ts-canal" data-canal="spotify" id="canal-spotify"><!-- CANAL:spotify --><figure class="ts-inline-image ts-canal-logo"><img src="/static/images/canais/spotify.svg" alt="Logo Spotify"></figure><h3>Spotify</h3><p><strong>O que se compra.</strong> Audio ads não skipáveis, playlist, takeover. Catálogo CentralX declara completion alto em áudio — usar como hipótese de formato, não como promessa de campanha sem medição.</p><p><strong>Tiro verba daqui se…</strong> o criativo só existir em vídeo e não houver versão de 15s/30s.</p><!-- /CANAL:spotify --></article><article class="ts-canal" data-canal="netflix" id="canal-netflix"><!-- CANAL:netflix --><figure class="ts-inline-image ts-canal-logo"><img src="/static/images/creative-viewers/netflix.png" alt="Logo Netflix"></figure><h3>Netflix</h3><p><strong>O que se compra.</strong> Plano com anúncios, ambiente curado. Floor alto. Brand safety é o produto.</p><p><strong>Tiro verba daqui se…</strong> a verba da primeira onda não pagar o mínimo do catálogo.</p><!-- /CANAL:netflix --></article><article class="ts-canal" data-canal="prime" id="canal-prime"><!-- CANAL:prime --><figure class="ts-inline-image ts-canal-logo"><img src="/static/images/canais/prime-video.svg" alt="Logo Prime Video"></figure><h3>Prime Video</h3><p><strong>O que se compra.</strong> Pre-roll, mid-roll, pause ads. Dado de compra Amazon como hipótese — só entrar se o brief tiver retail.</p><p><strong>Tiro verba daqui se…</strong> não houver ponte com Amazon Ads ou o KPI for só fame.</p><!-- /CANAL:prime --></article><article class="ts-canal" data-canal="disney" id="canal-disney"><!-- CANAL:disney --><figure class="ts-inline-image ts-canal-logo"><img src="/static/images/creative-viewers/disney-plus.png" alt="Logo Disney+"></figure><h3>Disney+</h3><p><strong>O que se compra.</strong> Plano com anúncios e janelas ao vivo. Família e franquia. Não é massa TikTok.</p><p><strong>Tiro verba daqui se…</strong> o recorte de marca for adulto e o conteúdo da adjacência não assinar.</p><!-- /CANAL:disney --></article><article class="ts-canal" data-canal="hbo" id="canal-hbo"><!-- CANAL:hbo --><figure class="ts-inline-image ts-canal-logo"><img src="/static/images/canais/hbo-max.svg" alt="Logo Max / HBO"></figure><h3>Max / HBO</h3><p><strong>O que se compra.</strong> Premium, séries, brand safe. Mesma lógica de floor do Netflix.</p><p><strong>Tiro verba daqui se…</strong> o brief for CPA de app e o cliente recusar ambiente de sessão.</p><!-- /CANAL:hbo --></article></section></div><figure class="ts-page-art" data-slot="ilustracao"></figure></article><footer class="ts-sources" data-bloco="fonte"><p>Fontes</p><ul><li><a href="https://datareportal.com/reports/digital-2026-brazil">Digital 2026 Brazil — ad reach por plataforma, out/2025</a></li><li>Catálogo de canais CentralX (alcance e floor de entrada — hipótese comercial, não censo)</li></ul></footer></article><h1 class='sess'>10:00 O lugar não é a audiência</h1><article class='ts-document'><aside class="ts-instructor-notes" data-bloco="nota_instrutor"><p><strong>Palco · 20 min.</strong> Conceito em 2 páginas, um aeroporto por página. Fotos da base. Mall: uma frase.</p></aside><article class="ts-page" data-layout="title"><div class="ts-page-copy"><h2>O lugar não é a audiência</h2><p>Tela no lugar não é quem mora no entorno.</p></div></article><article class="ts-page" data-layout="split"><div class="ts-page-copy"><section class="ts-block" data-bloco="tese"><h3>Dois buys</h3><p>DOOH: oportunidade de ver no sítio. Aeroporto não é mobiliário urbano — o passageiro está no processo.</p><p>Geofencing compra a cerca. Cerca não é presença. Bacia IBGE ≠ quem embarcou. Halo não soma com o terminal.</p><p>4 semanas = anual ÷ 13. Únicos ≈ × 0,62. Endereçáveis ≈ × 0,38. Vocês não compram Congonhas. Compram T1, ou Campo Belo, ou Moema.</p></section></div><figure class="ts-page-art" data-slot="ilustracao"></figure></article><article class="ts-page" data-layout="copy"><div class="ts-page-copy"><section class="ts-block" data-bloco="dado"><h3>Os quatro aeroportos — não somar</h3><p>ANAC 2025: Congonhas 24,6 mi · Galeão 17,8 mi · Confins 13,2 mi · Santos Dumont 6,2 mi.</p></section></div></article><article class="ts-page" data-layout="split"><div class="ts-page-copy"><article class="ts-place" data-place="congonhas" id="place-congonhas"><h3>CGH · Congonhas</h3><p class="ts-place-kicker">O aeroporto no meio da cidade. T1, Campo Belo e Moema.</p><p><strong>ANAC 2025.</strong> 24,6 mi passageiros no ano. Endereçáveis no recorte, 4 semanas (estimate): 380–560 mil.</p><p>Aeroporto no meio de São Paulo. O recorte que a campanha compra primeiro é o T1; Moema é halo de quem circula, não de quem voou.</p><p><strong>Não misturar.</strong> T1, Campo Belo e Moema são três buys. A cidade em volta não é o saguão.</p></article></div><figure class="ts-inline-image ts-page-art ts-place-hero"><img src="/static/images/places/generated/congonhas-hero-0239e4cd.png" alt="CGH Congonhas"></figure></article><article class="ts-page" data-layout="split"><div class="ts-page-copy"><article class="ts-place" data-place="galeao" id="place-galeao"><h3>GIG · Galeão</h3><p class="ts-place-kicker">O T2 na Ilha do Governador. Internacional de um lado; a Vinte de Janeiro do outro.</p><p><strong>ANAC 2025.</strong> 17,8 mi passageiros no ano. Endereçáveis no recorte, 4 semanas (estimate): 260–390 mil.</p><p>T2 na Ilha do Governador. Internacional de um lado; a Vinte de Janeiro do outro. A ilha é bacia, não embarque.</p><p><strong>Não misturar.</strong> Internacional é recorte. Não use o 17,8 mi como se fosse o T2 internacional.</p></article></div><figure class="ts-inline-image ts-page-art ts-place-hero"><img src="/static/images/places/generated/galeao-hero-75062ae1.png" alt="GIG Galeão"></figure></article><article class="ts-page" data-layout="split"><div class="ts-page-copy"><article class="ts-place" data-place="confins" id="place-confins"><h3>CNF · Confins</h3><p class="ts-place-kicker">Quem voa por Minas e quem cruza a MG-010. Encontre essa gente no celular.</p><p><strong>ANAC 2025.</strong> 13,2 mi passageiros no ano. Endereçáveis no recorte, 4 semanas (estimate): 190–280 mil.</p><p>Quem voa por Minas e quem só cruza a MG-010. O internacional de Confins fica 8–14 mil endereçáveis — não escalar ticket alto em cima desse recorte sem validar.</p><p><strong>Não misturar.</strong> Terminal versus corredor MG-010. Internacional ~4–5% — selo a validar.</p></article></div><figure class="ts-inline-image ts-page-art ts-place-hero"><img src="/static/images/places/generated/confins-hero-bad23d6b.png" alt="CNF Confins"></figure></article><article class="ts-page" data-layout="split"><div class="ts-page-copy"><article class="ts-place" data-place="santos-dumont" id="place-santos-dumont"><h3>SDU · Santos Dumont</h3><p class="ts-place-kicker">A ponte no centro do Rio. Terminal de um lado; VLT e Glória do outro. As pistas ficam fora.</p><p><strong>ANAC 2025.</strong> 6,2 mi passageiros no ano. Endereçáveis no recorte, 4 semanas (estimate): 95–150 mil.</p><p>Ponte no centro do Rio. 6,2 mi no ano (o book antigo com 4,9 mi está defasado). Não vender a pista.</p><p><strong>Não misturar.</strong> Pistas ficam fora do comercial. Terminal e VLT/Glória são os buys.</p></article></div><figure class="ts-inline-image ts-page-art ts-place-hero"><img src="/static/images/places/generated/santos-dumont-hero-9df56602.png" alt="SDU Santos Dumont"></figure></article><article class="ts-page" data-layout="copy"><div class="ts-page-copy"><section class="ts-block" data-bloco="tese"><h3>Como entra no plano</h3><ul><li>Unidade de valor: presença no recorte ou dwell no saguão — não UU nacional.</li><li>First-wave: um aeroporto, um ponto. Escala só depois.</li><li>Mall e evento usam o mesmo método — não cabem neste bloco.</li><li>Na banca: se o brief tiver praça física, Places é família.</li></ul></section></div></article><footer class="ts-sources" data-bloco="fonte"><p>Fontes</p><ul><li>ANAC — movimento de passageiros 2025 (CNF 13.183.039 · CGH 24.583.610 · SDU 6.184.233 · GIG 17.836.134)</li><li>IBGE Censo 2022 — bacias residenciais Places (não são presença no terminal)</li><li>CentralX Places — metodologia de 4 semanas, únicos e endereçáveis</li></ul></footer></article><h1 class='sess'>10:20 Cadu começa na restrição</h1><article class='ts-document'><aside class="ts-instructor-notes" data-bloco="nota_instrutor"><p><strong>Palco · 15 min.</strong> Cinco passos. Sem slide de produto.</p></aside><article class="ts-page" data-layout="title"><div class="ts-page-copy"><h2>Cadu começa na restrição</h2><p>IA consulta o catálogo real. Não inventa mix.</p></div></article><article class="ts-page" data-layout="copy"><div class="ts-page-copy"><h3>Pergunta da sala</h3><p>Qual restrição deste brief o Cadu não pode inventar?</p></div></article><article class="ts-page" data-layout="split"><div class="ts-page-copy"><section class="ts-block" data-bloco="tese"><h3>Cinco passos na mesa</h3><ul><li><strong>1. Briefing.</strong> Objetivo, praça, verba, safety, Places.</li><li><strong>2. Catálogo.</strong> Só o que se transaciona.</li><li><strong>3. Hipótese.</strong> Percentual por família. Substituição escrita.</li><li><strong>4. First-wave.</strong> Uma métrica por formato.</li><li><strong>5. Correção.</strong> Escalar só o que aguentou.</li></ul></section></div><figure class="ts-page-art" data-slot="ilustracao"></figure></article><article class="ts-page" data-layout="copy"><div class="ts-page-copy"><section class="ts-block" data-bloco="tese"><h3>Se o dado não está no catálogo, fica pendente.</h3><p>A banca cobra: unidade de valor, família, first-wave. Roadmap não entra.</p></section></div></article><footer class="ts-sources" data-bloco="fonte"><p>Fontes</p><ul><li>Skill Cadu / catálogo CentralX — estrutura de planejamento da imersão</li></ul></footer></article><h1 class='sess'>10:35 Intervalo · escolher a moeda</h1><article class='ts-document'><aside class="ts-instructor-notes" data-bloco="nota_instrutor"><p>Quem quiser já escolhe o briefing da banca e a unidade de valor.</p></aside><article class="ts-page" data-layout="title"><div class="ts-page-copy"><h2>Intervalo · escolher a moeda</h2><p>10h35–10h45. Fintech R$ 80 mil · beleza R$ 250 mil · food R$ 800 mil.</p></div></article><article class="ts-page" data-layout="copy"><div class="ts-page-copy"><p>Pensar família + moeda + se o brief pede lugar físico.</p></div></article></article><h1 class='sess'>10:45 O plano quebra no formato</h1><article class='ts-document'><aside class="ts-instructor-notes" data-bloco="nota_instrutor"><p><strong>Palco · 35 min.</strong> Quatro quebras, depois o método.</p></aside><article class="ts-page" data-layout="title"><div class="ts-page-copy"><h2>O plano quebra no formato</h2><p>A verba erra menos do que o criativo copiado.</p></div></article><article class="ts-page" data-layout="copy"><div class="ts-page-copy"><h3>Pergunta da sala</h3><p>Qual métrica da primeira onda deste formato autoriza escalar?</p></div></article><article class="ts-page" data-layout="split"><div class="ts-page-copy"><section class="ts-block" data-bloco="tese"><h3>Quatro quebras</h3><ul><li><strong>Recorte sem volume.</strong> First-wave sem n não escala.</li><li><strong>Estático no short-form.</strong> Se o asset é 1:1, a família social já perdeu.</li><li><strong>Formato copiado.</strong> Takeover não vira bumper.</li><li><strong>Vaidade no lugar de first-wave.</strong> A moeda da abertura não estava no KPI.</li></ul></section></div><figure class="ts-page-art" data-slot="ilustracao"></figure></article><article class="ts-page" data-layout="copy"><div class="ts-page-copy"><section class="ts-block" data-bloco="tese"><h3>First-wave por formato. Depois escala.</h3><p>Atenção na sessão. VTR no vídeo. CTR qualificado no editorial. CPA de teste na utilidade. Presença no Places.</p><p>Sem first-wave, a banca zera o grupo — mesmo com mix bonito.</p></section></div></article><footer class="ts-sources" data-bloco="fonte"><p>Fontes</p><ul><li>Tese de mesa Centralcomm / Imersão 28 set — patologias de campanha 2026</li></ul></footer></article><h1 class='sess'>11:20 O gesto prova a first-wave</h1><article class='ts-document'><aside class="ts-instructor-notes" data-bloco="nota_instrutor"><p><strong>Palco · 15 min.</strong> O gesto e o que ele autoriza.</p></aside><article class="ts-page" data-layout="title"><div class="ts-page-copy"><h2>O gesto prova a first-wave</h2><p>Toque, escolha, play, shop. Não é novidade.</p></div></article><article class="ts-page" data-layout="copy"><div class="ts-page-copy"><h3>Pergunta da sala</h3><p>Este brief paga o interativo — ou um display viewable resolve a first-wave?</p></div></article><article class="ts-page" data-layout="split"><div class="ts-page-copy"><section class="ts-block" data-bloco="tese"><ul><li><strong>Toque</strong> prova interrupção.</li><li><strong>Escolha</strong> prova consideração.</li><li><strong>Playable</strong> prova tempo de sessão.</li><li><strong>Shoppable</strong> prova intenção de SKU.</li></ul><p>Quando é caro: verba abaixo do floor, criativo sem estado, CPA cego. Quando é o único jeito: precisa provar atenção sem currency visual.</p></section></div><figure class="ts-page-art" data-slot="ilustracao"></figure></article><footer class="ts-sources" data-bloco="fonte"><p>Fontes</p><ul><li>Mesa Centralcomm — formatos interativos como prova de first-wave</li></ul></footer></article><h1 class='sess'>11:35 Aberto não é qualquer impressão</h1><article class='ts-document'><aside class="ts-instructor-notes" data-bloco="nota_instrutor"><p><strong>Palco · 15 min.</strong> Agrupar. Portal versus feed.</p></aside><article class="ts-page" data-layout="title"><div class="ts-page-copy"><h2>Aberto não é qualquer impressão</h2><p>Agrupar ~30 formatos. Deal, qualidade, contexto.</p></div></article><article class="ts-page" data-layout="copy"><div class="ts-page-copy"><h3>Pergunta da sala</h3><p>Portal ou feed — qual inventário autoriza o KPI da primeira onda?</p></div></article><article class="ts-page" data-layout="split"><div class="ts-page-copy"><section class="ts-block" data-bloco="tese"><h3>O que a família prova na first-wave</h3><ul><li><strong>Display de impacto</strong> — viewability + adjacência.</li><li><strong>Vídeo curto</strong> — VTR / atenção.</li><li><strong>Sessão / CTV</strong> — completion / attentive seconds.</li><li><strong>Áudio</strong> — completion 15s/30s.</li><li><strong>Interativo</strong> — interação qualificada.</li><li><strong>Native</strong> — tempo na peça, não clique vão.</li></ul></section></div><figure class="ts-page-art" data-slot="ilustracao"></figure></article><article class="ts-page" data-layout="copy"><div class="ts-page-copy"><section class="ts-block" data-bloco="tese"><h3>Portal versus feed</h3><p>Editorial ganha em construção. Feed ganha em volume. Escala sem first-wave é a quebra do Max.</p></section></div></article><footer class="ts-sources" data-bloco="fonte"><p>Fontes</p><ul><li>Catálogo de formatos CentralX — famílias de segmentação</li><li>IAB / CIMM 2025 — atenção como filtro de qualidade da impressão</li></ul></footer></article><h1 class='sess'>11:50 Banca: moeda, família, first-wave</h1><article class='ts-document'><aside class="ts-instructor-notes" data-bloco="nota_instrutor"><p><strong>Palco · 40 min.</strong> 20 para montar, 20 para bancar. Zerar grupo que não escrever a moeda.</p></aside><article class="ts-page" data-layout="title"><div class="ts-page-copy"><h2>Banca: moeda, família, first-wave</h2><p>20 minutos para montar. 20 para bancar.</p></div></article><article class="ts-page" data-layout="copy"><div class="ts-page-copy"><section class="ts-block" data-bloco="dinamica"><h3>O envelope</h3><ul><li>Famílias e % — com regra de substituição</li><li>Formato e recorte</li><li>Unidade de valor da primeira onda</li><li>KPI que autoriza escala</li><li>Risco nomeado</li></ul></section></div></article><article class="ts-page" data-layout="split"><div class="ts-page-copy"><h3>Briefing A — Fintech · R$ 80 mil</h3><p>Conta com cartão na GSP, 30 dias. 25–40, C+/B. Sem open web sem brand safety.</p><p>A banca cobra a moeda da first-wave — não o CPA final. Serasa entra? Congonhas é vaidade?</p></div><figure class="ts-page-art" data-slot="ilustracao"></figure></article><article class="ts-page" data-layout="split"><div class="ts-page-copy"><h3>Briefing B — Beleza D2C · R$ 250 mil</h3><p>Skincare, 45 dias, Sudeste. VTR/atenção no topo, ROAS na base.</p><p>O que sai do short-form se o asset for estático? First-wave antes do ROAS.</p></div><figure class="ts-page-art" data-slot="ilustracao"></figure></article><article class="ts-page" data-layout="split"><div class="ts-page-copy"><h3>Briefing C — Rede de food · R$ 800 mil</h3><p>Brand + incremento de pedidos, 60 dias. Ad recall e ticket incremental.</p><p>Canibalização iFood. Places é família ou enfeite?</p></div><figure class="ts-page-art" data-slot="ilustracao"></figure></article><article class="ts-page" data-layout="copy"><div class="ts-page-copy"><section class="ts-block" data-bloco="dinamica"><h3>Rubrica — sem inventar UU</h3><ul><li>Moeda da abertura escrita</li><li>Substituição entre famílias</li><li>First-wave distinta de escala</li><li>Restrição do brief respeitada</li><li>Risco nomeado</li></ul></section></div></article><footer class="ts-sources" data-bloco="fonte"><p>Fontes</p><ul><li>Briefings da Imersão em Mídias Complexas — 28 de setembro</li></ul></footer></article>
+</body></html>

@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DOOH, geofencing e Places — Imersão</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="http://localhost/static/css/treinamento_slides.css?v=1">
+</head>
+<body>
+  <div class="progress-bar" id="progressBar"></div>
+
+  <div class="deck-tools">
+    <button type="button" class="tool-btn" id="toggleNotes" title="Notas do instrutor (N)">N</button>
+    <button type="button" class="tool-btn" id="toggleIndex" title="Índice (I)">I</button>
+    <button type="button" class="tool-btn" id="toggleFullscreen" title="Tela cheia (F)">F</button>
+    <a class="tool-btn" href="http://localhost/parametros/treinamentos" title="Voltar ao Studio" style="display:grid;place-items:center;text-decoration:none;">S</a>
+  </div>
+
+  <div class="slide-deck" data-slide-deck>
+    
+    <section
+      class="slide active"
+      data-layout="title"
+      data-note=""
+      
+    >
+      <div class="slide-content">
+        <p class="kicker">Sessão 3 · 10:00–10:20</p>
+
+        
+          <h1 class="slide-title">DOOH, geofencing e Places</h1>
+          <p class="lede">Tela no lugar não é audiência do lugar.</p>
+          <p class="meta">Apolo Lira · Alexandre Borges</p>
+
+        
+      </div>
+    </section>
+    
+    <section
+      class="slide"
+      data-layout="statement"
+      data-note="Conceito em 6 min, quatro aeroportos em 12, fechamento em 2. Mall e Ibirapuera: uma frase."
+      
+    >
+      <div class="slide-content">
+        <p class="kicker">Pergunta da sala</p>
+
+        
+          <h1 class="slide-title">Neste brief, vocês estão comprando o saguão ou quem mora no entorno?</h1>
+          
+
+        
+      </div>
+    </section>
+    
+    <section
+      class="slide"
+      data-layout="split"
+      data-note=""
+      
+    >
+      <div class="slide-content">
+        <p class="kicker">Dois buys</p>
+
+        
+          <h2 class="slide-title">Não misturem CPM de rua com saguão.</h2>
+          <div class="slide-split">
+            <div class="split-col">
+              <h3>DOOH</h3>
+              <ul><li>Oportunidade de ver no sítio</li><li>Dwell, ângulo, fluxo</li><li>Aeroporto: passageiro preso no processo, não na calçada</li></ul>
+            </div>
+            <div class="split-col">
+              <h3>Geofencing</h3>
+              <ul><li>Compra a cerca. Cerca não é presença</li><li>Bacia IBGE ≠ quem embarcou</li><li>Halo (Moema, MG-010, Ilha) não soma com o terminal</li></ul>
+            </div>
+          </div>
+          
+
+        
+      </div>
+    </section>
+    
+    <section
+      class="slide"
+      data-layout="cards"
+      data-note=""
+      
+    >
+      <div class="slide-content">
+        <p class="kicker">Metodologia Places</p>
+
+        
+          <h2 class="slide-title">Vocês não compram Congonhas. Compram T1, ou Campo Belo, ou Moema.</h2>
+          <div class="slide-cards">
+            
+            <article class="card">
+              <h3>4 semanas</h3>
+              <p>Movimento anual ÷ 13</p>
+              <span class="meta">ANAC 2025 → recorte comercial</span>
+            </article>
+            
+            <article class="card">
+              <h3>Únicos</h3>
+              <p>Movimentos × 0,62</p>
+              <span class="meta">Hipótese de passagem</span>
+            </article>
+            
+            <article class="card">
+              <h3>Endereçáveis</h3>
+              <p>Únicos × 0,38</p>
+              <span class="meta">App e portal, 4 semanas</span>
+            </article>
+            
+          </div>
+          <p class="footnote">Raios não se somam. Fonte: metodologia Places / ANAC 2025.</p>
+
+        
+      </div>
+    </section>
+    
+    <section
+      class="slide"
+      data-layout="chart"
+      data-note=""
+      
+    >
+      <div class="slide-content">
+        <p class="kicker">ANAC 2025 · não somar</p>
+
+        
+          <h2 class="slide-title">Quatro aeroportos. Quatro buys.</h2>
+          
+          <div class="chart-wrap">
+            <canvas id="places-anac" data-chart='{"caption": "Passageiros no ano. Congonhas 24.583.610 \u00b7 Gale\u00e3o 17.836.134 \u00b7 Confins 13.183.039 \u00b7 Santos Dumont 6.184.233.", "data": [24.6, 17.8, 13.2, 6.2], "id": "places-anac", "labels": ["CGH", "GIG", "CNF", "SDU"], "suffix": " mi", "type": "bar"}'></canvas>
+          </div>
+          <p class="footnote">Passageiros no ano. Congonhas 24.583.610 · Galeão 17.836.134 · Confins 13.183.039 · Santos Dumont 6.184.233.</p>
+          <p class="footnote">Bacia residencial é Censo 2022, não presença no terminal.</p>
+
+        
+      </div>
+    </section>
+    
+    <section
+      class="slide"
+      data-layout="place"
+      data-note=""
+      
+    >
+      <div class="slide-content">
+        <p class="kicker">Congonhas</p>
+
+        
+          <div class="place-grid">
+            <div class="place-visuals">
+              
+              <img src="/static/images/places/generated/congonhas-hero-0239e4cd.png" alt="CGH Congonhas">
+              
+              <div class="place-points">
+                
+                <img src="/static/images/places/generated/congonhas-map-01079f3b.png" alt="Mapa CGH">
+                
+                
+                <img src="/static/images/places/generated/congonhas-cgh-terminal-pt-4976347b.png" alt="CGH Terminal T1">
+                
+                <img src="/static/images/places/generated/congonhas-cgh-embarque-pt-b31c703d.png" alt="CGH Washington Luís">
+                
+              </div>
+            </div>
+            <div class="place-copy">
+              <p class="kicker">CGH</p>
+              <h2>Congonhas</h2>
+              <p class="lede">O aeroporto no meio da cidade. T1, Campo Belo e Moema.</p>
+              <p class="meta">ANAC 2025 · 24,6 mi passageiros</p>
+              <p>Endereçáveis no recorte, 4 semanas (estimate): 380–560 mil.</p>
+              <p class="rule">T1, Campo Belo e Moema são três buys. A cidade em volta não é o saguão.</p>
+            </div>
+          </div>
+
+        
+      </div>
+    </section>
+    
+    <section
+      class="slide"
+      data-layout="place"
+      data-note=""
+      
+    >
+      <div class="slide-content">
+        <p class="kicker">Galeão</p>
+
+        
+          <div class="place-grid">
+            <div class="place-visuals">
+              
+              <img src="/static/images/places/generated/galeao-hero-75062ae1.png" alt="GIG Galeão">
+              
+              <div class="place-points">
+                
+                
+                <img src="/static/images/places/generated/galeao-gig-terminal-pt-5e3c674e.png" alt="GIG Terminal T2">
+                
+                <img src="/static/images/places/generated/galeao-gig-embarque-pt-203a2036.png" alt="GIG Embarque">
+                
+              </div>
+            </div>
+            <div class="place-copy">
+              <p class="kicker">GIG</p>
+              <h2>Galeão</h2>
+              <p class="lede">O T2 na Ilha do Governador. Internacional de um lado; a Vinte de Janeiro do outro.</p>
+              <p class="meta">ANAC 2025 · 17,8 mi passageiros</p>
+              <p>Endereçáveis no recorte, 4 semanas (estimate): 260–390 mil.</p>
+              <p class="rule">Internacional é recorte. Não use 17,8 mi como se fosse o T2 internacional.</p>
+            </div>
+          </div>
+
+        
+      </div>
+    </section>
+    
+    <section
+      class="slide"
+      data-layout="place"
+      data-note=""
+      
+    >
+      <div class="slide-content">
+        <p class="kicker">Confins</p>
+
+        
+          <div class="place-grid">
+            <div class="place-visuals">
+              
+              <img src="/static/images/places/generated/confins-hero-29d2ce76.png" alt="CNF Confins">
+              
+              <div class="place-points">
+                
+                <img src="/static/images/places/generated/confins-map-611e4c35.png" alt="Mapa CNF">
+                
+                
+                <img src="/static/images/places/generated/confins-cnf-terminal-pt-da9534f8.png" alt="CNF Terminal">
+                
+                <img src="/static/images/places/generated/confins-cnf-embarque-pt-05e645ef.png" alt="CNF Embarque doméstico">
+                
+              </div>
+            </div>
+            <div class="place-copy">
+              <p class="kicker">CNF</p>
+              <h2>Confins</h2>
+              <p class="lede">Quem voa por Minas e quem cruza a MG-010. Encontre essa gente no celular.</p>
+              <p class="meta">ANAC 2025 · 13,2 mi passageiros</p>
+              <p>Endereçáveis no recorte, 4 semanas (estimate): 190–280 mil.</p>
+              <p class="rule">Terminal versus corredor MG-010. Internacional ~4–5% — selo a validar.</p>
+            </div>
+          </div>
+
+        
+      </div>
+    </section>
+    
+    <section
+      class="slide"
+      data-layout="place"
+      data-note=""
+      
+    >
+      <div class="slide-content">
+        <p class="kicker">Santos Dumont</p>
+
+        
+          <div class="place-grid">
+            <div class="place-visuals">
+              
+              <img src="/static/images/places/generated/santos-dumont-hero-9df56602.png" alt="SDU Santos Dumont">
+              
+              <div class="place-points">
+                
+                <img src="/static/images/places/generated/santos-dumont-map-b988ab36.png" alt="Mapa SDU">
+                
+                
+                <img src="/static/images/places/generated/santos-dumont-sdu-terminal-pt-52d8757e.png" alt="SDU Terminal">
+                
+                <img src="/static/images/places/generated/santos-dumont-sdu-embarque-pt-6b5a800a.png" alt="SDU Embarque">
+                
+              </div>
+            </div>
+            <div class="place-copy">
+              <p class="kicker">SDU</p>
+              <h2>Santos Dumont</h2>
+              <p class="lede">A ponte no centro do Rio. Terminal de um lado; VLT e Glória do outro. As pistas ficam fora.</p>
+              <p class="meta">ANAC 2025 · 6,2 mi passageiros</p>
+              <p>Endereçáveis no recorte, 4 semanas (estimate): 95–150 mil.</p>
+              <p class="rule">Pistas ficam fora do comercial. Terminal e VLT/Glória são os buys.</p>
+            </div>
+          </div>
+
+        
+      </div>
+    </section>
+    
+    <section
+      class="slide"
+      data-layout="list"
+      data-note=""
+      
+    >
+      <div class="slide-content">
+        <p class="kicker">Como entra no plano</p>
+
+        
+          <h2 class="slide-title">Places é família. Não é extra criativo.</h2>
+          <div class="slide-list">
+            <ul><li>Unidade de valor: presença no recorte (7/15/30 dias) ou dwell no saguão — não UU nacional.</li><li>First-wave: um aeroporto, um ponto. Escala só depois.</li><li>Mall e evento (Diamond, Iguatemi, Ibirapuera, Expominas) usam o mesmo método — não cabem neste bloco.</li><li>Na banca: se o brief tiver praça física, Places entra como família.</li></ul>
+          </div>
+          
+
+        
+      </div>
+    </section>
+    
+  </div>
+
+  <div class="nav-controls">
+    <button type="button" class="nav-btn" id="prevSlide" aria-label="Anterior">←</button>
+    <span class="slide-counter"><span id="current">1</span> / <span id="total">10</span></span>
+    <button type="button" class="nav-btn" id="nextSlide" aria-label="Próximo">→</button>
+  </div>
+
+  <aside id="presenterNote" class="presenter-note" hidden></aside>
+
+  <nav id="indexPanel" class="index-panel" hidden aria-label="Índice">
+    <p class="kicker">DOOH, geofencing e Places · 10:00–10:20</p>
+    <p class="lede" style="margin:8px 0 16px">N notas · I índice · F tela cheia · S studio</p>
+    
+      
+      <a href="http://localhost/parametros/treinamentos/projetar/atencao-mercado">09:30–09:45 · Atenção como moeda de compra</a>
+      
+      <a href="http://localhost/parametros/treinamentos/projetar/mapa-canais">09:45–10:00 · Quatro famílias de inventário</a>
+      
+      <a href="http://localhost/parametros/treinamentos/projetar/dooh-places">10:00–10:20 · DOOH, geofencing e Places</a>
+      
+      <a href="http://localhost/parametros/treinamentos/projetar/ia-cadu">10:20–10:35 · Operar o plano com Cadu</a>
+      
+      <a href="http://localhost/parametros/treinamentos/projetar/coffee">10:35–10:45 · Coffee break</a>
+      
+      <a href="http://localhost/parametros/treinamentos/projetar/max-formatos">10:45–11:20 · Onde o plano quebra em 2026</a>
+      
+      <a href="http://localhost/parametros/treinamentos/projetar/lucas-interativos">11:20–11:35 · Interativo como prova</a>
+      
+      <a href="http://localhost/parametros/treinamentos/projetar/lucas-programatica">11:35–11:50 · Formatos e programática de alto padrão</a>
+      
+      <a href="http://localhost/parametros/treinamentos/projetar/dinamica-planos">11:50–12:30 · Banca de plano</a>
+      
+      <a href="http://localhost/parametros/treinamentos/projetar">Manhã inteira</a>
+    
+  </nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="http://localhost/static/js/treinamento_slides.js?v=1"></script>
+</body>
+</html>

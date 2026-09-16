@@ -1,0 +1,38 @@
+.workspace-brand-system-shell .workspace-app-main {
+  min-width: 0;
+}
+
+.mc-workspace-brand-system {
+  padding: 0 32px 48px;
+}
+
+.mc-workspace-brand-system [data-brand-col="add"],
+.mc-workspace-brand-system #mcNewBrand,
+.mc-workspace-brand-system [data-action="delete-client"] {
+  display: none;
+}
+
+.mc-workspace-brand-system .mc-brand-studio {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.mc-workspace-brand-system .mc-brand-form {
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .mc-workspace-brand-system {
+    padding: 0 16px 32px;
+  }
+
+  .mc-workspace-brand-system .mc-form-grid,
+  .mc-workspace-brand-system .mc-brand-context-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mc-workspace-brand-system .mc-span-2 {
+    grid-column: auto;
+  }
+}

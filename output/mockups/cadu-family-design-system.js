@@ -1,8 +1,8 @@
 'use strict';
 const families=[
  {id:'workspace',asset:'hub',name:'Workspace',purpose:'Conversas, projetos, integrações e conta.',brand:'#009F8A',action:'#007D6D',soft:'#E9F6F3',contrast:'5,06:1'},
- {id:'studio',asset:'studio',name:'Media Studio',purpose:'Criação, edição e biblioteca de mídia.',brand:'#7456E8',action:'#6344CF',soft:'#F1EDFC',contrast:'6,44:1'},
- {id:'connect',asset:'connect',name:'Connect',purpose:'Contas de anúncio, MCP e relatórios.',brand:'#1976E9',action:'#1363C5',soft:'#EAF2FD',contrast:'5,80:1'},
+ {id:'studio',asset:'studio',name:'Media Studio',purpose:'Editar imagens, criar e adaptar vídeos, mudar formatos e analisar criativos.',brand:'#7456E8',action:'#6344CF',soft:'#F1EDFC',contrast:'6,44:1'},
+ {id:'connect',asset:'connect',name:'Connect',purpose:'Reports de campanha para acompanhar, interpretar e compartilhar decisões.',brand:'#1976E9',action:'#1363C5',soft:'#EAF2FD',contrast:'5,80:1'},
  {id:'skills',asset:'skills',name:'Skills',purpose:'Documentação, exemplos e instruções para agentes.',brand:'#E87922',action:'#A94D08',soft:'#FFF2E7',contrast:'5,60:1'},
  {id:'planner',asset:'planner',name:'Smart Planner',purpose:'Objetivos, canais, calendário e planejamento.',brand:'#18B978',action:'#087D4D',soft:'#E8F7EF',contrast:'5,18:1'}
 ];

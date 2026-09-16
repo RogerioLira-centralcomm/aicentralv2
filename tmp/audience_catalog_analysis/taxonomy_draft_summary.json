@@ -1,0 +1,38 @@
+{
+  "total": 935,
+  "roles": {
+    "conceito de audiência": 436,
+    "contexto/afinidade de conteúdo": 327,
+    "tática de ativação": 37,
+    "perfil transversal": 82,
+    "inválido/quarentena": 1,
+    "formato/inventário": 52
+  },
+  "market_scope": {
+    "vertical": 583,
+    "transversal": 352
+  },
+  "primary_markets": {
+    "Educação & Carreira": 25,
+    "Finanças & Seguros": 81,
+    "B2B, Enterprise & Indústria": 89,
+    "Saúde, Bem-estar & Beleza": 37,
+    "Entretenimento, Conteúdo & Esportes": 131,
+    "Varejo & Consumo": 91,
+    "Imobiliário & Construção": 32,
+    "Agronegócio": 30,
+    "Automotivo, Mobilidade & Logística": 44,
+    "SEM MERCADO": 353,
+    "Serviços ao Consumidor": 22
+  },
+  "confidence": {
+    "média": 463,
+    "alta": 472
+  },
+  "migration_actions": {
+    "mapear": 845,
+    "avaliar consolidação conceitual": 89,
+    "quarentenar": 1
+  },
+  "mandatory_review_ids": []
+}

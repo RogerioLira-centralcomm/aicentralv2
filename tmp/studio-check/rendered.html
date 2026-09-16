@@ -1,0 +1,63 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;padding:20px;background:#f8fafc;font-family:Arial} @media(max-width:600px){body{padding:8px}}</style>
+<link rel="stylesheet" href="/static/css/cadu-studio-home.css?v=1">
+</head><body>
+
+<div class="mc-studio-home" id="mcApp" data-mc-page="hub">
+  <header class="mc-cadu-bar" id="mcCaduBar">
+    <a class="studio-wordmark" href="/parametros/modelagem-criativos" aria-current="page">Cadu <span>Media Studio</span><small>Produto de mídia do Cadu</small></a>
+    <div class="studio-context-controls">
+      <label class="studio-brand-label" for="mcCaduBarClient">Marca ativa</label>
+      <select id="mcCaduBarClient" aria-label="Marca desta sessão"><option value="">Carregando marcas…</option></select>
+      <p id="mcCaduCredits" hidden aria-live="polite"></p>
+    </div>
+  </header>
+  <div class="studio-layout">
+    <nav class="studio-nav" aria-label="Navegação do Media Studio">
+      <a class="is-current" href="/parametros/modelagem-criativos" aria-current="page"><i class="fa-solid fa-house" aria-hidden="true"></i> Visão geral</a>
+      <a href="#studioLibrary"><i class="fa-solid fa-layer-group" aria-hidden="true"></i> Biblioteca da marca</a>
+      <span class="studio-nav-label">Produção</span>
+      <a data-brand-link href="/parametros/modelagem-criativos/trocar"><i class="fa-solid fa-sliders" aria-hidden="true"></i> Ajustar peça</a>
+      <a data-brand-link href="/parametros/modelagem-criativos/video"><i class="fa-solid fa-film" aria-hidden="true"></i> Montar vídeo</a>
+      <span class="studio-nav-label">Identidade</span>
+      <a href="/parametros/modelagem-criativos/marcas"><i class="fa-solid fa-swatchbook" aria-hidden="true"></i> Marcas</a>
+      <details><summary>Recursos avançados</summary>
+        <a href="/parametros/modelagem-criativos/camadas">Camadas</a>
+        <a href="/parametros/modelagem-criativos/biblioteca">Formatos</a>
+        <a href="/parametros/modelagem-criativos/design-system">Design System</a>
+        <a href="/parametros/modelagem-criativos/bancada">Bancada</a>
+        <a href="/parametros/modelagem-criativos/historico">Custo</a>
+        <a href="/parametros/modelagem-criativos/preparar">Preparar</a>
+        <a href="/parametros/modelagem-criativos/produzir">Produzir</a>
+      </details>
+      <details><summary>Pesquisa</summary>
+        <a href="/parametros/modelagem-criativos/desdobrar">Desdobrar</a>
+        <a href="/parametros/modelagem-criativos/mesa">Conceito 15s</a>
+        <a href="/parametros/modelagem-criativos/placas">Placas</a>
+      </details>
+    </nav>
+    <div class="studio-content">
+      <div class="studio-heading"><div><p class="studio-breadcrumb">Cadu / Media Studio</p><h1>Sua produção, em um só lugar.</h1><p>Ajuste peças, monte clipes e retome o trabalho da marca ativa.</p></div><a class="studio-button is-primary" data-brand-link href="/parametros/modelagem-criativos/trocar"><i class="fa-solid fa-plus" aria-hidden="true"></i> Ajustar peça</a></div>
+      <div class="studio-brand-context"><div><i class="fa-solid fa-building" aria-hidden="true"></i><div><strong id="studioBrandName">Carregando marca…</strong><p>Biblioteca e histórico da marca selecionada</p></div></div><a href="/parametros/modelagem-criativos/marcas">Gerenciar marcas <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></div>
+      <section class="studio-actions" aria-label="Começar ou retomar uma produção">
+        <a data-brand-link href="/parametros/modelagem-criativos/trocar"><i class="fa-solid fa-sliders" aria-hidden="true"></i><strong>Ajustar peça</strong><p>Importe o criativo e descreva as alterações.</p></a>
+        <a href="#studioLibrary"><i class="fa-solid fa-images" aria-hidden="true"></i><strong>Retomar uma peça</strong><p>Abra um resultado e continue o ajuste.</p></a>
+        <a data-brand-link href="/parametros/modelagem-criativos/video"><i class="fa-solid fa-film" aria-hidden="true"></i><strong>Montar vídeo</strong><p>Reúna de 2 a 30 cenas da biblioteca.</p></a>
+        <a href="/parametros/modelagem-criativos/marcas"><i class="fa-solid fa-swatchbook" aria-hidden="true"></i><strong>Organizar a marca</strong><p>Reúna logos, cores, fontes e referências.</p></a>
+      </section>
+      <section id="studioLibrary" aria-labelledby="studioLibraryTitle">
+        <div class="studio-library-heading"><div><h2 id="studioLibraryTitle">Biblioteca da marca</h2><p>Peças e clipes para continuar sua produção.</p></div><button class="studio-button" id="studioRefresh" type="button"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Atualizar</button></div>
+        <div class="studio-toolbar"><div class="studio-filters" role="group" aria-label="Filtrar por tipo de mídia"><button type="button" data-media="all" aria-pressed="true">Todos</button><button type="button" data-media="still" aria-pressed="false">Imagens</button><button type="button" data-media="video" aria-pressed="false">Vídeos</button></div><label class="studio-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" id="studioSearch" aria-label="Buscar na biblioteca da marca" placeholder="Buscar na biblioteca…"></label></div>
+        <p class="studio-library-status" id="studioStatus" role="status" aria-live="polite">Carregando contexto da marca…</p>
+        <div id="studioErrors"></div>
+        <ul class="studio-grid" id="studioItems" aria-label="Resultados da biblioteca"></ul>
+        <div class="studio-pagination"><button class="studio-button" id="studioMore" type="button" hidden>Mostrar mais</button></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/mc-desk-brand.js?v=1" defer></script>
+<script src="/static/js/mc-cadu-nav.js?v=4" defer></script>
+<script src="/static/js/mc-studio-library.js?v=1" defer></script>
+<script src="/static/js/mc-cadu-home.js?v=8" defer></script>
+</body></html>

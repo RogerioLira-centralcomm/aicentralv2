@@ -49,7 +49,7 @@ def test_editor_context_checklist_and_brand_cta():
     assert view["editor_mode"] == "one_page"
     assert any(item["id"] == "strategy" and item["done"] for item in view["folha_checks"])
     assert any(item["id"] == "compose" and item["state"] == "planned" for item in view["completo_checks"])
-    assert "/familia/workspace/marcas/sistema" in view["brand_panel"]["marcas_url"]
+    assert "/workspace/app/marcas" in view["brand_panel"]["marcas_url"]
     assert "crm_client_id=44" in view["brand_panel"]["create_url"]
 
 

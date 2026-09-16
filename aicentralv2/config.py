@@ -37,7 +37,7 @@ class Config:
 	STUDIO_URL = os.getenv('STUDIO_URL', 'https://studio.centralcomm.media')
 	SKILLS_URL = os.getenv('SKILLS_URL', 'https://skills.centralcomm.media')
 	PLANNER_URL = os.getenv('PLANNER_URL', 'https://planner.centralcomm.media')
-	CONNECT_URL = os.getenv('CONNECT_URL', 'https://connect.centralcomm.media')
+	CONNECT_URL = os.getenv('CONNECT_URL', 'https://reports.centralcomm.media')
 	WORKSPACE_URL = os.getenv('WORKSPACE_URL', 'https://workspace.centralcomm.media')
 	AUTH_URL = os.getenv('AUTH_URL', 'https://auth.centralcomm.media')
 	# O PHP permanece dono destas telas; os caminhos podem ser ajustados sem

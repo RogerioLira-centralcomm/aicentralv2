@@ -30,10 +30,12 @@ def _app():
 
 class CaduSkillsTest(TestCase):
     @mock.patch("aicentralv2.cadu_skills.repository._db")
-    def test_credit_position_keeps_cadu_php_image_usage_in_the_nav_balance(self, db):
+    def test_credit_position_reads_the_shared_token_lots(self, db):
         cursor = mock.MagicMock()
-        cursor.fetchone.return_value = {"id": 9, "monthly_limit": 100, "legacy_used": 37}
-        cursor.fetchall.return_value = []
+        cursor.fetchone.side_effect = [
+            {"granted": 100, "used": 37, "available": 63},
+            {"?column?": 1},
+        ]
         db.return_value.cursor.return_value.__enter__.return_value = cursor
 
         self.assertEqual(
@@ -42,12 +44,11 @@ class CaduSkillsTest(TestCase):
         )
 
     @mock.patch("aicentralv2.cadu_skills.repository._db")
-    def test_credit_position_combines_legacy_usage_with_skills_ledger(self, db):
+    def test_credit_position_sums_every_active_shared_lot(self, db):
         cursor = mock.MagicMock()
-        cursor.fetchone.return_value = {"id": 9, "monthly_limit": 100, "legacy_used": 30}
-        cursor.fetchall.return_value = [
-            {"kind": "monthly_grant", "amount": 100},
-            {"kind": "capture", "amount": -12},
+        cursor.fetchone.side_effect = [
+            {"granted": 100, "used": 42, "available": 58},
+            {"?column?": 1},
         ]
         db.return_value.cursor.return_value.__enter__.return_value = cursor
 
@@ -57,15 +58,17 @@ class CaduSkillsTest(TestCase):
         )
 
     @mock.patch("aicentralv2.cadu_skills.repository._db")
-    def test_credit_position_uses_the_studio_default_when_plan_limit_is_empty(self, db):
+    def test_credit_position_does_not_invent_tokens_for_an_empty_plan(self, db):
         cursor = mock.MagicMock()
-        cursor.fetchone.return_value = {"id": 9, "monthly_limit": 0, "legacy_used": 37}
-        cursor.fetchall.return_value = []
+        cursor.fetchone.side_effect = [
+            {"granted": 0, "used": 0, "available": 0},
+            {"?column?": 1},
+        ]
         db.return_value.cursor.return_value.__enter__.return_value = cursor
 
         self.assertEqual(
             credit_position(12),
-            {"available": 463, "monthly": 500, "configured": True},
+            {"available": 0, "monthly": 0, "configured": True},
         )
 
     def test_catalog_promotes_ten_and_defers_ninety(self):
@@ -102,8 +105,12 @@ class CaduSkillsTest(TestCase):
         self.assertIn("Mais referências de mercado", html)
         self.assertIn("Personalizar por projeto", html)
         self.assertIn("Cadu Skills", html)
-        self.assertIn('class="cadu-skills-top-nav"', html)
+        self.assertIn('class="cadu-skills-top-nav ', html)
         self.assertIn('class="sk-catalog-sidebar"', html)
+        self.assertNotIn('class="cadu-app-sidebar cadu-skills-sidebar"', html)
+        self.assertNotIn('data-cadu-sidebar-mobile-toggle', html)
+        self.assertIn(">Entrar<", html)
+        self.assertIn(">Criar conta<", html)
         self.assertIn("Você recebe", html)
         detail = client.get("/skills/cadu-media-planning")
         self.assertEqual(detail.status_code, 200)
@@ -123,9 +130,15 @@ class CaduSkillsTest(TestCase):
         self.assertIn("Escolha o método certo para a próxima decisão.", html)
         self.assertIn("Workspace", html)
         self.assertIn("Minhas skills", html)
+        self.assertIn('class="cadu-app-sidebar cadu-skills-sidebar"', html)
+        self.assertIn('data-cadu-sidebar-mobile-toggle', html)
+        self.assertIn('class="sk-side-balance cadu-credit-meter"', html)
+        self.assertIn("Uso de créditos", html)
+        self.assertIn("Meu perfil", html)
         self.assertIn('id="conversation-open"', html)
         self.assertIn('id="conversation-panel"', html)
         self.assertIn('data-product="skills"', html)
+        self.assertNotIn('class="cadu-skills-top-nav"', html)
         self.assertNotIn('class="skills-product-nav"', html)
 
     @mock.patch("aicentralv2.cadu_skills.routes.record_event", return_value=True)

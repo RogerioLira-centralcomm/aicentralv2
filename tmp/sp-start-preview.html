@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="centralcomm">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Novo planejamento · Smart Planner</title>
+  <link rel="stylesheet" href="/static/css/tailwind/output.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/tailwind/design-system.css">
+  <link rel="stylesheet" href="/static/css/tailwind/enterprise-system.css?v=32">
+  <link rel="stylesheet" href="/static/css/smart_planner.css?v=24">
+  <style>
+    :root { --erp-topbar-h: 3.25rem; --erp-border: #e5e7eb; --erp-surface: #f8fafc; }
+    html, body { height: 100%; }
+    body { margin: 0; background: var(--erp-surface); color: #111827; font-family: Inter, sans-serif; }
+    .erp-shell { min-height: 100vh; background: linear-gradient(180deg, rgba(30,77,79,.04), transparent 18rem), var(--erp-surface); }
+    .erp-topbar { position: sticky; top: 0; z-index: 70; display: flex; min-height: var(--erp-topbar-h); align-items: center; gap: .5rem; border-bottom: 1px solid var(--erp-border); background: #fff; padding: 0 .875rem; }
+    .erp-page-context { margin-left: auto; }
+    .erp-main-content { min-height: calc(100vh - var(--erp-topbar-h)); padding: 1rem; }
+  </style>
+</head>
+<body class="cx-erp-shell">
+  <div class="erp-shell">
+    <header class="erp-topbar">
+      <strong>CentralX</strong>
+      <div class="erp-page-context">
+        <div class="text-sm font-semibold">Comercial</div>
+        <div class="text-xs text-slate-500">Novo planejamento</div>
+      </div>
+    </header>
+    <main class="erp-main-content">
+      <div class="sp-desk" id="sp-start">
+        <header class="sp-head">
+          <div>
+            <h1>Quem é o anunciante?</h1>
+            <p>Se houver marca na Modelagem, o quadro já sai com público, produto e identidade.</p>
+          </div>
+          <div class="sp-head-actions">
+            <button type="button" class="cx-btn cx-btn-ghost" data-sp-guide><i class="fa-regular fa-circle-question"></i> Como funciona</button>
+            <a class="cx-btn cx-btn-ghost" href="#"><i class="fa-solid fa-arrow-left"></i> Voltar aos planejamentos</a>
+          </div>
+        </header>
+        <div class="sp-parties">
+          <label class="cx-field sp-party">
+            <span class="cx-label">Cliente final</span>
+            <span class="sp-party-control">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input class="cx-input" type="text" placeholder="Buscar no CRM ou escrever o nome">
+            </span>
+          </label>
+          <label class="cx-field sp-party">
+            <span class="cx-label">Agência</span>
+            <span class="sp-party-control">
+              <i class="fa-regular fa-building"></i>
+              <input class="cx-input" type="text" placeholder="Opcional — preenche se o cliente tiver vínculo">
+            </span>
+          </label>
+        </div>
+        <h2 class="sp-start-format">O que o anunciante precisa assinar?</h2>
+        <div class="sp-formats">
+          <button type="button" class="sp-format is-priority">
+            <div class="sp-format-copy">
+              <span class="sp-format-pick is-on"><i class="fa-solid fa-circle-check"></i> Recomendado</span>
+              <span class="sp-format-mark">Página única</span>
+              <h2>Uma folha para decidir</h2>
+              <p>Recomendação, criativo no canal, um dado de mercado e a defesa. Cabe em uma reunião.</p>
+              <ol class="sp-format-slots"><li>Recomendação</li><li>Criativo no canal</li><li>Dado</li><li>Defesa</li></ol>
+            </div>
+            <img class="sp-format-art" src="/static/images/smart_planner/format-sheet-active.png?v=2" width="1536" height="1152" alt="">
+            <span class="cx-btn cx-btn-primary">Montar página única</span>
+          </button>
+          <button type="button" class="sp-format">
+            <div class="sp-format-copy">
+              <span class="sp-format-pick"><i class="fa-regular fa-circle"></i> Plano completo</span>
+              <h2>Quadro com quatro seções</h2>
+              <p>Contexto, estratégia, mídia e execução. Use quando a campanha precisa de defesa longa.</p>
+              <ol class="sp-format-slots"><li>Contexto</li><li>Estratégia</li><li>Mídia</li><li>Execução</li></ol>
+            </div>
+            <img class="sp-format-art" src="/static/images/smart_planner/format-board-white.png?v=2" width="1536" height="1152" alt="">
+            <span class="cx-btn cx-btn-secondary">Montar plano completo</span>
+          </button>
+        </div>
+      </div>
+    </main>
+  </div>
+<dialog class="sp-guide" id="sp-guide" aria-labelledby="sp-guide-title">
+  <form method="dialog" class="sp-guide-sheet">
+    <header class="sp-guide-head">
+      <div>
+        <h2 id="sp-guide-title" tabindex="-1">Como funciona o Smart Planner</h2>
+        <p>O Smart Planner transforma briefing em recomendação pronta para apresentação.</p>
+      </div>
+      <button type="submit" class="cx-btn cx-btn-ghost cx-btn-sm" value="close">Fechar</button>
+    </header>
+
+    <div class="sp-guide-flow" aria-hidden="true">
+      <div class="sp-guide-node is-briefing">
+        <div class="sp-guide-sources">
+          <i class="fa-regular fa-file-lines"></i>
+          <i class="fa-solid fa-link"></i>
+          <i class="fa-regular fa-image"></i>
+          <i class="fa-regular fa-file-pdf"></i>
+        </div>
+        <div class="sp-guide-stack">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <strong>Briefing</strong>
+      </div>
+
+      <span class="sp-guide-arrow"></span>
+
+      <div class="sp-guide-node is-engine">
+        <div class="sp-guide-engine">
+          <ol>
+            <li><i class="fa-solid fa-circle-check"></i> Analisa</li>
+            <li><i class="fa-solid fa-circle-check"></i> Organiza</li>
+            <li><i class="fa-solid fa-circle-check"></i> Resume</li>
+            <li><i class="fa-solid fa-circle-check"></i> Estrutura</li>
+          </ol>
+        </div>
+      </div>
+
+      <span class="sp-guide-arrow"></span>
+
+      <div class="sp-guide-node">
+        <div class="sp-guide-sheet-card">
+          <i class="fa-regular fa-file-lines"></i>
+          <b></b><b></b><b></b>
+        </div>
+        <strong>Recomendação pronta</strong>
+      </div>
+    </div>
+
+    <div class="sp-guide-split">
+      <section>
+        <h3>Na prática</h3>
+        <ol>
+          <li>
+            <strong>Importar briefing</strong>
+            <span>Cole texto, PDF, link ou imagem para iniciar o plano.</span>
+          </li>
+          <li>
+            <strong>Revisar e ajustar</strong>
+            <span>Confira narrativa, verba, mix e contexto antes de seguir.</span>
+          </li>
+          <li>
+            <strong>Gerar saída</strong>
+            <span>Escolha página única ou planejamento completo e siga para o quadro.</span>
+          </li>
+        </ol>
+      </section>
+      <section>
+        <h3>Por trás do fluxo</h3>
+        <ul>
+          <li>
+            <i class="fa-regular fa-file-lines" aria-hidden="true"></i>
+            <div>
+              <strong>GPT-5 mini</strong>
+              <span>Extrai campos, organiza o briefing e prepara a base.</span>
+            </div>
+          </li>
+          <li>
+            <i class="fa-solid fa-link" aria-hidden="true"></i>
+            <div>
+              <strong>GPT-5 nano</strong>
+              <span>Resume arquivos e links para apoiar a edição.</span>
+            </div>
+          </li>
+          <li>
+            <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+            <div>
+              <strong>GPT-5</strong>
+              <span>Escreve a recomendação final e estrutura o plano.</span>
+            </div>
+          </li>
+          <li>
+            <i class="fa-solid fa-gear" aria-hidden="true"></i>
+            <div>
+              <strong>Revisão automática</strong>
+              <span>A página única valida o caminho antes do plano completo.</span>
+            </div>
+          </li>
+        </ul>
+      </section>
+    </div>
+
+    <div class="sp-guide-out">
+      <article>
+        <i class="fa-regular fa-file-lines" aria-hidden="true"></i>
+        <div>
+          <h3>Página única</h3>
+          <p>Uma folha objetiva com recomendação, criativo no canal, dado e defesa.</p>
+        </div>
+      </article>
+      <article>
+        <i class="fa-solid fa-chart-simple" aria-hidden="true"></i>
+        <div>
+          <h3>Planejamento completo</h3>
+          <p>Estrutura ampliada com contexto, estratégia, mídia e execução.</p>
+        </div>
+      </article>
+    </div>
+  </form>
+</dialog>
+<script src="/static/js/smart_planner/guide.js?v=3"></script>
+</body>
+</html>

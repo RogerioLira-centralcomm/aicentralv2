@@ -588,7 +588,9 @@ def init_routes(app):
             'search': request.args.get('search', '').strip(),
         }
         try:
-            planos = db.obter_gestao_creditos_clientes(filtros)
+            # A administração usa o saldo comercial real (lotes de tokens) e
+            # separa o consumo do Chat Famílias das demais ferramentas.
+            planos = db.obter_administracao_creditos_cadu(filtros)
             plan_definitions = db.obter_plan_definitions()
             plan_options = [
                 {'id': item.get('id'), 'name': item.get('plan_name'),
@@ -598,9 +600,12 @@ def init_routes(app):
             today = datetime.now().date()
             days_in_month = calendar.monthrange(today.year, today.month)[1]
             for plano in planos:
-                plano['credit_position'] = calculate_credit_position(
-                    plano.get('monthly_limit'), plano.get('used'), plano.get('adjustments')
-                )
+                plano['monthly_limit'] = int(plano.get('granted_tokens') or 0)
+                plano['used'] = int(plano.get('credited_tokens_used') or 0)
+                plano['adjustments'] = 0
+                plano['credit_position'] = calculate_credit_position(plano['monthly_limit'], plano['used'], 0)
+                plano['consumed_tokens'] = int(plano.get('tool_tokens') or 0) + int(plano.get('family_chat_tokens') or 0)
+                plano['internal_cost'] = float(plano.get('tool_cost') or 0) + float(plano.get('family_chat_cost') or 0)
                 plano['recommendation'] = build_credit_recommendation(
                     plano['credit_position'], today.day, days_in_month, plan_options
                 )
@@ -609,6 +614,8 @@ def init_routes(app):
                 'adjustments': sum(p['credit_position']['adjustments'] for p in planos),
                 'used': sum(p['credit_position']['used'] for p in planos),
                 'available': sum(p['credit_position']['available'] for p in planos),
+                'consumed_tokens': sum(p['consumed_tokens'] for p in planos),
+                'internal_cost': sum(p['internal_cost'] for p in planos),
                 'opportunities': sum(
                     p['recommendation']['level'] in ('critical', 'attention', 'opportunity') for p in planos
                 ),
@@ -707,7 +714,7 @@ def init_routes(app):
         )
         return render_template('cadu_creditos_detalhe.html', plano=plano,
                                movement_labels=MOVEMENT_LABELS,
-                               packages=db.obter_pacotes_creditos(),
+                               packages=[],
                                dialog_to_open=dialog_to_open, form_error=form_error)
 
     @app.route('/contratos/novo')
@@ -1217,7 +1224,7 @@ def init_routes(app):
             'studio': ('Studio', 'studio.png', 'Transforme briefing em peças prontas para veicular.'),
             'planner': ('Planner', 'planner.png', 'Encontre a melhor decisão antes de investir.'),
             'skills': ('Skills', 'skills.png', 'Acesse especialistas para cada tarefa.'),
-            'connect': ('Connect', 'connect.png', 'Conecte dados, canais e operação.'),
+            'connect': ('Reports', 'connect.png', 'Conecte dados, canais e operação.'),
         }
         active_auth_product = next(
             (

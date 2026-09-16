@@ -24,7 +24,20 @@ def test_workspace_legacy_brand_path_moves_into_workspace_shell():
     with app().test_request_context('/parametros/modelagem-criativos/marcas?crm_client_id=7', base_url='https://workspace.centralcomm.media'):
         response = modelagem_desk.__wrapped__('marcas')
     assert response.status_code == 302
-    assert response.location == 'https://workspace.centralcomm.media/familia/workspace/marcas/sistema?crm_client_id=7'
+    assert response.location == 'https://workspace.centralcomm.media/workspace/app/marcas?crm_client_id=7'
+
+
+def test_workspace_brand_path_keeps_the_native_brand_identifier():
+    with app().test_request_context(
+        '/parametros/modelagem-criativos/marcas?crm_client_id=7&creative_client_id=31',
+        base_url='https://workspace.centralcomm.media',
+    ):
+        response = modelagem_desk.__wrapped__('marcas')
+    assert response.status_code == 302
+    assert response.location == (
+        'https://workspace.centralcomm.media/workspace/app/marcas/31'
+        '?crm_client_id=7&creative_client_id=31'
+    )
 
 
 def test_unconfigured_development_host_does_not_redirect():
@@ -58,3 +71,13 @@ def test_video_workspace_renders_its_runtime_scripts_in_portal_shell():
     assert 'js/mc-desk-brand.js' in html
     assert 'js/mc-cadu-nav.js' in html
     assert 'js/mc-cadu-video.js' in html
+
+
+def test_studio_navigation_has_one_authoritative_active_state():
+    root = Path(__file__).resolve().parents[1]
+    css = (root / 'aicentralv2' / 'static' / 'css' / 'cadu-studio-navigation.css').read_text()
+
+    assert css.count('.mc-cadu-bar--studio .mc-cadu-nav > a[aria-current="page"]') == 1
+    assert 'background: #263b39;' in css
+    assert 'color: #8fe8d1;' in css
+    assert 'outline: 3px solid #8fe8d1;' in css

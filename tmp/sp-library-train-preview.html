@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Laboratório de formatos — preview</title>
+  <style>
+    body { margin: 0; font: 14px/1.4 ui-sans-serif, system-ui, sans-serif; background: #ece8de; color: #1b1b1b; }
+    .wrap { display: grid; grid-template-columns: 1fr 280px; gap: 20px; padding: 24px; }
+    .stage { background: #fff; min-height: 420px; padding: 16px; }
+    .mc-ad-frame { width: 300px; height: 250px; border: 0; display: block; background: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+    .mc-library-modes button { border: 1px solid #d5d8d2; background: #fff; padding: 4px 10px; }
+    .mc-library-modes button.is-active { background: #183436; color: #fff; }
+    .mc-training-card { padding: 10px 12px; background: #f6f3ea; font-size: 12px; }
+    .mc-training-scores { margin: 8px 0 0; padding: 0; list-style: none; }
+    .mc-training-scores li { display: flex; justify-content: space-between; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="stage">
+      <nav class="mc-library-modes">
+        <button type="button">Catálogo</button>
+        <button type="button" class="is-active">Treinamento</button>
+        <button type="button">Placement</button>
+        <button type="button">Inspeção</button>
+        <button type="button">Revisões</button>
+      </nav>
+      <p>Peça isolada em iframe · iab-medium · caminho C</p>
+      <iframe class="mc-ad-frame" title="Peça isolada" sandbox="allow-same-origin"></iframe>
+    </section>
+    <aside class="mc-training-card" data-mode="treino">
+      <p><strong>Chave</strong> iab-medium</p>
+      <p><strong>Zona</strong> in_feed</p>
+      <p><strong>Caminho</strong> C · Placeholder de formato</p>
+      <ol class="mc-training-scores"><li><span>format</span><strong>9</strong></li><li><span>anatomy</span><strong>4</strong></li><li><span>channel</span><strong>10</strong></li><li><span>placement</span><strong>10</strong></li><li><span>legibility</span><strong>8</strong></li><li><span>brand_consistency</span><strong>5</strong></li><li><span>context</span><strong>9</strong></li><li><span>technical</span><strong>10</strong></li></ol>
+    </aside>
+  </div>
+  <script>
+    const payload = {"html": "<article class=\"cx-format-ph\" data-format=\"iab-medium\" data-zone=\"in_feed\" data-density=\"standard\" style=\"width:300px;height:250px;--ph-inset:0%;\"><header class=\"cx-format-ph-meta\"><strong>Medium rectangle</strong><span>300×250</span><span>portal, programmatic</span><span>in_feed</span><em>standard</em></header><div class=\"cx-format-ph-safe\" aria-hidden=\"true\"></div><div class=\"cx-format-ph-brand\">MARCA DEMONSTRATIVA</div><div class=\"cx-format-ph-anatomy\"><section class=\"cx-format-ph-box is-required is-logo\" data-role=\"logo\"><span>LOGO</span></section><section class=\"cx-format-ph-box is-required is-headline\" data-role=\"headline\"><span>HEADLINE</span></section><section class=\"cx-format-ph-box is-required is-cta\" data-role=\"cta\"><span>CTA</span></section><section class=\"cx-format-ph-box is-optional is-product\" data-role=\"product\"><span>PRODUTO / IMAGEM</span></section><section class=\"cx-format-ph-box is-optional is-lifestyle\" data-role=\"lifestyle\"><span>LIFESTYLE</span></section></div><footer class=\"cx-format-ph-seal\">Placeholder de formato · conteúdo demonstrativo</footer><small class=\"cx-format-ph-disclaimer\">Simulação de ambiente · sem afiliação com o veículo</small></article>", "css": "\n.cx-format-ph{position:relative;display:flex;flex-direction:column;gap:4px;box-sizing:border-box;\n  padding:8px;background:#f4f1ea;color:#1b1b1b;border:1px dashed #8a8373;overflow:hidden;\n  font:11px/1.25 ui-sans-serif,system-ui,sans-serif}\n.cx-format-ph-meta{display:flex;flex-wrap:wrap;gap:6px;font-size:10px;letter-spacing:.04em;text-transform:uppercase}\n.cx-format-ph-safe{position:absolute;inset:var(--ph-inset,0);border:1px dotted rgba(196,23,12,.35);pointer-events:none}\n.cx-format-ph-brand{font-weight:700;font-size:12px}\n.cx-format-ph-anatomy{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:4px;min-height:0}\n.cx-format-ph-box{display:grid;place-items:center;border:1px solid #c4bba8;background:#fff;min-height:22px}\n.cx-format-ph-box.is-optional{border-style:dashed;color:#666}\n.cx-format-ph-box.is-headline{grid-column:1/-1}\n.cx-format-ph-box.is-product,.cx-format-ph-box.is-image,.cx-format-ph-box.is-lifestyle{grid-column:1/-1;min-height:36px}\n.cx-format-ph-box.is-cta{background:#1b1b1b;color:#fff}\n.cx-format-ph-seal{font-size:9px;text-transform:uppercase;letter-spacing:.06em}\n.cx-format-ph-disclaimer{font-size:9px;color:#666}\n"};
+    const frame = document.querySelector('.mc-ad-frame');
+    frame.srcdoc = `<!doctype html><html><head><style>html,body{margin:0;width:100%;height:100%;overflow:hidden}${payload.css}</style></head><body>${payload.html}</body></html>`;
+  </script>
+</body>
+</html>

@@ -35,7 +35,9 @@ class SchemaCompatibilityTest(TestCase):
             repository.conversation_history({'id': 7, 'organization_id': 12}, 24)
             sql, params = rows.call_args.args
             self.assertNotIn('JOIN', sql)
-            self.assertEqual(params, (7, 24))
+            self.assertEqual(params[:2], (7, 24))
+            self.assertIn('titulo ILIKE %s', sql)
+            self.assertIn('status = ANY(%s)', sql)
 
     def test_schema_failure_does_not_fallback_to_a_grant(self):
         with self.app.test_request_context('/'), mock.patch.object(repository, 'rows', side_effect=RuntimeError('offline')):

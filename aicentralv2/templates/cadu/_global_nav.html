@@ -14,7 +14,7 @@
   {% if session.get('user_id') %}
     <a class="cadu-context-link" href="{{ product_url('workspace') if product_url is defined else cadu_home }}"><small>Workspace</small><strong>{{ session.get('user_name', 'Minha conta') }}</strong></a>
     <a class="cadu-credit-link" href="{{ product_url('workspace', '/workspace/app/creditos') }}">Créditos</a>
-    <a class="cadu-avatar" href="{{ auth_home }}" aria-label="Abrir conta">{% if session.get('user_photo_url') %}<img src="{{ session.get('user_photo_url') }}" alt="Foto de {{ session.get('user_name', 'usuário') }}">{% else %}{{ session.get('user_name', 'U')[:2]|upper }}{% endif %}</a>
+    <a class="cadu-avatar" href="{{ auth_home }}" aria-label="Abrir conta">{% set avatar_photo=(perfil_contato or {}).get('foto_url') or session.get('user_photo_url') %}{% set avatar_badge=(perfil_contato or {}).get('cadu_avatar_badge') %}{% set avatar_alt='Foto de ' ~ session.get('user_name', 'usuário') %}{% include 'cadu/_user_avatar_image.html' %}</a>
   {% else %}
     <a class="cadu-nav-link" href="{{ cadu_home }}">Workspace</a>
     <a class="cadu-nav-link" href="{{ product_url('auth', '/login') if product_url is defined else url_for('login') }}">Entrar</a>

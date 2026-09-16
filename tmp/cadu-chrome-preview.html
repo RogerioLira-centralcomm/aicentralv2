@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cadu chrome preview</title>
+  <style>
+    :root { --erp-topbar-h: 3.25rem; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      background: #e8eaE6;
+    }
+    .erp-topbar {
+      display: flex;
+      align-items: center;
+      height: 3.25rem;
+      padding: 0 1rem;
+      background: #0f1512;
+      color: #e8ebe6;
+      font-size: 0.88rem;
+    }
+    .erp-topbar strong { letter-spacing: -0.03em; }
+    .erp-topbar span { margin-left: 0.75rem; opacity: 0.55; }
+  </style>
+  <link rel="stylesheet" href="/aicentralv2/static/css/modelagem_criativos.css">
+</head>
+<body>
+  <div class="erp-topbar"><strong>CentralX</strong><span>topbar do ERP · 3.25rem</span></div>
+  <div class="erp-main">
+    <div class="erp-main-content">
+      <main class="mc-shell mc-cadu-home">
+        <header class="mc-cadu-bar">
+          <a class="mc-cadu-mark" href="#">Cadu Media Studio<sup>®</sup></a>
+          <nav class="mc-cadu-nav" aria-label="Cadu Media Studio">
+            <a id="mcCaduStill" href="#">Ajustar</a>
+            <a id="mcCaduVideo" href="#">Vídeo</a>
+            <a href="#">Marcas</a>
+            <details class="mc-cadu-menu">
+              <summary>Mais</summary>
+              <div class="mc-cadu-menu-list">
+                <a href="#"><strong>Camadas</strong><span>Recorte fiel e cena protegida</span></a>
+                <a href="#"><strong>Formatos</strong><span>Catálogo de retângulo e inventário</span></a>
+              </div>
+            </details>
+            <details class="mc-cadu-menu">
+              <summary>Pesquisa</summary>
+              <div class="mc-cadu-menu-list">
+                <a href="#"><strong>Desdobrar</strong><span>O mesmo anúncio noutros retângulos</span></a>
+              </div>
+            </details>
+          </nav>
+          <div class="mc-cadu-meta">
+            <label class="mc-cadu-brand">
+              <span class="mc-cadu-brand-label">Marca</span>
+              <select aria-label="Marca desta sessão">
+                <option selected>Banco BMG</option>
+                <option>Localiza</option>
+              </select>
+            </label>
+            <p class="mc-cadu-credits">488 créditos</p>
+          </div>
+        </header>
+        <div class="mc-cadu-floor">
+          <section class="mc-cadu-wall">
+            <div class="mc-cadu-wall-head">
+              <div>
+                <h1>Peças da marca</h1>
+                <p>Ajuste o criativo real. O clipe entra no mesmo histórico.</p>
+              </div>
+              <a class="mc-cadu-new" href="#">Ajustar peça</a>
+            </div>
+            <ul class="mc-cadu-takes">
+              <li>
+                <a href="#">
+                  <span style="aspect-ratio:4/5;background:#2a2d28"></span>
+                  <strong>Headline de oferta</strong>
+                  <small>Peça · 1080×1350</small>
+                </a>
+              </li>
+              <li>
+                <a href="#">
+                  <span style="aspect-ratio:4/5;background:#3a2f28"></span>
+                  <strong>Versão 2</strong>
+                  <small>Peça · 1080×1350</small>
+                </a>
+              </li>
+              <li data-ratio="16/9">
+                <a href="#">
+                  <span style="aspect-ratio:16/9;background:#1c2422"></span>
+                  <strong>Clipe 8s</strong>
+                  <small>Vídeo · mesmo histórico</small>
+                </a>
+              </li>
+            </ul>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

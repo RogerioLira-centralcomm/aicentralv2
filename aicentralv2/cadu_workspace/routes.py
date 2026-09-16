@@ -1228,7 +1228,21 @@ def create_brand():
         connection.rollback()
         current_app.logger.exception('Não foi possível criar uma marca no Workspace')
         abort(503, description='Não foi possível criar a marca agora. Tente novamente.')
-    return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id), code=303)
+    # The creation modal can carry the first logo and visual references.  Save
+    # them with the new record so its first detail screen is already useful.
+    files = [item for item in request.files.getlist('images') if item and item.filename][:8]
+    if files:
+        try:
+            from ..creative_modeling_service import CreativeModelingService
+            CreativeModelingService().upload_client_brand_assets(
+                brand_id, files, request.form.get('primary_logo') == 'true', 'reference',
+            )
+        except ValueError as exc:
+            current_app.logger.warning('Marca %s criada sem ativos: %s', brand_id, exc)
+        except Exception:
+            current_app.logger.exception('Marca %s criada, mas não foi possível salvar seus ativos', brand_id)
+    return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id,
+                            audit='start' if request.form.get('analyze') == 'true' else None), code=303)
 
 
 @bp.get('/workspace/app/projetos')

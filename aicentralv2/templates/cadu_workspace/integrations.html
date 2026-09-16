@@ -1,6 +1,6 @@
 {% extends 'cadu_portals/base.html' %}
 {% block title %}Integrações — Workspace{% endblock %}{% block product_id %}workspace{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=6"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-integrations.css') }}?v=1">{% endblock %}{% block navigation %}{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=6"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-integrations.css') }}?v=2">{% endblock %}{% block navigation %}{% endblock %}
 {% block content %}{% set workspace_active='integracoes' %}
 <div class="workspace-app-shell">{% include 'cadu_workspace/_app_sidebar.html' %}<div class="workspace-app-main">
   <section class="workspace-page-head"><a href="{{ url_for('cadu_workspace.dashboard') }}">← Workspace</a><h1>Integrações</h1><p>Veja quais contas estão autorizadas para esta organização e onde elas entram no trabalho.</p></section>

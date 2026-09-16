@@ -12,7 +12,7 @@ import secrets
 
 from werkzeug.exceptions import HTTPException
 
-from flask import Blueprint, Response, abort, current_app, jsonify, redirect, render_template, request, send_file, session, url_for
+from flask import Blueprint, Response, abort, current_app, g, jsonify, redirect, render_template, request, send_file, session, url_for
 
 from ..auth import login_required
 from ..cadu_family import repository as family_repository
@@ -483,21 +483,32 @@ def _workspace_projects(client_id: int, query: str = "", status: str = "ativos")
 def _workspace_data_health() -> dict:
     """Expose missing Workspace schema/data access instead of a blank dashboard."""
     required = ('cadu_ci_projetos', 'cadu_ci_projeto_arquivos', 'cadu_ci_chunks')
-    try:
-        with get_db().cursor() as cursor:
-            # Resolve each relation explicitly so a database may contain only a
-            # partial rollout without appearing healthy.
-            cursor.execute("SELECT to_regclass(%s) AS relation", ('public.cadu_ci_projetos',))
-            if not (cursor.fetchone() or {}).get('relation'):
-                return {'ready': False, 'message': 'A estrutura de projetos ainda não foi ativada.'}
-            for table in required[1:]:
-                cursor.execute("SELECT to_regclass(%s) AS relation", (f'public.{table}',))
+    for attempt in range(2):
+        try:
+            with get_db().cursor() as cursor:
+                # Resolve each relation explicitly so a database may contain only a
+                # partial rollout without appearing healthy.
+                cursor.execute("SELECT to_regclass(%s) AS relation", ('public.cadu_ci_projetos',))
                 if not (cursor.fetchone() or {}).get('relation'):
-                    return {'ready': False, 'message': 'A estrutura de fontes do projeto ainda não foi ativada.'}
-        return {'ready': True, 'message': ''}
-    except Exception:
-        current_app.logger.warning('Workspace sem acesso à base de dados', exc_info=True)
-        return {'ready': False, 'message': 'Os dados do Workspace estão temporariamente indisponíveis.'}
+                    return {'ready': False, 'message': 'A estrutura de projetos ainda não foi ativada.'}
+                for table in required[1:]:
+                    cursor.execute("SELECT to_regclass(%s) AS relation", (f'public.{table}',))
+                    if not (cursor.fetchone() or {}).get('relation'):
+                        return {'ready': False, 'message': 'A estrutura de fontes do projeto ainda não foi ativada.'}
+            return {'ready': True, 'message': ''}
+        except Exception:
+            # A pooled worker may hold a connection closed by the server. Drop
+            # it once and establish a fresh one before showing a false outage.
+            connection = g.pop('db', None)
+            if connection is not None:
+                try:
+                    connection.close()
+                except Exception:
+                    pass
+            if attempt == 0:
+                continue
+            current_app.logger.warning('Workspace sem acesso à base de dados após reconexão', exc_info=True)
+    return {'ready': False, 'message': 'Os dados do Workspace estão temporariamente indisponíveis.'}
 
 
 def _workspace_source_root() -> str:

@@ -13,11 +13,16 @@ from . import catalog, places
 
 VALID_OBJECTIVES = {'awareness', 'consideracao', 'leads', 'vendas', 'trafego', 'outro'}
 VALID_KINDS = {'audiencias', 'canais', 'formatos', 'interativos', 'places'}
+BRIEFING_LIMITS = {'budget': 80, 'period': 120, 'geography': 120, 'kpis': 180, 'notes': 2000}
+QUOTE_SCOPES = {'full_operation', 'media_inventory', 'specific_channels'}
 
 
 def _available():
-    result = repository.rows("SELECT to_regclass('public.cadu_planner_plans') IS NOT NULL AS available")
-    return bool(result and result[0]['available'])
+    result = repository.rows("""SELECT to_regclass('public.cadu_planner_plans') IS NOT NULL AS available,
+                                      COUNT(*) FILTER (WHERE column_name IN ('advertiser_name', 'campaign_name')) = 2 AS client_flow
+                                 FROM information_schema.columns
+                                WHERE table_schema = 'public' AND table_name = 'cadu_planner_plans'""")
+    return bool(result and result[0]['available'] and result[0]['client_flow'])
 
 
 def _require_available():
@@ -30,10 +35,15 @@ def _allocations_available():
     return bool(result and result[0]['available'])
 
 
+def _commercial_available():
+    result = repository.rows("SELECT to_regclass('public.cadu_planner_quote_requests') IS NOT NULL AS available")
+    return bool(result and result[0]['available'])
+
+
 def list_plans(client_id, actor_id):
     if not _available():
         return []
-    return repository.rows('''SELECT p.id, p.title, p.objective, p.status, p.project_ref, p.brand_ref,
+    return repository.rows('''SELECT p.id, p.title, p.objective, p.status, p.advertiser_name, p.campaign_name,
                                      p.updated_at, COUNT(i.id) AS item_count
                                 FROM cadu_planner_plans p
                            LEFT JOIN cadu_planner_plan_items i ON i.plan_id = p.id
@@ -51,18 +61,19 @@ def create_plan(client_id, actor_id, payload, context):
     if objective and objective not in VALID_OBJECTIVES:
         raise BadRequest('Objetivo inválido.')
     plan_id = str(uuid4())
+    briefing = _clean_briefing(payload.get('briefing') or {})
     with get_db() as conn, conn.cursor() as cur:
         cur.execute('''INSERT INTO cadu_planner_plans
-             (id, client_id, created_by, project_ref, brand_ref, title, objective, briefing)
+             (id, client_id, created_by, title, objective, advertiser_name, campaign_name, briefing)
              VALUES (%s, %s, %s, %s, %s, %s, %s, %s)''',
-            (plan_id, client_id, actor_id, context.get('project_ref'), context.get('brand_ref'),
-             title, objective or None, Json({})))
+            (plan_id, client_id, actor_id, title, objective or None,
+             _clean_label(payload.get('advertiser_name')), _clean_label(payload.get('campaign_name')), Json(briefing)))
     return get_plan(client_id, actor_id, plan_id)
 
 
 def get_plan(client_id, actor_id, plan_id):
     _require_available()
-    rows = repository.rows('''SELECT id, title, objective, status, project_ref, brand_ref, briefing,
+    rows = repository.rows('''SELECT id, title, objective, status, advertiser_name, campaign_name, briefing,
                                       created_at, updated_at FROM cadu_planner_plans
                                 WHERE id = %s AND client_id = %s AND created_by = %s AND archived_at IS NULL''',
                            (str(plan_id), client_id, actor_id))
@@ -76,6 +87,10 @@ def get_plan(client_id, actor_id, plan_id):
                                                 FROM cadu_planner_channel_allocations WHERE plan_id = %s
                                              ORDER BY resource_id''', (str(plan_id),)) if _allocations_available() else []
     plan['allocation_by_channel'] = {row['resource_id']: row for row in plan['allocations']}
+    plan['quote_requests'] = repository.rows('''SELECT id, scope, status, assigned_executive_id, crm_quote_id,
+                                                        created_at, accepted_at, closed_at
+                                                   FROM cadu_planner_quote_requests
+                                                  WHERE plan_id = %s ORDER BY created_at DESC''', (str(plan_id),)) if _commercial_available() else []
     plan['readiness'] = readiness(plan)
     return plan
 
@@ -100,25 +115,33 @@ def readiness(plan):
     return {'ready': all(item['complete'] for item in checks), 'checks': checks}
 
 
-def update_briefing(client_id, actor_id, plan_id, payload):
-    """Store the small, decision-facing brief that guides a media plan."""
-    plan = get_plan(client_id, actor_id, plan_id)
-    raw_briefing = payload.get('briefing')
+def _clean_briefing(raw_briefing):
     if not isinstance(raw_briefing, dict):
         raise BadRequest('Briefing inválido.')
-    limits = {'budget': 80, 'period': 120, 'geography': 120, 'kpis': 180, 'notes': 2000}
     briefing = {}
-    for key, limit in limits.items():
+    for key, limit in BRIEFING_LIMITS.items():
         value = raw_briefing.get(key)
         if value is None:
             continue
         value = str(value).strip()
         if value:
             briefing[key] = value[:limit]
+    return briefing
+
+
+def _clean_label(value):
+    return ' '.join(str(value or '').split())[:180] or None
+
+
+def update_briefing(client_id, actor_id, plan_id, payload):
+    """Store the small, decision-facing brief that guides a media plan."""
+    plan = get_plan(client_id, actor_id, plan_id)
+    briefing = _clean_briefing(payload.get('briefing'))
     with get_db() as conn, conn.cursor() as cur:
         cur.execute('''UPDATE cadu_planner_plans
-                          SET briefing = %s, updated_at = NOW()
-                        WHERE id = %s''', (Json(briefing), str(plan['id'])))
+                          SET briefing = %s, advertiser_name = %s, campaign_name = %s, updated_at = NOW()
+                        WHERE id = %s''', (Json(briefing), _clean_label(payload.get('advertiser_name')),
+                                           _clean_label(payload.get('campaign_name')), str(plan['id'])))
     return get_plan(client_id, actor_id, plan_id)
 
 
@@ -196,3 +219,38 @@ def toggle_item(client_id, actor_id, plan_id, payload):
             selected = True
         cur.execute('UPDATE cadu_planner_plans SET updated_at = NOW() WHERE id = %s', (str(plan['id']),))
     return {'selected': selected, 'record': record}
+
+
+def request_quote(client_id, actor_id, plan_id, payload):
+    """Freeze a client plan for the commercial team; never create prices here."""
+    plan = get_plan(client_id, actor_id, plan_id)
+    if not _commercial_available():
+        raise BadRequest('Aplique a migration comercial do Planner antes de solicitar cotação.')
+    if not plan['readiness']['ready']:
+        raise BadRequest('Complete o checklist do plano antes de solicitar uma cotação.')
+    scope = str(payload.get('scope') or '').strip()
+    if scope not in QUOTE_SCOPES:
+        raise BadRequest('Escolha o escopo da cotação.')
+    message = str(payload.get('message') or '').strip()[:2000] or None
+    snapshot = {
+        'title': plan['title'], 'objective': plan.get('objective'),
+        'advertiser_name': plan.get('advertiser_name'), 'campaign_name': plan.get('campaign_name'),
+        'briefing': plan.get('briefing') or {},
+        'items': [{'kind': item['kind'], 'resource_id': item['resource_id'],
+                   'snapshot': item.get('snapshot') or {}} for item in plan.get('items') or []],
+        'allocations': [{**row, 'investment': str(row.get('investment') or 0),
+                         'weight': str(row.get('weight') or 0)} for row in plan.get('allocations') or []],
+    }
+    version_id, request_id = str(uuid4()), str(uuid4())
+    with get_db() as conn, conn.cursor() as cur:
+        cur.execute('SELECT COALESCE(MAX(version_number), 0) + 1 AS next FROM cadu_planner_plan_versions WHERE plan_id = %s', (str(plan['id']),))
+        version_number = cur.fetchone()['next']
+        cur.execute('''INSERT INTO cadu_planner_plan_versions
+                          (id, plan_id, version_number, snapshot, created_by)
+                       VALUES (%s, %s, %s, %s, %s)''',
+                    (version_id, str(plan['id']), version_number, Json(snapshot), actor_id))
+        cur.execute('''INSERT INTO cadu_planner_quote_requests
+                          (id, plan_id, plan_version_id, client_id, requested_by, scope, message)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s)''',
+                    (request_id, str(plan['id']), version_id, client_id, actor_id, scope, message))
+    return get_plan(client_id, actor_id, plan_id)

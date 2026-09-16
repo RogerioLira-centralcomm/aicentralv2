@@ -335,6 +335,16 @@ def planner_plan_item_toggle(plan_id):
     return jsonify(plans.toggle_item(selected['client_id'], user['id'], plan_id, request.get_json(silent=True) or {}))
 
 
+@bp.post('/api/planner/plans/<plan_id>/quote-requests')
+def planner_plan_quote_request(plan_id):
+    """Freeze the customer plan for commercial review; pricing remains in CRM."""
+    from ..cadu_planner import plans
+    selected = writable_context()
+    user = context.identity()
+    return jsonify(plan=plans.request_quote(selected['client_id'], user['id'], plan_id,
+                                             request.get_json(silent=True) or {})), 201
+
+
 @bp.post('/api/planner/selections/toggle')
 def planner_selection_toggle():
     from ..cadu_planner import selections
@@ -441,8 +451,6 @@ def planner_plan_media_desk(plan_id):
         products=PRODUCTS, landing=LANDINGS['planner'], user=user, selected=selected,
         clients=context.authorized_clients(), entities=[], records=[],
         plan=plan, profile=PROFILES['planner'], csrf=token, planner_view='plan-detail',
-        legacy_planner_url=product_url('centralx', '/smart-planner/'),
-        studio_creation_url=product_url('studio', '/studio/modelagem-criativos'),
         legacy_url=None,
         login_url=login_url(), product_url=product_url, planner_url=planner_url)
 

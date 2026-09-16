@@ -10,7 +10,7 @@
     if (!form.reportValidity()) return;
     const status = dialog.querySelector('[data-plan-create-status]');
     const fields = Object.fromEntries(new FormData(form));
-    const payload = {title: fields.title, objective: fields.objective, briefing: {budget: fields.budget, period: fields.period, geography: fields.geography, kpis: fields.kpis, notes: fields.notes}};
+    const payload = {title: fields.title, objective: fields.objective, advertiser_name: fields.advertiser_name, campaign_name: fields.campaign_name, briefing: {budget: fields.budget, period: fields.period, geography: fields.geography, kpis: fields.kpis, notes: fields.notes}};
     status.textContent = 'Criando plano…';
     try {
       const response = await fetch('/familia/api/planner/plans', {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf}, body: JSON.stringify(payload)});

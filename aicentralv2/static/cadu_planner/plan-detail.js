@@ -28,7 +28,7 @@
     const form = event.currentTarget, status = desk.querySelector('[data-plan-save-status]');
     const briefing = Object.fromEntries(new FormData(form).entries());
     status.textContent = 'Salvando…';
-    try { await request('/familia/api/planner/plans/' + encodeURIComponent(planId), 'PUT', {briefing}); status.textContent = 'Direção salva.'; }
+    try { await request('/familia/api/planner/plans/' + encodeURIComponent(planId), 'PUT', {briefing, advertiser_name: briefing.advertiser_name, campaign_name: briefing.campaign_name}); status.textContent = 'Direção salva.'; }
     catch (error) { status.textContent = error.message; }
   });
   desk.querySelector('[data-save-allocations]')?.addEventListener('click', async event => {
@@ -56,6 +56,21 @@
     try { await request('/familia/api/planner/plans/' + encodeURIComponent(planId) + '/items/toggle', 'POST', {kind: button.dataset.kind, resource_id: button.dataset.resourceId}); window.location.reload(); }
     catch (error) { button.disabled = false; alert(error.message); }
   }));
+  const quoteButton = desk.querySelector('[data-quote-request]');
+  const quoteDialog = desk.querySelector('[data-quote-request-dialog]');
+  const quoteStatus = desk.querySelector('[data-quote-request-status]');
+  quoteButton?.addEventListener('click', () => quoteDialog?.showModal());
+  quoteDialog?.addEventListener('close', async () => {
+    if (quoteDialog.returnValue !== 'request') return;
+    const form = quoteDialog.querySelector('form');
+    if (!form.reportValidity()) return;
+    quoteStatus.textContent = 'Enviando solicitação…';
+    try {
+      await request('/familia/api/planner/plans/' + encodeURIComponent(planId) + '/quote-requests', 'POST', Object.fromEntries(new FormData(form)));
+      quoteStatus.textContent = 'Solicitação enviada ao time comercial.';
+      quoteButton.disabled = true;
+    } catch (error) { quoteStatus.textContent = error.message; }
+  });
   const comparison = desk.querySelector('[data-plan-comparison]');
   if (comparison) {
     const items = JSON.parse(comparison.dataset.items || '[]');

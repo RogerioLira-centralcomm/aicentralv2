@@ -455,7 +455,12 @@ def page(product, module=None):
     legacy_url = None
     if user and legacy and selected['client_id'] == user['organization_id']:
         legacy_url = product_url('auth', '/auth/sso/to-cadu') + '?' + urlencode({'next': product_url('cadu', legacy)})
-    return render_template(product_pages.page_template(product), product=product, spec=spec, module=module,
+    template = product_pages.page_template(product)
+    # Planner has its own application shell in Cadu.  It intentionally does
+    # not inherit the legacy CentralX/Smart Planner chrome.
+    if product == 'planner' and module == 'inicio':
+        template = 'cadu_planner/dashboard.html'
+    return render_template(template, product=product, spec=spec, module=module,
         title=title, products=PRODUCTS, landing=LANDINGS[product], user=user, selected=selected, clients=clients,
         entities=entities, records=records, profile=PROFILES.get(product), csrf=token,
         legacy_url=legacy_url, login_url=login_url(), product_url=product_url)

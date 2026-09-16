@@ -236,6 +236,33 @@ class CreativeAnalyzerRoutesTest(TestCase):
         self.assertEqual(response.get_json()["items"][0]["name"], "Lançamento")
         repository.return_value.list_projects.assert_called_once_with(174)
 
+    def test_operational_status_exposes_only_scoped_aggregates(self):
+        self.login()
+        metrics = {"analyses_30d": 8, "complete_30d": 7, "failed_30d": 1, "average_duration_ms": 4200}
+        with mock.patch("aicentralv2.creative_analyzer.routes._repository") as repository:
+            repository.return_value.observability.return_value = metrics
+            response = self.client.get(
+                "/studio/api/analyzer/status?client_id=999",
+                headers={"Host": "studio.centralcomm.media"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["metrics"], metrics)
+        self.assertEqual(response.get_json()["legacy_mode"], "read_only")
+        repository.return_value.observability.assert_called_once_with(174)
+
+    def test_write_flag_pauses_new_processing_but_not_reads(self):
+        self.login()
+        self.app.config["CREATIVE_ANALYZER_WRITES_ENABLED"] = False
+        with mock.patch("aicentralv2.creative_analyzer.routes.AnalyzerService") as service:
+            response = self.client.post(
+                "/studio/api/analyzer/analyses",
+                data={"file": (io.BytesIO(b"not-used"), "piece.png")},
+                headers={"Host": "studio.centralcomm.media", "X-Trocr-CSRF-Token": "csrf"},
+            )
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("histórico continua disponível", response.get_json()["error"])
+        service.assert_not_called()
+
     def test_image_upload_requires_csrf(self):
         self.login()
         response = self.client.post(

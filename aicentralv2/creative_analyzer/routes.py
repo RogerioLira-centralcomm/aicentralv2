@@ -3,6 +3,7 @@
 from urllib.parse import urlparse
 from pathlib import Path
 import re
+import shutil
 
 from flask import abort, current_app, jsonify, render_template, request, send_file, session
 
@@ -72,6 +73,16 @@ def analyzer_projects():
     return jsonify(items=_repository().list_projects(_client_id()))
 
 
+@studio_or_admin_required_api
+def analyzer_status():
+    return jsonify(
+        writes_enabled=bool(current_app.config.get("CREATIVE_ANALYZER_WRITES_ENABLED", True)),
+        legacy_mode="read_only",
+        ffmpeg_available=bool(shutil.which("ffmpeg") and shutil.which("ffprobe")),
+        metrics=_repository().observability(_client_id()),
+    )
+
+
 def _private_payload(row):
     if not row:
         abort(404)
@@ -86,6 +97,8 @@ def _private_payload(row):
 @studio_or_admin_required_api
 @trocr_csrf_required
 def analyzer_create():
+    if not current_app.config.get("CREATIVE_ANALYZER_WRITES_ENABLED", True):
+        return jsonify(error="Novas análises estão pausadas. O histórico continua disponível."), 503
     upload = request.files.get("file")
     if not upload:
         return jsonify(error="Escolha uma imagem."), 400
@@ -105,6 +118,15 @@ def analyzer_create():
             context=request.form.get("context", ""),
             brand_ref=f"studio:{client_id}",
             project_ref=project_ref,
+        )
+        current_app.logger.info(
+            "Creative Analyzer concluiu processamento",
+            extra={
+                "creative_analysis_id": str(row.get("public_id") or ""),
+                "creative_media_type": str(row.get("media_type") or "image"),
+                "creative_client_id": client_id,
+                "creative_status": str(row.get("status") or ""),
+            },
         )
     except ValueError as exc:
         return jsonify(error=str(exc)), 400
@@ -193,6 +215,11 @@ def analyzer_public_asset(token, kind):
 
 
 def register_api_routes(blueprint):
+    blueprint.add_url_rule(
+        "/api/analyzer/status",
+        endpoint="creative_analyzer_status",
+        view_func=analyzer_status,
+    )
     blueprint.add_url_rule(
         "/api/analyzer/projects",
         endpoint="creative_analyzer_projects",

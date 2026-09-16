@@ -256,6 +256,45 @@ class AnalyzerRepository:
             )
             return cursor.fetchone() is not None
 
+    def observability(self, client_id):
+        """Return aggregates only; media, prompts and provider payloads stay private."""
+        if not self._columns("studio_creative_analyses"):
+            return {
+                "analyses_30d": 0,
+                "complete_30d": 0,
+                "failed_30d": 0,
+                "image_30d": 0,
+                "video_30d": 0,
+                "average_duration_ms": None,
+            }
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS analyses_30d,
+                       COUNT(*) FILTER (WHERE status = 'complete') AS complete_30d,
+                       COUNT(*) FILTER (WHERE status = 'failed') AS failed_30d,
+                       COUNT(*) FILTER (WHERE media_type = 'image') AS image_30d,
+                       COUNT(*) FILTER (WHERE media_type = 'video') AS video_30d
+                  FROM public.studio_creative_analyses
+                 WHERE client_id = %s AND created_at >= NOW() - INTERVAL '30 days'
+                """,
+                (client_id,),
+            )
+            metrics = dict(cursor.fetchone())
+            cursor.execute(
+                """
+                SELECT ROUND(AVG(run.duration_ms))::INTEGER AS average_duration_ms
+                  FROM public.studio_creative_analysis_runs run
+                  JOIN public.studio_creative_analyses analysis ON analysis.id = run.analysis_id
+                 WHERE analysis.client_id = %s AND run.created_at >= NOW() - INTERVAL '30 days'
+                   AND run.status = 'complete'
+                """,
+                (client_id,),
+            )
+            duration = cursor.fetchone()
+        metrics["average_duration_ms"] = (dict(duration).get("average_duration_ms") if duration else None)
+        return metrics
+
     def list_history(self, user_id, client_id, limit=24, offset=0):
         fetch_limit = offset + limit + 1
         return merge_history(

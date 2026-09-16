@@ -220,6 +220,22 @@ Execução: concluída. Análises novas podem emitir um token aleatório de alta
 
 Critério de saída: Studio assume novas análises com rollback simples e sem perda do acervo anterior.
 
+Execução: infraestrutura concluída; liberação final pendente do smoke externo autorizado. `CREATIVE_ANALYZER_WRITES_ENABLED` pausa somente novas análises e mantém histórico, arquivos e links públicos legados acessíveis. O endpoint autenticado de status informa disponibilidade do FFmpeg e agregados de 30 dias por cliente (volume, sucesso, falha, mídia e duração média), sem expor mídia, prompts ou respostas do provedor. As execuções continuam registradas por etapa na tabela própria. A suíte integrada cobre frontend, API, banco simulado, storage, Biblioteca, editor de imagem, editor de vídeo, compartilhamento e isolamento do cliente 174.
+
+### Matriz de paridade para o rollout
+
+| Capacidade | Legado PHP | Studio nativo | Estado |
+| --- | --- | --- | --- |
+| Histórico existente | `cadu_analises_criativos` | Adaptador somente leitura e URL original | validado com 59 registros |
+| Imagem | upload e análise assíncrona | storage privado, duas passagens e schema normalizado | testes locais completos; provedor pendente |
+| Vídeo | frames variáveis no navegador | quatro frames determinísticos no backend | FFmpeg/ffprobe validados |
+| Relatório privado | página PHP | quatro áreas, mapa de atenção, mídia e ações | concluído |
+| Relatório público | UUID e rotas antigas | token não enumerável e revogável | concluído sem alterar links antigos |
+| Biblioteca e editores | contratos do aplicativo anterior | contratos nativos do Studio por marca | testes integrados completos |
+| Projeto | sem vínculo uniforme | referência Workspace validada por organização | cinco projetos reais localizados |
+| Rollback | retirada manual | flag pausa apenas novas gravações | concluído |
+| Telemetria | logs dispersos | runs por etapa e agregados sem conteúdo sensível | concluído |
+
 ## Decisões de implementação
 
 - Não portar templates PHP nem copiar JavaScript legado para dentro do Studio.

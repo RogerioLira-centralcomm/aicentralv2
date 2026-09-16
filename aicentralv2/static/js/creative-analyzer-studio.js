@@ -348,6 +348,22 @@
     }
   }
 
+  async function loadOperationalStatus() {
+    if (!root.dataset.statusUrl) return;
+    try {
+      const response = await fetch(root.dataset.statusUrl, { headers: { Accept: 'application/json' } });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.writes_enabled !== false) return;
+      const submit = form.querySelector('button[type="submit"]');
+      submit.disabled = true;
+      submit.textContent = 'Novas análises pausadas';
+      status.hidden = false;
+      status.textContent = 'O acervo continua disponível. O processamento novo está temporariamente pausado.';
+    } catch (_error) {
+      /* A telemetria não bloqueia a ferramenta quando está indisponível. */
+    }
+  }
+
   more.addEventListener('click', () => load(false));
   document.addEventListener('cadu:brand-change', () => load(true));
   form.addEventListener('submit', async event => {
@@ -379,6 +395,7 @@
     }
   });
   loadProjects();
+  loadOperationalStatus();
   load(true);
   if (root.dataset.analysisId) loadDetail(root.dataset.analysisId).catch(error => { status.textContent = error.message; });
 })();

@@ -11,6 +11,7 @@ from unittest.mock import patch, Mock
 from flask import Blueprint, Flask, jsonify, request
 
 from aicentralv2.creative_media.studio import normalize_edit, probe, render_clip, register_studio_routes
+from aicentralv2.creative_media.studio_composition import normalize_composition
 from aicentralv2.creative_media.planner import build_plan
 from aicentralv2.creative_media.transcode import mix_voiceover
 from aicentralv2.creative_format_lab.swap_session import normalize_video_project
@@ -20,6 +21,14 @@ class ProjectTest(unittest.TestCase):
     def test_sound_default_preserves_explicit_silence(self):
         self.assertEqual(normalize_video_project({})['audio']['mode'], 'ambient')
         self.assertEqual(normalize_video_project({'audio': {'mode': 'silence'}})['audio']['mode'], 'silence')
+
+    def test_audio_tracks_follow_ripple_unless_explicitly_unlinked(self):
+        composition = normalize_composition({'audio': [
+            {'sound_id': 'linked', 'duration': 2},
+            {'sound_id': 'fixed', 'duration': 2, 'ripple': False},
+        ]})
+        self.assertTrue(composition['audio'][0]['ripple'])
+        self.assertFalse(composition['audio'][1]['ripple'])
 
     def test_roundtrip_and_invalid_numbers(self):
         edit = normalize_edit({'start': 1, 'end': 5, 'speed': .5, 'original_volume': 0, 'sound_volume': .4, 'loop': True})

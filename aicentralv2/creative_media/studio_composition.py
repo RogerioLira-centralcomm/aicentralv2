@@ -53,6 +53,7 @@ def normalize_composition(raw):
         audio.append({'sound_id':str(row.get('sound_id') or '')[:32], 'start':number(row.get('start'),0,0,600),'sync_origin':number(row.get('sync_origin'),0,0,600),
             'in':number(row.get('in'),0,0,600),'duration':duration,
             'volume':number(row.get('volume'),.35,0,1),'muted':row.get('muted') is True,'solo':row.get('solo') is True,
+            'ripple':row.get('ripple') is not False,
             'fade_in':number(row.get('fade_in'),0,0,10),'fade_out':number(row.get('fade_out'),0,0,10),
             'voice':normalize_audio(row.get('voice')),'loop':row.get('loop') is True,'gain_points':normalize_gain_points(row.get('gain_points'),duration)})
     captions=[]

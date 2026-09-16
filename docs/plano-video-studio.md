@@ -42,6 +42,11 @@ nas fases seguintes os grupos explícitos de vínculo do contrato v3, beat grid,
 sincronização automática por correlação e proxy/cache de mídia. A ordem e os
 critérios de aceite dessas etapas permanecem definidos abaixo.
 
+Faixas adicionais participam do ripple por padrão e podem desativar
+“Acompanhar cortes”. Essa escolha é persistida e normalizada no servidor; uma
+música desvinculada permanece fixa enquanto a montagem e as legendas fecham o
+espaço.
+
 ## Resultado esperado
 
 O Studio deve entregar uma experiência tão boa quanto o CapCut no fluxo central

@@ -21,10 +21,10 @@
       </div>
     </details>
     <label class="mc-cadu-brand" for="mcCaduBarClient"><span class="mc-cadu-brand-label">Marca ativa</span><select id="mcCaduBarClient" aria-label="Marca ativa"><option value="">Carregando marcas…</option></select></label>
-    <a class="mc-cadu-credits" id="mcCaduCredits" href="{{ product_url('workspace', '/workspace/app/creditos') }}" hidden aria-live="polite"></a>
+    {% set credit_meter_class = 'mc-cadu-credits' %}{% set credit_meter_href = product_url('workspace', '/workspace/app/creditos') %}{% include 'cadu/_credit_meter.html' %}
     <details class="mc-studio-user">
-      <summary aria-label="Abrir conta de {{ session.get('user_name', 'usuário') }}"><span class="mc-studio-account">{% if session.get('user_photo_url') %}<img src="{{ session.get('user_photo_url') }}" alt="">{% else %}{{ session.get('user_name', 'U')[:2] | upper }}{% endif %}</span></summary>
-      <div class="mc-studio-user-menu"><strong>{{ session.get('user_name', 'Minha conta') }}</strong><small>{{ session.get('user_email', '') }}</small><a href="{{ product_url('workspace', '/workspace/app') }}">Abrir Workspace</a><a href="{{ product_url('auth', '/logout') }}">Sair</a></div>
+      <summary aria-label="Abrir conta de {{ session.get('user_name', 'usuário') }}"><span class="mc-studio-account">{% set avatar_photo=(perfil_contato or {}).get('foto_url') or session.get('user_photo_url') %}{% set avatar_badge=(perfil_contato or {}).get('cadu_avatar_badge') %}{% set avatar_alt='Foto de ' ~ session.get('user_name', 'usuário') %}{% include 'cadu/_user_avatar_image.html' %}</span></summary>
+      <div class="mc-studio-user-menu"><strong>{{ session.get('user_name', 'Minha conta') }}</strong><small>{{ session.get('user_email', '') }}</small><a href="{{ product_url('workspace', '/workspace/app/conta?section=perfil') }}">Meu perfil</a><a href="{{ product_url('workspace', '/workspace/app/creditos') }}">Créditos e consumo</a><a href="{{ product_url('workspace', '/workspace/app') }}">Abrir Workspace</a><a href="{{ product_url('auth', '/logout') }}">Sair</a></div>
     </details>
   </div>
 </header>

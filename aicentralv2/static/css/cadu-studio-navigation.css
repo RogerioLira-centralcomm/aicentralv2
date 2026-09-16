@@ -132,6 +132,7 @@
 .mc-cadu-bar--studio .mc-cadu-credits[hidden] { display: none; }
 .mc-cadu-bar--studio .mc-cadu-credits small { color: var(--studio-nav-muted); font-size: 9px; font-weight: 650; }
 .mc-cadu-bar--studio .mc-cadu-credits strong { margin-top: 3px; color: #8fe8d1; font-size: 12px; }
+.mc-cadu-bar--studio .mc-cadu-credits .cadu-credit-meter__copy{display:grid;gap:2px}.mc-cadu-bar--studio .mc-cadu-credits .cadu-credit-meter__track{display:block;width:100%;height:3px;margin-top:5px;overflow:hidden;border-radius:4px;background:#3a4751}.mc-cadu-bar--studio .mc-cadu-credits .cadu-credit-meter__track i{display:block;width:var(--cadu-credit-usage);height:100%;border-radius:inherit;background:#8fe8d1}.mc-cadu-bar--studio .mc-cadu-credits .cadu-credit-meter__vu{display:none}
 .mc-studio-user { position: relative; }
 .mc-studio-user summary { display: block; list-style: none; cursor: pointer; }
 .mc-studio-user summary::-webkit-details-marker { display: none; }

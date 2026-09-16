@@ -3,9 +3,9 @@
   const key = 'cadu-sidebar-state';
   const root = document.documentElement;
   const desktop = () => window.matchMedia('(min-width: 821px)').matches;
-  const drawer = document.querySelector('.cadu-app-sidebar,.workspace-app-sidebar,.connect-entry-sidebar,.family-layout--sidebar .family-modules');
+  const drawer = document.querySelector('.cadu-app-sidebar,.workspace-app-sidebar,.reports-app-sidebar,.connect-entry-sidebar,.family-layout--sidebar .family-modules');
   const mobileToggles = [...document.querySelectorAll('[data-cadu-sidebar-mobile-toggle]')];
-  const main = document.querySelector('.workspace-app-main,.connect-entry,.cadu-app-shell>main,.family-layout--sidebar>main') || document.querySelector('main#content');
+  const main = document.querySelector('.workspace-app-main,.reports-app-main,.connect-entry,.cadu-app-shell>main,.family-layout--sidebar>main') || document.querySelector('main#content');
   const obscuredWhileOpen = [main, document.querySelector('.portal-skip'), document.querySelector('.cadu-conversation-launcher'), document.querySelector('.cadu-family-footer')].filter(Boolean);
   let lastTrigger = null;
   if (drawer) {
@@ -40,16 +40,16 @@
   };
   try { setState(localStorage.getItem(key) === 'collapsed'); } catch (_) { setState(false); }
   setDrawer(false);
-  const closePanels = except => document.querySelectorAll('.cadu-app-sidebar details,.workspace-app-sidebar details,.connect-entry-sidebar details,.family-modules details').forEach(panel => { if (panel !== except) panel.open = false; });
+  const closePanels = except => document.querySelectorAll('.cadu-app-sidebar details,.workspace-app-sidebar details,.reports-app-sidebar details,.connect-entry-sidebar details,.family-modules details').forEach(panel => { if (panel !== except) panel.open = false; });
   document.addEventListener('click', event => {
     const toggle = event.target.closest('[data-cadu-sidebar-toggle]');
     if (toggle) { const next = root.dataset.caduSidebar !== 'collapsed'; setState(next); try { localStorage.setItem(key, next ? 'collapsed' : 'expanded'); } catch (_) {} return; }
     const mobileToggle = event.target.closest('[data-cadu-sidebar-mobile-toggle]');
     if (mobileToggle) { lastTrigger = mobileToggle; setDrawer(!document.body.classList.contains('cadu-sidebar-drawer-open')); return; }
     if (event.target.closest('[data-cadu-sidebar-mobile-close]')) { setDrawer(false); return; }
-    const panel = event.target.closest('.cadu-app-sidebar details,.workspace-app-sidebar details,.connect-entry-sidebar details,.family-modules details');
+    const panel = event.target.closest('.cadu-app-sidebar details,.workspace-app-sidebar details,.reports-app-sidebar details,.connect-entry-sidebar details,.family-modules details');
     if (panel) { closePanels(panel); } else { closePanels(); }
-    if (event.target.closest('[data-cadu-sidebar-overlay]') || event.target.closest('.cadu-app-sidebar a,.workspace-app-sidebar a,.connect-entry-sidebar a,.family-modules a')) setDrawer(false);
+    if (event.target.closest('[data-cadu-sidebar-overlay]') || event.target.closest('.cadu-app-sidebar a,.workspace-app-sidebar a,.reports-app-sidebar a,.connect-entry-sidebar a,.family-modules a')) setDrawer(false);
   });
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape') { closePanels(); setDrawer(false); return; }

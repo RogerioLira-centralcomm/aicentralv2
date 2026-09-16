@@ -1,7 +1,7 @@
 from pathlib import Path
 from unittest import TestCase, mock
 
-from flask import Flask
+from flask import Blueprint, Flask
 from jinja2 import TemplateNotFound
 
 from aicentralv2.cadu_connect.routes import bp as connect_bp
@@ -45,6 +45,9 @@ def _app():
     app.add_url_rule("/skills/", "cadu_skills.marketplace", lambda: "skills")
     app.add_url_rule("/skills/agentes", "cadu_skills.agents", lambda: "agents")
     app.add_url_rule("/smart-planner/", "smart_planner.index", lambda: "planner")
+    studio_product_bp = Blueprint("studio_product", __name__)
+    studio_product_bp.add_url_rule("/", "studio_home", lambda: "studio portal")
+    app.register_blueprint(studio_product_bp)
     app.register_blueprint(connect_bp)
     app.register_blueprint(identity_bp)
     app.register_blueprint(workspace_bp)
@@ -59,9 +62,7 @@ class ProductPortalsTest(TestCase):
         expected = {
             "auth.centralcomm.media": "/auth/",
             "connect.centralcomm.media": None,
-            # The focused fixture does not mount Studio's full blueprint; it
-            # must still resolve the product host without a 500.
-            "studio.centralcomm.media": "/",
+            "studio.centralcomm.media": None,
             "skills.centralcomm.media": "/skills/",
             "planner.centralcomm.media": "/familia/planner/",
             "workspace.centralcomm.media": "/workspace/",
@@ -69,10 +70,14 @@ class ProductPortalsTest(TestCase):
         for host, path in expected.items():
             with self.subTest(host=host):
                 response = client.get("/", headers={"Host": host})
-                self.assertEqual(response.status_code, 302)
-                if path is None:
-                    self.assertTrue(response.headers["Location"].startswith("/login?next="))
+                if host == "studio.centralcomm.media":
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(response.get_data(as_text=True), "studio portal")
                 else:
+                    self.assertEqual(response.status_code, 302)
+                if path is None and host != "studio.centralcomm.media":
+                    self.assertTrue(response.headers["Location"].startswith("/login?next="))
+                elif path is not None:
                     self.assertEqual(response.headers["Location"], path)
 
     def test_connect_legacy_family_entry_reaches_the_connect_product(self):

@@ -194,5 +194,14 @@ def register_product_host_routing(app) -> None:
                         target = url_for(endpoint)
                     except BuildError:
                         target = "/"
+                # Studio's canonical entry is itself ``/``. Redirecting the
+                # product root to that URL creates an infinite 302 loop, so
+                # dispatch its registered view directly instead.  The
+                # fallback remains a redirect for reduced diagnostic apps
+                # that do not mount the Studio blueprint.
+                if target == "/" and endpoint == "studio_product.studio_home":
+                    view = app.view_functions.get(endpoint)
+                    if view is not None:
+                        return view()
                 return redirect(target, code=302)
         return None

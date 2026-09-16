@@ -15,13 +15,13 @@
       <div class="mc-cadu-menu-list">
         <a href="{{ studio_url('modelagem_camadas') }}"{% if mc_page == 'camadas' %} aria-current="page"{% endif %}><strong>Camadas</strong><span>Organize a composição</span></a>
         <a href="{{ studio_url('modelagem_biblioteca') }}"{% if mc_page == 'biblioteca' %} aria-current="page"{% endif %}><strong>Formatos</strong><span>Layout, entrega e preview</span></a>
-        <a href="{{ product_url('workspace', '/familia/workspace/marcas/sistema') }}"><strong>Marca</strong><span>Identidade e regras</span></a>
+        <a href="{{ product_url('workspace', '/workspace/app/marcas') }}"><strong>Marca</strong><span>Identidade e regras</span></a>
         <a href="{{ studio_url('modelagem_bancada') }}"{% if mc_page == 'bancada' %} aria-current="page"{% endif %}><strong>Bancada</strong><span>Explore possibilidades</span></a>
         <a href="{{ studio_url('modelagem_historico') }}"{% if mc_page == 'historico' %} aria-current="page"{% endif %}><strong>Histórico</strong><span>Retome uma criação</span></a>
       </div>
     </details>
     <label class="mc-cadu-brand" for="mcCaduBarClient"><span class="mc-cadu-brand-label">Marca ativa</span><select id="mcCaduBarClient" aria-label="Marca ativa"><option value="">Carregando marcas…</option></select></label>
-    <p class="mc-cadu-credits" id="mcCaduCredits" hidden aria-live="polite"></p>
+    <a class="mc-cadu-credits" id="mcCaduCredits" href="{{ product_url('workspace', '/workspace/app/creditos') }}" hidden aria-live="polite"></a>
     <details class="mc-studio-user">
       <summary aria-label="Abrir conta de {{ session.get('user_name', 'usuário') }}"><span class="mc-studio-account">{% if session.get('user_photo_url') %}<img src="{{ session.get('user_photo_url') }}" alt="">{% else %}{{ session.get('user_name', 'U')[:2] | upper }}{% endif %}</span></summary>
       <div class="mc-studio-user-menu"><strong>{{ session.get('user_name', 'Minha conta') }}</strong><small>{{ session.get('user_email', '') }}</small><a href="{{ product_url('workspace', '/workspace/app') }}">Abrir Workspace</a><a href="{{ product_url('auth', '/logout') }}">Sair</a></div>

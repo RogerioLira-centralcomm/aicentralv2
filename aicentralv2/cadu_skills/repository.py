@@ -323,47 +323,36 @@ def update_managed_skill(slug: str, payload: dict, user_id: int) -> bool:
 
 
 def credit_position(client_id: int) -> dict:
+    """Saldo compartilhado de tokens exibido nos shells CADU.
+
+    O Chat de Famílias e as ferramentas internas consomem os mesmos lotes em
+    ``cadu_credits_extras``; a navegação não deve mais exibir a franquia
+    legada de imagens do plano.
+    """
     try:
         conn = _db()
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT p.id,
-                       COALESCE(pd.limit_image_generation, p.image_credits_monthly, 0) AS monthly_limit,
-                       COALESCE(p.image_credits_used_current_month, 0) AS legacy_used
-                  FROM cadu_client_plans p
-             LEFT JOIN cadu_plan_definitions pd ON pd.id = p.id_plan_definition
-                 WHERE p.id_cliente = %s AND p.plan_status = 'active'
-              ORDER BY p.created_at DESC LIMIT 1
+                SELECT COALESCE(SUM(tokens_amount), 0) AS granted,
+                       COALESCE(SUM(tokens_used), 0) AS used,
+                       COALESCE(SUM(tokens_amount - tokens_used), 0) AS available
+                  FROM cadu_credits_extras
+                 WHERE id_cliente = %s
+                   AND status = 'active'
+                   AND tokens_used < tokens_amount
+                   AND (expires_at IS NULL OR expires_at > NOW())
                 """,
                 (client_id,),
             )
-            plan = cursor.fetchone()
-            if not plan:
-                return {"available": 0, "monthly": 0, "configured": False}
+            lots = cursor.fetchone() or {}
             cursor.execute(
-                """SELECT kind, amount FROM cadu_credit_ledger
-                    WHERE client_plan_id = %s
-                      AND created_at >= DATE_TRUNC('month', CURRENT_TIMESTAMP)
-                      AND created_at < DATE_TRUNC('month', CURRENT_TIMESTAMP) + INTERVAL '1 month'""",
-                (plan["id"],),
+                "SELECT 1 FROM cadu_client_plans WHERE id_cliente = %s AND plan_status = 'active' LIMIT 1",
+                (client_id,),
             )
-            rows = cursor.fetchall()
-            balance = balance_from_ledger(rows)
-            # O Studio aplica 500 como franquia padrão enquanto o plano ainda
-            # não recebeu um limite explícito. A navbar precisa espelhar a
-            # mesma regra; caso contrário, um plano ativo sem esse campo vira
-            # visualmente "0 créditos" mesmo tendo saldo utilizável.
-            monthly = int(plan["monthly_limit"] or 0) or 500
-            legacy_used = int(plan["legacy_used"] or 0)
-
-            # O Studio/Cadu PHP registra gerações no contador do plano. O
-            # ledger foi adicionado depois para as Skills e não deve fazer a
-            # navbar parecer que esse consumo deixou de existir. Quando o
-            # ledger já iniciou o ciclo, ele também contém as reservas e
-            # capturas das Skills; subtraímos o uso legado dele.
-            available = balance.available - legacy_used if balance.granted else monthly - legacy_used
-            return {"available": max(0, available), "monthly": monthly, "configured": True}
+            configured = bool(cursor.fetchone()) or bool(lots.get('granted'))
+            return {"available": max(0, int(lots.get("available") or 0)),
+                    "monthly": int(lots.get("granted") or 0), "configured": configured}
     except Exception:
         return {"available": 0, "monthly": 0, "configured": False}
 

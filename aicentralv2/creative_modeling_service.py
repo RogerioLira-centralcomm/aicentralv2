@@ -4002,6 +4002,14 @@ class CreativeModelingService:
             prompt = apply_publish_upgrade(prompt)
             variant_level = "publish"
         estimate = self._estimate("image", tier["name"], image_model)
+        # Uma geração de imagem só segue para o provedor quando houver saldo
+        # compartilhado. O débito definitivo acontece com o uso retornado.
+        from .cadu_tool_billing import ToolTokenLedger, cost_token_equivalent
+        credit_client_id = self._credits_crm_id(context.get("client_id")) or context.get("client_id")
+        if not credit_client_id or not created_by:
+            raise ValueError("Não foi possível identificar cliente e usuário para debitar esta geração.")
+        credit_ledger = ToolTokenLedger()
+        credit_ledger.assert_available(credit_client_id, cost_token_equivalent(estimate))
         job_id = self.repository.create_generation_job(
             context["campaign_id"],
             None,
@@ -4189,6 +4197,16 @@ class CreativeModelingService:
             )
             actual = generated.get("actual_cost_usd")
             extra_cost = float(layers.get("image_cost") or 0)
+            from .cadu_tool_billing import charge_from_provider
+            charge_from_provider(
+                ledger=credit_ledger,
+                idempotency_key=f"studio:scene:{job_id}",
+                client_id=int(credit_client_id), user_id=int(created_by),
+                tool="studio.image", stage="scene_generation",
+                provider_result={**generated, "actual_cost_usd": float(actual or estimate) + extra_cost + review_cost},
+                model=image_model,
+                metadata={"scene_id": scene_id, "job_id": job_id, "tier": tier["name"]},
+            )
             self.repository.complete_generation_job(
                 job_id,
                 estimate if actual is None else float(actual) + extra_cost + review_cost,
@@ -4685,42 +4703,33 @@ class CreativeModelingService:
         return memory, filename
 
     def image_credits(self, user_id=None, client_id=None):
-        used, monthly = 0, 500
+        used, monthly = 0, 0
         crm_id = self._credits_crm_id(client_id)
         try:
             from .db import get_db
 
             conn = get_db()
             with conn.cursor() as cursor:
-                sql = """
-                    SELECT COALESCE(p.image_credits_used_current_month, 0) AS used,
-                           COALESCE(
-                               pd.limit_image_generation,
-                               p.image_credits_monthly,
-                               500
-                           ) AS monthly
-                      FROM cadu_client_plans p
-                      LEFT JOIN cadu_plan_definitions pd
-                        ON p.id_plan_definition = pd.id
-                     WHERE p.plan_status IN ('active', 'trial', 'ativo')
-                    """
-                params = []
-                if crm_id:
-                    sql += " AND p.id_cliente = %s"
-                    params.append(crm_id)
-                sql += " ORDER BY p.id DESC LIMIT 1"
-                cursor.execute(sql, params)
+                cursor.execute("""
+                    SELECT COALESCE(SUM(tokens_used), 0) AS used,
+                           COALESCE(SUM(tokens_amount), 0) AS monthly
+                      FROM cadu_credits_extras
+                     WHERE id_cliente = %s AND status = 'active'
+                       AND (expiration_date IS NULL OR expiration_date > NOW())
+                """, (crm_id or client_id,))
                 row = cursor.fetchone()
                 if row:
                     used = int(row["used"] or 0)
-                    monthly = int(row["monthly"] or 500) or 500
+                    monthly = int(row["monthly"] or 0)
         except Exception:
             pass
         remaining = max(0, monthly - used)
+        ratio = (remaining / monthly) if monthly else 0
         return {
             "used": used,
             "monthly": monthly,
             "remaining": remaining,
+            "status": "empty" if not remaining else ("low" if ratio <= .10 else "ok"),
             "client_id": str(client_id or ""),
         }
 

@@ -111,7 +111,13 @@
       if (!Number.isFinite(remaining)) return;
       const monthly = Number(data?.monthly || 0);
       credits.hidden = false;
-      credits.textContent = `${formatCount(remaining)} créditos`;
+      const state = String(data?.status || (remaining ? "ok" : "empty"));
+      credits.dataset.creditState = state;
+      credits.textContent = state === "empty"
+        ? "Sem saldo · ver créditos"
+        : state === "low"
+          ? `${formatCount(remaining)} tokens · saldo baixo`
+          : `${formatCount(remaining)} tokens`;
       credits.title = monthly ? `${formatCount(data?.used || 0)} usados de ${formatCount(monthly)}` : "";
     } catch (_error) {
       if (requestId === creditsRequest) credits.hidden = true;

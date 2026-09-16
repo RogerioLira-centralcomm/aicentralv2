@@ -13344,7 +13344,10 @@ article.mc-studio .mc-studio-confirm-foot {
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
   white-space: nowrap;
+  text-decoration: none;
 }
+.mc-cadu-credits[data-credit-state="low"] { color: #ad671e; }
+.mc-cadu-credits[data-credit-state="empty"] { color: #b33a31; text-decoration: underline; text-underline-offset: 3px; }
 
 .mc-cadu-floor {
   --mc-cadu-ink: #1a1c19;

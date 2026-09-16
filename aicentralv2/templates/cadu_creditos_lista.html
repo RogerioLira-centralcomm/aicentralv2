@@ -13,9 +13,9 @@
   {% endfor %}{% endwith %}
 
   <section class="credits-ledger has-five" aria-label="Resumo mensal">
-    <div><span>Créditos contratados</span><strong>{{ totais.allowance }}</strong></div>
-    <div><span>Ajustes e bônus</span><strong class="{% if totais.adjustments < 0 %}is-negative{% endif %}">{{ '%+d'|format(totais.adjustments) }}</strong></div>
-    <div><span>Créditos usados</span><strong>{{ totais.used }}</strong></div>
+    <div><span>Tokens válidos em lotes</span><strong>{{ totais.allowance }}</strong></div>
+    <div><span>Débitos já conciliados</span><strong>{{ totais.used }}</strong></div>
+    <div><span>Consumo das ferramentas</span><strong>{{ totais.consumed_tokens }}</strong></div>
     <div class="is-balance"><span>Saldo disponível</span><strong>{{ totais.available }}</strong></div>
     <div class="is-opportunity"><span>Ações comerciais</span><strong>{{ totais.opportunities }}</strong><small>clientes pedem atenção</small></div>
   </section>
@@ -28,18 +28,19 @@
   </form>
 
   <section class="credits-table-shell">
-    <div class="credits-table-title"><div><h2>Clientes e planos</h2><p>{{ planos|length }} plano{% if planos|length != 1 %}s{% endif %} encontrado{% if planos|length != 1 %}s{% endif %}</p></div><span>Competência atual</span></div>
+    <div class="credits-table-title"><div><h2>Clientes, lotes e consumo</h2><p>{{ planos|length }} plano{% if planos|length != 1 %}s{% endif %} encontrado{% if planos|length != 1 %}s{% endif %}</p></div><span>Custo interno: US$ {{ '%.4f'|format(totais.internal_cost) }}</span></div>
     <div class="credits-table-wrap"><table class="credits-table">
-      <thead><tr><th>Cliente</th><th>Plano</th><th>Status</th><th>Contratados</th><th>Usados</th><th>Disponíveis</th><th>Projeção</th><th>Próxima ação</th><th aria-label="Ações"></th></tr></thead>
+      <thead><tr><th>Cliente</th><th>Plano</th><th>Status</th><th>Tokens válidos</th><th>Débito conciliado</th><th>Uso por ferramenta</th><th>Famílias CADU</th><th>Disponíveis</th><th aria-label="Ações"></th></tr></thead>
       <tbody>{% for plano in planos %}{% set pos = plano.credit_position %}
         <tr tabindex="0" role="link" data-href="{{ url_for('cadu_creditos_detalhe', plan_id=plano.plan_id) }}">
           <td data-label="Cliente"><strong>{{ plano.nome_fantasia or plano.razao_social }}</strong>{% if plano.razao_social and plano.razao_social != plano.nome_fantasia %}<small>{{ plano.razao_social }}</small>{% endif %}</td>
           <td data-label="Plano">{{ plano.plan_name }}</td>
           <td data-label="Status"><span class="credits-status is-{{ plano.plan_status }}">{{ {'active':'Ativo','inactive':'Inativo','cancelled':'Cancelado','expired':'Expirado'}.get(plano.plan_status, plano.plan_status) }}</span></td>
-          <td data-label="Contratados">{{ pos.allowance }}{% if pos.adjustments %}<small class="{% if pos.adjustments < 0 %}is-negative{% else %}is-positive{% endif %}">{{ '%+d'|format(pos.adjustments) }} em ajustes</small>{% endif %}</td>
-          <td data-label="Usados">{{ pos.used }}<small>{{ pos.usage_percentage }}% do limite</small></td><td data-label="Disponíveis"><strong class="{% if pos.available < 0 %}is-negative{% endif %}">{{ pos.available }}</strong></td>
-          <td data-label="Projeção"><strong>{{ plano.recommendation.projected }}</strong><small>{{ plano.recommendation.projected_percentage }}% até o fim do mês</small></td>
-          <td data-label="Próxima ação"><span class="credit-signal is-{{ plano.recommendation.level }}">{{ plano.recommendation.title }}</span>{% if plano.recommendation.recommended_plan %}<small>Sugerir {{ plano.recommendation.recommended_plan.name }}</small>{% endif %}</td>
+          <td data-label="Tokens válidos">{{ pos.allowance }}</td>
+          <td data-label="Débito conciliado">{{ pos.used }}</td>
+          <td data-label="Uso por ferramenta">{{ plano.tool_tokens }}<small>US$ {{ '%.4f'|format(plano.tool_cost) }}</small></td>
+          <td data-label="Famílias CADU">{{ plano.family_chat_tokens }}<small>US$ {{ '%.4f'|format(plano.family_chat_cost) }}</small></td>
+          <td data-label="Disponíveis"><strong class="{% if pos.available < 0 %}is-negative{% endif %}">{{ pos.available }}</strong></td>
           <td><a class="credits-row-action" href="{{ url_for('cadu_creditos_detalhe', plan_id=plano.plan_id) }}" aria-label="Abrir créditos de {{ plano.nome_fantasia }}"><i class="fa-solid fa-chevron-right"></i></a></td>
         </tr>
       {% else %}<tr><td colspan="9" class="credits-empty">Nenhum plano encontrado com estes filtros.</td></tr>{% endfor %}</tbody>

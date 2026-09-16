@@ -15,6 +15,7 @@ from .auth import admin_required, admin_required_api, login_required, login_requ
 from .creative_format_lab.swap_csrf import get_or_create_token as trocr_csrf_token
 from .creative_format_lab.swap_routes import register_trocr_routes
 from .creative_modeling_generation import OpenRouterError
+from .cadu_tool_billing import InsufficientToolCredits
 from .creative_modeling_repository import (
     CreativeConflictError,
     CreativeNotFoundError,
@@ -69,6 +70,8 @@ def _execute(callback):
         return _error(exc, 404, _run_extra(exc))
     except CreativeConflictError as exc:
         return _error(exc, 409, _run_extra(exc))
+    except InsufficientToolCredits as exc:
+        return _error(exc, 402, {"workspace_credits_url": product_url('workspace', '/workspace/app/creditos')})
     except (ValueError, OpenRouterError) as exc:
         return _error(exc, 400, _run_extra(exc))
     except Exception as exc:
@@ -98,11 +101,29 @@ def _studio_client_scope():
     ) else None
 
 
+def _workspace_brand_scope():
+    """Whether a creative API call is mounted inside the Workspace product."""
+    return request.blueprint == "workspace_brand_api"
+
+
+def _workspace_brand_ids():
+    """Return only brands owned by the organization in the current session."""
+    if not _workspace_brand_scope():
+        return None
+    tenant_id = int(session.get("cliente_id") or 0)
+    if not tenant_id:
+        return set()
+    from .db import get_db
+    with get_db().cursor() as cursor:
+        cursor.execute("SELECT id FROM cx_clients WHERE crm_client_id = %s", (tenant_id,))
+        return {int(row["id"]) for row in cursor.fetchall()}
+
+
 def studio_or_admin_required(view):
     """Cadu Studio has its own login; CentralX keeps the internal guard."""
     @wraps(view)
     def wrapped(*args, **kwargs):
-        guard = login_required if _studio_client_scope() else admin_required
+        guard = login_required if (_studio_client_scope() or _workspace_brand_scope()) else admin_required
         return guard(view)(*args, **kwargs)
     return wrapped
 
@@ -111,7 +132,7 @@ def studio_or_admin_required_api(view):
     """Apply the product login on Studio without widening CentralX APIs."""
     @wraps(view)
     def wrapped(*args, **kwargs):
-        guard = login_required_api if _studio_client_scope() else admin_required_api
+        guard = login_required_api if (_studio_client_scope() or _workspace_brand_scope()) else admin_required_api
         return guard(view)(*args, **kwargs)
     return wrapped
 
@@ -119,10 +140,18 @@ def studio_or_admin_required_api(view):
 def studio_brand_required(view):
     """The standalone Studio must never accept another brand profile."""
     @wraps(view)
-    def wrapped(client_id, *args, **kwargs):
+    def wrapped(*args, **kwargs):
+        client_id = kwargs.get("client_id", kwargs.get("cid", args[0] if args else None))
         if _studio_client_scope() and str(client_id) != str(STUDIO_CLIENT_ID):
             return _error("Esta marca não está disponível neste Studio.", 403)
-        return view(client_id, *args, **kwargs)
+        if _workspace_brand_scope():
+            try:
+                allowed = int(client_id) in _workspace_brand_ids()
+            except (TypeError, ValueError):
+                allowed = False
+            if not allowed:
+                return _error("Esta marca não pertence à sua organização.", 403)
+        return view(*args, **kwargs)
     return wrapped
 
 
@@ -273,9 +302,11 @@ def modelagem_desk(page):
     # Brand guidance belongs to Workspace, where the brand itself and its
     # governance live. Keep legacy Studio URLs as a direct compatibility hop.
     if page in {"marcas", "design-system"}:
+        brand_id = request.args.get('creative_client_id') or request.args.get('brand_id')
+        path = f'/workspace/app/marcas/{brand_id}' if str(brand_id or '').isdigit() else '/workspace/app/marcas'
         query = ('?' + request.query_string.decode('utf-8')) if request.query_string else ''
         return redirect(
-            product_url('workspace', '/familia/workspace/marcas/sistema') + query,
+            product_url('workspace', path) + query,
             code=302,
         )
     if request.blueprint == "studio" and request.endpoint == f"studio.modelagem_{page}":
@@ -663,22 +694,29 @@ def api_archive_format_mockup(job_id):
     return _execute(execute)
 
 
-@admin_required_api
+@studio_or_admin_required_api
 def api_brand_sources():
+    if _workspace_brand_scope():
+        # The legacy directory spans multiple organizations. New brands are
+        # created by the tenant-scoped native Workspace form instead.
+        return _ok([])
     return _execute(lambda: _ok(_service().list_brand_sources()))
 
 
 @studio_or_admin_required_api
 def api_clients():
     if request.method == "POST":
-        if _studio_client_scope():
-            return _error("O cadastro de marcas é administrado fora deste Studio.", 403)
+        if _studio_client_scope() or _workspace_brand_scope():
+            return _error("Cadastre novas marcas pela página Marcas do Workspace.", 403)
         return _execute(lambda: _ok(_service().create_client(_json()), 201))
     def list_scoped_clients():
         clients = _service().list_clients()
         scoped_client_id = _studio_client_scope()
         if scoped_client_id:
             clients = [item for item in clients if int(item.get("id") or 0) == scoped_client_id]
+        workspace_ids = _workspace_brand_ids()
+        if workspace_ids is not None:
+            clients = [item for item in clients if int(item.get("id") or 0) in workspace_ids]
         return _ok(clients)
     return _execute(list_scoped_clients)
 
@@ -895,7 +933,7 @@ def api_campaign_clients():
     return _execute(lambda: _ok(_service().list_campaign_clients()))
 
 
-@admin_required_api
+@studio_or_admin_required_api
 def api_analyze_client_brand():
     images = request.files.getlist("images") or request.files.getlist("image")
     return _execute(
@@ -925,10 +963,13 @@ def api_read_campaign_pack():
     return _execute(execute)
 
 
-@admin_required_api
+@studio_or_admin_required_api
+@studio_brand_required
 def api_delete_client(cid):
     if request.method == "PUT":
         return _execute(lambda: _ok(_service().update_client(cid, _json())))
+    if _workspace_brand_scope():
+        return _error("A exclusão de marcas não está disponível. Preserve o histórico da organização.", 403)
 
     def execute():
         service = _service()
@@ -939,7 +980,8 @@ def api_delete_client(cid):
     return _execute(execute)
 
 
-@admin_required_api
+@studio_or_admin_required_api
+@studio_brand_required
 def api_upload_client_logo(cid):
     def execute():
         file_storage = request.files.get("logo")
@@ -956,7 +998,8 @@ def api_upload_client_logo(cid):
     return _execute(execute)
 
 
-@admin_required_api
+@studio_or_admin_required_api
+@studio_brand_required
 def api_upload_client_brand_assets(cid):
     role = request.form.get("role") or "reference"
     return _execute(
@@ -972,7 +1015,8 @@ def api_upload_client_brand_assets(cid):
     )
 
 
-@admin_required_api
+@studio_or_admin_required_api
+@studio_brand_required
 def api_learn_client_creative_line(cid):
     return _execute(
         lambda: _ok(
@@ -986,14 +1030,16 @@ def api_learn_client_creative_line(cid):
     )
 
 
-@admin_required_api
+@studio_or_admin_required_api
+@studio_brand_required
 def api_primary_client_brand_asset(cid, asset_id):
     return _execute(
         lambda: _ok(_service().set_primary_brand_asset(cid, asset_id))
     )
 
 
-@admin_required_api
+@studio_or_admin_required_api
+@studio_brand_required
 def api_delete_client_brand_asset(cid, asset_id):
     def execute():
         _service().delete_brand_asset(cid, asset_id)

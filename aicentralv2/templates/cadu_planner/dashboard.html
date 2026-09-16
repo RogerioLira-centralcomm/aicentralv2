@@ -14,7 +14,7 @@
   <header class="planner-topbar">
     {% set cadu_active_product = 'planner' %}{% include 'cadu/_product_switch.html' %}
     <div class="planner-user">
-      {% if user %}<span class="planner-user-context">{{ selected.client_name }}</span><a class="planner-credit-link" href="{{ product_url('workspace', '/workspace/app/creditos') }}"><small>Créditos</small><strong>{% if cadu_nav_credit and cadu_nav_credit.configured %}{{ cadu_nav_credit.available }}{% else %}—{% endif %}</strong></a><span class="planner-avatar" aria-label="{{ user.name }}">{{ user.name[:1]|upper }}</span>
+      {% if user %}<span class="planner-user-context">{{ selected.client_name }}</span><a class="planner-credit-link" href="{{ product_url('workspace', '/workspace/app/creditos') }}"><small>Tokens</small><strong>{% if cadu_nav_credit and cadu_nav_credit.configured %}{{ cadu_nav_credit.available }}{% else %}—{% endif %}</strong></a>{% set avatar_url = (perfil_contato or {}).get('foto_url') or session.get('user_photo_url') %}{% if avatar_url %}<img class="planner-avatar" src="{{ avatar_url }}" alt="Foto de {{ user.name }}">{% else %}<span class="planner-avatar" aria-label="{{ user.name }}">{{ user.name[:1]|upper }}</span>{% endif %}
       {% else %}<a class="planner-login" href="{{ login_url }}">Entrar</a>{% endif %}
     </div>
   </header>

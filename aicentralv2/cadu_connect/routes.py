@@ -139,7 +139,7 @@ def index():
         integrations_url=current_app.config.get("CADU_INTEGRATIONS_URL") or "https://cadu.centralcomm.media/integracoes",
     )
     try:
-        return render_template("cadu_connect/entry.html", **page_context)
+        return render_template("cadu_connect/reports_home.html", **page_context)
     except Exception:
         # Connect não pode indisponibilizar a operação caso a entrada editorial
         # ainda esteja incompatível com uma dependência do servidor em produção.

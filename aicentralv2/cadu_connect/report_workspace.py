@@ -66,6 +66,21 @@ def register(bp):
     register_reviews(bp, rows)
     from .report_public import register as register_public
     register_public(bp, rows)
+    @bp.get('/importacoes')
+    @login_required
+    def report_imports():
+        selected = context.resolve()
+        if not available() or not source_storage_ready(rows):
+            return render_template('cadu_connect/imports.html', selected=selected, imports=[], ready=False)
+        imports = rows('''SELECT s.id,s.original_name,s.supplier,s.period_start,s.period_end,s.status,s.created_at,
+            w.id AS report_id,w.campaign_name,w.document FROM cadu_connect_report_sources s
+            JOIN cadu_connect_report_workspaces w ON w.id=s.report_id
+            WHERE w.organization_id=%s AND w.client_id=%s ORDER BY s.created_at DESC''',
+            (selected['organization_id'], selected['client_id']))
+        from .import_recognition import recognize_platform
+        for item in imports:
+            item.update(recognize_platform(item.get('supplier'), item.get('original_name')))
+        return render_template('cadu_connect/imports.html', selected=selected, imports=imports, ready=True)
     @bp.route('/relatorios', methods=['GET', 'POST'])
     @login_required
     def report_library():

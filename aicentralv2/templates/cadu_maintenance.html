@@ -39,7 +39,7 @@
     <section class="family" aria-labelledby="family-title">
       <div class="section-intro"><p class="kicker">Uma família, um contexto</p><h2 id="family-title">Tudo que sua operação precisa para avançar.</h2></div>
       <div class="product-grid">
-        {% for product in [('workspace', 'Workspace', 'Conta, projetos e contexto compartilhado.'), ('planner', 'Planner', 'Decisões de mídia com direção e clareza.'), ('studio', 'Studio', 'Criação para cada formato e cada campanha.'), ('connect', 'Connect', 'Integrações, agentes e operação em fluxo.'), ('skills', 'Skills', 'Conhecimento especialista no momento certo.')] %}
+        {% for product in [('workspace', 'Workspace', 'Conta, projetos e contexto compartilhado.'), ('planner', 'Planner', 'Decisões de mídia com direção e clareza.'), ('studio', 'Media Studio', 'Edite imagens, crie vídeos, adapte formatos e analise criativos.'), ('connect', 'Reports', 'Dados e decisões de mídia no contexto da campanha.'), ('skills', 'Skills', 'Conhecimento especialista no momento certo.')] %}
         <article class="product {{ product[0] }}"><span class="product-icon"><img src="{{ url_for('cadu_maintenance_product_icon', family=product[0], size=48) }}" alt=""></span><div><h3>{{ product[1] }}</h3><p>{{ product[2] }}</p></div></article>
         {% endfor %}
       </div>

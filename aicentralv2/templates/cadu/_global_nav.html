@@ -4,7 +4,8 @@
 <header class="cadu-global-nav">
   {% set cadu_home = product_url('workspace') if product_url is defined else url_for('cadu_skills.start') %}
   {% set auth_home = product_url('auth') if product_url is defined else url_for('login') %}
-  {% set family_products = [('workspace', 'Workspace', 'cadu-icon.png'), ('studio', 'Studio', 'studio-icon.png'), ('planner', 'Planner', 'planner-icon.png'), ('skills', 'Skills', 'skills-icon.png'), ('connect', 'Connect', 'connect-icon.png')] %}
+  {% import 'cadu/_product_catalog.html' as cadu_products %}
+  {% set family_products = cadu_products.cadu_product_catalog %}
   <details class="cadu-product-switch">
     <summary><img src="{{ url_for('static', filename='images/cadu/products/skills-icon.png') }}" alt=""><span>Skills</span><span class="product-chevron" aria-hidden="true">⌄</span></summary>
     <nav aria-label="Soluções CentralComm">{% for slug, name, icon in family_products %}<a href="{{ product_url(slug) }}"><img src="{{ url_for('static', filename='images/cadu/products/' ~ icon) }}" alt=""><span>{{ name }}</span></a>{% endfor %}</nav>

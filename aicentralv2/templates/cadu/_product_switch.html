@@ -1,8 +1,9 @@
 {% set active_product = cadu_active_product|default('workspace') %}
+{% import 'cadu/_product_catalog.html' as cadu_products %}
 {# Os símbolos abaixo são os ícones compactos da família Cadu. Não usar as
    ilustrações "*-2d.svg" na navegação: elas pertencem a material explicativo,
    não ao seletor de produto. #}
-{% set product_switch_items = [('workspace', 'Workspace', 'cadu-icon.png'), ('planner', 'Planner', 'planner-icon.png'), ('studio', 'Studio', 'studio-icon.png'), ('connect', 'Connect', 'connect-icon.png'), ('skills', 'Skills', 'skills-icon.png')] %}
+{% set product_switch_items = cadu_products.cadu_product_catalog %}
 {% set active_item = product_switch_items | selectattr('0', 'equalto', active_product) | first | default(product_switch_items[0]) %}
 <details class="cadu-product-switch">
   <summary><img src="{{ url_for('static', filename='images/cadu/products/' ~ active_item[2]) }}" alt=""><span>Cadu</span><small>{{ active_item[1] }}</small><i aria-hidden="true">⌄</i></summary>

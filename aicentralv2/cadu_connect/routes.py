@@ -147,6 +147,24 @@ def index():
         return render_template("cadu_portals/connect.html", **page_context)
 
 
+@bp.get('/campanhas')
+@login_required
+def campaigns_board():
+    demo_campaigns = [
+        {'owner':'Agência', 'client':'Aurora', 'name':'Inverno 2026', 'channel':'Netflix Ads', 'logo':'N', 'objective':'Alcance qualificado', 'kpi':'Conclusão de vídeo', 'value':'R$ 48.000', 'pace':72, 'estimate':'86% da meta', 'state':'Em andamento', 'lifecycle':'on-air'},
+        {'owner':'Agência', 'client':'Solar', 'name':'Semana do sabor', 'channel':'iFood Ads', 'logo':'iF', 'objective':'Pedidos incrementais', 'kpi':'Custo por pedido', 'value':'R$ 21.500', 'pace':48, 'estimate':'Dentro do planejado', 'state':'Em andamento', 'lifecycle':'on-air'},
+        {'owner':'Agência', 'client':'Horizonte', 'name':'Mobilidade urbana', 'channel':'99 Ads', 'logo':'99', 'objective':'Consideração local', 'kpi':'Alcance único', 'value':'R$ 32.000', 'pace':34, 'estimate':'Dados parciais', 'state':'Em revisão', 'lifecycle':'on-air'},
+        {'owner':'CentralComm', 'client':'Vértice', 'name':'Sons de verão', 'channel':'Spotify Ads', 'logo':'S', 'objective':'Recall de marca', 'kpi':'Alcance de áudio', 'value':'R$ 39.800', 'pace':61, 'estimate':'91% da meta', 'state':'Em andamento', 'health':'Saudável', 'remaining':'9 dias', 'trend':'acelera', 'seasonality':'Sexta e sábado tendem a ampliar a escuta no canal.'},
+        {'owner':'CentralComm', 'client':'Norte', 'name':'Famílias em cena', 'channel':'Disney+', 'logo':'D+', 'objective':'Cobertura premium', 'kpi':'Impressões entregues', 'value':'R$ 57.000', 'pace':79, 'estimate':'Acima do ritmo', 'state':'Em andamento', 'health':'Atenção', 'remaining':'4 dias', 'trend':'desacelera', 'seasonality':'Fim de semana concentra maior consumo; confirmar inventário.'},
+        {'owner':'CentralComm', 'client':'Estação', 'name':'Prime interativo', 'channel':'Prime Video', 'logo':'P', 'objective':'Interação com formato', 'kpi':'Taxa de interação', 'value':'R$ 44.000', 'pace':53, 'estimate':'Aguardando fonte', 'state':'Aguardando dados', 'health':'Sem leitura', 'remaining':'12 dias', 'trend':'indefinida', 'seasonality':'Ainda sem fonte suficiente para comparar dias da semana.'},
+    ]
+    view = request.args.get('view', 'on-air')
+    for campaign in demo_campaigns:
+        campaign.setdefault('lifecycle', 'on-air')
+    demo_campaigns.append({'owner':'CentralComm','client':'Atlas','name':'Festival de outono','channel':'Spotify Ads','logo':'S','objective':'Alcance de áudio','kpi':'Conclusão','value':'R$ 36.000','pace':100,'estimate':'Meta atingida','state':'Fechada','lifecycle':'finalized','health':'Fechamento pronto','remaining':'Período concluído','trend':'consolidada','seasonality':'Leitura consolidada; sem alerta operacional.'})
+    return render_template('cadu_connect/campaigns.html', campaigns=[row for row in demo_campaigns if row.get('lifecycle', 'on-air') == view], view=view)
+
+
 @bp.post("/api/campaigns/<int:campaign_id>/project")
 @login_required_api
 def campaign_project(campaign_id):

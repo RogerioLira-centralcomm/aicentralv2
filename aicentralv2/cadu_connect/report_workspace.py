@@ -2,8 +2,9 @@
 import json
 import re
 import secrets
+import uuid
 from datetime import date
-from flask import abort, redirect, render_template, request, session, url_for
+from flask import abort, flash, redirect, render_template, request, session, url_for
 from ..auth import login_required
 from ..cadu_family import context
 from ..db import get_db
@@ -77,10 +78,69 @@ def register(bp):
             JOIN cadu_connect_report_workspaces w ON w.id=s.report_id
             WHERE w.organization_id=%s AND w.client_id=%s ORDER BY s.created_at DESC''',
             (selected['organization_id'], selected['client_id']))
+        inbox = rows('''SELECT id,original_name,supplier,period_start,period_end,status,created_at,report_id,
+            NULL::text AS campaign_name,NULL::jsonb AS document FROM cadu_connect_report_imports
+            WHERE organization_id=%s AND client_id=%s ORDER BY created_at DESC''',
+            (selected['organization_id'], selected['client_id']))
+        imports.extend(inbox)
+        imports.sort(key=lambda item: item['created_at'], reverse=True)
         from .import_recognition import recognize_platform
         for item in imports:
             item.update(recognize_platform(item.get('supplier'), item.get('original_name')))
         return render_template('cadu_connect/imports.html', selected=selected, imports=imports, ready=True)
+    @bp.post('/importacoes')
+    @login_required
+    def receive_import():
+        selected = context.resolve()
+        if selected['role'] == 'viewer' or not secrets.compare_digest(session.get('family_csrf', ''), request.form.get('_csrf', '')):
+            abort(403)
+        if not rows("SELECT to_regclass('public.cadu_connect_report_imports') IS NOT NULL AS ready")[0]['ready']:
+            abort(503)
+        try:
+            from .import_inbox import validate_inbox_upload
+            item = validate_inbox_upload(request.files.get('print'), request.form) if request.files.get('print') else None
+            if not item: raise ValueError('Escolha um print PNG, JPEG ou WebP.')
+            inserted = rows('''INSERT INTO cadu_connect_report_imports
+                (organization_id,client_id,original_name,sha256,image_bytes,mime_type,supplier,period_start,period_end,created_by)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (organization_id,client_id,sha256) DO NOTHING RETURNING id''',
+                (selected['organization_id'],selected['client_id'],item['original_name'],item['sha256'],item['image_bytes'],item['mime_type'],item['supplier'],item['period_start'],item['period_end'],session['user_id']))
+            get_db().commit()
+            flash('Importação recebida. Associe a campanha antes de revisar os dados.' if inserted else 'Este arquivo já está na caixa de entrada.', 'report_import')
+        except ValueError as exc:
+            get_db().rollback(); flash(str(exc), 'report_import_error')
+        return redirect(url_for('cadu_connect.report_imports'))
+    @bp.route('/importacoes/<int:import_id>/resolver', methods=['GET', 'POST'])
+    @login_required
+    def resolve_import(import_id):
+        selected = context.resolve()
+        found = rows('''SELECT * FROM cadu_connect_report_imports WHERE id=%s AND organization_id=%s AND client_id=%s''',
+                     (import_id, selected['organization_id'], selected['client_id']))
+        if not found: abort(404)
+        item = found[0]
+        reports = rows('''SELECT id,campaign_name,document,revision FROM cadu_connect_report_workspaces
+            WHERE organization_id=%s AND client_id=%s ORDER BY updated_at DESC''', (selected['organization_id'], selected['client_id']))
+        if request.method == 'POST':
+            if selected['role'] == 'viewer' or not secrets.compare_digest(session.get('family_csrf', ''), request.form.get('_csrf', '')): abort(403)
+            report_id = request.form.get('report_id', type=int)
+            report = next((row for row in reports if row['id'] == report_id), None)
+            if not report: abort(400, description='Selecione uma campanha disponível.')
+            inserted = rows('''INSERT INTO cadu_connect_report_sources
+                (report_id,batch_id,original_name,sha256,image_bytes,mime_type,supplier,period_start,period_end,created_by)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (report_id,sha256) DO NOTHING RETURNING id''',
+                (report_id,str(uuid.uuid4()),item['original_name'],item['sha256'],item['image_bytes'],item['mime_type'],item['supplier'],item['period_start'],item['period_end'],session['user_id']))
+            if inserted:
+                revision = report['revision'] + 1
+                with get_db().cursor() as cur:
+                    cur.execute("UPDATE cadu_connect_report_imports SET status='matched',report_id=%s WHERE id=%s",(report_id,import_id))
+                    cur.execute('''UPDATE cadu_connect_report_workspaces SET revision=%s,updated_by=%s,updated_at=NOW() WHERE id=%s''',
+                                (revision,session['user_id'],report_id))
+                    cur.execute('''INSERT INTO cadu_connect_report_workspace_versions
+                        (report_id,revision,document,note,created_by) VALUES (%s,%s,%s::jsonb,%s,%s)''',
+                                (report_id,revision,json.dumps(report['document']),f'Importação #{import_id} associada. Aguardando revisão dos dados.',session['user_id']))
+                get_db().commit()
+                return redirect(url_for('cadu_connect.report_review_source',report_id=report_id,source_id=inserted[0]['id']))
+            get_db().rollback(); flash('Esta fonte já existe na campanha escolhida.', 'report_import_error')
+        return render_template('cadu_connect/resolve_import.html', selected=selected, item=item, reports=reports)
     @bp.route('/relatorios', methods=['GET', 'POST'])
     @login_required
     def report_library():

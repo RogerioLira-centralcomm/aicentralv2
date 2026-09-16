@@ -3,6 +3,9 @@
   const stack = document.createElement('div'); stack.className = 'cx-toast-stack';
   document.addEventListener('DOMContentLoaded', () => {
     document.body.append(stack);
+    const reportsStyle = document.createElement('link');
+    reportsStyle.rel = 'stylesheet'; reportsStyle.href = '/static/css/reports-refine.css?v=1';
+    document.head.append(reportsStyle);
     const polish = document.createElement('style');
     polish.textContent = '.portal--connect a:focus-visible,.portal--connect button:focus-visible,.portal--connect input:focus-visible,.portal--connect select:focus-visible,.portal--connect textarea:focus-visible{outline:3px solid #2b7fff;outline-offset:3px}.cr-publish{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 28px;padding:16px 18px;border:1px solid #d8e6e1;border-radius:12px;background:#fff}.cr-publish>div{display:grid;gap:5px}.cr-publish strong{font-size:13px}.cr-publish small,.cr-publish a{color:#55706e;font-size:12px}.cr-publish a{color:#1363c5;font-weight:700}.cr-publish form{display:flex;gap:8px}.cr-publish select{min-height:36px;border:1px solid #cdded8;border-radius:8px;padding:0 8px;background:#fff}@media(max-width:640px){.cr-publish,.cr-publish form{align-items:stretch;flex-direction:column}}';
     document.head.append(polish);

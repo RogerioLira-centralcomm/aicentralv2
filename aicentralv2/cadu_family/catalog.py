@@ -1,11 +1,11 @@
 """Explicit customer surface; no automatic exposure of internal routes."""
 PRODUCTS = {
     'workspace': {'name': 'Workspace', 'navigation': (
-        ('Trabalho', ('inicio', 'conversas', 'projetos', 'marcas')),
+        ('Trabalho', ('inicio', 'conversas', 'workflows', 'projetos', 'marcas')),
         ('Organização', ('equipe', 'integracoes', 'planos', 'consumo', 'faturamento', 'perfil')),
     ), 'modules': {
         'inicio': ('Início', None),
-        'conversas': ('Conversas', None),
+        'conversas': ('Conversas', None), 'workflows': ('Workflows', None),
         'projetos': ('Projetos', None),
         'marcas': ('Marcas', None), 'perfil': ('Perfil', '/configuracoes-perfil'),
         'equipe': ('Equipe', '/configuracoes-equipe'),

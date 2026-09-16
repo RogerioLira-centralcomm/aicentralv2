@@ -1,9 +1,4 @@
 <section class="workspace-conversations" aria-labelledby="workspace-conversations-title">
-  <aside class="workspace-conversation-sidebar" aria-label="Histórico de conversas">
-    <div><p class="workspace-eyebrow">Workspace</p><h2>Conversas</h2><button type="button" id="conversation-new">Nova conversa</button></div>
-    <nav id="conversation-recent" aria-label="Últimas 15 conversas">Carregando conversas…</nav>
-    <a class="workspace-conversation-account" href="{{ url_for('cadu_family.page', product='workspace', module='perfil') }}"><span>{{ user.name[:2] | upper }}</span><strong>{{ user.name }}</strong><small>Configurações</small></a>
-  </aside>
   <section id="conversation-panel" data-conversation-page="true" aria-labelledby="workspace-conversations-title" tabindex="-1">
     <header><div><p class="workspace-eyebrow">{{ selected.client_name }}</p><h2 id="workspace-conversations-title">Converse no contexto do projeto</h2><p>O contexto de cliente, marca e projeto acompanha esta conversa.</p></div></header>
     <div class="conversation-context">{{ selected.client_name }}<small>Cliente selecionado no Workspace</small></div>

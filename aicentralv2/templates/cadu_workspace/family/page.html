@@ -2,6 +2,7 @@
 {% block product_content %}
 {% if module == 'inicio' %}{% include 'cadu_workspace/family/home.html' %}
 {% elif module == 'conversas' %}{% include 'cadu_workspace/family/conversations.html' %}
+{% elif module == 'workflows' %}{% include 'cadu_workspace/family/workflows.html' %}
 {% elif not user %}{% include 'cadu_family/guest.html' %}
 {% else %}{% include 'cadu_workspace/family/account.html' %}
 {% endif %}

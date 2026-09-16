@@ -40,9 +40,9 @@
       feedback.textContent = error.message;
     }
   }));
-  document.querySelectorAll('.family-switch, .family-context-menu').forEach(details => {
+  document.querySelectorAll('.family-switch, .cadu-product-switch, .family-context-menu, .family-product-menu, .family-account-menu').forEach(details => {
     details.addEventListener('toggle', () => {
-      if (details.open) document.querySelectorAll('.family-switch, .family-context-menu').forEach(other => {
+      if (details.open) document.querySelectorAll('.family-switch, .cadu-product-switch, .family-context-menu, .family-product-menu, .family-account-menu').forEach(other => {
         if (other !== details) other.open = false;
       });
     });

@@ -264,6 +264,9 @@ class IntegrationCredentialsContractTest(unittest.TestCase):
         self.assertIn("google_login_cadu", d4sign_sql)
         self.assertIn("google_login_centralx", d4sign_sql)
         self.assertIn("d4sign", d4sign_sql)
+        google_login_sql = (ROOT / "migrations/add_google_login_credentials.sql").read_text()
+        self.assertIn("brevo", google_login_sql)
+        self.assertIn("d4sign", google_login_sql)
 
 
 class OpenAIDirectRoutingTest(unittest.TestCase):

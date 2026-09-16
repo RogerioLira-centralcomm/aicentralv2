@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from uuid import uuid4
 from decimal import Decimal, InvalidOperation
+from datetime import date
 
 from psycopg.types.json import Json
 from werkzeug.exceptions import BadRequest, NotFound
@@ -241,6 +242,10 @@ def request_quote(client_id, actor_id, plan_id, payload):
         'allocations': [{**row, 'investment': str(row.get('investment') or 0),
                          'weight': str(row.get('weight') or 0)} for row in plan.get('allocations') or []],
     }
+    owner = repository.rows('''SELECT vendas_central_comm AS executive_id
+                                 FROM tbl_cliente
+                                WHERE id_cliente = %s AND status = TRUE LIMIT 1''', (client_id,))
+    executive_id = owner[0].get('executive_id') if owner else None
     version_id, request_id = str(uuid4()), str(uuid4())
     with get_db() as conn, conn.cursor() as cur:
         cur.execute('SELECT COALESCE(MAX(version_number), 0) + 1 AS next FROM cadu_planner_plan_versions WHERE plan_id = %s', (str(plan['id']),))
@@ -250,7 +255,19 @@ def request_quote(client_id, actor_id, plan_id, payload):
                        VALUES (%s, %s, %s, %s, %s)''',
                     (version_id, str(plan['id']), version_number, Json(snapshot), actor_id))
         cur.execute('''INSERT INTO cadu_planner_quote_requests
-                          (id, plan_id, plan_version_id, client_id, requested_by, scope, message)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s)''',
-                    (request_id, str(plan['id']), version_id, client_id, actor_id, scope, message))
+                          (id, plan_id, plan_version_id, client_id, requested_by, scope, message, assigned_executive_id)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s)''',
+                    (request_id, str(plan['id']), version_id, client_id, actor_id, scope, message, executive_id))
+    if executive_id:
+        # The existing CRM activity is the commercial inbox. A request remains valid
+        # even if that optional notification cannot be recorded on an older schema.
+        try:
+            from .. import db
+            db.criar_atividade_cliente(
+                client_id, executive_id,
+                'Solicitação do Planner: %s%s' % (plan['title'], (' — ' + message) if message else ''),
+                date.today(), contato_id=actor_id, tipo='cotacao',
+                titulo='Nova solicitação de cotação pelo Planner')
+        except Exception:
+            pass
     return get_plan(client_id, actor_id, plan_id)

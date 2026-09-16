@@ -29,8 +29,9 @@ def _php_account_data(client_id: int) -> dict:
 
     plan = next((row for row in plans if row.get("plan_status") == "active"), plans[0] if plans else {})
     credit = credit_rows[0] if credit_rows else {}
+    monthly_limit = int(credit.get("monthly_limit", plan.get("pd_limit_image_generation", plan.get("image_credits_monthly", 0))) or 0) or 500
     position = calculate_credit_position(
-        credit.get("monthly_limit", plan.get("pd_limit_image_generation", plan.get("image_credits_monthly", 0))),
+        monthly_limit,
         credit.get("used", plan.get("image_credits_used_current_month", 0)),
         credit.get("adjustments", 0),
     ) if plan or credit else None

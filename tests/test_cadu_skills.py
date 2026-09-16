@@ -56,6 +56,18 @@ class CaduSkillsTest(TestCase):
             {"available": 58, "monthly": 100, "configured": True},
         )
 
+    @mock.patch("aicentralv2.cadu_skills.repository._db")
+    def test_credit_position_uses_the_studio_default_when_plan_limit_is_empty(self, db):
+        cursor = mock.MagicMock()
+        cursor.fetchone.return_value = {"id": 9, "monthly_limit": 0, "legacy_used": 37}
+        cursor.fetchall.return_value = []
+        db.return_value.cursor.return_value.__enter__.return_value = cursor
+
+        self.assertEqual(
+            credit_position(12),
+            {"available": 463, "monthly": 500, "configured": True},
+        )
+
     def test_catalog_promotes_ten_and_defers_ninety(self):
         self.assertEqual(len(TOP_SKILLS), 10)
         self.assertEqual(len(DEFERRED_SKILLS), 90)

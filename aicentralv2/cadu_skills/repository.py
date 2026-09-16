@@ -350,7 +350,11 @@ def credit_position(client_id: int) -> dict:
             )
             rows = cursor.fetchall()
             balance = balance_from_ledger(rows)
-            monthly = int(plan["monthly_limit"] or 0)
+            # O Studio aplica 500 como franquia padrão enquanto o plano ainda
+            # não recebeu um limite explícito. A navbar precisa espelhar a
+            # mesma regra; caso contrário, um plano ativo sem esse campo vira
+            # visualmente "0 créditos" mesmo tendo saldo utilizável.
+            monthly = int(plan["monthly_limit"] or 0) or 500
             legacy_used = int(plan["legacy_used"] or 0)
 
             # O Studio/Cadu PHP registra gerações no contador do plano. O

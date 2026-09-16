@@ -5,12 +5,14 @@
   <meta name="csrf-token" content="{{ csrf }}">
   <title>Planner — Cadu</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-dashboard.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-product-switch.css') }}?v=2">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-navigation.css') }}?v=1">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-nav-compact.css') }}?v=1">
 </head>
 <body class="planner-app">
   <a class="planner-skip" href="#content">Ir para o conteúdo</a>
   <header class="planner-topbar">
-    <a class="planner-wordmark" href="{{ url_for('cadu_family.page', product='planner', module='inicio') }}" aria-label="Início do Planner"><span class="planner-mark" aria-hidden="true">P</span><span>Planner</span></a>
+    {% set cadu_active_product = 'planner' %}{% set product_switch_path = '/familia/' %}{% include 'cadu/_product_switch.html' %}
     <nav aria-label="Produtos Cadu" class="planner-products">
       <a href="{{ product_url('workspace', '/familia/workspace/') }}">Workspace</a>
       <a aria-current="page" href="{{ url_for('cadu_family.page', product='planner', module='inicio') }}">Planner</a>
@@ -18,7 +20,7 @@
       <a href="{{ product_url('connect', '/familia/connect/') }}">Connect</a>
     </nav>
     <div class="planner-user">
-      {% if user %}<span class="planner-user-context">{{ selected.client_name }}</span><span class="planner-avatar" aria-label="{{ user.name }}">{{ user.name[:1]|upper }}</span>
+      {% if user %}<span class="planner-user-context">{{ selected.client_name }}</span><a class="planner-credit-link" href="{{ product_url('workspace', '/workspace/app/creditos') }}"><small>Créditos</small><strong>{% if cadu_nav_credit and cadu_nav_credit.configured %}{{ cadu_nav_credit.available }}{% else %}—{% endif %}</strong></a><span class="planner-avatar" aria-label="{{ user.name }}">{{ user.name[:1]|upper }}</span>
       {% else %}<a class="planner-login" href="{{ login_url }}">Entrar</a>{% endif %}
     </div>
   </header>

@@ -1,0 +1,1 @@
+.planner-credit-link{display:grid;gap:1px;padding:3px 9px;border-right:1px solid var(--pl-line);color:var(--pl-ink);font-size:11px;text-align:right;text-decoration:none}.planner-credit-link small{color:var(--pl-muted);font-size:10px}.planner-credit-link strong{font-size:13px;font-variant-numeric:tabular-nums}@media(max-width:520px){.planner-credit-link{display:none}}

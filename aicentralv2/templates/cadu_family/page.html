@@ -4,7 +4,7 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="csrf-token" content="{{ csrf }}">
   <title>{{ title }} — Cadu {{ spec.name }}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-family.css') }}?v=4">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-family.css') }}?v=5">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-family-sidebar.css') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-product-switch.css') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-nav-compact.css') }}?v=1">
@@ -54,7 +54,7 @@
     <p class="family-context-help">Marcas e projetos pertencem ao ambiente da sua conta.</p>
   </form></details>{% endif %}
   <div class="family-nav-actions">
-    {% if user %}<details class="family-account-menu"><summary aria-label="Abrir opções da conta">{{ user.name[:2] | upper }}</summary><div><strong>{{ user.name }}</strong><a href="{{ url_for('cadu_family.page', product='workspace', module='perfil') }}">Perfil</a><a href="{{ url_for('cadu_family.page', product='workspace', module='consumo') }}">Créditos e consumo</a></div></details>{% else %}<a class="family-primary" href="{{ login_url }}">Entrar</a>{% endif %}
+    {% if user %}<a class="family-credit-link" href="{{ url_for('cadu_family.page', product='workspace', module='consumo') }}" aria-label="Ver créditos disponíveis"><small>Créditos</small><strong>{% if cadu_nav_credit and cadu_nav_credit.configured %}{{ cadu_nav_credit.available }}{% else %}—{% endif %}</strong></a><details class="family-account-menu"><summary aria-label="Abrir opções da conta">{% if session.get('user_photo_url') %}<img src="{{ session.get('user_photo_url') }}" alt="">{% else %}{{ user.name[:2] | upper }}{% endif %}</summary><div><strong>{{ user.name }}</strong><small>{{ session.get('user_email', '') }}</small><a href="{{ url_for('cadu_family.page', product='workspace', module='inicio') }}">Abrir Workspace</a><a href="{{ url_for('cadu_family.page', product='workspace', module='consumo') }}">Créditos e consumo{% if cadu_nav_credit and cadu_nav_credit.configured %}<span>{{ cadu_nav_credit.available }} disponíveis</span>{% endif %}</a><a href="{{ url_for('cadu_family.page', product='workspace', module='perfil') }}">Perfil</a></div></details>{% else %}<a class="family-primary" href="{{ login_url }}">Entrar</a>{% endif %}
   </div>
 </header>
 {# A variação com lateral existe somente depois da autenticação. Sem essa

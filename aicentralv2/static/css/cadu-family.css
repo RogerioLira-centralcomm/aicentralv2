@@ -60,6 +60,7 @@ body[data-product="studio"] .family-modules nav>small{display:none}
 .family-onboarding h2{font-size:22px;line-height:1.25;margin:0 0 12px}
 .family-onboarding p{font-size:14px;line-height:1.65;max-width:65ch;margin:0 0 18px}
 .family-onboarding img{display:block;width:100%;height:100%;min-height:240px;max-height:280px;object-fit:cover}
+.family-credit-link{display:grid;gap:1px;min-width:58px;padding:3px 9px;border-right:1px solid var(--line);color:var(--ink);text-align:right;text-decoration:none}.family-credit-link small{color:var(--muted);font-size:10px}.family-credit-link strong{font-size:13px;font-variant-numeric:tabular-nums}.family-credit-link:hover{color:var(--green);background:var(--soft);border-radius:6px}.family-account-menu summary{overflow:hidden}.family-account-menu summary img{width:100%;height:100%;object-fit:cover}.family-account-menu>div{min-width:224px;padding:12px 6px 6px}.family-account-menu>div>small{display:block;padding:0 8px 8px;color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.family-account-menu a{display:grid;gap:2px}.family-account-menu a span{color:var(--muted);font-size:10px}
 .family-home-links{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
 .family-home-links>a{display:flex;flex-direction:column;align-items:start;text-decoration:none;border-bottom:2px solid var(--line);padding:0 0 24px}
 .family-home-links>a:hover{border-color:var(--green)}

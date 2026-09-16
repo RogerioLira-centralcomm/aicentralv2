@@ -1,11 +1,11 @@
 {% extends 'cadu_portals/base.html' %}
 {% block title %}Workspace — Cadu{% endblock %}
 {% block product_id %}workspace{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=2">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3">{% endblock %}
 {% block content %}
 <section class="workspace-head">
   <div><p class="portal-context">Cadu Workspace</p><h1>Conta, contexto e operação da sua organização.</h1><p>Administre o que é comum a todos os produtos sem misturar a execução de cada agente.</p></div>
-  <aside><span>Organização ativa</span><b>{{ session.get('user_name', 'Minha organização') }}</b><small>{{ credit.available if credit.configured else 'Plano no Cadu' }}{% if credit.configured %} créditos disponíveis{% endif %}</small></aside>
+  <aside class="workspace-head-visual"><img src="{{ url_for('static', filename='images/cadu/workspace-team.svg') }}" alt="Equipe trabalhando com o mesmo contexto"><div><span>Organização ativa</span><b>{{ session.get('user_name', 'Minha organização') }}</b><small>{{ credit.available if credit.configured else 'Plano no Cadu' }}{% if credit.configured %} créditos disponíveis{% endif %}</small></div></aside>
 </section>
 <nav class="workspace-tabs" aria-label="Administração do Workspace"><a class="is-active" href="{{ url_for('cadu_workspace.dashboard') }}">Visão geral</a>{% for name, description, href, owner in sections %}<a href="{{ href }}">{{ name }}</a>{% endfor %}</nav>
 <section class="workspace-admin-list"><header><h2>Administração da conta</h2><p>Dados já cadastrados no Cadu aparecem aqui, no mesmo contexto do Workspace.</p></header>{% for name, description, href, owner in sections %}<a href="{{ href }}"><span><b>{{ name }}</b><small>{{ description }}</small></span><em>{{ owner }}</em><strong>Abrir</strong></a>{% endfor %}</section>

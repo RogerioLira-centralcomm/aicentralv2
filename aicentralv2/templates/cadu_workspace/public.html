@@ -8,11 +8,13 @@
 <meta property="og:type" content="website"><meta property="og:title" content="Cadu Workspace"><meta property="og:description" content="{{ description }}"><meta property="og:url" content="{{ canonical }}"><meta property="og:image" content="{{ product_url('workspace', '/assets/workspace-icon-192.png') }}">
 <script type="application/ld+json">{{ {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Cadu Workspace","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":canonical,"description":description}|tojson }}</script>
 {% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-public.css') }}?v=4">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-public.css') }}?v=5">{% endblock %}
 {% block content %}
 <section class="ws-hero">
   <div class="ws-hero-copy"><p class="ws-eyebrow">Workspace</p><h1>Uma campanha, cinco ambientes, um contexto.</h1><p>Workspace mantém time, cliente, marca, projeto e referências ligados enquanto cada ambiente faz sua parte do trabalho. O briefing continua com a equipe — do planejamento à operação.</p><div class="ws-actions"><a href="{{ url_for('cadu_workspace.dashboard') }}">{{ 'Abrir Workspace' if session.get('user_id') else 'Organizar meu time' }}</a><a href="#ambientes">Conhecer os ambientes</a></div></div>
-  <div class="ws-context-map" aria-label="Workspace conecta os ambientes de campanha">
+  <div class="ws-hero-visual">
+    <img src="{{ url_for('static', filename='images/cadu/workspace-team.svg') }}" alt="Duas pessoas trabalhando no mesmo contexto de campanha">
+    <div class="ws-context-map" aria-label="Workspace conecta os ambientes de campanha">
     <div class="ws-map-source"><img src="{{ url_for('cadu_maintenance_product_icon', family='workspace', size=48) }}" alt=""><span>Contexto compartilhado</span><strong>Workspace</strong><small>time, cliente, projeto e referências</small></div>
     <div class="ws-map-rail"><div><span>Cliente</span><b>Marca ativa</b></div><div><span>Projeto</span><b>Briefing e decisões</b></div></div>
     <div class="ws-map-products" id="ambientes">
@@ -21,6 +23,7 @@
       <a href="{{ product_url('studio') }}"><img src="{{ url_for('cadu_maintenance_product_icon', family='studio', size=32) }}" alt=""><span><b>Studio</b><small>produzir</small></span></a>
       <a href="{{ product_url('connect') }}"><img src="{{ url_for('cadu_maintenance_product_icon', family='connect', size=32) }}" alt=""><span><b>Connect</b><small>operar</small></span></a>
     </div>
+  </div>
   </div>
 </section>
 <section class="ws-public-section ws-public-intro"><h2>O Workspace não é mais uma ferramenta na campanha.</h2><p>É a camada que evita recomeços. Ele mantém a mesma base de trabalho quando a equipe muda de ambiente, de responsabilidade ou de etapa.</p></section>

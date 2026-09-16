@@ -163,7 +163,12 @@ def create_app(config_class=Config):
                 pass
             try:
                 from .cadu_skills.repository import credit_position
-                cadu_nav_credit = credit_position(int(session.get('cliente_id') or 0))
+                # Em sessões SSO antigas o vínculo da organização pode não
+                # estar serializado no cookie, apesar de estar no contato que
+                # já carregamos acima. A navbar deve usar a mesma organização
+                # que a conta autenticada, nunca assumir saldo zero.
+                client_id = session.get('cliente_id') or (perfil_contato or {}).get('pk_id_tbl_cliente')
+                cadu_nav_credit = credit_position(int(client_id or 0))
             except Exception:
                 # O menu continua funcional se o ledger estiver indisponível.
                 cadu_nav_credit = None

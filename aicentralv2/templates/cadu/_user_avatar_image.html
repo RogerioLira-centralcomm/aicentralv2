@@ -1,0 +1,5 @@
+{% if avatar_photo %}
+  <img src="{{ avatar_photo }}" alt="{{ avatar_alt or '' }}">
+{% else %}
+  {{ session.get('user_name', 'U')[:2] | upper }}
+{% endif %}

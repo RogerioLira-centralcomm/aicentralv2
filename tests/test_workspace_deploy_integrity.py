@@ -6,9 +6,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class WorkspaceDeployIntegrityTest(TestCase):
-    def test_authenticated_sidebar_only_includes_versioned_partials(self):
+    def test_authenticated_shell_partials_are_present_in_the_checkout(self):
         """The dashboard must render from a clean production checkout."""
-        sidebar = (ROOT / "aicentralv2/templates/cadu_workspace/_app_sidebar.html").read_text()
+        templates = ROOT / "aicentralv2/templates"
+        studio_context_bar = (templates / "cadu_studio/_context_bar.html").read_text()
 
-        self.assertNotIn("cadu/_credit_meter.html", sidebar)
-        self.assertNotIn("cadu/_user_avatar_image.html", sidebar)
+        for partial in ("cadu/_credit_meter.html", "cadu/_user_avatar_image.html"):
+            self.assertIn(partial, studio_context_bar)
+            self.assertTrue((templates / partial).is_file(), partial)

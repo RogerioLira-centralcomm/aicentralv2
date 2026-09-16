@@ -14,11 +14,73 @@ from . import recovery
 
 def modes(user_id):
     return repository.rows('''SELECT s.slug AS id, s.title, s.default_prompt,
-                                    COALESCE(p.prompt, s.default_prompt) AS prompt
+                                    COALESCE(p.prompt, s.default_prompt) AS prompt,
+                                    (p.prompt IS NOT NULL) AS customized,
+                                    (s.slug = COALESCE(a.skill_slug, 'ideias')) AS active
                                FROM cadu_chat_skills s
                           LEFT JOIN cadu_chat_skill_user_prompts p
                                  ON p.skill_slug = s.slug AND p.id_contato_cliente = %s
-                              WHERE s.is_active = TRUE ORDER BY s.sort_order, s.id''', (user_id,))
+                          LEFT JOIN cadu_chat_user_skill_active a
+                                 ON a.id_contato_cliente = %s
+                              WHERE s.is_active = TRUE ORDER BY s.sort_order, s.id''', (user_id, user_id))
+
+
+def valid_mode(user_id, slug):
+    return next((item for item in modes(user_id) if item['id'] == slug), None)
+
+
+def set_active_mode(user_id, slug):
+    if not isinstance(slug, str) or not valid_mode(user_id, slug):
+        abort(400, description='Modo de contexto inválido.')
+    conn = repository.get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''INSERT INTO cadu_chat_user_skill_active (id_contato_cliente, skill_slug, updated_at)
+                           VALUES (%s, %s, NOW())
+                           ON CONFLICT (id_contato_cliente)
+                           DO UPDATE SET skill_slug = EXCLUDED.skill_slug, updated_at = NOW()''', (user_id, slug))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return modes(user_id)
+
+
+def update_mode_prompt(user_id, slug, prompt):
+    if not isinstance(prompt, str):
+        abort(400, description='Informe as instruções deste modo.')
+    prompt = prompt.replace('\r\n', '\n').replace('\r', '\n').strip()
+    if not 1 <= len(prompt) <= 3000:
+        abort(400, description='As instruções devem ter entre 1 e 3.000 caracteres.')
+    if not valid_mode(user_id, slug):
+        abort(400, description='Modo de contexto inválido.')
+    conn = repository.get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''INSERT INTO cadu_chat_skill_user_prompts (id_contato_cliente, skill_slug, prompt, updated_at)
+                           VALUES (%s, %s, %s, NOW())
+                           ON CONFLICT (id_contato_cliente, skill_slug)
+                           DO UPDATE SET prompt = EXCLUDED.prompt, updated_at = NOW()''', (user_id, slug, prompt))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return modes(user_id)
+
+
+def reset_mode_prompt(user_id, slug):
+    if not valid_mode(user_id, slug):
+        abort(400, description='Modo de contexto inválido.')
+    conn = repository.get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''DELETE FROM cadu_chat_skill_user_prompts
+                            WHERE id_contato_cliente = %s AND skill_slug = %s''', (user_id, slug))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return modes(user_id)
 
 
 def lock_organization_generation(cur, organization_id):
@@ -104,7 +166,7 @@ def prepare(data, selected):
     profile = data['profile']
     existing = data.get('conversation_id')
     conversation_id = str(existing or uuid4())
-    chosen = next((mode for mode in modes(user['id']) if mode['id'] == data.get('mode', 'ideias')), None)
+    chosen = valid_mode(user['id'], data.get('mode', 'ideias'))
     if chosen is None:
         abort(400, description='Modo de contexto inválido.')
     inventory = {item['ref']: item for item in context.inventory(selected['client_id'])}

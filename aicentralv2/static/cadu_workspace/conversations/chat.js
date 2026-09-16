@@ -15,6 +15,13 @@
     }
     return result;
   }
+  function unavailableMessage(action, error) {
+    const code = Number.isInteger(error?.status) ? ' (erro ' + error.status + ')' : '';
+    const detail = typeof error?.message === 'string' ? error.message.trim() : '';
+    return detail && detail !== 'Não foi possível concluir. Tente novamente.'
+      ? action + code + '. ' + detail
+      : action + code + '. Tente novamente em instantes.';
+  }
   function queuedEvents(run, signal) {
     return CaduConversationStream.queued(run, {
       signal,
@@ -30,6 +37,17 @@
   const history = document.getElementById('conversation-history');
   const recent = document.getElementById('conversation-recent');
   const status = document.getElementById('conversation-status');
+  const historyToggle = document.getElementById('conversation-history-toggle');
+  const conversationShell = document.querySelector('.workspace-conversations');
+  const closeHistory = () => {
+    conversationShell?.classList.remove('history-open');
+    historyToggle?.setAttribute('aria-expanded', 'false');
+  };
+  historyToggle?.addEventListener('click', () => {
+    const open = !conversationShell?.classList.contains('history-open');
+    conversationShell?.classList.toggle('history-open', open);
+    historyToggle.setAttribute('aria-expanded', String(open));
+  });
   let conversationId = null, runId = null, sending = false, controller = null;
   let initialized = false, initializing = null, canSend = false, canReplay = false;
   let loadingThread = false, threadRequest = 0, historyRequest = 0, nextOffset = null;
@@ -74,7 +92,19 @@
   const archivedFilter = document.getElementById('conversation-archived');
   const searchForm = document.getElementById('conversation-search');
   const mode = document.getElementById('conversation-mode');
+  const modeEdit = document.getElementById('conversation-mode-edit');
+  const modeDialog = document.getElementById('conversation-mode-dialog');
+  const modeForm = document.getElementById('conversation-mode-form');
+  const modePrompt = document.getElementById('conversation-mode-prompt');
   const composer = document.getElementById('conversation-message');
+  let modeEntries = [];
+  const applyModes = (items, selected) => {
+    modeEntries = Array.isArray(items) ? items : [];
+    const active = selected || modeEntries.find(item => item.active)?.id || mode.value;
+    mode.replaceChildren(...modeEntries.map(item => new Option(item.title, item.id, false, item.id === active)));
+    mode.disabled = !modeEntries.length;
+    if (modeEdit) modeEdit.disabled = mode.disabled;
+  };
   composer.value = readDraft(null);
   const attachments = new CaduAttachments(panel, status);
   const sendButton = document.getElementById('conversation-send');
@@ -83,6 +113,48 @@
     if (sendButton) sendButton.disabled = composer.disabled || (!composer.value.trim() && !attachments.items.length);
   };
   panel.addEventListener('attachmentschange', updateSend);
+  mode?.addEventListener('change', async () => {
+    const selected = mode.value;
+    const previous = modeEntries.find(item => item.active)?.id;
+    mode.disabled = true; if (modeEdit) modeEdit.disabled = true; updateSend();
+    try {
+      const data = await api('conversations/modes/active', 'POST', {mode: selected});
+      applyModes(data.modes, selected);
+      status.textContent = 'Modo salvo para as próximas conversas.';
+    } catch (error) {
+      applyModes(modeEntries, previous);
+      status.textContent = unavailableMessage('Não foi possível trocar o modo', error);
+    } finally { updateSend(); }
+  });
+  modeEdit?.addEventListener('click', () => {
+    const selected = modeEntries.find(item => item.id === mode.value);
+    if (!selected || !modeDialog || !modePrompt) return;
+    modePrompt.value = selected.prompt || '';
+    document.getElementById('conversation-mode-dialog-title').textContent = 'Personalizar: ' + selected.title;
+    document.getElementById('conversation-mode-dialog-description').textContent = selected.customized
+      ? 'Você está usando instruções personalizadas para este modo.'
+      : 'Estas instruções valem somente para a sua conta.';
+    if (typeof modeDialog.showModal === 'function') modeDialog.showModal(); else modeDialog.setAttribute('open', '');
+    modePrompt.focus();
+  });
+  document.getElementById('conversation-mode-cancel')?.addEventListener('click', () => modeDialog?.close());
+  modeForm?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const selected = mode.value;
+    try {
+      const data = await api('conversations/modes/' + encodeURIComponent(selected), 'PUT', {prompt: modePrompt.value});
+      applyModes(data.modes, selected); modeDialog.close();
+      status.textContent = 'Instruções personalizadas salvas.';
+    } catch (error) { status.textContent = unavailableMessage('Não foi possível salvar as instruções', error); }
+  });
+  document.getElementById('conversation-mode-reset')?.addEventListener('click', async () => {
+    const selected = mode.value;
+    try {
+      const data = await api('conversations/modes/' + encodeURIComponent(selected), 'DELETE');
+      applyModes(data.modes, selected); modeDialog?.close();
+      status.textContent = 'Modo restaurado ao padrão.';
+    } catch (error) { status.textContent = unavailableMessage('Não foi possível restaurar o modo', error); }
+  });
   // PHP chat-v2: Enter sends; Shift+Enter inserts a line. Never send mid-IME.
   composer.addEventListener('keydown', event => {
     if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
@@ -151,7 +223,7 @@
         button.dataset.conversationId = String(thread.id);
         if (String(thread.id) === conversationId) button.setAttribute('aria-current', 'page');
         row.append(button); target.append(row);
-        button.addEventListener('click', () => openConversation(String(thread.id)));
+        button.addEventListener('click', () => { closeHistory(); openConversation(String(thread.id)); });
         if (recent && data.can_manage === true) {
           const actions = document.createElement('details');
           const summary = document.createElement('summary'); summary.textContent = 'Opções';
@@ -178,7 +250,7 @@
         }
       }
       if (!append && !data.conversations.length) target.textContent = 'Nenhuma conversa encontrada.';
-    } catch (error) { if (request === historyRequest) status.textContent = error.message; }
+    } catch (error) { if (request === historyRequest) status.textContent = unavailableMessage('Não foi possível carregar seu histórico', error); }
     finally { if (more && request === historyRequest) more.disabled = false; }
   }
   searchForm?.addEventListener('submit', event => { event.preventDefault(); historyQuery = new FormData(searchForm).get('q').trim(); loadHistory(); });
@@ -270,21 +342,20 @@
       try {
         const [capabilities, data] = await Promise.all([api('conversations/capabilities'), api('conversations/modes')]);
         if (!Array.isArray(data.modes)) throw new Error('Modos indisponíveis');
-        mode.replaceChildren(...data.modes.map(item => new Option(item.title, item.id)));
-        mode.disabled = !data.modes.length;
+        applyModes(data.modes);
         canSend = capabilities.send === true;
         canReplay = capabilities.replay === true;
         attachments.configure({...capabilities, attachments: canSend && capabilities.attachments === true});
         initialized = true;
         status.textContent = !canSend ? 'Envio indisponível. Você pode consultar seu histórico.' : mode.disabled ? 'Nenhum modo disponível. Consulte o histórico.' : '';
-      } catch (_) {
+      } catch (error) {
         canSend = false; mode.disabled = true; attachments.configure({attachments:false});
-        status.textContent = 'Não foi possível carregar o chat. Recarregue a página para tentar novamente.';
+        status.textContent = unavailableMessage('Não foi possível iniciar as conversas', error);
       } finally { updateSend(); }
       await loadHistory();
       const requested = pageMode && new URLSearchParams(window.location.search).get('conversation');
       if (requested && !conversationId) await openConversation(requested);
-      else if (recent && !conversationId) history.innerHTML = '<div class="workspace-conversation-empty"><strong>Como posso ajudar?</strong><span>Abra uma conversa do histórico ou escreva uma mensagem.</span></div>';
+      else if (recent && !conversationId) history.innerHTML = '<div class="workspace-conversation-empty"><strong>Como posso ajudar?</strong><span>Escreva uma mensagem ou retome uma conversa anterior.</span></div>';
       await resumePending(requested);
     })();
     try { await initializing; } finally { initializing = null; }
@@ -316,8 +387,9 @@
   document.getElementById('conversation-width')?.addEventListener('input', event => panel.style.setProperty('--panel-width', event.target.value + 'px'));
   document.getElementById('conversation-new')?.addEventListener('click', () => {
     if (sending) return;
+    closeHistory();
     saveDraft(); ++threadRequest; loadingThread = false; attachments.clear(); composer.value = readDraft(null); setConversationUrl(null); updateSend();
-    conversationId = null; history.innerHTML = pageMode ? '<div class="workspace-conversation-empty"><strong>Como posso ajudar?</strong><span>Use esta conversa para reunir informações do cliente e seguir para Planner, Skills, Studio ou Connect.</span></div>' : ''; status.textContent = '';
+    conversationId = null; history.innerHTML = pageMode ? '<div class="workspace-conversation-empty"><strong>Como posso ajudar?</strong><span>Escreva uma mensagem para começar uma nova conversa.</span></div>' : ''; status.textContent = '';
     recent?.querySelectorAll('[aria-current]').forEach(node => node.removeAttribute('aria-current'));
     document.getElementById('conversation-message').focus();
   });

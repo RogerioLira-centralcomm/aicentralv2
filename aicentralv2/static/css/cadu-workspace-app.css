@@ -38,6 +38,8 @@ html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-app-shell{grid
 html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-app-sidebar{margin-left:10px;padding-inline:9px!important}
 html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-sidebar-label{display:none!important}
 html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-app-family{display:grid;justify-items:center;padding-bottom:4px}
+html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-app-brand{justify-content:center;width:44px;padding:6px}
+html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-app-brand>span,html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-app-brand>small{display:none}
 html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-app-family .cadu-product-switch summary{justify-content:center;width:44px;padding:6px}
 html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-app-family .cadu-sidebar-toggle{margin:8px auto 0}
 html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-sidebar-footer{margin-top:auto}
@@ -54,6 +56,11 @@ html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-app-user[open]
 html[data-cadu-theme] .portal--workspace .workspace-app-shell--home{background:radial-gradient(circle at 88% 4%,rgba(8,119,101,.12),transparent 31rem),linear-gradient(145deg,#edf7f4 0,#f4f7f8 42%,var(--cadu-canvas) 72%)}
 html[data-cadu-theme="dark"] .portal--workspace .workspace-app-shell--home{background:radial-gradient(circle at 88% 4%,rgba(40,179,153,.11),transparent 31rem),var(--cadu-canvas)}
 .portal--workspace .workspace-app-sidebar__top{gap:7px}
+.portal--workspace .workspace-app-brand{display:flex;align-items:center;min-width:0;min-height:44px;gap:7px;padding:7px 8px;border-radius:var(--cadu-radius-control);color:var(--cadu-shell-ink);text-decoration:none}
+.portal--workspace .workspace-app-brand:hover{transform:none;background:var(--cadu-surface-soft)}
+.portal--workspace .workspace-app-brand>img{flex:0 0 27px;width:27px;height:27px;object-fit:contain}
+.portal--workspace .workspace-app-brand>span{font-size:14px;font-weight:650;letter-spacing:-.02em}
+.portal--workspace .workspace-app-brand>small{overflow:hidden;color:var(--cadu-shell-muted);font-size:11px;font-weight:500;text-overflow:ellipsis;white-space:nowrap}
 .portal--workspace .workspace-app-family .cadu-product-switch summary>img{width:27px;height:27px}
 .portal--workspace .workspace-app-family .cadu-product-switch summary>i{margin-left:auto}
 .portal--workspace .workspace-app-family .cadu-product-switch nav{top:calc(100% + 10px);left:0;width:238px;padding:8px;border:0;border-radius:var(--cadu-radius-popover);box-shadow:var(--cadu-shadow-popover)}

@@ -31,7 +31,7 @@ class ChatShellTest(TestCase):
         response = self.client.get('/workspace/app/conversas')
         self.assertEqual(response.status_code, 200)
         elements = Elements(response.get_data(as_text=True)).items
-        for element_id in ('conversation-panel', 'conversation-message', 'conversation-mode', 'conversation-send', 'conversation-new'):
+        for element_id in ('conversation-panel', 'conversation-message', 'conversation-mode', 'conversation-mode-edit', 'conversation-mode-dialog', 'conversation-mode-prompt', 'conversation-send', 'conversation-new', 'conversation-history-toggle', 'conversation-sidebar'):
             self.assertEqual(sum(attrs.get('id') == element_id for _, attrs in elements), 1, element_id)
         body = next(attrs for tag, attrs in elements if tag == 'body')
         self.assertEqual(body['data-product'], 'workspace')
@@ -39,6 +39,11 @@ class ChatShellTest(TestCase):
         panel = next(attrs for _, attrs in elements if attrs.get('id') == 'conversation-panel')
         self.assertNotIn('hidden', panel)
         self.assertEqual(panel['data-conversation-page'], 'true')
+        shell = next(attrs for _, attrs in elements if 'workspace-app-shell' in attrs.get('class', ''))
+        self.assertIn('workspace-app-shell--conversations', shell['class'])
+        self.assertFalse(any(tag == 'h1' for tag, _ in elements))
+        self.assertFalse(any(attrs.get('id') == 'conversation-width' for _, attrs in elements))
+        self.assertFalse(any('workspace-conversation-next' in attrs.get('class', '') for _, attrs in elements))
         self.assertFalse(any(attrs.get('id') == 'conversation-open' for _, attrs in elements))
         token = next(attrs['content'] for tag, attrs in elements if tag == 'meta' and attrs.get('name') == 'csrf-token')
         with self.client.session_transaction() as session:

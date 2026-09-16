@@ -587,6 +587,31 @@ def conversation_modes():
     return jsonify(modes=modes(user['id']))
 
 
+@bp.post('/api/conversations/modes/active')
+def conversation_mode_active():
+    from .chat import set_active_mode
+    writable_context()
+    data = request.get_json(silent=True) or {}
+    return jsonify(modes=set_active_mode(context.identity()['id'], data.get('mode')))
+
+
+@bp.put('/api/conversations/modes/<slug>')
+def conversation_mode_update(slug):
+    from .chat import update_mode_prompt
+    writable_context()
+    data = request.get_json(silent=True) or {}
+    if set(data) != {'prompt'}:
+        abort(400, description='Informe somente as instruções do modo.')
+    return jsonify(modes=update_mode_prompt(context.identity()['id'], slug, data['prompt']))
+
+
+@bp.delete('/api/conversations/modes/<slug>')
+def conversation_mode_reset(slug):
+    from .chat import reset_mode_prompt
+    writable_context()
+    return jsonify(modes=reset_mode_prompt(context.identity()['id'], slug))
+
+
 @bp.post('/api/conversations/runs/<uuid:run_id>/stop')
 def conversation_stop(run_id):
     from . import dify

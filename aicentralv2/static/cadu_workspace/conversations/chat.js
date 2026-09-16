@@ -96,6 +96,10 @@
   const modeDialog = document.getElementById('conversation-mode-dialog');
   const modeForm = document.getElementById('conversation-mode-form');
   const modePrompt = document.getElementById('conversation-mode-prompt');
+  const projectSelect = document.getElementById('conversation-project');
+  const brandSelect = document.getElementById('conversation-brand');
+  const contextNote = document.getElementById('conversation-context-note');
+  let contextEntities = [], activeContext = {};
   const composer = document.getElementById('conversation-message');
   let modeEntries = [];
   const applyModes = (items, selected) => {
@@ -106,6 +110,58 @@
     if (modeEdit) modeEdit.disabled = mode.disabled;
   };
   composer.value = readDraft(null);
+  const contextOptions = (select, rows, emptyLabel, selected) => {
+    if (!select) return;
+    select.replaceChildren(new Option(emptyLabel, ''), ...rows.map(row => new Option(row.name, row.ref, false, row.ref === selected)));
+    select.disabled = false;
+  };
+  const visibleBrands = projectRef => {
+    const brands = contextEntities.filter(item => item.kind === 'brand');
+    const project = contextEntities.find(item => item.ref === projectRef);
+    return project?.related_refs?.length ? brands.filter(item => project.related_refs.includes(item.ref)) : brands;
+  };
+  const renderContext = (selected = activeContext) => {
+    contextOptions(projectSelect, contextEntities.filter(item => item.kind === 'project'), 'Sem projeto', selected.project_ref);
+    const brands = visibleBrands(projectSelect?.value || selected.project_ref);
+    const brandRef = brands.some(item => item.ref === selected.brand_ref) ? selected.brand_ref : '';
+    contextOptions(brandSelect, brands, 'Sem marca', brandRef);
+    if (contextNote) contextNote.textContent = projectSelect?.value
+      ? 'Projeto ativo para novas conversas e mensagens.'
+      : 'Selecione um projeto para incluir o contexto no Cadu.';
+  };
+  async function loadContext() {
+    if (!projectSelect || !brandSelect) return;
+    try {
+      const data = await api('context');
+      contextEntities = Array.isArray(data.entities) ? data.entities : [];
+      activeContext = data.context || {};
+      const requestedProject = pageMode && new URLSearchParams(window.location.search).get('project');
+      if (requestedProject && contextEntities.some(item => item.kind === 'project' && item.ref === requestedProject)) {
+        activeContext = {...activeContext, project_ref: requestedProject, brand_ref: ''};
+        await api('context', 'POST', activeContext);
+      }
+      renderContext();
+    } catch (_) {
+      projectSelect.replaceChildren(new Option('Projetos indisponíveis', ''));
+      brandSelect.replaceChildren(new Option('Marcas indisponíveis', ''));
+      if (contextNote) contextNote.textContent = 'O contexto será disponibilizado quando a conexão do Workspace estiver ativa.';
+    }
+  }
+  async function saveContext() {
+    if (!projectSelect || !brandSelect) return;
+    projectSelect.disabled = brandSelect.disabled = true;
+    try {
+      const data = await api('context', 'POST', {project_ref: projectSelect.value || null, brand_ref: brandSelect.value || null});
+      activeContext = data.context || {};
+      renderContext(activeContext);
+      status.textContent = 'Contexto salvo para a próxima conversa.';
+    } catch (error) {
+      renderContext(activeContext);
+      status.textContent = unavailableMessage('Não foi possível salvar o contexto', error);
+    }
+  }
+  projectSelect?.addEventListener('change', () => { renderContext({...activeContext, project_ref: projectSelect.value, brand_ref: ''}); saveContext(); });
+  brandSelect?.addEventListener('change', saveContext);
   const attachments = new CaduAttachments(panel, status);
   const sendButton = document.getElementById('conversation-send');
   const updateSend = () => {
@@ -382,6 +438,7 @@
         status.textContent = unavailableMessage('Não foi possível iniciar as conversas', error);
       } finally { updateSend(); }
       await loadHistory();
+      await loadContext();
       const requested = pageMode && new URLSearchParams(window.location.search).get('conversation');
       if (requested && !conversationId) await openConversation(requested);
       else if (recent && !conversationId) history.innerHTML = '<div class="workspace-conversation-empty"><strong>Como posso ajudar?</strong><span>Escreva uma mensagem ou retome uma conversa anterior.</span></div>';

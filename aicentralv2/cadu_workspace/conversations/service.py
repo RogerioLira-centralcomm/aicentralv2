@@ -7,6 +7,7 @@ from flask import abort, session, current_app
 from ...cadu_family import context, dify, repository
 from ...cadu_family.catalog import PROFILES
 from .guardrails import validate_message, validate_files, history_context, require_available_intent
+from .orchestration import choose_mode
 from .provider_events import ProviderEvents
 from . import catalog_tools
 from . import recovery
@@ -182,9 +183,11 @@ def prepare(data, selected):
     profile = data['profile']
     existing = data.get('conversation_id')
     conversation_id = str(existing or uuid4())
-    chosen = valid_mode(user['id'], data.get('mode', 'ideias'))
+    # People no longer choose a mode. The server selects a controlled prompt
+    # posture from the installed skills based on the request itself.
+    chosen, routing = choose_mode(modes(user['id']), query)
     if chosen is None:
-        abort(400, description='Modo de contexto inválido.')
+        abort(503, description='As especializações do Cadu estão sendo configuradas.')
     inventory = {item['ref']: item for item in context.inventory(selected['client_id'])}
     # Existing threads retain their bound context even when opened in another product.
     saved_context = (repository.conversation_context(user, selected['client_id'], conversation_id) if existing else None) or session.get('family_context') or {}
@@ -254,6 +257,7 @@ def prepare(data, selected):
                         (str(uuid4()), conversation_id, query, json.dumps([{'id': str(row['id']), 'name': row['name']} for row in uploads])))
             run = build_run(run_id, conversation_id, user, selected, chosen, profile,
                             project_context, conversation, query, uploads, existing, history)
+            run['routing'] = routing
             if current_app.config.get('CADU_CHAT_WORKER_ENABLED', False):
                 from .jobs import enqueue
                 enqueue(cur, run)
@@ -268,8 +272,9 @@ def prepare(data, selected):
 def build_run(run_id, conversation_id, user, selected, chosen, profile,
               project_context, conversation, query, uploads, existing, history):
     """Build provider input before committing admission (and an optional job)."""
-    inputs = {'nome_usuario': user['name'], 'nome_cliente': selected['client_name'],
-              'skill_id': chosen['id'], 'skill_context': chosen['prompt'] + '\nPerfil: ' + PROFILES[profile],
+    inputs = {'nome_usuario': user['name'], 'nome_cliente': selected['client_name'], 'profile': profile,
+              'skill_id': chosen['id'], 'skill_context': chosen['prompt'] + '\nPerfil: ' + PROFILES[profile]
+              + '\nA especialização foi escolhida automaticamente pelo pedido do usuário.',
               'files_context': '', 'projeto_context': project_context,
               'is_first_message': 'true' if not conversation['total_mensagens'] else 'false',
               'saudacao_permitida': 'sim' if query.lower().strip('!.? ') in ('oi', 'olá', 'bom dia', 'boa tarde', 'boa noite') and not conversation['total_mensagens'] else 'nao',

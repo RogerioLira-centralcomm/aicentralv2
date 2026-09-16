@@ -204,6 +204,7 @@ echo "[7/9] Atualizando schemas e dados..."
 "$VENV_PYTHON" migrations/run_add_openrouter_gpt_image_2.py
 "$VENV_PYTHON" migrations/run_add_openai_integration_credential.py
 "$VENV_PYTHON" migrations/run_add_firecrawl_integration_credential.py
+"$VENV_PYTHON" migrations/run_add_dify_integration_credential.py
 "$VENV_PYTHON" migrations/run_add_brevo_integration_credential.py
 "$VENV_PYTHON" migrations/run_add_cx_place_documents.py
 "$VENV_PYTHON" migrations/run_add_d4sign_assinaturas.py

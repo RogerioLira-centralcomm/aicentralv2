@@ -34,16 +34,21 @@ def private_response(response):
 @bp.before_request
 def protect():
     planner_host = (urlparse(str(current_app.config.get('PLANNER_URL') or '')).hostname or '').lower()
+    workspace_host = (urlparse(str(current_app.config.get('WORKSPACE_URL') or '')).hostname or '').lower()
     request_host = (request.host.split(':', 1)[0] or '').lower()
     planner_surface = request_host == planner_host and (
         request.path.startswith('/familia/planner/')
         or request.path == '/familia/api/context'
         or request.path.startswith('/familia/api/planner/')
     )
+    workspace_chat_surface = request_host == workspace_host and (
+        request.path == '/familia/api/context'
+        or request.path.startswith('/familia/api/conversations')
+    )
     # Planner is a released Cadu product. It must not depend on the broader
     # family rollout flag, otherwise planner.centralcomm.media lands on the
     # CentralX 404 shell instead of its own product experience.
-    if not current_app.config.get('CADU_FAMILY_ENABLED') and not planner_surface:
+    if not current_app.config.get('CADU_FAMILY_ENABLED') and not (planner_surface or workspace_chat_surface):
         abort(404)
     if request.method not in ('GET', 'HEAD', 'OPTIONS'):
         if not session.get('user_id'):
@@ -616,12 +621,13 @@ def conversation_capabilities():
 @bp.post('/api/conversations/preflight')
 def conversation_preflight():
     from ..cadu_workspace.conversations.guardrails import validate_message, require_available_intent
+    from ..cadu_workspace.conversations.orchestration import classify
     writable_context()
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         abort(400)
     message = validate_message(data.get('message'))
-    return jsonify(intent=require_available_intent(message))
+    return jsonify(intent=require_available_intent(message), routing=classify(message))
 
 
 @bp.post('/api/conversations/uploads')

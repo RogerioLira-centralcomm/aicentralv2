@@ -24,6 +24,16 @@ class HistoryTest(TestCase):
         self.assertEqual(response.json['next_offset'], 40)
         history.assert_called_once_with(self.user, 12, limit=21, offset=20, query='campanha', archived=False)
 
+    def test_workspace_host_keeps_history_available_without_family_pages(self):
+        self.client.application.config.update(
+            CADU_FAMILY_ENABLED=False,
+            WORKSPACE_URL='https://workspace.centralcomm.media',
+        )
+        with mock.patch.object(repository, 'conversation_history', return_value=[]) as history:
+            response = self.client.get('/familia/api/conversations', headers={'Host': 'workspace.centralcomm.media'})
+        self.assertEqual(response.status_code, 200)
+        history.assert_called_once()
+
     def test_invalid_page_is_rejected_before_query(self):
         with mock.patch.object(repository, 'conversation_history') as history:
             for offset in ('-1', 'abc', '100001'):

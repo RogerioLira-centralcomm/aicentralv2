@@ -90,6 +90,18 @@ class IntegrationCredentialsServiceTest(unittest.TestCase):
         self.assertNotIn("fc-env-test", str(summary))
         self.assertNotIn("api_key", summary)
 
+    def test_dify_summary_and_runtime_configuration_use_environment(self):
+        self.app.config["CADU_DIFY_API_KEY"] = "dify-env-test"
+        self.app.config["CADU_DIFY_BASE_URL"] = "https://dify.example/v1"
+        with patch("aicentralv2.db.obter_credencial_integracao", return_value=None):
+            summary = integration_credentials.get_summary("dify")
+            url, key = integration_credentials.resolve_dify_configuration()
+        self.assertEqual((url, key), ("https://dify.example/v1", "dify-env-test"))
+        self.assertTrue(summary["configured"])
+        self.assertTrue(summary["has_secret"])
+        self.assertNotIn("dify-env-test", str(summary))
+        self.assertNotIn("api_key", summary)
+
     def test_brevo_summary_uses_environment_until_saved(self):
         self.app.config["BREVO_API_KEY"] = "brevo-env-test"
         with patch("aicentralv2.db.obter_credencial_integracao", return_value=None):
@@ -227,12 +239,15 @@ class IntegrationCredentialsContractTest(unittest.TestCase):
         self.assertIn("OpenRouter", template)
         self.assertIn("OpenAI", template)
         self.assertIn("Firecrawl", template)
+        self.assertIn("Dify — Conversas Cadu", template)
         self.assertIn('data-integration-form="openrouter"', template)
         self.assertIn('data-integration-form="openai"', template)
         self.assertIn('data-integration-form="firecrawl"', template)
+        self.assertIn('data-integration-form="dify"', template)
         self.assertIn("run_add_openrouter_integration_credential.py", deploy)
         self.assertIn("run_add_openai_integration_credential.py", deploy)
         self.assertIn("run_add_firecrawl_integration_credential.py", deploy)
+        self.assertIn("run_add_dify_integration_credential.py", deploy)
         self.assertIn("run_add_brevo_integration_credential.py", deploy)
         self.assertIn("run_add_openrouter_gpt_image_2.py", deploy)
         image_sql = (ROOT / "migrations/add_openrouter_gpt_image_2.sql").read_text()

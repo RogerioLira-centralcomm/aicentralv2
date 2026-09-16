@@ -71,6 +71,16 @@ class RecoveryTest(TestCase):
         db.cursor.return_value.__enter__.return_value.execute.assert_not_called()
         db.rollback.assert_called_once()
 
+    def test_provider_payload_exposes_the_profile_input(self):
+        run = service.build_run(
+            self.id, 'thread',
+            {'id': 7, 'name': 'Pessoa', 'organization_id': 12},
+            {'client_id': 14, 'client_name': 'Agência'},
+            {'id': 'ideias', 'prompt': 'Ajude com clareza.'}, 'workspace', '',
+            {'dify_conversation_id': None, 'total_mensagens': 0}, 'Olá', [], None, '',
+        )
+        self.assertEqual(run['payload']['inputs']['profile'], 'workspace')
+
 
 class RecoveryRouteTest(TestCase):
     def setUp(self):

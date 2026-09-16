@@ -3,6 +3,7 @@
   const key = 'cadu-sidebar-state';
   const root = document.documentElement;
   const desktop = () => window.matchMedia('(min-width: 821px)').matches;
+  const conversationFocus = Boolean(document.querySelector('.workspace-app-shell--conversations'));
   const drawer = document.querySelector('.cadu-app-sidebar,.workspace-app-sidebar,.reports-app-sidebar,.connect-entry-sidebar,.family-layout--sidebar .family-modules');
   const mobileToggles = [...document.querySelectorAll('[data-cadu-sidebar-mobile-toggle]')];
   const main = document.querySelector('.workspace-app-main,.reports-app-main,.connect-entry,.cadu-app-shell>main,.family-layout--sidebar>main') || document.querySelector('main#content');
@@ -38,12 +39,12 @@
       button.setAttribute('aria-label', collapsed ? 'Expandir navegação' : 'Recolher navegação');
     });
   };
-  try { setState(localStorage.getItem(key) === 'collapsed'); } catch (_) { setState(false); }
+  try { setState(conversationFocus || localStorage.getItem(key) === 'collapsed'); } catch (_) { setState(conversationFocus); }
   setDrawer(false);
   const closePanels = except => document.querySelectorAll('.cadu-app-sidebar details,.workspace-app-sidebar details,.reports-app-sidebar details,.connect-entry-sidebar details,.family-modules details').forEach(panel => { if (panel !== except) panel.open = false; });
   document.addEventListener('click', event => {
     const toggle = event.target.closest('[data-cadu-sidebar-toggle]');
-    if (toggle) { const next = root.dataset.caduSidebar !== 'collapsed'; setState(next); try { localStorage.setItem(key, next ? 'collapsed' : 'expanded'); } catch (_) {} return; }
+    if (toggle) { const next = root.dataset.caduSidebar !== 'collapsed'; setState(next); if (!conversationFocus) try { localStorage.setItem(key, next ? 'collapsed' : 'expanded'); } catch (_) {} return; }
     const mobileToggle = event.target.closest('[data-cadu-sidebar-mobile-toggle]');
     if (mobileToggle) { lastTrigger = mobileToggle; setDrawer(!document.body.classList.contains('cadu-sidebar-drawer-open')); return; }
     if (event.target.closest('[data-cadu-sidebar-mobile-close]')) { setDrawer(false); return; }

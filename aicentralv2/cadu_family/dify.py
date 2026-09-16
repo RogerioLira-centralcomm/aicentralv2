@@ -1,6 +1,5 @@
 """Server-side Dify transport. Browser input cannot select a key, user or host."""
 import json
-import os
 from urllib.parse import urlparse
 
 import requests
@@ -12,8 +11,9 @@ class DifyUnavailable(RuntimeError):
 
 
 def settings():
-    key = current_app.config.get('CADU_DIFY_API_KEY') or os.getenv('CADU_DIFY_API_KEY', '')
-    url = current_app.config.get('CADU_DIFY_BASE_URL') or os.getenv('CADU_DIFY_BASE_URL', 'https://api.dify.ai/v1')
+    from aicentralv2.services.integration_credentials import resolve_dify_configuration
+
+    url, key = resolve_dify_configuration()
     if not key:
         raise DifyUnavailable('A integração Dify precisa ser configurada no servidor.')
     if urlparse(url).scheme != 'https' or not urlparse(url).hostname:

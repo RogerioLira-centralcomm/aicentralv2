@@ -52,6 +52,12 @@ PROVIDERS = {
         "secret_fields": ("api_key",),
         "required": ("api_key",),
     },
+    "dify": {
+        "label": "Dify — Conversas Cadu",
+        "public_fields": ("base_url",),
+        "secret_fields": ("api_key",),
+        "required": ("api_key",),
+    },
     "brevo": {
         "label": "Brevo",
         "public_fields": (),
@@ -100,6 +106,10 @@ ENV_FIELDS = {
     },
     "firecrawl": {
         "api_key": "FIRECRAWL_API_KEY",
+    },
+    "dify": {
+        "base_url": "CADU_DIFY_BASE_URL",
+        "api_key": "CADU_DIFY_API_KEY",
     },
     "brevo": {
         "api_key": "BREVO_API_KEY",
@@ -234,6 +244,8 @@ def save_configuration(provider, payload, updated_by):
         public["default_model"] = "gpt-5-mini"
     if provider == "openai" and not public.get("image_model"):
         public["image_model"] = "gpt-image-2"
+    if provider == "dify" and not public.get("base_url"):
+        public["base_url"] = "https://api.dify.ai/v1"
     if provider == "d4sign" and not public.get("ambiente"):
         public["ambiente"] = "producao"
     if provider == "d4sign" and not submitted_secrets.get("webhook_secret") and not existing_secrets.get("webhook_secret"):
@@ -324,6 +336,9 @@ def validate_configuration(provider):
     if provider == "firecrawl":
         valid, message = _validate_firecrawl(config)
         return valid, message, {}
+    if provider == "dify":
+        valid, message = _validate_dify(config)
+        return valid, message, {}
     if provider == "brevo":
         valid, message = _validate_brevo(config)
         return valid, message, {}
@@ -393,6 +408,46 @@ def resolve_firecrawl_api_key() -> str:
     except Exception:
         pass
     return str(_setting("FIRECRAWL_API_KEY") or "").strip()
+
+
+def resolve_dify_configuration():
+    """Resolve Dify no cofre, mantendo o .env como reserva operacional."""
+    default_url = "https://api.dify.ai/v1"
+    try:
+        config = get_configuration("dify", include_secrets=True)
+        if config.get("status") == "disabled":
+            return "", ""
+        key = str(config.get("api_key") or "").strip()
+        if key:
+            return str(config.get("base_url") or default_url).strip(), key
+    except Exception:
+        pass
+    return (
+        str(_setting("CADU_DIFY_BASE_URL") or default_url).strip(),
+        str(_setting("CADU_DIFY_API_KEY") or "").strip(),
+    )
+
+
+def _validate_dify(config):
+    import requests
+
+    base_url = str(config.get("base_url") or "https://api.dify.ai/v1").rstrip("/")
+    key = str(config.get("api_key") or "").strip()
+    try:
+        response = requests.get(
+            base_url + "/parameters",
+            params={"user": "centralx-validation"},
+            headers={"Authorization": f"Bearer {key}"},
+            timeout=15,
+            allow_redirects=False,
+        )
+    except requests.RequestException:
+        return False, "Não foi possível validar a chave no Dify."
+    if response.status_code in (401, 403):
+        return False, "A credencial Dify não foi aceita."
+    if response.status_code >= 400:
+        return False, "O Dify recusou a validação da credencial."
+    return True, "Credencial Dify aceita. Conversas Cadu estão prontas para uso."
 
 
 def _validate_firecrawl(config):
@@ -543,6 +598,10 @@ def _validate_public(provider, config):
             raise IntegrationCredentialError(
                 "O redirect Google deve usar HTTPS fora do ambiente local."
             )
+    if provider == "dify" and config.get("base_url"):
+        parsed = urlparse(config["base_url"])
+        if parsed.scheme != "https" or not parsed.hostname:
+            raise IntegrationCredentialError("O endereço Dify deve usar HTTPS.")
 
 
 def _schema(provider):

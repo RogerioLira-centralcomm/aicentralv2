@@ -9,3 +9,13 @@
 .family-layout,.family-layout--sidebar,.family-layout--sidebar .family-modules,.cadu-app-shell,.connect-workspace{min-height:calc(100dvh - var(--cadu-nav-height))!important}
 .planner-topbar{height:var(--cadu-nav-height)!important;gap:24px!important}.planner-wordmark{font-size:17px!important}.planner-mark{width:27px!important;height:27px!important}.planner-products a{padding:7px 9px!important}
 @media(max-width:680px){.portal--studio .mc-cadu-video{height:calc(100dvh - 96px)!important}}
+
+/* Shared vertical navigation: geometry is constant; each product supplies its colors. */
+:root{--cadu-sidebar-width:244px;--cadu-sidebar-pad:14px;--cadu-sidebar-item-height:38px}
+.family-layout--sidebar,.connect-entry-shell,.cadu-app-shell{grid-template-columns:var(--cadu-sidebar-width) minmax(0,1fr)!important}
+.family-layout--sidebar .family-modules,.connect-entry-sidebar,.cadu-skills-sidebar{width:auto!important;min-height:calc(100dvh - var(--cadu-nav-height))!important;padding:18px var(--cadu-sidebar-pad)!important;border-right:1px solid var(--line)!important}
+.family-layout--sidebar .family-modules a,.connect-entry-sidebar>nav a,.cadu-skills-sidebar a{display:flex;align-items:center;min-height:var(--cadu-sidebar-item-height);padding:8px 10px;border-radius:6px;font-size:13px;font-weight:650}
+.family-layout--sidebar .family-module-group>b,.connect-entry-sidebar>p,.cadu-skills-sidebar .sk-side-label{padding:0 10px 8px;margin:0;color:var(--muted);font-size:10px;font-weight:750;letter-spacing:.02em}
+.connect-entry-family,.cadu-skills-sidebar .sk-side-divider{margin:0 4px 18px;padding:0 0 14px;border-bottom:1px solid var(--line)}
+.cadu-skills-sidebar{gap:4px!important}.cadu-skills-sidebar .sk-side-group{display:grid;gap:3px}.cadu-skills-sidebar .sk-side-solution{gap:10px}.cadu-skills-sidebar .sk-side-solution img{width:20px;height:20px;object-fit:contain}
+@media(max-width:820px){.family-layout--sidebar,.connect-entry-shell,.cadu-app-shell{display:block!important}.family-layout--sidebar .family-modules,.connect-entry-sidebar,.cadu-skills-sidebar{position:static!important;display:flex!important;min-height:0!important;width:100%!important;padding:8px 14px!important;overflow:auto;border-right:0!important;border-bottom:1px solid var(--line)!important}.family-layout--sidebar .family-modules nav,.connect-entry-sidebar>nav,.cadu-skills-sidebar{flex-wrap:nowrap!important;gap:4px!important}.family-layout--sidebar .family-modules a,.connect-entry-sidebar>nav a,.cadu-skills-sidebar a{flex:0 0 auto;white-space:nowrap}.family-layout--sidebar .family-module-group>b,.connect-entry-sidebar>p,.cadu-skills-sidebar .sk-side-label,.connect-entry-family,.cadu-skills-sidebar .sk-side-divider,.cadu-skills-sidebar .sk-side-solutions{display:none!important}}

@@ -906,7 +906,7 @@ def _persist_project_source(client_id: int, project_id: str, title: str, content
     connection = get_db()
     try:
         with connection.cursor() as cursor:
-            charge_project_rag(
+            charged_tokens = charge_project_rag(
                 cursor, client_id=client_id, user_id=int(session.get('user_id') or 0), project_id=project_id,
                 tokens=tokens, stage='indexacao', idempotency_key='workspace-rag-index:' + uuid4().hex,
             )
@@ -918,7 +918,7 @@ def _persist_project_source(client_id: int, project_id: str, title: str, content
                             'text_model', 'completed', %s, %s, NOW(), NOW())
                  RETURNING id""",
                 (project_id, client_id, session.get('user_id'), title, mime, size,
-                 storage_path, word_count, tokens),
+                 storage_path, word_count, charged_tokens),
             )
             file_id = cursor.fetchone()['id']
             for order, chunk in enumerate(source_chunks):
@@ -1558,7 +1558,7 @@ def reprocess_project_source(project_id, source_id):
             abort(400, description='A fonte não contém texto indexável.')
         connection = get_db()
         with connection.cursor() as cursor:
-            charge_project_rag(
+            charged_tokens = charge_project_rag(
                 cursor, client_id=client_id, user_id=int(session.get('user_id') or 0), project_id=project_id,
                 tokens=max(1, round(len(content) / 4)), stage='reindexacao',
                 idempotency_key='workspace-rag-reindex:' + uuid4().hex,
@@ -1584,7 +1584,7 @@ def reprocess_project_source(project_id, source_id):
                           tokens = %s, updated_at = NOW()
                     WHERE id = %s AND projeto_id = %s AND id_cliente = %s""",
                 (len(re.findall(r'\b\w+\b', content, flags=re.UNICODE)),
-                 max(1, round(len(content) / 4)), source_id, project_id, client_id),
+                 charged_tokens, source_id, project_id, client_id),
             )
         connection.commit()
     except HTTPException:

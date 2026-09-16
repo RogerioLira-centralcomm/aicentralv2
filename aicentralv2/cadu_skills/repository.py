@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+import os
 import secrets
 from datetime import datetime, timezone
 from uuid import uuid4
@@ -374,7 +376,17 @@ def charge_project_rag(cursor, *, client_id: int, user_id: int, project_id: str,
     fail before a project gains searchable material, and a later error rolls
     the debit back with the indexing transaction.
     """
-    tokens = max(1, int(tokens or 0))
+    raw_tokens = max(1, int(tokens or 0))
+    # The displayed and debited amount has a small operating margin, while
+    # still remaining directly proportional to the source actually processed.
+    # A deployment may tune this without changing code; invalid values fall
+    # back to the 20% default.
+    try:
+        margin = float(os.getenv('CADU_PROJECT_RAG_TOKEN_MARGIN', '1.20'))
+    except (TypeError, ValueError):
+        margin = 1.20
+    margin = min(2.0, max(1.0, margin))
+    tokens = max(1, math.ceil(raw_tokens * margin))
     if not idempotency_key or len(idempotency_key) > 160:
         raise ValueError('Identificador inválido para cobrança de RAG.')
     cursor.execute(
@@ -407,7 +419,8 @@ def charge_project_rag(cursor, *, client_id: int, user_id: int, project_id: str,
            VALUES (%s, %s, %s, 'workspace_rag', %s, 'postgres-text', %s, 0, %s, %s,
                    %s::jsonb, 'charged', NOW())''',
         (idempotency_key, client_id, user_id, stage, tokens, tokens,
-         json.dumps({'projeto_id': str(project_id), 'rag': 'postgresql'})),
+         json.dumps({'projeto_id': str(project_id), 'rag': 'postgresql',
+                     'tokens_processados': raw_tokens, 'multiplicador': margin})),
     )
     return tokens
 

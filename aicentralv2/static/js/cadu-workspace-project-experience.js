@@ -11,6 +11,8 @@
   bindDialog(brandDialog, '[data-project-brand-open]', '[data-project-brand-close]');
   bindDialog(document.querySelector('[data-project-identity-dialog]'), '[data-project-identity-open]', '[data-project-identity-close]');
   bindDialog(document.querySelector('[data-project-sources-dialog]'), '[data-project-sources-open]', '[data-project-sources-close]');
+  const qualityHelp = document.querySelector('.workspace-project-quality-dialog__body section:nth-child(2) > p');
+  if (qualityHelp) qualityHelp.textContent = 'O Cadu pode preparar uma primeira versão para revisão humana. Nada é publicado ou aplicado automaticamente.';
   document.querySelectorAll('[data-project-starter]').forEach(button => button.addEventListener('click', () => {
     const url = new URL('/workspace/app/conversas', window.location.origin);
     const project = document.querySelector('[data-project-ref]')?.dataset.projectRef;

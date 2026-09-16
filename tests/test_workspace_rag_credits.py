@@ -37,3 +37,15 @@ def test_project_ux_explains_private_rag_and_credit_use():
     assert 'créditos Cadu disponíveis' in template
     assert 'data-source-reprocess' in template
     assert 'usa créditos Cadu' in script
+
+
+def test_project_detail_has_brand_import_and_quality_workflows():
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    template = (root / 'aicentralv2/templates/cadu_workspace/project_detail.html').read_text(encoding='utf-8')
+    experience = (root / 'aicentralv2/static/js/cadu-workspace-project-experience.js').read_text(encoding='utf-8')
+    assert 'Qualidade das informações' in template
+    assert 'data-project-quality-dialog' in template
+    assert 'data-project-brand-import' in template
+    assert 'data-project-starter' in template
+    assert 'status_url' in experience

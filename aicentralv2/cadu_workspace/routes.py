@@ -1281,7 +1281,8 @@ def project_detail(project_id):
         abort(404)
     _remember_workspace_project(project_id)
     return render_template('cadu_workspace/project_detail.html', project=project, brands=_workspace_brands(client_id),
-                           rag_credit=credit_position(client_id))
+                           rag_credit=credit_position(client_id),
+                           can_manage_brand=session.get('user_type') in {'admin', 'superadmin'})
 
 
 @bp.get('/projetos/<project_id>')
@@ -1349,6 +1350,60 @@ def update_project_brands(project_id):
     except Exception:
         current_app.logger.exception('Não foi possível atualizar marcas do projeto')
         abort(503, description='Não foi possível atualizar as marcas agora. Tente novamente.')
+    return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
+
+
+@bp.post('/workspace/app/projetos/<project_id>/marcas/importar')
+@login_required
+def import_project_brand(project_id):
+    """Create, attach and audit a brand from the project decision surface."""
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    _workspace_team_admin()
+    client_id = int(session.get('cliente_id') or 0)
+    _editable_workspace_project(client_id, project_id)
+    credit_response = _brand_audit_credit_gate(client_id)
+    if credit_response is not None:
+        return credit_response
+    name = ' '.join((request.form.get('brand_name') or '').split())[:150]
+    website_url = (request.form.get('website_url') or '').strip()[:2000]
+    if len(name) < 2:
+        abort(400, description='Informe o nome da marca.')
+    if not re.match(r'^https?://', website_url, re.I):
+        abort(400, description='Informe o site oficial iniciado por http:// ou https://.')
+    job_id = uuid4().hex
+    metadata = {'review_pack': {
+        'job_id': job_id, 'status': 'queued', 'stage': 'queued', 'index': 0, 'total': 4,
+        'message': 'A importação entrou na fila.', 'error': '',
+        'created_at': datetime.utcnow().isoformat() + 'Z',
+        'input': {'website_url': website_url, 'has_images': False}, 'analysis': {}, 'reviews': [],
+    }}
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                '''INSERT INTO cx_clients
+                       (crm_client_id, name, website_url, primary_color, secondary_color,
+                        brand_profile, analysis_metadata, price_policy)
+                   VALUES (%s, %s, %s, '#176b5e', '#dcece6', '{}'::jsonb, %s::jsonb, 'hide_price')
+                RETURNING id''', (client_id, name, website_url, json.dumps(metadata)))
+            brand_id = int(cursor.fetchone()['id'])
+        connection.commit()
+        family_repository.set_project_brand_link(
+            client_id, session.get('user_id'), f'ci:{project_id}', f'studio:{brand_id}', True,
+        )
+    except Exception:
+        connection.rollback()
+        current_app.logger.exception('Não foi possível importar a marca para o projeto %s', project_id)
+        abort(503, description='Não foi possível iniciar a importação da marca agora.')
+    _start_brand_review_job(client_id, int(session.get('user_id') or 0), brand_id, job_id, website_url, [])
+    payload = {
+        'ok': True, 'brand_id': brand_id, 'status': 'queued',
+        'status_url': url_for('cadu_workspace.brand_audit_status', brand_id=brand_id),
+        'brand_url': url_for('cadu_workspace.brand_detail', brand_id=brand_id),
+    }
+    if request.accept_mimetypes.best == 'application/json':
+        return jsonify(payload), 202
     return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
 
 

@@ -485,6 +485,13 @@
       } finally { updateSend(); }
       await loadHistory();
       await loadContext();
+      const starterPrompt = pageMode && new URLSearchParams(window.location.search).get('prompt');
+      if (starterPrompt && !conversationId && !composer.value.trim()) {
+        composer.value = starterPrompt.slice(0, 20000);
+        composer.style.height = 'auto';
+        composer.style.height = Math.min(composer.scrollHeight, window.innerHeight * .3) + 'px';
+        updateSend();
+      }
       const requested = pageMode && new URLSearchParams(window.location.search).get('conversation');
       if (requested && !conversationId) await openConversation(requested);
       else if (recent && !conversationId) history.innerHTML = '<div class="workspace-conversation-empty"><strong>Como posso ajudar?</strong><span>Escreva uma mensagem ou retome uma conversa anterior.</span></div>';

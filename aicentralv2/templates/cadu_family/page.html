@@ -4,8 +4,8 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="csrf-token" content="{{ csrf }}">
   <title>{{ title }} — Cadu {{ spec.name }}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-family.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-family-sidebar.css') }}?v=1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-family.css') }}?v=4">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-family-sidebar.css') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-product-switch.css') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-nav-compact.css') }}?v=1">
   {% if product == 'workspace' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-family.css') }}?v=1">{% endif %}
@@ -57,7 +57,10 @@
     {% if user %}<details class="family-account-menu"><summary aria-label="Abrir opções da conta">{{ user.name[:2] | upper }}</summary><div><strong>{{ user.name }}</strong><a href="{{ url_for('cadu_family.page', product='workspace', module='perfil') }}">Perfil</a><a href="{{ url_for('cadu_family.page', product='workspace', module='consumo') }}">Créditos e consumo</a></div></details>{% else %}<a class="family-primary" href="{{ login_url }}">Entrar</a>{% endif %}
   </div>
 </header>
-<div class="family-layout {{ 'family-layout--sidebar' if sidebar_product else '' }}">
+{# A variação com lateral existe somente depois da autenticação. Sem essa
+   condição, uma versão antiga do CSS pode reservar uma coluna vazia e
+   comprimir a entrada pública do Planner. #}
+<div class="family-layout {{ 'family-layout--sidebar' if user and sidebar_product else '' }}">
 {% if user and sidebar_product %}
   <aside class="family-modules" aria-label="Seções de {{ spec.name }}">
     <nav>

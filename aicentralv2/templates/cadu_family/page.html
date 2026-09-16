@@ -45,11 +45,10 @@
       {% endfor %}
     {% else %}<a href="{{ url_for('cadu_family.page', product=product, module='inicio') }}" aria-current="page">Visão geral</a>{% endif %}
   </nav>
-  {% if user %}<details class="family-context-menu"><summary><span><small>Cliente selecionado</small><strong>{{ selected.client_name }}</strong></span><span aria-hidden="true">⌄</span></summary><form id="family-context" class="family-context">
-    <label>Cliente<select name="client_id" aria-label="Cliente">{% for client in clients %}<option value="{{ client.id }}" {% if client.id == selected.client_id %}selected{% endif %}>{{ client.name }}</option>{% endfor %}</select></label>
+  {% if user %}<details class="family-context-menu"><summary><span><small>Contexto de trabalho</small><strong>Projetos e marcas</strong></span><span aria-hidden="true">⌄</span></summary><form id="family-context" class="family-context">
     <label>Marca<select name="brand_ref" aria-label="Marca"><option value="">Todas as marcas</option>{% for item in entities if item.kind == 'brand' %}<option value="{{ item.ref }}" {% if session.get('family_context', {}).get('brand_ref') == item.ref %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select></label>
     <label>Projeto<select name="project_ref" aria-label="Projeto"><option value="">Todos os projetos</option>{% for item in entities if item.kind == 'project' %}<option value="{{ item.ref }}" {% if session.get('family_context', {}).get('project_ref') == item.ref %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select></label>
-    <p class="family-context-help">Ao trocar de cliente, marca e projeto serão redefinidos. Sua organização de acesso permanece a mesma.</p>
+    <p class="family-context-help">Marcas e projetos pertencem ao ambiente da sua conta.</p>
   </form></details>{% endif %}
   <div class="family-nav-actions">
     {% if user %}<details class="family-account-menu"><summary aria-label="Abrir opções da conta">{{ user.name[:2] | upper }}</summary><div><strong>{{ user.name }}</strong><a href="{{ url_for('cadu_family.page', product='workspace', module='perfil') }}">Perfil</a><a href="{{ url_for('cadu_family.page', product='workspace', module='consumo') }}">Créditos e consumo</a></div></details>{% else %}<a class="family-primary" href="{{ login_url }}">Entrar</a>{% endif %}
@@ -57,7 +56,7 @@
 </header>
 <div class="family-layout">
 <main id="content" tabindex="-1">
-  <header class="family-page-head"><div><p>{{ spec.name }}{% if selected %} / {{ selected.client_name }}{% endif %}</p><h1>{{ landing.title if module == 'inicio' else title }}</h1>{% if module == 'inicio' %}<p class="family-page-intro">{{ landing.intro }}</p>{% endif %}</div>
+  <header class="family-page-head"><div><p>{{ spec.name }}</p><h1>{{ landing.title if module == 'inicio' else title }}</h1>{% if module == 'inicio' %}<p class="family-page-intro">{{ landing.intro }}</p>{% endif %}</div>
   {% if product == 'studio' %}<a href="{{ product_url('workspace', '/familia/workspace/marcas') }}">Gerenciar marcas no Workspace</a>{% endif %}</header>
   <p id="family-feedback" role="status" aria-live="polite"></p>
   {% block product_content %}{% endblock %}

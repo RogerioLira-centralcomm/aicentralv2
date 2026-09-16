@@ -17,10 +17,8 @@
   }
   form?.addEventListener('change', event => {
     const data = selection();
-    if (event.target.name === 'client_id') { data.brand_ref = null; data.project_ref = null; }
     select(data);
   });
-  document.querySelectorAll('[data-client]').forEach(button => button.addEventListener('click', () => select({client_id: button.dataset.client})));
   document.querySelectorAll('[data-entity-select]').forEach(button => button.addEventListener('click', () => {
     select({...selection(), [button.dataset.kind === 'brand' ? 'brand_ref' : 'project_ref']: button.dataset.entitySelect});
   }));

@@ -1,0 +1,44 @@
+/* Trocr owns this frame.  It deliberately does not inherit the ERP/central
+   shell, allowing the editor to keep a stable work area on every host. */
+:root { background:#171b21; }
+body.portal--studio { min-width:320px; background:#171b21; }
+.trocr-product { min-height:100dvh; background:#171b21; color:#f2f5f8; }
+.trocr-product-bar {
+  height:56px; display:grid; grid-template-columns:minmax(130px,1fr) auto minmax(190px,1fr); align-items:center; gap:18px; padding:0 18px;
+  border-bottom:1px solid #3e4754; background:#20262e;
+}
+.trocr-product-mark { display:grid; grid-template-columns:28px auto; column-gap:8px; align-items:center; color:#f2f5f8; text-decoration:none; }
+.trocr-product-mark > span { grid-row:1 / span 2; display:grid; place-items:center; width:28px; height:28px; border-radius:7px; background:#4bd1ae; color:#17211f; font-size:15px; font-weight:800; }
+.trocr-product-mark strong { font-size:14px; letter-spacing:-.02em; }
+.trocr-product-mark small { color:#b8c2ce; font-size:10px; }
+.trocr-product-bar nav { display:flex; justify-self:center; align-self:stretch; gap:3px; }
+.trocr-product-bar nav a { display:grid; place-items:center; padding:0 10px; border-bottom:2px solid transparent; color:#b8c2ce; font-size:12px; font-weight:650; text-decoration:none; }
+.trocr-product-bar nav a:hover { color:#f2f5f8; background:#2a313b; }
+.trocr-product-bar nav a.is-current { color:#4bd1ae; border-bottom-color:#4bd1ae; }
+.trocr-product-brand { display:grid; gap:2px; min-width:190px; justify-self:end; color:#b8c2ce; font-size:10px; }
+.trocr-product-brand select { width:100%; min-width:0; height:27px; border:1px solid #4b5563; border-radius:5px; background:#292e36; color:#f2f5f8; font:inherit; font-size:12px; }
+.trocr-product-credits { margin:0; color:#b8c2ce; font-size:11px; white-space:nowrap; }
+.trocr-product-alert { margin:10px 16px; padding:10px 12px; border:1px solid #b65a53; border-radius:7px; background:#3b2829; color:#ffe1dd; font-size:12px; }
+.trocr-product-alert.hidden { display:none; }
+.trocr-product-workspace { padding:0; }
+.trocr-product .mc-shell { margin:0; }
+.trocr-product .mc-trocr.trocr-editor { border:0; border-radius:0; height:calc(100dvh - 56px); min-height:480px; }
+/* These dialogs used Tailwind utility classes while the editor was embedded in
+   CentralX.  Define their finished appearance here so opening a comparison
+   cannot depend on that host stylesheet. */
+.trocr-product #mcTrocrClipCompare { width:min(56rem,calc(100vw - 2rem)); max-height:90vh; overflow-y:auto; padding:0; border:1px solid #4b5563; border-radius:12px; background:#292e36; color:#f2f5f8; box-shadow:0 24px 70px #090d12aa; }
+.trocr-product #mcTrocrClipCompare::backdrop,.trocr-product .mc-trocr-dialog::backdrop,.trocr-product .mc-trocr-history::backdrop { background:#090d12aa; }
+.trocr-product #mcTrocrClipCompare form { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 20px; border-bottom:1px solid #4b5563; }
+.trocr-product #mcTrocrClipCompare h2,.trocr-product #mcTrocrClipCompare p { margin:0; }
+.trocr-product #mcTrocrClipCompare p { margin-top:4px; color:#b8c2ce; font-size:12px; }
+.trocr-product #mcTrocrClipCompare > div { display:grid; gap:16px; padding:16px 20px; }
+.trocr-product #mcTrocrClipCompare > div > div { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.trocr-product #mcTrocrClipCompare video { width:100%; aspect-ratio:16 / 9; background:#090d12; object-fit:contain; }
+.trocr-product #mcTrocrClipCompare button { min-height:34px; }
+@media (max-width:540px) { .trocr-product #mcTrocrClipCompare > div > div { grid-template-columns:1fr; } }
+@media (max-width:700px) {
+  .trocr-product-bar { height:auto; min-height:56px; display:flex; flex-wrap:wrap; gap:8px 12px; padding:8px 12px; }
+  .trocr-product-bar nav { order:3; width:100%; height:32px; justify-content:flex-start; }
+  .trocr-product-brand { min-width:130px; }
+  .trocr-product .mc-trocr.trocr-editor { height:calc(100dvh - 104px); }
+}

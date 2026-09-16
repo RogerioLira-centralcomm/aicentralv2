@@ -21,15 +21,21 @@ def authorized_clients():
 
 def resolve(client_id=None):
     user = identity()
+    # A Cadu login belongs to one tenant.  Projects and brands are the
+    # selectable context inside that tenant; users must never browse or switch
+    # a client from the product UI.
+    tenant_id = user['organization_id']
     if client_id is None:
-        client_id = (session.get('family_context') or {}).get('client_id', user['organization_id'])
+        client_id = tenant_id
     try:
         client_id = int(client_id)
     except (TypeError, ValueError):
         abort(400, description='Cliente inválido.')
-    client = next((c for c in authorized_clients() if c['id'] == client_id), None)
+    if client_id != tenant_id:
+        abort(403, description='Este login não pode trocar de ambiente.')
+    client = next((c for c in authorized_clients() if c['id'] == tenant_id), None)
     if client is None:
-        abort(403, description='Você não tem acesso a este cliente.')
+        abort(403, description='Não foi possível validar o ambiente desta conta.')
     return {'organization_id': user['organization_id'], 'client_id': client_id,
             'client_name': client['name'], 'role': client['role']}
 

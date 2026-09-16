@@ -1,12 +1,12 @@
 """Explicit customer surface; no automatic exposure of internal routes."""
 PRODUCTS = {
     'workspace': {'name': 'Workspace', 'navigation': (
-        ('Trabalho', ('inicio', 'conversas', 'clientes', 'projetos', 'marcas')),
+        ('Trabalho', ('inicio', 'conversas', 'projetos', 'marcas')),
         ('Organização', ('equipe', 'integracoes', 'planos', 'consumo', 'faturamento', 'perfil')),
     ), 'modules': {
         'inicio': ('Início', None),
         'conversas': ('Conversas', None),
-        'clientes': ('Clientes', None), 'projetos': ('Projetos', None),
+        'projetos': ('Projetos', None),
         'marcas': ('Marcas', None), 'perfil': ('Perfil', '/configuracoes-perfil'),
         'equipe': ('Equipe', '/configuracoes-equipe'),
         'integracoes': ('Integrações do Workspace', '/integracoes'), 'planos': ('Planos', '/planos'),
@@ -40,12 +40,11 @@ PRODUCTS = {
 LANDINGS = {
     'workspace': {
         'title': 'O que vamos realizar hoje?',
-        'intro': 'Clientes, marcas, projetos e conta em um só lugar.',
-        'heading': 'Defina o contexto do seu trabalho',
-        'body': 'Selecione um cliente autorizado e reúna suas marcas e projetos antes de continuar nas outras soluções.',
+        'intro': 'Projetos, marcas e conta em um só lugar.',
+        'heading': 'Organize o contexto do seu trabalho',
+        'body': 'Sua conta já está vinculada ao ambiente correto. Reúna projetos e marcas antes de continuar nas outras soluções.',
         'image': 'cadu-hub.png',
-        'links': [('clientes', 'Selecionar um cliente', 'Consulte os clientes que sua conta pode acessar.'),
-                  ('projetos', 'Organizar projetos', 'Encontre os projetos vinculados ao cliente selecionado.'),
+        'links': [('projetos', 'Organizar projetos', 'Encontre os projetos do seu ambiente.'),
                   ('marcas', 'Gerenciar marcas', 'Mantenha as referências da marca no Workspace.')],
     },
     'planner': {
@@ -79,7 +78,7 @@ LANDINGS = {
     },
 }
 PROFILES = {
-    'workspace': 'Organização de clientes, marcas e projetos',
+    'workspace': 'Organização de marcas e projetos',
     'planner': 'Objetivos, públicos e planejamento de mídia',
     'connect': 'Análise de relatórios e organização por cliente',
 }

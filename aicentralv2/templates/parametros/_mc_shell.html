@@ -9,7 +9,6 @@
     {% else %}
     <a id="mcCaduStill" href="{{ url_for('parametros.modelagem_trocar') }}"{% if mc_page == 'trocar' %} class="is-current" aria-current="page"{% endif %}>Ajustar</a>
     <a id="mcCaduVideo" href="{{ url_for('parametros.modelagem_video') }}"{% if mc_page == 'video' %} class="is-current" aria-current="page"{% endif %}>Vídeo</a>
-    <a href="{{ product_url('workspace', '/familia/workspace/marcas/sistema') }}">Marcas</a>
     <details class="mc-cadu-menu" id="mcCaduMore">
       <summary>Mais</summary>
       <div class="mc-cadu-menu-list">

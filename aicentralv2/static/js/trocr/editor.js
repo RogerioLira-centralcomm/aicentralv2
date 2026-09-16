@@ -164,6 +164,10 @@
       const row = entries().find((item) => item.id === id);
       if (!row) return;
       selected = id;
+      state.selectedElement = {
+        id: row.id, role: row.role, label: row.label, text: row.text || '',
+        bbox_px: Array.isArray(row.box) ? row.box.slice(0, 4) : null,
+      };
       document.querySelectorAll('.trocr-field-selected').forEach((node) => node.classList.remove('trocr-field-selected'));
       setTab('ai');
       const note = $('mcSwapNote');
@@ -209,13 +213,13 @@
       $('trocrSelection').hidden = !row;
       if (row) {
         $('trocrSelectedName').textContent = row.label;
-        const markable = ['headline', 'support', 'price', 'cta'].includes(row.role);
+        const markable = true;
         const editableObject = ['person', 'product', 'background', 'graphic'].includes(row.role);
         $('trocrMarkSelected').hidden = !markable;
         $('trocrMarkSelected').disabled = state.activeId !== state.baseId || state.generating;
         $('trocrSelectedHint').textContent = state.activeId !== state.baseId
           ? 'Visualize a versão base para marcar uma região.'
-          : markable ? 'Marque a área do texto na imagem base. A alteração será incluída no próximo pedido.' : 'Use o assistente para solicitar mudanças neste elemento.';
+          : 'Marque o contorno na imagem base. Este recorte segue junto no próximo pedido.';
         $('trocrSelectionActions').hidden = !editableObject;
         const agentActions = $('trocrSelectionAgentActions');
         if (agentActions) {
@@ -225,8 +229,8 @@
           agentActions.querySelector('[data-agent-action="isolate-product"]')?.toggleAttribute('hidden', row.role !== 'product');
         }
         if (editableObject) $('trocrSelectedHint').textContent = row.box
-          ? 'A região identificada será levada para a seleção fina. Revise o contorno antes de gerar.'
-          : 'Marque o contorno do item na peça para trocar ou apagar somente esta área.';
+          ? 'O recorte identificado está destacado na peça. Ajuste o contorno se necessário.'
+          : 'O OCR não delimitou este item. Desenhe o contorno antes de pedir a alteração.';
       }
       const region = state.region;
       const regionRole = row?.role === 'support' ? 'secondary' : row?.role;
@@ -256,12 +260,19 @@
       const content = api.imageContentRect(img);
       const frameBox = img?.parentElement?.getBoundingClientRect();
       if (!content || !frameBox) return;
-      entries().filter((row) => Array.isArray(row.box) && row.box.length === 4).forEach((row) => {
-        const [x1,y1,x2,y2] = row.box;
+      entries().forEach((row) => {
+        const box = Array.isArray(row.box) && row.box.length === 4 ? row.box : (selected === row.id ? [0, 0, content.nw, content.nh] : null);
+        if (!box) return;
+        const [x1,y1,x2,y2] = box;
         if (![x1,y1,x2,y2].every(Number.isFinite) || x1 < 0 || y1 < 0 || x2 > content.nw || y2 > content.nh || x2 <= x1 || y2 <= y1) return;
         const node = document.createElement('button'); node.type = 'button'; node.className = 'trocr-element-box'; node.dataset.elementId = row.id;
         node.setAttribute('aria-label', `Selecionar ${row.label}`);
         node.setAttribute('aria-pressed', String(selected === row.id));
+        if (selected === row.id) {
+          node.classList.add('is-selection-focus');
+          node.dataset.selection = row.box ? 'detected' : 'manual';
+          node.title = row.box ? `${row.label} selecionado` : `Delimite ${row.label} para recortar`;
+        }
         Object.assign(node.style, { left: `${content.left-frameBox.left+x1*content.scale}px`, top: `${content.top-frameBox.top+y1*content.scale}px`, width: `${(x2-x1)*content.scale}px`, height: `${(y2-y1)*content.scale}px` });
         host.append(node);
       });
@@ -312,8 +323,14 @@
         if (!row || state.activeId !== state.baseId) return;
         const role = row.role === 'support' ? 'secondary' : row.role;
         state.selectedRegionField = role;
-        const alter = document.querySelector(`input[name="mcTrocrAlter"][value="${role}"]`);
+        const alteration = { person: 'people', support: 'secondary' };
+        const alter = document.querySelector(`input[name="mcTrocrAlter"][value="${alteration[role] || role}"]`);
         if (alter) alter.checked = true;
+        if (Array.isArray(row.box) && row.box.length === 4) {
+          const img = $('mcSwapImage');
+          state.region = { field: role, box: row.box.slice(0, 4), ref_width: img?.naturalWidth || row.box[2], ref_height: img?.naturalHeight || row.box[3] };
+          api.paintRegionBox();
+        }
         if (!state.picking) api.togglePickRegion();
         api.refreshPrompt(); changed();
       });

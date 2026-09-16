@@ -103,6 +103,7 @@
     sceneGroup: '',
     editorDraft: null,
     selectedRegionField: '',
+    selectedElement: null,
     generating: false,
     agentReferences: [],
   };
@@ -1258,6 +1259,7 @@
       note: $('mcSwapNote')?.value || '',
       instruction: $('mcSwapNote')?.value || '',
       reference_images: state.agentReferences.map((item) => item.data),
+      selected_element: state.selectedElement || undefined,
       aspect_ratio: state.aspectRatio,
       aspect_hint: read.aspect_hint || '',
       run_id: state.runId || undefined,
@@ -1292,7 +1294,8 @@
 
   function regionField() {
     const alter = checkedValues('mcTrocrAlter');
-    if (state.selectedRegionField && alter.includes(state.selectedRegionField)) return state.selectedRegionField;
+    const alteration = { person: 'people', support: 'secondary' };
+    if (state.selectedRegionField && (alter.includes(state.selectedRegionField) || alter.includes(alteration[state.selectedRegionField]))) return state.selectedRegionField;
     const order = ['headline', 'cta', 'secondary', 'price'];
     return order.find((item) => alter.includes(item)) || 'headline';
   }
@@ -1325,7 +1328,7 @@
     if (!found) {
       rows.push({
         role,
-        kind: 'type',
+        kind: ['person', 'product', 'background', 'graphic'].includes(role) ? 'visual' : 'type',
         text: '',
         bbox_px: state.region.box,
         source: 'manual',
@@ -2506,6 +2509,9 @@
       return;
     }
     state.picking = false;
+    if (state.selectedElement && state.selectedElement.role === state.region.field) {
+      state.selectedElement = { ...state.selectedElement, bbox_px: state.region.box.slice(0, 4) };
+    }
     $('mcTrocrViewport')?.classList.remove('is-picking');
     $('mcTrocrPickRegion')?.classList.remove('is-on');
     paintRegionBox();

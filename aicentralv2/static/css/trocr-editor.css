@@ -282,6 +282,12 @@
 .trocr-editor .trocr-element-copy small,.trocr-editor .trocr-sidebar-intro { color:#657481; }
 .trocr-editor .trocr-element-box { border-color:#087f6bc0; background:#087f6b10; }
 .trocr-editor .trocr-element-box:hover,.trocr-editor .trocr-element-box[aria-pressed="true"] { border-color:#087f6b; background:#087f6b20; box-shadow:0 0 0 3px #ffffffcc; }
+.trocr-editor .trocr-element-box.is-selection-focus { z-index:9; border:2px solid #087f6b; background:linear-gradient(135deg,#087f6b33,#4bd1ae14); box-shadow:0 0 0 999px #17212b30,0 0 0 4px #ffffffd9; animation:trocr-selection-confirm .52s ease-out 1; }
+.trocr-editor .trocr-element-box.is-selection-focus[data-selection="manual"] { border-style:dashed; background:repeating-linear-gradient(135deg,#087f6b18 0 10px,#ffffff18 10px 20px); }
+.trocr-editor .trocr-element-box.is-selection-focus::after { content:'Seleção enviada ao agente'; position:absolute; left:0; top:-28px; width:max-content; max-width:220px; padding:4px 7px; border-radius:999px; background:#087f6b; color:#fff; font:600 11px/1.2 Inter,sans-serif; white-space:nowrap; box-shadow:0 4px 14px #087f6b42; }
+.trocr-editor .trocr-element-box.is-selection-focus[data-selection="manual"]::after { content:'Delimite este recorte'; }
+@keyframes trocr-selection-confirm { 0% { transform:scale(.96); opacity:.25; } 60% { transform:scale(1.015); } 100% { transform:scale(1); opacity:1; } }
+@media (prefers-reduced-motion:reduce) { .trocr-editor .trocr-element-box.is-selection-focus { animation:none; } }
 .trocr-editor .trocr-format-tray { display:none; }
 .trocr-editor .mc-trocr-inspector { background:#fff; color:#17212b; }
 .trocr-editor .mc-trocr-inspector .cx-input,.trocr-editor .mc-trocr-inspector .cx-select { background:#f7fafb; color:#17212b; border-color:#dbe3e8; }

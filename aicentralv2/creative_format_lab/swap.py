@@ -419,6 +419,14 @@ def build_optimized_prompt(payload=None, brand=None, operations=None):
         lines.append("Keep the repeating pennant/bunting and field pattern. Do not restyle the graphic devices.")
     if alter:
         lines.append("Change only: " + ", ".join(ALTER_LABELS[item] for item in alter) + ".")
+    selected = payload.get("selected_element") if isinstance(payload.get("selected_element"), dict) else {}
+    selected_role = str(selected.get("role") or "").strip()
+    selected_box = selected.get("bbox_px")
+    if selected_role:
+        lines.append(f"The user selected the {selected_role} element for this request.")
+        if isinstance(selected_box, (list, tuple)) and len(selected_box) == 4:
+            coords = ", ".join(str(int(value)) for value in selected_box)
+            lines.append(f"Apply the requested edit inside the selected crop bounds [{coords}] and protect the surrounding composition.")
     locks = _lock_list(payload)
     if locks:
         spelled = " | ".join(_spell_lock(item) for item in locks)

@@ -4,6 +4,11 @@
       if (!window.confirm('Remover esta fonte do projeto? O arquivo original será movido para a lixeira interna.')) event.preventDefault();
     });
   });
+  document.querySelectorAll('[data-source-reprocess]').forEach((form) => {
+    form.addEventListener('submit', (event) => {
+      if (!window.confirm('Reprocessar esta fonte atualiza o RAG privado e usa créditos Cadu conforme o texto extraído. Continuar?')) event.preventDefault();
+    });
+  });
 
   const sourceStatus = document.querySelector('[data-source-status-url]');
   if (sourceStatus) {
@@ -60,7 +65,7 @@
     });
     const dialog = document.createElement('dialog');
     dialog.className = 'workspace-upload-dialog';
-    dialog.innerHTML = '<div class="workspace-upload-dialog__body"><span class="workspace-upload-dialog__mark"><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i></span><h2>Adicionar à base do projeto?</h2><p>O arquivo original ficará privado. Vamos extrair o conteúdo para que o Cadu use este contexto em conversas futuras.</p><strong class="workspace-upload-dialog__file"></strong><footer><button type="button" data-upload-cancel>Voltar</button><button type="button" data-upload-confirm>Adicionar e indexar</button></footer></div>';
+    dialog.innerHTML = '<div class="workspace-upload-dialog__body"><span class="workspace-upload-dialog__mark"><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i></span><h2>Indexar no RAG privado?</h2><p>O arquivo original ficará privado neste projeto. O texto extraído será processado no PostgreSQL e usará créditos Cadu conforme o volume processado.</p><strong class="workspace-upload-dialog__file"></strong><footer><button type="button" data-upload-cancel>Voltar</button><button type="button" data-upload-confirm>Indexar e usar créditos</button></footer></div>';
     document.body.append(dialog);
     let pendingSubmit = false;
     sourceForm?.addEventListener('submit', (event) => {

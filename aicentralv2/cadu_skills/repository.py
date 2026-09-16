@@ -14,6 +14,10 @@ from .credits import balance_from_ledger
 EVENT_TYPES = {"view", "copy", "install", "run_started", "run_succeeded", "run_failed"}
 
 
+class CaduCreditUnavailable(ValueError):
+    """A client has no available Cadu credits for an owned operation."""
+
+
 def _db():
     from ..db import get_db
     return get_db()
@@ -385,7 +389,7 @@ def charge_project_rag(cursor, *, client_id: int, user_id: int, project_id: str,
     lots = [dict(row) for row in cursor.fetchall()]
     available = sum(max(0, int(row.get('tokens_amount') or 0) - int(row.get('tokens_used') or 0)) for row in lots)
     if available < tokens:
-        raise ValueError('Saldo Cadu insuficiente para indexar esta fonte no projeto.')
+        raise CaduCreditUnavailable('Saldo Cadu insuficiente para indexar esta fonte no projeto.')
     remaining = tokens
     for lot in lots:
         spend = min(remaining, max(0, int(lot.get('tokens_amount') or 0) - int(lot.get('tokens_used') or 0)))

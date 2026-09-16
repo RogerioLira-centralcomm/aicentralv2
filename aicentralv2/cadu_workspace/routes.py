@@ -20,7 +20,7 @@ from flask import Blueprint, Response, abort, current_app, g, jsonify, redirect,
 from ..auth import login_required
 from ..cadu_family import repository as family_repository
 from ..cadu_connect.repository import accounts_for_workspace_context
-from ..cadu_skills.repository import charge_project_rag, credit_position, list_customizations
+from ..cadu_skills.repository import CaduCreditUnavailable, charge_project_rag, credit_position, list_customizations
 from ..db import get_db
 from ..product_domains import product_url
 from ..smart_planner.logos import public_logo
@@ -1280,7 +1280,8 @@ def project_detail(project_id):
     if not project:
         abort(404)
     _remember_workspace_project(project_id)
-    return render_template('cadu_workspace/project_detail.html', project=project, brands=_workspace_brands(client_id))
+    return render_template('cadu_workspace/project_detail.html', project=project, brands=_workspace_brands(client_id),
+                           rag_credit=credit_position(client_id))
 
 
 @bp.get('/projetos/<project_id>')
@@ -1372,6 +1373,8 @@ def create_project_note(project_id):
             client_id, project_id, title, content, 'text/markdown',
             len(content.encode('utf-8')), f'workspace://project-notes/{uuid4()}', 'workspace_note',
         )
+    except CaduCreditUnavailable as exc:
+        abort(409, description=str(exc))
     except Exception:
         current_app.logger.exception('Não foi possível registrar nota no projeto %s', project_id)
         abort(503, description='Não foi possível adicionar a fonte agora. Tente novamente.')
@@ -1400,6 +1403,9 @@ def upload_project_source(project_id):
             client_id, project_id, source['name'], source['text'], source['mime'],
             len(source['data']), storage_path, 'workspace_upload',
         )
+    except CaduCreditUnavailable as exc:
+        target.unlink(missing_ok=True)
+        abort(409, description=str(exc))
     except Exception:
         target.unlink(missing_ok=True)
         current_app.logger.exception('Não foi possível registrar arquivo no projeto %s', project_id)
@@ -1422,6 +1428,8 @@ def import_project_url(project_id):
         )
     except HTTPException:
         raise
+    except CaduCreditUnavailable as exc:
+        abort(409, description=str(exc))
     except ValueError as exc:
         abort(400, description=str(exc))
     except Exception:
@@ -1526,6 +1534,8 @@ def reprocess_project_source(project_id, source_id):
         connection.commit()
     except HTTPException:
         raise
+    except CaduCreditUnavailable as exc:
+        abort(409, description=str(exc))
     except Exception as exc:
         current_app.logger.exception('Não foi possível reprocessar a fonte %s', source_id)
         try:

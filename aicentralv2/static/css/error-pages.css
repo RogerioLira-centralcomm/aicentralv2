@@ -1,0 +1,14 @@
+:root { color-scheme: light; font-family: Inter, system-ui, sans-serif; background: #f4f7f6; color: #15251f; }
+* { box-sizing: border-box; }
+body { min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 24px; background: radial-gradient(circle at 50% -15%, #d8ebe3 0, transparent 36rem), #f4f7f6; }
+.error-screen { width: min(100%, 620px); text-align: center; }
+.error-screen__mark { width: 54px; height: 54px; margin: 0 auto 26px; display: grid; place-items: center; border-radius: 50%; background: #164a3a; color: #fff; font-size: 30px; font-weight: 700; box-shadow: 0 12px 28px rgb(21 37 31 / 16%); }
+.error-screen__status { margin: 0 0 8px; color: #547068; font-size: 14px; font-weight: 600; }
+h1 { max-width: 480px; margin: 0 auto 24px; font-size: clamp(27px, 5vw, 42px); line-height: 1.12; letter-spacing: -.045em; }
+.error-screen__box { padding: 22px 24px; text-align: left; border: 1px solid #bfd0c8; border-left: 4px solid #164a3a; border-radius: 8px; background: #fff; box-shadow: 0 12px 30px rgb(21 37 31 / 7%); }
+.error-screen__box > p { margin: 0; color: #31463e; line-height: 1.55; }
+dl { display: flex; flex-wrap: wrap; gap: 20px; margin: 20px 0 0; padding-top: 16px; border-top: 1px solid #e2ebe7; }
+dl div { min-width: 160px; } dt { color: #6a8078; font-size: 12px; } dd { margin: 4px 0 0; color: #164a3a; font-size: 12px; font-weight: 700; letter-spacing: .03em; }
+.error-screen__actions { display: flex; justify-content: center; gap: 12px; margin-top: 26px; } .error-screen__actions a { padding: 11px 16px; border: 1px solid #a7bbb2; border-radius: 7px; color: #164a3a; font-size: 14px; font-weight: 600; text-decoration: none; } .error-screen__actions .error-screen__primary { border-color: #164a3a; background: #164a3a; color: #fff; }
+.error-screen__actions a:focus-visible { outline: 3px solid #78a996; outline-offset: 3px; }
+@media (max-width: 420px) { body { padding: 18px; } .error-screen__box { padding: 18px; } .error-screen__actions { flex-direction: column; } .error-screen__actions a { text-align: center; } }

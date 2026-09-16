@@ -220,6 +220,10 @@ def create_app(config_class=Config):
     try:
         from . import routes
         routes.init_routes(app)
+        # Error screens are deliberately outside the CentralX shell. Register
+        # them after legacy routes, which historically registered bare pages.
+        from .error_pages import register_error_pages
+        register_error_pages(app)
         
         # Registrar blueprint da Inteligência
         from .intelligence_routes.intelligence import bp as intelligence_bp

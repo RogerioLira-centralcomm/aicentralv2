@@ -1,0 +1,14 @@
+{% extends 'errors/base.html' %}
+{% block title %}{{ status }} — {{ title }}{% endblock %}
+{% block content %}
+<section class="error-screen" aria-labelledby="error-title">
+  <div class="error-screen__mark" aria-hidden="true">!</div>
+  <p class="error-screen__status">Erro {{ status }}</p>
+  <h1 id="error-title">{{ title }}</h1>
+  <div class="error-screen__box" role="alert">
+    <p>{{ guidance }}</p>
+    <dl><div><dt>Classificação</dt><dd>{{ error_class }}</dd></div><div><dt>Código de suporte</dt><dd>{{ support_id }}</dd></div></dl>
+  </div>
+  <div class="error-screen__actions"><a href="{{ home_url }}">Voltar</a><a class="error-screen__primary" href="{{ home_url }}">Ir para o início</a></div>
+</section>
+{% endblock %}

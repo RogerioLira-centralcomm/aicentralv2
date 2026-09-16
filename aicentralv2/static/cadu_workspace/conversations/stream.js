@@ -49,5 +49,51 @@
       reader.releaseLock();
     }
   }
-  globalThis.CaduConversationStream = Object.freeze({events});
+  function pause(ms, signal) {
+    return new Promise((resolve, reject) => {
+      if (signal.aborted) { reject(new DOMException('Acompanhamento interrompido', 'AbortError')); return; }
+      const abort = () => { clearTimeout(timer); reject(new DOMException('Acompanhamento interrompido', 'AbortError')); };
+      const timer = setTimeout(() => { signal.removeEventListener('abort', abort); resolve(); }, ms);
+      signal.addEventListener('abort', abort, {once:true});
+    });
+  }
+  async function* queued(run, {signal, fetchPage, onRetry = () => {}, sleep = pause, now = Date.now}) {
+    yield {event:'start', run_id:run.run_id, conversation_id:run.conversation_id};
+    let cursor = 0, failures = 0;
+    const deadline = now() + 300000;
+    while (!signal.aborted && now() < deadline) {
+      let page;
+      try {
+        page = await fetchPage(cursor, signal);
+        failures = 0;
+      } catch (error) {
+        if (signal.aborted || (error.status >= 400 && error.status < 500 && ![408, 429].includes(error.status))) throw error;
+        if (++failures > 3) throw error;
+        onRetry(failures);
+        await sleep(1000 * 2 ** (failures - 1), signal);
+        continue; // Retry the GET at the same cursor, never the original send.
+      }
+      if (signal.aborted) throw new DOMException('Acompanhamento interrompido', 'AbortError');
+      if (!Array.isArray(page.events) || !['running', 'completed', 'failed', 'stopped'].includes(page.status)) {
+        throw new Error('Estado de acompanhamento inválido. Consulte o histórico.');
+      }
+      for (const item of page.events) {
+        if (!Number.isSafeInteger(item.id) || !item.event || typeof item.event.event !== 'string') {
+          throw new Error('Evento de acompanhamento inválido. Consulte o histórico.');
+        }
+        if (item.id <= cursor) continue;
+        cursor = item.id;
+        if (item.event.event !== 'start') yield item.event;
+        if (item.event.event === 'done') return;
+      }
+      if (page.events.length < 100 && page.status !== 'running') {
+        yield {event:'done', status:page.status};
+        return;
+      }
+      if (page.events.length < 100) await sleep(1000, signal);
+    }
+    if (signal.aborted) throw new DOMException('Acompanhamento interrompido', 'AbortError');
+    throw new Error('O acompanhamento foi pausado. O processamento continua no servidor; consulte o histórico.');
+  }
+  globalThis.CaduConversationStream = Object.freeze({events, queued});
 })();

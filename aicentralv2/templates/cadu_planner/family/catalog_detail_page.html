@@ -1,0 +1,9 @@
+{% extends 'cadu_family/page.html' %}
+{% block product_content %}
+<article class="planner-catalog-detail-page">
+  {% set tool_image = {'formatos': 'images/planner/formats-hero-v2.png', 'interativos': 'images/planner/interactives-hero-v2.png', 'places': 'images/places/sdu-hero.jpg', 'canais': 'images/planner/formats-hero-v2.png'}.get(module, 'images/planner/planner-entry-hero-v2.png') %}
+  <header><div><p>{{ record.category or kind_label }}</p><h2>{{ record.name }}</h2>{% if record.audience %}<span>{{ record.audience }}</span>{% endif %}<a class="family-primary" href="{{ url_for('cadu_family.page', product='planner', module=module, plan=request.args.get('plan')) }}">Explorar {{ kind_label|lower }}</a></div><img class="planner-detail-visual planner-detail-visual--{{ module }}" src="{{ url_for('static', filename=tool_image) }}" alt=""></header>
+  <section class="planner-catalog-detail-intro"><h3>{{ 'Papel no plano' if module == 'canais' else 'Especificação para criação' }}</h3><p>{{ record.description or 'A ficha ainda não possui uma descrição editorial.' }}</p></section>
+  <section class="planner-catalog-detail-facts"><article><h3>Informações disponíveis</h3><dl>{% if record.category %}<div><dt>Categoria</dt><dd>{{ record.category }}</dd></div>{% endif %}{% if record.audience %}<div><dt>Alcance</dt><dd>{{ record.audience }}</dd></div>{% endif %}{% if record.dimensions %}<div><dt>Dimensões</dt><dd>{{ record.dimensions }}</dd></div>{% endif %}{% if record.files %}<div><dt>Arquivos aceitos</dt><dd>{{ record.files }}</dd></div>{% endif %}</dl></article><article><h3>Próxima decisão</h3><p>{% if module == 'canais' %}Use este canal ao montar o mix de mídia. A distribuição de verba e os formatos compatíveis serão definidos na mesa de mídia.{% else %}Use esta ficha para conferir a especificação antes de incluir o formato na criação e no plano de mídia.{% endif %}</p></article></section>
+</article>
+{% endblock %}

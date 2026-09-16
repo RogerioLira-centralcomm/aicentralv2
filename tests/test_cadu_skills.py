@@ -123,6 +123,9 @@ class CaduSkillsTest(TestCase):
         self.assertIn("Escolha o método certo para a próxima decisão.", html)
         self.assertIn("Workspace", html)
         self.assertIn("Minhas skills", html)
+        self.assertIn('id="conversation-open"', html)
+        self.assertIn('id="conversation-panel"', html)
+        self.assertIn('data-product="skills"', html)
         self.assertNotIn('class="skills-product-nav"', html)
 
     @mock.patch("aicentralv2.cadu_skills.routes.record_event", return_value=True)

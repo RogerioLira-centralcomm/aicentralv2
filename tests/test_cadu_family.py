@@ -179,17 +179,15 @@ class FamilyTest(TestCase):
         response = self.client.get('/familia/studio/link-tester')
         self.assertNotIn('/auth/sso/to-cadu', response.get_data(as_text=True))
 
-    def test_studio_and_skills_cannot_select_shared_agent(self):
+    def test_skills_can_use_the_shared_agent_when_the_feature_is_available(self):
         from aicentralv2.cadu_family.catalog import PROFILES
 
-        self.assertEqual(set(PROFILES), {'workspace', 'planner', 'connect'})
+        self.assertEqual(set(PROFILES), {'workspace', 'planner', 'connect', 'skills'})
         self.login()
-        for product in ('studio', 'skills'):
-            with self.subTest(product=product):
-                response = self.post('conversations/send', {
-                    'message': 'Olá', 'profile': product,
-                })
-                self.assertEqual(response.status_code, 400)
+        studio = self.post('conversations/send', {'message': 'Olá', 'profile': 'studio'})
+        self.assertEqual(studio.status_code, 400)
+        skills = self.post('conversations/send', {'message': 'Olá', 'profile': 'skills'})
+        self.assertEqual(skills.status_code, 503)
 
     def test_backend_failure_is_not_empty_success(self):
         self.login()

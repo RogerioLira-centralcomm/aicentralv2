@@ -1,6 +1,6 @@
 """Narrow projections of existing data. Query errors must never grant access."""
 from ..db import get_db
-from flask import g
+from flask import g, current_app
 
 
 def family_table_available(name):
@@ -148,22 +148,56 @@ def conversations(user_id):
                 ORDER BY updated_at DESC LIMIT 100''', (user_id,))
 
 
-def conversation_history(user, client_id):
+def conversation_history(user, client_id, limit=20, offset=0, query='', archived=False):
+    statuses = ['arquivada', 'archived'] if archived else ['ativa', 'active']
     if not family_table_available('cadu_family_conversation_context'):
         return rows('''SELECT id, titulo AS title, updated_at, NULL AS profile,
                               NULL AS project_ref, NULL AS brand_ref
                          FROM cadu_conversations
-                        WHERE id_contato_cliente = %s AND id_cliente = %s
-                     ORDER BY updated_at DESC LIMIT 100''', (user['id'], client_id))
+                        WHERE id_contato_cliente = %s AND id_cliente = %s AND titulo ILIKE %s AND status = ANY(%s)
+                     ORDER BY updated_at DESC, id DESC LIMIT %s OFFSET %s''',
+                    (user['id'], client_id, '%' + query + '%', statuses, limit, offset))
     return rows('''SELECT c.id, c.titulo AS title, c.updated_at, x.profile,
                          x.project_ref, x.brand_ref
                     FROM cadu_conversations c
                LEFT JOIN cadu_family_conversation_context x ON x.conversation_id = c.id
-                   WHERE c.id_contato_cliente = %s AND c.id_cliente = %s
+                   WHERE c.id_contato_cliente = %s AND c.id_cliente = %s AND c.titulo ILIKE %s AND c.status = ANY(%s)
                      AND (x.conversation_id IS NULL OR
                           (x.user_id = %s AND x.organization_id = %s AND x.client_id = %s))
-                ORDER BY c.updated_at DESC LIMIT 100''',
-                (user['id'], client_id, user['id'], user['organization_id'], client_id))
+                ORDER BY c.updated_at DESC, c.id DESC LIMIT %s OFFSET %s''',
+                (user['id'], client_id, '%' + query + '%', statuses, user['id'], user['organization_id'], client_id, limit, offset))
+
+
+def update_conversation(user_id, client_id, conversation_id, title=None, archived=None):
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute('''UPDATE cadu_conversations
+                             SET titulo = COALESCE(%s, titulo),
+                                 status = CASE WHEN %s::boolean IS NULL THEN status
+                                               WHEN %s THEN 'arquivada' ELSE 'ativa' END,
+                                 updated_at = NOW()
+                           WHERE id = %s AND id_contato_cliente = %s AND id_cliente = %s
+                             AND status IN ('ativa', 'active', 'arquivada', 'archived')
+                       RETURNING id, titulo AS title, status''',
+                        (title, archived, archived, conversation_id, user_id, client_id))
+            result = cur.fetchone()
+        conn.commit()
+        return dict(result) if result else None
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def conversation_context(user, client_id, conversation_id):
+    if not family_table_available('cadu_family_conversation_context'):
+        return None
+    records = rows('''SELECT profile, project_ref, brand_ref
+                       FROM cadu_family_conversation_context
+                      WHERE conversation_id = %s AND user_id = %s
+                        AND organization_id = %s AND client_id = %s''',
+                   (conversation_id, user['id'], user['organization_id'], client_id))
+    return records[0] if records else None
 
 
 def invoices(organization_id):
@@ -181,20 +215,28 @@ def integrations(organization_id):
 def catalog(module, query=''):
     search = '%' + query[:100] + '%'
     if module == 'audiencias':
-        return rows('''SELECT id, nome AS name, descricao_curta AS description,
-                             publico_estimado AS audience
-                        FROM cadu_audiencias WHERE is_active = TRUE AND nome ILIKE %s
-                    ORDER BY nome, id LIMIT 100''', (search,))
+        return rows('''SELECT a.id, a.nome AS name, a.descricao_curta AS description,
+                             a.publico_estimado AS audience, c.nome AS category
+                        FROM cadu_audiencias a
+                   LEFT JOIN cadu_categorias c ON c.id = a.categoria_id
+                       WHERE a.is_active = TRUE
+                         AND (a.nome ILIKE %s OR COALESCE(a.descricao_curta, '') ILIKE %s
+                              OR COALESCE(a.descricao, '') ILIKE %s OR COALESCE(c.nome, '') ILIKE %s)
+                    ORDER BY a.nome, a.id LIMIT 100''', (search, search, search, search))
     if module == 'canais':
         return rows('''SELECT id, nome AS name, descricao AS description, categoria AS category,
                              alcance AS audience FROM cadu_canais
-                       WHERE is_active = TRUE AND nome ILIKE %s ORDER BY ordem, nome LIMIT 100''', (search,))
+                       WHERE is_active = TRUE AND (nome ILIKE %s OR COALESCE(descricao, '') ILIKE %s
+                             OR COALESCE(categoria, '') ILIKE %s) ORDER BY ordem, nome LIMIT 100''',
+                    (search, search, search))
     if module in ('formatos', 'interativos'):
         return rows('''SELECT id, nome AS name, descricao AS description,
                              dimensoes AS dimensions, formatos_arquivo AS files
-                        FROM cadu_formatos WHERE is_active = TRUE AND nome ILIKE %s
+                        FROM cadu_formatos WHERE is_active = TRUE
+                         AND (nome ILIKE %s OR COALESCE(descricao, '') ILIKE %s
+                              OR COALESCE(dimensoes, '') ILIKE %s OR COALESCE(formatos_arquivo, '') ILIKE %s)
                          AND (%s = FALSE OR is_interativo = TRUE)
-                    ORDER BY ordem, nome LIMIT 100''', (search, module == 'interativos'))
+                    ORDER BY ordem, nome LIMIT 100''', (search, search, search, search, module == 'interativos'))
     raise ValueError('Catálogo inválido.')
 
 
@@ -204,9 +246,13 @@ def conversation_messages(user_id, client_id, conversation_id):
                  (conversation_id, user_id, client_id))
     if not owned:
         return None
-    return rows('''SELECT id, role, content, created_at
-                    FROM cadu_conversation_messages WHERE conversation_id = %s
+    messages = rows('''SELECT id, role, content, files, created_at,
+                             to_jsonb(m)->'tool_calls' AS tool_calls
+                    FROM cadu_conversation_messages m WHERE conversation_id = %s
                      AND role IN ('user', 'assistant') ORDER BY created_at, id LIMIT 500''', (conversation_id,))
+    from ..cadu_workspace.conversations.legacy_results import project_message
+    base = current_app.config.get('CADU_LEGACY_ASSET_BASE_URL')
+    return [project_message(message, base) for message in messages]
 
 
 def count_distinct_entities(active_refs, links):

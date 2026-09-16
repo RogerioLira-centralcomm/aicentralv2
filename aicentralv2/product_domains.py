@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 
 from flask import current_app, make_response, redirect, render_template, request, send_file, url_for
 from flask.sessions import SecureCookieSessionInterface
+from werkzeug.routing import BuildError
 
 
 PRODUCT_CONFIG_KEYS = {
@@ -184,6 +185,14 @@ def register_product_host_routing(app) -> None:
             return None
         for config_key, endpoint in endpoints.items():
             if host and host == _configured_host(config_key):
-                target = endpoint if str(endpoint).startswith("/") else url_for(endpoint)
+                if str(endpoint).startswith("/"):
+                    target = endpoint
+                else:
+                    # A diagnostics/minimal app can omit a product blueprint.
+                    # The product host root must still redirect safely, not 500.
+                    try:
+                        target = url_for(endpoint)
+                    except BuildError:
+                        target = "/"
                 return redirect(target, code=302)
         return None

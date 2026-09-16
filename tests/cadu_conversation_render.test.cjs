@@ -29,3 +29,10 @@ test('thinking is hidden even before its closing chunk arrives', () => {
 test('incomplete code fences remain escaped', () => {
   assert.match(html('```js\n<script>'), /&lt;script&gt;/);
 });
+test('attachment links retain signed URLs and reject unsafe destinations', () => {
+  const {fileLink} = globalThis.CaduConversationRenderer;
+  const signed = 'https://old.example/a.png?signature=abc%2B123&expires=1';
+  assert.equal(fileLink(signed), signed);
+  for (const url of ['javascript:alert(1)', 'data:text/html,test', '/uploads/a', '//evil.example/a',
+    'https://user:secret@example.com/a', 'https://example.com/\nfile', null]) assert.equal(fileLink(url), null);
+});

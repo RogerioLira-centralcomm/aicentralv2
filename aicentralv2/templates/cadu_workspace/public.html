@@ -11,9 +11,9 @@
 {% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-public.css') }}?v=5">{% endblock %}
 {% block content %}
 <section class="ws-hero">
-  <div class="ws-hero-copy"><p class="ws-eyebrow">Workspace</p><h1>Uma campanha, cinco ambientes, um contexto.</h1><p>Workspace mantém time, cliente, marca, projeto e referências ligados enquanto cada ambiente faz sua parte do trabalho. O briefing continua com a equipe — do planejamento à operação.</p><div class="ws-actions"><a href="{{ url_for('cadu_workspace.dashboard') }}">{{ 'Abrir Workspace' if session.get('user_id') else 'Organizar meu time' }}</a><a href="#ambientes">Conhecer os ambientes</a></div></div>
+  <div class="ws-hero-copy"><p class="ws-eyebrow">Cadu Workspace</p><h1>Do briefing ao próximo trabalho entregue.</h1><p>Reúna a marca e as referências do projeto. Encontre o método, planeje a mídia e siga para a criação sem perder as decisões do caminho.</p><div class="ws-actions"><a href="{{ url_for('cadu_workspace.dashboard') }}">{{ 'Continuar meu trabalho' if session.get('user_id') else 'Entrar para começar' }}</a><a href="#ambientes">Escolher o que fazer</a></div></div>
   <div class="ws-hero-visual">
-    <img src="{{ url_for('static', filename='images/cadu/workspace-team.svg') }}" alt="Duas pessoas trabalhando no mesmo contexto de campanha">
+    <div class="ws-delivery-preview" aria-label="Exemplos do que você organiza e produz no Cadu"><h2>O trabalho ganha forma.</h2><p>Briefing e referências</p><dl><div><dt>Decidir</dt><dd>Plano de mídia, públicos e canais</dd></div><div><dt>Criar</dt><dd>Peças, variações e sequências de vídeo</dd></div><div><dt>Acompanhar</dt><dd>Contas e arquivos do projeto</dd></div></dl><small>Exemplos de entregas — não são dados de uma campanha.</small></div>
     <div class="ws-context-map" aria-label="Workspace conecta os ambientes de campanha">
     <div class="ws-map-source"><img src="{{ url_for('cadu_maintenance_product_icon', family='workspace', size=48) }}" alt=""><span>Contexto compartilhado</span><strong>Workspace</strong><small>time, cliente, projeto e referências</small></div>
     <div class="ws-map-rail"><div><span>Cliente</span><b>Marca ativa</b></div><div><span>Projeto</span><b>Briefing e decisões</b></div></div>
@@ -26,7 +26,7 @@
   </div>
   </div>
 </section>
-<section class="ws-public-section ws-public-intro"><h2>O Workspace não é mais uma ferramenta na campanha.</h2><p>É a camada que evita recomeços. Ele mantém a mesma base de trabalho quando a equipe muda de ambiente, de responsabilidade ou de etapa.</p></section>
+<section class="ws-public-section ws-public-intro"><h2>Retome de onde o projeto parou.</h2><p>Encontre suas referências, marcas e conversas. Depois escolha a ferramenta para a próxima entrega.</p></section>
 <section class="ws-public-capabilities">
   <article><h3>Comece com o que é comum</h3><p>Cliente, marca, projeto e briefing deixam de ser arquivos dispersos e passam a acompanhar o trabalho.</p></article>
   <article><h3>Mude de ambiente sem começar de novo</h3><p>Planner, Skills, Studio e Connect recebem o mesmo contexto no momento em que entram na campanha.</p></article>

@@ -15,12 +15,13 @@ PRODUCTS = {
     }},
     'planner': {'name': 'SmartPlanner', 'navigation': (
         ('Planejar', ('inicio', 'planos', 'audiencias', 'canais', 'formatos', 'interativos', 'places')),
-        ('Entregas', ('docs',)),
+        ('Entregas', ('docs', 'links')),
     ), 'modules': {
         'inicio': ('Visão geral', None),
         'planos': ('Planos de mídia', None), 'audiencias': ('Audiências', '/audiencias'),
         'canais': ('Canais', '/canais'), 'formatos': ('Formatos', '/formatos'),
         'interativos': ('Interativos', '/interativos'), 'docs': ('Docs', '/smart-docs'),
+        'links': ('Link Tester', None),
         'places': ('Places', '/places'),
     }},
     'studio': {'name': 'Studio', 'navigation': (
@@ -77,6 +78,7 @@ LANDINGS = {
 }
 PROFILES = {
     'workspace': 'Organização de marcas e projetos',
+    'skills': 'Descoberta, comparação e aplicação de skills',
     'planner': 'Objetivos, públicos e planejamento de mídia',
     'connect': 'Ferramentas conectadas ao contexto de projetos e marcas',
 }

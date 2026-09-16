@@ -1,0 +1,15 @@
+{% set hero = {
+  'audiencias': ('audiences', 'Encontre quem vale alcançar', 'Cruze sinais de comportamento, alcance e contexto antes de levar uma audiência ao plano.'),
+  'formatos': ('formats', 'Dê forma à mensagem', 'Compare medidas e arquivos antes de transformar a estratégia em uma peça possível.'),
+  'interativos': ('interactives', 'Faça a mídia responder', 'Escolha experiências que convidam o público a participar, não apenas a assistir.'),
+  'links': ('link-tester', 'A campanha chega onde deveria.', 'Teste destino, redirecionamentos e rastreamento antes de publicar uma mídia.')
+}.get(module) %}
+{% if hero %}
+<section class="planner-tool-hero" aria-labelledby="planner-guest-title">
+  <div>
+    <p>{{ title }}</p><h2 id="planner-guest-title">{{ hero[1] }}</h2><span>{{ hero[2] }}</span>
+    <div class="planner-tool-hero-actions"><a class="family-primary" href="{{ login_url }}">Entrar para usar {{ title }}</a></div>
+  </div>
+  <img src="{{ url_for('static', filename='images/planner/' ~ hero[0] ~ '-hero-v2.png') }}" alt="" fetchpriority="high">
+</section>
+{% else %}{% include 'cadu_family/guest.html' %}{% endif %}

@@ -34,8 +34,13 @@
     } catch (error) { content.replaceChildren(Object.assign(document.createElement('p'), {textContent: error.message})); }
   }));
   const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
-  fetch('/familia/api/planner/selections', {credentials: 'same-origin'}).then(response => response.ok ? response.json() : {selections: []}).then(data => {
-    const selected = new Set((data.selections || []).map(item => item.kind + ':' + item.resource_id));
+  const activePlan = new URLSearchParams(window.location.search).get('plan');
+  const selectionEndpoint = activePlan
+    ? '/familia/api/planner/plans/' + encodeURIComponent(activePlan)
+    : '/familia/api/planner/selections';
+  fetch(selectionEndpoint, {credentials: 'same-origin'}).then(response => response.ok ? response.json() : {selections: []}).then(data => {
+    const selections = activePlan ? ((data.plan || {}).items || []) : (data.selections || []);
+    const selected = new Set(selections.map(item => item.kind + ':' + item.resource_id));
     document.querySelectorAll('[data-planner-select]').forEach(button => {
       const on = selected.has(button.dataset.catalogKind + ':' + button.dataset.catalogId);
       button.textContent = on ? 'Remover do plano' : 'Selecionar para o plano'; button.setAttribute('aria-pressed', String(on));
@@ -43,7 +48,10 @@
   }).catch(() => {});
   document.querySelectorAll('[data-planner-select]').forEach(button => button.addEventListener('click', async () => {
     try {
-      const response = await fetch('/familia/api/planner/selections/toggle', {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf}, body: JSON.stringify({kind: button.dataset.catalogKind, resource_id: button.dataset.catalogId})});
+      const endpoint = activePlan
+        ? '/familia/api/planner/plans/' + encodeURIComponent(activePlan) + '/items/toggle'
+        : '/familia/api/planner/selections/toggle';
+      const response = await fetch(endpoint, {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf}, body: JSON.stringify({kind: button.dataset.catalogKind, resource_id: button.dataset.catalogId})});
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Não foi possível atualizar o plano.');
       button.textContent = data.selected ? 'Remover do plano' : 'Selecionar para o plano';

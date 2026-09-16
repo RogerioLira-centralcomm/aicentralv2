@@ -55,7 +55,7 @@
         const body = new FormData(); body.append('file', item.file);
         try {
           const response = await fetch('/familia/api/conversations/uploads', {method:'POST', credentials:'same-origin', signal,
-            headers:{'X-CSRF-Token':document.querySelector('meta[name="csrf-token"]').content}, body});
+          headers:{...(document.querySelector('meta[name="csrf-token"]')?.content ? {'X-CSRF-Token':document.querySelector('meta[name="csrf-token"]').content} : {})}, body});
           const data = await response.json();
           if (!response.ok || !data.file?.id) throw new Error(data.error || 'Não foi possível anexar o arquivo.');
           item.id = data.file.id; item.state = 'Anexado'; this.render();

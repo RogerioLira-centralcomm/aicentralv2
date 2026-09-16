@@ -1,5 +1,6 @@
 {% set active = request.endpoint %}
 <nav class="cadu-skills-sidebar" aria-label="Navegação do Cadu Skills">
+  <div class="cadu-app-sidebar__top">{% set cadu_active_product = 'skills' %}{% include 'cadu/_product_switch.html' %}<button class="cadu-sidebar-toggle" type="button" data-cadu-sidebar-toggle aria-label="Recolher navegação" aria-expanded="true">‹</button></div>
   <div class="sk-side-group sk-side-solutions">
     <span class="sk-side-label">Soluções</span>
     {% set solutions = [('workspace', 'Workspace', 'workspace-2d.svg'), ('planner', 'Planner', 'planner-2d.svg'), ('studio', 'Studio', 'studio-2d.svg'), ('skills', 'Skills', 'skills-2d.svg'), ('connect', 'Connect', 'connect-2d.svg')] %}
@@ -18,4 +19,5 @@
     {% if session.get('user_id') %}<a class="{{ 'is-active' if active == 'cadu_skills.studio' else '' }}" href="{{ url_for('cadu_skills.studio') }}" title="Minhas skills" {% if active == 'cadu_skills.studio' %}aria-current="page"{% endif %}><span class="sk-side-glyph" aria-hidden="true">□</span><span>Minhas skills</span></a>{% endif %}
     {% if session.get('user_type') in ['admin', 'superadmin'] %}<a class="{{ 'is-active' if active == 'cadu_skills.management' else '' }}" href="{{ url_for('cadu_skills.management') }}" title="Gestão interna"><span class="sk-side-glyph" aria-hidden="true">⚙</span><span>Gestão</span></a>{% endif %}
   </div>
+  {% if session.get('user_id') %}<details class="cadu-sidebar-account-menu sk-side-account"><summary aria-label="Abrir opções da conta"><span class="sk-side-avatar">{{ session.get('user_name', 'U')[:2] | upper }}</span><span><strong>{{ session.get('user_name', 'Minha conta') }}</strong><small>Conta e créditos</small></span></summary><div><a href="{{ product_url('workspace', '/workspace/app/creditos') }}">Créditos e consumo</a><a href="{{ product_url('workspace', '/workspace/app') }}">Abrir Workspace</a><a href="{{ product_url('workspace', '/workspace/minhas-skills') }}">Minhas skills</a><a href="{{ product_url('auth', '/logout') }}">Sair</a></div></details>{% endif %}
 </nav>

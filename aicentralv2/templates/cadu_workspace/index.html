@@ -1,17 +1,21 @@
 {% extends 'cadu_portals/base.html' %}
 {% block title %}Workspace — Cadu{% endblock %}
 {% block product_id %}workspace{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=5"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-dashboard.css') }}?v=1">{% endblock %}
+{% block navigation %}{% endblock %}
 {% block content %}
-<section class="workspace-head">
-  <div><p class="portal-context">Cadu Workspace</p><h1>Conta, contexto e operação da sua organização.</h1><p>Administre o que é comum a todos os produtos sem misturar a execução de cada agente.</p></div>
-  <aside class="workspace-head-visual"><img src="{{ url_for('static', filename='images/cadu/workspace-team.svg') }}" alt="Equipe trabalhando com o mesmo contexto"><div><span>Organização ativa</span><b>{{ session.get('user_name', 'Minha organização') }}</b><small>{{ credit.available if credit.configured else 'Plano no Cadu' }}{% if credit.configured %} créditos disponíveis{% endif %}</small></div></aside>
-</section>
-<nav class="workspace-tabs" aria-label="Administração do Workspace"><a class="is-active" href="{{ url_for('cadu_workspace.dashboard') }}">Visão geral</a>{% for name, description, href, owner in sections %}<a href="{{ href }}">{{ name }}</a>{% endfor %}</nav>
-<section class="workspace-admin-list"><header><h2>Administração da conta</h2><p>Dados já cadastrados no Cadu aparecem aqui, no mesmo contexto do Workspace.</p></header>{% for name, description, href, owner in sections %}<a href="{{ href }}"><span><b>{{ name }}</b><small>{{ description }}</small></span><em>{{ owner }}</em><strong>Abrir</strong></a>{% endfor %}</section>
-<section class="workspace-operational">
-  <article><header><h2>Projetos</h2><span>{{ projects|length }}</span></header>{% for item in projects[:5] %}<p><b>{{ item.name }}</b><small>Projeto do cliente atual</small></p>{% else %}<div class="workspace-empty">Nenhum projeto vinculado a esta organização.</div>{% endfor %}</article>
-  <article><header><h2>Skills personalizadas</h2><span>{{ customizations|length }}</span></header>{% for item in customizations[:5] %}<p><b>{{ item.name }}</b><small>{{ item.project_name or 'Sem projeto' }} · {{ item.status }}</small></p>{% else %}<div class="workspace-empty">Nenhuma skill personalizada nesta organização.</div>{% endfor %}<a href="{{ url_for('cadu_workspace.my_skills') }}">Ver todas as skills</a></article>
-  <article><header><h2>Agentes e campanhas</h2></header><p><b>Contas, MCPs e relatórios</b><small>Gerenciados no produto Agentes.</small></p><p><b>Campanhas por cliente</b><small>Organização e vínculo com projetos pelo client_id.</small></p><a href="{{ product_url('connect') }}">Abrir Agentes</a></article>
-</section>
+{% set workspace_active = 'inicio' %}
+<div class="workspace-app-shell">{% include 'cadu_workspace/_app_sidebar.html' %}<main class="workspace-app-main workspace-dashboard">
+  <header class="workspace-dashboard-intro"><p>Seu Workspace</p><h1>O que vamos colocar em movimento hoje?</h1><span>Retome um projeto, prepare a marca ou converse com o Cadu sobre a próxima entrega.</span></header>
+  <section class="workspace-dashboard-actions" aria-label="Ações principais">
+    <a href="{{ url_for('cadu_workspace.projects') }}"><small>Projetos</small><b>Continuar um projeto</b><span>Reúna briefing, referências e decisões.</span></a>
+    <a href="{{ url_for('cadu_workspace.brands') }}"><small>Marcas</small><b>Revisar identidade</b><span>Consulte a base de marca que orienta as entregas.</span></a>
+    <a href="{{ url_for('cadu_workspace.conversations') }}"><small>Conversas</small><b>Falar com Cadu</b><span>Abra uma conversa ou retome as anteriores.</span></a>
+  </section>
+  <section class="workspace-dashboard-grid">
+    <article class="workspace-dashboard-projects"><header><div><h2>Projetos recentes</h2><p>Dossiês ativos desta organização.</p></div><a href="{{ url_for('cadu_workspace.projects') }}">Ver projetos</a></header><div class="workspace-dashboard-list">{% for project in projects[:5] %}<a href="{{ url_for('cadu_workspace.project_detail', project_id=project.id) }}"><i style="--project-color:{{ project.cor or '#176b5e' }}"></i><span><b>{{ project.nome }}</b><small>{{ project.descricao or 'Sem descrição de contexto' }}</small></span><em>{{ project.fontes_prontas or 0 }} fontes prontas</em></a>{% else %}<div class="workspace-dashboard-empty"><b>Ainda não há projetos.</b><p>Crie o primeiro dossiê para reunir fontes, decisões e identidade.</p><a href="{{ url_for('cadu_workspace.projects') }}">Criar projeto</a></div>{% endfor %}</div></article>
+    <aside class="workspace-dashboard-context"><header><h2>Contexto da organização</h2><p>O que fica disponível entre as soluções.</p></header><a href="{{ url_for('cadu_workspace.brands') }}"><b>{{ brands|length }}</b><span>marca{{ '' if brands|length == 1 else 's' }} cadastrada{{ '' if brands|length == 1 else 's' }}</span></a><a href="{{ url_for('cadu_workspace.my_skills') }}"><b>{{ customizations|length }}</b><span>skill{{ '' if customizations|length == 1 else 's' }} personalizada{{ '' if customizations|length == 1 else 's' }}</span></a><a href="{{ url_for('cadu_workspace.account_page', section='creditos') }}"><b>{{ credit.available if credit.configured else '—' }}</b><span>{{ 'créditos disponíveis' if credit.configured else 'uso a configurar' }}</span></a></aside>
+  </section>
+  <section class="workspace-dashboard-admin"><header><h2>Administração da conta</h2><p>Gerencie acesso e capacidade sem sair do Workspace.</p></header><div>{% for name, description, href, owner in sections %}<a href="{{ href }}"><span><b>{{ name }}</b><small>{{ description }}</small></span><em>{{ owner }}</em></a>{% endfor %}</div></section>
+</main></div>
 {% endblock %}

@@ -1,8 +1,10 @@
 {% extends 'cadu_portals/base.html' %}
 {% block title %}Minhas skills — Cadu Workspace{% endblock %}
 {% block product_id %}workspace{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=2">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=2"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=1">{% endblock %}
+{% block navigation %}{% endblock %}
 {% block content %}
-<section class="workspace-page-head"><a href="{{ url_for('cadu_workspace.dashboard') }}">← Workspace</a><h1>Skills personalizadas da organização.</h1><p>Os vínculos com cliente, projeto e marca são privados. Compartilhamentos só existem quando um link não listado é criado.</p></section>
+{% set workspace_active = 'skills' %}<div class="workspace-app-shell">{% include 'cadu_workspace/_app_sidebar.html' %}<div class="workspace-app-main"><section class="workspace-page-head"><a href="{{ url_for('cadu_workspace.dashboard') }}">← Workspace</a><h1>Skills personalizadas</h1><p>Os vínculos com cliente, projeto e marca são privados. Compartilhamentos só existem quando um link não listado é criado.</p></section>
 <section class="workspace-personal-list">{% for item in customizations %}<article><div><b>{{ item.name }}</b><small>Base: {{ item.base_name }}</small></div><span>{{ item.project_name or 'Sem projeto' }}</span><span>{{ item.run_count }} execuções</span><em>{{ item.status }}</em></article>{% else %}<div class="workspace-empty"><b>Nenhuma skill personalizada ainda.</b><p>Abra o Cadu Skills ou peça ao time para vincular uma skill ao seu projeto.</p><a href="{{ product_url('skills') }}">Abrir Cadu Skills</a></div>{% endfor %}</section>
+</div></div>
 {% endblock %}

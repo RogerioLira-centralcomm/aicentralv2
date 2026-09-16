@@ -1,0 +1,9 @@
+/* Connect: uma mesa de operação com o projeto ativo sempre à mão. */
+.portal--connect .connect-entry-shell .connect-entry{padding:30px clamp(24px,4vw,56px) 64px}
+.portal--connect .connect-entry-sidebar>nav a,.portal--connect .connect-entry-sidebar>nav a.is-current,.portal--connect .connect-entry-sidebar .connect-entry-selector label,.portal--connect .connect-entry-sidebar .connect-entry-selector button,.portal--connect .connect-entry-user strong,.portal--connect .connect-entry-user a{font-weight:400}
+.portal--connect .connect-entry-sidebar .connect-entry-selector button{background:var(--ce-white);border:1px solid var(--ce-line);color:var(--ce-ink)}
+.portal--connect .connect-entry-sidebar .connect-entry-selector button:hover{background:var(--ce-blue-soft);border-color:#9ec7fa;color:var(--ce-blue)}
+.portal--connect .connect-entry-user .connect-entry-credit{margin:0 0 9px;padding-bottom:10px;border-bottom:1px solid var(--ce-line);color:var(--ce-ink);font-size:11px}
+.portal--connect .connect-entry-heading{padding-bottom:28px}
+.portal--connect .connect-entry-heading h1{font-size:clamp(32px,4vw,42px);font-weight:400}
+.portal--connect .connect-project-card>span,.portal--connect .connect-project-brands b,.portal--connect .connect-project-card small,.portal--connect .connect-project-brands i{font-weight:400}

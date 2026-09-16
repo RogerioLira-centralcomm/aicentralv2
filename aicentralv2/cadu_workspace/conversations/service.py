@@ -2,13 +2,14 @@
 import json
 from uuid import UUID, uuid4
 
-from flask import abort, session
+from flask import abort, session, current_app
 
 from ...cadu_family import context, dify, repository
 from ...cadu_family.catalog import PROFILES
 from .guardrails import validate_message, validate_files, history_context, require_available_intent
 from .provider_events import ProviderEvents
 from . import catalog_tools
+from . import recovery
 
 
 def modes(user_id):
@@ -53,7 +54,10 @@ def prepare(data, selected):
     if chosen is None:
         abort(400, description='Modo de contexto inválido.')
     inventory = {item['ref']: item for item in context.inventory(selected['client_id'])}
-    saved_context = session.get('family_context') or {}
+    # Existing threads retain their bound context even when opened in another product.
+    saved_context = (repository.conversation_context(user, selected['client_id'], conversation_id) if existing else None) or session.get('family_context') or {}
+    if saved_context.get('profile') in PROFILES:
+        profile = saved_context['profile']
     project_ref = saved_context.get('project_ref')
     brand_ref = saved_context.get('brand_ref')
     for ref in (project_ref, brand_ref):
@@ -76,6 +80,11 @@ def prepare(data, selected):
     conn = repository.get_db()
     try:
         with conn.cursor() as cur:
+            request_hash = recovery.fingerprint(data)
+            previous = recovery.existing_run(cur, run_id, user, selected['client_id'], request_hash)
+            if previous:
+                conn.rollback()  # Release the advisory lock; no writes on replay.
+                return previous
             lock_organization_generation(cur, user['organization_id'])
             current_plan = repository.plan(user['organization_id'])
             cur.execute('''SELECT COALESCE(SUM(quantidade), 0) AS used FROM cadu_token_usage
@@ -98,7 +107,7 @@ def prepare(data, selected):
             else:
                 cur.execute('''INSERT INTO cadu_conversations
                         (id, id_cliente, id_contato_cliente, titulo, status, total_mensagens, projeto_id, created_at, updated_at)
-                        VALUES (%s, %s, %s, %s, 'active', 0, %s, NOW(), NOW())''',
+                        VALUES (%s, %s, %s, %s, 'ativa', 0, %s, NOW(), NOW())''',
                         (conversation_id, selected['client_id'], user['id'], query[:120],
                          project_ref[3:] if project_ref and project_ref.startswith('ci:') else None))
                 conversation = {'dify_conversation_id': None, 'total_mensagens': 0}
@@ -111,15 +120,27 @@ def prepare(data, selected):
             if (bound['user_id'], bound['organization_id'], bound['client_id'], bound['profile'], bound['project_ref'], bound['brand_ref']) != (
                     user['id'], user['organization_id'], selected['client_id'], profile, project_ref, brand_ref):
                 abort(409, description='Esta conversa pertence a outro perfil ou contexto. Abra uma nova conversa.')
-            cur.execute('''INSERT INTO cadu_family_chat_runs (id, conversation_id, user_id, client_id, status)
-                           VALUES (%s, %s, %s, %s, 'running')''', (run_id, conversation_id, user['id'], selected['client_id']))
+            cur.execute('''INSERT INTO cadu_family_chat_runs (id, conversation_id, user_id, client_id, status, request_hash)
+                           VALUES (%s, %s, %s, %s, 'running', %s)''', (run_id, conversation_id, user['id'], selected['client_id'], request_hash))
             cur.execute('''INSERT INTO cadu_conversation_messages (id, conversation_id, role, content, files, created_at)
                            VALUES (%s, %s, 'user', %s, %s::jsonb, NOW())''',
                         (str(uuid4()), conversation_id, query, json.dumps([{'id': str(row['id']), 'name': row['name']} for row in uploads])))
+            run = build_run(run_id, conversation_id, user, selected, chosen, profile,
+                            project_context, conversation, query, uploads, existing, history)
+            if current_app.config.get('CADU_CHAT_WORKER_ENABLED', False):
+                from .jobs import enqueue
+                enqueue(cur, run)
+                run['queued'] = True
         conn.commit()
     except Exception:
         conn.rollback()
         raise
+    return run
+
+
+def build_run(run_id, conversation_id, user, selected, chosen, profile,
+              project_context, conversation, query, uploads, existing, history):
+    """Build provider input before committing admission (and an optional job)."""
     inputs = {'nome_usuario': user['name'], 'nome_cliente': selected['client_name'],
               'skill_id': chosen['id'], 'skill_context': chosen['prompt'] + '\nPerfil: ' + PROFILES[profile],
               'files_context': '', 'projeto_context': project_context,

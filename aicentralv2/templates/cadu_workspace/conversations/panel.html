@@ -1,18 +1,20 @@
-<div id="conversation-backdrop" hidden></div>
-<aside id="conversation-panel" aria-label="Conversas Cadu" role="dialog" aria-modal="true" hidden tabindex="-1">
-  <header><div><h2>Conversas</h2><p>{{ profile }}</p></div><button id="conversation-close" aria-label="Fechar conversas">Fechar</button></header>
-  {% if user %}<div class="conversation-navigation"><button type="button" id="conversation-list">Histórico</button><button type="button" id="conversation-new">Nova conversa</button></div>{% endif %}
-  <div class="conversation-context">{{ selected.client_name if selected else 'Entre para usar seu contexto' }}<small>{{ 'Cliente selecionado na navbar' if selected else 'Workspace · SmartPlanner · Connect' }}</small></div>
+{% set chat_authenticated = session.get('user_id') %}
+{% if not conversation_page %}<div id="conversation-backdrop" hidden></div>{% endif %}
+<aside id="conversation-panel" data-draft-scope="{{ session.get('cliente_id', '') }}:{{ session.get('user_id', '') }}" aria-label="Conversas Cadu" {% if conversation_page %}data-conversation-page="true"{% else %}role="dialog" aria-modal="true" hidden{% endif %} tabindex="-1">
+  <header><div><p class="conversation-kicker">Cadu</p><h2>{% if conversation_page %}Converse no contexto do projeto{% else %}Converse no contexto{% endif %}</h2><p>{{ conversation_profile_label | default('Seu projeto, marca e decisões acompanham a conversa.') }}</p></div>{% if not conversation_page %}<button id="conversation-close" aria-label="Fechar conversas">Fechar</button>{% endif %}</header>
+  {% if session.get('user_id') and not conversation_page %}<div class="conversation-navigation"><button type="button" id="conversation-list">Histórico</button><button type="button" id="conversation-new">Nova conversa</button></div>{% endif %}
+  <div class="conversation-context">{{ selected.client_name if selected else 'Contexto da sua conta' }}<small>{{ 'Cliente, marca e projeto selecionados' if selected else 'Escolha um projeto ou marca no Workspace para aprofundar a conversa.' }}</small></div>
+  {% if conversation_actions %}<nav class="conversation-solution-links" aria-label="Continuar em uma solução">{% for action in conversation_actions %}<a href="{{ action.href }}">{{ action.label }}</a>{% endfor %}</nav>{% endif %}
   <label class="conversation-width">Largura do painel<input id="conversation-width" type="range" min="360" max="720" value="480" aria-label="Largura do painel de conversas"></label>
-  <div id="conversation-history" aria-live="polite">{% if user %}Carregando conversas…{% else %}Converse sobre seus clientes, projetos e planos depois de entrar.{% endif %}</div>
+  <div id="conversation-history" aria-live="polite">{% if chat_authenticated %}Carregando conversas…{% else %}Converse sobre seus clientes, projetos e planos depois de entrar.{% endif %}</div>
   <form id="conversation-form">
     <div id="conversation-attachments" aria-label="Arquivos selecionados" hidden></div>
     <label for="conversation-message">Mensagem</label>
-    <textarea id="conversation-message" maxlength="20000" placeholder="{{ 'Digite sua mensagem ou anexe um arquivo…' if user else 'Entre para conversar com o Cadu' }}" {% if not user %}disabled{% endif %}></textarea>
+    <textarea id="conversation-message" maxlength="20000" placeholder="{{ 'Digite sua mensagem ou anexe um arquivo…' if chat_authenticated else 'Entre para conversar com o Cadu' }}" disabled></textarea>
     <div class="conversation-toolbar">
       <button type="button" id="conversation-attach" disabled aria-describedby="conversation-upload-help">Anexar</button>
       <input id="conversation-file-input" type="file" multiple hidden accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.txt,.csv,.md,.json">
-    {% if user %}
+    {% if chat_authenticated %}
     <label for="conversation-mode">Modo do Cadu</label>
     <select id="conversation-mode" disabled><option value="ideias">Carregando modos…</option></select>
     <div class="conversation-resources">

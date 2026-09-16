@@ -6,12 +6,16 @@
   <title>{{ title }} — Cadu {{ spec.name }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-family.css') }}?v=5">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-family-sidebar.css') }}?v=2">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-app-sidebar.css') }}?v=1">
+  {% if product == 'planner' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-shell.css') }}?v=1">{% endif %}
+  {% if product == 'planner' and module == 'inicio' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-entry.css') }}?v=1">{% endif %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-product-switch.css') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-nav-compact.css') }}?v=1">
   {% if product == 'workspace' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-family.css') }}?v=1">{% endif %}
   {% block product_styles %}{% endblock %}
   <script defer src="{{ url_for('static', filename='js/cadu-family.js') }}"></script>
-  {% if product == 'workspace' and module == 'conversas' %}
+  <script defer src="{{ url_for('static', filename='js/cadu-app-sidebar.js') }}?v=1"></script>
+  {% if user and product in ('workspace', 'planner', 'connect', 'skills') %}
   <link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/chat.css') }}">
   <script defer src="{{ url_for('static', filename='cadu_workspace/conversations/stream.js') }}"></script>
   <script defer src="{{ url_for('static', filename='cadu_workspace/conversations/attachments.js') }}"></script>
@@ -23,17 +27,36 @@
   <script defer src="{{ url_for('static', filename='js/cadu-copy-ads.js') }}"></script>
   {% endif %}
   {% if product == 'planner' and module in ('canais', 'formatos', 'audiencias', 'interativos', 'places') %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-story.css') }}?v=1">
+  {% if module == 'audiencias' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-audience.css') }}?v=1">{% endif %}
+  {% if module in ('canais', 'formatos', 'interativos') %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-catalog-detail.css') }}?v=1">{% endif %}
   <script defer src="{{ url_for('static', filename='cadu_planner/catalog.js') }}"></script>
+  {% endif %}
+  {% if product == 'planner' and module == 'planos' %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-plans.css') }}?v=1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-plan-detail.css') }}?v=1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-readiness.css') }}?v=1">
+  <script defer src="{{ url_for('static', filename='cadu_planner/plans.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='cadu_planner/plan-detail.js') }}"></script>
   {% endif %}
   {% if product == 'planner' and module == 'docs' %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-docs.css') }}">
   <script defer src="{{ url_for('static', filename='cadu_planner/docs.js') }}"></script>
   {% endif %}
+  {% if product == 'planner' and module == 'links' %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-story.css') }}?v=1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-link-tester.css') }}?v=1">
+  <script defer src="{{ url_for('static', filename='cadu_planner/link-tester.js') }}"></script>
+  {% endif %}
   {% block product_head_scripts %}{% endblock %}
+  {% if product == 'planner' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-hero.css') }}?v=1">{% endif %}
+  {% set cadu_theme_product = product %}{% include 'cadu/_theme_head.html' %}
 </head>
-<body data-product="{{ product }}" data-authenticated="{{ 'true' if user else 'false' }}">
+<body data-product="{{ product }}" data-module="{{ module }}" data-authenticated="{{ 'true' if user else 'false' }}">
 <a class="family-skip" href="#content">Ir para o conteúdo</a>
 {% set sidebar_product = product in ('workspace', 'planner', 'connect') %}
+{% set planner_workspace = user and product == 'planner' %}
+{% if not planner_workspace %}
 <header class="family-nav {{ 'family-nav--sidebar' if sidebar_product else '' }}">
   {% if not sidebar_product %}{% set cadu_active_product = product %}{% include 'cadu/_product_switch.html' %}{% endif %}
   {% if not sidebar_product %}<span class="family-nav-divider" aria-hidden="true"></span>
@@ -57,13 +80,25 @@
     {% if user and not sidebar_product %}<a class="family-credit-link" href="{{ url_for('cadu_family.page', product='workspace', module='consumo') }}" aria-label="Ver créditos disponíveis"><small>Créditos</small><strong>{% if cadu_nav_credit and cadu_nav_credit.configured %}{{ cadu_nav_credit.available }}{% else %}—{% endif %}</strong></a><details class="family-account-menu"><summary aria-label="Abrir opções da conta">{% if session.get('user_photo_url') %}<img src="{{ session.get('user_photo_url') }}" alt="">{% else %}{{ user.name[:2] | upper }}{% endif %}</summary><div><strong>{{ user.name }}</strong><small>{{ session.get('user_email', '') }}</small><a href="{{ url_for('cadu_family.page', product='workspace', module='inicio') }}">Abrir Workspace</a><a href="{{ url_for('cadu_family.page', product='workspace', module='consumo') }}">Créditos e consumo{% if cadu_nav_credit and cadu_nav_credit.configured %}<span>{{ cadu_nav_credit.available }} disponíveis</span>{% endif %}</a><a href="{{ url_for('cadu_family.page', product='workspace', module='perfil') }}">Perfil</a></div></details>{% elif not user %}<a class="family-primary" href="{{ login_url }}">Entrar</a>{% endif %}
   </div>
 </header>
+{% endif %}
 {# A variação com lateral existe somente depois da autenticação. Sem essa
    condição, uma versão antiga do CSS pode reservar uma coluna vazia e
    comprimir a entrada pública do Planner. #}
-<div class="family-layout {{ 'family-layout--sidebar' if user and sidebar_product else '' }}">
+<div class="family-layout {{ 'family-layout--sidebar' if user and sidebar_product else '' }} {{ 'family-layout--planner' if planner_workspace else '' }}">
 {% if user and sidebar_product %}
+  <button class="cadu-sidebar-mobile-toggle" type="button" data-cadu-sidebar-mobile-toggle aria-label="Abrir navegação"><span aria-hidden="true">☰</span><span>Abrir navegação</span></button><div class="cadu-sidebar-overlay" data-cadu-sidebar-overlay></div>
   <aside class="family-modules" aria-label="Seções de {{ spec.name }}">
-    <div class="family-sidebar-product">{% set cadu_active_product = product %}{% include 'cadu/_product_switch.html' %}</div>
+    <div class="family-sidebar-product">{% set cadu_active_product = product %}{% include 'cadu/_product_switch.html' %}<button class="cadu-sidebar-toggle" type="button" data-cadu-sidebar-toggle aria-label="Recolher navegação" aria-expanded="true">‹</button></div>
+    {% if product == 'planner' %}
+    <section class="planner-sidebar-context" aria-labelledby="planner-workspace-title">
+      <p id="planner-workspace-title">Projetos e marcas</p>
+      <form id="family-context" class="family-context">
+        <label>Projeto<select name="project_ref" aria-label="Projeto"><option value="">Todos os projetos</option>{% for item in entities if item.kind == 'project' %}<option value="{{ item.ref }}" {% if session.get('family_context', {}).get('project_ref') == item.ref %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select></label>
+        <label>Marca<select name="brand_ref" aria-label="Marca"><option value="">Todas as marcas</option>{% for item in entities if item.kind == 'brand' %}<option value="{{ item.ref }}" {% if session.get('family_context', {}).get('brand_ref') == item.ref %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select></label>
+      </form>
+      <a href="{{ url_for('cadu_family.page', product='workspace', module='projetos') }}">Gerenciar no Workspace</a>
+    </section>
+    {% endif %}
     <nav>
       {% for group, keys in spec.navigation %}
       <div class="family-module-group"><b>{{ group }}</b>
@@ -78,6 +113,7 @@
     </section>
     {% endif %}
     <div class="family-sidebar-account">
+      {% include 'cadu/_theme_control.html' %}
       <a class="family-sidebar-credits" href="{{ url_for('cadu_family.page', product='workspace', module='consumo') }}"><span>Créditos</span><strong>{% if cadu_nav_credit and cadu_nav_credit.configured %}{{ cadu_nav_credit.available }} disponíveis{% else %}Ver consumo{% endif %}</strong></a>
       <a class="family-sidebar-user" href="{{ url_for('cadu_family.page', product='workspace', module='perfil') }}"><span>{{ user.name[:2] | upper }}</span><strong>{{ user.name }}</strong><small>{{ session.get('user_email', 'Configurações da conta') }}</small></a>
     </div>
@@ -89,5 +125,15 @@
   <p id="family-feedback" role="status" aria-live="polite"></p>
   {% block product_content %}{% endblock %}
 </main></div>
+{% if user and product in ('workspace', 'planner', 'connect', 'skills') and not (product == 'workspace' and module == 'conversas') %}
+  <button type="button" class="cadu-conversation-launcher" id="conversation-open" aria-haspopup="dialog" aria-controls="conversation-panel" aria-expanded="false"><span aria-hidden="true">C</span> Falar com Cadu</button>
+  {% set conversation_profile_label = 'O Cadu usa o contexto que está ativo nesta área.' %}
+  {% set conversation_actions = [
+    {'label': 'Workspace', 'href': url_for('cadu_family.page', product='workspace', module='inicio')},
+    {'label': 'Planner', 'href': url_for('cadu_family.page', product='planner', module='inicio')},
+    {'label': 'Skills', 'href': product_url('skills')}
+  ] %}
+  {% include 'cadu_workspace/conversations/panel.html' %}
+{% endif %}
 {% block product_scripts %}{% endblock %}
 </body></html>

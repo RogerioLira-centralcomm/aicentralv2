@@ -13,6 +13,8 @@ from .catalog import ADMIN_MODULES, LANDINGS, PRODUCTS, PROFILES
 from . import product_pages
 
 bp = Blueprint('cadu_family', __name__, url_prefix='/familia')
+from ..cadu_workspace.conversations.jobs import worker_command
+bp.cli.add_command(worker_command)
 
 
 @bp.after_request
@@ -45,7 +47,8 @@ def protect():
         # Fail closed for new mutation routes too. Context changes only the
         # session; Copy Ads validation only reads the catalog.
         read_only_posts = {'cadu_family.set_context', 'cadu_family.copy_validate',
-                           'cadu_family.conversation_send', 'cadu_family.conversation_preflight'}
+                           'cadu_family.conversation_send', 'cadu_family.conversation_preflight',
+                           'cadu_family.planner_link_test'}
         if (not current_app.config.get('CADU_FAMILY_WRITES_ENABLED', False)
                 and request.endpoint not in read_only_posts):
             abort(403, description='Migração em modo de consulta. Gravações não estão habilitadas.')
@@ -170,7 +173,42 @@ def edit_profile():
 def conversation_history():
     user = context.identity()
     selected = context.resolve()
-    return jsonify(conversations=repository.conversation_history(user, selected['client_id']))
+    try:
+        offset = int(request.args.get('offset', '0'))
+    except ValueError:
+        abort(400, description='Página inválida.')
+    if offset < 0 or offset > 100000:
+        abort(400, description='Página inválida.')
+    query = request.args.get('q', '').strip()
+    if len(query) > 150:
+        abort(400, description='Use até 150 caracteres na busca.')
+    archived = request.args.get('archived', '0')
+    if archived not in ('0', '1'):
+        abort(400, description='Filtro inválido.')
+    records = repository.conversation_history(user, selected['client_id'], limit=21, offset=offset, query=query, archived=archived == '1')
+    return jsonify(conversations=records[:20], next_offset=offset + 20 if len(records) > 20 else None,
+                   can_manage=bool(current_app.config.get('CADU_FAMILY_WRITES_ENABLED', False)
+                                   and selected.get('role') in ('admin', 'member')))
+
+
+@bp.patch('/api/conversations/<conversation_id>')
+def conversation_update(conversation_id):
+    selected = writable_context()
+    user = context.identity()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not data or set(data) - {'title', 'archived'}:
+        abort(400, description='Informe um título ou estado de arquivamento.')
+    title = data.get('title')
+    if 'title' in data:
+        if not isinstance(title, str) or not 1 <= len(title.strip()) <= 150 or '\x00' in title:
+            abort(400, description='Use um título de 1 a 150 caracteres.')
+        title = title.strip()
+    if 'archived' in data and not isinstance(data['archived'], bool):
+        abort(400, description='Estado de arquivamento inválido.')
+    result = repository.update_conversation(user['id'], selected['client_id'], conversation_id, title, data.get('archived'))
+    if not result:
+        abort(404)
+    return jsonify(conversation=result)
 
 
 @bp.get('/api/studio/copy-ads/formats')
@@ -236,12 +274,74 @@ def planner_selections():
     return jsonify(selections=selections.list_selected(selected['client_id'], user['id']))
 
 
+@bp.get('/api/planner/plans')
+def planner_plans():
+    from ..cadu_planner import plans
+    user, selected = context.identity(), context.resolve()
+    return jsonify(plans=plans.list_plans(selected['client_id'], user['id']))
+
+
+@bp.post('/api/planner/plans')
+def planner_plan_create():
+    from ..cadu_planner import plans
+    selected = writable_context()
+    user = context.identity()
+    return jsonify(plan=plans.create_plan(selected['client_id'], user['id'], request.get_json(silent=True) or {}, selected)), 201
+
+
+@bp.get('/api/planner/plans/<plan_id>')
+def planner_plan_detail(plan_id):
+    from ..cadu_planner import plans
+    user, selected = context.identity(), context.resolve()
+    return jsonify(plan=plans.get_plan(selected['client_id'], user['id'], plan_id))
+
+
+@bp.put('/api/planner/plans/<plan_id>')
+def planner_plan_update(plan_id):
+    from ..cadu_planner import plans
+    selected = writable_context()
+    user = context.identity()
+    return jsonify(plan=plans.update_briefing(selected['client_id'], user['id'], plan_id, request.get_json(silent=True) or {}))
+
+
+@bp.put('/api/planner/plans/<plan_id>/allocations')
+def planner_plan_allocations(plan_id):
+    from ..cadu_planner import plans
+    selected = writable_context()
+    user = context.identity()
+    return jsonify(plan=plans.save_allocations(selected['client_id'], user['id'], plan_id, request.get_json(silent=True) or {}))
+
+
+@bp.put('/api/planner/plans/<plan_id>/status')
+def planner_plan_status(plan_id):
+    from ..cadu_planner import plans
+    selected = writable_context()
+    user = context.identity()
+    return jsonify(plan=plans.update_status(selected['client_id'], user['id'], plan_id, request.get_json(silent=True) or {}))
+
+
+@bp.post('/api/planner/plans/<plan_id>/items/toggle')
+def planner_plan_item_toggle(plan_id):
+    from ..cadu_planner import plans
+    selected = writable_context()
+    user = context.identity()
+    return jsonify(plans.toggle_item(selected['client_id'], user['id'], plan_id, request.get_json(silent=True) or {}))
+
+
 @bp.post('/api/planner/selections/toggle')
 def planner_selection_toggle():
     from ..cadu_planner import selections
     selected = writable_context()
     user = context.identity()
     return jsonify(selections.toggle(selected['client_id'], user['id'], request.get_json(silent=True) or {}))
+
+
+@bp.post('/api/planner/link-tester')
+def planner_link_test():
+    from ..cadu_planner import link_tester
+    context.identity()
+    context.resolve()
+    return jsonify(result=link_tester.test(request.get_json(silent=True) or {}))
 
 
 @bp.get('/api/planner/docs')
@@ -302,6 +402,64 @@ def planner_doc_public(token):
     return response
 
 
+@bp.get('/planner/audiencias/<int:audience_id>')
+def planner_audience_detail(audience_id):
+    """Customer-facing decision page; the catalog modal remains a quick preview."""
+    if not session.get('user_id'):
+        return redirect(login_url(request.full_path))
+    from ..cadu_planner import catalog
+    user = context.identity()
+    selected = context.resolve()
+    audience = catalog.detail('audiencias', audience_id)
+    token = session.setdefault('family_csrf', secrets.token_urlsafe(32))
+    return render_template('cadu_planner/family/audience_detail_page.html',
+        product='planner', spec=PRODUCTS['planner'], module='audiencias', title=audience['name'],
+        products=PRODUCTS, landing=LANDINGS['planner'], user=user, selected=selected,
+        clients=context.authorized_clients(), entities=context.inventory(selected['client_id']), records=[],
+        audience=audience, profile=PROFILES['planner'], csrf=token, legacy_url=None,
+        login_url=login_url(), product_url=product_url)
+
+
+@bp.get('/planner/planos/<plan_id>')
+def planner_plan_media_desk(plan_id):
+    if not session.get('user_id'):
+        return redirect(login_url(request.full_path))
+    from ..cadu_planner import plans
+    user = context.identity()
+    selected = context.resolve()
+    plan = plans.get_plan(selected['client_id'], user['id'], plan_id)
+    token = session.setdefault('family_csrf', secrets.token_urlsafe(32))
+    return render_template('cadu_planner/family/plan_detail_page.html',
+        product='planner', spec=PRODUCTS['planner'], module='planos', title=plan['title'],
+        products=PRODUCTS, landing=LANDINGS['planner'], user=user, selected=selected,
+        clients=context.authorized_clients(), entities=context.inventory(selected['client_id']), records=[],
+        plan=plan, profile=PROFILES['planner'], csrf=token,
+        legacy_planner_url=product_url('centralx', '/smart-planner/'),
+        studio_creation_url=product_url('studio', '/studio/modelagem-criativos'),
+        legacy_url=None,
+        login_url=login_url(), product_url=product_url)
+
+
+@bp.get('/planner/<kind>/<int:item_id>')
+def planner_catalog_detail_page(kind, item_id):
+    if kind not in {'canais', 'formatos', 'interativos'}:
+        abort(404)
+    if not session.get('user_id'):
+        return redirect(login_url(request.full_path))
+    from ..cadu_planner import catalog
+    user = context.identity()
+    selected = context.resolve()
+    record = catalog.detail(kind, item_id)
+    labels = {'canais': 'Canal', 'formatos': 'Formato', 'interativos': 'Formato interativo'}
+    token = session.setdefault('family_csrf', secrets.token_urlsafe(32))
+    return render_template('cadu_planner/family/catalog_detail_page.html',
+        product='planner', spec=PRODUCTS['planner'], module=kind, title=record['name'],
+        products=PRODUCTS, landing=LANDINGS['planner'], user=user, selected=selected,
+        clients=context.authorized_clients(), entities=context.inventory(selected['client_id']), records=[],
+        record=record, kind_label=labels[kind], profile=PROFILES['planner'], csrf=token,
+        legacy_url=None, login_url=login_url(), product_url=product_url)
+
+
 @bp.post('/api/planner/docs/<int:doc_id>/export')
 def planner_doc_export(doc_id):
     from io import BytesIO
@@ -339,8 +497,48 @@ def conversation_send():
         abort(503, description='O envio integrado está em preparação. Seu histórico foi preservado.')
     from . import chat
     run = chat.prepare(data, selected)
+    if run.get('queued'):
+        return jsonify(accepted=True, run_id=run['run_id'], conversation_id=run['conversation_id']), 202
+    if run.get('recovered'):
+        response = jsonify(run)
+        response.headers['Cache-Control'] = 'no-store'
+        return response
     return Response(stream_with_context(chat.stream(run)), mimetype='text/event-stream',
-                    headers={'X-Accel-Buffering': 'no'})
+                    headers={'X-Accel-Buffering': 'no', 'Cache-Control': 'no-store'})
+
+
+@bp.get('/api/conversations/runs/<uuid:run_id>')
+def conversation_run_state(run_id):
+    from ..cadu_workspace.conversations import recovery
+    user = context.identity()
+    selected = context.resolve()
+    result = recovery.state(str(run_id), user, selected['client_id'])
+    if result is None:
+        abort(404)
+    result = {**result, 'replay': bool(current_app.config.get('CADU_CHAT_WORKER_ENABLED', False)
+        and repository.rows('SELECT run_id FROM cadu_family_chat_jobs WHERE run_id = %s', (str(run_id),)))}
+    response = jsonify(result)
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
+@bp.get('/api/conversations/runs/<uuid:run_id>/events')
+def conversation_run_events(run_id):
+    from ..cadu_workspace.conversations import recovery, jobs
+    user = context.identity()
+    selected = context.resolve()
+    result = recovery.state(str(run_id), user, selected['client_id'])
+    if result is None:
+        abort(404)
+    if not current_app.config.get('CADU_CHAT_WORKER_ENABLED', False):
+        abort(503, description='Retomada de eventos ainda não habilitada.')
+    try:
+        after = int(request.args.get('after', '0'))
+        if after < 0 or after > 9223372036854775807:
+            raise ValueError()
+    except ValueError:
+        abort(400)
+    return jsonify(**jobs.page(str(run_id), after), status=result['status'])
 
 
 @bp.get('/api/conversations/capabilities')
@@ -351,7 +549,7 @@ def conversation_capabilities():
     enabled = bool(current_app.config.get('CADU_FAMILY_CHAT_ENABLED', False)
                    and current_app.config.get('CADU_FAMILY_WRITES_ENABLED', False)
                    and selected['role'] in ('admin', 'member'))
-    return jsonify(send=enabled, attachments=enabled, max_files=3, max_bytes=MAX_BYTES,
+    return jsonify(send=enabled, attachments=enabled, replay=bool(current_app.config.get('CADU_CHAT_WORKER_ENABLED', False)), max_files=3, max_bytes=MAX_BYTES,
                    accept=ACCEPT, external_tools=False)
 
 
@@ -401,6 +599,10 @@ def conversation_stop(run_id):
         abort(404)
     if runs[0]['status'] != 'running':
         return jsonify(stopped=True)
+    if current_app.config.get('CADU_CHAT_WORKER_ENABLED', False):
+        from ..cadu_workspace.conversations.jobs import cancel_pending
+        if cancel_pending(str(run_id)):
+            return jsonify(stopped=True)
     if not runs[0]['task_id']:
         abort(409, description='A geração ainda está iniciando. Tente novamente.')
     dify.stop(runs[0]['task_id'], 'user-' + str(user['id']))
@@ -414,7 +616,7 @@ def messages(conversation_id):
     result = repository.conversation_messages(user['id'], selected['client_id'], conversation_id)
     if result is None:
         abort(404)
-    return jsonify(messages=result)
+    return jsonify(messages=result, context=repository.conversation_context(user, selected['client_id'], conversation_id))
 
 
 @bp.get('/workspace/marcas/sistema')

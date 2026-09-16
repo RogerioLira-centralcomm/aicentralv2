@@ -1,0 +1,18 @@
+<button class="cadu-sidebar-mobile-toggle" type="button" data-cadu-sidebar-mobile-toggle aria-label="Abrir navegação"><span aria-hidden="true">☰</span><span>Abrir navegação</span></button><div class="cadu-sidebar-overlay" data-cadu-sidebar-overlay></div><aside class="workspace-app-sidebar" aria-label="Navegação do Workspace">
+  <div class="workspace-app-family workspace-app-sidebar__top">{% set cadu_active_product = 'workspace' %}{% include 'cadu/_product_switch.html' %}<button class="cadu-sidebar-toggle" type="button" data-cadu-sidebar-toggle aria-label="Recolher navegação" aria-expanded="true">‹</button></div>
+  <nav aria-label="Áreas de trabalho">
+    <a href="{{ url_for('cadu_workspace.dashboard') }}" {% if workspace_active == 'inicio' %}aria-current="page"{% endif %}>Visão geral</a>
+    <a href="{{ url_for('cadu_workspace.conversations') }}" {% if workspace_active == 'conversas' %}aria-current="page"{% endif %}>Conversas</a>
+    <a href="{{ url_for('cadu_workspace.projects') }}" {% if workspace_active == 'projetos' %}aria-current="page"{% endif %}>Projetos</a>
+    <a href="{{ url_for('cadu_workspace.brands') }}" {% if workspace_active == 'marcas' %}aria-current="page"{% endif %}>Marcas</a>
+    <a href="{{ url_for('cadu_workspace.my_skills') }}" {% if workspace_active == 'skills' %}aria-current="page"{% endif %}>Skills personalizadas</a>
+  </nav>
+  <nav class="workspace-app-account-nav" aria-label="Conta">
+    {% include 'cadu/_theme_control.html' %}
+    <p>Conta</p>
+    <a href="{{ url_for('cadu_workspace.account_page', section='equipe') }}" {% if workspace_active == 'equipe' %}aria-current="page"{% endif %}>Usuários e equipe</a>
+    <a href="{{ url_for('cadu_workspace.account_page', section='planos') }}" {% if workspace_active == 'planos' %}aria-current="page"{% endif %}>Plano</a>
+    <a href="{{ url_for('cadu_workspace.account_page', section='creditos') }}" {% if workspace_active == 'creditos' %}aria-current="page"{% endif %}>Créditos e uso</a>
+  </nav>
+  <details class="workspace-app-user cadu-sidebar-account-menu"><summary aria-label="Abrir opções da conta"><strong>{{ session.get('user_name', 'Minha conta') }}</strong><small>{{ session.get('user_email', '') }}</small></summary><div><a href="{{ url_for('cadu_workspace.account_page', section='creditos') }}">Créditos e uso</a><a href="{{ url_for('cadu_workspace.account_page', section='equipe') }}">Conta e equipe</a><a href="{{ url_for('cadu_workspace.index') }}">Visão geral do Workspace</a><a href="{{ product_url('auth', '/logout') }}">Sair</a></div></details>
+</aside>

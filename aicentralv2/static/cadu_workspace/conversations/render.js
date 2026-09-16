@@ -61,5 +61,29 @@
     if (streaming) node.textContent = visible(value);
     else node.innerHTML = html(value); // Only locally generated, escaped, allowlisted markup.
   }
-  globalThis.CaduConversationRenderer = {html, visible, render};
+  function fileLink(value) {
+    if (typeof value !== 'string' || /[\s\\]/.test(value)) return null;
+    try {
+      const url = new URL(value);
+      return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password ? value : null;
+    } catch (_) { return null; }
+  }
+  function renderFiles(node, files) {
+    if (!Array.isArray(files)) return;
+    files.slice(0, 100).forEach(file => {
+      if (!file || typeof file !== 'object') return;
+      const row = document.createElement('small');
+      const name = typeof file.name === 'string' ? file.name : 'Arquivo';
+      const url = fileLink(file.url);
+      if (url) {
+        const link = document.createElement('a');
+        link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer';
+        link.textContent = 'Abrir ' + name;
+        link.setAttribute('aria-label', 'Abrir ' + name + ' em nova aba');
+        row.append(link);
+      } else row.textContent = name + ' — sem link disponível';
+      node.append(row);
+    });
+  }
+  globalThis.CaduConversationRenderer = {html, visible, render, fileLink, renderFiles};
 })();

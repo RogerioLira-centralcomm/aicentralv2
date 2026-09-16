@@ -27,6 +27,13 @@ from .runtime import run_test_skill
 bp = Blueprint("cadu_skills", __name__, url_prefix="/skills")
 
 
+@bp.before_request
+def prepare_shared_cadu_chat():
+    """Keep the shared Cadu panel usable from authenticated Skills pages."""
+    if session.get("user_id"):
+        session.setdefault("family_csrf", secrets.token_urlsafe(32))
+
+
 def _actor():
     if not session.get("cadu_skill_actor"):
         session["cadu_skill_actor"] = secrets.token_urlsafe(18)

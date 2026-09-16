@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  {% if session.get('user_id') %}<meta name="csrf-token" content="{{ session.get('family_csrf', '') }}">{% endif %}
   <title>{% block title %}Cadu{% endblock %}</title>
   {% block meta %}{% endblock %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,9 +12,13 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-portals.css') }}?v=3">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-product-switch.css') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-nav-compact.css') }}?v=1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-app-sidebar.css') }}?v=1">
   {% block styles %}{% endblock %}
+  {% set cadu_theme_product = self.product_id()|trim %}{% include 'cadu/_theme_head.html' %}
 </head>
-<body class="portal portal--{% block product_id %}cadu{% endblock %}">
+{% set portal_product %}{% block product_id %}cadu{% endblock %}{% endset %}
+{% set portal_product = portal_product|trim %}
+<body class="portal portal--{{ portal_product }}" data-product="{{ portal_product }}" data-authenticated="{{ 'true' if session.get('user_id') else 'false' }}">
   <a class="portal-skip" href="#content">Ir para o conteúdo</a>
   {% block navigation %}{% set cadu_active_product = self.product_id()|trim %}{% include 'cadu/_product_nav.html' %}{% endblock %}
   <main id="content" tabindex="-1">{% block content %}{% endblock %}</main>
@@ -22,5 +27,21 @@
     <span>Uma família CentralComm</span>
     <nav aria-label="Links institucionais"><a href="{{ product_url('workspace') }}">Workspace</a><a href="{{ product_url('workspace', '/planos') }}">Planos</a><a href="{{ product_url('workspace', '/ajuda') }}">Ajuda</a></nav>
   </footer>
+  {% if portal_product == 'workspace' and session.get('user_id') and request.endpoint != 'cadu_workspace.conversations' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/chat.css') }}?v=2">
+    <button type="button" class="cadu-conversation-launcher" id="conversation-open" aria-haspopup="dialog" aria-controls="conversation-panel" aria-expanded="false"><span aria-hidden="true">C</span> Falar com Cadu</button>
+    {% set conversation_profile_label = 'O Cadu considera a organização, projetos e marcas da sua conta.' %}
+    {% set conversation_actions = [
+      {'label': 'Projetos', 'href': url_for('cadu_workspace.projects')},
+      {'label': 'Skills', 'href': product_url('skills')}
+    ] %}
+    {% include 'cadu_workspace/conversations/panel.html' %}
+    <script defer src="{{ url_for('static', filename='cadu_workspace/conversations/stream.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='cadu_workspace/conversations/attachments.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='cadu_workspace/conversations/render.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='cadu_workspace/conversations/chat.js') }}"></script>
+  {% endif %}
+  {% block portal_scripts %}{% endblock %}
+  <script defer src="{{ url_for('static', filename='js/cadu-app-sidebar.js') }}?v=1"></script>
 </body>
 </html>

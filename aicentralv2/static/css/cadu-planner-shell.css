@@ -1,0 +1,22 @@
+/* O SmartPlanner trabalha em uma única superfície, sem barra global. */
+body[data-product="planner"] .family-layout--planner{grid-template-columns:244px minmax(0,1fr);min-height:100dvh;background:#f6f7fa}
+body[data-product="planner"] .family-layout--planner .family-modules{min-height:100dvh;padding:18px 12px 14px}
+body[data-product="planner"] .family-layout--planner main{padding:28px clamp(26px,4vw,56px) 56px}
+body[data-product="planner"] .family-layout--planner .family-page-head{margin-bottom:20px}
+body[data-product="planner"] .family-layout--planner .family-page-head h1{font-size:clamp(30px,3vw,34px);font-weight:400;letter-spacing:-.035em}
+body[data-product="planner"] .family-layout--planner .family-page-head .family-page-intro{margin-top:8px}
+body[data-product="planner"] .planner-sidebar-context{display:grid;gap:8px;margin:0 4px 18px;padding:0 6px 16px;border-bottom:1px solid var(--line)}
+body[data-product="planner"] .planner-sidebar-context>p{margin:0;color:var(--muted);font-size:11px;font-weight:400}
+body[data-product="planner"] .planner-sidebar-context .family-context{display:grid;gap:7px}
+body[data-product="planner"] .planner-sidebar-context .family-context label{display:grid;gap:4px;max-width:none;color:var(--muted);font-size:10px}
+body[data-product="planner"] .planner-sidebar-context .family-context select{min-height:34px;padding:6px 8px;background:var(--paper);font-size:12px}
+body[data-product="planner"] .planner-sidebar-context>a{min-height:auto!important;padding:2px 0!important;color:var(--ink);font-size:11px!important;font-weight:400!important;text-decoration:underline!important;text-underline-offset:3px}
+body[data-product="planner"] .family-layout--planner .family-module-group>b,body[data-product="planner"] .family-layout--planner .family-modules a,body[data-product="planner"] .family-layout--planner .family-modules a[aria-current],body[data-product="planner"] .family-layout--planner .family-home-links span{font-weight:400}
+body[data-product="planner"] .family-layout--planner .family-sidebar-account{gap:0;padding:14px 6px 0!important}
+body[data-product="planner"] .family-layout--planner .family-sidebar-credits{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:0 0 11px;border-bottom:1px solid var(--line)}
+body[data-product="planner"] .family-layout--planner .family-sidebar-credits span,body[data-product="planner"] .family-layout--planner .family-sidebar-credits strong{font-size:11px;font-weight:400}
+body[data-product="planner"] .family-layout--planner .family-sidebar-user{padding:12px 0 0!important}
+body[data-product="planner"] .family-layout--planner .family-sidebar-user strong{font-weight:400}
+body[data-product="planner"] .family-layout--planner .family-sidebar-user small{font-size:10px}
+body[data-product="planner"] .family-layout--planner .family-sidebar-user>span{font-weight:600}
+@media(max-width:820px){body[data-product="planner"] .family-layout--planner{display:block;min-height:0}body[data-product="planner"] .family-layout--planner .family-modules{display:block;min-height:0;padding:0;border-bottom:1px solid var(--line)}body[data-product="planner"] .family-layout--planner .family-sidebar-product,body[data-product="planner"] .family-layout--planner .planner-sidebar-context{display:none}body[data-product="planner"] .family-layout--planner main{padding:24px 18px 48px}body[data-product="planner"] .family-layout--planner .family-page-head h1{font-size:29px}}

@@ -1,7 +1,6 @@
 /* Panel geometry and timeline gestures, independent of network and render jobs. */
 const $ = id => document.getElementById(id);
 const prefsKey='cadu-studio-workspace-v1';
-const themeCookie='cadu-studio-theme';
 const clamp=(value,low,high)=>Math.max(low,Math.min(high,value));
 let state, changed, paint, prefs={}, observer, lastRuler='', lastTimeline='', trackWidth=1;
 const seconds=value => `${Math.floor(value/60)}:${String(Math.floor(value%60)).padStart(2,'0')}`;
@@ -12,7 +11,7 @@ export function bindWorkspace(project, commit, refresh) {
   try {prefs=JSON.parse(localStorage.getItem(prefsKey)||'{}');} catch {prefs={};}
   if(!prefs || typeof prefs!=='object')prefs={};
   const root=$('mcSwap');
-  root.dataset.theme=readTheme();
+  root.dataset.theme='dark';
   document.querySelectorAll('[data-studio-section]').forEach(button=>button.addEventListener('click',()=>{
     root.classList.remove('is-library-collapsed');$('mcStudioCollapseLibrary').setAttribute('aria-pressed','false');
     document.querySelector(`[data-lib-tab="${button.dataset.studioSection}"]`)?.click();
@@ -24,10 +23,7 @@ export function bindWorkspace(project, commit, refresh) {
   for(const [id,className] of [['mcStudioCollapseLibrary','is-library-collapsed'],['mcStudioCollapseInspector','is-inspector-collapsed']]){
     $(id)?.addEventListener('click',()=>$(id).setAttribute('aria-pressed',String(root.classList.toggle(className))));
   }
-  applyThemeLabel();
-  $('mcStudioTheme').addEventListener('click',()=>{
-    root.dataset.theme=root.dataset.theme==='dark'?'light':'dark';prefs.theme=root.dataset.theme;savePrefs();saveTheme(root.dataset.theme);applyThemeLabel();
-  });
+  if ($('mcStudioTheme')) $('mcStudioTheme').hidden=true;
   $('mcStudioFocus').addEventListener('click',()=>{
     const on=root.classList.toggle('is-focus');$('mcStudioFocus').setAttribute('aria-pressed',String(on));
     $('mcStudioFocus').setAttribute('aria-label',on?'Restaurar painéis':'Ampliar área de edição');
@@ -99,9 +95,6 @@ export function bindWorkspace(project, commit, refresh) {
   window.addEventListener('pagehide',()=>observer?.disconnect());
 }
 function savePrefs(){try{localStorage.setItem(prefsKey,JSON.stringify(prefs));}catch{/* Workspace stays usable without storage. */}}
-function readTheme(){const value=document.cookie.split('; ').find(row=>row.startsWith(`${themeCookie}=`))?.split('=')[1];return value==='light'||value==='dark'?value:'dark';}
-function saveTheme(theme){document.cookie=`${themeCookie}=${theme}; path=/; max-age=31536000; SameSite=Lax`;}
-function applyThemeLabel(){const dark=$('mcSwap').dataset.theme==='dark';$('mcStudioTheme').setAttribute('aria-pressed',String(dark));$('mcStudioTheme').setAttribute('aria-label',dark?'Usar aparência clara':'Usar aparência escura');}
 function seekAt(event,node){const video=getVideo();if(!Number.isFinite(video?.duration))return;const rect=node.getBoundingClientRect();video.currentTime=clamp((event.clientX-rect.left)/rect.width,0,1)*video.duration;}
 function updateTrim(key,value){const duration=getVideo()?.duration;if(!Number.isFinite(duration))return;state.edit[key]=key==='start'?clamp(value,0,(state.edit.end||duration)-.1):clamp(value,state.edit.start+.1,duration);}
 export function paintTimelinePosition(){

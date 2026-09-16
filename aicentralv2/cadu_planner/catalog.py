@@ -36,9 +36,20 @@ def detail(kind, value):
     if record_id < 1:
         raise NotFound()
     sql = {
-        'audiencias': '''SELECT id, nome AS name, descricao_curta AS description,
-                                 publico_estimado AS audience
-                            FROM cadu_audiencias WHERE id = %s AND is_active = TRUE LIMIT 1''',
+        'audiencias': '''SELECT a.id, a.nome AS name, COALESCE(a.descricao, a.descricao_curta) AS description,
+                                 a.descricao_curta, a.descricao_comercial, a.caso_uso_principal,
+                                 a.insights_planejamento, a.diferenciais_competitivos, a.tags,
+                                 a.publico_estimado AS audience, a.tamanho, a.fonte,
+                                 a.perfil_socioeconomico, a.propensao_compra, a.sazonalidade,
+                                 a.demografia_homens, a.demografia_mulheres, a.idade_18_24,
+                                 a.idade_25_34, a.idade_35_44, a.idade_45_mais,
+                                 a.dispositivo_mobile, a.dispositivo_desktop, a.dispositivo_tablet,
+                                 c.nome AS category, s.nome AS subcategory, p.nome AS platform
+                            FROM cadu_audiencias a
+                       LEFT JOIN cadu_categorias c ON c.id = a.categoria_id
+                       LEFT JOIN cadu_subcategorias s ON s.id = a.subcategoria_id
+                       LEFT JOIN cadu_audiencias_plataformas p ON p.id = a.plataforma_id
+                           WHERE a.id = %s AND a.is_active = TRUE LIMIT 1''',
         'canais': '''SELECT id, nome AS name, descricao AS description, categoria AS category,
                              alcance AS audience
                         FROM cadu_canais WHERE id = %s AND is_active = TRUE LIMIT 1''',

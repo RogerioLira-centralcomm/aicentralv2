@@ -27,7 +27,11 @@ def main():
     # refuses the scoped cookie and every request below looks unauthenticated.
     # Use a host covered by the configured cookie domain for both the session
     # write and the API calls.
-    cookie_domain = (app.config.get("SESSION_COOKIE_DOMAIN") or "localhost").lstrip(".")
+    cookie_domain = (
+        app.config.get("CADU_SESSION_COOKIE_DOMAIN")
+        or app.config.get("SESSION_COOKIE_DOMAIN")
+        or "localhost"
+    ).lstrip(".")
     base_url = f"https://{cookie_domain}"
 
     with app.test_client() as client:

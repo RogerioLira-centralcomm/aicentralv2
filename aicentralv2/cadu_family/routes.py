@@ -555,7 +555,8 @@ def conversation_send():
         response.headers['Cache-Control'] = 'no-store'
         return response
     return Response(stream_with_context(chat.stream(run)), mimetype='text/event-stream',
-                    headers={'X-Accel-Buffering': 'no', 'Cache-Control': 'no-store'})
+                    headers={'X-Accel-Buffering': 'no', 'Cache-Control': 'no-cache, no-store',
+                             'Connection': 'keep-alive'})
 
 
 @bp.get('/api/conversations/runs/<uuid:run_id>')

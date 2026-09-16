@@ -49,6 +49,20 @@
     historyToggle.setAttribute('aria-expanded', String(open));
   });
   let conversationId = null, runId = null, sending = false, controller = null;
+  let renderFrame = null, renderTarget = null, renderContent = '';
+  const renderStreaming = (target, content) => {
+    renderTarget = target; renderContent = content;
+    if (renderFrame !== null) return;
+    renderFrame = requestAnimationFrame(() => {
+      renderFrame = null;
+      if (renderTarget) CaduConversationRenderer.render(renderTarget, renderContent, true);
+    });
+  };
+  const flushStreaming = (target, content) => {
+    if (renderFrame !== null) cancelAnimationFrame(renderFrame);
+    renderFrame = null; renderTarget = null; renderContent = '';
+    if (target) CaduConversationRenderer.render(target, content);
+  };
   let initialized = false, initializing = null, canSend = false, canReplay = false;
   let loadingThread = false, threadRequest = 0, historyRequest = 0, nextOffset = null;
   let historyQuery = '';
@@ -394,7 +408,7 @@
       for await (const data of queuedEvents(run, controller.signal)) {
         if (data.event === 'message' || data.event === 'replace') {
           answer = data.event === 'replace' ? data.text : answer + data.text;
-          CaduConversationRenderer.render(output, answer, true);
+          renderStreaming(output, answer);
         } else if (data.event === 'catalog') addCatalogCard(data);
         else if (data.event === 'sources') addSources(data.sources);
         else if (data.event === 'document') addDocumentCard(data);
@@ -406,7 +420,7 @@
         ? 'Acompanhamento interrompido. Consulte o histórico para conferir o estado da resposta.'
         : 'Não foi possível retomar agora. Nenhuma mensagem foi reenviada. ' + error.message;
     } finally {
-      if (output) CaduConversationRenderer.render(output, answer);
+      flushStreaming(output, answer);
       sending = false; controller = null; runId = null; stop.hidden = true;
       mode.disabled = previousModeDisabled; attachments.lock(false); updateSend();
       if (terminal && recoveredConversation) {
@@ -537,7 +551,7 @@
             status.textContent = 'Cadu está respondendo…';
           } else if ((data.event === 'message' || data.event === 'replace') && output) {
             answer = data.event === 'replace' ? data.text : answer + data.text;
-            CaduConversationRenderer.render(output, answer, true);
+            renderStreaming(output, answer);
           }
           else if (data.event === 'progress') status.textContent = data.message;
           else if (data.event === 'catalog') addCatalogCard(data);
@@ -554,7 +568,7 @@
     } catch (error) {
       status.textContent = error.name === 'AbortError' ? 'Envio interrompido. Confira o histórico antes de reenviar; arquivos já recebidos pelo servidor podem ter sido preservados.' : error.message;
     } finally {
-      if (output) CaduConversationRenderer.render(output, answer);
+      flushStreaming(output, answer);
       sending = false; mode.disabled = false; stop.hidden = true; controller = null;
       input.disabled = false; attachments.lock(false); updateSend();
       if (recovered) {

@@ -18,7 +18,12 @@ def settings():
         raise DifyUnavailable('A integração Dify precisa ser configurada no servidor.')
     if urlparse(url).scheme != 'https' or not urlparse(url).hostname:
         raise DifyUnavailable('O endereço Dify precisa usar HTTPS.')
-    return url.rstrip('/'), {'Authorization': 'Bearer ' + key}
+    return url.rstrip('/'), {
+        'Authorization': 'Bearer ' + key,
+        # Make the provider and intermediaries treat this as a live SSE stream.
+        'Accept': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+    }
 
 
 def events(payload):
@@ -29,8 +34,9 @@ def events(payload):
             if response.status_code != 200:
                 raise DifyUnavailable('O Dify não conseguiu iniciar a resposta. Tente novamente.')
             parts = []
-            for line in response.iter_lines():
-                line = line.decode('utf-8')
+            # requests defaults to 512-byte chunks. That is good for downloads,
+            # but can hold an otherwise-ready first token in an SSE response.
+            for line in response.iter_lines(chunk_size=1, decode_unicode=True):
                 if line.startswith('data:'):
                     parts.append(line[5:].lstrip())
                 elif not line and parts:

@@ -41,6 +41,11 @@ def _commercial_available():
     return bool(result and result[0]['available'])
 
 
+def _user_notifications_available():
+    result = repository.rows("SELECT to_regclass('public.cadu_planner_user_notifications') IS NOT NULL AS available")
+    return bool(result and result[0]['available'])
+
+
 def list_plans(client_id, actor_id):
     if not _available():
         return []
@@ -63,12 +68,26 @@ def create_plan(client_id, actor_id, payload, context):
         raise BadRequest('Objetivo inválido.')
     plan_id = str(uuid4())
     briefing = _clean_briefing(payload.get('briefing') or {})
+    first_planner_use = False
     with get_db() as conn, conn.cursor() as cur:
         cur.execute('''INSERT INTO cadu_planner_plans
              (id, client_id, created_by, title, objective, advertiser_name, campaign_name, briefing)
              VALUES (%s, %s, %s, %s, %s, %s, %s, %s)''',
             (plan_id, client_id, actor_id, title, objective or None,
              _clean_label(payload.get('advertiser_name')), _clean_label(payload.get('campaign_name')), Json(briefing)))
+        if _user_notifications_available():
+            cur.execute('''INSERT INTO cadu_planner_user_notifications (client_id, user_id)
+                           VALUES (%s, %s) ON CONFLICT DO NOTHING RETURNING user_id''', (client_id, actor_id))
+            first_planner_use = bool(cur.fetchone())
+    if first_planner_use:
+        try:
+            from ..services.cadu_planner_emails import notify_new_planner_user
+            actor = repository.rows('SELECT nome_completo AS name, email FROM tbl_contato_cliente WHERE id_contato_cliente = %s', (actor_id,))
+            user = actor[0] if actor else {}
+            notify_new_planner_user(user_name=user.get('name') or 'Novo usuário', user_email=user.get('email') or '',
+                                    client_name=context.get('name') or 'Cliente Cadu')
+        except Exception:
+            pass
     return get_plan(client_id, actor_id, plan_id)
 
 
@@ -242,10 +261,13 @@ def request_quote(client_id, actor_id, plan_id, payload):
         'allocations': [{**row, 'investment': str(row.get('investment') or 0),
                          'weight': str(row.get('weight') or 0)} for row in plan.get('allocations') or []],
     }
-    owner = repository.rows('''SELECT vendas_central_comm AS executive_id
-                                 FROM tbl_cliente
-                                WHERE id_cliente = %s AND status = TRUE LIMIT 1''', (client_id,))
-    executive_id = owner[0].get('executive_id') if owner else None
+    owner = repository.rows('''SELECT cli.nome_fantasia AS client_name, cli.vendas_central_comm AS executive_id,
+                                      exec.nome_completo AS executive_name, exec.email AS executive_email
+                                 FROM tbl_cliente cli
+                            LEFT JOIN tbl_contato_cliente exec ON exec.id_contato_cliente = cli.vendas_central_comm
+                                WHERE cli.id_cliente = %s AND cli.status = TRUE LIMIT 1''', (client_id,))
+    owner = owner[0] if owner else {}
+    executive_id = owner.get('executive_id')
     version_id, request_id = str(uuid4()), str(uuid4())
     with get_db() as conn, conn.cursor() as cur:
         cur.execute('SELECT COALESCE(MAX(version_number), 0) + 1 AS next FROM cadu_planner_plan_versions WHERE plan_id = %s', (str(plan['id']),))
@@ -270,4 +292,14 @@ def request_quote(client_id, actor_id, plan_id, payload):
                 titulo='Nova solicitação de cotação pelo Planner')
         except Exception:
             pass
+    try:
+        from ..services.cadu_planner_emails import notify_quote_request
+        requester = repository.rows('SELECT nome_completo AS name FROM tbl_contato_cliente WHERE id_contato_cliente = %s', (actor_id,))
+        notify_quote_request(executive_email=owner.get('executive_email') or '',
+                             executive_name=owner.get('executive_name') or '',
+                             client_name=owner.get('client_name') or 'Cliente Cadu',
+                             requester_name=(requester[0].get('name') if requester else '') or 'Usuário do Planner',
+                             plan_title=plan['title'], scope=scope, message=message or '')
+    except Exception:
+        pass
     return get_plan(client_id, actor_id, plan_id)

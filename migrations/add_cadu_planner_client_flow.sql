@@ -37,3 +37,10 @@ CREATE INDEX IF NOT EXISTS cadu_planner_quote_requests_client_recent_idx
     ON cadu_planner_quote_requests (client_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS cadu_planner_quote_requests_plan_idx
     ON cadu_planner_quote_requests (plan_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS cadu_planner_user_notifications (
+    client_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    notified_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (client_id, user_id)
+);

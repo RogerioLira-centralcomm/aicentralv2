@@ -25,11 +25,11 @@ LISTA_USUARIOS_INATIVOS = 23
 
 # A assinatura é única (contato@centralcomm.media); a aparência identifica o produto.
 PRODUCT_EMAIL_BRANDS = {
-    "workspace": {"name": "Workspace", "accent": "#007D6D", "deep": "#10213B", "soft": "#E9F6F3", "signal": "#009F8A", "icon_url": "https://cadu.centralcomm.media/static/images/cadu/brand-icons/workspace-192.png"},
-    "studio": {"name": "Media Studio", "accent": "#6344CF", "deep": "#10213B", "soft": "#F1EDFC", "signal": "#7456E8", "icon_url": "https://cadu.centralcomm.media/static/images/cadu/brand-icons/studio-192.png"},
-    "planner": {"name": "Smart Planner", "accent": "#087D4D", "deep": "#10213B", "soft": "#E8F7EF", "signal": "#18B978", "icon_url": "https://cadu.centralcomm.media/static/images/cadu/brand-icons/planner-192.png"},
-    "skills": {"name": "Skills", "accent": "#A94D08", "deep": "#10213B", "soft": "#FFF2E7", "signal": "#E87922", "icon_url": "https://cadu.centralcomm.media/static/images/cadu/brand-icons/skills-192.png"},
-    "connect": {"name": "Connect", "accent": "#1363C5", "deep": "#10213B", "soft": "#EAF2FD", "signal": "#1976E9", "icon_url": "https://cadu.centralcomm.media/static/images/cadu/brand-icons/connect-192.png"},
+    "workspace": {"name": "Workspace", "accent": "#007D6D", "deep": "#10213B", "soft": "#E9F6F3", "signal": "#009F8A", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/workspace-192.png"},
+    "studio": {"name": "Media Studio", "accent": "#6344CF", "deep": "#10213B", "soft": "#F1EDFC", "signal": "#7456E8", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/studio-192.png"},
+    "planner": {"name": "Smart Planner", "accent": "#087D4D", "deep": "#10213B", "soft": "#E8F7EF", "signal": "#18B978", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/planner-192.png"},
+    "skills": {"name": "Skills", "accent": "#A94D08", "deep": "#10213B", "soft": "#FFF2E7", "signal": "#E87922", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/skills-192.png"},
+    "connect": {"name": "Connect", "accent": "#1363C5", "deep": "#10213B", "soft": "#EAF2FD", "signal": "#1976E9", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/connect-192.png"},
 }
 
 
@@ -222,7 +222,8 @@ class BrevoService:
         text_content: str = None,
         params: Dict[str, Any] = None,
         reply_to: Dict[str, str] = None,
-        attachments: List[Dict] = None
+        attachments: List[Dict] = None,
+        cc_email: Union[str, List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Envia email transacional via API Brevo
@@ -252,6 +253,9 @@ class BrevoService:
             "subject": subject,
             "htmlContent": html_content
         }
+        if cc_email:
+            cc_values = [cc_email] if isinstance(cc_email, str) else cc_email
+            payload["cc"] = [{"email": email} for email in cc_values if email]
         
         if text_content:
             payload["textContent"] = text_content
@@ -311,7 +315,8 @@ class BrevoService:
         to_name: str,
         subject: str,
         params: Dict[str, Any] = None,
-        template_folder: str = "emails/externos"
+        template_folder: str = "emails/externos",
+        cc_email: Union[str, List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Envia email usando template Flask/Jinja2
@@ -341,7 +346,8 @@ class BrevoService:
                 to_name=to_name,
                 subject=subject,
                 html_content=html_content,
-                params=params
+                params=params,
+                cc_email=cc_email,
             )
         except Exception as e:
             logger.error(f"Erro ao renderizar template {template_name}: {e}")

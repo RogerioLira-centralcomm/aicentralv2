@@ -924,6 +924,8 @@ def conversations():
 @bp.get('/workspace/app/marcas')
 @login_required
 def brands():
+    if request.path.startswith('/workspace/app/'):
+        return redirect(url_for('cadu_workspace.clean_brands'), code=308)
     client_id = int(session.get('cliente_id') or 0)
     query = request.args.get('q', '')
     filter_name = request.args.get('filtro', 'todas')
@@ -934,6 +936,12 @@ def brands():
     elif filter_name == 'com-ativos':
         records = [brand for brand in records if int(brand.get('asset_count') or 0)]
     return render_template('cadu_workspace/brands.html', brands=records, query=query, filter_name=filter_name)
+
+
+@bp.get('/marcas')
+@login_required
+def clean_brands():
+    return brands()
 
 
 @bp.post('/workspace/app/marcas')
@@ -972,11 +980,19 @@ def create_brand():
 @bp.get('/workspace/app/projetos')
 @login_required
 def projects():
+    if request.path.startswith('/workspace/app/'):
+        return redirect(url_for('cadu_workspace.clean_projects'), code=308)
     client_id = int(session.get('cliente_id') or 0)
     query = request.args.get('q', '')
     status = request.args.get('status', 'ativos')
     return render_template('cadu_workspace/projects.html', projects=_workspace_projects(client_id, query, status), query=query,
                            status=status if status in {'ativos', 'arquivados', 'todos'} else 'ativos')
+
+
+@bp.get('/projetos')
+@login_required
+def clean_projects():
+    return projects()
 
 
 @bp.post('/workspace/app/projetos')
@@ -1015,12 +1031,20 @@ def create_project():
 @bp.get('/workspace/app/projetos/<project_id>')
 @login_required
 def project_detail(project_id):
+    if request.path.startswith('/workspace/app/'):
+        return redirect(url_for('cadu_workspace.clean_project_detail', project_id=project_id), code=308)
     client_id = int(session.get('cliente_id') or 0)
     project = _workspace_project(client_id, project_id)
     if not project:
         abort(404)
     _remember_workspace_project(project_id)
     return render_template('cadu_workspace/project_detail.html', project=project, brands=_workspace_brands(client_id))
+
+
+@bp.get('/projetos/<project_id>')
+@login_required
+def clean_project_detail(project_id):
+    return project_detail(project_id)
 
 
 @bp.post('/workspace/app/projetos/<project_id>/contexto')
@@ -1381,6 +1405,8 @@ def query_project_knowledge(project_id):
 @bp.get('/workspace/app/marcas/<int:brand_id>')
 @login_required
 def brand_detail(brand_id):
+    if request.path.startswith('/workspace/app/'):
+        return redirect(url_for('cadu_workspace.clean_brand_detail', brand_id=brand_id), code=308)
     client_id = int(session.get('cliente_id') or 0)
     brand = _workspace_brand(client_id, brand_id)
     if not brand:
@@ -1400,6 +1426,12 @@ def brand_detail(brand_id):
         legacy_creatives_url=f'{studio_base}/trocar?client_id={brand_id}',
         legacy_uploads_url=f'{studio_base}/trocar?client_id={brand_id}&panel=uploads',
     )
+
+
+@bp.get('/marcas/<int:brand_id>')
+@login_required
+def clean_brand_detail(brand_id):
+    return brand_detail(brand_id)
 
 
 @bp.post('/workspace/app/marcas/<int:brand_id>/identidade')

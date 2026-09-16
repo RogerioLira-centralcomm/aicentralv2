@@ -94,6 +94,10 @@ assert.equal(await page.locator('[data-compose-key="voice"]').inputValue(),'warm
 await page.locator('[data-restore-all]').click();
 assert.equal(await page.locator('[data-composition-item]').count(),5);assert.equal(await page.locator('.mc-pro-audio').count(),2);assert.equal(await page.locator('.mc-pro-audio.is-selected').count(),1);assert.equal(await page.locator('[data-caption-key="text"]').inputValue(),'Legenda automática');
 assert.equal(await page.locator('[data-compose-key="out"]').inputValue(),beforeAutoOut);
+await page.locator('[data-audio-index="1"][data-audio-key="start"]').fill('2');await page.locator('[data-audio-index="1"][data-audio-key="start"]').dispatchEvent('change');
+await page.locator('[data-caption="0"][data-caption-key="start"]').fill('2');await page.locator('[data-caption="0"][data-caption-key="start"]').dispatchEvent('change');await page.locator('[data-caption="0"][data-caption-key="end"]').fill('2.5');await page.locator('[data-caption="0"][data-caption-key="end"]').dispatchEvent('change');
+const beforeRippleDuration=Number((await page.locator('#mcCompositionDuration').textContent()).split('s')[0]);await page.locator('.mc-pro-clip').first().click();await page.keyboard.press('Shift+Delete');
+assert.equal(await page.locator('[data-composition-item]').count(),4);assert.ok(Number((await page.locator('#mcCompositionDuration').textContent()).split('s')[0])<beforeRippleDuration);assert.ok(Number(await page.locator('[data-audio-index="1"][data-audio-key="start"]').inputValue())<2);assert.ok(Number(await page.locator('[data-caption="0"][data-caption-key="start"]').inputValue())<2);
 await page.screenshot({path:'tmp/studio-editor-check/autocut-controls.png',fullPage:true});
-assert.deepEqual(errors,[]);console.log('PASS timeline zoom/snap, trim and transition drag, audio split/sync/solo/envelope, captions, keyframes, preview, export and non-destructive smart cuts');await browser.close();
+assert.deepEqual(errors,[]);console.log('PASS timeline zoom/snap, trim, ripple delete and transition drag, audio split/sync/solo/envelope, captions, keyframes, preview, export and non-destructive smart cuts');await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});

@@ -20,6 +20,37 @@ const timelineDuration=()=>Math.max(compositionDuration(),...comp().audio.map(ro
 function gainAt(points,time){if(!points?.length)return 1;const rows=[...points].sort((a,b)=>a.time-b.time);if(time<=rows[0].time)return rows[0].gain;for(let i=1;i<rows.length;i++)if(time<rows[i].time){const a=rows[i-1],b=rows[i],p=(time-a.time)/Math.max(.001,b.time-a.time);return a.gain+(b.gain-a.gain)*p;}return rows.at(-1).gain;}
 function splitFrames(frames=[],at=0){if(!frames.length)return [[],[]];const keys=['x','y','scale','rotation','opacity'],value=valuesAt(frames,at),boundary=Object.fromEntries(keys.map(key=>[key,Number(value[key])])),ease=value.ease||'linear';return [[...frames.filter(row=>row.time<at).map(row=>structuredClone(row)),{...boundary,time:at,ease}],[{...boundary,time:0,ease},...frames.filter(row=>row.time>at).map(row=>({...structuredClone(row),time:row.time-at}))]];}
 function mapCutTime(time,cuts){let removed=0;for(const cut of cuts){if(time>=cut.out)removed+=cut.out-cut.in;else if(time>cut.in)return Math.max(0,cut.in-removed);else break;}return Math.max(0,time-removed);}
+function rippleCaption(row,start,end){
+  const gap=end-start,captionStart=Number(row.start)||0,captionEnd=Number(row.end)||0;
+  if(captionEnd<=start)return row;
+  if(captionStart>=end)return {...row,start:captionStart-gap,end:captionEnd-gap};
+  if(captionStart>=start&&captionEnd<=end)return null;
+  if(captionStart<start&&captionEnd>end)return {...row,end:captionEnd-gap};
+  if(captionStart<start)return {...row,end:start};
+  return {...row,start,end:captionEnd-gap};
+}
+function rippleDelete(row){
+  const c=comp(),before=schedule(c.items),entry=before.find(planRow=>planRow.row.id===row.id),index=c.items.indexOf(row);
+  if(index<0||!entry)return false;
+  const durationBefore=compositionDuration();
+  if(index>0)c.items[index-1].transition='cut';
+  c.items.splice(index,1);
+  const durationAfter=compositionDuration(),gap=Math.max(0,durationBefore-durationAfter),start=entry.start,end=start+gap;
+  if(gap>.0001){
+    c.audio.forEach(track=>{
+      if(track.ripple===false)return;
+      const originalStart=Number(track.start)||0,shift=Math.min(gap,Math.max(0,originalStart-start));
+      if(shift<=0)return;
+      track.start=Math.max(0,originalStart-shift);
+      if(Number.isFinite(Number(track.sync_origin)))track.sync_origin=Math.max(0,Number(track.sync_origin)-shift);
+    });
+    c.captions=c.captions.map(caption=>rippleCaption(caption,start,end)).filter(caption=>caption&&caption.end-caption.start>=.03);
+  }
+  c.selected=c.items[Math.min(index,c.items.length-1)]?.id||'';
+  c.selected_audio=-1;
+  seekLivePreview(Math.min(start,durationAfter));
+  return true;
+}
 function makeSnapper(exclude=[]){
   const plan=schedule(comp().items),targets=[0,previewTime(),compositionDuration(),...plan.flatMap(entry=>[entry.start,entry.end]),...comp().captions.flatMap(row=>[row.start,row.end])].filter(point=>Number.isFinite(point)&&!exclude.some(skip=>Math.abs(skip-point)<.0001));
   return (value,options={})=>{if(!snapEnabled||options.snap===false)return {value};const closest=targets.reduce((best,point)=>Math.abs(point-value)<Math.abs(best-value)?point:best,Infinity),tolerance=8/(64*timelineZoom);return Number.isFinite(closest)&&Math.abs(closest-value)<=tolerance?{value:closest,snap:closest}:{value};};
@@ -85,13 +116,13 @@ export function bindComposition(commit,paint){
   document.addEventListener('cadu:preview-time',event=>updateTimelinePlayhead(tracks,Number(event.detail)||0));
   const triggerAction=action=>$('mcCompositionControls')?.querySelector(`[data-compose-action="${action}"]`)?.click();
   $('mcTimelineSplit')?.addEventListener('click',()=>triggerAction('split'));
-  $('mcTimelineRemove')?.addEventListener('click',()=>triggerAction('delete'));
+  $('mcTimelineRemove')?.addEventListener('click',()=>triggerAction('ripple'));
   $('mcTimelineSnap')?.addEventListener('click',()=>{snapEnabled=!snapEnabled;paintSnapButton();});
   document.addEventListener('keydown',event=>{
     if(!comp().enabled||event.ctrlKey||event.metaKey||event.altKey||event.target.closest('input,textarea,select,[contenteditable]'))return;
     if(event.key.toLowerCase()==='s'){event.preventDefault();triggerAction('split');}
     if(event.key.toLowerCase()==='n'){event.preventDefault();snapEnabled=!snapEnabled;paintSnapButton();}
-    if((event.key==='Delete'||event.key==='Backspace')&&item()){event.preventDefault();triggerAction('delete');}
+    if((event.key==='Delete'||event.key==='Backspace')&&item()){event.preventDefault();triggerAction(event.shiftKey?'ripple':'delete');}
   });
   bindCaptionStyle(comp,changed);
   document.addEventListener('cadu:apply-autocut',event=>{
@@ -139,6 +170,7 @@ export function bindComposition(commit,paint){
     const action=event.target.dataset.composeAction,row=item();if(!action||!row)return;
     const index=comp().items.indexOf(row);
     if(action==='delete'){comp().items.splice(index,1);comp().selected=comp().items[Math.min(index,comp().items.length-1)]?.id||'';}
+    if(action==='ripple'){if(rippleDelete(row))changed();return;}
     if(action==='duplicate'&&comp().items.length<120){const copy={...structuredClone(row),id:newId()};comp().items.splice(index+1,0,copy);comp().selected=copy.id;}
     if(action==='split'&&comp().items.length<120){
       const copy={...structuredClone(row),id:newId()};let local;
@@ -240,7 +272,7 @@ export function paintComposition(){
   const plan=schedule(c.items);
   $('mcCompositionTracks').innerHTML=timelineMarkup({composition:c,plan,duration:timelineDuration(),projectDuration:compositionDuration(),selected:c.selected,selectedAudio:Number(c.selected_audio),sources:asset,sounds:state.sounds||[],zoom:timelineZoom,playhead:previewTime(),minWidth:Math.max(520,$('mcCompositionTracks').clientWidth-96)});
   const select=(key,label,values)=>`<label>${label}<select data-compose-key="${key}">${values.map(([value,text])=>`<option value="${value}" ${row?.[key]===value?'selected':''}>${text}</option>`).join('')}</select></label>`;
-  $('mcCompositionControls').innerHTML=row?`<h4>${esc(asset(row)?.name||'Item selecionado')}</h4><div class="mc-studio-pair">${row.kind==='image'?number('duration','Duração (s)',row.duration,.2,300):number('in','Entrada (s)',row.in,0,300)+number('out','Saída (s)',row.out,0,300)+number('speed','Velocidade',row.speed,.25,4,'.25')}${number('volume','Volume original',row.volume,0,1,'.05')}</div>${select('fit','Enquadramento',[['contain','Caber sem cortar'],['cover','Preencher com corte central']])}${row.kind==='image'?select('motion','Animação da imagem',[['none','Fixa'],['zoom','Zoom suave']]):''}${select('transition','Próxima cena',[['cut','Corte'],['fade','Dissolver'],['fadeblack','Passar pelo preto'],['slideleft','Deslizar'],['wipeleft','Revelar']])}${number('transition_duration','Duração da transição',row.transition_duration,.05,2)}${voiceControl(row)}${keyframeEditor(row.keyframes)}<div class="mc-composition-actions">${[['split','Dividir'],['duplicate','Duplicar'],['before','Antes'],['after','Depois'],['delete','Excluir']].map(([a,t])=>`<button type="button" data-compose-action="${a}">${t}</button>`).join('')}</div>`:'<p>Adicione e selecione uma mídia na sequência.</p>';
+  $('mcCompositionControls').innerHTML=row?`<h4>${esc(asset(row)?.name||'Item selecionado')}</h4><div class="mc-studio-pair">${row.kind==='image'?number('duration','Duração (s)',row.duration,.2,300):number('in','Entrada (s)',row.in,0,300)+number('out','Saída (s)',row.out,0,300)+number('speed','Velocidade',row.speed,.25,4,'.25')}${number('volume','Volume original',row.volume,0,1,'.05')}</div>${select('fit','Enquadramento',[['contain','Caber sem cortar'],['cover','Preencher com corte central']])}${row.kind==='image'?select('motion','Animação da imagem',[['none','Fixa'],['zoom','Zoom suave']]):''}${select('transition','Próxima cena',[['cut','Corte'],['fade','Dissolver'],['fadeblack','Passar pelo preto'],['slideleft','Deslizar'],['wipeleft','Revelar']])}${number('transition_duration','Duração da transição',row.transition_duration,.05,2)}${voiceControl(row)}${keyframeEditor(row.keyframes)}<div class="mc-composition-actions">${[['split','Dividir'],['duplicate','Duplicar'],['before','Antes'],['after','Depois'],['delete','Excluir'],['ripple','Remover e fechar']].map(([a,t])=>`<button type="button" data-compose-action="${a}">${t}</button>`).join('')}</div>`:'<p>Adicione e selecione uma mídia na sequência.</p>';
   if(c.autocut){const accepted=c.autocut.cuts.filter(cut=>cut.decision==='accepted').length;$('mcCompositionControls').insertAdjacentHTML('beforeend',`<details open class="mc-cut-review"><summary>${c.autocut.applied?'Cortes aplicados':'Revisar sugestões'} · ${c.autocut.cuts.length}</summary><p>${c.autocut.applied?'A montagem usa os cortes aceitos. Restaure o original para revisar novamente.':`${accepted} aceitos · ${(c.autocut.removed_duration||0).toFixed(1)}s sugeridos. Ouça cada região antes de aplicar.`}</p>${c.autocut.options.transition!=='cut'?'<p>Transições curtas nas pausas; corte seco nas hesitações para preservar palavras.</p>':''}${c.autocut.cuts.map((cut,i)=>`<div class="mc-cut-review-row ${cut.decision==='accepted'?'is-accepted':cut.decision==='rejected'?'is-rejected':''}"><button type="button" data-cut-jump="${i}">${cut.in.toFixed(2)}–${cut.out.toFixed(2)}s · ${esc(cut.reason)}</button>${!c.autocut.applied?`<button type="button" data-cut-decision="${i}" data-decision="accepted">Aceitar</button><button type="button" data-cut-decision="${i}" data-decision="rejected">Ignorar</button>`:''}</div>`).join('')}${!c.autocut.applied?'<div class="mc-cut-review-actions"><button type="button" data-accept-safe>Aceitar seguras</button><button type="button" data-reject-all>Ignorar todas</button><button type="button" data-apply-autocut>Aplicar cortes aceitos</button></div>':''}<button type="button" data-restore-all>Restaurar original</button>${c.autocut.review.map(r=>`<p>${r.in.toFixed(2)}s · ${esc(r.reason)}</p>`).join('')}</details>`);}
   $('mcCompositionAudio').innerHTML=c.audio.map((track,i)=>`<fieldset class="${i===Number(c.selected_audio)?'is-selected':''}"><legend>${esc(track.name||`Áudio ${i+1}`)}</legend><div class="mc-studio-pair">${[['start','Posição (s)',600],['in','Cortar início (s)',600],['duration','Duração (s)',600],['volume','Volume',1],['fade_in','Fade in (s)',10],['fade_out','Fade out (s)',10]].map(([key,label,max])=>number(key,label,track[key],0,max,'.1',`data-audio-index="${i}" data-audio-key="${key}"`)).join('')}</div>${voiceControl(track,i)}<label><input type="checkbox" data-audio-index="${i}" data-audio-key="muted" ${track.muted?'checked':''}> Mutar faixa</label><label><input type="checkbox" data-audio-index="${i}" data-audio-key="solo" ${track.solo?'checked':''}> Solo</label><label><input type="checkbox" data-audio-index="${i}" data-audio-key="loop" ${track.loop?'checked':''}> Repetir</label><div class="mc-audio-envelope-editor"><strong>Envelope de volume</strong><small>Duplo clique na waveform também cria um ponto. Ganho: 1,00 mantém o volume; 2,00 dobra.</small>${(track.gain_points||[]).map((point,p)=>`<div><input aria-label="Tempo do ponto ${p+1}" type="number" min="0" max="${track.duration}" step=".01" value="${point.time}" data-audio-index="${i}" data-gain-index="${p}" data-gain-key="time"><input aria-label="Ganho do ponto ${p+1}" type="number" min="0" max="2" step=".05" value="${point.gain}" data-audio-index="${i}" data-gain-index="${p}" data-gain-key="gain"><button type="button" data-gain-remove="${i}:${p}" aria-label="Excluir ponto ${p+1}">×</button></div>`).join('')}</div><div class="mc-composition-actions"><button type="button" data-gain-add="${i}">Ponto de volume</button><button type="button" data-audio-sync="${i}">Alinhar ao cursor</button><button type="button" data-audio-restore-sync="${i}">Restaurar posição</button><button type="button" data-audio-split="${i}">Dividir no cursor</button><button type="button" data-audio-remove="${i}">Remover faixa</button></div></fieldset>`).join('');
   $('mcCompositionCaptions').innerHTML=c.captions.map((row,i)=>`<div class="mc-composition-caption"><input aria-label="Início da legenda ${i+1}" type="number" min="0" max="600" step=".1" value="${row.start}" data-caption="${i}" data-caption-key="start"><input aria-label="Fim da legenda ${i+1}" type="number" min="0" max="600" step=".1" value="${row.end}" data-caption="${i}" data-caption-key="end"><textarea aria-label="Legenda ${i+1}" maxlength="300" data-caption="${i}" data-caption-key="text">${esc(row.text)}</textarea><button type="button" data-caption-remove="${i}" aria-label="Excluir legenda ${i+1}">Excluir</button></div>`).join('');

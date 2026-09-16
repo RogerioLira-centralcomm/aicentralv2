@@ -232,7 +232,10 @@ class ProductPortalsTest(TestCase):
         self.assertIn("Do briefing ao próximo trabalho entregue.", html)
         self.assertIn('data-cadu-theme-toggle', html)
         self.assertIn('cadu-theme.js', html)
+        self.assertIn('data-theme-mode="light"', html)
         self.assertIn('rel="canonical" href="https://workspace.centralcomm.media/"', html)
+        self.assertIn('>Criar conta</a>', html)
+        self.assertIn('href="https://auth.centralcomm.media/login"', html)
         self.assertEqual(client.get("/workspace/app", headers={"Host": "workspace.centralcomm.media"}).status_code, 302)
         for page in ("como-funciona", "planos", "ajuda", "contato"):
             with self.subTest(page=page):
@@ -241,6 +244,8 @@ class ProductPortalsTest(TestCase):
                 self.assertIn('name="description"', public.get_data(as_text=True))
         with client.session_transaction() as sess:
             sess.update(user_id=7, cliente_id=12, user_name="Apolo")
+        conversations = client.get("/workspace/app/conversas", headers={"Host": "workspace.centralcomm.media"})
+        self.assertIn('data-theme-mode="preference"', conversations.get_data(as_text=True))
         with mock.patch("aicentralv2.cadu_workspace.routes.customization_targets", return_value={"clients": [], "projects": []}), \
              mock.patch("aicentralv2.cadu_workspace.routes.list_customizations", return_value=[]), \
              mock.patch("aicentralv2.cadu_workspace.routes.credit_position", return_value={"available": 20, "monthly": 20, "configured": True}):
@@ -248,6 +253,10 @@ class ProductPortalsTest(TestCase):
             self.assertEqual(response.status_code, 200)
             html = response.get_data(as_text=True)
             self.assertIn("Administração da conta", html)
+            self.assertIn('workspace-app-shell workspace-app-shell--home', html)
+            self.assertIn('class="workspace-sidebar-balance"', html)
+            self.assertIn('class="workspace-nav-abbr"', html)
+            self.assertIn('data-cadu-sidebar-mobile-close', html)
             for label in ("Usuários", "Planos", "Créditos", "Financeiro", "Integrações"):
                 self.assertIn(label, html)
         self.assertEqual(client.get("/workspace/agentes", headers={"Host": "workspace.centralcomm.media"}).headers["Location"], "/skills/agentes")

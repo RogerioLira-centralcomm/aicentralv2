@@ -1,0 +1,16 @@
+:root{
+  --cadu-canvas:#f3f6f8;
+  --cadu-surface:#fff;
+  --cadu-surface-soft:#f7f9fb;
+  --cadu-shell-ink:#172033;
+  --cadu-shell-muted:#687386;
+  --cadu-shell-focus:#2563eb;
+  --cadu-radius-control:10px;
+  --cadu-radius-item:12px;
+  --cadu-radius-popover:16px;
+  --cadu-radius-panel:18px;
+  --cadu-shadow-shell:0 1px 2px rgba(16,24,40,.025),0 14px 40px rgba(16,24,40,.07);
+  --cadu-shadow-popover:0 18px 48px rgba(16,24,40,.14);
+  --cadu-motion-fast:140ms ease;
+  --cadu-motion-shell:220ms cubic-bezier(.2,.8,.2,1);
+}

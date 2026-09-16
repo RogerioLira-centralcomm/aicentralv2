@@ -1,3 +1,4 @@
 {# Blocking initialization prevents a flash of the wrong theme. #}
-<script src="{{ url_for('static', filename='js/cadu-theme.js') }}?v=1" data-force-theme="{{ 'dark' if cadu_theme_product == 'studio' else '' }}" data-cookie-domain="{{ config.get('CADU_SESSION_COOKIE_DOMAIN') or '' }}"></script>
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-theme.css') }}?v=1">
+{% set cadu_theme_mode = 'dark' if cadu_theme_product == 'studio' else ('preference' if request.endpoint == 'cadu_workspace.conversations' else 'light') %}
+<script src="{{ url_for('static', filename='js/cadu-theme.js') }}?v=2" data-theme-mode="{{ cadu_theme_mode }}" data-theme-scope="workspace-conversations"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-theme.css') }}?v=2">

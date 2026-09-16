@@ -8,7 +8,7 @@
 <meta property="og:type" content="website"><meta property="og:title" content="Cadu Workspace"><meta property="og:description" content="{{ description }}"><meta property="og:url" content="{{ canonical }}"><meta property="og:image" content="{{ product_url('workspace', '/assets/workspace-icon-192.png') }}">
 <script type="application/ld+json">{{ {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Cadu Workspace","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":canonical,"description":description}|tojson }}</script>
 {% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-public.css') }}?v=5">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-public.css') }}?v=6">{% endblock %}
 {% block content %}
 <section class="ws-hero">
   <div class="ws-hero-copy"><p class="ws-eyebrow">Cadu Workspace</p><h1>Do briefing ao próximo trabalho entregue.</h1><p>Reúna a marca e as referências do projeto. Encontre o método, planeje a mídia e siga para a criação sem perder as decisões do caminho.</p><div class="ws-actions"><a href="{{ url_for('cadu_workspace.dashboard') }}">{{ 'Continuar meu trabalho' if session.get('user_id') else 'Entrar para começar' }}</a><a href="#ambientes">Escolher o que fazer</a></div></div>

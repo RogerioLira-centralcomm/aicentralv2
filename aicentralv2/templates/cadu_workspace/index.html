@@ -1,11 +1,11 @@
 {% extends 'cadu_portals/base.html' %}
 {% block title %}Workspace — Cadu{% endblock %}
 {% block product_id %}workspace{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=5"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-dashboard.css') }}?v=1">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=6"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-dashboard.css') }}?v=2">{% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
 {% set workspace_active = 'inicio' %}
-<div class="workspace-app-shell">{% include 'cadu_workspace/_app_sidebar.html' %}<main class="workspace-app-main workspace-dashboard">
+<div class="workspace-app-shell workspace-app-shell--home">{% include 'cadu_workspace/_app_sidebar.html' %}<main class="workspace-app-main workspace-dashboard">
   <header class="workspace-dashboard-intro"><p>Seu Workspace</p><h1>O que vamos colocar em movimento hoje?</h1><span>Retome um projeto, prepare a marca ou converse com o Cadu sobre a próxima entrega.</span></header>
   <section class="workspace-dashboard-actions" aria-label="Ações principais">
     <a href="{{ url_for('cadu_workspace.projects') }}"><small>Projetos</small><b>Continuar um projeto</b><span>Reúna briefing, referências e decisões.</span></a>

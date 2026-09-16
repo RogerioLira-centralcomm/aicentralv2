@@ -29,5 +29,5 @@
       <a href="{{ product_url('auth', '/logout') }}">Sair</a>
     </div>
   </details>
-  {% else %}<a class="cadu-universal-enter" href="{{ product_url('auth', '/login') }}">Entrar</a>{% endif %}
+  {% else %}<a class="cadu-universal-enter" href="{{ product_url('auth', '/login') }}">Entrar</a>{% if cadu_active_product == 'workspace-public' %}<a class="cadu-universal-access" href="{{ product_url('auth', '/login') }}">Criar conta</a>{% endif %}{% endif %}
 </header>

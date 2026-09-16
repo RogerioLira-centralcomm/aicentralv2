@@ -10,9 +10,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-portals.css') }}?v=3">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-shell-tokens.css') }}?v=1">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-product-switch.css') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-nav-compact.css') }}?v=1">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-app-sidebar.css') }}?v=1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-app-sidebar.css') }}?v=2">
   {% block styles %}{% endblock %}
   {% set cadu_theme_product = self.product_id()|trim %}{% include 'cadu/_theme_head.html' %}
 </head>
@@ -42,6 +43,6 @@
     <script defer src="{{ url_for('static', filename='cadu_workspace/conversations/chat.js') }}"></script>
   {% endif %}
   {% block portal_scripts %}{% endblock %}
-  <script defer src="{{ url_for('static', filename='js/cadu-app-sidebar.js') }}?v=1"></script>
+  <script defer src="{{ url_for('static', filename='js/cadu-app-sidebar.js') }}?v=2"></script>
 </body>
 </html>

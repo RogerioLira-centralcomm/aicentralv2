@@ -1,37 +1,37 @@
-/* One preference across Cadu products. Studio never writes over it. */
+/* Light by default, Studio dark, and an isolated preference for conversations. */
 (() => {
   'use strict';
   const root = document.documentElement;
   const script = document.currentScript;
-  const forced = script?.dataset.forceTheme === 'dark';
-  const cookieName = 'cadu-theme';
-  const configuredDomain = (script?.dataset.cookieDomain || '').replace(/^\./, '');
+  const mode = script?.dataset.themeMode || 'light';
+  const allowsPreference = mode === 'preference';
+  const forcedTheme = mode === 'dark' ? 'dark' : mode === 'light' ? 'light' : null;
+  const storageKey = 'cadu-theme:' + (script?.dataset.themeScope || 'default');
   function read() {
     try {
-      const value = document.cookie.split(';').map(part => part.trim()).find(part => part.startsWith(cookieName + '='))?.slice(cookieName.length + 1);
+      const value = window.localStorage?.getItem(storageKey);
       if (value === 'light' || value === 'dark') return value;
     } catch (_) {}
-    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    return 'light';
   }
   function apply(theme) {
     root.dataset.caduTheme = theme;
     root.style.colorScheme = theme;
     document.querySelectorAll('[data-cadu-theme-toggle]').forEach(button => {
-      button.hidden = forced;
+      button.hidden = !allowsPreference;
       button.textContent = theme === 'dark' ? 'Modo claro' : 'Modo escuro';
       button.setAttribute('aria-label', theme === 'dark' ? 'Usar aparência clara' : 'Usar aparência escura');
       button.setAttribute('aria-pressed', String(theme === 'dark'));
     });
   }
-  apply(forced ? 'dark' : read());
+  const currentTheme = () => forcedTheme || read();
+  apply(currentTheme());
   document.addEventListener('DOMContentLoaded', () => apply(root.dataset.caduTheme), {once:true});
   document.addEventListener('click', event => {
-    if (forced || !event.target.closest('[data-cadu-theme-toggle]')) return;
+    if (!allowsPreference || !event.target.closest('[data-cadu-theme-toggle]')) return;
     const theme = root.dataset.caduTheme === 'dark' ? 'light' : 'dark';
     apply(theme);
-    const host = window.location.hostname;
-    const domain = configuredDomain.includes('.') && (host === configuredDomain || host.endsWith('.' + configuredDomain)) ? '; Domain=' + configuredDomain : '';
-    try { document.cookie = cookieName + '=' + theme + '; Path=/; Max-Age=31536000; SameSite=Lax' + domain + (location.protocol === 'https:' ? '; Secure' : ''); } catch (_) {}
+    try { window.localStorage?.setItem(storageKey, theme); } catch (_) {}
   });
-  window.addEventListener('pageshow', () => apply(forced ? 'dark' : read()));
+  window.addEventListener('pageshow', () => apply(currentTheme()));
 })();

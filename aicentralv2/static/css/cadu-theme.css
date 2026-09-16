@@ -34,6 +34,38 @@ html[data-cadu-theme="dark"] .ws-map-products a small {color:var(--cadu-muted)}
 html[data-cadu-theme="dark"] :is(.family-modules a[aria-current],.family-module-group a:hover) {background:#23373c;color:#a0dfc4}
 html[data-cadu-theme="dark"] :is(.sk-catalog-sidebar a,.sk-catalog-list h2,.sk-table-group h2,.sk-visual-name b,.sk-visual-result b,.sk-visual-proof b) {color:var(--cadu-ink)}
 html[data-cadu-theme="dark"] .sk-visual-row>strong {color:#ffb77f}
+
+/* Dark is opt-in only on Workspace Conversations; preserve readable depth. */
+html[data-cadu-theme="dark"] body[data-product="workspace"] {
+  --green:#86ddcc; --workspace-accent:#86ddcc; --workspace-accent-soft:#203a36;
+  --product-action:#86ddcc; --focus:#86ddcc;
+  --cadu-shell-ink:var(--cadu-ink); --cadu-shell-muted:var(--cadu-muted);
+  --cadu-surface-soft:var(--cadu-hover);
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] :is(.workspace-conversation-next,.workspace-conversations) {
+  background:var(--cadu-surface); color:var(--cadu-ink); border-color:var(--cadu-line);
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-conversation-sidebar {
+  background:#151c24; color:var(--cadu-ink); border-color:var(--cadu-line);
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] {
+  background:var(--cadu-surface); color:var(--cadu-ink);
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] :is(.conversation-message,#conversation-form,#conversation-history>article>button,.conversation-catalog-card) {
+  background:#222c37; color:var(--cadu-ink); border-color:#3c4957;
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] .conversation-message.from-user {
+  background:#183b3a; color:#f4f8f7; border-color:transparent;
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] :is(.conversation-navigation button:hover,.conversation-navigation button:focus-visible,.workspace-conversation-sidebar nav button:hover,.workspace-conversation-sidebar nav button[aria-current]) {
+  background:var(--cadu-hover); color:#a5eadc;
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] :is(.conversation-code figcaption,.conversation-table th) {background:#25313d;color:var(--cadu-ink)}
+html[data-cadu-theme="dark"] body[data-product="workspace"] .conversation-code pre {background:#121922;color:#eef3f7}
+html[data-cadu-theme="dark"] body[data-product="workspace"] :is(.conversation-code,.conversation-table th,.conversation-table td) {border-color:#3c4957}
+html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-conversation-next a {color:var(--cadu-ink)}
+html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-conversation-next a:hover b {color:#a5eadc}
+html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-app-user>div .cadu-theme-toggle {background:transparent;color:var(--cadu-ink)}
 #mcSwap #mcStudioTheme {display:none!important}
 .cadu-theme-toggle {display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:8px 12px;border:1px solid var(--cadu-line);border-radius:6px;background:var(--cadu-surface);color:var(--cadu-ink);font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
 .cadu-theme-toggle[hidden]{display:none}

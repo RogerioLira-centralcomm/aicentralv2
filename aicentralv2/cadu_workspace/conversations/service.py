@@ -152,6 +152,22 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query):
     return json.dumps(packet, ensure_ascii=False, default=str)[:24000]
 
 
+def project_sources(project_context):
+    """Return only the cited, user-safe source projection from a context packet."""
+    try:
+        values = json.loads(project_context or '{}').get('fontes_verificadas') or []
+    except (TypeError, ValueError):
+        return []
+    sources = []
+    for value in values[:4]:
+        if not isinstance(value, dict):
+            continue
+        title = str(value.get('fonte') or 'Fonte sem título').strip()[:250]
+        excerpt = str(value.get('trecho') or '').strip()[:1000]
+        sources.append({'title': title or 'Fonte sem título', 'excerpt': excerpt})
+    return sources
+
+
 def prepare(data, selected):
     dify.settings()  # Fail before storing a turn if the provider is not configured.
     user = context.identity()
@@ -267,7 +283,8 @@ def build_run(run_id, conversation_id, user, selected, chosen, profile,
             payload['query'] = '[Histórico da conversa]\n' + history + '\n[Mensagem atual]\n' + query
     return {'run_id': run_id, 'conversation_id': conversation_id, 'payload': payload,
             'organization_id': user['organization_id'], 'client_id': selected['client_id'],
-            'user_id': user['id'], 'profile': profile}
+            'user_id': user['id'], 'profile': profile,
+            'project_sources': project_sources(project_context)}
 
 
 def stream(run):
@@ -295,6 +312,8 @@ def stream(run):
                 yield event(item['event'], **{key: value for key, value in item.items() if key != 'event'})
         if state != 'completed':
             raise dify.DifyUnavailable('A geração terminou antes da confirmação do Dify.')
+        if answer and run.get('project_sources'):
+            yield event('sources', sources=run['project_sources'])
     except GeneratorExit:
         state = 'stopped'
         if task_id:
@@ -317,7 +336,8 @@ def stream(run):
                        (id, conversation_id, role, content, tokens_entrada, tokens_saida, metadata, created_at)
                        VALUES (%s, %s, 'assistant', %s, %s, %s, %s::jsonb, NOW())''',
                        (message_id, run['conversation_id'], answer,
-                        prompt_tokens, completion_tokens, json.dumps({'status': state})))
+                        prompt_tokens, completion_tokens, json.dumps({'status': state,
+                         'project_sources': run.get('project_sources', []) if state == 'completed' else []})))
                 for kind, quantity in (('entrada', prompt_tokens), ('saida', completion_tokens)):
                     if quantity:
                         cur.execute('''INSERT INTO cadu_token_usage

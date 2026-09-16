@@ -2,7 +2,7 @@ from unittest import TestCase
 from werkzeug.exceptions import BadRequest
 
 from aicentralv2.cadu_workspace.conversations.guardrails import (
-    validate_message, validate_files, history_context, MAX_HISTORY_CHARS,
+    validate_message, validate_files, history_context, classify_intent, MAX_HISTORY_CHARS,
 )
 
 
@@ -43,3 +43,11 @@ class ConversationGuardrailsTest(TestCase):
     def test_empty_history_is_not_injected(self):
         self.assertEqual(history_context([]), '')
         self.assertEqual(history_context([{'role': 'assistant', 'content': '<think>hidden</think>'}]), '')
+
+    def test_confirmation_precedes_future_tool_keywords(self):
+        self.assertEqual(classify_intent('Não, pode gerar a imagem'), 'continuation')
+        self.assertEqual(classify_intent('Pode seguir com a análise'), 'continuation')
+        self.assertEqual(classify_intent('Crie uma imagem de produto'), 'image')
+
+    def test_text_content_precedes_visual_keyword(self):
+        self.assertEqual(classify_intent('Crie a legenda para a imagem'), 'text')

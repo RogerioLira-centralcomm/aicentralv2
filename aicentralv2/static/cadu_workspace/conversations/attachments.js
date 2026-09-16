@@ -29,7 +29,7 @@
         if (!file.size || file.size > 15 * 1024 * 1024) { this.status.textContent = 'Cada arquivo deve ter entre 1 byte e 15 MB.'; continue; }
         if (!/\.(png|jpe?g|webp|gif|pdf|txt|csv|md|json)$/i.test(file.name)) { this.status.textContent = 'Formato ainda não disponível. Use imagem, PDF ou texto.'; continue; }
         const preview = /^image\/(png|jpeg|webp|gif)$/.test(file.type) ? URL.createObjectURL(file) : null;
-        this.items.push({file, preview, id:null, state:'Pronto para enviar'});
+        this.items.push({file, preview, id:null, state:'Pronto para enviar', progress:null});
       }
       this.render();
     }
@@ -44,24 +44,57 @@
         const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = 'Remover'; remove.disabled = this.busy;
         remove.setAttribute('aria-label', `Remover ${item.file.name}`);
         remove.addEventListener('click', () => { if (item.preview) URL.revokeObjectURL(item.preview); this.items.splice(index, 1); this.render(); this.button.focus(); });
-        row.append(label, remove); this.list.append(row);
+        row.append(label);
+        if (item.state === 'Falha no envio') {
+          const retry = document.createElement('button'); retry.type = 'button'; retry.textContent = 'Tentar novamente'; retry.disabled = this.busy;
+          retry.addEventListener('click', async () => {
+            if (this.busy) return;
+            this.busy = true; this.render();
+            try { await this.uploadItem(item); this.status.textContent = 'Arquivo anexado. Você pode enviar a mensagem.'; }
+            catch (error) { this.status.textContent = error.message || 'Não foi possível anexar o arquivo.'; }
+            finally { this.busy = false; this.configure({attachments:this.enabled}); this.render(); }
+          });
+          row.append(retry);
+        }
+        row.append(remove); this.list.append(row);
       });
       this.list.dispatchEvent(new CustomEvent('attachmentschange', {bubbles:true}));
     }
     async upload(signal) {
       for (const item of this.items) {
         if (item.id) continue;
-        item.state = 'Enviando…'; this.render();
-        const body = new FormData(); body.append('file', item.file);
-        try {
-          const response = await fetch('/familia/api/conversations/uploads', {method:'POST', credentials:'same-origin', signal,
-          headers:{...(document.querySelector('meta[name="csrf-token"]')?.content ? {'X-CSRF-Token':document.querySelector('meta[name="csrf-token"]').content} : {})}, body});
-          const data = await response.json();
-          if (!response.ok || !data.file?.id) throw new Error(data.error || 'Não foi possível anexar o arquivo.');
-          item.id = data.file.id; item.state = 'Anexado'; this.render();
-        } catch (error) { item.state = 'Falha no envio'; this.render(); throw error; }
+        await this.uploadItem(item, signal);
       }
       return this.items.map(item => item.id);
+    }
+    uploadItem(item, signal) {
+      item.state = 'Enviando… 0%'; item.progress = 0; this.render();
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest(), body = new FormData(); body.append('file', item.file);
+        const abort = () => xhr.abort();
+        if (signal?.aborted) { abort(); reject(new DOMException('Envio interrompido', 'AbortError')); return; }
+        signal?.addEventListener('abort', abort, {once:true});
+        xhr.open('POST', '/familia/api/conversations/uploads'); xhr.withCredentials = true;
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
+        if (csrf) xhr.setRequestHeader('X-CSRF-Token', csrf);
+        xhr.upload.onprogress = event => {
+          if (!event.lengthComputable) return;
+          item.progress = Math.max(0, Math.min(100, Math.round(event.loaded / event.total * 100)));
+          item.state = 'Enviando… ' + item.progress + '%'; this.render();
+        };
+        xhr.onload = () => {
+          signal?.removeEventListener('abort', abort);
+          let data = {}; try { data = JSON.parse(xhr.responseText || '{}'); } catch (_) { /* Keep the safe fallback below. */ }
+          if (xhr.status < 200 || xhr.status >= 300 || !data.file?.id) {
+            item.state = 'Falha no envio'; item.progress = null; this.render();
+            reject(new Error(data.error || 'Não foi possível anexar o arquivo.')); return;
+          }
+          item.id = data.file.id; item.state = 'Anexado'; item.progress = 100; this.render(); resolve();
+        };
+        xhr.onerror = () => { signal?.removeEventListener('abort', abort); item.state = 'Falha no envio'; item.progress = null; this.render(); reject(new Error('A conexão falhou durante o envio.')); };
+        xhr.onabort = () => { signal?.removeEventListener('abort', abort); item.state = 'Falha no envio'; item.progress = null; this.render(); reject(new DOMException('Envio interrompido', 'AbortError')); };
+        xhr.send(body);
+      });
     }
     clear() { this.items.forEach(item => { if (item.preview) URL.revokeObjectURL(item.preview); }); this.items = []; this.render(); }
   }

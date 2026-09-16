@@ -55,6 +55,17 @@ def readable_documents(content):
 def project_message(message, legacy_base=None):
     files = project_files(message.get('files'), legacy_base)
     content = message.get('content')
+    metadata = message.get('metadata')
+    # PostgreSQL adapters normally return JSONB as a dict, but legacy pools can
+    # return its text representation. Keep the browser contract stable without
+    # passing through malformed or provider-owned metadata.
+    if isinstance(metadata, str):
+        try:
+            metadata = json.loads(metadata)
+        except ValueError:
+            metadata = {}
+    if not isinstance(metadata, dict):
+        metadata = {}
     if message.get('role') == 'assistant':
         urls = {item['url'] for item in files if item['url']}
         for image in saved_images(message.get('tool_calls'), legacy_base):
@@ -62,5 +73,6 @@ def project_message(message, legacy_base=None):
                 files.append(image)
                 urls.add(image['url'])
         content = readable_documents(content)
-    return {**{key: value for key, value in message.items() if key != 'tool_calls'},
-            'content': content, 'files': files}
+    return {**{key: value for key, value in message.items()
+              if key not in ('tool_calls', 'metadata')},
+            'content': content, 'files': files, 'metadata': metadata}

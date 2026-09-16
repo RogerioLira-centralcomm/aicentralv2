@@ -251,7 +251,7 @@ def conversation_messages(user_id, client_id, conversation_id):
                  (conversation_id, user_id, client_id))
     if not owned:
         return None
-    messages = rows('''SELECT id, role, content, files, created_at,
+    messages = rows('''SELECT id, role, content, files, metadata, created_at,
                              to_jsonb(m)->'tool_calls' AS tool_calls
                     FROM cadu_conversation_messages m WHERE conversation_id = %s
                      AND role IN ('user', 'assistant') ORDER BY created_at, id LIMIT 500''', (conversation_id,))

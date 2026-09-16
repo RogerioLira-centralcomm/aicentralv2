@@ -197,7 +197,7 @@
         if (button.dataset.conversationId === id) button.setAttribute('aria-current', 'page');
         else button.removeAttribute('aria-current');
       });
-      for (const message of result.messages) addMessage(message.role, message.content, message.files);
+      for (const message of result.messages) addMessage(message.role, message.content, message.files, message.metadata);
       setConversationUrl(id);
       status.textContent = result.context ? 'Conversa retomada com o projeto, marca e perfil de origem.' : 'Conversa anterior carregada. O próximo envio usará o contexto ativo.';
       return true;
@@ -256,7 +256,20 @@
   searchForm?.addEventListener('submit', event => { event.preventDefault(); historyQuery = new FormData(searchForm).get('q').trim(); loadHistory(); });
   more?.addEventListener('click', () => loadHistory(true));
   archivedFilter?.addEventListener('change', () => loadHistory());
-  function addMessage(role, content, files = []) {
+  function addSources(sources) {
+    if (!Array.isArray(sources) || !sources.length) return;
+    const card = document.createElement('section'); card.className = 'conversation-sources';
+    const heading = document.createElement('strong'); heading.textContent = 'Fontes do projeto consultadas'; card.append(heading);
+    const list = document.createElement('ul');
+    sources.slice(0, 4).forEach(source => {
+      if (!source || typeof source !== 'object') return;
+      const item = document.createElement('li'), title = document.createElement('b'), excerpt = document.createElement('span');
+      title.textContent = source.title || 'Fonte sem título'; excerpt.textContent = source.excerpt || '';
+      item.append(title); if (excerpt.textContent) item.append(excerpt); list.append(item);
+    });
+    if (list.childElementCount) { card.append(list); history.append(card); }
+  }
+  function addMessage(role, content, files = [], metadata = {}) {
     const entry = document.createElement('article'); entry.className = 'conversation-message ' + (role === 'user' ? 'from-user' : 'from-cadu');
     const label = document.createElement('strong'); label.textContent = role === 'user' ? 'Você' : 'Cadu';
     const text = document.createElement('div');
@@ -264,12 +277,14 @@
     else text.textContent = content;
     entry.append(label, text);
     CaduConversationRenderer.renderFiles(entry, files);
-    history.append(entry); return text;
+    history.append(entry);
+    if (role === 'assistant') addSources(metadata?.project_sources);
+    return text;
   }
   function addCatalogCard(data) {
     if (!Array.isArray(data.records) || !data.records.length) return;
     const card = document.createElement('section'); card.className = 'conversation-catalog-card';
-    const heading = document.createElement('h4'); heading.textContent = ({canais:'Canais', formatos:'Formatos', audiencias:'Audiências'})[data.catalog_kind] || 'Catálogo'; card.append(heading);
+    const heading = document.createElement('h4'); heading.textContent = ({canais:'Canais', formatos:'Formatos', interativos:'Interativos', audiencias:'Audiências'})[data.catalog_kind] || 'Catálogo'; card.append(heading);
     const list = document.createElement('ul');
     data.records.forEach(record => {
       const item = document.createElement('li'), name = document.createElement('strong'), detail = document.createElement('span');
@@ -278,6 +293,16 @@
       item.append(name); if (detail.textContent) item.append(detail); list.append(item);
     });
     card.append(list); history.append(card); card.scrollIntoView({block:'nearest'});
+  }
+  function addDocumentCard(data) {
+    if (!data.document || typeof data.preview !== 'string') return;
+    const card = document.createElement('section'); card.className = 'conversation-catalog-card conversation-document-card';
+    const heading = document.createElement('h4'); heading.textContent = 'SmartDoc consultado';
+    const title = document.createElement('strong'); title.textContent = data.document.title || 'Documento';
+    const meta = document.createElement('span'); meta.textContent = [data.document.type, data.document.status].filter(Boolean).join(' · ');
+    const preview = document.createElement('p'); preview.textContent = data.preview;
+    card.append(heading, title); if (meta.textContent) card.append(meta); card.append(preview);
+    history.append(card); card.scrollIntoView({block:'nearest'});
   }
   async function resumePending(requested) {
     if (!canReplay || !pending || sending || loadingThread) return;
@@ -315,6 +340,8 @@
           answer = data.event === 'replace' ? data.text : answer + data.text;
           CaduConversationRenderer.render(output, answer, true);
         } else if (data.event === 'catalog') addCatalogCard(data);
+        else if (data.event === 'sources') addSources(data.sources);
+        else if (data.event === 'document') addDocumentCard(data);
         else if (data.event === 'progress' || data.event === 'error') status.textContent = data.message;
         else if (data.event === 'done') { terminal = data.status; storePending(null); }
       }
@@ -455,6 +482,8 @@
           }
           else if (data.event === 'progress') status.textContent = data.message;
           else if (data.event === 'catalog') addCatalogCard(data);
+          else if (data.event === 'sources') addSources(data.sources);
+          else if (data.event === 'document') addDocumentCard(data);
           else if (data.event === 'error') status.textContent = data.message;
           else if (data.event === 'done') {
             completed = true;

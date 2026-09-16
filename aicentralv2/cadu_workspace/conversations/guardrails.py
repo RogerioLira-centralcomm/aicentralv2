@@ -16,16 +16,37 @@ MAX_HISTORY_MESSAGE_CHARS = 4000
 MAX_HISTORY_CHARS = 24000
 
 
+def normalized_text(message):
+    value = str(message or '').strip().strip('"\'“”‘’').strip().lower()
+    return ''.join(char for char in unicodedata.normalize('NFD', value) if not unicodedata.combining(char))
+
+
+def is_continuation(message):
+    """Keep replies to the current conversation out of tool routing.
+
+    This never authorizes a tool. It keeps short confirmations attached to the
+    existing thread even when they mention an image or another future tool.
+    """
+    text = normalized_text(message)
+    return bool(re.search(
+        r'^(?:sim|nao|claro|certo|isso|exato|exatamente|perfeito|otimo|fechou|beleza|blz|combinado|valeu|'
+        r'pode|podemos|vai|vamos|manda|mande|siga|segue|prossiga|prossegue|continua|continue|avanca|avance|'
+        r'agora|entao|dai|ai|uhum|aham|hm+|ok+|okay|okidoki)\b|'
+        r'^(?:ta|tah|esta|tudo)\s+(?:bom|certo|tranquilo|tranquila|ok|legal|otimo|perfeito|combinado)\b|'
+        r'^(?:pode\s+ser|pode\s+seguir|pode\s+gerar|pode\s+ir|pode\s+fazer|pode\s+criar)\b', text))
+
+
 def classify_intent(message):
     """Port of core DifyGuardrails precedence, not a complete intent engine.
 
     A text request wins over an image keyword. Bare confirmations never run
     a tool; explicit operations remain unavailable until their adapter exists.
     """
-    text = message.strip().strip('\"\'“”‘’').strip()
-    text = ''.join(c for c in unicodedata.normalize('NFD', text.lower()) if not unicodedata.combining(c))
-    if re.search(r'\b(texto|copy|legenda|caption|roteiro|script|briefing)\b', text):
+    text = normalized_text(message)
+    if re.search(r'\b(texto|copy|legenda|caption|descricao|roteiro|script|briefing)\b', text):
         return 'text'
+    if is_continuation(text):
+        return 'continuation'
     commands = {
         'image': r'^(?:agora\s+)?(?:crie|cria|gere|gerar|criar|faca)\s+(?:(?:uma?|a|o)\s+)?(?:imagem|foto|ilustracao|criativo)\b',
         'search': r'^(?:pesquise|pesquisa|investigue|investigar|busque)\s+(?:na web\s+|na internet\s+|sobre\s+)',
@@ -36,8 +57,6 @@ def classify_intent(message):
     for kind, pattern in commands.items():
         if re.search(pattern, text):
             return kind
-    if re.search(r'^(sim|nao|ok|claro|certo|isso|pode|vamos|continue|continua|manda|prossiga)\b', text):
-        return 'continuation'
     return 'conversation'
 
 

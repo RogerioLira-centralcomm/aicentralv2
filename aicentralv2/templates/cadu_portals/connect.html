@@ -1,9 +1,16 @@
 {% extends 'cadu_portals/base.html' %}
 {% block title %}Connect — Cadu{% endblock %}
 {% block product_id %}connect{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-agents.css') }}?v=7">{% endblock %}
+{% block navigation %}{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-agents.css') }}?v=7"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-connect-navigation.css') }}?v=1">{% endblock %}
 {% block content %}
 {% set initial_panel = 'clientes' if portfolio_mode else 'contas' %}
+<header class="connect-app-nav">
+  {% set cadu_active_product = 'connect' %}{% include 'cadu/_product_switch.html' %}<span class="connect-nav-divider" aria-hidden="true"></span>
+  <nav aria-label="Navegação do Connect">{% if is_portfolio_operator %}<a class="{{ 'is-current' if initial_panel == 'clientes' }}" href="#clientes" data-connect-tab="clientes">Clientes</a>{% endif %}<a class="{{ 'is-current' if initial_panel == 'contas' }}" href="#contas" data-connect-tab="contas">Contas</a><a href="#relatorios" data-connect-tab="relatorios">Relatórios</a><a href="#vinculos" data-connect-tab="vinculos">Vínculos</a><a href="#mcps" data-connect-tab="mcps">Conectores</a></nav>
+  <form class="connect-context-selector connect-nav-context" method="get" aria-label="Contexto do Workspace"><label>Cliente<select name="client_id" data-workspace-client>{% if is_portfolio_operator %}<option value="">Selecionar cliente</option>{% endif %}{% for client in workspace_clients %}<option value="{{ client.id }}" {% if active_client and client.id == active_client.id %}selected{% endif %}>{{ client.name }}</option>{% endfor %}</select></label><label>Projeto<select name="project_id" data-workspace-project {% if not active_client %}disabled{% endif %}><option value="">Todos os projetos</option>{% for project in projects %}<option value="{{ project.id }}" {% if selected_project and project.id == selected_project.id %}selected{% endif %}>{{ project.name }}</option>{% endfor %}</select></label><button class="connect-context-apply" type="submit">Aplicar</button></form>
+  <a class="connect-nav-account" href="{{ product_url('workspace', '/familia/workspace/perfil') }}" aria-label="Abrir perfil">{{ session.get('user_name', 'U')[:2] | upper }}</a>
+</header>
 <div class="connect-workspace">
   <aside class="connect-rail" aria-label="Navegação do Connect"><a class="connect-brand" href="{{ url_for('cadu_connect.index') }}"><span>⌁</span> Connect</a><nav>{% if is_portfolio_operator %}<a class="{{ 'is-current' if initial_panel == 'clientes' }}" href="#clientes" data-connect-tab="clientes">Clientes</a>{% endif %}<a class="{{ 'is-current' if initial_panel == 'contas' }}" href="#contas" data-connect-tab="contas">Contas</a><a href="#relatorios" data-connect-tab="relatorios">Relatórios</a><a href="#vinculos" data-connect-tab="vinculos">Vínculos</a><a href="#mcps" data-connect-tab="mcps">MCPs</a></nav><div><b>Contexto atual</b><span>{{ account_name }}</span><small>{{ 'Carteira Central' if is_portfolio_operator and portfolio_mode else 'Dados separados por cliente' }}</small></div></aside>
   <main class="connect-content">

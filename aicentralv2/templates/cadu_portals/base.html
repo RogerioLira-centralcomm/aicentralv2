@@ -14,7 +14,7 @@
 </head>
 <body class="portal portal--{% block product_id %}cadu{% endblock %}">
   <a class="portal-skip" href="#content">Ir para o conteúdo</a>
-  {% set cadu_active_product = self.product_id()|trim %}{% include 'cadu/_product_nav.html' %}
+  {% block navigation %}{% set cadu_active_product = self.product_id()|trim %}{% include 'cadu/_product_nav.html' %}{% endblock %}
   <main id="content" tabindex="-1">{% block content %}{% endblock %}</main>
 </body>
 </html>

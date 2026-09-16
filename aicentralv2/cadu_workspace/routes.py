@@ -1198,6 +1198,19 @@ def clean_brands():
     return brands()
 
 
+@bp.get('/docs')
+@login_required
+def documents():
+    client_id = int(session.get('cliente_id') or 0)
+    try:
+        with get_db().cursor() as cursor:
+            cursor.execute("SELECT id, titulo, tipo, status, updated_at FROM cadu_artifacts WHERE id_cliente = %s ORDER BY updated_at DESC LIMIT 60", (client_id,))
+            records = [dict(row) for row in cursor.fetchall()]
+    except Exception:
+        records = []
+    return render_template('cadu_workspace/documents.html', documents=records)
+
+
 @bp.post('/workspace/app/marcas')
 @login_required
 def create_brand():

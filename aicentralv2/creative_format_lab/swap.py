@@ -178,7 +178,8 @@ _ROLE_TO_ANALYSIS = {
     "graphic": "graphic",
 }
 
-READ_SYSTEM = """Você lê um still de anúncio. Extraia só o que está visível.
+READ_SYSTEM = """Você lê um still de anúncio. Leia os elementos editáveis deste still.
+Extraia só o que está visível.
 Não invente oferta, preço, CTA, logo, nome ou slogan. Copy em português do Brasil exatamente como aparece, com acento.
 price, cta e logo_text são opcionais. A maioria das peças não tem os três. Se não aparecer, deixe vazio e marque false no analysis.
 price só se houver valor em reais visível (R$ 99,90, 12x de 99,90). Sem R$, price fica vazio. Não escreva R$ 0,00.
@@ -939,6 +940,13 @@ def read_swap_reference(payload=None, *, text_callable=None):
         except Exception:
             last_status = "provider_error"
             last_error = "O provedor de OCR falhou. Escreva na mão ou tente de novo."
+            # O primeiro adaptador injetado já chega sem parâmetros extras.
+            # Reexecutá-lo depois de uma falha operacional duplica consumo
+            # sem aumentar a chance de recuperação. As tentativas seguintes
+            # permanecem para respostas JSON inválidas e para o fallback
+            # entre provedores do chat_completion real.
+            if not extra:
+                break
             continue
         parsed = _parse_ocr_dict(response)
         if not isinstance(parsed, dict):

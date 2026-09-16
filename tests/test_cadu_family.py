@@ -203,6 +203,16 @@ class FamilyTest(TestCase):
         self.app.config['CADU_FAMILY_ENABLED'] = False
         self.assertEqual(self.client.get('/familia/workspace/').status_code, 404)
 
+    def test_planner_host_stays_available_when_the_family_rollout_is_disabled(self):
+        self.app.config.update(CADU_FAMILY_ENABLED=False, PLANNER_URL='https://planner.centralcomm.media')
+        self.app.add_url_rule('/cadu-assets/<family>/icon-<int:size>.png', 'cadu_maintenance_product_icon',
+                              lambda family, size: '')
+        response = self.client.get('/familia/planner/', headers={'Host': 'planner.centralcomm.media'})
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn('Seu próximo plano começa aqui', html)
+        self.assertNotIn('CentralX', html)
+
     def test_history_read_checks_user_and_client(self):
         self.login()
         with mock.patch('aicentralv2.cadu_family.repository.conversation_messages', return_value=None) as read:

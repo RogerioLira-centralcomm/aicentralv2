@@ -4,6 +4,7 @@ from urllib.parse import urlencode
 
 from flask import Blueprint, Response, abort, current_app, jsonify, make_response, redirect, render_template, request, session, stream_with_context
 from werkzeug.exceptions import HTTPException
+from urllib.parse import urlparse
 
 from ..auth import login_url
 from ..product_domains import product_url
@@ -23,7 +24,17 @@ def private_response(response):
 
 @bp.before_request
 def protect():
-    if not current_app.config.get('CADU_FAMILY_ENABLED'):
+    planner_host = (urlparse(str(current_app.config.get('PLANNER_URL') or '')).hostname or '').lower()
+    request_host = (request.host.split(':', 1)[0] or '').lower()
+    planner_surface = request_host == planner_host and (
+        request.path.startswith('/familia/planner/')
+        or request.path == '/familia/api/context'
+        or request.path.startswith('/familia/api/planner/')
+    )
+    # Planner is a released Cadu product. It must not depend on the broader
+    # family rollout flag, otherwise planner.centralcomm.media lands on the
+    # CentralX 404 shell instead of its own product experience.
+    if not current_app.config.get('CADU_FAMILY_ENABLED') and not planner_surface:
         abort(404)
     if request.method not in ('GET', 'HEAD', 'OPTIONS'):
         if not session.get('user_id'):

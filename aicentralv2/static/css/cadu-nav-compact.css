@@ -1,0 +1,11 @@
+/* Shared Cadu chrome: one compact, horizontal navigation rhythm. */
+:root{--cadu-nav-height:56px}
+.mc-cadu-bar--studio,.family-nav,.cadu-universal-nav,.portal-nav,.connect-app-nav,.connect-entry-nav,.cadu-skills-top-nav{min-height:var(--cadu-nav-height)!important;height:auto!important;padding-top:6px!important;padding-bottom:6px!important}
+.mc-cadu-bar--studio .mc-cadu-nav>a,.family-product-nav>a,.family-product-menu>summary,.connect-app-nav>nav a,.connect-entry-nav nav a,.skills-product-nav>a,.skills-product-menu>summary{min-height:36px!important;height:36px!important}
+.mc-cadu-bar--studio .cadu-product-switch summary,.cadu-product-switch summary,.skills-solution-switch summary{min-height:36px!important}
+.mc-studio-account,.connect-nav-account,.skills-account-menu summary{width:32px!important;height:32px!important;font-size:11px!important}
+.mc-studio-divider,.connect-nav-divider,.connect-entry-divider,.family-nav-divider,.skills-nav-divider{height:24px!important}
+.portal--studio .mc-cadu-video{height:calc(100dvh - var(--cadu-nav-height))!important}
+.family-layout,.family-layout--sidebar,.family-layout--sidebar .family-modules,.cadu-app-shell,.connect-workspace{min-height:calc(100dvh - var(--cadu-nav-height))!important}
+.planner-topbar{height:var(--cadu-nav-height)!important;gap:24px!important}.planner-wordmark{font-size:17px!important}.planner-mark{width:27px!important;height:27px!important}.planner-products a{padding:7px 9px!important}
+@media(max-width:680px){.portal--studio .mc-cadu-video{height:calc(100dvh - 96px)!important}}

@@ -1,13 +1,14 @@
 <section class="mc-trocr-section trocr-agent-composer" id="mcTrocrEditBlock">
-  <div class="trocr-agent-heading"><span class="trocr-agent-mark" aria-hidden="true">✦</span><div><h2>Agente de imagem</h2><p class="mc-trocr-help" id="mcTrocrPromptHint">Peça a alteração, o formato e as variações na mesma mensagem.</p></div></div>
+  <div class="trocr-agent-heading"><span class="trocr-agent-mark" aria-hidden="true">✦</span><div><h2>Cadu <span class="sr-only">Agente de imagem</span></h2><p class="mc-trocr-help" id="mcTrocrPromptHint">Estou olhando a peça. Diga o que quer mudar.</p></div></div>
   <label class="cx-field trocr-agent-input">
-    <textarea class="cx-input" id="mcSwapNote" rows="5" maxlength="500" placeholder="Ex.: Crie duas variações A/B em 9:16 para Reels. Destaque Carnaval, mantenha as pessoas e use a referência anexada."></textarea>
+    <textarea class="cx-input" id="mcSwapNote" rows="5" maxlength="500" placeholder="Ex.: troque o título, adapte para Reels e mantenha o produto."></textarea>
     <small class="mc-trocr-count" id="mcTrocrNoteCount">0/500</small>
   </label>
   <div class="trocr-agent-actions">
+    <input id="mcTrocrAgentFiles" type="file" accept="image/*" multiple hidden>
     <button type="button" class="mc-trocr-text-cta" id="mcTrocrAgentAttach">＋ Referência</button>
     <span id="mcTrocrAgentReference">Nenhuma referência</span>
-    <button type="button" class="cx-btn cx-btn-primary" id="mcTrocrAgentSend">Enviar ao agente</button>
+    <button type="button" class="cx-btn cx-btn-primary" id="mcTrocrAgentSend">Gerar criativo <span class="sr-only">Enviar ao agente</span></button>
   </div>
   <p class="trocr-agent-shortcut">Enter envia · Shift + Enter quebra a linha</p>
   <div hidden>{% include "parametros/trocr/_preserve_alter.html" %}</div>

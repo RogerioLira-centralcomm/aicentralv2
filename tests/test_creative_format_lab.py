@@ -2819,7 +2819,7 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
         self.assertTrue(compact.startswith("data:image/jpeg;base64,"))
         self.assertLess(len(compact), len(huge))
 
-    def test_ocr_openai_direto_cai_no_openrouter(self):
+    def test_ocr_so_usa_provedores_configurados(self):
         from aicentralv2.services import openrouter_service
 
         calls = []
@@ -2830,16 +2830,17 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
                 raise RuntimeError("openai down")
             return {"message": {"content": '{"headline":"500 MEGA","cta":"Monte o seu"}'}}
 
-        with patch.object(openrouter_service, "resolve_openai_api_key", return_value="sk-test"), patch.object(
+        with patch.object(openrouter_service, "resolve_api_key", return_value=""), patch.object(
+            openrouter_service, "resolve_openai_api_key", return_value="sk-test"
+        ), patch.object(
             openrouter_service, "chat_completion", side_effect=fake_chat
         ):
             result = read_swap_reference(
                 {"reference": "data:image/png;base64,aaa"},
                 text_callable=openrouter_service.chat_completion,
             )
-        self.assertEqual(result["headline"], "500 MEGA")
-        self.assertEqual(result["status"], "completed")
-        self.assertEqual(calls, ["openai", "openrouter"])
+        self.assertEqual(result["status"], "provider_error")
+        self.assertEqual(calls, ["openai"])
 
         calls.clear()
 
@@ -2849,7 +2850,9 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
                 raise AssertionError("não deveria cair no OpenRouter")
             return {"message": {"content": '{"headline":"TIM BLACK","cta":"Contratar"}'}}
 
-        with patch.object(openrouter_service, "resolve_openai_api_key", return_value="sk-test"), patch.object(
+        with patch.object(openrouter_service, "resolve_api_key", return_value=""), patch.object(
+            openrouter_service, "resolve_openai_api_key", return_value="sk-test"
+        ), patch.object(
             openrouter_service, "chat_completion", side_effect=only_openai
         ):
             first = read_swap_reference(
@@ -2860,7 +2863,9 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
         self.assertEqual(calls, ["openai"])
 
         calls.clear()
-        with patch.object(openrouter_service, "resolve_openai_api_key", return_value=""), patch.object(
+        with patch.object(openrouter_service, "resolve_api_key", return_value="or-test"), patch.object(
+            openrouter_service, "resolve_openai_api_key", return_value=""
+        ), patch.object(
             openrouter_service, "chat_completion", side_effect=fake_chat
         ):
             routed = read_swap_reference(
@@ -2878,7 +2883,9 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
                 return {"message": {"content": "ainda estou lendo"}}
             return {"message": {"content": '{"headline":"ATÉ 110GB","price":"R$ 99"}'}}
 
-        with patch.object(openrouter_service, "resolve_openai_api_key", return_value="sk-test"), patch.object(
+        with patch.object(openrouter_service, "resolve_api_key", return_value="or-test"), patch.object(
+            openrouter_service, "resolve_openai_api_key", return_value="sk-test"
+        ), patch.object(
             openrouter_service, "chat_completion", side_effect=openai_json_ruim
         ):
             recovered = read_swap_reference(
@@ -2886,7 +2893,7 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
                 text_callable=openrouter_service.chat_completion,
             )
         self.assertEqual(recovered["headline"], "ATÉ 110GB")
-        self.assertEqual(calls, ["openai", "openrouter"])
+        self.assertEqual(calls, ["openrouter"])
 
     def test_cartela_de_elenco_compõe_tipo_sem_image2(self):
         from aicentralv2.creative_format_lab.swap import (

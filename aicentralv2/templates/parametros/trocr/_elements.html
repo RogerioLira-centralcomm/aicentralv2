@@ -14,6 +14,11 @@
       <button type="button" class="cx-btn cx-btn-secondary" id="trocrReplaceSelected">Trocar este item</button>
       <button type="button" class="cx-btn cx-btn-secondary is-danger" id="trocrRemoveSelected">Apagar este item</button>
     </div>
+    <div class="trocr-selection-agent-actions" id="trocrSelectionAgentActions" hidden aria-label="Ações do agente">
+      <button type="button" class="cx-btn cx-btn-secondary" data-agent-action="remove-background">Remover fundo</button>
+      <button type="button" class="cx-btn cx-btn-secondary" data-agent-action="separate-person">Separar pessoa</button>
+      <button type="button" class="cx-btn cx-btn-secondary" data-agent-action="isolate-product">Isolar produto</button>
+    </div>
     <fieldset id="trocrRegionGeometry" class="trocr-region-geometry" hidden>
       <legend>Região do texto · px</legend>
       <label>X<input type="number" id="trocrRegionX" min="0" step="1"></label>

@@ -184,7 +184,6 @@ def _public_still_read(record):
             "cta_options",
             "schema_version",
             "bind_rule",
-            "model",
             "created_at",
             "revision",
             "reused",
@@ -213,7 +212,6 @@ def _session_read_record(session):
             "chips": chips,
             "schema_version": "unknown",
             "bind_rule": "unknown",
-            "model": "unknown",
         }
     return None
 
@@ -249,7 +247,7 @@ class FormatLabService:
                 payload,
                 text_callable=self._metered_text_callable(payload, provider_calls),
             )
-        except ValueError as exc:
+        except (ValueError, OpenRouterError) as exc:
             raise CreativeConflictError(str(exc)) from exc
         self._charge_provider_calls(payload, user_id, "studio.image", "ocr", provider_calls, media=False)
         return _serialize(result)
@@ -372,11 +370,11 @@ class FormatLabService:
                     "image_quality": image_quality(payload),
                 }, usage_sink=provider_calls),
             )
-        except ValueError as exc:
+        except (ValueError, OpenRouterError) as exc:
             raise CreativeConflictError(str(exc)) from exc
         result["brand_name"] = payload.get("brand_name") or brand.get("name") or ""
         if result.get("noop") or result.get("mode") == "noop" or not result.get("png_data_url"):
-            return _serialize(result)
+            return _serialize(self._public_swap_result(result))
         self._charge_provider_calls(
             payload, user_id, "studio.image", "generation", provider_calls,
             media=True, fallback_cost_usd=quote.get("estimated_cost_usd") or 0,
@@ -390,7 +388,15 @@ class FormatLabService:
         except Exception:
             logger.exception("Não gravou a versão gerada no histórico do Trocr")
         result["history"] = store.load(payload, user_id=user_id)
-        return _serialize(result)
+        return _serialize(self._public_swap_result(result))
+
+    @staticmethod
+    def _public_swap_result(result):
+        """Nunca expõe roteamento ou identificadores internos ao editor final."""
+        public = dict(result or {})
+        public.pop("model", None)
+        public.pop("provider", None)
+        return public
 
     def _trocr_store(self):
         return TrocrStore(self.modeling, self.repository, self._client)

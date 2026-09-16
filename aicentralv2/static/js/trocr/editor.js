@@ -168,6 +168,11 @@
       setTab('ai');
       const note = $('mcSwapNote');
       if (note) {
+        const reference = `[referência: peça ${state.baseId || 'atual'} · ${row.label}${row.text ? ` · “${row.text}”` : ''}]`;
+        if (!note.value.includes(reference)) {
+          note.value = `${note.value.trim()}${note.value.trim() ? '\n' : ''}${reference} `;
+          note.dispatchEvent(new Event('input', { bubbles: true }));
+        }
         note.placeholder = `Peça ao agente para trocar, excluir ou ajustar ${row.text || row.label}.`;
         note.focus({ preventScroll: true });
       }
@@ -212,6 +217,13 @@
           ? 'Visualize a versão base para marcar uma região.'
           : markable ? 'Marque a área do texto na imagem base. A alteração será incluída no próximo pedido.' : 'Use o assistente para solicitar mudanças neste elemento.';
         $('trocrSelectionActions').hidden = !editableObject;
+        const agentActions = $('trocrSelectionAgentActions');
+        if (agentActions) {
+          agentActions.hidden = !['background', 'person', 'product'].includes(row.role);
+          agentActions.querySelector('[data-agent-action="remove-background"]')?.toggleAttribute('hidden', row.role !== 'background' && row.role !== 'person' && row.role !== 'product');
+          agentActions.querySelector('[data-agent-action="separate-person"]')?.toggleAttribute('hidden', row.role !== 'person');
+          agentActions.querySelector('[data-agent-action="isolate-product"]')?.toggleAttribute('hidden', row.role !== 'product');
+        }
         if (editableObject) $('trocrSelectedHint').textContent = row.box
           ? 'A região identificada será levada para a seleção fina. Revise o contorno antes de gerar.'
           : 'Marque o contorno do item na peça para trocar ou apagar somente esta área.';
@@ -310,6 +322,14 @@
         if (!row || !['person', 'product', 'background', 'graphic'].includes(row.role)) return;
         document.dispatchEvent(new CustomEvent('trocr:edit-selection', {detail: {action, role: row.role, label: row.label, box: row.box || null}}));
       }));
+      $('trocrSelectionAgentActions')?.addEventListener('click', (event) => {
+        const action = event.target.closest('[data-agent-action]')?.dataset.agentAction;
+        const row = entries().find((item) => item.id === selected);
+        if (!action || !row) return;
+        document.dispatchEvent(new CustomEvent('trocr:agent-action', {
+          detail: { action, role: row.role, label: row.label, text: row.text || '', box: row.box || null },
+        }));
+      });
       ['trocrRegionX','trocrRegionY','trocrRegionWidth','trocrRegionHeight'].forEach((id) => $(id)?.addEventListener('change', () => {
         if (!state.region || state.activeId !== state.baseId || state.generating) return;
         const [x,y,w,h]=['trocrRegionX','trocrRegionY','trocrRegionWidth','trocrRegionHeight'].map((key)=>$(key).valueAsNumber);

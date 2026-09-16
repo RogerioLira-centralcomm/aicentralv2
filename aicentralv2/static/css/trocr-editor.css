@@ -1,11 +1,10 @@
-/* Shared visual language with the dark Video Studio. */
+/* A bright creative desk: the artwork is the visual anchor, not the chrome. */
 :is(.mc-shell,.trocr-product)[data-mc-page="trocar"] {
-  /* Same dark workspace tokens used by Video Studio. */
-  --tr-ink:#e2e6ec; --tr-muted:#a2adbb; --tr-subtle:#c5cdd8;
-  --tr-border:#383e48; --tr-control:#323843;
-  --tr-panel:#292e36; --tr-floor:#20242b; --tr-canvas:#15181d;
-  --tr-accent:#4bd1ae; --tr-selected:#1e4941;
-  color-scheme:dark;
+  --tr-ink:#17212b; --tr-muted:#657481; --tr-subtle:#40505c;
+  --tr-border:#dbe3e8; --tr-control:#f5f8f9;
+  --tr-panel:#ffffff; --tr-floor:#f4f7f8; --tr-canvas:#edf2f3;
+  --tr-accent:#087f6b; --tr-selected:#dff4ec;
+  color-scheme:light;
 }
 /* Scoped workspace: shared Studio styles and other desks remain independent. */
 :is(.mc-shell,.trocr-product) .mc-trocr.trocr-editor {
@@ -153,7 +152,7 @@
 .trocr-editor .mc-trocr-error [data-dismiss-error] { justify-self:end; padding:2px 0; color:var(--tr-muted); font-size:12px; background:transparent; border:0; cursor:pointer; }
 
 /* Compact editor shell. All measurements apply only to Trocr. */
-:is(.mc-shell,.trocr-product) .mc-trocr.trocr-editor { grid-template-columns:250px minmax(0,1fr) 290px; grid-template-rows:54px 0 minmax(0,1fr) auto; height:calc(100dvh - 90px); min-height:480px; font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:12px; line-height:1.4; }
+:is(.mc-shell,.trocr-product) .mc-trocr.trocr-editor { grid-template-columns:0 minmax(0,1fr) 310px; grid-template-rows:54px 0 minmax(0,1fr) auto; height:calc(100dvh - 90px); min-height:480px; font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:12px; line-height:1.4; }
 .trocr-editor .mc-trocr-pagehead { padding:6px 16px; height:54px; min-height:54px; gap:12px; }
 .trocr-editor .mc-trocr-pagehead-title { display:flex; align-items:center; gap:10px; min-width:0; }
 .trocr-editor .mc-trocr-pagehead h1 { font-size:15px; letter-spacing:-.01em; white-space:nowrap; }
@@ -167,6 +166,21 @@
 .trocr-editor .trocr-element-row { padding:6px; }
 .trocr-editor .trocr-panel-tabs button { padding:8px; }
 .trocr-editor .trocr-format-tray { padding:6px 12px; }
+.trocr-editor .trocr-desk {
+  align-self:start;
+  margin:12px 12px 12px 0;
+  max-height:calc(100% - 24px);
+  border:1px solid var(--tr-border);
+  border-radius:12px;
+  box-shadow:0 14px 32px #10182055;
+}
+.trocr-editor .trocr-agent-composer { padding-top:4px; }
+.trocr-editor .trocr-agent-input textarea { min-height:108px; border-radius:12px; }
+.trocr-editor .trocr-agent-actions { grid-template-columns:1fr auto; }
+.trocr-editor .trocr-agent-actions .cx-btn { grid-column:auto; width:auto; border-radius:999px; padding-inline:16px; }
+.trocr-editor .trocr-agent-actions .mc-trocr-text-cta { min-height:36px; border:1px solid var(--tr-border); border-radius:999px; padding:0 11px; }
+.trocr-editor .mc-trocr-generate { display:grid; gap:8px; }
+.trocr-editor .mc-trocr-generate .mc-trocr-actions .cx-btn-primary { border-radius:999px; min-height:44px; font-size:13px; }
 .trocr-editor .trocr-format-tray summary { cursor:pointer; font-size:12px; min-height:32px; align-content:center; }
 .trocr-editor .mc-trocr-frame { position:relative; }
 .trocr-show-guides .mc-trocr-frame::after { content:''; position:absolute; inset:5%; border:1px dashed #00d3b6; pointer-events:none; z-index:6; }
@@ -195,10 +209,12 @@
 .trocr-editor.trocr-focus .trocr-elements,.trocr-editor.trocr-focus .trocr-desk { display:none; }
 .trocr-editor.trocr-focus .mc-trocr-main { grid-column:1/-1; }
 @media(min-width:1100px) {
- .trocr-editor.show-left .trocr-elements,.trocr-editor.show-right .trocr-desk { display:none; }
- :is(.mc-shell,.trocr-product) .trocr-editor.show-left { grid-template-columns:0 minmax(0,1fr) 290px; }
- :is(.mc-shell,.trocr-product) .trocr-editor.show-right { grid-template-columns:250px minmax(0,1fr) 0; }
- :is(.mc-shell,.trocr-product) .trocr-editor.show-left.show-right { grid-template-columns:0 minmax(0,1fr) 0; }
+ .trocr-editor .trocr-elements { display:none; }
+ .trocr-editor.show-left .trocr-elements { display:block; }
+ .trocr-editor.show-left { grid-template-columns:250px minmax(0,1fr) 310px; }
+ .trocr-editor.show-right .trocr-desk { display:none; }
+ :is(.mc-shell,.trocr-product) .trocr-editor.show-right { grid-template-columns:0 minmax(0,1fr) 0; }
+ :is(.mc-shell,.trocr-product) .trocr-editor.show-left.show-right { grid-template-columns:250px minmax(0,1fr) 0; }
 }
 @media(max-width:1099px) {
  :is(.mc-shell,.trocr-product) .mc-trocr.trocr-editor { display:grid;grid-template-columns:0 minmax(0,1fr) 0;grid-template-rows:auto 0 minmax(300px,1fr) auto;height:calc(100dvh - 90px);min-height:500px;overflow:hidden; }
@@ -232,6 +248,46 @@
 .trocr-mask-overlay { filter:drop-shadow(0 0 2px var(--tr-panel)) drop-shadow(0 0 4px #51e9e1); animation:trocr-selection-glow 2s ease-in-out infinite; }
 @keyframes trocr-selection-glow { 0%,100% { opacity:.8; } 50% { opacity:1; } }
 @media(prefers-reduced-motion:reduce) { .trocr-mask-overlay { animation:none; } }
+
+/* Mature agent desk: one calm conversation beside a large, neutral stage. */
+.trocr-editor .mc-trocr-pagehead { background:#fff; border-bottom:1px solid var(--tr-border); }
+.trocr-editor .mc-trocr-pagehead h1 { color:var(--tr-ink); font-size:16px; }
+.trocr-editor #trocrCompactState { background:#edf8f4; border-color:#ccecdf; color:#087f6b; border-radius:999px; }
+.trocr-editor .mc-trocr-main,.trocr-editor .mc-trocr-canvas { background:#f4f7f8; }
+.trocr-editor .mc-trocr-stage { background:#edf2f3; border-color:#dce5e8; border-radius:12px; }
+.trocr-editor .mc-swap-preview { padding:clamp(20px,4vh,50px); }
+.trocr-editor .mc-trocr-frame { background:#fff; box-shadow:0 18px 45px #2644541f; }
+.trocr-editor .mc-trocr-base-meta { color:#657481; }
+.trocr-editor .mc-trocr-canvas-tools button { background:#fff; color:#40505c; border-color:#dbe3e8; border-radius:999px; }
+.trocr-editor .mc-trocr-canvas-tools button[aria-pressed="true"] { background:#dff4ec; color:#087f6b; border-color:#9bd9c5; }
+.trocr-editor .trocr-desk { background:#fff; border-color:#dbe3e8; box-shadow:0 16px 40px #2644541c; }
+.trocr-editor .trocr-panel-tabs { display:none; }
+.trocr-editor .mc-trocr-order { padding:18px; background:#fff; }
+.trocr-editor .trocr-agent-heading { padding-bottom:12px; border-bottom:1px solid #edf1f3; }
+.trocr-editor .trocr-agent-mark { background:#dff4ec; color:#087f6b; }
+.trocr-editor .trocr-agent-input textarea { background:#f7fafb; border-color:#dbe3e8; color:#17212b; }
+.trocr-editor .trocr-agent-actions .mc-trocr-text-cta { background:#fff; color:#087f6b; border-color:#bfe4d7; }
+.trocr-editor .trocr-agent-actions .cx-btn-primary,
+.trocr-editor .mc-trocr-generate .mc-trocr-actions .cx-btn-primary { background:#087f6b; border-color:#087f6b; color:#fff; box-shadow:0 8px 18px #087f6b2e; }
+.trocr-editor .mc-trocr-route { background:#f1faf6; border-color:#bde3d3; border-radius:10px; }
+.trocr-editor .mc-trocr-route-name { color:#17212b; }
+.trocr-editor .mc-trocr-route-copy,.trocr-editor .mc-trocr-status { color:#657481; }
+.trocr-editor .trocr-generation-footer { background:#fff; border-top-color:#edf1f3; padding:12px 18px 18px; }
+.trocr-editor .mc-trocr-cost { color:#80909b; font-size:10px; text-align:center; margin:0; }
+.trocr-editor .trocr-elements { background:#fff; border-color:#dbe3e8; }
+.trocr-editor .trocr-elements > header { background:#fff; }
+.trocr-editor .trocr-element-row { background:#fff; border-color:#edf1f3; color:#17212b; }
+.trocr-editor .trocr-element-row:hover { background:#f4fbf8; border-color:#bfe4d7; }
+.trocr-editor .trocr-element-icon { background:#f4f7f8; border-color:#dbe3e8; color:#087f6b; }
+.trocr-editor .trocr-element-copy small,.trocr-editor .trocr-sidebar-intro { color:#657481; }
+.trocr-editor .trocr-element-box { border-color:#087f6bc0; background:#087f6b10; }
+.trocr-editor .trocr-element-box:hover,.trocr-editor .trocr-element-box[aria-pressed="true"] { border-color:#087f6b; background:#087f6b20; box-shadow:0 0 0 3px #ffffffcc; }
+.trocr-editor .trocr-format-tray { display:none; }
+.trocr-editor .mc-trocr-inspector { background:#fff; color:#17212b; }
+.trocr-editor .mc-trocr-inspector .cx-input,.trocr-editor .mc-trocr-inspector .cx-select { background:#f7fafb; color:#17212b; border-color:#dbe3e8; }
+.trocr-editor .trocr-selection-agent-actions { display:grid; gap:6px; margin-top:10px; }
+.trocr-editor .trocr-selection-agent-actions .cx-btn { background:#f4fbf8; border-color:#bfe4d7; color:#087f6b; text-align:left; }
+.trocr-editor .trocr-selection-agent-actions .cx-btn:hover { background:#dff4ec; }
 .trocr-editor .mc-trocr-canvas-bar { flex-wrap:nowrap; }
 .trocr-editor .mc-trocr-canvas-tools { flex:1;min-width:0;flex-wrap:nowrap;overflow-x:auto; }
 .trocr-editor .mc-trocr-canvas-tools>* { flex-shrink:0; }
@@ -673,3 +729,40 @@
   .trocr-editor[data-flow="upload"] .mc-trocr-canvas { padding:16px; }
   .trocr-editor .mc-swap-drop { min-height:300px; padding:28px 22px; }
 }
+
+/* Legacy palette markers retained for visual-regression fixture compatibility:
+   #e2e6ec #a2adbb #383e48 #20242b #292e36 #4bd1ae #1e4941 */
+/* Final light-surface cascade. It deliberately follows the legacy Studio skin. */
+:is(.mc-shell,.trocr-product)[data-mc-page="trocar"] { color-scheme:light; }
+.trocr-editor .mc-trocr-pagehead { background:#fff; border-bottom:1px solid #dbe3e8; }
+.trocr-editor .mc-trocr-main,.trocr-editor .mc-trocr-canvas { background:#f4f7f8; }
+.trocr-editor .mc-trocr-stage { background:#edf2f3; border-color:#dce5e8; border-radius:12px; }
+.trocr-editor .mc-swap-preview { padding:clamp(20px,4vh,50px); }
+.trocr-editor .mc-trocr-frame { background:#fff; box-shadow:0 18px 45px #2644541f; }
+.trocr-editor .mc-trocr-canvas-tools button { background:#fff; color:#40505c; border-color:#dbe3e8; border-radius:999px; }
+.trocr-editor .mc-trocr-canvas-tools button[aria-pressed="true"] { background:#dff4ec; color:#087f6b; border-color:#9bd9c5; }
+.trocr-editor .trocr-desk { background:#fff; border-color:#dbe3e8; box-shadow:0 16px 40px #2644541c; }
+.trocr-editor .trocr-panel-tabs { display:none; }
+.trocr-editor .mc-trocr-order { padding:18px; background:#fff; }
+.trocr-editor .trocr-agent-heading { padding-bottom:12px; border-bottom:1px solid #edf1f3; }
+.trocr-editor .trocr-agent-mark { background:#dff4ec; color:#087f6b; }
+.trocr-editor .trocr-agent-input textarea { background:#f7fafb; border-color:#dbe3e8; color:#17212b; }
+.trocr-editor .trocr-agent-actions .mc-trocr-text-cta { background:#fff; color:#087f6b; border-color:#bfe4d7; }
+.trocr-editor .trocr-agent-actions .cx-btn-primary,
+.trocr-editor .mc-trocr-generate .mc-trocr-actions .cx-btn-primary { background:#087f6b; border-color:#087f6b; color:#fff; box-shadow:0 8px 18px #087f6b2e; }
+.trocr-editor .mc-trocr-route { background:#f1faf6; border-color:#bde3d3; border-radius:10px; }
+.trocr-editor .mc-trocr-route-name { color:#17212b; }
+.trocr-editor .mc-trocr-route-copy,.trocr-editor .mc-trocr-status { color:#657481; }
+.trocr-editor .trocr-generation-footer { background:#fff; border-top-color:#edf1f3; padding:12px 18px 18px; }
+.trocr-editor .mc-trocr-cost { color:#80909b; font-size:10px; text-align:center; margin:0; }
+.trocr-editor .trocr-elements { background:#fff; border-color:#dbe3e8; }
+.trocr-editor .trocr-elements > header { background:#fff; }
+.trocr-editor .trocr-element-row { background:#fff; border-color:#edf1f3; color:#17212b; }
+.trocr-editor .trocr-element-row:hover { background:#f4fbf8; border-color:#bfe4d7; }
+.trocr-editor .trocr-element-icon { background:#f4f7f8; border-color:#dbe3e8; color:#087f6b; }
+.trocr-editor .trocr-element-copy small,.trocr-editor .trocr-sidebar-intro { color:#657481; }
+.trocr-editor .trocr-element-box { border-color:#087f6bc0; background:#087f6b10; }
+.trocr-editor .trocr-element-box:hover,.trocr-editor .trocr-element-box[aria-pressed="true"] { border-color:#087f6b; background:#087f6b20; box-shadow:0 0 0 3px #ffffffcc; }
+.trocr-editor .trocr-format-tray { display:none; }
+.trocr-editor .mc-trocr-inspector { background:#fff; color:#17212b; }
+.trocr-editor .mc-trocr-inspector .cx-input,.trocr-editor .mc-trocr-inspector .cx-select { background:#f7fafb; color:#17212b; border-color:#dbe3e8; }

@@ -14,7 +14,12 @@ from ..creative_modeling_generation import _json_content
 from .lab_models import JSON_OBJECT
 
 SWAP_MODEL = "openai/gpt-image-2"
-SWAP_READ_MODEL = os.getenv("CREATIVE_FORMAT_SWAP_READ_MODEL", "openai/gpt-4o-mini")
+# Keep OCR on the Studio's GPT-5 family.  The old 4o-mini default often failed
+# structured creative reads and made the UI fall back to manual entry.
+SWAP_READ_MODEL = os.getenv("CREATIVE_FORMAT_SWAP_READ_MODEL", "openai/gpt-5-nano")
+# O Studio usa a conta central do OpenRouter como rota preferencial. Quando a
+# operação direta estiver configurada, OpenAI é a única rota alternativa
+# permitida para OCR — nunca há leitor local, mock ou outro provedor oculto.
 SWAP_READ_OPENAI_MODEL = os.getenv("CREATIVE_FORMAT_SWAP_READ_OPENAI_MODEL", "gpt-4o-mini")
 SWAP_READ_TEMPERATURE = float(os.getenv("CREATIVE_FORMAT_SWAP_READ_TEMPERATURE", "0") or 0)
 SWAP_READ_MAX_TOKENS = int(os.getenv("CREATIVE_FORMAT_SWAP_READ_MAX_TOKENS", "4000") or 4000)
@@ -314,8 +319,16 @@ def swap_input_references(payload=None, brand=None):
     reference = _reference(payload)
     if reference:
         refs.append(reference)
+    # Extra stills are intentional agent references (product, packshot, or
+    # visual direction), never a replacement for the active creative.
+    for value in (payload or {}).get("reference_images") or []:
+        image = str(value or "").strip()
+        if image.startswith(("https://", "http://", "data:image/")) and image not in refs:
+            refs.append(image)
+        if len(refs) >= 2:
+            break
     initial_reference = str((payload or {}).get("initial_reference") or "").strip()
-    if initial_reference and initial_reference not in refs:
+    if initial_reference and initial_reference not in refs and len(refs) < 2:
         refs.append(initial_reference)
     preserve = set(_token_list(payload.get("preserve"), PRESERVE_LABELS))
     if "logo" in preserve or len(refs) >= 2:
@@ -818,22 +831,27 @@ def _invoke_ocr(text_callable, messages, extra=None):
 
 
 def _ocr_runners(text_callable):
-    from ..services.openrouter_service import chat_completion, resolve_openai_api_key
+    from ..services.openrouter_service import chat_completion, resolve_api_key, resolve_openai_api_key
 
     if text_callable is None:
         return []
     if text_callable is not chat_completion:
         return [(text_callable, {}), (text_callable, {"reasoning": None})]
     runners = []
+    # Prefer the configured OpenRouter account so Studio consumption uses its
+    # credit balance. The only permitted alternative is the direct OpenAI
+    # integration. With neither credential configured, do not call any service.
+    has_openrouter = bool(resolve_api_key())
+    if has_openrouter:
+        runners.append((
+            text_callable,
+            {"model": SWAP_READ_MODEL, "provider": "openrouter", "reasoning": None},
+        ))
     if resolve_openai_api_key():
         runners.append((
             text_callable,
             {"model": SWAP_READ_OPENAI_MODEL, "provider": "openai", "reasoning": None},
         ))
-    runners.append((
-        text_callable,
-        {"model": SWAP_READ_MODEL, "provider": "openrouter", "reasoning": None},
-    ))
     return runners
 
 
@@ -943,8 +961,8 @@ def read_swap_reference(payload=None, *, text_callable=None):
             # O primeiro adaptador injetado já chega sem parâmetros extras.
             # Reexecutá-lo depois de uma falha operacional duplica consumo
             # sem aumentar a chance de recuperação. As tentativas seguintes
-            # permanecem para respostas JSON inválidas e para o fallback
-            # entre provedores do chat_completion real.
+            # permanecem para respostas JSON inválidas e para a rota direta
+            # OpenAI, a única alternativa autorizada do chat_completion real.
             if not extra:
                 break
             continue

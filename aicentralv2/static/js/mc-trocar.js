@@ -104,6 +104,7 @@
     editorDraft: null,
     selectedRegionField: '',
     generating: false,
+    agentReferences: [],
   };
 
   let editor = null;
@@ -153,6 +154,30 @@
     }
     $('trocrOpenWorkspace')?.addEventListener('click', () => openElementWorkspace());
     document.addEventListener('trocr:edit-selection', (event) => openElementWorkspace(event.detail));
+    document.addEventListener('trocr:agent-action', async (event) => {
+      const detail = event.detail || {};
+      const messages = {
+        'remove-background': 'Remova o fundo do elemento selecionado e mantenha o elemento principal intacto.',
+        'separate-person': 'Separe a pessoa selecionada, preservando contorno, rosto e roupa; elimine o cenário ao redor.',
+        'isolate-product': 'Isole o produto selecionado, preservando seus detalhes e removendo os demais elementos.',
+      };
+      const instruction = messages[detail.action];
+      if (!instruction) return;
+      const alterByAction = {
+        'remove-background': 'background',
+        'separate-person': 'people',
+        'isolate-product': 'product',
+      };
+      const alter = document.querySelector(`input[name="mcTrocrAlter"][value="${alterByAction[detail.action]}"]`);
+      if (alter) alter.checked = true;
+      const note = $('mcSwapNote');
+      if (!note || !baseVersion()?.image) return;
+      const target = `[elemento selecionado: ${detail.label}${detail.text ? ` · “${detail.text}”` : ''}]`;
+      note.value = `${instruction}\n${target}`;
+      note.dispatchEvent(new Event('input', { bubbles: true }));
+      setStatus('Cadu recebeu a ação e está preparando a nova versão…');
+      await submitAgentRequest();
+    });
     ['Left', 'Right'].forEach((side) => $('trocrToggle' + side)?.addEventListener('click', () => {
       const root = $('mcSwap'), name = 'show-' + side.toLowerCase();
       if (window.innerWidth < 1100) root.classList.remove('show-' + (side === 'Left' ? 'right' : 'left'));
@@ -167,6 +192,16 @@
     $('trocrGuides')?.addEventListener('click', () => {
       const active = $('mcTrocrViewport').classList.toggle('trocr-show-guides');
       $('trocrGuides').setAttribute('aria-pressed', String(active));
+    });
+    $('trocrPropertiesBtn')?.addEventListener('click', () => {
+      const properties = $('trocrProperties');
+      const agent = $('trocrAi');
+      if (!properties || !agent) return;
+      const open = properties.hidden;
+      properties.hidden = !open;
+      agent.hidden = open;
+      $('trocrPropertiesBtn').textContent = open ? 'Voltar ao agente' : 'Propriedades';
+      $('trocrPropertiesBtn').setAttribute('aria-pressed', String(open));
     });
     applyRatio(state.aspectRatio);
     applyPresentation();
@@ -285,7 +320,8 @@
       runRequestedGeneration(quality);
     });
     $('mcTrocrAgentSend')?.addEventListener('click', submitAgentRequest);
-    $('mcTrocrAgentAttach')?.addEventListener('click', () => $('mcSwapFile')?.click());
+    $('mcTrocrAgentAttach')?.addEventListener('click', () => $('mcTrocrAgentFiles')?.click());
+    $('mcTrocrAgentFiles')?.addEventListener('change', addAgentReferences);
     $('mcSwapNote')?.addEventListener('keydown', (event) => {
       if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
       event.preventDefault();
@@ -479,6 +515,23 @@
       refreshPrompt();
     };
     reader.readAsDataURL(file);
+  }
+
+  async function addAgentReferences(event) {
+    const files = Array.from(event?.target?.files || []).filter((file) => file.type.startsWith('image/')).slice(0, 2);
+    if (!files.length) return;
+    const encoded = await Promise.all(files.map((file) => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve({ name: file.name, data: String(reader.result || '') });
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    })));
+    state.agentReferences = encoded.filter((item) => item.data).slice(0, 2);
+    if ($('mcTrocrAgentReference')) {
+      $('mcTrocrAgentReference').textContent = state.agentReferences.map((item) => item.name).join(', ');
+    }
+    if (event?.target) event.target.value = '';
+    refreshPrompt();
   }
 
   function isAllowedStill(value) {
@@ -719,6 +772,9 @@
     renderLocks(data);
     paintOcrStatus(data);
     if (data.aspect_hint && !state.userPickedFormat) selectFormat(data.aspect_hint);
+    // OCR establishes the composition bounds; show the safe area immediately.
+    $('mcTrocrViewport')?.classList.add('trocr-show-guides');
+    $('trocrGuides')?.setAttribute('aria-pressed', 'true');
     renderEditPanels();
     if (version) {
       version.ocr = clean;
@@ -1201,6 +1257,7 @@
       cta: $('mcSwapCta')?.value || '',
       note: $('mcSwapNote')?.value || '',
       instruction: $('mcSwapNote')?.value || '',
+      reference_images: state.agentReferences.map((item) => item.data),
       aspect_ratio: state.aspectRatio,
       aspect_hint: read.aspect_hint || '',
       run_id: state.runId || undefined,
@@ -1219,7 +1276,8 @@
       prompt_override: (state.promptEdited || state.promptLocked) ? ($('mcTrocrPrompt')?.value || '') : undefined,
       base_id: state.baseId || undefined,
       plan_hash: variant ? undefined : (state.planHash || undefined),
-      confirm_conflicts: Boolean($('mcTrocrConfirmConflicts')?.checked),
+      // The user request is authorization to proceed; planning warnings are advisory.
+      confirm_conflicts: true,
       ref_width: state.region?.ref_width || undefined,
       ref_height: state.region?.ref_height || undefined,
       regions: state.region?.box ? { [state.region.field]: state.region.box } : undefined,
@@ -1435,9 +1493,9 @@
       if (editor?.isDirty() && !await persistHistory()) throw new Error('Salve a edição antes de gerar.');
       if (!variant) {
         await loadPlan();
-        if (state.planBlocked && !$('mcTrocrConfirmConflicts')?.checked) {
+        if (state.planBlocked && state.conflicts.some((item) => item.code === 'needs_region')) {
           const first = state.conflicts.find((item) => item.blocking) || state.conflicts[0] || {};
-          throw new Error(conflictCopy(first) || 'Ajuste o pedido antes de gerar.');
+          throw new Error(conflictCopy(first) || 'Marque na peça a área que deve mudar.');
         }
       }
       fields = editFields(extra);
@@ -2170,6 +2228,8 @@
     state.logoOpen = false;
     syncOptionalUi();
     state.promptEdited = false;
+    state.agentReferences = [];
+    if ($('mcTrocrAgentReference')) $('mcTrocrAgentReference').textContent = 'Nenhuma referência';
     updateNoteCount();
     renderEditPanels();
     refreshPrompt();
@@ -2229,8 +2289,8 @@
     if (!$('mcSwapCost')) return;
     const tokens = Math.max(0, Number(quote?.estimated_tokens || quote?.agent_tokens_estimate || 0) || 0);
     $('mcSwapCost').textContent = tokens
-      ? `Estimativa: ${tokens.toLocaleString('pt-BR')} créditos de tokens`
-      : 'Consumo calculado em créditos de tokens';
+      ? `Consumo estimado: ${tokens.toLocaleString('pt-BR')} créditos`
+      : 'Consumo calculado ao gerar';
   }
 
   function paintRoute(risk, mode, quote, plan) {
@@ -2255,7 +2315,7 @@
       $('mcTrocrRouteName').textContent = noop
         ? 'Nada para trocar'
         : (blocked
-          ? 'Pedido bloqueado'
+          ? 'Pedido precisa de um ajuste'
           : (typeset
             ? 'Tipo na foto'
             : (recrop ? 'Recorte + tipo na foto' : 'A peça é redesenhada')));
@@ -2264,7 +2324,7 @@
       $('mcTrocrRouteCopy').textContent = noop
         ? 'Falta dizer o que muda. Marque um item ou escreva a frase.'
         : (blocked
-          ? 'Ajuste o pedido antes de gerar.'
+          ? 'Marque apenas a região quando a alteração for de texto.'
           : (typeset
             ? 'O texto novo entra na foto.'
             : (recrop
@@ -2524,15 +2584,13 @@
         `<li class="${item.blocking ? 'is-block' : ''}">${escapeHtml(conflictCopy(item))}</li>`
       )).join('');
     }
-    const confirmable = items.some((item) => item.blocking && item.code !== 'needs_region');
-    if (row) row.hidden = !confirmable;
+    if (row) row.hidden = true;
   }
 
   function canGenerate() {
     if (state.generating) return false;
     if (!baseVersion()?.image) return false;
     if (state.conflicts.some((item) => item.code === 'needs_region')) return false;
-    if (state.planBlocked && !$('mcTrocrConfirmConflicts')?.checked) return false;
     return true;
   }
 

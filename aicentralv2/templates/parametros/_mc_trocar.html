@@ -1,14 +1,12 @@
 <article class="mc-lab mc-swap mc-trocr trocr-editor" id="mcSwap" data-flow="upload" data-workspace="still" data-csrf="{{ mc_trocr_csrf or '' }}">
   <header class="mc-trocr-pagehead">
     <div class="mc-trocr-pagehead-title">
-      <h1 id="mcTrocrLead">Editor de imagem</h1><span id="trocrCompactState" role="status">Enviar peça</span>
+      <h1 id="mcTrocrLead">Peça em criação</h1><span id="trocrCompactState" role="status">Enviar peça</span>
     </div>
     <div class="mc-trocr-pagehead-actions">
       <span id="trocrSaveStatus" role="status" aria-live="polite">Nenhuma alteração</span>
-      <button type="button" class="mc-trocr-text-cta" id="trocrExportDraft" hidden>Baixar edição</button>
-      <button type="button" class="mc-trocr-text-cta" id="trocrSave">Salvar edição</button>
       <button type="button" class="mc-trocr-text-cta" id="mcTrocrHistoryBtn" disabled>
-        Histórico
+        Versões
         <span class="mc-trocr-history-count" id="mcTrocrHistoryCount">0</span>
       </button>
       <button type="button" class="cx-btn cx-btn-primary mc-trocr-new-piece" id="mcTrocrNewPiece" title="Começar uma nova peça">
@@ -21,7 +19,7 @@
   {% include "parametros/trocr/_elements.html" %}
   <section class="trocr-desk" aria-label="Ferramentas de edição">
     <div class="trocr-panel-tabs" role="tablist" aria-label="Painel de edição">
-      <button type="button" id="trocrTabAi" role="tab" aria-selected="true" aria-controls="trocrAi" data-editor-tab="ai">Pedido</button>
+      <button type="button" id="trocrTabAi" role="tab" aria-selected="true" aria-controls="trocrAi" data-editor-tab="ai">Cadu</button>
     </div>
     <div id="trocrProperties" role="tabpanel" aria-labelledby="trocrTabProperties" hidden>
       {% include "parametros/trocr/_inspector.html" %}

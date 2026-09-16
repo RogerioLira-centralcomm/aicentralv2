@@ -8,9 +8,8 @@
 <meta property="og:type" content="website"><meta property="og:title" content="Cadu Workspace"><meta property="og:description" content="{{ description }}"><meta property="og:url" content="{{ canonical }}"><meta property="og:image" content="{{ product_url('workspace', '/assets/workspace-icon-192.png') }}">
 <script type="application/ld+json">{{ {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Cadu Workspace","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":canonical,"description":description}|tojson }}</script>
 {% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-public.css') }}?v=3">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-public.css') }}?v=4">{% endblock %}
 {% block content %}
-{% include 'cadu_workspace/_public_nav.html' %}
 <section class="ws-hero">
   <div class="ws-hero-copy"><p class="ws-eyebrow">Workspace</p><h1>Uma campanha, cinco ambientes, um contexto.</h1><p>Workspace mantém time, cliente, marca, projeto e referências ligados enquanto cada ambiente faz sua parte do trabalho. O briefing continua com a equipe — do planejamento à operação.</p><div class="ws-actions"><a href="{{ url_for('cadu_workspace.dashboard') }}">{{ 'Abrir Workspace' if session.get('user_id') else 'Organizar meu time' }}</a><a href="#ambientes">Conhecer os ambientes</a></div></div>
   <div class="ws-context-map" aria-label="Workspace conecta os ambientes de campanha">

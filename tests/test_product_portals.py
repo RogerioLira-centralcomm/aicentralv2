@@ -6,7 +6,7 @@ from flask import Flask
 from aicentralv2.cadu_connect.routes import bp as connect_bp
 from aicentralv2.cadu_identity.routes import bp as identity_bp
 from aicentralv2.cadu_workspace.routes import bp as workspace_bp
-from aicentralv2.product_domains import product_url, register_product_host_routing, safe_product_target
+from aicentralv2.product_domains import ProductSessionInterface, product_url, register_product_host_routing, safe_product_target
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,9 +30,12 @@ def _app():
         AUTH_URL="https://auth.centralcomm.media",
         CADU_GOOGLE_LOGIN_URL="https://cadu.centralcomm.media/google-login.php",
         # O fixture usa um único cliente entre hosts para injetar sessões de
-        # teste; a configuração de produção permanece host-only.
-        SESSION_COOKIE_DOMAIN="centralcomm.media",
+        # teste; a configuração de produção compartilha o cookie Cadu.
+        CADU_SESSION_COOKIE_DOMAIN=".centralcomm.media",
+        CENTRALX_SESSION_COOKIE_NAME="centralx_session",
+        CADU_SESSION_COOKIE_NAME="cadu_sso_session",
     )
+    app.session_interface = ProductSessionInterface()
     app.add_url_rule("/login", "login", lambda: "login")
     app.add_url_rule("/logout", "logout", lambda: "logout")
     app.add_url_rule("/", "index", lambda: "centralx")
@@ -43,7 +46,7 @@ def _app():
     app.register_blueprint(connect_bp)
     app.register_blueprint(identity_bp)
     app.register_blueprint(workspace_bp)
-    app.context_processor(lambda: {"product_url": product_url})
+    app.context_processor(lambda: {"product_url": product_url, "cadu_nav_credit": {"available": 84, "monthly": 100, "configured": True}})
     register_product_host_routing(app)
     return app
 
@@ -87,6 +90,35 @@ class ProductPortalsTest(TestCase):
             response = client.get("/connect/", headers={"Host": "connect.centralcomm.media"})
         self.assertEqual(response.status_code, 200)
         self.assertIn("Connect", response.get_data(as_text=True))
+
+    def test_workspace_session_is_reused_by_connect(self):
+        app = _app()
+        client = app.test_client()
+        with client.session_transaction(headers={"Host": "workspace.centralcomm.media"}) as sess:
+            sess.update(user_id=7, cliente_id=12, user_name="Apolo", user_email="apolo@centralcomm.media")
+
+        with mock.patch("aicentralv2.cadu_connect.routes.campaigns_for_client", return_value=[]), \
+             mock.patch("aicentralv2.cadu_connect.routes.customization_targets", return_value={"clients": [], "projects": []}):
+            response = client.get("/connect/", headers={"Host": "connect.centralcomm.media"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Connect", response.get_data(as_text=True))
+
+    def test_workspace_public_nav_is_single_and_shows_signed_in_identity(self):
+        app = _app()
+        client = app.test_client()
+        with client.session_transaction(headers={"Host": "workspace.centralcomm.media"}) as sess:
+            sess.update(user_id=7, user_name="Apolo Lira", user_email="apolo@centralcomm.media")
+
+        response = client.get("/workspace/contato", headers={"Host": "workspace.centralcomm.media"})
+        html = response.get_data(as_text=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(html.count('aria-label="Páginas do Workspace"'), 1)
+        self.assertIn("Apolo Lira", html)
+        self.assertIn("apolo@centralcomm.media", html)
+        self.assertIn("84 disponíveis", html)
+        self.assertNotIn('class="ws-public-nav"', html)
 
     def test_workspace_has_public_site_and_private_app_reusing_cadu_php(self):
         app = _app()

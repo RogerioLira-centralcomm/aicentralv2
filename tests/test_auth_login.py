@@ -51,9 +51,11 @@ class SessionPersistenceConfigTests(unittest.TestCase):
         self.assertTrue(Config.SESSION_REFRESH_EACH_REQUEST)
         self.assertTrue(Config.SESSION_COOKIE_HTTPONLY)
         self.assertEqual(Config.SESSION_COOKIE_SAMESITE, "Lax")
-        self.assertEqual(Config.SESSION_COOKIE_NAME, "cadu_product_session")
+        self.assertEqual(Config.SESSION_COOKIE_NAME, "cadu_sso_session")
         self.assertEqual(Config.CENTRALX_SESSION_COOKIE_NAME, "centralx_session")
-        self.assertEqual(Config.CADU_SESSION_COOKIE_NAME, "cadu_product_session")
+        self.assertEqual(Config.CADU_SESSION_COOKIE_NAME, "cadu_sso_session")
+        self.assertIsNone(Config.CADU_SESSION_COOKIE_DOMAIN)
+        self.assertEqual(ProductionConfig.CADU_SESSION_COOKIE_DOMAIN, ".centralcomm.media")
         self.assertIsNone(Config.SESSION_COOKIE_DOMAIN)
         self.assertTrue(ProductionConfig.SESSION_COOKIE_SECURE)
         self.assertFalse(TestingConfig.SESSION_COOKIE_SECURE)
@@ -65,18 +67,24 @@ class SessionPersistenceConfigTests(unittest.TestCase):
             persist_login_session()
             self.assertTrue(session.permanent)
 
-    def test_centralx_usa_nome_de_cookie_diferente_do_cadu(self):
+    def test_centralx_isolado_e_cadu_compartilha_cookie_entre_subdominios(self):
         app = Flask(__name__)
         app.config.update(
             CENTRALX_URL="https://ai.centralcomm.media",
             CENTRALX_SESSION_COOKIE_NAME="centralx_session",
-            CADU_SESSION_COOKIE_NAME="cadu_product_session",
+            CADU_SESSION_COOKIE_NAME="cadu_sso_session",
+            CADU_SESSION_COOKIE_DOMAIN=".centralcomm.media",
         )
         interface = ProductSessionInterface()
         with app.test_request_context("/login", headers={"Host": "ai.centralcomm.media"}):
             self.assertEqual(interface.get_cookie_name(app), "centralx_session")
+            self.assertIsNone(interface.get_cookie_domain(app))
         with app.test_request_context("/login", headers={"Host": "auth.centralcomm.media"}):
-            self.assertEqual(interface.get_cookie_name(app), "cadu_product_session")
+            self.assertEqual(interface.get_cookie_name(app), "cadu_sso_session")
+            self.assertEqual(interface.get_cookie_domain(app), ".centralcomm.media")
+        with app.test_request_context("/login", headers={"Host": "connect.centralcomm.media"}):
+            self.assertEqual(interface.get_cookie_name(app), "cadu_sso_session")
+            self.assertEqual(interface.get_cookie_domain(app), ".centralcomm.media")
 
 
 class LoginRequiredPersistenceTests(unittest.TestCase):

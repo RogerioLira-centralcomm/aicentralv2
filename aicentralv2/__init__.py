@@ -51,8 +51,9 @@ def create_app(config_class=Config):
                 static_url_path='/static',
                 static_folder='static')
     app.config.from_object(config_class)
-    # The same deployment serves multiple hosts. Select a distinct, host-only
-    # cookie for CentralX before any request opens a Flask session.
+    # The same deployment serves multiple hosts. CentralX remains host-only;
+    # Cadu products share a dedicated SSO cookie before any request opens a
+    # Flask session.
     from .product_domains import ProductSessionInterface
     app.session_interface = ProductSessionInterface()
 
@@ -139,6 +140,7 @@ def create_app(config_class=Config):
         is_cc_user = False
         perfil_contato = None
         perfil_google = None
+        cadu_nav_credit = None
         if 'user_id' in session:
             try:
                 contato = db.obter_contato_por_id(session['user_id'])
@@ -159,12 +161,19 @@ def create_app(config_class=Config):
                         is_cc_user = cliente.get('nome_fantasia', '').upper() == 'CENTRALCOMM'
             except Exception:
                 pass
+            try:
+                from .cadu_skills.repository import credit_position
+                cadu_nav_credit = credit_position(int(session.get('cliente_id') or 0))
+            except Exception:
+                # O menu continua funcional se o ledger estiver indisponível.
+                cadu_nav_credit = None
         
         return dict(
             APP_CONFIG=app.config,
             is_centralcomm_user=is_cc_user,
             perfil_contato=perfil_contato,
             perfil_google=perfil_google,
+            cadu_nav_credit=cadu_nav_credit,
             cx_page_context=resolve_page_context(),
             cx_uses_legacy_daisy=uses_legacy_daisy(),
             is_erp_nav_item_active=is_erp_nav_item_active,

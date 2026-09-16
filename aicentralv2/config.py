@@ -78,12 +78,16 @@ class Config:
 	SESSION_REFRESH_EACH_REQUEST = True
 	SESSION_COOKIE_HTTPONLY = True
 	SESSION_COOKIE_SAMESITE = 'Lax'
-	# CentralX e Cadu são identidades independentes. Além de cookies host-only,
-	# cada família usa um nome próprio para que cookies legados nunca sejam lidos
-	# por engano quando os dois ambientes usam a mesma aplicação Flask.
-	SESSION_COOKIE_NAME = 'cadu_product_session'
+	# A família Cadu é um único SSO: Workspace, Connect, Studio, Skills e
+	# Planner precisam reconhecer a mesma sessão ao trocar de subdomínio.
+	# Um nome novo evita que cookies host-only da versão anterior concorram com
+	# o cookie compartilhado durante a migração.
+	SESSION_COOKIE_NAME = 'cadu_sso_session'
 	CENTRALX_SESSION_COOKIE_NAME = 'centralx_session'
-	CADU_SESSION_COOKIE_NAME = 'cadu_product_session'
+	CADU_SESSION_COOKIE_NAME = 'cadu_sso_session'
+	# Em produção, o cookie Cadu é emitido para todos os subdomínios. Localhost
+	# continua host-only, pois navegadores não aceitam Domain=localhost.
+	CADU_SESSION_COOKIE_DOMAIN = os.getenv('CADU_SESSION_COOKIE_DOMAIN', None)
 	SESSION_COOKIE_DOMAIN = None
 	SESSION_COOKIE_SECURE = os.getenv(
 		'SESSION_COOKIE_SECURE',
@@ -250,6 +254,7 @@ class ProductionConfig(Config):
 	TESTING = False
 	USE_CSS_CDN = False
 	SESSION_COOKIE_SECURE = True
+	CADU_SESSION_COOKIE_DOMAIN = os.getenv('CADU_SESSION_COOKIE_DOMAIN', '.centralcomm.media')
 
 
 class TestingConfig(Config):

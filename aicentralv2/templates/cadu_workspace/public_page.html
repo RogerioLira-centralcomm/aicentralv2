@@ -2,9 +2,8 @@
 {% block title %}{{ content.title }} — Cadu Workspace{% endblock %}
 {% block product_id %}workspace-public{% endblock %}
 {% block meta %}<meta name="description" content="{{ description }}"><link rel="canonical" href="{{ canonical }}"><link rel="icon" type="image/png" href="{{ url_for('cadu_workspace.workspace_icon', size=32) }}"><meta property="og:type" content="website"><meta property="og:title" content="{{ content.title }} — Cadu Workspace"><meta property="og:description" content="{{ description }}"><meta property="og:url" content="{{ canonical }}">{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-public.css') }}?v=3">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-public.css') }}?v=4">{% endblock %}
 {% block content %}
-{% include 'cadu_workspace/_public_nav.html' %}
 <header class="ws-page-head"><a href="{{ url_for('cadu_workspace.index') }}">Cadu Workspace</a><h1>{{ content.title }}</h1><p>{{ content.lead }}</p></header>
 {% if page == 'como-funciona' %}
 <section class="ws-steps"><article><span>1</span><div><h2>Defina o contexto</h2><p>O time define quem participa. Cliente, projeto e marca dizem ao Cadu qual campanha está em andamento.</p></div><aside>Time<br><b>Cliente / projeto / marca</b></aside></article><article><span>2</span><div><h2>Leve o briefing ao produto certo</h2><p>Use o Planner para estruturar, o Studio para criar, Skills para aplicar método e Connect para trabalhar com contas e dados.</p></div><aside>Briefing<br><b>Produto e capacidade</b></aside></article><article><span>3</span><div><h2>Continue com histórico</h2><p>Entregas, versões e vínculos ficam no projeto. O time sabe de onde o trabalho veio e qual é o próximo passo.</p></div><aside>Resultado<br><b>Projeto organizado</b></aside></article></section>

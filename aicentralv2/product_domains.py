@@ -44,12 +44,23 @@ def is_centralx_request() -> bool:
 
 
 class ProductSessionInterface(SecureCookieSessionInterface):
-    """Keep CentralX's signed session separate from every Cadu product cookie."""
+    """Share one Cadu session across product subdomains, isolating CentralX."""
 
     def get_cookie_name(self, app):
         if is_centralx_request():
             return app.config["CENTRALX_SESSION_COOKIE_NAME"]
         return app.config["CADU_SESSION_COOKIE_NAME"]
+
+    def get_cookie_domain(self, app):
+        """Use the parent domain only for Cadu product hosts.
+
+        CentralX retains its host-only cookie. This prevents an internal
+        CentralX identity from leaking into the customer-facing Cadu family,
+        while Workspace and Connect receive the exact same signed session.
+        """
+        if is_centralx_request():
+            return None
+        return app.config.get("CADU_SESSION_COOKIE_DOMAIN")
 
 
 def safe_product_target(value: str | None, fallback: str = "/") -> str:
@@ -114,9 +125,8 @@ def register_product_host_routing(app) -> None:
             response.headers["Cache-Control"] = "no-store, max-age=0"
             return response
 
-        # Login é atendido no host do produto. Isso mantém cookies e estado
-        # isolados entre CentralX e a família Cadu, inclusive quando há uma
-        # sessão antiga de outro produto no mesmo navegador.
+        # Login é atendido no host do produto. A família Cadu compartilha a
+        # sessão SSO entre seus subdomínios; CentralX mantém identidade própria.
         if request.path != "/":
             return None
         for config_key, endpoint in endpoints.items():

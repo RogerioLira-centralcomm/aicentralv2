@@ -9,6 +9,8 @@
   bindDialog(document.querySelector('[data-project-quality-dialog]'), '[data-project-quality-open]', '[data-project-quality-close]');
   const brandDialog = document.querySelector('[data-project-brand-dialog]');
   bindDialog(brandDialog, '[data-project-brand-open]', '[data-project-brand-close]');
+  bindDialog(document.querySelector('[data-project-identity-dialog]'), '[data-project-identity-open]', '[data-project-identity-close]');
+  bindDialog(document.querySelector('[data-project-sources-dialog]'), '[data-project-sources-open]', '[data-project-sources-close]');
   document.querySelectorAll('[data-project-starter]').forEach(button => button.addEventListener('click', () => {
     const url = new URL('/workspace/app/conversas', window.location.origin);
     const project = document.querySelector('[data-project-ref]')?.dataset.projectRef;

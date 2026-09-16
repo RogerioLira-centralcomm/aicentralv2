@@ -1,6 +1,6 @@
 # Creative Analyzer no Studio — mapa e execução em fases
 
-Estado em 16/09/2026: Fases 0 e 1 concluídas; pipeline de imagem da Fase 2 implementado, com smoke test externo pendente de uma mídia autorizada. Nenhuma análise, mídia ou URL legada foi apagada ou substituída.
+Estado em 16/09/2026: Fases 0, 1 e 5 concluídas; pipelines de imagem e vídeo das Fases 2 e 3 implementados, com smoke test externo pendente de uma mídia autorizada. A Fase 4 está parcialmente entregue. Nenhuma análise, mídia ou URL legada foi apagada ou substituída.
 
 ## Resultado esperado
 
@@ -195,6 +195,8 @@ Execução: implementada. MP4, MOV e WebM são validados por conteúdo com ffpro
 
 Critério de saída: experiência completa em desktop e mobile, sem folhas ou scripts do CentralX.
 
+Execução: parcial. A entrada ganhou direção visual própria do Studio, movimento funcional com preferência de redução de movimento, relatório privado em quatro áreas, player de vídeo e comparação dos quatro frames. Agrupamento por projeto, heatmap sobre a mídia e envio aos editores/Biblioteca continuam pendentes.
+
 ### Fase 5 — compartilhamento público novo
 
 - token público não enumerável, revogação e expiração opcional;
@@ -204,6 +206,8 @@ Critério de saída: experiência completa em desktop e mobile, sem folhas ou sc
 - proteção contra indexação ou exposição quando o compartilhamento não estiver ativo.
 
 Critério de saída: novo link público abre sem sessão; revogação bloqueia o acesso; legado continua abrindo no endereço original.
+
+Execução: concluída. Análises novas podem emitir um token aleatório de alta entropia, armazenado somente como SHA-256, e revogá-lo pelo relatório privado. A página pública possui as quatro áreas, player/frames para vídeo, metadados de compartilhamento, `noindex` e validação de token ativo/não expirado. A API exige sessão, cliente 174 e CSRF; o relatório público exige o token, mas não sessão. Nenhuma rota, linha ou URL do acervo legado foi alterada.
 
 ### Fase 6 — paridade, rollout e observabilidade
 

@@ -11,7 +11,7 @@ from flask import Blueprint, Flask
 from werkzeug.datastructures import FileStorage
 
 from aicentralv2.creative_analyzer.processor import VideoCreativeAnalyzer, normalize_result
-from aicentralv2.creative_analyzer.repository import legacy_item, merge_history
+from aicentralv2.creative_analyzer.repository import legacy_item, merge_history, share_token_hash
 from aicentralv2.creative_analyzer.routes import register_api_routes, register_product_routes
 from aicentralv2.creative_analyzer.service import AnalyzerService
 from aicentralv2.creative_analyzer.storage import AnalyzerStorage, four_frame_seconds
@@ -64,6 +64,13 @@ class CreativeAnalyzerRepositoryTest(TestCase):
         self.assertEqual(result["score"]["clareza"], 0)
         self.assertEqual(result["channels"]["instagram_feed"]["score"], 10)
         self.assertEqual(result["attention_analysis"]["visual_hierarchy"]["sequence"][0]["element"], "Oferta")
+
+    def test_public_share_stores_only_a_one_way_token_digest(self):
+        token = "Pp6r9vnYHgX0kcdrGg5eZV5x90WT6bT0JxJv2G0g-RY"
+        digest = share_token_hash(token)
+        self.assertNotEqual(digest, token)
+        self.assertEqual(len(digest), 64)
+        self.assertEqual(digest, share_token_hash(token))
 
 
 class CreativeAnalyzerImageTest(TestCase):
@@ -259,6 +266,63 @@ class CreativeAnalyzerRoutesTest(TestCase):
         self.assertEqual(response.status_code, 201)
         service.return_value.analyze_video.assert_called_once()
         service.return_value.analyze_image.assert_not_called()
+
+    def test_share_requires_csrf_and_uses_studio_client(self):
+        self.login()
+        analysis_id = "6d71570e-959c-49de-b829-8ad201a71464"
+        path = f"/studio/api/analyzer/analyses/{analysis_id}/share"
+        self.assertEqual(
+            self.client.post(path, headers={"Host": "studio.centralcomm.media"}).status_code,
+            403,
+        )
+        with mock.patch("aicentralv2.creative_analyzer.routes._repository") as repository:
+            repository.return_value.create_share.return_value = {"token": "a" * 43}
+            response = self.client.post(
+                path,
+                headers={"Host": "studio.centralcomm.media", "X-Trocr-CSRF-Token": "csrf"},
+            )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.get_json()["url"], f"https://studio.centralcomm.media/analyzer/public/{'a' * 43}")
+        repository.return_value.create_share.assert_called_once_with(analysis_id, 174, 7)
+
+    def test_public_report_is_anonymous_but_token_gated_and_not_indexed(self):
+        token = "b" * 43
+        row = {
+            "public_id": "6d71570e-959c-49de-b829-8ad201a71464",
+            "original_name": "filme.mp4",
+            "media_type": "video",
+            "result_json": {"score": {"geral": 84}},
+        }
+        with mock.patch("aicentralv2.creative_analyzer.routes._repository") as repository:
+            repository.return_value.public_analysis.return_value = row
+            response = self.client.get(
+                f"/analyzer/public/{token}", headers={"Host": "studio.centralcomm.media"}
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("noindex,nofollow", response.get_data(as_text=True))
+        self.assertEqual(response.headers["X-Robots-Tag"], "noindex, nofollow")
+        repository.return_value.public_analysis.assert_called_once_with(token)
+
+    def test_share_can_be_revoked_for_the_studio_client(self):
+        self.login()
+        analysis_id = "6d71570e-959c-49de-b829-8ad201a71464"
+        with mock.patch("aicentralv2.creative_analyzer.routes._repository") as repository:
+            repository.return_value.revoke_share.return_value = True
+            response = self.client.delete(
+                f"/studio/api/analyzer/analyses/{analysis_id}/share",
+                headers={"Host": "studio.centralcomm.media", "X-Trocr-CSRF-Token": "csrf"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), {"revoked": True})
+        repository.return_value.revoke_share.assert_called_once_with(analysis_id, 174)
+
+    def test_public_report_rejects_malformed_token_before_database(self):
+        with mock.patch("aicentralv2.creative_analyzer.routes._repository") as repository:
+            response = self.client.get(
+                "/analyzer/public/curto", headers={"Host": "studio.centralcomm.media"}
+            )
+        self.assertEqual(response.status_code, 404)
+        repository.assert_not_called()
 
     def test_migration_is_additive(self):
         sql = (ROOT / "migrations" / "add_studio_creative_analyzer.sql").read_text()

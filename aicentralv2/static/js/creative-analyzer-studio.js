@@ -53,7 +53,10 @@
     const head = element('header');
     const title = element('div');
     title.append(element('p', 'analyzer-section-note', 'Resultado da análise'), element('h2', '', analysis.original_name || 'Criativo'));
-    head.append(title, element('strong', 'analyzer-result-score', String(value(report, 'score.geral', 0))));
+    const actions = element('div', 'analyzer-result-actions');
+    const share = shareButton(analysis.public_id, actions);
+    actions.append(share, element('strong', 'analyzer-result-score', String(value(report, 'score.geral', 0))));
+    head.append(title, actions);
     result.appendChild(head);
     const media = element('div', `analyzer-result-media is-${analysis.media_type || 'image'}`);
     if (analysis.media_type === 'video') {
@@ -95,6 +98,59 @@
     result.appendChild(areas);
     result.hidden = false;
     result.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  }
+
+  function shareButton(id, actions) {
+    const button = element('button', '', 'Criar link público');
+    button.type = 'button';
+    button.addEventListener('click', () => createShare(id, actions, button));
+    return button;
+  }
+
+  async function createShare(id, actions, button) {
+    button.disabled = true;
+    button.textContent = 'Criando link…';
+    try {
+      const response = await fetch(root.dataset.detailRoot + encodeURIComponent(id) + root.dataset.shareSuffix, {
+        method: 'POST', headers: { Accept: 'application/json', 'X-Trocr-CSRF-Token': root.dataset.csrf },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Não foi possível criar o link.');
+      const box = element('div', 'analyzer-share-link');
+      const input = document.createElement('input');
+      input.readOnly = true;
+      input.value = payload.url;
+      const copy = element('button', '', 'Copiar');
+      copy.type = 'button';
+      copy.addEventListener('click', async () => {
+        await navigator.clipboard.writeText(payload.url);
+        copy.textContent = 'Copiado';
+      });
+      const revoke = element('button', '', 'Revogar');
+      revoke.type = 'button';
+      revoke.addEventListener('click', () => revokeShare(id, actions, box, revoke));
+      box.append(input, copy, revoke);
+      actions.appendChild(box);
+      button.remove();
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = error.message || 'Tentar novamente';
+    }
+  }
+
+  async function revokeShare(id, actions, box, button) {
+    button.disabled = true;
+    button.textContent = 'Revogando…';
+    const response = await fetch(root.dataset.detailRoot + encodeURIComponent(id) + root.dataset.shareSuffix, {
+      method: 'DELETE', headers: { Accept: 'application/json', 'X-Trocr-CSRF-Token': root.dataset.csrf },
+    });
+    if (!response.ok) {
+      button.disabled = false;
+      button.textContent = 'Tentar revogar';
+      return;
+    }
+    box.remove();
+    actions.prepend(shareButton(id, actions));
   }
 
   async function loadDetail(id) {

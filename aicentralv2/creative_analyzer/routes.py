@@ -2,6 +2,7 @@
 
 from urllib.parse import urlparse
 from pathlib import Path
+import re
 
 from flask import abort, current_app, jsonify, render_template, request, send_file, session
 
@@ -15,6 +16,8 @@ from ..services.openrouter_service import OpenRouterError
 from .repository import AnalyzerRepository
 from .service import AnalyzerService
 from .storage import AnalyzerStorage
+
+PUBLIC_TOKEN = re.compile(r"^[A-Za-z0-9_-]{40,80}$")
 
 
 def _repository():
@@ -119,6 +122,57 @@ def analyzer_asset(public_id, kind):
     response = send_file(path, mimetype=mime, conditional=True)
     response.headers["Cache-Control"] = "private, max-age=300"
     response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Robots-Tag"] = "noindex, nofollow, noimageindex"
+    return response
+
+
+@studio_or_admin_required_api
+@trocr_csrf_required
+def analyzer_share(public_id):
+    repository = _repository()
+    if request.method == "DELETE":
+        if not repository.revoke_share(str(public_id), _client_id()):
+            abort(404)
+        return jsonify(revoked=True)
+    share = repository.create_share(str(public_id), _client_id(), session.get("user_id"))
+    if not share:
+        abort(404)
+    from ..product_domains import product_url
+
+    return jsonify(url=product_url("studio", f"/analyzer/public/{share['token']}"), expires_at=None), 201
+
+
+def _public_analysis(token):
+    if not PUBLIC_TOKEN.fullmatch(str(token or "")):
+        abort(404)
+    row = _repository().public_analysis(token)
+    if not row:
+        abort(404)
+    return row
+
+
+def analyzer_public(token):
+    response = current_app.make_response(render_template(
+        "cadu_studio/analyzer/public.html",
+        analysis=_private_payload(_public_analysis(token)),
+        public_token=token,
+    ))
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return response
+
+
+def analyzer_public_asset(token, kind):
+    if kind not in {"source", "thumbnail", "frame-0", "frame-1", "frame-2", "frame-3"}:
+        abort(404)
+    analysis = _public_analysis(token)
+    path, mime = AnalyzerStorage().read(str(analysis["public_id"]), kind)
+    if path is None:
+        abort(404)
+    response = send_file(path, mimetype=mime, conditional=True)
+    response.headers["Cache-Control"] = "private, max-age=300"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Robots-Tag"] = "noindex, nofollow, noimageindex"
     return response
 
 
@@ -144,6 +198,12 @@ def register_api_routes(blueprint):
         endpoint="creative_analyzer_asset",
         view_func=analyzer_asset,
     )
+    blueprint.add_url_rule(
+        "/api/analyzer/analyses/<uuid:public_id>/share",
+        endpoint="creative_analyzer_share",
+        view_func=analyzer_share,
+        methods=["POST", "DELETE"],
+    )
 
 
 def register_product_routes(blueprint):
@@ -151,6 +211,16 @@ def register_product_routes(blueprint):
         "/analyzer",
         endpoint="studio_analyzer",
         view_func=analyzer_page,
+    )
+    blueprint.add_url_rule(
+        "/analyzer/public/<token>",
+        endpoint="studio_analyzer_public",
+        view_func=analyzer_public,
+    )
+    blueprint.add_url_rule(
+        "/analyzer/public/<token>/assets/<kind>",
+        endpoint="studio_analyzer_public_asset",
+        view_func=analyzer_public_asset,
     )
     blueprint.add_url_rule(
         "/analyzer/<uuid:public_id>",

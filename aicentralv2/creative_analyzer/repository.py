@@ -5,7 +5,9 @@ A fonte PHP é somente leitura. Novas análises pertencem às tabelas do Studio.
 
 from __future__ import annotations
 
+import hashlib
 import json
+import secrets
 from datetime import date, datetime
 
 from psycopg.types.json import Json
@@ -45,6 +47,11 @@ def _iso(value):
     if isinstance(value, (datetime, date)):
         return value.isoformat()
     return str(value or "")
+
+
+def share_token_hash(token):
+    """Derive the database lookup value without persisting the bearer token."""
+    return hashlib.sha256(str(token or "").encode("utf-8")).hexdigest()
 
 
 def _score(row, analysis):
@@ -341,6 +348,72 @@ class AnalyzerRepository:
                  LIMIT 1
                 """,
                 (public_id, client_id),
+            )
+            row = cursor.fetchone()
+        return dict(row) if row else None
+
+    def create_share(self, public_id, client_id, user_id, expires_at=None):
+        analysis = self.get_analysis(public_id, client_id)
+        if not analysis or analysis.get("status") != "complete":
+            return None
+        token = secrets.token_urlsafe(32)
+        digest = share_token_hash(token)
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE public.studio_creative_analysis_shares
+                   SET active = FALSE, revoked_at = NOW()
+                 WHERE analysis_id = %s AND active = TRUE AND revoked_at IS NULL
+                """,
+                (analysis["id"],),
+            )
+            cursor.execute(
+                """
+                INSERT INTO public.studio_creative_analysis_shares (
+                    analysis_id, token_hash, active, expires_at, created_by
+                ) VALUES (%s, %s, TRUE, %s, %s)
+                RETURNING id, expires_at, created_at
+                """,
+                (analysis["id"], digest, expires_at, user_id),
+            )
+            share = dict(cursor.fetchone())
+        self.connection.commit()
+        share["token"] = token
+        return share
+
+    def revoke_share(self, public_id, client_id):
+        analysis = self.get_analysis(public_id, client_id)
+        if not analysis:
+            return False
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE public.studio_creative_analysis_shares
+                   SET active = FALSE, revoked_at = NOW()
+                 WHERE analysis_id = %s AND active = TRUE AND revoked_at IS NULL
+                """,
+                (analysis["id"],),
+            )
+            changed = cursor.rowcount > 0
+        self.connection.commit()
+        return changed
+
+    def public_analysis(self, token):
+        digest = share_token_hash(token)
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT analysis.*
+                  FROM public.studio_creative_analysis_shares share
+                  JOIN public.studio_creative_analyses analysis ON analysis.id = share.analysis_id
+                 WHERE share.token_hash = %s
+                   AND share.active = TRUE
+                   AND share.revoked_at IS NULL
+                   AND (share.expires_at IS NULL OR share.expires_at > NOW())
+                   AND analysis.status = 'complete'
+                 LIMIT 1
+                """,
+                (digest,),
             )
             row = cursor.fetchone()
         return dict(row) if row else None

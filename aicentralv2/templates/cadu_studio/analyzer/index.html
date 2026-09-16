@@ -5,9 +5,10 @@
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-navigation.css') }}?v=5">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/creative-analyzer-studio.css') }}?v=1">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/creative-analyzer-share.css') }}?v=1">
 {% endblock %}
 {% block content %}
-<div class="studio-analyzer" id="creativeAnalyzer" data-mc-page="analyzer" data-history-url="{{ url_for('studio.creative_analyzer_history') }}" data-create-url="{{ url_for('studio.creative_analyzer_create') }}" data-detail-root="/studio/api/analyzer/analyses/" data-csrf="{{ analyzer_csrf }}"{% if analysis_id %} data-analysis-id="{{ analysis_id }}"{% endif %}>
+<div class="studio-analyzer" id="creativeAnalyzer" data-mc-page="analyzer" data-history-url="{{ url_for('studio.creative_analyzer_history') }}" data-create-url="{{ url_for('studio.creative_analyzer_create') }}" data-detail-root="/studio/api/analyzer/analyses/" data-share-suffix="/share" data-csrf="{{ analyzer_csrf }}"{% if analysis_id %} data-analysis-id="{{ analysis_id }}"{% endif %}>
   {% include "cadu_studio/_context_bar.html" %}
   <main class="analyzer-main">
     <section class="analyzer-intro" aria-labelledby="analyzerTitle">

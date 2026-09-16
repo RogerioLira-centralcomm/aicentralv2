@@ -256,7 +256,7 @@ def prepare(data, selected):
                            VALUES (%s, %s, 'user', %s, %s::jsonb, NOW())''',
                         (str(uuid4()), conversation_id, query, json.dumps([{'id': str(row['id']), 'name': row['name']} for row in uploads])))
             run = build_run(run_id, conversation_id, user, selected, chosen, profile,
-                            project_context, conversation, query, uploads, existing, history)
+                            project_context, conversation, query, uploads, existing, history, routing)
             run['routing'] = routing
             if current_app.config.get('CADU_CHAT_WORKER_ENABLED', False):
                 from .jobs import enqueue
@@ -270,11 +270,15 @@ def prepare(data, selected):
 
 
 def build_run(run_id, conversation_id, user, selected, chosen, profile,
-              project_context, conversation, query, uploads, existing, history):
+              project_context, conversation, query, uploads, existing, history, routing=None):
     """Build provider input before committing admission (and an optional job)."""
+    route_note = ''
+    if isinstance(routing, dict) and routing.get('solution') and routing.get('complexity'):
+        route_note = '\nRoteamento interno: solução=%s; complexidade=%s.' % (
+            routing['solution'], routing['complexity'])
     inputs = {'nome_usuario': user['name'], 'nome_cliente': selected['client_name'], 'profile': profile,
               'skill_id': chosen['id'], 'skill_context': chosen['prompt'] + '\nPerfil: ' + PROFILES[profile]
-              + '\nA especialização foi escolhida automaticamente pelo pedido do usuário.',
+              + '\nA especialização foi escolhida automaticamente pelo pedido do usuário.' + route_note,
               'files_context': '', 'projeto_context': project_context,
               'is_first_message': 'true' if not conversation['total_mensagens'] else 'false',
               'saudacao_permitida': 'sim' if query.lower().strip('!.? ') in ('oi', 'olá', 'bom dia', 'boa tarde', 'boa noite') and not conversation['total_mensagens'] else 'nao',

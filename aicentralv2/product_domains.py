@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from flask import current_app, make_response, redirect, render_template, request, send_file, url_for
+from flask import abort, current_app, make_response, redirect, render_template, request, send_file, url_for
 from flask.sessions import SecureCookieSessionInterface
 from werkzeug.routing import BuildError
 
@@ -132,6 +132,41 @@ def safe_product_target(value: str | None, fallback: str = "/") -> str:
 def register_product_host_routing(app) -> None:
     """Give each product domain a useful root while legacy paths remain valid."""
 
+    # Planner owns its subdomain, so its public navigation must not expose the
+    # internal Family mount point.  The Family blueprint remains the single
+    # implementation; these product-host aliases are deliberately thin.
+    def planner_host_only():
+        if (request.host.split(':', 1)[0] or '').lower() != _configured_host('PLANNER_URL'):
+            abort(404)
+
+    def planner_page(module=None):
+        planner_host_only()
+        return app.view_functions['cadu_family.page']('planner', module)
+
+    for planner_module in ('planos', 'audiencias', 'canais', 'formatos', 'interativos', 'places', 'docs', 'links'):
+        app.add_url_rule(f'/{planner_module}', endpoint=f'planner_host_{planner_module}',
+                         view_func=lambda module=planner_module: planner_page(module), methods=['GET'])
+
+    @app.get('/planos/<plan_id>')
+    def planner_host_plan_detail(plan_id):
+        planner_host_only()
+        return app.view_functions['cadu_family.planner_plan_media_desk'](plan_id)
+
+    @app.get('/audiencias/<int:audience_id>')
+    def planner_host_audience_detail(audience_id):
+        planner_host_only()
+        return app.view_functions['cadu_family.planner_audience_detail'](audience_id)
+
+    @app.get('/<kind>/<int:item_id>')
+    def planner_host_catalog_detail(kind, item_id):
+        planner_host_only()
+        return app.view_functions['cadu_family.planner_catalog_detail_page'](kind, item_id)
+
+    @app.get('/docs/public/<token>')
+    def planner_host_public_doc(token):
+        planner_host_only()
+        return app.view_functions['cadu_family.planner_doc_public'](token)
+
     @app.get("/cadu-assets/<family>/icon-<int:size>.png")
     def cadu_maintenance_product_icon(family: str, size: int):
         """Approved Cadu 3.0 symbols, exposed only for the public pause page."""
@@ -155,6 +190,18 @@ def register_product_host_routing(app) -> None:
     def route_product_root():
         host = (request.host.split(":", 1)[0] or "").lower()
         cadu_host = _configured_host("CADU_URL") or "cadu.centralcomm.media"
+
+        if request.method in {'GET', 'HEAD'} and host == _configured_host('PLANNER_URL'):
+            if request.path in {'/familia/planner', '/familia/planner/'}:
+                return redirect(product_url('planner', '/'), code=302)
+            if request.path.startswith('/familia/planner/'):
+                suffix = request.path.removeprefix('/familia/planner/')
+                target = product_url('planner', f'/{suffix}')
+                if request.query_string:
+                    target = f"{target}?{request.query_string.decode('utf-8')}"
+                return redirect(target, code=302)
+            if request.path == '/' and 'cadu_family.page' in app.view_functions:
+                return planner_page()
 
         # Product subdomains own their shells. Navigation published during the
         # Family pilot can still target /familia/<product>/ and sub-pages;

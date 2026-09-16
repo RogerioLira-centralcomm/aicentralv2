@@ -29,17 +29,14 @@
   <script defer src="{{ url_for('static', filename='js/cadu-copy-ads.js') }}"></script>
   {% endif %}
   {% if product == 'planner' and module in ('canais', 'formatos', 'audiencias', 'interativos', 'places') %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-story.css') }}?v=1">
+  {% if planner_view == 'page' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-story.css') }}?v=1">{% endif %}
   {% if module == 'audiencias' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-audience.css') }}?v=1">{% endif %}
-  {% if module in ('canais', 'formatos', 'interativos') %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-catalog-detail.css') }}?v=1">{% endif %}
-  <script defer src="{{ url_for('static', filename='cadu_planner/catalog.js') }}"></script>
+  {% if planner_view == 'catalog-detail' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-catalog-detail.css') }}?v=1">{% endif %}
+  {% if planner_view == 'page' %}<script defer src="{{ url_for('static', filename='cadu_planner/catalog.js') }}"></script>{% endif %}
   {% endif %}
   {% if product == 'planner' and module == 'planos' %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-plans.css') }}?v=1">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-plan-detail.css') }}?v=1">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-readiness.css') }}?v=1">
-  <script defer src="{{ url_for('static', filename='cadu_planner/plans.js') }}"></script>
-  <script defer src="{{ url_for('static', filename='cadu_planner/plan-detail.js') }}"></script>
+  {% if planner_view == 'plan-detail' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-plan-detail.css') }}?v=1"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-readiness.css') }}?v=1"><script defer src="{{ url_for('static', filename='cadu_planner/plan-detail.js') }}"></script>
+  {% else %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-plans.css') }}?v=1"><script defer src="{{ url_for('static', filename='cadu_planner/plans.js') }}"></script>{% endif %}
   {% endif %}
   {% if product == 'planner' and module == 'docs' %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-docs.css') }}">
@@ -51,7 +48,6 @@
   <script defer src="{{ url_for('static', filename='cadu_planner/link-tester.js') }}"></script>
   {% endif %}
   {% block product_head_scripts %}{% endblock %}
-  {% if product == 'planner' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-hero.css') }}?v=1">{% endif %}
   {% set cadu_theme_product = product %}{% include 'cadu/_theme_head.html' %}
 </head>
 <body data-product="{{ product }}" data-module="{{ module }}" data-authenticated="{{ 'true' if user else 'false' }}">
@@ -73,7 +69,7 @@
       {% endfor %}
     {% else %}<a href="{{ url_for('cadu_family.page', product=product, module='inicio') }}" aria-current="page">Visão geral</a>{% endif %}
   </nav>{% endif %}
-  {% if user %}<details class="family-context-menu"><summary><span><small>Contexto de trabalho</small><strong>Projeto ativo</strong></span><span aria-hidden="true">⌄</span></summary><form id="family-context" class="family-context">
+  {% if user and product != 'planner' %}<details class="family-context-menu"><summary><span><small>Contexto de trabalho</small><strong>Projeto ativo</strong></span><span aria-hidden="true">⌄</span></summary><form id="family-context" class="family-context">
     <label>Projeto<select name="project_ref" aria-label="Projeto"><option value="">Todos os projetos</option>{% for item in entities if item.kind == 'project' %}<option value="{{ item.ref }}" {% if session.get('family_context', {}).get('project_ref') == item.ref %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select></label>
     <p class="family-context-help">As marcas vinculadas são gerenciadas dentro de Projetos no Workspace.</p>
   </form></details>{% endif %}
@@ -89,13 +85,17 @@
 <div class="family-layout {{ 'family-layout--sidebar' if user and sidebar_product else '' }} {{ 'family-layout--planner' if planner_workspace else '' }}">
 {% if user and sidebar_product %}
   <button class="cadu-sidebar-mobile-toggle" type="button" data-cadu-sidebar-mobile-toggle aria-label="Abrir navegação"><span aria-hidden="true">☰</span><span>Abrir navegação</span></button><div class="cadu-sidebar-overlay" data-cadu-sidebar-overlay></div>
-  <aside class="family-modules" aria-label="Seções de {{ spec.name }}">
-    <div class="family-sidebar-product">{% set cadu_active_product = product %}{% include 'cadu/_product_switch.html' %}<button class="cadu-sidebar-toggle" type="button" data-cadu-sidebar-toggle aria-label="Recolher navegação" aria-expanded="true">‹</button><button class="cadu-sidebar-mobile-close" type="button" data-cadu-sidebar-mobile-close aria-label="Fechar navegação">×</button></div>
+  <aside class="family-modules {{ 'planner-workspace-nav' if product == 'planner' else '' }}" aria-label="Seções de {{ spec.name }}">
+    {% if product == 'planner' %}
+      {% include 'cadu_planner/family/_workspace_nav.html' %}
+    {% else %}
+      <div class="family-sidebar-product">{% set cadu_active_product = product %}{% include 'cadu/_product_switch.html' %}<button class="cadu-sidebar-toggle" type="button" data-cadu-sidebar-toggle aria-label="Recolher navegação" aria-expanded="true">‹</button><button class="cadu-sidebar-mobile-close" type="button" data-cadu-sidebar-mobile-close aria-label="Fechar navegação">×</button></div>
+    {% endif %}
     {% set planner_nav_icons = {'inicio': 'fa-compass', 'planos': 'fa-layer-group', 'audiencias': 'fa-users', 'canais': 'fa-bullhorn', 'formatos': 'fa-shapes', 'interativos': 'fa-wand-magic-sparkles', 'places': 'fa-location-dot', 'docs': 'fa-file-lines', 'links': 'fa-link'} %}
-    <nav>
+    <nav class="{{ 'planner-workspace-nav__planner' if product == 'planner' else '' }}">
       {% for group, keys in spec.navigation %}
       <div class="family-module-group"><b>{{ group }}</b>
-        {% for key in keys %}<a href="{{ url_for('cadu_family.page', product=product, module=key) }}" {% if product == 'planner' %}aria-label="{{ spec.modules[key][0] }}"{% endif %} {% if module == key %}aria-current="page"{% endif %}>{% if product == 'planner' %}<span class="planner-nav-icon" aria-hidden="true"><i class="fa-solid {{ planner_nav_icons.get(key, 'fa-circle') }}"></i></span><span class="planner-nav-text">{{ spec.modules[key][0] }}</span>{% else %}{{ spec.modules[key][0] }}{% endif %}</a>{% endfor %}
+        {% for key in keys %}{% set module_href = planner_url(key) if product == 'planner' else url_for('cadu_family.page', product=product, module=key) %}<a href="{{ module_href }}" {% if product == 'planner' %}aria-label="{{ spec.modules[key][0] }}"{% endif %} {% if module == key %}aria-current="page"{% endif %}>{% if product == 'planner' %}<span class="planner-nav-icon" aria-hidden="true"><i class="fa-solid {{ planner_nav_icons.get(key, 'fa-circle') }}"></i></span><span class="planner-nav-text">{{ spec.modules[key][0] }}</span>{% else %}{{ spec.modules[key][0] }}{% endif %}</a>{% endfor %}
       </div>
       {% endfor %}
     </nav>

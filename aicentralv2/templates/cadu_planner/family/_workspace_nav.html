@@ -1,0 +1,16 @@
+<div class="planner-workspace-nav__top">
+  <a class="planner-workspace-nav__brand" href="{{ product_url('workspace', '/workspace/app') }}" aria-label="Cadu Workspace" title="Abrir Workspace">
+    <img src="{{ url_for('static', filename='images/cadu/products/cadu-icon.png') }}" alt="">
+    <span>Cadu</span><small>Workspace</small>
+  </a>
+  <button class="cadu-sidebar-toggle" type="button" data-cadu-sidebar-toggle aria-label="Recolher navegação" aria-expanded="true">‹</button>
+  <button class="cadu-sidebar-mobile-close" type="button" data-cadu-sidebar-mobile-close aria-label="Fechar navegação">×</button>
+</div>
+<p class="planner-workspace-nav__label">Seu espaço de trabalho</p>
+<nav class="planner-workspace-nav__workspace" aria-label="Workspace">
+  <a href="{{ product_url('workspace', '/workspace/app') }}"><span class="planner-nav-icon" aria-hidden="true"><i class="fa-solid fa-house"></i></span><span>Visão geral</span></a>
+  <a href="{{ product_url('workspace', '/workspace/app/conversas') }}"><span class="planner-nav-icon" aria-hidden="true"><i class="fa-solid fa-comment-dots"></i></span><span>Conversas</span></a>
+  <a href="{{ product_url('workspace', '/workspace/app/integracoes') }}"><span class="planner-nav-icon" aria-hidden="true"><i class="fa-solid fa-plug"></i></span><span>Integrações</span></a>
+  <a href="{{ product_url('workspace', '/workspace/minhas-skills') }}"><span class="planner-nav-icon" aria-hidden="true"><i class="fa-solid fa-wand-magic-sparkles"></i></span><span>Skills personalizadas</span></a>
+</nav>
+<p class="planner-workspace-nav__label planner-workspace-nav__label--planner">Smart Planner</p>

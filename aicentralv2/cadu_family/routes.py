@@ -17,6 +17,13 @@ from ..cadu_workspace.conversations.jobs import worker_command
 bp.cli.add_command(worker_command)
 
 
+def planner_url(path='', **query):
+    """Build clean, product-owned Planner URLs for templates and shares."""
+    target = product_url('planner', '/' + str(path or '').lstrip('/'))
+    values = {key: value for key, value in query.items() if value not in (None, '')}
+    return f"{target}?{urlencode(values)}" if values else target
+
+
 @bp.after_request
 def private_response(response):
     response.headers['Cache-Control'] = 'no-store'
@@ -415,9 +422,9 @@ def planner_audience_detail(audience_id):
     return render_template('cadu_planner/family/audience_detail_page.html',
         product='planner', spec=PRODUCTS['planner'], module='audiencias', title=audience['name'],
         products=PRODUCTS, landing=LANDINGS['planner'], user=user, selected=selected,
-        clients=context.authorized_clients(), entities=context.inventory(selected['client_id']), records=[],
-        audience=audience, profile=PROFILES['planner'], csrf=token, legacy_url=None,
-        login_url=login_url(), product_url=product_url)
+        clients=context.authorized_clients(), entities=[], records=[],
+        audience=audience, profile=PROFILES['planner'], csrf=token, legacy_url=None, planner_view='audience-detail',
+        login_url=login_url(), product_url=product_url, planner_url=planner_url)
 
 
 @bp.get('/planner/planos/<plan_id>')
@@ -432,12 +439,12 @@ def planner_plan_media_desk(plan_id):
     return render_template('cadu_planner/family/plan_detail_page.html',
         product='planner', spec=PRODUCTS['planner'], module='planos', title=plan['title'],
         products=PRODUCTS, landing=LANDINGS['planner'], user=user, selected=selected,
-        clients=context.authorized_clients(), entities=context.inventory(selected['client_id']), records=[],
-        plan=plan, profile=PROFILES['planner'], csrf=token,
+        clients=context.authorized_clients(), entities=[], records=[],
+        plan=plan, profile=PROFILES['planner'], csrf=token, planner_view='plan-detail',
         legacy_planner_url=product_url('centralx', '/smart-planner/'),
         studio_creation_url=product_url('studio', '/studio/modelagem-criativos'),
         legacy_url=None,
-        login_url=login_url(), product_url=product_url)
+        login_url=login_url(), product_url=product_url, planner_url=planner_url)
 
 
 @bp.get('/planner/<kind>/<int:item_id>')
@@ -455,9 +462,9 @@ def planner_catalog_detail_page(kind, item_id):
     return render_template('cadu_planner/family/catalog_detail_page.html',
         product='planner', spec=PRODUCTS['planner'], module=kind, title=record['name'],
         products=PRODUCTS, landing=LANDINGS['planner'], user=user, selected=selected,
-        clients=context.authorized_clients(), entities=context.inventory(selected['client_id']), records=[],
-        record=record, kind_label=labels[kind], profile=PROFILES['planner'], csrf=token,
-        legacy_url=None, login_url=login_url(), product_url=product_url)
+        clients=context.authorized_clients(), entities=[], records=[],
+        record=record, kind_label=labels[kind], profile=PROFILES['planner'], csrf=token, planner_view='catalog-detail',
+        legacy_url=None, login_url=login_url(), product_url=product_url, planner_url=planner_url)
 
 
 @bp.post('/api/planner/docs/<int:doc_id>/export')
@@ -675,7 +682,10 @@ def page(product, module=None):
         user = context.identity()
         selected = context.resolve()
         clients = context.authorized_clients()
-        entities = context.inventory(selected['client_id'])
+        # Planner no longer works with a selectable project/brand context.
+        # Avoid loading those legacy records on every Planner request.
+        if product != 'planner':
+            entities = context.inventory(selected['client_id'])
         if product == 'workspace' and module in ADMIN_MODULES:
             context.require_admin()
         records = product_pages.load_records(product, module, user, selected, request.args.get('q', ''))
@@ -689,4 +699,5 @@ def page(product, module=None):
     return render_template(template, product=product, spec=spec, module=module,
         title=title, products=PRODUCTS, landing=LANDINGS[product], user=user, selected=selected, clients=clients,
         entities=entities, records=records, profile=PROFILES.get(product), csrf=token,
-        legacy_url=legacy_url, login_url=login_url(), product_url=product_url)
+        legacy_url=legacy_url, login_url=login_url(), product_url=product_url, planner_url=planner_url,
+        planner_view='page')

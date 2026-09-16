@@ -71,7 +71,7 @@
       const data = await request('/' + current.id + '/share', {method: 'POST', body: JSON.stringify({enabled: !current.share_enabled})});
       current = data.document;
       if (current.share_enabled && current.share_token) {
-        const url = new URL('/familia/planner/docs/public/' + encodeURIComponent(current.share_token), window.location.origin).href;
+        const url = new URL('/docs/public/' + encodeURIComponent(current.share_token), window.location.origin).href;
         try { await navigator.clipboard?.writeText(url); meta.textContent = 'Link publicado e copiado para a área de transferência.'; }
         catch (_) { meta.textContent = 'Link publicado; a cópia automática não está disponível neste navegador.'; }
       } else meta.textContent = 'Compartilhamento desativado.';

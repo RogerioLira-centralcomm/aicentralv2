@@ -8,8 +8,15 @@
     if (dialog.returnValue !== 'create') return;
     const form = dialog.querySelector('form');
     if (!form.reportValidity()) return;
-    const response = await fetch('/familia/api/planner/plans', {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf}, body: JSON.stringify(Object.fromEntries(new FormData(form)))});
-    if (!response.ok) return;
-    window.location.reload();
+    const status = dialog.querySelector('[data-plan-create-status]');
+    const fields = Object.fromEntries(new FormData(form));
+    const payload = {title: fields.title, objective: fields.objective, briefing: {budget: fields.budget, period: fields.period, geography: fields.geography, kpis: fields.kpis, notes: fields.notes}};
+    status.textContent = 'Criando plano…';
+    try {
+      const response = await fetch('/familia/api/planner/plans', {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf}, body: JSON.stringify(payload)});
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Não foi possível criar o plano.');
+      window.location.assign('/planos/' + encodeURIComponent(data.plan.id));
+    } catch (error) { status.textContent = error.message; dialog.showModal(); }
   });
 })();

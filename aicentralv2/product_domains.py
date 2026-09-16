@@ -114,6 +114,32 @@ def register_product_host_routing(app) -> None:
         host = (request.host.split(":", 1)[0] or "").lower()
         cadu_host = _configured_host("CADU_URL") or "cadu.centralcomm.media"
 
+        # Product subdomains own their shells. Navigation published during the
+        # Family pilot can still target /familia/<product>/ and sub-pages;
+        # resolve every such legacy entry before the gated blueprint can 404.
+        legacy_product_entries = {
+            "CONNECT_URL": ("/familia/connect", "connect", "/connect/"),
+            "STUDIO_URL": ("/familia/studio", "studio", "/parametros/modelagem-criativos"),
+            "SKILLS_URL": ("/familia/skills", "skills", "/skills/"),
+            "WORKSPACE_URL": ("/familia/workspace", "workspace", "/workspace/"),
+        }
+        legacy_entry = legacy_product_entries.get(next(
+            (key for key in legacy_product_entries if host == _configured_host(key)),
+            None,
+        ))
+        if (
+            request.method in {"GET", "HEAD"}
+            and legacy_entry
+            and (
+                request.path.rstrip("/") == legacy_entry[0]
+                or request.path.startswith(f"{legacy_entry[0]}/")
+            )
+        ):
+            target = product_url(legacy_entry[1], legacy_entry[2])
+            if request.query_string:
+                target = f"{target}?{request.query_string.decode('utf-8')}"
+            return redirect(target, code=302)
+
         # O domínio do Cadu passa à experiência 3.0: links antigos são contidos
         # aqui, sem envolver CentralX nem o aplicativo PHP desativado.
         release_at = datetime(2026, 10, 14, tzinfo=ZoneInfo("America/Sao_Paulo"))

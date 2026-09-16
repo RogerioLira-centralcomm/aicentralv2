@@ -241,7 +241,7 @@ def modelagem_criativos():
     if redirected:
         return redirected
     return render_template(
-        "cadu_studio/home.html" if _studio_client_scope() else "parametros/modelagem_criativos.html",
+        "cadu_studio/home.html",
         mc_page="hub",
         mc_title="A peça na mesa",
     )
@@ -277,13 +277,11 @@ def modelagem_desk(page):
     if page == "camadas" and current_app.config.get("CAMADAS_V2_ENABLED"):
         panel = "parametros/_mc_camadas_v2.html"
         page_js = "js/camadas/index.js"
-    # Trocr is a product surface, not an embedded CentralX desk.  Keep the
-    # internal routes available for the legacy desks, but never put the image
-    # editor inside the ERP shell (which brings its own navigation, spacing and
-    # global controls into the workspace).
+    # Creative Modeling is a Studio product surface. Every desk uses the same
+    # standalone frame, so its navigation and work area never inherit CentralX.
     template = (
         "cadu_studio/trocr.html" if page == "trocar"
-        else ("cadu_studio/desk.html" if _studio_client_scope() else "parametros/modelagem_desk.html")
+        else "cadu_studio/desk.html"
     )
     return render_template(
         template,

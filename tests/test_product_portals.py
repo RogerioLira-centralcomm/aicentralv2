@@ -70,6 +70,42 @@ class ProductPortalsTest(TestCase):
                 self.assertEqual(response.status_code, 302)
                 self.assertEqual(response.headers["Location"], path)
 
+    def test_connect_legacy_family_entry_reaches_the_connect_product(self):
+        client = _app().test_client()
+        response = client.get(
+            "/familia/connect/?project_id=12",
+            headers={"Host": "connect.centralcomm.media"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response.headers["Location"],
+            "https://connect.centralcomm.media/connect/?project_id=12",
+        )
+
+    def test_studio_legacy_family_entry_reaches_media_studio(self):
+        client = _app().test_client()
+        response = client.get(
+            "/familia/studio/?client=174",
+            headers={"Host": "studio.centralcomm.media"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response.headers["Location"],
+            "https://studio.centralcomm.media/parametros/modelagem-criativos?client=174",
+        )
+
+    def test_workspace_and_skills_legacy_family_entries_reach_their_products(self):
+        client = _app().test_client()
+        cases = (
+            ("workspace.centralcomm.media", "/familia/workspace/", "https://workspace.centralcomm.media/workspace/"),
+            ("skills.centralcomm.media", "/familia/skills/minhas-skills", "https://skills.centralcomm.media/skills/"),
+        )
+        for host, path, location in cases:
+            with self.subTest(host=host, path=path):
+                response = client.get(path, headers={"Host": host})
+                self.assertEqual(response.status_code, 302)
+                self.assertEqual(response.headers["Location"], location)
+
     def test_login_stays_on_the_product_domain(self):
         client = _app().test_client()
         response = client.get(

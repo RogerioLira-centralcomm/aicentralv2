@@ -5,7 +5,7 @@
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=127">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/trocr-editor.css') }}?v=6">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/trocr-standalone.css') }}?v=1">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/trocr-standalone.css') }}?v=2">
 {% endblock %}
 {% block content %}
 <div class="trocr-product" id="mcApp" data-mc-page="trocar">
@@ -17,8 +17,7 @@
       <a href="{{ url_for('parametros.modelagem_criativos') }}">Visão geral</a>
       <a class="is-current" aria-current="page" href="{{ url_for('parametros.modelagem_trocar') }}">Editar imagem</a>
       <a href="{{ url_for('parametros.modelagem_video') }}">Criar vídeo</a>
-      <a href="{{ product_url('workspace', '/familia/workspace/projetos') }}">Projetos</a>
-      <a href="{{ product_url('workspace', '/familia/workspace/marcas') }}">Marcas</a>
+      <details class="trocr-product-menu mc-cadu-menu"><summary>Ferramentas</summary><div class="trocr-product-menu-list"><a href="{{ url_for('parametros.modelagem_camadas') }}">Camadas</a><a href="{{ url_for('parametros.modelagem_biblioteca') }}">Biblioteca</a><a href="{{ url_for('parametros.modelagem_design_system') }}">Design System</a><a href="{{ url_for('parametros.modelagem_historico') }}">Histórico</a></div></details>
     </nav>
     <label class="trocr-product-brand">
       <span>Marca ativa</span>

@@ -20,7 +20,7 @@ from flask import Blueprint, Response, abort, current_app, g, jsonify, redirect,
 from ..auth import login_required
 from ..cadu_family import repository as family_repository
 from ..cadu_connect.repository import accounts_for_workspace_context
-from ..cadu_skills.repository import credit_position, list_customizations
+from ..cadu_skills.repository import charge_project_rag, credit_position, list_customizations
 from ..db import get_db
 from ..product_domains import product_url
 from ..smart_planner.logos import public_logo
@@ -906,6 +906,10 @@ def _persist_project_source(client_id: int, project_id: str, title: str, content
     connection = get_db()
     try:
         with connection.cursor() as cursor:
+            charge_project_rag(
+                cursor, client_id=client_id, user_id=int(session.get('user_id') or 0), project_id=project_id,
+                tokens=tokens, stage='indexacao', idempotency_key='workspace-rag-index:' + uuid4().hex,
+            )
             cursor.execute(
                 """INSERT INTO cadu_ci_projeto_arquivos
                        (projeto_id, id_cliente, criado_por, nome_arquivo, mime, tamanho,
@@ -1487,8 +1491,15 @@ def reprocess_project_source(project_id, source_id):
             abort(409, description='Esta fonte continua sob gestão do sistema anterior.')
         content = extracted['text']
         source_chunks = project_sources.chunks(content)
+        if not source_chunks:
+            abort(400, description='A fonte não contém texto indexável.')
         connection = get_db()
         with connection.cursor() as cursor:
+            charge_project_rag(
+                cursor, client_id=client_id, user_id=int(session.get('user_id') or 0), project_id=project_id,
+                tokens=max(1, round(len(content) / 4)), stage='reindexacao',
+                idempotency_key='workspace-rag-reindex:' + uuid4().hex,
+            )
             cursor.execute(
                 'DELETE FROM cadu_ci_chunks WHERE arquivo_id = %s AND projeto_id = %s AND id_cliente = %s',
                 (source_id, project_id, client_id),

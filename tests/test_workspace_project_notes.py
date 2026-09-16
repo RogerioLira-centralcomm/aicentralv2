@@ -20,8 +20,9 @@ class WorkspaceProjectNotesTest(TestCase):
         self.assertTrue(all(len(chunk) <= 120 for chunk in chunks))
 
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_project', return_value={'id': 'p-1'})
+    @mock.patch('aicentralv2.cadu_workspace.routes.charge_project_rag')
     @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
-    def test_note_is_stored_as_completed_source_and_searchable_chunks(self, get_db, _project):
+    def test_note_is_stored_as_completed_source_and_searchable_chunks(self, get_db, charged, _project):
         connection = mock.MagicMock()
         cursor = connection.cursor.return_value.__enter__.return_value
         cursor.fetchone.return_value = {'id': 91}
@@ -42,6 +43,7 @@ class WorkspaceProjectNotesTest(TestCase):
         self.assertIn('INSERT INTO cadu_ci_projeto_arquivos', sql)
         self.assertIn('INSERT INTO cadu_ci_chunks', sql)
         self.assertIn('UPDATE cadu_ci_projetos', sql)
+        charged.assert_called_once()
         connection.commit.assert_called_once_with()
         connection.rollback.assert_not_called()
 

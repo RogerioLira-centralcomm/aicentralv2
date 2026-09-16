@@ -361,6 +361,53 @@ def credit_position(client_id: int) -> dict:
         return {"available": 0, "monthly": 0, "configured": False}
 
 
+def charge_project_rag(cursor, *, client_id: int, user_id: int, project_id: str,
+                       tokens: int, stage: str, idempotency_key: str) -> int:
+    """Debit the client's Cadu credit lots inside the caller transaction.
+
+    Workspace source ingestion is local PostgreSQL RAG work, not a Dify tool.
+    Locking the lots with the source/chunk inserts makes insufficient balance
+    fail before a project gains searchable material, and a later error rolls
+    the debit back with the indexing transaction.
+    """
+    tokens = max(1, int(tokens or 0))
+    if not idempotency_key or len(idempotency_key) > 160:
+        raise ValueError('Identificador inválido para cobrança de RAG.')
+    cursor.execute(
+        '''SELECT id, tokens_amount, tokens_used
+             FROM cadu_credits_extras
+            WHERE id_cliente = %s AND status = 'active'
+              AND (expires_at IS NULL OR expires_at > NOW())
+              AND tokens_used < tokens_amount
+         ORDER BY COALESCE(expires_at, 'infinity'::timestamptz), purchased_at, id FOR UPDATE''',
+        (client_id,),
+    )
+    lots = [dict(row) for row in cursor.fetchall()]
+    available = sum(max(0, int(row.get('tokens_amount') or 0) - int(row.get('tokens_used') or 0)) for row in lots)
+    if available < tokens:
+        raise ValueError('Saldo Cadu insuficiente para indexar esta fonte no projeto.')
+    remaining = tokens
+    for lot in lots:
+        spend = min(remaining, max(0, int(lot.get('tokens_amount') or 0) - int(lot.get('tokens_used') or 0)))
+        if not spend:
+            continue
+        cursor.execute('''UPDATE cadu_credits_extras SET tokens_used = tokens_used + %s
+                           WHERE id = %s AND id_cliente = %s''', (spend, lot['id'], client_id))
+        remaining -= spend
+        if not remaining:
+            break
+    cursor.execute(
+        '''INSERT INTO cadu_tools_token_usage
+               (idempotency_key, id_cliente, id_contato_cliente, ferramenta, etapa, modelo,
+                tokens_entrada, tokens_saida, total_tokens, tokens_cobrados, metadata, status, charged_at)
+           VALUES (%s, %s, %s, 'workspace_rag', %s, 'postgres-text', %s, 0, %s, %s,
+                   %s::jsonb, 'charged', NOW())''',
+        (idempotency_key, client_id, user_id, stage, tokens, tokens,
+         json.dumps({'projeto_id': str(project_id), 'rag': 'postgresql'})),
+    )
+    return tokens
+
+
 def reserve_run(skill: dict, *, client_id: int, user_id: int, prompt: str, customization_id=None) -> dict:
     """Reserva créditos e cria o run na mesma transação."""
     conn = _db()

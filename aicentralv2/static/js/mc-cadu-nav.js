@@ -1,6 +1,7 @@
 (function () {
   const bar = document.getElementById("mcCaduBar");
   if (!bar) return;
+  const apiRoot = String(bar.dataset.mcApiRoot || "/parametros/api").replace(/\/$/, "");
 
   const Desk = window.McDeskBrand || {
     read() { return ""; },
@@ -63,8 +64,7 @@
     select.disabled = true;
     let clients = [];
     try {
-      // O Studio contratado opera exclusivamente sobre o perfil 174.
-      const payload = await get("/parametros/api/clients?client_id=174");
+      const payload = await get(`${apiRoot}/clients`);
       clients = Array.isArray(payload) ? payload : (payload?.items || payload?.clients || []);
     } catch (_error) {
       if (requestId !== contextRequest) return;
@@ -102,7 +102,7 @@
     if (!clientId) return;
     const query = `?client_id=${encodeURIComponent(clientId)}`;
     try {
-      const data = await get(`/parametros/api/image-credits${query}`);
+      const data = await get(`${apiRoot}/image-credits${query}`);
       if (requestId !== creditsRequest || select.value !== clientId) return;
       const hasBalance = data?.remaining != null;
       const hasUsage = data?.monthly != null && data?.used != null;

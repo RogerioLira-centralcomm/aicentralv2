@@ -4,38 +4,19 @@
 {% block navigation %}{% endblock %}
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/modelagem_criativos.css') }}?v=127">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-navigation.css') }}?v=5">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/trocr-editor.css') }}?v=6">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/trocr-standalone.css') }}?v=4">
 {% endblock %}
 {% block content %}
 <div class="trocr-product" id="mcApp" data-mc-page="trocar">
-  <header class="trocr-product-bar" id="mcCaduBar">
-    <div class="trocr-product-identity">
-      {% set cadu_active_product = 'studio' %}{% include 'cadu/_product_switch.html' %}
-      <span class="trocr-product-divider" aria-hidden="true"></span>
-      <a class="trocr-product-mark" href="{{ studio_url('modelagem_criativos') }}" aria-label="Cadu Studio">
-        <span aria-hidden="true">S</span><strong>Trocr</strong><small>Cadu Studio</small>
-      </a>
-    </div>
-    <nav aria-label="Ferramentas do Cadu Studio">
-      <a href="{{ studio_url('modelagem_criativos') }}">Visão geral</a>
-      <a class="is-current" aria-current="page" href="{{ studio_url('modelagem_trocar') }}">Editar imagem</a>
-      <a href="{{ studio_url('modelagem_video') }}">Criar vídeo</a>
-      <details class="trocr-product-menu mc-cadu-menu"><summary>Ferramentas</summary><div class="trocr-product-menu-list"><a href="{{ studio_url('modelagem_camadas') }}">Camadas</a><a href="{{ studio_url('modelagem_biblioteca') }}">Biblioteca</a><a href="{{ studio_url('modelagem_design-system') }}">Design System</a><a href="{{ studio_url('modelagem_historico') }}">Histórico</a></div></details>
-    </nav>
-    <label class="trocr-product-brand">
-      <span>Marca ativa</span>
-      <select id="mcCaduBarClient" aria-label="Marca desta sessão"><option value="">Carregando marca…</option></select>
-    </label>
-    <p class="trocr-product-credits" id="mcCaduCredits" hidden></p>
-  </header>
-  <div id="mcPageAlert" class="trocr-product-alert hidden" role="alert"></div>
+  {% include "cadu_studio/_context_bar.html" %}
   <section class="trocr-product-workspace" data-panel="trocar">{% include panel %}</section>
 </div>
 {% endblock %}
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script>
-<script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=3" defer></script>
+<script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=5" defer></script>
 <script src="{{ url_for('static', filename='js/mc-viewer-shell.js') }}?v=1" defer></script>
 <script src="{{ url_for('static', filename='js/trocr/editor.js') }}?v=1" defer></script>
 <script src="{{ url_for('static', filename='js/mc-trocar.js') }}?v=85" defer></script>

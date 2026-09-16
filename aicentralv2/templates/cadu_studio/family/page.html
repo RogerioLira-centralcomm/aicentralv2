@@ -1,4 +1,5 @@
 {% extends 'cadu_family/page.html' %}
+{% block product_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-family.css') }}?v=1">{% endblock %}
 {% block product_content %}
 {% if module == 'inicio' %}{% include 'cadu_studio/family/home.html' %}
 {% elif not user %}{% include 'cadu_family/guest.html' %}

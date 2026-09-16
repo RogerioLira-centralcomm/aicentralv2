@@ -172,15 +172,6 @@ def invoices(organization_id):
                 ORDER BY created_at DESC LIMIT 100''', (organization_id,))
 
 
-def quotes(client_id):
-    # Deliberately excludes notes, commissions, costs and public access tokens.
-    return rows('''SELECT id, numero_cotacao AS number, nome_campanha AS name,
-                         objetivo_campanha AS objective, status, periodo_inicio,
-                         periodo_fim, budget_estimado AS budget, valor_total_proposta AS total
-                    FROM cadu_cotacoes WHERE client_id = %s AND deleted_at IS NULL
-                ORDER BY updated_at DESC LIMIT 100''', (client_id,))
-
-
 def integrations(organization_id):
     return rows('''SELECT platform AS platform, platform_account_name AS account, status, last_sync_at
                     FROM cadu_integrations WHERE client_id = %s

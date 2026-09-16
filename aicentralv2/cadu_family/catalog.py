@@ -15,14 +15,13 @@ PRODUCTS = {
     }},
     'planner': {'name': 'SmartPlanner', 'navigation': (
         ('Planejar', ('inicio', 'planos', 'audiencias', 'canais', 'formatos', 'interativos', 'places')),
-        ('Entregas', ('docs', 'cotacoes')),
+        ('Entregas', ('docs',)),
     ), 'modules': {
         'inicio': ('Visão geral', None),
         'planos': ('Planos de mídia', None), 'audiencias': ('Audiências', '/audiencias'),
         'canais': ('Canais', '/canais'), 'formatos': ('Formatos', '/formatos'),
         'interativos': ('Interativos', '/interativos'), 'docs': ('Docs', '/smart-docs'),
         'places': ('Places', '/places'),
-        'cotacoes': ('Cotações', '/cotacoes'),
     }},
     'studio': {'name': 'Studio', 'navigation': (
         ('Produção', ('inicio', 'criacao')),
@@ -51,12 +50,11 @@ LANDINGS = {
         'title': 'Seu próximo plano começa aqui',
         'intro': 'Objetivos, públicos e entregáveis em linguagem de cliente.',
         'heading': 'Planejar antes de produzir',
-        'body': 'Organize objetivos, investimento e referências. Cotações têm uma área própria e não dependem de um catálogo.',
+        'body': 'Organize objetivos, investimento e referências para transformar estratégia em um plano claro.',
         'image': 'planner.png',
         'links': [('planos', 'Planos de mídia', 'Acompanhe a integração da experiência de planejamento.'),
                   ('audiencias', 'Explorar audiências', 'Consulte referências para o seu planejamento.'),
-                  ('places', 'Explorar Places', 'Veja produtos, pontos e alcance dos lugares publicados.'),
-                  ('cotacoes', 'Consultar cotações', 'Acesse as cotações do cliente selecionado.')],
+                  ('places', 'Explorar Places', 'Veja produtos, pontos e alcance dos lugares publicados.')],
     },
     'studio': {
         'title': 'Sua mesa de produção',

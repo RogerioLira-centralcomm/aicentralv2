@@ -4,8 +4,12 @@
   const grid = document.getElementById('analyzerGrid');
   const status = document.getElementById('analyzerStatus');
   const more = document.getElementById('analyzerMore');
+  const form = document.getElementById('analyzerUpload');
+  const file = document.getElementById('analyzerFile');
+  const result = document.getElementById('analyzerResult');
   let nextOffset = 0;
-  let loading = false;
+  let historyLoading = false;
+  let uploadLoading = false;
 
   const element = (name, className, text) => {
     const node = document.createElement(name);
@@ -37,9 +41,48 @@
     return link;
   }
 
+  const value = (object, path, fallback = '—') => {
+    let current = object;
+    for (const key of path.split('.')) current = current && current[key];
+    return current === null || current === undefined || current === '' ? fallback : current;
+  };
+
+  function renderResult(analysis) {
+    const report = analysis.result_json || {};
+    result.replaceChildren();
+    const head = element('header');
+    const title = element('div');
+    title.append(element('p', 'analyzer-section-note', 'Resultado da análise'), element('h2', '', analysis.original_name || 'Criativo'));
+    head.append(title, element('strong', 'analyzer-result-score', String(value(report, 'score.geral', 0))));
+    result.appendChild(head);
+    const areas = element('div', 'analyzer-result-areas');
+    const specs = [
+      ['Visão geral', value(report, 'score.explanations.geral', 'Diagnóstico concluído.'), `Clareza ${value(report, 'score.clareza', 0)} / Impacto ${value(report, 'score.impacto_visual', 0)}`],
+      ['Atenção e visual', value(report, 'attention_analysis.visual_hierarchy.first_fixation', 'Fixação não identificada'), `Atenção ${value(report, 'attention_analysis.attention_score', 0)} / Hook ${value(report, 'attention_analysis.hook_score', 0)}`],
+      ['Mensagem e público', value(report, 'message.value_proposition', 'Proposta não identificada'), value(report, 'audience.life_moment', 'Público em revisão')],
+      ['Canais e ação', value(report, 'performance_prediction.best_channel', 'Canal não definido'), `${(report.recommendations || []).length} recomendações`],
+    ];
+    specs.forEach(([heading, body, meta]) => {
+      const area = element('article');
+      area.append(element('h3', '', heading), element('p', '', String(body)), element('small', '', String(meta)));
+      areas.appendChild(area);
+    });
+    result.appendChild(areas);
+    result.hidden = false;
+    result.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  }
+
+  async function loadDetail(id) {
+    status.textContent = 'Carregando resultado…';
+    const response = await fetch(root.dataset.detailRoot + encodeURIComponent(id), { headers: { Accept: 'application/json' } });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || 'Não foi possível abrir a análise.');
+    renderResult(payload.analysis);
+  }
+
   async function load(reset = false) {
-    if (loading) return;
-    loading = true;
+    if (historyLoading) return;
+    historyLoading = true;
     more.disabled = true;
     if (reset) {
       nextOffset = 0;
@@ -62,12 +105,41 @@
       status.textContent = error.message || 'Não foi possível carregar as análises.';
       more.hidden = true;
     } finally {
-      loading = false;
+      historyLoading = false;
       more.disabled = false;
     }
   }
 
   more.addEventListener('click', () => load(false));
   document.addEventListener('cadu:brand-change', () => load(true));
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!file.files.length || uploadLoading) return;
+    uploadLoading = true;
+    const button = form.querySelector('button[type="submit"]');
+    button.disabled = true;
+    button.textContent = 'Analisando…';
+    status.hidden = false;
+    status.textContent = 'Lendo textos, composição e atenção. Isso pode levar alguns minutos.';
+    try {
+      const response = await fetch(root.dataset.createUrl, {
+        method: 'POST', body: new FormData(form),
+        headers: { Accept: 'application/json', 'X-Trocr-CSRF-Token': root.dataset.csrf },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Não foi possível analisar a imagem.');
+      renderResult(payload.analysis);
+      history.replaceState({}, '', `/analyzer/${payload.analysis.public_id}`);
+      form.reset();
+      load(true);
+    } catch (error) {
+      status.textContent = error.message || 'Não foi possível analisar a imagem.';
+    } finally {
+      uploadLoading = false;
+      button.disabled = false;
+      button.textContent = 'Analisar imagem';
+    }
+  });
   load(true);
+  if (root.dataset.analysisId) loadDetail(root.dataset.analysisId).catch(error => { status.textContent = error.message; });
 })();

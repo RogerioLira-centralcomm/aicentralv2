@@ -1,6 +1,6 @@
 # Creative Analyzer no Studio — mapa e execução em fases
 
-Estado: Fase 0 concluída em 16/09/2026. Este documento é o contrato de migração; nenhuma análise, mídia ou URL legada será apagada ou substituída.
+Estado em 16/09/2026: Fases 0 e 1 concluídas; pipeline de imagem da Fase 2 implementado, com smoke test externo pendente de uma mídia autorizada. Nenhuma análise, mídia ou URL legada foi apagada ou substituída.
 
 ## Resultado esperado
 
@@ -155,6 +155,8 @@ Critério de saída: este documento versionado, sem alterações destrutivas.
 
 Critério de saída: usuário vê análises antigas no Studio e abre o link antigo correto; ainda não há processamento novo exposto.
 
+Execução: concluída. A rota `/analyzer`, o item de navegação, o histórico unificado e a migration aditiva foram entregues. O banco real confirmou 59 análises legadas da marca 174, cinco delas em vídeo, todas com UUID e prévia. A primeira página do adaptador foi validada em leitura com 24 itens e URLs antigas preservadas.
+
 ### Fase 2 — pipeline de imagem
 
 - upload e persistência no armazenamento do Studio;
@@ -166,6 +168,8 @@ Critério de saída: usuário vê análises antigas no Studio e abre o link anti
 - testes com fixtures reais e falhas simuladas.
 
 Critério de saída: imagem atravessa upload, processamento, banco e relatório sem PHP/CentralX.
+
+Execução: backend e frontend implementados. O upload valida os pixels, limita tamanho e dimensões, grava fonte/thumbnail no storage privado do Studio, executa extração e diagnóstico em duas passagens, normaliza o resultado e registra execução/erros. A tela possui envio com CSRF e um relatório privado inicial nas quatro áreas. Testes locais cobrem storage, normalização, serviço, autenticação e CSRF. O smoke test com provedor externo não foi executado porque exigiria enviar uma mídia local sem autorização específica; ele permanece como critério antes de considerar a fase integralmente validada em produção.
 
 ### Fase 3 — pipeline de vídeo com quatro frames
 
@@ -238,4 +242,3 @@ Critério de saída: Studio assume novas análises com rollback simples e sem pe
 - `database/sql/criar_tabela_analises_criativos.sql` e alterações v2/v3 confirmam o histórico e métricas.
 - `includes/creative-analyzer-helpers.php` confirma a resolução autenticada por UUID/ID.
 - `creative-analyzer-publico.php` confirma os formatos de links públicos antigos.
-

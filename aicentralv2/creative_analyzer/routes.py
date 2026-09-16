@@ -2,14 +2,18 @@
 
 from urllib.parse import urlparse
 
-from flask import abort, current_app, jsonify, render_template, request, session
+from flask import abort, current_app, jsonify, render_template, request, send_file, session
 
 from ..creative_modeling_routes import (
     STUDIO_CLIENT_ID,
     studio_or_admin_required,
     studio_or_admin_required_api,
 )
+from ..creative_format_lab.swap_csrf import get_or_create_token, trocr_csrf_required
+from ..services.openrouter_service import OpenRouterError
 from .repository import AnalyzerRepository
+from .service import AnalyzerService
+from .storage import AnalyzerStorage
 
 
 def _repository():
@@ -40,6 +44,7 @@ def analyzer_page(public_id=None):
         "cadu_studio/analyzer/index.html",
         mc_page="analyzer",
         analysis_id=public_id,
+        analyzer_csrf=get_or_create_token(),
     )
 
 
@@ -58,11 +63,87 @@ def analyzer_history():
     return jsonify(items=items, next_offset=next_offset, mode="read-only")
 
 
+def _private_payload(row):
+    if not row:
+        abort(404)
+    data = dict(row)
+    for key, value in list(data.items()):
+        if hasattr(value, "isoformat"):
+            data[key] = value.isoformat()
+    data.pop("error_message", None)
+    return data
+
+
+@studio_or_admin_required_api
+@trocr_csrf_required
+def analyzer_create():
+    upload = request.files.get("file")
+    if not upload:
+        return jsonify(error="Escolha uma imagem."), 400
+    repository = _repository()
+    try:
+        row = AnalyzerService(repository).analyze_image(
+            upload,
+            user_id=session.get("user_id"),
+            client_id=_client_id(),
+            context=request.form.get("context", ""),
+        )
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 400
+    except OpenRouterError as exc:
+        return jsonify(error=str(exc)), 502
+    except Exception:
+        current_app.logger.exception("Falha ao analisar imagem no Studio")
+        try:
+            repository.connection.rollback()
+        except Exception:
+            pass
+        return jsonify(error="Não foi possível analisar o criativo."), 500
+    return jsonify(analysis=_private_payload(row)), 201
+
+
+@studio_or_admin_required_api
+def analyzer_detail(public_id):
+    row = _repository().get_analysis(str(public_id), _client_id())
+    return jsonify(analysis=_private_payload(row))
+
+
+@studio_or_admin_required_api
+def analyzer_asset(public_id, kind):
+    if kind not in {"source", "thumbnail"}:
+        abort(404)
+    if not _repository().get_analysis(str(public_id), _client_id()):
+        abort(404)
+    path, mime = AnalyzerStorage().read(str(public_id), kind)
+    if path is None:
+        abort(404)
+    response = send_file(path, mimetype=mime, conditional=True)
+    response.headers["Cache-Control"] = "private, max-age=300"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
 def register_api_routes(blueprint):
     blueprint.add_url_rule(
         "/api/analyzer/history",
         endpoint="creative_analyzer_history",
         view_func=analyzer_history,
+    )
+    blueprint.add_url_rule(
+        "/api/analyzer/analyses",
+        endpoint="creative_analyzer_create",
+        view_func=analyzer_create,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
+        "/api/analyzer/analyses/<uuid:public_id>",
+        endpoint="creative_analyzer_detail",
+        view_func=analyzer_detail,
+    )
+    blueprint.add_url_rule(
+        "/api/analyzer/assets/<uuid:public_id>/<kind>",
+        endpoint="creative_analyzer_asset",
+        view_func=analyzer_asset,
     )
 
 

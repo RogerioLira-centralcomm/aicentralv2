@@ -8,6 +8,10 @@ from __future__ import annotations
 import json
 from datetime import date, datetime
 
+from psycopg.types.json import Json
+
+from .schema import ensure_schema
+
 
 LEGACY_COLUMNS = (
     "id",
@@ -201,3 +205,140 @@ class AnalyzerRepository:
             limit,
             offset,
         )
+
+    def ready(self):
+        ensure_schema(self.connection)
+        return self
+
+    def create_analysis(self, payload):
+        self.ready()
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO public.studio_creative_analyses (
+                    public_id, user_id, client_id, brand_ref, project_ref,
+                    status, original_name, media_type, mime_type, format,
+                    thumbnail_url, context_text
+                ) VALUES (
+                    %s, %s, %s, %s, %s,
+                    'processing', %s, 'image', %s, %s,
+                    %s, %s
+                ) RETURNING *
+                """,
+                (
+                    payload["public_id"], payload["user_id"], payload["client_id"],
+                    payload.get("brand_ref"), payload.get("project_ref"),
+                    payload["original_name"], payload["mime_type"], payload.get("format"),
+                    payload.get("thumbnail_url"), payload.get("context_text"),
+                ),
+            )
+            row = dict(cursor.fetchone())
+        self.connection.commit()
+        return row
+
+    def add_asset(self, analysis_id, payload):
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO public.studio_creative_analysis_assets (
+                    analysis_id, kind, position, storage_key, mime_type, sha256,
+                    size_bytes, width, height, metadata_json
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (
+                    analysis_id, payload["kind"], payload.get("position"),
+                    payload["storage_key"], payload["mime_type"], payload.get("sha256"),
+                    payload.get("size_bytes"), payload.get("width"), payload.get("height"),
+                    Json(payload.get("metadata") or {}),
+                ),
+            )
+            asset_id = cursor.fetchone()["id"]
+        self.connection.commit()
+        return asset_id
+
+    def start_run(self, analysis_id, stage, provider=None, model=None):
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO public.studio_creative_analysis_runs (
+                    analysis_id, stage, status, provider, model, started_at
+                ) VALUES (%s, %s, 'running', %s, %s, NOW()) RETURNING id
+                """,
+                (analysis_id, stage, provider, model),
+            )
+            run_id = cursor.fetchone()["id"]
+        self.connection.commit()
+        return run_id
+
+    def finish_run(self, run_id, status, *, duration_ms=None, usage=None, error=None):
+        usage = usage if isinstance(usage, dict) else {}
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE public.studio_creative_analysis_runs
+                   SET status = %s, duration_ms = %s,
+                       tokens_input = %s, tokens_output = %s,
+                       error_code = %s, error_message = %s,
+                       completed_at = NOW()
+                 WHERE id = %s
+                """,
+                (
+                    status, duration_ms, usage.get("prompt_tokens") or usage.get("input_tokens"),
+                    usage.get("completion_tokens") or usage.get("output_tokens"),
+                    "processing_failed" if error else None, str(error or "")[:500] or None, run_id,
+                ),
+            )
+        self.connection.commit()
+
+    def complete_analysis(self, public_id, result):
+        classification = _json_object(result.get("classification"))
+        score = _json_object(result.get("score"))
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE public.studio_creative_analyses
+                   SET status = 'complete', schema_version = %s,
+                       score_geral = %s, creative_type = %s, funnel = %s,
+                       result_json = %s, completed_at = NOW(), updated_at = NOW(),
+                       error_code = NULL, error_message = NULL
+                 WHERE public_id = %s
+                 RETURNING *
+                """,
+                (
+                    result.get("schema_version") or "1.0", score.get("geral"),
+                    classification.get("type"), classification.get("funnel"),
+                    Json(result), public_id,
+                ),
+            )
+            row = cursor.fetchone()
+        self.connection.commit()
+        return dict(row) if row else None
+
+    def fail_analysis(self, public_id, error):
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE public.studio_creative_analyses
+                   SET status = 'failed', error_code = 'processing_failed',
+                       error_message = %s, updated_at = NOW()
+                 WHERE public_id = %s
+                """,
+                (str(error or "")[:500], public_id),
+            )
+        self.connection.commit()
+
+    def get_analysis(self, public_id, client_id):
+        if not self._columns("studio_creative_analyses"):
+            return None
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT * FROM public.studio_creative_analyses
+                 WHERE public_id = %s AND client_id = %s
+                 LIMIT 1
+                """,
+                (public_id, client_id),
+            )
+            row = cursor.fetchone()
+        return dict(row) if row else None

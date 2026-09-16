@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/creative-analyzer-studio.css') }}?v=1">
 {% endblock %}
 {% block content %}
-<div class="studio-analyzer" id="creativeAnalyzer" data-mc-page="analyzer" data-history-url="{{ url_for('studio.creative_analyzer_history') }}"{% if analysis_id %} data-analysis-id="{{ analysis_id }}"{% endif %}>
+<div class="studio-analyzer" id="creativeAnalyzer" data-mc-page="analyzer" data-history-url="{{ url_for('studio.creative_analyzer_history') }}" data-create-url="{{ url_for('studio.creative_analyzer_create') }}" data-detail-root="/studio/api/analyzer/analyses/" data-csrf="{{ analyzer_csrf }}"{% if analysis_id %} data-analysis-id="{{ analysis_id }}"{% endif %}>
   {% include "cadu_studio/_context_bar.html" %}
   <main class="analyzer-main">
     <section class="analyzer-intro" aria-labelledby="analyzerTitle">
@@ -25,10 +25,12 @@
       </div>
     </section>
 
-    <section class="analyzer-drop" aria-labelledby="newAnalysisTitle">
-      <div><span>Nova análise</span><h2 id="newAnalysisTitle">Imagem ou vídeo</h2><p>O processamento nativo será ativado na próxima fase. Seu histórico atual já está disponível abaixo.</p></div>
-      <button type="button" disabled>Enviar criativo</button>
-    </section>
+    <form class="analyzer-drop" id="analyzerUpload" aria-labelledby="newAnalysisTitle">
+      <div><span>Nova análise</span><h2 id="newAnalysisTitle">Envie uma imagem</h2><p>PNG, JPG ou WebP, até 15 MB. Vídeo entra na próxima fase com quatro frames.</p><label class="analyzer-context">Contexto da campanha <input name="context" maxlength="2000" placeholder="Objetivo, oferta ou canal (opcional)"></label></div>
+      <div class="analyzer-upload-actions"><label class="analyzer-file">Escolher imagem<input id="analyzerFile" name="file" type="file" accept="image/png,image/jpeg,image/webp" required></label><button type="submit">Analisar imagem</button></div>
+    </form>
+
+    <section class="analyzer-result" id="analyzerResult" aria-live="polite" hidden></section>
 
     <section class="analyzer-history" aria-labelledby="historyTitle">
       <header><div><p class="analyzer-section-note">Acervo preservado</p><h2 id="historyTitle">Análises anteriores</h2></div><p>Itens antigos abrem no endereço original. Nenhum upload foi movido ou apagado.</p></header>

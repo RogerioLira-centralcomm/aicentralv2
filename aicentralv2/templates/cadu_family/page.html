@@ -6,7 +6,7 @@
   <title>{{ title }} — Cadu {{ spec.name }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-family.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-family-sidebar.css') }}?v=1">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-product-switch.css') }}?v=1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-product-switch.css') }}?v=2">
   {% if product == 'workspace' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-family.css') }}?v=1">{% endif %}
   {% block product_styles %}{% endblock %}
   <script defer src="{{ url_for('static', filename='js/cadu-family.js') }}"></script>

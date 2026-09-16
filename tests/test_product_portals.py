@@ -61,7 +61,7 @@ class ProductPortalsTest(TestCase):
             "connect.centralcomm.media": "/connect/",
             "studio.centralcomm.media": "/studio",
             "skills.centralcomm.media": "/skills/",
-            "planner.centralcomm.media": "/smart-planner/",
+            "planner.centralcomm.media": "/familia/planner/",
             "workspace.centralcomm.media": "/workspace/",
         }
         for host, path in expected.items():
@@ -93,10 +93,10 @@ class ProductPortalsTest(TestCase):
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
         self.assertIn("Connect", html)
-        self.assertIn("Dê continuidade ao que sua marca já começou.", html)
-        self.assertIn("Projetos em andamento", html)
-        self.assertIn("Marcas que acompanham o projeto.", html)
-        self.assertIn('cadu-connect-entry.css?v=1', html)
+        self.assertIn("Projetos conectados ao trabalho.", html)
+        self.assertIn("Projetos", html)
+        self.assertIn("Marcas e projetos permanecem vinculados", html)
+        self.assertIn('cadu-connect-sidebar.css?v=1', html)
         self.assertNotIn("Carteira de clientes", html)
 
     def test_workspace_session_is_reused_by_connect(self):

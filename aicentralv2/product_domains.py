@@ -103,7 +103,9 @@ def register_product_host_routing(app) -> None:
         "CONNECT_URL": "cadu_connect.index",
         "STUDIO_URL": "parametros.modelagem_criativos",
         "SKILLS_URL": "cadu_skills.marketplace",
-        "PLANNER_URL": "smart_planner.index",
+        # The planner product is customer-facing.  The legacy Smart Planner
+        # remains an internal CentralX tool reached from the CentralX menu.
+        "PLANNER_URL": "/familia/planner/",
         "WORKSPACE_URL": "cadu_workspace.index",
     }
 
@@ -131,5 +133,6 @@ def register_product_host_routing(app) -> None:
             return None
         for config_key, endpoint in endpoints.items():
             if host and host == _configured_host(config_key):
-                return redirect(url_for(endpoint), code=302)
+                target = endpoint if str(endpoint).startswith("/") else url_for(endpoint)
+                return redirect(target, code=302)
         return None

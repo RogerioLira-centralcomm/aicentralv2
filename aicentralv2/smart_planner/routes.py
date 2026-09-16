@@ -7,7 +7,7 @@ import os
 
 from flask import Blueprint, Response, current_app, jsonify, redirect, render_template, request, url_for
 
-from ..auth import login_required, login_required_api
+from ..auth import centralcomm_required, centralcomm_required_api
 from ..services.openrouter_service import OpenRouterError
 from . import canvas as canvas_mod
 from . import planner
@@ -78,7 +78,7 @@ def _page_ctx(**extra):
 
 
 @bp.route("/")
-@login_required
+@centralcomm_required
 def index():
     try:
         payload = history_payload()
@@ -106,41 +106,41 @@ def index():
 
 
 @bp.route("/novo")
-@login_required
+@centralcomm_required
 def novo():
     return render_template("smart_planner/start.html", **_page_ctx())
 
 
 @bp.route("/<token>/briefing")
-@login_required
+@centralcomm_required
 def briefing(token):
     row = load_owned(token)
     return render_template("smart_planner/wizard.html", **_page_ctx(**wizard_context(row, "briefing")))
 
 
 @bp.route("/<token>/revisao")
-@login_required
+@centralcomm_required
 def revisao(token):
     row = load_owned(token)
     return render_template("smart_planner/wizard.html", **_page_ctx(**wizard_context(row, "revisao")))
 
 
 @bp.route("/<token>/canais")
-@login_required
+@centralcomm_required
 def canais(token):
     load_owned(token)
     return redirect(url_for("smart_planner.revisao", token=token))
 
 
 @bp.route("/<token>/gerar")
-@login_required
+@centralcomm_required
 def gerar(token):
     load_owned(token)
     return redirect(url_for("smart_planner.revisao", token=token))
 
 
 @bp.route("/<token>/conclusao")
-@login_required
+@centralcomm_required
 def conclusao(token):
     row = load_owned(token)
     return render_template("smart_planner/wizard.html", **_page_ctx(**wizard_context(row, "conclusao")))
@@ -227,7 +227,7 @@ def _render_canvas(row, *, force_folha: bool = False):
 
 
 @bp.route("/p/<public_token>/editar")
-@login_required
+@centralcomm_required
 def canvas_editar(public_token):
     found = get_by_public_token(public_token)
     if not found:
@@ -236,7 +236,7 @@ def canvas_editar(public_token):
 
 
 @bp.route("/<token>/canvas")
-@login_required
+@centralcomm_required
 def canvas(token):
     row = load_owned(token)
     dados = as_dict(row.get("dados_detectados"))
@@ -254,7 +254,7 @@ def canvas(token):
 
 
 @bp.route("/api/partes")
-@login_required_api
+@centralcomm_required_api
 def api_partes():
     kind = (request.args.get("kind") or "cliente").strip().lower()
     if kind not in {"cliente", "agencia"}:
@@ -264,7 +264,7 @@ def api_partes():
 
 
 @bp.route("/api/marca")
-@login_required_api
+@centralcomm_required_api
 def api_marca():
     cliente_id = request.args.get("cliente_id")
     try:
@@ -284,7 +284,7 @@ def api_marca():
 
 
 @bp.route("/api/criar", methods=["POST"])
-@login_required_api
+@centralcomm_required_api
 def api_criar():
     try:
         payload = request.get_json(silent=True) or {}
@@ -299,7 +299,7 @@ def api_criar():
 
 
 @bp.route("/api/<token>/referencia", methods=["POST"])
-@login_required_api
+@centralcomm_required_api
 def api_referencia(token):
     try:
         load_owned(token)
@@ -334,7 +334,7 @@ def api_referencia(token):
 
 
 @bp.route("/api/<token>/campanhas/pesquisa", methods=["POST"])
-@login_required_api
+@centralcomm_required_api
 def api_campaign_discovery(token):
     try:
         load_owned(token)
@@ -350,7 +350,7 @@ def api_campaign_discovery(token):
 
 
 @bp.route("/api/<token>/processar", methods=["POST"])
-@login_required_api
+@centralcomm_required_api
 def api_processar(token):
     try:
         load_owned(token)
@@ -384,7 +384,7 @@ def api_processar(token):
 
 
 @bp.route("/api/<token>/processar/status", methods=["GET"])
-@login_required_api
+@centralcomm_required_api
 def api_processar_status(token):
     try:
         return _ok(processor.processing_view(load_owned(token)))
@@ -393,7 +393,7 @@ def api_processar_status(token):
 
 
 @bp.route("/api/<token>/revisao", methods=["POST"])
-@login_required_api
+@centralcomm_required_api
 def api_revisao(token):
     try:
         load_owned(token)
@@ -407,7 +407,7 @@ def api_revisao(token):
 
 
 @bp.route("/api/<token>/rebrief", methods=["POST"])
-@login_required_api
+@centralcomm_required_api
 def api_rebrief(token):
     try:
         load_owned(token)
@@ -424,7 +424,7 @@ def api_rebrief(token):
 
 
 @bp.route("/api/<token>/canais", methods=["POST"])
-@login_required_api
+@centralcomm_required_api
 def api_canais(token):
     try:
         load_owned(token)
@@ -440,7 +440,7 @@ def api_canais(token):
 
 
 @bp.route("/api/<token>/ritmo", methods=["POST"])
-@login_required_api
+@centralcomm_required_api
 def api_ritmo(token):
     try:
         load_owned(token)
@@ -453,7 +453,7 @@ def api_ritmo(token):
 
 
 @bp.route("/api/<token>/gerar/status", methods=["GET"])
-@login_required_api
+@centralcomm_required_api
 def api_gerar_status(token):
     try:
         row = load_owned(token)
@@ -470,7 +470,7 @@ def api_gerar_status(token):
 
 
 @bp.route("/api/<token>/gerar", methods=["POST"])
-@login_required_api
+@centralcomm_required_api
 def api_gerar(token):
     try:
         load_owned(token)
@@ -487,7 +487,7 @@ def api_gerar(token):
 
 
 @bp.route("/api/<token>/canvas", methods=["GET"])
-@login_required_api
+@centralcomm_required_api
 def api_canvas_get(token):
     try:
         row = load_owned(token)
@@ -515,7 +515,7 @@ def api_canvas_get(token):
 
 
 @bp.route("/api/<token>/canvas", methods=["POST"])
-@login_required_api
+@centralcomm_required_api
 def api_canvas_save(token):
     try:
         load_owned(token)
@@ -531,7 +531,7 @@ def api_canvas_save(token):
 
 
 @bp.route("/api/<token>/canvas/gerar", methods=["POST"])
-@login_required_api
+@centralcomm_required_api
 def api_canvas_gerar(token):
     try:
         load_owned(token)
@@ -548,7 +548,7 @@ def api_canvas_gerar(token):
 
 
 @bp.route("/api/<token>/canvas/imagem", methods=["POST"])
-@login_required_api
+@centralcomm_required_api
 def api_canvas_imagem(token):
     try:
         from .cost import bound_session
@@ -576,7 +576,7 @@ def api_canvas_imagem(token):
 
 
 @bp.route("/api/<int:session_id>/excluir", methods=["POST"])
-@login_required_api
+@centralcomm_required_api
 def api_excluir(session_id):
     try:
         if not delete_plan(session_id):

@@ -72,6 +72,10 @@ def index():
     ]
     requested_project_id = request.args.get("project_id", type=int)
     permitted_ids = {int(client["id"]) for client in permitted_clients}
+    # A temporary client-directory failure must not discard projects that are
+    # already scoped to the signed-in organization.
+    if not is_portfolio_operator and not permitted_ids and session_client_id:
+        permitted_ids.add(session_client_id)
     projects = [dict(row) for row in targets["projects"] if int(row.get("client_id") or 0) in permitted_ids]
     projects = attach_workspace_brands(projects)
     selected_project = next((project for project in projects if project["id"] == requested_project_id), None)

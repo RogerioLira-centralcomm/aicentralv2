@@ -195,6 +195,32 @@ def login_required_api(f):
     return decorated_function
 
 
+def centralcomm_required(f):
+    """Reserve CentralX internal tools for the CentralComm organization."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(login_url())
+        if not session.get('is_centralcomm'):
+            flash('Esta ferramenta é exclusiva da equipe CentralComm.', 'error')
+            from .product_domains import product_url
+            return redirect(product_url('planner', '/familia/planner/'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def centralcomm_required_api(f):
+    """JSON counterpart to :func:`centralcomm_required`."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({'success': False, 'error': 'Sessão expirada. Faça login novamente.'}), 401
+        if not session.get('is_centralcomm'):
+            return jsonify({'success': False, 'error': 'Esta ferramenta é exclusiva da equipe CentralComm.'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+
 def admin_required_api(f):
     """
     Decorador para proteger rotas de API que retornam JSON

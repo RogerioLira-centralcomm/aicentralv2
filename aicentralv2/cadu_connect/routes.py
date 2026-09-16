@@ -12,6 +12,9 @@ from .repository import accounts_for_workspace_context, campaigns_for_client, fi
 
 bp = Blueprint("cadu_connect", __name__, url_prefix="/connect")
 
+from .report_workspace import register as register_report_workspace
+register_report_workspace(bp)
+
 
 def workspace_project_context(projects: list[dict]) -> Optional[dict]:
     """Use the shared Workspace project when it is available to this user.
@@ -76,8 +79,15 @@ def workspace_projects(client_id: int, legacy_projects: list[dict]) -> list[dict
 
 @bp.get("")
 @bp.get("/")
-@login_required
 def index():
+    # A entrada pública explica o produto sem consultar inventário, contas ou
+    # relatórios. A aplicação operacional continua disponível só após login.
+    if not session.get("user_id"):
+        return render_template(
+            "cadu_connect/entry.html",
+            projects=[], selected_project=None, accounts=[], campaigns=[], files=[], reports=[], mcp_catalog=[],
+            connected_count=0, active_client=None, is_portfolio_operator=False, account_name="Connect",
+        )
     targets = customization_targets()
     is_portfolio_operator = bool(session.get("is_centralcomm") or session.get("user_type") == "superadmin")
     session_client_id = int(session.get("cliente_id") or 0)

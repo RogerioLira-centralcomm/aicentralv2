@@ -708,6 +708,43 @@ def _project_brand_guidance(brand: dict) -> dict:
     }
 
 
+def _fill_empty_project_identity_from_brand(client_id: int, brand_id: int, profile: dict) -> None:
+    """Seed linked projects from approved brand context without overwriting edits."""
+    audience = str(profile.get('target_audience') or '').strip()
+    tone = str(profile.get('tone_of_voice') or '').strip()
+    positioning = str(profile.get('positioning') or profile.get('brand_summary') or '').strip()
+    if not any((audience, tone, positioning)):
+        return
+    try:
+        project_ids = {
+            str(link.get('project_ref') or '')[3:]
+            for link in family_repository.project_brand_links(client_id)
+            if str(link.get('brand_ref') or '') == f'studio:{brand_id}'
+            and str(link.get('project_ref') or '').startswith('ci:')
+        }
+        if not project_ids:
+            return
+        connection = get_db()
+        with connection.cursor() as cursor:
+            for project_id in project_ids:
+                cursor.execute(
+                    '''UPDATE cadu_ci_projetos
+                          SET publico = COALESCE(NULLIF(publico, ''), %s),
+                              tom_de_voz = COALESCE(NULLIF(tom_de_voz, ''), %s),
+                              posicionamento = COALESCE(NULLIF(posicionamento, ''), %s),
+                              updated_at = NOW()
+                        WHERE id = %s AND id_cliente = %s''',
+                    (audience, tone, positioning, project_id, client_id),
+                )
+        connection.commit()
+    except Exception:
+        try:
+            get_db().rollback()
+        except Exception:
+            pass
+        current_app.logger.exception('Não foi possível preencher a identidade dos projetos da marca %s', brand_id)
+
+
 def _workspace_projects(client_id: int, query: str = "", status: str = "ativos") -> list[dict]:
     """Project dossiers retained from Cadu, always isolated by organization."""
     status = status if status in {'ativos', 'arquivados', 'todos'} else 'ativos'
@@ -2374,6 +2411,7 @@ def approve_brand_reviews(brand_id):
         connection.rollback()
         current_app.logger.exception('Não foi possível aprovar a revisão da marca %s', brand_id)
         abort(503, description='Não foi possível aprovar a análise agora. Tente novamente.')
+    _fill_empty_project_identity_from_brand(client_id, brand_id, merged['profile'])
     # Seed low-resolution working visuals after the human decision.  A visual
     # starter must never block the approval itself: originals and the approved
     # identity remain the source of truth if this best-effort step is delayed.

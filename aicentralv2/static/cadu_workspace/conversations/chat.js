@@ -183,10 +183,13 @@
   };
   const renderContext = (selected = activeContext) => {
     const projectRef = conversationId && boundProjectRef !== null ? boundProjectRef : selected.project_ref;
+    const project = contextEntities.find(item => item.kind === 'project' && item.ref === projectRef);
     const brandRef = brandForProject(projectRef, selected.brand_ref);
     const brand = contextEntities.find(item => item.kind === 'brand' && item.ref === brandRef);
     contextOptions(projectSelect, contextEntities.filter(item => item.kind === 'project'), 'Sem projeto', projectRef);
     if (projectSelect) projectSelect.disabled = Boolean(conversationId);
+    if (workMemoryToggle) workMemoryToggle.hidden = !project;
+    if (!project) closeWorkMemory();
     if (contextNote) contextNote.textContent = conversationId
       ? (projectRef ? ('Projeto' + (brand ? ' e marca' : '') + ' definidos na criação desta conversa.') : 'Esta conversa foi criada sem projeto.')
       : projectSelect?.value ? ('Projeto' + (brand ? ' e marca vinculada' : '') + ' para a nova conversa.') : 'Sem projeto: a nova conversa usará apenas o contexto geral.';
@@ -219,8 +222,10 @@
       contextEntities = Array.isArray(data.entities) ? data.entities : [];
       activeContext = data.context || {};
       const requestedProject = pageMode && new URLSearchParams(window.location.search).get('project');
+      const activeProject = contextEntities.some(item => item.kind === 'project' && item.ref === activeContext.project_ref)
+        ? activeContext.project_ref : null;
       const projectRef = requestedProject && contextEntities.some(item => item.kind === 'project' && item.ref === requestedProject)
-        ? requestedProject : activeContext.project_ref;
+        ? requestedProject : activeProject;
       const brandRef = brandForProject(projectRef, activeContext.brand_ref);
       if (brandRef !== activeContext.brand_ref || projectRef !== activeContext.project_ref) {
         activeContext = {...activeContext, project_ref: projectRef, brand_ref: brandRef};

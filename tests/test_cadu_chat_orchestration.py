@@ -27,14 +27,29 @@ def test_uses_the_account_default_when_a_specialization_is_not_installed():
 
 
 def test_payload_keeps_automatic_route_inside_the_server_owned_skill_context():
+    import json
     from aicentralv2.cadu_workspace.conversations.service import build_run
     run = build_run('run', 'conversation', {'id': 1, 'name': 'Ana', 'organization_id': 2},
                     {'client_id': 3, 'client_name': 'Cliente'}, {'id': 'planejamento', 'prompt': 'Planeje.'},
                     'planner', '', {'dify_conversation_id': None, 'total_mensagens': 0}, 'Monte um plano.', [], None, '',
                     {'solution': 'planejamento', 'complexity': 'alta'})
-    assert 'solução=planejamento; complexidade=alta' in run['payload']['inputs']['skill_context']
-    assert 'contexto_projeto_privado' in run['payload']['inputs']['skill_context']
-    assert 'base_cadu_global_publicada' in run['payload']['inputs']['skill_context']
+    context = json.loads(run['payload']['inputs']['skill_context'])
+    assert run['payload']['inputs']['skill_id'] == 'orquestrador'
+    assert context['orquestracao'] == {'especializacao': 'planejamento', 'solucao': 'planejamento', 'complexidade': 'alta'}
+    assert 'contexto_projeto_privado' in context['fronteiras_de_contexto']['projeto_context']
+    assert 'base_cadu_global_publicada' in context['fronteiras_de_contexto']['projeto_context']
+
+
+def test_payload_exposes_only_safe_file_metadata_to_the_prompt():
+    import json
+    from aicentralv2.cadu_workspace.conversations.service import build_run
+    run = build_run('run', 'conversation', {'id': 1, 'name': 'Ana', 'organization_id': 2},
+                    {'client_id': 3, 'client_name': 'Cliente'}, {'id': 'ideias', 'prompt': 'Ajude.'},
+                    'workspace', '', {'dify_conversation_id': None, 'total_mensagens': 0}, 'Leia o arquivo.',
+                    [{'provider_id': 'private-file-id', 'name': 'briefing.pdf', 'kind': 'document'}], None, '')
+    files = json.loads(run['payload']['inputs']['files_context'])
+    assert files['arquivos_anexados'] == [{'nome': 'briefing.pdf', 'tipo': 'document'}]
+    assert 'private-file-id' not in run['payload']['inputs']['files_context']
 
 
 def test_context_packet_keeps_workspace_and_base_cadu_in_distinct_fields(monkeypatch):

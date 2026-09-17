@@ -308,21 +308,37 @@ def prepare(data, selected):
 def build_run(run_id, conversation_id, user, selected, chosen, profile,
               project_context, conversation, query, uploads, existing, history, routing=None):
     """Build provider input before committing admission (and an optional job)."""
-    route_note = ''
-    if isinstance(routing, dict) and routing.get('solution') and routing.get('complexity'):
-        route_note = '\nRoteamento interno: solução=%s; complexidade=%s.' % (
-            routing['solution'], routing['complexity'])
-    context_protocol = (
-        '\nContexto recebido em projeto_context é um JSON com duas áreas: '
-        'contexto_projeto_privado contém somente dados confidenciais do projeto selecionado; '
-        'base_cadu_global_publicada contém conhecimento institucional publicado da Centralcomm. '
-        'Não trate a Base Cadu como informação do cliente, não revele contexto privado fora da resposta necessária '
-        'e, se houver conflito, priorize o contexto privado do projeto para decisões daquele projeto.'
-    )
+    route = routing if isinstance(routing, dict) else {}
+    # Keep the Dify schema stable while making the input machine-readable.  The
+    # prompt can now use one compact contract instead of re-parsing a long
+    # server-concatenated instruction string on every turn.
+    skill_context = json.dumps({
+        'versao': '2.0',
+        'agente': 'Cadu',
+        'perfil': {'id': profile, 'descricao': PROFILES[profile]},
+        'orquestracao': {
+            'especializacao': str(chosen['id'])[:100],
+            'solucao': str(route.get('solution') or 'conversa')[:80],
+            'complexidade': str(route.get('complexity') or 'baixa')[:32],
+        },
+        'diretrizes_especificas': str(chosen.get('prompt') or '')[:6000],
+        'fronteiras_de_contexto': {
+            'projeto_context': 'JSON com contexto_projeto_privado e base_cadu_global_publicada.',
+            'prioridade': 'Use o contexto privado para decisões do projeto; trate a base global como institucional.',
+            'privacidade': 'Nunca revele dados privados que não sejam necessários para responder ao pedido atual.',
+        },
+    }, ensure_ascii=False, separators=(',', ':'))
+    files_context = json.dumps({
+        'versao': '2.0',
+        'arquivos_anexados': [
+            {'nome': str(item.get('name') or '')[:240], 'tipo': str(item.get('kind') or '')[:80]}
+            for item in uploads[:3]
+        ],
+        'orientacao': 'Use somente o conteúdo dos arquivos anexados que for pertinente ao pedido.',
+    }, ensure_ascii=False, separators=(',', ':'))
     inputs = {'nome_usuario': user['name'], 'nome_cliente': selected['client_name'], 'profile': profile,
-              'skill_id': chosen['id'], 'skill_context': chosen['prompt'] + '\nPerfil: ' + PROFILES[profile]
-              + '\nA especialização foi escolhida automaticamente pelo pedido do usuário.' + context_protocol + route_note,
-              'files_context': '', 'projeto_context': project_context,
+              'skill_id': 'orquestrador', 'skill_context': skill_context,
+              'files_context': files_context, 'projeto_context': project_context,
               'is_first_message': 'true' if not conversation['total_mensagens'] else 'false',
               'saudacao_permitida': 'sim' if query.lower().strip('!.? ') in ('oi', 'olá', 'bom dia', 'boa tarde', 'boa noite') and not conversation['total_mensagens'] else 'nao',
               'turn_index': str(int(conversation['total_mensagens'] or 0) // 2 + 1)}

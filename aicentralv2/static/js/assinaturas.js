@@ -113,12 +113,24 @@
     var results = root.querySelector('[data-vinculo-results]');
     var signerSearch = root.querySelector('[data-signer-search]');
     var signerResults = root.querySelector('[data-signer-results]');
-    var picks = root.querySelector('[data-signer-picks]');
+    var signerCount = root.querySelector('[data-signer-count]');
+    var title = form.elements.titulo;
     var signers = [];
 
-    fileInput.addEventListener('change', function () {
-      fileName.textContent = fileInput.files[0] ? fileInput.files[0].name : 'Solte o PDF ou clique para escolher';
-    });
+    function fileTitle(file) {
+      return String(file && file.name || '').replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    function setFile(file) {
+      fileName.textContent = file ? file.name : 'Solte o PDF ou clique para escolher';
+      if (file && (!title.value.trim() || title.dataset.autoTitle === '1')) {
+        title.value = fileTitle(file);
+        title.dataset.autoTitle = '1';
+      }
+    }
+
+    title.addEventListener('input', function () { title.dataset.autoTitle = '0'; });
+    fileInput.addEventListener('change', function () { setFile(fileInput.files[0]); });
     ['dragenter', 'dragover'].forEach(function (eventName) {
       drop.addEventListener(eventName, function (event) {
         event.preventDefault();
@@ -134,7 +146,7 @@
     drop.addEventListener('drop', function (event) {
       if (event.dataTransfer.files.length) {
         fileInput.files = event.dataTransfer.files;
-        fileName.textContent = event.dataTransfer.files[0].name;
+        setFile(event.dataTransfer.files[0]);
       }
     });
 
@@ -148,11 +160,32 @@
       }
     }
 
-    function renderPicks() {
-      picks.innerHTML = signers.map(function (item, index) {
-        return '<li>' + esc(item.nome) + ' <small>' + esc(item.email) + '</small>' +
-          '<button type="button" data-remove="' + index + '" aria-label="Remover">×</button></li>';
+    function renderSignerCount() {
+      signerCount.textContent = signers.length
+        ? signers.length + (signers.length === 1 ? ' signatário selecionado' : ' signatários selecionados')
+        : 'Nenhum signatário selecionado';
+    }
+
+    function renderSigners(items) {
+      if (!items.length) {
+        signerResults.innerHTML = '<p class="cx-sign-empty">Nenhum signatário encontrado.</p>';
+        return;
+      }
+      signerResults.innerHTML = items.map(function (item) {
+        var checked = signers.some(function (signer) { return signer.email === item.email; });
+        return '<label class="cx-sign-signer-option">' +
+          '<input type="checkbox" data-signer-toggle data-id="' + esc(item.id) + '" data-email="' + esc(item.email) +
+          '" data-nome="' + esc(item.label) + '"' + (checked ? ' checked' : '') + '>' +
+          '<span><strong>' + esc(item.label) + '</strong><small>' + esc(item.email) + '</small></span></label>';
       }).join('');
+    }
+
+    function loadSigners(query) {
+      request('/vinculos?tipo=colaborador&q=' + encodeURIComponent(query || '')).then(function (items) {
+        renderSigners(items);
+      }).catch(function (error) {
+        notify(feedback, error.message, true);
+      });
     }
 
     function searchVinculos(query) {
@@ -186,41 +219,25 @@
     });
 
     signerSearch.addEventListener('input', function () {
-      var query = signerSearch.value.trim();
-      if (!query) {
-        signerResults.hidden = true;
-        return;
-      }
       window.clearTimeout(signerSearch._timer);
       signerSearch._timer = window.setTimeout(function () {
-        request('/vinculos?tipo=colaborador&q=' + encodeURIComponent(query)).then(function (items) {
-          signerResults.hidden = !items.length;
-          signerResults.innerHTML = items.map(function (item) {
-            return '<button type="button" data-id="' + esc(item.id) + '" data-email="' + esc(item.email) +
-              '" data-nome="' + esc(item.label) + '">' + esc(item.label) + ' · ' + esc(item.email) + '</button>';
-          }).join('');
-        });
+        loadSigners(signerSearch.value.trim());
       }, 220);
     });
-    signerResults.addEventListener('click', function (event) {
-      var button = event.target.closest('button');
-      if (!button) return;
-      var email = button.getAttribute('data-email');
-      if (signers.some(function (item) { return item.email === email; })) return;
-      signers.push({
-        id_contato: button.getAttribute('data-id'),
-        email: email,
-        nome: button.getAttribute('data-nome')
-      });
-      signerSearch.value = '';
-      signerResults.hidden = true;
-      renderPicks();
-    });
-    picks.addEventListener('click', function (event) {
-      var button = event.target.closest('[data-remove]');
-      if (!button) return;
-      signers.splice(Number(button.getAttribute('data-remove')), 1);
-      renderPicks();
+    signerResults.addEventListener('change', function (event) {
+      var input = event.target.closest('[data-signer-toggle]');
+      if (!input) return;
+      var email = input.getAttribute('data-email');
+      if (input.checked && !signers.some(function (item) { return item.email === email; })) {
+        signers.push({
+          id_contato: input.getAttribute('data-id'),
+          email: email,
+          nome: input.getAttribute('data-nome')
+        });
+      } else if (!input.checked) {
+        signers = signers.filter(function (item) { return item.email !== email; });
+      }
+      renderSignerCount();
     });
 
     form.addEventListener('submit', function (event) {
@@ -242,10 +259,19 @@
       });
     });
     toggleVinculo();
+    renderSignerCount();
+    loadSigners('');
   }
 
   function initViewer() {
     var cancel = root.querySelector('[data-sign-cancel]');
+    window.addEventListener('message', function (event) {
+      var origin = String(event.origin || '');
+      if (!/^https:\/\/(secure|sandbox)\.d4sign\.com\.br$/.test(origin)) return;
+      if (event.data === 'signed') {
+        window.setTimeout(function () { window.location.reload(); }, 350);
+      }
+    });
     if (!cancel) return;
     cancel.addEventListener('click', function () {
       if (typeof window.showConfirm !== 'function') return;

@@ -14,7 +14,7 @@
     <div>
       <a class="cx-sign-back" href="{{ url_for('assinaturas.mesa') }}">Voltar à mesa</a>
       <h1>Novo documento</h1>
-      <p>PDF entra aqui, signatários são da CentralComm e a assinatura acontece no viewer interno.</p>
+      <p>Envie o PDF, defina o contexto e marque quem deve assinar.</p>
     </div>
   </header>
 
@@ -31,7 +31,7 @@
     <label class="cx-sign-drop" data-drop>
       <input type="file" name="arquivo" accept="application/pdf" required>
       <strong data-file-name>Solte o PDF ou clique para escolher</strong>
-      <span>Até 20 MB. Só PDF nesta versão.</span>
+      <span>O título será preenchido com o nome do arquivo. Até 20 MB.</span>
     </label>
 
     <label>
@@ -40,28 +40,33 @@
     </label>
 
     <fieldset class="cx-sign-vinculo">
-      <legend>Vínculo</legend>
-      <select name="tipo_vinculo">
+      <legend>Vínculo do documento</legend>
+      <p class="cx-sign-field-help">Escolha onde este documento deve ficar registrado. Para uso interno, não é necessário buscar ninguém.</p>
+      <label>
+        <span>Tipo de vínculo</span>
+        <select name="tipo_vinculo">
         <option value="interno">Interno</option>
         <option value="colaborador">Colaborador</option>
         <option value="cliente">Cliente</option>
         <option value="agencia">Agência</option>
         <option value="parceiro">Parceiro</option>
         <option value="pi">PI</option>
-      </select>
+        </select>
+      </label>
       <input name="vinculo_nome" type="search" autocomplete="off" placeholder="Buscar entidade" data-vinculo-search hidden>
       <input name="id_vinculo" type="hidden">
       <div class="cx-sign-suggest" data-vinculo-results hidden></div>
     </fieldset>
 
-    <fieldset>
-      <legend>Signatários CentralComm</legend>
-      <input type="search" autocomplete="off" placeholder="Nome ou e-mail" data-signer-search>
-      <div class="cx-sign-suggest" data-signer-results hidden></div>
-      <ul class="cx-sign-picks" data-signer-picks></ul>
+    <fieldset class="cx-sign-signers">
+      <legend>Quem precisa assinar?</legend>
+      <p class="cx-sign-field-help">Marque um ou mais signatários. A assinatura será feita dentro do CentralX.</p>
+      <input type="search" autocomplete="off" placeholder="Filtrar por nome ou e-mail" data-signer-search aria-label="Filtrar signatários">
+      <div class="cx-sign-signer-list" data-signer-results aria-live="polite"></div>
+      <p class="cx-sign-selected-count" data-signer-count>Nenhum signatário selecionado</p>
       <label class="cx-sign-check">
         <input type="checkbox" name="workflow" value="1">
-        <span>Respeitar a ordem da lista</span>
+        <span>Assinar na ordem marcada</span>
       </label>
     </fieldset>
 

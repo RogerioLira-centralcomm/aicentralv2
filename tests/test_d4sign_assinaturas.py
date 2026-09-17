@@ -13,10 +13,11 @@ from aicentralv2.services.d4sign_client import D4SignClient, public_webhook_url
 class D4SignClientTest(unittest.TestCase):
     def test_embed_url_uses_production_host_and_signer(self):
         client = D4SignClient("token", "crypt", ambiente="producao")
-        url = client.embed_url("doc-1", "apolo@centralcomm.media", "key-9")
+        url = client.embed_url("doc-1", "apolo@centralcomm.media", "key-9", "Apolo Lira")
         self.assertIn("secure.d4sign.com.br/embed/viewblob/doc-1", url)
         self.assertIn("email=apolo%40centralcomm.media", url)
         self.assertIn("key_signer=key-9", url)
+        self.assertIn("display_name=Apolo+Lira", url)
 
     def test_public_webhook_uses_production_centralx(self):
         url = public_webhook_url("abc123")

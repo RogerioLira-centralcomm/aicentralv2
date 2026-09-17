@@ -44,7 +44,8 @@
     </aside>
     <section class="cx-sign-embed">
       {% if embed_url %}
-      <iframe title="Documento para assinatura" src="{{ embed_url }}" allow="clipboard-write"></iframe>
+      <iframe title="Documento para assinatura" src="{{ embed_url }}" allow="clipboard-write; geolocation"></iframe>
+      <p class="cx-sign-embed-help">Assine diretamente nesta tela. Ao concluir, o status será atualizado automaticamente.</p>
       {% else %}
       <p class="cx-sign-empty">O viewer da D4Sign aparece aqui quando o documento estiver pronto e o seu e-mail estiver na lista.</p>
       {% endif %}

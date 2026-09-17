@@ -183,11 +183,11 @@
 
 .cx-sign-sheet {
   display: grid;
-  gap: 16px;
+  gap: 18px;
   max-width: 680px;
   border: 1px solid #d5e0df;
   background: #fff;
-  padding: 20px;
+  padding: 24px;
 }
 
 .cx-sign-drop {
@@ -210,6 +210,15 @@
 }
 
 .cx-sign-vinculo { position: relative; }
+.cx-sign-field-help {
+  margin: -1px 0 6px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.cx-sign-vinculo > label { max-width: 260px; }
+
 .cx-sign-suggest {
   display: grid;
   gap: 2px;
@@ -231,6 +240,41 @@
 }
 
 .cx-sign-suggest button:hover { background: #f1f5f9; }
+
+.cx-sign-signer-list {
+  display: grid;
+  max-height: 272px;
+  overflow: auto;
+  border: 1px solid #d5e0df;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.cx-sign-signer-option {
+  display: flex !important;
+  grid-template-columns: none !important;
+  align-items: center;
+  gap: 10px !important;
+  min-height: 52px;
+  padding: 8px 11px;
+  border-bottom: 1px solid #edf2f2;
+  cursor: pointer;
+}
+
+.cx-sign-signer-option:last-child { border-bottom: 0; }
+.cx-sign-signer-option:hover { background: #f6fbfa; }
+.cx-sign-signer-option:has(input:checked) { background: #ecfdf5; }
+.cx-sign-signer-option input { width: 16px; height: 16px; min-height: 0; accent-color: #0f766e; }
+.cx-sign-signer-option span { display: grid; gap: 1px; }
+.cx-sign-signer-option strong { color: #173c3e; font-size: 13px; }
+.cx-sign-signer-option small { color: #64748b; font-size: 12px; }
+
+.cx-sign-selected-count {
+  margin: 2px 0 0;
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 700;
+}
 
 .cx-sign-picks {
   display: flex;
@@ -323,6 +367,14 @@
   height: 100%;
   min-height: 70vh;
   border: 0;
+}
+
+.cx-sign-embed-help {
+  margin: 0;
+  padding: 8px 12px;
+  border-top: 1px solid #e7eeee;
+  color: #536b6b;
+  font-size: 12px;
 }
 
 @media (max-width: 860px) {

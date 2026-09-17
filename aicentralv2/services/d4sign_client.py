@@ -193,13 +193,20 @@ class D4SignClient:
     def cancel_document(self, document_uuid):
         return self._request("POST", f"/documents/{document_uuid}/cancel")
 
-    def embed_url(self, document_uuid, signer_email, key_signer=""):
+    def embed_url(self, document_uuid, signer_email, key_signer="", signer_name=""):
+        """Build the D4Sign Embed URL using the parameters from its Embed API.
+
+        ``display_name`` pre-fills the signer identification screen.  It is
+        deliberately sent only when known: D4Sign treats it as optional.
+        """
         query = {
             "email": signer_email or "",
             "disable_preview": "0",
         }
         if key_signer:
             query["key_signer"] = key_signer
+        if signer_name:
+            query["display_name"] = signer_name
         return f"{self.embed_host}/{document_uuid}?{urlencode(query)}"
 
 

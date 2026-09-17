@@ -148,6 +148,7 @@ def viewer_payload(id_documento, user_email, user_name=""):
             document["uuid_d4sign"],
             email,
             (signer or {}).get("key_signer") or "",
+            (signer or {}).get("nome") or user_name,
         )
     return {
         "documento": document,

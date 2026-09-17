@@ -17,7 +17,7 @@ def rows(sql, params=()):
         return [dict(row) for row in cur.fetchall()]
 
 
-def query(kind, value='', limit=20, category='', platform=''):
+def query(kind, value='', limit=20, category='', channel=''):
     if kind not in KINDS:
         raise NotFound()
     if not isinstance(value, str):
@@ -26,15 +26,15 @@ def query(kind, value='', limit=20, category='', platform=''):
         limit = int(limit)
     except (TypeError, ValueError):
         raise BadRequest('Limite inválido.')
-    if not 1 <= limit <= 30:
+    if not 1 <= limit <= 100:
         raise BadRequest('O limite deve ser de 1 a 30.')
     search = '%' + value.strip()[:100] + '%'
     category = category.strip()[:100] if isinstance(category, str) else ''
-    platform = platform.strip()[:100] if isinstance(platform, str) else ''
+    channel = channel.strip()[:100] if isinstance(channel, str) else ''
     if kind == 'audiencias':
         return rows('''SELECT a.id, a.nome AS name, COALESCE(a.descricao_curta, a.descricao) AS description,
                               a.publico_estimado AS audience, a.imagem_url AS image_url,
-                              a.perfil_socioeconomico, c.nome AS category, p.nome AS platform
+                              a.perfil_socioeconomico, c.nome AS category, p.nome AS channel
                          FROM cadu_audiencias a
                     LEFT JOIN cadu_categorias c ON c.id = a.categoria_id
                     LEFT JOIN cadu_audiencias_plataformas p ON p.id = a.plataforma_id
@@ -43,7 +43,7 @@ def query(kind, value='', limit=20, category='', platform=''):
                                OR COALESCE(a.descricao, '') ILIKE %s OR COALESCE(c.nome, '') ILIKE %s)
                           AND (%s = '' OR c.nome = %s) AND (%s = '' OR p.nome = %s)
                      ORDER BY a.nome, a.id LIMIT %s''',
-                    (search, search, search, search, category, category, platform, platform, limit))
+                    (search, search, search, search, category, category, channel, channel, limit))
     sql = {'canais': '''SELECT id, nome AS name, descricao AS description, categoria AS category, alcance AS audience FROM cadu_canais WHERE is_active = TRUE AND (nome ILIKE %s OR COALESCE(descricao, '') ILIKE %s OR COALESCE(categoria, '') ILIKE %s) ORDER BY ordem, nome LIMIT %s''',
            'formatos': '''SELECT id, nome AS name, descricao AS description, dimensoes AS dimensions, formatos_arquivo AS files FROM cadu_formatos WHERE is_active = TRUE AND (nome ILIKE %s OR COALESCE(descricao, '') ILIKE %s OR COALESCE(dimensoes, '') ILIKE %s OR COALESCE(formatos_arquivo, '') ILIKE %s) AND is_interativo = FALSE ORDER BY ordem, nome LIMIT %s''',
            'interativos': '''SELECT id, nome AS name, descricao AS description, dimensoes AS dimensions, formatos_arquivo AS files FROM cadu_formatos WHERE is_active = TRUE AND (nome ILIKE %s OR COALESCE(descricao, '') ILIKE %s OR COALESCE(dimensoes, '') ILIKE %s OR COALESCE(formatos_arquivo, '') ILIKE %s) AND is_interativo = TRUE ORDER BY ordem, nome LIMIT %s'''}[kind]
@@ -70,7 +70,7 @@ def detail(kind, value):
                                  a.idade_25_34, a.idade_35_44, a.idade_45_mais,
                                  a.dispositivo_mobile, a.dispositivo_desktop, a.dispositivo_tablet,
                                  a.categoria_id AS category_id, a.plataforma_id AS platform_id,
-                                 c.nome AS category, s.nome AS subcategory, p.nome AS platform
+                                 c.nome AS category, s.nome AS subcategory, p.nome AS channel
                             FROM cadu_audiencias a
                        LEFT JOIN cadu_categorias c ON c.id = a.categoria_id
                        LEFT JOIN cadu_subcategorias s ON s.id = a.subcategoria_id
@@ -100,7 +100,7 @@ def related_audiences(audience, limit=6):
         limit = 6
     limit = max(1, min(limit, 8))
     return rows('''SELECT a.id, a.nome AS name, a.publico_estimado AS audience,
-                                     COALESCE(p.nome, NULLIF(TRIM(a.fonte), ''), 'Catálogo Cadu') AS platform,
+                                     COALESCE(p.nome, NULLIF(TRIM(a.fonte), ''), 'Portais') AS channel,
                                      c.nome AS category
                                 FROM cadu_audiencias a
                            LEFT JOIN cadu_categorias c ON c.id = a.categoria_id
@@ -115,5 +115,5 @@ def related_audiences(audience, limit=6):
 
 def audience_facets():
     categories = rows('''SELECT DISTINCT c.nome AS value FROM cadu_audiencias a JOIN cadu_categorias c ON c.id = a.categoria_id WHERE a.is_active = TRUE ORDER BY c.nome LIMIT 30''')
-    platforms = rows('''SELECT DISTINCT p.nome AS value FROM cadu_audiencias a JOIN cadu_audiencias_plataformas p ON p.id = a.plataforma_id WHERE a.is_active = TRUE ORDER BY p.nome LIMIT 30''')
-    return {'categories': [item['value'] for item in categories], 'platforms': [item['value'] for item in platforms]}
+    channels = rows('''SELECT DISTINCT p.nome AS value FROM cadu_audiencias a JOIN cadu_audiencias_plataformas p ON p.id = a.plataforma_id WHERE a.is_active = TRUE ORDER BY p.nome LIMIT 30''')
+    return {'categories': [item['value'] for item in categories], 'channels': [item['value'] for item in channels]}

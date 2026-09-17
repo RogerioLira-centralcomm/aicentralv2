@@ -30,10 +30,10 @@ def audiences():
     if not session.get('user_id'):
         return redirect(login_url(request.full_path))
     category = request.args.get('category', '')
-    platform = request.args.get('platform', '')
+    channel = request.args.get('channel', '')
     return render_template('cadu_planner/marketplace.html',
-                           records=catalog.query('audiencias', request.args.get('q', ''), 100, category, platform),
-                           facets=catalog.audience_facets(), category=category, platform=platform,
+                           records=catalog.query('audiencias', request.args.get('q', ''), 100, category, channel),
+                           facets=catalog.audience_facets(), category=category, channel=channel,
                            planner_url=_url)
 
 

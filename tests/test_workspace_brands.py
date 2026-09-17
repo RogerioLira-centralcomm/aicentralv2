@@ -4,7 +4,7 @@ from unittest import TestCase, mock
 
 from flask import Flask
 
-from aicentralv2.cadu_workspace.routes import _brand_review_is_stale, _merge_brand_analysis, bp
+from aicentralv2.cadu_workspace.routes import _brand_review_is_stale, _merge_brand_analysis, _save_brand_review_job, bp
 
 
 def _app():
@@ -22,6 +22,21 @@ def _client():
 
 
 class WorkspaceBrandsTest(TestCase):
+    @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
+    def test_review_progress_update_uses_the_current_client_schema(self, get_db):
+        connection = mock.MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = {'analysis_metadata': {'review_pack': {'job_id': 'job-1', 'status': 'queued'}}}
+        get_db.return_value = connection
+
+        with _app().app_context():
+            self.assertTrue(_save_brand_review_job(12, 81, 'job-1', status='running'))
+
+        update_sql = cursor.execute.call_args_list[-1].args[0]
+        self.assertIn('UPDATE cx_clients SET analysis_metadata', update_sql)
+        self.assertNotIn('updated_at', update_sql)
+        connection.commit.assert_called_once_with()
+
     def test_interrupted_brand_review_becomes_retryable_after_timeout(self):
         self.assertTrue(_brand_review_is_stale({
             'status': 'running', 'created_at': '2020-01-01T00:00:00Z',

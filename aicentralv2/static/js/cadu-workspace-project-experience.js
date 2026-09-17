@@ -26,6 +26,30 @@
   const form = document.querySelector('[data-project-brand-import]');
   const progress = document.querySelector('[data-project-brand-progress]');
   if (!form || !progress) return;
+  document.querySelectorAll('[data-brand-dropzone]').forEach(zone => {
+    const input = zone.querySelector('input[type="file"]');
+    const label = zone.querySelector('[data-brand-file-label]');
+    const describe = () => {
+      const count = input.files?.length || 0;
+      if (label) label.textContent = count ? `${count} arquivo${count === 1 ? '' : 's'} selecionado${count === 1 ? '' : 's'}` : 'Opcional';
+      zone.classList.toggle('has-files', Boolean(count));
+    };
+    input?.addEventListener('change', describe);
+    ['dragenter', 'dragover'].forEach(eventName => zone.addEventListener(eventName, event => {
+      event.preventDefault(); zone.classList.add('is-dragging');
+    }));
+    ['dragleave', 'drop'].forEach(eventName => zone.addEventListener(eventName, event => {
+      event.preventDefault(); zone.classList.remove('is-dragging');
+    }));
+    zone.addEventListener('drop', event => {
+      if (!event.dataTransfer?.files?.length || !input) return;
+      const files = Array.from(event.dataTransfer.files).filter(file => /^image\/(png|jpeg|webp)$/.test(file.type));
+      if (!files.length) return;
+      const transfer = new DataTransfer();
+      files.slice(0, input.multiple ? 7 : 1).forEach(file => transfer.items.add(file));
+      input.files = transfer.files; describe();
+    });
+  });
   let timer;
   const setProgress = (message, state = '') => {
     progress.hidden = false; progress.className = 'workspace-project-brand-import__progress ' + state;

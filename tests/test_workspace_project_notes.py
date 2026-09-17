@@ -13,6 +13,30 @@ def _app():
 
 
 class WorkspaceProjectNotesTest(TestCase):
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_project', return_value={'id': 'p-1'})
+    @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
+    def test_legacy_project_image_is_served_from_authorized_database_bytes(self, get_db, _project):
+        connection = mock.MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = {
+            'file_bytes': b'legacy-image',
+            'mime': 'image/jpeg',
+            'title': 'Peça de campanha',
+        }
+        get_db.return_value = connection
+        client = _app().test_client()
+        with client.session_transaction() as session:
+            session.update(user_id=7, cliente_id=12)
+
+        response = client.get('/workspace/app/projetos/p-1/imagens/57')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, 'image/jpeg')
+        self.assertEqual(response.data, b'legacy-image')
+        sql = str(cursor.execute.call_args.args[0])
+        self.assertIn('cadu_docs_client_images', sql)
+        self.assertIn('id_cliente = %s', sql)
+
     def test_chunker_preserves_paragraphs_and_splits_large_blocks(self):
         chunks = _chunk_project_note('Primeiro parágrafo.\n\n' + ('contexto ' * 500), limit=120)
         self.assertGreater(len(chunks), 2)

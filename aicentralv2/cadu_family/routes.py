@@ -53,6 +53,7 @@ def protect():
     request_host = (request.host.split(':', 1)[0] or '').lower()
     planner_surface = request_host == planner_host and (
         request.path.startswith('/familia/planner/')
+        or request.path.startswith('/familia/public/link-tester/')
         or request.path == '/familia/api/context'
         or request.path.startswith('/familia/api/planner/')
     )
@@ -412,9 +413,34 @@ def planner_selection_toggle():
 @bp.post('/api/planner/link-tester')
 def planner_link_test():
     from ..cadu_planner import link_tester
-    context.identity()
-    context.resolve()
-    return jsonify(result=link_tester.test(request.get_json(silent=True) or {}))
+    user, selected = context.identity(), context.resolve()
+    return jsonify(result=link_tester.test(request.get_json(silent=True) or {}, selected['client_id'], user['id']))
+
+
+@bp.get('/api/planner/link-tester/history')
+def planner_link_test_history():
+    from ..cadu_planner import link_tester
+    selected = context.resolve()
+    return jsonify(runs=link_tester.history(selected['client_id']))
+
+
+@bp.get('/api/planner/link-tester/<run_id>')
+def planner_link_test_detail(run_id):
+    from ..cadu_planner import link_tester
+    selected = context.resolve()
+    report = link_tester.detail(selected['client_id'], run_id)
+    if not report:
+        abort(404)
+    return jsonify(run=report)
+
+
+@bp.get('/public/link-tester/<token>')
+def public_link_test(token):
+    from ..cadu_planner import link_tester
+    report = link_tester.public_result(token)
+    if not report:
+        abort(404)
+    return render_template('cadu_planner/public_link_test.html', report=report)
 
 
 @bp.get('/api/planner/docs')

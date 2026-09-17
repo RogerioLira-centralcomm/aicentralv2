@@ -243,6 +243,7 @@ fi
 "$VENV_PYTHON" migrations/run_add_cadu_planner_client_flow.py
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_review_history.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_docs_compat.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_link_test_runs.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_public_shares.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_interactive_creative_categories.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_user_onboardings.sql

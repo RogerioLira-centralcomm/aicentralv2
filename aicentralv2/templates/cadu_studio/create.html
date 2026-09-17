@@ -5,7 +5,7 @@
 {% block styles %}
 <meta name="trocr-csrf-token" content="{{ mc_trocr_csrf }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-navigation.css') }}?v=8">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-create.css') }}?v=8">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-create.css') }}?v=9">
 {% endblock %}
 {% block content %}
 <main class="studio-create studio-create--editor-frame" id="studioCreate" data-api-root="{{ '/studio/api' if request.blueprint in ('studio', 'studio_product') else '/parametros/api' }}">
@@ -87,5 +87,5 @@
 {% block portal_scripts %}
 <script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script>
 <script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=8" defer></script>
-<script src="{{ url_for('static', filename='js/mc-studio-create.js') }}?v=5" defer></script>
+<script src="{{ url_for('static', filename='js/mc-studio-create.js') }}?v=7" defer></script>
 {% endblock %}

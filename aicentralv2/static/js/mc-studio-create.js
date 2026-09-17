@@ -57,12 +57,16 @@
       referenceHint.textContent = "Ainda não há imagens na biblioteca deste projeto.";
       return;
     }
-    referenceHint.textContent = "A imagem do palco e até duas referências seguem para o agente.";
+    referenceHint.textContent = "Escolha até duas referências para o agente ou coloque uma imagem no palco.";
     references.innerHTML = library.slice(0, 6).map((item, index) => {
       const url = imageUrl(item);
       const active = selectedReferences.includes(index);
-      return `<div class="studio-create__reference">${url ? `<img src="${escapeHtml(url)}" alt="Referência ${index + 1}">` : ""}<button type="button" data-reference="${index}" aria-pressed="${active}">${active ? "✓" : "+"}</button></div>`;
+      return `<div class="studio-create__reference">${url ? `<img src="${escapeHtml(url)}" alt="Imagem ${index + 1} da biblioteca">` : ""}<button class="studio-create__stage-image" type="button" data-stage-image="${index}">Usar no palco</button><button class="studio-create__reference-toggle" type="button" data-reference="${index}" aria-label="${active ? "Remover referência" : "Adicionar como referência"}" aria-pressed="${active}">${active ? "✓" : "+"}</button></div>`;
     }).join("");
+    references.querySelectorAll("button[data-stage-image]").forEach((button) => button.addEventListener("click", () => {
+      const item = library[Number(button.dataset.stageImage)];
+      if (item) setCanvas(item);
+    }));
     references.querySelectorAll("button[data-reference]").forEach((button) => button.addEventListener("click", () => {
       const index = Number(button.dataset.reference);
       if (selectedReferences.includes(index)) selectedReferences = selectedReferences.filter((value) => value !== index);
@@ -79,6 +83,14 @@
     editor.classList.remove("is-disabled");
     editor.removeAttribute("aria-disabled");
     editor.href = `${editor.href.split("?")[0]}?creative_client_id=${encodeURIComponent(clientId)}&project_id=${encodeURIComponent(projectId)}&source=${encodeURIComponent(url)}`;
+  }
+  function clearCanvas() {
+    selectedImage = "";
+    canvas.innerHTML = '<div class="studio-create__empty"><strong>Descreva o que a peça precisa comunicar</strong><span>Use o agente para informar objetivo, público e mensagem.</span></div>';
+    continueButton.disabled = true;
+    editor.classList.add("is-disabled");
+    editor.setAttribute("aria-disabled", "true");
+    editor.href = editor.href.split("?")[0];
   }
   async function saveStageAsset() {
     if (!selectedImage || !clientId || !projectId) return;
@@ -106,6 +118,9 @@
   async function loadProject(context = {}) {
     projectId = String(projectSelect?.value || "");
     projectReady = false;
+    // A project change starts a new creation.  Existing library assets remain
+    // available as optional references; none is silently placed on the stage.
+    clearCanvas();
     if (!clientId || !projectId) return;
     projectName.textContent = "Carregando projeto…";
     try {
@@ -150,7 +165,6 @@
       const data = await get(`${apiRoot}/format-lab/swap/library?client_id=${encodeURIComponent(clientId)}&media=still`);
       library = Array.isArray(data?.items) ? data.items : [];
       renderReferences();
-      if (library[0]) setCanvas(library[0]);
     } catch (_error) {
       renderReferences();
     }

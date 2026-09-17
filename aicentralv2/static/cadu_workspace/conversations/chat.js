@@ -64,10 +64,9 @@
     historyToggle.setAttribute('aria-expanded', String(open));
     historyToggle.textContent = open ? 'Ocultar conversas' : 'Conversas';
   });
-  if (desktopHistory() && historyToggle) {
-    historyToggle.setAttribute('aria-expanded', 'true');
-    historyToggle.textContent = 'Ocultar conversas';
-  }
+  // A new conversation starts with the reading surface clear. The recent
+  // list remains one intentional click away instead of competing for focus.
+  if (desktopHistory()) closeHistory();
   const closeWorkMemory = () => { if (workMemoryPanel) workMemoryPanel.hidden = true; workMemoryToggle?.setAttribute('aria-expanded', 'false'); };
   let conversationId = null, runId = null, sending = false, controller = null;
   let renderFrame = null, renderTarget = null, renderContent = '';
@@ -75,6 +74,7 @@
   const isNearHistoryEnd = () => history && (history.scrollHeight - history.scrollTop - history.clientHeight) < 96;
   const isImageGenerationRequest = message => /^(?:agora\s+)?(?:crie|cria|gere|gerar|criar|faca)\s+(?:(?:uma?|a|o)\s+)?(?:imagem|foto|ilustracao|criativo)\b/i.test(
     String(message || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim());
+  const isExternalResearchRequest = message => /\b(deep research|pesquisa aprofundada|pesquisa profunda|atualiza[çc][ãa]o de mercado|atualize o mercado|mercado recente)\b/i.test(String(message || ''));
   history?.addEventListener('scroll', () => { followStreaming = isNearHistoryEnd(); }, {passive:true});
   const scrollHistoryToEnd = (force = false) => {
     if (!history || (!force && !isNearHistoryEnd())) return;
@@ -190,8 +190,28 @@
     if (contextNote) contextNote.textContent = conversationId
       ? (projectRef ? ('Projeto' + (brand ? ' e marca' : '') + ' definidos na criação desta conversa.') : 'Esta conversa foi criada sem projeto.')
       : projectSelect?.value ? ('Projeto' + (brand ? ' e marca vinculada' : '') + ' para a nova conversa.') : 'Sem projeto: a nova conversa usará apenas o contexto geral.';
+    renderWorkMemoryIdentity(project, brand);
     if (pageMode && !conversationId && !sending && history?.querySelector('.workspace-conversation-empty')) renderEmptyState();
   };
+  function renderWorkMemoryIdentity(project, brand) {
+    const title = document.getElementById('conversation-work-memory-title');
+    if (title) title.textContent = project?.name || 'Contexto do projeto';
+    const header = workMemoryPanel?.querySelector('header');
+    if (!header) return;
+    header.querySelector('.conversation-work-memory-identity')?.remove();
+    if (!project) return;
+    const identity = document.createElement('div'); identity.className = 'conversation-work-memory-identity';
+    const mark = document.createElement('span'); mark.className = 'conversation-work-memory-mark';
+    if (brand?.logo_url) {
+      const image = document.createElement('img'); image.src = brand.logo_url; image.alt = 'Logo de ' + brand.name;
+      image.addEventListener('error', () => image.remove()); mark.append(image);
+    }
+    if (!mark.childElementCount) mark.textContent = (brand?.name || project.name).split(/\s+/).slice(0, 2).map(word => word[0]).join('').toUpperCase();
+    const copy = document.createElement('span');
+    const label = document.createElement('b'); label.textContent = brand?.name || 'Projeto selecionado';
+    const detail = document.createElement('small'); detail.textContent = brand ? 'Marca vinculada' : 'Sem marca vinculada';
+    copy.append(label, detail); identity.append(mark, copy); header.append(identity);
+  }
   async function loadContext() {
     if (!projectSelect) return;
     try {
@@ -242,7 +262,12 @@
         const section = document.createElement('section'); section.className = 'conversation-work-memory-section';
         const heading = document.createElement('h3'); heading.textContent = title; section.append(heading);
         if (!items?.length) { const empty = document.createElement('p'); empty.textContent = 'Nada registrado ainda.'; section.append(empty); }
-        items?.forEach(item => { const row = document.createElement('article'); const label = document.createElement('small'); label.textContent = ({decision:'Decisão',constraint:'Restrição',risk:'Risco',next_step:'Próximo passo',brand_context:'Marca'}[item.kind] || 'Registro'); const text = document.createElement('p'); text.textContent = item.summary; row.append(label,text); if (review) { const actions=document.createElement('div'); for (const [action,name] of [['confirm','Confirmar'],['dismiss','Descartar'],...(item.kind === 'brand_context' ? [['promote','Usar no cliente']] : [])]) { const button=document.createElement('button'); button.type='button'; button.textContent=name; button.addEventListener('click', async () => { await api('conversations/work-memory/'+item.id,'PATCH',{action}); loadWorkMemory(); }); actions.append(button); } row.append(actions); } section.append(row); }); workMemoryContent.append(section);
+        const visibleItems = (items || []).slice(0, 2);
+        const remainingItems = (items || []).slice(2);
+        const addRow = item => { const row = document.createElement('article'); const label = document.createElement('small'); label.textContent = ({decision:'Decisão',constraint:'Restrição',risk:'Risco',next_step:'Próximo passo',brand_context:'Marca'}[item.kind] || 'Registro'); const text = document.createElement('p'); text.textContent = item.summary; row.append(label,text); if (review) { const actions=document.createElement('div'); for (const [action,name] of [['confirm','Confirmar'],['dismiss','Descartar'],...(item.kind === 'brand_context' ? [['promote','Usar no cliente']] : [])]) { const button=document.createElement('button'); button.type='button'; button.textContent=name; button.addEventListener('click', async () => { await api('conversations/work-memory/'+item.id,'PATCH',{action}); loadWorkMemory(); }); actions.append(button); } row.append(actions); } return row; };
+        visibleItems.forEach(item => section.append(addRow(item)));
+        if (remainingItems.length) { const more = document.createElement('details'); more.className = 'conversation-work-memory-more'; const summary = document.createElement('summary'); summary.textContent = 'Ver mais ' + remainingItems.length + ' registro' + (remainingItems.length === 1 ? '' : 's'); more.append(summary); remainingItems.forEach(item => more.append(addRow(item))); section.append(more); }
+        workMemoryContent.append(section);
       };
       render('Contexto confirmado', data.confirmed, false); render('Para revisar', data.proposals, true);
       const section=document.createElement('section'); section.className='conversation-work-memory-section'; const h=document.createElement('h3'); h.textContent='Discussões da equipe'; section.append(h);
@@ -420,8 +445,8 @@
     const list = document.createElement('ul');
     sources.slice(0, 4).forEach(source => {
       if (!source || typeof source !== 'object') return;
-      const item = document.createElement('li'), title = document.createElement('b'), excerpt = document.createElement('span');
-      title.textContent = source.title || 'Fonte sem título'; excerpt.textContent = source.excerpt || '';
+      const item = document.createElement('li'), excerpt = document.createElement('span'); let title = document.createElement('b');
+      title.textContent = source.title || 'Fonte sem título'; if (source.url) { try { const url = new URL(source.url); if (url.protocol === 'https:') { const link = document.createElement('a'); link.href = url.href; link.target = '_blank'; link.rel = 'noopener'; link.textContent = title.textContent; title = link; } } catch (_) {} } excerpt.textContent = source.excerpt || '';
       item.append(title); if (excerpt.textContent) item.append(excerpt); list.append(item);
     });
     if (list.childElementCount) { card.append(list); history.append(card); }
@@ -537,6 +562,10 @@
         `Proponha três caminhos estratégicos para o projeto ${projectName}. Compare benefício, risco, dependência e quando cada um faz sentido.`],
       ['Prepare uma atualização objetiva', 'Resumo executivo para alinhar equipe e cliente',
         `Prepare uma atualização objetiva do projeto ${projectName}: onde estamos, o que foi decidido, o que está em risco e o próximo passo.`],
+      ['Atualização de mercado', 'Fontes recentes, impactos e próximos sinais',
+        `Faça uma atualização de mercado recente para o projeto ${projectName}. Pesquise fontes públicas, traga links e datas, destaque impactos para a marca e recomende os próximos sinais para acompanhar.`, '≈ 900 créditos'],
+      ['Pesquisa aprofundada', 'Cenário, concorrência, tendências e implicações',
+        `Faça uma pesquisa aprofundada (deep research) para o projeto ${projectName}. Investigue mercado, concorrentes, tendências e evidências recentes; cite fontes e datas, diferencie fatos de inferências e consolide implicações estratégicas para a marca.`, '≈ 4.200 créditos'],
     ] : [
       ['Estruture um novo projeto', 'Briefing mínimo para sair da conversa com direção',
         'Quero estruturar um novo projeto. Faça as perguntas essenciais e, onde faltar dado, avance com premissas claramente marcadas.'],
@@ -557,18 +586,29 @@
       ? 'Escolha uma ação que use o contexto do projeto já selecionado.'
       : 'Escolha um ponto de partida concreto ou selecione um projeto para usar seu contexto.';
     const suggestions = document.createElement('div'); suggestions.className = 'conversation-suggestions';
-    suggestionsForProject.forEach(([prompt, detail, request]) => {
+    suggestionsForProject.forEach(([prompt, detail, request, estimate]) => {
       const button = document.createElement('button'); button.type = 'button'; button.className = 'conversation-suggestion';
       const title = document.createElement('strong'); title.textContent = prompt;
       const copy = document.createElement('span'); copy.textContent = detail;
       button.append(title, copy);
+      if (estimate) { const cost = document.createElement('em'); cost.textContent = estimate; cost.setAttribute('aria-label', 'Estimativa de consumo: ' + estimate); button.append(cost); }
       button.addEventListener('click', () => { setComposerValue(request); resizeComposer(); updateSend(); editor.focus(); });
       suggestions.append(button);
     });
-    empty.append(heading, description, suggestions); history.append(empty);
+    empty.append(heading, description, suggestions);
+    if (projectName) {
+      const pricing = document.createElement('section'); pricing.className = 'conversation-research-pricing';
+      const title = document.createElement('strong'); title.textContent = 'Consultas com pesquisa externa';
+      const note = document.createElement('span'); note.textContent = 'O saldo é debitado pelo uso efetivo do provedor; estes valores são estimativas para decidir antes de iniciar.';
+      const table = document.createElement('table');
+      table.innerHTML = '<thead><tr><th>Consulta</th><th>Fonte</th><th>Estimativa</th></tr></thead><tbody><tr><td>Atualização de mercado</td><td>Perplexity via OpenRouter</td><td>≈ 900 créditos</td></tr><tr><td>Pesquisa aprofundada</td><td>Perplexity via OpenRouter</td><td>≈ 4.200 créditos</td></tr></tbody>';
+      pricing.append(title, note, table); empty.append(pricing);
+    }
+    history.append(empty);
   }
   function addCatalogCard(data) {
     if (!Array.isArray(data.records) || !data.records.length) return;
+    if (data.catalog_kind === 'canal') { addChannelCard(data.records[0]); return; }
     const card = document.createElement('section'); card.className = 'conversation-catalog-card';
     const kind = String(data.catalog_kind || '');
     card.classList.add('is-' + kind.replace(/[^a-z-]/g, ''));
@@ -582,6 +622,29 @@
     });
     const shouldFollow = isNearHistoryEnd();
     card.append(list); history.append(card); if (shouldFollow) scrollHistoryToEnd(true);
+  }
+  function addChannelCard(channel) {
+    if (!channel || typeof channel !== 'object') return;
+    const card = document.createElement('section'); card.className = 'conversation-channel-card';
+    const head = document.createElement('header');
+    const mark = document.createElement('span'); mark.className = 'conversation-channel-mark';
+    if (channel.logo_url) { const image = document.createElement('img'); image.src = channel.logo_url; image.alt = 'Logo de ' + (channel.name || 'canal'); image.addEventListener('error', () => image.remove()); mark.append(image); }
+    if (!mark.childElementCount) mark.textContent = String(channel.name || 'Canal').slice(0, 2).toUpperCase();
+    const title = document.createElement('div'); const name = document.createElement('h4'); name.textContent = channel.name || 'Canal'; const category = document.createElement('p'); category.textContent = [channel.category, channel.audience].filter(Boolean).join(' · ') || 'Canal do catálogo'; title.append(name, category); head.append(mark, title); card.append(head);
+    if (channel.description) { const description = document.createElement('p'); description.className = 'conversation-channel-description'; description.textContent = channel.description; card.append(description); }
+    const section = (label, values) => { if (!values?.length) return; const block = document.createElement('section'); const heading = document.createElement('strong'); heading.textContent = label; const list = document.createElement('ul'); values.slice(0, 4).forEach(value => { const item = document.createElement('li'); item.textContent = value; list.append(item); }); block.append(heading, list); card.append(block); };
+    section('Formatos disponíveis', channel.formats); section('Diferenciais', channel.differences);
+    const facts = document.createElement('dl');
+    for (const [label, value] of [['Modelo de compra', channel.buying_model], ['Prazo', channel.lead_time], ['Investimento mínimo', channel.budget_minimum]]) { if (!value) continue; const term = document.createElement('dt'); term.textContent = label; const definition = document.createElement('dd'); definition.textContent = String(value); facts.append(term, definition); }
+    if (facts.childElementCount) { const factsSection = document.createElement('section'); factsSection.className = 'conversation-channel-facts'; factsSection.append(facts); card.append(factsSection); }
+    const caveat = document.createElement('small'); caveat.className = 'conversation-channel-caveat'; caveat.textContent = channel.budget_status || 'Dados sujeitos à validação.'; card.append(caveat);
+    const actions = document.createElement('footer');
+    const action = (label, prompt, primary = false) => { const button = document.createElement('button'); button.type = 'button'; button.textContent = label; if (primary) button.className = 'is-primary'; button.addEventListener('click', () => { setComposerValue(prompt); resizeComposer(); updateSend(); editor.focus(); }); actions.append(button); };
+    action('Criar briefing', `Crie um briefing de campanha usando ${channel.name} como canal prioritário. Traga objetivo, público, formato, entregas, pendências e o que deve ser validado comercialmente.`, true);
+    action('Adicionar ao plano', `Avalie ${channel.name} para o plano atual: papel no funil, formato, audiência, dependências, riscos e critério de decisão.`);
+    action('Comparar', `Compare ${channel.name} com outro canal mais adequado ao objetivo deste projeto. Mostre diferenças, complementaridade, riscos e quando escolher cada um.`);
+    if (channel.detail_url) { const link = document.createElement('a'); link.href = channel.detail_url; link.target = '_blank'; link.rel = 'noopener'; link.textContent = 'Ver detalhes'; actions.append(link); }
+    card.append(actions); history.append(card); scrollHistoryToEnd(true);
   }
   function addDocumentCard(data) {
     if (!data.document || typeof data.preview !== 'string') return;
@@ -795,6 +858,7 @@
     const stop = document.getElementById('conversation-stop');
     if (!button || sending || loadingThread || !canSend || (!composerValue().trim() && !attachments.items.length) || mode.disabled) return;
     const message = composerValue().trim() || 'Analise os arquivos anexados.', selectedMode = mode.value, newThread = !conversationId;
+    if (isExternalResearchRequest(message) && !window.confirm('Esta consulta envia um resumo do projeto ao Perplexity via OpenRouter para buscar fontes públicas. O uso será debitado do saldo pelo consumo efetivo. Continuar?')) return;
     if (isImageGenerationRequest(message)) {
       const guide = 'A criação de imagem não está disponível nesta conversa.\n\nPara criar ou editar uma imagem com o contexto adequado de marca e projeto, use o [Cadu Studio](https://studio.centralcomm.media/criar).';
       addMessage('user', message, attachments.items.map(item => ({name:item.file.name})));

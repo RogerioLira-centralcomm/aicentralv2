@@ -2,7 +2,7 @@
 {% block title %}Conversas — Cadu Workspace{% endblock %}
 {% block product_id %}workspace{% endblock %}
 {% block meta %}<script>try{if(matchMedia('(min-width:821px)').matches)document.documentElement.dataset.caduSidebar='collapsed'}catch(_){}</script>{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=9"><link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/chat.css') }}?v=22">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=9"><link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/chat.css') }}?v=25">{% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
 {% set workspace_active = 'conversas' %}
@@ -21,4 +21,4 @@
   </section>
 </div></div>
 {% endblock %}
-{% block portal_scripts %}<script defer src="{{ url_for('static', filename='cadu_workspace/conversations/stream.js') }}"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/attachments.js') }}?v=18"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/render.js') }}?v=22"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/chat.js') }}?v=24"></script>{% endblock %}
+{% block portal_scripts %}<script defer src="{{ url_for('static', filename='cadu_workspace/conversations/stream.js') }}"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/attachments.js') }}?v=18"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/render.js') }}?v=22"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/chat.js') }}?v=28"></script>{% endblock %}

@@ -13,6 +13,39 @@ def test_routes_project_news_to_research_without_requesting_a_model():
     assert route == {'solution': 'pesquisa', 'complexity': 'media'}
 
 
+def test_explicit_research_starters_select_a_bounded_paid_research_plan():
+    from aicentralv2.cadu_workspace.conversations.research import plan_for
+    assert plan_for('Faça uma atualização de mercado recente para a marca.')['id'] == 'market'
+    assert plan_for('Faça uma pesquisa aprofundada (deep research) do projeto.')['id'] == 'deep'
+    assert plan_for('Compare duas ideias para a campanha.') is None
+
+
+def test_external_research_is_attached_as_evidence_not_project_truth():
+    import json
+    from aicentralv2.cadu_workspace.conversations.research import attach
+    packet = attach('{"contexto_projeto_privado":{"projeto":{"nome":"Reserva"}}}', {
+        'label': 'Atualização de mercado', 'content': 'Fato com fonte.',
+        'sources': [{'title': 'Fonte oficial', 'url': 'https://example.com', 'excerpt': 'Trecho.'}],
+    })
+    values = json.loads(packet)
+    assert values['contexto_projeto_privado']['projeto']['nome'] == 'Reserva'
+    assert values['pesquisa_externa_atual']['orientacao'].startswith('Trate como evidência externa')
+
+
+def test_market_research_uses_the_perplexity_plan_and_keeps_citations(monkeypatch):
+    from aicentralv2.cadu_workspace.conversations import research
+    captured = {}
+    def provider(messages, **kwargs):
+        captured.update(kwargs)
+        return {'model': 'perplexity/sonar-pro', 'usage': {'total_tokens': 12, 'cost': 0.001},
+                'message': {'content': 'Atualização validada.', 'citations': [{'title': 'Fonte', 'url': 'https://example.com', 'text': 'Evidência.'}]}}
+    monkeypatch.setattr(research, 'chat_completion', provider)
+    result = research.execute(research.plan_for('Atualização de mercado recente'), 'Atualização de mercado recente', '{}')
+    assert captured['model'] == 'perplexity/sonar-pro'
+    assert captured['provider'] == 'openrouter'
+    assert result['sources'] == [{'title': 'Fonte', 'url': 'https://example.com', 'excerpt': 'Evidência.'}]
+
+
 def test_uses_matching_installed_skill_and_never_the_client_mode():
     selected, route = choose_mode([
         {'id': 'ideias', 'active': True},

@@ -27,6 +27,23 @@ class ChatCatalogToolsTest(TestCase):
         self.assertIsNone(catalog_tools.project({'tool': 'interativo_buscar', 'input': {'q': 'quiz'}}, 'workspace'))
         query.assert_not_called()
 
+    @mock.patch('aicentralv2.cadu_workspace.conversations.catalog_tools.product_url', return_value='https://planner.test/canais/9')
+    @mock.patch('aicentralv2.cadu_planner.channels.detail')
+    def test_workspace_projects_channel_detail_as_a_safe_work_card(self, detail, _url):
+        detail.return_value = {
+            'id': 9, 'name': 'Netflix', 'descricao': 'Streaming premium.', 'categoria': 'CTV',
+            'logo_url': 'https://assets.test/netflix.png', 'alcance': 'Alcance qualificado',
+            'formatos': ['Pre-roll', 'Pause ads'], 'diferenciais': ['Ambiente premium'],
+            'modelo_compra': 'Negociação', 'prazo_entrega': '10 dias', 'investimento_minimo': 'Sob consulta',
+        }
+        card = catalog_tools.project({'tool': 'channel_detail', 'input': {'id': 9}}, 'workspace')
+        self.assertEqual(card['catalog_kind'], 'canal')
+        record = card['records'][0]
+        self.assertEqual(record['name'], 'Netflix')
+        self.assertEqual(record['formats'], ['Pre-roll', 'Pause ads'])
+        self.assertIn('validar', record['budget_status'].lower())
+        self.assertEqual(record['detail_url'], 'https://planner.test/canais/9')
+
     @mock.patch('aicentralv2.cadu_planner.docs.document_preview')
     def test_planner_projects_a_document_preview_only_for_the_bound_actor_and_client(self, preview):
         preview.return_value = ({'id': 9, 'title': 'Resumo', 'type': 'brief', 'status': 'draft',

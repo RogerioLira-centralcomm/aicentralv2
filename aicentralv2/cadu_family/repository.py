@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 from ..db import get_db
 from flask import g, current_app
 from ..product_domains import product_url
+from ..smart_planner.logos import public_logo
 
 
 def family_table_available(name):
@@ -67,17 +68,21 @@ def account_role(user):
 
 def entities(client_id):
     # Qualified references retain legacy IDs and avoid collisions between tables.
-    return rows('''SELECT 'ci:' || id::text AS ref, nome AS name,
+    items = rows('''SELECT 'ci:' || id::text AS ref, nome AS name,
                          CASE WHEN tipo = 'marca' THEN 'brand' ELSE 'project' END AS kind,
-                         'ci' AS source
+                         'ci' AS source, NULL::text AS logo_url
                     FROM cadu_ci_projetos WHERE id_cliente = %s AND status <> 'deletado'
                   UNION ALL
-                  SELECT 'projects:' || id::text, nome, 'project', 'projects'
+                  SELECT 'projects:' || id::text, nome, 'project', 'projects', NULL::text
                     FROM cadu_projetos WHERE id_cliente = %s AND deleted_at IS NULL
                   UNION ALL
-                  SELECT 'studio:' || id::text, name, 'brand', 'studio'
+                  SELECT 'studio:' || id::text, name, 'brand', 'studio',
+                         COALESCE(logo_upload_path, logo_url)
                     FROM cx_clients WHERE crm_client_id = %s
                   ORDER BY name''', (client_id, client_id, client_id))
+    for item in items:
+        item['logo_url'] = public_logo(item.get('logo_url') or '')
+    return items
 
 
 def entity_links(client_id):

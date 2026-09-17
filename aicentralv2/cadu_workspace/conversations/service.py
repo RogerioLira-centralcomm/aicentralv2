@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 from flask import abort, session, current_app
 
 from ...cadu_family import context, dify, repository
+from .. import project_knowledge
 from ...cadu_credit_connector import CaduCreditConnector, CreditActor
 from ...cadu_tool_billing import InsufficientToolCredits
 from ...cadu_family.catalog import PROFILES
@@ -15,6 +16,7 @@ from . import catalog_tools, result_cards
 from . import recovery
 from . import memory
 from . import working_memory
+from . import research
 from .legacy_results import readable_documents
 
 
@@ -194,11 +196,34 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query):
     terms = ' '.join(str(query or '').split())[:400]
     if terms:
         try:
-            sources = repository.rows('''SELECT titulo, LEFT(conteudo, 1000) AS trecho
-                                          FROM cadu_ci_chunks
-                                         WHERE projeto_id = %s AND id_cliente = %s
-                                           AND to_tsvector('portuguese', conteudo) @@ plainto_tsquery('portuguese', %s)
-                                      ORDER BY ordem ASC LIMIT 4''', (project_id, client_id, terms))
+            try:
+                vector = project_knowledge.vector_literal(project_knowledge.query_embedding(terms))
+                sources = repository.rows('''WITH lexical AS (
+                    SELECT id, ts_rank_cd(search_vector, plainto_tsquery('portuguese', %s)) AS score
+                      FROM cadu_ci_chunks WHERE projeto_id=%s AND id_cliente=%s
+                        AND search_vector @@ plainto_tsquery('portuguese', %s) ORDER BY score DESC LIMIT 12
+                ), semantic AS (
+                    SELECT id, 1 - (embedding <=> %s::vector) AS score
+                      FROM cadu_ci_chunks WHERE projeto_id=%s AND id_cliente=%s
+                    ORDER BY embedding <=> %s::vector LIMIT 12
+                ), ranked AS (
+                    SELECT id, SUM(1.0 / (60 + rank)) AS score FROM (
+                        SELECT id, row_number() OVER (ORDER BY score DESC) AS rank FROM lexical
+                        UNION ALL SELECT id, row_number() OVER (ORDER BY score DESC) AS rank FROM semantic
+                    ) candidates GROUP BY id
+                ) SELECT c.titulo, LEFT(c.conteudo, 1000) AS trecho
+                      FROM ranked r JOIN cadu_ci_chunks c ON c.id=r.id
+                     ORDER BY r.score DESC, c.ordem ASC LIMIT 4''',
+                (terms, project_id, client_id, terms, vector, project_id, client_id, vector))
+            except project_knowledge.KnowledgeIndexError:
+                # An unavailable embedding credential must not hide the project
+                # brief during rollout; lexical retrieval is a temporary read
+                # fallback, never an indexing mode.
+                sources = repository.rows('''SELECT titulo, LEFT(conteudo, 1000) AS trecho
+                                              FROM cadu_ci_chunks
+                                             WHERE projeto_id = %s AND id_cliente = %s
+                                               AND search_vector @@ plainto_tsquery('portuguese', %s)
+                                          ORDER BY ordem ASC LIMIT 4''', (project_id, client_id, terms))
             packet['fontes_verificadas'] = [
                 {'fonte': row.get('titulo') or 'Fonte sem título', 'trecho': row.get('trecho') or ''}
                 for row in sources
@@ -345,6 +370,7 @@ def prepare(data, selected):
     chosen, routing = choose_mode(modes(user['id']), query)
     if chosen is None:
         abort(503, description='As especializações do Cadu estão sendo configuradas.')
+    research_plan = research.plan_for(query)
     # Existing threads retain their bound context even when opened in another product.
     saved_context = (repository.conversation_context(user, selected['client_id'], conversation_id) if existing else None) or session.get('family_context') or {}
     if saved_context.get('profile') in PROFILES:
@@ -379,7 +405,8 @@ def prepare(data, selected):
             # when the account has no remaining balance; a replay has already
             # been admitted and must never be blocked by a later balance read.
             try:
-                CaduCreditConnector().authorize(CreditActor.from_values(selected['client_id'], user['id']), 1)
+                estimated = 1 + int((research_plan or {}).get('reserve_tokens') or 0)
+                CaduCreditConnector().authorize(CreditActor.from_values(selected['client_id'], user['id']), estimated)
             except InsufficientToolCredits as exc:
                 abort(409, description=str(exc))
             lock_organization_generation(cur, user['organization_id'])
@@ -431,6 +458,7 @@ def prepare(data, selected):
             run = build_run(run_id, conversation_id, user, selected, chosen, profile,
                             project_context, conversation, query, uploads, existing, history, routing)
             run['routing'] = routing
+            run['research_plan'] = research_plan
             if current_app.config.get('CADU_CHAT_WORKER_ENABLED', False):
                 from .jobs import enqueue
                 enqueue(cur, run)
@@ -470,9 +498,10 @@ def build_run(run_id, conversation_id, user, selected, chosen, profile,
         'diretrizes_especificas': directives[:40000],
         'limites_de_artefato': 'Conversa sem projeto é válida e não cria documentos. Para refinar, estruturar ou rascunhar briefing, responda em Markdown na própria conversa. Só proponha criar ou salvar um SmartDoc quando o usuário pedir isso explicitamente e houver um projeto selecionado; nunca emita marcadores SMART_DOC na resposta.',
         'fronteiras_de_contexto': {
-            'projeto_context': 'JSON com contexto_projeto_privado, base_cadu_global_publicada, workspace_da_equipe, memoria_de_trabalho e, quando aplicável, catalogo_midia_cadu.',
+            'projeto_context': 'JSON com contexto_projeto_privado, base_cadu_global_publicada, workspace_da_equipe, memoria_de_trabalho e, quando aplicável, catalogo_midia_cadu e pesquisa_externa_atual.',
             'prioridade': 'Use o contexto privado para decisões do projeto; trate a base global como institucional.',
             'memoria_de_trabalho': 'Use apenas memoria_de_trabalho_confirmada como contexto factual. Propostas não são enviadas e nunca devem ser tratadas como decisão.',
+            'pesquisa_externa_atual': 'Quando existir, sintetize a pesquisa externa com citações; ela é evidência recente, não substitui o contexto aprovado do projeto.',
             'privacidade': 'Nunca revele dados privados que não sejam necessários para responder ao pedido atual.',
         },
     }, ensure_ascii=False, separators=(',', ':'))
@@ -545,6 +574,23 @@ def stream(run):
         return 'data: ' + json.dumps({'event': kind, **values}, ensure_ascii=False) + '\n\n'
     try:
         yield event('start', conversation_id=run['conversation_id'], run_id=run['run_id'])
+        if run.get('research_plan'):
+            plan = run['research_plan']
+            yield event('progress', message='Consultando fontes recentes para o projeto…')
+            try:
+                external = research.execute(plan, run['payload']['query'], run['payload']['inputs']['projeto_context'])
+                CaduCreditConnector().charge_provider(
+                    actor=CreditActor.from_values(run['client_id'], run['user_id']),
+                    idempotency_key='research:' + str(run['run_id']) + ':' + str(plan['id']),
+                    app='Cadu Pesquisa', stage=str(plan['id']), provider_result=external['provider_result'],
+                    model=plan['model'], metadata={'conversation_id': str(run['conversation_id']), 'plan': plan['id']},
+                )
+                run['payload']['inputs']['projeto_context'] = research.attach(run['payload']['inputs']['projeto_context'], external)
+                if external['sources']:
+                    yield event('sources', sources=[{'title': source['title'], 'excerpt': source['excerpt'], 'url': source['url']} for source in external['sources']])
+                yield event('progress', message='Organizando a pesquisa no contexto do projeto…')
+            except (research.ResearchUnavailable, InsufficientToolCredits) as exc:
+                raise dify.DifyUnavailable(str(exc)) from exc
         for data in dify.events(run['payload']):
             provider_id = data.get('conversation_id') or provider_id
             if data.get('task_id') and data['task_id'] != task_id:

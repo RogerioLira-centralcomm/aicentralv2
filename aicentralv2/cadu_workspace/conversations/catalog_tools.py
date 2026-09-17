@@ -6,6 +6,7 @@ URL or customer context. This adapter recognizes a small, explicit allowlist.
 import json
 
 from ...cadu_planner import catalog
+from ...product_domains import product_url
 
 ALIASES = {
     'channel_search': 'canais', 'channel_detail': 'canais',
@@ -55,6 +56,35 @@ def _audience_for_conversation(record):
             if record.get(key) not in (None, '', [], {})}
 
 
+def _channel_for_conversation(channel):
+    """Project a catalog-owned channel dossier into a safe work object.
+
+    Commercial terms are clearly labeled as a catalog reference. They are not
+    availability, a quote, or a performance promise for the active client.
+    """
+    formats = channel.get('formatos') or channel.get('formatos_resumo') or []
+    if isinstance(formats, str):
+        formats = [formats]
+    if not isinstance(formats, list):
+        formats = []
+    differences = channel.get('diferenciais') or []
+    if isinstance(differences, str):
+        differences = [differences]
+    if not isinstance(differences, list):
+        differences = []
+    minimum = channel.get('investimento_minimo')
+    return {
+        'id': channel.get('id'), 'name': channel.get('name'), 'description': channel.get('descricao') or '',
+        'category': channel.get('categoria') or '', 'logo_url': channel.get('logo_url') or '',
+        'audience': channel.get('alcance') or '', 'formats': [str(item)[:160] for item in formats[:6]],
+        'differences': [str(item)[:240] for item in differences[:4]],
+        'buying_model': channel.get('modelo_compra') or '', 'lead_time': channel.get('prazo_entrega') or '',
+        'budget_minimum': minimum if minimum not in (None, '') else '',
+        'budget_status': 'Referência do catálogo Cadu — validar disponibilidade e condição comercial.' if minimum not in (None, '') else 'Não informado no catálogo. Validar com o comercial.',
+        'detail_url': product_url('planner', '/canais/' + str(channel.get('id'))),
+    }
+
+
 def project(event, profile, client_id=None, actor_id=None):
     """Return a client-safe card or None. Exceptions stay local to the tool."""
     if profile not in {'planner', 'workspace'} or not isinstance(event, dict):
@@ -84,9 +114,9 @@ def project(event, profile, client_id=None, actor_id=None):
         except Exception:
             return None
         return {'event': 'catalog', 'catalog_kind': 'planos', 'records': records}
-    if profile != 'planner':
-        return None
     if raw_name in DOCUMENT_ALIASES:
+        if profile != 'planner':
+            return None
         if not isinstance(client_id, int) or not isinstance(actor_id, int):
             return None
         try:
@@ -103,7 +133,16 @@ def project(event, profile, client_id=None, actor_id=None):
     if raw_name not in ALIASES:
         return None
     kind = ALIASES[raw_name]
+    if profile != 'planner' and kind != 'canais':
+        return None
     try:
+        if kind == 'canais' and raw_name in DETAIL_ALIASES:
+            item_id = params.get('id')
+            if item_id is None:
+                return None
+            from ...cadu_planner import channels
+            return {'event': 'catalog', 'catalog_kind': 'canal',
+                    'records': [_channel_for_conversation(channels.detail(item_id))]}
         if kind == 'places':
             from ...smart_planner.places_bridge import planner_place_catalog
             query = str(params.get('search', params.get('q', ''))).strip().lower()

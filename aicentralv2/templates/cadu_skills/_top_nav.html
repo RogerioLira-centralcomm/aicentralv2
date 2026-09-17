@@ -1,7 +1,7 @@
 {% set active = request.endpoint %}
 <header class="cadu-skills-top-nav cadu-skills-top-nav--public">
   <div class="cadu-skills-public-brand">{% set cadu_active_product = 'skills' %}{% include 'cadu/_product_switch.html' %}</div>
-  <nav class="cadu-skills-public-links" aria-label="Navegação pública de Skills"><a {% if active == 'cadu_skills.marketplace' %}aria-current="page"{% endif %} href="{{ url_for('cadu_skills.marketplace') }}">Catálogo</a><a {% if active == 'cadu_skills.detail' and request.view_args and request.view_args.get('slug') == 'cadu-gold' %}aria-current="page"{% endif %} href="{{ url_for('cadu_skills.detail', slug='cadu-gold') }}">Cadu Gold</a><a {% if active == 'cadu_skills.agents' %}aria-current="page"{% endif %} href="{{ url_for('cadu_skills.agents') }}">Agentes</a></nav>
+  <nav class="cadu-skills-public-links" aria-label="Navegação pública de Skills"><a {% if active == 'cadu_skills.marketplace' %}aria-current="page"{% endif %} href="{{ url_for('cadu_skills.marketplace') }}">Catálogo</a><a {% if active == 'cadu_skills.detail' and request.view_args and request.view_args.get('slug') == 'cadu-gold' %}aria-current="page"{% endif %} href="{{ url_for('cadu_skills.detail', slug='cadu-gold') }}">Cadu Gold</a></nav>
   <span class="cadu-skills-top-nav__spacer"></span>
   <div class="cadu-skills-public-actions"><a href="{{ product_url('auth', '/login') }}">Entrar</a><a class="is-primary" href="{{ product_url('auth', '/login') }}">Criar conta</a></div>
 </header>

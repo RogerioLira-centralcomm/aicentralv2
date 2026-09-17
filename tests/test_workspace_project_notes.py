@@ -2,7 +2,7 @@ from unittest import TestCase, mock
 
 from flask import Flask
 
-from aicentralv2.cadu_workspace.routes import _chunk_project_note, bp
+from aicentralv2.cadu_workspace.routes import _chunk_project_note, _workspace_rich_text, bp
 
 
 def _app():
@@ -13,6 +13,12 @@ def _app():
 
 
 class WorkspaceProjectNotesTest(TestCase):
+    def test_project_context_markdown_is_rendered_as_safe_structure(self):
+        rendered = str(_workspace_rich_text('**Faça:**\n- Use dados aprovados\n- Cite a fonte'))
+        self.assertIn('<strong>Faça:</strong>', rendered)
+        self.assertIn('<ul><li>Use dados aprovados</li>', rendered)
+        self.assertNotIn('**Faça:**', rendered)
+
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_project', return_value={'id': 'p-1'})
     @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
     def test_legacy_project_image_is_served_from_authorized_database_bytes(self, get_db, _project):

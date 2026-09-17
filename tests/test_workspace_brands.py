@@ -4,7 +4,10 @@ from unittest import TestCase, mock
 
 from flask import Flask
 
-from aicentralv2.cadu_workspace.routes import _brand_review_is_stale, _merge_brand_analysis, _save_brand_review_job, bp
+from aicentralv2.cadu_workspace.routes import (
+    _brand_review_is_stale, _merge_brand_analysis, _normalized_website_url,
+    _save_brand_review_job, bp,
+)
 
 
 def _app():
@@ -22,6 +25,9 @@ def _client():
 
 
 class WorkspaceBrandsTest(TestCase):
+    def test_normal_domain_becomes_https_url(self):
+        self.assertEqual(_normalized_website_url('centralcomm.media'), 'https://centralcomm.media')
+
     @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
     def test_review_progress_update_uses_the_current_client_schema(self, get_db):
         connection = mock.MagicMock()
@@ -103,6 +109,28 @@ class WorkspaceBrandsTest(TestCase):
         params = cursor.execute.call_args.args[1]
         self.assertEqual(params[0], 12)
         connection.commit.assert_called_once_with()
+
+    @mock.patch('aicentralv2.cadu_workspace.routes._start_brand_review_job')
+    @mock.patch('aicentralv2.cadu_workspace.routes.family_repository.set_project_brand_link')
+    @mock.patch('aicentralv2.cadu_workspace.routes.family_repository.project_brand_links', return_value=[])
+    @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
+    @mock.patch('aicentralv2.cadu_workspace.routes._brand_audit_credit_gate', return_value=None)
+    @mock.patch('aicentralv2.cadu_workspace.routes._editable_workspace_project', return_value={'id': 'p-1'})
+    def test_project_brand_import_normalizes_url_and_associates_brand(
+            self, _project, _gate, get_db, _links, associate, start_job):
+        connection = mock.MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = {'id': 81}
+        get_db.return_value = connection
+
+        response = _client().post('/workspace/app/projetos/p-1/marcas/importar', data={
+            '_csrf': 'known-token', 'brand_name': 'Centralcomm', 'website_url': 'centralcomm.media',
+        }, headers={'Accept': 'application/json'})
+
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(cursor.execute.call_args.args[1][2], 'https://centralcomm.media')
+        associate.assert_called_once_with(12, 7, 'ci:p-1', 'studio:81', True)
+        start_job.assert_called_once()
 
     @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand')
@@ -294,7 +322,7 @@ class WorkspaceBrandsTest(TestCase):
         self.assertEqual(response.status_code, 303)
         sql, params = cursor.execute.call_args.args
         self.assertIn('brand_profile = %s::jsonb', sql)
-        self.assertIn('Resumo aprovado.', params[6])
-        self.assertIn('approved', params[7])
+        self.assertIn('Resumo aprovado.', params[7])
+        self.assertIn('approved', params[8])
         self.assertEqual(params[-2:], (81, 12))
         connection.commit.assert_called_once_with()

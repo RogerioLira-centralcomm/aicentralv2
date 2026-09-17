@@ -26,6 +26,18 @@
   const form = document.querySelector('[data-project-brand-import]');
   const progress = document.querySelector('[data-project-brand-progress]');
   if (!form || !progress) return;
+  const websiteInput = form.elements.website_url;
+  const normalizeWebsite = () => {
+    const value = websiteInput?.value.trim();
+    if (value && !/^https?:\/\//i.test(value)) websiteInput.value = `https://${value.replace(/^\/+/, '')}`;
+  };
+  if (websiteInput) {
+    // Browsers reject a naked domain for type=url before the submit handler
+    // runs. Let people type a normal domain, then make its protocol explicit.
+    websiteInput.type = 'text';
+    websiteInput.inputMode = 'url';
+    websiteInput.addEventListener('blur', normalizeWebsite);
+  }
   document.querySelectorAll('[data-brand-dropzone]').forEach(zone => {
     const input = zone.querySelector('input[type="file"]');
     const label = zone.querySelector('[data-brand-file-label]');
@@ -46,7 +58,7 @@
       const files = Array.from(event.dataTransfer.files).filter(file => /^image\/(png|jpeg|webp)$/.test(file.type));
       if (!files.length) return;
       const transfer = new DataTransfer();
-      files.slice(0, input.multiple ? 7 : 1).forEach(file => transfer.items.add(file));
+      files.slice(0, input.multiple ? 8 : 1).forEach(file => transfer.items.add(file));
       input.files = transfer.files; describe();
     });
   });
@@ -71,6 +83,7 @@
   };
   form.addEventListener('submit', async event => {
     event.preventDefault();
+    normalizeWebsite();
     const submit = form.querySelector('button');
     if (submit.disabled) return;
     submit.disabled = true; setProgress('Criando a marca e preparando as evidências oficiais…');

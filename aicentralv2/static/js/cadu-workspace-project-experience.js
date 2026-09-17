@@ -14,6 +14,62 @@
   }));
   bindDialog(document.querySelector('[data-project-identity-dialog]'), '[data-project-identity-open]', '[data-project-identity-close]');
   bindDialog(document.querySelector('[data-project-sources-dialog]'), '[data-project-sources-open]', '[data-project-sources-close]');
+  const linksDialog = document.querySelector('[data-project-links-dialog]');
+  bindDialog(linksDialog, '[data-project-links-open]', '[data-project-links-close]');
+  const linkInput = linksDialog?.querySelector('input[name="url"]');
+  const linkPreview = linksDialog?.querySelector('[data-project-link-preview]');
+  const linksForm = linksDialog?.querySelector('form');
+  const linksTitle = linksDialog?.querySelector('#project-links-title');
+  const linkTitleInput = linksDialog?.querySelector('input[name="title"]');
+  const createLinkAction = linksForm?.action || '';
+  if (linkInput) linkInput.type = 'text';
+  const linkNames = [
+    ['drive.google.com', 'Google Drive'], ['docs.google.com', 'Google Drive'],
+    ['clickup.com', 'ClickUp'], ['trello.com', 'Trello'], ['miro.com', 'Miro']
+  ];
+  const describeProjectLink = () => {
+    if (!linkInput || !linkPreview) return;
+    let value = linkInput.value.trim();
+    if (value && !/^https?:\/\//i.test(value)) value = `https://${value}`;
+    try {
+      const url = new URL(value);
+      const found = linkNames.find(([domain]) => url.hostname === domain || url.hostname.endsWith(`.${domain}`));
+      linkPreview.textContent = found ? `Será salvo como ${found[1]}.` : (url.hostname ? `Será salvo como link externo de ${url.hostname.replace(/^www\./, '')}.` : '');
+    } catch (_) { linkPreview.textContent = value ? 'Use um link HTTPS válido.' : ''; }
+  };
+  linkInput?.addEventListener('input', describeProjectLink);
+  linkInput?.addEventListener('blur', () => {
+    if (linkInput.value.trim() && !/^https?:\/\//i.test(linkInput.value.trim())) linkInput.value = `https://${linkInput.value.trim()}`;
+    describeProjectLink();
+  });
+  linksForm?.addEventListener('submit', () => {
+    if (linkInput?.value.trim() && !/^https?:\/\//i.test(linkInput.value.trim())) linkInput.value = `https://${linkInput.value.trim()}`;
+  });
+  document.querySelectorAll('[data-project-links-open]').forEach(button => button.addEventListener('click', () => {
+    if (!linksForm) return;
+    linksForm.action = createLinkAction;
+    if (linksTitle) linksTitle.textContent = 'Adicionar recurso ao projeto';
+    if (linkInput) linkInput.value = '';
+    if (linkTitleInput) linkTitleInput.value = '';
+    describeProjectLink();
+  }));
+  document.querySelectorAll('.workspace-project-shortcut').forEach(shortcut => {
+    const removeForm = shortcut.querySelector('form[action*="/remover"]');
+    const externalLink = shortcut.querySelector('a[href]');
+    if (!removeForm || !externalLink || !linksForm) return;
+    const edit = document.createElement('button');
+    edit.type = 'button'; edit.className = 'workspace-project-shortcut__edit';
+    edit.setAttribute('aria-label', `Editar ${externalLink.querySelector('b')?.textContent?.trim() || 'atalho'}`);
+    edit.innerHTML = '<i class="fa-solid fa-pen" aria-hidden="true"></i>';
+    edit.addEventListener('click', () => {
+      linksForm.action = removeForm.action.replace(/\/remover$/, '');
+      if (linksTitle) linksTitle.textContent = 'Editar atalho';
+      if (linkInput) linkInput.value = externalLink.href;
+      if (linkTitleInput) linkTitleInput.value = externalLink.querySelector('b')?.textContent?.trim() || '';
+      describeProjectLink(); linksDialog.showModal(); linkInput?.focus();
+    });
+    removeForm.before(edit);
+  });
   const qualityHelp = document.querySelector('.workspace-project-quality-dialog__body section:nth-child(2) > p');
   if (qualityHelp) qualityHelp.textContent = 'O Cadu pode preparar uma primeira versão para revisão humana. Nada é publicado ou aplicado automaticamente.';
   document.querySelectorAll('[data-project-starter]').forEach(button => button.addEventListener('click', () => {

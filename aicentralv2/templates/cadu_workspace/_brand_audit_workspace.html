@@ -59,7 +59,7 @@
         </div>
       {% elif audit_status == 'failed' %}
         <div class="workspace-brand-audit-review-intro is-error">
-          <div><strong>A análise não foi concluída</strong><span>{{ review_pack.error or 'Tente novamente quando as fontes estiverem disponíveis.' }}</span></div>
+          <div><strong>A análise não foi concluída</strong><span>{{ review_pack.error or 'O processamento foi interrompido antes de concluir a proposta. Tente novamente; nenhuma informação da marca foi alterada.' }}</span></div>
           {% if can_manage_brand %}<form method="post" action="{{ url_for('cadu_workspace.retry_brand_audit', brand_id=brand.id) }}"><input type="hidden" name="_csrf" value="{{ session.get('family_csrf', '') }}"><button type="submit">Tentar novamente</button></form>{% endif %}
         </div>
       {% endif %}

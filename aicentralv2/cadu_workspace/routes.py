@@ -571,6 +571,15 @@ def _merge_brand_analysis(brand: dict, analysis: dict) -> dict:
     return {'profile': profile, 'metadata': metadata}
 
 
+def _brand_audit_public_error(value) -> str:
+    """Keep implementation exceptions out of the brand-facing audit UI."""
+    message = str(value or '').strip()
+    technical_markers = ('cannot access local variable', 'unboundlocalerror', 'traceback')
+    if not message or any(marker in message.lower() for marker in technical_markers):
+        return 'O processamento foi interrompido antes de concluir a proposta. Tente novamente; nenhuma informação da marca foi alterada.'
+    return message[:360]
+
+
 def _brand_review_pack(brand: dict) -> dict:
     """Normalize the pending/approved analysis contract stored with a brand."""
     metadata = brand.get('analysis_metadata') or {}
@@ -585,7 +594,7 @@ def _brand_review_pack(brand: dict) -> dict:
         'index': int(pack.get('index') or 0),
         'total': int(pack.get('total') or 4),
         'message': str(pack.get('message') or ''),
-        'error': str(pack.get('error') or ''),
+        'error': _brand_audit_public_error(pack.get('error')) if pack.get('status') == 'failed' else '',
         'input': pack.get('input') if isinstance(pack.get('input'), dict) else {},
         'created_at': pack.get('created_at'),
         'updated_at': pack.get('updated_at'),
@@ -720,7 +729,7 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                     )
 
                 analysis_metadata = {}
-                review_proposal = proposal
+                review_proposal = dict(proposal) if isinstance(proposal, dict) else {}
                 if isinstance(review_proposal, dict) and review_proposal:
                     # A prior attempt already paid for and saved the evidence
                     # extraction. Resume from that durable checkpoint.
@@ -1072,6 +1081,84 @@ def _project_context_health(project: dict) -> dict:
     return {'score': score, 'label': label, 'missing': missing[:3]}
 
 
+_PROJECT_LINK_PROVIDERS = {
+    'drive.google.com': ('google_drive', 'Google Drive'),
+    'docs.google.com': ('google_drive', 'Google Drive'),
+    'clickup.com': ('clickup', 'ClickUp'),
+    'trello.com': ('trello', 'Trello'),
+    'miro.com': ('miro', 'Miro'),
+}
+
+
+def _project_link_metadata(value: str, title: str = '') -> dict:
+    """Normalize a pasted project reference without fetching the remote URL."""
+    raw = str(value or '').strip()
+    if raw and '://' not in raw:
+        raw = f'https://{raw}'
+    parsed = urlparse(raw)
+    host = (parsed.hostname or '').lower().rstrip('.')
+    if parsed.scheme != 'https' or not host or parsed.username or parsed.password:
+        raise ValueError('Use um link HTTPS válido.')
+    matched = next((data for domain, data in _PROJECT_LINK_PROVIDERS.items()
+                    if host == domain or host.endswith(f'.{domain}')), None)
+    provider, suggested = matched or ('generic', host.removeprefix('www.'))
+    normalized = parsed._replace(fragment='').geturl()
+    return {'url': normalized, 'provider': provider,
+            'title': str(title or '').strip()[:180] or suggested}
+
+
+def _workspace_project_links(client_id: int, project_id: str) -> list[dict]:
+    try:
+        with get_db().cursor() as cursor:
+            cursor.execute(
+                """SELECT id, provider, url, titulo, position, created_at, updated_at
+                     FROM cadu_ci_projeto_links
+                    WHERE projeto_id = %s AND id_cliente = %s
+                 ORDER BY position ASC, created_at ASC""",
+                (project_id, client_id),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+    except Exception:
+        return []
+
+
+def _workspace_project_memory(client_id: int, project_id: str) -> dict:
+    """Project detail is resilient while the shared-memory migration rolls out."""
+    try:
+        organization_id = int(session.get('organization_id') or client_id)
+        with get_db().cursor() as cursor:
+            cursor.execute(
+                """SELECT id, kind, summary, status, source_conversation_id, updated_at
+                     FROM cadu_working_memories
+                    WHERE organization_id = %s AND client_id = %s AND project_ref = %s
+                      AND status IN ('confirmed', 'proposed')
+                 ORDER BY updated_at DESC LIMIT 24""",
+                (organization_id, client_id, f'ci:{project_id}'),
+            )
+            records = [dict(row) for row in cursor.fetchall()]
+    except Exception:
+        records = []
+    return {
+        'confirmed': [record for record in records if record.get('status') == 'confirmed'],
+        'proposals': [record for record in records if record.get('status') == 'proposed'],
+    }
+
+
+def _workspace_project_plans(client_id: int, project_id: str) -> list[dict]:
+    try:
+        with get_db().cursor() as cursor:
+            cursor.execute(
+                """SELECT id, title, status, updated_at
+                     FROM cadu_planner_plans
+                    WHERE client_id = %s AND project_ref = %s AND archived_at IS NULL
+                 ORDER BY updated_at DESC LIMIT 8""",
+                (client_id, f'ci:{project_id}'),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+    except Exception:
+        return []
+
+
 def _project_recent_activity(project: dict) -> list[dict]:
     """A chronological, factual timeline assembled from the dossier records."""
     activity = []
@@ -1085,7 +1172,14 @@ def _project_recent_activity(project: dict) -> list[dict]:
         activity.append({'title': 'SmartDoc atualizado', 'detail': item.get('titulo') or 'Documento sem título', 'at': item.get('updated_at')})
     for item in project.get('images', [])[:3]:
         activity.append({'title': 'Referência visual adicionada', 'detail': item.get('title') or 'Imagem sem título', 'at': item.get('created_at')})
-    return sorted(activity, key=lambda item: str(item.get('at') or ''), reverse=True)[:8]
+    for item in project.get('plans', [])[:3]:
+        activity.append({'title': 'Plano atualizado', 'detail': item.get('title') or 'Plano sem título', 'at': item.get('updated_at')})
+    for item in project.get('creative_analyses', [])[:3]:
+        activity.append({'title': 'Criativo analisado', 'detail': item.get('original_name') or 'Criativo', 'at': item.get('created_at')})
+    for item in project.get('links', [])[:3]:
+        activity.append({'title': 'Atalho adicionado', 'detail': item.get('titulo') or 'Link externo', 'at': item.get('created_at')})
+    activity.sort(key=lambda item: item.get('at') or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    return activity[:10]
 
 
 def _chunk_project_note(content: str, limit: int = 1800) -> list[str]:
@@ -1341,6 +1435,17 @@ def _workspace_project(client_id: int, project_id: str) -> Optional[dict]:
             project['creative_analyses'] = [dict(row) for row in cursor.fetchall()]
     except Exception:
         project['creative_analyses'] = []
+    project['links'] = _workspace_project_links(client_id, project_id)
+    project['memory'] = _workspace_project_memory(client_id, project_id)
+    project['plans'] = _workspace_project_plans(client_id, project_id)
+    evidence = (
+        bool(project.get('descricao') or project.get('instrucoes') or project.get('publico')),
+        bool(project.get('brands')),
+        bool(project.get('files')),
+        bool(project.get('conversations') or project['memory']['confirmed']),
+        bool(project['plans'] or project.get('images') or project.get('creative_analyses')),
+    )
+    project['experience_state'] = 'not_started' if not any(evidence) else ('forming' if sum(evidence) < 3 else 'active')
     project['hero_image'] = next(
         (image.get('preview_url') for image in project['images'] if image.get('preview_url')),
         '',
@@ -1782,6 +1887,103 @@ def project_detail(project_id):
 @login_required
 def clean_project_detail(project_id):
     return project_detail(project_id)
+
+
+@bp.post('/projetos/<project_id>/atalhos')
+@login_required
+def create_project_link(project_id):
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    client_id = int(session.get('cliente_id') or 0)
+    _editable_workspace_project(client_id, project_id)
+    try:
+        link = _project_link_metadata(request.form.get('url'), request.form.get('title'))
+    except ValueError as error:
+        return redirect(url_for('cadu_workspace.project_detail', project_id=project_id, link_error=str(error)), code=303)
+    connection = None
+    try:
+        connection = get_db()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """INSERT INTO cadu_ci_projeto_links
+                    (id, projeto_id, id_cliente, criado_por, provider, url, titulo, position)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s,
+                            COALESCE((SELECT MAX(position) + 1 FROM cadu_ci_projeto_links
+                                      WHERE projeto_id = %s AND id_cliente = %s), 0))""",
+                (str(uuid4()), project_id, client_id, session.get('user_id'), link['provider'],
+                 link['url'], link['title'], project_id, client_id),
+            )
+        connection.commit()
+    except Exception:
+        if connection:
+            connection.rollback()
+        current_app.logger.exception('Não foi possível salvar atalho do projeto %s', project_id)
+        return redirect(url_for('cadu_workspace.project_detail', project_id=project_id,
+                                link_error='Não foi possível salvar o atalho agora.'), code=303)
+    return redirect(url_for('cadu_workspace.project_detail', project_id=project_id,
+                            link_notice='Atalho adicionado ao projeto.'), code=303)
+
+
+@bp.post('/projetos/<project_id>/atalhos/<link_id>')
+@login_required
+def update_project_link(project_id, link_id):
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    client_id = int(session.get('cliente_id') or 0)
+    _editable_workspace_project(client_id, project_id)
+    try:
+        link = _project_link_metadata(request.form.get('url'), request.form.get('title'))
+    except ValueError as error:
+        return redirect(url_for('cadu_workspace.project_detail', project_id=project_id, link_error=str(error)), code=303)
+    connection = None
+    try:
+        connection = get_db()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                '''UPDATE cadu_ci_projeto_links
+                      SET provider = %s, url = %s, titulo = %s, updated_at = NOW()
+                    WHERE id = %s AND projeto_id = %s AND id_cliente = %s''',
+                (link['provider'], link['url'], link['title'], link_id, project_id, client_id),
+            )
+            if not cursor.rowcount:
+                abort(404)
+        connection.commit()
+    except HTTPException:
+        if connection:
+            connection.rollback()
+        raise
+    except Exception:
+        if connection:
+            connection.rollback()
+        current_app.logger.exception('Não foi possível atualizar atalho do projeto %s', project_id)
+        return redirect(url_for('cadu_workspace.project_detail', project_id=project_id,
+                                link_error='Não foi possível atualizar o atalho agora.'), code=303)
+    return redirect(url_for('cadu_workspace.project_detail', project_id=project_id,
+                            link_notice='Atalho atualizado.'), code=303)
+
+
+@bp.post('/projetos/<project_id>/atalhos/<link_id>/remover')
+@login_required
+def remove_project_link(project_id, link_id):
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    client_id = int(session.get('cliente_id') or 0)
+    _editable_workspace_project(client_id, project_id)
+    connection = None
+    try:
+        connection = get_db()
+        with connection.cursor() as cursor:
+            cursor.execute('DELETE FROM cadu_ci_projeto_links WHERE id = %s AND projeto_id = %s AND id_cliente = %s',
+                           (link_id, project_id, client_id))
+        connection.commit()
+    except Exception:
+        try:
+            connection.rollback()
+        except Exception:
+            pass
+        abort(503, description='Não foi possível remover o atalho agora.')
+    return redirect(url_for('cadu_workspace.project_detail', project_id=project_id,
+                            link_notice='Atalho removido do projeto.'), code=303)
 
 
 @bp.get('/workspace/app/projetos/<project_id>/imagens/<int:image_id>')

@@ -23,6 +23,7 @@
     </nav>
     {% set credit_meter_class = 'workspace-sidebar-balance' %}{% set credit_meter_href = url_for('cadu_workspace.account_page', section='creditos') %}{% include 'cadu/_credit_meter.html' %}
     <details class="workspace-app-user"><summary><span class="workspace-sidebar-avatar">{% set avatar_photo=(perfil_contato or {}).get('foto_url') or session.get('user_photo_url') %}{% set avatar_badge=(perfil_contato or {}).get('cadu_avatar_badge') %}{% set avatar_alt='Foto de ' ~ session.get('user_name', 'usuário') %}{% include 'cadu/_user_avatar_image.html' %}</span><span class="workspace-sidebar-identity"><strong>{{ session.get('user_name', 'Minha conta') }}</strong><small>{{ session.get('user_email', '') }}</small></span></summary><div>{% include 'cadu/_theme_control.html' %}<a href="{{ product_url('auth', '/logout') }}" class="workspace-sidebar-logout">Sair</a></div></details>
+    <a class="workspace-sidebar-account-shortcut" href="{{ url_for('cadu_workspace.account_page', section='perfil') }}" aria-label="Abrir conta e perfil" title="Conta e perfil"><i class="fa-regular fa-user"></i><span>Perfil</span></a>
   </footer>
 </aside>
 {% else %}

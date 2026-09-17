@@ -433,7 +433,17 @@
     const label = document.createElement('strong'); label.textContent = role === 'user' ? 'Você' : 'Cadu';
     const text = document.createElement('div');
     if (role === 'assistant') CaduConversationRenderer.render(text, content);
-    else text.textContent = content;
+    else {
+      // A sent prompt is context, not the focal point of the reading flow.
+      // Keep it one click away, with enough of the request visible to orient
+      // the person when revisiting a long conversation.
+      const details = document.createElement('details'); details.className = 'conversation-user-context';
+      const summary = document.createElement('summary');
+      const normalized = String(content || '').replace(/\s+/g, ' ').trim();
+      summary.textContent = normalized.length > 88 ? normalized.slice(0, 88).trimEnd() + '…' : normalized || 'Mensagem enviada';
+      const full = document.createElement('p'); full.textContent = content;
+      details.append(summary, full); text.append(details);
+    }
     entry.append(label, text);
     CaduConversationRenderer.renderFiles(entry, files);
     history.append(entry);
@@ -442,6 +452,7 @@
       addMessageActions(text, content);
       addSavePlanAction(text, content, projectRef);
     }
+    scrollHistoryToEnd(true);
     return text;
   }
   function renderEmptyState() {

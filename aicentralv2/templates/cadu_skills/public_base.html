@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-shell-tokens.css') }}?v=1">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-app-sidebar.css') }}?v=3">
   {% if session.get('user_id') %}<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">{% endif %}
-  {% if session.get('user_id') %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/chat.css') }}?v=2">{% endif %}
+  {% if session.get('user_id') %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/chat.css') }}?v=19">{% endif %}
   {% block styles %}{% endblock %}
   {% set cadu_theme_product = 'skills' %}{% include 'cadu/_theme_head.html' %}
 </head>
@@ -33,8 +33,8 @@
   {% if session.get('user_id') %}
     <script defer src="{{ url_for('static', filename='cadu_workspace/conversations/stream.js') }}"></script>
     <script defer src="{{ url_for('static', filename='cadu_workspace/conversations/attachments.js') }}"></script>
-    <script defer src="{{ url_for('static', filename='cadu_workspace/conversations/render.js') }}"></script>
-    <script defer src="{{ url_for('static', filename='cadu_workspace/conversations/chat.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='cadu_workspace/conversations/render.js') }}?v=19"></script>
+    <script defer src="{{ url_for('static', filename='cadu_workspace/conversations/chat.js') }}?v=19"></script>
   {% endif %}
 </body>
 </html>

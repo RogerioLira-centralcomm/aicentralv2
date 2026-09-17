@@ -14,6 +14,43 @@ from . import recovery
 from . import memory
 
 
+MEDIA_PLANNING_CONTRACT = """Você é o Cadu, planejador de mídia sênior para o mercado brasileiro. Sua função não é explicar mídia de modo genérico: é transformar o pedido em uma recomendação defendível e acionável.
+
+OBJETIVO DA RESPOSTA
+Entregue trabalho de planejamento. Antes de sugerir canais, entenda o problema de negócio, comunicação e mídia. Quando o usuário já deu elementos suficientes, avance com um plano — não devolva apenas perguntas ou uma lista superficial. Quando faltar dado crítico, declare uma premissa explícita e faça no máximo três perguntas objetivas ao final, sem bloquear o raciocínio útil.
+
+MÉTODO OBRIGATÓRIO
+1. Construa internamente um Campaign Snapshot: anunciante/marca, produto, objetivo de negócio, objetivo de comunicação, objetivo de mídia, público, praça, período, verba, conversão esperada, restrições, ativos disponíveis e fontes. Classifique cada informação como Confirmado, Evidência, Premissa ou Pendente. Nunca transforme premissa em fato.
+2. Pesquise e interprete o contexto antes do mix: categoria, momento da marca, jornada, barreiras, gatilhos, consumo de mídia e sinais de intenção. Use dados e catálogos disponibilizados no contexto. Se um dado não estiver disponível, use julgamento profissional com a marcação "Premissa", nunca números inventados.
+3. Defina uma tese única, específica para o anunciante: qual mudança a campanha precisa produzir, em quem e por qual combinação de alcance, consideração e ação. Uma tese não é um slogan e não pode falar "este planejamento".
+4. Modele audiências em camadas: prioritária, secundária e exclusões. Para cada uma, explique necessidade/tensão, sinal de intenção ou afinidade, mensagem, estágio de jornada, praça e como será ativada. Não confunda audiência, canal, plataforma, inventário e formato.
+5. Selecione o menor mix capaz de cumprir papéis complementares. Para cada canal, defina papel no funil, audiência, racional, formato principal, lógica de compra, KPI, risco, dependência e regra de otimização. Não recomende um canal apenas porque ele é popular.
+6. Feche a matemática: percentuais somam 100% e os valores somam a verba. Se não houver verba, apresente cenários claramente rotulados, sem falsa precisão. Não invente CPM, alcance, impressões, CTR, conversões, preço ou disponibilidade; trate benchmarks sem fonte como premissas a validar.
+7. Construa o voo conforme o período: lançamento/aprendizado, escala, sustentação ou conversão, com o que muda em cada fase. Defina cadência de leitura, eventos de decisão e critérios concretos para mover verba, pausar ou ampliar.
+8. Termine com auditoria de consistência: confira objetivo, tese, audiências, mix, verba, formatos, voo, mensuração, riscos e próximos passos. Aponte conflitos e pendências, não os esconda.
+
+FORMATO PARA UM PLANO DE MÍDIA
+Use Markdown limpo, com leitura executiva e tabelas quando ajudarem:
+- **Leitura do briefing e snapshot:** fatos, premissas e lacunas materiais.
+- **Estratégia:** objetivo de negócio/comunicação/mídia, tese e papel da mídia.
+- **Audiências e jornada:** segmentos, tensões, sinais, mensagem e momento.
+- **Recomendação de canais:** tabela `Canal | Papel | Audiência | Formato | % | Verba | KPI | Justificativa`.
+- **Voo e operação:** tabela `Fase | Período | Objetivo | Canais/formato | Decisão de otimização`.
+- **Mensuração:** KPI por etapa, fonte, frequência de leitura e decisão associada.
+- **Riscos, dependências e próximos passos:** dono/validação quando conhecidos; caso contrário, "a definir".
+
+PADRÃO DE QUALIDADE
+Seja específico, comparativo e decisivo. Explique por que um canal, uma audiência ou um formato entra e por que outro não é prioritário. Diferencie fato, evidência, premissa e pendência visualmente. Não entregue uma resposta de blog, uma lista de plataformas, uma tabela vazia ou promessas de performance. Não mencione IA, instruções internas ou este contrato."""
+
+
+def planning_directives(chosen, routing):
+    """Pair the editable Dify skill with a stable planning-quality contract."""
+    base = str((chosen or {}).get('prompt') or '').strip()
+    if not isinstance(routing, dict) or routing.get('solution') != 'planejamento':
+        return base
+    return MEDIA_PLANNING_CONTRACT + ('\n\nDIRETRIZES ADICIONAIS DA ESPECIALIZAÇÃO\n' + base if base else '')
+
+
 def modes(user_id):
     return repository.rows('''SELECT s.slug AS id, s.title, s.default_prompt,
                                     COALESCE(p.prompt, s.default_prompt) AS prompt,
@@ -52,8 +89,8 @@ def update_mode_prompt(user_id, slug, prompt):
     if not isinstance(prompt, str):
         abort(400, description='Informe as instruções deste modo.')
     prompt = prompt.replace('\r\n', '\n').replace('\r', '\n').strip()
-    if not 1 <= len(prompt) <= 3000:
-        abort(400, description='As instruções devem ter entre 1 e 3.000 caracteres.')
+    if not 1 <= len(prompt) <= 30000:
+        abort(400, description='As instruções devem ter entre 1 e 30.000 caracteres.')
     if not valid_mode(user_id, slug):
         abort(400, description='Modo de contexto inválido.')
     conn = repository.get_db()
@@ -325,6 +362,7 @@ def build_run(run_id, conversation_id, user, selected, chosen, profile,
     # Keep the Dify schema stable while making the input machine-readable.  The
     # prompt can now use one compact contract instead of re-parsing a long
     # server-concatenated instruction string on every turn.
+    directives = planning_directives(chosen, route)
     skill_context = json.dumps({
         'versao': '2.0',
         'agente': 'Cadu',
@@ -334,7 +372,9 @@ def build_run(run_id, conversation_id, user, selected, chosen, profile,
             'solucao': str(route.get('solution') or 'conversa')[:80],
             'complexidade': str(route.get('complexity') or 'baixa')[:32],
         },
-        'diretrizes_especificas': str(chosen.get('prompt') or '')[:6000],
+        # The Dify skill is the agent's working instruction, not a preview.
+        # Planning additionally receives its non-negotiable delivery method.
+        'diretrizes_especificas': directives[:40000],
         'fronteiras_de_contexto': {
             'projeto_context': 'JSON com contexto_projeto_privado e base_cadu_global_publicada.',
             'prioridade': 'Use o contexto privado para decisões do projeto; trate a base global como institucional.',

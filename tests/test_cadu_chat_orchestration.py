@@ -42,6 +42,28 @@ def test_payload_keeps_automatic_route_inside_the_server_owned_skill_context():
     assert 'base_cadu_global_publicada' in context['fronteiras_de_contexto']['projeto_context']
 
 
+def test_payload_preserves_long_dify_skill_instructions():
+    from aicentralv2.cadu_workspace.conversations.service import build_run
+    prompt = 'x' * 26000
+    run = build_run('run', 'conversation', {'id': 1, 'name': 'Ana', 'organization_id': 2},
+                    {'client_id': 3, 'client_name': 'Cliente'}, {'id': 'planejamento', 'prompt': prompt},
+                    'planner', '', {'dify_conversation_id': None, 'total_mensagens': 0}, 'Monte um plano.', [], None, '')
+    context = json.loads(run['payload']['inputs']['skill_context'])
+    assert context['diretrizes_especificas'] == prompt
+
+
+def test_media_plan_payload_requires_strategy_audiences_mix_and_optimization():
+    from aicentralv2.cadu_workspace.conversations.service import build_run
+    run = build_run('run', 'conversation', {'id': 1, 'name': 'Ana', 'organization_id': 2},
+                    {'client_id': 3, 'client_name': 'Cliente'}, {'id': 'planejamento', 'prompt': 'Use o tom da marca.'},
+                    'planner', '', {'dify_conversation_id': None, 'total_mensagens': 0}, 'Monte um plano de mídia.', [], None, '',
+                    {'solution': 'planejamento', 'complexity': 'alta'})
+    directives = json.loads(run['payload']['inputs']['skill_context'])['diretrizes_especificas']
+    for required in ('Campaign Snapshot', 'audiências em camadas', 'percentuais somam 100%', 'regra de otimização'):
+        assert required in directives
+    assert directives.endswith('Use o tom da marca.')
+
+
 def test_payload_exposes_only_safe_file_metadata_to_the_prompt():
     import json
     from aicentralv2.cadu_workspace.conversations.service import build_run

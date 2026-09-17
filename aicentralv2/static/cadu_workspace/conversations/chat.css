@@ -19,6 +19,7 @@
 #conversation-history>article>button{text-align:left;width:100%;overflow-wrap:anywhere;background:white}
 .conversation-message{padding:14px;margin:0 0 14px;border-radius:8px;overflow-wrap:anywhere;background:white;border:1px solid var(--line)}
 .conversation-message.from-user{margin-left:24px;background:var(--soft);border-color:transparent}
+.conversation-user-context summary{display:flex;align-items:center;gap:7px;cursor:pointer;color:#456260;font-size:13px;line-height:1.45;list-style:none}.conversation-user-context summary::-webkit-details-marker{display:none}.conversation-user-context summary::before{content:'›';display:grid;place-items:center;width:15px;height:15px;border:1px solid #b7cfca;border-radius:50%;font-size:15px;line-height:1;color:#4f716c;transition:transform 140ms ease}.conversation-user-context[open] summary::before{transform:rotate(90deg)}.conversation-user-context p{margin:10px 0 0!important;padding-top:10px;border-top:1px solid #cfe0dc;color:#274440}.conversation-user-context:not([open]) p{display:none}
 .conversation-message strong{font-size:12px;color:var(--muted)}
 .conversation-message p{white-space:pre-wrap;font-size:14px;margin:8px 0 0}
 .conversation-message small{display:block;margin-top:8px;font-size:12px}
@@ -53,10 +54,13 @@
 .conversation-code { margin: 1em 0; border: 1px solid #dce3ec; border-radius: 8px; overflow: hidden; }
 .conversation-code figcaption { padding: .4em .8em; background: #eef2f6; font-size: .8em; }
 .conversation-code pre { margin: 0; padding: .8em; overflow: auto; white-space: pre; background: #f7f8fc; }
-.conversation-table { overflow: auto; max-width: 100%; margin: 1em 0; }
-.conversation-table table { border-collapse: collapse; width: 100%; font-size: .85em; }
-.conversation-table th, .conversation-table td { border: 1px solid #dce3ec; padding: .6em; text-align: start; min-width: 7em; }
-.conversation-table th { background: #eef2f6; }
+.conversation-table { overflow: auto; max-width: 100%; margin: 1em 0; border:1px solid #dce7e5; border-radius:10px; background:#fff; box-shadow:0 7px 20px rgb(26 72 65 / .06); }
+.conversation-table table { border-collapse: separate; border-spacing:0; width:100%; font-size:.86em; line-height:1.55; }
+.conversation-table th, .conversation-table td { border-bottom:1px solid #e5edeb; padding:.7em .8em; text-align:start; min-width:7em; vertical-align:top; }
+.conversation-table th+th, .conversation-table td+td { border-left:1px solid #e5edeb; }
+.conversation-table tr:last-child td { border-bottom:0; }
+.conversation-table th { position:sticky; top:0; background:#edf5f3; color:#284b47; font-size:.92em; font-weight:750; }
+.conversation-table-progress{display:flex;align-items:center;gap:7px;padding:8px 11px;border-bottom:1px solid #dceae7;background:#f5faf8;color:#50716c;font-size:11px;font-weight:700}.conversation-table-progress span{width:7px;height:7px;border-radius:50%;background:#268474;box-shadow:0 0 0 0 rgb(38 132 116 / .35);animation:conversation-table-pulse 1.25s ease-out infinite}@keyframes conversation-table-pulse{to{box-shadow:0 0 0 6px rgb(38 132 116 / 0)}}
 .conversation-catalog-card{border:1px solid var(--line);background:#fff;border-radius:8px;padding:12px;margin:0 0 14px}.conversation-catalog-card h4{margin:0 0 8px;font-size:13px}.conversation-catalog-card ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}.conversation-catalog-card li{padding-top:8px;border-top:1px solid var(--line);display:grid;gap:2px}.conversation-catalog-card li:first-child{border-top:0;padding-top:0}.conversation-catalog-card strong{font-size:13px}.conversation-catalog-card span{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
 .conversation-result-card{--result-accent:#167c6a;margin:0 0 14px;border:1px solid var(--line);border-left:3px solid var(--result-accent);border-radius:10px;background:#fff;padding:14px;max-width:760px}.conversation-result-card.is-research{--result-accent:#2463a8}.conversation-result-card.is-audience{--result-accent:#7a4da0}.conversation-result-card.is-link{--result-accent:#aa6a17}.conversation-result-card.is-document{--result-accent:#147d68}.conversation-result-card>header{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:baseline;gap:8px}.conversation-result-type{color:var(--result-accent);font-size:11px;font-weight:750}.conversation-result-card h4{margin:0;color:var(--ink);font-size:15px;letter-spacing:-.012em}.conversation-result-status{border-radius:999px;background:color-mix(in srgb,var(--result-accent) 10%,#fff);color:var(--result-accent);font-size:11px;font-weight:700;padding:3px 7px}.conversation-result-summary{margin:9px 0 0;color:var(--muted);font-size:13px;line-height:1.5}.conversation-result-media{display:block;width:100%;max-height:250px;object-fit:cover;margin-top:12px;border-radius:7px;background:var(--soft)}.conversation-result-items{display:grid;gap:0;margin-top:12px;border-top:1px solid var(--line)}.conversation-result-items article{display:grid;gap:3px;padding:10px 0;border-bottom:1px solid var(--line)}.conversation-result-items strong{font-size:13px}.conversation-result-items article>span{color:var(--muted);font-size:12px;line-height:1.45}.conversation-result-items a{width:max-content;color:var(--result-accent);font-size:12px;font-weight:700;text-decoration:none}.conversation-result-metrics{display:flex;flex-wrap:wrap;gap:5px}.conversation-result-metrics span{border-radius:4px;background:var(--soft);color:var(--ink);font-size:11px;padding:3px 5px}.conversation-result-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}.conversation-result-actions button{min-height:32px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);padding:6px 9px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}.conversation-result-actions button.is-primary{background:var(--result-accent);border-color:var(--result-accent);color:#fff}.conversation-result-actions button:focus-visible{outline:3px solid color-mix(in srgb,var(--result-accent) 35%,transparent);outline-offset:2px}@media (max-width:640px){.conversation-result-card{padding:12px}.conversation-result-card>header{grid-template-columns:auto minmax(0,1fr)}.conversation-result-status{grid-column:2}.conversation-result-actions button{flex:1}}
 
@@ -238,3 +242,19 @@
   #conversation-panel[data-conversation-page="true"] .conversation-project-context select{width:min(180px,48vw)}
   #conversation-panel[data-conversation-page="true"] .conversation-composer-notes{padding-inline:2px}
 }
+
+/* Bandeja de conversas: uma lista de trabalho, não um segundo painel. */
+.workspace-app-shell--conversations .workspace-conversations{grid-template-columns:224px minmax(0,1fr)}
+.workspace-app-shell--conversations .workspace-conversation-sidebar{gap:7px;padding:12px 6px 10px;background:#fafcfb}
+.workspace-conversation-history-head{padding:2px 7px 4px}
+.workspace-conversation-history-head p{color:#6d7a7d;font-size:13px;font-weight:500;letter-spacing:0}
+.workspace-conversation-sidebar .workspace-conversation-history-head button{display:grid;place-items:center;width:28px;min-height:28px;height:28px;padding:0;border:0;border-radius:6px;background:transparent;color:#607174}
+.workspace-conversation-sidebar .workspace-conversation-history-head button:hover{background:#eef5f3;color:#176c60}
+.workspace-conversation-sidebar .workspace-conversation-history-head button svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+#conversation-search{display:none}
+.workspace-app-shell--conversations .workspace-conversation-sidebar nav{display:block;overflow-y:auto;padding:0 1px}
+.workspace-app-shell--conversations .workspace-conversation-sidebar nav article{padding:0}
+.workspace-app-shell--conversations .workspace-conversation-sidebar nav button{min-height:0;padding:7px 7px;border-radius:5px;color:#3f5055;font-size:12px;font-weight:450;line-height:1.35}
+.workspace-app-shell--conversations .workspace-conversation-sidebar nav button:hover,.workspace-app-shell--conversations .workspace-conversation-sidebar nav button[aria-current]{background:#edf5f3;color:#176c60}
+.conversation-history-group{display:none}
+@media(min-width:821px) and (max-width:1100px){.workspace-app-shell--conversations .workspace-conversations{grid-template-columns:208px minmax(0,1fr)}}

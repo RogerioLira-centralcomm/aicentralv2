@@ -56,9 +56,28 @@
     }
     return result.join('');
   }
+  function streamingHtml(value) {
+    // Render the same safe Markdown subset while tokens arrive. A partial
+    // table is deliberately presented as a table being assembled instead of
+    // exposing its Markdown pipes to the reader.
+    const source = visible(value).replace(/\r\n?/g, '\n');
+    const lines = source.split('\n');
+    const tableStart = lines.findIndex((line, index) => line.includes('|') &&
+      lines[index + 1]?.includes('|') && cells(lines[index + 1]).every(cell => /^:?-{3,}:?$/.test(cell)));
+    if (tableStart < 0) return html(source);
+    const before = lines.slice(0, tableStart).join('\n');
+    const headers = cells(lines[tableStart]);
+    const body = lines.slice(tableStart + 2).filter(line => line.includes('|') && line.trim()).map(cells);
+    const table = '<div class="conversation-table conversation-table--building" tabindex="0" role="region" aria-label="Tabela sendo montada">'
+      + '<div class="conversation-table-progress"><span></span>Montando tabela</div>'
+      + '<table><thead><tr>' + headers.map(cell => '<th scope="col">' + inline(cell) + '</th>').join('')
+      + '</tr></thead><tbody>' + body.map(row => '<tr>' + headers.map((_, index) => '<td>' + inline(row[index] || '') + '</td>').join('') + '</tr>').join('')
+      + '</tbody></table></div>';
+    return html(before) + table;
+  }
   function render(node, value, streaming = false) {
     node.classList.add('conversation-rich');
-    if (streaming) node.textContent = visible(value);
+    if (streaming) node.innerHTML = streamingHtml(value);
     else node.innerHTML = html(value); // Only locally generated, escaped, allowlisted markup.
   }
   function fileLink(value) {

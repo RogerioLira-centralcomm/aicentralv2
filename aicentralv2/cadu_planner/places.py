@@ -6,12 +6,14 @@ from ..places import service
 
 
 def _serialize(row):
+    media = row.get("media") or {}
     return {
         "id": row["id"], "slug": row["slug"], "name": row["title"],
         "description": row.get("subtitle") or row.get("operator") or "",
         "category": row.get("type_label") or row.get("place_type"),
         "city": row.get("city_label") or row.get("city"),
         "audience": ((row.get("metrics") or {}).get("addressable") or {}).get("label") or "",
+        "image_url": media.get("hero_url") or next((item.get("url") for item in media.get("images") or [] if item.get("url")), ""),
         "points": [{"id": item.get("id") or item.get("slug") or item.get("name"), "name": item.get("name"),
                     "kind": item.get("kind"), "audience": item.get("reach") or item.get("audience")}
                    for item in (row.get("points") or []) if item.get("name")],

@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-family-sidebar.css') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-app-sidebar.css') }}?v=3">
   {% if product == 'planner' %}<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer">{% endif %}
-  {% if product == 'planner' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-shell.css') }}?v=3">{% endif %}
+  {% if product == 'planner' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-shell.css') }}?v=5">{% endif %}
   {% if product == 'planner' and module == 'inicio' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-entry.css') }}?v=2">{% endif %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-product-switch.css') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-nav-compact.css') }}?v=1">
@@ -34,9 +34,9 @@
   {% if planner_view == 'page' and module in ('formatos', 'interativos') %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-format-list.css') }}?v=1">{% endif %}
   {% if planner_view == 'page' and module in ('formatos', 'interativos') %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-format-list-logos.css') }}?v=1">{% endif %}
   {% if planner_view == 'page' and module == 'interativos' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-interactive-previews.css') }}?v=1">{% endif %}
-  {% if planner_view == 'page' and module == 'canais' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-channels.css') }}?v=1">{% endif %}
+  {% if planner_view == 'page' and module == 'canais' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-channels.css') }}?v=2">{% endif %}
   {% if module == 'audiencias' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-audience.css') }}?v=1">{% endif %}
-  {% if module == 'audiencias' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-audiences-experience.css') }}?v=1">{% endif %}
+  {% if module == 'audiencias' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-audiences-experience.css') }}?v=2">{% endif %}
   {% if planner_view == 'audience-detail' and module == 'audiencias' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-audience-data.css') }}?v=1">{% endif %}
   {% if planner_view == 'catalog-detail' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-catalog-detail.css') }}?v=1">{% endif %}
   {% if planner_view == 'catalog-detail' and module in ('formatos', 'interativos') %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-format-detail.css') }}?v=1">{% endif %}
@@ -147,7 +147,7 @@
 {% endif %}
 <main id="content" tabindex="-1">
   {% if not (product == 'planner' and module == 'inicio') %}
-  {% set planner_intros = {'planos': 'Acompanhe decisões em curso ou comece um plano quando tiver um objetivo para organizar.', 'audiencias': 'Encontre públicos com contexto suficiente para justificar a escolha no seu plano.', 'canais': 'Compare os ambientes onde a campanha pode ganhar atenção.', 'formatos': 'Confira o que cada execução precisa para transformar estratégia em uma peça viável.', 'interativos': 'Descubra experiências que ajudam a campanha a convidar uma resposta.', 'places': 'Avalie presença física por ponto, cobertura e momento de circulação.', 'docs': 'Reúna o material que ajuda a equipe a revisar e encaminhar a recomendação.', 'links': 'Valide o destino da campanha antes de colocar mídia no ar.'} %}
+  {% set planner_intros = {'planos': 'Acompanhe decisões em curso ou comece um plano quando tiver um objetivo para organizar.', 'formatos': 'Confira o que cada execução precisa para transformar estratégia em uma peça viável.', 'interativos': 'Descubra experiências que ajudam a campanha a convidar uma resposta.', 'docs': 'Reúna o material que ajuda a equipe a revisar e encaminhar a recomendação.', 'links': 'Valide o destino da campanha antes de colocar mídia no ar.'} %}
   <header class="family-page-head"><div>{% if product != 'planner' %}<p>{{ spec.name }}</p>{% endif %}<h1>{{ landing.title if module == 'inicio' else title }}</h1>{% if product == 'planner' and module in planner_intros %}<p class="family-page-intro">{{ planner_intros[module] }}</p>{% elif module == 'inicio' %}<p class="family-page-intro">{{ landing.intro }}</p>{% endif %}</div>
   {% if product == 'studio' %}<a href="{{ product_url('workspace', '/workspace/app/marcas') }}">Gerenciar marcas no Workspace</a>{% endif %}</header>
   {% endif %}

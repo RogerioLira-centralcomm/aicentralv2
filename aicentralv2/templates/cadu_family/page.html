@@ -38,7 +38,7 @@
   {% if module == 'audiencias' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-audience.css') }}?v=1">{% endif %}
   {% if module == 'audiencias' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-audiences-experience.css') }}?v=2">{% endif %}
   {% if planner_view == 'audience-detail' and module == 'audiencias' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-audience-data.css') }}?v=1">{% endif %}
-  {% if planner_view == 'catalog-detail' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-catalog-detail.css') }}?v=1">{% endif %}
+  {% if planner_view == 'catalog-detail' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-catalog-detail.css') }}?v=2">{% endif %}
   {% if planner_view == 'catalog-detail' and module in ('formatos', 'interativos') %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-format-detail.css') }}?v=1">{% endif %}
   {% if planner_view == 'page' %}<script defer src="{{ url_for('static', filename='cadu_planner/catalog.js') }}"></script>{% endif %}
   {% endif %}

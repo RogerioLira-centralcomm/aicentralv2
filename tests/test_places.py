@@ -70,6 +70,7 @@ from aicentralv2.places.service import (
     select_place_gallery,
     serialize,
 )
+from aicentralv2.cadu_planner.places import _serialize as planner_place_serialize
 from aicentralv2.places.share import public_path, slugify
 from aicentralv2.places.documents import _content as document_content, _pdf as document_pdf, _quality as document_quality, filename as document_filename
 
@@ -345,6 +346,15 @@ class PlacesCatalogTest(unittest.TestCase):
             {"slug": "confins", "city": "bh", "place_type": "aeroporto"},
         )
         self.assertEqual([item["slug"] for item in related], ["diamond-mall", "sdu"])
+
+    def test_bundled_gallery_is_exposed_in_public_and_planner_views(self):
+        place = serialize(dict(IGUATEMI_SP, id=20, preview_token="gallery", status="published"))
+        gallery = place["media"]["gallery"]
+        self.assertGreaterEqual(len(gallery), 10)
+        self.assertTrue(all(item["url"].startswith("/static/images/places/gallery/") for item in gallery))
+        planner = planner_place_serialize(place)
+        self.assertEqual(planner["gallery"], gallery)
+        self.assertEqual(planner["image_url"], gallery[0]["url"])
 
     def test_normalize_keeps_polygon(self):
         payload = normalize_payload(CONFINS["payload"])

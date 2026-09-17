@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Nunito+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/places_public.css') }}?v=44">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/places_public.css') }}?v=45">
 </head>
 <body class="cc-place cc-folio" data-preview="{{ '1' if preview else '0' }}">
   <a class="cc-skip" href="#recortes">Ir para os recortes</a>
@@ -158,8 +158,8 @@
 
     {% if photos %}
     <section class="cc-public-section cc-public-photos" id="fotos">
-      <header class="cc-public-heading"><h2>O lugar em três imagens</h2><p>Referências visuais para reconhecer o sítio. A segmentação é feita pelo recorte, não pela fotografia.</p></header>
-      <ul>{% for shot in photos[:3] %}<li><img src="{{ shot.url }}" alt="{{ shot.title }}"><span>{{ shot.title }}</span></li>{% endfor %}</ul>
+      <header class="cc-public-heading"><h2>Galeria do local</h2><p>{{ photos|length }} referências visuais do sítio e dos seus recortes. A segmentação é feita pelo recorte, não pela fotografia.</p></header>
+      <ul>{% for shot in photos %}<li><img src="{{ shot.url }}" alt="{{ shot.title }}" loading="lazy"><span>{{ shot.title }}</span></li>{% endfor %}</ul>
     </section>
     {% endif %}
 

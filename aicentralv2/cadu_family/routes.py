@@ -560,6 +560,24 @@ def planner_catalog_detail_page(kind, item_id):
         legacy_url=None, login_url=login_url(), product_url=product_url, planner_url=planner_url)
 
 
+@bp.get('/planner/places/<slug>')
+def planner_place_detail_page(slug):
+    """Private marketplace fiche with the full curated Place gallery."""
+    if not session.get('user_id'):
+        return redirect(login_url(request.full_path))
+    from ..cadu_planner import places
+    user = context.identity()
+    selected = context.resolve()
+    record = places.detail(slug)
+    token = session.setdefault('family_csrf', secrets.token_urlsafe(32))
+    return render_template('cadu_planner/family/place_detail_page.html',
+        product='planner', spec=PRODUCTS['planner'], module='places', title=record['name'],
+        products=PRODUCTS, landing=LANDINGS['planner'], user=user, selected=selected,
+        clients=context.authorized_clients(), entities=[], records=[], record=record,
+        profile=PROFILES['planner'], csrf=token, planner_view='catalog-detail', legacy_url=None,
+        login_url=login_url(), product_url=product_url, planner_url=planner_url)
+
+
 @bp.post('/api/planner/docs/<doc_id>/export')
 def planner_doc_export(doc_id):
     from io import BytesIO

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from flask import session
@@ -114,6 +116,51 @@ def _share(row: dict) -> dict:
     }
 
 
+@lru_cache(maxsize=1)
+def _gallery_files() -> tuple[str, ...]:
+    """Return the curated local photo library without coupling it to the DB seed.
+
+    The library is deliberately checked at runtime: a new curated file becomes
+    available to its Place immediately, including installations whose seed rows
+    already exist and therefore are not rewritten by ``ensure_seed``.
+    """
+    folder = Path(__file__).resolve().parents[1] / "static" / "images" / "places" / "gallery"
+    if not folder.is_dir():
+        return ()
+    return tuple(sorted(path.name for path in folder.iterdir() if path.is_file() and path.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}))
+
+
+def _bundled_gallery(slug: str) -> list[dict]:
+    """Expose every curated local image whose filename belongs to this Place."""
+    prefix = f"{text(slug).strip().lower()}-"
+    if not prefix or prefix == "-":
+        return []
+    result = []
+    for filename in _gallery_files():
+        if not filename.lower().startswith(prefix):
+            continue
+        stem = filename.rsplit(".", 1)[0]
+        role = "point" if "-point-" in stem else "hero"
+        label = "Recorte do local" if role == "point" else "Vista do local"
+        result.append({
+            "id": f"bundled-{stem}", "kind": role, "point_id": "",
+            "url": f"/static/images/places/gallery/{filename}",
+            "source_url": f"/static/images/places/gallery/{filename}",
+            "title": label, "selected": False, "review_status": "approved",
+        })
+    return result
+
+
+def _attach_bundled_gallery(view: dict) -> dict:
+    media = dict(as_dict(view.get("media")))
+    existing = list(as_list(media.get("gallery")))
+    known = {text(as_dict(item).get("url")) for item in existing}
+    existing.extend(item for item in _bundled_gallery(view.get("slug")) if item["url"] not in known)
+    media["gallery"] = existing
+    view["media"] = media
+    return view
+
+
 def _desk_stats(view: dict) -> dict:
     points = [item for item in (view.get("points") or []) if item.get("name")]
     media = as_dict(view.get("media"))
@@ -192,7 +239,7 @@ def _keep_previous(previous: dict, payload: dict) -> dict:
 
 
 def serialize(row: dict) -> dict:
-    view = public_view(row)
+    view = _attach_bundled_gallery(public_view(row))
     view.update(_share(row))
     view["source_labels"] = SOURCE_LABELS
     view["fiche"] = fiche_output(view)

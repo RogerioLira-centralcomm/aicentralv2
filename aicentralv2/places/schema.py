@@ -789,7 +789,7 @@ def maps_directions_url(geo: dict) -> str:
     return f"https://www.google.com/maps/dir/?api=1&destination={lat},{lng}"
 
 
-def place_photos(place: dict, *, limit: int = 8) -> list[dict]:
+def place_photos(place: dict, *, limit: int | None = None) -> list[dict]:
     item = as_dict(place)
     media = as_dict(item.get("media"))
     seen = set()
@@ -806,7 +806,7 @@ def place_photos(place: dict, *, limit: int = 8) -> list[dict]:
                 "title": text(row.get("title")) or text(row.get("kind")) or text(item.get("title")),
             }
         )
-        if len(photos) >= limit:
+        if limit is not None and len(photos) >= limit:
             return photos
     for point in as_list(item.get("points")):
         row = as_dict(point)
@@ -815,7 +815,7 @@ def place_photos(place: dict, *, limit: int = 8) -> list[dict]:
             continue
         seen.add(url)
         photos.append({"url": url, "title": text(row.get("name")) or text(item.get("title"))})
-        if len(photos) >= limit:
+        if limit is not None and len(photos) >= limit:
             break
     return photos
 

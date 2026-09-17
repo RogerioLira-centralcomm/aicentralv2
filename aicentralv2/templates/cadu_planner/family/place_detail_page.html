@@ -1,0 +1,38 @@
+{% extends 'cadu_family/page.html' %}
+{% block product_content %}
+<article class="planner-place-detail-page">
+  <header class="planner-place-detail-hero">
+    <div>
+      <a href="{{ planner_url('places') }}">← Voltar aos places</a>
+      <p>{{ record.category }}{% if record.city %}<span>·</span>{{ record.city }}{% endif %}</p>
+      <h2>{{ record.name }}</h2>
+      <p class="planner-place-detail-lead">{{ record.description or 'Local disponível para planejamento de mídia.' }}</p>
+      {% if record.audience %}<strong>Alcance de referência: {{ record.audience }}</strong>{% endif %}
+      {% if record.public_url %}<a class="family-primary" href="{{ record.public_url }}" target="_blank" rel="noopener">Abrir página pública</a>{% endif %}
+    </div>
+    {% if record.image_url %}<img src="{{ record.image_url }}" alt="{{ record.name }}">{% endif %}
+  </header>
+
+  <section class="planner-place-detail-facts" aria-label="Resumo do place">
+    {% if record.code %}<div><small>Código</small><strong>{{ record.code }}</strong></div>{% endif %}
+    {% if record.traffic %}<div><small>{{ record.traffic_label }}</small><strong>{{ record.traffic }}</strong></div>{% endif %}
+    {% if record.audience %}<div><small>Audiência em 4 semanas</small><strong>{{ record.audience }}</strong></div>{% endif %}
+    {% if record.investment %}<div><small>Investimento de referência</small><strong>{{ record.investment }}</strong></div>{% endif %}
+    {% if record.operator %}<div class="is-wide"><small>Operação</small><strong>{{ record.operator }}</strong></div>{% endif %}
+  </section>
+
+  {% if record.points %}
+  <section class="planner-place-detail-points">
+    <h3>Recortes disponíveis</h3>
+    <ul>{% for point in record.points %}<li><strong>{{ point.name }}</strong>{% if point.audience %}<small>Audiência: {{ point.audience }}</small>{% endif %}{% if point.formats %}<span>{{ point.formats|join(' · ') }}</span>{% endif %}</li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+
+  {% if record.gallery %}
+  <section class="planner-place-detail-gallery">
+    <header><h3>Galeria do local</h3><p>{{ record.gallery|length }} imagens curadas para este place.</p></header>
+    <div>{% for image in record.gallery %}<a href="{{ image.url }}" target="_blank" rel="noopener"><img src="{{ image.url }}" alt="{{ image.title or record.name }}" loading="lazy"><span>{{ image.title or record.name }}</span></a>{% endfor %}</div>
+  </section>
+  {% endif %}
+</article>
+{% endblock %}

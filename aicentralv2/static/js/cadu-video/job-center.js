@@ -27,7 +27,7 @@ async function refresh(initial=false){
     jobs=result.items||[];exports=result.exports||[];tasks=result.tasks||[];
     for(const job of jobs)updateProcessing(job);
     const count=jobs.filter(row=>!['ready','failed','cancelled','expired'].includes(row.status)).length+exports.filter(row=>['queued','rendering'].includes(row.status)).length;
-    const button=document.getElementById('mcStudioJobs');if(button)button.textContent=`Renderizações${count?` (${count})`:''}`;
+    const button=document.getElementById('mcStudioJobs');if(button){const label=`Renderizações${count?` (${count} em andamento)`:''}`;button.setAttribute('aria-label',label);button.setAttribute('title',label);}
     if(initial){
       const selected=new URLSearchParams(location.hash.slice(1)).get('render');
       const target=jobs.find(row=>row.job_id===selected);if(target)showProcessing(target);else if(selected)showJobs(jobs,exports,brand,tasks);

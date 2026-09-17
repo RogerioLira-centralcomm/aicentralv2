@@ -227,16 +227,19 @@ def prepare(data, selected):
     chosen, routing = choose_mode(modes(user['id']), query)
     if chosen is None:
         abort(503, description='As especializações do Cadu estão sendo configuradas.')
-    inventory = {item['ref']: item for item in context.inventory(selected['client_id'])}
     # Existing threads retain their bound context even when opened in another product.
     saved_context = (repository.conversation_context(user, selected['client_id'], conversation_id) if existing else None) or session.get('family_context') or {}
     if saved_context.get('profile') in PROFILES:
         profile = saved_context['profile']
     project_ref = saved_context.get('project_ref')
     brand_ref = saved_context.get('brand_ref')
-    for ref in (project_ref, brand_ref):
-        if ref and ref not in inventory:
-            abort(409, description='O contexto mudou. Selecione o projeto e a marca novamente.')
+    # Most new conversations have no bound entity. Avoid a full inventory
+    # lookup in that common path; bound contexts remain revalidated strictly.
+    if project_ref or brand_ref:
+        inventory = {item['ref']: item for item in context.inventory(selected['client_id'])}
+        for ref in (project_ref, brand_ref):
+            if ref and ref not in inventory:
+                abort(409, description='O contexto mudou. Selecione o projeto e a marca novamente.')
     upload_ids = validate_files(data.get('files'))
     uploads = repository.rows('''SELECT id, provider_id, kind, name FROM cadu_family_chat_uploads
                                  WHERE id::text = ANY(%s) AND user_id = %s AND client_id = %s''',
@@ -361,7 +364,8 @@ def build_run(run_id, conversation_id, user, selected, chosen, profile,
         'empresa_atual': str(selected.get('client_name') or '')[:200],
         'cargo': str(user.get('role_name') or '')[:160],
     }, ensure_ascii=False, separators=(',', ':'))
-    inputs = {'skill_context': skill_context,
+    inputs = {'skill_id': 'orquestrador', 'profile': profile,
+              'skill_context': skill_context,
               'files_context': files_context, 'projeto_context': project_context,
               'user_memory_context': user_memory_context,
               'user_profile_context': user_profile_context}

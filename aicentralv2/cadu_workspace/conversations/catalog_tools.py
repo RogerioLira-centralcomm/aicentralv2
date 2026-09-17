@@ -19,6 +19,8 @@ ALIASES = {
 DETAIL_ALIASES = {'channel_detail', 'canal_detalhe', 'format_detail', 'formato_detalhe',
                   'interactive_detail', 'interativo_detalhe', 'audience_detail'}
 DOCUMENT_ALIASES = {'document_preview', 'smartdoc_preview', 'documento_previa'}
+PLAN_LIST_ALIASES = {'plan_list', 'plans_list', 'plano_listar', 'planos_listar'}
+PLAN_DETAIL_ALIASES = {'plan_detail', 'plano_detalhe'}
 
 
 def _params(value):
@@ -35,13 +37,34 @@ def _params(value):
 
 def project(event, profile, client_id=None, actor_id=None):
     """Return a client-safe card or None. Exceptions stay local to the tool."""
-    if profile != 'planner' or not isinstance(event, dict):
+    if profile not in {'planner', 'workspace'} or not isinstance(event, dict):
         return None
     raw_name = event.get('tool') or event.get('tool_name')
     if not isinstance(raw_name, str):
         return None
     params = _params(event.get('tool_input') if 'tool_input' in event else event.get('input'))
     if params is None:
+        return None
+    if raw_name in PLAN_LIST_ALIASES | PLAN_DETAIL_ALIASES:
+        if not isinstance(client_id, int) or not isinstance(actor_id, int):
+            return None
+        try:
+            from ...cadu_planner import plans
+            if raw_name in PLAN_DETAIL_ALIASES:
+                plan_id = str(params.get('id') or '')
+                if not plan_id:
+                    return None
+                records = [plans.get_plan(client_id, actor_id, plan_id)]
+            else:
+                records = plans.list_plans(client_id, actor_id)
+            # Never stream share tokens, allocations, briefing notes, or other
+            # plan internals from a provider-initiated tool event.
+            records = [{key: row.get(key) for key in ('id', 'title', 'objective', 'status', 'campaign_name', 'updated_at', 'item_count')}
+                       for row in records[:10]]
+        except Exception:
+            return None
+        return {'event': 'catalog', 'catalog_kind': 'planos', 'records': records}
+    if profile != 'planner':
         return None
     if raw_name in DOCUMENT_ALIASES:
         if not isinstance(client_id, int) or not isinstance(actor_id, int):

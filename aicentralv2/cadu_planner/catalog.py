@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 
 from werkzeug.exceptions import BadRequest, NotFound
 
-from ..db import get_db
+from ..cadu_family import repository
 
 KINDS = {'canais', 'formatos', 'audiencias', 'interativos'}
 
@@ -78,9 +78,8 @@ AUDIENCE_DATA_GROUPS = (
 
 
 def rows(sql, params=()):
-    with get_db().cursor() as cur:
-        cur.execute(sql, params)
-        return [dict(row) for row in cur.fetchall()]
+    """Use the shared, read-only catalog gateway for every projection."""
+    return repository.rows(sql, params)
 
 
 def _safe_url(value):
@@ -157,29 +156,12 @@ def query(kind, value='', limit=20, category='', channel=''):
         limit = int(limit)
     except (TypeError, ValueError):
         raise BadRequest('Limite inválido.')
-    if not 1 <= limit <= 100:
+    if not 1 <= limit <= 30:
         raise BadRequest('O limite deve ser de 1 a 30.')
-    search = '%' + value.strip()[:100] + '%'
-    category = category.strip()[:100] if isinstance(category, str) else ''
-    channel = channel.strip()[:100] if isinstance(channel, str) else ''
-    if kind == 'audiencias':
-        return rows('''SELECT a.id, a.nome AS name, COALESCE(a.descricao_curta, a.descricao) AS description,
-                              a.publico_estimado AS audience, a.imagem_url AS image_url,
-                              a.perfil_socioeconomico, c.nome AS category, p.nome AS channel
-                         FROM cadu_audiencias a
-                    LEFT JOIN cadu_categorias c ON c.id = a.categoria_id
-                    LEFT JOIN cadu_audiencias_plataformas p ON p.id = a.plataforma_id
-                        WHERE a.is_active = TRUE
-                          AND (a.nome ILIKE %s OR COALESCE(a.descricao_curta, '') ILIKE %s
-                               OR COALESCE(a.descricao, '') ILIKE %s OR COALESCE(c.nome, '') ILIKE %s)
-                          AND (%s = '' OR c.nome = %s) AND (%s = '' OR p.nome = %s)
-                     ORDER BY a.nome, a.id LIMIT %s''',
-                    (search, search, search, search, category, category, channel, channel, limit))
-    sql = {'canais': '''SELECT id, nome AS name, descricao AS description, categoria AS category, alcance AS audience FROM cadu_canais WHERE is_active = TRUE AND (nome ILIKE %s OR COALESCE(descricao, '') ILIKE %s OR COALESCE(categoria, '') ILIKE %s) ORDER BY ordem, nome LIMIT %s''',
-           'formatos': '''SELECT id, nome AS name, descricao AS description, dimensoes AS dimensions, formatos_arquivo AS files FROM cadu_formatos WHERE is_active = TRUE AND (nome ILIKE %s OR COALESCE(descricao, '') ILIKE %s OR COALESCE(dimensoes, '') ILIKE %s OR COALESCE(formatos_arquivo, '') ILIKE %s) AND is_interativo = FALSE ORDER BY ordem, nome LIMIT %s''',
-           'interativos': '''SELECT id, nome AS name, descricao AS description, dimensoes AS dimensions, formatos_arquivo AS files FROM cadu_formatos WHERE is_active = TRUE AND (nome ILIKE %s OR COALESCE(descricao, '') ILIKE %s OR COALESCE(dimensoes, '') ILIKE %s OR COALESCE(formatos_arquivo, '') ILIKE %s) AND is_interativo = TRUE ORDER BY ordem, nome LIMIT %s'''}[kind]
-    params = (search, search, search, limit) if kind == 'canais' else (search, search, search, search, limit)
-    return rows(sql, params)
+    # Keep the API and the Planner pages on one audited projection.  The
+    # repository caps source records; the API's smaller limit is then applied
+    # after validation, without duplicating database SQL here.
+    return repository.catalog(kind, value.strip()[:100])[:limit]
 
 
 def detail(kind, value):

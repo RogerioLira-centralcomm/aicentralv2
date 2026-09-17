@@ -2,7 +2,7 @@
 {% block title %}Conversas — Cadu Workspace{% endblock %}
 {% block product_id %}workspace{% endblock %}
 {% block meta %}<script>try{if(matchMedia('(min-width:821px)').matches)document.documentElement.dataset.caduSidebar='collapsed'}catch(_){}</script>{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=8"><link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/chat.css') }}?v=10">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=8"><link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/chat.css') }}?v=18">{% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
 {% set workspace_active = 'conversas' %}
@@ -19,4 +19,4 @@
   </section>
 </div></div>
 {% endblock %}
-{% block portal_scripts %}<script defer src="{{ url_for('static', filename='cadu_workspace/conversations/stream.js') }}"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/attachments.js') }}"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/render.js') }}"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/chat.js') }}?v=10"></script>{% endblock %}
+{% block portal_scripts %}<script defer src="{{ url_for('static', filename='cadu_workspace/conversations/stream.js') }}"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/attachments.js') }}?v=18"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/render.js') }}"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/chat.js') }}?v=18"></script>{% endblock %}

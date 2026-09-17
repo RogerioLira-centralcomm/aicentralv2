@@ -7,15 +7,19 @@
       this.list = panel.querySelector('#conversation-attachments');
       this.input = panel.querySelector('#conversation-file-input');
       this.button = panel.querySelector('#conversation-attach');
-      this.composer = panel.querySelector('#conversation-message');
+      this.composer = panel.querySelector('#conversation-editor') || panel.querySelector('#conversation-message');
+      this.shell = panel.querySelector('.conversation-composer-shell');
       this.button.addEventListener('click', () => this.input.click());
       this.input.addEventListener('change', () => { this.add(this.input.files); this.input.value = ''; });
       this.composer.addEventListener('paste', event => {
         const files = [...(event.clipboardData?.files || [])];
         if (files.length) { event.preventDefault(); this.add(files); }
       });
-      this.composer.addEventListener('dragover', event => { event.preventDefault(); });
-      this.composer.addEventListener('drop', event => { event.preventDefault(); this.add(event.dataTransfer.files); });
+      const hasFiles = event => Array.from(event.dataTransfer?.types || []).includes('Files');
+      this.shell?.addEventListener('dragenter', event => { if (!hasFiles(event) || !this.enabled || this.busy) return; event.preventDefault(); this.shell.classList.add('is-dragging'); });
+      this.shell?.addEventListener('dragover', event => { if (!hasFiles(event)) return; event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; });
+      this.shell?.addEventListener('dragleave', event => { if (!this.shell.contains(event.relatedTarget)) this.shell.classList.remove('is-dragging'); });
+      this.shell?.addEventListener('drop', event => { if (!hasFiles(event)) return; event.preventDefault(); this.shell.classList.remove('is-dragging'); this.add(event.dataTransfer.files); });
       window.addEventListener('beforeunload', event => {
         if (this.items.length) { event.preventDefault(); event.returnValue = ''; }
       });

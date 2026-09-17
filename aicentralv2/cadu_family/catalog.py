@@ -48,7 +48,7 @@ LANDINGS = {
                   ('marcas', 'Gerenciar marcas', 'Mantenha as referências da marca no Workspace.')],
     },
     'planner': {
-        'title': 'Seu próximo plano começa aqui',
+        'title': 'Decida o mix antes de pedir a próxima peça.',
         'intro': 'Objetivos, públicos e entregáveis em linguagem de cliente.',
         'heading': 'Planejar antes de produzir',
         'body': 'Organize objetivos, investimento e referências para transformar estratégia em um plano claro.',

@@ -11,16 +11,18 @@
     <div id="conversation-attachments" aria-label="Arquivos selecionados" hidden></div>
     <label for="conversation-message">Mensagem</label>
     <div class="conversation-composer-shell">
-      {% if conversation_page and chat_authenticated %}<section id="conversation-context-picker" class="conversation-project-context" aria-label="Projeto da conversa"><label for="conversation-project">Projeto selecionado</label><select id="conversation-project" disabled><option value="">Carregando projetos…</option></select><small id="conversation-context-note">O projeto selecionado será usado nesta conversa.</small></section>{% endif %}
-      <textarea id="conversation-message" maxlength="20000" placeholder="{{ 'Digite sua mensagem ou anexe um arquivo…' if chat_authenticated else 'Entre para conversar com o Cadu' }}" disabled></textarea>
+      <div id="conversation-dropzone" class="conversation-dropzone" aria-hidden="true"><span aria-hidden="true">⇩</span><strong>Solte para anexar</strong><small>Imagem, PDF, texto ou Office</small></div>
+      <textarea id="conversation-message" class="conversation-message-field" maxlength="20000" aria-hidden="true" tabindex="-1" disabled></textarea>
+      <div id="conversation-editor" class="conversation-editor" contenteditable="false" role="textbox" aria-multiline="true" aria-label="Mensagem" data-placeholder="{{ 'Digite sua mensagem ou anexe um arquivo…' if chat_authenticated else 'Entre para conversar com o Cadu' }}"></div>
       <div class="conversation-toolbar">
-        <button type="button" id="conversation-attach" disabled aria-describedby="conversation-upload-help" aria-label="Anexar arquivo" title="Anexar arquivo"><span aria-hidden="true">+</span></button>
+        <button type="button" id="conversation-attach" disabled aria-describedby="conversation-upload-help" aria-label="Anexar arquivo" title="Anexar arquivo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 17 5-5a3.5 3.5 0 0 0-5-5l-6.5 6.5a5 5 0 1 0 7 7L18 15"/></svg></button>
         <input id="conversation-file-input" type="file" multiple hidden accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.txt,.csv,.md,.json,.docx,.xlsx,.pptx">
+        {% if conversation_page and chat_authenticated %}<section id="conversation-context-picker" class="conversation-project-context" aria-label="Projeto da conversa"><label for="conversation-project"><span aria-hidden="true">⌘</span> Projeto</label><select id="conversation-project" disabled><option value="">Carregando projetos…</option></select><small id="conversation-context-note">Contexto desta conversa</small></section>{% endif %}
       {% if chat_authenticated %}
       <select id="conversation-mode" hidden aria-hidden="true" tabindex="-1"><option value="ideias">Automático</option></select>
       <div class="conversation-resources">
         <button type="button" id="conversation-stop" hidden>Interromper</button>
-        <button type="submit" id="conversation-send" class="family-primary" disabled aria-label="Enviar mensagem" title="Enviar mensagem"><span aria-hidden="true">↑</span></button>
+        <button type="submit" id="conversation-send" class="family-primary" disabled aria-label="Enviar mensagem" title="Enviar mensagem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
       </div>
       {% else %}<a class="family-primary" href="{{ login_url }}">Entrar para enviar</a>{% endif %}
       </div>

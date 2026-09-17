@@ -24,6 +24,21 @@ def planner_url(path='', **query):
     return f"{target}?{urlencode(values)}" if values else target
 
 
+def marketplace_facets(product, module):
+    """Optional catalog filters must not make an otherwise valid page fail."""
+    if product != 'planner' or module not in {'audiencias', 'canais', 'formatos', 'interativos'}:
+        return {'categories': [], 'platforms': [], 'types': [], 'segments': []}
+    try:
+        if module == 'audiencias':
+            return repository.audience_catalog_facets()
+        if module == 'canais':
+            return repository.channel_catalog_facets()
+        return repository.format_catalog_facets(module == 'interativos')
+    except Exception:
+        current_app.logger.warning('Filtros do catálogo indisponíveis; exibindo catálogo sem filtros.')
+        return {'categories': [], 'platforms': [], 'types': [], 'segments': []}
+
+
 @bp.after_request
 def private_response(response):
     response.headers['Cache-Control'] = 'no-store'
@@ -782,4 +797,4 @@ def page(product, module=None):
         title=title, products=PRODUCTS, landing=LANDINGS[product], user=user, selected=selected, clients=clients,
         entities=entities, records=records, profile=PROFILES.get(product), csrf=token,
         legacy_url=legacy_url, login_url=login_url(), product_url=product_url, planner_url=planner_url,
-        planner_view='page', marketplace_facets=(repository.audience_catalog_facets() if product == 'planner' and module == 'audiencias' else repository.channel_catalog_facets() if product == 'planner' and module == 'canais' else repository.format_catalog_facets(module == 'interativos') if product == 'planner' and module in {'formatos', 'interativos'} else {'categories': [], 'platforms': [], 'types': [], 'segments': []}))
+        planner_view='page', marketplace_facets=marketplace_facets(product, module))

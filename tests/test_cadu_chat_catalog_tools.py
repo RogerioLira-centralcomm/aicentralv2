@@ -44,3 +44,16 @@ class ChatCatalogToolsTest(TestCase):
         card = catalog_tools.project({'tool': 'document_preview', 'input': {'id': 9}}, 'planner')
         self.assertIsNone(card)
         preview.assert_not_called()
+
+    @mock.patch('aicentralv2.cadu_planner.plans.list_plans')
+    def test_workspace_projects_only_the_bound_actors_plans(self, list_plans):
+        list_plans.return_value = [{'id': 'plan-1', 'title': 'Lançamento', 'status': 'draft',
+                                    'briefing': {'notes': 'privado'}, 'share_token': 'secret'}]
+
+        card = catalog_tools.project({'tool': 'plan_list', 'input': {}}, 'workspace', 44, 7)
+
+        self.assertEqual(card, {'event': 'catalog', 'catalog_kind': 'planos', 'records': [{
+            'id': 'plan-1', 'title': 'Lançamento', 'objective': None, 'status': 'draft',
+            'campaign_name': None, 'updated_at': None, 'item_count': None,
+        }]})
+        list_plans.assert_called_once_with(44, 7)

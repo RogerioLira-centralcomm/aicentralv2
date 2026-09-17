@@ -1,3 +1,5 @@
+import json
+
 from aicentralv2.cadu_workspace.conversations.orchestration import choose_mode, classify
 
 
@@ -78,8 +80,8 @@ def test_payload_includes_compact_user_memory_when_relevant(monkeypatch):
                     'workspace', project_context, {'dify_conversation_id': None, 'total_mensagens': 0},
                     'Escreva uma análise.', [], None, '')
     assert json.loads(run['payload']['inputs']['user_memory_context'])['memoria_usuario']['preferencias'] == ['respostas diretas']
-    assert set(run['payload']['inputs']) == {'skill_context', 'files_context', 'projeto_context',
-                                              'user_memory_context', 'user_profile_context'}
+    assert set(run['payload']['inputs']) == {'skill_id', 'profile', 'skill_context', 'files_context',
+                                              'projeto_context', 'user_memory_context', 'user_profile_context'}
 
 
 def test_profile_context_is_live_cadastro_data_not_a_memory(monkeypatch):

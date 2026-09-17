@@ -166,7 +166,7 @@ class FamilyTest(TestCase):
         self.assertIn('class="family-layout family-layout--sidebar family-layout--planner"', member_html)
         self.assertIn('data-cadu-sidebar-mobile-close', member_html)
         self.assertIn('class="planner-nav-icon"', member_html)
-        self.assertIn('fa-solid fa-compass', member_html)
+        self.assertIn('fa-solid fa-house', member_html)
         self.assertNotIn('name="project_ref"', member_html)
         self.assertNotIn('name="brand_ref"', member_html)
         self.assertNotIn('Gerenciar projetos', member_html)
@@ -241,7 +241,7 @@ class FamilyTest(TestCase):
         response = self.client.get('/familia/planner/', headers={'Host': 'planner.centralcomm.media'})
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn('Seu próximo plano começa aqui', html)
+        self.assertIn('Decida o mix antes de pedir a próxima peça.', html)
         self.assertNotIn('CentralX', html)
 
     def test_history_read_checks_user_and_client(self):

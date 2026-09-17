@@ -117,13 +117,30 @@
     try { return (sessionStorage.getItem(draftKeyFor(id)) || '').slice(0, 20000); }
     catch (_) { return ''; }
   };
-  const saveDraft = () => writeDraft(conversationId, composer.value);
+  const saveDraft = () => writeDraft(conversationId, composerValue());
   const searchForm = document.getElementById('conversation-search');
   const mode = document.getElementById('conversation-mode');
   const projectSelect = document.getElementById('conversation-project');
   const contextNote = document.getElementById('conversation-context-note');
   let contextEntities = [], activeContext = {}, boundProjectRef = null;
   const composer = document.getElementById('conversation-message');
+  const editor = document.getElementById('conversation-editor') || composer;
+  const composerValue = () => editor === composer ? composer.value : editor.textContent || '';
+  const setComposerValue = value => {
+    const safe = String(value || '').slice(0, 20000);
+    composer.value = safe;
+    if (editor !== composer) editor.textContent = safe;
+  };
+  const insertEditorText = value => {
+    // Keep rich clipboard markup out of the editable surface while preserving
+    // normal caret behavior for pasted text and Shift+Enter line breaks.
+    if (document.execCommand?.('insertText', false, value)) return;
+    const selection = window.getSelection();
+    if (!selection?.rangeCount) { editor.append(document.createTextNode(value)); return; }
+    const range = selection.getRangeAt(0); range.deleteContents();
+    const node = document.createTextNode(value); range.insertNode(node);
+    range.setStartAfter(node); range.collapse(true); selection.removeAllRanges(); selection.addRange(range);
+  };
   let modeEntries = [];
   const applyModes = (items, selected) => {
     modeEntries = Array.isArray(items) ? items : [];
@@ -131,7 +148,7 @@
     mode.replaceChildren(...modeEntries.map(item => new Option(item.title, item.id, false, item.id === active)));
     mode.disabled = !modeEntries.length;
   };
-  composer.value = readDraft(null);
+  setComposerValue(readDraft(null));
   const contextOptions = (select, rows, emptyLabel, selected) => {
     if (!select) return;
     select.replaceChildren(new Option(emptyLabel, ''), ...rows.map(row => new Option(row.name, row.ref, false, row.ref === selected)));
@@ -181,14 +198,17 @@
   const attachments = new CaduAttachments(panel, status);
   const sendButton = document.getElementById('conversation-send');
   const updateSend = () => {
-    composer.disabled = sending || loadingThread || !canSend || mode.disabled;
-    if (sendButton) sendButton.disabled = composer.disabled || (!composer.value.trim() && !attachments.items.length);
+    const disabled = sending || loadingThread || !canSend || mode.disabled;
+    composer.disabled = disabled;
+    editor.contentEditable = String(!disabled);
+    editor.setAttribute('aria-disabled', String(disabled));
+    if (sendButton) sendButton.disabled = disabled || (!composerValue().trim() && !attachments.items.length);
   };
   const resizeComposer = () => {
-    if (!composer || !pageMode) return;
+    if (!editor || !pageMode) return;
     const viewportHeight = window.visualViewport?.height || window.innerHeight;
-    composer.style.height = '0px';
-    composer.style.height = Math.min(Math.max(composer.scrollHeight, 104), Math.round(viewportHeight * 0.36)) + 'px';
+    editor.style.height = '0px';
+    editor.style.height = Math.min(Math.max(editor.scrollHeight, 58), Math.round(viewportHeight * 0.36)) + 'px';
   };
   let viewportFrame = null;
   const syncConversationViewport = () => {
@@ -219,20 +239,30 @@
     } finally { updateSend(); }
   });
   // PHP chat-v2: Enter sends; Shift+Enter inserts a line. Never send mid-IME.
-  composer.addEventListener('keydown', event => {
+  editor.addEventListener('keydown', event => {
     if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
       event.preventDefault();
-      if (!composer.disabled && !sending && !mode?.disabled) {
+      if (editor.contentEditable === 'true' && !sending && !mode?.disabled) {
         document.getElementById('conversation-form').requestSubmit();
       }
+    } else if (event.key === 'Enter' && event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      insertEditorText('\n');
     }
   });
-  composer.addEventListener('input', () => {
+  editor.addEventListener('paste', event => {
+    if (event.defaultPrevented || editor.contentEditable !== 'true') return;
+    const text = event.clipboardData?.getData('text/plain') || '';
+    event.preventDefault(); if (text) insertEditorText(text);
+  });
+  editor.addEventListener('input', () => {
+    if (editor !== composer && composerValue().length > 20000) setComposerValue(composerValue());
+    else if (editor !== composer) composer.value = composerValue();
     saveDraft();
     resizeComposer();
     updateSend();
   });
-  composer.addEventListener('focus', () => {
+  editor.addEventListener('focus', () => {
     // Mobile Safari can report the reduced viewport a beat after focus.
     // Re-measuring keeps the composer above the software keyboard without
     // scrolling the full document or disturbing the reading position.
@@ -260,7 +290,7 @@
       const result = await api('conversations/' + encodeURIComponent(id) + '/messages');
       if (request !== threadRequest) return;
       history.replaceChildren(); conversationId = id; boundProjectRef = result.context?.project_ref || '';
-      attachments.clear(); composer.value = readDraft(id); resizeComposer();
+      attachments.clear(); setComposerValue(readDraft(id)); resizeComposer();
       renderContext();
       recent?.querySelectorAll('button[data-conversation-id]').forEach(button => {
         if (button.dataset.conversationId === id) button.setAttribute('aria-current', 'page');
@@ -281,7 +311,7 @@
       const params = new URLSearchParams({q: historyQuery});
       const data = await api('conversations?' + params);
       if (request !== historyRequest) return;
-      if (!recent) { saveDraft(); conversationId = null; composer.value = readDraft(null); resizeComposer(); }
+      if (!recent) { saveDraft(); conversationId = null; setComposerValue(readDraft(null)); resizeComposer(); }
       target.replaceChildren();
       const isArchived = thread => ['arquivada', 'archived'].includes(String(thread.status || '').toLowerCase());
       const renderConversation = thread => {
@@ -356,18 +386,16 @@
   function addMessageActions(text, content) {
     if (!text || text.parentElement?.querySelector('[data-conversation-copy]')) return;
     const actions = actionBarFor(text);
-    const copy = document.createElement('button'); copy.type = 'button'; copy.dataset.conversationCopy = '';
-    copy.textContent = 'Copiar';
+    const icon = {copy:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>', continue:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h12"/><path d="m13 6 6 6-6 6"/></svg>'};
+    const copy = document.createElement('button'); copy.type = 'button'; copy.dataset.conversationCopy = ''; copy.className = 'conversation-message-action'; copy.setAttribute('aria-label', 'Copiar resposta'); copy.setAttribute('title', 'Copiar resposta'); copy.innerHTML = icon.copy;
     copy.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(String(content || ''));
-        copy.textContent = 'Copiado';
-      } catch (_) { status.textContent = 'Não foi possível copiar a resposta neste navegador.'; }
+      try { await navigator.clipboard.writeText(String(content || '')); copy.setAttribute('title', 'Copiado'); }
+      catch (_) { status.textContent = 'Não foi possível copiar a resposta neste navegador.'; }
     });
-    const continueButton = document.createElement('button'); continueButton.type = 'button'; continueButton.textContent = 'Continuar';
+    const continueButton = document.createElement('button'); continueButton.type = 'button'; continueButton.className = 'conversation-message-action'; continueButton.setAttribute('aria-label', 'Continuar esta resposta'); continueButton.setAttribute('title', 'Continuar esta resposta'); continueButton.innerHTML = icon.continue;
     continueButton.addEventListener('click', () => {
-      composer.value = 'Continue a partir da resposta anterior e aprofunde os próximos passos.';
-      resizeComposer(); updateSend(); composer.focus();
+      setComposerValue('Continue a partir da resposta anterior e aprofunde os próximos passos.');
+      resizeComposer(); updateSend(); editor.focus();
     });
     actions.append(copy, continueButton);
   }
@@ -377,7 +405,9 @@
     if (!/^[a-f0-9-]{36}$/i.test(projectId) || text.parentElement?.querySelector('[data-save-plan]')) return;
     const actions = actionBarFor(text);
     const save = document.createElement('button'); save.type = 'button'; save.dataset.savePlan = projectId;
-    save.textContent = 'Salvar como plano no projeto';
+    save.className = 'conversation-message-action conversation-message-action--save';
+    save.setAttribute('aria-label', 'Salvar no projeto'); save.setAttribute('title', 'Salvar no projeto');
+    save.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v6h8V4M8 20v-6h8v6"/></svg>';
     save.addEventListener('click', async () => {
       save.disabled = true;
       try {
@@ -389,8 +419,8 @@
         });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.error || 'Não foi possível salvar o plano.');
-        save.textContent = 'Plano salvo no projeto';
-        status.textContent = 'Plano salvo no projeto selecionado.';
+        save.setAttribute('title', 'Salvo no projeto');
+        status.textContent = 'Salvo no projeto.';
       } catch (error) {
         save.disabled = false;
         status.textContent = error.message || 'Não foi possível salvar o plano.';
@@ -422,15 +452,18 @@
     const description = document.createElement('span'); description.textContent = 'Comece uma conversa ou escolha um ponto de partida para o projeto.';
     const suggestions = document.createElement('div'); suggestions.className = 'conversation-suggestions';
     [
-      ['Montar um briefing', 'Objetivo, público e entregas'],
-      ['Revisar uma campanha', 'Estratégia, mensagem e mídia'],
-      ['Definir próximos passos', 'Transformar contexto em ação']
+      ['Monte uma tabela de mídia', 'Teste tabelas e recomendações'],
+      ['Faça um plano de 30 dias', 'Teste planejamento em etapas'],
+      ['Crie 3 opções de campanha', 'Teste comparações de ideias'],
+      ['Resuma este briefing', 'Teste resposta curta e objetiva'],
+      ['Liste riscos e soluções', 'Teste blocos de decisão'],
+      ['Sugira um calendário semanal', 'Teste cronograma e prioridades']
     ].forEach(([prompt, detail]) => {
       const button = document.createElement('button'); button.type = 'button'; button.className = 'conversation-suggestion';
       const title = document.createElement('strong'); title.textContent = prompt;
       const copy = document.createElement('span'); copy.textContent = detail;
       button.append(title, copy);
-      button.addEventListener('click', () => { composer.value = prompt + '.'; resizeComposer(); updateSend(); composer.focus(); });
+      button.addEventListener('click', () => { setComposerValue(prompt + '.'); resizeComposer(); updateSend(); editor.focus(); });
       suggestions.append(button);
     });
     empty.append(heading, description, suggestions); history.append(empty);
@@ -438,7 +471,7 @@
   function addCatalogCard(data) {
     if (!Array.isArray(data.records) || !data.records.length) return;
     const card = document.createElement('section'); card.className = 'conversation-catalog-card';
-    const heading = document.createElement('h4'); heading.textContent = ({canais:'Canais', formatos:'Formatos', interativos:'Interativos', audiencias:'Audiências'})[data.catalog_kind] || 'Catálogo'; card.append(heading);
+    const heading = document.createElement('h4'); heading.textContent = ({canais:'Canais', formatos:'Formatos', interativos:'Interativos', audiencias:'Audiências', planos:'Planos'})[data.catalog_kind] || 'Catálogo'; card.append(heading);
     const list = document.createElement('ul');
     data.records.forEach(record => {
       const item = document.createElement('li'), name = document.createElement('strong'), detail = document.createElement('span');
@@ -505,7 +538,7 @@
         const button = document.createElement('button'); button.type = 'button'; button.textContent = action.label;
         button.className = action.style === 'primary' ? 'is-primary' : '';
         button.addEventListener('click', () => {
-          if (action.prompt) { composer.value = action.prompt; resizeComposer(); updateSend(); composer.focus(); return; }
+          if (action.prompt) { setComposerValue(action.prompt); resizeComposer(); updateSend(); editor.focus(); return; }
           if (action.id === 'open_link' && action.url) {
             try { const url = new URL(action.url); if (url.protocol === 'https:') window.open(url.href, '_blank', 'noopener'); } catch (_) {}
           }
@@ -580,17 +613,16 @@
     if (initializing) return initializing;
     initializing = (async () => {
       mode.disabled = true; canSend = false; updateSend();
+      // History and context enrich the page, but neither should sit on the
+      // critical path to a usable composer.
+      const backgroundLoad = Promise.all([loadHistory(), loadContext()]);
       try {
         const capabilities = await api('conversations/capabilities');
-        // Mode selection is invisible and optional. A temporary failure to
-        // load it must never lock the conversation composer.
-        try {
-          const data = await api('conversations/modes');
-          if (Array.isArray(data.modes) && data.modes.length) applyModes(data.modes);
-          else mode.disabled = false;
-        } catch (_) { mode.disabled = false; }
         canSend = capabilities.send === true;
         canReplay = capabilities.replay === true;
+        // Routing is server-owned and automatic. Loading a hidden selector
+        // before enabling the editor added a full, serial round trip.
+        mode.disabled = !canSend;
         attachments.configure({...capabilities, attachments: canSend && capabilities.attachments === true});
         initialized = true;
         status.textContent = !canSend
@@ -600,11 +632,10 @@
         canSend = false; mode.disabled = true; attachments.configure({attachments:false});
         status.textContent = unavailableMessage('Não foi possível iniciar as conversas', error);
       } finally { updateSend(); }
-      await loadHistory();
-      await loadContext();
+      await backgroundLoad;
       const starterPrompt = pageMode && new URLSearchParams(window.location.search).get('prompt');
-      if (starterPrompt && !conversationId && !composer.value.trim()) {
-        composer.value = starterPrompt.slice(0, 20000);
+      if (starterPrompt && !conversationId && !composerValue().trim()) {
+        setComposerValue(starterPrompt);
         resizeComposer();
         updateSend();
       }
@@ -644,10 +675,10 @@
   document.getElementById('conversation-new')?.addEventListener('click', () => {
     if (sending) return;
     closeHistory();
-    saveDraft(); ++threadRequest; loadingThread = false; attachments.clear(); composer.value = readDraft(null); resizeComposer(); setConversationUrl(null); updateSend();
+    saveDraft(); ++threadRequest; loadingThread = false; attachments.clear(); setComposerValue(readDraft(null)); resizeComposer(); setConversationUrl(null); updateSend();
     conversationId = null; boundProjectRef = null; renderContext(); if (pageMode) renderEmptyState(); else history.replaceChildren(); status.textContent = '';
     recent?.querySelectorAll('[aria-current]').forEach(node => node.removeAttribute('aria-current'));
-    document.getElementById('conversation-message').focus();
+    editor.focus();
   });
   document.getElementById('conversation-stop')?.addEventListener('click', async () => {
     if (!runId) { controller?.abort(); return; }
@@ -659,20 +690,27 @@
   document.getElementById('conversation-form').addEventListener('submit', async event => {
     event.preventDefault();
     const button = document.getElementById('conversation-send');
-    const input = document.getElementById('conversation-message');
+    const input = editor;
     const stop = document.getElementById('conversation-stop');
-    if (!button || sending || loadingThread || !canSend || (!input.value.trim() && !attachments.items.length) || mode.disabled) return;
-    const message = input.value.trim() || 'Analise os arquivos anexados.', selectedMode = mode.value, newThread = !conversationId;
+    if (!button || sending || loadingThread || !canSend || (!composerValue().trim() && !attachments.items.length) || mode.disabled) return;
+    const message = composerValue().trim() || 'Analise os arquivos anexados.', selectedMode = mode.value, newThread = !conversationId;
     const draftKey = conversationId || 'new';
     sending = true; button.disabled = true; mode.disabled = true; runId = null;
-    input.disabled = true; attachments.lock(true);
+    input.contentEditable = 'false'; input.setAttribute('aria-disabled', 'true'); attachments.lock(true);
     stop.hidden = false;
-    controller = new AbortController(); status.textContent = 'Conectando ao Cadu…';
+    controller = new AbortController(); status.textContent = 'Preparando sua conversa…';
     const runProjectRef = activeContext?.project_ref || projectSelect?.value || '';
-    let completed = false, output = null, answer = '', recovered = null;
+    let terminalStatus = null, output = null, answer = '', recovered = null, optimisticUser = null, serverStarted = false;
     try {
-      await api('conversations/preflight', 'POST', {message});
-      if (controller.signal.aborted) throw new DOMException('Envio interrompido', 'AbortError');
+      // prepare() validates and routes the message again on the server before
+      // it creates a run. Skipping the duplicate preflight removes one full
+      // request from the time to the first streamed token.
+      // Show the user's turn immediately. The server still remains the source
+      // of truth; a rejected request restores the draft and removes this pair.
+      optimisticUser = addMessage('user', message, attachments.items.map(item => ({name:item.file.name})));
+      output = addMessage('assistant', '');
+      scrollHistoryToEnd(true);
+      status.textContent = 'Conectando ao Cadu…';
       const fileIds = await attachments.upload(controller.signal);
       const payload = {message, files:fileIds, mode: selectedMode, profile: document.body.dataset.product,
         conversation_id: conversationId};
@@ -692,18 +730,24 @@
           recovered = result;
           if (!recovered.recovered || !recovered.conversation_id) throw new Error('Não foi possível recuperar este envio.');
           writeDraft(draftKey === 'new' ? null : draftKey, '');
-          input.value = ''; attachments.clear();
+          setComposerValue(''); attachments.clear();
           if (recovered.status !== 'running') storePending(null);
           return;
         }
       }
       for await (const data of eventSource || CaduConversationStream.events(response.body)) {
           if (data.event === 'start') {
+            serverStarted = true;
             conversationId = data.conversation_id; boundProjectRef = runProjectRef || ''; renderContext(); runId = data.run_id; stop.hidden = false;
             setConversationUrl(conversationId);
             if (newThread) history.replaceChildren();
-            addMessage('user', message, attachments.items.map(item => ({name:item.file.name})));
-            output = addMessage('assistant', ''); input.value = ''; resizeComposer(); attachments.clear();
+            if (newThread) {
+              // The history clear also removes the optimistic pair. Recreate
+              // it only after the server has accepted the run.
+              optimisticUser = addMessage('user', message, attachments.items.map(item => ({name:item.file.name})));
+              output = addMessage('assistant', '');
+            }
+            setComposerValue(''); resizeComposer(); attachments.clear();
             scrollHistoryToEnd(true);
             writeDraft(draftKey === 'new' ? null : draftKey, '');
             status.textContent = 'Cadu está respondendo…';
@@ -718,19 +762,23 @@
           else if (data.event === 'document') addDocumentCard(data);
           else if (data.event === 'error') status.textContent = data.message;
           else if (data.event === 'done') {
-            completed = true;
+            terminalStatus = data.status || 'failed';
             storePending(null);
-            if (data.status === 'completed') status.textContent = 'Resposta salva.';
+            if (terminalStatus === 'completed') status.textContent = '';
+            else if (!status.textContent) status.textContent = terminalStatus === 'stopped'
+              ? 'Geração interrompida. O conteúdo parcial foi salvo no histórico.'
+              : 'A geração falhou. O conteúdo parcial foi salvo no histórico.';
           }
       }
-      if (!completed) throw new Error('A conexão foi interrompida. Confira o histórico antes de reenviar.');
+      if (!terminalStatus) throw new Error('A conexão foi interrompida. Confira o histórico antes de reenviar.');
     } catch (error) {
+      if (!serverStarted) { optimisticUser?.remove(); output?.remove(); output = null; }
       status.textContent = error.name === 'AbortError' ? 'Envio interrompido. Confira o histórico antes de reenviar; arquivos já recebidos pelo servidor podem ter sido preservados.' : error.message;
     } finally {
       flushStreaming(output, answer);
-      if (completed) { addMessageActions(output, answer); addSavePlanAction(output, answer, runProjectRef); }
+      if (terminalStatus === 'completed') { addMessageActions(output, answer); addSavePlanAction(output, answer, runProjectRef); }
       sending = false; mode.disabled = false; stop.hidden = true; controller = null;
-      input.disabled = false; attachments.lock(false); updateSend();
+      input.contentEditable = 'true'; input.setAttribute('aria-disabled', 'false'); attachments.lock(false); updateSend();
       if (recovered) {
         await openConversation(recovered.conversation_id);
         status.textContent = recovered.status === 'running'

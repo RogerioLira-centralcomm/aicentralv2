@@ -9,6 +9,9 @@ fi
 # Script de Deploy - AIcentral v2
 set -e
 SERVICE_STOPPED=0
+mkdir -p logs
+DEPLOY_LOG="logs/deploy-$(date +%Y%m%d-%H%M%S).log"
+: > "$DEPLOY_LOG"
 # O servidor de produção atende a aplicação em :8001 pelo gunicorn.service.
 # Não iniciar aicentralv2.service em paralelo: ele disputa a mesma porta.
 APP_SERVICE="gunicorn.service"
@@ -21,6 +24,8 @@ restore_service_on_error() {
         echo "  > Falha no deploy; tentando restaurar o serviço..."
         sudo systemctl start "$APP_SERVICE" 2>/dev/null || true
     fi
+    echo "  > Detalhes: $DEPLOY_LOG"
+    tail -n 40 "$DEPLOY_LOG" 2>/dev/null || true
     exit "$exit_code"
 }
 trap restore_service_on_error ERR
@@ -33,6 +38,7 @@ echo ""
 echo "========================================"
 echo "  Deploy AIcentral v2"
 echo "========================================"
+echo "  Log detalhado: $DEPLOY_LOG"
 echo ""
 
 # 1. Parar servico ANTES de tudo
@@ -81,7 +87,7 @@ if ! git diff --quiet -- "$STUDIO_CSS"; then
     git restore --source=HEAD --worktree -- "$STUDIO_CSS" 2>/dev/null || \
         git checkout -- "$STUDIO_CSS"
 fi
-git pull origin main 2>&1
+git pull origin main >> "$DEPLOY_LOG" 2>&1
 # Renormalizar line endings apos pull
 git checkout -- . 2>/dev/null || true
 echo "  > OK"
@@ -90,11 +96,11 @@ echo "  > OK"
 echo ""
 echo "[2b/8] Build frontend (Tailwind)..."
 if [ -x "./build_frontend.sh" ]; then
-    bash ./build_frontend.sh 2>&1
+    bash ./build_frontend.sh >> "$DEPLOY_LOG" 2>&1
     echo "  > OK"
 elif command -v npm >/dev/null 2>&1 && [ -f package.json ]; then
-    npm install --no-audit --no-fund 2>&1
-    npm run build 2>&1
+    npm install --no-audit --no-fund >> "$DEPLOY_LOG" 2>&1
+    npm run build >> "$DEPLOY_LOG" 2>&1
     echo "  > OK"
 else
     echo "  > ERRO: build frontend indisponivel — output.css nao sera gerado"
@@ -169,12 +175,13 @@ echo "  > OK"
 # 7. Nginx — limite de upload (413)
 echo ""
 echo "[6/8] Configurando nginx (client_max_body_size 256M)..."
-bash deploy/configure_nginx_upload.sh
+bash deploy/configure_nginx_upload.sh >> "$DEPLOY_LOG" 2>&1
 echo "  > OK"
 
 # 8. Atualizar schema e dados idempotentes
 echo ""
 echo "[7/9] Atualizando schemas e dados..."
+{
 "$VENV_PYTHON" migrations/run_add_tipo_comercial_to_cotacoes.py
 "$VENV_PYTHON" migrations/run_add_cotacao_grupo_plano.py
 "$VENV_PYTHON" migrations/run_add_cotacao_itens_especificos.py
@@ -239,12 +246,18 @@ fi
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_public_shares.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_interactive_creative_categories.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_user_onboardings.sql
-"$VENV_PYTHON" scripts/import_centralcomm_interactives.py
+INTERACTIVES_SOURCE="${CENTRALCOMM_INTERACTIVES_SOURCE:-/var/www/aicentralv2/data/html-slides-pt}"
+if [ -f "$INTERACTIVES_SOURCE/creative-format-overview.html" ]; then
+    "$VENV_PYTHON" scripts/import_centralcomm_interactives.py --source "$INTERACTIVES_SOURCE"
+else
+    echo "Catálogo CentralComm ausente; importação de interativos ignorada: $INTERACTIVES_SOURCE"
+fi
+} >> "$DEPLOY_LOG" 2>&1
 echo "  > OK"
 
 # Worker de mídia: dependências, modelo local e serviço supervisionado.
-MEDIA_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_media_worker.sh
-ONBOARDING_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_onboarding_followup_timer.sh
+MEDIA_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_media_worker.sh >> "$DEPLOY_LOG" 2>&1
+ONBOARDING_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_onboarding_followup_timer.sh >> "$DEPLOY_LOG" 2>&1
 
 # 9. Iniciar servico
 echo ""
@@ -270,7 +283,7 @@ else
 fi
 
 echo "  > Validando APIs de formatos e visualizadores..."
-"$VENV_PYTHON" scripts/verify_creative_viewer_apis.py
+"$VENV_PYTHON" scripts/verify_creative_viewer_apis.py >> "$DEPLOY_LOG" 2>&1
 
 # 10. Health check
 echo ""

@@ -214,7 +214,7 @@ def review_briefing(client_id: int, actor_id: int, plan_id: str) -> dict:
                                              "note": draft.get("review_note")}}
 
 
-def _document_pass_prompt(document: Mapping[str, object], previous_html: str, pass_number: int) -> str:
+def _document_pass_prompt(document: Mapping[str, object], previous_html: str, pass_number: int, source_context: str = "") -> str:
     title, instruction = REVIEW_PASSES[pass_number - 1]
     return (
         "Você faz a passagem %d de 3 da revisão de um documento no Cadu Planner.\n"
@@ -222,11 +222,11 @@ def _document_pass_prompt(document: Mapping[str, object], previous_html: str, pa
         "Preserve fatos fornecidos; não invente preços, resultados ou disponibilidade. "
         "Melhore apenas clareza, estrutura e continuidade. Retorne SOMENTE HTML seguro de conteúdo, "
         "sem markdown, scripts, estilos, iframes ou tags html/body.\n\n"
-        "Documento: %s\nTipo: %s\n\nConteúdo recebido:\n%s"
-    ) % (pass_number, title, instruction, document.get("title") or "Documento", document.get("type") or "documento", previous_html)
+        "Documento: %s\nTipo: %s\n\nFontes selecionadas do projeto:\n%s\n\nConteúdo recebido:\n%s"
+    ) % (pass_number, title, instruction, document.get("title") or "Documento", document.get("type") or "documento", source_context or "Nenhuma fonte adicional selecionada.", previous_html)
 
 
-def review_document(client_id: int, actor_id: int, doc_id: int) -> dict:
+def review_document(client_id: int, actor_id: int, doc_id: int, *, source_context: str = "") -> dict:
     """Apply the same three passes to a user-owned Planner document."""
     from ..cadu_tool_billing import ToolTokenLedger, charge_from_provider
     from ..training_studio.providers import TextProvider
@@ -248,7 +248,7 @@ def review_document(client_id: int, actor_id: int, doc_id: int) -> dict:
     for pass_number in (1, 2, 3):
         response = provider.complete([
             {"role": "system", "content": "Você revisa documentos de planejamento de mídia com precisão e transparência."},
-            {"role": "user", "content": _document_pass_prompt(document, draft, pass_number)},
+            {"role": "user", "content": _document_pass_prompt(document, draft, pass_number, source_context)},
         ], max_tokens=1200, temperature=0.15)
         draft = re.sub(r"^```(?:html)?\s*|\s*```$", "", str(response.get("content") or "").strip(), flags=re.I)
         if not draft:
@@ -266,6 +266,6 @@ def review_document(client_id: int, actor_id: int, doc_id: int) -> dict:
                                   provider_result=combined, metadata={"document_id": int(doc_id), "review_id": review_id, "passes": 3})
     charged_tokens = int((charge or {}).get("tokens_cobrados") or 0)
     _record_history(review_id=review_id, client_id=client_id, actor_id=actor_id, scope="document", document_id=doc_id,
-                    charged_tokens=charged_tokens, note=None, source={"title": document.get("title"), "html": original},
+                    charged_tokens=charged_tokens, note=None, source={"title": document.get("title"), "html": original, "sources": source_context[:12000]},
                     applied={"title": updated.get("title"), "html": updated.get("html")})
     return {"document": updated, "review": {"passes": 3, "applied_pass": 3, "charged_tokens": charged_tokens}}

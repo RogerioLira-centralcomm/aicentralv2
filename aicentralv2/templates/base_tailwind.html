@@ -600,6 +600,7 @@
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                         </div>
                         <ul class="dropdown-content nav-dd-menu menu p-2 shadow-lg bg-base-100 rounded-box w-max min-w-[180px] max-w-[220px] border border-base-200 z-[60]">
+                            <li><a href="{{ url_for('cadu_presentation.presentation') }}" class="{% if request.endpoint == 'cadu_presentation.presentation' %}active{% endif %}">Apresentação Cadu</a></li>
                             <li><a href="{{ url_for('interesse_produto_listar') }}" class="{% if request.endpoint == 'interesse_produto_listar' %}active{% endif %}">Interesses</a></li>
                             <li><a href="{{ url_for('admin_metrics_dashboard') }}" class="{% if request.endpoint == 'admin_metrics_dashboard' %}active{% endif %}">Métricas Plataforma</a></li>
                             <li><a href="{{ url_for('up_audiencia') }}" class="{% if request.endpoint == 'up_audiencia' %}active{% endif %}">Nova Audiência</a></li>
@@ -872,6 +873,11 @@
                             <details>
                                 <summary>Cadu</summary>
                                 <ul>
+                                    <li>
+                                        <a href="{{ url_for('cadu_presentation.presentation') }}" class="{% if request.endpoint == 'cadu_presentation.presentation' %}active{% endif %}">
+                                            Apresentação Cadu
+                                        </a>
+                                    </li>
                                     <li>
                                         <a href="{{ url_for('interesse_produto_listar') }}" class="{% if request.endpoint == 'interesse_produto_listar' %}active{% endif %}">
                                             Interesses

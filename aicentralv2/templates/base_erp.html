@@ -660,6 +660,7 @@
             {'group': 'Despesas', 'label': 'Gestão de reembolsos', 'endpoint': 'financeiro.gestao_reembolsos', 'url': url_for('financeiro.gestao_reembolsos'), 'icon': 'fa-money-check-dollar', 'finance_admin_only': true}
         ]},
         {'section': 'Cadu', 'items': [
+            {'group': 'Gestão', 'label': 'Apresentação Cadu', 'endpoint': 'cadu_presentation.presentation', 'url': url_for('cadu_presentation.presentation'), 'icon': 'fa-person-chalkboard'},
             {'group': 'Gestão', 'label': 'Créditos por cliente', 'endpoint': 'cadu_creditos_lista', 'match_endpoints': ['cadu_creditos_detalhe'], 'url': url_for('cadu_creditos_lista'), 'icon': 'fa-coins', 'central_only': true},
             {'group': 'Gestão', 'label': 'Skills próprias', 'endpoint': 'cadu_skills.management', 'url': url_for('cadu_skills.management'), 'icon': 'fa-wand-magic-sparkles', 'central_only': true, 'admin_only': true},
             {'group': 'Audiências', 'label': 'Inteligência de audiências', 'endpoint': 'cadu_inteligencia_audiencias', 'url': url_for('cadu_inteligencia_audiencias'), 'icon': 'fa-chart-pie'},

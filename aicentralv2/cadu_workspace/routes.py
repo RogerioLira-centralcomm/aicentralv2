@@ -595,7 +595,7 @@ def _save_brand_review_job(client_id: int, brand_id: int, job_id: str, **changes
             current['updated_at'] = datetime.utcnow().isoformat() + 'Z'
             metadata['review_pack'] = current
             cursor.execute(
-                """UPDATE cx_clients SET analysis_metadata = %s::jsonb, updated_at = NOW()
+                """UPDATE cx_clients SET analysis_metadata = %s::jsonb
                      WHERE id = %s AND crm_client_id = %s""",
                 (json.dumps(metadata), brand_id, client_id),
             )
@@ -1042,6 +1042,16 @@ def _workspace_project(client_id: int, project_id: str) -> Optional[dict]:
                 (project_id, client_id),
             )
             project['images'] = [dict(row) for row in cursor.fetchall()]
+            # Legacy creative records kept their image bytes in PostgreSQL,
+            # while ``file_path`` points to the old PHP uploads volume.  That
+            # volume is no longer mounted by the Workspace deployment, so
+            # expose the image through its authorized application route.
+            for image in project['images']:
+                image['file_path'] = url_for(
+                    'cadu_workspace.project_image',
+                    project_id=project_id,
+                    image_id=image['id'],
+                )
     except Exception:
         project['images'] = []
     try:
@@ -1228,13 +1238,148 @@ def clean_brands():
 @login_required
 def documents():
     client_id = int(session.get('cliente_id') or 0)
+    actor_id = int(session.get('user_id') or 0)
     try:
         with get_db().cursor() as cursor:
-            cursor.execute("SELECT id, titulo, tipo, status, updated_at FROM cadu_artifacts WHERE id_cliente = %s ORDER BY updated_at DESC LIMIT 60", (client_id,))
+            cursor.execute("""SELECT id, titulo, tipo, status, updated_at
+                                FROM cadu_artifacts
+                               WHERE id_cliente = %s
+                                 AND (id_contato_cliente = %s OR share_enabled = TRUE)
+                            ORDER BY updated_at DESC LIMIT 60""", (client_id, actor_id))
             records = [dict(row) for row in cursor.fetchall()]
     except Exception:
         records = []
     return render_template('cadu_workspace/documents.html', documents=records)
+
+
+@bp.get('/docs/<int:document_id>')
+@login_required
+def document_editor(document_id):
+    """Open a Smart Doc in the Workspace-owned editing surface."""
+    from ..cadu_planner import docs
+    document = docs.get_document(
+        int(session.get('cliente_id') or 0), int(session['user_id']), document_id,
+    )
+    document['html'] = docs.sanitize_html(document.get('html'))
+    project = _workspace_project(int(session.get('cliente_id') or 0), str(document['project_id'])) if document.get('project_id') else None
+    return render_template('cadu_workspace/document_editor.html', document=document, project=project)
+
+
+@bp.post('/docs/<int:document_id>')
+@login_required
+def save_workspace_document(document_id):
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    from ..cadu_planner import docs
+    docs.save_document(
+        int(session.get('cliente_id') or 0), int(session['user_id']), document_id,
+        {'title': request.form.get('title'), 'status': request.form.get('status'),
+         'html': request.form.get('html')},
+    )
+    return redirect(url_for('cadu_workspace.document_editor', document_id=document_id, saved='1'), code=303)
+
+
+def _workspace_document(document_id):
+    from ..cadu_planner import docs
+    return docs, docs.get_document(int(session.get('cliente_id') or 0), int(session['user_id']), document_id)
+
+
+def _workspace_document_sources(document, source_ids):
+    """Return a bounded, authorized source pack for a document review."""
+    project_id = document.get('project_id')
+    if not project_id or not source_ids:
+        return ''
+    try:
+        source_ids = [int(item) for item in source_ids][:8]
+    except (TypeError, ValueError):
+        abort(400, description='Uma das fontes selecionadas é inválida.')
+    if not source_ids:
+        return ''
+    try:
+        with get_db().cursor() as cursor:
+            cursor.execute('''SELECT f.nome_arquivo, string_agg(c.conteudo, E'\\n' ORDER BY c.ordem) AS content
+                                FROM cadu_ci_projeto_arquivos f
+                                JOIN cadu_ci_chunks c ON c.arquivo_id = f.id AND c.projeto_id = f.projeto_id
+                               WHERE f.projeto_id = %s AND f.id_cliente = %s AND f.id = ANY(%s)
+                            GROUP BY f.id, f.nome_arquivo ORDER BY f.nome_arquivo''',
+                           (str(project_id), int(session.get('cliente_id') or 0), source_ids))
+            rows = [dict(row) for row in cursor.fetchall()]
+    except Exception:
+        abort(503, description='Não foi possível carregar as fontes do projeto agora.')
+    return '\n\n'.join('Fonte: %s\n%s' % (row['nome_arquivo'], str(row.get('content') or '')[:6000]) for row in rows)[:24000]
+
+
+@bp.put('/docs/<int:document_id>/content')
+@login_required
+def save_workspace_document_content(document_id):
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    docs, _ = _workspace_document(document_id)
+    payload = request.get_json(silent=True) or {}
+    document = docs.save_document(int(session.get('cliente_id') or 0), int(session['user_id']), document_id, payload)
+    return jsonify(document=document)
+
+
+@bp.get('/docs/<int:document_id>/context')
+@login_required
+def workspace_document_context(document_id):
+    _, document = _workspace_document(document_id)
+    project_id = document.get('project_id')
+    project = _workspace_project(int(session.get('cliente_id') or 0), str(project_id)) if project_id else None
+    return jsonify(project=({key: project.get(key) for key in ('id', 'nome', 'descricao')} if project else None),
+                   files=(project or {}).get('files', []))
+
+
+@bp.post('/docs/<int:document_id>/duplicate')
+@login_required
+def duplicate_workspace_document(document_id):
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    docs, _ = _workspace_document(document_id)
+    document = docs.duplicate_document(int(session.get('cliente_id') or 0), int(session['user_id']), document_id)
+    return jsonify(document=document), 201
+
+
+@bp.post('/docs/<int:document_id>/share')
+@login_required
+def share_workspace_document(document_id):
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    docs, _ = _workspace_document(document_id)
+    payload = request.get_json(silent=True) or {}
+    document = docs.share_document(int(session.get('cliente_id') or 0), int(session['user_id']), document_id, payload.get('enabled', True))
+    return jsonify(document=document)
+
+
+@bp.get('/docs/<int:document_id>/export')
+@login_required
+def export_workspace_document(document_id):
+    docs, document = _workspace_document(document_id)
+    safe_name = re.sub(r'[^\w.-]+', '-', str(document.get('title') or 'documento'), flags=re.UNICODE).strip('-') or 'documento'
+    return send_file(BytesIO(docs.export_pdf(document)), mimetype='application/pdf', as_attachment=True,
+                     download_name=f'{safe_name}.pdf')
+
+
+@bp.get('/docs/<int:document_id>/review/estimate')
+@login_required
+def workspace_document_review_estimate(document_id):
+    from ..cadu_planner import revisions
+    _workspace_document(document_id)
+    estimate = revisions.document_estimate(int(session.get('cliente_id') or 0), int(session['user_id']), document_id)
+    return jsonify(estimated_tokens=estimate, passes=3)
+
+
+@bp.post('/docs/<int:document_id>/review')
+@login_required
+def review_workspace_document(document_id):
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    from ..cadu_planner import revisions
+    _, document = _workspace_document(document_id)
+    payload = request.get_json(silent=True) or {}
+    source_context = _workspace_document_sources(document, payload.get('source_ids') or [])
+    return jsonify(revisions.review_document(int(session.get('cliente_id') or 0), int(session['user_id']), document_id,
+                                             source_context=source_context))
 
 
 @bp.post('/workspace/app/marcas')
@@ -1355,6 +1500,46 @@ def clean_project_detail(project_id):
     return project_detail(project_id)
 
 
+@bp.get('/workspace/app/projetos/<project_id>/imagens/<int:image_id>')
+@login_required
+def project_image(project_id, image_id):
+    """Serve a legacy project image stored in PostgreSQL within its owner scope."""
+    client_id = int(session.get('cliente_id') or 0)
+    if not _workspace_project(client_id, project_id):
+        abort(404)
+    try:
+        with get_db().cursor() as cursor:
+            cursor.execute(
+                """SELECT file_bytes, mime, title
+                     FROM cadu_docs_client_images
+                    WHERE id = %s AND projeto_id = %s AND id_cliente = %s
+                      AND ativo = true""",
+                (image_id, project_id, client_id),
+            )
+            image = cursor.fetchone()
+    except Exception:
+        current_app.logger.exception('Não foi possível carregar a imagem %s do projeto %s', image_id, project_id)
+        abort(404)
+
+    content = image.get('file_bytes') if image else None
+    if not content:
+        abort(404)
+    mime = str(image.get('mime') or '').lower()
+    if mime not in {'image/jpeg', 'image/png', 'image/webp', 'image/gif'}:
+        abort(404)
+    filename = re.sub(r'[^\\w.-]+', '-', str(image.get('title') or 'imagem'))[:100] or 'imagem'
+    extension = {'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif'}[mime]
+    if not filename.lower().endswith(extension):
+        filename += extension
+    return send_file(
+        BytesIO(bytes(content)),
+        mimetype=mime,
+        download_name=filename,
+        conditional=True,
+        max_age=0,
+    )
+
+
 @bp.post('/workspace/app/projetos/<project_id>/contexto')
 @login_required
 def update_project_context(project_id):
@@ -1437,11 +1622,22 @@ def import_project_brand(project_id):
     if not re.match(r'^https?://', website_url, re.I):
         abort(400, description='Informe o site oficial iniciado por http:// ou https://.')
     job_id = uuid4().hex
+    logo = request.files.get('logo')
+    references = [item for item in request.files.getlist('images') if item and item.filename][:7]
+    uploaded = ([logo] if logo and logo.filename else []) + references
+    image_payload = []
+    for item in uploaded[:4]:
+        image_payload.append({
+            'filename': item.filename,
+            'content_type': item.mimetype,
+            'content': item.read(),
+        })
+        item.stream.seek(0)
     metadata = {'review_pack': {
         'job_id': job_id, 'status': 'queued', 'stage': 'queued', 'index': 0, 'total': 4,
         'message': 'A importação entrou na fila.', 'error': '',
         'created_at': datetime.utcnow().isoformat() + 'Z',
-        'input': {'website_url': website_url, 'has_images': False}, 'analysis': {}, 'reviews': [],
+        'input': {'website_url': website_url, 'has_images': bool(image_payload)}, 'analysis': {}, 'reviews': [],
     }}
     connection = get_db()
     try:
@@ -1466,7 +1662,19 @@ def import_project_brand(project_id):
         connection.rollback()
         current_app.logger.exception('Não foi possível importar a marca para o projeto %s', project_id)
         abort(503, description='Não foi possível iniciar a importação da marca agora.')
-    _start_brand_review_job(client_id, int(session.get('user_id') or 0), brand_id, job_id, website_url, [])
+    if uploaded:
+        try:
+            from ..creative_modeling_service import CreativeModelingService
+            service = CreativeModelingService()
+            if logo and logo.filename:
+                service.upload_client_brand_assets(brand_id, [logo], True, 'logo')
+            if references:
+                service.upload_client_brand_assets(brand_id, references, False, 'reference')
+        except ValueError as exc:
+            current_app.logger.warning('Marca %s criada sem todos os ativos enviados: %s', brand_id, exc)
+        except Exception:
+            current_app.logger.exception('Marca %s criada, mas não foi possível salvar os ativos enviados', brand_id)
+    _start_brand_review_job(client_id, int(session.get('user_id') or 0), brand_id, job_id, website_url, image_payload)
     payload = {
         'ok': True, 'brand_id': brand_id, 'status': 'queued',
         'status_url': url_for('cadu_workspace.brand_audit_status', brand_id=brand_id),
@@ -1996,8 +2204,7 @@ def audit_brand(brand_id):
         with connection.cursor() as cursor:
             cursor.execute(
                 """UPDATE cx_clients
-                      SET analysis_metadata = %s::jsonb,
-                          updated_at = NOW()
+                      SET analysis_metadata = %s::jsonb
                     WHERE id = %s AND crm_client_id = %s
                 RETURNING id""",
                 (json.dumps(metadata), brand_id, client_id),
@@ -2083,7 +2290,7 @@ def retry_brand_audit(brand_id):
     try:
         with connection.cursor() as cursor:
             cursor.execute(
-                """UPDATE cx_clients SET analysis_metadata = %s::jsonb, updated_at = NOW()
+                """UPDATE cx_clients SET analysis_metadata = %s::jsonb
                      WHERE id = %s AND crm_client_id = %s RETURNING id""",
                 (json.dumps(metadata), brand_id, client_id),
             )

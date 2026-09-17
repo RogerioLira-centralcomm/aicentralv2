@@ -98,7 +98,7 @@ def list_documents(client_id, actor_id):
     if not _available("cadu_artifacts"):
         return []
     where, params = _doc_where(client_id, actor_id)
-    return repository.rows(f'''SELECT id, titulo AS title, tipo AS type, status, template_id,
+    return repository.rows(f'''SELECT id, titulo AS title, tipo AS type, status, projeto_id AS project_id, template_id,
                                        branding_id, share_enabled, share_token, created_at, updated_at,
                                        id_contato_cliente = %s AS is_owner
                                   FROM cadu_artifacts WHERE {where}
@@ -117,7 +117,7 @@ def templates(client_id):
 
 def get_document(client_id, actor_id, doc_id):
     where, params = _doc_where(client_id, actor_id, int(doc_id))
-    records = repository.rows(f'''SELECT id, titulo AS title, tipo AS type, status, conteudo_html AS html,
+    records = repository.rows(f'''SELECT id, titulo AS title, tipo AS type, status, projeto_id AS project_id, conteudo_html AS html,
                                           template_id, branding_id, share_enabled, share_token, export_config,
                                           allow_download, created_at, updated_at, id_contato_cliente = %s AS is_owner
                                      FROM cadu_artifacts WHERE {where} LIMIT 1''', [actor_id, *params])

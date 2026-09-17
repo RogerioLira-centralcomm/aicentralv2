@@ -1110,6 +1110,21 @@ class CreativeServiceTest(unittest.TestCase):
         self.assertIn("aliases", listed[0])
         self.assertEqual(listed[0]["placement_zone"], "leaderboard")
 
+    def test_importacao_do_site_mantem_logo_como_candidato(self):
+        captured = {}
+        self.service._import_candidate_brand_assets = lambda client_id, payload: (
+            captured.update({"client_id": client_id, "payload": payload}) or payload["brand_assets"]
+        )
+
+        assets = self.service.import_website_brand_assets(10, [
+            {"url": "https://marca.com/captura.png", "kind": "reference", "category": "Captura do site"},
+            {"url": "https://marca.com/logo.png", "kind": "logo", "score": 95},
+        ])
+
+        self.assertEqual(captured["client_id"], 10)
+        self.assertEqual([item["role"] for item in assets], ["reference", "logo"])
+        self.assertFalse(assets[1]["is_primary"])
+
     def test_treino_de_formato_devolve_pipeline(self):
         result = self.service.train_format({
             "format_key": "iab-medium-rectangle",

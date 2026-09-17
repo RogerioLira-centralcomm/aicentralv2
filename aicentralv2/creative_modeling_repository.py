@@ -813,6 +813,43 @@ class CreativeModelingRepository:
                 )
             return dict(asset)
 
+    def promote_client_brand_asset_to_logo(self, client_id, asset_id):
+        """Make an approved visual asset the selected primary logo."""
+        with self._write() as cursor:
+            cursor.execute(
+                """
+                SELECT id, asset_path
+                  FROM cx_client_brand_assets
+                 WHERE id = %s AND client_id = %s AND status = 'approved'
+                """,
+                (asset_id, client_id),
+            )
+            asset = cursor.fetchone()
+            if not asset:
+                raise CreativeNotFoundError("Ativo aprovado não encontrado.")
+            cursor.execute(
+                """
+                UPDATE cx_client_brand_assets
+                   SET is_primary = FALSE, updated_at = NOW()
+                 WHERE client_id = %s AND role = 'logo'
+                """,
+                (client_id,),
+            )
+            cursor.execute(
+                """
+                UPDATE cx_client_brand_assets
+                   SET role = 'logo', is_primary = TRUE, updated_at = NOW()
+                 WHERE id = %s AND client_id = %s
+                """,
+                (asset_id, client_id),
+            )
+            if asset.get("asset_path"):
+                cursor.execute(
+                    "UPDATE cx_clients SET logo_upload_path = %s WHERE id = %s",
+                    (asset["asset_path"], client_id),
+                )
+            return dict(asset)
+
     def update_client(self, client_id, data):
         with self._write() as cursor:
             cursor.execute(

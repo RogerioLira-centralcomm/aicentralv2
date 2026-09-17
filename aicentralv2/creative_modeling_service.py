@@ -3066,6 +3066,42 @@ class CreativeModelingService:
             saved.append(data)
         return _serialize(saved)
 
+    def import_website_brand_assets(self, client_id, candidates):
+        """Persist official web evidence without automatically choosing a logo."""
+        client_id = _integer(client_id, "Cliente")
+        self.repository.get_client(client_id)
+        payload = []
+        seen = set()
+        for candidate in list(candidates or []):
+            if not isinstance(candidate, dict):
+                continue
+            source_url = str(candidate.get("url") or "").strip()
+            if not source_url.startswith(("http://", "https://")) or source_url in seen:
+                continue
+            seen.add(source_url)
+            role = "logo" if candidate.get("kind") == "logo" else "reference"
+            payload.append({
+                "role": role,
+                "source_url": source_url,
+                "page_url": candidate.get("page_url"),
+                "score": candidate.get("score"),
+                "width": candidate.get("width"),
+                "height": candidate.get("height"),
+                "is_primary": False,
+                "category": candidate.get("category") or ("Logo sugerido" if role == "logo" else "Referência do site"),
+                "reason": candidate.get("reason") or "Capturado do site oficial via Firecrawl.",
+            })
+            if len(payload) >= 8:
+                break
+        return _serialize(self._import_candidate_brand_assets(client_id, {"brand_assets": payload}))
+
+    def promote_client_brand_asset_to_logo(self, client_id, asset_id):
+        client_id = _integer(client_id, "Cliente")
+        asset_id = _integer(asset_id, "Ativo")
+        if not hasattr(self.repository, "promote_client_brand_asset_to_logo"):
+            raise ValueError("Não foi possível definir este ativo como logo.")
+        return _serialize(self.repository.promote_client_brand_asset_to_logo(client_id, asset_id))
+
     def create_client_brand_seed_visuals(self, client_id, brand):
         """Create small, editable visual starters once an identity is approved.
 

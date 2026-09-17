@@ -646,8 +646,26 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                     analysis = service.analyze_brand(website_url, restored_images, billing_callback=bill)
                     if not isinstance(analysis, dict) or not analysis.get('analysis_metadata'):
                         raise ValueError('A análise não retornou evidências suficientes.')
+                    # Preserve Firecrawl visual evidence for review. Its logo
+                    # classification remains a suggestion, never an automatic
+                    # principal-logo decision.
+                    candidates = list(analysis.get('asset_candidates') or [])
+                    screenshot = analysis.get('screenshot')
+                    if isinstance(screenshot, str) and screenshot.startswith(('http://', 'https://')):
+                        candidates.insert(0, {
+                            'url': screenshot, 'page_url': website_url,
+                            'kind': 'reference', 'category': 'Captura do site',
+                            'score': 100,
+                            'reason': 'Captura da página inicial gerada pelo Firecrawl.',
+                        })
+                    imported_assets = service.import_website_brand_assets(brand_id, candidates)
                     proposal = _brand_analysis_proposal(analysis)
                     analysis_metadata = analysis.get('analysis_metadata') or {}
+                    analysis_metadata = {
+                        **analysis_metadata,
+                        'firecrawl_assets_imported': len(imported_assets),
+                        'firecrawl_logo_suggested': bool(analysis.get('logo_url')),
+                    }
                     _save_brand_review_job(client_id, brand_id, job_id,
                         status='running', stage='evidence_complete', index=1, total=4,
                         message='Evidências organizadas. Iniciando os pareceres.',
@@ -2192,6 +2210,26 @@ def set_primary_brand_asset(brand_id, asset_id):
     except Exception:
         current_app.logger.exception('Não foi possível definir o logo principal da marca %s', brand_id)
         abort(503, description='Não foi possível alterar o logo principal agora.')
+    return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id), code=303)
+
+
+@bp.post('/workspace/app/marcas/<int:brand_id>/ativos/<int:asset_id>/logo')
+@login_required
+def promote_brand_asset_to_logo(brand_id, asset_id):
+    """Let the team choose any imported website visual as the official logo."""
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    client_id = int(session.get('cliente_id') or 0)
+    if not _workspace_brand(client_id, brand_id):
+        abort(404)
+    try:
+        from ..creative_modeling_service import CreativeModelingService
+        CreativeModelingService().promote_client_brand_asset_to_logo(brand_id, asset_id)
+    except ValueError as exc:
+        abort(400, description=str(exc))
+    except Exception:
+        current_app.logger.exception('Não foi possível definir o ativo %s como logo da marca %s', asset_id, brand_id)
+        abort(503, description='Não foi possível definir este ativo como logo agora.')
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id), code=303)
 
 

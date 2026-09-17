@@ -145,6 +145,17 @@ class WorkspaceBrandsTest(TestCase):
         service.return_value.upload_client_brand_assets.assert_called_once()
 
     @mock.patch('aicentralv2.creative_modeling_service.CreativeModelingService')
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand', return_value={'id': 81})
+    def test_imported_reference_can_be_promoted_to_primary_logo(self, _workspace_brand, service):
+        response = _client().post('/workspace/app/marcas/81/ativos/44/logo', data={
+            '_csrf': 'known-token',
+        })
+
+        self.assertEqual(response.status_code, 303)
+        _workspace_brand.assert_called_once_with(12, 81)
+        service.return_value.promote_client_brand_asset_to_logo.assert_called_once_with(81, 44)
+
+    @mock.patch('aicentralv2.creative_modeling_service.CreativeModelingService')
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand', return_value=None)
     def test_foreign_brand_assets_are_rejected_before_storage(self, _workspace_brand, service):
         response = _client().post('/workspace/app/marcas/999/ativos', data={

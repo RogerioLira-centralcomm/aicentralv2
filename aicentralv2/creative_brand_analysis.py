@@ -998,6 +998,7 @@ class CreativeBrandAnalyzer:
                 (evidence.get("branding") or {}).get("fonts")
             ),
             "asset_candidates": asset_candidates,
+            "screenshot": evidence.get("screenshot"),
             "confidence": confidence,
             "sources": sources,
             "analysis_metadata": {

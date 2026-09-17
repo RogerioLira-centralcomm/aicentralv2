@@ -12,6 +12,7 @@ from .provider_events import ProviderEvents
 from . import catalog_tools, result_cards
 from . import recovery
 from . import memory
+from .legacy_results import readable_documents
 
 
 MEDIA_PLANNING_CONTRACT = """Você é o Cadu, planejador de mídia sênior para o mercado brasileiro. Sua função não é explicar mídia de modo genérico: é transformar o pedido em uma recomendação defendível e acionável.
@@ -440,6 +441,7 @@ def build_run(run_id, conversation_id, user, selected, chosen, profile,
         # The Dify skill is the agent's working instruction, not a preview.
         # Planning additionally receives its non-negotiable delivery method.
         'diretrizes_especificas': directives[:40000],
+        'limites_de_artefato': 'Conversa sem projeto é válida e não cria documentos. Para refinar, estruturar ou rascunhar briefing, responda em Markdown na própria conversa. Só proponha criar ou salvar um SmartDoc quando o usuário pedir isso explicitamente e houver um projeto selecionado; nunca emita marcadores SMART_DOC na resposta.',
         'fronteiras_de_contexto': {
             'projeto_context': 'JSON com contexto_projeto_privado, base_cadu_global_publicada, workspace_da_equipe e, quando aplicável, catalogo_midia_cadu.',
             'prioridade': 'Use o contexto privado para decisões do projeto; trate a base global como institucional.',
@@ -515,6 +517,7 @@ def stream(run):
                 yield event(item['event'], **{key: value for key, value in item.items() if key != 'event'})
         if state != 'completed':
             raise dify.DifyUnavailable('A geração terminou antes da confirmação do Dify.')
+        answer = readable_documents(answer)
         if answer and run.get('project_sources'):
             yield event('sources', sources=run['project_sources'])
     except GeneratorExit:

@@ -2,7 +2,20 @@
 (() => {
   'use strict';
   const escape = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const visible = value => String(value || '').replace(/<(think|thinking|analysis)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi, '');
+  const visible = value => String(value || '')
+    .replace(/<(think|thinking|analysis)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi, '')
+    .replace(/<!--SMART_DOC:([\s\S]*?)(-->|$)/gi, (match, raw, ending) => {
+      // A SmartDoc envelope is a legacy provider convention, never customer
+      // facing chat syntax. While it streams, hide the incomplete envelope;
+      // once complete, keep its draft as ordinary editable Markdown.
+      if (ending !== '-->') return '';
+      try {
+        const draft = JSON.parse(raw);
+        const content = typeof draft?.conteudo === 'string' ? draft.conteudo.trim() : '';
+        const title = typeof draft?.titulo === 'string' ? draft.titulo.trim().slice(0, 250) : '';
+        return content ? '\n\n' + (title ? '# ' + title + '\n\n' : '') + content + '\n\n' : '';
+      } catch (_) { return ''; }
+    });
   function inline(value) {
     const tokens = /(`[^`\n]+`|\*\*[^*\n]+\*\*|\*[^*\n]+\*|\[[^\]\n]+\]\([^\s)]+\))/g;
     let output = '', position = 0;

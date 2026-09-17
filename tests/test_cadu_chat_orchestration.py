@@ -50,6 +50,7 @@ def test_payload_preserves_long_dify_skill_instructions():
                     'planner', '', {'dify_conversation_id': None, 'total_mensagens': 0}, 'Monte um plano.', [], None, '')
     context = json.loads(run['payload']['inputs']['skill_context'])
     assert context['diretrizes_especificas'] == prompt
+    assert 'não cria documentos' in context['limites_de_artefato']
 
 
 def test_media_plan_payload_requires_strategy_audiences_mix_and_optimization():

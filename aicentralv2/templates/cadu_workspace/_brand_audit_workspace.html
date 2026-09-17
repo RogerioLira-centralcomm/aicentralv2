@@ -1,0 +1,120 @@
+{% set audit_status = review_pack.status or 'not_started' %}
+{% set audit_analysis = review_pack.analysis if review_pack.analysis is mapping else {} %}
+{% set audit_metadata = brand.analysis_metadata or {} %}
+{% set audit_reviews = review_pack.reviews or [] %}
+<section id="brand-audit" class="workspace-brand-audit-workspace" aria-labelledby="brand-audit-workspace-title">
+  <header class="workspace-brand-audit-workspace__head">
+    <div>
+      <p>Auditoria da marca</p>
+      <h2 id="brand-audit-workspace-title">Evidências antes de decisões</h2>
+      <span>O que a auditoria encontra não altera a identidade aprovada até uma pessoa revisar.</span>
+    </div>
+    {% if audit_status == 'pending_approval' %}
+      <span class="workspace-brand-audit-state is-review">Pronta para revisão</span>
+    {% elif audit_status == 'approved' %}
+      <span class="workspace-brand-audit-state is-approved">Versão aprovada</span>
+    {% elif audit_status in ['queued', 'running'] %}
+      <span class="workspace-brand-audit-state is-running">Em análise</span>
+    {% elif audit_status == 'failed' %}
+      <span class="workspace-brand-audit-state is-error">Requer atenção</span>
+    {% else %}
+      <span class="workspace-brand-audit-state">Ainda não iniciada</span>
+    {% endif %}
+  </header>
+
+  <div class="workspace-brand-audit-workspace__layout">
+    <div class="workspace-brand-audit-workspace__main">
+      <ol class="workspace-brand-audit-flow" aria-label="Etapas da auditoria">
+        <li class="{% if audit_status not in ['not_started', 'failed'] %}is-done{% endif %}">
+          <b>Coletar</b><span>Fontes, arquivos e candidatos</span>
+        </li>
+        <li class="{% if audit_status in ['pending_approval', 'approved'] %}is-done{% elif audit_status in ['queued', 'running'] %}is-current{% endif %}">
+          <b>Auditar</b><span>Hipóteses, conflitos e confiança</span>
+        </li>
+        <li class="{% if audit_status == 'approved' %}is-done{% elif audit_status == 'pending_approval' %}is-current{% endif %}">
+          <b>Decidir</b><span>Aplicar apenas o que for aprovado</span>
+        </li>
+      </ol>
+
+      {% if audit_status in ['queued', 'running'] %}
+        <div class="workspace-brand-audit-progress-panel" data-brand-audit-progress-panel>
+          <div><i class="fa-solid fa-sparkles" aria-hidden="true"></i><strong>{{ review_pack.message or 'Organizando evidências oficiais.' }}</strong></div>
+          <p>Você pode continuar trabalhando. A proposta ficará salva nesta marca quando estiver pronta.</p>
+          <div class="workspace-brand-audit-progress-line"><span style="width:{{ ((review_pack.index or 0) / (review_pack.total or 4) * 100)|round|int }}%"></span></div>
+        </div>
+      {% elif audit_status == 'pending_approval' %}
+        <div class="workspace-brand-audit-review-intro">
+          <div><strong>Proposta pronta para decisão</strong><span>Revise cada parecer antes de atualizar a identidade da marca.</span></div>
+          {% if can_manage_brand %}
+            <form method="post" action="{{ url_for('cadu_workspace.approve_brand_reviews', brand_id=brand.id) }}">
+              <input type="hidden" name="_csrf" value="{{ session.get('family_csrf', '') }}">
+              <button type="submit">Aprovar síntese</button>
+            </form>
+          {% endif %}
+        </div>
+      {% elif audit_status == 'approved' %}
+        <div class="workspace-brand-audit-review-intro is-approved">
+          <div><strong>Esta versão já orienta os projetos</strong><span>Uma nova análise sempre será comparada a esta versão aprovada.</span></div>
+          <a href="#brand-audit-new-scan">Criar nova proposta</a>
+        </div>
+      {% elif audit_status == 'failed' %}
+        <div class="workspace-brand-audit-review-intro is-error">
+          <div><strong>A análise não foi concluída</strong><span>{{ review_pack.error or 'Tente novamente quando as fontes estiverem disponíveis.' }}</span></div>
+          {% if can_manage_brand %}<form method="post" action="{{ url_for('cadu_workspace.retry_brand_audit', brand_id=brand.id) }}"><input type="hidden" name="_csrf" value="{{ session.get('family_csrf', '') }}"><button type="submit">Tentar novamente</button></form>{% endif %}
+        </div>
+      {% endif %}
+
+      <div class="workspace-brand-audit-modules">
+        {% set audit_module_labels = {'evidencias':'Evidências', 'estrategia':'Estratégia', 'direcao_criativa':'Direção criativa'} %}
+        {% set audit_module_descriptions = {'evidencias':'Fatos, fontes e lacunas.', 'estrategia':'Posicionamento, público e diferenciais.', 'direcao_criativa':'Sistema visual, tom e cuidados de execução.'} %}
+        {% for module_id, module_label in audit_module_labels.items() %}
+          {% set review = (audit_reviews|selectattr('id', 'equalto', module_id)|list|first) %}
+          <article class="workspace-brand-audit-module {% if review %}is-{{ review.status }}{% endif %}">
+            <header>
+              <div><small>{{ module_label }}</small><h3>{{ audit_module_descriptions[module_id] }}</h3></div>
+              {% if review %}<em>{{ 'Pronto' if review.status == 'ready' else 'Revisar' }}</em>{% endif %}
+            </header>
+            {% if review %}
+              <p>{{ review.summary or 'O parecer não retornou um resumo utilizável.' }}</p>
+              {% if review.concerns %}<ul>{% for concern in review.concerns[:2] %}<li>{{ concern }}</li>{% endfor %}</ul>{% endif %}
+              {% if audit_status == 'pending_approval' and can_manage_brand %}
+                <form class="workspace-brand-audit-module-action" method="post" action="{{ url_for('cadu_workspace.refresh_brand_audit_module', brand_id=brand.id, module_id=module_id) }}">
+                  <input type="hidden" name="_csrf" value="{{ session.get('family_csrf', '') }}">
+                  <button type="submit">Refazer este parecer</button>
+                </form>
+              {% endif %}
+            {% else %}
+              <p>{% if audit_status in ['queued', 'running'] %}Este parecer será preparado após a coleta das evidências.{% elif audit_status == 'not_started' %}Inicie uma auditoria para reunir este parecer.{% else %}Não há parecer disponível nesta versão.{% endif %}</p>
+            {% endif %}
+          </article>
+        {% endfor %}
+      </div>
+
+      {% if audit_status in ['not_started', 'approved'] and can_manage_brand %}
+        <form id="brand-audit-new-scan" class="workspace-brand-audit-start" method="post" enctype="multipart/form-data" action="{{ url_for('cadu_workspace.audit_brand', brand_id=brand.id) }}">
+          <input type="hidden" name="_csrf" value="{{ session.get('family_csrf', '') }}">
+          <div><strong>{{ 'Atualizar a auditoria' if audit_status == 'approved' else 'Iniciar auditoria' }}</strong><span>Use o site oficial e até quatro referências. O resultado só substitui a identidade após nova aprovação humana.</span></div>
+          <label>Site oficial<input type="url" name="website_url" value="{{ brand.website_url or '' }}" placeholder="https://"></label>
+          <label>Referências<input type="file" name="images" accept="image/*" multiple></label>
+          <button type="submit">{{ 'Criar nova proposta' if audit_status == 'approved' else 'Iniciar análise' }}</button>
+        </form>
+      {% endif %}
+    </div>
+
+    <aside class="workspace-brand-audit-context">
+      <h3>Base desta auditoria</h3>
+      <dl>
+        <div><dt>Fontes</dt><dd>{{ audit_metadata.get('pages_analyzed', 0) or (audit_analysis.sources|length) }} verificadas</dd></div>
+        <div><dt>Ativos</dt><dd>{{ audit_metadata.get('assets_found', 0) or (brand.assets|length) }} encontrados</dd></div>
+        <div><dt>Visuais</dt><dd>{{ audit_metadata.get('visual_evidence_count', 0) }} analisados</dd></div>
+      </dl>
+      {% if audit_analysis.sources %}
+        <details>
+          <summary>Ver fontes utilizadas</summary>
+          <ul>{% for source in audit_analysis.sources[:6] %}<li><a href="{{ source }}" target="_blank" rel="noopener">{{ source }}</a></li>{% endfor %}</ul>
+        </details>
+      {% endif %}
+      <p><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Logos, cores e diretrizes só mudam depois de aprovação humana.</p>
+    </aside>
+  </div>
+</section>

@@ -8,6 +8,7 @@ from .report_review import UNITS
 
 MODEL = os.getenv('CONNECT_REPORT_EXTRACT_MODEL', 'openai/gpt-5-nano')
 MAX_SUGGESTED_METRICS = 60
+MAX_EXTRACTION_TOKENS = 3200
 
 
 def extraction_messages(source, document):
@@ -46,7 +47,7 @@ def normalize_suggestion(payload, source_id):
 
 def extract_suggestion(source, document, *, complete):
     """Calls a supplied model client; caller owns credits, persistence and review."""
-    result = complete(extraction_messages(source, document), model=MODEL, max_tokens=3200,
+    result = complete(extraction_messages(source, document), model=MODEL, max_tokens=MAX_EXTRACTION_TOKENS,
                       temperature=0, response_format={'type': 'json_object'})
     message = result.get('message', {}) if isinstance(result, dict) else {}
     content = message.get('content', message) if isinstance(message, dict) else message

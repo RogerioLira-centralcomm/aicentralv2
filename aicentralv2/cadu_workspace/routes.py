@@ -2707,6 +2707,88 @@ def retry_brand_audit(brand_id):
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id, audit='queued'), code=303)
 
 
+@bp.post('/workspace/app/marcas/<int:brand_id>/auditoria/modulos/<module_id>/revisar')
+@login_required
+def refresh_brand_audit_module(brand_id, module_id):
+    """Refresh one opinion from saved evidence; it never re-collects or applies identity."""
+    if module_id not in {'evidencias', 'estrategia', 'direcao_criativa'}:
+        abort(404)
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    _workspace_team_admin()
+    client_id = int(session.get('cliente_id') or 0)
+    user_id = int(session.get('user_id') or 0)
+    brand = _workspace_brand(client_id, brand_id)
+    if not brand:
+        abort(404)
+    pack = _brand_review_pack(brand)
+    analysis = pack.get('analysis')
+    if pack.get('status') != 'pending_approval' or not isinstance(analysis, dict):
+        abort(409, description='Este parecer só pode ser refeito enquanto a proposta está em revisão.')
+    credit_response = _brand_audit_credit_gate(client_id)
+    if credit_response is not None:
+        return credit_response
+    job_id = uuid4().hex
+    metadata = dict(brand.get('analysis_metadata') or {})
+    next_pack = dict(pack)
+    next_pack.update({
+        'job_id': job_id, 'status': 'running', 'stage': module_id, 'index': 2,
+        'total': 4, 'message': f'Refazendo o parecer de {module_id.replace("_", " ")}.',
+        'error': '', 'created_at': datetime.utcnow().isoformat() + 'Z',
+    })
+    metadata['review_pack'] = next_pack
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""UPDATE cx_clients SET analysis_metadata = %s::jsonb
+                              WHERE id = %s AND crm_client_id = %s RETURNING id""",
+                           (json.dumps(metadata), brand_id, client_id))
+            if not cursor.fetchone():
+                abort(404)
+        connection.commit()
+    except HTTPException:
+        connection.rollback()
+        raise
+    except Exception:
+        connection.rollback()
+        current_app.logger.exception('Não foi possível refazer o parecer %s da marca %s', module_id, brand_id)
+        abort(503, description='Não foi possível refazer este parecer agora.')
+
+    app = current_app._get_current_object()
+    def runner():
+        with app.app_context():
+            try:
+                from ..creative_modeling_service import CreativeModelingService
+                from ..cadu_credit_connector import CaduCreditConnector, CreditActor
+                credits = CaduCreditConnector()
+                actor = CreditActor.from_values(client_id, user_id)
+                def bill(stage, provider_result, model):
+                    credits.charge_provider(
+                        actor=actor, idempotency_key=f'workspace-brand:{job_id}:{stage}',
+                        app='Auditoria de marca', stage=stage, provider_result=provider_result, model=model,
+                        metadata={'brand_id': brand_id, 'job_id': job_id, 'source': 'workspace', 'module': module_id},
+                    )
+                refreshed = CreativeModelingService().review_brand_module(analysis, module_id, billing_callback=bill)
+                latest = _workspace_brand(client_id, brand_id) or {}
+                latest_metadata = dict(latest.get('analysis_metadata') or {})
+                latest_pack = dict(latest_metadata.get('review_pack') or {})
+                if latest_pack.get('job_id') != job_id:
+                    return
+                reviews = [item for item in (latest_pack.get('reviews') or []) if item.get('id') != module_id]
+                reviews.append(refreshed)
+                order = {'evidencias': 0, 'estrategia': 1, 'direcao_criativa': 2}
+                reviews.sort(key=lambda item: order.get(item.get('id'), 99))
+                _save_brand_review_job(client_id, brand_id, job_id, status='pending_approval', stage='complete',
+                                       index=4, total=4, message='Parecer atualizado. Revise a proposta antes de aplicar.',
+                                       error='', reviews=reviews)
+            except Exception as exc:
+                current_app.logger.exception('Não foi possível refazer o parecer %s da marca %s', module_id, brand_id)
+                _save_brand_review_job(client_id, brand_id, job_id, status='failed', stage='failed',
+                                       message='O parecer não foi atualizado.', error=str(exc)[:360])
+    threading.Thread(target=runner, daemon=True, name=f'brand-review-{module_id}-{job_id[:8]}').start()
+    return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id, audit='queued'), code=303)
+
+
 @bp.post('/workspace/app/marcas/<int:brand_id>/revisoes/aprovar')
 @login_required
 def approve_brand_reviews(brand_id):

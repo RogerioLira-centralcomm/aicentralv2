@@ -422,7 +422,7 @@ def _firecrawl_image_search(domain):
     return candidates
 
 
-def search_recent_brand_creatives(brand_name, limit=12):
+def search_recent_brand_creatives(brand_name, limit=12, billing_callback=None):
     """Find recent public display-ad and campaign imagery for a brand."""
     from .services.integration_credentials import resolve_firecrawl_api_key
 
@@ -445,6 +445,10 @@ def search_recent_brand_creatives(brand_name, limit=12):
         data = response.json().get("data") or response.json()
     except (requests.RequestException, ValueError):
         return []
+    # A successful Firecrawl Search consumes its external credits even when it
+    # finds no usable creative. The caller owns tenant billing context.
+    if callable(billing_callback):
+        billing_callback(max(1, min(int(limit), 20)))
     items = []
     for result in data.get("images") or []:
         if not isinstance(result, dict):
@@ -510,7 +514,8 @@ def _compact_web_evidence(url):
         candidate for candidate in candidates
         if candidate["kind"] == "reference" and candidate["score"] >= 25
     ]
-    if len(references) < 6:
+    image_search_used = len(references) < 6
+    if image_search_used:
         candidates = _deduplicate_candidates(
             candidates + _firecrawl_image_search(domain), domain
         )
@@ -531,6 +536,7 @@ def _compact_web_evidence(url):
         "pages": evidence_pages,
         "asset_candidates": candidates,
         "reference_images": references[:24],
+        "firecrawl_image_search": image_search_used,
         "screenshot": raw.get("screenshot"),
         "branding": {
             key: branding.get(key)
@@ -1061,6 +1067,7 @@ class CreativeBrandAnalyzer:
                 "sources": sources,
                 "pages_analyzed": len(evidence.get("pages") or []),
                 "assets_found": len(asset_candidates),
+                "firecrawl_image_search": bool(evidence.get("firecrawl_image_search")),
             },
         }
 
@@ -1107,6 +1114,38 @@ class CreativeBrandAnalyzer:
                 'model': response.get('model') or self.model,
             })
         return reviews
+
+    def review_module(self, analysis, review_id, billing_callback=None):
+        """Re-run one scoped opinion without repeating collection or the other reviews."""
+        if not isinstance(analysis, dict):
+            raise ValueError('A análise de marca precisa estar disponível para revisão.')
+        reviewer = next((item for item in WORKSPACE_BRAND_REVIEW_SYSTEMS if item[0] == review_id), None)
+        if not reviewer:
+            raise ValueError('Módulo de auditoria inválido.')
+        _, title, remit = reviewer
+        safe_analysis = {key: value for key, value in analysis.items() if key not in {'asset_candidates', 'analysis_metadata'}}
+        response = self.llm(
+            [
+                {'role': 'system', 'content': remit + '\n\n' + WORKSPACE_BRAND_REVIEW_CONTRACT},
+                {'role': 'user', 'content': json.dumps({'analysis': safe_analysis}, ensure_ascii=False, default=str)},
+            ],
+            model=self.model, max_tokens=900, temperature=0.1, timeout=45,
+        )
+        if callable(billing_callback):
+            billing_callback(f'parecer_{review_id}', response, self.model)
+        result = _json_content(response['message'].get('content'))
+        try:
+            confidence = max(0, min(1, float(result.get('confidence'))))
+        except (TypeError, ValueError):
+            confidence = 0
+        return {
+            'id': review_id, 'title': title,
+            'status': 'ready' if str(result.get('decision') or 'needs_review').lower() == 'ready' else 'needs_review',
+            'summary': _text(result.get('summary'), 600),
+            'findings': _string_list(result.get('findings'), limit=5, item_limit=360),
+            'concerns': _string_list(result.get('concerns'), limit=4, item_limit=360),
+            'confidence': confidence, 'model': response.get('model') or self.model,
+        }
 
     def analyze_creative_line(self, image_data_urls, client, logo_data_url=None):
         images = [

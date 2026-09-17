@@ -3026,17 +3026,23 @@ class CreativeModelingService:
     def review_brand_analysis(self, analysis, progress=None, billing_callback=None):
         return _serialize(self.brand_analyzer.review_pack(analysis, progress=progress, billing_callback=billing_callback))
 
+    def review_brand_module(self, analysis, review_id, billing_callback=None):
+        return _serialize(self.brand_analyzer.review_module(analysis, review_id, billing_callback=billing_callback))
+
     def upload_client_brand_assets(
         self, client_id, files, primary_logo=False, role="reference"
     ):
         client_id = _integer(client_id, "Cliente")
         self.repository.get_client(client_id)
-        if role not in BRAND_ASSET_ROLES - {"logo"}:
+        if role not in BRAND_ASSET_ROLES:
             raise ValueError("Tipo de referência visual inválido.")
+        files = list(files or [])[:8]
+        if role == "logo" and len(files) != 1:
+            raise ValueError("Envie somente um arquivo para o logo principal.")
         saved = []
-        for position, file_storage in enumerate(list(files or [])[:8]):
+        for position, file_storage in enumerate(files):
             item = self.storage.save_reference(file_storage)
-            asset_role = "logo" if primary_logo and position == 0 else role
+            asset_role = "logo" if (primary_logo and position == 0) or role == "logo" else role
             data = {
                 **item,
                 "role": asset_role,
@@ -4083,6 +4089,11 @@ class CreativeModelingService:
                 "approved" if flow_kind == "unfold" else "generated",
             )
             actual = generated.get("actual_cost_usd")
+            self._charge_studio_call(
+                client_id=context.get("client_id"), user_id=created_by, idempotency_key=f"studio:scene-prompt:{job_id}",
+                stage="prompt_generation", provider_result=generated, fallback_cost=estimate, media=False,
+                metadata={"job_id": job_id, "scene_id": scene_id},
+            )
             self.repository.complete_generation_job(
                 job_id,
                 estimate if actual is None else actual,
@@ -4367,14 +4378,10 @@ class CreativeModelingService:
             )
             actual = generated.get("actual_cost_usd")
             extra_cost = float(layers.get("image_cost") or 0)
-            from .cadu_tool_billing import charge_from_provider
-            charge_from_provider(
-                ledger=credit_ledger,
-                idempotency_key=f"studio:scene:{job_id}",
-                client_id=int(credit_client_id), user_id=int(created_by),
-                tool="studio.image", stage="scene_generation",
-                provider_result={**generated, "actual_cost_usd": float(actual or estimate) + extra_cost + review_cost},
-                model=image_model,
+            self._charge_studio_call(
+                client_id=credit_client_id, user_id=created_by, idempotency_key=f"studio:scene:{job_id}",
+                stage="scene_generation", provider_result={**generated, "actual_cost_usd": float(actual or estimate) + extra_cost + review_cost},
+                fallback_cost=estimate, media=True,
                 metadata={"scene_id": scene_id, "job_id": job_id, "tier": tier["name"]},
             )
             self.repository.complete_generation_job(
@@ -4550,6 +4557,11 @@ class CreativeModelingService:
                 scene_id=scene_id,
             )
             actual = generated.get("actual_cost_usd")
+            self._charge_studio_call(
+                client_id=context.get("client_id"), user_id=created_by, idempotency_key=f"studio:scene-refine:{job_id}",
+                stage="image_refinement", provider_result=generated, fallback_cost=estimate, media=True,
+                metadata={"job_id": job_id, "scene_id": scene_id, "asset_id": asset_id},
+            )
             self.repository.complete_generation_job(
                 job_id,
                 estimate if actual is None else actual,
@@ -5706,6 +5718,27 @@ class CreativeModelingService:
         env = f"CREATIVE_{kind.upper()}_ESTIMATED_COST_USD"
         return _money(os.getenv(env, defaults[kind]), "Custo estimado")
 
+    def _charge_studio_call(self, *, client_id, user_id, idempotency_key, stage,
+                            provider_result, fallback_cost, media, metadata=None):
+        """Single billing path for every paid Studio model execution."""
+        if client_id in (None, "") or user_id in (None, ""):
+            # Older internal modeling routes do not yet carry a billing actor.
+            # They remain non-billable until their HTTP contract is migrated;
+            # customer-scoped Studio routes always pass both values.
+            return None
+        from .cadu_credit_connector import CaduCreditConnector, CreditActor
+        payer = self._credits_crm_id(client_id) or int(client_id)
+        result = dict(provider_result or {})
+        if result.get("actual_cost_usd") in (None, ""):
+            result["actual_cost_usd"] = float(fallback_cost or 0)
+        return CaduCreditConnector(self.credit_ledger).charge_provider(
+            actor=CreditActor.from_values(payer, user_id),
+            idempotency_key=str(idempotency_key), app="Cadu Studio", stage=stage,
+            provider_result=result, model=str(result.get("model") or "studio"),
+            margin_multiplier=8 if media else 12,
+            metadata={**(metadata or {}), "billing_class": "media" if media else "agent"},
+        )
+
     def list_image_tiers(self):
         return _serialize(describe_image_tiers())
 
@@ -5767,6 +5800,11 @@ class CreativeModelingService:
             prompt = generated["result"]["prompt_en"].strip()
             self.repository.update_step_prompt(step_id, prompt, "generated")
             actual = generated.get("actual_cost_usd")
+            self._charge_studio_call(
+                client_id=context.get("client_id"), user_id=created_by, idempotency_key=f"studio:step-prompt:{job_id}",
+                stage="prompt_generation", provider_result=generated, fallback_cost=estimate, media=False,
+                metadata={"job_id": job_id, "step_id": step_id},
+            )
             self.repository.complete_generation_job(
                 job_id,
                 estimate if actual is None else actual,
@@ -5865,6 +5903,11 @@ class CreativeModelingService:
                 },
             )
             actual = generated.get("actual_cost_usd")
+            self._charge_studio_call(
+                client_id=context.get("client_id"), user_id=created_by, idempotency_key=f"studio:step-image:{job_id}",
+                stage="image_generation", provider_result=generated, fallback_cost=estimate, media=True,
+                metadata={"job_id": job_id, "step_id": step_id},
+            )
             self.repository.complete_generation_job(
                 job_id,
                 estimate if actual is None else actual,
@@ -5926,6 +5969,11 @@ class CreativeModelingService:
             )
             self.repository.update_step_script(step_id, script_text, "generated")
             actual = generated.get("actual_cost_usd")
+            self._charge_studio_call(
+                client_id=context.get("client_id"), user_id=created_by, idempotency_key=f"studio:video-script:{job_id}",
+                stage="script_generation", provider_result=generated, fallback_cost=estimate, media=False,
+                metadata={"job_id": job_id, "step_id": step_id},
+            )
             self.repository.complete_generation_job(
                 job_id,
                 estimate if actual is None else actual,
@@ -6605,6 +6653,12 @@ class CreativeModelingService:
                 generated["b64_json"], generated.get("output_format", "png")
             )
             actual = generated.get("actual_cost_usd")
+            self._charge_studio_call(
+                client_id=client.get("id") if client else None, user_id=created_by,
+                idempotency_key=f"studio:format-mockup:{job_id}", stage="format_mockup",
+                provider_result=generated, fallback_cost=estimate, media=True,
+                metadata={"job_id": job_id, "format_id": format_data.get("id")},
+            )
             job = self.repository.complete_format_modeling_job(
                 job_id,
                 generated_path,

@@ -20,6 +20,10 @@
 .conversation-message{padding:14px;margin:0 0 14px;border-radius:8px;overflow-wrap:anywhere;background:white;border:1px solid var(--line)}
 .conversation-message.from-user{margin-left:24px;background:var(--soft);border-color:transparent}
 .conversation-user-context summary{display:flex;align-items:center;gap:7px;cursor:pointer;color:#456260;font-size:13px;line-height:1.45;list-style:none}.conversation-user-context summary::-webkit-details-marker{display:none}.conversation-user-context summary::before{content:'›';display:grid;place-items:center;width:15px;height:15px;border:1px solid #b7cfca;border-radius:50%;font-size:15px;line-height:1;color:#4f716c;transition:transform 140ms ease}.conversation-user-context[open] summary::before{transform:rotate(90deg)}.conversation-user-context p{margin:10px 0 0!important;padding-top:10px;border-top:1px solid #cfe0dc;color:#274440}.conversation-user-context:not([open]) p{display:none}
+/* A mensagem enviada orienta a leitura, mas não deve competir com a resposta.
+   Ela começa recolhida e só abre por uma decisão explícita da pessoa. */
+#conversation-panel[data-conversation-page="true"] .conversation-message.from-user .conversation-user-context{display:block}
+#conversation-panel[data-conversation-page="true"] .conversation-message.from-user .conversation-user-context summary{min-height:20px}
 .conversation-message strong{font-size:12px;color:var(--muted)}
 .conversation-message p{white-space:pre-wrap;font-size:14px;margin:8px 0 0}
 .conversation-message small{display:block;margin-top:8px;font-size:12px}
@@ -174,6 +178,8 @@
   .workspace-app-shell--conversations .conversation-history-toggle{display:none}
   #conversation-panel[data-conversation-page="true"] #conversation-history{padding-top:42px}
 }
+
+.conversation-work-memory-toggle{position:absolute;z-index:6;top:14px;left:112px;min-height:30px;padding:6px 9px;border:1px solid #d8e4e1;border-radius:7px;background:#fff;color:#52666a;font-size:11px;font-weight:600}.conversation-work-memory{position:absolute;z-index:8;top:8px;bottom:8px;left:8px;width:min(380px,calc(100% - 16px));overflow:auto;border:1px solid #cfddda;border-radius:14px;background:#fbfdfc;box-shadow:0 18px 42px rgb(23 43 71 / .18)}.conversation-work-memory[hidden]{display:none}.conversation-work-memory header{display:flex;justify-content:space-between;padding:18px;border-bottom:1px solid #dfebe8}.conversation-work-memory header p{margin:0;color:#627878;font-size:11px}.conversation-work-memory header strong{color:#172b47;font-size:16px}.conversation-work-memory header button,.conversation-work-memory article button,.conversation-work-memory-section>button{min-height:26px;padding:4px 7px;border:1px solid #d6e3df;border-radius:6px;background:#fff;color:#49635f;font-size:10px}.conversation-work-memory-section{padding:15px 18px;border-bottom:1px solid #e2ece9}.conversation-work-memory-section h3{margin:0 0 9px;color:#304a55;font-size:12px}.conversation-work-memory-section p{margin:4px 0;color:#52676b;font-size:12px;line-height:1.5}.conversation-work-memory-section article{padding:9px 0;border-top:1px solid #edf2f0}.conversation-work-memory-section small{color:#176c60;font-size:10px;font-weight:700}.conversation-work-memory-section article div{display:flex;gap:5px;margin-top:7px}.conversation-work-memory-section>button{display:block;width:100%;margin-top:5px;text-align:left}@media(max-width:820px){.conversation-work-memory-toggle{left:auto;right:14px}.conversation-work-memory{position:fixed;top:auto;right:10px;bottom:10px;left:10px;width:auto;max-height:72dvh}}
 
 @media(max-width:820px){
   .workspace-app-shell--conversations .workspace-conversations{overflow:hidden}

@@ -8,6 +8,7 @@ Rotas da Aplicação
 from flask import session, redirect, url_for, flash, request, render_template, jsonify, current_app
 from functools import wraps
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
 import secrets
 import os
 import re
@@ -538,6 +539,16 @@ def init_routes(app):
     @login_required
     def planos_lista():
         """Lista todos os planos de clientes - Admin ou usuários CENTRALCOMM"""
+        # ``/planos`` existed on CentralX before Planner received its own
+        # product host. Flask resolves this earlier, generic rule before the
+        # later Planner-host alias, so without this guard a Planner click is
+        # silently handled by the internal CentralX page (and can end up back
+        # at its home screen). Keep the legacy CentralX route intact while
+        # handing the Planner hostname to its product-owned screen.
+        planner_host = (urlparse(str(current_app.config.get('PLANNER_URL') or '')).hostname or '').lower()
+        request_host = (request.host.split(':', 1)[0] or '').lower()
+        if planner_host and request_host == planner_host:
+            return current_app.view_functions['cadu_family.page']('planner', 'planos')
         from datetime import date
         try:
             # Verificar permissões

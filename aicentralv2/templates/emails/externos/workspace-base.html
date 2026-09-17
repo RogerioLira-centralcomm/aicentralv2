@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light only">
+  <meta name="supported-color-schemes" content="light only">
+  <title>{% block title %}Cadu Workspace{% endblock %}</title>
+  <style>
+    html,body{margin:0!important;padding:0!important;background:#edf1f3!important;color:#173843!important;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%}table{border-spacing:0!important;border-collapse:collapse!important}img{border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic}.shell{width:600px!important;max-width:600px!important}.card{background:#fff!important}.copy{color:#4f6763!important}.note{background:#e9f6f3!important}.footer{background:#173843!important}@media only screen and (max-width:620px){.shell{width:100%!important}.page-pad{padding:16px 8px!important}.head-pad{padding:20px 24px!important}.body-pad{padding:30px 24px!important}.foot-pad{padding:22px 24px!important}.title{font-size:27px!important;line-height:1.16!important}.copy{font-size:16px!important;line-height:1.65!important}.button{display:block!important;text-align:center!important}.link{word-break:break-all!important}}
+  </style>
+</head>
+<body style="margin:0;background:#edf1f3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all">{% block preheader %}Atualização da sua conta no Cadu Workspace.{% endblock %}</div>
+  <table role="presentation" width="100%" bgcolor="#edf1f3"><tr><td class="page-pad" style="padding:32px 16px">
+    <table role="presentation" class="shell" width="600" align="center"><tr><td class="card" bgcolor="#ffffff" style="overflow:hidden;border-radius:18px;background:#fff">
+      <table role="presentation" width="100%">
+        <tr><td height="8" bgcolor="#007d6d" style="height:8px;background:#007d6d"></td></tr>
+        <tr><td class="head-pad" style="padding:22px 34px;background:#10213b"><table role="presentation" cellspacing="0" cellpadding="0"><tr><td width="42" height="42" bgcolor="#ffffff" style="width:42px;height:42px;border-radius:13px;background:#fff"><img src="{{ brand.icon_url }}" width="30" height="30" alt="Cadu Workspace" style="display:block;width:30px;height:30px;margin:0 auto"></td><td style="padding-left:12px"><strong style="display:block;color:#fff;font-size:16px;line-height:1.2">Cadu Workspace</strong><span style="color:#8de0d3;font-size:11px;line-height:1.4">{{ eyebrow|default('Conta e acesso') }}</span></td></tr></table></td></tr>
+        <tr><td class="body-pad" style="padding:36px 40px 34px"><h1 class="title" style="margin:0 0 16px;color:#173843;font-size:31px;line-height:1.13;letter-spacing:-.8px">{% block headline %}{% endblock %}</h1><div class="copy" style="color:#4f6763;font-size:16px;line-height:1.68">{% block content %}{% endblock %}</div></td></tr>
+        <tr><td class="foot-pad footer" bgcolor="#173843" style="padding:22px 34px;background:#173843"><p style="margin:0 0 5px;color:#fff;font-size:13px;font-weight:700">Cadu Workspace</p><p style="margin:0;color:#c0d5d0;font-size:11px;line-height:1.5">{% block footer_note %}Sua conta, equipe, marcas e projetos no mesmo contexto.{% endblock %}</p></td></tr>
+      </table>
+    </td></tr></table>
+  </td></tr></table>
+</body>
+</html>

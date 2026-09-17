@@ -17,6 +17,7 @@ REVIEW_PASSES = (
 MAX_REVIEW_DOCUMENT_CHARS = 40_000
 BRIEFING_OUTPUT_TOKENS_PER_PASS = 800
 DOCUMENT_OUTPUT_TOKENS_PER_PASS = 1_200
+TEXT_AGENT_MARGIN_MULTIPLIER = 12
 
 _TASKS = {
     "briefing": "Revise o briefing para que ele seja uma direção clara, verificável e pronta para orientar as escolhas de mídia.",
@@ -107,6 +108,11 @@ def briefing_estimate(client_id: int, actor_id: int, plan_id: str) -> int:
     return _estimate_tokens(len(source), BRIEFING_OUTPUT_TOKENS_PER_PASS)
 
 
+def briefing_billing_estimate(client_id: int, actor_id: int, plan_id: str) -> int:
+    """Commercial reservation shown to the user before a three-pass review."""
+    return briefing_estimate(client_id, actor_id, plan_id) * TEXT_AGENT_MARGIN_MULTIPLIER
+
+
 def document_estimate(client_id: int, actor_id: int, doc_id: str) -> int:
     from . import docs
     document = docs.get_document(client_id, actor_id, doc_id)
@@ -118,6 +124,11 @@ def document_estimate(client_id: int, actor_id: int, doc_id: str) -> int:
     if length > MAX_REVIEW_DOCUMENT_CHARS:
         raise BadRequest(f"Para revisar, reduza o documento para até {MAX_REVIEW_DOCUMENT_CHARS:,} caracteres.")
     return _estimate_tokens(length, DOCUMENT_OUTPUT_TOKENS_PER_PASS)
+
+
+def document_billing_estimate(client_id: int, actor_id: int, doc_id: str) -> int:
+    """Commercial reservation shown to the user before a three-pass review."""
+    return document_estimate(client_id, actor_id, doc_id) * TEXT_AGENT_MARGIN_MULTIPLIER
 
 
 def history(client_id: int, actor_id: int, *, plan_id: str | None = None, document_id: str | None = None) -> list[dict]:
@@ -160,13 +171,44 @@ def _record_history(*, review_id: str, client_id: int, actor_id: int, scope: str
         return
 
 
+def _charge_review_pass(*, credits, actor, review_id: str, scope: str, pass_number: int,
+                        response: Mapping[str, object], target_id: str) -> int:
+    """Persist one paid pass as soon as its provider response is available.
+
+    A three-pass review is not an atomic provider operation. Charging only at
+    the end lost real consumption whenever pass 2 or 3 failed. The final
+    customer material is still written only after all three calls succeed.
+    """
+    charge = credits.charge_provider(
+        actor=actor,
+        idempotency_key=f"planner-{scope}:{review_id}:pass:{pass_number}",
+        app="Cadu Planner",
+        stage=f"{scope}_pass",
+        provider_result={
+            "usage": dict(response.get("usage") or {}),
+            "model": str(response.get("model") or "planner-review"),
+            "actual_cost_usd": response.get("cost_usd") or 0,
+        },
+        metadata={
+            "review_id": review_id,
+            "pass": pass_number,
+            "passes": 3,
+            "scope": scope,
+            "target_id": str(target_id),
+            "billing_class": "text_agent",
+        },
+        margin_multiplier=TEXT_AGENT_MARGIN_MULTIPLIER,
+    )
+    return int((charge or {}).get("tokens_cobrados") or 0)
+
+
 def review_briefing(client_id: int, actor_id: int, plan_id: str) -> dict:
     """Run the three sequential passes and persist only the final briefing.
 
     Billing is attached to each actual provider response under an idempotency key.
     No provider/model name is returned to the Planner UI.
     """
-    from ..cadu_tool_billing import ToolTokenLedger, charge_from_provider
+    from ..cadu_credit_connector import CaduCreditConnector, CreditActor
     from ..training_studio.providers import TextProvider
     from . import plans
 
@@ -178,20 +220,22 @@ def review_briefing(client_id: int, actor_id: int, plan_id: str) -> dict:
         "selected_media": [{"kind": item.get("kind"), "name": (item.get("snapshot") or {}).get("name")}
                            for item in plan.get("items") or []],
     }
-    ledger = ToolTokenLedger()
-    # The estimate guards the account before starting three calls. The three
-    # actual responses are charged once, only after a final version is applied.
-    estimated_tokens = briefing_estimate(client_id, actor_id, plan_id)
-    ledger.assert_available(client_id, estimated_tokens)
-    provider, draft, responses = TextProvider(), {}, []
+    credits = CaduCreditConnector()
+    actor = CreditActor.from_values(client_id, actor_id)
+    # Reserve the full three-pass ceiling before any paid provider work starts.
+    credits.authorize(actor, briefing_billing_estimate(client_id, actor_id, plan_id))
+    provider, draft, charged_tokens = TextProvider(), {}, 0
     review_id = str(uuid4())
     for pass_number in (1, 2, 3):
         response = provider.complete([
             {"role": "system", "content": "Você revisa planos de mídia com precisão e transparência."},
             {"role": "user", "content": build_review_pass_prompt("briefing", context, draft, pass_number)},
         ], max_tokens=800, temperature=0.15)
+        charged_tokens += _charge_review_pass(
+            credits=credits, actor=actor, review_id=review_id, scope="briefing_review",
+            pass_number=pass_number, response=response, target_id=str(plan_id),
+        )
         draft = _json_object(response.get("content"))
-        responses.append(response)
     # An omitted field is never an instruction to erase saved briefing context.
     final_payload = {
         "advertiser_name": draft["advertiser_name"] or plan.get("advertiser_name") or "",
@@ -199,15 +243,7 @@ def review_briefing(client_id: int, actor_id: int, plan_id: str) -> dict:
         "briefing": {key: value or (plan.get("briefing") or {}).get(key, "")
                      for key, value in draft["briefing"].items()},
     }
-    combined = {"usage": {"prompt_tokens": sum(int((item.get("usage") or {}).get("prompt_tokens") or 0) for item in responses),
-                            "completion_tokens": sum(int((item.get("usage") or {}).get("completion_tokens") or 0) for item in responses)},
-                "cost_usd": sum(float(item.get("cost_usd") or 0) for item in responses),
-                "model": "planner-review"}
     updated = plans.update_briefing(client_id, actor_id, plan_id, final_payload, expected_updated_at=plan.get("updated_at"))
-    charge = charge_from_provider(ledger=ledger, idempotency_key=f"planner-review:{review_id}",
-                                  client_id=client_id, user_id=actor_id, tool="planner", stage="briefing_review",
-                                  provider_result=combined, metadata={"plan_id": str(plan_id), "review_id": review_id, "passes": 3})
-    charged_tokens = int((charge or {}).get("tokens_cobrados") or 0)
     _record_history(review_id=review_id, client_id=client_id, actor_id=actor_id, scope="briefing", plan_id=plan_id,
                     charged_tokens=charged_tokens, note=draft.get("review_note"), source=context, applied=final_payload)
     return {"plan": updated, "review": {"passes": 3, "applied_pass": 3, "charged_tokens": charged_tokens,
@@ -228,7 +264,7 @@ def _document_pass_prompt(document: Mapping[str, object], previous_html: str, pa
 
 def review_document(client_id: int, actor_id: int, doc_id: str, *, source_context: str = "") -> dict:
     """Apply the same three passes to a user-owned Planner document."""
-    from ..cadu_tool_billing import ToolTokenLedger, charge_from_provider
+    from ..cadu_credit_connector import CaduCreditConnector, CreditActor
     from ..training_studio.providers import TextProvider
     from . import docs
 
@@ -240,31 +276,26 @@ def review_document(client_id: int, actor_id: int, doc_id: str, *, source_contex
         raise BadRequest("Escreva algum conteúdo antes de pedir uma revisão.")
     if len(original) > MAX_REVIEW_DOCUMENT_CHARS:
         raise BadRequest(f"Para revisar, reduza o documento para até {MAX_REVIEW_DOCUMENT_CHARS:,} caracteres.")
-    ledger = ToolTokenLedger()
-    estimated_tokens = document_estimate(client_id, actor_id, doc_id)
-    ledger.assert_available(client_id, estimated_tokens)
-    provider, draft, responses = TextProvider(), original, []
+    credits = CaduCreditConnector()
+    actor = CreditActor.from_values(client_id, actor_id)
+    credits.authorize(actor, document_billing_estimate(client_id, actor_id, doc_id))
+    provider, draft, charged_tokens = TextProvider(), original, 0
     review_id = str(uuid4())
     for pass_number in (1, 2, 3):
         response = provider.complete([
             {"role": "system", "content": "Você revisa documentos de planejamento de mídia com precisão e transparência."},
             {"role": "user", "content": _document_pass_prompt(document, draft, pass_number, source_context)},
         ], max_tokens=1200, temperature=0.15)
+        charged_tokens += _charge_review_pass(
+            credits=credits, actor=actor, review_id=review_id, scope="document_review",
+            pass_number=pass_number, response=response, target_id=str(doc_id),
+        )
         draft = re.sub(r"^```(?:html)?\s*|\s*```$", "", str(response.get("content") or "").strip(), flags=re.I)
         if not draft:
             raise BadRequest("O Cadu não devolveu uma revisão utilizável. Tente novamente.")
-        responses.append(response)
-    combined = {"usage": {"prompt_tokens": sum(int((item.get("usage") or {}).get("prompt_tokens") or 0) for item in responses),
-                            "completion_tokens": sum(int((item.get("usage") or {}).get("completion_tokens") or 0) for item in responses)},
-                "cost_usd": sum(float(item.get("cost_usd") or 0) for item in responses),
-                "model": "planner-review"}
     updated = docs.save_document(client_id, actor_id, doc_id, {
         "title": document.get("title"), "status": document.get("status"), "html": draft,
     }, expected_updated_at=document.get("updated_at"))
-    charge = charge_from_provider(ledger=ledger, idempotency_key=f"planner-doc-review:{review_id}",
-                                  client_id=client_id, user_id=actor_id, tool="planner", stage="document_review",
-                                  provider_result=combined, metadata={"document_id": str(doc_id), "review_id": review_id, "passes": 3})
-    charged_tokens = int((charge or {}).get("tokens_cobrados") or 0)
     _record_history(review_id=review_id, client_id=client_id, actor_id=actor_id, scope="document", document_id=doc_id,
                     charged_tokens=charged_tokens, note=None, source={"title": document.get("title"), "html": original, "sources": source_context[:12000]},
                     applied={"title": updated.get("title"), "html": updated.get("html")})

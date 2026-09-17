@@ -122,6 +122,10 @@ class ToolTokenLedgerTest(unittest.TestCase):
         self.assertEqual(cost_token_equivalent("0.14", usd_per_credit_token="0.00001"), 14000)
         self.assertEqual(estimated_credit_tokens(provider_tokens=14, media_tokens=100), 114)
 
+    def test_margin_multiplier_protects_media_and_text_costs(self):
+        self.assertEqual(cost_token_equivalent("0.22", usd_per_credit_token="0.00001", margin_multiplier=8), 176000)
+        self.assertEqual(cost_token_equivalent("0.02", usd_per_credit_token="0.00001", margin_multiplier=12), 24000)
+
     def test_media_equivalent_can_include_provider_tokens_without_double_charge(self):
         provider_tokens = usage_tokens({"input_tokens": 10, "output_tokens": 4})[2]
         total_equivalent = cost_token_equivalent("0.001", usd_per_credit_token="0.00001")

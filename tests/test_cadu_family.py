@@ -4,6 +4,7 @@ from unittest import TestCase, mock
 from flask import Flask
 
 from aicentralv2.cadu_family import register
+from aicentralv2.cadu_tool_billing import InsufficientToolCredits
 from aicentralv2.product_domains import product_url
 
 
@@ -229,6 +230,17 @@ class FamilyTest(TestCase):
             result = self.client.get('/familia/api/context')
         self.assertEqual(result.status_code, 503)
         self.assertNotIn('password', result.get_data(as_text=True))
+
+    def test_planner_review_returns_a_clear_conflict_when_credits_are_insufficient(self):
+        self.login()
+        self.app.config['CADU_FAMILY_WRITES_ENABLED'] = True
+        with mock.patch(
+            'aicentralv2.cadu_planner.revisions.review_briefing',
+            side_effect=InsufficientToolCredits('Saldo insuficiente: esta execução estima 48000 tokens e há 12 disponíveis.'),
+        ):
+            response = self.post('planner/plans/plan-1/briefing-review', {})
+        self.assertEqual(response.status_code, 409)
+        self.assertIn('Saldo insuficiente', response.get_json()['error'])
 
     def test_disabled_rollout_returns_not_found(self):
         self.app.config['CADU_FAMILY_ENABLED'] = False

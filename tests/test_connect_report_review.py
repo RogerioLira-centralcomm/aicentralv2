@@ -1,9 +1,13 @@
 from unittest import TestCase
 
 from aicentralv2.cadu_connect.report_review import compare_metrics, parse_metrics
+from aicentralv2.cadu_connect.report_analysis import MAX_EXTRACTION_TOKENS
 
 
 class ReportReviewTests(TestCase):
+    def test_extraction_budget_is_bounded_before_provider_call(self):
+        self.assertEqual(MAX_EXTRACTION_TOKENS, 3200)
+
     def test_parses_explicit_brazilian_decimal_and_evidence(self):
         form = {
             'metric_name': ['Investimento'], 'metric_value': ['12450,80'],

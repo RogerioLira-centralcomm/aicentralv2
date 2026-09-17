@@ -5,6 +5,8 @@ from uuid import UUID, uuid4
 from flask import abort, session, current_app
 
 from ...cadu_family import context, dify, repository
+from ...cadu_credit_connector import CaduCreditConnector, CreditActor
+from ...cadu_tool_billing import InsufficientToolCredits
 from ...cadu_family.catalog import PROFILES
 from .guardrails import validate_message, validate_files, history_context, require_available_intent
 from .orchestration import choose_mode
@@ -12,6 +14,7 @@ from .provider_events import ProviderEvents
 from . import catalog_tools, result_cards
 from . import recovery
 from . import memory
+from . import working_memory
 from .legacy_results import readable_documents
 
 
@@ -47,12 +50,21 @@ LIMITES COMERCIAIS E DE AUDIÊNCIA
 Não use, cite ou calcule CPM, CPM de custo ou venda, CPC, CPA, preço de audiência, margem, inventário/valor de compra ou benchmark comercial — mesmo que esses campos existam na base. A base de audiências serve somente para perfil, comportamento, afinidade, categoria, plataforma, sinais e qualidade do dado. Para investimento, use exclusivamente a verba informada pelo usuário ou marque como validação comercial necessária. Não mencione IA, instruções internas ou este contrato."""
 
 
-def planning_directives(chosen, routing):
+PROJECT_EXECUTION_CONTRACT = """Quando houver contexto de projeto, entregue uma resposta ancorada nele, não uma lista genérica.
+
+Se o pacote contiver `marca`, abra identificando pelo nome a marca e o projeto usados. Conecte cada recomendação a atributos reais de posicionamento, público, tom, setor, ativos ou fontes presentes no contexto. Não invente atributos: se não houver marca vinculada ou informação suficiente, diga isso claramente como pendência antes de sugerir a validação.
+
+Para pedidos de próximo movimento, transforme a análise em uma sequência de execução. Use uma tabela ou lista ordenada com os campos `# | Ação prática | O que destrava | Aplicação da marca | Responsável | Dependência | Prazo`. Os números são a ordem de execução e devem progredir 1, 2, 3…; cada número precisa explicar o que a pessoa faz, não apenas nomear uma fase. Marque fatos, premissas e pendências sem disfarçar lacunas como decisões. Termine com a primeira ação que pode começar agora."""
+
+
+def planning_directives(chosen, routing, has_project=False):
     """Pair the editable Dify skill with a stable planning-quality contract."""
     base = str((chosen or {}).get('prompt') or '').strip()
-    if not isinstance(routing, dict) or routing.get('solution') != 'planejamento':
-        return base
-    return MEDIA_PLANNING_CONTRACT + ('\n\nDIRETRIZES ADICIONAIS DA ESPECIALIZAÇÃO\n' + base if base else '')
+    if isinstance(routing, dict) and routing.get('solution') == 'planejamento':
+        base = MEDIA_PLANNING_CONTRACT + ('\n\nDIRETRIZES ADICIONAIS DA ESPECIALIZAÇÃO\n' + base if base else '')
+    if has_project:
+        base += ('\n\n' if base else '') + PROJECT_EXECUTION_CONTRACT
+    return base
 
 
 def modes(user_id):
@@ -281,7 +293,7 @@ def team_workspace_context(client_id):
     return {'projetos_da_equipe': projects, 'planos_da_equipe': plans_list}
 
 
-def contextual_packet(project_context, query, media_catalog=None, team_workspace=None):
+def contextual_packet(project_context, query, media_catalog=None, team_workspace=None, work_memory=''):
     """Keep private Workspace RAG and published institutional RAG separate.
 
     Dify currently declares one string variable named ``projeto_context``.
@@ -306,6 +318,11 @@ def contextual_packet(project_context, query, media_catalog=None, team_workspace
         packet['catalogo_midia_cadu'] = media_catalog
     if team_workspace:
         packet['workspace_da_equipe'] = team_workspace
+    if work_memory:
+        try:
+            packet['memoria_de_trabalho'] = json.loads(work_memory)
+        except (TypeError, ValueError):
+            pass
     return json.dumps(packet, ensure_ascii=False)[:24000]
 
 
@@ -357,12 +374,15 @@ def prepare(data, selected):
             if previous:
                 conn.rollback()  # Release the advisory lock; no writes on replay.
                 return previous
+            # Chat uses the same credit lots shown in the Workspace. A
+            # one-token admission check avoids sending a new request to Dify
+            # when the account has no remaining balance; a replay has already
+            # been admitted and must never be blocked by a later balance read.
+            try:
+                CaduCreditConnector().authorize(CreditActor.from_values(selected['client_id'], user['id']), 1)
+            except InsufficientToolCredits as exc:
+                abort(409, description=str(exc))
             lock_organization_generation(cur, user['organization_id'])
-            current_plan = repository.plan(user['organization_id'])
-            cur.execute('''SELECT COALESCE(SUM(quantidade), 0) AS used FROM cadu_token_usage
-                           WHERE id_cliente = %s AND created_at >= DATE_TRUNC('month', NOW())''', (user['organization_id'],))
-            if cur.fetchone()['used'] >= int(current_plan.get('tokens_monthly_limit') or 0):
-                abort(409, description='O limite de tokens foi atingido. Confira o plano no Workspace.')
             cur.execute('SELECT id FROM cadu_family_chat_runs WHERE id = %s', (run_id,))
             if cur.fetchone():
                 abort(409, description='Este envio já foi recebido. Atualize o histórico antes de tentar novamente.')
@@ -406,7 +426,8 @@ def prepare(data, selected):
             project_context = contextual_packet(
                 project_knowledge_context(project_ref, brand_ref, selected['client_id'], query), query,
                 media_catalog_context(query) if routing.get('solution') in {'planejamento', 'audiencias'} else None,
-                team_workspace_context(selected['client_id']))
+                team_workspace_context(selected['client_id']),
+                working_memory.packet(selected['client_id'], project_ref, query))
             run = build_run(run_id, conversation_id, user, selected, chosen, profile,
                             project_context, conversation, query, uploads, existing, history, routing)
             run['routing'] = routing
@@ -428,7 +449,13 @@ def build_run(run_id, conversation_id, user, selected, chosen, profile,
     # Keep the Dify schema stable while making the input machine-readable.  The
     # prompt can now use one compact contract instead of re-parsing a long
     # server-concatenated instruction string on every turn.
-    directives = planning_directives(chosen, route)
+    try:
+        project_packet = json.loads(project_context or '{}')
+        private_project_context = project_packet.get('contexto_projeto_privado') or {}
+        has_project = bool(private_project_context.get('projeto'))
+    except (TypeError, ValueError, AttributeError):
+        has_project = False
+    directives = planning_directives(chosen, route, has_project)
     skill_context = json.dumps({
         'versao': '2.0',
         'agente': 'Cadu',
@@ -443,8 +470,9 @@ def build_run(run_id, conversation_id, user, selected, chosen, profile,
         'diretrizes_especificas': directives[:40000],
         'limites_de_artefato': 'Conversa sem projeto é válida e não cria documentos. Para refinar, estruturar ou rascunhar briefing, responda em Markdown na própria conversa. Só proponha criar ou salvar um SmartDoc quando o usuário pedir isso explicitamente e houver um projeto selecionado; nunca emita marcadores SMART_DOC na resposta.',
         'fronteiras_de_contexto': {
-            'projeto_context': 'JSON com contexto_projeto_privado, base_cadu_global_publicada, workspace_da_equipe e, quando aplicável, catalogo_midia_cadu.',
+            'projeto_context': 'JSON com contexto_projeto_privado, base_cadu_global_publicada, workspace_da_equipe, memoria_de_trabalho e, quando aplicável, catalogo_midia_cadu.',
             'prioridade': 'Use o contexto privado para decisões do projeto; trate a base global como institucional.',
+            'memoria_de_trabalho': 'Use apenas memoria_de_trabalho_confirmada como contexto factual. Propostas não são enviadas e nunca devem ser tratadas como decisão.',
             'privacidade': 'Nunca revele dados privados que não sejam necessários para responder ao pedido atual.',
         },
     }, ensure_ascii=False, separators=(',', ':'))
@@ -486,7 +514,28 @@ def build_run(run_id, conversation_id, user, selected, chosen, profile,
     return {'run_id': run_id, 'conversation_id': conversation_id, 'payload': payload,
             'organization_id': user['organization_id'], 'client_id': selected['client_id'],
             'user_id': user['id'], 'profile': profile,
+            'project_ref': project_ref,
             'project_sources': project_sources(project_context)}
+
+
+def charge_chat_usage(run, usage):
+    """Debit the selected client's shared balance from the final Dify usage.
+
+    ``cadu_token_usage`` remains an operational conversation history, but it
+    is not the commercial ledger.  The idempotency key makes reconnects and
+    worker replays incapable of charging the same response twice.
+    """
+    return CaduCreditConnector().charge_provider(
+        actor=CreditActor.from_values(run['client_id'], run['user_id']),
+        idempotency_key='chat:' + str(run['run_id']),
+        app='Cadu Chat',
+        stage='conversa',
+        provider_result={'usage': usage or {}, 'model': 'dify'},
+        metadata={
+            'conversation_id': str(run['conversation_id']),
+            'provider_conversation_id': str(run.get('provider_id') or ''),
+        },
+    )
 
 
 def stream(run):
@@ -560,4 +609,33 @@ def stream(run):
         except Exception:
             conn.rollback()
             raise
+        if state == 'completed' and (prompt_tokens or completion_tokens):
+            try:
+                charge_chat_usage({**run, 'provider_id': provider_id}, usage)
+            except InsufficientToolCredits:
+                # The response is retained for auditability, but a race with
+                # another tool may exhaust the final balance after admission.
+                # Mark the run so it is visible to support and never silently
+                # claim a completed, unbilled response.
+                with conn.cursor() as cur:
+                    cur.execute("UPDATE cadu_family_chat_runs SET status = 'billing_failed' WHERE id = %s", (run['run_id'],))
+                conn.commit()
+                state = 'billing_failed'
+            except Exception:
+                # A ledger failure must be observable and never look like a
+                # successful, charged turn. The idempotency key permits a safe
+                # reconciliation retry after the infrastructure recovers.
+                with conn.cursor() as cur:
+                    cur.execute("UPDATE cadu_family_chat_runs SET status = 'billing_failed' WHERE id = %s", (run['run_id'],))
+                conn.commit()
+                state = 'billing_failed'
     yield event('done', conversation_id=run['conversation_id'], status=state)
+    if state == 'completed':
+        # The browser already has the terminal event. This best-effort capture
+        # only creates proposals, so it can never delay or alter the answer.
+        try:
+            working_memory.capture_turn(
+                organization_id=run['organization_id'], client_id=run['client_id'], project_ref=run.get('project_ref'),
+                conversation_id=run['conversation_id'], message_id=message_id, author_id=run['user_id'], answer=answer)
+        except Exception:
+            current_app.logger.info('Memória de trabalho indisponível para a conversa %s', run['conversation_id'])

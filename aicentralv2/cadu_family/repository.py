@@ -10,7 +10,8 @@ from ..product_domains import product_url
 def family_table_available(name):
     """Inspect schema without creating it; do not swallow connectivity errors."""
     if name not in {'cadu_family_client_access', 'cadu_family_entity_links', 'cadu_family_conversation_context',
-                    'cadu_family_chat_uploads', 'cadu_family_project_brands', 'cadu_user_memories'}:
+                    'cadu_family_chat_uploads', 'cadu_family_project_brands', 'cadu_user_memories',
+                    'cadu_working_memories'}:
         raise ValueError('Unsupported family table')
     cache = g.setdefault('family_schema', {})
     if name not in cache:

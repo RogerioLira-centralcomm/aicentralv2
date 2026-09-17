@@ -723,7 +723,7 @@ def enviar_email_convite(
         template_name="convite-usuario.html",
         to_email=to_email,
         to_name=to_name or "Usuário",
-        subject=f"Seu convite para o Workspace chegou — enviado por {invited_by}",
+        subject=f"Você foi convidado por {invited_by}",
         params=params,
         template_folder="emails/externos"
     )
@@ -779,7 +779,7 @@ def enviar_email_boas_vindas(
         template_name="bem-vindo.html",
         to_email=to_email,
         to_name=to_name,
-        subject="Sua conta do Workspace está pronta",
+        subject="Sua conta está pronta",
         params=params,
         template_folder="emails/externos"
     )
@@ -824,7 +824,7 @@ def enviar_email_reset_senha(
         template_name="reset-senha.html",
         to_email=to_email,
         to_name=to_name,
-        subject="Redefina sua senha do Workspace",
+        subject="Redefina sua senha",
         params=params,
         template_folder="emails/externos"
     )
@@ -853,7 +853,7 @@ def enviar_email_senha_alterada(
         template_name="senha-alterada.html",
         to_email=to_email,
         to_name=to_name,
-        subject="Sua senha do Workspace foi alterada",
+        subject="Senha alterada",
         params={"PRIMEIRO_NOME": primeiro_nome, "BRAND": product_email_brand("workspace")},
         template_folder="emails/externos",
     )

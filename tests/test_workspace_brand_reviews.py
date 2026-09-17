@@ -34,3 +34,17 @@ class WorkspaceBrandReviewAgentsTest(TestCase):
             'parecer_evidencias', 'parecer_estrategia', 'parecer_direcao_criativa',
         ])
         self.assertEqual([event[1]['usage']['total_tokens'] for event in billed], [120, 121, 122])
+
+    def test_one_review_module_can_be_refreshed_without_running_the_other_two(self):
+        billed = []
+        analyzer = CreativeBrandAnalyzer(llm=lambda *_args, **_kwargs: {
+            'message': {'content': '{"summary":"Fontes conferidas.","findings":["Site oficial"],"concerns":[],"confidence":0.9,"decision":"ready"}'},
+            'model': 'reviewer', 'usage': {'total_tokens': 55},
+        }, model='reviewer')
+
+        review = analyzer.review_module({'brand_summary': 'Uma marca.'}, 'evidencias',
+                                        billing_callback=lambda *event: billed.append(event))
+
+        self.assertEqual(review['id'], 'evidencias')
+        self.assertEqual(review['status'], 'ready')
+        self.assertEqual([event[0] for event in billed], ['parecer_evidencias'])

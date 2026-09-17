@@ -48,7 +48,7 @@ def build_brevo_test_templates(to_email: str, to_name: str) -> Dict[str, Dict[st
         "convite": {
             "template_name": "convite-usuario.html",
             "template_folder": "emails/externos",
-            "subject": "Você foi convidado para o Cadu por Executivo Teste",
+            "subject": "Você foi convidado por Executivo Teste",
             "params": {
                 "CONVIDADO_POR": "Executivo Teste",
                 "EMPRESA": "Empresa Teste Ltda",
@@ -62,7 +62,7 @@ def build_brevo_test_templates(to_email: str, to_name: str) -> Dict[str, Dict[st
         "bem-vindo": {
             "template_name": "bem-vindo.html",
             "template_folder": "emails/externos",
-            "subject": "Bem-vindo ao Cadu!",
+            "subject": "Sua conta está pronta",
             "params": {
                 "NOME": to_name,
                 "PRIMEIRO_NOME": primeiro,
@@ -77,7 +77,7 @@ def build_brevo_test_templates(to_email: str, to_name: str) -> Dict[str, Dict[st
         "reset-senha": {
             "template_name": "reset-senha.html",
             "template_folder": "emails/externos",
-            "subject": "Recuperação de Senha - Cadu",
+            "subject": "Redefina sua senha",
             "params": {
                 "NOME": to_name,
                 "PRIMEIRO_NOME": primeiro,

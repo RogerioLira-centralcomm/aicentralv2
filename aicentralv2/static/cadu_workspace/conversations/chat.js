@@ -45,6 +45,9 @@
   };
   if (status) new MutationObserver(updateStatusTone).observe(status, {childList:true, characterData:true, subtree:true});
   const historyToggle = document.getElementById('conversation-history-toggle');
+  const workMemoryToggle = document.getElementById('conversation-work-memory-toggle');
+  const workMemoryPanel = document.getElementById('conversation-work-memory');
+  const workMemoryContent = document.getElementById('conversation-work-memory-content');
   const conversationShell = document.querySelector('.workspace-conversations');
   const desktopHistory = () => window.matchMedia('(min-width:821px)').matches;
   const closeHistory = () => {
@@ -65,6 +68,7 @@
     historyToggle.setAttribute('aria-expanded', 'true');
     historyToggle.textContent = 'Ocultar conversas';
   }
+  const closeWorkMemory = () => { if (workMemoryPanel) workMemoryPanel.hidden = true; workMemoryToggle?.setAttribute('aria-expanded', 'false'); };
   let conversationId = null, runId = null, sending = false, controller = null;
   let renderFrame = null, renderTarget = null, renderContent = '';
   let followStreaming = true;
@@ -165,16 +169,27 @@
   setComposerValue(readDraft(null));
   const contextOptions = (select, rows, emptyLabel, selected) => {
     if (!select) return;
-    select.replaceChildren(new Option(emptyLabel, ''), ...rows.map(row => new Option(row.name, row.ref, false, row.ref === selected)));
+    select.replaceChildren(new Option(emptyLabel, ''), ...rows.map(row => {
+      const linkedBrands = (row.related_refs || []).map(ref => contextEntities.find(item => item.ref === ref && item.kind === 'brand')).filter(Boolean);
+      const suffix = linkedBrands.length === 1 ? ' · ' + linkedBrands[0].name : '';
+      return new Option(row.name + suffix, row.ref, false, row.ref === selected);
+    }));
     select.disabled = false;
+  };
+  const brandForProject = (projectRef, currentBrandRef = '') => {
+    const project = contextEntities.find(item => item.kind === 'project' && item.ref === projectRef);
+    const brands = (project?.related_refs || []).filter(ref => contextEntities.some(item => item.kind === 'brand' && item.ref === ref));
+    return brands.includes(currentBrandRef) ? currentBrandRef : (brands.length === 1 ? brands[0] : null);
   };
   const renderContext = (selected = activeContext) => {
     const projectRef = conversationId && boundProjectRef !== null ? boundProjectRef : selected.project_ref;
+    const brandRef = brandForProject(projectRef, selected.brand_ref);
+    const brand = contextEntities.find(item => item.kind === 'brand' && item.ref === brandRef);
     contextOptions(projectSelect, contextEntities.filter(item => item.kind === 'project'), 'Sem projeto', projectRef);
     if (projectSelect) projectSelect.disabled = Boolean(conversationId);
     if (contextNote) contextNote.textContent = conversationId
-      ? (projectRef ? 'Projeto definido na criação desta conversa.' : 'Esta conversa foi criada sem projeto.')
-      : projectSelect?.value ? 'Projeto para a nova conversa.' : 'Sem projeto: a nova conversa usará apenas o contexto geral.';
+      ? (projectRef ? ('Projeto' + (brand ? ' e marca' : '') + ' definidos na criação desta conversa.') : 'Esta conversa foi criada sem projeto.')
+      : projectSelect?.value ? ('Projeto' + (brand ? ' e marca vinculada' : '') + ' para a nova conversa.') : 'Sem projeto: a nova conversa usará apenas o contexto geral.';
     if (pageMode && !conversationId && !sending && history?.querySelector('.workspace-conversation-empty')) renderEmptyState();
   };
   async function loadContext() {
@@ -186,8 +201,9 @@
       const requestedProject = pageMode && new URLSearchParams(window.location.search).get('project');
       const projectRef = requestedProject && contextEntities.some(item => item.kind === 'project' && item.ref === requestedProject)
         ? requestedProject : activeContext.project_ref;
-      if (activeContext.brand_ref || projectRef !== activeContext.project_ref) {
-        activeContext = {...activeContext, project_ref: projectRef, brand_ref: null};
+      const brandRef = brandForProject(projectRef, activeContext.brand_ref);
+      if (brandRef !== activeContext.brand_ref || projectRef !== activeContext.project_ref) {
+        activeContext = {...activeContext, project_ref: projectRef, brand_ref: brandRef};
         await api('context', 'POST', activeContext);
       }
       renderContext();
@@ -200,7 +216,7 @@
     if (!projectSelect) return;
     projectSelect.disabled = true;
     try {
-      const data = await api('context', 'POST', {project_ref: projectSelect.value || null, brand_ref: null});
+      const data = await api('context', 'POST', {project_ref: projectSelect.value || null, brand_ref: activeContext.brand_ref || null});
       activeContext = data.context || {};
       renderContext(activeContext);
       status.textContent = 'Contexto salvo para a próxima conversa.';
@@ -209,7 +225,32 @@
       status.textContent = unavailableMessage('Não foi possível salvar o contexto', error);
     }
   }
-  projectSelect?.addEventListener('change', () => { renderContext({...activeContext, project_ref: projectSelect.value, brand_ref: null}); saveContext(); });
+  projectSelect?.addEventListener('change', () => {
+    const brandRef = brandForProject(projectSelect.value, activeContext.brand_ref);
+    activeContext = {...activeContext, project_ref: projectSelect.value, brand_ref: brandRef};
+    renderContext(activeContext);
+    saveContext();
+  });
+  async function loadWorkMemory() {
+    const projectRef = conversationId ? boundProjectRef : (activeContext?.project_ref || projectSelect?.value || '');
+    if (!projectRef || !workMemoryContent) return;
+    workMemoryContent.textContent = 'Carregando contexto…';
+    try {
+      const data = await api('conversations/work-memory?project=' + encodeURIComponent(projectRef));
+      workMemoryContent.replaceChildren();
+      const render = (title, items, review) => {
+        const section = document.createElement('section'); section.className = 'conversation-work-memory-section';
+        const heading = document.createElement('h3'); heading.textContent = title; section.append(heading);
+        if (!items?.length) { const empty = document.createElement('p'); empty.textContent = 'Nada registrado ainda.'; section.append(empty); }
+        items?.forEach(item => { const row = document.createElement('article'); const label = document.createElement('small'); label.textContent = ({decision:'Decisão',constraint:'Restrição',risk:'Risco',next_step:'Próximo passo',brand_context:'Marca'}[item.kind] || 'Registro'); const text = document.createElement('p'); text.textContent = item.summary; row.append(label,text); if (review) { const actions=document.createElement('div'); for (const [action,name] of [['confirm','Confirmar'],['dismiss','Descartar'],...(item.kind === 'brand_context' ? [['promote','Usar no cliente']] : [])]) { const button=document.createElement('button'); button.type='button'; button.textContent=name; button.addEventListener('click', async () => { await api('conversations/work-memory/'+item.id,'PATCH',{action}); loadWorkMemory(); }); actions.append(button); } row.append(actions); } section.append(row); }); workMemoryContent.append(section);
+      };
+      render('Contexto confirmado', data.confirmed, false); render('Para revisar', data.proposals, true);
+      const section=document.createElement('section'); section.className='conversation-work-memory-section'; const h=document.createElement('h3'); h.textContent='Discussões da equipe'; section.append(h);
+      data.weeks?.forEach(week => week.conversations.forEach(conversation => { const button=document.createElement('button'); button.type='button'; button.textContent=(conversation.author_name || 'Equipe') + ' · ' + (conversation.title || 'Conversa'); button.addEventListener('click', () => { closeWorkMemory(); openConversation(String(conversation.id)); }); section.append(button); })); if (!data.weeks?.length) { const p=document.createElement('p'); p.textContent='As novas conversas do projeto aparecerão aqui por semana.'; section.append(p); } workMemoryContent.append(section);
+    } catch (error) { workMemoryContent.textContent = error.message || 'Não foi possível carregar o caderno.'; }
+  }
+  workMemoryToggle?.addEventListener('click', async () => { const projectRef = conversationId ? boundProjectRef : (activeContext?.project_ref || projectSelect?.value || ''); if (!projectRef) { status.textContent='Selecione um projeto para abrir o contexto.'; return; } const open=workMemoryPanel.hidden; workMemoryPanel.hidden=!open; workMemoryToggle.setAttribute('aria-expanded',String(open)); if (open) await loadWorkMemory(); });
+  document.getElementById('conversation-work-memory-close')?.addEventListener('click', closeWorkMemory);
   const attachments = new CaduAttachments(panel, status);
   const sendButton = document.getElementById('conversation-send');
   const updateSend = () => {
@@ -487,7 +528,7 @@
       ['Faça a leitura de partida', 'Objetivo, entregas, riscos e decisões que faltam',
         `Faça uma leitura de partida do projeto ${projectName}: objetivo, entregas, riscos e as decisões que preciso tomar agora.`],
       ['Estruture o próximo movimento', 'Plano de ação com responsáveis, dependências e prazo',
-        `Com base no projeto ${projectName}, proponha o próximo movimento: prioridades, dependências, responsáveis e prazo sugerido.`],
+        `Com base no projeto ${projectName} e na marca vinculada, proponha o próximo movimento em ordem de execução. Para cada passo, explique o que fazer na prática, qual resultado ele destrava, como a marca deve aparecer, responsável, dependência e prazo sugerido. Numere 1, 2, 3… sem repetir o número e diferencie o que é fato, premissa e pendência.`],
       ['Transforme em plano de mídia', 'Estratégia, audiências, canais, formatos e operação',
         `Transforme o contexto do projeto ${projectName} em um plano de mídia: estratégia, audiências, canais, formatos, etapas e critérios de otimização.`],
       ['Encontre as lacunas do briefing', 'O que validar antes de produzir ou ativar',
@@ -778,6 +819,7 @@
       // Show the user's turn immediately. The server still remains the source
       // of truth; a rejected request restores the draft and removes this pair.
       optimisticUser = addMessage('user', message, attachments.items.map(item => ({name:item.file.name})));
+      optimisticUser.querySelector('.conversation-user-context')?.removeAttribute('open');
       output = addMessage('assistant', '');
       scrollHistoryToEnd(true);
       status.textContent = 'Conectando ao Cadu…';
@@ -815,6 +857,7 @@
               // The history clear also removes the optimistic pair. Recreate
               // it only after the server has accepted the run.
               optimisticUser = addMessage('user', message, attachments.items.map(item => ({name:item.file.name})));
+              optimisticUser.querySelector('.conversation-user-context')?.removeAttribute('open');
               output = addMessage('assistant', '');
             }
             setComposerValue(''); resizeComposer(); attachments.clear();

@@ -139,7 +139,7 @@ def send_welcome_email(user_email, user_name, cliente_nome='', login_link=None):
     return result.get('success', False)
 
 
-def send_invite_email(to_email, invite_token, cliente_nome, invited_by_name, expires_at):
+def send_invite_email(to_email, invite_token, cliente_nome, invited_by_name, expires_at, role_label='Membro'):
     """
     Envia email de convite para novo usuário via Brevo
     
@@ -169,7 +169,8 @@ def send_invite_email(to_email, invite_token, cliente_nome, invited_by_name, exp
         invite_link=invite_link,
         invited_by=invited_by_name,
         cliente_nome=cliente_nome,
-        expires_at=expires_str
+        expires_at=expires_str,
+        role_label=role_label,
     )
     if result.get("success"):
         return {"success": True}

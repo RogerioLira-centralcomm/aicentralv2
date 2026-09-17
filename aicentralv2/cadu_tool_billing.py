@@ -41,7 +41,7 @@ def usage_tokens(usage=None):
     return incoming, outgoing, max(total, incoming + outgoing)
 
 
-def cost_token_equivalent(cost_usd, *, usd_per_credit_token=None):
+def cost_token_equivalent(cost_usd, *, usd_per_credit_token=None, margin_multiplier=1):
     """Converte custo adicional de mídia em tokens comerciais configuráveis."""
     rate = usd_per_credit_token
     if rate is None:
@@ -50,15 +50,26 @@ def cost_token_equivalent(cost_usd, *, usd_per_credit_token=None):
     if value <= 0:
         raise ValueError("CADU_USD_PER_CREDIT_TOKEN deve ser maior que zero.")
     cost = _money(cost_usd)
-    return int(math.ceil(float(cost / value))) if cost else 0
+    try:
+        multiplier = max(1, int(margin_multiplier or 1))
+    except (TypeError, ValueError):
+        multiplier = 1
+    return int(math.ceil(float((cost / value) * multiplier))) if cost else 0
 
 
-def estimated_credit_tokens(*, provider_tokens=0, cost_usd=0, media_tokens=None):
+def estimated_credit_tokens(*, provider_tokens=0, cost_usd=0, media_tokens=None, margin_multiplier=1):
     """Estimativa pública em tokens; nunca converte para BRL."""
-    tokens = _integer(provider_tokens)
+    try:
+        multiplier = max(1, int(margin_multiplier or 1))
+    except (TypeError, ValueError):
+        multiplier = 1
+    # O multiplicador é comercial: deve abranger tanto o consumo medido pelo
+    # provedor quanto custos adicionais (por exemplo, mídia). Antes disto ele
+    # incidia apenas sobre USD adicional e deixava agentes textuais sem margem.
+    tokens = _integer(provider_tokens) * multiplier
     if media_tokens is not None:
         return tokens + _integer(media_tokens)
-    return tokens + cost_token_equivalent(cost_usd)
+    return tokens + cost_token_equivalent(cost_usd, margin_multiplier=multiplier)
 
 
 @dataclass(frozen=True)
@@ -224,7 +235,7 @@ class ToolTokenLedger:
 def charge_from_provider(
     *, ledger, idempotency_key, client_id, user_id, tool, stage,
     provider_result=None, model="", fallback_cost_usd=0, media_tokens=None,
-    metadata=None,
+    metadata=None, margin_multiplier=1,
 ):
     result = provider_result if isinstance(provider_result, dict) else {}
     usage = result.get("usage") if isinstance(result.get("usage"), dict) else {}
@@ -240,6 +251,7 @@ def charge_from_provider(
         provider_tokens=total,
         cost_usd=actual_cost if media_tokens is None else 0,
         media_tokens=media_tokens,
+        margin_multiplier=margin_multiplier,
     )
     return ledger.charge(ToolCharge(
         idempotency_key=idempotency_key,
@@ -254,5 +266,5 @@ def charge_from_provider(
         charged_tokens=charged,
         internal_cost_usd=actual_cost,
         additional_cost_usd=actual_cost,
-        metadata=metadata or {},
+        metadata={**(metadata or {}), "margin_multiplier": max(1, int(margin_multiplier or 1))},
     ))

@@ -2,9 +2,12 @@
 import json
 import re
 import secrets
+import uuid
 
 from flask import abort, jsonify, redirect, render_template, request, session, url_for
 from ..auth import login_required
+from ..cadu_credit_connector import CaduCreditConnector, CreditActor
+from ..cadu_tool_billing import InsufficientToolCredits
 from ..db import get_db
 from .report_rules import decimal_value, metric_change
 from .report_sources import authorized_report
@@ -79,13 +82,40 @@ def register(bp, rows):
             abort(404)
         try:
             from .report_analysis import extract_suggestion
+            from .report_analysis import MAX_EXTRACTION_TOKENS
             from ..services.openrouter_service import chat_completion
+            actor = CreditActor.from_values(selected['client_id'], session['user_id'])
+            credits = CaduCreditConnector()
+            billing_run_id = str(uuid.uuid4())
+            # A leitura é uma análise visual de IA, não OCR local. A reserva
+            # cobre o teto da resposta aplicando a margem comercial de texto.
+            credits.authorize(actor, MAX_EXTRACTION_TOKENS * 12)
             suggestion = extract_suggestion(source[0], report['document'], complete=chat_completion)
+            usage, model = suggestion.pop('_usage', {}), suggestion.pop('_model', 'gpt-5-nano')
+            credits.charge_provider(
+                actor=actor,
+                # A new click means a new model execution and must be charged.
+                # The UUID remains stable throughout this request, so retries in
+                # the ledger layer cannot duplicate its debit.
+                idempotency_key=f'reports:extract-metrics:{billing_run_id}',
+                app='Cadu Reports',
+                stage='extract_metrics',
+                provider_result={'usage': usage, 'model': model},
+                metadata={
+                    'report_id': report_id,
+                    'source_id': source_id,
+                    'billing_run_id': billing_run_id,
+                    'operation': 'visual_metric_extraction',
+                    'billing_class': 'text_agent',
+                },
+                margin_multiplier=12,
+            )
+        except InsufficientToolCredits as exc:
+            return jsonify(error=str(exc)), 409
         except (ValueError, json.JSONDecodeError) as exc:
             return jsonify(error=str(exc)), 422
         except Exception:
             return jsonify(error='Não foi possível gerar a sugestão agora. Revise manualmente ou tente novamente.'), 502
-        usage, model = suggestion.pop('_usage', {}), suggestion.pop('_model', 'gpt-5-nano')
         try:
             if rows("SELECT to_regclass('public.cadu_connect_report_ai_runs') IS NOT NULL AS ready")[0]['ready']:
                 with get_db().cursor() as cur:

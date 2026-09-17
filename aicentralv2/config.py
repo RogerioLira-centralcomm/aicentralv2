@@ -143,7 +143,7 @@ class Config:
 	BREVO_SENDER_EMAIL = os.getenv('BREVO_SENDER_EMAIL', 'contato@centralcomm.media')
 	# Um único endereço operacional no Brevo; o nome e a identidade visual
 	# mudam por produto. Workspace é dono dos e-mails de acesso e senha.
-	BREVO_WORKSPACE_SENDER_NAME = os.getenv('BREVO_WORKSPACE_SENDER_NAME', 'Workspace CentralComm')
+	BREVO_WORKSPACE_SENDER_NAME = os.getenv('BREVO_WORKSPACE_SENDER_NAME', 'Cadu Workspace')
 	BREVO_WORKSPACE_SENDER_EMAIL = BREVO_SENDER_EMAIL
 	BREVO_STUDIO_SENDER_NAME = os.getenv('BREVO_STUDIO_SENDER_NAME', 'Studio CentralComm')
 	BREVO_STUDIO_SENDER_EMAIL = BREVO_SENDER_EMAIL

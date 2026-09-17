@@ -14,7 +14,7 @@
 
 /* Home autenticada: um ponto de retorno para o trabalho, não uma página de campanha. */
 .workspace-dashboard{max-width:1280px}
-.workspace-dashboard-welcome{display:flex;align-items:end;justify-content:space-between;gap:28px;margin:0 0 32px;padding:8px 0 28px;border-bottom:1px solid color-mix(in srgb,var(--cadu-shell-ink) 10%,transparent)}
+.workspace-dashboard-welcome{display:flex;align-items:end;justify-content:space-between;gap:28px;margin:0 0 32px;padding:8px 0 28px;border-bottom:0}
 .workspace-dashboard-welcome h1{margin:0;color:var(--cadu-shell-ink);font-size:clamp(30px,3.2vw,44px);font-weight:450;letter-spacing:-.05em;line-height:1.05}
 .workspace-dashboard-welcome span{display:block;margin-top:9px;color:var(--cadu-shell-muted);font-size:14px;line-height:1.5}
 .workspace-dashboard-welcome__actions{display:flex;gap:10px;flex:0 0 auto}.workspace-dashboard-welcome__actions a{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:10px 14px;border:1px solid var(--cadu-line);border-radius:10px;background:var(--cadu-surface);color:var(--cadu-shell-ink);font-size:13px;font-weight:600;text-decoration:none}.workspace-dashboard-welcome__actions .workspace-dashboard-primary{border-color:var(--workspace-accent);background:var(--workspace-accent);color:#fff}.workspace-dashboard-welcome__actions a:hover{background:var(--cadu-surface-soft)}.workspace-dashboard-welcome__actions .workspace-dashboard-primary:hover{background:#066755}

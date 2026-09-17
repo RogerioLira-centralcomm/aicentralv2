@@ -7,6 +7,7 @@ from werkzeug.exceptions import HTTPException
 from urllib.parse import urlparse
 
 from ..auth import login_url
+from ..cadu_tool_billing import InsufficientToolCredits
 from ..product_domains import canonical_workspace_legacy_path, product_url
 from . import context, repository
 from .catalog import ADMIN_MODULES, LANDINGS, PRODUCTS, PROFILES
@@ -33,10 +34,10 @@ def marketplace_facets(product, module):
             return repository.audience_catalog_facets()
         if module == 'canais':
             return repository.channel_catalog_facets()
-        return repository.format_catalog_facets(module == 'interativos')
         if module == 'places':
             from ..cadu_planner.places import catalog_facets
             return {**catalog_facets(), 'platforms': [], 'types': [], 'segments': []}
+        return repository.format_catalog_facets(module == 'interativos')
     except Exception:
         current_app.logger.warning('Filtros do catálogo indisponíveis; exibindo catálogo sem filtros.')
         return {'categories': [], 'platforms': [], 'types': [], 'segments': []}
@@ -83,6 +84,7 @@ def protect():
         read_only_posts = {'cadu_family.set_context', 'cadu_family.copy_validate',
                            'cadu_family.conversation_send', 'cadu_family.conversation_preflight',
                            'cadu_family.conversation_upload', 'cadu_family.conversation_stop',
+                           'cadu_family.conversation_work_memory_review',
                            'cadu_family.planner_link_test'}
         if (not current_app.config.get('CADU_FAMILY_WRITES_ENABLED', False)
                 and request.endpoint not in read_only_posts):
@@ -351,14 +353,17 @@ def planner_plan_briefing_review(plan_id):
     from ..cadu_planner import revisions
     selected = writable_context()
     user = context.identity()
-    return jsonify(revisions.review_briefing(selected['client_id'], user['id'], plan_id))
+    try:
+        return jsonify(revisions.review_briefing(selected['client_id'], user['id'], plan_id))
+    except InsufficientToolCredits as exc:
+        abort(409, description=str(exc))
 
 
 @bp.get('/api/planner/plans/<plan_id>/briefing-review/estimate')
 def planner_plan_briefing_review_estimate(plan_id):
     from ..cadu_planner import revisions
     user, selected = context.identity(), context.resolve()
-    return jsonify(estimated_tokens=revisions.briefing_estimate(selected['client_id'], user['id'], plan_id), passes=3)
+    return jsonify(estimated_tokens=revisions.briefing_billing_estimate(selected['client_id'], user['id'], plan_id), passes=3)
 
 
 @bp.put('/api/planner/plans/<plan_id>/allocations')
@@ -481,14 +486,17 @@ def planner_doc_review(doc_id):
     from ..cadu_planner import revisions
     selected = writable_context()
     user = context.identity()
-    return jsonify(revisions.review_document(selected['client_id'], user['id'], doc_id))
+    try:
+        return jsonify(revisions.review_document(selected['client_id'], user['id'], doc_id))
+    except InsufficientToolCredits as exc:
+        abort(409, description=str(exc))
 
 
 @bp.get('/api/planner/docs/<doc_id>/review/estimate')
 def planner_doc_review_estimate(doc_id):
     from ..cadu_planner import revisions
     user, selected = context.identity(), context.resolve()
-    return jsonify(estimated_tokens=revisions.document_estimate(selected['client_id'], user['id'], doc_id), passes=3)
+    return jsonify(estimated_tokens=revisions.document_billing_estimate(selected['client_id'], user['id'], doc_id), passes=3)
 
 
 @bp.post('/api/planner/docs/<doc_id>/duplicate')
@@ -793,6 +801,40 @@ def messages(conversation_id):
     if result is None:
         abort(404)
     return jsonify(messages=result, context=repository.conversation_context(user, selected['client_id'], conversation_id))
+
+
+def _work_memory_project(selected, project_ref):
+    if not isinstance(project_ref, str) or not any(item['ref'] == project_ref and item['kind'] == 'project'
+                                                   for item in context.inventory(selected['client_id'])):
+        abort(403, description='O projeto não pertence a este ambiente.')
+    return project_ref
+
+
+@bp.get('/api/conversations/work-memory')
+def conversation_work_memory():
+    from ..cadu_workspace.conversations import working_memory
+    user = context.identity()
+    selected = context.resolve()
+    project_ref = _work_memory_project(selected, request.args.get('project'))
+    return jsonify(working_memory.board(user, selected['client_id'], project_ref))
+
+
+@bp.patch('/api/conversations/work-memory/<uuid:memory_id>')
+def conversation_work_memory_review(memory_id):
+    from ..cadu_workspace.conversations import working_memory
+    selected = writable_context()
+    data = request.get_json(silent=True) or {}
+    if set(data) - {'action', 'summary'} or not isinstance(data.get('action'), str):
+        abort(400, description='Informe a ação da memória.')
+    if 'summary' in data and not isinstance(data['summary'], str):
+        abort(400, description='O resumo da memória é inválido.')
+    try:
+        item = working_memory.review(str(memory_id), context.identity(), selected['client_id'], data['action'], data.get('summary'))
+    except ValueError as exc:
+        abort(400, description=str(exc))
+    if not item:
+        abort(404)
+    return jsonify(memory=item)
 
 
 @bp.get('/workspace/marcas/sistema')

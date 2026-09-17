@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-family-sidebar.css') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-app-sidebar.css') }}?v=3">
   {% if product == 'planner' %}<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer">{% endif %}
-  {% if product == 'planner' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-shell.css') }}?v=5">{% endif %}
+  {% if product == 'planner' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-shell.css') }}?v=6">{% endif %}
   {% if product == 'planner' and module == 'inicio' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-entry.css') }}?v=2">{% endif %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-product-switch.css') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-nav-compact.css') }}?v=1">
@@ -100,7 +100,7 @@
     {% else %}
       <div class="family-sidebar-product">{% set cadu_active_product = product %}{% include 'cadu/_product_switch.html' %}<button class="cadu-sidebar-toggle" type="button" data-cadu-sidebar-toggle aria-label="Recolher navegação" aria-expanded="true">‹</button><button class="cadu-sidebar-mobile-close" type="button" data-cadu-sidebar-mobile-close aria-label="Fechar navegação">×</button></div>
     {% endif %}
-    {% set planner_nav_icons = {'inicio': 'fa-house', 'planos': 'fa-layer-group', 'novo-plano': 'fa-plus', 'audiencias': 'fa-users', 'canais': 'fa-bullhorn', 'formatos': 'fa-shapes', 'interativos': 'fa-wand-magic-sparkles', 'places': 'fa-location-dot', 'docs': 'fa-file-lines', 'links': 'fa-link'} %}
+    {% set planner_nav_icons = {'inicio': 'fa-house', 'planos': 'fa-layer-group', 'novo-plano': 'fa-plus', 'audiencias': 'fa-users', 'canais': 'fa-bullhorn', 'formatos': 'fa-shapes', 'interativos': 'fa-wand-magic-sparkles', 'places': 'fa-location-dot', 'links': 'fa-link'} %}
     <nav class="{{ 'planner-workspace-nav__planner' if product == 'planner' else '' }}">
       {% if product == 'planner' %}
       <div class="family-module-group planner-module-group--core">
@@ -112,7 +112,7 @@
         {% for key in ('audiencias', 'canais', 'formatos', 'interativos', 'places') %}<a href="{{ planner_url(key) }}" aria-label="{{ spec.modules[key][0] }}" {% if module == key %}aria-current="page"{% endif %}><span class="planner-nav-icon" aria-hidden="true"><i class="fa-solid {{ planner_nav_icons[key] }}"></i></span><span class="planner-nav-text">{{ spec.modules[key][0] }}</span></a>{% endfor %}
       </div>
       <div class="family-module-group planner-module-group--tools"><b>Ferramentas</b>
-        {% for key in ('docs', 'links') %}<a href="{{ planner_url(key) }}" aria-label="{{ spec.modules[key][0] }}" {% if module == key %}aria-current="page"{% endif %}><span class="planner-nav-icon" aria-hidden="true"><i class="fa-solid {{ planner_nav_icons[key] }}"></i></span><span class="planner-nav-text">{{ spec.modules[key][0] }}</span></a>{% endfor %}
+        {% for key in ('links',) %}<a href="{{ planner_url(key) }}" aria-label="{{ spec.modules[key][0] }}" {% if module == key %}aria-current="page"{% endif %}><span class="planner-nav-icon" aria-hidden="true"><i class="fa-solid {{ planner_nav_icons[key] }}"></i></span><span class="planner-nav-text">{{ spec.modules[key][0] }}</span></a>{% endfor %}
       </div>
       {% else %}
         {% for group, keys in spec.navigation %}
@@ -124,7 +124,7 @@
     </nav>
     {% if product == 'workspace' %}
     <section class="workspace-sidebar-history" aria-labelledby="workspace-sidebar-history-title">
-      <div><h2 id="workspace-sidebar-history-title">Recentes</h2><a href="{{ product_url('workspace', '/workspace/app/conversas') }}">Ver todas</a></div>
+      <div><h2 id="workspace-sidebar-history-title">Recentes</h2><a href="{{ product_url('workspace', '/conversas') }}">Ver todas</a></div>
       {% if module == 'conversas' %}<button type="button" id="conversation-new">Nova conversa</button><nav id="conversation-recent" aria-label="Últimas 15 conversas">Carregando conversas…</nav>{% else %}<p>Abra Conversas para acessar seu histórico e agentes.</p>{% endif %}
     </section>
     {% endif %}

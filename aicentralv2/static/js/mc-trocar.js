@@ -2270,6 +2270,11 @@
     const box = $('mcTrocrError');
     if ($('mcTrocrErrorTitle')) $('mcTrocrErrorTitle').textContent = title;
     if ($('mcTrocrErrorText')) $('mcTrocrErrorText').textContent = text;
+    if ($('mcTrocrRetry')) {
+      $('mcTrocrRetry').textContent = state.lastAction === 'save'
+        ? 'Tentar salvar novamente'
+        : 'Tentar novamente';
+    }
     if (box) box.hidden = false;
   }
 
@@ -2875,7 +2880,8 @@
             ? 'Conflito entre abas · edição preservada'
             : 'Falha ao salvar · tente novamente');
           state.lastAction = 'save';
-          showError('Edição ainda não salva', conflict
+          const csrfFailure = error.code === 'csrf';
+          showError(csrfFailure ? 'Não foi possível salvar a edição' : 'Edição ainda não salva', conflict
             ? 'Outra aba atualizou esta peça. Sua edição continua nesta tela. Baixe uma cópia da edição antes de recarregar o histórico.'
             : error.message, 'save');
           return null;
@@ -2907,8 +2913,21 @@
     } catch (_error) {
       payload = {};
     }
-    if (response.status === 401 || response.status === 403) {
-      throw new Error('Sua sessão expirou. Entre de novo para continuar.');
+    if (response.status === 401) {
+      const error = new Error('Sua sessão expirou. Entre novamente para continuar.');
+      error.status = response.status;
+      error.code = 'unauthenticated';
+      throw error;
+    }
+    if (response.status === 403) {
+      const serverMessage = String(payload.message || payload.error || '');
+      const isCsrfFailure = serverMessage.toLowerCase().includes('token de segurança inválido');
+      const error = new Error(isCsrfFailure
+        ? 'A credencial de segurança da página expirou. Seu trabalho continua nesta página; tente salvar novamente.'
+        : (serverMessage || 'Você não tem permissão para concluir esta ação.'));
+      error.status = response.status;
+      error.code = isCsrfFailure ? 'csrf' : 'forbidden';
+      throw error;
     }
     if (!response.ok || payload.success === false) {
       const error = new Error(payload.message || payload.error || (

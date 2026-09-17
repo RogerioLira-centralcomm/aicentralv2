@@ -609,6 +609,16 @@
   min-width:0;
   gap:8px;
 }
+
+/* History is a quiet status action in the header. It must not inherit the
+   generic disabled-button surface, which made an empty version count look
+   like a separate dark badge. */
+.trocr-editor #mcTrocrHistoryBtn:disabled {
+  background:transparent;
+  border-color:transparent;
+  color:var(--tr-muted);
+  box-shadow:none;
+}
 .trocr-editor #trocrSaveStatus {
   display:flex;
   align-items:center;

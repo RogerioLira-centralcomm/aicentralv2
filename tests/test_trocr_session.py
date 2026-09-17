@@ -571,6 +571,25 @@ class TrocrSessionRoutesTest(unittest.TestCase):
         self.assertEqual(listed.status_code, 200)
         service.save_format_lab_swap_history.assert_called_once()
 
+    def test_post_do_historico_aceita_token_da_pagina_anterior(self):
+        """An editor already open must remain usable after a CSRF token migration."""
+        with self.client.session_transaction() as session:
+            session.pop("trocr_csrf_token", None)
+            session["studio_csrf_token"] = "studio-test-csrf"
+        service = Mock()
+        service.save_format_lab_swap_history.return_value = {"versions": [], "revision": 1}
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            saved = self.client.post(
+                "/parametros/api/format-lab/swap/history",
+                json={"client_id": 10, "versions": []},
+                headers={"X-Trocr-CSRF-Token": "studio-test-csrf"},
+            )
+        self.assertEqual(saved.status_code, 200)
+        service.save_format_lab_swap_history.assert_called_once()
+
 
 class TrocrVideoProjectTest(unittest.TestCase):
     def _lab(self):

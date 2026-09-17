@@ -28,7 +28,12 @@ def trocr_csrf_required(view):
             return view(*args, **kwargs)
         expected = session.get(SESSION_KEY) or ""
         received = request.headers.get(HEADER, "")
-        if not expected or not received or not hmac.compare_digest(expected, received):
+        # Pages rendered before the token fix carry the Studio token. It is
+        # still session-bound and random, so accept it during the transition
+        # rather than forcing an authenticated editor to reload or log in.
+        legacy_studio_token = session.get("studio_csrf_token") or ""
+        valid_tokens = (expected, legacy_studio_token)
+        if not received or not any(token and hmac.compare_digest(token, received) for token in valid_tokens):
             return jsonify({"success": False, "error": "Token de segurança inválido."}), 403
         return view(*args, **kwargs)
 

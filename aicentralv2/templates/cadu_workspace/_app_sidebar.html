@@ -1,10 +1,10 @@
 {% if session.get('user_id') %}
-<button class="cadu-sidebar-mobile-toggle" type="button" data-cadu-sidebar-mobile-toggle aria-label="Abrir navegação">☰</button>
+<button class="cadu-sidebar-mobile-toggle" type="button" data-cadu-sidebar-mobile-toggle aria-label="Abrir navegação"><img src="{{ url_for('static', filename='images/cadu/products/workspace.png') }}" alt=""><span>Cadu</span><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
 <div class="cadu-sidebar-overlay" data-cadu-sidebar-overlay></div>
 <aside class="workspace-app-sidebar" data-workspace-sidebar aria-label="Navegação">
   <div class="workspace-app-family workspace-app-sidebar__top">
     {% set cadu_active_product = 'workspace' %}{% include 'cadu/_product_switch.html' %}
-    <button class="cadu-sidebar-toggle" type="button" data-cadu-sidebar-toggle aria-label="Recolher navegação">‹</button>
+    <button class="cadu-sidebar-toggle" type="button" data-cadu-sidebar-toggle aria-label="Recolher navegação" aria-expanded="true"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
   </div>
   <nav class="workspace-sidebar-primary" aria-label="Áreas principais">
     <a href="{{ url_for('cadu_workspace.dashboard') }}" {% if workspace_active == 'inicio' %}aria-current="page"{% endif %}><span class="workspace-nav-icon"><i class="fa-solid fa-house"></i></span><span class="workspace-nav-text">Início</span></a>
@@ -13,6 +13,13 @@
     {% if workspace_sidebar_projects %}<div class="workspace-recent-projects">{% for sidebar_project in workspace_sidebar_projects[:5] %}<a href="{{ url_for('cadu_workspace.clean_project_detail', project_id=sidebar_project.id) }}" {% if project is defined and project.id|string == sidebar_project.id|string %}aria-current="page"{% endif %}>{{ sidebar_project.nome }}</a>{% endfor %}</div>{% endif %}
     <a href="{{ url_for('cadu_workspace.documents') }}" {% if workspace_active == 'docs' %}aria-current="page"{% endif %}><span class="workspace-nav-icon"><i class="fa-regular fa-file-lines"></i></span><span class="workspace-nav-text">Docs</span></a>
     <a href="{{ url_for('cadu_workspace.clean_brands') }}" {% if workspace_active == 'marcas' %}aria-current="page"{% endif %}><span class="workspace-nav-icon"><i class="fa-solid fa-fingerprint"></i></span><span class="workspace-nav-text">Marcas</span></a>
+  </nav>
+  <nav class="workspace-mobile-studio-tools" aria-label="Ferramentas do Studio">
+    <p>Studio</p>
+    <a href="{{ product_url('studio', '/studio/modelagem-criativos/criar') }}"><span class="workspace-nav-icon"><i class="fa-regular fa-image"></i></span><span>Criar imagem</span></a>
+    <a href="{{ product_url('studio', '/studio/modelagem-criativos/video') }}"><span class="workspace-nav-icon"><i class="fa-solid fa-film"></i></span><span>Criar vídeo</span></a>
+    <a href="{{ product_url('studio', '/studio/modelagem-criativos/trocar') }}"><span class="workspace-nav-icon"><i class="fa-solid fa-pen-ruler"></i></span><span>Editar criativo</span></a>
+    <a href="{{ product_url('studio', '/analyzer') }}"><span class="workspace-nav-icon"><i class="fa-solid fa-chart-line"></i></span><span>Creative Analyzer</span></a>
   </nav>
   <footer class="workspace-sidebar-footer">
     <nav class="workspace-sidebar-management" aria-label="Gestão da conta">

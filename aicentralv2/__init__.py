@@ -308,6 +308,9 @@ def create_app(config_class=Config):
         from .cadu_family import register as register_cadu_family
         register_cadu_family(app)
 
+        from .cadu_planner.marketplace import bp as planner_marketplace_bp
+        app.register_blueprint(planner_marketplace_bp)
+
         from .cadu_connect import bp as cadu_connect_bp
         app.register_blueprint(cadu_connect_bp)
 

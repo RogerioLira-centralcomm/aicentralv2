@@ -6,12 +6,18 @@ and do not depend on the selected client's ID because the catalogs are shared.
 """
 from werkzeug.exceptions import BadRequest, NotFound
 
-from ..cadu_family import repository
+from ..db import get_db
 
 KINDS = {'canais', 'formatos', 'audiencias', 'interativos'}
 
 
-def query(kind, value='', limit=20):
+def rows(sql, params=()):
+    with get_db().cursor() as cur:
+        cur.execute(sql, params)
+        return [dict(row) for row in cur.fetchall()]
+
+
+def query(kind, value='', limit=20, category='', platform=''):
     if kind not in KINDS:
         raise NotFound()
     if not isinstance(value, str):
@@ -22,8 +28,27 @@ def query(kind, value='', limit=20):
         raise BadRequest('Limite inválido.')
     if not 1 <= limit <= 30:
         raise BadRequest('O limite deve ser de 1 a 30.')
-    # repository.catalog keeps the SQL projection and uses a bounded string.
-    return repository.catalog(kind, value.strip()[:100])[:limit]
+    search = '%' + value.strip()[:100] + '%'
+    category = category.strip()[:100] if isinstance(category, str) else ''
+    platform = platform.strip()[:100] if isinstance(platform, str) else ''
+    if kind == 'audiencias':
+        return rows('''SELECT a.id, a.nome AS name, COALESCE(a.descricao_curta, a.descricao) AS description,
+                              a.publico_estimado AS audience, a.imagem_url AS image_url,
+                              a.perfil_socioeconomico, c.nome AS category, p.nome AS platform
+                         FROM cadu_audiencias a
+                    LEFT JOIN cadu_categorias c ON c.id = a.categoria_id
+                    LEFT JOIN cadu_audiencias_plataformas p ON p.id = a.plataforma_id
+                        WHERE a.is_active = TRUE
+                          AND (a.nome ILIKE %s OR COALESCE(a.descricao_curta, '') ILIKE %s
+                               OR COALESCE(a.descricao, '') ILIKE %s OR COALESCE(c.nome, '') ILIKE %s)
+                          AND (%s = '' OR c.nome = %s) AND (%s = '' OR p.nome = %s)
+                     ORDER BY a.nome, a.id LIMIT %s''',
+                    (search, search, search, search, category, category, platform, platform, limit))
+    sql = {'canais': '''SELECT id, nome AS name, descricao AS description, categoria AS category, alcance AS audience FROM cadu_canais WHERE is_active = TRUE AND (nome ILIKE %s OR COALESCE(descricao, '') ILIKE %s OR COALESCE(categoria, '') ILIKE %s) ORDER BY ordem, nome LIMIT %s''',
+           'formatos': '''SELECT id, nome AS name, descricao AS description, dimensoes AS dimensions, formatos_arquivo AS files FROM cadu_formatos WHERE is_active = TRUE AND (nome ILIKE %s OR COALESCE(descricao, '') ILIKE %s OR COALESCE(dimensoes, '') ILIKE %s OR COALESCE(formatos_arquivo, '') ILIKE %s) AND is_interativo = FALSE ORDER BY ordem, nome LIMIT %s''',
+           'interativos': '''SELECT id, nome AS name, descricao AS description, dimensoes AS dimensions, formatos_arquivo AS files FROM cadu_formatos WHERE is_active = TRUE AND (nome ILIKE %s OR COALESCE(descricao, '') ILIKE %s OR COALESCE(dimensoes, '') ILIKE %s OR COALESCE(formatos_arquivo, '') ILIKE %s) AND is_interativo = TRUE ORDER BY ordem, nome LIMIT %s'''}[kind]
+    params = (search, search, search, limit) if kind == 'canais' else (search, search, search, search, limit)
+    return rows(sql, params)
 
 
 def detail(kind, value):
@@ -44,6 +69,7 @@ def detail(kind, value):
                                  a.demografia_homens, a.demografia_mulheres, a.idade_18_24,
                                  a.idade_25_34, a.idade_35_44, a.idade_45_mais,
                                  a.dispositivo_mobile, a.dispositivo_desktop, a.dispositivo_tablet,
+                                 a.categoria_id AS category_id, a.plataforma_id AS platform_id,
                                  c.nome AS category, s.nome AS subcategory, p.nome AS platform
                             FROM cadu_audiencias a
                        LEFT JOIN cadu_categorias c ON c.id = a.categoria_id
@@ -60,7 +86,34 @@ def detail(kind, value):
                                  dimensoes AS dimensions, formatos_arquivo AS files
                             FROM cadu_formatos WHERE id = %s AND is_active = TRUE AND is_interativo = TRUE LIMIT 1''',
     }[kind]
-    records = repository.rows(sql, (record_id,))
+    records = rows(sql, (record_id,))
     if not records:
         raise NotFound('Item de catálogo indisponível.')
     return records[0]
+
+
+def related_audiences(audience, limit=6):
+    """Return a compact, explainable comparison set for an audience detail page."""
+    try:
+        limit = int(limit)
+    except (TypeError, ValueError):
+        limit = 6
+    limit = max(1, min(limit, 8))
+    return rows('''SELECT a.id, a.nome AS name, a.publico_estimado AS audience,
+                                     COALESCE(p.nome, NULLIF(TRIM(a.fonte), ''), 'Catálogo Cadu') AS platform,
+                                     c.nome AS category
+                                FROM cadu_audiencias a
+                           LEFT JOIN cadu_categorias c ON c.id = a.categoria_id
+                           LEFT JOIN cadu_audiencias_plataformas p ON p.id = a.plataforma_id
+                               WHERE a.is_active = TRUE AND a.id <> %s
+                                 AND (a.categoria_id = %s OR a.plataforma_id = %s)
+                            ORDER BY (a.categoria_id = %s) DESC, (a.plataforma_id = %s) DESC, a.nome
+                               LIMIT %s''',
+                           (audience['id'], audience.get('category_id'), audience.get('platform_id'),
+                            audience.get('category_id'), audience.get('platform_id'), limit))
+
+
+def audience_facets():
+    categories = rows('''SELECT DISTINCT c.nome AS value FROM cadu_audiencias a JOIN cadu_categorias c ON c.id = a.categoria_id WHERE a.is_active = TRUE ORDER BY c.nome LIMIT 30''')
+    platforms = rows('''SELECT DISTINCT p.nome AS value FROM cadu_audiencias a JOIN cadu_audiencias_plataformas p ON p.id = a.plataforma_id WHERE a.is_active = TRUE ORDER BY p.nome LIMIT 30''')
+    return {'categories': [item['value'] for item in categories], 'platforms': [item['value'] for item in platforms]}

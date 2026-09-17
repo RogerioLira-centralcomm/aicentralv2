@@ -141,6 +141,8 @@ def register_product_host_routing(app) -> None:
 
     def planner_page(module=None):
         planner_host_only()
+        if module == 'audiencias' and 'planner_marketplace.audiences' in app.view_functions:
+            return app.view_functions['planner_marketplace.audiences']()
         return app.view_functions['cadu_family.page']('planner', module)
 
     for planner_module in ('planos', 'audiencias', 'canais', 'formatos', 'interativos', 'places', 'docs', 'links'):
@@ -155,6 +157,8 @@ def register_product_host_routing(app) -> None:
     @app.get('/audiencias/<int:audience_id>')
     def planner_host_audience_detail(audience_id):
         planner_host_only()
+        if 'planner_marketplace.audience_detail' in app.view_functions:
+            return app.view_functions['planner_marketplace.audience_detail'](audience_id)
         return app.view_functions['cadu_family.planner_audience_detail'](audience_id)
 
     @app.get('/<kind>/<int:item_id>')

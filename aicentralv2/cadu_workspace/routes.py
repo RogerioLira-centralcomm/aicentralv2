@@ -865,20 +865,35 @@ def _attach_project_identity(client_id: int, projects: list[dict]) -> list[dict]
     """Add the linked brand mark while keeping older dossiers presentable."""
     if not projects:
         return projects
+    def brand_key(value: object) -> str:
+        return re.sub(r"[^\w]+", "", str(value or "").casefold())
+
+    brands_by_name: dict[str, dict] = {}
+    links_by_project: dict[str, list[dict]] = {}
     try:
-        brands_by_ref = {f"studio:{brand['id']}": brand for brand in _workspace_brands(client_id)}
-        links_by_project: dict[str, list[dict]] = {}
+        brands = _workspace_brands(client_id)
+        brands_by_ref = {f"studio:{brand['id']}": brand for brand in brands}
+        # Older projects predate the explicit project↔brand link. When their
+        # names match exactly, show the brand identity rather than an arbitrary
+        # initial; the explicit link remains the source of truth when present.
+        brands_by_name = {brand_key(brand.get('name')): brand for brand in brands if brand_key(brand.get('name'))}
         for link in family_repository.project_brand_links(client_id):
             brand = brands_by_ref.get(str(link.get('brand_ref') or ''))
             if brand:
                 links_by_project.setdefault(str(link.get('project_ref') or ''), []).append(brand)
     except Exception:
-        links_by_project = {}
+        pass
 
     for project in projects:
         name = str(project.get('nome') or '').strip()
-        brand = next(iter(links_by_project.get(f"ci:{project.get('id')}", [])), {})
-        project['thumbnail_url'] = public_logo(brand.get('logo_upload_path') or brand.get('logo_url')) if brand else ''
+        brand = next(iter(links_by_project.get(f"ci:{project.get('id')}", [])), None)
+        brand = brand or brands_by_name.get(brand_key(name), {})
+        # `_workspace_brands` resolves the primary approved logo from both legacy
+        # fields and the brand-assets library. Reusing it here keeps the home
+        # dashboard from silently falling back to initials for asset-backed marks.
+        project['thumbnail_url'] = public_logo(
+            brand.get('resolved_logo_path') or brand.get('logo_upload_path') or brand.get('logo_url')
+        ) if brand else ''
         project['thumbnail_label'] = str(brand.get('name') or name)
         project['thumbnail_initials'] = ''.join(word[0] for word in re.findall(r"[\wÀ-ÿ]+", name)[:2]).upper() or 'P'
         project['thumbnail_color'] = brand.get('primary_color') or project.get('cor') or '#176b5e'

@@ -2157,7 +2157,7 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("mcVideoEmpty", player_js)
         self.assertIn("video.load()", player_js)
         nav_js = (root / "aicentralv2" / "static" / "js" / "mc-cadu-nav.js").read_text(encoding="utf-8")
-        self.assertIn("/parametros/api/image-credits", nav_js)
+        self.assertIn("/workspace/api/creditos/resumo", nav_js)
         self.assertIn("cadu:brand-change", nav_js)
         self.assertIn("cadu:brand-ready", nav_js)
         self.assertIn("mc-trocr-take-clip", swap_js)

@@ -1,5 +1,5 @@
 {% set mc_page = mc_page|default('hub') %}
-<header class="mc-cadu-bar" id="mcCaduBar">
+<header class="mc-cadu-bar" id="mcCaduBar" data-credit-summary-url="/workspace/api/creditos/resumo">
   <a class="mc-cadu-mark" href="{{ product_url('workspace', '/workspace/app/marcas') if mc_workspace_brands else studio_url('modelagem_criativos') }}"{% if mc_page == 'hub' %} aria-current="page"{% endif %}>
     {{ 'Workspace · Sistema da marca' if mc_workspace_brands else 'Cadu Media Studio' }}<sup>®</sup>
   </a>

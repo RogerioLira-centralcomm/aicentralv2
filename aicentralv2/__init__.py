@@ -188,7 +188,9 @@ def create_app(config_class=Config):
                 # estar serializado no cookie, apesar de estar no contato que
                 # já carregamos acima. A navbar deve usar a mesma organização
                 # que a conta autenticada, nunca assumir saldo zero.
-                client_id = session.get('cliente_id') or (perfil_contato or {}).get('pk_id_tbl_cliente')
+                # The signed-in contact is the source of truth for Workspace.
+                # A carried-over SSO session can contain a previous client id.
+                client_id = (perfil_contato or {}).get('pk_id_tbl_cliente') or session.get('cliente_id')
                 cadu_nav_credit = credit_position(int(client_id or 0))
             except Exception:
                 # O menu continua funcional se o ledger estiver indisponível.

@@ -2,12 +2,13 @@
   const bar = document.getElementById("mcCaduBar");
   const projectSelect = document.getElementById("mcCaduProject");
   const clientSelect = document.getElementById("mcCaduBarClient");
-  // The legacy Studio shell still exposes the image-credit balance as text.
-  // The current shell renders the shared monthly credit meter server-side.
+  // The legacy Studio shell keeps a compact text treatment, but reads the
+  // same organisation-level token balance as every current Cadu product.
   const legacyCredits = document.getElementById("mcCaduCredits");
   if (!bar || !projectSelect) return;
 
   const apiRoot = String(bar.dataset.mcApiRoot || "/parametros/api").replace(/\/$/, "");
+  const creditSummaryUrl = String(bar.dataset.creditSummaryUrl || "/workspace/api/creditos/resumo");
   const allowQuickCreate = bar.dataset.allowQuickCreate === "true";
   let projectRequest = 0;
   let creditsRequest = 0;
@@ -26,18 +27,20 @@
     const option = projectSelect.selectedOptions[0];
     return { clientId: String(option?.dataset.clientId || ""), projectId: String(projectSelect.value || ""), brandName: String(option?.dataset.brandName || ""), quickMode: option?.dataset.quickMode === "true" };
   }
-  async function paintLegacyCredits(clientId) {
-    if (!legacyCredits || !clientId) return;
+  async function paintLegacyCredits() {
+    if (!legacyCredits) return;
     const requestId = ++creditsRequest;
     try {
-      const data = await get(`${apiRoot}/image-credits?client_id=${encodeURIComponent(clientId)}`);
-      if (requestId !== creditsRequest || activeContext().clientId !== clientId) return;
-      const remaining = Number(data?.remaining ?? Math.max(0, Number(data?.monthly || 0) - Number(data?.used || 0)));
-      if (Number.isFinite(remaining)) {
+      const data = await get(creditSummaryUrl);
+      if (requestId !== creditsRequest || !data?.configured) return;
+      const available = Number(data.available || 0);
+      const total = Number(data.monthly || 0);
+      const usage = total > 0 ? Math.max(0, Math.min(100, Math.round(((total - available) * 100) / total))) : 0;
+      if (Number.isFinite(available)) {
         legacyCredits.hidden = false;
-        legacyCredits.textContent = `${remaining.toLocaleString("pt-BR")} créditos disponíveis`;
+        legacyCredits.textContent = `${usage}% usado · ${available.toLocaleString("pt-BR")} disponíveis`;
       }
-    } catch (_error) { /* Keep the legacy balance hidden when the API is unavailable. */ }
+    } catch (_error) { /* Keep the balance hidden when the shared ledger is unavailable. */ }
   }
   function activate() {
     const context = activeContext();
@@ -46,7 +49,7 @@
       clientSelect.value = context.clientId;
     }
     try { if (!context.quickMode) localStorage.setItem("cadu-studio-project", context.projectId); } catch (_error) {}
-    if (!context.quickMode) paintLegacyCredits(context.clientId);
+    paintLegacyCredits();
     publish("cadu:brand-ready", context);
     publish("cadu:brand-change", context);
     publish("cadu:project-ready", context);
@@ -78,7 +81,7 @@
   document.addEventListener("cadu:context-retry", loadProjects);
   document.addEventListener("cadu:credits-refresh", (event) => {
     const context = activeContext();
-    if (String(event.detail?.clientId || context.clientId) === context.clientId) paintLegacyCredits(context.clientId);
+    if (String(event.detail?.clientId || context.clientId) === context.clientId) paintLegacyCredits();
   });
   loadProjects();
 })();

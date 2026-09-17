@@ -21,6 +21,7 @@ from flask import Blueprint, Response, abort, current_app, g, jsonify, redirect,
 from ..auth import login_required
 from ..cadu_family import repository as family_repository
 from ..cadu_connect.repository import accounts_for_workspace_context
+from ..cadu_credit_connector import CaduCreditConnector
 from ..cadu_skills.repository import CaduCreditUnavailable, charge_project_rag, credit_position, list_customizations
 from ..db import get_db
 from ..product_domains import product_url
@@ -610,8 +611,11 @@ def _brand_analysis_proposal(analysis: dict) -> dict:
 def _ensure_brand_audit_credit(client_id: int) -> None:
     """Avoid starting a paid provider workflow when the client has no balance."""
     try:
-        from ..cadu_tool_billing import ToolTokenLedger
-        available = ToolTokenLedger().available(client_id)
+        # Brand audits are a Workspace entry point, but their balance must be
+        # read through the same connector used when the provider is charged.
+        # Reading the ledger here directly had left this flow outside the
+        # shared credit contract.
+        available = CaduCreditConnector().balance(client_id)
     except Exception:
         current_app.logger.exception('Não foi possível consultar créditos para auditoria de marca')
         abort(503, description='Não foi possível consultar os créditos da organização agora.')

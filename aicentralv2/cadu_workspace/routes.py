@@ -308,6 +308,13 @@ def _workspace_api_csrf() -> bool:
     return bool(token and secrets.compare_digest(token, supplied))
 
 
+@bp.get('/workspace/api/creditos/resumo')
+@login_required
+def workspace_credit_summary():
+    """Expose the live, lot-based balance for read-only Workspace cues."""
+    return jsonify(credit_position(int(session.get('cliente_id') or 0)))
+
+
 def _workspace_team_admin() -> None:
     if session.get('user_type') not in {'admin', 'superadmin'}:
         abort(403, description='Somente administradores podem gerenciar acessos da organização.')
@@ -317,6 +324,8 @@ def _normalized_website_url(value: str, *, required: bool = False) -> str:
     """Accept a normal domain and retain only a usable public web URL."""
     url = str(value or '').strip()[:2000]
     if url and not re.match(r'^https?://', url, re.I):
+        if re.match(r'^[a-z][a-z0-9+.-]*:', url, re.I):
+            abort(400, description='Informe uma URL http ou https válida.')
         url = 'https://' + url.lstrip('/')
     if not url:
         if required:
@@ -651,15 +660,16 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                     for item in images
                 ]
                 from ..creative_modeling_service import CreativeModelingService
-                from ..cadu_tool_billing import ToolTokenLedger, charge_from_provider
+                from ..cadu_credit_connector import CaduCreditConnector, CreditActor
                 service = CreativeModelingService()
-                ledger = ToolTokenLedger()
+                credits = CaduCreditConnector()
+                actor = CreditActor.from_values(client_id, user_id)
 
                 def bill(stage, provider_result, model):
                     """One durable, idempotent ledger movement per provider call."""
-                    charge_from_provider(
-                        ledger=ledger, idempotency_key=f'workspace-brand:{job_id}:{stage}',
-                        client_id=client_id, user_id=user_id, tool='Auditoria de marca', stage=stage,
+                    credits.charge_provider(
+                        actor=actor, idempotency_key=f'workspace-brand:{job_id}:{stage}',
+                        app='Auditoria de marca', stage=stage,
                         provider_result=provider_result, model=model,
                         metadata={'brand_id': brand_id, 'job_id': job_id, 'source': 'workspace'},
                     )
@@ -677,6 +687,19 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                     analysis = service.analyze_brand(website_url, restored_images, billing_callback=bill)
                     if not isinstance(analysis, dict) or not analysis.get('analysis_metadata'):
                         raise ValueError('A análise não retornou evidências suficientes.')
+                    analysis_metadata = analysis.get('analysis_metadata') or {}
+                    pages = max(1, int(analysis_metadata.get('pages_analyzed') or 1))
+                    credits.charge_firecrawl(
+                        actor=actor, idempotency_key=f'workspace-brand:{job_id}:firecrawl-scrape',
+                        operation='scrape', pages=pages, app='Auditoria de marca', stage='pesquisa_web',
+                        metadata={'brand_id': brand_id, 'job_id': job_id, 'pages_analyzed': pages},
+                    )
+                    if analysis_metadata.get('firecrawl_image_search'):
+                        credits.charge_firecrawl(
+                            actor=actor, idempotency_key=f'workspace-brand:{job_id}:firecrawl-image-search',
+                            operation='search', results=10, app='Auditoria de marca', stage='busca_de_ativos',
+                            metadata={'brand_id': brand_id, 'job_id': job_id, 'purpose': 'brand_assets'},
+                        )
                     # Preserve Firecrawl visual evidence for review. Its logo
                     # classification remains a suggestion, never an automatic
                     # principal-logo decision.
@@ -1011,7 +1034,8 @@ def _chunk_project_note(content: str, limit: int = 1800) -> list[str]:
 
 
 def _persist_project_source(client_id: int, project_id: str, title: str, content: str,
-                            mime: str, size: int, storage_path: str, source: str) -> int:
+                            mime: str, size: int, storage_path: str, source: str,
+                            user_id: Optional[int] = None) -> int:
     source_chunks = project_sources.chunks(content)
     if not source_chunks:
         raise ValueError('A fonte não contém texto indexável.')
@@ -1021,7 +1045,7 @@ def _persist_project_source(client_id: int, project_id: str, title: str, content
     try:
         with connection.cursor() as cursor:
             charged_tokens = charge_project_rag(
-                cursor, client_id=client_id, user_id=int(session.get('user_id') or 0), project_id=project_id,
+                cursor, client_id=client_id, user_id=int(user_id if user_id is not None else session.get('user_id') or 0), project_id=project_id,
                 tokens=tokens, stage='indexacao', idempotency_key='workspace-rag-index:' + uuid4().hex,
             )
             cursor.execute(
@@ -1031,7 +1055,7 @@ def _persist_project_source(client_id: int, project_id: str, title: str, content
                     VALUES (%s, %s, %s, %s, %s, %s, %s,
                             'text_model', 'completed', %s, %s, NOW(), NOW())
                  RETURNING id""",
-                (project_id, client_id, session.get('user_id'), title, mime, size,
+                (project_id, client_id, user_id if user_id is not None else session.get('user_id'), title, mime, size,
                  storage_path, word_count, charged_tokens),
             )
             file_id = cursor.fetchone()['id']
@@ -1057,6 +1081,106 @@ def _persist_project_source(client_id: int, project_id: str, title: str, content
     except Exception:
         connection.rollback()
         raise
+
+
+def _queue_project_url_source(client_id: int, project_id: str, user_id: int, url: str) -> int:
+    """Persist the pending URL before starting network work.
+
+    A URL may take minutes to fetch or may fail after the browser has moved on.
+    Keeping a real source row means the project status endpoint can show both
+    progress and an actionable error instead of leaving a silent background job.
+    """
+    parsed = urlparse(url)
+    title = parsed.netloc or url
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """INSERT INTO cadu_ci_projeto_arquivos
+                       (projeto_id, id_cliente, criado_por, nome_arquivo, mime, tamanho,
+                        storage_path, doc_form, indexing_status, word_count, tokens, created_at, updated_at)
+                    VALUES (%s, %s, %s, %s, 'text/uri-list', 0, %s,
+                            'text_model', 'queued', 0, 0, NOW(), NOW())
+                 RETURNING id""",
+                (project_id, client_id, user_id, title, f'workspace-url:{url}'),
+            )
+            source_id = int(cursor.fetchone()['id'])
+            cursor.execute(
+                """UPDATE cadu_ci_projetos
+                      SET total_arquivos = COALESCE(total_arquivos, 0) + 1, updated_at = NOW()
+                    WHERE id = %s AND id_cliente = %s""",
+                (project_id, client_id),
+            )
+        connection.commit()
+        return source_id
+    except Exception:
+        connection.rollback()
+        raise
+
+
+def _complete_queued_project_url_source(client_id: int, project_id: str, user_id: int,
+                                        source_id: int, source: dict) -> None:
+    """Index a queued URL source in place, preserving its visible status row."""
+    content = str(source.get('text') or '')
+    source_chunks = project_sources.chunks(content)
+    if not source_chunks:
+        raise ValueError('A fonte não contém texto indexável.')
+    title = str(source.get('name') or source.get('url') or 'Página pública')[:255]
+    word_count = len(re.findall(r'\b\w+\b', content, flags=re.UNICODE))
+    tokens = max(1, round(len(content) / 4))
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            charged_tokens = charge_project_rag(
+                cursor, client_id=client_id, user_id=user_id, project_id=project_id,
+                tokens=tokens, stage='indexacao',
+                idempotency_key=f'workspace-rag-index:{source_id}',
+            )
+            cursor.execute(
+                'DELETE FROM cadu_ci_chunks WHERE arquivo_id = %s AND projeto_id = %s AND id_cliente = %s',
+                (source_id, project_id, client_id),
+            )
+            for order, chunk in enumerate(source_chunks):
+                cursor.execute(
+                    """INSERT INTO cadu_ci_chunks
+                           (projeto_id, id_cliente, arquivo_id, ordem, titulo, conteudo,
+                            metadata, embedding, embedding_norm, dim, modelo, tokens, created_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, '[]'::jsonb,
+                                0, 0, 'workspace-text', %s, NOW())""",
+                    (project_id, client_id, source_id, order, title, chunk,
+                     json.dumps({'source': 'workspace_url', 'arquivo_id': source_id}),
+                     max(1, round(len(chunk) / 4))),
+                )
+            cursor.execute(
+                """UPDATE cadu_ci_projeto_arquivos
+                      SET nome_arquivo = %s, mime = %s, storage_path = %s,
+                          indexing_status = 'completed', erro_msg = NULL, word_count = %s,
+                          tokens = %s, updated_at = NOW()
+                    WHERE id = %s AND projeto_id = %s AND id_cliente = %s""",
+                (title, str(source.get('mime') or 'text/html'),
+                 f"workspace-url:{source.get('url') or ''}", word_count, charged_tokens,
+                 source_id, project_id, client_id),
+            )
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+
+
+def _mark_project_source_error(client_id: int, project_id: str, source_id: int, error: Exception) -> None:
+    """Best-effort status update for failures that occur after the HTTP response."""
+    try:
+        connection = get_db()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """UPDATE cadu_ci_projeto_arquivos
+                      SET indexing_status = 'error', erro_msg = %s, updated_at = NOW()
+                    WHERE id = %s AND projeto_id = %s AND id_cliente = %s""",
+                (str(error)[:500], source_id, project_id, client_id),
+            )
+        connection.commit()
+    except Exception:
+        current_app.logger.exception('Não foi possível registrar erro da fonte %s', source_id)
 
 
 def _project_source(client_id: int, project_id: str, source_id: int) -> Optional[dict]:
@@ -1848,21 +1972,41 @@ def import_project_url(project_id):
         abort(403, description='Atualize a página e tente novamente.')
     client_id = int(session.get('cliente_id') or 0)
     _editable_workspace_project(client_id, project_id)
+    from ..training_studio.extract import validate_public_url
     try:
-        source = project_sources.extract_public_url(request.form.get('url'))
-        _persist_project_source(
-            client_id, project_id, source['name'], source['text'], source['mime'],
-            0, f"workspace-url:{source['url']}", 'workspace_url',
-        )
-    except HTTPException:
-        raise
-    except CaduCreditUnavailable as exc:
-        abort(409, description=str(exc))
+        url = validate_public_url(request.form.get('url'))
     except ValueError as exc:
         abort(400, description=str(exc))
+    app = current_app._get_current_object()
+    user_id = int(session.get('user_id') or 0)
+    from ..cadu_credit_connector import CaduCreditConnector, CreditActor
+    credits = CaduCreditConnector()
+    actor = CreditActor.from_values(client_id, user_id)
+    try:
+        credits.authorize_firecrawl(actor, 'scrape', pages=1)
+        source_id = _queue_project_url_source(client_id, project_id, user_id, url)
     except Exception:
-        current_app.logger.exception('Não foi possível importar URL no projeto %s', project_id)
-        abort(503, description='Não foi possível importar essa página agora. Tente novamente.')
+        current_app.logger.exception('Não foi possível enfileirar URL no projeto %s', project_id)
+        abort(503, description='Não foi possível iniciar a importação agora. Tente novamente.')
+
+    def runner():
+        with app.app_context():
+            try:
+                source = project_sources.extract_public_url(url)
+                credits.charge_firecrawl(
+                    actor=actor, idempotency_key=f'workspace-project-url:{source_id}:firecrawl-scrape',
+                    operation='scrape', pages=1, app='Projeto', stage='fonte_url',
+                    metadata={'project_id': str(project_id), 'source_id': source_id, 'url': url},
+                )
+                _complete_queued_project_url_source(client_id, project_id, user_id, source_id, source)
+            except Exception as exc:
+                app.logger.exception('Não foi possível importar URL no projeto %s', project_id)
+                _mark_project_source_error(client_id, project_id, source_id, exc)
+
+    threading.Thread(target=runner, daemon=True, name=f'workspace-url-{project_id[:12]}').start()
+    if request.accept_mimetypes.best == 'application/json':
+        return jsonify({'ok': True, 'source_id': source_id, 'status': 'queued',
+                        'status_url': url_for('cadu_workspace.project_sources_status', project_id=project_id)}), 202
     return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
 
 

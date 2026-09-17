@@ -26,6 +26,13 @@ from .youtube import (
 
 def validate_public_url(raw):
     value = str(raw or "").strip()
+    # Forms accept a domain as people normally type it (with or without
+    # `www.`).  Keep a single canonical HTTPS URL before doing the network
+    # safety checks or sending it to Firecrawl.
+    if value and not re.match(r"^https?://", value, re.IGNORECASE):
+        if re.match(r"^[a-z][a-z0-9+.-]*:", value, re.IGNORECASE):
+            raise ValueError("Informe uma URL http ou https válida.")
+        value = "https://" + value.lstrip("/")
     parsed = urlparse(value)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise ValueError("Informe uma URL http ou https válida.")
@@ -396,4 +403,3 @@ def _page_briefing_html(title, summary):
 
 def _step(key, label, status, detail=""):
     return {"key": key, "label": label, "status": status, "detail": detail}
-

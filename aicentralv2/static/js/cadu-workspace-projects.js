@@ -30,6 +30,32 @@
     pollSources();
   }
 
+  document.querySelectorAll('form[action$="/fontes/urls"]').forEach((form) => {
+    const input = form.querySelector('input[name="url"]');
+    if (!input) return;
+    input.type = 'text'; input.inputMode = 'url';
+    const normalize = () => {
+      const value = input.value.trim();
+      if (value && !/^https?:\/\//i.test(value)) input.value = `https://${value.replace(/^\/+/, '')}`;
+    };
+    input.addEventListener('blur', normalize);
+    form.addEventListener('submit', (event) => {
+      normalize();
+      const button = form.querySelector('button[type="submit"], button:not([type])');
+      if (!button || button.disabled) return;
+      button.disabled = true; button.textContent = 'Importando página…';
+    });
+  });
+
+  document.querySelectorAll('form[action$="/fontes/notas"]').forEach((form) => {
+    form.addEventListener('submit', () => {
+      const button = form.querySelector('button[type="submit"], button:not([type])');
+      if (!button || button.disabled) return;
+      button.disabled = true;
+      button.textContent = 'Processando texto…';
+    });
+  });
+
   document.querySelectorAll('[data-open-project-create]').forEach((button) => {
     button.addEventListener('click', () => {
       const createPanel = document.querySelector('.workspace-projects-create');

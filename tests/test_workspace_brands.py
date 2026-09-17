@@ -3,6 +3,7 @@ import json
 from unittest import TestCase, mock
 
 from flask import Flask
+from werkzeug.exceptions import BadRequest
 
 from aicentralv2.cadu_workspace.routes import (
     _brand_review_is_stale, _merge_brand_analysis, _normalized_website_url,
@@ -27,6 +28,11 @@ def _client():
 class WorkspaceBrandsTest(TestCase):
     def test_normal_domain_becomes_https_url(self):
         self.assertEqual(_normalized_website_url('centralcomm.media'), 'https://centralcomm.media')
+
+    def test_website_url_rejects_non_web_scheme(self):
+        with _app().test_request_context():
+            with self.assertRaises(BadRequest):
+                _normalized_website_url('ftp://example.com')
 
     @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
     def test_review_progress_update_uses_the_current_client_schema(self, get_db):
@@ -174,6 +180,18 @@ class WorkspaceBrandsTest(TestCase):
 
     @mock.patch('aicentralv2.creative_modeling_service.CreativeModelingService')
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand', return_value={'id': 81})
+    def test_logo_upload_sets_the_uploaded_logo_as_primary(self, _workspace_brand, service):
+        response = _client().post('/workspace/app/marcas/81/ativos', data={
+            '_csrf': 'known-token', 'role': 'logo',
+            'images': (BytesIO(b'valid-image-placeholder'), 'logo.png'),
+        })
+
+        self.assertEqual(response.status_code, 303)
+        args = service.return_value.upload_client_brand_assets.call_args.args
+        self.assertEqual((args[0], args[2], args[3]), (81, True, 'logo'))
+
+    @mock.patch('aicentralv2.creative_modeling_service.CreativeModelingService')
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand', return_value={'id': 81})
     def test_imported_reference_can_be_promoted_to_primary_logo(self, _workspace_brand, service):
         response = _client().post('/workspace/app/marcas/81/ativos/44/logo', data={
             '_csrf': 'known-token',
@@ -182,6 +200,32 @@ class WorkspaceBrandsTest(TestCase):
         self.assertEqual(response.status_code, 303)
         _workspace_brand.assert_called_once_with(12, 81)
         service.return_value.promote_client_brand_asset_to_logo.assert_called_once_with(81, 44)
+
+    @mock.patch('aicentralv2.creative_modeling_service.CreativeModelingService')
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand', return_value={'id': 81})
+    def test_brand_asset_can_be_deleted_within_active_workspace(self, _workspace_brand, service):
+        response = _client().post('/workspace/app/marcas/81/ativos/44/apagar', data={
+            '_csrf': 'known-token',
+        })
+
+        self.assertEqual(response.status_code, 303)
+        _workspace_brand.assert_called_once_with(12, 81)
+        service.return_value.delete_brand_asset.assert_called_once_with(81, 44)
+
+    @mock.patch('aicentralv2.creative_modeling_service.CreativeModelingService')
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand')
+    def test_member_cannot_delete_brand_asset(self, _workspace_brand, service):
+        client = _client()
+        with client.session_transaction() as session:
+            session['user_type'] = 'client'
+
+        response = client.post('/workspace/app/marcas/81/ativos/44/apagar', data={
+            '_csrf': 'known-token',
+        })
+
+        self.assertEqual(response.status_code, 403)
+        _workspace_brand.assert_not_called()
+        service.assert_not_called()
 
     @mock.patch('aicentralv2.creative_modeling_service.CreativeModelingService')
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand', return_value=None)

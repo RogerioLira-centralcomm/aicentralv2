@@ -9,6 +9,7 @@ from werkzeug.exceptions import BadRequest
 
 from aicentralv2.cadu_workspace import project_sources
 from aicentralv2.cadu_workspace.routes import bp
+from aicentralv2.training_studio.extract import validate_public_url
 
 
 def _app(instance_path=None):
@@ -19,6 +20,29 @@ def _app(instance_path=None):
 
 
 class WorkspaceProjectSourcesTest(TestCase):
+    @mock.patch('aicentralv2.cadu_workspace.routes.credit_position', return_value={
+        'configured': True, 'available': 2_500_000, 'monthly': 2_700_000,
+    })
+    def test_credit_summary_exposes_the_shared_live_balance(self, credit_position):
+        client = _app().test_client()
+        with client.session_transaction() as session:
+            session.update(user_id=7, cliente_id=174)
+        response = client.get('/workspace/api/creditos/resumo')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()['available'], 2_500_000)
+        credit_position.assert_called_once_with(174)
+
+    @mock.patch('aicentralv2.training_studio.extract.socket.getaddrinfo', return_value=[(None, None, None, None, ('8.8.8.8', 443))])
+    def test_url_without_protocol_is_normalized_to_https(self, _addresses):
+        self.assertEqual(
+            validate_public_url('www.exemplo.com.br/guia'),
+            'https://www.exemplo.com.br/guia',
+        )
+
+    def test_url_with_an_unsupported_scheme_is_rejected(self):
+        with self.assertRaises(ValueError):
+            validate_public_url('ftp://exemplo.com.br/arquivo')
+
     def test_text_upload_is_normalized_for_indexing(self):
         result = project_sources.validate_upload(FileStorage(
             stream=BytesIO('Briefing aprovado para a campanha.'.encode()),
@@ -104,10 +128,12 @@ class WorkspaceProjectSourcesTest(TestCase):
         })
         self.assertEqual(response.status_code, 400)
 
+    @mock.patch('aicentralv2.cadu_workspace.routes.threading.Thread')
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_project', return_value={'id': 'p-1'})
-    @mock.patch('aicentralv2.cadu_workspace.routes._persist_project_source', return_value=92)
+    @mock.patch('aicentralv2.cadu_workspace.routes._queue_project_url_source', return_value=92)
     @mock.patch('aicentralv2.cadu_workspace.routes.project_sources.extract_public_url')
-    def test_url_import_marks_the_source_as_workspace_owned(self, extract, persist, _project):
+    @mock.patch('aicentralv2.cadu_credit_connector.CaduCreditConnector.authorize_firecrawl')
+    def test_url_import_marks_the_source_as_workspace_owned(self, _authorize, extract, queue, _project, thread):
         extract.return_value = {
             'url': 'https://example.com/guia', 'name': 'Guia',
             'mime': 'text/uri-list', 'text': 'Conteúdo suficiente para orientar o projeto.',
@@ -115,11 +141,34 @@ class WorkspaceProjectSourcesTest(TestCase):
         client = _app().test_client()
         with client.session_transaction() as session:
             session.update(user_id=7, cliente_id=12, family_csrf='known-token')
-        response = client.post('/workspace/app/projetos/p-1/fontes/urls', data={
-            '_csrf': 'known-token', 'url': 'https://example.com/guia',
-        })
+        with mock.patch('aicentralv2.training_studio.extract.socket.getaddrinfo',
+                        return_value=[(None, None, None, None, ('8.8.8.8', 443))]):
+            response = client.post('/workspace/app/projetos/p-1/fontes/urls', data={
+                '_csrf': 'known-token', 'url': 'https://example.com/guia',
+            })
         self.assertEqual(response.status_code, 303)
-        self.assertEqual(persist.call_args.args[6], 'workspace-url:https://example.com/guia')
+        thread.return_value.start.assert_called_once()
+        queue.assert_called_once_with(12, 'p-1', 7, 'https://example.com/guia')
+        extract.assert_not_called()
+
+    @mock.patch('aicentralv2.cadu_workspace.routes.threading.Thread')
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_project', return_value={'id': 'p-1'})
+    @mock.patch('aicentralv2.cadu_workspace.routes._queue_project_url_source', return_value=93)
+    @mock.patch('aicentralv2.cadu_credit_connector.CaduCreditConnector.authorize_firecrawl')
+    def test_url_import_queues_scrape_without_blocking_the_browser(self, _authorize, queue, _project, thread):
+        client = _app().test_client()
+        with client.session_transaction() as session:
+            session.update(user_id=7, cliente_id=12, family_csrf='known-token')
+        with mock.patch('aicentralv2.training_studio.extract.socket.getaddrinfo',
+                        return_value=[(None, None, None, None, ('8.8.8.8', 443))]):
+            response = client.post('/workspace/app/projetos/p-1/fontes/urls', data={
+                '_csrf': 'known-token', 'url': 'www.exemplo.com.br/guia',
+            }, headers={'Accept': 'application/json'})
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(response.get_json()['status'], 'queued')
+        self.assertEqual(response.get_json()['source_id'], 93)
+        queue.assert_called_once_with(12, 'p-1', 7, 'https://www.exemplo.com.br/guia')
+        thread.return_value.start.assert_called_once()
 
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_project', return_value={'id': 'p-1'})
     @mock.patch('aicentralv2.cadu_workspace.routes._project_source')

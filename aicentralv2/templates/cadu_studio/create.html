@@ -5,7 +5,7 @@
 {% block styles %}
 <meta name="trocr-csrf-token" content="{{ mc_trocr_csrf }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-navigation.css') }}?v=8">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-create.css') }}?v=3">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-create.css') }}?v=7">
 {% endblock %}
 {% block content %}
 <main class="studio-create" id="studioCreate" data-api-root="{{ '/studio/api' if request.blueprint in ('studio', 'studio_product') else '/parametros/api' }}">
@@ -24,12 +24,14 @@
         <div class="studio-create__tokens" id="studioCreateTokens"><span>Tom da marca</span><span>Ativos do projeto</span></div>
       </section>
 
-      <fieldset class="studio-create__segmented">
-        <legend>Objetivo da peça</legend>
-        <label><input type="radio" name="purpose" value="campanha" checked><span>Campanha</span></label>
-        <label><input type="radio" name="purpose" value="portal"><span>Portal</span></label>
-        <label><input type="radio" name="purpose" value="ctv"><span>CTV</span></label>
-      </fieldset>
+      <label class="studio-create__purpose">
+        <span>Objetivo da peça</span>
+        <select name="purpose" aria-label="Objetivo da peça">
+          <option value="alcance">Alcance</option>
+          <option value="reconhecimento">Reconhecimento</option>
+          <option value="conversao">Conversão</option>
+        </select>
+      </label>
 
       <fieldset class="studio-create__checks">
         <legend>Canais</legend>
@@ -40,17 +42,16 @@
       </fieldset>
 
       <fieldset class="studio-create__ratios">
-        <legend>Proporção</legend>
+        <legend>Formato</legend>
         <label><input type="radio" name="ratio" value="1:1"><span><b class="ratio-square"></b>1:1</span></label>
         <label><input type="radio" name="ratio" value="4:5"><span><b class="ratio-portrait"></b>4:5</span></label>
         <label><input type="radio" name="ratio" value="9:16" checked><span><b class="ratio-story"></b>9:16</span></label>
         <label><input type="radio" name="ratio" value="16:9"><span><b class="ratio-landscape"></b>16:9</span></label>
+        <details class="studio-create__iab">
+          <summary>Formatos IAB <span>opcional</span></summary>
+          <div><button type="button">300 × 250</button><button type="button">728 × 90</button><button type="button">300 × 600</button><button type="button">970 × 250</button><button type="button">320 × 50</button></div>
+        </details>
       </fieldset>
-
-      <details class="studio-create__iab">
-        <summary>Formatos IAB <span>opcional</span></summary>
-        <div><button type="button">300 × 250</button><button type="button">728 × 90</button><button type="button">300 × 600</button><button type="button">970 × 250</button><button type="button">320 × 50</button></div>
-      </details>
 
       <label class="studio-create__range">Intensidade da direção <output id="studioCreateIntensity">70%</output><input id="studioCreateRange" type="range" min="0" max="100" value="70"></label>
 
@@ -86,5 +87,5 @@
 {% block portal_scripts %}
 <script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script>
 <script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=8" defer></script>
-<script src="{{ url_for('static', filename='js/mc-studio-create.js') }}?v=3" defer></script>
+<script src="{{ url_for('static', filename='js/mc-studio-create.js') }}?v=5" defer></script>
 {% endblock %}

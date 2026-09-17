@@ -25,6 +25,7 @@
   let library = [];
   let selectedImage = "";
   let projectDocument = {};
+  let projectReady = false;
 
   function escapeHtml(value) {
     return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -40,7 +41,7 @@
     return document.querySelector('input[name="ratio"]:checked')?.value || "9:16";
   }
   function selectedPurpose() {
-    return document.querySelector('input[name="purpose"]:checked')?.value || "campanha";
+    return document.querySelector('select[name="purpose"]')?.value || "alcance";
   }
   function formatLabel() {
     const ratio = selectedRatio();
@@ -104,6 +105,7 @@
   }
   async function loadProject(context = {}) {
     projectId = String(projectSelect?.value || "");
+    projectReady = false;
     if (!clientId || !projectId) return;
     projectName.textContent = "Carregando projeto…";
     try {
@@ -118,12 +120,15 @@
       path.textContent = name;
       agentContext.textContent = `${brand} e o briefing do projeto já estão incluídos no contexto.`;
       updateSuggestions(document);
+      projectReady = true;
       refreshCreditHint();
     } catch (_error) {
+      projectId = "";
       projectName.textContent = projectSelect.selectedOptions?.[0]?.textContent || "Projeto selecionado";
       const brandName = String(context.brandName || projectSelect?.selectedOptions?.[0]?.dataset.brandName || "Marca vinculada");
-      projectBrand.textContent = `${brandName} · Contexto do projeto disponível para a criação.`;
-      agentContext.textContent = `${brandName} e o projeto selecionado serão usados na direção criativa.`;
+      projectBrand.textContent = `${brandName} · Escolha um projeto disponível nesta marca.`;
+      agentContext.textContent = "Esse projeto não está disponível para a marca atual. Escolha outro projeto para continuar.";
+      directions.innerHTML = "<p>Escolha um projeto disponível nesta marca antes de gerar direções.</p>";
     }
     await loadLibrary();
     await loadHistory();
@@ -166,7 +171,7 @@
       }));
       return;
     }
-    const base = prompt.value.trim() || ({ campanha: "Lançamento de campanha", portal: "Peça para portal", ctv: "Criativo de CTV" }[selectedPurpose()] || "Direção de campanha");
+    const base = prompt.value.trim() || ({ alcance: "Direção para ampliar alcance", reconhecimento: "Direção para reconhecimento de marca", conversao: "Direção para conversão" }[selectedPurpose()] || "Direção de campanha");
     const endings = ["com foco no momento de uso", "com leitura rápida e memorável", "com produto em contexto", "com linguagem direta", "com presença de marca"];
     directions.innerHTML = endings.map((ending, index) => `<article class="studio-create__direction">${selectedImage ? `<img src="${escapeHtml(selectedImage)}" alt="Imagem atualmente no palco">` : "<img alt=\"\">"}<div><strong>${index + 1}. ${escapeHtml(base)}</strong><span>${escapeHtml(ending)} · ${escapeHtml(formatLabel())}</span></div><button type="button" data-use-direction="${index}">Aplicar direção</button></article>`).join("");
     directions.querySelectorAll("button[data-use-direction]").forEach((button) => button.addEventListener("click", () => {
@@ -184,11 +189,17 @@
     try {
       const balance = await get(`${apiRoot}/image-credits?client_id=${encodeURIComponent(clientId)}`);
       hint.textContent = `${Number(balance?.remaining || 0).toLocaleString("pt-BR")} créditos disponíveis`;
-    } catch (_error) { hint.textContent = "Não foi possível verificar créditos"; }
+      hint.dataset.state = "ready";
+      return true;
+    } catch (_error) {
+      hint.textContent = "Saldo confirmado ao gerar";
+      hint.dataset.state = "unavailable";
+      return false;
+    }
   }
   document.getElementById("studioCreateGenerate")?.addEventListener("click", async (event) => {
     const button = event.currentTarget;
-    if (!clientId || !projectId) { directions.innerHTML = "<p>Selecione um projeto antes de gerar direções.</p>"; return; }
+    if (!clientId || !projectId || !projectReady) { directions.innerHTML = "<p>Escolha um projeto disponível nesta marca antes de gerar direções.</p>"; return; }
     const count = selectedCount();
     button.disabled = true; button.textContent = "Verificando créditos…";
     try {

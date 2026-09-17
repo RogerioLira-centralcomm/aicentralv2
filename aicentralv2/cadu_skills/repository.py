@@ -356,15 +356,25 @@ def credit_position(client_id: int) -> dict:
                 (client_id,),
             )
             configured = bool(cursor.fetchone()) or bool(lots.get('granted'))
+            cursor.execute("""SELECT COALESCE(pd.tokens_monthly_limit, p.tokens_monthly_limit, 0) AS monthly_limit,
+                                     COALESCE(p.tokens_used_current_month, 0) AS monthly_used
+                                FROM cadu_client_plans p LEFT JOIN cadu_plan_definitions pd ON pd.id = p.id_plan_definition
+                               WHERE p.id_cliente = %s AND p.plan_status = 'active' ORDER BY p.created_at DESC LIMIT 1""", (client_id,))
+            plan_usage = cursor.fetchone() or {}
+            monthly_limit = max(0, int(plan_usage.get("monthly_limit") or 0))
+            monthly_used = max(0, int(plan_usage.get("monthly_used") or 0))
             return {
                 "available": max(0, int(lots.get("available") or 0)),
                 # Kept for existing shells; this is the total of active credit
                 # lots, not a monthly plan allowance.
                 "monthly": int(lots.get("granted") or 0),
                 "configured": configured,
+                "monthly_limit": monthly_limit,
+                "monthly_used": monthly_used,
+                "monthly_usage_percentage": round(min(100, (monthly_used * 100) / monthly_limit), 1) if monthly_limit else 0,
             }
     except Exception:
-        return {"available": 0, "monthly": 0, "configured": False}
+        return {"available": 0, "monthly": 0, "configured": False, "monthly_limit": 0, "monthly_used": 0, "monthly_usage_percentage": 0}
 
 
 def charge_project_rag(cursor, *, client_id: int, user_id: int, project_id: str,

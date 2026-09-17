@@ -3,7 +3,15 @@
   const dialog = document.querySelector('[data-plan-create-dialog]');
   if (!root || !dialog) return;
   const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
-  root.querySelector('[data-plan-create]').addEventListener('click', () => dialog.showModal());
+  document.querySelectorAll('[data-plan-create]').forEach((trigger) => {
+    trigger.addEventListener('click', () => dialog.showModal());
+  });
+  if (new URLSearchParams(window.location.search).get('create') === '1') {
+    dialog.showModal();
+    const url = new URL(window.location.href);
+    url.searchParams.delete('create');
+    window.history.replaceState({}, '', url);
+  }
   dialog.addEventListener('close', async () => {
     if (dialog.returnValue !== 'create') return;
     const form = dialog.querySelector('form');

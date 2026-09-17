@@ -4,6 +4,8 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 import base64
+import hashlib
+from io import BytesIO
 import json
 import os
 import re
@@ -141,6 +143,59 @@ BRAND_ASSET_ROLES = frozenset({
     "icon",
     "cta_style",
 })
+
+
+def _seed_color(value, fallback):
+    raw = str(value or "").strip().lstrip("#")
+    if len(raw) == 3:
+        raw = "".join(char * 2 for char in raw)
+    if not re.fullmatch(r"[0-9a-fA-F]{6}", raw):
+        return fallback
+    return tuple(int(raw[index:index + 2], 16) for index in (0, 2, 4))
+
+
+def _brand_seed_canvas(brand, *, size, logo_path=None):
+    """Build a low-resolution, non-generative composition from brand inputs."""
+    from PIL import Image, ImageDraw, ImageFont, ImageOps
+
+    width, height = size
+    primary = _seed_color(brand.get("primary_color"), (20, 86, 75))
+    secondary = _seed_color(brand.get("secondary_color"), (217, 231, 225))
+    canvas = Image.new("RGB", size, primary)
+    draw = ImageDraw.Draw(canvas, "RGBA")
+    # Broad editorial shapes hold up in tiny card previews and leave the
+    # composition usable as a starting layer in Studio.
+    draw.ellipse((width * .43, -height * .42, width * 1.22, height * .82), fill=secondary + (105,))
+    draw.ellipse((-width * .22, height * .52, width * .48, height * 1.25), fill=(255, 255, 255, 32))
+    draw.rectangle((0, height * .72, width, height), fill=(3, 15, 14, 42))
+
+    name = str(brand.get("name") or "Marca").strip()[:42]
+    initials = "".join(word[:1] for word in re.findall(r"[\\wÀ-ÿ]+", name)[:2]).upper() or "M"
+    try:
+        title_font = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Bold.ttf", max(18, width // 18))
+        small_font = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", max(11, width // 44))
+    except OSError:
+        title_font = small_font = ImageFont.load_default()
+    text_color = (255, 255, 255, 242)
+    draw.text((width * .08, height * .76), name, fill=text_color, font=title_font)
+    sector = str(brand.get("sector") or "Identidade em construção")[:64]
+    draw.text((width * .08, height * .76 + max(22, width // 15)), sector, fill=(255, 255, 255, 185), font=small_font)
+
+    if logo_path:
+        try:
+            with Image.open(logo_path) as opened:
+                logo = ImageOps.contain(opened.convert("RGBA"), (max(42, width // 5), max(42, height // 4)))
+                plate = Image.new("RGBA", (logo.width + 28, logo.height + 28), (255, 255, 255, 36))
+                canvas.paste(plate, (int(width * .08), int(height * .1)), plate)
+                canvas.paste(logo, (int(width * .08) + 14, int(height * .1) + 14), logo)
+        except (OSError, ValueError):
+            logo_path = None
+    if not logo_path:
+        badge_size = max(42, min(width, height) // 5)
+        badge = (int(width * .08), int(height * .1), int(width * .08) + badge_size, int(height * .1) + badge_size)
+        draw.rounded_rectangle(badge, radius=badge_size // 4, fill=(255, 255, 255, 42), outline=(255, 255, 255, 100), width=1)
+        draw.text((badge[0] + badge_size * .25, badge[1] + badge_size * .25), initials, fill=text_color, font=small_font)
+    return canvas
 
 MOCKUPS = {
     "portal": (
@@ -3010,6 +3065,75 @@ class CreativeModelingService:
                 self.repository.set_client_logo(client_id, item["asset_path"])
             saved.append(data)
         return _serialize(saved)
+
+    def create_client_brand_seed_visuals(self, client_id, brand):
+        """Create small, editable visual starters once an identity is approved.
+
+        These are intentionally composited from approved brand inputs instead of
+        asking an image model to invent a brand.  They give Workspace, cards and
+        Studio a useful first visual while the team collects higher fidelity art.
+        """
+        client_id = _integer(client_id, "Cliente")
+        self.repository.get_client(client_id)
+        existing = list(self.repository.list_client_brand_assets(client_id, approved_only=False) or [])
+        found = {}
+        for asset in existing:
+            metadata = asset.get("metadata") or {}
+            if isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except ValueError:
+                    metadata = {}
+            kind = metadata.get("brand_seed_kind") if isinstance(metadata, dict) else None
+            if kind and asset.get("asset_path"):
+                found[str(kind)] = asset.get("asset_path")
+
+        specs = (
+            ("thumbnail", "support", (480, 320)),
+            ("hero", "background", (1280, 640)),
+            ("studio", "creative", (1080, 1080)),
+        )
+        logo_path = str(brand.get("logo_upload_path") or brand.get("logo_url") or "")
+        logo = self.storage.absolute_public_path(logo_path) if logo_path else None
+        saved = []
+        for kind, role, size in specs:
+            if found.get(kind):
+                continue
+            image = _brand_seed_canvas(brand, size=size, logo_path=logo)
+            buffer = BytesIO()
+            image.save(buffer, format="WEBP", quality=78, method=4)
+            encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+            asset_path = self.storage.save_generated_base64(encoded, output_format="webp")
+            data = {
+                "role": role,
+                "source_kind": "brand_seed",
+                "asset_path": asset_path,
+                "mime_type": "image/webp",
+                "width": size[0],
+                "height": size[1],
+                "sha256": hashlib.sha256(buffer.getvalue()).hexdigest(),
+                "status": "approved",
+                "metadata": {
+                    "brand_seed_kind": kind,
+                    "low_resolution": True,
+                    "editable_in_studio": True,
+                    "label": {"thumbnail": "Miniatura interna", "hero": "Hero interno", "studio": "Base para Studio"}[kind],
+                },
+            }
+            try:
+                asset_id = self.repository.add_client_brand_asset(client_id, data)
+            except Exception:
+                self.storage.delete(asset_path)
+                raise
+            if asset_id:
+                found[kind] = asset_path
+                saved.append({"id": asset_id, "kind": kind, "asset_path": asset_path})
+        if found and hasattr(self.repository, "update_client_brand_profile"):
+            client = self.repository.get_client(client_id)
+            profile = dict(client.get("brand_profile") or {})
+            profile["seed_visuals"] = found
+            self.repository.update_client_brand_profile(client_id, profile)
+        return _serialize({"visuals": found, "created": saved})
 
     def _track_input_references(self, system, track_id, client=None):
         from .design_system_ads.fidelity import track_reference_urls

@@ -1,6 +1,6 @@
 <section class="planner-docs" data-planner-docs data-writable="{{ 'true' if cadu_family_writes_enabled else 'false' }}">
-  <header class="planner-docs-head"><div><h2>Docs</h2><p>Documentos do cliente, prontos para orientar a decisão e a entrega.</p></div>
-    {% if cadu_family_writes_enabled %}<button class="family-primary" type="button" data-doc-create>Novo documento</button>
+  <header class="planner-docs-head"><div><h2>Material que acompanha a decisão</h2><p>Organize briefing, proposta e apresentação para que a recomendação possa seguir sem perder contexto.</p></div>
+    {% if cadu_family_writes_enabled %}<button class="family-primary" type="button" data-doc-create>Criar documento</button>
     {% else %}<button class="family-primary" type="button" disabled aria-describedby="docs-migration-note">Criação em preparação</button>{% endif %}
   </header>
   <p id="docs-migration-note" class="planner-doc-note">{% if cadu_family_writes_enabled %}Cada alteração fica vinculada ao seu usuário e ao cliente selecionado.{% else %}A leitura já usa o contexto autorizado. Criação, edição e compartilhamento serão liberados junto da validação de escrita.{% endif %}</p>
@@ -8,7 +8,7 @@
     <div class="planner-doc-drive-head" aria-hidden="true"><span>Nome</span><span>Proprietário</span><span>Última modificação</span><span></span></div>
     <div data-doc-list>
     {% for row in records %}<article class="planner-doc-row" data-doc-id="{{ row.id }}"><button class="planner-doc-name" type="button" data-doc-open="{{ row.id }}"><span class="planner-doc-icon" aria-hidden="true">▤</span><span><strong>{{ row.title }}</strong><small>{{ row.type }}</small></span></button><span class="planner-doc-owner">{% if row.is_owner %}Você{% else %}Compartilhado{% endif %}</span><time class="planner-doc-updated">{{ row.updated_at }}</time><button class="planner-doc-more" type="button" data-doc-open="{{ row.id }}" aria-label="Abrir ações de {{ row.title }}">•••</button></article>
-    {% else %}<div class="planner-doc-empty"><span aria-hidden="true">▤</span><div><strong>Nenhum documento neste cliente</strong><p>Crie um documento ou selecione um template para começar o planejamento.</p></div></div>{% endfor %}
+    {% else %}<div class="planner-doc-empty"><span aria-hidden="true">▤</span><div><strong>Ainda não há documentos neste cliente</strong><p>Crie um briefing, uma proposta ou uma apresentação para registrar o que a equipe precisa decidir.</p></div></div>{% endfor %}
     </div>
   </div>
 </section>

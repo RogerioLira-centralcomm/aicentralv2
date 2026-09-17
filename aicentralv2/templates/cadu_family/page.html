@@ -92,13 +92,27 @@
     {% else %}
       <div class="family-sidebar-product">{% set cadu_active_product = product %}{% include 'cadu/_product_switch.html' %}<button class="cadu-sidebar-toggle" type="button" data-cadu-sidebar-toggle aria-label="Recolher navegação" aria-expanded="true">‹</button><button class="cadu-sidebar-mobile-close" type="button" data-cadu-sidebar-mobile-close aria-label="Fechar navegação">×</button></div>
     {% endif %}
-    {% set planner_nav_icons = {'inicio': 'fa-compass', 'planos': 'fa-layer-group', 'audiencias': 'fa-users', 'canais': 'fa-bullhorn', 'formatos': 'fa-shapes', 'interativos': 'fa-wand-magic-sparkles', 'places': 'fa-location-dot', 'docs': 'fa-file-lines', 'links': 'fa-link'} %}
+    {% set planner_nav_icons = {'inicio': 'fa-house', 'planos': 'fa-layer-group', 'novo-plano': 'fa-plus', 'audiencias': 'fa-users', 'canais': 'fa-bullhorn', 'formatos': 'fa-shapes', 'interativos': 'fa-wand-magic-sparkles', 'places': 'fa-location-dot', 'docs': 'fa-file-lines', 'links': 'fa-link'} %}
     <nav class="{{ 'planner-workspace-nav__planner' if product == 'planner' else '' }}">
-      {% for group, keys in spec.navigation %}
-      <div class="family-module-group"><b>{{ group }}</b>
-        {% for key in keys %}{% set module_href = planner_url(key) if product == 'planner' else url_for('cadu_family.page', product=product, module=key) %}<a href="{{ module_href }}" {% if product == 'planner' %}aria-label="{{ spec.modules[key][0] }}"{% endif %} {% if module == key %}aria-current="page"{% endif %}>{% if product == 'planner' %}<span class="planner-nav-icon" aria-hidden="true"><i class="fa-solid {{ planner_nav_icons.get(key, 'fa-circle') }}"></i></span><span class="planner-nav-text">{{ spec.modules[key][0] }}</span>{% else %}{{ spec.modules[key][0] }}{% endif %}</a>{% endfor %}
+      {% if product == 'planner' %}
+      <div class="family-module-group planner-module-group--core">
+        <a href="{{ planner_url() }}" aria-label="Início" {% if module == 'inicio' %}aria-current="page"{% endif %}><span class="planner-nav-icon" aria-hidden="true"><i class="fa-solid {{ planner_nav_icons['inicio'] }}"></i></span><span class="planner-nav-text">Início</span></a>
+        <a href="{{ planner_url('planos') }}" aria-label="Planos de mídia" {% if module == 'planos' %}aria-current="page"{% endif %}><span class="planner-nav-icon" aria-hidden="true"><i class="fa-solid {{ planner_nav_icons['planos'] }}"></i></span><span class="planner-nav-text">Planos de mídia</span></a>
+        <a class="planner-nav-create" href="{{ planner_url('planos', create='1') }}" aria-label="Novo plano"><span class="planner-nav-icon" aria-hidden="true"><i class="fa-solid {{ planner_nav_icons['novo-plano'] }}"></i></span><span class="planner-nav-text">Novo plano</span></a>
       </div>
-      {% endfor %}
+      <div class="family-module-group planner-module-group--discover"><b>Descobrir</b>
+        {% for key in ('audiencias', 'canais', 'formatos', 'interativos', 'places') %}<a href="{{ planner_url(key) }}" aria-label="{{ spec.modules[key][0] }}" {% if module == key %}aria-current="page"{% endif %}><span class="planner-nav-icon" aria-hidden="true"><i class="fa-solid {{ planner_nav_icons[key] }}"></i></span><span class="planner-nav-text">{{ spec.modules[key][0] }}</span></a>{% endfor %}
+      </div>
+      <div class="family-module-group planner-module-group--tools"><b>Ferramentas</b>
+        {% for key in ('docs', 'links') %}<a href="{{ planner_url(key) }}" aria-label="{{ spec.modules[key][0] }}" {% if module == key %}aria-current="page"{% endif %}><span class="planner-nav-icon" aria-hidden="true"><i class="fa-solid {{ planner_nav_icons[key] }}"></i></span><span class="planner-nav-text">{{ spec.modules[key][0] }}</span></a>{% endfor %}
+      </div>
+      {% else %}
+        {% for group, keys in spec.navigation %}
+        <div class="family-module-group"><b>{{ group }}</b>
+          {% for key in keys %}{% set module_href = url_for('cadu_family.page', product=product, module=key) %}<a href="{{ module_href }}" {% if module == key %}aria-current="page"{% endif %}>{{ spec.modules[key][0] }}</a>{% endfor %}
+        </div>
+        {% endfor %}
+      {% endif %}
     </nav>
     {% if product == 'workspace' %}
     <section class="workspace-sidebar-history" aria-labelledby="workspace-sidebar-history-title">
@@ -125,7 +139,8 @@
 {% endif %}
 <main id="content" tabindex="-1">
   {% if not (product == 'planner' and module == 'inicio') %}
-  <header class="family-page-head"><div><p>{{ spec.name }}</p><h1>{{ landing.title if module == 'inicio' else title }}</h1>{% if module == 'inicio' %}<p class="family-page-intro">{{ landing.intro }}</p>{% endif %}</div>
+  {% set planner_intros = {'planos': 'Acompanhe decisões em curso ou comece um plano quando tiver um objetivo para organizar.', 'audiencias': 'Encontre públicos com contexto suficiente para justificar a escolha no seu plano.', 'canais': 'Compare os ambientes onde a campanha pode ganhar atenção.', 'formatos': 'Confira o que cada execução precisa para transformar estratégia em uma peça viável.', 'interativos': 'Descubra experiências que ajudam a campanha a convidar uma resposta.', 'places': 'Avalie presença física por ponto, cobertura e momento de circulação.', 'docs': 'Reúna o material que ajuda a equipe a revisar e encaminhar a recomendação.', 'links': 'Valide o destino da campanha antes de colocar mídia no ar.'} %}
+  <header class="family-page-head"><div>{% if product != 'planner' %}<p>{{ spec.name }}</p>{% endif %}<h1>{{ landing.title if module == 'inicio' else title }}</h1>{% if product == 'planner' and module in planner_intros %}<p class="family-page-intro">{{ planner_intros[module] }}</p>{% elif module == 'inicio' %}<p class="family-page-intro">{{ landing.intro }}</p>{% endif %}</div>
   {% if product == 'studio' %}<a href="{{ product_url('workspace', '/workspace/app/marcas') }}">Gerenciar marcas no Workspace</a>{% endif %}</header>
   {% endif %}
   <p id="family-feedback" role="status" aria-live="polite"></p>

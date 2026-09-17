@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from flask import session
+
 from ..db import get_db
 from .catalog import CHANNEL_CATALOG
 from .helpers import as_bool, as_dict, as_list, text
@@ -12,7 +14,7 @@ from .logos import lookup_agency_for_client, lookup_party_by_id, public_logo
 
 logger = logging.getLogger(__name__)
 
-SEED_KEYS = ("plan_mode", "cliente_id", "agencia_id", "cx_client_id", "brand", "anunciante_confidencial")
+SEED_KEYS = ("plan_mode", "cliente_id", "agencia_id", "cx_client_id", "brand", "anunciante_confidencial", "workspace_project_id")
 
 PLATE_TO_CHANNEL = {
     "instagram": "meta_ads",
@@ -183,6 +185,36 @@ def brand_for_client(crm_client_id: Any) -> dict:
     return snapshot_brand(load_cx_client_for_crm(crm_client_id))
 
 
+def workspace_project_context(project_id: Any) -> dict:
+    """Bring the selected Workspace brief into a new Planner draft."""
+    project_id = text(project_id)
+    client_id = session.get("cliente_id")
+    if not project_id or not client_id:
+        return {}
+    try:
+        with get_db().cursor() as cur:
+            cur.execute(
+                """SELECT nome, descricao, instrucoes, publico, tom_de_voz, posicionamento
+                     FROM cadu_ci_projetos
+                    WHERE id = %s AND id_cliente = %s""",
+                (project_id, client_id),
+            )
+            project = dict(cur.fetchone() or {})
+            if not project:
+                return {}
+            cur.execute(
+                """SELECT conteudo FROM cadu_ci_chunks
+                    WHERE projeto_id = %s AND id_cliente = %s
+                 ORDER BY id LIMIT 6""",
+                (project_id, client_id),
+            )
+            sources = [text(row.get("conteudo"))[:1800] for row in cur.fetchall() if text(row.get("conteudo"))]
+        return {**project, "id": project_id, "sources": sources}
+    except Exception:
+        logger.exception("Falha ao carregar contexto do projeto %s para o Planner", project_id)
+        return {}
+
+
 def search_parties(query: str, kind: str = "cliente", limit: int = 10) -> list[dict]:
     term = text(query)
     recent = len(term) < 2
@@ -323,7 +355,8 @@ def seed_parties(payload: dict) -> dict:
     if not cliente:
         raise ValueError("Informe o anunciante.")
     brand = brand_for_client(cliente_id) if cliente_id else {}
-    contexto_parts = [text(brand.get("brand_summary")), *as_list(brand.get("campaign_opportunities"))]
+    project = workspace_project_context(payload.get("workspace_project_id"))
+    contexto_parts = [text(project.get("descricao")), text(project.get("instrucoes")), text(project.get("posicionamento")), text(brand.get("brand_summary")), *as_list(brand.get("campaign_opportunities")), *as_list(project.get("sources"))]
     return {
         "cliente": cliente,
         "agencia": agencia,
@@ -331,10 +364,12 @@ def seed_parties(payload: dict) -> dict:
         "agencia_id": agencia_id,
         "cx_client_id": brand.get("id"),
         "brand": brand,
-        "publico": text(brand.get("target_audience")),
+        "publico": text(project.get("publico") or brand.get("target_audience")),
         "contexto": " ".join(part for part in contexto_parts if part),
         "canais": as_list(brand.get("canais")),
         "anunciante_confidencial": as_bool(payload.get("anunciante_confidencial")),
+        "workspace_project_id": project.get("id"),
+        "workspace_project_name": text(project.get("nome")),
     }
 
 

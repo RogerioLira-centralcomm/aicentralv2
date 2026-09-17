@@ -204,6 +204,7 @@
   // e revisa o briefing antes de qualquer geração.
   var workspaceClientId = root.dataset.seedClientId || "";
   var workspaceClientName = root.dataset.seedClientName || "";
+  var workspaceProjectId = root.dataset.seedProjectId || "";
   if (workspaceClientId && workspaceClientName) {
     selectParty("cliente", workspaceClientId, workspaceClientName);
   }
@@ -231,6 +232,7 @@
             cliente_id: state.cliente_id,
             agencia: agencia,
             agencia_id: state.agencia_id,
+            workspace_project_id: workspaceProjectId || null,
             anunciante_confidencial: Boolean(document.getElementById("sp-start-confidential") && document.getElementById("sp-start-confidential").checked),
           }),
         });

@@ -31,6 +31,23 @@
   document.querySelectorAll('[data-brand-link-open]').forEach((button) => button.addEventListener('click', () => linkDialog?.showModal()));
   linkDialog?.querySelectorAll('[data-brand-link-close]').forEach((button) => button.addEventListener('click', () => linkDialog.close()));
   linkDialog?.addEventListener('click', (event) => { if (event.target === linkDialog) linkDialog.close(); });
+  const projectPicker = document.querySelector('[data-brand-project-picker]');
+  const projectActions = [...document.querySelectorAll('[data-brand-project-action]')];
+  const syncProjectActions = () => {
+    const projectId = projectPicker?.value || '';
+    projectActions.forEach((action) => {
+      const url = new URL(action.href, window.location.origin);
+      if (projectId) url.searchParams.set('project_id', projectId);
+      else url.searchParams.delete('project_id');
+      if (action.dataset.brandProjectAction === 'conversation') {
+        if (projectId) url.searchParams.set('project', `ci:${projectId}`);
+        else url.searchParams.delete('project');
+      }
+      action.href = url.toString();
+    });
+  };
+  projectPicker?.addEventListener('change', syncProjectActions);
+  syncProjectActions();
   const sectionLinks = [...document.querySelectorAll('.workspace-brand-section-nav a')];
   const sections = sectionLinks.map((link) => document.querySelector(link.hash)).filter(Boolean);
   const setActiveSection = (id) => sectionLinks.forEach((link) => {

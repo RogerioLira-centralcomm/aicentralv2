@@ -79,24 +79,6 @@
     url.searchParams.set('prompt', button.dataset.prompt || 'Ajude a estruturar este projeto.');
     window.location.assign(url);
   }));
-  const balanceTarget = document.querySelector('.workspace-project-knowledge-summary');
-  if (balanceTarget) {
-    if (!document.getElementById('workspace-token-balance-style')) {
-      const style = document.createElement('style'); style.id = 'workspace-token-balance-style';
-      style.textContent = '.workspace-token-balance{display:grid;grid-template-columns:1fr auto;gap:5px 14px;margin:12px 0 0;padding:11px 12px;border:1px solid #c9e4da;border-radius:10px;background:linear-gradient(100deg,#edf9f4,#fff);color:#244b41}.workspace-token-balance>span{grid-column:1/-1;color:#287160;font-size:10px;font-weight:750}.workspace-token-balance strong{font-size:18px;letter-spacing:-.04em}.workspace-token-balance strong small{font-size:10px;font-weight:650;letter-spacing:0}.workspace-token-balance p{grid-column:1/-1;margin:0;color:#5b7069;font-size:10px;line-height:1.4}.workspace-token-balance a{grid-column:2;grid-row:2;align-self:end;color:#176b5e;font-size:10px;font-weight:700;text-decoration:none}.workspace-token-balance a:hover{text-decoration:underline}';
-      document.head.append(style);
-    }
-    fetch('/workspace/api/creditos/resumo', {headers: {'Accept': 'application/json'}, cache: 'no-store'})
-      .then(response => response.ok ? response.json() : null)
-      .then(credit => {
-        if (!credit?.configured) return;
-        const card = document.createElement('aside');
-        card.className = 'workspace-token-balance';
-        const available = Number(credit.available || 0).toLocaleString('pt-BR');
-        card.innerHTML = `<span>Saldo compartilhado</span><strong>${available} <small>tokens disponíveis</small></strong><p>Indexar ou reprocessar fontes desconta tokens conforme o texto processado.</p><a href="/uso">Ver consumo e histórico</a>`;
-        balanceTarget.append(card);
-      }).catch(() => {});
-  }
   let form = document.querySelector('[data-project-brand-import]');
   const progress = document.querySelector('[data-project-brand-progress]');
   if (!form || !progress) return;

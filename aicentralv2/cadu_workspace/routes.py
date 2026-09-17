@@ -355,7 +355,7 @@ def _workspace_brands(client_id: int, query: str = "") -> list[dict]:
     try:
         with get_db().cursor() as cursor:
             cursor.execute(
-                """SELECT c.id, c.name, c.sector, c.tone_of_voice, c.website_url, c.primary_color,
+                """SELECT c.id, c.crm_client_id, c.name, c.sector, c.tone_of_voice, c.website_url, c.primary_color,
                           c.secondary_color, c.logo_url, c.logo_upload_path, c.brand_profile,
                           c.analysis_metadata, c.created_at AS updated_at,
                           COUNT(a.id) FILTER (WHERE a.status = 'approved') AS asset_count,

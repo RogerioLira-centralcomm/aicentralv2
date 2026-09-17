@@ -199,6 +199,15 @@
     });
   });
 
+  // A marca pode iniciar o Planner pelo Workspace. Nesse caso o anunciante
+  // já chega identificado, mas a pessoa ainda escolhe livremente o formato
+  // e revisa o briefing antes de qualquer geração.
+  var workspaceClientId = root.dataset.seedClientId || "";
+  var workspaceClientName = root.dataset.seedClientName || "";
+  if (workspaceClientId && workspaceClientName) {
+    selectParty("cliente", workspaceClientId, workspaceClientName);
+  }
+
   document.querySelectorAll(".js-sp-start").forEach(function (button) {
     button.addEventListener("click", async function () {
       var cliente = (partyInput("cliente") && partyInput("cliente").value.trim()) || state.cliente;

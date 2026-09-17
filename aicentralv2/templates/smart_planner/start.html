@@ -10,7 +10,7 @@
 {% block content %}
 {% set product_step = "Novo planejamento" %}
 {% include "smart_planner/_product_bar.html" %}
-<div class="sp-desk" id="sp-start">
+<div class="sp-desk" id="sp-start" data-seed-client-id="{{ request.args.get('cliente_id', '') }}" data-seed-client-name="{{ request.args.get('cliente_name', '') }}">
   <header class="sp-head">
     <div>
       <h1>Quem é o anunciante?</h1>

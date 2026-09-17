@@ -227,6 +227,7 @@
         await api('context', 'POST', activeContext);
       }
       renderContext();
+      if (pageMode && projectRef) await openWorkMemoryForProject();
     } catch (_) {
       projectSelect.replaceChildren(new Option('Projetos indisponíveis', ''));
       if (contextNote) contextNote.textContent = 'O contexto será disponibilizado quando a conexão do Workspace estiver ativa.';
@@ -250,7 +251,15 @@
     activeContext = {...activeContext, project_ref: projectSelect.value, brand_ref: brandRef};
     renderContext(activeContext);
     saveContext();
+    void openWorkMemoryForProject();
   });
+  async function openWorkMemoryForProject() {
+    const projectRef = conversationId ? boundProjectRef : (activeContext?.project_ref || projectSelect?.value || '');
+    if (!projectRef || !workMemoryPanel) return;
+    workMemoryPanel.hidden = false;
+    workMemoryToggle?.setAttribute('aria-expanded', 'true');
+    await loadWorkMemory();
+  }
   async function loadWorkMemory() {
     const projectRef = conversationId ? boundProjectRef : (activeContext?.project_ref || projectSelect?.value || '');
     if (!projectRef || !workMemoryContent) return;
@@ -596,14 +605,6 @@
       suggestions.append(button);
     });
     empty.append(heading, description, suggestions);
-    if (projectName) {
-      const pricing = document.createElement('section'); pricing.className = 'conversation-research-pricing';
-      const title = document.createElement('strong'); title.textContent = 'Consultas com pesquisa externa';
-      const note = document.createElement('span'); note.textContent = 'O saldo é debitado pelo uso efetivo do provedor; estes valores são estimativas para decidir antes de iniciar.';
-      const table = document.createElement('table');
-      table.innerHTML = '<thead><tr><th>Consulta</th><th>Fonte</th><th>Estimativa</th></tr></thead><tbody><tr><td>Atualização de mercado</td><td>Perplexity via OpenRouter</td><td>≈ 900 créditos</td></tr><tr><td>Pesquisa aprofundada</td><td>Perplexity via OpenRouter</td><td>≈ 4.200 créditos</td></tr></tbody>';
-      pricing.append(title, note, table); empty.append(pricing);
-    }
     history.append(empty);
   }
   function addCatalogCard(data) {

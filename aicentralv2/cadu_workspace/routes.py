@@ -619,15 +619,27 @@ def _brand_analysis_proposal(analysis: dict) -> dict:
 
 def _ensure_brand_audit_credit(client_id: int) -> None:
     """Avoid starting a paid provider workflow when the client has no balance."""
-    try:
-        # Brand audits are a Workspace entry point, but their balance must be
-        # read through the same connector used when the provider is charged.
-        # Reading the ledger here directly had left this flow outside the
-        # shared credit contract.
-        available = CaduCreditConnector().balance(client_id)
-    except Exception:
-        current_app.logger.exception('Não foi possível consultar créditos para auditoria de marca')
-        abort(503, description='Não foi possível consultar os créditos da organização agora.')
+    # This is a read-only preflight. A request can occasionally inherit a
+    # connection interrupted between page load and submission, so clear that
+    # request transaction and retry once before preventing the whole import.
+    # The paid job still uses the same ledger authorization when it runs.
+    for attempt in range(2):
+        try:
+            # Brand audits are a Workspace entry point, but their balance must
+            # be read through the same connector used when the provider is
+            # charged. Reading the ledger here directly had left this flow
+            # outside the shared credit contract.
+            available = CaduCreditConnector().balance(client_id)
+            break
+        except Exception:
+            if attempt == 1:
+                current_app.logger.exception('Não foi possível consultar créditos para auditoria de marca')
+                abort(503, description='Não foi possível consultar os créditos da organização agora.')
+            current_app.logger.warning('Falha transitória ao consultar créditos para auditoria de marca; tentando novamente.')
+            try:
+                get_db().rollback()
+            except Exception:
+                pass
     if available <= 0:
         abort(409, description='Não há créditos disponíveis para analisar esta marca. Abra Créditos e consumo para verificar ou comprar um novo lote.')
 

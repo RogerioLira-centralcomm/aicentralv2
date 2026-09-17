@@ -93,7 +93,10 @@ class WebScoutFirecrawlTest(unittest.TestCase):
         )
         self.assertEqual(
             scout._urls_candidatas("https://www.cliente.com.br/sobre"),
-            ["https://www.cliente.com.br", "https://cliente.com.br"],
+            [
+                "https://www.cliente.com.br/sobre",
+                "https://cliente.com.br/sobre",
+            ],
         )
 
     @patch.object(scout, "_firecrawl_scrape")

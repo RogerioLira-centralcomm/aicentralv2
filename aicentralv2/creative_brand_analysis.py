@@ -473,6 +473,13 @@ def _compact_web_evidence(url):
         )
     except RuntimeError as exc:
         return {"source_url": url, "firecrawl_warning": str(exc)[:300]}, None
+    website_error = _website_response_error(raw)
+    if website_error:
+        return {
+            "source_url": effective_url,
+            "website_error": website_error,
+            "pages": [],
+        }, None
     pages = [(effective_url, raw)]
     page_urls = _relevant_pages(raw.get("links") or [], effective_url, domain)
     if page_urls:
@@ -544,6 +551,47 @@ def _compact_web_evidence(url):
             if branding.get(key) not in (None, "", [], {})
         },
     }, record
+
+
+def _website_response_error(raw):
+    """Identifica uma página de erro antes de entregá-la ao modelo.
+
+    O Firecrawl responde com sucesso para a sua própria requisição mesmo quando
+    o site de origem devolve uma página 404. Sem este controle, o LLM passa a
+    tratar a página de erro como evidência sobre a marca.
+    """
+    if not isinstance(raw, dict):
+        return "Resposta inválida ao consultar o site."
+    metadata = raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {}
+    status = None
+    for container in (raw, metadata):
+        for key in ("statusCode", "status_code", "httpStatus", "http_status"):
+            value = container.get(key)
+            try:
+                status = int(value)
+            except (TypeError, ValueError):
+                continue
+            break
+        if status is not None:
+            break
+    if status is not None and status >= 400:
+        return f"O site respondeu HTTP {status}."
+
+    title = str(metadata.get("title") or raw.get("title") or "")
+    markdown = str(raw.get("markdown") or "")
+    error_markers = (
+        "404",
+        "page not found",
+        "not found",
+        "página não encontrada",
+        "pagina nao encontrada",
+    )
+    preview = f"{title} {markdown[:1200]}".lower()
+    # Sem status HTTP, só bloqueamos a assinatura textual quando a página é
+    # curta: assim uma menção editorial a "404" não invalida um site legítimo.
+    if len(markdown.strip()) < 1600 and any(marker in preview for marker in error_markers):
+        return "O site retornou uma página de erro (404)."
+    return None
 
 
 def _text(value, limit):
@@ -895,6 +943,16 @@ class CreativeBrandAnalyzer:
             raise ValueError("Informe o site ou envie uma imagem de referência.")
 
         evidence, web_record = _compact_web_evidence(normalized_url)
+        if normalized_url and evidence.get("website_error"):
+            raise ValueError(
+                "Não foi possível analisar o site informado: "
+                f"{evidence['website_error']} Verifique a URL e tente novamente."
+            )
+        if normalized_url and evidence.get("firecrawl_warning"):
+            raise ValueError(
+                "Não foi possível confirmar o conteúdo do site informado. "
+                "Tente novamente antes de gerar a análise."
+            )
         content = [
             {
                 "type": "text",

@@ -149,13 +149,21 @@ def _host_original(raw: Optional[str]) -> str:
 
 
 def _urls_candidatas(raw: Optional[str]) -> list[str]:
-    """Retorna apex/www em ordem, priorizando a forma informada."""
+    """Retorna variantes apex/www sem descartar caminho ou query da URL."""
     apex = _normalizar_dominio(raw)
     if not apex:
         return []
     original = _host_original(raw)
     hosts = [f"www.{apex}", apex] if original.startswith("www.") else [apex, f"www.{apex}"]
-    return [f"https://{host}" for host in dict.fromkeys(hosts)]
+    # Uma URL de marca pode apontar para uma landing page, e não para a raiz.
+    # Preservar esse sufixo evita transformar uma página válida em um 404.
+    try:
+        value = str(raw or "").strip()
+        parsed = urlparse(value if "://" in value else f"//{value}")
+        suffix = parsed._replace(scheme="", netloc="", fragment="").geturl()
+    except (TypeError, ValueError):
+        suffix = ""
+    return [f"https://{host}{suffix}" for host in dict.fromkeys(hosts)]
 
 
 _DNS_ERROR_HINTS = (

@@ -807,6 +807,25 @@ class CreativeBrandAnalyzerTest(unittest.TestCase):
         "aicentralv2.creative_brand_analysis._compact_web_evidence",
         return_value=(
             {
+                "source_url": "https://marca.com.br/home",
+                "website_error": "O site respondeu HTTP 404.",
+                "pages": [],
+            },
+            None,
+        ),
+    )
+    def test_nao_envia_pagina_404_para_modelo(self, _evidence):
+        llm = Mock()
+
+        with self.assertRaisesRegex(ValueError, "HTTP 404"):
+            CreativeBrandAnalyzer(llm=llm).analyze("https://marca.com.br/home")
+
+        llm.assert_not_called()
+
+    @patch(
+        "aicentralv2.creative_brand_analysis._compact_web_evidence",
+        return_value=(
+            {
                 "source_url": "https://marca.com.br",
                 "screenshot": "https://cdn.marca.com/screenshot.png",
                 "asset_candidates": [],

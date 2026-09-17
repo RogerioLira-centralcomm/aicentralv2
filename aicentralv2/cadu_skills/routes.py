@@ -12,7 +12,7 @@ from ..auth import admin_required, admin_required_api, login_required, login_req
 from ..services.openrouter_service import OpenRouterError
 from .catalog import (
     CADU_GOLD, CADU_MEDIA_PLANNING, CADU_OFFICIAL_SKILLS, CATALOG_SKILLS,
-    DEFERRED_SKILLS, DIRECTORY_SKILLS, TOP_SKILLS,
+    DEFERRED_SKILLS, DIRECTORY_SKILLS, MARKET_SKILLS, TOP_SKILLS,
 )
 from .agents import CADU_AGENTS
 from .consultations import consultation_state
@@ -113,7 +113,7 @@ def _catalog_row(skill, collection):
         item["creator"] = directory_record["creator"]
         item["installs"] = directory_record["installs"]
         item["metrics_source"] = directory_record["metrics_source"]
-    else:
+    elif not item.get("creator"):
         item["creator"] = "Cadu / CentralX"
     return item
 
@@ -241,8 +241,8 @@ def marketplace():
     # skills.sh orders this source by installs. The three catalogue sections
     # are deliberately exclusive: five Cadu methods, ten market references,
     # then the remaining ninety source skills.
-    market = DIRECTORY_SKILLS[:10]
-    directory = DIRECTORY_SKILLS[10:]
+    market = MARKET_SKILLS
+    directory = DIRECTORY_SKILLS
     market_rows = [_catalog_row(item, "market") for item in market]
     directory_rows = [_catalog_row(item, "directory") for item in directory]
     catalog_rows = [_catalog_row(item, "official") for item in official] + market_rows + directory_rows + [_catalog_row(item, "owned") for item in owned]
@@ -256,6 +256,7 @@ def marketplace():
         official_skills=official, cadu_skills=owned, skills=directory,
         market_rows=market_rows, directory_rows=directory_rows,
         catalog_rows=catalog_rows, category_counts=sorted(category_counts.items()),
+        skill_catalog_categories=sorted(category_counts.items()),
         featured=market[0] if market else CADU_MEDIA_PLANNING,
         personalized_skills=personalized_skills,
     )

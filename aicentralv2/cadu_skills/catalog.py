@@ -170,6 +170,40 @@ CADU_OFFICIAL_SPECS = (
 
 CADU_OFFICIAL_SKILLS = (CADU_GOLD, CADU_MEDIA_PLANNING, *CADU_OFFICIAL_SPECS)
 
+# Avatares 3D próprios da família CentralComm. Cada skill tem uma presença
+# reconhecível no catálogo, sem reaproveitar a arte genérica do produto.
+_OFFICIAL_AVATARS = {
+    "cadu-gold": "/static/images/cadu/skills/avatars/cadu-gold-3d.png",
+    "cadu-media-planning": "/static/images/cadu/skills/avatars/media-planning-3d.png",
+    "cadu-channel-intelligence": "/static/images/cadu/skills/avatars/channel-intelligence-3d.png",
+    "cadu-audience-intelligence": "/static/images/cadu/skills/avatars/audience-intelligence-3d.png",
+    "cadu-format-intelligence": "/static/images/cadu/skills/avatars/format-intelligence-3d.png",
+}
+for _official_skill in CADU_OFFICIAL_SKILLS:
+    _official_skill["avatar_url"] = _OFFICIAL_AVATARS[_official_skill["slug"]]
+
+# Referências exibidas separadamente da base legada. O snapshot foi conferido
+# na página pública da skills.sh em 17/09/2026; não é um "Top 10" inventado
+# de um único repositório. A ordem é a de destaque publicada pela fonte.
+SKILLS_SH_HIGHLIGHTS = (
+    ("grill-me", "grill-me", "mattpocock/skills", "1,2 mi", "https://www.skills.sh/mattpocock/skills/grill-me"),
+    ("frontend-design", "frontend-design", "anthropics/skills", "895 mil", "https://www.skills.sh/anthropics/skills/frontend-design"),
+    ("agent-browser", "agent-browser", "vercel-labs/agent-browser", "872,3 mil", "https://www.skills.sh/vercel-labs/agent-browser/agent-browser"),
+    ("setup-matt-pocock-skills", "setup-matt-pocock-skills", "mattpocock/skills", "847,1 mil", "https://www.skills.sh/mattpocock/skills/setup-matt-pocock-skills"),
+    ("grilling", "grilling", "mattpocock/skills", "718,2 mil", "https://www.skills.sh/mattpocock/skills/grilling"),
+    ("lark-doc", "lark-doc", "open.feishu.cn", "702,8 mil", "https://www.skills.sh/site/open.feishu.cn/lark-doc"),
+    ("teach", "teach", "mattpocock/skills", "667,2 mil", "https://www.skills.sh/mattpocock/skills/teach"),
+    ("lark-markdown", "lark-markdown", "open.feishu.cn", "666,8 mil", "https://www.skills.sh/site/open.feishu.cn/lark-markdown"),
+    ("lark-vc-agent", "lark-vc-agent", "open.feishu.cn", "644,9 mil", "https://www.skills.sh/site/open.feishu.cn/lark-vc-agent"),
+    ("codebase-design", "codebase-design", "mattpocock/skills", "629,1 mil", "https://www.skills.sh/mattpocock/skills/codebase-design"),
+)
+
+MARKET_SKILLS = tuple({
+    "slug": slug, "name": name, "creator": creator, "installs_display": installs,
+    "installs": installs, "source_url": source_url, "metrics_source": "skills.sh",
+    "category": "Referência de mercado", "summary": "Skill publicada e destacada na skills.sh.",
+} for slug, name, creator, installs, source_url in SKILLS_SH_HIGHLIGHTS)
+
 DIRECTORY_ROWS = """
 short-video-production|Produção de vídeos curtos|Vídeo e áudio
 copywriting-skills|Copywriting para campanhas|Conteúdo

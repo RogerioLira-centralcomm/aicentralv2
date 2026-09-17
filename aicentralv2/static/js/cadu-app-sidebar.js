@@ -9,6 +9,8 @@
   const main = document.querySelector('.workspace-app-main,.reports-app-main,.connect-entry,.cadu-app-shell>main,.family-layout--sidebar>main') || document.querySelector('main#content');
   const obscuredWhileOpen = [main, document.querySelector('.portal-skip'), document.querySelector('.cadu-conversation-launcher'), document.querySelector('.cadu-family-footer')].filter(Boolean);
   let lastTrigger = null;
+  let sidebarTransitionTimer = null;
+  let sidebarStateInitialized = false;
   if (drawer) {
     drawer.id ||= 'cadu-app-sidebar';
     mobileToggles.forEach(button => { button.setAttribute('aria-controls', drawer.id); button.setAttribute('aria-expanded', 'false'); });
@@ -33,11 +35,23 @@
     else if (lastTrigger) { lastTrigger.focus(); lastTrigger = null; }
   };
   const setState = collapsed => {
-    root.dataset.caduSidebar = collapsed && desktop() ? 'collapsed' : 'expanded';
+    const nextState = collapsed && desktop() ? 'collapsed' : 'expanded';
+    const stateChanged = sidebarStateInitialized && root.dataset.caduSidebar !== nextState;
+    if (stateChanged) {
+      root.dataset.caduSidebarTransition = nextState === 'expanded' ? 'opening' : 'closing';
+      window.clearTimeout(sidebarTransitionTimer);
+    }
+    root.dataset.caduSidebar = nextState;
     document.querySelectorAll('[data-cadu-sidebar-toggle]').forEach(button => {
       button.setAttribute('aria-expanded', String(!collapsed));
       button.setAttribute('aria-label', collapsed ? 'Expandir navegação' : 'Recolher navegação');
     });
+    sidebarStateInitialized = true;
+    if (stateChanged) {
+      const finishTransition = () => { delete root.dataset.caduSidebarTransition; };
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) finishTransition();
+      else sidebarTransitionTimer = window.setTimeout(finishTransition, 190);
+    }
   };
   try { setState(conversationFocus || localStorage.getItem(key) === 'collapsed'); } catch (_) { setState(conversationFocus); }
   setDrawer(false);

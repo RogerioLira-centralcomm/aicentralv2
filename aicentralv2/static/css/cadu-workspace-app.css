@@ -7,7 +7,7 @@
 /* Workspace shell v2 — piloto do sistema de aplicação Cadu. */
 .portal--workspace{--workspace-accent:#087765;--workspace-accent-soft:#e9f5f1;background:var(--cadu-canvas);color:var(--cadu-shell-ink)}
 .portal--workspace main#content{background:var(--cadu-canvas)}
-.portal--workspace .workspace-app-shell{grid-template-columns:276px minmax(0,1fr);gap:0;min-height:100dvh;background:var(--cadu-canvas)}
+.portal--workspace .workspace-app-shell{grid-template-columns:276px minmax(0,1fr);gap:0;min-height:100dvh;background:var(--cadu-canvas);transition:grid-template-columns 190ms cubic-bezier(.2,.8,.2,1)}
 .portal--workspace .workspace-app-sidebar{position:sticky;top:12px;align-self:start;width:auto;min-height:calc(100dvh - 24px);height:calc(100dvh - 24px);margin:12px 0 12px 12px;padding:14px 12px 12px;background:var(--cadu-surface);border:0!important;border-radius:var(--cadu-radius-panel);box-shadow:var(--cadu-shadow-shell)!important;overflow:visible}
 .portal--workspace .workspace-app-family{margin:0;padding:0 2px 12px;border:0}
 .portal--workspace .workspace-app-family .cadu-product-switch{min-width:0;flex:1}
@@ -49,6 +49,7 @@ html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-sidebar-footer
 html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-app-user>summary{display:grid;grid-template-columns:1fr;justify-items:center;padding:6px}
 html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-sidebar-avatar{display:grid!important;opacity:1!important;pointer-events:auto!important;width:34px!important;min-width:34px!important;margin:0!important;overflow:hidden!important}
 html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-sidebar-identity,html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-sidebar-chevron{display:none}
+html[data-cadu-sidebar-transition="opening"] .portal--workspace .workspace-app-sidebar :is(.workspace-nav-text,.workspace-sidebar-identity,.workspace-sidebar-chevron,.cadu-credit-meter__copy,.cadu-credit-meter__track){visibility:hidden;opacity:0;pointer-events:none}
 html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-app-user>div{left:52px;right:auto;bottom:0}
 html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-app-user[open]>div a,html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-app-user[open]>div .cadu-theme-toggle{display:flex!important;opacity:1!important;pointer-events:auto!important;width:100%!important;min-width:0!important;overflow:visible!important;padding:9px 10px!important;margin:0!important;white-space:normal!important}
 @media(max-width:820px){.portal--workspace .workspace-app-shell{display:block}.portal--workspace .workspace-app-sidebar{position:fixed!important;inset:0 auto 0 0!important;width:min(336px,calc(100vw - 28px))!important;height:100dvh;min-height:100dvh!important;margin:0;padding:14px 14px max(14px,env(safe-area-inset-bottom))!important;border-radius:0 22px 22px 0;overflow-y:auto}.portal--workspace .workspace-app-main{padding:76px 18px 64px!important}.portal--workspace .workspace-page-head{align-items:start;flex-direction:column;margin-bottom:24px;padding-bottom:20px}.portal--workspace .workspace-app-sidebar>nav{display:grid!important}.portal--workspace .workspace-sidebar-label,.portal--workspace .workspace-sidebar-balance{display:block!important}.portal--workspace .workspace-app-user>summary{grid-template-columns:34px minmax(0,1fr) 18px}.portal--workspace .workspace-sidebar-identity,.portal--workspace .workspace-sidebar-chevron{display:grid!important}.portal--workspace .workspace-app-user>div{position:static;width:100%;margin-top:8px;box-shadow:0 12px 34px rgba(16,24,40,.1)}}
@@ -131,11 +132,13 @@ html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-app-family .ca
   min-width:44px;
   height:44px;
   min-height:44px;
+  margin-inline:auto;
   padding:0;
+  box-sizing:border-box;
 }
 
 /* Gestão fica próxima ao uso e à conta; a navegação de trabalho permanece livre no topo. */
-.portal--workspace .workspace-sidebar-footer{gap:6px;padding-top:10px;border-top:1px solid var(--cadu-line)}
+.portal--workspace .workspace-sidebar-footer{gap:6px;padding-top:0;border-top:0}
 .portal--workspace .workspace-sidebar-management{display:grid;gap:1px}
 .portal--workspace .workspace-sidebar-management a{display:flex;align-items:center;gap:10px;min-height:31px;padding:6px 10px;border-radius:8px;color:var(--cadu-shell-muted);font-size:12px;font-weight:500;text-decoration:none}
 .portal--workspace .workspace-sidebar-management a:hover{background:var(--cadu-surface-soft);color:var(--cadu-shell-ink)}

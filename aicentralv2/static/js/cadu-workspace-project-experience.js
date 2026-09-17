@@ -77,10 +77,36 @@
   document.querySelectorAll('[data-brand-dropzone]').forEach(zone => {
     const input = zone.querySelector('input[type="file"]');
     const label = zone.querySelector('[data-brand-file-label]');
+    const preview = document.createElement('output');
+    preview.className = `workspace-brand-upload-preview workspace-brand-upload-preview--${zone.dataset.brandDropzone}`;
+    preview.setAttribute('aria-live', 'polite');
+    zone.append(preview);
+    let previewUrls = [];
+    const renderPreview = files => {
+      previewUrls.forEach(url => URL.revokeObjectURL(url));
+      previewUrls = [];
+      preview.replaceChildren();
+      const selected = Array.from(files || []);
+      if (!selected.length) return;
+      selected.slice(0, input?.multiple ? 4 : 1).forEach(file => {
+        const url = URL.createObjectURL(file);
+        previewUrls.push(url);
+        const image = document.createElement('img');
+        image.src = url;
+        image.alt = input?.multiple ? `Prévia de ${file.name}` : `Prévia do logo ${file.name}`;
+        preview.append(image);
+      });
+      if (selected.length > 4 && input?.multiple) {
+        const extra = document.createElement('span');
+        extra.textContent = `+${selected.length - 4}`;
+        preview.append(extra);
+      }
+    };
     const describe = () => {
       const count = input.files?.length || 0;
       if (label) label.textContent = count ? `${count} arquivo${count === 1 ? '' : 's'} selecionado${count === 1 ? '' : 's'}` : 'Opcional';
       zone.classList.toggle('has-files', Boolean(count));
+      renderPreview(input.files);
     };
     input?.addEventListener('change', describe);
     ['dragenter', 'dragover'].forEach(eventName => zone.addEventListener(eventName, event => {
@@ -97,6 +123,7 @@
       files.slice(0, input.multiple ? 8 : 1).forEach(file => transfer.items.add(file));
       input.files = transfer.files; describe();
     });
+    window.addEventListener('beforeunload', () => previewUrls.forEach(url => URL.revokeObjectURL(url)));
   });
   let timer;
   const setProgress = (message, state = '') => {

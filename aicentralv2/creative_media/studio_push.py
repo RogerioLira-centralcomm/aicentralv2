@@ -5,8 +5,9 @@ import json
 import time
 from urllib.parse import urlsplit
 from flask import request,session,send_file,current_app
-from ..creative_format_lab.studio_auth import studio_or_admin_required_api
-from ..creative_format_lab.swap_csrf import trocr_csrf_required
+from .http import studio_http as _http
+from .studio_auth import studio_or_admin_required_api
+from .studio_csrf import studio_csrf_required
 from .studio import _scope,_write
 from .storage import media_root
 
@@ -55,9 +56,8 @@ def service_worker():
 
 
 @studio_or_admin_required_api
-@trocr_csrf_required
+@studio_csrf_required
 def subscription():
-    from ..creative_format_lab.swap_routes import _http
     execute,body,ok,_=_http()
     def run():
         data=request.args if request.method=='GET' else body();root=_scope(data.get('client_id'));user=session.get('user_id')

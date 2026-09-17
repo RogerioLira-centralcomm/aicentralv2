@@ -15,10 +15,11 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import urlparse
 
-from flask import current_app, request, session, send_file
+from flask import current_app, jsonify, request, session, send_file
 
-from ..creative_format_lab.studio_auth import studio_or_admin_required_api
-from ..creative_format_lab.swap_csrf import trocr_csrf_required
+from .http import studio_http as _http
+from .studio_auth import studio_or_admin_required_api
+from .studio_csrf import studio_csrf_required
 from .storage import media_root
 from .transcode import ffmpeg_available
 
@@ -126,6 +127,7 @@ def register_studio_routes(blueprint):
     blueprint.add_url_rule('/api/format-lab/studio/create/directions', view_func=studio_create_directions, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/agent/narration', view_func=studio_agent_narration, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/projects', view_func=studio_projects, methods=['GET', 'POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/project-contexts', view_func=studio_project_contexts, methods=['GET'])
     blueprint.add_url_rule('/api/format-lab/studio/projects/<ident>', view_func=studio_project, methods=['GET', 'POST'])
     blueprint.add_url_rule('/api/format-lab/studio/projects/<ident>/creation-history', view_func=studio_project_creation_history, methods=['GET'])
     blueprint.add_url_rule('/api/format-lab/studio/projects/<ident>/directions/<direction_id>/select', view_func=studio_project_select_direction, methods=['POST'])
@@ -139,9 +141,8 @@ def register_studio_routes(blueprint):
 
 
 @studio_or_admin_required_api
-@trocr_csrf_required
+@studio_csrf_required
 def studio_agent_plan():
-    from ..creative_format_lab.swap_routes import _http
     from ..services.openrouter_service import chat_completion
     from .studio_agent import plan_request
     execute, json_body, ok, _ = _http()
@@ -153,9 +154,8 @@ def studio_agent_plan():
 
 
 @studio_or_admin_required_api
-@trocr_csrf_required
+@studio_csrf_required
 def studio_create_directions():
-    from ..creative_format_lab.swap_routes import _http
     from ..services.openrouter_service import chat_completion
     from . import studio_create
     execute, json_body, ok, _ = _http()
@@ -202,9 +202,8 @@ def studio_create_directions():
 
 
 @studio_or_admin_required_api
-@trocr_csrf_required
+@studio_csrf_required
 def studio_agent_narration():
-    from ..creative_format_lab.swap_routes import _http
     from ..services.openrouter_service import chat_completion
     from .studio_agent import suggest_narration
     execute, json_body, ok, _ = _http()
@@ -216,9 +215,8 @@ def studio_agent_narration():
 
 
 @studio_or_admin_required_api
-@trocr_csrf_required
+@studio_csrf_required
 def studio_projects():
-    from ..creative_format_lab.swap_routes import _http
     from . import studio_projects as repository
     execute, json_body, ok, _ = _http()
     def run():
@@ -237,10 +235,33 @@ def studio_projects():
 
 
 @studio_or_admin_required_api
-@trocr_csrf_required
+def studio_project_contexts():
+    """Expose Studio's project-to-brand contexts from the shared database."""
+    from .project_contexts import linked_project_contexts
+    try:
+        account_id = int(session.get('cliente_id') or 0)
+    except (TypeError, ValueError):
+        account_id = 0
+    if not account_id:
+        return jsonify({'success': False, 'error': 'Não foi possível identificar a sua conta.'}), 400
+    items = [
+        {
+            'id': str(project['id']),
+            'name': str(project.get('nome') or 'Projeto sem nome'),
+            'brief': str(project.get('descricao') or project.get('instrucoes') or ''),
+            'client_id': str(project['client_id']),
+            'brand_name': str(project.get('brand_name') or 'Marca vinculada'),
+            'brand_count': int(project.get('brand_count') or 1),
+        }
+        for project in linked_project_contexts(account_id)
+    ]
+    return jsonify({'success': True, 'data': {'items': items}})
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
 def studio_project(ident):
     from flask import jsonify
-    from ..creative_format_lab.swap_routes import _http
     from . import studio_projects as repository
     execute, json_body, ok, _ = _http()
     def run():
@@ -268,7 +289,6 @@ def studio_project(ident):
 
 @studio_or_admin_required_api
 def studio_project_creation_history(ident):
-    from ..creative_format_lab.swap_routes import _http
     execute, _, ok, _ = _http()
     def run():
         try:
@@ -285,9 +305,8 @@ def studio_project_creation_history(ident):
 
 
 @studio_or_admin_required_api
-@trocr_csrf_required
+@studio_csrf_required
 def studio_project_select_direction(ident, direction_id):
-    from ..creative_format_lab.swap_routes import _http
     execute, json_body, ok, _ = _http()
     def run():
         try:
@@ -306,9 +325,8 @@ def studio_project_select_direction(ident, direction_id):
 
 
 @studio_or_admin_required_api
-@trocr_csrf_required
+@studio_csrf_required
 def studio_project_items(ident):
-    from ..creative_format_lab.swap_routes import _http
     execute, json_body, ok, _ = _http()
     def run():
         try:
@@ -391,9 +409,8 @@ def capabilities():
 
 
 @studio_or_admin_required_api
-@trocr_csrf_required
+@studio_csrf_required
 def sounds():
-    from ..creative_format_lab.swap_routes import _http
     execute, _, ok, _ = _http()
     def run():
         client = request.args.get('client_id') if request.method == 'GET' else request.form.get('client_id')
@@ -441,7 +458,6 @@ def sounds():
 
 @studio_or_admin_required_api
 def sound_content(ident):
-    from ..creative_format_lab.swap_routes import _http
     execute, _, _, _ = _http()
     def run():
         root = _scope(request.args.get('client_id'))
@@ -549,9 +565,8 @@ def _render_job(root, ident, source, edit, sound, release_slot=True):
 
 
 @studio_or_admin_required_api
-@trocr_csrf_required
+@studio_csrf_required
 def export_clip():
-    from ..creative_format_lab.swap_routes import _http
     execute, json_body, ok, service = _http()
     def run():
         data = json_body()
@@ -604,7 +619,6 @@ def export_clip():
 
 @studio_or_admin_required_api
 def export_status(ident):
-    from ..creative_format_lab.swap_routes import _http
     execute, _, ok, _ = _http()
     def run():
         _, row = _record(_scope(request.args.get('client_id')), ident, 'export')
@@ -616,7 +630,6 @@ def export_status(ident):
 
 @studio_or_admin_required_api
 def export_content(ident):
-    from ..creative_format_lab.swap_routes import _http
     execute, _, _, _ = _http()
     def run():
         root = _scope(request.args.get('client_id'))

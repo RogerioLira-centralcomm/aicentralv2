@@ -7,8 +7,9 @@ import uuid
 from pathlib import Path
 
 from flask import request, send_file, session
-from ..creative_format_lab.studio_auth import studio_or_admin_required_api
-from ..creative_format_lab.swap_csrf import trocr_csrf_required
+from .http import studio_http as _http
+from .studio_auth import studio_or_admin_required_api
+from .studio_csrf import studio_csrf_required
 from .studio import _api_root, _scope, _record, _write, probe, waveform_levels
 
 
@@ -75,9 +76,8 @@ def register(blueprint):
 
 
 @studio_or_admin_required_api
-@trocr_csrf_required
+@studio_csrf_required
 def clips():
-    from ..creative_format_lab.swap_routes import _http
     execute, _, ok, _ = _http()
     def run():
         client = request.args.get('client_id') if request.method == 'GET' else request.form.get('client_id')
@@ -115,7 +115,6 @@ def clips():
 
 @studio_or_admin_required_api
 def clip_content(ident):
-    from ..creative_format_lab.swap_routes import _http
     execute, _, _, _ = _http()
     def run():
         root = _scope(request.args.get('client_id')); _record(root,ident,'clip')
@@ -124,9 +123,8 @@ def clip_content(ident):
 
 
 @studio_or_admin_required_api
-@trocr_csrf_required
+@studio_csrf_required
 def inspect():
-    from ..creative_format_lab.swap_routes import _http
     execute, body, ok, service = _http()
     def run():
         data=body(); root=_scope(data.get('client_id'))
@@ -137,7 +135,6 @@ def inspect():
 
 @studio_or_admin_required_api
 def frame_content(ident,index):
-    from ..creative_format_lab.swap_routes import _http
     execute, _, _, _ = _http()
     def run():
         root=_scope(request.args.get('client_id')); _record(root,ident,'inspect')
@@ -148,9 +145,8 @@ def frame_content(ident,index):
 
 
 @studio_or_admin_required_api
-@trocr_csrf_required
+@studio_csrf_required
 def extract_audio():
-    from ..creative_format_lab.swap_routes import _http
     execute, body, ok, service = _http()
     def run():
         data=body(); client=data.get('client_id'); root=_scope(client)
@@ -168,9 +164,8 @@ def extract_audio():
 
 
 @studio_or_admin_required_api
-@trocr_csrf_required
+@studio_csrf_required
 def archive_clip():
-    from ..creative_format_lab.swap_routes import _http
     execute, body, ok, _ = _http()
     def run():
         data = body()
@@ -185,7 +180,6 @@ def archive_clip():
 
 @studio_or_admin_required_api
 def job_list():
-    from ..creative_format_lab.swap_routes import _http
     from .public import job_payload
     from .studio import export_public
     from .studio_tasks import public as task_public
@@ -201,9 +195,8 @@ def job_list():
 
 
 @studio_or_admin_required_api
-@trocr_csrf_required
+@studio_csrf_required
 def composition_export():
-    from ..creative_format_lab.swap_routes import _http
     from .studio import _ID, _SLOTS, _POOL, _render_job, export_public
     from .studio_composition import normalize_composition, resolve_inputs
     from .jobs import worker_mode, wake_worker

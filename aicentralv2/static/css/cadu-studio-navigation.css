@@ -110,7 +110,7 @@
 .mc-cadu-bar--studio .mc-cadu-project { display: grid; gap: 3px; min-width: 0; }
 .mc-cadu-bar--studio .mc-cadu-project > span { color: var(--studio-nav-muted); font-size: 9px; line-height: 1; font-weight: 700; }
 .mc-cadu-bar--studio .mc-cadu-project select {
-  width: clamp(132px, 13vw, 180px);
+  width: clamp(210px, 18vw, 300px);
   height: 32px;
   padding: 0 28px 0 10px;
   border: 0;
@@ -119,7 +119,6 @@
   color: var(--studio-nav-text) !important;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .07);
 }
-.mc-cadu-bar--studio .mc-cadu-brand--internal { display:none; }
 .mc-cadu-bar--studio .mc-cadu-brand { display: grid; gap: 3px; }
 .mc-cadu-bar--studio .mc-cadu-brand-label { color: var(--studio-nav-muted); font-size: 9px; line-height: 1; font-weight: 700; }
 .mc-cadu-bar--studio .mc-cadu-brand select {
@@ -214,4 +213,29 @@
 @media (prefers-reduced-motion: reduce) {
   .mc-cadu-bar--studio .mc-cadu-nav > a,
   .mc-cadu-bar--studio .mc-cadu-menu > summary { transition: none; }
+}
+
+/* Studio keeps its product metadata in a compact floating tool bar. */
+.portal--studio > .cadu-family-footer {
+  display: flex;
+  align-items: center;
+  width: min(calc(100% - 32px), 1768px);
+  min-height: 46px;
+  margin: 14px auto 20px;
+  padding: 8px 16px;
+  border: 1px solid #34404a;
+  border-radius: 12px;
+  background: #1d242c;
+  color: #9eabb7;
+  box-shadow: 0 16px 36px rgba(4, 8, 12, .3);
+  font-size: 11px;
+}
+.portal--studio > .cadu-family-footer__brand { color: #edf1f5; font-size: 12px; }
+.portal--studio > .cadu-family-footer nav { display: flex; gap: 14px; margin-left: auto; white-space: nowrap; }
+.portal--studio > .cadu-family-footer nav a { color: #b7c4cc; }
+.portal--studio > .cadu-family-footer a:hover { color: #8fe8d1; }
+
+@media (max-width: 600px) {
+  .portal--studio > .cadu-family-footer { width: calc(100% - 24px); gap: 9px; margin-block: 10px 14px; padding-inline: 12px; overflow-x: auto; white-space: nowrap; }
+  .portal--studio > .cadu-family-footer nav { margin-left: 6px; }
 }

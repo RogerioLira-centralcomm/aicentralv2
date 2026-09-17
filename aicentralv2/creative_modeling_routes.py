@@ -12,7 +12,7 @@ from flask import Blueprint, abort, current_app, jsonify, redirect, render_templ
 from werkzeug.utils import secure_filename
 
 from .auth import admin_required, admin_required_api, login_required, login_required_api
-from .creative_format_lab.swap_csrf import get_or_create_token as trocr_csrf_token
+from .creative_media.studio_csrf import get_or_create_token as studio_csrf_token
 from .creative_format_lab.swap_routes import register_trocr_routes
 from .creative_modeling_generation import OpenRouterError
 from .cadu_tool_billing import InsufficientToolCredits
@@ -351,7 +351,7 @@ def modelagem_desk(page):
         panel=panel,
         mc_studio_js=spec["studio"],
         mc_page_js=page_js,
-        mc_trocr_csrf=trocr_csrf_token() if page in {"criar", "trocar", "video"} else "",
+        mc_trocr_csrf=studio_csrf_token() if page in {"criar", "trocar", "video"} else "",
         mc_workspace_brands=page == 'marcas' and _configured_product_host('workspace') == (request.host.split(':', 1)[0] or '').lower(),
     )
 

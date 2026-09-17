@@ -83,48 +83,10 @@
   font-weight:600;
 }
 .mc-studio-home .studio-layout {
-  display:grid;
-  grid-template-columns:208px minmax(0,1fr);
-}
-.mc-studio-home .studio-nav {
-  display:flex;
-  flex-direction:column;
-  gap:5px;
-  padding:24px 16px;
-  background:#fff;
-  border-right:1px solid var(--studio-line);
-  font-size:13px;
-}
-.mc-studio-home .studio-nav a {
-  padding:11px 12px;
-  border-radius:6px;
-  display:flex;
-  align-items:center;
-  gap:10px;
-  color:#53676b;
-}
-.mc-studio-home .studio-nav a:hover {
-  background:#f0f4f3;
-}
-.mc-studio-home .studio-nav .is-current {
-  background:#eaf2ef;
-  color:var(--studio-primary);
-  font-weight:600;
-}
-.mc-studio-home .studio-nav-label {
-  font-size:12px;
-  color:var(--studio-muted);
-  padding:20px 12px 8px;
-}
-.mc-studio-home .studio-nav summary {
-  padding:12px;
-  cursor:pointer;
-  color:#53676b;
-}
-.mc-studio-home .studio-nav details {
-  margin-top:12px;
-  border-top:1px solid var(--studio-line);
-  padding-top:8px;
+  /* The Studio navigation already lives in the shared top bar.  Keeping a
+     phantom side track here made the only child (`.studio-content`) render
+     inside a 208px column, collapsing the hero and its central stage. */
+  display:block;
 }
 .mc-studio-home .studio-content {
   padding:28px 32px 40px;
@@ -439,9 +401,6 @@
   }
 }
 @media(max-width:1150px) {
-  .mc-studio-home .studio-layout {
-    grid-template-columns:180px minmax(0,1fr);
-  }
   .mc-studio-home .studio-content {
     padding:24px;
   }
@@ -456,22 +415,6 @@
   }
 }
 @media(max-width:800px) {
-  .mc-studio-home .studio-layout {
-    display:block;
-  }
-  .mc-studio-home .studio-nav {
-    display:grid;
-    grid-template-columns:repeat(2,minmax(0,1fr));
-    border-right:0;
-    border-bottom:1px solid var(--studio-line);
-    padding:12px;
-  }
-  .mc-studio-home .studio-nav-label {
-    display:none;
-  }
-  .mc-studio-home .studio-nav details {
-    margin:0;
-  }
   .mc-studio-home .mc-cadu-bar {
     flex-wrap:wrap;
     padding:20px;

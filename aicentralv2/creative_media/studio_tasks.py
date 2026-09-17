@@ -6,8 +6,9 @@ import uuid
 import subprocess
 from pathlib import Path
 from flask import request, session, current_app
-from ..creative_format_lab.studio_auth import studio_or_admin_required_api
-from ..creative_format_lab.swap_csrf import trocr_csrf_required
+from .http import studio_http as _http
+from .studio_auth import studio_or_admin_required_api
+from .studio_csrf import studio_csrf_required
 from .studio import _scope, _record, _write, probe, waveform_levels
 
 
@@ -21,9 +22,8 @@ def register(bp):
 
 
 @studio_or_admin_required_api
-@trocr_csrf_required
+@studio_csrf_required
 def submit():
-    from ..creative_format_lab.swap_routes import _http
     from .studio_media import resolve_clip
     from .studio_composition import normalize_composition, resolve_inputs
     from .jobs import wake_worker, worker_mode
@@ -72,7 +72,6 @@ def submit():
 
 @studio_or_admin_required_api
 def status(ident):
-    from ..creative_format_lab.swap_routes import _http
     execute,_,ok,_=_http()
     def run():
         _,row=_record(_scope(request.args.get('client_id')),ident,'task')

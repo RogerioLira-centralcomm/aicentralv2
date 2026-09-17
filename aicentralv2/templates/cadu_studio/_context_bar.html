@@ -10,8 +10,8 @@
     <a href="{{ studio_url('modelagem_criativos') }}#studioLibrary"{% if mc_page == 'hub' %} class="is-current" aria-current="page"{% endif %}>Biblioteca</a>
   </nav>
   <div class="mc-cadu-meta">
-    <label class="mc-cadu-project" for="mcCaduProject"><span>Projeto</span><select id="mcCaduProject" aria-label="Projeto ativo" disabled><option value="">Carregando projetos…</option></select></label>
-    <label class="mc-cadu-brand mc-cadu-brand--internal" for="mcCaduBarClient"><span class="mc-cadu-brand-label">Marca ativa</span><select id="mcCaduBarClient" aria-label="Marca ativa" tabindex="-1"><option value="">Carregando marcas…</option></select></label>
+    <label class="mc-cadu-project" for="mcCaduProject"><span>Projeto e marca</span><select id="mcCaduProject" aria-label="Projeto ativo" disabled><option value="">Carregando projetos…</option></select></label>
+    <select id="mcCaduBarClient" aria-hidden="true" tabindex="-1" hidden><option value="">Contexto derivado do projeto</option></select>
     {% set credit_meter_class = 'mc-cadu-credits' %}{% set credit_meter_href = product_url('workspace', '/workspace/app/creditos') %}{% include 'cadu/_credit_meter.html' %}
     <details class="mc-studio-user">
       <summary aria-label="Abrir conta de {{ session.get('user_name', 'usuário') }}"><span class="mc-studio-account">{% set avatar_photo=(perfil_contato or {}).get('foto_url') or session.get('user_photo_url') %}{% set avatar_badge=(perfil_contato or {}).get('cadu_avatar_badge') %}{% set avatar_alt='Foto de ' ~ session.get('user_name', 'usuário') %}{% include 'cadu/_user_avatar_image.html' %}</span></summary>

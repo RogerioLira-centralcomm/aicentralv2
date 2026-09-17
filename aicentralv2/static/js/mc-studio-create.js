@@ -102,7 +102,7 @@
     try { renderHistory(await get(`${apiRoot}/format-lab/studio/projects/${encodeURIComponent(projectId)}/creation-history?client_id=${encodeURIComponent(clientId)}&limit=4`)); }
     catch (_error) { historyPanel.innerHTML = "<p>O histórico fica disponível após salvar a primeira direção.</p>"; }
   }
-  async function loadProject() {
+  async function loadProject(context = {}) {
     projectId = String(projectSelect?.value || "");
     if (!clientId || !projectId) return;
     projectName.textContent = "Carregando projeto…";
@@ -121,8 +121,9 @@
       refreshCreditHint();
     } catch (_error) {
       projectName.textContent = projectSelect.selectedOptions?.[0]?.textContent || "Projeto selecionado";
-      projectBrand.textContent = "Contexto do projeto disponível para a criação.";
-      agentContext.textContent = "O projeto selecionado será usado na direção criativa.";
+      const brandName = String(context.brandName || projectSelect?.selectedOptions?.[0]?.dataset.brandName || "Marca vinculada");
+      projectBrand.textContent = `${brandName} · Contexto do projeto disponível para a criação.`;
+      agentContext.textContent = `${brandName} e o projeto selecionado serão usados na direção criativa.`;
     }
     await loadLibrary();
     await loadHistory();
@@ -217,11 +218,11 @@
   range?.addEventListener("input", () => { intensity.textContent = `${range.value}%`; });
   document.addEventListener("cadu:project-ready", (event) => {
     clientId = String(event.detail?.clientId || "");
-    if (projectSelect && !projectSelect.disabled && projectSelect.value) loadProject();
+    if (projectSelect && !projectSelect.disabled && projectSelect.value) loadProject(event.detail || {});
   });
   document.addEventListener("cadu:project-change", (event) => {
     clientId = String(event.detail?.clientId || clientId || "");
-    loadProject();
+    loadProject(event.detail || {});
   });
   if (projectSelect?.value) loadProject();
   updateFormat();

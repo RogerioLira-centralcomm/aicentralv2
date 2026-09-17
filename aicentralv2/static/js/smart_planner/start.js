@@ -174,7 +174,10 @@
     input.addEventListener("input", function () {
       state[kind] = input.value.trim();
       state[kind + "_id"] = null;
-      if (kind === "cliente" && !state.cliente_id) renderBrand(null);
+      if (kind === "cliente" && !state.cliente_id) {
+        workspaceBrandId = "";
+        renderBrand(null);
+      }
       clearTimeout(timers[kind]);
       timers[kind] = window.setTimeout(function () {
         searchParties(kind, input.value).catch(function () {
@@ -205,8 +208,15 @@
   var workspaceClientId = root.dataset.seedClientId || "";
   var workspaceClientName = root.dataset.seedClientName || "";
   var workspaceProjectId = root.dataset.seedProjectId || "";
+  var workspaceBrandId = root.dataset.seedBrandId || "";
+  var workspaceBrandName = root.dataset.seedBrandName || "";
   if (workspaceClientId && workspaceClientName) {
     selectParty("cliente", workspaceClientId, workspaceClientName);
+  } else if (workspaceBrandId && workspaceBrandName) {
+    state.cliente = workspaceBrandName;
+    var workspaceInput = partyInput("cliente");
+    if (workspaceInput) workspaceInput.value = workspaceBrandName;
+    renderBrand({ name: workspaceBrandName, has_identity: true });
   }
 
   document.querySelectorAll(".js-sp-start").forEach(function (button) {
@@ -233,6 +243,7 @@
             agencia: agencia,
             agencia_id: state.agencia_id,
             workspace_project_id: workspaceProjectId || null,
+            workspace_brand_id: workspaceBrandId || null,
             anunciante_confidencial: Boolean(document.getElementById("sp-start-confidential") && document.getElementById("sp-start-confidential").checked),
           }),
         });

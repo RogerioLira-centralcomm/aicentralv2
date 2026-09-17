@@ -8,11 +8,12 @@
 
   const body = dialog.querySelector('[data-brand-review-body]');
   const footer = dialog.querySelector('[data-brand-review-footer]');
+  let inlineProgress = summary?.querySelector('[data-brand-audit-progress]');
   const statusUrl = summary?.dataset.statusUrl;
   let timer; let startedAt = 0;
   const escape = (value) => String(value || '').replace(/[<>&]/g, '');
   const open = () => { if (!dialog.open) dialog.showModal(); };
-  const close = () => { window.clearTimeout(timer); dialog.close(); };
+  const close = () => dialog.close();
   const elapsed = () => startedAt ? Math.max(0, Math.floor((Date.now() - startedAt) / 1000)) : 0;
   const formatElapsed = () => {
     const seconds = elapsed();
@@ -25,12 +26,22 @@
     if (copy) copy.textContent = message || 'Processando a marca. Você pode manter esta página aberta.';
     summary?.querySelectorAll('.workspace-brand-review-actions button').forEach((button) => { button.disabled = true; });
   };
+  const setInlineProgress = (value) => {
+    if (!inlineProgress && summary) {
+      inlineProgress = document.createElement('small');
+      inlineProgress.className = 'workspace-brand-audit-progress';
+      inlineProgress.dataset.brandAuditProgress = '';
+      summary.querySelector('div')?.append(inlineProgress);
+    }
+    if (inlineProgress) inlineProgress.textContent = value;
+  };
   const renderProgress = (data) => {
     if (!startedAt) startedAt = data.created_at ? Date.parse(data.created_at) : Date.now();
     const current = Math.max(0, Number(data.index || 0));
     const labels = ['Organizando evidências', 'Revisando evidências', 'Revisando estratégia', 'Traduzindo direção criativa'];
     const message = data.message || 'Preparando análise';
     setSummaryLoading(message);
+    setInlineProgress(`${current ? `Etapa ${Math.min(current, 4)} de 4` : 'Na fila'} · ${formatElapsed()} decorridos`);
     body.innerHTML = `<section class="workspace-brand-review-progress" aria-live="polite"><i aria-hidden="true"></i><div><strong>${escape(message)}</strong><p>${current ? `Etapa ${Math.min(current, 4)} de 4 · ${formatElapsed()} decorridos.` : `Entrando na fila · ${formatElapsed()} decorridos.`}</p><small>Você pode sair desta janela: o processamento continua e o resultado ficará salvo.</small></div><ol>${labels.map((label, index) => `<li class="${index < current ? 'is-active' : ''}">${label}</li>`).join('')}</ol></section>`;
     footer.hidden = true;
   };
@@ -74,6 +85,7 @@
     processDialog.addEventListener('click', (event) => { if (event.target === processDialog) closeProcess(); });
   }
   const currentTitle = summary?.querySelector('h2')?.textContent?.trim();
+  if (!startedAt && summary?.dataset.createdAt) startedAt = Date.parse(summary.dataset.createdAt) || 0;
   if (summary && (['queued', 'running'].includes(summary.dataset.status || '') || currentTitle === 'Análise em andamento')) { open(); poll(); }
   if (!audit) return;
   audit.addEventListener('submit', async (event) => {

@@ -14,7 +14,8 @@ from .logos import lookup_agency_for_client, lookup_party_by_id, public_logo
 
 logger = logging.getLogger(__name__)
 
-SEED_KEYS = ("plan_mode", "cliente_id", "agencia_id", "cx_client_id", "brand", "anunciante_confidencial", "workspace_project_id")
+SEED_KEYS = ("plan_mode", "cliente_id", "agencia_id", "cx_client_id", "brand", "anunciante_confidencial", "workspace_project_id", "workspace_brand_id")
+MAX_PLANNER_CONTEXT_CHARS = 7000
 
 PLATE_TO_CHANNEL = {
     "instagram": "meta_ads",
@@ -185,6 +186,67 @@ def brand_for_client(crm_client_id: Any) -> dict:
     return snapshot_brand(load_cx_client_for_crm(crm_client_id))
 
 
+def brand_for_workspace_client(brand_id: Any) -> dict:
+    """Load a Workspace brand only when it belongs to the current organization."""
+    brand_id = text(brand_id)
+    client_id = session.get("cliente_id")
+    if not brand_id or not client_id:
+        return {}
+    try:
+        with get_db().cursor() as cur:
+            cur.execute(
+                """SELECT id, crm_client_id, name, sector, tone_of_voice, logo_url,
+                          logo_upload_path, primary_color, secondary_color,
+                          website_url, brand_profile, analysis_metadata
+                     FROM cx_clients
+                    WHERE id = %s AND crm_client_id = %s
+                    LIMIT 1""",
+                (brand_id, client_id),
+            )
+            client = dict(cur.fetchone() or {})
+            if not client:
+                return {}
+            try:
+                cur.execute(
+                    """SELECT role, asset_url, stored_url, source_url
+                         FROM cx_client_brand_assets
+                        WHERE client_id = %s""",
+                    (client["id"],),
+                )
+                client["brand_assets"] = [dict(item) for item in (cur.fetchall() or [])]
+            except Exception:
+                try:
+                    cur.connection.rollback()
+                except Exception:
+                    pass
+                client["brand_assets"] = []
+            return snapshot_brand(client)
+    except Exception:
+        logger.exception("Falha ao buscar marca Workspace %s para o Planner", brand_id)
+        try:
+            get_db().rollback()
+        except Exception:
+            pass
+        return {}
+
+
+def bounded_context(parts: list[Any], limit: int = MAX_PLANNER_CONTEXT_CHARS) -> str:
+    """Keep planner context useful and predictable in both latency and credits."""
+    remaining = limit
+    selected = []
+    for part in parts:
+        value = text(part).strip()
+        if not value or remaining <= 0:
+            continue
+        separator = 1 if selected else 0
+        available = remaining - separator
+        if available <= 0:
+            break
+        selected.append(value[:available])
+        remaining -= len(selected[-1]) + separator
+    return " ".join(selected)
+
+
 def workspace_project_context(project_id: Any) -> dict:
     """Bring the selected Workspace brief into a new Planner draft."""
     project_id = text(project_id)
@@ -205,10 +267,10 @@ def workspace_project_context(project_id: Any) -> dict:
             cur.execute(
                 """SELECT conteudo FROM cadu_ci_chunks
                     WHERE projeto_id = %s AND id_cliente = %s
-                 ORDER BY id LIMIT 6""",
+                 ORDER BY ordem ASC, id ASC LIMIT 4""",
                 (project_id, client_id),
             )
-            sources = [text(row.get("conteudo"))[:1800] for row in cur.fetchall() if text(row.get("conteudo"))]
+            sources = [text(row.get("conteudo"))[:900] for row in cur.fetchall() if text(row.get("conteudo"))]
         return {**project, "id": project_id, "sources": sources}
     except Exception:
         logger.exception("Falha ao carregar contexto do projeto %s para o Planner", project_id)
@@ -352,11 +414,14 @@ def seed_parties(payload: dict) -> dict:
             agencia_id = linked.get("id")
     if agencia_id and not agencia:
         agencia = text(lookup_party_by_id(agencia_id).get("name"))
+    workspace_brand_id = payload.get("workspace_brand_id")
+    brand = brand_for_client(cliente_id) if cliente_id else brand_for_workspace_client(workspace_brand_id)
+    if not cliente:
+        cliente = text(brand.get("name"))
     if not cliente:
         raise ValueError("Informe o anunciante.")
-    brand = brand_for_client(cliente_id) if cliente_id else {}
     project = workspace_project_context(payload.get("workspace_project_id"))
-    contexto_parts = [text(project.get("descricao")), text(project.get("instrucoes")), text(project.get("posicionamento")), text(brand.get("brand_summary")), *as_list(brand.get("campaign_opportunities")), *as_list(project.get("sources"))]
+    contexto_parts = [text(project.get("descricao")), text(project.get("instrucoes")), text(project.get("publico")), text(project.get("tom_de_voz")), text(project.get("posicionamento")), text(brand.get("brand_summary")), *as_list(brand.get("campaign_opportunities")), *as_list(project.get("sources"))]
     return {
         "cliente": cliente,
         "agencia": agencia,
@@ -365,11 +430,12 @@ def seed_parties(payload: dict) -> dict:
         "cx_client_id": brand.get("id"),
         "brand": brand,
         "publico": text(project.get("publico") or brand.get("target_audience")),
-        "contexto": " ".join(part for part in contexto_parts if part),
+        "contexto": bounded_context(contexto_parts),
         "canais": as_list(brand.get("canais")),
         "anunciante_confidencial": as_bool(payload.get("anunciante_confidencial")),
         "workspace_project_id": project.get("id"),
         "workspace_project_name": text(project.get("nome")),
+        "workspace_brand_id": brand.get("id"),
     }
 
 

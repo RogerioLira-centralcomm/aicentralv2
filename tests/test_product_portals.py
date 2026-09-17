@@ -257,7 +257,7 @@ class ProductPortalsTest(TestCase):
             response = client.get("/app", headers={"Host": "workspace.centralcomm.media"})
             self.assertEqual(response.status_code, 200)
             html = response.get_data(as_text=True)
-            self.assertIn("Olá, Apolo.", html)
+            self.assertIn("Bom ter você de volta, Apolo.", html)
             self.assertIn('workspace-app-shell workspace-app-shell--home', html)
             self.assertIn('class="workspace-nav-icon"', html)
             self.assertIn('fa-solid fa-house', html)

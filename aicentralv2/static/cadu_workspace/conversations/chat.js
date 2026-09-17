@@ -430,7 +430,8 @@
   }
   function addMessage(role, content, files = [], metadata = {}, projectRef = '') {
     const entry = document.createElement('article'); entry.className = 'conversation-message ' + (role === 'user' ? 'from-user' : 'from-cadu');
-    const label = document.createElement('strong'); label.textContent = role === 'user' ? 'Você' : 'Cadu';
+    const label = document.createElement('strong'); label.textContent = role === 'user' ? 'Você' : 'Resposta';
+    if (role === 'assistant') { const elapsed = document.createElement('p'); elapsed.className = 'conversation-work-time'; elapsed.textContent = 'Trabalhando…'; entry.append(elapsed); }
     const text = document.createElement('div');
     if (role === 'assistant') CaduConversationRenderer.render(text, content);
     else {
@@ -454,6 +455,12 @@
     }
     scrollHistoryToEnd(true);
     return text;
+  }
+  function setMessageElapsed(text, startedAt) {
+    const note = text?.parentElement?.querySelector('.conversation-work-time');
+    if (!note || !startedAt) return;
+    const seconds = Math.max(1, Math.round((performance.now() - startedAt) / 1000));
+    note.textContent = seconds < 60 ? 'Trabalhou por ' + seconds + ' s' : 'Trabalhou por ' + Math.floor(seconds / 60) + ' min ' + (seconds % 60) + ' s';
   }
   function renderEmptyState() {
     if (!pageMode) return;
@@ -482,12 +489,14 @@
   function addCatalogCard(data) {
     if (!Array.isArray(data.records) || !data.records.length) return;
     const card = document.createElement('section'); card.className = 'conversation-catalog-card';
-    const heading = document.createElement('h4'); heading.textContent = ({canais:'Canais', formatos:'Formatos', interativos:'Interativos', audiencias:'Audiências', planos:'Planos'})[data.catalog_kind] || 'Catálogo'; card.append(heading);
+    const kind = String(data.catalog_kind || '');
+    card.classList.add('is-' + kind.replace(/[^a-z-]/g, ''));
+    const heading = document.createElement('h4'); heading.textContent = ({canais:'Canais recomendados', formatos:'Formatos compatíveis', interativos:'Experiências interativas', audiencias:'Audiências', places:'Places', planos:'Planos'})[kind] || 'Catálogo'; card.append(heading);
     const list = document.createElement('ul');
     data.records.forEach(record => {
       const item = document.createElement('li'), name = document.createElement('strong'), detail = document.createElement('span');
       name.textContent = record.name || 'Item do catálogo';
-      detail.textContent = record.description || record.category || record.dimensions || '';
+      detail.textContent = [record.description || record.category || record.dimensions || '', record.audience || ''].filter(Boolean).join(' · ');
       item.append(name); if (detail.textContent) item.append(detail); list.append(item);
     });
     const shouldFollow = isNearHistoryEnd();
@@ -712,6 +721,7 @@
     controller = new AbortController(); status.textContent = 'Preparando sua conversa…';
     const runProjectRef = activeContext?.project_ref || projectSelect?.value || '';
     let terminalStatus = null, output = null, answer = '', recovered = null, optimisticUser = null, serverStarted = false;
+    const generationStartedAt = performance.now();
     try {
       // prepare() validates and routes the message again on the server before
       // it creates a run. Skipping the duplicate preflight removes one full
@@ -787,6 +797,7 @@
       status.textContent = error.name === 'AbortError' ? 'Envio interrompido. Confira o histórico antes de reenviar; arquivos já recebidos pelo servidor podem ter sido preservados.' : error.message;
     } finally {
       flushStreaming(output, answer);
+      setMessageElapsed(output, generationStartedAt);
       if (terminalStatus === 'completed') { addMessageActions(output, answer); addSavePlanAction(output, answer, runProjectRef); }
       sending = false; mode.disabled = false; stop.hidden = true; controller = null;
       input.contentEditable = 'true'; input.setAttribute('aria-disabled', 'false'); attachments.lock(false); updateSend();

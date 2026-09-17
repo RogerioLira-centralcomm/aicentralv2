@@ -15,12 +15,24 @@ ALIASES = {
     'interactive_search': 'interativos', 'interactive_detail': 'interativos',
     'interativo_buscar': 'interativos', 'interativo_detalhe': 'interativos',
     'audience_search': 'audiencias', 'audience_detail': 'audiencias',
+    'place_search': 'places', 'place_detail': 'places',
 }
 DETAIL_ALIASES = {'channel_detail', 'canal_detalhe', 'format_detail', 'formato_detalhe',
                   'interactive_detail', 'interativo_detalhe', 'audience_detail'}
 DOCUMENT_ALIASES = {'document_preview', 'smartdoc_preview', 'documento_previa'}
 PLAN_LIST_ALIASES = {'plan_list', 'plans_list', 'plano_listar', 'planos_listar'}
 PLAN_DETAIL_ALIASES = {'plan_detail', 'plano_detalhe'}
+
+# Audience catalog records can contain commercial fields used elsewhere in the
+# planner. Conversation cards are editorial/planning references, never rate
+# cards, so keep this projection deliberately restricted.
+AUDIENCE_CONVERSATION_FIELDS = (
+    'id', 'name', 'description', 'audience', 'image_url', 'category',
+    'subcategory', 'channel', 'platform', 'storytelling',
+    'caso_uso_principal', 'insights_planejamento', 'perfil_socioeconomico',
+    'perfil_consumo', 'momentos_chave', 'interesses_correlatos',
+    'propensao_compra', 'tamanho',
+)
 
 
 def _params(value):
@@ -33,6 +45,14 @@ def _params(value):
     except ValueError:
         return None
     return parsed if isinstance(parsed, dict) else None
+
+
+def _audience_for_conversation(record):
+    """Remove pricing and operational buying data from chat tool responses."""
+    if not isinstance(record, dict):
+        return {}
+    return {key: record.get(key) for key in AUDIENCE_CONVERSATION_FIELDS
+            if record.get(key) not in (None, '', [], {})}
 
 
 def project(event, profile, client_id=None, actor_id=None):
@@ -84,6 +104,16 @@ def project(event, profile, client_id=None, actor_id=None):
         return None
     kind = ALIASES[raw_name]
     try:
+        if kind == 'places':
+            from ...smart_planner.places_bridge import planner_place_catalog
+            query = str(params.get('search', params.get('q', ''))).strip().lower()
+            records = planner_place_catalog()
+            if query:
+                records = [item for item in records if query in ' '.join(str(item.get(key) or '') for key in ('title', 'code', 'city', 'state')).lower()]
+            records = [{'name': item.get('title'), 'description': ' · '.join(filter(None, (item.get('city'), item.get('state')))),
+                        'category': 'Place', 'audience': ', '.join((item.get('audiences') or [])[:2])}
+                       for item in records[:10]]
+            return {'event': 'catalog', 'catalog_kind': kind, 'records': records}
         if raw_name in DETAIL_ALIASES:
             item_id = params.get('id')
             if item_id is None:
@@ -95,5 +125,7 @@ def project(event, profile, client_id=None, actor_id=None):
     except Exception:
         # A catalog miss must not break or leak through the generation stream.
         return None
+    if kind == 'audiencias':
+        records = [_audience_for_conversation(record) for record in records]
     # `kind` is reserved by service.stream's SSE event helper.
     return {'event': 'catalog', 'catalog_kind': kind, 'records': records[:10]}

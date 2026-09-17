@@ -40,7 +40,10 @@ Use Markdown limpo, com leitura executiva e tabelas quando ajudarem:
 - **Riscos, dependências e próximos passos:** dono/validação quando conhecidos; caso contrário, "a definir".
 
 PADRÃO DE QUALIDADE
-Seja específico, comparativo e decisivo. Explique por que um canal, uma audiência ou um formato entra e por que outro não é prioritário. Diferencie fato, evidência, premissa e pendência visualmente. Não entregue uma resposta de blog, uma lista de plataformas, uma tabela vazia ou promessas de performance. Não mencione IA, instruções internas ou este contrato."""
+Seja específico, comparativo e decisivo. Explique por que um canal, uma audiência ou um formato entra e por que outro não é prioritário. Diferencie fato, evidência, premissa e pendência visualmente. Não entregue uma resposta de blog, uma lista de plataformas, uma tabela vazia ou promessas de performance.
+
+LIMITES COMERCIAIS E DE AUDIÊNCIA
+Não use, cite ou calcule CPM, CPM de custo ou venda, CPC, CPA, preço de audiência, margem, inventário/valor de compra ou benchmark comercial — mesmo que esses campos existam na base. A base de audiências serve somente para perfil, comportamento, afinidade, categoria, plataforma, sinais e qualidade do dado. Para investimento, use exclusivamente a verba informada pelo usuário ou marque como validação comercial necessária. Não mencione IA, instruções internas ou este contrato."""
 
 
 def planning_directives(chosen, routing):
@@ -221,7 +224,63 @@ def project_sources(project_context):
     return sources
 
 
-def contextual_packet(project_context, query):
+def media_catalog_context(query):
+    """Expose a compact, read-only planning snapshot to the existing Dify input.
+
+    This is deliberately a recommendation vocabulary, not a price list or a
+    database dump. The model gets the channel-to-format relation and a small
+    relevant audience/place selection, then must label anything beyond it as a
+    premise or commercial validation.
+    """
+    from ...smart_planner.catalog import CHANNEL_CATALOG, PRIMARY_FORMATS, INTERATIVOS_FORMATS
+    channels = [{
+        'id': key, 'nome': item.get('label'), 'grupo': item.get('group'),
+        'descricao': item.get('desc'), 'formato_principal': PRIMARY_FORMATS.get(key, {}).get('label'),
+        'superficie': PRIMARY_FORMATS.get(key, {}).get('surface'),
+    } for key, item in CHANNEL_CATALOG.items() if item.get('tipo') != 'dados']
+    try:
+        from ...cadu_planner import catalog
+        catalog_channels = [{key: row.get(key) for key in ('id', 'name', 'description', 'category', 'audience')}
+                            for row in catalog.query('canais', str(query or '')[:100], 10)]
+        catalog_formats = [{key: row.get(key) for key in ('id', 'name', 'description', 'dimensions', 'format_type', 'platforma_slug')}
+                           for row in catalog.query('formatos', str(query or '')[:100], 10)]
+        audiences = [{key: row.get(key) for key in ('id', 'name', 'description', 'category', 'channel', 'audience')}
+                     for row in catalog.query('audiencias', str(query or '')[:100], 8)]
+    except Exception:
+        catalog_channels, catalog_formats = [], []
+        audiences = []
+    try:
+        from ...smart_planner.places_bridge import planner_place_catalog
+        places = [{key: row.get(key) for key in ('slug', 'title', 'code', 'city', 'state', 'points', 'audiences')}
+                  for row in planner_place_catalog()[:12]]
+    except Exception:
+        places = []
+    return {
+        'versao': '1.0', 'uso': 'Catálogo proprietário de planejamento; não invente itens fora dele.',
+        'canais_e_formatos': channels, 'canais_da_base': catalog_channels,
+        'formatos_da_base': catalog_formats, 'audiencias_relacionadas_ao_pedido': audiences,
+        'interativos_portais': list(INTERATIVOS_FORMATS), 'places_publicados': places,
+    }
+
+
+def team_workspace_context(client_id):
+    """Give the conversation its team's current working set, never another client."""
+    try:
+        projects = repository.rows('''SELECT id::text, nome, descricao, publico, posicionamento
+                                       FROM cadu_ci_projetos WHERE id_cliente=%s
+                                      ORDER BY updated_at DESC NULLS LAST, nome LIMIT 20''', (client_id,))
+    except Exception:
+        projects = []
+    try:
+        from ...cadu_planner import plans
+        plans_list = [{key: row.get(key) for key in ('id', 'title', 'objective', 'status', 'advertiser_name', 'campaign_name', 'updated_at', 'item_count')}
+                      for row in plans.list_plans(client_id, None)[:20]]
+    except Exception:
+        plans_list = []
+    return {'projetos_da_equipe': projects, 'planos_da_equipe': plans_list}
+
+
+def contextual_packet(project_context, query, media_catalog=None, team_workspace=None):
     """Keep private Workspace RAG and published institutional RAG separate.
 
     Dify currently declares one string variable named ``projeto_context``.
@@ -242,6 +301,10 @@ def contextual_packet(project_context, query):
         'contexto_projeto_privado': private_context,
         'base_cadu_global_publicada': entries,
     }
+    if media_catalog:
+        packet['catalogo_midia_cadu'] = media_catalog
+    if team_workspace:
+        packet['workspace_da_equipe'] = team_workspace
     return json.dumps(packet, ensure_ascii=False)[:24000]
 
 
@@ -283,8 +346,6 @@ def prepare(data, selected):
                               ([str(value) for value in upload_ids], user['id'], selected['client_id'])) if upload_ids else []
     if len(uploads) != len(set(str(value) for value in upload_ids)):
         abort(403, description='Um arquivo não pertence a este cliente ou usuário.')
-    project_context = contextual_packet(
-        project_knowledge_context(project_ref, brand_ref, selected['client_id'], query), query)
     old = repository.conversation_messages(user['id'], selected['client_id'], conversation_id) if existing else []
     history = history_context(old or [])
     conn = repository.get_db()
@@ -341,6 +402,10 @@ def prepare(data, selected):
             if repository.family_table_available('cadu_user_memories'):
                 memory.capture_explicit(cur, user=user, conversation_id=conversation_id,
                                         message_id=user_message_id, text=query)
+            project_context = contextual_packet(
+                project_knowledge_context(project_ref, brand_ref, selected['client_id'], query), query,
+                media_catalog_context(query) if routing.get('solution') in {'planejamento', 'audiencias'} else None,
+                team_workspace_context(selected['client_id']))
             run = build_run(run_id, conversation_id, user, selected, chosen, profile,
                             project_context, conversation, query, uploads, existing, history, routing)
             run['routing'] = routing
@@ -376,7 +441,7 @@ def build_run(run_id, conversation_id, user, selected, chosen, profile,
         # Planning additionally receives its non-negotiable delivery method.
         'diretrizes_especificas': directives[:40000],
         'fronteiras_de_contexto': {
-            'projeto_context': 'JSON com contexto_projeto_privado e base_cadu_global_publicada.',
+            'projeto_context': 'JSON com contexto_projeto_privado, base_cadu_global_publicada, workspace_da_equipe e, quando aplicável, catalogo_midia_cadu.',
             'prioridade': 'Use o contexto privado para decisões do projeto; trate a base global como institucional.',
             'privacidade': 'Nunca revele dados privados que não sejam necessários para responder ao pedido atual.',
         },

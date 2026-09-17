@@ -119,7 +119,10 @@ def _audience(payload):
         name = _text(item.get("name") or item.get("nome"), 160)
         detail = _text(item.get("description") or item.get("descricao") or item.get("category"), 280)
         metrics = []
-        for label, key in (("Alcance", "reach"), ("CPM", "cpm"), ("Plataforma", "platform")):
+        # Audience cards help choose a relevant segment. They are not a rate
+        # card: commercial fields returned by a provider must never reach the
+        # conversation, including indirectly as a metric chip.
+        for label, key in (("Alcance", "reach"), ("Plataforma", "platform")):
             value = _text(item.get(key) or item.get({"reach": "alcance", "platform": "plataforma"}.get(key, "")), 80)
             if value:
                 metrics.append({"label": label, "value": value})
@@ -130,7 +133,7 @@ def _audience(payload):
     return {
         "type": "audience", "title": _text(payload.get("title"), 160) or "Audiências encontradas",
         "summary": _text(payload.get("summary"), 500), "items": records,
-        "actions": [_action("compare_audiences", "Comparar audiências", prompt="Compare as audiências encontradas por aderência, alcance, custo e papel no funil.", style="primary")],
+        "actions": [_action("compare_audiences", "Comparar audiências", prompt="Compare as audiências encontradas por aderência, alcance e papel no funil.", style="primary")],
     }
 
 

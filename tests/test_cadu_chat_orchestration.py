@@ -59,9 +59,20 @@ def test_media_plan_payload_requires_strategy_audiences_mix_and_optimization():
                     'planner', '', {'dify_conversation_id': None, 'total_mensagens': 0}, 'Monte um plano de mídia.', [], None, '',
                     {'solution': 'planejamento', 'complexity': 'alta'})
     directives = json.loads(run['payload']['inputs']['skill_context'])['diretrizes_especificas']
-    for required in ('Campaign Snapshot', 'audiências em camadas', 'percentuais somam 100%', 'regra de otimização'):
+    for required in ('Campaign Snapshot', 'audiências em camadas', 'percentuais somam 100%', 'regra de otimização',
+                     'Não use, cite ou calcule CPM'):
         assert required in directives
     assert directives.endswith('Use o tom da marca.')
+
+
+def test_audience_catalog_cards_never_expose_commercial_pricing(monkeypatch):
+    from aicentralv2.cadu_workspace.conversations import catalog_tools
+    monkeypatch.setattr(catalog_tools.catalog, 'detail', lambda *_: {
+        'id': 7, 'name': 'Beleza premium', 'description': 'Afinidade com perfumaria.',
+        'cpm_custo': 12.5, 'cpm_venda': 25, 'preco': 1000, 'data_groups': {'cpm': 12.5},
+    })
+    card = catalog_tools.project({'tool': 'audience_detail', 'tool_input': '{"id": 7}'}, 'planner')
+    assert card['records'] == [{'id': 7, 'name': 'Beleza premium', 'description': 'Afinidade com perfumaria.'}]
 
 
 def test_payload_exposes_only_safe_file_metadata_to_the_prompt():
@@ -89,6 +100,18 @@ def test_context_packet_keeps_workspace_and_base_cadu_in_distinct_fields(monkeyp
     assert values['base_cadu_global_publicada'][0]['fonte'] == 'Identidade Centralcomm'
     sources = service.project_sources(packet)
     assert {item['title'] for item in sources} == {'Briefing', 'Base Cadu — Identidade Centralcomm'}
+
+
+def test_context_packet_can_carry_the_curated_media_catalog():
+    from aicentralv2.cadu_workspace.conversations import service
+    packet = json.loads(service.contextual_packet('', 'plano', {'canais_e_formatos': [{'nome': 'Meta Ads'}]}))
+    assert packet['catalogo_midia_cadu']['canais_e_formatos'][0]['nome'] == 'Meta Ads'
+
+
+def test_context_packet_can_carry_team_workspace_records():
+    from aicentralv2.cadu_workspace.conversations import service
+    packet = json.loads(service.contextual_packet('', 'projeto', team_workspace={'projetos_da_equipe': [{'nome': 'Lançamento'}]}))
+    assert packet['workspace_da_equipe']['projetos_da_equipe'][0]['nome'] == 'Lançamento'
 
 
 def test_payload_includes_compact_user_memory_when_relevant(monkeypatch):

@@ -21,7 +21,7 @@ class ResultCardsTest(TestCase):
         self.assertEqual(result["items"][1]["url"], "")
         self.assertEqual(result["actions"][0]["id"], "continue_research")
 
-    def test_projects_audience_card_with_compact_metrics(self):
+    def test_projects_audience_card_excludes_commercial_metrics(self):
         card = result_cards.project({
             "tool_name": "search_audiencias", "output": {
                 "audiences": [{"nome": "Executivos", "alcance": "1,2 mi", "cpm": "R$ 28", "plataforma": "Programática"}],
@@ -30,7 +30,12 @@ class ResultCardsTest(TestCase):
         result = card["result"]
         self.assertEqual(result["type"], "audience")
         self.assertEqual(result["items"][0]["title"], "Executivos")
-        self.assertEqual(len(result["items"][0]["metrics"]), 3)
+        self.assertEqual(result["items"][0]["metrics"], [
+            {"label": "Alcance", "value": "1,2 mi"},
+            {"label": "Plataforma", "value": "Programática"},
+        ])
+        self.assertNotIn("CPM", str(result))
+        self.assertNotIn("custo", result["actions"][0]["prompt"])
 
     def test_projects_link_and_screenshot_with_https_media_only(self):
         card = result_cards.project({

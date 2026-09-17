@@ -55,8 +55,7 @@ def list_plans(client_id, actor_id):
                                 FROM cadu_planner_plans p
                            LEFT JOIN cadu_planner_plan_items i ON i.plan_id = p.id
                                WHERE p.client_id = %s AND p.archived_at IS NULL
-                                 AND p.created_by = %s
-                            GROUP BY p.id ORDER BY p.updated_at DESC LIMIT 100''', (client_id, actor_id))
+                            GROUP BY p.id ORDER BY p.updated_at DESC LIMIT 100''', (client_id,))
 
 
 def create_plan(client_id, actor_id, payload, context):
@@ -97,8 +96,8 @@ def get_plan(client_id, actor_id, plan_id):
     rows = repository.rows('''SELECT id, title, objective, status, advertiser_name, campaign_name, briefing,
                                       share_enabled, share_token,
                                       created_at, updated_at FROM cadu_planner_plans
-                                WHERE id = %s AND client_id = %s AND created_by = %s AND archived_at IS NULL''',
-                           (str(plan_id), client_id, actor_id))
+                                WHERE id = %s AND client_id = %s AND archived_at IS NULL''',
+                           (str(plan_id), client_id))
     if not rows:
         raise NotFound('Plano indisponível.')
     plan = rows[0]

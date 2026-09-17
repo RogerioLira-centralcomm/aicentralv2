@@ -978,7 +978,9 @@ def _project_context_health(project: dict) -> dict:
         score += 10
     else:
         missing.append('uma marca vinculada')
-    if score >= 80:
+    # A high score is not a completed context when a required decision is still
+    # absent. The page should not say it is ready while reporting a gap.
+    if score >= 80 and not missing:
         label = 'Pronto para orientar o trabalho'
     elif score >= 45:
         label = 'Contexto em construção'

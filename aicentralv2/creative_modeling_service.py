@@ -3132,9 +3132,11 @@ class CreativeModelingService:
             if kind and asset.get("asset_path"):
                 found[str(kind)] = asset.get("asset_path")
 
+        # A composed placeholder is useful for internal cards, but it must not
+        # masquerade as the paid, model-generated brand hero.  The latter is
+        # deliberately requested by the user and charged through the ledger.
         specs = (
             ("thumbnail", "support", (480, 320)),
-            ("hero", "background", (1280, 640)),
             ("studio", "creative", (1080, 1080)),
         )
         logo_path = str(brand.get("logo_upload_path") or brand.get("logo_url") or "")
@@ -3161,7 +3163,7 @@ class CreativeModelingService:
                     "brand_seed_kind": kind,
                     "low_resolution": True,
                     "editable_in_studio": True,
-                    "label": {"thumbnail": "Miniatura interna", "hero": "Hero interno", "studio": "Base para Studio"}[kind],
+                    "label": {"thumbnail": "Miniatura interna", "studio": "Base para Studio"}[kind],
                 },
             }
             try:
@@ -3186,8 +3188,21 @@ class CreativeModelingService:
         profile = dict(client.get("brand_profile") or {})
         existing = list(self.repository.list_client_brand_assets(client_id, approved_only=False) or [])
         references = []
-        for asset in existing:
-            if asset.get("role") not in {"logo", "reference", "creative"}:
+        # This neutral composition is a house reference, not a client asset:
+        # it keeps every dossier recognizably Cadu while the brand still owns
+        # the palette, subject and approved visual evidence.
+        base_reference = self._public_image_reference(
+            "/static/images/cadu/workspace-cards/brand-hero-base-v1.png"
+        )
+        if base_reference:
+            references.append(base_reference)
+        # The image provider accepts at most two references.  The composition
+        # plate gets one slot and the best approved brand visual gets the
+        # other; this is more predictable than silently dropping a logo or a
+        # lifestyle reference downstream.
+        reference_priority = {"reference": 0, "creative": 1, "background": 2, "logo": 3}
+        for asset in sorted(existing, key=lambda item: reference_priority.get(item.get("role"), 9)):
+            if asset.get("role") not in reference_priority:
                 continue
             reference = self._public_image_reference(asset)
             if reference:
@@ -3196,15 +3211,29 @@ class CreativeModelingService:
                 break
         offer = ", ".join(str(item) for item in (profile.get("products_services") or [])[:3])
         visual_direction = str(profile.get("creative_guidelines") or "").strip()
+        palette = [
+            str(value).strip() for value in [
+                brand.get("primary_color") or client.get("primary_color"),
+                brand.get("secondary_color") or client.get("secondary_color"),
+                *(
+                    item.get("hex") if isinstance(item, dict) else item
+                    for item in (profile.get("color_palette") or [])
+                ),
+            ]
+            if str(value or "").strip()
+        ]
+        palette = list(dict.fromkeys(palette))[:5]
         prompt = "\n".join(filter(None, [
-            "Create one polished, realistic 16:9 brand hero photograph for a web workspace.",
+            "Create one polished 16:9 brand hero for the Cadu workspace, using the supplied neutral composition as the layout reference.",
             f"Brand: {brand.get('name') or client.get('name') or 'the brand'}.",
             f"Sector: {brand.get('sector') or client.get('sector') or 'business'}.",
             f"Offer or activity: {offer or 'the real work of the business'}.",
             f"Approved visual direction: {visual_direction}",
+            f"Approved brand palette (use these exact colors as the only color family): {', '.join(palette) or 'not available; stay neutral'}.",
             "Show the product in authentic use, the service in execution, or a real business activity; use people only when natural to that activity.",
-            "Place the visual subject on the right or center-right. Keep the left 42 percent calm and darker for white interface text.",
-            "Use rich but credible color and sharp photographic detail. No words, no typography, no generated logos, no watermarks, no UI mockups.",
+            "Preserve the shared Cadu composition: a quiet, dark left 42 percent for white interface text; an editorial abstract field and the subject on the right or center-right.",
+            "Build the abstract field from the approved brand palette, not the Cadu teal. Use rich but credible color and sharp photographic detail.",
+            "No words, no typography, no generated logos, no watermarks, no UI mockups. Do not copy a generic SaaS gradient.",
         ]))
         response = self.generator.generate_image(
             prompt, input_references=references, aspect_ratio="16:9", quality="low",
@@ -3222,6 +3251,8 @@ class CreativeModelingService:
                 "metadata": {
                     "brand_seed_kind": "hero", "low_resolution": True,
                     "text_safe_side": "left", "contrast_overlay": "brand_dark",
+                    "visual_system": "cadu-brand-hero-v1", "layout_reference": "brand-hero-base-v1.png",
+                    "brand_palette": palette, "reference_count": len(references),
                     "prompt": prompt[:2000], "model": response.get("model"),
                 },
             })
@@ -3235,6 +3266,26 @@ class CreativeModelingService:
             "id": asset_id, "asset_path": asset_path, "model": response.get("model"),
             "usage": response.get("usage") or {}, "actual_cost_usd": response.get("actual_cost_usd", 0),
         })
+
+    def discard_client_brand_generated_hero(self, client_id, result):
+        """Undo a just-created hero when its corresponding ledger debit fails."""
+        client_id = _integer(client_id, "Cliente")
+        asset_id = _integer((result or {}).get("id"), "Ativo")
+        asset_path = str((result or {}).get("asset_path") or "")
+        if not asset_id:
+            return
+        try:
+            removed = self.repository.delete_client_brand_asset(client_id, asset_id)
+            self.storage.delete(removed.get("asset_path") or asset_path)
+        finally:
+            client = self.repository.get_client(client_id)
+            profile = dict(client.get("brand_profile") or {})
+            visuals = dict(profile.get("seed_visuals") or {})
+            if visuals.get("hero") == asset_path:
+                visuals.pop("hero", None)
+                profile["seed_visuals"] = visuals
+                if hasattr(self.repository, "update_client_brand_profile"):
+                    self.repository.update_client_brand_profile(client_id, profile)
 
     def _track_input_references(self, system, track_id, client=None):
         from .design_system_ads.fidelity import track_reference_urls
@@ -3267,8 +3318,10 @@ class CreativeModelingService:
         if not raw:
             raw = self._static_file_bytes(text)
         if raw:
-            mime = "image/jpeg" if text.lower().endswith((".jpg", ".jpeg")) else (
-                "image/webp" if text.lower().endswith(".webp") else "image/png"
+            mime = "image/svg+xml" if text.lower().endswith(".svg") else (
+                "image/jpeg" if text.lower().endswith((".jpg", ".jpeg")) else (
+                    "image/webp" if text.lower().endswith(".webp") else "image/png"
+                )
             )
             encoded = base64.b64encode(raw).decode("ascii")
             return f"data:{mime};base64,{encoded}"

@@ -716,8 +716,13 @@ def _save_brand_review_job(client_id: int, brand_id: int, job_id: str, **changes
         raise
 
 
-def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id: str, website_url: str, images: list[dict], proposal=None):
-    """Run slow model work outside the browser request, retaining visible progress."""
+def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id: str, website_url: str, images: list[dict], proposal=None, *, background=True):
+    """Run an audit now or enqueue it for the durable Workspace worker.
+
+    ``background=False`` is intentionally used only by the worker.  It keeps
+    the provider work in the durable job's process instead of creating a child
+    thread that would disappear when a one-shot worker exits.
+    """
     app = current_app._get_current_object()
 
     def runner():
@@ -770,6 +775,12 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                             actor=actor, idempotency_key=f'workspace-brand:{job_id}:firecrawl-image-search',
                             operation='search', results=10, app='Auditoria de marca', stage='busca_de_ativos',
                             metadata={'brand_id': brand_id, 'job_id': job_id, 'purpose': 'brand_assets'},
+                        )
+                    if analysis_metadata.get('firecrawl_market_search'):
+                        credits.charge_firecrawl(
+                            actor=actor, idempotency_key=f'workspace-brand:{job_id}:firecrawl-market-search',
+                            operation='search', results=5, app='Auditoria de marca', stage='pesquisa_mercado',
+                            metadata={'brand_id': brand_id, 'job_id': job_id, 'purpose': 'market_context'},
                         )
                     # Preserve Firecrawl visual evidence for review. Its logo
                     # classification remains a suggestion, never an automatic
@@ -829,8 +840,27 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                 _save_brand_review_job(client_id, brand_id, job_id,
                     status='failed', stage='failed', message='A análise precisa ser tentada novamente.',
                     error=str(exc)[:360])
+                return False
+            return True
 
+    if not background:
+        return runner()
+
+    # The worker queue is deliberately preferred.  The thread remains a safe
+    # fallback for an old deployment while its additive migration is applied.
+    if current_app.config.get('CADU_BRAND_AUDIT_WORKER_ENABLED', True):
+        try:
+            from .brand_audit_jobs import enqueue
+            enqueue({
+                'job_id': job_id, 'client_id': client_id, 'user_id': user_id,
+                'brand_id': brand_id, 'website_url': website_url,
+                'images': images, 'proposal': proposal,
+            })
+            return True
+        except Exception:
+            current_app.logger.exception('Fila durável indisponível para auditoria da marca %s; usando contingência.', brand_id)
     threading.Thread(target=runner, daemon=True, name=f'brand-review-{job_id[:12]}').start()
+    return True
 
 
 def _brand_linked_projects(client_id: int, brand_id: int) -> list[dict]:
@@ -2959,15 +2989,27 @@ def generate_brand_hero(brand_id):
     if credits.balance(client_id) <= 0:
         return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id), code=303)
     actor = CreditActor.from_values(client_id, user_id)
+    service = CreativeModelingService()
+    result = None
     try:
-        result = CreativeModelingService().generate_client_brand_low_res_hero(brand_id, brand)
+        result = service.generate_client_brand_low_res_hero(brand_id, brand)
         credits.charge_provider(
             actor=actor, idempotency_key=f'workspace-brand:{brand_id}:hero:{uuid4().hex}',
             app='Hero da marca', stage='imagem_baixa_resolucao', provider_result=result,
             model=str(result.get('model') or ''),
             metadata={'brand_id': brand_id, 'resolution': '1K', 'quality': 'low'},
         )
-    except Exception:
+    except Exception as exc:
+        # Never leave a usable generated image behind when the matching debit
+        # was rejected. A zero/insufficient balance remains deliberately quiet.
+        if result:
+            try:
+                service.discard_client_brand_generated_hero(brand_id, result)
+            except Exception:
+                current_app.logger.exception('Não foi possível compensar o hero sem cobrança da marca %s', brand_id)
+        from ..cadu_tool_billing import InsufficientToolCredits
+        if isinstance(exc, InsufficientToolCredits):
+            return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id), code=303)
         current_app.logger.exception('Não foi possível gerar o hero da marca %s', brand_id)
         abort(503, description='Não foi possível gerar o hero agora. Tente novamente.')
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id, hero='generated'), code=303)

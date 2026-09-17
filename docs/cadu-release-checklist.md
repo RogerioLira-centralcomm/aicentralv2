@@ -21,6 +21,7 @@ tenha sido validada.
 2. `python migrations/run_add_cadu_tool_token_ledger.py`
 3. `python migrations/run_add_connect_report_workspace.py`
 4. `python migrations/run_add_connect_report_sources.py`
+5. `python migrations/run_add_workspace_brand_audit_jobs.py`
 
 Os runners são atômicos, exigem banco explicitamente configurado e validam o
 schema criado. Eles não habilitam flags e não inserem dados de demonstração.
@@ -54,7 +55,16 @@ schema criado. Eles não habilitam flags e não inserem dados de demonstração.
 - Não redisparar automaticamente jobs já reclamados após falha; reconciliar
   provedor, cobrança e resultado antes de qualquer nova tentativa.
 
-## 6. Aceite visual e operacional
+## 6. Auditoria profunda de marca
+
+- Executar a migração da fila antes de ativar `CADU_BRAND_AUDIT_WORKER_ENABLED=1`.
+- Configurar supervisor para `flask cadu_workspace brand-audit-worker-once`.
+- Criar uma marca de teste e confirmar: estado em fila, claim durável, progresso,
+  cobrança idempotente e e-mail apenas após os três pareceres ficarem prontos.
+- Não redisparar jobs já reclamados: usar a ação de retentativa, que cria um novo
+  job com o checkpoint de evidências salvo.
+
+## 7. Aceite visual e operacional
 
 - Revisar desktop, tablet e celular em Workspace, Planner, Studio, Connect e
   Skills.

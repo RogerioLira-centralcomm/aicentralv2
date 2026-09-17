@@ -107,7 +107,7 @@ html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-app-family .ca
 @media(prefers-reduced-motion:reduce){::view-transition-old(workspace-content),::view-transition-new(workspace-content){animation:none}}
 
 /* A barra recolhida é uma rail de contexto: controles auxiliares não disputam os ícones. */
-html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-app-family .cadu-sidebar-toggle{position:absolute;top:14px;right:-13px;z-index:2;display:grid;width:27px;height:27px;margin:0;padding:0;place-items:center;border:1px solid var(--line);border-radius:50%;background:var(--cadu-surface);box-shadow:0 3px 10px rgba(17,38,33,.12);opacity:0;pointer-events:none;transform:translateX(-5px);transition:opacity var(--cadu-motion-fast),transform var(--cadu-motion-fast)}
+html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-app-family .cadu-sidebar-toggle{position:absolute;top:14px;right:-20px;z-index:2;display:grid;width:27px;height:27px;margin:0;padding:0;place-items:center;border:1px solid var(--line);border-radius:50%;background:var(--cadu-surface);box-shadow:0 3px 10px rgba(17,38,33,.12);opacity:0;pointer-events:none;transform:translateX(-5px);transition:opacity var(--cadu-motion-fast),transform var(--cadu-motion-fast)}
 html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-app-sidebar:hover .cadu-sidebar-toggle,html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-app-sidebar:focus-within .cadu-sidebar-toggle{opacity:1;pointer-events:auto;transform:translateX(0)}
 html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-sidebar-balance{display:none!important}
 

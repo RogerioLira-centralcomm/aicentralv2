@@ -58,8 +58,12 @@ def protect():
             abort(403, description='Atualize a página e tente novamente.')
         # Fail closed for new mutation routes too. Context changes only the
         # session; Copy Ads validation only reads the catalog.
+        # Conversar é uma capacidade própria do Cadu. Ela pode registrar o
+        # histórico e os arquivos da conversa sem liberar alterações no
+        # Workspace (entidades, marcas, projetos ou configurações).
         read_only_posts = {'cadu_family.set_context', 'cadu_family.copy_validate',
                            'cadu_family.conversation_send', 'cadu_family.conversation_preflight',
+                           'cadu_family.conversation_upload', 'cadu_family.conversation_stop',
                            'cadu_family.planner_link_test'}
         if (not current_app.config.get('CADU_FAMILY_WRITES_ENABLED', False)
                 and request.endpoint not in read_only_posts):
@@ -197,8 +201,8 @@ def conversation_history():
     archived = request.args.get('archived', '0')
     if archived not in ('0', '1'):
         abort(400, description='Filtro inválido.')
-    records = repository.conversation_history(user, selected['client_id'], limit=21, offset=offset, query=query, archived=archived == '1')
-    return jsonify(conversations=records[:20], next_offset=offset + 20 if len(records) > 20 else None,
+    records = repository.conversation_history(user, selected['client_id'], limit=13, offset=offset, query=query, archived=archived == '1')
+    return jsonify(conversations=records[:12], next_offset=offset + 12 if len(records) > 12 else None,
                    can_manage=bool(current_app.config.get('CADU_FAMILY_WRITES_ENABLED', False)
                                    and selected.get('role') in ('admin', 'member')))
 
@@ -559,8 +563,7 @@ def conversation_send():
     if not isinstance(data, dict) or data.get('profile') not in PROFILES:
         abort(400, description='Esta solução não utiliza o agente compartilhado.')
     # Enable only after the provider, schema and full client have passed pilot validation.
-    if (not current_app.config.get('CADU_FAMILY_CHAT_ENABLED', False)
-            or not current_app.config.get('CADU_FAMILY_WRITES_ENABLED', False)):
+    if not current_app.config.get('CADU_FAMILY_CHAT_ENABLED', False):
         abort(503, description='O envio integrado está em preparação. Seu histórico foi preservado.')
     from . import chat
     run = chat.prepare(data, selected)
@@ -616,12 +619,9 @@ def conversation_capabilities():
     context.identity()
     selected = context.resolve()
     enabled = bool(current_app.config.get('CADU_FAMILY_CHAT_ENABLED', False)
-                   and current_app.config.get('CADU_FAMILY_WRITES_ENABLED', False)
                    and selected['role'] in ('admin', 'member'))
     reason = ''
-    if not current_app.config.get('CADU_FAMILY_WRITES_ENABLED', False):
-        reason = 'As conversas estão em modo de consulta enquanto as alterações do Workspace são preparadas.'
-    elif not current_app.config.get('CADU_FAMILY_CHAT_ENABLED', False):
+    if not current_app.config.get('CADU_FAMILY_CHAT_ENABLED', False):
         reason = 'As conversas ainda não foram habilitadas nesta instalação.'
     elif selected['role'] not in ('admin', 'member'):
         reason = 'Sua conta não tem permissão para iniciar conversas neste espaço.'
@@ -698,6 +698,8 @@ def conversation_mode_reset(slug):
 @bp.post('/api/conversations/runs/<uuid:run_id>/stop')
 def conversation_stop(run_id):
     from . import dify
+    if not current_app.config.get('CADU_FAMILY_CHAT_ENABLED', False):
+        abort(503, description='As conversas ainda não foram habilitadas nesta instalação.')
     selected = writable_context()
     user = context.identity()
     runs = repository.rows('''SELECT task_id, status FROM cadu_family_chat_runs

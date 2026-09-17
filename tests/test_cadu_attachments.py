@@ -90,12 +90,12 @@ class AttachmentRouteTest(FamilyTest):
         return self.client.post('/familia/api/conversations/uploads',
             data={'file': (BytesIO(b'conteudo'), 'a.txt'), **extra}, headers={'X-CSRF-Token': 'token'})
 
-    def test_guest_and_readonly_installation_cannot_upload(self):
-        with mock.patch.object(attachments, 'upload') as upload:
+    def test_guest_cannot_upload_but_chat_does_not_depend_on_workspace_writes(self):
+        with mock.patch.object(attachments, 'upload', return_value={'id': 'file-id'}) as upload:
             self.assertEqual(self.upload().status_code, 401)
-            self.login()
-            self.assertEqual(self.upload().status_code, 403)
-            upload.assert_not_called()
+            self.login(); self.app.config['CADU_FAMILY_CHAT_ENABLED'] = True
+            self.assertEqual(self.upload().status_code, 201)
+            upload.assert_called_once()
 
     def test_csrf_and_chat_flag_are_required(self):
         self.login(); self.app.config['CADU_FAMILY_WRITES_ENABLED'] = True
@@ -110,13 +110,13 @@ class AttachmentRouteTest(FamilyTest):
             self.assertEqual(upload.call_args.args[1]['id'], 7)
             self.assertEqual(upload.call_args.args[2]['client_id'], 12)
 
-    def test_capabilities_fail_closed_and_guest_has_no_access(self):
+    def test_capabilities_require_chat_enablement_and_guest_has_no_access(self):
         self.assertEqual(self.client.get('/familia/api/conversations/capabilities').status_code, 401)
         self.login()
         data = self.client.get('/familia/api/conversations/capabilities').get_json()
         self.assertFalse(data['attachments']); self.assertFalse(data['send'])
         self.assertEqual(data['max_files'], 3)
-        self.assertIn('modo de consulta', data['reason'])
+        self.assertIn('ainda não foram habilitadas', data['reason'])
 
     def test_capabilities_explain_when_dify_is_not_ready(self):
         self.login()

@@ -16,13 +16,13 @@ class HistoryTest(TestCase):
             patch.start()
             self.addCleanup(patch.stop)
 
-    def test_page_fetches_one_extra_row_and_returns_twenty(self):
-        with mock.patch.object(repository, 'conversation_history', return_value=[{'id': str(i)} for i in range(21)]) as history:
+    def test_page_fetches_one_extra_row_and_returns_twelve(self):
+        with mock.patch.object(repository, 'conversation_history', return_value=[{'id': str(i)} for i in range(13)]) as history:
             response = self.client.get('/familia/api/conversations?offset=20&q=campanha')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json['conversations']), 20)
-        self.assertEqual(response.json['next_offset'], 40)
-        history.assert_called_once_with(self.user, 12, limit=21, offset=20, query='campanha', archived=False)
+        self.assertEqual(len(response.json['conversations']), 12)
+        self.assertEqual(response.json['next_offset'], 32)
+        history.assert_called_once_with(self.user, 12, limit=13, offset=20, query='campanha', archived=False)
 
     def test_workspace_host_keeps_history_available_without_family_pages(self):
         self.client.application.config.update(

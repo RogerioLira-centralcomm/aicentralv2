@@ -110,7 +110,7 @@
   };
   const saveDraft = () => writeDraft(conversationId, composer.value);
   const more = document.getElementById('conversation-more');
-  const archivedFilter = document.getElementById('conversation-archived');
+  const archivedToggle = document.getElementById('conversation-archived-toggle');
   const searchForm = document.getElementById('conversation-search');
   const mode = document.getElementById('conversation-mode');
   const projectSelect = document.getElementById('conversation-project');
@@ -251,7 +251,8 @@
     const target = recent || history;
     if (more) more.disabled = true;
     try {
-      const params = new URLSearchParams({q: historyQuery, offset: String(append ? nextOffset || 0 : 0), archived: archivedFilter?.checked ? '1' : '0'});
+      const archived = archivedToggle?.getAttribute('aria-pressed') === 'true';
+      const params = new URLSearchParams({q: historyQuery, offset: String(append ? nextOffset || 0 : 0), archived: archived ? '1' : '0'});
       const data = await api('conversations?' + params);
       if (request !== historyRequest) return;
       if (!recent && !append) { saveDraft(); conversationId = null; composer.value = readDraft(null); resizeComposer(); }
@@ -287,20 +288,20 @@
           const title = document.createElement('input'); title.value = thread.title || ''; title.maxLength = 150; title.required = true;
           title.setAttribute('aria-label', 'Título da conversa');
           const save = document.createElement('button'); save.type = 'submit'; save.textContent = 'Salvar título';
-          const archive = document.createElement('button'); archive.type = 'button'; archive.textContent = archivedFilter?.checked ? 'Restaurar' : 'Arquivar';
-          const archived = !archivedFilter?.checked;
+          const archive = document.createElement('button'); archive.type = 'button'; archive.textContent = archived ? 'Restaurar' : 'Arquivar';
+          const nextArchived = !archived;
           const update = async data => {
             if (sending || loadingThread) return;
             save.disabled = archive.disabled = true;
             try {
               await api('conversations/' + encodeURIComponent(thread.id), 'PATCH', data);
               await loadHistory();
-              status.textContent = 'title' in data ? 'Título salvo.' : data.archived ? 'Conversa arquivada. Você pode restaurá-la em Mostrar arquivadas.' : 'Conversa restaurada.';
+              status.textContent = 'title' in data ? 'Título salvo.' : data.archived ? 'Conversa arquivada. Você pode restaurá-la em Arquivadas.' : 'Conversa restaurada.';
             } catch (error) { status.textContent = error.message; }
             finally { save.disabled = archive.disabled = false; }
           };
           form.addEventListener('submit', event => { event.preventDefault(); update({title: title.value.trim()}); });
-          archive.addEventListener('click', () => update({archived}));
+          archive.addEventListener('click', () => update({archived: nextArchived}));
           form.append(title, save); actions.append(summary, form, archive); row.append(actions);
         }
       }
@@ -310,7 +311,13 @@
   }
   searchForm?.addEventListener('submit', event => { event.preventDefault(); historyQuery = new FormData(searchForm).get('q').trim(); loadHistory(); });
   more?.addEventListener('click', () => loadHistory(true));
-  archivedFilter?.addEventListener('change', () => loadHistory());
+  archivedToggle?.addEventListener('click', () => {
+    const archived = archivedToggle.getAttribute('aria-pressed') !== 'true';
+    archivedToggle.setAttribute('aria-pressed', String(archived));
+    archivedToggle.textContent = archived ? 'Ver ativas' : 'Arquivadas';
+    archivedToggle.closest('details')?.removeAttribute('open');
+    loadHistory();
+  });
   function addSources(sources) {
     if (!Array.isArray(sources) || !sources.length) return;
     const card = document.createElement('section'); card.className = 'conversation-sources';
@@ -405,8 +412,15 @@
     const heading = document.createElement('strong'); heading.textContent = 'Em que vamos trabalhar?';
     const description = document.createElement('span'); description.textContent = 'Comece uma conversa ou escolha um ponto de partida para o projeto.';
     const suggestions = document.createElement('div'); suggestions.className = 'conversation-suggestions';
-    ['Criar um briefing', 'Revisar uma campanha', 'Estruturar próximos passos'].forEach(prompt => {
-      const button = document.createElement('button'); button.type = 'button'; button.textContent = prompt;
+    [
+      ['Montar um briefing', 'Objetivo, público e entregas'],
+      ['Revisar uma campanha', 'Estratégia, mensagem e mídia'],
+      ['Definir próximos passos', 'Transformar contexto em ação']
+    ].forEach(([prompt, detail]) => {
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'conversation-suggestion';
+      const title = document.createElement('strong'); title.textContent = prompt;
+      const copy = document.createElement('span'); copy.textContent = detail;
+      button.append(title, copy);
       button.addEventListener('click', () => { composer.value = prompt + '.'; resizeComposer(); updateSend(); composer.focus(); });
       suggestions.append(button);
     });

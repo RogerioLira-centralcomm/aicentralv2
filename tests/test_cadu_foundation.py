@@ -13,20 +13,21 @@ class FoundationTest(family.FamilyTest):
                 ('post', '/api/entities'), ('patch', '/api/entities/ci:example'),
                 ('patch', '/api/profile'), ('post', '/api/actions/link-report-project'),
                 ('post', '/api/actions/00000000-0000-0000-0000-000000000001/confirm'),
-                ('post', '/api/conversations/runs/00000000-0000-0000-0000-000000000001/stop'),
             ):
                 with self.subTest(path=path):
                     result = getattr(self.client, method)('/familia' + path, json={}, headers={'X-CSRF-Token': 'token'})
                     self.assertEqual(result.status_code, 403)
             db.assert_not_called()
 
-    def test_chat_flag_alone_cannot_enable_writes(self):
+    def test_chat_flag_enables_conversation_without_enabling_workspace_writes(self):
         self.login()
         self.app.config['CADU_FAMILY_CHAT_ENABLED'] = True
         with mock.patch('aicentralv2.cadu_family.chat.prepare') as prepare:
+            prepare.return_value = {'queued': True, 'run_id': '00000000-0000-0000-0000-000000000001',
+                                    'conversation_id': '00000000-0000-0000-0000-000000000002'}
             response = self.post('conversations/send', {'profile': 'workspace', 'message': 'Olá'})
-            self.assertEqual(response.status_code, 503)
-            prepare.assert_not_called()
+            self.assertEqual(response.status_code, 202)
+            prepare.assert_called_once()
 
     def test_malformed_context_is_rejected_without_database_write(self):
         self.login()

@@ -1,6 +1,6 @@
 {% extends 'cadu_portals/base.html' %}
 {% block title %}{{ brand.name }} — Marcas — Workspace{% endblock %}{% block product_id %}workspace{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=8"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-brand-detail.css') }}?v=4"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-brand-projects.css') }}?v=1"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-brand-detail-v2.css') }}?v=1"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-brand-editorial.css') }}?v=1">{% endblock %}{% block navigation %}{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=8"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-brand-detail.css') }}?v=4"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-brand-projects.css') }}?v=1"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-brand-detail-v2.css') }}?v=1"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-brand-editorial.css') }}?v=2"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-brand-dossier.css') }}?v=1">{% endblock %}{% block navigation %}{% endblock %}
 {% block content %}{% set workspace_active='marcas' %}
 <div class="workspace-app-shell">
   {% include 'cadu_workspace/_app_sidebar.html' %}
@@ -22,7 +22,7 @@
     </aside>
 
     <section class="workspace-brand-editor" aria-labelledby="brand-identity-title">
-      <header><div><h2 id="brand-identity-title">Identidade da marca</h2><p>Clique em um campo para ajustar. Suas mudanças são salvas automaticamente.</p></div><span data-brand-save-status>Salvo</span></header>
+      <header><div><h2 id="brand-identity-title">Identidade da marca</h2><p>Consulte as diretrizes e abra a edição quando precisar atualizá-las.</p></div><span data-brand-save-status>Salvo</span></header>
       <div class="workspace-brand-reading"><article><small>Tom de voz</small><p>{{ brand.brand_profile.get('tone_of_voice') or brand.tone_of_voice or 'Defina como a marca fala para orientar os próximos trabalhos.' }}</p></article><article><small>Público prioritário</small><p>{{ brand.brand_profile.get('target_audience') or 'Ainda não definido.' }}</p></article><article><small>Posicionamento</small><p>{{ brand.brand_profile.get('positioning') or 'Ainda não definido.' }}</p></article><article><small>Valores</small><p>{{ (brand.brand_profile.get('brand_values') or ['Ainda não definidos.'])|join(' · ') }}</p></article></div>
       <details class="workspace-brand-edit-disclosure"><summary><span>Editar identidade</span><small>Nome, setor, diretrizes e cores</small></summary>
       <form method="post" action="{{ url_for('cadu_workspace.update_brand_identity', brand_id=brand.id) }}" data-brand-autosave>

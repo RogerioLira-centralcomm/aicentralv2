@@ -28,13 +28,13 @@ def test_rag_charge_rejects_when_client_has_insufficient_credit():
                            tokens=11, stage='indexacao', idempotency_key='test-rag-insufficient')
 
 
-def test_project_ux_explains_private_rag_and_credit_use():
+def test_project_ux_keeps_rag_processing_out_of_the_project_overview():
     from pathlib import Path
     root = Path(__file__).resolve().parents[1]
     template = (root / 'aicentralv2/templates/cadu_workspace/project_detail.html').read_text(encoding='utf-8')
     script = (root / 'aicentralv2/static/js/cadu-workspace-projects.js').read_text(encoding='utf-8')
-    assert 'Créditos do projeto' in template
-    assert 'margem operacional' in template
+    assert 'Créditos do projeto' not in template
+    assert 'workspace-project-menu' in template
     assert 'data-source-reprocess' in template
     assert 'usa créditos Cadu' in script
 

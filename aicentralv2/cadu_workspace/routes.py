@@ -381,7 +381,11 @@ def _workspace_brands(client_id: int, query: str = "") -> list[dict]:
                 name = str(brand.get('name') or '').strip()
                 brand['display_logo'] = public_logo(brand.get('logo_upload_path') or brand.get('logo_url'))
                 seed_visuals = brand['brand_profile'].get('seed_visuals') or {}
-                brand['visual_thumbnail'] = public_logo(seed_visuals.get('thumbnail')) if isinstance(seed_visuals, dict) else ''
+                # Project headers need the same approved art direction used by
+                # the brand dossier. The previous thumbnail-only lookup often
+                # returned nothing even when the brand had a hero visual.
+                brand['visual_hero'] = public_logo(seed_visuals.get('hero') or seed_visuals.get('thumbnail')) if isinstance(seed_visuals, dict) else ''
+                brand['visual_thumbnail'] = brand['visual_hero']
                 brand['display_initials'] = ''.join(
                     word[0] for word in re.findall(r"[\wÀ-ÿ]+", name)[:2]
                 ).upper() or 'M'
@@ -1342,7 +1346,6 @@ def project_detail(project_id):
         abort(404)
     _remember_workspace_project(project_id)
     return render_template('cadu_workspace/project_detail.html', project=project, brands=_workspace_brands(client_id),
-                           rag_credit=credit_position(client_id),
                            can_manage_brand=session.get('user_type') in {'admin', 'superadmin'})
 
 

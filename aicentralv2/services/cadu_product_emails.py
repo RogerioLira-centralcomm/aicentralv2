@@ -28,6 +28,28 @@ def send_piece_ready(*, recipient_email: str, recipient_name: str, title: str, u
     )
 
 
+def send_brand_audit_ready(*, recipient_email: str, recipient_name: str, brand_name: str,
+                           summary: str, differentiators: list[str], url: str) -> dict:
+    """Notify the requester only after a reviewable brand proposal is ready."""
+    if not recipient_email or not _enabled():
+        return {"success": True, "skipped": True}
+    highlights = "; ".join(str(item).strip() for item in (differentiators or [])[:3] if str(item).strip())
+    description = str(summary or '').strip()
+    if highlights:
+        description = f"{description}\n\nDiferenciais observados: {highlights}".strip()
+    return get_brevo_product_service("workspace").enviar_email_com_template(
+        template_name="produto-atividade.html", template_folder="emails/externos",
+        to_email=recipient_email, to_name=recipient_name or "Pessoa criadora",
+        subject=f"A leitura de {brand_name or 'sua marca'} está pronta para revisão",
+        params={
+            "BRAND": product_email_brand("workspace"),
+            "TITLE": f"A proposta de {brand_name or 'marca'} está pronta",
+            "DESCRIPTION": description or "Encontramos evidências para você revisar antes de aplicar à marca.",
+            "CTA_LABEL": "Revisar marca", "CTA_URL": url,
+        },
+    )
+
+
 WORKSPACE_ONBOARDING = (
     (0, "Boas-vindas ao Workspace", "Conheça o lugar onde seu time organiza o trabalho.", "Abrir Workspace", "/workspace/app"),
     (1, "Comece por um projeto", "Dê um nome ao trabalho que sua equipe vai conduzir.", "Ver projetos", "/workspace/app/projetos"),

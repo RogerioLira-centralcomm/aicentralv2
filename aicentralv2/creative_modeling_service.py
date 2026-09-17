@@ -3179,6 +3179,63 @@ class CreativeModelingService:
             self.repository.update_client_brand_profile(client_id, profile)
         return _serialize({"visuals": found, "created": saved})
 
+    def generate_client_brand_low_res_hero(self, client_id, brand):
+        """Generate one economical, text-safe hero from approved brand context."""
+        client_id = _integer(client_id, "Cliente")
+        client = self.repository.get_client(client_id)
+        profile = dict(client.get("brand_profile") or {})
+        existing = list(self.repository.list_client_brand_assets(client_id, approved_only=False) or [])
+        references = []
+        for asset in existing:
+            if asset.get("role") not in {"logo", "reference", "creative"}:
+                continue
+            reference = self._public_image_reference(asset)
+            if reference:
+                references.append(reference)
+            if len(references) >= 2:
+                break
+        offer = ", ".join(str(item) for item in (profile.get("products_services") or [])[:3])
+        visual_direction = str(profile.get("creative_guidelines") or "").strip()
+        prompt = "\n".join(filter(None, [
+            "Create one polished, realistic 16:9 brand hero photograph for a web workspace.",
+            f"Brand: {brand.get('name') or client.get('name') or 'the brand'}.",
+            f"Sector: {brand.get('sector') or client.get('sector') or 'business'}.",
+            f"Offer or activity: {offer or 'the real work of the business'}.",
+            f"Approved visual direction: {visual_direction}",
+            "Show the product in authentic use, the service in execution, or a real business activity; use people only when natural to that activity.",
+            "Place the visual subject on the right or center-right. Keep the left 42 percent calm and darker for white interface text.",
+            "Use rich but credible color and sharp photographic detail. No words, no typography, no generated logos, no watermarks, no UI mockups.",
+        ]))
+        response = self.generator.generate_image(
+            prompt, input_references=references, aspect_ratio="16:9", quality="low",
+            output_format="webp", resolution="1K", background="opaque",
+        )
+        encoded = response.get("b64_json")
+        if not encoded:
+            raise ValueError("O provedor não retornou o hero da marca.")
+        asset_path = self.storage.save_generated_base64(encoded, output_format="webp")
+        try:
+            asset_id = self.repository.add_client_brand_asset(client_id, {
+                "role": "background", "source_kind": "brand_hero_generation",
+                "asset_path": asset_path, "mime_type": "image/webp", "width": 1024,
+                "height": 576, "status": "approved", "is_primary": False,
+                "metadata": {
+                    "brand_seed_kind": "hero", "low_resolution": True,
+                    "text_safe_side": "left", "contrast_overlay": "brand_dark",
+                    "prompt": prompt[:2000], "model": response.get("model"),
+                },
+            })
+        except Exception:
+            self.storage.delete(asset_path)
+            raise
+        profile["seed_visuals"] = {**dict(profile.get("seed_visuals") or {}), "hero": asset_path}
+        if hasattr(self.repository, "update_client_brand_profile"):
+            self.repository.update_client_brand_profile(client_id, profile)
+        return _serialize({
+            "id": asset_id, "asset_path": asset_path, "model": response.get("model"),
+            "usage": response.get("usage") or {}, "actual_cost_usd": response.get("actual_cost_usd", 0),
+        })
+
     def _track_input_references(self, system, track_id, client=None):
         from .design_system_ads.fidelity import track_reference_urls
 

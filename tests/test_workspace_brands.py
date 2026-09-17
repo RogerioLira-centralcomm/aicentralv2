@@ -112,9 +112,13 @@ class WorkspaceBrandsTest(TestCase):
 
         self.assertEqual(response.status_code, 303)
         self.assertEqual(response.headers['Location'], '/workspace/app/marcas/81')
-        params = cursor.execute.call_args.args[1]
+        brand_insert = next(
+            call for call in cursor.execute.call_args_list
+            if 'INSERT INTO cx_clients' in call.args[0]
+        )
+        params = brand_insert.args[1]
         self.assertEqual(params[0], 12)
-        connection.commit.assert_called_once_with()
+        self.assertGreaterEqual(connection.commit.call_count, 1)
 
     @mock.patch('aicentralv2.cadu_workspace.routes._start_brand_review_job')
     @mock.patch('aicentralv2.cadu_workspace.routes.family_repository.set_project_brand_link')

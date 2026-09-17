@@ -548,6 +548,9 @@ def _merge_brand_analysis(brand: dict, analysis: dict) -> dict:
         'brand_summary': 'brand_summary',
         'tone_of_voice': 'tone_of_voice',
         'target_audience': 'target_audience',
+        'audience_segments': 'audience_segments',
+        'personas': 'personas',
+        'archetype': 'archetype',
         'ad_segments': 'ad_segments',
         'creative_guidelines': 'creative_guidelines',
         'campaign_opportunities': 'campaign_opportunities',
@@ -609,10 +612,11 @@ def _brand_analysis_proposal(analysis: dict) -> dict:
     allowed = {
         'name', 'sector', 'website_url', 'brand_summary', 'tone_of_voice',
         'primary_color', 'secondary_color', 'color_palette', 'logo_url',
-        'target_audience', 'products_services', 'differentiators', 'proof_points',
+        'target_audience', 'audience_segments', 'personas', 'archetype',
+        'products_services', 'differentiators', 'proof_points',
         'ad_segments', 'creative_guidelines', 'campaign_opportunities',
         'visual_motifs', 'mandatory_elements', 'forbidden_elements', 'fonts',
-        'confidence', 'sources',
+        'confidence', 'sources', 'social_links',
     }
     return {key: value for key, value in analysis.items() if key in allowed}
 
@@ -805,6 +809,21 @@ def _start_brand_review_job(client_id: int, user_id: int, brand_id: int, job_id:
                     message='Três pareceres estão prontos para decisão.', error='',
                     analysis=review_proposal, reviews=reviews,
                     analysis_metadata=analysis_metadata)
+                # Email delivery is best-effort and never changes the audit state.
+                try:
+                    from .. import db
+                    from ..services.cadu_product_emails import send_brand_audit_ready
+                    person = db.obter_contato_por_id(user_id) or {}
+                    send_brand_audit_ready(
+                        recipient_email=str(person.get('email') or ''),
+                        recipient_name=str(person.get('nome_completo') or ''),
+                        brand_name=str(review_proposal.get('name') or ''),
+                        summary=str(review_proposal.get('brand_summary') or ''),
+                        differentiators=list(review_proposal.get('differentiators') or []),
+                        url=product_url('workspace', f'/marcas/{brand_id}'),
+                    )
+                except Exception:
+                    current_app.logger.exception('Não foi possível enviar aviso da auditoria da marca %s', brand_id)
             except Exception as exc:
                 current_app.logger.exception('Não foi possível auditar a marca %s', brand_id)
                 _save_brand_review_job(client_id, brand_id, job_id,
@@ -882,6 +901,114 @@ def _fill_empty_project_identity_from_brand(client_id: int, brand_id: int, profi
         except Exception:
             pass
         current_app.logger.exception('Não foi possível preencher a identidade dos projetos da marca %s', brand_id)
+
+
+def _brand_project_documents(brand: dict, analysis: dict) -> list[tuple[str, str, str]]:
+    """Create compact, retrieval-friendly projections without copying the whole audit."""
+    profile = brand.get('brand_profile') or {}
+    sources = '\n'.join(f'- {item}' for item in (analysis.get('sources') or [])[:8]) or '- Fontes oficiais aprovadas na auditoria.'
+    personas = analysis.get('personas') or profile.get('personas') or []
+    persona_lines = []
+    for item in personas[:3]:
+        if not isinstance(item, dict):
+            continue
+        label = item.get('name') or 'Persona de trabalho'
+        detail = '; '.join(str(item.get(key) or '').strip() for key in ('context', 'needs', 'barriers') if item.get(key))
+        if detail:
+            persona_lines.append(f'- **{label}:** {detail} ({"fato" if item.get("status") == "fact" else "hipótese a validar"})')
+    archetype = analysis.get('archetype') or profile.get('archetype') or {}
+    archetype_text = ''
+    if isinstance(archetype, dict) and archetype.get('primary'):
+        archetype_text = f"{archetype.get('primary')} — {archetype.get('rationale') or 'leitura a validar'}"
+    return [
+        ('Marca em uma página', '\n\n'.join(filter(None, [
+            f"# {brand.get('name') or 'Marca'}", analysis.get('brand_summary') or profile.get('brand_summary'),
+            f"**Posicionamento:** {profile.get('positioning') or analysis.get('brand_summary') or ''}",
+            f"**Oferta:** {', '.join(analysis.get('products_services') or profile.get('products_services') or [])}",
+            f"**Diferenciais:** {'; '.join(analysis.get('differentiators') or profile.get('differentiators') or [])}",
+            '## Fontes\n' + sources,
+        ])), 'brand_projection:overview'),
+        ('Públicos e personas', '\n\n'.join(filter(None, [
+            '# Públicos e personas', analysis.get('target_audience') or profile.get('target_audience'),
+            '## Segmentos\n' + '\n'.join(f"- **{item.get('name')}** — {item.get('needs') or ''}" for item in (analysis.get('audience_segments') or profile.get('audience_segments') or [])[:5]),
+            '## Personas\n' + ('\n'.join(persona_lines) or 'Sem personas confirmadas; use o público prioritário como base.'),
+        ])), 'brand_projection:audience'),
+        ('Mensagem e direção de marca', '\n\n'.join(filter(None, [
+            '# Mensagem e direção de marca', f"**Tom:** {analysis.get('tone_of_voice') or profile.get('tone_of_voice') or ''}",
+            f"**Arquétipo:** {archetype_text}",
+            f"**Direção criativa:** {analysis.get('creative_guidelines') or profile.get('creative_guidelines') or ''}",
+            f"**Preservar:** {'; '.join(analysis.get('mandatory_elements') or profile.get('mandatory_elements') or [])}",
+            f"**Evitar:** {'; '.join(analysis.get('forbidden_elements') or profile.get('forbidden_elements') or [])}",
+        ])), 'brand_projection:messaging'),
+        ('Mercado, diferenciais e fontes', '\n\n'.join(filter(None, [
+            '# Mercado, diferenciais e fontes',
+            '## Provas\n' + '\n'.join(f'- {item}' for item in (analysis.get('proof_points') or profile.get('proof_points') or [])[:8]),
+            '## Diferenciais\n' + '\n'.join(f'- {item}' for item in (analysis.get('differentiators') or profile.get('differentiators') or [])[:8]),
+            '## Fontes\n' + sources,
+        ])), 'brand_projection:market'),
+    ]
+
+
+def _sync_approved_brand_to_projects(client_id: int, user_id: int, brand_id: int, brand: dict, analysis: dict) -> None:
+    """Reuse approved evidence in linked project dossiers without a new crawl."""
+    try:
+        links = family_repository.project_brand_links(client_id)
+    except Exception:
+        current_app.logger.exception('Não foi possível carregar vínculos da marca %s', brand_id)
+        return
+    project_ids = [str(item.get('project_ref') or '')[3:] for item in links
+                   if str(item.get('brand_ref') or '') == f'studio:{brand_id}'
+                   and str(item.get('project_ref') or '').startswith('ci:')]
+    if not project_ids:
+        return
+    metadata = brand.get('analysis_metadata') or {}
+    pack = metadata.get('review_pack') or {}
+    version = str(pack.get('approved_at') or '')[:32]
+    include_sources = bool((pack.get('input') or {}).get('include_project_sources'))
+    evidence_pages = (metadata.get('evidence_pages') or [])[:15] if include_sources else []
+    for project_id in project_ids:
+        try:
+            existing = {str(item.get('storage_path') or '') for item in (_workspace_project(client_id, project_id) or {}).get('files', [])}
+            for title, content, kind in _brand_project_documents(brand, analysis):
+                path = f'brand-approved:{brand_id}:{version}:{kind}'
+                if path not in existing and len(content.strip()) >= 20:
+                    _persist_project_source(client_id, project_id, title, content, 'text/markdown', len(content.encode('utf-8')), path, kind, user_id)
+            for position, page in enumerate(evidence_pages, start=1):
+                if not isinstance(page, dict):
+                    continue
+                content = str(page.get('content') or '').strip()
+                source_url = str(page.get('url') or '').strip()
+                if len(content) < 20 or not source_url:
+                    continue
+                path = f'brand-evidence:{brand_id}:{version}:{position}'
+                if path not in existing:
+                    title = str(page.get('title') or source_url)[:220]
+                    source_text = f'# Fonte oficial da marca\n\nURL: {source_url}\n\n{content}'
+                    _persist_project_source(client_id, project_id, title, source_text, 'text/markdown', len(source_text.encode('utf-8')), path, 'brand_evidence', user_id)
+            known_links = {str(item.get('url') or '') for item in _workspace_project_links(client_id, project_id)}
+            for social_url in (analysis.get('social_links') or [])[:12]:
+                try:
+                    link = _project_link_metadata(social_url, 'Canal oficial da marca')
+                except ValueError:
+                    continue
+                if link['url'] in known_links:
+                    continue
+                with get_db().cursor() as cursor:
+                    cursor.execute(
+                        '''INSERT INTO cadu_ci_projeto_links
+                           (id, projeto_id, id_cliente, criado_por, provider, url, titulo, position)
+                           VALUES (%s, %s, %s, %s, %s, %s, %s,
+                               COALESCE((SELECT MAX(position) + 1 FROM cadu_ci_projeto_links WHERE projeto_id = %s AND id_cliente = %s), 0))''',
+                        (str(uuid4()), project_id, client_id, user_id, link['provider'], link['url'], link['title'], project_id, client_id),
+                    )
+                get_db().commit()
+                known_links.add(link['url'])
+        except Exception:
+            try:
+                get_db().rollback()
+            except Exception:
+                pass
+            current_app.logger.exception('Não foi possível projetar a marca %s no projeto %s', brand_id, project_id)
 
 
 def _workspace_projects(client_id: int, query: str = "", status: str = "ativos") -> list[dict]:
@@ -1825,6 +1952,28 @@ def create_brand():
             current_app.logger.warning('Marca %s criada sem ativos: %s', brand_id, exc)
         except Exception:
             current_app.logger.exception('Marca %s criada, mas não foi possível salvar seus ativos', brand_id)
+    # A brand without a project leaves its approved context orphaned. Create a
+    # small dossier immediately; it will receive projections only after review.
+    try:
+        project_id = str(uuid4())
+        with get_db().cursor() as cursor:
+            cursor.execute(
+                """INSERT INTO cadu_ci_projetos
+                       (id, id_cliente, criado_por, nome, descricao, instrucoes, tipo, cor, status)
+                    VALUES (%s, %s, %s, %s, %s, %s, 'projeto', %s, 'ativo')""",
+                (project_id, client_id, session.get('user_id'), data['name'],
+                 f'Dossiê operacional da marca {data["name"]}.',
+                 'Contexto de marca vinculado; decisões de campanha devem ser registradas neste projeto.',
+                 data['primary_color'] or '#176b5e'),
+            )
+        get_db().commit()
+        family_repository.set_project_brand_link(client_id, session.get('user_id'), f'ci:{project_id}', f'studio:{brand_id}', True)
+    except Exception:
+        try:
+            get_db().rollback()
+        except Exception:
+            pass
+        current_app.logger.exception('Marca %s criada sem projeto-dossiê automático', brand_id)
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id,
                             audit='start' if request.form.get('analyze') == 'true' else None), code=303)
 
@@ -2791,6 +2940,39 @@ def find_recent_brand_creatives(brand_id):
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id, assets='recent'), code=303)
 
 
+@bp.post('/workspace/app/marcas/<int:brand_id>/hero/gerar')
+@login_required
+def generate_brand_hero(brand_id):
+    """Create one low-resolution hero; insufficient credit deliberately stays quiet."""
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    _workspace_team_admin()
+    client_id = int(session.get('cliente_id') or 0)
+    user_id = int(session.get('user_id') or 0)
+    brand = _workspace_brand(client_id, brand_id)
+    if not brand:
+        abort(404)
+    from ..cadu_credit_connector import CreditActor
+    from ..creative_modeling_service import CreativeModelingService
+    credits = CaduCreditConnector()
+    # The action is intentionally silent when there is no usable balance.
+    if credits.balance(client_id) <= 0:
+        return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id), code=303)
+    actor = CreditActor.from_values(client_id, user_id)
+    try:
+        result = CreativeModelingService().generate_client_brand_low_res_hero(brand_id, brand)
+        credits.charge_provider(
+            actor=actor, idempotency_key=f'workspace-brand:{brand_id}:hero:{uuid4().hex}',
+            app='Hero da marca', stage='imagem_baixa_resolucao', provider_result=result,
+            model=str(result.get('model') or ''),
+            metadata={'brand_id': brand_id, 'resolution': '1K', 'quality': 'low'},
+        )
+    except Exception:
+        current_app.logger.exception('Não foi possível gerar o hero da marca %s', brand_id)
+        abort(503, description='Não foi possível gerar o hero agora. Tente novamente.')
+    return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id, hero='generated'), code=303)
+
+
 @bp.post('/workspace/app/marcas/<int:brand_id>/auditoria')
 @login_required
 def audit_brand(brand_id):
@@ -2831,7 +3013,8 @@ def audit_brand(brand_id):
             'message': 'A auditoria entrou na fila.',
             'error': '',
             'created_at': datetime.utcnow().isoformat() + 'Z',
-            'input': {'website_url': website_url, 'has_images': bool(image_payload)},
+            'input': {'website_url': website_url, 'has_images': bool(image_payload),
+                      'include_project_sources': request.form.get('include_project_sources') == 'true'},
             'analysis': {},
             'reviews': [],
         }
@@ -3093,6 +3276,12 @@ def approve_brand_reviews(brand_id):
         current_app.logger.exception('Não foi possível aprovar a revisão da marca %s', brand_id)
         abort(503, description='Não foi possível aprovar a análise agora. Tente novamente.')
     _fill_empty_project_identity_from_brand(client_id, brand_id, merged['profile'])
+    # Projects receive compact, approved projections of the same evidence. This
+    # indexes useful context without launching a second Firecrawl collection.
+    _sync_approved_brand_to_projects(
+        client_id, int(session.get('user_id') or 0), brand_id,
+        {**brand, 'brand_profile': merged['profile'], 'analysis_metadata': metadata}, analysis,
+    )
     # Seed low-resolution working visuals after the human decision.  A visual
     # starter must never block the approval itself: originals and the approved
     # identity remain the source of truth if this best-effort step is delayed.

@@ -52,6 +52,9 @@ Retorne apenas JSON válido neste contrato:
   ],
   "logo_url": "URL absoluta do logo oficial ou null",
   "target_audience": "público prioritário, dores, desejos e gatilhos em até 900 caracteres",
+  "audience_segments": [{"name":"segmento","needs":"necessidades observadas","confidence":0.0}],
+  "personas": [{"name":"rótulo funcional","context":"contexto de compra/uso","needs":"necessidade","barriers":"barreiras","status":"fact|hypothesis"}],
+  "archetype": {"primary":"arquétipo","secondary":"arquétipo ou null","rationale":"evidência da linguagem","confidence":0.0,"status":"fact|hypothesis"},
   "products_services": ["produtos ou serviços efetivamente encontrados"],
   "differentiators": ["diferenciais sustentados pelas evidências"],
   "proof_points": ["provas, benefícios ou conveniências verificáveis"],
@@ -70,7 +73,8 @@ Retorne apenas JSON válido neste contrato:
 }
 
 Use português do Brasil. Cores devem estar em hexadecimal. Não confunda a cor
-de uma peça promocional isolada com a identidade permanente da marca."""
+de uma peça promocional isolada com a identidade permanente da marca. Personas
+e arquétipos são hipóteses, salvo quando a evidência permitir afirmá-los."""
 
 BRAND_VISUAL_REFINEMENT_SYSTEM = """Você é um diretor de identidade visual.
 Receba uma análise factual e evidências visuais oficiais de uma marca. Refine
@@ -229,9 +233,15 @@ _HOME_FORMATS = [
 ]
 _PAGE_FORMATS = ["branding", "links", "images", "markdown"]
 _PAGE_SIGNALS = (
-    "sobre", "quem-somos", "institucional", "marca", "about",
+    "sobre", "quem-somos", "institucional", "marca", "about", "historia",
     "produto", "produtos", "colecao", "colecoes", "servico", "servicos",
-    "campanha", "campaign", "categoria", "categorias", "loja",
+    "campanha", "campaign", "categoria", "categorias", "loja", "case",
+    "portfolio", "solucoes", "solucao", "contato", "imprensa", "blog",
+)
+_PAGE_EXCLUSIONS = (
+    "checkout", "carrinho", "cart", "login", "minha-conta", "account",
+    "wishlist", "search", "busca", "privacy", "privacidade", "termos",
+    "cookies", "wp-admin", "feed", "sitemap", "javascript:",
 )
 
 
@@ -243,9 +253,11 @@ def _same_domain(raw_url, domain):
     return bool(host and (host == domain or host.endswith("." + domain)))
 
 
-def _relevant_pages(links, base_url, domain, limit=5):
+def _relevant_pages(links, base_url, domain, limit=15):
+    """Seleciona uma amostra editorial do site, não um catálogo inteiro."""
     ranked = []
     seen = set()
+    product_collections = set()
     for item in links if isinstance(links, list) else []:
         raw = item.get("url") if isinstance(item, dict) else item
         absolute = urljoin(base_url + "/", str(raw or "").strip())
@@ -256,13 +268,37 @@ def _relevant_pages(links, base_url, domain, limit=5):
         if not clean or clean in seen or not _same_domain(clean, domain):
             continue
         path = (parsed.path or "").lower()
-        score = sum(20 for signal in _PAGE_SIGNALS if signal in path)
-        if score <= 0:
+        if any(excluded in path for excluded in _PAGE_EXCLUSIONS):
             continue
+        score = sum(20 for signal in _PAGE_SIGNALS if signal in path)
+        # Páginas curtas de primeiro nível também são úteis para sites que não
+        # seguem convenções de URL. Não abrimos páginas profundas arbitrárias.
+        depth = len([segment for segment in path.split("/") if segment])
+        if score <= 0 and depth > 1:
+            continue
+        product_like = any(signal in path for signal in (
+            "produto", "produtos", "colecao", "colecoes", "categoria", "categorias",
+        ))
+        if product_like:
+            segments = [segment for segment in path.split("/") if segment]
+            collection = "/".join(segments[:2]) or path
+            # Um representante por coleção evita cobrar por páginas quase iguais.
+            if collection in product_collections:
+                continue
+            product_collections.add(collection)
         seen.add(clean)
-        ranked.append((score - path.count("/"), clean))
+        ranked.append((score - depth, clean))
     ranked.sort(key=lambda row: (-row[0], row[1]))
     return [url for _, url in ranked[:limit]]
+
+
+def _clean_web_text(value, limit=6000):
+    """Remove cromos repetidos que não são evidência de posicionamento."""
+    text = str(value or "")
+    text = re.sub(r"(?im)^\s*(aceitar|recusar|gerenciar) cookies?.*$", "", text)
+    text = re.sub(r"(?im)^\s*(menu|voltar ao topo|skip to content).*$", "", text)
+    text = re.sub(r"\n{3,}", "\n\n", text).strip()
+    return _text(text, limit)
 
 
 def _candidate(
@@ -507,7 +543,7 @@ def _compact_web_evidence(url):
             "url": page_url,
             "title": page_record.get("titulo"),
             "description": page_record.get("descricao"),
-            "content": _text(page_raw.get("markdown"), 6000),
+            "content": _clean_web_text(page_raw.get("markdown"), 6000),
         })
     candidates = _deduplicate_candidates(candidates, domain)
     strong_logo = next(
@@ -533,6 +569,9 @@ def _compact_web_evidence(url):
     record = _montar_registro(domain, raw, effective_url)
     record["logo_url"] = strong_logo.get("url") if strong_logo else None
     branding = raw.get("branding") or {}
+    external_sources = _firecrawl_market_search(
+        record.get("titulo") or domain, domain
+    )
     return {
         "source_url": effective_url,
         "title": record.get("titulo"),
@@ -544,6 +583,8 @@ def _compact_web_evidence(url):
         "asset_candidates": candidates,
         "reference_images": references[:24],
         "firecrawl_image_search": image_search_used,
+        "external_sources": external_sources,
+        "firecrawl_market_search": bool(external_sources),
         "screenshot": raw.get("screenshot"),
         "branding": {
             key: branding.get(key)
@@ -551,6 +592,48 @@ def _compact_web_evidence(url):
             if branding.get(key) not in (None, "", [], {})
         },
     }, record
+
+
+def _firecrawl_market_search(brand_name, domain, limit=5):
+    """Busca sinais externos sem tratá-los como fala oficial da marca."""
+    from .services.integration_credentials import resolve_firecrawl_api_key
+
+    key = resolve_firecrawl_api_key()
+    if not key:
+        return []
+    endpoint = _firecrawl_url().rsplit("/scrape", 1)[0] + "/search"
+    query = f'"{str(brand_name or domain).strip()}" mercado case notícia'
+    try:
+        response = requests.post(
+            endpoint,
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+            json={"query": query, "limit": max(1, min(int(limit), 5)), "ignoreInvalidURLs": True},
+            timeout=30,
+        )
+        response.raise_for_status()
+        data = response.json().get("data") or response.json()
+    except (requests.RequestException, ValueError):
+        return []
+    rows = data.get("web") or data.get("results") or []
+    seen, result = set(), []
+    for item in rows:
+        if not isinstance(item, dict):
+            continue
+        source_url = str(item.get("url") or "").strip()
+        if not source_url or source_url in seen:
+            continue
+        # O domínio oficial já está nas evidências primárias e não deve ocupar
+        # a cota de leitura de mercado.
+        if _same_domain(source_url, domain):
+            continue
+        seen.add(source_url)
+        title = _text(item.get("title"), 240)
+        snippet = _text(item.get("description") or item.get("snippet") or item.get("markdown"), 900)
+        if title or snippet:
+            result.append({"url": source_url, "title": title, "snippet": snippet, "kind": "market"})
+        if len(result) >= limit:
+            break
+    return result
 
 
 def _website_response_error(raw):
@@ -597,6 +680,67 @@ def _website_response_error(raw):
 def _text(value, limit):
     value = str(value or "").strip()
     return value[:limit] or None
+
+
+def _unit_confidence(value):
+    try:
+        return max(0, min(1, float(value or 0)))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _audience_segments(value):
+    result = []
+    for item in value if isinstance(value, list) else []:
+        if not isinstance(item, dict):
+            continue
+        name = _text(item.get("name"), 160)
+        if not name:
+            continue
+        result.append({
+            "name": name,
+            "needs": _text(item.get("needs"), 500),
+            "confidence": _unit_confidence(item.get("confidence")),
+        })
+        if len(result) >= 5:
+            break
+    return result
+
+
+def _personas(value):
+    result = []
+    for item in value if isinstance(value, list) else []:
+        if not isinstance(item, dict):
+            continue
+        name = _text(item.get("name"), 160)
+        if not name:
+            continue
+        status = str(item.get("status") or "hypothesis").lower()
+        result.append({
+            "name": name,
+            "context": _text(item.get("context"), 600),
+            "needs": _text(item.get("needs"), 500),
+            "barriers": _text(item.get("barriers"), 500),
+            "status": "fact" if status == "fact" else "hypothesis",
+        })
+        if len(result) >= 3:
+            break
+    return result
+
+
+def _archetype(value):
+    if not isinstance(value, dict):
+        return {}
+    primary = _text(value.get("primary"), 80)
+    if not primary:
+        return {}
+    return {
+        "primary": primary,
+        "secondary": _text(value.get("secondary"), 80),
+        "rationale": _text(value.get("rationale"), 700),
+        "confidence": _unit_confidence(value.get("confidence")),
+        "status": "fact" if str(value.get("status") or "").lower() == "fact" else "hypothesis",
+    }
 
 
 def _fonts(raw):
@@ -1072,6 +1216,9 @@ class CreativeBrandAnalyzer:
             "color_palette": palette,
             "logo_url": logo_url,
             "target_audience": _text(result.get("target_audience"), 4000),
+            "audience_segments": _audience_segments(result.get("audience_segments")),
+            "personas": _personas(result.get("personas")),
+            "archetype": _archetype(result.get("archetype")),
             "products_services": _string_list(
                 result.get("products_services"), limit=8
             ),
@@ -1102,6 +1249,7 @@ class CreativeBrandAnalyzer:
             "screenshot": evidence.get("screenshot"),
             "confidence": confidence,
             "sources": sources,
+            "social_links": _string_list(evidence.get("social_links"), limit=12, item_limit=2000),
             "analysis_metadata": {
                 "model": text_response.get("model") or self.model,
                 "visual_model": (
@@ -1126,6 +1274,11 @@ class CreativeBrandAnalyzer:
                 "pages_analyzed": len(evidence.get("pages") or []),
                 "assets_found": len(asset_candidates),
                 "firecrawl_image_search": bool(evidence.get("firecrawl_image_search")),
+                "market_sources": evidence.get("external_sources") or [],
+                "firecrawl_market_search": bool(evidence.get("firecrawl_market_search")),
+                # Reusable, cleaned source snapshots. They let a linked project
+                # index selected official pages without another provider call.
+                "evidence_pages": (evidence.get("pages") or [])[:15],
             },
         }
 

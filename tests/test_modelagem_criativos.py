@@ -742,6 +742,22 @@ class FakeCreditLedger:
 
 
 class CreativeBrandAnalyzerTest(unittest.TestCase):
+    def test_selecao_de_paginas_prioriza_contexto_e_limita_catalogo(self):
+        from aicentralv2 import creative_brand_analysis as analysis
+
+        urls = analysis._relevant_pages([
+            'https://marca.com/sobre', 'https://marca.com/servicos',
+            'https://marca.com/colecoes/verao/produto-a',
+            'https://marca.com/colecoes/verao/produto-b',
+            'https://marca.com/carrinho', 'https://marca.com/login',
+        ], 'https://marca.com', 'marca.com')
+
+        self.assertIn('https://marca.com/sobre', urls)
+        self.assertIn('https://marca.com/servicos', urls)
+        self.assertIn('https://marca.com/colecoes/verao/produto-a', urls)
+        self.assertNotIn('https://marca.com/colecoes/verao/produto-b', urls)
+        self.assertNotIn('https://marca.com/carrinho', urls)
+
     @patch(
         "aicentralv2.creative_brand_analysis._compact_web_evidence",
         return_value=(

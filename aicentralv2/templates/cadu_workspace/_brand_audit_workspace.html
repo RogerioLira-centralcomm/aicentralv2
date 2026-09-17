@@ -96,6 +96,7 @@
           <div><strong>{{ 'Atualizar a auditoria' if audit_status == 'approved' else 'Iniciar auditoria' }}</strong><span>Use o site oficial e até quatro referências. O resultado só substitui a identidade após nova aprovação humana.</span></div>
           <label>Site oficial<input type="url" name="website_url" value="{{ brand.website_url or '' }}" placeholder="https://"></label>
           <label>Referências<input type="file" name="images" accept="image/*" multiple></label>
+          <label><input type="checkbox" name="include_project_sources" value="true"> Adicionar páginas oficiais como fontes do projeto vinculado após aprovação</label>
           <button type="submit">{{ 'Criar nova proposta' if audit_status == 'approved' else 'Iniciar análise' }}</button>
         </form>
       {% endif %}

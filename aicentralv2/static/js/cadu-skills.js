@@ -21,10 +21,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const activeFilter = catalog.querySelector('[data-active-filter]');
     const activeFilterText = activeFilter.querySelector('span');
     const labels = {
-      market: ['Curadoria de mercado', 'Top 10 para conhecer', 'Capacidades relevantes para comunicação, conteúdo, dados e crescimento.'],
-      official: ['Inteligência proprietária', 'Família oficial Cadu', 'Especialistas instaláveis que conectam planejamento, canais, audiências e formatos.'],
-      directory: ['Diretório de referências', 'Todas as referências', 'Capacidades disponíveis para consulta e comparação.'],
-      all: ['Catálogo completo', 'Encontre a skill para a tarefa', 'Compare resultados, método e acesso antes de abrir uma skill.'],
+      market: ['Mais populares', 'Top 10 do mercado', 'As dez skills mais instaladas dentro da base de referência.'],
+      official: ['Em destaque', 'As 5 Skills Cadu', 'Métodos próprios para decidir, planejar e executar campanhas.'],
+      directory: ['Base de referência', 'As outras skills', 'Criador, finalidade e instalações verificadas na skills.sh.'],
+      all: ['Explorar skills', 'Encontre a skill para a tarefa', 'Busque por tarefa, categoria ou criador.'],
     };
     const params = new URLSearchParams(window.location.search);
     let state = {query: params.get('q') || '', category: params.get('category') || '', collection: params.get('collection') || 'all'};

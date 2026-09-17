@@ -30,6 +30,14 @@ bp = Blueprint("cadu_skills", __name__, url_prefix="/skills")
 @bp.before_request
 def prepare_shared_cadu_chat():
     """Keep the shared Cadu panel usable from authenticated Skills pages."""
+    # Gestão de skills é operação interna da CentralX. Ela não pertence ao
+    # produto público hospedado em skills.centralcomm.media.
+    if request.path.startswith("/skills/gestao"):
+        from ..product_domains import is_centralx_request, product_url
+        if not is_centralx_request():
+            if request.method in {"GET", "HEAD"}:
+                return redirect(product_url("centralx", request.full_path.rstrip("?")), code=302)
+            abort(404)
     if session.get("user_id"):
         session.setdefault("family_csrf", secrets.token_urlsafe(32))
 
@@ -100,6 +108,13 @@ def _catalog_row(skill, collection):
         "Dados e audiência": "audience", "Formatos e criação": "checklist",
         "Conteúdo": "calendar", "Dados": "dashboard",
     }.get(category, "brief")
+    directory_record = next((row for row in DIRECTORY_SKILLS if row["slug"].lower() == item.get("slug", "").lower()), None)
+    if directory_record:
+        item["creator"] = directory_record["creator"]
+        item["installs"] = directory_record["installs"]
+        item["metrics_source"] = directory_record["metrics_source"]
+    else:
+        item["creator"] = "Cadu / CentralX"
     return item
 
 
@@ -219,29 +234,30 @@ def skills_icon(size):
 def marketplace():
     # The catalogue is the shared entry point. Private work stays available
     # from the contextual links in its sidebar instead of becoming a second home.
-    top = _top_skills()
-    top_slugs = {item["slug"] for item in top}
     all_skills = all_cadu_skills()
     official_slugs = {item["slug"] for item in CADU_OFFICIAL_SKILLS}
     official = sorted((item for item in all_skills if item["slug"] in official_slugs), key=lambda item: item.get("rank", 999))
-    owned = [item for item in all_skills if item["slug"] not in top_slugs | official_slugs]
-    directory = list(DEFERRED_SKILLS)
-    # The market ranking remains a Top 10 comparison in its own right. A Cadu
-    # skill may also appear here when it is relevant to the ranking, while the
-    # Cadu table continues to be the canonical place to browse the collection.
-    market_rows = [_catalog_row(item, "market") for item in top]
+    owned = [item for item in all_skills if item["slug"] not in official_slugs]
+    # skills.sh orders this source by installs. The three catalogue sections
+    # are deliberately exclusive: five Cadu methods, ten market references,
+    # then the remaining ninety source skills.
+    market = DIRECTORY_SKILLS[:10]
+    directory = DIRECTORY_SKILLS[10:]
+    market_rows = [_catalog_row(item, "market") for item in market]
     directory_rows = [_catalog_row(item, "directory") for item in directory]
     catalog_rows = [_catalog_row(item, "official") for item in official] + market_rows + directory_rows + [_catalog_row(item, "owned") for item in owned]
     category_counts = {}
     for item in catalog_rows:
         category = item.get("category") or "Sem categoria"
         category_counts[category] = category_counts.get(category, 0) + 1
+    personalized_skills = list_customizations(client_id=int(session["cliente_id"])) if session.get("cliente_id") else []
     return render_template(
-        "cadu_skills/marketplace.html", top_skills=top,
+        "cadu_skills/marketplace.html", top_skills=market,
         official_skills=official, cadu_skills=owned, skills=directory,
         market_rows=market_rows, directory_rows=directory_rows,
         catalog_rows=catalog_rows, category_counts=sorted(category_counts.items()),
-        featured=top[0] if top else CADU_MEDIA_PLANNING,
+        featured=market[0] if market else CADU_MEDIA_PLANNING,
+        personalized_skills=personalized_skills,
     )
 
 
@@ -479,11 +495,11 @@ def public_event(slug):
 @bp.get("/studio")
 @login_required
 def studio():
-    skills = all_cadu_skills()
-    selected = next((item for item in skills if item["slug"] == request.args.get("skill")), skills[0])
+    client_id = int(session.get("cliente_id") or 0)
     return render_template(
-        "cadu_skills/studio.html", skill=selected, skills=skills,
-        credit_position=credit_position(int(session.get("cliente_id") or 0)),
+        "cadu_skills/my_skills.html",
+        customizations=list_customizations(client_id=client_id),
+        credit_position=credit_position(client_id),
     )
 
 

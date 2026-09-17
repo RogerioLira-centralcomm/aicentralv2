@@ -291,6 +291,20 @@ SUMMARY_BY_CATEGORY = {
     "Automação": "Reduz trabalho manual com uma sequência controlada de ações.",
 }
 
+# Snapshot público consultado em skills.sh em 16/09/2026. A plataforma expõe
+# instalações, não avaliações em estrelas; mantemos esse nome para não sugerir
+# uma métrica que a fonte não oferece. A ordem acompanha DIRECTORY_ROWS.
+SKILLS_SH_INSTALLS = (
+    745, 548, 416, 331, 329, 327, 322, 315, 311, 304, 299, 286, 273, 270,
+    267, 264, 264, 263, 262, 262, 260, 256, 253, 252, 250, 241, 241, 239,
+    236, 223, 223, 218, 199, 197, 196, 196, 193, 191, 188, 188, 188, 182,
+    182, 181, 180, 180, 180, 179, 179, 178, 176, 175, 175, 173, 173, 172,
+    171, 169, 169, 168, 168, 166, 166, 166, 165, 165, 164, 163, 163, 162,
+    162, 162, 161, 160, 159, 159, 158, 158, 157, 157, 157, 157, 157, 156,
+    156, 155, 155, 155, 155, 154, 154, 153, 153, 153, 152, 152, 152, 152,
+    151, 151,
+)
+
 
 def _directory():
     items = []
@@ -303,6 +317,9 @@ def _directory():
             "summary": SUMMARY_BY_CATEGORY[category],
             "source_url": f"https://www.skills.sh/vivy-yi/xiaohongshu-skills/{slug.lower()}",
             "position": position,
+            "creator": "vivy-yi",
+            "installs": SKILLS_SH_INSTALLS[position - 1],
+            "metrics_source": "skills.sh",
         })
     return tuple(items)
 

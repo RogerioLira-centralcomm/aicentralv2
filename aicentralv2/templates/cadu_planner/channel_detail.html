@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ channel.name }} — Canais — SmartPlanner</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-planner-channel-detail.css') }}?v=1">
+</head>
+<body>
+<div class="channel-app">
+  <aside class="channel-nav"><a class="channel-brand" href="{{ url_for('planner_host_canais') }}">SmartPlanner</a><nav><a href="{{ url_for('planner_host_planos') }}">Planos</a><a href="{{ url_for('planner_marketplace.audiences') }}">Audiências</a><a class="active" href="{{ url_for('planner_host_canais') }}">Canais</a><a href="{{ url_for('planner_host_formatos') }}">Formatos</a></nav></aside>
+  <main>
+    <a class="back" href="{{ url_for('planner_host_canais') }}">‹ Todos os canais</a>
+    <header class="channel-hero"{% if channel.cor %} style="--channel: {{ channel.cor }}"{% endif %}>
+      <div class="channel-identity">{% if channel.logo_url %}<img src="{{ channel.logo_url }}" alt="Logo {{ channel.name }}">{% else %}<span>{{ channel.name[:1] }}</span>{% endif %}</div>
+      <div><p>{{ channel.categoria or 'Canal de mídia' }}{% if channel.tipo %} · {{ channel.tipo|upper }}{% endif %}</p><h1>{{ channel.name }}</h1><p class="intro">{{ channel.descricao or 'Ficha comercial do canal.' }}</p></div>
+      <dl>{% if channel.alcance %}<div><dt>Alcance de referência</dt><dd>{{ channel.alcance }}</dd></div>{% endif %}{% if channel.usuarios_unicos %}<div><dt>Usuários únicos</dt><dd>{{ channel.usuarios_unicos }}</dd></div>{% endif %}{% if channel.tempo_medio %}<div><dt>Tempo médio</dt><dd>{{ channel.tempo_medio }}</dd></div>{% endif %}</dl>
+    </header>
+
+    <section class="metrics"><h2>Indicadores do canal</h2><div>{% for label, value in [('Viewability', channel.viewability), ('Completion rate', channel.completion_rate), ('Taxa de engajamento', channel.taxa_engajamento)] %}{% if value is not none %}<article><strong>{{ value }}%</strong><span>{{ label }}</span></article>{% endif %}{% endfor %}</div></section>
+    <div class="content-grid">
+      <section><h2>Como contratar</h2><dl class="facts">{% for label, value in [('Investimento mínimo', channel.investimento_minimo), ('Modelo de compra', channel.modelo_compra|join(', ') if channel.modelo_compra else ''), ('Prazo de entrega', channel.prazo_entrega), ('Integração', channel.integracao)] %}{% if value %}<div><dt>{{ label }}</dt><dd>{{ value }}</dd></div>{% endif %}{% endfor %}</dl></section>
+      <section><h2>Qualidade e medição</h2><dl class="facts">{% if channel.brand_safety %}<div><dt>Brand safety</dt><dd>{{ channel.brand_safety|join(', ') }}</dd></div>{% endif %}{% if channel.medicao %}<div><dt>Medição</dt><dd>{{ channel.medicao|join(', ') }}</dd></div>{% endif %}{% if channel.diferenciais %}<div><dt>Diferenciais</dt><dd>{{ channel.diferenciais|join(', ') }}</dd></div>{% endif %}</dl></section>
+    </div>
+    {% if channel.demografia %}<section><h2>Perfil de audiência</h2><div class="demography">{% if channel.demografia.homens is not none %}<article><strong>{{ channel.demografia.homens }}%</strong><span>Homens</span></article>{% endif %}{% if channel.demografia.mulheres is not none %}<article><strong>{{ channel.demografia.mulheres }}%</strong><span>Mulheres</span></article>{% endif %}{% for label, value in channel.demografia.faixas.items() %}<article><strong>{{ value }}%</strong><span>{{ label|replace('_', '–') }} anos</span></article>{% endfor %}{% for label, value in channel.demografia.classes.items() %}<article><strong>{{ value }}%</strong><span>Classe {{ label|upper }}</span></article>{% endfor %}</div></section>{% endif %}
+    <section><h2>Formatos disponíveis</h2><div class="format-grid">{% for item in formats %}<article><small>{{ item.tipo|upper if item.tipo else 'FORMATO' }}</small><h3>{{ item.name }}</h3><p>{{ item.descricao }}</p>{% if item.dimensoes %}<span>{{ item.dimensoes }}</span>{% endif %}{% if item.formatos_arquivo %}<span>{{ item.formatos_arquivo }}</span>{% endif %}</article>{% else %}<p class="empty">Ainda não há formatos vinculados a este canal.</p>{% endfor %}</div></section>
+    {% if channel.especificacoes %}<section><h2>Especificações de entrega</h2><div class="specifications">{% for item in channel.especificacoes %}<article><strong>{{ item.nome or 'Especificação' }}</strong>{% if item.formato %}<span>{{ item.formato }}</span>{% endif %}{% if item.duracao %}<span>{{ item.duracao }}</span>{% endif %}{% if item.peso %}<span>{{ item.peso }}</span>{% endif %}</article>{% endfor %}</div></section>{% endif %}
+    <section><h2>Segmentações disponíveis</h2><div class="targeting">{% for item in channel.segmentacoes %}<article><strong>{{ item.nome }}</strong>{% if item.exemplos %}<span>{{ item.exemplos|join(', ') }}</span>{% endif %}</article>{% else %}{% for key, item in channel.segmentacao.items() %}<article><strong>{{ item.nome or key|replace('_', ' ')|title }}</strong>{% if item.opcoes %}<span>{{ item.opcoes|join(', ') }}</span>{% endif %}</article>{% endfor %}{% endfor %}</div></section>
+    {% if gallery %}<section><h2>Imagens relacionadas</h2><div class="gallery">{% for item in gallery %}<figure><img src="{{ item.url }}" alt="{{ item.label }}"><figcaption>{{ item.label }}</figcaption></figure>{% endfor %}</div></section>{% endif %}
+    {% if ads %}<section><h2>Anúncios reais no catálogo</h2><div class="gallery">{% for ad in ads %}<figure><img src="{{ ad.image_url }}" alt="{{ ad.title or ad.formato_slug }}"><figcaption>{{ ad.title or ad.formato_slug }}{% if ad.source_domain %} · {{ ad.source_domain }}{% endif %}</figcaption></figure>{% endfor %}</div></section>{% endif %}
+    {% if concepts %}<section class="activation-concepts"><div><h2>Conceitos de ativação</h2><p>Estudos visuais para orientar a criação — não representam campanha veiculada.</p></div><div class="concept-grid">{% for item in concepts %}<figure><img src="{{ item.image_url }}" alt="Conceito {{ item.title }}"><figcaption><strong>{{ item.title }}</strong><span>{{ item.format }}</span><p>{{ item.description }}</p></figcaption></figure>{% endfor %}</div></section>{% endif %}
+    <section class="news"><h2>Atualizações do canal</h2>{% for item in news %}<article><small>{{ item.categoria or 'Mercado' }}{% if item.fonte %} · {{ item.fonte }}{% endif %}</small><h3>{% if item.fonte_url %}<a href="{{ item.fonte_url }}" target="_blank" rel="noopener">{{ item.titulo }}</a>{% else %}{{ item.titulo }}{% endif %}</h3><p>{{ item.resumo }}</p></article>{% else %}<p class="empty">Não há atualizações publicadas para este canal.</p>{% endfor %}</section>
+  </main>
+</div>
+</body></html>

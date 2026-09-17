@@ -40,6 +40,7 @@ class MemoryMediaRepository:
             "public_id": public_id,
             "user_id": payload.get("user_id"),
             "client_id": payload.get("client_id"),
+            "billing_client_id": payload.get("billing_client_id"),
             "run_id": payload.get("run_id") or "",
             "source_version_id": payload.get("source_version_id") or "",
             "source_revision": payload.get("source_revision"),
@@ -193,10 +194,10 @@ class MediaRepository:
             cursor.execute(
                 """
                 INSERT INTO cx_media_jobs (
-                    public_id, user_id, client_id, run_id, source_version_id,
+                    public_id, user_id, client_id, billing_client_id, run_id, source_version_id,
                     source_revision, plan_json, plan_hash, quote_json, model, seed
                 ) VALUES (
-                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s
                 )
                 RETURNING *
@@ -205,6 +206,7 @@ class MediaRepository:
                     public_id,
                     payload.get("user_id"),
                     payload.get("client_id"),
+                    payload.get("billing_client_id"),
                     payload.get("run_id") or "",
                     payload.get("source_version_id") or "",
                     payload.get("source_revision"),

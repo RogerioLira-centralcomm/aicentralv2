@@ -18,6 +18,17 @@ from tests.test_modelagem_criativos import FakeGenerator, FakeRepository
 
 
 class TrocrAnimatePlanTest(unittest.TestCase):
+    def test_billing_do_video_prioriza_tenant_autenticado(self):
+        from aicentralv2.creative_format_lab.animate import AnimateService
+
+        service = AnimateService(store=None, repository=MemoryMediaRepository())
+        self.assertEqual(
+            service._billing_client_id(
+                {"client_id": 174, "_billing_client_id": 901}, {"client_id": 174}
+            ),
+            901,
+        )
+
     def test_seedance_25_trinta_segundos_sem_frame_e_refs(self):
         payload = build_video_payload(
             "move",

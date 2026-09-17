@@ -131,18 +131,37 @@ def _http():
     return _execute, _json, _ok, _service
 
 
+def _billing_payload(json_body):
+    """Attach the authenticated tenant for billing without trusting the browser.
+
+    ``client_id`` in Trocr identifies a creative-brand profile (``cx_clients``).
+    Credits, however, belong to the CRM tenant in the authenticated session.
+    Keep both values because the former is still needed for the creative history.
+    """
+    payload = dict(json_body() or {})
+    # This field is server-owned. Never permit a browser to forge it, even
+    # for an internal user who happens to have no tenant selected.
+    payload.pop("_billing_client_id", None)
+    tenant_id = session.get("cliente_id")
+    if tenant_id not in (None, ""):
+        payload["_billing_client_id"] = tenant_id
+    elif session.get("user_type") not in {"admin", "superadmin"}:
+        raise ValueError("Não foi possível identificar a conta de créditos desta sessão.")
+    return payload
+
+
 @studio_or_admin_required_api
 @trocr_csrf_required
 def api_format_lab_swap():
     execute, json_body, ok, service = _http()
-    return execute(lambda: ok(service().swap_format_lab(json_body(), session.get("user_id"))))
+    return execute(lambda: ok(service().swap_format_lab(_billing_payload(json_body), session.get("user_id"))))
 
 
 @studio_or_admin_required_api
 @trocr_csrf_required
 def api_format_lab_swap_read():
     execute, json_body, ok, service = _http()
-    return execute(lambda: ok(service().read_format_lab_swap(json_body(), session.get("user_id"))))
+    return execute(lambda: ok(service().read_format_lab_swap(_billing_payload(json_body), session.get("user_id"))))
 
 
 @studio_or_admin_required_api
@@ -233,7 +252,7 @@ def api_format_lab_animate_quote():
 @trocr_csrf_required
 def api_format_lab_animate():
     execute, json_body, ok, service = _http()
-    return execute(lambda: ok(service().submit_format_lab_animate(json_body(), session.get("user_id"))))
+    return execute(lambda: ok(service().submit_format_lab_animate(_billing_payload(json_body), session.get("user_id"))))
 
 
 @studio_or_admin_required_api

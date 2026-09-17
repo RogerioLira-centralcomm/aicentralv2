@@ -163,31 +163,37 @@ def studio_create_directions():
 
     def run():
         data = json_body()
-        client_id = data.get('client_id')
-        _scope(client_id)
+        quick_mode = data.get('quick_mode') is True
+        # A quick creation has no creative brand or project, but it is still
+        # billable.  Its tenant must therefore come from the authenticated
+        # session, never from an arbitrary browser-provided client id.
+        client_id = session.get('cliente_id') if quick_mode else data.get('client_id')
         user_id = session.get('user_id')
         if not user_id:
             raise ValueError('Entre novamente para gerar direções.')
+        if quick_mode and not client_id:
+            raise ValueError('Não foi possível identificar a conta de créditos desta sessão. Atualize a página e tente novamente.')
+        _scope(client_id)
         count = max(1, min(int(data.get('count') or 1), 5))
         project_id = str(data.get('project_id') or '')
-        if not project_id:
+        if not project_id and not quick_mode:
             raise ValueError('Selecione um projeto antes de gerar direções.')
         # The balance gate occurs before the provider receives the request.
         studio_create.assert_available(client_id, count)
         history = _creation_history()
-        run_id = history.start(project_id, client_id, user_id, data.get('prompt'), data.get('context'), count) if history else None
+        run_id = history.start(project_id, client_id, user_id, data.get('prompt'), data.get('context'), count) if history and project_id else None
         try:
-            if history:
+            if history and project_id:
                 history.add_references(project_id, client_id, user_id, data.get('references'))
             result, provider = studio_create.create(data, chat_completion)
             charged, remaining = studio_create.charge(
                 provider, int(client_id), int(user_id), result['count'], project_id, run_id,
             )
         except Exception as error:
-            if history:
+            if history and project_id:
                 history.fail(run_id, project_id, client_id, str(error))
             raise
-        if history:
+        if history and project_id:
             try:
                 history.complete(run_id, project_id, client_id, user_id, result, charged)
             except Exception:

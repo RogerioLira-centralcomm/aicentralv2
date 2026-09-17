@@ -27,11 +27,13 @@
   <a class="portal-skip" href="#content">Ir para o conteúdo</a>
   {% block navigation %}{% set cadu_active_product = portal_product %}{% include 'cadu/_product_nav.html' %}{% endblock %}
   <main id="content" tabindex="-1">{% block content %}{% endblock %}</main>
-  <footer class="cadu-family-footer" aria-label="Cadu Media">
-    <a class="cadu-family-footer__brand" href="{{ product_url('cadu') }}">Cadu Media</a>
-    <span>Uma família CentralComm</span>
-    <nav aria-label="Links institucionais"><a href="{{ product_url('workspace') }}">Workspace</a><a href="{{ product_url('workspace', '/planos') }}">Planos</a><a href="{{ product_url('workspace', '/ajuda') }}">Ajuda</a></nav>
-  </footer>
+  {% if portal_product != 'studio' %}
+    <footer class="cadu-family-footer" aria-label="Cadu Media">
+      <a class="cadu-family-footer__brand" href="{{ product_url('cadu') }}">Cadu Media</a>
+      <span>Uma família CentralComm</span>
+      <nav aria-label="Links institucionais"><a href="{{ product_url('workspace') }}">Workspace</a><a href="{{ product_url('workspace', '/planos') }}">Planos</a><a href="{{ product_url('workspace', '/ajuda') }}">Ajuda</a></nav>
+    </footer>
+  {% endif %}
   {% if portal_product == 'workspace' and session.get('user_id') and request.endpoint != 'cadu_workspace.conversations' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/chat.css') }}?v=19">
     <button type="button" class="cadu-conversation-launcher" id="conversation-open" aria-haspopup="dialog" aria-controls="conversation-panel" aria-expanded="false"><span aria-hidden="true">C</span> Falar com Cadu</button>

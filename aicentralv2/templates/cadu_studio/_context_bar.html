@@ -1,5 +1,5 @@
 {% set mc_page = mc_page|default('hub') %}
-<header class="mc-cadu-bar mc-cadu-bar--studio" id="mcCaduBar" data-mc-api-root="{{ '/studio/api' if request.blueprint in ('studio', 'studio_product') else '/parametros/api' }}">
+<header class="mc-cadu-bar mc-cadu-bar--studio" id="mcCaduBar" data-mc-api-root="{{ '/studio/api' if request.blueprint in ('studio', 'studio_product') else '/parametros/api' }}" data-allow-quick-create="{{ 'true' if mc_page == 'criar' else 'false' }}">
   <div class="studio-product-identity">
     {% set cadu_active_product = 'studio' %}{% include "cadu/_product_switch.html" %}
   </div>

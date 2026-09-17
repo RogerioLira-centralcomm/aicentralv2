@@ -26,6 +26,7 @@
   let selectedImage = "";
   let projectDocument = {};
   let projectReady = false;
+  let quickMode = true;
 
   function escapeHtml(value) {
     return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -199,7 +200,12 @@
   }));
   async function refreshCreditHint() {
     const hint = document.getElementById("studioCreateCreditHint");
-    if (!hint || !clientId) return;
+    if (!hint) return false;
+    if (quickMode || !clientId) {
+      hint.textContent = "Créditos confirmados ao gerar";
+      hint.dataset.state = "unavailable";
+      return false;
+    }
     try {
       const balance = await get(`${apiRoot}/image-credits?client_id=${encodeURIComponent(clientId)}`);
       hint.textContent = `${Number(balance?.remaining || 0).toLocaleString("pt-BR")} créditos disponíveis`;
@@ -213,7 +219,7 @@
   }
   document.getElementById("studioCreateGenerate")?.addEventListener("click", async (event) => {
     const button = event.currentTarget;
-    if (!clientId || !projectId || !projectReady) { directions.innerHTML = "<p>Escolha um projeto disponível nesta marca antes de gerar direções.</p>"; return; }
+    if (!quickMode && (!clientId || !projectId || !projectReady)) { directions.innerHTML = "<p>Escolha um projeto disponível nesta marca antes de gerar direções.</p>"; return; }
     const count = selectedCount();
     button.disabled = true; button.textContent = "Verificando créditos…";
     try {
@@ -223,12 +229,12 @@
       const channels = Array.from(document.querySelectorAll('input[name="channel"]:checked')).map((input) => input.value);
       const formats = Array.from(document.querySelectorAll(".studio-create__iab button.is-selected")).map((item) => item.textContent.trim());
       const selectedReferencePayload = selectedReferences.map((index) => library[index]).filter(Boolean).map((item) => ({id:item.id || item.public_id || "", name:item.name || item.title || "Referência visual", url:imageUrl(item)})).filter((item) => item.url).slice(0, 2);
-      const data = await fetch(`${apiRoot}/format-lab/studio/create/directions`, { method:"POST", credentials:"same-origin", headers:{"Content-Type":"application/json", Accept:"application/json", ...(csrf ? {"X-Trocr-CSRF-Token":csrf} : {})}, body:JSON.stringify({client_id:clientId, project_id:projectId, count, prompt:prompt.value, references:selectedReferencePayload, context:{project_name:projectName.textContent, brand:projectDocument.brand_name || projectDocument.brand || "", brief:projectDocument.brief || projectDocument.description || "", objective:projectDocument.objective || "", audience:projectDocument.audience || projectDocument.publico || "", purpose:selectedPurpose(), channels, format:selectedRatio(), formats, direction_intensity:Number(range.value), references:selectedReferencePayload}}) });
+      const data = await fetch(`${apiRoot}/format-lab/studio/create/directions`, { method:"POST", credentials:"same-origin", headers:{"Content-Type":"application/json", Accept:"application/json", ...(csrf ? {"X-Trocr-CSRF-Token":csrf} : {})}, body:JSON.stringify({client_id:quickMode ? "" : clientId, project_id:quickMode ? "" : projectId, quick_mode:quickMode, count, prompt:prompt.value, references:selectedReferencePayload, context:{project_name:quickMode ? "Criação rápida" : projectName.textContent, brand:quickMode ? "" : projectDocument.brand_name || projectDocument.brand || "", brief:quickMode ? "" : projectDocument.brief || projectDocument.description || "", objective:quickMode ? "" : projectDocument.objective || "", audience:quickMode ? "" : projectDocument.audience || projectDocument.publico || "", purpose:selectedPurpose(), channels, format:selectedRatio(), formats, direction_intensity:Number(range.value), references:selectedReferencePayload}}) });
       const payload = await data.json().catch(() => ({}));
       if (!data.ok || payload.success === false) throw new Error(payload.error || "Não foi possível gerar direções.");
       const result = payload.data !== undefined ? payload.data : payload;
       renderDirections(result.directions || []);
-      await loadHistory();
+      if (!quickMode) await loadHistory();
       const hint = document.getElementById("studioCreateCreditHint");
       if (hint) hint.textContent = `${Number(result.remaining_credits || 0).toLocaleString("pt-BR")} créditos disponíveis`;
       document.dispatchEvent(new CustomEvent("cadu:credits-refresh", {detail:{clientId}}));
@@ -243,12 +249,21 @@
   range?.addEventListener("input", () => { intensity.textContent = `${range.value}%`; });
   document.addEventListener("cadu:project-ready", (event) => {
     clientId = String(event.detail?.clientId || "");
-    if (projectSelect && !projectSelect.disabled && projectSelect.value) loadProject(event.detail || {});
+    if (projectSelect && !projectSelect.disabled && projectSelect.value) { quickMode = false; loadProject(event.detail || {}); }
   });
   document.addEventListener("cadu:project-change", (event) => {
     clientId = String(event.detail?.clientId || clientId || "");
-    loadProject(event.detail || {});
+    quickMode = !projectSelect?.value;
+    if (quickMode) {
+      projectId = ""; projectReady = false; projectDocument = {};
+      projectName.textContent = "Sem projeto vinculado";
+      projectBrand.textContent = "Defina a peça e gere as direções agora.";
+      path.textContent = "Criação rápida";
+      agentContext.textContent = "Gere uma direção sem vincular marca ou projeto.";
+      refreshCreditHint();
+    } else loadProject(event.detail || {});
   });
-  if (projectSelect?.value) loadProject();
+  if (projectSelect?.value) { quickMode = false; loadProject(); }
+  else refreshCreditHint();
   updateFormat();
 })();

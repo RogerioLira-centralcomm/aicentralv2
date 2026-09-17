@@ -8,6 +8,7 @@
   if (!bar || !projectSelect) return;
 
   const apiRoot = String(bar.dataset.mcApiRoot || "/parametros/api").replace(/\/$/, "");
+  const allowQuickCreate = bar.dataset.allowQuickCreate === "true";
   let projectRequest = 0;
   let creditsRequest = 0;
   const escapeHtml = (value) => String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -23,7 +24,7 @@
   }
   function activeContext() {
     const option = projectSelect.selectedOptions[0];
-    return { clientId: String(option?.dataset.clientId || ""), projectId: String(projectSelect.value || ""), brandName: String(option?.dataset.brandName || "") };
+    return { clientId: String(option?.dataset.clientId || ""), projectId: String(projectSelect.value || ""), brandName: String(option?.dataset.brandName || ""), quickMode: option?.dataset.quickMode === "true" };
   }
   async function paintLegacyCredits(clientId) {
     if (!legacyCredits || !clientId) return;
@@ -44,8 +45,8 @@
       clientSelect.innerHTML = `<option value="${escapeHtml(context.clientId)}">${escapeHtml(context.brandName)}</option>`;
       clientSelect.value = context.clientId;
     }
-    try { localStorage.setItem("cadu-studio-project", context.projectId); } catch (_error) {}
-    paintLegacyCredits(context.clientId);
+    try { if (!context.quickMode) localStorage.setItem("cadu-studio-project", context.projectId); } catch (_error) {}
+    if (!context.quickMode) paintLegacyCredits(context.clientId);
     publish("cadu:brand-ready", context);
     publish("cadu:brand-change", context);
     publish("cadu:project-ready", context);
@@ -61,9 +62,10 @@
       const items = Array.isArray(payload?.items) ? payload.items : [];
       const saved = (() => { try { return localStorage.getItem("cadu-studio-project") || ""; } catch (_error) { return ""; } })();
       const selected = items.some((item) => String(item.id) === saved) ? saved : String(items[0]?.id || "");
-      projectSelect.innerHTML = items.length ? items.map((item) => {
+      const quickOption = allowQuickCreate ? '<option value="" data-quick-mode="true" selected>Criação rápida · sem projeto</option>' : "";
+      projectSelect.innerHTML = items.length ? quickOption + items.map((item) => {
         const suffix = Number(item.brand_count || 1) > 1 ? ` +${Number(item.brand_count) - 1}` : "";
-        return `<option value="${escapeHtml(item.id)}" data-client-id="${escapeHtml(item.client_id)}" data-brand-name="${escapeHtml(item.brand_name)}"${String(item.id) === selected ? " selected" : ""}>${escapeHtml(item.name)} · ${escapeHtml(item.brand_name)}${suffix}</option>`;
+        return `<option value="${escapeHtml(item.id)}" data-client-id="${escapeHtml(item.client_id)}" data-brand-name="${escapeHtml(item.brand_name)}"${!allowQuickCreate && String(item.id) === selected ? " selected" : ""}>${escapeHtml(item.name)} · ${escapeHtml(item.brand_name)}${suffix}</option>`;
       }).join("") : '<option value="">Nenhum projeto com marca vinculada</option>';
       projectSelect.disabled = !items.length;
       if (items.length) activate(); else publish("cadu:project-ready", { clientId: "", projectId: "", items: [] });

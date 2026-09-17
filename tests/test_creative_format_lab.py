@@ -4484,6 +4484,47 @@ class CreativeFormatLabRoutesTest(unittest.TestCase):
         self.assertEqual(response.get_json()["data"]["headline"], "500 MEGA")
         service.read_format_lab_swap.assert_called_once()
 
+    def test_ocr_usa_cliente_da_sessao_para_cobranca(self):
+        service = Mock()
+        service.read_format_lab_swap.return_value = {"status": "completed"}
+        with self.client.session_transaction() as session:
+            session["cliente_id"] = 901
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            response = self.client.post(
+                "/parametros/api/format-lab/swap/read",
+                json={
+                    "reference": "data:image/png;base64,aaa",
+                    "client_id": 174,
+                    "_billing_client_id": 999,
+                },
+                headers=self._trocr_headers(),
+            )
+        self.assertEqual(response.status_code, 200)
+        payload, user_id = service.read_format_lab_swap.call_args.args
+        self.assertEqual(payload["client_id"], 174)
+        self.assertEqual(payload["_billing_client_id"], 901)
+        self.assertEqual(user_id, 1)
+
+    def test_ocr_de_cliente_sem_tenant_nao_aceita_id_do_browser(self):
+        service = Mock()
+        with self.client.session_transaction() as session:
+            session["user_type"] = "client"
+            session.pop("cliente_id", None)
+        with patch(
+            "aicentralv2.creative_modeling_routes._service",
+            return_value=service,
+        ):
+            response = self.client.post(
+                "/parametros/api/format-lab/swap/read",
+                json={"reference": "data:image/png;base64,aaa", "client_id": 174},
+                headers=self._trocr_headers(),
+            )
+        self.assertEqual(response.status_code, 403)
+        service.read_format_lab_swap.assert_not_called()
+
     def test_preview_do_prompt_do_trocar(self):
         service = Mock()
         service.preview_format_lab_swap.return_value = {

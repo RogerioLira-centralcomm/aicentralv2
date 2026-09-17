@@ -1427,15 +1427,23 @@ class FormatLabService:
         return ToolTokenLedger()
 
     def _billing_identity(self, payload, user_id):
-        client_id = payload.get("client_id") if isinstance(payload, dict) else None
+        data = payload if isinstance(payload, dict) else {}
+        trusted_client_id = data.get("_billing_client_id")
+        client_id = trusted_client_id if trusted_client_id not in (None, "") else data.get("client_id")
         if user_id in (None, ""):
             return None
         if client_id in (None, ""):
-            raise CreativeConflictError("Selecione o cliente que pagará esta execução.")
+            raise CreativeConflictError("Não foi possível identificar a conta de créditos desta sessão.")
         try:
-            return int(client_id), int(user_id)
+            # A browser ``client_id`` is the creative profile ID. Resolve it to
+            # its CRM tenant before billing; a session-derived ID is already the
+            # CRM tenant and must be used verbatim.
+            credit_client_id = int(client_id)
+            if trusted_client_id in (None, ""):
+                credit_client_id = self.modeling._credits_crm_id(client_id) or credit_client_id
+            return credit_client_id, int(user_id)
         except (TypeError, ValueError) as exc:
-            raise CreativeConflictError("Cliente ou usuário inválido para cobrança.") from exc
+            raise CreativeConflictError("Não foi possível identificar a conta de créditos desta sessão.") from exc
 
     def _assert_tool_balance(self, payload, user_id, estimated_tokens):
         identity = self._billing_identity(payload, user_id)

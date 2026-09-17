@@ -163,10 +163,12 @@ class AnimateService:
         plan["source"]["reference"] = reference
         plan["reference"] = reference
         plan["preview_images"] = [version.get("image_url")] if str(version.get("image_url") or "").startswith("/") else []
-        self._assert_plan_balance(data.get("client_id") or history.get("client_id"), user_id, plan)
+        billing_client_id = self._billing_client_id(data, history)
+        self._assert_plan_balance(billing_client_id, user_id, plan)
         job = self.repository.create_job({
             "user_id": user_id,
             "client_id": data.get("client_id") or history.get("client_id"),
+            "billing_client_id": billing_client_id,
             "run_id": history.get("run_id") or data.get("run_id") or "",
             "source_version_id": version.get("id") or "",
             "source_revision": history.get("revision"),
@@ -234,10 +236,12 @@ class AnimateService:
         plan["source"]["reference"] = ref_a
         plan["source"]["reference_b"] = ref_b
         plan["reference"] = ref_a
-        self._assert_plan_balance(data.get("client_id") or history.get("client_id"), user_id, plan)
+        billing_client_id = self._billing_client_id(data, history)
+        self._assert_plan_balance(billing_client_id, user_id, plan)
         job = self.repository.create_job({
             "user_id": user_id,
             "client_id": data.get("client_id") or history.get("client_id"),
+            "billing_client_id": billing_client_id,
             "run_id": history.get("run_id") or data.get("run_id") or "",
             "source_version_id": version_a.get("id") or "",
             "source_revision": history.get("revision"),
@@ -308,10 +312,12 @@ class AnimateService:
             "client_id": data.get("client_id") or (first_run or {}).get("client_id"),
             "revision": (first_run or {}).get("revision"),
         }
-        self._assert_plan_balance(data.get("client_id") or history.get("client_id"), user_id, plan)
+        billing_client_id = self._billing_client_id(data, history)
+        self._assert_plan_balance(billing_client_id, user_id, plan)
         job = self.repository.create_job({
             "user_id": user_id,
             "client_id": data.get("client_id") or history.get("client_id"),
+            "billing_client_id": billing_client_id,
             "run_id": history.get("run_id") or data.get("run_id") or "",
             "source_version_id": version.get("id") or "",
             "source_revision": history.get("revision"),
@@ -353,10 +359,12 @@ class AnimateService:
         plan["source"]["reference"] = reference
         plan["reference"] = reference
         plan["preview_images"] = [version.get("image_url")] if str(version.get("image_url") or "").startswith("/") else []
-        self._assert_plan_balance(data.get("client_id") or history.get("client_id"), user_id, plan)
+        billing_client_id = self._billing_client_id(data, history)
+        self._assert_plan_balance(billing_client_id, user_id, plan)
         job = self.repository.create_job({
             "user_id": user_id,
             "client_id": data.get("client_id") or history.get("client_id"),
+            "billing_client_id": billing_client_id,
             "run_id": history.get("run_id") or data.get("run_id") or "",
             "source_version_id": clip.get("id") or "",
             "source_revision": history.get("revision"),
@@ -602,6 +610,24 @@ class AnimateService:
         estimated = int((plan.get("quote") or {}).get("estimated_tokens") or 0)
         self.ledger.assert_available(int(client_id), estimated)
 
+    def _billing_client_id(self, data, history):
+        """Resolve the CRM account that owns credits, never the brand profile."""
+        trusted = data.get("_billing_client_id") if isinstance(data, dict) else None
+        raw = trusted if trusted not in (None, "") else (
+            (data or {}).get("client_id") or (history or {}).get("client_id")
+        )
+        if raw in (None, ""):
+            raise ValueError("Não foi possível identificar a conta de créditos desta sessão.")
+        try:
+            client_id = int(raw)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Não foi possível identificar a conta de créditos desta sessão.") from exc
+        if trusted not in (None, ""):
+            return client_id
+        modeling = getattr(self.store, "modeling", None)
+        resolver = getattr(modeling, "_credits_crm_id", None)
+        return resolver(client_id) or client_id if callable(resolver) else client_id
+
     def _bill_provider(self, job, plan, stage, provider_result):
         if self.ledger is None:
             return None
@@ -621,7 +647,7 @@ class AnimateService:
             model = provider_result.get("model") or plan.get("model") or "video"
         return self.ledger.charge(ToolCharge(
             idempotency_key=f"studio-video:{job.get('public_id')}:{stage}",
-            client_id=int(job.get("client_id")),
+            client_id=int(job.get("billing_client_id") or job.get("client_id")),
             user_id=int(job.get("user_id")),
             tool="studio.video",
             stage=stage,

@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS cx_media_jobs (
     public_id VARCHAR(40) NOT NULL UNIQUE,
     user_id INTEGER,
     client_id INTEGER,
+    billing_client_id INTEGER,
     run_id VARCHAR(80) NOT NULL DEFAULT '',
     source_version_id VARCHAR(40) NOT NULL DEFAULT '',
     source_revision INTEGER,
@@ -30,6 +31,8 @@ CREATE TABLE IF NOT EXISTS cx_media_jobs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE cx_media_jobs ADD COLUMN IF NOT EXISTS billing_client_id INTEGER;
 
 CREATE INDEX IF NOT EXISTS idx_cx_media_jobs_run
     ON cx_media_jobs (run_id, created_at DESC);

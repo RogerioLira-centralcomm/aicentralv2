@@ -756,8 +756,9 @@
       if (error.name === 'AbortError') return;
       setFlow('ocr', 'error');
       openHandEdit();
-      showError('Falha ao executar OCR', error.message || 'Não deu para ler os textos. Escreva na mão.', 'ocr');
-      setStatus('Não deu para ler os textos. Escreva os textos na mão.');
+      const message = ocrFailureCopy(error.message);
+      showError('Não foi possível ler os textos', message, 'ocr');
+      setStatus(message);
     }
   }
 
@@ -819,6 +820,14 @@
       return 'Elementos da base ativa. Edite o texto e gere uma nova versão.';
     }
     return 'A leitura preencheu. Confira o pedido à direita.';
+  }
+
+  function ocrFailureCopy(message) {
+    const raw = String(message || '');
+    if (/cliente que pagará|conta de créditos|cliente ou usuário inválido/i.test(raw)) {
+      return 'Não foi possível confirmar os créditos desta sessão. Atualize a página e tente novamente.';
+    }
+    return raw || 'Não deu para ler os textos. Escreva os textos na mão.';
   }
 
   function paintOcrStatus(data) {
@@ -2024,7 +2033,10 @@
     if ($('mcTrocrScene3')) $('mcTrocrScene3').disabled = !canScene;
     const canAnimate = Boolean(currentVersion()?.image || currentVersion()?.video_url);
     if ($('mcTrocrAnimateBtn')) $('mcTrocrAnimateBtn').disabled = !canAnimate;
-    if ($('mcTrocrAnimateFromGenerate')) $('mcTrocrAnimateFromGenerate').disabled = !canAnimate;
+    if ($('mcTrocrAnimateFromGenerate')) {
+      $('mcTrocrAnimateFromGenerate').disabled = !canAnimate;
+      $('mcTrocrAnimateFromGenerate').hidden = !canAnimate;
+    }
     const canCompare = state.versions.filter((item) => item.media === 'video' && item.video_url).length >= 2;
     if ($('mcTrocrClipCompareBtn')) $('mcTrocrClipCompareBtn').disabled = !canCompare;
   }

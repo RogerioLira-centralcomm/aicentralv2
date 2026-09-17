@@ -1145,7 +1145,7 @@ def index():
     return render_template(
         "cadu_workspace/public.html",
         canonical=product_url("workspace"),
-        description="O ambiente Cadu que reúne conta, projetos, contexto, créditos e acesso aos produtos da organização.",
+        description="O ambiente Cadu que mantém cliente, marca, projeto, time e decisões conectados em cada campanha.",
         hero=secrets.choice(WORKSPACE_PUBLIC_HEROES),
     )
 

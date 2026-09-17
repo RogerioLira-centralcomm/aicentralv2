@@ -1,5 +1,5 @@
-{% set credit_limit = cadu_nav_credit.monthly_limit | int if cadu_nav_credit and cadu_nav_credit.configured else 0 %}
-{% set credit_usage = cadu_nav_credit.monthly_usage_percentage | round | int if credit_limit else 0 %}
+{% set credit_limit = (cadu_nav_credit.get('monthly_limit') or cadu_nav_credit.get('monthly') or 0) | int if cadu_nav_credit and cadu_nav_credit.get('configured') else 0 %}
+{% set credit_usage = cadu_nav_credit.get('monthly_usage_percentage', 0) | round | int if credit_limit else 0 %}
 <a class="{{ credit_meter_class }} cadu-credit-meter{% if credit_usage >= 90 %} is-critical{% elif credit_usage >= 70 %} is-warning{% endif %}" href="{{ credit_meter_href }}" data-credit-usage="{{ credit_usage }}" aria-label="{% if credit_limit %}{{ credit_usage }}% dos créditos mensais utilizados. Ver consumo e créditos.{% else %}Ver créditos e consumo{% endif %}" title="{% if credit_limit %}{{ credit_usage }}% usado neste mês. Ver consumo e créditos.{% else %}Ver créditos e consumo{% endif %}">
   <span class="cadu-credit-meter__copy"><small>Uso de créditos</small><strong>{% if credit_limit %}{{ credit_usage }}% <span>usado neste mês</span>{% else %}Ver consumo{% endif %}</strong></span>
   <span class="cadu-credit-meter__track" aria-hidden="true"><i style="--cadu-credit-usage:{{ credit_usage }}%"></i></span>

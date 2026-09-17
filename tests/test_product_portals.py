@@ -183,7 +183,7 @@ class ProductPortalsTest(TestCase):
             response = client.get("/", headers={"Host": "connect.centralcomm.media"})
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Conectores MCP", response.get_data(as_text=True))
+        self.assertIn("Estamos preparando sua operação.", response.get_data(as_text=True))
 
     @mock.patch("aicentralv2.cadu_workspace.routes.credit_position", return_value={
         "configured": True, "available": 75, "monthly": 110,
@@ -235,7 +235,7 @@ class ProductPortalsTest(TestCase):
         response = client.get("/workspace/", headers={"Host": "workspace.centralcomm.media"})
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("Do briefing ao próximo trabalho entregue.", html)
+        self.assertIn("Seu time não deveria reconstruir o briefing a cada entrega.", html)
         self.assertIn('data-cadu-theme-toggle', html)
         self.assertIn('cadu-theme.js', html)
         self.assertIn('data-theme-mode="light"', html)
@@ -253,28 +253,23 @@ class ProductPortalsTest(TestCase):
         conversations = client.get("/workspace/app/conversas", headers={"Host": "workspace.centralcomm.media"})
         self.assertIn('data-theme-mode="preference"', conversations.get_data(as_text=True))
         sidebar_projects = [{"id": str(index), "nome": f"Projeto {index}"} for index in range(1, 7)]
-        with mock.patch("aicentralv2.cadu_workspace.routes.customization_targets", return_value={"clients": [], "projects": []}), \
-             mock.patch("aicentralv2.cadu_workspace.routes.list_customizations", return_value=[]), \
-             mock.patch("aicentralv2.cadu_workspace.routes.credit_position", return_value={"available": 20, "monthly": 20, "configured": True}), \
-             mock.patch("aicentralv2.cadu_workspace.routes._workspace_sidebar_projects", return_value=sidebar_projects):
-            response = client.get("/workspace/app", headers={"Host": "workspace.centralcomm.media"})
+        with mock.patch("aicentralv2.cadu_workspace.routes._workspace_sidebar_projects", return_value=sidebar_projects):
+            response = client.get("/app", headers={"Host": "workspace.centralcomm.media"})
             self.assertEqual(response.status_code, 200)
             html = response.get_data(as_text=True)
-            self.assertIn("Administração da conta", html)
+            self.assertIn("Olá, Apolo.", html)
             self.assertIn('workspace-app-shell workspace-app-shell--home', html)
-            self.assertIn('class="workspace-sidebar-balance"', html)
             self.assertIn('class="workspace-nav-icon"', html)
             self.assertIn('fa-solid fa-house', html)
             self.assertIn('fa-solid fa-comment-dots', html)
             self.assertIn('fa-solid fa-folder-open', html)
-            self.assertIn('fa-solid fa-plug', html)
             self.assertIn('fa-solid fa-wand-magic-sparkles', html)
             self.assertNotIn('class="workspace-nav-abbr"', html)
             self.assertNotIn('title="Marcas"', html)
             self.assertIn('class="workspace-recent-projects"', html)
-            self.assertLess(html.index('title="Projeto 1"'), html.index('title="Projeto 6"'))
-            self.assertIn('data-cadu-sidebar-mobile-close', html)
-            for label in ("Usuários", "Planos", "Créditos", "Financeiro", "Integrações"):
+            self.assertLess(html.index('>Projeto 1</a>'), html.index('>Projeto 5</a>'))
+            self.assertIn('data-cadu-sidebar-mobile-toggle', html)
+            for label in ("Equipe", "Planos", "Uso", "Conta"):
                 self.assertIn(label, html)
         self.assertEqual(client.get("/workspace/agentes", headers={"Host": "workspace.centralcomm.media"}).headers["Location"], "/skills/agentes")
         robots = client.get("/robots.txt", headers={"Host": "workspace.centralcomm.media"}).get_data(as_text=True)

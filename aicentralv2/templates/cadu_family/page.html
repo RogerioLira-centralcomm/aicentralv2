@@ -132,7 +132,7 @@
     <div class="family-sidebar-account">
       {% include 'cadu/_theme_control.html' %}
       {% set credit_meter_class = 'family-sidebar-credits' %}{% set credit_meter_href = product_url('workspace', '/workspace/app/creditos') %}{% include 'cadu/_credit_meter.html' %}
-      <a class="family-sidebar-user" href="{{ product_url('workspace', '/workspace/app/conta?section=perfil') }}"><span>{{ user.name[:2] | upper }}</span><strong>{{ user.name }}</strong><small>{{ session.get('user_email', 'Configurações da conta') }}</small></a>
+      <a class="family-sidebar-user" href="{{ product_url('workspace', '/workspace/app/conta?section=perfil') }}"><span>{% set avatar_photo=(perfil_contato or {}).get('foto_url') or session.get('user_photo_url') %}{% set avatar_badge=(perfil_contato or {}).get('cadu_avatar_badge') %}{% set avatar_alt='Foto de ' ~ user.name %}{% include 'cadu/_user_avatar_image.html' %}</span><strong>{{ user.name }}</strong><small>{{ session.get('user_email', 'Configurações da conta') }}</small></a>
     </div>
     {% endif %}
   </aside>

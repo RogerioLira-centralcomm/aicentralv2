@@ -1,5 +1,7 @@
 {% if avatar_photo %}
   <img src="{{ avatar_photo }}" alt="{{ avatar_alt or '' }}">
 {% else %}
-  {{ session.get('user_name', 'U')[:2] | upper }}
+  {% set cadu_avatar_badges = ['badge-comet.png', 'badge-ribbon.png', 'badge-orbit.png', 'badge-prism.png', 'badge-sunburst.png', 'badge-sphere.png'] %}
+  {% set resolved_avatar_badge = avatar_badge or session.get('cadu_avatar_badge') or cadu_avatar_badges[(session.get('user_id', 0) | int) % (cadu_avatar_badges | length)] %}
+  <img src="{{ url_for('static', filename='images/cadu/avatars/' ~ resolved_avatar_badge) }}" alt="Avatar de {{ session.get('user_name', 'usuário') }}">
 {% endif %}

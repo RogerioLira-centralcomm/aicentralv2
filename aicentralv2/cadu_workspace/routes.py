@@ -415,6 +415,8 @@ def _workspace_brand(client_id: int, brand_id: int) -> Optional[dict]:
                         asset['metadata'] = json.loads(asset['metadata'])
                     except (TypeError, ValueError):
                         asset['metadata'] = {}
+                elif not isinstance(asset.get('metadata'), dict):
+                    asset['metadata'] = {}
     except Exception:
         brand['assets'] = []
     for field in ('brand_profile', 'analysis_metadata'):

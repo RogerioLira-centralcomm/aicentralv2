@@ -79,7 +79,7 @@ def entities(client_id):
                   SELECT 'studio:' || id::text, name, 'brand', 'studio',
                          COALESCE(logo_upload_path, logo_url)
                     FROM cx_clients WHERE crm_client_id = %s
-                  ORDER BY name''', (client_id, client_id, client_id))
+                  ORDER BY 2''', (client_id, client_id, client_id))
     for item in items:
         item['logo_url'] = public_logo(item.get('logo_url') or '')
     return items

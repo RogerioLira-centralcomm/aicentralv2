@@ -14,13 +14,6 @@
     <a href="{{ url_for('cadu_workspace.documents') }}" {% if workspace_active == 'docs' %}aria-current="page"{% endif %}><span class="workspace-nav-icon"><i class="fa-regular fa-file-lines"></i></span><span class="workspace-nav-text">Docs</span></a>
     <a href="{{ url_for('cadu_workspace.clean_brands') }}" {% if workspace_active == 'marcas' %}aria-current="page"{% endif %}><span class="workspace-nav-icon"><i class="fa-solid fa-fingerprint"></i></span><span class="workspace-nav-text">Marcas</span></a>
   </nav>
-  <nav class="workspace-mobile-studio-tools" aria-label="Ferramentas do Studio">
-    <p>Studio</p>
-    <a href="{{ product_url('studio', '/studio/modelagem-criativos/criar') }}"><span class="workspace-nav-icon"><i class="fa-regular fa-image"></i></span><span>Criar imagem</span></a>
-    <a href="{{ product_url('studio', '/studio/modelagem-criativos/video') }}"><span class="workspace-nav-icon"><i class="fa-solid fa-film"></i></span><span>Criar vídeo</span></a>
-    <a href="{{ product_url('studio', '/studio/modelagem-criativos/trocar') }}"><span class="workspace-nav-icon"><i class="fa-solid fa-pen-ruler"></i></span><span>Editar criativo</span></a>
-    <a href="{{ product_url('studio', '/analyzer') }}"><span class="workspace-nav-icon"><i class="fa-solid fa-chart-line"></i></span><span>Creative Analyzer</span></a>
-  </nav>
   <footer class="workspace-sidebar-footer">
     <nav class="workspace-sidebar-management" aria-label="Gestão da conta">
       <a href="{{ url_for('cadu_workspace.account_page', section='creditos') }}"><span class="workspace-nav-icon"><i class="fa-solid fa-chart-pie"></i></span><span class="workspace-nav-text">Uso</span></a>

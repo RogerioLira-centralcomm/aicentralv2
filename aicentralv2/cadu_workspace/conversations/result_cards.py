@@ -16,12 +16,19 @@ TOOL_TYPES = {
     "market_research": "research",
     "market_news": "research",
     "web_research": "research",
+    "web_search": "research",
     "search_audiencias": "audience",
     "audience_search": "audience",
     "link_test": "link",
     "screenshot_url": "link",
     "pdf_process": "document",
     "document_extract": "document",
+    # These are the concrete Dify plugin identifiers enabled in the Cadu app.
+    "pdf_single_page_extractor": "document",
+    "pdf_multi_pages_extractor": "document",
+    "pdf_page_counter": "document",
+    "pdf_splitter": "document",
+    "pdf_to_png": "document",
 }
 
 

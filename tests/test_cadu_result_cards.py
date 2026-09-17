@@ -52,6 +52,14 @@ class ResultCardsTest(TestCase):
         self.assertEqual(card["result"]["items"][0]["metrics"][0]["value"], "4")
         self.assertIsNone(result_cards.project({"tool": "untrusted_tool", "output": {"x": 1}}))
 
+    def test_projects_all_enabled_dify_pdf_plugin_names_as_documents(self):
+        names = ("pdf_single_page_extractor", "pdf_multi_pages_extractor", "pdf_page_counter",
+                 "pdf_splitter", "pdf_to_png")
+        for name in names:
+            with self.subTest(name=name):
+                card = result_cards.project({"tool": name, "output": {"filename": "arquivo.pdf", "summary": "Conteúdo extraído."}})
+                self.assertEqual(card["result"]["type"], "document")
+
     def test_projects_dify_agent_observation_without_exposing_tool_input(self):
         card = result_cards.project({
             "event": "agent_thought", "tool": "market_research", "tool_input": "PRIVATE",

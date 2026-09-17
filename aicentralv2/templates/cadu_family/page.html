@@ -128,10 +128,10 @@
     {% endif %}
     {% if product == 'planner' %}
     <div class="planner-sidebar-footer">
-      {% set credit_meter_class = 'family-sidebar-credits' %}{% set credit_meter_href = product_url('workspace', '/app/creditos') %}{% include 'cadu/_credit_meter.html' %}
+      {% set credit_meter_class = 'family-sidebar-credits' %}{% set credit_meter_href = product_url('workspace', '/workspace/app/creditos') %}{% include 'cadu/_credit_meter.html' %}
       <details class="planner-sidebar-user">
         <summary aria-label="Abrir opções da conta">{% set avatar_photo=(perfil_contato or {}).get('foto_url') or session.get('user_photo_url') %}{% set avatar_badge=(perfil_contato or {}).get('cadu_avatar_badge') %}{% set avatar_alt='Foto de ' ~ user.name %}<span class="planner-user-avatar">{% include 'cadu/_user_avatar_image.html' %}</span><span class="planner-user-identity"><strong>{{ user.name }}</strong><small>{{ session.get('user_email', 'Configurações da conta') }}</small></span><span class="planner-user-chevron" aria-hidden="true">⌄</span></summary>
-        <div class="planner-user-menu"><a href="{{ product_url('workspace', '/app/conta?section=perfil') }}">Meu perfil</a><a href="{{ product_url('workspace', '/app/creditos') }}">Créditos e consumo</a><a href="{{ product_url('workspace', '/app') }}">Abrir Workspace</a><a href="{{ product_url('auth', '/logout') }}">Sair</a></div>
+        <div class="planner-user-menu"><a href="{{ product_url('workspace', '/workspace/app/conta?section=perfil') }}">Meu perfil</a><a href="{{ product_url('workspace', '/workspace/app/creditos') }}">Créditos e consumo</a><a href="{{ product_url('workspace', '/workspace/app') }}">Abrir Workspace</a><a href="{{ product_url('auth', '/logout') }}">Sair</a></div>
       </details>
     </div>
     {% else %}

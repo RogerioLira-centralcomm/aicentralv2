@@ -228,10 +228,15 @@ fi
 "$VENV_PYTHON" migrations/run_sql_migration.py add_training_studio_import_palco.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_workspace_projects.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_docs_compat.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_planner_public_shares.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_interactive_creative_categories.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_user_onboardings.sql
+"$VENV_PYTHON" scripts/import_centralcomm_interactives.py
 echo "  > OK"
 
 # Worker de mídia: dependências, modelo local e serviço supervisionado.
 MEDIA_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_media_worker.sh
+ONBOARDING_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_onboarding_followup_timer.sh
 
 # 9. Iniciar servico
 echo ""

@@ -1,5 +1,6 @@
 {% extends 'cadu_family/page.html' %}
 {% block product_content %}
+<div class="planner-audience-detail-layout">
 <article class="planner-audience-detail">
   <header class="planner-audience-profile-hero"><div><p>{{ audience.category or 'Audiência' }}{% if audience.subcategory %} / {{ audience.subcategory }}{% endif %}</p><h2>{{ audience.name }}</h2><span>{{ audience.audience or 'Alcance a confirmar' }}</span><a class="family-primary" href="{{ planner_url('audiencias', plan=request.args.get('plan')) }}">Voltar para audiências</a></div>{% if audience.image_url %}<img src="{{ audience.image_url }}" alt="Imagem de contexto da audiência {{ audience.name }}">{% else %}<img src="{{ url_for('static', filename='images/planner/audiences-hero-v2.png') }}" alt="">{% endif %}</header>
   <section class="planner-audience-summary"><div><h3>Leitura para o plano</h3><p>{{ audience.descricao_comercial or audience.description or 'Não há uma descrição editorial disponível para esta audiência.' }}</p>{% if audience.caso_uso_principal %}<p><strong>Quando usar:</strong> {{ audience.caso_uso_principal }}</p>{% endif %}</div><aside><small>Origem</small><strong>{{ audience.platform or audience.fonte or 'Catálogo Cadu' }}</strong><small>Propensão de compra</small><strong>{{ audience.propensao_compra or 'Não informada' }}</strong><small>Sazonalidade</small><strong>{{ audience.sazonalidade or 'Não informada' }}</strong></aside></section>
@@ -7,4 +8,12 @@
   {% if audience.insights_planejamento or audience.diferenciais_competitivos %}<section class="planner-audience-notes"><article><h3>Insight de planejamento</h3><p>{{ audience.insights_planejamento or 'Sem insight editorial registrado.' }}</p></article><article><h3>Diferenciais</h3><p>{{ audience.diferenciais_competitivos or 'Sem diferencial editorial registrado.' }}</p></article></section>{% endif %}
   {% if audience.tags %}<p class="planner-audience-tags">{% for tag in audience.tags %}<span>{{ tag }}</span>{% endfor %}</p>{% endif %}
 </article>
+<aside class="planner-audience-related" aria-labelledby="related-audiences-title">
+  <div class="planner-audience-related__heading"><p>Comparar</p><h2 id="related-audiences-title">Audiências semelhantes</h2><span>Por categoria ou origem</span></div>
+  <nav aria-label="Audiências semelhantes">
+    {% for item in similar_audiences %}<a href="{{ planner_url('audiencias/' ~ item.id, plan=request.args.get('plan')) }}"><span><strong>{{ item.name }}</strong><small>{{ item.platform or item.category or 'Catálogo Cadu' }}</small></span>{% if item.audience %}<em>{{ item.audience }}</em>{% endif %}</a>{% else %}<p class="planner-audience-related__empty">Não há comparações disponíveis para esta referência.</p>{% endfor %}
+  </nav>
+  <a class="planner-audience-related__all" href="{{ planner_url('audiencias', plan=request.args.get('plan')) }}">Todas as audiências</a>
+</aside>
+</div>
 {% endblock %}

@@ -77,6 +77,30 @@
     try { await request('/familia/api/planner/plans/' + encodeURIComponent(planId) + '/items/toggle', 'POST', {kind: button.dataset.kind, resource_id: button.dataset.resourceId}); window.location.reload(); }
     catch (error) { button.disabled = false; alert(error.message); }
   }));
+  const shareButton = desk.querySelector('[data-plan-share]');
+  shareButton?.addEventListener('click', async () => {
+    const status = desk.querySelector('[data-plan-share-status]');
+    shareButton.disabled = true;
+    status.textContent = 'Preparando link público…';
+    try {
+      const data = await request('/familia/api/planner/plans/' + encodeURIComponent(planId) + '/share', 'POST', {enabled: true});
+      const url = new URL('/planos/public/' + encodeURIComponent(data.plan.share_token), window.location.origin).href;
+      await navigator.clipboard?.writeText(url);
+      shareButton.textContent = 'Copiar link público';
+      status.textContent = 'Link público copiado.';
+    } catch (error) { status.textContent = error.message; }
+    finally { shareButton.disabled = false; }
+  });
+  desk.querySelector('[data-plan-unshare]')?.addEventListener('click', async event => {
+    const button = event.currentTarget;
+    const status = desk.querySelector('[data-plan-share-status]');
+    button.disabled = true;
+    status.textContent = 'Removendo acesso público…';
+    try {
+      await request('/familia/api/planner/plans/' + encodeURIComponent(planId) + '/share', 'POST', {enabled: false});
+      window.location.reload();
+    } catch (error) { status.textContent = error.message; button.disabled = false; }
+  });
   const quoteButton = desk.querySelector('[data-quote-request]');
   const quoteDialog = desk.querySelector('[data-quote-request-dialog]');
   const quoteStatus = desk.querySelector('[data-quote-request-status]');

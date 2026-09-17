@@ -13,7 +13,9 @@ def page_template(product):
     return f'{PRODUCT_PACKAGES[product]}/family/page.html'
 
 
-def load_records(product, module, user, selected, query=''):
+def load_records(product, module, user, selected, query='', filters=None):
     package = PRODUCT_PACKAGES[product]
     pages = import_module(f'aicentralv2.{package}.pages')
+    if product == 'planner':
+        return pages.load_records(module, user, selected, query, filters)
     return pages.load_records(module, user, selected, query)

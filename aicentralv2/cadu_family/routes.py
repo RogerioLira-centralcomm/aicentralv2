@@ -376,6 +376,16 @@ def planner_plan_quote_request(plan_id):
                                              request.get_json(silent=True) or {})), 201
 
 
+@bp.post('/api/planner/plans/<plan_id>/share')
+def planner_plan_share(plan_id):
+    from ..cadu_planner import plans
+    selected = writable_context()
+    user = context.identity()
+    data = request.get_json(silent=True) or {}
+    return jsonify(plan=plans.share_plan(selected['client_id'], user['id'], plan_id,
+                                         data.get('enabled', True)))
+
+
 @bp.post('/api/planner/selections/toggle')
 def planner_selection_toggle():
     from ..cadu_planner import selections
@@ -474,12 +484,13 @@ def planner_audience_detail(audience_id):
     user = context.identity()
     selected = context.resolve()
     audience = catalog.detail('audiencias', audience_id)
+    similar_audiences = catalog.related_audiences(audience)
     token = session.setdefault('family_csrf', secrets.token_urlsafe(32))
     return render_template('cadu_planner/family/audience_detail_page.html',
         product='planner', spec=PRODUCTS['planner'], module='audiencias', title=audience['name'],
         products=PRODUCTS, landing=LANDINGS['planner'], user=user, selected=selected,
         clients=context.authorized_clients(), entities=[], records=[],
-        audience=audience, profile=PROFILES['planner'], csrf=token, legacy_url=None, planner_view='audience-detail',
+        audience=audience, similar_audiences=similar_audiences, profile=PROFILES['planner'], csrf=token, legacy_url=None, planner_view='audience-detail',
         login_url=login_url(), product_url=product_url, planner_url=planner_url)
 
 
@@ -499,6 +510,18 @@ def planner_plan_media_desk(plan_id):
         plan=plan, profile=PROFILES['planner'], csrf=token, planner_view='plan-detail',
         legacy_url=None,
         login_url=login_url(), product_url=product_url, planner_url=planner_url)
+
+
+@bp.get('/planner/planos/public/<token>')
+def planner_public_plan(token):
+    from ..cadu_planner import plans
+    plan = plans.public_plan(token)
+    return render_template('cadu_planner/family/public_plan.html',
+        product='planner', spec=PRODUCTS['planner'], module='planos', title=plan['title'],
+        products=PRODUCTS, landing=LANDINGS['planner'], user=None, selected=None,
+        clients=[], entities=[], records=[], plan=plan, profile=PROFILES['planner'], csrf='',
+        planner_view='public-plan', legacy_url=None, login_url=login_url(),
+        product_url=product_url, planner_url=planner_url)
 
 
 @bp.get('/planner/<kind>/<int:item_id>')

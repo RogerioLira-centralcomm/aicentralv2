@@ -154,6 +154,11 @@ def register_product_host_routing(app) -> None:
         planner_host_only()
         return app.view_functions['cadu_family.planner_plan_media_desk'](plan_id)
 
+    @app.get('/planos/public/<token>')
+    def planner_host_public_plan(token):
+        planner_host_only()
+        return app.view_functions['cadu_family.planner_public_plan'](token)
+
     @app.get('/audiencias/<int:audience_id>')
     def planner_host_audience_detail(audience_id):
         planner_host_only()

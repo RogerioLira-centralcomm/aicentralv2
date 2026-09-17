@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from uuid import uuid4
+import secrets
 from decimal import Decimal, InvalidOperation
 from datetime import date
 
@@ -94,6 +95,7 @@ def create_plan(client_id, actor_id, payload, context):
 def get_plan(client_id, actor_id, plan_id):
     _require_available()
     rows = repository.rows('''SELECT id, title, objective, status, advertiser_name, campaign_name, briefing,
+                                      share_enabled, share_token,
                                       created_at, updated_at FROM cadu_planner_plans
                                 WHERE id = %s AND client_id = %s AND created_by = %s AND archived_at IS NULL''',
                            (str(plan_id), client_id, actor_id))
@@ -117,6 +119,38 @@ def get_plan(client_id, actor_id, plan_id):
     except Exception:
         plan['review_history'] = []
     plan['readiness'] = readiness(plan)
+    return plan
+
+
+def share_plan(client_id, actor_id, plan_id, enabled):
+    """Create or revoke an unguessable public view without changing the plan."""
+    plan = get_plan(client_id, actor_id, plan_id)
+    token = plan.get('share_token') or secrets.token_urlsafe(24)
+    with get_db() as conn, conn.cursor() as cur:
+        cur.execute('''UPDATE cadu_planner_plans
+                          SET share_enabled = %s, share_token = %s, updated_at = NOW()
+                        WHERE id = %s AND client_id = %s AND created_by = %s''',
+                    (bool(enabled), token, str(plan_id), client_id, actor_id))
+    return get_plan(client_id, actor_id, plan_id)
+
+
+def public_plan(token):
+    """Return a client-safe projection for an explicitly shared media plan."""
+    rows = repository.rows('''SELECT id, title, objective, status, advertiser_name, campaign_name, briefing,
+                                      updated_at
+                                 FROM cadu_planner_plans
+                                WHERE share_token = %s AND share_enabled = TRUE
+                                  AND archived_at IS NULL LIMIT 1''', (str(token),))
+    if not rows:
+        raise NotFound('Plano não publicado.')
+    plan = rows[0]
+    plan['items'] = repository.rows('''SELECT kind, resource_id, snapshot
+                                         FROM cadu_planner_plan_items WHERE plan_id = %s
+                                      ORDER BY kind, created_at''', (str(plan['id']),))
+    plan['allocations'] = repository.rows('''SELECT resource_id, investment, weight, flight, notes
+                                                FROM cadu_planner_channel_allocations WHERE plan_id = %s
+                                             ORDER BY resource_id''', (str(plan['id']),)) if _allocations_available() else []
+    plan['allocation_by_channel'] = {str(row['resource_id']): row for row in plan['allocations']}
     return plan
 
 

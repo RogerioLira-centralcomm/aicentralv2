@@ -307,6 +307,12 @@ CADU_RETIRED_DESKS = {"extrair", "revisao", "lab"}
 
 @studio_or_admin_required
 def modelagem_desk(page):
+    # ``/formatos`` is also a product-owned Planner route.  Flask registers
+    # the Studio shortcut first, so route it explicitly when this request is
+    # on the Planner host instead of redirecting the user to Studio.
+    planner_host = (urlparse(str(current_app.config.get('PLANNER_URL') or '')).hostname or '').lower()
+    if page == 'biblioteca' and (request.host.split(':', 1)[0] or '').lower() == planner_host:
+        return current_app.view_functions['cadu_family.page']('planner', 'formatos')
     # Brand guidance belongs to Workspace, where the brand itself and its
     # governance live. Keep legacy Studio URLs as a direct compatibility hop.
     if page in {"marcas", "design-system"}:

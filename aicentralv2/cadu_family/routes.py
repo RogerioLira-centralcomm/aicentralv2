@@ -503,7 +503,8 @@ def planner_catalog_detail_page(kind, item_id):
     record = catalog.detail(kind, item_id)
     labels = {'canais': 'Canal', 'formatos': 'Formato', 'interativos': 'Formato interativo'}
     token = session.setdefault('family_csrf', secrets.token_urlsafe(32))
-    return render_template('cadu_planner/family/catalog_detail_page.html',
+    template = 'cadu_planner/family/format_detail_page.html' if kind in {'formatos', 'interativos'} else 'cadu_planner/family/catalog_detail_page.html'
+    return render_template(template,
         product='planner', spec=PRODUCTS['planner'], module=kind, title=record['name'],
         products=PRODUCTS, landing=LANDINGS['planner'], user=user, selected=selected,
         clients=context.authorized_clients(), entities=[], records=[],
@@ -748,7 +749,7 @@ def page(product, module=None):
             entities = context.inventory(selected['client_id'])
         if product == 'workspace' and module in ADMIN_MODULES:
             context.require_admin()
-        records = product_pages.load_records(product, module, user, selected, request.args.get('q', ''))
+        records = product_pages.load_records(product, module, user, selected, request.args.get('q', ''), request.args)
     token = session.setdefault('family_csrf', secrets.token_urlsafe(32))
     # PHP currently knows the actor's organization, not an agency's selected client.
     # Never hand off to the wrong tenant while the adapter is pending.
@@ -760,4 +761,4 @@ def page(product, module=None):
         title=title, products=PRODUCTS, landing=LANDINGS[product], user=user, selected=selected, clients=clients,
         entities=entities, records=records, profile=PROFILES.get(product), csrf=token,
         legacy_url=legacy_url, login_url=login_url(), product_url=product_url, planner_url=planner_url,
-        planner_view='page')
+        planner_view='page', marketplace_facets=(repository.audience_catalog_facets() if product == 'planner' and module == 'audiencias' else repository.channel_catalog_facets() if product == 'planner' and module == 'canais' else repository.format_catalog_facets(module == 'interativos') if product == 'planner' and module in {'formatos', 'interativos'} else {'categories': [], 'platforms': [], 'types': [], 'segments': []}))

@@ -79,20 +79,33 @@
     return data;
   }
 
+  function hasTypedSecret(form) {
+    return Array.prototype.some.call(
+      form.querySelectorAll('input[type="password"]'),
+      function (input) { return Boolean(input.value.trim()); }
+    );
+  }
+
+  function saveForm(provider, form) {
+    return request('/' + encodeURIComponent(provider), {
+      method: 'PUT',
+      body: formPayload(form)
+    }).then(function (summary) {
+      renderSummary(summary);
+      form.querySelectorAll('input[type="password"]').forEach(function (input) {
+        input.value = '';
+      });
+      return summary;
+    });
+  }
+
   root.querySelectorAll('[data-integration-form]').forEach(function (form) {
     var provider = form.dataset.integrationForm;
     form.addEventListener('submit', function (event) {
       event.preventDefault();
       var submit = form.querySelector('[type="submit"]');
       submit.disabled = true;
-      request('/' + encodeURIComponent(provider), {
-        method: 'PUT',
-        body: formPayload(form)
-      }).then(function (summary) {
-        renderSummary(summary);
-        form.querySelectorAll('input[type="password"]').forEach(function (input) {
-          input.value = '';
-        });
+      saveForm(provider, form).then(function () {
         notify('Credencial salva com segurança.');
       }).catch(function (error) {
         notify(error.message, true);
@@ -104,8 +117,19 @@
     form.querySelector('[data-integration-action="validate"]').addEventListener('click', function (event) {
       var button = event.currentTarget;
       button.disabled = true;
-      request('/' + encodeURIComponent(provider) + '/validate', {
-        method: 'POST'
+      var shouldSaveFirst = hasTypedSecret(form);
+      if (!shouldSaveFirst && form.dataset.configured !== 'true') {
+        notify('Informe a credencial obrigatória e clique em Salvar, ou valide após salvá-la.', true);
+        button.disabled = false;
+        return;
+      }
+      var saveBeforeValidation = shouldSaveFirst
+        ? saveForm(provider, form)
+        : Promise.resolve();
+      saveBeforeValidation.then(function () {
+        return request('/' + encodeURIComponent(provider) + '/validate', {
+          method: 'POST'
+        });
       }).then(function (result) {
         notify(result.message, !result.valid);
         fillSafes(form, result);

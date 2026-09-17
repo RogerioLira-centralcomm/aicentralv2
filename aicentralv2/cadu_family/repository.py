@@ -1,6 +1,10 @@
 """Narrow projections of existing data. Query errors must never grant access."""
+import json
+from urllib.parse import urlparse
+
 from ..db import get_db
 from flask import g, current_app
+from ..product_domains import product_url
 
 
 def family_table_available(name):
@@ -212,9 +216,13 @@ def integrations(organization_id):
                 ORDER BY platform, platform_account_name''', (organization_id,))
 
 
-def catalog(module, query=''):
+def catalog(module, query='', category='', platform='', sort='relevant', format_type='', segment=''):
     search = '%' + query[:100] + '%'
     if module == 'audiencias':
+        category = category.strip()[:100] if isinstance(category, str) else ''
+        platform = platform.strip()[:100] if isinstance(platform, str) else ''
+        sort = sort if sort in {'relevant', 'name'} else 'relevant'
+        ordering = 'a.nome, a.id' if sort == 'name' else 'a.nome, a.id'
         return rows('''SELECT a.id, a.nome AS name, COALESCE(a.descricao_curta, a.descricao) AS description,
                              a.publico_estimado AS audience, a.imagem_url AS image_url,
                              a.perfil_socioeconomico, a.propensao_compra, a.tamanho,
@@ -227,22 +235,120 @@ def catalog(module, query=''):
                        WHERE a.is_active = TRUE
                          AND (a.nome ILIKE %s OR COALESCE(a.descricao_curta, '') ILIKE %s
                               OR COALESCE(a.descricao, '') ILIKE %s OR COALESCE(c.nome, '') ILIKE %s)
-                    ORDER BY a.nome, a.id LIMIT 100''', (search, search, search, search))
+                         AND (%s = '' OR c.nome = %s)
+                         AND (%s = '' OR p.nome = %s)
+                    ORDER BY ''' + ordering + ''' LIMIT 100''',
+                    (search, search, search, search, category, category, platform, platform))
     if module == 'canais':
-        return rows('''SELECT id, nome AS name, descricao AS description, categoria AS category,
-                             alcance AS audience FROM cadu_canais
+        category = category.strip()[:100] if isinstance(category, str) else ''
+        return rows('''SELECT id, slug, nome AS name, descricao AS description, categoria AS category,
+                             alcance AS audience, logo_path, cor
+                        FROM cadu_canais
                        WHERE is_active = TRUE AND (nome ILIKE %s OR COALESCE(descricao, '') ILIKE %s
-                             OR COALESCE(categoria, '') ILIKE %s) ORDER BY ordem, nome LIMIT 100''',
-                    (search, search, search))
+                             OR COALESCE(categoria, '') ILIKE %s)
+                         AND (%s = '' OR categoria = %s)
+                    ORDER BY ordem, nome LIMIT 100''',
+                    (search, search, search, category, category))
     if module in ('formatos', 'interativos'):
-        return rows('''SELECT id, nome AS name, descricao AS description,
-                             dimensoes AS dimensions, formatos_arquivo AS files
-                        FROM cadu_formatos WHERE is_active = TRUE
-                         AND (nome ILIKE %s OR COALESCE(descricao, '') ILIKE %s
-                              OR COALESCE(dimensoes, '') ILIKE %s OR COALESCE(formatos_arquivo, '') ILIKE %s)
-                         AND (%s = FALSE OR is_interativo = TRUE)
-                    ORDER BY ordem, nome LIMIT 100''', (search, search, search, search, module == 'interativos'))
+        platform = platform.strip()[:80] if isinstance(platform, str) else ''
+        format_type = format_type.strip()[:80] if isinstance(format_type, str) else ''
+        segment = segment.strip()[:100] if isinstance(segment, str) else ''
+        records = rows('''SELECT f.id, f.nome AS name, f.descricao AS description,
+                             f.dimensoes AS dimensions, f.formatos_arquivo AS files,
+                             f.tipo AS format_type, f.plataforma_slug AS platform_slug,
+                             p.nome AS platform, p.logo_path AS platform_logo, f.dados_extras AS extras,
+                             f.categoria_criativa AS creative_category,
+                             f.dados_extras ->> 'objetivo_comercial' AS purpose
+                        FROM cadu_formatos f
+                   LEFT JOIN cadu_plataformas_formatos p ON p.slug = f.plataforma_slug
+                       WHERE f.is_active = TRUE
+                         AND (f.nome ILIKE %s OR COALESCE(f.descricao, '') ILIKE %s
+                              OR COALESCE(f.dimensoes, '') ILIKE %s OR COALESCE(f.formatos_arquivo, '') ILIKE %s)
+                         AND f.is_interativo = %s
+                         AND (%s = '' OR f.plataforma_slug = %s)
+                         AND (%s = '' OR f.tipo = %s)
+                         AND (%s = '' OR LOWER(COALESCE(NULLIF(TRIM(f.categoria_criativa), ''), NULLIF(TRIM(f.dados_extras ->> 'segmento'), ''), NULLIF(f.tipo, ''), 'Geral')) = LOWER(%s))
+                    ORDER BY p.ordem NULLS LAST, f.ordem, f.nome LIMIT 100''',
+                    (search, search, search, search, module == 'interativos',
+                     platform, platform, format_type, format_type, segment, segment))
+        return [_decorate_format(record) for record in records]
     raise ValueError('Catálogo inválido.')
+
+
+def audience_catalog_facets():
+    """Small, stable filter lists for the customer-facing audience marketplace."""
+    categories = rows('''SELECT DISTINCT c.nome AS value FROM cadu_audiencias a
+                           JOIN cadu_categorias c ON c.id = a.categoria_id
+                          WHERE a.is_active = TRUE AND c.nome IS NOT NULL
+                          ORDER BY c.nome LIMIT 30''')
+    platforms = rows('''SELECT DISTINCT p.nome AS value FROM cadu_audiencias a
+                          JOIN cadu_audiencias_plataformas p ON p.id = a.plataforma_id
+                         WHERE a.is_active = TRUE AND p.nome IS NOT NULL
+                         ORDER BY p.nome LIMIT 30''')
+    return {'categories': [row['value'] for row in categories],
+            'platforms': [row['value'] for row in platforms]}
+
+
+def format_catalog_facets(interactive=False):
+    """Platforms and format types exposed by the shared creative catalog."""
+    platforms = rows('''SELECT DISTINCT f.plataforma_slug AS slug, p.nome AS name
+                          FROM cadu_formatos f
+                     LEFT JOIN cadu_plataformas_formatos p ON p.slug = f.plataforma_slug
+                         WHERE f.is_active = TRUE AND f.is_interativo = %s
+                           AND f.plataforma_slug IS NOT NULL AND f.plataforma_slug <> ''
+                      ORDER BY name NULLS LAST, slug LIMIT 40''', (interactive,))
+    types = rows('''SELECT DISTINCT tipo AS value FROM cadu_formatos
+                      WHERE is_active = TRUE AND is_interativo = %s
+                        AND tipo IS NOT NULL AND tipo <> '' ORDER BY tipo LIMIT 20''', (interactive,))
+    segments = rows('''SELECT DISTINCT COALESCE(NULLIF(TRIM(categoria_criativa), ''), NULLIF(TRIM(dados_extras ->> 'segmento'), ''),
+                                                   NULLIF(tipo, ''), 'Geral') AS value
+                         FROM cadu_formatos
+                        WHERE is_active = TRUE AND is_interativo = %s
+                        ORDER BY value LIMIT 30''', (interactive,)) if interactive else []
+    return {'platforms': platforms, 'types': [row['value'] for row in types],
+            'segments': [row['value'] for row in segments]}
+
+
+def channel_catalog_facets():
+    categories = rows('''SELECT DISTINCT categoria AS value FROM cadu_canais
+                          WHERE is_active = TRUE AND categoria IS NOT NULL AND categoria <> ''
+                          ORDER BY categoria LIMIT 20''')
+    return {'categories': [row['value'] for row in categories], 'platforms': [], 'types': [], 'segments': []}
+
+
+def _decorate_format(record):
+    """Expose one safe creative link and its editorial segment when present."""
+    extras = record.pop('extras', None) or {}
+    if isinstance(extras, str):
+        try:
+            extras = json.loads(extras)
+        except ValueError:
+            extras = {}
+    extras = extras if isinstance(extras, dict) else {}
+    segment = record.get('creative_category') or extras.get('segmento') or record.get('format_type') or 'Geral'
+    if isinstance(segment, list):
+        segment = segment[0] if segment else 'Geral'
+    record['segment'] = str(segment).strip()[:100] or 'Geral'
+    record['purpose'] = str(record.get('purpose') or extras.get('objetivo_comercial') or '').strip()[:40]
+    record['image_url'] = _current_creative_url(extras.get('imagem_referencia', ''))
+    raw_url = next((extras.get(key) for key in ('creative_url', 'preview_url', 'link', 'url') if extras.get(key)), '')
+    record['creative_url'] = _current_creative_url(raw_url)
+    return record
+
+
+def _current_creative_url(raw_url):
+    """Keep stored creative references usable after the Cadu host migration."""
+    value = str(raw_url or '').strip()
+    parsed = urlparse(value)
+    if parsed.scheme not in {'http', 'https'} or not parsed.hostname:
+        return ''
+    if parsed.hostname.lower() != 'cadu.centralcomm.media':
+        return value
+    path = parsed.path or '/'
+    if not (path.startswith('/parametros/modelagem-criativos') or path.startswith('/criativos/')):
+        return value
+    target = product_url('studio', path)
+    return target + (('?' + parsed.query) if parsed.query else '')
 
 
 def conversation_messages(user_id, client_id, conversation_id):

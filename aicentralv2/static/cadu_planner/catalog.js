@@ -59,4 +59,11 @@
       button.setAttribute('aria-pressed', String(data.selected));
     } catch (error) { alert(error.message); }
   }));
+  document.querySelectorAll('[data-copy-link]').forEach(button => button.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(button.dataset.copyLink || '');
+      const label = button.textContent; button.textContent = 'Link copiado';
+      window.setTimeout(() => { button.textContent = label; }, 1800);
+    } catch (_) { window.prompt('Copie o link público:', button.dataset.copyLink || ''); }
+  }));
 })();

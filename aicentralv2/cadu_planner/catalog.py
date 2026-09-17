@@ -4,6 +4,9 @@ The legacy chat queried wide catalog rows. These projections intentionally expos
 only fields that can be explained to a SmartPlanner customer. They are read-only
 and do not depend on the selected client's ID because the catalogs are shared.
 """
+import json
+from urllib.parse import urlparse
+
 from werkzeug.exceptions import BadRequest, NotFound
 
 from ..db import get_db
@@ -15,6 +18,30 @@ def rows(sql, params=()):
     with get_db().cursor() as cur:
         cur.execute(sql, params)
         return [dict(row) for row in cur.fetchall()]
+
+
+def _safe_url(value):
+    value = str(value or '').strip()
+    parsed = urlparse(value)
+    return value if parsed.scheme in {'http', 'https'} and parsed.hostname else ''
+
+
+def _format_detail(record):
+    extras = record.pop('extras', None) or {}
+    if isinstance(extras, str):
+        try:
+            extras = json.loads(extras)
+        except ValueError:
+            extras = {}
+    extras = extras if isinstance(extras, dict) else {}
+    record['purpose'] = extras.get('objetivo_comercial') or 'Alcance'
+    record['creative_category'] = record.get('creative_category') or extras.get('segmento') or record.get('format_type') or 'Formato de mídia'
+    record['markets'] = extras.get('mercados_aplicaveis') if isinstance(extras.get('mercados_aplicaveis'), list) else []
+    record['segments'] = extras.get('segmentos_aplicaveis') if isinstance(extras.get('segmentos_aplicaveis'), list) else []
+    record['image_url'] = _safe_url(extras.get('imagem_referencia'))
+    record['creative_url'] = _safe_url(extras.get('creative_url'))
+    record['gallery_url'] = _safe_url(extras.get('gallery_url'))
+    return record
 
 
 def query(kind, value='', limit=20, category='', channel=''):
@@ -80,16 +107,18 @@ def detail(kind, value):
                              alcance AS audience
                         FROM cadu_canais WHERE id = %s AND is_active = TRUE LIMIT 1''',
         'formatos': '''SELECT id, nome AS name, descricao AS description,
-                              dimensoes AS dimensions, formatos_arquivo AS files
+                              dimensoes AS dimensions, formatos_arquivo AS files,
+                              tipo AS format_type, plataforma_slug, categoria_criativa AS creative_category, dados_extras AS extras
                          FROM cadu_formatos WHERE id = %s AND is_active = TRUE LIMIT 1''',
         'interativos': '''SELECT id, nome AS name, descricao AS description,
-                                 dimensoes AS dimensions, formatos_arquivo AS files
+                                 dimensoes AS dimensions, formatos_arquivo AS files,
+                                 tipo AS format_type, plataforma_slug, categoria_criativa AS creative_category, dados_extras AS extras
                             FROM cadu_formatos WHERE id = %s AND is_active = TRUE AND is_interativo = TRUE LIMIT 1''',
     }[kind]
     records = rows(sql, (record_id,))
     if not records:
         raise NotFound('Item de catálogo indisponível.')
-    return records[0]
+    return _format_detail(records[0]) if kind in {'formatos', 'interativos'} else records[0]
 
 
 def related_audiences(audience, limit=6):

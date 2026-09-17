@@ -3686,6 +3686,8 @@ class CreativeFilesContractTest(unittest.TestCase):
         self.assertIn(".mc-studio-home .studio-layout {", studio_home_css)
         self.assertIn("display:block;", studio_home_css)
         self.assertNotIn("grid-template-columns:208px minmax(0,1fr);", studio_home_css)
+        self.assertNotIn(".studio-wordmark", studio_home_css)
+        self.assertNotIn(".studio-context-controls", studio_home_css)
         shell = (template_dir / "_mc_shell.html").read_text(encoding="utf-8")
         self.assertIn("mc-cadu-bar", shell)
         self.assertIn("Cadu Media Studio", shell)

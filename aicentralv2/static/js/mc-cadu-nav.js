@@ -2,7 +2,9 @@
   const bar = document.getElementById("mcCaduBar");
   const projectSelect = document.getElementById("mcCaduProject");
   const clientSelect = document.getElementById("mcCaduBarClient");
-  const credits = document.getElementById("mcCaduCredits");
+  // The legacy Studio shell still exposes the image-credit balance as text.
+  // The current shell renders the shared monthly credit meter server-side.
+  const legacyCredits = document.getElementById("mcCaduCredits");
   if (!bar || !projectSelect) return;
 
   const apiRoot = String(bar.dataset.mcApiRoot || "/parametros/api").replace(/\/$/, "");
@@ -23,15 +25,18 @@
     const option = projectSelect.selectedOptions[0];
     return { clientId: String(option?.dataset.clientId || ""), projectId: String(projectSelect.value || ""), brandName: String(option?.dataset.brandName || "") };
   }
-  async function paintCredits(clientId) {
-    if (!credits || !clientId) return;
+  async function paintLegacyCredits(clientId) {
+    if (!legacyCredits || !clientId) return;
     const requestId = ++creditsRequest;
     try {
       const data = await get(`${apiRoot}/image-credits?client_id=${encodeURIComponent(clientId)}`);
       if (requestId !== creditsRequest || activeContext().clientId !== clientId) return;
       const remaining = Number(data?.remaining ?? Math.max(0, Number(data?.monthly || 0) - Number(data?.used || 0)));
-      if (Number.isFinite(remaining)) { credits.hidden = false; credits.textContent = `${remaining.toLocaleString("pt-BR")} créditos disponíveis`; }
-    } catch (_error) { /* Keep the server-rendered account balance. */ }
+      if (Number.isFinite(remaining)) {
+        legacyCredits.hidden = false;
+        legacyCredits.textContent = `${remaining.toLocaleString("pt-BR")} créditos disponíveis`;
+      }
+    } catch (_error) { /* Keep the legacy balance hidden when the API is unavailable. */ }
   }
   function activate() {
     const context = activeContext();
@@ -40,7 +45,7 @@
       clientSelect.value = context.clientId;
     }
     try { localStorage.setItem("cadu-studio-project", context.projectId); } catch (_error) {}
-    paintCredits(context.clientId);
+    paintLegacyCredits(context.clientId);
     publish("cadu:brand-ready", context);
     publish("cadu:brand-change", context);
     publish("cadu:project-ready", context);
@@ -69,6 +74,9 @@
   }
   projectSelect.addEventListener("change", activate);
   document.addEventListener("cadu:context-retry", loadProjects);
-  document.addEventListener("cadu:credits-refresh", (event) => { const context = activeContext(); if (String(event.detail?.clientId || context.clientId) === context.clientId) paintCredits(context.clientId); });
+  document.addEventListener("cadu:credits-refresh", (event) => {
+    const context = activeContext();
+    if (String(event.detail?.clientId || context.clientId) === context.clientId) paintLegacyCredits(context.clientId);
+  });
   loadProjects();
 })();

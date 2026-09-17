@@ -44,28 +44,6 @@
   background:#fff;
   border-bottom:1px solid var(--studio-line);
 }
-.mc-studio-home .studio-wordmark {
-  font-size:20px;
-  letter-spacing:-.6px;
-  font-weight:700;
-}
-.mc-studio-home .studio-wordmark span {
-  font-weight:400;
-}
-.mc-studio-home .studio-wordmark small {
-  display:block;
-  font-size:12px;
-  letter-spacing:0;
-  color:var(--studio-muted);
-  font-weight:400;
-  margin-top:4px;
-}
-.mc-studio-home .studio-context-controls {
-  display:flex;
-  align-items:center;
-  gap:12px;
-  font-size:12px;
-}
 .mc-studio-home select {
   max-width:300px;
   border:1px solid var(--studio-line);
@@ -410,19 +388,12 @@
   .mc-studio-home .studio-grid {
     grid-template-columns:repeat(2,minmax(0,1fr));
   }
-  .mc-studio-home .studio-brand-label {
-    display:none;
-  }
 }
 @media(max-width:800px) {
   .mc-studio-home .mc-cadu-bar {
     flex-wrap:wrap;
     padding:20px;
     gap:16px;
-  }
-  .mc-studio-home .studio-context-controls {
-    flex-wrap:wrap;
-    width:100%;
   }
   .mc-studio-home select {
     flex:1;
@@ -468,9 +439,6 @@
   }
   .mc-studio-home .studio-library-heading {
     align-items:flex-start;
-  }
-  .mc-studio-home .studio-context-controls {
-    gap:8px;
   }
   .mc-studio-home #mcCaduCredits {
     padding-left:8px;

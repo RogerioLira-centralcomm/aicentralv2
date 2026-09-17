@@ -417,14 +417,14 @@ def planner_docs_create():
     return jsonify(document=docs.create_document(selected['client_id'], user['id'], request.get_json(silent=True) or {})), 201
 
 
-@bp.get('/api/planner/docs/<int:doc_id>')
+@bp.get('/api/planner/docs/<doc_id>')
 def planner_doc_detail(doc_id):
     from ..cadu_planner import docs
     user, selected = context.identity(), context.resolve()
     return jsonify(document=docs.get_document(selected['client_id'], user['id'], doc_id))
 
 
-@bp.put('/api/planner/docs/<int:doc_id>')
+@bp.put('/api/planner/docs/<doc_id>')
 def planner_doc_save(doc_id):
     from ..cadu_planner import docs
     selected = writable_context()
@@ -432,7 +432,7 @@ def planner_doc_save(doc_id):
     return jsonify(document=docs.save_document(selected['client_id'], user['id'], doc_id, request.get_json(silent=True) or {}))
 
 
-@bp.post('/api/planner/docs/<int:doc_id>/review')
+@bp.post('/api/planner/docs/<doc_id>/review')
 def planner_doc_review(doc_id):
     from ..cadu_planner import revisions
     selected = writable_context()
@@ -440,14 +440,14 @@ def planner_doc_review(doc_id):
     return jsonify(revisions.review_document(selected['client_id'], user['id'], doc_id))
 
 
-@bp.get('/api/planner/docs/<int:doc_id>/review/estimate')
+@bp.get('/api/planner/docs/<doc_id>/review/estimate')
 def planner_doc_review_estimate(doc_id):
     from ..cadu_planner import revisions
     user, selected = context.identity(), context.resolve()
     return jsonify(estimated_tokens=revisions.document_estimate(selected['client_id'], user['id'], doc_id), passes=3)
 
 
-@bp.post('/api/planner/docs/<int:doc_id>/duplicate')
+@bp.post('/api/planner/docs/<doc_id>/duplicate')
 def planner_doc_duplicate(doc_id):
     from ..cadu_planner import docs
     selected = writable_context()
@@ -455,7 +455,7 @@ def planner_doc_duplicate(doc_id):
     return jsonify(document=docs.duplicate_document(selected['client_id'], user['id'], doc_id)), 201
 
 
-@bp.post('/api/planner/docs/<int:doc_id>/share')
+@bp.post('/api/planner/docs/<doc_id>/share')
 def planner_doc_share(doc_id):
     from ..cadu_planner import docs
     selected = writable_context()
@@ -545,7 +545,7 @@ def planner_catalog_detail_page(kind, item_id):
         legacy_url=None, login_url=login_url(), product_url=product_url, planner_url=planner_url)
 
 
-@bp.post('/api/planner/docs/<int:doc_id>/export')
+@bp.post('/api/planner/docs/<doc_id>/export')
 def planner_doc_export(doc_id):
     from io import BytesIO
     from flask import send_file

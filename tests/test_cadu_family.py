@@ -327,4 +327,4 @@ class FamilyTest(TestCase):
                                        headers={'X-CSRF-Token': 'token'})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json(), {'document': saved})
-        save.assert_called_once_with(12, 7, 4, {'title': 'Atualizado'})
+        save.assert_called_once_with(12, 7, '4', {'title': 'Atualizado'})

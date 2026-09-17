@@ -116,7 +116,7 @@ def templates(client_id):
 
 
 def get_document(client_id, actor_id, doc_id):
-    where, params = _doc_where(client_id, actor_id, int(doc_id))
+    where, params = _doc_where(client_id, actor_id, str(doc_id))
     records = repository.rows(f'''SELECT id, titulo AS title, tipo AS type, status, projeto_id AS project_id, conteudo_html AS html,
                                           template_id, branding_id, share_enabled, share_token, export_config,
                                           allow_download, created_at, updated_at, id_contato_cliente = %s AS is_owner
@@ -126,7 +126,7 @@ def get_document(client_id, actor_id, doc_id):
     document = records[0]
     try:
         from .revisions import history
-        document['review_history'] = history(client_id, actor_id, document_id=int(doc_id))
+        document['review_history'] = history(client_id, actor_id, document_id=str(doc_id))
     except Exception:
         document['review_history'] = []
     return document

@@ -17,7 +17,7 @@ def _app():
     return app
 
 
-DOCUMENT = {'id': 17, 'title': 'Plano de mídia', 'type': 'planejamento',
+DOCUMENT = {'id': 'doc_8013fefa59ce84c9_1786454296', 'title': 'Plano de mídia', 'type': 'planejamento',
             'status': 'draft', 'html': '<p>Contexto</p>', 'is_owner': True}
 
 
@@ -29,28 +29,41 @@ class WorkspaceDocumentsTest(TestCase):
 
     @mock.patch('aicentralv2.cadu_planner.docs.get_document', return_value=DOCUMENT)
     def test_document_opens_in_workspace_editor(self, get_document):
-        response = self.client.get('/docs/17')
+        response = self.client.get(f"/docs/{DOCUMENT['id']}")
         html = response.get_data(as_text=True)
         self.assertEqual(response.status_code, 200)
         self.assertIn('Editor Cadu', html)
         self.assertIn('data-editor-content contenteditable="true"', html)
-        get_document.assert_called_once_with(12, 7, 17)
+        get_document.assert_called_once_with(12, 7, DOCUMENT['id'])
 
     @mock.patch('aicentralv2.cadu_planner.docs.save_document')
     def test_document_save_uses_workspace_session_and_csrf(self, save_document):
-        response = self.client.post('/docs/17', data={
+        response = self.client.post(f"/docs/{DOCUMENT['id']}", data={
             '_csrf': 'known-token', 'title': 'Plano atualizado',
             'status': 'published', 'html': '<p>Conteúdo revisto</p>',
         })
         self.assertEqual(response.status_code, 303)
-        self.assertEqual(response.headers['Location'], '/docs/17?saved=1')
-        save_document.assert_called_once_with(12, 7, 17, {
+        self.assertEqual(response.headers['Location'], f"/docs/{DOCUMENT['id']}?saved=1")
+        save_document.assert_called_once_with(12, 7, DOCUMENT['id'], {
             'title': 'Plano atualizado', 'status': 'published',
             'html': '<p>Conteúdo revisto</p>',
         })
 
     @mock.patch('aicentralv2.cadu_planner.docs.save_document')
     def test_document_save_rejects_missing_csrf(self, save_document):
-        response = self.client.post('/docs/17', data={'title': 'Plano'})
+        response = self.client.post(f"/docs/{DOCUMENT['id']}", data={'title': 'Plano'})
         self.assertEqual(response.status_code, 403)
         save_document.assert_not_called()
+
+    @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
+    def test_documents_list_renders_string_document_ids(self, get_db):
+        cursor = get_db.return_value.cursor.return_value.__enter__.return_value
+        cursor.fetchall.return_value = [{
+            'id': DOCUMENT['id'], 'titulo': DOCUMENT['title'], 'tipo': DOCUMENT['type'],
+            'status': DOCUMENT['status'], 'updated_at': None,
+        }]
+
+        response = self.client.get('/docs')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(f'/docs/{DOCUMENT["id"]}', response.get_data(as_text=True))

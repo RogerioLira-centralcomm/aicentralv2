@@ -107,7 +107,7 @@ def briefing_estimate(client_id: int, actor_id: int, plan_id: str) -> int:
     return _estimate_tokens(len(source), BRIEFING_OUTPUT_TOKENS_PER_PASS)
 
 
-def document_estimate(client_id: int, actor_id: int, doc_id: int) -> int:
+def document_estimate(client_id: int, actor_id: int, doc_id: str) -> int:
     from . import docs
     document = docs.get_document(client_id, actor_id, doc_id)
     if not document.get("is_owner"):
@@ -120,7 +120,7 @@ def document_estimate(client_id: int, actor_id: int, doc_id: int) -> int:
     return _estimate_tokens(length, DOCUMENT_OUTPUT_TOKENS_PER_PASS)
 
 
-def history(client_id: int, actor_id: int, *, plan_id: str | None = None, document_id: int | None = None) -> list[dict]:
+def history(client_id: int, actor_id: int, *, plan_id: str | None = None, document_id: str | None = None) -> list[dict]:
     """Return compact, actor-scoped review history; old installs degrade safely."""
     if bool(plan_id) == bool(document_id):
         return []
@@ -128,7 +128,7 @@ def history(client_id: int, actor_id: int, *, plan_id: str | None = None, docume
     available = repository.rows("SELECT to_regclass('public.cadu_planner_review_runs') IS NOT NULL AS available")
     if not available or not available[0].get("available"):
         return []
-    target_column, target = ("plan_id", str(plan_id)) if plan_id else ("document_id", int(document_id))
+    target_column, target = ("plan_id", str(plan_id)) if plan_id else ("document_id", str(document_id))
     return repository.rows(
         f'''SELECT id, scope, passes, applied_pass, charged_tokens, review_note, created_at
               FROM cadu_planner_review_runs
@@ -226,7 +226,7 @@ def _document_pass_prompt(document: Mapping[str, object], previous_html: str, pa
     ) % (pass_number, title, instruction, document.get("title") or "Documento", document.get("type") or "documento", source_context or "Nenhuma fonte adicional selecionada.", previous_html)
 
 
-def review_document(client_id: int, actor_id: int, doc_id: int, *, source_context: str = "") -> dict:
+def review_document(client_id: int, actor_id: int, doc_id: str, *, source_context: str = "") -> dict:
     """Apply the same three passes to a user-owned Planner document."""
     from ..cadu_tool_billing import ToolTokenLedger, charge_from_provider
     from ..training_studio.providers import TextProvider
@@ -263,7 +263,7 @@ def review_document(client_id: int, actor_id: int, doc_id: int, *, source_contex
     }, expected_updated_at=document.get("updated_at"))
     charge = charge_from_provider(ledger=ledger, idempotency_key=f"planner-doc-review:{review_id}",
                                   client_id=client_id, user_id=actor_id, tool="planner", stage="document_review",
-                                  provider_result=combined, metadata={"document_id": int(doc_id), "review_id": review_id, "passes": 3})
+                                  provider_result=combined, metadata={"document_id": str(doc_id), "review_id": review_id, "passes": 3})
     charged_tokens = int((charge or {}).get("tokens_cobrados") or 0)
     _record_history(review_id=review_id, client_id=client_id, actor_id=actor_id, scope="document", document_id=doc_id,
                     charged_tokens=charged_tokens, note=None, source={"title": document.get("title"), "html": original, "sources": source_context[:12000]},

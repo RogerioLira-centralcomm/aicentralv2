@@ -1307,7 +1307,7 @@ def documents():
     return render_template('cadu_workspace/documents.html', documents=records)
 
 
-@bp.get('/docs/<int:document_id>')
+@bp.get('/docs/<document_id>')
 @login_required
 def document_editor(document_id):
     """Open a Smart Doc in the Workspace-owned editing surface."""
@@ -1320,7 +1320,7 @@ def document_editor(document_id):
     return render_template('cadu_workspace/document_editor.html', document=document, project=project)
 
 
-@bp.post('/docs/<int:document_id>')
+@bp.post('/docs/<document_id>')
 @login_required
 def save_workspace_document(document_id):
     if not _workspace_api_csrf():
@@ -1364,7 +1364,7 @@ def _workspace_document_sources(document, source_ids):
     return '\n\n'.join('Fonte: %s\n%s' % (row['nome_arquivo'], str(row.get('content') or '')[:6000]) for row in rows)[:24000]
 
 
-@bp.put('/docs/<int:document_id>/content')
+@bp.put('/docs/<document_id>/content')
 @login_required
 def save_workspace_document_content(document_id):
     if not _workspace_api_csrf():
@@ -1375,7 +1375,7 @@ def save_workspace_document_content(document_id):
     return jsonify(document=document)
 
 
-@bp.get('/docs/<int:document_id>/context')
+@bp.get('/docs/<document_id>/context')
 @login_required
 def workspace_document_context(document_id):
     _, document = _workspace_document(document_id)
@@ -1385,7 +1385,7 @@ def workspace_document_context(document_id):
                    files=(project or {}).get('files', []))
 
 
-@bp.post('/docs/<int:document_id>/duplicate')
+@bp.post('/docs/<document_id>/duplicate')
 @login_required
 def duplicate_workspace_document(document_id):
     if not _workspace_api_csrf():
@@ -1395,7 +1395,7 @@ def duplicate_workspace_document(document_id):
     return jsonify(document=document), 201
 
 
-@bp.post('/docs/<int:document_id>/share')
+@bp.post('/docs/<document_id>/share')
 @login_required
 def share_workspace_document(document_id):
     if not _workspace_api_csrf():
@@ -1406,7 +1406,7 @@ def share_workspace_document(document_id):
     return jsonify(document=document)
 
 
-@bp.get('/docs/<int:document_id>/export')
+@bp.get('/docs/<document_id>/export')
 @login_required
 def export_workspace_document(document_id):
     docs, document = _workspace_document(document_id)
@@ -1415,7 +1415,7 @@ def export_workspace_document(document_id):
                      download_name=f'{safe_name}.pdf')
 
 
-@bp.get('/docs/<int:document_id>/review/estimate')
+@bp.get('/docs/<document_id>/review/estimate')
 @login_required
 def workspace_document_review_estimate(document_id):
     from ..cadu_planner import revisions
@@ -1424,7 +1424,7 @@ def workspace_document_review_estimate(document_id):
     return jsonify(estimated_tokens=estimate, passes=3)
 
 
-@bp.post('/docs/<int:document_id>/review')
+@bp.post('/docs/<document_id>/review')
 @login_required
 def review_workspace_document(document_id):
     if not _workspace_api_csrf():

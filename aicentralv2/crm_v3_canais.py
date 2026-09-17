@@ -368,7 +368,7 @@ _LOCAL_LOGOS = {
     "g1-globo": f"{_VIEWERS_DIR}/g1.svg",
     "youtube": f"{_VIEWERS_DIR}/youtube.svg",
     "instagram": f"{_VIEWERS_DIR}/instagram.svg",
-    "tiktok": f"{_VIEWERS_DIR}/tiktok.svg",
+    "tiktok": f"{_CANAIS_DIR}/tiktok.png",
     "linkedin": f"{_VIEWERS_DIR}/linkedin.svg",
     "cnn-brasil": f"{_VIEWERS_DIR}/cnn-brasil.svg",
 }

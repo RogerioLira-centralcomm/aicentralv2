@@ -155,7 +155,7 @@ CHANNEL_LOGOS = {
     "gpt_ads": "",
     "youtube": "/static/images/creative-viewers/youtube.svg",
     "meta_ads": "/static/images/creative-viewers/facebook.svg",
-    "tiktok": "/static/images/creative-viewers/tiktok.svg",
+    "tiktok": "/static/images/canais/tiktok.png",
     "linkedin": "/static/images/creative-viewers/linkedin.svg",
     "dv360": "/static/images/canais/google-dv360.svg",
     "spotify": "/static/images/canais/spotify.svg",

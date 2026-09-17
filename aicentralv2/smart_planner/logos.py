@@ -43,7 +43,7 @@ PARTNER_LOGOS = {
     "prime_video": {"id": "prime_video", "label": "Prime Video", "logo_url": "/static/images/creative-viewers/prime-video.svg"},
     "meta": {"id": "meta", "label": "Meta", "logo_url": "/static/images/creative-viewers/facebook.svg"},
     "linkedin": {"id": "linkedin", "label": "LinkedIn", "logo_url": "/static/images/creative-viewers/linkedin.svg"},
-    "tiktok": {"id": "tiktok", "label": "TikTok", "logo_url": "/static/images/creative-viewers/tiktok.svg"},
+    "tiktok": {"id": "tiktok", "label": "TikTok", "logo_url": "/static/images/canais/tiktok.png"},
     "serasa": {"id": "serasa", "label": "Serasa", "logo_url": "/static/images/canais/experian-portal.png"},
     "logan": {"id": "logan", "label": "Logan", "logo_url": ""},
     "instagram": {"id": "instagram", "label": "Instagram", "logo_url": "/static/images/creative-viewers/instagram.svg"},

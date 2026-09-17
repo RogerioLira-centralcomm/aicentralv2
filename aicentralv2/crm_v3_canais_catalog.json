@@ -190,7 +190,7 @@
       "Flow - algoritmo de recomendação proprietário",
       "Forte presença em podcasts brasileiros"
     ],
-    "logo_path": "/assets_images/logos/deezer.svg",
+    "logo_path": "/static/images/canais/deezer.png",
     "descricao": "Plataforma de streaming musical com forte presença no Brasil e América Latina. Parceria exclusiva com operadoras de telecom.",
     "cor": "#A238FF",
     "formatos": [
@@ -2502,7 +2502,7 @@
       "Branded recipes com integração de produto",
       "Contexto perfeito para alimentos e bebidas"
     ],
-    "logo_path": "/assets_images/logos/tudogostoso.svg",
+    "logo_path": "/static/images/canais/tudogostoso.png",
     "descricao": "O maior site de receitas do Brasil, com audiência altamente engajada em culinária e gastronomia.",
     "cor": "#E94E1B",
     "formatos": [
@@ -2908,7 +2908,7 @@
       "Alto ticket médio de produtos",
       "Webinars com alta conversão"
     ],
-    "logo_path": "/assets_images/logos/infomoney.svg",
+    "logo_path": "/static/images/canais/infomoney.png",
     "descricao": "Principal portal de finanças e investimentos do Brasil. Conteúdo para investidores e profissionais.",
     "cor": "#00875A",
     "formatos": [
@@ -3396,7 +3396,7 @@
       "Spark Ads - impulsionar conteúdo orgânico",
       "Público Gen Z altamente engajado"
     ],
-    "logo_path": "/assets_images/logos/tiktok.svg",
+    "logo_path": "/static/images/canais/tiktok.png",
     "descricao": "Plataforma de vídeos curtos com maior crescimento. Ideal para alcançar público jovem com conteúdo autêntico.",
     "cor": "#000000",
     "formatos": [

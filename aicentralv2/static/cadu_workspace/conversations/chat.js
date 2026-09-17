@@ -46,18 +46,30 @@
   if (status) new MutationObserver(updateStatusTone).observe(status, {childList:true, characterData:true, subtree:true});
   const historyToggle = document.getElementById('conversation-history-toggle');
   const conversationShell = document.querySelector('.workspace-conversations');
+  const desktopHistory = () => window.matchMedia('(min-width:821px)').matches;
   const closeHistory = () => {
     conversationShell?.classList.remove('history-open');
+    if (desktopHistory()) conversationShell?.classList.add('history-collapsed');
     historyToggle?.setAttribute('aria-expanded', 'false');
+    if (historyToggle) historyToggle.textContent = 'Conversas';
   };
   historyToggle?.addEventListener('click', () => {
-    const open = !conversationShell?.classList.contains('history-open');
-    conversationShell?.classList.toggle('history-open', open);
+    const collapsed = desktopHistory() && conversationShell?.classList.contains('history-collapsed');
+    const open = desktopHistory() ? collapsed : !conversationShell?.classList.contains('history-open');
+    if (desktopHistory()) conversationShell?.classList.toggle('history-collapsed', !open);
+    else conversationShell?.classList.toggle('history-open', open);
     historyToggle.setAttribute('aria-expanded', String(open));
+    historyToggle.textContent = open ? 'Ocultar conversas' : 'Conversas';
   });
+  if (desktopHistory() && historyToggle) {
+    historyToggle.setAttribute('aria-expanded', 'true');
+    historyToggle.textContent = 'Ocultar conversas';
+  }
   let conversationId = null, runId = null, sending = false, controller = null;
   let renderFrame = null, renderTarget = null, renderContent = '';
+  let followStreaming = true;
   const isNearHistoryEnd = () => history && (history.scrollHeight - history.scrollTop - history.clientHeight) < 96;
+  history?.addEventListener('scroll', () => { followStreaming = isNearHistoryEnd(); }, {passive:true});
   const scrollHistoryToEnd = (force = false) => {
     if (!history || (!force && !isNearHistoryEnd())) return;
     history.scrollTop = history.scrollHeight;
@@ -65,7 +77,7 @@
   const renderStreaming = (target, content) => {
     renderTarget = target; renderContent = content;
     if (renderFrame !== null) return;
-    const shouldFollow = isNearHistoryEnd();
+    const shouldFollow = followStreaming && isNearHistoryEnd();
     renderFrame = requestAnimationFrame(() => {
       renderFrame = null;
       if (renderTarget) {
@@ -744,7 +756,7 @@
     sending = true; button.disabled = true; mode.disabled = true; runId = null;
     input.contentEditable = 'false'; input.setAttribute('aria-disabled', 'true'); attachments.lock(true);
     stop.hidden = false;
-    controller = new AbortController(); status.textContent = 'Preparando sua conversa…';
+    controller = new AbortController(); status.textContent = 'Preparando sua conversa…'; followStreaming = true;
     const runProjectRef = activeContext?.project_ref || projectSelect?.value || '';
     let terminalStatus = null, output = null, answer = '', recovered = null, optimisticUser = null, serverStarted = false;
     const generationStartedAt = performance.now();

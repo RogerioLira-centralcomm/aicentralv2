@@ -24,6 +24,30 @@
     return output + escape(value.slice(position));
   }
   const cells = line => line.trim().replace(/^\||\|$/g, '').split('|').map(cell => cell.trim());
+  const tableStartsAt = (lines, index) => Boolean(lines[index]?.includes('|') && lines[index + 1]?.includes('|') &&
+    cells(lines[index + 1]).every(cell => /^:?-{3,}:?$/.test(cell)));
+  function tableHtml(headers, rows, building = false) {
+    const progress = building ? '<div class="conversation-table-progress"><span></span>Montando tabela</div>' : '';
+    // Seven narrow columns make people pan across a spreadsheet in the middle
+    // of a conversation. Preserve every value, but change the presentation to
+    // labelled records once a table crosses the reading-width limit.
+    if (headers.length > 6) {
+      const records = rows.map(row => {
+        const title = inline(row[0] || 'Item');
+        const details = headers.slice(1).map((header, index) => {
+          const value = row[index + 1] || '';
+          return value ? '<div><dt>' + inline(header) + '</dt><dd>' + inline(value) + '</dd></div>' : '';
+        }).join('');
+        return '<article><h5>' + title + '</h5><dl>' + details + '</dl></article>';
+      }).join('');
+      return '<section class="conversation-table conversation-table--stacked" tabindex="0" role="region" aria-label="Resumo estruturado da tabela">'
+        + progress + records + '</section>';
+    }
+    const body = rows.map(row => '<tr>' + headers.map((_, index) => '<td>' + inline(row[index] || '') + '</td>').join('') + '</tr>').join('');
+    return '<div class="conversation-table' + (building ? ' conversation-table--building' : '') + '" tabindex="0" role="region" aria-label="Tabela da resposta">'
+      + progress + '<table><thead><tr>' + headers.map(cell => '<th scope="col">' + inline(cell) + '</th>').join('')
+      + '</tr></thead><tbody>' + body + '</tbody></table></div>';
+  }
   function html(value) {
     const lines = visible(value).replace(/\r\n?/g, '\n').split('\n');
     const result = [];
@@ -35,14 +59,16 @@
         const code = [];
         while (++i < lines.length && !/^\s*```\s*$/.test(lines[i])) code.push(lines[i]);
         result.push('<figure class="conversation-code"><figcaption>' + escape(fence[1].trim() || 'Código') + '</figcaption><pre><code>' + escape(code.join('\n')) + '</code></pre></figure>');
-      } else if (line.includes('|') && lines[i + 1]?.includes('|') && cells(lines[i + 1]).every(cell => /^:?-{3,}:?$/.test(cell))) {
+      } else if (tableStartsAt(lines, i)) {
         const headers = cells(line); i++;
-        let rows = '';
+        const rows = [];
         while (i + 1 < lines.length && lines[i + 1].includes('|') && lines[i + 1].trim()) {
-          const row = cells(lines[++i]);
-          rows += '<tr>' + headers.map((_, index) => '<td>' + inline(row[index] || '') + '</td>').join('') + '</tr>';
+          // A new header immediately followed by its delimiter begins another
+          // table even when the model forgot an empty Markdown line.
+          if (tableStartsAt(lines, i + 1)) break;
+          rows.push(cells(lines[++i]));
         }
-        result.push('<div class="conversation-table" tabindex="0" role="region" aria-label="Tabela da resposta"><table><thead><tr>' + headers.map(cell => '<th scope="col">' + inline(cell) + '</th>').join('') + '</tr></thead><tbody>' + rows + '</tbody></table></div>');
+        result.push(tableHtml(headers, rows));
       } else if (/^#{1,6}\s/.test(line)) {
         result.push('<h4>' + inline(line.replace(/^#{1,6}\s+/, '')) + '</h4>');
       } else if (/^\s*(?:[-*+] |\d+\. )/.test(line)) {
@@ -62,18 +88,15 @@
     // exposing its Markdown pipes to the reader.
     const source = visible(value).replace(/\r\n?/g, '\n');
     const lines = source.split('\n');
-    const tableStart = lines.findIndex((line, index) => line.includes('|') &&
-      lines[index + 1]?.includes('|') && cells(lines[index + 1]).every(cell => /^:?-{3,}:?$/.test(cell)));
+    const tableStart = lines.findIndex((_, index) => tableStartsAt(lines, index));
     if (tableStart < 0) return html(source);
     const before = lines.slice(0, tableStart).join('\n');
     const headers = cells(lines[tableStart]);
-    const body = lines.slice(tableStart + 2).filter(line => line.includes('|') && line.trim()).map(cells);
-    const table = '<div class="conversation-table conversation-table--building" tabindex="0" role="region" aria-label="Tabela sendo montada">'
-      + '<div class="conversation-table-progress"><span></span>Montando tabela</div>'
-      + '<table><thead><tr>' + headers.map(cell => '<th scope="col">' + inline(cell) + '</th>').join('')
-      + '</tr></thead><tbody>' + body.map(row => '<tr>' + headers.map((_, index) => '<td>' + inline(row[index] || '') + '</td>').join('') + '</tr>').join('')
-      + '</tbody></table></div>';
-    return html(before) + table;
+    const nextTable = lines.findIndex((_, index) => index > tableStart && tableStartsAt(lines, index));
+    const currentTableEnd = nextTable < 0 ? lines.length : nextTable;
+    const body = lines.slice(tableStart + 2, currentTableEnd).filter(line => line.includes('|') && line.trim()).map(cells);
+    const table = tableHtml(headers, body, true);
+    return html(before) + table + (nextTable < 0 ? '' : html(lines.slice(nextTable).join('\n')));
   }
   function render(node, value, streaming = false) {
     node.classList.add('conversation-rich');

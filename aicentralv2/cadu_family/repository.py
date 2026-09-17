@@ -174,6 +174,28 @@ def conversation_history(user, client_id, limit=20, offset=0, query='', archived
                 (user['id'], client_id, '%' + query + '%', statuses, user['id'], user['organization_id'], client_id, limit, offset))
 
 
+def conversation_history_all(user, client_id, query='', limit=500):
+    statuses = ['ativa', 'active', 'arquivada', 'archived']
+    active_statuses = ['ativa', 'active']
+    if not family_table_available('cadu_family_conversation_context'):
+        return rows('''SELECT id, titulo AS title, updated_at, status, NULL AS profile,
+                              NULL AS project_ref, NULL AS brand_ref
+                         FROM cadu_conversations
+                        WHERE id_contato_cliente = %s AND id_cliente = %s AND titulo ILIKE %s AND status = ANY(%s)
+                     ORDER BY CASE WHEN status = ANY(%s) THEN 0 ELSE 1 END, updated_at DESC, id DESC LIMIT %s''',
+                    (user['id'], client_id, '%' + query + '%', statuses, active_statuses, limit))
+    return rows('''SELECT c.id, c.titulo AS title, c.updated_at, c.status, x.profile,
+                         x.project_ref, x.brand_ref
+                    FROM cadu_conversations c
+               LEFT JOIN cadu_family_conversation_context x ON x.conversation_id = c.id
+                   WHERE c.id_contato_cliente = %s AND c.id_cliente = %s AND c.titulo ILIKE %s AND c.status = ANY(%s)
+                     AND (x.conversation_id IS NULL OR
+                          (x.user_id = %s AND x.organization_id = %s AND x.client_id = %s))
+                ORDER BY CASE WHEN c.status = ANY(%s) THEN 0 ELSE 1 END, c.updated_at DESC, c.id DESC LIMIT %s''',
+                (user['id'], client_id, '%' + query + '%', statuses, user['id'], user['organization_id'], client_id,
+                 active_statuses, limit))
+
+
 def update_conversation(user_id, client_id, conversation_id, title=None, archived=None):
     conn = get_db()
     try:

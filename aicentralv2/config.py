@@ -99,7 +99,10 @@ class Config:
 	# das migrações e verificações de produção.
 	CADU_FAMILY_ENABLED = os.getenv('CADU_FAMILY_ENABLED', '0').lower() in ('true', '1', 'yes', 'on')
 	CADU_FAMILY_WRITES_ENABLED = os.getenv('CADU_FAMILY_WRITES_ENABLED', '0').lower() in ('true', '1', 'yes', 'on')
-	CADU_FAMILY_CHAT_ENABLED = os.getenv('CADU_FAMILY_CHAT_ENABLED', '0').lower() in ('true', '1', 'yes', 'on')
+	# The provider/settings check remains the final gate. Chat is a released
+	# Cadu surface and must not stay disabled merely because an environment
+	# omitted this legacy rollout flag.
+	CADU_FAMILY_CHAT_ENABLED = os.getenv('CADU_FAMILY_CHAT_ENABLED', '1').lower() in ('true', '1', 'yes', 'on')
 	CADU_CHAT_WORKER_ENABLED = os.getenv('CADU_CHAT_WORKER_ENABLED', '0').lower() in ('true', '1', 'yes', 'on')
 	CADU_DIFY_API_KEY = os.getenv('CADU_DIFY_API_KEY', '')
 	CADU_DIFY_BASE_URL = os.getenv('CADU_DIFY_BASE_URL', 'https://api.dify.ai/v1').rstrip('/')

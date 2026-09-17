@@ -93,14 +93,15 @@ class AttachmentRouteTest(FamilyTest):
     def test_guest_cannot_upload_but_chat_does_not_depend_on_workspace_writes(self):
         with mock.patch.object(attachments, 'upload', return_value={'id': 'file-id'}) as upload:
             self.assertEqual(self.upload().status_code, 401)
-            self.login(); self.app.config['CADU_FAMILY_CHAT_ENABLED'] = True
+            self.login()
             self.assertEqual(self.upload().status_code, 201)
             upload.assert_called_once()
 
-    def test_csrf_and_chat_flag_are_required(self):
+    def test_csrf_is_required_but_upload_does_not_depend_on_a_feature_flag(self):
         self.login(); self.app.config['CADU_FAMILY_WRITES_ENABLED'] = True
         self.assertEqual(self.client.post('/familia/api/conversations/uploads').status_code, 403)
-        self.assertEqual(self.upload().status_code, 503)
+        with mock.patch.object(attachments, 'upload', return_value={'id': 'file-id'}):
+            self.assertEqual(self.upload().status_code, 201)
 
     def test_upload_uses_server_identity_and_selected_client(self):
         self.login(); self.app.config.update(CADU_FAMILY_WRITES_ENABLED=True, CADU_FAMILY_CHAT_ENABLED=True)
@@ -110,13 +111,13 @@ class AttachmentRouteTest(FamilyTest):
             self.assertEqual(upload.call_args.args[1]['id'], 7)
             self.assertEqual(upload.call_args.args[2]['client_id'], 12)
 
-    def test_capabilities_require_chat_enablement_and_guest_has_no_access(self):
+    def test_capabilities_require_a_configured_provider_and_guest_has_no_access(self):
         self.assertEqual(self.client.get('/familia/api/conversations/capabilities').status_code, 401)
         self.login()
         data = self.client.get('/familia/api/conversations/capabilities').get_json()
         self.assertFalse(data['attachments']); self.assertFalse(data['send'])
         self.assertEqual(data['max_files'], 3)
-        self.assertIn('ainda não foram habilitadas', data['reason'])
+        self.assertIn('conexão do Cadu', data['reason'])
 
     def test_capabilities_explain_when_dify_is_not_ready(self):
         self.login()

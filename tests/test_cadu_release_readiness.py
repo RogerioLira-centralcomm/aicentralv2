@@ -7,9 +7,9 @@ from aicentralv2.cadu_family.catalog import PROFILES
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_mutating_cadu_features_are_closed_by_default():
+def test_workspace_writes_are_closed_but_chat_is_available_by_default():
     assert Config.CADU_FAMILY_WRITES_ENABLED is False
-    assert Config.CADU_FAMILY_CHAT_ENABLED is False
+    assert Config.CADU_FAMILY_CHAT_ENABLED is True
     assert Config.CADU_CHAT_WORKER_ENABLED is False
 
 

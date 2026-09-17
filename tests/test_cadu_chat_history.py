@@ -16,29 +16,29 @@ class HistoryTest(TestCase):
             patch.start()
             self.addCleanup(patch.stop)
 
-    def test_page_fetches_one_extra_row_and_returns_twelve(self):
-        with mock.patch.object(repository, 'conversation_history', return_value=[{'id': str(i)} for i in range(13)]) as history:
-            response = self.client.get('/familia/api/conversations?offset=20&q=campanha')
+    def test_history_returns_all_matching_conversations(self):
+        records = [{'id': str(i), 'status': 'active'} for i in range(13)]
+        with mock.patch.object(repository, 'conversation_history_all', return_value=records) as history:
+            response = self.client.get('/familia/api/conversations?q=campanha')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json['conversations']), 12)
-        self.assertEqual(response.json['next_offset'], 32)
-        history.assert_called_once_with(self.user, 12, limit=13, offset=20, query='campanha', archived=False)
+        self.assertEqual(response.json['conversations'], records)
+        self.assertNotIn('next_offset', response.json)
+        history.assert_called_once_with(self.user, 12, query='campanha')
 
     def test_workspace_host_keeps_history_available_without_family_pages(self):
         self.client.application.config.update(
             CADU_FAMILY_ENABLED=False,
             WORKSPACE_URL='https://workspace.centralcomm.media',
         )
-        with mock.patch.object(repository, 'conversation_history', return_value=[]) as history:
+        with mock.patch.object(repository, 'conversation_history_all', return_value=[]) as history:
             response = self.client.get('/familia/api/conversations', headers={'Host': 'workspace.centralcomm.media'})
         self.assertEqual(response.status_code, 200)
         history.assert_called_once()
 
-    def test_invalid_page_is_rejected_before_query(self):
-        with mock.patch.object(repository, 'conversation_history') as history:
-            for offset in ('-1', 'abc', '100001'):
-                self.assertEqual(self.client.get('/familia/api/conversations?offset=' + offset).status_code, 400)
-            history.assert_not_called()
+    def test_legacy_page_parameter_is_ignored(self):
+        with mock.patch.object(repository, 'conversation_history_all', return_value=[]) as history:
+            self.assertEqual(self.client.get('/familia/api/conversations?offset=20').status_code, 200)
+            history.assert_called_once_with(self.user, 12, query='')
 
     def test_missing_conversation_does_not_reveal_context(self):
         with mock.patch.object(repository, 'conversation_messages', return_value=None), mock.patch.object(repository, 'conversation_context') as bound:
@@ -47,18 +47,20 @@ class HistoryTest(TestCase):
 
     def test_history_and_context_queries_bind_user_and_tenant(self):
         with mock.patch.object(repository, 'family_table_available', return_value=True), mock.patch.object(repository, 'rows', return_value=[]) as rows:
-            repository.conversation_history(self.user, 12, limit=21, offset=20, query="' OR 1=1")
+            repository.conversation_history_all(self.user, 12, query="' OR 1=1")
             sql, params = rows.call_args.args
             self.assertNotIn("' OR 1=1", sql)
-            self.assertEqual(params, (7, 12, "%\' OR 1=1%", ['ativa', 'active'], 7, 12, 12, 21, 20))
+            self.assertEqual(params, (7, 12, "%\' OR 1=1%", ['ativa', 'active', 'arquivada', 'archived'], 7, 12, 12,
+                                      ['ativa', 'active'], 500))
             repository.conversation_context(self.user, 12, 'thread')
             self.assertEqual(rows.call_args.args[1], ('thread', 7, 12, 12))
 
-    def test_archived_filter(self):
-        with mock.patch.object(repository, 'conversation_history', return_value=[]) as history:
-            response = self.client.get('/familia/api/conversations?archived=1')
-            self.assertEqual(response.status_code, 200)
-            self.assertTrue(history.call_args.kwargs['archived'])
+    def test_archived_conversations_are_returned_with_the_history(self):
+        rows = [{'id': 'active', 'status': 'active'}, {'id': 'archived', 'status': 'archived'}]
+        with mock.patch.object(repository, 'conversation_history_all', return_value=rows):
+            response = self.client.get('/familia/api/conversations')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json['conversations'], rows)
 
     def test_mutation_requires_csrf_and_write_flag(self):
         with self.client.session_transaction() as session:

@@ -2,7 +2,7 @@
 {% block title %}Conversas — Cadu Workspace{% endblock %}
 {% block product_id %}workspace{% endblock %}
 {% block meta %}<script>try{if(matchMedia('(min-width:821px)').matches)document.documentElement.dataset.caduSidebar='collapsed'}catch(_){}</script>{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=8"><link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/chat.css') }}?v=6">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=8"><link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/chat.css') }}?v=10">{% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
 {% set workspace_active = 'conversas' %}
@@ -10,14 +10,13 @@
   <section class="workspace-conversations" aria-label="Conversas com o Cadu">
     <button type="button" id="conversation-history-toggle" class="conversation-history-toggle" aria-controls="conversation-sidebar" aria-expanded="false">Conversas</button>
     <aside id="conversation-sidebar" class="workspace-conversation-sidebar" aria-label="Histórico de conversas">
-      <div class="workspace-conversation-history-head"><p>Conversas</p><div class="conversation-history-actions"><button type="button" id="conversation-new" aria-label="Nova conversa">Nova conversa</button><details class="conversation-history-menu"><summary aria-label="Mais opções de conversas">•••</summary><div><button type="button" id="conversation-archived-toggle" aria-pressed="false">Arquivadas</button></div></details></div></div>
+      <div class="workspace-conversation-history-head"><p>Conversas</p><div class="conversation-history-actions"><button type="button" id="conversation-new" aria-label="Nova conversa">Nova conversa</button></div></div>
       <form id="conversation-search" role="search"><input name="q" type="search" maxlength="150" aria-label="Buscar conversas pelo título" placeholder="Buscar conversas"><button type="submit">Buscar</button></form>
       <nav id="conversation-recent" aria-label="Conversas recentes">Carregando conversas…</nav>
-      <button type="button" id="conversation-more" hidden>Carregar mais</button>
     </aside>
     {% set conversation_page = true %}
     {% include 'cadu_workspace/conversations/panel.html' %}
   </section>
 </div></div>
 {% endblock %}
-{% block portal_scripts %}<script defer src="{{ url_for('static', filename='cadu_workspace/conversations/stream.js') }}"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/attachments.js') }}"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/render.js') }}"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/chat.js') }}"></script>{% endblock %}
+{% block portal_scripts %}<script defer src="{{ url_for('static', filename='cadu_workspace/conversations/stream.js') }}"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/attachments.js') }}"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/render.js') }}"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/chat.js') }}?v=10"></script>{% endblock %}

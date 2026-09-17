@@ -57,12 +57,21 @@
   });
   let conversationId = null, runId = null, sending = false, controller = null;
   let renderFrame = null, renderTarget = null, renderContent = '';
+  const isNearHistoryEnd = () => history && (history.scrollHeight - history.scrollTop - history.clientHeight) < 96;
+  const scrollHistoryToEnd = (force = false) => {
+    if (!history || (!force && !isNearHistoryEnd())) return;
+    history.scrollTop = history.scrollHeight;
+  };
   const renderStreaming = (target, content) => {
     renderTarget = target; renderContent = content;
     if (renderFrame !== null) return;
+    const shouldFollow = isNearHistoryEnd();
     renderFrame = requestAnimationFrame(() => {
       renderFrame = null;
-      if (renderTarget) CaduConversationRenderer.render(renderTarget, renderContent, true);
+      if (renderTarget) {
+        CaduConversationRenderer.render(renderTarget, renderContent, true);
+        if (shouldFollow) scrollHistoryToEnd(true);
+      }
     });
   };
   const flushStreaming = (target, content) => {
@@ -71,7 +80,7 @@
     if (target) CaduConversationRenderer.render(target, content);
   };
   let initialized = false, initializing = null, canSend = false, canReplay = false;
-  let loadingThread = false, threadRequest = 0, historyRequest = 0, nextOffset = null, historyLastGroup = '';
+  let loadingThread = false, threadRequest = 0, historyRequest = 0;
   let historyQuery = '';
   const drafts = new Map();
   const pendingKey = 'cadu-pending:' + panel.dataset.draftScope + ':' + document.body.dataset.product;
@@ -109,8 +118,6 @@
     catch (_) { return ''; }
   };
   const saveDraft = () => writeDraft(conversationId, composer.value);
-  const more = document.getElementById('conversation-more');
-  const archivedToggle = document.getElementById('conversation-archived-toggle');
   const searchForm = document.getElementById('conversation-search');
   const mode = document.getElementById('conversation-mode');
   const projectSelect = document.getElementById('conversation-project');
@@ -179,9 +186,24 @@
   };
   const resizeComposer = () => {
     if (!composer || !pageMode) return;
+    const viewportHeight = window.visualViewport?.height || window.innerHeight;
     composer.style.height = '0px';
-    composer.style.height = Math.min(Math.max(composer.scrollHeight, 92), Math.round(window.innerHeight * 0.28)) + 'px';
+    composer.style.height = Math.min(Math.max(composer.scrollHeight, 104), Math.round(viewportHeight * 0.36)) + 'px';
   };
+  let viewportFrame = null;
+  const syncConversationViewport = () => {
+    if (!pageMode) return;
+    if (viewportFrame !== null) cancelAnimationFrame(viewportFrame);
+    viewportFrame = requestAnimationFrame(() => {
+      viewportFrame = null;
+      const height = Math.round(window.visualViewport?.height || window.innerHeight);
+      document.documentElement.style.setProperty('--conversation-viewport-height', height + 'px');
+      resizeComposer();
+    });
+  };
+  window.addEventListener('resize', syncConversationViewport);
+  window.visualViewport?.addEventListener('resize', syncConversationViewport);
+  window.visualViewport?.addEventListener('scroll', syncConversationViewport);
   panel.addEventListener('attachmentschange', updateSend);
   mode?.addEventListener('change', async () => {
     const selected = mode.value;
@@ -209,6 +231,12 @@
     saveDraft();
     resizeComposer();
     updateSend();
+  });
+  composer.addEventListener('focus', () => {
+    // Mobile Safari can report the reduced viewport a beat after focus.
+    // Re-measuring keeps the composer above the software keyboard without
+    // scrolling the full document or disturbing the reading position.
+    window.setTimeout(syncConversationViewport, 120);
   });
   const background = [...document.querySelectorAll('.family-nav, .family-layout, .cadu-skills-top-nav, .cadu-app-shell, .portal > #content, .portal > footer')];
   let previousOverflow = '';
@@ -245,35 +273,18 @@
     } catch (error) { if (request === threadRequest) status.textContent = error.message; }
     finally { if (request === threadRequest) { loadingThread = false; updateSend(); } }
   }
-  async function loadHistory(append = false) {
+  async function loadHistory() {
     if (sending) return;
     const request = ++historyRequest;
     const target = recent || history;
-    if (more) more.disabled = true;
     try {
-      const archived = archivedToggle?.getAttribute('aria-pressed') === 'true';
-      const params = new URLSearchParams({q: historyQuery, offset: String(append ? nextOffset || 0 : 0), archived: archived ? '1' : '0'});
+      const params = new URLSearchParams({q: historyQuery});
       const data = await api('conversations?' + params);
       if (request !== historyRequest) return;
-      if (!recent && !append) { saveDraft(); conversationId = null; composer.value = readDraft(null); resizeComposer(); }
-      if (!append) { target.replaceChildren(); historyLastGroup = ''; }
-      nextOffset = data.next_offset;
-      if (more) more.hidden = nextOffset == null;
-      const historyGroup = value => {
-        const date = new Date(value || '');
-        if (Number.isNaN(date.getTime())) return '';
-        const now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const elapsed = today - new Date(date.getFullYear(), date.getMonth(), date.getDate());
-        if (elapsed === 0) return 'Hoje';
-        if (elapsed < 7 * 24 * 60 * 60 * 1000) return 'Esta semana';
-        return 'Anteriores';
-      };
-      for (const thread of data.conversations) {
-        const group = historyGroup(thread.updated_at || thread.created_at);
-        if (group && group !== historyLastGroup) {
-          const heading = document.createElement('p'); heading.className = 'conversation-history-group'; heading.textContent = group;
-          target.append(heading); historyLastGroup = group;
-        }
+      if (!recent) { saveDraft(); conversationId = null; composer.value = readDraft(null); resizeComposer(); }
+      target.replaceChildren();
+      const isArchived = thread => ['arquivada', 'archived'].includes(String(thread.status || '').toLowerCase());
+      const renderConversation = thread => {
         const row = document.createElement('article');
         const button = document.createElement('button'); button.type = 'button'; button.textContent = thread.title || 'Conversa sem título';
         button.dataset.conversationId = String(thread.id);
@@ -288,36 +299,34 @@
           const title = document.createElement('input'); title.value = thread.title || ''; title.maxLength = 150; title.required = true;
           title.setAttribute('aria-label', 'Título da conversa');
           const save = document.createElement('button'); save.type = 'submit'; save.textContent = 'Salvar título';
-          const archive = document.createElement('button'); archive.type = 'button'; archive.textContent = archived ? 'Restaurar' : 'Arquivar';
-          const nextArchived = !archived;
+          const archivedConversation = isArchived(thread);
+          const archive = document.createElement('button'); archive.type = 'button'; archive.textContent = archivedConversation ? 'Restaurar' : 'Arquivar';
           const update = async data => {
             if (sending || loadingThread) return;
             save.disabled = archive.disabled = true;
             try {
               await api('conversations/' + encodeURIComponent(thread.id), 'PATCH', data);
               await loadHistory();
-              status.textContent = 'title' in data ? 'Título salvo.' : data.archived ? 'Conversa arquivada. Você pode restaurá-la em Arquivadas.' : 'Conversa restaurada.';
+              status.textContent = 'title' in data ? 'Título salvo.' : data.archived ? 'Conversa arquivada.' : 'Conversa restaurada.';
             } catch (error) { status.textContent = error.message; }
             finally { save.disabled = archive.disabled = false; }
           };
           form.addEventListener('submit', event => { event.preventDefault(); update({title: title.value.trim()}); });
-          archive.addEventListener('click', () => update({archived: nextArchived}));
+          archive.addEventListener('click', () => update({archived: !archivedConversation}));
           form.append(title, save); actions.append(summary, form, archive); row.append(actions);
         }
-      }
-      if (!append && !data.conversations.length) target.textContent = 'Nenhuma conversa encontrada.';
+      };
+      const appendGroup = (title, rows) => {
+        if (!rows.length) return;
+        const heading = document.createElement('p'); heading.className = 'conversation-history-group'; heading.textContent = title;
+        target.append(heading); rows.forEach(renderConversation);
+      };
+      appendGroup('Recentes', data.conversations.filter(thread => !isArchived(thread)));
+      appendGroup('Arquivadas', data.conversations.filter(isArchived));
+      if (!data.conversations.length) target.textContent = 'Nenhuma conversa encontrada.';
     } catch (error) { if (request === historyRequest) status.textContent = unavailableMessage('Não foi possível carregar seu histórico', error); }
-    finally { if (more && request === historyRequest) more.disabled = false; }
   }
   searchForm?.addEventListener('submit', event => { event.preventDefault(); historyQuery = new FormData(searchForm).get('q').trim(); loadHistory(); });
-  more?.addEventListener('click', () => loadHistory(true));
-  archivedToggle?.addEventListener('click', () => {
-    const archived = archivedToggle.getAttribute('aria-pressed') !== 'true';
-    archivedToggle.setAttribute('aria-pressed', String(archived));
-    archivedToggle.textContent = archived ? 'Ver ativas' : 'Arquivadas';
-    archivedToggle.closest('details')?.removeAttribute('open');
-    loadHistory();
-  });
   function addSources(sources) {
     if (!Array.isArray(sources) || !sources.length) return;
     const card = document.createElement('section'); card.className = 'conversation-sources';
@@ -437,7 +446,8 @@
       detail.textContent = record.description || record.category || record.dimensions || '';
       item.append(name); if (detail.textContent) item.append(detail); list.append(item);
     });
-    card.append(list); history.append(card); card.scrollIntoView({block:'nearest'});
+    const shouldFollow = isNearHistoryEnd();
+    card.append(list); history.append(card); if (shouldFollow) scrollHistoryToEnd(true);
   }
   function addDocumentCard(data) {
     if (!data.document || typeof data.preview !== 'string') return;
@@ -447,7 +457,8 @@
     const meta = document.createElement('span'); meta.textContent = [data.document.type, data.document.status].filter(Boolean).join(' · ');
     const preview = document.createElement('p'); preview.textContent = data.preview;
     card.append(heading, title); if (meta.textContent) card.append(meta); card.append(preview);
-    history.append(card); card.scrollIntoView({block:'nearest'});
+    const shouldFollow = isNearHistoryEnd();
+    history.append(card); if (shouldFollow) scrollHistoryToEnd(true);
   }
   function addResultCard(data) {
     const result = data?.result;
@@ -503,7 +514,8 @@
       });
       if (footer.childElementCount) card.append(footer);
     }
-    history.append(card); card.scrollIntoView({block:'nearest'});
+    const shouldFollow = isNearHistoryEnd();
+    history.append(card); if (shouldFollow) scrollHistoryToEnd(true);
   }
   async function resumePending(requested) {
     if (!canReplay || !pending || sending || loadingThread) return;
@@ -569,16 +581,21 @@
     initializing = (async () => {
       mode.disabled = true; canSend = false; updateSend();
       try {
-        const [capabilities, data] = await Promise.all([api('conversations/capabilities'), api('conversations/modes')]);
-        if (!Array.isArray(data.modes)) throw new Error('Modos indisponíveis');
-        applyModes(data.modes);
+        const capabilities = await api('conversations/capabilities');
+        // Mode selection is invisible and optional. A temporary failure to
+        // load it must never lock the conversation composer.
+        try {
+          const data = await api('conversations/modes');
+          if (Array.isArray(data.modes) && data.modes.length) applyModes(data.modes);
+          else mode.disabled = false;
+        } catch (_) { mode.disabled = false; }
         canSend = capabilities.send === true;
         canReplay = capabilities.replay === true;
         attachments.configure({...capabilities, attachments: canSend && capabilities.attachments === true});
         initialized = true;
         status.textContent = !canSend
           ? (capabilities.reason || 'Envio indisponível. Você pode consultar seu histórico.')
-          : mode.disabled ? 'Nenhum modo disponível. Consulte o histórico.' : '';
+          : '';
       } catch (error) {
         canSend = false; mode.disabled = true; attachments.configure({attachments:false});
         status.textContent = unavailableMessage('Não foi possível iniciar as conversas', error);
@@ -687,6 +704,7 @@
             if (newThread) history.replaceChildren();
             addMessage('user', message, attachments.items.map(item => ({name:item.file.name})));
             output = addMessage('assistant', ''); input.value = ''; resizeComposer(); attachments.clear();
+            scrollHistoryToEnd(true);
             writeDraft(draftKey === 'new' ? null : draftKey, '');
             status.textContent = 'Cadu está respondendo…';
           } else if ((data.event === 'message' || data.event === 'replace') && output) {

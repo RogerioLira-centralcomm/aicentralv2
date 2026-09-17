@@ -189,20 +189,11 @@ def edit_profile():
 def conversation_history():
     user = context.identity()
     selected = context.resolve()
-    try:
-        offset = int(request.args.get('offset', '0'))
-    except ValueError:
-        abort(400, description='Página inválida.')
-    if offset < 0 or offset > 100000:
-        abort(400, description='Página inválida.')
     query = request.args.get('q', '').strip()
     if len(query) > 150:
         abort(400, description='Use até 150 caracteres na busca.')
-    archived = request.args.get('archived', '0')
-    if archived not in ('0', '1'):
-        abort(400, description='Filtro inválido.')
-    records = repository.conversation_history(user, selected['client_id'], limit=13, offset=offset, query=query, archived=archived == '1')
-    return jsonify(conversations=records[:12], next_offset=offset + 12 if len(records) > 12 else None,
+    records = repository.conversation_history_all(user, selected['client_id'], query=query)
+    return jsonify(conversations=records,
                    can_manage=bool(current_app.config.get('CADU_FAMILY_WRITES_ENABLED', False)
                                    and selected.get('role') in ('admin', 'member')))
 
@@ -562,9 +553,6 @@ def conversation_send():
     data = request.get_json(silent=True) or {}
     if not isinstance(data, dict) or data.get('profile') not in PROFILES:
         abort(400, description='Esta solução não utiliza o agente compartilhado.')
-    # Enable only after the provider, schema and full client have passed pilot validation.
-    if not current_app.config.get('CADU_FAMILY_CHAT_ENABLED', False):
-        abort(503, description='O envio integrado está em preparação. Seu histórico foi preservado.')
     from . import chat
     run = chat.prepare(data, selected)
     if run.get('queued'):
@@ -618,12 +606,9 @@ def conversation_capabilities():
     from . import dify
     context.identity()
     selected = context.resolve()
-    enabled = bool(current_app.config.get('CADU_FAMILY_CHAT_ENABLED', False)
-                   and selected['role'] in ('admin', 'member'))
+    enabled = selected['role'] in ('admin', 'member')
     reason = ''
-    if not current_app.config.get('CADU_FAMILY_CHAT_ENABLED', False):
-        reason = 'As conversas ainda não foram habilitadas nesta instalação.'
-    elif selected['role'] not in ('admin', 'member'):
+    if selected['role'] not in ('admin', 'member'):
         reason = 'Sua conta não tem permissão para iniciar conversas neste espaço.'
     else:
         try:
@@ -652,8 +637,6 @@ def conversation_upload():
     from ..cadu_workspace.conversations import attachments
     selected = writable_context()
     user = context.identity()
-    if not current_app.config.get('CADU_FAMILY_CHAT_ENABLED', False):
-        abort(503, description='Anexos ainda não foram habilitados nesta instalação.')
     # Bound multipart parsing as well as the individual file read.
     request.max_content_length = attachments.MAX_BYTES + 65536
     files = request.files.getlist('file')
@@ -698,8 +681,6 @@ def conversation_mode_reset(slug):
 @bp.post('/api/conversations/runs/<uuid:run_id>/stop')
 def conversation_stop(run_id):
     from . import dify
-    if not current_app.config.get('CADU_FAMILY_CHAT_ENABLED', False):
-        abort(503, description='As conversas ainda não foram habilitadas nesta instalação.')
     selected = writable_context()
     user = context.identity()
     runs = repository.rows('''SELECT task_id, status FROM cadu_family_chat_runs

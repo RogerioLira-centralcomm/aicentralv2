@@ -19,9 +19,8 @@ class FoundationTest(family.FamilyTest):
                     self.assertEqual(result.status_code, 403)
             db.assert_not_called()
 
-    def test_chat_flag_enables_conversation_without_enabling_workspace_writes(self):
+    def test_conversation_does_not_depend_on_workspace_write_flags(self):
         self.login()
-        self.app.config['CADU_FAMILY_CHAT_ENABLED'] = True
         with mock.patch('aicentralv2.cadu_family.chat.prepare') as prepare:
             prepare.return_value = {'queued': True, 'run_id': '00000000-0000-0000-0000-000000000001',
                                     'conversation_id': '00000000-0000-0000-0000-000000000002'}

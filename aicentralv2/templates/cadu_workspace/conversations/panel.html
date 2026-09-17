@@ -6,12 +6,12 @@
   {% if not conversation_page %}<div class="conversation-context">{{ selected.client_name if selected else 'Contexto da sua conta' }}<small>{{ 'Cliente, marca e projeto selecionados' if selected else 'Escolha um projeto ou marca no Workspace para aprofundar a conversa.' }}</small></div>
   {% if conversation_actions %}<nav class="conversation-solution-links" aria-label="Continuar em uma solução">{% for action in conversation_actions %}<a href="{{ action.href }}">{{ action.label }}</a>{% endfor %}</nav>{% endif %}
   <label class="conversation-width">Largura do painel<input id="conversation-width" type="range" min="360" max="720" value="480" aria-label="Largura do painel de conversas"></label>{% endif %}
-  {% if conversation_page and chat_authenticated %}<section id="conversation-context-picker" class="conversation-context-picker" aria-label="Contexto da nova conversa"><span>Contexto</span><label for="conversation-project">Projeto</label><select id="conversation-project" disabled><option value="">Carregando projetos…</option></select><label for="conversation-brand">Marca</label><select id="conversation-brand" disabled><option value="">Sem marca</option></select><small id="conversation-context-note">O contexto será usado nas novas mensagens.</small></section>{% endif %}
   <div id="conversation-history" aria-live="polite">{% if chat_authenticated %}Carregando conversas…{% else %}Converse sobre seus clientes, projetos e planos depois de entrar.{% endif %}</div>
   <form id="conversation-form">
     <div id="conversation-attachments" aria-label="Arquivos selecionados" hidden></div>
     <label for="conversation-message">Mensagem</label>
     <div class="conversation-composer-shell">
+      {% if conversation_page and chat_authenticated %}<section id="conversation-context-picker" class="conversation-project-context" aria-label="Projeto da conversa"><label for="conversation-project">Projeto selecionado</label><select id="conversation-project" disabled><option value="">Carregando projetos…</option></select><small id="conversation-context-note">O projeto selecionado será usado nesta conversa.</small></section>{% endif %}
       <textarea id="conversation-message" maxlength="20000" placeholder="{{ 'Digite sua mensagem ou anexe um arquivo…' if chat_authenticated else 'Entre para conversar com o Cadu' }}" disabled></textarea>
       <div class="conversation-toolbar">
         <button type="button" id="conversation-attach" disabled aria-describedby="conversation-upload-help" aria-label="Anexar arquivo" title="Anexar arquivo"><span aria-hidden="true">+</span></button>

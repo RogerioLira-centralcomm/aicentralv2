@@ -37,6 +37,13 @@
   const history = document.getElementById('conversation-history');
   const recent = document.getElementById('conversation-recent');
   const status = document.getElementById('conversation-status');
+  const updateStatusTone = () => {
+    const value = status?.textContent?.toLowerCase() || '';
+    status?.setAttribute('data-tone', /não foi|falhou|erro|interrompid|indisponível/.test(value) ? 'error'
+      : /conectando|respondendo|verificando|retomando|reconectando|processando/.test(value) ? 'working'
+      : value ? 'success' : '');
+  };
+  if (status) new MutationObserver(updateStatusTone).observe(status, {childList:true, characterData:true, subtree:true});
   const historyToggle = document.getElementById('conversation-history-toggle');
   const conversationShell = document.querySelector('.workspace-conversations');
   const closeHistory = () => {
@@ -64,7 +71,7 @@
     if (target) CaduConversationRenderer.render(target, content);
   };
   let initialized = false, initializing = null, canSend = false, canReplay = false;
-  let loadingThread = false, threadRequest = 0, historyRequest = 0, nextOffset = null;
+  let loadingThread = false, threadRequest = 0, historyRequest = 0, nextOffset = null, historyLastGroup = '';
   let historyQuery = '';
   const drafts = new Map();
   const pendingKey = 'cadu-pending:' + panel.dataset.draftScope + ':' + document.body.dataset.product;
@@ -111,9 +118,8 @@
   const modeForm = document.getElementById('conversation-mode-form');
   const modePrompt = document.getElementById('conversation-mode-prompt');
   const projectSelect = document.getElementById('conversation-project');
-  const brandSelect = document.getElementById('conversation-brand');
   const contextNote = document.getElementById('conversation-context-note');
-  let contextEntities = [], activeContext = {};
+  let contextEntities = [], activeContext = {}, boundProjectRef = null;
   const composer = document.getElementById('conversation-message');
   let modeEntries = [];
   const applyModes = (items, selected) => {
@@ -129,43 +135,38 @@
     select.replaceChildren(new Option(emptyLabel, ''), ...rows.map(row => new Option(row.name, row.ref, false, row.ref === selected)));
     select.disabled = false;
   };
-  const visibleBrands = projectRef => {
-    const brands = contextEntities.filter(item => item.kind === 'brand');
-    const project = contextEntities.find(item => item.ref === projectRef);
-    return project?.related_refs?.length ? brands.filter(item => project.related_refs.includes(item.ref)) : brands;
-  };
   const renderContext = (selected = activeContext) => {
-    contextOptions(projectSelect, contextEntities.filter(item => item.kind === 'project'), 'Sem projeto', selected.project_ref);
-    const brands = visibleBrands(projectSelect?.value || selected.project_ref);
-    const brandRef = brands.some(item => item.ref === selected.brand_ref) ? selected.brand_ref : '';
-    contextOptions(brandSelect, brands, 'Sem marca', brandRef);
-    if (contextNote) contextNote.textContent = projectSelect?.value
-      ? 'Projeto ativo para novas conversas e mensagens.'
-      : 'Selecione um projeto para incluir o contexto no Cadu.';
+    const projectRef = conversationId && boundProjectRef !== null ? boundProjectRef : selected.project_ref;
+    contextOptions(projectSelect, contextEntities.filter(item => item.kind === 'project'), 'Sem projeto', projectRef);
+    if (projectSelect) projectSelect.disabled = Boolean(conversationId);
+    if (contextNote) contextNote.textContent = conversationId
+      ? (projectRef ? 'Projeto definido na criação desta conversa.' : 'Esta conversa foi criada sem projeto.')
+      : projectSelect?.value ? 'Projeto para a nova conversa.' : 'Sem projeto: a nova conversa usará apenas o contexto geral.';
   };
   async function loadContext() {
-    if (!projectSelect || !brandSelect) return;
+    if (!projectSelect) return;
     try {
       const data = await api('context');
       contextEntities = Array.isArray(data.entities) ? data.entities : [];
       activeContext = data.context || {};
       const requestedProject = pageMode && new URLSearchParams(window.location.search).get('project');
-      if (requestedProject && contextEntities.some(item => item.kind === 'project' && item.ref === requestedProject)) {
-        activeContext = {...activeContext, project_ref: requestedProject, brand_ref: ''};
+      const projectRef = requestedProject && contextEntities.some(item => item.kind === 'project' && item.ref === requestedProject)
+        ? requestedProject : activeContext.project_ref;
+      if (activeContext.brand_ref || projectRef !== activeContext.project_ref) {
+        activeContext = {...activeContext, project_ref: projectRef, brand_ref: null};
         await api('context', 'POST', activeContext);
       }
       renderContext();
     } catch (_) {
       projectSelect.replaceChildren(new Option('Projetos indisponíveis', ''));
-      brandSelect.replaceChildren(new Option('Marcas indisponíveis', ''));
       if (contextNote) contextNote.textContent = 'O contexto será disponibilizado quando a conexão do Workspace estiver ativa.';
     }
   }
   async function saveContext() {
-    if (!projectSelect || !brandSelect) return;
-    projectSelect.disabled = brandSelect.disabled = true;
+    if (!projectSelect) return;
+    projectSelect.disabled = true;
     try {
-      const data = await api('context', 'POST', {project_ref: projectSelect.value || null, brand_ref: brandSelect.value || null});
+      const data = await api('context', 'POST', {project_ref: projectSelect.value || null, brand_ref: null});
       activeContext = data.context || {};
       renderContext(activeContext);
       status.textContent = 'Contexto salvo para a próxima conversa.';
@@ -174,13 +175,17 @@
       status.textContent = unavailableMessage('Não foi possível salvar o contexto', error);
     }
   }
-  projectSelect?.addEventListener('change', () => { renderContext({...activeContext, project_ref: projectSelect.value, brand_ref: ''}); saveContext(); });
-  brandSelect?.addEventListener('change', saveContext);
+  projectSelect?.addEventListener('change', () => { renderContext({...activeContext, project_ref: projectSelect.value, brand_ref: null}); saveContext(); });
   const attachments = new CaduAttachments(panel, status);
   const sendButton = document.getElementById('conversation-send');
   const updateSend = () => {
     composer.disabled = sending || loadingThread || !canSend || mode.disabled;
     if (sendButton) sendButton.disabled = composer.disabled || (!composer.value.trim() && !attachments.items.length);
+  };
+  const resizeComposer = () => {
+    if (!composer || !pageMode) return;
+    composer.style.height = '0px';
+    composer.style.height = Math.min(Math.max(composer.scrollHeight, 92), Math.round(window.innerHeight * 0.28)) + 'px';
   };
   panel.addEventListener('attachmentschange', updateSend);
   mode?.addEventListener('change', async () => {
@@ -236,8 +241,7 @@
   });
   composer.addEventListener('input', () => {
     saveDraft();
-    composer.style.height = 'auto';
-    composer.style.height = Math.min(composer.scrollHeight, window.innerHeight * .3) + 'px';
+    resizeComposer();
     updateSend();
   });
   const background = [...document.querySelectorAll('.family-nav, .family-layout, .cadu-skills-top-nav, .cadu-app-shell, .portal > #content, .portal > footer')];
@@ -261,15 +265,16 @@
     try {
       const result = await api('conversations/' + encodeURIComponent(id) + '/messages');
       if (request !== threadRequest) return;
-      history.replaceChildren(); conversationId = id;
-      attachments.clear(); composer.value = readDraft(id); composer.style.height = '';
+      history.replaceChildren(); conversationId = id; boundProjectRef = result.context?.project_ref || '';
+      attachments.clear(); composer.value = readDraft(id); resizeComposer();
+      renderContext();
       recent?.querySelectorAll('button[data-conversation-id]').forEach(button => {
         if (button.dataset.conversationId === id) button.setAttribute('aria-current', 'page');
         else button.removeAttribute('aria-current');
       });
       for (const message of result.messages) addMessage(message.role, message.content, message.files, message.metadata, result.context?.project_ref || '');
       setConversationUrl(id);
-      status.textContent = result.context ? 'Conversa retomada com o projeto, marca e perfil de origem.' : 'Conversa anterior carregada. O próximo envio usará o contexto ativo.';
+      status.textContent = result.context ? 'Conversa retomada com o projeto e perfil de origem.' : 'Conversa anterior carregada. O próximo envio usará o projeto ativo.';
       return true;
     } catch (error) { if (request === threadRequest) status.textContent = error.message; }
     finally { if (request === threadRequest) { loadingThread = false; updateSend(); } }
@@ -283,11 +288,25 @@
       const params = new URLSearchParams({q: historyQuery, offset: String(append ? nextOffset || 0 : 0), archived: archivedFilter?.checked ? '1' : '0'});
       const data = await api('conversations?' + params);
       if (request !== historyRequest) return;
-      if (!recent && !append) { saveDraft(); conversationId = null; composer.value = readDraft(null); }
-      if (!append) target.replaceChildren();
+      if (!recent && !append) { saveDraft(); conversationId = null; composer.value = readDraft(null); resizeComposer(); }
+      if (!append) { target.replaceChildren(); historyLastGroup = ''; }
       nextOffset = data.next_offset;
       if (more) more.hidden = nextOffset == null;
+      const historyGroup = value => {
+        const date = new Date(value || '');
+        if (Number.isNaN(date.getTime())) return '';
+        const now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const elapsed = today - new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        if (elapsed === 0) return 'Hoje';
+        if (elapsed < 7 * 24 * 60 * 60 * 1000) return 'Esta semana';
+        return 'Anteriores';
+      };
       for (const thread of data.conversations) {
+        const group = historyGroup(thread.updated_at || thread.created_at);
+        if (group && group !== historyLastGroup) {
+          const heading = document.createElement('p'); heading.className = 'conversation-history-group'; heading.textContent = group;
+          target.append(heading); historyLastGroup = group;
+        }
         const row = document.createElement('article');
         const button = document.createElement('button'); button.type = 'button'; button.textContent = thread.title || 'Conversa sem título';
         button.dataset.conversationId = String(thread.id);
@@ -343,11 +362,38 @@
     const heading = String(content || '').match(/^#{1,6}\s+(.+)$/m);
     return (heading?.[1] || 'Plano Cadu').replace(/[*`]/g, '').trim().slice(0, 255) || 'Plano Cadu';
   }
+  function actionBarFor(text) {
+    let actions = text.parentElement?.querySelector('.conversation-message-actions');
+    if (!actions) {
+      actions = document.createElement('div');
+      actions.className = 'conversation-message-actions';
+      text.parentElement?.append(actions);
+    }
+    return actions;
+  }
+  function addMessageActions(text, content) {
+    if (!text || text.parentElement?.querySelector('[data-conversation-copy]')) return;
+    const actions = actionBarFor(text);
+    const copy = document.createElement('button'); copy.type = 'button'; copy.dataset.conversationCopy = '';
+    copy.textContent = 'Copiar';
+    copy.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(String(content || ''));
+        copy.textContent = 'Copiado';
+      } catch (_) { status.textContent = 'Não foi possível copiar a resposta neste navegador.'; }
+    });
+    const continueButton = document.createElement('button'); continueButton.type = 'button'; continueButton.textContent = 'Continuar';
+    continueButton.addEventListener('click', () => {
+      composer.value = 'Continue a partir da resposta anterior e aprofunde os próximos passos.';
+      resizeComposer(); updateSend(); composer.focus();
+    });
+    actions.append(copy, continueButton);
+  }
   function addSavePlanAction(text, content, projectRef) {
     if (!text || !content?.trim() || typeof projectRef !== 'string' || !projectRef.startsWith('ci:')) return;
     const projectId = projectRef.slice(3);
     if (!/^[a-f0-9-]{36}$/i.test(projectId) || text.parentElement?.querySelector('[data-save-plan]')) return;
-    const actions = document.createElement('div'); actions.className = 'conversation-message-actions';
+    const actions = actionBarFor(text);
     const save = document.createElement('button'); save.type = 'button'; save.dataset.savePlan = projectId;
     save.textContent = 'Salvar como plano no projeto';
     save.addEventListener('click', async () => {
@@ -368,7 +414,7 @@
         status.textContent = error.message || 'Não foi possível salvar o plano.';
       }
     });
-    actions.append(save); text.parentElement?.append(actions);
+    actions.append(save);
   }
   function addMessage(role, content, files = [], metadata = {}, projectRef = '') {
     const entry = document.createElement('article'); entry.className = 'conversation-message ' + (role === 'user' ? 'from-user' : 'from-cadu');
@@ -380,8 +426,25 @@
     CaduConversationRenderer.renderFiles(entry, files);
     history.append(entry);
     if (role === 'assistant') addSources(metadata?.project_sources);
-    if (role === 'assistant') addSavePlanAction(text, content, projectRef);
+    if (role === 'assistant' && content?.trim()) {
+      addMessageActions(text, content);
+      addSavePlanAction(text, content, projectRef);
+    }
     return text;
+  }
+  function renderEmptyState() {
+    if (!pageMode) return;
+    history.replaceChildren();
+    const empty = document.createElement('div'); empty.className = 'workspace-conversation-empty';
+    const heading = document.createElement('strong'); heading.textContent = 'Em que vamos trabalhar?';
+    const description = document.createElement('span'); description.textContent = 'Comece uma conversa ou escolha um ponto de partida para o projeto.';
+    const suggestions = document.createElement('div'); suggestions.className = 'conversation-suggestions';
+    ['Criar um briefing', 'Revisar uma campanha', 'Estruturar próximos passos'].forEach(prompt => {
+      const button = document.createElement('button'); button.type = 'button'; button.textContent = prompt;
+      button.addEventListener('click', () => { composer.value = prompt + '.'; resizeComposer(); updateSend(); composer.focus(); });
+      suggestions.append(button);
+    });
+    empty.append(heading, description, suggestions); history.append(empty);
   }
   function addCatalogCard(data) {
     if (!Array.isArray(data.records) || !data.records.length) return;
@@ -488,13 +551,13 @@
       const starterPrompt = pageMode && new URLSearchParams(window.location.search).get('prompt');
       if (starterPrompt && !conversationId && !composer.value.trim()) {
         composer.value = starterPrompt.slice(0, 20000);
-        composer.style.height = 'auto';
-        composer.style.height = Math.min(composer.scrollHeight, window.innerHeight * .3) + 'px';
+        resizeComposer();
         updateSend();
       }
+      resizeComposer();
       const requested = pageMode && new URLSearchParams(window.location.search).get('conversation');
       if (requested && !conversationId) await openConversation(requested);
-      else if (recent && !conversationId) history.innerHTML = '<div class="workspace-conversation-empty"><strong>Como posso ajudar?</strong><span>Escreva uma mensagem ou retome uma conversa anterior.</span></div>';
+      else if (recent && !conversationId) renderEmptyState();
       await resumePending(requested);
     })();
     try { await initializing; } finally { initializing = null; }
@@ -527,8 +590,8 @@
   document.getElementById('conversation-new')?.addEventListener('click', () => {
     if (sending) return;
     closeHistory();
-    saveDraft(); ++threadRequest; loadingThread = false; attachments.clear(); composer.value = readDraft(null); setConversationUrl(null); updateSend();
-    conversationId = null; history.innerHTML = pageMode ? '<div class="workspace-conversation-empty"><strong>Como posso ajudar?</strong><span>Escreva uma mensagem para começar uma nova conversa.</span></div>' : ''; status.textContent = '';
+    saveDraft(); ++threadRequest; loadingThread = false; attachments.clear(); composer.value = readDraft(null); resizeComposer(); setConversationUrl(null); updateSend();
+    conversationId = null; boundProjectRef = null; renderContext(); if (pageMode) renderEmptyState(); else history.replaceChildren(); status.textContent = '';
     recent?.querySelectorAll('[aria-current]').forEach(node => node.removeAttribute('aria-current'));
     document.getElementById('conversation-message').focus();
   });
@@ -582,11 +645,11 @@
       }
       for await (const data of eventSource || CaduConversationStream.events(response.body)) {
           if (data.event === 'start') {
-            conversationId = data.conversation_id; runId = data.run_id; stop.hidden = false;
+            conversationId = data.conversation_id; boundProjectRef = runProjectRef || ''; renderContext(); runId = data.run_id; stop.hidden = false;
             setConversationUrl(conversationId);
             if (newThread) history.replaceChildren();
             addMessage('user', message, attachments.items.map(item => ({name:item.file.name})));
-            output = addMessage('assistant', ''); input.value = ''; input.style.height = ''; attachments.clear();
+            output = addMessage('assistant', ''); input.value = ''; resizeComposer(); attachments.clear();
             writeDraft(draftKey === 'new' ? null : draftKey, '');
             status.textContent = 'Cadu está respondendo…';
           } else if ((data.event === 'message' || data.event === 'replace') && output) {
@@ -609,7 +672,7 @@
       status.textContent = error.name === 'AbortError' ? 'Envio interrompido. Confira o histórico antes de reenviar; arquivos já recebidos pelo servidor podem ter sido preservados.' : error.message;
     } finally {
       flushStreaming(output, answer);
-      if (completed) addSavePlanAction(output, answer, runProjectRef);
+      if (completed) { addMessageActions(output, answer); addSavePlanAction(output, answer, runProjectRef); }
       sending = false; mode.disabled = false; stop.hidden = true; controller = null;
       input.disabled = false; attachments.lock(false); updateSend();
       if (recovered) {

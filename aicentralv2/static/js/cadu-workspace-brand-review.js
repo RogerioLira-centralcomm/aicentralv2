@@ -47,7 +47,7 @@
       }
       if (data.status === 'pending_approval') {
         summary?.removeAttribute('aria-busy');
-        body.innerHTML = '<section class="workspace-brand-review-complete"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><div><strong>Proposta pronta para decisão</strong><p>Os três pareceres foram salvos. Revise a síntese antes de aplicá-la à marca e aos projetos.</p></div></section>';
+        body.innerHTML = '<section class="workspace-brand-review-complete"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><div><strong>Proposta pronta para decisão</strong><p>Os pareceres foram salvos. Revise a síntese antes de aplicá-la à marca e aos projetos.</p></div></section>';
         footer.hidden = false;
         footer.innerHTML = '<button type="button" data-brand-review-reload>Revisar pareceres</button>';
         footer.querySelector('[data-brand-review-reload]').addEventListener('click', () => window.location.reload());

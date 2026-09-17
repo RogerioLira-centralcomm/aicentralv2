@@ -33,11 +33,24 @@
   linkDialog?.addEventListener('click', (event) => { if (event.target === linkDialog) linkDialog.close(); });
   const sectionLinks = [...document.querySelectorAll('.workspace-brand-section-nav a')];
   const sections = sectionLinks.map((link) => document.querySelector(link.hash)).filter(Boolean);
+  const setActiveSection = (id) => sectionLinks.forEach((link) => {
+    const active = link.hash === `#${id}`;
+    link.toggleAttribute('aria-current', active);
+    if (active) link.setAttribute('aria-current', 'location');
+  });
+  sectionLinks.forEach((link) => link.addEventListener('click', () => {
+    const target = document.querySelector(link.hash);
+    if (target) setActiveSection(target.id);
+  }));
+  if (sections.length) {
+    const current = sections.find((section) => section.getBoundingClientRect().top >= 0) || sections[0];
+    setActiveSection(current.id);
+  }
   if ('IntersectionObserver' in window && sections.length) {
     const observer = new IntersectionObserver((entries) => {
       const active = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
       if (!active) return;
-      sectionLinks.forEach((link) => link.toggleAttribute('aria-current', link.hash === `#${active.target.id}`));
+      setActiveSection(active.target.id);
     }, {rootMargin: '-18% 0px -65% 0px', threshold: [0.05, 0.25]});
     sections.forEach((section) => observer.observe(section));
   }

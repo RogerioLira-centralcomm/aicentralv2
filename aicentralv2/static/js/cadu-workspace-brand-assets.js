@@ -3,40 +3,6 @@
   const dropzone = document.querySelector('[data-brand-asset-dropzone]');
   const input = document.querySelector('[data-brand-asset-input]');
   const output = document.querySelector('[data-brand-asset-files]');
-  const assets = document.querySelector('#brand-assets');
-  const review = document.querySelector('[data-brand-review-summary]');
-  const editor = document.querySelector('.workspace-brand-editor');
-  const activity = document.querySelector('.workspace-brand-activity')?.closest('article');
-  const process = document.querySelector('.workspace-brand-process-callout');
-  const readiness = document.querySelector('.workspace-brand-readiness');
-  const details = document.querySelector('.workspace-brand-detail-grid');
-  if (assets && review) review.after(assets);
-  if (details) details.style.gridTemplateColumns = '1fr';
-  if (activity) activity.remove();
-  if (process) process.remove();
-  if (readiness) readiness.classList.add('is-compact');
-  const summary = document.querySelector('[data-brand-review-summary]');
-  const audit = document.querySelector('.workspace-brand-audit-form');
-  const emptyAssets = Boolean(assets?.querySelector('.workspace-empty'));
-  if (emptyAssets) {
-    readiness?.remove();
-    editor?.remove();
-    document.querySelector('#brand-projects')?.remove();
-    if (summary) {
-      summary.classList.add('is-onboarding');
-      const copy = summary.querySelector('p');
-      if (copy) copy.textContent = 'Comece adicionando o logo e referências visuais, ou analise o site oficial para preencher a identidade automaticamente.';
-    }
-  }
-  const reviewTitle = summary?.querySelector('h2')?.textContent.trim() || '';
-  if (summary && audit && !['Análise em andamento', 'Proposta pronta para decisão'].includes(reviewTitle)) {
-    const actions = summary.querySelector('.workspace-brand-review-actions');
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.textContent = reviewTitle === 'Ainda não analisada' ? 'Analisar marca' : 'Reanalisar marca';
-    button.addEventListener('click', () => audit.requestSubmit());
-    actions?.append(button);
-  }
   if (!form || !dropzone || !input || !output) return;
   const render = () => {
     const files = [...(input.files || [])];

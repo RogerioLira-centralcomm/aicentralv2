@@ -175,6 +175,12 @@ html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-sidebar-balanc
 /* Final compact-rail rules: these intentionally follow older shell variants. */
 @media(min-width:821px){html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-sidebar-footer{margin-top:12px!important;gap:8px}html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-sidebar-management{display:none!important}html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-sidebar-balance{display:grid!important;place-items:center;width:46px!important;min-height:34px!important;margin-inline:auto;padding:5px!important;background:var(--workspace-accent-soft)!important;color:var(--workspace-accent)}html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-sidebar-balance .cadu-credit-meter__copy,html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-sidebar-balance .cadu-credit-meter__track,html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-sidebar-balance .cadu-credit-meter__vu{display:none!important}.portal--workspace .cadu-credit-meter__rail-value{display:none}html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-sidebar-balance .cadu-credit-meter__rail-value{display:block!important;font-size:10px;font-weight:700;line-height:1}}
 
+/* A navegação é a borda de apoio do Workspace, não um card flutuante. */
+@media(min-width:821px){
+  .portal--workspace .workspace-app-sidebar{top:0;min-height:100dvh;height:100dvh;margin:0;padding:18px 14px 14px;border-right:1px solid color-mix(in srgb,var(--cadu-line) 88%,transparent)!important;border-radius:0 16px 16px 0;box-shadow:10px 0 26px rgb(17 43 54 / .07)!important}
+  html[data-cadu-sidebar="collapsed"] .portal--workspace .workspace-app-sidebar{margin-left:0}
+}
+
 /* O grupo de conta é uma âncora do rodapé, inclusive na rail recolhida. */
 .portal--workspace .workspace-sidebar-account-shortcut{display:none}
 @media(min-width:821px){

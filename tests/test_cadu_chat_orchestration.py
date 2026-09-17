@@ -78,3 +78,17 @@ def test_payload_includes_compact_user_memory_when_relevant(monkeypatch):
                     'workspace', project_context, {'dify_conversation_id': None, 'total_mensagens': 0},
                     'Escreva uma análise.', [], None, '')
     assert json.loads(run['payload']['inputs']['user_memory_context'])['memoria_usuario']['preferencias'] == ['respostas diretas']
+
+
+def test_profile_context_is_live_cadastro_data_not_a_memory(monkeypatch):
+    from aicentralv2.cadu_workspace.conversations import memory
+    from aicentralv2.cadu_workspace.conversations.service import build_run
+    monkeypatch.setattr(memory, 'context_packet', lambda *args: '')
+    run = build_run('run', 'conversation', {'id': 1, 'name': 'Ana', 'email': 'ana@centralcomm.media',
+                     'role_name': 'Diretora de mídia', 'organization_id': 2},
+                    {'client_id': 3, 'client_name': 'Centralcomm'}, {'id': 'ideias', 'prompt': 'Ajude.'},
+                    'workspace', '', {'dify_conversation_id': None, 'total_mensagens': 0}, 'Escreva um e-mail.', [], None, '')
+    profile = json.loads(run['payload']['inputs']['user_profile_context'])
+    assert profile == {'nome': 'Ana', 'email': 'ana@centralcomm.media',
+                       'empresa_atual': 'Centralcomm', 'cargo': 'Diretora de mídia'}
+    assert run['payload']['inputs']['saudacao_permitida'] == 'nao'

@@ -353,12 +353,21 @@ def build_run(run_id, conversation_id, user, selected, chosen, profile,
     except (TypeError, ValueError, AttributeError):
         pass
     user_memory_context = memory.context_packet(user, selected, project_ref, query)
+    # Cadastro is live data, not a learned memory: profile edits take effect on
+    # the next answer and it is used only for tasks that require identification.
+    user_profile_context = json.dumps({
+        'nome': str(user.get('name') or '')[:160],
+        'email': str(user.get('email') or '')[:254],
+        'empresa_atual': str(selected.get('client_name') or '')[:200],
+        'cargo': str(user.get('role_name') or '')[:160],
+    }, ensure_ascii=False, separators=(',', ':'))
     inputs = {'nome_usuario': user['name'], 'nome_cliente': selected['client_name'], 'profile': profile,
               'skill_id': 'orquestrador', 'skill_context': skill_context,
               'files_context': files_context, 'projeto_context': project_context,
               'user_memory_context': user_memory_context,
+              'user_profile_context': user_profile_context,
               'is_first_message': 'true' if not conversation['total_mensagens'] else 'false',
-              'saudacao_permitida': 'sim' if query.lower().strip('!.? ') in ('oi', 'olá', 'bom dia', 'boa tarde', 'boa noite') and not conversation['total_mensagens'] else 'nao',
+              'saudacao_permitida': 'nao',
               'turn_index': str(int(conversation['total_mensagens'] or 0) // 2 + 1)}
     payload = {'query': query, 'user': 'user-' + str(user['id']), 'inputs': inputs, 'response_mode': 'streaming',
                'files': [{'type': row['kind'], 'transfer_method': 'local_file', 'upload_file_id': row['provider_id']} for row in uploads]}

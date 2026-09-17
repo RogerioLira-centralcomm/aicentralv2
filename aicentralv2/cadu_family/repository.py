@@ -26,11 +26,13 @@ def rows(sql, params=()):
 
 
 def actor(user_id):
-    result = rows('''SELECT id_contato_cliente AS id, pk_id_tbl_cliente AS organization_id,
-                            nome_completo AS name, email, telefone AS phone,
-                            pk_id_tbl_cargo AS role_id, user_type, is_finance_admin
+    result = rows('''SELECT u.id_contato_cliente AS id, u.pk_id_tbl_cliente AS organization_id,
+                            u.nome_completo AS name, u.email, u.telefone AS phone,
+                            cargo.descricao AS role_name,
+                            u.pk_id_tbl_cargo AS role_id, u.user_type, u.is_finance_admin
                        FROM tbl_contato_cliente u
-                      WHERE id_contato_cliente = %s AND status = TRUE
+                  LEFT JOIN tbl_cargo_contato cargo ON cargo.id_cargo_contato = u.pk_id_tbl_cargo
+                      WHERE u.id_contato_cliente = %s AND u.status = TRUE
                         AND EXISTS (SELECT 1 FROM tbl_cliente c
                                      WHERE c.id_cliente = u.pk_id_tbl_cliente AND c.status = TRUE)''', (user_id,))
     return result[0] if result else None

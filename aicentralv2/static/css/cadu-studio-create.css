@@ -1,4 +1,5 @@
 /* The create desk is a full-screen work surface, not a centered marketing page. */
+#content > .studio-create--editor-frame{width:100vw!important;max-width:none!important;margin-inline:calc(50% - 50vw)!important}
 .portal--studio:has(.studio-create) #content{width:100%!important;max-width:none!important;min-height:100dvh;margin:0}
 .portal--studio:has(.studio-create)>.cadu-family-footer{display:none!important}
 .studio-create#studioCreate{height:100dvh!important;min-height:0!important;overflow:hidden!important}

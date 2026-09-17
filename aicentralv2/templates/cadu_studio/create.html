@@ -5,10 +5,10 @@
 {% block styles %}
 <meta name="trocr-csrf-token" content="{{ mc_trocr_csrf }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-navigation.css') }}?v=8">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-create.css') }}?v=7">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-create.css') }}?v=8">
 {% endblock %}
 {% block content %}
-<main class="studio-create" id="studioCreate" data-api-root="{{ '/studio/api' if request.blueprint in ('studio', 'studio_product') else '/parametros/api' }}">
+<main class="studio-create studio-create--editor-frame" id="studioCreate" data-api-root="{{ '/studio/api' if request.blueprint in ('studio', 'studio_product') else '/parametros/api' }}">
   {% include "cadu_studio/_context_bar.html" %}
   <div class="studio-create__workspace">
     <aside class="studio-create__controls" aria-label="Direção da peça">
@@ -63,9 +63,9 @@
     </aside>
 
     <section class="studio-create__stage" aria-labelledby="studioCreateTitle">
-      <header><div><p id="studioCreatePath">Criar</p><h1 id="studioCreateTitle">Uma direção clara vira uma peça forte.</h1></div><span id="studioCreateFormat">9:16 · Story</span></header>
+      <header><div><p id="studioCreatePath">Criar</p><h1 id="studioCreateTitle">Defina a direção da peça</h1></div><span id="studioCreateFormat">9:16 · Story</span></header>
       <div class="studio-create__canvas" id="studioCreateCanvas" aria-live="polite">
-        <div class="studio-create__empty"><strong>Comece com uma direção</strong><span>Selecione um projeto ou descreva o que a campanha precisa comunicar.</span></div>
+        <div class="studio-create__empty"><strong>Descreva o que a peça precisa comunicar</strong><span>Use o agente para informar objetivo, público e mensagem.</span></div>
       </div>
       <footer><button type="button" class="studio-create__secondary" id="studioCreateContinue" disabled>Continuar editando</button><a class="studio-create__primary is-disabled" id="studioCreateEditor" aria-disabled="true" href="{{ studio_url('modelagem_trocar') }}">Abrir no editor completo</a></footer>
     </section>

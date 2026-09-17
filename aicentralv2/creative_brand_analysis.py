@@ -422,6 +422,43 @@ def _firecrawl_image_search(domain):
     return candidates
 
 
+def search_recent_brand_creatives(brand_name, limit=12):
+    """Find recent public display-ad and campaign imagery for a brand."""
+    from .services.integration_credentials import resolve_firecrawl_api_key
+
+    key = resolve_firecrawl_api_key()
+    name = str(brand_name or "").strip()
+    if not key or not name:
+        return []
+    endpoint = _firecrawl_url().rsplit("/scrape", 1)[0] + "/search"
+    try:
+        response = requests.post(
+            endpoint,
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+            json={
+                "query": f'"{name}" display ads IAB campaign creative 2026 OR 2025',
+                "sources": ["images"], "limit": max(1, min(int(limit), 20)),
+                "ignoreInvalidURLs": True,
+            }, timeout=35,
+        )
+        response.raise_for_status()
+        data = response.json().get("data") or response.json()
+    except (requests.RequestException, ValueError):
+        return []
+    items = []
+    for result in data.get("images") or []:
+        if not isinstance(result, dict):
+            continue
+        image_url = result.get("imageUrl") or result.get("image_url") or result.get("url")
+        page_url = result.get("sourceUrl") or result.get("source_url") or ""
+        candidate = _candidate(image_url, page_url or image_url, source="campaign_search", alt=result.get("title"))
+        if candidate:
+            candidate.update({"kind": "creative", "category": "Criativo recente", "score": max(candidate["score"], 55),
+                              "reason": "Referência pública recente encontrada para a marca."})
+            items.append(candidate)
+    return items[:limit]
+
+
 def _compact_web_evidence(url):
     if not url:
         return {}, None

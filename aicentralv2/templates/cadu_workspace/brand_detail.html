@@ -4,7 +4,7 @@
 {% block content %}{% set workspace_active='marcas' %}
 <div class="workspace-app-shell">
   {% include 'cadu_workspace/_app_sidebar.html' %}
-  <main class="workspace-app-main">
+  <main class="workspace-app-main"><style>.workspace-brand-readiness.is-compact{grid-template-columns:auto minmax(140px,24%)!important;margin:10px 0!important;padding:10px 16px!important}.workspace-brand-readiness.is-compact h2{font-size:21px!important}.workspace-brand-readiness.is-compact p{font-size:11px!important}.workspace-brand-readiness.is-compact small{font-size:10px!important}.workspace-brand-review-summary{margin:10px 0 14px!important}.workspace-brand-review-actions button{border:0;border-radius:9px;background:var(--workspace-accent,#087765);padding:10px 13px;color:#fff;font:700 12px/1.2 inherit;cursor:pointer}@media(max-width:700px){.workspace-brand-readiness.is-compact{grid-template-columns:1fr!important}.workspace-brand-readiness.is-compact progress{width:100%!important}}</style>
     <header class="workspace-brand-hero" style="--brand-color:{{ brand.primary_color or '#176b5e' }}{% if brand.seed_visuals.hero %};--brand-visual:url('{{ brand.seed_visuals.hero }}'){% endif %}"><a href="{{ url_for('cadu_workspace.brands') }}">← Marcas</a><div class="workspace-brand-hero__art" aria-hidden="true">{% if brand.display_logo %}<img src="{{ brand.display_logo }}" alt="">{% else %}<span>{{ brand.display_initials }}</span>{% endif %}</div><div class="workspace-brand-hero__copy"><p>{{ brand.sector or 'Identidade de marca' }}</p><h1>{{ brand.name }}</h1>{% if brand.website_url %}<a href="{{ brand.website_url }}" rel="noopener" target="_blank">{{ brand.website_url }}</a>{% endif %}</div><div class="workspace-brand-hero__actions"><button type="button" data-brand-link-open>Vincular projeto</button><a href="{{ legacy_creatives_url }}">Criar no Studio</a><a href="{{ url_for('cadu_workspace.brand_system', brand_id=brand.id) }}" aria-label="Abrir sistema avançado"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a></div></header>
 
     <section class="workspace-brand-readiness">
@@ -12,7 +12,7 @@
       <progress value="{{ brand.readiness.score }}" max="100">{{ brand.readiness.score }}%</progress>
     </section>
 
-    <nav class="workspace-brand-section-nav" aria-label="Navegar pela marca"><a href="#brand-identity-title">Identidade</a><a href="#brand-assets">Ativos <span>{{ brand.assets|length }}</span></a><a href="#brand-projects">Projetos <span>{{ linked_projects|length }}</span></a><a href="#brand-audit">Auditoria</a><a href="#brand-activity">Atividade</a></nav>
+    <nav class="workspace-brand-section-nav" aria-label="Navegar pela marca"><a href="#brand-assets">Ativos <span>{{ brand.assets|length }}</span></a><a href="#brand-identity-title">Identidade</a><a href="#brand-projects">Projetos <span>{{ linked_projects|length }}</span></a><a href="#brand-audit">Auditoria</a></nav>
     {% set review_pack=brand.review_pack or {} %}
     <section class="workspace-brand-review-summary" aria-labelledby="brand-review-title" data-brand-review-summary data-status-url="{{ url_for('cadu_workspace.brand_audit_status', brand_id=brand.id) }}"><div><span>Revisão da identidade</span><h2 id="brand-review-title">{% if review_pack.status == 'pending_approval' %}Proposta pronta para decisão{% elif review_pack.status == 'approved' %}Identidade aprovada{% elif review_pack.status in ['queued', 'running'] %}Análise em andamento{% elif review_pack.status == 'failed' %}Análise precisa ser repetida{% else %}Ainda não analisada{% endif %}</h2><p>{% if review_pack.status == 'pending_approval' %}Três agentes revisaram evidências, estratégia e direção criativa. Revise antes de usar no trabalho.{% elif review_pack.status == 'approved' %}Esta versão já orienta projetos e conversas vinculados à marca.{% elif review_pack.status in ['queued', 'running'] %}{{ review_pack.message or 'A proposta está sendo preparada em segundo plano.' }}{% elif review_pack.status == 'failed' %}{{ review_pack.error or 'A proposta não foi concluída.' }}{% else %}Inicie a auditoria para criar uma proposta revisável, sem alterar a identidade atual automaticamente.{% endif %}</p></div><div class="workspace-brand-review-actions">{% if review_pack.reviews %}<button type="button" data-brand-review-open>Ver {{ review_pack.reviews|length }} pareceres</button>{% endif %}{% if review_pack.status == 'pending_approval' and can_manage_brand %}<form method="post" action="{{ url_for('cadu_workspace.approve_brand_reviews', brand_id=brand.id) }}"><input type="hidden" name="_csrf" value="{{ session.get('family_csrf', '') }}"><button>Aprovar síntese</button></form>{% elif review_pack.status == 'failed' and can_manage_brand and not review_pack.input.has_images %}<form method="post" action="{{ url_for('cadu_workspace.retry_brand_audit', brand_id=brand.id) }}"><input type="hidden" name="_csrf" value="{{ session.get('family_csrf', '') }}"><button>Tentar novamente</button></form>{% endif %}</div></section>
 
@@ -43,12 +43,13 @@
     </section>
 
     <section class="workspace-brand-detail-grid">
-      <article class="workspace-brand-assets-card">
-        <header><h2>Ativos de marca</h2><p>Envie referências visuais ou revise as capturas do site. Logos encontrados pelo Firecrawl são sugestões: escolha o principal manualmente.</p></header>
-        <form class="workspace-brand-upload" method="post" enctype="multipart/form-data" action="{{ url_for('cadu_workspace.upload_brand_assets', brand_id=brand.id) }}">
+      <article id="brand-assets" class="workspace-brand-assets-card">
+        <header><h2>Ativos de marca</h2><p>Adicione materiais ou busque referências recentes para completar a identidade da marca.</p></header>
+        {% if can_manage_brand %}<form class="workspace-brand-upload" method="post" action="{{ url_for('cadu_workspace.find_recent_brand_creatives', brand_id=brand.id) }}"><input type="hidden" name="_csrf" value="{{ session.get('family_csrf', '') }}"><span><b>Referências recentes</b><small>Busca criativos, campanhas e formatos de anúncios da marca.</small></span><button type="submit">Buscar referências recentes</button></form>{% endif %}
+        <form class="workspace-brand-upload" method="post" enctype="multipart/form-data" action="{{ url_for('cadu_workspace.upload_brand_assets', brand_id=brand.id) }}" data-brand-asset-upload>
           <input type="hidden" name="_csrf" value="{{ session.get('family_csrf', '') }}">
           <label>Tipo<select name="role"><option value="reference">Referência</option><option value="creative">Peça criativa</option><option value="background">Fundo</option><option value="support">Apoio visual</option><option value="icon">Ícone</option><option value="cta_style">Estilo de CTA</option></select></label>
-          <label>Imagens<input type="file" name="images" accept="image/*" multiple required></label>
+          <label class="workspace-brand-asset-dropzone" data-brand-asset-dropzone>Arraste imagens ou clique para escolher<input type="file" name="images" accept="image/*" multiple required data-brand-asset-input><small data-brand-asset-files>Nenhum arquivo selecionado</small></label>
           <label class="workspace-brand-logo-check"><input type="checkbox" name="primary_logo" value="true"> Usar a primeira imagem como logo principal</label>
           <button>Enviar ativos</button>
         </form>
@@ -67,4 +68,5 @@
 {% if request.args.get('audit') == 'start' %}<script>document.addEventListener('DOMContentLoaded',function(){const form=document.querySelector('.workspace-brand-audit-form');if(form&&form.querySelector('input[name="website_url"]')?.value){form.requestSubmit();}});</script>{% endif %}
 <script src="{{ url_for('static', filename='js/cadu-workspace-brand-review.js') }}?v=3" defer></script>
 <script src="{{ url_for('static', filename='js/cadu-workspace-brand-autosave.js') }}?v=1" defer></script>
+<script src="{{ url_for('static', filename='js/cadu-workspace-brand-assets.js') }}?v=2" defer></script>
 {% endblock %}

@@ -9,14 +9,29 @@
   const body = dialog.querySelector('[data-brand-review-body]');
   const footer = dialog.querySelector('[data-brand-review-footer]');
   const statusUrl = summary?.dataset.statusUrl;
-  let timer;
+  let timer; let startedAt = 0;
   const escape = (value) => String(value || '').replace(/[<>&]/g, '');
   const open = () => { if (!dialog.open) dialog.showModal(); };
   const close = () => { window.clearTimeout(timer); dialog.close(); };
+  const elapsed = () => startedAt ? Math.max(0, Math.floor((Date.now() - startedAt) / 1000)) : 0;
+  const formatElapsed = () => {
+    const seconds = elapsed();
+    return seconds >= 60 ? `${Math.floor(seconds / 60)} min ${seconds % 60}s` : `${seconds}s`;
+  };
+  const setSummaryLoading = (message) => {
+    summary?.setAttribute('aria-busy', 'true');
+    const title = summary?.querySelector('h2'); const copy = summary?.querySelector('p');
+    if (title) title.textContent = 'Análise em andamento';
+    if (copy) copy.textContent = message || 'Processando a marca. Você pode manter esta página aberta.';
+    summary?.querySelectorAll('.workspace-brand-review-actions button').forEach((button) => { button.disabled = true; });
+  };
   const renderProgress = (data) => {
+    if (!startedAt) startedAt = data.created_at ? Date.parse(data.created_at) : Date.now();
     const current = Math.max(0, Number(data.index || 0));
     const labels = ['Organizando evidências', 'Revisando evidências', 'Revisando estratégia', 'Traduzindo direção criativa'];
-    body.innerHTML = `<section class="workspace-brand-review-progress"><i aria-hidden="true"></i><div><strong>${escape(data.message || 'Preparando análise')}</strong><p>${current ? `Etapa ${Math.min(current, 4)} de 4.` : 'A auditoria está entrando na fila.'}</p></div><ol>${labels.map((label, index) => `<li class="${index < current ? 'is-active' : ''}">${label}</li>`).join('')}</ol></section>`;
+    const message = data.message || 'Preparando análise';
+    setSummaryLoading(message);
+    body.innerHTML = `<section class="workspace-brand-review-progress" aria-live="polite"><i aria-hidden="true"></i><div><strong>${escape(message)}</strong><p>${current ? `Etapa ${Math.min(current, 4)} de 4 · ${formatElapsed()} decorridos.` : `Entrando na fila · ${formatElapsed()} decorridos.`}</p><small>Você pode sair desta janela: o processamento continua e o resultado ficará salvo.</small></div><ol>${labels.map((label, index) => `<li class="${index < current ? 'is-active' : ''}">${label}</li>`).join('')}</ol></section>`;
     footer.hidden = true;
   };
   const poll = async () => {
@@ -31,6 +46,7 @@
         return;
       }
       if (data.status === 'pending_approval') {
+        summary?.removeAttribute('aria-busy');
         body.innerHTML = '<section class="workspace-brand-review-complete"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><div><strong>Proposta pronta para decisão</strong><p>Os três pareceres foram salvos. Revise a síntese antes de aplicá-la à marca e aos projetos.</p></div></section>';
         footer.hidden = false;
         footer.innerHTML = '<button type="button" data-brand-review-reload>Revisar pareceres</button>';
@@ -38,6 +54,7 @@
         return;
       }
       if (data.status === 'failed') {
+        summary?.removeAttribute('aria-busy');
         body.innerHTML = `<section class="workspace-brand-review-complete is-error"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><div><strong>A análise não foi concluída</strong><p>${escape(data.error || data.message || 'Tente novamente.')}</p></div></section>`;
         footer.hidden = false;
       }

@@ -2233,6 +2233,28 @@ def promote_brand_asset_to_logo(brand_id, asset_id):
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id), code=303)
 
 
+@bp.post('/workspace/app/marcas/<int:brand_id>/ativos/referencias-recentes')
+@login_required
+def find_recent_brand_creatives(brand_id):
+    """Import public campaign references into the current brand session."""
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    _workspace_team_admin()
+    client_id = int(session.get('cliente_id') or 0)
+    brand = _workspace_brand(client_id, brand_id)
+    if not brand:
+        abort(404)
+    from ..creative_brand_analysis import search_recent_brand_creatives
+    from ..creative_modeling_service import CreativeModelingService
+    candidates = search_recent_brand_creatives(brand.get('name'), limit=8)
+    if not candidates:
+        abort(503, description='Não encontramos referências recentes utilizáveis agora. Tente novamente mais tarde.')
+    imported = CreativeModelingService().import_website_brand_assets(brand_id, candidates)
+    if request.accept_mimetypes.best == 'application/json':
+        return jsonify(ok=True, imported=len(imported)), 201
+    return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id, assets='recent'), code=303)
+
+
 @bp.post('/workspace/app/marcas/<int:brand_id>/auditoria')
 @login_required
 def audit_brand(brand_id):
@@ -2331,7 +2353,8 @@ def brand_audit_status(brand_id):
         'status': pack.get('status') or 'not_started', 'stage': pack.get('stage'),
         'index': pack.get('index', 0), 'total': pack.get('total', 4),
         'message': pack.get('message'), 'error': pack.get('error'),
-        'review_count': len(pack.get('reviews') or []), 'updated_at': pack.get('updated_at'),
+        'review_count': len(pack.get('reviews') or []), 'created_at': pack.get('created_at'),
+        'updated_at': pack.get('updated_at'),
     })
 
 

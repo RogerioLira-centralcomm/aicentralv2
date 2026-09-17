@@ -3079,7 +3079,9 @@ class CreativeModelingService:
             if not source_url.startswith(("http://", "https://")) or source_url in seen:
                 continue
             seen.add(source_url)
-            role = "logo" if candidate.get("kind") == "logo" else "reference"
+            role = "logo" if candidate.get("kind") == "logo" else (
+                "creative" if candidate.get("kind") == "creative" else "reference"
+            )
             payload.append({
                 "role": role,
                 "source_url": source_url,

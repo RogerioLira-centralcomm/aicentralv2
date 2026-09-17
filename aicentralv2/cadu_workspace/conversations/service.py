@@ -9,7 +9,7 @@ from ...cadu_family.catalog import PROFILES
 from .guardrails import validate_message, validate_files, history_context, require_available_intent
 from .orchestration import choose_mode
 from .provider_events import ProviderEvents
-from . import catalog_tools
+from . import catalog_tools, result_cards
 from . import recovery
 
 
@@ -358,6 +358,9 @@ def stream(run):
             card = catalog_tools.project(data, run.get('profile'), run.get('client_id'), run.get('user_id'))
             if card:
                 projected.append(card)
+            result = result_cards.project(data, run.get('profile'), run.get('client_id'), run.get('user_id'))
+            if result:
+                projected.append(result)
             answer, usage = provider.answer, provider.usage
             state = 'completed' if provider.completed else 'failed'
             for item in projected:

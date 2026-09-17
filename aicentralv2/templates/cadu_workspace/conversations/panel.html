@@ -28,5 +28,4 @@
     <div class="conversation-composer-notes"><p class="conversation-shortcuts">Enter envia <span aria-hidden="true">·</span> Shift+Enter cria uma linha</p><p id="conversation-upload-help">Até 3 arquivos de 15 MB. Imagens, PDF, texto e Office.</p></div>
   </form>
   <p id="conversation-status" role="status"></p>
-  {% if chat_authenticated %}<dialog id="conversation-mode-dialog" aria-labelledby="conversation-mode-dialog-title"><form id="conversation-mode-form"><header><div><h2 id="conversation-mode-dialog-title">Personalizar modo</h2><p id="conversation-mode-dialog-description">Estas instruções valem somente para a sua conta.</p></div></header><label for="conversation-mode-prompt">Instruções para o Cadu</label><textarea id="conversation-mode-prompt" maxlength="3000" required></textarea><footer><button type="button" id="conversation-mode-reset">Restaurar padrão</button><span></span><button type="button" id="conversation-mode-cancel">Cancelar</button><button type="submit" class="family-primary">Salvar</button></footer></form></dialog>{% endif %}
 </aside>

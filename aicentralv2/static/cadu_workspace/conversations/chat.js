@@ -113,10 +113,6 @@
   const archivedFilter = document.getElementById('conversation-archived');
   const searchForm = document.getElementById('conversation-search');
   const mode = document.getElementById('conversation-mode');
-  const modeEdit = document.getElementById('conversation-mode-edit');
-  const modeDialog = document.getElementById('conversation-mode-dialog');
-  const modeForm = document.getElementById('conversation-mode-form');
-  const modePrompt = document.getElementById('conversation-mode-prompt');
   const projectSelect = document.getElementById('conversation-project');
   const contextNote = document.getElementById('conversation-context-note');
   let contextEntities = [], activeContext = {}, boundProjectRef = null;
@@ -127,7 +123,6 @@
     const active = selected || modeEntries.find(item => item.active)?.id || mode.value;
     mode.replaceChildren(...modeEntries.map(item => new Option(item.title, item.id, false, item.id === active)));
     mode.disabled = !modeEntries.length;
-    if (modeEdit) modeEdit.disabled = mode.disabled;
   };
   composer.value = readDraft(null);
   const contextOptions = (select, rows, emptyLabel, selected) => {
@@ -191,7 +186,7 @@
   mode?.addEventListener('change', async () => {
     const selected = mode.value;
     const previous = modeEntries.find(item => item.active)?.id;
-    mode.disabled = true; if (modeEdit) modeEdit.disabled = true; updateSend();
+    mode.disabled = true; updateSend();
     try {
       const data = await api('conversations/modes/active', 'POST', {mode: selected});
       applyModes(data.modes, selected);
@@ -200,35 +195,6 @@
       applyModes(modeEntries, previous);
       status.textContent = unavailableMessage('Não foi possível trocar o modo', error);
     } finally { updateSend(); }
-  });
-  modeEdit?.addEventListener('click', () => {
-    const selected = modeEntries.find(item => item.id === mode.value);
-    if (!selected || !modeDialog || !modePrompt) return;
-    modePrompt.value = selected.prompt || '';
-    document.getElementById('conversation-mode-dialog-title').textContent = 'Personalizar: ' + selected.title;
-    document.getElementById('conversation-mode-dialog-description').textContent = selected.customized
-      ? 'Você está usando instruções personalizadas para este modo.'
-      : 'Estas instruções valem somente para a sua conta.';
-    if (typeof modeDialog.showModal === 'function') modeDialog.showModal(); else modeDialog.setAttribute('open', '');
-    modePrompt.focus();
-  });
-  document.getElementById('conversation-mode-cancel')?.addEventListener('click', () => modeDialog?.close());
-  modeForm?.addEventListener('submit', async event => {
-    event.preventDefault();
-    const selected = mode.value;
-    try {
-      const data = await api('conversations/modes/' + encodeURIComponent(selected), 'PUT', {prompt: modePrompt.value});
-      applyModes(data.modes, selected); modeDialog.close();
-      status.textContent = 'Instruções personalizadas salvas.';
-    } catch (error) { status.textContent = unavailableMessage('Não foi possível salvar as instruções', error); }
-  });
-  document.getElementById('conversation-mode-reset')?.addEventListener('click', async () => {
-    const selected = mode.value;
-    try {
-      const data = await api('conversations/modes/' + encodeURIComponent(selected), 'DELETE');
-      applyModes(data.modes, selected); modeDialog?.close();
-      status.textContent = 'Modo restaurado ao padrão.';
-    } catch (error) { status.textContent = unavailableMessage('Não foi possível restaurar o modo', error); }
   });
   // PHP chat-v2: Enter sends; Shift+Enter inserts a line. Never send mid-IME.
   composer.addEventListener('keydown', event => {
@@ -469,6 +435,62 @@
     card.append(heading, title); if (meta.textContent) card.append(meta); card.append(preview);
     history.append(card); card.scrollIntoView({block:'nearest'});
   }
+  function addResultCard(data) {
+    const result = data?.result;
+    if (!result || typeof result !== 'object' || !result.type) return;
+    const card = document.createElement('section');
+    card.className = 'conversation-result-card is-' + String(result.type).replace(/[^a-z-]/g, '');
+    const header = document.createElement('header');
+    const type = document.createElement('span'); type.className = 'conversation-result-type';
+    type.textContent = ({research:'Pesquisa', audience:'Audiências', link:'Verificação', document:'Documento'})[result.type] || 'Resultado';
+    const title = document.createElement('h4'); title.textContent = result.title || 'Resultado disponível';
+    header.append(type, title);
+    if (result.status) { const statusBadge = document.createElement('span'); statusBadge.className = 'conversation-result-status'; statusBadge.textContent = result.status; header.append(statusBadge); }
+    card.append(header);
+    if (result.summary) { const summary = document.createElement('p'); summary.className = 'conversation-result-summary'; summary.textContent = result.summary; card.append(summary); }
+    (Array.isArray(result.media) ? result.media : []).slice(0, 3).forEach(media => {
+      if (media?.kind !== 'image' || typeof media.url !== 'string') return;
+      try { const url = new URL(media.url); if (url.protocol !== 'https:') return; } catch (_) { return; }
+      const image = document.createElement('img'); image.className = 'conversation-result-media'; image.src = media.url; image.alt = media.alt || ''; image.loading = 'lazy'; card.append(image);
+    });
+    const items = Array.isArray(result.items) ? result.items : [];
+    if (items.length) {
+      const list = document.createElement('div'); list.className = 'conversation-result-items';
+      items.slice(0, 10).forEach(item => {
+        const row = document.createElement('article');
+        const rowTitle = document.createElement('strong'); rowTitle.textContent = item?.title || 'Resultado'; row.append(rowTitle);
+        if (item?.excerpt) { const excerpt = document.createElement('span'); excerpt.textContent = item.excerpt; row.append(excerpt); }
+        if (Array.isArray(item?.metrics) && item.metrics.length) {
+          const metrics = document.createElement('div'); metrics.className = 'conversation-result-metrics';
+          item.metrics.slice(0, 3).forEach(metric => { const value = document.createElement('span'); value.textContent = (metric.label || '') + ': ' + (metric.value || ''); metrics.append(value); });
+          row.append(metrics);
+        }
+        if (item?.url) {
+          try { const url = new URL(item.url); if (url.protocol === 'https:') { const source = document.createElement('a'); source.href = url.href; source.target = '_blank'; source.rel = 'noopener'; source.textContent = 'Abrir fonte'; row.append(source); } } catch (_) {}
+        }
+        list.append(row);
+      });
+      card.append(list);
+    }
+    const actions = Array.isArray(result.actions) ? result.actions : [];
+    if (actions.length) {
+      const footer = document.createElement('footer'); footer.className = 'conversation-result-actions';
+      actions.slice(0, 3).forEach(action => {
+        if (!action?.label) return;
+        const button = document.createElement('button'); button.type = 'button'; button.textContent = action.label;
+        button.className = action.style === 'primary' ? 'is-primary' : '';
+        button.addEventListener('click', () => {
+          if (action.prompt) { composer.value = action.prompt; resizeComposer(); updateSend(); composer.focus(); return; }
+          if (action.id === 'open_link' && action.url) {
+            try { const url = new URL(action.url); if (url.protocol === 'https:') window.open(url.href, '_blank', 'noopener'); } catch (_) {}
+          }
+        });
+        footer.append(button);
+      });
+      if (footer.childElementCount) card.append(footer);
+    }
+    history.append(card); card.scrollIntoView({block:'nearest'});
+  }
   async function resumePending(requested) {
     if (!canReplay || !pending || sending || loadingThread) return;
     const pendingId = pending.id;
@@ -505,6 +527,7 @@
           answer = data.event === 'replace' ? data.text : answer + data.text;
           renderStreaming(output, answer);
         } else if (data.event === 'catalog') addCatalogCard(data);
+        else if (data.event === 'result') addResultCard(data);
         else if (data.event === 'sources') addSources(data.sources);
         else if (data.event === 'document') addDocumentCard(data);
         else if (data.event === 'progress' || data.event === 'error') status.textContent = data.message;
@@ -658,6 +681,7 @@
           }
           else if (data.event === 'progress') status.textContent = data.message;
           else if (data.event === 'catalog') addCatalogCard(data);
+          else if (data.event === 'result') addResultCard(data);
           else if (data.event === 'sources') addSources(data.sources);
           else if (data.event === 'document') addDocumentCard(data);
           else if (data.event === 'error') status.textContent = data.message;

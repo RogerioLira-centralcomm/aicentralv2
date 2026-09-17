@@ -31,8 +31,9 @@ class ChatShellTest(TestCase):
         response = self.client.get('/workspace/app/conversas')
         self.assertEqual(response.status_code, 200)
         elements = Elements(response.get_data(as_text=True)).items
-        for element_id in ('conversation-panel', 'conversation-message', 'conversation-mode', 'conversation-mode-edit', 'conversation-mode-dialog', 'conversation-mode-prompt', 'conversation-send', 'conversation-new', 'conversation-history-toggle', 'conversation-sidebar'):
+        for element_id in ('conversation-panel', 'conversation-message', 'conversation-mode', 'conversation-send', 'conversation-new', 'conversation-history-toggle', 'conversation-sidebar'):
             self.assertEqual(sum(attrs.get('id') == element_id for _, attrs in elements), 1, element_id)
+        self.assertFalse(any(attrs.get('id') in {'conversation-brand', 'conversation-mode-dialog'} for _, attrs in elements))
         body = next(attrs for tag, attrs in elements if tag == 'body')
         self.assertEqual(body['data-product'], 'workspace')
         self.assertEqual(body['data-authenticated'], 'true')

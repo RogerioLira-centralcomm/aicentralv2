@@ -65,3 +65,16 @@ def test_context_packet_keeps_workspace_and_base_cadu_in_distinct_fields(monkeyp
     assert values['base_cadu_global_publicada'][0]['fonte'] == 'Identidade Centralcomm'
     sources = service.project_sources(packet)
     assert {item['title'] for item in sources} == {'Briefing', 'Base Cadu — Identidade Centralcomm'}
+
+
+def test_payload_includes_compact_user_memory_when_relevant(monkeypatch):
+    import json
+    from aicentralv2.cadu_workspace.conversations import memory
+    from aicentralv2.cadu_workspace.conversations.service import build_run
+    monkeypatch.setattr(memory, 'context_packet', lambda *args: '{"memoria_usuario":{"preferencias":["respostas diretas"]}}')
+    project_context = '{"contexto_projeto_privado":{"projeto_ref":"ci:42"}}'
+    run = build_run('run', 'conversation', {'id': 1, 'name': 'Ana', 'organization_id': 2},
+                    {'client_id': 3, 'client_name': 'Cliente'}, {'id': 'ideias', 'prompt': 'Ajude.'},
+                    'workspace', project_context, {'dify_conversation_id': None, 'total_mensagens': 0},
+                    'Escreva uma análise.', [], None, '')
+    assert json.loads(run['payload']['inputs']['user_memory_context'])['memoria_usuario']['preferencias'] == ['respostas diretas']

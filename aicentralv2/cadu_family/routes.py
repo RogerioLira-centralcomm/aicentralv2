@@ -203,6 +203,21 @@ def conversation_history():
                                    and selected.get('role') in ('admin', 'member')))
 
 
+@bp.get('/api/memories')
+def memories():
+    from ..cadu_workspace.conversations import memory
+    return jsonify(memories=memory.list_memories(context.identity(), context.resolve()))
+
+
+@bp.delete('/api/memories/<uuid:memory_id>')
+def dismiss_memory(memory_id):
+    from ..cadu_workspace.conversations import memory
+    selected = writable_context()
+    if not memory.dismiss(str(memory_id), context.identity(), selected):
+        abort(404)
+    return jsonify(success=True)
+
+
 @bp.patch('/api/conversations/<conversation_id>')
 def conversation_update(conversation_id):
     selected = writable_context()

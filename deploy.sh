@@ -215,6 +215,7 @@ echo "[7/9] Atualizando schemas e dados..."
 "$VENV_PYTHON" migrations/run_add_cadu_skills_management.py
 "$VENV_PYTHON" migrations/run_add_cadu_agent_campaign_projects.py
 "$VENV_PYTHON" migrations/run_add_cadu_chat_runtime.py
+"$VENV_PYTHON" migrations/run_add_cadu_user_memory.py
 "$VENV_PYTHON" migrations/run_add_cadu_tool_token_ledger.py
 "$VENV_PYTHON" migrations/run_upgrade_cadu_tool_token_ledger_compat.py
 # Avatar badge is an optional rollout. Do not make a partial checkout fail

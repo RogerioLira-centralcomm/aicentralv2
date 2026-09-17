@@ -11,6 +11,7 @@ from .orchestration import choose_mode
 from .provider_events import ProviderEvents
 from . import catalog_tools, result_cards
 from . import recovery
+from . import memory
 
 
 def modes(user_id):
@@ -117,7 +118,10 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query):
         return ''
     if not projects:
         return ''
-    packet = {'projeto': projects[0]}
+    # The qualified reference is intentionally kept inside the private packet:
+    # it lets the memory retrieval layer apply project scope without exposing
+    # internal IDs as a separate chat input.
+    packet = {'projeto_ref': project_ref, 'projeto': projects[0]}
     if isinstance(brand_ref, str) and brand_ref.startswith('studio:'):
         try:
             brands = repository.rows('''SELECT name, sector, brand_profile
@@ -288,9 +292,15 @@ def prepare(data, selected):
                 abort(409, description='Esta conversa pertence a outro perfil ou contexto. Abra uma nova conversa.')
             cur.execute('''INSERT INTO cadu_family_chat_runs (id, conversation_id, user_id, client_id, status, request_hash)
                            VALUES (%s, %s, %s, %s, 'running', %s)''', (run_id, conversation_id, user['id'], selected['client_id'], request_hash))
+            user_message_id = str(uuid4())
             cur.execute('''INSERT INTO cadu_conversation_messages (id, conversation_id, role, content, files, created_at)
                            VALUES (%s, %s, 'user', %s, %s::jsonb, NOW())''',
-                        (str(uuid4()), conversation_id, query, json.dumps([{'id': str(row['id']), 'name': row['name']} for row in uploads])))
+                        (user_message_id, conversation_id, query, json.dumps([{'id': str(row['id']), 'name': row['name']} for row in uploads])))
+            # The database migration is additive; an older deployment must
+            # continue chatting normally until its schema is upgraded.
+            if repository.family_table_available('cadu_user_memories'):
+                memory.capture_explicit(cur, user=user, conversation_id=conversation_id,
+                                        message_id=user_message_id, text=query)
             run = build_run(run_id, conversation_id, user, selected, chosen, profile,
                             project_context, conversation, query, uploads, existing, history, routing)
             run['routing'] = routing
@@ -336,9 +346,17 @@ def build_run(run_id, conversation_id, user, selected, chosen, profile,
         ],
         'orientacao': 'Use somente o conteúdo dos arquivos anexados que for pertinente ao pedido.',
     }, ensure_ascii=False, separators=(',', ':'))
+    project_ref = None
+    try:
+        envelope = json.loads(project_context or '{}')
+        project_ref = envelope.get('contexto_projeto_privado', {}).get('projeto_ref')
+    except (TypeError, ValueError, AttributeError):
+        pass
+    user_memory_context = memory.context_packet(user, selected, project_ref, query)
     inputs = {'nome_usuario': user['name'], 'nome_cliente': selected['client_name'], 'profile': profile,
               'skill_id': 'orquestrador', 'skill_context': skill_context,
               'files_context': files_context, 'projeto_context': project_context,
+              'user_memory_context': user_memory_context,
               'is_first_message': 'true' if not conversation['total_mensagens'] else 'false',
               'saudacao_permitida': 'sim' if query.lower().strip('!.? ') in ('oi', 'olá', 'bom dia', 'boa tarde', 'boa noite') and not conversation['total_mensagens'] else 'nao',
               'turn_index': str(int(conversation['total_mensagens'] or 0) // 2 + 1)}

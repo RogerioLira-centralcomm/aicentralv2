@@ -161,6 +161,7 @@
     if (contextNote) contextNote.textContent = conversationId
       ? (projectRef ? 'Projeto definido na criação desta conversa.' : 'Esta conversa foi criada sem projeto.')
       : projectSelect?.value ? 'Projeto para a nova conversa.' : 'Sem projeto: a nova conversa usará apenas o contexto geral.';
+    if (pageMode && !conversationId && !sending && history?.querySelector('.workspace-conversation-empty')) renderEmptyState();
   };
   async function loadContext() {
     if (!projectSelect) return;
@@ -465,23 +466,48 @@
   function renderEmptyState() {
     if (!pageMode) return;
     history.replaceChildren();
+    const projectRef = activeContext?.project_ref || projectSelect?.value || '';
+    const project = contextEntities.find(item => item.kind === 'project' && item.ref === projectRef);
+    const projectName = String(project?.name || '').trim();
+    const suggestionsForProject = projectName ? [
+      ['Faça a leitura de partida', 'Objetivo, entregas, riscos e decisões que faltam',
+        `Faça uma leitura de partida do projeto ${projectName}: objetivo, entregas, riscos e as decisões que preciso tomar agora.`],
+      ['Estruture o próximo movimento', 'Plano de ação com responsáveis, dependências e prazo',
+        `Com base no projeto ${projectName}, proponha o próximo movimento: prioridades, dependências, responsáveis e prazo sugerido.`],
+      ['Transforme em plano de mídia', 'Estratégia, audiências, canais, formatos e operação',
+        `Transforme o contexto do projeto ${projectName} em um plano de mídia: estratégia, audiências, canais, formatos, etapas e critérios de otimização.`],
+      ['Encontre as lacunas do briefing', 'O que validar antes de produzir ou ativar',
+        `Quais informações críticas ainda faltam no projeto ${projectName} antes de avançar? Ordene por impacto e proponha como validar cada uma.`],
+      ['Compare caminhos estratégicos', 'Três escolhas com benefícios, riscos e implicações',
+        `Proponha três caminhos estratégicos para o projeto ${projectName}. Compare benefício, risco, dependência e quando cada um faz sentido.`],
+      ['Prepare uma atualização objetiva', 'Resumo executivo para alinhar equipe e cliente',
+        `Prepare uma atualização objetiva do projeto ${projectName}: onde estamos, o que foi decidido, o que está em risco e o próximo passo.`],
+    ] : [
+      ['Estruture um novo projeto', 'Briefing mínimo para sair da conversa com direção',
+        'Quero estruturar um novo projeto. Faça as perguntas essenciais e, onde faltar dado, avance com premissas claramente marcadas.'],
+      ['Transforme um briefing em plano', 'Estratégia, audiências, canais, formatos e etapas',
+        'Vou colar um briefing. Transforme-o em estratégia, audiências, plano de mídia, etapas e decisões pendentes.'],
+      ['Decida antes de produzir', 'Opções, trade-offs e recomendação objetiva',
+        'Tenho uma decisão de comunicação ou mídia para tomar. Ajude-me a comparar opções, riscos, dependências e uma recomendação final.'],
+      ['Mapeie uma audiência', 'Necessidade, sinais, jornada e ativação possível',
+        'Ajude-me a definir uma audiência prioritária: necessidade, sinais de afinidade, jornada, mensagem e formas de ativação.'],
+      ['Revise uma proposta', 'Pontos fortes, lacunas e como torná-la defensável',
+        'Vou colar uma proposta. Revise criticamente: o que está forte, o que falta provar, riscos e como melhorar a recomendação.'],
+      ['Organize a próxima reunião', 'Pauta, decisões necessárias e materiais de apoio',
+        'Prepare uma pauta de trabalho para a próxima reunião com cliente: decisões necessárias, perguntas, materiais e próximos passos.'],
+    ];
     const empty = document.createElement('div'); empty.className = 'workspace-conversation-empty';
-    const heading = document.createElement('strong'); heading.textContent = 'Em que vamos trabalhar?';
-    const description = document.createElement('span'); description.textContent = 'Comece uma conversa ou escolha um ponto de partida para o projeto.';
+    const heading = document.createElement('strong'); heading.textContent = projectName ? `Vamos avançar ${projectName}` : 'Vamos começar por uma decisão';
+    const description = document.createElement('span'); description.textContent = projectName
+      ? 'Escolha uma ação que use o contexto do projeto já selecionado.'
+      : 'Escolha um ponto de partida concreto ou selecione um projeto para usar seu contexto.';
     const suggestions = document.createElement('div'); suggestions.className = 'conversation-suggestions';
-    [
-      ['Monte uma tabela de mídia', 'Teste tabelas e recomendações'],
-      ['Faça um plano de 30 dias', 'Teste planejamento em etapas'],
-      ['Crie 3 opções de campanha', 'Teste comparações de ideias'],
-      ['Resuma este briefing', 'Teste resposta curta e objetiva'],
-      ['Liste riscos e soluções', 'Teste blocos de decisão'],
-      ['Sugira um calendário semanal', 'Teste cronograma e prioridades']
-    ].forEach(([prompt, detail]) => {
+    suggestionsForProject.forEach(([prompt, detail, request]) => {
       const button = document.createElement('button'); button.type = 'button'; button.className = 'conversation-suggestion';
       const title = document.createElement('strong'); title.textContent = prompt;
       const copy = document.createElement('span'); copy.textContent = detail;
       button.append(title, copy);
-      button.addEventListener('click', () => { setComposerValue(prompt + '.'); resizeComposer(); updateSend(); editor.focus(); });
+      button.addEventListener('click', () => { setComposerValue(request); resizeComposer(); updateSend(); editor.focus(); });
       suggestions.append(button);
     });
     empty.append(heading, description, suggestions); history.append(empty);

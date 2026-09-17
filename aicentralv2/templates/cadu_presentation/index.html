@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Cadu Media: contexto, planejamento, criação, inteligência e leitura de resultados na mesma operação.">
+  <link rel="canonical" href="{{ canonical }}">
+  <title>Cadu Media — apresentação</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..800&family=Manrope:wght@500;600;700;800&display=swap');
+
+    :root { --ink:#10213b; --ink-soft:#40536b; --paper:#f7f9fa; --line:#dbe3e8; --workspace:#007d6d; --planner:#087d4d; --studio:#6344cf; --skills:#a94d08; --connect:#1363c5; --cadu:#007a78; }
+    * { box-sizing:border-box; }
+    html, body { height:100%; }
+    body { margin:0; overflow:hidden; background:#0d1729; color:var(--ink); font-family:"DM Sans",Arial,sans-serif; }
+    button { font:inherit; }
+    .deck { height:100%; display:grid; place-items:center; padding:24px; }
+    .slide { display:none; position:relative; width:min(96vw,1680px); aspect-ratio:16/9; overflow:hidden; background:#fff; box-shadow:0 30px 100px #0009; padding:11% 6.6% 5.3%; isolation:isolate; }
+    .slide.active { display:block; animation:slide-in .48s cubic-bezier(.2,.8,.2,1); }
+    .slide.exit-left { animation:slide-out .28s ease both; }
+    @keyframes slide-in { from { opacity:0; transform:translate3d(34px,0,0); } to { opacity:1; transform:none; } }
+    @keyframes slide-out { to { opacity:0; transform:translate3d(-22px,0,0); } }
+    .brand { position:absolute; top:5.5%; left:6.6%; display:flex; align-items:center; gap:9px; font:800 17px/1 Manrope,Arial,sans-serif; letter-spacing:-.06em; z-index:2; }
+    .brand-mark { width:21px; height:21px; border-radius:5px 11px 5px 11px; background:linear-gradient(135deg,#11e994,var(--cadu)); transform:rotate(45deg); }
+    .brand-mark::after { content:""; display:block; width:8px; height:8px; margin:6.5px; border-radius:50%; background:#fff; }
+    .slide-icon { position:absolute; top:4.8%; right:6.6%; width:42px; height:42px; object-fit:contain; }
+    .section { font:700 12px/1.2 Manrope,Arial,sans-serif; color:var(--accent,var(--cadu)); letter-spacing:.01em; margin:0 0 18px; }
+    h1,h2,h3,p { margin:0; }
+    h1,h2 { font-family:Manrope,Arial,sans-serif; letter-spacing:-.065em; }
+    h1 { font-size:clamp(42px,4.55vw,80px); line-height:.98; max-width:770px; }
+    h2 { font-size:clamp(32px,3.25vw,58px); line-height:1.03; max-width:800px; }
+    h3 { font:800 18px/1.15 Manrope,Arial,sans-serif; letter-spacing:-.04em; }
+    .lede { max-width:615px; margin-top:22px; color:var(--ink-soft); font-size:clamp(15px,1.25vw,22px); line-height:1.43; }
+    /* O rodapé repetido só competia com a narrativa. A marca no topo basta. */
+    .footer { display:none; }
+    .footer .number { color:var(--accent,var(--cadu)); }
+    .family { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-top:42px; }
+    .product { min-height:174px; padding:20px; border:0; box-shadow:inset 0 5px 0 var(--product); background:color-mix(in srgb, var(--product) 6%, white); }
+    .product img { display:block; width:38px; height:38px; margin-bottom:18px; }
+    .product p { margin-top:7px; color:var(--ink-soft); font-size:13px; line-height:1.38; }
+    .product.workspace { --product:var(--workspace); }.product.planner { --product:var(--planner); }.product.studio { --product:var(--studio); }.product.skills { --product:var(--skills); }.product.connect { --product:var(--connect); }
+    .split { display:grid; grid-template-columns:.88fr 1.12fr; align-items:center; gap:7%; height:82%; }
+    .image-frame { position:relative; overflow:hidden; border:0; background:#edf3f6; box-shadow:none; }
+    .image-frame img { display:block; width:100%; height:100%; object-fit:cover; }
+    .caption { display:none; }
+    .flow { display:grid; grid-template-columns:1fr 38px 1fr 38px 1fr 38px 1fr; align-items:center; margin-top:58px; }
+    .flow-item { min-height:130px; padding:20px; border:0; background:var(--paper); }
+    .flow-item small { display:block; margin-top:9px; color:var(--ink-soft); font-size:13px; line-height:1.35; }
+    .flow-arrow { color:var(--cadu); font-size:26px; text-align:center; }
+    .break { padding:0; background:#e9f4f2; }
+    .break::after { content:""; position:absolute; inset:0; background:linear-gradient(90deg,#fff 0%,#ffffffd9 33%,#ffffff12 63%); z-index:1; pointer-events:none; }
+    .break img { width:100%; height:100%; object-fit:cover; }
+    .break-copy { position:absolute; top:27%; left:6.6%; max-width:620px; z-index:2; }
+    .break-copy h1 { margin-top:17px; }
+    .break-copy .lede { color:#334c5c; }
+    .screen { height:84%; }
+    .screen img { object-position:center; }
+    .outcomes { display:grid; grid-template-columns:1.05fr .95fr; gap:7%; align-items:center; height:82%; }
+    .steps { display:grid; gap:12px; }
+    .step { display:grid; grid-template-columns:44px 1fr; gap:16px; padding:17px; background:var(--paper); }
+    .step:last-child { border-bottom:0; }
+    .step i { width:32px; height:32px; border-radius:50%; display:grid; place-items:center; background:var(--accent,var(--cadu)); color:#fff; font-style:normal; font:800 13px Manrope,Arial,sans-serif; }
+    .step p { margin-top:5px; color:var(--ink-soft); font-size:14px; line-height:1.4; }
+    .comparison { display:grid; gap:7px; margin-top:37px; border:0; }
+    .comparison div { display:grid; grid-template-columns:1.2fr 1fr 1fr; gap:22px; align-items:center; min-height:67px; padding:0 18px; border:0; background:var(--paper); font-size:14px; }
+    .comparison div:first-child { min-height:40px; color:#738092; font:700 10px Manrope,Arial,sans-serif; letter-spacing:.04em; }
+    .yes { color:#087d4d; font-weight:700; }.no { color:#738092; }
+    .context { display:grid; grid-template-columns:1fr 1.25fr 1fr; gap:18px; margin-top:48px; }
+    .context > div { padding:28px; min-height:180px; border:0; background:var(--paper); }
+    .context > div:nth-child(2) { border:0; background:var(--ink); color:#fff; }
+    .context p { margin-top:10px; color:var(--ink-soft); font-size:15px; line-height:1.45; }.context > div:nth-child(2) p { color:#d4e0eb; }
+    .closing { background:var(--ink); color:#fff; }.closing::after { content:""; position:absolute; inset:auto -8% -30% auto; width:65%; aspect-ratio:1; background:radial-gradient(circle,#00a8a070 0 18%,transparent 19% 35%,#11e99420 36% 49%,transparent 50%); transform:rotate(-20deg); }
+    .closing .footer { color:#b7c7d5; }.closing .brand { color:#fff; }.closing .lede { color:#b7c7d5; }.date { display:inline-block; margin-top:32px; padding:12px 17px; border:0; background:#11e994; color:#10213b; font:800 14px Manrope,Arial,sans-serif; }
+    .progress { position:fixed; z-index:8; top:0; left:0; height:3px; background:#11e994; transition:width .35s ease; }.counter,.hint { position:fixed; z-index:8; bottom:14px; color:#b9c5d3; font:600 10px Manrope,Arial,sans-serif; letter-spacing:.05em; }.counter { right:18px; }.hint { left:18px; }
+    .hit { position:fixed; z-index:7; top:0; bottom:0; width:16vw; border:0; background:transparent; cursor:pointer; }.hit.left { left:0; }.hit.right { right:0; }
+    @media (max-width:700px) { .deck { padding:0; }.slide { width:100vw; aspect-ratio:16/9; padding:11% 6.6% 5.3%; }.brand { font-size:11px; }.brand-mark { width:13px; height:13px; }.brand-mark::after { width:5px; height:5px; margin:4px; }.slide-icon { width:25px; height:25px; }.section { font-size:8px; margin-bottom:8px; } h1 { font-size:clamp(23px,4.55vw,42px); } h2 { font-size:clamp(18px,3.25vw,30px); }.lede { margin-top:10px; font-size:clamp(9px,1.25vw,14px); }.family { gap:5px; margin-top:18px; }.product { min-height:86px; padding:9px; }.product img { width:21px; height:21px; margin-bottom:8px; }.product h3 { font-size:10px; }.product p { font-size:8px; }.hint { display:none; } }
+    @media (prefers-reduced-motion:reduce) { .slide.active,.slide.exit-left { animation:none; }.progress { transition:none; } }
+  </style>
+</head>
+<body>
+  <main class="deck" aria-label="Apresentação Cadu Media">
+    <section class="slide active" data-title="Capa">
+      <div class="brand"><i class="brand-mark"></i>Cadu Media</div>
+      <div style="position:absolute;left:6.6%;bottom:18%;z-index:2"><p class="section">Operação criativa conectada</p><h1>Menos fricção.<br>Mais ideia em circulação.</h1><p class="lede">Um ecossistema para dar contexto, ritmo e consistência à produção de campanhas.</p></div>
+      <img src="{{ url_for('static', filename='images/cadu/presentation/cover.png') }}" alt="Painéis translúcidos em tons de azul e verde" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2"><div style="position:absolute;inset:0;background:linear-gradient(90deg,#fff 0%,#ffffffed 38%,#ffffff25 70%);z-index:-1"></div><div class="footer"><span>Centralcomm · Cadu Media</span><span class="number"></span></div>
+    </section>
+
+    <section class="slide" data-title="A família Cadu"><div class="brand"><i class="brand-mark"></i>Cadu Media</div><p class="section">O ecossistema</p><h2>Uma família para manter o trabalho conectado.</h2><div class="family"><article class="product workspace"><img src="{{ url_for('static', filename='images/cadu/brand-icons/workspace-192.png') }}" alt=""><h3>Workspace</h3><p>Marca, projeto e decisões.</p></article><article class="product planner"><img src="{{ url_for('static', filename='images/cadu/brand-icons/planner-192.png') }}" alt=""><h3>Planner</h3><p>Estratégia e plano de mídia.</p></article><article class="product studio"><img src="{{ url_for('static', filename='images/cadu/brand-icons/studio-192.png') }}" alt=""><h3>Studio</h3><p>Direção criativa e variações.</p></article><article class="product skills"><img src="{{ url_for('static', filename='images/cadu/brand-icons/skills-192.png') }}" alt=""><h3>Skills</h3><p>Método na hora de executar.</p></article><article class="product connect"><img src="{{ url_for('static', filename='images/cadu/brand-icons/connect-192.png') }}" alt=""><h3>Reports</h3><p>Dados que viram decisão.</p></article></div><p class="lede">O Cadu dá continuidade ao repertório da agência.</p><div class="footer"><span>Cadu Media · visão de família</span><span class="number"></span></div></section>
+
+    <section class="slide" data-title="O problema"><div class="brand"><i class="brand-mark"></i>Cadu Media</div><div class="split"><div><p class="section">O ponto de partida</p><h2>Campanhas acontecem entre ferramentas. O contexto, nem sempre.</h2><p class="lede">O problema não são as ferramentas. É recomeçar a conversa a cada troca de tela.</p></div><div class="image-frame screen"><img src="{{ url_for('static', filename='images/cadu/presentation/context-fragmented-v1.png') }}" alt="Painéis e materiais dispersos representam um contexto de trabalho fragmentado"><span class="caption">Ilustração · contexto fragmentado</span></div></div><div class="footer"><span>Cadu Media · realidade operacional</span><span class="number"></span></div></section>
+
+    <section class="slide break" data-title="O fluxo"><img src="{{ url_for('static', filename='images/cadu/presentation/break-flow.png') }}" alt="Painéis que conectam criação, planejamento e dados"><div class="break-copy"><p class="section">A campanha como sistema</p><h1>Ela não deveria recomeçar.</h1><p class="lede">Do briefing à leitura de resultado, o trabalho mantém o mesmo centro.</p></div><div class="footer"><span>Cadu Media · continuidade</span><span class="number"></span></div></section>
+
+    <section class="slide" data-title="Fluxo conectado"><div class="brand"><i class="brand-mark"></i>Cadu Media</div><div class="split"><div><p class="section">O fluxo conectado</p><h2>Uma campanha avança quando o contexto acompanha a próxima decisão.</h2><p class="lede">A ideia central se desdobra em canal, audiência e formato sem perder o briefing. O aprendizado volta para orientar a rodada seguinte.</p><p class="lede" style="font-size:15px"><strong>Briefing → Planejar → Criar → Aprender</strong></p></div><div class="image-frame screen"><img src="{{ url_for('static', filename='images/cadu/presentation/campaign-variations-v1.png') }}" alt="Uma peça central se desdobra em formatos conectados"><span class="caption">Ilustração · uma ideia, vários pontos de contato</span></div></div><div class="footer"><span>Cadu Media · fluxo de campanha</span><span class="number"></span></div></section>
+
+    <section class="slide" data-title="Workspace" style="--accent:var(--workspace)"><div class="brand"><i class="brand-mark"></i>Cadu Media</div><img class="slide-icon" src="{{ url_for('static', filename='images/cadu/brand-icons/workspace-192.png') }}" alt=""><div class="split"><div><p class="section">Workspace</p><h2>O ponto de partida do projeto.</h2><p class="lede">Marca, conversas e próximos passos em uma única interface.</p></div><div class="image-frame screen"><img src="{{ url_for('static', filename='images/cadu/email/workspace-growth-v2.png') }}" alt="Captura da interface Cadu Workspace"><span class="caption">Workspace · interface de produto</span></div></div><div class="footer"><span>Workspace · contexto compartilhado</span><span class="number"></span></div></section>
+
+    <section class="slide" data-title="Planner" style="--accent:var(--planner)"><div class="brand"><i class="brand-mark"></i>Cadu Media</div><img class="slide-icon" src="{{ url_for('static', filename='images/cadu/brand-icons/planner-192.png') }}" alt=""><div class="split"><div><p class="section">Smart Planner</p><h2>Planejamento que vira decisão.</h2><p class="lede">Objetivo, canais, entregas e checkpoints no mesmo plano.</p></div><div class="image-frame screen"><img src="{{ url_for('static', filename='images/cadu/products/planner.png') }}" alt="Captura da interface Cadu Smart Planner"><span class="caption">Smart Planner · interface de produto</span></div></div><div class="footer"><span>Planner · estratégia em movimento</span><span class="number"></span></div></section>
+
+    <section class="slide" data-title="Studio" style="--accent:var(--studio)"><div class="brand"><i class="brand-mark"></i>Cadu Media</div><img class="slide-icon" src="{{ url_for('static', filename='images/cadu/brand-icons/studio-192.png') }}" alt=""><div class="split"><div><p class="section">Media Studio</p><h2>Escala criativa sem perder o briefing.</h2><p class="lede">Explore, ajuste e desdobre peças no contexto certo.</p></div><div class="image-frame screen"><img src="{{ url_for('static', filename='images/cadu/products/studio.png') }}" alt="Captura da interface Cadu Media Studio"><span class="caption">Media Studio · interface de produto</span></div></div><div class="footer"><span>Studio · da ideia à variação</span><span class="number"></span></div></section>
+
+    <section class="slide" data-title="Ganho de atenção"><div class="brand"><i class="brand-mark"></i>Cadu Media</div><div class="outcomes"><div><p class="section">O ganho é de atenção</p><h2>Menos montagem.<br>Mais decisão.</h2><p class="lede">O Cadu reduz o tempo de recompor contexto antes de agir.</p></div><div class="steps"><div class="step"><i>1</i><div><h3>Reunir</h3><p>Brief, referências e histórico.</p></div></div><div class="step"><i>2</i><div><h3>Escolher</h3><p>Critérios claros para cada entrega.</p></div></div><div class="step"><i>3</i><div><h3>Produzir</h3><p>Variações no contexto certo.</p></div></div></div></div><div class="footer"><span>Cadu Media · eficiência para criar</span><span class="number"></span></div></section>
+
+    <section class="slide break" data-title="Skills"><img src="{{ url_for('static', filename='images/cadu/presentation/break-skills.png') }}" alt="Arquivos organizados e painéis de conhecimento"><div class="break-copy"><p class="section" style="color:var(--skills)">Cadu Skills</p><h1>Inteligência embarcada no trabalho.</h1><p class="lede">Conhecimento de marca, método e critérios de entrega acompanham a tarefa — não apenas o prompt.</p></div><div class="footer"><span>Cadu Media · inteligência aplicada</span><span class="number"></span></div></section>
+
+    <section class="slide" data-title="Como Skills ajuda" style="--accent:var(--skills)"><div class="brand"><i class="brand-mark"></i>Cadu Media</div><img class="slide-icon" src="{{ url_for('static', filename='images/cadu/brand-icons/skills-192.png') }}" alt=""><p class="section">Cadu Skills</p><h2>O pedido já começa orientado.</h2><div class="comparison"><div><span>DIMENSÃO</span><span>SEM SKILL</span><span>COM SKILL</span></div><div><strong>Preparação</strong><span class="no">Contexto recomposto</span><span class="yes">Brief disponível</span></div><div><strong>Iterações</strong><span class="no">Direção recorrente</span><span class="yes">Critérios embutidos</span></div><div><strong>Aderência</strong><span class="no">Prompt do momento</span><span class="yes">Marca orienta a saída</span></div><div><strong>Consistência</strong><span class="no">Varia por sessão</span><span class="yes">Método reproduzível</span></div></div><div class="footer"><span>Skills · método em operação</span><span class="number"></span></div></section>
+
+    <section class="slide" data-title="Reports" style="--accent:var(--connect)"><div class="brand"><i class="brand-mark"></i>Cadu Media</div><img class="slide-icon" src="{{ url_for('static', filename='images/cadu/brand-icons/connect-192.png') }}" alt=""><div class="split"><div><p class="section">Reports</p><h2>A métrica abre a próxima decisão.</h2><p class="lede">Dados, leitura e recomendação voltam para o mesmo projeto.</p></div><div class="image-frame screen"><img src="{{ url_for('static', filename='images/cadu/presentation/learning-loop-v1.png') }}" alt="Painel de dados que retorna para o planejamento da próxima ação"><span class="caption">Ilustração · da métrica à próxima ação</span></div></div><div class="footer"><span>Reports · da métrica à próxima ação</span><span class="number"></span></div></section>
+
+    <section class="slide" data-title="Um contexto"><div class="brand"><i class="brand-mark"></i>Cadu Media</div><p class="section">Um ecossistema, um contexto</p><h2>Marca, projeto e decisões no mesmo lugar.</h2><div class="context"><div><h3>Marca</h3><p>Tom, público e referências.</p></div><div><h3>Projeto / Workspace</h3><p>Brief, conversas, Skills e aprendizados.</p></div><div><h3>Soluções</h3><p>Planner, Studio, Skills e Reports.</p></div></div><p class="lede" style="max-width:830px">A ferramenta deixa de ser uma ilha.</p><div class="footer"><span>Cadu Media · contexto compartilhado</span><span class="number"></span></div></section>
+
+    <section class="slide closing" data-title="Próximo passo"><div class="brand"><i class="brand-mark"></i>Cadu Media</div><div style="position:absolute;left:6.6%;top:28%;z-index:2"><p class="section" style="color:#11e994">Próximo passo</p><h1>Acessos liberados<br>em 14/10.</h1><p class="lede">Vamos colocar a primeira campanha em movimento.</p><span class="date">14 · 10 · 2026</span></div><div class="footer"><span>Centralcomm · Cadu Media</span><span class="number" style="color:#11e994"></span></div></section>
+  </main>
+  <button class="hit left" aria-label="Slide anterior"></button><button class="hit right" aria-label="Próximo slide"></button><div class="progress"></div><div class="hint">← →, espaço ou clique nas laterais</div><div class="counter" aria-live="polite"></div>
+  <script>
+    const slides=[...document.querySelectorAll('.slide')], bar=document.querySelector('.progress'), counter=document.querySelector('.counter'); let current=0;
+    const two=n=>String(n).padStart(2,'0');
+    function show(index, direction=1){ const next=(index+slides.length)%slides.length; const previous=slides[current]; if(next===current)return; previous.classList.add('exit-left'); setTimeout(()=>previous.classList.remove('active','exit-left'),260); slides[next].classList.add('active'); current=next; const label=`${two(current+1)} / ${two(slides.length)}`; counter.textContent=label; slides.forEach((slide,index)=>slide.querySelector('.number').textContent=`${two(index+1)} / ${two(slides.length)}`); bar.style.width=`${(current+1)/slides.length*100}%`; history.replaceState(null,'',`#slide-${current+1}`); }
+    document.querySelector('.left').addEventListener('click',()=>show(current-1,-1)); document.querySelector('.right').addEventListener('click',()=>show(current+1));
+    document.addEventListener('keydown',event=>{if(['ArrowRight',' ','PageDown'].includes(event.key)){event.preventDefault();show(current+1)} if(['ArrowLeft','PageUp'].includes(event.key)){event.preventDefault();show(current-1)} if(event.key==='Home')show(0); if(event.key==='End')show(slides.length-1);});
+    const fromHash=Number(location.hash.replace('#slide-','')); if(fromHash>=1&&fromHash<=slides.length){slides[0].classList.remove('active');current=fromHash-1;slides[current].classList.add('active');} show(current); slides.forEach((slide,index)=>slide.querySelector('.number').textContent=`${two(index+1)} / ${two(slides.length)}`); counter.textContent=`${two(current+1)} / ${two(slides.length)}`; bar.style.width=`${(current+1)/slides.length*100}%`;
+  </script>
+</body>
+</html>

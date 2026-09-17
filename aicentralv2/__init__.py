@@ -305,6 +305,11 @@ def create_app(config_class=Config):
         app.register_blueprint(cadu_workspace_bp)
         app.register_blueprint(workspace_brand_api_bp)
 
+        # Apresentação institucional é uma superfície pública isolada: não
+        # herda a navegação, sessão ou chrome operacional do CentralX.
+        from .cadu_presentation import bp as cadu_presentation_bp
+        app.register_blueprint(cadu_presentation_bp)
+
         from .cadu_family import register as register_cadu_family
         register_cadu_family(app)
 

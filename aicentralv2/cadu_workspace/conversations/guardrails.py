@@ -62,6 +62,8 @@ def classify_intent(message):
 
 def require_available_intent(message):
     intent = classify_intent(message)
+    if intent == 'image':
+        raise Conflict('A criação de imagem não está disponível no chat. Use o Cadu Studio para criar ou editar imagens com o contexto adequado de marca e projeto.')
     if intent not in ('text', 'continuation', 'conversation'):
         raise Conflict('Essa ferramenta ainda está em migração. Nenhuma pesquisa, geração de imagem ou ação externa foi executada. Você pode continuar conversando sobre o planejamento.')
     return intent

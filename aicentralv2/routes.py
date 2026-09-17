@@ -2981,8 +2981,8 @@ def init_routes(app):
                 session['is_centralcomm'] = True
                 session['user_photo_url'] = ''
                 
-                flash('Conta criada com sucesso! Bem-vindo!', 'success')
-                return redirect(url_for('index'))
+                flash('Conta criada com sucesso! Vamos preparar seu Workspace.', 'success')
+                return redirect(url_for('onboarding_comercial'))
             else:
                 return render_template('aceitar_convite.html', 
                                        invite=invite,
@@ -2998,6 +2998,61 @@ def init_routes(app):
                                    token=token,
                                    errors=[f'Erro ao criar conta: {str(e)}'],
                                    nome=nome)
+
+    @app.route('/onboarding', methods=['GET', 'POST'])
+    @login_required
+    def onboarding_comercial():
+        """Primeiro acesso: qualifica todo novo usuário para a carteira Demétrius."""
+        contato = db.obter_contato_por_id(session['user_id'])
+        if not contato:
+            session.clear()
+            return redirect(url_for('login'))
+        existente = db.onboarding_comercial_pendente(session['user_id'])
+        if existente:
+            return redirect(url_for('index'))
+
+        if request.method == 'POST':
+            perfil = request.form.get('perfil', '').strip()
+            empresa = request.form.get('empresa', '').strip()
+            cargo = request.form.get('cargo', '').strip()
+            telefone = request.form.get('telefone', '').strip()
+            site_url = request.form.get('site_url', '').strip()
+            objetivo = request.form.get('objetivo', '').strip()
+            errors = []
+            if perfil not in ('cliente_final', 'agencia'):
+                errors.append('Escolha se você atua como cliente final ou agência.')
+            if len(empresa) < 2:
+                errors.append('Informe o nome da sua empresa.')
+            if errors:
+                return render_template('onboarding_comercial.html', errors=errors, form=request.form)
+
+            executivo = db.obter_executivo_demetrius()
+            executivo_id = executivo.get('id_contato_cliente') if executivo else None
+            if not executivo_id:
+                current_app.logger.error('Onboarding interrompido: Demétrius não foi localizado.')
+                return render_template('onboarding_comercial.html', form=request.form,
+                                       errors=['Não foi possível preparar seu atendimento agora. Tente novamente.']), 503
+            lead_id = db.criar_cadu_lead({
+                'nome': contato['nome_completo'], 'email': contato['email'], 'telefone': telefone,
+                'empresa': empresa, 'cargo': cargo,
+                'mensagem': objetivo, 'origem': 'onboarding_workspace', 'canal': 'produto',
+                'interesse': 'Cadu Workspace', 'fonte': 'cadastro', 'status': 'inbox',
+                'qualificacao_score': 1,
+                'qualificacao_notas': f'Perfil declarado: {"Agência" if perfil == "agencia" else "Cliente final"}. Site: {site_url or "não informado"}.',
+                'id_executivo': executivo_id, 'atribuido_em': datetime.now(),
+            })
+            onboarding = {'perfil': perfil, 'empresa': empresa, 'cargo': cargo, 'telefone': telefone,
+                          'site_url': site_url, 'objetivo': objetivo}
+            db.salvar_onboarding_comercial(contato_id=session['user_id'], executivo_id=executivo_id,
+                                           lead_id=lead_id, **onboarding)
+            try:
+                from aicentralv2.services.onboarding_comercial import enviar_notificacao_demetrius
+                enviar_notificacao_demetrius(usuario=contato, onboarding=onboarding, executivo=executivo)
+            except Exception:
+                current_app.logger.exception('Falha ao notificar Demétrius sobre onboarding')
+            flash('Tudo certo. Seu Workspace está pronto.', 'success')
+            return redirect(url_for('index'))
+        return render_template('onboarding_comercial.html', errors=[], form={})
 
     # ==================== FIM ROTAS DE INVITES ====================
 

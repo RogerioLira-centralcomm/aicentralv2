@@ -150,6 +150,9 @@ class Config:
 	BREVO_SKILLS_SENDER_EMAIL = BREVO_SENDER_EMAIL
 	BREVO_CONNECT_SENDER_NAME = os.getenv('BREVO_CONNECT_SENDER_NAME', 'Connect CentralComm')
 	BREVO_CONNECT_SENDER_EMAIL = BREVO_SENDER_EMAIL
+	# Comercial: endereço real que recebe as respostas aos contatos de onboarding.
+	DEMETRIUS_EMAIL = os.getenv('DEMETRIUS_EMAIL', '')
+	DEMETRIUS_NAME = os.getenv('DEMETRIUS_NAME', 'Demétrius Decottignies')
 	FINANCEIRO_HANDOFF_EMAILS = os.getenv('FINANCEIRO_HANDOFF_EMAILS', '')
 	PI_HANDOFF_GATE = os.getenv('PI_HANDOFF_GATE', 'true').lower() in ('true', '1', 'yes', 'on')
 	CAMADAS_V2_ENABLED = os.getenv('CAMADAS_V2_ENABLED', 'false').lower() in ('true', '1', 'yes', 'on')

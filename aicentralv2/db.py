@@ -18574,6 +18574,87 @@ def criar_cadu_lead(dados):
         raise e
 
 
+# ==================== ONBOARDING COMERCIAL ====================
+
+def obter_executivo_demetrius():
+    """Localiza o executivo responsável pelo onboarding sem depender de um ID fixo."""
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT c.id_contato_cliente, c.nome_completo, c.email
+            FROM tbl_contato_cliente c
+            WHERE c.status = TRUE
+              AND lower(c.nome_completo) LIKE 'demetrius%'
+            ORDER BY c.id_contato_cliente
+            LIMIT 1
+        ''')
+        return cursor.fetchone()
+
+
+def salvar_onboarding_comercial(*, contato_id, perfil, empresa, cargo, telefone,
+                                site_url, objetivo, executivo_id, lead_id):
+    """Persiste a qualificação inicial e impede duplicação por usuário."""
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            INSERT INTO cadu_user_onboardings (
+                contato_id, perfil, empresa, cargo, telefone, site_url, objetivo,
+                executivo_id, lead_id, completed_at, followup_scheduled_for
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW() + INTERVAL '5 minutes')
+            ON CONFLICT (contato_id) DO UPDATE SET
+                perfil = EXCLUDED.perfil, empresa = EXCLUDED.empresa, cargo = EXCLUDED.cargo,
+                telefone = EXCLUDED.telefone, site_url = EXCLUDED.site_url,
+                objetivo = EXCLUDED.objetivo, executivo_id = EXCLUDED.executivo_id,
+                lead_id = EXCLUDED.lead_id, completed_at = NOW(),
+                followup_scheduled_for = COALESCE(cadu_user_onboardings.followup_scheduled_for,
+                                                   NOW() + INTERVAL '5 minutes')
+            RETURNING id
+        ''', (contato_id, perfil, empresa, cargo, telefone, site_url, objetivo,
+              executivo_id, lead_id))
+        onboarding_id = cursor.fetchone()['id']
+    conn.commit()
+    return onboarding_id
+
+
+def onboarding_comercial_pendente(contato_id):
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute('''SELECT id, completed_at FROM cadu_user_onboardings WHERE contato_id = %s''', (contato_id,))
+        return cursor.fetchone()
+
+
+def obter_followups_onboarding_vencidos(limit=50):
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            SELECT o.*, c.nome_completo, c.email, e.nome_completo AS executivo_nome,
+                   e.email AS executivo_email
+            FROM cadu_user_onboardings o
+            JOIN tbl_contato_cliente c ON c.id_contato_cliente = o.contato_id
+            LEFT JOIN tbl_contato_cliente e ON e.id_contato_cliente = o.executivo_id
+            WHERE o.followup_sent_at IS NULL AND o.followup_scheduled_for <= NOW()
+              AND o.followup_attempts < 3
+            ORDER BY o.followup_scheduled_for
+            LIMIT %s
+        ''', (limit,))
+        return cursor.fetchall()
+
+
+def registrar_resultado_followup_onboarding(onboarding_id, *, success, error=None):
+    conn = get_db()
+    with conn.cursor() as cursor:
+        cursor.execute('''
+            UPDATE cadu_user_onboardings
+            SET followup_attempts = followup_attempts + 1,
+                followup_sent_at = CASE WHEN %s THEN NOW() ELSE NULL END,
+                followup_error = %s,
+                followup_scheduled_for = CASE WHEN %s THEN followup_scheduled_for
+                    ELSE NOW() + INTERVAL '15 minutes' END
+            WHERE id = %s
+        ''', (success, error, success, onboarding_id))
+    conn.commit()
+
+
 def atualizar_cadu_lead(lead_id, dados):
     """Atualiza um lead existente."""
     conn = get_db()

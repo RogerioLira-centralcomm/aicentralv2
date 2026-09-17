@@ -466,6 +466,14 @@ def register_commands(app):
             print('OK Conexao com banco OK!')
         else:
             print('FALHA Falha na conexao com banco!')
+
+    @app.cli.command('process-onboarding-followups')
+    @click.option('--limit', default=50, show_default=True, type=int)
+    def process_onboarding_followups_command(limit):
+        """Envia contatos de onboarding que venceram (agende a cada minuto)."""
+        from .services.onboarding_comercial import processar_followups_onboarding
+        result = processar_followups_onboarding(limit=limit)
+        print(f"Onboarding: {result['enviados']} enviado(s), {result['falhas']} falha(s).")
     
     @app.cli.command('create-contact')
     def create_contact_command():

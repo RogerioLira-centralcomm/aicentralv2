@@ -31,10 +31,12 @@ def test_project_brand_audit_retries_a_transient_credit_read_once():
     app = Flask(__name__)
     with app.app_context():
         with patch('aicentralv2.cadu_workspace.routes.CaduCreditConnector') as connector, \
-             patch('aicentralv2.cadu_workspace.routes.get_db') as get_db:
+             patch('aicentralv2.cadu_workspace.routes.get_db') as get_db, \
+             patch('aicentralv2.cadu_workspace.routes.close_db') as close_db:
             connector.return_value.balance.side_effect = [RuntimeError('connection reset'), 100]
 
             _ensure_brand_audit_credit(42)
 
         assert connector.return_value.balance.call_count == 2
         get_db.return_value.rollback.assert_called_once_with()
+        close_db.assert_called_once_with()

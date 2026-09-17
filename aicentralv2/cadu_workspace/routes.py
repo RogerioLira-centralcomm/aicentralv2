@@ -23,7 +23,7 @@ from ..cadu_family import repository as family_repository
 from ..cadu_connect.repository import accounts_for_workspace_context
 from ..cadu_credit_connector import CaduCreditConnector
 from ..cadu_skills.repository import CaduCreditUnavailable, charge_project_rag, credit_position, list_customizations
-from ..db import get_db
+from ..db import close_db, get_db
 from ..product_domains import product_url
 from ..smart_planner.logos import public_logo
 from . import project_knowledge, project_sources
@@ -620,8 +620,8 @@ def _brand_analysis_proposal(analysis: dict) -> dict:
 def _ensure_brand_audit_credit(client_id: int) -> None:
     """Avoid starting a paid provider workflow when the client has no balance."""
     # This is a read-only preflight. A request can occasionally inherit a
-    # connection interrupted between page load and submission, so clear that
-    # request transaction and retry once before preventing the whole import.
+    # connection interrupted between page load and submission, so discard that
+    # request connection and retry once before preventing the whole import.
     # The paid job still uses the same ledger authorization when it runs.
     for attempt in range(2):
         try:
@@ -640,6 +640,7 @@ def _ensure_brand_audit_credit(client_id: int) -> None:
                 get_db().rollback()
             except Exception:
                 pass
+            close_db()
     if available <= 0:
         abort(409, description='Não há créditos disponíveis para analisar esta marca. Abra Créditos e consumo para verificar ou comprar um novo lote.')
 

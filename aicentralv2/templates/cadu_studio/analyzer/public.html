@@ -13,8 +13,7 @@
 <div class="analyzer-public">
   <header class="analyzer-public-nav">
     <a class="analyzer-public-brand" href="{{ product_url('studio') }}" aria-label="Cadu Studio"><i aria-hidden="true"></i><strong>Cadu</strong><span>Studio</span></a>
-    <nav aria-label="Navegação do Cadu Studio"><a href="{{ studio_url('modelagem_criar') }}">Criar</a><a href="{{ studio_url('modelagem_trocar') }}">Editar</a><a href="{{ studio_url('modelagem_video') }}">Vídeos</a><a href="{{ studio_url('modelagem_criativos') }}#studioLibrary">Biblioteca</a></nav>
-    <a class="analyzer-public-open" href="{{ product_url('studio') }}">Abrir Studio</a>
+    <span class="analyzer-public-product">Creative Analyzer</span>
   </header>
   <article>
     <header class="analyzer-public-head"><div><p>Creative Analyzer</p><h1>{{ analysis.get('original_name', 'Criativo') }}</h1><small>Análise compartilhada · scores são estimativas preditivas.</small></div><strong aria-label="Score geral {{ score.get('geral', 0) }}">{{ score.get('geral', 0) }}</strong></header>

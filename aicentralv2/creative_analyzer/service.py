@@ -4,20 +4,93 @@ from __future__ import annotations
 
 import time
 import uuid
+import os
 
 from .processor import ImageCreativeAnalyzer, VideoCreativeAnalyzer
 from .storage import AnalyzerStorage
 
 
+class AnalyzerBilling:
+    """Commercial credit boundary for an Analyzer run.
+
+    The provider response is charged once, keyed by the public analysis id.
+    A conservative preflight prevents paying a vision-provider call that the
+    customer's balance cannot cover.
+    """
+    def __init__(self, ledger=None):
+        if ledger is None:
+            from ..cadu_tool_billing import ToolTokenLedger
+            ledger = ToolTokenLedger()
+        self.ledger = ledger
+
+    @staticmethod
+    def credit_client_id(client_id):
+        from ..creative_modeling_service import CreativeModelingService
+        return CreativeModelingService()._credits_crm_id(client_id) or int(client_id)
+
+    @staticmethod
+    def estimate(media_type):
+        name = "CREATIVE_ANALYZER_VIDEO_CREDIT_ESTIMATE" if media_type == "video" else "CREATIVE_ANALYZER_IMAGE_CREDIT_ESTIMATE"
+        fallback = 22000 if media_type == "video" else 12000
+        try:
+            return max(1, int(os.getenv(name, str(fallback))))
+        except ValueError:
+            return fallback
+
+    def reserve(self, public_id, client_id, user_id, media_type):
+        """Atomically hold the published maximum before provider work starts.
+
+        ``assert_available`` is deliberately not used here: it is only a
+        snapshot and two uploads could otherwise both spend the same balance.
+        The ledger debit is idempotent and is the reservation itself.
+        """
+        from ..cadu_tool_billing import ToolCharge
+        credit_client = self.credit_client_id(client_id)
+        held = self.estimate(media_type)
+        row = self.ledger.charge(ToolCharge(
+            idempotency_key=f"studio:creative-analyzer:{public_id}",
+            client_id=credit_client,
+            user_id=int(user_id),
+            tool="studio.creative_analyzer",
+            stage=f"{media_type}_analysis",
+            model="creative-analyzer",
+            charged_tokens=held,
+            metadata={
+                "analysis_id": str(public_id),
+                "media_type": media_type,
+                "reservation": True,
+                "credit_ceiling": held,
+            },
+        )) or {}
+        return int(row.get("tokens_cobrados") or held)
+
+    def settle(self, reserved_credits, result):
+        """Expose measured provider usage without creating a second debit.
+
+        The reservation is the customer's maximum payable amount (shown in the
+        UI before upload). Provider usage remains attached to the analysis for
+        support and future price reconciliation; it must never be charged a
+        second time under the same analysis id.
+        """
+        technical = result.get("technical") if isinstance(result, dict) else {}
+        technical = technical if isinstance(technical, dict) else {}
+        technical["reserved_credits"] = int(reserved_credits)
+        return int(reserved_credits)
+
+
 class AnalyzerService:
-    def __init__(self, repository, storage=None, image_analyzer=None, video_analyzer=None):
+    def __init__(self, repository, storage=None, image_analyzer=None, video_analyzer=None, billing=None):
         self.repository = repository
         self.storage = storage or AnalyzerStorage()
         self.image_analyzer = image_analyzer or ImageCreativeAnalyzer()
         self.video_analyzer = video_analyzer or VideoCreativeAnalyzer()
+        self.billing = billing
 
     def analyze_image(self, upload, *, user_id, client_id, context="", brand_ref=None, project_ref=None):
         public_id = str(uuid.uuid4())
+        reserved_credits = 0
+        if self.billing:
+            reserved_credits = self.billing.reserve(public_id, client_id, user_id, "image")
         saved = self.storage.save_image(public_id, upload)
         analysis = None
         run_id = None
@@ -57,6 +130,8 @@ class AnalyzerService:
             )
             duration_ms = int((time.monotonic() - started) * 1000)
             result["technical"]["duration_ms"] = duration_ms
+            if self.billing:
+                result["technical"]["charged_credits"] = self.billing.settle(reserved_credits, result)
             completed = self.repository.complete_analysis(public_id, result)
             self.repository.finish_run(
                 run_id, "complete", duration_ms=duration_ms,
@@ -76,6 +151,9 @@ class AnalyzerService:
 
     def analyze_video(self, upload, *, user_id, client_id, context="", brand_ref=None, project_ref=None):
         public_id = str(uuid.uuid4())
+        reserved_credits = 0
+        if self.billing:
+            reserved_credits = self.billing.reserve(public_id, client_id, user_id, "video")
         saved = self.storage.save_video(public_id, upload)
         analysis = None
         run_id = None
@@ -121,6 +199,8 @@ class AnalyzerService:
             )
             duration_ms = int((time.monotonic() - started) * 1000)
             result["technical"]["duration_ms"] = duration_ms
+            if self.billing:
+                result["technical"]["charged_credits"] = self.billing.settle(reserved_credits, result)
             completed = self.repository.complete_analysis(public_id, result)
             self.repository.finish_run(run_id, "complete", duration_ms=duration_ms, usage=result["technical"].get("usage"))
             return completed

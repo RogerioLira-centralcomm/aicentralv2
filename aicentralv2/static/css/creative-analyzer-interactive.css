@@ -169,3 +169,37 @@
 @media (prefers-reduced-motion: reduce) {
   .analyzer-attention-overlay polyline { stroke-dasharray: none; }
 }
+
+/* Keep the Cadu Studio palette visible while giving the processing state one clear focus. */
+.analyzer-progress {
+  width: min(440px, calc(100vw - 32px));
+  margin: auto;
+  padding: 30px;
+  border: 1px solid #5bc9ad;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #1d3e39, #172229 64%);
+  box-shadow: 0 28px 80px rgb(0 0 0 / 0.52), inset 0 1px 0 rgb(190 255 235 / 0.12);
+  color: #edf7f4;
+}
+
+.analyzer-progress::backdrop { background: rgb(5 11 15 / 0.78); backdrop-filter: blur(5px); }
+.analyzer-progress__signal { display: flex; gap: 6px; margin-bottom: 20px; }
+.analyzer-progress__signal i { width: 8px; height: 8px; border-radius: 999px; background: #70e2c4; box-shadow: 0 0 14px rgb(112 226 196 / 0.68); animation: analyzer-progress-pulse 1.25s ease-in-out infinite; }
+.analyzer-progress__signal i:nth-child(2) { animation-delay: .15s; }
+.analyzer-progress__signal i:nth-child(3) { animation-delay: .3s; }
+.analyzer-progress__eyebrow { margin: 0 0 8px; color: #9df0d9; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.analyzer-progress h2 { margin: 0; font-size: 26px; letter-spacing: -.035em; }
+.analyzer-progress > p:not(.analyzer-progress__eyebrow) { margin: 10px 0 22px; color: #c4d4d2; font-size: 13px; line-height: 1.55; }
+.analyzer-progress__steps { display: grid; gap: 1px; margin: 0; padding: 1px; overflow: hidden; list-style: none; background: rgb(137 209 190 / 0.23); }
+.analyzer-progress__steps li { position: relative; padding: 11px 14px 11px 38px; background: #182a2b; color: #9db2b0; font-size: 12px; transition: color .2s ease, background .2s ease; }
+.analyzer-progress__steps li::before { content: ''; position: absolute; top: 15px; left: 16px; width: 8px; height: 8px; border: 1px solid #708987; border-radius: 50%; }
+.analyzer-progress__steps li[data-state='current'] { background: #23463f; color: #effff9; }
+.analyzer-progress__steps li[data-state='current']::before { border-color: #bdffec; background: #70e2c4; box-shadow: 0 0 11px rgb(112 226 196 / 0.8); }
+.analyzer-progress__steps li[data-state='done'] { color: #c7eee4; }
+.analyzer-progress__steps li[data-state='done']::before { border-color: #70e2c4; background: #70e2c4; }
+.analyzer-progress__timer { display: block; margin-top: 20px; color: #a9f5df; font-size: 28px; font-variant-numeric: tabular-nums; letter-spacing: -.04em; }
+.analyzer-progress small { display: block; margin-top: 5px; color: #a9bfbd; font-size: 11px; line-height: 1.5; }
+
+@keyframes analyzer-progress-pulse { 50% { opacity: .35; transform: translateY(-3px); } }
+
+@media (prefers-reduced-motion: reduce) { .analyzer-progress__signal i { animation: none; } }

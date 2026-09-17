@@ -8,21 +8,26 @@
 {% block product_id %}studio{% endblock %}
 {% block meta %}<meta name="robots" content="noindex,nofollow"><meta name="description" content="Análise compartilhada pelo Creative Analyzer do Cadu Studio."><meta property="og:title" content="{{ analysis.get('original_name', 'Análise de criativo') }} — Creative Analyzer"><meta property="og:description" content="Diagnóstico preditivo de atenção, mensagem, público e canais."><meta property="og:type" content="article"><meta property="og:image" content="{{ url_for('studio_product.studio_analyzer_public_asset', token=public_token, kind='thumbnail', _external=True) }}">{% endblock %}
 {% block navigation %}{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/creative-analyzer-studio.css') }}?v=1"><link rel="stylesheet" href="{{ url_for('static', filename='css/creative-analyzer-share.css') }}?v=1">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/creative-analyzer-studio.css') }}?v=2"><link rel="stylesheet" href="{{ url_for('static', filename='css/creative-analyzer-share.css') }}?v=2"><link rel="stylesheet" href="{{ url_for('static', filename='css/creative-analyzer-cadu-theme.css') }}?v=2">{% endblock %}
 {% block content %}
 <div class="analyzer-public">
-  <header class="analyzer-public-bar"><a href="{{ product_url('studio') }}">Cadu Studio</a><span>Creative Analyzer</span></header>
+  <header class="analyzer-public-nav">
+    <a class="analyzer-public-brand" href="{{ product_url('studio') }}" aria-label="Cadu Studio"><i aria-hidden="true"></i><strong>Cadu</strong><span>Studio</span></a>
+    <nav aria-label="Navegação do Cadu Studio"><a href="{{ studio_url('modelagem_criar') }}">Criar</a><a href="{{ studio_url('modelagem_trocar') }}">Editar</a><a href="{{ studio_url('modelagem_video') }}">Vídeos</a><a href="{{ studio_url('modelagem_criativos') }}#studioLibrary">Biblioteca</a></nav>
+    <a class="analyzer-public-open" href="{{ product_url('studio') }}">Abrir Studio</a>
+  </header>
   <article>
-    <header class="analyzer-public-head"><div><p>Análise compartilhada</p><h1>{{ analysis.get('original_name', 'Criativo') }}</h1><small>Scores são estimativas preditivas, não resultados observados de campanha.</small></div><strong>{{ score.get('geral', 0) }}</strong></header>
-    <section class="analyzer-public-media" aria-label="Criativo analisado">
+    <header class="analyzer-public-head"><div><p>Creative Analyzer</p><h1>{{ analysis.get('original_name', 'Criativo') }}</h1><small>Análise compartilhada · scores são estimativas preditivas.</small></div><strong aria-label="Score geral {{ score.get('geral', 0) }}">{{ score.get('geral', 0) }}</strong></header>
+    <section class="analyzer-public-stage" aria-label="Criativo analisado">
       {% if analysis.get('media_type') == 'video' %}
       <video controls preload="metadata" src="{{ url_for('studio_product.studio_analyzer_public_asset', token=public_token, kind='source') }}"></video>
-      <div>{% for index in range(4) %}<figure><img src="{{ url_for('studio_product.studio_analyzer_public_asset', token=public_token, kind='frame-' ~ index) }}" alt="Frame {{ index + 1 }} do vídeo"><figcaption>Frame {{ index + 1 }}</figcaption></figure>{% endfor %}</div>
+      <div class="analyzer-public-frames">{% for index in range(4) %}<figure><img src="{{ url_for('studio_product.studio_analyzer_public_asset', token=public_token, kind='frame-' ~ index) }}" alt="Frame {{ index + 1 }} do vídeo"><figcaption>Frame {{ index + 1 }}</figcaption></figure>{% endfor %}</div>
       {% else %}
       <img src="{{ url_for('studio_product.studio_analyzer_public_asset', token=public_token, kind='source') }}" alt="Criativo analisado">
       {% endif %}
     </section>
-    <div class="analyzer-public-sections">
+    <p class="analyzer-public-report-note">Relatório da peça</p>
+    <div class="analyzer-public-sections" aria-label="Relatório da análise">
       <section><h2>Visão geral</h2><p>{{ (score.get('explanations') or {}).get('geral', 'Diagnóstico concluído.') }}</p><dl><div><dt>Clareza</dt><dd>{{ score.get('clareza', 0) }}</dd></div><div><dt>Impacto visual</dt><dd>{{ score.get('impacto_visual', 0) }}</dd></div><div><dt>Adequação digital</dt><dd>{{ score.get('adequacao_digital', 0) }}</dd></div></dl></section>
       <section><h2>Atenção e visual</h2><p>{{ (attention.get('visual_hierarchy') or {}).get('first_fixation', 'Primeira fixação não identificada.') }}</p><dl><div><dt>Atenção</dt><dd>{{ attention.get('attention_score', 0) }}</dd></div><div><dt>Hook</dt><dd>{{ attention.get('hook_score', 0) }}</dd></div><div><dt>Scroll stop</dt><dd>{{ attention.get('scroll_stop_probability', 0) }}</dd></div></dl></section>
       <section><h2>Mensagem e público</h2><p>{{ message.get('value_proposition', 'Proposta de valor não identificada.') }}</p><p>{{ audience.get('life_moment', '') }}</p>{% if audience.get('interests') %}<ul>{% for item in audience.get('interests')[:8] %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}</section>

@@ -15,7 +15,7 @@ from ..creative_modeling_routes import (
 from ..creative_format_lab.swap_csrf import get_or_create_token, trocr_csrf_required
 from ..services.openrouter_service import OpenRouterError
 from .repository import AnalyzerRepository
-from .service import AnalyzerService
+from .service import AnalyzerBilling, AnalyzerService
 from .storage import AnalyzerStorage
 
 PUBLIC_TOKEN = re.compile(r"^[A-Za-z0-9_-]{40,80}$")
@@ -75,10 +75,12 @@ def analyzer_projects():
 
 @studio_or_admin_required_api
 def analyzer_status():
+    billing = AnalyzerBilling()
     return jsonify(
         writes_enabled=bool(current_app.config.get("CREATIVE_ANALYZER_WRITES_ENABLED", True)),
         legacy_mode="read_only",
         ffmpeg_available=bool(shutil.which("ffmpeg") and shutil.which("ffprobe")),
+        credit_estimates={"image": billing.estimate("image"), "video": billing.estimate("video")},
         metrics=_repository().observability(_client_id()),
     )
 
@@ -108,7 +110,7 @@ def analyzer_create():
         project_ref = str(request.form.get("project_ref") or "").strip()[:160] or None
         if project_ref and not repository.project_exists(project_ref, client_id):
             return jsonify(error="Escolha um projeto ativo desta organização."), 400
-        service = AnalyzerService(repository)
+        service = AnalyzerService(repository, billing=AnalyzerBilling())
         extension = Path(upload.filename or "").suffix.lower()
         method = service.analyze_video if extension in {".mp4", ".mov", ".webm"} else service.analyze_image
         row = method(

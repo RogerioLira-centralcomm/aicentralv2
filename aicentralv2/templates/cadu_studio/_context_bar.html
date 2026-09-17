@@ -8,6 +8,7 @@
     <a id="mcCaduStill" href="{{ studio_url('modelagem_trocar') }}"{% if mc_page == 'trocar' %} class="is-current" aria-current="page"{% endif %}>Editar</a>
     <a id="mcCaduVideo" href="{{ studio_url('modelagem_video') }}"{% if mc_page == 'video' %} class="is-current" aria-current="page"{% endif %}>Vídeos</a>
     <a href="{{ studio_url('modelagem_criativos') }}#studioLibrary"{% if mc_page == 'hub' %} class="is-current" aria-current="page"{% endif %}>Biblioteca</a>
+    <a href="{{ product_url('studio', '/analyzer') }}"{% if mc_page == 'analyzer' %} class="is-current" aria-current="page"{% endif %}>Analyzer</a>
   </nav>
   <div class="mc-cadu-meta">
     <label class="mc-cadu-project" for="mcCaduProject"><span>Projeto e marca</span><select id="mcCaduProject" aria-label="Projeto ativo" disabled><option value="">Carregando projetos…</option></select></label>

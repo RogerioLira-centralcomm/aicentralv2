@@ -30,7 +30,7 @@ PRODUCTS = {
     ), 'modules': {
         'inicio': ('Visão geral', None),
         'criacao': ('Criar', None), 'link-tester': ('Link Tester', '/ferramentas-link-tester'),
-        'creative-analyzer': ('Creative Analyzer', '/creative-analyzer'),
+        'creative-analyzer': ('Creative Analyzer', '/analyzer'),
         'copy-ads': ('Copy Ads', '/ferramentas-copy'),
     }},
     'connect': {'name': 'Reports', 'navigation': (

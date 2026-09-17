@@ -8,11 +8,48 @@
   const file = document.getElementById('analyzerFile');
   const result = document.getElementById('analyzerResult');
   const project = document.getElementById('analyzerProject');
+  const progress = document.getElementById('analyzerProgress');
+  const progressTitle = document.getElementById('analyzerProgressTitle');
+  const progressDetail = document.getElementById('analyzerProgressDetail');
+  const progressTimer = document.getElementById('analyzerProgressTimer');
+  const progressSteps = document.getElementById('analyzerProgressSteps');
   let nextOffset = 0;
   let historyLoading = false;
   let uploadLoading = false;
   let historyItems = [];
   const transferred = new Map();
+  let progressInterval = null;
+
+  function startProgress(mediaType) {
+    if (!progress) return;
+    const stages = mediaType === 'video'
+      ? ['Preparar arquivo', 'Ler quatro momentos do vídeo', 'Interpretar a narrativa', 'Organizar o diagnóstico']
+      : ['Preparar arquivo', 'Ler composição e texto', 'Interpretar a peça', 'Organizar o diagnóstico'];
+    progressSteps.replaceChildren(...stages.map(stage => element('li', '', stage)));
+    const startedAt = Date.now();
+    const update = () => {
+      const seconds = Math.floor((Date.now() - startedAt) / 1000);
+      const stage = Math.min(stages.length - 1, Math.floor(seconds / 7));
+      progressTitle.textContent = stages[stage];
+      progressDetail.textContent = stage === 0 ? 'Validando o criativo e preparando a leitura.' : stage === 1 ? 'Buscando texto, elementos e hierarquia visual.' : stage === 2 ? 'Avaliando mensagem, atenção e adequação por canal.' : 'Consolidando o resultado para sua revisão.';
+      const elapsed = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+      progressTimer.value = elapsed;
+      progressTimer.textContent = elapsed;
+      Array.from(progressSteps.children).forEach((item, index) => item.dataset.state = index < stage ? 'done' : index === stage ? 'current' : 'pending');
+    };
+    update(); clearInterval(progressInterval); progressInterval = setInterval(update, 1000);
+    if (!progress.open) {
+      if (typeof progress.showModal === 'function') progress.showModal();
+      else progress.setAttribute('open', '');
+    }
+  }
+  function stopProgress() {
+    clearInterval(progressInterval); progressInterval = null;
+    if (progress?.open) {
+      if (typeof progress.close === 'function') progress.close();
+      else progress.removeAttribute('open');
+    }
+  }
 
   const element = (name, className, text) => {
     const node = document.createElement(name);
@@ -257,11 +294,12 @@
       const box = element('div', 'analyzer-share-link');
       const input = document.createElement('input');
       input.readOnly = true;
-      input.value = payload.url;
+      input.value = new URL(payload.url, window.location.origin).toString();
       const copy = element('button', '', 'Copiar');
       copy.type = 'button';
       copy.addEventListener('click', async () => {
-        await navigator.clipboard.writeText(payload.url);
+        try { await navigator.clipboard.writeText(input.value); }
+        catch (_) { input.select(); document.execCommand('copy'); }
         copy.textContent = 'Copiado';
       });
       const revoke = element('button', '', 'Revogar');
@@ -353,8 +391,16 @@
     try {
       const response = await fetch(root.dataset.statusUrl, { headers: { Accept: 'application/json' } });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok || payload.writes_enabled !== false) return;
+      if (!response.ok) return;
       const submit = form.querySelector('button[type="submit"]');
+      const estimates = payload.credit_estimates || {};
+      file.addEventListener('change', () => {
+        const media = String(file.files?.[0]?.type || '').startsWith('video/') ? 'video' : 'image';
+        const estimate = Number(estimates[media] || 0);
+        submit.dataset.defaultLabel = estimate ? `Analisar criativo · até ${estimate.toLocaleString('pt-BR')} créditos` : 'Analisar criativo';
+        if (!uploadLoading) submit.textContent = submit.dataset.defaultLabel;
+      });
+      if (payload.writes_enabled !== false) return;
       submit.disabled = true;
       submit.textContent = 'Novas análises pausadas';
       status.hidden = false;
@@ -373,6 +419,7 @@
     const button = form.querySelector('button[type="submit"]');
     button.disabled = true;
     button.textContent = 'Analisando…';
+    startProgress(String(file.files[0]?.type || '').startsWith('video/') ? 'video' : 'image');
     status.hidden = false;
     status.textContent = 'Lendo textos, composição e atenção. Isso pode levar alguns minutos.';
     try {
@@ -389,9 +436,10 @@
     } catch (error) {
       status.textContent = error.message || 'Não foi possível analisar a imagem.';
     } finally {
+      stopProgress();
       uploadLoading = false;
       button.disabled = false;
-      button.textContent = 'Analisar criativo';
+      button.textContent = button.dataset.defaultLabel || 'Analisar criativo';
     }
   });
   loadProjects();

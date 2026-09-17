@@ -131,6 +131,36 @@ class CreativeAnalyzerImageTest(TestCase):
         self.assertIn(("asset", "thumbnail"), repository.events)
         self.assertIn(("complete", 82), repository.events)
 
+    def test_service_reserves_before_provider_and_settles_without_second_debit(self):
+        class Repository:
+            def create_analysis(self, payload): return {"id": 3, **payload}
+            def add_asset(self, *_args): return 1
+            def start_run(self, *_args): return 8
+            def complete_analysis(self, public_id, result): return {"public_id": public_id, "result_json": result}
+            def finish_run(self, *_args, **_kwargs): pass
+            def fail_analysis(self, *_args): pass
+
+        class Billing:
+            def __init__(self): self.events = []
+            def reserve(self, public_id, client_id, user_id, media_type):
+                self.events.append(("reserve", public_id, client_id, user_id, media_type))
+                return 123
+            def settle(self, reserved_credits, result):
+                self.events.append(("settle", reserved_credits, result["technical"]["usage"]))
+                return reserved_credits
+
+        analyzer = mock.Mock()
+        analyzer.analyze.return_value = {"score": {"geral": 82}, "technical": {"usage": {"total_tokens": 42}}}
+        billing = Billing()
+        with tempfile.TemporaryDirectory() as folder:
+            result = AnalyzerService(Repository(), AnalyzerStorage(folder), analyzer, billing=billing).analyze_image(
+                self.image_upload(), user_id=7, client_id=174
+            )
+        self.assertEqual(billing.events[0][0], "reserve")
+        self.assertEqual(billing.events[0][2:], (174, 7, "image"))
+        self.assertEqual(billing.events[1], ("settle", 123, {"total_tokens": 42}))
+        self.assertEqual(result["result_json"]["technical"]["charged_credits"], 123)
+
     def test_video_uses_exactly_four_backend_frames(self):
         if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
             self.skipTest("FFmpeg indisponível")

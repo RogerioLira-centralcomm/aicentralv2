@@ -16,6 +16,7 @@ from aicentralv2.crm_v3_helpers import (
     titulo_atividade_lista,
 )
 from aicentralv2.crm_v3_data import store
+from aicentralv2.crm_v3_repository import CrmV3Repository
 from aicentralv2.crm_v3_routes import bp, _generalizar_modelo_estilo
 from aicentralv2.db import CRM_AI_STYLE_MODELS_DDL
 
@@ -46,6 +47,30 @@ def _login(client, user_id=1, user_name="Executivo Teste"):
 
 
 class CrmTestHelpersTest(unittest.TestCase):
+    def test_contato_expoe_acesso_e_nivel_de_uso_do_cadu(self):
+        repository = CrmV3Repository()
+        active = repository._map_contato({
+            "id_contato_cliente": 9, "nome_completo": "Ana Cadu", "status": True,
+            "cadu_access_enabled": True, "cadu_tokens_used": 10_000,
+        })
+        without_access = repository._map_contato({
+            "id_contato_cliente": 10, "nome_completo": "Bruno", "status": False,
+            "cadu_access_enabled": False, "cadu_tokens_used": 99_999,
+        })
+        new_user = repository._map_contato({
+            "id_contato_cliente": 11, "nome_completo": "Carla", "status": True,
+            "cadu_access_enabled": True, "cadu_tokens_used": 0,
+        })
+        light_user = repository._map_contato({
+            "id_contato_cliente": 12, "nome_completo": "Diego", "status": True,
+            "cadu_access_enabled": True, "cadu_tokens_used": 9_999,
+        })
+        self.assertEqual(active["cadu_usage_level"], "muito_uso")
+        self.assertTrue(active["cadu_access_enabled"])
+        self.assertEqual(without_access["cadu_usage_level"], "sem_acesso")
+        self.assertEqual(new_user["cadu_usage_level"], "nunca_usou")
+        self.assertEqual(light_user["cadu_usage_level"], "pouco_uso")
+
     def test_ddl_do_modelo_estilo_bate_com_a_migration(self):
         sql = (
             Path(__file__).resolve().parents[1]

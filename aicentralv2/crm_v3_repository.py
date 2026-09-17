@@ -924,6 +924,16 @@ class CrmV3Repository:
         nome = row.get("nome_completo") or ""
         parts = nome.split()
         avatar = (parts[0][:1] + (parts[1][:1] if len(parts) > 1 else "")).upper() if parts else "?"
+        access_enabled = bool(row.get("cadu_access_enabled"))
+        cadu_tokens_used = max(0, int(row.get("cadu_tokens_used") or 0))
+        if not access_enabled:
+            cadu_usage_level = "sem_acesso"
+        elif cadu_tokens_used == 0:
+            cadu_usage_level = "nunca_usou"
+        elif cadu_tokens_used < 10_000:
+            cadu_usage_level = "pouco_uso"
+        else:
+            cadu_usage_level = "muito_uso"
         return {
             "id": str(row.get("id_contato_cliente") or row.get("id")),
             "cliente_id": str(row.get("pk_id_tbl_cliente") or row.get("cliente_id") or ""),
@@ -937,6 +947,10 @@ class CrmV3Repository:
             "status": "Ativo" if row.get("status") else "Inativo",
             "principal": bool(row.get("principal")),
             "avatar": avatar,
+            "cadu_access_enabled": access_enabled,
+            "cadu_usage_level": cadu_usage_level,
+            "cadu_tokens_used": cadu_tokens_used,
+            "cadu_last_access": row.get("ultimo_acesso"),
         }
 
     # ---------------- Atividades / Objetivos / Notas / Cotações --------------

@@ -790,6 +790,7 @@ button:hover > .crm-v3-menu-hint {
     width: 18px;
     font-size: 9px;
 }
+.crm-v3-cadu-usage{display:inline-flex;align-items:center;gap:4px;min-width:0;border-radius:999px;background:#edf2f1;padding:3px 6px;color:#60716d;font-size:9px;font-weight:700;line-height:1.1}.crm-v3-cadu-usage i{font-size:8px}.crm-v3-cadu-usage.is-nunca_usou{background:#eef4f2;color:#4f7168}.crm-v3-cadu-usage.is-pouco_uso{background:#e5f3ee;color:#176b5e}.crm-v3-cadu-usage.is-muito_uso{background:#d7eee5;color:#0c5f50}.crm-v3-cadu-contact-status{margin-top:4px;padding:13px 14px!important;border:1px solid #e2ebe7!important;border-radius:10px;background:#f8fbfa}.crm-v3-cadu-contact-status__head{display:flex;align-items:center;justify-content:space-between;gap:12px}.crm-v3-cadu-contact-status__head span{color:var(--crm-text-muted);font-size:11px;font-weight:650}.crm-v3-cadu-contact-status__head b{color:#60716d;font-size:12px}.crm-v3-cadu-contact-status.is-nunca_usou .crm-v3-cadu-contact-status__head b{color:#4f7168}.crm-v3-cadu-contact-status.is-pouco_uso .crm-v3-cadu-contact-status__head b,.crm-v3-cadu-contact-status.is-muito_uso .crm-v3-cadu-contact-status__head b{color:#176b5e}.crm-v3-cadu-contact-status p{margin:5px 0 0;color:var(--crm-text-muted);font-size:11px;line-height:1.4}
 
 .crm-v3-contato-badge-count {
     background: var(--crm-primary);

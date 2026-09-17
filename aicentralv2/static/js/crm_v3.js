@@ -2294,6 +2294,7 @@
                 '<div class="crm-v3-contato-nome-row">' +
                 '<button type="button" class="crm-v3-contato-nome" data-contato-id="' + escapeHtml(c.id) + '" title="Editar ' + escapeHtml(nomeExibido) + '">' + escapeHtml(nomeExibido) + '</button>' +
                 (c.principal ? '<span class="crm-v3-contato-badge crm-v3-contato-badge-principal" title="Contato principal"><i class="fa-solid fa-star" aria-hidden="true"></i></span>' : '') +
+                caduContactBadge(c) +
                 '</div>' +
                 (subLinha ? '<div class="crm-v3-contato-cargo">' + escapeHtml(subLinha) + '</div>' : '') +
                 '</div>' +
@@ -2306,6 +2307,18 @@
         }).join('');
 
         bindContatoEvents(container);
+    }
+
+    function caduContactBadge(contato) {
+        var level = String(contato.cadu_usage_level || 'sem_acesso');
+        var label = {
+            sem_acesso: 'Cadu sem acesso',
+            nunca_usou: 'Cadu: nunca usou',
+            pouco_uso: 'Cadu: pouco uso',
+            muito_uso: 'Cadu: muito uso'
+        }[level] || 'Cadu sem acesso';
+        var icon = level === 'sem_acesso' ? 'fa-lock' : 'fa-wand-magic-sparkles';
+        return '<span class="crm-v3-cadu-usage is-' + escapeHtml(level) + '" title="' + escapeHtml(label) + '"><i class="fa-solid ' + icon + '" aria-hidden="true"></i><span>' + escapeHtml(label) + '</span></span>';
     }
 
     function contatoDetailsHtml(c) {
@@ -4189,7 +4202,22 @@
             $('#crm-v3-contato-telefone').value = contato.telefone || '';
             $('#crm-v3-contato-telefone2').value = contato.telefone_secundario || '';
             $('#crm-v3-contato-principal').checked = contato.principal;
-        } else if (title) title.textContent = 'Novo contato';
+            var caduStatus = $('#crm-v3-contato-cadu-status');
+            if (caduStatus) {
+                var level = String(contato.cadu_usage_level || 'sem_acesso');
+                var labels = { sem_acesso: 'Sem acesso ao Cadu', nunca_usou: 'Nunca usou', pouco_uso: 'Pouco uso', muito_uso: 'Muito uso' };
+                caduStatus.hidden = false;
+                caduStatus.className = 'crm-v3-cadu-contact-status mb-4 is-' + level;
+                $('#crm-v3-contato-cadu-access').textContent = labels[level] || labels.sem_acesso;
+                $('#crm-v3-contato-cadu-copy').textContent = level === 'sem_acesso'
+                    ? 'Este contato não possui uma credencial ativa para entrar no Cadu.'
+                    : (level === 'nunca_usou' ? 'Possui acesso ao Cadu, mas ainda não registrou uso.' : Number(contato.cadu_tokens_used || 0).toLocaleString('pt-BR') + ' Tokens Cadu consumidos.');
+            }
+        } else {
+            if (title) title.textContent = 'Novo contato';
+            var newCaduStatus = $('#crm-v3-contato-cadu-status');
+            if (newCaduStatus) newCaduStatus.hidden = true;
+        }
         openModal('crm-v3-modal-contato');
     }
 

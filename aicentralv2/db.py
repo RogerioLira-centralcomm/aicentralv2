@@ -1448,6 +1448,7 @@ def obter_contatos_por_cliente(id_cliente):
                 c.telefone_secundario,
                 c.status,
                 c.user_type,
+                c.ultimo_acesso,
                 c.data_cadastro,
                 c.pk_id_tbl_setor,
                 c.pk_id_tbl_cargo,
@@ -1455,7 +1456,11 @@ def obter_contatos_por_cliente(id_cliente):
                 s.display as setor,
                 cg.descricao as cargo,
                 inv.status as invite_status,
-                inv.expires_at as invite_expires_at
+                inv.expires_at as invite_expires_at,
+                (c.status IS TRUE AND (
+                    NULLIF(c.senha, '') IS NOT NULL OR c.ultimo_acesso IS NOT NULL OR inv.status = 'accepted'
+                )) AS cadu_access_enabled,
+                COALESCE(chat_usage.tokens, 0) + COALESCE(tool_usage.tokens, 0) AS cadu_tokens_used
             FROM tbl_contato_cliente c
             LEFT JOIN tbl_setor s ON c.pk_id_tbl_setor = s.id_setor
             LEFT JOIN tbl_cargo_contato cg ON c.pk_id_tbl_cargo = cg.id_cargo_contato
@@ -1465,9 +1470,23 @@ def obter_contatos_por_cliente(id_cliente):
                 FROM cadu_user_invites
                 WHERE id_cliente = %s
             ) inv ON inv.email = c.email AND inv.rn = 1
+            LEFT JOIN (
+                SELECT id_contato_cliente,
+                       COALESCE(SUM(quantidade * COALESCE(multiplicador, 1)), 0) AS tokens
+                  FROM cadu_token_usage
+                 WHERE id_cliente = %s
+                 GROUP BY id_contato_cliente
+            ) chat_usage ON chat_usage.id_contato_cliente = c.id_contato_cliente
+            LEFT JOIN (
+                SELECT id_contato_cliente,
+                       COALESCE(SUM(tokens_cobrados), 0) AS tokens
+                  FROM cadu_tools_token_usage
+                 WHERE id_cliente = %s AND status = 'charged'
+                 GROUP BY id_contato_cliente
+            ) tool_usage ON tool_usage.id_contato_cliente = c.id_contato_cliente
             WHERE c.pk_id_tbl_cliente = %s
             ORDER BY c.nome_completo
-        ''', (id_cliente, id_cliente))
+        ''', (id_cliente, id_cliente, id_cliente, id_cliente))
         return cursor.fetchall()
 
 

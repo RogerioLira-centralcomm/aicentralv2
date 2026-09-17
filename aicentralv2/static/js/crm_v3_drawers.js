@@ -2853,6 +2853,22 @@
         wrapper.appendChild(frag);
         var form = wrapper.querySelector('form');
         fillForm(form, contato || {});
+        var caduStatus = wrapper.querySelector('[data-cadu-contact-status]');
+        if (caduStatus && contato) {
+            var level = String(contato.cadu_usage_level || 'sem_acesso');
+            var labels = { sem_acesso: 'Sem acesso ao Cadu', nunca_usou: 'Nunca usou', pouco_uso: 'Pouco uso', muito_uso: 'Muito uso' };
+            var access = caduStatus.querySelector('[data-cadu-contact-access]');
+            var copy = caduStatus.querySelector('[data-cadu-contact-copy]');
+            caduStatus.hidden = false;
+            caduStatus.className = 'cx-drawer-section crm-v3-cadu-contact-status is-' + level;
+            if (access) access.textContent = labels[level] || labels.sem_acesso;
+            if (copy) {
+                var tokens = Number(contato.cadu_tokens_used || 0).toLocaleString('pt-BR');
+                copy.textContent = level === 'sem_acesso'
+                    ? 'Este contato não possui uma credencial ativa para entrar no Cadu.'
+                    : (level === 'nunca_usou' ? 'Possui acesso ao Cadu, mas ainda não registrou uso.' : tokens + ' Tokens Cadu consumidos.');
+            }
+        }
         // Popula cargos/setores reais (tbl_cargo_contato / tbl_setor) —
         // antes eram inputs livres, agora combos padronizados. Passa o
         // `contato` para preservar seleção existente.

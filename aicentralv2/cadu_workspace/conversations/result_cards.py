@@ -65,7 +65,11 @@ def _result(event):
     data = _object(event.get("data"))
     for value in (
         event.get("tool_output"), event.get("output"), event.get("result"),
-        data.get("tool_output"), data.get("output"), data.get("result"), data.get("outputs"),
+        # Dify's agent stream reports an executed tool result as an
+        # ``agent_thought.observation``. It is still only a typed data payload:
+        # reasoning and tool input never reach the customer-facing card.
+        event.get("observation"), data.get("tool_output"), data.get("output"),
+        data.get("result"), data.get("outputs"), data.get("observation"),
     ):
         parsed = _object(value)
         if parsed:

@@ -51,3 +51,12 @@ class ResultCardsTest(TestCase):
         self.assertEqual(card["result"]["type"], "document")
         self.assertEqual(card["result"]["items"][0]["metrics"][0]["value"], "4")
         self.assertIsNone(result_cards.project({"tool": "untrusted_tool", "output": {"x": 1}}))
+
+    def test_projects_dify_agent_observation_without_exposing_tool_input(self):
+        card = result_cards.project({
+            "event": "agent_thought", "tool": "market_research", "tool_input": "PRIVATE",
+            "observation": '{"title":"Mercado","summary":"Tendência identificada."}',
+        })
+        self.assertEqual(card["event"], "result")
+        self.assertEqual(card["result"]["type"], "research")
+        self.assertNotIn("PRIVATE", str(card))

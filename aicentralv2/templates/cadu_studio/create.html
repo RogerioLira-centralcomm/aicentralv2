@@ -13,9 +13,9 @@
   <div class="studio-create__workspace">
     <aside class="studio-create__controls" aria-label="Direção da peça">
       <section class="studio-create__project">
-        <p>Contexto do projeto</p>
-        <strong id="studioCreateProject">Escolha um projeto</strong>
-        <span id="studioCreateBrand">A marca e o briefing aparecem aqui.</span>
+        <p>Criação rápida</p>
+        <strong id="studioCreateProject">Sem projeto vinculado</strong>
+        <span id="studioCreateBrand">Defina a peça e gere as direções agora.</span>
       </section>
 
       <section class="studio-create__identity" aria-labelledby="createIdentityTitle">
@@ -57,13 +57,13 @@
 
       <section class="studio-create__references" aria-labelledby="createRefsTitle">
         <div><h2 id="createRefsTitle">Referências</h2><small id="studioCreateReferenceCount">0 de 2</small></div>
-        <p id="studioCreateReferenceHint">Escolha imagens da biblioteca depois de selecionar o projeto.</p>
+        <p id="studioCreateReferenceHint">Referências da biblioteca ficam disponíveis quando houver projeto.</p>
         <div class="studio-create__reference-list" id="studioCreateReferences"></div>
       </section>
     </aside>
 
     <section class="studio-create__stage" aria-labelledby="studioCreateTitle">
-      <header><div><p id="studioCreatePath">Criar</p><h1 id="studioCreateTitle">Defina a direção da peça</h1></div><span id="studioCreateFormat">9:16 · Story</span></header>
+      <header><div><p id="studioCreatePath">Criação rápida</p><h1 id="studioCreateTitle">Defina a direção da peça</h1></div><span id="studioCreateFormat">9:16 · Story</span></header>
       <div class="studio-create__canvas" id="studioCreateCanvas" aria-live="polite">
         <div class="studio-create__empty"><strong>Descreva o que a peça precisa comunicar</strong><span>Use o agente para informar objetivo, público e mensagem.</span></div>
       </div>
@@ -71,11 +71,11 @@
     </section>
 
     <aside class="studio-create__agent" aria-label="Agente criativo">
-      <header><h2>Agente criativo</h2><p id="studioCreateAgentContext">Selecione um projeto para incluir o contexto da marca.</p></header>
+      <header><h2>Agente criativo</h2><p id="studioCreateAgentContext">Gere uma direção sem vincular marca ou projeto.</p></header>
       <label for="studioCreatePrompt">Descreva a direção</label>
-      <textarea id="studioCreatePrompt" rows="5" placeholder="Ex.: campanha de lançamento que mostre o produto no momento de uso, com linguagem leve e direta."></textarea>
+      <textarea id="studioCreatePrompt" rows="5" placeholder="Ex.: campanha de corrida urbana ao amanhecer; atleta em movimento, cidade ao fundo, energia e espaço para headline."></textarea>
       <p class="studio-create__agent-label">Sugestões rápidas</p>
-      <div class="studio-create__suggestions"><button type="button" data-suggestion="Lançamento de campanha">Lançamento de campanha</button><button type="button" data-suggestion="Peça para portal">Peça para portal</button><button type="button" data-suggestion="Criativo de CTV">Criativo de CTV</button></div>
+      <div class="studio-create__suggestions"><button type="button" data-suggestion="Campanha de corrida urbana ao amanhecer: atleta vista de costas em movimento, asfalto molhado, skyline brasileiro ao fundo, luz dourada lateral e área livre para headline">Corrida urbana</button><button type="button" data-suggestion="Peça esportiva de alto contraste: tênis em primeiro plano, movimento real, energia noturna e espaço limpo para mensagem curta">Produto em ação</button><button type="button" data-suggestion="Filme CTV esportivo: momento humano antes da largada, tensão silenciosa, luz cinematográfica e assinatura reservada">Criativo de CTV</button></div>
       <fieldset class="studio-create__direction-count"><legend>Direções</legend><label><input type="radio" name="directionCount" value="1"> 1</label><label><input type="radio" name="directionCount" value="3"> 3</label><label><input type="radio" name="directionCount" value="5" checked> 5</label><small id="studioCreateCreditHint">Verificando créditos…</small></fieldset>
       <button type="button" class="studio-create__generate" id="studioCreateGenerate">Gerar 5 direções</button>
       <section class="studio-create__directions" id="studioCreateDirections" aria-live="polite"><p>As cinco direções aparecerão aqui para você escolher uma antes de gerar a imagem.</p></section>

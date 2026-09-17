@@ -21,9 +21,9 @@ def suggestions(document):
     subject = text(data.get("objective") or data.get("brief") or data.get("name"), 110) or "a campanha"
     audience = text(data.get("audience") or data.get("publico"), 70)
     return [
-        text(f"Lançamento de {subject}", 140),
-        text(f"Peça para portal com foco em {audience or subject}", 140),
-        text(f"Criativo de CTV para {subject}", 140),
+        text(f"Campanha institucional de {subject} para {audience or 'o público prioritário'}", 140),
+        text(f"Display IAB para {subject}: cena brasileira, mensagem curta e marca reconhecível", 140),
+        text(f"Filme CTV para {subject}: momento humano, direção de arte e assinatura de marca", 140),
     ]
 
 
@@ -69,7 +69,15 @@ def clean_context(raw, count):
 
 
 def system_prompt(count):
-    return f"""Você é diretor criativo de mídia no Cadu Studio. Crie exatamente {count} direções para uma peça publicitária a partir do projeto fornecido. Não invente preço, promoção, produto, dado, prazo ou benefício. Preserve briefing, marca, canal e formato. Responda somente JSON no formato {{\"directions\":[{{\"title\":\"...\",\"summary\":\"...\",\"prompt\":\"...\"}}]}}. Use português do Brasil. O prompt descreve imagem, composição, luz e restrições da marca; não inclua marca d'água, texto inventado ou interface de plataforma."""
+    return f"""Você é diretor criativo de mídia no Cadu Studio. Crie exatamente {count} direções distintas para uma peça publicitária a partir do projeto fornecido.
+
+Responda somente JSON no formato {{\"directions\":[{{\"title\":\"...\",\"summary\":\"...\",\"prompt\":\"...\"}}]}}. Use português do Brasil.
+
+Cada prompt deve ser executável por um gerador de imagem e conter, nesta ordem quando houver contexto: objetivo de comunicação; tipo de peça (institucional, lançamento ou produto); praça ou contexto cultural brasileiro; público e momento humano; assunto principal; cenário; composição e área de respiro; linguagem visual, iluminação e materiais; paleta e ativos de marca; formato/canal exato; texto de campanha literal apenas quando fornecido; e restrições.
+
+Para Display, trate o formato IAB informado como uma unidade publicitária final — não o transforme em pôster ou interface. Para CTV, trate como still cinematográfico 16:9. Para social, preserve área segura e leitura no feed. Escreva uma cena específica, não adjetivos vagos como “moderno”, “bonito” ou “impactante”. Prefira detalhes observáveis: lugar, hora, enquadramento, distância de câmera, gesto, textura e espaço para copy.
+
+Use a marca, briefing, referências e ativos do contexto como fonte de verdade. Não invente preço, promoção, produto, dado, prazo, benefício, CTA, logotipo ou slogan. Se não houver texto literal aprovado, peça espaço reservado para a assinatura, sem fabricar tipografia. Todo texto publicitário visível deve ser português do Brasil; se a renderização textual não for confiável, instrua a manter a área livre para composição posterior. Não inclua marca d'água, interface de plataforma, mockup de dashboard ou logos de terceiros. Não use pessoas identificáveis sem necessidade. Preserve briefing, marca, canal e formato."""
 
 
 def assert_available(client_id, count):
@@ -87,7 +95,7 @@ def charge(provider_result, client_id, user_id, count, project_id, run_id=None):
     ledger = ToolTokenLedger()
     ledger.assert_available(credit_client_id, estimated_tokens(count))
     run_id = str(run_id or uuid4().hex)
-    charged = charge_from_provider(ledger=ledger, idempotency_key=f"studio:directions:{run_id}", client_id=credit_client_id, user_id=int(user_id), tool="studio.direction", stage="creative_directions", provider_result=provider_result, model=MODEL, metadata={"project_id": str(project_id or ""), "directions": int(count), "run_id": run_id}) or {}
+    charged = charge_from_provider(ledger=ledger, idempotency_key=f"studio:directions:{run_id}", client_id=credit_client_id, user_id=int(user_id), tool="studio.direction", stage="creative_directions", provider_result=provider_result, model=MODEL, metadata={"project_id": str(project_id or ""), "directions": int(count), "run_id": run_id}, margin_multiplier=12) or {}
     return int(charged.get("tokens_cobrados") or 0), ledger.available(credit_client_id)
 
 

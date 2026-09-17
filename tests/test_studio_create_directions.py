@@ -30,3 +30,12 @@ def test_create_returns_requested_number_of_safe_directions():
 def test_direction_estimate_grows_with_requested_options():
     assert studio_create.estimated_tokens(1) < studio_create.estimated_tokens(5)
     assert studio_create.estimated_tokens(5) >= 2_900
+
+
+def test_direction_prompt_requires_a_specific_advertising_brief():
+    prompt = studio_create.system_prompt(3)
+
+    assert "formato IAB" in prompt
+    assert "praça ou contexto cultural brasileiro" in prompt
+    assert "texto literal" in prompt
+    assert "área livre para composição posterior" in prompt

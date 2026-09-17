@@ -26,14 +26,17 @@ def planner_url(path='', **query):
 
 def marketplace_facets(product, module):
     """Optional catalog filters must not make an otherwise valid page fail."""
-    if product != 'planner' or module not in {'audiencias', 'canais', 'formatos', 'interativos'}:
-        return {'categories': [], 'platforms': [], 'types': [], 'segments': []}
+    if product != 'planner' or module not in {'audiencias', 'canais', 'formatos', 'interativos', 'places'}:
+        return {'categories': [], 'platforms': [], 'types': [], 'segments': [], 'cities': []}
     try:
         if module == 'audiencias':
             return repository.audience_catalog_facets()
         if module == 'canais':
             return repository.channel_catalog_facets()
         return repository.format_catalog_facets(module == 'interativos')
+        if module == 'places':
+            from ..cadu_planner.places import catalog_facets
+            return {**catalog_facets(), 'platforms': [], 'types': [], 'segments': []}
     except Exception:
         current_app.logger.warning('Filtros do catálogo indisponíveis; exibindo catálogo sem filtros.')
         return {'categories': [], 'platforms': [], 'types': [], 'segments': []}

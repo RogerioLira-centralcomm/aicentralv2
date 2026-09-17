@@ -147,7 +147,7 @@
 {% endif %}
 <main id="content" tabindex="-1">
   {% if not (product == 'planner' and module == 'inicio') %}
-  {% set planner_intros = {'planos': 'Acompanhe decisões em curso ou comece um plano quando tiver um objetivo para organizar.', 'formatos': 'Confira o que cada execução precisa para transformar estratégia em uma peça viável.', 'interativos': 'Descubra experiências que ajudam a campanha a convidar uma resposta.', 'docs': 'Reúna o material que ajuda a equipe a revisar e encaminhar a recomendação.', 'links': 'Valide o destino da campanha antes de colocar mídia no ar.'} %}
+  {% set planner_intros = {'planos': 'Acompanhe decisões em curso ou comece um plano quando tiver um objetivo para organizar.', 'docs': 'Reúna o material que ajuda a equipe a revisar e encaminhar a recomendação.', 'links': 'Valide o destino da campanha antes de colocar mídia no ar.'} %}
   <header class="family-page-head"><div>{% if product != 'planner' %}<p>{{ spec.name }}</p>{% endif %}<h1>{{ landing.title if module == 'inicio' else title }}</h1>{% if product == 'planner' and module in planner_intros %}<p class="family-page-intro">{{ planner_intros[module] }}</p>{% elif module == 'inicio' %}<p class="family-page-intro">{{ landing.intro }}</p>{% endif %}</div>
   {% if product == 'studio' %}<a href="{{ product_url('workspace', '/workspace/app/marcas') }}">Gerenciar marcas no Workspace</a>{% endif %}</header>
   {% endif %}

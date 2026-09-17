@@ -1,5 +1,6 @@
 """Client-facing, read-only projection of published Places."""
 
+from flask import g, has_request_context
 from werkzeug.exceptions import BadRequest, NotFound
 
 from ..places import service
@@ -32,12 +33,34 @@ def _serialize(row):
     }
 
 
-def catalog(query=""):
-    value = str(query or "").strip().lower()
+def _catalog_records():
+    """Serialize the published catalog once per request for cards and facets."""
+    cache_key = "planner_place_catalog_records"
+    if has_request_context() and hasattr(g, cache_key):
+        return getattr(g, cache_key)
     records = [_serialize(service.serialize(item)) for item in service.public_catalog()]
-    if not value:
-        return records
-    return [row for row in records if value in " ".join(str(row.get(key) or "") for key in ("name", "category", "city")).lower()]
+    if has_request_context():
+        setattr(g, cache_key, records)
+    return records
+
+
+def catalog(query="", category="", city=""):
+    value = str(query or "").strip().lower()
+    category_value = str(category or "").strip().lower()
+    city_value = str(city or "").strip().lower()
+    records = _catalog_records()
+    return [row for row in records
+            if (not value or value in " ".join(str(row.get(key) or "") for key in ("name", "category", "city")).lower())
+            and (not category_value or str(row.get("category") or "").strip().lower() == category_value)
+            and (not city_value or str(row.get("city") or "").strip().lower() == city_value)]
+
+
+def catalog_facets():
+    records = catalog()
+    return {
+        "categories": sorted({str(row.get("category") or "").strip() for row in records if row.get("category")}),
+        "cities": sorted({str(row.get("city") or "").strip() for row in records if row.get("city")}),
+    }
 
 
 def detail(slug):

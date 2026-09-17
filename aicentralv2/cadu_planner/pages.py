@@ -21,7 +21,7 @@ def load_records(module, user, selected, query='', filters=None):
                                   segment=filters.get('segment', ''))
     if module == 'places':
         from .places import catalog
-        return catalog(query)
+        return catalog(query, category=filters.get('category', ''), city=filters.get('city', ''))
     if module == 'docs':
         from .docs import list_documents
         return list_documents(selected['client_id'], user['id'])

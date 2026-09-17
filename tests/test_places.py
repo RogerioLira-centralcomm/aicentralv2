@@ -70,7 +70,11 @@ from aicentralv2.places.service import (
     select_place_gallery,
     serialize,
 )
-from aicentralv2.cadu_planner.places import _serialize as planner_place_serialize
+from aicentralv2.cadu_planner.places import (
+    _serialize as planner_place_serialize,
+    catalog as planner_place_catalog,
+    catalog_facets as planner_place_catalog_facets,
+)
 from aicentralv2.places.share import public_path, slugify
 from aicentralv2.places.documents import _content as document_content, _pdf as document_pdf, _quality as document_quality, filename as document_filename
 
@@ -107,6 +111,19 @@ class PlacesDocumentsTest(unittest.TestCase):
 
 
 class PlacesCatalogTest(unittest.TestCase):
+    def test_planner_catalog_filters_and_reuses_request_catalog_for_facets(self):
+        first = {"id": 1, "slug": "centro", "title": "Centro", "type_label": "Shopping", "city_label": "São Paulo"}
+        second = {"id": 2, "slug": "aeroporto", "title": "Aeroporto", "type_label": "Aeroporto", "city_label": "Rio de Janeiro"}
+        app = Flask(__name__)
+        with app.test_request_context("/"):
+            with patch("aicentralv2.cadu_planner.places.service.public_catalog", return_value=[first, second]) as published, patch("aicentralv2.cadu_planner.places.service.serialize", side_effect=lambda item: item):
+                filtered = planner_place_catalog(category="shopping", city="são paulo")
+                facets = planner_place_catalog_facets()
+
+        self.assertEqual([row["slug"] for row in filtered], ["centro"])
+        self.assertEqual(facets, {"categories": ["Aeroporto", "Shopping"], "cities": ["Rio de Janeiro", "São Paulo"]})
+        published.assert_called_once()
+
     def test_seed_has_four_airports(self):
         self.assertEqual(
             [item["slug"] for item in SEED_PLACES if item["place_type"] == "aeroporto"],

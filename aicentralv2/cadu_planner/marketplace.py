@@ -1,10 +1,9 @@
 """Standalone SmartPlanner audience marketplace; no Family or Workspace runtime dependency."""
 from urllib.parse import urlparse
 
-from flask import Blueprint, abort, current_app, redirect, render_template, request, session
+from flask import Blueprint, abort, current_app, redirect, request, session
 
 from ..auth import login_url
-from . import catalog
 
 bp = Blueprint('planner_marketplace', __name__)
 
@@ -20,27 +19,15 @@ def planner_only():
         abort(404)
 
 
-def _url(endpoint, **values):
-    from flask import url_for
-    return url_for(endpoint, **{key: value for key, value in values.items() if value not in (None, '')})
-
-
 @bp.get('/audiencias')
 def audiences():
+    """Keep the public Planner URL while using its canonical app shell."""
     if not session.get('user_id'):
         return redirect(login_url(request.full_path))
-    category = request.args.get('category', '')
-    channel = request.args.get('channel', '')
-    return render_template('cadu_planner/marketplace.html',
-                           records=catalog.query('audiencias', request.args.get('q', ''), 100, category, channel),
-                           facets=catalog.audience_facets(), category=category, channel=channel,
-                           planner_url=_url)
+    return current_app.view_functions['cadu_family.page']('planner', 'audiencias')
 
 
 @bp.get('/audiencias/<int:audience_id>')
 def audience_detail(audience_id):
-    if not session.get('user_id'):
-        return redirect(login_url(request.full_path))
-    audience = catalog.detail('audiencias', audience_id)
-    return render_template('cadu_planner/audience_detail.html', audience=audience,
-                           similar_audiences=catalog.related_audiences(audience), planner_url=_url)
+    """Keep legacy deep links on the same full Planner experience."""
+    return current_app.view_functions['cadu_family.planner_audience_detail'](audience_id)

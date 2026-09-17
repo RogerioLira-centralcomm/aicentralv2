@@ -246,7 +246,7 @@ def catalog(module, query='', category='', platform='', sort='relevant', format_
         category = category.strip()[:100] if isinstance(category, str) else ''
         platform = platform.strip()[:100] if isinstance(platform, str) else ''
         sort = sort if sort in {'relevant', 'name'} else 'relevant'
-        ordering = 'a.nome, a.id' if sort == 'name' else 'a.nome, a.id'
+        ordering = 'a.nome, a.id' if sort == 'name' else 'COALESCE(a.relevancia_score, 0) DESC, a.nome, a.id'
         return rows('''SELECT a.id, a.nome AS name, COALESCE(a.descricao_curta, a.descricao) AS description,
                              a.publico_estimado AS audience, a.imagem_url AS image_url,
                              a.perfil_socioeconomico, a.propensao_compra, a.tamanho,

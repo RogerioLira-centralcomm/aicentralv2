@@ -116,13 +116,15 @@ class ErpNavbarTestCase(unittest.TestCase):
         self.assertIn("height: 1.125rem", self.enterprise_css)
         self.assertIn("flex: 0 0 2.25rem", self.enterprise_css)
 
-    def test_places_fica_no_comercial_junto_do_smart_planner(self):
+    def test_places_fica_no_comercial_junto_do_planner_interno(self):
         html = self._render_base()
         comercial = html.split("Comercial", 1)[1]
-        planner = comercial.find("Smart Planner")
+        planner = comercial.find(">Planner<")
         places = comercial.find("Places")
         self.assertGreater(planner, -1)
         self.assertGreater(places, planner)
+        self.assertIn('href="/smart_planner.index"', html)
+        self.assertNotIn("Abrir Cadu Planner", html)
         self.assertIn('href="/places.index"', html)
         self.assertIn("fa-location-dot", html)
 

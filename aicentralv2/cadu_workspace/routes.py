@@ -26,7 +26,7 @@ from ..cadu_skills.repository import CaduCreditUnavailable, charge_project_rag, 
 from ..db import get_db
 from ..product_domains import product_url
 from ..smart_planner.logos import public_logo
-from . import project_sources
+from . import project_knowledge, project_sources
 
 
 bp = Blueprint("cadu_workspace", __name__)
@@ -1190,11 +1190,9 @@ def _chunk_project_note(content: str, limit: int = 1800) -> list[str]:
 def _persist_project_source(client_id: int, project_id: str, title: str, content: str,
                             mime: str, size: int, storage_path: str, source: str,
                             user_id: Optional[int] = None) -> int:
-    source_chunks = project_sources.chunks(content)
-    if not source_chunks:
-        raise ValueError('A fonte não contém texto indexável.')
+    source_chunks, embedding_tokens, embedding_model = project_knowledge.index(content)
     word_count = len(re.findall(r'\b\w+\b', content, flags=re.UNICODE))
-    tokens = max(1, round(len(content) / 4))
+    tokens = embedding_tokens
     connection = get_db()
     try:
         with connection.cursor() as cursor:
@@ -1205,24 +1203,25 @@ def _persist_project_source(client_id: int, project_id: str, title: str, content
             cursor.execute(
                 """INSERT INTO cadu_ci_projeto_arquivos
                        (projeto_id, id_cliente, criado_por, nome_arquivo, mime, tamanho,
-                        storage_path, doc_form, indexing_status, word_count, tokens, created_at, updated_at)
+                        storage_path, extracted_text, doc_form, indexing_status, word_count, tokens, created_at, updated_at)
                     VALUES (%s, %s, %s, %s, %s, %s, %s,
-                            'text_model', 'completed', %s, %s, NOW(), NOW())
+                            %s, 'text_model', 'completed', %s, %s, NOW(), NOW())
                  RETURNING id""",
                 (project_id, client_id, user_id if user_id is not None else session.get('user_id'), title, mime, size,
-                 storage_path, word_count, charged_tokens),
+                 storage_path, content, word_count, charged_tokens),
             )
             file_id = cursor.fetchone()['id']
-            for order, chunk in enumerate(source_chunks):
+            for chunk in source_chunks:
                 cursor.execute(
                     """INSERT INTO cadu_ci_chunks
                            (projeto_id, id_cliente, arquivo_id, ordem, titulo, conteudo,
-                            metadata, embedding, embedding_norm, dim, modelo, tokens, created_at)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, '[]'::jsonb,
-                                0, 0, 'workspace-text', %s, NOW())""",
-                    (project_id, client_id, file_id, order, title, chunk,
-                     json.dumps({'source': source, 'arquivo_id': file_id}),
-                     max(1, round(len(chunk) / 4))),
+                            search_vector, metadata, embedding, embedding_model, content_hash, tokens, created_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, to_tsvector('portuguese', %s), %s::jsonb, %s::vector,
+                                %s, %s, %s, NOW())""",
+                    (project_id, client_id, file_id, chunk.order, title, chunk.content,
+                     chunk.content, json.dumps({'source': source, 'arquivo_id': file_id, 'section': chunk.section}),
+                     project_knowledge.vector_literal(chunk.embedding), embedding_model,
+                     chunk.content_hash, chunk.tokens),
                 )
             cursor.execute(
                 """UPDATE cadu_ci_projetos
@@ -1276,12 +1275,10 @@ def _complete_queued_project_url_source(client_id: int, project_id: str, user_id
                                         source_id: int, source: dict) -> None:
     """Index a queued URL source in place, preserving its visible status row."""
     content = str(source.get('text') or '')
-    source_chunks = project_sources.chunks(content)
-    if not source_chunks:
-        raise ValueError('A fonte não contém texto indexável.')
+    source_chunks, embedding_tokens, embedding_model = project_knowledge.index(content)
     title = str(source.get('name') or source.get('url') or 'Página pública')[:255]
     word_count = len(re.findall(r'\b\w+\b', content, flags=re.UNICODE))
-    tokens = max(1, round(len(content) / 4))
+    tokens = embedding_tokens
     connection = get_db()
     try:
         with connection.cursor() as cursor:
@@ -1294,25 +1291,26 @@ def _complete_queued_project_url_source(client_id: int, project_id: str, user_id
                 'DELETE FROM cadu_ci_chunks WHERE arquivo_id = %s AND projeto_id = %s AND id_cliente = %s',
                 (source_id, project_id, client_id),
             )
-            for order, chunk in enumerate(source_chunks):
+            for chunk in source_chunks:
                 cursor.execute(
                     """INSERT INTO cadu_ci_chunks
                            (projeto_id, id_cliente, arquivo_id, ordem, titulo, conteudo,
-                            metadata, embedding, embedding_norm, dim, modelo, tokens, created_at)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, '[]'::jsonb,
-                                0, 0, 'workspace-text', %s, NOW())""",
-                    (project_id, client_id, source_id, order, title, chunk,
-                     json.dumps({'source': 'workspace_url', 'arquivo_id': source_id}),
-                     max(1, round(len(chunk) / 4))),
+                            search_vector, metadata, embedding, embedding_model, content_hash, tokens, created_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, to_tsvector('portuguese', %s), %s::jsonb, %s::vector,
+                                %s, %s, %s, NOW())""",
+                    (project_id, client_id, source_id, chunk.order, title, chunk.content,
+                     chunk.content, json.dumps({'source': 'workspace_url', 'arquivo_id': source_id, 'section': chunk.section}),
+                     project_knowledge.vector_literal(chunk.embedding), embedding_model,
+                     chunk.content_hash, chunk.tokens),
                 )
             cursor.execute(
                 """UPDATE cadu_ci_projeto_arquivos
                       SET nome_arquivo = %s, mime = %s, storage_path = %s,
-                          indexing_status = 'completed', erro_msg = NULL, word_count = %s,
+                          extracted_text = %s, indexing_status = 'completed', erro_msg = NULL, word_count = %s,
                           tokens = %s, updated_at = NOW()
                     WHERE id = %s AND projeto_id = %s AND id_cliente = %s""",
                 (title, str(source.get('mime') or 'text/html'),
-                 f"workspace-url:{source.get('url') or ''}", word_count, charged_tokens,
+                 f"workspace-url:{source.get('url') or ''}", content, word_count, charged_tokens,
                  source_id, project_id, client_id),
             )
         connection.commit()
@@ -1341,7 +1339,7 @@ def _project_source(client_id: int, project_id: str, source_id: int) -> Optional
     try:
         with get_db().cursor() as cursor:
             cursor.execute(
-                """SELECT id, nome_arquivo, mime, tamanho, storage_path, indexing_status,
+                """SELECT id, nome_arquivo, mime, tamanho, storage_path, extracted_text, indexing_status,
                           word_count, tokens, erro_msg, created_at, updated_at
                      FROM cadu_ci_projeto_arquivos
                     WHERE id = %s AND projeto_id = %s AND id_cliente = %s""",
@@ -2320,12 +2318,14 @@ def reprocess_project_source(project_id, source_id):
     if not source:
         abort(404)
     storage_path = str(source.get('storage_path') or '')
-    if storage_path.startswith('workspace://'):
-        abort(409, description='Notas já ficam disponíveis imediatamente e não precisam de reprocessamento.')
     reprocess_id = uuid4().hex
     user_id = int(session.get('user_id') or 0)
     try:
-        if storage_path.startswith('workspace-url:'):
+        if storage_path.startswith('workspace://project-notes/'):
+            extracted = {'text': str(source.get('extracted_text') or '')}
+            if not extracted['text']:
+                abort(409, description='Esta nota é anterior à nova base e não tem conteúdo preservado para reprocessar.')
+        elif storage_path.startswith('workspace-url:'):
             from ..cadu_credit_connector import CaduCreditConnector, CreditActor
             credits = CaduCreditConnector()
             actor = CreditActor.from_values(client_id, user_id)
@@ -2346,37 +2346,36 @@ def reprocess_project_source(project_id, source_id):
         else:
             abort(409, description='Esta fonte continua sob gestão do sistema anterior.')
         content = extracted['text']
-        source_chunks = project_sources.chunks(content)
-        if not source_chunks:
-            abort(400, description='A fonte não contém texto indexável.')
+        source_chunks, embedding_tokens, embedding_model = project_knowledge.index(content)
         connection = get_db()
         with connection.cursor() as cursor:
             charged_tokens = charge_project_rag(
                 cursor, client_id=client_id, user_id=user_id, project_id=project_id,
-                tokens=max(1, round(len(content) / 4)), stage='reindexacao',
+                tokens=embedding_tokens, stage='reindexacao',
                 idempotency_key='workspace-rag-reindex:' + reprocess_id,
             )
             cursor.execute(
                 'DELETE FROM cadu_ci_chunks WHERE arquivo_id = %s AND projeto_id = %s AND id_cliente = %s',
                 (source_id, project_id, client_id),
             )
-            for order, chunk in enumerate(source_chunks):
+            for chunk in source_chunks:
                 cursor.execute(
                     """INSERT INTO cadu_ci_chunks
                            (projeto_id, id_cliente, arquivo_id, ordem, titulo, conteudo,
-                            metadata, embedding, embedding_norm, dim, modelo, tokens, created_at)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, '[]'::jsonb,
-                                0, 0, 'workspace-text', %s, NOW())""",
-                    (project_id, client_id, source_id, order, source.get('nome_arquivo'), chunk,
-                     json.dumps({'source': 'workspace_reprocessed', 'arquivo_id': source_id}),
-                     max(1, round(len(chunk) / 4))),
+                            search_vector, metadata, embedding, embedding_model, content_hash, tokens, created_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, to_tsvector('portuguese', %s), %s::jsonb, %s::vector,
+                                %s, %s, %s, NOW())""",
+                    (project_id, client_id, source_id, chunk.order, source.get('nome_arquivo'), chunk.content,
+                     chunk.content, json.dumps({'source': 'workspace_reprocessed', 'arquivo_id': source_id, 'section': chunk.section}),
+                     project_knowledge.vector_literal(chunk.embedding), embedding_model,
+                     chunk.content_hash, chunk.tokens),
                 )
             cursor.execute(
                 """UPDATE cadu_ci_projeto_arquivos
-                      SET indexing_status = 'completed', erro_msg = NULL, word_count = %s,
+                      SET extracted_text = %s, indexing_status = 'completed', erro_msg = NULL, word_count = %s,
                           tokens = %s, updated_at = NOW()
                     WHERE id = %s AND projeto_id = %s AND id_cliente = %s""",
-                (len(re.findall(r'\b\w+\b', content, flags=re.UNICODE)),
+                (content, len(re.findall(r'\b\w+\b', content, flags=re.UNICODE)),
                  charged_tokens, source_id, project_id, client_id),
             )
         connection.commit()
@@ -2488,15 +2487,37 @@ def query_project_knowledge(project_id):
         return jsonify({'error': 'Escreva ao menos três caracteres para consultar a base.'}), 400
     try:
         with get_db().cursor() as cursor:
-            cursor.execute(
-                """SELECT titulo, LEFT(conteudo, 900) AS conteudo,
-                          ts_rank_cd(to_tsvector('portuguese', conteudo), plainto_tsquery('portuguese', %s)) AS score
-                     FROM cadu_ci_chunks
-                    WHERE projeto_id = %s AND id_cliente = %s
-                      AND to_tsvector('portuguese', conteudo) @@ plainto_tsquery('portuguese', %s)
-                 ORDER BY score DESC, ordem ASC LIMIT 6""",
-                (query, project_id, client_id, query),
-            )
+            try:
+                vector = project_knowledge.vector_literal(project_knowledge.query_embedding(query))
+                cursor.execute(
+                """WITH lexical AS (
+                        SELECT id, ts_rank_cd(search_vector, plainto_tsquery('portuguese', %s)) AS score
+                          FROM cadu_ci_chunks WHERE projeto_id=%s AND id_cliente=%s
+                            AND search_vector @@ plainto_tsquery('portuguese', %s) ORDER BY score DESC LIMIT 18
+                    ), semantic AS (
+                        SELECT id, 1 - (embedding <=> %s::vector) AS score
+                          FROM cadu_ci_chunks WHERE projeto_id=%s AND id_cliente=%s
+                        ORDER BY embedding <=> %s::vector LIMIT 18
+                    ), ranked AS (
+                        SELECT id, SUM(1.0 / (60 + rank)) AS score FROM (
+                            SELECT id, row_number() OVER (ORDER BY score DESC) AS rank FROM lexical
+                            UNION ALL SELECT id, row_number() OVER (ORDER BY score DESC) AS rank FROM semantic
+                        ) candidates GROUP BY id
+                    ) SELECT c.titulo, LEFT(c.conteudo, 900) AS conteudo, r.score
+                          FROM ranked r JOIN cadu_ci_chunks c ON c.id=r.id
+                         ORDER BY r.score DESC, c.ordem ASC LIMIT 6""",
+                    (query, project_id, client_id, query, vector, project_id, client_id, vector),
+                )
+            except project_knowledge.KnowledgeIndexError:
+                cursor.execute(
+                    """SELECT titulo, LEFT(conteudo, 900) AS conteudo,
+                              ts_rank_cd(search_vector, plainto_tsquery('portuguese', %s)) AS score
+                         FROM cadu_ci_chunks
+                        WHERE projeto_id = %s AND id_cliente = %s
+                          AND search_vector @@ plainto_tsquery('portuguese', %s)
+                     ORDER BY score DESC, ordem ASC LIMIT 6""",
+                    (query, project_id, client_id, query),
+                )
             results = []
             for row in cursor.fetchall():
                 item = dict(row)

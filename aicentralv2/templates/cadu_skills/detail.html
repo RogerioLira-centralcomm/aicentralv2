@@ -3,6 +3,7 @@
 {% block content %}
 <article class="sk-skill-detail" data-skill-slug="{{ skill.slug }}">
   <a class="sk-back" href="{{ url_for('cadu_skills.marketplace') }}">← Biblioteca de skills</a>
+  {% if skill.hero_url %}<figure class="sk-skill-detail__hero"><img src="{{ skill.hero_url }}" alt="Avatar {{ skill.name }} trabalhando em uma agência" loading="eager"></figure>{% endif %}
   <header class="sk-skill-detail__head">
     {% if skill.avatar_url %}<img class="sk-skill-detail__avatar" src="{{ skill.avatar_url }}" alt="">{% endif %}
     <div><p>{{ skill.category }}</p><h1>{{ skill.name }}</h1><span>{{ skill.summary }}</span></div>

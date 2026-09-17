@@ -179,8 +179,16 @@ _OFFICIAL_AVATARS = {
     "cadu-audience-intelligence": "/static/images/cadu/skills/avatars/audience-intelligence-3d.png",
     "cadu-format-intelligence": "/static/images/cadu/skills/avatars/format-intelligence-3d.png",
 }
+_OFFICIAL_HEROES = {
+    "cadu-gold": "/static/images/cadu/skills/heroes/cadu-gold-agency-hero.png",
+    "cadu-media-planning": "/static/images/cadu/skills/heroes/media-planning-agency-hero.png",
+    "cadu-channel-intelligence": "/static/images/cadu/skills/heroes/channel-intelligence-agency-hero.png",
+    "cadu-audience-intelligence": "/static/images/cadu/skills/heroes/audience-intelligence-agency-hero.png",
+    "cadu-format-intelligence": "/static/images/cadu/skills/heroes/format-intelligence-agency-hero.png",
+}
 for _official_skill in CADU_OFFICIAL_SKILLS:
     _official_skill["avatar_url"] = _OFFICIAL_AVATARS[_official_skill["slug"]]
+    _official_skill["hero_url"] = _OFFICIAL_HEROES[_official_skill["slug"]]
 
 # Referências exibidas separadamente da base legada. O snapshot foi conferido
 # na página pública da skills.sh em 17/09/2026; não é um "Top 10" inventado

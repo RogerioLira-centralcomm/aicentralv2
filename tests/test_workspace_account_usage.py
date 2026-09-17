@@ -82,15 +82,14 @@ class WorkspaceAccountUsageTest(TestCase):
         with client.session_transaction() as session:
             session.update(user_id=7, cliente_id=12, user_name="Apolo")
 
-        response = client.get("/workspace/app/planos", headers={"Host": "workspace.centralcomm.media"})
+        response = client.get("/plano", headers={"Host": "workspace.centralcomm.media"})
         html = response.get_data(as_text=True)
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("Tokens neste ciclo", html)
         self.assertIn("250", html)
-        self.assertIn("Gestão de marcas", html)
         self.assertIn("Gerenciar equipe", html)
-        self.assertIn("não são feitas automaticamente", html)
+        self.assertIn("Consulte o atendimento", html)
 
     @mock.patch("aicentralv2.cadu_workspace.routes._php_account_data", side_effect=lambda _client: _account_fixture())
     def test_credit_view_preserves_auditable_context(self, _account):
@@ -98,15 +97,15 @@ class WorkspaceAccountUsageTest(TestCase):
         with client.session_transaction() as session:
             session.update(user_id=7, cliente_id=12, user_name="Apolo")
 
-        response = client.get("/workspace/app/creditos", headers={"Host": "workspace.centralcomm.media"})
+        response = client.get("/uso", headers={"Host": "workspace.centralcomm.media"})
         html = response.get_data(as_text=True)
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("Geração da campanha Primavera", html)
-        self.assertIn("por Ana", html)
         self.assertIn("−7", html)
         self.assertIn("Pacote 25", html)
-        self.assertIn("Lotes disponibilizados", html)
+        self.assertIn("Créditos disponíveis", html)
+        self.assertIn("últimas 1 execuções confirmadas", html)
         self.assertNotIn("R$ 250,00", html)
         self.assertNotIn("Comprar créditos", html)
 
@@ -124,11 +123,11 @@ class WorkspaceAccountUsageTest(TestCase):
         with client.session_transaction() as session:
             session.update(user_id=7, cliente_id=12, user_name="Apolo", user_type="admin")
 
-        response = client.get("/workspace/app/perfil", headers={"Host": "workspace.centralcomm.media"})
+        response = client.get("/perfil", headers={"Host": "workspace.centralcomm.media"})
         html = response.get_data(as_text=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Informações pessoais", html)
+        self.assertIn("Perfil de Apolo Lira", html)
         self.assertIn("apolo@centralcomm.media", html)
         self.assertIn("Salvar perfil", html)
         self.assertNotIn("Excluir Conta", html)
@@ -148,11 +147,10 @@ class WorkspaceAccountUsageTest(TestCase):
         with client.session_transaction() as session:
             session.update(user_id=7, cliente_id=12, user_name="Apolo", user_type="client")
 
-        response = client.get("/workspace/app/organizacao", headers={"Host": "workspace.centralcomm.media"})
+        response = client.get("/equipe", headers={"Host": "workspace.centralcomm.media"})
         html = response.get_data(as_text=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Uma fonte para toda a família Cadu", html)
-        self.assertIn("Central Comunicação Ltda", html)
-        self.assertIn("Somente administradores podem alterar", html)
-        self.assertNotIn("Salvar organização", html)
+        self.assertIn("Núcleo da agência", html)
+        self.assertIn("Projetos, marcas, plano e créditos são compartilhados", html)
+        self.assertNotIn("Dados da equipe", html)

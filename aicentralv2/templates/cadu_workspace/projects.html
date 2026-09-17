@@ -1,7 +1,7 @@
 {% extends 'cadu_portals/base.html' %}
 {% block title %}Projetos — Workspace{% endblock %}
 {% block product_id %}workspace{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=8"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-projects.css') }}?v=3"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-project-forms.css') }}?v=1"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-collections.css') }}?v=1"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-projects-dossier.css') }}?v=1">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=9"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-projects.css') }}?v=3"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-project-forms.css') }}?v=1"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-collections.css') }}?v=1"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-projects-dossier.css') }}?v=1">{% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}{% set workspace_active = 'projetos' %}
 <div class="workspace-app-shell">{% include 'cadu_workspace/_app_sidebar.html' %}<main class="workspace-app-main workspace-projects-page">

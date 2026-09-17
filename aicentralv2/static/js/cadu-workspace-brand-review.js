@@ -18,7 +18,7 @@
         const card = document.createElement('aside');
         card.className = 'workspace-token-balance';
         const available = Number(credit.available || 0).toLocaleString('pt-BR');
-        card.innerHTML = `<span>Saldo compartilhado</span><strong>${available} <small>tokens disponíveis</small></strong><p>A auditoria usa tokens pelo processamento efetivo das evidências e referências enviadas.</p><a href="/workspace/app/creditos">Ver consumo e histórico</a>`;
+        card.innerHTML = `<span>Saldo compartilhado</span><strong>${available} <small>tokens disponíveis</small></strong><p>A auditoria usa tokens pelo processamento efetivo das evidências e referências enviadas.</p><a href="/uso">Ver consumo e histórico</a>`;
         const steps = balanceTarget.querySelector('.workspace-brand-audit-steps');
         steps?.insertAdjacentElement('afterend', card);
       }).catch(() => {});

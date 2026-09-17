@@ -1,0 +1,138 @@
+.account-row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+.account-row-actions form {
+  margin: 0;
+}
+
+.account-list button.is-danger {
+  border-color: #dfb5ad;
+  background: #fff;
+  color: #913c31;
+}
+
+.account-email-catalog {
+  margin-top: 26px;
+  border-top: 1px solid #173843;
+}
+
+.account-email-catalog > header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 0;
+}
+
+.account-email-catalog header div {
+  display: grid;
+  gap: 4px;
+}
+
+.account-email-catalog header span {
+  color: #176c60;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.account-email-catalog h2 {
+  margin: 0;
+  color: #173843;
+  font-size: 17px;
+  letter-spacing: -.025em;
+}
+
+.account-email-catalog p,
+.account-email-catalog > header > small {
+  margin: 0;
+  color: #607572;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.account-email-catalog > header > small {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border-radius: 99px;
+  background: #e5f2ed;
+  color: #176c60;
+  font-weight: 700;
+}
+
+.account-email-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #dce8e4;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.account-email-catalog table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.account-email-catalog th,
+.account-email-catalog td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #e4eeeb;
+  color: #4e6762;
+  font-size: 11px;
+  vertical-align: top;
+}
+
+.account-email-catalog th {
+  color: #607572;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.account-email-catalog tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.account-email-catalog td b,
+.account-email-catalog td span,
+.account-email-catalog td small {
+  display: block;
+}
+
+.account-email-catalog td b,
+.account-email-catalog td span {
+  color: #193e3b;
+  font-weight: 700;
+}
+
+.account-email-catalog td small {
+  margin-top: 3px;
+  color: #79908a;
+  font-size: 10px;
+}
+
+@media (max-width: 800px) {
+  .account-row-actions {
+    grid-column: 2 / -1;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 560px) {
+  .account-row-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .account-row-actions form,
+  .account-row-actions button {
+    width: 100%;
+  }
+
+  .account-email-catalog > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

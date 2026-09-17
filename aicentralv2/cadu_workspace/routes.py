@@ -62,8 +62,8 @@ def _php_account_data(client_id: int) -> dict:
     # Studio and the other AI tools.  The former plan/image-credit figures are
     # legacy administrative values and can disagree with the live balance.
     credit = credit_position(client_id)
-    granted = int(credit.get("monthly_limit") or credit.get("monthly") or 0)
-    used = int(credit.get("monthly_used") or max(0, granted - int(credit.get("available") or 0)))
+    granted = int(credit.get("monthly") or 0)
+    used = max(0, granted - int(credit.get("available") or 0))
     position = {
         "allowance": granted,
         "adjustments": 0,
@@ -96,11 +96,16 @@ def _php_account_data(client_id: int) -> dict:
         with get_db().cursor() as cursor:
             cursor.execute(
                 """SELECT id, 'Lote de créditos' AS package_name,
-                          tokens_amount AS credits, status AS payment_status,
+                          tokens_amount AS credits, tokens_used,
+                          tokens_amount - tokens_used AS available,
+                          expires_at, status AS payment_status,
                           NULL::varchar AS reference, purchased_at
                      FROM cadu_credits_extras
                     WHERE id_cliente = %s
-                 ORDER BY purchased_at DESC NULLS LAST, id DESC LIMIT 20""",
+                      AND status = 'active'
+                      AND tokens_used < tokens_amount
+                      AND (expires_at IS NULL OR expires_at > NOW())
+                 ORDER BY expires_at ASC NULLS LAST, purchased_at DESC NULLS LAST, id DESC LIMIT 20""",
                 (client_id,),
             )
             purchases = [dict(row) for row in cursor.fetchall()]
@@ -109,7 +114,43 @@ def _php_account_data(client_id: int) -> dict:
     insights = _workspace_account_insights(plan, position, people)
     return {"people": people, "invites": invites, "plan": plan, "credit": credit,
             "position": position, "movements": movements, "purchases": purchases,
-            "insights": insights}
+            "insights": insights, "email_catalog": _workspace_account_email_catalog()}
+
+
+def _workspace_account_email_catalog() -> tuple[dict, ...]:
+    """Document the transactional e-mails the account journey can dispatch.
+
+    This is a catalogue of real application triggers, not a delivery log. A
+    provider delivery history needs its own durable event table before it can
+    be presented as one.
+    """
+    return (
+        {
+            "page": "Equipe", "action": "Convidar ou reenviar convite",
+            "recipient": "Pessoa convidada", "subject": "Você foi convidado",
+            "template": "convite-usuario.html", "timing": "Ao enviar ou reenviar",
+        },
+        {
+            "page": "Aceitar convite", "action": "Criar acesso",
+            "recipient": "Nova pessoa da equipe", "subject": "Sua conta está pronta",
+            "template": "bem-vindo.html", "timing": "Depois de aceitar o convite",
+        },
+        {
+            "page": "Acesso", "action": "Recuperar senha",
+            "recipient": "Pessoa com acesso ativo", "subject": "Redefina sua senha",
+            "template": "reset-senha.html", "timing": "Ao solicitar recuperação",
+        },
+        {
+            "page": "Acesso", "action": "Confirmar nova senha",
+            "recipient": "Pessoa que redefiniu a senha", "subject": "Senha alterada",
+            "template": "senha-alterada.html", "timing": "Depois de trocar a senha",
+        },
+        {
+            "page": "Faturamento", "action": "Ativar assinatura",
+            "recipient": "E-mail financeiro da agência", "subject": "Plano ativado",
+            "template": "assinatura-confirmacao.html", "timing": "Após a ativação do plano",
+        },
+    )
 
 
 def _workspace_account_insights(plan: dict, position: Optional[dict], people: list[dict]) -> dict:
@@ -1443,9 +1484,12 @@ def legacy_dashboard_url():
 
 
 @bp.get('/workspace/app/conversas')
+@bp.get('/conversas')
 @login_required
 def conversations():
     """Dedicated Cadu surface; message delivery remains in the shared guarded API."""
+    if request.path.startswith('/workspace/app/'):
+        return redirect(url_for('cadu_workspace.conversations', **request.args.to_dict(flat=True)), code=308)
     return render_template('cadu_workspace/conversations.html')
 
 
@@ -2072,9 +2116,20 @@ def reprocess_project_source(project_id, source_id):
     storage_path = str(source.get('storage_path') or '')
     if storage_path.startswith('workspace://'):
         abort(409, description='Notas já ficam disponíveis imediatamente e não precisam de reprocessamento.')
+    reprocess_id = uuid4().hex
+    user_id = int(session.get('user_id') or 0)
     try:
         if storage_path.startswith('workspace-url:'):
+            from ..cadu_credit_connector import CaduCreditConnector, CreditActor
+            credits = CaduCreditConnector()
+            actor = CreditActor.from_values(client_id, user_id)
+            credits.authorize_firecrawl(actor, 'scrape', pages=1)
             extracted = project_sources.extract_public_url(storage_path.removeprefix('workspace-url:'))
+            credits.charge_firecrawl(
+                actor=actor, idempotency_key=f'workspace-project-url:{source_id}:reprocess:{reprocess_id}',
+                operation='scrape', pages=1, app='Projeto', stage='reprocessar_url',
+                metadata={'project_id': str(project_id), 'source_id': source_id},
+            )
         elif storage_path.startswith('workspace_project_sources/'):
             path = project_sources.resolve_private_path(_workspace_source_root(), storage_path)
             if not path.is_file():
@@ -2091,9 +2146,9 @@ def reprocess_project_source(project_id, source_id):
         connection = get_db()
         with connection.cursor() as cursor:
             charged_tokens = charge_project_rag(
-                cursor, client_id=client_id, user_id=int(session.get('user_id') or 0), project_id=project_id,
+                cursor, client_id=client_id, user_id=user_id, project_id=project_id,
                 tokens=max(1, round(len(content) / 4)), stage='reindexacao',
-                idempotency_key='workspace-rag-reindex:' + uuid4().hex,
+                idempotency_key='workspace-rag-reindex:' + reprocess_id,
             )
             cursor.execute(
                 'DELETE FROM cadu_ci_chunks WHERE arquivo_id = %s AND projeto_id = %s AND id_cliente = %s',
@@ -2378,10 +2433,12 @@ def upload_brand_assets(brand_id):
     if not any(item and item.filename for item in files):
         abort(400, description='Escolha ao menos uma imagem de marca.')
     role = request.form.get('role') or 'reference'
+    if role == 'logo' and len([item for item in files if item and item.filename]) != 1:
+        abort(400, description='Envie somente um arquivo para o logo principal.')
     try:
         from ..creative_modeling_service import CreativeModelingService
         CreativeModelingService().upload_client_brand_assets(
-            brand_id, files, request.form.get('primary_logo') == 'true', role,
+            brand_id, files, role == 'logo', role,
         )
     except ValueError as exc:
         abort(400, description=str(exc))
@@ -2430,6 +2487,27 @@ def promote_brand_asset_to_logo(brand_id, asset_id):
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id), code=303)
 
 
+@bp.post('/workspace/app/marcas/<int:brand_id>/ativos/<int:asset_id>/apagar')
+@login_required
+def delete_brand_asset(brand_id, asset_id):
+    """Remove an asset while preserving the active Workspace tenant boundary."""
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    _workspace_team_admin()
+    client_id = int(session.get('cliente_id') or 0)
+    if not _workspace_brand(client_id, brand_id):
+        abort(404)
+    try:
+        from ..creative_modeling_service import CreativeModelingService
+        CreativeModelingService().delete_brand_asset(brand_id, asset_id)
+    except ValueError as exc:
+        abort(400, description=str(exc))
+    except Exception:
+        current_app.logger.exception('Não foi possível apagar o ativo %s da marca %s', asset_id, brand_id)
+        abort(503, description='Não foi possível apagar este ativo agora. Tente novamente.')
+    return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id), code=303)
+
+
 @bp.post('/workspace/app/marcas/<int:brand_id>/ativos/referencias-recentes')
 @login_required
 def find_recent_brand_creatives(brand_id):
@@ -2442,8 +2520,29 @@ def find_recent_brand_creatives(brand_id):
     if not brand:
         abort(404)
     from ..creative_brand_analysis import search_recent_brand_creatives
+    from ..cadu_credit_connector import CaduCreditConnector, CreditActor
     from ..creative_modeling_service import CreativeModelingService
-    candidates = search_recent_brand_creatives(brand.get('name'), limit=8)
+    from ..services.integration_credentials import resolve_firecrawl_api_key
+    user_id = int(session.get('user_id') or 0)
+    credits = CaduCreditConnector()
+    actor = CreditActor.from_values(client_id, user_id)
+    run_id = uuid4().hex
+    # Without a Firecrawl credential the lookup returns no web results and no
+    # customer credit is reserved or charged.
+    firecrawl_enabled = bool(resolve_firecrawl_api_key())
+    if firecrawl_enabled:
+        credits.authorize_firecrawl(actor, 'search', results=8)
+
+    def charge_search(result_count):
+        credits.charge_firecrawl(
+            actor=actor, idempotency_key=f'workspace-brand:{brand_id}:recent-search:{run_id}',
+            operation='search', results=result_count, app='Marca', stage='referencias_recentes',
+            metadata={'brand_id': brand_id, 'run_id': run_id, 'query_brand': brand.get('name')},
+        )
+
+    candidates = search_recent_brand_creatives(
+        brand.get('name'), limit=8, billing_callback=charge_search if firecrawl_enabled else None,
+    )
     if not candidates:
         abort(503, description='Não encontramos referências recentes utilizáveis agora. Tente novamente mais tarde.')
     imported = CreativeModelingService().import_website_brand_assets(brand_id, candidates)
@@ -2700,32 +2799,47 @@ def brand_system(brand_id):
     return render_template('cadu_workspace/brand_system_app.html', brand=brand)
 
 
+@bp.get('/perfil', defaults={'section': 'perfil'})
+@bp.get('/equipe', defaults={'section': 'equipe'})
+@bp.get('/plano', defaults={'section': 'planos'})
+@bp.get('/uso', defaults={'section': 'creditos'})
+@bp.get('/faturas', defaults={'section': 'faturamento'})
 @bp.get("/workspace/app/<section>")
 @login_required
 def account_page(section):
+    requested_section = section
     aliases = {
-        "conta": "perfil", "perfil": "perfil", "organizacao": "organizacao",
+        "conta": "perfil", "perfil": "perfil", "organizacao": "equipe",
         "usuarios": "equipe", "equipe": "equipe", "planos": "planos", "creditos": "creditos",
         "financeiro": "faturamento", "faturamento": "faturamento",
     }
     section = aliases.get(section)
     if section is None:
         abort(404)
+    if request.path.startswith('/workspace/app/') or requested_section != section:
+        return redirect(
+            url_for('cadu_workspace.account_page', section=section, **request.args.to_dict(flat=True)),
+            code=308,
+        )
     client_id = int(session.get("cliente_id") or 0)
     account = _php_account_data(client_id)
-    if section in {"perfil", "organizacao"}:
-        account.update(_workspace_settings_data(client_id, int(session.get("user_id") or 0)))
+    # The agency identity belongs to the whole Account journey, not only to
+    # the profile editor. These are canonical PHP records, never a copy.
+    account.update(_workspace_settings_data(client_id, int(session.get("user_id") or 0)))
     if section == 'faturamento':
         account.update(_workspace_billing_data(client_id))
     return render_template(
-        "cadu_workspace/account.html", section=section,
+        "cadu_workspace/account_agency.html", section=section,
         account=account,
     )
 
 
 @bp.get('/workspace/app/integracoes')
+@bp.get('/integracoes')
 @login_required
 def integrations():
+    if request.path.startswith('/workspace/app/'):
+        return redirect(url_for('cadu_workspace.integrations', **request.args.to_dict(flat=True)), code=308)
     client_id = int(session.get('cliente_id') or 0)
     organization_id = int(session.get('organization_id') or client_id)
     return render_template(
@@ -2850,7 +2964,7 @@ def update_organization():
         connection.rollback()
         current_app.logger.exception('Não foi possível atualizar a organização')
         abort(503, description='Não foi possível salvar a organização agora.')
-    return redirect(url_for('cadu_workspace.account_page', section='organizacao', saved='1'), code=303)
+    return redirect(url_for('cadu_workspace.account_page', section='equipe', saved='1'), code=303)
 
 
 @bp.post('/workspace/app/equipe/convites')
@@ -2880,8 +2994,10 @@ def create_team_invite():
         invite = db.obter_invite_por_id(invite_id)
         plans = db.obter_planos_clientes({'cliente_id': client_id})
         company_name = (plans[0].get('nome_fantasia') if plans else '') or 'sua organização'
-        result = send_invite_email(email, invite['invite_token'], company_name,
-                                   session.get('user_name') or 'Equipe', invite['expires_at'])
+        result = send_invite_email(
+            email, invite['invite_token'], company_name, session.get('user_name') or 'Equipe', invite['expires_at'],
+            role_label='Administrador' if role == 'admin' else 'Membro',
+        )
         if not result.get('success'):
             db.cancelar_invite(invite_id)
             current_app.logger.warning('Convite %s cancelado porque o envio falhou: %s', invite_id, result.get('error'))
@@ -2913,8 +3029,10 @@ def resend_team_invite(invite_id):
         invite = db.obter_invite_por_id(invite_id)
         plans = db.obter_planos_clientes({'cliente_id': client_id})
         company_name = (plans[0].get('nome_fantasia') if plans else '') or 'sua organização'
-        result = send_invite_email(invite['email'], invite['invite_token'], company_name,
-                                   session.get('user_name') or 'Equipe', invite['expires_at'])
+        result = send_invite_email(
+            invite['email'], invite['invite_token'], company_name, session.get('user_name') or 'Equipe', invite['expires_at'],
+            role_label='Administrador' if invite.get('role') == 'admin' else 'Membro',
+        )
         if not result.get('success'):
             current_app.logger.warning('Reenvio do convite %s falhou: %s', invite_id, result.get('error'))
             abort(502, description='O e-mail não pôde ser reenviado. Tente novamente em instantes.')

@@ -17,7 +17,7 @@
   const qualityHelp = document.querySelector('.workspace-project-quality-dialog__body section:nth-child(2) > p');
   if (qualityHelp) qualityHelp.textContent = 'O Cadu pode preparar uma primeira versão para revisão humana. Nada é publicado ou aplicado automaticamente.';
   document.querySelectorAll('[data-project-starter]').forEach(button => button.addEventListener('click', () => {
-    const url = new URL('/workspace/app/conversas', window.location.origin);
+    const url = new URL('/conversas', window.location.origin);
     const project = document.querySelector('[data-project-ref]')?.dataset.projectRef;
     if (project) url.searchParams.set('project', project);
     url.searchParams.set('prompt', button.dataset.prompt || 'Ajude a estruturar este projeto.');
@@ -37,7 +37,7 @@
         const card = document.createElement('aside');
         card.className = 'workspace-token-balance';
         const available = Number(credit.available || 0).toLocaleString('pt-BR');
-        card.innerHTML = `<span>Saldo compartilhado</span><strong>${available} <small>tokens disponíveis</small></strong><p>Indexar ou reprocessar fontes desconta tokens conforme o texto processado.</p><a href="/workspace/app/creditos">Ver consumo e histórico</a>`;
+        card.innerHTML = `<span>Saldo compartilhado</span><strong>${available} <small>tokens disponíveis</small></strong><p>Indexar ou reprocessar fontes desconta tokens conforme o texto processado.</p><a href="/uso">Ver consumo e histórico</a>`;
         balanceTarget.append(card);
       }).catch(() => {});
   }

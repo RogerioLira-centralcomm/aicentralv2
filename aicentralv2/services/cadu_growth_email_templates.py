@@ -31,7 +31,7 @@ GROWTH_EMAIL_MODELS: Dict[str, Dict[str, str]] = {
         "title": "Transforme a conversa de hoje em um plano que o time consegue executar.",
         "description": "O contexto já existe. Agora ele pode virar uma decisão clara.",
         "cta_label": "Abrir Conversas",
-        "cta_path": "/workspace/app/conversas",
+        "cta_path": "/conversas",
         "default_body": "Você não precisa começar com uma planilha em branco. Uma boa conversa já reúne objetivo, público, praça, prazo, verba e restrições. O Cadu ajuda a separar **o que está confirmado, o que é premissa e o que ainda precisa de validação**.\n\nAbra o projeto em andamento, registre o briefing que você já tem e peça uma estrutura de decisão. Assim, o time reduz retrabalho e volta ao raciocínio original quando a campanha mudar.",
     },
     "audiencias": {

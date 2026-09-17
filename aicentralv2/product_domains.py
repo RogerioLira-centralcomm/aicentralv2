@@ -32,29 +32,66 @@ def product_url(product: str, path: str = "/") -> str:
         raise KeyError(f"Produto desconhecido: {product}")
     base = str(current_app.config.get(key) or "").rstrip("/")
     clean_path = "/" + str(path or "/").lstrip("/")
+    if str(product).strip().lower() == "workspace":
+        clean_path = canonical_workspace_app_path(clean_path)
     return f"{base}{clean_path}" if base else clean_path
 
 
 _WORKSPACE_LEGACY_SECTIONS = {
-    "": "/workspace/app",
-    "inicio": "/workspace/app",
-    "clientes": "/workspace/app",
-    "conversas": "/workspace/app/conversas",
-    "workflows": "/workspace/app/conversas",
-    "projetos": "/workspace/app/projetos",
-    "marcas": "/workspace/app/marcas",
-    "equipe": "/workspace/app/equipe",
-    "usuarios": "/workspace/app/equipe",
-    "integracoes": "/workspace/app/integracoes",
-    "planos": "/workspace/app/planos",
-    "consumo": "/workspace/app/creditos",
-    "creditos": "/workspace/app/creditos",
-    "faturamento": "/workspace/app/faturamento",
-    "financeiro": "/workspace/app/faturamento",
-    "perfil": "/workspace/app/perfil",
-    "conta": "/workspace/app/perfil",
-    "organizacao": "/workspace/app/organizacao",
+    "": "/app",
+    "inicio": "/app",
+    "clientes": "/app",
+    "conversas": "/conversas",
+    "workflows": "/conversas",
+    "projetos": "/projetos",
+    "marcas": "/marcas",
+    "equipe": "/equipe",
+    "usuarios": "/equipe",
+    "integracoes": "/integracoes",
+    "planos": "/plano",
+    "consumo": "/uso",
+    "creditos": "/uso",
+    "faturamento": "/faturas",
+    "financeiro": "/faturas",
+    "perfil": "/perfil",
+    "conta": "/perfil",
+    "organizacao": "/equipe",
 }
+
+
+def canonical_workspace_app_path(path: str) -> str:
+    """Return the compact Workspace URL for old app-shell destinations.
+
+    Product templates still call ``product_url`` from several packages.  Keep
+    those calls safe while ensuring every newly rendered link lands directly
+    on the native Workspace route instead of taking a legacy redirect first.
+    """
+    raw_path = "/" + str(path or "/").lstrip("/")
+    route, marker, query = raw_path.partition("?")
+    aliases = {
+        "/workspace/app": "/app",
+        "/workspace/app/conversas": "/conversas",
+        "/workspace/app/workflows": "/conversas",
+        "/workspace/app/projetos": "/projetos",
+        "/workspace/app/marcas": "/marcas",
+        "/workspace/app/equipe": "/equipe",
+        "/workspace/app/usuarios": "/equipe",
+        "/workspace/app/integracoes": "/integracoes",
+        "/workspace/app/planos": "/plano",
+        "/workspace/app/consumo": "/uso",
+        "/workspace/app/creditos": "/uso",
+        "/workspace/app/faturamento": "/faturas",
+        "/workspace/app/financeiro": "/faturas",
+        "/workspace/app/perfil": "/perfil",
+        "/workspace/app/conta": "/perfil",
+        "/workspace/app/organizacao": "/equipe",
+    }
+    canonical = aliases.get(route, route)
+    # A section query on the retired account page is already represented by
+    # the compact route, so preserving it would only create a misleading URL.
+    if route == "/workspace/app/conta" and query in {"section=perfil", ""}:
+        return canonical
+    return f"{canonical}?{query}" if marker else canonical
 
 
 def canonical_workspace_legacy_path(path: str, brand_id: str | int | None = None) -> str:
@@ -72,8 +109,8 @@ def canonical_workspace_legacy_path(path: str, brand_id: str | int | None = None
         clean = clean[len(prefix) + 1:]
     if clean == "marcas/sistema":
         value = str(brand_id or "").strip()
-        return f"/workspace/app/marcas/{value}" if value.isdigit() and int(value) > 0 else "/workspace/app/marcas"
-    return _WORKSPACE_LEGACY_SECTIONS.get(clean, "/workspace/app")
+        return f"/marcas/{value}" if value.isdigit() and int(value) > 0 else "/marcas"
+    return _WORKSPACE_LEGACY_SECTIONS.get(clean, "/app")
 
 
 def _configured_host(config_key: str) -> str:
@@ -169,6 +206,8 @@ def register_product_host_routing(app) -> None:
     @app.get('/<kind>/<int:item_id>')
     def planner_host_catalog_detail(kind, item_id):
         planner_host_only()
+        if kind == 'canais' and 'planner_marketplace.channel_detail' in app.view_functions:
+            return app.view_functions['planner_marketplace.channel_detail'](item_id)
         return app.view_functions['cadu_family.planner_catalog_detail_page'](kind, item_id)
 
     @app.get('/docs/public/<token>')

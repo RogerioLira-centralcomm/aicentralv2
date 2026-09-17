@@ -7,6 +7,7 @@
   const errors = $('studioErrors');
   const search = $('studioSearch');
   const more = $('studioMore');
+  const projects = $('studioProjects');
   const store = window.McStudioLibrary.createStore(get, render);
   const brandLinks = Array.from(app.querySelectorAll('[data-brand-link]'));
   brandLinks.forEach(link => { link.dataset.baseHref = link.getAttribute('href'); });
@@ -49,6 +50,7 @@
     more.hidden = view.items.length >= view.total;
     list.setAttribute('aria-busy', String(view.loading));
     app.querySelectorAll('[data-media]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.media === state.media)));
+    renderProjects(view.projects || [], state.project);
     if (state.context !== 'ready' || !state.clientId) {
       const text = state.context === 'loading' ? 'Carregando contexto da marca…' : state.context === 'error' ? 'Não foi possível carregar as marcas. Use Atualizar para tentar novamente.' : 'Nenhuma marca disponível. Cadastre uma marca para começar.';
       status.textContent = text;
@@ -65,12 +67,32 @@
       retry.addEventListener('click', () => store.retry(media));
       box.append(retry); errors.append(box);
     });
-    status.textContent = view.loading ? 'Carregando biblioteca da marca…' : `${view.items.length} de ${view.total} resultado(s)${state.query ? ' para esta busca' : ''}.${view.errors.length ? ' Biblioteca parcialmente indisponível.' : ' Busca em toda a biblioteca da marca.'}`;
+    if (view.projectError) {
+      const box = node('div', 'studio-error');
+      box.setAttribute('role', 'alert');
+      box.append(node('span', '', 'Não foi possível carregar as sessões por projeto. Os ativos da marca continuam disponíveis.'));
+      const retry = node('button', 'studio-button', 'Tentar novamente');
+      retry.type = 'button'; retry.addEventListener('click', () => store.retry());
+      box.append(retry); errors.append(box);
+    }
+    status.textContent = view.loading ? 'Carregando biblioteca e sessões…' : `${view.items.length} de ${view.total} ativo(s)${state.query ? ' para esta busca' : ''}.${state.project === 'all' ? ' Todos os projetos.' : ' Sessão filtrada.'}`;
     view.items.forEach(item => list.append(card(item, state.clientId)));
     if (view.loading) skeleton();
     else if (!view.total && !view.errors.length) {
       empty(state.query ? 'Nenhum resultado encontrado' : 'Ainda não há conteúdo nesta seleção', state.query ? 'Tente outro nome, texto ou formato.' : 'Comece ajustando uma peça ou montando um vídeo com as cenas da biblioteca.', state.query ? null : brandLinks[0]?.href, 'Ajustar peça');
     }
+  }
+  function renderProjects(items, active) {
+    if (!projects) return;
+    projects.replaceChildren();
+    const entries = [{ id: 'all', name: 'Toda a biblioteca', note: 'Todos os ativos' }, ...items.map(item => ({ ...item, note: item.assets.length ? `${item.assets.length} ativo(s) vinculado(s)` : 'Sem ativos vinculados' })), { id: 'unassigned', name: 'Sem projeto', note: 'Ativos ainda não vinculados' }];
+    entries.forEach(entry => {
+      const button = node('button', 'studio-project-chip');
+      button.type = 'button'; button.dataset.project = entry.id; button.setAttribute('aria-pressed', String(entry.id === active));
+      button.append(node('strong', '', entry.name), node('span', '', entry.note));
+      button.addEventListener('click', () => store.project(entry.id));
+      projects.append(button);
+    });
   }
   function skeleton() {
     for (let i = 0; i < 3; i++) { const item = node('li', 'studio-skeleton'); item.setAttribute('aria-hidden', 'true'); list.append(item); }
@@ -91,7 +113,7 @@
     const params = new URLSearchParams({ run: String(item.run_id || ''), client: clientId });
     if (item.media === 'video') params.set('clip', String(item.id || ''));
     link.href = `/studio/modelagem-criativos/${item.media === 'video' ? 'video' : 'trocar'}?${params}`;
-    const thumb = node('div', 'studio-thumb');
+    const thumb = node('div', `studio-thumb ${item.media === 'video' ? 'is-video' : 'is-still'}`);
     const src = safeImage(item.thumb_url || item.poster_url || item.image_url);
     const fallback = node('span', '', 'Prévia indisponível');
     thumb.append(fallback);
@@ -101,19 +123,27 @@
       image.addEventListener('error', () => { image.remove(); fallback.hidden = false; });
       image.src = src; thumb.append(image);
     }
+    if (item.media === 'video') {
+      const motion = node('span', 'studio-motion', '▶ Movimento');
+      thumb.append(motion);
+    }
     const body = node('div', 'studio-card-body');
     const title = String(item.headline || item.name || item.title || (item.media === 'video' ? 'Clipe' : 'Peça'));
     const strong = node('strong', '', title); strong.title = title;
     const meta = node('div', 'studio-card-meta');
     const ratio = /^\d{1,4}:\d{1,4}$/.test(String(item.aspect_ratio)) ? item.aspect_ratio : 'Formato não informado';
-    meta.append(node('span', 'studio-kind', item.media === 'video' ? 'Vídeo' : 'Imagem'), node('span', '', ratio));
+    meta.append(node('span', 'studio-kind', item.media === 'video' ? 'Vídeo' : 'Imagem'), node('span', '', item.media === 'video' && item.duration ? `${Math.round(Number(item.duration))} s` : ratio));
     body.append(strong, meta);
+    const linkedProjects = item.projects || [];
+    if (linkedProjects.length) body.append(node('span', 'studio-card-project', linkedProjects[0].name));
     const rawDate = String(item.created_at || '');
     const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? `${rawDate}T12:00:00` : rawDate);
     if (item.created_at && Number.isFinite(date.getTime())) {
       const time = node('time', '', date.toLocaleDateString('pt-BR')); time.dateTime = date.toISOString(); body.append(time);
     }
-    link.append(thumb, body); li.append(link); return li;
+    link.append(thumb, body); li.append(link);
+    const action = node('a', 'studio-card-action', item.media === 'video' ? 'Abrir montagem' : 'Editar peça');
+    action.href = link.href; li.append(action); return li;
   }
   async function get(url, options) {
     const response = await fetch(url, { ...options, credentials: 'same-origin', headers: { Accept: 'application/json' } });

@@ -127,6 +127,7 @@ def register_studio_routes(blueprint):
     blueprint.add_url_rule('/api/format-lab/studio/create/directions', view_func=studio_create_directions, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/agent/narration', view_func=studio_agent_narration, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/projects', view_func=studio_projects, methods=['GET', 'POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/library-sessions', view_func=studio_library_sessions, methods=['GET'])
     blueprint.add_url_rule('/api/format-lab/studio/project-contexts', view_func=studio_project_contexts, methods=['GET'])
     blueprint.add_url_rule('/api/format-lab/studio/projects/<ident>', view_func=studio_project, methods=['GET', 'POST'])
     blueprint.add_url_rule('/api/format-lab/studio/projects/<ident>/creation-history', view_func=studio_project_creation_history, methods=['GET'])
@@ -231,6 +232,17 @@ def studio_projects():
         client_id = data.get('client_id')
         _scope(client_id)
         return ok(store.save(client_id, data.get('document')))
+    return execute(run)
+
+
+@studio_or_admin_required_api
+def studio_library_sessions():
+    execute, _, ok, _ = _http()
+    def run():
+        client_id = request.args.get('client_id')
+        _scope(client_id)
+        history = _creation_history()
+        return ok({'items': history.library_sessions(client_id) if history else []})
     return execute(run)
 
 

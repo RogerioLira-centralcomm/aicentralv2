@@ -150,3 +150,22 @@ class StudioCreationHistory:
             ''', (project_id, int(client_id), limit))
             items = [dict(row) for row in cursor.fetchall()]
         return {'runs': runs, 'items': items}
+
+    def library_sessions(self, client_id, limit=50):
+        """Return only the project-to-asset links needed by the library shelf."""
+        limit = max(1, min(int(limit), 100))
+        with self.connection.cursor() as cursor:
+            cursor.execute('''
+                SELECT p.id::text AS id, p.name,
+                       EXTRACT(EPOCH FROM p.updated_at) AS updated_at,
+                       COALESCE(jsonb_agg(i.asset_url ORDER BY i.created_at DESC)
+                         FILTER (WHERE i.asset_url IS NOT NULL AND i.asset_url <> ''), '[]'::jsonb) AS assets
+                  FROM cx_studio_projects p
+             LEFT JOIN cx_studio_project_items i
+                    ON i.project_id=p.id AND i.client_id=p.client_id
+                 WHERE p.client_id=%s
+              GROUP BY p.id, p.name, p.updated_at
+              ORDER BY p.updated_at DESC, p.id DESC
+                 LIMIT %s
+            ''', (int(client_id), limit))
+            return [dict(row) for row in cursor.fetchall()]

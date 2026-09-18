@@ -70,3 +70,22 @@ body.portal--studio:has(.studio-v2) > main#content > .studio-v2 {
 .studio-v2 .canvas-stage { min-height:0; }
 .studio-v2 .delivery-panel { overflow:auto; }
 body.portal--studio:has(.studio-v2) > .cadu-family-footer { display:none!important; }
+
+.review-loading,
+.review-findings { width:min(640px,calc(100% - 60px)); }
+.review-loading { display:grid; place-items:center; gap:10px; padding:36px 28px; text-align:center; color:var(--v2-text); }
+.review-loading__spinner { display:grid; place-items:center; width:58px; height:58px; border:1px solid #7657d6; border-radius:18px; background:rgba(126,85,244,.16); color:#c2a9ff; font-size:25px; animation:reviewPulse 1.35s ease-in-out infinite; }
+.review-loading h2 { margin:2px 0 0; font-size:24px; letter-spacing:-.025em; }
+.review-loading p { max-width:480px; margin:0; color:#bac8d6; line-height:1.55; }
+.review-loading__steps { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:10px; }
+.review-loading__steps span { display:inline-flex; align-items:center; gap:7px; padding:8px 11px; border:1px solid #2f465a; border-radius:999px; background:#13212d; color:#93a6b8; font-size:12px; }
+.review-loading__steps span.is-active { border-color:#7657d6; color:#dfd6ff; background:#2c2160; }
+.review-loading__steps i { font-size:11px; }
+.review-findings { margin:18px auto 0; padding:15px 16px; border:1px solid rgba(157,125,255,.55); border-radius:12px; background:linear-gradient(135deg,rgba(86,55,176,.24),rgba(20,32,45,.75)); }
+.review-findings strong { display:flex; align-items:center; gap:8px; color:#ded4ff; font-size:13px; }
+.review-findings strong i { color:#b997ff; }
+.review-findings p { margin:8px 0 0; color:#f1f4f8; font-size:14px; line-height:1.5; }
+.review-findings small { display:block; margin-top:8px; color:#b8c6d4; line-height:1.4; }
+@keyframes reviewPulse { 50% { transform:translateY(-3px) scale(1.04); box-shadow:0 0 0 8px rgba(126,85,244,.08); } }
+@media(max-width:900px){.review-loading,.review-findings{width:calc(100% - 28px)}}
+@media(prefers-reduced-motion:reduce){.review-loading__spinner{animation:none}}

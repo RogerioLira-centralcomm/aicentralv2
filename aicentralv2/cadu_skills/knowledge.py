@@ -3,6 +3,36 @@ import re
 from pathlib import Path
 
 
+def clean_rag_content(content):
+    """Normalize editorial text before it becomes a global knowledge version.
+
+    This is deliberately deterministic: it does not call an LLM, create
+    embeddings or rewrite factual content. Headings, lists, tables, glossary
+    rows and FAQ answers remain intact so the same text can be audited later.
+    """
+    value = str(content or '').replace('\ufeff', '').replace('\u200b', '')
+    value = value.replace('\r\n', '\n').replace('\r', '\n').strip()
+    if not value:
+        return ''
+
+    lines = []
+    blank = False
+    for raw_line in value.split('\n'):
+        line = re.sub(r'[ \t]+$', '', raw_line).strip() if raw_line.strip() else ''
+        if not line:
+            if not blank:
+                lines.append('')
+            blank = True
+            continue
+        lines.append(line)
+        blank = False
+
+    value = '\n'.join(lines).strip()
+    # Keep Markdown readable for both lexical search and future chunking.
+    value = re.sub(r'\n{3,}', '\n\n', value)
+    return value
+
+
 def _db():
     from ..db import get_db
     return get_db()
@@ -23,8 +53,8 @@ def documents():
 
 def save(data, actor_id):
     title = str(data.get('title') or '').strip()[:180]
-    content = str(data.get('content') or '').replace('\r\n', '\n').strip()
     kind = str(data.get('kind') or 'markdown')
+    content = clean_rag_content(data.get('content')) if kind == 'markdown' else str(data.get('content') or '').replace('\r\n', '\n').strip()
     source_note = str(data.get('source_note') or '').strip()[:500]
     if not title or len(content) < 20 or kind not in ('markdown', 'csv'):
         raise ValueError('Informe título, formato e ao menos 20 caracteres de conteúdo.')

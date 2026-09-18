@@ -4,9 +4,6 @@
 {% block title %}{{ steps[step_index].title }} · Planejamentos{% endblock %}
 
 {% block styles %}
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,600;7..72,700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=45">
 {% endblock %}
 
@@ -178,7 +175,7 @@
             <span class="sp-acc-meta" data-acc-meta>4 campos</span>
           </summary>
           <div class="sp-bf" id="sp-acc-essentials">
-            <label for="sp-field-campanha"><span>Campanha</span><input id="sp-field-campanha" name="campanha" value="{{ campos.campanha }}"></label>
+            <label for="sp-field-campanha"><span>Campanha</span><input id="sp-field-campanha" name="campanha" value="{{ campos.campanha }}"><small class="sp-field-hint">Nome sugerido automaticamente a partir do briefing quando não informado.</small></label>
             <label for="sp-field-cliente"><span>Anunciante</span><input id="sp-field-cliente" name="cliente" value="{{ campos.cliente }}"></label>
             <label for="sp-objetivo">
               <span>Objetivo</span>
@@ -257,6 +254,25 @@
         </details>
         {% endif %}
       </form>
+      <dialog class="sp-geo-modal" id="sp-geo-modal" aria-labelledby="sp-geo-title">
+        <form method="dialog" class="sp-geo-sheet" id="sp-geo-form">
+          <header>
+            <div><span>Praça geográfica</span><h2 id="sp-geo-title">Onde a campanha deve aparecer?</h2><p>Marque estados ou cidades. Places continua reservado a pontos, venues e aplicativos específicos.</p></div>
+            <button type="submit" class="cx-btn cx-btn-ghost cx-btn-sm" value="close">Fechar</button>
+          </header>
+          <div class="sp-geo-body">
+            <div class="sp-geo-toolbar">
+              <label><span>Estado</span><select id="sp-geo-state"><option value="">Todos os estados</option></select></label>
+              <label class="sp-geo-search"><span>Buscar cidade</span><input id="sp-geo-search" type="search" placeholder="Ex.: Uberlândia, BH, interior"></label>
+            </div>
+            <div class="sp-geo-shortcuts"><button type="button" data-geo-shortcut="mg-interior">Interior de Minas Gerais</button><button type="button" data-geo-shortcut="mg-todo">Minas Gerais inteiro</button><button type="button" data-geo-shortcut="rmbh">Região metropolitana de BH</button></div>
+            <div class="sp-geo-list" id="sp-geo-list"></div>
+            <label class="sp-geo-instruction"><span>Instrução de cobertura</span><textarea id="sp-geo-instruction" rows="2" placeholder="Ex.: Minas Gerais inteiro, priorizando cidades do interior com mais de 100 mil habitantes."></textarea></label>
+            <div class="sp-geo-audience-note"><strong>População</strong><span>Total e população digitalizada serão preenchidos apenas quando houver fonte validada. Sem fonte: <b>A validar</b>.</span></div>
+          </div>
+          <footer><span id="sp-geo-selected">Nenhuma área selecionada</span><div><button type="button" class="cx-btn cx-btn-ghost" id="sp-geo-cancel">Cancelar</button><button type="button" class="cx-btn cx-btn-primary" id="sp-geo-apply">Aplicar área</button></div></footer>
+        </form>
+      </dialog>
       {% endif %}
 
       {% if step_id == 'canais' %}
@@ -492,7 +508,7 @@
                 {% endfor %}
               </select>
             </label>
-            <label for="sp-field-praca-detalhe"><span>Onde exatamente</span><input id="sp-field-praca-detalhe" form="sp-revisao-form" name="praca_detalhe" value="{{ campos.praca_detalhe }}" placeholder="Cidades, UFs — o venue vai em Places"></label>
+            <label for="sp-field-praca-detalhe"><span>Onde exatamente</span><span class="sp-field-with-action"><input id="sp-field-praca-detalhe" form="sp-revisao-form" name="praca_detalhe" value="{{ campos.praca_detalhe }}" placeholder="Cidades, UFs — o venue vai em Places"><button type="button" class="cx-btn cx-btn-ghost cx-btn-xs" id="sp-geo-open">Escolher área</button></span><small class="sp-field-hint">Selecione estados/cidades ou escreva uma instrução de cobertura.</small></label>
             <div class="sp-kpi-box">
               <span>KPIs</span>
               <div class="sp-kpi-chips" id="sp-kpi-chips"></div>
@@ -601,7 +617,9 @@
             <script type="application/json" id="sp-places-boot">{{ (campos.places or [])|tojson }}</script>
             <script type="application/json" id="sp-places-catalog">{{ (places_catalog or [])|tojson }}</script>
             <script type="application/json" id="sp-interativos-boot">{{ (campos.interativos or {})|tojson }}</script>
-            <h3>Balanceamento de mídia</h3>
+          </section>
+          <section class="sp-media-balance" id="sp-media-balance-controls" aria-labelledby="sp-mix-balance-title">
+            <h3 id="sp-mix-balance-title">Balanceamento de mídia</h3>
             <p id="sp-mix-hint">
               {% if campos.objetivo %}
                 Dois métodos indicados para este objetivo. Os outros quatro ficam em mais métodos.
@@ -698,7 +716,7 @@
                 <span class="sp-media-step-index">01</span>
                 <span><strong>Canais e método</strong><small>Escolha a presença e a lógica do mix.</small></span>
               </button>
-              <button type="button" data-media-step="sp-media-balance" aria-controls="sp-media-balance">
+              <button type="button" data-media-step="sp-media-balance-controls" aria-controls="sp-media-balance-controls">
                 <span class="sp-media-step-index">02</span>
                 <span><strong>Balanceamento</strong><small>Veja a abertura e o peso por período.</small></span>
               </button>
@@ -864,13 +882,17 @@
 <div class="sp-wait" id="sp-compile-overlay" hidden>
   <div class="sp-wait-shell">
     <div class="sp-wait-folio" role="status" aria-live="polite">
-      <p class="sp-wait-brand">Planejamento</p>
+      <p class="sp-wait-brand">CentralX · Planejamento de mídia</p>
       <p class="sp-wait-kicker" id="sp-wait-eyebrow">Processando</p>
-      <h2 id="sp-wait-title">Entendendo o briefing</h2>
-      <p id="sp-compile-step">Os modelos estão lendo o material para montar a revisão.</p>
+      <h2 id="sp-wait-title">Analisando o briefing</h2>
+      <p id="sp-compile-step">Organizando contexto, dados e pontos de atenção.</p>
       <div class="sp-wait-meter">
         <strong id="sp-wait-frac">—</strong>
         <div class="sp-wait-track"><span id="sp-compile-bar"></span></div>
+      </div>
+      <div class="sp-wait-value">
+        <strong>Mais tempo para a conversa comercial</strong>
+        <span>O Planner faz a triagem e estruturação inicial; o executivo revisa decisões, não transcreve briefing.</span>
       </div>
       <ol class="sp-wait-steps" id="sp-compile-skills"></ol>
       <button type="button" class="sp-wait-dismiss" id="sp-wait-dismiss" hidden>Voltar à revisão</button>

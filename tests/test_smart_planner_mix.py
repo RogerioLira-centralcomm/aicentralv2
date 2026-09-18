@@ -173,7 +173,7 @@ class MixEngineTest(unittest.TestCase):
         self.assertIn("Narrativa corrida", html)
         self.assertIn('class="sp-wait"', html)
         self.assertIn('id="sp-wait-gen-steps"', html)
-        self.assertIn("Entendendo o briefing", html)
+        self.assertIn("Analisando o briefing", html)
         self.assertIn("sp-wait-folio", html)
         self.assertIn("sp-wait-dismiss", html)
         css = (Path(__file__).resolve().parents[1] / "aicentralv2" / "static" / "css" / "smart_planner.css").read_text()

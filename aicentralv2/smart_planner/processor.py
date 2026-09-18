@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import threading
 from datetime import datetime, timedelta, timezone
 
@@ -33,6 +34,20 @@ from .repository import get_by_token, merge_dados, update_session
 
 SEARCH_LOCKED = {"verba", "kpis", "cliente", "periodo", "campanha", "agencia"}
 logger = logging.getLogger(__name__)
+
+
+def suggest_campaign_name(campos: dict) -> str:
+    """Cria um nome curto para a revisão quando o briefing não nomeia a campanha."""
+    client = text((campos or {}).get("cliente"))
+    objective = text((campos or {}).get("objetivo"))
+    source = text((campos or {}).get("objetivo_texto") or (campos or {}).get("contexto"))
+    detail = re.sub(r"^.*?—\s*", "", source)
+    detail = re.sub(r"^(aumentar|gerar|ampliar|promover|divulgar|fazer)\s+", "", detail, flags=re.I)
+    detail = re.split(r"[.!?\n]", detail, maxsplit=1)[0].strip()
+    if len(detail) > 52:
+        detail = detail[:52].rsplit(" ", 1)[0]
+    detail = detail[:1].upper() + detail[1:] if detail else ""
+    return " · ".join(part for part in (client, detail or objective) if part) or "Plano de mídia · nova oportunidade"
 
 
 NARRATIVE_PROMPT = """Você é o redator de briefing do Smart Planner no CentralX.
@@ -78,6 +93,7 @@ Campos já confirmados — copie como estão:
 Retorne APENAS JSON válido:
 {{
   "campos": {{ ... um par por campo acima ... }},
+  "nome_sugerido": "nome curto de 2 a 6 palavras se o briefing não trouxer nome de campanha",
   "score": 0,
   "bem_definido": ["o que já está claro"],
   "falta_completar": ["o que falta"]
@@ -94,6 +110,7 @@ Regras:
 - "Clientes da Copasa / do banco / da marca" é público, nunca o campo cliente.
 - Se campos já confirmados tiverem cliente, não liste falta de anunciante ou de cliente em falta_completar.
 - score de 0 a 100. Pesa mais: objetivo, público, verba, período e praça.
+- Se o material não trouxer nome de campanha, preencha "nome_sugerido" com um nome comercial curto, específico ao anunciante e ao objetivo. Não use "Campanha" ou "Plano" sozinho. Se já houver nome em campos confirmados, deixe "nome_sugerido" vazio.
 - audiencia_modelada separa fato do briefing, estimativa pesquisada e campo a validar. Nunca invente pessoas, idade, classe social ou gênero.
 - universo_estimado e impacto_estimado só podem ter número com fonte. Sem fonte, use null e status "a_validar".
 """
@@ -117,6 +134,7 @@ Regras:
     return {
         "campos": campos,
         "analysis": analysis,
+        "nome_sugerido": text(parsed.get("nome_sugerido")) if isinstance(parsed, dict) else "",
         "score": int(parsed.get("score") or 0) if isinstance(parsed, dict) else 0,
     }
 
@@ -191,6 +209,8 @@ def _process_briefing(
     extracted = extract_fields(material, pistas)
     refs = normalize_references(references)
     campos = apply_pistas(extracted["campos"], pistas)
+    if not text(campos.get("campanha")):
+        campos["campanha"] = text(extracted.get("nome_sugerido")) or suggest_campaign_name(campos)
     campos = apply_support_facts(campos, refs)
     origem = "texto escrito ou colado pelo usuário"
     if refs and text_in.strip():

@@ -38,10 +38,10 @@
   }
 
   var BRIEF_STEPS = [
-    { id: "read", title: "Interpretando o briefing", copy: "Lendo e organizando o material" },
-    { id: "extract", title: "Extraindo as informações", copy: "Identificando os dados confirmados" },
-    { id: "narrative", title: "Consolidando a narrativa", copy: "Redigindo a revisão para você conferir" },
-    { id: "save", title: "Preparando a revisão", copy: "Salvando as informações" },
+    { id: "read", title: "Leitura do briefing", copy: "Contexto, objetivo e restrições" },
+    { id: "extract", title: "Campos e sinais", copy: "Dados confirmados e pontos de atenção" },
+    { id: "narrative", title: "Síntese para revisão", copy: "Uma estrutura clara para a conversa comercial" },
+    { id: "save", title: "Revisão pronta", copy: "Salvando o material para você conferir" },
   ];
 
   function generationWaitSteps(mode) {
@@ -245,7 +245,7 @@
               return { id: item.id, title: item.title, copy: item.copy, state: stepIndex < index ? "done" : stepIndex === index ? "running" : "pending" };
             });
             if (data.status === "done") steps = steps.map(function (item) { return { id: item.id, title: item.title, copy: item.copy, state: "done" }; });
-            setWaitMeta("Processando", data.status === "done" ? "Revisão pronta" : BRIEF_STEPS[index].title, data.title || BRIEF_STEPS[index].copy);
+            setWaitMeta("Processando", data.status === "done" ? "Revisão pronta" : "Analisando o briefing", data.title || "Organizando contexto, dados e pontos de atenção.");
             renderWaitSteps(steps, data.step);
             setWaitProgress(data.status === "done" ? BRIEF_STEPS.length : index + 1, BRIEF_STEPS.length);
             if (data.status === "done") { window.clearInterval(timer); resolve(data); }
@@ -285,7 +285,7 @@
       }).catch(function () {});
       return function () {};
     }
-    setWaitMeta("Processando", "Entendendo o briefing", BRIEF_STEPS[0].copy);
+    setWaitMeta("Processando", "Analisando o briefing", "Organizando contexto, dados e pontos de atenção.");
     renderWaitSteps(BRIEF_STEPS.map(function (item, index) {
       return { id: item.id, title: item.title, copy: item.copy, state: index === 0 ? "running" : "pending" };
     }), BRIEF_STEPS[0].id);
@@ -1785,6 +1785,7 @@
     setupChannelPicker(desk);
     setupKpiChips();
     setupPlacesDesk();
+    setupGeoModal();
     setupInterativosDesk();
     setupReviewSections();
     setupCompleteness();
@@ -2137,6 +2138,67 @@
     });
     document.addEventListener("change", function (event) {
       if (event.target && event.target.name === "canais" && event.target.value === "places") paint();
+    });
+    paint();
+  }
+
+  function setupGeoModal() {
+    var dialog = document.getElementById("sp-geo-modal");
+    var open = document.getElementById("sp-geo-open");
+    var apply = document.getElementById("sp-geo-apply");
+    var cancel = document.getElementById("sp-geo-cancel");
+    var list = document.getElementById("sp-geo-list");
+    var state = document.getElementById("sp-geo-state");
+    var search = document.getElementById("sp-geo-search");
+    var instruction = document.getElementById("sp-geo-instruction");
+    var detail = document.getElementById("sp-field-praca-detalhe");
+    var market = document.getElementById("sp-field-praca");
+    var selectedNote = document.getElementById("sp-geo-selected");
+    if (!dialog || !open || !list || !detail) return;
+    var states = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"];
+    var cities = [
+      ["Belo Horizonte","MG","capital"],["Contagem","MG","RMBH"],["Betim","MG","RMBH"],["Nova Lima","MG","RMBH"],["Ribeirão das Neves","MG","RMBH"],["Santa Luzia","MG","RMBH"],["Uberlândia","MG","interior"],["Juiz de Fora","MG","interior"],["Montes Claros","MG","interior"],["Governador Valadares","MG","interior"],["Ipatinga","MG","interior"],["Poços de Caldas","MG","interior"],["Uberaba","MG","interior"],["Divinópolis","MG","interior"],["Pouso Alegre","MG","interior"],["São Paulo","SP","capital"],["Rio de Janeiro","RJ","capital"],["Vitória","ES","capital"]
+    ];
+    var selected = {};
+    cities.forEach(function (item) {
+      var current = (detail.value || "").toLowerCase();
+      if (current.indexOf(item[0].toLowerCase()) !== -1) selected[item[0] + "|" + item[1]] = true;
+    });
+    states.forEach(function (uf) { var option = document.createElement("option"); option.value = uf; option.textContent = uf; state.appendChild(option); });
+    function visibleCities() {
+      var query = ((search && search.value) || "").trim().toLowerCase();
+      return cities.filter(function (item) { return (!state.value || item[1] === state.value) && (!query || (item[0] + " " + item[1] + " " + item[2]).toLowerCase().indexOf(query) !== -1); });
+    }
+    function paint() {
+      var items = visibleCities();
+      list.innerHTML = items.map(function (item) {
+        var key = item[0] + "|" + item[1];
+        var checked = !!selected[key];
+        return '<label class="sp-geo-city"><input type="checkbox" data-geo-city="' + escapeHtml(key) + '"' + (checked ? " checked" : "") + '><span><strong>' + escapeHtml(item[0]) + '</strong><small>' + escapeHtml(item[1] + " · " + (item[2] === "interior" ? "Interior" : item[2] === "RMBH" ? "Região metropolitana" : "Capital")) + '</small></span><em><b>Total</b> A validar<br><b>Digital</b> A validar</em></label>';
+      }).join("") || '<p class="sp-geo-empty">Nenhuma cidade no filtro. Use uma instrução de cobertura abaixo.</p>';
+      var count = Object.keys(selected).length;
+      if (selectedNote) selectedNote.textContent = count ? count + " cidade" + (count === 1 ? "" : "s") + " selecionada" + (count === 1 ? "" : "s") : "Nenhuma área selecionada";
+    }
+    function useShortcut(name) {
+      selected = {};
+      if (name === "mg-todo") { state.value = "MG"; instruction.value = "Minas Gerais inteiro."; }
+      if (name === "mg-interior") { state.value = "MG"; instruction.value = "Cidades do interior de Minas Gerais, excluindo a capital e a Região Metropolitana de Belo Horizonte."; cities.filter(function (item) { return item[1] === "MG" && item[2] === "interior"; }).forEach(function (item) { selected[item[0] + "|" + item[1]] = true; }); }
+      if (name === "rmbh") { state.value = "MG"; instruction.value = "Região Metropolitana de Belo Horizonte."; cities.filter(function (item) { return item[1] === "MG" && item[2] === "RMBH" || item[0] === "Belo Horizonte"; }).forEach(function (item) { selected[item[0] + "|" + item[1]] = true; }); }
+      paint();
+    }
+    open.addEventListener("click", function () { if (dialog.showModal) dialog.showModal(); else dialog.setAttribute("open", "open"); paint(); });
+    if (cancel) cancel.addEventListener("click", function () { dialog.close(); });
+    state.addEventListener("change", paint); if (search) search.addEventListener("input", paint);
+    dialog.querySelectorAll("[data-geo-shortcut]").forEach(function (button) { button.addEventListener("click", function () { useShortcut(button.getAttribute("data-geo-shortcut")); }); });
+    list.addEventListener("change", function (event) { var key = event.target.getAttribute("data-geo-city"); if (!key) return; if (event.target.checked) selected[key] = true; else delete selected[key]; paint(); });
+    apply.addEventListener("click", function () {
+      var names = Object.keys(selected).map(function (key) { return key.split("|")[0]; });
+      var text = names.join(", ");
+      var extra = (instruction && instruction.value || "").trim();
+      detail.value = [text, extra].filter(Boolean).join(". ");
+      if (market && (names.length || extra)) market.value = "geolocalizada";
+      detail.dispatchEvent(new Event("input", { bubbles: true }));
+      dialog.close();
     });
     paint();
   }

@@ -249,6 +249,7 @@ class SmartPlannerReferencesTest(unittest.TestCase):
         self.assertTrue(fonte["briefing"].startswith("Briefing escrito"))
         self.assertEqual(fonte["referencias"][0]["notas"], "Cortes premium.")
         self.assertEqual(result["campos"]["publico"], "BH")
+        self.assertTrue(result["campos"]["campanha"].startswith("Seed ·"))
 
     def test_source_material_prefers_fonte_over_url_dump(self):
         material = processor.source_material({

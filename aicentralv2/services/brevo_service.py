@@ -25,7 +25,7 @@ LISTA_USUARIOS_INATIVOS = 23
 
 # A assinatura é única (contato@centralcomm.media); a aparência identifica o produto.
 PRODUCT_EMAIL_BRANDS = {
-    "workspace": {"name": "Workspace", "accent": "#007D6D", "deep": "#10213B", "soft": "#E9F6F3", "signal": "#009F8A", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/workspace-192.png"},
+    "workspace": {"name": "Workspace", "accent": "#007D6D", "deep": "#10213B", "soft": "#E9F6F3", "signal": "#009F8A", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/workspace-192.png", "illustrations_url": "https://ai.centralcomm.media/static/emails/workspace/"},
     "studio": {"name": "Media Studio", "accent": "#6344CF", "deep": "#10213B", "soft": "#F1EDFC", "signal": "#7456E8", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/studio-192.png"},
     "planner": {"name": "Smart Planner", "accent": "#087D4D", "deep": "#10213B", "soft": "#E8F7EF", "signal": "#18B978", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/planner-192.png"},
     "skills": {"name": "Skills", "accent": "#A94D08", "deep": "#10213B", "soft": "#FFF2E7", "signal": "#E87922", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/skills-192.png"},
@@ -710,6 +710,7 @@ def enviar_email_convite(
         "EXPIRA_EM": expires_at
     }
     params["BRAND"] = product_email_brand("workspace")
+    params["ILLUSTRATION_URL"] = product_email_brand("workspace")["illustrations_url"] + "invite.png"
     
     # Adicionar contato à lista de convites pendentes
     service.adicionar_contato(
@@ -767,6 +768,7 @@ def enviar_email_boas_vindas(
         "TOKEN": token or ""
     }
     params["BRAND"] = product_email_brand("workspace")
+    params["ILLUSTRATION_URL"] = product_email_brand("workspace")["illustrations_url"] + "welcome.png"
     
     # Mover da lista de pendentes para ativos
     service.mover_para_lista(
@@ -819,6 +821,7 @@ def enviar_email_reset_senha(
         "HORAS_VALIDADE": expires_hours
     }
     params["BRAND"] = product_email_brand("workspace")
+    params["ILLUSTRATION_URL"] = product_email_brand("workspace")["illustrations_url"] + "reset.png"
     
     return service.enviar_email_com_template(
         template_name="reset-senha.html",
@@ -849,12 +852,18 @@ def enviar_email_senha_alterada(
     # Extrair primeiro nome
     primeiro_nome = to_name.split()[0] if to_name else "Usuário"
     
+    from ..product_domains import product_url
     return service.enviar_email_com_template(
         template_name="senha-alterada.html",
         to_email=to_email,
         to_name=to_name,
         subject="Senha alterada",
-        params={"PRIMEIRO_NOME": primeiro_nome, "BRAND": product_email_brand("workspace")},
+        params={
+            "PRIMEIRO_NOME": primeiro_nome,
+            "LINK_RECOVERY": product_url('cadu', '/forgot-password'),
+            "BRAND": product_email_brand("workspace"),
+            "ILLUSTRATION_URL": product_email_brand("workspace")["illustrations_url"] + "changed.png",
+        },
         template_folder="emails/externos",
     )
 

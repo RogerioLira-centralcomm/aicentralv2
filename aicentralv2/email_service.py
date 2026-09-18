@@ -5,7 +5,8 @@ Serviço de envio de emails (usando Brevo API)
 =====================================================
 """
 
-from flask import render_template, current_app
+from flask import current_app, has_request_context, render_template, session
+from urllib.parse import quote
 from threading import Thread
 from aicentralv2.services.brevo_service import (
     get_brevo_service,
@@ -17,6 +18,54 @@ from aicentralv2.services.brevo_service import (
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _workspace_client_id(recipient_email, client_id=None):
+    """Resolve a tenant without relying on a session during password recovery."""
+    if client_id:
+        return int(client_id)
+    if has_request_context() and session.get('cliente_id'):
+        return int(session['cliente_id'])
+    try:
+        from .db import get_db
+        with get_db().cursor() as cursor:
+            cursor.execute(
+                """SELECT pk_id_tbl_cliente AS id_cliente
+                     FROM tbl_contato_cliente
+                    WHERE LOWER(email) = LOWER(%s)
+                 ORDER BY id_contato_cliente DESC LIMIT 1""",
+                (recipient_email,),
+            )
+            row = cursor.fetchone()
+        return int(row['id_cliente']) if row and row.get('id_cliente') else None
+    except Exception:
+        logger.warning('Não foi possível resolver a conta do e-mail transacional.', exc_info=True)
+        return None
+
+
+def _record_workspace_email_event(*, recipient_email, event_type, subject, result, client_id=None):
+    """Persist provider acceptance/failure without storing links or tokens."""
+    tenant_id = _workspace_client_id(recipient_email, client_id)
+    if not tenant_id:
+        return
+    try:
+        from .db import get_db
+        with get_db() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """INSERT INTO cadu_workspace_email_events
+                           (id_cliente, recipient_email, event_type, subject, status,
+                            provider_message_id, provider_error)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                    (
+                        tenant_id, recipient_email, event_type, subject,
+                        'sent' if result.get('success') else 'failed',
+                        result.get('messageId') or result.get('message_id'),
+                        str(result.get('error') or '')[:4000] or None,
+                    ),
+                )
+    except Exception:
+        logger.warning('Não foi possível registrar o envio transacional do Workspace.', exc_info=True)
 
 
 def send_email(subject, recipients, text_body=None, html_body=None, sender=None):
@@ -79,7 +128,7 @@ def send_email(subject, recipients, text_body=None, html_body=None, sender=None)
         return False
 
 
-def send_password_reset_email(user_email, user_name, reset_link, expires_hours=1):
+def send_password_reset_email(user_email, user_name, reset_link, expires_hours=1, client_id=None):
     """
     Envia email de recuperação de senha via Brevo
     
@@ -98,10 +147,14 @@ def send_password_reset_email(user_email, user_name, reset_link, expires_hours=1
         reset_link=reset_link,
         expires_hours=expires_hours
     )
+    _record_workspace_email_event(
+        recipient_email=user_email, client_id=client_id, event_type='password_reset',
+        subject='Redefina sua senha', result=result,
+    )
     return result.get('success', False)
 
 
-def send_password_changed_email(user_email, user_name):
+def send_password_changed_email(user_email, user_name, client_id=None):
     """
     Envia email de confirmação de senha alterada via Brevo
     
@@ -116,10 +169,14 @@ def send_password_changed_email(user_email, user_name):
         to_email=user_email,
         to_name=user_name
     )
+    _record_workspace_email_event(
+        recipient_email=user_email, client_id=client_id, event_type='password_changed',
+        subject='Senha alterada', result=result,
+    )
     return result.get('success', False)
 
 
-def send_welcome_email(user_email, user_name, cliente_nome='', login_link=None):
+def send_welcome_email(user_email, user_name, cliente_nome='', login_link=None, client_id=None):
     """
     Envia email de boas-vindas via Brevo
     
@@ -136,10 +193,59 @@ def send_welcome_email(user_email, user_name, cliente_nome='', login_link=None):
         cliente_nome=cliente_nome,
         login_link=login_link,
     )
+    _record_workspace_email_event(
+        recipient_email=user_email, client_id=client_id, event_type='welcome',
+        subject='Sua conta está pronta', result=result,
+    )
     return result.get('success', False)
 
 
-def send_invite_email(to_email, invite_token, cliente_nome, invited_by_name, expires_at, role_label='Membro'):
+def send_launch_bonus_email(user_email, user_name, cliente_nome='', client_id=None):
+    """Announce the actual launch allowance only while its entitlement is active."""
+    tenant_id = _workspace_client_id(user_email, client_id)
+    if not tenant_id:
+        return {'success': True, 'skipped': True}
+    try:
+        from .db import get_db
+        with get_db().cursor() as cursor:
+            cursor.execute(
+                """SELECT tokens_amount, expires_at FROM cadu_credit_entitlements
+                     WHERE id_cliente = %s AND entitlement_key = 'cadu_launch_100k'
+                       AND status = 'granted' AND (expires_at IS NULL OR expires_at > NOW())
+                 ORDER BY granted_at DESC LIMIT 1""",
+                (tenant_id,),
+            )
+            entitlement = cursor.fetchone()
+    except Exception:
+        logger.warning('Não foi possível consultar o bônus inicial do Workspace.', exc_info=True)
+        return {'success': False, 'error': 'bonus_lookup_failed'}
+    if not entitlement or int(entitlement.get('tokens_amount') or 0) <= 0:
+        return {'success': True, 'skipped': True}
+    expires_at = entitlement.get('expires_at')
+    expires_label = expires_at.strftime('%d/%m/%Y') if hasattr(expires_at, 'strftime') else str(expires_at or 'o vencimento informado no Workspace')
+    from .product_domains import product_url
+    from .services.brevo_service import get_brevo_product_service, product_email_brand
+    result = get_brevo_product_service('workspace').enviar_email_com_template(
+        template_name='bonus-creditos.html', template_folder='emails/externos',
+        to_email=user_email, to_name=user_name,
+        subject='100.000 créditos para começar',
+        params={
+            'PRIMEIRO_NOME': (user_name or 'pessoa da equipe').split()[0],
+            'EMPRESA': cliente_nome or 'sua equipe',
+            'EXPIRES_AT': expires_label,
+            'CREDITS_URL': product_url('workspace', '/workspace/app/creditos'),
+            'BRAND': product_email_brand('workspace'),
+            'ILLUSTRATION_URL': product_email_brand('workspace')['illustrations_url'] + 'credits.png',
+        },
+    )
+    _record_workspace_email_event(
+        recipient_email=user_email, client_id=tenant_id, event_type='launch_bonus',
+        subject='100.000 créditos para começar', result=result,
+    )
+    return result
+
+
+def send_invite_email(to_email, invite_token, cliente_nome, invited_by_name, expires_at, role_label='Membro', client_id=None):
     """
     Envia email de convite para novo usuário via Brevo
     
@@ -153,10 +259,8 @@ def send_invite_email(to_email, invite_token, cliente_nome, invited_by_name, exp
     Returns:
         dict: {"success": bool, opcional "error", "user_message" para exibir ao usuário}
     """
-    base_url = current_app.config.get('BASE_URL', 'http://localhost:5000')
-    
-    # Link de aceite do convite (usando query param conforme padrão documentado)
-    invite_link = f"{base_url}/aceitar-convite?token={invite_token}"
+    from .product_domains import product_url
+    invite_link = product_url('cadu', f'/aceitar-convite?token={quote(str(invite_token), safe="")}')
     
     logger.info(f"Link do convite gerado: {invite_link}")
     
@@ -171,6 +275,10 @@ def send_invite_email(to_email, invite_token, cliente_nome, invited_by_name, exp
         cliente_nome=cliente_nome,
         expires_at=expires_str,
         role_label=role_label,
+    )
+    _record_workspace_email_event(
+        recipient_email=to_email, client_id=client_id, event_type='invite',
+        subject=f'Você foi convidado por {invited_by_name}', result=result,
     )
     if result.get("success"):
         return {"success": True}

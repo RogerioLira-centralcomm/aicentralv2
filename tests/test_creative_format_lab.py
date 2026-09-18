@@ -2502,6 +2502,8 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
                 "cta": "Encontre a loja",
                 "note": "Trocar Cyrella por Vivara.",
                 "logo_url": "https://cdn.example/vivara-logo.png",
+                "alter": ["logo"],
+                "explicit_brand_change": True,
             }
         )
         self.assertIn("Brazilian Portuguese", prompt)
@@ -2526,8 +2528,8 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
                 "reference": "data:image/png;base64,aaa",
                 "brand_name": "Rede D'Or",
                 "aspect_ratio": "9:16",
-                "alter": ["headline"],
-                "headline": "Cuidado que se vê",
+                "alter": ["background"],
+                "note": "Tornar o ambiente mais claro",
                 "force_image": True,
             },
             brand={"logo_url": "https://cdn.example/redor-logo.png"},
@@ -2536,11 +2538,12 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
         self.assertTrue(result["png_data_url"].startswith("data:image/png"))
         self.assertEqual(
             called["refs"],
-            ["data:image/png;base64,aaa", "https://cdn.example/redor-logo.png"],
+            ["data:image/png;base64,aaa"],
         )
         self.assertEqual(called["aspect"], "9:16")
-        self.assertTrue(result["logo_used"])
-        self.assertIn("Rede D'Or", called["prompt"])
+        self.assertFalse(result["logo_used"])
+        self.assertIn("brand identity visible in the FIRST image is locked", called["prompt"])
+        self.assertNotIn("New brand: Rede D'Or", called["prompt"])
         self.assertEqual(quote_swap()["model"], "openai/gpt-image-2")
         self.assertEqual(resolve_aspect_ratio({"output": "mobile"}), "9:16")
 
@@ -2550,6 +2553,43 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
             brand={"name": "TIM"},
         )
         self.assertEqual(refs, ["data:image/png;base64,aaa"])
+
+    def test_troca_de_marca_exige_operacao_explicita_e_logo_oficial(self):
+        from aicentralv2.creative_format_lab.swap_plan import build_swap_plan
+
+        unsafe = build_swap_plan({
+            "reference": "data:image/png;base64,aaa",
+            "alter": ["logo"],
+            "note": "Trocar a marca Banco Mercantil por Sicoob",
+            "confirm_conflicts": True,
+        }, brand={"name": "Sicoob", "logo_url": "https://cdn.example/sicoob.png"})
+        self.assertTrue(unsafe["blocked"])
+        self.assertIn("brand_change_requires_explicit", {item["code"] for item in unsafe["conflicts"]})
+
+        payload = {
+            "reference": "data:image/png;base64,aaa",
+            "alter": ["logo"],
+            "explicit_brand_change": True,
+        }
+        refs = swap_input_references(payload, brand={"logo_url": "https://cdn.example/sicoob.png"})
+        self.assertEqual(refs, ["data:image/png;base64,aaa", "https://cdn.example/sicoob.png"])
+        prompt = build_optimized_prompt(payload, brand={"name": "Sicoob", "logo_url": refs[1]})
+        self.assertIn("New brand: Sicoob", prompt)
+
+    def test_texto_marcado_ignora_force_image_e_preserva_marca_por_typeset(self):
+        from aicentralv2.creative_format_lab.swap import swap_mode
+
+        payload = {
+            "reference": "data:image/png;base64,aaa",
+            "alter": ["headline"],
+            "headline": "Novo texto",
+            "force_image": True,
+            "ref_width": 1080,
+            "ref_height": 1080,
+            "regions": {"headline": [80, 120, 700, 260]},
+        }
+        self.assertEqual(swap_mode(payload), "typeset")
+        self.assertEqual(swap_input_references(payload, {"logo_url": "https://cdn.example/sicoob.png"}), [payload["reference"]])
 
     def test_quote_expoe_creditos_e_tokens_sem_preco_para_o_usuario(self):
         single = quote_swap({"quality": "draft"})

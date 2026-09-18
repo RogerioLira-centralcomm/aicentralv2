@@ -22,7 +22,21 @@ from PIL import Image, ImageOps, ImageChops
 MAX_FILE = 20 * 1024 * 1024
 MAX_PIXELS = 20_000_000
 ID = re.compile(r"^[a-f0-9]{32}$")
-ROLES = {"person", "product", "background"}
+ROLES = {"person", "product", "background", "text", "logo", "graphic"}
+EDIT_ACTIONS = {"replace", "erase", "recreate", "extract", "text", "format", "cutout", "fill", "similarity"}
+HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
+BACKGROUND_PRESETS = {
+    "clean-studio": "clean studio background with controlled soft lighting",
+    "brand-gradient": "restrained gradient using the source brand palette",
+    "paper": "subtle premium paper texture with natural fibers",
+    "color-wash": "soft color wash with enough quiet space for copy",
+    "editorial": "premium editorial environment with realistic depth",
+    "office": "realistic contemporary office environment",
+    "nature": "natural outdoor environment with believable daylight",
+    "architecture": "refined architectural environment with clean geometry",
+    "dark-studio": "dark controlled studio with precise edge lighting",
+    "bright-seamless": "bright seamless background with grounded soft shadow",
+}
 
 
 class Conflict(ValueError):
@@ -166,18 +180,19 @@ class Workspace:
             raise ValueError('Selecione de 1 a 12 operações.')
         clean = []
         for op in operations:
-            if not isinstance(op, dict) or op.get('action') not in {'replace', 'erase', 'recreate', 'extract', 'text', 'format'}:
+            if not isinstance(op, dict) or op.get('action') not in EDIT_ACTIONS:
                 raise ValueError('Operação inválida.')
             if op.get('base_asset') != base:
                 raise ValueError('A base mudou. Revise a máscara antes de gerar.')
-            mask = self.image(op.get('mask_asset')).convert('L') if op['action'] != 'format' else self.image(base).convert('L')
-            if op['action'] != 'format' and (mask.size != self.image(base).size or not mask.getbbox()):
+            full_frame = op['action'] in {'format', 'similarity'}
+            mask = self.image(op.get('mask_asset')).convert('L') if not full_frame else self.image(base).convert('L')
+            if not full_frame and (mask.size != self.image(base).size or not mask.getbbox()):
                 raise ValueError('Revise a máscara: ela deve conter uma região e ter o tamanho da base.')
             role = op.get('role')
             if role not in ROLES:
-                raise ValueError('Escolha pessoa, produto ou fundo.')
+                raise ValueError('Escolha um elemento válido para editar.')
             reference = op.get('reference_asset')
-            if op['action'] == 'replace':
+            if op['action'] in {'replace', 'similarity'}:
                 self.asset(reference)
             elif reference:
                 raise ValueError('Referências só são usadas em substituições.')
@@ -186,8 +201,21 @@ class Workspace:
                 raise ValueError('Instrução excede 2000 caracteres.')
             if op['action'] == 'format' and op.get('aspect_ratio') not in {'16:9','9:16','1:1','4:5'}:
                 raise ValueError('Formato inválido.')
+            color = str(op.get('background_color') or '').strip()
+            if op['action'] == 'fill' and not HEX_COLOR.fullmatch(color):
+                raise ValueError('Escolha uma cor sólida no formato #RRGGBB.')
+            preset = str(op.get('background_preset') or '').strip()
+            if preset and (op['action'] != 'recreate' or role != 'background' or preset not in BACKGROUND_PRESETS):
+                raise ValueError('Preset de fundo inválido para esta operação.')
+            if preset and not instruction:
+                instruction = 'Create a ' + BACKGROUND_PRESETS[preset] + '; preserve foreground, brand and copy.'
             clean.append({'aspect_ratio': op.get('aspect_ratio') if op['action']=='format' else None, 'action': op['action'], 'role': role, 'instruction': instruction,
-                          'base_asset': base, 'mask_asset': op.get('mask_asset'), 'reference_asset': reference})
+                          'base_asset': base, 'mask_asset': op.get('mask_asset'), 'reference_asset': reference,
+                          'reference_role': 'similarity_reference' if op['action']=='similarity' else ('selected_element_reference' if reference else None),
+                          'background_color': color if op['action']=='fill' else None,
+                          'background_preset': preset or None})
+        if any(op['action']=='similarity' for op in clean) and len(clean) > 1:
+            raise ValueError('Gere a similaridade da peça inteira em uma operação separada.')
         if any(op['action']=='format' for op in clean) and not all(op['action']=='format' for op in clean):
             raise ValueError('Gere os formatos depois de concluir as edições por elemento.')
         protected = payload.get('protected_masks') or []
@@ -196,6 +224,8 @@ class Workspace:
         for ident in protected:
             if self.image(ident).size != self.image(base).size:
                 raise ValueError('Revise as regiões protegidas desta base.')
+        if any(op['action']=='similarity' for op in clean) and not protected:
+            raise ValueError('Antes da similaridade global, proteja ao menos a região da marca ou do logo.')
         if protected and any(op['action']=='format' for op in clean):
             raise ValueError('A recomposição por IA não preserva regiões protegidas. Exporte a composição com o elemento original antes de adaptar o formato.')
         seed = {'base_asset': base, 'operations': clean, 'protected_masks': protected}
@@ -268,7 +298,8 @@ class Workspace:
                 if op['action'] == 'format':
                     current = job['base_asset']
                 source = self.image(current)
-                mask = self.image(op['mask_asset']).convert('L') if op['action'] != 'format' else Image.new('L', source.size, 255)
+                full_frame = op['action'] in {'format', 'similarity'}
+                mask = Image.new('L', source.size, 255) if full_frame else self.image(op['mask_asset']).convert('L')
                 if op['action'] != 'format':
                     for protected in job.get('protected_masks', []):
                         mask = ImageChops.multiply(mask, ImageOps.invert(self.image(protected).convert('L')))
@@ -280,35 +311,53 @@ class Workspace:
                           'extract': 'Remove the selected element and reconstruct the background.',
                           'format': f'Recompose the entire creative for aspect ratio {op.get("aspect_ratio")}. Preserve all content, logos and people; adapt the layout to the destination.',
                           'text': 'Remove the selected text and reconstruct the background. Do not add any text.',
-                          'replace': 'Replace the selected element using the second image as visual reference.'}[op['action']]
+                          'replace': 'Replace the selected element using the SECOND image only as reference for that selected element.',
+                          'similarity': 'Restyle the whole creative using the SECOND image only as visual-direction reference. The FIRST image remains the source of truth for advertiser, logo, wordmark, people and copy.',
+                          'cutout': 'Isolate the selected element on transparency.',
+                          'fill': f'Fill the selected background with exact solid color {op.get("background_color")}.'}[op['action']]
                 instruction = '' if op['action']=='text' else op['instruction']
                 dimensions = 'Keep exactly the original dimensions.' if op['action'] != 'format' else ''
                 prompt = (f'Edit the {op["role"]} inside pixel region {box} of the FIRST image ({source.width}x{source.height}). '
-                          f'{action} Preserve all logos, typography and other elements. {dimensions} '
+                          f'{action} Preserve the original advertiser, all logos, wordmarks, typography and other unselected elements. {dimensions} '
+                          f'Never replace a bank, institution or brand unless this operation explicitly targets role logo. '
                           f'Do not infer missing price, CTA or logo. Never invent offer terms. Preserve buildings exactly: facade geometry, floors, balconies and windows; do not redesign architecture. '
                           f'User instruction: {instruction}')
                 refs = [self.reference(current)]
                 if op['reference_asset']:
                     refs.append(self.reference(op['reference_asset']))
-                raw = generate(prompt, input_references=refs, aspect_ratio=op.get('aspect_ratio') or f'{source.width}:{source.height}', background='opaque')
-                from .swap import _png_bytes
-                generated = Image.open(io.BytesIO(_png_bytes(raw))).convert('RGBA')
+                if op['action'] == 'cutout':
+                    generated = source.copy()
+                    generated.putalpha(mask)
+                elif op['action'] == 'fill':
+                    generated = Image.new('RGBA', source.size, op['background_color'])
+                else:
+                    raw = generate(prompt, input_references=refs, aspect_ratio=op.get('aspect_ratio') or f'{source.width}:{source.height}', background='opaque')
+                    from .swap import _png_bytes
+                    generated = Image.open(io.BytesIO(_png_bytes(raw))).convert('RGBA')
                 if op['action'] == 'format':
                     target = {'16:9':(1920,1080),'9:16':(1080,1920),'1:1':(1080,1080),'4:5':(1080,1350)}[op['aspect_ratio']]
                     composed = ImageOps.fit(generated, target, method=Image.Resampling.LANCZOS)
+                elif op['action'] == 'cutout':
+                    composed = generated
                 else:
                     if generated.size != source.size:
                         generated = generated.resize(source.size, Image.Resampling.LANCZOS)
                     composed = Image.composite(generated, source, mask)
+                if op['action'] not in {'format', 'cutout'} and _changed_outside_mask(source, composed, mask):
+                    raise ValueError('A edição tentou alterar pixels protegidos ou fora da seleção.')
                 output = io.BytesIO()
                 composed.save(output, format='PNG')
                 asset = self.upload(output.getvalue(), 'Resultado da edição')
-                entry = {'base_asset': current, 'operation': op, 'result_asset': asset['id']}
-                if op['action'] in {'extract', 'text'}:
+                entry = {'base_asset': current, 'operation': op, 'result_asset': asset['id'],
+                         'qa': {'outside_mask_preserved': op['action'] != 'format',
+                                'protected_regions': len(job.get('protected_masks', [])),
+                                'reference_role': op.get('reference_role')}}
+                if op['action'] in {'extract', 'text', 'cutout'}:
                     layer = {'id': uuid.uuid4().hex, 'kind': 'image' if op['action']=='extract' else 'text',
                              'x': box[0], 'y': box[1], 'width': box[2]-box[0], 'height': box[3]-box[1],
                              'visible': True, 'opacity': 1, 'protected': False}
-                    if op['action']=='extract':
+                    if op['action'] in {'extract', 'cutout'}:
+                        layer['kind'] = 'image'
                         cut = source.copy(); cut.putalpha(mask); cut = cut.crop(box)
                         cut_bytes = io.BytesIO(); cut.save(cut_bytes, 'PNG')
                         layer['asset_id'] = self.upload(cut_bytes.getvalue(), 'Camada recortada')['id']
@@ -333,3 +382,12 @@ class Workspace:
             row = db.execute('SELECT body FROM jobs WHERE id=?', (job['id'],)).fetchone()
             job['cancel_requested'] = json.loads(row['body'])['cancel_requested']
             db.execute('UPDATE jobs SET body=? WHERE id=?', (packed(job), job['id']))
+
+
+def _changed_outside_mask(source, result, mask):
+    """True when a localized edit leaked into pixels it did not own."""
+    if source.size != result.size or source.size != mask.size:
+        return True
+    outside = ImageOps.invert(mask.convert('L'))
+    difference = ImageChops.difference(source.convert('RGBA'), result.convert('RGBA'))
+    return any(ImageChops.multiply(channel, outside).getbbox() for channel in difference.split())

@@ -197,6 +197,8 @@
 .trocr-workspace li { margin-bottom:8px; }
 .trocr-workspace fieldset { border:1px solid var(--tr-border); padding:8px; }
 .trocr-workspace p { font-size:12px;line-height:1.5; }
+.trocr-workspace .trocr-input-contract { margin:10px 0;padding:9px 10px;border-left:3px solid var(--tr-accent);background:var(--tr-floor);color:var(--tr-muted); }
+.trocr-workspace .trocr-input-contract.is-global { border-left-color:#d79b2b;background:#fff7e8;color:var(--tr-ink); }
 .trocr-workspace [data-results]>div { display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-top:1px solid var(--tr-border);padding:10px 0; }
 .trocr-campaign-dialog { width:360px;max-width:90vw;border:1px solid var(--tr-border);border-radius:8px;padding:20px; }
 .trocr-campaign-dialog label { display:block;margin:12px 0; }

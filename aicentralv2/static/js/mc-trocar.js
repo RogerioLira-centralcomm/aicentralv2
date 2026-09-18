@@ -139,7 +139,7 @@
     async function openElementWorkspace(intent = null) {
       try {
         if (editor?.isDirty() && !await persistHistory()) return;
-        const { openWorkspace } = await import('./trocr/workspace.js?v=2');
+        const { openWorkspace } = await import('./trocr/workspace.js?v=3');
         await openWorkspace({ state, intent, baseVersion, focusBase: async () => { selectVersion(state.baseId); await $('mcSwapImage').decode(); }, acceptResult: async (image, job) => {
           const response = await fetch(image, {credentials:'same-origin'});
           if (!response.ok) throw new Error('O resultado está salvo, mas não foi possível adicioná-lo ao histórico da peça.');

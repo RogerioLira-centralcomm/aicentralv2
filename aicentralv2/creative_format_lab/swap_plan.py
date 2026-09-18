@@ -21,7 +21,7 @@ from .swap import (
 )
 
 
-PLANNER_VERSION = "trocr-plan-5"
+PLANNER_VERSION = "trocr-plan-6"
 TYPE_FIELDS = {
     "headline": "headline",
     "support": "secondary",
@@ -144,6 +144,24 @@ def _conflicts(data, operations, brand):
             f"O mesmo item não pode ser preservado e alterado: {named}.",
             True,
         ))
+    if "logo" in alter and data.get("explicit_brand_change") is not True:
+        items.append(_conflict(
+            "brand_change_requires_explicit",
+            "Trocar marca exige uma operação de logo confirmada explicitamente.",
+            True,
+        ))
+    if data.get("explicit_brand_change") is True and "logo" not in alter:
+        items.append(_conflict(
+            "brand_change_without_logo_operation",
+            "A confirmação de troca de marca só vale quando logo está em Alterar.",
+            True,
+        ))
+    if data.get("explicit_brand_change") is True and not swap_logo_url(data, brand):
+        items.append(_conflict(
+            "brand_change_missing_reference",
+            "Envie o logo oficial antes de trocar a marca.",
+            True,
+        ))
     for field, token in TYPE_FIELDS.items():
         original = _original(data, field)
         current = str(data.get(field) or "").strip()
@@ -168,8 +186,14 @@ def _conflicts(data, operations, brand):
     note = str(data.get("note") or "").strip()
     if note and not data.get("scene_variant"):
         hinted = {token for pattern, token in NOTE_HINTS if pattern.search(note)}
+        if "logo" in hinted and data.get("explicit_brand_change") is not True:
+            items.append(_conflict(
+                "brand_change_requires_explicit",
+                "A instrução menciona marca ou logo. Confirme uma operação explícita de troca de marca ou remova esse pedido.",
+                True,
+            ))
         missing = sorted(token for token in hinted if token not in alter and token not in {"logo"})
-        if "logo" in hinted and "logo" in preserve:
+        if "logo" in hinted and "logo" in preserve and data.get("explicit_brand_change") is True:
             missing.append("logo")
         if missing:
             items.append(_conflict(
@@ -201,7 +225,13 @@ def _type_only(data):
 
 
 def _is_blocked(conflicts, data):
-    hard = any(item.get("code") == "needs_region" and item.get("blocking") for item in conflicts)
+    hard_codes = {
+        "needs_region",
+        "brand_change_requires_explicit",
+        "brand_change_without_logo_operation",
+        "brand_change_missing_reference",
+    }
+    hard = any(item.get("code") in hard_codes and item.get("blocking") for item in conflicts)
     soft = any(
         item.get("blocking") and item.get("code") != "needs_region"
         for item in conflicts
@@ -261,6 +291,7 @@ def _hash_plan(data, operations, brand):
         "force_image": bool(data.get("force_image")),
         "prompt_override": str(data.get("prompt_override") or ""),
         "scene_variant": int(data.get("scene_variant") or 0),
+        "explicit_brand_change": data.get("explicit_brand_change") is True,
         "regions": _region_seed(data, operations),
     }
     raw = json.dumps(seed, ensure_ascii=False, sort_keys=True, separators=(",", ":"))

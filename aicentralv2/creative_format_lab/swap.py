@@ -169,6 +169,7 @@ ALTER_LABELS = {
     "background": "background",
     "colors": "colors",
     "graphic": "graphic devices",
+    "logo": "brand logo",
 }
 
 _ROLE_TO_ANALYSIS = {
@@ -318,6 +319,13 @@ def swap_logo_url(payload=None, brand=None):
     return ""
 
 
+def explicit_brand_change(payload=None):
+    """Brand context is styling context, never permission to replace identity."""
+    payload = payload if isinstance(payload, dict) else {}
+    alter = set(_token_list(payload.get("alter"), ALTER_LABELS))
+    return payload.get("explicit_brand_change") is True and "logo" in alter
+
+
 def swap_input_references(payload=None, brand=None):
     refs = []
     reference = _reference(payload)
@@ -334,13 +342,11 @@ def swap_input_references(payload=None, brand=None):
     initial_reference = str((payload or {}).get("initial_reference") or "").strip()
     if initial_reference and initial_reference not in refs and len(refs) < 2:
         refs.append(initial_reference)
-    preserve = set(_token_list(payload.get("preserve"), PRESERVE_LABELS))
-    if "logo" in preserve or len(refs) >= 2:
+    if len(refs) >= 2 or not explicit_brand_change(payload):
         return refs[:2]
-    if _quality(payload) == "production" or payload.get("use_brand_context") is not False:
-        logo = swap_logo_url(payload, brand)
-        if logo and logo not in refs:
-            refs.append(logo)
+    logo = swap_logo_url(payload, brand)
+    if logo and logo not in refs:
+        refs.append(logo)
     return refs[:2]
 
 
@@ -362,7 +368,8 @@ def build_optimized_prompt(payload=None, brand=None, operations=None):
         or brand.get("primary_color")
         or ""
     ).strip()
-    has_logo = bool(swap_logo_url(payload, brand)) and not bool(payload.get("initial_reference"))
+    brand_change = explicit_brand_change(payload)
+    has_logo = brand_change and bool(swap_logo_url(payload, brand)) and not bool(payload.get("initial_reference"))
     quality = _quality(payload)
     use_brand = payload.get("use_brand_context") is not False
     preserve = _token_list(payload.get("preserve"), PRESERVE_LABELS)
@@ -376,6 +383,7 @@ def build_optimized_prompt(payload=None, brand=None, operations=None):
         "Keep the original lighting, color grade, materials and photography. Do not add a new light ribbon or energy streak.",
         "Do not add player chrome, app UI or extra frames that are not in the reference.",
         "Use only the supplied brand reference for logos and symbols. Never redraw, rotate, mirror or invent a brand icon; preserve its exact geometry and orientation unless that icon is explicitly the selected item to change.",
+        "The brand identity visible in the FIRST image is locked. Never replace its logo, wordmark, bank, institution or advertiser from context, memory or an unrelated reference.",
     ]
     variation = str(payload.get("variation_index") or "").strip().upper()
     if recrop:
@@ -392,12 +400,18 @@ def build_optimized_prompt(payload=None, brand=None, operations=None):
         )
         lines.insert(2, "Do not redesign the layout.")
     else:
-        lines.insert(1, "Swap only the advertised brand, product and copy. Do not redesign the layout.")
+        lines.insert(1, "Change only what the user explicitly requested. Do not redesign the layout or replace the advertiser.")
     if payload.get("initial_reference"):
         lines.insert(
             1,
             "The first attachment is the latest approved working version. The second is the original continuity anchor. "
             "Preserve the same people, identity, products, logos and recurring graphic elements across both; do not drift or replace them.",
+        )
+    elif len(swap_input_references(payload, brand)) > 1 and not brand_change:
+        lines.insert(
+            1,
+            "The FIRST attachment is the source creative. The SECOND attachment may guide only the explicitly selected item. "
+            "It is not permission to replace the source advertiser, logo, wordmark, copy, people or layout.",
         )
     if variation in {"A", "B"}:
         lines.append(
@@ -440,9 +454,9 @@ def build_optimized_prompt(payload=None, brand=None, operations=None):
             "Paint each locked string glyph by glyph. Do not double letters or add syllables "
             "(franca not franceça, Mumuzinho not Mumuzinho)."
         )
-    if use_brand and name:
+    if brand_change and use_brand and name:
         lines.append(f"New brand: {name}.")
-    if use_brand and color:
+    if brand_change and use_brand and color:
         lines.append(f"Brand color: {color}.")
     if use_brand and has_logo:
         lines.append(
@@ -451,13 +465,13 @@ def build_optimized_prompt(payload=None, brand=None, operations=None):
         lines.append(
             "Do not typeset the legal company name as a substitute for the official logo."
         )
-    elif use_brand and name:
+    elif brand_change and use_brand and name:
         lines.append(
             f"Use the official {name} logo mark, not the spelled-out legal company name."
         )
     if use_brand:
         instruction = str((brand.get("creative_line") or {}).get("gpt_image_instruction") or "").strip()
-        if instruction:
+        if instruction and (brand_change or not name):
             lines.append(instruction[:280])
         tone = str(brand.get("tone_of_voice") or "").strip()
         if tone:
@@ -670,11 +684,17 @@ def swap_mode(payload=None):
     patches = typeset_patches(payload)
     if needs_recrop(payload) and patches:
         return "recrop"
+    alter = set(_token_list(payload.get("alter"), ALTER_LABELS))
+    has_marked_type_region = any(item.get("bbox_px") for item in patches)
+    if (
+        alter
+        and alter <= TYPE_ONLY
+        and not scene_variant(payload)
+        and (not payload.get("force_image") or has_marked_type_region)
+    ):
+        return "typeset"
     if payload.get("force_image"):
         return "image"
-    alter = set(_token_list(payload.get("alter"), ALTER_LABELS))
-    if alter and alter <= TYPE_ONLY:
-        return "typeset"
     return "image"
 
 
@@ -690,6 +710,17 @@ def prepare_swap(payload=None):
         detail = str(first.get("msg") or "").strip() or "O pedido de troca é inválido."
         raise ValueError(detail) from exc
     data = apply_scene_variant(data)
+    # Every edit inherits a hard brand lock. Only an explicit logo operation
+    # can remove it; merely selecting a client/brand is never authorization.
+    preserve = set(data.get("preserve") or [])
+    alter = set(data.get("alter") or [])
+    if explicit_brand_change(data):
+        preserve.discard("logo")
+    else:
+        preserve.add("logo")
+    from .swap_schema import ALTER_TOKENS, PRESERVE_TOKENS
+    data["preserve"] = [key for key in PRESERVE_TOKENS if key in preserve]
+    data["alter"] = [key for key in ALTER_TOKENS if key in alter]
     if not match_aspect_ratio(data.get("aspect_ratio") or data.get("output")):
         hint = match_aspect_ratio(data.get("aspect_hint"))
         if hint:

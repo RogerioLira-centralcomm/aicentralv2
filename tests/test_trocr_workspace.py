@@ -54,6 +54,7 @@ class WorkspaceTest(unittest.TestCase):
                 if mask.getpixel((x,y))==0:
                     self.assertEqual(image.getpixel((x,y)),original.getpixel((x,y)))
         self.assertEqual(result['results'][0]['operation']['reference_asset'],self.ref)
+        self.assertTrue(result['results'][0]['qa']['outside_mask_preserved'])
 
     def test_multiple_operations_use_previous_result_and_do_not_duplicate(self):
         job=self.enqueue([self.operation(),self.operation('erase')])
@@ -165,6 +166,56 @@ class WorkspaceTest(unittest.TestCase):
         with self.assertRaises(ValueError):render(self.store,self.base,[{**layer,'width':float('nan')}])
         layer['visible']=True
         self.assertTrue(render(self.store,self.base,[layer]))
+
+    def test_cutout_is_transparent_and_does_not_call_image_model(self):
+        operation={**self.operation('erase'),'action':'cutout','reference_asset':None,'role':'product'}
+        job=self.enqueue([operation]);calls=[]
+        self.store.run(job['id'],lambda *_a,**_k:calls.append(1) or png('blue'))
+        result=self.store.get('jobs',job['id'])
+        image=self.store.image(result['result_asset'])
+        self.assertEqual(calls,[])
+        self.assertEqual(image.getpixel((0,0))[3],0)
+        self.assertEqual(image.getpixel((4,3)),(255,0,0,255))
+
+    def test_solid_background_is_deterministic_and_preserves_outside_mask(self):
+        operation={**self.operation('erase'),'action':'fill','reference_asset':None,'role':'background','background_color':'#123456'}
+        job=self.enqueue([operation]);calls=[]
+        self.store.run(job['id'],lambda *_a,**_k:calls.append(1) or png('blue'))
+        image=self.store.image(self.store.get('jobs',job['id'])['result_asset'])
+        self.assertEqual(calls,[])
+        self.assertEqual(image.getpixel((4,3)),(18,52,86,255))
+        self.assertEqual(image.getpixel((0,0)),(255,0,0,255))
+
+    def test_similarity_uses_two_role_scoped_inputs(self):
+        operation={'base_asset':self.base,'mask_asset':None,'reference_asset':self.ref,
+                   'role':'background','action':'similarity','instruction':'Mais editorial'}
+        job=self.store.enqueue({'operation_id':'d'*32,'base_asset':self.base,
+                                'protected_masks':[self.mask],'operations':[operation]});calls=[]
+        def generate(prompt,**kwargs):
+            calls.append((prompt,kwargs));return png('green')
+        self.store.run(job['id'],generate)
+        prompt,kwargs=calls[0]
+        self.assertEqual(len(kwargs['input_references']),2)
+        self.assertIn('FIRST image remains the source of truth',prompt)
+        self.assertEqual(self.store.get('jobs',job['id'])['operations'][0]['reference_role'],'similarity_reference')
+        self.assertEqual(self.store.get('jobs',job['id'])['results'][0]['qa']['protected_regions'],1)
+
+    def test_similarity_requires_brand_protection(self):
+        operation={'base_asset':self.base,'mask_asset':None,'reference_asset':self.ref,
+                   'role':'background','action':'similarity','instruction':'Mais editorial'}
+        with self.assertRaisesRegex(ValueError,'proteja'):
+            self.enqueue([operation])
+
+    def test_background_preset_is_catalogued_and_normalized(self):
+        operation={**self.operation('erase'),'action':'recreate','reference_asset':None,
+                   'role':'background','instruction':'','background_preset':'paper'}
+        job=self.enqueue([operation])
+        normalized=self.store.get('jobs',job['id'])['operations'][0]
+        self.assertEqual(normalized['background_preset'],'paper')
+        self.assertIn('paper texture',normalized['instruction'])
+        with self.assertRaisesRegex(ValueError,'Preset'):
+            self.store.enqueue({'operation_id':'e'*32,'base_asset':self.base,
+                'operations':[{**operation,'background_preset':'inventado'}]})
 
 
 class WorkspaceHttpTest(unittest.TestCase):

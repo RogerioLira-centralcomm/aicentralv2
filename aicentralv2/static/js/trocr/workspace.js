@@ -46,9 +46,12 @@ export async function openWorkspace(api) {
     <div class="trocr-workspace-row"><button type="button" data-selection-undo disabled aria-label="Desfazer seleção">↶</button><button type="button" data-selection-redo disabled aria-label="Refazer seleção">↷</button><button type="button" data-invert>Inverter</button><button type="button" data-clear>Limpar</button></div>
     <button type="button" data-lift>Ver recorte</button><div data-lift-preview hidden></div>
     <details class="trocr-selection-help"><summary>Atalhos</summary><p>B pincel · L laço · M retângulo · W ponto<br>Alt/Option: subtrair · Shift: adicionar<br>[ e ]: tamanho · ⌘/Ctrl Z: desfazer<br>Escape: sair da ferramenta</p></details><button type="button" data-confirm-selection>Usar seleção</button></details><h3 class="trocr-agent-heading">2. Pedir a mudança</h3>
-    <label>Elemento<select data-role><option value="person">Pessoa</option><option value="product">Produto</option><option value="background">Fundo</option></select></label>
-    <label>Ação<select data-action><option value="replace">Substituir com referência</option><option value="erase">Apagar e reconstruir</option><option value="recreate">Recriar</option><option value="protect">Proteger região</option><option value="extract">Separar em camada</option><option value="text">Tornar texto editável</option></select></label>
-    <label data-reference-label>Referência <input data-reference type="file" accept="image/png,image/jpeg,image/webp"></label>
+    <label>Elemento<select data-role><option value="person">Pessoa</option><option value="product">Produto</option><option value="background">Fundo</option><option value="text">Texto</option><option value="logo">Logo</option><option value="graphic">Grafismo</option></select></label>
+    <label>Ação<select data-action><option value="replace">Substituir seleção com referência</option><option value="erase">Apagar e reconstruir</option><option value="recreate">Recriar somente a seleção</option><option value="cutout">Isolar em PNG transparente</option><option value="fill">Aplicar cor sólida</option><option value="similarity">Recriar peça inteira por similaridade</option><option value="protect">Proteger região</option><option value="extract">Separar em camada</option><option value="text">Tornar texto editável</option></select></label>
+    <p class="trocr-input-contract" data-input-contract>Imagem 1 é a peça original. Imagem 2 orienta somente o elemento selecionado.</p>
+    <label data-reference-label>Imagem 2 · referência da mudança <input data-reference type="file" accept="image/png,image/jpeg,image/webp"></label>
+    <label data-color-label hidden>Cor sólida <input data-background-color type="color" value="#ffffff"></label>
+    <label data-background-style-label hidden>Direção do fundo<select data-background-style><option value="">Descrever manualmente</option><option value="clean-studio">Estúdio limpo</option><option value="brand-gradient">Gradiente da marca</option><option value="paper">Papel sutil</option><option value="color-wash">Lavagem de cor</option><option value="editorial">Editorial premium</option><option value="office">Escritório realista</option><option value="nature">Ambiente natural</option><option value="architecture">Arquitetura</option><option value="dark-studio">Estúdio escuro</option><option value="bright-seamless">Fundo claro contínuo</option></select></label>
     <label>Biblioteca da campanha<select data-library><option value="">Selecionar referência</option></select></label>
     <button type="button" data-save-reference>Guardar referência na campanha</button>
     <img data-thumb hidden alt="Referência selecionada" width="64" height="64">
@@ -144,7 +147,7 @@ export async function openWorkspace(api) {
     (doc.operations || []).forEach((op, index) => {
       const li = document.createElement('li');
       const view = document.createElement('button'); view.type = 'button';
-      view.textContent = `${index + 1}. ${{replace:'Substituir',erase:'Apagar',recreate:'Recriar',extract:'Camada',text:'Texto editável'}[op.action]} · ${{person:'Pessoa',product:'Produto',background:'Fundo'}[op.role]}`;
+      view.textContent = `${index + 1}. ${{replace:'Substituir',erase:'Apagar',recreate:'Recriar',cutout:'PNG transparente',fill:'Cor sólida',similarity:'Similaridade global',extract:'Camada',text:'Texto editável'}[op.action]} · ${{person:'Pessoa',product:'Produto',background:'Fundo',text:'Texto',logo:'Logo',graphic:'Grafismo'}[op.role]}`;
       view.disabled=busy;
       view.onclick = safe(async () => { selected = index; await loadMask(op.mask_asset); });
       const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = 'Remover'; remove.disabled = busy;
@@ -156,7 +159,8 @@ export async function openWorkspace(api) {
     let maskAsset=doc.selection?.mask_asset||null;
     if(maskDirty){const blob=await new Promise(resolve=>mask.toBlob(resolve,'image/png'));maskAsset=(await upload(blob,'Seleção em edição.png')).id;maskDirty=false;}
     doc.ui={tolerance:$('[data-tolerance]').value,radius:$('[data-radius]').value,selectionMode:$('[data-selection-mode]').value};
-    doc.selection={mask_asset:maskAsset,role:$('[data-role]').value,action:$('[data-action]').value,instruction:$('[data-instruction]').value,reference_asset:reference?.id||null};
+    doc.selection={mask_asset:maskAsset,role:$('[data-role]').value,action:$('[data-action]').value,instruction:$('[data-instruction]').value,reference_asset:reference?.id||null,
+      background_color:$('[data-background-color]').value,background_style:$('[data-background-style]').value};
     const saved = await call(`documents/${encodeURIComponent(run)}`, doc);
     doc = saved; dirty = false; status('Trabalho salvo.');
   }
@@ -309,22 +313,41 @@ export async function openWorkspace(api) {
     reference=await upload(file, file.name);dirty=true; $('[data-thumb]').src=assetUrl(reference.id,true); $('[data-thumb]').hidden=false;
   });
   $('[data-library]').onchange=() => {dirty=true;reference={id:$('[data-library]').value}; $('[data-thumb]').src=assetUrl(reference.id,true); $('[data-thumb]').hidden=!reference.id;};
-  $('[data-role]').onchange=()=>{dirty=true;};
+  function syncOperationUi(){
+    const action=$('[data-action]').value,role=$('[data-role]').value;
+    const needsReference=['replace','similarity'].includes(action);
+    $('[data-reference-label]').hidden=!needsReference;
+    $('[data-color-label]').hidden=action!=='fill';
+    $('[data-background-style-label]').hidden=!(role==='background'&&action==='recreate');
+    $('[data-input-contract]').textContent=action==='similarity'
+      ? 'Mudança global: proteja primeiro logo ou wordmark. Imagem 2 orienta o estilo; a marca protegida continua idêntica.'
+      : 'Imagem 1 é a peça original. Imagem 2 orienta somente o elemento selecionado.';
+    $('[data-input-contract]').classList.toggle('is-global',action==='similarity');
+  }
+  $('[data-role]').onchange=()=>{dirty=true;syncOperationUi();};
   $('[data-instruction]').oninput=()=>{dirty=true;};
-  $('[data-action]').onchange=() => { dirty=true; $('[data-reference-label]').hidden=$('[data-action]').value!=='replace'; };
+  $('[data-action]').onchange=() => { dirty=true; syncOperationUi(); };
   $('[data-add]').onclick=safe(async () => {
     if (api.baseVersion()?.id !== doc.base_version) throw new Error('A base mudou. Revise a seleção.');
     if (doc.layers?.length && ['extract','text'].includes($('[data-action]').value)) throw new Error('Exporte a composição e abra como nova base antes de separar novas camadas.');
-    if ($('[data-action]').value==='replace' && !reference?.id) throw new Error('Anexe a referência para esta substituição.');
+    const action=$('[data-action]').value;
+    if (['replace','similarity'].includes(action) && !reference?.id) throw new Error('Anexe a Imagem 2 para esta operação.');
+    if(action==='similarity' && !(doc.protected_masks||[]).length) throw new Error('Proteja a região do logo ou da marca antes de recriar a peça inteira.');
     const pixels=maskCtx.getImageData(0,0,mask.width,mask.height).data;
-    if (!pixels.some((value,index) => index%4===0 && value>0)) throw new Error('Pinte a região antes de adicionar a operação.');
-    const blob=await new Promise(resolve=>mask.toBlob(resolve,'image/png'));
-    const asset=await upload(blob,'Máscara.png');
-    if($('[data-action]').value==='protect'){
+    const hasMask=pixels.some((value,index) => index%4===0 && value>0);
+    if (!hasMask && action!=='similarity') throw new Error('Pinte a região antes de adicionar a operação.');
+    let asset=null;
+    if(hasMask){const blob=await new Promise(resolve=>mask.toBlob(resolve,'image/png'));asset=await upload(blob,'Máscara.png');}
+    if(action==='protect'){
       doc.protected_masks=[...(doc.protected_masks||[]),asset.id];dirty=true;await save();resetMask();render();return;
     }
-    doc.operations.push({base_asset:doc.base_asset,mask_asset:asset.id,role:$('[data-role]').value,action:$('[data-action]').value,
-      reference_asset:$('[data-action]').value==='replace'?reference.id:null,instruction:$('[data-instruction]').value});
+    const style=$('[data-background-style]').value;
+    const instruction=$('[data-instruction]').value.trim();
+    doc.operations.push({base_asset:doc.base_asset,mask_asset:asset?.id||null,role:$('[data-role]').value,action,
+      reference_asset:['replace','similarity'].includes(action)?reference.id:null,
+      reference_role:action==='similarity'?'similarity_reference':(action==='replace'?'selected_element_reference':null),
+      background_color:action==='fill'?$('[data-background-color]').value:null,
+      background_preset:action==='recreate'&&$('[data-role]').value==='background'?style:null,instruction});
     dirty=true; reference=null; $('[data-reference]').value=''; $('[data-thumb]').hidden=true; resetMask(); await save(); render();
   });
   $('[data-save]').onclick=safe(save);
@@ -480,9 +503,12 @@ export async function openWorkspace(api) {
   if(doc.ui){$('[data-tolerance]').value=doc.ui.tolerance||48;$('[data-radius]').value=doc.ui.radius||24;$('[data-selection-mode]').value=doc.ui.selectionMode||'include';}
   if(doc.selection){
     ['role','action','instruction'].forEach(key=>{if(doc.selection[key])$(`[data-${key}]`).value=doc.selection[key];});
+    if(doc.selection.background_color)$('[data-background-color]').value=doc.selection.background_color;
+    if(doc.selection.background_style)$('[data-background-style]').value=doc.selection.background_style;
     if(doc.selection.reference_asset){reference={id:doc.selection.reference_asset};$('[data-thumb]').src=assetUrl(reference.id,true);$('[data-thumb]').hidden=false;}
     if(doc.selection.mask_asset)await loadMask(doc.selection.mask_asset);
   }
+  syncOperationUi();
   if(!doc.base_asset)await useBase();
   if(doc.active_job)follow(doc.active_job).catch(error=>status(error.message));
 }

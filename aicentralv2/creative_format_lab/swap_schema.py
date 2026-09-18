@@ -52,6 +52,7 @@ ALTER_TOKENS = (
     "background",
     "colors",
     "graphic",
+    "logo",
 )
 _HTML_MARK = re.compile(r"<!doctype\s+html|<html[\s>]|</html>", re.IGNORECASE)
 _PRICE_MARK = re.compile(r"(r\$|\brs\b|\breais\b)", re.I)
@@ -209,6 +210,7 @@ class SwapIntent(BaseModel):
     force_image: bool = False
     quality: str = "production"
     use_brand_context: bool = True
+    explicit_brand_change: bool = False
     aspect_ratio: str = ""
     aspect_hint: str = ""
     prompt_override: str = ""
@@ -511,6 +513,7 @@ def apply_swap_schema(payload=None, *, strict_limits=True, source="legacy"):
         "force_image": bool(data.get("force_image")),
         "quality": data.get("quality") or "production",
         "use_brand_context": data.get("use_brand_context") is not False,
+        "explicit_brand_change": data.get("explicit_brand_change") is True,
         "aspect_ratio": data.get("aspect_ratio") or data.get("output") or "",
         "aspect_hint": data.get("aspect_hint") or "",
         "prompt_override": data.get("prompt_override") or "",
@@ -539,6 +542,7 @@ def apply_swap_schema(payload=None, *, strict_limits=True, source="legacy"):
         "quality": intent.quality,
         "force_image": intent.force_image,
         "use_brand_context": intent.use_brand_context,
+        "explicit_brand_change": intent.explicit_brand_change,
     })
     return data
 

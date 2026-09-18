@@ -11,9 +11,11 @@ from uuid import uuid4
 
 from PIL import Image, ImageFilter
 
-from ..creative_modeling_generation import _json_content
+from ..creative_modeling_generation import OpenRouterError, _json_content
 
 MODEL = os.getenv("CREATIVE_STUDIO_DIRECTION_MODEL", "openai/gpt-5-nano")
+DIRECTOR_MODEL = os.getenv("CREATIVE_STUDIO_DIRECTOR_MODEL", MODEL.removeprefix("openai/"))
+REDUNDANCY_MODEL = os.getenv("CREATIVE_STUDIO_DIRECTION_FALLBACK_MODEL", "openai/gpt-4o-mini")
 IMAGE_MODEL = os.getenv("CREATIVE_STUDIO_IMAGE_MODEL", "openai/gpt-image-2")
 IMAGE_ROLES = {
     "primary": "the primary/base image whose unrequested content must be preserved",
@@ -50,18 +52,40 @@ def create(payload, text_callable):
     if not request:
         raise ValueError("Descreva a direção que deseja criar.")
     context = clean_context(data.get("context"), count)
-    response = text_callable(
-        [
-            {"role": "system", "content": system_prompt(count)},
-            {"role": "user", "content": json.dumps({"pedido": request, "contexto": context}, ensure_ascii=False)},
-        # Each direction contains scene, composition, restrictions, and safe
-        # copy. The former 440-token budget for two directions could truncate
-        # the JSON object before its closing delimiter.
-        ], model=MODEL, max_tokens=900 + count * 320, temperature=.45,
-        response_format={"type": "json_object"},
-    )
-    content = response.get("message", {}).get("content") if isinstance(response, dict) else response
-    raw = content if isinstance(content, dict) else _json_content(content)
+    messages = [
+        {"role": "system", "content": system_prompt(count)},
+        {"role": "user", "content": json.dumps({"pedido": request, "contexto": context}, ensure_ascii=False)},
+    ]
+    response = None
+    raw = None
+    provider_used = ""
+    errors = []
+    # The first call is direct OpenAI. OpenRouter is a true redundancy path,
+    # not a synthetic direction: both providers must satisfy the same JSON
+    # contract before the request can continue to generation.
+    for provider, model in (("openai", DIRECTOR_MODEL), ("openrouter", REDUNDANCY_MODEL)):
+        try:
+            response = text_callable(
+                messages,
+                model=model,
+                provider=provider,
+                max_tokens=900 + count * 320,
+                temperature=.45,
+                response_format={"type": "json_object"},
+            )
+            content = response.get("message", {}).get("content") if isinstance(response, dict) else response
+            raw = content if isinstance(content, dict) else _json_content(content)
+            if not isinstance(raw, dict) or not isinstance(raw.get("directions"), list):
+                raise OpenRouterError("O provedor não devolveu o contrato de direções.")
+            provider_used = provider
+            break
+        except (OpenRouterError, ValueError, KeyError, TypeError, AttributeError) as error:
+            errors.append(f"{provider}: {error}")
+            response = None
+            raw = None
+    if response is None or not isinstance(raw, dict):
+        detail = errors[-1] if errors else "resposta vazia"
+        raise OpenRouterError(f"O diretor OpenAI e a redundância OpenRouter falharam. {detail}")
     items = []
     for item in raw.get("directions", []) if isinstance(raw, dict) else []:
         if not isinstance(item, dict):
@@ -73,7 +97,7 @@ def create(payload, text_callable):
             break
     if not items:
         raise ValueError("O agente não devolveu direções utilizáveis. Tente novamente.")
-    return {"directions": items, "count": len(items), "model": str(response.get("model") or MODEL)}, response
+    return {"directions": items, "count": len(items), "model": str(response.get("model") or (DIRECTOR_MODEL if provider_used == "openai" else REDUNDANCY_MODEL)), "provider": provider_used}, response
 
 
 def clean_context(raw, count):
@@ -135,7 +159,8 @@ def charge(provider_result, client_id, user_id, count, project_id, run_id=None,
     charged = charge_from_provider(
         ledger=ledger, idempotency_key=f"studio:directions:{run_id}",
         client_id=credit_client_id, user_id=int(user_id), tool="studio.direction",
-        stage="creative_directions", provider_result=provider_result, model=MODEL,
+        stage="creative_directions", provider_result=provider_result,
+        model=str(provider_result.get("model") or MODEL) if isinstance(provider_result, dict) else MODEL,
         metadata={
             "project_id": str(project_id or ""), "directions": int(count), "run_id": run_id,
             "studio_session_id": str(studio_session_id or ""),

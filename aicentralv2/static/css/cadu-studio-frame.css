@@ -43,7 +43,8 @@ body.portal--studio,
   box-shadow: inset 0 -2px var(--studio-accent);
 }
 .mc-cadu-bar--studio .mc-cadu-project select,
-.mc-cadu-bar--studio .mc-cadu-credits { background: var(--studio-panel) !important; }
+.mc-cadu-bar--studio .mc-cadu-project select { background: var(--studio-panel) !important; }
+.mc-cadu-bar--studio .mc-cadu-credits { background: transparent !important; }
 
 /* Create: workbar and stage are siblings, so the board never sits under the
    header or lets the chat float over the artwork. */

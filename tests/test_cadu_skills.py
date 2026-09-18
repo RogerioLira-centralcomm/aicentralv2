@@ -116,6 +116,18 @@ class CaduSkillsTest(TestCase):
         self.assertIn("Baixar pacote", detail.get_data(as_text=True))
         self.assertEqual(client.get("/skills/assets/skills-icon-64.png").status_code, 200)
 
+    def test_public_learning_and_content_pages_explain_skills(self):
+        client = _app().test_client()
+        learn = client.get("/skills/aprender")
+        self.assertEqual(learn.status_code, 200)
+        self.assertIn("Entenda o método antes de pedir", learn.get_data(as_text=True))
+        article = client.get("/skills/aprender/o-que-e-uma-skill")
+        self.assertEqual(article.status_code, 200)
+        self.assertIn("Modelo não é método", article.get_data(as_text=True))
+        content = client.get("/skills/conteudos")
+        self.assertEqual(content.status_code, 200)
+        self.assertIn("Um agente, vários métodos", content.get_data(as_text=True))
+
     @mock.patch("aicentralv2.cadu_skills.routes.credit_position", return_value={"configured": True, "available": 18})
     @mock.patch("aicentralv2.cadu_skills.routes.list_customizations", return_value=[])
     @mock.patch("aicentralv2.cadu_skills.routes.all_cadu_skills", return_value=[CADU_MEDIA_PLANNING])

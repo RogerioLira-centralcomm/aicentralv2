@@ -17,7 +17,7 @@
   <a class="cadu-skip-link" href="#main-content">Ir para o conteúdo</a>
   {% include 'cadu_skills/_top_nav.html' %}
   <main id="main-content" tabindex="-1" class="cadu-skills-main">{% block content %}{% endblock %}</main>
-  <footer class="cadu-skills-public-footer"><a href="{{ product_url('cadu') }}">Cadu Media</a><span>Métodos para decisões melhores.</span><nav aria-label="Links do portal"><a href="{{ url_for('cadu_skills.marketplace') }}">Métodos</a><a href="{{ url_for('cadu_skills.marketplace') }}#sobre">Sobre</a></nav></footer>
+  <footer class="cadu-skills-public-footer"><a href="{{ product_url('cadu') }}">Cadu Media</a><span>Métodos para decisões melhores.</span><nav aria-label="Links do portal"><a href="{{ url_for('cadu_skills.learn') }}">Aprender</a><a href="{{ url_for('cadu_skills.methods') }}">Métodos</a><a href="{{ url_for('cadu_skills.contents') }}">Conteúdos</a><a href="{{ url_for('cadu_skills.marketplace') }}#sobre">Sobre</a></nav></footer>
   {% if session.get('user_id') %}
     <button type="button" class="cadu-conversation-launcher" id="conversation-open" aria-haspopup="dialog" aria-controls="conversation-panel" aria-expanded="false"><span aria-hidden="true">C</span> Falar com Cadu</button>
     {% set conversation_profile_label = 'Compare skills ou traga uma decisão do seu projeto.' %}

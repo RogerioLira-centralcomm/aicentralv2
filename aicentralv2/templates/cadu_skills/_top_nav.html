@@ -1,19 +1,7 @@
 {% set authenticated = session.get('user_id') %}
 <header class="skills-topbar" data-authenticated="{{ 'true' if authenticated else 'false' }}">
-  <a class="skills-topbar__brand" href="{{ url_for('cadu_skills.marketplace') }}" aria-label="Cadu Skills, início">Cadu <strong>Skills</strong><i aria-hidden="true"></i></a>
-  <button class="skills-topbar__menu" type="button" aria-expanded="false" aria-controls="skillsPrimaryNav">Menu</button>
-  <nav class="skills-topbar__links" id="skillsPrimaryNav" aria-label="Navegação do Cadu Skills">
-    <a href="{{ url_for('cadu_skills.marketplace') }}#jornada">Aprender</a>
-    <a href="{{ url_for('cadu_skills.marketplace') }}#metodos">Métodos</a>
-    <a href="{{ url_for('cadu_skills.marketplace') }}#conteudos">Conteúdos</a>
-    <a href="{{ url_for('cadu_skills.marketplace') }}#sobre">Sobre</a>
-  </nav>
-  <form class="skills-topbar__search" action="{{ url_for('cadu_skills.marketplace') }}#metodos" role="search">
-    <label class="sr-only" for="skillsSearch">Buscar no Cadu Skills</label><span aria-hidden="true">⌕</span><input id="skillsSearch" name="q" type="search" placeholder="Buscar no Cadu Skills…">
-  </form>
-  {% if authenticated %}
-    <div class="skills-topbar__account"><span class="skills-context"><small>Contexto</small><b>{{ session.get('cliente_nome') or 'Meu trabalho' }}</b></span><a class="skills-avatar" href="{{ product_url('workspace', '/workspace/app/conta?section=perfil') }}" aria-label="Abrir minha conta">{{ (session.get('user_name') or 'C')[:2]|upper }}</a></div>
-  {% else %}
-    <a class="skills-topbar__enter" href="{{ product_url('auth', '/login') }}">Entrar</a>
-  {% endif %}
+  <a class="skills-topbar__workspace" href="{{ product_url('workspace') }}" aria-label="Abrir Cadu Workspace"><img src="{{ url_for('static', filename='images/cadu/products/cadu-icon.png') }}" alt=""><span>Cadu <b>Workspace</b></span></a>
+  <details class="skills-solutions"><summary>Soluções <i aria-hidden="true">⌄</i></summary><nav aria-label="Soluções Cadu"><a href="{{ product_url('workspace') }}"><img src="{{ url_for('static', filename='images/cadu/products/cadu-icon.png') }}" alt=""><span><b>Workspace</b><small>contexto e trabalho</small></span></a><a href="{{ product_url('planner') }}"><img src="{{ url_for('static', filename='images/cadu/products/planner-icon.png') }}" alt=""><span><b>Planner</b><small>planejar campanhas</small></span></a><a href="{{ product_url('studio') }}"><img src="{{ url_for('static', filename='images/cadu/products/studio-icon.png') }}" alt=""><span><b>Studio</b><small>criar e produzir</small></span></a><a href="{{ product_url('connect') }}"><img src="{{ url_for('static', filename='images/cadu/products/connect-icon.png') }}" alt=""><span><b>Reports</b><small>acompanhar dados</small></span></a><a class="is-current" href="{{ url_for('cadu_skills.marketplace') }}" aria-current="page"><img src="{{ url_for('static', filename='images/cadu/products/skills-icon.png') }}" alt=""><span><b>Skills</b><small>aplicar métodos</small></span></a></nav></details>
+  <form class="skills-topbar__search" action="{{ url_for('cadu_skills.marketplace') }}#metodos" role="search"><label class="sr-only" for="skillsSearch">Buscar no Cadu Skills</label><span aria-hidden="true">⌕</span><input id="skillsSearch" name="q" type="search" placeholder="Buscar métodos e temas…"></form>
+  {% if authenticated %}<div class="skills-topbar__account"><span class="skills-context"><small>Contexto</small><b>{{ session.get('cliente_nome') or 'Meu trabalho' }}</b></span><a class="skills-avatar" href="{{ product_url('workspace', '/workspace/app/conta?section=perfil') }}" aria-label="Abrir minha conta">{{ (session.get('user_name') or 'C')[:2]|upper }}</a></div>{% else %}<div class="skills-topbar__actions"><a class="skills-topbar__enter" href="{{ product_url('auth', '/login') }}">Entrar</a><a class="skills-topbar__signup" href="{{ product_url('auth', '/login') }}">Criar conta</a></div>{% endif %}
 </header>

@@ -7,7 +7,7 @@
 <div class="skills-home" data-skills-home>
   <section class="skills-stage" id="jornada" aria-labelledby="skills-title">
     <img class="skills-stage__scene" src="{{ url_for('static', filename='images/cadu/skills/skills-hero-worktable-v1.png') }}" alt="" aria-hidden="true">
-    <div class="skills-stage__copy">
+    <div class="skills-stage__content"><div class="skills-stage__copy">
       {% if session.get('user_id') %}<p class="skills-stage__context">Seu contexto{% if session.get('cliente_nome') %}: {{ session.get('cliente_nome') }}{% endif %}</p><h1 id="skills-title">O que precisa ganhar clareza agora?</h1><p>Escolha um ponto do trabalho. A Cadu Skills organiza o método, os insumos e o próximo passo.</p>{% else %}<p class="skills-stage__context">Comece pelo trabalho</p><h1 id="skills-title">A campanha está em qual momento?</h1><p>Escolha a etapa que melhor representa seu momento e encontre um método para avançar.</p>{% endif %}
     </div>
     <div class="skills-journey" data-skills-journey aria-label="Jornada de decisões de campanha">
@@ -19,10 +19,8 @@
     </div>
     <article class="skills-recommendation" data-skills-recommendation>
       <p>{% if session.get('user_id') %}Sugestão para o seu trabalho{% else %}Planejamento{% endif %}</p><h2>Escolha os canais certos antes de dividir o orçamento.</h2><dl><div><dt>Insumos</dt><dd>objetivo, público, verba</dd></div><div><dt>Entrega</dt><dd>matriz de canais</dd></div></dl><a href="{{ url_for('cadu_skills.detail', slug=(official_skills[0].slug if official_skills else 'cadu-gold')) }}">Abrir método <span aria-hidden="true">→</span></a>
-    </article>
+    </article></div>
   </section>
-
-  <nav class="skills-explore-bar" aria-label="Explorar o catálogo"><span>Categorias</span><a href="#metodos">Planejamento</a><a href="#metodos">Público</a><a href="#metodos">Criativo</a><a href="#metodos">Mídia & ativação</a><a href="#metodos">Aprendizado</a></nav>
 
   {% if session.get('user_id') %}<section class="skills-resume" aria-labelledby="resume-title"><div><p>Continue de onde parou</p><h2 id="resume-title">Métodos do seu trabalho</h2></div>{% if personalized_skills %}<div class="skills-resume__items">{% for item in personalized_skills[:3] %}<a href="{{ url_for('cadu_skills.my_skills') }}"><small>{{ item.project_name or item.client_name or 'Versão personalizada' }}</small><b>{{ item.name }}</b><span>{{ item.base_name }}</span></a>{% endfor %}</div>{% else %}<a class="skills-resume__empty" href="{{ url_for('cadu_skills.personalize') }}">Crie uma versão para um projeto <span aria-hidden="true">→</span></a>{% endif %}</section>{% endif %}
 

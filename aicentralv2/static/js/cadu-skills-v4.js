@@ -8,6 +8,14 @@
     });
   }
 
+  const productSwitch = document.querySelector('.skills-solutions');
+  document.addEventListener('click', (event) => {
+    if (productSwitch?.open && !productSwitch.contains(event.target)) productSwitch.open = false;
+  });
+  productSwitch?.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') productSwitch.open = false;
+  });
+
   const normalize = (value) => (value || '')
     .toLocaleLowerCase('pt-BR')
     .normalize('NFD')

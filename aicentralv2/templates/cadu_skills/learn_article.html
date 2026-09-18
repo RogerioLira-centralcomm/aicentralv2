@@ -1,0 +1,11 @@
+{% extends 'cadu_skills/base.html' %}
+{% block title %}{{ article.title }} — Cadu Skills{% endblock %}
+{% block content %}
+<article class="skills-article">
+  <a class="skills-method-page__back" href="{{ url_for('cadu_skills.learn' if article.area == 'Aprender' else 'cadu_skills.contents') }}">Voltar para {{ article.area|lower }}</a>
+  <header><p>{{ article.area }}</p><h1>{{ article.title }}</h1><span>{{ article.lead }}</span></header>
+  {% if article.illustration %}<figure><img src="{{ url_for('static', filename='images/cadu/skills/' ~ article.illustration) }}" alt="Estratégia humana guiando habilidades especializadas de IA até uma entrega final"><figcaption>O agente usa a capacidade do modelo. A skill define a lente, os insumos e o resultado esperado.</figcaption></figure>{% endif %}
+  <div class="skills-article__body">{% for title, paragraph in article.sections %}<section><h2>{{ title }}</h2><p>{{ paragraph }}</p></section>{% endfor %}</div>
+  <aside><p>Próximo passo</p><h2>Veja um método Cadu aplicado ao trabalho.</h2><a href="{{ url_for('cadu_skills.methods') }}">Explorar métodos</a></aside>
+</article>
+{% endblock %}

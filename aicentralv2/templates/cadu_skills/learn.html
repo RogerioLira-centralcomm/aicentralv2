@@ -1,0 +1,16 @@
+{% extends 'cadu_skills/base.html' %}
+{% block title %}{% if mode == 'learn' %}Aprender sobre skills{% elif mode == 'methods' %}Métodos Cadu{% else %}Conteúdos sobre agentes e skills{% endif %} — Cadu{% endblock %}
+{% block content %}
+<main class="skills-learning-page">
+  {% if mode == 'learn' %}
+  <header><p>Aprender</p><h1>Entenda o método antes de pedir para a IA executar.</h1><span>Leituras curtas para transformar agentes poderosos em trabalho que a equipe consegue revisar e continuar.</span></header>
+  <section class="skills-learning-page__cards" aria-label="Guias para aprender">{% for article in articles %}<a href="{{ url_for('cadu_skills.learn_article', slug='o-que-e-uma-skill' if loop.index == 1 else 'como-instalar-uma-skill') }}"><small>{{ article.area }}</small><h2>{{ article.title }}</h2><p>{{ article.lead }}</p><b>Ler guia</b></a>{% endfor %}</section>
+  {% elif mode == 'methods' %}
+  <header><p>Métodos</p><h1>Escolha a decisão. Depois escolha a skill.</h1><span>Cada método Cadu organiza o que perguntar, o que considerar e como devolver o trabalho para a próxima pessoa.</span></header>
+  <section class="skills-learning-page__method-list" aria-label="Métodos Cadu">{% for skill in official_skills %}<a href="{{ url_for('cadu_skills.detail', slug=skill.slug) }}"><img src="{{ skill.avatar_url }}" alt=""><span><small>{{ skill.category }}</small><h2>{{ skill.name }}</h2><p>{{ skill.summary }}</p></span><b>Ver método</b></a>{% endfor %}</section>
+  {% else %}
+  <header><p>Conteúdos</p><h1>O agente continua o mesmo. O trabalho não precisa continuar genérico.</h1><span>Uma série sobre modelos, contexto, métodos e os resultados que uma equipe pode realmente usar.</span></header>
+  <section class="skills-learning-page__feature">{% set article = articles[0] %}<img src="{{ url_for('static', filename='images/cadu/skills/' ~ article.illustration) }}" alt="Pessoa guiando diferentes métodos de IA até uma entrega de campanha"><div><small>{{ article.area }}</small><h2>{{ article.title }}</h2><p>{{ article.lead }}</p><a href="{{ url_for('cadu_skills.learn_article', slug='um-agente-varios-metodos') }}">Ler conteúdo</a></div></section>
+  {% endif %}
+</main>
+{% endblock %}

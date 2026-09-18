@@ -26,6 +26,12 @@ from .runtime import run_test_skill
 
 bp = Blueprint("cadu_skills", __name__, url_prefix="/skills")
 
+EDITORIAL_CONTENT = {
+    "o-que-e-uma-skill": {"area": "Aprender", "title": "O que uma skill dá a um agente que já é poderoso", "lead": "Um bom modelo responde bem. Uma boa skill faz com que ele responda dentro de um método que a equipe reconhece, revisa e consegue repetir.", "sections": [("Modelo não é método", "Um agente pode escrever, resumir, analisar e criar hipóteses. Mas ele não conhece automaticamente o critério que sua equipe usa para escolher canais, avaliar uma audiência ou aprovar uma entrega. Sem esse recorte, cada conversa recomeça: o pedido muda, a estrutura muda e o resultado depende demais de quem escreveu o prompt."), ("Skill é uma maneira de trabalhar", "Uma skill reúne instruções, entradas esperadas, referências, limites e o formato de saída de uma tarefa. Ela não substitui o julgamento humano. Ela evita que o agente pule etapas importantes e faz com que a recomendação venha acompanhada de critérios verificáveis."), ("O ganho aparece no resultado", "Em vez de pedir “faça um plano”, a equipe aciona um método de planejamento que pede objetivo, público e verba; compara opções; explicita premissas; e entrega uma matriz de canais, riscos e próximos passos. A diferença não é só velocidade. É conseguir revisar o caminho que levou à decisão.")]},
+    "como-instalar-uma-skill": {"area": "Aprender", "title": "Como instalar uma skill sem perder o contexto do trabalho", "lead": "Instalar é levar o método para o ambiente onde o agente trabalha — com as referências que explicam quando e como usá-lo.", "sections": [("1. Escolha a base certa", "Comece pela decisão que precisa ser repetida, não pelo nome da tecnologia. Uma skill de audiência serve para qualificar sinais e segmentos; uma de planejamento organiza escolhas de canais e investimento. Ler o resumo, as entradas e as entregas evita instalar um pacote que não resolve a tarefa."), ("2. Use o pacote verificável", "No Cadu, cada skill oficial oferece um comando de instalação e um pacote completo. O pacote preserva o SKILL.md e as referências necessárias. Se seu agente aceita a CLI, use o comando. Se não aceita, baixe o ZIP e entregue o pacote inteiro ao ambiente escolhido."), ("3. Dê contexto, não só uma ordem", "Depois de instalar, informe o que a skill não pode adivinhar: objetivo, restrições, marca, público, materiais aprovados e o formato necessário. Em uma versão personalizada, o Workspace conecta apenas o contexto autorizado ao cliente ou projeto. Assim, o método continua igual e o trabalho começa do ponto certo.")]},
+    "um-agente-varios-metodos": {"area": "Conteúdos", "title": "Um agente, vários métodos: quando a mesma IA passa a entregar trabalho diferente", "lead": "A capacidade geral do modelo permanece. O que muda é a especialização que você entrega junto com a tarefa.", "illustration": "agents-with-skills-v1.png", "sections": [("O agente é o mesmo", "No ChatGPT, Codex ou outro ambiente compatível, um agente conversacional pode receber uma skill de planejamento, uma de público ou uma de formatos. Ele não vira três sistemas diferentes. Ele recebe, a cada trabalho, um conjunto específico de perguntas, fontes e critérios para orientar sua resposta."), ("Cada aplicação pede uma lente", "Para planejar mídia, a lente é objetivo, público, verba, canais e métricas. Para entender audiência, é sinal, qualidade, afinidade e limite da evidência. Para criar formatos, é mensagem, canal, especificação e produção. O modelo usa raciocínio; a skill informa qual raciocínio importa naquele contexto."), ("O resultado deixa de ser genérico", "O resultado final pode ser uma recomendação comparável, uma matriz de decisão, uma especificação de produção ou um briefing pronto para seguir no Planner e no Studio. A pessoa responsável ainda valida a escolha. A skill ajuda a garantir que ela recebe uma resposta organizada, explicável e útil para a próxima etapa.")]},
+}
+
 
 @bp.before_request
 def prepare_shared_cadu_chat():
@@ -260,6 +266,31 @@ def marketplace():
         featured=market[0] if market else CADU_MEDIA_PLANNING,
         personalized_skills=personalized_skills,
     )
+
+
+@bp.get("/aprender")
+def learn():
+    articles = [EDITORIAL_CONTENT["o-que-e-uma-skill"], EDITORIAL_CONTENT["como-instalar-uma-skill"]]
+    return render_template("cadu_skills/learn.html", mode="learn", articles=articles)
+
+
+@bp.get("/metodos")
+def methods():
+    official = sorted(all_cadu_skills(), key=lambda item: item.get("rank", 999))
+    return render_template("cadu_skills/learn.html", mode="methods", articles=[], official_skills=official)
+
+
+@bp.get("/conteudos")
+def contents():
+    return render_template("cadu_skills/learn.html", mode="contents", articles=[EDITORIAL_CONTENT["um-agente-varios-metodos"]])
+
+
+@bp.get("/aprender/<slug>")
+def learn_article(slug):
+    article = EDITORIAL_CONTENT.get(slug)
+    if not article:
+        abort(404)
+    return render_template("cadu_skills/learn_article.html", article=article)
 
 
 @bp.get("/<slug>")

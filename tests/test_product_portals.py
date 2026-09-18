@@ -229,6 +229,20 @@ class ProductPortalsTest(TestCase):
         self.assertIn("84 disponíveis", html)
         self.assertNotIn('class="ws-public-nav"', html)
 
+    def test_workspace_exposes_unlisted_current_design_system_reference(self):
+        client = _app().test_client()
+        for path in ("/design-system", "/workspace/design-system"):
+            with self.subTest(path=path):
+                response = client.get(path, headers={"Host": "workspace.centralcomm.media"})
+                html = response.get_data(as_text=True)
+
+                self.assertEqual(response.status_code, 200)
+                self.assertIn("Uma linguagem para organizar o trabalho.", html)
+                self.assertIn("Projeto informa. Marca diferencia.", html)
+                self.assertIn("A mesma mesa de trabalho, em modo contínuo.", html)
+                self.assertIn('name="robots" content="noindex,nofollow"', html)
+                self.assertIn('cadu-workspace-design-system.css?v=2', html)
+
     def test_workspace_has_public_site_and_private_app_reusing_cadu_php(self):
         app = _app()
         client = app.test_client()

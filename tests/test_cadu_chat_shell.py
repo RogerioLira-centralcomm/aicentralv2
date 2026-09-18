@@ -28,7 +28,7 @@ class ChatShellTest(TestCase):
     def test_workspace_conversation_has_one_complete_composer_without_user_variable(self):
         with self.client.session_transaction() as session:
             session.update(user_id=7, cliente_id=12)
-        response = self.client.get('/workspace/app/conversas')
+        response = self.client.get('/conversas')
         self.assertEqual(response.status_code, 200)
         elements = Elements(response.get_data(as_text=True)).items
         for element_id in ('conversation-panel', 'conversation-message', 'conversation-mode', 'conversation-send', 'conversation-new', 'conversation-history-toggle', 'conversation-sidebar'):
@@ -42,7 +42,10 @@ class ChatShellTest(TestCase):
         self.assertEqual(panel['data-conversation-page'], 'true')
         shell = next(attrs for _, attrs in elements if 'workspace-app-shell' in attrs.get('class', ''))
         self.assertIn('workspace-app-shell--conversations', shell['class'])
-        self.assertFalse(any(tag == 'h1' for tag, _ in elements))
+        headings = [attrs for tag, attrs in elements if tag == 'h1']
+        self.assertEqual(len(headings), 1)
+        self.assertTrue(any('workspace-conversation-page-head' in attrs.get('class', '') for _, attrs in elements))
+        self.assertTrue(any(attrs.get('href', '').endswith('css/cadu-workspace-conversations-system.css?v=1') for tag, attrs in elements if tag == 'link'))
         self.assertFalse(any(attrs.get('id') == 'conversation-width' for _, attrs in elements))
         self.assertFalse(any('workspace-conversation-next' in attrs.get('class', '') for _, attrs in elements))
         self.assertFalse(any(attrs.get('id') == 'conversation-open' for _, attrs in elements))

@@ -1,0 +1,35 @@
+{% extends 'cadu_portals/base.html' %}
+{% block title %}Design system atual — Cadu Workspace{% endblock %}
+{% block product_id %}workspace-public{% endblock %}
+{% block meta %}<meta name="robots" content="noindex,nofollow"><meta name="description" content="Referência interna da linguagem atual do Cadu Workspace."><link rel="canonical" href="{{ canonical }}">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-design-system.css') }}?v=2">{% endblock %}
+{% block content %}
+<article class="wsds">
+  <header class="wsds-hero">
+    <div class="wsds-path"><a href="{{ url_for('cadu_workspace.index') }}">Workspace</a><span>/</span><span>Referência interna</span></div>
+    <div class="wsds-hero-grid"><div><p class="wsds-status"><i></i>Linha atual · setembro de 2026</p><h1>Uma linguagem para organizar o trabalho.</h1><p>Projetos definem o ritmo. Marcas definem a prioridade visual. Conversas usam a mesma estrutura para manter contexto, decisão e continuidade no mesmo produto.</p></div><aside><span>Princípio central</span><strong>Contexto antes de interface.</strong><p>Cada superfície mostra primeiro o que a equipe precisa reconhecer para continuar.</p></aside></div>
+  </header>
+
+  <nav class="wsds-index" aria-label="Índice do design system"><a href="#fundamentos">Fundamentos</a><a href="#estrutura">Estrutura</a><a href="#padroes">Padrões aprovados</a><a href="#conversas">Conversas</a></nav>
+
+  <section class="wsds-section" id="fundamentos"><header><span>Fundamentos</span><h2>Uma base quieta. O trabalho cria a diferenciação.</h2><p>O Workspace não colore tudo. O verde identifica ação e continuidade; marcas e projetos trazem a identidade específica de cada contexto.</p></header>
+    <div class="wsds-foundations"><div class="wsds-colors" aria-label="Cores principais"><div style="--swatch:#f3f6f8"><b>Canvas</b><span>#F3F6F8</span></div><div style="--swatch:#ffffff"><b>Superfície</b><span>#FFFFFF</span></div><div style="--swatch:#172033"><b>Tinta</b><span>#172033</span></div><div style="--swatch:#687386"><b>Texto secundário</b><span>#687386</span></div><div style="--swatch:#087765"><b>Ação Workspace</b><span>#087765</span></div><div style="--swatch:#e9f5f1"><b>Continuidade</b><span>#E9F5F1</span></div></div>
+      <div class="wsds-type"><p class="wsds-type-display">Trabalho em contexto</p><p class="wsds-type-title">Decisões que continuam</p><p class="wsds-type-body">Inter sustenta toda a interface. A hierarquia vem de escala, peso e espaço — não de trocar de fonte a cada superfície.</p><small>Texto auxiliar · 12 px / 1.5</small></div></div>
+  </section>
+
+  <section class="wsds-section" id="estrutura"><header><span>Estrutura</span><h2>Quatro níveis, sem competir entre si.</h2></header>
+    <ol class="wsds-rules"><li><b>Canvas</b><p>Separa o produto do conteúdo e mantém a leitura respirável.</p></li><li><b>Superfície</b><p>Agrupa um trabalho real: projeto, marca, conversa ou decisão.</p></li><li><b>Contexto</b><p>Identifica origem, estado e próximo passo sem virar decoração.</p></li><li><b>Ação</b><p>Verde apenas onde a pessoa pode continuar ou confirmar.</p></li></ol>
+  </section>
+
+  <section class="wsds-section" id="padroes"><header><span>Padrões aprovados</span><h2>Projeto informa. Marca diferencia.</h2><p>As duas superfícies compartilham tipografia, controles e densidade, mas têm papéis visuais diferentes.</p></header>
+    <div class="wsds-specimen wsds-specimen-project"><div class="wsds-specimen-label"><span>Projeto</span><small>Dossiê operacional</small></div><article><i></i><div><span>Em andamento</span><h3>Lançamento institucional</h3><p>Briefing, fontes e decisões reunidos para a equipe continuar.</p><small>Marca CentralComm · 4 fontes prontas</small></div><aside><span>Próximo passo</span><b>Continuar com a base pronta</b><a href="#padroes">Abrir projeto</a></aside></article></div>
+    <div class="wsds-specimen wsds-specimen-brand"><div class="wsds-specimen-label"><span>Marca</span><small>Prioridade visual</small></div><article><div class="wsds-brand-visual"><span>C</span></div><div><small>Comunicação e mídia</small><h3>CentralComm</h3><p>A identidade conduz a superfície; os controles continuam pertencendo ao Workspace.</p><footer><span>Base analisada</span><a href="#padroes">Abrir marca</a></footer></div></article></div>
+  </section>
+
+  <section class="wsds-section wsds-conversation" id="conversas"><header><span>Conversas</span><h2>A mesma mesa de trabalho, em modo contínuo.</h2><p>A resposta é conteúdo editorial. A mensagem da pessoa é contexto. O compositor é a única superfície que pede destaque persistente.</p></header>
+    <div class="wsds-chat"><aside><strong>Recentes</strong><button aria-current="true">Plano de mídia 2026</button><button>Tom da campanha</button><button>Referências da marca</button></aside><section><header><div><h3>Conversas</h3><p>Projetos, marcas e decisões acompanham o trabalho.</p></div><span>Contexto contínuo</span></header><div class="wsds-chat-history"><p class="wsds-user-message">Quais decisões já estão confirmadas para esta campanha?</p><div class="wsds-answer"><p>O projeto já confirma três pontos para a próxima etapa:</p><ul><li><b>Objetivo:</b> ampliar consideração na região Sudeste.</li><li><b>Público:</b> decisores de marketing e mídia.</li><li><b>Critério:</b> priorizar clareza antes de volume.</li></ul></div></div><form><span>Projeto · Lançamento institucional</span><p>Continue a conversa no contexto deste projeto…</p><button type="button" aria-label="Enviar">↑</button></form></section></div>
+  </section>
+
+  <section class="wsds-section wsds-decisions"><header><span>Decisões de uso</span><h2>O que permanece consistente.</h2></header><dl><div><dt>Raio</dt><dd>Controles 8–10 px; superfícies principais 13–18 px.</dd></div><div><dt>Sombra</dt><dd>Só separa níveis sobrepostos ou destaca uma prioridade real.</dd></div><div><dt>Verde</dt><dd>Ação, estado ativo e continuidade. Nunca preenchimento decorativo em massa.</dd></div><div><dt>Texto</dt><dd>Sentença normal, voz direta e linhas abaixo de 80 caracteres.</dd></div><div><dt>Movimento</dt><dd>Explica abertura, troca de estado ou passagem de contexto.</dd></div><div><dt>Identidade</dt><dd>A marca entra onde ajuda reconhecimento; não substitui o shell do produto.</dd></div></dl></section>
+</article>
+{% endblock %}

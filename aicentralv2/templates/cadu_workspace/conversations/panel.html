@@ -1,6 +1,7 @@
 {% set chat_authenticated = session.get('user_id') %}
 {% if not conversation_page %}<div id="conversation-backdrop" hidden></div>{% endif %}
 <aside id="conversation-panel" data-draft-scope="{{ session.get('cliente_id', '') }}:{{ session.get('user_id', '') }}" aria-label="Conversas Cadu" {% if conversation_page %}data-conversation-page="true"{% else %}role="dialog" aria-modal="true" hidden{% endif %} tabindex="-1">
+  {% if conversation_page %}<header class="workspace-conversation-page-head"><div><h1>Conversas</h1><p>O Cadu trabalha com o contexto dos seus projetos, marcas e decisões.</p></div><span>Contexto contínuo</span></header>{% endif %}
   {% if not conversation_page %}<header><div><p class="conversation-kicker">Cadu</p><h2>Converse no contexto</h2><p>{{ conversation_profile_label | default('Seu projeto, marca e decisões acompanham a conversa.') }}</p></div><button id="conversation-close" aria-label="Fechar conversas">Fechar</button></header>{% endif %}
   {% if session.get('user_id') and not conversation_page %}<div class="conversation-navigation"><button type="button" id="conversation-list">Histórico</button><button type="button" id="conversation-new">Nova conversa</button></div>{% endif %}
   {% if not conversation_page %}<div class="conversation-context">{{ selected.client_name if selected else 'Contexto da sua conta' }}<small>{{ 'Cliente, marca e projeto selecionados' if selected else 'Escolha um projeto ou marca no Workspace para aprofundar a conversa.' }}</small></div>

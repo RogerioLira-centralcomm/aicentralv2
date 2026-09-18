@@ -1711,6 +1711,16 @@ def product_entry(product):
     return render_template("cadu_workspace/product_entry.html", product=product, entry=entry, canonical=product_url(entry_host, f"/entrada/{product}"))
 
 
+@bp.get("/workspace/design-system")
+@bp.get("/design-system")
+def public_design_system():
+    """Public, unlisted reference for the current Workspace product language."""
+    return render_template(
+        "cadu_workspace/design_system.html",
+        canonical=product_url("workspace", "/design-system"),
+    )
+
+
 @bp.get("/workspace/<page>")
 def public_page(page):
     content = PUBLIC_PAGES.get(page)

@@ -79,7 +79,11 @@
     return csrf;
   }
   async function request(url, options = {}, retried = false) {
-    const response = await fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json', ...(csrf ? {'X-Trocr-CSRF-Token': csrf} : {}), ...(options.headers || {}) }, ...options });
+    const response = await fetch(url, {
+      ...options,
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json', ...(csrf ? {'X-Trocr-CSRF-Token': csrf} : {}), ...(options.headers || {}) },
+    });
     const payload = await response.json().catch(() => ({}));
     if (response.status === 403 && !retried && /token|seguran|csrf/i.test(String(payload.error || ''))) {
       await refreshCsrf();

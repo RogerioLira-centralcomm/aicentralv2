@@ -22,10 +22,10 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="{{ document_label }} · {{ title }}">
   <meta name="twitter:image" content="{{ share_image }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_public_v3.css') }}?v=2">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_public_v3.css') }}?v=3">
 </head>
-<body class="spv3 spv3-{{ document or 'proposal' }}">
-  <header class="spv3-topbar">
+<body class="spv3 spv3-{{ document or 'proposal' }}{% if hero.image %} has-fixed-backdrop{% endif %}"{% if hero.image %} style="--spv3-fixed-bg:url({{ hero.image|tojson }})"{% endif %}>
+  <header class="spv3-topbar" aria-label="Ferramentas do documento">
     <a class="spv3-brand" href="{{ house.site }}" target="_blank" rel="noopener">
       <img src="{{ house.logo }}" alt="{{ house.name }}">
       <span>{{ house.label }}</span>
@@ -38,7 +38,7 @@
   </header>
 
   <main class="spv3-shell">
-    <section class="spv3-titlebar">
+    <section class="spv3-titlebar" data-scroll-reveal>
       <div>
         <span class="spv3-eyebrow">{{ document_label }}</span>
         <h1>{% if brand_logo %}<img class="spv3-client-logo" src="{{ brand_logo }}" alt="{{ title }}">{% endif %}{{ title }}</h1>
@@ -51,7 +51,7 @@
       </div>
     </section>
 
-    <section class="spv3-executive" aria-label="Painel executivo">
+    <section class="spv3-executive" aria-label="Painel executivo" data-scroll-reveal>
       <figure class="spv3-executive-visual{% if not hero.has_image %} is-fallback{% endif %}">
         {% if hero.has_image %}<img src="{{ hero.image }}" alt="Imagem conceitual de {{ title }}">{% else %}<div><strong>Conceito visual</strong><span>Gere uma peça no editor para completar esta leitura.</span></div>{% endif %}
         <figcaption>Imagem conceitual gerada por IA — não representa fotografia da campanha.</figcaption>
@@ -67,15 +67,16 @@
     </section>
 
     {% if document == 'proposal' %}
-    <section class="spv3-panel spv3-executive-plan" id="plano-executivo">
+    <section class="spv3-panel spv3-executive-plan" id="plano-executivo" data-scroll-reveal>
       <div class="spv3-hero">
         <div class="spv3-hero-copy">
           <span class="spv3-eyebrow">Direção recomendada</span>
-          <h2>{{ hero.tagline or overview }}</h2>
+          <h2>Como a estratégia vira ação</h2>
+          {% if hero.tagline or overview %}<p class="spv3-direction-thesis">{{ hero.tagline or overview }}</p>{% endif %}
           {% if audience %}<p><strong>Público prioritário.</strong> {{ audience }}</p>{% endif %}
           {% if concept %}<div class="spv3-concept"><small>Conceito recomendado</small><strong>{{ concept }}</strong><p>{{ support }}</p></div>{% endif %}
         </div>
-        <figure class="spv3-visual{% if not hero.image %} is-empty{% endif %}">
+        <figure class="spv3-visual spv3-featured-model{% if not hero.image %} is-empty{% endif %}" data-scroll-reveal>
           {% if hero.image %}<img src="{{ hero.image }}" alt="Conceito visual para {{ title }}">{% else %}<span>Conceito visual em preparação</span>{% endif %}
           <figcaption>Imagem conceito gerada pelo Smart Planner</figcaption>
         </figure>
@@ -87,7 +88,7 @@
     </section>
 
     {% if has_approved_mix %}
-    <section class="spv3-panel spv3-flow-section" id="mix">
+    <section class="spv3-panel spv3-flow-section" id="mix" data-scroll-reveal>
       <header class="spv3-section-head"><div><span class="spv3-eyebrow">Mix aprovado</span><h2>O papel de cada canal</h2></div><p>{{ reading.defense }}</p></header>
       <div class="spv3-mix-layout">
         <div class="spv3-donut" style="background:{{ media.donut }}"><span><strong>{{ media.total_pct }}%</strong> do mix</span></div>
@@ -101,7 +102,7 @@
     </section>
     {% endif %}
 
-    <section class="spv3-panel spv3-flow-section" id="premissas">
+    <section class="spv3-panel spv3-flow-section" id="premissas" data-scroll-reveal>
       <header class="spv3-section-head"><div><span class="spv3-eyebrow">Base de decisão</span><h2>Referências e premissas</h2></div><p>Informações que sustentam o plano e pontos que ainda dependem de validação.</p></header>
       <div class="spv3-reference-grid">
         {% if show_market %}<article><span class="spv3-eyebrow">Dado de mercado</span><strong>{{ sheet.market.stat }}</strong><p>{{ sheet.market.body }}</p></article>{% endif %}
@@ -135,6 +136,6 @@
   </main>
   <footer class="spv3-footer"><span>{{ house.name }} · {{ document_label }}</span><span>Documento confidencial de planejamento</span></footer>
   <script>window.SMART_PLANNER_PUBLIC_URL = {{ document_url|tojson }};</script>
-  <script src="{{ url_for('static', filename='js/smart_planner/public-document.js') }}?v=1"></script>
+  <script src="{{ url_for('static', filename='js/smart_planner/public-document.js') }}?v=2"></script>
 </body>
 </html>

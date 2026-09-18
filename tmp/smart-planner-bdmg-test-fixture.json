@@ -1,0 +1,13 @@
+{
+  "briefing": "Estratégia de mídia e dados Serasa + Interativos, imagem de um criativo display IAB inserido dentro do app ou portal Serasa, descrevendo a utilização de dados exclusivos B2B [pessoa jurídica] e B2C [pessoa física] na veiculação de mídia dentro dos domínios Serasa (app e web), além da venda de dados para que utilizem em suas operações em redes sociais [se possível, aqui inserir logos da Meta, LinkedIn e TikTok]. Pincelar a possibilidade de montarmos um formato interativo para campanha do banco.",
+  "client": "BDMG",
+  "agency": "Perfil 252",
+  "expected": {
+    "pitch_id": "bdmg",
+    "market_id": "finance",
+    "creative_surface": "app",
+    "creative_channel": "serasa",
+    "partners": ["serasa", "meta", "linkedin", "tiktok"],
+    "must_not_invent": ["verba", "CTR", "alcance", "conversões", "percentual de audiência", "logo BDMG"]
+  }
+}

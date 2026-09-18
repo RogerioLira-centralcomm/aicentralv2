@@ -35,6 +35,25 @@ def test_apply_charge_sums_usd_then_converts():
     assert second["items"][1]["kind"] == "image"
 
 
+def test_apply_charge_keeps_provider_token_breakdown():
+    result = apply_charge(
+        {},
+        {
+            "input_tokens": 120,
+            "input_tokens_details": {"cached_tokens": 40},
+            "output_tokens": 30,
+        },
+        kind="chat",
+        model="openai/gpt-5-mini",
+        rate=5.5,
+        source="test",
+    )
+    item = result["items"][0]
+    assert item["input_tokens"] == 120
+    assert item["cached_tokens"] == 40
+    assert item["output_tokens"] == 30
+
+
 def test_cost_from_dados_formats_label():
     info = cost_from_dados({"cost": {"usd": 2, "brl": 11}})
     assert info["brl"] == 11

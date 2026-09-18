@@ -7,12 +7,27 @@ from aicentralv2.smart_planner.one_page import (
     build_media_board,
     build_one_page,
     cards_from_pitch,
+    channel_roles_for_one_page,
     match_pitch,
     normalize_one_page,
 )
 from aicentralv2.smart_planner.images import _default_creative_prompt
 from aicentralv2.smart_planner.images import apply_sheet_art
 from aicentralv2.smart_planner.theme import compose_theme, density_note_from_pace, hero_party, resolve_market_id
+
+
+def test_channel_roles_keep_four_card_contract_and_group_portals():
+    items = channel_roles_for_one_page({
+        "mix": [
+            {"id": "serasa", "label": "Serasa"},
+            {"id": "g1", "label": "G1"},
+            {"id": "uol", "label": "UOL"},
+            {"id": "meta_ads", "label": "Meta Ads"},
+        ]
+    })
+    assert len(items) == 3
+    assert {item["label"] for item in items} == {"Serasa", "Rede de portais", "Meta Ads"}
+    assert all(item["status"] == "confirmed" for item in items)
 
 
 def test_match_starter_clients():

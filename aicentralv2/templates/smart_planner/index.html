@@ -13,7 +13,7 @@
 <div class="sp-desk is-book">
   <header class="sp-head">
     <div>
-      <h1>Planejamentos</h1>
+      <h1>Meus planejamentos</h1>
       <p id="sp-history-summary">
         {% if total_user %}
           {{ total_user }} {{ 'campanha' if total_user == 1 else 'campanhas' }} neste usuário{% if custo_total %}. {{ custo_total }} em gerações{% endif %}.
@@ -31,6 +31,14 @@
     </div>
   </header>
 
+  {% if rows %}
+  <section class="sp-index-metrics" aria-label="Resumo da lista">
+    <div><strong>{{ total_user or 0 }}</strong><span>planos no histórico</span></div>
+    <div><strong>{{ custo_total or 'R$ 0,00' }}</strong><span>custo interno acumulado</span></div>
+    <div><strong>1</strong><span>ação principal por plano</span></div>
+  </section>
+  {% endif %}
+
   {% if flash_error %}
   <div class="cx-alert cx-alert-danger" role="alert">{{ flash_error }}</div>
   {% endif %}
@@ -39,7 +47,7 @@
   <div class="sp-book-bar" id="sp-book-bar">
     <label class="sp-book-search">
       <span class="sr-only">Buscar planejamento</span>
-      <input class="cx-input" id="sp-filter-q" type="search" placeholder="Buscar campanha, cliente ou agência" autocomplete="off">
+      <input class="cx-input" id="sp-filter-q" type="search" placeholder="Buscar plano, cliente ou agência" autocomplete="off">
     </label>
     <div class="sp-mode-switch" role="group" aria-label="Tipo de planejamento">
       <button type="button" class="is-on" data-mode="" aria-pressed="true">Todos</button>

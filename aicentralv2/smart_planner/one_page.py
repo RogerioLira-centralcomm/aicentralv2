@@ -7,6 +7,7 @@ import logging
 from datetime import datetime, timezone
 
 from .ai import chat_json
+from .catalog import CHANNEL_CATALOG, CHANNEL_LOGOS
 from .helpers import as_dict, as_list, text
 from .logos import resolve_branding
 from .mix import METHODS
@@ -95,7 +96,7 @@ STARTER_PITCHES = (
         "market_id": "finance",
         "bg_url": "/static/images/smart_planner/bg-bdmg-finance.png",
         "aliases": ("bdmg", "perfil 252"),
-        "partners": ("serasa", "meta", "linkedin", "tiktok"),
+        "partners": ("serasa", "meta_ads", "linkedin", "tiktok"),
         "strategy": (
             "Serasa Ads no app e no portal, dados B2B e B2C exclusivos, e a mesma base "
             "nas redes da agência — com um interativo possível na campanha do banco."
@@ -176,6 +177,21 @@ Devolva APENAS JSON:
     "persona_image_prompt": "foto editorial da persona em situação real, sem logo e sem texto",
     "place_image_prompt": "foto editorial do lugar ou contexto da campanha, sem logo e sem texto"
   },
+  "audience_model": {
+    "segments": [],
+    "faixa_etaria": {"value": null, "status": "a_validar"},
+    "genero": {"value": null, "status": "a_validar"},
+    "classe_social": {"value": null, "status": "a_validar"},
+    "regiao": "",
+    "bairro": "",
+    "universo_estimado": {"value": null, "unit": "pessoas", "status": "a_validar", "source": ""},
+    "impacto_estimado": {"value": null, "unit": "pessoas", "status": "a_validar", "source": ""},
+    "source_note": ""
+  },
+  "visual_data": [
+    {"id": "universe", "label": "Universo demográfico", "value": "A validar", "status": "a_validar"},
+    {"id": "impact", "label": "Impacto estimado", "value": "A validar", "status": "a_validar"}
+  ],
   "market": {"title": "Mercado", "body": "", "stat": "", "stat_label": ""},
   "defense": {"title": "Defesa", "body": ""}
 }
@@ -194,6 +210,8 @@ Regras:
 - Use os canais, os places e o voo da campanha quando existirem. Se a verba não foi informada, não cite verba, investimento, orçamento, valores ou estimativas no texto: estamos na primeira fase de venda.
 - Modele uma persona visual concreta a partir apenas do público e do contexto confirmados. Não invente idade, renda, profissão ou comportamento como se fossem fatos.
 - Quando houver praça, lugar ou cenário confirmado, descreva uma imagem de apoio desse lugar. Se não houver, deixe place_scene vazio e não invente um destino.
+- Dados demográficos estimados devem trazer fonte, data e status. Sem fonte, mostre "A validar"; nunca preencha pessoas, idade, classe ou gênero por plausibilidade.
+- visual_data é uma camada visual de leitura: use mostradores e barras apenas para números confirmados ou estimativas rotuladas. Não crie gráfico com número inventado.
 - Sem agência como herói, sem CentralComm no texto, sem mencionar IA.
 - Se houver identidade da marca (público, produto, tom), use como verdade. Não invente outro posicionamento.
 """
@@ -299,6 +317,54 @@ def _role_map(roles) -> dict[str, str]:
         if channel and role:
             mapped[channel] = role
     return mapped
+
+
+def channel_roles_for_one_page(snapshot: dict | None, roles=None) -> list[dict]:
+    """Build the compact channel/ecosystem readout without creating a fifth card."""
+    snap = as_dict(snapshot)
+    role_map = _role_map(roles)
+    rows = []
+    for raw in as_list(snap.get("mix")):
+        item = as_dict(raw)
+        channel_id = text(item.get("id")).lower()
+        label = text(item.get("label") or CHANNEL_CATALOG.get(channel_id, {}).get("label") or channel_id)
+        if not label:
+            continue
+        meta = CHANNEL_CATALOG.get(channel_id, {})
+        rows.append({
+            "id": channel_id,
+            "label": label,
+            "logo": CHANNEL_LOGOS.get(channel_id, ""),
+            "role": role_map.get(channel_id) or text(item.get("role")) or "Papel a definir",
+            "status": "confirmed",
+            "count": item.get("count") if item.get("count") not in (None, "") else None,
+            "group": text(meta.get("group")),
+        })
+    if not rows:
+        for channel_id, role in role_map.items():
+            meta = CHANNEL_CATALOG.get(channel_id, {})
+            rows.append({
+                "id": channel_id,
+                "label": text(meta.get("label") or channel_id),
+                "logo": CHANNEL_LOGOS.get(channel_id, ""),
+                "role": role,
+                "status": "proposed",
+                "count": None,
+                "group": text(meta.get("group")),
+            })
+    portal_rows = [row for row in rows if row.get("group") == "portais"]
+    if len(portal_rows) > 1:
+        rows = [row for row in rows if row not in portal_rows]
+        rows.append({
+            "id": "display-network",
+            "label": "Rede de portais",
+            "logo": CHANNEL_LOGOS.get("dv360", ""),
+            "role": "Cobertura contextual",
+            "status": "confirmed" if all(row.get("status") == "confirmed" for row in portal_rows) else "proposed",
+            "count": sum(row.get("count") or 0 for row in portal_rows) or None,
+            "group": "portais",
+        })
+    return rows[:8]
 
 
 def build_media_board(
@@ -417,6 +483,9 @@ def cards_from_v2(page: dict, snapshot: dict | None = None) -> list[dict]:
     creative = as_dict(data.get("creative_expression"))
     estimates = as_dict(data.get("result_estimates"))
     defense = as_dict(data.get("commercial_defense"))
+    audience_model = as_dict(data.get("audience_model"))
+    visual_data = as_list(data.get("visual_data"))
+    channel_roles = channel_roles_for_one_page(snapshot, rec.get("channel_roles"))
     audience = text(rec.get("audience")) or _audience_line(as_dict(snapshot))
     strategy_bits = [
         text(thesis.get("statement")),
@@ -455,6 +524,9 @@ def cards_from_v2(page: dict, snapshot: dict | None = None) -> list[dict]:
             {
                 "stat": "Premissa" if estimates.get("status") != "available" else "Calculado",
                 "stat_label": "Origem da estimativa",
+                "audience_model": audience_model,
+                "visual_data": visual_data,
+                "channel_roles": channel_roles,
             },
             index=2,
         ),
@@ -485,6 +557,21 @@ def assemble_from_v2(
     plan = empty_one_page(enrich_meta(meta, snap, board), branding, theme, share)
     plan["sections"][0]["cards"] = cards_from_v2(page, snap)
     plan["media"] = board
+    plan["public_design"] = as_dict(as_dict(page).get("public_design")) or {
+        "skin_id": text(as_dict(theme).get("id")) or "paper-editorial",
+        "selection_mode": "auto",
+        "brand_ref": text(as_dict(branding.get("client")).get("id")),
+        "brand_revision": "",
+        "tokens": {
+            key: text(as_dict(theme).get(key))
+            for key in ("paper", "ink", "accent")
+            if text(as_dict(theme).get(key))
+        },
+        "hero": {"asset_url": text(as_dict(theme).get("bg_url")), "prompt": text(as_dict(theme).get("bg_prompt")), "status": "approved"},
+        "agent_note": "Tema resolvido pelo mercado e pela identidade disponível.",
+    }
+    plan["executive_contact"] = as_dict(as_dict(page).get("executive_contact"))
+    plan["asset_manifest"] = as_list(as_dict(page).get("asset_manifest"))
     if as_list(snap.get("places")):
         plan["places"] = as_list(snap.get("places"))
     plan["one_page_v2"] = page
@@ -566,6 +653,7 @@ def empty_one_page(meta: dict, branding: dict, theme: dict | None = None, share:
     resolved = dict(branding or {})
     resolved["hero"] = hero_party(resolved)
     incoming = as_dict(meta)
+    visual_theme = as_dict(theme)
     return {
         "schemaVersion": 3,
         "planMode": "one_page",
@@ -589,18 +677,33 @@ def empty_one_page(meta: dict, branding: dict, theme: dict | None = None, share:
             "updatedAt": now,
         },
         "branding": resolved,
-        "theme": theme or {},
+        "theme": visual_theme,
         "media": as_dict(incoming.get("media")) if incoming.get("media") else {},
         "share": share or {},
+        "public_design": {
+            "skin_id": text(visual_theme.get("id")) or "paper-editorial",
+            "selection_mode": "auto",
+            "brand_ref": text(as_dict(resolved.get("client")).get("id")),
+            "brand_revision": "",
+            "tokens": {key: text(visual_theme.get(key)) for key in ("paper", "ink", "accent") if text(visual_theme.get(key))},
+            "hero": {
+                "asset_url": text(visual_theme.get("bg_url")),
+                "prompt": text(visual_theme.get("bg_prompt")),
+                "status": "approved",
+            },
+            "agent_note": "Tema visual resolvido automaticamente a partir do contexto do plano.",
+        },
+        "asset_manifest": [],
+        "executive_contact": {},
         "sections": [{"id": "one_page", "type": "one_page", "title": "Página única", "order": 1, "cards": []}],
     }
 
 
 def _normalize_card(card: dict, index: int) -> dict:
     extra = {}
-    for key in ("channel", "surface", "image_url", "image_prompt", "stat", "stat_label"):
+    for key in ("channel", "surface", "image_url", "image_prompt", "stat", "stat_label", "audience_model", "visual_data", "channel_roles"):
         if card.get(key):
-            extra[key] = text(card.get(key))
+            extra[key] = card.get(key) if key in {"audience_model", "visual_data", "channel_roles"} else text(card.get(key))
     return _card(
         text(card.get("type") or "strategy"),
         card.get("title"),
@@ -638,6 +741,9 @@ def normalize_one_page(payload: dict, meta: dict, branding: dict) -> dict:
             plan["media"] = media
         if payload.get("one_page_v2"):
             plan["one_page_v2"] = payload.get("one_page_v2")
+        for key in ("public_design", "asset_manifest", "executive_contact", "audience_model", "visual_data", "visual_direction", "supporting_visuals"):
+            if key in payload:
+                plan[key] = payload.get(key)
     return plan
 
 

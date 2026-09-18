@@ -14,6 +14,8 @@ from aicentralv2.smart_planner.generator import (
     _validate_group_markdown,
     _validate_plan_markdown,
     _validate_page,
+    _audience_model_fallback,
+    _visual_data_fallback,
     start_generation,
 )
 from aicentralv2.smart_planner.one_page import cards_from_v2
@@ -26,13 +28,28 @@ def test_generation_steps_split_one_page_and_completo():
     one = generation_steps("one_page")
     full = generation_steps("completo")
     assert [item["id"] for item in one] == [
-        "snapshot", "evidence", "core", "estimates", "one_page", "validate", "images", "publish",
+        "snapshot", "evidence", "market", "core", "estimates", "one_page", "validate", "images", "publish",
     ]
     assert "full_strategy" not in {item["id"] for item in one}
     assert {item["id"] for item in full} >= {"full_strategy", "full_media", "full_execution", "full_defense", "compose"}
-    assert decorate_step(one[4])["label"] == "Página única"
+    assert decorate_step(one[5])["label"] == "Página única"
     assert decorate_step(one[0])["kind_label"] == "motor"
     assert decorate_step(one[2])["kind_label"] == "skill"
+
+
+def test_one_page_fallbacks_keep_demographics_honest_and_visual():
+    snapshot = {
+        "audiences": ["Empresas e pessoas físicas interessadas em soluções financeiras"],
+        "geography": {"praca": "Minas Gerais"},
+        "mix": [{"id": "serasa", "label": "Serasa Ads"}, {"id": "linkedin", "label": "LinkedIn"}],
+    }
+    model = _audience_model_fallback(snapshot)
+    assert model["segments"][0]["status"] == "briefing"
+    assert model["universo_estimado"]["value"] is None
+    assert model["impacto_estimado"]["status"] == "a_validar"
+    cards = _visual_data_fallback(snapshot)
+    assert cards[0]["value"] == "A validar"
+    assert cards[2]["value"] == "2 canais"
 
 
 def test_internal_skills_are_versioned_packages():
@@ -174,7 +191,7 @@ def test_progress_view_lists_skills_for_the_ui():
         assert finished["percent"] == 100
         view = progress_view({"dados_detectados": store})
         assert view["status"] == "done"
-        assert view["steps"][2]["skill"] == "planner_strategy_core_v1"
+        assert view["steps"][3]["skill"] == "planner_strategy_core_v1"
 
 
 def test_start_generation_reuses_running_job():

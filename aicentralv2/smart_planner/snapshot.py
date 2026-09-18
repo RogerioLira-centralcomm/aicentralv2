@@ -65,6 +65,7 @@ def build_snapshot(row: dict, dados: dict | None = None) -> dict:
             "text": text(dados.get("objetivo_texto")),
         },
         "audiences": [text(row.get("publico_alvo") or dados.get("publico"))] if text(row.get("publico_alvo") or dados.get("publico")) else [],
+        "audience_model": as_dict(dados.get("audiencia_modelada")),
         "geography": {
             "praca": text(campanha.get("praca") or dados.get("praca")),
             "detail": text(campanha.get("praca_detalhe") or dados.get("praca_detalhe")),
@@ -97,6 +98,7 @@ def build_snapshot(row: dict, dados: dict | None = None) -> dict:
         "interativos": as_dict(campanha.get("interativos") or dados.get("interativos")),
         "restrictions": [text(dados.get("observacoes"))] if text(dados.get("observacoes")) else [],
         "sources": sources,
+        "market_research": text(dados.get("market_research")),
         "assumptions": [],
         "pending_decisions": [text(item) for item in pending if text(item)],
         "briefing": text(row.get("briefing_melhorado") or row.get("briefing_compilado")),
@@ -121,4 +123,6 @@ def build_evidence(snapshot: dict) -> dict:
         "user_briefing": text((snapshot or {}).get("user_briefing")),
         "restrictions": as_list((snapshot or {}).get("restrictions")),
         "pending_decisions": as_list((snapshot or {}).get("pending_decisions")),
+        "audience_model": as_dict((snapshot or {}).get("audience_model")),
+        "market_research": text((snapshot or {}).get("market_research")),
     }

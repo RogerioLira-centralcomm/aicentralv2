@@ -119,22 +119,38 @@ def _gallery(folha: dict) -> list[dict]:
     creative = cards.get("creative") or {}
     theme = as_dict(folha.get("theme"))
     items = []
+    for asset in as_list(folha.get("asset_manifest")):
+        row = as_dict(asset)
+        url = text(row.get("asset_url") or row.get("image_url"))
+        kind = text(row.get("kind")) or "other"
+        if not url:
+            continue
+        items.append({
+            "id": text(row.get("id") or kind),
+            "label": text(row.get("label")) or {"creative": "Criativo no canal", "background": "Fundo gerado", "persona": "Persona do plano", "place": "Lugar da campanha"}.get(kind, "Arte gerada"),
+            "url": url,
+            "kind": kind,
+            "status": text(row.get("status")) or "draft",
+            "active": kind == "creative" and url == text((cards.get("creative") or {}).get("image_url")),
+        })
     creative_url = text(creative.get("image_url"))
-    if creative_url:
+    if creative_url and not any(item["url"] == creative_url for item in items):
         items.append({
             "id": "creative",
             "label": "Criativo no canal",
             "url": creative_url,
             "kind": "creative",
+            "status": "approved",
             "active": True,
         })
     bg = text(theme.get("bg_url"))
-    if bg and "/generated/" in bg:
+    if bg and "/generated/" in bg and not any(item["url"] == bg for item in items):
         items.append({
             "id": "bg",
             "label": "Fundo gerado",
             "url": bg,
             "kind": "background",
+            "status": "draft",
             "active": False,
         })
     slug = _slug_from_meta(folha)
@@ -148,6 +164,7 @@ def _gallery(folha: dict) -> list[dict]:
             "label": {"creative": "Criativo no canal", "background": "Fundo gerado", "persona": "Persona do plano", "place": "Lugar da campanha"}.get(kind, "Arte gerada"),
             "url": url,
             "kind": kind,
+            "status": "draft",
             "active": False,
         })
     return items[:12]
@@ -268,6 +285,9 @@ def editor_context(row: dict, share_url: str = "") -> dict:
         "media": as_dict(folha.get("media")),
         "theme": as_dict(folha.get("theme")),
         "meta": as_dict(folha.get("meta")),
+        "public_design": as_dict(folha.get("public_design")),
+        "asset_manifest": as_list(folha.get("asset_manifest")),
+        "executive_contact": as_dict(folha.get("executive_contact")),
         "editor_mode": "one_page",
         "one_page_steps": [{"id": item["id"], "title": item["title"]} for item in ONE_PAGE_STEPS],
         "completo_steps": [{"id": item["id"], "title": item["title"]} for item in COMPLETO_STEPS],

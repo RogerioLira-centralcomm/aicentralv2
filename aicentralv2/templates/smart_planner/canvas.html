@@ -23,6 +23,9 @@
 {% set media_board = media or {} %}
 {% set pace = media_board.pace or {} %}
 {% set visual_direction = folha.visual_direction or {} %}
+{% set audience_model = market.audience_model or folha.audience_model or {} %}
+{% set visual_data = market.visual_data or folha.visual_data or [] %}
+{% set folha_meta = folha.meta or {} %}
 <div class="sp-hi" id="sp-canvas"
      data-token="{{ token }}"
      data-mode="one_page"
@@ -34,8 +37,8 @@
         <div class="sp-hi-head__title">
           <a class="sp-hi-back" href="{{ url_for('smart_planner.index') }}" aria-label="Voltar aos planejamentos" title="Planejamentos"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></a>
           <div>
-          <h1>Editar página única</h1>
-          <p>Uma folha para a reunião: tese, protótipo visual, mídia, dado e defesa.</p>
+          <h1>Revisar planejamento</h1>
+          <p>Confira a decisão comercial e ajuste somente o que precisa ir para a reunião.</p>
           </div>
         </div>
         <div class="sp-hi-head-actions">
@@ -52,31 +55,45 @@
         </div>
       </header>
 
+      <section class="sp-admin-summary" aria-label="Resumo do planejamento">
+        <div class="sp-admin-summary__identity">
+          <span class="sp-readout-kicker">{{ folha_meta.client or 'Cliente a confirmar' }}</span>
+          <strong>{{ folha_meta.title or folha_meta.campaign or 'Planejamento sem título' }}</strong>
+          <small>{{ folha_meta.agency or 'Agência a confirmar' }}{% if folha_meta.objective %} · {{ folha_meta.objective }}{% endif %}</small>
+        </div>
+        <div class="sp-admin-summary__facts">
+          {% if folha_meta.period %}<span><b>Período</b>{{ folha_meta.period }}</span>{% endif %}
+          {% if folha_meta.market %}<span><b>Praça</b>{{ folha_meta.market }}</span>{% endif %}
+          {% if media_board.channels %}<span><b>Canais</b>{{ media_board.channels|length }}</span>{% endif %}
+          <span class="is-pending"><b>Revisão</b>{{ 'A validar' if audience_model.universo_estimado and audience_model.universo_estimado.status == 'a_validar' else 'Pronta para conferir' }}</span>
+        </div>
+      </section>
+
       <form id="sp-folha-form" class="sp-review" data-folha="1">
         <details class="sp-acc" data-acc="strategy" open id="sp-acc-strategy">
           <summary aria-controls="sp-acc-strategy-body">
-            <span class="sp-acc-title">Tese e briefing</span>
-            <span class="sp-acc-meta">1 campo</span>
+            <span class="sp-acc-title">Estratégia</span>
+            <span class="sp-acc-meta">resumo da decisão</span>
           </summary>
           <div class="sp-bf is-stack" id="sp-acc-strategy-body">
-            <label for="sp-field-strategy-title"><span>Título</span>
-              <input id="sp-field-strategy-title" name="strategy_title" value="{{ strategy.title or 'Tese e briefing' }}">
-            </label>
-            <label for="sp-field-strategy"><span>Tese</span>
+            <label for="sp-field-strategy"><span>O que precisa ser decidido</span>
               <textarea id="sp-field-strategy" name="strategy_body" rows="5">{{ strategy.body or '' }}</textarea>
             </label>
+            <details class="sp-field-advanced">
+              <summary>Editar título técnico</summary>
+              <label for="sp-field-strategy-title"><span>Título</span>
+                <input id="sp-field-strategy-title" name="strategy_title" value="{{ strategy.title or 'Tese e briefing' }}">
+              </label>
+            </details>
           </div>
         </details>
 
-        <details class="sp-acc" data-acc="creative" open id="sp-acc-creative">
+        <details class="sp-acc" data-acc="creative" id="sp-acc-creative">
           <summary aria-controls="sp-acc-creative-body">
             <span class="sp-acc-title">Protótipo visual no canal</span>
             <span class="sp-acc-meta">uma peça conceitual</span>
           </summary>
           <div class="sp-bf is-stack" id="sp-acc-creative-body">
-            <label for="sp-field-creative-title"><span>Título</span>
-              <input id="sp-field-creative-title" name="creative_title" value="{{ creative.title or 'Criativo' }}">
-            </label>
             <div class="sp-bf is-pair">
               <label for="sp-field-channel"><span>Canal</span>
                 <input id="sp-field-channel" name="creative_channel" value="{{ creative.channel or '' }}">
@@ -92,8 +109,11 @@
             <label for="sp-field-creative"><span>O que o protótipo mostra</span>
               <textarea id="sp-field-creative" name="creative_body" rows="4">{{ creative.body or '' }}</textarea>
             </label>
-            <details class="sp-creative-direction">
-              <summary>Direção visual avançada</summary>
+            <details class="sp-creative-direction sp-field-advanced">
+              <summary>Campos avançados da peça</summary>
+              <label for="sp-field-creative-title"><span>Título técnico</span>
+                <input id="sp-field-creative-title" name="creative_title" value="{{ creative.title or 'Criativo' }}">
+              </label>
               <label for="sp-field-image-prompt"><span>Orientação para gerar a imagem</span>
               <textarea id="sp-field-image-prompt" name="creative_image_prompt" rows="3">{{ creative.image_prompt or '' }}</textarea>
             </label>
@@ -104,7 +124,7 @@
               {% for item in gallery %}
               <figure class="sp-gallery-item {% if item.active %}is-active{% endif %}" data-url="{{ item.url }}" data-kind="{{ item.kind }}">
                 <img src="{{ item.url }}" alt="{{ item.label }}" loading="lazy">
-                <figcaption>{{ item.label }}</figcaption>
+                <figcaption>{{ item.label }} <small>{{ item.status or 'draft' }}</small></figcaption>
               </figure>
               {% endfor %}
               {% else %}
@@ -134,7 +154,7 @@
         <details class="sp-acc" data-acc="media" id="sp-acc-media">
           <summary aria-controls="sp-acc-media-body">
             <span class="sp-acc-title">Gestão de mídia</span>
-            <span class="sp-acc-meta">leitura do plano</span>
+            <span class="sp-acc-meta">abrir só para rebalancear</span>
           </summary>
           <div id="sp-acc-media-body">
             {% if media_board.method_label or media_board.channels or pace.months %}
@@ -177,32 +197,81 @@
             <span class="sp-acc-meta">dado e leitura</span>
           </summary>
           <div class="sp-bf is-stack" id="sp-acc-market-body">
-            <div class="sp-bf is-pair">
-              <label for="sp-field-stat"><span>Número</span>
-                <input id="sp-field-stat" name="market_stat" value="{{ market.stat or '' }}">
-              </label>
-              <label for="sp-field-stat-label"><span>Rótulo</span>
-                <input id="sp-field-stat-label" name="market_stat_label" value="{{ market.stat_label or '' }}">
-              </label>
-            </div>
             <label for="sp-field-market"><span>Leitura</span>
               <textarea id="sp-field-market" name="market_body" rows="3">{{ market.body or '' }}</textarea>
             </label>
+            <details class="sp-field-advanced">
+              <summary>Editar dado e origem</summary>
+              <div class="sp-bf is-pair">
+                <label for="sp-field-stat"><span>Número ou status</span>
+                  <input id="sp-field-stat" name="market_stat" value="{{ market.stat or '' }}">
+                </label>
+                <label for="sp-field-stat-label"><span>Rótulo da origem</span>
+                  <input id="sp-field-stat-label" name="market_stat_label" value="{{ market.stat_label or '' }}">
+                </label>
+              </div>
+            </details>
+            {% if market.channel_roles %}
+            <div class="sp-channel-readout" aria-label="Ecossistema de distribuição">
+              <div class="sp-channel-readout__head">
+                <span class="sp-readout-kicker">Ecossistema de distribuição</span>
+                <small>até oito itens, com papel e origem</small>
+              </div>
+              <ul>
+                {% for channel in market.channel_roles %}
+                <li class="is-{{ channel.status or 'proposed' }}">
+                  {% if channel.logo %}<img src="{{ channel.logo }}" alt="" loading="lazy">{% endif %}
+                  <span><strong>{{ channel.label }}</strong><small>{{ channel.role }}</small></span>
+                  <em>{{ 'Confirmado' if channel.status == 'confirmed' else 'Proposta' }}</em>
+                </li>
+                {% endfor %}
+              </ul>
+            </div>
+            {% endif %}
+            <div class="sp-audience-readout" aria-label="Audiência modelada">
+              <div class="sp-audience-readout__head">
+                <div>
+                  <span class="sp-readout-kicker">Audiência modelada</span>
+                  <strong>{{ audience_model.regiao or 'Praça a definir' }}{% if audience_model.bairro %} · {{ audience_model.bairro }}{% endif %}</strong>
+                </div>
+                <span class="sp-readout-status">{{ audience_model.source_note or 'Base do briefing e pesquisa' }}</span>
+              </div>
+              {% if audience_model.segments %}
+              <div class="sp-audience-segment">
+                <span>Segmento prioritário</span>
+                <strong>{{ audience_model.segments[0].label or 'Público do briefing' }}</strong>
+                <p>{{ audience_model.segments[0].description or 'A definir com dados aprovados.' }}</p>
+              </div>
+              {% endif %}
+              <div class="sp-readout-grid">
+                {% for item in visual_data[:4] %}
+                <div class="sp-readout-meter {% if item.status == 'a_validar' %}is-pending{% endif %}">
+                  <span>{{ item.label }}</span>
+                  <strong>{{ item.value or 'A validar' }}</strong>
+                  <i><b style="width: {{ 100 if item.status != 'a_validar' else 22 }}%"></b></i>
+                </div>
+                {% endfor %}
+              </div>
+              <small class="sp-readout-foot">Faixa etária: {{ (audience_model.faixa_etaria or {}).value or 'a validar' }} · Gênero: {{ (audience_model.genero or {}).value or 'a validar' }} · Classe: {{ (audience_model.classe_social or {}).value or 'a validar' }}</small>
+            </div>
           </div>
         </details>
 
         <details class="sp-acc" data-acc="defense" id="sp-acc-defense">
           <summary aria-controls="sp-acc-defense-body">
-            <span class="sp-acc-title">Defesa</span>
-            <span class="sp-acc-meta">1 campo</span>
+            <span class="sp-acc-title">Defesa comercial</span>
+            <span class="sp-acc-meta">argumento de aprovação</span>
           </summary>
           <div class="sp-bf is-stack" id="sp-acc-defense-body">
-            <label for="sp-field-defense-title"><span>Título</span>
-              <input id="sp-field-defense-title" name="defense_title" value="{{ defense.title or 'Por que aprovar' }}">
-            </label>
-            <label for="sp-field-defense"><span>Argumento</span>
+            <label for="sp-field-defense"><span>Argumento para aprovação</span>
               <textarea id="sp-field-defense" name="defense_body" rows="5">{{ defense.body or '' }}</textarea>
             </label>
+            <details class="sp-field-advanced">
+              <summary>Editar título técnico</summary>
+              <label for="sp-field-defense-title"><span>Título</span>
+                <input id="sp-field-defense-title" name="defense_title" value="{{ defense.title or 'Por que aprovar' }}">
+              </label>
+            </details>
           </div>
         </details>
 
@@ -252,6 +321,13 @@
                 {% endfor %}
               </select>
             </label>
+            {% if public_design %}
+            <div class="sp-design-status">
+              <span>Skin pública</span>
+              <strong>{{ public_design.skin_id or 'paper-editorial' }}</strong>
+              <small>Hero: {{ (public_design.hero or {}).status or 'draft' }} · o texto permanece intacto ao trocar a aparência.</small>
+            </div>
+            {% endif %}
             {% if brand.needs_create %}
             <p class="sp-acc-note">Não há marca do anunciante no Workspace. Crie o perfil para usar logo, paleta e peças no planejamento.</p>
             <a class="cx-btn cx-btn-primary cx-btn-sm" href="{{ brand.create_url }}" target="_blank" rel="noopener noreferrer">Criar marca no Workspace</a>

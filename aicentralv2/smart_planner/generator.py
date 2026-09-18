@@ -10,6 +10,7 @@ import threading
 from datetime import datetime, timedelta, timezone
 
 from . import canvas as canvas_mod
+from . import planner
 from . import one_page
 from .ai import chat_json, chat_text
 from .brand import brand_prompt_block
@@ -140,6 +141,23 @@ def _run(token: str, mode: str) -> dict:
     evidence = build_evidence(snapshot)
     merge_dados(token, {"evidence": evidence})
     mark_step(token, "evidence", "done")
+
+    market_research = text(dados.get("market_research"))
+    if not market_research and _has_llm():
+        mark_step(token, "market", "running")
+        market_research = planner.research_market(
+            text(snapshot.get("briefing")),
+            as_dict(dados.get("campanha")),
+            as_dict(snapshot.get("brand")),
+            apoio=text(snapshot.get("user_briefing")),
+        )
+        merge_dados(token, {"market_research": market_research})
+        snapshot["market_research"] = market_research
+        evidence["market_research"] = market_research
+        merge_dados(token, {"evidence": evidence})
+        mark_step(token, "market", "done")
+    else:
+        mark_step(token, "market", "skipped")
 
     core = as_dict(dados.get("strategy_core"))
     if _usable_core(core, material_hash):
@@ -364,6 +382,25 @@ def _pack(snapshot: dict, evidence: dict, core: dict | None = None, estimates: d
     places_aprovado = _places_law(snap)
     if places_aprovado:
         payload["places_aprovado"] = places_aprovado
+    pitch = one_page.match_pitch(
+        text(as_dict(snap.get("client")).get("name")),
+        text(as_dict(snap.get("client")).get("agency")),
+        text(snap.get("briefing")),
+        as_list(snap.get("places")),
+    )
+    if pitch:
+        payload["starter_pitch_context"] = {
+            "market_id": text(pitch.get("market_id")),
+            "partners": list(pitch.get("partners") or []),
+            "strategy": text(pitch.get("strategy")),
+            "creative": as_dict(pitch.get("creative")),
+            "market": as_dict(pitch.get("market")),
+            "defense": text(pitch.get("defense")),
+        }
+    if text(pack_evidence.get("market_research")):
+        payload["market_research"] = text(pack_evidence.get("market_research"))[:8000]
+    if as_dict(snap.get("audience_model")):
+        payload["audience_model"] = as_dict(snap.get("audience_model"))
     if extra:
         payload.update(extra)
     payload["estimates_note"] = estimates_note
@@ -405,6 +442,11 @@ def _one_page_v2(snapshot: dict, evidence: dict, core: dict, estimates: dict) ->
         **_visual_direction_fallback(snapshot),
         **as_dict(parsed.get("visual_direction")),
     }
+    parsed["audience_model"] = {
+        **_audience_model_fallback(snapshot),
+        **as_dict(parsed.get("audience_model")),
+    }
+    parsed["visual_data"] = as_list(parsed.get("visual_data")) or _visual_data_fallback(snapshot)
     _apply_no_budget_policy(parsed, snapshot)
     parsed.setdefault("result_estimates", {})
     parsed["result_estimates"].setdefault("status", estimates.get("status"))
@@ -435,6 +477,39 @@ def _visual_direction_fallback(snapshot: dict) -> dict:
             if place else ""
         ),
     }
+
+
+def _audience_model_fallback(snapshot: dict) -> dict:
+    snap = as_dict(snapshot)
+    audiences = as_list(snap.get("audiences"))
+    audience = text(audiences[0] if audiences else "")
+    geography = as_dict(snap.get("geography"))
+    return {
+        "segments": [{
+            "label": "Público informado no briefing",
+            "description": audience or "Público a definir pelo anunciante.",
+            "status": "briefing" if audience else "a_validar",
+        }],
+        "faixa_etaria": {"value": None, "status": "a_validar"},
+        "genero": {"value": None, "status": "a_validar"},
+        "classe_social": {"value": None, "status": "a_validar"},
+        "regiao": text(geography.get("praca") or geography.get("detail")),
+        "bairro": "",
+        "universo_estimado": {"value": None, "unit": "pessoas", "status": "a_validar", "source": ""},
+        "impacto_estimado": {"value": None, "unit": "pessoas", "status": "a_validar", "source": ""},
+        "source_note": "Estimativas demográficas só entram com fonte pública ou base aprovada.",
+    }
+
+
+def _visual_data_fallback(snapshot: dict) -> list[dict]:
+    snap = as_dict(snapshot)
+    mix = [as_dict(item) for item in as_list(snap.get("mix")) if as_dict(item).get("label")]
+    return [
+        {"id": "universe", "label": "Universo demográfico", "value": "A validar", "status": "a_validar"},
+        {"id": "impact", "label": "Impacto estimado", "value": "A validar", "status": "a_validar"},
+        {"id": "ecosystem", "label": "Ecossistema de mídia", "value": f"{len(mix)} canais" if mix else "A definir", "status": "briefing" if mix else "a_validar"},
+        {"id": "evidence", "label": "Base da leitura", "value": "Briefing + pesquisa", "status": "briefing"},
+    ]
 
 
 def _apply_no_budget_policy(page: dict, snapshot: dict) -> None:
@@ -511,6 +586,8 @@ def _materialize_folha(token: str, snapshot: dict, page: dict, core: dict) -> di
         media=media,
     )
     plan["visual_direction"] = as_dict(page.get("visual_direction"))
+    plan["audience_model"] = as_dict(page.get("audience_model"))
+    plan["visual_data"] = as_list(page.get("visual_data"))
     merge_dados(token, {
         "presenter_brand": plan["meta"]["presenter"],
         "public_token": plan["share"]["public_token"],

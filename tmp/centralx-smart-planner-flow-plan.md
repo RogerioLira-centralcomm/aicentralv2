@@ -51,29 +51,31 @@ Arquivos principais:
 
 ## 4. Nova arquitetura da folha
 
-Manter a ordem editorial da folha e acrescentar apenas o card de canais:
+Manter os quatro cards editoriais atuais. O ecossistema de canais entra como
+subestrutura do card de mercado e também pode aparecer como apoio visual na
+página pública; não criar uma quinta seção `channels` no contrato da folha.
+
+Ordem editorial da folha:
 
 1. cabeçalho do anunciante;
 2. tese estratégica;
 3. criativo funcionando no canal;
-4. ecossistema de distribuição;
-5. dado de mercado;
-6. densidade do mix;
-7. defesa comercial;
-8. contato do executivo;
-9. quadro público, QR e WhatsApp.
+4. dado de mercado com ecossistema de distribuição e densidade do mix;
+5. defesa comercial;
+6. quadro público, QR e WhatsApp.
 
 O one page não deve virar um documento longo. A navegação será por estados/cartões, com transição lateral ou fade, indicadores de progresso e suporte a teclado, toque e rolagem como fallback.
 
 ## 5. Contrato de dados proposto
 
-### 5.1 Card de canais
+### 5.1 Ecossistema de canais dentro do card de mercado
 
-Adicionar um card `channels` à seção `one_page`:
+Adicionar `channel_roles` ao card `market`, preservando o contrato de quatro
+cards (`strategy`, `creative`, `market`, `defense`):
 
 ```json
 {
-  "type": "channels",
+  "type": "market",
   "title": "Ecossistema de distribuição",
   "body": "",
   "items": [
@@ -89,8 +91,8 @@ Adicionar um card `channels` à seção `one_page`:
       "label": "Rede de portais",
       "logo": "/static/...",
       "role": "Cobertura contextual",
-      "status": "confirmed|proposed",
-      "count": null
+    "status": "confirmed|proposed",
+    "count": null
     }
   ],
   "overflow_label": "+ rede de portais qualificados"
@@ -232,11 +234,11 @@ Campos que não devem ser inventados pelo editor:
 
 1. Gerar estratégia em até três frases.
 2. Gerar criativo contextualizado no canal.
-3. Gerar card de canais com até oito itens.
+3. Gerar `channel_roles` no card de mercado, com até oito itens.
 4. Gerar dado de mercado sem inventar métrica.
 5. Gerar densidade de mix rotulada como premissa quando aplicável.
 6. Gerar defesa comercial.
-7. Gerar pendências e validações.
+7. Gerar pendências e validações, incluindo status de fonte para audiência e números.
 
 ### 7.3 Imagens
 
@@ -309,12 +311,13 @@ Critérios de bloqueio:
 
 Enquanto outro agente altera o módulo compartilhado:
 
-1. não editar diretamente `public_view.py`, `public_document.html` ou `smart_planner_public_v3.css` sem coordenação;
+1. definir ownership por camada antes do patch: geração/contrato, editor ou público;
 2. trabalhar primeiro em contratos, fixtures, prompts e testes isolados;
-3. depois integrar em commits pequenos por camada;
+3. integrar em commits pequenos por camada;
 4. revisar `git diff` antes de cada patch;
 5. nunca usar reset, checkout ou limpeza destrutiva;
-6. validar o plano `EExkhWnyzq519g` em leitura antes de persistir qualquer mudança.
+6. validar o plano `EExkhWnyzq519g` em leitura antes de persistir qualquer mudança;
+7. manter fallback para planos antigos sem `audience_model`, `public_design` ou `asset_manifest`.
 
 ## 11. Plano de implementação por fases
 

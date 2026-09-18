@@ -116,12 +116,26 @@ def apply_charge(
     if rate is None:
         rate, resolved = usd_brl_rate()
         source = source or resolved
-    items.append({
+    item = {
         "kind": text(kind) or "chat",
         "model": text(model),
         "usd": round(usd, 6),
         "brl": brl_from_usd(usd, rate),
-    })
+    }
+    try:
+        input_tokens = int(usage.get("input_tokens") or usage.get("prompt_tokens") or 0)
+        output_tokens = int(usage.get("output_tokens") or usage.get("completion_tokens") or 0)
+        details = as_dict(usage.get("input_tokens_details") or usage.get("prompt_tokens_details"))
+        cached_tokens = int(details.get("cached_tokens") or 0)
+    except (TypeError, ValueError):
+        input_tokens = output_tokens = cached_tokens = 0
+    if input_tokens:
+        item["input_tokens"] = input_tokens
+    if cached_tokens:
+        item["cached_tokens"] = cached_tokens
+    if output_tokens:
+        item["output_tokens"] = output_tokens
+    items.append(item)
     return _finalize(existing, items, rate=rate, source=source)
 
 

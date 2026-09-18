@@ -197,9 +197,12 @@ def generation_map(mode: str) -> dict:
 
 def preview_steps(mode: str) -> list[dict]:
     mode = (mode or "").strip().lower()
-    steps = [ROLES["final"], ROLES["sheet"]]
+    # A pesquisa de praça/mercado acontece antes do núcleo quando ainda não há
+    # lastro persistido; ela precisa aparecer na prévia para o custo interno
+    # acompanhar o pipeline real.
+    steps = [ROLES["market"], ROLES["final"], ROLES["sheet"]]
     if mode != "one_page":
-        steps.extend([ROLES["final"], ROLES["final"], ROLES["compose"]])
+        steps.extend([ROLES["final"], ROLES["final"], ROLES["final"], ROLES["final"], ROLES["compose"]])
     return [
         {
             "label": item["label"],
@@ -213,6 +216,10 @@ def preview_steps(mode: str) -> list[dict]:
 def preview_cost(mode: str, dados: dict | None = None) -> dict:
     steps = preview_steps(mode)
     usd = sum(float(item["usd"]) for item in steps)
+    # O pipeline atual também gera expressão visual contextual. Mantemos a
+    # prévia alinhada com a operação real, sem transformar isso em cobrança.
+    image_count = 3 if mode == "one_page" else 3
+    usd += IMAGE_USD * image_count
     rate, source = usd_brl_rate()
     brl = round(usd * float(rate or 0), 2)
     spent = None
@@ -228,7 +235,7 @@ def preview_cost(mode: str, dados: dict | None = None) -> dict:
         "source": source,
         "steps": steps,
         "spent": spent,
-        "note": "Estimativa interna da geração em reais, sem margem comercial e fora do consumo de créditos.",
+        "note": "Estimativa interna da geração em reais, incluindo a página única e as imagens de apoio, sem margem comercial e fora do consumo de créditos.",
     }
 
 

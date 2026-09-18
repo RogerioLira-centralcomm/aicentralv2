@@ -24,7 +24,7 @@ Verdade do material:
 Estrutura obrigatória (##):
 
 ## Capa
-Campanha, cliente, objetivo, período e investimento — copiar da configuração.
+Campanha, anunciante, objetivo e período — copiar da configuração. Só inclua investimento se houver verba confirmada.
 
 ## Visão Geral
 Um parágrafo, máximo 4 linhas.
@@ -43,8 +43,8 @@ Comportamento, hábitos de mídia, jornada e gatilhos do briefing.
 Tabela: Segmento | Perfil | Universo Praça | % Estimado | Impacto Esperado | Prioridade
 
 ## Estratégia e Mix
-Tabela: Canal | % | R$ | Papel | Justificativa
-A soma dos R$ fecha a verba. Justificativa = público + comportamento + papel no voo.
+Tabela: Canal | % | R$ | Papel | Justificativa, somente quando a verba estiver confirmada.
+Sem verba confirmada, apresente o papel estratégico e marque valores como "A validar", sem mencionar investimento.
 
 ## Números e Performance
 Tabela: Canal | Impressões | Alcance | KPI Principal | Meta
@@ -66,20 +66,23 @@ Máximo 5. Responsável: "A definir".
 
 IMPROVE_PROMPT = """Você aprofunda um rascunho de planejamento já escrito.
 Devolva o documento inteiro em markdown — sem comentários.
-Feche números com a verba e o voo mensal da configuração.
+Feche números somente quando houver verba confirmada e respeite o voo mensal da configuração.
 Corte repetição. Não invente o que o briefing não trouxe. Sem agência, sem IA.
 """
 
 FINAL_PROMPT = """Você fecha a versão final do planejamento de mídia.
 Esta é a 3ª passagem — o documento que o anunciante lê.
 Devolva o markdown inteiro, limpo, sem comentários.
-Confira: mix soma a verba; voo respeita as colunas; KPI sem lastro está como Premissa.
+Confira: mix soma a verba quando ela existir; voo respeita as colunas; KPI sem lastro está como Premissa.
 Corte jargão e seção oca. Não invente. Sem agência, sem IA.
 """
 
 MARKET_PROMPT = """Você é analista de mercado de mídia no Brasil.
-Até 8 bullets: categoria, concorrência típica, consumo de mídia e risco de verba.
-Número sem fonte = Premissa. Sem agência, sem ferramenta, sem inventar audiência.
+Até 8 bullets: categoria, concorrência típica, consumo de mídia, praça e risco comercial.
+Para cada número, informe fonte e data. Sem fonte, escreva "Premissa — a validar" e não invente audiência.
+Não transforme membros cadastrados, alcance de anúncio ou usuários de uma plataforma em pessoas impactadas sem explicar a diferença.
+Quando não houver demografia confiável, escreva "Demografia: a validar".
+Sem agência, sem ferramenta, sem inventar audiência.
 """
 
 
@@ -111,10 +114,11 @@ def _campaign_block(campanha: dict) -> str:
     if places_note:
         lines.append(places_note)
     lines += [
-        f"- Verba: {campanha.get('verba') or 'a definir'}",
         f"- Período: {campanha.get('periodo') or 'a definir'}",
         f"- Objetivo: {campanha.get('objetivo') or 'a definir'}",
     ]
+    if campanha.get("verba"):
+        lines.insert(-2, f"- Verba confirmada: {campanha.get('verba')}")
     mix = campanha.get("mix") if isinstance(campanha.get("mix"), dict) else {}
     if mix.get("method"):
         lines.append(f"- Método de mix: {mix.get('method')}")

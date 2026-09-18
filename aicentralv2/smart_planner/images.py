@@ -64,6 +64,45 @@ def apply_sheet_art(plan: dict, force: bool = False) -> dict:
             "image_url": url,
         }
     plan["supporting_visuals"] = list(existing.values())
+    manifest = {
+        text(item.get("kind")): dict(item)
+        for item in as_list(plan.get("asset_manifest"))
+        if isinstance(item, dict) and text(item.get("kind"))
+    }
+    if text(creative.get("image_url")):
+        manifest["creative"] = {
+            "kind": "creative",
+            "asset_url": text(creative.get("image_url")),
+            "prompt": text(creative.get("image_prompt")),
+            "status": "approved",
+        }
+    if text(theme.get("bg_url")):
+        manifest["background"] = {
+            "kind": "background",
+            "asset_url": text(theme.get("bg_url")),
+            "prompt": text(theme.get("bg_prompt")),
+            "status": "draft" if "/generated/" in text(theme.get("bg_url")) else "approved",
+        }
+    for item in existing.values():
+        kind = text(item.get("kind"))
+        if kind and text(item.get("image_url")):
+            manifest[kind] = {
+                "kind": kind,
+                "asset_url": text(item.get("image_url")),
+                "prompt": text(direction.get(f"{kind}_image_prompt")),
+                "status": "draft",
+            }
+    plan["asset_manifest"] = list(manifest.values())
+    design = as_dict(plan.get("public_design"))
+    hero = as_dict(design.get("hero"))
+    if text(theme.get("bg_url")):
+        hero.update({"asset_url": text(theme.get("bg_url")), "prompt": text(theme.get("bg_prompt"))})
+        hero.setdefault("status", "draft" if "/generated/" in text(theme.get("bg_url")) else "approved")
+    design["hero"] = hero
+    design.setdefault("skin_id", text(theme.get("id")) or "paper-editorial")
+    design.setdefault("selection_mode", "auto")
+    design["tokens"] = {key: text(theme.get(key)) for key in ("paper", "ink", "accent") if text(theme.get(key))}
+    plan["public_design"] = design
     return plan
 
 

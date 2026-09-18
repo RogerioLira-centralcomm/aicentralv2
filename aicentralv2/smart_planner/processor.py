@@ -94,6 +94,8 @@ Regras:
 - "Clientes da Copasa / do banco / da marca" é público, nunca o campo cliente.
 - Se campos já confirmados tiverem cliente, não liste falta de anunciante ou de cliente em falta_completar.
 - score de 0 a 100. Pesa mais: objetivo, público, verba, período e praça.
+- audiencia_modelada separa fato do briefing, estimativa pesquisada e campo a validar. Nunca invente pessoas, idade, classe social ou gênero.
+- universo_estimado e impacto_estimado só podem ter número com fonte. Sem fonte, use null e status "a_validar".
 """
     parsed = chat_json(
         "Você extrai dados estruturados e responde apenas com JSON válido.",

@@ -6,6 +6,7 @@
   var isEditor = root.getAttribute("data-editor") === "1";
   var readonly = root.getAttribute("data-readonly") === "1";
   var isPublic = root.getAttribute("data-public") === "1";
+  var ready = false;
   var board = document.getElementById("sp-canvas-board");
   var presenterSelect = document.getElementById("sp-presenter");
   var plan = { sections: [], branding: {}, meta: {}, theme: {}, share: {}, media: {} };
@@ -128,13 +129,17 @@
           escapeHtml(item.url) +
           '" data-kind="' +
           escapeHtml(item.kind || "") +
+          '" data-status="' +
+          escapeHtml(item.status || "draft") +
           '"><img src="' +
           escapeHtml(item.url) +
           '" alt="' +
           escapeHtml(item.label || "") +
           '" loading="lazy"><figcaption>' +
           escapeHtml(item.label || "") +
-          "</figcaption></figure>"
+          ' <small>' +
+          escapeHtml(item.status || "draft") +
+          "</small></figcaption></figure>"
         );
       })
       .join("");
@@ -295,6 +300,8 @@
   }
 
   async function load() {
+    root.classList.add("is-loading");
+    setLive("Carregando planejamento…");
     if (isEditor) {
       var response = await fetch("/smart-planner/api/" + token + "/canvas?folha=1", {
         credentials: "same-origin",
@@ -305,6 +312,9 @@
       if (payload.data.editor && payload.data.editor.gallery) {
         refreshGallery(payload.data.editor.gallery);
       }
+      ready = true;
+      root.classList.remove("is-loading");
+      setLive("");
       return;
     }
     var endpoint = isPublic
@@ -315,9 +325,13 @@
     if (!boardPayload.success) throw new Error(boardPayload.error || "Falha ao carregar");
     plan = boardPayload.data.plan || { sections: [] };
     render();
+    ready = true;
+    root.classList.remove("is-loading");
+    setLive("");
   }
 
   async function regenerate(presenter) {
+    if (!ready) throw new Error("O planejamento ainda está carregando.");
     var response = await fetch("/smart-planner/api/" + token + "/canvas/gerar", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -335,6 +349,7 @@
   }
 
   async function save() {
+    if (!ready) throw new Error("O planejamento ainda está carregando.");
     var body = isEditor
       ? { plan: collectEditor(), folha: true }
       : { plan: collectBoard() };
@@ -435,6 +450,9 @@
   });
 
   load().catch(function (error) {
+    root.classList.remove("is-loading");
+    root.classList.add("is-load-error");
+    setLive("Falha ao carregar");
     toast(error.message, "error");
   });
 })();

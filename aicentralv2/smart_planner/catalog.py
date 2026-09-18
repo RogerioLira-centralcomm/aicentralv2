@@ -92,6 +92,7 @@ FIELD_SCHEMA = {
     "objetivo_texto": "o objetivo como o anunciante descreveu, com as palavras dele.",
     "contexto": "o que motivou a campanha: momento, histórico, concorrência, sazonalidade.",
     "publico": "quem precisa ser impactado, em texto corrido: comportamento, consumo de mídia, momento de vida ou de compra.",
+    "audiencia_modelada": "objeto com segmentos, faixa_etaria, genero, classe_social, regiao, bairro, universo_estimado e impacto_estimado; cada número precisa ter fonte ou status a_validar.",
     "praca": "exatamente nacional, interior, geolocalizada ou vazio.",
     "praca_detalhe": "as praças citadas: cidades, estados, raio.",
     "verba": "o valor como foi dito, incluindo periodicidade (ex.: \"R$ 80 mil por mês\").",

@@ -35,6 +35,16 @@ Se client.confidential for verdadeiro, o nome do anunciante não pode aparecer. 
 Skill-base + snapshot + Strategy Core + estimates + mix_aprovado + esta skill.
 Sintetize o núcleo. Não invente outra tese. Não use pitch estático de outro cliente.
 
+O card `market` pode carregar `channel_roles` (até oito itens), `audience_model`
+e `visual_data` como subestruturas editoriais. Não crie um quinto card `channels`.
+Cada item de canal deve ter status `confirmed` ou `proposed`; agrupe portais
+quando necessário e nunca invente quantidade de inventário.
+
+Se não houver verba confirmada, omita R$, percentuais financeiros e qualquer
+projeção de alcance. Se não houver fonte demográfica, retorne os campos com
+`value: null` e `status: "a_validar"`. Pesquisa de mercado é evidência auxiliar,
+nunca substituta do snapshot.
+
 ## Teste de especificidade
 Se o nome do anunciante sumir, o texto ainda precisa parecer desta campanha.
 Nomeie serviços, praça ou canais confirmados. Pendências ficam em pending_decisions, não no primeiro período da tese.
@@ -50,6 +60,8 @@ JSON apenas no schema one_page_v2:
   "outputs": [{"name": "", "description": ""}],
   "result_estimates": {"status": "available|not_available", "summary": "", "assumptions": [], "warnings": []},
   "creative_expression": {"channel": "", "surface": "ctv|portal|app|display|place", "headline": "", "supporting_text": "", "cta": "", "image_prompt": ""},
+  "audience_model": {"segments": [], "faixa_etaria": {"value": null, "status": "a_validar"}, "genero": {"value": null, "status": "a_validar"}, "classe_social": {"value": null, "status": "a_validar"}, "regiao": "", "bairro": "", "universo_estimado": {"value": null, "status": "a_validar", "source": ""}, "impacto_estimado": {"value": null, "status": "a_validar", "source": ""}, "source_note": ""},
+  "visual_data": [{"id": "", "label": "", "value": "", "status": "confirmed|estimated|a_validar", "source": ""}],
   "commercial_defense": {
     "why_this_plan": [],
     "why_this_mix": [],

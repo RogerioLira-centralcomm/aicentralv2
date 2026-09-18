@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import re
 import os
+import logging
 from datetime import datetime, timezone
 from html import escape
 import unicodedata
+from urllib.parse import quote
 
 from flask import has_request_context, url_for
 
@@ -15,6 +17,10 @@ from .helpers import as_bool, as_dict, as_list, normalize_markdown, plan_mode_of
 from .mix import METHODS
 from .pace import format_money, parse_money
 from .share import HOUSE, public_document_url, public_sheet_url
+from .theme import resolve_market_id, theme_record
+from ..db import normalizar_telefone_whatsapp, obter_contato_por_email
+
+logger = logging.getLogger(__name__)
 
 CHANNEL_COLORS = {
     "google_ads": "#4285F4",
@@ -256,6 +262,30 @@ def _donut_style(channels: list[dict]) -> str:
     if cursor < 100:
         stops.append(f"#e6ecee {cursor}% 100%")
     return "conic-gradient(" + ", ".join(stops) + ")"
+
+
+def _executive_contact(row: dict, title: str) -> dict:
+    """Resolve o responsável do plano sem deixar dados internos expostos."""
+    email = text((row or {}).get("user_email"))
+    fallback_name = text((row or {}).get("user_name")) or "Executivo responsável"
+    contact = {}
+    if email:
+        try:
+            contact = obter_contato_por_email(email) or {}
+        except Exception:
+            logger.exception("Não foi possível carregar o contato do Smart Planner")
+    name = text(contact.get("nome_completo")) or fallback_name
+    photo = text(contact.get("foto_url"))
+    phone = normalizar_telefone_whatsapp(contact.get("telefone") or contact.get("telefone_secundario"))
+    message = f'Olá, {name.split()[0]}. Quero falar sobre o plano "{title}".'
+    return {
+        "name": name,
+        "photo_url": photo,
+        "phone": phone,
+        "initials": "".join(part[0] for part in name.split()[:2]).upper() or "CX",
+        "whatsapp_url": f"https://wa.me/{phone}?text={quote(message)}" if phone else "",
+        "whatsapp_message": message,
+    }
 
 
 def _media_board(folha: dict, campos: dict | None = None) -> dict:
@@ -1085,6 +1115,8 @@ def public_view(row: dict, document: str | None = None) -> dict:
     chapters = plan_chapters(text(dados.get("planejamento")))
     page_v2 = as_dict(dados.get("one_page_v2"))
     branding = as_dict(folha.get("branding") or board.get("branding"))
+    public_design = as_dict(folha.get("public_design"))
+    asset_manifest = as_list(folha.get("asset_manifest"))
     meta = as_dict(folha.get("meta") or board.get("meta"))
     campanha = as_dict(dados.get("campanha"))
     title = session_title(row, dados)
@@ -1123,13 +1155,28 @@ def public_view(row: dict, document: str | None = None) -> dict:
             ("Verba", verba, "verba"),
             ("Canais", canais, "canais"),
         )
-        if item[1]
+        if item[1] and not text(item[1]).lower().startswith("a definir") and text(item[1]).strip() != "-"
     ]
     strategy = as_dict(sheet.get("strategy"))
     defense = as_dict(sheet.get("defense"))
     creative = as_dict(sheet.get("creative"))
     theme = as_dict(folha.get("theme") or branding.get("theme"))
-    hero_image = text(theme.get("bg_url") or creative.get("image_url") or as_dict(branding.get("hero")).get("image"))
+    place_theme_id = resolve_market_id(
+        title,
+        text(meta.get("agency") or campanha.get("agencia")),
+        " ".join(
+            item for item in (
+                praca_line,
+                text(row.get("briefing_melhorado")),
+                text(row.get("briefing_compilado")),
+            ) if item
+        ),
+    )
+    if place_theme_id != "finance" and text(theme.get("id")) != place_theme_id:
+        theme = theme_record(place_theme_id)
+    theme_image = text(theme.get("bg_url"))
+    creative_image = text(creative.get("image_url") or as_dict(branding.get("hero")).get("image"))
+    hero_image = theme_image or creative_image
     tagline = _first_sentence(strategy.get("body"), 160)
     highlights = _highlights(
         text(strategy.get("body")),
@@ -1228,6 +1275,24 @@ def public_view(row: dict, document: str | None = None) -> dict:
     defense_points.extend(item for item in defense_parts if item not in defense_points)
     approved_mix = bool(media.get("channels")) and int(media.get("total_pct") or 0) > 0
     client_brand = as_dict(branding.get("client") or branding.get("hero"))
+    executive = _executive_contact(row, title)
+    mix_label = " · ".join(
+        f"{text(item.get('label'))} {item.get('pct')}%"
+        for item in as_list(media.get("channels"))
+        if text(item.get("label")) and item.get("pct") is not None
+    )
+    executive_facts = [
+        ("Anunciante", client),
+        ("Objetivo", objective_label),
+        ("Praça", praca_line),
+        ("Período", period),
+        ("Mix", _clip(mix_label, 72)),
+        ("Verba", verba),
+    ]
+    executive_facts = [
+        (label, value) for label, value in executive_facts
+        if value and not text(value).lower().startswith("a definir") and text(value).lower() != "-"
+    ]
     return {
         "house": HOUSE,
         "title": title,
@@ -1238,11 +1303,19 @@ def public_view(row: dict, document: str | None = None) -> dict:
         "fact_items": facts,
         "audience": audience,
         "branding": branding,
+        "public_design": public_design,
+        "asset_manifest": asset_manifest,
         "sheet": sheet,
         "media": media,
         "hero": {
             "image": hero_image,
+            "creative_image": creative_image or hero_image,
             "has_image": bool(hero_image),
+            "place": praca_line,
+            "theme_id": text(theme.get("id")),
+            "theme_ink": text(theme.get("ink")) or "#10252d",
+            "theme_paper": text(theme.get("paper")) or "#f7f5ef",
+            "theme_accent": text(theme.get("accent")) or "#d5aa3b",
             "kicker": "Planejamento de mídia",
             "tagline": tagline,
             "caption": praca_detalhe or praca,
@@ -1291,16 +1364,12 @@ def public_view(row: dict, document: str | None = None) -> dict:
         "metric_note": METRIC_UNDEFINED,
         "praca_line": praca_line,
         "brand_logo": text(client_brand.get("logo_url")),
+        "executive": executive,
+        "executive_contact": executive,
         "has_approved_mix": approved_mix,
         "updated_at": updated_display["label"] or updated,
         "updated_at_title": updated_display["title"] or updated,
-        "executive_facts": [
-            ("Verba", verba or "A definir"),
-            ("Período", period or "A definir"),
-            ("Objetivo", objective_label or "A definir"),
-            ("Mix", f"{media.get('total_pct')}% alocado" if approved_mix else "A definir"),
-            ("Metas", "Pendentes de validação" if "metricas" in missing else "Definidas no plano"),
-        ],
+        "executive_facts": executive_facts,
         "period_count": len(media.get("months") or []),
         "channel_count": len(media.get("channels") or []),
     }

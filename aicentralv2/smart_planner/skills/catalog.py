@@ -69,6 +69,7 @@ SKILLS = {
 ONE_PAGE_STEPS = (
     {"id": "snapshot", "skill": "planner_truth_v1", "title": "Congelando a verdade da campanha", "kind": "python"},
     {"id": "evidence", "skill": "planner_truth_v1", "title": "Empacotando evidências e fontes", "kind": "python"},
+    {"id": "market", "skill": "planner_truth_v1", "title": "Pesquisando mercado e praça", "kind": "llm"},
     {"id": "core", "skill": "planner_strategy_core_v1", "title": "Escrevendo o núcleo estratégico", "kind": "llm"},
     {"id": "estimates", "skill": "planner_estimation_v1", "title": "Calculando indicadores", "kind": "python"},
     {"id": "one_page", "skill": "planner_one_page_v2", "title": "Redigindo a página única e a defesa", "kind": "llm"},

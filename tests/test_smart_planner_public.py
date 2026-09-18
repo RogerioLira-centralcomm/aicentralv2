@@ -144,7 +144,8 @@ class PublicPlannerTest(TestCase):
             "plan_content": {"sections": []},
         })
         self.assertTrue(view["updated_at"].startswith("Atualizado"))
-        self.assertEqual(len(view["executive_facts"]), 5)
+        self.assertEqual(len(view["executive_facts"]), 1)
+        self.assertNotIn("Verba", {item[0] for item in view["executive_facts"]})
         self.assertFalse(view["hero"]["has_image"])
         self.assertEqual(format_public_updated("not-a-date")["label"], "Atualizado em not-a-date")
 

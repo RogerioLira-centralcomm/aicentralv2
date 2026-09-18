@@ -9,16 +9,16 @@ function fixture() {
 const tick = () => new Promise(resolve => setImmediate(resolve));
 test('marca B prevalece quando respostas de A chegam por último; contexto repetido não duplica carga', async () => {
   const { calls, store } = fixture();
-  store.context('A'); store.context('A'); assert.equal(calls.length, 2);
-  store.context('B'); assert.equal(calls.length, 4); assert.equal(calls[0].options.signal.aborted, true);
-  calls[2].resolve({ items: [{ name: 'B' }] }); calls[3].resolve({ items: [] }); await tick();
-  calls[0].resolve({ items: [{ name: 'A' }] }); calls[1].resolve({ items: [] }); await tick();
+  store.context('A'); store.context('A'); assert.equal(calls.length, 3);
+  store.context('B'); assert.equal(calls.length, 6); assert.equal(calls[0].options.signal.aborted, true);
+  calls[3].resolve({ items: [{ name: 'B' }] }); calls[4].resolve({ items: [] }); calls[5].resolve({items:[]}); await tick();
+  calls[0].resolve({ items: [{ name: 'A' }] }); calls[1].resolve({ items: [] }); calls[2].resolve({items:[]}); await tick();
   assert.equal(store.state.clientId, 'B'); assert.equal(store.view().items[0].name, 'B');
 });
 test('biblioteca completa pesquisável, mostrar mais e troca de filtro', async () => {
   const { calls, store } = fixture(); store.context('A');
   calls[0].resolve({ items: Array.from({length: 30}, (_, i) => ({ name: `Peça ${i}`, headline: i === 29 ? 'Promoção especial' : '', created_at: String(i).padStart(2, '0') })) });
-  calls[1].resolve({ items: [{ name: 'Clipe' }] }); await tick();
+  calls[1].resolve({ items: [{ name: 'Clipe' }] }); calls[2].resolve({items:[]}); await tick();
   assert.equal(store.view().total, 31); assert.equal(store.view().items.length, 12);
   store.more(); assert.equal(store.view().items.length, 24);
   store.search('promocao'); assert.equal(store.view().total, 1); assert.equal(store.view().items[0].name, 'Peça 29');
@@ -27,18 +27,25 @@ test('biblioteca completa pesquisável, mostrar mais e troca de filtro', async (
 test('falha parcial preserva a outra mídia; retry não apaga resultados saudáveis', async () => {
   const { calls, store } = fixture(); store.context('A');
   assert.equal(store.view().loading, true);
-  calls[0].resolve({ items: [{ name: 'Imagem' }] }); calls[1].reject(new Error('offline')); await tick();
+  calls[0].resolve({ items: [{ name: 'Imagem' }] }); calls[1].reject(new Error('offline')); calls[2].resolve({items:[]}); await tick();
   assert.deepEqual(store.view().errors, ['video']); assert.equal(store.view().total, 1);
-  store.retry('video'); calls[2].resolve({ items: [{ name: 'Clipe' }] }); await tick();
+  store.retry('video'); calls[3].resolve({ items: [{ name: 'Clipe' }] }); await tick();
   assert.equal(store.view().total, 2); assert.deepEqual(store.view().errors, []);
 });
 test('sem marca ou erro de contexto limpa dados e cancela respostas pendentes', async () => {
   const { calls, store } = fixture(); store.context('A'); store.context('', 'empty');
-  calls[0].resolve({ items: [{ name: 'A' }] }); calls[1].resolve({ items: [] }); await tick();
+  calls[0].resolve({ items: [{ name: 'A' }] }); calls[1].resolve({ items: [] }); calls[2].resolve({items:[]}); await tick();
   assert.equal(store.view().total, 0); assert.equal(store.state.context, 'empty');
-  store.retry(); assert.equal(calls.length, 2);
+  store.retry(); assert.equal(calls.length, 3);
 });
 test('resposta inválida é erro recuperável, não biblioteca vazia', async () => {
-  const { calls, store } = fixture(); store.context('A'); calls[0].resolve({}); calls[1].resolve({ items: [] }); await tick();
+  const { calls, store } = fixture(); store.context('A'); calls[0].resolve({}); calls[1].resolve({ items: [] }); calls[2].resolve({items:[]}); await tick();
   assert.deepEqual(store.view().errors, ['still']);
+});
+test('criação pessoal aparece apenas em Sem projeto e respeita ordenação', async () => {
+  const { calls, store } = fixture(); store.context('A');
+  calls[0].resolve({items:[{id:'shared',name:'Compartilhada',created_at:'2026-01-02'}]});calls[1].resolve({items:[]});
+  calls[2].resolve({items:[],personal_assets:[{id:'personal:1',name:'Minha criação',created_at:'2026-01-01'}]});await tick();
+  assert.equal(store.view().total,2);store.project('unassigned');assert.equal(store.view().total,2);
+  store.sort('name');assert.deepEqual(store.view().items.map(item=>item.name),['Compartilhada','Minha criação']);
 });

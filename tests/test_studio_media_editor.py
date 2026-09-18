@@ -18,13 +18,13 @@ class EditorMediaTest(unittest.TestCase):
     def test_import_inspect_extract_and_brand_boundary(self):
         app=self.app();client=app.test_client()
         with client.session_transaction() as sess:
-            sess.update(user_id=7,user_type='admin',trocr_csrf_token='token')
+            sess.update(user_id=7,user_type='admin',studio_csrf_token='token')
         def execute(fn):
             try:return fn()
             except ValueError as error:return jsonify(success=False,error=str(error)),400
         http=(execute,lambda:request.get_json(),lambda data:jsonify(success=True,data=data),lambda:Mock())
         base='/parametros/api/format-lab/studio';headers={'X-Trocr-CSRF-Token':'token'}
-        with patch('aicentralv2.creative_format_lab.swap_routes._http',return_value=http):
+        with patch('aicentralv2.creative_media.studio._http',return_value=http):
             result=client.post(base+'/clips',data={'client_id':'31','file':(io.BytesIO(self.voiced.read_bytes()),'test.mp4')},headers=headers)
             self.assertEqual(result.status_code,200,result.json)
             row=result.json['data'];self.assertTrue(row['has_audio'])

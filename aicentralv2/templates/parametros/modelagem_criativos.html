@@ -2,7 +2,9 @@
 {% block title %}Cadu Media Studio — Visão geral{% endblock %}
 {% block product_id %}studio{% endblock %}
 {% block styles %}
+<meta name="studio-csrf-token" content="{{ mc_trocr_csrf }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-home.css') }}?v=1">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-library.css') }}?v=1">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-navigation.css') }}?v=7">
 {% endblock %}
 {% block content %}
@@ -21,12 +23,15 @@
       </section>
       <section id="studioLibrary" aria-labelledby="studioLibraryTitle">
         <div class="studio-library-heading"><div><h2 id="studioLibraryTitle">Biblioteca da marca</h2><p>Peças e clipes para continuar sua produção.</p></div><button class="studio-button" id="studioRefresh" type="button">{{ icon('rotate-right') }} Atualizar</button></div>
-        <div class="studio-toolbar"><div class="studio-filters" role="group" aria-label="Filtrar por tipo de mídia"><button type="button" data-media="all" aria-pressed="true">Todos</button><button type="button" data-media="still" aria-pressed="false">Imagens</button><button type="button" data-media="video" aria-pressed="false">Vídeos</button></div><label class="studio-search">{{ icon('magnifying-glass') }}<input type="search" id="studioSearch" aria-label="Buscar na biblioteca da marca" placeholder="Buscar na biblioteca…"></label></div>
+        <div class="studio-project-rail" id="studioProjects" aria-label="Sessões por projeto"></div>
+        <div class="studio-toolbar"><div class="studio-filters" role="group" aria-label="Filtrar por tipo de mídia"><button type="button" data-media="all" aria-pressed="true">Todos</button><button type="button" data-media="still" aria-pressed="false">Imagens</button><button type="button" data-media="video" aria-pressed="false">Vídeos</button></div><div class="studio-toolbar-tools"><label class="studio-sort">Ordenar<select id="studioSort"><option value="recent">Mais recentes</option><option value="oldest">Mais antigos</option><option value="name">Nome</option></select></label><label class="studio-search">{{ icon('magnifying-glass') }}<input type="search" id="studioSearch" aria-label="Buscar na biblioteca da marca" placeholder="Buscar na biblioteca…"></label></div></div>
+        <div class="studio-selection-bar" id="studioSelectionBar" hidden><strong><span id="studioSelectionCount">0</span> selecionado(s)</strong><span>Arraste para um projeto ou</span><button type="button" id="studioMoveSelection">Mover para…</button><button type="button" id="studioDeleteSelection" class="is-danger">Apagar</button><button type="button" id="studioClearSelection">Cancelar</button></div>
         <p class="studio-library-status" id="studioStatus" role="status" aria-live="polite">Carregando contexto da marca…</p>
         <div id="studioErrors"></div>
         <ul class="studio-grid" id="studioItems" aria-label="Resultados da biblioteca"></ul>
         <div class="studio-pagination"><button class="studio-button" id="studioMore" type="button" hidden>Mostrar mais</button></div>
       </section>
+      <dialog class="studio-quicklook" id="studioQuickLook"><button type="button" data-quicklook-close aria-label="Fechar visualização">×</button><figure><div id="studioQuickLookMedia"></div><figcaption><strong id="studioQuickLookTitle"></strong><span id="studioQuickLookMeta"></span></figcaption></figure></dialog>
     </div>
   </div>
 </div>
@@ -34,6 +39,6 @@
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script>
 <script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=8" defer></script>
-<script src="{{ url_for('static', filename='js/mc-studio-library.js') }}?v=1" defer></script>
-<script src="{{ url_for('static', filename='js/mc-cadu-home.js') }}?v=8" defer></script>
+<script src="{{ url_for('static', filename='js/mc-studio-library.js') }}?v=3" defer></script>
+<script src="{{ url_for('static', filename='js/mc-cadu-home.js') }}?v=10" defer></script>
 {% endblock %}

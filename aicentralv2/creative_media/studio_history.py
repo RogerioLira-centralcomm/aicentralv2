@@ -1,7 +1,7 @@
 """Persistência do histórico de direções e itens criativos de um projeto."""
 from __future__ import annotations
 
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from psycopg.types.json import Json
 
@@ -115,6 +115,20 @@ class StudioCreationHistory:
         if not row:
             raise ValueError('Projeto não encontrado nesta marca.')
         return row['id']
+
+    def remove_item(self, project_id, client_id, asset_url):
+        asset_url = str(asset_url or '').strip()[:2000]
+        if not asset_url:
+            raise ValueError('Escolha um ativo para remover do projeto.')
+        with self.connection.cursor() as cursor:
+            cursor.execute('''
+                DELETE FROM cx_studio_project_items
+                 WHERE project_id=%s AND client_id=%s AND asset_url=%s
+                   AND kind IN ('image', 'video', 'reference')
+            ''', (project_id, int(client_id), asset_url))
+            removed = cursor.rowcount
+        self.connection.commit()
+        return removed
 
     def claim_image(self, request_id, request_hash, client_id, user_id, project_id, prompt):
         """Claim an expensive image call before contacting its provider."""
@@ -232,3 +246,45 @@ class StudioCreationHistory:
                  LIMIT %s
             ''', (int(client_id), limit))
             return [dict(row) for row in cursor.fetchall()]
+
+    def personal_assets(self, client_id, user_id, limit=100):
+        """Completed quick generations are visible only to their owner."""
+        limit = max(1, min(int(limit), 200))
+        with self.connection.cursor() as cursor:
+            cursor.execute('''
+                SELECT id::text AS id, result, EXTRACT(EPOCH FROM created_at) AS created_at
+                  FROM cx_studio_image_generations
+                 WHERE client_id=%s AND user_id=%s AND project_id IS NULL
+                   AND status='completed' AND result IS NOT NULL AND deleted_at IS NULL
+              ORDER BY created_at DESC LIMIT %s
+            ''', (int(client_id), int(user_id), limit))
+            rows = []
+            for row in cursor.fetchall():
+                result = dict(row['result'] or {})
+                image_url = str(result.get('image_url') or '')
+                if image_url:
+                    rows.append({'id': f"personal:{row['id']}", 'name': str(result.get('title') or 'Criação rápida'),
+                        'image_url': image_url, 'thumb_url': str(result.get('thumbnail_url') or image_url),
+                        'aspect_ratio': str(result.get('aspect_ratio') or ''), 'created_at': row['created_at'],
+                        'visibility': 'personal', 'owner_only': True})
+        return rows
+
+    def trash_personal_assets(self, client_id, user_id, ids):
+        generation_ids = []
+        for value in ids if isinstance(ids, list) else []:
+            candidate = str(value).removeprefix('personal:').strip()
+            try:
+                generation_ids.append(str(UUID(candidate)))
+            except (TypeError, ValueError, AttributeError):
+                continue
+        if not generation_ids:
+            raise ValueError('Escolha uma criação pessoal para apagar.')
+        with self.connection.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cx_studio_image_generations SET deleted_at=NOW(), updated_at=NOW()
+                 WHERE client_id=%s AND user_id=%s AND project_id IS NULL
+                   AND id = ANY(%s::uuid[]) AND deleted_at IS NULL
+            ''', (int(client_id), int(user_id), generation_ids))
+            removed = cursor.rowcount
+        self.connection.commit()
+        return removed

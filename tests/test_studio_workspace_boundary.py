@@ -24,7 +24,7 @@ def test_workspace_legacy_brand_path_moves_into_workspace_shell():
     with app().test_request_context('/parametros/modelagem-criativos/marcas?crm_client_id=7', base_url='https://workspace.centralcomm.media'):
         response = modelagem_desk.__wrapped__('marcas')
     assert response.status_code == 302
-    assert response.location == 'https://workspace.centralcomm.media/workspace/app/marcas?crm_client_id=7'
+    assert response.location == 'https://workspace.centralcomm.media/marcas?crm_client_id=7'
 
 
 def test_workspace_brand_path_keeps_the_native_brand_identifier():

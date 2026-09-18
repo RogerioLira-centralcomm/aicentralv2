@@ -36,6 +36,7 @@ def reserve_delivery(root,data,service,ratio):
     return {'format':kind,'brand':str(brand)[:120],'creative':creative,'version':version,
             'ratio':ratio if ratio in {'9:16','16:9','1:1','4:5','3:4','4:3','21:9'} else '',
             'client_id':int(data['client_id']),'origin':request.url_root.rstrip('/'),
+            'public_base':'/parametros/studio/public' if request.path.startswith('/parametros/') else '/public',
             'public_token':secrets.token_hex(24) if kind=='html' else ''}
 
 
@@ -59,7 +60,7 @@ def finish_delivery(root,ident,envelope):
         from PIL import Image
         with Image.open(root/f'{ident}.gif') as image:stream={'width':image.width,'height':image.height}
     if kind=='html':
-        token=delivery['public_token'];public_url=f'/public/{token}'
+        token=delivery['public_token'];public_url=f"{delivery.get('public_base') or '/public'}/{token}"
         body=player(f"{delivery['brand']} · {delivery['creative']}",delivery['origin']+public_url+'/video')
         (root/f'{ident}.html').write_text(body,encoding='utf-8')
         public_root=media_root()/'studio-public';public_root.mkdir(parents=True,exist_ok=True)

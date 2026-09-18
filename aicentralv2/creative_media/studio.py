@@ -129,11 +129,12 @@ def register_studio_routes(blueprint):
     blueprint.add_url_rule('/api/format-lab/studio/agent/narration', view_func=studio_agent_narration, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/projects', view_func=studio_projects, methods=['GET', 'POST'])
     blueprint.add_url_rule('/api/format-lab/studio/library-sessions', view_func=studio_library_sessions, methods=['GET'])
+    blueprint.add_url_rule('/api/format-lab/studio/personal-assets', view_func=studio_personal_assets, methods=['DELETE'])
     blueprint.add_url_rule('/api/format-lab/studio/project-contexts', view_func=studio_project_contexts, methods=['GET'])
     blueprint.add_url_rule('/api/format-lab/studio/projects/<ident>', view_func=studio_project, methods=['GET', 'POST'])
     blueprint.add_url_rule('/api/format-lab/studio/projects/<ident>/creation-history', view_func=studio_project_creation_history, methods=['GET'])
     blueprint.add_url_rule('/api/format-lab/studio/projects/<ident>/directions/<direction_id>/select', view_func=studio_project_select_direction, methods=['POST'])
-    blueprint.add_url_rule('/api/format-lab/studio/projects/<ident>/items', view_func=studio_project_items, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/projects/<ident>/items', view_func=studio_project_items, methods=['POST', 'DELETE'])
     blueprint.add_url_rule('/api/format-lab/studio/capabilities', view_func=capabilities)
     blueprint.add_url_rule('/api/format-lab/studio/sounds', view_func=sounds, methods=['GET', 'POST'])
     blueprint.add_url_rule('/api/format-lab/studio/sounds/<ident>', view_func=sound_content)
@@ -267,6 +268,10 @@ def studio_create_image():
             except Exception:
                 logger.exception('Studio image project history sync failed for %s', project_id)
                 result['history_sync_pending'] = True
+        result.setdefault('title', str(data.get('title') or 'Criação rápida'))
+        result.setdefault('aspect_ratio', str(data.get('aspect_ratio') or ''))
+        result['visibility'] = 'personal' if quick_mode or not project_id else 'project'
+        result['owner_only'] = result['visibility'] == 'personal'
         if history:
             history.complete_image(request_id, client_id, result)
         return ok(result)
@@ -314,7 +319,25 @@ def studio_library_sessions():
         client_id = request.args.get('client_id')
         _scope(client_id)
         history = _creation_history()
-        return ok({'items': history.library_sessions(client_id) if history else []})
+        user_id = session.get('user_id')
+        return ok({'items': history.library_sessions(client_id) if history else [],
+                   'personal_assets': history.personal_assets(client_id, user_id) if history and user_id else []})
+    return execute(run)
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
+def studio_personal_assets():
+    execute, json_body, ok, _ = _http()
+    def run():
+        data = json_body()
+        client_id = data.get('client_id')
+        _scope(client_id)
+        user_id = session.get('user_id')
+        if not user_id:
+            raise ValueError('Entre novamente para organizar sua biblioteca.')
+        history = _creation_history()
+        return ok({'removed': history.trash_personal_assets(client_id, user_id, data.get('ids')) if history else 0})
     return execute(run)
 
 
@@ -426,6 +449,9 @@ def studio_project_items(ident):
         history = _creation_history()
         if not history:
             return ok({'id': ''})
+        if request.method == 'DELETE':
+            removed = history.remove_item(ident, client_id, data.get('asset_url'))
+            return ok({'removed': removed})
         item_id = history.add_item(ident, client_id, user_id, data.get('kind'), data.get('title'), data.get('asset_url'), data.get('metadata'))
         return ok({'id': item_id})
     return execute(run)

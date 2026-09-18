@@ -66,12 +66,12 @@ class MediaCompletionTest(unittest.TestCase):
         from flask import request,jsonify
         from aicentralv2.creative_media.queue_worker import drain_tasks
         app=self.app();app.config['MEDIA_WORKER_MODE']='supervised';client=app.test_client()
-        with client.session_transaction() as sess:sess.update(user_id=7,user_type='admin',trocr_csrf_token='token')
+        with client.session_transaction() as sess:sess.update(user_id=7,user_type='admin',studio_csrf_token='token')
         def execute(fn):
             try:return fn()
             except ValueError as error:return jsonify(success=False,error=str(error)),400
         http=(execute,lambda:request.get_json(),lambda data:jsonify(success=True,data=data),lambda:Mock())
-        with patch('aicentralv2.creative_format_lab.swap_routes._http',return_value=http),patch('aicentralv2.creative_media.studio_media.resolve_clip',return_value=self.voiced):
+        with patch('aicentralv2.creative_media.studio._http',return_value=http),patch('aicentralv2.creative_media.studio_media.resolve_clip',return_value=self.voiced):
             response=client.post('/parametros/api/format-lab/studio/tasks',json={'client_id':31,'kind':'extract','clip_id':'known'},headers={'X-Trocr-CSRF-Token':'token'})
             self.assertEqual(response.status_code,200,response.json);task=response.json['data'];self.assertNotIn('work',task);self.assertEqual(task['status'],'queued')
             url=f"/parametros/api/format-lab/studio/tasks/{task['id']}?client_id=31"

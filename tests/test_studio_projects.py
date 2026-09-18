@@ -47,7 +47,7 @@ class ProjectRoutesTest(unittest.TestCase):
             url = '/api/format-lab/studio/projects'
             self.assertEqual(client.get(url).status_code, 401)
             with client.session_transaction() as sess:
-                sess.update(user_id=7, user_type='admin', trocr_csrf_token='test-token')
+                sess.update(user_id=7, user_type='admin', studio_csrf_token='test-token')
             self.assertEqual(client.post(url).status_code, 403)
             def execute(fn):
                 try:

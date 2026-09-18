@@ -300,6 +300,7 @@ def modelagem_criativos():
         "cadu_studio/home.html",
         mc_page="hub",
         mc_title="A peça na mesa",
+        mc_trocr_csrf=studio_csrf_token(),
     )
 
 

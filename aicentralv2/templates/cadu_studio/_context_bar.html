@@ -3,7 +3,7 @@
   <div class="studio-product-identity">
     {% set cadu_active_product = 'studio' %}{% include "cadu/_product_switch.html" %}
   </div>
-  <nav class="mc-cadu-nav" aria-label="Navegação do Studio">
+  <nav class="mc-cadu-nav" aria-label="Navegação do Studio" data-studio-navigation>
     <a href="{{ studio_url('modelagem_criar') }}"{% if mc_page == 'criar' %} class="is-current" aria-current="page"{% endif %}>Criar</a>
     <a id="mcCaduStill" href="{{ studio_url('modelagem_trocar') }}"{% if mc_page == 'trocar' %} class="is-current" aria-current="page"{% endif %}>Editar</a>
     <a id="mcCaduVideo" href="{{ studio_url('modelagem_video') }}"{% if mc_page == 'video' %} class="is-current" aria-current="page"{% endif %}>Vídeos</a>

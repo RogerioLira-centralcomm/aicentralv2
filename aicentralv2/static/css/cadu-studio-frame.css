@@ -146,6 +146,11 @@ body.portal--studio,
   .trocr-product .trocr-editor .trocr-desk { margin: 8px; }
 }
 
+@media (max-width: 780px) {
+  .studio-create .studio-workspace { height: calc(100dvh - 160px); }
+  .trocr-product .mc-trocr.trocr-editor { height: calc(100dvh - 104px) !important; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .studio-create *, .trocr-product * { transition: none !important; animation: none !important; }
 }

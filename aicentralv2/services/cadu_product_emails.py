@@ -95,7 +95,8 @@ def send_piece_ready(*, recipient_email: str, recipient_name: str, title: str, u
 
 
 def send_studio_work_completed(*, recipient_email: str, recipient_name: str, title: str,
-                               asset_url: str, studio_url: str, metrics: dict) -> dict:
+                               asset_url: str, studio_url: str, metrics: dict,
+                               public_url: str = "", session_url: str = "") -> dict:
     """Send the immutable first-finalization receipt for a Studio work chain."""
     if not recipient_email or not _enabled():
         return {"success": True, "skipped": True}
@@ -107,7 +108,8 @@ def send_studio_work_completed(*, recipient_email: str, recipient_name: str, tit
         subject=f"Seu trabalho “{title or 'Studio'}” foi finalizado",
         params={
             "BRAND": product_email_brand("studio"), "TITLE": title or "Trabalho finalizado",
-            "ASSET_URL": asset_url, "STUDIO_URL": studio_url,
+            "ASSET_URL": asset_url, "PUBLIC_URL": public_url or asset_url,
+            "STUDIO_URL": studio_url, "SESSION_URL": session_url or studio_url,
             "GENERATION_COUNT": max(0, int(data.get("generation_count") or 0)),
             "EDIT_COUNT": max(0, int(data.get("edit_count") or 0)),
             "FORMAT_COUNT": max(0, int(data.get("format_count") or 0)),

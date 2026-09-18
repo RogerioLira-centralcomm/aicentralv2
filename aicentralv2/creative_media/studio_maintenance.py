@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from urllib.parse import urljoin
+from urllib.parse import quote, urljoin
 
 from flask import current_app
 
@@ -82,7 +82,7 @@ class PostgresStudioMaintenance:
         with self.connection.cursor() as cursor:
             cursor.execute("""
                 SELECT f.generation_count,f.edit_count,f.format_count,f.handoff_count,
-                       f.estimated_minutes_saved,a.asset_url,s.title
+                       f.estimated_minutes_saved,a.asset_url,s.id::text AS session_id,s.title
                   FROM cx_studio_finalizations f
                   JOIN cx_studio_assets a ON a.id=f.final_asset_id
                   JOIN cx_studio_sessions s ON s.id=f.session_id
@@ -104,7 +104,12 @@ class PostgresStudioMaintenance:
             "recipient_name": row.get("recipient_name") or "",
             "title": detail.get("title") or snapshot.get("title") or "Trabalho do Studio",
             "asset_url": absolute_studio_url(detail.get("asset_url") or asset.get("asset_url"), self.base_url),
+            "public_url": absolute_studio_url(detail.get("asset_url") or asset.get("asset_url"), self.base_url),
             "studio_url": absolute_studio_url("/criar", self.base_url),
+            "session_url": absolute_studio_url(
+                f"/criar?studio_session_id={quote(str(detail.get('session_id') or ''), safe='')}",
+                self.base_url,
+            ),
             "metrics": detail,
         }
 

@@ -89,3 +89,26 @@ body.portal--studio:has(.studio-v2) > .cadu-family-footer { display:none!importa
 @keyframes reviewPulse { 50% { transform:translateY(-3px) scale(1.04); box-shadow:0 0 0 8px rgba(126,85,244,.08); } }
 @media(max-width:900px){.review-loading,.review-findings{width:calc(100% - 28px)}}
 @media(prefers-reduced-motion:reduce){.review-loading__spinner{animation:none}}
+
+/* Keep the studio canvas open and let the workspace breathe. */
+.studio-v2 .rail-close,
+.studio-v2 .delivery-close { display:none!important; }
+.studio-v2 .canvas-stage {
+  border:0;
+  border-radius:0;
+  background-color:transparent;
+  background-image:none;
+}
+.studio-v2 .direction-card,
+.studio-v2 .review-loading {
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+}
+.studio-v2 .review-findings {
+  border-width:0 0 0 2px;
+  border-radius:0;
+  background:transparent;
+  padding:4px 0 4px 16px;
+}

@@ -1,13 +1,4 @@
 (() => {
-  const menu = document.querySelector('.skills-topbar__menu');
-  const nav = document.querySelector('.skills-topbar__links');
-  if (menu && nav) {
-    menu.addEventListener('click', () => {
-      const open = nav.classList.toggle('is-open');
-      menu.setAttribute('aria-expanded', String(open));
-    });
-  }
-
   const productSwitch = document.querySelector('.skills-solutions');
   document.addEventListener('click', (event) => {
     if (productSwitch?.open && !productSwitch.contains(event.target)) productSwitch.open = false;

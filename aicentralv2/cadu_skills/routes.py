@@ -3,6 +3,7 @@ import hashlib
 import io
 import re
 import secrets
+import unicodedata
 import zipfile
 from pathlib import Path
 
@@ -27,10 +28,33 @@ from .runtime import run_test_skill
 bp = Blueprint("cadu_skills", __name__, url_prefix="/skills")
 
 EDITORIAL_CONTENT = {
-    "o-que-e-uma-skill": {"area": "Aprender", "title": "O que uma skill dá a um agente que já é poderoso", "lead": "Um bom modelo responde bem. Uma boa skill faz com que ele responda dentro de um método que a equipe reconhece, revisa e consegue repetir.", "sections": [("Modelo não é método", "Um agente pode escrever, resumir, analisar e criar hipóteses. Mas ele não conhece automaticamente o critério que sua equipe usa para escolher canais, avaliar uma audiência ou aprovar uma entrega. Sem esse recorte, cada conversa recomeça: o pedido muda, a estrutura muda e o resultado depende demais de quem escreveu o prompt."), ("Skill é uma maneira de trabalhar", "Uma skill reúne instruções, entradas esperadas, referências, limites e o formato de saída de uma tarefa. Ela não substitui o julgamento humano. Ela evita que o agente pule etapas importantes e faz com que a recomendação venha acompanhada de critérios verificáveis."), ("O ganho aparece no resultado", "Em vez de pedir “faça um plano”, a equipe aciona um método de planejamento que pede objetivo, público e verba; compara opções; explicita premissas; e entrega uma matriz de canais, riscos e próximos passos. A diferença não é só velocidade. É conseguir revisar o caminho que levou à decisão.")]},
-    "como-instalar-uma-skill": {"area": "Aprender", "title": "Como instalar uma skill sem perder o contexto do trabalho", "lead": "Instalar é levar o método para o ambiente onde o agente trabalha — com as referências que explicam quando e como usá-lo.", "sections": [("1. Escolha a base certa", "Comece pela decisão que precisa ser repetida, não pelo nome da tecnologia. Uma skill de audiência serve para qualificar sinais e segmentos; uma de planejamento organiza escolhas de canais e investimento. Ler o resumo, as entradas e as entregas evita instalar um pacote que não resolve a tarefa."), ("2. Use o pacote verificável", "No Cadu, cada skill oficial oferece um comando de instalação e um pacote completo. O pacote preserva o SKILL.md e as referências necessárias. Se seu agente aceita a CLI, use o comando. Se não aceita, baixe o ZIP e entregue o pacote inteiro ao ambiente escolhido."), ("3. Dê contexto, não só uma ordem", "Depois de instalar, informe o que a skill não pode adivinhar: objetivo, restrições, marca, público, materiais aprovados e o formato necessário. Em uma versão personalizada, o Workspace conecta apenas o contexto autorizado ao cliente ou projeto. Assim, o método continua igual e o trabalho começa do ponto certo.")]},
-    "um-agente-varios-metodos": {"area": "Conteúdos", "title": "Um agente, vários métodos: quando a mesma IA passa a entregar trabalho diferente", "lead": "A capacidade geral do modelo permanece. O que muda é a especialização que você entrega junto com a tarefa.", "illustration": "agents-with-skills-v1.png", "sections": [("O agente é o mesmo", "No ChatGPT, Codex ou outro ambiente compatível, um agente conversacional pode receber uma skill de planejamento, uma de público ou uma de formatos. Ele não vira três sistemas diferentes. Ele recebe, a cada trabalho, um conjunto específico de perguntas, fontes e critérios para orientar sua resposta."), ("Cada aplicação pede uma lente", "Para planejar mídia, a lente é objetivo, público, verba, canais e métricas. Para entender audiência, é sinal, qualidade, afinidade e limite da evidência. Para criar formatos, é mensagem, canal, especificação e produção. O modelo usa raciocínio; a skill informa qual raciocínio importa naquele contexto."), ("O resultado deixa de ser genérico", "O resultado final pode ser uma recomendação comparável, uma matriz de decisão, uma especificação de produção ou um briefing pronto para seguir no Planner e no Studio. A pessoa responsável ainda valida a escolha. A skill ajuda a garantir que ela recebe uma resposta organizada, explicável e útil para a próxima etapa.")]},
+    "o-que-e-uma-skill": {"slug": "o-que-e-uma-skill", "area": "Aprender", "title": "O que uma skill dá a um agente que já é poderoso", "lead": "Um bom modelo responde bem. Uma boa skill faz com que ele responda dentro de um método que a equipe reconhece, revisa e consegue repetir.", "sections": [("Modelo não é método", "Um agente pode escrever, resumir, analisar e criar hipóteses. Mas ele não conhece automaticamente o critério que sua equipe usa para escolher canais, avaliar uma audiência ou aprovar uma entrega. Sem esse recorte, cada conversa recomeça: o pedido muda, a estrutura muda e o resultado depende demais de quem escreveu o prompt."), ("Skill é uma maneira de trabalhar", "Uma skill reúne instruções, entradas esperadas, referências, limites e o formato de saída de uma tarefa. Ela não substitui o julgamento humano. Ela evita que o agente pule etapas importantes e faz com que a recomendação venha acompanhada de critérios verificáveis."), ("O ganho aparece no resultado", "Em vez de pedir “faça um plano”, a equipe aciona um método de planejamento que pede objetivo, público e verba; compara opções; explicita premissas; e entrega uma matriz de canais, riscos e próximos passos. A diferença não é só velocidade. É conseguir revisar o caminho que levou à decisão.")]},
+    "como-instalar-uma-skill": {"slug": "como-instalar-uma-skill", "area": "Aprender", "title": "Como instalar uma skill sem perder o contexto do trabalho", "lead": "Instalar é levar o método para o ambiente onde o agente trabalha — com as referências que explicam quando e como usá-lo.", "sections": [("1. Escolha a base certa", "Comece pela decisão que precisa ser repetida, não pelo nome da tecnologia. Uma skill de audiência serve para qualificar sinais e segmentos; uma de planejamento organiza escolhas de canais e investimento. Ler o resumo, as entradas e as entregas evita instalar um pacote que não resolve a tarefa."), ("2. Use o pacote verificável", "No Cadu, cada skill oficial oferece um comando de instalação e um pacote completo. O pacote preserva o SKILL.md e as referências necessárias. Se seu agente aceita a CLI, use o comando. Se não aceita, baixe o ZIP e entregue o pacote inteiro ao ambiente escolhido."), ("3. Dê contexto, não só uma ordem", "Depois de instalar, informe o que a skill não pode adivinhar: objetivo, restrições, marca, público, materiais aprovados e o formato necessário. Em uma versão personalizada, o Workspace conecta apenas o contexto autorizado ao cliente ou projeto. Assim, o método continua igual e o trabalho começa do ponto certo.")]},
+    "um-agente-varios-metodos": {"slug": "um-agente-varios-metodos", "area": "Conteúdos", "title": "Um agente, vários métodos: quando a mesma IA passa a entregar trabalho diferente", "lead": "A capacidade geral do modelo permanece. O que muda é a especialização que você entrega junto com a tarefa.", "illustration": "agents-with-skills-v1.png", "sections": [("O agente é o mesmo", "No ChatGPT, Codex ou outro ambiente compatível, um agente conversacional pode receber uma skill de planejamento, uma de público ou uma de formatos. Ele não vira três sistemas diferentes. Ele recebe, a cada trabalho, um conjunto específico de perguntas, fontes e critérios para orientar sua resposta."), ("Cada aplicação pede uma lente", "Para planejar mídia, a lente é objetivo, público, verba, canais e métricas. Para entender audiência, é sinal, qualidade, afinidade e limite da evidência. Para criar formatos, é mensagem, canal, especificação e produção. O modelo usa raciocínio; a skill informa qual raciocínio importa naquele contexto."), ("O resultado deixa de ser genérico", "O resultado final pode ser uma recomendação comparável, uma matriz de decisão, uma especificação de produção ou um briefing pronto para seguir no Planner e no Studio. A pessoa responsável ainda valida a escolha. A skill ajuda a garantir que ela recebe uma resposta organizada, explicável e útil para a próxima etapa.")]},
 }
+
+EDITORIAL_CONTENT.update({
+    "conversa-ou-skill": {
+        "slug": "conversa-ou-skill", "area": "Conteúdos",
+        "title": "Quando conversar com o agente e quando usar uma skill",
+        "lead": "Uma conversa resolve explorações. Uma skill protege decisões que precisam ser repetidas, explicadas e continuadas.",
+        "sections": [
+            ("Conversa é descoberta", "Use a conversa quando a pergunta ainda está aberta: levantar hipóteses, explorar possibilidades, pedir uma primeira leitura ou encontrar os pontos que faltam. Nesse momento, liberdade ajuda. O agente pode propor caminhos e a pessoa escolhe para onde aprofundar."),
+            ("Skill é consistência", "Use uma skill quando a tarefa volta a acontecer e a resposta precisa obedecer critérios conhecidos. Planejamento, leitura de audiência, seleção de formatos e revisão de briefing são decisões que ganham qualidade quando começam pelas mesmas perguntas e terminam em uma entrega comparável."),
+            ("As duas trabalham juntas", "A conversa pode levar até a decisão de acionar uma skill. Depois, a skill organiza o trabalho e devolve uma entrega que a equipe consegue revisar. Não se trata de tornar o agente rígido; trata-se de reservar liberdade para explorar e método para decidir."),
+        ],
+    },
+    "contexto-que-melhora-resposta": {
+        "slug": "contexto-que-melhora-resposta", "area": "Conteúdos",
+        "title": "O contexto que faz uma resposta deixar de ser genérica",
+        "lead": "Uma skill dá o método. Objetivo, marca e limites dão ao agente o material para aplicar esse método no trabalho real.",
+        "sections": [
+            ("Comece pelo que não pode mudar", "Diga qual resultado importa, para quem o trabalho existe, quais restrições são reais e onde a entrega será usada. Uma verba, uma data, um território, uma regra de marca ou um canal obrigatório podem mudar completamente uma recomendação."),
+            ("Anexe evidência, não só opinião", "Briefings aprovados, dados de audiência, guias de marca, peças anteriores e aprendizados de campanha são mais úteis que adjetivos soltos. A skill usa esses materiais para explicitar premissas e separar o que é sinal do que ainda é hipótese."),
+            ("Revise o resultado pelo critério", "Uma boa entrega mostra a decisão, os insumos usados e os limites que permanecem. Assim, o responsável não precisa aceitar uma resposta porque ela parece convincente: pode verificar se ela respeita o contexto e decidir o próximo passo."),
+        ],
+    },
+})
 
 
 @bp.before_request
@@ -60,6 +84,13 @@ def _top_skills():
 
 def all_cadu_skills():
     return all_owned_skills(CATALOG_SKILLS)
+
+
+def _searchable(value):
+    return "".join(
+        char for char in unicodedata.normalize("NFD", value or "").casefold()
+        if unicodedata.category(char) != "Mn"
+    )
 
 
 _OUTPUT_BY_CATEGORY = {
@@ -276,13 +307,31 @@ def learn():
 
 @bp.get("/metodos")
 def methods():
-    official = sorted(all_cadu_skills(), key=lambda item: item.get("rank", 999))
-    return render_template("cadu_skills/learn.html", mode="methods", articles=[], official_skills=official)
+    official_slugs = {item["slug"] for item in CADU_OFFICIAL_SKILLS}
+    official = sorted(
+        (item for item in all_cadu_skills() if item["slug"] in official_slugs),
+        key=lambda item: item.get("rank", 999),
+    )
+    query = request.args.get("q", "").strip()
+    if query:
+        needle = _searchable(query)
+        official = [
+            item for item in official
+            if needle in _searchable(" ".join((item.get("name", ""), item.get("category", ""), item.get("summary", ""))))
+        ]
+    return render_template("cadu_skills/learn.html", mode="methods", articles=[], official_skills=official, query=query)
 
 
 @bp.get("/conteudos")
 def contents():
-    return render_template("cadu_skills/learn.html", mode="contents", articles=[EDITORIAL_CONTENT["um-agente-varios-metodos"]])
+    return render_template(
+        "cadu_skills/learn.html", mode="contents",
+        articles=[
+            EDITORIAL_CONTENT["um-agente-varios-metodos"],
+            EDITORIAL_CONTENT["conversa-ou-skill"],
+            EDITORIAL_CONTENT["contexto-que-melhora-resposta"],
+        ],
+    )
 
 
 @bp.get("/aprender/<slug>")

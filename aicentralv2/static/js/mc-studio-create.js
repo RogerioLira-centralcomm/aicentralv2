@@ -19,6 +19,7 @@
     maskUndo: [], maskRedo: [], dragging: null, saving: 0, pendingImageRequest: null,
     sessionId: '', sessionRevision: 0, sessionStatus: '', sessionRootId: '', sessionProjectId: '', sessionActiveAssetId: '', sessionReadOnly: false,
     sessionQueue: Promise.resolve(), sessionCreating: null, sessions: [], startedAt: Date.now(),
+    pendingSessionId: '',
     originalPrompt: '', optimizedPrompt: '', promptLanguage: 'pt-BR',
   };
 
@@ -260,15 +261,59 @@
 
   async function loadSessions({openId = ''} = {}) {
     if (!canPersistSession()) return;
-    const query = new URLSearchParams({client_id:state.clientId, limit:'100'});
-    if (state.projectId) query.set('project_id', state.projectId);
+    const query = new URLSearchParams({client_id:state.clientId, limit:'200', scope:'all'});
     const data = await request(`${sessionUrl()}?${query}`);
     state.sessions = data.items || [];
-    $('studioSessionSelect').innerHTML = '<option value="">Nova sessão</option>' + state.sessions.map((session) => `<option value="${escapeHtml(session.id)}">${escapeHtml(session.title || 'Sem título')} · ${session.read_only ? 'Finalizada' : 'Em andamento'}</option>`).join('');
-    let remembered = openId;
+    const projectNames = new Map(Array.from($('mcCaduProject')?.options || [])
+      .filter((option) => option.value)
+      .map((option) => [String(option.value), String(option.textContent || '').split(' · ')[0] || 'Projeto']));
+    const typeLabels = {create:'Criação', edit:'Edição', adapt:'Formatos'};
+    const optionFor = (session) => `<option value="${escapeHtml(session.id)}">${escapeHtml(session.title || 'Sem título')} · ${typeLabels[session.studio_type] || 'Studio'} · ${session.read_only ? 'Finalizada' : 'Em andamento'}</option>`;
+    const free = state.sessions.filter((session) => !session.project_id);
+    const grouped = new Map();
+    state.sessions.filter((session) => session.project_id).forEach((session) => {
+      const key=String(session.project_id);if(!grouped.has(key))grouped.set(key,[]);grouped.get(key).push(session);
+    });
+    const groups = [];
+    if (free.length) groups.push(`<optgroup label="Sessões livres">${free.map(optionFor).join('')}</optgroup>`);
+    Array.from(grouped.entries()).sort(([a],[b]) => (projectNames.get(a)||a).localeCompare(projectNames.get(b)||b,'pt-BR')).forEach(([projectId,sessions]) => {
+      groups.push(`<optgroup label="Projeto · ${escapeHtml(projectNames.get(projectId) || `Projeto ${projectId.slice(0,8)}`)}">${sessions.map(optionFor).join('')}</optgroup>`);
+    });
+    $('studioSessionSelect').innerHTML = '<option value="">Nova sessão</option>' + (groups.join('') || '<option value="" disabled>Nenhuma sessão salva</option>');
+    let remembered = openId || state.pendingSessionId;
+    state.pendingSessionId = '';
     if (!remembered && !state.sessionId) { try { remembered = localStorage.getItem(sessionPointerKey()) || ''; } catch (_error) { remembered = ''; } }
     if (remembered && state.sessions.some((session) => String(session.id) === remembered)) await openSession(remembered);
     else renderSessionState();
+  }
+
+  async function selectSession(ident) {
+    if (!ident) return newSession();
+    const summary = state.sessions.find((session) => String(session.id) === String(ident));
+    if (summary && summary.studio_type !== 'create') {
+      const target = new URL(app.dataset.editorUrl, window.location.origin);
+      target.searchParams.set('studio_session_id', summary.id);
+      target.searchParams.set('creative_client_id', state.clientId);
+      if (summary.project_id) target.searchParams.set('project_id', summary.project_id);
+      window.location.assign(target.toString());
+      return;
+    }
+    const targetProject = String(summary?.project_id || '');
+    if (summary && targetProject !== state.projectId) {
+      const projectSelect = $('mcCaduProject');
+      const option = Array.from(projectSelect?.options || []).find((item) => String(item.value) === targetProject);
+      if (option) {
+        state.pendingSessionId = String(ident);
+        projectSelect.value = targetProject;
+        projectSelect.dispatchEvent(new Event('change', {bubbles:true}));
+        setSaveStatus('Trocando de projeto…', true);
+        return;
+      }
+      announce('O projeto desta sessão não está disponível na barra do Studio.');
+      $('studioSessionSelect').value = state.sessionId || '';
+      return;
+    }
+    return openSession(ident);
   }
 
   async function openSession(ident) {
@@ -761,7 +806,7 @@
     $('studioMaskBinding').querySelector('button').addEventListener('click',()=>{state.mask=null;state.pendingImageRequest=null;renderMaskBinding();renderBindings();updateInterpretation();syncGenerateLabel();scheduleSave();});
     $('studioCompare').addEventListener('click',openCompare);$('studioCompareDialog').querySelector('[data-close-dialog]').addEventListener('click',()=>$('studioCompareDialog').close());
     $('studioNewDraft').addEventListener('click',newSession);
-    $('studioSessionSelect').addEventListener('change',(event)=>openSession(event.target.value).catch((error)=>announce(error.message||'Não foi possível abrir a sessão.')));
+    $('studioSessionSelect').addEventListener('change',(event)=>selectSession(event.target.value).catch((error)=>announce(error.message||'Não foi possível abrir a sessão.')));
     $('studioSaveNow').addEventListener('click',async()=>{try{await ensureSession();await saveSessionNow({create:false});setSaveStatus('Salvo no Studio');announce('Sessão salva.');await loadSessions();}catch(error){announce(error.message||'Não foi possível salvar a sessão.');}});
     $('studioFinish').addEventListener('click',openFinishDialog);
     $('studioConfirmFinish').addEventListener('click',finalizeSession);

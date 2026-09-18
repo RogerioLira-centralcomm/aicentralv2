@@ -504,7 +504,8 @@ def studio_sessions():
             client_id = request.args.get('client_id')
             store = _session_store(client_id)
             return ok({'items': store.listing(
-                client_id, user_id, request.args.get('project_id'), request.args.get('status'), request.args.get('limit', 100),
+                client_id, user_id, request.args.get('project_id'), request.args.get('status'),
+                request.args.get('limit', 100), request.args.get('scope') == 'all',
             )})
         data = json_body()
         client_id = data.get('client_id') or session.get('cliente_id')

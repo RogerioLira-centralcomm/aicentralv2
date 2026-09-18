@@ -215,10 +215,13 @@ class LocalSessionRepository:
             self._event(db, ident, "session_started", payload={"studio_type": kind})
         return self.read(client_id, user_id, ident)
 
-    def listing(self, client_id, user_id, project_id=None, status=None, limit=100):
+    def listing(self, client_id, user_id, project_id=None, status=None, limit=100, include_all=False):
         clauses = ["client_id=?"]
         values = [int(client_id)]
-        if project_id:
+        if include_all:
+            clauses.append("(project_id IS NOT NULL OR user_id=?)")
+            values.append(int(user_id))
+        elif project_id:
             clauses.append("project_id=?")
             values.append(str(project_id))
         else:
@@ -484,10 +487,13 @@ class PostgresSessionRepository:
         self.connection.commit()
         return self.read(client_id, user_id, ident)
 
-    def listing(self, client_id, user_id, project_id=None, status=None, limit=100):
+    def listing(self, client_id, user_id, project_id=None, status=None, limit=100, include_all=False):
         values = [int(client_id)]
         where = ["client_id=%s"]
-        if project_id:
+        if include_all:
+            where.append("(project_id IS NOT NULL OR user_id=%s)")
+            values.append(int(user_id))
+        elif project_id:
             where.append("project_id=%s")
             values.append(project_id)
         else:

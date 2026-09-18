@@ -38,6 +38,15 @@ class StudioSessionRepositoryTest(unittest.TestCase):
         with self.assertRaises(SessionConflict):
             self.repo.save(31, 7, created["id"], {"expected_revision": 1, "title": "Perdido"})
 
+    def test_all_scope_groups_project_work_and_only_the_users_free_sessions(self):
+        personal = self.repo.create(31, 7, {"studio_type": "create", "title": "Livre"})
+        project = self.repo.create(31, 8, {
+            "studio_type": "edit", "title": "Campanha", "project_id": "project-1",
+        })
+        self.repo.create(31, 8, {"studio_type": "create", "title": "Livre de outra pessoa"})
+        visible = self.repo.listing(31, 7, include_all=True)
+        self.assertEqual({item["id"] for item in visible}, {personal["id"], project["id"]})
+
     def test_accepted_asset_is_the_base_and_handoff_is_idempotent(self):
         created = self.repo.create(31, 7, {"studio_type": "create", "title": "Capa"})
         ready = self.repo.accept(31, 7, created["id"], {
@@ -170,6 +179,13 @@ class StudioSessionRouteTest(unittest.TestCase):
                 created = client.post(base, json={"studio_type": "create", "title": "Peça"}, headers=headers)
                 self.assertEqual(created.status_code, 200, created.json)
                 ident = created.json["data"]["id"]
+                project_session = client.post(base, json={
+                    "studio_type": "edit", "title": "Projeto", "project_id": "project-1",
+                }, headers=headers)
+                self.assertEqual(project_session.status_code, 200, project_session.json)
+                listing = client.get(f"{base}?client_id=31&scope=all", headers=headers)
+                self.assertEqual(listing.status_code, 200, listing.json)
+                self.assertEqual(len(listing.json["data"]["items"]), 2)
                 saved = client.patch(f"{base}/{ident}", json={"expected_revision": 1, "status": "active"}, headers=headers)
                 self.assertEqual(saved.status_code, 200, saved.json)
                 conflict = client.patch(f"{base}/{ident}", json={"expected_revision": 1, "title": "Outra"}, headers=headers)
@@ -195,3 +211,15 @@ def test_session_schema_is_in_fresh_and_rollout_migrations():
     ):
         assert table in fresh
         assert table in rollout
+
+
+def test_creation_editor_groups_free_and_project_sessions_and_switches_context():
+    root = Path(__file__).resolve().parents[1]
+    source = (root / "aicentralv2" / "static" / "js" / "mc-studio-create.js").read_text(encoding="utf-8")
+    assert "scope:'all'" in source
+    assert 'optgroup label="Sessões livres"' in source
+    assert 'optgroup label="Projeto ·' in source
+    assert "pendingSessionId" in source
+    assert "projectSelect.dispatchEvent(new Event('change'" in source
+    assert "summary.studio_type !== 'create'" in source
+    assert "target.searchParams.set('studio_session_id'" in source

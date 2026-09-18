@@ -190,11 +190,18 @@ def create_image(payload, modeling, client_id, user_id):
     else:
         edit_guard = "Respect the declared role of every image. Never silently swap the base image and a supporting reference."
     edit_guard += " Never add text, logos, prices or offers that the user did not request."
+    channel = str(data.get("channel") or "").strip()[:32]
+    try:
+        direction_intensity = max(0, min(int(data.get("direction_intensity") or 70), 100))
+    except (TypeError, ValueError):
+        direction_intensity = 70
     technical_prompt = "\n".join([
         prompt,
         "\nREFERENCE CONTRACT:",
         *(role_lines or ["No image reference was supplied; create an original image."]),
         edit_guard,
+        f"Output channel: {channel or 'unspecified'}.",
+        f"Creative direction exploration intensity: {direction_intensity}/100.",
         f"Output aspect ratio: {aspect_ratio}.",
     ])
     provider_references = provider_image_references(references, mask)

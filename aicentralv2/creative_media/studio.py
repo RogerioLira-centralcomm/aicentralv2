@@ -290,6 +290,8 @@ def studio_create_image():
 
     def run():
         data = json_body()
+        if data.get('studio_v2') is True and data.get('direction_approved') is not True:
+            raise ValueError('Revise e aprove a direção antes de gerar a imagem.')
         quick_mode = data.get('quick_mode') is True
         client_id = session.get('cliente_id') if quick_mode else data.get('client_id')
         user_id = session.get('user_id')

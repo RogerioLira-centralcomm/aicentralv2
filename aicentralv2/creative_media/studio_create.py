@@ -46,7 +46,7 @@ def suggestions(document):
 def create(payload, text_callable):
     data = payload if isinstance(payload, dict) else {}
     count = max(1, min(integer(data.get("count"), 1), 5))
-    request = text(data.get("prompt"), 1200)
+    request = clean_prompt(data.get("prompt"), 1200)
     if not request:
         raise ValueError("Descreva a direção que deseja criar.")
     context = clean_context(data.get("context"), count)
@@ -112,7 +112,7 @@ Cada prompt deve ser executável por um gerador de imagem e conter, nesta ordem 
 
 Para Display, trate o formato IAB informado como uma unidade publicitária final — não o transforme em pôster ou interface. Para CTV, trate como still cinematográfico 16:9. Para social, preserve área segura e leitura no feed. Escreva uma cena específica, não adjetivos vagos como “moderno”, “bonito” ou “impactante”. Prefira detalhes observáveis: lugar, hora, enquadramento, distância de câmera, gesto, textura e espaço para copy.
 
-Use a marca, briefing, referências e ativos do contexto como fonte de verdade. Não invente preço, promoção, produto, dado, prazo, benefício, CTA, logotipo ou slogan. Se não houver texto literal aprovado, peça espaço reservado para a assinatura, sem fabricar tipografia. Todo texto publicitário visível deve ser português do Brasil; se a renderização textual não for confiável, instrua a manter a área livre para composição posterior. Não inclua marca d'água, interface de plataforma, mockup de dashboard ou logos de terceiros. Não use pessoas identificáveis sem necessidade. Preserve briefing, marca, canal e formato."""
+Use a marca, briefing, referências e ativos do contexto como fonte de verdade. Não invente preço, promoção, produto, dado, prazo, benefício, CTA, logotipo ou slogan. Se não houver texto literal aprovado, peça espaço reservado para a assinatura, sem fabricar tipografia. Todo texto publicitário visível deve ser português do Brasil; se a renderização textual não for confiável, instrua a manter a área livre para composição posterior. Não inclua marca d'água, interface de plataforma, mockup de dashboard ou logos de terceiros. Não use pessoas identificáveis sem necessidade. Preserve briefing, marca, canal e formato.
 Antes de devolver cada direção, faça uma revisão final como agente GPT-5 nano: confirme que o prompt está fiel ao pedido, respeita todas as exclusões explícitas, não inventa informações e está pronto para ser enviado ao GPT Image 2. O campo "prompt" deve ser a instrução final revisada para o processador de imagem, sem comentários sobre esta revisão."""
 
 
@@ -149,7 +149,7 @@ def charge(provider_result, client_id, user_id, count, project_id, run_id=None,
 def create_image(payload, modeling, client_id, user_id):
     """Generate one Studio still with explicit reference roles and mask-safe composition."""
     data = payload if isinstance(payload, dict) else {}
-    prompt = text(data.get("prompt"), 4000)
+    prompt = clean_prompt(data.get("prompt"), 4000)
     if not prompt:
         raise ValueError("Descreva a imagem que deseja gerar.")
     aspect_ratio = str(data.get("aspect_ratio") or "1:1")
@@ -396,3 +396,20 @@ def integer(value, default=0):
 
 def text(value, limit):
     return " ".join(str(value or "").split())[:limit]
+
+
+def clean_prompt(value, limit):
+    """Keep only readable prompt text before an agent or image model sees it."""
+    raw = str(value or "")
+    raw = re.sub(r"<[^>]+>", " ", raw)
+    raw = re.sub(r"!\[([^\]]*)\]\([^)]*\)", r"\1", raw)
+    raw = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", raw)
+    raw = re.sub(r"```[a-zA-Z0-9_-]*", " ", raw)
+    raw = raw.replace("`", "")
+    raw = re.sub(r"(^|\s)#{1,6}\s*", r"\1", raw)
+    raw = re.sub(r"(^|\s)>\s*", r"\1", raw)
+    raw = re.sub(r"(^|\s)(?:[-*+]\s+|\d+[.)]\s+)", r"\1", raw)
+    raw = re.sub(r"(\*\*|__|~~)", "", raw)
+    raw = re.sub(r"(?<!\w)[*_](?!\w)", "", raw)
+    raw = re.sub(r"[^\w\sÀ-ÖØ-öø-ÿ.,;:!?()/%+&'\"-]", " ", raw, flags=re.UNICODE)
+    return text(raw, limit)

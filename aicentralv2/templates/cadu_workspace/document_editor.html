@@ -5,7 +5,7 @@
 {% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}">{% endblock %}
 {% block content %}{% set workspace_active = 'docs' %}
 <div class="workspace-app-shell">{% include 'cadu_workspace/_app_sidebar.html' %}
-  <main class="workspace-app-main workspace-doc-editor" data-doc-editor data-document-id="{{ document.id }}" data-csrf="{{ session.get('family_csrf', '') }}">
+  <main class="workspace-app-main workspace-doc-editor" data-doc-editor data-document-id="{{ document.id }}" data-csrf="{{ session.get('family_csrf', '') }}" data-public-root="{{ product_url('planner', '/docs/public') }}">
     <header class="workspace-doc-editor__head"><a href="{{ url_for('cadu_workspace.documents') }}"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Todos os documentos</a><div><p>Editor Cadu</p><h1 data-editor-heading>{{ document.title }}</h1><small>{{ document.type or 'Documento' }} · <span data-editor-status-label>{{ 'Publicado' if document.status == 'published' else 'Rascunho' }}</span></small></div></header>
     <p class="workspace-doc-editor__notice" data-editor-notice role="status" hidden></p>
     <div class="workspace-doc-editor__layout">

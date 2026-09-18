@@ -34,6 +34,7 @@ class WorkspaceDocumentsTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('Editor Cadu', html)
         self.assertIn('data-editor-content contenteditable="true"', html)
+        self.assertIn('data-public-root=', html)
         get_document.assert_called_once_with(12, 7, DOCUMENT['id'])
 
     @mock.patch('aicentralv2.cadu_planner.docs.save_document')

@@ -610,11 +610,14 @@
     const prompt = $('studioCreatePrompt').value.trim();
     if (!prompt) { $('studioCreatePrompt').focus(); return; }
     const button = $('studioCreateGenerate'); button.disabled = true;
+    button.classList.add('is-loading'); button.setAttribute('aria-busy', 'true');
     const bindings = state.bindings.map((binding) => ({ ...binding, node: nodeById(binding.nodeId) })).filter((binding) => binding.node);
     state.originalPrompt = prompt;
     addMessage('user', prompt, { bindings: state.bindings.map((binding) => ({...binding})) });
     try {
       button.textContent = 'Preparando o pedido…';
+      setSaveStatus('Preparando criação…', true);
+      addMessage('assistant', 'Estou preparando o pedido e organizando as direções visuais.', { title: 'Em andamento' });
       await ensureSession();
       const runtimePrompt = await optimizePrompt(prompt, bindings, uid('prompt'));
       if (state.chosenDirection || state.mask?.data || bindings.length) await generateImage(runtimePrompt, bindings, button);
@@ -622,11 +625,15 @@
       $('studioCreatePrompt').value = '';
     } catch (error) {
       addMessage('assistant', error.message || 'Não foi possível concluir o pedido.', { title: 'A geração não foi concluída' });
-    } finally { button.disabled = false; syncGenerateLabel(); }
+    } finally {
+      button.disabled = false; button.classList.remove('is-loading'); button.removeAttribute('aria-busy');
+      setSaveStatus('Pronto para criar'); syncGenerateLabel();
+    }
   }
   async function generateDirections(prompt, bindings, button) {
     const count = Number($('studioDirectionCount').value || 1);
     button.textContent = `Criando ${count} ${count === 1 ? 'versão' : 'versões'}…`;
+    setSaveStatus(`Criando ${count} ${count === 1 ? 'direção' : 'direções'}…`, true);
     const references = bindings.slice(0, 2).map((binding) => ({ id: binding.node.id, name: `${binding.node.label} · ${ROLE_LABELS[binding.role]}`, url: binding.node.url, role: binding.role }));
     const scopedReferences=state.quickMode?[]:references;
     const result = await request(`${apiRoot}/format-lab/studio/create/directions`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ client_id:state.quickMode ? '' : state.clientId, project_id:state.quickMode ? '' : state.projectId, quick_mode:state.quickMode, studio_session_id:state.sessionId, studio_root_session_id:state.sessionRootId || state.sessionId, count, prompt, references:scopedReferences, context:{ project_name:state.quickMode ? 'Rascunho pessoal' : $('studioCreateProject').textContent, brand:state.projectDocument.brand_name || '', brief:state.projectDocument.brief || '', purpose:'criacao', channels:['social','web'], format:$('studioRatio').value, direction_intensity:Number($('studioCreateRange').value), references:scopedReferences } }) });

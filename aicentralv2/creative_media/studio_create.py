@@ -54,7 +54,10 @@ def create(payload, text_callable):
         [
             {"role": "system", "content": system_prompt(count)},
             {"role": "user", "content": json.dumps({"pedido": request, "contexto": context}, ensure_ascii=False)},
-        ], model=MODEL, max_tokens=140 + count * 150, temperature=.45,
+        # Each direction contains scene, composition, restrictions, and safe
+        # copy. The former 440-token budget for two directions could truncate
+        # the JSON object before its closing delimiter.
+        ], model=MODEL, max_tokens=900 + count * 320, temperature=.45,
         response_format={"type": "json_object"},
     )
     content = response.get("message", {}).get("content") if isinstance(response, dict) else response

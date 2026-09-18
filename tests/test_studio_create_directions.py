@@ -15,7 +15,10 @@ def test_project_suggestions_are_specific_to_its_brief():
 
 
 def test_create_returns_requested_number_of_safe_directions():
+    captured = {}
+
     def provider(*_args, **_kwargs):
+        captured.update(_kwargs)
         return {"model": "test", "message": {"content": {"directions": [
             {"title": "Momento de uso", "summary": "Vida real", "prompt": "Foto editorial de produto em uso."},
             {"title": "Encontro", "summary": "Pessoas e marca", "prompt": "Cena natural de encontro."},
@@ -31,6 +34,7 @@ def test_create_returns_requested_number_of_safe_directions():
     assert result["count"] == 3
     assert len(result["directions"]) == 3
     assert provider_result["model"] == "test"
+    assert captured["max_tokens"] == 1_860
 
 
 def test_direction_estimate_grows_with_requested_options():

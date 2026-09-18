@@ -183,6 +183,13 @@ def _json_content(content):
             parsed = json.loads(clean[start:end + 1])
         except json.JSONDecodeError as exc:
             raise OpenRouterError("O provedor não retornou JSON válido.") from exc
+    # Some providers serialize a structured object one more time as a JSON
+    # string. Accept that envelope when it still resolves to the expected dict.
+    if isinstance(parsed, str):
+        try:
+            parsed = json.loads(parsed)
+        except json.JSONDecodeError as exc:
+            raise OpenRouterError("O provedor não retornou JSON válido.") from exc
     if not isinstance(parsed, dict):
         raise OpenRouterError("O provedor retornou uma estrutura inválida.")
     return parsed

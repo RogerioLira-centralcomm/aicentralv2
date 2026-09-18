@@ -44,7 +44,7 @@ def test_create_screen_exposes_unified_visual_workspace():
     assert 'id="studioPromptOptimization"' in html
     assert 'id="studioOriginalPrompt"' in html
     assert 'id="studioOptimizedPrompt"' in html
-    assert 'src="/static/js/mc-studio-create.js?v=17"' in html
+    assert 'src="/static/js/mc-studio-create.js?v=18"' in html
 
 
 def test_create_frontend_connects_persistent_session_lifecycle():
@@ -73,3 +73,5 @@ def test_create_frontend_keeps_csrf_and_json_headers_when_request_options_are_sp
     assert request_body.index("...options,") < request_body.index("headers:")
     assert "'X-Trocr-CSRF-Token': csrf" in request_body
     assert "...(options.headers || {})" in request_body
+    assert "setSaveStatus('Preparando criação…', true)" in source
+    assert "title: 'Em andamento'" in source

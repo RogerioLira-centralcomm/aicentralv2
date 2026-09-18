@@ -30,6 +30,56 @@ from ..smart_planner.logos import public_logo
 from . import project_knowledge, project_sources
 
 
+def _send_brand_approval_email(brand: dict, pack: dict, client_id: int, brand_id: int) -> None:
+    """Send a readable approval recap without making approval depend on mail delivery."""
+    recipient = str(session.get('user_email') or '').strip()
+    if not recipient or '@' not in recipient:
+        return
+    metadata = brand.get('analysis_metadata') or {}
+    sources = metadata.get('sources') or []
+    if not isinstance(sources, list):
+        sources = []
+    links = [item for item in sources if isinstance(item, str) and item.startswith(('http://', 'https://'))]
+    reviews = pack.get('reviews') or []
+    methods = metadata.get('methods') or metadata.get('applied_methods') or ['Leitura do site oficial', 'Síntese de evidências', 'Revisão de estratégia e direção criativa']
+    info = pack.get('analysis') or {}
+    analysis_fields = [
+        ('Essência', info.get('brand_summary') or info.get('positioning')),
+        ('Público', info.get('target_audience') or info.get('audience_segments')),
+        ('Oferta', info.get('products_services') or info.get('differentiators')),
+        ('Tom de voz', info.get('tone_of_voice')),
+        ('Direção criativa', info.get('creative_guidelines') or info.get('visual_motifs')),
+        ('Oportunidades', info.get('campaign_opportunities') or info.get('proof_points')),
+    ]
+    highlights = [{'title': title, 'text': str(value)[:420]} for title, value in analysis_fields if value][:6]
+    information_size = sum(len(str(value)) for value in info.values()) if isinstance(info, dict) else 0
+    hourly_cost = 3500 * 1.70 / 220
+    saved_hours = max(1.0, round((len(links) * 0.35) + (len(reviews) * 1.25) + (information_size / 18000), 1))
+    saved_value = saved_hours * hourly_cost
+    try:
+        with get_db().cursor() as cursor:
+            cursor.execute("""SELECT COALESCE(SUM(tokens_cobrados), 0) AS credits FROM cadu_tools_token_usage WHERE id_cliente = %s AND metadata->>'job_id' = %s AND status = 'charged'""", (client_id, str(pack.get('job_id') or '')))
+            credits_used = int((cursor.fetchone() or {}).get('credits') or 0)
+    except Exception:
+        current_app.logger.exception('Não foi possível calcular créditos do resumo da marca %s', brand_id)
+        credits_used = 0
+    from ..services.brevo_service import get_brevo_product_service, product_email_brand
+    money = lambda value: f'{value:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+    get_brevo_product_service('workspace').enviar_email_com_template(
+        template_name='marca-sintese-aprovada.html', template_folder='emails/externos',
+        to_email=recipient, to_name=str(session.get('user_name') or 'time da agência'),
+        subject=f"Síntese aprovada · {brand.get('name') or 'Marca'}",
+        params={'BRAND': product_email_brand('workspace'), 'MARCA': brand.get('name') or 'Marca',
+                'LOGO_URL': brand.get('display_logo') or brand.get('logo_url') or '',
+                'LINK_MARCA': product_url('workspace', f'/marcas/{brand_id}'), 'LINKS': len(links),
+                'REVISOES': len(reviews), 'METODOS': methods, 'TAMANHO_INFO': information_size,
+                'HORAS_ECONOMIZADAS': saved_hours, 'VALOR_ECONOMIZADO': money(saved_value),
+                'CREDITOS': credits_used, 'CUSTO_HORA': money(hourly_cost),
+                'CUSTO_CREDITOS': money(credits_used * 0.01), 'HIGHLIGHTS': highlights,
+                'FONTES': links},
+    )
+
+
 bp = Blueprint("cadu_workspace", __name__)
 # The advanced brand editor has a Workspace-owned API prefix.  Its handlers
 # are registered during app setup, alongside this product blueprint.
@@ -531,6 +581,14 @@ def _workspace_brands(client_id: int, query: str = "") -> list[dict]:
                 # returned nothing even when the brand had a hero visual.
                 brand['visual_hero'] = public_logo(seed_visuals.get('hero') or seed_visuals.get('thumbnail')) if isinstance(seed_visuals, dict) else ''
                 brand['visual_thumbnail'] = brand['visual_hero']
+                analysis = brand.get('analysis_metadata') or {}
+                brand['display_summary'] = (
+                    brand['brand_profile'].get('brand_summary')
+                    or brand['brand_profile'].get('positioning')
+                    or analysis.get('brand_summary')
+                    or analysis.get('positioning')
+                    or ''
+                )
                 brand['display_initials'] = ''.join(
                     word[0] for word in re.findall(r"[\wÀ-ÿ]+", name)[:2]
                 ).upper() or 'M'
@@ -1158,6 +1216,29 @@ def _attach_project_identity(client_id: int, projects: list[dict]) -> list[dict]
 
     brands_by_name: dict[str, dict] = {}
     links_by_project: dict[str, list[dict]] = {}
+    project_images: dict[str, str] = {}
+    try:
+        project_ids = [str(project.get('id')) for project in projects if project.get('id')]
+        if project_ids:
+            with get_db().cursor() as cursor:
+                cursor.execute(
+                    """SELECT DISTINCT ON (projeto_id) projeto_id, id
+                         FROM cadu_docs_client_images
+                        WHERE id_cliente = %s AND ativo = true
+                          AND projeto_id = ANY(%s::uuid[])
+                          AND file_bytes IS NOT NULL
+                          AND octet_length(file_bytes) > 0
+                          AND LOWER(COALESCE(mime, '')) IN
+                              ('image/jpeg', 'image/png', 'image/webp', 'image/gif')
+                     ORDER BY projeto_id, created_at DESC""",
+                    (client_id, project_ids),
+                )
+                project_images = {
+                    str(row['projeto_id']): url_for('cadu_workspace.project_image', project_id=str(row['projeto_id']), image_id=row['id'])
+                    for row in cursor.fetchall()
+                }
+    except Exception:
+        project_images = {}
     try:
         brands = _workspace_brands(client_id)
         brands_by_ref = {f"studio:{brand['id']}": brand for brand in brands}
@@ -1182,6 +1263,11 @@ def _attach_project_identity(client_id: int, projects: list[dict]) -> list[dict]
         project['thumbnail_url'] = public_logo(
             brand.get('resolved_logo_path') or brand.get('logo_upload_path') or brand.get('logo_url')
         ) if brand else ''
+        if project_images.get(str(project.get('id'))):
+            project['thumbnail_url'] = project_images[str(project.get('id'))]
+            project['thumbnail_kind'] = 'project-image'
+        else:
+            project['thumbnail_kind'] = 'brand-logo' if project['thumbnail_url'] else 'initials'
         project['thumbnail_label'] = str(brand.get('name') or name)
         project['thumbnail_initials'] = ''.join(word[0] for word in re.findall(r"[\wÀ-ÿ]+", name)[:2]).upper() or 'P'
         project['thumbnail_color'] = brand.get('primary_color') or project.get('cor') or '#176b5e'
@@ -1596,6 +1682,16 @@ def _workspace_project(client_id: int, project_id: str) -> Optional[dict]:
         project['brands'] = [brand for brand in _workspace_brands(client_id) if f"studio:{brand['id']}" in linked]
     except Exception:
         project['brands'] = []
+    # Existing links may predate the projection job. Keep the project useful
+    # immediately by reading the approved brand profile as a fallback for the
+    # fields that are still empty in the dossier.
+    if project.get('brands'):
+        brand_profile = project['brands'][0].get('brand_profile') or {}
+        if not brand_profile:
+            brand_profile = (_brand_review_pack(project['brands'][0]).get('analysis') or {})
+        project['publico'] = project.get('publico') or brand_profile.get('target_audience') or ''
+        project['tom_de_voz'] = project.get('tom_de_voz') or brand_profile.get('tone_of_voice') or ''
+        project['posicionamento'] = project.get('posicionamento') or brand_profile.get('positioning') or brand_profile.get('brand_summary') or ''
     project['brand_guidance'] = [_project_brand_guidance(brand) for brand in project['brands']]
     try:
         with get_db().cursor() as cursor:
@@ -3492,13 +3588,22 @@ def approve_brand_reviews(brand_id):
         connection.rollback()
         current_app.logger.exception('Não foi possível aprovar a revisão da marca %s', brand_id)
         abort(503, description='Não foi possível aprovar a análise agora. Tente novamente.')
-    _fill_empty_project_identity_from_brand(client_id, brand_id, merged['profile'])
-    # Projects receive compact, approved projections of the same evidence. This
-    # indexes useful context without launching a second Firecrawl collection.
-    _sync_approved_brand_to_projects(
-        client_id, int(session.get('user_id') or 0), brand_id,
-        {**brand, 'brand_profile': merged['profile'], 'analysis_metadata': metadata}, analysis,
-    )
+    try:
+        _fill_empty_project_identity_from_brand(client_id, brand_id, merged['profile'])
+        # Projects receive compact, approved projections of the same evidence.
+        _sync_approved_brand_to_projects(
+            client_id, int(session.get('user_id') or 0), brand_id,
+            {**brand, 'brand_profile': merged['profile'], 'analysis_metadata': metadata}, analysis,
+        )
+    except Exception:
+        current_app.logger.exception('Contexto aprovado não sincronizado com projetos da marca %s', brand_id)
+    try:
+        _send_brand_approval_email(
+            {**brand, 'name': analysis.get('name') or brand.get('name'), 'analysis_metadata': metadata},
+            review_pack, client_id, brand_id,
+        )
+    except Exception:
+        current_app.logger.exception('Resumo por e-mail não enviado após aprovação da marca %s', brand_id)
     # Seed low-resolution working visuals after the human decision.  A visual
     # starter must never block the approval itself: originals and the approved
     # identity remain the source of truth if this best-effort step is delayed.

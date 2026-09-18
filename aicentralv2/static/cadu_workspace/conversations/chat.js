@@ -338,12 +338,15 @@
   const saveDraft = () => writeDraft(conversationId, composerValue());
   const searchForm = document.getElementById('conversation-search');
   const mode = document.getElementById('conversation-mode');
+  const addMenu = document.querySelector('.conversation-add-menu');
+  const addTrigger = document.getElementById('conversation-add');
+  const addOptions = document.getElementById('conversation-add-options');
+  const skillOptions = document.getElementById('conversation-skill-options');
   const depthControl = document.getElementById('conversation-depth');
   const depthShell = depthControl?.closest('.conversation-depth-control');
   const depthLabel = document.getElementById('conversation-depth-label');
   const depthHint = document.getElementById('conversation-depth-hint');
   const depthTrigger = document.getElementById('conversation-depth-trigger');
-  const depthOptions = document.getElementById('conversation-depth-options');
   const depthValues = {
     '1': {id:'focus', label:'Foco', hint:'Direto ao ponto'},
     '2': {id:'analysis', label:'Análise', hint:'Resposta equilibrada'},
@@ -410,6 +413,24 @@
     mode.replaceChildren(...modeEntries.map(item => new Option(item.title, item.id, false, item.id === active)));
     mode.disabled = !modeEntries.length;
   };
+  const renderSkillOptions = items => {
+    if (!skillOptions) return;
+    skillOptions.replaceChildren(...(Array.isArray(items) && items.length ? items : [{id:'ideias', title:'Conversa livre'}]).map(item => {
+      const button = document.createElement('button'); button.type = 'button'; button.dataset.mode = item.id;
+      const title = document.createElement('strong'); title.textContent = item.title || item.id;
+      const note = document.createElement('small'); note.textContent = item.active ? 'Ativa nesta conversa' : 'Usar nesta conversa';
+      button.append(title, note); button.addEventListener('click', () => { if (!mode) return; mode.value = item.id; mode.dispatchEvent(new Event('change', {bubbles:true})); addOptions.hidden = true; addTrigger?.setAttribute('aria-expanded', 'false'); });
+      return button;
+    }));
+  };
+  addTrigger?.addEventListener('click', async () => {
+    if (!addOptions) return;
+    const open = addOptions.hidden; addOptions.hidden = !open; addTrigger.setAttribute('aria-expanded', String(open));
+    if (open && skillOptions && !skillOptions.dataset.loaded) { try { const data = await api('conversations/modes'); renderSkillOptions(data.modes); skillOptions.dataset.loaded = 'true'; } catch (_) { skillOptions.textContent = 'Capacidades indisponíveis agora.'; } }
+  });
+  addOptions?.querySelector('[data-add-action="files"]')?.addEventListener('click', () => { document.getElementById('conversation-attach')?.click(); addOptions.hidden = true; addTrigger?.setAttribute('aria-expanded', 'false'); });
+  addOptions?.querySelector('[data-add-action="planning"]')?.addEventListener('click', () => { if (mode) { mode.value = 'planejamento'; mode.dispatchEvent(new Event('change', {bubbles:true})); } addOptions.hidden = true; addTrigger?.setAttribute('aria-expanded', 'false'); });
+  document.addEventListener('click', event => { if (addMenu && !addMenu.contains(event.target)) { addOptions?.setAttribute('hidden', ''); addTrigger?.setAttribute('aria-expanded', 'false'); } });
   setComposerValue(readDraft(null));
   const contextOptions = (select, rows, emptyLabel, selected) => {
     if (!select) return;

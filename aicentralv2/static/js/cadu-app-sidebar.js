@@ -3,7 +3,6 @@
   const key = 'cadu-sidebar-state';
   const root = document.documentElement;
   const desktop = () => window.matchMedia('(min-width: 821px)').matches;
-  const conversationFocus = Boolean(document.querySelector('.workspace-app-shell--conversations'));
   const drawer = document.querySelector('.cadu-app-sidebar,.workspace-app-sidebar,.reports-app-sidebar,.connect-entry-sidebar,.family-layout--sidebar .family-modules');
   const mobileToggles = [...document.querySelectorAll('[data-cadu-sidebar-mobile-toggle]')];
   const main = document.querySelector('.workspace-app-main,.reports-app-main,.connect-entry,.cadu-app-shell>main,.family-layout--sidebar>main') || document.querySelector('main#content');
@@ -53,7 +52,10 @@
       else sidebarTransitionTimer = window.setTimeout(finishTransition, 190);
     }
   };
-  try { setState(conversationFocus || localStorage.getItem(key) === 'collapsed'); } catch (_) { setState(conversationFocus); }
+  // Conversations used to force the rail closed on every load. Respect the
+  // user's current preference so a theme change never looks like navigation
+  // is collapsing underneath it.
+  try { setState(localStorage.getItem(key) === 'collapsed'); } catch (_) { setState(false); }
   setDrawer(false);
   const closePanels = except => document.querySelectorAll('.cadu-app-sidebar details,.workspace-app-sidebar details,.reports-app-sidebar details,.connect-entry-sidebar details,.family-modules details').forEach(panel => { if (panel !== except) panel.open = false; });
   document.addEventListener('click', event => {

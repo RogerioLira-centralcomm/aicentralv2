@@ -24,7 +24,7 @@
   <meta name="twitter:image" content="{{ share_image }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_public_v3.css') }}?v=3">
 </head>
-<body class="spv3 spv3-{{ document or 'proposal' }}{% if hero.image %} has-fixed-backdrop{% endif %}"{% if hero.image %} style="--spv3-fixed-bg:url({{ hero.image|tojson }})"{% endif %}>
+<body class="spv3 spv3-{{ document or 'proposal' }}">
   <header class="spv3-topbar" aria-label="Ferramentas do documento">
     <a class="spv3-brand" href="{{ house.site }}" target="_blank" rel="noopener">
       <img src="{{ house.logo }}" alt="{{ house.name }}">
@@ -32,17 +32,20 @@
     </a>
     <div class="spv3-actions">
       <span class="spv3-updated" title="{{ updated_at_title }}">{{ updated_at }}</span>
+      {% if executive.whatsapp_url %}<a class="spv3-btn is-whatsapp" href="{{ executive.whatsapp_url }}" target="_blank" rel="noopener">Falar sobre este plano</a>{% endif %}
       <button type="button" class="spv3-btn is-quiet" data-copy-link>Copiar link</button>
       <button type="button" class="spv3-btn" data-print>Salvar PDF</button>
     </div>
   </header>
 
   <main class="spv3-shell">
-    <section class="spv3-titlebar" data-scroll-reveal>
+    <section class="spv3-titlebar spv3-place-hero" data-scroll-reveal
+      style="--spv3-hero-bg:url({{ hero.image|tojson }});--spv3-hero-ink:{{ hero.theme_ink }};--spv3-hero-paper:{{ hero.theme_paper }};--spv3-hero-accent:{{ hero.theme_accent }}">
       <div>
         <span class="spv3-eyebrow">{{ document_label }}</span>
         <h1>{% if brand_logo %}<img class="spv3-client-logo" src="{{ brand_logo }}" alt="{{ title }}">{% endif %}{{ title }}</h1>
         <p>{{ client }}{% if praca_line %} · {{ praca_line }}{% endif %}</p>
+        {% if hero.place %}<span class="spv3-place-hero-tag">{{ hero.place }}</span>{% endif %}
       </div>
       <div class="spv3-facts" aria-label="Resumo do planejamento">
         {% for label, value in facts[:4] %}
@@ -52,10 +55,6 @@
     </section>
 
     <section class="spv3-executive" aria-label="Painel executivo" data-scroll-reveal>
-      <figure class="spv3-executive-visual{% if not hero.has_image %} is-fallback{% endif %}">
-        {% if hero.has_image %}<img src="{{ hero.image }}" alt="Imagem conceitual de {{ title }}">{% else %}<div><strong>Conceito visual</strong><span>Gere uma peça no editor para completar esta leitura.</span></div>{% endif %}
-        <figcaption>Imagem conceitual gerada por IA — não representa fotografia da campanha.</figcaption>
-      </figure>
       <div class="spv3-executive-copy">
         <p class="spv3-executive-label">Leitura executiva</p>
         <h2>{{ hero.tagline or overview }}</h2>
@@ -76,14 +75,25 @@
           {% if audience %}<p><strong>Público prioritário.</strong> {{ audience }}</p>{% endif %}
           {% if concept %}<div class="spv3-concept"><small>Conceito recomendado</small><strong>{{ concept }}</strong><p>{{ support }}</p></div>{% endif %}
         </div>
-        <figure class="spv3-visual spv3-featured-model{% if not hero.image %} is-empty{% endif %}" data-scroll-reveal>
-          {% if hero.image %}<img src="{{ hero.image }}" alt="Conceito visual para {{ title }}">{% else %}<span>Conceito visual em preparação</span>{% endif %}
+        <figure class="spv3-visual spv3-featured-model{% if not hero.creative_image %} is-empty{% endif %}" data-scroll-reveal>
+          {% if hero.creative_image %}<img src="{{ hero.creative_image }}" alt="Criativo conceitual no canal para {{ title }}">{% else %}<span>Conceito visual em preparação</span>{% endif %}
           <figcaption>Imagem conceito gerada pelo Smart Planner</figcaption>
         </figure>
       </div>
       <div class="spv3-defense">
         <div><span class="spv3-eyebrow">Leitura executiva</span><h3>O que sustenta este plano</h3></div>
         <ol>{% for item in defense_points %}<li>{{ item }}</li>{% endfor %}</ol>
+      </div>
+    </section>
+
+    <section class="spv3-contact" id="contato" data-scroll-reveal aria-label="Contato do executivo responsável">
+      <div class="spv3-contact-person">
+        {% if executive.photo_url %}<img src="{{ executive.photo_url }}" alt="Foto de {{ executive.name }}">{% else %}<span class="spv3-contact-avatar">{{ executive.initials }}</span>{% endif %}
+        <div><span class="spv3-eyebrow">Seu contato no CentralComm</span><strong>{{ executive.name }}</strong><p>Responsável por apresentar este plano e conduzir os próximos passos.</p></div>
+      </div>
+      <div class="spv3-contact-action">
+        <span class="spv3-eyebrow">Pronto para avançar?</span>
+        {% if executive.whatsapp_url %}<a class="spv3-btn is-whatsapp" href="{{ executive.whatsapp_url }}" target="_blank" rel="noopener">Conversar no WhatsApp <span aria-hidden="true">↗</span></a><small>A mensagem já identifica o plano “{{ title }}”.</small>{% else %}<p>O WhatsApp deste responsável ainda não está cadastrado.</p>{% endif %}
       </div>
     </section>
 

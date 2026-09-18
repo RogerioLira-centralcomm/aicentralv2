@@ -1,15 +1,15 @@
-/* Current Workspace line: Projects set the rhythm, Brands set visual priority. */
-.portal--workspace .workspace-app-shell--conversations{--conversation-ink:var(--cadu-shell-ink,#172033);--conversation-muted:var(--cadu-shell-muted,#687386);--conversation-line:var(--cadu-line,#dce3e9);--conversation-action:var(--workspace-accent,#087765);--conversation-soft:var(--workspace-accent-soft,#e9f5f1);background:transparent}
+/* Current Workspace line: one canvas, one panel, one writing surface. */
+.portal--workspace .workspace-app-shell--conversations{--conversation-ink:var(--cadu-shell-ink,#172033);--conversation-muted:var(--cadu-shell-muted,#687386);--conversation-line:var(--cadu-line,#dce3e9);--conversation-action:var(--workspace-accent,#087765);--conversation-soft:var(--workspace-accent-soft,#e9f5f1);--conversation-canvas:var(--cadu-canvas,#f6f8fa);--conversation-surface:var(--cadu-surface,#fff);--conversation-sidebar-surface:var(--cadu-surface-soft,#f7f9fb);background:var(--conversation-canvas)}
 .portal--workspace .workspace-conversations-main{padding:20px 24px 20px 18px}
-.workspace-app-shell--conversations .workspace-conversations{height:calc(100dvh - 40px);grid-template-columns:224px minmax(0,1fr);border:1px solid var(--conversation-line);border-radius:16px;background:var(--cadu-surface,#fff);box-shadow:0 10px 34px rgba(17,43,54,.065)}
-.workspace-app-shell--conversations .workspace-conversation-sidebar{gap:8px;padding:16px 9px 12px;border-color:var(--conversation-line);background:var(--cadu-surface-soft,#f7f9fb)}
+.workspace-app-shell--conversations .workspace-conversations{height:calc(100dvh - 40px);grid-template-columns:224px minmax(0,1fr);border:1px solid var(--conversation-line);border-radius:16px;background:var(--conversation-surface);box-shadow:0 10px 34px rgba(17,43,54,.065)}
+.workspace-app-shell--conversations .workspace-conversation-sidebar{gap:8px;padding:16px 9px 12px;border-color:var(--conversation-line);background:var(--conversation-sidebar-surface)}
 .workspace-conversation-history-head{padding:4px 7px 8px}.workspace-conversation-history-head p{color:var(--conversation-ink);font-size:13px;font-weight:650}
 .workspace-conversation-sidebar .workspace-conversation-history-head button{border:0;background:transparent;color:var(--conversation-action)}
 #conversation-search{padding:0 4px 8px;border-bottom:1px solid var(--conversation-line)}#conversation-search input{border-color:var(--conversation-line);background:var(--cadu-surface,#fff)}
 .workspace-app-shell--conversations .workspace-conversation-sidebar nav button{padding:8px;border-radius:7px;color:var(--conversation-muted);font-weight:500}
 .workspace-app-shell--conversations .workspace-conversation-sidebar nav button:hover,.workspace-app-shell--conversations .workspace-conversation-sidebar nav button[aria-current]{background:var(--conversation-soft);color:var(--conversation-action)}
-#conversation-panel[data-conversation-page="true"]{background:var(--cadu-surface,#fff)}
-#conversation-panel[data-conversation-page="true"] .workspace-conversation-page-head{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:76px;padding:16px clamp(24px,5vw,72px);border-bottom:1px solid var(--conversation-line);background:var(--cadu-surface,#fff)}
+#conversation-panel[data-conversation-page="true"]{background:var(--conversation-surface)}
+#conversation-panel[data-conversation-page="true"] .workspace-conversation-page-head{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:76px;padding:16px clamp(24px,5vw,72px);border-bottom:1px solid var(--conversation-line);background:var(--conversation-surface)}
 .workspace-conversation-page-head h1{margin:0;color:var(--conversation-ink);font-size:25px;font-weight:550;letter-spacing:-.045em;line-height:1}.workspace-conversation-page-head p{margin:6px 0 0;color:var(--conversation-muted);font-size:11px;line-height:1.4}.workspace-conversation-page-head>span{flex:0 0 auto;padding:6px 9px;border-radius:99px;background:var(--conversation-soft);color:var(--conversation-action);font-size:10px;font-weight:700}
 #conversation-panel[data-conversation-page="true"] #conversation-history{width:min(820px,100%);padding:34px clamp(22px,5vw,64px) 24px}
 #conversation-panel[data-conversation-page="true"] .workspace-conversation-empty{color:var(--conversation-muted)}#conversation-panel[data-conversation-page="true"] .workspace-conversation-empty strong{color:var(--conversation-ink);font-size:21px;font-weight:550}
@@ -17,7 +17,7 @@
 #conversation-panel[data-conversation-page="true"] .conversation-message:not(.from-user) .conversation-rich{max-width:74ch;color:var(--conversation-ink);font-size:15px;line-height:1.72}
 #conversation-panel[data-conversation-page="true"] .conversation-rich :is(h4,strong){color:var(--conversation-ink)}#conversation-panel[data-conversation-page="true"] .conversation-rich :is(a,li::marker){color:var(--conversation-action)}
 #conversation-panel[data-conversation-page="true"] #conversation-form{width:min(820px,calc(100% - 40px));margin:0 auto 14px}
-#conversation-panel[data-conversation-page="true"] .conversation-composer-shell{border:1px solid var(--conversation-line);border-radius:13px;background:var(--cadu-surface,#fff);box-shadow:0 8px 24px rgba(17,43,54,.07)}
+#conversation-panel[data-conversation-page="true"] .conversation-composer-shell{border:1px solid var(--conversation-line);border-radius:13px;background:var(--conversation-surface);box-shadow:0 8px 24px rgba(17,43,54,.07)}
 #conversation-panel[data-conversation-page="true"] .conversation-composer-shell:focus-within{border-color:#83b9ad;box-shadow:0 0 0 3px rgba(8,119,101,.1),0 10px 28px rgba(17,43,54,.075)}
 #conversation-panel[data-conversation-page="true"] #conversation-send{background:var(--conversation-action)}
 #conversation-panel[data-conversation-page="true"] .conversation-project-context select{border-color:var(--conversation-line);background:var(--cadu-surface-soft,#f7f9fb);color:var(--conversation-ink)}
@@ -38,3 +38,125 @@ html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-conversat
 html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] .workspace-conversation-page-head{background:#18191a;border-color:#34383c}
 html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] .conversation-composer-shell{background:#242526;box-shadow:0 14px 34px rgb(0 0 0 / .34),0 2px 8px rgb(0 0 0 / .24)}
 html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] .conversation-composer-shell:focus-within{box-shadow:0 0 0 4px rgb(142 219 202 / .16),0 16px 38px rgb(0 0 0 / .4)}
+
+/* Keep the page hierarchy explicit: the outer canvas never paints a second
+   conversation background, and the sidebar/panel each own one surface. */
+html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-app-shell--conversations{--conversation-canvas:#12161c;--conversation-surface:#1c222a;--conversation-sidebar-surface:#151c24}
+html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-app-shell--conversations .workspace-conversations{background:var(--conversation-surface)}
+html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-app-shell--conversations .workspace-conversation-sidebar{background:var(--conversation-sidebar-surface)}
+html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-app-shell--conversations #conversation-panel[data-conversation-page="true"]{background:var(--conversation-surface)}
+
+/* Reading pass: responses are a column of text first, with cards as
+   supporting evidence rather than competing panels. */
+#conversation-panel[data-conversation-page="true"] #conversation-history{
+  --conversation-reading-measure:72ch;
+  scrollbar-gutter:stable;
+}
+#conversation-panel[data-conversation-page="true"] .conversation-message.from-cadu{
+  max-width:var(--conversation-reading-measure);
+  margin-inline:0 auto;
+  color:var(--conversation-ink);
+}
+#conversation-panel[data-conversation-page="true"] .conversation-message.from-cadu .conversation-rich{
+  max-width:var(--conversation-reading-measure);
+  color:var(--conversation-ink);
+  font-size:15.5px;
+  line-height:1.78;
+  letter-spacing:0;
+}
+#conversation-panel[data-conversation-page="true"] .conversation-message.from-cadu .conversation-rich p{
+  margin:0 0 15px;
+  max-width:68ch;
+}
+#conversation-panel[data-conversation-page="true"] .conversation-message.from-cadu .conversation-rich :is(ul,ol){
+  display:grid;
+  gap:7px;
+  margin:10px 0 20px;
+  padding-inline-start:22px;
+}
+#conversation-panel[data-conversation-page="true"] .conversation-message.from-cadu .conversation-rich li{padding-inline-start:2px}
+#conversation-panel[data-conversation-page="true"] .conversation-message.from-cadu .conversation-rich :is(h1,h2,h3,h4){
+  margin:28px 0 10px;
+  color:var(--conversation-ink);
+  line-height:1.28;
+  letter-spacing:-.02em;
+}
+#conversation-panel[data-conversation-page="true"] .conversation-message.from-cadu .conversation-rich :is(h1,h2,h3,h4):first-child{margin-top:0}
+#conversation-panel[data-conversation-page="true"] .conversation-message.from-cadu .conversation-rich blockquote{
+  margin:18px 0;
+  padding:10px 14px;
+  border-inline-start:3px solid var(--conversation-action);
+  background:var(--conversation-soft);
+  color:var(--conversation-ink);
+}
+
+/* User turns stay visible as orientation, but do not interrupt the reading
+   rhythm. The native details control keeps the full prompt one click away. */
+#conversation-panel[data-conversation-page="true"] .conversation-message.from-user{
+  max-width:min(68ch,78%);
+  margin:8px 0 30px auto;
+  padding:9px 12px;
+  border:1px solid color-mix(in srgb,var(--conversation-action) 18%,var(--conversation-line));
+  border-radius:14px 14px 4px 14px;
+  background:var(--conversation-soft);
+  color:var(--conversation-ink);
+}
+#conversation-panel[data-conversation-page="true"] .conversation-user-context summary{
+  min-width:0;
+  max-width:100%;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+  color:var(--conversation-ink);
+  font-size:13px;
+  line-height:1.45;
+}
+#conversation-panel[data-conversation-page="true"] .conversation-user-context summary::after{
+  content:'Abrir';
+  flex:0 0 auto;
+  margin-inline-start:auto;
+  color:var(--conversation-action);
+  font-size:10px;
+  font-weight:700;
+}
+#conversation-panel[data-conversation-page="true"] .conversation-user-context[open] summary::after{content:'Fechar'}
+#conversation-panel[data-conversation-page="true"] .conversation-user-context p{
+  color:var(--conversation-ink);
+  border-color:color-mix(in srgb,var(--conversation-action) 18%,var(--conversation-line));
+  line-height:1.6;
+}
+
+/* Cards share one evidence language: quiet border, no heavy nested shadow,
+   and a readable measure even when a response contains many of them. */
+#conversation-panel[data-conversation-page="true"] .conversation-result-card,
+#conversation-panel[data-conversation-page="true"] .conversation-catalog-card,
+#conversation-panel[data-conversation-page="true"] .conversation-document-card,
+#conversation-panel[data-conversation-page="true"] .conversation-channel-card,
+#conversation-panel[data-conversation-page="true"] .conversation-sources{
+  max-width:var(--conversation-reading-measure);
+  margin:18px 0;
+  border-color:var(--conversation-line);
+  border-radius:12px;
+  background:var(--conversation-surface);
+  box-shadow:none;
+}
+#conversation-panel[data-conversation-page="true"] .conversation-result-card :is(.conversation-result-summary,.conversation-result-items article>span),
+#conversation-panel[data-conversation-page="true"] .conversation-catalog-card span,
+#conversation-panel[data-conversation-page="true"] .conversation-channel-description,
+#conversation-panel[data-conversation-page="true"] .conversation-channel-caveat{
+  color:var(--conversation-muted);
+}
+#conversation-panel[data-conversation-page="true"] .conversation-result-card :is(h4,strong),
+#conversation-panel[data-conversation-page="true"] .conversation-catalog-card :is(h4,strong),
+#conversation-panel[data-conversation-page="true"] .conversation-document-card :is(h4,strong),
+#conversation-panel[data-conversation-page="true"] .conversation-channel-card :is(h4,dd){color:var(--conversation-ink)}
+
+@media(max-width:620px){
+  #conversation-panel[data-conversation-page="true"] .conversation-message.from-user{max-width:88%;margin-bottom:24px}
+  #conversation-panel[data-conversation-page="true"] .conversation-message.from-cadu .conversation-rich{font-size:15px;line-height:1.72}
+  #conversation-panel[data-conversation-page="true"] .conversation-result-card,
+  #conversation-panel[data-conversation-page="true"] .conversation-catalog-card,
+  #conversation-panel[data-conversation-page="true"] .conversation-document-card,
+  #conversation-panel[data-conversation-page="true"] .conversation-channel-card,
+  #conversation-panel[data-conversation-page="true"] .conversation-sources{margin-block:14px}
+}

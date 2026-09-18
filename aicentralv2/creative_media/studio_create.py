@@ -23,6 +23,7 @@ IMAGE_ROLES = {
     "replace": "the visual source for the selected replacement region",
     "style": "a style-only reference; do not copy its subject or text",
     "composition": "a composition-only reference; do not copy its subject or text",
+    "reference": "a general user-supplied visual reference; use it to inform the image without treating it as a base image",
     "identity": "an identity reference whose product, person or package details must remain faithful",
 }
 _REQUEST_ID = re.compile(r"^[a-zA-Z0-9_-]{8,160}$")
@@ -84,15 +85,28 @@ def create(payload, text_callable):
             response = None
             raw = None
     if response is None or not isinstance(raw, dict):
-        detail = errors[-1] if errors else "resposta vazia"
-        raise OpenRouterError(f"O diretor OpenAI e a redundância OpenRouter falharam. {detail}")
+        # Keep provider/model diagnostics out of the user-facing API error.
+        # The detailed provider failures remain available in the local trace
+        # while the Studio only communicates an actionable product message.
+        raise OpenRouterError("Não foi possível preparar a direção criativa. Tente novamente em alguns instantes.")
     items = []
     for item in raw.get("directions", []) if isinstance(raw, dict) else []:
         if not isinstance(item, dict):
             continue
         title, prompt = text(item.get("title"), 90), text(item.get("prompt"), 900)
         if title and prompt:
-            items.append({"title": title, "summary": text(item.get("summary") or item.get("rationale"), 220) or "Direção baseada no briefing do projeto.", "prompt": prompt})
+            reference_plan = []
+            for reference in item.get("reference_plan", []) if isinstance(item.get("reference_plan"), list) else []:
+                if not isinstance(reference, dict):
+                    continue
+                source = str(reference.get("source") or "user")
+                if source not in {"global", "user", "project"}:
+                    source = "user"
+                use = text(reference.get("use"), 260)
+                label = text(reference.get("label"), 140)
+                if label and use:
+                    reference_plan.append({"label": label, "source": source, "use": use})
+            items.append({"title": title, "summary": text(item.get("summary") or item.get("rationale"), 220) or "Direção baseada no briefing do projeto.", "prompt": prompt, "reference_plan": reference_plan[:4]})
         if len(items) == count:
             break
     if not items:
@@ -110,6 +124,8 @@ def clean_context(raw, count):
         "width": integer(data.get("width"), 0),
         "height": integer(data.get("height"), 0),
         "requested_directions": count,
+        "auto_generate_next": data.get("auto_generate_next") is True,
+        "generation_round": max(0, integer(data.get("generation_round"), 0)),
         "references": [clean_direction_reference(item, index) for index, item in enumerate(data.get("references", [])[:2]) if isinstance(item, dict)],
     }
 
@@ -119,9 +135,13 @@ def clean_direction_reference(item, index):
     if role not in IMAGE_ROLES:
         role = "insert"
     raw_url = str(item.get("url") or "")
+    source = "global" if raw_url.startswith("/static/images/cadu/studio/references/") else str(item.get("source") or "user")
+    if source not in {"user", "project"}:
+        source = "user"
     return {
         "label": text(item.get("name") or item.get("label") or f"Imagem {index + 1}", 140),
         "role": role,
+        "source": source,
         "instruction": IMAGE_ROLES[role],
         "url": text(raw_url, 500) if raw_url.startswith(("https://", "http://", "/static/")) else "inline upload",
     }
@@ -134,10 +154,12 @@ Responda somente JSON no formato {{\"directions\":[{{\"title\":\"...\",\"summary
 
 Cada prompt deve ser executável por um gerador de imagem e conter, nesta ordem quando houver contexto: objetivo de comunicação; tipo de peça (institucional, lançamento ou produto); praça ou contexto cultural brasileiro; público e momento humano; assunto principal; cenário; composição e área de respiro; linguagem visual, iluminação e materiais; paleta e ativos de marca; formato/canal exato; texto de campanha literal apenas quando fornecido; e restrições.
 
+REFERÊNCIAS — trate cada item do contexto como contrato, nunca como decoração. Itens com source="global" são referências protegidas do Studio: use-os apenas para similaridade visual — linguagem, enquadramento, ritmo, paleta, atmosfera e composição — sem copiar o template, sem alterar o arquivo e sem colocá-lo na biblioteca do usuário. Itens com source="user" ou source="project" são referências de produção: aplique na imagem criada o conteúdo visual útil, como produto, pessoa, embalagem, identidade, textura, cenário ou objeto, preservando os detalhes relevantes quando a intenção indicar. Não confunda uma referência global de similaridade com uma imagem-base do usuário. O prompt final deve mencionar como cada referência será usada e respeitar o role declarado.
+
 Para Display, trate o formato IAB informado como uma unidade publicitária final — não o transforme em pôster ou interface. Para CTV, trate como still cinematográfico 16:9. Para social, preserve área segura e leitura no feed. Escreva uma cena específica, não adjetivos vagos como “moderno”, “bonito” ou “impactante”. Prefira detalhes observáveis: lugar, hora, enquadramento, distância de câmera, gesto, textura e espaço para copy.
 
 Use a marca, briefing, referências e ativos do contexto como fonte de verdade. Não invente preço, promoção, produto, dado, prazo, benefício, CTA, logotipo ou slogan. Se não houver texto literal aprovado, peça espaço reservado para a assinatura, sem fabricar tipografia. Todo texto publicitário visível deve ser português do Brasil; se a renderização textual não for confiável, instrua a manter a área livre para composição posterior. Não inclua marca d'água, interface de plataforma, mockup de dashboard ou logos de terceiros. Não use pessoas identificáveis sem necessidade. Preserve briefing, marca, canal e formato.
-Antes de devolver cada direção, faça uma revisão final como agente GPT-5 nano: confirme que o prompt está fiel ao pedido, respeita todas as exclusões explícitas, não inventa informações e está pronto para ser enviado ao GPT Image 2. O campo "prompt" deve ser a instrução final revisada para o processador de imagem, sem comentários sobre esta revisão."""
+Antes de devolver cada direção, faça uma revisão final como agente GPT-5 nano: confirme que o prompt está fiel ao pedido, respeita todas as exclusões explícitas, usa cada referência conforme seu source e role, não inventa informações e está pronto para ser enviado ao GPT Image 2. O campo "prompt" deve ser a instrução final revisada para o processador de imagem, sem comentários sobre esta revisão. Inclua também "reference_plan" como uma lista curta de objetos {{"label":"...","source":"global|user|project","use":"..."}} para tornar a decisão de cada referência auditável."""
 
 
 def assert_available(client_id, count):
@@ -208,8 +230,13 @@ def create_image(payload, modeling, client_id, user_id):
         validate_mask(primary["data"], mask)
 
     role_lines = [
-        f"IMAGE {index}: {IMAGE_ROLES[item['role']]} ({item['label']})."
+        f"IMAGE {index}: source={item['source']}; {IMAGE_ROLES[item['role']]} ({item['label']})."
         for index, item in enumerate(references, start=1)
+    ]
+    reference_plan = data.get("reference_plan") if isinstance(data.get("reference_plan"), list) else []
+    plan_lines = [
+        f"{text(item.get('label'), 120)} [{text(item.get('source'), 16)}]: {text(item.get('use'), 260)}"
+        for item in reference_plan[:4] if isinstance(item, dict) and text(item.get('use'), 260)
     ]
     if mask and len(references) == 1:
         edit_guard = (
@@ -237,6 +264,8 @@ def create_image(payload, modeling, client_id, user_id):
         prompt,
         "\nREFERENCE CONTRACT:",
         *(role_lines or ["No image reference was supplied; create an original image."]),
+        "DIRECTOR REFERENCE PLAN:",
+        *(plan_lines or ["Apply the reference contract directly and preserve the declared source boundaries."]),
         edit_guard,
         f"Output channel: {channel or 'unspecified'}.",
         f"Requested output dimensions: {width}x{height}px." if width and height else "Requested output dimensions: use the selected aspect ratio.",
@@ -336,6 +365,7 @@ def normalize_image_references(raw, storage):
         cleaned.append({
             "id": text(item.get("id"), 160),
             "role": role,
+            "source": "global" if value.startswith("/static/images/cadu/studio/references/") else str(item.get("source") or "user") if str(item.get("source") or "user") in {"user", "project"} else "user",
             "label": text(item.get("label") or f"Imagem {index + 1}", 120),
             "data": image_data,
         })

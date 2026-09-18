@@ -150,6 +150,7 @@ def register_studio_routes(blueprint):
     blueprint.add_url_rule('/api/format-lab/studio/agent/narration', view_func=studio_agent_narration, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/projects', view_func=studio_projects, methods=['GET', 'POST'])
     blueprint.add_url_rule('/api/format-lab/studio/library-sessions', view_func=studio_library_sessions, methods=['GET'])
+    blueprint.add_url_rule('/api/format-lab/studio/reference-uploads', view_func=studio_reference_uploads, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/personal-assets', view_func=studio_personal_assets, methods=['DELETE'])
     blueprint.add_url_rule('/api/format-lab/studio/project-contexts', view_func=studio_project_contexts, methods=['GET'])
     blueprint.add_url_rule('/api/format-lab/studio/projects/<ident>', view_func=studio_project, methods=['GET', 'POST'])
@@ -296,6 +297,10 @@ def studio_create_directions():
                 logger.exception('Studio direction history completion failed for %s', run_id)
                 result['history_sync_pending'] = True
         result.update({'charged_credits': charged, 'remaining_credits': remaining})
+        # Provider/model details are internal billing and audit metadata, not
+        # part of the Studio's user-facing contract.
+        result.pop('provider', None)
+        result.pop('model', None)
         return ok(result)
 
     return execute(run)
@@ -367,6 +372,7 @@ def studio_create_image():
         result['owner_only'] = result['visibility'] == 'personal'
         if history:
             history.complete_image(request_id, client_id, result)
+        result.pop('model', None)
         return ok(result)
 
     return execute(run)
@@ -420,6 +426,64 @@ def studio_library_sessions():
             'personal_assets': history.personal_assets(client_id, user_id) if history and user_id else [],
             'reference_masks': _studio_reference_masks(),
         })
+    return execute(run)
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
+def studio_reference_uploads():
+    """Persist user uploads as private, reusable Studio reference assets."""
+    execute, _, ok, _ = _http()
+
+    def run():
+        client_id = request.form.get('client_id') or session.get('cliente_id')
+        user_id = session.get('user_id')
+        _scope(client_id)
+        if not user_id:
+            raise ValueError('Entre novamente para salvar suas referências.')
+        files = [item for item in request.files.getlist('files') if item and item.filename]
+        if not files:
+            raise ValueError('Selecione ao menos uma imagem.')
+        if len(files) > 2:
+            raise ValueError('Use no máximo duas referências por envio.')
+        project_id = str(request.form.get('project_id') or '').strip() or None
+        history = _creation_history()
+        if not history:
+            raise ValueError('A biblioteca persistente do Studio não está disponível nesta sessão.')
+        if project_id:
+            try:
+                uuid.UUID(project_id)
+            except ValueError as error:
+                raise ValueError('Projeto inválido.') from error
+            with history.connection.cursor() as cursor:
+                cursor.execute('SELECT id FROM cx_studio_projects WHERE id=%s AND client_id=%s', (project_id, int(client_id)))
+                if not cursor.fetchone():
+                    raise ValueError('Projeto não encontrado nesta marca.')
+        from ..creative_modeling_storage import CreativeAssetStorage
+        storage = CreativeAssetStorage()
+        saved = []
+        try:
+            for file_storage in files:
+                item = storage.save_reference(file_storage)
+                asset_id = history.save_reference_asset(
+                    client_id, user_id, project_id, item.get('original_name'),
+                    item.get('asset_path'), item.get('asset_path'),
+                    {'role': 'reference', 'original_name': item.get('original_name'), 'sha256': item.get('sha256')},
+                )
+                saved.append({
+                    'id': f'reference:{asset_id}', 'asset_id': asset_id,
+                    'url': item.get('asset_path'), 'image_url': item.get('asset_path'),
+                    'thumb_url': item.get('asset_path'), 'label': item.get('original_name') or 'Referência visual',
+                    'role': 'reference', 'visibility': 'personal',
+                })
+            history.connection.commit()
+        except Exception:
+            history.connection.rollback()
+            for item in saved:
+                storage.delete(item.get('url'))
+            raise
+        return ok({'items': saved})
+
     return execute(run)
 
 

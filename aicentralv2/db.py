@@ -1418,6 +1418,7 @@ def obter_contato_por_email(email):
                 c.nome_completo,
                 c.telefone,
                 c.telefone_secundario,
+                c.foto_url,
                 c.senha,
                 c.status,
                 c.id_centralx,

@@ -15,6 +15,18 @@ html[data-cadu-theme] body {
   --muted:var(--cadu-muted); --line:var(--cadu-line);
   background:var(--cadu-canvas); color:var(--cadu-ink);
 }
+/* Theme changes are one coordinated 200ms movement. The class is temporary,
+   so normal interaction transitions keep their own timing afterwards. */
+html.cadu-theme-transition,
+html.cadu-theme-transition body,
+html.cadu-theme-transition body * {
+  transition-property: background-color, color, border-color, box-shadow, fill, stroke !important;
+  transition-duration: 200ms !important;
+  transition-timing-function: cubic-bezier(.2,.8,.2,1) !important;
+}
+@media(prefers-reduced-motion:reduce){
+  html.cadu-theme-transition,html.cadu-theme-transition body,html.cadu-theme-transition body *{transition:none!important}
+}
 html[data-cadu-theme="dark"] body {
   --ws-ink:var(--cadu-ink); --ws-dark:#91d7c6; --workspace-dark:#91d7c6;
   --workspace-soft:#203831; --ws-soft:#203831; --soft:#23373c;

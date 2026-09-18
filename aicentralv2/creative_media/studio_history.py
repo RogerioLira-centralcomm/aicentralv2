@@ -35,14 +35,33 @@ class StudioCreationHistory:
                 asset_url = str(reference.get('url') or '')[:2000]
                 if not asset_url:
                     continue
+                # Global Studio references are selectable read-only guidance.
+                # Never copy them into a user's project library.
+                if asset_url.startswith('/static/images/cadu/studio/references/'):
+                    continue
                 cursor.execute('''
                     INSERT INTO cx_studio_project_items
                         (id, project_id, client_id, user_id, kind, title, asset_url, source_type, metadata)
                     SELECT %s, id, client_id, %s, 'reference', %s, %s, 'library', %s
                       FROM cx_studio_projects WHERE id=%s AND client_id=%s
-                ''', (str(uuid4()), int(user_id), str(reference.get('name') or 'Referência visual')[:160], asset_url,
+                ''', (str(uuid4()), int(user_id), str(reference.get('label') or reference.get('name') or 'Referência visual')[:160], asset_url,
                       Json({'library_id': str(reference.get('id') or '')[:120]}), project_id, int(client_id)))
         self.connection.commit()
+
+    def save_reference_asset(self, client_id, user_id, project_id, title, asset_url, storage_key, metadata=None):
+        asset_id = str(uuid4())
+        with self.connection.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO cx_studio_assets
+                    (id, client_id, owner_user_id, project_id, kind, source_type, source_id,
+                     title, asset_url, storage_key, metadata)
+                VALUES (%s, %s, %s, %s, 'reference', 'user_reference', %s, %s, %s, %s, %s)
+                RETURNING id::text AS id
+            ''', (asset_id, int(client_id), int(user_id), project_id, asset_id,
+                  str(title or 'Referência visual')[:160], str(asset_url)[:4000],
+                  str(storage_key or asset_url)[:4000], Json(metadata or {})))
+            row = cursor.fetchone()
+        return str(row['id']) if row else asset_id
 
     def complete(self, run_id, project_id, client_id, user_id, result, charged_credits):
         directions = result.get('directions') if isinstance(result, dict) else []
@@ -69,6 +88,7 @@ class StudioCreationHistory:
                     VALUES (%s, %s, %s, %s, %s, 'direction', %s, 'studio_create', %s)
                 ''', (str(uuid4()), project_id, direction_id, int(client_id), int(user_id), title, Json({
                     'run_id': run_id, 'position': position, 'summary': summary, 'prompt': prompt,
+                    'reference_plan': direction.get('reference_plan') or [],
                 })))
                 direction['id'] = direction_id
         self.connection.commit()
@@ -226,6 +246,17 @@ class StudioCreationHistory:
                 ORDER BY created_at DESC LIMIT %s
             ''', (project_id, int(client_id), limit))
             items = [dict(row) for row in cursor.fetchall()]
+            known_urls = {str(item.get('asset_url') or '') for item in items}
+            cursor.execute('''
+                SELECT id::text AS id, kind, title, asset_url, source_type, metadata,
+                       EXTRACT(EPOCH FROM created_at) AS created_at
+                  FROM cx_studio_assets
+                 WHERE project_id=%s AND client_id=%s AND kind='reference' AND deleted_at IS NULL
+              ORDER BY created_at DESC LIMIT %s
+            ''', (project_id, int(client_id), limit))
+            items.extend({
+                **dict(row), 'direction_id': None,
+            } for row in cursor.fetchall() if str(row['asset_url'] or '') not in known_urls)
         return {'runs': runs, 'items': items}
 
     def library_sessions(self, client_id, limit=50):
@@ -248,7 +279,7 @@ class StudioCreationHistory:
             return [dict(row) for row in cursor.fetchall()]
 
     def personal_assets(self, client_id, user_id, limit=100):
-        """Completed quick generations are visible only to their owner."""
+        """Completed generations and uploaded references visible to their owner."""
         limit = max(1, min(int(limit), 200))
         with self.connection.cursor() as cursor:
             cursor.execute('''
@@ -267,6 +298,27 @@ class StudioCreationHistory:
                         'image_url': image_url, 'thumb_url': str(result.get('thumbnail_url') or image_url),
                         'aspect_ratio': str(result.get('aspect_ratio') or ''), 'created_at': row['created_at'],
                         'visibility': 'personal', 'owner_only': True})
+            cursor.execute('''
+                SELECT id::text AS id, title, asset_url, metadata,
+                       EXTRACT(EPOCH FROM created_at) AS created_at
+                  FROM cx_studio_assets
+                 WHERE client_id=%s AND owner_user_id=%s AND kind='reference'
+                   AND deleted_at IS NULL
+              ORDER BY created_at DESC LIMIT %s
+            ''', (int(client_id), int(user_id), limit))
+            for row in cursor.fetchall():
+                metadata = dict(row['metadata'] or {})
+                asset_url = str(row['asset_url'] or '')
+                if asset_url:
+                    rows.append({
+                        'id': f"reference:{row['id']}", 'name': str(row['title'] or 'Referência visual'),
+                        'image_url': asset_url, 'thumb_url': asset_url,
+                        'aspect_ratio': str(metadata.get('aspect_ratio') or ''),
+                        'created_at': row['created_at'], 'visibility': 'personal',
+                        'owner_only': True, 'role': 'reference',
+                    })
+            rows.sort(key=lambda item: float(item.get('created_at') or 0), reverse=True)
+            rows = rows[:limit]
         return rows
 
     def trash_personal_assets(self, client_id, user_id, ids):

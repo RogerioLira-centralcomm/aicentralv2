@@ -2,6 +2,7 @@
 (() => {
   'use strict';
   const root = document.documentElement;
+  const THEME_TRANSITION_MS = 200;
   const script = document.currentScript;
   const mode = script?.dataset.themeMode || 'light';
   const defaultTheme = script?.dataset.themeDefault === 'dark' ? 'dark' : 'light';
@@ -25,12 +26,21 @@
       button.setAttribute('aria-pressed', String(theme === 'dark'));
     });
   }
+  function animateThemeChange() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    root.classList.remove('cadu-theme-transition');
+    // Force a clean reflow so repeated toggles always restart the same motion.
+    void root.offsetWidth;
+    root.classList.add('cadu-theme-transition');
+    window.setTimeout(() => root.classList.remove('cadu-theme-transition'), THEME_TRANSITION_MS);
+  }
   const currentTheme = () => forcedTheme || read();
   apply(currentTheme());
   document.addEventListener('DOMContentLoaded', () => apply(root.dataset.caduTheme), {once:true});
   document.addEventListener('click', event => {
     if (!allowsPreference || !event.target.closest('[data-cadu-theme-toggle]')) return;
     const theme = root.dataset.caduTheme === 'dark' ? 'light' : 'dark';
+    animateThemeChange();
     apply(theme);
     try { window.localStorage?.setItem(storageKey, theme); } catch (_) {}
   });

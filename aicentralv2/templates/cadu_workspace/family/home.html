@@ -11,4 +11,16 @@
   {% if pending %}<p class="ws-context-review"><b>{{ pending|length }} vínculo{{ 's' if pending|length != 1 }} para revisar.</b> Há cadastros vindos de outra origem sem equivalência confirmada; revise antes de usá-los como contexto compartilhado.</p>{% endif %}
 </section>
 {% endif %}
+{% if not user %}
+<section class="workspace-public" aria-labelledby="workspace-public-title">
+  <header class="workspace-public-head"><div class="workspace-public-brand" aria-label="Proima"><span class="workspace-public-mark">P</span><strong>Proima</strong></div><a class="workspace-public-login" href="{{ login_url }}">Entrar no Workspace</a></header>
+  <div class="workspace-public-intro"><p class="workspace-public-kicker">Workspace Proima</p><h2 id="workspace-public-title">Campanhas que começam com contexto.</h2><p>Uma seleção de direções para inspirar o próximo briefing, com marca, formato e intenção no mesmo lugar.</p></div>
+  <div class="workspace-public-grid" aria-label="Campanhas em destaque">
+    <a class="workspace-public-card workspace-public-card--violet" href="{{ login_url }}"><div class="workspace-public-art workspace-public-art--motion"><span>→</span></div><div class="workspace-public-card-copy"><small>Proima Studio</small><h3>Uma ideia. Vários formatos.</h3><p>Direção visual pronta para virar uma campanha.</p></div></a>
+    <a class="workspace-public-card workspace-public-card--lime" href="{{ login_url }}"><div class="workspace-public-art workspace-public-art--launch"><span>LANÇAMENTO</span><b>feito para<br>ser lembrado.</b></div><div class="workspace-public-card-copy"><small>Proima Campaigns</small><h3>O conceito antes da execução.</h3><p>Uma campanha nasce da combinação entre ideia e contexto.</p></div></a>
+    <a class="workspace-public-card workspace-public-card--photo" href="{{ login_url }}"><div class="workspace-public-art workspace-public-art--sun"><span>PROIMA</span><b>marcas que<br>ganham presença.</b></div><div class="workspace-public-card-copy"><small>Proima Brand</small><h3>A marca no centro da conversa.</h3><p>Referências para criar com mais clareza e consistência.</p></div></a>
+  </div>
+</section>
+{% else %}
 {% include 'cadu_family/home.html' %}
+{% endif %}

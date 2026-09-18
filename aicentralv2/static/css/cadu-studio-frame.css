@@ -1,0 +1,133 @@
+/* Shared Studio frame: one dark canvas, one navigation model, no host bleed. */
+:root {
+  --studio-bg: #111214;
+  --studio-surface: #181a1d;
+  --studio-panel: #202328;
+  --studio-panel-raised: #272a30;
+  --studio-line: #343840;
+  --studio-ink: #f3f4f6;
+  --studio-muted: #9ba1ad;
+  --studio-accent: #8b7cf6;
+  --studio-positive: #6ee7d8;
+}
+
+html:has(.studio-create), html:has(.trocr-product) { background: var(--studio-bg); }
+body.portal--studio,
+.portal--studio #content,
+.portal--studio #content > .mc-shell,
+.studio-create,
+.trocr-product {
+  background: var(--studio-bg) !important;
+  color: var(--studio-ink);
+}
+
+/* The product bar owns the top edge on both flows. Older editor rules used a
+   second 40px bar, which caused the stage and controls to drift vertically. */
+.mc-cadu-bar--studio {
+  position: relative;
+  z-index: 100;
+  height: 64px !important;
+  min-height: 64px !important;
+  background: var(--studio-surface) !important;
+  border-bottom: 1px solid var(--studio-line) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.03), 0 12px 28px rgba(0,0,0,.18);
+}
+.mc-cadu-bar--studio .mc-cadu-nav > a[aria-current="page"],
+.mc-cadu-bar--studio .mc-cadu-nav > a.is-current {
+  background: rgba(139,124,246,.16);
+  color: #c7c0ff;
+  box-shadow: inset 0 -2px var(--studio-accent);
+}
+.mc-cadu-bar--studio .mc-cadu-project select,
+.mc-cadu-bar--studio .mc-cadu-credits { background: var(--studio-panel) !important; }
+
+/* Create: workbar and stage are siblings, so the board never sits under the
+   header or lets the chat float over the artwork. */
+.studio-create { display: flex; flex-direction: column; height: 100dvh; }
+.studio-create .studio-workbar {
+  flex: 0 0 56px;
+  height: 56px;
+  background: var(--studio-surface);
+  border-bottom-color: var(--studio-line);
+}
+.studio-create .studio-workspace {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  grid-template-columns: 256px minmax(0, 1fr) 360px;
+  background: var(--studio-bg);
+}
+.studio-create .studio-library,
+.studio-create .studio-chat { background: var(--studio-surface); }
+.studio-create .studio-board { background: #14161a; }
+.studio-create .studio-board__viewport {
+  background-color: #14161a;
+  background-image: radial-gradient(circle, #30343b 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.studio-create .studio-chat { border-left-color: var(--studio-line); }
+.studio-create .studio-library { border-right-color: var(--studio-line); }
+.studio-create .studio-primary { background: var(--studio-accent); }
+.studio-create .studio-primary:hover { background: #9a8cff; }
+
+/* Edit: the canvas owns the middle column; inspector panels are not absolute
+   children of the stage at desktop widths. */
+.trocr-product .mc-trocr.trocr-editor {
+  height: calc(100dvh - 64px) !important;
+  min-height: 0 !important;
+  border: 0;
+  border-radius: 0;
+  background: var(--studio-bg);
+}
+.trocr-product .trocr-editor .mc-trocr-pagehead,
+.trocr-product .trocr-editor .mc-trocr-flow,
+.trocr-product .trocr-editor .trocr-elements,
+.trocr-product .trocr-editor .trocr-desk,
+.trocr-product .trocr-editor .trocr-format-tray { border-color: var(--studio-line); }
+.trocr-product .trocr-editor .mc-trocr-pagehead,
+.trocr-product .trocr-editor .trocr-elements,
+.trocr-product .trocr-editor .trocr-desk,
+.trocr-product .trocr-editor .mc-trocr-reel,
+.trocr-product .trocr-editor .trocr-format-tray { background: var(--studio-surface); }
+.trocr-product .trocr-editor .mc-trocr-main,
+.trocr-product .trocr-editor .mc-trocr-canvas { background: #14161a; }
+.trocr-product .trocr-editor .mc-trocr-stage {
+  background: #1b1e23;
+  border-color: var(--studio-line);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.025);
+}
+.trocr-product .trocr-editor .trocr-desk {
+  margin: 12px;
+  border: 1px solid var(--studio-line);
+  border-radius: 14px;
+  box-shadow: 0 18px 44px rgba(0,0,0,.25);
+}
+.trocr-product .trocr-editor .trocr-panel-tabs button,
+.trocr-product .trocr-editor .mc-trocr-inspector,
+.trocr-product .trocr-editor .mc-trocr-order { background: var(--studio-surface); color: var(--studio-ink); }
+.trocr-product .trocr-editor .trocr-panel-tabs button[aria-selected="true"] { color: var(--studio-positive); box-shadow: inset 0 -2px var(--studio-positive); }
+.trocr-product .trocr-editor .mc-trocr-generate .cx-btn-primary { background: var(--studio-accent); border-color: var(--studio-accent); }
+
+/* Keep the editor command surface in one place on small screens. */
+@media (max-width: 1180px) {
+  .studio-create .studio-workspace { grid-template-columns: 224px minmax(0, 1fr) 320px; }
+}
+@media (max-width: 900px) {
+  .studio-create .studio-workspace { display: block; position: relative; }
+  .studio-create .studio-board { position: absolute; inset: 0; }
+  .studio-create .studio-library,
+  .studio-create .studio-chat { top: 0; bottom: 0; }
+  .studio-create .studio-chat { right: 0; }
+}
+@media (max-width: 640px) {
+  .mc-cadu-bar--studio { grid-template-columns: auto minmax(0, 1fr) auto !important; }
+  .mc-cadu-bar--studio .mc-cadu-nav { order: 3; grid-column: 1 / -1; justify-self: stretch; }
+  .studio-create .studio-workbar { height: auto; min-height: 56px; padding: 8px 10px; }
+  .studio-create .studio-workbar__identity input { width: min(42vw, 180px); }
+  .studio-create .studio-workspace { min-height: 0; }
+  .trocr-product .trocr-editor .trocr-desk { margin: 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-create *, .trocr-product * { transition: none !important; animation: none !important; }
+}

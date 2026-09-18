@@ -74,7 +74,6 @@
   const isNearHistoryEnd = () => history && (history.scrollHeight - history.scrollTop - history.clientHeight) < 96;
   const isImageGenerationRequest = message => /^(?:agora\s+)?(?:crie|cria|gere|gerar|criar|faca)\s+(?:(?:uma?|a|o)\s+)?(?:imagem|foto|ilustracao|criativo)\b/i.test(
     String(message || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim());
-  const isExternalResearchRequest = message => /\b(deep research|pesquisa aprofundada|pesquisa profunda|atualiza[çc][ãa]o de mercado|atualize o mercado|mercado recente)\b/i.test(String(message || ''));
   history?.addEventListener('scroll', () => { followStreaming = isNearHistoryEnd(); }, {passive:true});
   const scrollHistoryToEnd = (force = false) => {
     if (!history || (!force && !isNearHistoryEnd())) return;
@@ -864,7 +863,6 @@
     const stop = document.getElementById('conversation-stop');
     if (!button || sending || loadingThread || !canSend || (!composerValue().trim() && !attachments.items.length) || mode.disabled) return;
     const message = composerValue().trim() || 'Analise os arquivos anexados.', selectedMode = mode.value, newThread = !conversationId;
-    if (isExternalResearchRequest(message) && !window.confirm('Esta consulta envia um resumo do projeto ao Perplexity via OpenRouter para buscar fontes públicas. O uso será debitado do saldo pelo consumo efetivo. Continuar?')) return;
     if (isImageGenerationRequest(message)) {
       const guide = 'A criação de imagem não está disponível nesta conversa.\n\nPara criar ou editar uma imagem com o contexto adequado de marca e projeto, use o [Cadu Studio](https://studio.centralcomm.media/criar).';
       addMessage('user', message, attachments.items.map(item => ({name:item.file.name})));

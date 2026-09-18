@@ -179,7 +179,7 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query):
     packet = {'projeto_ref': project_ref, 'projeto': projects[0]}
     if isinstance(brand_ref, str) and brand_ref.startswith('studio:'):
         try:
-            brands = repository.rows('''SELECT name, sector, brand_profile
+            brands = repository.rows('''SELECT name, sector, website_url, brand_profile
                                            FROM cx_clients
                                           WHERE id = %s AND crm_client_id = %s''',
                                      (brand_ref[7:], client_id))

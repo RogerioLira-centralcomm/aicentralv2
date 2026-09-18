@@ -53,16 +53,53 @@ def _project_snapshot(project_context: str) -> dict:
     return private if isinstance(private, dict) else {}
 
 
+def _research_target(project_context: str) -> dict:
+    """Return the bounded project context that makes research actionable.
+
+    Research must start from everything the team has already recorded for the
+    selected project. The official site is a lead for primary sources; a
+    timeout or inaccessible page must never turn into a request for the user
+    to supply sources.
+    """
+    snapshot = _project_snapshot(project_context)
+    project = snapshot.get('projeto') if isinstance(snapshot.get('projeto'), dict) else {}
+    brand = snapshot.get('marca') if isinstance(snapshot.get('marca'), dict) else {}
+    sources = snapshot.get('fontes_verificadas') if isinstance(snapshot.get('fontes_verificadas'), list) else []
+    return {
+        'marca': {
+            'nome': str(brand.get('name') or '')[:160],
+            'setor': str(brand.get('sector') or '')[:120],
+            'site_oficial': str(brand.get('website_url') or '')[:1200],
+            'perfil': brand.get('brand_profile') if isinstance(brand.get('brand_profile'), dict) else {},
+        },
+        'projeto': {
+            'nome': str(project.get('nome') or '')[:200],
+            'descricao': str(project.get('descricao') or '')[:1200],
+            'instrucoes': str(project.get('instrucoes') or '')[:2400],
+            'publico': str(project.get('publico') or '')[:600],
+            'posicionamento': str(project.get('posicionamento') or '')[:600],
+            'tom_de_voz': str(project.get('tom_de_voz') or '')[:400],
+        },
+        'fontes_ja_vinculadas': [
+            {'fonte': str(source.get('fonte') or '')[:250], 'trecho': str(source.get('trecho') or '')[:1000]}
+            for source in sources[:8] if isinstance(source, dict)
+        ],
+    }
+
+
 def execute(plan: dict, query: str, project_context: str) -> dict:
     """Return provider evidence in a compact, attributable envelope."""
-    snapshot = _project_snapshot(project_context)
     prompt = {
         'pedido_do_usuario': str(query or '')[:4000],
-        'contexto_do_projeto': snapshot,
+        'alvo_da_pesquisa': _research_target(project_context),
         'entrega': (
             'Pesquise apenas informações públicas recentes e relevantes. Para cada achado, '
             'inclua fonte, URL, data (ou indique quando não houver) e por que isso importa. '
-            'Separe fatos de inferências e nunca invente números ou citações.'
+            'Separe fatos de inferências e nunca invente números ou citações. O site oficial, '
+            'quando informado, serve para identificar a marca e localizar fontes primárias; não '
+            'depende de conseguir abri-lo e não é motivo para interromper a pesquisa. Não peça '
+            'ao usuário links, período ou recorte que já possam ser tratados como premissa: entregue '
+            'a melhor atualização com fontes públicas disponíveis e explicite apenas limitações reais.'
         ),
     }
     try:

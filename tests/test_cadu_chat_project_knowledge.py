@@ -10,7 +10,8 @@ class ChatProjectKnowledgeTest(TestCase):
         rows.side_effect = [
             [{'nome': 'Lançamento', 'descricao': 'Novo produto', 'instrucoes': 'Seja claro',
               'publico': 'Pessoas em movimento', 'posicionamento': 'Prático', 'tom_de_voz': 'Direto'}],
-            [{'name': 'Marca Cadu', 'sector': 'Serviços', 'brand_profile': '{"tone_of_voice":"Calmo"}'}],
+            [{'name': 'Marca Cadu', 'sector': 'Serviços', 'website_url': 'https://marca.example',
+              'brand_profile': '{"tone_of_voice":"Calmo"}'}],
             [{'titulo': 'Pesquisa de público', 'trecho': 'O público valoriza praticidade.'}],
         ]
 
@@ -18,6 +19,7 @@ class ChatProjectKnowledgeTest(TestCase):
 
         self.assertIn('"projeto"', result)
         self.assertIn('"marca"', result)
+        self.assertIn('https://marca.example', result)
         self.assertIn('"fontes_verificadas"', result)
         self.assertIn('Pesquisa de público', result)
         self.assertNotIn('score', result)

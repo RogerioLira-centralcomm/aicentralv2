@@ -46,6 +46,34 @@ def test_market_research_uses_the_perplexity_plan_and_keeps_citations(monkeypatc
     assert result['sources'] == [{'title': 'Fonte', 'url': 'https://example.com', 'excerpt': 'Evidência.'}]
 
 
+def test_market_research_sends_the_known_project_context_and_treats_the_site_as_a_lead(monkeypatch):
+    from aicentralv2.cadu_workspace.conversations import research
+    captured = {}
+    monkeypatch.setattr(research, 'chat_completion', lambda messages, **kwargs: captured.update(messages=messages) or {
+        'message': {'content': 'Pesquisa concluída.', 'citations': []},
+    })
+    research.execute(research.plan_for('Atualização de mercado recente'), 'Atualize o mercado', json.dumps({
+        'contexto_projeto_privado': {
+            'projeto': {'nome': 'Lançamento', 'descricao': 'Nova oferta', 'instrucoes': 'Priorize imprensa',
+                         'publico': 'Gestores', 'tom_de_voz': 'Direto'},
+            'marca': {'name': 'Centralcomm', 'sector': 'Comunicação', 'website_url': 'https://centralcomm.media',
+                      'brand_profile': {'internal_note': 'não deve sair'}},
+            'fontes_verificadas': [{'fonte': 'Briefing do projeto', 'trecho': 'Mercado prioritário'}],
+        },
+    }))
+    prompt = json.loads(captured['messages'][1]['content'])
+    assert prompt['alvo_da_pesquisa']['marca'] == {
+        'nome': 'Centralcomm', 'setor': 'Comunicação', 'site_oficial': 'https://centralcomm.media',
+        'perfil': {'internal_note': 'não deve sair'},
+    }
+    assert prompt['alvo_da_pesquisa']['projeto']['nome'] == 'Lançamento'
+    assert prompt['alvo_da_pesquisa']['projeto']['instrucoes'] == 'Priorize imprensa'
+    assert prompt['alvo_da_pesquisa']['fontes_ja_vinculadas'] == [
+        {'fonte': 'Briefing do projeto', 'trecho': 'Mercado prioritário'},
+    ]
+    assert 'não depende de conseguir abri-lo' in prompt['entrega']
+
+
 def test_uses_matching_installed_skill_and_never_the_client_mode():
     selected, route = choose_mode([
         {'id': 'ideias', 'active': True},

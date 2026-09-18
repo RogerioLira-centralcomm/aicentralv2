@@ -164,6 +164,11 @@ CREATE TABLE IF NOT EXISTS cx_studio_image_generations (
 CREATE INDEX IF NOT EXISTS idx_cx_studio_image_generations_client
     ON cx_studio_image_generations (client_id, created_at DESC);
 
+-- Instalações que receberam o ledger antes da biblioteca pessoal precisam
+-- ganhar esta coluna sem recriar a tabela nem perder o histórico existente.
+ALTER TABLE cx_studio_image_generations
+    ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
 -- O restante do ciclo de sessão vive também em uma migration incremental para
 -- instalações existentes. Este include é mantido duplicado de forma explícita
 -- porque ensure_schema executa somente este arquivo em instalações novas.

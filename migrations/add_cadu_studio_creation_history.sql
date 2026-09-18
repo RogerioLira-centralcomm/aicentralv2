@@ -42,3 +42,4 @@ CREATE TABLE IF NOT EXISTS cx_studio_image_generations (
     UNIQUE (client_id, request_id)
 );
 CREATE INDEX IF NOT EXISTS idx_cx_studio_image_generations_client ON cx_studio_image_generations (client_id, created_at DESC);
+ALTER TABLE cx_studio_image_generations ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;

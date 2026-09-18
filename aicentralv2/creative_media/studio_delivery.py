@@ -1,5 +1,4 @@
 """Named MP4/GIF exports and explicitly published, token-scoped HTML players."""
-import fcntl
 import hashlib
 import html
 import json
@@ -10,6 +9,7 @@ import subprocess
 import unicodedata
 from pathlib import Path
 from flask import request,send_file,abort,Response
+from .file_lock import exclusive_file_lock
 from .studio import _write
 from .storage import media_root
 
@@ -28,8 +28,7 @@ def reserve_delivery(root,data,service,ratio):
     if isinstance(client,dict):brand=client.get('name') or client.get('nome') or brand
     creative=str(raw.get('creative') or 'criativo')[:120]
     key=hashlib.sha256(slug(creative,'criativo').encode()).hexdigest()[:32]
-    with (root/f'delivery-sequence-{key}.lock').open('a') as lock:
-        fcntl.flock(lock,fcntl.LOCK_EX)
+    with exclusive_file_lock(root/f'delivery-sequence-{key}.lock'):
         path=root/f'delivery-sequence-{key}.json'
         version=(json.loads(path.read_text()).get('version',0) if path.exists() else 0)+1
         _write(path,{'version':version})

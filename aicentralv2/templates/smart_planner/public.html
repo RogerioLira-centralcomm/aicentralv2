@@ -425,13 +425,11 @@
             {% if row.funnel %}<p class="cc-pill is-soft">{{ row.funnel }}</p>{% endif %}
           </div>
           <h3>{{ row.label }}</h3>
-          <p class="cc-money">{{ row.amount_label or '—' }} <small>{{ row.pct }}%</small></p>
           {% if row.role or row.goal %}<p>{{ row.role or row.goal }}</p>{% endif %}
           {% if row.flight_note %}<p class="cc-note">{{ row.flight_note }}</p>{% endif %}
           <dl>
             {% if audience %}<div><dt>Público</dt><dd>{{ audience }}</dd></div>{% endif %}
             {% if row.buy %}<div><dt>Compra</dt><dd>{{ row.buy }}</dd></div>{% endif %}
-            {% if row.status %}<div><dt>Status</dt><dd>{{ row.status }}</dd></div>{% endif %}
           </dl>
           {% if row.formats %}
           <ul class="cc-chips" aria-label="Formatos recomendados">
@@ -470,7 +468,6 @@
           <div>
             <div class="cc-inventory-head">
               <strong>{{ item.name }}</strong>
-              <span class="cc-status is-{{ item.status_tone or 'soft' }}">{{ item.status }}</span>
             </div>
             <span>{{ item.kind }} · {{ item.scope }} · Compra: {{ item.buy }}</span>
             <p>{{ item.role }}. {{ item.note }}</p>

@@ -153,6 +153,14 @@ def publico(public_token):
     if not row:
         raise SessionNotFound("Este planejamento não está no ar.")
     view = public_view(row)
+    # O link compartilhável canônico deve usar o mesmo documento visual da
+    # proposta/plano. O template antigo permanece apenas como fallback para
+    # sessões que ainda não têm conteúdo publicável.
+    document = "proposal" if view.get("tem_folha") else "full_plan" if view.get("tem_completo") else ""
+    if document:
+        view = public_view(row, document=document)
+        view["share_url"] = view.get("document_url") or public_document_url(public_token, document)
+        return render_template("smart_planner/public_document.html", **view)
     view["share_url"] = view.get("share_url") or public_sheet_url(public_token)
     return render_template("smart_planner/public.html", **view)
 

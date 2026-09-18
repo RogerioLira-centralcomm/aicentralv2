@@ -14,10 +14,6 @@
     }
   }
 
-  function currentView() {
-    return document.body.getAttribute("data-view") || "folha";
-  }
-
   function closeMenus() {
     document.querySelectorAll("[data-cc-menu]").forEach(function (menu) {
       var list = menu.querySelector(".cc-menu-list");

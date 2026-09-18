@@ -98,4 +98,4 @@ def test_trocr_editor_uses_a_versioned_stylesheet_for_the_full_height_desk():
     root = Path(__file__).resolve().parents[1]
     template = (root / "aicentralv2" / "templates" / "cadu_studio" / "trocr.html").read_text(encoding="utf-8")
 
-    assert "css/trocr-editor.css') }}?v=15" in template
+    assert "css/trocr-editor.css') }}?v=16" in template

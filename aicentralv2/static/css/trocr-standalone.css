@@ -1,42 +1,9 @@
-/* Trocr owns this frame.  It deliberately does not inherit the ERP/central
-   shell, allowing the editor to keep a stable work area on every host. */
-:root { background:#171b21; }
-body.portal--studio { min-width:320px; background:#171b21; }
-.trocr-product { min-height:100dvh; background:#171b21; color:#f2f5f8; }
-.trocr-product-bar {
-  height:56px; display:grid; grid-template-columns:minmax(130px,1fr) auto minmax(190px,1fr); align-items:center; gap:18px; padding:0 18px;
-  border-bottom:1px solid #3e4754; background:#20262e;
-}
-.trocr-product-bar{background:#fff;border-bottom-color:#dce3e9;color:#1d2939}.trocr-product-mark{color:#172532}.trocr-product-mark>span{background:#dff3ed;color:#176f66}.trocr-product-mark small{color:#667487}.trocr-product-bar nav a,.trocr-product-bar nav summary{color:#536273}.trocr-product-bar nav a:hover,.trocr-product-bar nav summary:hover{background:#edf6f4;color:#173f3a}.trocr-product-bar nav a.is-current{color:#176f66;border-bottom-color:#176f66}.trocr-product-divider{background:#dce3e9}.trocr-product-bar .cadu-product-switch summary{color:#172532}.trocr-product-bar .cadu-product-switch summary>i{color:#667487}.trocr-product-bar .cadu-product-switch[open] summary,.trocr-product-bar .cadu-product-switch summary:hover{background:#edf6f4}.trocr-product-bar .cadu-product-switch nav,.trocr-product-menu-list{border-color:#dce3e9;background:#fff;box-shadow:0 14px 28px rgba(23,37,50,.14)}.trocr-product-bar .cadu-product-switch nav a,.trocr-product-bar .trocr-product-menu-list a{color:#253342}.trocr-product-bar .cadu-product-switch nav a:hover,.trocr-product-bar .cadu-product-switch nav a.is-current,.trocr-product-bar .trocr-product-menu-list a:hover{background:#edf6f4;color:#176f66}.trocr-product-brand{color:#667487}.trocr-product-brand select{border-color:#cfd8df;background:#fff;color:#253342}
-.trocr-product-identity { display:flex; align-items:center; gap:10px; min-width:0; }
-.trocr-product-bar .cadu-product-switch summary { min-height:36px; border-radius:7px; color:#edf1f5; }
-.trocr-product-bar .cadu-product-switch summary > i { color:#aebac7; }
-.trocr-product-bar .cadu-product-switch[open] summary,.trocr-product-bar .cadu-product-switch summary:hover { background:#2b343e; }
-.trocr-product-bar .cadu-product-switch nav { border-color:#46515d; background:#242c35; box-shadow:0 16px 32px #090d1299; }
-.trocr-product-bar .cadu-product-switch nav a { color:#edf1f5; }
-.trocr-product-bar .cadu-product-switch nav a:hover,.trocr-product-bar .cadu-product-switch nav a.is-current { background:#303b46; color:#6be0c1; }
-.trocr-product-divider { width:1px; height:24px; flex:0 0 auto; background:#3e4754; }
-.trocr-product-mark { display:grid; grid-template-columns:28px auto; column-gap:8px; align-items:center; color:#f2f5f8; text-decoration:none; }
-.trocr-product-mark > span { grid-row:1 / span 2; display:grid; place-items:center; width:28px; height:28px; border-radius:7px; background:#4bd1ae; color:#17211f; font-size:15px; font-weight:800; }
-.trocr-product-mark strong { font-size:14px; letter-spacing:-.02em; }
-.trocr-product-mark small { color:#b8c2ce; font-size:10px; }
-.trocr-product-bar nav { display:flex; justify-self:center; align-self:stretch; gap:3px; }
-.trocr-product-bar nav a,.trocr-product-bar nav summary { display:grid; place-items:center; height:100%; padding:0 10px; border:0; border-bottom:2px solid transparent; background:transparent; color:#b8c2ce; font:inherit; font-size:12px; font-weight:650; text-decoration:none; cursor:pointer; list-style:none; }
-.trocr-product-bar nav summary::-webkit-details-marker { display:none; }
-.trocr-product-bar nav a:hover,.trocr-product-bar nav summary:hover { color:#f2f5f8; background:#2a313b; }
-.trocr-product-bar nav a.is-current { color:#4bd1ae; border-bottom-color:#4bd1ae; }
-.trocr-product-menu { position:relative; }
-.trocr-product-menu-list { position:absolute; top:calc(100% + 7px); right:0; z-index:90; display:grid; min-width:166px; padding:6px; border:1px solid #46515d; border-radius:8px; background:#242c35; box-shadow:0 16px 32px #090d1299; }
-.trocr-product-bar .trocr-product-menu-list a { display:block; height:auto; padding:9px 10px; border-radius:5px; color:#edf1f5; }
-.trocr-product-bar .trocr-product-menu-list a:hover { background:#303b46; }
-.trocr-product-brand { display:grid; gap:2px; min-width:190px; justify-self:end; color:#b8c2ce; font-size:10px; }
-.trocr-product-brand select { width:100%; min-width:0; height:27px; border:1px solid #4b5563; border-radius:5px; background:#292e36; color:#f2f5f8; font:inherit; font-size:12px; }
-.trocr-product-credits { margin:0; color:#b8c2ce; font-size:11px; white-space:nowrap; }
-.trocr-product-alert { margin:10px 16px; padding:10px 12px; border:1px solid #b65a53; border-radius:7px; background:#3b2829; color:#ffe1dd; font-size:12px; }
-.trocr-product-alert.hidden { display:none; }
-.trocr-product-workspace { padding:0; }
-.trocr-product .mc-shell { margin:0; }
-.trocr-product .mc-trocr.trocr-editor { border:0; border-radius:0; height:calc(100dvh - 56px); min-height:480px; }
+/* The shared Studio frame owns navigation and page colors.  This file only
+   keeps the Trocr wrapper and comparison dialog self-contained. */
+.trocr-product { min-height:100dvh; }
+.trocr-product-workspace,
+.trocr-product .mc-shell { margin:0; padding:0; }
+.trocr-product .mc-trocr.trocr-editor { border:0; border-radius:0; min-height:480px; }
 /* These dialogs used Tailwind utility classes while the editor was embedded in
    CentralX.  Define their finished appearance here so opening a comparison
    cannot depend on that host stylesheet. */
@@ -50,31 +17,3 @@ body.portal--studio { min-width:320px; background:#171b21; }
 .trocr-product #mcTrocrClipCompare video { width:100%; aspect-ratio:16 / 9; background:#090d12; object-fit:contain; }
 .trocr-product #mcTrocrClipCompare button { min-height:34px; }
 @media (max-width:540px) { .trocr-product #mcTrocrClipCompare > div > div { grid-template-columns:1fr; } }
-@media (max-width:700px) {
-  .trocr-product-bar { height:auto; min-height:56px; display:flex; flex-wrap:wrap; gap:8px 12px; padding:8px 12px; }
-  .trocr-product-identity { gap:0; }
-  .trocr-product-identity .trocr-product-divider,.trocr-product-identity .trocr-product-mark { display:none; }
-  .trocr-product-bar nav { order:3; width:100%; height:32px; justify-content:flex-start; }
-  .trocr-product-brand { min-width:130px; }
-  .trocr-product .mc-trocr.trocr-editor { height:calc(100dvh - 104px); }
-}
-
-/* Final override: the editor stays dark; its product navigation follows the
-   light Cadu family frame used by the Studio hub and the other solutions. */
-.trocr-product-bar{background:#fff!important;border-bottom-color:#dce3e9!important;color:#1d2939}.trocr-product-mark{color:#172532}.trocr-product-mark>span{background:#dff3ed;color:#176f66}.trocr-product-mark small{color:#667487}.trocr-product-bar nav a,.trocr-product-bar nav summary{color:#536273}.trocr-product-bar nav a:hover,.trocr-product-bar nav summary:hover{background:#edf6f4;color:#173f3a}.trocr-product-bar nav a.is-current{color:#176f66;border-bottom-color:#176f66}.trocr-product-divider{background:#dce3e9}.trocr-product-bar .cadu-product-switch summary{color:#172532}.trocr-product-bar .cadu-product-switch summary>i{color:#667487}.trocr-product-bar .cadu-product-switch[open] summary,.trocr-product-bar .cadu-product-switch summary:hover{background:#edf6f4}.trocr-product-bar .cadu-product-switch nav,.trocr-product-menu-list{border-color:#dce3e9;background:#fff;box-shadow:0 14px 28px rgba(23,37,50,.14)}.trocr-product-bar .cadu-product-switch nav a,.trocr-product-bar .trocr-product-menu-list a{color:#253342}.trocr-product-bar .cadu-product-switch nav a:hover,.trocr-product-bar .cadu-product-switch nav a.is-current,.trocr-product-bar .trocr-product-menu-list a:hover{background:#edf6f4;color:#176f66}.trocr-product-brand{color:#667487}.trocr-product-brand select{border-color:#cfd8df;background:#fff;color:#253342}
-
-/* Studio navigation follows the same dark, high-contrast product frame. */
-:root,body.portal--studio,.trocr-product { background:#212121; color:#ececec; }
-.trocr-product-bar { background:#2f2f2f!important; border-bottom-color:#4a4a4a!important; color:#ececec; }
-.trocr-product-mark,.trocr-product-bar .cadu-product-switch summary { color:#ececec; }
-.trocr-product-mark>span { background:#25483a; color:#80e8b8; }
-.trocr-product-mark small,.trocr-product-brand,.trocr-product-bar .cadu-product-switch summary>i { color:#b4b4b4; }
-.trocr-product-divider { background:#4a4a4a; }
-.trocr-product-bar nav a,.trocr-product-bar nav summary { color:#b4b4b4; }
-.trocr-product-bar nav a:hover,.trocr-product-bar nav summary:hover,
-.trocr-product-bar .cadu-product-switch[open] summary,.trocr-product-bar .cadu-product-switch summary:hover { background:#383838; color:#ececec; }
-.trocr-product-bar nav a.is-current { color:#58d39a; border-bottom-color:#58d39a; }
-.trocr-product-bar .cadu-product-switch nav,.trocr-product-menu-list { border-color:#4a4a4a; background:#2f2f2f; box-shadow:0 16px 32px #111a; }
-.trocr-product-bar .cadu-product-switch nav a,.trocr-product-bar .trocr-product-menu-list a { color:#ececec; }
-.trocr-product-bar .cadu-product-switch nav a:hover,.trocr-product-bar .cadu-product-switch nav a.is-current,.trocr-product-bar .trocr-product-menu-list a:hover { background:#383838; color:#58d39a; }
-.trocr-product-brand select { border-color:#4a4a4a; background:#383838; color:#ececec; }

@@ -81,17 +81,15 @@ class TrocrEditorDraftTest(unittest.TestCase):
     def test_standalone_studio_receives_editor_layout_and_clear_upload_entry(self):
         root = Path(__file__).resolve().parents[1]
         css = (root / "aicentralv2" / "static" / "css" / "trocr-editor.css").read_text(encoding="utf-8")
-        video_css = (root / "aicentralv2" / "static" / "css" / "video-studio.css").read_text(encoding="utf-8")
         page = Environment(loader=FileSystemLoader(root / "aicentralv2" / "templates")) \
             .get_template("parametros/_mc_trocar.html").render()
         self.assertIn(":is(.mc-shell,.trocr-product) .mc-trocr.trocr-editor", css)
         self.assertIn('.trocr-editor[data-flow="upload"] .mc-trocr-main', css)
         self.assertIn(".trocr-editor .mc-trocr-main {\n  grid-area:3 / 2 / 4 / 3;\n  display:grid;", css)
         self.assertIn(".trocr-editor .trocr-desk {\n  align-self:stretch;", css)
-        for shared_color in ("#e2e6ec", "#a2adbb", "#383e48", "#20242b", "#292e36", "#4bd1ae", "#1e4941"):
-            with self.subTest(shared_color=shared_color):
-                self.assertIn(shared_color, css)
-                self.assertIn(shared_color, video_css)
+        for token in ("--tr-ink:#ececec", "--tr-muted:#b4b4b4", "--tr-floor:#212121", "--tr-accent:#58d39a"):
+            with self.subTest(token=token):
+                self.assertIn(token, css)
         self.assertIn("Envie uma peça para começar", page)
         self.assertIn("Nova peça", page)
         self.assertIn("Elementos clicáveis", page)
@@ -129,3 +127,18 @@ class TrocrEditorDraftTest(unittest.TestCase):
         self.assertIn("/discard", source)
         self.assertIn("--tr-floor:#212121", css)
         self.assertIn("color-scheme:dark", css)
+
+    def test_trocr_styles_have_one_dark_contract_and_no_retired_navigation(self):
+        root = Path(__file__).resolve().parents[1]
+        editor_css = (root / "aicentralv2" / "static" / "css" / "trocr-editor.css").read_text(encoding="utf-8")
+        standalone_css = (root / "aicentralv2" / "static" / "css" / "trocr-standalone.css").read_text(encoding="utf-8")
+        page = (root / "aicentralv2" / "templates" / "cadu_studio" / "trocr.html").read_text(encoding="utf-8")
+        self.assertEqual(editor_css.count("color-scheme:dark"), 1)
+        self.assertNotIn("color-scheme:light", editor_css)
+        self.assertNotIn("Final light-surface cascade", editor_css)
+        self.assertNotIn("Final layout cascade", editor_css)
+        self.assertNotIn(".trocr-product-bar", standalone_css)
+        self.assertNotIn("body.portal--studio", standalone_css)
+        self.assertIn("#mcTrocrClipCompare", standalone_css)
+        self.assertIn("trocr-editor.css') }}?v=16", page)
+        self.assertIn("trocr-standalone.css') }}?v=6", page)

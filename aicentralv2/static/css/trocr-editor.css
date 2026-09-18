@@ -1,10 +1,10 @@
-/* A bright creative desk: the artwork is the visual anchor, not the chrome. */
+/* One dark Studio contract: the artwork is the visual anchor, not the chrome. */
 :is(.mc-shell,.trocr-product)[data-mc-page="trocar"] {
-  --tr-ink:#17212b; --tr-muted:#657481; --tr-subtle:#40505c;
-  --tr-border:#dbe3e8; --tr-control:#f5f8f9;
-  --tr-panel:#ffffff; --tr-floor:#f4f7f8; --tr-canvas:#edf2f3;
-  --tr-accent:#087f6b; --tr-selected:#dff4ec;
-  color-scheme:light;
+  --tr-ink:#ececec; --tr-muted:#b4b4b4; --tr-subtle:#d2d2d2;
+  --tr-border:#4a4a4a; --tr-control:#383838;
+  --tr-panel:#2f2f2f; --tr-floor:#212121; --tr-canvas:#262626;
+  --tr-accent:#58d39a; --tr-selected:#25483a;
+  color-scheme:dark;
 }
 /* Scoped workspace: shared Studio styles and other desks remain independent. */
 :is(.mc-shell,.trocr-product) .mc-trocr.trocr-editor {
@@ -260,134 +260,6 @@
 @keyframes trocr-selection-glow { 0%,100% { opacity:.8; } 50% { opacity:1; } }
 @media(prefers-reduced-motion:reduce) { .trocr-mask-overlay { animation:none; } }
 
-/* Mature agent desk: one calm conversation beside a large, neutral stage. */
-.trocr-editor .mc-trocr-pagehead { background:#fff; border-bottom:1px solid var(--tr-border); }
-.trocr-editor .mc-trocr-pagehead h1 { color:var(--tr-ink); font-size:16px; }
-.trocr-editor #trocrCompactState { background:#edf8f4; border-color:#ccecdf; color:#087f6b; border-radius:999px; }
-.trocr-editor .mc-trocr-main,.trocr-editor .mc-trocr-canvas { background:#f4f7f8; }
-.trocr-editor .mc-trocr-stage { background:#edf2f3; border-color:#dce5e8; border-radius:12px; }
-.trocr-editor .mc-swap-preview { padding:clamp(20px,4vh,50px); }
-.trocr-editor .mc-trocr-frame { background:#fff; box-shadow:0 18px 45px #2644541f; }
-.trocr-editor .mc-trocr-base-meta { color:#657481; }
-.trocr-editor .mc-trocr-canvas-tools button { background:#fff; color:#40505c; border-color:#dbe3e8; border-radius:999px; }
-.trocr-editor .mc-trocr-canvas-tools button[aria-pressed="true"] { background:#dff4ec; color:#087f6b; border-color:#9bd9c5; }
-.trocr-editor .trocr-desk { background:#fff; border-color:#dbe3e8; box-shadow:0 16px 40px #2644541c; }
-.trocr-editor .trocr-panel-tabs { display:none; }
-.trocr-editor .mc-trocr-order { padding:18px; background:#fff; }
-.trocr-editor .trocr-agent-heading { padding-bottom:12px; border-bottom:1px solid #edf1f3; }
-.trocr-editor .trocr-agent-mark { background:#dff4ec; color:#087f6b; }
-.trocr-editor .trocr-agent-input textarea { background:#f7fafb; border-color:#dbe3e8; color:#17212b; }
-.trocr-editor .trocr-agent-actions .mc-trocr-text-cta { background:#fff; color:#087f6b; border-color:#bfe4d7; }
-.trocr-editor .trocr-agent-actions .cx-btn-primary,
-.trocr-editor .mc-trocr-generate .mc-trocr-actions .cx-btn-primary { background:#087f6b; border-color:#087f6b; color:#fff; box-shadow:0 8px 18px #087f6b2e; }
-.trocr-editor .mc-trocr-route { background:#f1faf6; border-color:#bde3d3; border-radius:10px; }
-.trocr-editor .mc-trocr-route-name { color:#17212b; }
-.trocr-editor .mc-trocr-route-copy,.trocr-editor .mc-trocr-status { color:#657481; }
-.trocr-editor .trocr-generation-footer { background:#fff; border-top-color:#edf1f3; padding:12px 18px 18px; }
-.trocr-editor .mc-trocr-cost { color:#80909b; font-size:10px; text-align:center; margin:0; }
-.trocr-editor .trocr-elements { background:#fff; border-color:#dbe3e8; }
-.trocr-editor .trocr-elements > header { background:#fff; }
-.trocr-editor .trocr-element-row { background:#fff; border-color:#edf1f3; color:#17212b; }
-.trocr-editor .trocr-element-row:hover { background:#f4fbf8; border-color:#bfe4d7; }
-.trocr-editor .trocr-element-icon { background:#f4f7f8; border-color:#dbe3e8; color:#087f6b; }
-.trocr-editor .trocr-element-copy small,.trocr-editor .trocr-sidebar-intro { color:#657481; }
-.trocr-editor .trocr-element-box { border-color:#087f6bc0; background:#087f6b10; }
-.trocr-editor .trocr-element-box:hover,.trocr-editor .trocr-element-box[aria-pressed="true"] { border-color:#087f6b; background:#087f6b20; box-shadow:0 0 0 3px #ffffffcc; }
-.trocr-editor .trocr-element-box.is-selection-focus { z-index:9; border:2px solid var(--trocr-selection-color,#087f6b); background:color-mix(in srgb,var(--trocr-selection-color,#087f6b) 20%,transparent); box-shadow:0 0 0 999px #17212b30,0 0 0 4px #ffffffd9; animation:trocr-selection-confirm .52s ease-out 1; }
-.trocr-editor .trocr-element-box.is-selection-focus[data-selection="manual"] { border-style:dashed; background:repeating-linear-gradient(135deg,#087f6b18 0 10px,#ffffff18 10px 20px); }
-.trocr-editor .trocr-element-box.is-selection-focus::after { content:'Área que será alterada'; position:absolute; left:0; top:-28px; width:max-content; max-width:220px; padding:4px 7px; border-radius:999px; background:var(--trocr-selection-color,#087f6b); color:#fff; font:600 11px/1.2 Inter,sans-serif; white-space:nowrap; box-shadow:0 4px 14px #17212b2e; }
-.trocr-editor .trocr-element-box.is-selection-focus[data-selection="manual"]::after { content:'Delimite este recorte'; }
-@keyframes trocr-selection-confirm { 0% { transform:scale(.96); opacity:.25; } 60% { transform:scale(1.015); } 100% { transform:scale(1); opacity:1; } }
-@media (prefers-reduced-motion:reduce) { .trocr-editor .trocr-element-box.is-selection-focus { animation:none; } }
-.trocr-editor .trocr-format-tray { display:none; }
-.trocr-editor .mc-trocr-inspector { background:#fff; color:#17212b; }
-.trocr-editor .mc-trocr-inspector .cx-input,.trocr-editor .mc-trocr-inspector .cx-select { background:#f7fafb; color:#17212b; border-color:#dbe3e8; }
-
-/* Final editorial overrides: one calm surface, one decision at a time. */
-.trocr-editor .mc-trocr-main,
-.trocr-editor .mc-trocr-canvas,
-.trocr-editor .trocr-desk,
-.trocr-editor .mc-trocr-order,
-.trocr-editor .trocr-desk > [role="tabpanel"] { background:var(--tr-floor); }
-.trocr-editor .mc-trocr-canvas {
-  display:grid;
-  grid-template-rows:auto auto auto minmax(0, 1fr);
-  min-height:0;
-  padding:10px 16px 16px;
-}
-.trocr-editor .mc-trocr-stage,
-.trocr-editor .mc-trocr-stage.has-image {
-  display:grid;
-  place-items:center;
-  align-content:center;
-  min-height:0;
-  padding:clamp(16px, 3vh, 32px);
-  background:var(--tr-canvas);
-}
-.trocr-editor .mc-trocr-stage .mc-swap-preview { margin:auto; }
-.trocr-editor .trocr-canvas-selection-hint {
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  width:max-content;
-  max-width:100%;
-  margin:2px 0 6px;
-  padding:5px 8px;
-  border:0;
-  border-radius:999px;
-  background:#075f54;
-  color:#f4fffc;
-  font-size:11px;
-  font-weight:600;
-  line-height:1.25;
-}
-.trocr-editor .trocr-canvas-selection-hint span { color:#9ff2d8; }
-.trocr-editor .trocr-desk { box-shadow:none; }
-.trocr-editor .mc-trocr-order { padding:16px; }
-.trocr-editor .mc-trocr-section,
-.trocr-editor .trocr-agent-heading,
-.trocr-editor .trocr-generation-footer { border:0; }
-.trocr-editor .trocr-agent-composer { padding:0; }
-.trocr-editor .trocr-agent-heading { padding:0; }
-.trocr-editor .trocr-agent-heading h2 { display:flex; align-items:baseline; gap:6px; }
-.trocr-editor .trocr-agent-heading h2 span { color:var(--tr-muted); font-size:11px; font-weight:500; }
-.trocr-editor .trocr-agent-heading .mc-trocr-help { margin:2px 0 10px; font-size:11px; }
-.trocr-editor .trocr-agent-input textarea { min-height:100px; background:#fff; }
-.trocr-editor .trocr-agent-actions { gap:8px; margin-top:10px; }
-.trocr-editor .trocr-agent-actions .mc-trocr-text-cta { min-height:34px; }
-.trocr-editor .trocr-agent-actions .cx-btn { min-height:38px; border-radius:7px; box-shadow:none; }
-.trocr-editor .trocr-agent-shortcut { display:none; }
-.trocr-editor .mc-trocr-route-block { margin-top:12px; padding-top:12px; border-top:1px solid #dbe3e8; }
-.trocr-editor .mc-trocr-route { padding:0; border:0; border-radius:0; background:transparent; }
-.trocr-editor .mc-trocr-route-name { font-size:12px; }
-.trocr-editor .mc-trocr-route-copy,
-.trocr-editor .mc-trocr-status,
-.trocr-editor .mc-trocr-reference-chain { font-size:10px; line-height:1.4; }
-.trocr-editor .mc-trocr-status { margin:8px 0 0; }
-.trocr-editor .mc-trocr-force { position:relative; display:inline-flex; align-items:center; min-height:30px; margin-top:8px; padding:0 10px; border:1px solid #bfe4d7; border-radius:999px; background:#fff; color:#087f6b; font-size:11px; cursor:pointer; }
-.trocr-editor .mc-trocr-force input { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
-.trocr-editor .mc-trocr-force:has(input:checked) { border-color:#087f6b; background:#dff4ec; }
-.trocr-editor .trocr-generation-footer { margin-top:auto; padding:12px 16px 16px; background:var(--tr-floor); }
-.trocr-editor .mc-trocr-cost { margin:0 0 8px; }
-.trocr-editor .mc-trocr-reference-chain { margin:0 0 8px; }
-.trocr-editor .mc-trocr-actions { gap:8px; }
-.trocr-editor .mc-trocr-actions .cx-btn { min-height:38px; border-radius:7px; }
-
-/* Studio dark contract. This final scoped layer intentionally wins over the
-   retired light editor skin while preserving the editor's layout. */
-:is(.mc-shell,.trocr-product)[data-mc-page="trocar"] {
-  --tr-ink:#ececec;
-  --tr-muted:#b4b4b4;
-  --tr-subtle:#d2d2d2;
-  --tr-border:#4a4a4a;
-  --tr-control:#383838;
-  --tr-panel:#2f2f2f;
-  --tr-floor:#212121;
-  --tr-canvas:#262626;
-  --tr-accent:#58d39a;
-  --tr-selected:#25483a;
-  color-scheme:dark;
-}
 .trocr-editor,
 .trocr-editor .mc-trocr-main,
 .trocr-editor .mc-trocr-canvas,
@@ -514,21 +386,21 @@
 .trocr-editor .trocr-agent-heading h2 { display:flex; align-items:baseline; gap:6px; }
 .trocr-editor .trocr-agent-heading h2 span { color:var(--tr-muted); font-size:11px; font-weight:500; }
 .trocr-editor .trocr-agent-heading .mc-trocr-help { margin:2px 0 10px; font-size:11px; }
-.trocr-editor .trocr-agent-input textarea { min-height:100px; background:#fff; }
+.trocr-editor .trocr-agent-input textarea { min-height:100px; background:var(--tr-control); }
 .trocr-editor .trocr-agent-actions { gap:8px; margin-top:10px; }
 .trocr-editor .trocr-agent-actions .mc-trocr-text-cta { min-height:34px; }
 .trocr-editor .trocr-agent-actions .cx-btn { min-height:38px; border-radius:7px; box-shadow:none; }
 .trocr-editor .trocr-agent-shortcut { display:none; }
-.trocr-editor .mc-trocr-route-block { margin-top:12px; padding-top:12px; border-top:1px solid #dbe3e8; }
+.trocr-editor .mc-trocr-route-block { margin-top:12px; padding-top:12px; border-top:1px solid var(--tr-border); }
 .trocr-editor .mc-trocr-route { padding:0; border:0; border-radius:0; background:transparent; }
 .trocr-editor .mc-trocr-route-name { font-size:12px; }
 .trocr-editor .mc-trocr-route-copy,
 .trocr-editor .mc-trocr-status,
 .trocr-editor .mc-trocr-reference-chain { font-size:10px; line-height:1.4; }
 .trocr-editor .mc-trocr-status { margin:8px 0 0; }
-.trocr-editor .mc-trocr-force { position:relative; display:inline-flex; align-items:center; min-height:30px; margin-top:8px; padding:0 10px; border:1px solid #bfe4d7; border-radius:999px; background:#fff; color:#087f6b; font-size:11px; cursor:pointer; }
+.trocr-editor .mc-trocr-force { position:relative; display:inline-flex; align-items:center; min-height:30px; margin-top:8px; padding:0 10px; border:1px solid var(--tr-border); border-radius:999px; background:var(--tr-control); color:var(--tr-ink); font-size:11px; cursor:pointer; }
 .trocr-editor .mc-trocr-force input { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
-.trocr-editor .mc-trocr-force:has(input:checked) { border-color:#087f6b; background:#dff4ec; }
+.trocr-editor .mc-trocr-force:has(input:checked) { border-color:var(--tr-accent); background:var(--tr-selected); color:var(--tr-accent); }
 .trocr-editor .trocr-generation-footer { margin-top:auto; padding:12px 16px 16px; background:var(--tr-floor); }
 .trocr-editor .mc-trocr-cost { margin:0 0 8px; }
 .trocr-editor .mc-trocr-reference-chain { margin:0 0 8px; }
@@ -536,8 +408,8 @@
 .trocr-editor .mc-trocr-actions .cx-btn { min-height:38px; border-radius:7px; }
 
 .trocr-editor .trocr-selection-agent-actions { display:grid; gap:6px; margin-top:10px; }
-.trocr-editor .trocr-selection-agent-actions .cx-btn { background:#f4fbf8; border-color:#bfe4d7; color:#087f6b; text-align:left; }
-.trocr-editor .trocr-selection-agent-actions .cx-btn:hover { background:#dff4ec; }
+.trocr-editor .trocr-selection-agent-actions .cx-btn { background:var(--tr-control); border-color:var(--tr-border); color:var(--tr-ink); text-align:left; }
+.trocr-editor .trocr-selection-agent-actions .cx-btn:hover { background:var(--tr-selected); border-color:var(--tr-accent); color:var(--tr-accent); }
 .trocr-editor .mc-trocr-canvas-bar { flex-wrap:nowrap; }
 .trocr-editor .mc-trocr-canvas-tools { flex:1;min-width:0;flex-wrap:nowrap;overflow-x:auto; }
 .trocr-editor .mc-trocr-canvas-tools>* { flex-shrink:0; }
@@ -990,77 +862,3 @@
   .trocr-editor[data-flow="upload"] .mc-trocr-canvas { padding:16px; }
   .trocr-editor .mc-swap-drop { min-height:300px; padding:28px 22px; }
 }
-
-/* Legacy palette markers retained for visual-regression fixture compatibility:
-   #e2e6ec #a2adbb #383e48 #20242b #292e36 #4bd1ae #1e4941 */
-/* Final light-surface cascade. It deliberately follows the legacy Studio skin. */
-:is(.mc-shell,.trocr-product)[data-mc-page="trocar"] { color-scheme:light; }
-.trocr-editor .mc-trocr-pagehead { background:#fff; border-bottom:1px solid #dbe3e8; }
-.trocr-editor .mc-trocr-main,.trocr-editor .mc-trocr-canvas { background:#f4f7f8; }
-.trocr-editor .mc-trocr-stage { background:#edf2f3; border-color:#dce5e8; border-radius:12px; }
-.trocr-editor .mc-swap-preview { padding:clamp(20px,4vh,50px); }
-.trocr-editor .mc-trocr-frame { background:#fff; box-shadow:0 18px 45px #2644541f; }
-.trocr-editor .mc-trocr-canvas-tools button { background:#fff; color:#40505c; border-color:#dbe3e8; border-radius:999px; }
-.trocr-editor .mc-trocr-canvas-tools button[aria-pressed="true"] { background:#dff4ec; color:#087f6b; border-color:#9bd9c5; }
-.trocr-editor .trocr-desk { background:#fff; border-color:#dbe3e8; box-shadow:0 16px 40px #2644541c; }
-.trocr-editor .trocr-panel-tabs { display:none; }
-.trocr-editor .mc-trocr-order { padding:18px; background:#fff; }
-.trocr-editor .trocr-agent-heading { padding-bottom:12px; border-bottom:1px solid #edf1f3; }
-.trocr-editor .trocr-agent-mark { background:#dff4ec; color:#087f6b; }
-.trocr-editor .trocr-agent-input textarea { background:#f7fafb; border-color:#dbe3e8; color:#17212b; }
-.trocr-editor .trocr-agent-actions .mc-trocr-text-cta { background:#fff; color:#087f6b; border-color:#bfe4d7; }
-.trocr-editor .trocr-agent-actions .cx-btn-primary,
-.trocr-editor .mc-trocr-generate .mc-trocr-actions .cx-btn-primary { background:#087f6b; border-color:#087f6b; color:#fff; box-shadow:0 8px 18px #087f6b2e; }
-.trocr-editor .mc-trocr-route { background:#f1faf6; border-color:#bde3d3; border-radius:10px; }
-.trocr-editor .mc-trocr-route-name { color:#17212b; }
-.trocr-editor .mc-trocr-route-copy,.trocr-editor .mc-trocr-status { color:#657481; }
-.trocr-editor .trocr-generation-footer { background:#fff; border-top-color:#edf1f3; padding:12px 18px 18px; }
-.trocr-editor .mc-trocr-cost { color:#80909b; font-size:10px; text-align:center; margin:0; }
-.trocr-editor .trocr-elements { background:#fff; border-color:#dbe3e8; }
-.trocr-editor .trocr-elements > header { background:#fff; }
-.trocr-editor .trocr-element-row { background:#fff; border-color:#edf1f3; color:#17212b; }
-.trocr-editor .trocr-element-row:hover { background:#f4fbf8; border-color:#bfe4d7; }
-.trocr-editor .trocr-element-icon { background:#f4f7f8; border-color:#dbe3e8; color:#087f6b; }
-.trocr-editor .trocr-element-copy small,.trocr-editor .trocr-sidebar-intro { color:#657481; }
-.trocr-editor .trocr-element-box { border-color:#087f6bc0; background:#087f6b10; }
-.trocr-editor .trocr-element-box:hover,.trocr-editor .trocr-element-box[aria-pressed="true"] { border-color:#087f6b; background:#087f6b20; box-shadow:0 0 0 3px #ffffffcc; }
-.trocr-editor .trocr-format-tray { display:none; }
-.trocr-editor .mc-trocr-inspector { background:#fff; color:#17212b; }
-.trocr-editor .mc-trocr-inspector .cx-input,.trocr-editor .mc-trocr-inspector .cx-select { background:#f7fafb; color:#17212b; border-color:#dbe3e8; }
-
-/* Final layout cascade: deliberately after the legacy Studio skin. */
-.trocr-editor .mc-trocr-main,
-.trocr-editor .mc-trocr-canvas,
-.trocr-editor .trocr-desk,
-.trocr-editor .mc-trocr-order,
-.trocr-editor .trocr-desk > [role="tabpanel"] { background:var(--tr-floor); }
-.trocr-editor .mc-trocr-canvas { display:grid; grid-template-rows:auto auto auto minmax(0, 1fr); min-height:0; padding:10px 16px 16px; }
-.trocr-editor .mc-trocr-stage,.trocr-editor .mc-trocr-stage.has-image { display:grid; place-items:center; align-content:center; min-height:0; padding:clamp(16px, 3vh, 32px); background:var(--tr-canvas); }
-.trocr-editor .mc-trocr-stage .mc-swap-preview { margin:auto; }
-.trocr-editor .trocr-canvas-selection-hint { display:inline-flex; align-items:center; gap:6px; width:max-content; max-width:100%; margin:2px 0 6px; padding:5px 8px; border:0; border-radius:999px; background:#075f54; color:#f4fffc; font-size:11px; font-weight:600; line-height:1.25; }
-.trocr-editor .trocr-canvas-selection-hint span { color:#9ff2d8; }
-.trocr-editor .trocr-desk { box-shadow:none; }
-.trocr-editor .mc-trocr-order { padding:16px; }
-.trocr-editor .mc-trocr-section,.trocr-editor .trocr-agent-heading,.trocr-editor .trocr-generation-footer { border:0; }
-.trocr-editor .trocr-agent-composer,.trocr-editor .trocr-agent-heading { padding:0; }
-.trocr-editor .trocr-agent-heading h2 { display:flex; align-items:baseline; gap:6px; }
-.trocr-editor .trocr-agent-heading h2 span { color:var(--tr-muted); font-size:11px; font-weight:500; }
-.trocr-editor .trocr-agent-heading .mc-trocr-help { margin:2px 0 10px; font-size:11px; }
-.trocr-editor .trocr-agent-input textarea { min-height:100px; background:#fff; }
-.trocr-editor .trocr-agent-actions { gap:8px; margin-top:10px; }
-.trocr-editor .trocr-agent-actions .mc-trocr-text-cta { min-height:34px; }
-.trocr-editor .trocr-agent-actions .cx-btn { min-height:38px; border-radius:7px; box-shadow:none; }
-.trocr-editor .trocr-agent-shortcut { display:none; }
-.trocr-editor .mc-trocr-route-block { margin-top:12px; padding-top:12px; border-top:1px solid #dbe3e8; }
-.trocr-editor .mc-trocr-route { padding:0; border:0; border-radius:0; background:transparent; }
-.trocr-editor .mc-trocr-route-name { font-size:12px; }
-.trocr-editor .mc-trocr-route-copy,.trocr-editor .mc-trocr-status,.trocr-editor .mc-trocr-reference-chain { font-size:10px; line-height:1.4; }
-.trocr-editor .mc-trocr-status { margin:8px 0 0; }
-.trocr-editor .mc-trocr-force { position:relative; display:inline-flex; align-items:center; min-height:30px; margin-top:8px; padding:0 10px; border:1px solid #bfe4d7; border-radius:999px; background:#fff; color:#087f6b; font-size:11px; cursor:pointer; }
-.trocr-editor .mc-trocr-force input { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
-.trocr-editor .mc-trocr-force:has(input:checked) { border-color:#087f6b; background:#dff4ec; }
-.trocr-editor .trocr-generation-footer { margin-top:auto; padding:12px 16px 16px; background:var(--tr-floor); }
-.trocr-editor .mc-trocr-cost { margin:0 0 8px; }
-.trocr-editor .mc-trocr-reference-chain { margin:0 0 8px; }
-.trocr-editor .mc-trocr-actions { gap:8px; }
-.trocr-editor .mc-trocr-actions .cx-btn { min-height:38px; border-radius:7px; }

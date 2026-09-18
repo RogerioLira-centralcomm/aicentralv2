@@ -158,6 +158,7 @@ class Config:
 	STUDIO_DESIGNER_MONTHLY_SALARY_BRL = os.getenv('STUDIO_DESIGNER_MONTHLY_SALARY_BRL', '3500')
 	STUDIO_DESIGNER_MONTHLY_HOURS = os.getenv('STUDIO_DESIGNER_MONTHLY_HOURS', '220')
 	STUDIO_DESIGNER_CLT_FACTOR = os.getenv('STUDIO_DESIGNER_CLT_FACTOR', '1.7')
+	CADU_CREDIT_SALE_PRICE_BRL_PER_CREDIT = os.getenv('CADU_CREDIT_SALE_PRICE_BRL_PER_CREDIT', '8')
 	# Um único endereço operacional no Brevo; o nome e a identidade visual
 	# mudam por produto. Workspace é dono dos e-mails de acesso e senha.
 	BREVO_WORKSPACE_SENDER_NAME = os.getenv('BREVO_WORKSPACE_SENDER_NAME', 'Cadu Workspace')

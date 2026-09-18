@@ -26,7 +26,7 @@ LISTA_USUARIOS_INATIVOS = 23
 # A assinatura é única (contato@centralcomm.media); a aparência identifica o produto.
 PRODUCT_EMAIL_BRANDS = {
     "workspace": {"name": "Workspace", "accent": "#007D6D", "deep": "#10213B", "soft": "#E9F6F3", "signal": "#009F8A", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/workspace-192.png", "illustrations_url": "https://ai.centralcomm.media/static/emails/workspace/"},
-    "studio": {"name": "Media Studio", "accent": "#6344CF", "deep": "#10213B", "soft": "#F1EDFC", "signal": "#7456E8", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/studio-192.png"},
+    "studio": {"name": "Media Studio", "accent": "#6344CF", "deep": "#10213B", "soft": "#F1EDFC", "signal": "#7456E8", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/studio-192.png", "logo_url": "https://ai.centralcomm.media/static/images/cadu/products/studio-icon.png"},
     "planner": {"name": "Smart Planner", "accent": "#087D4D", "deep": "#10213B", "soft": "#E8F7EF", "signal": "#18B978", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/planner-192.png"},
     "skills": {"name": "Skills", "accent": "#A94D08", "deep": "#10213B", "soft": "#FFF2E7", "signal": "#E87922", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/skills-192.png"},
     "connect": {"name": "Reports", "accent": "#1363C5", "deep": "#10213B", "soft": "#EAF2FD", "signal": "#1976E9", "icon_url": "https://ai.centralcomm.media/static/images/cadu/brand-icons/connect-192.png"},

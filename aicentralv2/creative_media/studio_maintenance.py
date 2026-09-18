@@ -96,6 +96,8 @@ class PostgresStudioMaintenance:
             "charged_credits": usage.get("charged_credits", snapshot.get("credits", 0)),
             "provider_tokens": usage.get("provider_tokens", 0),
             "internal_cost_usd": usage.get("internal_cost_usd", 0),
+            "sale_price_per_credit_brl": usage.get("sale_price_per_credit_brl", 0),
+            "sale_package_name": usage.get("sale_package_name", ""),
         })
         return {
             "recipient_email": row.get("recipient_email") or "",

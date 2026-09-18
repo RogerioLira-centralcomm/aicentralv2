@@ -105,23 +105,32 @@ class StudioSessionRepositoryTest(unittest.TestCase):
 
     def test_usage_summary_comes_from_charged_root_chain_rows(self):
         class Cursor:
+            def __init__(self):
+                self.sqls = []
+                self.params_list = []
+
             def execute(self, sql, params):
                 self.sql = sql
                 self.params = params
+                self.sqls.append(sql)
+                self.params_list.append(params)
 
-            @staticmethod
-            def fetchone():
+            def fetchone(self):
+                if "cadu_credit_packages" in self.sql:
+                    return {"name": "Pacote 100", "credits": 100, "price": "800.00"}
                 return {"provider_tokens": 1200, "charged_credits": 17200, "internal_cost_usd": "0.172"}
 
         cursor = Cursor()
         summary = studio_usage_summary(cursor, "root-1", 7)
 
-        self.assertIn("metadata->>'studio_root_session_id'", cursor.sql)
-        self.assertEqual(cursor.params, (7, "root-1"))
+        self.assertTrue(any("metadata->>'studio_root_session_id'" in sql for sql in cursor.sqls))
+        self.assertIn((7, "root-1"), cursor.params_list)
         self.assertEqual(summary, {
             "provider_tokens": 1200,
             "charged_credits": 17200,
             "internal_cost_usd": "0.172000",
+            "sale_price_per_credit_brl": "8.000000",
+            "sale_package_name": "Pacote 100",
         })
 
     def test_generated_attempt_counts_once_in_final_metrics(self):

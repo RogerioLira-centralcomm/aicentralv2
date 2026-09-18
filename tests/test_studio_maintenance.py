@@ -42,6 +42,8 @@ def test_completion_email_uses_dark_studio_template_and_real_metrics():
     assert captured["params"]["AI_CREDITS_USED"] == "18.420"
     assert captured["params"]["PROVIDER_TOKENS"] == "1.360"
     assert captured["params"]["AI_COST_USD"] == "US$ 0,1842"
+    assert captured["params"]["CREDIT_SALE_UNIT_BRL"] == "R$ 8,00"
+    assert captured["params"]["CREDIT_SALE_VALUE_BRL"] == "R$ 147.360,00"
     assert captured["params"]["DESIGNER_COST_BRL"] == "R$ 107,28"
     assert captured["params"]["ESTIMATED_MANUAL_TIME"] == "3h 58min"
 
@@ -75,4 +77,6 @@ def test_worker_source_rechecks_every_reference_before_physical_delete():
     assert "estimated_minutes_saved" in template
     assert "ai_credits_used" in template
     assert "designer_cost_brl" in template
+    assert "brand.logo_url" in template
+    assert "credit_sale_value_brl" in template
     assert "fator CLT" in template

@@ -106,10 +106,26 @@ def studio_usage_summary(cursor, root_session_id, user_id):
         cost = max(Decimal("0"), Decimal(str(row.get("internal_cost_usd") or 0)))
     except (InvalidOperation, TypeError, ValueError):
         cost = Decimal("0")
+    cursor.execute("""
+        SELECT name, credits, price
+          FROM cadu_credit_packages
+         WHERE is_active=true AND credits > 0 AND price >= 0
+         ORDER BY price / NULLIF(credits, 0), display_order, id
+         LIMIT 1
+    """, ())
+    package = dict(cursor.fetchone() or {})
+    try:
+        sale_price = max(Decimal("0"), Decimal(str(package.get("price") or 0)))
+        sale_credits = max(1, int(package.get("credits") or 1))
+        sale_unit = sale_price / Decimal(sale_credits)
+    except (InvalidOperation, TypeError, ValueError):
+        sale_unit = Decimal("0")
     return {
         "provider_tokens": max(0, int(row.get("provider_tokens") or 0)),
         "charged_credits": max(0, int(row.get("charged_credits") or 0)),
         "internal_cost_usd": format(cost.quantize(Decimal("0.000001")), "f"),
+        "sale_price_per_credit_brl": format(sale_unit.quantize(Decimal("0.000001")), "f"),
+        "sale_package_name": str(package.get("name") or ""),
     }
 
 

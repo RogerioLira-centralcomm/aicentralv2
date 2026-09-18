@@ -56,6 +56,11 @@ def studio_completion_estimates(metrics: dict) -> dict:
     hourly_employer_cost = (salary / monthly_hours) * clt_factor if monthly_hours else Decimal("0")
     designer_cost = hourly_employer_cost * Decimal(manual_minutes) / Decimal("60")
     internal_cost_usd = _decimal(data.get("internal_cost_usd"))
+    charged_credits = max(0, int(data.get("charged_credits") or data.get("credits") or 0))
+    sale_unit = _decimal(
+        data.get("sale_price_per_credit_brl")
+        or current_app.config.get("CADU_CREDIT_SALE_PRICE_BRL_PER_CREDIT", "8")
+    )
     return {
         "manual_minutes": manual_minutes,
         "manual_time_label": _duration_pt(manual_minutes),
@@ -63,9 +68,12 @@ def studio_completion_estimates(metrics: dict) -> dict:
         "designer_salary_brl": _money_pt(salary),
         "monthly_hours": int(monthly_hours),
         "clt_factor": str(clt_factor.normalize()).replace(".", ","),
-        "charged_credits": _number_pt(data.get("charged_credits") or data.get("credits") or 0),
+        "charged_credits": _number_pt(charged_credits),
         "provider_tokens": _number_pt(data.get("provider_tokens") or 0),
         "internal_cost_usd": _money_pt(internal_cost_usd, "US$", decimals=4),
+        "sale_unit_brl": _money_pt(sale_unit),
+        "sale_value_brl": _money_pt(sale_unit * Decimal(charged_credits)),
+        "sale_package_name": str(data.get("sale_package_name") or "pacote vigente"),
     }
 
 
@@ -109,6 +117,9 @@ def send_studio_work_completed(*, recipient_email: str, recipient_name: str, tit
             "AI_CREDITS_USED": estimates["charged_credits"],
             "PROVIDER_TOKENS": estimates["provider_tokens"],
             "AI_COST_USD": estimates["internal_cost_usd"],
+            "CREDIT_SALE_UNIT_BRL": estimates["sale_unit_brl"],
+            "CREDIT_SALE_VALUE_BRL": estimates["sale_value_brl"],
+            "CREDIT_SALE_PACKAGE": estimates["sale_package_name"],
             "DESIGNER_COST_BRL": estimates["designer_cost_brl"],
             "DESIGNER_SALARY_BRL": estimates["designer_salary_brl"],
             "DESIGNER_MONTHLY_HOURS": estimates["monthly_hours"],

@@ -37,6 +37,7 @@ def test_create_screen_exposes_unified_visual_workspace():
     assert "Editor avançado" in html
     assert "Rascunho pessoal" in html
     assert 'class="studio-workbar__center"' in html
+    assert 'class="studio-new-draft"' in html
     assert 'id="studioSessionSelect"' in html
     assert 'id="studioSaveNow"' in html
     assert 'id="studioFinish"' in html
@@ -45,6 +46,7 @@ def test_create_screen_exposes_unified_visual_workspace():
     assert 'id="studioPromptOptimization"' in html
     assert 'id="studioOriginalPrompt"' in html
     assert 'id="studioOptimizedPrompt"' in html
+    assert 'href="/static/css/cadu-studio-create.css?v=16"' in html
     assert 'src="/static/js/mc-studio-create.js?v=19"' in html
 
 
@@ -89,3 +91,4 @@ def test_studio_desks_keep_context_and_stage_controls_aligned():
     assert "transform:translate(-50%,-50%)" in create_css
     assert ".trocr-product .trocr-editor .mc-trocr-canvas-bar" in frame_css
     assert ".mc-video-studio .mc-cadu-video-stage-bar" in frame_css
+    assert ".studio-chat .studio-new-draft" in create_css

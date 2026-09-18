@@ -5,7 +5,7 @@
 {% block styles %}
 <meta name="trocr-csrf-token" content="{{ mc_trocr_csrf }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-navigation.css') }}?v=9">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-create.css') }}?v=15">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-create.css') }}?v=16">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-frame.css') }}?v=3">
 {% endblock %}
 {% block content %}
@@ -114,7 +114,7 @@
     </section>
 
     <aside class="studio-chat" id="studioChat" aria-label="Chat criativo">
-      <header><div><h2>Assistente de criação</h2><p id="studioCreateAgentContext">Crie e ajuste imagens na mesma conversa.</p></div><button type="button" id="studioNewDraft">Nova mesa</button><button type="button" class="studio-chat__close" id="studioChatClose" aria-label="Fechar chat">×</button></header>
+      <header><div><h2>Assistente de criação</h2><p id="studioCreateAgentContext">Crie e ajuste imagens na mesma conversa.</p></div><button type="button" class="studio-new-draft" id="studioNewDraft"><span aria-hidden="true">＋</span>Nova mesa</button><button type="button" class="studio-chat__close" id="studioChatClose" aria-label="Fechar chat">×</button></header>
       <div class="studio-chat__messages" id="studioChatMessages" aria-live="polite">
         <article class="studio-message studio-message--assistant"><div><strong>O que vamos criar?</strong><p>Descreva a ideia. Se você selecionar imagens, eu mostro exatamente o papel de cada uma antes de gerar.</p></div></article>
       </div>

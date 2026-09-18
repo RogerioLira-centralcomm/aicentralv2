@@ -8,10 +8,10 @@
 
 .mc-cadu-bar--studio,
 .mc-studio-home .mc-cadu-bar--studio {
-  --studio-nav-bg: #1d242c;
-  --studio-nav-hover: #2a343e;
-  --studio-nav-text: #f3f6f8;
-  --studio-nav-muted: #9eabb7;
+  --studio-nav-bg: #181a1d;
+  --studio-nav-hover: #292d35;
+  --studio-nav-text: #f3f4f6;
+  --studio-nav-muted: #b0b6c2;
   display: grid;
   grid-template-columns: 220px minmax(280px, 1fr) auto;
   align-items: center;
@@ -94,9 +94,9 @@
 .mc-cadu-bar--studio .mc-cadu-nav > a[aria-current="page"],
 .mc-cadu-bar--studio .mc-cadu-nav > a.is-current,
 .mc-cadu-bar--studio .mc-cadu-menu > summary.is-current {
-  background: #263b39;
-  color: #8fe8d1;
-  box-shadow: inset 0 0 0 1px rgba(143, 232, 209, .16);
+  background: rgba(139,124,246,.18);
+  color: #c7c0ff;
+  box-shadow: inset 0 -2px #8b7cf6;
 }
 
 .mc-cadu-bar--studio .mc-cadu-meta { display: flex; align-items: center; justify-self: end; gap: 8px; min-width: 0; }

@@ -73,6 +73,14 @@ body.portal--studio,
 .studio-create .studio-library { border-right-color: var(--studio-line); }
 .studio-create .studio-primary { background: var(--studio-accent); }
 .studio-create .studio-primary:hover { background: #9a8cff; }
+.studio-create :is(.studio-library__context span, .studio-library__section > p,
+  .studio-library__history p, .studio-chat header p, .studio-message p,
+  .studio-composer footer small) { font-size: 11px; line-height: 1.45; }
+.studio-create :is(.studio-library__context h2, .studio-section-title h2,
+  .studio-chat h2, .studio-message strong) { font-size: 13px; }
+.studio-create .studio-composer textarea { font-size: 13px; line-height: 1.5; }
+.studio-create .studio-composer__settings summary,
+.studio-create .studio-composer__settings label { font-size: 10px; }
 
 /* Edit: the canvas owns the middle column; inspector panels are not absolute
    children of the stage at desktop widths. */
@@ -125,6 +133,15 @@ body.portal--studio,
 }
 .trocr-product .trocr-editor .trocr-panel-tabs button[aria-selected="true"] { color: var(--studio-positive); box-shadow: inset 0 -2px var(--studio-positive); }
 .trocr-product .trocr-editor .mc-trocr-generate .cx-btn-primary { background: var(--studio-accent); border-color: var(--studio-accent); }
+.trocr-product .trocr-editor :is(.trocr-helper, .trocr-empty, .trocr-format-tray p,
+  .trocr-element-copy small, .mc-trocr-base-meta, #trocrSaveStatus) { color: #b0b6c2; }
+.trocr-product .trocr-editor :is(.trocr-panel-tabs button, .trocr-element-copy small,
+  .trocr-format-card small) { font-size: 12px; }
+.portal--studio .studio-analyzer,
+.portal--studio .mc-studio-home { color: var(--studio-ink); }
+.portal--studio .studio-analyzer :is(.analyzer-status, .analyzer-history > header > p,
+  .analyzer-card-body small, .analyzer-drop p) { color: #b0b6c2; }
+.portal--studio .studio-analyzer :is(input, select, textarea) { color-scheme: dark; }
 
 /* Keep the editor command surface in one place on small screens. */
 @media (max-width: 1180px) {

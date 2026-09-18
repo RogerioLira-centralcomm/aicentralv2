@@ -242,14 +242,16 @@ CREATE TABLE IF NOT EXISTS cx_studio_delivery_outbox (
     kind VARCHAR(40) NOT NULL DEFAULT 'first_finalization', status VARCHAR(24) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'sent', 'failed')),
     attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0), provider_message_id VARCHAR(180) NOT NULL DEFAULT '',
     payload JSONB NOT NULL DEFAULT '{}'::jsonb, last_error TEXT NOT NULL DEFAULT '', available_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    sent_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), UNIQUE (root_session_id, kind)
+    sent_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), UNIQUE (root_session_id, kind)
 );
+ALTER TABLE cx_studio_delivery_outbox ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 CREATE INDEX IF NOT EXISTS idx_cx_studio_delivery_outbox_pending ON cx_studio_delivery_outbox (available_at, created_at) WHERE status IN ('pending', 'failed');
 
 CREATE TABLE IF NOT EXISTS cx_studio_asset_deletions (
     id BIGSERIAL PRIMARY KEY, asset_id UUID NOT NULL UNIQUE REFERENCES cx_studio_assets(id) ON DELETE CASCADE,
     storage_key TEXT NOT NULL, status VARCHAR(24) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'deleted', 'failed', 'cancelled')),
     attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0), available_at TIMESTAMPTZ NOT NULL,
-    deleted_at TIMESTAMPTZ, last_error TEXT NOT NULL DEFAULT '', created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    deleted_at TIMESTAMPTZ, last_error TEXT NOT NULL DEFAULT '', created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE cx_studio_asset_deletions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 CREATE INDEX IF NOT EXISTS idx_cx_studio_asset_deletions_pending ON cx_studio_asset_deletions (available_at, created_at) WHERE status IN ('pending', 'failed');

@@ -107,6 +107,22 @@ class StudioSessionRepositoryTest(unittest.TestCase):
         self.assertEqual(accepted["status"], "ready")
         self.assertEqual(result["finalization"]["generation_count"], 1)
 
+    def test_discard_is_marked_for_delayed_deletion_and_restore_cancels_it(self):
+        self.repo = LocalSessionRepository(self.root, retention_seconds=0)
+        created = self.repo.create(31, 7, {"studio_type": "create"})
+        attempt = self.repo.accept(31, 7, created["id"], {
+            "role": "attempt", "asset_url": "/static/uploads/creative_generated/old.png",
+            "source_id": "old-version",
+        })
+        asset_id = attempt["assets"][0]["id"]
+        self.repo.discard(31, 7, created["id"], asset_id)
+        with sqlite3.connect(self.repo.path) as db:
+            queued = db.execute("SELECT storage_key,status FROM deletions WHERE asset_id=?", (asset_id,)).fetchone()
+            self.assertEqual(queued, ("/static/uploads/creative_generated/old.png", "pending"))
+        self.repo.discard(31, 7, created["id"], asset_id, restore=True)
+        with sqlite3.connect(self.repo.path) as db:
+            self.assertEqual(db.execute("SELECT status FROM deletions WHERE asset_id=?", (asset_id,)).fetchone()[0], "cancelled")
+
 
 class StudioSessionRouteTest(unittest.TestCase):
     def test_route_scope_csrf_conflict_and_authenticated_email(self):

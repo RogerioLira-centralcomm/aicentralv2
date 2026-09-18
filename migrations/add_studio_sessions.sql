@@ -134,8 +134,10 @@ CREATE TABLE IF NOT EXISTS cx_studio_delivery_outbox (
     available_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     sent_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (root_session_id, kind)
 );
+ALTER TABLE cx_studio_delivery_outbox ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 CREATE INDEX IF NOT EXISTS idx_cx_studio_delivery_outbox_pending
     ON cx_studio_delivery_outbox (available_at, created_at)
     WHERE status IN ('pending', 'failed');
@@ -150,8 +152,10 @@ CREATE TABLE IF NOT EXISTS cx_studio_asset_deletions (
     available_at TIMESTAMPTZ NOT NULL,
     deleted_at TIMESTAMPTZ,
     last_error TEXT NOT NULL DEFAULT '',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE cx_studio_asset_deletions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 CREATE INDEX IF NOT EXISTS idx_cx_studio_asset_deletions_pending
     ON cx_studio_asset_deletions (available_at, created_at)
     WHERE status IN ('pending', 'failed');

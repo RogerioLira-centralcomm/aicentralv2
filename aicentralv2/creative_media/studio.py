@@ -563,6 +563,12 @@ def _session_action(ident, action):
             data['recipient_email'] = str(session.get('user_email') or '').strip().lower()
             data['recipient_name'] = str(session.get('user_name') or '').strip()
             result = store.finalize(client_id, user_id, ident, data)
+            if current_app.config.get('STUDIO_PROJECTS_POSTGRES', False):
+                try:
+                    from .jobs import wake_worker
+                    wake_worker()
+                except Exception:
+                    logger.exception('Studio finalization queued, but the media worker was not awakened')
         elif action in {'discard', 'restore'}:
             result = store.discard(client_id, user_id, ident, str(data.get('asset_id') or ''), restore=action == 'restore')
         else:

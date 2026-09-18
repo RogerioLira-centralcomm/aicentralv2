@@ -148,6 +148,11 @@ class Config:
 	BREVO_API_KEY = os.getenv('BREVO_API_KEY', '')
 	BREVO_SENDER_NAME = os.getenv('BREVO_SENDER_NAME', 'Cadu')
 	BREVO_SENDER_EMAIL = os.getenv('BREVO_SENDER_EMAIL', 'contato@centralcomm.media')
+	# Product receipts are enabled automatically only when Brevo is configured;
+	# an explicit environment value can still mute every transactional product e-mail.
+	CADU_PRODUCT_EMAILS_ENABLED = os.getenv(
+		'CADU_PRODUCT_EMAILS_ENABLED', '1' if BREVO_API_KEY else '0'
+	).lower() in ('true', '1', 'yes', 'on')
 	# Um único endereço operacional no Brevo; o nome e a identidade visual
 	# mudam por produto. Workspace é dono dos e-mails de acesso e senha.
 	BREVO_WORKSPACE_SENDER_NAME = os.getenv('BREVO_WORKSPACE_SENDER_NAME', 'Cadu Workspace')

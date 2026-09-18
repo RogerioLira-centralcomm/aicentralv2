@@ -77,6 +77,17 @@ def run_once(app):
                 count += drain_tasks(root)
                 count += drain_exports(root)
                 try:
+                    if app.config.get('STUDIO_PROJECTS_POSTGRES', False):
+                        from .. import db
+                        from .schema import ensure_schema
+                        from .studio_maintenance import drain_studio_maintenance
+                        connection = db.get_db()
+                        ensure_schema(connection)
+                        maintenance = drain_studio_maintenance(connection, limit=10)
+                        count += maintenance['emails'] + maintenance['assets'] + maintenance['failed']
+                except Exception:
+                    log.exception('Studio delivery or cleanup queue unavailable')
+                try:
                     from ..creative_modeling_routes import _service
                     service = _service()._format_lab()._animate()
                     from .studio_push import deliver

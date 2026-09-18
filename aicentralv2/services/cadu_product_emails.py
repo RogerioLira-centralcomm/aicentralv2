@@ -28,6 +28,28 @@ def send_piece_ready(*, recipient_email: str, recipient_name: str, title: str, u
     )
 
 
+def send_studio_work_completed(*, recipient_email: str, recipient_name: str, title: str,
+                               asset_url: str, studio_url: str, metrics: dict) -> dict:
+    """Send the immutable first-finalization receipt for a Studio work chain."""
+    if not recipient_email or not _enabled():
+        return {"success": True, "skipped": True}
+    data = metrics if isinstance(metrics, dict) else {}
+    return get_brevo_product_service("studio").enviar_email_com_template(
+        template_name="studio-trabalho-finalizado.html", template_folder="emails/externos",
+        to_email=recipient_email, to_name=recipient_name or "Pessoa criadora",
+        subject=f"Seu trabalho “{title or 'Studio'}” foi finalizado",
+        params={
+            "BRAND": product_email_brand("studio"), "TITLE": title or "Trabalho finalizado",
+            "ASSET_URL": asset_url, "STUDIO_URL": studio_url,
+            "GENERATION_COUNT": max(0, int(data.get("generation_count") or 0)),
+            "EDIT_COUNT": max(0, int(data.get("edit_count") or 0)),
+            "FORMAT_COUNT": max(0, int(data.get("format_count") or 0)),
+            "HANDOFF_COUNT": max(0, int(data.get("handoff_count") or 0)),
+            "ESTIMATED_MINUTES_SAVED": max(0, int(data.get("estimated_minutes_saved") or 0)),
+        },
+    )
+
+
 def send_brand_audit_ready(*, recipient_email: str, recipient_name: str, brand_name: str,
                            summary: str, differentiators: list[str], url: str) -> dict:
     """Notify the requester only after a reviewable brand proposal is ready."""

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import time
 import uuid
@@ -27,6 +28,8 @@ TRANSITIONS = {
     "cancelled": {"archived"},
     "archived": set(),
 }
+DISCARD_RETENTION_SECONDS = max(0, int(os.getenv("STUDIO_DISCARD_RETENTION_SECONDS", "604800")))
+DELETABLE_PREFIXES = ("/static/uploads/creative_generated/", "/static/uploads/creative_references/")
 
 
 class SessionConflict(ValueError):
@@ -98,8 +101,9 @@ def public_session(row, assets=None, finalization=None):
 class LocalSessionRepository:
     """SQLite fallback used by local development and isolated tests."""
 
-    def __init__(self, root):
+    def __init__(self, root, retention_seconds=None):
         self.path = root / "studio-sessions.sqlite3"
+        self.retention_seconds = DISCARD_RETENTION_SECONDS if retention_seconds is None else max(0, int(retention_seconds))
         root.mkdir(parents=True, exist_ok=True)
         self.ensure()
 
@@ -157,8 +161,16 @@ class LocalSessionRepository:
                 CREATE TABLE IF NOT EXISTS outbox (
                     id TEXT PRIMARY KEY, root_session_id TEXT NOT NULL, finalization_id TEXT NOT NULL,
                     recipient_email TEXT NOT NULL, recipient_name TEXT NOT NULL, kind TEXT NOT NULL,
-                    status TEXT NOT NULL, attempts INTEGER NOT NULL, payload TEXT NOT NULL, created_at REAL NOT NULL,
+                    status TEXT NOT NULL, attempts INTEGER NOT NULL, provider_message_id TEXT NOT NULL,
+                    payload TEXT NOT NULL, last_error TEXT NOT NULL, available_at REAL NOT NULL,
+                    sent_at REAL, created_at REAL NOT NULL,
                     UNIQUE(root_session_id, kind)
+                );
+                CREATE TABLE IF NOT EXISTS deletions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, asset_id TEXT NOT NULL UNIQUE,
+                    storage_key TEXT NOT NULL, status TEXT NOT NULL, attempts INTEGER NOT NULL,
+                    available_at REAL NOT NULL, deleted_at REAL, last_error TEXT NOT NULL,
+                    created_at REAL NOT NULL
                 );
             """)
 
@@ -262,6 +274,7 @@ class LocalSessionRepository:
             db.execute("INSERT OR IGNORE INTO session_assets VALUES (?,?,?,?,?)", (ident, asset, role, int(payload.get("position") or 0), now))
             if role in {"accepted", "base"}:
                 db.execute("UPDATE assets SET status='accepted', updated_at=? WHERE id=?", (now, asset))
+                db.execute("UPDATE deletions SET status='cancelled', last_error='' WHERE asset_id=? AND status IN ('pending','failed')", (asset,))
                 db.execute("UPDATE sessions SET active_asset_id=?, base_asset_id=?, status='ready', revision=revision+1, updated_at=? WHERE id=?",
                            (asset, asset, now, ident))
                 self._event(db, ident, "asset_accepted" if role == "accepted" else "base_changed", payload={"asset_id": asset})
@@ -309,11 +322,21 @@ class LocalSessionRepository:
             if restore:
                 db.execute("DELETE FROM session_assets WHERE session_id=? AND asset_id=? AND role='discard'", (ident, asset_id))
                 db.execute("UPDATE assets SET status='working', updated_at=? WHERE id=? AND status='discarded'", (now, asset_id))
+                db.execute("UPDATE deletions SET status='cancelled', last_error='' WHERE asset_id=? AND status IN ('pending','failed')", (asset_id,))
             else:
                 if asset_id in {session["active_asset_id"], session["base_asset_id"]}:
                     raise ValueError("A peça ativa não pode ser descartada.")
                 db.execute("INSERT OR IGNORE INTO session_assets VALUES (?,?,?,?,?)", (ident, asset_id, "discard", 0, now))
                 db.execute("UPDATE assets SET status='discarded', updated_at=? WHERE id=?", (now, asset_id))
+                asset = db.execute("SELECT storage_key FROM assets WHERE id=?", (asset_id,)).fetchone()
+                storage_key = str(asset["storage_key"] or "") if asset else ""
+                if storage_key.startswith(DELETABLE_PREFIXES):
+                    db.execute("""
+                        INSERT INTO deletions(asset_id,storage_key,status,attempts,available_at,deleted_at,last_error,created_at)
+                        VALUES (?,?,'pending',0,?,NULL,'',?)
+                        ON CONFLICT(asset_id) DO UPDATE SET storage_key=excluded.storage_key,status='pending',
+                            available_at=excluded.available_at,deleted_at=NULL,last_error=''
+                    """, (asset_id, storage_key, now + self.retention_seconds, now))
             self._event(db, ident, "asset_restored" if restore else "trash_marked", payload={"asset_id": asset_id})
         return self.read(client_id, user_id, ident)
 
@@ -332,7 +355,8 @@ class LocalSessionRepository:
             asset = db.execute("SELECT * FROM assets WHERE id=?", (session["active_asset_id"],)).fetchone()
             final_id = new_id()
             now = time.time()
-            snapshot = {"session_id": ident, "root_session_id": session["root_session_id"], "asset": dict(asset),
+            asset_snapshot = {key: asset[key] for key in ("id", "kind", "title", "asset_url", "storage_key")}
+            snapshot = {"session_id": ident, "root_session_id": session["root_session_id"], "asset": asset_snapshot,
                         "title": session["title"], "credits": max(0, int(payload.get("credits") or 0))}
             db.execute("""
                 INSERT INTO finalizations VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
@@ -345,9 +369,9 @@ class LocalSessionRepository:
             self._event(db, ident, "finalized", payload={"finalization_id": final_id, **metrics})
             email = clean_text(payload.get("recipient_email"), 320).lower()
             if email:
-                db.execute("INSERT OR IGNORE INTO outbox VALUES (?,?,?,?,?,?,?,?,?,?)", (
+                db.execute("INSERT OR IGNORE INTO outbox VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (
                     new_id(), session["root_session_id"], final_id, email, clean_text(payload.get("recipient_name"), 160),
-                    "first_finalization", "pending", 0, json.dumps(snapshot, ensure_ascii=False), now,
+                    "first_finalization", "pending", 0, "", json.dumps(snapshot, ensure_ascii=False), "", now, None, now,
                 ))
                 self._event(db, ident, "email_queued", payload={"recipient": email})
             final = db.execute("SELECT * FROM finalizations WHERE id=?", (final_id,)).fetchone()
@@ -387,10 +411,13 @@ class LocalSessionRepository:
         kind = clean_text(payload.get("kind"), 24) or "image"
         if kind not in ASSET_KINDS:
             raise ValueError("Tipo de ativo inválido.")
+        storage_key = clean_text(payload.get("storage_key"), 2000)
+        if not storage_key and url.startswith(DELETABLE_PREFIXES):
+            storage_key = url
         db.execute("INSERT INTO assets VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (
             asset_id, int(client_id), int(user_id), project_id, kind, source_type, source_id,
             clean_text(payload.get("title"), 160) or "Ativo do Studio", url,
-            clean_text(payload.get("storage_key"), 2000), "working",
+            storage_key, "working",
             json.dumps(payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}, ensure_ascii=False), now, now,
         ))
         return asset_id
@@ -516,6 +543,7 @@ class PostgresSessionRepository:
             """, (ident, asset_id, role, int(payload.get("position") or 0)))
             if role in {"accepted", "base"}:
                 cursor.execute("UPDATE cx_studio_assets SET status='accepted',updated_at=NOW() WHERE id=%s", (asset_id,))
+                cursor.execute("UPDATE cx_studio_asset_deletions SET status='cancelled',last_error='' WHERE asset_id=%s AND status IN ('pending','failed')", (asset_id,))
                 cursor.execute("UPDATE cx_studio_sessions SET active_asset_id=%s,base_asset_id=%s,status='ready',revision=revision+1,updated_at=NOW() WHERE id=%s", (asset_id, asset_id, ident))
                 self._event(cursor, ident, "asset_accepted" if role == "accepted" else "base_changed", payload={"asset_id": asset_id})
             else:
@@ -544,11 +572,22 @@ class PostgresSessionRepository:
             if restore:
                 cursor.execute("DELETE FROM cx_studio_session_assets WHERE session_id=%s AND asset_id=%s AND role='discard'", (ident, asset_id))
                 cursor.execute("UPDATE cx_studio_assets SET status='working',updated_at=NOW() WHERE id=%s AND status='discarded'", (asset_id,))
+                cursor.execute("UPDATE cx_studio_asset_deletions SET status='cancelled',last_error='' WHERE asset_id=%s AND status IN ('pending','failed')", (asset_id,))
             else:
                 if asset_id in {session.get("active_asset_id"), session.get("base_asset_id")}:
                     raise ValueError("A peça ativa não pode ser descartada.")
                 cursor.execute("INSERT INTO cx_studio_session_assets(session_id,asset_id,role) VALUES (%s,%s,'discard') ON CONFLICT DO NOTHING", (ident, asset_id))
                 cursor.execute("UPDATE cx_studio_assets SET status='discarded',updated_at=NOW() WHERE id=%s", (asset_id,))
+                cursor.execute("SELECT storage_key FROM cx_studio_assets WHERE id=%s", (asset_id,))
+                asset = cursor.fetchone()
+                storage_key = str((asset or {}).get("storage_key") or "")
+                if storage_key.startswith(DELETABLE_PREFIXES):
+                    cursor.execute("""
+                        INSERT INTO cx_studio_asset_deletions(asset_id,storage_key,available_at)
+                        VALUES (%s,%s,NOW()+(%s * INTERVAL '1 second'))
+                        ON CONFLICT (asset_id) DO UPDATE SET storage_key=EXCLUDED.storage_key,status='pending',
+                            available_at=EXCLUDED.available_at,deleted_at=NULL,last_error=''
+                    """, (asset_id, storage_key, DISCARD_RETENTION_SECONDS))
             self._event(cursor, ident, "asset_restored" if restore else "trash_marked", payload={"asset_id": asset_id})
         self.connection.commit()
         return self.read(client_id, user_id, ident)
@@ -569,7 +608,8 @@ class PostgresSessionRepository:
             cursor.execute("SELECT *,id::text AS id FROM cx_studio_assets WHERE id=%s", (session["active_asset_id"],))
             asset = dict(cursor.fetchone())
             final_id = new_id()
-            snapshot = {"session_id": ident, "root_session_id": session["root_session_id"], "asset": asset,
+            asset_snapshot = {key: asset.get(key) for key in ("id", "kind", "title", "asset_url", "storage_key")}
+            snapshot = {"session_id": ident, "root_session_id": session["root_session_id"], "asset": asset_snapshot,
                         "title": session["title"], "credits": max(0, int(payload.get("credits") or 0))}
             cursor.execute("""
                 INSERT INTO cx_studio_finalizations
@@ -663,11 +703,14 @@ class PostgresSessionRepository:
         if kind not in ASSET_KINDS:
             raise ValueError("Tipo de ativo inválido.")
         asset_id = new_id()
+        storage_key = clean_text(payload.get("storage_key"), 2000)
+        if not storage_key and url.startswith(DELETABLE_PREFIXES):
+            storage_key = url
         cursor.execute("""
             INSERT INTO cx_studio_assets
                 (id,client_id,owner_user_id,project_id,kind,source_type,source_id,title,asset_url,storage_key,metadata)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """, (asset_id, int(client_id), int(user_id), project_id, kind, source_type, source_id,
-              clean_text(payload.get("title"), 160) or "Ativo do Studio", url, clean_text(payload.get("storage_key"), 2000),
+              clean_text(payload.get("title"), 160) or "Ativo do Studio", url, storage_key,
               Json(payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {})))
         return asset_id

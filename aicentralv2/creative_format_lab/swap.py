@@ -191,6 +191,7 @@ price só se houver valor em reais visível (R$ 99,90, 12x de 99,90). Sem R$, pr
 % off, liquidação e desconto percentual vão em headline ou support — nunca em price.
 Não invente Saiba mais, Compre agora, Encontre a loja nem outro CTA se não houver botão ou pill no still.
 logo_text só se o wordmark estiver escrito na peça. Marca, Logo ou o nome da campanha no briefing não valem.
+Além do OCR textual, faça leitura visual dos sinais de marca. Registre em visual_marks cada símbolo, ícone ou marca gráfica visível, mesmo sem texto. Para cada um informe type (icon, wordmark, logo, symbol ou graphic), description, orientation (left, right, up, down, rotated ou unknown), text (se houver), confidence de 0 a 1 e matches_reference (true, false ou null quando houver referência).
 Peça de conteúdo (depoimento, B2B): nome, cargo, gráfico e a palavra custo na headline não são price.
 Cartela de evento: cada selo de nome é um element role=person. Datas vão em dates. Local vai em venue.
 O grito da peça (É de graça, Entrada franca, etc.) vai em support ou cta — nunca some.
@@ -205,6 +206,9 @@ Se um texto estiver ilegível, deixe vazio. Não corrija português. Retorne JSO
   "cta": "",
   "disclaimer": "",
   "logo_text": "",
+  "visual_marks": [
+    {"type": "icon", "description": "dois chevrons apontando para a direita", "orientation": "right", "text": "", "confidence": 0.94, "matches_reference": null}
+  ],
   "dates": "",
   "venue": "",
   "aspect_hint": "9:16",
@@ -371,6 +375,7 @@ def build_optimized_prompt(payload=None, brand=None, operations=None):
         "Do not invent a new visual effect: no neon light trails, sci-fi streaks, extra glow, lens flares or futuristic overlays that are not in the reference.",
         "Keep the original lighting, color grade, materials and photography. Do not add a new light ribbon or energy streak.",
         "Do not add player chrome, app UI or extra frames that are not in the reference.",
+        "Use only the supplied brand reference for logos and symbols. Never redraw, rotate, mirror or invent a brand icon; preserve its exact geometry and orientation unless that icon is explicitly the selected item to change.",
     ]
     variation = str(payload.get("variation_index") or "").strip().upper()
     if recrop:
@@ -909,6 +914,24 @@ def _parse_ocr_dict(response):
     return parsed if isinstance(parsed, dict) else None
 
 
+def _visual_marks(value):
+    if not isinstance(value, list):
+        return []
+    marks = []
+    for item in value[:20]:
+        if not isinstance(item, dict):
+            continue
+        marks.append({
+            "type": str(item.get("type") or "graphic").strip()[:24],
+            "description": str(item.get("description") or "").strip()[:180],
+            "orientation": str(item.get("orientation") or "unknown").strip()[:16],
+            "text": str(item.get("text") or "").strip()[:80],
+            "confidence": item.get("confidence"),
+            "matches_reference": item.get("matches_reference"),
+        })
+    return marks
+
+
 def _finish_ocr_read(parsed):
     from .swap_schema import normalize_read
 
@@ -923,6 +946,7 @@ def _finish_ocr_read(parsed):
         "cta": normalized.get("cta") or "",
         "disclaimer": normalized.get("disclaimer") or "",
         "logo_text": normalized.get("logo_text") or "",
+        "visual_marks": _visual_marks(parsed.get("visual_marks")),
         "dates": normalized.get("dates") or "",
         "venue": normalized.get("venue") or "",
         "aspect_hint": aspect_hint,
@@ -953,7 +977,7 @@ def read_swap_reference(payload=None, *, text_callable=None):
         {
             "role": "user",
             "content": [
-                {"type": "text", "text": "Leia só o que está escrito neste still. Preço, CTA e logo são opcionais: se não aparecer, deixe vazio. Não invente R$, Saiba mais nem marca."},
+                {"type": "text", "text": "Faça OCR multimodal do still: leia todo texto visível e também inspecione símbolos, ícones, wordmarks e marcas gráficas. Retorne visual_marks mesmo quando não houver texto. Para ícones, descreva a geometria e a orientação; não transforme um símbolo em logo_text. Preço, CTA e logo são opcionais: se não aparecer, deixe vazio. Não invente R$, Saiba mais nem marca."},
                 {"type": "image_url", "image_url": {"url": reference}},
             ],
         },
@@ -1577,6 +1601,7 @@ def _empty_read():
         "cta": "",
         "disclaimer": "",
         "logo_text": "",
+        "visual_marks": [],
         "dates": "",
         "venue": "",
         "aspect_hint": "",
@@ -1597,7 +1622,7 @@ def _read_status(read):
     read = read if isinstance(read, dict) else {}
     if read.get("overflow") or read.get("elements_overflow") or read.get("locks_overflow"):
         return "partial"
-    filled = any(
+    filled = bool(read.get("visual_marks")) or any(
         str(read.get(key) or "").strip()
         for key in ("headline", "support", "price", "cta", "dates", "logo_text", "disclaimer")
     )

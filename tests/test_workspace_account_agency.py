@@ -56,3 +56,25 @@ def test_workspace_invite_names_the_team_and_uses_the_real_role():
     assert 'role_label|default' in invite
     assert "role_label='Administrador' if role == 'admin' else 'Membro'" in workspace_routes
     assert "role_label='Membro'" in email_service
+
+
+def test_workspace_email_delivery_uses_canonical_links_and_history():
+    email_service = (ROOT / 'aicentralv2/email_service.py').read_text(encoding='utf-8')
+    routes = (ROOT / 'aicentralv2/cadu_workspace/routes.py').read_text(encoding='utf-8')
+    password_changed = (ROOT / 'aicentralv2/templates/emails/externos/senha-alterada.html').read_text(encoding='utf-8')
+
+    assert "product_url('cadu'" in email_service
+    assert '_record_workspace_email_event' in email_service
+    assert 'cadu_workspace_email_events' in routes
+    assert 'Proteger minha conta' in password_changed
+
+
+def test_workspace_email_history_accepts_brevo_lifecycle_events():
+    routes = (ROOT / 'aicentralv2/cadu_workspace/routes.py').read_text(encoding='utf-8')
+    schema = (ROOT / 'migrations/upgrade_cadu_workspace_email_events_webhooks.sql').read_text(encoding='utf-8')
+
+    assert 'workspace_brevo_email_event' in routes
+    assert 'X-Brevo-Webhook-Token' in routes
+    assert "'opened': 'opened'" in routes
+    assert "'click': 'clicked'" in routes
+    assert 'last_event_at' in schema

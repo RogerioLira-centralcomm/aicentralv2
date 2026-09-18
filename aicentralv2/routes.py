@@ -20,7 +20,7 @@ from aicentralv2.campanhas_pi_list import (
     group_pis_by_invoice_status,
 )
 from aicentralv2.email_service import (
-    send_password_reset_email, send_password_changed_email, send_invite_email, send_welcome_email,
+    send_password_reset_email, send_password_changed_email, send_invite_email, send_welcome_email, send_launch_bonus_email,
     send_subscription_confirmation_email, send_new_subscription_internal_email
 )
 from aicentralv2.services.openrouter_image_extract import extract_fields_from_image_bytes, get_available_models
@@ -2261,8 +2261,6 @@ def init_routes(app):
     def api_enviar_boas_vindas_contato(contato_id):
         """API para enviar email de boas-vindas para contato"""
         try:
-            from aicentralv2.services.brevo_service import enviar_email_boas_vindas
-            
             contato = db.obter_contato_por_id(contato_id)
             
             if not contato:
@@ -2274,22 +2272,19 @@ def init_routes(app):
             # Obter nome da empresa (cliente)
             cliente_nome = contato.get('nome_fantasia') or contato.get('razao_social') or ''
             
-            # Obter cargo/função
-            role_label = contato.get('cargo_descricao') or ''
-            
-            # URL do Cadu (produção)
-            cadu_url = 'https://cadu.centralcomm.media'
+            from aicentralv2.product_domains import product_url
+            workspace_url = product_url('workspace', '/workspace/app')
             
             # Enviar email de boas-vindas
-            resultado = enviar_email_boas_vindas(
-                to_email=contato['email'],
-                to_name=contato['nome_completo'],
+            resultado = send_welcome_email(
+                user_email=contato['email'],
+                user_name=contato['nome_completo'],
                 cliente_nome=cliente_nome,
-                role_label=role_label,
-                login_link=cadu_url
+                login_link=workspace_url,
+                client_id=contato.get('pk_id_tbl_cliente'),
             )
             
-            if resultado.get('success'):
+            if resultado:
                 # Registro de auditoria
                 registrar_auditoria(
                     acao='EMAIL',
@@ -2318,8 +2313,6 @@ def init_routes(app):
     def api_criar_invite_boas_vindas(contato_id):
         """Cria invite com email +LEG, envia email de convite e atualiza nome do contato"""
         try:
-            from aicentralv2.services.brevo_service import enviar_email_convite
-            
             contato = db.obter_contato_por_id(contato_id)
             if not contato:
                 return jsonify({'success': False, 'message': 'Contato não encontrado!'}), 404
@@ -2368,22 +2361,15 @@ def init_routes(app):
             convidante = db.obter_contato_por_id(invited_by)
             convidante_nome = convidante.get('nome_completo') if convidante else session.get('user_name', 'Equipe')
             
-            # Gerar link do convite
-            invite_link = f"https://cadu.centralcomm.media/aceitar-convite?token={invite_token}"
-            
-            # Formatar data de expiração
-            expires_str = expires_at.strftime('%d/%m/%Y às %H:%M') if hasattr(expires_at, 'strftime') else str(expires_at)
-            
-            # Enviar email de convite para o email ORIGINAL
-            resultado = enviar_email_convite(
+            # The Workspace service owns the canonical invite URL and delivery history.
+            resultado = send_invite_email(
                 to_email=email_original,
-                to_name=nome_original,
-                invite_link=invite_link,
-                invited_by=convidante_nome,
+                invite_token=invite_token,
                 cliente_nome=cliente_nome,
-                expires_at=expires_str,
+                invited_by_name=convidante_nome,
+                expires_at=expires_at,
                 role_label=role_label,
-                dias_validade=7
+                client_id=cliente_id,
             )
             
             if not resultado.get('success'):
@@ -2733,7 +2719,9 @@ def init_routes(app):
                                 invite_token=invite_token,
                                 cliente_nome=cliente_nome,
                                 invited_by_name=convidante_nome,
-                                expires_at=expires_at
+                                expires_at=expires_at,
+                                role_label='Administrador' if role == 'admin' else 'Membro',
+                                client_id=cliente_id,
                             )
                         except Exception as send_exc:
                             app.logger.error(
@@ -2800,7 +2788,9 @@ def init_routes(app):
                             invite_token=invite['invite_token'],
                             cliente_nome=cliente_nome,
                             invited_by_name=convidante_nome,
-                            expires_at=invite.get('expires_at')
+                            expires_at=invite.get('expires_at'),
+                            role_label='Administrador' if invite.get('role') == 'admin' else 'Membro',
+                            client_id=invite.get('id_cliente'),
                         )
                         if not envio.get('success'):
                             msg = envio.get('user_message') or envio.get('error') or 'Erro ao reenviar o e-mail.'
@@ -2976,6 +2966,11 @@ def init_routes(app):
                         user_name=nome,
                         cliente_nome=cliente_nome,
                         login_link=product_url('workspace'),
+                        client_id=invite['id_cliente'],
+                    )
+                    send_launch_bonus_email(
+                        user_email=invite['email'], user_name=nome, cliente_nome=cliente_nome,
+                        client_id=invite['id_cliente'],
                     )
                 except Exception as email_error:
                     app.logger.warning('Boas-vindas do Workspace não enviadas: %s', email_error)

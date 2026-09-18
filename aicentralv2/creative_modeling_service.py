@@ -4060,6 +4060,7 @@ class CreativeModelingService:
                 "All visible advertising copy must be Brazilian Portuguese. "
                 "Never invent an English slogan; if text cannot be rendered "
                 "correctly, omit it. Registered product names may remain unchanged.",
+                "Use approved brand references for every logo or symbol. Preserve the exact mark geometry and orientation; never invent, rotate or mirror a brand icon.",
                 "Do not reproduce third-party platform logos or interfaces.",
             ]
         )
@@ -5776,6 +5777,7 @@ class CreativeModelingService:
                 "Estilo: fotorrealista, qualidade de campanha premium.",
                 "",
                 "[RESTRIÇÕES]",
+                "Usar logos e símbolos somente a partir das referências aprovadas. Não inventar, rotacionar, espelhar ou redesenhar ícones de marca; preservar geometria e orientação.",
                 "Não reproduzir logos ou identidade visual de terceiros/plataformas.",
             ]
         )

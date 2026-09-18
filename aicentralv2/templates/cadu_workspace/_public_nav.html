@@ -1,8 +1,0 @@
-<nav class="ws-public-nav" aria-label="Páginas do Workspace">
-  <a href="{{ url_for('cadu_workspace.index') }}">Visão geral</a>
-  <a href="{{ url_for('cadu_workspace.public_page', page='como-funciona') }}">Como funciona</a>
-  <a href="{{ url_for('cadu_workspace.public_page', page='planos') }}">Planos</a>
-  <a href="{{ url_for('cadu_workspace.public_page', page='ajuda') }}">Ajuda</a>
-  <a href="{{ url_for('cadu_workspace.public_page', page='contato') }}">Contato</a>
-  <a class="ws-public-enter" href="{{ url_for('cadu_workspace.dashboard') }}">{{ 'Abrir Workspace' if session.get('user_id') else 'Entrar no Workspace' }}</a>
-</nav>

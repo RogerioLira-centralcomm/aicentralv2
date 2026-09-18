@@ -1,0 +1,14 @@
+{% extends 'emails/externos/workspace-base.html' %}
+{% set eyebrow = 'Créditos iniciais da equipe' %}
+{% block title %}100.000 créditos para começar{% endblock %}
+{% block preheader %}Sua equipe recebeu 100.000 créditos de bônus, válidos até {{ expires_at }}.{% endblock %}
+{% block headline %}100.000 créditos para começar.{% endblock %}
+{% block content %}
+  <p style="margin:0">Olá, {{ primeiro_nome }}. A equipe da <strong style="color:#173843">{{ empresa }}</strong> recebeu 100.000 créditos de bônus.</p>
+  <table role="presentation" width="100%" class="note" bgcolor="#e9f6f3" style="margin:22px 0;border-radius:10px;background:#e9f6f3"><tr><td style="padding:14px 16px;color:#315e57;font-size:12px;line-height:1.55"><strong>Use até {{ expires_at }}.</strong><br>O saldo é compartilhado por toda a equipe e o Cadu consome primeiro o lote que vence antes.</td></tr></table>
+  <p style="margin:0 0 9px;color:#173843;font-size:14px;font-weight:700">Uma boa primeira rodada</p>
+  <ul style="margin:0;padding-left:20px;color:#4f6763;font-size:15px;line-height:1.65"><li>Escolha 2 ou 3 marcas ou projetos reais.</li><li>Organize briefing, referências e decisões no Workspace.</li><li>Teste criação, planejamento e leitura de resultados com o mesmo contexto.</li></ul>
+  <p style="margin:22px 0 0">A duração do saldo depende do ritmo e das ferramentas que a equipe usar. O extrato mostra cada execução e o vencimento do lote.</p>
+  <p style="margin:28px 0 0"><a class="button" href="{{ credits_url }}" style="display:inline-block;padding:14px 19px;border-radius:9px;background:#007d6d;color:#fff;font-size:14px;font-weight:700;text-decoration:none">Ver créditos da equipe</a></p>
+{% endblock %}
+{% block footer_note %}Este bônus inicial pertence à equipe da {{ empresa }} e segue as regras de validade exibidas no Workspace.{% endblock %}

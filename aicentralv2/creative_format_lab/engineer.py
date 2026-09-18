@@ -440,7 +440,7 @@ def read_still_blocks(image, text_callable=None):
             "provider_error": "failed",
             "invalid": "failed",
         }[status]
-    elif chips:
+    elif chips or (parsed.get("visual_marks") or []):
         ocr_status = "succeeded"
     else:
         ocr_status = "not_found"

@@ -139,7 +139,7 @@
   };
   const studioEditUrl = (image, projectRef = '', brandRef = '') => {
     if (!isHttpsUrl(image)) return '';
-    const target = new URL('https://studio.centralcomm.media/studio/modelagem-criativos/imagem');
+    const target = new URL(conversationShell?.dataset.studioEditorUrl || '/studio/modelagem-criativos/imagem', window.location.origin);
     target.searchParams.set('source', image);
     const projectId = projectIdFromRef(projectRef);
     if (projectId) target.searchParams.set('project_id', projectId);
@@ -735,35 +735,6 @@
     artifact.addEventListener('click', () => openArtifact({kind:'Texto', title:planTitle(content), summary:'Edite o texto antes de salvar. Quando houver projeto, o documento recebe o contexto e as fontes privadas ficam disponíveis para revisão.', document:{content, projectRef, sources}, projectRef}));
     actions.append(copy, continueButton, artifact);
   }
-  function addSavePlanAction(text, content, projectRef) {
-    if (!text || !content?.trim() || typeof projectRef !== 'string' || !projectRef.startsWith('ci:')) return;
-    const projectId = projectRef.slice(3);
-    if (!/^[a-f0-9-]{36}$/i.test(projectId) || text.parentElement?.querySelector('[data-save-plan]')) return;
-    const actions = actionBarFor(text);
-    const save = document.createElement('button'); save.type = 'button'; save.dataset.savePlan = projectId;
-    save.className = 'conversation-message-action conversation-message-action--save';
-    save.setAttribute('aria-label', 'Salvar no projeto'); save.setAttribute('title', 'Salvar no projeto');
-    save.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v6h8V4M8 20v-6h8v6"/></svg>';
-    save.addEventListener('click', async () => {
-      save.disabled = true;
-      try {
-        const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
-        const response = await fetch('/workspace/api/projetos/' + encodeURIComponent(projectId) + '/documentos', {
-          method: 'POST', credentials: 'same-origin',
-          headers: {'Content-Type': 'application/json', ...(csrf ? {'X-CSRF-Token': csrf} : {})},
-          body: JSON.stringify({title: planTitle(content), content})
-        });
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(result.error || 'Não foi possível salvar o plano.');
-        save.setAttribute('title', 'Salvo no projeto');
-        status.textContent = 'Salvo no projeto.';
-      } catch (error) {
-        save.disabled = false;
-        status.textContent = publicErrorMessage(error.message, 'Não foi possível salvar o plano.');
-      }
-    });
-    actions.append(save);
-  }
   function customerSafeAssistantContent(content) {
     const text = String(content || '');
     // Old turns can predate the server-side guard. Never replay provider
@@ -804,7 +775,6 @@
     if (role === 'assistant') addSources(metadata?.project_sources);
     if (role === 'assistant' && content?.trim()) {
       addMessageActions(text, content, projectRef, metadata?.project_sources || []);
-      addSavePlanAction(text, content, projectRef);
     }
     scrollHistoryToEnd(true);
     return text;
@@ -1179,7 +1149,7 @@
       addMessage('user', message, attachments.items.map(item => ({name:item.file.name})));
       const projectRef = activeContext?.project_ref || projectSelect?.value || '';
       const brandRef = activeContext?.brand_ref || brandForProject(projectRef) || '';
-      const studio = new URL('https://studio.centralcomm.media/studio/modelagem-criativos/criar');
+      const studio = new URL(conversationShell?.dataset.studioCreateUrl || '/studio/modelagem-criativos/criar', window.location.origin);
       studio.searchParams.set('prompt', message);
       studio.searchParams.set('ratio', '4:5'); studio.searchParams.set('directions', '3');
       if (projectRef.startsWith('ci:')) studio.searchParams.set('project_id', projectRef.slice(3));
@@ -1289,7 +1259,7 @@
         // Execution belongs to the live turn, not to the finished reading
         // surface. The answer becomes the only focal point once it is ready.
         output?.parentElement?.querySelector('.conversation-work-time')?.remove();
-        addMessageActions(output, answer); addSavePlanAction(output, answer, runProjectRef);
+        addMessageActions(output, answer, runProjectRef);
       } else setMessageElapsed(output, generationStartedAt);
       sending = false; mode.disabled = false; stop.hidden = true; controller = null;
       input.contentEditable = 'true'; input.setAttribute('aria-disabled', 'false'); attachments.lock(false); updateSend();

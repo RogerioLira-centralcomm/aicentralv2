@@ -42,6 +42,9 @@ class ChatShellTest(TestCase):
         self.assertEqual(panel['data-conversation-page'], 'true')
         shell = next(attrs for _, attrs in elements if 'workspace-app-shell' in attrs.get('class', ''))
         self.assertIn('workspace-app-shell--conversations', shell['class'])
+        conversation_shell = next(attrs for _, attrs in elements if 'workspace-conversations' in attrs.get('class', '').split())
+        self.assertEqual(conversation_shell['data-studio-create-url'], '/studio/studio/modelagem-criativos/criar')
+        self.assertEqual(conversation_shell['data-studio-editor-url'], '/studio/studio/modelagem-criativos/imagem')
         headings = [attrs for tag, attrs in elements if tag == 'h1']
         self.assertEqual(len(headings), 1)
         self.assertTrue(any('workspace-conversation-page-head' in attrs.get('class', '') for _, attrs in elements))

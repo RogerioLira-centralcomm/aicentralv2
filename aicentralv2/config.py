@@ -104,6 +104,9 @@ class Config:
 	# omitted this legacy rollout flag.
 	CADU_FAMILY_CHAT_ENABLED = os.getenv('CADU_FAMILY_CHAT_ENABLED', '1').lower() in ('true', '1', 'yes', 'on')
 	CADU_CHAT_WORKER_ENABLED = os.getenv('CADU_CHAT_WORKER_ENABLED', '0').lower() in ('true', '1', 'yes', 'on')
+	# Minimum balance required before a Conversas request reaches Dify. The
+	# final debit still follows measured provider usage.
+	CADU_CHAT_ADMISSION_TOKENS = int(os.getenv('CADU_CHAT_ADMISSION_TOKENS', '8000'))
 	# Brand discovery may run for several minutes. It is dispatched to a durable
 	# worker after its database migration; routes retain a short-lived fallback
 	# thread only when the migration is not installed yet.

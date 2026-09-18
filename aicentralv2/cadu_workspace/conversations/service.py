@@ -487,12 +487,14 @@ def prepare(data, selected):
             if previous:
                 conn.rollback()  # Release the advisory lock; no writes on replay.
                 return previous
-            # Chat uses the same credit lots shown in the Workspace. A
-            # one-token admission check avoids sending a new request to Dify
-            # when the account has no remaining balance; a replay has already
-            # been admitted and must never be blocked by a later balance read.
+            # Chat uses the same credit lots shown in the Workspace. Admit a
+            # realistic turn, not a symbolic token: this blocks a request that
+            # cannot afford an ordinary answer before any provider sees it.
+            # A replay has already been admitted and must never be blocked by
+            # a later balance read.
             try:
-                estimated = 1 + int((research_plan or {}).get('reserve_tokens') or 0)
+                chat_estimate = max(1, int(current_app.config.get('CADU_CHAT_ADMISSION_TOKENS', 8000) or 8000))
+                estimated = chat_estimate + int((research_plan or {}).get('reserve_tokens') or 0)
                 CaduCreditConnector().authorize(CreditActor.from_values(selected['client_id'], user['id']), estimated)
             except InsufficientToolCredits as exc:
                 abort(409, description=str(exc))

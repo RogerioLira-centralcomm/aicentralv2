@@ -2796,42 +2796,6 @@ def query_project_knowledge(project_id):
         return jsonify({'error': 'Não foi possível consultar a base agora. Tente novamente.'}), 503
 
 
-@bp.post('/workspace/api/projetos/<project_id>/documentos')
-@login_required
-def create_project_document(project_id):
-    """Persist a user-approved Cadu result in the project that owns its context.
-
-    This is deliberately a Workspace action, not a Dify database tool: the
-    browser session binds both the user and project, so a model cannot write a
-    plan into another client's project by changing an identifier in a prompt.
-    """
-    if not _workspace_api_csrf():
-        return jsonify({'error': 'Atualize a página e tente novamente.'}), 403
-    client_id = int(session.get('cliente_id') or 0)
-    _editable_workspace_project(client_id, project_id)
-    payload = request.get_json(silent=True) or {}
-    title = ' '.join(str(payload.get('title') or 'Plano Cadu').split())[:255]
-    content = str(payload.get('content') or '').strip()
-    if len(content) < 20:
-        return jsonify({'error': 'O plano precisa ter ao menos 20 caracteres.'}), 400
-    if len(content) > 500000:
-        return jsonify({'error': 'O plano excede o limite de 500.000 caracteres.'}), 400
-    try:
-        from ..cadu_planner import docs
-        document = docs.create_document(
-            client_id, int(session['user_id']),
-            {'title': title, 'type': 'plano', 'html': docs.markdown_to_safe_html(content), 'project_id': project_id},
-        )
-        return jsonify({'success': True, 'document': {
-            key: document.get(key) for key in ('id', 'title', 'type', 'status', 'updated_at')
-        }}), 201
-    except HTTPException:
-        raise
-    except Exception:
-        current_app.logger.exception('Não foi possível salvar documento no projeto %s', project_id)
-        return jsonify({'error': 'Não foi possível salvar o plano no projeto agora.'}), 503
-
-
 def _workspace_document_urls(document):
     """Return only Workspace-owned navigation and a share URL when enabled."""
     document_id = str(document.get('id') or '')

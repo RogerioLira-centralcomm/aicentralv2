@@ -135,6 +135,14 @@ def register_studio_routes(blueprint):
     blueprint.add_url_rule('/api/format-lab/studio/projects/<ident>/creation-history', view_func=studio_project_creation_history, methods=['GET'])
     blueprint.add_url_rule('/api/format-lab/studio/projects/<ident>/directions/<direction_id>/select', view_func=studio_project_select_direction, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/projects/<ident>/items', view_func=studio_project_items, methods=['POST', 'DELETE'])
+    blueprint.add_url_rule('/api/format-lab/studio/sessions', view_func=studio_sessions, methods=['GET', 'POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/sessions/<ident>', view_func=studio_session, methods=['GET', 'PATCH'])
+    blueprint.add_url_rule('/api/format-lab/studio/sessions/<ident>/accept', view_func=studio_session_accept, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/sessions/<ident>/handoff', view_func=studio_session_handoff, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/sessions/<ident>/continue', view_func=studio_session_continue, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/sessions/<ident>/finalize', view_func=studio_session_finalize, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/sessions/<ident>/discard', view_func=studio_session_discard, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/sessions/<ident>/restore', view_func=studio_session_restore, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/capabilities', view_func=capabilities)
     blueprint.add_url_rule('/api/format-lab/studio/sounds', view_func=sounds, methods=['GET', 'POST'])
     blueprint.add_url_rule('/api/format-lab/studio/sounds/<ident>', view_func=sound_content)
@@ -455,6 +463,139 @@ def studio_project_items(ident):
         item_id = history.add_item(ident, client_id, user_id, data.get('kind'), data.get('title'), data.get('asset_url'), data.get('metadata'))
         return ok({'id': item_id})
     return execute(run)
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
+def studio_sessions():
+    """Create or list persistent work sessions for the authenticated Studio."""
+    from flask import jsonify
+    from .studio_sessions import SessionConflict
+    execute, json_body, ok, _ = _http()
+
+    def run():
+        user_id = session.get('user_id')
+        if not user_id:
+            raise ValueError('Entre novamente para abrir suas sessões.')
+        if request.method == 'GET':
+            client_id = request.args.get('client_id')
+            store = _session_store(client_id)
+            return ok({'items': store.listing(
+                client_id, user_id, request.args.get('project_id'), request.args.get('status'), request.args.get('limit', 100),
+            )})
+        data = json_body()
+        client_id = data.get('client_id') or session.get('cliente_id')
+        store = _session_store(client_id)
+        try:
+            return ok(store.create(client_id, user_id, data))
+        except SessionConflict as error:
+            return jsonify(success=False, error=str(error), code='revision_conflict'), 409
+
+    return execute(run)
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
+def studio_session(ident):
+    from flask import jsonify
+    from .studio_sessions import SessionConflict
+    execute, json_body, ok, _ = _http()
+
+    def run():
+        user_id = session.get('user_id')
+        if not user_id:
+            raise ValueError('Entre novamente para abrir esta sessão.')
+        data = json_body() if request.method == 'PATCH' else request.args
+        client_id = data.get('client_id') or session.get('cliente_id')
+        store = _session_store(client_id)
+        if request.method == 'GET':
+            return ok(store.read(client_id, user_id, ident))
+        try:
+            return ok(store.save(client_id, user_id, ident, data))
+        except SessionConflict as error:
+            return jsonify(success=False, error=str(error), code='revision_conflict'), 409
+
+    return execute(run)
+
+
+def _session_action(ident, action):
+    execute, json_body, ok, _ = _http()
+
+    def run():
+        data = json_body()
+        client_id = data.get('client_id') or session.get('cliente_id')
+        user_id = session.get('user_id')
+        if not user_id:
+            raise ValueError('Entre novamente para alterar esta sessão.')
+        store = _session_store(client_id)
+        if action == 'accept':
+            result = store.accept(client_id, user_id, ident, data)
+        elif action == 'handoff':
+            result = store.handoff(client_id, user_id, ident, data)
+        elif action == 'continue':
+            result = store.continue_session(client_id, user_id, ident, data)
+        elif action == 'finalize':
+            # The recipient comes from the authenticated identity, never from
+            # an arbitrary address supplied by the browser.
+            data['recipient_email'] = str(session.get('user_email') or '').strip().lower()
+            data['recipient_name'] = str(session.get('user_name') or '').strip()
+            result = store.finalize(client_id, user_id, ident, data)
+        elif action in {'discard', 'restore'}:
+            result = store.discard(client_id, user_id, ident, str(data.get('asset_id') or ''), restore=action == 'restore')
+        else:
+            raise ValueError('Ação de sessão inválida.')
+        return ok(result)
+
+    return execute(run)
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
+def studio_session_accept(ident):
+    return _session_action(ident, 'accept')
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
+def studio_session_handoff(ident):
+    return _session_action(ident, 'handoff')
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
+def studio_session_continue(ident):
+    return _session_action(ident, 'continue')
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
+def studio_session_finalize(ident):
+    return _session_action(ident, 'finalize')
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
+def studio_session_discard(ident):
+    return _session_action(ident, 'discard')
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
+def studio_session_restore(ident):
+    return _session_action(ident, 'restore')
+
+
+def _session_store(client_id):
+    """Resolve the canonical database store or the scoped local fallback."""
+    from .studio_sessions import LocalSessionRepository, PostgresSessionRepository
+    root = _scope(client_id)
+    if current_app.testing or not current_app.config.get('STUDIO_PROJECTS_POSTGRES', False):
+        return LocalSessionRepository(root)
+    from .. import db
+    from .schema import ensure_schema
+    connection = db.get_db()
+    ensure_schema(connection)
+    return PostgresSessionRepository(connection)
 
 
 def _project_store(repository):

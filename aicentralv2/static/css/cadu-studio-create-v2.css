@@ -133,3 +133,6 @@ body.portal--studio:has(.studio-v2) > .cadu-family-footer { display:none!importa
 .studio-v2 #generateButton.is-ready::after { content:''; position:absolute; inset:-5px; border:1px solid rgba(190,164,255,.48); border-radius:14px; pointer-events:none; }
 @keyframes readyGlow { 50% { filter:brightness(1.12); transform:translateY(-1px); } }
 @media(prefers-reduced-motion:reduce){.studio-v2 #generateButton.is-ready{animation:none}}
+.generation-dialog { width:min(560px,calc(100vw - 32px)); max-width:560px; padding:0; border:1px solid rgba(163,132,255,.48); border-radius:22px; background:linear-gradient(145deg,#111b29,#0d151f); color:var(--v2-text); box-shadow:0 30px 110px rgba(0,0,0,.7),0 0 0 1px rgba(163,132,255,.12); }
+.generation-dialog::backdrop { background:rgba(3,8,14,.78); backdrop-filter:blur(8px); }
+.generation-dialog .generation-view { width:100%; min-height:350px; padding:42px 30px; }

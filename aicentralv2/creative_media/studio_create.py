@@ -116,6 +116,7 @@ def create(payload, text_callable):
 
 def clean_context(raw, count):
     data = raw if isinstance(raw, dict) else {}
+    references = [clean_direction_reference(item, index) for index, item in enumerate(data.get("references", [])[:2]) if isinstance(item, dict)]
     return {key: text(data.get(key), limit) for key, limit in (("project_name", 120), ("brand", 120), ("brief", 1800), ("objective", 300), ("audience", 300), ("purpose", 24), ("format", 24))} | {
         "channels": [text(item, 24) for item in data.get("channels", []) if text(item, 24)][:5],
         "iab_formats": [text(item, 32) for item in data.get("formats", []) if text(item, 32)][:6],
@@ -126,7 +127,8 @@ def clean_context(raw, count):
         "requested_directions": count,
         "auto_generate_next": data.get("auto_generate_next") is True,
         "generation_round": max(0, integer(data.get("generation_round"), 0)),
-        "references": [clean_direction_reference(item, index) for index, item in enumerate(data.get("references", [])[:2]) if isinstance(item, dict)],
+        "references": references,
+        "reference_mode": "visual_references_selected" if references else "briefing_only",
     }
 
 
@@ -158,7 +160,7 @@ Responda somente JSON no formato {{\"directions\":[{{\"title\":\"...\",\"summary
 
 Cada prompt deve ser executável por um gerador de imagem e conter, nesta ordem quando houver contexto: objetivo de comunicação; tipo de peça (institucional, lançamento ou produto); praça ou contexto cultural brasileiro; público e momento humano; assunto principal; cenário; composição e área de respiro; linguagem visual, iluminação e materiais; paleta e ativos de marca; formato/canal exato; texto de campanha literal apenas quando fornecido; e restrições.
 
-REFERÊNCIAS — trate cada item do contexto como contrato, nunca como decoração. Itens com source="global" são referências protegidas do Studio: use-os apenas para similaridade visual — linguagem, enquadramento, ritmo, paleta, atmosfera e composição — sem copiar o template, sem alterar o arquivo e sem colocá-lo na biblioteca do usuário. Itens com source="user" ou source="project" são referências de produção: aplique na imagem criada o conteúdo visual útil, como produto, pessoa, embalagem, identidade, textura, cenário ou objeto, preservando os detalhes relevantes quando a intenção indicar. Não confunda uma referência global de similaridade com uma imagem-base do usuário. O prompt final deve mencionar como cada referência será usada e respeitar o role declarado.
+REFERÊNCIAS — trate cada item do contexto como contrato, nunca como decoração. Itens com source="global" são referências protegidas do Studio: use-os apenas para similaridade visual — linguagem, enquadramento, ritmo, paleta, atmosfera e composição — sem copiar o template, sem alterar o arquivo e sem colocá-lo na biblioteca do usuário. Itens com source="user" ou source="project" são referências de produção: aplique na imagem criada o conteúdo visual útil, como produto, pessoa, embalagem, identidade, textura, cenário ou objeto, preservando os detalhes relevantes quando a intenção indicar. Não confunda uma referência global de similaridade com uma imagem-base do usuário. Quando reference_mode="briefing_only", não mencione referências visuais, não invente uma referência_plan e crie uma direção original baseada somente no briefing, canal e formato. O prompt final deve mencionar como cada referência será usada somente quando houver referência selecionada e respeitar o role declarado.
 
 Para Display, trate o formato IAB informado como uma unidade publicitária final — não o transforme em pôster ou interface. Para CTV, trate como still cinematográfico 16:9. Para social, preserve área segura e leitura no feed. Escreva uma cena específica, não adjetivos vagos como “moderno”, “bonito” ou “impactante”. Prefira detalhes observáveis: lugar, hora, enquadramento, distância de câmera, gesto, textura e espaço para copy.
 

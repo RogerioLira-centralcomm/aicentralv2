@@ -193,6 +193,10 @@ body.portal--studio:has(.studio-v2) > .cadu-family-footer { display:none!importa
 /* Shell depth belongs to the stage; sidebars stay flush and quiet. */
 @media(min-width:901px){
   .studio-v2 .studio-rail,.studio-v2 .delivery-panel{border:0;border-radius:0}
-  .studio-v2 .canvas-stage{box-shadow:inset 18px 0 32px -34px rgba(120,91,255,.55),inset -18px 0 32px -34px rgba(120,91,255,.55),0 18px 46px rgba(0,0,0,.2)}
+  .studio-v2 .studio-rail{box-shadow:14px 0 28px -24px rgba(0,0,0,.8)}
+  .studio-v2 .delivery-panel{box-shadow:-14px 0 28px -24px rgba(0,0,0,.8)}
+  .studio-v2 .canvas-stage{box-shadow:none}
 }
 .generation-dialog .progress-track span{width:100%;animation:none;transition:width 1s linear}
+.studio-v2 .prompt-dock,.studio-v2 .prompt-row,.studio-v2 .prompt-row textarea{background:transparent!important}
+.studio-v2 .prompt-hint{display:none}

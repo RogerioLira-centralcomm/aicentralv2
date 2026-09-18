@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from uuid import uuid4
 
 from flask import jsonify, request
 
@@ -50,8 +51,11 @@ def _execute(callback):
     except (ValueError, OpenRouterError) as exc:
         return _error(exc, 400, _run_extra(exc))
     except Exception as exc:
-        logger.exception("Erro no Studio")
-        return _error("Não foi possível concluir a solicitação.", 500, _run_extra(exc))
+        error_id = uuid4().hex[:12]
+        logger.exception("Erro no Studio error_id=%s path=%s", error_id, request.path)
+        extra = _run_extra(exc) or {}
+        extra["error_id"] = error_id
+        return _error("Não foi possível concluir a solicitação.", 500, extra)
 
 
 def _service():

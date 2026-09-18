@@ -330,14 +330,36 @@ def studio_create_image():
         data['request_id'] = request_id
         project_id = str(data.get('project_id') or '')
         request_hash = hashlib.sha256(json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest()
-        history = _creation_history()
+        try:
+            history = _creation_history()
+        except Exception:
+            if not quick_mode:
+                raise
+            logger.exception('Studio quick image history unavailable')
+            history = None
+        claim = None
         if history:
-            claim = history.claim_image(request_id, request_hash, client_id, user_id, project_id, data.get('prompt'))
-            if claim['state'] == 'pending':
-                raise ValueError('Esta geração já está em andamento. Aguarde alguns segundos e tente novamente.')
-            if claim['state'] == 'completed':
-                result = dict(claim.get('result') or {})
-                result['replayed'] = True
+            try:
+                claim = history.claim_image(request_id, request_hash, client_id, user_id, project_id, data.get('prompt'))
+            except Exception:
+                # A quick creation is still a valid personal generation when
+                # the optional timeline table is temporarily unavailable. Do
+                # not turn a successful provider call into a generic 500 just
+                # because the shelf cannot be synchronized. Project-bound
+                # generations remain strict because their project item is part
+                # of the requested contract.
+                if not quick_mode:
+                    raise
+                logger.exception('Studio quick image history claim unavailable')
+                history = None
+            if claim:
+                if claim['state'] == 'pending':
+                    raise ValueError('Esta geração já está em andamento. Aguarde alguns segundos e tente novamente.')
+                if claim['state'] == 'completed':
+                    result = dict(claim.get('result') or {})
+                    result['replayed'] = True
+                else:
+                    result = None
             else:
                 result = None
         else:

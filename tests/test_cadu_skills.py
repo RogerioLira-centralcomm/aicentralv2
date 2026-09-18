@@ -194,6 +194,8 @@ class CaduSkillsTest(TestCase):
         with client.session_transaction() as sess:
             sess["user_id"] = 7
             sess["cliente_id"] = 12
+        self.assertEqual(client.get("/skills/studio").status_code, 302)
+        self.assertEqual(client.get("/skills/minhas-skills").status_code, 200)
         response = client.post("/skills/api/cadu-media-planning/runs", json={"prompt": "Planeje uma campanha regional"})
         self.assertEqual(response.status_code, 409)
         self.assertEqual(response.get_json()["code"], "CREDITS_UNAVAILABLE")
@@ -275,9 +277,9 @@ class CaduSkillsTest(TestCase):
         response = _app().test_client().get("/skills/agentes")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("Agentes e capacidades", html)
+        self.assertIn("Cada agente tem um lugar no trabalho.", html)
         self.assertIn("Agente de Skills", html)
-        self.assertIn("Contas, MCPs, relatórios e campanhas", html)
+        self.assertIn("Coordena contas, MCPs, relatórios e campanhas", html)
 
     def test_deploy_runs_both_skills_migrations(self):
         deploy = (ROOT / "deploy.sh").read_text()

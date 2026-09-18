@@ -232,8 +232,8 @@ def skills_icon(size):
 @bp.get("")
 @bp.get("/")
 def marketplace():
-    # The catalogue is the shared entry point. Private work stays available
-    # from the contextual links in its sidebar instead of becoming a second home.
+    # The catalogue is the shared entry point. Private work remains available
+    # from the authenticated continuation block instead of becoming a second home.
     all_skills = all_cadu_skills()
     official_slugs = {item["slug"] for item in CADU_OFFICIAL_SKILLS}
     official = sorted((item for item in all_skills if item["slug"] in official_slugs), key=lambda item: item.get("rank", 999))
@@ -421,7 +421,7 @@ def shared_skill_run(token):
 @bp.route("/comecar", methods=("GET", "POST"))
 def start():
     if session.get("user_id"):
-        return redirect(url_for("cadu_skills.studio"))
+        return redirect(url_for("cadu_skills.my_skills"))
     submitted = False
     error = ""
     if request.method == "POST":
@@ -496,19 +496,20 @@ def public_event(slug):
 @bp.get("/studio")
 @login_required
 def studio():
+    """Compatibilidade para links internos antigos."""
+    return redirect(url_for("cadu_skills.my_skills"), code=302)
+
+
+@bp.get("/minhas-skills")
+@login_required
+def my_skills():
+    """Biblioteca de versões personalizadas da organização atual."""
     client_id = int(session.get("cliente_id") or 0)
     return render_template(
         "cadu_skills/my_skills.html",
         customizations=list_customizations(client_id=client_id),
         credit_position=credit_position(client_id),
     )
-
-
-@bp.get("/minhas-skills")
-@login_required
-def my_skills():
-    """URL de produto estável; /studio continua como compatibilidade interna."""
-    return redirect(url_for("cadu_skills.studio"), code=302)
 
 
 @bp.post("/api/<slug>/runs")

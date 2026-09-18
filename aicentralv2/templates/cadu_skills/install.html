@@ -1,33 +1,11 @@
 {% extends 'cadu_skills/base.html' %}
 {% block title %}Instalar {{ skill.name }} — Cadu Skills{% endblock %}
 {% block content %}
-<article class="sk-install-guide">
-  <a class="sk-back" href="{{ url_for('cadu_skills.detail', slug=skill.slug) }}">← Voltar para a skill</a>
-  <header>
-    <p class="sk-kicker">Skill oficial Cadu</p>
-    <h1>Baixe. Arraste. Pronto.</h1>
-    <p>Um comando padrão instala <b>{{ skill.name }}</b> com todas as referências necessárias.</p>
-  </header>
-
-  <ol class="sk-install-guide__steps">
-    <li>
-      <span>1</span>
-      <div><h2>Rode o comando padrão</h2><p>Na raiz do seu projeto, instale diretamente da fonte oficial:</p><blockquote><code>npx skills add {{ package.download_url }}</code></blockquote></div>
-      <button class="sk-copy" type="button" data-copy-value="npx skills add {{ package.download_url }}" data-copy-label="Copiar comando">Copiar comando</button>
-    </li>
-    <li>
-      <span>2</span>
-      <div><h2>Use com o seu agente</h2><p>A skill fica disponível no projeto. Se o seu ambiente não tiver a CLI, use o pacote completo:</p></div>
-      <a class="sk-button" href="{{ url_for('cadu_skills.download_skill', slug=skill.slug) }}" download>Baixar ZIP da skill</a>
-    </li>
-  </ol>
-
-  <p class="sk-install-guide__done"><span aria-hidden="true">✓</span> O instalador preserva o <code>SKILL.md</code> e todas as referências do pacote.</p>
-
-  <details class="sk-install-guide__technical">
-    <summary>Precisa instalar por API ou validar o pacote?</summary>
-    <p>Use o comando <code>npx skills add</code> para instalação padronizada. Para outras automações, use as <a href="{{ package.instructions_url }}">instruções em Markdown</a>, valide o pacote e leia o <code>SKILL.md</code> antes do uso.</p>
-    <dl><div><dt>Arquivos</dt><dd>{{ package.file_count }}</dd></div><div><dt>Tamanho</dt><dd>{{ (package.archive_size / 1024)|round|int }} KB</dd></div><div><dt>SHA-256</dt><dd><code>{{ package.archive_sha256 }}</code></dd></div></dl>
-  </details>
+<article class="skills-install-page">
+  <a class="skills-method-page__back" href="{{ url_for('cadu_skills.detail', slug=skill.slug) }}">Voltar para {{ skill.name }}</a>
+  <header><p>Pacote verificável</p><h1>Instale o método onde o trabalho acontece.</h1><span>{{ skill.name }} inclui instruções e referências para manter a decisão rastreável fora do Cadu.</span></header>
+  <section class="skills-install-page__command" aria-labelledby="install-command-title"><div><p>Instalação padrão</p><h2 id="install-command-title">Baixe. Arraste. Pronto.</h2><span>Na raiz do projeto, use o endereço oficial do pacote.</span></div><div class="skills-install-page__code"><code>npx skills add {{ package.download_url }}</code><button class="sk-copy" type="button" data-copy-value="npx skills add {{ package.download_url }}" data-copy-label="Copiar comando">Copiar</button></div></section>
+  <section class="skills-install-page__steps" aria-label="Como instalar"><article><b>1</b><h2>Instale o pacote</h2><p>O comando preserva o <code>SKILL.md</code> e as referências necessárias para usar o método.</p></article><article><b>2</b><h2>Abra com seu agente</h2><p>A skill passa a estar disponível no projeto. Sem CLI? Baixe o pacote completo.</p><a href="{{ url_for('cadu_skills.download_skill', slug=skill.slug) }}" download>Baixar ZIP da skill</a></article></section>
+  <details class="skills-install-page__technical"><summary>Verificar integridade e automações</summary><p>Para integrações, use as <a href="{{ package.instructions_url }}">instruções em Markdown</a> e valide o pacote antes do primeiro uso.</p><dl><div><dt>Arquivos</dt><dd>{{ package.file_count }}</dd></div><div><dt>Tamanho</dt><dd>{{ (package.archive_size / 1024)|round|int }} KB</dd></div><div><dt>SHA-256</dt><dd><code>{{ package.archive_sha256 }}</code></dd></div></dl></details>
 </article>
 {% endblock %}

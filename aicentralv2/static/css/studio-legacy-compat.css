@@ -1,0 +1,10 @@
+/*
+ * Compatibility boundary for the old Creative Modeling stylesheet.
+ *
+ * The file still contains the live video desk styles, so it cannot be removed
+ * yet. Keeping it in a named low-priority layer prevents its former shell and
+ * navbar rules from overriding the modern Studio frame.
+ */
+@layer studio-legacy {
+  @import url('/static/css/modelagem_criativos.css?v=127');
+}

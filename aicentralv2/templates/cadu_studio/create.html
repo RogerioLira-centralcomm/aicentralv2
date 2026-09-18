@@ -13,7 +13,8 @@
       data-api-root="{{ '/studio/api' if request.blueprint in ('studio', 'studio_product') else '/parametros/api' }}"
       data-user-id="{{ session.get('user_id', '') }}"
       data-client-id="{{ session.get('cliente_id', '') }}"
-      data-editor-url="{{ studio_url('modelagem_trocar') }}">
+      data-editor-url="{{ studio_url('modelagem_trocar') }}"
+      data-format-catalog='{{ mc_format_catalog|tojson }}'>
   {% set mc_page = 'criar' %}{% include "cadu_studio/_context_bar.html" %}
   <div class="studio-v2__body">
     <aside class="studio-rail" id="referenceRail" aria-label="Referências">
@@ -37,8 +38,15 @@
   </div>
   <div class="studio-v2__scrim" id="panelScrim" hidden></div>
   <dialog class="format-dialog" id="formatDialog" aria-labelledby="formatDialogTitle">
-    <header><div><span class="eyebrow">Entrega</span><h2 id="formatDialogTitle">Todos os formatos</h2><p>Escolha um formato para o canal selecionado.</p></div><button class="icon-button" type="button" data-close-format aria-label="Fechar formatos"><i class="fa-solid fa-xmark"></i></button></header>
-    <div class="format-dialog__grid"><button type="button" data-dialog-format="Feed"><i class="fa-solid fa-mobile-screen"></i><b>Feed</b><small>4:5</small></button><button type="button" data-dialog-format="Quadrado"><i class="fa-regular fa-square"></i><b>Quadrado</b><small>1:1</small></button><button type="button" data-dialog-format="Story"><i class="fa-solid fa-mobile-screen-button"></i><b>Story</b><small>9:16</small></button><button type="button" data-dialog-format="Landscape"><i class="fa-regular fa-rectangle-wide"></i><b>Landscape</b><small>16:9</small></button><button type="button" data-dialog-format="Banner horizontal"><i class="fa-solid fa-rectangle-wide"></i><b>Banner horizontal</b><small>16:9</small></button><button type="button" data-dialog-format="Slide"><i class="fa-solid fa-display"></i><b>Slide</b><small>16:9</small></button></div>
+    <header><div><span class="eyebrow">Entrega</span><h2 id="formatDialogTitle">Canal e formato</h2><p>Escolha onde a peça vai aparecer e ajuste o tamanho final.</p></div><button class="icon-button" type="button" data-close-format aria-label="Fechar formatos"><i class="fa-solid fa-xmark"></i></button></header>
+    <div class="format-dialog__channels" role="tablist" aria-label="Canais"></div>
+    <div class="format-dialog__grid"></div>
+    <form class="custom-format" id="customFormatForm" hidden>
+      <div class="custom-format__head"><div><b>Formato personalizado</b><small>Defina o output em pixels.</small></div><label class="ratio-lock"><input type="checkbox" id="customRatioLock" checked> Travar proporção</label></div>
+      <div class="custom-format__fields"><label>Largura<input id="customWidth" type="number" min="120" max="7680" step="1" value="1080"></label><span>×</span><label>Altura<input id="customHeight" type="number" min="80" max="7680" step="1" value="1350"></label></div>
+      <small class="custom-format__ratio" id="customRatioLabel">Proporção 4:5 · 1080 × 1350 px</small>
+      <button class="primary-cta" type="submit">Aplicar formato</button>
+    </form>
   </dialog>
 </main>
 {% endblock %}

@@ -16,6 +16,7 @@ from .creative_media.studio_csrf import get_or_create_token as studio_csrf_token
 from .creative_format_lab.swap_routes import register_trocr_routes
 from .creative_format_lab.swap_csrf import get_or_create_token as trocr_csrf_token
 from .creative_modeling_generation import OpenRouterError
+from .creative_format_registry import catalog_entries
 from .cadu_tool_billing import InsufficientToolCredits
 from .creative_modeling_repository import (
     CreativeConflictError,
@@ -369,6 +370,7 @@ def modelagem_desk(page):
             else ""
         ),
         mc_workspace_brands=page == 'marcas' and _configured_product_host('workspace') == (request.host.split(':', 1)[0] or '').lower(),
+        mc_format_catalog=catalog_entries(),
     ))
     if page in {"criar", "video"}:
         response.headers['Cache-Control'] = 'no-store, private'

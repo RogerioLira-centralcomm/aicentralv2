@@ -82,6 +82,9 @@ def clean_context(raw, count):
         "channels": [text(item, 24) for item in data.get("channels", []) if text(item, 24)][:5],
         "iab_formats": [text(item, 32) for item in data.get("formats", []) if text(item, 32)][:6],
         "direction_intensity": max(0, min(integer(data.get("direction_intensity"), 70), 100)),
+        "format_key": text(data.get("format_key"), 80),
+        "width": integer(data.get("width"), 0),
+        "height": integer(data.get("height"), 0),
         "requested_directions": count,
         "references": [clean_direction_reference(item, index) for index, item in enumerate(data.get("references", [])[:2]) if isinstance(item, dict)],
     }
@@ -150,7 +153,12 @@ def create_image(payload, modeling, client_id, user_id):
         raise ValueError("Descreva a imagem que deseja gerar.")
     aspect_ratio = str(data.get("aspect_ratio") or "1:1")
     if aspect_ratio not in {"1:1", "4:5", "9:16", "16:9"}:
-        raise ValueError("Formato de imagem inválido.")
+        try:
+            ratio_width, ratio_height = (float(part) for part in aspect_ratio.split(":", 1))
+            if ratio_width <= 0 or ratio_height <= 0:
+                raise ValueError
+        except (TypeError, ValueError, ZeroDivisionError):
+            raise ValueError("Formato de imagem inválido.")
     references = normalize_image_references(data.get("references"), modeling.storage)
     mask = str(data.get("mask") or "")
     mask_node_id = text(data.get("mask_node_id"), 160)
@@ -195,12 +203,17 @@ def create_image(payload, modeling, client_id, user_id):
         direction_intensity = max(0, min(int(data.get("direction_intensity") or 70), 100))
     except (TypeError, ValueError):
         direction_intensity = 70
+    width = integer(data.get("width"), 0)
+    height = integer(data.get("height"), 0)
+    if (width and not 120 <= width <= 7680) or (height and not 80 <= height <= 7680):
+        raise ValueError("Dimensões do formato fora do limite permitido.")
     technical_prompt = "\n".join([
         prompt,
         "\nREFERENCE CONTRACT:",
         *(role_lines or ["No image reference was supplied; create an original image."]),
         edit_guard,
         f"Output channel: {channel or 'unspecified'}.",
+        f"Requested output dimensions: {width}x{height}px." if width and height else "Requested output dimensions: use the selected aspect ratio.",
         f"Creative direction exploration intensity: {direction_intensity}/100.",
         f"Output aspect ratio: {aspect_ratio}.",
     ])

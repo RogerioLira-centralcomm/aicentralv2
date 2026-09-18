@@ -197,6 +197,14 @@
       return session;
     });
   }
+  async function attachSessionToProject(projectId) {
+    if (!state.sessionId || state.sessionProjectId || !projectId) return false;
+    const session = await request(sessionUrl(`/${encodeURIComponent(state.sessionId)}/attach-project`), {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({client_id:state.clientId, project_id:projectId}),
+    });
+    updateSession(session); return true;
+  }
 
   function serializableState() {
     return {
@@ -724,7 +732,12 @@
   async function loadHistory(){if(!state.clientId||!state.projectId)return;try{const data=await request(`${apiRoot}/format-lab/studio/projects/${encodeURIComponent(state.projectId)}/creation-history?client_id=${encodeURIComponent(state.clientId)}&limit=8`);const runs=data.runs||[];$('studioCreateHistory').innerHTML=runs.map((run)=>`<article class="studio-history-row"><i></i><div><strong>${escapeHtml(run.directions?.[0]?.title||run.prompt||'Direção criativa')}</strong><span>${run.status==='failed'?'Não concluída':`${run.returned_count||0} direções`}</span></div></article>`).join('')||'<p>Nenhuma direção criada neste projeto.</p>';}catch(_error){$('studioCreateHistory').innerHTML='<p>O histórico será carregado quando o projeto estiver disponível.</p>';}}
   async function loadProject(detail={}) {
     const nextProjectId=String($('mcCaduProject')?.value||'');
-    if(state.sessionId&&state.sessionProjectId!==nextProjectId){try{await saveSessionNow({create:false});}catch(_error){}resetDraftState();renderAll();}
+    if(state.sessionId&&state.sessionProjectId!==nextProjectId){
+      if(!state.sessionProjectId&&nextProjectId){
+        try{await attachSessionToProject(nextProjectId);announce('Conversa e decisões vinculadas ao projeto.');}
+        catch(error){announce(error.message||'Não foi possível vincular a conversa ao projeto.');return;}
+      }else{try{await saveSessionNow({create:false});}catch(_error){}resetDraftState();renderAll();}
+    }
     state.projectId=nextProjectId;state.quickMode=!state.projectId;state.projectReady=false;
     if(!state.clientId||!state.projectId){
       $('studioCreateProject').textContent='Criação rápida';$('studioCreateBrand').textContent='Só você vê esta mesa. Use uma imagem como base ou crie sem referência.';$('studioCreateReferenceHint').textContent='Sem projeto: uma imagem pode ser a base da edição; referências de projeto não serão usadas.';

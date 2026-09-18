@@ -347,6 +347,24 @@ class LocalSessionRepository:
                             {"asset_id": asset})
         return self.read(client_id, user_id, ident)
 
+    def attach_project(self, client_id, user_id, ident, project_id):
+        project_id = clean_text(project_id, 64)
+        if not project_id:
+            raise ValueError("Escolha um projeto para vincular a sessão.")
+        now = time.time()
+        with self.connection() as db:
+            session = self._owned(db, client_id, user_id, ident)
+            if session["project_id"]:
+                if session["project_id"] == project_id:
+                    return self.read(client_id, user_id, ident)
+                raise ValueError("Esta sessão já pertence a outro projeto.")
+            db.execute(
+                "UPDATE sessions SET project_id=?, revision=revision+1, updated_at=? WHERE id=?",
+                (project_id, now, ident),
+            )
+            self._event(db, ident, "project_attached", payload={"project_id": project_id})
+        return self.read(client_id, user_id, ident)
+
     def handoff(self, client_id, user_id, ident, payload):
         request_id = clean_text(payload.get("request_id"), 160)
         with self.connection() as db:
@@ -649,6 +667,30 @@ class PostgresSessionRepository:
             if completed_event:
                 self._event(cursor, ident, completed_event, clean_text(payload.get("source_id"), 180) or asset_id,
                             {"asset_id": asset_id})
+        self.connection.commit()
+        return self.read(client_id, user_id, ident)
+
+    def attach_project(self, client_id, user_id, ident, project_id):
+        project_id = clean_text(project_id, 64)
+        if not project_id:
+            raise ValueError("Escolha um projeto para vincular a sessão.")
+        with self.connection.cursor() as cursor:
+            session = self._owned(cursor, client_id, user_id, ident)
+            if session.get("project_id"):
+                if session["project_id"] == project_id:
+                    return self.read(client_id, user_id, ident)
+                raise ValueError("Esta sessão já pertence a outro projeto.")
+            cursor.execute(
+                "SELECT 1 FROM cx_studio_projects WHERE id=%s AND client_id=%s",
+                (project_id, int(client_id)),
+            )
+            if not cursor.fetchone():
+                raise ValueError("Projeto não encontrado nesta marca.")
+            cursor.execute("""
+                UPDATE cx_studio_sessions SET project_id=%s,revision=revision+1,updated_at=NOW()
+                 WHERE id=%s AND client_id=%s
+            """, (project_id, ident, int(client_id)))
+            self._event(cursor, ident, "project_attached", payload={"project_id": project_id})
         self.connection.commit()
         return self.read(client_id, user_id, ident)
 

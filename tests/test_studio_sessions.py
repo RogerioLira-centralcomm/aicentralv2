@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from flask import Blueprint, Flask, jsonify, request
 
+from aicentralv2.creative_media import studio
 from aicentralv2.creative_media.studio_sessions import (
     LocalSessionRepository,
     SessionConflict,
@@ -38,6 +39,41 @@ class StudioSessionRepositoryTest(unittest.TestCase):
         self.assertEqual(saved["original_prompt"], "Corrija somente a hora")
         with self.assertRaises(SessionConflict):
             self.repo.save(31, 7, created["id"], {"expected_revision": 1, "title": "Perdido"})
+
+    def test_free_session_persists_the_chat_workspace(self):
+        messages = [{"id": "message-1", "role": "user", "text": "Criativo institucional BNDES"}]
+        created = self.repo.create(31, 7, {
+            "studio_type": "create", "title": "BNDES", "original_prompt": messages[0]["text"],
+            "metadata": {"workspace": {"messages": messages}},
+        })
+
+        reopened = self.repo.read(31, 7, created["id"])
+
+        self.assertEqual(reopened["original_prompt"], "Criativo institucional BNDES")
+        self.assertEqual(reopened["metadata"]["workspace"]["messages"], messages)
+
+    def test_personal_session_can_be_attached_to_a_project_without_losing_chat(self):
+        created = self.repo.create(31, 7, {
+            "studio_type": "create", "metadata": {"workspace": {"messages": [{"text": "Briefing aprovado"}]}},
+        })
+
+        attached = self.repo.attach_project(31, 7, created["id"], "project-123")
+
+        self.assertEqual(attached["project_id"], "project-123")
+        self.assertEqual(attached["metadata"]["workspace"]["messages"][0]["text"], "Briefing aprovado")
+
+
+def test_non_test_session_store_uses_postgres_even_with_legacy_flag_disabled():
+    app = Flask(__name__)
+    app.config.update(TESTING=False, STUDIO_PROJECTS_POSTGRES=False)
+    connection = object()
+    with app.app_context(), \
+            patch("aicentralv2.db.get_db", return_value=connection), \
+            patch("aicentralv2.creative_media.schema.ensure_schema"), \
+            patch("aicentralv2.creative_media.studio_sessions.PostgresSessionRepository") as repository:
+        studio._session_store(31)
+
+    repository.assert_called_once_with(connection)
 
     def test_all_scope_groups_project_work_and_only_the_users_free_sessions(self):
         personal = self.repo.create(31, 7, {"studio_type": "create", "title": "Livre"})
@@ -294,6 +330,13 @@ def test_session_schema_is_in_fresh_and_rollout_migrations():
     ):
         assert table in fresh
         assert table in rollout
+
+
+def test_session_routes_include_project_attachment():
+    source = (Path(__file__).resolve().parents[1] / "aicentralv2" / "creative_media" / "studio.py").read_text(encoding="utf-8")
+
+    assert "sessions/<ident>/attach-project" in source
+    assert "def studio_session_attach_project" in source
 
 
 def test_creation_editor_groups_free_and_project_sessions_and_switches_context():

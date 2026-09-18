@@ -140,6 +140,7 @@ def register_studio_routes(blueprint):
     blueprint.add_url_rule('/api/format-lab/studio/sessions', view_func=studio_sessions, methods=['GET', 'POST'])
     blueprint.add_url_rule('/api/format-lab/studio/sessions/<ident>', view_func=studio_session, methods=['GET', 'PATCH'])
     blueprint.add_url_rule('/api/format-lab/studio/sessions/<ident>/accept', view_func=studio_session_accept, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/sessions/<ident>/attach-project', view_func=studio_session_attach_project, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/sessions/<ident>/handoff', view_func=studio_session_handoff, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/sessions/<ident>/continue', view_func=studio_session_continue, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/sessions/<ident>/finalize', view_func=studio_session_finalize, methods=['POST'])
@@ -582,6 +583,25 @@ def studio_session(ident):
     return execute(run)
 
 
+@studio_or_admin_required_api
+@studio_csrf_required
+def studio_session_attach_project(ident):
+    """Make a personal Studio conversation part of an existing client project."""
+    execute, json_body, ok, _ = _http()
+
+    def run():
+        user_id = session.get('user_id')
+        if not user_id:
+            raise ValueError('Entre novamente para vincular esta sessão.')
+        data = json_body()
+        client_id = data.get('client_id') or session.get('cliente_id')
+        return ok(_session_store(client_id).attach_project(
+            client_id, user_id, ident, data.get('project_id'),
+        ))
+
+    return execute(run)
+
+
 def _session_action(ident, action):
     execute, json_body, ok, _ = _http()
 
@@ -656,11 +676,16 @@ def studio_session_restore(ident):
 
 
 def _session_store(client_id):
-    """Resolve the canonical database store or the scoped local fallback."""
+    """Use PostgreSQL for every non-test Studio session.
+
+    A persisted conversation is part of the Studio work record.  The old
+    feature flag could silently direct a production request to a server-local
+    SQLite file, leaving personal sessions unavailable to the shared Studio
+    timeline and operational support.
+    """
     from .studio_sessions import LocalSessionRepository, PostgresSessionRepository
-    root = _scope(client_id)
-    if current_app.testing or not current_app.config.get('STUDIO_PROJECTS_POSTGRES', False):
-        return LocalSessionRepository(root)
+    if current_app.testing:
+        return LocalSessionRepository(_scope(client_id))
     from .. import db
     from .schema import ensure_schema
     connection = db.get_db()

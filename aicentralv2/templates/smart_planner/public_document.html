@@ -67,18 +67,19 @@
 
     {% if document == 'proposal' %}
     <section class="spv3-panel spv3-executive-plan" id="plano-executivo" data-scroll-reveal>
-      <div class="spv3-hero">
+      <div class="spv3-hero spv3-hero-compact">
         <div class="spv3-hero-copy">
           <span class="spv3-eyebrow">Direção recomendada</span>
           <h2>Como a estratégia vira ação</h2>
           {% if hero.tagline or overview %}<p class="spv3-direction-thesis">{{ hero.tagline or overview }}</p>{% endif %}
-          {% if audience %}<p><strong>Público prioritário.</strong> {{ audience }}</p>{% endif %}
           {% if concept %}<div class="spv3-concept"><small>Conceito recomendado</small><strong>{{ concept }}</strong><p>{{ support }}</p></div>{% endif %}
         </div>
-        <figure class="spv3-visual spv3-featured-model{% if not hero.creative_image %} is-empty{% endif %}" data-scroll-reveal>
-          {% if hero.creative_image %}<img src="{{ hero.creative_image }}" alt="Criativo conceitual no canal para {{ title }}">{% else %}<span>Conceito visual em preparação</span>{% endif %}
-          <figcaption>Imagem conceito gerada pelo Smart Planner</figcaption>
-        </figure>
+        <aside class="spv3-plan-summary" aria-label="Resumo da recomendação">
+          <span class="spv3-eyebrow">Resumo da recomendação</span>
+          {% if audience %}<div><small>Público prioritário</small><p>{{ audience }}</p></div>{% endif %}
+          {% if executive_facts %}<div><small>Decisão de mídia</small><p>{{ executive_facts[0][1] }}</p></div>{% endif %}
+          {% if support %}<div><small>Por que agora</small><p>{{ support }}</p></div>{% endif %}
+        </aside>
       </div>
       <div class="spv3-defense">
         <div><span class="spv3-eyebrow">Leitura executiva</span><h3>O que sustenta este plano</h3></div>

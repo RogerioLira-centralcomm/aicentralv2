@@ -107,3 +107,13 @@ body.spv3.has-fixed-backdrop::after{content:"";position:fixed;inset:0;z-index:-1
 .spv3-js [data-scroll-reveal]:nth-child(2){transition-delay:.06s}.spv3-js [data-scroll-reveal]:nth-child(3){transition-delay:.12s}
 @media(prefers-reduced-motion:reduce){body.spv3.has-fixed-backdrop{background-attachment:scroll}.spv3-featured-model img{transition:none}.spv3-js [data-scroll-reveal]{opacity:1;transform:none;transition:none}}
 @media print{body.spv3.has-fixed-backdrop{background:#fff!important}.spv3-featured-model::before,.spv3-featured-model::after{display:none}.spv3-js [data-scroll-reveal]{opacity:1!important;transform:none!important}}
+
+/* A recomendação é textual: o criativo não deve ocupar metade da página. */
+.spv3-proposal .spv3-hero-compact{grid-template-columns:minmax(0,1.12fr) minmax(280px,.88fr);min-height:0}
+.spv3-proposal .spv3-hero-compact .spv3-hero-copy{padding:clamp(30px,4vw,54px)}
+.spv3-plan-summary{display:grid;align-content:center;gap:0;padding:clamp(28px,4vw,54px);background:#f5f8f7;border-left:1px solid var(--line)}
+.spv3-plan-summary>span{margin-bottom:18px}
+.spv3-plan-summary>div{padding:15px 0;border-top:1px solid var(--line)}
+.spv3-plan-summary small{display:block;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.11em;text-transform:uppercase}
+.spv3-plan-summary p{margin:6px 0 0;color:var(--ink);font-size:14px;line-height:1.55}
+@media(max-width:800px){.spv3-proposal .spv3-hero-compact{grid-template-columns:1fr}.spv3-plan-summary{border-left:0;border-top:1px solid var(--line);padding:26px 24px}}

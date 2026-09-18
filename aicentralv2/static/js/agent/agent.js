@@ -1658,7 +1658,7 @@
   }
 
   function structuredDisplaySummary(display) {
-    var groups = display && Array.isArray(display.results) ? display.results : [];
+    var groups = displayGroups(display);
     if (!groups.length && display && (display.items || display.empty || display.summary)) groups = [display];
     var summaries = groups.map(function (group) { return String(group.summary || '').trim(); }).filter(Boolean);
     if (summaries.length) return summaries[summaries.length - 1];
@@ -1666,11 +1666,60 @@
   }
 
   function hasStructuredResults(display) {
-    var groups = display && Array.isArray(display.results) ? display.results : [];
+    var groups = displayGroups(display);
     if (!groups.length && display && (display.items || display.empty || display.type)) groups = [display];
     return groups.some(function (group) {
       return (group.items && group.items.length) || group.empty || group.type === 'operation_summary' || group.type === 'empty';
     });
+  }
+
+  // Result events arrive in two shapes: the stream uses `result`, while
+  // persisted messages may already expose the result as the display root.
+  // Keeping this normalization in one place prevents cards from silently
+  // disappearing when a conversation is re-opened.
+  function displayGroups(display) {
+    if (!display || typeof display !== 'object') return [];
+    if (Array.isArray(display.results)) return display.results;
+    if (display.result && typeof display.result === 'object') return [display.result];
+    return (display.items || display.empty || display.summary || display.type) ? [display] : [];
+  }
+
+  function renderBriefingCard(parent, group) {
+    var card = document.createElement('section');
+    card.className = 'cx-agent-briefing-card';
+    var items = Array.isArray(group.items) ? group.items : [];
+    var actions = Array.isArray(group.actions) ? group.actions : [];
+    card.innerHTML = '<header><span class="cx-agent-briefing-kicker"><i class="fa-regular fa-compass"></i> Briefing</span>' +
+      '<span class="cx-agent-briefing-state">Em revisão</span></header>' +
+      '<h3>' + escapeHtml(group.title || 'Briefing em revisão') + '</h3>' +
+      '<p class="cx-agent-briefing-summary">' + escapeHtml(group.summary || 'Organizamos o que apareceu na conversa. Confirme os pontos abaixo antes de transformar isso em plano.') + '</p>';
+    if (items.length) {
+      var list = document.createElement('div');
+      list.className = 'cx-agent-briefing-sections';
+      items.slice(0, 8).forEach(function (item) {
+        var row = document.createElement('div');
+        row.innerHTML = '<strong>' + escapeHtml(item.title || 'Ponto do briefing') + '</strong><span>' + escapeHtml(item.excerpt || 'Ainda precisa de confirmação.') + '</span>';
+        list.appendChild(row);
+      });
+      card.appendChild(list);
+    }
+    if (actions.length) {
+      var questionLabel = document.createElement('strong');
+      questionLabel.className = 'cx-agent-briefing-question-label';
+      questionLabel.textContent = 'Qual é o próximo ponto a fechar?';
+      card.appendChild(questionLabel);
+      var bar = document.createElement('div');
+      bar.className = 'cx-agent-briefing-actions';
+      actions.slice(0, 3).forEach(function (action) {
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = action.label || 'Continuar';
+        button.addEventListener('click', function () { if (action.prompt) usePrompt(action.prompt); });
+        bar.appendChild(button);
+      });
+      card.appendChild(bar);
+    }
+    parent.appendChild(card);
   }
 
   function appendMessage(role, content, display, extraClass) {
@@ -1942,8 +1991,12 @@
   }
 
   function renderDisplay(parent, display) {
-    var groups = display && Array.isArray(display.results) ? display.results : [];
+    var groups = displayGroups(display);
     groups.forEach(function (group) {
+      if (group.type === 'briefing') {
+        renderBriefingCard(parent, group);
+        return;
+      }
       if (group.type === 'operation_summary' || group.type === 'status_summary') {
         renderOperationSummary(parent, group);
         return;

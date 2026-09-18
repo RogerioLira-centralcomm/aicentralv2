@@ -4809,6 +4809,118 @@ body.cx-drawer-open {
   }
 }
 
+/* Conversation refinement: quiet canvas, one clear action color, and cards
+   that explain what is ready versus what still needs an answer. */
+.cx-agent-dock {
+  --agent-ink: #20252b;
+  --agent-muted: #727b84;
+  --agent-line: #e3e6e8;
+  --agent-surface: #ffffff;
+  --agent-canvas: #fafafa;
+  --agent-action: #176c60;
+  --agent-action-soft: #edf7f4;
+  width: min(31rem, 100vw);
+  background: var(--agent-canvas);
+  border-left-color: #dfe3e5;
+  box-shadow: -18px 0 48px rgb(16 24 32 / .11);
+}
+.cx-agent-header {
+  min-height: 3.75rem;
+  background: var(--agent-surface);
+  border-bottom-color: var(--agent-line);
+  padding-inline: 1.15rem;
+}
+.cx-agent-brand-icon { border-radius: .7rem; background: var(--agent-ink); }
+.cx-agent-brand strong { color: var(--agent-ink); letter-spacing: -.02em; }
+.cx-agent-brand span { color: var(--agent-muted); }
+.cx-agent-status-dot { background: #2f9c70; }
+.cx-agent-workspace { background: var(--agent-canvas); }
+.cx-agent-messages {
+  padding: 1.6rem clamp(1rem, 4vw, 2rem) 1rem;
+  background: var(--agent-canvas);
+}
+.cx-agent-welcome { max-width: 31rem; margin: clamp(3rem, 13vh, 8rem) auto 0; }
+.cx-agent-welcome-mark span { background: var(--agent-action); }
+.cx-agent-welcome-mark span:nth-child(3) { background: #9bc8be; }
+.cx-agent-welcome h2 { color: var(--agent-ink); font-size: 1.35rem; letter-spacing: -.04em; }
+.cx-agent-welcome p { max-width: 32rem; color: var(--agent-muted); font-size: .83rem; }
+.cx-agent-quick-prompts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+.cx-agent-prompt { min-height: 3.1rem; border-color: var(--agent-line); border-radius: .75rem; background: var(--agent-surface); color: var(--agent-ink); }
+.cx-agent-prompt:hover { border-color: #a9cfc6; background: var(--agent-action-soft); }
+.cx-agent-prompt i { color: var(--agent-action); }
+.cx-agent-message { margin-bottom: 1.35rem; }
+.cx-agent-message-body { color: var(--agent-ink); font-size: .84rem; line-height: 1.7; }
+.cx-agent-message.is-user .cx-agent-message-body {
+  max-width: min(78%, 28rem);
+  border: 1px solid #dce5e3;
+  border-radius: 1rem 1rem .25rem 1rem;
+  background: #f0f5f3;
+  color: #31504b;
+  padding: .7rem .9rem;
+}
+.cx-agent-message-avatar { background: var(--agent-ink); }
+.cx-agent-message.is-user .cx-agent-message-avatar { background: #cbd8d4; color: #31504b; }
+.cx-agent-message-actions { margin-top: .4rem; }
+.cx-agent-message-action:hover { background: var(--agent-action-soft); color: var(--agent-action); }
+.cx-agent-composer-wrap { padding: 0 1rem 1rem; background: var(--agent-canvas); }
+.cx-agent-composer {
+  border: 1px solid #d8dfe0;
+  border-radius: 1rem;
+  background: var(--agent-surface);
+  box-shadow: 0 8px 24px rgb(16 24 32 / .06);
+  padding: .45rem;
+}
+.cx-agent-composer:focus-within { border-color: #8cbdb2; box-shadow: 0 0 0 3px rgb(23 108 96 / .1), 0 10px 26px rgb(16 24 32 / .08); }
+.cx-agent-composer textarea { border: 0; background: transparent; color: var(--agent-ink); padding: .65rem .75rem; }
+.cx-agent-composer textarea::placeholder { color: #9aa2a8; }
+.cx-agent-composer-tools { padding: .2rem .25rem .2rem 0; }
+.cx-agent-tool-btn { color: #7b858b; }
+.cx-agent-tool-btn:hover { background: var(--agent-action-soft); color: var(--agent-action); }
+.cx-agent-send { background: var(--agent-action); border-radius: .7rem; }
+.cx-agent-send:hover { background: #105b50; }
+.cx-agent-composer-suggestion { border-color: #d7e4e0; background: transparent; color: var(--agent-action); }
+.cx-agent-composer-suggestion:hover { background: var(--agent-action-soft); border-color: #a9cfc6; }
+.cx-agent-result,
+.cx-agent-quote-summary,
+.cx-agent-pi-summary,
+.cx-agent-campaign-summary,
+.cx-agent-document-summary,
+.cx-agent-invoice-summary,
+.cx-agent-activity-summary {
+  border-color: var(--agent-line);
+  border-radius: .8rem;
+  background: var(--agent-surface);
+  box-shadow: 0 3px 12px rgb(16 24 32 / .035);
+}
+.cx-agent-briefing-card {
+  margin-top: .75rem;
+  border: 1px solid #cfe1dc;
+  border-radius: .95rem;
+  background: linear-gradient(145deg, #f5fbf9, #fff 58%);
+  padding: 1rem;
+  color: var(--agent-ink);
+}
+.cx-agent-briefing-card > header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.cx-agent-briefing-kicker { color: var(--agent-action); font-size: .68rem; font-weight: 800; }
+.cx-agent-briefing-kicker i { margin-right: .3rem; }
+.cx-agent-briefing-state { border-radius: 99px; background: #e4f2ee; color: #397066; padding: .25rem .5rem; font-size: .62rem; font-weight: 750; }
+.cx-agent-briefing-card h3 { margin: .8rem 0 .25rem; font-size: .98rem; letter-spacing: -.02em; }
+.cx-agent-briefing-summary { margin: 0; color: var(--agent-muted); font-size: .75rem; line-height: 1.5; }
+.cx-agent-briefing-sections { display: grid; gap: .5rem; margin: .9rem 0; border-top: 1px solid #dceae6; }
+.cx-agent-briefing-sections > div { display: grid; gap: .15rem; padding-top: .55rem; border-bottom: 1px solid #e8f0ee; }
+.cx-agent-briefing-sections strong { font-size: .75rem; }
+.cx-agent-briefing-sections span { padding-bottom: .55rem; color: var(--agent-muted); font-size: .7rem; line-height: 1.4; }
+.cx-agent-briefing-question-label { display: block; margin-top: .8rem; color: #4b625e; font-size: .68rem; }
+.cx-agent-briefing-actions { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .45rem; }
+.cx-agent-briefing-actions button { border: 1px solid #bcd9d1; border-radius: .55rem; background: #fff; color: var(--agent-action); padding: .45rem .6rem; font: inherit; font-size: .68rem; font-weight: 750; cursor: pointer; }
+.cx-agent-briefing-actions button:first-child { border-color: var(--agent-action); background: var(--agent-action); color: #fff; }
+.cx-agent-briefing-actions button:hover { border-color: var(--agent-action); background: var(--agent-action-soft); }
+@media (max-width: 520px) {
+  .cx-agent-dock { width: 100vw; }
+  .cx-agent-quick-prompts { grid-template-columns: 1fr; }
+  .cx-agent-message.is-user .cx-agent-message-body { max-width: 86%; }
+}
+
 @media (max-width: 900px) {
   .cx-drawer[data-size="editor"] .cx-cotacao-editor,
   .cx-cotacao-editor-grid {
@@ -6879,3 +6991,46 @@ dialog.cx-modal-shell::backdrop {
   .cx-canais-stats div { border-right: 0; border-bottom: 1px solid var(--cx-border); }
   .cx-canais-stats div:last-child { border-bottom: 0; }
 }
+
+/* Final conversation tokens: kept at the end so legacy agent rules cannot
+   reintroduce the saturated message and card treatment. */
+.cx-agent-dock { width: min(31rem, 100vw); background: #fafafa; border-left-color: #dfe3e5; }
+.cx-agent-dock .cx-agent-workspace,
+.cx-agent-dock .cx-agent-messages { background: #fafafa; }
+.cx-agent-dock .cx-agent-messages { padding: 1.6rem clamp(1rem, 4vw, 2rem) 1rem; }
+.cx-agent-dock .cx-agent-message-body { color: #20252b; font-size: .84rem; line-height: 1.7; }
+.cx-agent-dock .cx-agent-message.is-user .cx-agent-message-body { max-width: min(78%, 28rem); border: 1px solid #dce5e3; border-radius: 1rem 1rem .25rem 1rem; background: #f0f5f3; color: #31504b; padding: .7rem .9rem; }
+.cx-agent-dock .cx-agent-composer-wrap { padding: 0 1rem 1rem; background: #fafafa; }
+.cx-agent-dock .cx-agent-composer { border: 1px solid #d8dfe0; border-radius: 1rem; background: #fff; box-shadow: 0 8px 24px rgb(16 24 32 / .06); padding: .45rem; }
+.cx-agent-dock .cx-agent-composer:focus-within { border-color: #8cbdb2; box-shadow: 0 0 0 3px rgb(23 108 96 / .1), 0 10px 26px rgb(16 24 32 / .08); }
+.cx-agent-dock .cx-agent-send { background: #176c60; border-radius: .7rem; }
+.cx-agent-dock .cx-agent-send:hover { background: #105b50; }
+.cx-agent-dock .cx-agent-prompt:hover { border-color: #a9cfc6; background: #edf7f4; }
+.cx-agent-dock .cx-agent-result { border-color: #e3e6e8; border-radius: .8rem; background: #fff; box-shadow: 0 3px 12px rgb(16 24 32 / .035); }
+.cx-agent-dock .cx-agent-composer-wrap { padding: 0 1.1rem 1.1rem; border-top: 0; }
+.cx-agent-dock .cx-agent-composer {
+  min-height: 4.35rem;
+  border-radius: 1.3rem;
+  padding: .35rem;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+.cx-agent-dock .cx-agent-composer:focus-within { transform: translateY(-1px); }
+.cx-agent-dock .cx-agent-composer textarea {
+  min-height: 2.55rem;
+  padding: .75rem .9rem .45rem;
+  font-size: .82rem;
+  line-height: 1.45;
+}
+.cx-agent-dock .cx-agent-composer-tools { min-height: 2.4rem; padding: .2rem .25rem .2rem .35rem; }
+.cx-agent-dock .cx-agent-tool-btn,
+.cx-agent-dock .cx-agent-send {
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+}
+.cx-agent-dock .cx-agent-tool-btn:hover { border-radius: 50%; background: #edf7f4; }
+.cx-agent-dock .cx-agent-send { margin-left: .2rem; box-shadow: 0 2px 5px rgb(23 108 96 / .2); }
+.cx-agent-dock .cx-agent-attachments { margin: .15rem .35rem 0; border: 0; border-bottom: 1px solid #edf1f1; border-radius: .9rem .9rem .45rem .45rem; padding: .45rem .35rem .35rem; }
+.cx-agent-dock .cx-agent-attachment { border-radius: .7rem; }
+.cx-agent-dock .cx-agent-composer-suggestion { border-radius: .8rem; padding: .4rem .7rem; }
+@media (max-width: 520px) { .cx-agent-dock { width: 100vw; } .cx-agent-dock .cx-agent-quick-prompts { grid-template-columns: 1fr; } }

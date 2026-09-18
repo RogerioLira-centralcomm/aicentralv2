@@ -5850,7 +5850,7 @@ class CreativeModelingService:
             actor=CreditActor.from_values(payer, user_id),
             idempotency_key=str(idempotency_key), app="Cadu Studio", stage=stage,
             provider_result=result, model=str(result.get("model") or "studio"),
-            margin_multiplier=8 if media else 12,
+            margin_multiplier=1,
             metadata={**(metadata or {}), "billing_class": "media" if media else "agent"},
         )
 

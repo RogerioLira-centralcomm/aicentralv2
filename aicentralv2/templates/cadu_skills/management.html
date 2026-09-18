@@ -31,7 +31,7 @@
           <label class="is-wide">Resumo<textarea name="summary" rows="2" maxlength="1200" required>{{ skill.summary }}</textarea></label>
           <label class="is-wide">URL da imagem<input name="image_url" type="url" value="{{ skill.image_url }}" placeholder="https://..."></label>
           <label>Posição<input name="display_rank" type="number" min="1" max="999" value="{{ skill.display_rank or skill.rank or 999 }}"></label>
-          <label>Custo em créditos<input name="credit_cost" type="number" min="1" max="100" value="{{ skill.credit_cost }}"></label>
+          <label>Custo de execução em créditos<input name="credit_cost" type="number" min="1" max="100" value="{{ skill.credit_cost }}"></label>
           <label>Modelo<input name="model" value="{{ skill.model }}" maxlength="100"></label>
           <label>Estado<select name="status"><option value="published" {% if skill.status == 'published' %}selected{% endif %}>Publicado</option><option value="draft" {% if skill.status == 'draft' %}selected{% endif %}>Rascunho</option><option value="archived" {% if skill.status == 'archived' %}selected{% endif %}>Arquivado</option></select></label>
           <label class="is-wide">Instruções instaladas no agente<textarea name="instructions" rows="8" maxlength="30000" required>{{ skill.instructions }}</textarea></label>
@@ -52,7 +52,7 @@
         <div class="skills-identity"><span><strong>{{ item.name }}</strong><small>Base: {{ item.base_name }}</small></span></div>
         <div class="skills-custom-owner"><strong>{{ item.client_name or ('Cliente #' ~ item.client_id) }}</strong><small>{{ item.project_name or 'Sem projeto vinculado' }}{% if item.brand_id %} · Marca #{{ item.brand_id }}{% endif %}</small></div>
         <div class="skills-signals"><b>{{ item.run_count }}</b><span>testes · {{ item.active_links }} links ativos</span></div>
-        <div class="skills-state"><span class="is-{{ item.status }}">{{ item.status }}</span><small>{{ item.credit_cost }} crédito{{ 's' if item.credit_cost != 1 }} / teste</small></div>
+        <div class="skills-state"><span class="is-{{ item.status }}">{{ item.status }}</span><small>{{ item.credit_cost }} crédito{{ 's' if item.credit_cost != 1 }} / execução</small></div>
         <div class="skills-custom-actions">
           <button class="cx-btn cx-btn-ghost cx-btn-sm" type="button" data-open-custom-links>Vínculos</button>
           <a class="cx-btn cx-btn-ghost cx-btn-sm" href="{{ url_for('cadu_skills.customization_download', customization_id=item.id) }}">Baixar</a>
@@ -72,7 +72,7 @@
         <form class="skills-custom-test" data-custom-test data-url="{{ url_for('cadu_skills.customization_test', customization_id=item.id) }}" hidden>
           <label>Pedido para o agente<textarea name="prompt" rows="3" minlength="12" placeholder="Descreva o que deseja testar com o contexto deste cliente…" required></textarea></label>
           <label class="skills-editor__check"><input name="confirm_charge" type="checkbox" required> Confirmo o uso de {{ item.credit_cost }} crédito{{ 's' if item.credit_cost != 1 }} do plano de {{ item.client_name or ('cliente #' ~ item.client_id) }}.</label>
-          <div class="skills-editor__actions"><span data-test-status></span><button type="button" class="cx-btn cx-btn-ghost" data-close-custom-test>Cancelar</button><button class="cx-btn cx-btn-primary" type="submit">Executar teste</button></div>
+          <div class="skills-editor__actions"><span data-test-status></span><button type="button" class="cx-btn cx-btn-ghost" data-close-custom-test>Cancelar</button><button class="cx-btn cx-btn-primary" type="submit">Executar teste <small class="cadu-token-estimate">{{ item.credit_cost }} crédito{{ 's' if item.credit_cost != 1 }} · execução</small></button></div>
           <div class="skills-custom-answer" data-test-answer hidden></div>
         </form>
       </article>

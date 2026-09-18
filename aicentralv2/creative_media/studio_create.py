@@ -137,7 +137,7 @@ def charge(provider_result, client_id, user_id, count, project_id, run_id=None,
             "studio_session_id": str(studio_session_id or ""),
             "studio_root_session_id": str(studio_root_session_id or studio_session_id or ""),
         },
-        margin_multiplier=12,
+        margin_multiplier=1,
     ) or {}
     return int(charged.get("tokens_cobrados") or 0), ledger.available(credit_client_id)
 
@@ -168,7 +168,7 @@ def create_image(payload, modeling, client_id, user_id):
     from ..cadu_tool_billing import cost_token_equivalent
     credit_client_id = modeling._credits_crm_id(client_id) or int(client_id)
     modeling.credit_ledger.assert_available(
-        credit_client_id, cost_token_equivalent(estimate, margin_multiplier=8)
+        credit_client_id, cost_token_equivalent(estimate, margin_multiplier=1)
     )
     if mask and primary:
         validate_mask(primary["data"], mask)

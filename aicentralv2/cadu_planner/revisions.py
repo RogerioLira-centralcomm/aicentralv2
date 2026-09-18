@@ -17,7 +17,7 @@ REVIEW_PASSES = (
 MAX_REVIEW_DOCUMENT_CHARS = 40_000
 BRIEFING_OUTPUT_TOKENS_PER_PASS = 800
 DOCUMENT_OUTPUT_TOKENS_PER_PASS = 1_200
-TEXT_AGENT_MARGIN_MULTIPLIER = 12
+TEXT_AGENT_MARGIN_MULTIPLIER = 1
 
 _TASKS = {
     "briefing": "Revise o briefing para que ele seja uma direção clara, verificável e pronta para orientar as escolhas de mídia.",

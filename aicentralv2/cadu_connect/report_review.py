@@ -108,7 +108,7 @@ def register(bp, rows):
                     'operation': 'visual_metric_extraction',
                     'billing_class': 'text_agent',
                 },
-                margin_multiplier=12,
+                margin_multiplier=1,
             )
         except InsufficientToolCredits as exc:
             return jsonify(error=str(exc)), 409

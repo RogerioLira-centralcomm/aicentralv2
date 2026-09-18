@@ -28,9 +28,13 @@ body.portal--studio>main#content{width:100vw!important;max-width:100vw!important
 /* Keep the brief field proportional to its actions at every dock width. */
 .prompt-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto auto;align-items:center;min-height:58px}
 .prompt-row input{width:100%;height:46px;min-height:46px;padding:0 2px;font:inherit;font-size:14px;line-height:1.25;text-overflow:ellipsis}
+.prompt-row textarea{width:100%;min-width:0;min-height:46px;max-height:140px;padding:12px 2px;border:0;background:transparent;outline:0;color:#f5f7fa;resize:none;font:inherit;font-size:14px;line-height:1.35;overflow-y:hidden}
 .prompt-row .primary-cta{height:46px;white-space:nowrap}
 .attach-button,.advanced-button{display:grid;place-items:center;width:32px;height:40px}
 @media(max-width:580px){.prompt-row{grid-template-columns:auto minmax(0,1fr) auto;min-height:0}.prompt-row input{grid-column:2;grid-row:1;height:42px;min-height:42px}.prompt-row .attach-button{grid-column:3;grid-row:1}.prompt-row .advanced-button{grid-column:1;grid-row:1}.prompt-row .prompt-submit{grid-column:1/-1;grid-row:2;width:100%;height:46px}.prompt-hint{align-items:flex-start}.prompt-chips{gap:6px}.prompt-chips button{padding:8px 10px}}
+
+.prompt-row textarea[data-autogrow] { scrollbar-width:thin; }
+@media(max-width:580px){.prompt-row textarea[data-autogrow]{grid-column:2;grid-row:1;min-height:42px;max-height:120px;padding-top:10px;padding-bottom:10px}}
 
 /* The create desk is an app surface: the document stays fixed and each panel
    owns its own scroll when its content is longer than the viewport. */

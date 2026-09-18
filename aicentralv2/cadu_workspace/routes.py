@@ -1845,7 +1845,6 @@ PRODUCT_ENTRIES = {
 # troca tardia da imagem depois que a página já foi exibida.
 WORKSPACE_PUBLIC_HEROES = (
     {"image": "public-people-v1.jpg", "tone": "light"},
-    {"image": "public-people-v2.jpg", "tone": "light"},
     {"image": "public-people-v3.jpg", "tone": "dark"},
 )
 WORKSPACE_APP_HEROES = (

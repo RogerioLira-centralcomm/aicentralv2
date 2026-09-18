@@ -36,6 +36,7 @@ def test_create_screen_exposes_unified_visual_workspace():
     assert "Referência de composição" not in html  # Roles are rendered from JS.
     assert "Editor avançado" in html
     assert "Rascunho pessoal" in html
+    assert 'class="studio-workbar__center"' in html
     assert 'id="studioSessionSelect"' in html
     assert 'id="studioSaveNow"' in html
     assert 'id="studioFinish"' in html
@@ -77,3 +78,14 @@ def test_create_frontend_keeps_csrf_and_json_headers_when_request_options_are_sp
     assert "title: 'Em andamento'" in source
     assert "/attach-project" in source
     assert "Conversa e decisões vinculadas ao projeto." in source
+
+
+def test_studio_desks_keep_context_and_stage_controls_aligned():
+    root = Path(__file__).resolve().parents[1]
+    create_css = (root / "aicentralv2" / "static" / "css" / "cadu-studio-create.css").read_text(encoding="utf-8")
+    frame_css = (root / "aicentralv2" / "static" / "css" / "cadu-studio-frame.css").read_text(encoding="utf-8")
+
+    assert ".studio-workbar__center{position:absolute;left:50%;top:50%" in create_css
+    assert "transform:translate(-50%,-50%)" in create_css
+    assert ".trocr-product .trocr-editor .mc-trocr-canvas-bar" in frame_css
+    assert ".mc-video-studio .mc-cadu-video-stage-bar" in frame_css

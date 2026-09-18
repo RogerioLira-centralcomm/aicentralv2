@@ -82,6 +82,31 @@ body.portal--studio,
 .studio-create .studio-composer__settings summary,
 .studio-create .studio-composer__settings label { font-size: 10px; }
 
+/* Each Studio desk keeps its subject in the visual center: context remains
+   readable at the top, while source and inspector controls stay on the sides. */
+.trocr-product .trocr-editor .mc-trocr-canvas-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+.trocr-product .trocr-editor .mc-trocr-canvas-tools {
+  justify-content: flex-end;
+}
+.mc-video-studio .mc-cadu-video-stage-bar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+}
+.mc-video-studio .mc-cadu-video-stage-meta {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+}
+.mc-video-studio .mc-cadu-video-preview-switch { justify-self: end; }
+
 /* Edit: the canvas owns the middle column; inspector panels are not absolute
    children of the stage at desktop widths. */
 .trocr-product .mc-trocr.trocr-editor {
@@ -161,6 +186,9 @@ body.portal--studio,
   .studio-create .studio-workbar__identity input { width: min(42vw, 180px); }
   .studio-create .studio-workspace { min-height: 0; }
   .trocr-product .trocr-editor .trocr-desk { margin: 8px; }
+  .trocr-product .trocr-editor .mc-trocr-canvas-bar { display: flex; }
+  .mc-video-studio .mc-cadu-video-stage-bar { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .mc-video-studio .mc-cadu-video-preview-switch { grid-column: 2; grid-row: 2; justify-self: center; }
 }
 
 @media (max-width: 780px) {

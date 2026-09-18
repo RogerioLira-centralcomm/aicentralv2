@@ -6,7 +6,7 @@
 <meta name="trocr-csrf-token" content="{{ mc_trocr_csrf }}">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-navigation.css') }}?v=13">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-create-v2.css') }}?v=13">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-create-v2.css') }}?v=16">
 {% endblock %}
 {% block content %}
 <main class="studio-v2" id="studioV2" data-state="draft"
@@ -20,8 +20,8 @@
   <div class="studio-v2__body">
     <aside class="studio-rail" id="referenceRail" aria-label="Referências">
       <header class="panel-heading"><div><span class="eyebrow">Material de apoio</span><h2><i class="fa-regular fa-images" aria-hidden="true"></i> Referências</h2></div><button class="icon-button rail-close" type="button" aria-label="Recolher referências"><i class="fa-solid fa-chevron-left"></i></button></header>
-      <div class="reference-grid" id="referenceGrid" aria-label="Imagens de referência"><button class="reference-card ref-dog" aria-label="Referência: retrato de cachorro"><i class="fa-solid fa-ellipsis"></i></button><button class="reference-card ref-mountain" aria-label="Referência: paisagem"><i class="fa-solid fa-ellipsis"></i></button><button class="reference-card ref-leaf" aria-label="Referência: folha"><i class="fa-solid fa-ellipsis"></i></button><button class="reference-card ref-room" aria-label="Referência: interior"><i class="fa-solid fa-ellipsis"></i></button></div>
-      <button class="rail-link" id="allReferences" type="button">Ver todas as referências (<span id="referenceCount">0</span>) <i class="fa-solid fa-chevron-right"></i></button>
+      <div class="reference-content" id="referenceContent"><div class="reference-grid" id="referenceGrid" aria-label="Imagens de referência"><button class="reference-card ref-dog" aria-label="Referência: retrato de cachorro"><i class="fa-solid fa-ellipsis"></i></button><button class="reference-card ref-mountain" aria-label="Referência: paisagem"><i class="fa-solid fa-ellipsis"></i></button><button class="reference-card ref-leaf" aria-label="Referência: folha"><i class="fa-solid fa-ellipsis"></i></button><button class="reference-card ref-room" aria-label="Referência: interior"><i class="fa-solid fa-ellipsis"></i></button></div>
+      <button class="rail-link" id="allReferences" type="button">Ver todas as referências (<span id="referenceCount">0</span>) <i class="fa-solid fa-chevron-right"></i></button></div>
       <div class="rail-section"><button class="rail-item" id="libraryItem" type="button"><i class="fa-regular fa-folder-open"></i><span><strong>Biblioteca</strong><small id="libraryScope">Carregando contexto…</small></span><i class="fa-solid fa-chevron-right"></i></button><button class="rail-item" id="historyItem" type="button"><i class="fa-regular fa-clock"></i><span><strong>Histórico</strong><small id="historyScope">Carregando criações…</small></span><i class="fa-solid fa-chevron-right"></i></button></div>
     </aside>
     <section class="studio-canvas" aria-label="Área de criação">
@@ -61,6 +61,13 @@
     <header><div><span class="eyebrow">Nova rodada</span><h2 id="versionDialogTitle">Como você quer continuar?</h2><p>O prompt foi limpo, mas as referências selecionadas continuam prontas para uso.</p></div><button class="icon-button" type="button" data-close-version aria-label="Fechar opções"><i class="fa-solid fa-xmark"></i></button></header>
     <div class="version-options"><button type="button" id="useSameReferences"><i class="fa-solid fa-layer-group"></i><span><b>Usar as mesmas referências</b><small>Manter uploads e referências globais selecionadas.</small></span><i class="fa-solid fa-arrow-right"></i></button><button type="button" id="addNewReferences"><i class="fa-solid fa-images"></i><span><b>Adicionar novas referências</b><small>Escolher mais imagens sem perder as atuais.</small></span><i class="fa-solid fa-arrow-right"></i></button></div>
   </dialog>
+  <dialog class="studio-error-dialog" id="studioErrorDialog" aria-labelledby="studioErrorTitle">
+    <div class="studio-error-dialog__icon"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></div>
+    <span class="eyebrow">A criação não foi concluída</span>
+    <h2 id="studioErrorTitle">Não foi possível concluir a solicitação</h2>
+    <p id="studioErrorMessage">Tente novamente em alguns instantes. Seu briefing continua salvo nesta tela.</p>
+    <button class="primary-cta" type="button" data-close-studio-error>Voltar ao Studio</button>
+  </dialog>
 </main>
 {% endblock %}
-{% block portal_scripts %}<script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script><script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=8" defer></script><script src="{{ url_for('static', filename='js/cadu-studio-create-v2.js') }}?v=13" defer></script>{% endblock %}
+{% block portal_scripts %}<script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script><script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=8" defer></script><script src="{{ url_for('static', filename='js/cadu-studio-create-v2.js') }}?v=15" defer></script>{% endblock %}

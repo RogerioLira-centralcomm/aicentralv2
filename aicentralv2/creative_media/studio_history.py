@@ -282,22 +282,7 @@ class StudioCreationHistory:
         """Completed generations and uploaded references visible to their owner."""
         limit = max(1, min(int(limit), 200))
         with self.connection.cursor() as cursor:
-            cursor.execute('''
-                SELECT id::text AS id, result, EXTRACT(EPOCH FROM created_at) AS created_at
-                  FROM cx_studio_image_generations
-                 WHERE client_id=%s AND user_id=%s AND project_id IS NULL
-                   AND status='completed' AND result IS NOT NULL AND deleted_at IS NULL
-              ORDER BY created_at DESC LIMIT %s
-            ''', (int(client_id), int(user_id), limit))
             rows = []
-            for row in cursor.fetchall():
-                result = dict(row['result'] or {})
-                image_url = str(result.get('image_url') or '')
-                if image_url:
-                    rows.append({'id': f"personal:{row['id']}", 'name': str(result.get('title') or 'Criação rápida'),
-                        'image_url': image_url, 'thumb_url': str(result.get('thumbnail_url') or image_url),
-                        'aspect_ratio': str(result.get('aspect_ratio') or ''), 'created_at': row['created_at'],
-                        'visibility': 'personal', 'owner_only': True})
             cursor.execute('''
                 SELECT id::text AS id, title, asset_url, metadata,
                        EXTRACT(EPOCH FROM created_at) AS created_at
@@ -307,16 +292,32 @@ class StudioCreationHistory:
               ORDER BY created_at DESC LIMIT %s
             ''', (int(client_id), int(user_id), limit))
             for row in cursor.fetchall():
-                metadata = dict(row['metadata'] or {})
-                asset_url = str(row['asset_url'] or '')
+                metadata = row.get('metadata') or {}
+                metadata = dict(metadata) if isinstance(metadata, dict) else {}
+                asset_url = str(row.get('asset_url') or '')
                 if asset_url:
                     rows.append({
-                        'id': f"reference:{row['id']}", 'name': str(row['title'] or 'Referência visual'),
+                        'id': f"reference:{row.get('id')}", 'name': str(row.get('title') or 'Referência visual'),
                         'image_url': asset_url, 'thumb_url': asset_url,
                         'aspect_ratio': str(metadata.get('aspect_ratio') or ''),
-                        'created_at': row['created_at'], 'visibility': 'personal',
+                        'created_at': row.get('created_at'), 'visibility': 'personal',
                         'owner_only': True, 'role': 'reference',
                     })
+            cursor.execute('''
+                SELECT id::text AS id, result, EXTRACT(EPOCH FROM created_at) AS created_at
+                  FROM cx_studio_image_generations
+                 WHERE client_id=%s AND user_id=%s AND project_id IS NULL
+                   AND status='completed' AND result IS NOT NULL AND deleted_at IS NULL
+              ORDER BY created_at DESC LIMIT %s
+            ''', (int(client_id), int(user_id), limit))
+            for row in cursor.fetchall():
+                result = dict(row['result'] or {})
+                image_url = str(result.get('image_url') or '')
+                if image_url:
+                    rows.append({'id': f"personal:{row['id']}", 'name': str(result.get('title') or 'Criação rápida'),
+                        'image_url': image_url, 'thumb_url': str(result.get('thumbnail_url') or image_url),
+                        'aspect_ratio': str(result.get('aspect_ratio') or ''), 'created_at': row['created_at'],
+                        'visibility': 'personal', 'owner_only': True})
             rows.sort(key=lambda item: float(item.get('created_at') or 0), reverse=True)
             rows = rows[:limit]
         return rows

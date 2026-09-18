@@ -132,11 +132,15 @@ def clean_context(raw, count):
 
 def clean_direction_reference(item, index):
     role = str(item.get("role") or ("primary" if index == 0 else "insert"))
+    # The Studio UI uses the neutral label "reference" for a selected
+    # composition reference. The image contract needs a concrete role.
+    if role == "reference":
+        role = "composition"
     if role not in IMAGE_ROLES:
         role = "insert"
     raw_url = str(item.get("url") or "")
     source = "global" if raw_url.startswith("/static/images/cadu/studio/references/") else str(item.get("source") or "user")
-    if source not in {"user", "project"}:
+    if source not in {"global", "user", "project"}:
         source = "user"
     return {
         "label": text(item.get("name") or item.get("label") or f"Imagem {index + 1}", 140),
@@ -335,6 +339,8 @@ def normalize_image_references(raw, storage):
         if not isinstance(item, dict):
             continue
         role = str(item.get("role") or ("primary" if index == 0 else "insert"))
+        if role == "reference":
+            role = "composition"
         if role not in IMAGE_ROLES:
             raise ValueError("A função de uma das imagens é inválida.")
         value = str(item.get("url") or "")

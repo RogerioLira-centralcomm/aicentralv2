@@ -366,6 +366,8 @@ def studio_create_image():
             except Exception:
                 logger.exception('Studio image project history sync failed for %s', project_id)
                 result['history_sync_pending'] = True
+        if quick_mode and history and claim:
+            result['asset_id'] = f"personal:{claim['id']}"
         result.setdefault('title', str(data.get('title') or 'Criação rápida'))
         result.setdefault('aspect_ratio', str(data.get('aspect_ratio') or ''))
         result['visibility'] = 'personal' if quick_mode or not project_id else 'project'

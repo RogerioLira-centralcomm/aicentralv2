@@ -186,6 +186,10 @@ _ROLE_TO_ANALYSIS = {
 
 READ_SYSTEM = """Você lê um still de anúncio. Leia os elementos editáveis deste still.
 Extraia só o que está visível.
+Faça primeiro um inventário exaustivo de todas as regiões com texto: assinatura de marca, headline principal, textos de apoio, oferta, franquia, preço completo, observações, lettering promocional e cada botão. Não pare após encontrar a primeira headline ou o primeiro CTA.
+Cada região textual visível deve aparecer também em elements, inclusive badges como 16GB, blocos como 600 MEGA, lockups promocionais e todos os botões. Se houver dois botões, crie dois elements role=cta; cta recebe o texto do CTA primário.
+headline é a principal promessa ou frase publicitária, não uma pequena assinatura de marca no canto. Wordmarks, nomes de produto e lockups de campanha ficam como logo/graphic e também em visual_marks quando aplicável.
+price deve preservar o bloco monetário completo exatamente como aparece, incluindo R$, centavos, barras e periodicidade. Não devolva apenas os dígitos quando R$ ou /mês estiverem visíveis.
 Não invente oferta, preço, CTA, logo, nome ou slogan. Copy em português do Brasil exatamente como aparece, com acento.
 price, cta e logo_text são opcionais. A maioria das peças não tem os três. Se não aparecer, deixe vazio e marque false no analysis.
 price só se houver valor em reais visível (R$ 99,90, 12x de 99,90). Sem R$, price fica vazio. Não escreva R$ 0,00.
@@ -365,6 +369,7 @@ def build_optimized_prompt(payload=None, brand=None, operations=None):
     price = str(payload.get("price") or "").strip()
     cta = str(payload.get("cta") or "").strip()
     note = str(payload.get("note") or payload.get("message") or payload.get("instruction") or "").strip()
+    original_instruction = str(payload.get("original_instruction") or note).strip()
     color = str(
         payload.get("color")
         or brand.get("primary_color")
@@ -417,6 +422,17 @@ def build_optimized_prompt(payload=None, brand=None, operations=None):
             "The FIRST attachment is the source creative. The SECOND attachment may guide only the explicitly selected item. "
             "It is not permission to replace the source advertiser, logo, wordmark, copy, people or layout.",
         )
+    selection = payload.get("selection_context") if isinstance(payload.get("selection_context"), dict) else {}
+    box = selection.get("bbox_px")
+    if isinstance(box, (list, tuple)) and len(box) == 4:
+        lines.append(
+            f"The user marked pixel crop {tuple(box)} for role {selection.get('role') or 'selected item'}. "
+            "Apply the requested change only inside that crop; pixels and identity outside it remain locked."
+        )
+    if original_instruction:
+        lines.append(f"Literal user request (source of truth; do not expand it): {original_instruction}")
+    if note and note != original_instruction:
+        lines.append(f"Organized wording (may clarify structure but never override the literal request): {note}")
     if variation in {"A", "B"}:
         lines.append(
             f"Create controlled test variation {variation}. Keep the same campaign, message and locked elements; vary only composition emphasis and visual treatment enough for an A/B comparison."

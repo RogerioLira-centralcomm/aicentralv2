@@ -257,6 +257,20 @@ class FormatLabService:
         brand = self._swap_brand(payload) if payload.get("use_brand_context") is not False else {}
         return _serialize(preview_swap_prompt(payload, brand))
 
+    def refine_swap_instruction(self, payload, user_id=None):
+        from .instruction_refine import refine_edit_instruction
+
+        payload = payload if isinstance(payload, dict) else {}
+        self._assert_tool_balance(payload, user_id, 500)
+        calls = []
+        result = refine_edit_instruction(
+            payload.get("instruction"),
+            text_callable=self._metered_text_callable(payload, calls),
+        )
+        if calls:
+            self._charge_provider_calls(payload, user_id, "studio.image", "instruction", calls, media=False)
+        return _serialize(result)
+
     def example_layers_still(self, user_id=None):
         return example_still_payload()
 

@@ -214,7 +214,8 @@ class Workspace:
             elif reference:
                 raise ValueError('Referências só são usadas em substituições.')
             instruction = str(op.get('instruction') or '').strip()
-            if len(instruction) > 2000:
+            original_instruction = str(op.get('original_instruction') or instruction).strip()
+            if len(instruction) > 2000 or len(original_instruction) > 2000:
                 raise ValueError('Instrução excede 2000 caracteres.')
             if op['action'] == 'format' and op.get('aspect_ratio') not in {'16:9','9:16','1:1','4:5'}:
                 raise ValueError('Formato inválido.')
@@ -227,6 +228,7 @@ class Workspace:
             if preset and not instruction:
                 instruction = 'Create a ' + BACKGROUND_PRESETS[preset] + '; preserve foreground, brand and copy.'
             clean.append({'aspect_ratio': op.get('aspect_ratio') if op['action']=='format' else None, 'action': op['action'], 'role': role, 'instruction': instruction,
+                          'original_instruction': original_instruction,
                           'base_asset': base, 'mask_asset': op.get('mask_asset'), 'reference_asset': reference,
                           'reference_role': 'similarity_reference' if op['action']=='similarity' else ('selected_element_reference' if reference else None),
                           'background_color': color if op['action']=='fill' else None,
@@ -342,12 +344,14 @@ class Workspace:
                           'cutout': 'Isolate the selected element on transparency.',
                           'fill': f'Fill the selected background with exact solid color {op.get("background_color")}.'}[op['action']]
                 instruction = '' if op['action']=='text' else op['instruction']
+                original_instruction = '' if op['action']=='text' else op.get('original_instruction') or instruction
                 dimensions = 'Keep exactly the original dimensions.' if op['action'] != 'format' else ''
                 prompt = (f'Edit the {op["role"]} inside pixel region {box} of the FIRST image ({source.width}x{source.height}). '
                           f'{action} Preserve the original advertiser, all logos, wordmarks, typography and other unselected elements. {dimensions} '
                           f'Never replace a bank, institution or brand unless this operation explicitly targets role logo. '
                           f'Do not infer missing price, CTA or logo. Never invent offer terms. Preserve buildings exactly: facade geometry, floors, balconies and windows; do not redesign architecture. '
-                          f'User instruction: {instruction}')
+                          f'The literal user request is the source of truth: {original_instruction}. '
+                          f'Organized instruction (never override the literal request): {instruction}')
                 refs = [self.reference(current)]
                 if op['reference_asset']:
                     refs.append(self.reference(op['reference_asset']))

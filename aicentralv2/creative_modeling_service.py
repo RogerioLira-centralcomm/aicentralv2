@@ -1396,6 +1396,9 @@ class CreativeModelingService:
     def preview_format_lab_swap(self, payload, user_id=None):
         return self._format_lab().preview_swap(payload, user_id=user_id)
 
+    def refine_format_lab_swap_instruction(self, payload, user_id=None):
+        return self._format_lab().refine_swap_instruction(payload, user_id=user_id)
+
     def load_format_lab_swap_history(self, payload, user_id=None):
         return self._format_lab().load_swap_history(payload, user_id=user_id)
 

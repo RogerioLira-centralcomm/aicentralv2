@@ -1718,13 +1718,13 @@ def index():
 PUBLIC_PAGES = {
     "como-funciona": {
         "title": "Como funciona",
-        "description": "Entenda como o Cadu Workspace preserva o contexto entre projetos, pessoas e produtos.",
-        "lead": "Um ponto de partida para o time organizar o trabalho antes de planejar, criar ou conectar dados.",
+        "description": "Veja como o Workspace leva contexto de marcas e projetos para cada etapa do trabalho.",
+        "lead": "Organize a base, leve o briefing para a ferramenta certa e continue com o histórico por perto.",
     },
     "planos": {
         "title": "Planos",
-        "description": "Conheça a estrutura de planos e créditos do ecossistema Cadu.",
-        "lead": "A mesma conta atende todo o time no Cadu. Capacidade, créditos e número de pessoas variam por plano.",
+        "description": "Compare capacidade, créditos e pacotes para a operação da sua equipe.",
+        "lead": "A mesma conta atende todo o time. O plano define capacidade e os créditos acompanham o uso real.",
     },
     "ajuda": {
         "title": "Ajuda",
@@ -1764,6 +1764,8 @@ WORKSPACE_APP_HEROES = (
 @bp.get("/entrada/<product>")
 def product_entry(product):
     product = str(product or "").lower()
+    if product == 'cadu':
+        return redirect(url_for('cadu_workspace.index'), code=301)
     item = PRODUCT_ENTRIES.get(product)
     if not item:
         abort(404)

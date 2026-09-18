@@ -6,6 +6,7 @@
     swap: `${apiRoot}/format-lab/swap`,
     read: `${apiRoot}/format-lab/swap/read`,
     prompt: `${apiRoot}/format-lab/swap/prompt`,
+    instruction: `${apiRoot}/format-lab/swap/instruction`,
     history: `${apiRoot}/format-lab/swap/history`,
     quote: `${apiRoot}/format-lab/quote`,
     clients: `${apiRoot}/clients`,
@@ -106,6 +107,9 @@
     selectedElement: null,
     generating: false,
     agentReferences: [],
+    originalInstruction: '',
+    refinedInstruction: '',
+    selectionColor: '#087f6b',
   };
 
   let editor = null;
@@ -132,6 +136,9 @@
 
   async function boot() {
     state.csrf = $('mcSwap')?.dataset?.csrf || '';
+    try { state.selectionColor = window.localStorage.getItem('cx-trocr-selection-color') || state.selectionColor; } catch (_) { /* optional */ }
+    $('mcSwap')?.style.setProperty('--trocr-selection-color', state.selectionColor);
+    if ($('mcTrocrMarkColor')) $('mcTrocrMarkColor').value = state.selectionColor;
     bind();
     editor = window.TrocrEditor?.({ state, selectFormat, syncOptionalUi, renderEditPanels,
       paintRegionBox, refreshPrompt, schedulePersist, persistHistory, fitCreative,
@@ -139,7 +146,7 @@
     async function openElementWorkspace(intent = null) {
       try {
         if (editor?.isDirty() && !await persistHistory()) return;
-        const { openWorkspace } = await import('./trocr/workspace.js?v=4');
+        const { openWorkspace } = await import('./trocr/workspace.js?v=5');
         await openWorkspace({ state, intent, baseVersion, focusBase: async () => { selectVersion(state.baseId); await $('mcSwapImage').decode(); }, acceptResult: async (image, job) => {
           const response = await fetch(image, {credentials:'same-origin'});
           if (!response.ok) throw new Error('O resultado está salvo, mas não foi possível adicioná-lo ao histórico da peça.');
@@ -290,7 +297,11 @@
     });
     ['mcSwapHeadline', 'mcSwapSupport', 'mcTrocrSubtitle', 'mcTrocrDates', 'mcTrocrVenue', 'mcTrocrPrice', 'mcSwapCta', 'mcTrocrCta2', 'mcTrocrLogo', 'mcTrocrDisclaimer', 'mcSwapNote'].forEach((id) => {
       $(id)?.addEventListener('input', () => {
-        if (id === 'mcSwapNote') updateNoteCount();
+        if (id === 'mcSwapNote') {
+          state.originalInstruction = $('mcSwapNote')?.value || '';
+          state.refinedInstruction = '';
+          updateNoteCount();
+        }
         if (id === 'mcTrocrPrice' || id === 'mcSwapCta' || id === 'mcTrocrLogo') syncOptionalUi();
         if (state.versions.length) setFlow('edit');
         refreshPrompt();
@@ -323,6 +334,12 @@
     $('mcTrocrAgentSend')?.addEventListener('click', submitAgentRequest);
     $('mcTrocrAgentAttach')?.addEventListener('click', () => $('mcTrocrAgentFiles')?.click());
     $('mcTrocrAgentFiles')?.addEventListener('change', addAgentReferences);
+    $('mcTrocrMarkColor')?.addEventListener('input', (event) => {
+      state.selectionColor = event.target.value || '#087f6b';
+      $('mcSwap')?.style.setProperty('--trocr-selection-color', state.selectionColor);
+      paintRegionBox();
+      try { window.localStorage.setItem('cx-trocr-selection-color', state.selectionColor); } catch (_) { /* optional */ }
+    });
     $('mcSwapNote')?.addEventListener('keydown', (event) => {
       if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
       event.preventDefault();
@@ -511,7 +528,6 @@
       const loaded = await ingestStill(String(reader.result || ''));
       if (!loaded) return;
       if ($('mcSwapNote') && pendingInstruction) $('mcSwapNote').value = pendingInstruction;
-      if ($('mcTrocrAgentReference')) $('mcTrocrAgentReference').textContent = file.name || 'Referência anexada';
       updateNoteCount();
       refreshPrompt();
     };
@@ -1265,9 +1281,21 @@
       support: $('mcSwapSupport')?.value || '',
       price: sanitizePrice($('mcTrocrPrice')?.value || ''),
       cta: $('mcSwapCta')?.value || '',
-      note: $('mcSwapNote')?.value || '',
-      instruction: $('mcSwapNote')?.value || '',
+      note: state.refinedInstruction || $('mcSwapNote')?.value || '',
+      instruction: state.refinedInstruction || $('mcSwapNote')?.value || '',
+      original_instruction: state.originalInstruction || $('mcSwapNote')?.value || '',
       reference_images: state.agentReferences.map((item) => item.data),
+      reference_inputs: state.agentReferences.map((item, index) => ({
+        image: item.data,
+        role: state.region?.box || state.selectedElement ? 'selected_region_reference' : 'supporting_reference',
+        order: index + 2,
+      })),
+      primary_reference_role: 'source_of_truth',
+      selection_context: state.region?.box ? {
+        role: regionField(),
+        bbox_px: state.region.box,
+        instruction: 'Apply the requested change only inside this crop. The primary image remains the source of truth outside it.',
+      } : undefined,
       selected_element: state.selectedElement || undefined,
       aspect_ratio: state.aspectRatio,
       aspect_hint: read.aspect_hint || '',
@@ -1463,13 +1491,24 @@
       $('mcSwapFile')?.click();
       return;
     }
+    state.originalInstruction = instruction;
+    state.refinedInstruction = '';
     applyAgentDirectives(instruction);
     if ($('mcTrocrAgentSend')) $('mcTrocrAgentSend').disabled = true;
-    setStatus('O agente está entendendo o pedido e preparando a geração…');
+    setStatus('Organizando o pedido sem alterar sua intenção…');
     try {
+      try {
+        const refined = await request(API.instruction, { instruction });
+        state.refinedInstruction = String(refined.refined_instruction || instruction).trim();
+      } catch (_error) {
+        state.refinedInstruction = instruction;
+      }
+      setStatus('Pedido pronto. Preparando a geração…');
+      await loadPlan();
       await refreshQuote();
       await runRequestedGeneration(state.quality);
     } finally {
+      state.refinedInstruction = '';
       if ($('mcTrocrAgentSend')) $('mcTrocrAgentSend').disabled = false;
     }
   }
@@ -2244,7 +2283,7 @@
     syncOptionalUi();
     state.promptEdited = false;
     state.agentReferences = [];
-    if ($('mcTrocrAgentReference')) $('mcTrocrAgentReference').textContent = 'Nenhuma referência';
+    if ($('mcTrocrAgentReference')) $('mcTrocrAgentReference').textContent = 'Sem referência adicional';
     updateNoteCount();
     renderEditPanels();
     refreshPrompt();
@@ -2562,6 +2601,8 @@
     node.style.top = `${content.top - frame.top + box[1] * content.scale}px`;
     node.style.width = `${(box[2] - box[0]) * content.scale}px`;
     node.style.height = `${(box[3] - box[1]) * content.scale}px`;
+    node.style.borderColor = state.selectionColor;
+    node.style.backgroundColor = `${state.selectionColor}24`;
   }
 
   function safeReason(risk, fallback) {

@@ -22,6 +22,18 @@ export async function openWorkspace(api) {
     if (!current()) throw new Error('A marca ou peça mudou. Abra o editor novamente.');
     return data.data;
   };
+  const refineInstruction = async (instruction) => {
+    if (!instruction) return {original_instruction:'', refined_instruction:''};
+    try {
+      const response = await fetch(`${apiRoot}/format-lab/swap/instruction`, {method:'POST', credentials:'same-origin',
+        headers:{'Content-Type':'application/json','X-Trocr-CSRF-Token':api.state.csrf}, body:JSON.stringify({client_id:client,instruction})});
+      const data=await response.json();
+      if(!response.ok||!data.success)return {original_instruction:instruction,refined_instruction:instruction};
+      return data.data;
+    } catch (_error) {
+      return {original_instruction:instruction,refined_instruction:instruction};
+    }
+  };
   const upload = async (blob, name) => {
     if (blob.size > 20 * 1024 * 1024) throw new Error('Limite de 20 MB por imagem.');
     const form = new FormData(); form.append('file', blob, name);
@@ -41,6 +53,7 @@ export async function openWorkspace(api) {
     <details class="trocr-selection-tools" data-selection-panel open><summary>1. Selecionar</summary><p>Clique para sugerir o contorno por cor. Revise os limites luminosos antes de gerar.</p><div class="trocr-workspace-row"><button type="button" data-point-add aria-pressed="false" title="Contorno por ponto (W)">Ponto</button><button type="button" data-point-remove aria-pressed="false" hidden>Ponto −</button></div>
     <div class="trocr-workspace-row"><button type="button" data-paint aria-pressed="false" title="Pincel (B)">Pincel</button><button type="button" data-erase aria-pressed="false" hidden>Excluir −</button><button type="button" data-lasso aria-pressed="false" title="Laço livre (L)">Laço</button><button type="button" data-rectangle aria-pressed="false" title="Retângulo (M)">Retângulo</button></div>
     <label>Modo<select data-selection-mode><option value="include">Adicionar à seleção</option><option value="exclude">Subtrair da seleção</option></select></label>
+    <label>Cor da marcação <input data-selection-color type="color" value="#087f6b"><small>Afeta somente a visualização no palco.</small></label>
     <label data-point-controls hidden>Tolerância de cor <input data-tolerance type="number" min="1" max="120" value="48" aria-label="Tolerância de cor"><small>Menor: limita a área. Maior: inclui mais tons. Vale para o próximo clique.</small></label>
     <label data-brush-controls hidden>Pincel <output data-radius-label>24 px</output><input data-radius type="range" min="1" max="120" value="24"></label>
     <div class="trocr-workspace-row"><button type="button" data-selection-undo disabled aria-label="Desfazer seleção">↶</button><button type="button" data-selection-redo disabled aria-label="Refazer seleção">↷</button><button type="button" data-invert>Inverter</button><button type="button" data-clear>Limpar</button></div>
@@ -56,7 +69,7 @@ export async function openWorkspace(api) {
     <label data-color-label hidden>Cor sólida <input data-background-color type="color" value="#ffffff"></label>
     <label data-background-style-label hidden>Direção do fundo<select data-background-style><option value="">Descrever manualmente</option><option value="clean-studio">Estúdio limpo</option><option value="brand-gradient">Gradiente da marca</option><option value="paper">Papel sutil</option><option value="color-wash">Lavagem de cor</option><option value="editorial">Editorial premium</option><option value="office">Escritório realista</option><option value="nature">Ambiente natural</option><option value="architecture">Arquitetura</option><option value="dark-studio">Estúdio escuro</option><option value="bright-seamless">Fundo claro contínuo</option></select></label>
     <label data-brand-confirm-label hidden><input data-brand-confirm type="checkbox"> Confirmo que desejo alterar ou remover a identidade desta marca</label>
-    <label>Agente de edição<textarea data-instruction maxlength="2000" rows="2" placeholder="Descreva a mudança"></textarea></label>
+    <label>Instrução<textarea data-instruction maxlength="2000" rows="2" placeholder="Descreva somente o que deve mudar na área selecionada"></textarea></label>
     <button type="button" data-add>Adicionar operação com esta máscara</button>
     <ol data-operations></ol><ul data-protected></ul><button type="button" data-save>Salvar trabalho</button>
     <button type="button" data-generate>Gerar operações</button><button type="button" data-retry hidden>Repetir etapas pendentes</button><button type="button" data-cancel hidden>Cancelar próximas etapas</button>
@@ -89,6 +102,8 @@ export async function openWorkspace(api) {
   const ctx = overlay.getContext('2d');
   let tool = '', reference = null, lastPoint = null, drawFrame=0, maskDirty=false;
   let selectionUndo=[],selectionRedo=[],gesturePoints=[],gestureSubtract=false;
+  $('[data-selection-color]').value=api.state.selectionColor||'#087f6b';
+  const selectionRgb=()=>{const hex=$('[data-selection-color]').value||'#087f6b';return [parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16)];};
   function snapshotSelection(){
     selectionUndo.push(mask.toDataURL('image/png'));selectionRedo=[];
     while(selectionUndo.length>20||selectionUndo.reduce((n,s)=>n+s.length,0)>16_000_000)selectionUndo.shift();
@@ -206,9 +221,10 @@ export async function openWorkspace(api) {
     ctx.drawImage(mask,0,0,overlay.width,overlay.height);
     const pixels = ctx.getImageData(0, 0, overlay.width, overlay.height);
     const ctxPixels=new Uint8ClampedArray(pixels.data);
+    const [markR,markG,markB]=selectionRgb();
     for (let i=0;i<pixels.data.length;i+=4) { const alpha = pixels.data[i]; const pixel=i/4,x=pixel%overlay.width,y=Math.floor(pixel/overlay.width);
       const edge=alpha>127 && (x===0||y===0||x===overlay.width-1||y===overlay.height-1||ctxPixels[i-4]<128||ctxPixels[i+4]<128||ctxPixels[i-overlay.width*4]<128||ctxPixels[i+overlay.width*4]<128);
-      pixels.data[i]=edge?235:0; pixels.data[i+1]=edge?255:170; pixels.data[i+2]=edge?255:160; pixels.data[i+3]=edge?255:Math.round(alpha*.15); }
+      pixels.data[i]=markR; pixels.data[i+1]=markG; pixels.data[i+2]=markB; pixels.data[i+3]=edge?255:Math.round(alpha*.18); }
     ctx.putImageData(pixels, 0, 0);
     if(gesturePoints.length && ['lasso','rectangle'].includes(tool)){
       const sx=overlay.width/mask.width,sy=overlay.height/mask.height,first=gesturePoints[0],last=gesturePoints.at(-1);
@@ -333,6 +349,7 @@ export async function openWorkspace(api) {
     $('[data-input-contract]').classList.toggle('is-global',action==='similarity');
   }
   $('[data-role]').onchange=()=>{dirty=true;syncOperationUi();};
+  $('[data-selection-color]').oninput=()=>{api.state.selectionColor=$('[data-selection-color]').value;root.style.setProperty('--trocr-selection-color',api.state.selectionColor);try{localStorage.setItem('cx-trocr-selection-color',api.state.selectionColor);}catch(_){}redraw();};
   $('[data-instruction]').oninput=()=>{dirty=true;};
   $('[data-action]').onchange=() => { dirty=true; syncOperationUi(); };
   $('[data-add]').onclick=safe(async () => {
@@ -351,13 +368,17 @@ export async function openWorkspace(api) {
       doc.protected_masks=[...(doc.protected_masks||[]),{mask_asset:asset.id,role:$('[data-role]').value,label:$('[data-role]').selectedOptions[0]?.textContent||'Região'}];dirty=true;await save();resetMask();render();return;
     }
     const style=$('[data-background-style]').value;
-    const instruction=$('[data-instruction]').value.trim();
+    const originalInstruction=$('[data-instruction]').value.trim();
+    status('Organizando a instrução sem alterar sua intenção…');
+    const instructionResult=await refineInstruction(originalInstruction);
+    const instruction=String(instructionResult.refined_instruction||originalInstruction).trim();
     doc.operations.push({base_asset:doc.base_asset,mask_asset:asset?.id||null,role:$('[data-role]').value,action,
       reference_asset:['replace','similarity'].includes(action)?reference.id:null,
       reference_role:action==='similarity'?'similarity_reference':(action==='replace'?'selected_element_reference':null),
       background_color:action==='fill'?$('[data-background-color]').value:null,
       background_preset:action==='recreate'&&$('[data-role]').value==='background'?style:null,
-      explicit_brand_change:$('[data-brand-confirm]').checked,instruction});
+      explicit_brand_change:$('[data-brand-confirm]').checked,instruction,original_instruction:originalInstruction,
+      primary_reference_role:'source_of_truth'});
     dirty=true; reference=null; $('[data-reference]').value=''; $('[data-thumb]').hidden=true; resetMask(); await save(); render();
   });
   $('[data-save]').onclick=safe(save);

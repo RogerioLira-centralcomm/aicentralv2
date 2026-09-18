@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/camadas-v2.css') }}?v=5">
 {% endif %}
 {% if mc_page_js == 'js/mc-cadu-video.js' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/video-studio.css') }}?v=6">{% endif %}
-{% if mc_page == 'trocar' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trocr-editor.css') }}?v=13">{% endif %}
+{% if mc_page == 'trocar' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trocr-editor.css') }}?v=14">{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -49,7 +49,7 @@
 {% elif mc_page_js == 'js/mc-cadu-video.js' %}
 <script type="module" src="{{ url_for('static', filename=mc_page_js) }}?v=25"></script>
 {% elif mc_page == 'trocar' %}
-<script src="{{ url_for('static', filename=mc_page_js) }}?v=95" defer></script>
+<script src="{{ url_for('static', filename=mc_page_js) }}?v=96" defer></script>
 {% else %}
 <script src="{{ url_for('static', filename=mc_page_js) }}?v=83" defer></script>
 {% endif %}

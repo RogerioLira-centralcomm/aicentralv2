@@ -3379,7 +3379,17 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
         self.assertEqual(schema["faces"], 1)
         self.assertIn("TIM", schema["locks"])
         self.assertIn("Consulte condições.", schema["locks"])
+        self.assertIn("Conferir planos", schema["locks"])
+        self.assertIn("Contratar", schema["locks"])
         self.assertEqual(schema["logo_text"], "TIM")
+        cta_edit = apply_swap_schema({
+            "elements": [{"role": "button", "text": "Contratar"}],
+            "alter": ["cta"],
+            "cta": "Assinar agora",
+            "locks": ["Contratar"],
+        })
+        self.assertEqual(cta_edit["elements"][0]["role"], "cta")
+        self.assertNotIn("Contratar", cta_edit["locks"])
         patches = typeset_patches({
             "alter": ["secondary"],
             "dates": "24 e 25 de julho",

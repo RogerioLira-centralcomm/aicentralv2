@@ -319,6 +319,8 @@ def sanitize_optional_copy(payload=None):
             continue
         row = dict(item)
         role = str(row.get("role") or "").strip().lower()
+        role = {"button": "cta", "badge": "graphic", "wordmark": "logo"}.get(role, role)
+        row["role"] = role
         text = str(row.get("text") or row.get("text_original") or "").strip()
         original = str(row.get("text_original") or text).strip()
         if role == "price":
@@ -479,12 +481,24 @@ def face_count(elements):
     return sum(1 for item in elements if item.kind == "face")
 
 
-def locks_from_intent(copy, elements):
+_ROLE_ALTER_TOKEN = {
+    "headline": "headline",
+    "support": "secondary",
+    "cta": "cta",
+    "price": "price",
+    "logo": "logo",
+    "person": "people",
+    "product": "product",
+    "background": "background",
+    "graphic": "graphic",
+}
+
+
+def locks_from_intent(copy, elements, alter=None):
+    altered = set(alter or [])
     locks = []
     for item in elements:
-        if item.kind == "name_pill" and item.text:
-            locks.append(item.text)
-        if item.role == "logo" and item.text:
+        if item.text and _ROLE_ALTER_TOKEN.get(item.role) not in altered:
             locks.append(item.text)
     for key in ("dates", "venue", "logo_text", "disclaimer"):
         value = str(getattr(copy, key, "") or "").replace("\n", " ").strip()
@@ -499,7 +513,13 @@ def apply_swap_schema(payload=None, *, strict_limits=True, source="legacy"):
     copy = copy_from_payload(data, strict_limits=strict_limits)
     elements, elements_overflow = normalize_elements({**data, **copy.model_dump()}, source=source)
     locks = []
-    for item in locks_from_intent(copy, elements) + _incoming_locks(data):
+    altered = set(data.get("alter") or [])
+    mutable_text = {
+        item.text for item in elements
+        if item.text and _ROLE_ALTER_TOKEN.get(item.role) in altered
+    }
+    incoming_locks = [item for item in _incoming_locks(data) if item not in mutable_text]
+    for item in locks_from_intent(copy, elements, altered) + incoming_locks:
         if item not in locks:
             locks.append(item)
     intent = SwapIntent.model_validate({

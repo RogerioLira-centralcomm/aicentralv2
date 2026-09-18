@@ -34,6 +34,12 @@ def register_trocr_routes(blueprint):
         methods=["POST"],
     )
     blueprint.add_url_rule(
+        "/api/format-lab/swap/instruction",
+        endpoint="creative_format_lab_swap_instruction",
+        view_func=api_format_lab_swap_instruction,
+        methods=["POST"],
+    )
+    blueprint.add_url_rule(
         "/api/format-lab/swap/history",
         endpoint="creative_format_lab_swap_history",
         view_func=api_format_lab_swap_history,
@@ -169,6 +175,13 @@ def api_format_lab_swap_read():
 def api_format_lab_swap_prompt():
     execute, json_body, ok, service = _http()
     return execute(lambda: ok(service().preview_format_lab_swap(json_body(), session.get("user_id"))))
+
+
+@studio_or_admin_required_api
+@trocr_csrf_required
+def api_format_lab_swap_instruction():
+    execute, json_body, ok, service = _http()
+    return execute(lambda: ok(service().refine_format_lab_swap_instruction(_billing_payload(json_body), session.get("user_id"))))
 
 
 @studio_or_admin_required_api

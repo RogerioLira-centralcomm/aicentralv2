@@ -25,7 +25,7 @@ def test_create_screen_exposes_unified_visual_workspace():
     assert ">Editar<" in html
     assert ">Vídeos<" in html
     assert ">Biblioteca<" in html
-    assert "Gerar 5 direções" in html
+    assert "Gerar 1 versão" in html
     assert 'id="studioBoardWorld"' in html
     assert '>Aprovadas<' in html
     assert '>Retiradas<' in html

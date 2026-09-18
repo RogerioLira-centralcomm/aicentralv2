@@ -650,6 +650,40 @@ def knowledge_save():
         return jsonify({'success': False, 'error': str(exc)}), 400
 
 
+@bp.post('/api/gestao/base/ocr')
+@admin_required_api
+def knowledge_ocr():
+    """Extrai um PDF via OpenAI e salva o resultado como rascunho RAG."""
+    upload = request.files.get('file') or request.files.get('pdf')
+    if not upload or not upload.filename:
+        return jsonify(success=False, error='Envie um arquivo PDF no campo file.'), 400
+    if not upload.filename.lower().endswith('.pdf'):
+        return jsonify(success=False, error='O arquivo precisa estar no formato PDF.'), 400
+    try:
+        from . import knowledge
+        from ..services.rag_pdf_ocr import ocr_pdf
+
+        result = ocr_pdf(
+            upload.read(),
+            model=request.form.get('model') or None,
+            batch_pages=request.form.get('batch_pages') or None,
+            screen_capture=str(request.form.get('screen_capture') or '').lower() in {'1', 'true', 'yes'},
+        )
+        title = str(request.form.get('title') or upload.filename.rsplit('.', 1)[0]).strip()[:180]
+        saved = knowledge.save({
+            'title': title,
+            'kind': 'markdown',
+            'content': result['content'],
+            'source_note': f"OCR via OpenAI {result['model']}; páginas processadas: {len(result['pages'])}; rascunho para QA.",
+        }, int(session['user_id']))
+        return jsonify(success=True, draft=saved, ocr={key: result[key] for key in ('model', 'pages', 'batches')})
+    except (ValueError, TypeError) as exc:
+        return jsonify(success=False, error=str(exc)), 400
+    except Exception as exc:
+        current_app.logger.exception('Falha no OCR da Base Cadu')
+        return jsonify(success=False, error=str(exc)), 503
+
+
 @bp.post('/api/gestao/base/modelos')
 @admin_required_api
 def knowledge_seed():

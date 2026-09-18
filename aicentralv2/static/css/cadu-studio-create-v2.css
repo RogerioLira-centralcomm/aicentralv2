@@ -149,15 +149,17 @@ body.portal--studio:has(.studio-v2) > .cadu-family-footer { display:none!importa
 
 /* Creation brief: the copy is the workspace, so let it breathe and make
    scrolling visible without turning the dock into a bordered card. */
-.prompt-row textarea[data-autogrow] { min-height:96px; max-height:180px; padding:14px 4px; font-size:15px; line-height:1.48; scrollbar-color:#6d55ba #172431; scrollbar-width:thin; }
+.prompt-row textarea[data-autogrow] { min-height:58px; max-height:112px; padding:10px 4px; font-size:14px; line-height:1.4; scrollbar-color:#6d55ba transparent; scrollbar-width:thin; }
 .prompt-row textarea[data-autogrow]::-webkit-scrollbar { width:8px; }
-.prompt-row textarea[data-autogrow]::-webkit-scrollbar-track { background:#172431; border-radius:8px; }
+.prompt-row textarea[data-autogrow]::-webkit-scrollbar-track { background:transparent; border-radius:8px; }
 .prompt-row textarea[data-autogrow]::-webkit-scrollbar-thumb { background:#6d55ba; border:2px solid #172431; border-radius:8px; }
 .prompt-row textarea[data-autogrow]:focus { color:#fff; }
 .studio-v2 .rail-close { display:grid!important; }
 .studio-v2 .reference-content { display:grid; gap:0; }
 .studio-v2 .studio-rail.is-references-collapsed .reference-content { display:none; }
 .studio-v2 .studio-rail.is-references-collapsed .rail-close i { transform:rotate(180deg); }
+.studio-v2 .prompt-dock{background:transparent;border-color:transparent}
+.studio-v2 .prompt-row{background:transparent}
 .workspace-upload { margin-top:10px; padding:10px 14px; border:1px dashed #7657d6; border-radius:10px; background:rgba(95,59,200,.12); color:#d8ccff; cursor:pointer; }
 .workspace-upload:hover,.workspace-upload:focus-visible { background:rgba(95,59,200,.28); border-color:#bba2ff; }
 .reference-upload-dialog { width:min(580px,calc(100vw - 32px)); max-width:580px; padding:24px; border:1px solid #40586b; border-radius:18px; background:#101b25; color:var(--v2-text); box-shadow:0 28px 100px #000d; }
@@ -187,3 +189,10 @@ body.portal--studio:has(.studio-v2) > .cadu-family-footer { display:none!importa
 .version-options button>i:last-child { color:#b99cff; }
 @media(max-width:900px){.prompt-row textarea[data-autogrow]{min-height:82px;max-height:120px;font-size:14px}}
 .auto-generate-option{display:flex;align-items:flex-start;gap:10px;margin-top:16px;padding:13px 14px;border:1px solid #334b5e;border-radius:11px;background:#142430;color:#e8f0f6;cursor:pointer}.auto-generate-option input{width:17px;height:17px;margin:2px 0 0;accent-color:#8b5cf6}.auto-generate-option span{display:grid;gap:4px}.auto-generate-option b{font-size:12px}.auto-generate-option small{color:#9fb0bf;font-size:11px;line-height:1.4}
+
+/* Shell depth belongs to the stage; sidebars stay flush and quiet. */
+@media(min-width:901px){
+  .studio-v2 .studio-rail,.studio-v2 .delivery-panel{border:0;border-radius:0}
+  .studio-v2 .canvas-stage{box-shadow:inset 18px 0 32px -34px rgba(120,91,255,.55),inset -18px 0 32px -34px rgba(120,91,255,.55),0 18px 46px rgba(0,0,0,.2)}
+}
+.generation-dialog .progress-track span{width:100%;animation:none;transition:width 1s linear}

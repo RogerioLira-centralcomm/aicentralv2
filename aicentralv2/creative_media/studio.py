@@ -314,7 +314,9 @@ def studio_create_image():
 
     def run():
         data = json_body()
-        if data.get('studio_v2') is True and data.get('direction_approved') is not True:
+        direction_approved = data.get('direction_approved')
+        direction_approved = direction_approved is True or direction_approved == 1 or str(direction_approved).lower() in {'1', 'true'}
+        if data.get('studio_v2') is True and not direction_approved:
             raise ValueError('Revise e aprove a direção antes de gerar a imagem.')
         quick_mode = data.get('quick_mode') is True
         client_id = session.get('cliente_id') if quick_mode else data.get('client_id')
@@ -373,7 +375,14 @@ def studio_create_image():
         result['visibility'] = 'personal' if quick_mode or not project_id else 'project'
         result['owner_only'] = result['visibility'] == 'personal'
         if history:
-            history.complete_image(request_id, client_id, result)
+            try:
+                history.complete_image(request_id, client_id, result)
+            except Exception:
+                # The paid image is already persisted at this point. A history
+                # sync failure must not turn a successful generation into a
+                # generic 500 or force the user to pay for a retry.
+                logger.exception('Studio image history completion failed for %s', request_id)
+                result['history_sync_pending'] = True
         result.pop('model', None)
         return ok(result)
 

@@ -1,27 +1,14 @@
 {% extends 'cadu_skills/base.html' %}
 {% block title %}{{ skill.name }} — Cadu Skills{% endblock %}
 {% block content %}
-<article class="sk-skill-detail" data-skill-slug="{{ skill.slug }}">
-  <a class="sk-back" href="{{ url_for('cadu_skills.marketplace') }}">← Biblioteca de skills</a>
-  {% if skill.hero_url %}<figure class="sk-skill-detail__hero"><img src="{{ skill.hero_url }}" alt="Avatar {{ skill.name }} trabalhando em uma agência" loading="eager"></figure>{% endif %}
-  <header class="sk-skill-detail__head">
-    {% if skill.avatar_url %}<img class="sk-skill-detail__avatar" src="{{ skill.avatar_url }}" alt="">{% endif %}
-    <div><p>{{ skill.category }}</p><h1>{{ skill.name }}</h1><span>{{ skill.summary }}</span></div>
+<article class="skills-method-page" data-skill-slug="{{ skill.slug }}">
+  <a class="skills-method-page__back" href="{{ url_for('cadu_skills.marketplace') }}">Voltar para métodos</a>
+  <header class="skills-method-page__hero">
+    <div>{% if skill.avatar_url %}<img src="{{ skill.avatar_url }}" alt="">{% endif %}<p>{{ skill.category }}</p><h1>{{ skill.name }}</h1><span>{{ skill.summary }}</span></div>
+    {% if skill.hero_url %}<figure><img src="{{ skill.hero_url }}" alt="Pessoas trabalhando com planejamento e decisões de campanha" loading="eager"></figure>{% endif %}
   </header>
-  <section class="sk-skill-detail__outcome" aria-labelledby="resultado-title">
-    <div><p>O que ela entrega</p><h2 id="resultado-title">{{ skill.tagline or skill.description }}</h2></div>
-    <div class="sk-deliverables">{% for output in skill.outputs or () %}<span>{{ output }}</span>{% endfor %}</div>
-  </section>
-  {% if package %}<section class="sk-skill-detail__install" aria-labelledby="usar-title">
-    <div class="sk-skill-detail__install-copy"><p>Usar esta skill</p><h2 id="usar-title">Copie o endereço ou abra seu agente.</h2><span>Use o endereço para instalar no projeto ou envie o ZIP ao agente em que você já está logado.</span></div>
-    <div class="sk-skill-link"><code>{{ package.download_url }}</code><button class="sk-copy" type="button" data-copy-value="{{ package.download_url }}" data-copy-label="Copiar endereço">Copiar endereço</button></div>
-    <div class="sk-agent-grid" aria-label="Abrir em um agente">
-      <a href="https://chatgpt.com/" target="_blank" rel="noopener"><img src="https://cdn.simpleicons.org/openai/ffffff" alt=""><span><b>ChatGPT</b><small>Abra e envie o ZIP</small></span></a>
-      <a href="https://claude.ai/new" target="_blank" rel="noopener"><img src="https://cdn.simpleicons.org/anthropic/ffffff" alt=""><span><b>Claude</b><small>Abra e envie o ZIP</small></span></a>
-      <a href="https://cursor.com/" target="_blank" rel="noopener"><img src="https://cdn.simpleicons.org/cursor/ffffff" alt=""><span><b>Cursor</b><small>Instale no projeto</small></span></a>
-      <a href="https://chatgpt.com/codex" target="_blank" rel="noopener"><img src="https://cdn.simpleicons.org/openai/ffffff" alt=""><span><b>Codex</b><small>Abra no Codex</small></span></a>
-    </div>
-    <footer><a class="sk-button sk-button--quiet" href="{{ package.install_url }}">Baixar ZIP</a><button class="sk-command-link" type="button" data-copy-value="npx skills add {{ package.download_url }}" data-copy-label="Copiar comando">Copiar comando de terminal</button><a href="{{ url_for('cadu_skills.personalize') }}">Personalizar para um projeto</a></footer>
-  </section>{% endif %}
+  <section class="skills-method-page__outcome" aria-labelledby="resultado-title"><p>O que este método ajuda a decidir</p><h2 id="resultado-title">{{ skill.tagline or skill.description }}</h2><div>{% for output in skill.outputs or () %}<span>{{ output }}</span>{% endfor %}</div></section>
+  <section class="skills-method-page__use" aria-labelledby="usar-title"><div><p>Aplicar ao trabalho</p><h2 id="usar-title">Leve o método para um projeto.</h2><span>Uma versão personalizada mantém o modo de trabalho e incorpora somente o contexto aprovado da sua equipe.</span></div><a href="{{ url_for('cadu_skills.personalize') }}">Personalizar para um projeto</a></section>
+  {% if package %}<section class="skills-method-page__install" aria-labelledby="instalar-title"><div><p>Usar fora do Cadu</p><h2 id="instalar-title">Instale no seu agente.</h2><span>Para projetos que usam skills como pacote, use o endereço verificado abaixo.</span></div><div class="skills-method-page__command"><code>npx skills add {{ package.download_url }}</code><button class="sk-copy" type="button" data-copy-value="npx skills add {{ package.download_url }}" data-copy-label="Copiar comando">Copiar comando</button></div><div class="skills-method-page__install-actions"><a href="{{ package.install_url }}">Baixar pacote</a><a href="{{ package.download_url }}">Ver arquivo</a></div></section>{% endif %}
 </article>
 {% endblock %}

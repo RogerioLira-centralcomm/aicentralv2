@@ -1,7 +1,19 @@
-{% set active = request.endpoint %}
-<header class="cadu-skills-top-nav cadu-skills-top-nav--public">
-  <div class="cadu-skills-public-brand">{% set cadu_active_product = 'skills' %}{% include 'cadu/_product_switch.html' %}</div>
-  <nav class="cadu-skills-public-links" aria-label="Navegação pública de Skills"><a {% if active == 'cadu_skills.marketplace' %}aria-current="page"{% endif %} href="{{ url_for('cadu_skills.marketplace') }}">Catálogo</a><a {% if active == 'cadu_skills.detail' and request.view_args and request.view_args.get('slug') == 'cadu-gold' %}aria-current="page"{% endif %} href="{{ url_for('cadu_skills.detail', slug='cadu-gold') }}">Cadu Gold</a></nav>
-  <span class="cadu-skills-top-nav__spacer"></span>
-  <div class="cadu-skills-public-actions"><a href="{{ product_url('auth', '/login') }}">Entrar</a><a class="is-primary" href="{{ product_url('auth', '/login') }}">Criar conta</a></div>
+{% set authenticated = session.get('user_id') %}
+<header class="skills-topbar" data-authenticated="{{ 'true' if authenticated else 'false' }}">
+  <a class="skills-topbar__brand" href="{{ url_for('cadu_skills.marketplace') }}" aria-label="Cadu Skills, início">Cadu <strong>Skills</strong><i aria-hidden="true"></i></a>
+  <button class="skills-topbar__menu" type="button" aria-expanded="false" aria-controls="skillsPrimaryNav">Menu</button>
+  <nav class="skills-topbar__links" id="skillsPrimaryNav" aria-label="Navegação do Cadu Skills">
+    <a href="{{ url_for('cadu_skills.marketplace') }}#jornada">Aprender</a>
+    <a href="{{ url_for('cadu_skills.marketplace') }}#metodos">Métodos</a>
+    <a href="{{ url_for('cadu_skills.marketplace') }}#conteudos">Conteúdos</a>
+    <a href="{{ url_for('cadu_skills.marketplace') }}#sobre">Sobre</a>
+  </nav>
+  <form class="skills-topbar__search" action="{{ url_for('cadu_skills.marketplace') }}#metodos" role="search">
+    <label class="sr-only" for="skillsSearch">Buscar no Cadu Skills</label><span aria-hidden="true">⌕</span><input id="skillsSearch" name="q" type="search" placeholder="Buscar no Cadu Skills…">
+  </form>
+  {% if authenticated %}
+    <div class="skills-topbar__account"><span class="skills-context"><small>Contexto</small><b>{{ session.get('cliente_nome') or 'Meu trabalho' }}</b></span><a class="skills-avatar" href="{{ product_url('workspace', '/workspace/app/conta?section=perfil') }}" aria-label="Abrir minha conta">{{ (session.get('user_name') or 'C')[:2]|upper }}</a></div>
+  {% else %}
+    <a class="skills-topbar__enter" href="{{ product_url('auth', '/login') }}">Entrar</a>
+  {% endif %}
 </header>

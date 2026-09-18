@@ -504,6 +504,13 @@ def studio():
     )
 
 
+@bp.get("/minhas-skills")
+@login_required
+def my_skills():
+    """URL de produto estável; /studio continua como compatibilidade interna."""
+    return redirect(url_for("cadu_skills.studio"), code=302)
+
+
 @bp.post("/api/<slug>/runs")
 @login_required_api
 def create_run(slug):

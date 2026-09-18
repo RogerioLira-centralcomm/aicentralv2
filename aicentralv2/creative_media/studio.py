@@ -125,6 +125,7 @@ def register_studio_routes(blueprint):
     register(blueprint)
     blueprint.add_url_rule('/api/format-lab/studio/agent/plan', view_func=studio_agent_plan, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/create/directions', view_func=studio_create_directions, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/create/image', view_func=studio_create_image, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/agent/narration', view_func=studio_agent_narration, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/projects', view_func=studio_projects, methods=['GET', 'POST'])
     blueprint.add_url_rule('/api/format-lab/studio/library-sessions', view_func=studio_library_sessions, methods=['GET'])
@@ -203,6 +204,71 @@ def studio_create_directions():
                 logger.exception('Studio direction history completion failed for %s', run_id)
                 result['history_sync_pending'] = True
         result.update({'charged_credits': charged, 'remaining_credits': remaining})
+        return ok(result)
+
+    return execute(run)
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
+def studio_create_image():
+    from . import studio_create
+    execute, json_body, ok, service = _http()
+
+    def run():
+        data = json_body()
+        quick_mode = data.get('quick_mode') is True
+        client_id = session.get('cliente_id') if quick_mode else data.get('client_id')
+        user_id = session.get('user_id')
+        if not client_id:
+            raise ValueError('Não foi possível identificar a conta de créditos desta sessão.')
+        if not user_id:
+            raise ValueError('Entre novamente para gerar a imagem.')
+        _scope(client_id)
+        request_id = studio_create.image_request_id(data)
+        data['request_id'] = request_id
+        project_id = str(data.get('project_id') or '')
+        request_hash = hashlib.sha256(json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest()
+        history = _creation_history()
+        if history:
+            claim = history.claim_image(request_id, request_hash, client_id, user_id, project_id, data.get('prompt'))
+            if claim['state'] == 'pending':
+                raise ValueError('Esta geração já está em andamento. Aguarde alguns segundos e tente novamente.')
+            if claim['state'] == 'completed':
+                result = dict(claim.get('result') or {})
+                result['replayed'] = True
+            else:
+                result = None
+        else:
+            result = None
+
+        if result is None:
+            try:
+                result = studio_create.create_image(data, service(), int(client_id), int(user_id))
+            except Exception as error:
+                if history:
+                    history.fail_image(request_id, client_id, str(error))
+                raise
+
+        if project_id and not quick_mode and not result.get('project_item_id'):
+            try:
+                if history:
+                    result['project_item_id'] = history.add_item(
+                        project_id, client_id, user_id, 'image',
+                        str(data.get('title') or 'Imagem criada no Studio'),
+                        result['image_url'], {
+                            'prompt': str(data.get('prompt') or '')[:4000],
+                            'model': result.get('model'),
+                            'masked': result.get('masked', False),
+                            'request_id': str(data.get('request_id') or ''),
+                        },
+                    )
+                    result.pop('history_sync_pending', None)
+            except Exception:
+                logger.exception('Studio image project history sync failed for %s', project_id)
+                result['history_sync_pending'] = True
+        if history:
+            history.complete_image(request_id, client_id, result)
         return ok(result)
 
     return execute(run)

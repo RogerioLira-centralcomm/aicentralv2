@@ -1,13 +1,29 @@
 """AI directions and credit charging for the Studio creation desk."""
 from __future__ import annotations
 
+import base64
+import binascii
+import io
 import json
 import os
+import re
 from uuid import uuid4
+
+from PIL import Image, ImageFilter
 
 from ..creative_modeling_generation import _json_content
 
 MODEL = os.getenv("CREATIVE_STUDIO_DIRECTION_MODEL", "openai/gpt-5-nano")
+IMAGE_MODEL = os.getenv("CREATIVE_STUDIO_IMAGE_MODEL", "openai/gpt-image-2")
+IMAGE_ROLES = {
+    "primary": "the primary/base image whose unrequested content must be preserved",
+    "insert": "an element source to integrate naturally into the primary image",
+    "replace": "the visual source for the selected replacement region",
+    "style": "a style-only reference; do not copy its subject or text",
+    "composition": "a composition-only reference; do not copy its subject or text",
+    "identity": "an identity reference whose product, person or package details must remain faithful",
+}
+_REQUEST_ID = re.compile(r"^[a-zA-Z0-9_-]{8,160}$")
 
 
 def estimated_tokens(count):
@@ -64,7 +80,20 @@ def clean_context(raw, count):
         "iab_formats": [text(item, 32) for item in data.get("formats", []) if text(item, 32)][:6],
         "direction_intensity": max(0, min(integer(data.get("direction_intensity"), 70), 100)),
         "requested_directions": count,
-        "references": [text(item.get("url"), 500) for item in data.get("references", []) if isinstance(item, dict) and text(item.get("url"), 500)][:2],
+        "references": [clean_direction_reference(item, index) for index, item in enumerate(data.get("references", [])[:2]) if isinstance(item, dict)],
+    }
+
+
+def clean_direction_reference(item, index):
+    role = str(item.get("role") or ("primary" if index == 0 else "insert"))
+    if role not in IMAGE_ROLES:
+        role = "insert"
+    raw_url = str(item.get("url") or "")
+    return {
+        "label": text(item.get("name") or item.get("label") or f"Imagem {index + 1}", 140),
+        "role": role,
+        "instruction": IMAGE_ROLES[role],
+        "url": text(raw_url, 500) if raw_url.startswith(("https://", "http://", "/static/")) else "inline upload",
     }
 
 
@@ -97,6 +126,211 @@ def charge(provider_result, client_id, user_id, count, project_id, run_id=None):
     run_id = str(run_id or uuid4().hex)
     charged = charge_from_provider(ledger=ledger, idempotency_key=f"studio:directions:{run_id}", client_id=credit_client_id, user_id=int(user_id), tool="studio.direction", stage="creative_directions", provider_result=provider_result, model=MODEL, metadata={"project_id": str(project_id or ""), "directions": int(count), "run_id": run_id}, margin_multiplier=12) or {}
     return int(charged.get("tokens_cobrados") or 0), ledger.available(credit_client_id)
+
+
+def create_image(payload, modeling, client_id, user_id):
+    """Generate one Studio still with explicit reference roles and mask-safe composition."""
+    data = payload if isinstance(payload, dict) else {}
+    prompt = text(data.get("prompt"), 4000)
+    if not prompt:
+        raise ValueError("Descreva a imagem que deseja gerar.")
+    aspect_ratio = str(data.get("aspect_ratio") or "1:1")
+    if aspect_ratio not in {"1:1", "4:5", "9:16", "16:9"}:
+        raise ValueError("Formato de imagem inválido.")
+    references = normalize_image_references(data.get("references"), modeling.storage)
+    mask = str(data.get("mask") or "")
+    mask_node_id = text(data.get("mask_node_id"), 160)
+    primary = next((item for item in references if item["role"] == "primary"), None)
+    if mask and not primary:
+        raise ValueError("A seleção precisa estar ligada a uma imagem principal.")
+    if mask and mask_node_id and primary.get("id") != mask_node_id:
+        raise ValueError("A área marcada não pertence à imagem principal deste pedido.")
+    request_id = image_request_id(data)
+
+    # Fail before a paid provider call whenever the request cannot be billed or
+    # composed.  Masked edits need a local source because the original pixels
+    # are used as the preservation layer after generation.
+    estimate = modeling._estimate("image", "draft", IMAGE_MODEL)
+    from ..cadu_tool_billing import cost_token_equivalent
+    credit_client_id = modeling._credits_crm_id(client_id) or int(client_id)
+    modeling.credit_ledger.assert_available(
+        credit_client_id, cost_token_equivalent(estimate, margin_multiplier=8)
+    )
+    if mask and primary:
+        validate_mask(primary["data"], mask)
+
+    role_lines = [
+        f"IMAGE {index}: {IMAGE_ROLES[item['role']]} ({item['label']})."
+        for index, item in enumerate(references, start=1)
+    ]
+    if mask and len(references) == 1:
+        edit_guard = (
+            "IMAGE 2 is a black-and-white selection mask for IMAGE 1. Change only the white region, "
+            "blend its boundary naturally and preserve the black region."
+        )
+    elif mask:
+        edit_guard = (
+            "The translucent mint overlay on IMAGE 1 marks the only region that may change. "
+            "Use IMAGE 2 according to its declared role and blend the edited boundary naturally."
+        )
+    else:
+        edit_guard = "Respect the declared role of every image. Never silently swap the base image and a supporting reference."
+    edit_guard += " Never add text, logos, prices or offers that the user did not request."
+    technical_prompt = "\n".join([
+        prompt,
+        "\nREFERENCE CONTRACT:",
+        *(role_lines or ["No image reference was supplied; create an original image."]),
+        edit_guard,
+        f"Output aspect ratio: {aspect_ratio}.",
+    ])
+    provider_references = provider_image_references(references, mask)
+    provider = modeling.generator.generate_image(
+        technical_prompt,
+        provider_references,
+        aspect_ratio=aspect_ratio,
+        quality="low",
+        resolution="1K",
+        model=IMAGE_MODEL,
+    )
+    encoded = provider.get("b64_json")
+    if not encoded:
+        raise ValueError("O gerador não devolveu uma imagem.")
+    if mask and primary:
+        encoded = compose_inside_mask(encoded, primary["data"], mask)
+    image_url = modeling.storage.save_generated_base64(
+        encoded, provider.get("output_format") or "png"
+    )
+    charged = modeling._charge_studio_call(
+        client_id=client_id,
+        user_id=user_id,
+        idempotency_key=f"studio:create-image:{request_id}",
+        stage="image_generation",
+        provider_result=provider,
+        fallback_cost=estimate,
+        media=True,
+        metadata={
+            "project_id": str(data.get("project_id") or ""),
+            "aspect_ratio": aspect_ratio,
+            "reference_roles": [item["role"] for item in references],
+            "masked": bool(mask),
+        },
+    ) or {}
+    try:
+        remaining = modeling.credit_ledger.available(
+            modeling._credits_crm_id(client_id) or int(client_id)
+        )
+    except Exception:
+        remaining = None
+    return {
+        "image_url": image_url,
+        "model": provider.get("model") or IMAGE_MODEL,
+        "charged_credits": int(charged.get("tokens_cobrados") or 0),
+        "remaining_credits": remaining,
+        "masked": bool(mask),
+    }
+
+
+def normalize_image_references(raw, storage):
+    references = raw if isinstance(raw, list) else []
+    if len(references) > 2:
+        raise ValueError("Use no máximo duas imagens neste pedido.")
+    cleaned = []
+    for index, item in enumerate(references):
+        if not isinstance(item, dict):
+            continue
+        role = str(item.get("role") or ("primary" if index == 0 else "insert"))
+        if role not in IMAGE_ROLES:
+            raise ValueError("A função de uma das imagens é inválida.")
+        value = str(item.get("url") or "")
+        if value.startswith("data:image/"):
+            image_data = value
+        elif value.startswith("/static/uploads/creative_generated/"):
+            image_data = storage.generated_as_data_url(value)
+        elif value.startswith("/static/uploads/creative_references/"):
+            image_data = storage.reference_as_data_url(value, "image/png")
+        elif value.startswith(("https://", "http://")):
+            image_data = value
+        else:
+            raise ValueError("Uma das imagens relacionadas não está disponível.")
+        cleaned.append({
+            "id": text(item.get("id"), 160),
+            "role": role,
+            "label": text(item.get("label") or f"Imagem {index + 1}", 120),
+            "data": image_data,
+        })
+    if sum(1 for item in cleaned if item["role"] == "primary") > 1:
+        raise ValueError("Escolha somente uma imagem principal.")
+    return sorted(cleaned, key=lambda item: item["role"] != "primary")
+
+
+def image_request_id(payload):
+    data = payload if isinstance(payload, dict) else {}
+    request_id = str(data.get("request_id") or uuid4().hex)
+    if not _REQUEST_ID.fullmatch(request_id):
+        raise ValueError("Identificador do pedido inválido.")
+    return request_id
+
+
+def validate_mask(source_data_url, mask_data_url):
+    source = _data_image(source_data_url)
+    mask = _data_image(mask_data_url).convert("L")
+    if mask.size != source.size:
+        raise ValueError("A seleção não corresponde ao tamanho da imagem principal.")
+    if not mask.getbbox():
+        raise ValueError("Marque uma área antes de gerar.")
+
+
+def provider_image_references(references, mask):
+    """Represent the selection inside the provider's two-reference limit."""
+    values = [item["data"] for item in references[:2]]
+    if not mask or not references:
+        return values
+    primary = references[0]["data"]
+    if len(values) == 1:
+        return [primary, mask]
+    return [marked_reference(primary, mask), values[1]]
+
+
+def marked_reference(source_data_url, mask_data_url):
+    source = _data_image(source_data_url).convert("RGBA")
+    mask = _data_image(mask_data_url).convert("L")
+    if mask.size != source.size:
+        raise ValueError("A seleção não corresponde ao tamanho da imagem principal.")
+    overlay = Image.new("RGBA", source.size, (130, 223, 200, 150))
+    marked = Image.composite(overlay, source, mask)
+    output = io.BytesIO()
+    marked.save(output, "PNG")
+    return "data:image/png;base64," + base64.b64encode(output.getvalue()).decode("ascii")
+
+
+def compose_inside_mask(generated_b64, source_data_url, mask_data_url):
+    generated = _data_image(generated_b64, encoded_only=True).convert("RGBA")
+    source = _data_image(source_data_url).convert("RGBA")
+    mask = _data_image(mask_data_url).convert("L")
+    validate_mask(source_data_url, mask_data_url)
+    if generated.size != source.size:
+        generated = generated.resize(source.size, Image.Resampling.LANCZOS)
+    if min(mask.size) >= 64:
+        mask = mask.filter(ImageFilter.GaussianBlur(radius=max(1, min(mask.size) * .003)))
+    composed = Image.composite(generated, source, mask)
+    output = io.BytesIO()
+    composed.save(output, "PNG")
+    return base64.b64encode(output.getvalue()).decode("ascii")
+
+
+def _data_image(value, encoded_only=False):
+    raw = str(value or "")
+    if not encoded_only:
+        if not raw.startswith("data:image/") or "," not in raw:
+            raise ValueError("A composição mascarada exige uma imagem principal local.")
+        raw = raw.split(",", 1)[1]
+    try:
+        content = base64.b64decode(raw, validate=True)
+        image = Image.open(io.BytesIO(content))
+        image.load()
+        return image
+    except (binascii.Error, OSError, ValueError) as exc:
+        raise ValueError("A imagem usada na seleção é inválida.") from exc
 
 
 def integer(value, default=0):

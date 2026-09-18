@@ -3,7 +3,7 @@ from pathlib import Path
 from flask import Flask, render_template
 
 
-def test_create_screen_keeps_project_as_the_only_visible_context_selector():
+def test_create_screen_exposes_unified_visual_workspace():
     root = Path(__file__).resolve().parents[1]
     app = Flask(
         __name__,
@@ -21,13 +21,18 @@ def test_create_screen_keeps_project_as_the_only_visible_context_selector():
 
     assert 'id="mcCaduProject"' in html
     assert 'id="mcCaduBarClient"' in html
-    assert 'mc-cadu-brand--internal' in html
     assert ">Criar<" in html
     assert ">Editar<" in html
     assert ">Vídeos<" in html
     assert ">Biblioteca<" in html
     assert "Gerar 5 direções" in html
-    assert "0 de 2" in html
-    assert "Formatos IAB" in html
-    assert "Abrir no editor completo" in html
-    assert "Histórico do projeto" in html
+    assert 'id="studioBoardWorld"' in html
+    assert '>Aprovadas<' in html
+    assert '>Retiradas<' in html
+    assert 'id="studioBindings"' in html
+    assert 'id="studioMaskTools"' in html
+    assert 'id="studioChatToggle"' in html
+    assert 'id="studioChatClose"' in html
+    assert "Referência de composição" not in html  # Roles are rendered from JS.
+    assert "Editor avançado" in html
+    assert "Rascunho pessoal" in html

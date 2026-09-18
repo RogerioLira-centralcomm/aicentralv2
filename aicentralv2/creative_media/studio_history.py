@@ -116,6 +116,69 @@ class StudioCreationHistory:
             raise ValueError('Projeto não encontrado nesta marca.')
         return row['id']
 
+    def claim_image(self, request_id, request_hash, client_id, user_id, project_id, prompt):
+        """Claim an expensive image call before contacting its provider."""
+        generation_id = str(uuid4())
+        with self.connection.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO cx_studio_image_generations
+                    (id, request_id, request_hash, client_id, user_id, project_id, prompt)
+                VALUES (%s, %s, %s, %s, %s, NULLIF(%s, '')::uuid, %s)
+                ON CONFLICT (client_id, request_id) DO NOTHING
+                RETURNING id::text AS id
+            ''', (generation_id, request_id, request_hash, int(client_id), int(user_id),
+                  str(project_id or ''), str(prompt or '')[:4000]))
+            inserted = cursor.fetchone()
+        self.connection.commit()
+        if inserted:
+            return {'state': 'claimed', 'id': inserted['id']}
+
+        with self.connection.cursor() as cursor:
+            cursor.execute('''
+                SELECT id::text AS id, request_hash, status, result
+                  FROM cx_studio_image_generations
+                 WHERE client_id=%s AND request_id=%s
+            ''', (int(client_id), request_id))
+            existing = cursor.fetchone()
+        self.connection.commit()
+        if not existing or existing['request_hash'] != request_hash:
+            raise ValueError('Este identificador de geração já foi usado por outro pedido.')
+        if existing['status'] == 'completed':
+            return {'state': 'completed', 'id': existing['id'], 'result': dict(existing['result'] or {})}
+        if existing['status'] == 'pending':
+            return {'state': 'pending', 'id': existing['id']}
+
+        with self.connection.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cx_studio_image_generations
+                   SET status='pending', error_message='', updated_at=NOW(), completed_at=NULL
+                 WHERE id=%s AND status='failed'
+                RETURNING id::text AS id
+            ''', (existing['id'],))
+            reclaimed = cursor.fetchone()
+        self.connection.commit()
+        return {'state': 'claimed' if reclaimed else 'pending', 'id': existing['id']}
+
+    def complete_image(self, request_id, client_id, result):
+        with self.connection.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cx_studio_image_generations
+                   SET status='completed', result=%s, model=%s, error_message='',
+                       updated_at=NOW(), completed_at=NOW()
+                 WHERE client_id=%s AND request_id=%s
+            ''', (Json(result if isinstance(result, dict) else {}),
+                  str((result or {}).get('model') or '')[:180], int(client_id), request_id))
+        self.connection.commit()
+
+    def fail_image(self, request_id, client_id, message):
+        with self.connection.cursor() as cursor:
+            cursor.execute('''
+                UPDATE cx_studio_image_generations
+                   SET status='failed', error_message=%s, updated_at=NOW(), completed_at=NOW()
+                 WHERE client_id=%s AND request_id=%s AND status='pending'
+            ''', (str(message or 'Falha na geração.')[:1200], int(client_id), request_id))
+        self.connection.commit()
+
     def fail(self, run_id, project_id, client_id, message):
         with self.connection.cursor() as cursor:
             cursor.execute('''

@@ -31,3 +31,14 @@ CREATE TABLE IF NOT EXISTS cx_studio_project_items (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_cx_studio_project_items_project ON cx_studio_project_items (project_id, created_at DESC);
+CREATE TABLE IF NOT EXISTS cx_studio_image_generations (
+    id UUID PRIMARY KEY, request_id VARCHAR(160) NOT NULL, request_hash CHAR(64) NOT NULL,
+    client_id INTEGER NOT NULL REFERENCES cx_clients(id) ON DELETE CASCADE, user_id INTEGER,
+    project_id UUID REFERENCES cx_studio_projects(id) ON DELETE SET NULL,
+    prompt TEXT NOT NULL DEFAULT '', model VARCHAR(180) NOT NULL DEFAULT '',
+    status VARCHAR(24) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed')),
+    result JSONB NOT NULL DEFAULT '{}'::jsonb, error_message TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), completed_at TIMESTAMPTZ,
+    UNIQUE (client_id, request_id)
+);
+CREATE INDEX IF NOT EXISTS idx_cx_studio_image_generations_client ON cx_studio_image_generations (client_id, created_at DESC);

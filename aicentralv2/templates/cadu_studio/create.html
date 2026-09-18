@@ -1,91 +1,140 @@
 {% extends "cadu_portals/base.html" %}
-{% block title %}Criar — Cadu Studio{% endblock %}
+{% block title %}Mesa — Cadu Studio{% endblock %}
 {% block product_id %}studio{% endblock %}
 {% block navigation %}{% endblock %}
 {% block styles %}
 <meta name="trocr-csrf-token" content="{{ mc_trocr_csrf }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-navigation.css') }}?v=8">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-create.css') }}?v=9">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-create.css') }}?v=12">
 {% endblock %}
 {% block content %}
-<main class="studio-create studio-create--editor-frame" id="studioCreate" data-api-root="{{ '/studio/api' if request.blueprint in ('studio', 'studio_product') else '/parametros/api' }}">
+<main class="studio-create studio-create--editor-frame" id="studioCreate"
+      data-api-root="{{ '/studio/api' if request.blueprint in ('studio', 'studio_product') else '/parametros/api' }}"
+      data-editor-url="{{ studio_url('modelagem_trocar') }}"
+      data-user-id="{{ session.get('user_id', '') }}" data-client-id="{{ session.get('cliente_id', '') }}">
   {% include "cadu_studio/_context_bar.html" %}
-  <div class="studio-create__workspace">
-    <aside class="studio-create__controls" aria-label="Direção da peça">
-      <section class="studio-create__project">
-        <p>Criação rápida</p>
-        <strong id="studioCreateProject">Sem projeto vinculado</strong>
-        <span id="studioCreateBrand">Defina a peça e gere as direções agora.</span>
-      </section>
 
-      <section class="studio-create__identity" aria-labelledby="createIdentityTitle">
-        <h2 id="createIdentityTitle">Identidade aplicada</h2>
-        <div class="studio-create__swatches" id="studioCreateSwatches" aria-label="Paleta da marca"><i></i><i></i><i></i><i></i></div>
-        <div class="studio-create__tokens" id="studioCreateTokens"><span>Tom da marca</span><span>Ativos do projeto</span></div>
-      </section>
+  <header class="studio-workbar">
+    <div class="studio-workbar__identity">
+      <button type="button" class="studio-icon-button" id="studioLibraryToggle" aria-expanded="true" aria-controls="studioLibraryPanel" title="Biblioteca">☰</button>
+      <div><p id="studioCreatePath">Rascunho pessoal</p><input id="studioWorkspaceName" value="Mesa sem título" aria-label="Nome da mesa"></div>
+    </div>
+    <div class="studio-workbar__status"><i></i><span id="studioSaveStatus" role="status">Salvo neste dispositivo</span></div>
+    <nav class="studio-workbar__views" aria-label="Navegar pela mesa">
+      <button type="button" data-board-focus="table">Mesa</button>
+      <button type="button" data-board-focus="approved">Aprovadas</button>
+      <button type="button" data-board-focus="removed">Retiradas</button>
+    </nav>
+    <div class="studio-workbar__actions">
+      <button type="button" class="studio-icon-button" id="studioZoomOut" aria-label="Diminuir zoom">−</button>
+      <output id="studioZoomLabel">75%</output>
+      <button type="button" class="studio-icon-button" id="studioZoomIn" aria-label="Aumentar zoom">+</button>
+      <button type="button" class="studio-secondary" id="studioFitBoard">Caber tudo</button>
+      <button type="button" class="studio-secondary" id="studioCompare" disabled>Comparar</button>
+      <button type="button" class="studio-secondary studio-chat-toggle" id="studioChatToggle" aria-expanded="false" aria-controls="studioChat">Chat</button>
+    </div>
+  </header>
 
-      <label class="studio-create__purpose">
-        <span>Objetivo da peça</span>
-        <select name="purpose" aria-label="Objetivo da peça">
-          <option value="alcance">Alcance</option>
-          <option value="reconhecimento">Reconhecimento</option>
-          <option value="conversao">Conversão</option>
-        </select>
+  <div class="studio-workspace">
+    <aside class="studio-library" id="studioLibraryPanel" aria-label="Biblioteca de imagens">
+      <header><div><p>Fontes da mesa</p><h1>Imagens</h1></div><button class="studio-icon-button" id="studioLibraryClose" type="button" aria-label="Fechar biblioteca">×</button></header>
+      <label class="studio-upload" id="studioUploadDrop">
+        <input id="studioUploadInput" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
+        <span>＋</span><strong>Adicionar imagens</strong><small>Arraste, cole ou escolha arquivos</small>
       </label>
-
-      <fieldset class="studio-create__checks">
-        <legend>Canais</legend>
-        <label><input type="checkbox" name="channel" value="web" checked> Web</label>
-        <label><input type="checkbox" name="channel" value="social" checked> Social</label>
-        <label><input type="checkbox" name="channel" value="ctv"> CTV</label>
-        <label><input type="checkbox" name="channel" value="dooh"> DOOH</label>
-      </fieldset>
-
-      <fieldset class="studio-create__ratios">
-        <legend>Formato</legend>
-        <label><input type="radio" name="ratio" value="1:1"><span><b class="ratio-square"></b>1:1</span></label>
-        <label><input type="radio" name="ratio" value="4:5"><span><b class="ratio-portrait"></b>4:5</span></label>
-        <label><input type="radio" name="ratio" value="9:16" checked><span><b class="ratio-story"></b>9:16</span></label>
-        <label><input type="radio" name="ratio" value="16:9"><span><b class="ratio-landscape"></b>16:9</span></label>
-        <details class="studio-create__iab">
-          <summary>Formatos IAB <span>opcional</span></summary>
-          <div><button type="button">300 × 250</button><button type="button">728 × 90</button><button type="button">300 × 600</button><button type="button">970 × 250</button><button type="button">320 × 50</button></div>
-        </details>
-      </fieldset>
-
-      <label class="studio-create__range">Intensidade da direção <output id="studioCreateIntensity">70%</output><input id="studioCreateRange" type="range" min="0" max="100" value="70"></label>
-
-      <section class="studio-create__references" aria-labelledby="createRefsTitle">
-        <div><h2 id="createRefsTitle">Referências</h2><small id="studioCreateReferenceCount">0 de 2</small></div>
-        <p id="studioCreateReferenceHint">Referências da biblioteca ficam disponíveis quando houver projeto.</p>
-        <div class="studio-create__reference-list" id="studioCreateReferences"></div>
+      <section class="studio-library__context">
+        <div><h2 id="studioCreateProject">Sem projeto vinculado</h2><span id="studioCreateBrand">Este rascunho fica na sua mesa.</span></div>
+        <button type="button" id="studioAttachProject">Vincular depois</button>
+      </section>
+      <section class="studio-library__section" aria-labelledby="createRefsTitle">
+        <div class="studio-section-title"><h2 id="createRefsTitle">Biblioteca</h2><small id="studioCreateReferenceCount">0 selecionadas</small></div>
+        <p id="studioCreateReferenceHint">Escolha imagens para levar ao palco.</p>
+        <div class="studio-library__grid" id="studioCreateReferences"></div>
+      </section>
+      <section class="studio-library__section studio-library__history" aria-labelledby="studioCreateHistoryTitle">
+        <div class="studio-section-title"><h2 id="studioCreateHistoryTitle">Histórico</h2><small>Direções e versões</small></div>
+        <div id="studioCreateHistory"><p>As decisões desta mesa aparecerão aqui.</p></div>
       </section>
     </aside>
 
-    <section class="studio-create__stage" aria-labelledby="studioCreateTitle">
-      <header><div><p id="studioCreatePath">Criação rápida</p><h1 id="studioCreateTitle">Defina a direção da peça</h1></div><span id="studioCreateFormat">9:16 · Story</span></header>
-      <div class="studio-create__canvas" id="studioCreateCanvas" aria-live="polite">
-        <div class="studio-create__empty"><strong>Descreva o que a peça precisa comunicar</strong><span>Use o agente para informar objetivo, público e mensagem.</span></div>
+    <section class="studio-board" aria-label="Mesa visual">
+      <div class="studio-board__viewport" id="studioBoardViewport" tabindex="0">
+        <div class="studio-board__world" id="studioBoardWorld">
+          <section class="studio-zone studio-zone--table" data-zone="table" aria-labelledby="studioTableLabel">
+            <header><div><span>Área de trabalho</span><h2 id="studioTableLabel">Mesa</h2></div><p>Explore, compare e combine livremente.</p></header>
+          </section>
+          <section class="studio-zone studio-zone--approved" data-zone="approved" aria-labelledby="studioApprovedLabel">
+            <header><div><span>Escolhas</span><h2 id="studioApprovedLabel">Aprovadas</h2></div><b id="studioApprovedCount">0</b></header>
+          </section>
+          <section class="studio-zone studio-zone--removed" data-zone="removed" aria-labelledby="studioRemovedLabel">
+            <header><div><span>Fora da seleção</span><h2 id="studioRemovedLabel">Retiradas</h2></div><b id="studioRemovedCount">0</b></header>
+          </section>
+          <div class="studio-board__nodes" id="studioBoardNodes"></div>
+          <div class="studio-board__empty" id="studioBoardEmpty">
+            <span>✦</span><strong>Comece com uma direção ou uma imagem</strong>
+            <p>Converse com o Cadu para criar, ou solte referências nesta mesa.</p>
+            <button type="button" id="studioEmptyUpload">Adicionar imagem</button>
+          </div>
+        </div>
       </div>
-      <footer><button type="button" class="studio-create__secondary" id="studioCreateContinue" disabled>Continuar editando</button><a class="studio-create__primary is-disabled" id="studioCreateEditor" aria-disabled="true" href="{{ studio_url('modelagem_trocar') }}">Abrir no editor completo</a></footer>
+      <div class="studio-board__selectionbar" id="studioSelectionBar" hidden>
+        <strong id="studioSelectionName">Imagem 1</strong>
+        <button type="button" data-selection-action="chat">Usar no chat</button>
+        <button type="button" data-selection-action="mask">Marcar área</button>
+        <button type="button" data-selection-action="approve">Aprovar</button>
+        <button type="button" data-selection-action="remove">Retirar</button>
+        <a id="studioOpenEditor" href="{{ studio_url('modelagem_trocar') }}">Editor avançado</a>
+      </div>
+      <div class="studio-mask-tools" id="studioMaskTools" hidden>
+        <strong>Marque onde o Cadu pode mexer</strong>
+        <button type="button" data-mask-mode="paint" aria-pressed="true">Pincel</button>
+        <button type="button" data-mask-mode="erase" aria-pressed="false">Apagar</button>
+        <label>Tamanho <input id="studioMaskSize" type="range" min="8" max="120" value="38"></label>
+        <button type="button" id="studioMaskUndo" disabled>↶</button>
+        <button type="button" id="studioMaskRedo" disabled>↷</button>
+        <button type="button" id="studioMaskClear">Limpar</button>
+        <button type="button" id="studioMaskCancel">Cancelar</button>
+        <button type="button" class="studio-primary" id="studioMaskConfirm">Usar seleção</button>
+      </div>
+      <p class="studio-board__announce" id="studioBoardAnnounce" role="status" aria-live="polite"></p>
     </section>
 
-    <aside class="studio-create__agent" aria-label="Agente criativo">
-      <header><h2>Agente criativo</h2><p id="studioCreateAgentContext">Gere uma direção sem vincular marca ou projeto.</p></header>
-      <label for="studioCreatePrompt">Descreva a direção</label>
-      <textarea id="studioCreatePrompt" rows="5" placeholder="Ex.: campanha de corrida urbana ao amanhecer; atleta em movimento, cidade ao fundo, energia e espaço para headline."></textarea>
-      <p class="studio-create__agent-label">Sugestões rápidas</p>
-      <div class="studio-create__suggestions"><button type="button" data-suggestion="Campanha de corrida urbana ao amanhecer: atleta vista de costas em movimento, asfalto molhado, skyline brasileiro ao fundo, luz dourada lateral e área livre para headline">Corrida urbana</button><button type="button" data-suggestion="Peça esportiva de alto contraste: tênis em primeiro plano, movimento real, energia noturna e espaço limpo para mensagem curta">Produto em ação</button><button type="button" data-suggestion="Filme CTV esportivo: momento humano antes da largada, tensão silenciosa, luz cinematográfica e assinatura reservada">Criativo de CTV</button></div>
-      <fieldset class="studio-create__direction-count"><legend>Direções</legend><label><input type="radio" name="directionCount" value="1"> 1</label><label><input type="radio" name="directionCount" value="3"> 3</label><label><input type="radio" name="directionCount" value="5" checked> 5</label><small id="studioCreateCreditHint">Verificando créditos…</small></fieldset>
-      <button type="button" class="studio-create__generate" id="studioCreateGenerate">Gerar 5 direções</button>
-      <section class="studio-create__directions" id="studioCreateDirections" aria-live="polite"><p>As cinco direções aparecerão aqui para você escolher uma antes de gerar a imagem.</p></section>
-      <section class="studio-create__history" aria-labelledby="studioCreateHistoryTitle"><div><h3 id="studioCreateHistoryTitle">Histórico do projeto</h3><small>Direções e itens vinculados</small></div><div id="studioCreateHistory"><p>O histórico deste projeto aparecerá aqui.</p></div></section>
+    <aside class="studio-chat" id="studioChat" aria-label="Chat criativo">
+      <header><div class="studio-chat__avatar">C</div><div><h2>Cadu</h2><p id="studioCreateAgentContext">Direção criativa e edição na mesma conversa.</p></div><button type="button" id="studioNewDraft">Nova mesa</button><button type="button" class="studio-chat__close" id="studioChatClose" aria-label="Fechar chat">×</button></header>
+      <div class="studio-chat__messages" id="studioChatMessages" aria-live="polite">
+        <article class="studio-message studio-message--assistant"><div><strong>O que vamos criar?</strong><p>Descreva a ideia. Se você selecionar imagens, eu mostro exatamente o papel de cada uma antes de gerar.</p></div></article>
+      </div>
+      <div class="studio-chat__directions" id="studioCreateDirections" hidden></div>
+      <form class="studio-composer" id="studioComposer">
+        <div class="studio-bindings" id="studioBindings" aria-label="Imagens relacionadas ao pedido"></div>
+        <div class="studio-mask-binding" id="studioMaskBinding" hidden><img alt="Máscara da área selecionada"><div><strong>Área marcada</strong><span>Branco será alterado; preto será preservado.</span></div><button type="button" aria-label="Remover seleção">×</button></div>
+        <label for="studioCreatePrompt" class="sr-only">Pedido para o Cadu</label>
+        <textarea id="studioCreatePrompt" rows="4" placeholder="Descreva o que deseja criar ou mudar. Use @ para relacionar uma imagem."></textarea>
+        <div class="studio-composer__interpretation" id="studioInterpretation" hidden></div>
+        <details class="studio-composer__settings">
+          <summary>Ajustes</summary>
+          <div>
+            <label>Formato<select id="studioRatio"><option value="1:1">1:1</option><option value="4:5">4:5</option><option value="9:16" selected>9:16</option><option value="16:9">16:9</option></select></label>
+            <label>Direções<select id="studioDirectionCount"><option value="1">1</option><option value="3">3</option><option value="5" selected>5</option></select></label>
+            <label>Intensidade<input id="studioCreateRange" type="range" min="0" max="100" value="70"><output id="studioCreateIntensity">70%</output></label>
+          </div>
+        </details>
+        <footer>
+          <div><button type="button" class="studio-icon-button" id="studioComposerUpload" aria-label="Adicionar imagem">＋</button><small id="studioCreateCreditHint">Créditos confirmados ao gerar</small></div>
+          <button type="submit" class="studio-primary studio-composer__send" id="studioCreateGenerate">Gerar 5 direções <span>↑</span></button>
+        </footer>
+      </form>
     </aside>
   </div>
+
+  <dialog class="studio-compare" id="studioCompareDialog">
+    <header><div><h2>Comparar imagens</h2><p>Escolha a versão que continua na mesa.</p></div><button type="button" data-close-dialog aria-label="Fechar">×</button></header>
+    <div id="studioCompareBody"></div>
+  </dialog>
 </main>
 {% endblock %}
 {% block portal_scripts %}
 <script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script>
 <script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=8" defer></script>
-<script src="{{ url_for('static', filename='js/mc-studio-create.js') }}?v=7" defer></script>
+<script src="{{ url_for('static', filename='js/mc-studio-create.js') }}?v=12" defer></script>
 {% endblock %}

@@ -31,3 +31,38 @@ body.portal--studio>main#content{width:100vw!important;max-width:100vw!important
 .prompt-row .primary-cta{height:46px;white-space:nowrap}
 .attach-button,.advanced-button{display:grid;place-items:center;width:32px;height:40px}
 @media(max-width:580px){.prompt-row{grid-template-columns:auto minmax(0,1fr) auto;min-height:0}.prompt-row input{grid-column:2;grid-row:1;height:42px;min-height:42px}.prompt-row .attach-button{grid-column:3;grid-row:1}.prompt-row .advanced-button{grid-column:1;grid-row:1}.prompt-row .prompt-submit{grid-column:1/-1;grid-row:2;width:100%;height:46px}.prompt-hint{align-items:flex-start}.prompt-chips{gap:6px}.prompt-chips button{padding:8px 10px}}
+
+/* The create desk is an app surface: the document stays fixed and each panel
+   owns its own scroll when its content is longer than the viewport. */
+html:has(.studio-v2),
+body.portal--studio:has(.studio-v2) { height:100%; overflow:hidden; }
+body.portal--studio:has(.studio-v2) > main#content {
+  width:100%!important;
+  max-width:100%!important;
+  height:100dvh;
+  min-height:0;
+  margin:0!important;
+  padding:0!important;
+  overflow:hidden;
+}
+body.portal--studio:has(.studio-v2) > main#content > .studio-v2 {
+  display:flex;
+  flex-direction:column;
+  width:100%;
+  height:100dvh;
+  min-height:0;
+  overflow:hidden;
+}
+.studio-v2 .studio-v2__body {
+  flex:1 1 auto;
+  width:100%;
+  height:auto;
+  min-height:0;
+  overflow:hidden;
+}
+.studio-v2 .studio-canvas,
+.studio-v2 .studio-rail,
+.studio-v2 .delivery-panel { min-height:0; }
+.studio-v2 .canvas-stage { min-height:0; }
+.studio-v2 .delivery-panel { overflow:auto; }
+body.portal--studio:has(.studio-v2) > .cadu-family-footer { display:none!important; }

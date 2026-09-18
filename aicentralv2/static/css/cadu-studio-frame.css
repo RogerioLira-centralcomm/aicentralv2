@@ -199,3 +199,55 @@ body.portal--studio,
 @media (prefers-reduced-motion: reduce) {
   .studio-create *, .trocr-product * { transition: none !important; animation: none !important; }
 }
+
+/* Studio app surfaces use the viewport as their frame; internal panels own
+   scrolling so the page itself never grows sideways or downward. */
+html:has(.trocr-product),
+html:has(.mc-video-studio),
+body.portal--studio:has(.trocr-product),
+body.portal--studio:has(.mc-video-studio) {
+  height:100%;
+  overflow:hidden;
+}
+body.portal--studio:has(.trocr-product) > main#content,
+body.portal--studio:has(.mc-video-studio) > main#content {
+  width:100%!important;
+  max-width:100%!important;
+  height:100dvh;
+  min-height:0;
+  margin:0!important;
+  padding:0!important;
+  overflow:hidden;
+}
+body.portal--studio:has(.trocr-product) > main#content > .trocr-product,
+body.portal--studio:has(.mc-video-studio) > main#content > .mc-shell {
+  display:flex;
+  flex-direction:column;
+  width:100%;
+  height:100dvh;
+  min-height:0;
+  overflow:hidden;
+}
+body.portal--studio:has(.trocr-product) .trocr-product-workspace,
+body.portal--studio:has(.mc-video-studio) .mc-panel {
+  flex:1 1 auto;
+  width:100%;
+  height:auto;
+  min-height:0;
+  overflow:hidden;
+}
+body.portal--studio:has(.trocr-product) .trocr-product .mc-trocr.trocr-editor {
+  height:100%!important;
+  min-height:0!important;
+  overflow:hidden;
+}
+body.portal--studio:has(.mc-video-studio) .mc-video-studio {
+  height:100%!important;
+  min-height:0!important;
+  border:0;
+  border-radius:0;
+}
+body.portal--studio:has(.trocr-product) > .cadu-family-footer,
+body.portal--studio:has(.mc-video-studio) > .cadu-family-footer {
+  display:none!important;
+}

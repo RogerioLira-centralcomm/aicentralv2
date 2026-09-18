@@ -36,3 +36,22 @@ def test_create_screen_exposes_unified_visual_workspace():
     assert "Referência de composição" not in html  # Roles are rendered from JS.
     assert "Editor avançado" in html
     assert "Rascunho pessoal" in html
+    assert 'id="studioSessionSelect"' in html
+    assert 'id="studioSaveNow"' in html
+    assert 'id="studioFinish"' in html
+    assert 'id="studioFinishDialog"' in html
+    assert 'id="studioContinueSession"' in html
+
+
+def test_create_frontend_connects_persistent_session_lifecycle():
+    root = Path(__file__).resolve().parents[1]
+    source = (root / "aicentralv2" / "static" / "js" / "mc-studio-create.js").read_text(encoding="utf-8")
+
+    assert "/format-lab/studio/sessions" in source
+    assert "expected_revision:state.sessionRevision" in source
+    assert "/accept`" in source
+    assert "/handoff`" in source
+    assert "/finalize`" in source
+    assert "/continue`" in source
+    assert "studio_session_id" in source
+    assert "is-read-only" in source

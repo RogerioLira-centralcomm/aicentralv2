@@ -92,6 +92,21 @@ class StudioSessionRepositoryTest(unittest.TestCase):
         self.assertEqual(metrics["format"], 1)
         self.assertEqual(metrics["estimated_minutes_saved"], 55)
 
+    def test_generated_attempt_counts_once_in_final_metrics(self):
+        created = self.repo.create(31, 7, {"studio_type": "create", "title": "Campanha"})
+        attempt = {
+            "role": "attempt", "asset_url": "/media/generated.png", "source_type": "studio-create",
+            "source_id": "node-1", "metadata": {"origin": "generation"},
+        }
+        first = self.repo.accept(31, 7, created["id"], attempt)
+        self.repo.accept(31, 7, created["id"], attempt)
+        accepted = self.repo.accept(31, 7, created["id"], {
+            "role": "accepted", "asset_id": first["assets"][0]["id"],
+        })
+        result = self.repo.finalize(31, 7, created["id"], {"active_seconds": 60})
+        self.assertEqual(accepted["status"], "ready")
+        self.assertEqual(result["finalization"]["generation_count"], 1)
+
 
 class StudioSessionRouteTest(unittest.TestCase):
     def test_route_scope_csrf_conflict_and_authenticated_email(self):

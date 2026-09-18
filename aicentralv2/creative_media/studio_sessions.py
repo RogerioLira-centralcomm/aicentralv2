@@ -267,6 +267,10 @@ class LocalSessionRepository:
                 self._event(db, ident, "asset_accepted" if role == "accepted" else "base_changed", payload={"asset_id": asset})
             else:
                 db.execute("UPDATE sessions SET status=CASE WHEN status='draft' THEN 'active' ELSE status END, revision=revision+1, updated_at=? WHERE id=?", (now, ident))
+            metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+            if role == "attempt" and metadata.get("origin") == "generation":
+                self._event(db, ident, "generation_completed", clean_text(payload.get("source_id"), 180) or asset,
+                            {"asset_id": asset})
         return self.read(client_id, user_id, ident)
 
     def handoff(self, client_id, user_id, ident, payload):
@@ -516,6 +520,10 @@ class PostgresSessionRepository:
                 self._event(cursor, ident, "asset_accepted" if role == "accepted" else "base_changed", payload={"asset_id": asset_id})
             else:
                 cursor.execute("UPDATE cx_studio_sessions SET status=CASE WHEN status='draft' THEN 'active' ELSE status END,revision=revision+1,updated_at=NOW() WHERE id=%s", (ident,))
+            metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+            if role == "attempt" and metadata.get("origin") == "generation":
+                self._event(cursor, ident, "generation_completed", clean_text(payload.get("source_id"), 180) or asset_id,
+                            {"asset_id": asset_id})
         self.connection.commit()
         return self.read(client_id, user_id, ident)
 

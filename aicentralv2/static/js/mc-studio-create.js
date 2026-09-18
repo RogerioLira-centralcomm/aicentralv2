@@ -17,6 +17,9 @@
     clientId: String(app.dataset.clientId || ''), projectId: '', projectReady: false, projectDocument: {}, quickMode: true,
     zoom: .75, sequence: 0, chosenDirection: null, mask: null, maskMode: 'paint',
     maskUndo: [], maskRedo: [], dragging: null, saving: 0, pendingImageRequest: null,
+    sessionId: '', sessionRevision: 0, sessionStatus: '', sessionRootId: '', sessionProjectId: '', sessionActiveAssetId: '', sessionReadOnly: false,
+    sessionQueue: Promise.resolve(), sessionCreating: null, sessions: [], startedAt: Date.now(),
+    originalPrompt: '', optimizedPrompt: '', promptLanguage: 'pt-BR',
   };
 
   function uid(prefix = 'node') {
@@ -31,6 +34,7 @@
   function storageKey() {
     return `${STORAGE_PREFIX}:${app.dataset.userId || 'anonymous'}:${state.clientId || app.dataset.clientId || 'account'}`;
   }
+  function sessionPointerKey() { return `${STORAGE_PREFIX}:session:${app.dataset.userId || 'anonymous'}:${state.clientId || 'account'}:${state.projectId || 'free'}`; }
   function openAssetDb() {
     return new Promise((resolve, reject) => {
       const opening = indexedDB.open(ASSET_DB, 1);
@@ -72,6 +76,81 @@
     return payload.data !== undefined ? payload.data : payload;
   }
 
+  function sessionUrl(suffix = '') { return `${apiRoot}/format-lab/studio/sessions${suffix}`; }
+  function canPersistSession() { return Boolean(app.dataset.userId && state.clientId); }
+  function remoteWorkspace(snapshot = serializableState()) {
+    return {
+      ...snapshot,
+      nodes: snapshot.nodes.map((node) => ({...node, url:String(node.url || '').startsWith('data:') ? '' : node.url})),
+      mask: null,
+    };
+  }
+  function updateSession(session) {
+    if (!session?.id) return;
+    state.sessionId = String(session.id);
+    state.sessionRevision = Number(session.revision || 0);
+    state.sessionStatus = String(session.status || 'draft');
+    state.sessionRootId = String(session.root_session_id || session.id);
+    state.sessionProjectId = String(session.project_id || '');
+    state.sessionActiveAssetId = String(session.active_asset_id || '');
+    state.sessionReadOnly = Boolean(session.read_only);
+    state.originalPrompt = String(session.original_prompt || state.originalPrompt || '');
+    state.optimizedPrompt = String(session.optimized_prompt || state.optimizedPrompt || '');
+    state.promptLanguage = String(session.prompt_language || state.promptLanguage || 'pt-BR');
+    try { localStorage.setItem(sessionPointerKey(), state.sessionId); } catch (_error) { /* Session remains usable without a browser pointer. */ }
+    const assetBySource = new Map((session.assets || []).map((asset) => [String(asset.source_id || ''), asset]));
+    state.nodes.forEach((node) => {
+      const asset = assetBySource.get(String(node.id));
+      if (asset) { node.assetId = String(asset.id); node.sessionRole = String(asset.role || node.sessionRole || ''); }
+    });
+    renderSessionState();
+  }
+  function renderSessionState() {
+    app.classList.toggle('is-read-only', state.sessionReadOnly);
+    $('studioFinalizedBanner').hidden = !state.sessionReadOnly;
+    $('studioWorkspaceName').readOnly = state.sessionReadOnly;
+    $('studioSessionSelect').value = state.sessionId || '';
+    if (state.sessionReadOnly) setSaveStatus('Finalizado e preservado');
+    else if (state.sessionId) setSaveStatus('Sessão sincronizada');
+  }
+  function queueSessionMutation(callback) {
+    state.sessionQueue = state.sessionQueue.catch(() => {}).then(callback);
+    return state.sessionQueue;
+  }
+  async function ensureSession() {
+    if (state.sessionId || !canPersistSession()) return state.sessionId;
+    if (state.sessionCreating) return state.sessionCreating;
+    state.sessionCreating = request(sessionUrl(), {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        client_id:state.clientId, project_id:state.projectId || '', studio_type:'create',
+        title:$('studioWorkspaceName').value || 'Mesa sem título', original_prompt:state.originalPrompt,
+        optimized_prompt:state.optimizedPrompt, prompt_language:state.promptLanguage,
+        prompt_version:'studio-create-v1', metadata:{workspace:remoteWorkspace()},
+      }),
+    }).then((session) => { updateSession(session); return state.sessionId; }).finally(() => { state.sessionCreating = null; });
+    return state.sessionCreating;
+  }
+  async function saveSessionNow({create = true} = {}) {
+    if (state.sessionReadOnly || !canPersistSession()) return null;
+    if (create) await ensureSession();
+    if (!state.sessionId) return null;
+    return queueSessionMutation(async () => {
+      const session = await request(sessionUrl(`/${encodeURIComponent(state.sessionId)}`), {
+        method:'PATCH', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          client_id:state.clientId, expected_revision:state.sessionRevision,
+          title:$('studioWorkspaceName').value || 'Mesa sem título',
+          original_prompt:state.originalPrompt, optimized_prompt:state.optimizedPrompt,
+          prompt_language:state.promptLanguage, prompt_version:'studio-create-v1',
+          metadata:{workspace:remoteWorkspace()},
+        }),
+      });
+      updateSession(session);
+      return session;
+    });
+  }
+
   function serializableState() {
     return {
       nodes: state.nodes.map(({ maskCanvas, ...node }) => node), bindings: state.bindings,
@@ -102,11 +181,14 @@
     state.saving = window.setTimeout(async () => {
       try {
         await persistDraftNow(key, snapshot);
-        setSaveStatus('Salvo neste dispositivo');
-      } catch (_error) {
-        setSaveStatus('Não foi possível salvar neste dispositivo');
+        if (state.sessionId && !state.sessionReadOnly) {
+          await saveSessionNow({create:false});
+          setSaveStatus('Salvo no Studio');
+        } else setSaveStatus('Salvo neste dispositivo');
+      } catch (error) {
+        setSaveStatus(error.message || 'Não foi possível salvar');
       }
-    }, 220);
+    }, 650);
   }
   async function restoreDraft() {
     try {
@@ -126,10 +208,62 @@
       if (data.name) $('studioWorkspaceName').value = data.name;
     } catch (_error) { /* A broken browser draft must not prevent a new table. */ }
   }
-  function resetDraftState() {
+  function resetDraftState({keepSession = false} = {}) {
     state.nodes=[];state.bindings=[];state.messages=[];state.selected=[];state.directions=[];state.activeId='';
     state.sequence=0;state.chosenDirection=null;state.mask=null;state.pendingImageRequest=null;
+    state.originalPrompt='';state.optimizedPrompt='';state.promptLanguage='pt-BR';state.startedAt=Date.now();
+    if (!keepSession) {
+      state.sessionId='';state.sessionRevision=0;state.sessionStatus='';state.sessionRootId='';state.sessionProjectId='';state.sessionActiveAssetId='';state.sessionReadOnly=false;
+    }
     $('studioWorkspaceName').value='Mesa sem título';
+    renderSessionState();
+  }
+
+  function restoreWorkspace(workspace = {}) {
+    resetDraftState({keepSession:true});
+    if (Array.isArray(workspace.nodes)) state.nodes = workspace.nodes.filter((node) => node?.id && node?.url);
+    if (Array.isArray(workspace.bindings)) state.bindings = workspace.bindings;
+    if (Array.isArray(workspace.messages)) state.messages = workspace.messages;
+    state.sequence = Number(workspace.sequence || state.nodes.length || 0);
+    state.chosenDirection = workspace.chosenDirection || null;
+    state.pendingImageRequest = workspace.pendingImageRequest || null;
+    state.zoom = Math.max(.35, Math.min(1.35, Number(workspace.zoom || .75)));
+    if (workspace.name) $('studioWorkspaceName').value = workspace.name;
+  }
+
+  async function loadSessions({openId = ''} = {}) {
+    if (!canPersistSession()) return;
+    const query = new URLSearchParams({client_id:state.clientId, limit:'100'});
+    if (state.projectId) query.set('project_id', state.projectId);
+    const data = await request(`${sessionUrl()}?${query}`);
+    state.sessions = data.items || [];
+    $('studioSessionSelect').innerHTML = '<option value="">Nova sessão</option>' + state.sessions.map((session) => `<option value="${escapeHtml(session.id)}">${escapeHtml(session.title || 'Sem título')} · ${session.read_only ? 'Finalizada' : 'Em andamento'}</option>`).join('');
+    let remembered = openId;
+    if (!remembered && !state.sessionId) { try { remembered = localStorage.getItem(sessionPointerKey()) || ''; } catch (_error) { remembered = ''; } }
+    if (remembered && state.sessions.some((session) => String(session.id) === remembered)) await openSession(remembered);
+    else renderSessionState();
+  }
+
+  async function openSession(ident) {
+    if (!ident) return newSession();
+    if (state.sessionId && state.sessionId !== ident && !state.sessionReadOnly) {
+      window.clearTimeout(state.saving); state.saving = 0;
+      await saveSessionNow({create:false});
+    }
+    const session = await request(`${sessionUrl(`/${encodeURIComponent(ident)}`)}?client_id=${encodeURIComponent(state.clientId)}`);
+    restoreWorkspace(session.metadata?.workspace || {});
+    updateSession(session);
+    $('studioWorkspaceName').value = session.title || $('studioWorkspaceName').value;
+    renderAll();
+    announce(session.read_only ? 'Sessão finalizada aberta para consulta.' : 'Sessão retomada do ponto em que foi salva.');
+  }
+
+  async function newSession() {
+    window.clearTimeout(state.saving); state.saving = 0;
+    if (state.sessionId && !state.sessionReadOnly) { try { await saveSessionNow({create:false}); } catch (error) { announce(error.message || 'A sessão anterior ficou salva neste dispositivo.'); } }
+    resetDraftState(); renderAll();
+    if (canPersistSession()) { await ensureSession(); await loadSessions(); }
+    announce('Nova sessão criada.');
   }
 
   function nextPosition(zone = 'table') {
@@ -166,11 +300,57 @@
     const viewport = $('studioBoardViewport');
     viewport.scrollTo({ left: Math.max(0, node.x * state.zoom - viewport.clientWidth / 2), top: Math.max(0, node.y * state.zoom - viewport.clientHeight / 2), behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   }
+  async function registerNode(node, role = 'attempt') {
+    if (!node || String(node.url || '').startsWith('data:') || !canPersistSession()) return null;
+    await ensureSession();
+    return queueSessionMutation(async () => {
+      const session = await request(sessionUrl(`/${encodeURIComponent(state.sessionId)}/accept`), {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          client_id:state.clientId, asset_id:node.assetId || '', asset_url:node.assetId ? '' : node.url,
+          source_type:'studio-create', source_id:node.id, title:node.label, kind:'image', role,
+          metadata:{origin:node.origin || 'studio', parent_node_id:node.parentId || ''},
+        }),
+      });
+      updateSession(session);
+      const asset = (session.assets || []).find((item) => String(item.source_id || '') === String(node.id));
+      if (asset) { node.assetId = String(asset.id); node.sessionRole = role; }
+      return asset || null;
+    });
+  }
+  async function syncNodeZone(node, previousZone) {
+    if (!node || state.sessionReadOnly) return;
+    try {
+      if (node.zone === 'approved' && node.sessionRole !== 'accepted') await registerNode(node, 'accepted');
+      else if (node.zone === 'removed') {
+        if (!node.assetId) await registerNode(node, 'attempt');
+        if (node.assetId) {
+          const session = await queueSessionMutation(() => request(sessionUrl(`/${encodeURIComponent(state.sessionId)}/discard`), {
+            method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({client_id:state.clientId, asset_id:node.assetId}),
+          }));
+          updateSession(session); node.sessionRole = 'discard';
+        }
+      } else if (previousZone === 'removed' && node.assetId) {
+        const session = await queueSessionMutation(() => request(sessionUrl(`/${encodeURIComponent(state.sessionId)}/restore`), {
+          method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({client_id:state.clientId, asset_id:node.assetId}),
+        }));
+        updateSession(session); node.sessionRole = 'attempt';
+      }
+      scheduleSave();
+    } catch (error) {
+      node.zone = previousZone; Object.assign(node, nextPosition(previousZone));
+      renderBoard(); renderSelectionBar(); scheduleSave();
+      announce(error.message || 'Não foi possível atualizar esta peça.');
+    }
+  }
   function moveNodeToZone(id, zone) {
     const node = nodeById(id); if (!node || !ZONE_ORIGINS[zone]) return;
+    if (state.sessionReadOnly) { announce('Este trabalho está finalizado. Use Continuar editando.'); return; }
+    const previousZone = node.zone;
     node.zone = zone; Object.assign(node, nextPosition(zone));
     announce(`${node.label} movida para ${zone === 'table' ? 'Mesa' : zone === 'approved' ? 'Aprovadas' : 'Retiradas'}.`);
     renderBoard(); renderSelectionBar(); scheduleSave();
+    if (previousZone !== zone) syncNodeZone(node, previousZone);
   }
 
   function renderBoard() {
@@ -199,7 +379,7 @@
     element.addEventListener('dblclick', () => attachBinding(id));
     element.querySelector('[data-node-menu]')?.addEventListener('click', () => selectNode(id));
     element.addEventListener('pointerdown', (event) => {
-      if (state.mask || event.target.closest('button,canvas')) return;
+      if (state.sessionReadOnly || state.mask || event.target.closest('button,canvas')) return;
       const node = nodeById(id); if (!node) return;
       selectNode(id, event.shiftKey);
       element.setPointerCapture?.(event.pointerId);
@@ -222,8 +402,10 @@
       if (event.clientX >= composer.left && event.clientX <= composer.right && event.clientY >= composer.top && event.clientY <= composer.bottom) {
         node.x = drag.x; node.y = drag.y; attachBinding(id); renderBoard(); return;
       }
+      const previousZone = node.zone;
       node.zone = node.x > 1500 ? (node.y < 610 ? 'approved' : 'removed') : 'table';
       renderBoard(); scheduleSave();
+      if (previousZone !== node.zone) syncNodeZone(node, previousZone);
     });
   }
 
@@ -333,12 +515,15 @@
 
   async function submitPrompt(event) {
     event?.preventDefault();
+    if (state.sessionReadOnly) { announce('Este trabalho está finalizado. Use Continuar editando.'); return; }
     const prompt = $('studioCreatePrompt').value.trim();
     if (!prompt) { $('studioCreatePrompt').focus(); return; }
     const button = $('studioCreateGenerate'); button.disabled = true;
     const bindings = state.bindings.map((binding) => ({ ...binding, node: nodeById(binding.nodeId) })).filter((binding) => binding.node);
+    state.originalPrompt = prompt;
     addMessage('user', prompt, { bindings: state.bindings.map((binding) => ({...binding})) });
     try {
+      await ensureSession();
       if (state.chosenDirection || state.mask?.data || bindings.length) await generateImage(prompt, bindings, button);
       else await generateDirections(prompt, bindings, button);
       $('studioCreatePrompt').value = '';
@@ -387,6 +572,7 @@
     state.chosenDirection = null; state.mask = null; state.pendingImageRequest=null; renderMaskBinding(); renderBoard();
     addMessage('assistant', 'A nova imagem está na Mesa, ligada à base e às referências deste pedido.', { title:'Imagem pronta', bindings:node ? [{nodeId:node.id, role:'primary'}] : [] });
     if (node) focusNode(node.id);
+    if (node) registerNode(node, 'attempt').catch((error) => announce(error.message || 'A imagem ficou salva apenas neste dispositivo.'));
     if (result.remaining_credits !== undefined) $('studioCreateCreditHint').textContent = `${Number(result.remaining_credits).toLocaleString('pt-BR')} créditos disponíveis`;
     if (result.history_sync_pending && state.projectId) window.setTimeout(()=>request(`${apiRoot}/format-lab/studio/create/image`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(requestPayload)}).then((synced)=>{if(!synced.history_sync_pending)announce('Imagem vinculada ao histórico do projeto.');}).catch(()=>{}),2200);
   }
@@ -436,14 +622,90 @@
   }
   async function loadLibrary(){if(!state.clientId){renderLibrary([]);return;}try{const data=await request(`${apiRoot}/format-lab/swap/library?client_id=${encodeURIComponent(state.clientId)}&media=still`);renderLibrary(data.items||[]);}catch(_error){renderLibrary([]);}}
   async function loadHistory(){if(!state.clientId||!state.projectId)return;try{const data=await request(`${apiRoot}/format-lab/studio/projects/${encodeURIComponent(state.projectId)}/creation-history?client_id=${encodeURIComponent(state.clientId)}&limit=8`);const runs=data.runs||[];$('studioCreateHistory').innerHTML=runs.map((run)=>`<article class="studio-history-row"><i></i><div><strong>${escapeHtml(run.directions?.[0]?.title||run.prompt||'Direção criativa')}</strong><span>${run.status==='failed'?'Não concluída':`${run.returned_count||0} direções`}</span></div></article>`).join('')||'<p>Nenhuma direção criada neste projeto.</p>';}catch(_error){$('studioCreateHistory').innerHTML='<p>O histórico será carregado quando o projeto estiver disponível.</p>';}}
-  async function loadProject(detail={}) {state.projectId=String($('mcCaduProject')?.value||'');state.quickMode=!state.projectId;state.projectReady=false;if(!state.clientId||!state.projectId){$('studioCreateProject').textContent='Criação rápida';$('studioCreateBrand').textContent='Só você vê esta mesa. Use uma imagem como base ou crie sem referência.';$('studioCreateReferenceHint').textContent='Sem projeto: uma imagem pode ser a base da edição; referências de projeto não serão usadas.';return;}try{const project=await request(`${apiRoot}/format-lab/studio/projects/${encodeURIComponent(state.projectId)}?client_id=${encodeURIComponent(state.clientId)}`);state.projectDocument=project.document||{};state.projectReady=true;$('studioCreateProject').textContent=state.projectDocument.name||project.name||'Projeto selecionado';$('studioCreateBrand').textContent=state.projectDocument.brand_name||state.projectDocument.brand||detail.brandName||'Marca vinculada';$('studioCreatePath').textContent=$('studioCreateProject').textContent;$('studioCreateAgentContext').textContent='O projeto e a marca entram como contexto opcional.';}catch(_error){state.projectId='';state.quickMode=true;}await Promise.all([loadLibrary(),loadHistory()]);}
+  async function loadProject(detail={}) {
+    const nextProjectId=String($('mcCaduProject')?.value||'');
+    if(state.sessionId&&state.sessionProjectId!==nextProjectId){try{await saveSessionNow({create:false});}catch(_error){}resetDraftState();renderAll();}
+    state.projectId=nextProjectId;state.quickMode=!state.projectId;state.projectReady=false;
+    if(!state.clientId||!state.projectId){
+      $('studioCreateProject').textContent='Criação rápida';$('studioCreateBrand').textContent='Só você vê esta mesa. Use uma imagem como base ou crie sem referência.';$('studioCreateReferenceHint').textContent='Sem projeto: uma imagem pode ser a base da edição; referências de projeto não serão usadas.';
+      await Promise.all([loadLibrary(),loadSessions().catch(()=>{})]); return;
+    }
+    try{const project=await request(`${apiRoot}/format-lab/studio/projects/${encodeURIComponent(state.projectId)}?client_id=${encodeURIComponent(state.clientId)}`);state.projectDocument=project.document||{};state.projectReady=true;$('studioCreateProject').textContent=state.projectDocument.name||project.name||'Projeto selecionado';$('studioCreateBrand').textContent=state.projectDocument.brand_name||state.projectDocument.brand||detail.brandName||'Marca vinculada';$('studioCreatePath').textContent=$('studioCreateProject').textContent;$('studioCreateAgentContext').textContent='O projeto e a marca entram como contexto opcional.';}catch(_error){state.projectId='';state.quickMode=true;}
+    await Promise.all([loadLibrary(),loadHistory(),loadSessions().catch(()=>{})]);
+  }
   async function switchClient(nextClientId, detail={}) {
     const next=String(nextClientId||'');
     if(next!==state.clientId){window.clearTimeout(state.saving);state.saving=0;const previousKey=storageKey();try{await persistDraftNow(previousKey);}catch(_error){}state.clientId=next;resetDraftState();await restoreDraft();renderAll();announce('Mesa da conta selecionada carregada.');}
-    if($('mcCaduProject')?.value)await loadProject(detail);else{state.projectId='';state.quickMode=true;$('studioCreateProject').textContent='Criação rápida';$('studioCreateBrand').textContent='Só você vê esta mesa. Use uma imagem como base ou crie sem referência.';$('studioCreateReferenceHint').textContent='Sem projeto: uma imagem pode ser a base da edição; referências de projeto não serão usadas.';await loadLibrary();}
+    if($('mcCaduProject')?.value)await loadProject(detail);else{state.projectId='';state.quickMode=true;$('studioCreateProject').textContent='Criação rápida';$('studioCreateBrand').textContent='Só você vê esta mesa. Use uma imagem como base ou crie sem referência.';$('studioCreateReferenceHint').textContent='Sem projeto: uma imagem pode ser a base da edição; referências de projeto não serão usadas.';await Promise.all([loadLibrary(),loadSessions().catch(()=>{})]);}
+  }
+
+  function finalCandidate() {
+    return state.nodes.find((node) => node.assetId && node.assetId === state.sessionActiveAssetId)
+      || state.nodes.find((node) => node.zone === 'approved') || null;
+  }
+  async function openFinishDialog() {
+    const node = finalCandidate();
+    if (!node) { announce('Mova a peça escolhida para Aprovadas antes de finalizar.'); return; }
+    if (node.zone !== 'approved') moveNodeToZone(node.id, 'approved');
+    $('studioFinishPreview').src = node.url;
+    $('studioFinishAssetName').textContent = node.label;
+    $('studioFinishDialog').showModal();
+  }
+  async function finalizeSession() {
+    const button = $('studioConfirmFinish');
+    const node = finalCandidate();
+    if (!node) return;
+    button.disabled = true; button.textContent = 'Finalizando…';
+    try {
+      await ensureSession();
+      if (node.sessionRole !== 'accepted') await registerNode(node, 'accepted');
+      await saveSessionNow({create:false});
+      const result = await queueSessionMutation(() => request(sessionUrl(`/${encodeURIComponent(state.sessionId)}/finalize`), {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({client_id:state.clientId, active_seconds:Math.round((Date.now()-state.startedAt)/1000), pending_jobs:false}),
+      }));
+      updateSession(result.session);
+      $('studioFinishDialog').close();
+      await loadSessions();
+      announce('Trabalho finalizado. A peça foi preservada e o resumo entrou na fila de envio.');
+    } catch (error) { announce(error.message || 'Não foi possível finalizar o trabalho.'); }
+    finally { button.disabled = false; button.textContent = 'Sim, finalizar trabalho'; }
+  }
+  async function continueSession() {
+    if (!state.sessionId) return;
+    try {
+      const session = await request(sessionUrl(`/${encodeURIComponent(state.sessionId)}/continue`), {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({client_id:state.clientId, studio_type:'create', title:`Continuação de ${$('studioWorkspaceName').value || 'trabalho'}`}),
+      });
+      updateSession(session); restoreWorkspace(session.metadata?.workspace || serializableState()); updateSession(session);
+      $('studioWorkspaceName').value = session.title || 'Continuação';
+      renderAll(); await loadSessions();
+      announce('Nova etapa criada com a peça final como referência.');
+    } catch (error) { announce(error.message || 'Não foi possível continuar esta sessão.'); }
+  }
+  async function openEditorWithSession(event) {
+    event.preventDefault();
+    const node = nodeById(state.activeId);
+    if (!node || state.sessionReadOnly) return;
+    try {
+      await ensureSession();
+      if (node.sessionRole !== 'accepted') await registerNode(node, 'accepted');
+      const child = await request(sessionUrl(`/${encodeURIComponent(state.sessionId)}/handoff`), {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({client_id:state.clientId, studio_type:'edit', title:`Edição de ${node.label}`, request_id:`editor:${node.assetId || node.id}`}),
+      });
+      const target = new URL(app.dataset.editorUrl, window.location.origin);
+      target.searchParams.set('source', node.url);
+      target.searchParams.set('studio_session_id', child.id);
+      if (state.clientId) target.searchParams.set('creative_client_id', state.clientId);
+      if (state.projectId) target.searchParams.set('project_id', state.projectId);
+      window.location.assign(target.toString());
+    } catch (error) { announce(error.message || 'Não foi possível abrir o editor.'); }
   }
 
   function takeFiles(files) {
+    if (state.sessionReadOnly) { announce('Este trabalho está finalizado. Use Continuar editando.'); return; }
     Array.from(files||[]).filter((file)=>/^image\/(png|jpeg|webp)$/.test(file.type)&&file.size<=20*1024*1024).slice(0,8).forEach((file)=>{const reader=new FileReader();reader.onload=()=>addNode(reader.result,{label:file.name.replace(/\.[^.]+$/,''),origin:'upload'});reader.readAsDataURL(file);});
   }
   function bindUi() {
@@ -469,7 +731,14 @@
     $('studioMaskUndo').addEventListener('click',async()=>{const canvas=maskCanvas();if(!canvas||!state.maskUndo.length)return;state.maskRedo.push(canvas.toDataURL());await restoreMaskSnapshot(state.maskUndo.pop());updateMaskButtons();});$('studioMaskRedo').addEventListener('click',async()=>{const canvas=maskCanvas();if(!canvas||!state.maskRedo.length)return;state.maskUndo.push(canvas.toDataURL());await restoreMaskSnapshot(state.maskRedo.pop());updateMaskButtons();});
     $('studioMaskBinding').querySelector('button').addEventListener('click',()=>{state.mask=null;state.pendingImageRequest=null;renderMaskBinding();renderBindings();updateInterpretation();syncGenerateLabel();scheduleSave();});
     $('studioCompare').addEventListener('click',openCompare);$('studioCompareDialog').querySelector('[data-close-dialog]').addEventListener('click',()=>$('studioCompareDialog').close());
-    $('studioNewDraft').addEventListener('click',async()=>{window.clearTimeout(state.saving);state.saving=0;const key=storageKey();localStorage.removeItem(key);try{await assetDeletePrefix(`${key}:`);}catch(_error){}resetDraftState();renderAll();announce('Nova mesa criada.');});
+    $('studioNewDraft').addEventListener('click',newSession);
+    $('studioSessionSelect').addEventListener('change',(event)=>openSession(event.target.value).catch((error)=>announce(error.message||'Não foi possível abrir a sessão.')));
+    $('studioSaveNow').addEventListener('click',async()=>{try{await ensureSession();await saveSessionNow({create:false});setSaveStatus('Salvo no Studio');announce('Sessão salva.');await loadSessions();}catch(error){announce(error.message||'Não foi possível salvar a sessão.');}});
+    $('studioFinish').addEventListener('click',openFinishDialog);
+    $('studioConfirmFinish').addEventListener('click',finalizeSession);
+    document.querySelectorAll('[data-close-finish]').forEach((button)=>button.addEventListener('click',()=>$('studioFinishDialog').close()));
+    $('studioContinueSession').addEventListener('click',continueSession);
+    $('studioOpenEditor').addEventListener('click',openEditorWithSession);
     document.addEventListener('cadu:project-ready',(event)=>switchClient(event.detail?.clientId||'',event.detail||{}));document.addEventListener('cadu:project-change',(event)=>switchClient(event.detail?.clientId||state.clientId||'',event.detail||{}));
   }
   function toggleLibrary(open){$('studioLibraryPanel').hidden=!open;$('studioLibraryToggle').setAttribute('aria-expanded',String(open));document.querySelector('.studio-workspace').classList.toggle('is-library-closed',!open);}
@@ -492,6 +761,6 @@
     if (Number.isFinite(intensity) && intensity >= 0 && intensity <= 100) { $('studioCreateRange').value = String(intensity); $('studioCreateIntensity').textContent = intensity + '%'; }
     if (prompt) announce('Direção recebida da conversa. Revise antes de gerar.');
   }
-  async function boot(){await restoreDraft();bindUi();hydrateConversationHandoff();renderAll();focusZone('table');const select=$('mcCaduProject');if(select?.value){state.quickMode=false;await loadProject();}}
+  async function boot(){await restoreDraft();bindUi();hydrateConversationHandoff();renderAll();focusZone('table');const select=$('mcCaduProject');if(select?.value){state.quickMode=false;await loadProject();}else await loadSessions().catch(()=>{});}
   boot();
 })();

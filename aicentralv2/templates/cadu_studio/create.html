@@ -5,7 +5,7 @@
 {% block styles %}
 <meta name="trocr-csrf-token" content="{{ mc_trocr_csrf }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-navigation.css') }}?v=8">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-create.css') }}?v=12">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-create.css') }}?v=13">
 {% endblock %}
 {% block content %}
 <main class="studio-create studio-create--editor-frame" id="studioCreate"
@@ -19,6 +19,10 @@
       <button type="button" class="studio-icon-button" id="studioLibraryToggle" aria-expanded="true" aria-controls="studioLibraryPanel" title="Biblioteca">☰</button>
       <div><p id="studioCreatePath">Rascunho pessoal</p><input id="studioWorkspaceName" value="Mesa sem título" aria-label="Nome da mesa"></div>
     </div>
+    <label class="studio-workbar__session" for="studioSessionSelect">
+      <span>Sessão</span>
+      <select id="studioSessionSelect" aria-label="Abrir sessão do Studio"><option value="">Nova sessão</option></select>
+    </label>
     <div class="studio-workbar__status"><i></i><span id="studioSaveStatus" role="status">Salvo neste dispositivo</span></div>
     <nav class="studio-workbar__views" aria-label="Navegar pela mesa">
       <button type="button" data-board-focus="table">Mesa</button>
@@ -32,6 +36,8 @@
       <button type="button" class="studio-secondary" id="studioFitBoard">Caber tudo</button>
       <button type="button" class="studio-secondary" id="studioCompare" disabled>Comparar</button>
       <button type="button" class="studio-secondary studio-chat-toggle" id="studioChatToggle" aria-expanded="false" aria-controls="studioChat">Chat</button>
+      <button type="button" class="studio-secondary" id="studioSaveNow">Salvar</button>
+      <button type="button" class="studio-primary studio-finish-button" id="studioFinish">Finalizar</button>
     </div>
   </header>
 
@@ -58,6 +64,10 @@
     </aside>
 
     <section class="studio-board" aria-label="Mesa visual">
+      <section class="studio-finalized-banner" id="studioFinalizedBanner" hidden>
+        <div><strong>Trabalho finalizado</strong><span>Esta sessão está preservada. Continue em uma nova etapa para fazer outras alterações.</span></div>
+        <button type="button" class="studio-primary" id="studioContinueSession">Continuar editando</button>
+      </section>
       <div class="studio-board__viewport" id="studioBoardViewport" tabindex="0">
         <div class="studio-board__world" id="studioBoardWorld">
           <section class="studio-zone studio-zone--table" data-zone="table" aria-labelledby="studioTableLabel">
@@ -131,10 +141,18 @@
     <header><div><h2>Comparar imagens</h2><p>Escolha a versão que continua na mesa.</p></div><button type="button" data-close-dialog aria-label="Fechar">×</button></header>
     <div id="studioCompareBody"></div>
   </dialog>
+  <dialog class="studio-finish-dialog" id="studioFinishDialog">
+    <header><div><p>Concluir sessão</p><h2>Esta é a peça final?</h2></div><button type="button" data-close-finish aria-label="Fechar">×</button></header>
+    <div class="studio-finish-dialog__body">
+      <figure><img id="studioFinishPreview" alt="Peça escolhida para finalizar"><figcaption id="studioFinishAssetName">Peça aprovada</figcaption></figure>
+      <div><p>Ao finalizar, esta etapa ficará somente para consulta e a primeira conclusão do trabalho será enviada ao seu e-mail.</p><ul><li>A peça aprovada será preservada como versão final.</li><li>Salvar ou continuar editando depois não envia novos e-mails.</li><li>Itens retirados entram na fila de limpeza segura.</li></ul></div>
+    </div>
+    <footer><button type="button" class="studio-secondary" data-close-finish>Voltar</button><button type="button" class="studio-primary" id="studioConfirmFinish">Sim, finalizar trabalho</button></footer>
+  </dialog>
 </main>
 {% endblock %}
 {% block portal_scripts %}
 <script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script>
 <script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=8" defer></script>
-<script src="{{ url_for('static', filename='js/mc-studio-create.js') }}?v=13" defer></script>
+<script src="{{ url_for('static', filename='js/mc-studio-create.js') }}?v=14" defer></script>
 {% endblock %}

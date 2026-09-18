@@ -1,4 +1,5 @@
 .portal--workspace-public{--ws:#009f8a;--ws-dark:#006c60;--ws-soft:#e9f6f3;--ws-blue:#1976e9;--ws-ink:#102326;background:#f7faf9;color:var(--ws-ink)}
+.ws-creative-carousel{padding:74px 0 86px;border-bottom:1px solid #cbdad7}.ws-creative-carousel__head{display:flex;align-items:end;justify-content:space-between;gap:28px;margin-bottom:28px}.ws-creative-carousel__head h2{max-width:650px;margin:0;font-size:clamp(32px,4vw,54px);line-height:1.02;letter-spacing:-.05em}.ws-carousel-controls{display:flex;align-items:center;gap:9px;white-space:nowrap}.ws-carousel-controls button{min-height:38px;padding:0 12px;border:1px solid #a7c4be;border-radius:7px;background:#fff;color:var(--ws-dark);font:inherit;font-size:12px;font-weight:700;cursor:pointer}.ws-carousel-controls button:hover,.ws-carousel-controls button:focus-visible{border-color:var(--ws-dark);background:var(--ws-soft)}.ws-carousel-controls span{min-width:50px;color:#5c7471;font-size:12px;text-align:center}.ws-creative-carousel__viewport{overflow:hidden}.ws-creative-carousel__track{display:flex;transition:transform 420ms cubic-bezier(.2,.7,.2,1)}.ws-creative-slide{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(220px,.75fr);flex:0 0 100%;gap:clamp(28px,6vw,80px);align-items:center;padding:14px 0}.ws-creative-slide__image{overflow:hidden;aspect-ratio:16/8.5;background:#e8f2ef}.ws-creative-slide__image img{display:block;width:100%;height:100%;object-fit:cover}.ws-creative-slide__copy{max-width:360px}.ws-creative-slide__copy>span{color:var(--ws-dark);font-size:12px;font-weight:750}.ws-creative-slide__copy h3{margin:12px 0 24px;font-size:clamp(25px,3vw,38px);line-height:1.06;letter-spacing:-.04em}.ws-creative-slide__copy a{display:inline-flex;align-items:center;min-height:42px;padding:0 16px;border-radius:7px;background:var(--ws-dark);color:#fff;font-size:13px;font-weight:700;text-decoration:none}.ws-creative-slide__copy a:hover,.ws-creative-slide__copy a:focus-visible{background:#004f47}@media(max-width:720px){.ws-creative-carousel{padding:58px 0 64px}.ws-creative-carousel__head{display:block}.ws-carousel-controls{margin-top:22px;justify-content:space-between}.ws-creative-slide{grid-template-columns:1fr;gap:24px}.ws-creative-slide__copy{max-width:none}.ws-creative-slide__copy h3{margin-bottom:18px}.ws-creative-slide__image{aspect-ratio:1.3/1}}
 .portal--workspace-public .portal-mark{background:var(--ws-dark)}
 .ws-public-nav{position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:8px;margin:0;padding:10px 0;border-bottom:1px solid #d9e4e1;background:rgba(247,250,249,.94);box-shadow:0 0 0 100vmax rgba(247,250,249,.94);clip-path:inset(0 -100vmax);backdrop-filter:blur(14px)}
 .ws-public-nav a{padding:9px 11px;border-radius:6px;color:#385052;font-size:12px;font-weight:650;text-decoration:none;white-space:nowrap}
@@ -197,6 +198,16 @@ html[data-cadu-theme="dark"] body.portal--workspace-public:has(.ws-hero){backgro
 
 /* Motion follows the campaign handoff: source, roles and delivery sequence. */
 .ws-public-agency a:after{content:none}
+@media(prefers-reduced-motion:no-preference){
+  html.ws-motion-ready [data-ws-moment]{opacity:0;transform:translateY(22px);transition:opacity 560ms ease,transform 680ms cubic-bezier(.2,.8,.2,1)}
+  html.ws-motion-ready [data-ws-moment].is-in-view{opacity:1;transform:none}
+  html.ws-motion-ready .ws-public-capabilities article{opacity:0;transform:translateY(18px);transition:opacity 460ms ease,transform 560ms cubic-bezier(.2,.8,.2,1)}
+  html.ws-motion-ready .ws-public-capabilities.is-in-view article{opacity:1;transform:none}
+  html.ws-motion-ready .ws-public-capabilities.is-in-view article:nth-child(2){transition-delay:100ms}
+  html.ws-motion-ready .ws-public-capabilities.is-in-view article:nth-child(3){transition-delay:200ms}
+  html.ws-motion-ready .ws-flow li{opacity:.45;transform:translateY(12px);transition:opacity 420ms ease,transform 520ms ease}
+  html.ws-motion-ready .ws-flow li.is-active{opacity:1;transform:none}
+}
 @media(max-width:600px) and (prefers-reduced-motion:no-preference){
   html.ws-motion-ready .ws-context-map .ws-map-source,
   html.ws-motion-ready .ws-context-map .ws-map-rail>div,

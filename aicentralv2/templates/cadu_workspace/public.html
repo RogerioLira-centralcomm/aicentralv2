@@ -29,6 +29,7 @@
     ] %}
     {% for image, label, caption, action in creative_items %}<article class="ws-creative-slide{% if loop.first %} is-active{% endif %}" data-ws-carousel-slide data-index="{{ loop.index0 }}" aria-hidden="{{ 'false' if loop.first else 'true' }}"><div class="ws-creative-slide__image"><img src="{{ url_for('static', filename='images/cadu/presentation/' ~ image) }}" alt="Criativo de {{ label }} produzido no Cadu" loading="{{ 'eager' if loop.index <= 3 else 'lazy' }}"></div><div class="ws-creative-slide__copy"><span>{{ label }}</span><h3>{{ caption }}</h3></div></article>{% endfor %}
   </div></div>
+  <div class="ws-creative-carousel__status" aria-hidden="true"><span>Vitrine em movimento</span><i></i></div>
 </section>
 <section class="ws-solutions" id="como-funciona" aria-labelledby="solutions-title">
   <header><p class="ws-eyebrow">Cinco soluções, um contexto</p><h2 id="solutions-title">Cada etapa tem uma ferramenta. Nenhuma perde a história.</h2><p>O Workspace reúne as informações de marca e projeto para o time usar o ambiente certo na hora certa.</p></header>

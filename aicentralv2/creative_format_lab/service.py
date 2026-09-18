@@ -259,14 +259,31 @@ class FormatLabService:
 
     def refine_swap_instruction(self, payload, user_id=None):
         from .instruction_refine import refine_edit_instruction
+        from ..creative_media.studio_prompt import optimize_prompt
 
         payload = payload if isinstance(payload, dict) else {}
-        self._assert_tool_balance(payload, user_id, 500)
+        optimize_for_model = payload.get("optimize_for_model") is True
+        self._assert_tool_balance(payload, user_id, 1100 if optimize_for_model else 500)
         calls = []
-        result = refine_edit_instruction(
-            payload.get("instruction"),
-            text_callable=self._metered_text_callable(payload, calls),
-        )
+        text_callable = self._metered_text_callable(payload, calls)
+        if optimize_for_model:
+            optimized = optimize_prompt(
+                payload.get("instruction"), mode="edit",
+                context=payload.get("context"), text_callable=text_callable,
+            )
+            result = {
+                "original_instruction": optimized["original_prompt"],
+                "refined_instruction": optimized["optimized_prompt"],
+                "optimized_instruction": optimized["optimized_prompt"],
+                "detected_language": optimized["detected_language"],
+                "preserved_literals": optimized["preserved_literals"],
+                "refined": optimized["optimized"],
+                "prompt_version": optimized["version"],
+            }
+        else:
+            result = refine_edit_instruction(
+                payload.get("instruction"), text_callable=text_callable,
+            )
         if calls:
             self._charge_provider_calls(payload, user_id, "studio.image", "instruction", calls, media=False)
         return _serialize(result)

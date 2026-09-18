@@ -124,6 +124,7 @@ def register_studio_routes(blueprint):
     from .studio_media import register
     register(blueprint)
     blueprint.add_url_rule('/api/format-lab/studio/agent/plan', view_func=studio_agent_plan, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/prompt/optimize', view_func=studio_prompt_optimize, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/create/directions', view_func=studio_create_directions, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/create/image', view_func=studio_create_image, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/agent/narration', view_func=studio_agent_narration, methods=['POST'])
@@ -161,6 +162,28 @@ def studio_agent_plan():
         data = json_body()
         _scope(data.get('client_id'))
         return ok(plan_request(data.get('message'), data.get('context'), text_callable=chat_completion))
+    return execute(run)
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
+def studio_prompt_optimize():
+    """Compile a user request for the image model without changing literals."""
+    from ..services.openrouter_service import chat_completion
+    from .studio_prompt import optimize_prompt
+    execute, json_body, ok, _ = _http()
+
+    def run():
+        data = json_body()
+        client_id = session.get('cliente_id') or data.get('client_id')
+        if not session.get('user_id'):
+            raise ValueError('Entre novamente para otimizar o pedido.')
+        _scope(client_id)
+        return ok(optimize_prompt(
+            data.get('prompt'), mode=data.get('mode'), context=data.get('context'),
+            text_callable=chat_completion,
+        ))
+
     return execute(run)
 
 

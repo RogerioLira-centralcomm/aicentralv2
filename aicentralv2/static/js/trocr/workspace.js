@@ -26,7 +26,7 @@ export async function openWorkspace(api) {
     if (!instruction) return {original_instruction:'', refined_instruction:''};
     try {
       const response = await fetch(`${apiRoot}/format-lab/swap/instruction`, {method:'POST', credentials:'same-origin',
-        headers:{'Content-Type':'application/json','X-Trocr-CSRF-Token':api.state.csrf}, body:JSON.stringify({client_id:client,instruction})});
+        headers:{'Content-Type':'application/json','X-Trocr-CSRF-Token':api.state.csrf}, body:JSON.stringify({client_id:client,instruction,optimize_for_model:true,context:{editor:'trocr-element'}})});
       const data=await response.json();
       if(!response.ok||!data.success)return {original_instruction:instruction,refined_instruction:instruction};
       return data.data;

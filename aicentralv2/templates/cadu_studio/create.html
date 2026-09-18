@@ -5,7 +5,7 @@
 {% block styles %}
 <meta name="trocr-csrf-token" content="{{ mc_trocr_csrf }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-navigation.css') }}?v=8">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-create.css') }}?v=13">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-create.css') }}?v=14">
 {% endblock %}
 {% block content %}
 <main class="studio-create studio-create--editor-frame" id="studioCreate"
@@ -121,6 +121,10 @@
         <label for="studioCreatePrompt" class="sr-only">Pedido para o Cadu</label>
         <textarea id="studioCreatePrompt" rows="4" placeholder="Descreva o que deseja criar ou mudar. Use @ para relacionar uma imagem."></textarea>
         <div class="studio-composer__interpretation" id="studioInterpretation" hidden></div>
+        <details class="studio-prompt-optimization" id="studioPromptOptimization" hidden>
+          <summary>Instrução preparada para o gerador</summary>
+          <dl><div><dt>Seu pedido</dt><dd id="studioOriginalPrompt"></dd></div><div><dt>Prompt técnico</dt><dd id="studioOptimizedPrompt"></dd></div></dl>
+        </details>
         <details class="studio-composer__settings">
           <summary>Ajustes</summary>
           <div>
@@ -154,5 +158,5 @@
 {% block portal_scripts %}
 <script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script>
 <script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=8" defer></script>
-<script src="{{ url_for('static', filename='js/mc-studio-create.js') }}?v=14" defer></script>
+<script src="{{ url_for('static', filename='js/mc-studio-create.js') }}?v=15" defer></script>
 {% endblock %}

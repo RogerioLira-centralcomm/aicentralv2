@@ -41,6 +41,9 @@ def test_create_screen_exposes_unified_visual_workspace():
     assert 'id="studioFinish"' in html
     assert 'id="studioFinishDialog"' in html
     assert 'id="studioContinueSession"' in html
+    assert 'id="studioPromptOptimization"' in html
+    assert 'id="studioOriginalPrompt"' in html
+    assert 'id="studioOptimizedPrompt"' in html
 
 
 def test_create_frontend_connects_persistent_session_lifecycle():
@@ -55,3 +58,6 @@ def test_create_frontend_connects_persistent_session_lifecycle():
     assert "/continue`" in source
     assert "studio_session_id" in source
     assert "is-read-only" in source
+    assert "/format-lab/studio/prompt/optimize" in source
+    assert "original_prompt:state.originalPrompt" in source
+    assert "optimized_prompt:state.optimizedPrompt" in source

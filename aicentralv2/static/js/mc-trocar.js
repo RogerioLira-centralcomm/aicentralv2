@@ -146,7 +146,7 @@
     async function openElementWorkspace(intent = null) {
       try {
         if (editor?.isDirty() && !await persistHistory()) return;
-        const { openWorkspace } = await import('./trocr/workspace.js?v=5');
+        const { openWorkspace } = await import('./trocr/workspace.js?v=6');
         await openWorkspace({ state, intent, baseVersion, focusBase: async () => { selectVersion(state.baseId); await $('mcSwapImage').decode(); }, acceptResult: async (image, job) => {
           const response = await fetch(image, {credentials:'same-origin'});
           if (!response.ok) throw new Error('O resultado está salvo, mas não foi possível adicioná-lo ao histórico da peça.');
@@ -1498,7 +1498,7 @@
     setStatus('Organizando o pedido sem alterar sua intenção…');
     try {
       try {
-        const refined = await request(API.instruction, { instruction });
+        const refined = await request(API.instruction, { instruction, optimize_for_model: true, context: { editor: 'trocr-agent' } });
         state.refinedInstruction = String(refined.refined_instruction || instruction).trim();
       } catch (_error) {
         state.refinedInstruction = instruction;

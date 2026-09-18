@@ -2165,7 +2165,7 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("data-workspace", trocar)
         self.assertIn("McViewerShell", swap_js)
         self.assertIn("preferredViewerSlug", swap_js)
-        self.assertIn("/parametros/api/formats", swap_js)
+        self.assertIn("formats: `${apiRoot}/formats`", swap_js)
         self.assertIn("consumeHandoff", swap_js)
         self.assertIn("cx-trocr-handoff", swap_js)
         self.assertIn("skipReset", swap_js)

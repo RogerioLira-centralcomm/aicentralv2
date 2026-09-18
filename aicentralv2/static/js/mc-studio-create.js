@@ -76,6 +76,33 @@
     return payload.data !== undefined ? payload.data : payload;
   }
 
+  function renderPromptOptimization() {
+    const box = $('studioPromptOptimization');
+    box.hidden = !state.originalPrompt;
+    if (!state.originalPrompt) return;
+    $('studioOriginalPrompt').textContent = state.originalPrompt;
+    $('studioOptimizedPrompt').textContent = state.optimizedPrompt || state.originalPrompt;
+  }
+  async function optimizePrompt(original, bindings) {
+    try {
+      const result = await request(`${apiRoot}/format-lab/studio/prompt/optimize`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          client_id:state.clientId, prompt:original,
+          mode:(state.mask?.data || bindings.length) ? 'edit' : 'create',
+          context:{aspect_ratio:$('studioRatio').value, references:bindings.map((binding) => ({label:binding.node.label, role:binding.role}))},
+        }),
+      });
+      state.originalPrompt = String(result.original_prompt || original);
+      state.optimizedPrompt = String(result.optimized_prompt || original);
+      state.promptLanguage = String(result.detected_language || 'pt-BR');
+    } catch (_error) {
+      state.originalPrompt = original; state.optimizedPrompt = original; state.promptLanguage = 'pt-BR';
+    }
+    renderPromptOptimization(); scheduleSave();
+    return state.optimizedPrompt || original;
+  }
+
   function sessionUrl(suffix = '') { return `${apiRoot}/format-lab/studio/sessions${suffix}`; }
   function canPersistSession() { return Boolean(app.dataset.userId && state.clientId); }
   function remoteWorkspace(snapshot = serializableState()) {
@@ -523,9 +550,11 @@
     state.originalPrompt = prompt;
     addMessage('user', prompt, { bindings: state.bindings.map((binding) => ({...binding})) });
     try {
+      button.textContent = 'Preparando o pedido…';
+      const runtimePrompt = await optimizePrompt(prompt, bindings);
       await ensureSession();
-      if (state.chosenDirection || state.mask?.data || bindings.length) await generateImage(prompt, bindings, button);
-      else await generateDirections(prompt, bindings, button);
+      if (state.chosenDirection || state.mask?.data || bindings.length) await generateImage(runtimePrompt, bindings, button);
+      else await generateDirections(runtimePrompt, bindings, button);
       $('studioCreatePrompt').value = '';
     } catch (error) {
       addMessage('assistant', error.message || 'Não foi possível concluir o pedido.', { title: 'A geração não foi concluída' });
@@ -747,7 +776,7 @@
   function focusZone(zone){const viewport=$('studioBoardViewport');const [x,y]=ZONE_ORIGINS[zone]||ZONE_ORIGINS.table;viewport.scrollTo({left:Math.max(0,x*state.zoom-40),top:Math.max(0,y*state.zoom-40),behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});}
   function openCompare(){if(state.selected.length!==2)return;const [first,second]=state.selected.map(nodeById);$('studioCompareBody').innerHTML=[first,second].map((node)=>`<figure><img src="${escapeHtml(node.url)}" alt="${escapeHtml(node.label)}"><figcaption><span>${escapeHtml(node.label)}</span><button type="button" data-compare-choose="${node.id}">Manter esta versão</button></figcaption></figure>`).join('');document.querySelectorAll('[data-compare-choose]').forEach((button)=>button.addEventListener('click',()=>{const keep=button.dataset.compareChoose;state.selected.filter((id)=>id!==keep).forEach((id)=>moveNodeToZone(id,'removed'));moveNodeToZone(keep,'approved');state.selected=[keep];state.activeId=keep;$('studioCompareDialog').close();renderBoard();renderSelectionBar();announce('Versão mantida em Aprovadas; a outra foi movida para Retiradas.');}));$('studioCompareDialog').showModal();}
   function renderMentionPicker(){let picker=document.querySelector('.studio-mention-picker');const textarea=$('studioCreatePrompt');const match=textarea.value.slice(0,textarea.selectionStart).match(/@([^\s@]*)$/);if(!match){picker?.remove();return;}if(!picker){picker=document.createElement('div');picker.className='studio-mention-picker';$('studioComposer').append(picker);}const query=match[1].toLocaleLowerCase('pt-BR');const choices=state.nodes.filter((node)=>node.label.toLocaleLowerCase('pt-BR').includes(query)).slice(0,6);picker.innerHTML=choices.map((node)=>`<button type="button" data-mention-node="${node.id}"><img src="${escapeHtml(node.url)}" alt=""><span>${escapeHtml(node.label)}</span></button>`).join('')||'<p>Nenhuma imagem encontrada.</p>';picker.querySelectorAll('[data-mention-node]').forEach((button)=>button.addEventListener('click',()=>{const node=nodeById(button.dataset.mentionNode);const before=textarea.value.slice(0,textarea.selectionStart).replace(/@([^\s@]*)$/,`@${node.label} `);textarea.value=before+textarea.value.slice(textarea.selectionStart);attachBinding(node.id);picker.remove();textarea.focus();}));}
-  function renderAll(){renderBoard();renderSelectionBar();renderBindings();renderMessages();renderMaskBinding();updateInterpretation();syncGenerateLabel();}
+  function renderAll(){renderBoard();renderSelectionBar();renderBindings();renderMessages();renderMaskBinding();renderPromptOptimization();updateInterpretation();syncGenerateLabel();}
 
   function hydrateConversationHandoff() {
     const params = new URLSearchParams(window.location.search);

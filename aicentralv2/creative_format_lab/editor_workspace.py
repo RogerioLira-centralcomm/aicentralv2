@@ -24,6 +24,18 @@ MAX_PIXELS = 20_000_000
 ID = re.compile(r"^[a-f0-9]{32}$")
 ROLES = {"person", "product", "background", "text", "logo", "graphic"}
 EDIT_ACTIONS = {"replace", "erase", "recreate", "extract", "text", "format", "cutout", "fill", "similarity"}
+ACTION_ROLES = {
+    "replace": ROLES,
+    "erase": ROLES,
+    "recreate": ROLES,
+    "extract": ROLES,
+    "cutout": ROLES,
+    "text": {"text"},
+    "fill": {"background"},
+    "similarity": {"background", "graphic"},
+    "format": {"background"},
+}
+BRAND_MUTATIONS = {"replace", "erase", "recreate"}
 HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 BACKGROUND_PRESETS = {
     "clean-studio": "clean studio background with controlled soft lighting",
@@ -191,6 +203,11 @@ class Workspace:
             role = op.get('role')
             if role not in ROLES:
                 raise ValueError('Escolha um elemento válido para editar.')
+            if role not in ACTION_ROLES[op['action']]:
+                raise ValueError('Esta ação não é compatível com o elemento selecionado.')
+            explicit_brand_change = op.get('explicit_brand_change') is True
+            if role == 'logo' and op['action'] in BRAND_MUTATIONS and not explicit_brand_change:
+                raise ValueError('Confirme explicitamente a alteração da marca antes de editar o logo.')
             reference = op.get('reference_asset')
             if op['action'] in {'replace', 'similarity'}:
                 self.asset(reference)
@@ -213,19 +230,27 @@ class Workspace:
                           'base_asset': base, 'mask_asset': op.get('mask_asset'), 'reference_asset': reference,
                           'reference_role': 'similarity_reference' if op['action']=='similarity' else ('selected_element_reference' if reference else None),
                           'background_color': color if op['action']=='fill' else None,
-                          'background_preset': preset or None})
+                          'background_preset': preset or None,
+                          'explicit_brand_change': explicit_brand_change})
         if any(op['action']=='similarity' for op in clean) and len(clean) > 1:
             raise ValueError('Gere a similaridade da peça inteira em uma operação separada.')
         if any(op['action']=='format' for op in clean) and not all(op['action']=='format' for op in clean):
             raise ValueError('Gere os formatos depois de concluir as edições por elemento.')
-        protected = payload.get('protected_masks') or []
-        if not isinstance(protected, list) or len(protected) > 100:
+        incoming_protected = payload.get('protected_masks') or []
+        if not isinstance(incoming_protected, list) or len(incoming_protected) > 100:
             raise ValueError('Regiões protegidas inválidas.')
-        for ident in protected:
+        protected = []
+        for item in incoming_protected:
+            legacy = isinstance(item, str)
+            ident = item if legacy else item.get('mask_asset') if isinstance(item, dict) else None
+            role = 'legacy' if legacy else str(item.get('role') or '').strip()
+            if role not in ROLES | {'wordmark', 'legacy'}:
+                raise ValueError('Classifique cada região protegida.')
             if self.image(ident).size != self.image(base).size:
                 raise ValueError('Revise as regiões protegidas desta base.')
-        if any(op['action']=='similarity' for op in clean) and not protected:
-            raise ValueError('Antes da similaridade global, proteja ao menos a região da marca ou do logo.')
+            protected.append({'mask_asset': ident, 'role': role, 'label': str((item.get('label') if isinstance(item, dict) else '') or role)[:80]})
+        if any(op['action']=='similarity' for op in clean) and not any(item['role'] in {'logo', 'wordmark'} for item in protected):
+            raise ValueError('Antes da similaridade global, proteja e classifique uma região como logo ou wordmark.')
         if protected and any(op['action']=='format' for op in clean):
             raise ValueError('A recomposição por IA não preserva regiões protegidas. Exporte a composição com o elemento original antes de adaptar o formato.')
         seed = {'base_asset': base, 'operations': clean, 'protected_masks': protected}
@@ -302,7 +327,8 @@ class Workspace:
                 mask = Image.new('L', source.size, 255) if full_frame else self.image(op['mask_asset']).convert('L')
                 if op['action'] != 'format':
                     for protected in job.get('protected_masks', []):
-                        mask = ImageChops.multiply(mask, ImageOps.invert(self.image(protected).convert('L')))
+                        ident = protected if isinstance(protected, str) else protected['mask_asset']
+                        mask = ImageChops.multiply(mask, ImageOps.invert(self.image(ident).convert('L')))
                 box = mask.getbbox()
                 if not box:
                     raise ValueError('A região selecionada está vazia ou totalmente protegida.')
@@ -349,7 +375,7 @@ class Workspace:
                 composed.save(output, format='PNG')
                 asset = self.upload(output.getvalue(), 'Resultado da edição')
                 entry = {'base_asset': current, 'operation': op, 'result_asset': asset['id'],
-                         'qa': {'outside_mask_preserved': op['action'] != 'format',
+                         'qa': {'outside_mask_preserved': None if op['action'] in {'format', 'cutout'} else True,
                                 'protected_regions': len(job.get('protected_masks', [])),
                                 'reference_role': op.get('reference_role')}}
                 if op['action'] in {'extract', 'text', 'cutout'}:

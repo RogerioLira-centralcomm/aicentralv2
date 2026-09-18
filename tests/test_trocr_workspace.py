@@ -190,7 +190,7 @@ class WorkspaceTest(unittest.TestCase):
         operation={'base_asset':self.base,'mask_asset':None,'reference_asset':self.ref,
                    'role':'background','action':'similarity','instruction':'Mais editorial'}
         job=self.store.enqueue({'operation_id':'d'*32,'base_asset':self.base,
-                                'protected_masks':[self.mask],'operations':[operation]});calls=[]
+                                'protected_masks':[{'mask_asset':self.mask,'role':'logo','label':'Logo'}],'operations':[operation]});calls=[]
         def generate(prompt,**kwargs):
             calls.append((prompt,kwargs));return png('green')
         self.store.run(job['id'],generate)
@@ -204,6 +204,21 @@ class WorkspaceTest(unittest.TestCase):
         operation={'base_asset':self.base,'mask_asset':None,'reference_asset':self.ref,
                    'role':'background','action':'similarity','instruction':'Mais editorial'}
         with self.assertRaisesRegex(ValueError,'proteja'):
+            self.enqueue([operation])
+        with self.assertRaisesRegex(ValueError,'classifique'):
+            self.store.enqueue({'operation_id':'f'*32,'base_asset':self.base,
+                'protected_masks':[{'mask_asset':self.mask,'role':'person'}],'operations':[operation]})
+
+    def test_logo_mutation_requires_explicit_confirmation(self):
+        operation={**self.operation(),'role':'logo'}
+        with self.assertRaisesRegex(ValueError,'explicitamente'):
+            self.enqueue([operation])
+        job=self.enqueue([{**operation,'explicit_brand_change':True}])
+        self.assertTrue(job['operations'][0]['explicit_brand_change'])
+
+    def test_rejects_incompatible_action_and_role(self):
+        operation={**self.operation('erase'),'action':'fill','role':'person','background_color':'#ffffff'}
+        with self.assertRaisesRegex(ValueError,'compatível'):
             self.enqueue([operation])
 
     def test_background_preset_is_catalogued_and_normalized(self):
@@ -307,7 +322,7 @@ class SelectionTest(unittest.TestCase):
             mask=store.upload(png('white'))['id']
             protected=Image.new('L',(16,12));protected.putpixel((8,6),255)
             output=io.BytesIO();protected.save(output,'PNG');protection=store.upload(output.getvalue())['id']
-            job=store.enqueue({'operation_id':'b'*32,'base_asset':base,'protected_masks':[protection],
+            job=store.enqueue({'operation_id':'b'*32,'base_asset':base,'protected_masks':[{'mask_asset':protection,'role':'logo'}],
                 'operations':[{'base_asset':base,'mask_asset':mask,'role':'product','action':'erase'}]})
             store.run(job['id'],lambda prompt,**kwargs:png('blue'))
             result=store.image(store.get('jobs',job['id'])['result_asset'])

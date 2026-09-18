@@ -2576,6 +2576,18 @@ class CreativeFormatLabSwapTest(unittest.TestCase):
         prompt = build_optimized_prompt(payload, brand={"name": "Sicoob", "logo_url": refs[1]})
         self.assertIn("New brand: Sicoob", prompt)
 
+        with_extra_reference = {**payload, "reference_images": ["https://cdn.example/product.png"]}
+        refs = swap_input_references(with_extra_reference, brand={"logo_url": "https://cdn.example/sicoob.png"})
+        self.assertEqual(refs[1], "https://cdn.example/sicoob.png")
+        self.assertNotIn("https://cdn.example/product.png", refs)
+
+    def test_instrucoes_de_preservacao_de_marca_nao_bloqueiam(self):
+        from aicentralv2.creative_format_lab.swap_plan import build_swap_plan
+
+        for note in ("Preserve a marca", "Não altere o logo", "Use as cores da marca"):
+            plan = build_swap_plan({"reference":"data:image/png;base64,aaa","alter":["background"],"note":note})
+            self.assertNotIn("brand_change_requires_explicit", {item["code"] for item in plan["conflicts"]})
+
     def test_texto_marcado_ignora_force_image_e_preserva_marca_por_typeset(self):
         from aicentralv2.creative_format_lab.swap import swap_mode
 

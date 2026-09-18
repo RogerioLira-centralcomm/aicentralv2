@@ -331,6 +331,13 @@ def swap_input_references(payload=None, brand=None):
     reference = _reference(payload)
     if reference:
         refs.append(reference)
+    # A confirmed brand change has a strict two-input contract: source first,
+    # official logo second. Other visual references must never occupy slot 2.
+    if explicit_brand_change(payload):
+        logo = swap_logo_url(payload, brand)
+        if logo and logo not in refs and len(refs) < 2:
+            refs.append(logo)
+        return refs[:2]
     # Extra stills are intentional agent references (product, packshot, or
     # visual direction), never a replacement for the active creative.
     for value in (payload or {}).get("reference_images") or []:
@@ -342,11 +349,6 @@ def swap_input_references(payload=None, brand=None):
     initial_reference = str((payload or {}).get("initial_reference") or "").strip()
     if initial_reference and initial_reference not in refs and len(refs) < 2:
         refs.append(initial_reference)
-    if len(refs) >= 2 or not explicit_brand_change(payload):
-        return refs[:2]
-    logo = swap_logo_url(payload, brand)
-    if logo and logo not in refs:
-        refs.append(logo)
     return refs[:2]
 
 
@@ -369,7 +371,9 @@ def build_optimized_prompt(payload=None, brand=None, operations=None):
         or ""
     ).strip()
     brand_change = explicit_brand_change(payload)
-    has_logo = brand_change and bool(swap_logo_url(payload, brand)) and not bool(payload.get("initial_reference"))
+    input_references = swap_input_references(payload, brand)
+    official_logo = swap_logo_url(payload, brand)
+    has_logo = brand_change and len(input_references) > 1 and input_references[1] == official_logo
     quality = _quality(payload)
     use_brand = payload.get("use_brand_context") is not False
     preserve = _token_list(payload.get("preserve"), PRESERVE_LABELS)
@@ -407,7 +411,7 @@ def build_optimized_prompt(payload=None, brand=None, operations=None):
             "The first attachment is the latest approved working version. The second is the original continuity anchor. "
             "Preserve the same people, identity, products, logos and recurring graphic elements across both; do not drift or replace them.",
         )
-    elif len(swap_input_references(payload, brand)) > 1 and not brand_change:
+    elif len(input_references) > 1 and not brand_change:
         lines.insert(
             1,
             "The FIRST attachment is the source creative. The SECOND attachment may guide only the explicitly selected item. "
@@ -467,7 +471,7 @@ def build_optimized_prompt(payload=None, brand=None, operations=None):
         )
     elif brand_change and use_brand and name:
         lines.append(
-            f"Use the official {name} logo mark, not the spelled-out legal company name."
+            f"Use the official brand logo mark for {name}, not the spelled-out legal company name."
         )
     if use_brand:
         instruction = str((brand.get("creative_line") or {}).get("gpt_image_instruction") or "").strip()

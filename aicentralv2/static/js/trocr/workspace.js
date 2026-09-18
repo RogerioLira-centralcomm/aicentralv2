@@ -48,13 +48,14 @@ export async function openWorkspace(api) {
     <details class="trocr-selection-help"><summary>Atalhos</summary><p>B pincel · L laço · M retângulo · W ponto<br>Alt/Option: subtrair · Shift: adicionar<br>[ e ]: tamanho · ⌘/Ctrl Z: desfazer<br>Escape: sair da ferramenta</p></details><button type="button" data-confirm-selection>Usar seleção</button></details><h3 class="trocr-agent-heading">2. Pedir a mudança</h3>
     <label>Elemento<select data-role><option value="person">Pessoa</option><option value="product">Produto</option><option value="background">Fundo</option><option value="text">Texto</option><option value="logo">Logo</option><option value="graphic">Grafismo</option></select></label>
     <label>Ação<select data-action><option value="replace">Substituir seleção com referência</option><option value="erase">Apagar e reconstruir</option><option value="recreate">Recriar somente a seleção</option><option value="cutout">Isolar em PNG transparente</option><option value="fill">Aplicar cor sólida</option><option value="similarity">Recriar peça inteira por similaridade</option><option value="protect">Proteger região</option><option value="extract">Separar em camada</option><option value="text">Tornar texto editável</option></select></label>
-    <p class="trocr-input-contract" data-input-contract>Imagem 1 é a peça original. Imagem 2 orienta somente o elemento selecionado.</p>
-    <label data-reference-label>Imagem 2 · referência da mudança <input data-reference type="file" accept="image/png,image/jpeg,image/webp"></label>
-    <label data-color-label hidden>Cor sólida <input data-background-color type="color" value="#ffffff"></label>
-    <label data-background-style-label hidden>Direção do fundo<select data-background-style><option value="">Descrever manualmente</option><option value="clean-studio">Estúdio limpo</option><option value="brand-gradient">Gradiente da marca</option><option value="paper">Papel sutil</option><option value="color-wash">Lavagem de cor</option><option value="editorial">Editorial premium</option><option value="office">Escritório realista</option><option value="nature">Ambiente natural</option><option value="architecture">Arquitetura</option><option value="dark-studio">Estúdio escuro</option><option value="bright-seamless">Fundo claro contínuo</option></select></label>
+    <p class="trocr-input-contract" data-input-contract aria-live="polite">Imagem 1 é a peça original. Imagem 2 orienta somente o elemento selecionado.</p>
+    <div data-reference-tools><label>Imagem 2 · referência da mudança <input data-reference type="file" accept="image/png,image/jpeg,image/webp"></label>
     <label>Biblioteca da campanha<select data-library><option value="">Selecionar referência</option></select></label>
     <button type="button" data-save-reference>Guardar referência na campanha</button>
-    <img data-thumb hidden alt="Referência selecionada" width="64" height="64">
+    <img data-thumb hidden alt="Referência selecionada" width="64" height="64"></div>
+    <label data-color-label hidden>Cor sólida <input data-background-color type="color" value="#ffffff"></label>
+    <label data-background-style-label hidden>Direção do fundo<select data-background-style><option value="">Descrever manualmente</option><option value="clean-studio">Estúdio limpo</option><option value="brand-gradient">Gradiente da marca</option><option value="paper">Papel sutil</option><option value="color-wash">Lavagem de cor</option><option value="editorial">Editorial premium</option><option value="office">Escritório realista</option><option value="nature">Ambiente natural</option><option value="architecture">Arquitetura</option><option value="dark-studio">Estúdio escuro</option><option value="bright-seamless">Fundo claro contínuo</option></select></label>
+    <label data-brand-confirm-label hidden><input data-brand-confirm type="checkbox"> Confirmo que desejo alterar ou remover a identidade desta marca</label>
     <label>Agente de edição<textarea data-instruction maxlength="2000" rows="2" placeholder="Descreva a mudança"></textarea></label>
     <button type="button" data-add>Adicionar operação com esta máscara</button>
     <ol data-operations></ol><ul data-protected></ul><button type="button" data-save>Salvar trabalho</button>
@@ -81,7 +82,6 @@ export async function openWorkspace(api) {
     $('[data-instruction]').value = intent.action === 'erase'
       ? `Apagar ${String(intent.label || 'este item').toLocaleLowerCase()} e reconstruir o fundo de forma natural.`
       : `Trocar ${String(intent.label || 'este item').toLocaleLowerCase()} preservando o restante da peça.`;
-    $('[data-reference-label]').hidden = intent.action === 'erase';
   }
   const overlay = document.createElement('canvas'); overlay.className = 'trocr-mask-overlay'; overlay.hidden = true;
   document.querySelector('#mcSwapImage').parentElement.append(overlay);
@@ -142,14 +142,14 @@ export async function openWorkspace(api) {
     $('[data-retry]').hidden = !doc.last_job || busy;
     panel.querySelectorAll('input,select,textarea,[data-use-base],[data-new-campaign],[data-edit-campaign],[data-clear],[data-save-reference]').forEach(node => {node.disabled=busy;});
     const protection=$('[data-protected]');protection.replaceChildren();
-    (doc.protected_masks||[]).forEach((id,i)=>{const row=document.createElement('li'),button=document.createElement('button');button.textContent=`Região protegida ${i+1} · liberar`;button.disabled=busy;button.onclick=safe(async()=>{doc.protected_masks.splice(i,1);dirty=true;await save();render();});row.append(button);protection.append(row);});
+    (doc.protected_masks||[]).forEach((item,i)=>{const meta=typeof item==='string'?{mask_asset:item,role:'legado'}:item;const row=document.createElement('li'),button=document.createElement('button');button.textContent=`Região protegida ${i+1} · ${meta.role||'sem classificação'} · liberar`;button.disabled=busy;button.onclick=safe(async()=>{doc.protected_masks.splice(i,1);dirty=true;await save();render();});row.append(button);protection.append(row);});
     const list = $('[data-operations]'); list.replaceChildren();
     (doc.operations || []).forEach((op, index) => {
       const li = document.createElement('li');
       const view = document.createElement('button'); view.type = 'button';
       view.textContent = `${index + 1}. ${{replace:'Substituir',erase:'Apagar',recreate:'Recriar',cutout:'PNG transparente',fill:'Cor sólida',similarity:'Similaridade global',extract:'Camada',text:'Texto editável'}[op.action]} · ${{person:'Pessoa',product:'Produto',background:'Fundo',text:'Texto',logo:'Logo',graphic:'Grafismo'}[op.role]}`;
       view.disabled=busy;
-      view.onclick = safe(async () => { selected = index; await loadMask(op.mask_asset); });
+      view.onclick = safe(async () => { selected = index; if(op.mask_asset)await loadMask(op.mask_asset); });
       const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = 'Remover'; remove.disabled = busy;
       remove.onclick = safe(async () => { doc.operations.splice(index, 1); dirty = true; await save(); render(); });
       li.append(view, remove); list.append(li);
@@ -160,7 +160,8 @@ export async function openWorkspace(api) {
     if(maskDirty){const blob=await new Promise(resolve=>mask.toBlob(resolve,'image/png'));maskAsset=(await upload(blob,'Seleção em edição.png')).id;maskDirty=false;}
     doc.ui={tolerance:$('[data-tolerance]').value,radius:$('[data-radius]').value,selectionMode:$('[data-selection-mode]').value};
     doc.selection={mask_asset:maskAsset,role:$('[data-role]').value,action:$('[data-action]').value,instruction:$('[data-instruction]').value,reference_asset:reference?.id||null,
-      background_color:$('[data-background-color]').value,background_style:$('[data-background-style]').value};
+      background_color:$('[data-background-color]').value,background_style:$('[data-background-style]').value,
+      explicit_brand_change:$('[data-brand-confirm]').checked};
     const saved = await call(`documents/${encodeURIComponent(run)}`, doc);
     doc = saved; dirty = false; status('Trabalho salvo.');
   }
@@ -315,10 +316,17 @@ export async function openWorkspace(api) {
   $('[data-library]').onchange=() => {dirty=true;reference={id:$('[data-library]').value}; $('[data-thumb]').src=assetUrl(reference.id,true); $('[data-thumb]').hidden=!reference.id;};
   function syncOperationUi(){
     const action=$('[data-action]').value,role=$('[data-role]').value;
+    const allowed={replace:['person','product','background','text','logo','graphic'],erase:['person','product','background','text','logo','graphic'],recreate:['person','product','background','text','logo','graphic'],cutout:['person','product','background','text','logo','graphic'],extract:['person','product','background','text','logo','graphic'],protect:['person','product','background','text','logo','graphic'],text:['text'],fill:['background'],similarity:['background','graphic']}[action]||[];
+    Array.from($('[data-role]').options).forEach(option=>{option.disabled=!allowed.includes(option.value);});
+    if(!allowed.includes(role)){$('[data-role]').value=allowed[0];}
+    const activeRole=$('[data-role]').value;
     const needsReference=['replace','similarity'].includes(action);
-    $('[data-reference-label]').hidden=!needsReference;
+    $('[data-reference-tools]').hidden=!needsReference;
     $('[data-color-label]').hidden=action!=='fill';
-    $('[data-background-style-label]').hidden=!(role==='background'&&action==='recreate');
+    $('[data-background-style-label]').hidden=!(activeRole==='background'&&action==='recreate');
+    const brandMutation=activeRole==='logo'&&['replace','erase','recreate'].includes(action);
+    $('[data-brand-confirm-label]').hidden=!brandMutation;
+    if(!brandMutation)$('[data-brand-confirm]').checked=false;
     $('[data-input-contract]').textContent=action==='similarity'
       ? 'Mudança global: proteja primeiro logo ou wordmark. Imagem 2 orienta o estilo; a marca protegida continua idêntica.'
       : 'Imagem 1 é a peça original. Imagem 2 orienta somente o elemento selecionado.';
@@ -332,14 +340,15 @@ export async function openWorkspace(api) {
     if (doc.layers?.length && ['extract','text'].includes($('[data-action]').value)) throw new Error('Exporte a composição e abra como nova base antes de separar novas camadas.');
     const action=$('[data-action]').value;
     if (['replace','similarity'].includes(action) && !reference?.id) throw new Error('Anexe a Imagem 2 para esta operação.');
-    if(action==='similarity' && !(doc.protected_masks||[]).length) throw new Error('Proteja a região do logo ou da marca antes de recriar a peça inteira.');
+    if(action==='similarity' && !(doc.protected_masks||[]).some(item=>typeof item==='object'&&['logo','wordmark'].includes(item.role))) throw new Error('Proteja uma região e classifique o elemento como Logo antes de recriar a peça inteira.');
+    if($('[data-role]').value==='logo'&&['replace','erase','recreate'].includes(action)&&!$('[data-brand-confirm]').checked) throw new Error('Confirme explicitamente a alteração da identidade da marca.');
     const pixels=maskCtx.getImageData(0,0,mask.width,mask.height).data;
     const hasMask=pixels.some((value,index) => index%4===0 && value>0);
     if (!hasMask && action!=='similarity') throw new Error('Pinte a região antes de adicionar a operação.');
     let asset=null;
     if(hasMask){const blob=await new Promise(resolve=>mask.toBlob(resolve,'image/png'));asset=await upload(blob,'Máscara.png');}
     if(action==='protect'){
-      doc.protected_masks=[...(doc.protected_masks||[]),asset.id];dirty=true;await save();resetMask();render();return;
+      doc.protected_masks=[...(doc.protected_masks||[]),{mask_asset:asset.id,role:$('[data-role]').value,label:$('[data-role]').selectedOptions[0]?.textContent||'Região'}];dirty=true;await save();resetMask();render();return;
     }
     const style=$('[data-background-style]').value;
     const instruction=$('[data-instruction]').value.trim();
@@ -347,7 +356,8 @@ export async function openWorkspace(api) {
       reference_asset:['replace','similarity'].includes(action)?reference.id:null,
       reference_role:action==='similarity'?'similarity_reference':(action==='replace'?'selected_element_reference':null),
       background_color:action==='fill'?$('[data-background-color]').value:null,
-      background_preset:action==='recreate'&&$('[data-role]').value==='background'?style:null,instruction});
+      background_preset:action==='recreate'&&$('[data-role]').value==='background'?style:null,
+      explicit_brand_change:$('[data-brand-confirm]').checked,instruction});
     dirty=true; reference=null; $('[data-reference]').value=''; $('[data-thumb]').hidden=true; resetMask(); await save(); render();
   });
   $('[data-save]').onclick=safe(save);
@@ -360,7 +370,7 @@ export async function openWorkspace(api) {
   $('[data-retry]').onclick=safe(async()=>{
     if(busy||!doc.last_job)return;
     const previous=await call(`jobs/${doc.last_job}`);
-    const operationKey=op=>[op.base_asset,op.mask_asset||null,op.reference_asset||null,op.role,op.action,op.instruction||''];
+    const operationKey=op=>[op.base_asset,op.mask_asset||null,op.reference_asset||null,op.reference_role||null,op.role,op.action,op.instruction||'',op.background_color||null,op.background_preset||null,op.explicit_brand_change===true];
     if(previous.operations[0]?.action!=='format' && JSON.stringify(previous.operations.map(operationKey))!==JSON.stringify(doc.operations.map(operationKey)))throw new Error('O pedido foi alterado. Gere as novas operações; a tentativa anterior permanece no histórico.');
     job=await call(`jobs/${doc.last_job}/retry`,{});doc.active_job=job.id;await save();await follow(job.id);
   });
@@ -505,6 +515,7 @@ export async function openWorkspace(api) {
     ['role','action','instruction'].forEach(key=>{if(doc.selection[key])$(`[data-${key}]`).value=doc.selection[key];});
     if(doc.selection.background_color)$('[data-background-color]').value=doc.selection.background_color;
     if(doc.selection.background_style)$('[data-background-style]').value=doc.selection.background_style;
+    $('[data-brand-confirm]').checked=doc.selection.explicit_brand_change===true;
     if(doc.selection.reference_asset){reference={id:doc.selection.reference_asset};$('[data-thumb]').src=assetUrl(reference.id,true);$('[data-thumb]').hidden=false;}
     if(doc.selection.mask_asset)await loadMask(doc.selection.mask_asset);
   }

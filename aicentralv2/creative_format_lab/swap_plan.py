@@ -33,9 +33,17 @@ NOTE_HINTS = (
     (re.compile(r"\b(headline|t[ií]tulo|t[ií]tular)\b", re.I), "headline"),
     (re.compile(r"\b(apoio|quota|gb|mega)\b", re.I), "secondary"),
     (re.compile(r"\b(cta|bot[aã]o|contratar|assine)\b", re.I), "cta"),
-    (re.compile(r"\b(logo|marca|logotipo)\b", re.I), "logo"),
     (re.compile(r"\b(pessoa|elenco|modelo|rosto)\b", re.I), "people"),
     (re.compile(r"\b(fundo|background)\b", re.I), "background"),
+)
+BRAND_CHANGE_HINT = re.compile(
+    r"\b(trocar|substituir|mudar|alterar|remover|retirar|apagar)\b.{0,48}\b(logo|marca|logotipo)\b"
+    r"|\b(logo|marca|logotipo)\b.{0,48}\b(trocar|substituir|mudar|alterar|remover|retirar|apagar)\b",
+    re.I,
+)
+BRAND_PRESERVE_HINT = re.compile(
+    r"\b(preservar|preserve|manter|mantenha|n[aã]o\s+(?:troque|substitua|mude|altere|remova|retire|apague))\b.{0,48}\b(logo|marca|logotipo)\b",
+    re.I,
 )
 
 
@@ -186,14 +194,15 @@ def _conflicts(data, operations, brand):
     note = str(data.get("note") or "").strip()
     if note and not data.get("scene_variant"):
         hinted = {token for pattern, token in NOTE_HINTS if pattern.search(note)}
-        if "logo" in hinted and data.get("explicit_brand_change") is not True:
+        brand_change_requested = bool(BRAND_CHANGE_HINT.search(note)) and not bool(BRAND_PRESERVE_HINT.search(note))
+        if brand_change_requested and data.get("explicit_brand_change") is not True:
             items.append(_conflict(
                 "brand_change_requires_explicit",
                 "A instrução menciona marca ou logo. Confirme uma operação explícita de troca de marca ou remova esse pedido.",
                 True,
             ))
         missing = sorted(token for token in hinted if token not in alter and token not in {"logo"})
-        if "logo" in hinted and "logo" in preserve and data.get("explicit_brand_change") is True:
+        if brand_change_requested and "logo" in preserve and data.get("explicit_brand_change") is True:
             missing.append("logo")
         if missing:
             items.append(_conflict(

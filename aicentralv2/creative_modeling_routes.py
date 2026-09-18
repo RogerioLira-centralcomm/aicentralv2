@@ -371,6 +371,18 @@ def modelagem_desk(page):
         ),
         mc_workspace_brands=page == 'marcas' and _configured_product_host('workspace') == (request.host.split(':', 1)[0] or '').lower(),
         mc_format_catalog=catalog_entries(),
+        mc_reference_masks=([
+            {
+                "id": f"feed-mask-{index:02d}",
+                "label": f"Feed · composição {index:02d}",
+                "role": "composition",
+                "format": "4:5",
+                "width": 1080,
+                "height": 1350,
+                "url": url_for("static", filename=f"images/cadu/studio/references/feed/feed-mask-{index:02d}.png"),
+            }
+            for index in range(1, 11)
+        ] if page == "criar" else []),
     ))
     if page in {"criar", "video"}:
         response.headers['Cache-Control'] = 'no-store, private'

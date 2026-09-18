@@ -6,7 +6,7 @@
 <meta name="trocr-csrf-token" content="{{ mc_trocr_csrf }}">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-navigation.css') }}?v=11">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-create-v2.css') }}?v=3">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-create-v2.css') }}?v=6">
 {% endblock %}
 {% block content %}
 <main class="studio-v2" id="studioV2" data-state="draft"
@@ -14,7 +14,8 @@
       data-user-id="{{ session.get('user_id', '') }}"
       data-client-id="{{ session.get('cliente_id', '') }}"
       data-editor-url="{{ studio_url('modelagem_trocar') }}"
-      data-format-catalog='{{ mc_format_catalog|tojson }}'>
+      data-format-catalog='{{ mc_format_catalog|tojson }}'
+      data-reference-masks='{{ mc_reference_masks|tojson }}'>
   {% set mc_page = 'criar' %}{% include "cadu_studio/_context_bar.html" %}
   <div class="studio-v2__body">
     <aside class="studio-rail" id="referenceRail" aria-label="Referências">
@@ -48,6 +49,10 @@
       <button class="primary-cta" type="submit">Aplicar formato</button>
     </form>
   </dialog>
+  <dialog class="reference-preview-dialog" id="referencePreviewDialog" aria-labelledby="referencePreviewTitle">
+    <header><div><span class="eyebrow">Referência visual</span><h2 id="referencePreviewTitle">Prévia da composição</h2><p>Use esta imagem para avaliar a posição, margem e camadas antes de selecionar.</p></div><button class="icon-button" type="button" data-close-reference-preview aria-label="Fechar prévia"><i class="fa-solid fa-xmark"></i></button></header>
+    <div class="reference-preview-frame"><img id="referencePreviewImage" alt=""></div>
+  </dialog>
 </main>
 {% endblock %}
-{% block portal_scripts %}<script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script><script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=8" defer></script><script src="{{ url_for('static', filename='js/cadu-studio-create-v2.js') }}?v=3" defer></script>{% endblock %}
+{% block portal_scripts %}<script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script><script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=8" defer></script><script src="{{ url_for('static', filename='js/cadu-studio-create-v2.js') }}?v=6" defer></script>{% endblock %}

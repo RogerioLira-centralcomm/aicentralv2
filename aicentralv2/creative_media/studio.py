@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import urlparse
 
-from flask import current_app, jsonify, request, session, send_file
+from flask import current_app, jsonify, request, session, send_file, url_for
 
 from .http import studio_http as _http
 from .studio_auth import studio_or_admin_required_api
@@ -109,6 +109,25 @@ def _scope(client):
     root = media_root() / "studio" / key
     root.mkdir(parents=True, exist_ok=True)
     return root
+
+
+def _studio_reference_masks():
+    """Return the shared low-resolution composition references for Studio V2."""
+    return [
+        {
+            'id': f'feed-mask-{index:02d}',
+            'label': f'Feed · composição {index:02d}',
+            'role': 'composition',
+            'format': '4:5',
+            'width': 1080,
+            'height': 1350,
+            'url': url_for(
+                'static',
+                filename=f'images/cadu/studio/references/feed/feed-mask-{index:02d}.png',
+            ),
+        }
+        for index in range(1, 11)
+    ]
 
 
 def _record(root, ident, kind):
@@ -390,12 +409,17 @@ def studio_projects():
 def studio_library_sessions():
     execute, _, ok, _ = _http()
     def run():
-        client_id = request.args.get('client_id')
+        # Quick creation does not have a project option with a client id in
+        # the DOM. Resolve it from the authenticated tenant instead.
+        client_id = request.args.get('client_id') or session.get('cliente_id')
         _scope(client_id)
         history = _creation_history()
         user_id = session.get('user_id')
-        return ok({'items': history.library_sessions(client_id) if history else [],
-                   'personal_assets': history.personal_assets(client_id, user_id) if history and user_id else []})
+        return ok({
+            'items': history.library_sessions(client_id) if history else [],
+            'personal_assets': history.personal_assets(client_id, user_id) if history and user_id else [],
+            'reference_masks': _studio_reference_masks(),
+        })
     return execute(run)
 
 
@@ -476,12 +500,14 @@ def studio_project_creation_history(ident):
             uuid.UUID(ident)
         except ValueError:
             raise ValueError('Projeto inválido.')
-        client_id = request.args.get('client_id')
+        client_id = request.args.get('client_id') or session.get('cliente_id')
         _scope(client_id)
         history = _creation_history()
         if not history:
-            return ok({'runs': [], 'items': []})
-        return ok(history.history(ident, client_id, request.args.get('limit', 30)))
+            return ok({'runs': [], 'items': [], 'reference_masks': _studio_reference_masks()})
+        result = history.history(ident, client_id, request.args.get('limit', 30))
+        result['reference_masks'] = _studio_reference_masks()
+        return ok(result)
     return execute(run)
 
 

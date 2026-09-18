@@ -289,6 +289,20 @@ def normalize_image_references(raw, storage):
             image_data = storage.generated_as_data_url(value)
         elif value.startswith("/static/uploads/creative_references/"):
             image_data = storage.reference_as_data_url(value, "image/png")
+        elif value.startswith("/static/images/cadu/studio/references/"):
+            from flask import current_app
+            from pathlib import Path
+            relative = value.removeprefix("/static/")
+            path = (Path(current_app.static_folder) / relative).resolve()
+            static_root = Path(current_app.static_folder).resolve()
+            try:
+                path.relative_to(static_root)
+            except ValueError:
+                raise ValueError("Imagem de referência não encontrada.")
+            if not path.is_file():
+                raise ValueError("Imagem de referência não encontrada.")
+            mime = "image/jpeg" if path.suffix.lower() in {".jpg", ".jpeg"} else "image/png"
+            image_data = f"data:{mime};base64,{base64.b64encode(path.read_bytes()).decode('ascii')}"
         elif value.startswith(("https://", "http://")):
             image_data = value
         else:

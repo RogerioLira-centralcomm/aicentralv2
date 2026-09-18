@@ -104,6 +104,20 @@ def build_storyboard(
     )
     images = reference_images(brand, user_images)
     campaign = load_campaign_model(payload.get("campaign_slug"))
+    # Copy supplied by the user is authoritative. Catalog campaigns provide
+    # structure and defaults, but must never overwrite an explicit headline.
+    inline_storyboard = payload.get("storyboard")
+    if campaign and isinstance(inline_storyboard, list):
+        supplied = {
+            str(item.get("id")): item
+            for item in inline_storyboard
+            if isinstance(item, dict) and item.get("id")
+        }
+        campaign = dict(campaign)
+        campaign["scenes"] = [
+            {**scene, **{key: value for key, value in supplied.get(str(scene.get("id")), {}).items() if key in {"headline", "support", "cta", "set_note", "action_note"} and value is not None}}
+            for scene in campaign.get("scenes") or []
+        ]
     if campaign:
         campaign = apply_brand_to_campaign(campaign, brand)
         campaign["lock_copy"] = True

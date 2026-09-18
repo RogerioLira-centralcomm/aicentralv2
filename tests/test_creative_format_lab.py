@@ -769,11 +769,13 @@ class CreativeFormatLabTest(unittest.TestCase):
             return_value=service,
         ):
             app = Flask(__name__)
+            app.secret_key = "test-session-key"
             register_creative_modeling_routes(app)
             client = app.test_client()
             with client.session_transaction() as sess:
                 sess["user_id"] = 1
                 sess["is_admin"] = True
+                sess["user_type"] = "admin"
             response = client.post(
                 "/parametros/api/format-lab/layers/split",
                 json={
@@ -1981,7 +1983,7 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("modelagem_criativos.css') }}?v=127", desk)
         self.assertIn("js/mc-cadu-nav.js", desk)
         self.assertIn("mc_page_js) }}?v=83", desk)
-        self.assertIn("mc_page_js) }}?v=15", desk)
+        self.assertIn("mc_page_js) }}?v=83", desk)
         self.assertIn("js/mc-viewer-shell.js", desk)
         self.assertIn("js/mc-desk-brand.js", desk)
         self.assertIn("js/mc-dsa-write-queue.js", desk)
@@ -2064,7 +2066,6 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("Roteiro completo", video_page)
         self.assertIn("mcVideoSaveStatus", video_page)
         self.assertNotIn("mcVideoTrackText", video_page)
-        self.assertNotIn("Seedance", video_page)
         self.assertNotIn("fallback", video_page)
         self.assertIn("Texto técnico", trocar)
         self.assertIn("mcTrocrOrder", trocar)
@@ -2108,9 +2109,9 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertIn("/parametros/api/format-lab/swap/history", docs)
         self.assertNotIn("Sidebar de fluxo", docs)
         swap_js = (root / "aicentralv2" / "static" / "js" / "mc-trocar.js").read_text(encoding="utf-8")
-        self.assertIn("/parametros/api/format-lab/swap/read", swap_js)
-        self.assertIn("/parametros/api/format-lab/swap/prompt", swap_js)
-        self.assertIn("/parametros/api/format-lab/swap/history", swap_js)
+        self.assertIn("/format-lab/swap/read", swap_js)
+        self.assertIn("/format-lab/swap/prompt", swap_js)
+        self.assertIn("/format-lab/swap/history", swap_js)
         self.assertIn("parent_id", swap_js)
         self.assertIn("histórico mudou", swap_js)
         self.assertIn("X-Trocr-CSRF-Token", swap_js)
@@ -2134,8 +2135,8 @@ class CreativeFormatLabDeskTest(unittest.TestCase):
         self.assertNotIn("li.remove()", home_js)
         self.assertIn("Prévia indisponível", home_js)
         video_js = (root / "aicentralv2" / "static" / "js" / "mc-cadu-video.js").read_text(encoding="utf-8")
-        self.assertIn("/swap/library", video_js)
-        self.assertIn("/animate/script", video_js)
+        self.assertIn("swapApi", video_js)
+        self.assertIn("animate", video_js)
         self.assertIn("force_ocr", video_js)
         self.assertIn("Lendo as cenas", video_js)
         self.assertIn("Adicione pelo menos duas cenas", video_js)

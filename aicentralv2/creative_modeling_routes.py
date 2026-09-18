@@ -1671,6 +1671,14 @@ def register_creative_modeling_routes(blueprint):
         view_func=api_format_lab_layers_split,
         methods=["POST"],
     )
+    # Mantém compatibilidade com clientes antigos que ainda usam o prefixo
+    # ``/parametros`` na chamada do laboratório de camadas.
+    blueprint.add_url_rule(
+        "/parametros/api/format-lab/layers/split",
+        endpoint="creative_format_lab_layers_split_legacy",
+        view_func=api_format_lab_layers_split,
+        methods=["POST"],
+    )
     register_trocr_routes(blueprint)
     blueprint.add_url_rule(
         "/api/format-lab/quote",

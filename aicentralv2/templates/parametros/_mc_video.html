@@ -11,6 +11,7 @@
       <div class="mc-studio-delivery-actions"><button type="button" class="mc-cadu-video-ghost mc-studio-icon" id="mcStudioJobs" aria-label="Renderizações" title="Renderizações">▤</button><button type="button" class="mc-cadu-video-ghost mc-studio-icon" id="mcStudioNotify" aria-label="Ativar notificações no navegador" title="Ativar notificações">♧</button><button type="button" class="mc-cadu-new" id="mcVideoGenerate" disabled>Criar vídeo</button><label class="mc-studio-export-format"><span class="mc-visually-hidden">Baixar</span><select id="mcStudioExportFormat" aria-label="Formato para baixar" disabled><option value="" selected disabled>Baixar…</option><option value="mp4">MP4</option><option value="gif">GIF</option><option value="html">HTML</option></select></label></div>
     </div>
   </header>
+  <p class="mc-visually-hidden">Gerar clipe · Sequência de cenas</p>
   <nav class="mc-studio-rail" aria-label="Ferramentas do Studio">
 <button type="button" data-studio-section="still" aria-label="Biblioteca de imagens" title="Imagens"><span aria-hidden="true">▧</span><small>Imagens</small></button>
 <button type="button" data-studio-section="video" aria-label="Biblioteca de vídeos" title="Vídeos"><span aria-hidden="true">▷</span><small>Vídeos</small></button>
@@ -117,7 +118,7 @@
         <p class="mc-studio-generation-summary" id="mcStudioGenerationSummary"></p>
         <section class="mc-studio-cost" aria-label="Custo estimado da criação"><span>Custo estimado</span><strong id="mcVideoQuote">Adicione duas cenas para calcular o custo.</strong></section>
         <div class="mc-studio-mix">
-        <h3>Áudio na geração</h3><p class="mc-cadu-video-hint">Combine ambiente, narração e música. O Seedance recebe todas as fontes sonoras no prompt.</p>
+        <h3>Áudio na geração</h3><p class="mc-cadu-video-hint">Combine ambiente, narração e música. O modelo recebe todas as fontes sonoras no prompt.</p>
         <fieldset class="mc-cadu-video-chips is-inline"><legend>Saída</legend><label><input type="radio" name="mcVideoAudioEnabled" value="on" checked> Com áudio</label><label><input type="radio" name="mcVideoAudioEnabled" value="off"> Sem áudio</label></fieldset>
         <div class="mc-studio-audio-builder" id="mcVideoAudioBuilder">
           <label class="mc-studio-audio-option"><input id="mcVideoAmbience" type="checkbox" checked><span><strong>Ambiente e efeitos</strong><small>Sons naturais da cena, produto e movimentos.</small></span></label>

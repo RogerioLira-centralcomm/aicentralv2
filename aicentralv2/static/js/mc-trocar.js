@@ -1763,21 +1763,7 @@
   }
 
   async function runRequestedGeneration(quality) {
-    if (state.generationStrategy !== 'ab') return runSwap(quality);
-    const anchorId = state.baseId;
-    const results = [];
-    for (const testVariant of ['A', 'B']) {
-      if (state.baseId !== anchorId) state.baseId = anchorId;
-      const result = await runSwap(quality, { test_variant: testVariant });
-      if (result) results.push(result);
-    }
-    if (results.length === 2) {
-      state.compareIds = results.map((item) => item.id);
-      setViewMode('compare');
-      toast('Teste A/B pronto para comparar', 'success');
-      setStatus('As duas alternativas partiram da mesma base e mantiveram a peça inicial como referência.');
-    }
-    return results;
+    return runSwap(quality);
   }
 
   function applyAgentDirectives(instruction) {
@@ -1793,7 +1779,8 @@
       selectFormat(ratio);
       setFormatHint(`O agente definiu ${ratio} a partir do pedido.`);
     }
-    state.generationStrategy = /\b(teste\s*a\s*\/?\s*b|a\s*\/?\s*b|duas\s+varia(?:ç|c)[õo]es|2\s+varia(?:ç|c)[õo]es)\b/.test(text) ? 'ab' : 'single';
+    // Uma alteração por pedido: o usuário revisa a versão e decide o próximo ajuste.
+    state.generationStrategy = 'single';
     state.quality = /\b(produ(?:ç|c)[ãa]o|final|alta\s+qualidade)\b/.test(text) ? 'production' : 'draft';
     if ($('mcTrocrForceImage') && state.generationStrategy === 'ab') $('mcTrocrForceImage').checked = true;
     document.querySelectorAll('input[name="mcTrocrVariation"]').forEach((node) => { node.checked = node.value === state.generationStrategy; });

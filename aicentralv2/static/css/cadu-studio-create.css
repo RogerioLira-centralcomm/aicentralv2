@@ -42,6 +42,13 @@
 @media(max-width:1280px){.studio-workbar{grid-template-columns:minmax(220px,1fr) 150px auto minmax(350px,1fr)}.studio-workbar__views{display:none}}
 @media(max-width:900px){.studio-workbar{grid-template-columns:1fr auto}.studio-workbar__session,.studio-workbar__status{display:none}.studio-finish-dialog__body{grid-template-columns:1fr}.studio-finish-dialog figure{max-width:220px}.studio-finalized-banner{align-items:flex-start;flex-direction:column}}
 
+/* Navegação de canvas inspirada em ferramentas de quadro infinito. */
+.studio-board__viewport{touch-action:none;cursor:grab;scrollbar-width:none}
+.studio-board__viewport::-webkit-scrollbar{display:none}
+.studio-board__viewport.is-panning{cursor:grabbing;user-select:none}
+.studio-board__navigation-hint{position:absolute;right:14px;bottom:14px;z-index:10;padding:7px 10px;border:1px solid rgba(83,100,108,.75);border-radius:8px;background:rgba(18,25,29,.84);color:#9eabb1;font-size:10px;pointer-events:none;opacity:.8;backdrop-filter:blur(10px)}
+.studio-board__navigation-hint kbd{margin-left:5px;padding:2px 5px;border:1px solid #52616a;border-radius:4px;color:#dce5e8;font-size:9px}
+
 /* Legibility floor for an image-production workspace, without loosening density. */
 .studio-create :is(.studio-secondary,.studio-primary){font-size:12px}
 .studio-workbar__identity p,.studio-workbar__status,.studio-workbar__views button,.studio-workbar__actions output{font-size:11px}

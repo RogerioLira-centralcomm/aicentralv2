@@ -4,7 +4,7 @@
 
   const $ = (id) => document.getElementById(id);
   const apiRoot = String(app.dataset.apiRoot || '/parametros/api').replace(/\/$/, '');
-  const csrf = document.querySelector('meta[name="trocr-csrf-token"]')?.content || '';
+  let csrf = document.querySelector('meta[name="trocr-csrf-token"]')?.content || '';
   const STORAGE_PREFIX = 'cadu-studio-visual-draft-v3';
   const ASSET_DB = 'cadu-studio-assets-v1';
   const ROLE_LABELS = {
@@ -70,16 +70,28 @@
     $('studioSaveStatus').textContent = message;
     $('studioSaveStatus').parentElement?.classList.toggle('is-busy', busy);
   }
-  async function request(url, options = {}) {
+  async function refreshCsrf() {
+    const response = await fetch(`${apiRoot}/format-lab/studio/csrf`, {credentials: 'same-origin', headers: {Accept: 'application/json'}});
+    const payload = await response.json().catch(() => ({}));
+    const token = payload?.data?.token || payload?.token || '';
+    if (!response.ok || !token) throw new Error('Não foi possível renovar a sessão segura do Studio.');
+    csrf = token;
+    return csrf;
+  }
+  async function request(url, options = {}, retried = false) {
     const response = await fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json', ...(csrf ? {'X-Trocr-CSRF-Token': csrf} : {}), ...(options.headers || {}) }, ...options });
     const payload = await response.json().catch(() => ({}));
+    if (response.status === 403 && !retried && /token|seguran|csrf/i.test(String(payload.error || ''))) {
+      await refreshCsrf();
+      return request(url, options, true);
+    }
     if (!response.ok || payload.success === false) throw new Error(payload.error || 'Não foi possível concluir esta ação.');
     return payload.data !== undefined ? payload.data : payload;
   }
 
   function renderPromptOptimization() {
     const box = $('studioPromptOptimization');
-    box.hidden = !state.originalPrompt;
+    box.hidden = true;
     if (!state.originalPrompt) return;
     $('studioOriginalPrompt').textContent = state.originalPrompt;
     $('studioOptimizedPrompt').textContent = state.optimizedPrompt || state.originalPrompt;
@@ -609,13 +621,13 @@
     } finally { button.disabled = false; syncGenerateLabel(); }
   }
   async function generateDirections(prompt, bindings, button) {
-    const count = Number($('studioDirectionCount').value || 5);
-    button.textContent = `Criando ${count} direções…`;
+    const count = Number($('studioDirectionCount').value || 1);
+    button.textContent = `Criando ${count} ${count === 1 ? 'versão' : 'versões'}…`;
     const references = bindings.slice(0, 2).map((binding) => ({ id: binding.node.id, name: `${binding.node.label} · ${ROLE_LABELS[binding.role]}`, url: binding.node.url, role: binding.role }));
     const scopedReferences=state.quickMode?[]:references;
     const result = await request(`${apiRoot}/format-lab/studio/create/directions`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ client_id:state.quickMode ? '' : state.clientId, project_id:state.quickMode ? '' : state.projectId, quick_mode:state.quickMode, studio_session_id:state.sessionId, studio_root_session_id:state.sessionRootId || state.sessionId, count, prompt, references:scopedReferences, context:{ project_name:state.quickMode ? 'Rascunho pessoal' : $('studioCreateProject').textContent, brand:state.projectDocument.brand_name || '', brief:state.projectDocument.brief || '', purpose:'criacao', channels:['social','web'], format:$('studioRatio').value, direction_intensity:Number($('studioCreateRange').value), references:scopedReferences } }) });
     renderDirections(result.directions || []);
-    addMessage('assistant', `Criei ${result.directions?.length || 0} direções. Escolha uma para gerar a imagem.`, { title: 'Direções prontas' });
+    addMessage('assistant', `Preparei ${result.directions?.length || 0} ${result.directions?.length === 1 ? 'versão' : 'versões'}. Escolha uma para gerar a imagem.`, { title: 'Versões prontas' });
     if (result.remaining_credits !== undefined) $('studioCreateCreditHint').textContent = `${Number(result.remaining_credits).toLocaleString('pt-BR')} créditos disponíveis`;
   }
   async function generateImage(prompt, bindings, button) {
@@ -654,9 +666,9 @@
     if (result.history_sync_pending && state.projectId) window.setTimeout(()=>request(`${apiRoot}/format-lab/studio/create/image`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(requestPayload)}).then((synced)=>{if(!synced.history_sync_pending)announce('Imagem vinculada ao histórico do projeto.');}).catch(()=>{}),2200);
   }
   function syncGenerateLabel() {
-    const count = Number($('studioDirectionCount').value || 5);
+    const count = Number($('studioDirectionCount').value || 1);
     const direct = state.chosenDirection || state.mask?.data || state.bindings.length;
-    $('studioCreateGenerate').innerHTML = direct ? `${state.mask?.data?'Aplicar edição':'Gerar imagem'} <span>↑</span>` : `Gerar ${count} ${count === 1 ? 'direção' : 'direções'} <span>↑</span>`;
+    $('studioCreateGenerate').innerHTML = direct ? `${state.mask?.data?'Aplicar edição':'Gerar imagem'} <span>↑</span>` : `Gerar ${count} ${count === 1 ? 'versão' : 'versões'} <span>↑</span>`;
   }
 
   function startMask() {
@@ -801,7 +813,7 @@
     $('studioAttachProject').addEventListener('click',()=>{const select=$('mcCaduProject');select?.focus();select?.showPicker?.();announce('Escolha um projeto na barra superior.');});
     document.querySelectorAll('[data-board-focus]').forEach((button)=>button.addEventListener('click',()=>focusZone(button.dataset.boardFocus)));
     $('studioZoomIn').addEventListener('click',()=>setZoom(state.zoom+.1));$('studioZoomOut').addEventListener('click',()=>setZoom(state.zoom-.1));$('studioFitBoard').addEventListener('click',()=>{setZoom(.55);focusZone('table');});
-    $('studioBoardViewport').addEventListener('wheel',(event)=>{if(!event.ctrlKey&&!event.metaKey)return;event.preventDefault();setZoom(state.zoom+(event.deltaY<0?.08:-.08));},{passive:false});
+    bindBoardNavigation();
     document.querySelectorAll('[data-selection-action]').forEach((button)=>button.addEventListener('click',()=>{const action=button.dataset.selectionAction;if(action==='chat')state.selected.forEach((id)=>attachBinding(id));if(action==='mask')startMask();if(action==='approve')state.selected.forEach((id)=>moveNodeToZone(id,'approved'));if(action==='remove')state.selected.forEach((id)=>moveNodeToZone(id,'removed'));}));
     document.querySelectorAll('[data-mask-mode]').forEach((button)=>button.addEventListener('click',()=>{state.maskMode=button.dataset.maskMode;document.querySelectorAll('[data-mask-mode]').forEach((item)=>item.setAttribute('aria-pressed',String(item===button)));}));
     $('studioMaskClear').addEventListener('click',()=>{const canvas=maskCanvas();if(canvas){state.maskUndo.push(canvas.toDataURL());canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);updateMaskButtons();}});$('studioMaskCancel').addEventListener('click',()=>cancelMask());$('studioMaskConfirm').addEventListener('click',confirmMask);
@@ -818,9 +830,19 @@
     $('studioOpenEditor').addEventListener('click',openEditorWithSession);
     document.addEventListener('cadu:project-ready',(event)=>switchClient(event.detail?.clientId||'',event.detail||{}));document.addEventListener('cadu:project-change',(event)=>switchClient(event.detail?.clientId||state.clientId||'',event.detail||{}));
   }
+  function bindBoardNavigation(){
+    const viewport=$('studioBoardViewport'); let pan=null; let spacePanning=false;
+    const endPan=()=>{if(!pan)return;pan=null;viewport.classList.remove('is-panning');};
+    viewport.addEventListener('pointerdown',(event)=>{const onNode=event.target.closest('.studio-node');const wantsPan=event.button===1||event.button===2||(event.button===0&&!onNode&&(spacePanning||event.target===viewport||event.target.closest('.studio-zone')));if(!wantsPan)return;event.preventDefault();pan={id:event.pointerId,x:event.clientX,y:event.clientY,left:viewport.scrollLeft,top:viewport.scrollTop};viewport.classList.add('is-panning');viewport.setPointerCapture?.(event.pointerId);});
+    viewport.addEventListener('pointermove',(event)=>{if(!pan||event.pointerId!==pan.id)return;viewport.scrollLeft=pan.left-(event.clientX-pan.x);viewport.scrollTop=pan.top-(event.clientY-pan.y);});
+    viewport.addEventListener('pointerup',endPan);viewport.addEventListener('pointercancel',endPan);viewport.addEventListener('lostpointercapture',endPan);viewport.addEventListener('contextmenu',(event)=>event.preventDefault());
+    viewport.addEventListener('wheel',(event)=>{if(!event.ctrlKey&&!event.metaKey)return;event.preventDefault();zoomAt(state.zoom+(event.deltaY<0?.08:-.08),event.clientX,event.clientY);},{passive:false});
+    document.addEventListener('keydown',(event)=>{if(event.code!=='Space'||['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;spacePanning=true;event.preventDefault();});document.addEventListener('keyup',(event)=>{if(event.code==='Space')spacePanning=false;});
+  }
   function toggleLibrary(open){$('studioLibraryPanel').hidden=!open;$('studioLibraryToggle').setAttribute('aria-expanded',String(open));document.querySelector('.studio-workspace').classList.toggle('is-library-closed',!open);}
   function toggleChat(open){const chat=$('studioChat');chat.classList.toggle('is-open',open);$('studioChatToggle').setAttribute('aria-expanded',String(open));if(open)$('studioCreatePrompt').focus();}
   function setZoom(value){state.zoom=Math.max(.35,Math.min(1.35,value));renderBoard();scheduleSave();}
+  function zoomAt(value,clientX,clientY){const viewport=$('studioBoardViewport');const rect=viewport.getBoundingClientRect();const x=(viewport.scrollLeft+clientX-rect.left)/state.zoom;const y=(viewport.scrollTop+clientY-rect.top)/state.zoom;setZoom(value);viewport.scrollLeft=Math.max(0,x*state.zoom-(clientX-rect.left));viewport.scrollTop=Math.max(0,y*state.zoom-(clientY-rect.top));}
   function focusZone(zone){const viewport=$('studioBoardViewport');const [x,y]=ZONE_ORIGINS[zone]||ZONE_ORIGINS.table;viewport.scrollTo({left:Math.max(0,x*state.zoom-40),top:Math.max(0,y*state.zoom-40),behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});}
   function openCompare(){if(state.selected.length!==2)return;const [first,second]=state.selected.map(nodeById);$('studioCompareBody').innerHTML=[first,second].map((node)=>`<figure><img src="${escapeHtml(node.url)}" alt="${escapeHtml(node.label)}"><figcaption><span>${escapeHtml(node.label)}</span><button type="button" data-compare-choose="${node.id}">Manter esta versão</button></figcaption></figure>`).join('');document.querySelectorAll('[data-compare-choose]').forEach((button)=>button.addEventListener('click',()=>{const keep=button.dataset.compareChoose;state.selected.filter((id)=>id!==keep).forEach((id)=>moveNodeToZone(id,'removed'));moveNodeToZone(keep,'approved');state.selected=[keep];state.activeId=keep;$('studioCompareDialog').close();renderBoard();renderSelectionBar();announce('Versão mantida em Aprovadas; a outra foi movida para Retiradas.');}));$('studioCompareDialog').showModal();}
   function renderMentionPicker(){let picker=document.querySelector('.studio-mention-picker');const textarea=$('studioCreatePrompt');const match=textarea.value.slice(0,textarea.selectionStart).match(/@([^\s@]*)$/);if(!match){picker?.remove();return;}if(!picker){picker=document.createElement('div');picker.className='studio-mention-picker';$('studioComposer').append(picker);}const query=match[1].toLocaleLowerCase('pt-BR');const choices=state.nodes.filter((node)=>node.label.toLocaleLowerCase('pt-BR').includes(query)).slice(0,6);picker.innerHTML=choices.map((node)=>`<button type="button" data-mention-node="${node.id}"><img src="${escapeHtml(node.url)}" alt=""><span>${escapeHtml(node.label)}</span></button>`).join('')||'<p>Nenhuma imagem encontrada.</p>';picker.querySelectorAll('[data-mention-node]').forEach((button)=>button.addEventListener('click',()=>{const node=nodeById(button.dataset.mentionNode);const before=textarea.value.slice(0,textarea.selectionStart).replace(/@([^\s@]*)$/,`@${node.label} `);textarea.value=before+textarea.value.slice(textarea.selectionStart);attachBinding(node.id);picker.remove();textarea.focus();}));}

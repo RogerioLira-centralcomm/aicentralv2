@@ -8,7 +8,7 @@ import zipfile
 from functools import wraps
 from urllib.parse import urlparse
 
-from flask import Blueprint, abort, current_app, jsonify, redirect, render_template, request, send_file, session, url_for
+from flask import Blueprint, abort, current_app, jsonify, make_response, redirect, render_template, request, send_file, session, url_for
 from werkzeug.utils import secure_filename
 
 from .auth import admin_required, admin_required_api, login_required, login_required_api
@@ -296,12 +296,14 @@ def modelagem_criativos():
     redirected = _host_redirect('studio')
     if redirected:
         return redirected
-    return render_template(
+    response = make_response(render_template(
         "cadu_studio/home.html",
         mc_page="hub",
         mc_title="A peça na mesa",
         mc_trocr_csrf=studio_csrf_token(),
-    )
+    ))
+    response.headers['Cache-Control'] = 'no-store, private'
+    return response
 
 
 CADU_RETIRED_DESKS = {"extrair", "revisao", "lab"}
@@ -351,7 +353,7 @@ def modelagem_desk(page):
         else "cadu_studio/trocr.html" if page == "trocar"
         else "cadu_studio/desk.html"
     )
-    return render_template(
+    response = make_response(render_template(
         template,
         mc_page=page,
         mc_title=spec["title"],
@@ -367,7 +369,10 @@ def modelagem_desk(page):
             else ""
         ),
         mc_workspace_brands=page == 'marcas' and _configured_product_host('workspace') == (request.host.split(':', 1)[0] or '').lower(),
-    )
+    ))
+    if page in {"criar", "video"}:
+        response.headers['Cache-Control'] = 'no-store, private'
+    return response
 
 
 @studio_or_admin_required_api

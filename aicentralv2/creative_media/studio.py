@@ -127,6 +127,7 @@ def register_studio_routes(blueprint):
     blueprint.add_url_rule('/api/format-lab/studio/prompt/optimize', view_func=studio_prompt_optimize, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/create/directions', view_func=studio_create_directions, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/create/image', view_func=studio_create_image, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/csrf', view_func=studio_csrf, methods=['GET'])
     blueprint.add_url_rule('/api/format-lab/studio/agent/narration', view_func=studio_agent_narration, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/projects', view_func=studio_projects, methods=['GET', 'POST'])
     blueprint.add_url_rule('/api/format-lab/studio/library-sessions', view_func=studio_library_sessions, methods=['GET'])
@@ -150,6 +151,15 @@ def register_studio_routes(blueprint):
     blueprint.add_url_rule('/api/format-lab/studio/exports', view_func=export_clip, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/exports/<ident>', view_func=export_status)
     blueprint.add_url_rule('/api/format-lab/studio/exports/<ident>/content', view_func=export_content)
+
+
+@studio_or_admin_required_api
+def studio_csrf():
+    """Return the current Studio token without exposing it in cacheable HTML."""
+    from .studio_csrf import get_or_create_token
+    return jsonify({'success': True, 'data': {'token': get_or_create_token()}}), 200, {
+        'Cache-Control': 'no-store, private',
+    }
 
 
 @studio_or_admin_required_api

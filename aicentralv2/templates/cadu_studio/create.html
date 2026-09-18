@@ -83,10 +83,11 @@
           <div class="studio-board__nodes" id="studioBoardNodes"></div>
           <div class="studio-board__empty" id="studioBoardEmpty">
             <span>✦</span><strong>Comece com uma direção ou uma imagem</strong>
-            <p>Converse com o Cadu para criar, ou solte referências nesta mesa.</p>
+            <p>Converse com o assistente de criação, ou solte referências nesta mesa.</p>
             <button type="button" id="studioEmptyUpload">Adicionar imagem</button>
           </div>
         </div>
+        <div class="studio-board__navigation-hint" aria-hidden="true">Arraste o espaço vazio para navegar <kbd>Espaço</kbd> + arraste para mover a mesa</div>
       </div>
       <div class="studio-board__selectionbar" id="studioSelectionBar" hidden>
         <strong id="studioSelectionName">Imagem 1</strong>
@@ -97,7 +98,7 @@
         <a id="studioOpenEditor" href="{{ studio_url('modelagem_trocar') }}">Editor avançado</a>
       </div>
       <div class="studio-mask-tools" id="studioMaskTools" hidden>
-        <strong>Marque onde o Cadu pode mexer</strong>
+        <strong>Marque onde o assistente de edição pode mexer</strong>
         <button type="button" data-mask-mode="paint" aria-pressed="true">Pincel</button>
         <button type="button" data-mask-mode="erase" aria-pressed="false">Apagar</button>
         <label>Tamanho <input id="studioMaskSize" type="range" min="8" max="120" value="38"></label>
@@ -111,7 +112,7 @@
     </section>
 
     <aside class="studio-chat" id="studioChat" aria-label="Chat criativo">
-      <header><div class="studio-chat__avatar">C</div><div><h2>Cadu</h2><p id="studioCreateAgentContext">Direção criativa e edição na mesma conversa.</p></div><button type="button" id="studioNewDraft">Nova mesa</button><button type="button" class="studio-chat__close" id="studioChatClose" aria-label="Fechar chat">×</button></header>
+      <header><div><h2>Assistente de criação</h2><p id="studioCreateAgentContext">Crie e ajuste imagens na mesma conversa.</p></div><button type="button" id="studioNewDraft">Nova mesa</button><button type="button" class="studio-chat__close" id="studioChatClose" aria-label="Fechar chat">×</button></header>
       <div class="studio-chat__messages" id="studioChatMessages" aria-live="polite">
         <article class="studio-message studio-message--assistant"><div><strong>O que vamos criar?</strong><p>Descreva a ideia. Se você selecionar imagens, eu mostro exatamente o papel de cada uma antes de gerar.</p></div></article>
       </div>
@@ -119,24 +120,24 @@
       <form class="studio-composer" id="studioComposer">
         <div class="studio-bindings" id="studioBindings" aria-label="Imagens relacionadas ao pedido"></div>
         <div class="studio-mask-binding" id="studioMaskBinding" hidden><img alt="Máscara da área selecionada"><div><strong>Área marcada</strong><span>Branco será alterado; preto será preservado.</span></div><button type="button" aria-label="Remover seleção">×</button></div>
-        <label for="studioCreatePrompt" class="sr-only">Pedido para o Cadu</label>
+        <label for="studioCreatePrompt" class="sr-only">Pedido de ajuste</label>
         <textarea id="studioCreatePrompt" rows="4" placeholder="Descreva o que deseja criar ou mudar. Use @ para relacionar uma imagem."></textarea>
         <div class="studio-composer__interpretation" id="studioInterpretation" hidden></div>
         <details class="studio-prompt-optimization" id="studioPromptOptimization" hidden>
-          <summary>Instrução preparada para o gerador</summary>
+          <summary>Detalhes internos</summary>
           <dl><div><dt>Seu pedido</dt><dd id="studioOriginalPrompt"></dd></div><div><dt>Prompt técnico</dt><dd id="studioOptimizedPrompt"></dd></div></dl>
         </details>
         <details class="studio-composer__settings">
           <summary>Ajustes</summary>
           <div>
             <label>Formato<select id="studioRatio"><option value="1:1">1:1</option><option value="4:5">4:5</option><option value="9:16" selected>9:16</option><option value="16:9">16:9</option></select></label>
-            <label>Direções<select id="studioDirectionCount"><option value="1">1</option><option value="3">3</option><option value="5" selected>5</option></select></label>
+            <label>Versões<select id="studioDirectionCount"><option value="1" selected>1</option><option value="2">2</option></select></label>
             <label>Intensidade<input id="studioCreateRange" type="range" min="0" max="100" value="70"><output id="studioCreateIntensity">70%</output></label>
           </div>
         </details>
         <footer>
           <div><button type="button" class="studio-icon-button" id="studioComposerUpload" aria-label="Adicionar imagem">＋</button><small id="studioCreateCreditHint">Créditos confirmados ao gerar</small></div>
-          <button type="submit" class="studio-primary studio-composer__send" id="studioCreateGenerate">Gerar 5 direções <span>↑</span></button>
+          <button type="submit" class="studio-primary studio-composer__send" id="studioCreateGenerate">Gerar 1 versão <span>↑</span></button>
         </footer>
       </form>
     </aside>

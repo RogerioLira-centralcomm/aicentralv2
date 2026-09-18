@@ -11,7 +11,7 @@ def fingerprint(data):
     # Keep legacy mode in the idempotency fingerprint while clients transition
     # away from it. The server ignores it for routing, but a reused request id
     # with a changed client payload must never be treated as the same send.
-    payload = {key: data.get(key) for key in ('message', 'mode', 'profile', 'conversation_id', 'files')}
+    payload = {key: data.get(key) for key in ('message', 'mode', 'profile', 'depth', 'conversation_id', 'files')}
     return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(',', ':'),
                                      ensure_ascii=False).encode()).hexdigest()
 

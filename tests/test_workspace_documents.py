@@ -67,3 +67,32 @@ class WorkspaceDocumentsTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(f'/docs/{DOCUMENT["id"]}', response.get_data(as_text=True))
+
+    @mock.patch('aicentralv2.cadu_planner.docs.create_document', return_value=DOCUMENT)
+    def test_conversation_text_becomes_an_editable_workspace_document(self, create_document):
+        response = self.client.post('/workspace/api/documentos', json={
+            'title': 'Leitura de mercado', 'content': '# Leitura\nConteúdo estruturado para o projeto.',
+            'sources': [{'title': 'Fonte pública', 'url': 'https://example.com/source'}],
+        }, headers={'X-CSRF-Token': 'known-token'})
+        self.assertEqual(response.status_code, 201)
+        payload = response.get_json()['document']
+        self.assertEqual(payload['id'], DOCUMENT['id'])
+        self.assertEqual(payload['editor_url'], f'/docs/{DOCUMENT["id"]}')
+        saved = create_document.call_args.args[2]
+        self.assertEqual(saved['project_id'], None)
+        self.assertIn('Fontes consultadas', saved['html'])
+
+    @mock.patch('aicentralv2.cadu_planner.docs.share_document', return_value={**DOCUMENT, 'share_enabled': True, 'share_token': 'public-token'})
+    @mock.patch('aicentralv2.cadu_planner.docs.save_document', return_value={**DOCUMENT, 'status': 'published'})
+    @mock.patch('aicentralv2.cadu_planner.docs.create_document', return_value={**DOCUMENT, 'id': 'gallery-1'})
+    def test_gallery_requires_https_images_and_publishes_only_selected_ones(self, create_document, save_document, share_document):
+        response = self.client.post('/workspace/api/artefatos/galeria', json={
+            'title': 'Seleção criativa',
+            'images': ['https://cdn.example/one.png', 'http://unsafe.example/two.png', 'https://cdn.example/one.png'],
+        }, headers={'X-CSRF-Token': 'known-token'})
+        self.assertEqual(response.status_code, 200)
+        created = create_document.call_args.args[2]
+        self.assertIn('https://cdn.example/one.png', created['html'])
+        self.assertNotIn('http://unsafe.example/two.png', created['html'])
+        save_document.assert_called_once_with(12, 7, 'gallery-1', {'status': 'published'})
+        share_document.assert_called_once_with(12, 7, 'gallery-1', True)

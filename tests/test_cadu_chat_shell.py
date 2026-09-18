@@ -31,7 +31,7 @@ class ChatShellTest(TestCase):
         response = self.client.get('/conversas')
         self.assertEqual(response.status_code, 200)
         elements = Elements(response.get_data(as_text=True)).items
-        for element_id in ('conversation-panel', 'conversation-message', 'conversation-mode', 'conversation-send', 'conversation-new', 'conversation-history-toggle', 'conversation-sidebar'):
+        for element_id in ('conversation-panel', 'conversation-message', 'conversation-mode', 'conversation-depth', 'conversation-depth-label', 'conversation-depth-hint', 'conversation-send', 'conversation-new', 'conversation-history-toggle', 'conversation-sidebar', 'conversation-work-memory-toggle', 'conversation-context-picker', 'conversation-project', 'conversation-artifact-panel', 'conversation-artifact-kind', 'conversation-artifact-title', 'conversation-artifact-tools', 'conversation-artifact-content', 'conversation-status-dock'):
             self.assertEqual(sum(attrs.get('id') == element_id for _, attrs in elements), 1, element_id)
         self.assertFalse(any(attrs.get('id') in {'conversation-brand', 'conversation-mode-dialog'} for _, attrs in elements))
         body = next(attrs for tag, attrs in elements if tag == 'body')
@@ -49,6 +49,8 @@ class ChatShellTest(TestCase):
         self.assertFalse(any(attrs.get('id') == 'conversation-width' for _, attrs in elements))
         self.assertFalse(any('workspace-conversation-next' in attrs.get('class', '') for _, attrs in elements))
         self.assertFalse(any(attrs.get('id') == 'conversation-open' for _, attrs in elements))
+        toolbar = next(attrs for _, attrs in elements if 'conversation-toolbar' in attrs.get('class', ''))
+        self.assertNotIn('conversation-project-context', toolbar.get('class', ''))
         token = next(attrs['content'] for tag, attrs in elements if tag == 'meta' and attrs.get('name') == 'csrf-token')
         with self.client.session_transaction() as session:
             self.assertEqual(token, session['family_csrf'])

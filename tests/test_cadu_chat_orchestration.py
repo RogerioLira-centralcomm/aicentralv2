@@ -18,6 +18,7 @@ def test_explicit_research_starters_select_a_bounded_paid_research_plan():
     assert plan_for('Faça uma atualização de mercado recente para a marca.')['id'] == 'market'
     assert plan_for('Faça uma pesquisa aprofundada (deep research) do projeto.')['id'] == 'deep'
     assert plan_for('Compare duas ideias para a campanha.') is None
+    assert plan_for('Compare duas ideias para a campanha.', 'deep')['id'] == 'deep'
 
 
 def test_external_research_is_attached_as_evidence_not_project_truth():
@@ -98,7 +99,7 @@ def test_payload_keeps_automatic_route_inside_the_server_owned_skill_context():
                     {'solution': 'planejamento', 'complexity': 'alta'})
     context = json.loads(run['payload']['inputs']['skill_context'])
     assert run['payload']['inputs']['skill_id'] == 'orquestrador'
-    assert context['orquestracao'] == {'especializacao': 'planejamento', 'solucao': 'planejamento', 'complexidade': 'alta'}
+    assert context['orquestracao'] == {'especializacao': 'planejamento', 'solucao': 'planejamento', 'complexidade': 'alta', 'profundidade_selecionada': 'analysis'}
     assert 'contexto_projeto_privado' in context['fronteiras_de_contexto']['projeto_context']
     assert 'base_cadu_global_publicada' in context['fronteiras_de_contexto']['projeto_context']
 
@@ -110,7 +111,8 @@ def test_payload_preserves_long_dify_skill_instructions():
                     {'client_id': 3, 'client_name': 'Cliente'}, {'id': 'planejamento', 'prompt': prompt},
                     'planner', '', {'dify_conversation_id': None, 'total_mensagens': 0}, 'Monte um plano.', [], None, '')
     context = json.loads(run['payload']['inputs']['skill_context'])
-    assert context['diretrizes_especificas'] == prompt
+    assert context['diretrizes_especificas'].endswith(prompt)
+    assert 'PADRÃO DE LEITURA E DECISÃO' in context['diretrizes_especificas']
     assert 'não cria documentos' in context['limites_de_artefato']
 
 
@@ -125,6 +127,25 @@ def test_media_plan_payload_requires_strategy_audiences_mix_and_optimization():
                      'Não use, cite ou calcule CPM'):
         assert required in directives
     assert directives.endswith('Use o tom da marca.')
+
+
+def test_all_conversations_receive_a_concise_evidence_led_reading_contract():
+    from aicentralv2.cadu_workspace.conversations.service import planning_directives
+    directives = planning_directives({'prompt': 'Ajude com clareza.'}, {'solution': 'pesquisa'})
+    assert 'não abra com metadados como “Projeto usado”' in directives
+    assert 'PARA PESQUISA' in directives
+    assert directives.endswith('Ajude com clareza.')
+
+
+def test_deep_depth_is_visible_to_the_agent_as_a_customer_selected_posture():
+    from aicentralv2.cadu_workspace.conversations.service import build_run
+    run = build_run('run', 'conversation', {'id': 1, 'name': 'Ana', 'organization_id': 2},
+                    {'client_id': 3, 'client_name': 'Cliente'}, {'id': 'ideias', 'prompt': 'Ajude.'},
+                    'workspace', '', {'dify_conversation_id': None, 'total_mensagens': 0}, 'Investigue o mercado.', [], None, '',
+                    {'solution': 'pesquisa', 'complexity': 'media'}, 'deep')
+    context = json.loads(run['payload']['inputs']['skill_context'])
+    assert context['orquestracao']['profundidade_selecionada'] == 'deep'
+    assert 'PROFUNDIDADE SELECIONADA' in context['diretrizes_especificas']
 
 
 def test_audience_catalog_cards_never_expose_commercial_pricing(monkeypatch):

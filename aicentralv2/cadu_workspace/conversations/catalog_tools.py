@@ -33,6 +33,9 @@ AUDIENCE_CONVERSATION_FIELDS = (
     'caso_uso_principal', 'insights_planejamento', 'perfil_socioeconomico',
     'perfil_consumo', 'momentos_chave', 'interesses_correlatos',
     'propensao_compra', 'tamanho',
+    # Detail tools may return the catalog's structured taxonomy. It contains
+    # editorial planning descriptors, not rate-card or buying fields.
+    'data_groups', 'taxonomy', 'fonte',
 )
 
 
@@ -133,7 +136,10 @@ def project(event, profile, client_id=None, actor_id=None):
     if raw_name not in ALIASES:
         return None
     kind = ALIASES[raw_name]
-    if profile != 'planner' and kind != 'canais':
+    # Conversas usa estes três catálogos como referências de decisão. The
+    # projections below strip commercial fields from audiences and keep the
+    # format schema bounded; wider Planner inventory remains Planner-only.
+    if profile != 'planner' and kind not in {'canais', 'audiencias', 'formatos'}:
         return None
     try:
         if kind == 'canais' and raw_name in DETAIL_ALIASES:

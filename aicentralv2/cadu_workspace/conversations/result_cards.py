@@ -9,6 +9,7 @@ Workspace renderer.
 from __future__ import annotations
 
 import json
+import re
 from urllib.parse import urlsplit
 
 
@@ -171,6 +172,44 @@ def _document(payload):
             _action("use_document", "Usar neste trabalho", prompt="Use os pontos principais deste documento como contexto para a próxima resposta.", style="primary"),
             _action("create_brief", "Criar briefing", prompt="Transforme este documento em um briefing estruturado.", style="secondary"),
         ],
+    }
+
+
+def from_answer(query, answer, project_ref=''):
+    """Project a known work artifact from a completed answer, never free text.
+
+    A briefing is useful as both narrative and an actionable object. This
+    parser only surfaces headings already supplied by the agent; it cannot
+    manufacture fields, audience facts or commercial assumptions.
+    """
+    text = str(answer or '').strip()
+    requested = str(query or '').casefold()
+    if 'briefing' not in requested and not re.search(r'(?im)^#{1,6}\s*briefing\b|^\s*briefing\b', text):
+        return None
+    headings = []
+    for value in re.findall(r'(?im)^\s*(?:#{1,6}\s+|\d+[.)]\s+)([^\n]+)', text):
+        title = re.sub(r'[*`_]', '', value).strip()[:160]
+        if title and title.casefold() not in {item.casefold() for item in headings}:
+            headings.append(title)
+    if not headings:
+        return None
+    actions = [
+        _action('refine_briefing', 'Refinar briefing',
+                prompt='Revise este briefing: separe o que está confirmado, o que é premissa e as três decisões que mais destravam o próximo passo.', style='primary'),
+        _action('briefing_to_plan', 'Estruturar plano',
+                prompt='Transforme o briefing atual em um plano de mídia com objetivo, audiências, canais, formatos, dependências e próximos passos.'),
+    ]
+    if isinstance(project_ref, str) and project_ref.startswith('ci:'):
+        actions.append(_action('briefing_project', 'Preparar para salvar',
+                               prompt='Organize este briefing em uma versão objetiva, pronta para salvar no projeto, sem incluir hipóteses como fatos.'))
+    return {
+        'event': 'result',
+        'result': {
+            'type': 'briefing', 'title': 'Briefing em progresso',
+            'summary': 'Estrutura identificada na resposta. Revise as premissas antes de transformar em plano.',
+            'items': [{'title': title, 'excerpt': 'Ponto estruturado nesta conversa.'} for title in headings[:8]],
+            'actions': actions,
+        },
     }
 
 

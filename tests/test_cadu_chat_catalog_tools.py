@@ -44,6 +44,22 @@ class ChatCatalogToolsTest(TestCase):
         self.assertIn('validar', record['budget_status'].lower())
         self.assertEqual(record['detail_url'], 'https://planner.test/canais/9')
 
+    @mock.patch('aicentralv2.cadu_workspace.conversations.catalog_tools.catalog.detail')
+    def test_workspace_projects_audience_and_format_detail_without_commercial_fields(self, detail):
+        detail.side_effect = [
+            {'id': 12, 'name': 'Pessoas em mobilidade', 'description': 'Afinidade com deslocamento.',
+             'perfil_consumo': 'Uso frequente de serviços urbanos', 'preco': 999, 'cpm_custo': 12},
+            {'id': 19, 'name': 'Vídeo vertical', 'description': 'Peça mobile.',
+             'dimensions': '1080x1920', 'files': ['MP4'], 'format_type': 'Vídeo'},
+        ]
+        audience = catalog_tools.project({'tool': 'audience_detail', 'input': {'id': 12}}, 'workspace')
+        format_card = catalog_tools.project({'tool': 'format_detail', 'input': {'id': 19}}, 'workspace')
+        self.assertEqual(audience['catalog_kind'], 'audiencias')
+        self.assertNotIn('preco', audience['records'][0])
+        self.assertNotIn('cpm_custo', audience['records'][0])
+        self.assertEqual(format_card['catalog_kind'], 'formatos')
+        self.assertEqual(format_card['records'][0]['dimensions'], '1080x1920')
+
     @mock.patch('aicentralv2.cadu_planner.docs.document_preview')
     def test_planner_projects_a_document_preview_only_for_the_bound_actor_and_client(self, preview):
         preview.return_value = ({'id': 9, 'title': 'Resumo', 'type': 'brief', 'status': 'draft',

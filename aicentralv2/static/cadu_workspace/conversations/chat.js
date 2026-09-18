@@ -15,10 +15,15 @@
     }
     return result;
   }
+  const hasInternalDiagnostic = value => /(?:\b401\b|\b403\b|api\s*key|chave\s+(?:de\s+)?api|autentica(?:ç|c)[aã]o|credential|token\s+(?:inv[aá]lid|invalid))/i.test(String(value || ''));
+  const publicErrorMessage = (value, fallback = 'Não foi possível concluir agora. Tente novamente em instantes.') => {
+    const detail = String(value || '').trim();
+    return !detail || hasInternalDiagnostic(detail) ? fallback : detail;
+  };
   function unavailableMessage(action, error) {
-    const code = Number.isInteger(error?.status) ? ' (erro ' + error.status + ')' : '';
     const detail = typeof error?.message === 'string' ? error.message.trim() : '';
-    return detail && detail !== 'Não foi possível concluir. Tente novamente.'
+    const code = Number.isInteger(error?.status) && !hasInternalDiagnostic(detail) ? ' (erro ' + error.status + ')' : '';
+    return detail && detail !== 'Não foi possível concluir. Tente novamente.' && !hasInternalDiagnostic(detail)
       ? action + code + '. ' + detail
       : action + code + '. Tente novamente em instantes.';
   }
@@ -37,17 +42,213 @@
   const history = document.getElementById('conversation-history');
   const recent = document.getElementById('conversation-recent');
   const status = document.getElementById('conversation-status');
+  const statusDock = document.getElementById('conversation-status-dock');
+  let executionTimer = null;
+  const executionElapsed = started => {
+    const seconds = Math.max(0, Math.floor((Date.now() - Number(started || Date.now())) / 1000));
+    return seconds < 60 ? seconds + ' s' : Math.floor(seconds / 60) + ' min ' + (seconds % 60) + ' s';
+  };
+  const renderExecutionTray = steps => {
+    if (!status) return;
+    const summary = document.createElement('span');
+    summary.className = 'conversation-execution-summary';
+    summary.textContent = 'Processando há ' + executionElapsed(status.dataset.executionStarted);
+    const divider = document.createElement('span'); divider.className = 'conversation-execution-divider';
+    const lines = steps.map((step, index) => {
+      const line = document.createElement('span');
+      line.className = index === steps.length - 1 ? 'is-current' : 'is-complete';
+      line.textContent = step;
+      return line;
+    });
+    status.replaceChildren(summary, divider, ...lines);
+  };
+  const mountExecutionTray = output => {
+    const entry = output?.parentElement;
+    if (!entry || !status) return;
+    if (executionTimer) clearInterval(executionTimer);
+    status.replaceChildren();
+    status.dataset.executionSteps = '[]';
+    status.dataset.executionStarted = String(Date.now());
+    status.classList.add('conversation-execution-tray');
+    entry.insertBefore(status, output);
+    renderExecutionTray([]);
+    executionTimer = window.setInterval(() => {
+      if (!status.classList.contains('conversation-execution-tray')) return;
+      const summary = status.querySelector('.conversation-execution-summary');
+      if (summary) summary.textContent = 'Processando há ' + executionElapsed(status.dataset.executionStarted);
+    }, 1000);
+  };
+  const releaseExecutionTray = () => {
+    if (!status || !statusDock) return;
+    if (executionTimer) clearInterval(executionTimer);
+    executionTimer = null;
+    statusDock.append(status);
+    status.classList.remove('conversation-execution-tray');
+    delete status.dataset.executionStarted;
+    delete status.dataset.executionSteps;
+  };
   const updateStatusTone = () => {
     const value = status?.textContent?.toLowerCase() || '';
     status?.setAttribute('data-tone', /não foi|falhou|erro|interrompid|indisponível/.test(value) ? 'error'
-      : /conectando|respondendo|verificando|retomando|reconectando|processando/.test(value) ? 'working'
+      : /preparando|conectando|respondendo|consultando|organizando|verificando|retomando|reconectando|processando/.test(value) ? 'working'
       : value ? 'success' : '');
   };
   if (status) new MutationObserver(updateStatusTone).observe(status, {childList:true, characterData:true, subtree:true});
+  if (status) new MutationObserver(() => {
+    if (!status.classList.contains('conversation-execution-tray')) return;
+    // Internal summary/timer changes keep this marker in the DOM. A provider
+    // update replaces it with text, which is the only time we append a step.
+    if (status.querySelector('.conversation-execution-summary')) return;
+    const message = status.textContent.trim();
+    if (!message) return;
+    let steps = [];
+    try { steps = JSON.parse(status.dataset.executionSteps || '[]'); } catch (_) { steps = []; }
+    if (steps.at(-1) !== message) steps = [...steps, message].slice(-3);
+    status.dataset.executionSteps = JSON.stringify(steps);
+    renderExecutionTray(steps);
+  }).observe(status, {childList:true, characterData:true, subtree:true});
   const historyToggle = document.getElementById('conversation-history-toggle');
   const workMemoryToggle = document.getElementById('conversation-work-memory-toggle');
   const workMemoryPanel = document.getElementById('conversation-work-memory');
   const workMemoryContent = document.getElementById('conversation-work-memory-content');
+  const artifactPanel = document.getElementById('conversation-artifact-panel');
+  const artifactKind = document.getElementById('conversation-artifact-kind');
+  const artifactTitle = document.getElementById('conversation-artifact-title');
+  const artifactTools = document.getElementById('conversation-artifact-tools');
+  const artifactContent = document.getElementById('conversation-artifact-content');
+  const isHttpsUrl = value => { try { return new URL(String(value || '')).protocol === 'https:'; } catch (_) { return false; } };
+  const closeArtifact = () => {
+    if (artifactPanel) artifactPanel.hidden = true;
+    conversationShell?.classList.remove('artifact-open');
+  };
+  const projectIdFromRef = ref => {
+    const value = String(ref || '');
+    return /^ci:[a-f0-9-]{36}$/i.test(value) ? value.slice(3) : '';
+  };
+  const workspaceApi = async (path, method, data) => {
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
+    const response = await fetch(path, {method, credentials:'same-origin', headers:{'Content-Type':'application/json', ...(csrf ? {'X-CSRF-Token':csrf} : {})}, body:data ? JSON.stringify(data) : undefined});
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || 'Não foi possível concluir agora.');
+    return result;
+  };
+  const addArtifactParagraph = (target, value, className = '') => {
+    if (!value) return;
+    const paragraph = document.createElement('p'); if (className) paragraph.className = className;
+    paragraph.textContent = String(value); target.append(paragraph);
+  };
+  const studioEditUrl = (image, projectRef = '', brandRef = '') => {
+    if (!isHttpsUrl(image)) return '';
+    const target = new URL('https://studio.centralcomm.media/studio/modelagem-criativos/imagem');
+    target.searchParams.set('source', image);
+    const projectId = projectIdFromRef(projectRef);
+    if (projectId) target.searchParams.set('project_id', projectId);
+    const brandId = String(brandRef || '').match(/^studio:(\d+)$/i)?.[1];
+    if (brandId) target.searchParams.set('creative_client_id', brandId);
+    return target.href;
+  };
+  const openArtifact = ({kind = 'Prévia', title = 'Trabalho selecionado', summary = '', items = [], sections = [], image = '', images = [], url = '', action = null, document: artifactDocument = null, projectRef = '', brandRef = ''} = {}) => {
+    if (!artifactPanel || !artifactContent) return;
+    // An artifact is a reading task. It temporarily owns the spare screen
+    // space instead of competing with project context and recent threads.
+    closeHistory();
+    closeWorkMemory();
+    conversationShell?.classList.add('artifact-open');
+    artifactKind.textContent = kind; artifactTitle.textContent = title;
+    artifactContent.replaceChildren(); artifactTools?.replaceChildren();
+    const validImages = [image, ...(Array.isArray(images) ? images : [])].filter(isHttpsUrl).filter((value, index, list) => list.indexOf(value) === index).slice(0, 8);
+    let selectedImage = validImages[0] || '';
+    const selectedImages = new Set(validImages);
+    let media = null;
+    if (selectedImage) {
+      media = document.createElement('img'); media.src = selectedImage; media.alt = title; media.className = 'conversation-artifact-media'; artifactContent.append(media);
+      if (validImages.length > 1) {
+        const gallery = document.createElement('div'); gallery.className = 'conversation-artifact-gallery';
+        validImages.forEach((source, index) => {
+          const item = document.createElement('div'); item.className = 'conversation-artifact-gallery-item';
+          const button = document.createElement('button'); button.type = 'button'; button.className = index === 0 ? 'is-selected' : ''; const thumbnail = document.createElement('img'); thumbnail.src = source; thumbnail.alt = 'Imagem ' + (index + 1); button.append(thumbnail);
+          button.addEventListener('click', () => { selectedImage = source; media.src = source; gallery.querySelectorAll('button').forEach(element => element.classList.toggle('is-selected', element === button)); });
+          const select = document.createElement('label'); select.setAttribute('aria-label', 'Incluir imagem ' + (index + 1) + ' no link público'); const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = true; checkbox.addEventListener('change', () => { if (checkbox.checked) selectedImages.add(source); else selectedImages.delete(source); }); select.append(checkbox); item.append(button, select); gallery.append(item);
+        });
+        artifactContent.append(gallery);
+      }
+      const edit = document.createElement('a'); edit.className = 'conversation-artifact-tool'; edit.target = '_blank'; edit.rel = 'noopener'; edit.textContent = 'Editar no Studio'; edit.href = studioEditUrl(selectedImage, projectRef, brandRef);
+      edit.addEventListener('click', () => { edit.href = studioEditUrl(selectedImage, projectRef, brandRef); });
+      artifactTools?.append(edit);
+      if (validImages.length > 1) {
+        const shareGallery = document.createElement('button'); shareGallery.type = 'button'; shareGallery.className = 'conversation-artifact-tool'; shareGallery.textContent = 'Link da seleção';
+        shareGallery.addEventListener('click', async () => {
+          if (!selectedImages.size) { status.textContent = 'Selecione ao menos uma imagem para compartilhar.'; return; }
+          shareGallery.disabled = true; shareGallery.textContent = 'Criando link…';
+          try {
+            const result = await workspaceApi('/workspace/api/artefatos/galeria', 'POST', {title, images:[...selectedImages], project_id:projectIdFromRef(projectRef)});
+            const shareUrl = result.document?.share_url;
+            if (!shareUrl) throw new Error('O link público não foi criado.');
+            try { await navigator.clipboard.writeText(shareUrl); shareGallery.textContent = 'Link copiado'; }
+            catch (_) { shareGallery.textContent = 'Abrir link'; shareGallery.addEventListener('click', () => window.open(shareUrl, '_blank', 'noopener'), {once:true}); }
+            status.textContent = 'Galeria publicada com ' + selectedImages.size + ' imagem' + (selectedImages.size === 1 ? '.' : 's.');
+          } catch (error) { shareGallery.disabled = false; shareGallery.textContent = 'Link da seleção'; status.textContent = publicErrorMessage(error.message, 'Não foi possível criar o link da seleção.'); }
+        });
+        artifactTools?.append(shareGallery);
+      }
+    }
+    addArtifactParagraph(artifactContent, summary, 'conversation-artifact-summary');
+    if (Array.isArray(items) && items.length) {
+      const list = document.createElement('div'); list.className = 'conversation-artifact-items';
+      items.slice(0, 8).forEach(item => { const row = document.createElement('article'); const heading = document.createElement('strong'); heading.textContent = item?.title || 'Item'; row.append(heading); addArtifactParagraph(row, item?.excerpt); list.append(row); });
+      artifactContent.append(list);
+    }
+    if (Array.isArray(sections) && sections.length) {
+      const sectionList = document.createElement('div'); sectionList.className = 'conversation-artifact-sections';
+      sections.slice(0, 8).forEach(section => {
+        const values = Array.isArray(section?.values) ? section.values.filter(Boolean).slice(0, 10) : [];
+        if (!section?.title || !values.length) return;
+        const block = document.createElement('section'); const heading = document.createElement('strong'); heading.textContent = section.title; block.append(heading);
+        const list = document.createElement('div'); list.className = section.variant === 'facts' ? 'conversation-artifact-facts' : 'conversation-artifact-tags';
+        values.forEach(value => { const item = document.createElement(section.variant === 'facts' ? 'p' : 'span'); item.textContent = String(value); list.append(item); });
+        block.append(list); sectionList.append(block);
+      });
+      if (sectionList.childElementCount) artifactContent.append(sectionList);
+    }
+    if (artifactDocument?.content) {
+      const editor = document.createElement('textarea'); editor.className = 'conversation-artifact-editor'; editor.value = String(artifactDocument.content).slice(0, 500000); editor.setAttribute('aria-label', 'Texto do artefato');
+      artifactContent.append(editor);
+      const save = document.createElement('button'); save.type = 'button'; save.className = 'conversation-artifact-tool is-primary'; save.textContent = 'Salvar em Docs';
+      const replaceToolsWithDocument = saved => {
+        artifactTools?.replaceChildren();
+        if (selectedImage) { const studio = document.createElement('a'); studio.className = 'conversation-artifact-tool'; studio.href = studioEditUrl(selectedImage, projectRef, brandRef); studio.target = '_blank'; studio.rel = 'noopener'; studio.textContent = 'Studio'; artifactTools?.append(studio); }
+        const edit = document.createElement('a'); edit.className = 'conversation-artifact-tool'; edit.href = saved.editor_url; edit.textContent = 'Editar'; artifactTools?.append(edit);
+        const share = document.createElement('button'); share.type = 'button'; share.className = 'conversation-artifact-tool'; share.textContent = 'Criar link público';
+        share.addEventListener('click', async () => {
+          share.disabled = true; share.textContent = 'Publicando…';
+          try {
+            const published = await workspaceApi('/workspace/api/documentos/' + encodeURIComponent(saved.id) + '/publicar', 'PUT');
+            const shareUrl = published.document?.share_url;
+            if (!shareUrl) throw new Error('O link público não foi criado.');
+            try { await navigator.clipboard.writeText(shareUrl); share.textContent = 'Link copiado'; }
+            catch (_) { share.textContent = 'Abrir link'; share.onclick = () => window.open(shareUrl, '_blank', 'noopener'); }
+            status.textContent = 'Documento publicado. O link público foi copiado.';
+          } catch (error) { share.disabled = false; share.textContent = 'Criar link público'; status.textContent = publicErrorMessage(error.message, 'Não foi possível publicar este documento.'); }
+        });
+        artifactTools?.append(share);
+      };
+      save.addEventListener('click', async () => {
+        const content = editor.value.trim();
+        if (content.length < 20) { status.textContent = 'Inclua ao menos 20 caracteres antes de salvar.'; return; }
+        save.disabled = true; save.textContent = 'Salvando…';
+        try {
+          const saved = await workspaceApi('/workspace/api/documentos', 'POST', {title, content, sources:artifactDocument.sources || [], project_id: projectIdFromRef(artifactDocument.projectRef || projectRef)});
+          replaceToolsWithDocument(saved.document); editor.readOnly = true; status.textContent = projectIdFromRef(artifactDocument.projectRef || projectRef) ? 'Salvo no projeto. Você pode editar ou publicar quando quiser.' : 'Salvo em Docs. Vincule a um projeto pelo editor quando precisar de fontes.';
+        } catch (error) { save.disabled = false; save.textContent = 'Salvar em Docs'; status.textContent = publicErrorMessage(error.message, 'Não foi possível salvar este texto.'); }
+      });
+      artifactTools?.append(save);
+    }
+    const actions = document.createElement('footer'); actions.className = 'conversation-artifact-actions';
+    if (action?.prompt) { const button = document.createElement('button'); button.type = 'button'; button.className = 'is-primary'; button.textContent = action.label || 'Continuar no chat'; button.addEventListener('click', () => { setComposerValue(action.prompt); resizeComposer(); updateSend(); closeArtifact(); editor.focus(); }); actions.append(button); }
+    if (url && isHttpsUrl(url)) { const link = document.createElement('a'); link.href = url; link.target = '_blank'; link.rel = 'noopener'; link.textContent = action?.urlLabel || 'Abrir'; actions.append(link); }
+    if (actions.childElementCount) artifactContent.append(actions);
+    artifactPanel.hidden = false;
+  };
   const conversationShell = document.querySelector('.workspace-conversations');
   const desktopHistory = () => window.matchMedia('(min-width:821px)').matches;
   const closeHistory = () => {
@@ -137,6 +338,29 @@
   const saveDraft = () => writeDraft(conversationId, composerValue());
   const searchForm = document.getElementById('conversation-search');
   const mode = document.getElementById('conversation-mode');
+  const depthControl = document.getElementById('conversation-depth');
+  const depthShell = depthControl?.closest('.conversation-depth-control');
+  const depthLabel = document.getElementById('conversation-depth-label');
+  const depthHint = document.getElementById('conversation-depth-hint');
+  const depthValues = {
+    '1': {id:'focus', label:'Foco', hint:'Direto ao ponto'},
+    '2': {id:'analysis', label:'Análise', hint:'Resposta equilibrada'},
+    '3': {id:'deep', label:'Pesquisa profunda', hint:'Consome mais créditos e pode consultar fontes recentes'},
+  };
+  const selectedDepth = () => depthValues[depthControl?.value || '2']?.id || 'analysis';
+  const renderDepth = () => {
+    const item = depthValues[depthControl?.value || '2'] || depthValues['2'];
+    if (depthLabel) depthLabel.textContent = item.label;
+    if (depthHint) depthHint.textContent = item.hint;
+    if (depthShell) {
+      depthShell.dataset.depth = item.id;
+      depthShell.style.setProperty('--depth-progress', ((Number(depthControl?.value || 2) - 1) * 50) + '%');
+      depthShell.querySelectorAll('[data-depth-value]').forEach(mark => mark.toggleAttribute('data-active', mark.dataset.depthValue === depthControl?.value));
+    }
+    depthControl?.setAttribute('aria-valuetext', item.label + '. ' + item.hint);
+  };
+  depthControl?.addEventListener('input', renderDepth);
+  renderDepth();
   const projectSelect = document.getElementById('conversation-project');
   const contextNote = document.getElementById('conversation-context-note');
   let contextEntities = [], activeContext = {}, boundProjectRef = null;
@@ -187,7 +411,10 @@
     const brand = contextEntities.find(item => item.kind === 'brand' && item.ref === brandRef);
     contextOptions(projectSelect, contextEntities.filter(item => item.kind === 'project'), 'Sem projeto', projectRef);
     if (projectSelect) projectSelect.disabled = Boolean(conversationId);
-    if (workMemoryToggle) workMemoryToggle.hidden = !project;
+    if (workMemoryToggle) {
+      workMemoryToggle.hidden = false;
+      workMemoryToggle.textContent = project ? 'Contexto do projeto' : 'Contexto pessoal';
+    }
     if (!project) closeWorkMemory();
     if (contextNote) contextNote.textContent = conversationId
       ? (projectRef ? ('Projeto' + (brand ? ' e marca' : '') + ' definidos na criação desta conversa.') : 'Esta conversa foi criada sem projeto.')
@@ -197,7 +424,7 @@
   };
   function renderWorkMemoryIdentity(project, brand) {
     const title = document.getElementById('conversation-work-memory-title');
-    if (title) title.textContent = project?.name || 'Contexto do projeto';
+    if (title) title.textContent = project?.name || 'Contexto pessoal';
     const header = workMemoryPanel?.querySelector('header');
     if (!header) return;
     header.querySelector('.conversation-work-memory-identity')?.remove();
@@ -215,7 +442,6 @@
     copy.append(label, detail); identity.append(mark, copy); header.append(identity);
   }
   async function loadContext() {
-    if (!projectSelect) return;
     try {
       const data = await api('context');
       contextEntities = Array.isArray(data.entities) ? data.entities : [];
@@ -233,7 +459,7 @@
       renderContext();
       if (pageMode && projectRef) await openWorkMemoryForProject();
     } catch (_) {
-      projectSelect.replaceChildren(new Option('Projetos indisponíveis', ''));
+      projectSelect?.replaceChildren(new Option('Projetos indisponíveis', ''));
       if (contextNote) contextNote.textContent = 'O contexto será disponibilizado quando a conexão do Workspace estiver ativa.';
     }
   }
@@ -259,14 +485,26 @@
   });
   async function openWorkMemoryForProject() {
     const projectRef = conversationId ? boundProjectRef : (activeContext?.project_ref || projectSelect?.value || '');
-    if (!projectRef || !workMemoryPanel) return;
+    if (!workMemoryPanel) return;
     workMemoryPanel.hidden = false;
     workMemoryToggle?.setAttribute('aria-expanded', 'true');
+    if (!projectRef) {
+      if (workMemoryContent) {
+        workMemoryContent.replaceChildren();
+        const section = document.createElement('section'); section.className = 'conversation-work-memory-section conversation-work-memory-personal';
+        const heading = document.createElement('h3'); heading.textContent = 'Esta é uma conversa pessoal';
+        const text = document.createElement('p'); text.textContent = 'O Cadu usará suas mensagens e preferências, sem consultar dados de projeto ou marca.';
+        const hint = document.createElement('p'); hint.textContent = 'Selecione um projeto acima quando quiser usar briefing, fontes e decisões da equipe.';
+        section.append(heading, text, hint); workMemoryContent.append(section);
+      }
+      return;
+    }
     await loadWorkMemory();
   }
   async function loadWorkMemory() {
     const projectRef = conversationId ? boundProjectRef : (activeContext?.project_ref || projectSelect?.value || '');
-    if (!projectRef || !workMemoryContent) return;
+    if (!workMemoryContent) return;
+    if (!projectRef) { await openWorkMemoryForProject(); return; }
     workMemoryContent.textContent = 'Carregando contexto…';
     try {
       const data = await api('conversations/work-memory?project=' + encodeURIComponent(projectRef));
@@ -285,15 +523,17 @@
       render('Contexto confirmado', data.confirmed, false); render('Para revisar', data.proposals, true);
       const section=document.createElement('section'); section.className='conversation-work-memory-section'; const h=document.createElement('h3'); h.textContent='Discussões da equipe'; section.append(h);
       data.weeks?.forEach(week => week.conversations.forEach(conversation => { const button=document.createElement('button'); button.type='button'; button.textContent=(conversation.author_name || 'Equipe') + ' · ' + (conversation.title || 'Conversa'); button.addEventListener('click', () => { closeWorkMemory(); openConversation(String(conversation.id)); }); section.append(button); })); if (!data.weeks?.length) { const p=document.createElement('p'); p.textContent='As novas conversas do projeto aparecerão aqui por semana.'; section.append(p); } workMemoryContent.append(section);
-    } catch (error) { workMemoryContent.textContent = error.message || 'Não foi possível carregar o caderno.'; }
+    } catch (error) { workMemoryContent.textContent = publicErrorMessage(error.message, 'Não foi possível carregar o caderno.'); }
   }
-  workMemoryToggle?.addEventListener('click', async () => { const projectRef = conversationId ? boundProjectRef : (activeContext?.project_ref || projectSelect?.value || ''); if (!projectRef) { status.textContent='Selecione um projeto para abrir o contexto.'; return; } const open=workMemoryPanel.hidden; workMemoryPanel.hidden=!open; workMemoryToggle.setAttribute('aria-expanded',String(open)); if (open) await loadWorkMemory(); });
+  workMemoryToggle?.addEventListener('click', async () => { const open=workMemoryPanel.hidden; workMemoryPanel.hidden=!open; workMemoryToggle.setAttribute('aria-expanded',String(open)); if (open) await openWorkMemoryForProject(); });
   document.getElementById('conversation-work-memory-close')?.addEventListener('click', closeWorkMemory);
+  document.getElementById('conversation-artifact-close')?.addEventListener('click', closeArtifact);
   const attachments = new CaduAttachments(panel, status);
   const sendButton = document.getElementById('conversation-send');
   const updateSend = () => {
     const disabled = sending || loadingThread || !canSend || mode.disabled;
     composer.disabled = disabled;
+    if (depthControl) depthControl.disabled = disabled;
     editor.contentEditable = String(!disabled);
     editor.setAttribute('aria-disabled', String(disabled));
     if (sendButton) sendButton.disabled = disabled || (!composerValue().trim() && !attachments.items.length);
@@ -394,7 +634,7 @@
       setConversationUrl(id);
       status.textContent = result.context ? 'Conversa retomada com o projeto e perfil de origem.' : 'Conversa anterior carregada. O próximo envio usará o projeto ativo.';
       return true;
-    } catch (error) { if (request === threadRequest) status.textContent = error.message; }
+    } catch (error) { if (request === threadRequest) status.textContent = publicErrorMessage(error.message); }
     finally { if (request === threadRequest) { loadingThread = false; updateSend(); } }
   }
   async function loadHistory() {
@@ -432,7 +672,7 @@
               await api('conversations/' + encodeURIComponent(thread.id), 'PATCH', data);
               await loadHistory();
               status.textContent = 'title' in data ? 'Título salvo.' : data.archived ? 'Conversa arquivada.' : 'Conversa restaurada.';
-            } catch (error) { status.textContent = error.message; }
+            } catch (error) { status.textContent = publicErrorMessage(error.message); }
             finally { save.disabled = archive.disabled = false; }
           };
           form.addEventListener('submit', event => { event.preventDefault(); update({title: title.value.trim()}); });
@@ -477,10 +717,10 @@
     }
     return actions;
   }
-  function addMessageActions(text, content) {
+  function addMessageActions(text, content, projectRef = '', sources = []) {
     if (!text || text.parentElement?.querySelector('[data-conversation-copy]')) return;
     const actions = actionBarFor(text);
-    const icon = {copy:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>', continue:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h12"/><path d="m13 6 6 6-6 6"/></svg>'};
+    const icon = {copy:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>', continue:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h12"/><path d="m13 6 6 6-6 6"/></svg>', document:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4M9 13h6M9 17h6"/></svg>'};
     const copy = document.createElement('button'); copy.type = 'button'; copy.dataset.conversationCopy = ''; copy.className = 'conversation-message-action'; copy.setAttribute('aria-label', 'Copiar resposta'); copy.setAttribute('title', 'Copiar resposta'); copy.innerHTML = icon.copy;
     copy.addEventListener('click', async () => {
       try { await navigator.clipboard.writeText(String(content || '')); copy.setAttribute('title', 'Copiado'); }
@@ -491,7 +731,9 @@
       setComposerValue('Continue a partir da resposta anterior e aprofunde os próximos passos.');
       resizeComposer(); updateSend(); editor.focus();
     });
-    actions.append(copy, continueButton);
+    const artifact = document.createElement('button'); artifact.type = 'button'; artifact.className = 'conversation-message-action'; artifact.setAttribute('aria-label', 'Transformar em documento'); artifact.setAttribute('title', 'Transformar em documento'); artifact.innerHTML = icon.document;
+    artifact.addEventListener('click', () => openArtifact({kind:'Texto', title:planTitle(content), summary:'Edite o texto antes de salvar. Quando houver projeto, o documento recebe o contexto e as fontes privadas ficam disponíveis para revisão.', document:{content, projectRef, sources}, projectRef}));
+    actions.append(copy, continueButton, artifact);
   }
   function addSavePlanAction(text, content, projectRef) {
     if (!text || !content?.trim() || typeof projectRef !== 'string' || !projectRef.startsWith('ci:')) return;
@@ -517,15 +759,32 @@
         status.textContent = 'Salvo no projeto.';
       } catch (error) {
         save.disabled = false;
-        status.textContent = error.message || 'Não foi possível salvar o plano.';
+        status.textContent = publicErrorMessage(error.message, 'Não foi possível salvar o plano.');
       }
     });
     actions.append(save);
   }
+  function customerSafeAssistantContent(content) {
+    const text = String(content || '');
+    // Old turns can predate the server-side guard. Never replay provider
+    // credentials or authentication diagnostics while a history is opened.
+    if (/(?:\b401\b|api\s*key\s*(?:inv[aá]lid|invalid)|chave\s+(?:de\s+)?api|erro\s+de\s+autentica(?:ç|c)[aã]o)/i.test(text)) {
+      return 'Não consegui concluir a consulta especializada nesta resposta. Mantive o contexto disponível e não vou tratar hipóteses como dados confirmados.';
+    }
+    return text;
+  }
   function addMessage(role, content, files = [], metadata = {}, projectRef = '') {
+    if (role === 'assistant') {
+      content = customerSafeAssistantContent(content);
+      // A cancelled stream occasionally persisted only Markdown punctuation.
+      // There is no customer message to render in that case.
+      if (content.trim() && /^[\s*_`~#>|-]+$/.test(content)) return null;
+    }
     const entry = document.createElement('article'); entry.className = 'conversation-message ' + (role === 'user' ? 'from-user' : 'from-cadu');
     const label = document.createElement('strong'); label.textContent = role === 'user' ? 'Você' : 'Resposta';
-    if (role === 'assistant') { const elapsed = document.createElement('p'); elapsed.className = 'conversation-work-time'; elapsed.textContent = 'Trabalhando…'; entry.append(elapsed); }
+    // A work marker is only useful for a fresh, still-empty stream. Historical
+    // turns already have their answer and must never look like they are stuck.
+    if (role === 'assistant' && !String(content || '').trim()) { const elapsed = document.createElement('p'); elapsed.className = 'conversation-work-time'; elapsed.textContent = 'Trabalhando…'; entry.append(elapsed); }
     const text = document.createElement('div');
     if (role === 'assistant') CaduConversationRenderer.render(text, content);
     else {
@@ -544,7 +803,7 @@
     history.append(entry);
     if (role === 'assistant') addSources(metadata?.project_sources);
     if (role === 'assistant' && content?.trim()) {
-      addMessageActions(text, content);
+      addMessageActions(text, content, projectRef, metadata?.project_sources || []);
       addSavePlanAction(text, content, projectRef);
     }
     scrollHistoryToEnd(true);
@@ -611,6 +870,43 @@
     empty.append(heading, description, suggestions);
     history.append(empty);
   }
+  const catalogValues = value => Array.isArray(value) ? value : (typeof value === 'string' ? value.split(/\n|\s*;\s*/).map(item => item.trim()).filter(Boolean) : []);
+  const catalogFact = (label, value) => value ? label + ': ' + String(value) : '';
+  const catalogObjectValues = value => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+    return Object.entries(value).flatMap(([key, item]) => {
+      if (item === null || item === '' || typeof item === 'object') return [];
+      return [key.replace(/[_-]+/g, ' ') + ': ' + String(item)];
+    });
+  };
+  function openCatalogArtifact(kind, record) {
+    const projectRef = boundProjectRef || activeContext?.project_ref || '';
+    const label = ({audiencias:'Audiência', formatos:'Formato', interativos:'Experiência interativa', places:'Place', planos:'Plano'})[kind] || 'Catálogo';
+    if (kind === 'audiencias') {
+      const groups = Array.isArray(record.data_groups) ? record.data_groups : [];
+      const groupSections = groups.map(group => ({title:group.title || group.name || 'Leitura da audiência', values:(Array.isArray(group.fields) ? group.fields : []).filter(field => !field?.is_empty && field?.value).map(field => (field.label ? field.label + ': ' : '') + String(field.value)), variant:'facts'}));
+      openArtifact({kind:'Audiência', title:record.name || 'Audiência', image:record.image_url || '', summary:record.description || 'Referência de audiência disponível no catálogo Cadu.', sections:[
+        {title:'Enquadramento', values:[catalogFact('Categoria', record.category), catalogFact('Subcategoria', record.subcategory), catalogFact('Canal', record.channel || record.platform), catalogFact('Base', record.audience || record.tamanho || record.fonte)].filter(Boolean), variant:'facts'},
+        {title:'Leitura para planejamento', values:[record.caso_uso_principal, record.insights_planejamento, record.storytelling].filter(Boolean), variant:'facts'},
+        {title:'Perfil e comportamento', values:[record.perfil_socioeconomico, record.perfil_consumo, ...catalogValues(record.interesses_correlatos), ...catalogValues(record.momentos_chave), record.propensao_compra].filter(Boolean)},
+        ...groupSections,
+      ], action:{label:'Usar na estratégia', prompt:`Use a audiência ${record.name || 'selecionada'} na estratégia atual. Defina papel prioritário ou secundário, tensão, sinais, mensagem, jornada, ativação possível e exclusões; mantenha como hipótese tudo que não estiver comprovado.`}, projectRef});
+      return;
+    }
+    if (kind === 'formatos' || kind === 'interativos') {
+      const extras = catalogObjectValues(record.extras);
+      openArtifact({kind:kind === 'interativos' ? 'Experiência interativa' : 'Formato', title:record.name || 'Formato', summary:record.description || 'Especificação de formato do catálogo Cadu.', sections:[
+        {title:'Especificação', values:[catalogFact('Dimensões', record.dimensions), catalogFact('Tipo', record.format_type), catalogFact('Plataforma', record.platforma_slug), catalogFact('Objetivo', record.purpose), catalogFact('Categoria criativa', record.creative_category)].filter(Boolean), variant:'facts'},
+        {title:'Arquivos aceitos', values:catalogValues(record.files)},
+        {title:'Aplicação', values:[...catalogValues(record.markets), ...catalogValues(record.segments)]},
+        {title:'Requisitos e observações', values:extras, variant:'facts'},
+      ], action:{label:'Aplicar no plano', prompt:`Avalie o formato ${record.name || 'selecionado'} para a estratégia atual: papel, mensagem, especificação criativa, dependências de produção, métrica e critério para aprovar.`}, projectRef});
+      return;
+    }
+    openArtifact({kind:label, title:record.name || label, summary:record.description || record.objective || 'Item disponível no catálogo Cadu.', sections:[
+      {title:'Informações disponíveis', values:[catalogFact('Categoria', record.category), catalogFact('Audiência', record.audience), catalogFact('Status', record.status), catalogFact('Campanha', record.campaign_name)].filter(Boolean), variant:'facts'},
+    ], action:{label:'Usar neste trabalho', prompt:`Use ${record.name || 'este item'} como referência e explique como ele se aplica ao trabalho atual.`}, projectRef});
+  }
   function addCatalogCard(data) {
     if (!Array.isArray(data.records) || !data.records.length) return;
     if (data.catalog_kind === 'canal') { addChannelCard(data.records[0]); return; }
@@ -623,7 +919,8 @@
       const item = document.createElement('li'), name = document.createElement('strong'), detail = document.createElement('span');
       name.textContent = record.name || 'Item do catálogo';
       detail.textContent = [record.description || record.category || record.dimensions || '', record.audience || ''].filter(Boolean).join(' · ');
-      item.append(name); if (detail.textContent) item.append(detail); list.append(item);
+      item.append(name); if (detail.textContent) item.append(detail);
+      const inspect = document.createElement('button'); inspect.type = 'button'; inspect.className = 'conversation-catalog-inspect'; inspect.textContent = 'Ver detalhes'; inspect.addEventListener('click', () => openCatalogArtifact(kind, record)); item.append(inspect); list.append(item);
     });
     const shouldFollow = isNearHistoryEnd();
     card.append(list); history.append(card); if (shouldFollow) scrollHistoryToEnd(true);
@@ -644,11 +941,18 @@
     if (facts.childElementCount) { const factsSection = document.createElement('section'); factsSection.className = 'conversation-channel-facts'; factsSection.append(facts); card.append(factsSection); }
     const caveat = document.createElement('small'); caveat.className = 'conversation-channel-caveat'; caveat.textContent = channel.budget_status || 'Dados sujeitos à validação.'; card.append(caveat);
     const actions = document.createElement('footer');
-    const action = (label, prompt, primary = false) => { const button = document.createElement('button'); button.type = 'button'; button.textContent = label; if (primary) button.className = 'is-primary'; button.addEventListener('click', () => { setComposerValue(prompt); resizeComposer(); updateSend(); editor.focus(); }); actions.append(button); };
-    action('Criar briefing', `Crie um briefing de campanha usando ${channel.name} como canal prioritário. Traga objetivo, público, formato, entregas, pendências e o que deve ser validado comercialmente.`, true);
-    action('Adicionar ao plano', `Avalie ${channel.name} para o plano atual: papel no funil, formato, audiência, dependências, riscos e critério de decisão.`);
-    action('Comparar', `Compare ${channel.name} com outro canal mais adequado ao objetivo deste projeto. Mostre diferenças, complementaridade, riscos e quando escolher cada um.`);
-    if (channel.detail_url) { const link = document.createElement('a'); link.href = channel.detail_url; link.target = '_blank'; link.rel = 'noopener'; link.textContent = 'Ver detalhes'; actions.append(link); }
+    const preview = document.createElement('button'); preview.type = 'button'; preview.className = 'is-primary'; preview.textContent = 'Ver canal';
+    preview.addEventListener('click', () => openArtifact({
+      kind: 'Canal', title: channel.name || 'Canal', summary: channel.description || channel.budget_status || '',
+      sections: [
+        {title:'Papel comercial', values:[catalogFact('Modelo de compra', channel.buying_model), catalogFact('Prazo', channel.lead_time), catalogFact('Investimento mínimo', channel.budget_minimum)].filter(Boolean), variant:'facts'},
+        {title:'Público e alcance', values:[channel.audience].filter(Boolean), variant:'facts'},
+        {title:'Formatos disponíveis', values:catalogValues(channel.formats)},
+        {title:'Diferenciais', values:catalogValues(channel.differences), variant:'facts'},
+      ],
+      url: channel.detail_url,
+      action: {label:'Usar este canal no plano', prompt:`Avalie ${channel.name} para o plano atual: papel no funil, formato, audiência, dependências, riscos e critério de decisão.`}, projectRef:boundProjectRef || activeContext?.project_ref || '', brandRef:activeContext?.brand_ref || '',
+    })); actions.append(preview);
     card.append(actions); history.append(card); scrollHistoryToEnd(true);
   }
   function addDocumentCard(data) {
@@ -659,8 +963,20 @@
     const meta = document.createElement('span'); meta.textContent = [data.document.type, data.document.status].filter(Boolean).join(' · ');
     const preview = document.createElement('p'); preview.textContent = data.preview;
     card.append(heading, title); if (meta.textContent) card.append(meta); card.append(preview);
+    const inspect = document.createElement('button'); inspect.type = 'button'; inspect.className = 'conversation-card-inspect'; inspect.textContent = 'Abrir prévia';
+    inspect.addEventListener('click', () => openArtifact({kind:'Documento', title:data.document.title || 'Documento', summary:data.preview, action:{label:'Usar neste trabalho', prompt:'Use os pontos principais deste documento como contexto para a próxima resposta.'}}));
+    card.append(inspect);
     const shouldFollow = isNearHistoryEnd();
     history.append(card); if (shouldFollow) scrollHistoryToEnd(true);
+  }
+  function resultAsMarkdown(result) {
+    const lines = ['# ' + String(result?.title || 'Resultado Cadu').trim()];
+    if (result?.summary) lines.push('', String(result.summary).trim());
+    (Array.isArray(result?.items) ? result.items : []).slice(0, 20).forEach(item => {
+      const heading = String(item?.title || 'Ponto').trim(); const excerpt = String(item?.excerpt || '').trim();
+      lines.push('', '## ' + heading); if (excerpt) lines.push(excerpt);
+    });
+    return lines.join('\n').trim();
   }
   function addResultCard(data) {
     const result = data?.result;
@@ -669,16 +985,19 @@
     card.className = 'conversation-result-card is-' + String(result.type).replace(/[^a-z-]/g, '');
     const header = document.createElement('header');
     const type = document.createElement('span'); type.className = 'conversation-result-type';
-    type.textContent = ({research:'Pesquisa', audience:'Audiências', link:'Verificação', document:'Documento'})[result.type] || 'Resultado';
+    type.textContent = ({research:'Pesquisa', audience:'Audiências', link:'Verificação', document:'Documento', briefing:'Briefing'})[result.type] || 'Resultado';
     const title = document.createElement('h4'); title.textContent = result.title || 'Resultado disponível';
     header.append(type, title);
     if (result.status) { const statusBadge = document.createElement('span'); statusBadge.className = 'conversation-result-status'; statusBadge.textContent = result.status; header.append(statusBadge); }
     card.append(header);
     if (result.summary) { const summary = document.createElement('p'); summary.className = 'conversation-result-summary'; summary.textContent = result.summary; card.append(summary); }
-    (Array.isArray(result.media) ? result.media : []).slice(0, 3).forEach(media => {
+    const mediaItems = (Array.isArray(result.media) ? result.media : []).filter(media => media?.kind === 'image' && isHttpsUrl(media.url));
+    mediaItems.slice(0, 3).forEach(media => {
       if (media?.kind !== 'image' || typeof media.url !== 'string') return;
       try { const url = new URL(media.url); if (url.protocol !== 'https:') return; } catch (_) { return; }
-      const image = document.createElement('img'); image.className = 'conversation-result-media'; image.src = media.url; image.alt = media.alt || ''; image.loading = 'lazy'; card.append(image);
+      const image = document.createElement('img'); image.className = 'conversation-result-media'; image.src = media.url; image.alt = media.alt || ''; image.loading = 'lazy'; image.tabIndex = 0; image.setAttribute('role', 'button'); image.setAttribute('aria-label', 'Abrir imagem no artefato');
+      const inspectImage = () => openArtifact({kind:'Imagem', title:result.title || 'Criativo', summary:result.summary || '', image:media.url, images:mediaItems.map(item => item.url), projectRef:boundProjectRef || activeContext?.project_ref || '', brandRef:activeContext?.brand_ref || ''});
+      image.addEventListener('click', inspectImage); image.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); inspectImage(); } }); card.append(image);
     });
     const items = Array.isArray(result.items) ? result.items : [];
     if (items.length) {
@@ -700,22 +1019,13 @@
       card.append(list);
     }
     const actions = Array.isArray(result.actions) ? result.actions : [];
-    if (actions.length) {
-      const footer = document.createElement('footer'); footer.className = 'conversation-result-actions';
-      actions.slice(0, 3).forEach(action => {
-        if (!action?.label) return;
-        const button = document.createElement('button'); button.type = 'button'; button.textContent = action.label;
-        button.className = action.style === 'primary' ? 'is-primary' : '';
-        button.addEventListener('click', () => {
-          if (action.prompt) { setComposerValue(action.prompt); resizeComposer(); updateSend(); editor.focus(); return; }
-          if (action.id === 'open_link' && action.url) {
-            try { const url = new URL(action.url); if (url.protocol === 'https:') window.open(url.href, '_blank', 'noopener'); } catch (_) {}
-          }
-        });
-        footer.append(button);
-      });
-      if (footer.childElementCount) card.append(footer);
-    }
+    const primaryAction = actions.find(action => action?.style === 'primary') || actions.find(action => action?.prompt) || actions[0];
+    const firstMedia = mediaItems[0];
+    const firstLink = actions.find(action => action?.url && isHttpsUrl(action.url));
+    const footer = document.createElement('footer'); footer.className = 'conversation-result-actions';
+    const inspect = document.createElement('button'); inspect.type = 'button'; inspect.textContent = 'Ver resultado';
+    inspect.addEventListener('click', () => openArtifact({kind:type.textContent, title:result.title || 'Resultado disponível', summary:result.summary || '', items, image:firstMedia?.url || '', images:mediaItems.map(media => media.url), url:firstLink?.url || '', action:primaryAction, document:{content:resultAsMarkdown(result), projectRef:boundProjectRef || activeContext?.project_ref || ''}, projectRef:boundProjectRef || activeContext?.project_ref || '', brandRef:activeContext?.brand_ref || ''}));
+    footer.append(inspect); card.append(footer);
     const shouldFollow = isNearHistoryEnd();
     history.append(card); if (shouldFollow) scrollHistoryToEnd(true);
   }
@@ -748,6 +1058,7 @@
       stop.hidden = !canSend;
       status.textContent = 'Retomando a resposta já iniciada…';
       output = addMessage('assistant', '');
+      mountExecutionTray(output);
       // After reload replay from zero: the page has no cached partial response.
       // A transient network retry inside queuedEvents keeps its existing cursor.
       for await (const data of queuedEvents(run, controller.signal)) {
@@ -764,9 +1075,10 @@
     } catch (error) {
       status.textContent = error.name === 'AbortError'
         ? 'Acompanhamento interrompido. Consulte o histórico para conferir o estado da resposta.'
-        : 'Não foi possível retomar agora. Nenhuma mensagem foi reenviada. ' + error.message;
+        : 'Não foi possível retomar agora. Nenhuma mensagem foi reenviada. ' + publicErrorMessage(error.message);
     } finally {
       flushStreaming(output, answer);
+      releaseExecutionTray();
       sending = false; controller = null; runId = null; stop.hidden = true;
       mode.disabled = previousModeDisabled; attachments.lock(false); updateSend();
       if (terminal && recoveredConversation) {
@@ -854,7 +1166,7 @@
     try {
       await api('conversations/runs/' + encodeURIComponent(runId) + '/stop', 'POST', {});
       controller?.abort();
-    } catch (error) { status.textContent = error.message; }
+    } catch (error) { status.textContent = publicErrorMessage(error.message); }
   });
   document.getElementById('conversation-form').addEventListener('submit', async event => {
     event.preventDefault();
@@ -864,10 +1176,19 @@
     if (!button || sending || loadingThread || !canSend || (!composerValue().trim() && !attachments.items.length) || mode.disabled) return;
     const message = composerValue().trim() || 'Analise os arquivos anexados.', selectedMode = mode.value, newThread = !conversationId;
     if (isImageGenerationRequest(message)) {
-      const guide = 'A criação de imagem não está disponível nesta conversa.\n\nPara criar ou editar uma imagem com o contexto adequado de marca e projeto, use o [Cadu Studio](https://studio.centralcomm.media/criar).';
       addMessage('user', message, attachments.items.map(item => ({name:item.file.name})));
-      const response = addMessage('assistant', guide);
-      response.parentElement?.querySelector('.conversation-work-time')?.remove();
+      const projectRef = activeContext?.project_ref || projectSelect?.value || '';
+      const brandRef = activeContext?.brand_ref || brandForProject(projectRef) || '';
+      const studio = new URL('https://studio.centralcomm.media/studio/modelagem-criativos/criar');
+      studio.searchParams.set('prompt', message);
+      studio.searchParams.set('ratio', '4:5'); studio.searchParams.set('directions', '3');
+      if (projectRef.startsWith('ci:')) studio.searchParams.set('project_id', projectRef.slice(3));
+      if (brandRef.startsWith('studio:')) studio.searchParams.set('creative_client_id', brandRef.slice(7));
+      openArtifact({
+        kind:'Direção criativa', title:'Pronto para criar no Studio', summary:'A direção foi preparada a partir da conversa. No Studio você poderá revisar formato, referências, intensidade e as variações antes de gerar.',
+        items:[{title:'Pedido', excerpt:message}, ...(projectRef ? [{title:'Contexto', excerpt:'Projeto selecionado será levado para a criação.'}] : [])],
+        url:studio.href, action:{urlLabel:'Abrir Studio'},
+      });
       setComposerValue(''); resizeComposer(); attachments.clear(); status.textContent = '';
       updateSend();
       return;
@@ -889,10 +1210,11 @@
       optimisticUser = addMessage('user', message, attachments.items.map(item => ({name:item.file.name})));
       optimisticUser.querySelector('.conversation-user-context')?.removeAttribute('open');
       output = addMessage('assistant', '');
+      mountExecutionTray(output);
       scrollHistoryToEnd(true);
       status.textContent = 'Conectando ao Cadu…';
       const fileIds = await attachments.upload(controller.signal);
-      const payload = {message, files:fileIds, mode: selectedMode, profile: document.body.dataset.product,
+      const payload = {message, files:fileIds, mode: selectedMode, depth: selectedDepth(), profile: document.body.dataset.product,
         conversation_id: conversationId};
       const id = await requestId(payload);
       const response = await fetch('/familia/api/conversations/send', {
@@ -927,6 +1249,7 @@
               optimisticUser = addMessage('user', message, attachments.items.map(item => ({name:item.file.name})));
               optimisticUser.querySelector('.conversation-user-context')?.removeAttribute('open');
               output = addMessage('assistant', '');
+              mountExecutionTray(output);
             }
             setComposerValue(''); resizeComposer(); attachments.clear();
             scrollHistoryToEnd(true);
@@ -953,12 +1276,21 @@
       }
       if (!terminalStatus) throw new Error('A conexão foi interrompida. Confira o histórico antes de reenviar.');
     } catch (error) {
-      if (!serverStarted) { optimisticUser?.remove(); output?.remove(); output = null; }
-      status.textContent = error.name === 'AbortError' ? 'Envio interrompido. Confira o histórico antes de reenviar; arquivos já recebidos pelo servidor podem ter sido preservados.' : error.message;
+      if (!serverStarted) {
+        optimisticUser?.closest('.conversation-message')?.remove();
+        output?.closest('.conversation-message')?.remove();
+        output = null;
+      }
+      status.textContent = error.name === 'AbortError' ? 'Envio interrompido. Confira o histórico antes de reenviar; arquivos já recebidos pelo servidor podem ter sido preservados.' : publicErrorMessage(error.message);
     } finally {
       flushStreaming(output, answer);
-      setMessageElapsed(output, generationStartedAt);
-      if (terminalStatus === 'completed') { addMessageActions(output, answer); addSavePlanAction(output, answer, runProjectRef); }
+      releaseExecutionTray();
+      if (terminalStatus === 'completed') {
+        // Execution belongs to the live turn, not to the finished reading
+        // surface. The answer becomes the only focal point once it is ready.
+        output?.parentElement?.querySelector('.conversation-work-time')?.remove();
+        addMessageActions(output, answer); addSavePlanAction(output, answer, runProjectRef);
+      } else setMessageElapsed(output, generationStartedAt);
       sending = false; mode.disabled = false; stop.hidden = true; controller = null;
       input.contentEditable = 'true'; input.setAttribute('aria-disabled', 'false'); attachments.lock(false); updateSend();
       if (recovered) {

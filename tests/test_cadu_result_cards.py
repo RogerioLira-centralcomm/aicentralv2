@@ -73,3 +73,15 @@ class ResultCardsTest(TestCase):
         self.assertEqual(card["event"], "result")
         self.assertEqual(card["result"]["type"], "research")
         self.assertNotIn("PRIVATE", str(card))
+
+    def test_completed_briefing_becomes_a_safe_work_card(self):
+        card = result_cards.from_answer(
+            'Crie um briefing para a campanha.',
+            '## Briefing inicial\n\n1) Objetivo de negócio\n\n2) Público-alvo\n\n3) Prazo',
+            'ci:123',
+        )
+        self.assertEqual(card['event'], 'result')
+        self.assertEqual(card['result']['type'], 'briefing')
+        self.assertEqual([item['title'] for item in card['result']['items']],
+                         ['Briefing inicial', 'Objetivo de negócio', 'Público-alvo', 'Prazo'])
+        self.assertTrue(any(action['id'] == 'briefing_project' for action in card['result']['actions']))

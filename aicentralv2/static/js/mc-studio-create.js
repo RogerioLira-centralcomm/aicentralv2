@@ -478,6 +478,18 @@
   function renderMentionPicker(){let picker=document.querySelector('.studio-mention-picker');const textarea=$('studioCreatePrompt');const match=textarea.value.slice(0,textarea.selectionStart).match(/@([^\s@]*)$/);if(!match){picker?.remove();return;}if(!picker){picker=document.createElement('div');picker.className='studio-mention-picker';$('studioComposer').append(picker);}const query=match[1].toLocaleLowerCase('pt-BR');const choices=state.nodes.filter((node)=>node.label.toLocaleLowerCase('pt-BR').includes(query)).slice(0,6);picker.innerHTML=choices.map((node)=>`<button type="button" data-mention-node="${node.id}"><img src="${escapeHtml(node.url)}" alt=""><span>${escapeHtml(node.label)}</span></button>`).join('')||'<p>Nenhuma imagem encontrada.</p>';picker.querySelectorAll('[data-mention-node]').forEach((button)=>button.addEventListener('click',()=>{const node=nodeById(button.dataset.mentionNode);const before=textarea.value.slice(0,textarea.selectionStart).replace(/@([^\s@]*)$/,`@${node.label} `);textarea.value=before+textarea.value.slice(textarea.selectionStart);attachBinding(node.id);picker.remove();textarea.focus();}));}
   function renderAll(){renderBoard();renderSelectionBar();renderBindings();renderMessages();renderMaskBinding();updateInterpretation();syncGenerateLabel();}
 
-  async function boot(){await restoreDraft();bindUi();renderAll();focusZone('table');const select=$('mcCaduProject');if(select?.value){state.quickMode=false;await loadProject();}}
+  function hydrateConversationHandoff() {
+    const params = new URLSearchParams(window.location.search);
+    const prompt = String(params.get('prompt') || '').trim();
+    if (prompt) { $('studioCreatePrompt').value = prompt.slice(0, 6000); toggleChat(true); }
+    const ratio = params.get('ratio');
+    if (ratio && [...$('studioRatio').options].some(option => option.value === ratio)) $('studioRatio').value = ratio;
+    const directions = params.get('directions');
+    if (directions && [...$('studioDirectionCount').options].some(option => option.value === directions)) $('studioDirectionCount').value = directions;
+    const intensity = Number(params.get('intensity'));
+    if (Number.isFinite(intensity) && intensity >= 0 && intensity <= 100) { $('studioCreateRange').value = String(intensity); $('studioCreateIntensity').textContent = intensity + '%'; }
+    if (prompt) announce('Direção recebida da conversa. Revise antes de gerar.');
+  }
+  async function boot(){await restoreDraft();bindUi();hydrateConversationHandoff();renderAll();focusZone('table');const select=$('mcCaduProject');if(select?.value){state.quickMode=false;await loadProject();}}
   boot();
 })();

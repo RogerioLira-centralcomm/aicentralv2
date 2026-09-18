@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const fs = require('node:fs');
 const code = fs.readFileSync('aicentralv2/static/js/cadu-theme.js', 'utf8');
 
-function boot({mode='light', stored='', blocked=false}={}) {
+function boot({mode='light', stored='', blocked=false, defaultTheme='light'}={}) {
   const events = {}, writes = [], root = {dataset:{},style:{}};
   const button = {hidden:true, setAttribute(key,value){this[key]=value;}};
   const storage = {
@@ -13,7 +13,7 @@ function boot({mode='light', stored='', blocked=false}={}) {
   };
   const document = {
     documentElement:root,
-    currentScript:{dataset:{themeMode:mode,themeScope:'workspace-conversations'}},
+    currentScript:{dataset:{themeMode:mode,themeScope:'workspace-conversations',themeDefault:defaultTheme}},
     querySelectorAll:() => [button],
     addEventListener:(name,fn) => events[name]=fn,
   };
@@ -28,11 +28,11 @@ test('regular Cadu environments stay light and hide the theme control',()=>{
   assert.equal(app.button.hidden,true);
 });
 
-test('Workspace Conversations starts light and exposes the preference control',()=>{
-  const app=boot({mode:'preference'});
-  assert.equal(app.root.dataset.caduTheme,'light');
+test('Workspace Conversations starts dark and exposes the preference control',()=>{
+  const app=boot({mode:'preference',defaultTheme:'dark'});
+  assert.equal(app.root.dataset.caduTheme,'dark');
   assert.equal(app.button.hidden,false);
-  assert.equal(app.button['aria-pressed'],'false');
+  assert.equal(app.button['aria-pressed'],'true');
 });
 
 test('conversation preference is isolated and persisted in local storage',()=>{

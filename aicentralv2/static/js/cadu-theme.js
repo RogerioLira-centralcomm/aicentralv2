@@ -4,6 +4,7 @@
   const root = document.documentElement;
   const script = document.currentScript;
   const mode = script?.dataset.themeMode || 'light';
+  const defaultTheme = script?.dataset.themeDefault === 'dark' ? 'dark' : 'light';
   const allowsPreference = mode === 'preference';
   const forcedTheme = mode === 'dark' ? 'dark' : mode === 'light' ? 'light' : null;
   const storageKey = 'cadu-theme:' + (script?.dataset.themeScope || 'default');
@@ -12,7 +13,7 @@
       const value = window.localStorage?.getItem(storageKey);
       if (value === 'light' || value === 'dark') return value;
     } catch (_) {}
-    return 'light';
+    return defaultTheme;
   }
   function apply(theme) {
     root.dataset.caduTheme = theme;

@@ -3,6 +3,7 @@
 from pathlib import Path
 import calendar
 from datetime import date, datetime, timedelta, timezone
+from html import escape
 from io import BytesIO
 import json
 import re
@@ -35,6 +36,14 @@ bp = Blueprint("cadu_workspace", __name__)
 brand_api_bp = Blueprint("workspace_brand_api", __name__, url_prefix="/workspace")
 
 
+_BREVO_EMAIL_EVENT_STATUS = {
+    'request': 'sent', 'sent': 'sent', 'delivered': 'delivered',
+    'opened': 'opened', 'unique_opened': 'opened', 'click': 'clicked',
+    'soft_bounce': 'failed', 'hard_bounce': 'failed', 'invalid_email': 'failed',
+    'blocked': 'failed', 'error': 'failed', 'spam': 'failed', 'deferred': 'deferred',
+}
+
+
 def _workspace_rich_text(value: str) -> Markup:
     """Render the small, safe Markdown dialect used in project context."""
     from ..cadu_planner.docs import markdown_to_safe_html
@@ -46,6 +55,43 @@ def _workspace_rich_text(value: str) -> Markup:
 def prepare_shared_cadu_chat():
     if session.get("user_id"):
         session.setdefault("family_csrf", secrets.token_urlsafe(32))
+
+
+@bp.post('/workspace/api/email-events/brevo')
+def workspace_brevo_email_event():
+    """Receive only authenticated Brevo lifecycle events for Workspace mail."""
+    expected_token = str(current_app.config.get('BREVO_WORKSPACE_WEBHOOK_TOKEN') or '')
+    supplied_token = request.headers.get('X-Brevo-Webhook-Token', '')
+    if not expected_token or not secrets.compare_digest(supplied_token, expected_token):
+        abort(403)
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        abort(400)
+    status = _BREVO_EMAIL_EVENT_STATUS.get(str(payload.get('event') or '').lower())
+    message_id = str(payload.get('message-id') or '').strip()
+    if not status or not message_id:
+        return '', 204
+    event_timestamp = payload.get('ts_event') or payload.get('ts')
+    error = str(payload.get('reason') or payload.get('event') or '')[:4000] or None
+    try:
+        connection = get_db()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """UPDATE cadu_workspace_email_events
+                       SET status = %s,
+                           provider_error = CASE WHEN %s = 'failed' THEN %s ELSE provider_error END,
+                           last_event_at = CASE WHEN %s ~ '^[0-9]+$'
+                                                THEN TO_TIMESTAMP(%s::double precision)
+                                                ELSE NOW() END
+                     WHERE provider_message_id = %s""",
+                (status, status, error, str(event_timestamp or ''), str(event_timestamp or '0'), message_id),
+            )
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        current_app.logger.exception('Não foi possível registrar evento Brevo do Workspace')
+        abort(503)
+    return '', 204
 
 
 def _php_account_data(client_id: int) -> dict:
@@ -112,10 +158,23 @@ def _php_account_data(client_id: int) -> dict:
             purchases = [dict(row) for row in cursor.fetchall()]
     except Exception:
         purchases = []
+    try:
+        with get_db().cursor() as cursor:
+            cursor.execute(
+                """SELECT recipient_email, event_type, subject, status, provider_message_id, created_at
+                     FROM cadu_workspace_email_events
+                    WHERE id_cliente = %s
+                 ORDER BY created_at DESC, id DESC LIMIT 30""",
+                (client_id,),
+            )
+            email_events = [dict(row) for row in cursor.fetchall()]
+    except Exception:
+        email_events = []
     insights = _workspace_account_insights(plan, position, people)
     return {"people": people, "invites": invites, "plan": plan, "credit": credit,
             "position": position, "movements": movements, "purchases": purchases,
-            "insights": insights, "email_catalog": _workspace_account_email_catalog()}
+            "insights": insights, "email_catalog": _workspace_account_email_catalog(),
+            "email_events": email_events}
 
 
 def _workspace_account_email_catalog() -> tuple[dict, ...]:
@@ -135,6 +194,11 @@ def _workspace_account_email_catalog() -> tuple[dict, ...]:
             "page": "Aceitar convite", "action": "Criar acesso",
             "recipient": "Nova pessoa da equipe", "subject": "Sua conta está pronta",
             "template": "bem-vindo.html", "timing": "Depois de aceitar o convite",
+        },
+        {
+            "page": "Boas-vindas", "action": "Apresentar bônus inicial",
+            "recipient": "Nova pessoa da equipe", "subject": "100.000 créditos para começar",
+            "template": "bonus-creditos.html", "timing": "Depois de aceitar o convite, se o bônus estiver ativo",
         },
         {
             "page": "Acesso", "action": "Recuperar senha",
@@ -2766,6 +2830,141 @@ def create_project_document(project_id):
     except Exception:
         current_app.logger.exception('Não foi possível salvar documento no projeto %s', project_id)
         return jsonify({'error': 'Não foi possível salvar o plano no projeto agora.'}), 503
+
+
+def _workspace_document_urls(document):
+    """Return only Workspace-owned navigation and a share URL when enabled."""
+    document_id = str(document.get('id') or '')
+    payload = {
+        'id': document_id,
+        'title': document.get('title'),
+        'type': document.get('type'),
+        'status': document.get('status'),
+        'editor_url': url_for('cadu_workspace.document_editor', document_id=document_id),
+    }
+    if document.get('share_enabled') and document.get('share_token'):
+        payload['share_url'] = product_url('planner', '/docs/public/' + str(document['share_token']))
+    return payload
+
+
+@bp.post('/workspace/api/documentos')
+@login_required
+def create_workspace_document():
+    """Save an explicit conversation artifact as an editable Smart Doc.
+
+    This endpoint intentionally accepts optional project context: personal
+    conversations remain useful, while a selected project makes its private
+    files available to the document editor for later review.
+    """
+    if not _workspace_api_csrf():
+        return jsonify({'error': 'Atualize a página e tente novamente.'}), 403
+    client_id = int(session.get('cliente_id') or 0)
+    payload = request.get_json(silent=True) or {}
+    title = ' '.join(str(payload.get('title') or 'Texto do Cadu').split())[:255]
+    content = str(payload.get('content') or '').strip()
+    if len(content) < 20:
+        return jsonify({'error': 'O texto precisa ter ao menos 20 caracteres.'}), 400
+    if len(content) > 500000:
+        return jsonify({'error': 'O texto excede o limite de 500.000 caracteres.'}), 400
+    source_notes = []
+    for source in (payload.get('sources') or [])[:8]:
+        if not isinstance(source, dict):
+            continue
+        source_title = ' '.join(str(source.get('title') or '').split())[:180]
+        source_url = str(source.get('url') or '').strip()
+        if source_url:
+            parsed = urlparse(source_url)
+            source_url = source_url if parsed.scheme in {'http', 'https'} and parsed.netloc else ''
+        if source_title or source_url:
+            source_notes.append((source_title or 'Fonte do projeto', source_url))
+    if source_notes:
+        content += '\n\n## Fontes consultadas\n' + '\n'.join(
+            '- %s%s' % (title, (' — ' + source_url) if source_url else '')
+            for title, source_url in source_notes
+        )
+    project_id = str(payload.get('project_id') or '').strip() or None
+    if project_id:
+        _editable_workspace_project(client_id, project_id)
+    try:
+        from ..cadu_planner import docs
+        document = docs.create_document(client_id, int(session['user_id']), {
+            'title': title,
+            'type': 'conversa',
+            'html': docs.markdown_to_safe_html(content),
+            'project_id': project_id,
+        })
+        return jsonify({'success': True, 'document': _workspace_document_urls(document)}), 201
+    except HTTPException:
+        raise
+    except Exception:
+        current_app.logger.exception('Não foi possível salvar artefato de conversa')
+        return jsonify({'error': 'Não foi possível salvar o texto agora.'}), 503
+
+
+@bp.put('/workspace/api/documentos/<document_id>/publicar')
+@login_required
+def publish_workspace_document(document_id):
+    """Publish only after the owner explicitly requests a public link."""
+    if not _workspace_api_csrf():
+        return jsonify({'error': 'Atualize a página e tente novamente.'}), 403
+    try:
+        from ..cadu_planner import docs
+        client_id, actor_id = int(session.get('cliente_id') or 0), int(session['user_id'])
+        document = docs.save_document(client_id, actor_id, document_id, {'status': 'published'})
+        document = docs.share_document(client_id, actor_id, document_id, True)
+        return jsonify({'success': True, 'document': _workspace_document_urls(document)})
+    except HTTPException:
+        raise
+    except Exception:
+        current_app.logger.exception('Não foi possível publicar documento de conversa %s', document_id)
+        return jsonify({'error': 'Não foi possível criar o link público agora.'}), 503
+
+
+@bp.post('/workspace/api/artefatos/galeria')
+@login_required
+def publish_workspace_gallery():
+    """Publish a user-selected conversation image set as a Smart Doc gallery.
+
+    URLs are never fetched by this endpoint; they are only rendered in the
+    sandboxed public document. This avoids server-side requests to user or
+    provider controlled hosts while keeping the selected set shareable.
+    """
+    if not _workspace_api_csrf():
+        return jsonify({'error': 'Atualize a página e tente novamente.'}), 403
+    payload = request.get_json(silent=True) or {}
+    images = []
+    for value in (payload.get('images') or [])[:8]:
+        source = str(value or '').strip()
+        parsed = urlparse(source)
+        if parsed.scheme == 'https' and parsed.netloc and source not in images:
+            images.append(source)
+    if not images:
+        return jsonify({'error': 'Selecione ao menos uma imagem válida.'}), 400
+    client_id, actor_id = int(session.get('cliente_id') or 0), int(session['user_id'])
+    project_id = str(payload.get('project_id') or '').strip() or None
+    if project_id:
+        _editable_workspace_project(client_id, project_id)
+    title = ' '.join(str(payload.get('title') or 'Seleção visual Cadu').split())[:255]
+    figures = ''.join(
+        '<figure><img src="%s" alt="Imagem %d da seleção"><figcaption>Imagem %d</figcaption></figure>'
+        % (escape(source, quote=True), index + 1, index + 1)
+        for index, source in enumerate(images)
+    )
+    html = '<section><p>Seleção visual criada no Cadu.</p><div class="cadu-public-gallery">%s</div></section>' % figures
+    try:
+        from ..cadu_planner import docs
+        document = docs.create_document(client_id, actor_id, {
+            'title': title, 'type': 'galeria', 'html': html, 'project_id': project_id,
+        })
+        document_id = document['id']
+        document = docs.save_document(client_id, actor_id, document_id, {'status': 'published'})
+        document = docs.share_document(client_id, actor_id, document_id, True)
+        return jsonify({'success': True, 'document': _workspace_document_urls(document)})
+    except HTTPException:
+        raise
+    except Exception:
+        current_app.logger.exception('Não foi possível publicar galeria de conversa')
+        return jsonify({'error': 'Não foi possível criar o link da seleção agora.'}), 503
 
 
 @bp.get('/workspace/app/marcas/<int:brand_id>')

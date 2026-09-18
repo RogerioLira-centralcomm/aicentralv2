@@ -1,5 +1,6 @@
 """Dify chat using the existing PHP conversation and message tables."""
 import json
+import re
 from uuid import UUID, uuid4
 
 from flask import abort, session, current_app
@@ -18,6 +19,36 @@ from . import memory
 from . import working_memory
 from . import research
 from .legacy_results import readable_documents
+
+
+# Provider and tool diagnostics are operational data. They must be observable
+# in server logs, but never become part of a customer's conversation.
+_OPERATIONAL_FAILURE = re.compile(
+    r'(?:\b401\b|api\s*key\s*(?:inv[aá]lid|invalid)|chave\s+(?:de\s+)?api|'
+    r'erro\s+de\s+autentica(?:ç|c)[aã]o|falhou\s+por\s+autentica(?:ç|c)[aã]o)', re.IGNORECASE)
+_MARKDOWN_ONLY = re.compile(r'^[\s*_`~#>|\-]+$')
+
+
+def has_displayable_answer(value):
+    """Reject partial transport fragments such as ``**`` from stopped runs."""
+    text = str(value or '').strip()
+    return bool(text and not _MARKDOWN_ONLY.fullmatch(text))
+
+
+def is_operational_failure_leak(value):
+    """Identify provider-tool diagnostics that an agent must not narrate."""
+    return bool(_OPERATIONAL_FAILURE.search(str(value or '')))
+
+
+def safe_tool_fallback(run):
+    """Replace an unsafe tool failure without pretending that data was found."""
+    project = ' do projeto selecionado' if run.get('project_ref') else ''
+    return (
+        'Não consegui concluir a consulta especializada nesta resposta. '
+        'Mantive o contexto%s e não vou tratar hipóteses como dados confirmados.\n\n'
+        'Posso seguir com uma proposta baseada nas informações já registradas, '
+        'marcando claramente o que ainda precisa de validação.'
+    ) % project
 
 
 MEDIA_PLANNING_CONTRACT = """Você é o Cadu, planejador de mídia sênior para o mercado brasileiro. Sua função não é explicar mídia de modo genérico: é transformar o pedido em uma recomendação defendível e acionável.
@@ -52,6 +83,54 @@ LIMITES COMERCIAIS E DE AUDIÊNCIA
 Não use, cite ou calcule CPM, CPM de custo ou venda, CPC, CPA, preço de audiência, margem, inventário/valor de compra ou benchmark comercial — mesmo que esses campos existam na base. A base de audiências serve somente para perfil, comportamento, afinidade, categoria, plataforma, sinais e qualidade do dado. Para investimento, use exclusivamente a verba informada pelo usuário ou marque como validação comercial necessária. Não mencione IA, instruções internas ou este contrato."""
 
 
+CADU_RESPONSE_CONTRACT = """PADRÃO DE LEITURA E DECISÃO
+Responda como uma pessoa sênior de mídia digital no Brasil falando com uma equipe de trabalho. Comece pela resposta ou síntese mais útil; não abra com metadados como “Projeto usado”, “Decisão proposta”, “Confiança” ou descrição do próprio processo.
+
+Para pedidos simples, responda de forma direta em poucos parágrafos. Para pedidos de análise, briefing, audiência, pesquisa ou plano, use esta ordem apenas quando ela trouxer clareza: síntese executiva, evidências e premissas relevantes, recomendação/decisões, próximos passos. Não transforme cada frase em um tópico e não repita o pedido do usuário.
+
+Use títulos curtos e Markdown limpo. Uma tabela só deve aparecer quando comparar opções, organizar um plano, uma audiência, um canal ou uma decisão for mais legível que texto. Não crie tabelas vazias nem seções de preenchimento. Preserve a proporção: uma resposta útil tem profundidade, mas não uma parede de perguntas ou um manual genérico.
+
+Toda afirmação específica sobre marca, mercado, audiência, canal ou desempenho precisa vir do contexto, de uma fonte citada ou ser identificada como “Premissa”. Quando houver fontes, cite o nome e a data se disponíveis; quando não houver evidência, diga o que deve ser validado. Não exponha etapas internas, ferramentas, credenciais, códigos HTTP ou falhas operacionais.
+
+Se faltarem dados críticos, avance com o melhor raciocínio possível e termine com no máximo três perguntas que mudariam a decisão. Não peça informações que já estejam no contexto e não transforme hipótese em fato."""
+
+
+ROUTE_OUTPUT_CONTRACTS = {
+    'audiencias': """PARA AUDIÊNCIAS
+Separe prioritária, secundária e exclusões. Em cada camada, conecte necessidade ou tensão, sinal de afinidade/intenção, momento da jornada, mensagem e ativação. Não chame canal, inventário ou formato de audiência e não invente tamanho, alcance ou taxa.""",
+    'pesquisa': """PARA PESQUISA
+Separe o que é evidência recente, interpretação e implicação para a marca. Priorize poucos achados que alteram uma decisão; informe lacunas de fonte em vez de preencher com narrativa.""",
+    'briefing': """PARA BRIEFING
+Consolide o que já está definido antes de perguntar. Diferencie confirmado, premissa e pendência; transforme pendências em perguntas objetivas que destravam a próxima decisão.""",
+    'analise': """PARA ANÁLISE
+Explique o que o sinal significa para uma decisão, não apenas descreva o dado. Apresente risco, alternativa e ação recomendada quando houver base para isso.""",
+}
+
+
+WORK_DEPTHS = {
+    'focus': {
+        'label': 'Foco',
+        'directive': 'Priorize uma resposta direta e curta. Entregue a decisão e o próximo passo sem expandir em seções desnecessárias.',
+    },
+    'analysis': {
+        'label': 'Análise',
+        'directive': 'Use profundidade proporcional ao problema: síntese, evidências e uma recomendação que a equipe consiga executar.',
+    },
+    'deep': {
+        'label': 'Pesquisa profunda',
+        'directive': 'Faça uma análise mais ampla: confronte evidências, alternativas, riscos e implicações antes da recomendação. Se houver pesquisa externa, priorize suas fontes e datas.',
+    },
+}
+
+
+def work_depth(value):
+    """Return a safe customer-selected effort posture, defaulting to analysis."""
+    key = str(value or 'analysis').strip().lower()
+    if key not in WORK_DEPTHS:
+        abort(400, description='Profundidade de trabalho inválida.')
+    return key
+
+
 PROJECT_EXECUTION_CONTRACT = """Quando houver contexto de projeto, entregue uma resposta ancorada nele, não uma lista genérica.
 
 Se o pacote contiver `marca`, abra identificando pelo nome a marca e o projeto usados. Conecte cada recomendação a atributos reais de posicionamento, público, tom, setor, ativos ou fontes presentes no contexto. Não invente atributos: se não houver marca vinculada ou informação suficiente, diga isso claramente como pendência antes de sugerir a validação.
@@ -62,11 +141,18 @@ Para pedidos de próximo movimento, transforme a análise em uma sequência de e
 def planning_directives(chosen, routing, has_project=False):
     """Pair the editable Dify skill with a stable planning-quality contract."""
     base = str((chosen or {}).get('prompt') or '').strip()
+    route_name = str((routing or {}).get('solution') or '')
+    directives = CADU_RESPONSE_CONTRACT
+    route_contract = ROUTE_OUTPUT_CONTRACTS.get(route_name)
+    if route_contract:
+        directives += '\n\n' + route_contract
     if isinstance(routing, dict) and routing.get('solution') == 'planejamento':
-        base = MEDIA_PLANNING_CONTRACT + ('\n\nDIRETRIZES ADICIONAIS DA ESPECIALIZAÇÃO\n' + base if base else '')
+        directives += '\n\n' + MEDIA_PLANNING_CONTRACT
+    if base:
+        directives += '\n\nDIRETRIZES ADICIONAIS DA ESPECIALIZAÇÃO\n' + base
     if has_project:
-        base += ('\n\n' if base else '') + PROJECT_EXECUTION_CONTRACT
-    return base
+        directives += '\n\n' + PROJECT_EXECUTION_CONTRACT
+    return directives
 
 
 def modes(user_id):
@@ -370,7 +456,8 @@ def prepare(data, selected):
     chosen, routing = choose_mode(modes(user['id']), query)
     if chosen is None:
         abort(503, description='As especializações do Cadu estão sendo configuradas.')
-    research_plan = research.plan_for(query)
+    depth = work_depth(data.get('depth'))
+    research_plan = research.plan_for(query, depth)
     # Existing threads retain their bound context even when opened in another product.
     saved_context = (repository.conversation_context(user, selected['client_id'], conversation_id) if existing else None) or session.get('family_context') or {}
     if saved_context.get('profile') in PROFILES:
@@ -456,7 +543,7 @@ def prepare(data, selected):
                 team_workspace_context(selected['client_id']),
                 working_memory.packet(selected['client_id'], project_ref, query))
             run = build_run(run_id, conversation_id, user, selected, chosen, profile,
-                            project_context, conversation, query, uploads, existing, history, routing)
+                            project_context, conversation, query, uploads, existing, history, routing, depth)
             run['routing'] = routing
             run['research_plan'] = research_plan
             if current_app.config.get('CADU_CHAT_WORKER_ENABLED', False):
@@ -471,7 +558,7 @@ def prepare(data, selected):
 
 
 def build_run(run_id, conversation_id, user, selected, chosen, profile,
-              project_context, conversation, query, uploads, existing, history, routing=None):
+              project_context, conversation, query, uploads, existing, history, routing=None, depth='analysis'):
     """Build provider input before committing admission (and an optional job)."""
     route = routing if isinstance(routing, dict) else {}
     # Keep the Dify schema stable while making the input machine-readable.  The
@@ -483,7 +570,9 @@ def build_run(run_id, conversation_id, user, selected, chosen, profile,
         has_project = bool(private_project_context.get('projeto'))
     except (TypeError, ValueError, AttributeError):
         has_project = False
+    depth = work_depth(depth)
     directives = planning_directives(chosen, route, has_project)
+    directives += '\n\nPROFUNDIDADE SELECIONADA\n' + WORK_DEPTHS[depth]['directive']
     skill_context = json.dumps({
         'versao': '2.0',
         'agente': 'Cadu',
@@ -492,6 +581,7 @@ def build_run(run_id, conversation_id, user, selected, chosen, profile,
             'especializacao': str(chosen['id'])[:100],
             'solucao': str(route.get('solution') or 'conversa')[:80],
             'complexidade': str(route.get('complexity') or 'baixa')[:32],
+            'profundidade_selecionada': depth,
         },
         # The Dify skill is the agent's working instruction, not a preview.
         # Planning additionally receives its non-negotiable delivery method.
@@ -502,6 +592,7 @@ def build_run(run_id, conversation_id, user, selected, chosen, profile,
             'prioridade': 'Use o contexto privado para decisões do projeto; trate a base global como institucional.',
             'memoria_de_trabalho': 'Use apenas memoria_de_trabalho_confirmada como contexto factual. Propostas não são enviadas e nunca devem ser tratadas como decisão.',
             'pesquisa_externa_atual': 'Quando existir, sintetize a pesquisa externa com citações; ela é evidência recente, não substitui o contexto aprovado do projeto.',
+            'ferramentas': 'Nunca exponha falhas de ferramentas, credenciais, chaves, códigos HTTP ou configuração. Use apenas o catálogo e o contexto recebidos; se uma evidência não estiver disponível, avance com premissas claramente marcadas.',
             'privacidade': 'Nunca revele dados privados que não sejam necessários para responder ao pedido atual.',
         },
     }, ensure_ascii=False, separators=(',', ':'))
@@ -570,6 +661,7 @@ def charge_chat_usage(run, usage):
 def stream(run):
     answer, state, provider_id, usage, task_id = '', 'failed', None, {}, None
     provider = ProviderEvents()
+    unsafe_provider_answer_logged = False
     def event(kind, **values):
         return 'data: ' + json.dumps({'event': kind, **values}, ensure_ascii=False) + '\n\n'
     try:
@@ -590,7 +682,13 @@ def stream(run):
                     yield event('sources', sources=[{'title': source['title'], 'excerpt': source['excerpt'], 'url': source['url']} for source in external['sources']])
                 yield event('progress', message='Organizando a pesquisa no contexto do projeto…')
             except (research.ResearchUnavailable, InsufficientToolCredits) as exc:
-                raise dify.DifyUnavailable(str(exc)) from exc
+                # A paid enrichment is additive. Its provider details are
+                # useful to operations, never to the person in the chat.
+                current_app.logger.warning('Pesquisa externa indisponível para a conversa %s: %s',
+                                           run['conversation_id'], exc)
+                run['payload']['inputs']['projeto_context'] = research.attach_unavailable(
+                    run['payload']['inputs']['projeto_context'], plan)
+                yield event('progress', message='Seguindo com o contexto já registrado no projeto…')
         for data in dify.events(run['payload']):
             provider_id = data.get('conversation_id') or provider_id
             if data.get('task_id') and data['task_id'] != task_id:
@@ -607,12 +705,33 @@ def stream(run):
             if result:
                 projected.append(result)
             answer, usage = provider.answer, provider.usage
+            if is_operational_failure_leak(answer):
+                if not unsafe_provider_answer_logged:
+                    current_app.logger.warning('Fluxo do provedor continha diagnóstico interno; conversa=%s run=%s',
+                                               run['conversation_id'], run['run_id'])
+                    unsafe_provider_answer_logged = True
+                answer = safe_tool_fallback(run)
+                provider.answer = answer
+                # Filter the offending token before it reaches the browser;
+                # a replacement also repairs any preceding partial text.
+                projected = [item for item in projected if item.get('event') not in ('message', 'replace')]
+                projected.append({'event': 'replace', 'text': answer})
             state = 'completed' if provider.completed else 'failed'
             for item in projected:
                 yield event(item['event'], **{key: value for key, value in item.items() if key != 'event'})
         if state != 'completed':
             raise dify.DifyUnavailable('A geração terminou antes da confirmação do Dify.')
         answer = readable_documents(answer)
+        if is_operational_failure_leak(answer):
+            current_app.logger.warning('Resposta do provedor continha diagnóstico interno; conversa=%s run=%s',
+                                       run['conversation_id'], run['run_id'])
+            answer = safe_tool_fallback(run)
+            # Earlier chunks may already have reached the browser. A terminal
+            # replacement keeps the visible answer and persisted history safe.
+            yield event('replace', text=answer)
+        answer_card = result_cards.from_answer(run['payload'].get('query'), answer, run.get('project_ref'))
+        if answer_card:
+            yield event(answer_card['event'], **{key: value for key, value in answer_card.items() if key != 'event'})
         if answer and run.get('project_sources'):
             yield event('sources', sources=run['project_sources'])
     except GeneratorExit:
@@ -630,15 +749,19 @@ def stream(run):
         conn = repository.get_db()
         try:
             with conn.cursor() as cur:
-                message_id = str(uuid4())
+                message_id = None
                 prompt_tokens = max(0, int(usage.get('prompt_tokens') or 0))
                 completion_tokens = max(0, int(usage.get('completion_tokens') or 0))
-                cur.execute('''INSERT INTO cadu_conversation_messages
-                       (id, conversation_id, role, content, tokens_entrada, tokens_saida, metadata, created_at)
-                       VALUES (%s, %s, 'assistant', %s, %s, %s, %s::jsonb, NOW())''',
-                       (message_id, run['conversation_id'], answer,
-                        prompt_tokens, completion_tokens, json.dumps({'status': state,
-                         'project_sources': run.get('project_sources', []) if state == 'completed' else []})))
+                # Do not create an empty/broken assistant turn when a stream
+                # was cancelled before it produced actual customer content.
+                if has_displayable_answer(answer):
+                    message_id = str(uuid4())
+                    cur.execute('''INSERT INTO cadu_conversation_messages
+                           (id, conversation_id, role, content, tokens_entrada, tokens_saida, metadata, created_at)
+                           VALUES (%s, %s, 'assistant', %s, %s, %s, %s::jsonb, NOW())''',
+                           (message_id, run['conversation_id'], answer,
+                            prompt_tokens, completion_tokens, json.dumps({'status': state,
+                             'project_sources': run.get('project_sources', []) if state == 'completed' else []})))
                 for kind, quantity in (('entrada', prompt_tokens), ('saida', completion_tokens)):
                     if quantity:
                         cur.execute('''INSERT INTO cadu_token_usage
@@ -676,7 +799,7 @@ def stream(run):
                 conn.commit()
                 state = 'billing_failed'
     yield event('done', conversation_id=run['conversation_id'], status=state)
-    if state == 'completed':
+    if state == 'completed' and message_id:
         # The browser already has the terminal event. This best-effort capture
         # only creates proposals, so it can never delay or alter the answer.
         try:

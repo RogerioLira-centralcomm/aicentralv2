@@ -76,9 +76,11 @@ class CatalogToolProjectionTest(TestCase):
         self.assertEqual(card, {'event': 'catalog', 'catalog_kind': 'canais', 'records': [{'id': 1, 'name': 'Vídeo'}]})
         query.assert_called_once_with('canais', 'vídeo', 2)
 
-    def test_tool_card_does_not_run_for_other_profiles_or_unknown_tools(self):
+    def test_tool_card_rejects_unknown_tools_and_non_channel_workspace_catalogs(self):
         with mock.patch.object(catalog_tools.catalog, 'query') as query:
-            self.assertIsNone(catalog_tools.project({'tool': 'channel_search', 'tool_input': '{}'}, 'workspace'))
+            # Conversas is allowed to surface channel, audience and format
+            # references; the wider Planner catalogs stay scoped to Planner.
+            self.assertIsNone(catalog_tools.project({'tool': 'place_search', 'tool_input': '{}'}, 'workspace'))
             self.assertIsNone(catalog_tools.project({'tool': 'web_scrape', 'tool_input': '{}'}, 'planner'))
         query.assert_not_called()
 

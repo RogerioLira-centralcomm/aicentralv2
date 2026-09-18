@@ -35,12 +35,17 @@ class ResearchUnavailable(RuntimeError):
     pass
 
 
-def plan_for(query: str) -> dict | None:
+def plan_for(query: str, depth: str = 'analysis') -> dict | None:
     text = str(query or '').casefold()
     if re.search(r'\b(deep research|pesquisa aprofundada|pesquisa profunda)\b', text):
         return {'id': 'deep', **PLANS['deep']}
     if re.search(r'\b(atualiza[çc][ãa]o de mercado|atualize o mercado|mercado recente)\b', text):
         return {'id': 'market', **PLANS['market']}
+    # This is the explicit, paid depth control from the composer. It is not a
+    # cosmetic “better model” switch: it enables the bounded evidence stage
+    # before the main agent receives the request.
+    if depth == 'deep':
+        return {'id': 'deep', **PLANS['deep']}
     return None
 
 
@@ -173,3 +178,27 @@ def attach(project_context: str, research: dict) -> str:
         },
     }
     return json.dumps(minimal, ensure_ascii=False)
+
+
+def attach_unavailable(project_context: str, plan: dict) -> str:
+    """Keep the agent grounded when optional current research cannot run.
+
+    This deliberately contains no provider error, status code, credential or
+    balance detail: it is an instruction about evidence quality, not a
+    customer-facing operational explanation.
+    """
+    try:
+        packet = json.loads(project_context or '{}')
+    except (TypeError, ValueError):
+        packet = {}
+    if not isinstance(packet, dict):
+        packet = {}
+    packet['pesquisa_externa_atual'] = {
+        'tipo': str((plan or {}).get('label') or 'Pesquisa externa')[:160],
+        'status': 'nao_consultada_nesta_resposta',
+        'orientacao': (
+            'Não apresente atualização externa como fato nesta resposta. '
+            'Use o contexto já registrado e diferencie premissas de evidências.'
+        ),
+    }
+    return json.dumps(packet, ensure_ascii=False)[:24000]

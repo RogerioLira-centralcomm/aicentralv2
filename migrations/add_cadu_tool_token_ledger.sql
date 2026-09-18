@@ -34,6 +34,10 @@ CREATE TABLE IF NOT EXISTS cadu_tools_token_usage (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE INDEX IF NOT EXISTS idx_cadu_tools_token_usage_studio_root
+    ON cadu_tools_token_usage ((metadata->>'studio_root_session_id'))
+    WHERE status = 'charged' AND metadata->>'studio_root_session_id' <> '';
+
 CREATE INDEX IF NOT EXISTS idx_cadu_tools_token_usage_client_created
     ON cadu_tools_token_usage (id_cliente, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_cadu_tools_token_usage_user_created

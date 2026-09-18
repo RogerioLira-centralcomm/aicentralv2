@@ -1597,6 +1597,8 @@
     const variant = Number(extra?.scene_variant || 0);
     return {
       client_id: state.clientId || undefined,
+      studio_session_id: state.studioSessionId || undefined,
+      studio_root_session_id: state.studioSessionRootId || state.studioSessionId || undefined,
       brand_name: client?.name || '',
       headline: $('mcSwapHeadline')?.value || '',
       support: $('mcSwapSupport')?.value || '',
@@ -1813,6 +1815,7 @@
       $('mcSwapFile')?.click();
       return;
     }
+    await ensureStudioSession();
     state.originalInstruction = instruction;
     state.refinedInstruction = '';
     applyAgentDirectives(instruction);
@@ -1820,7 +1823,14 @@
     setStatus('Organizando o pedido sem alterar sua intenção…');
     try {
       try {
-        const refined = await request(API.instruction, { instruction, optimize_for_model: true, context: { editor: 'trocr-agent' } });
+        const refined = await request(API.instruction, {
+          instruction,
+          optimize_for_model: true,
+          client_id: state.clientId || undefined,
+          studio_session_id: state.studioSessionId || undefined,
+          studio_root_session_id: state.studioSessionRootId || state.studioSessionId || undefined,
+          context: { editor: 'trocr-agent' },
+        });
         state.refinedInstruction = String(refined.refined_instruction || instruction).trim();
       } catch (_error) {
         state.refinedInstruction = instruction;
@@ -1838,6 +1848,7 @@
   async function runSwap(quality, extra) {
     const base = baseVersion();
     if (!base?.image || state.generating || state.studioSessionReadOnly) return;
+    await ensureStudioSession();
     state.generating = true;
     if ($('mcTrocrNewPiece')) $('mcTrocrNewPiece').disabled = true;
     if ($('mcTrocrNewEdit')) $('mcTrocrNewEdit').disabled = true;

@@ -10,6 +10,7 @@ from aicentralv2.creative_media.studio_sessions import (
     LocalSessionRepository,
     SessionConflict,
     estimate_metrics,
+    studio_usage_summary,
 )
 
 
@@ -99,7 +100,29 @@ class StudioSessionRepositoryTest(unittest.TestCase):
         self.assertEqual(metrics["generation"], 1)
         self.assertEqual(metrics["edit"], 1)
         self.assertEqual(metrics["format"], 1)
+        self.assertEqual(metrics["estimated_manual_minutes"], 65)
         self.assertEqual(metrics["estimated_minutes_saved"], 55)
+
+    def test_usage_summary_comes_from_charged_root_chain_rows(self):
+        class Cursor:
+            def execute(self, sql, params):
+                self.sql = sql
+                self.params = params
+
+            @staticmethod
+            def fetchone():
+                return {"provider_tokens": 1200, "charged_credits": 17200, "internal_cost_usd": "0.172"}
+
+        cursor = Cursor()
+        summary = studio_usage_summary(cursor, "root-1", 7)
+
+        self.assertIn("metadata->>'studio_root_session_id'", cursor.sql)
+        self.assertEqual(cursor.params, (7, "root-1"))
+        self.assertEqual(summary, {
+            "provider_tokens": 1200,
+            "charged_credits": 17200,
+            "internal_cost_usd": "0.172000",
+        })
 
     def test_generated_attempt_counts_once_in_final_metrics(self):
         created = self.repo.create(31, 7, {"studio_type": "create", "title": "Campanha"})
@@ -130,6 +153,32 @@ class StudioSessionRepositoryTest(unittest.TestCase):
         result = self.repo.finalize(31, 7, created["id"], {"active_seconds": 60})
         self.assertEqual(result["finalization"]["edit_count"], 1)
         self.assertEqual(result["finalization"]["generation_count"], 0)
+
+    def test_final_email_metrics_cover_the_entire_root_chain(self):
+        created = self.repo.create(31, 7, {"studio_type": "create", "title": "Campanha"})
+        generated = self.repo.accept(31, 7, created["id"], {
+            "role": "attempt", "asset_url": "/media/generated.png", "source_id": "generation-1",
+            "metadata": {"origin": "generation"},
+        })
+        self.repo.accept(31, 7, created["id"], {
+            "role": "accepted", "asset_id": generated["assets"][0]["id"],
+        })
+        editing = self.repo.handoff(31, 7, created["id"], {
+            "request_id": "edit-1", "studio_type": "edit",
+        })
+        edited = self.repo.accept(31, 7, editing["id"], {
+            "role": "attempt", "asset_url": "/media/edited.png", "source_id": "edit-version-1",
+            "metadata": {"origin": "trocr-edit"},
+        })
+        self.repo.accept(31, 7, editing["id"], {
+            "role": "accepted", "asset_id": edited["assets"][-1]["id"],
+        })
+
+        result = self.repo.finalize(31, 7, editing["id"], {"active_seconds": 60})
+
+        self.assertEqual(result["finalization"]["generation_count"], 1)
+        self.assertEqual(result["finalization"]["edit_count"], 1)
+        self.assertEqual(result["finalization"]["handoff_count"], 1)
 
     def test_discard_is_marked_for_delayed_deletion_and_restore_cancels_it(self):
         self.repo = LocalSessionRepository(self.root, retention_seconds=0)

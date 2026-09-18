@@ -7,6 +7,7 @@ import sqlite3
 import time
 import uuid
 from contextlib import contextmanager
+from decimal import Decimal, InvalidOperation
 
 from psycopg.types.json import Json
 
@@ -77,11 +78,39 @@ def estimate_metrics(events, active_seconds=0):
             counts["format"] += 1
         elif kind == "handoff_created":
             counts["handoff"] += 1
-    manual = (45 if counts["generation"] else 0) + counts["edit"] * 12 + counts["format"] * 8
+    manual = counts["generation"] * 45 + counts["edit"] * 12 + counts["format"] * 8 + counts["handoff"] * 10
     active_minutes = max(0, int(active_seconds or 0)) // 60
+    counts["estimated_manual_minutes"] = manual
     counts["estimated_minutes_saved"] = max(0, manual - active_minutes)
     counts["active_seconds"] = max(0, int(active_seconds or 0))
     return counts
+
+
+def studio_usage_summary(cursor, root_session_id, user_id):
+    """Return immutable billing totals for one Studio work chain.
+
+    Charges are linked to the root chain in billing metadata. The total is
+    calculated from durable ledger rows instead of accepting a browser total
+    that could be stale after a reload or duplicated by a retry.
+    """
+    cursor.execute("""
+        SELECT COALESCE(SUM(total_tokens), 0) AS provider_tokens,
+               COALESCE(SUM(tokens_cobrados), 0) AS charged_credits,
+               COALESCE(SUM(custo_interno), 0) AS internal_cost_usd
+          FROM cadu_tools_token_usage
+         WHERE id_contato_cliente=%s AND status='charged'
+           AND metadata->>'studio_root_session_id'=%s
+    """, (int(user_id), str(root_session_id)))
+    row = dict(cursor.fetchone() or {})
+    try:
+        cost = max(Decimal("0"), Decimal(str(row.get("internal_cost_usd") or 0)))
+    except (InvalidOperation, TypeError, ValueError):
+        cost = Decimal("0")
+    return {
+        "provider_tokens": max(0, int(row.get("provider_tokens") or 0)),
+        "charged_credits": max(0, int(row.get("charged_credits") or 0)),
+        "internal_cost_usd": format(cost.quantize(Decimal("0.000001")), "f"),
+    }
 
 
 def completed_event_for_asset(metadata):
@@ -366,14 +395,24 @@ class LocalSessionRepository:
                 raise ValueError("Escolha a peça final antes de concluir o trabalho.")
             if payload.get("pending_jobs"):
                 raise ValueError("Aguarde as gerações em andamento antes de finalizar.")
-            events = [dict(row) for row in db.execute("SELECT event_type FROM events WHERE session_id=?", (ident,)).fetchall()]
+            events = [dict(row) for row in db.execute("""
+                SELECT e.event_type FROM events e
+                JOIN sessions s ON s.id=e.session_id
+                WHERE s.root_session_id=?
+            """, (session["root_session_id"],)).fetchall()]
             metrics = estimate_metrics(events, payload.get("active_seconds"))
             asset = db.execute("SELECT * FROM assets WHERE id=?", (session["active_asset_id"],)).fetchone()
             final_id = new_id()
             now = time.time()
             asset_snapshot = {key: asset[key] for key in ("id", "kind", "title", "asset_url", "storage_key")}
+            usage = payload.get("usage") if isinstance(payload.get("usage"), dict) else {}
+            usage = {
+                "provider_tokens": max(0, int(usage.get("provider_tokens") or 0)),
+                "charged_credits": max(0, int(usage.get("charged_credits") or payload.get("credits") or 0)),
+                "internal_cost_usd": str(usage.get("internal_cost_usd") or "0"),
+            }
             snapshot = {"session_id": ident, "root_session_id": session["root_session_id"], "asset": asset_snapshot,
-                        "title": session["title"], "credits": max(0, int(payload.get("credits") or 0))}
+                        "title": session["title"], "credits": usage["charged_credits"], "usage": usage}
             db.execute("""
                 INSERT INTO finalizations VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
             """, (final_id, ident, session["root_session_id"], session["active_asset_id"], json.dumps(snapshot, ensure_ascii=False),
@@ -645,14 +684,21 @@ class PostgresSessionRepository:
                 raise ValueError("Escolha a peça final antes de concluir o trabalho.")
             if payload.get("pending_jobs"):
                 raise ValueError("Aguarde as gerações em andamento antes de finalizar.")
-            cursor.execute("SELECT event_type FROM cx_studio_session_events WHERE session_id=%s", (ident,))
+            cursor.execute("""
+                SELECT e.event_type FROM cx_studio_session_events e
+                JOIN cx_studio_sessions s ON s.id=e.session_id
+                WHERE s.root_session_id=%s
+            """, (session["root_session_id"],))
             metrics = estimate_metrics(cursor.fetchall(), payload.get("active_seconds"))
             cursor.execute("SELECT *,id::text AS id FROM cx_studio_assets WHERE id=%s", (session["active_asset_id"],))
             asset = dict(cursor.fetchone())
             final_id = new_id()
             asset_snapshot = {key: asset.get(key) for key in ("id", "kind", "title", "asset_url", "storage_key")}
+            usage = studio_usage_summary(
+                cursor, session["root_session_id"], session["user_id"],
+            )
             snapshot = {"session_id": ident, "root_session_id": session["root_session_id"], "asset": asset_snapshot,
-                        "title": session["title"], "credits": max(0, int(payload.get("credits") or 0))}
+                        "title": session["title"], "credits": usage["charged_credits"], "usage": usage}
             cursor.execute("""
                 INSERT INTO cx_studio_finalizations
                     (id,session_id,root_session_id,final_asset_id,snapshot,generation_count,edit_count,

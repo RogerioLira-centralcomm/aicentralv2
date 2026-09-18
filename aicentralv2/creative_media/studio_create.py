@@ -117,14 +117,25 @@ def assert_available(client_id, count):
     return credit_client_id
 
 
-def charge(provider_result, client_id, user_id, count, project_id, run_id=None):
+def charge(provider_result, client_id, user_id, count, project_id, run_id=None,
+           studio_session_id="", studio_root_session_id=""):
     from ..cadu_tool_billing import ToolTokenLedger, charge_from_provider
     from ..creative_modeling_service import CreativeModelingService
     credit_client_id = CreativeModelingService()._credits_crm_id(client_id) or int(client_id)
     ledger = ToolTokenLedger()
     ledger.assert_available(credit_client_id, estimated_tokens(count))
     run_id = str(run_id or uuid4().hex)
-    charged = charge_from_provider(ledger=ledger, idempotency_key=f"studio:directions:{run_id}", client_id=credit_client_id, user_id=int(user_id), tool="studio.direction", stage="creative_directions", provider_result=provider_result, model=MODEL, metadata={"project_id": str(project_id or ""), "directions": int(count), "run_id": run_id}, margin_multiplier=12) or {}
+    charged = charge_from_provider(
+        ledger=ledger, idempotency_key=f"studio:directions:{run_id}",
+        client_id=credit_client_id, user_id=int(user_id), tool="studio.direction",
+        stage="creative_directions", provider_result=provider_result, model=MODEL,
+        metadata={
+            "project_id": str(project_id or ""), "directions": int(count), "run_id": run_id,
+            "studio_session_id": str(studio_session_id or ""),
+            "studio_root_session_id": str(studio_root_session_id or studio_session_id or ""),
+        },
+        margin_multiplier=12,
+    ) or {}
     return int(charged.get("tokens_cobrados") or 0), ledger.available(credit_client_id)
 
 
@@ -213,6 +224,10 @@ def create_image(payload, modeling, client_id, user_id):
             "aspect_ratio": aspect_ratio,
             "reference_roles": [item["role"] for item in references],
             "masked": bool(mask),
+            "studio_session_id": text(data.get("studio_session_id"), 80),
+            "studio_root_session_id": text(
+                data.get("studio_root_session_id") or data.get("studio_session_id"), 80,
+            ),
         },
     ) or {}
     try:

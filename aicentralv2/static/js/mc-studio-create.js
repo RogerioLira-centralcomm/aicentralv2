@@ -84,12 +84,15 @@
     $('studioOriginalPrompt').textContent = state.originalPrompt;
     $('studioOptimizedPrompt').textContent = state.optimizedPrompt || state.originalPrompt;
   }
-  async function optimizePrompt(original, bindings) {
+  async function optimizePrompt(original, bindings, requestId) {
     try {
       const result = await request(`${apiRoot}/format-lab/studio/prompt/optimize`, {
         method:'POST', headers:{'Content-Type':'application/json'},
         body:JSON.stringify({
           client_id:state.clientId, prompt:original,
+          studio_session_id:state.sessionId,
+          studio_root_session_id:state.sessionRootId || state.sessionId,
+          request_id:requestId || uid('prompt'),
           mode:(state.mask?.data || bindings.length) ? 'edit' : 'create',
           context:{aspect_ratio:$('studioRatio').value, references:bindings.map((binding) => ({label:binding.node.label, role:binding.role}))},
         }),
@@ -596,8 +599,8 @@
     addMessage('user', prompt, { bindings: state.bindings.map((binding) => ({...binding})) });
     try {
       button.textContent = 'Preparando o pedido…';
-      const runtimePrompt = await optimizePrompt(prompt, bindings);
       await ensureSession();
+      const runtimePrompt = await optimizePrompt(prompt, bindings, uid('prompt'));
       if (state.chosenDirection || state.mask?.data || bindings.length) await generateImage(runtimePrompt, bindings, button);
       else await generateDirections(runtimePrompt, bindings, button);
       $('studioCreatePrompt').value = '';
@@ -610,7 +613,7 @@
     button.textContent = `Criando ${count} direções…`;
     const references = bindings.slice(0, 2).map((binding) => ({ id: binding.node.id, name: `${binding.node.label} · ${ROLE_LABELS[binding.role]}`, url: binding.node.url, role: binding.role }));
     const scopedReferences=state.quickMode?[]:references;
-    const result = await request(`${apiRoot}/format-lab/studio/create/directions`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ client_id:state.quickMode ? '' : state.clientId, project_id:state.quickMode ? '' : state.projectId, quick_mode:state.quickMode, count, prompt, references:scopedReferences, context:{ project_name:state.quickMode ? 'Rascunho pessoal' : $('studioCreateProject').textContent, brand:state.projectDocument.brand_name || '', brief:state.projectDocument.brief || '', purpose:'criacao', channels:['social','web'], format:$('studioRatio').value, direction_intensity:Number($('studioCreateRange').value), references:scopedReferences } }) });
+    const result = await request(`${apiRoot}/format-lab/studio/create/directions`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ client_id:state.quickMode ? '' : state.clientId, project_id:state.quickMode ? '' : state.projectId, quick_mode:state.quickMode, studio_session_id:state.sessionId, studio_root_session_id:state.sessionRootId || state.sessionId, count, prompt, references:scopedReferences, context:{ project_name:state.quickMode ? 'Rascunho pessoal' : $('studioCreateProject').textContent, brand:state.projectDocument.brand_name || '', brief:state.projectDocument.brief || '', purpose:'criacao', channels:['social','web'], format:$('studioRatio').value, direction_intensity:Number($('studioCreateRange').value), references:scopedReferences } }) });
     renderDirections(result.directions || []);
     addMessage('assistant', `Criei ${result.directions?.length || 0} direções. Escolha uma para gerar a imagem.`, { title: 'Direções prontas' });
     if (result.remaining_credits !== undefined) $('studioCreateCreditHint').textContent = `${Number(result.remaining_credits).toLocaleString('pt-BR')} créditos disponíveis`;
@@ -628,7 +631,7 @@
     const signature = JSON.stringify({prompt,ratio:$('studioRatio').value,references:references.map(({id,role})=>({id,role})),maskNodeId:state.mask?.nodeId||'',mask:fingerprint(state.mask?.data)});
     if (state.pendingImageRequest?.signature !== signature) state.pendingImageRequest={signature,id:uid('image')};
     const quickSource=state.quickMode?references.filter(reference=>reference.role==='primary').slice(0,1):references;
-    const requestPayload={client_id:state.quickMode ? '' : state.clientId, project_id:state.quickMode?'':state.projectId, quick_mode:state.quickMode, prompt, title:state.chosenDirection?.title || 'Imagem criada no Studio', aspect_ratio:$('studioRatio').value, references:quickSource, mask:state.mask?.data || '', mask_node_id:state.mask?.nodeId || '', request_id:state.pendingImageRequest.id};
+    const requestPayload={client_id:state.quickMode ? '' : state.clientId, project_id:state.quickMode?'':state.projectId, quick_mode:state.quickMode, studio_session_id:state.sessionId, studio_root_session_id:state.sessionRootId || state.sessionId, prompt, title:state.chosenDirection?.title || 'Imagem criada no Studio', aspect_ratio:$('studioRatio').value, references:quickSource, mask:state.mask?.data || '', mask_node_id:state.mask?.nodeId || '', request_id:state.pendingImageRequest.id};
     scheduleSave();
     let result;
     try {

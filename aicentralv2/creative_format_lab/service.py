@@ -1514,7 +1514,16 @@ class FormatLabService:
                     provider_result=result,
                     fallback_cost_usd=fallback_cost_usd,
                     media_tokens=media_tokens,
-                    metadata={"run_id": payload.get("run_id"), "base_id": payload.get("base_id")},
+                    metadata={
+                        "run_id": payload.get("run_id"),
+                        "base_id": payload.get("base_id"),
+                        "studio_session_id": str(payload.get("studio_session_id") or ""),
+                        "studio_root_session_id": str(
+                            payload.get("studio_root_session_id")
+                            or payload.get("studio_session_id")
+                            or ""
+                        ),
+                    },
                 ))
             except ValueError as exc:
                 raise CreativeConflictError(str(exc)) from exc

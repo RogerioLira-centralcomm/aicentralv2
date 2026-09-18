@@ -35,6 +35,9 @@ UPDATE cadu_tools_token_usage
 ALTER TABLE cadu_tools_token_usage ALTER COLUMN idempotency_key SET NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS ux_cadu_tools_token_usage_idempotency
     ON cadu_tools_token_usage (idempotency_key);
+CREATE INDEX IF NOT EXISTS idx_cadu_tools_token_usage_studio_root
+    ON cadu_tools_token_usage ((metadata->>'studio_root_session_id'))
+    WHERE status = 'charged' AND metadata->>'studio_root_session_id' <> '';
 
 CREATE OR REPLACE FUNCTION sync_cadu_tool_token_usage_compat()
 RETURNS TRIGGER AS $$

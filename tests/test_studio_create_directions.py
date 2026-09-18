@@ -96,10 +96,14 @@ def test_image_generation_keeps_reference_roles_in_provider_prompt():
             captured["saved"] = encoded
             return "/static/uploads/creative_generated/result.png"
 
+    def charge_call(**kwargs):
+        captured["charge"] = kwargs
+        return {"tokens_cobrados": 12}
+
     modeling = SimpleNamespace(
         generator=Generator(), storage=Storage(),
         _estimate=lambda *_args: .01,
-        _charge_studio_call=lambda **_kwargs: {"tokens_cobrados": 12},
+        _charge_studio_call=charge_call,
         _credits_crm_id=lambda value: value,
         credit_ledger=SimpleNamespace(
             assert_available=lambda _client, _estimate: 1000,
@@ -109,6 +113,7 @@ def test_image_generation_keeps_reference_roles_in_provider_prompt():
     result = studio_create.create_image({
         "prompt": "Coloque o produto no cenário.", "aspect_ratio": "4:5",
         "request_id": "image-request-123",
+        "studio_session_id": "session-1", "studio_root_session_id": "root-1",
         "references": [
             {"url": source, "role": "primary", "label": "Cenário"},
             {"url": image_data("green"), "role": "insert", "label": "Produto"},
@@ -122,6 +127,8 @@ def test_image_generation_keeps_reference_roles_in_provider_prompt():
     assert captured["kwargs"]["aspect_ratio"] == "4:5"
     assert result["image_url"].endswith("result.png")
     assert result["remaining_credits"] == 988
+    assert captured["charge"]["metadata"]["studio_session_id"] == "session-1"
+    assert captured["charge"]["metadata"]["studio_root_session_id"] == "root-1"
 
 
 def test_image_generation_checks_balance_before_calling_provider():

@@ -91,6 +91,12 @@ class PostgresStudioMaintenance:
             detail = dict(cursor.fetchone() or {})
         snapshot = _mapping(row.get("payload"))
         asset = _mapping(snapshot.get("asset"))
+        usage = _mapping(snapshot.get("usage"))
+        detail.update({
+            "charged_credits": usage.get("charged_credits", snapshot.get("credits", 0)),
+            "provider_tokens": usage.get("provider_tokens", 0),
+            "internal_cost_usd": usage.get("internal_cost_usd", 0),
+        })
         return {
             "recipient_email": row.get("recipient_email") or "",
             "recipient_name": row.get("recipient_name") or "",

@@ -171,7 +171,7 @@ def studio_prompt_optimize():
     """Compile a user request for the image model without changing literals."""
     from ..services.openrouter_service import chat_completion
     from .studio_prompt import optimize_prompt
-    execute, json_body, ok, _ = _http()
+    execute, json_body, ok, service = _http()
 
     def run():
         data = json_body()
@@ -179,10 +179,38 @@ def studio_prompt_optimize():
         if not session.get('user_id'):
             raise ValueError('Entre novamente para otimizar o pedido.')
         _scope(client_id)
-        return ok(optimize_prompt(
+        modeling = service()
+        payer = modeling._credits_crm_id(client_id) or int(client_id)
+        modeling.credit_ledger.assert_available(payer, 1100)
+        provider_calls = []
+
+        def metered_prompt(*args, **kwargs):
+            response = chat_completion(*args, **kwargs)
+            provider_calls.append(response)
+            return response
+
+        result = optimize_prompt(
             data.get('prompt'), mode=data.get('mode'), context=data.get('context'),
-            text_callable=chat_completion,
-        ))
+            text_callable=metered_prompt,
+        )
+        if provider_calls:
+            request_key = str(data.get('request_id') or hashlib.sha256(
+                f"{data.get('studio_session_id')}:{data.get('mode')}:{data.get('prompt')}".encode('utf-8')
+            ).hexdigest())[:160]
+            charged = modeling._charge_studio_call(
+                client_id=client_id, user_id=session.get('user_id'),
+                idempotency_key=f"studio:prompt-optimize:{request_key}",
+                stage="prompt_optimization", provider_result=provider_calls[-1],
+                fallback_cost=modeling._estimate("prompt"), media=False,
+                metadata={
+                    "studio_session_id": str(data.get('studio_session_id') or ''),
+                    "studio_root_session_id": str(
+                        data.get('studio_root_session_id') or data.get('studio_session_id') or ''
+                    ),
+                },
+            ) or {}
+            result['charged_credits'] = int(charged.get('tokens_cobrados') or 0)
+        return ok(result)
 
     return execute(run)
 
@@ -221,6 +249,8 @@ def studio_create_directions():
             result, provider = studio_create.create(data, chat_completion)
             charged, remaining = studio_create.charge(
                 provider, int(client_id), int(user_id), result['count'], project_id, run_id,
+                studio_session_id=data.get('studio_session_id'),
+                studio_root_session_id=data.get('studio_root_session_id'),
             )
         except Exception as error:
             if history and project_id:

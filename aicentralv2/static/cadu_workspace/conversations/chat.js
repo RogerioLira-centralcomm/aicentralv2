@@ -342,6 +342,8 @@
   const depthShell = depthControl?.closest('.conversation-depth-control');
   const depthLabel = document.getElementById('conversation-depth-label');
   const depthHint = document.getElementById('conversation-depth-hint');
+  const depthTrigger = document.getElementById('conversation-depth-trigger');
+  const depthOptions = document.getElementById('conversation-depth-options');
   const depthValues = {
     '1': {id:'focus', label:'Foco', hint:'Direto ao ponto'},
     '2': {id:'analysis', label:'Análise', hint:'Resposta equilibrada'},
@@ -356,9 +358,28 @@
       depthShell.dataset.depth = item.id;
       depthShell.style.setProperty('--depth-progress', ((Number(depthControl?.value || 2) - 1) * 50) + '%');
       depthShell.querySelectorAll('[data-depth-value]').forEach(mark => mark.toggleAttribute('data-active', mark.dataset.depthValue === depthControl?.value));
+      depthShell.querySelectorAll('[data-depth-option]').forEach(option => {
+        option.toggleAttribute('aria-pressed', option.dataset.depthOption === depthControl?.value);
+      });
     }
     depthControl?.setAttribute('aria-valuetext', item.label + '. ' + item.hint);
   };
+  depthTrigger?.addEventListener('click', () => {
+    const open = depthShell?.classList.toggle('is-open');
+    depthTrigger.setAttribute('aria-expanded', String(Boolean(open)));
+  });
+  depthShell?.querySelectorAll('[data-depth-option]').forEach(option => option.addEventListener('click', () => {
+    if (depthControl) depthControl.value = option.dataset.depthOption;
+    renderDepth();
+    depthShell.classList.remove('is-open');
+    depthTrigger?.setAttribute('aria-expanded', 'false');
+  }));
+  document.addEventListener('click', event => {
+    if (depthShell?.classList.contains('is-open') && !depthShell.contains(event.target)) {
+      depthShell.classList.remove('is-open');
+      depthTrigger?.setAttribute('aria-expanded', 'false');
+    }
+  });
   depthControl?.addEventListener('input', renderDepth);
   renderDepth();
   const projectSelect = document.getElementById('conversation-project');
@@ -804,9 +825,9 @@
         `Proponha três caminhos estratégicos para o projeto ${projectName}. Compare benefício, risco, dependência e quando cada um faz sentido.`],
       ['Prepare uma atualização objetiva', 'Resumo executivo para alinhar equipe e cliente',
         `Prepare uma atualização objetiva do projeto ${projectName}: onde estamos, o que foi decidido, o que está em risco e o próximo passo.`],
-      ['Atualização de mercado', 'Fontes recentes, impactos e próximos sinais',
+      ['Pesquise o mercado', 'Fontes recentes, impactos e próximos sinais',
         `Faça uma atualização de mercado recente para o projeto ${projectName}. Pesquise fontes públicas, traga links e datas, destaque impactos para a marca e recomende os próximos sinais para acompanhar.`, '≈ 900 créditos'],
-      ['Pesquisa aprofundada', 'Cenário, concorrência, tendências e implicações',
+      ['Faça uma pesquisa completa', 'Cenário, concorrência, tendências e implicações',
         `Faça uma pesquisa aprofundada (deep research) para o projeto ${projectName}. Investigue mercado, concorrentes, tendências e evidências recentes; cite fontes e datas, diferencie fatos de inferências e consolide implicações estratégicas para a marca.`, '≈ 4.200 créditos'],
     ] : [
       ['Estruture um novo projeto', 'Briefing mínimo para sair da conversa com direção',

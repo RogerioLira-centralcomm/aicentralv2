@@ -92,3 +92,10 @@ def test_studio_desks_keep_context_and_stage_controls_aligned():
     assert ".trocr-product .trocr-editor .mc-trocr-canvas-bar" in frame_css
     assert ".mc-video-studio .mc-cadu-video-stage-bar" in frame_css
     assert ".studio-chat .studio-new-draft" in create_css
+
+
+def test_trocr_editor_uses_a_versioned_stylesheet_for_the_full_height_desk():
+    root = Path(__file__).resolve().parents[1]
+    template = (root / "aicentralv2" / "templates" / "cadu_studio" / "trocr.html").read_text(encoding="utf-8")
+
+    assert "css/trocr-editor.css') }}?v=15" in template

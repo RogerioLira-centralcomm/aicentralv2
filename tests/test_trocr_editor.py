@@ -86,6 +86,8 @@ class TrocrEditorDraftTest(unittest.TestCase):
             .get_template("parametros/_mc_trocar.html").render()
         self.assertIn(":is(.mc-shell,.trocr-product) .mc-trocr.trocr-editor", css)
         self.assertIn('.trocr-editor[data-flow="upload"] .mc-trocr-main', css)
+        self.assertIn(".trocr-editor .mc-trocr-main {\n  grid-area:3 / 2 / 4 / 3;\n  display:grid;", css)
+        self.assertIn(".trocr-editor .trocr-desk {\n  align-self:stretch;", css)
         for shared_color in ("#e2e6ec", "#a2adbb", "#383e48", "#20242b", "#292e36", "#4bd1ae", "#1e4941"):
             with self.subTest(shared_color=shared_color):
                 self.assertIn(shared_color, css)
@@ -94,7 +96,7 @@ class TrocrEditorDraftTest(unittest.TestCase):
         self.assertIn("Nova peça", page)
         self.assertIn("Elementos clicáveis", page)
         self.assertIn("Formato de saída", page)
-        self.assertIn("Teste A/B", page)
+        self.assertIn("Comparar peças", page)
         self.assertIn('data-editor-tab="ai"', page)
         self.assertIn("Agente de mídia", page)
         self.assertIn("Analisar pedido", page)
@@ -105,7 +107,7 @@ class TrocrEditorDraftTest(unittest.TestCase):
         source = (root / "aicentralv2" / "static" / "js" / "mc-trocar.js").read_text(encoding="utf-8")
         self.assertIn("initial_reference", source)
         self.assertIn("runRequestedGeneration", source)
-        self.assertIn("['A', 'B']", source)
+        self.assertIn("compareIds: ['', '']", source)
         self.assertIn("submitAgentRequest", source)
         self.assertIn("applyAgentDirectives", source)
 

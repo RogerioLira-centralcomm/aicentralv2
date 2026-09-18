@@ -30,12 +30,6 @@
   {% if portal_product != 'studio' %}
     {% if portal_product == 'workspace-public' %}
       <footer class="cadu-public-footer" aria-label="Cadu Media e conteúdos públicos">
-        <div class="cadu-public-footer__top">
-          <div class="cadu-public-footer__brand"><a href="{{ product_url('cadu') }}">Cadu Media</a><p>Uma família de ambientes para transformar contexto em trabalho.</p></div>
-          <div><h2>Soluções</h2><nav aria-label="Soluções Cadu"><a href="{{ product_url('workspace') }}">Workspace</a><a href="{{ product_url('planner') }}">Planner</a><a href="{{ product_url('studio') }}">Studio</a><a href="{{ product_url('connect') }}">Reports</a><a href="{{ product_url('skills') }}">Skills</a></nav></div>
-          <div><h2>Explorar</h2><nav aria-label="Explorar o Workspace"><a href="{{ url_for('cadu_workspace.public_page', page='como-funciona') }}">Como funciona</a><a href="{{ url_for('cadu_workspace.public_page', page='planos') }}">Planos</a><a href="{{ url_for('cadu_workspace.public_page', page='ajuda') }}">Ajuda</a><a href="{{ url_for('cadu_workspace.public_page', page='contato') }}">Contato</a></nav></div>
-          <div><h2>Políticas</h2><nav aria-label="Políticas"><a href="{{ url_for('cadu_workspace.public_page', page='ajuda') }}">Privacidade e dados</a><a href="{{ url_for('cadu_workspace.public_page', page='ajuda') }}">Acesso por papel</a><a href="{{ url_for('cadu_workspace.public_page', page='contato') }}">Falar com a equipe</a></nav></div>
-        </div>
         <section class="cadu-public-footer__news" aria-labelledby="cadu-public-news-title">
           <div class="cadu-public-footer__news-head"><div><span>Conteúdos públicos do Workspace</span><h2 id="cadu-public-news-title">Ideias para trabalhar com mais contexto.</h2></div><a href="{{ url_for('cadu_workspace.public_page', page='como-funciona') }}">Ver todos os materiais</a></div>
           <div class="cadu-public-footer__news-grid">
@@ -45,7 +39,13 @@
             <a class="cadu-public-news-card" href="{{ url_for('cadu_workspace.public_page', page='contato') }}"><img src="{{ url_for('static', filename='images/cadu/skills/skills-hero-worktable-v1.png') }}" alt="Mesa de trabalho com uma Skill aplicada"><span>Método</span><b>Quando uma Skill entra para destravar o trabalho</b></a>
           </div>
         </section>
-        <div class="cadu-public-footer__bottom"><span>© Cadu Media · Uma família CentralComm</span><nav aria-label="Links finais"><a href="{{ product_url('workspace') }}">Abrir Workspace</a><a href="{{ url_for('cadu_workspace.public_page', page='ajuda') }}">Ajuda</a></nav></div>
+        <div class="cadu-public-footer__top">
+          <div class="cadu-public-footer__brand"><a href="{{ product_url('cadu') }}"><img src="{{ url_for('static', filename='images/cadu/products/cadu-icon.png') }}" alt="Cadu"><span>Cadu Media</span></a><p>Uma família de ambientes para transformar contexto em trabalho.</p></div>
+          <div><h2>Soluções</h2><nav aria-label="Soluções Cadu"><a href="{{ product_url('workspace') }}">Workspace</a><a href="{{ product_url('planner') }}">Planner</a><a href="{{ product_url('studio') }}">Studio</a><a href="{{ product_url('connect') }}">Reports</a><a href="{{ product_url('skills') }}">Skills</a></nav></div>
+          <div><h2>Explorar</h2><nav aria-label="Explorar o Workspace"><a href="{{ url_for('cadu_workspace.public_page', page='como-funciona') }}">Como funciona</a><a href="{{ url_for('cadu_workspace.public_page', page='planos') }}">Planos</a><a href="{{ url_for('cadu_workspace.public_page', page='contato') }}">Contato</a></nav></div>
+          <div><h2>Políticas</h2><nav aria-label="Políticas"><a href="{{ url_for('cadu_workspace.public_page', page='ajuda') }}">Privacidade e dados</a><a href="{{ url_for('cadu_workspace.public_page', page='ajuda') }}">Acesso por papel</a><a href="{{ url_for('cadu_workspace.public_page', page='contato') }}">Falar com a equipe</a></nav></div>
+        </div>
+        <div class="cadu-public-footer__bottom"><span>© Cadu Media · CentralComm Publicidade Ltda. · Belo Horizonte, MG</span></div>
       </footer>
     {% else %}
       <footer class="cadu-family-footer" aria-label="Cadu Media">

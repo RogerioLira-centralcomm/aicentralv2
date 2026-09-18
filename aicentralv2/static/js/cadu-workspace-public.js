@@ -76,6 +76,9 @@
   if (carousel) {
     var previous = carousel.querySelector('[data-ws-carousel-prev]');
     var next = carousel.querySelector('[data-ws-carousel-next]');
+    if (previous) previous.addEventListener('click', function () { moveCarousel(carouselIndex - 1); });
+    if (next) next.addEventListener('click', function () { moveCarousel(carouselIndex + 1); });
+    moveCarousel(0);
     if (!reduced.matches && carouselSlides.length > 1) {
       window.setInterval(function () { moveCarousel(carouselIndex + 1); }, 6500);
     }

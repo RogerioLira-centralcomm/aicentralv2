@@ -147,6 +147,31 @@ class StudioSessionRepositoryTest(unittest.TestCase):
         with sqlite3.connect(self.repo.path) as db:
             self.assertEqual(db.execute("SELECT status FROM deletions WHERE asset_id=?", (asset_id,)).fetchone()[0], "cancelled")
 
+    def test_finalize_queues_only_unselected_attempts_for_cleanup(self):
+        self.repo = LocalSessionRepository(self.root, retention_seconds=0)
+        created = self.repo.create(31, 7, {"studio_type": "create", "title": "Campanha"})
+        unused = self.repo.accept(31, 7, created["id"], {
+            "role": "attempt", "asset_url": "/static/uploads/creative_generated/unused.png",
+            "source_id": "unused", "metadata": {"origin": "generation"},
+        })
+        previous = self.repo.accept(31, 7, created["id"], {
+            "role": "attempt", "asset_url": "/static/uploads/creative_generated/approved.png",
+            "source_id": "approved", "metadata": {"origin": "generation"},
+        })
+        approved_asset = next(asset for asset in previous["assets"] if asset["source_id"] == "approved")
+        self.repo.accept(31, 7, created["id"], {"role": "accepted", "asset_id": approved_asset["id"]})
+        final = self.repo.accept(31, 7, created["id"], {
+            "role": "accepted", "asset_url": "/static/uploads/creative_generated/final.png",
+            "source_id": "final",
+        })
+        self.repo.finalize(31, 7, created["id"], {})
+        unused_asset = next(asset for asset in unused["assets"] if asset["source_id"] == "unused")
+        with sqlite3.connect(self.repo.path) as db:
+            self.assertEqual(db.execute("SELECT status FROM assets WHERE id=?", (unused_asset["id"],)).fetchone()[0], "discarded")
+            self.assertEqual(db.execute("SELECT status FROM deletions WHERE asset_id=?", (unused_asset["id"],)).fetchone()[0], "pending")
+            self.assertEqual(db.execute("SELECT status FROM assets WHERE id=?", (approved_asset["id"],)).fetchone()[0], "accepted")
+            self.assertEqual(db.execute("SELECT status FROM assets WHERE id=?", (final["active_asset_id"],)).fetchone()[0], "final")
+
 
 class StudioSessionRouteTest(unittest.TestCase):
     def test_route_scope_csrf_conflict_and_authenticated_email(self):

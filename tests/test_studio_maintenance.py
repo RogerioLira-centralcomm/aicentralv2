@@ -44,6 +44,7 @@ def test_worker_source_rechecks_every_reference_before_physical_delete():
     assert "cx_studio_session_assets" in source
     assert "cx_studio_finalizations" in source
     assert "cx_studio_project_items" in source
+    assert "sa.role IN ('reference','base','accepted','final')" in source
     assert "FOR UPDATE SKIP LOCKED" in source
     assert "updated_at < NOW()-INTERVAL '15 minutes'" in source
     template = (Path(__file__).resolve().parents[1] / "aicentralv2" / "templates" / "emails" / "externos" / "studio-trabalho-finalizado.html").read_text(encoding="utf-8")

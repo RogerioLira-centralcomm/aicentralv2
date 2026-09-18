@@ -131,7 +131,9 @@ class PostgresStudioMaintenance:
                    AND NOT EXISTS (
                        SELECT 1 FROM cx_studio_session_assets sa
                        JOIN cx_studio_sessions s ON s.id=sa.session_id
-                       WHERE sa.asset_id=a.id AND sa.role<>'discard' AND s.status NOT IN ('archived','cancelled')
+                       WHERE sa.asset_id=a.id
+                         AND sa.role IN ('reference','base','accepted','final')
+                         AND s.status NOT IN ('archived','cancelled')
                    )
                    AND NOT EXISTS (SELECT 1 FROM cx_studio_finalizations f WHERE f.final_asset_id=a.id)
                    AND NOT EXISTS (SELECT 1 FROM cx_studio_project_items p WHERE p.asset_url=a.asset_url)

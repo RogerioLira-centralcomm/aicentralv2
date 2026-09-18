@@ -381,6 +381,28 @@ class LocalSessionRepository:
                   metrics["estimated_minutes_saved"], now))
             db.execute("UPDATE assets SET status='final', updated_at=? WHERE id=?", (now, session["active_asset_id"]))
             db.execute("INSERT OR IGNORE INTO session_assets VALUES (?,?,?,?,?)", (ident, session["active_asset_id"], "final", 0, now))
+            unused = db.execute("""
+                SELECT DISTINCT a.id,a.storage_key FROM session_assets sa
+                JOIN assets a ON a.id=sa.asset_id
+                WHERE sa.session_id=? AND sa.role='attempt' AND a.id<>?
+                  AND NOT EXISTS (
+                    SELECT 1 FROM session_assets keep
+                    WHERE keep.session_id=sa.session_id AND keep.asset_id=sa.asset_id
+                      AND keep.role IN ('reference','base','accepted','final')
+                  )
+            """, (ident, session["active_asset_id"])).fetchall()
+            for unused_asset in unused:
+                db.execute("INSERT OR IGNORE INTO session_assets VALUES (?,?,?,?,?)", (ident, unused_asset["id"], "discard", 0, now))
+                db.execute("UPDATE assets SET status='discarded',updated_at=? WHERE id=?", (now, unused_asset["id"]))
+                storage_key = str(unused_asset["storage_key"] or "")
+                if storage_key.startswith(DELETABLE_PREFIXES):
+                    db.execute("""
+                        INSERT INTO deletions(asset_id,storage_key,status,attempts,available_at,deleted_at,last_error,created_at)
+                        VALUES (?,?,'pending',0,?,NULL,'',?)
+                        ON CONFLICT(asset_id) DO UPDATE SET storage_key=excluded.storage_key,status='pending',
+                            available_at=excluded.available_at,deleted_at=NULL,last_error=''
+                    """, (unused_asset["id"], storage_key, now + self.retention_seconds, now))
+                self._event(db, ident, "trash_marked", payload={"asset_id": unused_asset["id"], "reason": "unselected_at_finalization"})
             db.execute("UPDATE sessions SET status='finalized', finalized_at=?, revision=revision+1, updated_at=? WHERE id=?", (now, now, ident))
             self._event(db, ident, "finalized", payload={"finalization_id": final_id, **metrics})
             email = clean_text(payload.get("recipient_email"), 320).lower()
@@ -641,6 +663,29 @@ class PostgresSessionRepository:
                   metrics["active_seconds"], metrics["estimated_minutes_saved"]))
             cursor.execute("UPDATE cx_studio_assets SET status='final',updated_at=NOW() WHERE id=%s", (session["active_asset_id"],))
             cursor.execute("INSERT INTO cx_studio_session_assets(session_id,asset_id,role) VALUES (%s,%s,'final') ON CONFLICT DO NOTHING", (ident, session["active_asset_id"]))
+            cursor.execute("""
+                SELECT DISTINCT a.id::text AS id,a.storage_key
+                  FROM cx_studio_session_assets sa
+                  JOIN cx_studio_assets a ON a.id=sa.asset_id
+                 WHERE sa.session_id=%s AND sa.role='attempt' AND a.id<>%s
+                   AND NOT EXISTS (
+                     SELECT 1 FROM cx_studio_session_assets keep
+                      WHERE keep.session_id=sa.session_id AND keep.asset_id=sa.asset_id
+                        AND keep.role IN ('reference','base','accepted','final')
+                   )
+            """, (ident, session["active_asset_id"]))
+            for unused_asset in cursor.fetchall():
+                cursor.execute("INSERT INTO cx_studio_session_assets(session_id,asset_id,role) VALUES (%s,%s,'discard') ON CONFLICT DO NOTHING", (ident, unused_asset["id"]))
+                cursor.execute("UPDATE cx_studio_assets SET status='discarded',updated_at=NOW() WHERE id=%s", (unused_asset["id"],))
+                storage_key = str(unused_asset.get("storage_key") or "")
+                if storage_key.startswith(DELETABLE_PREFIXES):
+                    cursor.execute("""
+                        INSERT INTO cx_studio_asset_deletions(asset_id,storage_key,available_at)
+                        VALUES (%s,%s,NOW()+(%s * INTERVAL '1 second'))
+                        ON CONFLICT (asset_id) DO UPDATE SET storage_key=EXCLUDED.storage_key,status='pending',
+                            available_at=EXCLUDED.available_at,deleted_at=NULL,last_error=''
+                    """, (unused_asset["id"], storage_key, DISCARD_RETENTION_SECONDS))
+                self._event(cursor, ident, "trash_marked", payload={"asset_id": unused_asset["id"], "reason": "unselected_at_finalization"})
             cursor.execute("UPDATE cx_studio_sessions SET status='finalized',finalized_at=NOW(),revision=revision+1,updated_at=NOW() WHERE id=%s", (ident,))
             self._event(cursor, ident, "finalized", payload={"finalization_id": final_id, **metrics})
             email = clean_text(payload.get("recipient_email"), 320).lower()

@@ -4,29 +4,15 @@ PostgreSQL is the generation queue. Export requests are durable local records.
 Run under systemd in production; --drain is an on-demand independent process.
 """
 import argparse
-import fcntl
 import json
 import logging
 import os
 import time
-from contextlib import contextmanager
 from pathlib import Path
 
+from .file_lock import file_claim
+
 log = logging.getLogger(__name__)
-
-
-@contextmanager
-def file_claim(path):
-    with path.open('a') as handle:
-        try:
-            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            yield False
-            return
-        try:
-            yield True
-        finally:
-            fcntl.flock(handle, fcntl.LOCK_UN)
 
 
 def drain_exports(root):

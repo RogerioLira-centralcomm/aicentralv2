@@ -198,12 +198,15 @@ def create_image(payload, modeling, client_id, user_id):
         f"Output aspect ratio: {aspect_ratio}.",
     ])
     provider_references = provider_image_references(references, mask)
+    requested_quality = str(data.get("quality") or "Padrão").strip().lower()
+    quality_map = {"econômica": ("low", "1K"), "economica": ("low", "1K"), "padrão": ("medium", "1K"), "padrao": ("medium", "1K"), "alta": ("high", "2K")}
+    provider_quality, provider_resolution = quality_map.get(requested_quality, ("medium", "1K"))
     provider = modeling.generator.generate_image(
         technical_prompt,
         provider_references,
         aspect_ratio=aspect_ratio,
-        quality="low",
-        resolution="1K",
+        quality=provider_quality,
+        resolution=provider_resolution,
         model=IMAGE_MODEL,
     )
     encoded = provider.get("b64_json")

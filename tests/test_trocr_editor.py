@@ -96,8 +96,8 @@ class TrocrEditorDraftTest(unittest.TestCase):
         self.assertIn("Formato de saída", page)
         self.assertIn("Teste A/B", page)
         self.assertIn('data-editor-tab="ai"', page)
-        self.assertIn("Agente de imagem", page)
-        self.assertIn("Enviar ao agente", page)
+        self.assertIn("Agente de mídia", page)
+        self.assertIn("Analisar pedido", page)
         self.assertIn("Enter envia", page)
 
     def test_generation_keeps_initial_and_latest_reference(self):
@@ -108,3 +108,22 @@ class TrocrEditorDraftTest(unittest.TestCase):
         self.assertIn("['A', 'B']", source)
         self.assertIn("submitAgentRequest", source)
         self.assertIn("applyAgentDirectives", source)
+
+    def test_studio_session_controls_are_wired_to_the_editor(self):
+        root = Path(__file__).resolve().parents[1]
+        template_root = root / "aicentralv2" / "templates"
+        page = Environment(loader=FileSystemLoader(template_root)).get_template("parametros/_mc_trocar.html").render()
+        source = (root / "aicentralv2" / "static" / "js" / "mc-trocar.js").read_text(encoding="utf-8")
+        css = (root / "aicentralv2" / "static" / "css" / "trocr-editor.css").read_text(encoding="utf-8")
+        for ident in (
+            "mcTrocrSessionSave", "mcTrocrFinish", "mcTrocrFinalizedBanner",
+            "mcTrocrContinueSession", "mcTrocrFinishDialog", "mcTrocrConfirmFinish",
+        ):
+            self.assertIn(f'id="{ident}"', page)
+            self.assertIn(ident, source)
+        self.assertIn("/format-lab/studio/sessions", source)
+        self.assertIn("studio_session_id", source)
+        self.assertIn("registerStudioVersion(version, 'accepted')", source)
+        self.assertIn("/discard", source)
+        self.assertIn("--tr-floor:#212121", css)
+        self.assertIn("color-scheme:dark", css)

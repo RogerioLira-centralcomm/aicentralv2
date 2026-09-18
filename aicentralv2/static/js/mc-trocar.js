@@ -12,6 +12,7 @@
     clients: `${apiRoot}/clients`,
     viewers: `${apiRoot}/viewer-profiles`,
     formats: `${apiRoot}/formats`,
+    studioSessions: `${apiRoot}/format-lab/studio/sessions`,
   };
   const OUTPUTS = [
     { ratio: '16:9', family: 'h', value: 16 / 9 },
@@ -110,6 +111,19 @@
     originalInstruction: '',
     refinedInstruction: '',
     selectionColor: '#087f6b',
+    studioSessionId: '',
+    studioSessionRevision: 0,
+    studioSessionStatus: '',
+    studioSessionTitle: '',
+    studioSessionRootId: '',
+    studioSessionProjectId: '',
+    studioSessionBaseAssetId: '',
+    studioSessionActiveAssetId: '',
+    studioSessionReadOnly: false,
+    studioSessionMetadata: {},
+    studioSessionQueue: Promise.resolve(),
+    studioSessionCreating: null,
+    studioStartedAt: Date.now(),
   };
 
   let editor = null;
@@ -134,6 +148,288 @@
     return `${prefix || 'studio'}-${random}`;
   }
 
+  function studioSessionUrl(suffix = '') {
+    return `${API.studioSessions}${suffix}`;
+  }
+
+  function studioVersionSourceId(version) {
+    return `trocr:${state.runId || 'pending'}:${version?.id || 'version'}`;
+  }
+
+  function resetStudioSession() {
+    state.studioSessionId = '';
+    state.studioSessionRevision = 0;
+    state.studioSessionStatus = '';
+    state.studioSessionTitle = '';
+    state.studioSessionRootId = '';
+    state.studioSessionProjectId = '';
+    state.studioSessionBaseAssetId = '';
+    state.studioSessionActiveAssetId = '';
+    state.studioSessionReadOnly = false;
+    state.studioSessionMetadata = {};
+    state.studioStartedAt = Date.now();
+    renderStudioSessionState();
+  }
+
+  function updateStudioSession(session) {
+    if (!session?.id) return;
+    state.studioSessionId = String(session.id);
+    state.studioSessionRevision = Number(session.revision || 0);
+    state.studioSessionStatus = String(session.status || 'draft');
+    state.studioSessionTitle = String(session.title || 'Edição no Trocr');
+    state.studioSessionRootId = String(session.root_session_id || session.id);
+    state.studioSessionProjectId = String(session.project_id || '');
+    state.studioSessionBaseAssetId = String(session.base_asset_id || '');
+    state.studioSessionActiveAssetId = String(session.active_asset_id || '');
+    state.studioSessionReadOnly = Boolean(session.read_only);
+    state.studioSessionMetadata = session.metadata && typeof session.metadata === 'object' ? session.metadata : {};
+    const assets = Array.isArray(session.assets) ? session.assets : [];
+    const bySource = new Map(assets.map((asset) => [String(asset.source_id || ''), asset]));
+    state.versions.forEach((version) => {
+      let asset = bySource.get(studioVersionSourceId(version));
+      if (!asset && version.origin === 'original' && state.studioSessionBaseAssetId) {
+        asset = assets.find((item) => String(item.id) === state.studioSessionBaseAssetId);
+      }
+      if (!asset) return;
+      version.studio_asset_id = String(asset.id || '');
+      version.studio_role = String(asset.role || version.studio_role || '');
+    });
+    renderStudioSessionState();
+  }
+
+  function renderStudioSessionState() {
+    const managed = Boolean(state.studioSessionId);
+    const readOnly = state.studioSessionReadOnly;
+    $('mcSwap')?.classList.toggle('is-read-only', readOnly);
+    if ($('mcTrocrFinalizedBanner')) $('mcTrocrFinalizedBanner').hidden = !readOnly;
+    if ($('mcTrocrSessionSave')) $('mcTrocrSessionSave').hidden = !managed || readOnly;
+    if ($('mcTrocrFinish')) $('mcTrocrFinish').hidden = !managed || readOnly;
+    const mutableIds = [
+      'mcSwapFile', 'mcSwapRun', 'mcTrocrAgentSend', 'mcTrocrAgentAttach', 'mcTrocrAgentFiles',
+      'mcTrocrNewEdit', 'mcTrocrDraft', 'mcTrocrScene2', 'mcTrocrScene3', 'mcTrocrPickRegion',
+      'mcTrocrEditPrompt', 'mcTrocrUsePrompt', 'mcTrocrNewPiece',
+    ];
+    const applyReadOnly = (control) => {
+      if (!control) return;
+      if (readOnly) {
+        if (control.dataset.studioDisabledBefore == null) control.dataset.studioDisabledBefore = control.disabled ? '1' : '0';
+        control.disabled = true;
+      } else if (control.dataset.studioDisabledBefore != null) {
+        control.disabled = control.dataset.studioDisabledBefore === '1';
+        delete control.dataset.studioDisabledBefore;
+      }
+    };
+    mutableIds.forEach((id) => applyReadOnly($(id)));
+    document.querySelectorAll('.trocr-editor input, .trocr-editor textarea, .trocr-editor select').forEach((control) => {
+      if (control.id !== 'mcSwapClient') applyReadOnly(control);
+    });
+    if (readOnly && $('trocrSaveStatus')) {
+      $('trocrSaveStatus').textContent = 'Finalizado e preservado';
+      $('trocrSaveStatus').dataset.status = 'saved';
+    }
+  }
+
+  function queueStudioMutation(callback) {
+    state.studioSessionQueue = state.studioSessionQueue.catch(() => {}).then(callback);
+    return state.studioSessionQueue;
+  }
+
+  async function ensureStudioSession() {
+    if (state.studioSessionId || !state.clientId) return state.studioSessionId;
+    if (state.studioSessionCreating) return state.studioSessionCreating;
+    state.studioSessionCreating = request(studioSessionUrl(), {
+      client_id: state.clientId,
+      project_id: new URLSearchParams(window.location.search).get('project_id') || '',
+      studio_type: 'edit',
+      title: currentVersion()?.name ? `Edição de ${currentVersion().name}` : 'Edição no Trocr',
+      prompt_version: 'trocr-v1',
+      metadata: { trocr: studioWorkspaceSnapshot() },
+    }).then((session) => {
+      updateStudioSession(session);
+      return state.studioSessionId;
+    }).finally(() => { state.studioSessionCreating = null; });
+    return state.studioSessionCreating;
+  }
+
+  function studioWorkspaceSnapshot() {
+    return {
+      run_id: state.runId || '',
+      active_id: state.activeId || '',
+      base_id: state.baseId || '',
+      aspect_ratio: state.aspectRatio,
+    };
+  }
+
+  async function persistStudioSnapshot() {
+    if (state.studioSessionReadOnly || !state.clientId || !state.versions.length) return null;
+    await ensureStudioSession();
+    if (!state.studioSessionId) return null;
+    return queueStudioMutation(async () => {
+      const metadata = { ...state.studioSessionMetadata, trocr: studioWorkspaceSnapshot() };
+      const session = await request(studioSessionUrl(`/${encodeURIComponent(state.studioSessionId)}`), {
+        client_id: state.clientId,
+        expected_revision: state.studioSessionRevision,
+        title: state.studioSessionTitle || `Edição de ${currentVersion()?.name || 'criativo'}`,
+        prompt_version: 'trocr-v1',
+        metadata,
+      }, { method: 'PATCH' });
+      updateStudioSession(session);
+      return session;
+    });
+  }
+
+  async function registerStudioVersion(version, role = 'attempt') {
+    if (!version || state.studioSessionReadOnly || !state.clientId) return null;
+    if (String(version.image || '').startsWith('data:')) return null;
+    await ensureStudioSession();
+    if (!state.studioSessionId) return null;
+    if (version.origin === 'original' && state.studioSessionBaseAssetId) {
+      version.studio_asset_id = state.studioSessionBaseAssetId;
+      version.studio_role = 'base';
+      return version.studio_asset_id;
+    }
+    if (version.studio_asset_id && version.studio_role === role) return version.studio_asset_id;
+    return queueStudioMutation(async () => {
+      const session = await request(studioSessionUrl(`/${encodeURIComponent(state.studioSessionId)}/accept`), {
+        client_id: state.clientId,
+        asset_id: version.studio_asset_id || '',
+        asset_url: version.studio_asset_id ? '' : version.image,
+        source_type: 'trocr',
+        source_id: studioVersionSourceId(version),
+        title: version.name || version.id,
+        kind: 'image',
+        role,
+        metadata: {
+          origin: version.origin === 'original' ? 'reference' : 'trocr-edit',
+          run_id: state.runId || '',
+          version_id: version.id,
+          parent_id: version.parent_id || '',
+        },
+      });
+      updateStudioSession(session);
+      const asset = (session.assets || []).find((item) => String(item.source_id || '') === studioVersionSourceId(version))
+        || (session.assets || []).find((item) => String(item.id || '') === String(version.studio_asset_id || ''));
+      if (asset) {
+        version.studio_asset_id = String(asset.id || '');
+        version.studio_role = role;
+      }
+      return version.studio_asset_id || '';
+    });
+  }
+
+  async function syncStudioVersions() {
+    if (state.studioSessionReadOnly || !state.clientId || !state.versions.length) return;
+    await ensureStudioSession();
+    for (const version of state.versions) {
+      if (version.origin === 'original') {
+        await registerStudioVersion(version, 'base');
+      } else if (!version.studio_asset_id) {
+        await registerStudioVersion(version, 'attempt');
+      }
+    }
+  }
+
+  async function loadStudioSession(params) {
+    const ident = String(params.get('studio_session_id') || '').trim();
+    if (!ident || !state.clientId) {
+      renderStudioSessionState();
+      return false;
+    }
+    const session = await request(`${studioSessionUrl(`/${encodeURIComponent(ident)}`)}?client_id=${encodeURIComponent(state.clientId)}`);
+    updateStudioSession(session);
+    const storedRun = String(session.metadata?.trocr?.run_id || '');
+    if (storedRun && storedRun !== state.runId) {
+      await loadHistory(storedRun);
+      updateStudioSession(session);
+    }
+    const assets = Array.isArray(session.assets) ? session.assets : [];
+    const baseAsset = assets.find((asset) => String(asset.id || '') === String(session.base_asset_id || ''));
+    const source = String(params.get('source') || baseAsset?.asset_url || '');
+    if (!storedRun && source && !session.read_only) {
+      await ingestStill(source, { name: baseAsset?.title || session.title || 'Peça do Studio' });
+      await persistHistory();
+    }
+    renderStudioSessionState();
+    setStatus(session.read_only
+      ? 'Trabalho finalizado. Consulte ou crie uma continuação para editar.'
+      : 'Sessão do Studio conectada. Cada versão será salva automaticamente.');
+    return true;
+  }
+
+  async function saveStudioWork() {
+    if (state.studioSessionReadOnly) return;
+    const button = $('mcTrocrSessionSave');
+    if (button) button.disabled = true;
+    try {
+      if (!await persistHistory()) return;
+      await syncStudioVersions();
+      await persistStudioSnapshot();
+      toast('Sessão salva no Studio', 'success');
+    } catch (error) {
+      showError('Não foi possível salvar a sessão', error.message, 'save');
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  function openStudioFinish() {
+    const version = currentVersion();
+    if (!version || state.studioSessionReadOnly) return;
+    if ($('mcTrocrFinishPreview')) $('mcTrocrFinishPreview').src = version.image;
+    if ($('mcTrocrFinishAssetName')) $('mcTrocrFinishAssetName').textContent = version.name || version.id;
+    $('mcTrocrFinishDialog')?.showModal();
+  }
+
+  async function finalizeStudioSession() {
+    const version = currentVersion();
+    const button = $('mcTrocrConfirmFinish');
+    if (!version || !state.studioSessionId || state.studioSessionReadOnly) return;
+    if (button) { button.disabled = true; button.textContent = 'Finalizando…'; }
+    try {
+      if (!await persistHistory()) throw new Error('Salve a versão antes de finalizar.');
+      await registerStudioVersion(version, 'accepted');
+      await persistStudioSnapshot();
+      const result = await queueStudioMutation(() => request(
+        studioSessionUrl(`/${encodeURIComponent(state.studioSessionId)}/finalize`),
+        {
+          client_id: state.clientId,
+          active_seconds: Math.round((Date.now() - state.studioStartedAt) / 1000),
+          pending_jobs: state.generating,
+        },
+      ));
+      updateStudioSession(result.session);
+      $('mcTrocrFinishDialog')?.close();
+      toast('Trabalho finalizado e preservado', 'success');
+      setStatus('A peça final foi preservada. O resumo entrou na fila de envio quando aplicável.');
+    } catch (error) {
+      showError('Não foi possível finalizar o trabalho', error.message, 'save');
+    } finally {
+      if (button) { button.disabled = false; button.textContent = 'Sim, finalizar trabalho'; }
+    }
+  }
+
+  async function continueStudioSession() {
+    if (!state.studioSessionId || !state.studioSessionReadOnly) return;
+    try {
+      const session = await request(studioSessionUrl(`/${encodeURIComponent(state.studioSessionId)}/continue`), {
+        client_id: state.clientId,
+        studio_type: 'edit',
+        title: `Continuação de ${currentVersion()?.name || 'trabalho'}`,
+      });
+      updateStudioSession(session);
+      state.studioStartedAt = Date.now();
+      const url = new URL(window.location.href);
+      url.searchParams.set('studio_session_id', session.id);
+      url.searchParams.delete('source');
+      window.history.replaceState({}, '', url);
+      await persistStudioSnapshot();
+      toast('Nova etapa criada', 'success');
+      setStatus('Continuação aberta. A peça final anterior permanece preservada.');
+    } catch (error) {
+      showError('Não foi possível continuar a sessão', error.message, 'save');
+    }
+  }
+
   async function boot() {
     state.csrf = $('mcSwap')?.dataset?.csrf || '';
     try { state.selectionColor = window.localStorage.getItem('cx-trocr-selection-color') || state.selectionColor; } catch (_) { /* optional */ }
@@ -144,6 +440,7 @@
       paintRegionBox, refreshPrompt, schedulePersist, persistHistory, fitCreative,
       imageContentRect, togglePickRegion, highlightQuality });
     async function openElementWorkspace(intent = null) {
+      if (state.studioSessionReadOnly) return;
       try {
         if (editor?.isDirty() && !await persistHistory()) return;
         const { openWorkspace } = await import('./trocr/workspace.js?v=6');
@@ -221,19 +518,28 @@
     try {
       const clients = await request(API.clients);
       state.allClients = Array.isArray(clients) ? clients : (clients?.items || clients?.clients || []);
-      const wantedClient = params.get('client') || params.get('client_id');
+      const wantedClient = params.get('client') || params.get('client_id') || params.get('creative_client_id');
       if (wantedClient) state.clientId = wantedClient;
       applyDeskBrand();
     } catch (_error) {
       setStatus('Não deu para carregar as marcas. Você ainda pode escrever o nome no pedido.');
     }
-    await Promise.all([loadHistory(params.get('run') || undefined), loadViewerCatalog()]);
+    if (params.get('studio_session_id')) {
+      await loadViewerCatalog();
+      await loadStudioSession(params).catch((error) => {
+        setStatus(error.message || 'Não foi possível conectar a sessão do Studio.');
+      });
+    } else {
+      await Promise.all([loadHistory(params.get('run') || undefined), loadViewerCatalog()]);
+    }
     await consumeHandoff();
     refreshQuote();
     document.addEventListener('cadu:brand-change', async (event) => {
       const id = String(event.detail?.clientId || '');
       if (!id || id === String(state.clientId)) return;
       if (editor?.isDirty() && !await persistHistory()) return;
+      if (state.studioSessionId && state.versions.length) await persistStudioSnapshot().catch(() => {});
+      resetStudioSession();
       selectBrand(id);
       state.runId = '';
       const restored = await loadHistory();
@@ -261,6 +567,8 @@
     input?.addEventListener('change', () => takeFile(input.files?.[0]));
     $('mcSwapClient')?.addEventListener('change', async (event) => {
       if (editor?.isDirty() && !await persistHistory()) { event.target.value = state.clientId; return; }
+      if (state.studioSessionId && state.versions.length) await persistStudioSnapshot().catch(() => {});
+      resetStudioSession();
       selectBrand(event.target.value);
       state.runId = '';
       const restored = await loadHistory();
@@ -364,6 +672,13 @@
       $('mcTrocrLogo')?.focus();
     });
     $('mcTrocrDraft')?.addEventListener('click', () => runSwap('draft'));
+    $('mcTrocrSessionSave')?.addEventListener('click', saveStudioWork);
+    $('mcTrocrFinish')?.addEventListener('click', openStudioFinish);
+    $('mcTrocrConfirmFinish')?.addEventListener('click', finalizeStudioSession);
+    $('mcTrocrContinueSession')?.addEventListener('click', continueStudioSession);
+    document.querySelectorAll('[data-close-trocr-finish]').forEach((button) => {
+      button.addEventListener('click', () => $('mcTrocrFinishDialog')?.close());
+    });
     $('mcTrocrHistoryBtn')?.addEventListener('click', openHistory);
     $('mcTrocrOpenHistory')?.addEventListener('click', openHistory);
     $('mcTrocrHistoryClose')?.addEventListener('click', closeHistory);
@@ -518,6 +833,10 @@
   }
 
   function takeFile(file) {
+    if (state.studioSessionReadOnly) {
+      setStatus('Este trabalho está finalizado. Use Continuar editando para fazer novos ajustes.');
+      return;
+    }
     if (!file || !file.type.startsWith('image/')) {
       setStatus('Solte uma imagem. PNG ou JPG.');
       return;
@@ -726,6 +1045,8 @@
       params,
       scene_index: Number(partial.scene_index || params.scene_index || 1) || 1,
       scene_group: partial.scene_group || params.scene_group || sceneGroup(),
+      studio_asset_id: partial.studio_asset_id || '',
+      studio_role: partial.studio_role || '',
     };
     state.versions.push(version);
     state.activeId = version.id;
@@ -1479,6 +1800,7 @@
   }
 
   async function submitAgentRequest() {
+    if (state.studioSessionReadOnly) return;
     if (state.generating) return;
     const instruction = ($('mcSwapNote')?.value || '').trim();
     if (!instruction) {
@@ -1515,7 +1837,7 @@
 
   async function runSwap(quality, extra) {
     const base = baseVersion();
-    if (!base?.image || state.generating) return;
+    if (!base?.image || state.generating || state.studioSessionReadOnly) return;
     state.generating = true;
     if ($('mcTrocrNewPiece')) $('mcTrocrNewPiece').disabled = true;
     if ($('mcTrocrNewEdit')) $('mcTrocrNewEdit').disabled = true;
@@ -1631,6 +1953,7 @@
               : 'Nova versão criada. Use esta versão como base para continuar editando.'))));
       renderCompare();
       await persistHistory();
+      if (state.baseId === version.id) await registerStudioVersion(version, 'accepted');
       return version;
     } catch (error) {
       setFlow('generate', 'error');
@@ -1666,7 +1989,7 @@
   }
 
   async function useAsBase(id) {
-    if (state.generating || state.startingNewPiece) return;
+    if (state.generating || state.startingNewPiece || state.studioSessionReadOnly) return;
     if (editor?.isDirty() && !await persistHistory()) return;
     const version = state.versions.find((item) => item.id === id);
     if (!version) return;
@@ -1685,6 +2008,7 @@
     setStatus('Use esta versão como base para continuar editando.');
     state.lastAction = 'ocr';
     schedulePersist();
+    persistHistory().then(() => registerStudioVersion(version, 'accepted')).catch(() => {});
     readReference(version, { force: true, reference: version.image });
   }
 
@@ -1717,13 +2041,29 @@
     schedulePersist();
   }
 
-  function deleteVersion(id) {
+  async function deleteVersion(id) {
     const version = state.versions.find((item) => item.id === id);
     if (!version || version.origin === 'original') {
       setStatus('A versão original não pode ser excluída.');
       return;
     }
     if (state.versions.length <= 1) return;
+    if (version.studio_asset_id && [state.studioSessionActiveAssetId, state.studioSessionBaseAssetId].includes(version.studio_asset_id)) {
+      setStatus('Defina outra versão como base antes de enviar esta para o descarte.');
+      return;
+    }
+    if (version.studio_asset_id && state.studioSessionId) {
+      try {
+        const session = await queueStudioMutation(() => request(
+          studioSessionUrl(`/${encodeURIComponent(state.studioSessionId)}/discard`),
+          { client_id: state.clientId, asset_id: version.studio_asset_id },
+        ));
+        updateStudioSession(session);
+      } catch (error) {
+        setStatus(error.message || 'Não foi possível mover a versão para o descarte.');
+        return;
+      }
+    }
     state.versions = state.versions.filter((item) => item.id !== id);
     if (state.activeId === id) state.activeId = state.versions[state.versions.length - 1].id;
     if (state.baseId === id) state.baseId = state.versions[0].id;
@@ -1793,6 +2133,10 @@
     if (!card) return;
     const id = card.getAttribute('data-version');
     const action = button?.getAttribute('data-action');
+    if (state.studioSessionReadOnly && ['base', 'duplicate', 'rename', 'delete', 'restore'].includes(action)) {
+      toast('Crie uma continuação para alterar este trabalho.', 'error');
+      return;
+    }
     if (!action && event.target.closest('summary, menu, details')) return;
     if (action === 'base') useAsBase(id);
     else if (action === 'compare') {
@@ -2182,7 +2526,7 @@
   }
 
   async function onNewPiece() {
-    if (state.generating || state.startingNewPiece) return;
+    if (state.generating || state.startingNewPiece || state.studioSessionReadOnly) return;
     state.startingNewPiece = true;
     try {
     if (state.versions.length) {
@@ -2193,6 +2537,7 @@
       if (!ok) return;
       if (!await persistHistory()) return;
     }
+    resetStudioSession();
     await startNewRun();
     setStatus('Solte uma imagem. PNG ou JPG.');
     $('mcSwapDrop')?.focus();
@@ -2758,6 +3103,8 @@
       voiceover_script: item.voiceover_script || '',
       storyboard_ids: item.storyboard_ids || [],
       extended_from: item.extended_from || '',
+      studio_asset_id: item.studio_asset_id || '',
+      studio_role: item.studio_role || '',
     })).filter((item) => item.media !== 'video' && item.image);
   }
 
@@ -2849,6 +3196,8 @@
       if (item.scene_index && !local.scene_index) local.scene_index = item.scene_index;
       if (item.scene_group && !local.scene_group) local.scene_group = item.scene_group;
       if (item.ocr && !local.ocr) local.ocr = item.ocr;
+      if (item.studio_asset_id) local.studio_asset_id = item.studio_asset_id;
+      if (item.studio_role) local.studio_role = item.studio_role;
     });
   }
 
@@ -2923,10 +3272,14 @@
               voiceover_script: item.voiceover_script || '',
               storyboard_ids: item.storyboard_ids || [],
               extended_from: item.extended_from || '',
+              studio_asset_id: item.studio_asset_id || '',
+              studio_role: item.studio_role || '',
             })),
           });
           applyStoredUrls(saved);
           state.replaceSession = false;
+          await syncStudioVersions();
+          await persistStudioSnapshot();
         } catch (error) {
           const conflict = error.status === 409 || String(error.message || '').toLowerCase().includes('histórico mudou');
           editor?.saveStatus('error', conflict

@@ -107,6 +107,21 @@ class StudioSessionRepositoryTest(unittest.TestCase):
         self.assertEqual(accepted["status"], "ready")
         self.assertEqual(result["finalization"]["generation_count"], 1)
 
+    def test_trocr_attempt_counts_as_one_edit_in_final_metrics(self):
+        created = self.repo.create(31, 7, {"studio_type": "edit", "title": "Ajuste"})
+        attempt = {
+            "role": "attempt", "asset_url": "/media/edited.png", "source_type": "trocr",
+            "source_id": "run-1:v2", "metadata": {"origin": "trocr-edit"},
+        }
+        first = self.repo.accept(31, 7, created["id"], attempt)
+        self.repo.accept(31, 7, created["id"], attempt)
+        self.repo.accept(31, 7, created["id"], {
+            "role": "accepted", "asset_id": first["assets"][0]["id"],
+        })
+        result = self.repo.finalize(31, 7, created["id"], {"active_seconds": 60})
+        self.assertEqual(result["finalization"]["edit_count"], 1)
+        self.assertEqual(result["finalization"]["generation_count"], 0)
+
     def test_discard_is_marked_for_delayed_deletion_and_restore_cancels_it(self):
         self.repo = LocalSessionRepository(self.root, retention_seconds=0)
         created = self.repo.create(31, 7, {"studio_type": "create"})

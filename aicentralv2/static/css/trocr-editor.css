@@ -366,6 +366,96 @@
 .trocr-editor .mc-trocr-actions { gap:8px; }
 .trocr-editor .mc-trocr-actions .cx-btn { min-height:38px; border-radius:7px; }
 
+/* Studio dark contract. This final scoped layer intentionally wins over the
+   retired light editor skin while preserving the editor's layout. */
+:is(.mc-shell,.trocr-product)[data-mc-page="trocar"] {
+  --tr-ink:#ececec;
+  --tr-muted:#b4b4b4;
+  --tr-subtle:#d2d2d2;
+  --tr-border:#4a4a4a;
+  --tr-control:#383838;
+  --tr-panel:#2f2f2f;
+  --tr-floor:#212121;
+  --tr-canvas:#262626;
+  --tr-accent:#58d39a;
+  --tr-selected:#25483a;
+  color-scheme:dark;
+}
+.trocr-editor,
+.trocr-editor .mc-trocr-main,
+.trocr-editor .mc-trocr-canvas,
+.trocr-editor .trocr-desk,
+.trocr-editor .mc-trocr-order,
+.trocr-editor .trocr-desk > [role="tabpanel"] { background:var(--tr-floor); color:var(--tr-ink); }
+.trocr-editor :is(.mc-trocr-pagehead,.trocr-elements,.mc-trocr-reel,.mc-trocr-history,.mc-trocr-dialog,.mc-trocr-take,.mc-trocr-take menu) {
+  background:var(--tr-panel);
+  color:var(--tr-ink);
+  border-color:var(--tr-border);
+}
+.trocr-editor .mc-trocr-pagehead { background:var(--tr-panel); border-bottom-color:var(--tr-border); }
+.trocr-editor .mc-trocr-pagehead h1,
+.trocr-editor .trocr-agent-heading h2,
+.trocr-editor .mc-trocr-route-name { color:var(--tr-ink); }
+.trocr-editor .mc-trocr-stage,
+.trocr-editor .mc-trocr-stage.has-image { background:var(--tr-canvas); border-color:var(--tr-border); }
+.trocr-editor .mc-trocr-frame { background:#252525; box-shadow:0 18px 45px #1118; }
+.trocr-editor :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),textarea,select),
+.trocr-editor .trocr-agent-input textarea,
+.trocr-editor .mc-trocr-inspector .cx-input,
+.trocr-editor .mc-trocr-inspector .cx-select {
+  background:var(--tr-control);
+  color:var(--tr-ink);
+  border-color:var(--tr-border);
+}
+.trocr-editor :is(input,textarea)::placeholder { color:#929292; }
+.trocr-editor .trocr-generation-footer,
+.trocr-editor .trocr-elements,
+.trocr-editor .trocr-elements > header,
+.trocr-editor .trocr-element-row,
+.trocr-editor .mc-trocr-inspector { background:var(--tr-panel); color:var(--tr-ink); border-color:var(--tr-border); }
+.trocr-editor .trocr-element-row:hover { background:#383838; border-color:#5d5d5d; }
+.trocr-editor .trocr-agent-mark,
+.trocr-editor .trocr-element-icon { background:var(--tr-selected); color:var(--tr-accent); border-color:#47705f; }
+.trocr-editor .mc-trocr-canvas-tools button,
+.trocr-editor .trocr-agent-actions .mc-trocr-text-cta,
+.trocr-editor .mc-trocr-force { background:var(--tr-control); color:var(--tr-ink); border-color:var(--tr-border); }
+.trocr-editor .mc-trocr-canvas-tools button[aria-pressed="true"],
+.trocr-editor .mc-trocr-force:has(input:checked) { background:var(--tr-selected); color:var(--tr-accent); border-color:var(--tr-accent); }
+.trocr-editor .trocr-agent-actions .cx-btn-primary,
+.trocr-editor .mc-trocr-generate .mc-trocr-actions .cx-btn-primary,
+.trocr-editor #mcTrocrFinish { background:#19a974; border-color:#19a974; color:#fff; box-shadow:none; }
+.trocr-editor .mc-trocr-route { background:transparent; border-color:var(--tr-border); }
+.trocr-editor .mc-trocr-route-block { border-top-color:var(--tr-border); }
+.trocr-editor .mc-trocr-route-copy,
+.trocr-editor .mc-trocr-status,
+.trocr-editor .mc-trocr-cost,
+.trocr-editor .trocr-element-copy small,
+.trocr-editor .trocr-sidebar-intro { color:var(--tr-muted); }
+.trocr-editor .mc-swap-drop { background:var(--tr-panel); color:var(--tr-ink); border-color:#626262; }
+.trocr-editor .trocr-finalized-banner {
+  grid-area:2 / 1 / 3 / -1;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  min-width:0;
+  padding:8px 16px;
+  border-bottom:1px solid #3f6c58;
+  background:#203d31;
+  color:#d8f6e9;
+  font-size:12px;
+}
+.trocr-editor .trocr-finalized-banner[hidden] { display:none; }
+.trocr-editor .trocr-finalized-banner button { color:#8ce6ba; }
+.trocr-editor.is-read-only .trocr-desk { opacity:.78; }
+.trocr-editor.is-read-only .trocr-element-box { pointer-events:none; }
+.trocr-finish-dialog figure { margin:0; padding:0 20px 18px; }
+.trocr-finish-dialog figure img { display:block; width:100%; max-height:340px; object-fit:contain; border-radius:10px; background:#212121; }
+.trocr-finish-dialog figcaption { margin-top:8px; color:var(--tr-muted); font-size:12px; }
+@media(max-width:700px) {
+  .trocr-editor .trocr-finalized-banner { align-items:flex-start; flex-direction:column; gap:4px; height:auto; }
+}
+
 /* Editorial pass: one calm surface, one decision at a time. */
 .trocr-editor .mc-trocr-main,
 .trocr-editor .mc-trocr-canvas,

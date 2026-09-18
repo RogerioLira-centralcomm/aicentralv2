@@ -5,6 +5,8 @@
     </div>
     <div class="mc-trocr-pagehead-actions">
       <span id="trocrSaveStatus" role="status" aria-live="polite">Nenhuma alteração</span>
+      <button type="button" class="mc-trocr-text-cta" id="mcTrocrSessionSave" hidden>Salvar</button>
+      <button type="button" class="cx-btn cx-btn-primary" id="mcTrocrFinish" hidden>Finalizar</button>
       <button type="button" class="mc-trocr-text-cta" id="mcTrocrHistoryBtn" disabled>
         Versões
         <span class="mc-trocr-history-count" id="mcTrocrHistoryCount">0</span>
@@ -15,6 +17,10 @@
       </button>
     </div>
   </header>
+  <section class="trocr-finalized-banner" id="mcTrocrFinalizedBanner" hidden aria-live="polite">
+    <span><strong>Trabalho finalizado.</strong> Esta sessão está preservada somente para consulta.</span>
+    <button type="button" class="mc-trocr-text-cta" id="mcTrocrContinueSession">Continuar editando</button>
+  </section>
   <div hidden>{% include "parametros/trocr/_flow_sidebar.html" %}</div>
   {% include "parametros/trocr/_elements.html" %}
   <section class="trocr-desk" aria-label="Ferramentas de edição">

@@ -84,6 +84,18 @@ def estimate_metrics(events, active_seconds=0):
     return counts
 
 
+def completed_event_for_asset(metadata):
+    """Map a persisted attempt to the metric shown in the final delivery."""
+    origin = clean_text((metadata or {}).get("origin"), 40).lower()
+    if origin == "generation":
+        return "generation_completed"
+    if origin in {"edit", "trocr", "trocr-edit", "element-edit"}:
+        return "edit_completed"
+    if origin in {"adapt", "format", "resize", "recrop"}:
+        return "format_created"
+    return ""
+
+
 def public_session(row, assets=None, finalization=None):
     data = dict(row or {})
     for key in ("metadata",):
@@ -281,8 +293,9 @@ class LocalSessionRepository:
             else:
                 db.execute("UPDATE sessions SET status=CASE WHEN status='draft' THEN 'active' ELSE status END, revision=revision+1, updated_at=? WHERE id=?", (now, ident))
             metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
-            if role == "attempt" and metadata.get("origin") == "generation":
-                self._event(db, ident, "generation_completed", clean_text(payload.get("source_id"), 180) or asset,
+            completed_event = completed_event_for_asset(metadata) if role == "attempt" else ""
+            if completed_event:
+                self._event(db, ident, completed_event, clean_text(payload.get("source_id"), 180) or asset,
                             {"asset_id": asset})
         return self.read(client_id, user_id, ident)
 
@@ -549,8 +562,9 @@ class PostgresSessionRepository:
             else:
                 cursor.execute("UPDATE cx_studio_sessions SET status=CASE WHEN status='draft' THEN 'active' ELSE status END,revision=revision+1,updated_at=NOW() WHERE id=%s", (ident,))
             metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
-            if role == "attempt" and metadata.get("origin") == "generation":
-                self._event(cursor, ident, "generation_completed", clean_text(payload.get("source_id"), 180) or asset_id,
+            completed_event = completed_event_for_asset(metadata) if role == "attempt" else ""
+            if completed_event:
+                self._event(cursor, ident, completed_event, clean_text(payload.get("source_id"), 180) or asset_id,
                             {"asset_id": asset_id})
         self.connection.commit()
         return self.read(client_id, user_id, ident)

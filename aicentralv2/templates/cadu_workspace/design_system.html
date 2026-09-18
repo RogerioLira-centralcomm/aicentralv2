@@ -1,16 +1,16 @@
 {% extends 'cadu_portals/base.html' %}
-{% block title %}Design system atual — Cadu Workspace{% endblock %}
+{% block title %}Design system CentralX / CADU — Workspace{% endblock %}
 {% block product_id %}workspace-public{% endblock %}
 {% block meta %}<meta name="robots" content="noindex,nofollow"><meta name="description" content="Referência interna da linguagem atual do Cadu Workspace."><link rel="canonical" href="{{ canonical }}">{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-design-system.css') }}?v=2">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-design-system.css') }}?v=3">{% endblock %}
 {% block content %}
 <article class="wsds">
   <header class="wsds-hero">
-    <div class="wsds-path"><a href="{{ url_for('cadu_workspace.index') }}">Workspace</a><span>/</span><span>Referência interna</span></div>
+    <div class="wsds-path"><a href="{{ url_for('cadu_workspace.index') }}">Workspace</a><span>/</span><span>CentralX / CADU</span><span>/</span><span>v3 · fundação</span></div>
     <div class="wsds-hero-grid"><div><p class="wsds-status"><i></i>Linha atual · setembro de 2026</p><h1>Uma linguagem para organizar o trabalho.</h1><p>Projetos definem o ritmo. Marcas definem a prioridade visual. Conversas usam a mesma estrutura para manter contexto, decisão e continuidade no mesmo produto.</p></div><aside><span>Princípio central</span><strong>Contexto antes de interface.</strong><p>Cada superfície mostra primeiro o que a equipe precisa reconhecer para continuar.</p></aside></div>
   </header>
 
-  <nav class="wsds-index" aria-label="Índice do design system"><a href="#fundamentos">Fundamentos</a><a href="#estrutura">Estrutura</a><a href="#padroes">Padrões aprovados</a><a href="#conversas">Conversas</a></nav>
+  <nav class="wsds-index" aria-label="Índice do design system"><a href="#fundamentos">Fundação</a><a href="#estrutura">Estrutura</a><a href="#identidade">Identidade</a><a href="#componentes">Componentes</a><a href="#padroes">Padrões</a><a href="#emails">E-mails</a><a href="#versoes">Versões</a></nav>
 
   <section class="wsds-section" id="fundamentos"><header><span>Fundamentos</span><h2>Uma base quieta. O trabalho cria a diferenciação.</h2><p>O Workspace não colore tudo. O verde identifica ação e continuidade; marcas e projetos trazem a identidade específica de cada contexto.</p></header>
     <div class="wsds-foundations"><div class="wsds-colors" aria-label="Cores principais"><div style="--swatch:#f3f6f8"><b>Canvas</b><span>#F3F6F8</span></div><div style="--swatch:#ffffff"><b>Superfície</b><span>#FFFFFF</span></div><div style="--swatch:#172033"><b>Tinta</b><span>#172033</span></div><div style="--swatch:#687386"><b>Texto secundário</b><span>#687386</span></div><div style="--swatch:#087765"><b>Ação Workspace</b><span>#087765</span></div><div style="--swatch:#e9f5f1"><b>Continuidade</b><span>#E9F5F1</span></div></div>
@@ -21,9 +21,23 @@
     <ol class="wsds-rules"><li><b>Canvas</b><p>Separa o produto do conteúdo e mantém a leitura respirável.</p></li><li><b>Superfície</b><p>Agrupa um trabalho real: projeto, marca, conversa ou decisão.</p></li><li><b>Contexto</b><p>Identifica origem, estado e próximo passo sem virar decoração.</p></li><li><b>Ação</b><p>Verde apenas onde a pessoa pode continuar ou confirmar.</p></li></ol>
   </section>
 
+  <section class="wsds-section wsds-catalog-section" id="identidade"><header><span>Identidade</span><h2>CentralX é a origem. CADU organiza a família.</h2><p>As soluções herdam a fundação e mudam apenas o necessário: acento, ícone, vocabulário e conteúdo. Logos oficiais são sempre resolvidos pelo catálogo de identidade.</p></header>
+    <div class="wsds-identity-grid"><article class="wsds-identity-card wsds-identity-centralx"><div class="wsds-official-mark">X</div><div><span>Marca institucional</span><h3>CentralX</h3><p>Assinatura principal e linguagem transversal.</p></div></article><article class="wsds-identity-card"><img src="{{ url_for('static', filename='images/cadu/brand-icons/workspace-192.png') }}" alt="Ícone oficial do Cadu Workspace"><div><span>Família de produto</span><h3>CADU</h3><p>Shell, componentes, estados, soluções e comunicação.</p></div></article></div>
+    <div class="wsds-solution-marks" aria-label="Logos oficiais das soluções Cadu">{% for slug, name in [('workspace','Workspace'),('planner','Planner'),('studio','Studio'),('connect','Reports'),('skills','Skills')] %}<div><img src="{{ url_for('static', filename='images/cadu/brand-icons/' ~ slug ~ '-192.png') }}" alt="Logo oficial {{ name }}"><b>{{ name }}</b><small>oficial · 2D</small></div>{% endfor %}</div>
+  </section>
+
+  <section class="wsds-section" id="componentes"><header><span>Componentes</span><h2>Uma biblioteca para produto, não uma coleção de telas.</h2><p>Formatos, listagens, cards, formulários, modais, feedback e efeitos devem compartilhar a mesma gramática antes de receber a identidade da solução.</p></header>
+    <div class="wsds-component-grid">{% for title, text in [('Formatos','Grid, detalhe, split, painel e superfícies responsivas.'),('Listagens','Densidade, filtros, ordenação, paginação e estados vazios.'),('Cards','Resumo de contexto, métricas, prioridade e próximo passo.'),('Formulários','Campos, validação, ajuda, seleção e envio.'),('Modais','Confirmação, carregamento, sucesso e erro.'),('Efeitos visuais','Sombra, transição, foco, sobreposição e movimento com função.') ] %}<article><span>{{ '%02d'|format(loop.index) }}</span><h3>{{ title }}</h3><p>{{ text }}</p><small>Fundação CADU · v3</small></article>{% endfor %}</div>
+  </section>
+
   <section class="wsds-section" id="padroes"><header><span>Padrões aprovados</span><h2>Projeto informa. Marca diferencia.</h2><p>As duas superfícies compartilham tipografia, controles e densidade, mas têm papéis visuais diferentes.</p></header>
     <div class="wsds-specimen wsds-specimen-project"><div class="wsds-specimen-label"><span>Projeto</span><small>Dossiê operacional</small></div><article><i></i><div><span>Em andamento</span><h3>Lançamento institucional</h3><p>Briefing, fontes e decisões reunidos para a equipe continuar.</p><small>Marca CentralComm · 4 fontes prontas</small></div><aside><span>Próximo passo</span><b>Continuar com a base pronta</b><a href="#padroes">Abrir projeto</a></aside></article></div>
     <div class="wsds-specimen wsds-specimen-brand"><div class="wsds-specimen-label"><span>Marca</span><small>Prioridade visual</small></div><article><div class="wsds-brand-visual"><span>C</span></div><div><small>Comunicação e mídia</small><h3>CentralComm</h3><p>A identidade conduz a superfície; os controles continuam pertencendo ao Workspace.</p><footer><span>Base analisada</span><a href="#padroes">Abrir marca</a></footer></div></article></div>
+  </section>
+
+  <section class="wsds-section" id="emails"><header><span>E-mails</span><h2>A mesma linguagem continua fora do produto.</h2><p>O catálogo de e-mails registra eventos, templates e versões. O header de produto tem no máximo 45px; o conteúdo recebe a diferenciação.</p></header>
+    <div class="wsds-email-foundation"><div><span>Fundação</span><strong>Header · corpo · ação · contexto · footer</strong><p>Uma estrutura comum para todos os envios transacionais.</p></div><div><span>Regra</span><strong>Uma ação principal</strong><p>O e-mail não vira dashboard nem substitui o produto.</p></div></div>
+    <div class="wsds-email-catalog">{% for product, events in [('Workspace','análise concluída · marca aprovada · projeto criado · pendência'),('Planner','plano criado · recomendações · melhorias · contato comercial'),('Studio','análise concluída · primeira peça · vídeo · edição · revisão'),('Projetos','contexto pronto · decisão necessária · entrega relacionada')] %}<article><span>{{ product }}</span><h3>{{ events }}</h3><small>Catálogo de eventos · connector central</small></article>{% endfor %}</div>
   </section>
 
   <section class="wsds-section wsds-conversation" id="conversas"><header><span>Conversas</span><h2>A mesma mesa de trabalho, em modo contínuo.</h2><p>A resposta é conteúdo editorial. A mensagem da pessoa é contexto. O compositor é a única superfície que pede destaque persistente.</p></header>
@@ -31,5 +45,6 @@
   </section>
 
   <section class="wsds-section wsds-decisions"><header><span>Decisões de uso</span><h2>O que permanece consistente.</h2></header><dl><div><dt>Raio</dt><dd>Controles 8–10 px; superfícies principais 13–18 px.</dd></div><div><dt>Sombra</dt><dd>Só separa níveis sobrepostos ou destaca uma prioridade real.</dd></div><div><dt>Verde</dt><dd>Ação, estado ativo e continuidade. Nunca preenchimento decorativo em massa.</dd></div><div><dt>Texto</dt><dd>Sentença normal, voz direta e linhas abaixo de 80 caracteres.</dd></div><div><dt>Movimento</dt><dd>Explica abertura, troca de estado ou passagem de contexto.</dd></div><div><dt>Identidade</dt><dd>A marca entra onde ajuda reconhecimento; não substitui o shell do produto.</dd></div></dl></section>
+  <section class="wsds-section" id="versoes"><header><span>Versões</span><h2>Atual é aprovado. Legado é consultável.</h2><p>A v3 consolida a linguagem atual. Estudos antigos continuam disponíveis para referência, mas não entram em novas implementações.</p></header><div class="wsds-version-grid"><article><span>v3</span><h3>Fundação unificada</h3><p>CentralX, CADU, soluções, componentes e e-mails.</p><b>Em construção</b></article><article><span>v2</span><h3>Workspace atual</h3><p>Contexto, projeto, marca e conversas.</p><b>Aprovada como base</b></article><article><span>v1</span><h3>Estudos legados</h3><p>Tailwind/DaisyUI e protótipos anteriores.</p><b>Não usar em novas telas</b></article></div></section>
 </article>
 {% endblock %}

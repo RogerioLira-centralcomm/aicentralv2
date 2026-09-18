@@ -39,6 +39,9 @@
   </header>
 
   <h2 class="prototype-heading">Produtos e seus design systems</h2>
+  <nav class="prototype-list" aria-label="Referência canônica">
+    <a href="{{ url_for('cadu_workspace.public_design_system') }}"><i style="--prototype-color:#087765">DS</i><div><strong>Design system CentralX / CADU · v3</strong><span>Fonte canônica de fundação, componentes, soluções, logos, e-mails e versões.</span></div><small>Abrir referência</small></a>
+  </nav>
   <nav class="prototype-list" aria-label="Produtos Cadu">
     {% for slug, name, asset in [('workspace', 'Workspace', 'workspace'), ('studio', 'Media Studio', 'studio'), ('connect', 'Reports', 'connect'), ('skills', 'Skills', 'skills'), ('planner', 'Smart Planner', 'planner')] %}
     <a href="{{ url_for('parametros.prototipos_cadu_asset', filename='cadu-platform.html') }}#{{ slug }}"><img src="{{ url_for('parametros.prototipos_cadu_asset', filename='brand-assets/icons-2d/' ~ asset ~ '/icon-64.png') }}" alt=""><div><strong>Cadu {{ name }}</strong><span>Página inicial, navegação e experiência de produto.</span></div><small>Abrir produto</small></a>

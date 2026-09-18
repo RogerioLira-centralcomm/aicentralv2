@@ -44,6 +44,7 @@ def test_create_screen_exposes_unified_visual_workspace():
     assert 'id="studioPromptOptimization"' in html
     assert 'id="studioOriginalPrompt"' in html
     assert 'id="studioOptimizedPrompt"' in html
+    assert 'src="/static/js/mc-studio-create.js?v=17"' in html
 
 
 def test_create_frontend_connects_persistent_session_lifecycle():
@@ -61,3 +62,14 @@ def test_create_frontend_connects_persistent_session_lifecycle():
     assert "/format-lab/studio/prompt/optimize" in source
     assert "original_prompt:state.originalPrompt" in source
     assert "optimized_prompt:state.optimizedPrompt" in source
+
+
+def test_create_frontend_keeps_csrf_and_json_headers_when_request_options_are_spread():
+    root = Path(__file__).resolve().parents[1]
+    source = (root / "aicentralv2" / "static" / "js" / "mc-studio-create.js").read_text(encoding="utf-8")
+    request_start = source.index("async function request(url, options = {}, retried = false)")
+    request_body = source[request_start:source.index("    const payload", request_start)]
+
+    assert request_body.index("...options,") < request_body.index("headers:")
+    assert "'X-Trocr-CSRF-Token': csrf" in request_body
+    assert "...(options.headers || {})" in request_body

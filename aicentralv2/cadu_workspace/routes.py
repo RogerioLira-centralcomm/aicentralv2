@@ -63,13 +63,12 @@ def _send_brand_approval_email(brand: dict, pack: dict, client_id: int, brand_id
     except Exception:
         current_app.logger.exception('Não foi possível calcular créditos do resumo da marca %s', brand_id)
         credits_used = 0
-    from ..services.brevo_service import get_brevo_product_service, product_email_brand
+    from ..services.cadu_email_connector import send_cadu_event
     money = lambda value: f'{value:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
-    get_brevo_product_service('workspace').enviar_email_com_template(
-        template_name='marca-sintese-aprovada.html', template_folder='emails/externos',
-        to_email=recipient, to_name=str(session.get('user_name') or 'time da agência'),
+    send_cadu_event(product='workspace', event='workspace.brand_approved', template='marca-sintese-aprovada.html',
+        recipient=recipient, recipient_name=str(session.get('user_name') or 'time da agência'),
         subject=f"Síntese aprovada · {brand.get('name') or 'Marca'}",
-        params={'BRAND': product_email_brand('workspace'), 'MARCA': brand.get('name') or 'Marca',
+        params={'MARCA': brand.get('name') or 'Marca',
                 'LOGO_URL': brand.get('display_logo') or brand.get('logo_url') or '',
                 'LINK_MARCA': product_url('workspace', f'/marcas/{brand_id}'), 'LINKS': len(links),
                 'REVISOES': len(reviews), 'METODOS': methods, 'TAMANHO_INFO': information_size,
@@ -264,8 +263,7 @@ def _workspace_account_email_catalog() -> tuple[dict, ...]:
             "page": "Faturamento", "action": "Ativar assinatura",
             "recipient": "E-mail financeiro da agência", "subject": "Plano ativado",
             "template": "assinatura-confirmacao.html", "timing": "Após a ativação do plano",
-        },
-    )
+        })
 
 
 def _workspace_account_insights(plan: dict, position: Optional[dict], people: list[dict]) -> dict:

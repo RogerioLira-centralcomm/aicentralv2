@@ -6,7 +6,8 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from flask import current_app
 
-from .brevo_service import get_brevo_product_service, product_email_brand
+from .brevo_service import product_email_brand
+from .cadu_email_connector import send_cadu_event
 
 
 def _enabled() -> bool:
@@ -39,6 +40,49 @@ def _duration_pt(minutes) -> str:
     return f"{hours}h {rest:02d}min" if rest else f"{hours}h"
 
 
+def _active_credit_reference() -> tuple[Decimal, str]:
+    """Resolve the unit token price from the current Cadu commercial plans."""
+    try:
+        from ..db import get_db
+
+        with get_db().cursor() as cursor:
+            cursor.execute(
+                """SELECT plan_name, plan_type, monthly_price, price,
+                          tokens_monthly_limit, tokens_limit
+                     FROM cadu_plan_definitions
+                    WHERE is_active = true
+                      AND COALESCE(plan_type, '') IN ('pro', 'enterprise')
+                      AND COALESCE(tokens_monthly_limit, tokens_limit, 0) > 0
+                      AND COALESCE(monthly_price, price, 0) >= 0
+                    ORDER BY COALESCE(monthly_price, price) /
+                             NULLIF(COALESCE(tokens_monthly_limit, tokens_limit), 0)
+                    LIMIT 1"""
+            )
+            row = cursor.fetchone() or {}
+        tokens = max(1, int(row.get("tokens_monthly_limit") or row.get("tokens_limit") or 1))
+        price = _decimal(row.get("monthly_price") or row.get("price")) / Decimal(tokens)
+        return price, str(row.get("plan_name") or row.get("plan_type") or "plano comercial vigente")
+    except Exception:
+        current_app.logger.warning("Plano comercial de tokens indisponível; tentando pacotes legados", exc_info=True)
+        try:
+            from ..db import get_db
+
+            with get_db().cursor() as cursor:
+                cursor.execute(
+                    """SELECT name, price, credits
+                         FROM cadu_credit_packages
+                        WHERE is_active = true AND credits > 0 AND price >= 0
+                        ORDER BY price / NULLIF(credits, 0), display_order, id
+                        LIMIT 1"""
+                )
+                row = cursor.fetchone() or {}
+            credits = max(1, int(row.get("credits") or 1))
+            return _decimal(row.get("price")) / Decimal(credits), str(row.get("name") or "pacote legado vigente")
+        except Exception:
+            current_app.logger.warning("Não foi possível resolver nenhum preço de tokens", exc_info=True)
+            return Decimal("0"), "preço indisponível"
+
+
 def studio_completion_estimates(metrics: dict) -> dict:
     """Build transparent commercial estimates for the finalization receipt."""
     data = metrics if isinstance(metrics, dict) else {}
@@ -57,10 +101,11 @@ def studio_completion_estimates(metrics: dict) -> dict:
     designer_cost = hourly_employer_cost * Decimal(manual_minutes) / Decimal("60")
     internal_cost_usd = _decimal(data.get("internal_cost_usd"))
     charged_credits = max(0, int(data.get("charged_credits") or data.get("credits") or 0))
-    sale_unit = _decimal(
-        data.get("sale_price_per_credit_brl")
-        or current_app.config.get("CADU_CREDIT_SALE_PRICE_BRL_PER_CREDIT", "8")
-    )
+    sale_unit = _decimal(data.get("sale_price_per_credit_brl"))
+    sale_package_name = str(data.get("sale_package_name") or "").strip()
+    if not sale_unit:
+        sale_unit, resolved_package = _active_credit_reference()
+        sale_package_name = sale_package_name or resolved_package
     return {
         "manual_minutes": manual_minutes,
         "manual_time_label": _duration_pt(manual_minutes),
@@ -73,7 +118,7 @@ def studio_completion_estimates(metrics: dict) -> dict:
         "internal_cost_usd": _money_pt(internal_cost_usd, "US$", decimals=4),
         "sale_unit_brl": _money_pt(sale_unit),
         "sale_value_brl": _money_pt(sale_unit * Decimal(charged_credits)),
-        "sale_package_name": str(data.get("sale_package_name") or "pacote vigente"),
+        "sale_package_name": sale_package_name or "pacote vigente",
     }
 
 
@@ -82,9 +127,8 @@ def send_piece_ready(*, recipient_email: str, recipient_name: str, title: str, u
     if not recipient_email or not _enabled():
         return {"success": True, "skipped": True}
     label = "vídeo" if kind == "video" else "peça"
-    return get_brevo_product_service("studio").enviar_email_com_template(
-        template_name="produto-atividade.html", template_folder="emails/externos",
-        to_email=recipient_email, to_name=recipient_name or "Pessoa criadora",
+    return send_cadu_event(product="studio", event="studio.piece_ready", template="produto-atividade.html",
+        recipient=recipient_email, recipient_name=recipient_name or "Pessoa criadora",
         subject=f"Sua {label} está pronta para continuar no Studio",
         params={
             "BRAND": product_email_brand("studio"), "TITLE": title or f"Nova {label}",
@@ -102,14 +146,20 @@ def send_studio_work_completed(*, recipient_email: str, recipient_name: str, tit
         return {"success": True, "skipped": True}
     data = metrics if isinstance(metrics, dict) else {}
     estimates = studio_completion_estimates(data)
-    return get_brevo_product_service("studio").enviar_email_com_template(
-        template_name="studio-trabalho-finalizado.html", template_folder="emails/externos",
-        to_email=recipient_email, to_name=recipient_name or "Pessoa criadora",
+    return send_cadu_event(product="studio", event="studio.work_completed", template="studio-trabalho-finalizado.html",
+        recipient=recipient_email, recipient_name=recipient_name or "Pessoa criadora",
         subject=f"Seu trabalho “{title or 'Studio'}” foi finalizado",
         params={
             "BRAND": product_email_brand("studio"), "TITLE": title or "Trabalho finalizado",
             "ASSET_URL": asset_url, "PUBLIC_URL": public_url or asset_url,
             "STUDIO_URL": studio_url, "SESSION_URL": session_url or studio_url,
+            "OUTPUT_TYPE": data.get("output_type") or data.get("media_type") or "Peça criativa",
+            "EXTENSION": data.get("extension") or data.get("file_extension") or "—",
+            "FORMAT_NAME": data.get("format_name") or data.get("format") or "—",
+            "WIDTH": data.get("width") or data.get("width_px") or "—",
+            "HEIGHT": data.get("height") or data.get("height_px") or "—",
+            "DURATION": data.get("duration") or data.get("duration_label") or "—",
+            "PROJECT_NAME": data.get("project_name") or data.get("project_title") or "Sem projeto vinculado",
             "GENERATION_COUNT": max(0, int(data.get("generation_count") or 0)),
             "EDIT_COUNT": max(0, int(data.get("edit_count") or 0)),
             "FORMAT_COUNT": max(0, int(data.get("format_count") or 0)),
@@ -139,9 +189,8 @@ def send_brand_audit_ready(*, recipient_email: str, recipient_name: str, brand_n
     description = str(summary or '').strip()
     if highlights:
         description = f"{description}\n\nDiferenciais observados: {highlights}".strip()
-    return get_brevo_product_service("workspace").enviar_email_com_template(
-        template_name="produto-atividade.html", template_folder="emails/externos",
-        to_email=recipient_email, to_name=recipient_name or "Pessoa criadora",
+    return send_cadu_event(product="workspace", event="workspace.brand_audit_ready", template="produto-atividade.html",
+        recipient=recipient_email, recipient_name=recipient_name or "Pessoa criadora",
         subject=f"A leitura de {brand_name or 'sua marca'} está pronta para revisão",
         params={
             "BRAND": product_email_brand("workspace"),

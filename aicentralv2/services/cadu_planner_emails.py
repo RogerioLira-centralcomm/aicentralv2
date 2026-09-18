@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from flask import current_app
 
-from .brevo_service import get_brevo_product_service, product_email_brand
+from .brevo_service import product_email_brand
+from .cadu_email_connector import send_cadu_event
 
 
 DEFAULT_INTERNAL_RECIPIENTS = ('apolo@centralcomm.media', 'alexandre@centralcom.media')
@@ -26,10 +27,9 @@ def notify_quote_request(*, executive_email: str, executive_name: str, client_na
     internal = _internal_recipients()
     recipient = executive_email or internal[0]
     cc = [email for email in internal if email.lower() != recipient.lower()]
-    return get_brevo_product_service('planner').enviar_email_com_template(
-        template_name='planner-solicitacao-cotacao.html', template_folder='emails/internos',
-        to_email=recipient, to_name=executive_name or 'Time comercial',
-        cc_email=cc, subject='Nova solicitação de cotação pelo Planner',
+    return send_cadu_event(product='planner', event='planner.quote_request_internal', template='planner-solicitacao-cotacao.html',
+        recipient=recipient, recipient_name=executive_name or 'Time comercial', cc=cc,
+        internal=True, subject='Nova solicitação de cotação pelo Planner',
         params={'BRAND': product_email_brand('planner'), 'CLIENT_NAME': client_name,
                 'REQUESTER_NAME': requester_name, 'PLAN_TITLE': plan_title,
                 'SCOPE': scope, 'MESSAGE': message},
@@ -40,9 +40,9 @@ def notify_new_planner_user(*, user_name: str, user_email: str, client_name: str
     if not _enabled():
         return {'success': True, 'skipped': True}
     recipients = _internal_recipients()
-    return get_brevo_product_service('planner').enviar_email_com_template(
-        template_name='planner-novo-usuario.html', template_folder='emails/internos',
-        to_email=recipients, to_name='Time Smart Planner', subject='Novo usuário no Smart Planner',
+    return send_cadu_event(product='planner', event='planner.new_user_internal', template='planner-novo-usuario.html',
+        recipient=recipients, recipient_name='Time Smart Planner', internal=True,
+        subject='Novo usuário no Smart Planner',
         params={'BRAND': product_email_brand('planner'), 'USER_NAME': user_name,
                 'USER_EMAIL': user_email, 'CLIENT_NAME': client_name},
     )

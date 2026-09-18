@@ -11,7 +11,7 @@
 .ws-hero-visual{position:relative;min-height:530px;display:grid;align-items:center}.ws-hero-visual>img{width:100%;max-height:520px;object-fit:cover;border:1px solid #c9dad6}.ws-context-map{position:absolute;right:-20px;bottom:18px;width:min(86%,430px);display:grid;gap:14px;padding:22px;border:1px solid #c9dad6;background:rgba(255,255,255,.96);box-shadow:14px 14px 0 #d8eeea}.ws-context-map:before{content:"";position:absolute;top:110px;left:50%;height:14px;border-left:1px solid #8bc7bb}
 .ws-map-source{display:grid;grid-template-columns:42px 1fr;column-gap:12px;padding:18px;border-left:4px solid var(--ws);background:#f9fcfb}.ws-map-source img{grid-row:1/4;width:38px;height:38px;object-fit:contain}.ws-map-source span,.ws-map-rail span{color:#6b7d7f;font-size:11px}.ws-map-source strong{font-size:22px;line-height:1.05}.ws-map-source small{color:#6b7d7f;font-size:12px}
 .ws-map-rail{display:grid;grid-template-columns:1fr 1fr;gap:10px}.ws-map-rail>div{display:grid;padding:13px;border:1px solid #dce6e4;background:var(--ws-soft)}
-.ws-map-products{display:grid;grid-template-columns:1fr 1fr;gap:8px}.ws-map-products a{display:flex;align-items:center;gap:10px;min-height:66px;padding:14px;border:1px solid #dce6e4;color:var(--ws-ink);text-decoration:none}.ws-map-products a:hover{border-color:var(--ws-blue);background:#f9fcfb}.ws-map-products img{width:28px;height:28px;flex:0 0 auto;object-fit:contain;border-radius:7px}.ws-map-products a>span{display:grid;gap:2px}.ws-map-products b{font-size:14px;line-height:1.1}.ws-map-products small{color:#6b7d7f;font-size:11px;line-height:1.2}
+.ws-map-products{display:grid;grid-template-columns:1fr 1fr;gap:8px}.ws-map-products a{position:relative;display:flex;min-height:112px;align-items:flex-end;overflow:hidden;padding:12px;color:#fff;text-decoration:none;background:#163d38}.ws-map-products a:after{position:absolute;inset:0;content:"";background:linear-gradient(180deg,rgba(8,35,31,.04),rgba(8,35,31,.88));transition:opacity 180ms ease}.ws-map-products a:hover:after{opacity:.78}.ws-map-product-image{position:absolute;inset:0;width:100%!important;height:100%!important;object-fit:cover;opacity:.92;border-radius:0!important}.ws-map-products a>span{position:relative;z-index:1;display:grid;gap:2px}.ws-map-products b{font-size:14px;line-height:1.1}.ws-map-products small{color:rgba(255,255,255,.78);font-size:11px;line-height:1.2}.ws-map-products a:focus-visible{outline:3px solid #91e2d3;outline-offset:2px}
 .ws-public-section{padding:90px 0;border-top:1px solid #b9cbc7}.ws-public-section h2,.ws-flow h2,.ws-trust h2,.ws-closing h2,.ws-plan-intro h2,.ws-note h2{max-width:760px;margin:0;font-size:clamp(34px,5vw,58px);line-height:1.03;letter-spacing:-.045em}.ws-public-intro{display:grid;grid-template-columns:1.2fr .8fr;gap:70px;align-items:end}.ws-public-intro p{margin:0;color:#4e6567;font-size:18px;line-height:1.7}
 .ws-public-capabilities{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid #b9cbc7;border-bottom:1px solid #b9cbc7}.ws-public-capabilities article{min-height:240px;padding:32px;border-right:1px solid #b9cbc7;background:#fff}.ws-public-capabilities article:last-child{border-right:0}.ws-public-capabilities h3{max-width:260px;margin:0 0 50px;font-size:23px;line-height:1.1}.ws-public-capabilities p{color:#52686a;line-height:1.65}
 .ws-flow{padding:100px 0}.ws-flow>header{display:flex;align-items:end;justify-content:space-between;gap:30px}.ws-flow header>a{color:var(--ws-dark);font-weight:700}.ws-flow ol{display:grid;grid-template-columns:repeat(3,1fr);margin:54px 0 0;padding:0;list-style:none;counter-reset:flow}.ws-flow li{counter-increment:flow;min-height:220px;padding:26px;border-top:4px solid var(--ws-dark);background:#fff}.ws-flow li+li{border-left:1px solid #dce6e4}.ws-flow li:before{content:counter(flow);display:block;margin-bottom:40px;color:var(--ws);font-size:12px;font-weight:800}.ws-flow li span{display:block;color:#6b7d7f;font-size:11px}.ws-flow li b{font-size:19px}.ws-flow li p{color:#52686a;line-height:1.6}
@@ -128,8 +128,7 @@ html[data-cadu-theme="dark"] body.portal--workspace-public:has(.ws-hero){backgro
   .ws-map-rail{grid-template-columns:1fr 1fr}
   .ws-map-rail>div{min-width:0;padding:11px}
   .ws-map-products{grid-template-columns:1fr 1fr}
-  .ws-map-products a{min-width:0;min-height:58px;padding:10px}
-  .ws-map-products img{width:24px;height:24px}
+  .ws-map-products a{min-width:0;min-height:92px;padding:10px}
   .ws-map-products b,.ws-map-products small{overflow-wrap:anywhere}
 
   .ws-public-section{padding:54px 0 38px}
@@ -217,4 +216,90 @@ html[data-cadu-theme="dark"] body.portal--workspace-public:has(.ws-hero){backgro
 @media(prefers-reduced-motion:reduce){
   .ws-hero-photo{transform:none!important}
   .ws-context-map *, .ws-role-stack>div{transition:none!important}
+}
+
+/* Mobile composition pass: the photo is a full-bleed stage, while copy keeps
+   the portal's reading measure. This intentionally comes last so older
+   product/theme rules cannot reintroduce clipped images or wide rows. */
+@media (max-width: 600px){
+  .portal--workspace-public main#content{width:100%;max-width:none}
+  .portal--workspace-public .ws-hero--photo{
+    width:100vw;
+    margin-inline:calc(50% - 50vw);
+    padding:44px 16px 28px;
+    min-height:calc(100svh - 56px);
+    border-radius:0;
+  }
+  .portal--workspace-public .ws-hero-photo{
+    width:100%;
+    object-position:68% center;
+  }
+  .portal--workspace-public .ws-hero--photo .ws-hero-copy{
+    width:min(100%, 390px);
+    margin-inline:auto;
+  }
+  .portal--workspace-public .ws-hero--photo h1{
+    max-width:13ch;
+    font-size:clamp(35px,10.5vw,44px);
+    line-height:1.02;
+  }
+  .portal--workspace-public .ws-hero--photo .ws-hero-copy>span{max-width:36ch}
+  .portal--workspace-public .ws-actions a{min-height:48px;display:grid;place-items:center}
+
+  .portal--workspace-public .ws-context-bridge,
+  .portal--workspace-public .ws-public-section,
+  .portal--workspace-public .ws-public-capabilities,
+  .portal--workspace-public .ws-public-agency,
+  .portal--workspace-public .ws-flow,
+  .portal--workspace-public .ws-trust,
+  .portal--workspace-public .ws-closing{
+    width:min(calc(100% - 32px),1180px);
+    margin-inline:auto;
+  }
+  .portal--workspace-public .ws-context-bridge{padding-top:40px}
+  .portal--workspace-public .ws-delivery-preview h2{max-width:12ch}
+  .portal--workspace-public .ws-public-capabilities article{padding-block:30px}
+  .portal--workspace-public .ws-public-capabilities article:first-child{padding-top:24px}
+  .portal--workspace-public .ws-public-capabilities article:last-child{padding-bottom:30px}
+  .portal--workspace-public .ws-public-agency{padding-top:62px}
+  .portal--workspace-public .ws-flow{padding-block:64px}
+  .portal--workspace-public .ws-flow>header a{width:100%;text-align:center}
+  .portal--workspace-public .ws-trust{padding-block:58px}
+  .portal--workspace-public .ws-closing{padding-block:72px 82px}
+}
+
+/* Wide screens: use the viewport as the visual canvas, keeping the copy on
+   the same centered reading grid as the navigation and lower sections. */
+@media (min-width: 1001px){
+  .portal--workspace-public .ws-hero--photo{
+    width:100vw;
+    margin-inline:calc(50% - 50vw);
+    padding-inline:max(32px,calc((100vw - 1180px)/2));
+  }
+  .portal--workspace-public .ws-hero--photo .ws-hero-copy{max-width:650px}
+  .portal--workspace-public .ws-context-bridge{
+    grid-template-columns:minmax(350px,.78fr) minmax(0,1.22fr);
+    max-width:1180px;
+    margin-inline:auto;
+  }
+}
+
+/* Tablet: remove the desktop two-column pressure before it creates narrow
+   text blocks, but keep the hero photo as a single continuous surface. */
+@media (min-width: 601px) and (max-width: 1000px){
+  .portal--workspace-public .ws-hero--photo{
+    width:100vw;
+    margin-inline:calc(50% - 50vw);
+    min-height:620px;
+    padding-inline:32px;
+  }
+  .portal--workspace-public .ws-hero--photo .ws-hero-copy{max-width:620px}
+  .portal--workspace-public .ws-context-bridge{
+    grid-template-columns:1fr;
+    gap:28px;
+    padding-block:64px;
+  }
+  .portal--workspace-public .ws-context-bridge .ws-delivery-preview,
+  .portal--workspace-public .ws-context-bridge .ws-context-map{width:100%;max-width:none}
+  .portal--workspace-public .ws-public-intro{gap:36px}
 }

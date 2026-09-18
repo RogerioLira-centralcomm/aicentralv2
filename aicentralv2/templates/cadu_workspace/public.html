@@ -20,10 +20,10 @@
     <div class="ws-map-source"><img src="{{ url_for('cadu_maintenance_product_icon', family='workspace', size=48) }}" alt=""><span>Onde o trabalho começa</span><strong>Workspace</strong><small>cliente, marca, projeto, time e referências</small></div>
     <div class="ws-map-rail"><div><span>Cliente</span><b>Marca ativa</b></div><div><span>Projeto</span><b>Briefing e decisões</b></div></div>
     <div class="ws-map-products">
-      <a href="{{ product_url('planner') }}"><img src="{{ url_for('cadu_maintenance_product_icon', family='planner', size=32) }}" alt=""><span><b>Planner</b><small>planejar</small></span></a>
-      <a href="{{ product_url('skills') }}"><img src="{{ url_for('cadu_maintenance_product_icon', family='skills', size=32) }}" alt=""><span><b>Skills</b><small>especializar</small></span></a>
-      <a href="{{ product_url('studio') }}"><img src="{{ url_for('cadu_maintenance_product_icon', family='studio', size=32) }}" alt=""><span><b>Studio</b><small>produzir</small></span></a>
-      <a href="{{ product_url('connect') }}"><img src="{{ url_for('cadu_maintenance_product_icon', family='connect', size=32) }}" alt=""><span><b>Reports</b><small>acompanhar</small></span></a>
+      <a href="{{ product_url('planner') }}"><img class="ws-map-product-image" src="{{ url_for('static', filename='images/planner/planner-entry-hero-v2.png') }}" alt="Exemplo visual de um planejamento no Planner"><span><b>Planner</b><small>planejar</small></span></a>
+      <a href="{{ product_url('skills') }}"><img class="ws-map-product-image" src="{{ url_for('static', filename='images/cadu/skills/skills-hero-worktable-v1.png') }}" alt="Exemplo visual de uma Skill aplicada"><span><b>Skills</b><small>especializar</small></span></a>
+      <a href="{{ product_url('studio') }}"><img class="ws-map-product-image" src="{{ url_for('static', filename='images/cadu/home-heroes/studio-hero-v1.jpg') }}" alt="Exemplo visual de uma criação no Studio"><span><b>Studio</b><small>produzir</small></span></a>
+      <a href="{{ product_url('connect') }}"><img class="ws-map-product-image" src="{{ url_for('static', filename='images/cadu/presentation/reports-dashboard-image2-v1.png') }}" alt="Exemplo visual de um relatório de campanha"><span><b>Reports</b><small>acompanhar</small></span></a>
     </div>
   </div>
 </section>

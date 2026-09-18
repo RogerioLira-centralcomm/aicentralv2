@@ -1,7 +1,7 @@
 {% extends "base_erp.html" %}
-{% block page_label %}Smart Planner{% endblock %}
+{% block page_label %}Planejamentos{% endblock %}
 {% block page_subtitle %}{{ titulo }}{% endblock %}
-{% block title %}{{ steps[step_index].title }} · Smart Planner{% endblock %}
+{% block title %}{{ steps[step_index].title }} · Planejamentos{% endblock %}
 
 {% block styles %}
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -373,8 +373,8 @@
       <section class="sp-generate">
         <p class="sp-generate-kind">{{ plan_mode_label }} · família GPT-5</p>
         <p class="sp-generate-cost">
-          Prévia {{ cost_preview.label or 'a calcular' }}
-          <small>{{ cost_preview.note }}</small>
+          Custo interno estimado: {{ cost_preview.label or 'a calcular' }}
+          <small>Sem margem comercial. Não é cobrança nem consumo de créditos do Planner.</small>
         </p>
         <ol class="sp-generate-steps" id="sp-generate-status">
           <li>Mercado · gpt-5-mini</li>
@@ -412,7 +412,7 @@
           </table>
         </div>
         <button type="button" class="cx-btn cx-btn-primary" id="sp-generate-btn">
-          {{ 'Gerar página única' if plan_mode == 'one_page' else 'Gerar plano completo' }}
+          Confirmar e gerar
         </button>
       </section>
       {% endif %}
@@ -552,7 +552,8 @@
           <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-media-close">Fechar</button>
         </header>
         <div class="sp-media-grid">
-          <section class="sp-media-mix" aria-labelledby="sp-cb-mix-title">
+          <div class="sp-media-main">
+          <section class="sp-media-mix" id="sp-media-strategy" aria-labelledby="sp-cb-mix-title">
             <h3 id="sp-cb-mix-title">Gestão de canais</h3>
             <p class="sp-mix-count" id="sp-mix-count" aria-live="polite"></p>
             <div class="sp-mix-chips" id="sp-mix-chips" hidden></div>
@@ -653,7 +654,7 @@
               </ul>
             </div>
           </section>
-          <section class="sp-media-cal" aria-labelledby="sp-cal-title">
+          <section class="sp-media-cal" id="sp-media-balance" aria-labelledby="sp-cal-title">
             <div class="sp-cal-head">
               <div>
                 <h3 id="sp-cal-title">Calendário de balanceamento</h3>
@@ -687,6 +688,26 @@
               <table class="sp-cal-table" id="sp-cal-table"></table>
             </div>
           </section>
+          </div>
+          <aside class="sp-media-steps" aria-label="Etapas da gestão de mídia">
+            <p class="sp-media-steps-kicker">Mesa de decisão</p>
+            <h3>Estratégia de mídia</h3>
+            <p class="sp-media-steps-intro">Defina primeiro onde a campanha precisa estar e depois distribua o ritmo.</p>
+            <nav class="sp-media-step-nav">
+              <button type="button" class="is-active" data-media-step="sp-media-strategy" aria-controls="sp-media-strategy" aria-current="step">
+                <span class="sp-media-step-index">01</span>
+                <span><strong>Canais e método</strong><small>Escolha a presença e a lógica do mix.</small></span>
+              </button>
+              <button type="button" data-media-step="sp-media-balance" aria-controls="sp-media-balance">
+                <span class="sp-media-step-index">02</span>
+                <span><strong>Balanceamento</strong><small>Veja a abertura e o peso por período.</small></span>
+              </button>
+            </nav>
+            <div class="sp-media-steps-note">
+              <i class="fa-solid fa-compass" aria-hidden="true"></i>
+              <span>O mix é uma decisão de estratégia. O calendário transforma essa decisão em voo.</span>
+            </div>
+          </aside>
         </div>
         <footer class="sp-media-foot">
           <p id="sp-media-status" aria-live="polite"></p>
@@ -819,22 +840,23 @@
   <form method="dialog" class="sp-gen-sheet">
     <header>
       <div>
-        <h2 id="sp-gen-title">Qual documento gerar?</h2>
-        <p>O plano completo usa a página única como tese. Se ela ainda não existir, geramos primeiro.</p>
+        <h2 id="sp-gen-title">Confirmar geração</h2>
+        <p>O CentralX vai gerar {{ plan_mode_label|lower }} a partir do briefing revisado.</p>
       </div>
       <button type="submit" class="cx-btn cx-btn-ghost cx-btn-sm" value="close">Fechar</button>
     </header>
-    <div class="sp-gen-choices">
-      <button type="button" class="sp-gen-choice" data-gen-mode="one_page">
-        <strong>Página única</strong>
-        <span>Uma folha para decidir: recomendação, criativo no canal, dado e defesa.</span>
-        <em>{{ (cost_options.one_page.label if cost_options and cost_options.one_page else 'a calcular') }}</em>
-      </button>
-      <button type="button" class="sp-gen-choice is-full" data-gen-mode="completo">
-        <strong>Planejamento completo</strong>
-        <span>Quadro com contexto, estratégia, mídia e execução, a partir da página única.</span>
-        <em>{{ (cost_options.completo.label if cost_options and cost_options.completo else 'a calcular') }}</em>
-      </button>
+    <div class="sp-gen-confirm">
+      <div class="sp-gen-confirm__cost">
+        <span>Custo interno estimado</span>
+        <strong>{{ cost_preview.label or 'A calcular' }}</strong>
+        <small>Valor de geração em reais, sem margem comercial. Não altera créditos nem cobrança do Planner.</small>
+      </div>
+      <ul>
+        <li>Briefing e campos revisados</li>
+        <li>Recomendação e defesa comercial</li>
+        <li>Criativo conceitual quando necessário</li>
+      </ul>
+      <button type="button" class="cx-btn cx-btn-primary" data-gen-mode="{{ plan_mode or 'one_page' }}">Confirmar e gerar</button>
     </div>
   </form>
 </dialog>
@@ -842,7 +864,7 @@
 <div class="sp-wait" id="sp-compile-overlay" hidden>
   <div class="sp-wait-shell">
     <div class="sp-wait-folio" role="status" aria-live="polite">
-      <p class="sp-wait-brand">Smart Planner</p>
+      <p class="sp-wait-brand">Planejamento</p>
       <p class="sp-wait-kicker" id="sp-wait-eyebrow">Processando</p>
       <h2 id="sp-wait-title">Entendendo o briefing</h2>
       <p id="sp-compile-step">Os modelos estão lendo o material para montar a revisão.</p>

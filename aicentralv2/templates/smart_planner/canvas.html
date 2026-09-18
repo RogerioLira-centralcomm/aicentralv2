@@ -1,7 +1,7 @@
 {% extends "base_erp.html" %}
-{% block page_label %}Smart Planner{% endblock %}
+{% block page_label %}Planejamentos{% endblock %}
 {% block page_subtitle %}{{ titulo }}{% endblock %}
-{% block title %}{{ titulo }} · Smart Planner{% endblock %}
+{% block title %}{{ titulo }} · Planejamentos{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=45">
@@ -22,6 +22,7 @@
 {% set agency = brand.agency or {} %}
 {% set media_board = media or {} %}
 {% set pace = media_board.pace or {} %}
+{% set visual_direction = folha.visual_direction or {} %}
 <div class="sp-hi" id="sp-canvas"
      data-token="{{ token }}"
      data-mode="one_page"
@@ -110,6 +111,22 @@
               <p class="sp-gallery-empty">Nenhuma imagem gerada ainda.</p>
               {% endif %}
             </div>
+            {% if visual_direction.persona_description or visual_direction.place_scene %}
+            <div class="sp-visual-brief">
+              <div>
+                <span>Persona modelada</span>
+                <strong>{{ visual_direction.persona_name or 'Pessoa em situação de decisão' }}</strong>
+                <p>{{ visual_direction.persona_description }}</p>
+              </div>
+              {% if visual_direction.place_scene %}
+              <div>
+                <span>Cena de apoio</span>
+                <strong>{{ visual_direction.place_scene }}</strong>
+                <p>A imagem de lugar deve reforçar o contexto confirmado no briefing.</p>
+              </div>
+              {% endif %}
+            </div>
+            {% endif %}
             <button type="button" class="cx-btn cx-btn-secondary cx-btn-sm" id="sp-canvas-image">Gerar outra peça</button>
           </div>
         </details>

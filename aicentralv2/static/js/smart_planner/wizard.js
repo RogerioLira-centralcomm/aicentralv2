@@ -851,6 +851,24 @@
     var mediaApplied = false;
     var restoringMedia = false;
 
+    function setupMediaSteps() {
+      var nav = document.querySelector(".sp-media-step-nav");
+      if (!nav) return;
+      nav.addEventListener("click", function (event) {
+        var button = event.target.closest("[data-media-step]");
+        if (!button) return;
+        var target = document.getElementById(button.getAttribute("data-media-step"));
+        if (!target) return;
+        nav.querySelectorAll("[data-media-step]").forEach(function (item) {
+          var active = item === button;
+          item.classList.toggle("is-active", active);
+          if (active) item.setAttribute("aria-current", "step");
+          else item.removeAttribute("aria-current");
+        });
+        target.scrollIntoView({ block: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      });
+    }
+
     function selectedCanais() {
       return Array.prototype.slice.call(desk.querySelectorAll('input[name="canais"]:checked')).map(function (el) {
         return el.value;
@@ -1502,6 +1520,7 @@
       });
     }
     paintPicks();
+    setupMediaSteps();
     if (bars) {
       bars.querySelectorAll("b[data-pct]").forEach(function (fill) {
         fill.style.setProperty("--pct", fill.getAttribute("data-pct") || "0");

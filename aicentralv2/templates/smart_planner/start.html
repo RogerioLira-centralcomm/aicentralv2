@@ -1,7 +1,7 @@
 {% extends "base_erp.html" %}
-{% block page_label %}Smart Planner{% endblock %}
+{% block page_label %}Planejamentos{% endblock %}
 {% block page_subtitle %}Novo planejamento{% endblock %}
-{% block title %}Novo planejamento · Smart Planner{% endblock %}
+{% block title %}Novo planejamento · Planejamentos{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=45">
@@ -52,49 +52,22 @@
     <span>Nome confidencial nos documentos</span>
   </label>
 
-  <h2 class="sp-start-format">O que o anunciante precisa assinar?</h2>
-  <div class="sp-formats" id="sp-formats">
-    <button type="button" class="sp-format is-priority js-sp-start" data-mode="one_page">
-      <div class="sp-format-copy">
-        <span class="sp-format-pick is-on">
-          <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
-          Recomendado
-        </span>
-        <span class="sp-format-mark">Página única</span>
-        <h2>Uma folha para decidir</h2>
-        <p>Recomendação, criativo no canal, um dado de mercado e a defesa. Cabe em uma reunião.</p>
-        <ol class="sp-format-slots">
-          <li>Recomendação</li>
-          <li>Criativo no canal</li>
-          <li>Dado</li>
-          <li>Defesa</li>
-        </ol>
-      </div>
-      <img class="sp-format-art"
-           src="{{ url_for('static', filename='images/smart_planner/format-sheet-active.png') }}?v=2"
-           width="1536" height="1152" alt="">
-      <span class="cx-btn cx-btn-primary">Montar página única</span>
+  <section class="sp-start-confirm" aria-labelledby="sp-start-confirm-title">
+    <div>
+      <span class="sp-start-confirm__eyebrow">Próximo passo</span>
+      <h2 id="sp-start-confirm-title">Confirmar e seguir para o briefing</h2>
+      <p>O CentralX organiza o material, monta a página de decisão e apresenta o custo interno estimado da geração antes de executar.</p>
+    </div>
+    <div class="sp-start-confirm__cost">
+      <span>Custo interno estimado</span>
+      <strong>{{ cost_preview.label or 'A calcular' }}</strong>
+      <small>Sem margem comercial. Não é cobrança nem consumo de créditos do Planner.</small>
+    </div>
+    <button type="button" class="cx-btn cx-btn-primary js-sp-start" data-mode="one_page">
+      Continuar para o briefing
+      <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
     </button>
-    <button type="button" class="sp-format js-sp-start" data-mode="completo">
-      <div class="sp-format-copy">
-        <span class="sp-format-pick">
-          <i class="fa-regular fa-circle" aria-hidden="true"></i>
-          Plano completo
-        </span>
-        <h2>Quadro com quatro seções</h2>
-        <p>Contexto, estratégia, mídia e execução. Use quando a campanha precisa de defesa longa.</p>
-        <ol class="sp-format-slots">
-          <li>Contexto</li>
-          <li>Estratégia</li>
-          <li>Mídia</li>
-          <li>Execução</li>
-        </ol>
-      </div>
-      <img class="sp-format-art"
-           src="{{ url_for('static', filename='images/smart_planner/format-board-white.png') }}?v=2"
-           width="1536" height="1152" alt="">
-      <span class="cx-btn cx-btn-secondary">Montar plano completo</span>
-    </button>
+  </section>
   </div>
 </div>
 {% include "smart_planner/_guide.html" %}

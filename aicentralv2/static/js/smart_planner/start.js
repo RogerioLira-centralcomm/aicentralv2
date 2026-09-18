@@ -202,9 +202,8 @@
     });
   });
 
-  // A marca pode iniciar o Planner pelo Workspace. Nesse caso o anunciante
-  // já chega identificado, mas a pessoa ainda escolhe livremente o formato
-  // e revisa o briefing antes de qualquer geração.
+  // A marca pode iniciar o planejamento pelo Workspace. Nesse caso o anunciante
+  // já chega identificado; o formato interno é resolvido pelo fluxo padrão.
   var workspaceClientId = root.dataset.seedClientId || "";
   var workspaceClientName = root.dataset.seedClientName || "";
   var workspaceProjectId = root.dataset.seedProjectId || "";

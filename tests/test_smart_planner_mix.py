@@ -132,7 +132,7 @@ class MixEngineTest(unittest.TestCase):
         self.assertNotIn("sp-crumb", html)
         self.assertNotIn("sp-stepper", html)
         self.assertIn("Salvar rascunho", html)
-        self.assertIn("Smart Planner", html)
+        self.assertIn("Planejamentos", html)
         self.assertIn("_product_bar.html", html)
         self.assertIn("sp-places-desk", html)
         self.assertIn("Interativos", html)
@@ -184,15 +184,15 @@ class MixEngineTest(unittest.TestCase):
         self.assertNotIn("<i>", overlay)
         self.assertNotIn("<span>Cliente</span>", html)
         self.assertIn("Refazer briefing", html)
-        self.assertIn("data-gen-mode=\"one_page\"", html)
-        self.assertIn("data-gen-mode=\"completo\"", html)
+        self.assertIn('data-gen-mode="{{ plan_mode or \'one_page\' }}"', html)
+        self.assertIn("Confirmar geração", html)
         self.assertIn("_product_bar.html", html)
         guide = (Path(__file__).resolve().parents[1] / "aicentralv2" / "templates" / "smart_planner" / "_guide.html").read_text()
-        self.assertIn("Como funciona o Smart Planner", guide)
+        self.assertIn("Como funciona", guide)
         self.assertIn("Na prática", guide)
         self.assertIn("GPT-5", guide)
         self.assertIn("Página única", guide)
-        self.assertIn("Planejamento completo", guide)
+        self.assertIn("Página única", guide)
 
     def test_persist_review_keeps_flight_and_progress(self):
         from unittest.mock import patch

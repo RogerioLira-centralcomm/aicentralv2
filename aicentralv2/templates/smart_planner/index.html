@@ -1,7 +1,7 @@
 {% extends "base_erp.html" %}
-{% block page_label %}Smart Planner{% endblock %}
+{% block page_label %}Planejamentos{% endblock %}
 {% block page_subtitle %}Planejamentos{% endblock %}
-{% block title %}Smart Planner{% endblock %}
+{% block title %}Planejamentos{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=45">
@@ -18,7 +18,7 @@
         {% if total_user %}
           {{ total_user }} {{ 'campanha' if total_user == 1 else 'campanhas' }} neste usuário{% if custo_total %}. {{ custo_total }} em gerações{% endif %}.
         {% else %}
-          Briefing vira uma folha de decisão — página única ou plano completo.
+          Briefing vira uma folha de decisão para a próxima conversa comercial.
         {% endif %}
       </p>
     </div>

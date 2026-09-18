@@ -231,7 +231,7 @@ def _process_briefing(
         "plataformas_sugeridas": campos.get("canais") or None,
     })
     current = preserve_seed(dados_atuais, dados)
-    current["plan_mode"] = current.get("plan_mode") or dados_atuais.get("plan_mode") or "completo"
+    current["plan_mode"] = current.get("plan_mode") or dados_atuais.get("plan_mode") or "one_page"
     current["cliente"] = text(campos.get("cliente")) or current.get("cliente")
     current["agencia"] = text(campos.get("agencia")) or current.get("agencia")
     current["anunciante_confidencial"] = as_bool(dados_atuais.get("anunciante_confidencial"))

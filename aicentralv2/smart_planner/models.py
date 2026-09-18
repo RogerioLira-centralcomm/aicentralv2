@@ -228,7 +228,7 @@ def preview_cost(mode: str, dados: dict | None = None) -> dict:
         "source": source,
         "steps": steps,
         "spent": spent,
-        "note": "Estimativa da geração. O plano completo inclui a página única como tese.",
+        "note": "Estimativa interna da geração em reais, sem margem comercial e fora do consumo de créditos.",
     }
 
 

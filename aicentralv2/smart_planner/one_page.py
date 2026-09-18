@@ -169,6 +169,13 @@ Devolva APENAS JSON:
     "surface": "ctv|portal|app|display|place",
     "image_prompt": "descrição visual do criativo funcionando no canal"
   },
+  "visual_direction": {
+    "persona_name": "nome curto da persona",
+    "persona_description": "quem é, contexto e motivação, sem inventar dado demográfico",
+    "place_scene": "lugar ou contexto visual confirmado no briefing; vazio se não houver",
+    "persona_image_prompt": "foto editorial da persona em situação real, sem logo e sem texto",
+    "place_image_prompt": "foto editorial do lugar ou contexto da campanha, sem logo e sem texto"
+  },
   "market": {"title": "Mercado", "body": "", "stat": "", "stat_label": ""},
   "defense": {"title": "Defesa", "body": ""}
 }
@@ -184,7 +191,9 @@ Regras:
 - Se houver places confirmados, não reutilize pitch de aeroporto/portal. Cite o ponto e o app listados. Raios não se somam.
 - market.stat é um número ou uma palavra de decisão (nunca um slogan). Sem inventar percentual sem rotular como premissa.
 - defense.body fecha a reunião: por que este mix, agora, para este anunciante.
-- Use a verba, os canais, os places e o voo mensal da campanha quando existirem.
+- Use os canais, os places e o voo da campanha quando existirem. Se a verba não foi informada, não cite verba, investimento, orçamento, valores ou estimativas no texto: estamos na primeira fase de venda.
+- Modele uma persona visual concreta a partir apenas do público e do contexto confirmados. Não invente idade, renda, profissão ou comportamento como se fossem fatos.
+- Quando houver praça, lugar ou cenário confirmado, descreva uma imagem de apoio desse lugar. Se não houver, deixe place_scene vazio e não invente um destino.
 - Sem agência como herói, sem CentralComm no texto, sem mencionar IA.
 - Se houver identidade da marca (público, produto, tom), use como verdade. Não invente outro posicionamento.
 """

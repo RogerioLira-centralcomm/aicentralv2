@@ -394,9 +394,18 @@ def _one_page_v2(snapshot: dict, evidence: dict, core: dict, estimates: dict) ->
     ))
     parsed = as_dict(chat_json(
         system,
-        "Sintetize o núcleo neste One Page. Não invente tese nova.\n\n" + _pack(snapshot, evidence, core, estimates),
+        "Sintetize o núcleo neste One Page. Não invente tese nova. "
+        "A verba só pode aparecer se estiver confirmada no snapshot; caso contrário, omita qualquer menção financeira. "
+        "A direção visual deve trazer uma persona e, quando houver evidência, o lugar/contexto da campanha.\n\n"
+        + _pack(snapshot, evidence, core, estimates),
         role=skill_role("planner_one_page_v2"),
     ))
+    parsed.setdefault("visual_direction", _visual_direction_fallback(snapshot))
+    parsed["visual_direction"] = {
+        **_visual_direction_fallback(snapshot),
+        **as_dict(parsed.get("visual_direction")),
+    }
+    _apply_no_budget_policy(parsed, snapshot)
     parsed.setdefault("result_estimates", {})
     parsed["result_estimates"].setdefault("status", estimates.get("status"))
     if not text(as_dict(parsed.get("result_estimates")).get("summary")):
@@ -404,6 +413,57 @@ def _one_page_v2(snapshot: dict, evidence: dict, core: dict, estimates: dict) ->
     parsed["snapshot_id"] = text(snapshot.get("snapshot_id"))
     parsed["strategy_core_id"] = text(core.get("id"))
     return parsed
+
+
+def _visual_direction_fallback(snapshot: dict) -> dict:
+    snap = as_dict(snapshot)
+    geography = as_dict(snap.get("geography"))
+    place = text(geography.get("detail") or geography.get("praca"))
+    audiences = as_list(snap.get("audiences"))
+    audience = text(audiences[0] if audiences else "")
+    return {
+        "persona_name": "Pessoa em situação de decisão",
+        "persona_description": audience or "Pessoa representativa do público confirmado no briefing.",
+        "place_scene": place,
+        "persona_image_prompt": (
+            "Foto editorial documental de uma pessoa representativa do público descrito no briefing, "
+            + (audience or "em uma situação cotidiana ligada ao objetivo da campanha")
+            + ". Sem texto, logo ou aparência de banco de imagens."
+        ),
+        "place_image_prompt": (
+            "Foto editorial realista do contexto de campanha em " + place + ", sem texto, logo ou ponto turístico inventado."
+            if place else ""
+        ),
+    }
+
+
+def _apply_no_budget_policy(page: dict, snapshot: dict) -> None:
+    budget = as_dict(as_dict(snapshot).get("budget"))
+    has_budget = bool(text(budget.get("raw"))) or any(
+        as_dict(row).get("amount") not in (None, "", 0)
+        for row in as_list(as_dict(snapshot).get("mix"))
+    )
+    if has_budget:
+        return
+    page["result_estimates"] = {
+        "status": "not_available",
+        "summary": "Base comercial ainda em definição nesta fase.",
+    }
+    blocked = re.compile(r"(?:R\$\s*[\d.,]+|\bverba\b|\borçamento\b|\binvestimento\b|\bbudget\b)", re.I)
+
+    def clean(value):
+        if isinstance(value, str):
+            parts = re.split(r"(?<=[.!?])\s+", value)
+            return " ".join(part for part in parts if not blocked.search(part)).strip()
+        if isinstance(value, list):
+            return [clean(item) for item in value]
+        if isinstance(value, dict):
+            return {key: clean(item) for key, item in value.items()}
+        return value
+
+    for key, value in list(page.items()):
+        if key != "result_estimates":
+            page[key] = clean(value)
 
 
 def _materialize_folha(token: str, snapshot: dict, page: dict, core: dict) -> dict:
@@ -450,6 +510,7 @@ def _materialize_folha(token: str, snapshot: dict, page: dict, core: dict) -> di
         snapshot=snapshot,
         media=media,
     )
+    plan["visual_direction"] = as_dict(page.get("visual_direction"))
     merge_dados(token, {
         "presenter_brand": plan["meta"]["presenter"],
         "public_token": plan["share"]["public_token"],

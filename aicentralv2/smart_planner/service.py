@@ -109,9 +109,9 @@ def recent_plans(limit: int = 20) -> list[dict]:
 
 
 def start_plan(plan_mode: str, payload: dict | None = None) -> dict:
-    mode = (plan_mode or "").strip().lower()
+    mode = (plan_mode or "one_page").strip().lower()
     if mode not in PLAN_MODES:
-        raise ValueError("Escolha plano completo ou página única.")
+        raise ValueError("Modo de planejamento inválido.")
     seed = seed_parties(payload or {})
     return create_session(current_user(), mode, seed)
 
@@ -304,6 +304,7 @@ def wizard_context(row: dict, step_id: str) -> dict:
         "mix_desk": mix_desk,
         "available_channels": available,
         "restricoes": campos["observacoes"],
+        "cost_preview": preview_cost(mode, dados),
         "cost_options": {
             "one_page": preview_cost("one_page", dados),
             "completo": preview_cost("completo", dados),

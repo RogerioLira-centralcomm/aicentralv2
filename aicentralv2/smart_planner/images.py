@@ -18,10 +18,10 @@ logger = logging.getLogger(__name__)
 
 
 def apply_sheet_art(plan: dict, force: bool = False) -> dict:
-    """Gera somente a imagem conceitual principal da proposta.
+    """Gera o conjunto visual contextual da proposta.
 
-    Fundos existentes continuam válidos, mas um fundo exclusivo deixou de ser
-    uma geração automática. Vídeo, áudio, animação e lotes ficam fora daqui.
+    Além do criativo no canal, a One Page recebe uma persona e uma cena de
+    lugar/contexto quando houver evidência suficiente no briefing.
     """
     if not isinstance(plan, dict):
         return plan
@@ -42,6 +42,28 @@ def apply_sheet_art(plan: dict, force: bool = False) -> dict:
         ratio = "4:3" if text(creative.get("surface")) == "app" else "16:9"
         creative["image_url"] = _render(prompt, f"{slug}-creative", aspect_ratio=ratio, references=_brand_references(branding, hero))
         creative["image_model"] = resolve_image_model()
+    direction = as_dict(plan.get("visual_direction"))
+    visuals = as_list(plan.get("supporting_visuals"))
+    existing = {text(item.get("kind")): item for item in visuals if isinstance(item, dict)}
+    visual_specs = [
+        ("persona", text(direction.get("persona_image_prompt"))),
+        ("place", text(direction.get("place_image_prompt"))),
+    ]
+    for kind, prompt in visual_specs:
+        if not prompt or (kind in existing and text(existing[kind].get("image_url")) and not force):
+            continue
+        url = _render(
+            prompt + " Composição editorial de apoio para um planejamento de mídia, sem texto, logo, marca d'água ou interface.",
+            f"{slug}-{kind}",
+            aspect_ratio="4:3",
+            references=_brand_references(branding, hero),
+        )
+        existing[kind] = {
+            "kind": kind,
+            "label": "Persona do plano" if kind == "persona" else "Lugar da campanha",
+            "image_url": url,
+        }
+    plan["supporting_visuals"] = list(existing.values())
     return plan
 
 

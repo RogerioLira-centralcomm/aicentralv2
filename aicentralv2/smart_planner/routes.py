@@ -33,6 +33,7 @@ from .brand import brand_for_client, search_parties
 from .editor import editor_context
 from .images import regenerate_creative
 from .logos import lookup_agency_for_client
+from .models import preview_cost
 from .repository import SessionNotFound, SmartPlannerError, get_by_public_token, merge_dados
 from .service import (
     delete_plan,
@@ -108,7 +109,7 @@ def index():
 @bp.route("/novo")
 @centralcomm_required
 def novo():
-    return render_template("smart_planner/start.html", **_page_ctx())
+    return render_template("smart_planner/start.html", cost_preview=preview_cost("one_page"), **_page_ctx())
 
 
 @bp.route("/<token>/briefing")
@@ -288,7 +289,7 @@ def api_marca():
 def api_criar():
     try:
         payload = request.get_json(silent=True) or {}
-        row = start_plan(payload.get("plan_mode"), payload)
+        row = start_plan(payload.get("plan_mode") or "one_page", payload)
         token = row["session_token"]
         return _ok({
             "session_token": token,

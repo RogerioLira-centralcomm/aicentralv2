@@ -142,10 +142,10 @@ def _gallery(folha: dict) -> list[dict]:
         url = f"/static/images/smart_planner/generated/{path.name}"
         if any(item["url"] == url for item in items):
             continue
-        kind = "creative" if "-creative-" in path.name else "background" if "-bg-" in path.name else "other"
+        kind = "creative" if "-creative-" in path.name else "background" if "-bg-" in path.name else "persona" if "-persona-" in path.name else "place" if "-place-" in path.name else "other"
         items.append({
             "id": path.stem,
-            "label": "Peça gerada" if kind == "creative" else "Arte gerada",
+            "label": {"creative": "Criativo no canal", "background": "Fundo gerado", "persona": "Persona do plano", "place": "Lugar da campanha"}.get(kind, "Arte gerada"),
             "url": url,
             "kind": kind,
             "active": False,

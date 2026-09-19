@@ -382,6 +382,49 @@ class OpenAIDirectRoutingTest(unittest.TestCase):
         self.assertEqual(result["message"]["content"], "ok")
         self.assertEqual(post.call_args.args[0], openrouter_service.OPENROUTER_URL)
 
+    def test_chat_exposes_global_reference_as_public_url_for_every_route(self):
+        class _Resp:
+            status_code = 200
+
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {
+                    "choices": [{"message": {"role": "assistant", "content": "ok"}}],
+                    "model": "gpt-5-mini",
+                    "usage": {},
+                }
+
+        app = Flask(__name__)
+        app.config["STUDIO_URL"] = "https://studio.centralcomm.media"
+        messages = [{"role": "user", "content": [
+            {"type": "text", "text": "Use a composição."},
+            {"type": "image_url", "image_url": {
+                "url": "/static/images/cadu/studio/references/feed/feed-mask-07.webp",
+            }},
+        ]}]
+        with app.app_context(), patch.object(
+            openrouter_service, "resolve_openai_api_key", return_value="sk-test"
+        ), patch.object(
+            openrouter_service, "resolve_api_key", return_value="or-test"
+        ), patch(
+            "aicentralv2.services.openrouter_service.requests.post", return_value=_Resp()
+        ) as post:
+            openrouter_service.chat_completion(messages, model="openai/gpt-5-mini", provider="openai")
+            openrouter_service.chat_completion(messages, model="openai/gpt-4o-mini", provider="openrouter")
+
+        expected = "https://studio.centralcomm.media/static/images/cadu/studio/references/feed/feed-mask-07.webp"
+        self.assertEqual(post.call_args_list[0].args[0], openrouter_service.OPENAI_CHAT_URL)
+        self.assertEqual(post.call_args_list[1].args[0], openrouter_service.OPENROUTER_URL)
+        for call in post.call_args_list:
+            sent = call.kwargs["json"]["messages"][0]["content"][1]["image_url"]["url"]
+            self.assertEqual(sent, expected)
+        self.assertEqual(
+            messages[0]["content"][1]["image_url"]["url"],
+            "/static/images/cadu/studio/references/feed/feed-mask-07.webp",
+        )
+
     def test_image_refs_go_to_openai_edits(self):
         import base64
 

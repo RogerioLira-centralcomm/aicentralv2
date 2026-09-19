@@ -5,6 +5,7 @@ import base64
 import binascii
 import io
 import json
+import logging
 import os
 import re
 from uuid import uuid4
@@ -12,6 +13,8 @@ from uuid import uuid4
 from PIL import Image, ImageFilter, ImageOps
 
 from ..creative_modeling_generation import OpenRouterError, _json_content
+
+logger = logging.getLogger(__name__)
 
 MODEL = os.getenv("CREATIVE_STUDIO_DIRECTION_MODEL", "openai/gpt-5-nano")
 DIRECTOR_MODEL = os.getenv("CREATIVE_STUDIO_DIRECTOR_MODEL", MODEL.removeprefix("openai/"))
@@ -85,9 +88,16 @@ def create(payload, text_callable):
             response = None
             raw = None
     if response is None or not isinstance(raw, dict):
-        # Keep provider/model diagnostics out of the user-facing API error.
-        # The detailed provider failures remain available in the local trace
-        # while the Studio only communicates an actionable product message.
+        # Keep provider/model diagnostics out of the user-facing API error,
+        # but retain a structured trace for the operational investigation.
+        # Do not include the briefing or reference URLs here: both can carry
+        # customer material and are not needed to identify the failed route.
+        logger.warning(
+            "Studio direction failed routes=%s reference_count=%s format=%s",
+            " | ".join(errors)[:900],
+            len(context.get("references") or []),
+            context.get("format") or "",
+        )
         raise OpenRouterError("Não foi possível preparar a direção criativa. Tente novamente em alguns instantes.")
     items = []
     for item in raw.get("directions", []) if isinstance(raw, dict) else []:

@@ -110,12 +110,56 @@ def _with_message_text(message):
 
 
 def sanitize_chat_payload(payload):
-    """Tira sampling que o provedor rejeita com 'Provider returned error'."""
+    """Normaliza o contrato de chat antes de enviá-lo a qualquer provedor.
+
+    Referências do Studio chegam do navegador como caminhos locais ``/static``.
+    Esses caminhos funcionam para o browser, mas não para OpenAI/OpenRouter: os
+    provedores precisam buscar a imagem por uma URL HTTPS pública. A geração de
+    imagem já fazia essa conversão; a direção criativa não fazia e, por isso,
+    os dois diretores podiam recusar o mesmo pedido com referência global.
+    """
     clean = dict(payload or {})
+    clean["messages"] = _normalize_chat_message_references(clean.get("messages"))
     if model_omits_sampling(clean.get("model")):
         for key in _SAMPLING_KEYS:
             clean.pop(key, None)
     return clean
+
+
+def _normalize_chat_message_references(messages):
+    """Copy chat messages while exposing local image parts through HTTPS.
+
+    This intentionally preserves remote URLs and data URLs. It only expands
+    Studio-owned static files, so visual direction stays URL-first instead of
+    duplicating assets as base64 in every LLM request.
+    """
+    if not isinstance(messages, list):
+        return messages
+    normalized = []
+    for message in messages:
+        if not isinstance(message, dict):
+            normalized.append(message)
+            continue
+        current = dict(message)
+        content = current.get("content")
+        if not isinstance(content, list):
+            normalized.append(current)
+            continue
+        parts = []
+        for part in content:
+            if not isinstance(part, dict):
+                parts.append(part)
+                continue
+            current_part = dict(part)
+            image = current_part.get("image_url")
+            if isinstance(image, dict) and isinstance(image.get("url"), str):
+                current_image = dict(image)
+                current_image["url"] = _absolute_provider_reference(current_image["url"])
+                current_part["image_url"] = current_image
+            parts.append(current_part)
+        current["content"] = parts
+        normalized.append(current)
+    return normalized
 
 
 def _provider_error_detail(error):

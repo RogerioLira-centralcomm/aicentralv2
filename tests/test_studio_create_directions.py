@@ -96,6 +96,29 @@ def test_direction_director_receives_reference_pixels_without_base64():
     assert result["directions"][0]["reference_plan"][0]["layout"]["subject_zone"] == "centro-direita"
 
 
+def test_direction_logs_both_provider_failures_without_leaking_the_brief(caplog):
+    def provider(*_args, **_kwargs):
+        raise studio_create.OpenRouterError("reference image URL is invalid")
+
+    with caplog.at_level("WARNING", logger="aicentralv2.creative_media.studio_create"):
+        try:
+            studio_create.create({
+                "count": 1,
+                "prompt": "Briefing confidencial da campanha Reserva.",
+                "context": {"format": "4:5", "references": [{
+                    "url": "/static/images/cadu/studio/references/feed/feed-mask-01.webp",
+                }]},
+            }, provider)
+        except studio_create.OpenRouterError as error:
+            assert "preparar a direção criativa" in str(error)
+        else:
+            raise AssertionError("A criação deveria falhar depois dos dois provedores.")
+
+    assert "openai: reference image URL is invalid" in caplog.text
+    assert "openrouter: reference image URL is invalid" in caplog.text
+    assert "Briefing confidencial" not in caplog.text
+
+
 def test_direction_estimate_grows_with_requested_options():
     assert studio_create.estimated_tokens(1) < studio_create.estimated_tokens(5)
     assert studio_create.estimated_tokens(5) >= 2_900

@@ -18,7 +18,7 @@
     if (event.event === 'artifact.created') return {event:'v2.artifact', artifact:event.artifact};
     if (event.event === 'answer.completed') return {event:'v2.answer', response:event.response || {}};
     if (event.event === 'run.failed') return {event:'error', message:event.message || 'A execução foi interrompida.'};
-    if (event.event === 'run.completed') return {event:'done', status:event.status || 'failed', conversation_id:event.conversation_id};
+    if (event.event === 'run.completed') return {event:'done', status:event.status === 'cancelled' ? 'stopped' : (event.status || 'failed'), conversation_id:event.conversation_id};
     return null;
   };
   async function* events(response) {

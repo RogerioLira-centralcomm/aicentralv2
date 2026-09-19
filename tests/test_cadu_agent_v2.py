@@ -17,6 +17,7 @@ from aicentralv2.cadu_workspace.mcp.registry import (
 from aicentralv2.cadu_workspace.mcp.authorization import MCPUnauthorized, authorize, issue
 from flask import Flask
 from aicentralv2.cadu_workspace.agent_v2 import routes as v2_routes
+from aicentralv2.cadu_workspace.agent_v2 import service as v2_service
 from aicentralv2.cadu_workspace.artifacts import service as artifact_service
 from aicentralv2.cadu_workspace.mcp import routes as mcp_routes
 from aicentralv2.cadu_workspace.mcp.registry import load_builtin_tools
@@ -363,3 +364,54 @@ def test_v2_stop_is_scoped_and_uses_v2_provider(monkeypatch):
     )
     assert response.status_code == 200
     assert stopped == [("task-v2", "user-7")]
+
+
+def test_cancelled_v2_stream_does_not_persist_late_provider_answer(monkeypatch):
+    class Cursor:
+        def __init__(self, statements):
+            self.statements = statements
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def execute(self, statement, *_):
+            self.statements.append(" ".join(statement.split()))
+
+    class Connection:
+        def __init__(self):
+            self.statements = []
+
+        def cursor(self):
+            return Cursor(self.statements)
+
+        def commit(self):
+            pass
+
+        def rollback(self):
+            pass
+
+    connection = Connection()
+    monkeypatch.setattr(v2_service.provider, "events", lambda payload: iter([
+        {"event": "message", "task_id": "task-v2", "answer": '{"answer":"resposta tardia"}'},
+        {"event": "message_end", "metadata": {"usage": {"completion_tokens": 3}}},
+    ]))
+    monkeypatch.setattr(v2_service.repository, "rows", lambda *_: [{"status": "cancelled"}])
+    monkeypatch.setattr(v2_service.repository, "get_db", lambda: connection)
+    run = {
+        "run_id": "be777b36-a973-419c-802a-886bf1d125b0",
+        "conversation_id": "conversation",
+        "context": context(),
+        "route": {"artifact_type": None},
+        "policy": {"max_questions": 1, "max_next_steps": 1, "artifact_in_chat": False},
+        "resolved_context": SimpleNamespace(tool_calls=[]),
+        "provider_payload": {},
+    }
+
+    output = "".join(v2_service.stream(run))
+
+    assert '"status": "cancelled"' in output
+    assert "answer.completed" not in output
+    assert not any("INSERT INTO cadu_conversation_messages" in sql for sql in connection.statements)

@@ -19,6 +19,7 @@ test('runtime v2 translates internal events into public UI events', () => {
   assert.equal(runtime.normalize({event:'answer.completed', response:{answer:'Pronto'}}).event, 'v2.answer');
   assert.equal(runtime.normalize({event:'artifact.created', artifact:{id:'a'}}).event, 'v2.artifact');
   assert.equal(runtime.normalize({event:'run.completed', status:'completed'}).event, 'done');
+  assert.equal(runtime.normalize({event:'run.completed', status:'cancelled'}).status, 'stopped');
 });
 
 test('official conversation screen wires v2 without removing legacy fallback', () => {

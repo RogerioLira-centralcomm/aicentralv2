@@ -29,6 +29,19 @@ def _message(value):
     return text
 
 
+def _run_was_cancelled(run_id: str) -> bool:
+    """Recheck durable state before persisting output from a stopped provider."""
+    try:
+        rows = repository.rows(
+            "SELECT status FROM cadu_family_chat_runs WHERE id = %s AND runtime_version = 'v2'",
+            (run_id,),
+        )
+        return bool(rows and rows[0].get("status") == "cancelled")
+    except Exception:
+        current_app.logger.exception("Falha ao consultar cancelamento do run V2 %s", run_id)
+        return False
+
+
 def prepare(data):
     provider.settings()  # Fail before recording a turn when V2 is not configured.
     message = _message(data.get("message"))
@@ -129,50 +142,56 @@ def stream(run):
                 answer_chunks.append(str(item["answer"]))
             if item.get("event") == "message_end":
                 usage = (item.get("metadata") or {}).get("usage") or {}
-        response = normalize_response("".join(answer_chunks), run["policy"])
-        artifact = None
-        if response.artifact_patch and run["route"].get("artifact_type"):
-            artifact = create_draft(
-                run["context"], run["route"]["artifact_type"], response.artifact_patch,
-                title=response.answer[:120], conversation_id=run["conversation_id"],
-            )
-            yield _event("artifact.created", artifact=artifact)
-        yield _event("answer.completed", response=asdict(response))
-        state = "completed"
-        conn = repository.get_db()
-        with conn.cursor() as cur:
-            assistant_id = str(uuid4())
-            cur.execute("""INSERT INTO cadu_conversation_messages
-                (id, conversation_id, role, content, tokens_entrada, tokens_saida, metadata, created_at)
-                VALUES (%s, %s, 'assistant', %s, %s, %s, %s, NOW())""",
-                (assistant_id, run["conversation_id"], response.answer,
-                 max(0, int(usage.get("prompt_tokens") or 0)),
-                 max(0, int(usage.get("completion_tokens") or 0)),
-                 Json({"runtime": "v2", "response": asdict(response),
-                       "artifact_id": str(artifact["id"]) if artifact else None})))
-            cur.execute("""UPDATE cadu_conversations
-                SET total_mensagens = (SELECT COUNT(*) FROM cadu_conversation_messages WHERE conversation_id = %s),
-                    total_tokens_entrada = COALESCE(total_tokens_entrada, 0) + %s,
-                    total_tokens_saida = COALESCE(total_tokens_saida, 0) + %s, updated_at = NOW()
-                WHERE id = %s""",
-                (run["conversation_id"], max(0, int(usage.get("prompt_tokens") or 0)),
-                 max(0, int(usage.get("completion_tokens") or 0)), run["conversation_id"]))
-        conn.commit()
-        if usage:
-            try:
-                CaduCreditConnector().charge_provider(
-                    actor=CreditActor.from_values(run["context"].client_id, run["context"].user_id),
-                    idempotency_key="chat-v2:" + run["run_id"], app="Cadu Chat", stage="conversa-v2",
-                    provider_result={"usage": usage, "model": "dify-v2"},
-                    metadata={"conversation_id": run["conversation_id"], "provider_conversation_id": provider_id or ""},
+        if _run_was_cancelled(run["run_id"]):
+            state = "cancelled"
+        else:
+            response = normalize_response("".join(answer_chunks), run["policy"])
+            artifact = None
+            if response.artifact_patch and run["route"].get("artifact_type"):
+                artifact = create_draft(
+                    run["context"], run["route"]["artifact_type"], response.artifact_patch,
+                    title=response.answer[:120], conversation_id=run["conversation_id"],
                 )
-            except Exception:
-                # The answer is already durable. Billing reconciliation uses
-                # the idempotency key and must not corrupt the customer turn.
-                current_app.logger.exception("Falha de cobrança no run V2 %s", run["run_id"])
+                yield _event("artifact.created", artifact=artifact)
+            yield _event("answer.completed", response=asdict(response))
+            state = "completed"
+            conn = repository.get_db()
+            with conn.cursor() as cur:
+                assistant_id = str(uuid4())
+                cur.execute("""INSERT INTO cadu_conversation_messages
+                    (id, conversation_id, role, content, tokens_entrada, tokens_saida, metadata, created_at)
+                    VALUES (%s, %s, 'assistant', %s, %s, %s, %s, NOW())""",
+                    (assistant_id, run["conversation_id"], response.answer,
+                     max(0, int(usage.get("prompt_tokens") or 0)),
+                     max(0, int(usage.get("completion_tokens") or 0)),
+                     Json({"runtime": "v2", "response": asdict(response),
+                           "artifact_id": str(artifact["id"]) if artifact else None})))
+                cur.execute("""UPDATE cadu_conversations
+                    SET total_mensagens = (SELECT COUNT(*) FROM cadu_conversation_messages WHERE conversation_id = %s),
+                        total_tokens_entrada = COALESCE(total_tokens_entrada, 0) + %s,
+                        total_tokens_saida = COALESCE(total_tokens_saida, 0) + %s, updated_at = NOW()
+                    WHERE id = %s""",
+                    (run["conversation_id"], max(0, int(usage.get("prompt_tokens") or 0)),
+                     max(0, int(usage.get("completion_tokens") or 0)), run["conversation_id"]))
+            conn.commit()
+            if usage:
+                try:
+                    CaduCreditConnector().charge_provider(
+                        actor=CreditActor.from_values(run["context"].client_id, run["context"].user_id),
+                        idempotency_key="chat-v2:" + run["run_id"], app="Cadu Chat", stage="conversa-v2",
+                        provider_result={"usage": usage, "model": "dify-v2"},
+                        metadata={"conversation_id": run["conversation_id"], "provider_conversation_id": provider_id or ""},
+                    )
+                except Exception:
+                    # The answer is already durable. Billing reconciliation uses
+                    # the idempotency key and must not corrupt the customer turn.
+                    current_app.logger.exception("Falha de cobrança no run V2 %s", run["run_id"])
     except Exception:
-        current_app.logger.exception("Falha no runtime Cadu Conversations V2; run=%s", run["run_id"])
-        yield _event("run.failed", message="A execução foi interrompida. Tente novamente.")
+        if _run_was_cancelled(run["run_id"]):
+            state = "cancelled"
+        else:
+            current_app.logger.exception("Falha no runtime Cadu Conversations V2; run=%s", run["run_id"])
+            yield _event("run.failed", message="A execução foi interrompida. Tente novamente.")
     finally:
         conn = repository.get_db()
         try:

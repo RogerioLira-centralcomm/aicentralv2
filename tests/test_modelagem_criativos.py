@@ -33,6 +33,7 @@ from aicentralv2.creative_format_geometry import (
 )
 from aicentralv2.creative_modeling_generation import (
     BRIEF_SYSTEM,
+    OpenRouterError,
     SCENE_BEAT_SYSTEM,
     TEXT_TEMPERATURES,
     CreativeGenerationClient,
@@ -3038,7 +3039,8 @@ class CreativeGenerationContractTest(unittest.TestCase):
         self.assertFalse(result["result"]["checks"]["language_pt_br"])
 
     @patch.dict("os.environ", {"OPENROUTER_API_KEY": "test"})
-    def test_image_api_usa_modelo_e_duas_referencias(self):
+    @patch("aicentralv2.services.openrouter_service.uses_direct_openai", return_value=False)
+    def test_image_api_usa_modelo_e_duas_referencias(self, _uses_direct):
         http = FakeHttp()
         client = CreativeGenerationClient(http=http)
         references = [
@@ -3059,8 +3061,54 @@ class CreativeGenerationContractTest(unittest.TestCase):
         self.assertEqual(http.payload["background"], "opaque")
         self.assertEqual(result["actual_cost_usd"], 0.13)
 
+    @patch("aicentralv2.services.openrouter_service.uses_direct_openai", return_value=True)
+    @patch("aicentralv2.services.openrouter_service._openai_edit_image")
+    def test_image_api_prefere_openai_direto_com_o_mesmo_payload(self, direct, _uses_direct):
+        direct.return_value = {
+            "b64_json": "aW1hZ2U=", "model": "gpt-image-2", "usage": {}
+        }
+        references = ["data:image/png;base64,cmVmMQ=="]
+
+        result = CreativeGenerationClient(http=FakeHttp()).generate_image(
+            "prompt", references, "4:5", quality="medium", resolution="1K"
+        )
+
+        self.assertEqual(result["response_metadata"]["route"], "openai")
+        self.assertEqual(result["response_metadata"]["provider_aspect_ratio"], "3:4")
+        sent = direct.call_args.kwargs["input_references"]
+        self.assertEqual(sent[0]["image_url"]["url"], references[0])
+        self.assertEqual(direct.call_args.args[0]["quality"], "medium")
+        self.assertEqual(direct.call_args.args[0]["resolution"], "1K")
+
     @patch.dict("os.environ", {"OPENROUTER_API_KEY": "test"})
-    def test_gpt_image_2_troca_fundo_transparente_por_opaco(self):
+    @patch("aicentralv2.services.openrouter_service.uses_direct_openai", return_value=True)
+    @patch("aicentralv2.services.openrouter_service._openai_edit_image")
+    def test_image_api_cai_no_openrouter_quando_openai_falha(self, direct, _uses_direct):
+        direct.side_effect = OpenRouterError("OpenAI indisponível")
+
+        result = CreativeGenerationClient(http=FakeHttp()).generate_image(
+            "prompt", ["data:image/png;base64,cmVmMQ=="], "4:5"
+        )
+
+        self.assertEqual(result["response_metadata"]["route"], "openrouter")
+        self.assertEqual(result["response_metadata"]["provider_aspect_ratio"], "3:4")
+
+    @patch.dict("os.environ", {"OPENROUTER_API_KEY": "test"})
+    @patch("aicentralv2.services.openrouter_service.uses_direct_openai", return_value=False)
+    def test_image_api_converte_resposta_malformada_em_erro_controlado(self, _uses_direct):
+        class MalformedHttp(FakeHttp):
+            def post(self, url, **kwargs):
+                class Response:
+                    def raise_for_status(self): return None
+                    def json(self): return {"data": [None]}
+                return Response()
+
+        with self.assertRaisesRegex(OpenRouterError, "não retornou a imagem"):
+            CreativeGenerationClient(http=MalformedHttp()).generate_image("prompt")
+
+    @patch.dict("os.environ", {"OPENROUTER_API_KEY": "test"})
+    @patch("aicentralv2.services.openrouter_service.uses_direct_openai", return_value=False)
+    def test_gpt_image_2_troca_fundo_transparente_por_opaco(self, _uses_direct):
         from aicentralv2.services.openrouter_service import sanitize_image_payload
 
         http = FakeHttp()
@@ -3245,7 +3293,8 @@ class CreativeGenerationContractTest(unittest.TestCase):
         self.assertNotIn("CLIENT-PRESENTATION MOCKUP", prompt)
 
     @patch.dict("os.environ", {"OPENROUTER_API_KEY": "test"})
-    def test_erro_de_credito_openrouter_e_acionavel(self):
+    @patch("aicentralv2.services.openrouter_service.uses_direct_openai", return_value=False)
+    def test_erro_de_credito_openrouter_e_acionavel(self, _uses_direct):
         client = CreativeGenerationClient(http=FakeHttpError())
         with self.assertRaisesRegex(RuntimeError, "saldo.*insuficiente"):
             client.generate_image("prompt", aspect_ratio="16:9")

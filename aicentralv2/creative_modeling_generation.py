@@ -10,12 +10,10 @@ import requests
 from .services.openrouter_service import (
     OpenRouterError,
     chat_completion,
-    resolve_api_key,
-    sanitize_image_payload,
+    generate_image as generate_routed_image,
 )
 
 
-OPENROUTER_IMAGE_URL = "https://openrouter.ai/api/v1/images"
 DEFAULT_TEXT_MODEL = os.getenv("CREATIVE_TEXT_MODEL", "openai/gpt-5.4")
 DEFAULT_IMAGE_MODEL = os.getenv("CREATIVE_IMAGE_MODEL", "openai/gpt-image-2")
 SUPPORTED_IMAGE_ASPECT_RATIOS = (
@@ -246,29 +244,6 @@ def normalize_image_aspect_ratio(value):
         return abs(math.log(target / (width / height)))
 
     return min(SUPPORTED_IMAGE_ASPECT_RATIOS, key=distance)
-
-
-def _image_http_error(exc):
-    response = getattr(exc, "response", None)
-    status = getattr(response, "status_code", None)
-    if status in (401, 403):
-        return "A credencial OpenRouter não foi aceita."
-    if status == 402:
-        return "O saldo da conta OpenRouter é insuficiente."
-    if status == 429:
-        return "O OpenRouter limitou as gerações. Aguarde e tente novamente."
-    if status and status >= 500:
-        return "O provedor de imagem está indisponível no momento."
-    detail = ""
-    try:
-        payload = response.json()
-        error = payload.get("error") or {}
-        detail = error.get("message") if isinstance(error, dict) else str(error)
-    except (AttributeError, TypeError, ValueError):
-        detail = ""
-    if status == 400 and detail:
-        return f"O provedor recusou a imagem: {detail[:240]}"
-    return "Não foi possível conectar ao provedor de imagem."
 
 
 def text_temperature(name, default):
@@ -505,62 +480,33 @@ class CreativeGenerationClient:
         raw_references = list(input_references or [])
         if len(raw_references) > 2:
             raise ValueError("Use no máximo duas imagens de referência.")
-        references = [_image_reference(item) for item in raw_references]
-        key = resolve_api_key()
-        if not key:
-            raise OpenRouterError("OpenRouter não está configurado.")
         requested_aspect_ratio = aspect_ratio
         provider_aspect_ratio = normalize_image_aspect_ratio(aspect_ratio)
         image_model = str(model or DEFAULT_IMAGE_MODEL).strip() or DEFAULT_IMAGE_MODEL
-        payload = sanitize_image_payload({
-            "model": image_model,
-            "prompt": prompt,
-            "aspect_ratio": provider_aspect_ratio,
+        result = generate_routed_image(
+            prompt,
+            aspect_ratio=provider_aspect_ratio,
+            quality=quality,
+            output_format=output_format,
+            resolution=resolution,
+            background=background,
+            model=image_model,
+            input_references=raw_references,
+            http_client=self.http,
+        )
+        result.setdefault("actual_cost_usd", _usage_cost(result.get("usage")))
+        metadata = result.get("response_metadata")
+        if not isinstance(metadata, dict):
+            metadata = {}
+            result["response_metadata"] = metadata
+        metadata.update({
+            "requested_aspect_ratio": requested_aspect_ratio,
+            "provider_aspect_ratio": provider_aspect_ratio,
             "quality": quality,
-            "output_format": output_format,
             "resolution": resolution,
-            "background": background,
+            "route": result.get("provider_route") or "unknown",
         })
-        if references:
-            payload["input_references"] = references
-        try:
-            response = self.http.post(
-                OPENROUTER_IMAGE_URL,
-                headers={
-                    "Authorization": f"Bearer {key}",
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": "https://centralcomm.media",
-                    "X-Title": "CentralX - Modelagem de Criativos",
-                },
-                json=payload,
-                timeout=180,
-            )
-            response.raise_for_status()
-            data = response.json()
-            images = data.get("data") or []
-            encoded = images[0].get("b64_json") if images else None
-            if not encoded:
-                raise OpenRouterError("O provedor não retornou a imagem.")
-            usage = data.get("usage") or {}
-            return {
-                "b64_json": encoded,
-                "model": data.get("model") or image_model,
-                "usage": usage,
-                "actual_cost_usd": _usage_cost(usage),
-                "output_format": output_format,
-                "response_metadata": {
-                    "id": data.get("id"),
-                    "created": data.get("created"),
-                    "requested_aspect_ratio": requested_aspect_ratio,
-                    "provider_aspect_ratio": provider_aspect_ratio,
-                    "quality": quality,
-                    "resolution": resolution,
-                },
-            }
-        except requests.HTTPError as exc:
-            raise OpenRouterError(_image_http_error(exc)) from exc
-        except (requests.RequestException, ValueError, KeyError, IndexError) as exc:
-            raise OpenRouterError("Não foi possível gerar a imagem.") from exc
+        return result
 
 
 def build_higgsfield_payload(job_id, script, assets, aspect_ratio, duration):

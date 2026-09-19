@@ -388,7 +388,7 @@ class OpenAIDirectRoutingTest(unittest.TestCase):
         class _Resp:
             status_code = 200
             headers = {"content-type": "image/jpeg"}
-            content = b"jpg-bytes"
+            content = b"\xff\xd8\xffjpg-bytes"
 
             def raise_for_status(self):
                 return None
@@ -401,6 +401,9 @@ class OpenAIDirectRoutingTest(unittest.TestCase):
                 }
 
         with patch.object(openrouter_service, "resolve_openai_api_key", return_value="sk-test"), patch(
+            "aicentralv2.creative_modeling_storage._validated_public_asset_url",
+            side_effect=lambda value: value,
+        ), patch(
             "aicentralv2.services.openrouter_service.requests.get", return_value=_Resp()
         ), patch(
             "aicentralv2.services.openrouter_service.requests.post", return_value=_Resp()
@@ -414,6 +417,36 @@ class OpenAIDirectRoutingTest(unittest.TestCase):
         self.assertEqual(post.call_args.args[0], openrouter_service.OPENAI_IMAGE_EDIT_URL)
         self.assertEqual(post.call_args.kwargs["data"]["model"], "gpt-image-2")
         self.assertEqual(post.call_args.kwargs["files"][0][0], "image[]")
+
+    def test_image_falha_dupla_permanece_controlada_e_acionavel(self):
+        with patch.object(openrouter_service, "uses_direct_openai", return_value=True), patch.object(
+            openrouter_service, "_openai_generate_image",
+            side_effect=openrouter_service.OpenRouterError("OpenAI indisponível"),
+        ), patch.object(
+            openrouter_service, "_openrouter_generate_image",
+            side_effect=openrouter_service.OpenRouterError("saldo OpenRouter insuficiente"),
+        ):
+            with self.assertRaisesRegex(
+                openrouter_service.OpenRouterError,
+                "dois provedores.*saldo OpenRouter insuficiente",
+            ):
+                openrouter_service.generate_image("fachada", model="openai/gpt-image-2")
+
+    def test_referencia_webp_mantem_mime_e_extensao_no_multipart(self):
+        raw, mime, name = openrouter_service._reference_bytes(
+            "data:image/webp;base64,d2VicA==", 0
+        )
+
+        self.assertEqual(raw, b"webp")
+        self.assertEqual(mime, "image/webp")
+        self.assertEqual(name, "ref0.webp")
+
+    def test_referencia_invalida_nao_e_descartada_silenciosamente(self):
+        with self.assertRaisesRegex(ValueError, "referências de imagem é inválida"):
+            openrouter_service.generate_image(
+                "fachada", model="openai/gpt-image-2",
+                input_references=["blob:referencia-local"],
+            )
 
 
 if __name__ == "__main__":

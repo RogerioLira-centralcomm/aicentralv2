@@ -2,7 +2,9 @@
 import os
 import json
 import base64
+import logging
 import requests
+from urllib.parse import urljoin
 from typing import Dict, Any, List, Optional
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -13,6 +15,7 @@ OPENAI_IMAGE_EDIT_URL = "https://api.openai.com/v1/images/edits"
 OPENROUTER_VIDEO_URL = "https://openrouter.ai/api/v1/videos"
 OPENROUTER_SPEECH_URL = "https://openrouter.ai/api/v1/audio/speech"
 DEFAULT_IMAGE_MODEL = os.getenv("CREATIVE_IMAGE_MODEL", "openai/gpt-image-2")
+logger = logging.getLogger(__name__)
 
 
 def _env_float(name: str, default: float) -> float:
@@ -537,8 +540,8 @@ def build_image_payload(
     for item in list(input_references or [])[:2]:
         try:
             refs.append(image_reference(item))
-        except ValueError:
-            continue
+        except ValueError as exc:
+            raise ValueError("Uma das referências de imagem é inválida.") from exc
     if refs:
         payload["input_references"] = refs
     return payload
@@ -553,7 +556,7 @@ _OPENAI_IMAGE_SIZES = {
 }
 
 
-def _openai_generate_image(payload, *, image_model, output_format, timeout):
+def _openai_generate_image(payload, *, image_model, output_format, timeout, http_client=requests):
     key = resolve_openai_api_key()
     if not key:
         raise OpenRouterError("OpenAI não está configurada.")
@@ -565,7 +568,7 @@ def _openai_generate_image(payload, *, image_model, output_format, timeout):
         "quality": payload.get("quality") or "high",
     }
     try:
-        response = requests.post(
+        response = http_client.post(
             OPENAI_IMAGE_URL,
             headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
             json=body,
@@ -578,7 +581,7 @@ def _openai_generate_image(payload, *, image_model, output_format, timeout):
         encoded = first.get("b64_json") if isinstance(first, dict) else None
         url = first.get("url") if isinstance(first, dict) else None
         if not encoded and url:
-            fetched = requests.get(url, timeout=60)
+            fetched = http_client.get(url, timeout=60)
             fetched.raise_for_status()
             encoded = base64.b64encode(fetched.content).decode("ascii")
         if not encoded:
@@ -593,21 +596,30 @@ def _openai_generate_image(payload, *, image_model, output_format, timeout):
         raise
     except requests.HTTPError as exc:
         raise OpenRouterError(_openai_chat_error_message(getattr(exc, "response", None))) from exc
-    except (requests.RequestException, ValueError, KeyError, IndexError) as exc:
+    except (requests.RequestException, ValueError, KeyError, IndexError, TypeError, AttributeError) as exc:
         raise OpenRouterError("Não foi possível gerar a imagem na OpenAI.") from exc
 
 
-def _openai_edit_image(payload, *, image_model, output_format, timeout, input_references):
+def _openai_edit_image(
+    payload, *, image_model, output_format, timeout, input_references,
+    http_client=requests,
+):
     key = resolve_openai_api_key()
     if not key:
         raise OpenRouterError("OpenAI não está configurada.")
-    files = []
-    for index, item in enumerate(list(input_references or [])[:2]):
-        raw, mime, name = _reference_bytes(item, index)
-        files.append(("image[]", (name, raw, mime)))
+    try:
+        files = []
+        for index, item in enumerate(list(input_references or [])[:2]):
+            raw, mime, name = _reference_bytes(item, index, http_client=http_client)
+            files.append(("image[]", (name, raw, mime)))
+    except OpenRouterError:
+        raise
+    except Exception as exc:
+        raise OpenRouterError("Não foi possível preparar a referência de imagem.") from exc
     if not files:
         return _openai_generate_image(
-            payload, image_model=image_model, output_format=output_format, timeout=timeout
+            payload, image_model=image_model, output_format=output_format,
+            timeout=timeout, http_client=http_client,
         )
     ratio = str(payload.get("aspect_ratio") or "16:9")
     body = {
@@ -617,7 +629,7 @@ def _openai_edit_image(payload, *, image_model, output_format, timeout, input_re
         "quality": payload.get("quality") or "high",
     }
     try:
-        response = requests.post(
+        response = http_client.post(
             OPENAI_IMAGE_EDIT_URL,
             headers={"Authorization": f"Bearer {key}"},
             data=body,
@@ -631,7 +643,7 @@ def _openai_edit_image(payload, *, image_model, output_format, timeout, input_re
         encoded = first.get("b64_json") if isinstance(first, dict) else None
         url = first.get("url") if isinstance(first, dict) else None
         if not encoded and url:
-            fetched = requests.get(url, timeout=60)
+            fetched = http_client.get(url, timeout=60)
             fetched.raise_for_status()
             encoded = base64.b64encode(fetched.content).decode("ascii")
         if not encoded:
@@ -646,11 +658,11 @@ def _openai_edit_image(payload, *, image_model, output_format, timeout, input_re
         raise
     except requests.HTTPError as exc:
         raise OpenRouterError(_openai_chat_error_message(getattr(exc, "response", None))) from exc
-    except (requests.RequestException, ValueError, KeyError, IndexError) as exc:
+    except (requests.RequestException, ValueError, KeyError, IndexError, TypeError, AttributeError) as exc:
         raise OpenRouterError("Não foi possível editar a imagem na OpenAI.") from exc
 
 
-def _reference_bytes(item, index: int) -> tuple[bytes, str, str]:
+def _reference_bytes(item, index: int, *, http_client=requests) -> tuple[bytes, str, str]:
     url = ""
     if isinstance(item, str):
         url = item
@@ -665,7 +677,7 @@ def _reference_bytes(item, index: int) -> tuple[bytes, str, str]:
     if url.startswith("data:image/"):
         header, _, encoded = url.partition(",")
         mime = header.split(";", 1)[0].split(":", 1)[1] or "image/png"
-        ext = "jpg" if "jpeg" in mime else "png"
+        ext = "webp" if "webp" in mime else "jpg" if "jpeg" in mime else "png"
         return base64.b64decode(encoded), mime, f"ref{index}.{ext}"
     if url.startswith("/static/"):
         from flask import current_app, has_app_context
@@ -679,11 +691,101 @@ def _reference_bytes(item, index: int) -> tuple[bytes, str, str]:
             return raw, mime, f"ref{index}.{ext}"
     if not url.startswith(("https://", "http://")):
         raise OpenRouterError("Referência de imagem inválida.")
-    fetched = requests.get(url, timeout=30)
-    fetched.raise_for_status()
-    mime = (fetched.headers.get("content-type") or "image/jpeg").split(";", 1)[0]
-    ext = "png" if "png" in mime else "jpg"
-    return fetched.content, mime, f"ref{index}.{ext}"
+    content, mime = _download_reference_bytes(url, http_client=http_client)
+    ext = "webp" if "webp" in mime else "png" if "png" in mime else "jpg"
+    return content, mime, f"ref{index}.{ext}"
+
+
+def _download_reference_bytes(url, *, http_client=requests, max_bytes=5 * 1024 * 1024):
+    from ..creative_modeling_storage import _validated_public_asset_url
+
+    current = _validated_public_asset_url(url)
+    response = None
+    for _ in range(4):
+        response = http_client.get(
+            current,
+            headers={"Accept": "image/webp,image/png,image/jpeg"},
+            timeout=30,
+            stream=True,
+            allow_redirects=False,
+        )
+        status = int(getattr(response, "status_code", 200) or 200)
+        if status in {301, 302, 303, 307, 308}:
+            location = (getattr(response, "headers", {}) or {}).get("Location")
+            if not location:
+                raise OpenRouterError("Redirecionamento inválido na referência.")
+            current = _validated_public_asset_url(urljoin(current, location))
+            continue
+        response.raise_for_status()
+        break
+    if response is None:
+        raise OpenRouterError("Não foi possível baixar a referência de imagem.")
+    mime = ((getattr(response, "headers", {}) or {}).get("content-type") or "").split(";", 1)[0].lower()
+    if mime not in {"image/png", "image/jpeg", "image/jpg", "image/webp"}:
+        raise OpenRouterError("A referência remota não é PNG, JPG ou WEBP.")
+    content = bytearray()
+    if hasattr(response, "iter_content"):
+        chunks = response.iter_content(chunk_size=8192)
+    else:
+        chunks = [getattr(response, "content", b"")]
+    for chunk in chunks:
+        if chunk:
+            content.extend(chunk)
+        if len(content) > max_bytes:
+            raise OpenRouterError("A referência remota excede 5 MB.")
+    signatures = {
+        "image/png": bytes(content).startswith(b"\x89PNG\r\n\x1a\n"),
+        "image/jpeg": bytes(content).startswith(b"\xff\xd8\xff"),
+        "image/jpg": bytes(content).startswith(b"\xff\xd8\xff"),
+        "image/webp": bytes(content).startswith(b"RIFF") and bytes(content)[8:12] == b"WEBP",
+    }
+    if not content or not signatures.get(mime):
+        raise OpenRouterError("O conteúdo remoto não corresponde a uma imagem válida.")
+    return bytes(content), "image/jpeg" if mime == "image/jpg" else mime
+
+
+def _openrouter_generate_image(payload, *, image_model, output_format, timeout, http_client=requests):
+    try:
+        headers = {
+            "Authorization": f"Bearer {_api_key()}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://centralcomm.media",
+            "X-Title": "CentralX - Smart Planner",
+            "X-OpenRouter-Title": "CentralX",
+        }
+        response = http_client.post(
+            OPENROUTER_IMAGE_URL,
+            headers=headers,
+            json=payload,
+            timeout=max(30, min(int(timeout), 180)),
+        )
+        response.raise_for_status()
+        data = response.json()
+        if not isinstance(data, dict):
+            raise OpenRouterError("O OpenRouter devolveu uma resposta inválida.")
+        images = data.get("data") or []
+        first = images[0] if images and isinstance(images[0], dict) else {}
+        encoded = first.get("b64_json")
+        url = first.get("url")
+        if not encoded and url:
+            fetched = http_client.get(url, timeout=60)
+            fetched.raise_for_status()
+            encoded = base64.b64encode(fetched.content).decode("ascii")
+        if not encoded:
+            raise OpenRouterError("O OpenRouter não retornou a imagem.")
+        return {
+            "b64_json": encoded,
+            "model": data.get("model") or image_model,
+            "usage": data.get("usage") or {},
+            "output_format": output_format,
+            "provider_route": "openrouter",
+        }
+    except OpenRouterError:
+        raise
+    except requests.HTTPError as exc:
+        raise OpenRouterError(_image_error_message(getattr(exc, "response", None))) from exc
+    except (requests.RequestException, ValueError, KeyError, IndexError, TypeError, AttributeError) as exc:
+        raise OpenRouterError("Não foi possível gerar a imagem no OpenRouter.") from exc
 
 
 def generate_image(
@@ -697,8 +799,10 @@ def generate_image(
     model: Optional[str] = None,
     timeout: int = 180,
     input_references=None,
+    http_client=None,
 ) -> Dict[str, Any]:
-    """Gera imagem no GPT Image 2 — OpenAI direto quando a chave está no banco."""
+    """Gera imagem com OpenAI direta e OpenRouter como rotas redundantes."""
+    client = http_client or requests
     payload = build_image_payload(
         prompt,
         aspect_ratio=aspect_ratio,
@@ -710,56 +814,51 @@ def generate_image(
         input_references=input_references,
     )
     image_model = payload.get("model") or resolve_image_model(model)
+    direct_error = None
     if uses_direct_openai(image_model):
-        if payload.get("input_references"):
-            return _openai_edit_image(
-                payload,
-                image_model=image_model,
-                output_format=output_format,
-                timeout=timeout,
-                input_references=payload.get("input_references"),
+        try:
+            if payload.get("input_references"):
+                result = _openai_edit_image(
+                    payload,
+                    image_model=image_model,
+                    output_format=output_format,
+                    timeout=timeout,
+                    input_references=payload.get("input_references"),
+                    http_client=client,
+                )
+            else:
+                result = _openai_generate_image(
+                    payload, image_model=image_model, output_format=output_format,
+                    timeout=timeout, http_client=client,
+                )
+            result["provider_route"] = "openai"
+            return result
+        except Exception as exc:
+            direct_error = exc
+            logger.warning(
+                "Image provider failed route=openai error=%s detail=%s",
+                type(exc).__name__, str(exc)[:240],
             )
-        return _openai_generate_image(
-            payload, image_model=image_model, output_format=output_format, timeout=timeout
-        )
-    headers = {
-        "Authorization": f"Bearer {_api_key()}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://centralcomm.media",
-        "X-Title": "CentralX - Smart Planner",
-        "X-OpenRouter-Title": "CentralX",
-    }
+
     try:
-        response = requests.post(
-            OPENROUTER_IMAGE_URL,
-            headers=headers,
-            json=payload,
-            timeout=max(30, min(int(timeout), 180)),
+        return _openrouter_generate_image(
+            payload, image_model=image_model, output_format=output_format,
+            timeout=timeout, http_client=client,
         )
-        response.raise_for_status()
-        data = response.json()
-        images = data.get("data") or []
-        first = images[0] if images else {}
-        encoded = first.get("b64_json") if isinstance(first, dict) else None
-        url = first.get("url") if isinstance(first, dict) else None
-        if not encoded and url:
-            fetched = requests.get(url, timeout=60)
-            fetched.raise_for_status()
-            encoded = base64.b64encode(fetched.content).decode("ascii")
-        if not encoded:
-            raise OpenRouterError("O provedor não retornou a imagem.")
-        return {
-            "b64_json": encoded,
-            "model": data.get("model") or image_model,
-            "usage": data.get("usage") or {},
-            "output_format": output_format,
-        }
-    except OpenRouterError:
-        raise
-    except requests.HTTPError as exc:
-        raise OpenRouterError(_image_error_message(getattr(exc, "response", None))) from exc
-    except (requests.RequestException, ValueError, KeyError, IndexError) as exc:
-        raise OpenRouterError("Não foi possível gerar a imagem.") from exc
+    except Exception as exc:
+        router_error = exc if isinstance(exc, OpenRouterError) else OpenRouterError(
+            "Não foi possível gerar a imagem no OpenRouter."
+        )
+        logger.warning(
+            "Image provider failed route=openrouter error=%s detail=%s",
+            type(exc).__name__, str(exc)[:240],
+        )
+        if direct_error is not None:
+            raise OpenRouterError(
+                "Os dois provedores de imagem não concluíram a geração. "
+                f"Fallback OpenRouter: {str(router_error)[:240]}"
+            ) from router_error
+        raise router_error
 
 
 DEFAULT_VIDEO_MODEL = os.getenv("CREATIVE_VIDEO_MODEL", "bytedance/seedance-2.5")

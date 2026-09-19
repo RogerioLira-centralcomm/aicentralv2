@@ -9,7 +9,7 @@ import os
 import re
 from uuid import uuid4
 
-from PIL import Image, ImageFilter
+from PIL import Image, ImageFilter, ImageOps
 
 from ..creative_modeling_generation import OpenRouterError, _json_content
 
@@ -264,6 +264,8 @@ def create_image(payload, modeling, client_id, user_id):
         direction_intensity = 70
     width = integer(data.get("width"), 0)
     height = integer(data.get("height"), 0)
+    if bool(width) != bool(height):
+        raise ValueError("Informe largura e altura do formato.")
     if (width and not 120 <= width <= 7680) or (height and not 80 <= height <= 7680):
         raise ValueError("Dimensões do formato fora do limite permitido.")
     technical_prompt = "\n".join([
@@ -297,11 +299,15 @@ def create_image(payload, modeling, client_id, user_id):
     encoded = provider.get("b64_json")
     if not encoded:
         raise ValueError("O gerador não devolveu uma imagem.")
-    if mask and primary:
-        encoded = compose_inside_mask(encoded, primary["data"], mask)
+    output_format = provider.get("output_format") or "png"
     try:
+        if mask and primary:
+            encoded = compose_inside_mask(encoded, primary["data"], mask)
+            output_format = "png"
+        elif width and height:
+            encoded = fit_generated_output(encoded, width, height, output_format)
         image_url = modeling.storage.save_generated_base64(
-            encoded, provider.get("output_format") or "png"
+            encoded, output_format
         )
     except Exception as error:
         setattr(error, "studio_phase", "image_storage")
@@ -363,7 +369,7 @@ def normalize_image_references(raw, storage):
         elif value.startswith("/static/uploads/creative_generated/"):
             image_data = storage.generated_as_data_url(value)
         elif value.startswith("/static/uploads/creative_references/"):
-            image_data = storage.reference_as_data_url(value, "image/png")
+            image_data = storage.reference_as_data_url(value, image_mime(value))
         elif value.startswith("/static/images/cadu/studio/references/"):
             from flask import current_app
             from pathlib import Path
@@ -376,10 +382,11 @@ def normalize_image_references(raw, storage):
                 raise ValueError("Imagem de referência não encontrada.")
             if not path.is_file():
                 raise ValueError("Imagem de referência não encontrada.")
-            mime = "image/jpeg" if path.suffix.lower() in {".jpg", ".jpeg"} else "image/png"
+            mime = image_mime(path)
             image_data = f"data:{mime};base64,{base64.b64encode(path.read_bytes()).decode('ascii')}"
         elif value.startswith(("https://", "http://")):
-            image_data = value
+            from ..creative_modeling_storage import _validated_public_asset_url
+            image_data = _validated_public_asset_url(value)
         else:
             raise ValueError("Uma das imagens relacionadas não está disponível.")
         cleaned.append({
@@ -415,11 +422,81 @@ def provider_image_references(references, mask):
     """Represent the selection inside the provider's two-reference limit."""
     values = [item["data"] for item in references[:2]]
     if not mask or not references:
-        return values
+        return [compact_provider_reference(value) for value in values]
     primary = references[0]["data"]
     if len(values) == 1:
-        return [primary, mask]
-    return [marked_reference(primary, mask), values[1]]
+        # The selection mask must remain lossless and pixel-aligned. Only the
+        # visual source is compacted for transport.
+        return [compact_provider_reference(primary), mask]
+    return [
+        compact_provider_reference(marked_reference(primary, mask)),
+        compact_provider_reference(values[1]),
+    ]
+
+
+def compact_provider_reference(value, max_side=1536, max_bytes=900_000):
+    """Bound provider payloads without modifying the stored reference asset."""
+    raw = str(value or "")
+    if not raw.startswith("data:image/") or "," not in raw:
+        return raw
+    try:
+        encoded = raw.split(",", 1)[1]
+        content = base64.b64decode(encoded, validate=True)
+        image = ImageOps.exif_transpose(Image.open(io.BytesIO(content)))
+        image.load()
+    except (binascii.Error, OSError, ValueError) as exc:
+        raise ValueError("Uma das referências de imagem é inválida.") from exc
+    if len(content) <= max_bytes and max(image.size) <= max_side:
+        return raw
+    image.thumbnail((max_side, max_side), Image.Resampling.LANCZOS)
+    if image.mode not in {"RGB", "RGBA"}:
+        image = image.convert("RGBA" if "transparency" in image.info else "RGB")
+    output = io.BytesIO()
+    try:
+        image.save(output, "WEBP", quality=82, method=4)
+        mime = "image/webp"
+    except (OSError, ValueError):
+        output = io.BytesIO()
+        image.save(output, "PNG", optimize=True)
+        mime = "image/png"
+    compacted = output.getvalue()
+    if len(compacted) >= len(content):
+        return raw
+    return f"data:{mime};base64,{base64.b64encode(compacted).decode('ascii')}"
+
+
+def image_mime(value):
+    suffix = str(value or "").lower().rsplit(".", 1)[-1]
+    if suffix in {"jpg", "jpeg"}:
+        return "image/jpeg"
+    if suffix == "webp":
+        return "image/webp"
+    return "image/png"
+
+
+def fit_generated_output(encoded, width, height, output_format="png"):
+    try:
+        content = base64.b64decode(str(encoded or ""), validate=True)
+        image = ImageOps.exif_transpose(Image.open(io.BytesIO(content)))
+        image.load()
+        fitted = ImageOps.fit(
+            image, (int(width), int(height)), method=Image.Resampling.LANCZOS,
+            centering=(0.5, 0.5),
+        )
+        normalized = str(output_format or "png").lower()
+        if normalized in {"jpg", "jpeg"}:
+            fitted = fitted.convert("RGB")
+            pil_format = "JPEG"
+        elif normalized == "webp":
+            pil_format = "WEBP"
+        else:
+            pil_format = "PNG"
+        output = io.BytesIO()
+        save_options = {"quality": 92} if pil_format != "PNG" else {}
+        fitted.save(output, pil_format, **save_options)
+        return base64.b64encode(output.getvalue()).decode("ascii")
+    except (binascii.Error, OSError, ValueError, TypeError) as exc:
+        raise ValueError("A imagem retornada não pôde ser ajustada ao formato.") from exc
 
 
 def marked_reference(source_data_url, mask_data_url):

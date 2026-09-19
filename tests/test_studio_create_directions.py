@@ -1,7 +1,9 @@
 import base64
 import io
+from pathlib import Path
 from types import SimpleNamespace
 
+from flask import Flask
 from PIL import Image, ImageDraw
 
 from aicentralv2.creative_media import studio_create
@@ -71,6 +73,57 @@ def image_data(color, size=(4, 4), mask_box=None):
     output = io.BytesIO()
     image.save(output, "PNG")
     return "data:image/png;base64," + base64.b64encode(output.getvalue()).decode()
+
+
+def test_global_feed_reference_is_embedded_for_both_image_providers():
+    static_folder = Path(__file__).parents[1] / "aicentralv2" / "static"
+    app = Flask(__name__, static_folder=str(static_folder))
+
+    with app.app_context():
+        references = studio_create.normalize_image_references([{
+            "id": "feed-mask-01",
+            "url": "/static/images/cadu/studio/references/feed/feed-mask-01.png",
+            "role": "composition",
+            "source": "global",
+            "label": "Referência de composição",
+        }], SimpleNamespace())
+
+    assert len(references) == 1
+    assert references[0]["source"] == "global"
+    assert references[0]["role"] == "composition"
+    assert references[0]["data"].startswith("data:image/png;base64,")
+    assert len(base64.b64decode(references[0]["data"].split(",", 1)[1])) > 100
+
+    provider_value = studio_create.provider_image_references(references, "")[0]
+    original_size = len(base64.b64decode(references[0]["data"].split(",", 1)[1]))
+    provider_size = len(base64.b64decode(provider_value.split(",", 1)[1]))
+    assert provider_value.startswith("data:image/webp;base64,")
+    assert provider_size < original_size / 2
+
+
+def test_uploaded_reference_preserves_its_real_mime_type():
+    captured = {}
+
+    class Storage:
+        def reference_as_data_url(self, _path, mime):
+            captured["mime"] = mime
+            return image_data("red")
+
+    studio_create.normalize_image_references([{
+        "url": "/static/uploads/creative_references/product.webp",
+        "role": "identity",
+    }], Storage())
+
+    assert captured["mime"] == "image/webp"
+
+
+def test_generated_output_is_fitted_to_exact_selected_dimensions():
+    encoded = image_data("blue", size=(12, 12)).split(",", 1)[1]
+
+    fitted = studio_create.fit_generated_output(encoded, 108, 135, "png")
+    result = Image.open(io.BytesIO(base64.b64decode(fitted)))
+
+    assert result.size == (108, 135)
 
 
 def test_mask_composition_preserves_every_pixel_outside_selection():

@@ -1,4 +1,5 @@
 import pytest
+from pathlib import Path
 
 from aicentralv2.cadu_workspace.agent_v2.contracts import RequestContext
 from aicentralv2.cadu_workspace.agent_v2.response_policy import budget_for, policy_for
@@ -202,3 +203,15 @@ def test_normalizer_accepts_fenced_json_without_showing_the_envelope():
     ```''', {"max_questions": 1, "artifact_in_chat": False})
     assert response.answer == "Conclusão objetiva."
     assert response.confidence == "high"
+
+
+def test_v2_lab_and_migration_are_wired_for_deploy():
+    root = Path(__file__).resolve().parents[1]
+    app_factory = (root / "aicentralv2" / "__init__.py").read_text()
+    routes = (root / "aicentralv2" / "cadu_workspace" / "agent_v2" / "routes.py").read_text()
+    template = (root / "aicentralv2" / "templates" / "cadu_workspace" / "conversations_v2_lab.html").read_text()
+    deploy = (root / "deploy.sh").read_text()
+    assert "cadu_agent_v2_lab_bp" in app_factory
+    assert 'lab_bp.get("/workspace/conversas-v2-lab")' in routes
+    assert "data-v2-lab" in template and "data-prompt" in template
+    assert "migrations/run_add_cadu_conversations_v2.py" in deploy

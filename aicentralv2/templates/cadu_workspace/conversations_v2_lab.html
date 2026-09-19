@@ -1,0 +1,53 @@
+{% extends 'cadu_portals/base.html' %}
+{% block title %}Laboratório Conversas V2 — Cadu Workspace{% endblock %}
+{% block product_id %}workspace{% endblock %}
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=11">
+<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/v2-lab.css') }}?v=1">
+{% endblock %}
+{% block navigation %}{% endblock %}
+{% block content %}
+{% set workspace_active = 'conversas' %}
+<div class="workspace-app-shell v2-lab-shell">
+  {% include 'cadu_workspace/_app_sidebar.html' %}
+  <section class="v2-lab" data-v2-lab data-endpoint="{{ url_for('cadu_agent_v2.conversation_message') }}">
+    <header class="v2-lab-head">
+      <div><span class="v2-lab-signal" aria-hidden="true"></span><h1>Conversas V2</h1><p>Laboratório do runtime publicado</p></div>
+      <div class="v2-lab-runtime"><span data-runtime-state>Pronto</span><b>Dify V2</b></div>
+    </header>
+
+    <div class="v2-lab-grid">
+      <aside class="v2-lab-presets" aria-labelledby="v2-presets-title">
+        <header><h2 id="v2-presets-title">Cenários</h2><p>Injete um pedido e ajuste antes de enviar.</p></header>
+        <div class="v2-lab-preset-list">
+          <button type="button" data-prompt="Melhore este título: Cafés especiais para tardes melhores."><b>Resposta curta</b><span>Sem carregar contexto amplo</span></button>
+          <button type="button" data-prompt="Estruture um briefing para uma campanha que aumente o movimento da cafeteria entre 14h e 17h. Avance com premissas e faça apenas a pergunta essencial."><b>Criar briefing</b><span>Gera artefato editável</span></button>
+          <button type="button" data-prompt="Pesquise nos documentos do projeto o que já definimos sobre orçamento e prazo."><b>Pesquisar projeto</b><span>Exercita a tool de contexto</span></button>
+          <button type="button" data-prompt="Compare as duas opções e recomende a melhor: campanha de desconto ou programa de fidelidade."><b>Tomar decisão</b><span>Mostra premissas e confiança</span></button>
+          <button type="button" data-prompt="Compare o relatório mais recente com o plano de mídia e destaque desvios relevantes."><b>Relatório × plano</b><span>Testa contexto cruzado</span></button>
+        </div>
+        <label class="v2-lab-field">Superfície<select data-surface><option value="conversations">Conversas</option><option value="workspace">Workspace</option><option value="planner">Planner</option><option value="reports">Reports</option><option value="studio">Studio</option></select></label>
+        <button class="v2-lab-reset" type="button" data-reset>Limpar sessão de teste</button>
+      </aside>
+
+      <section class="v2-lab-chat" aria-label="Teste de conversa">
+        <div class="v2-lab-thread" data-thread aria-live="polite">
+          <div class="v2-lab-empty"><i>C</i><h2>Teste uma conversa completa</h2><p>Escolha um cenário ou escreva um pedido. A resposta, as perguntas e as ações aparecem aqui; o diagnóstico fica separado.</p></div>
+        </div>
+        <form class="v2-lab-composer" data-form>
+          <textarea data-message rows="3" maxlength="20000" placeholder="Escreva um pedido para o Cadu…" required></textarea>
+          <div><span><kbd>Enter</kbd> envia · <kbd>Shift</kbd> + <kbd>Enter</kbd> quebra linha</span><button type="submit" data-send aria-label="Enviar pedido"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 14-7-4 14-3-5-7-2Z"/><path d="m12 14 7-9"/></svg></button></div>
+        </form>
+      </section>
+
+      <aside class="v2-lab-inspector" aria-label="Execução e artefato">
+        <nav><button type="button" class="is-active" data-tab="trace">Execução</button><button type="button" data-tab="artifact">Artefato <span data-artifact-count>0</span></button></nav>
+        <section data-panel="trace"><div class="v2-lab-trace" data-trace><p>Nenhuma execução iniciada.</p></div></section>
+        <section data-panel="artifact" hidden><div class="v2-lab-artifact" data-artifact><p>Artefatos estruturados aparecerão aqui.</p></div></section>
+      </aside>
+    </div>
+  </section>
+</div>
+{% endblock %}
+{% block portal_scripts %}<script defer src="{{ url_for('static', filename='cadu_workspace/conversations/v2-lab.js') }}?v=1"></script>{% endblock %}

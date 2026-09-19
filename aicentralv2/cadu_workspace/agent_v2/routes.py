@@ -2,7 +2,7 @@
 
 import secrets
 
-from flask import Blueprint, Response, abort, current_app, jsonify, request, session, stream_with_context
+from flask import Blueprint, Response, abort, current_app, jsonify, render_template, request, session, stream_with_context
 from werkzeug.exceptions import HTTPException
 
 from .request_context import resolve
@@ -15,6 +15,14 @@ from .service import prepare as prepare_message, stream as stream_message
 
 
 bp = Blueprint("cadu_agent_v2", __name__, url_prefix="/workspace/api/v2")
+lab_bp = Blueprint("cadu_agent_v2_lab", __name__)
+
+
+@lab_bp.get("/workspace/conversas-v2-lab")
+def conversations_v2_lab():
+    if not session.get("user_id"):
+        abort(401)
+    return render_template("cadu_workspace/conversations_v2_lab.html")
 
 
 @bp.before_request

@@ -54,6 +54,7 @@ não é a fonte canônica do histórico.
 
 ## Endpoints iniciais
 
+- `GET /workspace/conversas-v2-lab` (laboratório autenticado para QA)
 - `GET /workspace/api/v2/capabilities`
 - `POST /workspace/api/v2/route`
 - `POST /workspace/api/v2/mcp-token`
@@ -66,6 +67,11 @@ Todos exigem sessão autenticada. POST/PATCH exigem o CSRF da família Cadu em
 minutos contendo apenas o tenant, projeto, objeto e capabilities já validados.
 Outros agentes usam essa delegação como `Authorization: Bearer ...` no MCP;
 IDs livres enviados pelo agente nunca definem a autorização.
+
+O laboratório permite injetar cenários simples, briefing, busca no projeto,
+decisão e comparação de relatório. Ele mostra separadamente resposta,
+perguntas, ações, eventos de execução e o artefato estruturado; não substitui
+o frontend definitivo e não acessa o Dify diretamente pelo navegador.
 
 Para criar novas tools ou preparar exposição a agentes do cliente, seguir
 `docs/cadu-mcp-server-playbook.md`. O catálogo separa `internal` de

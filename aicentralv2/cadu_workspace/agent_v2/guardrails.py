@@ -2,6 +2,8 @@
 
 import json
 import re
+from urllib.parse import urlsplit
+from uuid import UUID
 
 from werkzeug.exceptions import BadRequest
 
@@ -49,6 +51,150 @@ def _clean_citations(values):
         if len(citations) >= 20:
             break
     return citations
+
+
+def _resource_url(value):
+    value = _clean_text(value, 2000)
+    if value.startswith('/workspace/'):
+        return value
+    try:
+        parsed = urlsplit(value)
+        return value if parsed.scheme == 'https' and parsed.hostname and not parsed.username and not parsed.password else ''
+    except ValueError:
+        return ''
+
+
+def _clean_uuid(value):
+    try:
+        return str(UUID(str(value or "")))
+    except (TypeError, ValueError, AttributeError):
+        return ""
+
+
+def _as_bool(value):
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().lower() in {"1", "true", "yes", "sim"}
+
+
+def _clean_blocks(values):
+    """Reduce provider UI suggestions to a small, inert product contract."""
+    blocks = []
+    allowed = {"decision", "checklist", "insights", "metrics", "files", "steps"}
+    allowed_states = {"pending", "active", "done", "blocked"}
+    for value in values if isinstance(values, list) else []:
+        if not isinstance(value, dict) or value.get("type") not in allowed:
+            continue
+        block_type = value["type"]
+        items = []
+        used_ids = set()
+        source_items = value.get("items") if isinstance(value.get("items"), list) else []
+        for index, item in enumerate(source_items):
+            if not isinstance(item, dict):
+                continue
+            title = _clean_text(item.get("title") or item.get("label"), 180)
+            if not title:
+                continue
+            item_id = _clean_text(item.get("id"), 100) or f"item-{index + 1}"
+            if item_id in used_ids:
+                item_id = f"item-{index + 1}"
+            while item_id in used_ids:
+                item_id = f"{item_id}-next"
+            used_ids.add(item_id)
+            clean = {
+                "id": item_id,
+                "title": title,
+                "detail": _clean_text(item.get("detail") or item.get("description"), 500),
+            }
+            if block_type == "decision":
+                clean.update({
+                    "recommended": _as_bool(item.get("recommended")),
+                    "prompt": _clean_text(item.get("prompt"), 1000),
+                })
+            elif block_type in {"checklist", "steps"}:
+                state = _clean_text(item.get("state"), 30).lower()
+                clean.update({
+                    "state": state if state in allowed_states else "pending",
+                    "prompt": _clean_text(item.get("prompt"), 1000),
+                })
+            elif block_type in {"insights", "metrics"}:
+                clean["prompt"] = _clean_text(item.get("prompt"), 1000)
+                if block_type == "metrics":
+                    clean.update({
+                        "value": _clean_text(item.get("value"), 100),
+                        "url": _resource_url(item.get("url")),
+                    })
+            elif block_type == "files":
+                clean.update({
+                    "kind": _clean_text(item.get("kind"), 80) or "Arquivo",
+                    "url": _resource_url(item.get("url")),
+                    "artifact_id": _clean_uuid(item.get("artifact_id")),
+                    "editor_url": _resource_url(item.get("editor_url")),
+                    "editable_copy_url": _resource_url(item.get("editable_copy_url")),
+                    "download_url": _resource_url(item.get("download_url")),
+                })
+            items.append(clean)
+            if len(items) >= 5:
+                break
+        if items:
+            blocks.append({
+                "type": block_type,
+                "title": _clean_text(value.get("title"), 180),
+                "summary": _clean_text(value.get("summary"), 500),
+                "items": items,
+            })
+        if len(blocks) >= 2:
+            break
+    return blocks
+
+
+def _list_items(answer):
+    items = []
+    for raw_line in str(answer or "").replace("\r\n", "\n").split("\n"):
+        match = re.match(r"^\s*(?:[-*+]\s+|\d+[.)]\s+)(.+?)\s*$", raw_line)
+        if not match:
+            continue
+        text = re.sub(r"[*_`]", "", match.group(1)).strip()
+        if not text:
+            continue
+        title, separator, detail = text.partition(":")
+        if not separator:
+            title, separator, detail = text.partition(" — ")
+        items.append({
+            "id": f"item-{len(items) + 1}",
+            "title": _clean_text(title, 180),
+            "detail": _clean_text(detail, 500) if separator else "",
+        })
+    return items
+
+
+def _short_intro(answer, fallback):
+    intro = []
+    for raw_line in str(answer or "").replace("\r\n", "\n").split("\n"):
+        if re.match(r"^\s*(?:#{1,6}\s+|[-*+]\s+|\d+[.)]\s+)", raw_line):
+            if intro:
+                break
+            continue
+        clean = _clean_text(re.sub(r"[*_`]", "", raw_line), 320)
+        if clean:
+            intro.append(clean)
+        if len(" ".join(intro)) >= 220:
+            break
+    return _clean_text(" ".join(intro), 280) or fallback
+
+
+def _fallback_blocks(answer, policy):
+    items = _list_items(answer)
+    mode = policy.get("mode")
+    if mode == "decision" and 2 <= len(items) <= 5:
+        for item in items:
+            item.update({"recommended": False, "prompt": f"Use a opção “{item['title']}” e continue o trabalho."})
+        return [{"type": "decision", "title": "Escolha uma direção", "summary": "", "items": items}]
+    if mode in {"direct", "analysis"} and 2 <= len(items) <= 5:
+        for item in items:
+            item["prompt"] = f"Aprofunde este ponto: {item['title']}."
+        return [{"type": "insights", "title": "Pontos principais", "summary": "", "items": items}]
+    return []
 
 
 def _clean_patch(value):
@@ -147,18 +293,29 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
     assumptions = [str(item).strip()[:500] for item in value.get("assumptions", []) if str(item).strip()][:10]
     citations = _clean_citations(value.get("citations"))
     actions = _clean_actions(value.get("actions"), max(0, int(policy.get("max_next_steps", 2))))
+    blocks = _clean_blocks(value.get("blocks"))
     patch = _clean_patch(value.get("artifact_patch"))
     artifact_first = policy.get("mode") == "artifact_first" and policy.get("artifact_type") not in {None, "html", "project_map"}
     if artifact_first and not patch:
         patch = _fallback_artifact(answer, policy)
     dense_answer = len(answer) > int(policy.get("max_answer_chars") or 1800) or len(re.findall(r"(?m)^\s*(?:#{1,6}|[-*+]\s|\d+[.)]\s)", answer)) > 3
+    if not blocks:
+        blocks = _fallback_blocks(answer, policy)
     if artifact_first and dense_answer:
         answer = str(policy.get("artifact_chat_message") or "Organizei o resultado no artefato ao lado para você revisar e editar.")
+    elif dense_answer and not blocks and policy.get("mode") != "clarification":
+        patch = patch or _fallback_artifact(answer, policy)
+        answer = "Organizei os detalhes no artefato ao lado para você revisar e editar."
+    elif blocks:
+        answer = _short_intro(answer, "Preparei o resultado para você continuar abaixo.")
     max_answer_chars = min(12000, max(240, int(policy.get("max_answer_chars") or 1800)))
     if len(answer) > max_answer_chars:
-        answer = answer[:max_answer_chars].rstrip() + "…"
+        answer = _short_intro(answer, answer[:max_answer_chars].rstrip())
+        if len(answer) > max_answer_chars:
+            answer = answer[:max_answer_chars].rsplit(" ", 1)[0].rstrip(" ,;:") + "…"
     confidence = str(value.get("confidence") or "medium").lower()
     if confidence not in {"low", "medium", "high"}:
         confidence = "medium"
     return AgentResponse(answer=answer, confidence=confidence, assumptions=assumptions,
-                         questions=questions, actions=actions, artifact_patch=patch, citations=citations)
+                         questions=questions, actions=actions, artifact_patch=patch,
+                         citations=citations, blocks=blocks)

@@ -336,19 +336,21 @@ def stream(run):
         else:
             response = normalize_response("".join(answer_chunks), run["policy"])
             artifact = None
-            if run["route"].get("artifact_type") and (
-                    response.artifact_patch or run["route"]["artifact_type"] == "project_map"):
+            artifact_type = run["route"].get("artifact_type") or (
+                "document" if response.artifact_patch else None
+            )
+            if artifact_type and (response.artifact_patch or artifact_type == "project_map"):
                 artifact_content = response.artifact_patch or {}
-                if run["route"]["artifact_type"] == "project_map":
+                if artifact_type == "project_map":
                     artifact_content = _project_map_content(run, response.artifact_patch)
                 artifact_title = str(artifact_content.get("title") or response.answer)[:120]
                 active = run["context"].active_object
-                if (active and active.type == f"artifact:{run['route']['artifact_type']}"
+                if (active and active.type == f"artifact:{artifact_type}"
                         and str(run["route"].get("action") or "").startswith("update_")):
                     existing_artifact = get_artifact(run["context"], active.id)
                 else:
                     existing_artifact = None
-                if existing_artifact and existing_artifact.get("type") == run["route"]["artifact_type"]:
+                if existing_artifact and existing_artifact.get("type") == artifact_type:
                     artifact = patch_artifact(
                         run["context"], active.id,
                         {**(existing_artifact.get("content") or {}), **artifact_content},
@@ -358,13 +360,13 @@ def stream(run):
                     )
                 else:
                     artifact = create_draft(
-                        run["context"], run["route"]["artifact_type"], artifact_content,
+                        run["context"], artifact_type, artifact_content,
                         title=artifact_title,
                         conversation_id=run["conversation_id"],
                     )
                 _complete_step(run["run_id"], "artifact", {"artifact_id": str(artifact["id"])})
                 _journal(run["run_id"], "artifact.created", {"artifact_id": str(artifact["id"]),
-                         "type": run["route"]["artifact_type"]}, item_type="artifact")
+                         "type": artifact_type}, item_type="artifact")
                 yield _event("artifact.created", artifact=artifact)
             _complete_step(run["run_id"], "generate", {"answer_chars": len(response.answer)})
             _journal(run["run_id"], "answer.completed", {"response": asdict(response)}, item_type="message")

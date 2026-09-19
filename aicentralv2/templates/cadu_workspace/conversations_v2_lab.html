@@ -1,110 +1,37 @@
 {% extends 'cadu_portals/base.html' %}
 {% block title %}Conversas 2.0 — Cadu Workspace{% endblock %}
 {% block product_id %}workspace{% endblock %}
-{% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=11">
-<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/v2-lab.css') }}?v=6">
-{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v=1">{% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
-{% set workspace_active = 'conversas-v2' %}
-<div class="workspace-app-shell v2-lab-shell">
-  {% include 'cadu_workspace/_app_sidebar.html' %}
-  <main class="v2-lab"
-        data-v2-lab
-        data-endpoint="{{ url_for('cadu_agent_v2.conversation_message') }}"
-        data-context-endpoint="{{ url_for('cadu_family.get_context') }}"
-        data-history-endpoint="{{ url_for('cadu_family.conversation_history') }}">
-    <header class="v2-lab-head">
-      <div class="v2-lab-identity">
-        <h1 data-conversation-title>Nova conversa</h1>
-        <label class="v2-lab-project">
-          <span>Projeto</span>
-          <select data-project aria-label="Projeto usado nesta conversa"><option value="">Contexto pessoal</option></select>
-          <small data-project-state>Carregando projetos…</small>
-        </label>
-      </div>
-      <div class="v2-lab-head-actions">
-        <span class="v2-lab-runtime-state" data-runtime-state role="status" hidden></span>
-        <details class="v2-lab-diagnostics">
-          <summary aria-label="Ver detalhes da execução" title="Detalhes da execução">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h3l2-6 4 12 2-6h5"/></svg>
-          </summary>
-          <div class="v2-lab-diagnostics-panel">
-            <header><strong>Detalhes da execução</strong><span>Eventos técnicos desta conversa</span></header>
-            <div class="v2-lab-trace" data-trace><p>Nenhuma execução iniciada.</p></div>
-          </div>
-        </details>
-        <button class="v2-lab-new" type="button" data-reset aria-label="Iniciar nova conversa" title="Nova conversa">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-        </button>
-      </div>
-      <input type="hidden" data-surface value="conversations">
-    </header>
-
-    <div class="v2-lab-workspace">
-      <section class="v2-lab-chat" aria-label="Conversa com o Cadu">
-        <div class="v2-lab-thread" data-thread aria-live="polite">
-          <div class="v2-lab-empty">
-            <span class="v2-lab-mark" aria-hidden="true">C</span>
-            <h2>Em que vamos trabalhar?</h2>
-            <p>Converse, analise arquivos ou crie algo usando o contexto do projeto.</p>
-            <div class="v2-lab-starters" aria-label="Sugestões">
-              <button type="button" data-prompt="Estruture um briefing para esta campanha e destaque somente o que ainda precisa ser decidido.">Criar um briefing</button>
-              <button type="button" data-prompt="Pesquise nos documentos do projeto o que já definimos sobre orçamento e prazo.">Pesquisar no projeto</button>
-              <button type="button" data-prompt="Compare as opções disponíveis e recomende a melhor com uma justificativa curta.">Comparar opções</button>
-            </div>
-          </div>
-        </div>
-        <form class="v2-lab-composer" data-form>
-          <div class="v2-lab-attachments" data-attachments hidden></div>
-          <textarea data-message rows="1" maxlength="20000" placeholder="Pergunte ou peça uma alteração…" required aria-label="Mensagem para o Cadu"></textarea>
-          <div class="v2-lab-composer-bar">
-            <div><button type="button" class="v2-lab-attach" data-attach aria-label="Anexar arquivo" title="Anexar arquivo">+</button><span data-composer-context>Contexto pessoal</span></div>
-            <input type="file" data-file-input hidden accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.txt,.csv,.md,.json,.docx,.xlsx,.pptx">
-            <button type="button" class="v2-lab-stop" data-stop hidden aria-label="Interromper geração" title="Interromper"><span></span></button>
-            <button type="submit" data-send aria-label="Enviar mensagem" title="Enviar">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <aside class="v2-lab-artifact-shell" data-artifact-shell aria-label="Artefato" hidden>
-        <header>
-          <div><span data-artifact-kind>Artefato</span><h2 data-artifact-title>Trabalho em andamento</h2></div>
-          <div class="v2-lab-artifact-actions">
-            <button type="button" data-artifact-versions hidden aria-label="Ver versões do artefato" title="Histórico de versões">v1</button>
-            <button type="button" data-artifact-close aria-label="Fechar artefato" title="Fechar">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
-            </button>
-          </div>
-        </header>
-        <div class="v2-lab-artifact" data-artifact><p>O resultado aparecerá aqui.</p></div>
-        <div class="v2-lab-artifact-save" data-artifact-savebar hidden>
-          <span data-artifact-status>Alterações não salvas</span>
-          <button type="button" data-artifact-save>Salvar</button>
-        </div>
-      </aside>
-    </div>
-    <dialog class="v2-unsaved-dialog" data-unsaved-dialog>
-      <form method="dialog">
-        <h2>Descartar trabalho?</h2>
-        <p data-unsaved-copy>Há mudanças que ainda não foram enviadas ou salvas.</p>
-        <div>
-          <button value="cancel">Continuar editando</button>
-          <button value="discard" class="is-danger">Descartar</button>
-        </div>
-      </form>
-    </dialog>
-    <dialog class="v2-versions-dialog" data-versions-dialog>
-      <section>
-        <header><div><h2>Versões</h2><p>Restaure uma versão anterior como uma nova revisão.</p></div><button type="button" data-versions-close aria-label="Fechar">×</button></header>
-        <div data-versions-list><p>Carregando versões…</p></div>
-      </section>
-    </dialog>
-  </main>
-</div>
+<div id="cadu-conversations-v2-root" aria-label="Conversas 2.0"><noscript>Ative o JavaScript para usar a Conversas 2.0.</noscript></div>
+{% set secondary_nav = [
+  {'label': 'Uso', 'href': url_for('cadu_workspace.account_page', section='creditos')},
+  {'label': 'Planos', 'href': url_for('cadu_workspace.account_page', section='planos')},
+  {'label': 'Equipe', 'href': url_for('cadu_workspace.account_page', section='equipe')},
+  {'label': 'Perfil', 'href': url_for('cadu_workspace.account_page', section='perfil')}
+] %}
+{% if session.get('user_type') in ('admin', 'superadmin') %}{% set secondary_nav = secondary_nav + [{'label': 'Observabilidade', 'href': url_for('cadu_agent_v2_lab.observability_page')}] %}{% endif %}
+<script id="cadu-conversations-v2-bootstrap" type="application/json">{{ {
+  'logo': url_for('static', filename='images/cadu/brand-icons/workspace-192.png'),
+  'user': {'name': session.get('user_name', 'Minha conta'), 'email': session.get('user_email', '')},
+  'urls': {
+    'home': url_for('cadu_workspace.dashboard'),
+    'newConversation': url_for('cadu_agent_v2_lab.conversations_v2_lab'),
+    'projects': url_for('cadu_workspace.clean_projects'),
+    'docs': url_for('cadu_workspace.documents'),
+    'brands': url_for('cadu_workspace.clean_brands'),
+    'profile': url_for('cadu_workspace.account_page', section='perfil')
+  },
+  'secondaryNav': secondary_nav,
+  'endpoints': {
+    'messages': url_for('cadu_agent_v2.conversation_message'),
+    'context': url_for('cadu_family.get_context'),
+    'history': url_for('cadu_family.conversation_history'),
+    'uploads': url_for('cadu_agent_v2.upload'),
+    'artifacts': '/workspace/api/v2/artifacts',
+    'runs': '/workspace/api/v2/runs'
+  }
+}|tojson }}</script>
 {% endblock %}
-{% block portal_scripts %}<script defer src="{{ url_for('static', filename='cadu_workspace/conversations/v2-lab.js') }}?v=6"></script>{% endblock %}
+{% block portal_scripts %}<script type="module" src="{{ url_for('static', filename='cadu_workspace/conversations/react/app.js') }}?v=1"></script>{% endblock %}

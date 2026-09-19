@@ -277,7 +277,7 @@ def test_brief_creation_is_artifact_first_and_bounded():
     assert route.response_mode == "artifact_first"
     assert route.artifact_type == "brief"
     assert route.needs_context == ("project", "brand")
-    assert policy_for(route)["max_questions"] == 2
+    assert policy_for(route)["max_questions"] == 1
     assert budget_for(route).max_llm_calls == 1
 
 
@@ -573,6 +573,69 @@ def test_response_policy_caps_and_sanitizes_actions():
     ]
 
 
+def test_response_blocks_are_typed_bounded_and_safe():
+    response = normalize_response({
+        "answer": "Escolha uma direção para continuar.",
+        "blocks": [
+            {"type": "decision", "title": "Direção", "items": [
+                {"id": "a", "title": "Editorial", "description": "Mais autoral.",
+                 "recommended": True, "prompt": "Use a direção editorial.", "html": "drop"},
+            ]},
+            {"type": "files", "title": "Arquivos", "items": [
+                {"title": "Briefing", "kind": "Google Docs", "url": "https://docs.google.com/document/1"},
+                {"title": "Inválido", "url": "javascript:alert(1)"},
+            ]},
+            {"type": "unknown", "items": [{"title": "Descartar"}]},
+        ],
+    }, {"max_questions": 0, "max_next_steps": 0, "max_answer_chars": 320})
+    assert response.blocks == [
+        {"type": "decision", "title": "Direção", "summary": "", "items": [{
+            "id": "a", "title": "Editorial", "detail": "Mais autoral.",
+            "recommended": True, "prompt": "Use a direção editorial.",
+        }]},
+        {"type": "files", "title": "Arquivos", "summary": "", "items": [
+            {"id": "item-1", "title": "Briefing", "detail": "", "kind": "Google Docs",
+             "url": "https://docs.google.com/document/1", "artifact_id": "", "editor_url": "",
+             "editable_copy_url": "", "download_url": ""},
+            {"id": "item-2", "title": "Inválido", "detail": "", "kind": "Arquivo", "url": "",
+             "artifact_id": "", "editor_url": "", "editable_copy_url": "", "download_url": ""},
+        ]},
+    ]
+
+
+def test_response_blocks_dedupe_ids_parse_boolean_strings_and_cap_density():
+    response = normalize_response({
+        "answer": "Escolha uma opção.",
+        "blocks": [{"type": "decision", "items": [
+            {"id": "same", "title": f"Opção {index}", "recommended": "false"}
+            for index in range(8)
+        ]}] * 3,
+    }, {"mode": "decision", "max_questions": 0, "max_next_steps": 0, "max_answer_chars": 320})
+    assert len(response.blocks) == 2
+    assert len(response.blocks[0]["items"]) == 5
+    assert len({item["id"] for item in response.blocks[0]["items"]}) == 5
+    assert not any(item["recommended"] for item in response.blocks[0]["items"])
+
+
+def test_dense_plain_answer_becomes_editable_artifact_instead_of_truncated_chat():
+    response = normalize_response("Um diagnóstico longo sem estrutura " * 40, {
+        "mode": "analysis", "max_answer_chars": 320, "max_questions": 0,
+        "max_next_steps": 0, "artifact_fallback_title": "Diagnóstico",
+    })
+    assert response.answer == "Organizei os detalhes no artefato ao lado para você revisar e editar."
+    assert response.artifact_patch["title"] == "Diagnóstico"
+    assert "diagnóstico longo" in response.artifact_patch["summary"]
+
+
+def test_plain_decision_list_becomes_an_interactive_decision_block():
+    response = normalize_response("Escolha uma direção:\n- Editorial: mais autoral\n- Urbana: mais energia", {
+        "mode": "decision", "max_answer_chars": 320, "max_questions": 0, "max_next_steps": 0,
+    })
+    assert response.answer == "Escolha uma direção:"
+    assert response.blocks[0]["type"] == "decision"
+    assert [item["title"] for item in response.blocks[0]["items"]] == ["Editorial", "Urbana"]
+
+
 def test_normalizer_bounds_artifact_fields_and_citations():
     response = normalize_response({
         "answer": "Briefing iniciado.",
@@ -661,7 +724,9 @@ def test_v2_lab_and_migration_are_wired_for_deploy():
     deploy = (root / "deploy.sh").read_text()
     assert "cadu_agent_v2_lab_bp" in app_factory
     assert 'lab_bp.get("/workspace/conversas-v2-lab")' in routes
-    assert "data-v2-lab" in template and "data-prompt" in template
+    assert "cadu-conversations-v2-root" in template
+    assert "cadu-conversations-v2-bootstrap" in template
+    assert "conversations/react/app.js" in template
     assert "migrations/run_add_cadu_conversations_v2.py" in deploy
 
 

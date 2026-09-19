@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const {pathToFileURL} = require('node:url');
 
 const root = path.resolve(__dirname, '../..');
 
@@ -50,36 +51,57 @@ test('v2 attachments require an explicit project usage choice', () => {
   assert.match(attachments, /use_as_knowledge/);
 });
 
-test('conversations 2.0 restores artifacts and protects unsaved work', () => {
-  const lab = fs.readFileSync(path.join(root, 'aicentralv2/static/cadu_workspace/conversations/v2-lab.js'), 'utf8');
-  const styles = fs.readFileSync(path.join(root, 'aicentralv2/static/cadu_workspace/conversations/v2-lab.css'), 'utf8');
+test('conversations 2.0 is one React surface with streaming, artifacts and protected work', () => {
+  const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
+  const artifact = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ArtifactPane.jsx'), 'utf8');
+  const conversation = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Conversation.jsx'), 'utf8');
+  const responseBlocks = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ResponseBlocks.jsx'), 'utf8');
+  const styles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
   const template = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/conversations_v2_lab.html'), 'utf8');
   const base = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_portals/base.html'), 'utf8');
-  assert.match(lab, /metadata\.artifact_id/);
-  assert.match(lab, /fetchArtifact\(lastArtifactId\)/);
-  assert.match(lab, /confirmDiscard/);
-  assert.match(lab, /beforeunload/);
-  assert.match(lab, /resource\.editor_url/);
-  assert.match(lab, /resource\.download_url/);
-  assert.match(lab, /setAttribute\('sandbox', 'allow-scripts'\)/);
-  assert.match(lab, /Content-Security-Policy/);
-  assert.doesNotMatch(lab, /img-src data: blob: https:/);
-  assert.match(lab, /displayProjectContext\(data\.context \|\| selectedContext\)/);
-  assert.match(lab, /v2-response-sources/);
-  assert.match(lab, /const addFailure/);
-  assert.match(lab, /input\.value = lastSubmittedMessage/);
-  assert.match(lab, /const renderChatText/);
-  assert.match(lab, /Ver resposta completa/);
-  assert.match(lab, /if \(!href\) return/);
-  assert.match(lab, /if \(!runTerminalReceived\) throw new Error/);
-  assert.match(lab, /artifactSave\.dataset\.conflict/);
-  assert.match(lab, /await loadContext\(\);[\s\S]*await loadRecent\(\);/);
-  assert.match(styles, /\.portal main\.v2-lab \{[\s\S]*width: 100%;[\s\S]*max-width: none;[\s\S]*margin: 0;/);
-  assert.match(styles, /@media \(max-width: 1080px\)[\s\S]*\.v2-lab-artifact-shell \{[\s\S]*inset: 0;/);
-  assert.match(lab, /\/versions\/\$\{item\.version\}/);
-  assert.match(lab, /workspace\/api\/v2\/uploads/);
-  assert.match(template, /data-unsaved-dialog/);
-  assert.match(template, /data-versions-dialog/);
-  assert.match(template, /data-file-input/);
+  assert.match(app, /metadata\.artifact_id/);
+  assert.match(app, /fetchArtifact\(lastArtifact\)/);
+  assert.match(app, /confirmDiscard/);
+  assert.doesNotMatch(app, /window\.confirm/);
+  assert.match(app, /ConfirmDialog/);
+  assert.match(app, /beforeunload/);
+  assert.match(app, /streamEvents/);
+  assert.match(app, /expected_version/);
+  assert.match(app, /\/versions\/\$\{version\}/);
+  assert.match(artifact, /resource\.editor_url/);
+  assert.match(artifact, /resource\.download_url/);
+  assert.match(artifact, /sandbox="allow-scripts"/);
+  assert.match(artifact, /Content-Security-Policy/);
+  assert.doesNotMatch(artifact, /img-src data: blob: https:/);
+  assert.match(conversation, /Ver resposta completa/);
+  assert.match(conversation, /ResponseBlocks/);
+  assert.match(responseBlocks, /Usar esta opção/);
+  assert.match(responseBlocks, /Continuar com/);
+  assert.match(responseBlocks, /block\.type === 'insights'/);
+  assert.match(responseBlocks, /block\.type === 'files'/);
+  assert.match(artifact, /Criar versão editável/);
+  assert.match(styles, /cv-artifact-open/);
+  assert.match(styles, /prefers-reduced-motion/);
+  assert.match(styles, /@media \(max-width: 1080px\)[\s\S]*\.cv-artifact-overlay/);
+  assert.match(template, /cadu-conversations-v2-root/);
+  assert.match(template, /cadu-conversations-v2-bootstrap/);
+  assert.match(template, /react\/app\.js/);
+  assert.doesNotMatch(template, /_app_sidebar\.html/);
+  assert.doesNotMatch(template, /v2-lab\.js/);
   assert.match(base, /request\.endpoint not in \('cadu_workspace\.conversations', 'cadu_agent_v2_lab\.conversations_v2_lab'\)/);
+});
+
+test('conversation response model preserves execution order and explicit checklist selection', async () => {
+  const model = await import(pathToFileURL(path.join(root, 'frontend/conversations-v2/lib/responseModel.mjs')).href);
+  const messages = [
+    {id: 'u', turnId: 'turn-1', role: 'user'},
+    {id: 'a', turnId: 'turn-1', role: 'assistant', response: {answer: 'Pronto'}},
+  ];
+  const ordered = model.insertWorkedBeforeResult(messages, 'turn-1', {
+    id: 'w', turnId: 'turn-1', role: 'assistant', kind: 'worked', seconds: 3,
+  });
+  assert.deepEqual(ordered.map(item => item.id), ['u', 'w', 'a']);
+  assert.equal(model.checklistPrompt([]), '');
+  assert.equal(model.checklistPrompt([{title: 'Validar casting', prompt: 'Revise o casting.'}]), 'Revise o casting.');
+  assert.equal(model.checklistPrompt([{title: 'Casting'}, {title: 'Locação'}]), 'Revise estes itens comigo: Casting; Locação.');
 });

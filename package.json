@@ -6,14 +6,21 @@
     "dev": "tailwindcss -i ./aicentralv2/static/css/tailwind/input.css -o ./aicentralv2/static/css/tailwind/output.css --watch",
     "build:vanilla": "tailwindcss -c ./tailwind.config.js -i ./aicentralv2/static/css/tailwind/input.css -o ./aicentralv2/static/css/tailwind/output.css --minify",
     "build:legacy": "tailwindcss -c ./tailwind.legacy.config.js -i ./aicentralv2/static/css/tailwind/input.css -o ./aicentralv2/static/css/tailwind/output-legacy.css --minify",
-    "build": "npm run build:vanilla && npm run build:legacy && npm run build:studio",
+    "build": "npm run build:vanilla && npm run build:legacy && npm run build:studio && npm run build:conversations",
+    "build:conversations": "vite build --config vite.conversations.config.mjs",
+    "dev:conversations": "vite --config vite.conversations.config.mjs",
     "build:studio": "tailwindcss -c ./tailwind.studio.config.js -i ./aicentralv2/static/css/tailwind/video-studio.input.css -o ./aicentralv2/static/css/video-studio.css --minify"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.20",
     "daisyui": "^4.12.22",
     "postcss": "^8.5.25",
-    "tailwindcss": "^3.4.14"
+    "tailwindcss": "^3.4.14",
+    "vite": "^6.1.0"
   },
   "overrides": {
     "nanoid": ">=3.3.17"

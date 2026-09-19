@@ -18,10 +18,10 @@ def budget_for(route: IntentRoute, execution_mode: str = "analysis") -> Executio
 
 def policy_for(route: IntentRoute) -> dict:
     policies = {
-        "direct": {"max_questions": 1, "max_next_steps": 2, "max_answer_chars": 1200, "artifact_in_chat": False},
-        "analysis": {"max_questions": 1, "max_next_steps": 3, "max_answer_chars": 900, "artifact_in_chat": False},
-        "decision": {"max_questions": 1, "max_next_steps": 3, "max_answer_chars": 700, "artifact_in_chat": False},
-        "artifact_first": {"max_questions": 2, "max_next_steps": 2, "max_answer_chars": 360, "artifact_in_chat": False},
-        "clarification": {"max_questions": 2, "max_next_steps": 0, "max_answer_chars": 600, "artifact_in_chat": False},
+        "direct": {"max_questions": 1, "max_next_steps": 2, "max_answer_chars": 600, "artifact_in_chat": False},
+        "analysis": {"max_questions": 1, "max_next_steps": 2, "max_answer_chars": 420, "artifact_in_chat": False},
+        "decision": {"max_questions": 1, "max_next_steps": 2, "max_answer_chars": 320, "artifact_in_chat": False},
+        "artifact_first": {"max_questions": 1, "max_next_steps": 2, "max_answer_chars": 240, "artifact_in_chat": False},
+        "clarification": {"max_questions": 2, "max_next_steps": 0, "max_answer_chars": 360, "artifact_in_chat": False},
     }
     return {"mode": route.response_mode, **policies[route.response_mode]}

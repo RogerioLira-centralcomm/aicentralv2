@@ -1,4 +1,4 @@
-"""Versioned backend contract consumed by the future Conversations V2 UI."""
+"""Versioned backend contract consumed by the React Conversations V2 UI."""
 
 import secrets
 from uuid import uuid4

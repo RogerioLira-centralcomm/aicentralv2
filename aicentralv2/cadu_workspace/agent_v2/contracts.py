@@ -102,3 +102,4 @@ class AgentResponse:
     actions: list[dict[str, Any]] = field(default_factory=list)
     artifact_patch: dict[str, Any] | None = None
     citations: list[dict[str, str]] = field(default_factory=list)
+    blocks: list[dict[str, Any]] = field(default_factory=list)

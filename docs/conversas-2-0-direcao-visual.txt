@@ -1,0 +1,173 @@
+DIREÇÃO VISUAL E FUNCIONAL — CADU CONVERSAS 2.0
+
+Objetivo
+Criar quatro mockups reais, distintos entre si, para a nova tela Cadu Conversas 2.0. A tela deve parecer um ambiente de trabalho contínuo: o usuário conversa, pesquisa, cria, revisa, edita e salva objetos sem perder o contexto.
+
+Os mockups devem usar a logo real do Cadu disponível no projeto, especialmente:
+- aicentralv2/static/images/logo-cadu-white.jpeg
+- aicentralv2/static/images/cadu-logo-variant-2.png
+
+Não desenhar uma logo parecida, não substituir a marca por texto genérico e não inventar símbolo novo. A marca deve aparecer com proporção, área de respiro e contraste corretos.
+
+Ideia central
+
+O chat é a interface de operação do Workspace. A conversa orienta, mas os resultados continuam existindo como objetos reais e editáveis: briefing, plano, documento, nota, relatório, arquivo ou tarefa.
+
+Cada interação deve terminar em uma resposta útil, uma decisão, um objeto criado/atualizado ou uma pergunta realmente necessária.
+
+Direção visual compartilhada pelas quatro versões
+
+- Interface desktop de produto profissional, com aparência de software real em uso.
+- Contraste alto e leitura confortável em sessões longas.
+- Fundo escuro profundo, sem preto absoluto, combinado com superfícies azul-marinho/grafite.
+- Acento principal em azul elétrico/ciano para ações e foco.
+- Acento secundário violeta para inteligência, contexto e artefatos.
+- Verde somente para concluído/confirmado; âmbar somente para premissa ou atenção; vermelho somente para erro.
+- Usar bordas discretas e separação por camadas, não uma coleção de cards iguais.
+- Priorizar alinhamento à esquerda, ritmo vertical e densidade controlada.
+- Evitar gradientes decorativos exagerados, sombras pesadas, excesso de arredondamento, labels em caixa alta e aparência de dashboard genérico.
+- A tela deve ter estados claros: disponível, trabalhando, aguardando confirmação, concluído, erro, reconectando.
+- A sidebar direita é contextual: aparece quando há artefato, atividade ou fonte útil para consultar/editá-la.
+
+Token visual-base
+
+- Fundo principal: #0B1020
+- Fundo de navegação: #10182A
+- Superfície elevada: #162238
+- Superfície ativa: #1D2C49
+- Texto principal: #F5F7FB
+- Texto secundário: #A9B6CB
+- Linha discreta: #2B3A55
+- Azul de ação: #4EA1FF
+- Ciano de foco: #62D9FF
+- Violeta de contexto: #9B8CFF
+- Verde confirmado: #51D39A
+- Âmbar de premissa: #F4B860
+- Vermelho de erro: #FF6B78
+
+Tipografia
+
+Usar uma sans-serif contemporânea e legível, com peso e espaçamento bem definidos. Títulos devem ter presença sem parecer publicidade. Corpo em tamanho confortável, com largura de linha controlada. Labels devem usar sentence case. A interface deve parecer operacional, precisa e humana.
+
+Estrutura funcional comum
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│ Logo Cadu │ Conversa: Lançamento Reserva 2027 │ Projeto │ status │ ações   │
+├───────────────┬──────────────────────────────────┬─────────────────────────┤
+│ histórico     │ conversa                         │ artefato / atividade    │
+│ nova conversa │ mensagens                        │ contexto selecionado    │
+│ busca         │ respostas e decisões             │ campos editáveis        │
+│ recentes      │ atividades resumidas             │ fontes e versões        │
+│ projetos      │ sugestões contextuais            │ ações do objeto         │
+│ arquivadas    │ input fixo + anexos              │                         │
+└───────────────┴──────────────────────────────────┴─────────────────────────┘
+
+Elementos obrigatórios nos mockups
+
+- Título editável da conversa.
+- Cliente, projeto e objeto atual visíveis de forma discreta.
+- Estado do agente sem expor modelo, prompt, tokens ou raciocínio interno.
+- Histórico lateral com conversas recentes, projeto associado e indicador de execução.
+- Mensagens simples e legíveis.
+- Atividade resumida: “Contexto carregado”, “Briefing analisado”, “Preparando recomendação”.
+- Input fixo, arredondado e integrado ao fundo, com anexos dentro do input.
+- Botão + com opções: adicionar arquivo, usar documento, usar plano, criar artefato.
+- Até três sugestões contextuais relevantes.
+- Ações de resposta: copiar, tentar novamente, editar, criar documento, adicionar ao projeto e ver fontes.
+- Sidebar de artefato com estado dos campos: confirmado, preenchido pelo Cadu, premissa, pendente ou conflitante.
+- Um exemplo de objeto real, como “Briefing criado — 8 campos preenchidos · 2 pendentes”.
+- Logo real do Cadu aplicada no cabeçalho e/ou navegação.
+
+VERSÃO 1 — WORKBENCH TRIPLO / FOCO EM PRODUÇÃO
+
+Conceito
+Uma bancada de trabalho equilibrada em três colunas. É a versão mais completa e operacional, indicada como candidata principal para o produto.
+
+Layout
+- Navegação esquerda estreita, conversa central dominante e artefato à direita.
+- A conversa ocupa aproximadamente metade da largura.
+- A sidebar direita começa com o artefato aberto e mostra atividade abaixo.
+- Cabeçalho fixo e compacto.
+
+Cena do mockup
+O Cadu responde: “Encontrei três premissas no briefing que precisam de confirmação.” Abaixo aparecem as evidências e dois botões de decisão. Na direita, um briefing editável mostra Objetivo, Público e Orçamento, com cores de estado visíveis.
+
+Personalidade
+Precisa, intensa e profissional. A sensação deve ser de uma mesa de operação onde tudo está ao alcance, sem parecer congestionada.
+
+VERSÃO 2 — CONVERSA AMPLA / FOCO EM LEITURA E FLUXO
+
+Conceito
+A conversa é o protagonista. A navegação fica recolhida e a sidebar contextual abre como painel lateral quando um artefato é criado.
+
+Layout
+- Coluna central larga, com largura de leitura confortável.
+- Histórico esquerdo reduzido a ícones e títulos essenciais.
+- Sidebar direita aberta apenas no momento do resultado.
+- Mais espaço entre mensagens; menos elementos simultâneos.
+
+Cena do mockup
+O usuário pede: “Compare o plano com o relatório de agosto.” O Cadu mostra uma análise curta com conclusão, evidências e recomendação. Uma atividade expansível informa quais documentos foram consultados. Na direita, surge um resumo executivo editável com a ação “Adicionar ao projeto”.
+
+Personalidade
+Calma, clara e inteligente. Indicada para usuários que precisam pensar, revisar e acompanhar uma conversa longa sem sensação de ruído.
+
+VERSÃO 3 — CONTEXTO VISÍVEL / FOCO EM PROJETO
+
+Conceito
+O projeto atual é a âncora visual da experiência. A interface reforça que cada mensagem pertence a um contexto e que os objetos produzidos ficam vinculados a ele.
+
+Layout
+- Painel esquerdo dividido em navegação e contexto ativo.
+- Conversa central com uma faixa de contexto persistente.
+- Painel direito mostra fontes do projeto, versões e artefato atual.
+- Hierarquia forte entre Cliente → Projeto → Objeto.
+
+Cena do mockup
+No topo aparece: “Reserva · Lançamento Reserva 2027 · Briefing”. A conversa cria um projeto em modo de rascunho e pede confirmação. Na direita aparecem os documentos encontrados no projeto e a indicação de que dois anexos serão vinculados após a confirmação.
+
+Personalidade
+Confiável e orientada a continuidade. Indicada para equipes que trabalham com muitos projetos, documentos e versões.
+
+VERSÃO 4 — ARTEFATO EM PRIMEIRO PLANO / FOCO EM EDIÇÃO
+
+Conceito
+O chat conduz a ação, mas o objeto final recebe mais espaço. A interface funciona como um editor com assistente incorporado.
+
+Layout
+- Conversa em coluna esquerda/intermediária.
+- Artefato ocupa a maior área visual à direita.
+- Barra superior do artefato com salvar automaticamente, comparar versões, desfazer, compartilhar e exportar.
+- Campos com badges de estado diretamente no conteúdo.
+
+Cena do mockup
+O Cadu transforma a conversa em um briefing editável. O documento mostra campos reais, comentários curtos e marcas: “Confirmado pelo usuário”, “Premissa do Cadu — revisar” e “Pendente”. A conversa permanece visível para pedir alterações sem sair do editor.
+
+Personalidade
+Tátil, produtiva e orientada a resultado. Indicada para o momento em que o usuário deixa de conversar e começa a finalizar um trabalho.
+
+Comparação rápida
+
+1. Workbench Triplo: melhor equilíbrio geral e melhor candidato para a primeira tela principal.
+2. Conversa Ampla: melhor leitura e melhor experiência para pesquisas e análises longas.
+3. Contexto Visível: melhor para operação por projeto e rastreabilidade.
+4. Artefato em Primeiro Plano: melhor para edição, revisão e fechamento de entregáveis.
+
+Critérios para avaliar os mockups
+
+- A primeira leitura identifica onde estou, com qual projeto estou trabalhando e qual é o próximo passo?
+- A conversa continua sendo o fluxo principal sem esconder os objetos produzidos?
+- O contraste entre fundo, texto, bordas, ações e estados é suficiente?
+- A logo real está nítida, proporcional e bem posicionada?
+- A sidebar direita parece útil ou apenas decorativa?
+- É possível localizar rapidamente uma conversa, fonte, versão ou artefato?
+- O usuário entende quando o Cadu está trabalhando e quando precisa confirmar algo?
+- A tela parece um produto que poderia ser usado diariamente, e não uma apresentação conceitual?
+
+Prompt mestre para gerar os mockups
+
+Criar um mockup realista de alta fidelidade da interface desktop “Cadu Conversas 2.0”, um workspace de IA para equipes de marketing. Usar a logo real do Cadu fornecida como referência, sem recriá-la. Mostrar um ambiente de trabalho contínuo com histórico de conversas à esquerda, conversa operacional no centro e painel contextual de artefato, atividade ou fontes à direita. Usar fundo escuro azul-marinho profundo, superfícies grafite-azul, texto quase branco, alto contraste, azul elétrico e ciano para ações, violeta para contexto, verde para confirmação, âmbar para premissas e vermelho apenas para erros. A interface deve parecer um produto real, funcional e pronto para uso diário: tipografia legível, espaçamento consistente, estados claros, input fixo com anexos e ações de negócio compreensíveis. Não mostrar código, prompts internos, tokens, chain of thought, nomes técnicos de ferramentas ou elementos futuristas genéricos. Não usar excesso de cards, gradientes decorativos, neon exagerado ou texto ilegível. A composição deve ser frontal, em resolução ampla, com todos os textos principais legíveis e a logo preservada.
+
+Observação para a etapa de imagens
+
+Geradores de imagem costumam deformar texto e logos. Para os mockups reais, usar a imagem gerada como direção visual e finalizar a interface em HTML/CSS ou Figma, aplicando a logo original, textos reais, ícones acessíveis e componentes funcionais. A próxima etapa deve gerar quatro referências visuais separadas, uma por versão, mantendo este mesmo token visual-base.

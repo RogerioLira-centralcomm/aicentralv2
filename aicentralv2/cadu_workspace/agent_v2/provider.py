@@ -18,6 +18,14 @@ RUNTIMES = {
 }
 
 
+def _shared_configuration():
+    """Use the CentralX credential vault as the operational fallback."""
+    from ...services.integration_credentials import resolve_dify_configuration
+
+    url, key = resolve_dify_configuration()
+    return str(url or "").rstrip("/"), str(key or "")
+
+
 def _configuration(execution_mode="analysis") -> dict:
     mode = execution_mode if execution_mode in RUNTIMES else "analysis"
     runtime_id, url_key, secret_key = RUNTIMES[mode]
@@ -28,21 +36,28 @@ def _configuration(execution_mode="analysis") -> dict:
     specific_complete = bool(specific_url) and bool(specific_key)
     specific_partial = bool(specific_url) != bool(specific_key)
     legacy_complete = bool(legacy_url) and bool(legacy_key)
-    if specific_partial and not legacy_complete:
+    shared_url, shared_key = ("", "")
+    if not specific_complete and not legacy_complete:
+        shared_url, shared_key = _shared_configuration()
+    shared_complete = bool(shared_url) and bool(shared_key)
+    if specific_partial and not legacy_complete and not shared_complete:
         raise ProviderUnavailable(f"A configuração do runtime {runtime_id} está incompleta.")
     if specific_partial:
         current_app.logger.warning(
-            "Configuração parcial do runtime %s; usando o runtime legado do Conversations V2.",
+            "Configuração parcial do runtime %s; usando a configuração de reserva do Dify.",
             runtime_id,
         )
-    url = specific_url if specific_complete else legacy_url
-    key = specific_key if specific_complete else legacy_key
-    source = "mode-specific" if specific_complete else "legacy"
+    if specific_complete:
+        url, key, source = specific_url, specific_key, "mode-specific"
+    elif legacy_complete:
+        url, key, source = legacy_url, legacy_key, "legacy"
+    else:
+        url, key, source = shared_url, shared_key, "centralx-integration"
     parsed = urlparse(url)
     if not key or parsed.scheme != "https" or not parsed.hostname:
         raise ProviderUnavailable(f"O runtime {runtime_id} ainda não foi configurado.")
     return {"id": runtime_id, "mode": mode, "url": url, "key": key, "source": source,
-            "transport": "chat-messages", "config_version": "2026-09-19.2"}
+            "transport": "chat-messages", "config_version": "2026-09-19.3"}
 
 
 def runtime_for(execution_mode="analysis") -> dict:

@@ -905,8 +905,9 @@ def test_failed_v2_stream_emits_only_one_terminal_event(monkeypatch):
     assert '"code": "provider_failed"' in output
 
 
-def test_provider_registry_selects_three_runtimes_and_supports_safe_rollout_fallback():
+def test_provider_registry_selects_three_runtimes_and_supports_safe_rollout_fallback(monkeypatch):
     from aicentralv2.cadu_workspace.agent_v2 import provider
+    monkeypatch.setattr(provider, "_shared_configuration", lambda: ("", ""))
     app = Flask(__name__)
     app.config.update(
         CADU_CONVERSATIONS_V2_DIFY_URL="https://legacy-v2.example/v1",
@@ -934,3 +935,9 @@ def test_provider_registry_selects_three_runtimes_and_supports_safe_rollout_fall
         app.config["CADU_CONVERSATIONS_V2_DIFY_KEY"] = ""
         with pytest.raises(provider.ProviderUnavailable):
             provider.runtime_for("fast")
+        monkeypatch.setattr(provider, "_shared_configuration", lambda: (
+            "https://vault-dify.example/v1", "vault-key"
+        ))
+        shared = provider.runtime_for("fast")
+        assert shared["url"] == "https://vault-dify.example/v1"
+        assert shared["source"] == "centralx-integration"

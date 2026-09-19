@@ -15,6 +15,7 @@ from aicentralv2.cadu_workspace.mcp.registry import (
 from aicentralv2.cadu_workspace.mcp.authorization import MCPUnauthorized, authorize, issue
 from flask import Flask
 from aicentralv2.cadu_workspace.agent_v2 import routes as v2_routes
+from aicentralv2.cadu_workspace.artifacts import service as artifact_service
 
 
 def context(**overrides):
@@ -34,6 +35,48 @@ def context(**overrides):
 def test_context_never_allows_cross_tenant_selection():
     with pytest.raises(ValueError):
         context(client_id=99)
+
+
+def test_artifact_write_does_not_close_request_scoped_connection(monkeypatch):
+    class Cursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def execute(self, *_):
+            pass
+
+    class Connection:
+        committed = False
+        rolled_back = False
+
+        def cursor(self):
+            return Cursor()
+
+        def commit(self):
+            self.committed = True
+
+        def rollback(self):
+            self.rolled_back = True
+
+        def __enter__(self):
+            raise AssertionError("A conexão compartilhada da request não pode ser fechada pelo serviço.")
+
+    connection = Connection()
+    monkeypatch.setattr(artifact_service, "get_db", lambda: connection)
+    monkeypatch.setattr(
+        artifact_service,
+        "get_artifact",
+        lambda current, artifact_id: {"id": artifact_id, "client_id": current.client_id},
+    )
+
+    artifact = artifact_service.create_draft(context(), "brief", {"objective": "Teste"})
+
+    assert artifact["client_id"] == 12
+    assert connection.committed is True
+    assert connection.rolled_back is False
 
 
 def test_brief_creation_is_artifact_first_and_bounded():

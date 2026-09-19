@@ -29,17 +29,23 @@ def create_draft(context: RequestContext, artifact_type: str, content: dict, *, 
     content = _content(content)
     artifact_id, version_id = str(uuid4()), str(uuid4())
     title = " ".join(str(title or "").split())[:180] or "Novo artefato"
-    with get_db() as conn, conn.cursor() as cur:
-        cur.execute("""INSERT INTO cadu_workspace_artifacts
-            (id, organization_id, client_id, project_ref, conversation_id, type, title, status,
-             current_version, created_by, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, 'draft', 1, %s, NOW(), NOW())""",
-            (artifact_id, context.organization_id, context.client_id, context.project_ref,
-             conversation_id or context.conversation_id, artifact_type, title, context.user_id))
-        cur.execute("""INSERT INTO cadu_workspace_artifact_versions
-            (id, artifact_id, version, content, change_summary, created_by, created_at)
-            VALUES (%s, %s, 1, %s, %s, %s, NOW())""",
-            (version_id, artifact_id, Json(content), "Rascunho criado", context.user_id))
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""INSERT INTO cadu_workspace_artifacts
+                (id, organization_id, client_id, project_ref, conversation_id, type, title, status,
+                 current_version, created_by, created_at, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, 'draft', 1, %s, NOW(), NOW())""",
+                (artifact_id, context.organization_id, context.client_id, context.project_ref,
+                 conversation_id or context.conversation_id, artifact_type, title, context.user_id))
+            cur.execute("""INSERT INTO cadu_workspace_artifact_versions
+                (id, artifact_id, version, content, change_summary, created_by, created_at)
+                VALUES (%s, %s, 1, %s, %s, %s, NOW())""",
+                (version_id, artifact_id, Json(content), "Rascunho criado", context.user_id))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     return get_artifact(context, artifact_id)
 
 
@@ -67,25 +73,31 @@ def patch_artifact(context: RequestContext, artifact_id: str, content: dict, *, 
         expected_version = int(expected_version)
     except (TypeError, ValueError):
         raise BadRequest("Informe a versão atual do artefato.")
-    with get_db() as conn, conn.cursor() as cur:
-        cur.execute("""SELECT current_version FROM cadu_workspace_artifacts
-                        WHERE id = %s AND organization_id = %s AND client_id = %s FOR UPDATE""",
-                    (str(artifact_id), context.organization_id, context.client_id))
-        row = cur.fetchone()
-        if not row:
-            raise NotFound("Artefato indisponível.")
-        if int(row["current_version"]) != expected_version:
-            raise Conflict("O artefato foi alterado. Atualize antes de salvar novamente.")
-        next_version = expected_version + 1
-        cur.execute("""INSERT INTO cadu_workspace_artifact_versions
-            (id, artifact_id, version, content, change_summary, created_by, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s, NOW())""",
-            (str(uuid4()), str(artifact_id), next_version, Json(content),
-             str(change_summary or "Atualização")[:500], context.user_id))
-        cur.execute("""UPDATE cadu_workspace_artifacts
-                           SET current_version = %s,
-                               title = COALESCE(%s, title), status = COALESCE(%s, status), updated_at = NOW()
-                         WHERE id = %s""",
-                    (next_version, " ".join(str(title).split())[:180] if title is not None else None,
-                     status, str(artifact_id)))
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""SELECT current_version FROM cadu_workspace_artifacts
+                            WHERE id = %s AND organization_id = %s AND client_id = %s FOR UPDATE""",
+                        (str(artifact_id), context.organization_id, context.client_id))
+            row = cur.fetchone()
+            if not row:
+                raise NotFound("Artefato indisponível.")
+            if int(row["current_version"]) != expected_version:
+                raise Conflict("O artefato foi alterado. Atualize antes de salvar novamente.")
+            next_version = expected_version + 1
+            cur.execute("""INSERT INTO cadu_workspace_artifact_versions
+                (id, artifact_id, version, content, change_summary, created_by, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, NOW())""",
+                (str(uuid4()), str(artifact_id), next_version, Json(content),
+                 str(change_summary or "Atualização")[:500], context.user_id))
+            cur.execute("""UPDATE cadu_workspace_artifacts
+                               SET current_version = %s,
+                                   title = COALESCE(%s, title), status = COALESCE(%s, status), updated_at = NOW()
+                             WHERE id = %s""",
+                        (next_version, " ".join(str(title).split())[:180] if title is not None else None,
+                         status, str(artifact_id)))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     return get_artifact(context, artifact_id)

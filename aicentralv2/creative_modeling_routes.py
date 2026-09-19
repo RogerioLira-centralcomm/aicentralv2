@@ -13,6 +13,7 @@ from werkzeug.utils import secure_filename
 
 from .auth import admin_required, admin_required_api, login_required, login_required_api
 from .creative_media.studio_csrf import get_or_create_token as studio_csrf_token
+from .creative_media.studio import _studio_reference_masks
 from .creative_format_lab.swap_routes import register_trocr_routes
 from .creative_format_lab.swap_csrf import get_or_create_token as trocr_csrf_token
 from .creative_modeling_generation import OpenRouterError
@@ -371,18 +372,7 @@ def modelagem_desk(page):
         ),
         mc_workspace_brands=page == 'marcas' and _configured_product_host('workspace') == (request.host.split(':', 1)[0] or '').lower(),
         mc_format_catalog=catalog_entries(),
-        mc_reference_masks=([
-            {
-                "id": f"feed-mask-{index:02d}",
-                "label": f"Feed · composição {index:02d}",
-                "role": "composition",
-                "format": "4:5",
-                "width": 1080,
-                "height": 1350,
-                "url": url_for("static", filename=f"images/cadu/studio/references/feed/feed-mask-{index:02d}.webp"),
-            }
-            for index in range(1, 11)
-        ] if page == "criar" else []),
+        mc_reference_masks=_studio_reference_masks() if page == "criar" else [],
     ))
     if page in {"criar", "video"}:
         response.headers['Cache-Control'] = 'no-store, private'

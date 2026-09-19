@@ -94,6 +94,16 @@ def test_global_feed_references_are_compact_webp_assets():
     assert all(reference.stat().st_size < 100_000 for reference in references)
 
 
+def test_square_300_references_are_compact_webp_assets():
+    root = Path(__file__).resolve().parents[1]
+    reference_dir = root / "aicentralv2" / "static" / "images" / "cadu" / "studio" / "references" / "square-300x300"
+    references = sorted(reference_dir.glob("square-mask-*.webp"))
+
+    assert len(references) == 6
+    assert not list(reference_dir.glob("square-mask-*.png"))
+    assert all(reference.stat().st_size < 100_000 for reference in references)
+
+
 def test_create_frontend_connects_persistent_session_lifecycle():
     root = Path(__file__).resolve().parents[1]
     source = (root / "aicentralv2" / "static" / "js" / "mc-studio-create.js").read_text(encoding="utf-8")

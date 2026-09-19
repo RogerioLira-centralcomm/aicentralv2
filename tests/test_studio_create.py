@@ -25,29 +25,15 @@ def test_create_screen_exposes_unified_visual_workspace():
     assert ">Editar<" in html
     assert ">Vídeos<" in html
     assert ">Biblioteca<" in html
-    assert "Gerar 1 versão" in html
-    assert 'id="studioBoardWorld"' in html
-    assert '>Aprovadas<' in html
-    assert '>Retiradas<' in html
-    assert 'id="studioBindings"' in html
-    assert 'id="studioMaskTools"' in html
-    assert 'id="studioChatToggle"' in html
-    assert 'id="studioChatClose"' in html
-    assert "Referência de composição" not in html  # Roles are rendered from JS.
-    assert "Editor avançado" in html
-    assert "Rascunho pessoal" in html
-    assert 'class="studio-workbar__center"' in html
-    assert 'class="studio-new-draft"' in html
-    assert 'id="studioSessionSelect"' in html
-    assert 'id="studioSaveNow"' in html
-    assert 'id="studioFinish"' in html
-    assert 'id="studioFinishDialog"' in html
-    assert 'id="studioContinueSession"' in html
-    assert 'id="studioPromptOptimization"' in html
-    assert 'id="studioOriginalPrompt"' in html
-    assert 'id="studioOptimizedPrompt"' in html
-    assert 'href="/static/css/cadu-studio-create.css?v=16"' in html
-    assert 'src="/static/js/mc-studio-create.js?v=19"' in html
+    assert "Descreva o criativo que você quer criar" in html
+    assert "Aprovar por mim" in html
+    assert 'id="referenceRail"' in html
+    assert 'id="deliveryPanel"' in html
+    assert 'id="creationProgressTitle"' in html
+    assert 'id="composerFeedback"' in html
+    assert 'id="resultsView"' in html
+    assert 'href="/static/css/cadu-studio-create-v2.css?v=29"' in html
+    assert 'src="/static/js/cadu-studio-create-v2.js?v=28"' in html
 
 
 def test_create_frontend_connects_persistent_session_lifecycle():

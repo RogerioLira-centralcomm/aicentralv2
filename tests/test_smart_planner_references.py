@@ -248,6 +248,7 @@ class SmartPlannerReferencesTest(unittest.TestCase):
         fonte = stored["dados_detectados"]["fonte"]
         self.assertTrue(fonte["briefing"].startswith("Briefing escrito"))
         self.assertEqual(fonte["referencias"][0]["notas"], "Cortes premium.")
+        self.assertIn("Cortes premium.", stored["dados_detectados"]["conteudo_capturado"])
         self.assertEqual(result["campos"]["publico"], "BH")
         self.assertTrue(result["campos"]["campanha"].startswith("Seed ·"))
 

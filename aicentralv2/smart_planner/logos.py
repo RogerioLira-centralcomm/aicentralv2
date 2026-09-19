@@ -157,8 +157,11 @@ def lookup_party_by_id(party_id: Any) -> dict:
                 """
                 SELECT c.id_cliente,
                        COALESCE(c.nome_fantasia, c.razao_social) AS nome,
+                       c.vendas_central_comm AS responsavel_id,
+                       vend.nome_completo AS responsavel_nome,
                        web.logo_url
                   FROM tbl_cliente c
+                  LEFT JOIN tbl_contato_cliente vend ON vend.id_contato_cliente = c.vendas_central_comm
                   LEFT JOIN cliente_web_info web
                          ON web.id_cliente = c.id_cliente AND web.status = 'ok'
                  WHERE c.id_cliente = %s
@@ -173,6 +176,8 @@ def lookup_party_by_id(party_id: Any) -> dict:
             "id": row.get("id_cliente"),
             "name": text(row.get("nome")),
             "logo_url": public_logo(row.get("logo_url")),
+            "responsavel_id": row.get("responsavel_id"),
+            "responsavel_nome": text(row.get("responsavel_nome")),
             "source": "crm",
         }
     except Exception:

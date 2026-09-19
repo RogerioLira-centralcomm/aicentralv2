@@ -7,12 +7,13 @@ import os
 
 from flask import Blueprint, Response, current_app, jsonify, redirect, render_template, request, url_for
 
-from ..auth import centralcomm_required, centralcomm_required_api
+from ..auth import centralcomm_required, centralcomm_required_api, is_admin
+from ..db import obter_vendedores_centralcomm
 from ..services.openrouter_service import OpenRouterError
 from . import canvas as canvas_mod
 from . import planner
 from . import processor
-from .logos import presenter_options
+from .logos import presenter_options, lookup_party_by_id
 from .public_view import public_view
 from .share import HOUSE, public_sheet_url, qr_svg
 from .catalog import (
@@ -61,6 +62,15 @@ def _error(message, status=400):
 
 
 def _page_ctx(**extra):
+    try:
+        executivos = [
+            {"id": str(row.get("id_contato_cliente")), "name": row.get("nome_completo") or "", "email": row.get("email") or ""}
+            for row in (obter_vendedores_centralcomm() or [])
+            if row.get("id_contato_cliente") and row.get("nome_completo")
+        ]
+    except Exception:
+        logger.exception("Falha ao carregar executivos do Smart Planner")
+        executivos = []
     ctx = {
         "channels": CHANNEL_CATALOG,
         "channel_groups": CHANNEL_GROUPS,
@@ -73,6 +83,7 @@ def _page_ctx(**extra):
         "presenter_options": presenter_options(),
         "presenter_brand": "centralcomm",
         "recent_plans": recent_plans(),
+        "executivos": executivos,
     }
     ctx.update(extra)
     return ctx
@@ -81,8 +92,10 @@ def _page_ctx(**extra):
 @bp.route("/")
 @centralcomm_required
 def index():
+    can_view_all = is_admin()
+    scope = "all" if can_view_all and request.args.get("scope") == "all" else "mine"
     try:
-        payload = history_payload()
+        payload = history_payload(include_all=scope == "all")
         flash_error = None
     except Exception:
         logger.exception("Falha ao carregar histórico do Smart Planner")
@@ -92,6 +105,7 @@ def index():
             "total_base": 0,
             "custo_total": "",
             "custo_total_brl": 0,
+            "scope": scope,
         }
         flash_error = "Não foi possível carregar o histórico."
     return render_template(
@@ -101,6 +115,8 @@ def index():
         total_base=payload["total_base"],
         custo_total=payload.get("custo_total") or "",
         custo_total_brl=payload.get("custo_total_brl") or 0,
+        scope=payload.get("scope") or scope,
+        can_view_all=can_view_all,
         flash_error=flash_error,
         **_page_ctx(),
     )
@@ -282,6 +298,7 @@ def api_marca():
         cliente_id = None
     brand = brand_for_client(cliente_id) if cliente_id else {}
     agency = lookup_agency_for_client(cliente_id) if cliente_id else {}
+    party = lookup_party_by_id(cliente_id) if cliente_id else {}
     return _ok({
         "brand": brand,
         "agency": {
@@ -289,6 +306,10 @@ def api_marca():
             "name": agency.get("name") or "",
             "logo_url": agency.get("logo_url") or "",
         } if agency.get("name") else {},
+        "executive": {
+            "id": party.get("responsavel_id"),
+            "name": party.get("responsavel_nome") or "",
+        } if party.get("responsavel_id") else {},
     })
 
 
@@ -616,6 +637,7 @@ def _handle_not_found(exc):
             "total_base": 0,
             "custo_total": "",
             "custo_total_brl": 0,
+            "scope": "mine",
         }
     return render_template(
         "smart_planner/index.html",
@@ -624,6 +646,8 @@ def _handle_not_found(exc):
         total_base=payload["total_base"],
         custo_total=payload.get("custo_total") or "",
         custo_total_brl=payload.get("custo_total_brl") or 0,
+        scope=payload.get("scope") or "mine",
+        can_view_all=is_admin(),
         flash_error=str(exc),
         **_page_ctx(),
     ), 404

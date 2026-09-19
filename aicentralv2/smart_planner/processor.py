@@ -50,13 +50,26 @@ def suggest_campaign_name(campos: dict) -> str:
     return " · ".join(part for part in (client, detail or objective) if part) or "Plano de mídia · nova oportunidade"
 
 
+def captured_content(references: list[dict] | None) -> str:
+    """Preserva o material capturado como contexto informativo, fora dos campos do plano."""
+    blocks = []
+    for item in references or []:
+        notes = text(item.get("notas"))
+        if not notes:
+            continue
+        label = text(item.get("label") or item.get("name") or item.get("kind") or "Fonte capturada")
+        role = text(item.get("papel"))
+        blocks.append(f"{label}{f' · {role}' if role else ''}\n{notes}")
+    return "\n\n".join(blocks)[:12000].strip()
+
+
 NARRATIVE_PROMPT = """Você é o redator de briefing do Smart Planner no CentralX.
 Redija uma narrativa de mídia em prosa corrida, fiel ao material.
 Não use markdown: sem #, listas com hífen, asteriscos ou negrito.
 Parágrafos curtos. Chame a marca de anunciante, nunca de cliente.
 "Clientes da marca" é público, não o anunciante.
 Não invente verba, prazo, canal, público, praça ou place que o material não trouxe.
-Se houver places confirmados, nomeie o title e o ponto. Raios não se somam. Não descreva app que o catálogo não listou.
+Se houver places confirmados, nomeie apenas o ambiente/place e a audiência consolidada. Não cite ponto, raio ou app no plano.
 Formatos interativos só existem em portais (G1, UOL, R7, CNN), nunca em app, CTV, OOH ou Places.
 Preserve restrições e observações do anunciante.
 Não mencione agência, ferramenta ou que o texto foi gerado por IA."""
@@ -103,7 +116,7 @@ Regras:
 - Nunca invente. Campo sem base no material vai vazio ("" ou []).
 - Canal só entra quando o material o cita.
 - Canal "places" só entra se o material citar um venue desta lista (aeroporto, shopping ou evento).
-- Nunca invente slug, ponto, raio, reach ou app. App só se existir no ponto escolhido.
+- Nunca invente slug ou audiência. Places devem aparecer como ambientes consolidados, sem ponto, raio ou app.
 - Interativos só se um portal (g1, uol, r7, cnn) for citado. Formatos interativos não são Places.
 - praca_detalhe é cidade/UF. O venue vai em "places", não misturado como texto solto.
 - cliente é o anunciante (marca que anuncia). Em briefing de agência, a palavra "cliente" do texto = anunciante.
@@ -231,6 +244,7 @@ def _process_briefing(
         "referencias": [_fonte_item(item) for item in refs],
     }
     dados["referencias"] = dados["fonte"]["referencias"]
+    dados["conteudo_capturado"] = captured_content(refs)
     input_type = "mixed" if refs and text_in.strip() else ("pdf" if refs else "text")
     if refs and all(item.get("kind") == "url" for item in refs) and not text_in.strip():
         input_type = "url"
@@ -251,6 +265,7 @@ def _process_briefing(
         "nome_campanha": text(campos.get("campanha")) or None,
         "cliente": text(campos.get("cliente")) or None,
         "plataformas_sugeridas": campos.get("canais") or None,
+        "conteudo_capturado": dados["conteudo_capturado"] or None,
     })
     current = preserve_seed(dados_atuais, dados)
     current["plan_mode"] = current.get("plan_mode") or dados_atuais.get("plan_mode") or "one_page"

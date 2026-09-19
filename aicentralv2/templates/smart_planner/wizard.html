@@ -4,7 +4,7 @@
 {% block title %}{{ steps[step_index].title }} · Planejamentos{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=45">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=52">
 {% endblock %}
 
 {% block content %}
@@ -175,8 +175,8 @@
             <span class="sp-acc-meta" data-acc-meta>4 campos</span>
           </summary>
           <div class="sp-bf" id="sp-acc-essentials">
-            <label for="sp-field-campanha"><span>Campanha</span><input id="sp-field-campanha" name="campanha" value="{{ campos.campanha }}"><small class="sp-field-hint">Nome sugerido automaticamente a partir do briefing quando não informado.</small></label>
-            <label for="sp-field-cliente"><span>Anunciante</span><input id="sp-field-cliente" name="cliente" value="{{ campos.cliente }}"></label>
+            <label for="sp-field-campanha"><span>Campanha</span><input id="sp-field-campanha" name="campanha" value="{{ campos.campanha }}"></label>
+            <label class="{% if campos.cliente %}is-confirmed{% endif %}" for="sp-field-cliente"><span>Anunciante{% if campos.cliente %}<small class="sp-field-confirmed">Confirmado</small>{% endif %}</span><input id="sp-field-cliente" name="cliente" value="{{ campos.cliente }}" {% if campos.cliente %}readonly aria-readonly="true"{% endif %}></label>
             <label for="sp-objetivo">
               <span>Objetivo</span>
               <select name="objetivo" id="sp-objetivo">
@@ -186,7 +186,7 @@
                 {% endfor %}
               </select>
             </label>
-            <label for="sp-field-agencia"><span>Agência</span><input id="sp-field-agencia" name="agencia" value="{{ campos.agencia }}"></label>
+            <label class="{% if campos.agencia %}is-confirmed{% endif %}" for="sp-field-agencia"><span>Agência{% if campos.agencia %}<small class="sp-field-confirmed">Confirmada</small>{% endif %}</span><input id="sp-field-agencia" name="agencia" value="{{ campos.agencia }}" {% if campos.agencia %}readonly aria-readonly="true"{% endif %}></label>
             <label class="sp-confidential" for="sp-field-confidential">
               <input class="cx-checkbox cx-checkbox-sm" type="checkbox" name="anunciante_confidencial" id="sp-field-confidential" value="1" {% if campos.anunciante_confidencial %}checked{% endif %}>
               <span>Nome confidencial nos documentos</span>
@@ -227,50 +227,57 @@
           </div>
         </details>
 
-        <details class="sp-acc" data-acc="narrative" data-required="sp-narrative">
-          <summary aria-controls="sp-acc-narrative">
-            <span class="sp-acc-title">Briefing compilado</span>
-            <span class="sp-acc-meta" data-acc-meta></span>
+        {% if campos.conteudo_capturado %}
+        <details class="sp-acc sp-acc-context-only" data-acc="captured">
+          <summary aria-controls="sp-acc-captured">
+            <span class="sp-acc-title">Conteúdo capturado</span>
+            <span class="sp-acc-meta" data-acc-meta>informativo</span>
           </summary>
-          <div id="sp-acc-narrative">
-            <label class="sp-brief-field" for="sp-narrative">
-              <span>Narrativa corrida que segue para a folha e o plano</span>
-              <textarea id="sp-narrative" class="sp-narrative" name="briefing" rows="4">{{ briefing }}</textarea>
-            </label>
-            <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-rebrief-btn">Refazer briefing</button>
-          </div>
-        </details>
-
-        {% if briefing_original or fonte_referencias %}
-        <details class="sp-acc" data-acc="source">
-          <summary aria-controls="sp-acc-source">
-            <span class="sp-acc-title">Briefing original</span>
-            <span class="sp-acc-meta" data-acc-meta></span>
-          </summary>
-          <div id="sp-acc-source">
-            <p>O texto do usuário e o apoio revisado. A narrativa pode ser reescrita sem apagar isto.</p>
-            <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-original-open">Ver fonte completa</button>
+          <div class="sp-bf is-stack" id="sp-acc-captured">
+            <p class="sp-acc-note">Material capturado como apoio. Ele não entra automaticamente no briefing nem bloqueia a geração do plano.</p>
+            <label for="sp-field-conteudo-capturado"><span>Fontes e informações capturadas</span><textarea id="sp-field-conteudo-capturado" name="conteudo_capturado" rows="6">{{ campos.conteudo_capturado }}</textarea></label>
           </div>
         </details>
         {% endif %}
+
+        <div class="sp-review-resources" aria-label="Materiais de apoio da revisão">
+          <button type="button" class="sp-review-resource" id="sp-compiled-open"><span><strong>Briefing compilado</strong><small>Narrativa que segue para a folha e o plano</small></span><b>Abrir</b></button>
+          {% if briefing_original or fonte_referencias %}<button type="button" class="sp-review-resource" id="sp-original-open"><span><strong>Briefing original</strong><small>Texto enviado e fontes de apoio</small></span><b>Abrir</b></button>{% endif %}
+        </div>
       </form>
+      <dialog class="sp-original" id="sp-compiled" aria-labelledby="sp-compiled-title">
+        <form method="dialog" class="sp-original-sheet">
+          <header><div><h2 id="sp-compiled-title">Briefing compilado</h2><p>Narrativa corrida que segue para a folha e o plano.</p></div><button type="submit" class="cx-btn cx-btn-ghost cx-btn-sm" value="close">Fechar</button></header>
+          <label class="sp-brief-field" for="sp-narrative"><span>Você pode revisar o texto antes da geração.</span><textarea id="sp-narrative" class="sp-narrative" form="sp-revisao-form" name="briefing" rows="12">{{ briefing }}</textarea></label>
+          <button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" id="sp-rebrief-btn">Refazer briefing</button>
+        </form>
+      </dialog>
       <dialog class="sp-geo-modal" id="sp-geo-modal" aria-labelledby="sp-geo-title">
         <form method="dialog" class="sp-geo-sheet" id="sp-geo-form">
           <header>
-            <div><span>Praça geográfica</span><h2 id="sp-geo-title">Onde a campanha deve aparecer?</h2><p>Marque estados ou cidades. Places continua reservado a pontos, venues e aplicativos específicos.</p></div>
+            <div><span>Praça geográfica</span><h2 id="sp-geo-title">Onde a campanha deve aparecer?</h2><p>Marque estados ou cidades. Places representa ambientes e locais de mídia, com audiência consolidada.</p></div>
             <button type="submit" class="cx-btn cx-btn-ghost cx-btn-sm" value="close">Fechar</button>
           </header>
           <div class="sp-geo-body">
-            <div class="sp-geo-toolbar">
-              <label><span>Estado</span><select id="sp-geo-state"><option value="">Todos os estados</option></select></label>
-              <label class="sp-geo-search"><span>Buscar cidade</span><input id="sp-geo-search" type="search" placeholder="Ex.: Uberlândia, BH, interior"></label>
-            </div>
-            <div class="sp-geo-shortcuts"><button type="button" data-geo-shortcut="mg-interior">Interior de Minas Gerais</button><button type="button" data-geo-shortcut="mg-todo">Minas Gerais inteiro</button><button type="button" data-geo-shortcut="rmbh">Região metropolitana de BH</button></div>
-            <div class="sp-geo-list" id="sp-geo-list"></div>
-            <label class="sp-geo-instruction"><span>Instrução de cobertura</span><textarea id="sp-geo-instruction" rows="2" placeholder="Ex.: Minas Gerais inteiro, priorizando cidades do interior com mais de 100 mil habitantes."></textarea></label>
-            <div class="sp-geo-audience-note"><strong>População</strong><span>Total e população digitalizada serão preenchidos apenas quando houver fonte validada. Sem fonte: <b>A validar</b>.</span></div>
+            <aside class="sp-geo-sidebar" aria-label="Resumo da cobertura">
+              <div class="sp-geo-sidebar-head"><span>Decisão de cobertura</span><strong id="sp-geo-selected">Nenhuma área selecionada</strong></div>
+              <p id="sp-geo-interpretation">Escolha um estado, busque cidades ou escreva uma instrução para o agente interpretar.</p>
+              <div class="sp-geo-selected-list" id="sp-geo-selected-list"><span>Nenhuma cidade selecionada.</span></div>
+              <label class="sp-geo-instruction"><span>Instrução de cobertura</span><textarea id="sp-geo-instruction" rows="5" placeholder="Ex.: Minas Gerais inteiro, priorizando cidades do interior com mais de 100 mil habitantes."></textarea></label>
+              <button type="button" class="cx-btn cx-btn-ghost sp-geo-interpret" id="sp-geo-interpret">Interpretar instrução</button>
+              <div class="sp-geo-audience-note"><strong>Fonte</strong><span>Municípios e UFs: IBGE. População digitalizada: <b>A validar</b>.</span></div>
+            </aside>
+            <section class="sp-geo-picker" aria-label="Selecionar localidades">
+              <div class="sp-geo-toolbar">
+                <label><span>Estado</span><select id="sp-geo-state"><option value="">Todos os estados</option></select></label>
+                <label class="sp-geo-search"><span>Buscar cidade</span><input id="sp-geo-search" type="search" placeholder="Ex.: Uberlândia, BH, interior"></label>
+              </div>
+              <div class="sp-geo-shortcuts"><button type="button" data-geo-shortcut="brasil">Brasil inteiro</button><button type="button" data-geo-shortcut="state">Estado selecionado</button><button type="button" data-geo-shortcut="interior">Interior do estado</button><button type="button" data-geo-shortcut="rmbh">Região metropolitana de BH</button></div>
+              <p class="sp-geo-catalog-status" id="sp-geo-catalog-status">Carregando municípios oficiais do IBGE…</p>
+              <div class="sp-geo-list" id="sp-geo-list"></div>
+            </section>
           </div>
-          <footer><span id="sp-geo-selected">Nenhuma área selecionada</span><div><button type="button" class="cx-btn cx-btn-ghost" id="sp-geo-cancel">Cancelar</button><button type="button" class="cx-btn cx-btn-primary" id="sp-geo-apply">Aplicar área</button></div></footer>
+          <footer><span>Seleção aplicada ao campo “Onde exatamente”.</span><div><button type="button" class="cx-btn cx-btn-ghost" id="sp-geo-cancel">Cancelar</button><button type="button" class="cx-btn cx-btn-primary" id="sp-geo-apply">Aplicar área</button></div></footer>
         </form>
       </dialog>
       {% endif %}
@@ -487,7 +494,7 @@
           <h2>Configuração do plano</h2>
           <p>Verba, voo, praça e indicadores.</p>
           <div class="sp-bf">
-            <label for="sp-field-verba"><span>Verba</span><input id="sp-field-verba" form="sp-revisao-form" name="verba" value="{{ campos.verba }}" placeholder="A fechar"></label>
+            <label for="sp-field-verba"><span>Verba</span><input id="sp-field-verba" form="sp-revisao-form" name="verba" value="{{ campos.verba if verba.valor else '' }}" placeholder="A definir"><small class="sp-field-hint">Informe um valor para entrar na completude.</small></label>
             <label for="sp-field-verba-base">
               <span>Essa verba é</span>
               <select id="sp-field-verba-base" form="sp-revisao-form" name="verba_base">
@@ -508,11 +515,11 @@
                 {% endfor %}
               </select>
             </label>
-            <label for="sp-field-praca-detalhe"><span>Onde exatamente</span><span class="sp-field-with-action"><input id="sp-field-praca-detalhe" form="sp-revisao-form" name="praca_detalhe" value="{{ campos.praca_detalhe }}" placeholder="Cidades, UFs — o venue vai em Places"><button type="button" class="cx-btn cx-btn-ghost cx-btn-xs" id="sp-geo-open">Escolher área</button></span><small class="sp-field-hint">Selecione estados/cidades ou escreva uma instrução de cobertura.</small></label>
+            <label class="sp-praca-detalhe-field" for="sp-field-praca-detalhe"><span>Onde exatamente</span><span class="sp-field-with-action"><input id="sp-field-praca-detalhe" form="sp-revisao-form" name="praca_detalhe" value="{{ campos.praca_detalhe }}" placeholder="Cidades e UFs — o ambiente vai em Places"><button type="button" class="cx-btn cx-btn-ghost cx-btn-xs" id="sp-geo-open">Escolher área</button></span><small class="sp-field-hint">Selecione estados/cidades ou escreva uma instrução de cobertura.</small></label>
             <div class="sp-kpi-box">
-              <span>KPIs</span>
+              <span>KPIs <small class="sp-kpi-required">selecione pelo menos 1</small></span>
               <div class="sp-kpi-chips" id="sp-kpi-chips"></div>
-              <input id="sp-field-kpis" form="sp-revisao-form" name="kpis" value="{{ campos.kpis|join(', ') }}" placeholder="Texto extra, se precisar">
+              <input id="sp-field-kpis" form="sp-revisao-form" name="kpis" value="{{ campos.kpis|join(', ') }}" placeholder="Selecione um KPI acima">
             </div>
           </div>
         </section>
@@ -584,8 +591,8 @@
                 <h3>{{ group_label }}</h3>
                 <div class="sp-mix-checks">
                   {% for key, meta in group_items %}
-                  {% if meta.tipo != 'dados' %}
-                  {% set extra = shown.n >= 12 and key not in campos.canais %}
+                  {% if meta.tipo != 'dados' or key == 'serasa_dados' %}
+                  {% set extra = shown.n >= 40 and key not in campos.canais %}
                   {% if not extra %}{% set shown.n = shown.n + 1 %}{% endif %}
                   <label {% if extra %}data-extra="1" hidden{% endif %} data-label="{{ meta.label|lower }}" data-group="{{ group_key }}" {% if key == 'interativos' %}data-needs-portal="1"{% endif %}>
                     <input form="sp-revisao-form" type="checkbox" name="canais" value="{{ key }}" {% if key in campos.canais %}checked{% endif %}>
@@ -604,8 +611,8 @@
               <p class="sp-mix-ooh-note">OOH é produto da casa, não o foco desta mesa.</p>
             </div>
             <div class="sp-places-desk" id="sp-places-desk" hidden>
-              <h3>Places e pontos</h3>
-              <p>Raios não se somam. App só o que o ponto lista.</p>
+              <h3>Places e ambientes</h3>
+              <p>Selecione os ambientes da campanha. A audiência é apresentada de forma consolidada.</p>
               <div id="sp-places-list"></div>
             </div>
             <div class="sp-interativos-desk" id="sp-interativos-desk" hidden>
@@ -627,6 +634,7 @@
                 Escolha o objetivo na narrativa para indicar os dois métodos do funil.
               {% endif %}
             </p>
+            <div class="sp-mix-balance-content" id="sp-mix-balance-content">
             <div class="sp-mix-picks" id="sp-mix-picks" role="radiogroup" aria-label="Método de mix">
               {% for method in desk.methods or [] %}
               {% if method.id in (desk.recommended or []) %}
@@ -638,8 +646,8 @@
               {% endif %}
               {% endfor %}
             </div>
-            <details class="sp-mix-more" {% if desk.method and desk.method not in (desk.recommended or []) %}open{% endif %}>
-              <summary>Métodos avançados</summary>
+            <details class="sp-mix-more" open>
+              <summary>Todos os métodos</summary>
               <div class="sp-mix-picks is-more">
                 {% for method in desk.methods or [] %}
                 {% if method.id not in (desk.recommended or []) %}
@@ -671,6 +679,12 @@
                 {% endfor %}
               </ul>
             </div>
+            </div>
+            <div class="sp-mix-single" id="sp-mix-single" hidden>
+              <span aria-hidden="true">◌</span>
+              <strong>Um canal selecionado</strong>
+              <p>Não há divisão de mídia para balancear. O calendário abaixo mostra o uso desse canal por semana ou mês.</p>
+            </div>
           </section>
           <section class="sp-media-cal" id="sp-media-balance" aria-labelledby="sp-cal-title">
             <div class="sp-cal-head">
@@ -686,10 +700,6 @@
                   {% endif %}
                 </p>
               </div>
-              <label class="sp-cal-progress" for="sp-mix-progress">
-                <input type="checkbox" id="sp-mix-progress" {% if desk.progress %}checked{% endif %} {% if not pace.editavel %}disabled{% endif %}>
-                <span>Mídia progressiva</span>
-              </label>
             </div>
             <div class="sp-gantt-nums">
               <p><small>No período</small><strong id="sp-gantt-total">{{ 'R$ {:,}'.format(pace.total).replace(',', '.') if pace.total else '—' }}</strong></p>
@@ -707,25 +717,6 @@
             </div>
           </section>
           </div>
-          <aside class="sp-media-steps" aria-label="Etapas da gestão de mídia">
-            <p class="sp-media-steps-kicker">Mesa de decisão</p>
-            <h3>Estratégia de mídia</h3>
-            <p class="sp-media-steps-intro">Defina primeiro onde a campanha precisa estar e depois distribua o ritmo.</p>
-            <nav class="sp-media-step-nav">
-              <button type="button" class="is-active" data-media-step="sp-media-strategy" aria-controls="sp-media-strategy" aria-current="step">
-                <span class="sp-media-step-index">01</span>
-                <span><strong>Canais e método</strong><small>Escolha a presença e a lógica do mix.</small></span>
-              </button>
-              <button type="button" data-media-step="sp-media-balance-controls" aria-controls="sp-media-balance-controls">
-                <span class="sp-media-step-index">02</span>
-                <span><strong>Balanceamento</strong><small>Veja a abertura e o peso por período.</small></span>
-              </button>
-            </nav>
-            <div class="sp-media-steps-note">
-              <i class="fa-solid fa-compass" aria-hidden="true"></i>
-              <span>O mix é uma decisão de estratégia. O calendário transforma essa decisão em voo.</span>
-            </div>
-          </aside>
         </div>
         <footer class="sp-media-foot">
           <p id="sp-media-status" aria-live="polite"></p>
@@ -877,9 +868,23 @@
       <button type="button" class="cx-btn cx-btn-primary" data-gen-mode="{{ plan_mode or 'one_page' }}">Confirmar e gerar</button>
     </div>
   </form>
-</dialog>
+    </dialog>
 
-<div class="sp-wait" id="sp-compile-overlay" hidden>
+    <dialog class="sp-confirm" id="sp-confirm" aria-labelledby="sp-confirm-title" aria-describedby="sp-confirm-message">
+      <form method="dialog" class="sp-confirm-sheet">
+        <div class="sp-confirm-icon" aria-hidden="true">!</div>
+        <div class="sp-confirm-copy">
+          <h2 id="sp-confirm-title">Confirmar ação</h2>
+          <p id="sp-confirm-message"></p>
+        </div>
+        <div class="sp-confirm-actions">
+          <button type="submit" class="cx-btn cx-btn-ghost" value="cancel">Cancelar</button>
+          <button type="submit" class="cx-btn cx-btn-primary" value="confirm" id="sp-confirm-accept">Continuar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div class="sp-wait" id="sp-compile-overlay" hidden>
   <div class="sp-wait-shell">
     <div class="sp-wait-folio" role="status" aria-live="polite">
       <p class="sp-wait-brand">CentralX · Planejamento de mídia</p>
@@ -903,6 +908,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=30"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/wizard.js') }}?v=32"></script>
 <script src="{{ url_for('static', filename='js/smart_planner/guide.js') }}?v=3"></script>
 {% endblock %}

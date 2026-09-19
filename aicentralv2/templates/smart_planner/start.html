@@ -4,7 +4,7 @@
 {% block title %}Novo planejamento · Planejamentos{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=45">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=52">
 {% endblock %}
 
 {% block content %}
@@ -46,6 +46,16 @@
       <ul class="sp-suggest" hidden></ul>
     </label>
   </div>
+  <label class="cx-field sp-executive-field" for="sp-start-executivo">
+    <span class="cx-label">Executivo responsável</span>
+    <select class="cx-select" id="sp-start-executivo">
+      <option value="">Usar responsável padrão do cliente</option>
+      {% for executivo in executivos|default([]) %}
+      <option value="{{ executivo.id }}" data-name="{{ executivo.name }}">{{ executivo.name }}</option>
+      {% endfor %}
+    </select>
+    <small class="sp-field-hint">O cliente define o padrão quando houver cadastro. Você pode trocar aqui antes de criar o plano.</small>
+  </label>
   <div class="sp-brand-chip" id="sp-brand-chip" hidden></div>
   <label class="sp-confidential">
     <input type="checkbox" name="anunciante_confidencial" id="sp-start-confidential" value="1">
@@ -74,6 +84,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/smart_planner/start.js') }}?v=8"></script>
+<script src="{{ url_for('static', filename='js/smart_planner/start.js') }}?v=9"></script>
 <script src="{{ url_for('static', filename='js/smart_planner/guide.js') }}?v=3"></script>
 {% endblock %}

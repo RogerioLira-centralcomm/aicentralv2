@@ -204,7 +204,7 @@ Regras:
 - strategy.body é a recomendação executiva em até duas frases: o que fazer e o peso do mix.
 - O criativo precisa parecer inserido no canal (TV, portal, app ou place), não um banner solto.
 - Surface "place" só se Places for o canal de maior peso. Interativo = surface portal, nunca place.
-- Se houver places confirmados, não reutilize pitch de aeroporto/portal. Cite o ponto e o app listados. Raios não se somam.
+- Se houver places confirmados, não reutilize pitch de aeroporto/portal. Cite apenas o ambiente e sua audiência consolidada; não cite ponto, raio ou app.
 - market.stat é um número ou uma palavra de decisão (nunca um slogan). Sem inventar percentual sem rotular como premissa.
 - defense.body fecha a reunião: por que este mix, agora, para este anunciante.
 - Use os canais, os places e o voo da campanha quando existirem. Se a verba não foi informada, não cite verba, investimento, orçamento, valores ou estimativas no texto: estamos na primeira fase de venda.

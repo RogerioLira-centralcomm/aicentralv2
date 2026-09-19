@@ -4,26 +4,24 @@
 {% block title %}Planejamentos{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=45">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=53">
 {% endblock %}
 
 {% block content %}
-{% set product_step = "Planejamentos" %}
-{% include "smart_planner/_product_bar.html" %}
 <div class="sp-desk is-book">
   <header class="sp-head">
     <div>
-      <h1>Meus planejamentos</h1>
+      <p class="sp-kicker">Mesa de mídia</p>
+      <h1>{{ 'Todos os planejamentos' if scope == 'all' else 'Meus planejamentos' }}</h1>
       <p id="sp-history-summary">
         {% if total_user %}
-          {{ total_user }} {{ 'campanha' if total_user == 1 else 'campanhas' }} neste usuário{% if custo_total %}. {{ custo_total }} em gerações{% endif %}.
+          {{ total_user }} {{ 'planejamento' if total_user == 1 else 'planejamentos' }}{% if custo_total %} · {{ custo_total }} em custo interno de IA{% endif %}
         {% else %}
-          Briefing vira uma folha de decisão para a próxima conversa comercial.
+          Nenhum planejamento encontrado neste recorte.
         {% endif %}
       </p>
     </div>
     <div class="sp-head-actions">
-      <button type="button" class="cx-btn cx-btn-ghost" data-sp-guide>Como funciona</button>
       <a class="cx-btn cx-btn-primary" href="{{ url_for('smart_planner.novo') }}">
         <i class="fa-solid fa-plus" aria-hidden="true"></i>
         Novo planejamento
@@ -33,9 +31,9 @@
 
   {% if rows %}
   <section class="sp-index-metrics" aria-label="Resumo da lista">
-    <div><strong>{{ total_user or 0 }}</strong><span>planos no histórico</span></div>
-    <div><strong>{{ custo_total or 'R$ 0,00' }}</strong><span>custo interno acumulado</span></div>
-    <div><strong>1</strong><span>ação principal por plano</span></div>
+    <div><strong>{{ total_user or 0 }}</strong><span>planejamentos neste recorte</span></div>
+    <div><strong>{{ custo_total or 'R$ 0,00' }}</strong><span>custo interno de IA registrado</span></div>
+    <div><strong>{{ rows|selectattr('status', 'equalto', 'canvas')|list|length }}</strong><span>prontos para apresentação</span></div>
   </section>
   {% endif %}
 
@@ -49,11 +47,11 @@
       <span class="sr-only">Buscar planejamento</span>
       <input class="cx-input" id="sp-filter-q" type="search" placeholder="Buscar plano, cliente ou agência" autocomplete="off">
     </label>
-    <div class="sp-mode-switch" role="group" aria-label="Tipo de planejamento">
+    <nav class="sp-mode-switch" role="group" aria-label="Tipo de planejamento">
       <button type="button" class="is-on" data-mode="" aria-pressed="true">Todos</button>
       <button type="button" data-mode="one_page" aria-pressed="false">Página única</button>
       <button type="button" data-mode="completo" aria-pressed="false">Plano completo</button>
-    </div>
+    </nav>
     <label class="sp-book-filter">
       <span class="sr-only">Cliente</span>
       <select class="cx-select" id="sp-filter-cliente">
@@ -66,20 +64,40 @@
         <option value="">Todas as agências</option>
       </select>
     </label>
+    <label class="sp-book-filter">
+      <span class="sr-only">Responsável</span>
+      <select class="cx-select" id="sp-filter-responsavel">
+        <option value="">Todos os responsáveis</option>
+      </select>
+    </label>
+    <label class="sp-book-filter">
+      <span class="sr-only">Status</span>
+      <select class="cx-select" id="sp-filter-status">
+        <option value="">Todos os status</option>
+      </select>
+    </label>
   </div>
 
-  <div class="sp-book sp-history-cards" id="sp-history-wrap">
-    <div id="sp-history" role="list" aria-label="Planejamentos deste usuário">
+  <div class="sp-scope-tabs" aria-label="Escopo dos planejamentos">
+    {% if can_view_all %}<a class="{{ 'is-on' if scope == 'all' else '' }}" href="{{ url_for('smart_planner.index', scope='all') }}">Todos</a>{% endif %}
+    <a class="{{ 'is-on' if scope != 'all' else '' }}" href="{{ url_for('smart_planner.index') }}">Meus planejamentos</a>
+  </div>
+
+  <div class="sp-book" id="sp-history-wrap">
+    <table class="sp-ledger" aria-label="Lista de planejamentos">
+      <thead><tr><th>Planejamento</th><th>Cliente e agência</th><th>Geração</th><th>Objetivo</th><th>Verba</th><th>Período</th><th>Canais</th><th>Responsável</th><th class="is-when">Atualizado</th><th class="is-actions">Ações</th></tr></thead>
+      <tbody id="sp-history">
         {% for row in rows %}
-        <article role="listitem" class="sp-history-card {{ 'is-sheet' if row.has_sheet else '' }} {{ 'is-full' if row.has_full_plan else '' }}"
+        <tr class="{{ 'is-sheet' if row.has_sheet else '' }} {{ 'is-full' if row.has_full_plan else '' }}"
             data-sp-history-row
             data-id="{{ row.id }}"
             data-mode="{{ row.plan_mode }}" data-documents="{{ 'one_page ' if row.has_sheet else '' }}{{ 'completo' if row.has_full_plan else '' }}"
             data-cliente="{{ row.cliente }}"
             data-agencia="{{ row.agencia }}"
+            data-responsavel="{{ row.executivo }}"
+            data-status="{{ row.status_label }}"
             data-search="{{ row.titulo }} {{ row.cliente }} {{ row.agencia }} {{ row.objetivo }} {{ row.canais|join(' ') }}">
-          <div class="sp-history-main">
-            <div class="sp-name">
+          <td data-label="Planejamento"><div class="sp-name">
               <span class="sp-mark" aria-hidden="true">
                 {% if row.logo_url %}
                 <img src="{{ row.logo_url }}" alt="">
@@ -88,53 +106,40 @@
                 {% endif %}
               </span>
               <div>
-                {% if row.href %}
-                <a href="{{ row.href }}">{{ row.titulo }}</a>
+                {% if row.href %}<a href="{{ row.href }}">{{ row.titulo }}</a>
                 {% else %}
                 <strong>{{ row.titulo }}</strong>
                 {% endif %}
-                <p>{{ row.cliente or 'Cliente a definir' }}{% if row.agencia %} · {{ row.agencia }}{% endif %}{% if row.objetivo %} · {{ row.objetivo }}{% endif %}</p>
-                {% if row.canais %}
-                <ul class="sp-mix">
-                  {% for canal in row.canais[:4] %}
-                  <li>{{ canal }}</li>
-                  {% endfor %}
-                  {% if row.canais|length > 4 %}
-                  <li>+{{ row.canais|length - 4 }}</li>
-                  {% endif %}
-                </ul>
-                {% endif %}
               </div>
-            </div>
-          </div>
-          <div class="sp-history-meta">
-            <span class="sp-mode is-campaign">Campanha</span>
-            {% if row.has_sheet %}<span class="sp-doc-state is-sheet">Página única</span>{% endif %}
-            {% if row.has_full_plan %}<span class="sp-doc-state is-full">Plano completo</span>{% endif %}
-            <span class="sp-status {{ 'is-ready' if row.resume_step == 'canvas' else 'is-open' }}">{{ row.status_label }}</span>
-            <span class="sp-history-when">{{ row.quando or '—' }}</span>
-          </div>
-          <div class="sp-history-actions">
-            <div class="sp-document-actions">
-              {% if row.sheet_href %}<a class="cx-btn cx-btn-sm cx-btn-secondary" href="{{ row.sheet_href }}">Página única</a>{% endif %}
-              {% if row.full_plan_href %}<a class="cx-btn cx-btn-sm cx-btn-primary" href="{{ row.full_plan_href }}">Plano completo</a>{% endif %}
-              {% if not row.sheet_href and not row.full_plan_href and row.href %}<a class="cx-btn cx-btn-sm cx-btn-primary" href="{{ row.href }}">{{ row.resume_action }}</a>{% endif %}
-            </div>
+          </div></td>
+          <td data-label="Cliente e agência"><span class="sp-cell-primary">{{ row.cliente or 'Cliente a definir' }}</span><span class="sp-cell-secondary">{{ row.agencia or 'Agência não definida' }}</span></td>
+          <td data-label="Geração"><div class="sp-delivery-list">{% if row.has_sheet %}<span class="sp-doc-state is-sheet">Página única</span>{% endif %}{% if row.has_full_plan %}<span class="sp-doc-state is-full">Plano completo</span>{% endif %}</div><span class="sp-status {{ 'is-ready' if row.resume_step == 'canvas' else 'is-open' }}">{{ row.status_label }}</span></td>
+          <td data-label="Objetivo"><span class="sp-ledger-value">{{ row.objetivo or 'A definir' }}</span></td>
+          <td data-label="Verba"><span class="sp-ledger-value">{{ row.verba or 'A definir' }}</span></td>
+          <td data-label="Período"><span class="sp-ledger-value">{{ row.periodo or 'A definir' }}</span></td>
+          <td data-label="Canais">{% if row.canais %}<ul class="sp-mix">{% for canal in row.canais[:3] %}<li>{{ canal }}</li>{% endfor %}{% if row.canais|length > 3 %}<li>+{{ row.canais|length - 3 }}</li>{% endif %}</ul>{% else %}<span class="sp-cell-secondary">A definir</span>{% endif %}</td>
+          <td data-label="Responsável">{{ row.executivo or 'Não atribuído' }}</td>
+          <td data-label="Atualizado" class="is-when">{{ row.quando or '—' }}</td>
+          <td data-label="Ações" class="is-actions"><div class="sp-row-actions">
+            {% if row.href %}<a class="cx-btn cx-btn-sm cx-btn-primary" href="{{ row.href }}">Abrir</a>{% endif %}
             <details class="sp-more"><summary aria-label="Mais ações"><i class="fa-solid fa-ellipsis"></i></summary><div>
+              {% if row.thumbnail_url %}<div class="sp-more-thumb"><img src="{{ row.thumbnail_url }}" alt="Thumbnail do criativo gerado"><span>Thumbnail gerada</span></div>{% endif %}
               {% if row.share_url %}<a href="{{ row.share_url }}" target="_blank" rel="noopener noreferrer">Abrir link público</a>{% endif %}
-              <span>{{ row.verba or 'Verba a definir' }} · {{ row.periodo or 'Período a definir' }}</span>
+              {% if row.sheet_href %}<a href="{{ row.sheet_href }}">Abrir página única</a>{% endif %}
+              {% if row.full_plan_href %}<a href="{{ row.full_plan_href }}">Abrir plano completo</a>{% endif %}
               <button type="button" class="js-sp-delete" data-id="{{ row.id }}">Excluir</button>
             </div></details>
-          </div>
-        </article>
+          </div></td>
+        </tr>
         {% endfor %}
-    </div>
+      </tbody>
+    </table>
   </div>
   {% endif %}
 
   <div class="sp-empty" id="sp-empty" {% if rows %}hidden{% endif %}>
     <h2>Nenhuma campanha neste usuário</h2>
-    <p>Comece pelo briefing. O CentralX monta a página única ou o plano completo no quadro.</p>
+    <p>Comece pelo briefing. O Planner monta a página única ou o plano completo para a próxima conversa comercial.</p>
     <a class="cx-btn cx-btn-primary" href="{{ url_for('smart_planner.novo') }}">Novo planejamento</a>
   </div>
 

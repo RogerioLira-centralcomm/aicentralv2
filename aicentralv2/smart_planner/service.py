@@ -48,6 +48,7 @@ from .helpers import (
     text,
 )
 from .materials import normalize_references
+from .processor import suggest_campaign_name
 from .pace import (
     allocate_months,
     budget_shares,
@@ -81,9 +82,9 @@ def current_user() -> dict:
     }
 
 
-def history_payload() -> dict:
+def history_payload(include_all: bool = False) -> dict:
     user = current_user()
-    rows = list_sessions(user["user_email"], user["user_id"])
+    rows = list_sessions(user["user_email"], user["user_id"], include_all=include_all)
     total_brl = 0.0
     for row in rows:
         try:
@@ -96,10 +97,11 @@ def history_payload() -> dict:
         "total_base": count_sessions(),
         "custo_total_brl": round(total_brl, 2),
         "custo_total": format_brl(total_brl),
+        "scope": "all" if include_all else "mine",
     }
 
 
-def recent_plans(limit: int = 20) -> list[dict]:
+def recent_plans(limit: int = 15) -> list[dict]:
     """Compact history used by the internal Smart Planner navigation."""
     user = current_user()
     try:
@@ -160,6 +162,7 @@ def wizard_context(row: dict, step_id: str) -> dict:
         "periodo": text(row.get("prazo") or campanha.get("periodo") or dados.get("periodo")),
         "canais": as_list(campanha.get("canais") or dados.get("canais") or row.get("plataformas_sugeridas")),
         "criativos": text(dados.get("criativos")),
+        "conteudo_capturado": text(dados.get("conteudo_capturado")),
         "dispositivos": as_list(campanha.get("dispositivos") or dados.get("dispositivos")),
         "kpis": [text(item) for item in as_list(dados.get("kpis")) if text(item)],
         "mix": as_dict(campanha.get("mix")),
@@ -167,10 +170,14 @@ def wizard_context(row: dict, step_id: str) -> dict:
         "cliente_id": dados.get("cliente_id"),
         "agencia_id": dados.get("agencia_id"),
         "cx_client_id": dados.get("cx_client_id"),
+        "executivo_id": dados.get("executivo_id"),
+        "executivo_nome": text(dados.get("executivo_nome")),
         "anunciante_confidencial": as_bool(dados.get("anunciante_confidencial")),
         "places": campanha.get("places") or dados.get("places") or [],
         "interativos": campanha.get("interativos") or dados.get("interativos") or {},
     }
+    if not text(campos["campanha"]):
+        campos["campanha"] = suggest_campaign_name(campos)
     if isinstance(campos["campanha"], dict):
         campos["campanha"] = text(dados.get("nome_campanha"))
     campos = apply_review_defaults(apply_places_to_campos(campos, lock_channel=True))

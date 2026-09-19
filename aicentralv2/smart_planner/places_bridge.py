@@ -316,16 +316,12 @@ def places_prompt_block(places: list[dict] | None) -> str:
     if not rows:
         return ""
     lines = [
-        "PLACES CONFIRMADOS — use só estes. Raios não se somam. Não descreva app que o catálogo não listou.",
+        "PLACES CONFIRMADOS — use só estes ambientes. Apresente audiência de forma consolidada; não liste pontos, raios ou apps no plano.",
     ]
     for place in rows:
         title = text(place.get("title") or place.get("slug"))
-        for point in as_list(place.get("points")):
-            apps = ", ".join(as_list(point.get("apps"))) or "sem app listado"
-            lines.append(
-                f"- {title} · {text(point.get('name') or point.get('id'))} · "
-                f"{text(point.get('radius_label'))} · reach {text(point.get('reach')) or 'A definir'} · apps: {apps}"
-            )
-        if not as_list(place.get("points")):
-            lines.append(f"- {title}")
+        metrics = as_dict(place.get("metrics"))
+        audience = text(metrics.get("addressable")) or "A definir"
+        period = text(metrics.get("four_weeks")) or "A definir"
+        lines.append(f"- {title} · audiência endereçável: {audience} · média em 4 semanas: {period}")
     return "\n".join(lines)

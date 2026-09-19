@@ -1,5 +1,7 @@
 """Catálogo de canais, praças e campos — espelho do PHP campaign-options."""
 
+import re
+
 CHANNEL_CATALOG = {
     "google_ads": {"label": "Google Ads", "group": "performance", "desc": "Busca, Display, Performance Max"},
     "gpt_ads": {"label": "GPT ADS", "group": "performance", "desc": "Anúncios em respostas do ChatGPT"},
@@ -7,6 +9,9 @@ CHANNEL_CATALOG = {
     "meta_ads": {"label": "Meta Ads", "group": "social", "desc": "Facebook, Instagram, Audience Network"},
     "tiktok": {"label": "TikTok", "group": "social", "desc": "Feed, TopView, Branded Hashtag"},
     "linkedin": {"label": "LinkedIn", "group": "social", "desc": "Feed, InMail, segmentação B2B"},
+    "uber": {"label": "Uber", "group": "apps", "desc": "Ambiente de mobilidade e deslocamento"},
+    "99": {"label": "99", "group": "apps", "desc": "Ambiente de mobilidade e deslocamento"},
+    "ifood": {"label": "iFood", "group": "apps", "desc": "Ambiente de pedidos e consumo"},
     "dv360": {"label": "Rede de portais e sites", "group": "programmatic", "desc": "Display e vídeo em portais e sites"},
     "spotify": {"label": "Spotify", "group": "audio", "desc": "Áudio, podcasts e display"},
     "netflix": {"label": "Netflix", "group": "ctv", "desc": "CTV no plano com anúncios"},
@@ -44,6 +49,9 @@ PRIMARY_FORMATS = {
     "meta_ads": {"id": "vertical_9_16", "label": "Imagem vertical · 9:16", "surface": "app"},
     "tiktok": {"id": "video_9_16_15s", "label": "Vídeo vertical · 15s", "surface": "app", "duration_seconds": 15},
     "linkedin": {"id": "feed_1_1", "label": "Imagem de feed · 1:1", "surface": "app"},
+    "uber": {"id": "display_in_app", "label": "Display no app · 1:1", "surface": "app"},
+    "99": {"id": "display_in_app", "label": "Display no app · 1:1", "surface": "app"},
+    "ifood": {"id": "display_in_app", "label": "Display no app · 1:1", "surface": "app"},
     "dv360": {"id": "display_300_250", "label": "Display · 300 × 250", "surface": "display"},
     "spotify": {"id": "audio_companion_1_1", "label": "Imagem companion · 1:1", "surface": "app"},
     "netflix": {"id": "ctv_16_9_30s", "label": "Vídeo CTV · 30s", "surface": "ctv", "duration_seconds": 30},
@@ -117,6 +125,7 @@ PLAN_MODE_LABELS = {
 CHANNEL_GROUPS = {
     "performance": "Performance",
     "social": "Social",
+    "apps": "Apps e mobilidade",
     "video": "Vídeo",
     "ctv": "CTV e streaming",
     "portais": "Portais",
@@ -131,7 +140,7 @@ CHANNEL_SHOWCASE = (
     "google_ads", "gpt_ads", "meta_ads", "tiktok", "linkedin",
     "youtube", "netflix", "prime_video", "disney", "hbo_max", "globoplay",
     "g1", "uol", "r7", "cnn", "interativos", "places",
-    "dv360", "spotify", "serasa", "ooh",
+    "uber", "99", "ifood", "dv360", "spotify", "serasa", "serasa_dados", "ooh",
 )
 
 PORTAL_CHANNELS = ("g1", "uol", "r7", "cnn")
@@ -158,6 +167,9 @@ CHANNEL_LOGOS = {
     "meta_ads": "/static/images/creative-viewers/facebook.svg",
     "tiktok": "/static/images/canais/tiktok.png",
     "linkedin": "/static/images/creative-viewers/linkedin.svg",
+    "uber": "",
+    "99": "",
+    "ifood": "",
     "dv360": "/static/images/canais/google-dv360.svg",
     "spotify": "/static/images/canais/spotify.svg",
     "netflix": "/static/images/creative-viewers/netflix.png",
@@ -166,6 +178,7 @@ CHANNEL_LOGOS = {
     "hbo_max": "/static/images/canais/hbo-max.svg",
     "globoplay": "/static/images/canais/globoplay.png",
     "serasa": "/static/images/canais/experian-portal.png",
+    "serasa_dados": "/static/images/canais/experian-portal.png",
     "g1": "/static/images/canais/g1-globo.svg",
     "uol": "/static/images/canais/uol.png",
     "r7": "/static/images/canais/r7.png",
@@ -185,6 +198,7 @@ GROUP_KPIS = {
     "programmatic": ("Impressões", "Viewability", "CTR"),
     "audio": ("Listeners", "Frequência"),
     "data": ("Cobertura da base", "Match rate"),
+    "apps": ("Alcance", "Frequência", "Ações"),
     "ooh": ("Alcance de rua", "OTS", "Frequência"),
 }
 
@@ -296,14 +310,17 @@ def apply_review_defaults(campos: dict) -> dict:
 
 def review_score(campos: dict) -> int:
     data = campos or {}
+    verba = str(data.get("verba") or "").strip().lower()
+    # "A fechar"/"A definir" são estados editoriais, não orçamento informado.
+    has_verba = bool(re.search(r"\d", verba)) and verba not in {"a fechar", "a definir", "não definida", "nao definida"}
     checks = (
         bool(str(data.get("campanha") or "").strip()),
         bool(str(data.get("objetivo") or "").strip()),
         bool(str(data.get("publico") or "").strip()),
-        bool(str(data.get("verba") or "").strip()),
+        has_verba,
         bool(str(data.get("periodo") or "").strip()),
         bool(str(data.get("praca") or "").strip()),
-        bool(data.get("kpis")),
+        bool([item for item in (data.get("kpis") or []) if str(item).strip()]),
         bool(data.get("canais")),
     )
     return int(round(100 * sum(1 for item in checks if item) / len(checks)))

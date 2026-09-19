@@ -300,6 +300,8 @@ def search_parties(query: str, kind: str = "cliente", limit: int = 10) -> list[d
     sql = f"""
         SELECT c.id_cliente,
                COALESCE(c.nome_fantasia, c.razao_social) AS nome,
+               c.vendas_central_comm AS responsavel_id,
+               vend.nome_completo AS responsavel_nome,
                COALESCE(
                  (SELECT COALESCE(cx.logo_upload_path, cx.logo_url)
                     FROM cx_clients cx
@@ -314,6 +316,7 @@ def search_parties(query: str, kind: str = "cliente", limit: int = 10) -> list[d
                ) AS logo_url
           FROM tbl_cliente c
           LEFT JOIN tbl_agencia a ON c.pk_id_tbl_agencia = a.id_agencia
+          LEFT JOIN tbl_contato_cliente vend ON vend.id_contato_cliente = c.vendas_central_comm
          WHERE {' AND '.join(clauses)}
          ORDER BY {order}
          LIMIT %s
@@ -329,6 +332,8 @@ def search_parties(query: str, kind: str = "cliente", limit: int = 10) -> list[d
                 "id": row.get("id_cliente"),
                 "name": text(row.get("nome")),
                 "logo_url": public_logo(row.get("logo_url")),
+                "responsavel_id": row.get("responsavel_id"),
+                "responsavel_nome": text(row.get("responsavel_nome")),
             }
             for row in rows
             if text(row.get("nome"))
@@ -433,6 +438,8 @@ def seed_parties(payload: dict) -> dict:
         "contexto": bounded_context(contexto_parts),
         "canais": as_list(brand.get("canais")),
         "anunciante_confidencial": as_bool(payload.get("anunciante_confidencial")),
+        "executivo_id": payload.get("executivo_id") or None,
+        "executivo_nome": text(payload.get("executivo_nome")),
         "workspace_project_id": project.get("id"),
         "workspace_project_name": text(project.get("nome")),
         "workspace_brand_id": brand.get("id"),

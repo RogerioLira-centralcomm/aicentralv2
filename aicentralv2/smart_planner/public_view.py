@@ -18,7 +18,7 @@ from .mix import METHODS
 from .pace import format_money, parse_money
 from .share import HOUSE, public_document_url, public_sheet_url
 from .theme import resolve_market_id, theme_record
-from ..db import normalizar_telefone_whatsapp, obter_contato_por_email
+from ..db import normalizar_telefone_whatsapp, obter_contato_por_email, obter_contato_por_id
 
 logger = logging.getLogger(__name__)
 
@@ -266,14 +266,22 @@ def _donut_style(channels: list[dict]) -> str:
 
 def _executive_contact(row: dict, title: str) -> dict:
     """Resolve o responsável do plano sem deixar dados internos expostos."""
+    dados = as_dict((row or {}).get("dados_detectados"))
+    selected_id = dados.get("executivo_id")
+    selected_name = text(dados.get("executivo_nome"))
     email = text((row or {}).get("user_email"))
-    fallback_name = text((row or {}).get("user_name")) or "Executivo responsável"
+    fallback_name = selected_name or text((row or {}).get("user_name")) or "Executivo responsável"
     contact = {}
     if email:
         try:
             contact = obter_contato_por_email(email) or {}
         except Exception:
             logger.exception("Não foi possível carregar o contato do Smart Planner")
+    if selected_id:
+        try:
+            contact = obter_contato_por_id(int(selected_id)) or contact
+        except (TypeError, ValueError):
+            logger.exception("Não foi possível carregar o executivo responsável")
     name = text(contact.get("nome_completo")) or fallback_name
     photo = text(contact.get("foto_url"))
     phone = normalizar_telefone_whatsapp(contact.get("telefone") or contact.get("telefone_secundario"))

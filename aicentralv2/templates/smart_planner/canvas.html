@@ -4,7 +4,7 @@
 {% block title %}{{ titulo }} · Planejamentos{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=45">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=53">
 {% endblock %}
 
 {% block content %}
@@ -69,6 +69,24 @@
         </div>
       </section>
 
+      <section class="sp-upgrade-bar" aria-label="Evoluir para plano completo">
+        <div class="sp-upgrade-current">
+          <span class="sp-readout-kicker">Página única</span>
+          <strong>Decisão pronta para a conversa</strong>
+          <small>Tese, criativo, mix, mercado e defesa comercial.</small>
+        </div>
+        <div class="sp-upgrade-adds">
+          <span class="sp-readout-kicker">Plano completo adiciona</span>
+          <div class="sp-upgrade-pills">
+            <span>Estratégia detalhada</span><span>Plano de mídia</span><span>Execução e indicadores</span>
+          </div>
+        </div>
+        <div class="sp-upgrade-action">
+          <small id="sp-upgrade-status" aria-live="polite">Aprofunde quando precisar da operação.</small>
+          <button type="button" class="cx-btn cx-btn-primary cx-btn-sm" id="sp-upgrade-completo">Transformar em plano completo</button>
+        </div>
+      </section>
+
       <form id="sp-folha-form" class="sp-review" data-folha="1">
         <details class="sp-acc" data-acc="strategy" open id="sp-acc-strategy">
           <summary aria-controls="sp-acc-strategy-body">
@@ -88,7 +106,7 @@
           </div>
         </details>
 
-        <details class="sp-acc" data-acc="creative" id="sp-acc-creative">
+        <details class="sp-acc" data-acc="creative" open id="sp-acc-creative">
           <summary aria-controls="sp-acc-creative-body">
             <span class="sp-acc-title">Protótipo visual no canal</span>
             <span class="sp-acc-meta">uma peça conceitual</span>
@@ -151,7 +169,7 @@
           </div>
         </details>
 
-        <details class="sp-acc" data-acc="media" id="sp-acc-media">
+        <details class="sp-acc" data-acc="media" open id="sp-acc-media">
           <summary aria-controls="sp-acc-media-body">
             <span class="sp-acc-title">Gestão de mídia</span>
             <span class="sp-acc-meta">abrir só para rebalancear</span>
@@ -339,19 +357,6 @@
       </form>
     </div>
 
-    <aside class="sp-hi-plan" aria-label="Checklist do documento">
-      <section class="sp-side-card">
-        <h2>Página única</h2>
-        <p>O que esta folha já tem. Clique para ir ao bloco.</p>
-        <ul class="sp-complete-checks sp-editor-checks" id="sp-folha-checks">
-          {% for item in folha_checks or [] %}
-          <li class="{% if item.done %}is-done{% endif %}" data-check="{{ item.id }}">
-            <a href="{{ item.href }}">{{ item.label }}</a>
-          </li>
-          {% endfor %}
-        </ul>
-      </section>
-    </aside>
   </div>
 </div>
 

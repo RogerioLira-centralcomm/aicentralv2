@@ -8,6 +8,8 @@
   var search = document.getElementById("sp-filter-q");
   var clientFilter = document.getElementById("sp-filter-cliente");
   var agencyFilter = document.getElementById("sp-filter-agencia");
+  var responsibleFilter = document.getElementById("sp-filter-responsavel");
+  var statusFilter = document.getElementById("sp-filter-status");
   var modeButtons = document.querySelectorAll(".sp-mode-switch button");
   var activeMode = "";
   var originalSummary = summary ? summary.textContent.trim() : "";
@@ -17,7 +19,40 @@
       window.showToast(message, type || "info");
       return;
     }
-    window.alert(message);
+    var node = document.querySelector(".sp-inline-toast");
+    if (!node) {
+      node = document.createElement("div");
+      node.className = "sp-inline-toast";
+      node.setAttribute("role", "status");
+      document.body.appendChild(node);
+    }
+    node.textContent = message;
+    node.dataset.type = type || "info";
+    node.classList.add("is-visible");
+    window.clearTimeout(node._hideTimer);
+    node._hideTimer = window.setTimeout(function () { node.classList.remove("is-visible"); }, 4200);
+  }
+
+  function confirmDelete(onConfirm) {
+    if (typeof window.showConfirm === "function") {
+      window.showConfirm({
+        title: "Excluir planejamento",
+        message: "Este planejamento será removido.",
+        theme: "danger",
+        confirmText: "Excluir",
+        onConfirm: onConfirm,
+      });
+      return;
+    }
+    var dialog = document.createElement("dialog");
+    dialog.className = "sp-inline-confirm";
+    dialog.innerHTML = '<form method="dialog"><h2>Excluir planejamento?</h2><p>Este planejamento será removido.</p><div><button value="cancel" class="cx-btn cx-btn-secondary cx-btn-sm">Cancelar</button><button value="confirm" class="cx-btn cx-btn-danger cx-btn-sm">Excluir</button></div></form>';
+    document.body.appendChild(dialog);
+    dialog.addEventListener("close", function () {
+      if (dialog.returnValue === "confirm") onConfirm();
+      dialog.remove();
+    }, { once: true });
+    dialog.showModal();
   }
 
   function rows() {
@@ -66,6 +101,8 @@
   function hydrateFilters() {
     fillSelect(clientFilter, uniqueAttr("data-cliente"), "Todos os clientes", "__none__", "Sem cliente");
     fillSelect(agencyFilter, uniqueAttr("data-agencia"), "Todas as agências", "__none__", "Sem agência");
+    fillSelect(responsibleFilter, uniqueAttr("data-responsavel"), "Todos os responsáveis", "__none__", "Não atribuído");
+    fillSelect(statusFilter, uniqueAttr("data-status"), "Todos os status", "__none__", "Sem status");
   }
 
   function matches(row) {
@@ -75,10 +112,16 @@
     if (activeMode && (row.getAttribute("data-documents") || "").split(/\s+/).indexOf(activeMode) === -1) return false;
     var cliente = (row.getAttribute("data-cliente") || "").trim();
     var agencia = (row.getAttribute("data-agencia") || "").trim();
+    var responsavel = (row.getAttribute("data-responsavel") || "").trim();
+    var status = (row.getAttribute("data-status") || "").trim();
     if (clientFilter && clientFilter.value === "__none__" && cliente) return false;
     if (clientFilter && clientFilter.value && clientFilter.value !== "__none__" && cliente !== clientFilter.value) return false;
     if (agencyFilter && agencyFilter.value === "__none__" && agencia) return false;
     if (agencyFilter && agencyFilter.value && agencyFilter.value !== "__none__" && agencia !== agencyFilter.value) return false;
+    if (responsibleFilter && responsibleFilter.value === "__none__" && responsavel) return false;
+    if (responsibleFilter && responsibleFilter.value && responsibleFilter.value !== "__none__" && responsavel !== responsibleFilter.value) return false;
+    if (statusFilter && statusFilter.value === "__none__" && status) return false;
+    if (statusFilter && statusFilter.value && statusFilter.value !== "__none__" && status !== statusFilter.value) return false;
     return true;
   }
 
@@ -113,6 +156,8 @@
     if (search) search.value = "";
     if (clientFilter) clientFilter.value = "";
     if (agencyFilter) agencyFilter.value = "";
+    if (responsibleFilter) responsibleFilter.value = "";
+    if (statusFilter) statusFilter.value = "";
     modeButtons.forEach(function (button) {
       var on = !button.getAttribute("data-mode");
       button.classList.toggle("is-on", on);
@@ -151,6 +196,8 @@
   if (search) search.addEventListener("input", applyFilters);
   if (clientFilter) clientFilter.addEventListener("change", applyFilters);
   if (agencyFilter) agencyFilter.addEventListener("change", applyFilters);
+  if (responsibleFilter) responsibleFilter.addEventListener("change", applyFilters);
+  if (statusFilter) statusFilter.addEventListener("change", applyFilters);
   modeButtons.forEach(function (button) {
     button.addEventListener("click", function () {
       activeMode = button.getAttribute("data-mode") || "";
@@ -167,19 +214,7 @@
 
   document.querySelectorAll(".js-sp-delete").forEach(function (button) {
     button.addEventListener("click", function () {
-      if (typeof window.showConfirm === "function") {
-        window.showConfirm({
-          title: "Excluir planejamento",
-          message: "Este planejamento será removido.",
-          theme: "danger",
-          confirmText: "Excluir",
-          onConfirm: function () {
-            excludePlan(button);
-          },
-        });
-        return;
-      }
-      if (window.confirm("Excluir este planejamento?")) excludePlan(button);
+      confirmDelete(function () { excludePlan(button); });
     });
   });
 

@@ -3,8 +3,15 @@
     <i class="fa-solid fa-arrow-left" aria-hidden="true"></i><span>Planejamentos</span>
   </a>
   <span class="sp-product-bar__separator" aria-hidden="true">/</span>
+  <nav class="sp-product-bar__links" aria-label="Atalhos comerciais">
+    <a href="{{ url_for('smart_planner.index') }}" class="sp-product-bar__link">Planejamentos</a>
+    <a href="{{ url_for('smart_planner.novo') }}" class="sp-product-bar__link">Novo planejamento</a>
+    <a href="{{ url_for('cotacoes.cotacoes_list') }}" class="sp-product-bar__link">Receita</a>
+    <a href="{{ url_for('cotacoes.solicitacoes_planner') }}" class="sp-product-bar__link">Solicitações</a>
+  </nav>
+  <span class="sp-product-bar__separator" aria-hidden="true">/</span>
   <details class="sp-product-bar__history">
-    <summary>Recentes <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary>
+    <summary>Últimos 15 planos <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary>
     <div>
       {% for item in recent_plans|default([]) %}
       <a href="{{ item.href }}" class="{{ 'is-current' if item.session_token == token else '' }}">

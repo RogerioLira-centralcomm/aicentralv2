@@ -118,11 +118,13 @@ def get_owned(token: str, user_email: str, user_id: Any) -> dict:
     return row
 
 
-def list_sessions(user_email: str, user_id: Any = None, limit: int = 80) -> list[dict]:
+def list_sessions(user_email: str, user_id: Any = None, limit: int = 80, include_all: bool = False) -> list[dict]:
     email = (user_email or "").strip().lower()
     clauses = ["deleted_at IS NULL"]
     params: list[Any] = []
-    if email:
+    if include_all:
+        pass
+    elif email:
         clauses.append("LOWER(user_email) = %s")
         params.append(email)
     elif user_id:
@@ -207,6 +209,24 @@ def serialize_list_row(row: dict) -> dict:
     folha = as_dict(dados.get("folha"))
     has_sheet = bool(as_list(folha.get("sections"))) or (plan_mode_of(dados) == "one_page" and has_canvas)
     has_full_plan = plan_mode_of(dados) == "completo" and has_canvas
+    thumbnail_url = ""
+    sections = as_list(folha.get("sections"))
+    for section in sections:
+        for card in as_list(as_dict(section).get("cards")):
+            card_data = as_dict(card.get("data"))
+            if text(card.get("id")) == "creative" or card_data.get("image_url"):
+                thumbnail_url = text(card_data.get("image_url"))
+                if thumbnail_url:
+                    break
+        if thumbnail_url:
+            break
+    if not thumbnail_url:
+        for asset in as_list(folha.get("asset_manifest")):
+            asset = as_dict(asset)
+            if text(asset.get("kind")) == "creative":
+                thumbnail_url = text(asset.get("asset_url") or asset.get("image_url"))
+                if thumbnail_url:
+                    break
     has_plan_text = bool(text(dados.get("planejamento")))
     has_briefing = bool(text(row.get("briefing_melhorado") or row.get("briefing_compilado")))
     mode = plan_mode_of(dados)
@@ -228,8 +248,9 @@ def serialize_list_row(row: dict) -> dict:
         "titulo": session_title(row, dados),
         "cliente": text(row.get("cliente") or dados.get("cliente")),
         "agencia": text(dados.get("agencia") or campanha.get("agencia")),
-        "executivo": text(row.get("user_name")),
+        "executivo": text(dados.get("executivo_nome") or row.get("user_name")),
         "logo_url": text(brand.get("logo_url") or brand.get("logo")),
+        "thumbnail_url": thumbnail_url,
         "objetivo": objetivo_label(text(row.get("objetivo") or dados.get("objetivo") or campanha.get("objetivo"))),
         "verba": text(row.get("budget") or campanha.get("verba") or dados.get("verba")),
         "custo": custo["label"],
@@ -270,6 +291,8 @@ def create_session(user: dict, plan_mode: str, seed: dict | None = None) -> dict
         "cliente_id": seed.get("cliente_id"),
         "agencia_id": seed.get("agencia_id"),
         "cx_client_id": seed.get("cx_client_id"),
+        "executivo_id": seed.get("executivo_id") or None,
+        "executivo_nome": text(seed.get("executivo_nome")),
         "brand": as_dict(seed.get("brand")),
         "publico": text(seed.get("publico")),
         "contexto": text(seed.get("contexto")),

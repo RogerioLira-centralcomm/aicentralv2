@@ -185,7 +185,8 @@ class PlacesBridgeTest(unittest.TestCase):
             "kpis": ["Alcance"],
             "canais": ["places"],
         })
-        self.assertEqual(score, 100)
+        # "A fechar" é um estado editorial, não um valor de verba confirmado.
+        self.assertEqual(score, 88)
 
     def test_starter_pitch_blocked_when_places_exist(self):
         self.assertEqual(match_pitch("BH Airport", "Filadélfia")["id"], "bh-airport")

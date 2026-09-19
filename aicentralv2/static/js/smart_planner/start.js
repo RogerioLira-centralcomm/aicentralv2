@@ -7,6 +7,8 @@
     cliente_id: null,
     agencia: "",
     agencia_id: null,
+    executivo_id: null,
+    executivo_nome: "",
   };
   var timers = {};
 
@@ -15,7 +17,18 @@
       window.showToast(message, type || "info");
       return;
     }
-    window.alert(message);
+    var node = document.querySelector(".sp-inline-toast");
+    if (!node) {
+      node = document.createElement("div");
+      node.className = "sp-inline-toast";
+      node.setAttribute("role", "status");
+      document.body.appendChild(node);
+    }
+    node.textContent = message;
+    node.dataset.type = type || "info";
+    node.classList.add("is-visible");
+    window.clearTimeout(node._hideTimer);
+    node._hideTimer = window.setTimeout(function () { node.classList.remove("is-visible"); }, 4200);
   }
 
   function partyInput(kind) {
@@ -107,6 +120,8 @@
           escapeHtml(row.id) +
           '" data-name="' +
           escapeHtml(row.name) +
+          '" data-executivo-id="' + escapeHtml(row.responsavel_id || "") +
+          '" data-executivo-name="' + escapeHtml(row.responsavel_nome || "") +
           '">' +
           suggestMark(row) +
           "<span>" +
@@ -130,6 +145,7 @@
     if (!payload.success) return;
     var data = payload.data || {};
     renderBrand(data.brand);
+    if (data.executive && data.executive.id) setExecutive(data.executive.id, data.executive.name);
     var agency = data.agency || {};
     if (agency.name && !state.agencia_id) {
       state.agencia = agency.name;
@@ -158,10 +174,20 @@
     if (input) input.value = name;
     hideSuggest(kind);
     if (kind === "cliente") {
+      var result = arguments.length > 3 ? arguments[3] : null;
+      var resultName = arguments.length > 4 ? arguments[4] : "";
+      setExecutive(result, resultName);
       loadMarca(id).catch(function () {
         renderBrand(null);
       });
     }
+  }
+
+  function setExecutive(id, name) {
+    state.executivo_id = id || null;
+    state.executivo_nome = name || "";
+    var select = document.getElementById("sp-start-executivo");
+    if (select && id) select.value = String(id);
   }
 
   root.querySelectorAll(".js-sp-party").forEach(function (input) {
@@ -198,8 +224,14 @@
       if (!button) return;
       event.preventDefault();
       var kind = list.closest(".sp-party").getAttribute("data-kind");
-      selectParty(kind, button.getAttribute("data-id"), button.getAttribute("data-name"));
+      selectParty(kind, button.getAttribute("data-id"), button.getAttribute("data-name"), button.getAttribute("data-executivo-id"), button.getAttribute("data-executivo-name"));
     });
+  });
+
+  var executiveSelect = document.getElementById("sp-start-executivo");
+  if (executiveSelect) executiveSelect.addEventListener("change", function () {
+    var option = executiveSelect.options[executiveSelect.selectedIndex];
+    setExecutive(executiveSelect.value, option && option.getAttribute("data-name"));
   });
 
   // A marca pode iniciar o planejamento pelo Workspace. Nesse caso o anunciante
@@ -241,6 +273,8 @@
             cliente_id: state.cliente_id,
             agencia: agencia,
             agencia_id: state.agencia_id,
+            executivo_id: state.executivo_id,
+            executivo_nome: state.executivo_nome,
             workspace_project_id: workspaceProjectId || null,
             workspace_brand_id: workspaceBrandId || null,
             anunciante_confidencial: Boolean(document.getElementById("sp-start-confidential") && document.getElementById("sp-start-confidential").checked),

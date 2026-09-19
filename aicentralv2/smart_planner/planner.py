@@ -9,7 +9,6 @@ from .catalog import CHANNEL_CATALOG, PLAN_MODES, channel_label
 from .helpers import as_dict, as_list, normalize_markdown, plan_mode_of, text
 from .places_bridge import places_prompt_block, snapshot_places
 from .materials import apoio_block
-from .mix import progress_calendar
 from .pace import budget_shares, campaign_pace, format_money
 from .repository import get_by_token, merge_dados, update_session
 
@@ -34,7 +33,7 @@ SMART. Meta sem lastro vira Premissa.
 
 ## Território e Praça
 Abrangência do mix. Sem praça: "Praça a definir pelo anunciante".
-Se houver Places confirmados: um bloco por place e ponto, com o próprio raio e o próprio reach. Raios não se somam. App só os listados. Venue não entra como texto solto de praça.
+Se houver Places confirmados: cite apenas o ambiente/place e sua audiência consolidada. Não cite ponto, raio ou app no plano. Venue não entra como texto solto de praça.
 
 ## Inteligência de Audiência
 Comportamento, hábitos de mídia, jornada e gatilhos do briefing.
@@ -143,22 +142,6 @@ def _campaign_block(campanha: dict) -> str:
             lines.append(f"  - {label}: {format_money(int((pace['alocacao'] or {}).get(key) or 0))}")
         if pace.get("como"):
             lines.append(f"- Ritmo: {pace['como']}")
-        calendar = progress_calendar(
-            canais,
-            text(campanha.get("objetivo")),
-            text(mix.get("method")),
-            pace,
-            mix,
-        )
-        if calendar.get("progress") and calendar.get("rows"):
-            lines.append("- Mídia progressiva (aprende no começo, converte no fim):")
-            for row in calendar["rows"]:
-                cells = ", ".join(
-                    f"{label} {cell.get('pct')}%"
-                    for label, cell in zip(calendar.get("labels") or [], row.get("cells") or [])
-                )
-                if cells:
-                    lines.append(f"  - {row.get('label')}: {cells}")
     return "\n".join(lines)
 
 

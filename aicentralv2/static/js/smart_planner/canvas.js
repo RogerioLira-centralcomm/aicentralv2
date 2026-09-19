@@ -46,7 +46,18 @@
       window.showToast(message, type || "info");
       return;
     }
-    window.alert(message);
+    var node = document.querySelector(".sp-inline-toast");
+    if (!node) {
+      node = document.createElement("div");
+      node.className = "sp-inline-toast";
+      node.setAttribute("role", "status");
+      document.body.appendChild(node);
+    }
+    node.textContent = message;
+    node.dataset.type = type || "info";
+    node.classList.add("is-visible");
+    window.clearTimeout(node._hideTimer);
+    node._hideTimer = window.setTimeout(function () { node.classList.remove("is-visible"); }, 4200);
   }
 
   function setLive(message) {
@@ -421,6 +432,35 @@
     }
   });
 
+  document.getElementById("sp-upgrade-completo")?.addEventListener("click", async function (event) {
+    if (!isEditor) return;
+    var button = event.currentTarget;
+    var status = document.getElementById("sp-upgrade-status");
+    try {
+      button.disabled = true;
+      button.textContent = "Preparando plano completo…";
+      if (status) status.textContent = "Salvando a página única antes de iniciar.";
+      await save();
+      var response = await fetch("/smart-planner/api/" + token + "/gerar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ plan_mode: "completo" }),
+      });
+      var payload = await response.json();
+      if (!payload.success) throw new Error(payload.error || "Não foi possível iniciar o plano completo.");
+      if (status) status.textContent = "Plano completo em processamento. Abrindo acompanhamento…";
+      window.location.href = payload.data && payload.data.redirect
+        ? payload.data.redirect
+        : "/smart-planner/" + token + "/conclusao";
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = "Transformar em plano completo";
+      if (status) status.textContent = "Não foi possível iniciar. Revise e tente novamente.";
+      toast(error.message, "error");
+    }
+  });
+
   presenterSelect?.addEventListener("change", async function () {
     if (!isEditor) return;
     try {
@@ -436,17 +476,6 @@
     var figure = event.target.closest(".sp-gallery-item");
     if (!figure || figure.getAttribute("data-kind") !== "creative") return;
     applyCreativeUrl(figure.getAttribute("data-url"));
-  });
-
-  document.querySelectorAll(".sp-editor-checks a[href^='#']").forEach(function (link) {
-    link.addEventListener("click", function (event) {
-      var id = link.getAttribute("href").slice(1);
-      var target = document.getElementById(id);
-      if (!target) return;
-      event.preventDefault();
-      if (target.tagName === "DETAILS") target.open = true;
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
   });
 
   load().catch(function (error) {

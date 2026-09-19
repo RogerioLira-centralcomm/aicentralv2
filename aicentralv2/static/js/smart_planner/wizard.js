@@ -9,7 +9,33 @@
       window.showToast(message, type || "info");
       return;
     }
-    window.alert(message);
+    var node = document.createElement("div");
+    node.className = "sp-inline-toast" + (type ? " is-" + type : "");
+    node.setAttribute("role", "status");
+    node.textContent = message;
+    document.body.appendChild(node);
+    window.setTimeout(function () {
+      node.classList.add("is-out");
+      window.setTimeout(function () { node.remove(); }, 220);
+    }, 3600);
+  }
+
+  function askConfirmation(message, title) {
+    var dialog = document.getElementById("sp-confirm");
+    if (!dialog || typeof dialog.showModal !== "function") return Promise.resolve(false);
+    var messageEl = document.getElementById("sp-confirm-message");
+    var titleEl = document.getElementById("sp-confirm-title");
+    if (messageEl) messageEl.textContent = message || "Confirme esta ação.";
+    if (titleEl) titleEl.textContent = title || "Confirmar ação";
+    dialog.returnValue = "";
+    return new Promise(function (resolve) {
+      dialog.addEventListener("close", function handleClose() {
+        resolve(dialog.returnValue === "confirm");
+      }, { once: true });
+      dialog.showModal();
+      var accept = document.getElementById("sp-confirm-accept");
+      if (accept) window.setTimeout(function () { accept.focus(); }, 20);
+    });
   }
 
   function setLoading(button, loading) {
@@ -84,13 +110,7 @@
     catalog.forEach(function (place) {
       var box = document.querySelector('input[name="places"][value="' + place.slug + '"]');
       if (!box || !box.checked) return;
-      var pointIds = Array.prototype.slice.call(document.querySelectorAll('input[name="place_points"][data-place="' + place.slug + '"]:checked')).map(function (el) {
-        return el.value;
-      });
-      var apps = Array.prototype.slice.call(document.querySelectorAll('input[name="place_apps"][data-place="' + place.slug + '"]:checked')).map(function (el) {
-        return el.value;
-      });
-      out.push({ slug: place.slug, title: place.title, point_ids: pointIds, apps: apps });
+      out.push({ slug: place.slug, title: place.title, point_ids: [], apps: [] });
     });
     return out;
   }
@@ -844,6 +864,8 @@
     var more = document.querySelector(".sp-mix-more");
     var picks = document.getElementById("sp-mix-picks");
     var morePicks = document.querySelector(".sp-mix-more .sp-mix-picks");
+    var balanceContent = document.getElementById("sp-mix-balance-content");
+    var singleState = document.getElementById("sp-mix-single");
     var mediaDlg = document.getElementById("sp-media");
     var mediaApply = document.getElementById("sp-media-apply");
     var mediaSnapshot = "";
@@ -851,23 +873,6 @@
     var mediaApplied = false;
     var restoringMedia = false;
 
-    function setupMediaSteps() {
-      var nav = document.querySelector(".sp-media-step-nav");
-      if (!nav) return;
-      nav.addEventListener("click", function (event) {
-        var button = event.target.closest("[data-media-step]");
-        if (!button) return;
-        var target = document.getElementById(button.getAttribute("data-media-step"));
-        if (!target) return;
-        nav.querySelectorAll("[data-media-step]").forEach(function (item) {
-          var active = item === button;
-          item.classList.toggle("is-active", active);
-          if (active) item.setAttribute("aria-current", "step");
-          else item.removeAttribute("aria-current");
-        });
-        target.scrollIntoView({ block: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-      });
-    }
 
     function selectedCanais() {
       return Array.prototype.slice.call(desk.querySelectorAll('input[name="canais"]:checked')).map(function (el) {
@@ -1038,8 +1043,18 @@
           : "Escolha o objetivo na narrativa para indicar os dois métodos do funil.";
       }
     }
+    function paintBalanceMode() {
+      var count = selectedCanais().length;
+      if (balanceContent) balanceContent.hidden = count <= 1;
+      if (singleState) {
+        singleState.hidden = count !== 1;
+        var copy = singleState.querySelector("p");
+        if (copy && count === 0) copy.textContent = "Selecione pelo menos um canal para visualizar o calendário de uso.";
+      }
+    }
     function paintBars(weights) {
       if (!bars) return;
+      paintBalanceMode();
       var budget = budgetTotal();
       bars.innerHTML = weights.map(function (item) {
         var amount = budget > 0 ? Math.round(budget * (item.pct || 0) / 100) : 0;
@@ -1122,12 +1137,10 @@
       mark.hidden = !mediaSnapshot || mediaSnapshot === snapshotMedia();
     }
     function snapshotMedia() {
-      var progress = document.getElementById("sp-mix-progress");
       return JSON.stringify({
         canais: selectedCanais(),
         mix: currentWeights(),
         method: selectedMethod(),
-        progress: !!(progress && progress.checked),
         alocacao: monthValues(),
       });
     }
@@ -1141,8 +1154,6 @@
           input.checked = (snap.canais || []).indexOf(input.value) !== -1;
         });
         if (snap.method) setMethod(snap.method);
-        var progress = document.getElementById("sp-mix-progress");
-        if (progress && snap.progress != null) progress.checked = !!snap.progress;
         paintBars(allocate(
           selectedCanais(),
           objetivoEl ? objetivoEl.value : "",
@@ -1220,10 +1231,6 @@
       }
       return weeks;
     }
-    function progressOn() {
-      var box = document.getElementById("sp-mix-progress");
-      return !!(box && box.checked && pace.editavel);
-    }
     function monthValues() {
       var cols = document.getElementById("sp-gantt-cols");
       var out = {};
@@ -1234,26 +1241,11 @@
       if (!Object.keys(out).length) return Object.assign({}, pace.alocacao || {});
       return out;
     }
-    function monthMix(index) {
+    function monthMix() {
       var canais = selectedCanais();
       var method = selectedMethod();
       var objetivo = objetivoEl ? objetivoEl.value : "";
-      var months = (pace.chaves || []).length;
-      if (!progressOn() || months <= 1 || method === "manual") {
-        return allocate(canais, objetivo, method, currentWeights());
-      }
-      var early = allocate(canais, "reconhecimento", method === "alcance" ? "funil" : method);
-      var late = allocate(canais, objetivo, method, currentWeights());
-      var t = months > 1 ? index / (months - 1) : 1;
-      var raw = late.map(function (item) {
-        var start = 0;
-        early.forEach(function (row) { if (row.id === item.id) start = row.pct; });
-        return [item.id, (1 - t) * start + t * item.pct];
-      });
-      var pcts = normalizePcts(raw);
-      return late.map(function (item) {
-        return { id: item.id, label: item.label, group: item.group, pct: pcts[item.id] || 0 };
-      });
+      return allocate(canais, objetivo, method, currentWeights());
     }
     function paintSummary() {
       var copy = document.getElementById("sp-mix-summary-copy");
@@ -1339,7 +1331,6 @@
       paintMediaFacts();
       var wrap = document.getElementById("sp-cal-wrap");
       var table = document.getElementById("sp-cal-table");
-      var progress = document.getElementById("sp-mix-progress");
       var emptyCal = document.getElementById("sp-cal-empty");
       var weekHint = document.getElementById("sp-week-hint");
       var weekBox = document.getElementById("sp-month-weeks");
@@ -1348,7 +1339,6 @@
         var openTh = table.querySelector("th[aria-expanded='true']");
         if (openTh) expanded = openTh.getAttribute("data-month") || "";
       }
-      if (progress) progress.disabled = (pace.chaves || []).length < 2;
       var keys = pace.chaves || [];
       var canais = selectedCanais();
       if (emptyCal) emptyCal.hidden = !!(pace.parseou && canais.length);
@@ -1373,7 +1363,7 @@
       }
       var labels = pace.rotulos || [];
       var values = monthValues();
-      var weightsByMonth = keys.map(function (_, index) { return monthMix(index); });
+      var weightsByMonth = keys.map(function () { return monthMix(); });
       var channels = weightsByMonth[0] || currentWeights();
       table.innerHTML = "<thead><tr><th>Canal</th>" + keys.map(function (key, index) {
         return "<th data-month=\"" + escapeHtml(key) + "\" aria-expanded=\"" + (key === expanded ? "true" : "false") + "\"><button type=\"button\">"
@@ -1424,9 +1414,6 @@
         else if (pace.editavel) note.textContent = "Começa menor para aprender. Solta mais verba no meio e no fim. Ajuste o mês.";
         else note.textContent = "Informe uma duração (30 dias, 1 mês ou set a nov) para ver o voo.";
       }
-      var progress = document.getElementById("sp-mix-progress");
-      if (progress && !same && (pace.editavel || pace.granularidade === "semana")) progress.checked = true;
-      if (progress) progress.disabled = (pace.chaves || []).length < 2;
       paintCalendar();
     }
     async function refreshPace() {
@@ -1520,7 +1507,7 @@
       });
     }
     paintPicks();
-    setupMediaSteps();
+    paintBalanceMode();
     if (bars) {
       bars.querySelectorAll("b[data-pct]").forEach(function (fill) {
         fill.style.setProperty("--pct", fill.getAttribute("data-pct") || "0");
@@ -1535,8 +1522,8 @@
       return !!(mediaSnapshot && mediaSnapshot !== snapshotMedia());
     }
     function confirmCloseMedia() {
-      if (!isMediaDirty()) return true;
-      return window.confirm("Há alterações não aplicadas. Fechar sem salvar?");
+      if (!isMediaDirty()) return Promise.resolve(true);
+      return askConfirmation("Há alterações não aplicadas. Fechar sem salvar?", "Descartar alterações?");
     }
     function closeMedia() {
       if (mediaDlg && typeof mediaDlg.close === "function" && mediaDlg.open) mediaDlg.close();
@@ -1603,7 +1590,8 @@
     }
     if (mediaDlg) {
       mediaDlg.addEventListener("cancel", function (event) {
-        if (!confirmCloseMedia()) event.preventDefault();
+        event.preventDefault();
+        requestCloseMedia();
       });
       mediaDlg.addEventListener("close", function () {
         document.documentElement.classList.remove("is-sp-media");
@@ -1616,8 +1604,8 @@
         mediaOpener = null;
       });
     }
-    function requestCloseMedia() {
-      if (!confirmCloseMedia()) return;
+    async function requestCloseMedia() {
+      if (!await confirmCloseMedia()) return;
       closeMedia();
     }
     if (mediaClose) mediaClose.addEventListener("click", requestCloseMedia);
@@ -1718,8 +1706,6 @@
         paintCalendar();
       });
     }
-    var progressBox = document.getElementById("sp-mix-progress");
-    if (progressBox) progressBox.addEventListener("change", paintCalendar);
     var bootWeights = currentWeights().map(function (item) {
       return {
         id: item.id,
@@ -1741,7 +1727,7 @@
           method: selectedMethod(),
           weights: currentWeights(),
           locked: selectedMethod() === "manual",
-          progress: progressOn(),
+          progress: false,
         },
         places: collectPlaces(),
         interativos: collectInterativos(),
@@ -1764,6 +1750,7 @@
           contexto: data.get("contexto"),
           observacoes: data.get("observacoes"),
           criativos: data.get("criativos"),
+          conteudo_capturado: data.get("conteudo_capturado"),
           kpis: data.get("kpis"),
           places: collectPlaces(),
           interativos: collectInterativos(),
@@ -1854,10 +1841,10 @@
         campanha: fieldFilled(document.getElementById("sp-field-campanha")),
         objetivo: fieldFilled(document.getElementById("sp-objetivo")),
         publico: fieldFilled(document.getElementById("sp-field-publico")),
-        verba: fieldFilled(document.getElementById("sp-field-verba")),
+        verba: /\d/.test(String((document.getElementById("sp-field-verba") || {}).value || "")),
         periodo: fieldFilled(document.getElementById("sp-field-periodo")),
         praca: fieldFilled(document.getElementById("sp-field-praca")),
-        kpis: fieldFilled(document.getElementById("sp-field-kpis")) || !!document.querySelector("#sp-kpi-chips button.is-on"),
+        kpis: !!document.querySelector("#sp-kpi-chips button.is-on"),
         canais: !!hasCanal,
       };
       var keys = Object.keys(state);
@@ -2095,26 +2082,13 @@
       list.innerHTML = catalog.map(function (place) {
         var current = selected[place.slug] || {};
         var on = !!current.slug || !!current.point_ids;
-        var points = (place.points || []).map(function (point) {
-          var checked = (current.point_ids || []).indexOf(point.id) !== -1 || ((current.point_ids || []).length === 0 && on);
-          return '<label><input type="checkbox" name="place_points" data-place="' + place.slug + '" value="' + point.id + '"' + (checked ? " checked" : "") + "> "
-            + escapeHtml(point.name || point.id) + " · " + escapeHtml(point.radius_label || "") + " · " + escapeHtml(point.reach || "A definir") + "</label>";
-        }).join("");
-        var apps = [];
-        (place.points || []).forEach(function (point) {
-          (point.apps || []).forEach(function (name) {
-            if (apps.indexOf(name) === -1) apps.push(name);
-          });
-        });
-        var appHtml = apps.map(function (name) {
-          var checked = (current.apps || []).indexOf(name) !== -1;
-          return '<label><input type="checkbox" name="place_apps" data-place="' + place.slug + '" value="' + escapeHtml(name) + '"' + (checked ? " checked" : "") + "> " + escapeHtml(name) + "</label>";
-        }).join("");
+        var metrics = place.metrics || {};
         return '<article class="sp-place-card">'
           + '<label><input type="checkbox" name="places" value="' + place.slug + '"' + (on ? " checked" : "") + "> "
-          + escapeHtml(place.title || place.slug) + (place.code ? " · " + escapeHtml(place.code) : "") + "</label>"
+          + escapeHtml(place.title || place.slug) + (place.city_label ? " · " + escapeHtml(place.city_label) : "") + "</label>"
+          + (place.type_label ? '<small class="sp-place-type">' + escapeHtml(place.type_label) + '</small>' : '')
+          + ((metrics.addressable || metrics.four_weeks) ? '<div class="sp-place-audience">' + (metrics.addressable ? '<span><b>Audiência endereçável</b>' + escapeHtml(metrics.addressable) + '</span>' : '') + (metrics.four_weeks ? '<span><b>Média em 4 semanas</b>' + escapeHtml(metrics.four_weeks) + '</span>' : '') + '</div>' : '')
           + (place.investment_label ? '<p class="sp-place-investment">Mínimo: ' + escapeHtml(place.investment_label) + '</p>' : '<p class="sp-place-investment is-unknown">Mínimo comercial a confirmar</p>')
-          + (on ? '<div class="sp-place-points">' + points + "</div>" + (appHtml ? '<div class="sp-place-apps">' + appHtml + "</div>" : "") : "")
           + "</article>";
       }).join("");
     }
@@ -2126,14 +2100,6 @@
         else delete selected[target.value];
         paint();
         return;
-      }
-      if (target.name === "place_points" || target.name === "place_apps") {
-        var slug = target.getAttribute("data-place");
-        selected[slug] = {
-          slug: slug,
-          point_ids: Array.prototype.slice.call(list.querySelectorAll('input[name="place_points"][data-place="' + slug + '"]:checked')).map(function (el) { return el.value; }),
-          apps: Array.prototype.slice.call(list.querySelectorAll('input[name="place_apps"][data-place="' + slug + '"]:checked')).map(function (el) { return el.value; }),
-        };
       }
     });
     document.addEventListener("change", function (event) {
@@ -2154,48 +2120,82 @@
     var detail = document.getElementById("sp-field-praca-detalhe");
     var market = document.getElementById("sp-field-praca");
     var selectedNote = document.getElementById("sp-geo-selected");
+    var selectedList = document.getElementById("sp-geo-selected-list");
+    var interpretation = document.getElementById("sp-geo-interpretation");
+    var interpret = document.getElementById("sp-geo-interpret");
+    var catalogStatus = document.getElementById("sp-geo-catalog-status");
     if (!dialog || !open || !list || !detail) return;
-    var states = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"];
-    var cities = [
-      ["Belo Horizonte","MG","capital"],["Contagem","MG","RMBH"],["Betim","MG","RMBH"],["Nova Lima","MG","RMBH"],["Ribeirão das Neves","MG","RMBH"],["Santa Luzia","MG","RMBH"],["Uberlândia","MG","interior"],["Juiz de Fora","MG","interior"],["Montes Claros","MG","interior"],["Governador Valadares","MG","interior"],["Ipatinga","MG","interior"],["Poços de Caldas","MG","interior"],["Uberaba","MG","interior"],["Divinópolis","MG","interior"],["Pouso Alegre","MG","interior"],["São Paulo","SP","capital"],["Rio de Janeiro","RJ","capital"],["Vitória","ES","capital"]
-    ];
+    var cities = [];
+    var states = [];
     var selected = {};
-    cities.forEach(function (item) {
-      var current = (detail.value || "").toLowerCase();
-      if (current.indexOf(item[0].toLowerCase()) !== -1) selected[item[0] + "|" + item[1]] = true;
-    });
-    states.forEach(function (uf) { var option = document.createElement("option"); option.value = uf; option.textContent = uf; state.appendChild(option); });
+    var loaded = false;
+    var rmbh = {"Belo Horizonte":1,"Betim":1,"Contagem":1,"Nova Lima":1,"Ribeirão das Neves":1,"Santa Luzia":1,"Sabará":1,"Caeté":1,"Vespasiano":1,"Lagoa Santa":1,"Pedro Leopoldo":1,"Confins":1,"Esmeraldas":1,"Ibirité":1,"Igarapé":1,"Juatuba":1,"Mário Campos":1,"Mateus Leme":1,"Raposos":1,"Rio Acima":1,"Rio Manso":1,"São Joaquim de Bicas":1,"Sarzedo":1,"Taquaraçu de Minas":1};
+    function normalize(value) { return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
+    function cityKey(item) { return String(item.id); }
+    function stateOf(item) { return item && item.microrregiao && item.microrregiao.mesorregiao && item.microrregiao.mesorregiao.UF ? item.microrregiao.mesorregiao.UF.sigla : ""; }
+    function paintSelected() {
+      var picked = Object.keys(selected).map(function (key) { return cities.find(function (item) { return cityKey(item) === key; }); }).filter(Boolean);
+      if (selectedNote) selectedNote.textContent = picked.length ? picked.length + " município" + (picked.length === 1 ? "" : "s") + " selecionado" + (picked.length === 1 ? "" : "s") : "Nenhuma área selecionada";
+      if (selectedList) selectedList.innerHTML = picked.length ? picked.slice(0, 18).map(function (item) { return '<span>' + escapeHtml(item.nome) + ' · ' + escapeHtml(item.uf) + '</span>'; }).join("") + (picked.length > 18 ? '<small>+' + (picked.length - 18) + ' municípios</small>' : "") : "<span>Nenhum município selecionado.</span>";
+    }
     function visibleCities() {
-      var query = ((search && search.value) || "").trim().toLowerCase();
-      return cities.filter(function (item) { return (!state.value || item[1] === state.value) && (!query || (item[0] + " " + item[1] + " " + item[2]).toLowerCase().indexOf(query) !== -1); });
+      var query = normalize(search && search.value);
+      if (!query && !state.value) return [];
+      return cities.filter(function (item) { return (!state.value || item.uf === state.value) && (!query || normalize(item.nome + " " + item.uf).indexOf(query) !== -1); }).slice(0, 240);
     }
     function paint() {
+      paintSelected();
+      if (!loaded) { list.innerHTML = "<p class=\"sp-geo-empty\">Carregando o catálogo oficial…</p>"; return; }
       var items = visibleCities();
+      if (!items.length) { list.innerHTML = '<p class="sp-geo-empty">Escolha um estado ou digite ao menos parte do nome de uma cidade.</p>'; return; }
       list.innerHTML = items.map(function (item) {
-        var key = item[0] + "|" + item[1];
-        var checked = !!selected[key];
-        return '<label class="sp-geo-city"><input type="checkbox" data-geo-city="' + escapeHtml(key) + '"' + (checked ? " checked" : "") + '><span><strong>' + escapeHtml(item[0]) + '</strong><small>' + escapeHtml(item[1] + " · " + (item[2] === "interior" ? "Interior" : item[2] === "RMBH" ? "Região metropolitana" : "Capital")) + '</small></span><em><b>Total</b> A validar<br><b>Digital</b> A validar</em></label>';
-      }).join("") || '<p class="sp-geo-empty">Nenhuma cidade no filtro. Use uma instrução de cobertura abaixo.</p>';
-      var count = Object.keys(selected).length;
-      if (selectedNote) selectedNote.textContent = count ? count + " cidade" + (count === 1 ? "" : "s") + " selecionada" + (count === 1 ? "" : "s") : "Nenhuma área selecionada";
+        var key = cityKey(item);
+        return '<label class="sp-geo-city"><input type="checkbox" data-geo-city="' + escapeHtml(key) + '"' + (selected[key] ? " checked" : "") + '><span><strong>' + escapeHtml(item.nome) + '</strong><small>' + escapeHtml(item.uf + " · Código IBGE " + item.id) + '</small></span><em><b>Total</b> A validar<br><b>Digital</b> A validar</em></label>';
+      }).join("");
     }
-    function useShortcut(name) {
-      selected = {};
-      if (name === "mg-todo") { state.value = "MG"; instruction.value = "Minas Gerais inteiro."; }
-      if (name === "mg-interior") { state.value = "MG"; instruction.value = "Cidades do interior de Minas Gerais, excluindo a capital e a Região Metropolitana de Belo Horizonte."; cities.filter(function (item) { return item[1] === "MG" && item[2] === "interior"; }).forEach(function (item) { selected[item[0] + "|" + item[1]] = true; }); }
-      if (name === "rmbh") { state.value = "MG"; instruction.value = "Região Metropolitana de Belo Horizonte."; cities.filter(function (item) { return item[1] === "MG" && item[2] === "RMBH" || item[0] === "Belo Horizonte"; }).forEach(function (item) { selected[item[0] + "|" + item[1]] = true; }); }
-      paint();
+    function choose(items) { selected = {}; items.forEach(function (item) { selected[cityKey(item)] = true; }); paint(); }
+    function applyInstruction() {
+      var raw = (instruction && instruction.value || "").trim();
+      var normalized = normalize(raw);
+      if (!raw) return;
+      if (/brasil|todo o pais|todo pais/.test(normalized)) { choose(cities); if (interpretation) interpretation.textContent = "Brasil inteiro: todos os municípios do catálogo IBGE foram selecionados."; return; }
+      var ufMatches = states.filter(function (item) { return normalized.indexOf(normalize(item.sigla)) !== -1 || normalized.indexOf(normalize(item.nome)) !== -1; });
+      if (/regiao metropolitana.*bh|rmbh/.test(normalized)) { choose(cities.filter(function (item) { return item.uf === "MG" && rmbh[item.nome]; })); if (interpretation) interpretation.textContent = "Região Metropolitana de Belo Horizonte interpretada pelo conjunto de municípios definido para a cobertura."; return; }
+      if (ufMatches.length) {
+        var chosen = cities.filter(function (item) { return ufMatches.some(function (uf) { return uf.sigla === item.uf; }); });
+        if (/interior/.test(normalized)) chosen = chosen.filter(function (item) { return !(item.uf === "MG" && rmbh[item.nome]); });
+        choose(chosen); if (state && ufMatches.length === 1) state.value = ufMatches[0].sigla;
+        if (interpretation) interpretation.textContent = (/(interior)/.test(normalized) ? "Interior interpretado; capitais e municípios metropolitanos foram excluídos quando mapeados." : "Estados identificados e municípios selecionados a partir do catálogo IBGE.");
+        return;
+      }
+      if (interpretation) interpretation.textContent = "Não identifiquei uma UF. Use o estado, uma cidade ou escreva a cobertura com mais detalhes.";
     }
-    open.addEventListener("click", function () { if (dialog.showModal) dialog.showModal(); else dialog.setAttribute("open", "open"); paint(); });
+    function shortcut(name) {
+      if (name === "brasil") { instruction.value = "Brasil inteiro."; applyInstruction(); return; }
+      if (name === "state" && state.value) { instruction.value = state.options[state.selectedIndex].text + " inteiro."; applyInstruction(); return; }
+      if (name === "interior" && state.value) { instruction.value = "Interior de " + state.options[state.selectedIndex].text + "."; applyInstruction(); return; }
+      if (name === "rmbh") { instruction.value = "Região Metropolitana de Belo Horizonte."; applyInstruction(); }
+    }
+    function loadCatalog() {
+      Promise.all([fetch("https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome"), fetch("https://servicodados.ibge.gov.br/api/v1/localidades/municipios?orderBy=nome")]).then(function (responses) { return Promise.all(responses.map(function (response) { if (!response.ok) throw new Error("IBGE indisponível"); return response.json(); })); }).then(function (payload) {
+        states = payload[0].map(function (item) { return { id: item.id, sigla: item.sigla, nome: item.nome }; });
+        cities = payload[1].map(function (item) { return { id: item.id, nome: item.nome, uf: stateOf(item) }; }).filter(function (item) { return item.uf; });
+        var current = normalize(detail.value); cities.forEach(function (item) { if (current.indexOf(normalize(item.nome)) !== -1) selected[cityKey(item)] = true; });
+        states.forEach(function (item) { var option = document.createElement("option"); option.value = item.sigla; option.textContent = item.sigla + " · " + item.nome; state.appendChild(option); });
+        loaded = true; if (catalogStatus) catalogStatus.textContent = cities.length.toLocaleString("pt-BR") + " municípios carregados do IBGE. Escolha um estado ou busque uma cidade."; paint();
+      }).catch(function () { loaded = false; if (catalogStatus) catalogStatus.textContent = "Não foi possível carregar o IBGE agora. Digite uma instrução e tente novamente."; list.innerHTML = '<p class="sp-geo-empty">Catálogo indisponível. A instrução de cobertura será preservada para revisão.</p>'; });
+    }
+    open.addEventListener("click", function () { if (dialog.showModal) dialog.showModal(); else dialog.setAttribute("open", "open"); paint(); if (!loaded && !cities.length) loadCatalog(); });
     if (cancel) cancel.addEventListener("click", function () { dialog.close(); });
+    if (interpret) interpret.addEventListener("click", applyInstruction);
     state.addEventListener("change", paint); if (search) search.addEventListener("input", paint);
-    dialog.querySelectorAll("[data-geo-shortcut]").forEach(function (button) { button.addEventListener("click", function () { useShortcut(button.getAttribute("data-geo-shortcut")); }); });
+    dialog.querySelectorAll("[data-geo-shortcut]").forEach(function (button) { button.addEventListener("click", function () { shortcut(button.getAttribute("data-geo-shortcut")); }); });
     list.addEventListener("change", function (event) { var key = event.target.getAttribute("data-geo-city"); if (!key) return; if (event.target.checked) selected[key] = true; else delete selected[key]; paint(); });
     apply.addEventListener("click", function () {
-      var names = Object.keys(selected).map(function (key) { return key.split("|")[0]; });
-      var text = names.join(", ");
+      var names = Object.keys(selected).map(function (key) { var item = cities.find(function (city) { return cityKey(city) === key; }); return item ? item.nome + " (" + item.uf + ")" : ""; }).filter(Boolean);
       var extra = (instruction && instruction.value || "").trim();
-      detail.value = [text, extra].filter(Boolean).join(". ");
+      var coverage = names.length > 80 ? extra || (names.length === cities.length ? "Brasil inteiro." : names.length + " municípios selecionados no IBGE.") : names.join(", ");
+      detail.value = [coverage, extra && coverage !== extra ? extra : ""].filter(Boolean).join(". ");
       if (market && (names.length || extra)) market.value = "geolocalizada";
       detail.dispatchEvent(new Event("input", { bubbles: true }));
       dialog.close();
@@ -2283,6 +2283,11 @@
       window.clearTimeout(timer);
       timer = window.setTimeout(persist, 400);
     });
+    var narrative = document.getElementById("sp-narrative");
+    if (narrative) {
+      narrative.addEventListener("input", function () { form.dispatchEvent(new Event("input", { bubbles: true })); });
+      narrative.addEventListener("change", function () { form.dispatchEvent(new Event("change", { bubbles: true })); });
+    }
     if (saveBtn) {
       saveBtn.addEventListener("click", function () {
         window.clearTimeout(timer);
@@ -2293,6 +2298,13 @@
 
   function setupReviewActions(collectReview) {
     var original = document.getElementById("sp-original");
+    var compiled = document.getElementById("sp-compiled");
+    var compiledOpen = document.getElementById("sp-compiled-open");
+    if (compiledOpen) {
+      compiledOpen.addEventListener("click", function () {
+        if (compiled && typeof compiled.showModal === "function") compiled.showModal();
+      });
+    }
     document.querySelectorAll("#sp-original-open").forEach(function (button) {
       button.addEventListener("click", function () {
         if (original && typeof original.showModal === "function") original.showModal();
@@ -2322,8 +2334,13 @@
       genOpen.addEventListener("click", async function () {
         var objetivo = document.getElementById("sp-objetivo");
         var hasCanal = document.querySelector('#sp-mix-channels input[name="canais"]:checked');
+        var hasKpi = document.querySelector("#sp-kpi-chips button.is-on");
         if (objetivo && !objetivo.value) {
           focusField("sp-objetivo");
+        } else if (!hasKpi) {
+          focusField("sp-kpi-chips");
+          toast("Selecione pelo menos um KPI antes de gerar.", "error");
+          return;
         } else if (!hasCanal) {
           focusField("sp-mix-channels");
         }

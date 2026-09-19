@@ -326,21 +326,17 @@ def _places_law(snapshot: dict) -> dict:
     lines = []
     for place in rows:
         title = text(place.get("title") or place.get("slug"))
-        for point in as_list(place.get("points")):
-            row = as_dict(point)
-            apps = ", ".join(text(name) for name in as_list(row.get("apps")) if text(name)) or "sem app listado"
-            lines.append(
-                f"{title} · {text(row.get('name') or row.get('id'))} · "
-                f"{text(row.get('radius_label'))} · reach {text(row.get('reach')) or 'A definir'} · apps: {apps}"
-            )
-        if not as_list(place.get("points")):
-            lines.append(title)
+        metrics = as_dict(place.get("metrics"))
+        lines.append(
+            f"{title} · audiência endereçável: {text(metrics.get('addressable')) or 'A definir'} · "
+            f"média em 4 semanas: {text(metrics.get('four_weeks')) or 'A definir'}"
+        )
     interativos = as_dict((snapshot or {}).get("interativos"))
     formats = [text(item) for item in as_list(interativos.get("formats")) if text(item)]
     return {
         "lei": (
-            "Só estes places, pontos e apps. Raios não se somam. Cite cada ponto com o próprio raio e o próprio reach. "
-            "App só os listados no ponto. Interativos não são Places — só no portal-herói se interativos estiver no mix."
+            "Só estes places e suas audiências consolidadas. Raios não se somam internamente; não cite pontos, raios ou apps no plano. "
+            "Interativos não são Places — só no portal-herói se interativos estiver no mix."
         ),
         "places": lines,
         "multi": len(rows) > 1,

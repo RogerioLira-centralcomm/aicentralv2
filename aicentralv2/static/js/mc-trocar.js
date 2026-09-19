@@ -1707,17 +1707,18 @@
       note: state.refinedInstruction || $('mcSwapNote')?.value || '',
       instruction: state.refinedInstruction || $('mcSwapNote')?.value || '',
       original_instruction: state.originalInstruction || $('mcSwapNote')?.value || '',
-      // The provider accepts the source plus one visual guide. Preserve every
-      // manually attached reference in state; a product/logo attachment takes
-      // precedence over a composition mask for that constrained second slot.
+      // The provider accepts the source plus one visual guide. A deliberately
+      // selected global composition is that guide; manual attachments remain
+      // in the draft for a later pass instead of being silently mislabelled as
+      // applied together with the mask.
       reference_images: (() => {
         const manual = state.agentReferences.filter((item) => item.source !== 'global');
-        const selected = manual[0] || state.globalReference;
+        const selected = state.globalReference || manual[0];
         return selected?.data ? [selected.data] : [];
       })(),
       reference_inputs: (() => {
         const manual = state.agentReferences.filter((item) => item.source !== 'global');
-        const selected = manual[0] || state.globalReference;
+        const selected = state.globalReference || manual[0];
         return selected?.data ? [selected].map((item, index) => ({
         image: item.data,
         // A global mask guides hierarchy and safe areas; it never replaces
@@ -3642,7 +3643,14 @@
     const reference = event.detail;
     if (!reference?.url) return;
     state.globalReference = { data: reference.url, label: reference.label || 'Referência global', source: 'global', role: 'composition' };
-    state.refinedInstruction = state.refinedInstruction || `Use a referência global selecionada como guia de composição, respeitando suas áreas seguras e hierarquia.`;
+    if (state.agentReferences.some((item) => item.source !== 'global')) {
+      setStatus('A composição global será aplicada nesta geração. Os anexos manuais seguem salvos para o próximo ajuste, pois o provedor aceita uma referência complementar por vez.');
+    }
+    refreshPrompt();
+  });
+  document.addEventListener('cadu:global-reference-cleared', () => {
+    state.globalReference = null;
+    setStatus('Referência global removida. A próxima geração voltará a usar o anexo manual, se houver.');
     refreshPrompt();
   });
 })();

@@ -63,9 +63,12 @@ class StudioSessionRepositoryTest(unittest.TestCase):
         self.assertEqual(attached["project_id"], "project-123")
         self.assertEqual(attached["metadata"]["workspace"]["messages"][0]["text"], "Briefing aprovado")
 
-    def test_public_share_exposes_assets_but_never_the_private_prompt(self):
+    def test_public_share_exposes_delivery_assets_but_never_private_inputs(self):
         created = self.repo.create(31, 7, {
             "studio_type": "edit", "title": "Lançamento", "original_prompt": "instrução confidencial",
+        })
+        self.repo.accept(31, 7, created["id"], {
+            "role": "reference", "asset_url": "/media/private-packshot.png", "source_id": "packshot",
         })
         accepted = self.repo.accept(31, 7, created["id"], {
             "role": "accepted", "asset_url": "/media/final.png", "source_id": "final",
@@ -73,11 +76,12 @@ class StudioSessionRepositoryTest(unittest.TestCase):
         shared = self.repo.share(31, 7, created["id"], {"allow_download": True, "expires_in_days": 7})
         canvas = public_canvas_session(shared, shared["assets"], shared["finalization"])
 
-        self.assertTrue(canvas["share"]["token"])
         self.assertTrue(canvas["share"]["allow_download"])
         self.assertGreater(canvas["share"]["expires_at"], 0)
         self.assertEqual(canvas["assets"][0]["asset_url"], "/media/final.png")
+        self.assertEqual(len(canvas["assets"]), 1)
         self.assertNotIn("original_prompt", canvas)
+        self.assertNotIn("token", canvas["share"])
         self.assertEqual(accepted["active_asset_id"], shared["active_asset_id"])
 
     def test_expired_public_share_is_not_resolved(self):

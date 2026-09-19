@@ -128,7 +128,7 @@ class TrocrEditorDraftTest(unittest.TestCase):
         self.assertIn("--tr-floor:#0b1219", css)
         self.assertIn("color-scheme:dark", css)
 
-    def test_edit_uses_the_single_studio_project_context_and_preserves_manual_references(self):
+    def test_edit_uses_the_single_studio_project_context_and_prioritizes_selected_composition(self):
         root = Path(__file__).resolve().parents[1]
         templates = root / "aicentralv2" / "templates"
         inspector = (templates / "parametros" / "trocr" / "_inspector.html").read_text(encoding="utf-8")
@@ -138,7 +138,11 @@ class TrocrEditorDraftTest(unittest.TestCase):
         self.assertEqual(context_bar.count('id="mcCaduProject"'), 1)
         self.assertIn("window.McCaduContext?.projectId", source)
         self.assertIn("state.globalReference =", source)
-        self.assertIn("manual[0] || state.globalReference", source)
+        self.assertIn("state.globalReference || manual[0]", source)
+        self.assertIn("cadu:global-reference-cleared", source)
+        context_source = (root / "aicentralv2" / "static" / "js" / "cadu-studio-edit-context.js").read_text(encoding="utf-8")
+        self.assertIn("search.set('project_id', detail.projectId)", context_source)
+        self.assertIn("cadu:global-reference-cleared", context_source)
 
     def test_trocr_styles_have_one_dark_contract_and_no_retired_navigation(self):
         root = Path(__file__).resolve().parents[1]

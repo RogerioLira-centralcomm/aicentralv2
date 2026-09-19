@@ -183,7 +183,11 @@ def public_canvas_session(row, assets=None, finalization=None):
         return None
     visible_assets = []
     for asset in session.get("assets") or []:
-        if str(asset.get("status") or "") == "discarded":
+        # A public review is a delivery surface, not an asset inventory.
+        # Source images and uploaded reference/packshot files can be private
+        # even when the resulting piece is approved for external review.
+        if (str(asset.get("status") or "") == "discarded"
+                or str(asset.get("role") or "") not in {"attempt", "accepted", "final"}):
             continue
         visible_assets.append({
             "id": str(asset.get("id") or ""),
@@ -207,7 +211,6 @@ def public_canvas_session(row, assets=None, finalization=None):
             "format_count": int(final.get("format_count") or 0),
         } if final else None,
         "share": {
-            "token": clean_text(share.get("token"), 128),
             "allow_download": bool(share.get("allow_download")),
             "created_at": str(share.get("created_at") or ""),
             "expires_at": expires_at or None,

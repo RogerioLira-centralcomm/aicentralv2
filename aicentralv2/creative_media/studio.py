@@ -524,10 +524,49 @@ def studio_projects():
 @studio_or_admin_required_api
 def studio_library_sessions():
     execute, _, ok, service = _http()
+
+    def selected_client():
+        """Resolve a requested Studio project only inside the signed-in account."""
+        project_id = str(request.args.get('project_id') or '').strip()
+        if not project_id:
+            return _quick_creative_client(service())
+        try:
+            uuid.UUID(project_id)
+            account_id = int(session.get('cliente_id') or 0)
+        except (TypeError, ValueError) as error:
+            raise ValueError('Projeto inválido.') from error
+        if not account_id:
+            raise ValueError('Não foi possível identificar a sua conta.')
+
+        from ..db import get_db
+        from .project_contexts import linked_project_contexts
+        with get_db().cursor() as cursor:
+            cursor.execute(
+                "SELECT client_id,document FROM cx_studio_projects WHERE id=%s LIMIT 1",
+                (project_id,),
+            )
+            row = cursor.fetchone()
+        if not row:
+            raise ValueError('Projeto não encontrado nesta marca.')
+        document = row.get('document') if isinstance(row, dict) else row['document']
+        document = document if isinstance(document, dict) else {}
+        external_id = str(document.get('external_project_id') or '')
+        allowed = {
+            str(item.get('id')): int(item.get('client_id'))
+            for item in linked_project_contexts(account_id)
+        }
+        client_id = int(row['client_id'])
+        if not external_id or allowed.get(external_id) != client_id:
+            raise ValueError('Projeto não encontrado nesta marca.')
+        requested_client = str(request.args.get('client_id') or '').strip()
+        if requested_client and requested_client != str(client_id):
+            raise ValueError('A marca não corresponde ao projeto selecionado.')
+        return client_id
+
     def run():
-        # Quick creation does not have a project option with a client id in
-        # the DOM. Resolve it from the authenticated tenant instead.
-        client_id = _quick_creative_client(service())
+        # Quick creation has no project. In Edit, the selected project is the
+        # source of truth for its brand-scoped shelf and reference context.
+        client_id = selected_client()
         _scope(client_id)
         history = _creation_history()
         user_id = session.get('user_id')

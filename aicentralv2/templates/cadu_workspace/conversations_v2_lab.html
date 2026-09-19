@@ -8,7 +8,7 @@
 {% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
-{% set workspace_active = 'conversas' %}
+{% set workspace_active = 'conversas-v2' %}
 <div class="workspace-app-shell v2-lab-shell">
   {% include 'cadu_workspace/_app_sidebar.html' %}
   <section class="v2-lab" data-v2-lab data-endpoint="{{ url_for('cadu_agent_v2.conversation_message') }}" data-context-endpoint="{{ url_for('cadu_family.get_context') }}">

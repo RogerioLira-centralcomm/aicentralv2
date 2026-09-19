@@ -38,7 +38,13 @@ O app deve responder JSON com:
   "assumptions": [],
   "questions": [],
   "actions": [],
-  "artifact_patch": null,
+  "artifact_patch": {
+    "title": "string",
+    "summary": "string",
+    "fields": [
+      {"key": "string", "value": "string", "state": "confirmed|inferred|assumed|missing|conflicting"}
+    ]
+  },
   "citations": []
 }
 ```

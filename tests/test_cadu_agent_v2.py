@@ -91,6 +91,30 @@ def test_registry_executes_in_process_for_authorized_context():
     assert registry.execute("workspace.echo", {"value": "ok"}, context()) == {"client_id": 12, "value": "ok"}
 
 
+def test_registry_enforces_declared_input_schema_before_handler():
+    called = []
+    registry = ToolRegistry()
+    registry.register(ToolDefinition(
+        name="workspace.search", description="Search", capability="workspace", effect="read",
+        input_schema={
+            "type": "object",
+            "required": ["query"],
+            "properties": {
+                "query": {"type": "string", "minLength": 2, "maxLength": 20},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 10},
+            },
+            "additionalProperties": False,
+        },
+        handler=lambda *_: called.append(True),
+    ))
+    for invalid in ({}, {"query": "x"}, {"query": "ok", "limit": 0}, {"query": "ok", "extra": True}):
+        with pytest.raises(ToolInputError):
+            registry.execute("workspace.search", invalid, context())
+    assert called == []
+    registry.execute("workspace.search", {"query": "ok", "limit": 2}, context())
+    assert called == [True]
+
+
 def test_prompt_payload_is_compact_and_does_not_inject_unrequested_domains():
     route = route_request("Melhore este título")
     payload = build_payload(message="Melhore este título", request=context(), route=route,
@@ -110,6 +134,39 @@ def test_response_policy_caps_questions_even_if_provider_ignores_instruction():
         "confidence": "high",
     }, {"max_questions": 2, "artifact_in_chat": False})
     assert response.questions == ["Pergunta 1?", "Pergunta 2?"]
+
+
+def test_response_policy_caps_and_sanitizes_actions():
+    response = normalize_response({
+        "answer": "Próximo passo definido.",
+        "actions": [
+            {"id": "  first  ", "label": "  Criar plano  ", "prompt": "  Faça o plano.  ", "extra": "drop"},
+            {"id": "second", "label": "Revisar plano", "prompt": "Revise."},
+            {"id": "third", "label": "Publicar", "prompt": "Publique."},
+        ],
+    }, {"max_questions": 0, "max_next_steps": 2, "artifact_in_chat": False})
+    assert response.actions == [
+        {"id": "first", "label": "Criar plano", "prompt": "Faça o plano."},
+        {"id": "second", "label": "Revisar plano", "prompt": "Revise."},
+    ]
+
+
+def test_normalizer_bounds_artifact_fields_and_citations():
+    response = normalize_response({
+        "answer": "Briefing iniciado.",
+        "artifact_patch": {
+            "title": "  Briefing  ",
+            "summary": "  Base inicial  ",
+            "fields": [{"key": " público ", "value": " moradores locais ", "state": "unknown"}],
+        },
+        "citations": [{"title": " Fonte ", "url": " https://example.com ", "excerpt": " Trecho "}],
+    }, {"max_questions": 0, "max_next_steps": 0, "artifact_in_chat": False})
+    assert response.artifact_patch["fields"] == [
+        {"key": "público", "value": "moradores locais", "state": "inferred"}
+    ]
+    assert response.citations == [
+        {"title": "Fonte", "url": "https://example.com", "excerpt": "Trecho"}
+    ]
 
 
 def test_mcp_delegation_preserves_scoped_context_and_rejects_tampering():

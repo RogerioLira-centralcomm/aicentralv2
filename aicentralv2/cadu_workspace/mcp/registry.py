@@ -24,6 +24,53 @@ class ToolInputError(ToolError):
     code = "invalid_tool_input"
 
 
+def _matches_type(value: Any, expected: str) -> bool:
+    checks = {
+        "object": lambda item: isinstance(item, dict),
+        "array": lambda item: isinstance(item, list),
+        "string": lambda item: isinstance(item, str),
+        "integer": lambda item: isinstance(item, int) and not isinstance(item, bool),
+        "number": lambda item: isinstance(item, (int, float)) and not isinstance(item, bool),
+        "boolean": lambda item: isinstance(item, bool),
+        "null": lambda item: item is None,
+    }
+    return expected in checks and checks[expected](value)
+
+
+def _validate(value: Any, schema: dict[str, Any], path: str = "arguments") -> None:
+    expected = schema.get("type")
+    expected_types = expected if isinstance(expected, list) else [expected] if expected else []
+    if expected_types and not any(_matches_type(value, item) for item in expected_types):
+        raise ToolInputError(f"{path} possui tipo inválido.")
+    if isinstance(value, dict):
+        properties = schema.get("properties") or {}
+        for name in schema.get("required") or []:
+            if name not in value:
+                raise ToolInputError(f"Campo obrigatório ausente: {name}.")
+        if schema.get("additionalProperties") is False:
+            extra = sorted(set(value) - set(properties))
+            if extra:
+                raise ToolInputError(f"Campo não permitido: {extra[0]}.")
+        for name, item in value.items():
+            if name in properties:
+                _validate(item, properties[name], f"{path}.{name}")
+    if isinstance(value, list) and isinstance(schema.get("items"), dict):
+        for index, item in enumerate(value):
+            _validate(item, schema["items"], f"{path}[{index}]")
+    if isinstance(value, str):
+        if "minLength" in schema and len(value) < int(schema["minLength"]):
+            raise ToolInputError(f"{path} é muito curto.")
+        if "maxLength" in schema and len(value) > int(schema["maxLength"]):
+            raise ToolInputError(f"{path} excede o tamanho permitido.")
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if "minimum" in schema and value < schema["minimum"]:
+            raise ToolInputError(f"{path} está abaixo do mínimo permitido.")
+        if "maximum" in schema and value > schema["maximum"]:
+            raise ToolInputError(f"{path} excede o máximo permitido.")
+    if "enum" in schema and value not in schema["enum"]:
+        raise ToolInputError(f"{path} possui valor inválido.")
+
+
 @dataclass(frozen=True)
 class ToolDefinition:
     name: str
@@ -82,6 +129,7 @@ class ToolRegistry:
             raise ToolInputError("Selecione um projeto para executar esta ação.")
         if not isinstance(arguments, dict):
             raise ToolInputError("Os argumentos da ferramenta precisam ser um objeto.")
+        _validate(arguments, tool.input_schema)
         return tool.handler(context, arguments)
 
 

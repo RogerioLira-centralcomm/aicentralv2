@@ -44,3 +44,16 @@ def events(payload):
                         yield value
     except (requests.RequestException, ValueError) as exc:
         raise ProviderUnavailable("A conexão com o runtime V2 foi interrompida.") from exc
+
+
+def stop(task_id: str, user: str) -> None:
+    if not task_id or any(char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for char in task_id):
+        raise ProviderUnavailable("A geração ainda está iniciando. Tente novamente.")
+    url, headers = settings()
+    try:
+        with requests.post(url + "/chat-messages/" + task_id + "/stop", headers=headers,
+                           json={"user": user}, timeout=(10, 20), allow_redirects=False) as response:
+            if response.status_code != 200:
+                raise ProviderUnavailable("Não foi possível interromper a geração.")
+    except requests.RequestException as exc:
+        raise ProviderUnavailable("Não foi possível interromper a geração.") from exc

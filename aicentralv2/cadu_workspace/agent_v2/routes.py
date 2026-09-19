@@ -5,6 +5,7 @@ import secrets
 from flask import Blueprint, Response, abort, current_app, jsonify, render_template, request, session, stream_with_context
 from werkzeug.exceptions import HTTPException
 
+from ...cadu_family import repository
 from .request_context import resolve
 from .response_policy import budget_for, policy_for
 from .router import route_request
@@ -85,6 +86,31 @@ def conversation_message():
     run = prepare_message(request.get_json(silent=True) or {})
     return Response(stream_with_context(stream_message(run)), mimetype="text/event-stream",
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@bp.post("/runs/<uuid:run_id>/stop")
+def stop_run(run_id):
+    current = resolve()
+    rows = repository.rows(
+        """SELECT task_id, status FROM cadu_family_chat_runs
+             WHERE id = %s AND user_id = %s AND client_id = %s AND runtime_version = 'v2'""",
+        (str(run_id), current.user_id, current.client_id),
+    )
+    if not rows:
+        abort(404)
+    if rows[0]["status"] != "running":
+        return jsonify(stopped=True)
+    if not rows[0].get("task_id"):
+        abort(409, description="A geração ainda está iniciando. Tente novamente.")
+    from . import provider
+    provider.stop(rows[0]["task_id"], "user-" + str(current.user_id))
+    conn = repository.get_db()
+    with conn.cursor() as cur:
+        cur.execute("""UPDATE cadu_family_chat_runs SET status = 'cancelled', finished_at = NOW()
+                       WHERE id = %s AND user_id = %s AND client_id = %s AND status = 'running'""",
+                    (str(run_id), current.user_id, current.client_id))
+    conn.commit()
+    return jsonify(stopped=True)
 
 
 @bp.post("/artifacts")

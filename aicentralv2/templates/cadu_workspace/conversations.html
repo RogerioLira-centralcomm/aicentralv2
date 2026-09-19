@@ -1,12 +1,12 @@
 {% extends 'cadu_portals/base.html' %}
 {% block title %}Conversas — Cadu Workspace{% endblock %}
 {% block product_id %}workspace{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=11"><link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/chat.css') }}?v=39"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-conversations-system.css') }}?v=1">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=11"><link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/chat.css') }}?v=39"><link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-conversations-system.css') }}?v=1"><link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/v2-integration.css') }}?v=1">{% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
 {% set workspace_active = 'conversas' %}
 <div class="workspace-app-shell workspace-app-shell--conversations">{% include 'cadu_workspace/_app_sidebar.html' %}<div class="workspace-app-main workspace-conversations-main">
-  <section class="workspace-conversations" aria-label="Conversas com o Cadu" data-studio-create-url="{{ product_url('studio', '/studio/modelagem-criativos/criar') }}" data-studio-editor-url="{{ product_url('studio', '/studio/modelagem-criativos/imagem') }}">
+  <section class="workspace-conversations" aria-label="Conversas com o Cadu" data-runtime="{{ 'v2' if config.CADU_CONVERSATIONS_V2_UI_ENABLED else 'legacy' }}" data-v2-endpoint="{{ url_for('cadu_agent_v2.conversation_message') }}" data-studio-create-url="{{ product_url('studio', '/studio/modelagem-criativos/criar') }}" data-studio-editor-url="{{ product_url('studio', '/studio/modelagem-criativos/imagem') }}">
     <button type="button" id="conversation-history-toggle" class="conversation-history-toggle" aria-controls="conversation-sidebar" aria-expanded="false">Conversas</button>
     <button type="button" id="conversation-work-memory-toggle" class="conversation-work-memory-toggle" aria-controls="conversation-work-memory" aria-expanded="false">Contexto pessoal</button>
     <aside id="conversation-sidebar" class="workspace-conversation-sidebar" aria-label="Histórico de conversas">
@@ -21,4 +21,4 @@
   </section>
 </div></div>
 {% endblock %}
-{% block portal_scripts %}<script defer src="{{ url_for('static', filename='cadu_workspace/conversations/stream.js') }}"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/attachments.js') }}?v=18"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/render.js') }}?v=22"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/chat.js') }}?v=42"></script>{% endblock %}
+{% block portal_scripts %}<script defer src="{{ url_for('static', filename='cadu_workspace/conversations/stream.js') }}"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/runtime-v2.js') }}?v=1"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/artifacts-v2.js') }}?v=1"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/attachments.js') }}?v=18"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/render.js') }}?v=22"></script><script defer src="{{ url_for('static', filename='cadu_workspace/conversations/chat.js') }}?v=43"></script>{% endblock %}

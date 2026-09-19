@@ -333,3 +333,33 @@ def test_message_route_enforces_csrf_and_streams_sse(monkeypatch):
     assert response.status_code == 200
     assert response.mimetype == "text/event-stream"
     assert b'"event":"answer.completed"' in response.data
+
+
+def test_v2_stop_is_scoped_and_uses_v2_provider(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = "test-secret"
+    app.config["CADU_CONVERSATIONS_V2_ENABLED"] = True
+    app.register_blueprint(v2_routes.bp)
+    scoped = context()
+    monkeypatch.setattr(v2_routes, "resolve", lambda **_: scoped)
+    monkeypatch.setattr(v2_routes.repository, "rows", lambda *_: [{"task_id": "task-v2", "status": "running"}])
+    connection = type("Connection", (), {
+        "cursor": lambda self: type("Cursor", (), {
+            "__enter__": lambda self: self, "__exit__": lambda self, *_: False,
+            "execute": lambda self, *_: None,
+        })(),
+        "commit": lambda self: None,
+    })()
+    monkeypatch.setattr(v2_routes.repository, "get_db", lambda: connection)
+    stopped = []
+    from aicentralv2.cadu_workspace.agent_v2 import provider
+    monkeypatch.setattr(provider, "stop", lambda task_id, user: stopped.append((task_id, user)))
+    client = app.test_client()
+    with client.session_transaction() as session:
+        session.update(user_id=7, family_csrf="csrf")
+    response = client.post(
+        "/workspace/api/v2/runs/be777b36-a973-419c-802a-886bf1d125b0/stop",
+        headers={"X-CSRF-Token": "csrf"},
+    )
+    assert response.status_code == 200
+    assert stopped == [("task-v2", "user-7")]

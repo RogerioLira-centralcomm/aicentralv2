@@ -9,6 +9,7 @@
       this.button = panel.querySelector('#conversation-attach');
       this.composer = panel.querySelector('#conversation-editor') || panel.querySelector('#conversation-message');
       this.shell = panel.querySelector('.conversation-composer-shell');
+      this.v2 = document.querySelector('.workspace-conversations')?.dataset.runtime === 'v2';
       this.button?.addEventListener('click', () => this.input?.click());
       this.input.addEventListener('change', () => { this.add(this.input.files); this.input.value = ''; });
       this.composer.addEventListener('paste', event => {
@@ -33,7 +34,7 @@
         if (!file.size || file.size > 15 * 1024 * 1024) { this.status.textContent = 'Cada arquivo deve ter entre 1 byte e 15 MB.'; continue; }
         if (!/\.(png|jpe?g|webp|gif|pdf|txt|csv|md|json|docx|xlsx|pptx)$/i.test(file.name)) { this.status.textContent = 'Formato ainda não disponível. Use imagem, PDF, texto ou Office.'; continue; }
         const preview = /^image\/(png|jpeg|webp|gif)$/.test(file.type) ? URL.createObjectURL(file) : null;
-        this.items.push({file, preview, id:null, state:'Pronto para enviar', progress:null});
+        this.items.push({file, preview, id:null, source:null, usage:'conversation', state:'Pronto para enviar', progress:null});
       }
       this.render();
     }
@@ -45,6 +46,14 @@
         const label = document.createElement('span'); label.textContent = item.file.name;
         const meta = document.createElement('small'); meta.textContent = `${Math.ceil(item.file.size / 1024)} KB · ${item.state}`;
         label.append(meta);
+        if (this.v2 && !item.id && !item.source) {
+          const usage = document.createElement('select'); usage.className = 'conversation-file-usage'; usage.setAttribute('aria-label', `Como usar ${item.file.name}`);
+          const choices = [['conversation','Usar nesta conversa'],['knowledge','Fonte do projeto'],['attachment','Somente anexar ao projeto']];
+          choices.forEach(([value, text]) => { const option = document.createElement('option'); option.value = value; option.textContent = text; if (value === 'knowledge' && /^image\//.test(item.file.type)) option.disabled = true; usage.append(option); });
+          usage.value = item.usage; usage.disabled = this.busy;
+          usage.addEventListener('change', () => { item.usage = usage.value; this.list.dispatchEvent(new CustomEvent('attachmentschange', {bubbles:true})); });
+          label.append(usage);
+        }
         const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = 'Remover'; remove.disabled = this.busy;
         remove.setAttribute('aria-label', `Remover ${item.file.name}`);
         remove.addEventListener('click', () => { if (item.preview) URL.revokeObjectURL(item.preview); this.items.splice(index, 1); this.render(); this.button?.focus(); });
@@ -69,9 +78,10 @@
         if (item.id) continue;
         await this.uploadItem(item, signal);
       }
-      return this.items.map(item => item.id);
+      return this.items.map(item => item.id).filter(Boolean);
     }
     uploadItem(item, signal) {
+      if (this.v2 && item.usage !== 'conversation') return this.uploadProjectSource(item, signal);
       item.state = 'Enviando… 0%'; item.progress = 0; this.render();
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest(), body = new FormData(); body.append('file', item.file);
@@ -99,6 +109,24 @@
         xhr.onabort = () => { signal?.removeEventListener('abort', abort); item.state = 'Falha no envio'; item.progress = null; this.render(); reject(new DOMException('Envio interrompido', 'AbortError')); };
         xhr.send(body);
       });
+    }
+    async uploadProjectSource(item, signal) {
+      const projectRef = document.getElementById('conversation-project')?.value || '';
+      if (!projectRef) { item.state = 'Escolha um projeto'; this.render(); throw new Error('Selecione um projeto para manter este arquivo.'); }
+      item.state = 'Preparando envio…'; this.render();
+      const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+      const prepared = await fetch('/workspace/mcp', {method:'POST', credentials:'same-origin', signal,
+        headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},
+        body:JSON.stringify({jsonrpc:'2.0',id:crypto.randomUUID(),method:'tools/call',params:{name:'projects.prepare_source_upload',arguments:{request_id:crypto.randomUUID(),use_as_knowledge:item.usage === 'knowledge'}}})});
+      const rpc = await prepared.json().catch(() => ({}));
+      const intent = rpc.result?.structuredContent;
+      if (!prepared.ok || rpc.result?.isError || !intent?.upload_token) { item.state = 'Falha no envio'; this.render(); throw new Error(rpc.result?.content?.[0]?.text || rpc.error?.message || 'Não foi possível preparar o arquivo.'); }
+      item.state = 'Enviando ao projeto…'; this.render();
+      const body = new FormData(); body.append('upload_token', intent.upload_token); body.append('file', item.file);
+      const uploaded = await fetch(intent.upload_url, {method:'POST', credentials:'same-origin', signal, headers:{'X-CSRF-Token':csrf}, body});
+      const result = await uploaded.json().catch(() => ({}));
+      if (!uploaded.ok || !result.source?.source_id) { item.state = 'Falha no envio'; this.render(); throw new Error(result.error || 'Não foi possível anexar o arquivo ao projeto.'); }
+      item.source = result.source; item.state = item.usage === 'knowledge' ? 'Fonte do projeto' : 'Anexado ao projeto'; item.progress = 100; this.render();
     }
     clear() { this.items.forEach(item => { if (item.preview) URL.revokeObjectURL(item.preview); }); this.items = []; this.render(); }
   }

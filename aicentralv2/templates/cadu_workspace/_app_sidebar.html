@@ -14,8 +14,14 @@
     <a href="{{ url_for('cadu_workspace.documents') }}" {% if workspace_active == 'docs' %}aria-current="page"{% endif %}><span class="workspace-nav-icon"><i class="fa-regular fa-file-lines"></i></span><span class="workspace-nav-text">Docs</span></a>
     <a href="{{ url_for('cadu_workspace.clean_brands') }}" {% if workspace_active == 'marcas' %}aria-current="page"{% endif %}><span class="workspace-nav-icon"><i class="fa-solid fa-fingerprint"></i></span><span class="workspace-nav-text">Marcas</span></a>
   </nav>
+  {% if workspace_active == 'conversas' %}
+  <section class="workspace-sidebar-conversations" aria-label="Conversas recentes">
+    <div class="workspace-sidebar-section-head"><span>Conversas recentes</span><a href="{{ url_for('cadu_workspace.conversations') }}" aria-label="Nova conversa" title="Nova conversa"><i class="fa-solid fa-plus"></i></a></div>
+    <nav id="workspace-sidebar-recent-conversations" aria-label="Lista de conversas recentes"><span class="workspace-sidebar-conversations-loading">Carregando…</span></nav>
+  </section>
+  {% endif %}
   <footer class="workspace-sidebar-footer">
-    <nav class="workspace-sidebar-management" aria-label="Gestão da conta">
+    <nav class="workspace-sidebar-management" aria-label="Gestão e conta">
       <a href="{{ url_for('cadu_workspace.account_page', section='creditos') }}"><span class="workspace-nav-icon"><i class="fa-solid fa-chart-pie"></i></span><span class="workspace-nav-text">Uso</span></a>
       <a href="{{ url_for('cadu_workspace.account_page', section='planos') }}"><span class="workspace-nav-icon"><i class="fa-regular fa-credit-card"></i></span><span class="workspace-nav-text">Planos</span></a>
       <a href="{{ url_for('cadu_workspace.account_page', section='equipe') }}"><span class="workspace-nav-icon"><i class="fa-solid fa-users"></i></span><span class="workspace-nav-text">Equipe</span></a>

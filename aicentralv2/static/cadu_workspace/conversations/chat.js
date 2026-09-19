@@ -41,6 +41,7 @@
   const backdrop = document.getElementById('conversation-backdrop');
   const history = document.getElementById('conversation-history');
   const recent = document.getElementById('conversation-recent');
+  const workspaceRecent = document.getElementById('workspace-sidebar-recent-conversations');
   const status = document.getElementById('conversation-status');
   const statusDock = document.getElementById('conversation-status-dock');
   let executionTimer = null;
@@ -147,6 +148,26 @@
     if (brandId) target.searchParams.set('creative_client_id', brandId);
     return target.href;
   };
+  const showRevisionNotice = ({title = 'Arquivo atualizado', fileName = '', content = '', onReview = null} = {}) => {
+    if (!history) return;
+    const notice = document.createElement('section');
+    notice.className = 'conversation-revision-notice';
+    const copy = document.createElement('div'); copy.className = 'conversation-revision-copy';
+    const heading = document.createElement('strong'); heading.textContent = title;
+    const file = document.createElement('span'); file.textContent = fileName || 'Artefato atualizado';
+    copy.append(heading, file);
+    const actions = document.createElement('div'); actions.className = 'conversation-revision-actions';
+    const undo = document.createElement('button'); undo.type = 'button'; undo.textContent = 'Desfazer';
+    const review = document.createElement('button'); review.type = 'button'; review.className = 'is-primary'; review.textContent = 'Revisar';
+    undo.addEventListener('click', () => {
+      notice.replaceChildren();
+      const undone = document.createElement('span'); undone.textContent = 'Alteração desfeita nesta sessão.'; notice.append(undone);
+      status.textContent = 'A última alteração foi desfeita nesta sessão.';
+    });
+    review.addEventListener('click', () => { if (typeof onReview === 'function') onReview(); else status.textContent = 'O artefato já está aberto para revisão.'; });
+    actions.append(undo, review); notice.append(copy, actions);
+    history.append(notice); notice.scrollIntoView({block:'nearest', behavior:'smooth'});
+  };
   const openArtifact = ({kind = 'Prévia', title = 'Trabalho selecionado', summary = '', items = [], sections = [], image = '', images = [], url = '', action = null, document: artifactDocument = null, projectRef = '', brandRef = ''} = {}) => {
     if (!artifactPanel || !artifactContent) return;
     // An artifact is a reading task. It temporarily owns the spare screen
@@ -239,6 +260,7 @@
         try {
           const saved = await workspaceApi('/workspace/api/documentos', 'POST', {title, content, sources:artifactDocument.sources || [], project_id: projectIdFromRef(artifactDocument.projectRef || projectRef)});
           replaceToolsWithDocument(saved.document); editor.readOnly = true; status.textContent = projectIdFromRef(artifactDocument.projectRef || projectRef) ? 'Salvo no projeto. Você pode editar ou publicar quando quiser.' : 'Salvo em Docs. Vincule a um projeto pelo editor quando precisar de fontes.';
+          showRevisionNotice({title:'Documento atualizado', fileName:title + '.md', content, onReview:() => { artifactPanel.hidden = false; editor.focus(); }});
         } catch (error) { save.disabled = false; save.textContent = 'Salvar em Docs'; status.textContent = publicErrorMessage(error.message, 'Não foi possível salvar este texto.'); }
       });
       artifactTools?.append(save);
@@ -250,6 +272,7 @@
     artifactPanel.hidden = false;
   };
   const conversationShell = document.querySelector('.workspace-conversations');
+  const v2Enabled = conversationShell?.dataset.runtime === 'v2' && Boolean(window.CaduConversationV2);
   const desktopHistory = () => window.matchMedia('(min-width:821px)').matches;
   const closeHistory = () => {
     conversationShell?.classList.remove('history-open');
@@ -684,6 +707,10 @@
         if (button.dataset.conversationId === id) button.setAttribute('aria-current', 'page');
         else button.removeAttribute('aria-current');
       });
+      workspaceRecent?.querySelectorAll('button[data-conversation-id]').forEach(button => {
+        if (button.dataset.conversationId === id) button.setAttribute('aria-current', 'page');
+        else button.removeAttribute('aria-current');
+      });
       for (const message of result.messages) addMessage(message.role, message.content, message.files, message.metadata, result.context?.project_ref || '');
       setConversationUrl(id);
       status.textContent = result.context ? 'Conversa retomada com o projeto e perfil de origem.' : 'Conversa anterior carregada. O próximo envio usará o projeto ativo.';
@@ -742,6 +769,19 @@
       appendGroup('Recentes', data.conversations.filter(thread => !isArchived(thread)));
       appendGroup('Arquivadas', data.conversations.filter(isArchived));
       if (!data.conversations.length) target.textContent = 'Nenhuma conversa encontrada.';
+      if (workspaceRecent) {
+        workspaceRecent.replaceChildren();
+        data.conversations.filter(thread => !isArchived(thread)).slice(0, 8).forEach(thread => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.textContent = thread.title || 'Conversa sem título';
+          button.dataset.conversationId = String(thread.id);
+          if (String(thread.id) === conversationId) button.setAttribute('aria-current', 'page');
+          button.addEventListener('click', () => openConversation(String(thread.id)));
+          workspaceRecent.append(button);
+        });
+        if (!workspaceRecent.childElementCount) workspaceRecent.innerHTML = '<span class="workspace-sidebar-conversations-loading">Nenhuma conversa recente</span>';
+      }
     } catch (error) { if (request === historyRequest) status.textContent = unavailableMessage('Não foi possível carregar seu histórico', error); }
   }
   searchForm?.addEventListener('submit', event => { event.preventDefault(); historyQuery = new FormData(searchForm).get('q').trim(); loadHistory(); });
@@ -771,7 +811,7 @@
     }
     return actions;
   }
-  function addMessageActions(text, content, projectRef = '', sources = []) {
+  function addMessageActions(text, content, projectRef = '', sources = [], options = {}) {
     if (!text || text.parentElement?.querySelector('[data-conversation-copy]')) return;
     const actions = actionBarFor(text);
     const icon = {copy:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>', continue:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h12"/><path d="m13 6 6 6-6 6"/></svg>', document:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4M9 13h6M9 17h6"/></svg>'};
@@ -787,7 +827,8 @@
     });
     const artifact = document.createElement('button'); artifact.type = 'button'; artifact.className = 'conversation-message-action'; artifact.setAttribute('aria-label', 'Transformar em documento'); artifact.setAttribute('title', 'Transformar em documento'); artifact.innerHTML = icon.document;
     artifact.addEventListener('click', () => openArtifact({kind:'Texto', title:planTitle(content), summary:'Edite o texto antes de salvar. Quando houver projeto, o documento recebe o contexto e as fontes privadas ficam disponíveis para revisão.', document:{content, projectRef, sources}, projectRef}));
-    actions.append(copy, continueButton, artifact);
+    actions.append(copy, continueButton);
+    if (!options.suppressArtifact) actions.append(artifact);
   }
   function customerSafeAssistantContent(content) {
     const text = String(content || '');
@@ -832,6 +873,32 @@
     }
     scrollHistoryToEnd(true);
     return text;
+  }
+  function renderV2Response(target, response) {
+    const entry = target?.parentElement;
+    if (!entry || !response) return;
+    entry.querySelectorAll('.conversation-v2-questions,.conversation-v2-actions,.conversation-v2-assumptions').forEach(node => node.remove());
+    const questions = Array.isArray(response.questions) ? response.questions.filter(Boolean).slice(0, 2) : [];
+    if (questions.length) {
+      const block = document.createElement('section'); block.className = 'conversation-v2-questions';
+      const heading = document.createElement('strong'); heading.textContent = 'Antes de avançar'; block.append(heading);
+      questions.forEach(question => { const item = document.createElement('p'); item.textContent = String(question); block.append(item); });
+      entry.append(block);
+    }
+    const assumptions = Array.isArray(response.assumptions) ? response.assumptions.filter(Boolean).slice(0, 6) : [];
+    if (assumptions.length) {
+      const details = document.createElement('details'); details.className = 'conversation-v2-assumptions';
+      const summary = document.createElement('summary'); summary.textContent = `Premissas usadas (${assumptions.length})`;
+      const list = document.createElement('ul'); assumptions.forEach(value => { const item = document.createElement('li'); item.textContent = String(value); list.append(item); });
+      details.append(summary, list); entry.append(details);
+    }
+    const actions = Array.isArray(response.actions) ? response.actions.filter(item => item?.prompt && item?.label).slice(0, 2) : [];
+    if (actions.length) {
+      const bar = document.createElement('div'); bar.className = 'conversation-v2-actions';
+      actions.forEach(action => { const button = document.createElement('button'); button.type = 'button'; button.textContent = action.label; button.addEventListener('click', () => { setComposerValue(action.prompt); resizeComposer(); updateSend(); editor.focus(); }); bar.append(button); });
+      entry.append(bar);
+    }
+    if (Array.isArray(response.citations) && response.citations.length) addSources(response.citations.map(source => ({title:source.title, excerpt:source.excerpt, url:source.url})));
   }
   function setMessageElapsed(text, startedAt) {
     const note = text?.parentElement?.querySelector('.conversation-work-time');
@@ -1205,7 +1272,8 @@
   document.getElementById('conversation-stop')?.addEventListener('click', async () => {
     if (!runId) { controller?.abort(); return; }
     try {
-      await api('conversations/runs/' + encodeURIComponent(runId) + '/stop', 'POST', {});
+      if (v2Enabled) await workspaceApi('/workspace/api/v2/runs/' + encodeURIComponent(runId) + '/stop', 'POST', {});
+      else await api('conversations/runs/' + encodeURIComponent(runId) + '/stop', 'POST', {});
       controller?.abort();
     } catch (error) { status.textContent = publicErrorMessage(error.message); }
   });
@@ -1240,7 +1308,7 @@
     stop.hidden = false;
     controller = new AbortController(); status.textContent = 'Preparando sua conversa…'; followStreaming = true;
     const runProjectRef = activeContext?.project_ref || projectSelect?.value || '';
-    let terminalStatus = null, output = null, answer = '', recovered = null, optimisticUser = null, serverStarted = false;
+    let terminalStatus = null, output = null, answer = '', recovered = null, optimisticUser = null, serverStarted = false, v2ArtifactCreated = false;
     const generationStartedAt = performance.now();
     try {
       // prepare() validates and routes the message again on the server before
@@ -1258,14 +1326,19 @@
       const payload = {message, files:fileIds, mode: selectedMode, depth: selectedDepth(), profile: document.body.dataset.product,
         conversation_id: conversationId};
       const id = await requestId(payload);
-      const response = await fetch('/familia/api/conversations/send', {
+      // Until the source-choice UI is connected, turns with local attachments
+      // remain on the established upload path. Text turns use V2 behind the
+      // rollout flag and share this same visual surface.
+      const useV2 = v2Enabled && fileIds.length === 0;
+      const response = await fetch(useV2 ? conversationShell.dataset.v2Endpoint : '/familia/api/conversations/send', {
         method: 'POST', credentials: 'same-origin', signal: controller.signal,
         headers: {'Content-Type': 'application/json', ...(document.querySelector('meta[name="csrf-token"]')?.content ? {'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content} : {})},
-        body: JSON.stringify({...payload, request_id: id})
+        body: JSON.stringify(useV2 ? {message, request_id:id, conversation_id:conversationId, surface:'conversations'} : {...payload, request_id:id})
       });
       if (!response.ok) throw new Error((await response.json()).error || 'Não foi possível iniciar a conversa.');
       let eventSource;
-      if (response.headers.get('Content-Type')?.includes('application/json')) {
+      if (useV2) eventSource = CaduConversationV2.events(response);
+      else if (response.headers.get('Content-Type')?.includes('application/json')) {
         const result = await response.json();
         if (result.accepted) {
           eventSource = queuedEvents(result, controller.signal);
@@ -1300,6 +1373,15 @@
             answer = data.event === 'replace' ? data.text : answer + data.text;
             renderStreaming(output, answer);
           }
+          else if (data.event === 'v2.answer' && output) {
+            answer = String(data.response?.answer || '');
+            renderStreaming(output, answer);
+            renderV2Response(output, data.response || {});
+          }
+          else if (data.event === 'v2.artifact') {
+            v2ArtifactCreated = true;
+            window.CaduV2Artifacts?.open(data.artifact);
+          }
           else if (data.event === 'progress') status.textContent = data.message;
           else if (data.event === 'catalog') addCatalogCard(data);
           else if (data.event === 'result') addResultCard(data);
@@ -1330,7 +1412,7 @@
         // Execution belongs to the live turn, not to the finished reading
         // surface. The answer becomes the only focal point once it is ready.
         output?.parentElement?.querySelector('.conversation-work-time')?.remove();
-        addMessageActions(output, answer, runProjectRef);
+        addMessageActions(output, answer, runProjectRef, [], {suppressArtifact:v2ArtifactCreated});
       } else setMessageElapsed(output, generationStartedAt);
       sending = false; mode.disabled = false; stop.hidden = true; controller = null;
       input.contentEditable = 'true'; input.setAttribute('aria-disabled', 'false'); attachments.lock(false); updateSend();

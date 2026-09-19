@@ -117,7 +117,14 @@ def stream(run):
     try:
         for item in provider.events(run["provider_payload"]):
             provider_id = item.get("conversation_id") or provider_id
-            task_id = item.get("task_id") or task_id
+            next_task_id = item.get("task_id")
+            if next_task_id and next_task_id != task_id:
+                task_id = next_task_id
+                conn = repository.get_db()
+                with conn.cursor() as cur:
+                    cur.execute("UPDATE cadu_family_chat_runs SET task_id = %s WHERE id = %s AND status = 'running'",
+                                (task_id, run["run_id"]))
+                conn.commit()
             if item.get("event") in {"message", "agent_message"} and item.get("answer"):
                 answer_chunks.append(str(item["answer"]))
             if item.get("event") == "message_end":
@@ -171,7 +178,8 @@ def stream(run):
         try:
             with conn.cursor() as cur:
                 cur.execute("""UPDATE cadu_family_chat_runs
-                               SET status = %s, task_id = COALESCE(%s, task_id), finished_at = NOW()
+                               SET status = CASE WHEN status = 'cancelled' THEN status ELSE %s END,
+                                   task_id = COALESCE(%s, task_id), finished_at = NOW()
                                WHERE id = %s""", (state, task_id, run["run_id"]))
             conn.commit()
         except Exception:

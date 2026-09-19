@@ -29,6 +29,137 @@
 @media(max-width:520px){#conversation-panel[data-conversation-page="true"] .workspace-conversation-page-head{padding-left:92px}.workspace-conversation-page-head h1{font-size:21px}#conversation-panel[data-conversation-page="true"] .conversation-suggestions{grid-template-columns:1fr}#conversation-panel[data-conversation-page="true"] .conversation-suggestion:nth-child(odd){border-right:0}}
 @media(prefers-reduced-motion:reduce){.workspace-app-shell--conversations *{transition:none!important}}
 
+/* Conversas 2.0 — desktop-first teal system. The conversation is a reading
+   surface; artifacts own the denser result controls. */
+html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-app-shell--conversations{
+  --conversation-canvas:#0b1115;
+  --conversation-surface:#111a1d;
+  --conversation-sidebar-surface:#10191c;
+  --conversation-ink:#f2f7f5;
+  --conversation-muted:#9cafac;
+  --conversation-line:#2b4142;
+  --conversation-action:#27c7b5;
+  --conversation-action-soft:#173532;
+  --conversation-soft:#18322f;
+  --conversation-accent-violet:#a996ff;
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-app-shell--conversations .workspace-conversations{
+  border-color:#263b3d;
+  border-radius:12px;
+  background:var(--conversation-surface);
+  box-shadow:0 20px 70px rgb(0 0 0 / .28);
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"]{
+  background:var(--conversation-surface);
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] .workspace-conversation-page-head{
+  min-height:60px;
+  padding:12px 24px;
+  border-color:var(--conversation-line);
+  background:var(--conversation-surface);
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-conversation-page-head h1{
+  font-size:21px;
+  letter-spacing:-.025em;
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-conversation-page-head p{
+  color:var(--conversation-muted);
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] #conversation-history{
+  width:min(760px,100%);
+  padding:28px 32px 18px;
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] .conversation-message{
+  margin-bottom:24px;
+  color:var(--conversation-ink);
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] .conversation-message>strong{
+  display:none;
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] .conversation-message.from-user{
+  max-width:min(68ch,78%);
+  margin:4px 0 28px auto;
+  padding:9px 12px;
+  border:1px solid #2d5652;
+  border-radius:10px 10px 3px 10px;
+  background:#15302e;
+  color:#e7f6f2;
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] .conversation-message.from-cadu .conversation-rich{
+  max-width:72ch;
+  color:var(--conversation-ink);
+  font-size:15px;
+  line-height:1.72;
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] .conversation-message.from-cadu .conversation-rich p{
+  margin-bottom:12px;
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] .conversation-message-actions{
+  margin:8px 0 18px;
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] #conversation-form{
+  width:min(760px,calc(100% - 40px));
+  margin:0 auto 14px;
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] .conversation-composer-shell{
+  min-height:76px;
+  border:1px solid #355655;
+  border-radius:12px;
+  background:#162326;
+  box-shadow:0 12px 28px rgb(0 0 0 / .22);
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] .conversation-composer-shell:focus-within{
+  border-color:var(--conversation-action);
+  box-shadow:0 0 0 3px rgb(39 199 181 / .14),0 16px 34px rgb(0 0 0 / .3);
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] #conversation-send{
+  background:var(--conversation-action);
+  color:#08221f;
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] .conversation-artifact-panel{
+  top:14px;
+  right:14px;
+  width:min(460px,calc(100% - 28px));
+  max-height:calc(100% - 28px);
+  border:1px solid #355655;
+  border-radius:12px;
+  background:#111a1d;
+  box-shadow:0 22px 70px rgb(0 0 0 / .42);
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] .conversation-artifact-panel>header{
+  padding:15px 16px;
+  border-color:#2b4142;
+  background:#152326;
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] .conversation-artifact-panel>header p{
+  color:#7faaa1;
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] .conversation-artifact-panel>header strong{
+  color:#f2f7f5;
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] .conversation-artifact-tool.is-primary,
+html[data-cadu-theme="dark"] body[data-product="workspace"] .conversation-artifact-actions .is-primary{
+  border-color:var(--conversation-action);
+  background:var(--conversation-action);
+  color:#08221f;
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] .conversation-artifact-tool,
+html[data-cadu-theme="dark"] body[data-product="workspace"] .conversation-artifact-actions :is(button,a){
+  border-color:#355655;
+  background:#162326;
+  color:#bce9df;
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] .conversation-artifact-panel :is(button,a):focus-visible,
+html[data-cadu-theme="dark"] body[data-product="workspace"] .conversation-composer-shell :focus-visible{
+  outline:2px solid var(--conversation-action);
+  outline-offset:2px;
+}
+
+@media(max-width:820px){
+  html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] #conversation-history{padding:22px 16px 14px}
+  html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] #conversation-form{width:calc(100% - 24px)}
+}
+
 /* Dark conversation page: match the neutral charcoal canvas used by Codex.
    Teal remains an action color, not the page's dominant hue. */
 html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-app-shell--conversations,
@@ -44,6 +175,32 @@ html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[
 html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-app-shell--conversations{--conversation-canvas:#12161c;--conversation-surface:#1c222a;--conversation-sidebar-surface:#151c24}
 html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-app-shell--conversations .workspace-conversations{background:var(--conversation-surface)}
 html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-app-shell--conversations .workspace-conversation-sidebar{background:var(--conversation-sidebar-surface)}
+
+/* Final V2 precedence layer. Keep this block last so legacy dark-theme rules
+   cannot reintroduce the previous blue/charcoal treatment. */
+html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-app-shell--conversations{
+  --conversation-canvas:#0b1115!important;
+  --conversation-surface:#111a1d!important;
+  --conversation-sidebar-surface:#10191c!important;
+  --conversation-ink:#f2f7f5!important;
+  --conversation-muted:#9cafac!important;
+  --conversation-line:#2b4142!important;
+  --conversation-action:#27c7b5!important;
+  --conversation-soft:#18322f!important;
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-app-shell--conversations .workspace-conversations,
+html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"]{
+  background:#111a1d!important;
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-app-shell--conversations .workspace-conversation-sidebar{background:#10191c!important}
+html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] .conversation-message>strong{display:none!important}
+html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] .conversation-message.from-user{background:#15302e!important;border-color:#2d5652!important;color:#e7f6f2!important}
+html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] .conversation-composer-shell{background:#162326!important;border-color:#355655!important}
+html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] #conversation-send{background:#27c7b5!important;color:#08221f!important}
+
+.conversation-revision-notice{display:flex;align-items:center;justify-content:space-between;gap:16px;max-width:72ch;margin:18px 0;padding:12px 14px;border:1px solid var(--conversation-line,#2b4142);border-radius:9px;background:var(--conversation-surface,#111a1d);color:var(--conversation-ink,#f2f7f5)}
+.conversation-revision-copy{display:grid;gap:3px;min-width:0}.conversation-revision-copy strong{font-size:13px}.conversation-revision-copy span{overflow:hidden;color:var(--conversation-muted,#9cafac);font-size:12px;text-overflow:ellipsis;white-space:nowrap}.conversation-revision-actions{display:flex;flex:0 0 auto;gap:7px}.conversation-revision-actions button{min-height:30px;padding:6px 10px;border:1px solid var(--conversation-line,#2b4142);border-radius:7px;background:transparent;color:var(--conversation-muted,#9cafac);font:600 11px/1 inherit;cursor:pointer}.conversation-revision-actions button.is-primary{border-color:var(--conversation-action,#27c7b5);background:var(--conversation-action,#27c7b5);color:#08221f}
+@media(max-width:620px){.conversation-revision-notice{align-items:stretch;flex-direction:column;gap:10px}.conversation-revision-actions{justify-content:flex-end}}
 html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-app-shell--conversations #conversation-panel[data-conversation-page="true"]{background:var(--conversation-surface)}
 
 /* Reading pass: responses are a column of text first, with cards as
@@ -159,4 +316,49 @@ html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-app-shell
   #conversation-panel[data-conversation-page="true"] .conversation-document-card,
   #conversation-panel[data-conversation-page="true"] .conversation-channel-card,
   #conversation-panel[data-conversation-page="true"] .conversation-sources{margin-block:14px}
+}
+
+/* Conversation sidebar: recent work first; account utilities stay secondary. */
+.workspace-app-shell--conversations .workspace-sidebar-conversations{
+  display:grid;
+  gap:6px;
+  min-height:0;
+  margin:16px 4px 0;
+  padding-top:14px;
+  border-top:1px solid var(--conversation-line,#2b4142);
+}
+.workspace-sidebar-section-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 8px;color:var(--conversation-muted,#9cafac);font-size:11px;font-weight:650}
+.workspace-sidebar-section-head a{display:grid;place-items:center;width:24px;height:24px;border-radius:6px;color:var(--conversation-action,#27c7b5);text-decoration:none}
+.workspace-sidebar-section-head a:hover{background:var(--conversation-soft,#18322f)}
+#workspace-sidebar-recent-conversations{display:grid;gap:2px;max-height:280px;overflow:auto}
+#workspace-sidebar-recent-conversations article{min-width:0}
+#workspace-sidebar-recent-conversations button{display:block;width:100%;overflow:hidden;border:0;border-radius:7px;background:transparent;padding:8px 8px;text-align:left;text-overflow:ellipsis;white-space:nowrap;color:var(--conversation-muted,#9cafac);font:500 12px/1.3 inherit;cursor:pointer}
+#workspace-sidebar-recent-conversations button:hover,#workspace-sidebar-recent-conversations button[aria-current="page"]{background:var(--conversation-soft,#18322f);color:var(--conversation-ink,#f2f7f5)}
+.workspace-sidebar-conversations-loading{padding:8px;color:var(--conversation-muted,#9cafac);font-size:11px}
+html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-sidebar-management{opacity:.72}
+html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-sidebar-management:hover{opacity:1}
+html[data-cadu-sidebar="collapsed"] .workspace-sidebar-conversations{display:none!important}
+
+/* V2 final precedence: teal identity, quiet messages, stable composer. */
+html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-app-shell--conversations{
+  --conversation-canvas:#0b1115!important;--conversation-surface:#111a1d!important;
+  --conversation-sidebar-surface:#10191c!important;--conversation-ink:#f2f7f5!important;
+  --conversation-muted:#9cafac!important;--conversation-line:#2b4142!important;
+  --conversation-action:#27c7b5!important;--conversation-soft:#18322f!important;
+}
+html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-app-shell--conversations .workspace-conversations,
+html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"]{background:#111a1d!important}
+html[data-cadu-theme="dark"] body[data-product="workspace"] .workspace-app-shell--conversations .workspace-conversation-sidebar{background:#10191c!important}
+html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] .conversation-message>strong{display:none!important}
+html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] .conversation-message.from-user{background:#15302e!important;border-color:#2d5652!important;color:#e7f6f2!important}
+html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] .conversation-composer-shell{background:#162326!important;border-color:#355655!important}
+html[data-cadu-theme="dark"] body[data-product="workspace"] #conversation-panel[data-conversation-page="true"] #conversation-send{background:#27c7b5!important;color:#08221f!important}
+
+/* The primary Workspace sidebar now owns recent conversations. Keep the
+   legacy in-page history mounted for API compatibility, but remove its
+   duplicate desktop surface and give the conversation canvas the space back. */
+@media(min-width:821px){
+  .workspace-app-shell--conversations .workspace-conversations{grid-template-columns:minmax(0,1fr)!important}
+  .workspace-app-shell--conversations #conversation-sidebar,
+  .workspace-app-shell--conversations #conversation-history-toggle{display:none!important}
 }

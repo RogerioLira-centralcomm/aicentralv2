@@ -111,6 +111,9 @@ class Config:
 	# makes the rollout reversible and prevents prompt/schema changes from
 	# affecting active legacy conversations.
 	CADU_CONVERSATIONS_V2_ENABLED = os.getenv('CADU_CONVERSATIONS_V2_ENABLED', '0').lower() in ('true', '1', 'yes', 'on')
+	CADU_CONVERSATIONS_V2_UI_ENABLED = os.getenv(
+		'CADU_CONVERSATIONS_V2_UI_ENABLED', os.getenv('CADU_CONVERSATIONS_V2_ENABLED', '0')
+	).lower() in ('true', '1', 'yes', 'on')
 	CADU_CONVERSATIONS_V2_DIFY_URL = os.getenv('CADU_CONVERSATIONS_V2_DIFY_URL', '')
 	CADU_CONVERSATIONS_V2_DIFY_KEY = os.getenv('CADU_CONVERSATIONS_V2_DIFY_KEY', '')
 	# Brand discovery may run for several minutes. It is dispatched to a durable

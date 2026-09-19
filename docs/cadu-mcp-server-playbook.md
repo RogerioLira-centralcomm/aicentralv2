@@ -1,5 +1,7 @@
 # Playbook — servidores MCP do Cadu
 
+Documentação navegável da versão inicial: [`cadu-mcp-v1.html`](./cadu-mcp-v1.html).
+
 Este documento é a referência para criar os próximos servidores MCP sem
 duplicar autorização, regras de tenant ou consultas de produto.
 
@@ -229,3 +231,17 @@ Uma tool só entra no catálogo `customer_agent` quando:
 - possui política de compatibilidade;
 - foi classificada quanto a dados pessoais e comerciais;
 - está incluída em auditoria e rate limit.
+
+## Arquivos e fontes de projeto
+
+O envio de binários usa duas etapas: `projects.prepare_source_upload` cria uma
+autorização curta e o cliente envia multipart para `/workspace/mcp/uploads`.
+O argumento `use_as_knowledge` é obrigatório e nunca pode ser inferido pelo
+tipo ou nome do arquivo:
+
+- `true`: extrai texto, indexa no RAG do projeto e cobra os créditos do usuário;
+- `false`: mantém o arquivo privado como anexo, sem utilizá-lo como evidência.
+
+Na versão inicial, imagens são aceitas como anexos. OCR ou entendimento visual
+somente devem ser habilitados quando tiverem orçamento, consentimento e política
+de retenção próprios.

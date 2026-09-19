@@ -64,6 +64,45 @@ def get_artifact(context: RequestContext, artifact_id: str) -> dict:
     return dict(row)
 
 
+def list_artifacts(context: RequestContext, *, artifact_type=None, status=None, limit=20) -> list[dict]:
+    if artifact_type is not None and artifact_type not in ALLOWED_TYPES:
+        raise BadRequest("Tipo de artefato inválido.")
+    if status is not None and status not in ALLOWED_STATUS:
+        raise BadRequest("Status de artefato inválido.")
+    limit = min(50, max(1, int(limit or 20)))
+    filters = ["a.organization_id = %s", "a.client_id = %s"]
+    params = [context.organization_id, context.client_id]
+    if context.project_ref:
+        filters.append("a.project_ref = %s")
+        params.append(context.project_ref)
+    if artifact_type:
+        filters.append("a.type = %s")
+        params.append(artifact_type)
+    if status:
+        filters.append("a.status = %s")
+        params.append(status)
+    params.append(limit)
+    with get_db().cursor() as cur:
+        cur.execute(f"""SELECT a.id, a.project_ref, a.conversation_id, a.type, a.title, a.status,
+                               a.current_version, a.created_by, a.created_at, a.updated_at
+                          FROM cadu_workspace_artifacts a
+                         WHERE {' AND '.join(filters)}
+                      ORDER BY a.updated_at DESC, a.id DESC LIMIT %s""", tuple(params))
+        return [dict(row) for row in cur.fetchall()]
+
+
+def list_versions(context: RequestContext, artifact_id: str, *, limit=50) -> list[dict]:
+    # Resolve the artifact first so a foreign-tenant ID remains indistinguishable from a missing ID.
+    get_artifact(context, artifact_id)
+    limit = min(100, max(1, int(limit or 50)))
+    with get_db().cursor() as cur:
+        cur.execute("""SELECT v.id, v.version, v.change_summary, v.created_by, v.created_at
+                         FROM cadu_workspace_artifact_versions v
+                        WHERE v.artifact_id = %s
+                     ORDER BY v.version DESC LIMIT %s""", (str(artifact_id), limit))
+        return [dict(row) for row in cur.fetchall()]
+
+
 def patch_artifact(context: RequestContext, artifact_id: str, content: dict, *, expected_version: int,
                    title=None, status=None, change_summary="") -> dict:
     content = _content(content)

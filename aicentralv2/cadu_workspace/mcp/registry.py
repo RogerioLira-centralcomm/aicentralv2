@@ -90,7 +90,7 @@ class ToolDefinition:
             "description": self.description,
             "inputSchema": self.input_schema,
             "annotations": {
-                "readOnlyHint": self.effect == "read", "destructiveHint": False,
+                "readOnlyHint": self.effect == "read", "destructiveHint": self.effect == "write",
                 "idempotentHint": self.effect == "read",
             },
             "_meta": {"cadu/toolVersion": self.version, "cadu/effect": self.effect},
@@ -153,5 +153,5 @@ def register_tool(*, name: str, description: str, capability: str, effect: str =
 
 def load_builtin_tools() -> ToolRegistry:
     # Imports register functions once through Python's module cache.
-    from .tools import planner, reports, workspace  # noqa: F401
+    from .tools import artifacts, planner, projects, reports, workspace  # noqa: F401
     return registry

@@ -1,0 +1,43 @@
+"""Project-source tools. Binary transfer uses a short-lived upload intent."""
+
+from werkzeug.exceptions import HTTPException
+
+from ...agent_v2.contracts import RequestContext
+from ... import project_source_service
+from ..registry import ToolInputError, register_tool
+
+
+def _domain(call):
+    try:
+        return call()
+    except HTTPException as exc:
+        raise ToolInputError(str(exc.description)) from exc
+
+
+@register_tool(
+    name="projects.list_sources", capability="workspace", effect="read", requires_project=True,
+    description="Lista arquivos anexados ao projeto e informa quais participam da base de conhecimento.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "properties": {
+        "limit": {"type": "integer", "minimum": 1, "maximum": 100},
+    }, "additionalProperties": False},
+)
+def list_sources(context: RequestContext, arguments: dict) -> dict:
+    return {"sources": _domain(lambda: project_source_service.list_sources(
+        context, limit=arguments.get("limit", 50),
+    ))}
+
+
+@register_tool(
+    name="projects.prepare_source_upload", capability="workspace", effect="draft", requires_project=True,
+    description="Prepara upload privado de arquivo. O usuário escolhe se ele será indexado como fonte de dados.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "required": ["request_id", "use_as_knowledge"], "properties": {
+        "request_id": {"type": "string", "minLength": 16, "maxLength": 80},
+        "use_as_knowledge": {"type": "boolean"},
+    }, "additionalProperties": False},
+)
+def prepare_source_upload(context: RequestContext, arguments: dict) -> dict:
+    return _domain(lambda: project_source_service.prepare_upload(
+        context, use_as_knowledge=arguments["use_as_knowledge"],
+    ))

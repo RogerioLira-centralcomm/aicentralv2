@@ -18,6 +18,9 @@ def test_rag_charge_uses_client_credit_lots_and_records_usage():
     assert 'FOR UPDATE' in sql
     assert 'UPDATE cadu_credits_extras' in sql
     assert 'INSERT INTO cadu_tools_token_usage' in sql
+    usage_call = cursor.execute.call_args_list[-1]
+    assert len(usage_call.args[1]) == 8
+    assert usage_call.args[1][4:7] == (84, 84, 84)
 
 
 def test_rag_charge_rejects_when_client_has_insufficient_credit():

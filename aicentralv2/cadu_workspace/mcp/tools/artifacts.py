@@ -1,0 +1,120 @@
+"""Versioned artifact tools shared by Cadu and delegated customer agents."""
+
+from werkzeug.exceptions import HTTPException
+
+from ...agent_v2.contracts import RequestContext
+from ...artifacts import service
+from ..registry import ToolInputError, register_tool
+
+
+def _domain(call):
+    try:
+        return call()
+    except HTTPException as exc:
+        raise ToolInputError(str(exc.description)) from exc
+
+
+@register_tool(
+    name="artifacts.list", capability="artifacts", effect="read",
+    description="Lista artefatos visíveis no projeto ou workspace atual.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "properties": {
+        "type": {"type": "string", "enum": sorted(service.ALLOWED_TYPES)},
+        "status": {"type": "string", "enum": sorted(service.ALLOWED_STATUS)},
+        "limit": {"type": "integer", "minimum": 1, "maximum": 50},
+    }, "additionalProperties": False},
+)
+def list_artifacts(context: RequestContext, arguments: dict) -> dict:
+    return {"artifacts": _domain(lambda: service.list_artifacts(
+        context, artifact_type=arguments.get("type"), status=arguments.get("status"),
+        limit=arguments.get("limit", 20),
+    ))}
+
+
+@register_tool(
+    name="artifacts.get", capability="artifacts", effect="read",
+    description="Obtém o conteúdo e a versão atual de um artefato autorizado.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "required": ["artifact_id"], "properties": {
+        "artifact_id": {"type": "string", "minLength": 1, "maxLength": 80},
+    }, "additionalProperties": False},
+)
+def get_artifact(context: RequestContext, arguments: dict) -> dict:
+    return _domain(lambda: service.get_artifact(context, arguments["artifact_id"]))
+
+
+@register_tool(
+    name="artifacts.create_draft", capability="artifacts", effect="draft",
+    description="Cria um artefato versionado como rascunho, sem publicá-lo.",
+    exposures=("internal", "customer_agent"), requires_project=True,
+    input_schema={"type": "object", "required": ["request_id", "type", "title", "content"], "properties": {
+        "request_id": {"type": "string", "minLength": 16, "maxLength": 80},
+        "type": {"type": "string", "enum": sorted(service.ALLOWED_TYPES)},
+        "title": {"type": "string", "minLength": 1, "maxLength": 180},
+        "content": {"type": "object"},
+    }, "additionalProperties": False},
+)
+def create_draft(context: RequestContext, arguments: dict) -> dict:
+    # request_id is already part of the public contract; durable idempotency is the next rollout.
+    return _domain(lambda: service.create_draft(
+        context, arguments["type"], arguments["content"], title=arguments["title"],
+        conversation_id=context.conversation_id,
+    ))
+
+
+@register_tool(
+    name="artifacts.update_draft", capability="artifacts", effect="draft",
+    description="Atualiza um rascunho usando controle otimista de versão.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "required": ["request_id", "artifact_id", "expected_version", "content"], "properties": {
+        "request_id": {"type": "string", "minLength": 16, "maxLength": 80},
+        "artifact_id": {"type": "string", "minLength": 1, "maxLength": 80},
+        "expected_version": {"type": "integer", "minimum": 1},
+        "title": {"type": "string", "minLength": 1, "maxLength": 180},
+        "content": {"type": "object"},
+        "change_summary": {"type": "string", "maxLength": 500},
+    }, "additionalProperties": False},
+)
+def update_draft(context: RequestContext, arguments: dict) -> dict:
+    current = _domain(lambda: service.get_artifact(context, arguments["artifact_id"]))
+    if current["status"] not in {"draft", "active"}:
+        raise ToolInputError("Somente artefatos em rascunho ou ativos podem ser editados por esta ferramenta.")
+    return _domain(lambda: service.patch_artifact(
+        context, arguments["artifact_id"], arguments["content"],
+        expected_version=arguments["expected_version"], title=arguments.get("title"),
+        change_summary=arguments.get("change_summary") or "Atualização via MCP",
+    ))
+
+
+@register_tool(
+    name="artifacts.list_versions", capability="artifacts", effect="read",
+    description="Lista o histórico de versões sem retornar todo o conteúdo de cada versão.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "required": ["artifact_id"], "properties": {
+        "artifact_id": {"type": "string", "minLength": 1, "maxLength": 80},
+        "limit": {"type": "integer", "minimum": 1, "maximum": 100},
+    }, "additionalProperties": False},
+)
+def artifact_versions(context: RequestContext, arguments: dict) -> dict:
+    return {"versions": _domain(lambda: service.list_versions(
+        context, arguments["artifact_id"], limit=arguments.get("limit", 50),
+    ))}
+
+
+@register_tool(
+    name="artifacts.archive", capability="artifacts", effect="write",
+    description="Arquiva um artefato de forma recuperável. Disponível inicialmente apenas para agentes internos.",
+    exposures=("internal",),
+    input_schema={"type": "object", "required": ["request_id", "artifact_id", "expected_version", "content"], "properties": {
+        "request_id": {"type": "string", "minLength": 16, "maxLength": 80},
+        "artifact_id": {"type": "string", "minLength": 1, "maxLength": 80},
+        "expected_version": {"type": "integer", "minimum": 1},
+        "content": {"type": "object"},
+    }, "additionalProperties": False},
+)
+def archive_artifact(context: RequestContext, arguments: dict) -> dict:
+    return _domain(lambda: service.patch_artifact(
+        context, arguments["artifact_id"], arguments["content"],
+        expected_version=arguments["expected_version"], status="archived",
+        change_summary="Arquivado via MCP",
+    ))

@@ -1,6 +1,7 @@
 """Authenticated JSON-RPC transport for the internal Cadu MCP."""
 
 from flask import Blueprint, g, jsonify, request
+from werkzeug.exceptions import HTTPException
 
 from .authorization import MCPUnauthorized, authorize
 from .registry import ToolError, load_builtin_tools
@@ -80,3 +81,19 @@ def rpc():
     except ValueError as exc:
         return jsonify(_error(request_id, -32602, str(exc))), 400
     return jsonify({"jsonrpc": "2.0", "id": request_id, "result": result})
+
+
+@bp.post("/uploads")
+def upload_project_source():
+    """Multipart companion endpoint for upload intents issued by an MCP tool."""
+    from .. import project_source_service
+    uploaded = request.files.get("file")
+    if uploaded is None:
+        return jsonify(error="Envie o arquivo no campo file."), 400
+    try:
+        value = project_source_service.save_upload(
+            g.cadu_mcp_principal.context, request.form.get("upload_token", ""), uploaded,
+        )
+    except HTTPException as exc:
+        return jsonify(error=exc.description), exc.code
+    return jsonify(source=value), 201

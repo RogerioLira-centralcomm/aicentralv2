@@ -428,7 +428,7 @@ def charge_project_rag(cursor, *, client_id: int, user_id: int, project_id: str,
                 tokens_entrada, tokens_saida, total_tokens, tokens_cobrados, metadata, status, charged_at)
            VALUES (%s, %s, %s, 'workspace_rag', %s, 'postgres-text', %s, 0, %s, %s,
                    %s::jsonb, 'charged', NOW())''',
-        (idempotency_key, client_id, user_id, stage, tokens, tokens,
+        (idempotency_key, client_id, user_id, stage, tokens, tokens, tokens,
          json.dumps({'projeto_id': str(project_id), 'rag': 'postgresql',
                      'tokens_processados': raw_tokens, 'multiplicador': margin})),
     )

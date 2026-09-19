@@ -1,5 +1,7 @@
 import pytest
+from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
 
 from aicentralv2.cadu_workspace.agent_v2.contracts import RequestContext
 from aicentralv2.cadu_workspace.agent_v2.response_policy import budget_for, policy_for
@@ -16,6 +18,8 @@ from aicentralv2.cadu_workspace.mcp.authorization import MCPUnauthorized, author
 from flask import Flask
 from aicentralv2.cadu_workspace.agent_v2 import routes as v2_routes
 from aicentralv2.cadu_workspace.artifacts import service as artifact_service
+from aicentralv2.cadu_workspace.mcp import routes as mcp_routes
+from aicentralv2.cadu_workspace.mcp.registry import load_builtin_tools
 
 
 def context(**overrides):
@@ -77,6 +81,42 @@ def test_artifact_write_does_not_close_request_scoped_connection(monkeypatch):
     assert artifact["client_id"] == 12
     assert connection.committed is True
     assert connection.rolled_back is False
+
+
+def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
+    names = {item["name"] for item in load_builtin_tools().list(
+        context(capabilities=("workspace", "artifacts")), "customer_agent",
+    )}
+    assert {
+        "artifacts.list", "artifacts.get", "artifacts.create_draft", "artifacts.update_draft",
+        "artifacts.list_versions", "projects.list_sources", "projects.prepare_source_upload",
+    } <= names
+    assert "artifacts.archive" not in names
+
+
+def test_mcp_upload_endpoint_uses_signed_principal_context(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = "test-secret"
+    app.register_blueprint(mcp_routes.bp)
+    scoped = context(project_ref="ci:42")
+    monkeypatch.setattr(mcp_routes, "authorize", lambda params: SimpleNamespace(
+        context=scoped, exposure="customer_agent",
+    ))
+    saved = {}
+
+    def save_upload(current, token, uploaded):
+        saved.update(context=current, token=token, name=uploaded.filename)
+        return {"source_id": 91, "status": "attached"}
+
+    from aicentralv2.cadu_workspace import project_source_service
+    monkeypatch.setattr(project_source_service, "save_upload", save_upload)
+    response = app.test_client().post("/workspace/mcp/uploads", data={
+        "upload_token": "signed-upload",
+        "file": (BytesIO(b"image"), "reference.png"),
+    })
+    assert response.status_code == 201
+    assert response.get_json()["source"]["source_id"] == 91
+    assert saved == {"context": scoped, "token": "signed-upload", "name": "reference.png"}
 
 
 def test_brief_creation_is_artifact_first_and_bounded():

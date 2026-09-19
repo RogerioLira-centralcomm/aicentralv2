@@ -164,7 +164,7 @@ REFERÊNCIAS — trate cada item do contexto como contrato, nunca como decoraç�
 
 Para Display, trate o formato IAB informado como uma unidade publicitária final — não o transforme em pôster ou interface. Para CTV, trate como still cinematográfico 16:9. Para social, preserve área segura e leitura no feed. Escreva uma cena específica, não adjetivos vagos como “moderno”, “bonito” ou “impactante”. Prefira detalhes observáveis: lugar, hora, enquadramento, distância de câmera, gesto, textura e espaço para copy.
 
-Use a marca, briefing, referências e ativos do contexto como fonte de verdade. Não invente preço, promoção, produto, dado, prazo, benefício, CTA, logotipo ou slogan. Se não houver texto literal aprovado, peça espaço reservado para a assinatura, sem fabricar tipografia. Todo texto publicitário visível deve ser português do Brasil; se a renderização textual não for confiável, instrua a manter a área livre para composição posterior. Não inclua marca d'água, interface de plataforma, mockup de dashboard ou logos de terceiros. Não use pessoas identificáveis sem necessidade. Preserve briefing, marca, canal e formato.
+Use a marca, briefing, referências e ativos do contexto como fonte de verdade. Cada substantivo concreto do briefing é obrigatório: produto, embalagem, pessoas, cenário, ação, mensagem e formato não podem ser omitidos ou substituídos por uma cena genérica. Se o briefing pede produto visível, descreva-o como assunto principal em primeiro plano, com escala, luz e enquadramento suficientes para ser reconhecível. Não invente preço, promoção, produto, dado, prazo, benefício, CTA, logotipo ou slogan. Se não houver texto literal aprovado, peça espaço reservado para a assinatura, sem fabricar tipografia. Todo texto publicitário visível deve ser português do Brasil; se a renderização textual não for confiável, instrua a manter a área livre para composição posterior. Não inclua marca d'água, interface de plataforma, mockup de dashboard ou logos de terceiros. Não use pessoas identificáveis sem necessidade. Preserve briefing, marca, canal e formato.
 Antes de devolver cada direção, faça uma revisão final como agente GPT-5 nano: confirme que o prompt está fiel ao pedido, respeita todas as exclusões explícitas, usa cada referência conforme seu source e role, não inventa informações e está pronto para ser enviado ao GPT Image 2. O campo "prompt" deve ser a instrução final revisada para o processador de imagem, sem comentários sobre esta revisão. Inclua também "reference_plan" como uma lista curta de objetos {{"label":"...","source":"global|user|project","use":"..."}} para tornar a decisão de cada referência auditável."""
 
 
@@ -285,12 +285,14 @@ def create_image(payload, modeling, client_id, user_id):
     if (width and not 120 <= width <= 7680) or (height and not 80 <= height <= 7680):
         raise ValueError("Dimensões do formato fora do limite permitido.")
     technical_prompt = "\n".join([
+        "MANDATORY BRIEFING FIDELITY: Preserve every concrete requirement in the user briefing, especially named products, packaging, people, setting, action, copy and requested format. A composition reference is only a layout guide; it must never replace the requested subject or product.",
         prompt,
         "\nREFERENCE CONTRACT:",
         *(role_lines or ["No image reference was supplied; create an original image."]),
         "DIRECTOR REFERENCE PLAN:",
         *(plan_lines or ["Apply the reference contract directly and preserve the declared source boundaries."]),
         edit_guard,
+        "PRODUCT VISIBILITY CHECK: If the briefing requests a product, make it a deliberate, recognizable foreground subject with enough scale and light to be clearly visible. Do not hide it behind hands, bodies, crops or depth-of-field blur. If bottles or packages are requested, show the requested quantity visibly and keep their labels facing the camera when the briefing asks for labels.",
         f"Output channel: {channel or 'unspecified'}.",
         f"Requested output dimensions: {width}x{height}px." if width and height else "Requested output dimensions: use the selected aspect ratio.",
         f"Creative direction exploration intensity: {direction_intensity}/100.",

@@ -32,12 +32,15 @@ def test_create_screen_exposes_unified_visual_workspace():
     assert 'id="creationProgressTitle"' in html
     assert 'id="composerFeedback"' in html
     assert 'id="resultsView"' in html
-    assert 'href="/static/css/cadu-studio-create-v2.css?v=32"' in html
-    assert 'src="/static/js/cadu-studio-create-v2.js?v=31"' in html
+    assert 'href="/static/css/cadu-studio-create-v2.css?v=34"' in html
+    assert 'src="/static/js/cadu-studio-create-v2.js?v=32"' in html
     assert 'data-group="variations"><button class="is-selected" type="button">1</button><button type="button">2</button><button type="button">4</button>' in html
     assert "Inclui direção criativa e revisão final do prompt" in html
     assert "A peça gerada terá uma estrutura similar" in html
     assert 'aria-describedby="referencePreviewDescription"' in html
+    assert 'id="creationProgressTime">7s' in html
+    assert 'id="libraryContent"' in html
+    assert 'aria-controls="libraryContent"' in html
 
 
 def test_create_v2_keeps_manual_review_and_progress_recoverable():
@@ -60,6 +63,12 @@ def test_create_v2_keeps_manual_review_and_progress_recoverable():
     assert '.studio-v2 .format-grid{grid-template-columns:repeat(2,minmax(0,1fr))' in styles
     assert '.results-grid[data-count="2"]' in styles
     assert 'margin-top:10px' in styles
+    assert 'grid-template-columns:minmax(0,1fr) auto' in styles
+    assert 'minimumVariationMs = 7000' in source
+    assert 'creation-progress__mark' not in template
+    assert 'const semanticRatioFor' in source
+    assert 'state.originalPrompt' in source
+    assert 'Requisitos obrigatórios do briefing original do usuário' in source
     assert '2: 1700' in source
     assert '.reference-card .reference-check i' in styles
     assert 'height:100dvh' in styles

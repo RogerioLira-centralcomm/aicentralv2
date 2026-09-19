@@ -410,13 +410,13 @@ body.portal--studio:has(.studio-v2) > .cadu-family-footer { display:none!importa
 .studio-v2 .composer-feedback[hidden]{display:none}
 .studio-v2[data-state="review_error"] .composer-feedback{bottom:calc(50% + 76px)}
 
-.studio-v2 .creation-progress{position:relative;display:grid;grid-template-columns:48px minmax(0,1fr) auto;place-items:initial;align-items:center;gap:14px;width:min(620px,calc(100% - 48px));min-height:0;padding:22px 24px;border:0;background:transparent;text-align:left}
+.studio-v2 .creation-progress{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;place-items:initial;align-items:center;gap:14px;width:min(620px,calc(100% - 48px));min-height:0;padding:22px 24px;border:0;background:transparent;text-align:left}
 .studio-v2 .creation-progress[hidden]{display:none}
 .studio-v2 .review-loading.creation-progress::after{display:none}
 .studio-v2 .review-loading.creation-progress>.creation-progress__mark{display:grid!important;place-items:center;width:46px;height:46px;border-radius:14px;background:rgba(128,82,238,.16);color:#b893ff;font-size:20px;box-shadow:inset 0 0 0 1px rgba(166,131,255,.28)}
 .studio-v2 .review-loading.creation-progress>.creation-progress__copy{display:grid!important;gap:4px}.studio-v2 .creation-progress h2{margin:0;font-size:21px}.studio-v2 .creation-progress p{display:block!important;margin:0;color:#a9b8c6;font-size:13px}
 .studio-v2 .review-loading.creation-progress>.creation-progress__meta{display:grid!important;justify-items:end;gap:4px;color:#8293a2;font-size:11px}.studio-v2 .creation-progress__meta span:last-child{color:#d5c6ff;font-weight:700}
-.studio-v2 .review-loading.creation-progress>.creation-progress__track{display:block!important;grid-column:1/-1;height:3px;overflow:hidden;border-radius:999px;background:#24333f}.studio-v2 .creation-progress__track span{display:block;width:100%;height:100%;transform-origin:left;background:linear-gradient(90deg,#7650e8,#a17aff);animation:directionCountdown 5s linear forwards}
+.studio-v2 .review-loading.creation-progress>.creation-progress__track{display:block!important;grid-column:1/-1;height:3px;overflow:hidden;border-radius:999px;background:#24333f}.studio-v2 .creation-progress__track span{display:block;width:100%;height:100%;transform-origin:left;background:linear-gradient(90deg,#7650e8,#a17aff);animation:directionCountdown 7s linear forwards}
 @keyframes directionCountdown{to{transform:scaleX(0)}}
 .studio-v2 .creation-progress.is-waiting .creation-progress__track span,
 .studio-v2[data-state="generating"] .creation-progress__track span{width:42%;transform:none;animation:generationSweep 1.7s ease-in-out infinite}
@@ -492,3 +492,9 @@ body.portal--studio:has(.studio-v2) > .cadu-family-footer { display:none!importa
   .studio-v2 .reference-preview-frame{display:flex;min-height:calc(100dvh - 170px);align-items:flex-start;justify-content:center}
   .studio-v2 .reference-preview-frame img{width:100%;height:auto;max-height:none;border-radius:6px;box-shadow:none}
 }
+.studio-v2 .library-content{margin-top:14px;padding-top:12px;border-top:1px solid rgba(133,162,188,.16)}
+.studio-v2 .library-content[hidden]{display:none!important}
+.studio-v2 .library-content .reference-grid{max-height:310px;overflow:auto}
+.studio-v2 #libraryItem.is-expanded>i:last-child{transform:rotate(90deg)}
+.studio-v2 .studio-rail.is-references-collapsed .library-content{display:none!important}
+.studio-v2 #backToDirection,.studio-v2 .result-discard{display:none!important}

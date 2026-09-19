@@ -5,6 +5,7 @@ import calendar
 from datetime import date, datetime, timedelta, timezone
 from html import escape
 from io import BytesIO
+from hashlib import sha256
 import json
 import re
 import threading
@@ -1521,12 +1522,20 @@ def _persist_project_source(client_id: int, project_id: str, title: str, content
             cursor.execute(
                 """INSERT INTO cadu_ci_projeto_arquivos
                        (projeto_id, id_cliente, criado_por, nome_arquivo, mime, tamanho,
-                        storage_path, extracted_text, doc_form, indexing_status, word_count, tokens, created_at, updated_at)
+                        storage_path, extracted_text, doc_form, indexing_status, word_count, tokens,
+                        purpose, category, classification_status, classification_confidence,
+                        classification_reason, classification_metadata, created_at, updated_at)
                     VALUES (%s, %s, %s, %s, %s, %s, %s,
-                            %s, 'text_model', 'completed', %s, %s, NOW(), NOW())
+                            %s, 'text_model', 'completed', %s, %s,
+                            'knowledge_source', 'other', 'needs_review', 0.25,
+                            'Aguardando classificação contextual.', %s::jsonb,
+                            NOW(), NOW())
                  RETURNING id""",
                 (project_id, client_id, user_id if user_id is not None else session.get('user_id'), title, mime, size,
-                 storage_path, content, word_count, charged_tokens),
+                 storage_path, content, word_count, charged_tokens, json.dumps({
+                     'classifier': 'workspace-v1', 'content_inspected': True,
+                     'sha256': sha256(content.encode('utf-8')).hexdigest(),
+                 })),
             )
             file_id = cursor.fetchone()['id']
             for chunk in source_chunks:
@@ -1569,9 +1578,13 @@ def _queue_project_url_source(client_id: int, project_id: str, user_id: int, url
             cursor.execute(
                 """INSERT INTO cadu_ci_projeto_arquivos
                        (projeto_id, id_cliente, criado_por, nome_arquivo, mime, tamanho,
-                        storage_path, doc_form, indexing_status, word_count, tokens, created_at, updated_at)
+                        storage_path, doc_form, indexing_status, word_count, tokens,
+                        purpose, category, classification_status, classification_confidence,
+                        classification_reason, classification_metadata, created_at, updated_at)
                     VALUES (%s, %s, %s, %s, 'text/uri-list', 0, %s,
-                            'text_model', 'queued', 0, 0, NOW(), NOW())
+                            'text_model', 'queued', 0, 0, 'knowledge_source', 'research',
+                            'classified', 0.70, 'Página pública importada como referência de pesquisa.',
+                            '{"classifier":"workspace-v1","content_inspected":false}'::jsonb, NOW(), NOW())
                  RETURNING id""",
                 (project_id, client_id, user_id, title, f'workspace-url:{url}'),
             )
@@ -1782,6 +1795,16 @@ def _workspace_project(client_id: int, project_id: str) -> Optional[dict]:
     }
     project['context_health'] = _project_context_health(project)
     project['activity'] = _project_recent_activity(project)
+    try:
+        from .project_resource_service import list_resources
+        registry = list_resources(client_id, f'ci:{project_id}', actor_id=session.get('user_id'))
+        project['resources'] = registry.get('resources') or []
+        project['resource_summary'] = registry.get('summary') or {}
+        project['resource_registry_available'] = registry.get('available', True)
+    except Exception:
+        current_app.logger.exception('Não foi possível reconciliar os recursos do projeto %s', project_id)
+        project['resources'], project['resource_summary'] = [], {}
+        project['resource_registry_available'] = False
     return project
 
 

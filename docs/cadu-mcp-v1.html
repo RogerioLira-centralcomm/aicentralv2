@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Cadu MCP — documentação v1</title>
+  <title>Cadu Agent Architecture e MCP — documentação técnica</title>
   <style>
     :root{color-scheme:dark;--ink:#f3f6f5;--muted:#aab6b3;--base:#101514;--panel:#161d1c;--line:#2b3936;--mint:#8ee0cb;--mint-dark:#173d34;--amber:#f0c674;--danger:#ff9b91;--code:#0b0f0e}
     *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--base);color:var(--ink);font:15px/1.65 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -12,7 +12,7 @@
     aside{position:sticky;top:32px;align-self:start;height:calc(100vh - 64px);border-right:1px solid var(--line);padding-right:28px}.brand{font-size:19px;font-weight:760;letter-spacing:-.02em}.version{display:inline-block;margin:14px 0 24px;padding:4px 9px;border:1px solid #3a5d54;border-radius:999px;color:var(--mint);font-size:12px}.nav a{display:block;padding:7px 0;color:var(--muted)}.nav a:hover{color:var(--ink)}
     main{min-width:0;padding-bottom:100px}.hero{padding:52px 0 44px;border-bottom:1px solid var(--line)}h1{max-width:760px;margin:0;font-size:clamp(42px,7vw,76px);line-height:.98;letter-spacing:-.065em}.lead{max-width:660px;margin:26px 0 0;color:#c7d0ce;font-size:19px;line-height:1.55}
     section{padding:46px 0;border-bottom:1px solid var(--line)}h2{margin:0 0 18px;font-size:30px;letter-spacing:-.035em}h3{margin:30px 0 10px;font-size:19px}p{max-width:74ch;color:#c7d0ce}.flow{display:grid;grid-template-columns:repeat(4,1fr);margin:26px 0;border:1px solid var(--line)}.flow div{padding:20px;border-right:1px solid var(--line)}.flow div:last-child{border:0}.flow b{display:block;color:var(--mint);font-size:13px}.flow span{display:block;margin-top:6px}
-    table{width:100%;border-collapse:collapse;margin:22px 0}th,td{padding:13px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{color:var(--muted);font-size:12px;font-weight:650}td:first-child{color:var(--mint);font-weight:650}code,pre{font-family:"SFMono-Regular",Consolas,monospace}code{color:#b8eddf}pre{overflow:auto;margin:18px 0;padding:20px;background:var(--code);border:1px solid var(--line);border-radius:8px;color:#dce5e2;line-height:1.55}.note{margin:22px 0;padding:16px 18px;border-left:3px solid var(--amber);background:#211e16;color:#e9ddc5}.ok{border-color:var(--mint);background:var(--mint-dark)}.tag{display:inline-block;padding:2px 7px;border:1px solid var(--line);border-radius:4px;color:var(--muted);font-size:12px}.two{display:grid;grid-template-columns:1fr 1fr;gap:22px}.decision{padding:20px;border:1px solid var(--line);background:var(--panel)}.decision h3{margin-top:0}.footer{padding-top:34px;color:var(--muted);font-size:13px}
+    table{width:100%;border-collapse:collapse;margin:22px 0}th,td{padding:13px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{color:var(--muted);font-size:12px;font-weight:650}td:first-child{color:var(--mint);font-weight:650}code,pre{font-family:"SFMono-Regular",Consolas,monospace}code{color:#b8eddf}pre{overflow:auto;margin:18px 0;padding:20px;background:var(--code);border:1px solid var(--line);border-radius:8px;color:#dce5e2;line-height:1.55}.note{margin:22px 0;padding:16px 18px;border-left:3px solid var(--amber);background:#211e16;color:#e9ddc5}.ok{border-color:var(--mint);background:var(--mint-dark)}.tag{display:inline-block;padding:2px 7px;border:1px solid var(--line);border-radius:4px;color:var(--muted);font-size:12px}.status{display:inline-block;white-space:nowrap;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:750}.status.done{color:#b8eddf;background:#173d34}.status.partial{color:#f4d89f;background:#3b301b}.status.todo{color:#ffc1bb;background:#422522}.two{display:grid;grid-template-columns:1fr 1fr;gap:22px}.decision{padding:20px;border:1px solid var(--line);background:var(--panel)}.decision h3{margin-top:0}.footer{padding-top:34px;color:var(--muted);font-size:13px}
     @media(max-width:820px){.shell{display:block;padding:20px}aside{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:0 0 18px}.nav{display:none}.hero{padding-top:38px}.flow,.two{grid-template-columns:1fr}.flow div{border-right:0;border-bottom:1px solid var(--line)}.flow div:last-child{border-bottom:0}table{display:block;overflow-x:auto}}
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
   </style>
@@ -20,23 +20,91 @@
 <body>
 <div class="shell">
   <aside>
-    <div class="brand">Cadu MCP</div><span class="version">Servidor 2.0 · contrato v1</span>
+    <div class="brand">Cadu Architecture</div><span class="version">Harness V2 · MCP contrato v1</span>
     <nav class="nav" aria-label="Nesta documentação">
-      <a href="#visao">Visão geral</a><a href="#conexao">Conexão</a><a href="#ferramentas">Ferramentas</a>
-      <a href="#artefatos">Artefatos</a><a href="#fontes">Fontes de projeto</a><a href="#upload">Upload</a>
-      <a href="#seguranca">Segurança</a><a href="#studio">Studio</a><a href="#limites">Limites da v1</a>
+      <a href="#visao">Visão geral</a><a href="#arquitetura">Arquitetura</a><a href="#recursos">Recursos do projeto</a>
+      <a href="#modos">Modos e Dify</a><a href="#observabilidade">Observabilidade</a><a href="#estado">Estado real</a>
+      <a href="#conexao">Conexão MCP</a><a href="#ferramentas">Ferramentas</a><a href="#artefatos">Artefatos</a>
+      <a href="#fontes">Fontes de projeto</a><a href="#upload">Upload</a><a href="#seguranca">Segurança</a>
+      <a href="#studio">Studio</a><a href="#limites">Próximas entregas</a>
     </nav>
   </aside>
   <main>
     <header class="hero" id="visao">
-      <h1>O workspace do Cadu, acessível por agentes.</h1>
-      <p class="lead">Um servidor MCP único para consultar projetos, produzir artefatos versionados e anexar fontes sem entregar ao agente acesso direto ao banco ou às regras internas do produto.</p>
+      <h1>O Cadu organiza trabalho, contexto e agentes.</h1>
+      <p class="lead">Uma arquitetura operacional para conversar, criar, pesquisar e manter projetos vivos. O Harness governa a execução; o MCP expõe capacidades seguras; o CentralX preserva contexto, recursos, permissões e observabilidade.</p>
     </header>
 
-    <section>
-      <h2>Como uma ação percorre o sistema</h2>
-      <div class="flow"><div><b>Agente</b><span>Declara a intenção</span></div><div><b>MCP</b><span>Valida contrato e escopo</span></div><div><b>Serviço Python</b><span>Aplica regras e créditos</span></div><div><b>Projeto</b><span>Persiste e versiona</span></div></div>
-      <p>O MCP é um adaptador. As regras de tenant, projeto, versões, arquivos e cobrança permanecem nos serviços Python compartilhados pelo chat e pelo frontend.</p>
+    <section id="arquitetura">
+      <h2>Harness é o cérebro operacional. MCP é a fronteira.</h2>
+      <div class="flow"><div><b>Cadu UI</b><span>Pedido e objeto ativo</span></div><div><b>Harness</b><span>Rota, contexto, plano e budget</span></div><div><b>Tool Layer</b><span>Native tools, skills e MCP</span></div><div><b>CentralX</b><span>Persiste, versiona e observa</span></div></div>
+      <p>O MCP não decide como o Cadu pensa. Ele padroniza o acesso a dados e capacidades. O Harness controla Conversation, Turn, contexto, seleção de ferramentas, execução, artifacts, permissões, eventos e políticas de resposta.</p>
+      <pre>Cadu UI
+   ↓
+Cadu Harness
+   ├── Conversation / Turn Manager
+   ├── Context Resolver + Router + Task Planner
+   ├── Model Runtime (Dify como adaptador atual)
+   ├── Tool / Artifact / Version Manager
+   ├── Event Streaming + Permission Layer
+   └── Observability
+            ↓
+        Native Tools · Skills · Cadu MCP</pre>
+      <div class="note ok">Dify não é a fonte canônica de histórico, autorização, custo ou artifacts. Essas responsabilidades pertencem ao CentralX.</div>
+    </section>
+
+    <section id="recursos">
+      <h2>Projeto é um agregado transversal, não uma pasta</h2>
+      <p>Uploads, PDFs, imagens geradas, vídeos, briefings, planos, relatórios, links e artifacts entram em um registro contextual único. O objetivo é organizar a informação como um sistema de arquivos inteligente: cada movimentação reconcilia identidade, classificação, relações, versões e índice.</p>
+      <div class="two">
+        <article class="decision"><h3>Resource Registry</h3><p>Registra origem, projeto, marca, tipo, finalidade, versão, hash, permissões e relações com outras entregas do Cadu.</p></article>
+        <article class="decision"><h3>Context Graph</h3><p>Conecta fontes, decisões, planos, criativos e resultados para que a resposta recupere uma linha concreta de contexto, não arquivos isolados.</p></article>
+      </div>
+      <h3>Rotina após criar, mover, substituir ou arquivar</h3>
+      <pre>evento → autorização → hash/deduplicação → classificação → metadados
+       → relações contextuais → versão → índice autorizado → observabilidade</pre>
+      <p>A organização pode ser automática; o consentimento para usar conteúdo como conhecimento não. Um classificador sugere categoria, mas nunca promove sozinho um anexo para fonte indexada.</p>
+    </section>
+
+    <section id="modos">
+      <h2>Três modos de execução, não três agentes desconectados</h2>
+      <table><thead><tr><th>Modo</th><th>Finalidade</th><th>Execução</th><th>Estado</th></tr></thead><tbody>
+        <tr><td><code>fast</code></td><td>Resposta curta, ajuste e síntese simples</td><td>Contexto mínimo, 0–1 tool e uma chamada de modelo</td><td><span class="status partial">Parcial</span></td></tr>
+        <tr><td><code>analysis</code></td><td>Diagnóstico, comparação e recomendação</td><td>Contexto seletivo, evidências e tools de domínio</td><td><span class="status partial">Parcial</span></td></tr>
+        <tr><td><code>agentic</code></td><td>Trabalho com várias etapas e artifacts</td><td>Plano persistido, checkpoints, ações, retomada e budget explícito</td><td><span class="status todo">Pendente</span></td></tr>
+      </tbody></table>
+      <p>Hoje o legado possui as profundidades <code>focus</code>, <code>analysis</code> e <code>deep</code>, enviadas como diretivas ao mesmo agente. O runtime V2 usa uma aplicação Dify própria e recebe tarefa, contexto e contrato de saída, mas ainda não implementa formalmente os três modos acima.</p>
+      <div class="note">Não existem três agentes Dify separados confirmados pelo código. A direção recomendada é um app curto para <code>fast</code>/<code>analysis</code> e execução <code>agentic</code> governada e persistida pelo Harness no CentralX.</div>
+    </section>
+
+    <section id="observabilidade">
+      <h2>Observabilidade é um produto interno do CentralX</h2>
+      <p>Cada Turn precisa ser explicável sem depender do painel do provider. O CentralX deve registrar a sequência completa da execução e oferecer visão operacional por cliente, projeto, rota, capability, modelo e período.</p>
+      <table><thead><tr><th>Dimensão</th><th>O que registrar</th><th>Estado</th></tr></thead><tbody>
+        <tr><td>Turn</td><td>rota, modo, política, estado terminal e objeto ativo</td><td><span class="status partial">Parcial</span></td></tr>
+        <tr><td>Latência</td><td>admissão, primeiro evento, Dify, tools, persistência e duração total</td><td><span class="status todo">Pendente</span></td></tr>
+        <tr><td>Consumo</td><td>tokens, créditos, custo por provider, etapa e Turn</td><td><span class="status partial">Parcial</span></td></tr>
+        <tr><td>Tools</td><td>entrada redigida, duração, resultado, erro e retry</td><td><span class="status partial">Parcial</span></td></tr>
+        <tr><td>Qualidade</td><td>fontes usadas, confiança, perguntas, artifacts e feedback</td><td><span class="status todo">Pendente</span></td></tr>
+        <tr><td>Operação</td><td>painel, filtros, alertas, falhas, cancelamentos e reconciliação</td><td><span class="status todo">Pendente</span></td></tr>
+      </tbody></table>
+      <p>O schema já possui runs V2, tool calls, tokens, rota, contexto e campos de duração. Ainda faltam instrumentação consistente, journal de eventos, cálculo consolidado de custo e a interface de observabilidade no CentralX.</p>
+    </section>
+
+    <section id="estado">
+      <h2>Estado real da implementação</h2>
+      <table><thead><tr><th>Componente</th><th>Estado</th><th>Observação</th></tr></thead><tbody>
+        <tr><td>RequestContext, Router e policies</td><td><span class="status done">Implementado</span></td><td>Regras iniciais e determinísticas.</td></tr>
+        <tr><td>Context Resolver e Task Planner</td><td><span class="status partial">Parcial</span></td><td>Contexto seletivo e plano simples; budgets ainda não governam todas as etapas.</td></tr>
+        <tr><td>Runtime Dify V2</td><td><span class="status done">Implementado</span></td><td>Aplicação separada do legado, streaming e cancelamento.</td></tr>
+        <tr><td>MCP interno modular</td><td><span class="status done">Implementado</span></td><td>Workspace, artifacts, fontes, marcas, Planner e Reports em diferentes níveis.</td></tr>
+        <tr><td>Artifacts e versões</td><td><span class="status done">Implementado</span></td><td>Rascunho, concorrência otimista e histórico.</td></tr>
+        <tr><td>Classificação de arquivos</td><td><span class="status done">Implementado</span></td><td>Finalidade separada da categoria; migration necessária no ambiente.</td></tr>
+        <tr><td>Resource Registry transversal</td><td><span class="status partial">Parcial</span></td><td>Registro canônico, reconciliação, eventos e adaptadores iniciais implementados; relações semânticas e processamento assíncrono ainda faltam.</td></tr>
+        <tr><td>Studio via MCP</td><td><span class="status todo">Pendente</span></td><td>Aguardar contratos, custos e persistência estabilizados.</td></tr>
+        <tr><td>Modo agentic durável</td><td><span class="status todo">Pendente</span></td><td>Exige journal, checkpoints, retomada e reconciliação.</td></tr>
+        <tr><td>OAuth para agentes externos</td><td><span class="status todo">Pendente</span></td><td>Hoje há delegação curta iniciada dentro do Cadu.</td></tr>
+      </tbody></table>
     </section>
 
     <section id="conexao">
@@ -73,6 +141,7 @@ Content-Type: application/json
         <tr><td>Workspace</td><td><code>workspace.get_project_context</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
         <tr><td>Workspace</td><td><code>workspace.search_project_content</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
         <tr><td>Projetos</td><td><code>projects.list_sources</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
+        <tr><td>Projetos</td><td><code>projects.list_resources</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
         <tr><td>Projetos</td><td><code>projects.prepare_source_upload</code></td><td><span class="tag">draft</span></td><td>Interno e cliente</td></tr>
         <tr><td>Artefatos</td><td><code>artifacts.list</code>, <code>artifacts.get</code>, <code>artifacts.list_versions</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
         <tr><td>Artefatos</td><td><code>artifacts.create_draft</code>, <code>artifacts.update_draft</code></td><td><span class="tag">draft</span></td><td>Interno e cliente</td></tr>
@@ -167,16 +236,19 @@ studio.jobs.get           studio.assets.attach_to_project</pre>
     </section>
 
     <section id="limites">
-      <h2>Limites conhecidos da v1</h2>
-      <ul>
-        <li>OAuth para aplicativos externos ainda não está disponível.</li>
-        <li><code>resources/list</code> e <code>resources/read</code> ainda serão adicionados.</li>
-        <li>Upload de imagem como conhecimento visual/OCR ainda não está habilitado.</li>
-        <li>Publicação de artefatos e alterações do Planner permanecem internas.</li>
-        <li>Idempotência durável para mutações será adicionada antes da abertura pública.</li>
-      </ul>
+      <h2>Próximas entregas, na ordem correta</h2>
+      <ol>
+        <li><strong>Observabilidade CentralX:</strong> instrumentar latência, tools, tokens, custo e estado terminal; depois criar a timeline e o painel operacional.</li>
+        <li><strong>ExecutionMode:</strong> formalizar <code>fast</code>, <code>analysis</code> e <code>agentic</code> no contrato, router, budgets, persistência e UI.</li>
+        <li><strong>Journal do Turn:</strong> persistir eventos e Items ordenados para retomada sem redisparar o provider.</li>
+        <li><strong>Project Resource Registry:</strong> ampliar os adaptadores iniciais, registrar relações semânticas e mover a reconciliação para processamento assíncrono por eventos.</li>
+        <li><strong>Organização contínua:</strong> processar eventos de criação, movimentação, substituição, vínculo e arquivamento com deduplicação e reindexação autorizada.</li>
+        <li><strong>Agentic durável:</strong> executar planos com checkpoints, confirmações, cancelamento e reconciliação de cobrança.</li>
+        <li><strong>Abertura externa:</strong> adicionar OAuth, revogação por aplicativo, idempotência integral, rate limits e recursos MCP.</li>
+      </ol>
+      <div class="note">OCR e conhecimento visual, publicação externa de artifacts e Studio via MCP continuam bloqueados até terem consentimento, preço, armazenamento, retenção e política de reembolso definidos.</div>
     </section>
-    <footer class="footer">Cadu MCP · documentação técnica da versão inicial · atualizada em 19 de setembro de 2026</footer>
+    <footer class="footer">Cadu Agent Architecture · Harness, MCP e orquestração · estado técnico em 19 de setembro de 2026</footer>
   </main>
 </div>
 </body>

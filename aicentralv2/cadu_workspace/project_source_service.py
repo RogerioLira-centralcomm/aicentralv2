@@ -3,6 +3,7 @@
 from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
+from hashlib import sha256
 import json
 import re
 from typing import Optional
@@ -175,7 +176,8 @@ def save_upload(context: RequestContext, token: str, file_storage) -> dict:
                  "completed" if use_as_knowledge else "paused",
                  len(re.findall(r"\b\w+\b", extracted_text or "", flags=re.UNICODE)), charged_tokens,
                  purpose, classification["category"], classification["status"], classification["confidence"],
-                 classification["reason"], Json({"classifier": "deterministic-v1", "content_inspected": use_as_knowledge})))
+                 classification["reason"], Json({"classifier": "deterministic-v1", "content_inspected": use_as_knowledge,
+                                                  "sha256": sha256(source["data"]).hexdigest()})))
             source_id = int(cur.fetchone()["id"])
             for chunk in chunks:
                 cur.execute("""INSERT INTO cadu_ci_chunks

@@ -93,7 +93,7 @@ def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
     )}
     assert {
         "artifacts.list", "artifacts.get", "artifacts.create_draft", "artifacts.update_draft",
-        "artifacts.list_versions", "projects.list_sources", "projects.prepare_source_upload",
+        "artifacts.list_versions", "projects.list_sources", "projects.list_resources", "projects.prepare_source_upload",
         "brands.list", "brands.create", "brands.prepare_logo_upload", "brands.start_audit",
         "brands.audit_status",
     } <= names

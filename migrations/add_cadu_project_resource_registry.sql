@@ -1,0 +1,48 @@
+CREATE TABLE IF NOT EXISTS cadu_project_resources (
+    id UUID PRIMARY KEY,
+    organization_id BIGINT NOT NULL,
+    client_id BIGINT NOT NULL,
+    project_ref TEXT NOT NULL,
+    source_system VARCHAR(40) NOT NULL,
+    source_id TEXT NOT NULL,
+    resource_type VARCHAR(40) NOT NULL,
+    title TEXT NOT NULL,
+    mime_type VARCHAR(160),
+    purpose VARCHAR(40) NOT NULL DEFAULT 'project_resource',
+    category VARCHAR(40) NOT NULL DEFAULT 'other',
+    status VARCHAR(32) NOT NULL DEFAULT 'active',
+    version INTEGER NOT NULL DEFAULT 1,
+    content_hash CHAR(64),
+    locator TEXT,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_by BIGINT,
+    source_created_at TIMESTAMPTZ,
+    source_updated_at TIMESTAMPTZ,
+    first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (client_id, project_ref, source_system, source_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cadu_project_resources_project
+    ON cadu_project_resources (client_id, project_ref, category, last_seen_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cadu_project_resources_purpose
+    ON cadu_project_resources (client_id, project_ref, purpose, status);
+CREATE INDEX IF NOT EXISTS idx_cadu_project_resources_hash
+    ON cadu_project_resources (client_id, content_hash) WHERE content_hash IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS cadu_project_resource_events (
+    id BIGSERIAL PRIMARY KEY,
+    resource_id UUID NOT NULL REFERENCES cadu_project_resources(id) ON DELETE CASCADE,
+    client_id BIGINT NOT NULL,
+    project_ref TEXT NOT NULL,
+    event_type VARCHAR(40) NOT NULL,
+    fingerprint CHAR(64) NOT NULL,
+    actor_id BIGINT,
+    details JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (resource_id, event_type, fingerprint)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cadu_project_resource_events_project
+    ON cadu_project_resource_events (client_id, project_ref, created_at DESC);
+

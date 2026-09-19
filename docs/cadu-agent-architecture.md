@@ -560,6 +560,7 @@ Não carregar quando:
 | MCP/registry | Implementado | `mcp/registry.py`, `mcp/routes.py` |
 | Workspace/Planner/Reports tools | Parcial | `mcp/tools/` |
 | Fontes de projeto | Implementado | `project_source_service.py` |
+| Resource Registry do projeto | Parcial | `project_resource_service.py`, Workspace e `projects.list_resources` |
 | Marcas/logo/auditoria | Implementado | `brand_mcp_service.py`, `mcp/tools/brands.py` |
 | Studio tools estáveis | Pendente | Publicar após contratos do Studio |
 | Turn Items genéricos | Parcial | Hoje mensagens, runs, tool calls e artifacts estão separados |

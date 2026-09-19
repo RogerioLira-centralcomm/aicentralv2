@@ -4,6 +4,7 @@ from werkzeug.exceptions import HTTPException
 
 from ...agent_v2.contracts import RequestContext
 from ... import project_source_service
+from ... import project_resource_service
 from ..registry import ToolInputError, register_tool
 
 
@@ -26,6 +27,16 @@ def list_sources(context: RequestContext, arguments: dict) -> dict:
     return {"sources": _domain(lambda: project_source_service.list_sources(
         context, limit=arguments.get("limit", 50),
     ))}
+
+
+@register_tool(
+    name="projects.list_resources", capability="workspace", effect="read", requires_project=True,
+    description="Organiza e lista arquivos, artifacts, planos, relatórios, imagens, vídeos e links do projeto.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "properties": {}, "additionalProperties": False},
+)
+def list_project_resources(context: RequestContext, arguments: dict) -> dict:
+    return _domain(lambda: project_resource_service.list_for_context(context))
 
 
 @register_tool(

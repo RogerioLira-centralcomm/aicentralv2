@@ -17,7 +17,7 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
     task = {
         "domain": route.domain, "action": route.action, "complexity": route.complexity,
         "response_mode": route.response_mode, "execution_mode": execution_mode,
-        "artifact_type": route.artifact_type,
+        "artifact_type": route.artifact_type, "requires_confirmation": route.requires_confirmation,
     }
     inputs = {
         "core": CORE,

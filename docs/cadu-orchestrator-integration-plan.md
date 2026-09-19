@@ -1,12 +1,12 @@
 # Cadu Orchestrator — mapa de evolução e integrações
 
-Status: arquitetura refinada em execução. A Fase 1 foi iniciada com Provider Registry, três configurações Dify, seleção por `ExecutionMode` e sessão de provider separada por Conversation/runtime. Prompts, schemas finais de cada domínio e publicação de tools mutáveis continuam deliberadamente abertos.
+Status: arquitetura refinada em execução. Provider Registry, três configurações Dify, seleção por `ExecutionMode` e sessão de provider separada por Conversation/runtime estão implementados. O Link Tester inaugura a execução controlada após confirmação; configuração dos três apps no Dify, schemas finais dos demais domínios e publicação de novas tools mutáveis continuam abertos.
 
 ## 1. Estado atual
 
 - O Harness V2 já resolve contexto, rota, modo, budgets, tools, artifacts, journal, checkpoints e observabilidade.
-- Existe uma única configuração Dify V2: `CADU_CONVERSATIONS_V2_DIFY_URL` e `CADU_CONVERSATIONS_V2_DIFY_KEY`.
-- `fast`, `analysis` e `agentic` existem como modos do Harness, mas ainda chegam ao mesmo runtime Dify.
+- Existem configurações independentes para Fast, Analyst e Operator, com fallback temporário para `CADU_CONVERSATIONS_V2_DIFY_URL` e `CADU_CONVERSATIONS_V2_DIFY_KEY`.
+- `fast`, `analysis` e `agentic` selecionam runtimes e sessões diferentes; os três apps correspondentes ainda precisam ser configurados no Dify real.
 - O MCP interno já expõe Workspace, projetos, arquivos, artifacts, marcas, Planner e Reports em diferentes níveis.
 - Planner, Studio, Creative Analyzer e Reports possuem APIs e regras próprias que não devem ser duplicadas dentro dos agentes.
 
@@ -346,7 +346,8 @@ Aceite: o Analyst responde com IDs e versões verificáveis e não carrega catá
 
 - implementar `planner.link_test` como operação idempotente; **base entregue**;
 - exigir confirmação, registrar operação, ocultar credenciais públicas e permitir retomada após execução abandonada; **entregue**;
-- adicionar action proposal, estimate, receipt como Item do Turn e cancelamento cooperativo;
+- emitir action proposal e receipt como Items do Turn e executar a tool selada após confirmação; **entregue para Link Tester**;
+- adicionar estimate e cancelamento cooperativo;
 - testar timeout, cancelamento, retry e callback duplicado.
 
 Aceite: repetir requisição ou reconectar não repete teste nem cobrança; resultado entra no projeto como recurso relacionado.

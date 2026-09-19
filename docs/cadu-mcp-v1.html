@@ -104,7 +104,7 @@ Cadu Harness
         <tr><td>ExecutionMode</td><td><span class="status done">Implementado</span></td><td>Contrato, roteamento, budgets, persistência e interface para fast, analysis e agentic.</td></tr>
         <tr><td>Journal e observabilidade</td><td><span class="status done">Implementado</span></td><td>Eventos ordenados, etapas, métricas operacionais, endpoint de retomada e painel administrativo.</td></tr>
         <tr><td>Studio via MCP</td><td><span class="status todo">Pendente</span></td><td>Aguardar contratos, custos e persistência estabilizados.</td></tr>
-        <tr><td>Modo agentic durável</td><td><span class="status partial">Fundação</span></td><td>Plano, etapas, checkpoints, cancelamento, leitura de estado e decisões humanas persistidos; falta executar automaticamente ações aprovadas.</td></tr>
+        <tr><td>Modo agentic durável</td><td><span class="status partial">Primeira ação</span></td><td>Plano, etapas, checkpoints, cancelamento e retomada persistidos; o Link Tester já emite proposta, executa após confirmação e grava receipt. Falta generalizar o executor para os demais domínios.</td></tr>
         <tr><td>OAuth para agentes externos</td><td><span class="status todo">Pendente</span></td><td>Hoje há delegação curta iniciada dentro do Cadu.</td></tr>
       </tbody></table>
     </section>
@@ -297,7 +297,7 @@ studio.assets.attach_to_project</pre>
     <section id="limites">
       <h2>Próximos endurecimentos, na ordem correta</h2>
       <ol>
-        <li><strong>Agentic executor:</strong> executar automaticamente ações aprovadas a partir do último checkpoint, com adapters idempotentes por domínio.</li>
+        <li><strong>Agentic executor:</strong> ampliar para outros domínios o fluxo já ativo no Link Tester: proposta selada, confirmação, execução idempotente e receipt.</li>
         <li><strong>Adapters de eventos:</strong> ampliar hooks de movimentação, substituição, vínculo e arquivamento para Planner, Studio e Reports.</li>
         <li><strong>Context Graph semântico:</strong> enriquecer as relações determinísticas atuais com proveniência, decisões e derivações entre versões.</li>
         <li><strong>Observabilidade avançada:</strong> adicionar métricas de qualidade, feedback, custo real por provider e filtros exportáveis; os alertas operacionais iniciais já estão ativos.</li>

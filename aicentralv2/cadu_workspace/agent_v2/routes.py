@@ -15,6 +15,8 @@ from ..mcp.authorization import MAX_AGE_SECONDS, issue
 from ..artifacts import create_draft, get_artifact, patch_artifact
 from .service import prepare as prepare_message, stream as stream_message
 from . import journal, observability
+from . import action_executor
+from ..mcp.registry import ToolError
 
 
 bp = Blueprint("cadu_agent_v2", __name__, url_prefix="/workspace/api/v2")
@@ -125,6 +127,19 @@ def run_step_decision(run_id, step_id):
     try:
         step = journal.decide_step(str(run_id), str(step_id), current.client_id, current.user_id,
                                    data["approved"], data.get("note"))
+        if data["approved"] and step.get("kind") == "action":
+            try:
+                receipt = action_executor.execute(step, current)
+                step = journal.finish_action(str(run_id), str(step_id), current.client_id, current.user_id,
+                                             receipt=receipt)
+            except ToolError as exc:
+                journal.finish_action(str(run_id), str(step_id), current.client_id, current.user_id,
+                                      error_code=exc.code)
+                abort(409, description=str(exc))
+            except Exception:
+                journal.finish_action(str(run_id), str(step_id), current.client_id, current.user_id,
+                                      error_code="action_failed")
+                raise
         return jsonify(step=step, state=journal.state(str(run_id), current.client_id, current.user_id))
     except ValueError as exc:
         abort(409, description=str(exc))

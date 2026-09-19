@@ -317,7 +317,8 @@ def test_execution_modes_are_bounded_by_route():
 
 
 def test_agentic_decision_persists_checkpoint_and_event_atomically(monkeypatch):
-    results = iter([{"id": "run"}, {"id": "step", "kind": "action", "name": "publish", "status": "completed"},
+    results = iter([{"id": "run"}, {"id": "step", "kind": "action", "name": "publish", "status": "running",
+                                     "input_snapshot": {"name": "publish"}},
                     {"sequence": 4}])
 
     class Cursor:
@@ -338,9 +339,59 @@ def test_agentic_decision_persists_checkpoint_and_event_atomically(monkeypatch):
     connection = Connection()
     monkeypatch.setattr(journal.repository, "get_db", lambda: connection)
     result = journal.decide_step("run", "step", 12, 7, True, "Aprovado")
-    assert result["status"] == "completed"
+    assert result["status"] == "running"
     assert connection.committed == 1
     assert connection.rolled_back == 0
+
+
+def test_link_test_route_creates_a_sealed_confirmation_step():
+    from aicentralv2.cadu_workspace.agent_v2.task_planner import build_task_plan
+
+    route = route_request("Teste a UTM de https://example.com/landing?utm_source=cadu")
+    plan = build_task_plan(route, budget_for(route, "agentic"),
+                           "Teste a UTM de https://example.com/landing?utm_source=cadu")
+    action = next(step for step in plan if step["kind"] == "action")
+
+    assert route.action == "link_test"
+    assert route.requires_confirmation is True
+    assert action["name"] == "planner.link_test"
+    assert action["arguments"] == {
+        "url": "https://example.com/landing?utm_source=cadu", "mode": "media",
+    }
+    assert action["requires_confirmation"] is True
+    assert len(action["request_id"]) == 36
+
+
+def test_approved_action_executes_only_the_sealed_tool_and_arguments(monkeypatch):
+    from aicentralv2.cadu_workspace.agent_v2 import action_executor
+
+    captured = {}
+
+    class Registry:
+        def execute(self, name, arguments, current, exposure):
+            captured.update(name=name, arguments=arguments, current=current, exposure=exposure)
+            return {"run_id": "link-run", "score": 88}
+
+    monkeypatch.setattr(action_executor, "load_builtin_tools", lambda: Registry())
+    current = context(capabilities=("planner",))
+    receipt = action_executor.execute({
+        "kind": "action", "status": "running", "name": "planner.link_test",
+        "input_snapshot": {
+            "kind": "action", "name": "planner.link_test",
+            "request_id": "be777b36-a973-419c-802a-886bf1d125b0",
+            "arguments": {"url": "https://example.com", "mode": "destination"},
+        },
+    }, current)
+
+    assert captured == {
+        "name": "planner.link_test",
+        "arguments": {
+            "url": "https://example.com", "mode": "destination",
+            "request_id": "be777b36-a973-419c-802a-886bf1d125b0", "confirmed": True,
+        },
+        "current": current, "exposure": "internal",
+    }
+    assert receipt["result"]["run_id"] == "link-run"
 
 
 def test_resource_worker_reclaims_stale_jobs_with_backoff(monkeypatch):
@@ -613,7 +664,9 @@ def test_cancelled_v2_stream_does_not_persist_late_provider_answer(monkeypatch):
         {"event": "message", "task_id": "task-v2", "answer": '{"answer":"resposta tardia"}'},
         {"event": "message_end", "metadata": {"usage": {"completion_tokens": 3}}},
     ]))
-    monkeypatch.setattr(v2_service.repository, "rows", lambda *_: [{"status": "cancelled"}])
+    monkeypatch.setattr(v2_service.repository, "rows", lambda sql, *_: (
+        [] if "cadu_agent_run_steps" in sql else [{"status": "cancelled"}]
+    ))
     monkeypatch.setattr(v2_service.repository, "get_db", lambda: connection)
     run = {
         "run_id": "be777b36-a973-419c-802a-886bf1d125b0",

@@ -24,6 +24,6 @@ def prepare_execution(message, request, history="", requested_mode=""):
     return {
         "route": route.to_dict(), "execution_mode": execution_mode,
         "budget": asdict(budget), "policy": policy,
-        "plan": build_task_plan(route, budget), "resolved_context": resolved,
+        "plan": build_task_plan(route, budget, message), "resolved_context": resolved,
         "provider_payload": payload,
     }

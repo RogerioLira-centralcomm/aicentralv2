@@ -32,8 +32,8 @@ def persist_plan(run_id: str, plan: list[dict], tool_calls: list[dict]) -> None:
             status = "completed" if call and call.get("status") == "completed" else "failed" if call else "pending"
             if step.get("kind") == "generate":
                 status = "running"
-            if step.get("kind") == "artifact":
-                status = "waiting_confirmation" if step.get("requires_confirmation") else "pending"
+            if step.get("requires_confirmation"):
+                status = "waiting_confirmation"
             cursor.execute("""INSERT INTO cadu_agent_run_steps
                 (id,run_id,position,kind,name,status,requires_confirmation,input_snapshot,
                  output_snapshot,error_code,started_at,finished_at)
@@ -82,16 +82,34 @@ def state(run_id: str, client_id: int, user_id: int) -> dict:
     if not runs:
         raise ValueError("Turn indisponível.")
     steps = repository.rows("""SELECT id::text,position,kind,name,status,requires_confirmation,
-                                       output_snapshot,error_code,decided_by,decided_at,decision_note
+                                       input_snapshot,output_snapshot,error_code,decided_by,decided_at,decision_note
                                   FROM cadu_agent_run_steps WHERE run_id=%s ORDER BY position""", (run_id,))
     checkpoints = repository.rows("""SELECT id::text,step_id::text,state,created_at
                                         FROM cadu_agent_checkpoints WHERE run_id=%s ORDER BY created_at""", (run_id,))
     return {"run": runs[0], "steps": steps, "checkpoints": checkpoints}
 
 
+def waiting_actions(run_id: str, client_id: int, user_id: int) -> list[dict]:
+    rows = repository.rows("""SELECT step.id::text,step.name,step.input_snapshot
+                                 FROM cadu_agent_run_steps step
+                                 JOIN cadu_family_chat_runs run ON run.id=step.run_id
+                                WHERE step.run_id=%s AND run.client_id=%s AND run.user_id=%s
+                                  AND step.kind='action' AND step.status='waiting_confirmation'
+                             ORDER BY step.position""", (run_id, client_id, user_id))
+    actions = []
+    for row in rows:
+        snapshot = row.get("input_snapshot") or {}
+        actions.append({
+            "step_id": row["id"], "name": row.get("name"),
+            "summary": snapshot.get("summary") or "Confirmar ação",
+            "effect": snapshot.get("effect") or "write",
+            "arguments": snapshot.get("arguments") or {},
+        })
+    return actions
+
+
 def decide_step(run_id: str, step_id: str, client_id: int, user_id: int, approved: bool, note="") -> dict:
     connection = repository.get_db()
-    next_status = "completed" if approved else "cancelled"
     try:
         with connection.cursor() as cursor:
             cursor.execute("""SELECT id FROM cadu_family_chat_runs
@@ -99,20 +117,26 @@ def decide_step(run_id: str, step_id: str, client_id: int, user_id: int, approve
                                 FOR UPDATE""", (run_id, client_id, user_id))
             if not cursor.fetchone():
                 raise ValueError("Turn indisponível.")
-            cursor.execute("""UPDATE cadu_agent_run_steps step SET status=%s,decided_by=%s,
-                                      decided_at=NOW(),decision_note=%s,finished_at=NOW()
+            cursor.execute("""UPDATE cadu_agent_run_steps step
+                                   SET status=CASE WHEN %s AND step.kind='action' THEN 'running'
+                                                   WHEN %s THEN 'completed' ELSE 'cancelled' END,
+                                      decided_by=%s,
+                                      decided_at=NOW(),decision_note=%s,
+                                      started_at=CASE WHEN %s AND step.kind='action' THEN NOW() ELSE step.started_at END,
+                                      finished_at=CASE WHEN %s AND step.kind='action' THEN NULL ELSE NOW() END
                                  FROM cadu_family_chat_runs run
                                 WHERE step.id=%s AND step.run_id=%s AND run.id=step.run_id
                                   AND run.client_id=%s AND run.user_id=%s
                                   AND step.requires_confirmation=true AND step.status='waiting_confirmation'
-                            RETURNING step.id::text,step.kind,step.name,step.status""",
-                           (next_status, user_id, str(note or "")[:1000], step_id, run_id, client_id, user_id))
+                            RETURNING step.id::text,step.kind,step.name,step.status,step.input_snapshot""",
+                           (approved, approved, user_id, str(note or "")[:1000], approved, approved,
+                            step_id, run_id, client_id, user_id))
             step = cursor.fetchone()
             if not step:
                 raise ValueError("Etapa indisponível ou já decidida.")
             cursor.execute("""INSERT INTO cadu_agent_checkpoints (id,run_id,step_id,state)
                                VALUES (%s,%s,%s,%s)""",
-                           (str(uuid4()), run_id, step_id, Json({"status": next_status, "approved": approved,
+                           (str(uuid4()), run_id, step_id, Json({"status": step["status"], "approved": approved,
                                                                  "note": str(note or "")[:1000]})))
             cursor.execute("SELECT COALESCE(MAX(sequence),0)+1 AS sequence FROM cadu_agent_turn_events WHERE run_id=%s",
                            (run_id,))
@@ -122,6 +146,42 @@ def decide_step(run_id: str, step_id: str, client_id: int, user_id: int, approve
                 VALUES (%s,%s,%s,'action',%s)""",
                 (run_id, sequence, "confirmation.approved" if approved else "confirmation.rejected",
                  Json({"step_id": step_id, "step": step.get("name"), "note": str(note or "")[:1000]})))
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    return dict(step)
+
+
+def finish_action(run_id: str, step_id: str, client_id: int, user_id: int, receipt=None, error_code=None) -> dict:
+    """Persist an approved action's terminal state and public receipt atomically."""
+    connection = repository.get_db()
+    status = "failed" if error_code else "completed"
+    payload = {"step_id": step_id, "status": status, "receipt": receipt or {}}
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""UPDATE cadu_agent_run_steps step
+                                  SET status=%s,output_snapshot=%s,error_code=%s,finished_at=NOW()
+                                 FROM cadu_family_chat_runs run
+                                WHERE step.id=%s AND step.run_id=%s AND run.id=step.run_id
+                                  AND run.client_id=%s AND run.user_id=%s AND step.kind='action'
+                                  AND step.status='running'
+                            RETURNING step.id::text,step.kind,step.name,step.status,step.output_snapshot,step.error_code""",
+                           (status, Json(receipt or {}), error_code, step_id, run_id, client_id, user_id))
+            step = cursor.fetchone()
+            if not step:
+                raise ValueError("Ação indisponível ou já finalizada.")
+            cursor.execute("""INSERT INTO cadu_agent_checkpoints (id,run_id,step_id,state)
+                               VALUES (%s,%s,%s,%s)""",
+                           (str(uuid4()), run_id, step_id, Json(payload)))
+            cursor.execute("SELECT COALESCE(MAX(sequence),0)+1 AS sequence FROM cadu_agent_turn_events WHERE run_id=%s",
+                           (run_id,))
+            sequence = int(cursor.fetchone()["sequence"])
+            cursor.execute("""INSERT INTO cadu_agent_turn_events
+                (run_id,sequence,event_type,item_type,payload)
+                VALUES (%s,%s,%s,%s,%s)""",
+                (run_id, sequence, "action.failed" if error_code else "action.completed",
+                 "error" if error_code else "action", Json(payload)))
         connection.commit()
     except Exception:
         connection.rollback()

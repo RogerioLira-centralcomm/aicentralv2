@@ -1,10 +1,33 @@
 """Bounded deterministic task plans; simple turns never invoke a planner LLM."""
 
+import re
+from uuid import uuid4
+
 from .contracts import ExecutionBudget, IntentRoute
 
 
-def build_task_plan(route: IntentRoute, budget: ExecutionBudget) -> list[dict]:
+def _link_test_step(message: str):
+    match = re.search(r"https?://[^\s<>\]\[\"']+|(?<!@)\b(?:www\.)?[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:/[^\s<>\]\[\"']*)?",
+                      str(message or ""), re.IGNORECASE)
+    if not match:
+        return None
+    mode = "agentic" if re.search(r"\b(ia|ai|llms?\.txt|rob[oô]s?|ag[eê]ntic)", message, re.IGNORECASE) else (
+        "media" if re.search(r"\b(m[ií]dia|utm|pixel|tag|tracking|convers[aã]o)", message, re.IGNORECASE)
+        else "destination"
+    )
+    return {
+        "kind": "action", "name": "planner.link_test", "requires_confirmation": True,
+        "request_id": str(uuid4()), "arguments": {"url": match.group(0).rstrip(".,;:)"), "mode": mode},
+        "effect": "write", "summary": "Testar o link informado e salvar o diagnóstico no Planner.",
+    }
+
+
+def build_task_plan(route: IntentRoute, budget: ExecutionBudget, message: str = "") -> list[dict]:
     steps = [{"kind": "tool", "name": name} for name in route.needs_tools[:budget.max_tool_calls]]
+    if route.action == "link_test":
+        action = _link_test_step(message)
+        if action:
+            steps.append(action)
     if route.artifact_type:
         steps.append({"kind": "artifact", "action": route.action, "type": route.artifact_type,
                       "requires_confirmation": route.requires_confirmation})

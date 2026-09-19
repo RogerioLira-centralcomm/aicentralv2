@@ -16,6 +16,9 @@ def _has(text: str, pattern: str) -> bool:
 def route_request(message: str, surface: str = "conversations", has_project: bool = False) -> IntentRoute:
     text = " ".join(str(message or "").split())[:20000]
 
+    if (_has(text, r"\b(test|teste|testar|verifi|diagn[oó]stico|audit).{0,30}\b(link|url|destino|utm|tracking)\b")
+            or _has(text, r"\b(link|url)\b.{0,30}\b(test|teste|testar|verifi|diagn[oó]stico|audit)")):
+        return IntentRoute("planner", "link_test", "medium", "decision", (), (), None, True)
     if _has(text, r"\b(cri(e|ar)|mont(e|ar)|estrutur(e|ar)|transform(e|ar)).{0,30}\bbriefing\b|\bbriefing\b.{0,20}\b(cri|mont|estrutur)"):
         return IntentRoute("planner", "create_brief", "medium", "artifact_first",
                            ("project", "brand") if has_project else (),

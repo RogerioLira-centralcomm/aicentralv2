@@ -74,7 +74,7 @@ Cadu Harness
         <tr><td><code>agentic</code></td><td>Trabalho com várias etapas e artifacts</td><td>Plano persistido, checkpoints, ações, retomada e budget explícito</td><td><span class="status partial">Fundação</span></td></tr>
       </tbody></table>
       <p>O runtime V2 formaliza os três modos no contrato, roteamento, budgets, persistência e seletor da interface. O legado continua recebendo a tradução compatível <code>focus</code>, <code>analysis</code> e <code>deep</code>. No modo <code>agentic</code>, plano, etapas e checkpoints já são persistidos; retomada automática e confirmações humanas entre etapas ainda são o próximo endurecimento.</p>
-      <div class="note">Não existem três agentes Dify separados confirmados pelo código. A direção recomendada é um app curto para <code>fast</code>/<code>analysis</code> e execução <code>agentic</code> governada e persistida pelo Harness no CentralX.</div>
+      <div class="note ok">O Provider Registry já separa <code>cadu-fast</code>, <code>cadu-analyst</code> e <code>cadu-operator</code>, com configuração e sessão Dify próprias por Conversation. Enquanto as novas credenciais não forem cadastradas, cada modo pode usar o app V2 atual como fallback controlado.</div>
     </section>
 
     <section id="observabilidade">
@@ -88,7 +88,7 @@ Cadu Harness
         <tr><td>Qualidade</td><td>fontes usadas, confiança, perguntas, artifacts e feedback</td><td><span class="status todo">Pendente</span></td></tr>
         <tr><td>Operação</td><td>painel, filtros, alertas, falhas, cancelamentos e reconciliação</td><td><span class="status partial">Parcial</span></td></tr>
       </tbody></table>
-      <p>O CentralX agora registra o journal ordenado, latência total e do provider, primeiro token, tools, tokens, créditos, custo estimado e estado terminal. A interface administrativa oferece resumo, distribuição por modo, runs recentes e timeline detalhada. Ainda faltam alertas, métricas de qualidade e reconciliação financeira precisa por provider.</p>
+      <p>O CentralX agora registra o journal ordenado, runtime selecionado, versão de configuração, latência total e do provider, primeiro token, tools, tokens, créditos, custo estimado e estado terminal. A interface administrativa oferece alertas iniciais, resumo, distribuição por modo, runs recentes e timeline detalhada. Ainda faltam métricas de qualidade e reconciliação financeira precisa por provider.</p>
     </section>
 
     <section id="estado">
@@ -96,7 +96,7 @@ Cadu Harness
       <table><thead><tr><th>Componente</th><th>Estado</th><th>Observação</th></tr></thead><tbody>
         <tr><td>RequestContext, Router e policies</td><td><span class="status done">Implementado</span></td><td>Regras iniciais e determinísticas.</td></tr>
         <tr><td>Context Resolver e Task Planner</td><td><span class="status partial">Parcial</span></td><td>Contexto seletivo e plano simples; budgets ainda não governam todas as etapas.</td></tr>
-        <tr><td>Runtime Dify V2</td><td><span class="status done">Implementado</span></td><td>Aplicação separada do legado, streaming e cancelamento.</td></tr>
+        <tr><td>Runtimes Dify V2</td><td><span class="status partial">Infraestrutura</span></td><td>Provider Registry, seleção, streaming, cancelamento e sessões separadas implementados; os três apps ainda precisam ser configurados no Dify.</td></tr>
         <tr><td>MCP interno modular</td><td><span class="status done">Implementado</span></td><td>Workspace, artifacts, fontes, marcas, Planner e Reports em diferentes níveis.</td></tr>
         <tr><td>Artifacts e versões</td><td><span class="status done">Implementado</span></td><td>Rascunho, concorrência otimista e histórico.</td></tr>
         <tr><td>Classificação de arquivos</td><td><span class="status done">Implementado</span></td><td>Finalidade separada da categoria; migration necessária no ambiente.</td></tr>
@@ -153,7 +153,7 @@ Content-Type: application/json
         <tr><td>Marcas</td><td><code>brands.list</code>, <code>brands.audit_status</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
         <tr><td>Marcas</td><td><code>brands.prepare_logo_upload</code></td><td><span class="tag">draft</span></td><td>Interno e cliente</td></tr>
         <tr><td>Marcas</td><td><code>brands.create</code>, <code>brands.start_audit</code></td><td><span class="tag">write</span></td><td>Interno e cliente, com confirmação</td></tr>
-        <tr><td>Planner</td><td><code>planner.get_brief</code>, <code>planner.get_media_plan</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
+        <tr><td>Planner</td><td><code>planner.list_plans</code>, <code>planner.search_catalog</code>, <code>planner.get_brief</code>, <code>planner.get_media_plan</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
         <tr><td>Relatórios</td><td><code>reports.list_project_reports</code>, <code>reports.get_report_metrics</code>, <code>reports.compare_report_to_plan</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
       </tbody></table>
     </section>

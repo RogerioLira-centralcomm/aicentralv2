@@ -116,6 +116,14 @@ class Config:
 	).lower() in ('true', '1', 'yes', 'on')
 	CADU_CONVERSATIONS_V2_DIFY_URL = os.getenv('CADU_CONVERSATIONS_V2_DIFY_URL', '')
 	CADU_CONVERSATIONS_V2_DIFY_KEY = os.getenv('CADU_CONVERSATIONS_V2_DIFY_KEY', '')
+	# Three isolated language runtimes. Empty mode-specific values fall back to
+	# the V2 app during rollout, so deploying code does not force a cutover.
+	CADU_DIFY_FAST_URL = os.getenv('CADU_DIFY_FAST_URL', '')
+	CADU_DIFY_FAST_KEY = os.getenv('CADU_DIFY_FAST_KEY', '')
+	CADU_DIFY_ANALYST_URL = os.getenv('CADU_DIFY_ANALYST_URL', '')
+	CADU_DIFY_ANALYST_KEY = os.getenv('CADU_DIFY_ANALYST_KEY', '')
+	CADU_DIFY_OPERATOR_URL = os.getenv('CADU_DIFY_OPERATOR_URL', '')
+	CADU_DIFY_OPERATOR_KEY = os.getenv('CADU_DIFY_OPERATOR_KEY', '')
 	# Brand discovery may run for several minutes. It is dispatched to a durable
 	# worker after its database migration; routes retain a short-lived fallback
 	# thread only when the migration is not installed yet.

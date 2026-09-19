@@ -74,7 +74,8 @@ def events(run_id: str, client_id: int, user_id: int) -> list[dict]:
 
 
 def state(run_id: str, client_id: int, user_id: int) -> dict:
-    runs = repository.rows("""SELECT id::text,status,execution_mode,route,created_at,finished_at
+    runs = repository.rows("""SELECT id::text,status,execution_mode,runtime_id,provider_config_version,
+                                      route,created_at,finished_at
                                  FROM cadu_family_chat_runs
                                 WHERE id=%s AND client_id=%s AND user_id=%s AND runtime_version='v2'""",
                            (run_id, client_id, user_id))

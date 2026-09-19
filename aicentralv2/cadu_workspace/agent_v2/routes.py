@@ -145,7 +145,7 @@ def observability_run(run_id):
 def stop_run(run_id):
     current = resolve()
     rows = repository.rows(
-        """SELECT task_id, status FROM cadu_family_chat_runs
+        """SELECT task_id, status, execution_mode FROM cadu_family_chat_runs
              WHERE id = %s AND user_id = %s AND client_id = %s AND runtime_version = 'v2'""",
         (str(run_id), current.user_id, current.client_id),
     )
@@ -156,7 +156,8 @@ def stop_run(run_id):
     if not rows[0].get("task_id"):
         abort(409, description="A geração ainda está iniciando. Tente novamente.")
     from . import provider
-    provider.stop(rows[0]["task_id"], "user-" + str(current.user_id))
+    provider.stop(rows[0]["task_id"], "user-" + str(current.user_id),
+                  rows[0].get("execution_mode") or "analysis")
     conn = repository.get_db()
     with conn.cursor() as cur:
         cur.execute("""UPDATE cadu_family_chat_runs SET status = 'cancelled', finished_at = NOW()

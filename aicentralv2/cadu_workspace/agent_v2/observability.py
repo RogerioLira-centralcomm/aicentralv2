@@ -24,6 +24,7 @@ def dashboard(client_id: int, limit=60) -> dict:
           FROM cadu_family_chat_runs WHERE client_id=%s AND runtime_version='v2'
            AND created_at >= NOW()-INTERVAL '30 days' GROUP BY execution_mode ORDER BY turns DESC""", (client_id,))
         runs = repository.rows("""SELECT run.id::text, run.conversation_id, run.status, run.execution_mode,
+             run.runtime_id, run.provider_config_version,
              run.route, run.first_token_ms, run.total_duration_ms, run.provider_duration_ms,
              run.input_tokens, run.output_tokens, run.charged_credits, run.terminal_error_code,
              run.created_at, run.finished_at,
@@ -65,7 +66,8 @@ def dashboard(client_id: int, limit=60) -> dict:
 
 
 def run_detail(client_id: int, run_id: str) -> dict:
-    rows = repository.rows("""SELECT id::text, conversation_id, user_id, status, execution_mode, route,
+    rows = repository.rows("""SELECT id::text, conversation_id, user_id, status, execution_mode,
+        runtime_id, provider_config_version, route,
         request_context, response_policy, first_token_ms, total_duration_ms, provider_duration_ms,
         input_tokens, output_tokens, charged_credits, terminal_error_code, created_at, finished_at
         FROM cadu_family_chat_runs WHERE id=%s AND client_id=%s AND runtime_version='v2'""", (run_id, client_id))

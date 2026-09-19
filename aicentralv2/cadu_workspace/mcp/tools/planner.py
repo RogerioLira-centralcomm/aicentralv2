@@ -1,8 +1,43 @@
-"""Read-only Planner tools for the first MCP rollout."""
+"""Read-only Planner tools backed by the product's canonical services."""
 
-from ....cadu_planner import plans
+from werkzeug.exceptions import HTTPException
+
+from ....cadu_planner import catalog, plans
 from ...agent_v2.contracts import RequestContext
 from ..registry import ToolInputError, register_tool
+
+
+@register_tool(
+    name="planner.list_plans", capability="planner", effect="read",
+    description="Lista os planos de mídia que o usuário pode abrir no cliente selecionado.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "properties": {
+        "limit": {"type": "integer", "minimum": 1, "maximum": 50},
+    }, "additionalProperties": False},
+)
+def list_plans(context: RequestContext, arguments: dict) -> dict:
+    limit = int(arguments.get("limit") or 20)
+    records = plans.list_plans(context.client_id, context.user_id)[:limit]
+    fields = ("id", "title", "objective", "status", "campaign_name", "updated_at", "readiness")
+    return {"plans": [{key: row.get(key) for key in fields} for row in records]}
+
+
+@register_tool(
+    name="planner.search_catalog", capability="planner", effect="read",
+    description="Pesquisa audiências, canais, formatos ou formatos interativos do Planner.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "required": ["kind"], "properties": {
+        "kind": {"type": "string", "enum": sorted(catalog.KINDS)},
+        "query": {"type": "string", "maxLength": 100},
+        "limit": {"type": "integer", "minimum": 1, "maximum": 30},
+    }, "additionalProperties": False},
+)
+def search_catalog(context: RequestContext, arguments: dict) -> dict:
+    try:
+        records = catalog.query(arguments["kind"], arguments.get("query", ""), arguments.get("limit", 20))
+    except HTTPException as exc:
+        raise ToolInputError(str(exc.description)) from exc
+    return {"kind": arguments["kind"], "records": records}
 
 
 @register_tool(

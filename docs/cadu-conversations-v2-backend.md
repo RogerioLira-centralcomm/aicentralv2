@@ -12,13 +12,27 @@ credenciais, tenant, ferramentas ou IDs de autorização.
 5. O normalizador limita perguntas, ações e conteúdo antes da persistência.
 6. Artefatos são objetos versionados; não são inferidos do Markdown final.
 
-## Dify V2
+## Runtimes Dify V2
 
-Criar um app separado, configurado por:
+O Harness seleciona três apps isolados pelo `ExecutionMode`:
+
+- `fast` → `cadu-fast`;
+- `analysis` → `cadu-analyst`;
+- `agentic` → `cadu-operator`.
+
+Configuração:
+
+- `CADU_DIFY_FAST_URL` / `CADU_DIFY_FAST_KEY`;
+- `CADU_DIFY_ANALYST_URL` / `CADU_DIFY_ANALYST_KEY`;
+- `CADU_DIFY_OPERATOR_URL` / `CADU_DIFY_OPERATOR_KEY`.
+
+Durante o rollout, valores específicos vazios usam o app V2 anterior:
 
 - `CADU_CONVERSATIONS_V2_DIFY_URL`
 - `CADU_CONVERSATIONS_V2_DIFY_KEY`
 - `CADU_CONVERSATIONS_V2_ENABLED`
+
+Cada Conversation mantém uma sessão de provider independente por runtime. O histórico canônico continua no CentralX; alternar o modo não compartilha IDs internos entre apps Dify.
 
 Variáveis esperadas pelo app:
 

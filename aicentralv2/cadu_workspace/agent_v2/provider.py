@@ -15,17 +15,42 @@ class ProviderUnavailable(RuntimeError):
     pass
 
 
-def settings():
-    url = str(current_app.config.get("CADU_CONVERSATIONS_V2_DIFY_URL") or "").rstrip("/")
-    key = str(current_app.config.get("CADU_CONVERSATIONS_V2_DIFY_KEY") or "")
+RUNTIMES = {
+    "fast": ("cadu-fast", "CADU_DIFY_FAST_URL", "CADU_DIFY_FAST_KEY"),
+    "analysis": ("cadu-analyst", "CADU_DIFY_ANALYST_URL", "CADU_DIFY_ANALYST_KEY"),
+    "agentic": ("cadu-operator", "CADU_DIFY_OPERATOR_URL", "CADU_DIFY_OPERATOR_KEY"),
+}
+
+
+def _configuration(execution_mode="analysis") -> dict:
+    mode = execution_mode if execution_mode in RUNTIMES else "analysis"
+    runtime_id, url_key, secret_key = RUNTIMES[mode]
+    specific_url = str(current_app.config.get(url_key) or "").rstrip("/")
+    specific_key = str(current_app.config.get(secret_key) or "")
+    if bool(specific_url) != bool(specific_key):
+        raise ProviderUnavailable(f"A configuração do runtime {runtime_id} está incompleta.")
+    url = specific_url or str(current_app.config.get("CADU_CONVERSATIONS_V2_DIFY_URL") or "").rstrip("/")
+    key = specific_key or str(current_app.config.get("CADU_CONVERSATIONS_V2_DIFY_KEY") or "")
     parsed = urlparse(url)
     if not key or parsed.scheme != "https" or not parsed.hostname:
-        raise ProviderUnavailable("O runtime Dify V2 ainda não foi configurado.")
-    return url, {"Authorization": "Bearer " + key, "Accept": "text/event-stream", "Cache-Control": "no-cache"}
+        raise ProviderUnavailable(f"O runtime {runtime_id} ainda não foi configurado.")
+    return {"id": runtime_id, "mode": mode, "url": url, "key": key,
+            "transport": "chat-messages", "config_version": "2026-09-19"}
 
 
-def events(payload):
-    url, headers = settings()
+def runtime_for(execution_mode="analysis") -> dict:
+    runtime = _configuration(execution_mode)
+    return {key: value for key, value in runtime.items() if key != "key"}
+
+
+def settings(execution_mode="analysis"):
+    runtime = _configuration(execution_mode)
+    return runtime["url"], {"Authorization": "Bearer " + runtime["key"],
+                            "Accept": "text/event-stream", "Cache-Control": "no-cache"}
+
+
+def events(payload, execution_mode="analysis"):
+    url, headers = settings(execution_mode)
     try:
         with requests.post(url + "/chat-messages", json=payload, headers=headers, stream=True,
                            timeout=(10, 90), allow_redirects=False) as response:
@@ -46,10 +71,10 @@ def events(payload):
         raise ProviderUnavailable("A conexão com o runtime V2 foi interrompida.") from exc
 
 
-def stop(task_id: str, user: str) -> None:
+def stop(task_id: str, user: str, execution_mode="analysis") -> None:
     if not task_id or any(char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for char in task_id):
         raise ProviderUnavailable("A geração ainda está iniciando. Tente novamente.")
-    url, headers = settings()
+    url, headers = settings(execution_mode)
     try:
         with requests.post(url + "/chat-messages/" + task_id + "/stop", headers=headers,
                            json={"user": user}, timeout=(10, 20), allow_redirects=False) as response:

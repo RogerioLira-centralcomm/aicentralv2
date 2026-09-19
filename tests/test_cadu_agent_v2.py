@@ -100,6 +100,10 @@ def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
         "brands.list", "brands.create", "brands.prepare_logo_upload", "brands.start_audit",
         "brands.audit_status",
     } <= names
+    planner_names = {item["name"] for item in catalog.list(
+        context(capabilities=("planner",)), "customer_agent",
+    )}
+    assert {"planner.list_plans", "planner.search_catalog", "planner.get_brief", "planner.get_media_plan"} <= planner_names
     assert "artifacts.archive" not in names
     with pytest.raises(ToolInputError):
         catalog.execute("brands.create", {
@@ -494,7 +498,9 @@ def test_v2_stop_is_scoped_and_uses_v2_provider(monkeypatch):
     app.register_blueprint(v2_routes.bp)
     scoped = context()
     monkeypatch.setattr(v2_routes, "resolve", lambda **_: scoped)
-    monkeypatch.setattr(v2_routes.repository, "rows", lambda *_: [{"task_id": "task-v2", "status": "running"}])
+    monkeypatch.setattr(v2_routes.repository, "rows", lambda *_: [
+        {"task_id": "task-v2", "status": "running", "execution_mode": "agentic"}
+    ])
     connection = type("Connection", (), {
         "cursor": lambda self: type("Cursor", (), {
             "__enter__": lambda self: self, "__exit__": lambda self, *_: False,
@@ -505,7 +511,7 @@ def test_v2_stop_is_scoped_and_uses_v2_provider(monkeypatch):
     monkeypatch.setattr(v2_routes.repository, "get_db", lambda: connection)
     stopped = []
     from aicentralv2.cadu_workspace.agent_v2 import provider
-    monkeypatch.setattr(provider, "stop", lambda task_id, user: stopped.append((task_id, user)))
+    monkeypatch.setattr(provider, "stop", lambda task_id, user, mode: stopped.append((task_id, user, mode)))
     client = app.test_client()
     with client.session_transaction() as session:
         session.update(user_id=7, family_csrf="csrf")
@@ -514,7 +520,7 @@ def test_v2_stop_is_scoped_and_uses_v2_provider(monkeypatch):
         headers={"X-CSRF-Token": "csrf"},
     )
     assert response.status_code == 200
-    assert stopped == [("task-v2", "user-7")]
+    assert stopped == [("task-v2", "user-7", "agentic")]
 
 
 def test_cancelled_v2_stream_does_not_persist_late_provider_answer(monkeypatch):
@@ -545,7 +551,7 @@ def test_cancelled_v2_stream_does_not_persist_late_provider_answer(monkeypatch):
             pass
 
     connection = Connection()
-    monkeypatch.setattr(v2_service.provider, "events", lambda payload: iter([
+    monkeypatch.setattr(v2_service.provider, "events", lambda payload, mode: iter([
         {"event": "message", "task_id": "task-v2", "answer": '{"answer":"resposta tardia"}'},
         {"event": "message_end", "metadata": {"usage": {"completion_tokens": 3}}},
     ]))
@@ -566,3 +572,29 @@ def test_cancelled_v2_stream_does_not_persist_late_provider_answer(monkeypatch):
     assert '"status": "cancelled"' in output
     assert "answer.completed" not in output
     assert not any("INSERT INTO cadu_conversation_messages" in sql for sql in connection.statements)
+
+
+def test_provider_registry_selects_three_runtimes_and_supports_safe_rollout_fallback():
+    from aicentralv2.cadu_workspace.agent_v2 import provider
+    app = Flask(__name__)
+    app.config.update(
+        CADU_CONVERSATIONS_V2_DIFY_URL="https://legacy-v2.example/v1",
+        CADU_CONVERSATIONS_V2_DIFY_KEY="fallback-key",
+        CADU_DIFY_FAST_URL="https://fast.example/v1", CADU_DIFY_FAST_KEY="fast-key",
+        CADU_DIFY_ANALYST_URL="https://analyst.example/v1", CADU_DIFY_ANALYST_KEY="analyst-key",
+        CADU_DIFY_OPERATOR_URL="https://operator.example/v1", CADU_DIFY_OPERATOR_KEY="operator-key",
+    )
+    with app.app_context():
+        assert provider.runtime_for("fast")["id"] == "cadu-fast"
+        assert provider.runtime_for("analysis")["url"] == "https://analyst.example/v1"
+        assert provider.runtime_for("agentic")["id"] == "cadu-operator"
+        app.config["CADU_DIFY_FAST_URL"] = ""
+        app.config["CADU_DIFY_FAST_KEY"] = ""
+        fallback = provider.runtime_for("fast")
+        assert fallback["url"] == "https://legacy-v2.example/v1"
+        assert "key" not in fallback
+        _, headers = provider.settings("fast")
+        assert headers["Authorization"] == "Bearer fallback-key"
+        app.config["CADU_DIFY_FAST_URL"] = "https://incomplete.example/v1"
+        with pytest.raises(provider.ProviderUnavailable):
+            provider.runtime_for("fast")

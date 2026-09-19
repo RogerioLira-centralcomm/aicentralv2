@@ -1,5 +1,7 @@
 ALTER TABLE cadu_family_chat_runs
     ADD COLUMN IF NOT EXISTS execution_mode VARCHAR(16) NOT NULL DEFAULT 'analysis',
+    ADD COLUMN IF NOT EXISTS runtime_id VARCHAR(40),
+    ADD COLUMN IF NOT EXISTS provider_config_version VARCHAR(40),
     ADD COLUMN IF NOT EXISTS provider_duration_ms INTEGER,
     ADD COLUMN IF NOT EXISTS input_tokens INTEGER NOT NULL DEFAULT 0,
     ADD COLUMN IF NOT EXISTS output_tokens INTEGER NOT NULL DEFAULT 0,
@@ -54,3 +56,16 @@ ALTER TABLE cadu_agent_run_steps
     ADD COLUMN IF NOT EXISTS decided_by BIGINT,
     ADD COLUMN IF NOT EXISTS decided_at TIMESTAMPTZ,
     ADD COLUMN IF NOT EXISTS decision_note TEXT;
+
+CREATE TABLE IF NOT EXISTS cadu_agent_provider_sessions (
+    conversation_id TEXT NOT NULL REFERENCES cadu_conversations(id) ON DELETE CASCADE,
+    client_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    runtime_id VARCHAR(40) NOT NULL,
+    provider_conversation_id TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (conversation_id, runtime_id)
+);
+CREATE INDEX IF NOT EXISTS idx_cadu_agent_provider_sessions_scope
+    ON cadu_agent_provider_sessions (client_id, user_id, updated_at DESC);

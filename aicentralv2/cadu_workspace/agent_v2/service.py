@@ -62,7 +62,6 @@ def _run_was_cancelled(run_id: str) -> bool:
 
 
 def prepare(data):
-    provider.settings()  # Fail before recording a turn when V2 is not configured.
     message = _message(data.get("message"))
     try:
         run_id = str(UUID(str(data.get("request_id"))))
@@ -84,6 +83,7 @@ def prepare(data):
     ) if data.get("conversation_id") else []) or []
     requested_mode = data.get("execution_mode") or data.get("depth") or data.get("mode") or ""
     execution = prepare_execution(message, current, history_context(previous_messages), requested_mode)
+    runtime = provider.runtime_for(execution["execution_mode"])
     conn = repository.get_db()
     try:
         with conn.cursor() as cur:
@@ -111,12 +111,19 @@ def prepare(data):
                             WHERE conversation_id = %s AND status = 'running'""", (conversation_id,))
             if cur.fetchone():
                 abort(409, description="Aguarde a resposta atual ou interrompa a geração.")
+            cur.execute("""SELECT provider_conversation_id FROM cadu_agent_provider_sessions
+                             WHERE conversation_id=%s AND runtime_id=%s AND client_id=%s AND user_id=%s""",
+                        (conversation_id, runtime["id"], current.client_id, current.user_id))
+            provider_session = cur.fetchone()
+            if provider_session:
+                execution["provider_payload"]["conversation_id"] = provider_session["provider_conversation_id"]
             cur.execute("""INSERT INTO cadu_family_chat_runs
-                (id, conversation_id, user_id, client_id, status, runtime_version, execution_mode, route,
-                 request_context, response_policy, context_chars, created_at)
-                VALUES (%s, %s, %s, %s, 'running', 'v2', %s, %s, %s, %s, %s, NOW())""",
+                (id, conversation_id, user_id, client_id, status, runtime_version, execution_mode,
+                 runtime_id, provider_config_version, route, request_context, response_policy, context_chars, created_at)
+                VALUES (%s, %s, %s, %s, 'running', 'v2', %s, %s, %s, %s, %s, %s, %s, NOW())""",
                 (run_id, conversation_id, current.user_id, current.client_id,
-                 execution["execution_mode"], Json(execution["route"]), Json(current.to_dict()), Json(execution["policy"]),
+                 execution["execution_mode"], runtime["id"], runtime["config_version"],
+                 Json(execution["route"]), Json(current.to_dict()), Json(execution["policy"]),
                  len(execution["provider_payload"]["inputs"]["evidence"])))
             cur.execute("""INSERT INTO cadu_conversation_messages
                 (id, conversation_id, role, content, files, metadata, created_at)
@@ -136,13 +143,14 @@ def prepare(data):
         conn.commit()
         journal.persist_plan(run_id, execution["plan"], execution["resolved_context"].tool_calls)
         _journal(run_id, "run.admitted", {"execution_mode": execution["execution_mode"],
+                 "runtime_id": runtime["id"], "provider_config_version": runtime["config_version"],
                  "route": execution["route"], "budget": execution["budget"]})
     except Exception:
         conn.rollback()
         raise
     return {
         "run_id": run_id, "conversation_id": conversation_id, "message": message,
-        "context": current, **execution,
+        "context": current, "runtime": runtime, **execution,
     }
 
 
@@ -164,7 +172,7 @@ def stream(run):
         yield _event("tool.completed" if call["status"] == "completed" else "tool.unavailable", **call)
     try:
         provider_started = perf_counter()
-        for item in provider.events(run["provider_payload"]):
+        for item in provider.events(run["provider_payload"], execution_mode):
             if first_token_ms is None and (item.get("answer") or item.get("event") in {"message", "agent_message"}):
                 first_token_ms = round((perf_counter() - run_started) * 1000)
                 _journal(run["run_id"], "provider.first_token", {"first_token_ms": first_token_ms},
@@ -219,13 +227,27 @@ def stream(run):
                     (run["conversation_id"], max(0, int(usage.get("prompt_tokens") or 0)),
                      max(0, int(usage.get("completion_tokens") or 0)), run["conversation_id"]))
             conn.commit()
+            if provider_id:
+                conn = repository.get_db()
+                with conn.cursor() as cur:
+                    cur.execute("""INSERT INTO cadu_agent_provider_sessions
+                        (conversation_id,client_id,user_id,runtime_id,provider_conversation_id,created_at,updated_at)
+                        VALUES (%s,%s,%s,%s,%s,NOW(),NOW())
+                        ON CONFLICT (conversation_id,runtime_id) DO UPDATE SET
+                            provider_conversation_id=EXCLUDED.provider_conversation_id,updated_at=NOW()
+                        WHERE cadu_agent_provider_sessions.client_id=EXCLUDED.client_id
+                          AND cadu_agent_provider_sessions.user_id=EXCLUDED.user_id""",
+                        (run["conversation_id"], run["context"].client_id, run["context"].user_id,
+                         run["runtime"]["id"], provider_id))
+                conn.commit()
             if usage:
                 try:
                     charge = CaduCreditConnector().charge_provider(
                         actor=CreditActor.from_values(run["context"].client_id, run["context"].user_id),
                         idempotency_key="chat-v2:" + run["run_id"], app="Cadu Chat", stage="conversa-v2",
-                        provider_result={"usage": usage, "model": "dify-v2"},
-                        metadata={"conversation_id": run["conversation_id"], "provider_conversation_id": provider_id or ""},
+                        provider_result={"usage": usage, "model": run["runtime"]["id"]},
+                        metadata={"conversation_id": run["conversation_id"], "runtime_id": run["runtime"]["id"],
+                                  "provider_conversation_id": provider_id or ""},
                     )
                     if charge:
                         conn = repository.get_db()

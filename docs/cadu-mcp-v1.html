@@ -153,7 +153,8 @@ Content-Type: application/json
         <tr><td>Marcas</td><td><code>brands.list</code>, <code>brands.audit_status</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
         <tr><td>Marcas</td><td><code>brands.prepare_logo_upload</code></td><td><span class="tag">draft</span></td><td>Interno e cliente</td></tr>
         <tr><td>Marcas</td><td><code>brands.create</code>, <code>brands.start_audit</code></td><td><span class="tag">write</span></td><td>Interno e cliente, com confirmação</td></tr>
-        <tr><td>Planner</td><td><code>planner.list_plans</code>, <code>planner.search_catalog</code>, <code>planner.get_brief</code>, <code>planner.get_media_plan</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
+        <tr><td>Planner</td><td><code>planner.list_plans</code>, <code>planner.search_catalog</code>, <code>planner.get_brief</code>, <code>planner.get_media_plan</code>, <code>planner.list_link_tests</code>, <code>planner.get_link_test</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
+        <tr><td>Planner</td><td><code>planner.link_test</code></td><td><span class="tag">write</span></td><td>Interno e cliente, com confirmação e idempotência</td></tr>
         <tr><td>Relatórios</td><td><code>reports.list_project_reports</code>, <code>reports.get_report_metrics</code>, <code>reports.compare_report_to_plan</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
       </tbody></table>
     </section>
@@ -257,13 +258,13 @@ file=@logo.png</pre>
 
     <section id="planner">
       <h2>Planner: capacidades atuais e expansão MCP</h2>
-      <p>O Planner já funciona como um domínio completo dentro do Cadu. O MCP publica hoje a leitura de briefing e plano de mídia; as demais funções serão abertas em grupos pequenos, reaproveitando os serviços existentes e mantendo autorização por projeto.</p>
+      <p>O Planner já funciona como um domínio completo dentro do Cadu. O MCP publica leitura de planos, catálogos, briefing e plano de mídia, além da primeira ação controlada: o Link Tester. As demais funções serão abertas em grupos pequenos, reaproveitando os serviços existentes e mantendo autorização por projeto.</p>
       <table><thead><tr><th>Capacidade no Cadu</th><th>Operações existentes</th><th>Integração MCP</th></tr></thead><tbody>
         <tr><td>Planos de mídia</td><td>Listar, criar, abrir, atualizar briefing, objetivo, status, itens e distribuição de investimento.</td><td><span class="status partial"><code>get_brief</code> e <code>get_media_plan</code></span></td></tr>
         <tr><td>Revisão com Cadu</td><td>Estimar custo, revisar briefing, recomendações e documentos em passagens controladas.</td><td><span class="status todo">Próximo adapter</span></td></tr>
-        <tr><td>Catálogos</td><td>Audiências, canais, formatos, interativos e places; seleção vinculada ao plano.</td><td><span class="status todo">Leitura e seleção</span></td></tr>
+        <tr><td>Catálogos</td><td>Audiências, canais, formatos, interativos e places; seleção vinculada ao plano.</td><td><span class="status partial">Busca disponível; seleção pendente</span></td></tr>
         <tr><td>Documentos</td><td>Criar, editar, duplicar, revisar, versionar e compartilhar documentos derivados do plano.</td><td><span class="status todo">Artifacts + versões</span></td></tr>
-        <tr><td>Link Tester</td><td>Testar URL, inspecionar destino e rastreamento, consultar histórico e compartilhar resultado.</td><td><span class="status todo">Leitura e execução</span></td></tr>
+        <tr><td>Link Tester</td><td>Testar URL, inspecionar destino e rastreamento e consultar histórico. Compartilhamento público permanece fora do agente.</td><td><span class="status done">Leitura e execução idempotente</span></td></tr>
         <tr><td>Cotações e publicação</td><td>Solicitar cotação, publicar/despublicar plano e controlar status.</td><td><span class="status todo">Exige confirmação</span></td></tr>
       </tbody></table>
       <h3>Sequência recomendada de tools</h3>
@@ -273,7 +274,7 @@ planner.update_brief         planner.update_allocations
 planner.link_test            planner.get_link_test
 planner.documents.list       planner.documents.create_draft
 planner.documents.update     planner.documents.review</pre>
-      <div class="note ok">O Link Tester já está disponível no produto em <code>/planner/links</code>. Sua futura tool deve devolver status HTTP, destino final, redirecionamentos, parâmetros e alertas estruturados — não apenas texto livre.</div>
+      <div class="note ok">O Link Tester está disponível no produto em <code>/planner/links</code> e no MCP. <code>planner.link_test</code> exige confirmação e <code>request_id</code>, reaproveita o serviço canônico e devolve evidência estruturada. Repetições devolvem o resultado persistido; operações interrompidas podem ser retomadas após a janela de segurança. O token de compartilhamento público nunca é enviado ao agente.</div>
     </section>
 
     <section id="studio">

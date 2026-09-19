@@ -103,7 +103,10 @@ def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
     planner_names = {item["name"] for item in catalog.list(
         context(capabilities=("planner",)), "customer_agent",
     )}
-    assert {"planner.list_plans", "planner.search_catalog", "planner.get_brief", "planner.get_media_plan"} <= planner_names
+    assert {
+        "planner.list_plans", "planner.search_catalog", "planner.get_brief", "planner.get_media_plan",
+        "planner.link_test", "planner.list_link_tests", "planner.get_link_test",
+    } <= planner_names
     assert "artifacts.archive" not in names
     with pytest.raises(ToolInputError):
         catalog.execute("brands.create", {
@@ -114,6 +117,61 @@ def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
         catalog.execute("brands.start_audit", {
             "request_id": "be777b36-a973-419c-802a-886bf1d125b0", "brand_id": 81,
         }, context(), "customer_agent")
+    with pytest.raises(ToolInputError):
+        catalog.execute("planner.link_test", {
+            "request_id": "be777b36-a973-419c-802a-886bf1d125b0",
+            "confirmed": False, "url": "https://example.com", "mode": "destination",
+        }, context(capabilities=("planner",)), "customer_agent")
+
+
+def test_planner_link_test_is_idempotent_and_hides_share_token(monkeypatch):
+    from aicentralv2.cadu_workspace.mcp.tools import planner
+
+    captured = {}
+
+    def execute(request_id, current, tool_name, payload, operation):
+        captured.update(request_id=request_id, current=current, tool_name=tool_name, payload=payload)
+        return operation()
+
+    monkeypatch.setattr(planner.operations, "execute", execute)
+    monkeypatch.setattr(planner.link_tester, "test", lambda *_: {
+        "run_id": "run-1", "public_token": "must-not-reach-agent", "score": 91,
+    })
+    result = load_builtin_tools().execute("planner.link_test", {
+        "request_id": "be777b36-a973-419c-802a-886bf1d125b0",
+        "confirmed": True, "url": "https://example.com", "mode": "destination",
+    }, context(capabilities=("planner",)), "customer_agent")
+
+    assert result == {"run_id": "run-1", "score": 91}
+    assert captured["tool_name"] == "planner.link_test"
+    assert captured["payload"] == {"url": "https://example.com", "mode": "destination"}
+
+
+def test_mcp_operation_reuses_completed_result_without_running_again(monkeypatch):
+    from aicentralv2.cadu_workspace.mcp import operations
+
+    class Cursor:
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+        def execute(self, *_): pass
+        def fetchone(self):
+            return {"input_hash": operations.sha256(b'{"value":1}').hexdigest(),
+                    "status": "completed", "result": {"receipt": "existing"}, "stale": False}
+
+    class Connection:
+        def cursor(self): return Cursor()
+        def commit(self): pass
+        def rollback(self): pass
+
+    monkeypatch.setattr(operations, "get_db", lambda: Connection())
+    called = []
+    result = operations.execute(
+        "be777b36-a973-419c-802a-886bf1d125b0", context(), "planner.link_test", {"value": 1},
+        lambda: called.append(True),
+    )
+
+    assert result == {"receipt": "existing"}
+    assert called == []
 
 
 def test_brand_logo_upload_contract_matches_existing_storage_limit(monkeypatch):

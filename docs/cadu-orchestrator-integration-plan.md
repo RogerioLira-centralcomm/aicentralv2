@@ -344,8 +344,9 @@ Aceite: o Analyst responde com IDs e versões verificáveis e não carrega catá
 
 ### Fase 3 — primeira action controlada
 
-- implementar `planner.link_test` como job idempotente;
-- action proposal, estimate, confirmação, execução, receipt e retomada;
+- implementar `planner.link_test` como operação idempotente; **base entregue**;
+- exigir confirmação, registrar operação, ocultar credenciais públicas e permitir retomada após execução abandonada; **entregue**;
+- adicionar action proposal, estimate, receipt como Item do Turn e cancelamento cooperativo;
 - testar timeout, cancelamento, retry e callback duplicado.
 
 Aceite: repetir requisição ou reconectar não repete teste nem cobrança; resultado entra no projeto como recurso relacionado.

@@ -12,7 +12,10 @@ from ..mcp.registry import load_builtin_tools
 
 
 def prepare_execution(message, request, history="", requested_mode=""):
-    route = route_request(message, request.surface, bool(request.project_ref))
+    route = route_request(
+        message, request.surface, bool(request.project_ref),
+        request.active_object.type if request.active_object else "",
+    )
     execution_mode = execution_mode_for(route, requested_mode)
     budget, policy = budget_for(route, execution_mode), policy_for(route)
     policy["execution_mode"] = execution_mode

@@ -105,6 +105,14 @@ def test_html_request_creates_an_isolated_preview_artifact():
     assert route.response_mode == "artifact_first"
 
 
+def test_short_revision_targets_the_open_artifact_without_matching_a_new_creation():
+    route = route_request("Mude o botão para verde", has_project=True, active_object_type="artifact:html")
+
+    assert route.action == "update_html"
+    assert route.needs_tools == ("artifacts.get",)
+    assert route.artifact_type == "html"
+
+
 def test_html_patch_is_bounded_without_losing_its_runtime_parts():
     raw = json.dumps({
         "answer": "Página criada.",

@@ -13,12 +13,19 @@ def _has(text: str, pattern: str) -> bool:
     return bool(re.search(pattern, text, re.IGNORECASE))
 
 
-def route_request(message: str, surface: str = "conversations", has_project: bool = False) -> IntentRoute:
+def route_request(message: str, surface: str = "conversations", has_project: bool = False,
+                  active_object_type: str = "") -> IntentRoute:
     text = " ".join(str(message or "").split())[:20000]
 
     if (_has(text, r"\b(test|teste|testar|verifi|diagn[oó]stico|audit).{0,30}\b(link|url|destino|utm|tracking)\b")
             or _has(text, r"\b(link|url)\b.{0,30}\b(test|teste|testar|verifi|diagn[oó]stico|audit)")):
         return IntentRoute("planner", "link_test", "medium", "decision", (), (), None, True)
+    active_artifact_type = active_object_type.split(":", 1)[1] if active_object_type.startswith("artifact:") else ""
+    if active_artifact_type in {
+        "brief", "document", "note", "executive_summary", "media_plan", "scenario", "research", "project_map", "html",
+    } and _has(text, r"\b(ajust|alter|mud|troqu|revis|atualiz|corrig|edit|refin|melhor)"):
+        return IntentRoute("workspace", f"update_{active_artifact_type}", "high", "artifact_first",
+                           ("current_object",), ("artifacts.get",), active_artifact_type)
     if _has(text, r"\b(cri(e|ar)|mont(e|ar)|estrutur(e|ar)|transform(e|ar)).{0,30}\bbriefing\b|\bbriefing\b.{0,20}\b(cri|mont|estrutur)"):
         return IntentRoute("planner", "create_brief", "medium", "artifact_first",
                            ("project", "brand") if has_project else (),

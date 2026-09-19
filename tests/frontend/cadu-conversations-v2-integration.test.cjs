@@ -59,7 +59,7 @@ test('conversations 2.0 restores artifacts and protects unsaved work', () => {
   assert.match(lab, /beforeunload/);
   assert.match(lab, /resource\.editor_url/);
   assert.match(lab, /resource\.download_url/);
-  assert.match(lab, /sandbox = 'allow-scripts'/);
+  assert.match(lab, /setAttribute\('sandbox', 'allow-scripts'\)/);
   assert.match(lab, /Content-Security-Policy/);
   assert.match(lab, /\/versions\/\$\{item\.version\}/);
   assert.match(lab, /workspace\/api\/v2\/uploads/);

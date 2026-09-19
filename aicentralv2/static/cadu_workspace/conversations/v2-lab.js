@@ -29,6 +29,7 @@
   const artifactSave = root.querySelector('[data-artifact-save]');
   const artifactVersions = root.querySelector('[data-artifact-versions]');
   const unsavedDialog = root.querySelector('[data-unsaved-dialog]');
+  const unsavedCopy = root.querySelector('[data-unsaved-copy]');
   const versionsDialog = root.querySelector('[data-versions-dialog]');
   const versionsList = root.querySelector('[data-versions-list]');
   const workspaceRecent = document.getElementById('workspace-sidebar-recent-conversations');
@@ -203,8 +204,13 @@
     artifactSavebar.hidden = false;
   };
 
-  const confirmDiscard = async () => {
-    if (!artifactDirty) return true;
+  const confirmDiscard = async (includeAttachments = true) => {
+    const hasAttachments = includeAttachments && attachments.length > 0;
+    if (!artifactDirty && !hasAttachments) return true;
+    unsavedCopy.textContent = artifactDirty && hasAttachments
+      ? 'O artefato e os anexos preparados ainda não foram salvos.'
+      : artifactDirty ? 'O artefato tem alterações que ainda não foram salvas.'
+        : 'Os anexos preparados ainda não foram enviados.';
     if (!unsavedDialog?.showModal) {
       return window.confirm('O artefato tem alterações não salvas. Deseja descartá-las?');
     }
@@ -245,7 +251,7 @@
         restore.addEventListener('click', async () => {
           if (artifactDirty) {
             versionsDialog.close();
-            if (!(await confirmDiscard())) {
+            if (!(await confirmDiscard(false))) {
               versionsDialog.showModal();
               return;
             }
@@ -628,7 +634,7 @@
       artifactContent.classList.add('is-html-preview');
       const frame = document.createElement('iframe');
       frame.title = artifactTitle.textContent;
-      frame.sandbox = 'allow-scripts';
+      frame.setAttribute('sandbox', 'allow-scripts');
       frame.referrerPolicy = 'no-referrer';
       frame.srcdoc = htmlPreviewDocument(content);
       artifactContent.append(frame);
@@ -695,7 +701,7 @@
           openArtifact();
           return;
         }
-        if (!(await confirmDiscard())) return;
+        if (!(await confirmDiscard(false))) return;
         showArtifact(await fetchArtifact(artifactId));
       } catch (error) {
         addTrace('Artefato indisponível', error.message, 'is-error');
@@ -964,6 +970,9 @@
       artifactDirty = false;
       artifactSavebar.hidden = true;
       closeArtifact();
+      attachments = [];
+      attachmentsBusy = false;
+      renderAttachments();
       conversationTitle.textContent = title || 'Conversa';
       thread.replaceChildren();
       let lastArtifactId = null;
@@ -1028,7 +1037,7 @@
   const submit = async message => {
     if (running || !message.trim()) return;
     if (artifactDirty) {
-      if (!(await confirmDiscard())) return;
+      if (!(await confirmDiscard(false))) return;
       try { showArtifact(await fetchArtifact(currentArtifact.id)); }
       catch (error) {
         addTrace('Não foi possível restaurar o artefato', error.message, 'is-error');
@@ -1071,7 +1080,9 @@
           conversation_id: conversationId,
           surface: surface.value,
           files: sentAttachments.map(item => item.id),
-          active_object: currentArtifact?.id ? {type: 'artifact', id: currentArtifact.id} : null
+          active_object: currentArtifact?.id
+            ? {type: `artifact:${currentArtifact.type}`, id: currentArtifact.id}
+            : null
         })
       });
       if (response.ok) {

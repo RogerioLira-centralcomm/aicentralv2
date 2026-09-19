@@ -89,7 +89,10 @@ def route_preview():
     current = resolve(conversation_id=data.get("conversation_id"),
                       surface=str(data.get("surface") or "conversations"),
                       active_object=data.get("active_object"))
-    route = route_request(message, current.surface, bool(current.project_ref))
+    route = route_request(
+        message, current.surface, bool(current.project_ref),
+        current.active_object.type if current.active_object else "",
+    )
     execution_mode = execution_mode_for(route, data.get("execution_mode") or data.get("depth") or data.get("mode"))
     return jsonify(
         route=route.to_dict(), execution_mode=execution_mode, context=current.to_dict(), policy=policy_for(route),

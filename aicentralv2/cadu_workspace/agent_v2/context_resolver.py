@@ -16,7 +16,7 @@ class ResolvedContext:
 
 
 def _arguments(tool_name: str, request: RequestContext, message: str) -> dict[str, Any]:
-    if tool_name == "artifacts.get" and request.active_object:
+    if tool_name == "artifacts.get" and request.active_object and request.active_object.type.startswith("artifact:"):
         return {"artifact_id": request.active_object.id}
     if tool_name == "workspace.search_project_content":
         return {"query": message[:400]}

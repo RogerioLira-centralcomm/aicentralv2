@@ -4,7 +4,7 @@
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=11">
-<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/v2-lab.css') }}?v=3">
+<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/v2-lab.css') }}?v=4">
 {% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
@@ -90,8 +90,8 @@
     </div>
     <dialog class="v2-unsaved-dialog" data-unsaved-dialog>
       <form method="dialog">
-        <h2>Descartar alterações?</h2>
-        <p>O artefato tem mudanças que ainda não foram salvas.</p>
+        <h2>Descartar trabalho?</h2>
+        <p data-unsaved-copy>Há mudanças que ainda não foram enviadas ou salvas.</p>
         <div>
           <button value="cancel">Continuar editando</button>
           <button value="discard" class="is-danger">Descartar</button>
@@ -107,4 +107,4 @@
   </main>
 </div>
 {% endblock %}
-{% block portal_scripts %}<script defer src="{{ url_for('static', filename='cadu_workspace/conversations/v2-lab.js') }}?v=3"></script>{% endblock %}
+{% block portal_scripts %}<script defer src="{{ url_for('static', filename='cadu_workspace/conversations/v2-lab.js') }}?v=4"></script>{% endblock %}

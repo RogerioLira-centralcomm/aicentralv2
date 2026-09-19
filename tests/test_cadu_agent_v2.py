@@ -289,6 +289,25 @@ def test_project_search_uses_one_semantic_tool():
     assert "reports" not in route.needs_context
 
 
+def test_project_readout_routes_dense_work_to_an_editable_artifact():
+    route = route_request(
+        "Faça uma leitura de partida do projeto Nike: objetivo, entregas, riscos e decisões.",
+        has_project=True,
+    )
+    assert route.action == "project_readout"
+    assert route.response_mode == "artifact_first"
+    assert route.artifact_type == "executive_summary"
+    assert route.needs_tools == ("workspace.search_project_content",)
+
+    missing_context = route_request(
+        "Faça uma leitura de partida do projeto Nike: objetivo, entregas, riscos e decisões.",
+        has_project=False,
+    )
+    assert missing_context.action == "select_project_for_readout"
+    assert missing_context.response_mode == "clarification"
+    assert missing_context.artifact_type is None
+
+
 def test_project_file_classification_never_decides_knowledge_usage():
     result = project_source_service._classify(
         {"name": "plano-de-midia.pdf", "suffix": ".pdf"}, None,
@@ -572,6 +591,33 @@ def test_normalizer_bounds_artifact_fields_and_citations():
     ]
 
 
+def test_artifact_first_recovers_dense_markdown_into_editable_sections():
+    response = normalize_response("""### 1) Objetivo
+**Fato:** lançar a campanha no próximo trimestre.
+
+### 2) Entregas esperadas
+- mensagem central
+- plano de ativação
+
+### 3) Riscos
+- prazo ainda não confirmado
+""", {
+        "mode": "artifact_first",
+        "artifact_type": "executive_summary",
+        "artifact_fallback_title": "Leitura inicial do projeto",
+        "artifact_chat_message": "Concluí a leitura inicial. Veja o artefato ao lado.",
+        "max_answer_chars": 420,
+        "max_questions": 1,
+        "max_next_steps": 2,
+    })
+    assert response.answer == "Concluí a leitura inicial. Veja o artefato ao lado."
+    assert response.artifact_patch["title"] == "Leitura inicial do projeto"
+    assert [field["key"] for field in response.artifact_patch["fields"]] == [
+        "1) Objetivo", "2) Entregas esperadas", "3) Riscos",
+    ]
+    assert "• mensagem central" in response.artifact_patch["fields"][1]["value"]
+
+
 def test_mcp_delegation_preserves_scoped_context_and_rejects_tampering():
     app = Flask(__name__)
     app.secret_key = "test-secret"
@@ -619,10 +665,10 @@ def test_v2_lab_and_migration_are_wired_for_deploy():
     assert "migrations/run_add_cadu_conversations_v2.py" in deploy
 
 
-def test_message_route_enforces_csrf_and_streams_sse(monkeypatch):
+def test_published_message_route_enforces_csrf_and_streams_without_rollout_404(monkeypatch):
     app = Flask(__name__)
     app.secret_key = "test-secret"
-    app.config["CADU_CONVERSATIONS_V2_ENABLED"] = True
+    app.config["CADU_CONVERSATIONS_V2_ENABLED"] = False
     app.register_blueprint(v2_routes.bp)
     monkeypatch.setattr(v2_routes, "prepare_message", lambda payload: {"run_id": payload["request_id"]})
     monkeypatch.setattr(v2_routes, "stream_message", lambda run: iter([
@@ -640,6 +686,20 @@ def test_message_route_enforces_csrf_and_streams_sse(monkeypatch):
     assert response.status_code == 200
     assert response.mimetype == "text/event-stream"
     assert b'"event":"answer.completed"' in response.data
+
+
+def test_v2_page_creates_csrf_token_when_opened_directly(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = "test-secret"
+    app.register_blueprint(v2_routes.lab_bp)
+    monkeypatch.setattr(v2_routes, "render_template", lambda *_args, **_kwargs: "ok")
+    client = app.test_client()
+    with client.session_transaction() as session:
+        session["user_id"] = 7
+
+    assert client.get("/workspace/conversas-v2-lab").status_code == 200
+    with client.session_transaction() as session:
+        assert len(session["family_csrf"]) >= 32
 
 
 def test_v2_stop_is_scoped_and_uses_v2_provider(monkeypatch):

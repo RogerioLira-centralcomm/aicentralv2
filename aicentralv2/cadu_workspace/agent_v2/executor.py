@@ -21,6 +21,15 @@ def prepare_execution(message, request, history="", requested_mode=""):
     policy["execution_mode"] = execution_mode
     policy["max_output_tokens"] = budget.max_output_tokens
     policy["max_duration_ms"] = budget.max_duration_ms
+    policy["artifact_type"] = route.artifact_type
+    policy["artifact_fallback_title"] = {
+        "project_readout": "Leitura inicial do projeto",
+        "create_brief": "Briefing do projeto",
+    }.get(route.action, "Resultado do trabalho")
+    policy["artifact_chat_message"] = {
+        "project_readout": "Concluí a leitura inicial. Organizei objetivos, entregas, riscos e decisões no artefato ao lado.",
+        "create_brief": "Estruturei o briefing no artefato ao lado. Os pontos em aberto continuam editáveis.",
+    }.get(route.action, "Organizei o resultado no artefato ao lado para você revisar e editar.")
     resolved = resolve_context(route, request, message, load_builtin_tools())
     payload = build_payload(message=message, request=request, route=route,
                             resolved=resolved.values, policy=policy,

@@ -9,14 +9,14 @@
   <nav class="workspace-sidebar-primary" aria-label="Áreas principais">
     <a href="{{ url_for('cadu_workspace.dashboard') }}" {% if workspace_active == 'inicio' %}aria-current="page"{% endif %}><span class="workspace-nav-icon"><i class="fa-solid fa-house"></i></span><span class="workspace-nav-text">Início</span></a>
     <a href="{{ url_for('cadu_workspace.conversations') }}" {% if workspace_active == 'conversas' %}aria-current="page"{% endif %}><span class="workspace-nav-icon"><i class="fa-solid fa-plus"></i></span><span class="workspace-nav-text">Nova conversa</span></a>
-    <a href="{{ url_for('cadu_agent_v2_lab.conversations_v2_lab') }}" {% if workspace_active == 'conversas-v2' %}aria-current="page"{% endif %}><span class="workspace-nav-icon"><i class="fa-solid fa-sparkles"></i></span><span class="workspace-nav-text">Conversas 2.0</span></a>
+    <a href="/workspace/conversas-v2-lab" {% if workspace_active == 'conversas-v2' %}aria-current="page"{% endif %}><span class="workspace-nav-icon"><i class="fa-solid fa-sparkles"></i></span><span class="workspace-nav-text">Conversas 2.0</span></a>
     <a href="{{ url_for('cadu_workspace.clean_projects') }}" {% if workspace_active == 'projetos' and project is not defined %}aria-current="page"{% endif %}><span class="workspace-nav-icon"><i class="fa-solid fa-folder-open"></i></span><span class="workspace-nav-text">Projetos</span></a>
     {% if workspace_sidebar_projects %}<div class="workspace-recent-projects">{% for sidebar_project in workspace_sidebar_projects[:5] %}<a href="{{ url_for('cadu_workspace.clean_project_detail', project_id=sidebar_project.id) }}" {% if project is defined and project.id|string == sidebar_project.id|string %}aria-current="page"{% endif %}>{{ sidebar_project.nome }}</a>{% endfor %}</div>{% endif %}
     <a href="{{ url_for('cadu_workspace.documents') }}" {% if workspace_active == 'docs' %}aria-current="page"{% endif %}><span class="workspace-nav-icon"><i class="fa-regular fa-file-lines"></i></span><span class="workspace-nav-text">Docs</span></a>
     <a href="{{ url_for('cadu_workspace.clean_brands') }}" {% if workspace_active == 'marcas' %}aria-current="page"{% endif %}><span class="workspace-nav-icon"><i class="fa-solid fa-fingerprint"></i></span><span class="workspace-nav-text">Marcas</span></a>
   </nav>
   {% if workspace_active in ('conversas', 'conversas-v2') %}
-  {% set sidebar_new_conversation_url = url_for('cadu_agent_v2_lab.conversations_v2_lab') if workspace_active == 'conversas-v2' else url_for('cadu_workspace.conversations') %}
+  {% set sidebar_new_conversation_url = '/workspace/conversas-v2-lab' if workspace_active == 'conversas-v2' else url_for('cadu_workspace.conversations') %}
   <section class="workspace-sidebar-conversations" aria-label="Conversas recentes">
     <div class="workspace-sidebar-section-head"><span>Conversas recentes</span><a href="{{ sidebar_new_conversation_url }}" aria-label="Nova conversa" title="Nova conversa"><i class="fa-solid fa-plus"></i></a></div>
     <nav id="workspace-sidebar-recent-conversations" aria-label="Lista de conversas recentes"><span class="workspace-sidebar-conversations-loading">Carregando…</span></nav>

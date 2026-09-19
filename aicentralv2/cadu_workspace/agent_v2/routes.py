@@ -30,6 +30,9 @@ lab_bp = Blueprint("cadu_agent_v2_lab", __name__)
 def conversations_v2_lab():
     if not session.get("user_id"):
         abort(401)
+    # This screen belongs to its own blueprint, so it does not pass through the
+    # Workspace hook that normally creates the shared Cadu CSRF token.
+    session.setdefault("family_csrf", secrets.token_urlsafe(32))
     return render_template("cadu_workspace/conversations_v2_lab.html")
 
 
@@ -102,8 +105,9 @@ def route_preview():
 
 @bp.post("/conversations/messages")
 def conversation_message():
-    if not current_app.config.get("CADU_CONVERSATIONS_V2_ENABLED", False):
-        abort(404)
+    # The authenticated V2 screen is now a published Workspace surface. Runtime
+    # credentials still fail closed in provider.py, but an exposed UI must not
+    # answer with a rollout 404 before admission reaches the agent.
     run = prepare_message(request.get_json(silent=True) or {})
     return Response(stream_with_context(stream_message(run)), mimetype="text/event-stream",
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

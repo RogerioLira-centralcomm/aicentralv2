@@ -52,7 +52,9 @@ test('v2 attachments require an explicit project usage choice', () => {
 
 test('conversations 2.0 restores artifacts and protects unsaved work', () => {
   const lab = fs.readFileSync(path.join(root, 'aicentralv2/static/cadu_workspace/conversations/v2-lab.js'), 'utf8');
+  const styles = fs.readFileSync(path.join(root, 'aicentralv2/static/cadu_workspace/conversations/v2-lab.css'), 'utf8');
   const template = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/conversations_v2_lab.html'), 'utf8');
+  const base = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_portals/base.html'), 'utf8');
   assert.match(lab, /metadata\.artifact_id/);
   assert.match(lab, /fetchArtifact\(lastArtifactId\)/);
   assert.match(lab, /confirmDiscard/);
@@ -61,9 +63,23 @@ test('conversations 2.0 restores artifacts and protects unsaved work', () => {
   assert.match(lab, /resource\.download_url/);
   assert.match(lab, /setAttribute\('sandbox', 'allow-scripts'\)/);
   assert.match(lab, /Content-Security-Policy/);
+  assert.doesNotMatch(lab, /img-src data: blob: https:/);
+  assert.match(lab, /displayProjectContext\(data\.context \|\| selectedContext\)/);
+  assert.match(lab, /v2-response-sources/);
+  assert.match(lab, /const addFailure/);
+  assert.match(lab, /input\.value = lastSubmittedMessage/);
+  assert.match(lab, /const renderChatText/);
+  assert.match(lab, /Ver resposta completa/);
+  assert.match(lab, /if \(!href\) return/);
+  assert.match(lab, /if \(!runTerminalReceived\) throw new Error/);
+  assert.match(lab, /artifactSave\.dataset\.conflict/);
+  assert.match(lab, /await loadContext\(\);[\s\S]*await loadRecent\(\);/);
+  assert.match(styles, /\.portal main\.v2-lab \{[\s\S]*width: 100%;[\s\S]*max-width: none;[\s\S]*margin: 0;/);
+  assert.match(styles, /@media \(max-width: 1080px\)[\s\S]*\.v2-lab-artifact-shell \{[\s\S]*inset: 0;/);
   assert.match(lab, /\/versions\/\$\{item\.version\}/);
   assert.match(lab, /workspace\/api\/v2\/uploads/);
   assert.match(template, /data-unsaved-dialog/);
   assert.match(template, /data-versions-dialog/);
   assert.match(template, /data-file-input/);
+  assert.match(base, /request\.endpoint not in \('cadu_workspace\.conversations', 'cadu_agent_v2_lab\.conversations_v2_lab'\)/);
 });

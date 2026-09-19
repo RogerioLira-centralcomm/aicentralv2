@@ -33,6 +33,17 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if _has(text, r"\b(revis(e|ar)|melhor(e|ar)|atualiz(e|ar)|corrig).{0,30}\bbriefing\b"):
         return IntentRoute("planner", "update_brief", "medium", "artifact_first",
                            ("project", "brief"), ("planner.get_brief",), "brief")
+    if (_has(text, r"\b(leitura de partida|leitura inicial|diagn[oó]stico inicial|raio[- ]x).{0,45}\bprojeto\b")
+            or (_has(text, r"\bprojeto\b")
+                and _has(text, r"\bobjetivo\b")
+                and _has(text, r"\b(entregas?|riscos?|decis(?:[aã]o|[oõ]es))\b"))):
+        if not has_project:
+            return IntentRoute("workspace", "select_project_for_readout", "low", "clarification")
+        return IntentRoute(
+            "workspace", "project_readout", "high", "artifact_first",
+            ("project",), ("workspace.search_project_content",),
+            "executive_summary",
+        )
     # Cross-domain comparisons must win over the generic media-plan route.
     if (_has(text, r"\b(relat[oó]rio|m[eé]trica|resultado|performance|agosto|campanha)\b")
             and _has(text, r"\bplano(?: de m[ií]dia)?\b")):

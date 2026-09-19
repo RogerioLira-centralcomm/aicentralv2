@@ -45,6 +45,9 @@
   let selectedContext = {};
   let attachments = [];
   let attachmentsBusy = false;
+  let lastSubmittedMessage = '';
+  let runFailureShown = false;
+  let runTerminalReceived = false;
 
   const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -52,6 +55,90 @@
   const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
   const scrollThread = () => { thread.scrollTop = thread.scrollHeight; };
   const json = async response => response.json().catch(() => ({}));
+  const safeUrl = value => {
+    try {
+      const url = new URL(String(value || ''), window.location.origin);
+      return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+    } catch (_) {
+      return '';
+    }
+  };
+
+  const appendInlineText = (node, value) => {
+    const text = String(value || '');
+    const pattern = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^\s)]+\))/g;
+    let cursor = 0;
+    for (const match of text.matchAll(pattern)) {
+      if (match.index > cursor) node.append(document.createTextNode(text.slice(cursor, match.index)));
+      const token = match[0];
+      if (token.startsWith('**')) {
+        const strong = document.createElement('strong');
+        strong.textContent = token.slice(2, -2);
+        node.append(strong);
+      } else if (token.startsWith('`')) {
+        const code = document.createElement('code');
+        code.textContent = token.slice(1, -1);
+        node.append(code);
+      } else {
+        const parts = token.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
+        const href = safeUrl(parts?.[2]);
+        if (href) {
+          const link = document.createElement('a');
+          link.textContent = parts[1];
+          link.href = href;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          node.append(link);
+        } else node.append(document.createTextNode(token));
+      }
+      cursor = match.index + token.length;
+    }
+    if (cursor < text.length) node.append(document.createTextNode(text.slice(cursor)));
+  };
+
+  const renderChatText = (node, value) => {
+    let list = null;
+    const endList = () => { list = null; };
+    String(value || '').replace(/\r\n/g, '\n').split('\n').forEach(rawLine => {
+      const line = rawLine.trim();
+      if (!line) {
+        endList();
+        return;
+      }
+      const heading = line.match(/^#{1,6}\s+(.+)$/);
+      const bullet = line.match(/^[-*+]\s+(.+)$/);
+      const numbered = line.match(/^\d+[.)]\s+(.+)$/);
+      if (heading) {
+        endList();
+        const title = document.createElement('h3');
+        appendInlineText(title, heading[1]);
+        node.append(title);
+      } else if (bullet || numbered) {
+        const type = numbered ? 'ol' : 'ul';
+        if (!list || list.tagName.toLowerCase() !== type) {
+          list = document.createElement(type);
+          node.append(list);
+        }
+        const item = document.createElement('li');
+        appendInlineText(item, (bullet || numbered)[1]);
+        list.append(item);
+      } else {
+        endList();
+        const paragraph = document.createElement('p');
+        appendInlineText(paragraph, line);
+        node.append(paragraph);
+      }
+    });
+  };
+
+  const answerPreview = value => String(value || '')
+    .replace(/\[([^\]]+)\]\(https?:\/\/[^\s)]+\)/g, '$1')
+    .replace(/(^|\n)\s*(?:#{1,6}|[-*+]\s|\d+[.)]\s)/g, '$1')
+    .replace(/[*_`]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 320)
+    .replace(/\s+\S*$/, '') + '…';
 
   const request = async (url, options = {}) => {
     const response = await fetch(url, {credentials: 'same-origin', ...options});
@@ -194,7 +281,8 @@
   const htmlPreviewDocument = content => {
     const css = String(content.css || '').replace(/<\/style/gi, '<\\/style');
     const javascript = String(content.js || '').replace(/<\/script/gi, '<\\/script');
-    return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: blob: https:; style-src 'unsafe-inline'; font-src data: https:; script-src 'unsafe-inline'; connect-src 'none'; media-src data: blob: https:; form-action 'none'; base-uri 'none'"><style>html,body{margin:0;min-height:100%;background:#fff}${css}</style></head><body>${String(content.html || '')}<script>${javascript}<\/script></body></html>`;
+    const origin = window.location.origin;
+    return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: blob: ${origin}; style-src 'unsafe-inline'; font-src data: ${origin}; script-src 'unsafe-inline'; connect-src 'none'; media-src data: blob: ${origin}; form-action 'none'; base-uri 'none'"><style>html,body{margin:0;min-height:100%;background:#fff}${css}</style></head><body>${String(content.html || '')}<script>${javascript}<\/script></body></html>`;
   };
 
   const markArtifactDirty = () => {
@@ -367,12 +455,14 @@
     const resourceActions = document.createElement('div');
     resourceActions.className = 'v2-map-resource-actions';
     const addResourceLink = (url, label, external = false) => {
+      const href = safeUrl(url);
+      if (!href) return;
       const link = document.createElement('a');
-      link.href = url;
+      link.href = href;
       link.textContent = label;
       if (external) {
         link.target = '_blank';
-        link.rel = 'noopener';
+        link.rel = 'noopener noreferrer';
       }
       resourceActions.append(link);
     };
@@ -713,10 +803,22 @@
   const addAnswer = (response, artifact = null) => {
     const node = document.createElement('article');
     node.className = 'v2-lab-message is-cadu';
-
-    const answer = document.createElement('p');
-    answer.textContent = response.answer || '';
-    node.append(answer);
+    const answerText = String(response.answer || '');
+    const answer = document.createElement('div');
+    answer.className = 'v2-chat-prose';
+    renderChatText(answer, answerText);
+    const denseAnswer = answerText.length > 900 || answerText.split('\n').length > 12;
+    if (denseAnswer) {
+      const preview = document.createElement('p');
+      const expansion = document.createElement('details');
+      const toggle = document.createElement('summary');
+      preview.className = 'v2-chat-preview';
+      preview.textContent = answerPreview(answerText);
+      expansion.className = 'v2-chat-expansion';
+      toggle.textContent = 'Ver resposta completa';
+      expansion.append(toggle, answer);
+      node.append(preview, expansion);
+    } else node.append(answer);
 
     const questions = Array.isArray(response.questions) ? response.questions : [];
     if (questions.length) {
@@ -746,6 +848,24 @@
       node.append(details);
     }
 
+    const citations = Array.isArray(response.citations) ? response.citations : [];
+    if (citations.length) {
+      const sources = document.createElement('div');
+      sources.className = 'v2-response-sources';
+      citations.slice(0, 6).forEach(item => {
+        const href = safeUrl(item?.url);
+        const source = href ? document.createElement('a') : document.createElement('span');
+        source.textContent = String(item?.title || 'Fonte');
+        if (href) {
+          source.href = href;
+          source.target = '_blank';
+          source.rel = 'noopener noreferrer';
+        }
+        sources.append(source);
+      });
+      node.append(sources);
+    }
+
     const actions = Array.isArray(response.actions) ? response.actions : [];
     if (actions.length) {
       const controls = document.createElement('div');
@@ -769,6 +889,17 @@
     scrollThread();
   };
 
+  const addFailure = () => {
+    if (!runFailureShown) {
+      addAnswer({answer: 'Não consegui concluir esta solicitação. Você pode tentar novamente pelo campo abaixo.'});
+      runFailureShown = true;
+    }
+    if (!input.value.trim() && lastSubmittedMessage) {
+      input.value = lastSubmittedMessage;
+      autoGrow();
+    }
+  };
+
   const addAction = (action, runId) => {
     const node = document.createElement('article');
     const summary = document.createElement('p');
@@ -789,9 +920,13 @@
             headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
             body: JSON.stringify({approved: index === 1})
           });
-          summary.textContent = data.step?.status === 'completed'
-            ? 'Ação concluída.'
-            : index === 1 ? 'Ação confirmada.' : 'Ação cancelada.';
+          const result = data.step?.output_snapshot?.result;
+          const hasScore = result?.score !== null && result?.score !== undefined && Number.isFinite(Number(result.score));
+          summary.textContent = data.step?.status === 'completed' && result?.status_label
+            ? `${result.status_label}${hasScore ? ` · ${result.score}/100` : ''}`
+            : data.step?.status === 'completed'
+              ? 'Ação concluída.'
+              : index === 1 ? 'Ação confirmada.' : 'Ação cancelada.';
           controls.remove();
           addTrace('Decisão registrada', data.step?.status || '', 'is-ok');
         } catch (error) {
@@ -848,11 +983,23 @@
       addAnswer(event.response || {}, latestRunArtifact);
       addTrace('Resposta concluída', event.response?.confidence || '', 'is-ok');
     } else if (kind === 'run.failed') {
+      runTerminalReceived = true;
       addTrace('Execução interrompida', event.message || '', 'is-error');
       setRuntime('Não foi possível concluir');
+      addFailure();
+      addRunSummary();
+      loadRecent();
+    } else if (kind === 'run.cancelled' || (kind === 'run.completed' && event.status === 'cancelled')) {
+      runTerminalReceived = true;
+      addTrace('Execução interrompida', '', '');
+      setRuntime('Interrompido');
+      addRunSummary();
+      loadRecent();
     } else if (kind === 'run.completed') {
+      runTerminalReceived = true;
       addTrace('Execução concluída', event.status || '', event.status === 'completed' ? 'is-ok' : 'is-error');
       setRuntime(event.status === 'completed' ? 'Concluído' : 'Não foi possível concluir');
+      if (event.status !== 'completed') addFailure();
       addRunSummary();
       loadRecent();
     }
@@ -867,26 +1014,40 @@
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+    const consumeFrame = frame => {
+      const raw = frame.split('\n')
+        .filter(line => line.startsWith('data:'))
+        .map(line => line.slice(5).trimStart())
+        .join('\n');
+      if (!raw) return;
+      try { handleEvent(JSON.parse(raw)); }
+      catch (_) { addTrace('Evento não reconhecido', '', 'is-error'); }
+    };
     while (true) {
       const {value, done} = await reader.read();
       buffer += decoder.decode(value || new Uint8Array(), {stream: !done});
       const frames = buffer.split('\n\n');
       buffer = frames.pop() || '';
-      frames.forEach(frame => {
-        const raw = frame.split('\n')
-          .filter(line => line.startsWith('data:'))
-          .map(line => line.slice(5).trimStart())
-          .join('\n');
-        if (!raw) return;
-        try { handleEvent(JSON.parse(raw)); }
-        catch (_) { addTrace('Evento não reconhecido', '', 'is-error'); }
-      });
-      if (done) break;
+      frames.forEach(consumeFrame);
+      if (done) {
+        if (buffer.trim()) consumeFrame(buffer);
+        break;
+      }
     }
+    if (!runTerminalReceived) throw new Error('A conexão terminou antes da conclusão. Tente novamente.');
   };
 
   const setProjectLabel = label => {
     composerContext.textContent = label || 'Contexto pessoal';
+  };
+
+  const displayProjectContext = context => {
+    const projectRef = String(context?.project_ref || '');
+    const option = Array.from(project.options).find(item => item.value === projectRef);
+    project.value = option ? projectRef : '';
+    const label = option?.text || 'Contexto pessoal';
+    projectState.textContent = option ? `Usando ${label}` : 'Nenhum projeto selecionado';
+    setProjectLabel(label);
   };
 
   const loadContext = async () => {
@@ -896,10 +1057,7 @@
       const projects = (data.entities || []).filter(item => item.kind === 'project');
       project.replaceChildren(new Option('Contexto pessoal', ''));
       projects.forEach(item => project.add(new Option(item.name, item.ref)));
-      project.value = selectedContext.project_ref || '';
-      const active = projects.find(item => item.ref === project.value);
-      projectState.textContent = active ? `Usando ${active.name}` : 'Nenhum projeto selecionado';
-      setProjectLabel(active?.name);
+      displayProjectContext(selectedContext);
     } catch (error) {
       projectState.textContent = error.message;
     }
@@ -922,8 +1080,6 @@
       selectedContext = data.context || {};
       resetConversation();
       const label = project.value ? project.options[project.selectedIndex].text : 'Contexto pessoal';
-      projectState.textContent = project.value ? `Usando ${label}` : 'Nenhum projeto selecionado';
-      setProjectLabel(label);
       addTrace('Contexto alterado', label, 'is-ok');
     } catch (error) {
       projectState.textContent = error.message;
@@ -954,6 +1110,7 @@
     attachments = [];
     attachmentsBusy = false;
     renderAttachments();
+    displayProjectContext(selectedContext);
     autoGrow();
   };
 
@@ -974,6 +1131,7 @@
       attachmentsBusy = false;
       renderAttachments();
       conversationTitle.textContent = title || 'Conversa';
+      displayProjectContext(data.context || selectedContext);
       thread.replaceChildren();
       let lastArtifactId = null;
       (data.messages || []).forEach(message => {
@@ -993,7 +1151,12 @@
           if (artifactId) lastArtifactId = artifactId;
         }
       });
-      if (!thread.childElementCount) resetConversation();
+      if (!thread.childElementCount) {
+        const empty = document.createElement('p');
+        empty.className = 'v2-conversation-empty';
+        empty.textContent = 'Esta conversa ainda não tem mensagens.';
+        thread.append(empty);
+      }
       if (lastArtifactId) {
         try { showArtifact(await fetchArtifact(lastArtifactId)); }
         catch (error) { addTrace('Artefato indisponível', error.message, 'is-error'); }
@@ -1045,6 +1208,9 @@
       }
     }
     const cleanMessage = message.trim();
+    lastSubmittedMessage = cleanMessage;
+    runFailureShown = false;
+    runTerminalReceived = false;
     latestRunArtifact = null;
     running = true;
     send.disabled = true;
@@ -1093,6 +1259,7 @@
     } catch (error) {
       addTrace('Falha na conversa', error.message, 'is-error');
       setRuntime('Não foi possível concluir');
+      addFailure();
     } finally {
       running = false;
       send.hidden = false;
@@ -1105,6 +1272,22 @@
 
   artifactSave.addEventListener('click', async () => {
     if (!currentArtifact?.id) return;
+    if (artifactSave.dataset.conflict === 'true') {
+      if (!(await confirmDiscard(false))) return;
+      artifactSave.disabled = true;
+      artifactSave.textContent = 'Atualizando…';
+      try {
+        showArtifact(await fetchArtifact(currentArtifact.id));
+        delete artifactSave.dataset.conflict;
+      } catch (error) {
+        artifactStatus.textContent = error.message;
+        artifactSave.textContent = 'Atualizar';
+        artifactSavebar.hidden = false;
+      } finally {
+        artifactSave.disabled = false;
+      }
+      return;
+    }
     artifactSave.disabled = true;
     artifactSave.textContent = 'Salvando…';
     const fields = Array.from(artifactContent.querySelectorAll('[data-field-index]'));
@@ -1130,6 +1313,7 @@
       });
       currentArtifact = data.artifact;
       artifactDirty = false;
+      delete artifactSave.dataset.conflict;
       artifactStatus.textContent = `Salvo · versão ${currentArtifact.current_version}`;
       artifactSave.textContent = 'Salvo';
       window.setTimeout(() => { artifactSavebar.hidden = true; artifactSave.textContent = 'Salvar'; }, 1100);
@@ -1137,7 +1321,8 @@
       artifactStatus.textContent = error.status === 409
         ? 'Este artefato mudou em outra sessão. Atualize antes de salvar.'
         : error.message;
-      artifactSave.textContent = 'Tentar novamente';
+      if (error.status === 409) artifactSave.dataset.conflict = 'true';
+      artifactSave.textContent = error.status === 409 ? 'Atualizar' : 'Tentar novamente';
     } finally {
       artifactSave.disabled = false;
     }
@@ -1206,7 +1391,10 @@
     event.returnValue = '';
   });
 
-  autoGrow();
-  loadContext();
-  loadRecent();
+  const initialize = async () => {
+    autoGrow();
+    await loadContext();
+    await loadRecent();
+  };
+  initialize();
 })();

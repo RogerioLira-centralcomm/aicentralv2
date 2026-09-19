@@ -84,6 +84,44 @@ def _clean_patch(value):
     return patch
 
 
+def _plain_multiline(value, limit=4000):
+    lines = []
+    for raw_line in str(value or "").replace("\r\n", "\n").split("\n"):
+        line = re.sub(r"\*\*([^*]+)\*\*|__([^_]+)__", lambda match: match.group(1) or match.group(2), raw_line)
+        line = re.sub(r"^\s*[-*+]\s+", "• ", line)
+        line = re.sub(r"^\s*#{1,6}\s*", "", line)
+        line = re.sub(r"[ \t]+", " ", line).strip()
+        if line:
+            lines.append(line)
+    return "\n".join(lines)[:limit].rstrip()
+
+
+def _fallback_artifact(answer, policy):
+    title = _clean_text(policy.get("artifact_fallback_title") or "Resultado do trabalho", 300)
+    sections, heading, body, intro = [], "", [], []
+    for line in str(answer or "").replace("\r\n", "\n").split("\n"):
+        match = re.match(r"^\s*#{1,6}\s+(.+?)\s*$", line)
+        if match:
+            if heading:
+                sections.append((heading, "\n".join(body)))
+            elif body:
+                intro.extend(body)
+            heading, body = match.group(1), []
+        else:
+            body.append(line)
+    if heading:
+        sections.append((heading, "\n".join(body)))
+    else:
+        intro.extend(body)
+    fields = [{"key": _clean_text(key, 160), "value": _plain_multiline(value), "state": "inferred"}
+              for key, value in sections[:20] if _clean_text(key, 160)]
+    return {
+        "title": title,
+        "summary": _plain_multiline("\n".join(intro), 2000),
+        "fields": fields,
+    }
+
+
 def normalize_response(raw, policy: dict) -> AgentResponse:
     if isinstance(raw, str):
         text = raw.strip()
@@ -110,7 +148,13 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
     citations = _clean_citations(value.get("citations"))
     actions = _clean_actions(value.get("actions"), max(0, int(policy.get("max_next_steps", 2))))
     patch = _clean_patch(value.get("artifact_patch"))
-    max_answer_chars = min(12000, max(1000, int(policy.get("max_output_tokens") or 3000) * 4))
+    artifact_first = policy.get("mode") == "artifact_first" and policy.get("artifact_type") not in {None, "html", "project_map"}
+    if artifact_first and not patch:
+        patch = _fallback_artifact(answer, policy)
+    dense_answer = len(answer) > int(policy.get("max_answer_chars") or 1800) or len(re.findall(r"(?m)^\s*(?:#{1,6}|[-*+]\s|\d+[.)]\s)", answer)) > 3
+    if artifact_first and dense_answer:
+        answer = str(policy.get("artifact_chat_message") or "Organizei o resultado no artefato ao lado para você revisar e editar.")
+    max_answer_chars = min(12000, max(240, int(policy.get("max_answer_chars") or 1800)))
     if len(answer) > max_answer_chars:
         answer = answer[:max_answer_chars].rstrip() + "…"
     confidence = str(value.get("confidence") or "medium").lower()

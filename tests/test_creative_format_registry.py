@@ -22,6 +22,7 @@ SPEC_KEYS = (
     "iab-billboard",
     "iab-leaderboard",
     "iab-medium",
+    "display-300x300",
     "iab-halfpage",
     "iab-skyscraper",
     "iab-mobile",
@@ -62,6 +63,7 @@ class CreativeFormatRegistryTest(TestCase):
         pairs = {
             "iab-medium-rectangle": "iab-medium",
             "iab-banner": "iab-medium",
+            "square-display": "display-300x300",
             "iab-half-page": "iab-halfpage",
             "iab-mobile-banner": "iab-mobile",
             "instagram-feed": "feed-1x1",

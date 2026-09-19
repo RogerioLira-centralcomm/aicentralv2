@@ -33,10 +33,12 @@ def test_create_screen_exposes_unified_visual_workspace():
     assert 'id="composerFeedback"' in html
     assert 'id="resultsView"' in html
     assert 'href="/static/css/cadu-studio-create-v2.css?v=34"' in html
-    assert 'src="/static/js/cadu-studio-create-v2.js?v=32"' in html
+    assert 'src="/static/js/cadu-studio-create-v2.js?v=33"' in html
     assert 'data-group="variations"><button class="is-selected" type="button">1</button><button type="button">2</button><button type="button">4</button>' in html
     assert "Inclui direção criativa e revisão final do prompt" in html
     assert "A peça gerada terá uma estrutura similar" in html
+    assert "Formatos para Social" in html
+    assert 'src="/static/js/cadu-studio-create-v2.js?v=33"' in html
     assert 'aria-describedby="referencePreviewDescription"' in html
     assert 'id="creationProgressTime">7s' in html
     assert 'id="libraryContent"' in html

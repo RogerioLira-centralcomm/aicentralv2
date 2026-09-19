@@ -857,6 +857,36 @@ body:has(.cot-op-page) dialog :is(input, select, textarea, button, a, label, p, 
   border-top-color: #bbcecc !important;
 }
 
+.cot-briefing-grid {
+  align-items: stretch;
+}
+
+.cot-briefing-grid .cot-briefing-field {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+}
+
+.cot-briefing-grid .cot-briefing-field > .cx-label-row {
+  min-height: 2.5rem;
+  align-items: flex-start;
+}
+
+.cot-briefing-grid .cot-briefing-field > .cx-textarea {
+  flex: 1 1 auto;
+}
+
+.cot-briefing-field__hint {
+  display: block;
+  min-height: 1rem;
+  margin-top: 0.125rem;
+}
+
+.cot-briefing-field__actions {
+  margin-top: 0.25rem;
+}
+
 .cot-media-dialog__footer {
   position: sticky;
   bottom: 0;

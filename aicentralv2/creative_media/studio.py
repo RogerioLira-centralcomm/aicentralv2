@@ -330,6 +330,7 @@ def studio_create_image():
         data['request_id'] = request_id
         project_id = str(data.get('project_id') or '')
         request_hash = hashlib.sha256(json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest()
+        studio_phase = 'history_claim'
         try:
             history = _creation_history()
         except Exception:
@@ -349,6 +350,7 @@ def studio_create_image():
                 # generations remain strict because their project item is part
                 # of the requested contract.
                 if not quick_mode:
+                    logger.exception('Studio image history claim failed')
                     raise
                 logger.exception('Studio quick image history claim unavailable')
                 history = None
@@ -367,8 +369,11 @@ def studio_create_image():
 
         if result is None:
             try:
+                studio_phase = 'image_provider'
                 result = studio_create.create_image(data, service(), int(client_id), int(user_id))
             except Exception as error:
+                if not getattr(error, 'studio_phase', ''):
+                    setattr(error, 'studio_phase', studio_phase)
                 if history:
                     history.fail_image(request_id, client_id, str(error))
                 raise
@@ -398,6 +403,7 @@ def studio_create_image():
         result['owner_only'] = result['visibility'] == 'personal'
         if history:
             try:
+                studio_phase = 'history_complete'
                 history.complete_image(request_id, client_id, result)
             except Exception:
                 # The paid image is already persisted at this point. A history

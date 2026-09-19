@@ -36,7 +36,11 @@ def _error(message, status, extra=None):
 
 def _run_extra(exc):
     run = getattr(exc, "run", None)
-    return {"data": {"run": run}} if run else None
+    phase = getattr(exc, "studio_phase", "")
+    extra = {"data": {"run": run}} if run else {}
+    if phase:
+        extra["studio_phase"] = str(phase)
+    return extra or None
 
 
 def _execute(callback):

@@ -4,7 +4,7 @@
   const apiRoot = String(root.dataset.apiRoot || '/parametros/api').replace(/\/$/, '');
   let csrf = document.querySelector('meta[name="trocr-csrf-token"]')?.content || '';
   const MAX_REFERENCES = 2;
-  const state = { approved: false, variations: 1, quality: 'Padrão', channel: 'Social', intensity: 70, approvedPrompt: '', direction: null, projectId: '', clientId: root.dataset.clientId || '', quickMode: true, formatKey: 'feed-4x5', width: 1080, height: 1350, aspectRatio: '4:5', customRatio: 1080 / 1350, selectedReferences: [], autoGenerateNext: false, generationRound: 0 };
+  const state = { approved: false, autoApproveDirection: false, variations: 1, quality: 'Padrão', channel: 'Social', intensity: 70, approvedPrompt: '', direction: null, projectId: '', clientId: root.dataset.clientId || '', quickMode: true, formatKey: 'feed-4x5', width: 1080, height: 1350, aspectRatio: '4:5', customRatio: 1080 / 1350, selectedReferences: [], autoGenerateNext: false, generationRound: 0 };
   let pendingReferenceReads = [];
   const setState = name => { root.dataset.state = name; };
   const setHint = message => { const hint = $('.prompt-hint'); if (hint) hint.innerHTML = `<i class="fa-solid fa-circle-info"></i> ${message}`; };
@@ -20,6 +20,8 @@
   const contextLabel = () => state.quickMode ? 'Criação rápida' : (document.querySelector('#mcCaduProject option:checked')?.textContent || 'Projeto selecionado').trim();
   const referenceMatchesFormat = item => { if (!item?.format && !(item?.width && item?.height)) return true; if (item.format === state.aspectRatio || (Number(item.width) === Number(state.width) && Number(item.height) === Number(state.height))) return true; const referenceRatio = Number(item.width) / Number(item.height); const outputRatio = Number(state.width) / Number(state.height); return Number.isFinite(referenceRatio) && Number.isFinite(outputRatio) && Math.abs(referenceRatio - outputRatio) < 0.005; };
   const renderShelf = (library, history, serverMasks = null) => { const incomingMasks = Array.isArray(serverMasks) && serverMasks.length ? serverMasks : (shelfCache.masks.length ? shelfCache.masks : globalReferenceMasks); shelfCache = { library: Array.isArray(library) ? library : [], history: Array.isArray(history) ? history : [], masks: incomingMasks }; const masks = shelfCache.masks.filter(referenceMatchesFormat); const localUploads = state.selectedReferences.filter(item => String(item.id || '').startsWith('upload-') && imageUrl(item)); const items = [...localUploads, ...masks, ...shelfCache.library.filter(item => imageUrl(item))].slice(0, 10); $('#referenceGrid').innerHTML = items.length ? items.map((item, index) => { const url = imageUrl(item); const key = item.id || url; const label = item.label || item.title || item.name || `Imagem ${index + 1}`; const selected = state.selectedReferences.some(reference => reference.id === key || reference.url === url); return `<button class="reference-card${selected ? ' is-selected' : ''}" data-reference-id="${escapeHtml(key)}" data-reference-url="${escapeHtml(url)}" data-reference-label="${escapeHtml(label)}" aria-pressed="${selected}" style="background-image:url('${escapeHtml(url)}')" aria-label="Referência: ${escapeHtml(label)}"><span class="reference-check"><i class="fa-solid fa-check"></i></span><span class="reference-preview-trigger" data-reference-preview="true" role="button" tabindex="0" aria-label="Ver referência maior"><i class="fa-solid fa-eye"></i></span></button>`; }).join('') : '<div class="shelf-empty">Nenhuma referência neste formato.</div>'; $('#referenceCount').textContent = items.length; $('#libraryScope').textContent = `${contextLabel()} · ${masks.length} globais selecionáveis${shelfCache.library.length ? ` · ${shelfCache.library.length} da sua biblioteca` : ''}`; $('#historyScope').textContent = `${contextLabel()} · ${shelfCache.history.length} ${shelfCache.history.length === 1 ? 'criação' : 'criações'}`; $('#historyItem').title = shelfCache.history.length ? shelfCache.history.slice(0, 3).map(run => run.title || run.prompt || 'Direção criativa').join(' · ') : 'Nenhuma criação neste contexto'; };
+  const normalizeLibraryLabel = () => { const label = $('#libraryScope'); const value = `${contextLabel()} · ${shelfCache.library.length} ativos`; if (label && label.textContent !== value) label.textContent = value; };
+  new MutationObserver(normalizeLibraryLabel).observe($('#libraryScope'), { childList: true, characterData: true, subtree: true });
   const formatCatalog = (() => { try { return JSON.parse(root.dataset.formatCatalog || '[]'); } catch (_) { return []; } })();
   const iconForFormat = item => { const text = `${item.label || ''} ${item.family || ''}`.toLowerCase(); if (text.includes('vertical') || text.includes('feed')) return 'fa-mobile-screen'; if (text.includes('video') || text.includes('ctv')) return 'fa-film'; if (text.includes('rectangle') || text.includes('banner') || text.includes('leaderboard')) return 'fa-rectangle-wide'; if (text.includes('square')) return 'fa-square'; return 'fa-expand'; };
   const ratioFor = item => item.width && item.height ? `${item.width}:${item.height}` : String(item.ratio || '1:1');
@@ -43,6 +45,32 @@
     return state.selectedReferences.map(reference => { const url = imageUrl(reference); const source = reference.source || (url.startsWith('/static/images/cadu/studio/references/') ? 'global' : String(reference.id || '').startsWith('reference:') ? 'user' : 'project'); return { id: reference.id, url, role: reference.role === 'reference' ? 'composition' : (reference.role || 'composition'), source, label: reference.label }; }).filter(reference => reference.url).slice(0, MAX_REFERENCES);
   };
   const referenceCountLabel = count => `${count} referência${count === 1 ? '' : 's'}`;
+  const composerRow = $('.prompt-row');
+  const composerSubmit = $('.prompt-submit');
+  if (composerRow && composerSubmit) {
+    const composerControls = document.createElement('div');
+    composerControls.className = 'prompt-composer-controls';
+    composerControls.innerHTML = '<button class="prompt-tool prompt-add" type="button" aria-label="Adicionar referência">+</button><button class="prompt-tool prompt-approve" type="button"><i class="fa-regular fa-shield-check"></i> Aprovar por mim</button><span class="prompt-composer-spacer"></span><button class="prompt-model" type="button" aria-label="Modelo de geração"><i class="fa-solid fa-bolt"></i> GPT-5.6 Luna <small>Médio</small><i class="fa-solid fa-chevron-down"></i></button><button class="prompt-tool prompt-voice" type="button" aria-label="Entrada por voz"><i class="fa-solid fa-microphone"></i></button></div>';
+    composerSubmit.classList.add('prompt-send');
+    composerSubmit.innerHTML = '<i class="fa-solid fa-arrow-up" aria-hidden="true"></i><span class="sr-only">Revisar direção</span>';
+    composerRow.append(composerControls, composerSubmit);
+    $('.prompt-add')?.addEventListener('click', () => $('#referenceUploadDialog')?.showModal());
+    $('.prompt-approve')?.addEventListener('click', () => { state.autoApproveDirection = !state.autoApproveDirection; composerRow.dataset.approveMode = state.autoApproveDirection ? 'true' : 'false'; $('.prompt-approve').classList.toggle('is-active', state.autoApproveDirection); if (state.autoApproveDirection && state.direction && !state.approved) approveDirectionSilently(); });
+    $('.prompt-model')?.addEventListener('click', event => event.currentTarget.classList.toggle('is-open'));
+    $('.prompt-voice')?.addEventListener('click', () => $('#promptInput')?.focus());
+  }
+  const approveDirectionSilently = () => {
+    if (!state.direction || state.approved) return;
+    state.approved = true;
+    state.approvedPrompt = directionText(state.direction);
+    setState('approved');
+    directionCard.hidden = true;
+    $('#approveDirection').disabled = true;
+    $('#generateButton').disabled = false;
+    $('#generateButton').classList.add('is-ready');
+    $('#generateButton').textContent = `Gerar ${state.variations} ${state.variations === 1 ? 'imagem' : 'imagens'} →`;
+    window.setTimeout(() => runGeneration(), 0);
+  };
   const createImage = async prompt => { syncContext(); if (!state.approved || !state.direction || !state.approvedPrompt) throw new Error('A direção precisa ser aprovada antes de gerar a imagem.'); const references = await selectedReferencePayload(); return request(`${apiRoot}/format-lab/studio/create/image`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ studio_v2: true, direction_approved: true, client_id: state.quickMode ? '' : state.clientId, project_id: state.quickMode ? '' : state.projectId, quick_mode: state.quickMode, prompt, title: state.direction?.title || 'Imagem criada no Studio', channel: state.channel, format_key: state.formatKey, width: state.width, height: state.height, direction_intensity: state.intensity, aspect_ratio: state.aspectRatio, quality: state.quality, references, reference_plan: state.direction?.reference_plan || [], auto_generate_next: state.autoGenerateNext, generation_round: state.generationRound, request_id: `v2-${crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`}` }) }); };
   const renderResults = results => { const grid = $('.results-grid'); grid.innerHTML = ''; results.forEach((result, index) => { const card = document.createElement('article'); card.className = `result-card result-${index + 1}`; card.dataset.imageUrl = result.image_url || ''; card.innerHTML = `<div class="result-overlay"><span>Variação ${index + 1}</span><button aria-label="Baixar variação ${index + 1}"><i class="fa-solid fa-download"></i></button></div><footer><strong>Variação pronta para escolher</strong><small>Leve esta imagem para o editor ou descarte para criar outra.</small><div class="result-actions"><button class="result-discard" type="button"><i class="fa-solid fa-trash-can"></i> Descartar</button><button class="result-edit" type="button"><i class="fa-solid fa-pen"></i> Editar imagem</button></div></footer>`; card.style.backgroundImage = `linear-gradient(180deg, transparent 45%, rgba(7,18,27,.85)), url(${result.image_url})`; card.style.backgroundSize = 'cover'; card.style.backgroundPosition = 'center'; grid.append(card); }); };
   const syncGeneratedAssets = results => { results.forEach((result, index) => { const card = $$('.result-card')[index]; if (!card) return; card.dataset.assetId = result.asset_id || ''; const title = card.querySelector('strong'); const description = card.querySelector('small'); if (title) title.textContent = 'Salva na Biblioteca'; if (description) description.textContent = 'Escolha uma para editar ou descarte esta variação para removê-la.'; }); };
@@ -71,7 +99,20 @@
   document.querySelector('#mcCaduProject')?.addEventListener('change', loadContextShelf); document.querySelector('#mcCaduBarClient')?.addEventListener('change', loadContextShelf); $('#libraryItem').addEventListener('click', loadContextShelf); $('#historyItem').addEventListener('click', loadContextShelf); renderChannelFormats('Social'); syncContext(); updateUsage(); loadContextShelf();
   const reviewLoading = $('#reviewLoading'); const directionCard = $('#directionCard'); const promptSubmit = $('.prompt-submit'); const referenceInput = $('#referenceInput'); let reviewTimer = 0;
   const referenceCountForReview = () => (referenceInput?.files?.length || 0) + $$('.reference-card[aria-pressed="true"]').length;
-  const stopReviewLoading = () => { window.clearTimeout(reviewTimer); reviewLoading.hidden = true; };
+  let reviewCountdownTimer = 0;
+  new MutationObserver(() => {
+    window.clearInterval(reviewCountdownTimer);
+    if (reviewLoading.hidden) return;
+    let remaining = 5;
+    $('#reviewLoading h2').textContent = `Carregando · ${remaining}s`;
+    reviewCountdownTimer = window.setInterval(() => {
+      remaining -= 1;
+      $('#reviewLoading h2').textContent = remaining > 0 ? `Carregando · ${remaining}s` : 'Carregando…';
+      if (remaining <= 0) window.clearInterval(reviewCountdownTimer);
+    }, 1000);
+  }).observe(reviewLoading, { attributes:true, attributeFilter:['hidden'] });
+  const stopReviewLoading = () => { window.clearTimeout(reviewTimer); window.clearInterval(reviewCountdownTimer); reviewLoading.hidden = true; };
+  new MutationObserver(() => { if (!directionCard.hidden && state.autoApproveDirection && state.direction && !state.approved) approveDirectionSilently(); }).observe(directionCard, { attributes:true, attributeFilter:['hidden'] });
   const showReviewLoading = () => { window.clearTimeout(reviewTimer); reviewTimer = window.setTimeout(() => { $('#workspaceEmpty').hidden = true; directionCard.hidden = true; reviewLoading.hidden = false; $('#reviewLoadingText').textContent = referenceCountForReview() ? `Comparando o briefing com ${referenceCountForReview()} referência${referenceCountForReview() === 1 ? '' : 's'} antes de ajustar a direção.` : 'Organizando o briefing antes de ajustar a direção.'; }, 200); };
   new MutationObserver(() => { if (!directionCard.hidden) { stopReviewLoading(); const count = referenceCountForReview(); $('#reviewFindingsText').textContent = count ? `Direção alinhada ao briefing, formato ${state.aspectRatio} e ${count} referência${count === 1 ? '' : 's'} selecionada${count === 1 ? '' : 's'}.` : `Direção original baseada no briefing e no formato ${state.aspectRatio}, sem referência visual.`; $('#reviewReferenceNote').textContent = count ? `A revisão também considerou ${count} referência${count === 1 ? '' : 's'} anexada${count === 1 ? '' : 's'} ou selecionada${count === 1 ? '' : 's'}.` : 'Nenhuma referência visual foi anexada ou selecionada; a direção usa apenas o briefing.'; } }).observe(directionCard, { attributes:true, attributeFilter:['hidden'] });
   new MutationObserver(() => { if (!promptSubmit.disabled && directionCard.hidden) stopReviewLoading(); }).observe(promptSubmit, { attributes:true, attributeFilter:['disabled'] });

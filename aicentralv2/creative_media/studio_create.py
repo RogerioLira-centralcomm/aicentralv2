@@ -282,41 +282,53 @@ def create_image(payload, modeling, client_id, user_id):
     requested_quality = str(data.get("quality") or "Padrão").strip().lower()
     quality_map = {"econômica": ("low", "1K"), "economica": ("low", "1K"), "padrão": ("medium", "1K"), "padrao": ("medium", "1K"), "alta": ("high", "2K")}
     provider_quality, provider_resolution = quality_map.get(requested_quality, ("medium", "1K"))
-    provider = modeling.generator.generate_image(
-        technical_prompt,
-        provider_references,
-        aspect_ratio=aspect_ratio,
-        quality=provider_quality,
-        resolution=provider_resolution,
-        model=IMAGE_MODEL,
-    )
+    try:
+        provider = modeling.generator.generate_image(
+            technical_prompt,
+            provider_references,
+            aspect_ratio=aspect_ratio,
+            quality=provider_quality,
+            resolution=provider_resolution,
+            model=IMAGE_MODEL,
+        )
+    except Exception as error:
+        setattr(error, "studio_phase", "image_provider")
+        raise
     encoded = provider.get("b64_json")
     if not encoded:
         raise ValueError("O gerador não devolveu uma imagem.")
     if mask and primary:
         encoded = compose_inside_mask(encoded, primary["data"], mask)
-    image_url = modeling.storage.save_generated_base64(
-        encoded, provider.get("output_format") or "png"
-    )
-    charged = modeling._charge_studio_call(
-        client_id=client_id,
-        user_id=user_id,
-        idempotency_key=f"studio:create-image:{request_id}",
-        stage="image_generation",
-        provider_result=provider,
-        fallback_cost=estimate,
-        media=True,
-        metadata={
-            "project_id": str(data.get("project_id") or ""),
-            "aspect_ratio": aspect_ratio,
-            "reference_roles": [item["role"] for item in references],
-            "masked": bool(mask),
-            "studio_session_id": text(data.get("studio_session_id"), 80),
-            "studio_root_session_id": text(
-                data.get("studio_root_session_id") or data.get("studio_session_id"), 80,
-            ),
-        },
-    ) or {}
+    try:
+        image_url = modeling.storage.save_generated_base64(
+            encoded, provider.get("output_format") or "png"
+        )
+    except Exception as error:
+        setattr(error, "studio_phase", "image_storage")
+        raise
+    try:
+        charged = modeling._charge_studio_call(
+            client_id=client_id,
+            user_id=user_id,
+            idempotency_key=f"studio:create-image:{request_id}",
+            stage="image_generation",
+            provider_result=provider,
+            fallback_cost=estimate,
+            media=True,
+            metadata={
+                "project_id": str(data.get("project_id") or ""),
+                "aspect_ratio": aspect_ratio,
+                "reference_roles": [item["role"] for item in references],
+                "masked": bool(mask),
+                "studio_session_id": text(data.get("studio_session_id"), 80),
+                "studio_root_session_id": text(
+                    data.get("studio_root_session_id") or data.get("studio_session_id"), 80,
+                ),
+            },
+        ) or {}
+    except Exception as error:
+        setattr(error, "studio_phase", "image_billing")
+        raise
     try:
         remaining = modeling.credit_ledger.available(
             modeling._credits_crm_id(client_id) or int(client_id)

@@ -12,3 +12,17 @@
     {% endfor %}
   </fieldset>
 </details>
+<dialog class="mc-trocr-batch-dialog" id="mcTrocrBatchDialog" aria-labelledby="mcTrocrBatchTitle">
+  <header>
+    <div><h2 id="mcTrocrBatchTitle">Desdobrar em formatos</h2><p>Escolha até três saídas. Cada uma será gerada individualmente a partir da mesma imagem-base, direção e referência global.</p></div>
+    <button type="button" class="mc-trocr-text-cta is-muted" data-close-batch>Fechar</button>
+  </header>
+  <fieldset class="mc-trocr-batch-formats" id="mcTrocrBatchFormats">
+    <legend>Formatos de saída</legend>
+    {% for ratio, label, channel in [('16:9', 'Horizontal', 'YouTube / CTV'), ('1:1', 'Quadrado', 'Feed'), ('9:16', 'Vertical', 'Stories / Reels'), ('4:5', 'Retrato', 'Feed')] %}
+    <label><input type="checkbox" value="{{ ratio }}" {% if ratio == '16:9' %}checked{% endif %}><span class="trocr-format-shape" style="--format-ratio:{{ ratio|replace(':',' / ') }}" aria-hidden="true"></span><span><strong>{{ ratio }} · {{ label }}</strong><small>{{ channel }}</small></span></label>
+    {% endfor %}
+  </fieldset>
+  <p class="mc-trocr-batch-reference" id="mcTrocrBatchReference">Sem referência global selecionada.</p>
+  <footer><span id="mcTrocrBatchEstimate">1 saída será gerada.</span><button type="button" class="cx-btn cx-btn-primary" id="mcTrocrRunBatch">Gerar formatos</button></footer>
+</dialog>

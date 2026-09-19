@@ -11,6 +11,7 @@ from aicentralv2.creative_media.studio_sessions import (
     LocalSessionRepository,
     SessionConflict,
     estimate_metrics,
+    public_canvas_session,
     studio_usage_summary,
 )
 
@@ -61,6 +62,29 @@ class StudioSessionRepositoryTest(unittest.TestCase):
 
         self.assertEqual(attached["project_id"], "project-123")
         self.assertEqual(attached["metadata"]["workspace"]["messages"][0]["text"], "Briefing aprovado")
+
+    def test_public_share_exposes_assets_but_never_the_private_prompt(self):
+        created = self.repo.create(31, 7, {
+            "studio_type": "edit", "title": "Lançamento", "original_prompt": "instrução confidencial",
+        })
+        accepted = self.repo.accept(31, 7, created["id"], {
+            "role": "accepted", "asset_url": "/media/final.png", "source_id": "final",
+        })
+        shared = self.repo.share(31, 7, created["id"], {"allow_download": True, "expires_in_days": 7})
+        canvas = public_canvas_session(shared, shared["assets"], shared["finalization"])
+
+        self.assertTrue(canvas["share"]["token"])
+        self.assertTrue(canvas["share"]["allow_download"])
+        self.assertGreater(canvas["share"]["expires_at"], 0)
+        self.assertEqual(canvas["assets"][0]["asset_url"], "/media/final.png")
+        self.assertNotIn("original_prompt", canvas)
+        self.assertEqual(accepted["active_asset_id"], shared["active_asset_id"])
+
+    def test_expired_public_share_is_not_resolved(self):
+        created = self.repo.create(31, 7, {"studio_type": "edit"})
+        shared = self.repo.share(31, 7, created["id"], {"expires_in_days": 7})
+        shared["metadata"]["share"]["expires_at"] = 1
+        self.assertIsNone(public_canvas_session(shared, shared["assets"], shared["finalization"]))
 
 
 def test_non_test_session_store_uses_postgres_even_with_legacy_flag_disabled():
@@ -272,7 +296,10 @@ class StudioSessionRouteTest(unittest.TestCase):
         from aicentralv2.creative_media.studio import register_studio_routes
 
         with tempfile.TemporaryDirectory() as directory:
-            app = Flask(__name__, instance_path=directory)
+            app = Flask(
+                __name__, instance_path=directory,
+                template_folder=str(Path(__file__).resolve().parents[1] / "aicentralv2" / "templates"),
+            )
             app.secret_key = "test-only"
             app.config.update(TESTING=True, MEDIA_ROOT=directory)
             bp = Blueprint("studio_session_test", __name__)
@@ -313,6 +340,12 @@ class StudioSessionRouteTest(unittest.TestCase):
                 self.assertEqual(accepted.status_code, 200, accepted.json)
                 final = client.post(f"{base}/{ident}/finalize", json={"recipient_email": "attacker@example.com"}, headers=headers)
                 self.assertEqual(final.status_code, 200, final.json)
+                shared = client.post(f"{base}/{ident}/share", json={"allow_download": True}, headers=headers)
+                self.assertEqual(shared.status_code, 200, shared.json)
+                token = shared.json["data"]["metadata"]["share"]["token"]
+                public = client.get(f"/mesa/{token}")
+                self.assertEqual(public.status_code, 200)
+                self.assertNotIn(b"attacker@example.com", public.data)
 
             root = next(Path(directory).glob("creative_media/studio/*"))
             with sqlite3.connect(root / "studio-sessions.sqlite3") as db:

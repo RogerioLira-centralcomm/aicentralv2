@@ -22,7 +22,7 @@
 {% if mc_studio_js %}<script src="{{ url_for('static', filename='js/modelagem_criativos.js') }}?v=58" defer></script>{% endif %}
 {% if mc_page_js == 'js/mc-design-system.js' %}<script src="{{ url_for('static', filename='js/mc-dsa-write-queue.js') }}?v=64"></script>{% endif %}
 {% if mc_page_js %}
-{% if mc_page == 'trocar' %}<script src="{{ url_for('static', filename='js/mc-viewer-shell.js') }}?v=1" defer></script><script src="{{ url_for('static', filename='js/trocr/editor.js') }}?v=1" defer></script>{% endif %}
+{% if mc_page == 'trocar' %}<script src="{{ url_for('static', filename='js/cadu-studio-edit-context.js') }}?v=2" defer></script><script src="{{ url_for('static', filename='js/mc-viewer-shell.js') }}?v=1" defer></script><script src="{{ url_for('static', filename='js/trocr/editor.js') }}?v=1" defer></script>{% endif %}
 {% if mc_page_js == 'js/camadas/index.js' %}<script type="module" src="{{ url_for('static', filename=mc_page_js) }}?v=21"></script>{% elif mc_page_js == 'js/mc-cadu-video.js' %}<script type="module" src="{{ url_for('static', filename=mc_page_js) }}?v=25"></script>{% elif mc_page == 'trocar' %}<script src="{{ url_for('static', filename=mc_page_js) }}?v=86" defer></script>{% else %}<script src="{{ url_for('static', filename=mc_page_js) }}?v=83" defer></script>{% endif %}
 {% endif %}
 {% endblock %}

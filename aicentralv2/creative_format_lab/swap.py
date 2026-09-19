@@ -356,6 +356,16 @@ def swap_input_references(payload=None, brand=None):
     return refs[:2]
 
 
+def has_composition_reference(payload=None):
+    """A global Studio mask is a layout contract, never a replacement still."""
+    for item in (payload or {}).get("reference_inputs") or []:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("role") or "").strip() == "composition_reference":
+            return True
+    return False
+
+
 def build_optimized_prompt(payload=None, brand=None, operations=None):
     payload = payload if isinstance(payload, dict) else {}
     brand = brand if isinstance(brand, dict) else {}
@@ -384,6 +394,7 @@ def build_optimized_prompt(payload=None, brand=None, operations=None):
     preserve = _token_list(payload.get("preserve"), PRESERVE_LABELS)
     alter = _token_list(payload.get("alter"), ALTER_LABELS)
     recrop = swap_mode(payload) == "recrop"
+    composition_reference = has_composition_reference(payload)
     lines = [
         "Edit the attached advertising reference. Keep the same composition, crop, hierarchy and number of frames.",
         "All visible text must be Brazilian Portuguese.",
@@ -410,7 +421,14 @@ def build_optimized_prompt(payload=None, brand=None, operations=None):
         lines.insert(2, "Do not redesign the layout.")
     else:
         lines.insert(1, "Change only what the user explicitly requested. Do not redesign the layout or replace the advertiser.")
-    if payload.get("initial_reference"):
+    if composition_reference:
+        lines.insert(
+            1,
+            "The FIRST attachment is the source creative. The SECOND attachment is a composition system reference: "
+            "use it only for safe margins, hierarchy, negative space, layer order and alignment. Do not recreate its "
+            "placeholder product, copy, palette or imagery, and do not replace anything in the source creative.",
+        )
+    elif payload.get("initial_reference"):
         lines.insert(
             1,
             "The first attachment is the latest approved working version. The second is the original continuity anchor. "

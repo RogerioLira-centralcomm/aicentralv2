@@ -87,7 +87,7 @@ class TrocrEditorDraftTest(unittest.TestCase):
         self.assertIn('.trocr-editor[data-flow="upload"] .mc-trocr-main', css)
         self.assertIn(".trocr-editor .mc-trocr-main {\n  grid-area:3 / 2 / 4 / 3;\n  display:grid;", css)
         self.assertIn(".trocr-editor .trocr-desk {\n  align-self:stretch;", css)
-        for token in ("--tr-ink:#ececec", "--tr-muted:#b4b4b4", "--tr-floor:#212121", "--tr-accent:#58d39a"):
+        for token in ("--tr-ink:#f4f7fb", "--tr-muted:#9baabd", "--tr-floor:#0b1219", "--tr-accent:#8257ff"):
             with self.subTest(token=token):
                 self.assertIn(token, css)
         self.assertIn("Envie uma peça para começar", page)
@@ -125,8 +125,20 @@ class TrocrEditorDraftTest(unittest.TestCase):
         self.assertIn("studio_session_id", source)
         self.assertIn("registerStudioVersion(version, 'accepted')", source)
         self.assertIn("/discard", source)
-        self.assertIn("--tr-floor:#212121", css)
+        self.assertIn("--tr-floor:#0b1219", css)
         self.assertIn("color-scheme:dark", css)
+
+    def test_edit_uses_the_single_studio_project_context_and_preserves_manual_references(self):
+        root = Path(__file__).resolve().parents[1]
+        templates = root / "aicentralv2" / "templates"
+        inspector = (templates / "parametros" / "trocr" / "_inspector.html").read_text(encoding="utf-8")
+        context_bar = (templates / "cadu_studio" / "_context_bar.html").read_text(encoding="utf-8")
+        source = (root / "aicentralv2" / "static" / "js" / "mc-trocar.js").read_text(encoding="utf-8")
+        self.assertNotIn('id="mcCaduProject"', inspector)
+        self.assertEqual(context_bar.count('id="mcCaduProject"'), 1)
+        self.assertIn("window.McCaduContext?.projectId", source)
+        self.assertIn("state.globalReference =", source)
+        self.assertIn("manual[0] || state.globalReference", source)
 
     def test_trocr_styles_have_one_dark_contract_and_no_retired_navigation(self):
         root = Path(__file__).resolve().parents[1]

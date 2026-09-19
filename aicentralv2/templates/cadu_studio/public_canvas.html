@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>{{ canvas.title }} — Cadu Studio</title>
+  <style>
+    :root { color-scheme: dark; --bg:#081017; --panel:#101c27; --line:#263a4c; --text:#f3f6fb; --muted:#aab8c7; --accent:#8257ff; }
+    * { box-sizing:border-box; } body { margin:0; background:radial-gradient(circle at 50% -10%,#1c2147 0,transparent 36%),var(--bg); color:var(--text); font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    .canvas { width:min(1640px,100%); margin:auto; padding:24px clamp(18px,4vw,72px) 72px; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:24px; padding-bottom:22px; border-bottom:1px solid var(--line); }
+    .brand { display:flex; align-items:center; gap:10px; color:var(--text); font-weight:800; letter-spacing:-.03em; } .mark { display:grid; place-items:center; width:32px; height:32px; border-radius:10px; background:#fff; overflow:hidden; } .mark img { display:block; width:100%; height:100%; object-fit:contain; } .brand small { color:var(--muted); font-weight:600; letter-spacing:0; }
+    .status { color:#d5c7ff; font-size:12px; font-weight:700; } .intro { padding:48px 0 30px; max-width:840px; } .eyebrow { color:#ad91ff; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; } h1 { margin:8px 0; font-size:clamp(30px,5vw,58px); line-height:1; letter-spacing:-.055em; } .intro p { color:var(--muted); margin:0; max-width:640px; font-size:16px; }
+    .summary { display:flex; flex-wrap:wrap; gap:10px; margin:24px 0 42px; } .summary span { border:1px solid var(--line); background:rgba(16,28,39,.76); border-radius:999px; padding:7px 11px; color:var(--muted); } .summary b { color:var(--text); }
+    .gallery { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:18px; } figure { grid-column:span 4; margin:0; overflow:hidden; border-radius:18px; border:1px solid var(--line); background:var(--panel); min-width:0; } figure.is-final { grid-column:span 8; border-color:#7453d8; box-shadow:0 18px 55px rgba(85,54,190,.2); } figure img { display:block; width:100%; height:auto; max-height:860px; object-fit:contain; background:#06090c; } figcaption { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; color:var(--muted); } figcaption strong { color:var(--text); } .final { color:#c9b8ff; font-size:12px; font-weight:800; } a.download { color:#fff; background:var(--accent); border-radius:9px; padding:7px 10px; text-decoration:none; font-weight:750; font-size:12px; }
+    .empty { border:1px dashed var(--line); border-radius:16px; padding:38px; color:var(--muted); text-align:center; } footer { margin-top:52px; padding-top:18px; border-top:1px solid var(--line); color:#718397; font-size:12px; }
+    @media (max-width:900px) { .canvas { padding:18px 16px 48px; } .gallery { grid-template-columns:1fr; } figure, figure.is-final { grid-column:span 1; } header { align-items:flex-start; } h1 { font-size:38px; } }
+  </style>
+</head>
+<body>
+  <main class="canvas">
+    <header>
+      <div class="brand"><span class="mark"><img src="{{ url_for('static', filename='images/cadu/products/studio-icon.png') }}" alt=""></span><span>Cadu <small>Studio</small></span></div>
+      <span class="status">Mesa de revisão · somente leitura</span>
+    </header>
+    <section class="intro">
+      <span class="eyebrow">Entrega criativa</span>
+      <h1>{{ canvas.title }}</h1>
+      <p>Versões, desdobramentos e a peça selecionada reunidos em uma única mesa para revisão.</p>
+      <div class="summary">
+        <span><b>{{ canvas.assets|length }}</b> versões visíveis</span>
+        {% if canvas.finalization %}<span><b>{{ canvas.finalization.generation_count }}</b> gerações</span><span><b>{{ canvas.finalization.edit_count }}</b> edições</span><span><b>{{ canvas.finalization.format_count }}</b> formatos</span>{% endif %}
+      </div>
+    </section>
+    {% if canvas.assets %}
+    <section class="gallery" aria-label="Peças desta entrega">
+      {% for asset in canvas.assets %}
+      <figure class="{% if asset.role in ['final', 'accepted'] %}is-final{% endif %}">
+        <img src="{{ asset.asset_url }}" alt="{{ asset.title }}" loading="{% if loop.first %}eager{% else %}lazy{% endif %}">
+        <figcaption><span><strong>{{ asset.title }}</strong>{% if asset.role in ['final', 'accepted'] %}<small class="final"> · Selecionada</small>{% endif %}</span>{% if canvas.share.allow_download %}<a class="download" href="{{ asset.asset_url }}" download>Baixar</a>{% endif %}</figcaption>
+      </figure>
+      {% endfor %}
+    </section>
+    {% else %}<p class="empty">Esta mesa ainda não tem versões publicadas.</p>{% endif %}
+    <footer>Compartilhado pelo Cadu Studio. O briefing, comandos e controles de edição permanecem privados.</footer>
+  </main>
+</body>
+</html>

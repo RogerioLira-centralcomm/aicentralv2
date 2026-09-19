@@ -6,6 +6,21 @@
       <button type="button" class="mc-trocr-text-cta is-muted" id="mcTrocrResetPanel">Limpar campos</button>
     </header>
 
+    <section class="mc-trocr-context-strip" aria-label="Contexto da edição">
+      <div class="mc-trocr-project-context">
+        <span>Projeto ativo</span>
+        <strong id="mcTrocrProjectName">Carregando projeto…</strong>
+      </div>
+      <div class="mc-trocr-brand-context" id="mcTrocrBrandContextCard" hidden>
+        <span class="mc-trocr-brand-avatar" id="mcTrocrBrandAvatar" aria-hidden="true"></span>
+        <div><strong id="mcTrocrBrandName">Marca do projeto</strong><small id="mcTrocrBrandSummary">Contexto aplicado à edição</small></div>
+      </div>
+      <div class="mc-trocr-global-refs" aria-label="Referências globais do Studio">
+        <div><strong>Referências globais</strong><small>Escolha uma para orientar composição, margem e hierarquia.</small></div>
+        <div class="mc-trocr-global-refs-list" id="mcTrocrGlobalRefs"><span>Carregando referências…</span></div>
+      </div>
+    </section>
+
     {% include "parametros/trocr/_ocr_fields.html" %}
     <details class="mc-trocr-fold trocr-parameters"><summary>Parâmetros da peça</summary>
     <section class="mc-trocr-section">

@@ -111,6 +111,8 @@
     originalInstruction: '',
     refinedInstruction: '',
     selectionColor: '#087f6b',
+    globalReference: null,
+    quote: null,
     studioSessionId: '',
     studioSessionRevision: 0,
     studioSessionStatus: '',
@@ -203,6 +205,7 @@
     $('mcSwap')?.classList.toggle('is-read-only', readOnly);
     if ($('mcTrocrFinalizedBanner')) $('mcTrocrFinalizedBanner').hidden = !readOnly;
     if ($('mcTrocrSessionSave')) $('mcTrocrSessionSave').hidden = !managed || readOnly;
+    if ($('mcTrocrShareCanvas')) $('mcTrocrShareCanvas').hidden = !managed;
     if ($('mcTrocrFinish')) $('mcTrocrFinish').hidden = !managed || readOnly;
     const mutableIds = [
       'mcSwapFile', 'mcSwapRun', 'mcTrocrAgentSend', 'mcTrocrAgentAttach', 'mcTrocrAgentFiles',
@@ -239,7 +242,8 @@
     if (state.studioSessionCreating) return state.studioSessionCreating;
     state.studioSessionCreating = request(studioSessionUrl(), {
       client_id: state.clientId,
-      project_id: new URLSearchParams(window.location.search).get('project_id') || '',
+      project_id: new URLSearchParams(window.location.search).get('project_id')
+        || String(window.McCaduContext?.projectId || document.getElementById('mcCaduProject')?.value || ''),
       studio_type: 'edit',
       title: currentVersion()?.name ? `Edição de ${currentVersion().name}` : 'Edição no Trocr',
       prompt_version: 'trocr-v1',
@@ -427,6 +431,72 @@
       setStatus('Continuação aberta. A peça final anterior permanece preservada.');
     } catch (error) {
       showError('Não foi possível continuar a sessão', error.message, 'save');
+    }
+  }
+
+  function shareUrlFromSession(session) {
+    const share = session?.metadata?.share || state.studioSessionMetadata?.share || {};
+    const token = String(share.token || '');
+    return token && share.enabled ? `${window.location.origin}/studio/mesa/${encodeURIComponent(token)}` : '';
+  }
+
+  function renderShareDialog(session) {
+    const link = shareUrlFromSession(session);
+    const share = session?.metadata?.share || state.studioSessionMetadata?.share || {};
+    if ($('mcTrocrShareDownloads')) $('mcTrocrShareDownloads').checked = Boolean(share.allow_download);
+    if ($('mcTrocrShareExpiry')) {
+      const remainingDays = Number(share.expires_at || 0)
+        ? Math.max(1, Math.ceil((Number(share.expires_at) - Date.now() / 1000) / 86400))
+        : 0;
+      $('mcTrocrShareExpiry').value = remainingDays > 7 ? '30' : String(remainingDays || 0);
+    }
+    if ($('mcTrocrShareLink')) $('mcTrocrShareLink').value = link;
+    if ($('mcTrocrShareLinkWrap')) $('mcTrocrShareLinkWrap').hidden = !link;
+    if ($('mcTrocrCopyShare')) $('mcTrocrCopyShare').hidden = !link;
+    if ($('mcTrocrRevokeShare')) $('mcTrocrRevokeShare').hidden = !link;
+    if ($('mcTrocrCreateShare')) $('mcTrocrCreateShare').textContent = link ? 'Atualizar link' : 'Criar link';
+  }
+
+  async function savePublicShare() {
+    if (!state.studioSessionId || !state.clientId) return;
+    const button = $('mcTrocrCreateShare');
+    if (button) { button.disabled = true; button.textContent = 'Criando…'; }
+    try {
+      const result = await queueStudioMutation(() => request(
+        studioSessionUrl(`/${encodeURIComponent(state.studioSessionId)}/share`),
+        {
+          client_id: state.clientId,
+          enabled: true,
+          allow_download: Boolean($('mcTrocrShareDownloads')?.checked),
+          expires_in_days: Number($('mcTrocrShareExpiry')?.value || 0),
+        },
+      ));
+      updateStudioSession(result);
+      renderShareDialog(result);
+      toast('Mesa pública pronta para revisão', 'success');
+    } catch (error) {
+      showError('Não foi possível criar o link público', error.message, 'save');
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  async function revokePublicShare() {
+    if (!state.studioSessionId || !state.clientId) return;
+    const button = $('mcTrocrRevokeShare');
+    if (button) button.disabled = true;
+    try {
+      const result = await queueStudioMutation(() => request(
+        studioSessionUrl(`/${encodeURIComponent(state.studioSessionId)}/share`),
+        { client_id: state.clientId, enabled: false },
+      ));
+      updateStudioSession(result);
+      renderShareDialog(result);
+      toast('Link público desativado', 'success');
+    } catch (error) {
+      showError('Não foi possível desativar o link', error.message, 'save');
+    } finally {
+      if (button) button.disabled = false;
     }
   }
 
@@ -639,6 +709,16 @@
       const quality = (state.mode === 'typeset' || state.mode === 'recrop') ? 'production' : state.quality;
       runRequestedGeneration(quality);
     });
+    $('mcTrocrOpenBatch')?.addEventListener('click', () => {
+      const dialog = $('mcTrocrBatchDialog');
+      if (!dialog) return;
+      updateBatchDialog();
+      dialog.showModal();
+    });
+    document.querySelectorAll('[data-close-batch]').forEach((button) => button.addEventListener('click', () => $('mcTrocrBatchDialog')?.close()));
+    $('mcTrocrBatchDialog')?.addEventListener('click', (event) => { if (event.target === $('mcTrocrBatchDialog')) $('mcTrocrBatchDialog').close(); });
+    $('mcTrocrBatchFormats')?.addEventListener('change', () => updateBatchDialog());
+    $('mcTrocrRunBatch')?.addEventListener('click', () => { void runFormatBatch(); });
     $('mcTrocrAgentSend')?.addEventListener('click', submitAgentRequest);
     $('mcTrocrAgentAttach')?.addEventListener('click', () => $('mcTrocrAgentFiles')?.click());
     $('mcTrocrAgentFiles')?.addEventListener('change', addAgentReferences);
@@ -673,6 +753,26 @@
     });
     $('mcTrocrDraft')?.addEventListener('click', () => runSwap('draft'));
     $('mcTrocrSessionSave')?.addEventListener('click', saveStudioWork);
+    $('mcTrocrShareCanvas')?.addEventListener('click', () => {
+      renderShareDialog();
+      $('mcTrocrShareDialog')?.showModal();
+    });
+    $('mcTrocrCreateShare')?.addEventListener('click', () => { void savePublicShare(); });
+    $('mcTrocrRevokeShare')?.addEventListener('click', () => { void revokePublicShare(); });
+    $('mcTrocrCopyShare')?.addEventListener('click', async () => {
+      const value = $('mcTrocrShareLink')?.value || '';
+      if (!value) return;
+      try {
+        await navigator.clipboard.writeText(value);
+        toast('Link copiado', 'success');
+      } catch (_) {
+        $('mcTrocrShareLink')?.select();
+        document.execCommand?.('copy');
+      }
+    });
+    document.querySelectorAll('[data-close-trocr-share]').forEach((button) => {
+      button.addEventListener('click', () => $('mcTrocrShareDialog')?.close());
+    });
     $('mcTrocrFinish')?.addEventListener('click', openStudioFinish);
     $('mcTrocrConfirmFinish')?.addEventListener('click', finalizeStudioSession);
     $('mcTrocrContinueSession')?.addEventListener('click', continueStudioSession);
@@ -1607,12 +1707,27 @@
       note: state.refinedInstruction || $('mcSwapNote')?.value || '',
       instruction: state.refinedInstruction || $('mcSwapNote')?.value || '',
       original_instruction: state.originalInstruction || $('mcSwapNote')?.value || '',
-      reference_images: state.agentReferences.map((item) => item.data),
-      reference_inputs: state.agentReferences.map((item, index) => ({
+      // The provider accepts the source plus one visual guide. Preserve every
+      // manually attached reference in state; a product/logo attachment takes
+      // precedence over a composition mask for that constrained second slot.
+      reference_images: (() => {
+        const manual = state.agentReferences.filter((item) => item.source !== 'global');
+        const selected = manual[0] || state.globalReference;
+        return selected?.data ? [selected.data] : [];
+      })(),
+      reference_inputs: (() => {
+        const manual = state.agentReferences.filter((item) => item.source !== 'global');
+        const selected = manual[0] || state.globalReference;
+        return selected?.data ? [selected].map((item, index) => ({
         image: item.data,
-        role: state.region?.box || state.selectedElement ? 'selected_region_reference' : 'supporting_reference',
+        // A global mask guides hierarchy and safe areas; it never replaces
+        // the source artwork or a precise marked region.
+        role: item.source === 'global'
+          ? 'composition_reference'
+          : (state.region?.box || state.selectedElement ? 'selected_region_reference' : 'supporting_reference'),
         order: index + 2,
-      })),
+        })) : [];
+      })(),
       primary_reference_role: 'source_of_truth',
       selection_context: state.region?.box ? {
         role: regionField(),
@@ -1756,6 +1871,7 @@
   async function refreshQuote() {
     try {
       const quote = await request(API.quote, { kind: 'swap', quality: state.quality, ...editFields() });
+      state.quote = quote;
       paintCost(quote);
     } catch (_error) {
       /* custo é auxiliar */
@@ -1764,6 +1880,51 @@
 
   async function runRequestedGeneration(quality) {
     return runSwap(quality);
+  }
+
+  function selectedBatchFormats() {
+    return [...document.querySelectorAll('#mcTrocrBatchFormats input:checked')].map((node) => node.value).slice(0, 3);
+  }
+
+  function updateBatchDialog() {
+    const selected = selectedBatchFormats();
+    const choices = [...document.querySelectorAll('#mcTrocrBatchFormats input')];
+    choices.forEach((node) => { node.disabled = !node.checked && selected.length >= 3; });
+    const plural = selected.length === 1 ? 'saída será gerada' : 'saídas serão geradas';
+    const perOutput = Math.max(0, Number(state.quote?.estimated_tokens || state.quote?.agent_tokens_estimate || 0) || 0);
+    if ($('mcTrocrBatchEstimate')) $('mcTrocrBatchEstimate').textContent = perOutput
+      ? `${selected.length} ${plural} · estimativa de ${Math.round(perOutput * selected.length).toLocaleString('pt-BR')} créditos.`
+      : `${selected.length} ${plural} a partir da mesma base.`;
+    const global = state.globalReference;
+    if ($('mcTrocrBatchReference')) $('mcTrocrBatchReference').textContent = global
+      ? `Referência global aplicada: ${global.label || 'Composição selecionada'}.`
+      : 'Sem referência global selecionada; cada formato seguirá apenas a direção da peça.';
+    if ($('mcTrocrRunBatch')) $('mcTrocrRunBatch').disabled = !selected.length;
+  }
+
+  async function runFormatBatch() {
+    const formats = selectedBatchFormats();
+    if (!formats.length || state.generating) return;
+    const originalRatio = state.aspectRatio;
+    const originalBase = state.baseId;
+    const initialCount = state.versions.length;
+    $('mcTrocrBatchDialog')?.close();
+    try {
+      for (const ratio of formats) {
+        selectFormat(ratio);
+        await runSwap(state.quality, { test_variant: ratio, keep_base: true, batch_format: ratio });
+        // A failed format must not block the other independently billable
+        // outputs, and none of them may become the base by accident.
+        state.baseId = originalBase;
+      }
+    } finally {
+      selectFormat(originalRatio);
+      state.baseId = originalBase;
+    }
+    const created = Math.max(0, state.versions.length - initialCount);
+    setStatus(created
+      ? `${created} de ${formats.length} formatos foram gerados a partir da mesma base. Compare e escolha o próximo passo.`
+      : 'Nenhum formato foi gerado. Revise a mensagem acima e tente novamente.');
   }
 
   function applyAgentDirectives(instruction) {
@@ -1921,7 +2082,7 @@
           scene_group: sceneGroup(base),
         }),
       });
-      if (!testVariant && !variant) state.baseId = version.id;
+      if (!testVariant && !variant && !extra?.keep_base) state.baseId = version.id;
       if (base.ocr) state.cache[version.id] = base.ocr;
       if (data.history) applyStoredUrls(data.history);
       state.compareIds = [base.id, version.id];
@@ -2407,6 +2568,7 @@
 
   function enableGenerate(enabled) {
     if ($('mcSwapRun')) $('mcSwapRun').disabled = !enabled;
+    if ($('mcTrocrOpenBatch')) $('mcTrocrOpenBatch').disabled = !enabled;
     if ($('mcTrocrDraft')) $('mcTrocrDraft').disabled = !enabled;
     const waiting = Boolean($('mcTrocrWait') && !$('mcTrocrWait').hidden);
     const canScene = Boolean(baseVersion()?.image) && !waiting;
@@ -3475,4 +3637,12 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
   }
+
+  document.addEventListener('cadu:global-reference-selected', (event) => {
+    const reference = event.detail;
+    if (!reference?.url) return;
+    state.globalReference = { data: reference.url, label: reference.label || 'Referência global', source: 'global', role: 'composition' };
+    state.refinedInstruction = state.refinedInstruction || `Use a referência global selecionada como guia de composição, respeitando suas áreas seguras e hierarquia.`;
+    refreshPrompt();
+  });
 })();

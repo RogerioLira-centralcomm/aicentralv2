@@ -47,3 +47,19 @@ def test_prompt_names_primary_image_crop_and_user_request_as_sources_of_truth():
     assert "pixel crop (10, 20, 110, 80)" in prompt
     assert "Literal user request (source of truth" in prompt
     assert "troque o texto para R$ 30" in prompt
+
+
+def test_global_composition_reference_guides_layout_without_replacing_the_creative():
+    prompt = build_optimized_prompt({
+        "reference": "data:image/png;base64,source",
+        "reference_images": ["https://studio.example/masks/feed-4x5.png"],
+        "reference_inputs": [{
+            "image": "https://studio.example/masks/feed-4x5.png",
+            "role": "composition_reference",
+        }],
+        "instruction": "Destaque o produto e preserve a marca.",
+    })
+
+    assert "composition system reference" in prompt
+    assert "safe margins, hierarchy, negative space, layer order and alignment" in prompt
+    assert "Do not recreate its placeholder product" in prompt

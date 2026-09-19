@@ -38,3 +38,22 @@
     <button type="button" class="cx-btn cx-btn-primary cx-btn-sm" id="mcTrocrConfirmFinish">Sim, finalizar trabalho</button>
   </footer>
 </dialog>
+
+<dialog class="mc-trocr-dialog" id="mcTrocrShareDialog" aria-labelledby="mcTrocrShareTitle">
+  <header>
+    <h2 id="mcTrocrShareTitle">Compartilhar mesa de revisão</h2>
+    <p>O link mostra as versões da peça em uma mesa somente de leitura. Briefing, comandos e controles internos não são compartilhados.</p>
+  </header>
+  <label class="mc-trocr-share-option"><input type="checkbox" id="mcTrocrShareDownloads"><span>Permitir download das imagens</span></label>
+  <label class="cx-field mc-trocr-share-expiry"><span class="cx-label">Expiração do link</span><select class="cx-select" id="mcTrocrShareExpiry"><option value="7">7 dias</option><option value="30">30 dias</option><option value="0">Não expira</option></select></label>
+  <label class="cx-field" id="mcTrocrShareLinkWrap" hidden>
+    <span class="cx-label">Link público</span>
+    <input class="cx-input" id="mcTrocrShareLink" readonly>
+  </label>
+  <footer>
+    <button type="button" class="mc-trocr-text-cta is-muted" data-close-trocr-share>Fechar</button>
+    <button type="button" class="mc-trocr-text-cta is-muted" id="mcTrocrRevokeShare" hidden>Desativar link</button>
+    <button type="button" class="mc-trocr-text-cta" id="mcTrocrCopyShare" hidden>Copiar link</button>
+    <button type="button" class="cx-btn cx-btn-primary cx-btn-sm" id="mcTrocrCreateShare">Criar link</button>
+  </footer>
+</dialog>

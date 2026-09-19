@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import urlparse
 
-from flask import current_app, jsonify, request, session, send_file, url_for
+from flask import abort, current_app, jsonify, render_template, request, session, send_file, url_for
 
 from .http import studio_http as _http
 from .studio_auth import studio_or_admin_required_api
@@ -209,6 +209,8 @@ def register_studio_routes(blueprint):
     blueprint.add_url_rule('/api/format-lab/studio/sessions/<ident>/finalize', view_func=studio_session_finalize, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/sessions/<ident>/discard', view_func=studio_session_discard, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/sessions/<ident>/restore', view_func=studio_session_restore, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/sessions/<ident>/share', view_func=studio_session_share, methods=['POST'])
+    blueprint.add_url_rule('/mesa/<token>', view_func=studio_public_canvas, methods=['GET'])
     blueprint.add_url_rule('/api/format-lab/studio/capabilities', view_func=capabilities)
     blueprint.add_url_rule('/api/format-lab/studio/sounds', view_func=sounds, methods=['GET', 'POST'])
     blueprint.add_url_rule('/api/format-lab/studio/sounds/<ident>', view_func=sound_content)
@@ -897,6 +899,45 @@ def studio_session_discard(ident):
 @studio_csrf_required
 def studio_session_restore(ident):
     return _session_action(ident, 'restore')
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
+def studio_session_share(ident):
+    """Enable, revoke or rotate a read-only review link for a Studio session."""
+    execute, json_body, ok, _ = _http()
+
+    def run():
+        user_id = session.get('user_id')
+        if not user_id:
+            raise ValueError('Entre novamente para compartilhar esta sessão.')
+        data = json_body()
+        client_id = data.get('client_id') or session.get('cliente_id')
+        result = _session_store(client_id).share(client_id, user_id, ident, data)
+        share = (result.get('metadata') or {}).get('share') or {}
+        token = str(share.get('token') or '')
+        result['share_url'] = f'/studio/mesa/{token}' if share.get('enabled') and token else ''
+        return ok(result)
+
+    return execute(run)
+
+
+def studio_public_canvas(token):
+    """Client-approved, anonymous canvas. Prompts and control data stay private."""
+    from .studio_sessions import PostgresSessionRepository, find_local_public_canvas
+    token = str(token or '').strip()
+    if current_app.testing:
+        canvas = find_local_public_canvas(media_root() / 'studio', token)
+    else:
+        from .. import db
+        from .schema import ensure_schema
+        connection = db.get_db()
+        ensure_schema(connection)
+        canvas = PostgresSessionRepository(connection).public_canvas(token)
+    if not canvas:
+        abort(404)
+    response = render_template('cadu_studio/public_canvas.html', canvas=canvas)
+    return response, 200, {'Cache-Control': 'private, no-store'}
 
 
 def _session_store(client_id):

@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 import sqlite3
 import time
 import uuid
 from contextlib import contextmanager
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 
 from psycopg.types.json import Json
 
@@ -153,6 +155,102 @@ def public_session(row, assets=None, finalization=None):
     data["finalization"] = finalization
     data["read_only"] = data.get("status") in {"finalized", "archived", "cancelled"}
     return data
+
+
+def new_share_token():
+    """Opaque, unguessable token for a client-approved review canvas."""
+    return secrets.token_urlsafe(24)
+
+
+def share_expiry(payload, existing):
+    """Normalize the short, intentional lifespan of a review link."""
+    try:
+        days = int((payload or {}).get("expires_in_days", 0))
+    except (TypeError, ValueError):
+        days = 0
+    if days not in {0, 7, 30}:
+        days = 7
+    return int(time.time()) + days * 86400 if days else None
+
+
+def public_canvas_session(row, assets=None, finalization=None):
+    """Expose only delivery-safe data to an unauthenticated review canvas."""
+    session = public_session(row, assets, finalization)
+    metadata = session.get("metadata") if isinstance(session.get("metadata"), dict) else {}
+    share = metadata.get("share") if isinstance(metadata.get("share"), dict) else {}
+    expires_at = int(share.get("expires_at") or 0)
+    if not share.get("enabled") or (expires_at and expires_at <= int(time.time())):
+        return None
+    visible_assets = []
+    for asset in session.get("assets") or []:
+        if str(asset.get("status") or "") == "discarded":
+            continue
+        visible_assets.append({
+            "id": str(asset.get("id") or ""),
+            "title": clean_text(asset.get("title"), 160) or "Versão",
+            "asset_url": clean_text(asset.get("asset_url"), 4000),
+            "kind": clean_text(asset.get("kind"), 24),
+            "role": clean_text(asset.get("role"), 24),
+            "position": int(asset.get("position") or 0),
+            "created_at": str(asset.get("created_at") or ""),
+        })
+    final = session.get("finalization") or {}
+    return {
+        "id": str(session.get("id") or ""),
+        "title": clean_text(session.get("title"), 160) or "Mesa de criação",
+        "status": clean_text(session.get("status"), 24),
+        "updated_at": str(session.get("updated_at") or ""),
+        "assets": visible_assets,
+        "finalization": {
+            "generation_count": int(final.get("generation_count") or 0),
+            "edit_count": int(final.get("edit_count") or 0),
+            "format_count": int(final.get("format_count") or 0),
+        } if final else None,
+        "share": {
+            "token": clean_text(share.get("token"), 128),
+            "allow_download": bool(share.get("allow_download")),
+            "created_at": str(share.get("created_at") or ""),
+            "expires_at": expires_at or None,
+        },
+    }
+
+
+def find_local_public_canvas(studio_root, token):
+    """Find a local-development share without weakening the public token.
+
+    Local sessions are intentionally stored in brand-scoped SQLite files. A
+    public link has no authenticated brand context, so development resolves it
+    by the opaque share token across those files. Production always uses the
+    indexed PostgreSQL implementation below.
+    """
+    token = clean_text(token, 128)
+    if not token:
+        return None
+    for path in Path(studio_root).glob("*/studio-sessions.sqlite3"):
+        db = sqlite3.connect(str(path), timeout=15)
+        db.row_factory = sqlite3.Row
+        try:
+            rows = db.execute("SELECT * FROM sessions WHERE metadata LIKE ?", (f"%{token}%",)).fetchall()
+            for raw in rows:
+                row = dict(raw)
+                try:
+                    metadata = json.loads(row.get("metadata") or "{}")
+                except json.JSONDecodeError:
+                    metadata = {}
+                share = metadata.get("share") if isinstance(metadata.get("share"), dict) else {}
+                if share.get("token") != token or not share.get("enabled"):
+                    continue
+                row["metadata"] = metadata
+                assets = [dict(item) for item in db.execute("""
+                    SELECT a.*,sa.role,sa.position FROM session_assets sa
+                    JOIN assets a ON a.id=sa.asset_id WHERE sa.session_id=?
+                    ORDER BY sa.position,sa.created_at
+                """, (row["id"],)).fetchall()]
+                final = db.execute("SELECT * FROM finalizations WHERE session_id=?", (row["id"],)).fetchone()
+                return public_canvas_session(row, assets, dict(final) if final else None)
+        finally:
+            db.close()
+    return None
 
 
 class LocalSessionRepository:
@@ -319,6 +417,24 @@ class LocalSessionRepository:
             if changed.rowcount != 1:
                 raise SessionConflict("A sessão foi alterada em outra aba. Sua edição local foi preservada.")
             self._event(db, ident, "saved", payload={"revision": row["revision"] + 1})
+        return self.read(client_id, user_id, ident)
+
+    def share(self, client_id, user_id, ident, payload):
+        with self.connection() as db:
+            row = self._owned(db, client_id, user_id, ident)
+            metadata = json.loads(row["metadata"] or "{}")
+            existing = metadata.get("share") if isinstance(metadata.get("share"), dict) else {}
+            enabled = payload.get("enabled") is not False
+            share = {
+                "token": (existing.get("token") or new_share_token()) if enabled and not payload.get("rotate") else new_share_token(),
+                "enabled": enabled,
+                "allow_download": payload.get("allow_download") is True,
+                "expires_at": share_expiry(payload, existing),
+                "created_at": existing.get("created_at") or int(time.time()),
+            }
+            metadata["share"] = share
+            db.execute("UPDATE sessions SET metadata=?,revision=revision+1,updated_at=? WHERE id=?", (json.dumps(metadata, ensure_ascii=False), time.time(), ident))
+            self._event(db, ident, "public_share_enabled" if enabled else "public_share_disabled", payload={"allow_download": share["allow_download"]})
         return self.read(client_id, user_id, ident)
 
     def accept(self, client_id, user_id, ident, payload):
@@ -641,6 +757,54 @@ class PostgresSessionRepository:
             self._event(cursor, ident, "saved", payload={"revision": saved["revision"]})
         self.connection.commit()
         return self.read(client_id, user_id, ident)
+
+    def share(self, client_id, user_id, ident, payload):
+        with self.connection.cursor() as cursor:
+            row = self._owned(cursor, client_id, user_id, ident)
+            metadata = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
+            existing = metadata.get("share") if isinstance(metadata.get("share"), dict) else {}
+            enabled = payload.get("enabled") is not False
+            share = {
+                "token": (existing.get("token") or new_share_token()) if enabled and not payload.get("rotate") else new_share_token(),
+                "enabled": enabled,
+                "allow_download": payload.get("allow_download") is True,
+                "expires_at": share_expiry(payload, existing),
+                "created_at": existing.get("created_at") or int(time.time()),
+            }
+            metadata["share"] = share
+            cursor.execute("UPDATE cx_studio_sessions SET metadata=%s,revision=revision+1,updated_at=NOW() WHERE id=%s", (Json(metadata), ident))
+            self._event(cursor, ident, "public_share_enabled" if enabled else "public_share_disabled", payload={"allow_download": share["allow_download"]})
+        self.connection.commit()
+        return self.read(client_id, user_id, ident)
+
+    def public_canvas(self, token):
+        token = clean_text(token, 128)
+        if not token:
+            return None
+        with self.connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT *,id::text AS id,root_session_id::text AS root_session_id,parent_session_id::text AS parent_session_id,
+                       project_id::text AS project_id,active_asset_id::text AS active_asset_id,base_asset_id::text AS base_asset_id
+                  FROM cx_studio_sessions
+                 WHERE metadata->'share'->>'token'=%s
+                   AND COALESCE((metadata->'share'->>'enabled')::boolean,FALSE)=TRUE
+                   AND (COALESCE((metadata->'share'->>'expires_at')::bigint,0)=0 OR (metadata->'share'->>'expires_at')::bigint > EXTRACT(EPOCH FROM NOW()))
+                 LIMIT 1
+            """, (token,))
+            row = cursor.fetchone()
+            if not row:
+                return None
+            row = dict(row)
+            cursor.execute("""
+                SELECT a.*,a.id::text AS id,a.project_id::text AS project_id,sa.role,sa.position
+                  FROM cx_studio_session_assets sa JOIN cx_studio_assets a ON a.id=sa.asset_id
+                 WHERE sa.session_id=%s AND a.deleted_at IS NULL
+                 ORDER BY sa.position,sa.created_at
+            """, (row["id"],))
+            assets = [dict(item) for item in cursor.fetchall()]
+            cursor.execute("SELECT *,id::text AS id,final_asset_id::text AS final_asset_id FROM cx_studio_finalizations WHERE session_id=%s", (row["id"],))
+            final = cursor.fetchone()
+        return public_canvas_session(row, assets, dict(final) if final else None)
 
     def accept(self, client_id, user_id, ident, payload):
         role = clean_text(payload.get("role"), 24) or "accepted"

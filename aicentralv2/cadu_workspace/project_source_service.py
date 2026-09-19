@@ -26,6 +26,33 @@ ATTACHMENT_EXTENSIONS = project_sources.ALLOWED_EXTENSIONS | {".png", ".jpg", ".
 CATEGORIES = {"brief", "research", "media_plan", "report", "brand_asset", "reference", "contract", "spreadsheet", "other"}
 
 
+def inspect_file_support(filename: str, mime_type: str = "") -> dict:
+    """Describe processing support without reading or accepting file content."""
+    safe_name = secure_filename(str(filename or ""))[:220]
+    suffix = Path(safe_name).suffix.lower()
+    mime_type = str(mime_type or "application/octet-stream")[:160]
+    if suffix in project_sources.ALLOWED_EXTENSIONS:
+        return {"filename": safe_name, "extension": suffix, "mime_type": mime_type,
+                "status": "supported", "can_attach": True, "can_index": True,
+                "processing": "text_extraction", "requires_adapter": False}
+    if suffix in ATTACHMENT_EXTENSIONS:
+        return {"filename": safe_name, "extension": suffix, "mime_type": mime_type,
+                "status": "attachment_only", "can_attach": True, "can_index": False,
+                "processing": "metadata_only", "requires_adapter": True}
+    families = {
+        ".xls": "spreadsheet", ".xlsx": "spreadsheet", ".ods": "spreadsheet",
+        ".ppt": "presentation", ".pptx": "presentation", ".odp": "presentation",
+        ".mp4": "video", ".mov": "video", ".webm": "video",
+        ".mp3": "audio", ".wav": "audio", ".m4a": "audio",
+        ".zip": "archive", ".rar": "archive", ".7z": "archive",
+    }
+    return {"filename": safe_name, "extension": suffix, "mime_type": mime_type,
+            "status": "needs_adapter" if suffix in families else "unsupported",
+            "can_attach": False, "can_index": False, "processing": "none",
+            "format_family": families.get(suffix, "unknown"), "requires_adapter": True,
+            "reason": "O formato ainda não possui um adapter seguro no upload MCP."}
+
+
 def _serializer():
     return URLSafeTimedSerializer(current_app.secret_key, salt="cadu-mcp-project-upload-v1")
 

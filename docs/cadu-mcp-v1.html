@@ -26,7 +26,7 @@
       <a href="#modos">Modos e Dify</a><a href="#observabilidade">Observabilidade</a><a href="#estado">Estado real</a>
       <a href="#conexao">Conexão MCP</a><a href="#ferramentas">Ferramentas</a><a href="#artefatos">Artefatos</a>
       <a href="#fontes">Fontes de projeto</a><a href="#upload">Upload</a><a href="#seguranca">Segurança</a>
-      <a href="#studio">Studio</a><a href="#limites">Próximas entregas</a>
+      <a href="#planner">Planner</a><a href="#studio">Studio</a><a href="#limites">Próximas entregas</a>
     </nav>
   </aside>
   <main>
@@ -111,7 +111,7 @@ Cadu Harness
 
     <section id="conexao">
       <h2>Conexão inicial</h2>
-      <p>O endpoint é <code>/workspace/mcp</code>. A versão inicial usa JSON-RPC sobre HTTP e uma delegação assinada de cinco minutos, emitida por uma sessão autenticada no Cadu.</p>
+      <p>O endpoint é <code>/workspace/mcp</code>. A versão atual usa JSON-RPC sobre HTTP e uma delegação assinada de cinco minutos, emitida por uma sessão autenticada no Cadu. O catálogo é evolutivo: novas capacidades entram por domínio depois de autorização, idempotência, cobrança e retorno estarem estabilizados.</p>
       <h3>Emitir uma delegação</h3>
       <pre>POST /workspace/api/v2/mcp-token
 X-CSRF-Token: &lt;csrf da sessão&gt;
@@ -136,7 +136,8 @@ Content-Type: application/json
     </section>
 
     <section id="ferramentas">
-      <h2>Catálogo da versão inicial</h2>
+      <h2>Catálogo atual de ferramentas MCP</h2>
+      <p>Esta tabela representa apenas as ferramentas já expostas pelo MCP. O Cadu possui outras capacidades operacionais no Planner e no Studio, detalhadas abaixo, que serão publicadas gradualmente sem transformar o MCP no cérebro da aplicação.</p>
       <table><thead><tr><th>Domínio</th><th>Ferramenta</th><th>Efeito</th><th>Exposição</th></tr></thead><tbody>
         <tr><td>Workspace</td><td><code>workspace.get_current_context</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
         <tr><td>Workspace</td><td><code>workspace.list_projects</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
@@ -144,6 +145,7 @@ Content-Type: application/json
         <tr><td>Workspace</td><td><code>workspace.search_project_content</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
         <tr><td>Projetos</td><td><code>projects.list_sources</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
         <tr><td>Projetos</td><td><code>projects.list_resources</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
+        <tr><td>Projetos</td><td><code>projects.inspect_file_support</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
         <tr><td>Projetos</td><td><code>projects.prepare_source_upload</code></td><td><span class="tag">draft</span></td><td>Interno e cliente</td></tr>
         <tr><td>Artefatos</td><td><code>artifacts.list</code>, <code>artifacts.get</code>, <code>artifacts.list_versions</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
         <tr><td>Artefatos</td><td><code>artifacts.create_draft</code>, <code>artifacts.update_draft</code></td><td><span class="tag">draft</span></td><td>Interno e cliente</td></tr>
@@ -173,22 +175,47 @@ Content-Type: application/json
     }
   }
 }</pre>
-      <p><code>artifacts.update_draft</code> recebe <code>expected_version</code> e cria uma nova versão. Publicação não faz parte da v1 externa.</p>
+      <p><code>artifacts.update_draft</code> recebe <code>expected_version</code> e cria uma nova versão. A publicação externa ainda não faz parte do catálogo atual.</p>
     </section>
 
     <section id="fontes">
-      <h2>Um arquivo pode ser fonte — ou apenas anexo</h2>
+      <h2>Arquivos são recursos inteligentes do projeto</h2>
+      <p>Fonte de conhecimento é apenas uma das finalidades possíveis. Um arquivo também pode ser entrega, referência, ativo de marca, documento de trabalho, evidência, relatório ou material gerado pelo Studio. Ele permanece ligado ao projeto, à marca, às versões e às relações com outros recursos do trabalho diário.</p>
       <div class="two">
         <article class="decision"><h3>Usar como fonte de dados</h3><p>PDF, DOCX, TXT, CSV, Markdown, JSON e HTML têm o texto extraído, indexado e disponibilizado para pesquisa e respostas com contexto do projeto.</p><code>use_as_knowledge: true</code></article>
         <article class="decision"><h3>Somente anexar</h3><p>O arquivo permanece privado no projeto, mas seu conteúdo não é enviado ao índice nem utilizado como evidência automática. Imagens também podem seguir este caminho.</p><code>use_as_knowledge: false</code></article>
       </div>
       <div class="note ok">A escolha é explícita em cada upload. O nome do arquivo ou seu formato nunca fazem o sistema presumir consentimento para usar o conteúdo como fonte.</div>
       <p>A classificação é independente dessa escolha. Cada item recebe uma categoria revisável: briefing, pesquisa, plano de mídia, relatório, ativo de marca, referência, contrato, planilha ou outro. A lista de projetos devolve em <code>summary</code> as contagens de fontes, anexos, artifacts, planos, relatórios, imagens e vídeos associados.</p>
+      <h3>Ciclo de vida do recurso</h3>
+      <table><thead><tr><th>Capacidade</th><th>Comportamento esperado</th><th>Estado</th></tr></thead><tbody>
+        <tr><td>Abrir e localizar</td><td>O registro preserva título, tipo, origem, projeto, marca, versão, locator e relações contextuais.</td><td><span class="status done">Implementado</span></td></tr>
+        <tr><td>Classificar</td><td>Categoria automática ou manual, finalidade separada e indicação de itens que precisam de revisão.</td><td><span class="status done">Implementado</span></td></tr>
+        <tr><td>Editar</td><td>Artifacts e documentos estruturados podem ser editados diretamente. Binários usam substituição ou uma nova versão no editor compatível.</td><td><span class="status partial">Por formato</span></td></tr>
+        <tr><td>Versionar</td><td>Artifacts possuem versões completas; arquivos binários precisam do fluxo unificado de substituição/versionamento.</td><td><span class="status partial">Parcial</span></td></tr>
+        <tr><td>Relacionar</td><td>Context Graph registra duplicidades e relações entre planos, relatórios e demais recursos.</td><td><span class="status partial">Em expansão</span></td></tr>
+        <tr><td>Indexar</td><td>Somente quando o usuário autoriza o uso como conhecimento; anexos continuam organizados sem entrar nas respostas.</td><td><span class="status done">Implementado</span></td></tr>
+      </tbody></table>
+      <h3>Compatibilidade de formatos</h3>
+      <table><thead><tr><th>Grupo</th><th>Tratamento atual</th><th>Próximo comportamento</th></tr></thead><tbody>
+        <tr><td>PDF, DOCX, TXT, CSV, Markdown, JSON e HTML</td><td>Upload, extração textual, classificação e indexação opcional.</td><td>Edição estruturada quando houver conversor seguro; caso contrário, nova versão do arquivo.</td></tr>
+        <tr><td>PNG, JPEG, WebP e GIF</td><td>Upload, validação, classificação e organização como recurso visual.</td><td>OCR/conhecimento visual somente com consentimento e pipeline próprio.</td></tr>
+        <tr><td>Planilhas XLS/XLSX</td><td>Reconhecidas como categoria de planilha, mas não aceitas pelo pipeline MCP atual de extração.</td><td>Importação tabular e edição por adapter dedicado.</td></tr>
+        <tr><td>Vídeo, áudio e formatos não suportados</td><td>Devem ser identificados como não processáveis, sem fingir que o conteúdo foi compreendido.</td><td>Preservar como recurso e encaminhar ao Studio ou adapter especializado quando disponível.</td></tr>
+      </tbody></table>
+      <div class="note">Regra de produto: formato não compreendido nunca vira “fonte vazia”. <code>projects.inspect_file_support</code> informa <code>unsupported</code> ou <code>needs_adapter</code> antes da transferência. O upload MCP atual não aceita esse binário; quando houver armazenamento genérico, ele poderá ser preservado sem alegar que foi processado.</div>
     </section>
 
     <section id="upload">
       <h2>Upload em duas etapas</h2>
       <p>Binários não atravessam o JSON-RPC. A ferramenta prepara uma autorização curta e o cliente envia o arquivo por multipart para o endpoint informado.</p>
+      <h3>0. Verificar compatibilidade</h3>
+      <pre>tools/call → projects.inspect_file_support
+
+{ "filename": "investimento.xlsx", "mime_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }
+
+→ { "status": "needs_adapter", "format_family": "spreadsheet",
+    "can_attach": false, "can_index": false }</pre>
       <h3>1. Preparar</h3>
       <pre>tools/call → projects.prepare_source_upload
 
@@ -228,13 +255,42 @@ file=@logo.png</pre>
       </tbody></table>
     </section>
 
+    <section id="planner">
+      <h2>Planner: capacidades atuais e expansão MCP</h2>
+      <p>O Planner já funciona como um domínio completo dentro do Cadu. O MCP publica hoje a leitura de briefing e plano de mídia; as demais funções serão abertas em grupos pequenos, reaproveitando os serviços existentes e mantendo autorização por projeto.</p>
+      <table><thead><tr><th>Capacidade no Cadu</th><th>Operações existentes</th><th>Integração MCP</th></tr></thead><tbody>
+        <tr><td>Planos de mídia</td><td>Listar, criar, abrir, atualizar briefing, objetivo, status, itens e distribuição de investimento.</td><td><span class="status partial"><code>get_brief</code> e <code>get_media_plan</code></span></td></tr>
+        <tr><td>Revisão com Cadu</td><td>Estimar custo, revisar briefing, recomendações e documentos em passagens controladas.</td><td><span class="status todo">Próximo adapter</span></td></tr>
+        <tr><td>Catálogos</td><td>Audiências, canais, formatos, interativos e places; seleção vinculada ao plano.</td><td><span class="status todo">Leitura e seleção</span></td></tr>
+        <tr><td>Documentos</td><td>Criar, editar, duplicar, revisar, versionar e compartilhar documentos derivados do plano.</td><td><span class="status todo">Artifacts + versões</span></td></tr>
+        <tr><td>Link Tester</td><td>Testar URL, inspecionar destino e rastreamento, consultar histórico e compartilhar resultado.</td><td><span class="status todo">Leitura e execução</span></td></tr>
+        <tr><td>Cotações e publicação</td><td>Solicitar cotação, publicar/despublicar plano e controlar status.</td><td><span class="status todo">Exige confirmação</span></td></tr>
+      </tbody></table>
+      <h3>Sequência recomendada de tools</h3>
+      <pre>planner.list_plans            planner.get_media_plan
+planner.list_catalog         planner.toggle_selection
+planner.update_brief         planner.update_allocations
+planner.link_test            planner.get_link_test
+planner.documents.list       planner.documents.create_draft
+planner.documents.update     planner.documents.review</pre>
+      <div class="note ok">O Link Tester já está disponível no produto em <code>/planner/links</code>. Sua futura tool deve devolver status HTTP, destino final, redirecionamentos, parâmetros e alertas estruturados — não apenas texto livre.</div>
+    </section>
+
     <section id="studio">
-      <h2>Studio será o próximo domínio assíncrono</h2>
-      <p>A base está preparada para tools de estimativa, geração e consulta de jobs. Imagem e vídeo só serão publicados quando modelos, preços, armazenamento e política de reembolso estiverem estabilizados.</p>
-      <pre>studio.image.estimate     studio.image.create
-studio.video.estimate     studio.video.create
-studio.jobs.get           studio.assets.attach_to_project</pre>
-      <p>O Studio aplicará a estrutura de prompts do Cadu, reservará créditos, executará o provedor e devolverá um asset persistido. O prompt interno e as credenciais do provedor não serão expostos pelo MCP.</p>
+      <h2>Studio: criação e análise já existem no Cadu</h2>
+      <p>O Studio já cria imagens com direções estruturadas e o Creative Analyzer já processa imagens e vídeos vinculados a marca e projeto. O trabalho agora é encapsular essas operações como jobs MCP seguros, com estimativa, créditos, persistência e consulta de estado.</p>
+      <table><thead><tr><th>Capacidade no Cadu</th><th>Operação existente</th><th>Integração MCP</th></tr></thead><tbody>
+        <tr><td>Criar imagem</td><td>Gerar direções, estimar disponibilidade, criar imagem, cobrar uma vez e persistir o resultado.</td><td><span class="status todo">Adapter assíncrono</span></td></tr>
+        <tr><td>Creative Analyzer — imagem</td><td>Upload, análise de atenção, mensagem, branding, público, canais, score e histórico.</td><td><span class="status todo">Upload + job</span></td></tr>
+        <tr><td>Creative Analyzer — vídeo</td><td>Upload, extração de frames, análise temporal, score, histórico e ativos derivados.</td><td><span class="status todo">Upload + job</span></td></tr>
+        <tr><td>Vincular ao projeto</td><td>Imagens e análises entram no Resource Registry e aparecem entre as entregas do projeto.</td><td><span class="status partial">Registry ativo</span></td></tr>
+        <tr><td>Vídeo generativo</td><td>Fluxos ainda estão sendo estabilizados.</td><td><span class="status todo">Não publicar ainda</span></td></tr>
+      </tbody></table>
+      <pre>studio.image.estimate          studio.image.create
+studio.analyzer.prepare_upload studio.analyzer.create
+studio.jobs.get               studio.assets.get
+studio.assets.attach_to_project</pre>
+      <p>O Studio aplicará a estrutura de prompts do Cadu, usará os créditos do usuário e devolverá um asset persistido pelo MCP. Prompts internos, chaves e respostas brutas de providers não serão expostos.</p>
     </section>
 
     <section id="limites">
@@ -247,7 +303,7 @@ studio.jobs.get           studio.assets.attach_to_project</pre>
         <li><strong>Turn Items:</strong> consolidar mensagens, activities, actions, tables, artifacts e errors em um envelope canônico, preservando as tabelas atuais.</li>
         <li><strong>Abertura externa:</strong> adicionar OAuth, revogação por aplicativo, idempotência integral, rate limits e recursos MCP.</li>
       </ol>
-      <div class="note">OCR e conhecimento visual, publicação externa de artifacts e Studio via MCP continuam bloqueados até terem consentimento, preço, armazenamento, retenção e política de reembolso definidos.</div>
+      <div class="note">OCR e conhecimento visual, publicação externa de artifacts, vídeo generativo e adapters MCP do Studio continuam bloqueados até terem consentimento, preço, armazenamento, retenção e política de reembolso definidos. Criação de imagens e Creative Analyzer já funcionam dentro do Cadu.</div>
     </section>
     <footer class="footer">Cadu Agent Architecture · Harness, MCP e orquestração · estado técnico em 19 de setembro de 2026</footer>
   </main>

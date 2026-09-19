@@ -95,7 +95,8 @@ def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
     )}
     assert {
         "artifacts.list", "artifacts.get", "artifacts.create_draft", "artifacts.update_draft",
-        "artifacts.list_versions", "projects.list_sources", "projects.list_resources", "projects.prepare_source_upload",
+        "artifacts.list_versions", "projects.list_sources", "projects.list_resources", "projects.inspect_file_support",
+        "projects.prepare_source_upload",
         "brands.list", "brands.create", "brands.prepare_logo_upload", "brands.start_audit",
         "brands.audit_status",
     } <= names
@@ -215,6 +216,18 @@ def test_manual_project_file_category_has_priority():
         "category": "research", "status": "manual", "confidence": 1.0,
         "reason": "Categoria informada pelo usuário.",
     }
+
+
+def test_project_file_support_never_claims_unknown_content_is_understood():
+    assert project_source_service.inspect_file_support("briefing.pdf")["can_index"] is True
+    image = project_source_service.inspect_file_support("referencia.webp", "image/webp")
+    assert image["status"] == "attachment_only"
+    assert image["can_index"] is False
+    spreadsheet = project_source_service.inspect_file_support("investimento.xlsx")
+    assert spreadsheet["status"] == "needs_adapter"
+    assert spreadsheet["format_family"] == "spreadsheet"
+    unknown = project_source_service.inspect_file_support("material.indd")
+    assert unknown["status"] == "unsupported"
 
 
 def test_cross_domain_report_comparison_gets_high_budget_only_when_needed():

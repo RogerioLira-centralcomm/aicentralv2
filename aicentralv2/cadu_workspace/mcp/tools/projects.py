@@ -40,6 +40,19 @@ def list_project_resources(context: RequestContext, arguments: dict) -> dict:
 
 
 @register_tool(
+    name="projects.inspect_file_support", capability="workspace", effect="read", requires_project=True,
+    description="Informa se um formato pode ser indexado, apenas anexado ou precisa de um adapter.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "required": ["filename"], "properties": {
+        "filename": {"type": "string", "minLength": 1, "maxLength": 220},
+        "mime_type": {"type": "string", "maxLength": 160},
+    }, "additionalProperties": False},
+)
+def inspect_file_support(context: RequestContext, arguments: dict) -> dict:
+    return project_source_service.inspect_file_support(arguments["filename"], arguments.get("mime_type", ""))
+
+
+@register_tool(
     name="projects.prepare_source_upload", capability="workspace", effect="draft", requires_project=True,
     description="Prepara upload privado de arquivo. O usuário escolhe se ele será indexado como fonte de dados.",
     exposures=("internal", "customer_agent"),

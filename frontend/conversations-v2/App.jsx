@@ -5,6 +5,7 @@ import {ArtifactPane} from './components/ArtifactPane';
 import {ConfirmDialog} from './components/ConfirmDialog';
 import {csrf, request, streamEvents, uid} from './lib/api';
 import {insertWorkedBeforeResult} from './lib/responseModel.mjs';
+import {Icon} from './lib/icons';
 
 const emptyTitle = 'Nova conversa';
 
@@ -15,7 +16,7 @@ export default function App({bootstrap}) {
   const [conversationId, setConversationId] = useState(null);
   const [title, setTitle] = useState(emptyTitle);
   const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState(() => new URLSearchParams(window.location.search).get('prompt') || '');
   const [composerContext, setComposerContext] = useState(null);
   const [attachments, setAttachments] = useState([]);
   const [artifact, setArtifact] = useState(null);
@@ -32,12 +33,14 @@ export default function App({bootstrap}) {
   const [openingId, setOpeningId] = useState(null);
   const [notice, setNotice] = useState(null);
   const [discardRequest, setDiscardRequest] = useState(null);
+  const [dropActive, setDropActive] = useState(false);
   const conversationRef = useRef(null);
   const artifactRef = useRef(null);
   const runRef = useRef(null);
   const runStartedRef = useRef(0);
   const fileRef = useRef(null);
   const discardResolverRef = useRef(null);
+  const dragDepthRef = useRef(0);
 
   useEffect(() => { conversationRef.current = conversationId; }, [conversationId]);
   useEffect(() => { artifactRef.current = artifact; }, [artifact]);
@@ -126,16 +129,21 @@ export default function App({bootstrap}) {
       setConversationId(id); conversationRef.current = id;
       setTitle(conversationTitle || 'Conversa');
       if (data.context) setContext(data.context);
-      setAttachments([]); setComposerContext(null); setArtifact(null); artifactRef.current = null; setArtifactDirty(false); setArtifactOpen(false);
+      setAttachments(items => { releasePreviews(items); return []; }); setComposerContext(null); setArtifact(null); artifactRef.current = null; setArtifactDirty(false); setArtifactOpen(false);
       let lastArtifact = '';
+      let restoredContext = null;
       const restored = (data.messages || []).map(item => {
-        if (item.role === 'user') return {id: uid(), role: 'user', content: item.content || '', files: item.files || []};
         const metadata = item.metadata && typeof item.metadata === 'object' ? item.metadata : {};
+        if (item.role === 'user') {
+          if (metadata.selected_context) restoredContext = metadata.selected_context;
+          return {id: uid(), role: 'user', content: item.content || '', files: item.files || []};
+        }
         const response = metadata.response && typeof metadata.response === 'object' ? {...metadata.response, answer: metadata.response.answer || item.content || ''} : {answer: item.content || ''};
         if (metadata.artifact_id) lastArtifact = String(metadata.artifact_id);
         return {id: uid(), role: 'assistant', response, artifact: metadata.artifact_id ? {id: String(metadata.artifact_id), title: response.artifact_patch?.title || 'artefato', type: response.artifact_patch?.type} : null};
       });
       setMessages(restored);
+      setComposerContext(restoredContext);
       if (lastArtifact) await fetchArtifact(lastArtifact);
       setRuntime('');
       setMobileOpen(false);
@@ -171,11 +179,18 @@ export default function App({bootstrap}) {
         if (!file.size || file.size > 15 * 1024 * 1024 || !/\.(png|jpe?g|webp|gif|pdf|txt|csv|md|json|docx|xlsx|pptx)$/i.test(file.name)) {
           trace('Arquivo não aceito', 'Use imagem, PDF, texto ou Office de até 15 MB.', 'error'); continue;
         }
-        next.push({name: file.name, file, id: null, uploading: false, error: false});
+        next.push({name: file.name, file, previewUrl: file.type?.startsWith('image/') ? URL.createObjectURL(file) : '', id: null, uploading: false, error: false});
       }
       return next;
     });
   }, [trace]);
+
+  const releasePreviews = useCallback(items => items.forEach(item => { if (item.previewUrl) URL.revokeObjectURL(item.previewUrl); }), []);
+  const removeAttachment = useCallback(index => setAttachments(items => { const removed = items[index]; if (removed) releasePreviews([removed]); return items.filter((_, itemIndex) => itemIndex !== index); }), [releasePreviews]);
+  const handleDragEnter = useCallback(event => { if (!Array.from(event.dataTransfer?.types || []).includes('Files')) return; event.preventDefault(); dragDepthRef.current += 1; setDropActive(true); }, []);
+  const handleDragOver = useCallback(event => { if (event.dataTransfer?.types?.includes('Files')) event.preventDefault(); }, []);
+  const handleDragLeave = useCallback(event => { event.preventDefault(); dragDepthRef.current = Math.max(0, dragDepthRef.current - 1); if (!dragDepthRef.current) setDropActive(false); }, []);
+  const handleDrop = useCallback(event => { event.preventDefault(); dragDepthRef.current = 0; setDropActive(false); addFiles(Array.from(event.dataTransfer?.files || [])); }, [addFiles]);
 
   const uploadFiles = async () => {
     const staged = [...attachments];
@@ -196,8 +211,8 @@ export default function App({bootstrap}) {
     return staged;
   };
 
-  const submit = useCallback(async () => {
-    const clean = input.trim();
+  const submit = useCallback(async (requestedInput = input) => {
+    const clean = requestedInput.trim();
     if (!clean || running) return;
     if (artifactDirty && !(await confirmDiscard(false))) return;
     if (artifactDirty && artifactRef.current?.id) {
@@ -211,7 +226,7 @@ export default function App({bootstrap}) {
     const turnId = uid();
     setMessages(items => [...items, {id: uid(), turnId, role: 'user', content: clean, files}]);
     setTitle(current => current === emptyTitle ? clean.slice(0, 62) : current);
-    setInput(''); setComposerContext(null); setAttachments([]); setRuntime('Trabalhando');
+    setInput(''); setComposerContext(null); setAttachments(items => { releasePreviews(items); return []; }); setRuntime('Trabalhando');
     let terminal = false;
     let runStarted = false;
     let latestArtifact = null;
@@ -277,7 +292,15 @@ export default function App({bootstrap}) {
       }
       setRunning(false); runRef.current = null; await loadRecent();
     }
-  }, [input, running, artifactDirty, confirmDiscard, attachments, composerContext, fetchArtifact, trace, bootstrap.endpoints.messages, loadRecent]);
+  }, [input, running, artifactDirty, confirmDiscard, attachments, composerContext, fetchArtifact, trace, bootstrap.endpoints.messages, loadRecent, releasePreviews]);
+
+  const initialPromptRef = useRef(new URLSearchParams(window.location.search).get('prompt') || '');
+  useEffect(() => {
+    if (!initialPromptRef.current || running || contextLoading) return;
+    const prompt = initialPromptRef.current;
+    initialPromptRef.current = '';
+    submit(prompt);
+  }, [contextLoading, running, submit]);
 
   const stop = useCallback(async () => {
     if (!runRef.current) return;
@@ -336,10 +359,11 @@ export default function App({bootstrap}) {
     setArtifactDirty(false); setArtifactOpen(true);
   }, [confirmDiscard, fetchArtifact, trace]);
 
-  return <div className="cv-flex cv-h-full cv-min-h-0 cv-w-full cv-overflow-hidden cv-bg-ink">
-    <Sidebar bootstrap={bootstrap} conversations={conversations} activeId={conversationId} onOpen={openConversation} onNew={newConversation} mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} loading={historyLoading} openingId={openingId}/>
+  return <div onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} className={`cv-flex cv-h-full cv-min-h-0 cv-w-full cv-overflow-hidden cv-bg-ink ${bootstrap.homeMode ? 'cv-home-mode' : ''}`}>
+    {!bootstrap.homeMode && <Sidebar bootstrap={bootstrap} conversations={conversations} activeId={conversationId} onOpen={openConversation} onNew={newConversation} mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} loading={historyLoading} openingId={openingId}/>}
+    {dropActive && <div className="cv-drop-overlay" role="status"><div className="cv-drop-overlay-card"><Icon name="file" size={24}/><strong>Solte para anexar ao chat</strong><span>Imagens aparecem como miniaturas. Os demais arquivos entram com nome e tipo.</span></div></div>}
     <div className="cv-relative cv-flex cv-min-w-0 cv-flex-1">
-      <Conversation title={title} context={context} projects={projects} onProjectChange={changeProject} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} onAttach={() => fileRef.current?.click()} attachments={attachments} onRemoveAttachment={index => setAttachments(items => items.filter((_, itemIndex) => itemIndex !== index))} running={running} onStop={stop} onNew={newConversation} onPrompt={(prompt, selected) => { setInput(prompt); if (selected) setComposerContext(selected); }} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} mobileMenu={() => setMobileOpen(true)} artifactOpen={artifactOpen} notice={notice} onDismissNotice={() => setNotice(null)} composerContext={composerContext} onClearContext={() => setComposerContext(null)}/>
+      <Conversation title={title} context={context} projects={projects} onProjectChange={changeProject} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} onAttach={() => fileRef.current?.click()} attachments={attachments} onRemoveAttachment={removeAttachment} running={running} onStop={stop} onNew={newConversation} onPrompt={(prompt, selected) => { setInput(prompt); if (selected) setComposerContext(selected); }} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} mobileMenu={() => setMobileOpen(true)} artifactOpen={artifactOpen} notice={notice} onDismissNotice={() => setNotice(null)} composerContext={composerContext} onClearContext={() => setComposerContext(null)}/>
       {artifactOpen && <ArtifactPane artifact={artifact} dirty={artifactDirty} saving={saving} onChange={changeArtifact} onClose={() => setArtifactOpen(false)} onSave={saveArtifact} onLoadVersions={loadVersions} versions={versions} onRestoreVersion={restoreVersion}/>}
     </div>
     <input ref={fileRef} type="file" hidden multiple accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.txt,.csv,.md,.json,.docx,.xlsx,.pptx" onChange={event => { addFiles(Array.from(event.target.files || [])); event.target.value = ''; }}/>

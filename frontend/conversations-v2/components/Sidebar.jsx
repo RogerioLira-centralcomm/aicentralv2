@@ -19,7 +19,7 @@ export function Sidebar({bootstrap, conversations, activeId, onOpen, onNew, mobi
 
   return <>
     {mobileOpen && <button type="button" onClick={onMobileClose} aria-label="Fechar navegação" className="cv-fixed cv-inset-0 cv-z-50 cv-border-0 cv-bg-black/50 md:cv-hidden"/>}
-    <aside className={`${mobileOpen ? 'cv-mobile-sidebar' : 'max-md:cv-hidden'} cv-relative cv-z-10 cv-flex cv-h-full cv-flex-none cv-flex-col cv-bg-[#f5f7f6] cv-text-[#17302d] cv-transition-[width] cv-duration-200 ${collapsed ? 'cv-w-[76px]' : 'cv-w-[276px]'}`} aria-label="Navegação do Workspace">
+    <aside className={`cv-workspace-sidebar ${mobileOpen ? 'cv-mobile-sidebar' : 'max-md:cv-hidden'} cv-relative cv-z-10 cv-flex cv-h-full cv-flex-none cv-flex-col cv-transition-[width] cv-duration-200 ${collapsed ? 'cv-w-[76px]' : 'cv-w-[276px]'}`} aria-label="Navegação do Workspace">
       <header className="cv-flex cv-h-[68px] cv-items-center cv-gap-3 cv-px-5">
         <a href={bootstrap.urls.home} className="cv-flex cv-min-w-0 cv-flex-1 cv-items-center cv-gap-3 cv-text-inherit cv-no-underline">
           <img src={bootstrap.logo} alt="" className="cv-h-8 cv-w-8 cv-object-contain"/>

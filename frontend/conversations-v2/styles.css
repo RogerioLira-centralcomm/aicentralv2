@@ -3,15 +3,15 @@
 @tailwind utilities;
 
 :root {
-  --cv-bg: #071012;
-  --cv-panel: #0b1518;
-  --cv-raised: #101e21;
-  --cv-soft: #15272a;
-  --cv-line: rgba(166, 207, 201, .14);
-  --cv-text: #edf7f5;
-  --cv-muted: #91aaa6;
-  --cv-accent: #20c7b5;
-  --cv-accent-soft: rgba(32, 199, 181, .13);
+  --cv-bg: #111a1e;
+  --cv-panel: #172326;
+  --cv-raised: #1d2c30;
+  --cv-soft: #24383b;
+  --cv-line: rgba(181, 218, 211, .18);
+  --cv-text: #f0f7f5;
+  --cv-muted: #a4bab6;
+  --cv-accent: #55d8c6;
+  --cv-accent-soft: rgba(85, 216, 198, .16);
   --cv-danger: #ff7d83;
   color-scheme: dark;
 }
@@ -26,6 +26,31 @@ body:has(#cadu-conversations-v2-root) > .cadu-family-footer { display: none; }
 #cadu-conversations-v2-root,
 #cadu-conversations-v2-root * { box-sizing: border-box; }
 #cadu-conversations-v2-root { height: 100%; min-height: 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: var(--cv-text); }
+#cadu-conversations-v2-root.cv-home-root { background: var(--cv-bg); }
+#cadu-conversations-v2-root .cv-home-mode .cv-composer-shell { max-width: 820px; }
+#cadu-conversations-v2-root .cv-workspace-sidebar { background: #0d171a; color: #e6f1ef; border-right: 1px solid rgba(181,218,211,.14); }
+#cadu-conversations-v2-root .cv-workspace-sidebar :is(a,button,summary) { color: #b3c7c3; }
+#cadu-conversations-v2-root .cv-workspace-sidebar :is(a,button,summary):hover { background: rgba(127, 207, 194, .11); color: #f0f7f5; }
+#cadu-conversations-v2-root .cv-workspace-sidebar :is(a,button,summary):focus-visible { outline-color: #55d8c6; }
+#cadu-conversations-v2-root .cv-workspace-sidebar input { background: #17272a; color: #edf7f5; }
+#cadu-conversations-v2-root .cv-workspace-sidebar input::placeholder { color: #829b96; }
+#cadu-conversations-v2-root .cv-workspace-sidebar [aria-current="page"] { background: #1c4843; color: #f0f7f5; }
+#cadu-conversations-v2-root .cv-workspace-sidebar .cv-bg-\[\#173b36\] { background: #2a6058; }
+#cadu-conversations-v2-root .cv-workspace-sidebar .cv-bg-\[\#e9efed\] { background: #17272a; }
+#cadu-conversations-v2-root .cv-workspace-sidebar .cv-bg-\[\#e7eceb\] { background: #1b2b2e; }
+#cadu-conversations-v2-root .cv-workspace-sidebar .cv-bg-\[\#e8efed\] { background: rgba(127, 207, 194, .11); }
+#cadu-conversations-v2-root .cv-workspace-sidebar .cv-text-\[\#6f8581\],
+#cadu-conversations-v2-root .cv-workspace-sidebar .cv-text-\[\#7d918d\],
+#cadu-conversations-v2-root .cv-workspace-sidebar .cv-text-\[\#829590\],
+#cadu-conversations-v2-root .cv-workspace-sidebar .cv-text-\[\#607a76\],
+#cadu-conversations-v2-root .cv-workspace-sidebar .cv-text-\[\#728783\],
+#cadu-conversations-v2-root .cv-workspace-sidebar .cv-text-\[\#68807c\] { color: #829b96; }
+#cadu-conversations-v2-root .cv-drop-overlay { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: rgba(4, 16, 18, .72); backdrop-filter: blur(8px); pointer-events: none; }
+#cadu-conversations-v2-root .cv-drop-overlay-card { display: grid; gap: 8px; justify-items: center; max-width: 360px; padding: 28px 34px; border: 1px solid rgba(101, 216, 203, .55); border-radius: 20px; background: rgba(12, 35, 36, .96); color: #d9e7e4; text-align: center; box-shadow: 0 20px 70px rgba(0,0,0,.35); }
+#cadu-conversations-v2-root .cv-drop-overlay-card svg { color: #65d8cb; }
+#cadu-conversations-v2-root .cv-drop-overlay-card strong { font-size: 15px; }
+#cadu-conversations-v2-root .cv-drop-overlay-card span { color: #91aaa6; font-size: 12px; line-height: 1.5; }
+#cadu-conversations-v2-root .cv-attachment-thumb { width: 30px; height: 30px; border-radius: 6px; object-fit: cover; }
 :where(#cadu-conversations-v2-root button,
 #cadu-conversations-v2-root input,
 #cadu-conversations-v2-root textarea,
@@ -58,7 +83,7 @@ body:has(#cadu-conversations-v2-root) > .cadu-family-footer { display: none; }
 #cadu-conversations-v2-root .cv-composer-stage {
   padding-top: 56px;
   padding-bottom: 18px;
-  background: linear-gradient(to top, var(--cv-bg) 58%, rgba(7,16,18,.92) 76%, rgba(7,16,18,0));
+  background: linear-gradient(to top, var(--cv-bg) 58%, rgba(17,26,30,.94) 76%, rgba(17,26,30,0));
 }
 
 #cadu-conversations-v2-root .cv-composer-shell {

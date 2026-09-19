@@ -1977,8 +1977,21 @@ def dashboard():
         ("Ajuda", "Orientação de uso e canais de atendimento.", url_for("cadu_workspace.public_page", page="ajuda"), "Suporte"),
     )
     return render_template(
-        "cadu_workspace/index.html", sections=sections, projects=projects, brands=brands,
+        "cadu_workspace/workspace_home_chat.html", sections=sections, projects=projects, brands=brands,
         customizations=customizations, credit=credit_position(client_id), hero=secrets.choice(WORKSPACE_APP_HEROES),
+        data_health=_workspace_data_health(),
+    )
+
+
+@bp.get("/workspace/app/visao-geral")
+@login_required
+def legacy_dashboard_overview():
+    """Keep the previous dashboard available while the prompt-first home evolves."""
+    client_id = int(session.get("cliente_id") or 0)
+    return render_template(
+        "cadu_workspace/index.html", sections=[], projects=_workspace_projects(client_id),
+        brands=_workspace_brands(client_id), customizations=list_customizations(client_id=client_id),
+        credit=credit_position(client_id), hero=secrets.choice(WORKSPACE_APP_HEROES),
         data_health=_workspace_data_health(),
     )
 

@@ -1,0 +1,43 @@
+/* Cadu Design System — semantic tokens. Components consume these names; skins
+   only change values, so product families can share the same React surface. */
+:root {
+  --cadu-font-sans: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --cadu-radius-sm: 8px;
+  --cadu-radius-md: 12px;
+  --cadu-radius-lg: 18px;
+  --cadu-motion-fast: 140ms ease;
+  --cadu-nav-bg: #0d171a;
+  --cadu-nav-surface: #17272a;
+  --cadu-nav-ink: #e6f1ef;
+  --cadu-nav-muted: #91aaa6;
+  --cadu-nav-line: rgba(181, 218, 211, .16);
+  --cadu-accent: #087765;
+  --cadu-accent-strong: #055c50;
+  --cadu-accent-soft: #e8f5f1;
+}
+
+[data-cadu-skin="workspace"] { --cadu-accent: #087765; --cadu-accent-strong: #055c50; --cadu-accent-soft: #e8f5f1; }
+[data-cadu-skin="conversations"] { --cadu-accent: #55d8c6; --cadu-accent-strong: #2ebbaa; --cadu-accent-soft: rgba(85, 216, 198, .16); }
+[data-cadu-skin="planner"] { --cadu-accent: #3f79d8; --cadu-accent-strong: #2c5bad; --cadu-accent-soft: #eaf1ff; }
+[data-cadu-skin="studio"] { --cadu-accent: #bd78e8; --cadu-accent-strong: #9452c2; --cadu-accent-soft: #f5ebfc; }
+[data-cadu-skin="reports"] { --cadu-accent: #c17b35; --cadu-accent-strong: #975b24; --cadu-accent-soft: #fff2e5; }
+
+[data-cadu-theme="light"] {
+  --cadu-canvas: #f6f8fa;
+  --cadu-surface: #ffffff;
+  --cadu-surface-raised: #ffffff;
+  --cadu-surface-soft: #eef3f2;
+  --cadu-ink: #172d31;
+  --cadu-muted: #5f7673;
+  --cadu-line: #d9e4e1;
+}
+
+[data-cadu-theme="dark"] {
+  --cadu-canvas: #111a1e;
+  --cadu-surface: #172326;
+  --cadu-surface-raised: #1d2c30;
+  --cadu-surface-soft: #24383b;
+  --cadu-ink: #f0f7f5;
+  --cadu-muted: #a4bab6;
+  --cadu-line: rgba(181, 218, 211, .18);
+}

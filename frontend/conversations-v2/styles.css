@@ -33,6 +33,82 @@ body:has(#cadu-conversations-v2-root) > .cadu-family-footer { display: none; }
 :where(#cadu-conversations-v2-root button) { color: inherit; }
 #cadu-conversations-v2-root :focus-visible { outline: 2px solid var(--cv-accent); outline-offset: 2px; }
 
+/* The portal has legacy element-level styles for headings and form controls.
+   These named surfaces deliberately establish the chat's own visual boundary. */
+#cadu-conversations-v2-root .cv-conversation-title {
+  display: block;
+  max-width: min(46vw, 620px);
+  margin: 0 !important;
+  padding: 0 !important;
+  color: var(--cv-text) !important;
+  font: 600 15px/1.25 Inter, ui-sans-serif, system-ui, sans-serif !important;
+  letter-spacing: -.01em !important;
+  text-transform: none !important;
+}
+
+#cadu-conversations-v2-root .cv-thread-scroll {
+  overscroll-behavior: contain;
+  scroll-padding-bottom: 188px;
+}
+
+#cadu-conversations-v2-root .cv-thread-content {
+  padding-bottom: 204px !important;
+}
+
+#cadu-conversations-v2-root .cv-composer-stage {
+  padding-top: 56px;
+  padding-bottom: 18px;
+  background: linear-gradient(to top, var(--cv-bg) 58%, rgba(7,16,18,.92) 76%, rgba(7,16,18,0));
+}
+
+#cadu-conversations-v2-root .cv-composer-shell {
+  overflow: hidden;
+  border: 1px solid rgba(178, 216, 210, .16);
+  border-radius: 22px;
+  background: rgba(15, 29, 32, .96);
+  box-shadow: 0 18px 54px rgba(0, 0, 0, .3);
+  backdrop-filter: blur(22px);
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+#cadu-conversations-v2-root .cv-composer-shell:focus-within {
+  border-color: rgba(92, 220, 205, .48);
+  box-shadow: 0 18px 58px rgba(0,0,0,.34), 0 0 0 3px rgba(32,199,181,.08);
+}
+
+#cadu-conversations-v2-root .cv-composer-input {
+  display: block !important;
+  width: 100% !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--cv-text) !important;
+  -webkit-text-fill-color: var(--cv-text);
+}
+
+#cadu-conversations-v2-root .cv-composer-input::placeholder {
+  color: #78918d !important;
+  opacity: 1;
+}
+
+#cadu-conversations-v2-root .cv-composer-actions {
+  min-height: 42px;
+  padding: 0 8px 7px 10px;
+}
+
+#cadu-conversations-v2-root .cv-composer-add {
+  border-radius: 50%;
+}
+
+#cadu-conversations-v2-root .cv-composer-add:hover {
+  background: rgba(255,255,255,.055);
+  color: #c4d5d2;
+}
+
+#cadu-conversations-v2-root .cv-context-label { color: #78918d; }
+
 .cv-scroll { scrollbar-width: thin; scrollbar-color: rgba(145,170,166,.28) transparent; }
 .cv-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
 .cv-scroll::-webkit-scrollbar-thumb { background: rgba(145,170,166,.28); border-radius: 10px; }
@@ -86,6 +162,9 @@ body:has(#cadu-conversations-v2-root) > .cadu-family-footer { display: none; }
 @media (max-width: 760px) {
   body:has(#cadu-conversations-v2-root) { overflow: auto; }
   .cv-mobile-sidebar { position: absolute !important; inset: 0 auto 0 0; z-index: 60; width: min(88vw, 320px) !important; box-shadow: 22px 0 70px rgba(0,0,0,.52); }
+  #cadu-conversations-v2-root .cv-conversation-title { max-width: 38vw; font-size: 14px !important; }
+  #cadu-conversations-v2-root .cv-composer-stage { padding: 48px 10px 10px; }
+  #cadu-conversations-v2-root .cv-thread-content { padding: 28px 18px 188px !important; }
 }
 
 @keyframes cv-artifact-overlay-open { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }

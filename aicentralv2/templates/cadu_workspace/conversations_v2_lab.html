@@ -1,7 +1,7 @@
 {% extends 'cadu_portals/base.html' %}
 {% block title %}Conversas 2.0 — Cadu Workspace{% endblock %}
 {% block product_id %}workspace{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v=1">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v=2">{% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
 <div id="cadu-conversations-v2-root" aria-label="Conversas 2.0"><noscript>Ative o JavaScript para usar a Conversas 2.0.</noscript></div>
@@ -34,4 +34,4 @@
   }
 }|tojson }}</script>
 {% endblock %}
-{% block portal_scripts %}<script type="module" src="{{ url_for('static', filename='cadu_workspace/conversations/react/app.js') }}?v=1"></script>{% endblock %}
+{% block portal_scripts %}<script type="module" src="{{ url_for('static', filename='cadu_workspace/conversations/react/app.js') }}?v=2"></script>{% endblock %}

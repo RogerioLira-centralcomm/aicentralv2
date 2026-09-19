@@ -75,6 +75,9 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.doesNotMatch(artifact, /img-src data: blob: https:/);
   assert.match(conversation, /Ver resposta completa/);
   assert.match(conversation, /ResponseBlocks/);
+  assert.match(conversation, /cv-conversation-title/);
+  assert.match(conversation, /cv-composer-shell/);
+  assert.match(conversation, /cv-thread-content/);
   assert.match(responseBlocks, /Usar esta opção/);
   assert.match(responseBlocks, /Continuar com/);
   assert.match(responseBlocks, /block\.type === 'insights'/);
@@ -82,10 +85,14 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(artifact, /Criar versão editável/);
   assert.match(styles, /cv-artifact-open/);
   assert.match(styles, /prefers-reduced-motion/);
+  assert.match(styles, /#cadu-conversations-v2-root \.cv-composer-input/);
+  assert.match(styles, /padding-bottom: 204px !important/);
   assert.match(styles, /@media \(max-width: 1080px\)[\s\S]*\.cv-artifact-overlay/);
   assert.match(template, /cadu-conversations-v2-root/);
   assert.match(template, /cadu-conversations-v2-bootstrap/);
   assert.match(template, /react\/app\.js/);
+  assert.match(template, /react\/app\.css'\) }}\?v=2/);
+  assert.match(template, /react\/app\.js'\) }}\?v=2/);
   assert.doesNotMatch(template, /_app_sidebar\.html/);
   assert.doesNotMatch(template, /v2-lab\.js/);
   assert.match(base, /request\.endpoint not in \('cadu_workspace\.conversations', 'cadu_agent_v2_lab\.conversations_v2_lab'\)/);

@@ -197,6 +197,12 @@ def save_upload(context: RequestContext, token: str, file_storage) -> dict:
         connection.rollback()
         target.unlink(missing_ok=True)
         raise
+    try:
+        from .project_resource_service import notify_change
+        notify_change(context.client_id, context.project_ref, "created", source_system="workspace",
+                      source_id=f"file:{source_id}", actor_id=context.user_id)
+    except Exception:
+        current_app.logger.exception("Falha ao organizar o arquivo %s no projeto", source_id)
     return {"source_id": source_id, "project_ref": context.project_ref, "name": source["name"],
             "mime_type": source["mime"], "size": len(source["data"]),
             "use_as_knowledge": use_as_knowledge,

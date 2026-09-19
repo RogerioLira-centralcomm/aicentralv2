@@ -46,3 +46,20 @@ CREATE TABLE IF NOT EXISTS cadu_project_resource_events (
 CREATE INDEX IF NOT EXISTS idx_cadu_project_resource_events_project
     ON cadu_project_resource_events (client_id, project_ref, created_at DESC);
 
+CREATE TABLE IF NOT EXISTS cadu_project_resource_jobs (
+    id UUID PRIMARY KEY,
+    client_id BIGINT NOT NULL,
+    project_ref TEXT NOT NULL,
+    event_type VARCHAR(40) NOT NULL,
+    source_system VARCHAR(40),
+    source_id TEXT,
+    status VARCHAR(24) NOT NULL DEFAULT 'queued',
+    attempts INTEGER NOT NULL DEFAULT 0,
+    error_message TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    started_at TIMESTAMPTZ,
+    finished_at TIMESTAMPTZ,
+    CHECK (status IN ('queued','running','completed','failed'))
+);
+CREATE INDEX IF NOT EXISTS idx_cadu_project_resource_jobs_queue
+    ON cadu_project_resource_jobs (status, created_at) WHERE status IN ('queued','failed');

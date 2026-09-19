@@ -209,3 +209,37 @@ def list_resources(client_id: int, project_ref: str, *, reconcile_first=True, ac
 
 def list_for_context(context: RequestContext) -> dict:
     return list_resources(context.client_id, context.project_ref or "", actor_id=context.user_id)
+
+
+def notify_change(client_id: int, project_ref: str, event_type: str, *, source_system="", source_id="", actor_id=None) -> None:
+    """Persist a movement and reconcile immediately; queued state supports future workers."""
+    from uuid import uuid4
+    connection = get_db()
+    job_id = str(uuid4())
+    try:
+        with connection.cursor() as cursor:
+            if not _relation(cursor, "cadu_project_resource_jobs"):
+                return
+            cursor.execute("""INSERT INTO cadu_project_resource_jobs
+                (id,client_id,project_ref,event_type,source_system,source_id,status,created_at)
+                VALUES (%s,%s,%s,%s,%s,%s,'queued',NOW())""",
+                (job_id, client_id, project_ref, event_type, source_system or None, str(source_id or "") or None))
+        connection.commit()
+        with connection.cursor() as cursor:
+            cursor.execute("""UPDATE cadu_project_resource_jobs SET status='running',attempts=attempts+1,started_at=NOW()
+                                WHERE id=%s""", (job_id,))
+        connection.commit()
+        reconcile(client_id, project_ref, actor_id)
+        with connection.cursor() as cursor:
+            cursor.execute("""UPDATE cadu_project_resource_jobs SET status='completed',finished_at=NOW() WHERE id=%s""", (job_id,))
+        connection.commit()
+    except Exception as exc:
+        connection.rollback()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""UPDATE cadu_project_resource_jobs SET status='failed',error_message=%s,finished_at=NOW()
+                                    WHERE id=%s""", (str(exc)[:500], job_id))
+            connection.commit()
+        except Exception:
+            connection.rollback()
+        raise

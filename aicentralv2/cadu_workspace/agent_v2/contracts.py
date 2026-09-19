@@ -9,6 +9,7 @@ from typing import Any
 SURFACES = frozenset({"conversations", "workspace", "planner", "studio", "reports"})
 RESPONSE_MODES = frozenset({"direct", "analysis", "decision", "artifact_first", "clarification"})
 COMPLEXITIES = frozenset({"low", "medium", "high"})
+EXECUTION_MODES = frozenset({"fast", "analysis", "agentic"})
 
 
 @dataclass(frozen=True)
@@ -74,6 +75,22 @@ class ExecutionBudget:
     max_tool_calls: int = 4
     max_context_chars: int = 16000
     max_output_tokens: int = 1200
+    max_duration_ms: int = 90000
+
+
+def execution_mode_for(route: IntentRoute, requested: str = "") -> str:
+    requested = str(requested or "").strip().lower()
+    aliases = {"focus": "fast", "deep": "analysis"}
+    requested = aliases.get(requested, requested)
+    if requested in EXECUTION_MODES:
+        if requested == "agentic" and not (route.artifact_type or route.requires_confirmation or route.complexity == "high"):
+            return "analysis"
+        return requested
+    if route.artifact_type or route.requires_confirmation:
+        return "agentic"
+    if route.complexity == "low" and not route.needs_tools:
+        return "fast"
+    return "analysis"
 
 
 @dataclass

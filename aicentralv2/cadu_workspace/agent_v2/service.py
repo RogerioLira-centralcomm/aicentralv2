@@ -2,9 +2,10 @@
 
 import json
 from dataclasses import asdict
+from time import perf_counter
 from uuid import UUID, uuid4
 
-from flask import abort, current_app
+from flask import abort, current_app, has_app_context
 from psycopg.types.json import Json
 
 from ...cadu_credit_connector import CaduCreditConnector, CreditActor
@@ -16,10 +17,28 @@ from . import provider
 from .executor import prepare_execution
 from .guardrails import normalize_response
 from .request_context import resolve
+from . import journal
 
 
 def _event(kind, **values):
     return "data: " + json.dumps({"event": kind, **values}, ensure_ascii=False, default=str) + "\n\n"
+
+
+def _journal(run_id, kind, payload=None, *, item_type="activity", duration_ms=None):
+    try:
+        return journal.record(run_id, kind, payload, item_type=item_type, duration_ms=duration_ms)
+    except Exception:
+        if has_app_context():
+            current_app.logger.exception("Falha ao registrar evento do Turn %s", run_id)
+        return {"event": kind, **(payload or {})}
+
+
+def _complete_step(run_id, kind, output=None, error_code=None):
+    try:
+        journal.complete_step(run_id, kind, output, error_code)
+    except Exception:
+        if has_app_context():
+            current_app.logger.exception("Falha ao salvar checkpoint %s do Turn %s", kind, run_id)
 
 
 def _message(value):
@@ -63,7 +82,8 @@ def prepare(data):
     previous_messages = (repository.conversation_messages(
         current.user_id, current.client_id, conversation_id
     ) if data.get("conversation_id") else []) or []
-    execution = prepare_execution(message, current, history_context(previous_messages))
+    requested_mode = data.get("execution_mode") or data.get("depth") or data.get("mode") or ""
+    execution = prepare_execution(message, current, history_context(previous_messages), requested_mode)
     conn = repository.get_db()
     try:
         with conn.cursor() as cur:
@@ -92,11 +112,11 @@ def prepare(data):
             if cur.fetchone():
                 abort(409, description="Aguarde a resposta atual ou interrompa a geração.")
             cur.execute("""INSERT INTO cadu_family_chat_runs
-                (id, conversation_id, user_id, client_id, status, runtime_version, route,
+                (id, conversation_id, user_id, client_id, status, runtime_version, execution_mode, route,
                  request_context, response_policy, context_chars, created_at)
-                VALUES (%s, %s, %s, %s, 'running', 'v2', %s, %s, %s, %s, NOW())""",
+                VALUES (%s, %s, %s, %s, 'running', 'v2', %s, %s, %s, %s, %s, NOW())""",
                 (run_id, conversation_id, current.user_id, current.client_id,
-                 Json(execution["route"]), Json(current.to_dict()), Json(execution["policy"]),
+                 execution["execution_mode"], Json(execution["route"]), Json(current.to_dict()), Json(execution["policy"]),
                  len(execution["provider_payload"]["inputs"]["evidence"])))
             cur.execute("""INSERT INTO cadu_conversation_messages
                 (id, conversation_id, role, content, files, metadata, created_at)
@@ -110,7 +130,13 @@ def prepare(data):
                     (str(uuid4()), run_id, call["name"],
                      "completed" if call["status"] == "completed" else "failed",
                      Json({"available": call["status"] == "completed"}), call.get("code")))
+                cur.execute("""UPDATE cadu_agent_tool_calls SET duration_ms=%s
+                                WHERE run_id=%s AND tool_name=%s""",
+                            (call.get("duration_ms"), run_id, call["name"]))
         conn.commit()
+        journal.persist_plan(run_id, execution["plan"], execution["resolved_context"].tool_calls)
+        _journal(run_id, "run.admitted", {"execution_mode": execution["execution_mode"],
+                 "route": execution["route"], "budget": execution["budget"]})
     except Exception:
         conn.rollback()
         raise
@@ -121,14 +147,28 @@ def prepare(data):
 
 
 def stream(run):
+    run_started = perf_counter()
+    execution_mode = run.get("execution_mode") or "analysis"
+    provider_started = None
+    first_token_ms = None
     answer_chunks, usage, provider_id, task_id = [], {}, None, None
     state, assistant_id = "failed", None
-    yield _event("run.started", run_id=run["run_id"], conversation_id=run["conversation_id"])
+    _journal(run["run_id"], "run.started", {"conversation_id": run["conversation_id"],
+             "execution_mode": execution_mode})
+    yield _event("run.started", run_id=run["run_id"], conversation_id=run["conversation_id"], execution_mode=execution_mode)
+    _journal(run["run_id"], "route.selected", {"route": run["route"], "policy": run["policy"]})
     yield _event("route.selected", route=run["route"], policy=run["policy"])
     for call in run["resolved_context"].tool_calls:
+        _journal(run["run_id"], "tool.completed" if call["status"] == "completed" else "tool.unavailable",
+                 call, item_type="activity", duration_ms=call.get("duration_ms"))
         yield _event("tool.completed" if call["status"] == "completed" else "tool.unavailable", **call)
     try:
+        provider_started = perf_counter()
         for item in provider.events(run["provider_payload"]):
+            if first_token_ms is None and (item.get("answer") or item.get("event") in {"message", "agent_message"}):
+                first_token_ms = round((perf_counter() - run_started) * 1000)
+                _journal(run["run_id"], "provider.first_token", {"first_token_ms": first_token_ms},
+                         duration_ms=first_token_ms)
             provider_id = item.get("conversation_id") or provider_id
             next_task_id = item.get("task_id")
             if next_task_id and next_task_id != task_id:
@@ -152,7 +192,12 @@ def stream(run):
                     run["context"], run["route"]["artifact_type"], response.artifact_patch,
                     title=response.answer[:120], conversation_id=run["conversation_id"],
                 )
+                _complete_step(run["run_id"], "artifact", {"artifact_id": str(artifact["id"])})
+                _journal(run["run_id"], "artifact.created", {"artifact_id": str(artifact["id"]),
+                         "type": run["route"]["artifact_type"]}, item_type="artifact")
                 yield _event("artifact.created", artifact=artifact)
+            _complete_step(run["run_id"], "generate", {"answer_chars": len(response.answer)})
+            _journal(run["run_id"], "answer.completed", {"response": asdict(response)}, item_type="message")
             yield _event("answer.completed", response=asdict(response))
             state = "completed"
             conn = repository.get_db()
@@ -176,12 +221,20 @@ def stream(run):
             conn.commit()
             if usage:
                 try:
-                    CaduCreditConnector().charge_provider(
+                    charge = CaduCreditConnector().charge_provider(
                         actor=CreditActor.from_values(run["context"].client_id, run["context"].user_id),
                         idempotency_key="chat-v2:" + run["run_id"], app="Cadu Chat", stage="conversa-v2",
                         provider_result={"usage": usage, "model": "dify-v2"},
                         metadata={"conversation_id": run["conversation_id"], "provider_conversation_id": provider_id or ""},
                     )
+                    if charge:
+                        conn = repository.get_db()
+                        with conn.cursor() as cur:
+                            cur.execute("""UPDATE cadu_family_chat_runs SET charged_credits=%s,
+                                           estimated_cost_usd=%s WHERE id=%s""",
+                                        (int(charge.get("tokens_cobrados") or charge.get("charged_tokens") or 0),
+                                         charge.get("custo_interno") or charge.get("internal_cost_usd") or 0, run["run_id"]))
+                        conn.commit()
                 except Exception:
                     # The answer is already durable. Billing reconciliation uses
                     # the idempotency key and must not corrupt the customer turn.
@@ -191,17 +244,29 @@ def stream(run):
             state = "cancelled"
         else:
             current_app.logger.exception("Falha no runtime Cadu Conversations V2; run=%s", run["run_id"])
+            _complete_step(run["run_id"], "generate", error_code="provider_failed")
+            _journal(run["run_id"], "run.failed", {"code": "provider_failed"}, item_type="error")
             yield _event("run.failed", message="A execução foi interrompida. Tente novamente.")
     finally:
+        total_duration_ms = round((perf_counter() - run_started) * 1000)
+        provider_duration_ms = round((perf_counter() - provider_started) * 1000) if provider_started else None
         conn = repository.get_db()
         try:
             with conn.cursor() as cur:
                 cur.execute("""UPDATE cadu_family_chat_runs
                                SET status = CASE WHEN status = 'cancelled' THEN status ELSE %s END,
-                                   task_id = COALESCE(%s, task_id), finished_at = NOW()
-                               WHERE id = %s""", (state, task_id, run["run_id"]))
+                                   task_id = COALESCE(%s, task_id), finished_at = NOW(),
+                                   first_token_ms=%s, total_duration_ms=%s, provider_duration_ms=%s,
+                                   input_tokens=%s, output_tokens=%s,
+                                   terminal_error_code=CASE WHEN %s='failed' THEN 'provider_failed' ELSE NULL END
+                               WHERE id = %s""", (state, task_id, first_token_ms, total_duration_ms,
+                                  provider_duration_ms, max(0, int(usage.get("prompt_tokens") or 0)),
+                                  max(0, int(usage.get("completion_tokens") or 0)), state, run["run_id"]))
             conn.commit()
         except Exception:
             conn.rollback()
             current_app.logger.exception("Falha ao finalizar run V2 %s", run["run_id"])
+    terminal_event = "run.completed" if state == "completed" else "run.cancelled" if state == "cancelled" else "run.failed"
+    _journal(run["run_id"], terminal_event, {"status": state, "conversation_id": run["conversation_id"],
+             "message_id": assistant_id, "total_duration_ms": round((perf_counter() - run_started) * 1000)})
     yield _event("run.completed", status=state, conversation_id=run["conversation_id"], message_id=assistant_id)

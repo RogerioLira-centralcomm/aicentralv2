@@ -46,6 +46,13 @@ def create_draft(context: RequestContext, artifact_type: str, content: dict, *, 
     except Exception:
         conn.rollback()
         raise
+    if context.project_ref:
+        try:
+            from ..project_resource_service import notify_change
+            notify_change(context.client_id, context.project_ref, "created", source_system="cadu_workspace_artifacts",
+                          source_id=artifact_id, actor_id=context.user_id)
+        except Exception:
+            pass
     return get_artifact(context, artifact_id)
 
 
@@ -139,4 +146,11 @@ def patch_artifact(context: RequestContext, artifact_id: str, content: dict, *, 
     except Exception:
         conn.rollback()
         raise
+    if context.project_ref:
+        try:
+            from ..project_resource_service import notify_change
+            notify_change(context.client_id, context.project_ref, "versioned", source_system="cadu_workspace_artifacts",
+                          source_id=str(artifact_id), actor_id=context.user_id)
+        except Exception:
+            pass
     return get_artifact(context, artifact_id)

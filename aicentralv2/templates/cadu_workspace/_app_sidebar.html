@@ -23,6 +23,7 @@
   <footer class="workspace-sidebar-footer">
     <nav class="workspace-sidebar-management" aria-label="Gestão e conta">
       <a href="{{ url_for('cadu_workspace.account_page', section='creditos') }}"><span class="workspace-nav-icon"><i class="fa-solid fa-chart-pie"></i></span><span class="workspace-nav-text">Uso</span></a>
+      {% if session.get('user_type') in ('admin', 'superadmin') %}<a href="{{ url_for('cadu_agent_v2_lab.observability_page') }}" {% if workspace_active == 'observabilidade' %}aria-current="page"{% endif %}><span class="workspace-nav-icon"><i class="fa-solid fa-wave-square"></i></span><span class="workspace-nav-text">Observabilidade</span></a>{% endif %}
       <a href="{{ url_for('cadu_workspace.account_page', section='planos') }}"><span class="workspace-nav-icon"><i class="fa-regular fa-credit-card"></i></span><span class="workspace-nav-text">Planos</span></a>
       <a href="{{ url_for('cadu_workspace.account_page', section='equipe') }}"><span class="workspace-nav-icon"><i class="fa-solid fa-users"></i></span><span class="workspace-nav-text">Equipe</span></a>
       <a href="{{ url_for('cadu_workspace.account_page', section='perfil') }}"><span class="workspace-nav-icon"><i class="fa-regular fa-user"></i></span><span class="workspace-nav-text">Perfil</span></a>

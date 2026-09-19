@@ -371,9 +371,9 @@
   const depthHint = document.getElementById('conversation-depth-hint');
   const depthTrigger = document.getElementById('conversation-depth-trigger');
   const depthValues = {
-    '1': {id:'focus', label:'Foco', hint:'Direto ao ponto'},
+    '1': {id:'fast', label:'Rápido', hint:'Direto ao ponto'},
     '2': {id:'analysis', label:'Análise', hint:'Resposta equilibrada'},
-    '3': {id:'deep', label:'Pesquisa profunda', hint:'Consome mais créditos e pode consultar fontes recentes'},
+    '3': {id:'agentic', label:'Agentic', hint:'Executa etapas, tools e artifacts com acompanhamento'},
   };
   const selectedDepth = () => depthValues[depthControl?.value || '2']?.id || 'analysis';
   const renderDepth = () => {
@@ -1323,7 +1323,9 @@
       scrollHistoryToEnd(true);
       status.textContent = 'Conectando ao Cadu…';
       const fileIds = await attachments.upload(controller.signal);
-      const payload = {message, files:fileIds, mode: selectedMode, depth: selectedDepth(), profile: document.body.dataset.product,
+      const executionMode = selectedDepth();
+      const legacyDepth = executionMode === 'fast' ? 'focus' : executionMode === 'agentic' ? 'deep' : 'analysis';
+      const payload = {message, files:fileIds, mode: selectedMode, depth: legacyDepth, profile: document.body.dataset.product,
         conversation_id: conversationId};
       const id = await requestId(payload);
       // Until the source-choice UI is connected, turns with local attachments
@@ -1333,7 +1335,7 @@
       const response = await fetch(useV2 ? conversationShell.dataset.v2Endpoint : '/familia/api/conversations/send', {
         method: 'POST', credentials: 'same-origin', signal: controller.signal,
         headers: {'Content-Type': 'application/json', ...(document.querySelector('meta[name="csrf-token"]')?.content ? {'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content} : {})},
-        body: JSON.stringify(useV2 ? {message, request_id:id, conversation_id:conversationId, surface:'conversations'} : {...payload, request_id:id})
+        body: JSON.stringify(useV2 ? {message, request_id:id, conversation_id:conversationId, surface:'conversations', execution_mode:executionMode} : {...payload, request_id:id})
       });
       if (!response.ok) throw new Error((await response.json()).error || 'Não foi possível iniciar a conversa.');
       let eventSource;

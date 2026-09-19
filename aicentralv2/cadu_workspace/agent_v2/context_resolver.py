@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 from typing import Any
+from time import perf_counter
 
 from .contracts import IntentRoute, RequestContext
 from ..mcp.registry import ToolError, ToolNotFound, ToolRegistry
@@ -34,13 +35,16 @@ def resolve_context(route: IntentRoute, request: RequestContext, message: str,
     result = ResolvedContext(values={"current_context": request.to_dict()})
     for tool_name in route.needs_tools:
         arguments = _arguments(tool_name, request, message)
+        started = perf_counter()
         try:
             value = registry.execute(tool_name, arguments, request)
             result.values[tool_name] = value
-            result.tool_calls.append({"name": tool_name, "status": "completed"})
+            result.tool_calls.append({"name": tool_name, "status": "completed",
+                                      "duration_ms": round((perf_counter() - started) * 1000)})
         except (ToolError, ValueError) as exc:
             # Missing context is data for the response policy, never a provider
             # diagnostic to expose to the customer.
             result.missing.append(tool_name)
-            result.tool_calls.append({"name": tool_name, "status": "unavailable", "code": getattr(exc, "code", "invalid")})
+            result.tool_calls.append({"name": tool_name, "status": "unavailable", "code": getattr(exc, "code", "invalid"),
+                                      "duration_ms": round((perf_counter() - started) * 1000)})
     return result

@@ -561,16 +561,19 @@ Não carregar quando:
 | Workspace/Planner/Reports tools | Parcial | `mcp/tools/` |
 | Fontes de projeto | Implementado | `project_source_service.py` |
 | Resource Registry do projeto | Parcial | `project_resource_service.py`, Workspace e `projects.list_resources` |
+| Organização contínua | Fundação implementada | Jobs persistidos e hooks em fontes/artifacts; worker assíncrono ainda pendente |
 | Marcas/logo/auditoria | Implementado | `brand_mcp_service.py`, `mcp/tools/brands.py` |
 | Studio tools estáveis | Pendente | Publicar após contratos do Studio |
+| ExecutionMode | Implementado | `fast`, `analysis` e `agentic` no contrato, router, budgets, persistência e UI |
 | Turn Items genéricos | Parcial | Hoje mensagens, runs, tool calls e artifacts estão separados |
-| Event journal/replay V2 | Pendente | Necessário para retomada uniforme |
+| Event journal/replay V2 | Implementado | Journal ordenado e leitura do Turn sem redisparar o provider |
+| Planos e checkpoints agentic | Fundação implementada | Etapas e checkpoints persistidos; executor de retomada/confirmacão ainda pendente |
 | OAuth para agentes externos | Pendente | Delegação curta atende uso iniciado no Cadu |
-| Observabilidade completa | Parcial | Schema possui base; instrumentação precisa ser concluída |
+| Observabilidade CentralX | Implementado, primeira versão | Latência, tokens, custo estimado, tools, estado terminal, timeline e painel administrativo |
 
 ## 18. Plano de implementação
 
-### Fase A — consolidar o Harness atual
+### Fase A — consolidar o Harness atual (concluída)
 
 - formalizar `ExecutionMode` (`fast`, `analysis`, `agentic`);
 - criar contrato único de `Turn` e `Item` sem remover tabelas saudáveis;
@@ -578,7 +581,7 @@ Não carregar quando:
 - registrar first-event, duração, tokens, custo e estado terminal;
 - tornar budgets executáveis, não apenas informativos.
 
-### Fase B — persistência e retomada
+### Fase B — persistência e retomada (fundação concluída)
 
 - criar journal ordenado de eventos/Items;
 - reabrir Turn sem redisparar provider;

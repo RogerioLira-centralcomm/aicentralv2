@@ -9,10 +9,12 @@ from ...cadu_family import repository
 from .request_context import resolve
 from .response_policy import budget_for, policy_for
 from .router import route_request
+from .contracts import execution_mode_for
 from ..mcp.registry import load_builtin_tools
 from ..mcp.authorization import MAX_AGE_SECONDS, issue
 from ..artifacts import create_draft, get_artifact, patch_artifact
 from .service import prepare as prepare_message, stream as stream_message
+from . import journal, observability
 
 
 bp = Blueprint("cadu_agent_v2", __name__, url_prefix="/workspace/api/v2")
@@ -24,6 +26,16 @@ def conversations_v2_lab():
     if not session.get("user_id"):
         abort(401)
     return render_template("cadu_workspace/conversations_v2_lab.html")
+
+
+@lab_bp.get("/workspace/observabilidade")
+def observability_page():
+    if not session.get("user_id"):
+        abort(401)
+    if session.get("user_type") not in {"admin", "superadmin"}:
+        abort(403)
+    client_id = int(session.get("cliente_id") or 0)
+    return render_template("cadu_workspace/observability.html", telemetry=observability.dashboard(client_id))
 
 
 @bp.before_request
@@ -73,9 +85,10 @@ def route_preview():
                       surface=str(data.get("surface") or "conversations"),
                       active_object=data.get("active_object"))
     route = route_request(message, current.surface, bool(current.project_ref))
+    execution_mode = execution_mode_for(route, data.get("execution_mode") or data.get("depth") or data.get("mode"))
     return jsonify(
-        route=route.to_dict(), context=current.to_dict(), policy=policy_for(route),
-        budget=budget_for(route).__dict__,
+        route=route.to_dict(), execution_mode=execution_mode, context=current.to_dict(), policy=policy_for(route),
+        budget=budget_for(route, execution_mode).__dict__,
     )
 
 
@@ -86,6 +99,23 @@ def conversation_message():
     run = prepare_message(request.get_json(silent=True) or {})
     return Response(stream_with_context(stream_message(run)), mimetype="text/event-stream",
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@bp.get("/runs/<uuid:run_id>/events")
+def run_events(run_id):
+    current = resolve()
+    return jsonify(events=journal.events(str(run_id), current.client_id, current.user_id))
+
+
+@bp.get("/observability/runs/<uuid:run_id>")
+def observability_run(run_id):
+    if session.get("user_type") not in {"admin", "superadmin"}:
+        abort(403)
+    current = resolve()
+    try:
+        return jsonify(observability.run_detail(current.client_id, str(run_id)))
+    except ValueError as exc:
+        abort(404, description=str(exc))
 
 
 @bp.post("/runs/<uuid:run_id>/stop")
@@ -110,6 +140,10 @@ def stop_run(run_id):
                        WHERE id = %s AND user_id = %s AND client_id = %s AND status = 'running'""",
                     (str(run_id), current.user_id, current.client_id))
     conn.commit()
+    try:
+        journal.record(str(run_id), "run.cancelled", {"user_id": current.user_id})
+    except Exception:
+        current_app.logger.exception("Falha ao registrar cancelamento do Turn %s", run_id)
     return jsonify(stopped=True)
 
 

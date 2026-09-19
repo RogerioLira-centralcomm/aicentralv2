@@ -3,7 +3,7 @@ from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
 
-from aicentralv2.cadu_workspace.agent_v2.contracts import RequestContext
+from aicentralv2.cadu_workspace.agent_v2.contracts import RequestContext, execution_mode_for
 from aicentralv2.cadu_workspace.agent_v2.response_policy import budget_for, policy_for
 from aicentralv2.cadu_workspace.agent_v2.router import route_request
 from aicentralv2.cadu_workspace.agent_v2.guardrails import normalize_response
@@ -227,6 +227,16 @@ def test_simple_request_does_not_load_context_or_tools():
     assert route.response_mode == "direct"
     assert route.needs_context == ()
     assert route.needs_tools == ()
+
+
+def test_execution_modes_are_bounded_by_route():
+    simple = route_request("Melhore este título")
+    brief = route_request("Crie um briefing para o projeto", has_project=True)
+    assert execution_mode_for(simple, "") == "fast"
+    assert execution_mode_for(simple, "agentic") == "analysis"
+    assert execution_mode_for(brief, "") == "agentic"
+    assert budget_for(simple, "fast").max_tool_calls == 1
+    assert budget_for(brief, "agentic").max_duration_ms == 240000
 
 
 def test_registry_enforces_capability_and_project_before_handler():

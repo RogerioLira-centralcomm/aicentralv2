@@ -12,10 +12,12 @@ inteiros no chat."""
 
 
 def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
-                  resolved: dict, policy: dict, user_label: str, history: str = "") -> dict:
+                  resolved: dict, policy: dict, user_label: str, history: str = "",
+                  execution_mode: str = "analysis") -> dict:
     task = {
         "domain": route.domain, "action": route.action, "complexity": route.complexity,
-        "response_mode": route.response_mode, "artifact_type": route.artifact_type,
+        "response_mode": route.response_mode, "execution_mode": execution_mode,
+        "artifact_type": route.artifact_type,
     }
     inputs = {
         "core": CORE,

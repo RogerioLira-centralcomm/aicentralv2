@@ -69,11 +69,11 @@ Cadu Harness
     <section id="modos">
       <h2>Três modos de execução, não três agentes desconectados</h2>
       <table><thead><tr><th>Modo</th><th>Finalidade</th><th>Execução</th><th>Estado</th></tr></thead><tbody>
-        <tr><td><code>fast</code></td><td>Resposta curta, ajuste e síntese simples</td><td>Contexto mínimo, 0–1 tool e uma chamada de modelo</td><td><span class="status partial">Parcial</span></td></tr>
-        <tr><td><code>analysis</code></td><td>Diagnóstico, comparação e recomendação</td><td>Contexto seletivo, evidências e tools de domínio</td><td><span class="status partial">Parcial</span></td></tr>
-        <tr><td><code>agentic</code></td><td>Trabalho com várias etapas e artifacts</td><td>Plano persistido, checkpoints, ações, retomada e budget explícito</td><td><span class="status todo">Pendente</span></td></tr>
+        <tr><td><code>fast</code></td><td>Resposta curta, ajuste e síntese simples</td><td>Contexto mínimo, 0–1 tool e uma chamada de modelo</td><td><span class="status done">Implementado</span></td></tr>
+        <tr><td><code>analysis</code></td><td>Diagnóstico, comparação e recomendação</td><td>Contexto seletivo, evidências e tools de domínio</td><td><span class="status done">Implementado</span></td></tr>
+        <tr><td><code>agentic</code></td><td>Trabalho com várias etapas e artifacts</td><td>Plano persistido, checkpoints, ações, retomada e budget explícito</td><td><span class="status partial">Fundação</span></td></tr>
       </tbody></table>
-      <p>Hoje o legado possui as profundidades <code>focus</code>, <code>analysis</code> e <code>deep</code>, enviadas como diretivas ao mesmo agente. O runtime V2 usa uma aplicação Dify própria e recebe tarefa, contexto e contrato de saída, mas ainda não implementa formalmente os três modos acima.</p>
+      <p>O runtime V2 formaliza os três modos no contrato, roteamento, budgets, persistência e seletor da interface. O legado continua recebendo a tradução compatível <code>focus</code>, <code>analysis</code> e <code>deep</code>. No modo <code>agentic</code>, plano, etapas e checkpoints já são persistidos; retomada automática e confirmações humanas entre etapas ainda são o próximo endurecimento.</p>
       <div class="note">Não existem três agentes Dify separados confirmados pelo código. A direção recomendada é um app curto para <code>fast</code>/<code>analysis</code> e execução <code>agentic</code> governada e persistida pelo Harness no CentralX.</div>
     </section>
 
@@ -81,14 +81,14 @@ Cadu Harness
       <h2>Observabilidade é um produto interno do CentralX</h2>
       <p>Cada Turn precisa ser explicável sem depender do painel do provider. O CentralX deve registrar a sequência completa da execução e oferecer visão operacional por cliente, projeto, rota, capability, modelo e período.</p>
       <table><thead><tr><th>Dimensão</th><th>O que registrar</th><th>Estado</th></tr></thead><tbody>
-        <tr><td>Turn</td><td>rota, modo, política, estado terminal e objeto ativo</td><td><span class="status partial">Parcial</span></td></tr>
-        <tr><td>Latência</td><td>admissão, primeiro evento, Dify, tools, persistência e duração total</td><td><span class="status todo">Pendente</span></td></tr>
+        <tr><td>Turn</td><td>rota, modo, política, estado terminal e objeto ativo</td><td><span class="status done">Implementado</span></td></tr>
+        <tr><td>Latência</td><td>admissão, primeiro evento, Dify, tools, persistência e duração total</td><td><span class="status done">Implementado</span></td></tr>
         <tr><td>Consumo</td><td>tokens, créditos, custo por provider, etapa e Turn</td><td><span class="status partial">Parcial</span></td></tr>
-        <tr><td>Tools</td><td>entrada redigida, duração, resultado, erro e retry</td><td><span class="status partial">Parcial</span></td></tr>
+        <tr><td>Tools</td><td>entrada redigida, duração, resultado, erro e retry</td><td><span class="status done">Implementado</span></td></tr>
         <tr><td>Qualidade</td><td>fontes usadas, confiança, perguntas, artifacts e feedback</td><td><span class="status todo">Pendente</span></td></tr>
-        <tr><td>Operação</td><td>painel, filtros, alertas, falhas, cancelamentos e reconciliação</td><td><span class="status todo">Pendente</span></td></tr>
+        <tr><td>Operação</td><td>painel, filtros, alertas, falhas, cancelamentos e reconciliação</td><td><span class="status partial">Parcial</span></td></tr>
       </tbody></table>
-      <p>O schema já possui runs V2, tool calls, tokens, rota, contexto e campos de duração. Ainda faltam instrumentação consistente, journal de eventos, cálculo consolidado de custo e a interface de observabilidade no CentralX.</p>
+      <p>O CentralX agora registra o journal ordenado, latência total e do provider, primeiro token, tools, tokens, créditos, custo estimado e estado terminal. A interface administrativa oferece resumo, distribuição por modo, runs recentes e timeline detalhada. Ainda faltam alertas, métricas de qualidade e reconciliação financeira precisa por provider.</p>
     </section>
 
     <section id="estado">
@@ -101,8 +101,10 @@ Cadu Harness
         <tr><td>Artifacts e versões</td><td><span class="status done">Implementado</span></td><td>Rascunho, concorrência otimista e histórico.</td></tr>
         <tr><td>Classificação de arquivos</td><td><span class="status done">Implementado</span></td><td>Finalidade separada da categoria; migration necessária no ambiente.</td></tr>
         <tr><td>Resource Registry transversal</td><td><span class="status partial">Parcial</span></td><td>Registro canônico, reconciliação, eventos e adaptadores iniciais implementados; relações semânticas e processamento assíncrono ainda faltam.</td></tr>
+        <tr><td>ExecutionMode</td><td><span class="status done">Implementado</span></td><td>Contrato, roteamento, budgets, persistência e interface para fast, analysis e agentic.</td></tr>
+        <tr><td>Journal e observabilidade</td><td><span class="status done">Implementado</span></td><td>Eventos ordenados, etapas, métricas operacionais, endpoint de retomada e painel administrativo.</td></tr>
         <tr><td>Studio via MCP</td><td><span class="status todo">Pendente</span></td><td>Aguardar contratos, custos e persistência estabilizados.</td></tr>
-        <tr><td>Modo agentic durável</td><td><span class="status todo">Pendente</span></td><td>Exige journal, checkpoints, retomada e reconciliação.</td></tr>
+        <tr><td>Modo agentic durável</td><td><span class="status partial">Fundação</span></td><td>Plano, etapas, checkpoints e cancelamento persistidos; falta o executor de retomada e confirmação entre etapas.</td></tr>
         <tr><td>OAuth para agentes externos</td><td><span class="status todo">Pendente</span></td><td>Hoje há delegação curta iniciada dentro do Cadu.</td></tr>
       </tbody></table>
     </section>
@@ -236,14 +238,13 @@ studio.jobs.get           studio.assets.attach_to_project</pre>
     </section>
 
     <section id="limites">
-      <h2>Próximas entregas, na ordem correta</h2>
+      <h2>Próximos endurecimentos, na ordem correta</h2>
       <ol>
-        <li><strong>Observabilidade CentralX:</strong> instrumentar latência, tools, tokens, custo e estado terminal; depois criar a timeline e o painel operacional.</li>
-        <li><strong>ExecutionMode:</strong> formalizar <code>fast</code>, <code>analysis</code> e <code>agentic</code> no contrato, router, budgets, persistência e UI.</li>
-        <li><strong>Journal do Turn:</strong> persistir eventos e Items ordenados para retomada sem redisparar o provider.</li>
-        <li><strong>Project Resource Registry:</strong> ampliar os adaptadores iniciais, registrar relações semânticas e mover a reconciliação para processamento assíncrono por eventos.</li>
-        <li><strong>Organização contínua:</strong> processar eventos de criação, movimentação, substituição, vínculo e arquivamento com deduplicação e reindexação autorizada.</li>
-        <li><strong>Agentic durável:</strong> executar planos com checkpoints, confirmações, cancelamento e reconciliação de cobrança.</li>
+        <li><strong>Agentic durável:</strong> retomar planos persistidos, solicitar confirmações entre etapas e reconciliar cobrança após cancelamento ou falha.</li>
+        <li><strong>Organização assíncrona:</strong> executar a fila de reconciliação em worker próprio e adicionar hooks de movimentação, substituição, vínculo e arquivamento em todos os adapters.</li>
+        <li><strong>Context Graph:</strong> registrar relações semânticas entre fontes, decisões, artifacts, criativos, planos e relatórios.</li>
+        <li><strong>Observabilidade avançada:</strong> adicionar alertas, métricas de qualidade, feedback, custo real por provider e filtros exportáveis.</li>
+        <li><strong>Turn Items:</strong> consolidar mensagens, activities, actions, tables, artifacts e errors em um envelope canônico, preservando as tabelas atuais.</li>
         <li><strong>Abertura externa:</strong> adicionar OAuth, revogação por aplicativo, idempotência integral, rate limits e recursos MCP.</li>
       </ol>
       <div class="note">OCR e conhecimento visual, publicação externa de artifacts e Studio via MCP continuam bloqueados até terem consentimento, preço, armazenamento, retenção e política de reembolso definidos.</div>

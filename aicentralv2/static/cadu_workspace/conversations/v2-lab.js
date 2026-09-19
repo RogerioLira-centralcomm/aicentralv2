@@ -9,8 +9,11 @@
   const artifact = root.querySelector('[data-artifact]');
   const runtime = root.querySelector('[data-runtime-state]');
   const surface = root.querySelector('[data-surface]');
+  const project = root.querySelector('[data-project]');
+  const projectState = root.querySelector('[data-project-state]');
   let conversationId = null;
   let running = false;
+  let selectedContext = {};
 
   const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
@@ -71,6 +74,35 @@
       if (done) break;
     }
   };
+  const loadContext = async () => {
+    try {
+      const response = await fetch(root.dataset.contextEndpoint, {headers:{'Accept':'application/json'}});
+      if (!response.ok) throw new Error('Contexto indisponível');
+      const data = await response.json();
+      selectedContext = data.context || {};
+      const projects = (data.entities || []).filter(item => item.kind === 'project');
+      project.innerHTML = '<option value="">Contexto pessoal</option>' + projects.map(item => `<option value="${escape(item.ref)}">${escape(item.name)}</option>`).join('');
+      project.value = selectedContext.project_ref || '';
+      const active = projects.find(item => item.ref === project.value);
+      projectState.textContent = active ? `Usando: ${active.name}` : 'Nenhum projeto selecionado';
+    } catch (error) { projectState.textContent = error.message; }
+  };
+  const selectProject = async () => {
+    project.disabled = true; projectState.textContent = 'Atualizando contexto…';
+    try {
+      const response = await fetch(root.dataset.contextEndpoint, {
+        method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':csrf()},
+        body:JSON.stringify({project_ref:project.value || null, brand_ref:selectedContext.brand_ref || null})
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Não foi possível selecionar o projeto');
+      selectedContext = data.context || {};
+      conversationId = null;
+      projectState.textContent = project.value ? `Projeto ativo: ${project.options[project.selectedIndex].text}` : 'Nenhum projeto selecionado';
+      addTrace('Contexto alterado', projectState.textContent, 'is-ok');
+    } catch (error) { projectState.textContent = error.message; await loadContext(); }
+    finally { project.disabled = false; }
+  };
   const submit = async message => {
     if (running || !message.trim()) return;
     running = true; send.disabled = true; setRuntime('Executando', true); addUser(message.trim()); input.value = '';
@@ -90,6 +122,8 @@
     root.querySelectorAll('[data-panel]').forEach(panel => { panel.hidden = panel.dataset.panel !== button.dataset.tab; });
   }));
   root.querySelector('[data-reset]').addEventListener('click', () => { conversationId = null; trace.innerHTML = '<p>Nenhuma execução iniciada.</p>'; artifact.innerHTML = '<p>Artefatos estruturados aparecerão aqui.</p>'; root.querySelector('[data-artifact-count]').textContent = '0'; thread.innerHTML = '<div class="v2-lab-empty"><i>C</i><h2>Teste uma conversa completa</h2><p>Escolha um cenário ou escreva um pedido. A resposta, as perguntas e as ações aparecem aqui; o diagnóstico fica separado.</p></div>'; setRuntime('Pronto'); });
+  project.addEventListener('change', selectProject);
   form.addEventListener('submit', event => { event.preventDefault(); submit(input.value); });
   input.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); form.requestSubmit(); } });
+  loadContext();
 })();

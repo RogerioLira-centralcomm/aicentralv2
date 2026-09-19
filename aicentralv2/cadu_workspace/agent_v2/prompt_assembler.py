@@ -12,7 +12,7 @@ inteiros no chat."""
 
 
 def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
-                  resolved: dict, policy: dict, user_label: str) -> dict:
+                  resolved: dict, policy: dict, user_label: str, history: str = "") -> dict:
     task = {
         "domain": route.domain, "action": route.action, "complexity": route.complexity,
         "response_mode": route.response_mode, "artifact_type": route.artifact_type,
@@ -21,7 +21,10 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
         "core": CORE,
         "task": json.dumps(task, ensure_ascii=False, separators=(",", ":")),
         "current_context": json.dumps(request.to_dict(), ensure_ascii=False, separators=(",", ":")),
-        "evidence": json.dumps(resolved, ensure_ascii=False, default=str, separators=(",", ":"))[:28000],
+        "evidence": json.dumps({
+            **resolved,
+            **({"conversation_history": history} if history else {}),
+        }, ensure_ascii=False, default=str, separators=(",", ":"))[:28000],
         "response_policy": json.dumps(policy, ensure_ascii=False, separators=(",", ":")),
         "output_contract": json.dumps({
             "answer": "string", "confidence": "low|medium|high", "assumptions": [],

@@ -10,6 +10,7 @@ from psycopg.types.json import Json
 from ...cadu_credit_connector import CaduCreditConnector, CreditActor
 from ...cadu_family import repository
 from ...cadu_tool_billing import InsufficientToolCredits
+from ..conversations.guardrails import history_context
 from ..artifacts import create_draft
 from . import provider
 from .executor import prepare_execution
@@ -46,7 +47,10 @@ def prepare(data):
         )
     except InsufficientToolCredits as exc:
         abort(409, description=str(exc))
-    execution = prepare_execution(message, current)
+    previous_messages = (repository.conversation_messages(
+        current.user_id, current.client_id, conversation_id
+    ) if data.get("conversation_id") else []) or []
+    execution = prepare_execution(message, current, history_context(previous_messages))
     conn = repository.get_db()
     try:
         with conn.cursor() as cur:

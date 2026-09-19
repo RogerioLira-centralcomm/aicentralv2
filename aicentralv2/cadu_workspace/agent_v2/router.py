@@ -23,7 +23,7 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     active_artifact_type = active_object_type.split(":", 1)[1] if active_object_type.startswith("artifact:") else ""
     if active_artifact_type in {
         "brief", "document", "note", "executive_summary", "media_plan", "scenario", "research", "project_map", "html",
-    } and _has(text, r"\b(ajust|alter|mud|troqu|revis|atualiz|corrig|edit|refin|melhor)"):
+    } and _has(text, r"\b(ajust|alter|mud|troqu|revis|atualiz|corrig|edit|refin|melhore\b|melhorar\b)"):
         return IntentRoute("workspace", f"update_{active_artifact_type}", "high", "artifact_first",
                            ("current_object",), ("artifacts.get",), active_artifact_type)
     if _has(text, r"\b(cri(e|ar)|mont(e|ar)|estrutur(e|ar)|transform(e|ar)).{0,30}\bbriefing\b|\bbriefing\b.{0,20}\b(cri|mont|estrutur)"):
@@ -68,7 +68,7 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
     if _has(text, r"\b(salv(e|ar)|adicione|enviar|envie|vincul).{0,35}\b(projeto|documento|arquivo|nota)\b"):
         return IntentRoute("workspace", "save_to_project", "medium", "artifact_first",
                            ("project",), (), "document", True)
-    if _has(text, r"\b(compare|comparar|qual (?:é|e) melhor|recomenda|decid)\b"):
+    if _has(text, r"\b(compare|comparar|qual (?:é|e) (?:a |o )?melhor|recomenda|decid)\b"):
         return IntentRoute(surface if surface in {"planner", "studio", "reports"} else "workspace",
                            "recommend", "medium", "decision", ("current_object",) if has_project else ())
     if _has(text, r"\b(analise|avali(e|ar)|diagn[oó]stico|riscos?|oportunidades?)\b"):

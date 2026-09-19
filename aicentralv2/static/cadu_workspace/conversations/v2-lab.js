@@ -212,7 +212,7 @@
       : artifactDirty ? 'O artefato tem alterações que ainda não foram salvas.'
         : 'Os anexos preparados ainda não foram enviados.';
     if (!unsavedDialog?.showModal) {
-      return window.confirm('O artefato tem alterações não salvas. Deseja descartá-las?');
+      return window.confirm(`${unsavedCopy.textContent} Deseja descartar?`);
     }
     return new Promise(resolve => {
       const finish = () => resolve(unsavedDialog.returnValue === 'discard');

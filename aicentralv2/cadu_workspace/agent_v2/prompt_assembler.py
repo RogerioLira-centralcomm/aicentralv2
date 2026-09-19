@@ -57,7 +57,9 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
             "questions": [], "actions": [],
             "artifact_patch": (
                 {"title": "string", "summary": "string", "html": "HTML body fragment", "css": "CSS", "js": "JavaScript"}
-                if route.artifact_type == "html" else None
+                if route.artifact_type == "html" else
+                {"title": "string", "summary": "string", "fields": [{"key": "string", "value": "string", "state": "confirmed|inferred|assumed|missing|conflicting"}]}
+                if route.artifact_type else None
             ),
             "citations": [],
         }, ensure_ascii=False, separators=(",", ":")),

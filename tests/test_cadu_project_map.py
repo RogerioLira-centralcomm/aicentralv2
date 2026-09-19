@@ -3,7 +3,9 @@ from types import SimpleNamespace
 
 from aicentralv2.cadu_workspace.agent_v2 import service
 from aicentralv2.cadu_workspace.agent_v2.guardrails import normalize_response
+from aicentralv2.cadu_workspace.agent_v2.prompt_assembler import build_payload
 from aicentralv2.cadu_workspace.agent_v2.router import route_request
+from aicentralv2.cadu_workspace.agent_v2.contracts import RequestContext
 
 
 def build_map(resources, relations=None, project_ref="ci:42"):
@@ -111,6 +113,27 @@ def test_short_revision_targets_the_open_artifact_without_matching_a_new_creatio
     assert route.action == "update_html"
     assert route.needs_tools == ("artifacts.get",)
     assert route.artifact_type == "html"
+
+
+def test_comparison_word_does_not_accidentally_edit_the_open_artifact():
+    route = route_request("Qual é a melhor opção?", has_project=True, active_object_type="artifact:html")
+
+    assert route.action == "recommend"
+
+
+def test_non_html_artifacts_receive_an_explicit_patch_contract():
+    route = route_request("Crie um briefing para esta campanha", has_project=True)
+    request = RequestContext(
+        organization_id=1, client_id=1, user_id=2, conversation_id=None,
+        surface="conversations", project_ref="ci:42",
+    )
+    payload = build_payload(
+        message="Crie um briefing", request=request, route=route, resolved={},
+        policy={}, user_label="user-2",
+    )
+    contract = json.loads(payload["inputs"]["output_contract"])
+
+    assert contract["artifact_patch"]["fields"][0]["state"].startswith("confirmed")
 
 
 def test_html_patch_is_bounded_without_losing_its_runtime_parts():

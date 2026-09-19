@@ -343,7 +343,8 @@ def stream(run):
                     artifact_content = _project_map_content(run, response.artifact_patch)
                 artifact_title = str(artifact_content.get("title") or response.answer)[:120]
                 active = run["context"].active_object
-                if active and active.type == f"artifact:{run['route']['artifact_type']}":
+                if (active and active.type == f"artifact:{run['route']['artifact_type']}"
+                        and str(run["route"].get("action") or "").startswith("update_")):
                     existing_artifact = get_artifact(run["context"], active.id)
                 else:
                     existing_artifact = None

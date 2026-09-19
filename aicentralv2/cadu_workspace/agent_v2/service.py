@@ -61,6 +61,79 @@ def _run_was_cancelled(run_id: str) -> bool:
         return False
 
 
+def _project_map_content(run: dict, suggested=None) -> dict:
+    """Build the spatial artifact from the canonical registry, never from invented model IDs."""
+    registry = run["resolved_context"].values.get("projects.list_resources") or {}
+    resources = registry.get("resources") if isinstance(registry, dict) else []
+    relations = registry.get("relations") if isinstance(registry, dict) else []
+    suggested = suggested if isinstance(suggested, dict) else {}
+    group_specs = (
+        ("context", "Contexto e referências", {"file", "link"}),
+        ("planning", "Planos e estratégia", {"artifact", "media_plan"}),
+        ("results", "Resultados e análises", {"report", "analysis"}),
+        ("creative", "Criação", {"image", "video"}),
+    )
+    groups = []
+    grouped = {key: [] for key, _, _ in group_specs}
+    grouped["other"] = []
+    type_group = {resource_type: key for key, _, types in group_specs for resource_type in types}
+    safe_resources = []
+    for item in resources if isinstance(resources, list) else []:
+        if not isinstance(item, dict) or not item.get("id"):
+            continue
+        group_id = type_group.get(str(item.get("resource_type") or ""), "other")
+        locator = str(item.get("locator") or "")
+        record = {
+            "id": str(item["id"]),
+            "title": str(item.get("title") or "Arquivo")[:500],
+            "source_system": str(item.get("source_system") or "")[:120],
+            "source_id": str(item.get("source_id") or "")[:220],
+            "type": str(item.get("resource_type") or "file")[:80],
+            "mime_type": str(item.get("mime_type") or "")[:160],
+            "category": str(item.get("category") or "other")[:120],
+            "status": str(item.get("status") or "active")[:80],
+            "version": max(1, int(item.get("version") or 1)),
+            "group_id": group_id,
+            "possible_duplicate": bool(item.get("possible_duplicate")),
+            "url": locator[:2000] if locator.startswith(("https://", "http://")) else "",
+        }
+        grouped[group_id].append(record)
+        safe_resources.append(record)
+    visible_specs = [(key, title) for key, title, _ in group_specs if grouped[key]]
+    if grouped["other"]:
+        visible_specs.append(("other", "Outros recursos"))
+    for index, (key, title) in enumerate(visible_specs):
+        column = index % 2
+        row = index // 2
+        groups.append({
+            "id": key, "title": title, "x": 48 + column * 360, "y": 48 + row * 330,
+            "width": 310, "resource_ids": [item["id"] for item in grouped[key]],
+        })
+    safe_ids = {item["id"] for item in safe_resources}
+    safe_relations = []
+    for relation in relations if isinstance(relations, list) else []:
+        source = str(relation.get("source_resource_id") or "")
+        target = str(relation.get("target_resource_id") or "")
+        if source in safe_ids and target in safe_ids:
+            safe_relations.append({
+                "source": source, "target": target,
+                "type": str(relation.get("relation_type") or "related")[:80],
+                "confidence": float(relation.get("confidence") or 0),
+            })
+    total = len(safe_resources)
+    return {
+        "title": suggested.get("title") or "Mapa do projeto",
+        "summary": suggested.get("summary") or (
+            f"{total} recurso{'s' if total != 1 else ''} organizado{'s' if total != 1 else ''} pelo Cadu."
+        ),
+        "layout": {"mode": "spatial", "version": 1, "zoom": 1},
+        "groups": groups,
+        "resources": safe_resources,
+        "relations": safe_relations,
+        "summary_counts": registry.get("summary") if isinstance(registry, dict) else {},
+    }
+
+
 def prepare(data):
     message = _message(data.get("message"))
     try:
@@ -199,10 +272,15 @@ def stream(run):
         else:
             response = normalize_response("".join(answer_chunks), run["policy"])
             artifact = None
-            if response.artifact_patch and run["route"].get("artifact_type"):
+            if run["route"].get("artifact_type") and (
+                    response.artifact_patch or run["route"]["artifact_type"] == "project_map"):
+                artifact_content = response.artifact_patch or {}
+                if run["route"]["artifact_type"] == "project_map":
+                    artifact_content = _project_map_content(run, response.artifact_patch)
                 artifact = create_draft(
-                    run["context"], run["route"]["artifact_type"], response.artifact_patch,
-                    title=response.answer[:120], conversation_id=run["conversation_id"],
+                    run["context"], run["route"]["artifact_type"], artifact_content,
+                    title=str(artifact_content.get("title") or response.answer)[:120],
+                    conversation_id=run["conversation_id"],
                 )
                 _complete_step(run["run_id"], "artifact", {"artifact_id": str(artifact["id"])})
                 _journal(run["run_id"], "artifact.created", {"artifact_id": str(artifact["id"]),

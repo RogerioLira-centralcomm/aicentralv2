@@ -41,6 +41,11 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         return IntentRoute("reports", "compare_report_to_plan" if cross else "analyze_report", "high" if cross else "medium",
                            "analysis", ("project", "reports") + (("media_plan",) if cross else ()),
                            ("reports.compare_report_to_plan",) if cross else ("reports.get_report_metrics",))
+    if has_project and (
+            _has(text, r"\b(mapa|mapeie|organiz|agrupe|agrupar|visualiz).{0,45}\b(arquivo|documento|recurso|fonte|projeto)s?\b")
+            or _has(text, r"\b(arquivo|documento|recurso|fonte)s?\b.{0,45}\b(mapa|organiz|agrupe|agrupar|visualiz)")):
+        return IntentRoute("workspace", "organize_project_resources", "high", "artifact_first",
+                           ("project",), ("projects.list_resources",), "project_map")
     if _has(text, r"\b(pesquis|busqu|procur|encontr|localiz).{0,30}\b(projeto|arquivo|documento|nota|conte[uú]do)|\bo que (temos|existe|foi definido)\b"):
         return IntentRoute("workspace", "search_project", "medium", "analysis",
                            ("project",), ("workspace.search_project_content",))

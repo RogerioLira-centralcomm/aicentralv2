@@ -16,8 +16,9 @@
     <a href="{{ url_for('cadu_workspace.clean_brands') }}" {% if workspace_active == 'marcas' %}aria-current="page"{% endif %}><span class="workspace-nav-icon"><i class="fa-solid fa-fingerprint"></i></span><span class="workspace-nav-text">Marcas</span></a>
   </nav>
   {% if workspace_active in ('conversas', 'conversas-v2') %}
+  {% set sidebar_new_conversation_url = url_for('cadu_agent_v2_lab.conversations_v2_lab') if workspace_active == 'conversas-v2' else url_for('cadu_workspace.conversations') %}
   <section class="workspace-sidebar-conversations" aria-label="Conversas recentes">
-    <div class="workspace-sidebar-section-head"><span>Conversas recentes</span><a href="{{ url_for('cadu_workspace.conversations') }}" aria-label="Nova conversa" title="Nova conversa"><i class="fa-solid fa-plus"></i></a></div>
+    <div class="workspace-sidebar-section-head"><span>Conversas recentes</span><a href="{{ sidebar_new_conversation_url }}" aria-label="Nova conversa" title="Nova conversa"><i class="fa-solid fa-plus"></i></a></div>
     <nav id="workspace-sidebar-recent-conversations" aria-label="Lista de conversas recentes"><span class="workspace-sidebar-conversations-loading">Carregando…</span></nav>
   </section>
   {% endif %}

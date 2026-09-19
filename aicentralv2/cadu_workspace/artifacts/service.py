@@ -10,7 +10,10 @@ from ...db import get_db
 from ..agent_v2.contracts import RequestContext
 
 
-ALLOWED_TYPES = {"brief", "document", "note", "executive_summary", "media_plan", "scenario", "research"}
+ALLOWED_TYPES = {
+    "brief", "document", "note", "executive_summary", "media_plan", "scenario", "research",
+    "project_map",
+}
 ALLOWED_STATUS = {"draft", "active", "published", "archived"}
 MAX_CONTENT_BYTES = 256_000
 

@@ -193,8 +193,8 @@ body.portal--studio:has(.studio-v2) > .cadu-family-footer { display:none!importa
 /* Shell depth belongs to the stage; sidebars stay flush and quiet. */
 @media(min-width:901px){
   .studio-v2 .studio-rail,.studio-v2 .delivery-panel{border:0;border-radius:0}
-  .studio-v2 .studio-rail{box-shadow:14px 0 28px -24px rgba(0,0,0,.8)}
-  .studio-v2 .delivery-panel{box-shadow:-14px 0 28px -24px rgba(0,0,0,.8)}
+  .studio-v2 .studio-rail{box-shadow:10px 0 22px -20px rgba(0,0,0,.42)}
+  .studio-v2 .delivery-panel{box-shadow:-10px 0 22px -20px rgba(0,0,0,.42)}
   .studio-v2 .canvas-stage{box-shadow:none}
 }
 .generation-dialog .progress-track span{width:100%;animation:none;transition:width 1s linear}
@@ -204,7 +204,7 @@ body.portal--studio:has(.studio-v2) > .cadu-family-footer { display:none!importa
 /* The rail is a quiet edge-to-edge shelf; the brief dock follows the Codex
    pattern: one open writing surface and actions anchored beside the chips. */
 @media(min-width:901px){
-  .studio-v2 .studio-rail,.studio-v2 .delivery-panel{transform:translateY(4px);height:calc(100% - 4px)}
+  .studio-v2 .studio-rail,.studio-v2 .delivery-panel{transform:translateY(2px);height:calc(100% - 2px)}
 .studio-v2 .reference-grid{gap:8px}
   .studio-v2 .reference-grid{margin-top:14px}
   .studio-v2 .reference-card{height:88px}
@@ -248,6 +248,12 @@ body.portal--studio:has(.studio-v2) > .cadu-family-footer { display:none!importa
 .studio-v2 .advanced-panel summary > i:last-child{display:none}
 .studio-v2 .advanced-panel > div{display:block!important;padding:0}
 
+/* Rail navigation shares one right-edge alignment; separation comes from
+   rhythm instead of a rule. */
+.studio-v2 .rail-section{margin-top:24px;padding-top:10px;border-top:0}
+.studio-v2 .rail-item{position:relative;padding-right:20px}
+.studio-v2 .rail-item>i:last-child{position:absolute;right:0;top:50%;margin:0;transform:translateY(-50%)}
+
 /* Keep segmented controls inside the rail without cutting their active
    surfaces at the outer edge. Each option owns its own corner. */
 .studio-v2 .segmented{
@@ -264,6 +270,9 @@ body.portal--studio:has(.studio-v2) > .cadu-family-footer { display:none!importa
 }
 .studio-v2 .segmented button:first-child{border-radius:10px 0 0 10px}
 .studio-v2 .segmented button:last-child{border-radius:0 10px 10px 0}
+.studio-v2 .segmented[data-group="channel"]{grid-template-columns:repeat(4,minmax(0,1fr))}
+.studio-v2 .segmented[data-group="variations"]{grid-template-columns:repeat(2,minmax(0,1fr))}
+.studio-v2 .segmented[data-group="quality"]{grid-template-columns:repeat(3,minmax(0,1fr))}
 .studio-v2 .format-card{border-radius:10px}
 .studio-v2 .wide-link{
   border:0;
@@ -283,6 +292,7 @@ body.portal--studio:has(.studio-v2) > .cadu-family-footer { display:none!importa
 }
 .studio-v2 .prompt-row{
   display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
   grid-template-rows:minmax(42px,1fr) 34px;
   gap:4px;
   min-height:84px;
@@ -296,7 +306,7 @@ body.portal--studio:has(.studio-v2) > .cadu-family-footer { display:none!importa
   font-size:14px;
 }
 .studio-v2 .prompt-chips{display:none}
-.studio-v2 .prompt-composer-controls{display:flex;align-items:center;gap:5px;min-width:0;color:#a7a7a7}
+.studio-v2 .prompt-composer-controls{display:flex;grid-column:1;grid-row:2;align-items:center;gap:5px;min-width:0;color:#a7a7a7}
 .studio-v2 .prompt-composer-spacer{flex:1 1 auto;min-width:8px}
 .studio-v2 .prompt-tool,.studio-v2 .prompt-model{
   display:inline-flex;align-items:center;gap:7px;
@@ -307,10 +317,12 @@ body.portal--studio:has(.studio-v2) > .cadu-family-footer { display:none!importa
 .studio-v2 .prompt-tool:hover,.studio-v2 .prompt-model:hover,.studio-v2 .prompt-model.is-open{background:rgba(255,255,255,.08);color:#fff}
 .studio-v2 .prompt-approve i,.studio-v2 .prompt-model>i:first-child{color:#c9c9c9}
 .studio-v2 .prompt-approve.is-active{color:#e4dcff;background:rgba(130,87,255,.22)}
+.studio-v2 .prompt-model-label{display:inline-flex;align-items:center;gap:6px;margin-left:8px;color:#b8b8b8;font-size:12px;white-space:nowrap}
+.studio-v2 .prompt-model-label i{color:#d4d4d4}
 .studio-v2 .prompt-model small{font-size:12px;color:#bcbcbc}
 .studio-v2 .prompt-model>i:last-child{font-size:10px;color:#9d9d9d}
 .studio-v2 .prompt-send{
-  position:static!important;grid-row:2;justify-self:end;align-self:center;
+  position:static!important;grid-column:2;grid-row:2;justify-self:end;align-self:center;
   width:32px;height:32px;min-height:32px;padding:0;border:0;border-radius:50%;
   background:#fff;color:#2d2d2d;box-shadow:none;font-size:14px;
 }

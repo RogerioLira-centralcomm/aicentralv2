@@ -375,7 +375,12 @@ def studio_create_image():
                 if not getattr(error, 'studio_phase', ''):
                     setattr(error, 'studio_phase', studio_phase)
                 if history:
-                    history.fail_image(request_id, client_id, str(error))
+                    try:
+                        history.fail_image(request_id, client_id, str(error))
+                    except Exception:
+                        # Never replace the original provider/storage/billing
+                        # exception with a secondary history-sync failure.
+                        logger.exception('Studio image failure could not be recorded for %s', request_id)
                 raise
 
         if project_id and not quick_mode and not result.get('project_item_id'):

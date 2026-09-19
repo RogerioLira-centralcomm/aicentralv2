@@ -75,6 +75,27 @@ def test_create_returns_requested_number_of_safe_directions():
     assert captured["max_tokens"] == 1_860
 
 
+def test_direction_director_receives_reference_pixels_without_base64():
+    captured = {}
+
+    def provider(messages, **_kwargs):
+        captured["messages"] = messages
+        return {"model": "test", "message": {"content": {"directions": [{
+            "title": "Direção", "summary": "Composição", "prompt": "Peça com produto visível.",
+            "reference_plan": [{"label": "Máscara feed", "source": "global", "use": "Aplicar a arquitetura.", "layout": {"subject_zone": "centro-direita", "safe_margin": "interna"}}],
+        }]}}, "usage": {}}
+
+    result, _ = studio_create.create({
+        "count": 1, "prompt": "Criar anúncio para Reserva.",
+        "context": {"references": [{"name": "Máscara feed", "source": "global", "role": "composition", "url": "/static/images/cadu/studio/references/feed/feed-mask-01.webp"}]},
+    }, provider)
+
+    content = captured["messages"][1]["content"]
+    assert any(block.get("type") == "image_url" for block in content)
+    assert all("base64" not in str(block) for block in content)
+    assert result["directions"][0]["reference_plan"][0]["layout"]["subject_zone"] == "centro-direita"
+
+
 def test_direction_estimate_grows_with_requested_options():
     assert studio_create.estimated_tokens(1) < studio_create.estimated_tokens(5)
     assert studio_create.estimated_tokens(5) >= 2_900
@@ -102,6 +123,8 @@ def test_direction_context_preserves_reference_roles_without_embedding_data_urls
     assert "FORMATO É CONTROLADO PELO STUDIO" in studio_create.system_prompt(1)
     assert "ORDEM OBRIGATÓRIA DO PROMPT FINAL" in studio_create.system_prompt(1)
     assert "REVISÃO DO BRIEFING" in studio_create.system_prompt(1)
+    assert "preço, volume, logo solicitado" in studio_create.system_prompt(1)
+    assert "planta estrutural" in studio_create.system_prompt(1)
     cleaned = studio_create.clean_context({"brand_context": {"name": "Reserva", "palette": ["#6b21a8"], "assets": {"logo": ["/logo.svg"]}}}, 1)
     assert cleaned["brand_context"]["name"] == "Reserva"
     assert cleaned["brand_context"]["assets"]["logo"] == ["/logo.svg"]

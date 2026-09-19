@@ -55,7 +55,7 @@ def create(payload, text_callable):
     context = clean_context(data.get("context"), count)
     messages = [
         {"role": "system", "content": system_prompt(count)},
-        {"role": "user", "content": json.dumps({"pedido": request, "contexto": context}, ensure_ascii=False)},
+        {"role": "user", "content": direction_user_content(request, context)},
     ]
     response = None
     raw = None
@@ -105,7 +105,12 @@ def create(payload, text_callable):
                 use = text(reference.get("use"), 260)
                 label = text(reference.get("label"), 140)
                 if label and use:
-                    reference_plan.append({"label": label, "source": source, "use": use})
+                    entry = {"label": label, "source": source, "use": use}
+                    layout = reference.get("layout") if isinstance(reference.get("layout"), dict) else {}
+                    layout_contract = {key: text(layout.get(key), 180) for key in ("subject_zone", "headline_zone", "support_zone", "safe_margin", "layer_order", "alignment") if text(layout.get(key), 180)}
+                    if layout_contract:
+                        entry["layout"] = layout_contract
+                    reference_plan.append(entry)
             items.append({"title": title, "summary": text(item.get("summary") or item.get("rationale"), 220) or "Direção baseada no briefing do projeto.", "prompt": prompt, "reference_plan": reference_plan[:4]})
         if len(items) == count:
             break
@@ -149,6 +154,22 @@ def clean_context(raw, count):
     }
 
 
+def direction_user_content(request, context):
+    """Send stored references as URLs so the director can inspect their pixels."""
+    blocks = [{"type": "text", "text": json.dumps({"pedido": request, "contexto": context}, ensure_ascii=False)}]
+    for index, reference in enumerate(context.get("references", []), start=1):
+        url = str(reference.get("url") or "")
+        if not url or url == "inline upload":
+            continue
+        blocks.append({"type": "text", "text": (
+            f"Referência visual {index}: {reference.get('label', 'sem nome')}; "
+            f"source={reference.get('source', 'user')}; role={reference.get('role', 'reference')}. "
+            "Inspecione os pixels e aplique o contrato descrito no contexto."
+        )})
+        blocks.append({"type": "image_url", "image_url": {"url": url}})
+    return blocks
+
+
 def clean_direction_reference(item, index):
     role = str(item.get("role") or ("primary" if index == 0 else "insert"))
     # The Studio UI uses the neutral label "reference" for a selected
@@ -165,7 +186,7 @@ def clean_direction_reference(item, index):
         "label": text(item.get("name") or item.get("label") or f"Imagem {index + 1}", 140),
         "role": role,
         "source": source,
-        "instruction": IMAGE_ROLES[role],
+        "instruction": text(item.get("instruction"), 500) or IMAGE_ROLES[role],
         "url": text(raw_url, 500) if raw_url.startswith(("https://", "http://", "/static/")) else "inline upload",
     }
 
@@ -175,17 +196,17 @@ def system_prompt(count):
 
 Responda somente JSON no formato {{\"directions\":[{{\"title\":\"...\",\"summary\":\"...\",\"prompt\":\"...\"}}]}}. Use português do Brasil.
 
-REVISÃO DO BRIEFING: antes de escrever cada prompt, harmonize o pedido do usuário com o contexto do Studio. Preserve a intenção, produto, público, cenário, ação, texto literal e restrições explícitas. Corrija apenas ambiguidades, contradições, ordem e instruções técnicas; não troque o produto, não remova requisitos concretos e não invente benefícios, ofertas ou identidade visual.
+REVISÃO DO BRIEFING: antes de escrever cada prompt, harmonize o pedido do usuário com o contexto do Studio. Preserve a intenção, anunciante, produto, público, cenário, ação, texto literal, preço, volume, logo solicitado e restrições explícitas. Corrija apenas ambiguidades, contradições, ordem e instruções técnicas; não troque o produto, não remova requisitos concretos e não invente benefícios, ofertas ou identidade visual. Se o usuário informar explicitamente uma marca, preço, volume, slogan ou pedido de logo, isso é requisito obrigatório e deve aparecer no prompt final exatamente como informado.
 ORDEM OBRIGATÓRIA DO PROMPT FINAL: escreva um único prompt contínuo, nesta sequência: (1) objetivo e tipo de peça; (2) produto/assunto principal e o que precisa estar visível; (3) público, pessoas e ação; (4) cenário, praça ou contexto cultural brasileiro, momento e atmosfera; (5) composição, enquadramento, hierarquia, posição dos elementos e área segura; (6) como cada referência selecionada deve orientar a peça; (7) iluminação, materiais e paleta; (8) canal e formato controlados pelo Studio; (9) texto literal solicitado e posição reservada; (10) restrições e checagens finais. Não comece pelo formato nem pelas referências: eles orientam a execução, mas não substituem a ideia do usuário.
 FORMATO É CONTROLADO PELO STUDIO: o campo contexto.format, contexto.format_key, contexto.width e contexto.height é a fonte de verdade do output selecionado na interface. Se o texto do pedido mencionar outra dimensão ou proporção, trate isso apenas como descrição do pedido e ignore a dimensão conflitante. Nunca escreva 300x300, 1080x1080 ou outra medida no prompt final quando o formato selecionado for diferente. Sempre repita o formato controlado pelo contexto no prompt final.
 MARCA E PROJETO: quando contexto.brand_context existir, use-o como fonte de verdade para nome, logo, paleta, tipografia, ativos, elementos obrigatórios e elementos proibidos. Ativos de marca podem ser aplicados na peça; referências de composição continuam sendo apenas guias de posição e hierarquia.
 
-REFERÊNCIAS — trate cada item do contexto como contrato, nunca como decoração. Itens com source="global" são referências protegidas do Studio: use-os apenas para similaridade visual — linguagem, enquadramento, ritmo, paleta, atmosfera e composição — sem copiar o template, sem alterar o arquivo e sem colocá-lo na biblioteca do usuário. Itens com source="user" ou source="project" são referências de produção: aplique na imagem criada o conteúdo visual útil, como produto, pessoa, embalagem, identidade, textura, cenário ou objeto, preservando os detalhes relevantes quando a intenção indicar. Não confunda uma referência global de similaridade com uma imagem-base do usuário. Quando reference_mode="briefing_only", não mencione referências visuais, não invente uma referência_plan e crie uma direção original baseada somente no briefing, canal e formato. O prompt final deve mencionar como cada referência será usada somente quando houver referência selecionada e respeitar o role declarado.
+REFERÊNCIAS — você receberá as imagens selecionadas como blocos visuais no mesmo turno. Inspecione seus pixels antes de escrever cada direção; não deduza a composição apenas pelo nome ou URL. Trate cada item do contexto como contrato, nunca como decoração. Itens com source="global" são máscaras protegidas de composição do Studio: use-as como planta estrutural, extraindo ordem de camadas, zona do produto/assunto, faixa de headline, área de preço ou CTA, margens seguras, alinhamento, respiro e relação entre foreground e background. Reproduza essa arquitetura espacial na peça final com o conteúdo do briefing, sem copiar o template, sem usar o objeto fictício da máscara como produto, sem alterar o arquivo e sem colocá-lo na biblioteca do usuário. Para cada global, devolva no reference_plan um layout com subject_zone, headline_zone, support_zone, safe_margin, layer_order e alignment, descrevendo posições relativas observadas na imagem. Itens com source="user" ou source="project" são referências de produção: aplique na imagem criada o conteúdo visual útil, como produto, pessoa, embalagem, identidade, textura, cenário ou objeto, preservando os detalhes relevantes quando a intenção indicar. Não confunda uma referência global de composição com uma imagem-base do usuário. Quando reference_mode="briefing_only", não mencione referências visuais, não invente uma reference_plan e crie uma direção original baseada somente no briefing, canal e formato. O prompt final deve mencionar como cada referência será usada somente quando houver referência selecionada e respeitar o role declarado.
 
 Para Display, trate o formato IAB informado como uma unidade publicitária final — não o transforme em pôster ou interface. Para CTV, trate como still cinematográfico 16:9. Para social, preserve área segura e leitura no feed. Escreva uma cena específica, não adjetivos vagos como “moderno”, “bonito” ou “impactante”. Prefira detalhes observáveis: lugar, hora, enquadramento, distância de câmera, gesto, textura e espaço para copy.
 
-Use a marca, briefing, referências e ativos do contexto como fonte de verdade. Cada substantivo concreto do briefing é obrigatório: produto, embalagem, pessoas, cenário, ação, mensagem e formato não podem ser omitidos ou substituídos por uma cena genérica. Se o briefing pede produto visível, descreva-o como assunto principal em primeiro plano, com escala, luz e enquadramento suficientes para ser reconhecível. Mantenha todo logo, texto, embalagem e elemento de marca inteiro dentro da margem segura do formato; nunca corte, encoste ou esconda esses elementos na borda. Se não houver um ativo oficial de logo disponível, reserve uma área limpa para aplicação posterior e não desenhe um logo aproximado ou parcialmente visível. Não invente preço, promoção, produto, dado, prazo, benefício, CTA, logotipo ou slogan. Se não houver texto literal aprovado, peça espaço reservado para a assinatura, sem fabricar tipografia. Todo texto publicitário visível deve ser português do Brasil; se a renderização textual não for confiável, instrua a manter a área livre para composição posterior. Não inclua marca d'água, interface de plataforma, mockup de dashboard ou logos de terceiros. Não use pessoas identificáveis sem necessidade. Preserve briefing, marca, canal e formato.
-Antes de devolver cada direção, faça uma revisão final como agente GPT-5 nano: confirme que o prompt está fiel ao pedido, respeita todas as exclusões explícitas, usa cada referência conforme seu source e role, não inventa informações e está pronto para ser enviado ao GPT Image 2. O campo "prompt" deve ser a instrução final revisada para o processador de imagem, sem comentários sobre esta revisão. Inclua também "reference_plan" como uma lista curta de objetos {{"label":"...","source":"global|user|project","use":"..."}} para tornar a decisão de cada referência auditável."""
+Use a marca, briefing, referências e ativos do contexto como fonte de verdade. Cada substantivo concreto do briefing é obrigatório: anunciante, produto, embalagem, pessoas, cenário, ação, mensagem, preço, volume e formato não podem ser omitidos ou substituídos por uma cena genérica. Se o briefing pede produto visível, descreva-o como assunto principal em primeiro plano, com escala, luz e enquadramento suficientes para ser reconhecível. Mantenha todo logo, texto, embalagem e elemento de marca inteiro dentro da margem segura do formato; nunca corte, encoste ou esconda esses elementos na borda. Se o usuário pediu um logo mas nenhum ativo oficial está disponível, mantenha no prompt a instrução de reservar uma área limpa e identifique a marca que deverá ser aplicada posteriormente. Não invente dados comerciais além dos que o usuário informou. Se não houver texto literal aprovado, peça espaço reservado para a assinatura, sem fabricar tipografia. Todo texto publicitário visível deve ser português do Brasil; se a renderização textual não for confiável, instrua a manter a área livre para composição posterior. Não inclua marca d'água, interface de plataforma, mockup de dashboard ou logos de terceiros. Não use pessoas identificáveis sem necessidade. Preserve briefing, marca, canal e formato.
+ Antes de devolver cada direção, faça uma revisão final como agente GPT-5 nano: confirme que o prompt está fiel ao pedido, respeita todas as exclusões explícitas, usa cada referência conforme seu source e role, não inventa informações e está pronto para ser enviado ao GPT Image 2. O campo "prompt" deve ser a instrução final revisada para o processador de imagem, sem comentários sobre esta revisão. Inclua também "reference_plan" como uma lista curta de objetos {{"label":"...","source":"global|user|project","use":"...","layout":{{"subject_zone":"...","headline_zone":"...","support_zone":"...","safe_margin":"...","layer_order":"...","alignment":"..."}}}} para tornar a decisão de cada referência auditável. O campo layout é obrigatório para source="global" e opcional para os demais."""
 
 
 def credit_context(modeling, client_id, user_id):
@@ -272,14 +293,21 @@ def create_image(payload, modeling, client_id, user_id):
         validate_mask(primary["data"], mask)
 
     role_lines = [
-        f"IMAGE {index}: source={item['source']}; {IMAGE_ROLES[item['role']]} ({item['label']})."
+        f"IMAGE {index}: source={item['source']}; {item.get('instruction') or IMAGE_ROLES[item['role']]} ({item['label']})."
         for index, item in enumerate(references, start=1)
     ]
     reference_plan = data.get("reference_plan") if isinstance(data.get("reference_plan"), list) else []
-    plan_lines = [
-        f"{text(item.get('label'), 120)} [{text(item.get('source'), 16)}]: {text(item.get('use'), 260)}"
-        for item in reference_plan[:4] if isinstance(item, dict) and text(item.get('use'), 260)
-    ]
+    plan_lines = []
+    for item in reference_plan[:4]:
+        if not isinstance(item, dict) or not text(item.get('use'), 260):
+            continue
+        line = f"{text(item.get('label'), 120)} [{text(item.get('source'), 16)}]: {text(item.get('use'), 260)}"
+        layout = item.get("layout") if isinstance(item.get("layout"), dict) else {}
+        if layout:
+            line += " | layout: " + "; ".join(
+                f"{key}={text(value, 180)}" for key, value in layout.items() if text(value, 180)
+            )
+        plan_lines.append(line)
     if mask and len(references) == 1:
         edit_guard = (
             "IMAGE 2 is a black-and-white selection mask for IMAGE 1. Change only the white region, "
@@ -306,6 +334,7 @@ def create_image(payload, modeling, client_id, user_id):
         raise ValueError("Dimensões do formato fora do limite permitido.")
     technical_prompt = "\n".join([
         "MANDATORY BRIEFING FIDELITY: Preserve every concrete requirement in the user briefing, especially named products, packaging, people, setting, action, copy and requested format. A composition reference is only a layout guide; it must never replace the requested subject or product.",
+        "MANDATORY COMMERCIAL FACTS: Any advertiser name, brand name, product name, price, currency, package volume, slogan or logo request explicitly present in the user briefing must remain in the creative instruction exactly as provided. Do not silently drop Reserva, R$ 599, 50 ml, 1 Million or any other named fact.",
         prompt,
         "\nREFERENCE CONTRACT:",
         *(role_lines or ["No image reference was supplied; create an original image."]),
@@ -314,6 +343,7 @@ def create_image(payload, modeling, client_id, user_id):
         edit_guard,
         "PRODUCT VISIBILITY CHECK: If the briefing requests a product, make it a deliberate, recognizable foreground subject with enough scale and light to be clearly visible. Do not hide it behind hands, bodies, crops or depth-of-field blur. If bottles or packages are requested, show the requested quantity visibly and keep their labels facing the camera when the briefing asks for labels.",
         "SAFE AREA CHECK: Keep all requested logos, brand marks, headline text and product packaging fully inside the selected format with visible breathing room on every side. Never place a logo partially outside the frame or crop it at the top, bottom or side. If no official logo asset is supplied, leave a clean intentional logo-safe area instead of generating a guessed mark.",
+        "GLOBAL COMPOSITION CHECK: When a global composition mask is supplied, treat its spatial architecture as binding: preserve the indicated subject/product zone, background field, headline band, support/price/CTA band, layer order, alignment and safe margins. Replace only the mask's placeholder subject with the product and facts from the briefing. Do not center or resize the product arbitrarily if that changes the reference hierarchy.",
         "FORMAT AUTHORITY: The selected Studio format below overrides any conflicting dimension written in the user briefing. Compose and deliver only in this selected format.",
         f"Output channel: {channel or 'unspecified'}.",
         f"Requested output dimensions: {width}x{height}px." if width and height else "Requested output dimensions: use the selected aspect ratio.",

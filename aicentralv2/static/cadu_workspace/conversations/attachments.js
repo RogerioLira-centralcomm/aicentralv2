@@ -9,7 +9,7 @@
       this.button = panel.querySelector('#conversation-attach');
       this.composer = panel.querySelector('#conversation-editor') || panel.querySelector('#conversation-message');
       this.shell = panel.querySelector('.conversation-composer-shell');
-      this.button.addEventListener('click', () => this.input.click());
+      this.button?.addEventListener('click', () => this.input?.click());
       this.input.addEventListener('change', () => { this.add(this.input.files); this.input.value = ''; });
       this.composer.addEventListener('paste', event => {
         const files = [...(event.clipboardData?.files || [])];
@@ -24,8 +24,8 @@
         if (this.items.length) { event.preventDefault(); event.returnValue = ''; }
       });
     }
-    configure(capabilities) { this.enabled = capabilities.attachments === true; this.button.disabled = !this.enabled || this.busy; }
-    lock(value) { this.busy = value; this.button.disabled = !this.enabled || value; this.render(); }
+    configure(capabilities) { this.enabled = capabilities.attachments === true; if (this.button) this.button.disabled = !this.enabled || this.busy; }
+    lock(value) { this.busy = value; if (this.button) this.button.disabled = !this.enabled || value; this.render(); }
     add(files) {
       if (!this.enabled || this.busy) { this.status.textContent = 'Anexos não estão disponíveis neste momento.'; return; }
       for (const file of files) {
@@ -47,7 +47,7 @@
         label.append(meta);
         const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = 'Remover'; remove.disabled = this.busy;
         remove.setAttribute('aria-label', `Remover ${item.file.name}`);
-        remove.addEventListener('click', () => { if (item.preview) URL.revokeObjectURL(item.preview); this.items.splice(index, 1); this.render(); this.button.focus(); });
+        remove.addEventListener('click', () => { if (item.preview) URL.revokeObjectURL(item.preview); this.items.splice(index, 1); this.render(); this.button?.focus(); });
         row.append(label);
         if (item.state === 'Falha no envio') {
           const retry = document.createElement('button'); retry.type = 'button'; retry.textContent = 'Tentar novamente'; retry.disabled = this.busy;

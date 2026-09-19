@@ -101,7 +101,9 @@ Separe prioritária, secundária e exclusões. Em cada camada, conecte necessida
     'pesquisa': """PARA PESQUISA
 Separe o que é evidência recente, interpretação e implicação para a marca. Priorize poucos achados que alteram uma decisão; informe lacunas de fonte em vez de preencher com narrativa.""",
     'briefing': """PARA BRIEFING
-Consolide o que já está definido antes de perguntar. Diferencie confirmado, premissa e pendência; transforme pendências em perguntas objetivas que destravam a próxima decisão.""",
+Trate o briefing como um rascunho de trabalho editável, não como um formulário de descoberta.
+Entregue somente: uma síntese de até 3 linhas, um snapshot com no máximo 6 campos, até 3 premissas e no máximo 3 perguntas que mudam a próxima decisão.
+Não crie uma lista de 12 itens, não faça uma bateria de perguntas, não repita o briefing em formato de checklist e não peça dados que possam ser assumidos provisoriamente. Quando faltar informação, marque a lacuna como “a definir” e avance com uma premissa explícita.""",
     'analise': """PARA ANÁLISE
 Explique o que o sinal significa para uma decisão, não apenas descreva o dado. Apresente risco, alternativa e ação recomendada quando houver base para isso.""",
 }

@@ -707,8 +707,9 @@ def conversation_capabilities():
         try:
             dify.settings()
         except dify.DifyUnavailable:
-            enabled = False
-            reason = 'A conexão do Cadu está sendo configurada. Você ainda pode consultar suas conversas anteriores.'
+            # A indisponibilidade do provedor não deve bloquear a escrita.
+            # O envio exibirá o estado real da conexão ao ser iniciado.
+            reason = 'A conexão do Cadu está sendo configurada. O envio será validado ao iniciar a conversa.'
     return jsonify(send=enabled, attachments=enabled, replay=bool(current_app.config.get('CADU_CHAT_WORKER_ENABLED', False)), max_files=3, max_bytes=MAX_BYTES,
                    accept=ACCEPT, external_tools=False, reason=reason)
 

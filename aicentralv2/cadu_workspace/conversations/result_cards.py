@@ -187,10 +187,16 @@ def from_answer(query, answer, project_ref=''):
     if 'briefing' not in requested and not re.search(r'(?im)^#{1,6}\s*briefing\b|^\s*briefing\b', text):
         return None
     headings = []
+    excerpts = []
     for value in re.findall(r'(?im)^\s*(?:#{1,6}\s+|\d+[.)]\s+)([^\n]+)', text):
         title = re.sub(r'[*`_]', '', value).strip()[:160]
         if title and title.casefold() not in {item.casefold() for item in headings}:
             headings.append(title)
+    for match in re.finditer(r'(?ims)^\s*(?:#{1,6}\s+|\d+[.)]\s+)([^\n]+)\n(.*?)(?=^\s*(?:#{1,6}\s+|\d+[.)]\s+)|\Z)', text):
+        title = re.sub(r'[*`_]', '', match.group(1)).strip()[:160]
+        body = re.sub(r'\s+', ' ', match.group(2)).strip()[:280]
+        if title and title.casefold() not in {item['title'].casefold() for item in excerpts}:
+            excerpts.append({'title': title, 'excerpt': body})
     if not headings:
         return None
     actions = [
@@ -207,7 +213,7 @@ def from_answer(query, answer, project_ref=''):
         'result': {
             'type': 'briefing', 'title': 'Briefing em progresso',
             'summary': 'Estrutura identificada na resposta. Revise as premissas antes de transformar em plano.',
-            'items': [{'title': title, 'excerpt': 'Ponto estruturado nesta conversa.'} for title in headings[:8]],
+            'items': excerpts[:6] or [{'title': title, 'excerpt': 'Edite este campo no briefing de trabalho.'} for title in headings[:6]],
             'actions': actions,
         },
     }

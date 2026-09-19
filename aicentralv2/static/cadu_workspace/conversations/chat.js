@@ -386,6 +386,7 @@
   depthControl?.addEventListener('input', renderDepth);
   renderDepth();
   const projectSelect = document.getElementById('conversation-project');
+  const projectSearch = document.getElementById('conversation-project-search');
   const contextNote = document.getElementById('conversation-context-note');
   let contextEntities = [], activeContext = {}, boundProjectRef = null;
   const composer = document.getElementById('conversation-message');
@@ -428,7 +429,7 @@
     const open = addOptions.hidden; addOptions.hidden = !open; addTrigger.setAttribute('aria-expanded', String(open));
     if (open && skillOptions && !skillOptions.dataset.loaded) { try { const data = await api('conversations/modes'); renderSkillOptions(data.modes); skillOptions.dataset.loaded = 'true'; } catch (_) { skillOptions.textContent = 'Capacidades indisponíveis agora.'; } }
   });
-  addOptions?.querySelector('[data-add-action="files"]')?.addEventListener('click', () => { document.getElementById('conversation-attach')?.click(); addOptions.hidden = true; addTrigger?.setAttribute('aria-expanded', 'false'); });
+  addOptions?.querySelector('[data-add-action="files"]')?.addEventListener('click', () => { document.getElementById('conversation-file-input')?.click(); addOptions.hidden = true; addTrigger?.setAttribute('aria-expanded', 'false'); });
   addOptions?.querySelector('[data-add-action="planning"]')?.addEventListener('click', () => { if (mode) { mode.value = 'planejamento'; mode.dispatchEvent(new Event('change', {bubbles:true})); } addOptions.hidden = true; addTrigger?.setAttribute('aria-expanded', 'false'); });
   document.addEventListener('click', event => { if (addMenu && !addMenu.contains(event.target)) { addOptions?.setAttribute('hidden', ''); addTrigger?.setAttribute('aria-expanded', 'false'); } });
   setComposerValue(readDraft(null));
@@ -437,10 +438,21 @@
     select.replaceChildren(new Option(emptyLabel, ''), ...rows.map(row => {
       const linkedBrands = (row.related_refs || []).map(ref => contextEntities.find(item => item.ref === ref && item.kind === 'brand')).filter(Boolean);
       const suffix = linkedBrands.length === 1 ? ' · ' + linkedBrands[0].name : '';
-      return new Option(row.name + suffix, row.ref, false, row.ref === selected);
+      const option = new Option(row.name + suffix, row.ref, false, row.ref === selected);
+      option.dataset.searchText = (row.name + ' ' + suffix).toLocaleLowerCase('pt-BR');
+      return option;
     }));
     select.disabled = false;
+    filterProjects();
   };
+  const filterProjects = () => {
+    if (!projectSelect || !projectSearch) return;
+    const query = projectSearch.value.trim().toLocaleLowerCase('pt-BR');
+    [...projectSelect.options].forEach(option => {
+      option.hidden = Boolean(query && option.value && !option.dataset.searchText?.includes(query));
+    });
+  };
+  projectSearch?.addEventListener('input', filterProjects);
   const brandForProject = (projectRef, currentBrandRef = '') => {
     const project = contextEntities.find(item => item.kind === 'project' && item.ref === projectRef);
     const brands = (project?.related_refs || []).filter(ref => contextEntities.some(item => item.kind === 'brand' && item.ref === ref));
@@ -851,8 +863,8 @@
       ['Faça uma pesquisa completa', 'Cenário, concorrência, tendências e implicações',
         `Faça uma pesquisa aprofundada (deep research) para o projeto ${projectName}. Investigue mercado, concorrentes, tendências e evidências recentes; cite fontes e datas, diferencie fatos de inferências e consolide implicações estratégicas para a marca.`, '≈ 4.200 créditos'],
     ] : [
-      ['Estruture um novo projeto', 'Briefing mínimo para sair da conversa com direção',
-        'Quero estruturar um novo projeto. Faça as perguntas essenciais e, onde faltar dado, avance com premissas claramente marcadas.'],
+      ['Estruture um novo projeto', 'Rascunho editável com as lacunas que realmente destravam a decisão',
+        'Quero estruturar um novo projeto. Monte primeiro um rascunho curto e editável com objetivo, público, oferta, prazo, verba e canais. Marque premissas e faça no máximo 3 perguntas objetivas; não crie um checklist longo.'],
       ['Transforme um briefing em plano', 'Estratégia, audiências, canais, formatos e etapas',
         'Vou colar um briefing. Transforme-o em estratégia, audiências, plano de mídia, etapas e decisões pendentes.'],
       ['Decida antes de produzir', 'Opções, trade-offs e recomendação objetiva',
@@ -993,6 +1005,23 @@
   function addResultCard(data) {
     const result = data?.result;
     if (!result || typeof result !== 'object' || !result.type) return;
+    if (result.type === 'briefing') {
+      const actions = Array.isArray(result.actions) ? result.actions : [];
+      const nextAction = actions.find(action => action?.id === 'briefing_to_plan') || actions.find(action => action?.prompt);
+      openArtifact({
+        kind: 'Briefing',
+        title: 'Briefing de trabalho',
+        summary: 'Rascunho editável. Ajuste os campos na lateral e salve quando fizer sentido.',
+        items: Array.isArray(result.items) ? result.items : [],
+        action: nextAction,
+        document: {
+          content: resultAsMarkdown(result),
+          projectRef: boundProjectRef || activeContext?.project_ref || '',
+        },
+        projectRef: boundProjectRef || activeContext?.project_ref || '',
+      });
+      return;
+    }
     const card = document.createElement('section');
     card.className = 'conversation-result-card is-' + String(result.type).replace(/[^a-z-]/g, '');
     const header = document.createElement('header');

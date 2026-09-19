@@ -260,7 +260,13 @@ def session_title(row: dict, dados: dict) -> str:
         if campanha and not name_leaks_in(cliente, campanha):
             return campanha
         return "Anunciante"
-    return campanha or cliente or "Campanha sem nome"
+    if campanha:
+        return campanha
+    campaign_data = dados.get("campanha") if isinstance(dados.get("campanha"), dict) else {}
+    objetivo = text(row.get("objetivo") or dados.get("objetivo") or campaign_data.get("objetivo"))
+    if cliente and objetivo and cliente.lower() not in {"cliente temporário", "cliente temporario", "anunciante"}:
+        return f"{cliente} · {objetivo}"
+    return cliente or "Campanha sem nome"
 
 
 def session_public_token(row: dict | None) -> str:

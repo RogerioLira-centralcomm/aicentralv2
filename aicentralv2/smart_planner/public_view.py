@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import os
 import logging
@@ -21,6 +22,24 @@ from .theme import resolve_market_id, theme_record
 from ..db import normalizar_telefone_whatsapp, obter_contato_por_email, obter_contato_por_id
 
 logger = logging.getLogger(__name__)
+
+
+def _planning_structure_json(row: dict, dados: dict, folha: dict, plan: dict) -> str:
+    """Snapshot temporário para inspeção da estrutura usada pela página pública."""
+    hidden = {
+        "session_token",
+        "public_token",
+        "visitor_id",
+        "user_id",
+        "user_email",
+        "auth_method",
+        "input_file_path",
+    }
+    registro = {str(key): value for key, value in (row or {}).items() if str(key) not in hidden}
+    registro["dados_detectados"] = dados
+    registro["folha"] = folha
+    registro["plan_content"] = plan
+    return json.dumps(registro, ensure_ascii=False, indent=2, default=str, sort_keys=True)
 
 CHANNEL_COLORS = {
     "google_ads": "#4285F4",
@@ -1281,6 +1300,16 @@ def public_view(row: dict, document: str | None = None) -> dict:
     commercial_defense = as_dict(page_v2.get("commercial_defense"))
     defense_points = [text(item) for item in as_list(commercial_defense.get("why_this_mix") or commercial_defense.get("why_this_plan")) if text(item)]
     defense_points.extend(item for item in defense_parts if item not in defense_points)
+    if not defense_points:
+        channel_labels = [text(item.get("label")) for item in as_list(media.get("channels")) if text(item.get("label"))]
+        if channel_labels:
+            defense_points.append(
+                f"O mix foi organizado para apoiar o objetivo de {objective_label or 'negócio'}, usando os canais confirmados no briefing: {', '.join(channel_labels)}."
+            )
+        if method:
+            defense_points.append(f"O método de distribuição é {method}, mantendo a abertura e o ritmo do plano explícitos para validação comercial.")
+        if strategy_parts:
+            defense_points.append(_first_sentence(strategy_parts[0], 180))
     approved_mix = bool(media.get("channels")) and int(media.get("total_pct") or 0) > 0
     client_brand = as_dict(branding.get("client") or branding.get("hero"))
     executive = _executive_contact(row, title)
@@ -1289,18 +1318,15 @@ def public_view(row: dict, document: str | None = None) -> dict:
         for item in as_list(media.get("channels"))
         if text(item.get("label")) and item.get("pct") is not None
     )
-    executive_facts = [
-        ("Anunciante", client),
-        ("Objetivo", objective_label),
-        ("Praça", praca_line),
-        ("Período", period),
-        ("Mix", _clip(mix_label, 72)),
-        ("Verba", verba),
-    ]
-    executive_facts = [
-        (label, value) for label, value in executive_facts
-        if value and not text(value).lower().startswith("a definir") and text(value).lower() != "-"
-    ]
+    executive_facts = []
+    if mix_label:
+        executive_facts.append(("Mix definido", mix_label))
+    if method:
+        executive_facts.append(("Lógica de distribuição", method))
+    if not executive_facts and canais:
+        executive_facts.append(("Canais", canais))
+    if not executive_facts and (client or title):
+        executive_facts.append(("Anunciante", client or title))
     return {
         "house": HOUSE,
         "title": title,
@@ -1362,6 +1388,7 @@ def public_view(row: dict, document: str | None = None) -> dict:
         "defense_points": defense_points[:3],
         "creative_plan": creative_plan,
         "full_groups": _full_groups(chapters, board_sections),
+        "planning_structure_json": _planning_structure_json(row, dados, folha, plan),
         "funnel": funnel,
         "inventory": inventory,
         "inventory_filters": _inventory_filters(inventory),

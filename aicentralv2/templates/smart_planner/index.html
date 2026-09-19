@@ -4,7 +4,7 @@
 {% block title %}Planejamentos{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=53">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner.css') }}?v=54">
 {% endblock %}
 
 {% block content %}
@@ -13,13 +13,7 @@
     <div>
       <p class="sp-kicker">Mesa de mídia</p>
       <h1>{{ 'Todos os planejamentos' if scope == 'all' else 'Meus planejamentos' }}</h1>
-      <p id="sp-history-summary">
-        {% if total_user %}
-          {{ total_user }} {{ 'planejamento' if total_user == 1 else 'planejamentos' }}{% if custo_total %} · {{ custo_total }} em custo interno de IA{% endif %}
-        {% else %}
-          Nenhum planejamento encontrado neste recorte.
-        {% endif %}
-      </p>
+      <p id="sp-history-summary">Organize, filtre e abra um planejamento para continuar.</p>
     </div>
     <div class="sp-head-actions">
       <a class="cx-btn cx-btn-primary" href="{{ url_for('smart_planner.novo') }}">
@@ -28,14 +22,6 @@
       </a>
     </div>
   </header>
-
-  {% if rows %}
-  <section class="sp-index-metrics" aria-label="Resumo da lista">
-    <div><strong>{{ total_user or 0 }}</strong><span>planejamentos neste recorte</span></div>
-    <div><strong>{{ custo_total or 'R$ 0,00' }}</strong><span>custo interno de IA registrado</span></div>
-    <div><strong>{{ rows|selectattr('status', 'equalto', 'canvas')|list|length }}</strong><span>prontos para apresentação</span></div>
-  </section>
-  {% endif %}
 
   {% if flash_error %}
   <div class="cx-alert cx-alert-danger" role="alert">{{ flash_error }}</div>
@@ -113,7 +99,7 @@
               </div>
           </div></td>
           <td data-label="Cliente e agência"><span class="sp-cell-primary">{{ row.cliente or 'Cliente a definir' }}</span><span class="sp-cell-secondary">{{ row.agencia or 'Agência não definida' }}</span></td>
-          <td data-label="Geração"><div class="sp-delivery-list">{% if row.has_sheet %}<span class="sp-doc-state is-sheet">Página única</span>{% endif %}{% if row.has_full_plan %}<span class="sp-doc-state is-full">Plano completo</span>{% endif %}</div><span class="sp-status {{ 'is-ready' if row.resume_step == 'canvas' else 'is-open' }}">{{ row.status_label }}</span></td>
+          <td data-label="Geração"><div class="sp-generation"><span class="sp-generation-type">{{ row.plan_mode_label }}</span><span class="sp-status {{ 'is-ready' if row.resume_step == 'canvas' else 'is-open' }}">{{ row.status_label }}</span></div></td>
           <td data-label="Objetivo"><span class="sp-ledger-value">{{ row.objetivo or 'A definir' }}</span></td>
           <td data-label="Verba"><span class="sp-ledger-value">{{ row.verba or 'A definir' }}</span></td>
           <td data-label="Período"><span class="sp-ledger-value">{{ row.periodo or 'A definir' }}</span></td>
@@ -121,8 +107,8 @@
           <td data-label="Responsável">{{ row.executivo or 'Não atribuído' }}</td>
           <td data-label="Atualizado" class="is-when">{{ row.quando or '—' }}</td>
           <td data-label="Ações" class="is-actions"><div class="sp-row-actions">
-            {% if row.href %}<a class="cx-btn cx-btn-sm cx-btn-primary" href="{{ row.href }}">Abrir</a>{% endif %}
-            <details class="sp-more"><summary aria-label="Mais ações"><i class="fa-solid fa-ellipsis"></i></summary><div>
+            <details class="sp-more"><summary aria-label="Ações do planejamento"><i class="fa-solid fa-ellipsis"></i></summary><div>
+              {% if row.href %}<a class="sp-more-primary" href="{{ row.href }}">Abrir planejamento</a>{% endif %}
               {% if row.thumbnail_url %}<div class="sp-more-thumb"><img src="{{ row.thumbnail_url }}" alt="Thumbnail do criativo gerado"><span>Thumbnail gerada</span></div>{% endif %}
               {% if row.share_url %}<a href="{{ row.share_url }}" target="_blank" rel="noopener noreferrer">Abrir link público</a>{% endif %}
               {% if row.sheet_href %}<a href="{{ row.sheet_href }}">Abrir página única</a>{% endif %}

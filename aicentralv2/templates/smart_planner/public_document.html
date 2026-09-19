@@ -22,7 +22,7 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="{{ document_label }} · {{ title }}">
   <meta name="twitter:image" content="{{ share_image }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_public_v3.css') }}?v=3">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/smart_planner_public_v3.css') }}?v=4">
 </head>
 <body class="spv3 spv3-{{ document or 'proposal' }}">
   <header class="spv3-topbar" aria-label="Ferramentas do documento">
@@ -77,7 +77,7 @@
         <aside class="spv3-plan-summary" aria-label="Resumo da recomendação">
           <span class="spv3-eyebrow">Resumo da recomendação</span>
           {% if audience %}<div><small>Público prioritário</small><p>{{ audience }}</p></div>{% endif %}
-          {% if executive_facts %}<div><small>Decisão de mídia</small><p>{{ executive_facts[0][1] }}</p></div>{% endif %}
+          {% if executive_facts %}<div><small>{{ executive_facts[0][0] }}</small><p>{{ executive_facts[0][1] }}</p></div>{% endif %}
           {% if support %}<div><small>Por que agora</small><p>{{ support }}</p></div>{% endif %}
         </aside>
       </div>
@@ -144,6 +144,11 @@
     </section>
     {% endfor %}
     {% endif %}
+
+    <section class="spv3-panel spv3-data-inspector" id="estrutura-dados" data-scroll-reveal>
+      <header class="spv3-section-head"><div><span class="spv3-eyebrow">Inspeção temporária</span><h2>Estrutura de dados do planejamento</h2></div><p>Snapshot dos dados usados nesta página pública. Identificadores técnicos e credenciais foram ocultados.</p></header>
+      <pre><code>{{ planning_structure_json }}</code></pre>
+    </section>
   </main>
   <footer class="spv3-footer"><span>{{ house.name }} · {{ document_label }}</span><span>Documento confidencial de planejamento</span></footer>
   <script>window.SMART_PLANNER_PUBLIC_URL = {{ document_url|tojson }};</script>

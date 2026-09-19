@@ -61,6 +61,12 @@ body.spv3{background:
   .spv3-panel{border-radius:16px}.spv3-hero{grid-template-columns:1fr}.spv3-hero-copy{padding:34px 24px}.spv3-hero-copy h2{font-size:clamp(2.4rem,12vw,4rem);max-width:10ch}.spv3-direction-thesis{font-size:16px!important}.spv3-concept{margin-top:24px}.spv3-visual{min-height:0;aspect-ratio:4/3}.spv3-defense{grid-template-columns:1fr;gap:20px;padding:28px 24px}.spv3-defense h3{max-width:none;font-size:22px}.spv3-defense ol{grid-template-columns:1fr;gap:18px}
   .spv3-section-head{display:block;padding:28px 24px}.spv3-section-head>p{margin-top:12px}.spv3-reference-grid,.spv3-creative-grid{padding:24px;gap:12px}.spv3-reference-grid article{padding:20px}.spv3-format-table{margin:24px 18px}.spv3-contact{display:block;padding:24px}.spv3-contact-action{margin-top:24px}.spv3-footer{display:block;margin-bottom:24px}.spv3-footer span{display:block}.spv3-footer span+span{margin-top:6px}
 }
+
+.spv3-data-inspector { margin-top: 22px; }
+.spv3-data-inspector .spv3-section-head { padding-bottom: 24px; }
+.spv3-data-inspector pre { max-height: 42rem; margin: 0; padding: 28px 34px; overflow: auto; background: #11252d; color: #dcebe5; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre; tab-size: 2; }
+.spv3-data-inspector code { font: inherit; }
+@media(max-width:760px){ .spv3-data-inspector pre { max-height: 32rem; padding: 20px; font-size: 11px; } }
 @media(max-width:420px){
   .spv3-brand span{display:none}.spv3-actions{gap:6px}.spv3-btn{padding-inline:10px;font-size:12px}.spv3-titlebar h1{font-size:clamp(2.45rem,14vw,3.4rem)}.spv3-facts strong{font-size:12px}.spv3-executive-facts{grid-template-columns:1fr 1fr}.spv3-hero-copy h2{font-size:2.45rem}.spv3-visual{aspect-ratio:1.65}
 }
@@ -117,3 +123,16 @@ body.spv3.has-fixed-backdrop::after{content:"";position:fixed;inset:0;z-index:-1
 .spv3-plan-summary small{display:block;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.11em;text-transform:uppercase}
 .spv3-plan-summary p{margin:6px 0 0;color:var(--ink);font-size:14px;line-height:1.55}
 @media(max-width:800px){.spv3-proposal .spv3-hero-compact{grid-template-columns:1fr}.spv3-plan-summary{border-left:0;border-top:1px solid var(--line);padding:26px 24px}}
+
+/* Composição pública: uma hierarquia clara, sem repetir a mesma decisão em dois heróis. */
+.spv3-place-hero .spv3-facts span { border-left: 0; padding-left: 0; padding-top: .65rem; border-top: 1px solid rgba(20,37,45,.15); }
+.spv3-executive-facts div { border-left-color: transparent; border-top: 1px solid rgba(213,170,59,.22); }
+.spv3-proposal .spv3-executive-copy h2 { max-width: 26ch; max-height: none; overflow: visible; font-size: clamp(1.5rem, 2.55vw, 2.25rem); line-height: 1.08; }
+.spv3-proposal .spv3-executive { min-height: 0; }
+.spv3-proposal .spv3-hero-copy h2 { max-width: 18ch; }
+.spv3-proposal .spv3-defense { border-top: 1px solid var(--line); }
+@media(max-width:760px){
+  .spv3-place-hero .spv3-facts span { padding-top: .55rem; }
+  .spv3-proposal .spv3-executive-copy h2 { max-width: 20ch; font-size: clamp(1.55rem, 7vw, 2.25rem); }
+  .spv3-proposal .spv3-hero-copy h2 { max-width: 18ch; }
+}

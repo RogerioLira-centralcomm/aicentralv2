@@ -5702,6 +5702,20 @@ html.is-sp-media body {
 .sp-ledger .sp-mix{display:flex;flex-wrap:wrap;gap:.25rem;margin:0;padding:0;list-style:none}
 .sp-ledger .sp-mix li{max-width:8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sp-more-thumb{display:grid;gap:.3rem;padding:.35rem;border-bottom:1px solid var(--hi-line,#dfe5e7)}
+.sp-ledger .sp-more { position: relative; display: inline-block; }
+.sp-ledger .sp-more summary { display: grid; place-items: center; width: 2rem; height: 2rem; border: 1px solid #cbd8da; border-radius: 7px; color: var(--sp-ink); background: #fff; cursor: pointer; list-style: none; }
+.sp-ledger .sp-more summary::-webkit-details-marker { display: none; }
+.sp-ledger .sp-more > div { position: absolute; right: 0; top: calc(100% + .35rem); z-index: 30; display: grid; min-width: 12rem; padding: .35rem; border: 1px solid #d5e0e1; border-radius: 8px; background: #fff; box-shadow: 0 12px 30px rgba(18, 38, 45, .16); }
+.sp-ledger .sp-more > div a, .sp-ledger .sp-more > div button { display: block; width: 100%; padding: .5rem .55rem; border: 0; color: var(--sp-ink); background: transparent; font: inherit; font-size: .76rem; text-align: left; text-decoration: none; cursor: pointer; }
+.sp-ledger .sp-more > div a:hover, .sp-ledger .sp-more > div button:hover { border-radius: 5px; background: #eef5f4; }
+.sp-ledger .sp-more > div .sp-more-primary { color: var(--sp-signal); font-weight: 700; }
+.sp-generation { display: grid; gap: .3rem; justify-items: start; }
+.sp-generation-type { color: var(--sp-ink); font-size: .74rem; font-weight: 700; }
+.sp-ledger .sp-status { width: fit-content; font-size: .67rem; }
+.sp-desk.is-book > .sp-head { min-height: 0; margin-bottom: .75rem; padding: .15rem 0 .7rem; }
+.sp-desk.is-book > .sp-head h1 { font-size: clamp(1.45rem, 2.6vw, 2rem); }
+.sp-desk.is-book > .sp-head > div:first-child > p:last-child { margin-top: .2rem; font-size: .78rem; }
+.sp-desk.is-book > .sp-head-actions .cx-btn { min-height: 2.15rem; }
 .sp-inline-toast { position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 1000; max-width: min(28rem, calc(100vw - 2rem)); padding: .75rem .9rem; border: 1px solid #c9d9da; border-radius: 8px; color: #173c3e; background: #fff; box-shadow: 0 12px 30px rgba(17, 42, 46, .16); font-size: .82rem; opacity: 0; transform: translateY(.5rem); pointer-events: none; transition: opacity .16s ease, transform .16s ease; }
 .sp-inline-toast.is-visible { opacity: 1; transform: translateY(0); }
 .sp-inline-toast[data-type="error"] { border-color: #e5bcbc; color: #8d2f2f; }

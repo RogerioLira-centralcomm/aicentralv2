@@ -127,12 +127,11 @@
 
   function updateSummary(visible, total) {
     if (!summary || !total) return;
-    var label = visible === 1 ? "campanha" : "campanhas";
     if (visible === total) {
-      summary.textContent = originalSummary || (total + " " + label + " neste usuário.");
+      summary.textContent = originalSummary || "Organize, filtre e abra um planejamento para continuar.";
       return;
     }
-    summary.textContent = visible + " de " + total + " " + (total === 1 ? "campanha" : "campanhas") + " neste recorte.";
+    summary.textContent = "Filtro aplicado aos planejamentos.";
   }
 
   function applyFilters() {

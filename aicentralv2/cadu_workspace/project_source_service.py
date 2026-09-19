@@ -17,7 +17,7 @@ from werkzeug.utils import secure_filename
 
 from ..cadu_skills.repository import charge_project_rag
 from ..db import get_db
-from . import project_knowledge, project_sources
+from . import project_index_service, project_knowledge, project_sources
 from .agent_v2.contracts import RequestContext
 
 
@@ -228,7 +228,19 @@ def save_upload(context: RequestContext, token: str, file_storage) -> dict:
                     tokens=embedding_tokens, stage="indexacao",
                     idempotency_key="mcp-project-rag-index:" + request_id,
                 )
-            cur.execute("""INSERT INTO cadu_ci_projeto_arquivos
+                source_id = project_index_service.persist_indexed_source(
+                    cur, project_id=project_id, client_id=context.client_id,
+                    user_id=context.user_id, name=source["name"], mime=source["mime"],
+                    size=len(source["data"]), storage_path=storage_path,
+                    source="mcp_upload", content=extracted_text,
+                    chunks=chunks, embedding_model=embedding_model,
+                    charged_tokens=charged_tokens,
+                    classification=classification,
+                    metadata={"classifier": "deterministic-v1", "upload_request_id": request_id,
+                              "sha256": content_hash},
+                )
+            else:
+                cur.execute("""INSERT INTO cadu_ci_projeto_arquivos
                 (projeto_id, id_cliente, criado_por, nome_arquivo, mime, tamanho, storage_path,
                  extracted_text, doc_form, indexing_status, word_count, tokens, purpose, category,
                  classification_status, classification_confidence, classification_reason,
@@ -242,20 +254,10 @@ def save_upload(context: RequestContext, token: str, file_storage) -> dict:
                  purpose, classification["category"], classification["status"], classification["confidence"],
                  classification["reason"], Json({"classifier": "deterministic-v1", "content_inspected": use_as_knowledge,
                                                   "sha256": content_hash, "upload_request_id": request_id})))
-            source_id = int(cur.fetchone()["id"])
-            for chunk in chunks:
-                cur.execute("""INSERT INTO cadu_ci_chunks
-                    (projeto_id, id_cliente, arquivo_id, ordem, titulo, conteudo, search_vector,
-                     metadata, embedding, embedding_model, content_hash, tokens, created_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, to_tsvector('portuguese', %s), %s, %s::vector,
-                            %s, %s, %s, NOW())""",
-                    (project_id, context.client_id, source_id, chunk.order, source["name"], chunk.content,
-                     chunk.content, Json({"source": "mcp_upload", "arquivo_id": source_id, "section": chunk.section}),
-                     project_knowledge.vector_literal(chunk.embedding), embedding_model,
-                     chunk.content_hash, chunk.tokens))
-            cur.execute("""UPDATE cadu_ci_projetos SET total_arquivos = COALESCE(total_arquivos, 0) + 1,
-                              updated_at = NOW() WHERE id = %s AND id_cliente = %s""",
-                        (project_id, context.client_id))
+                source_id = int(cur.fetchone()["id"])
+                cur.execute("""UPDATE cadu_ci_projetos SET total_arquivos = COALESCE(total_arquivos, 0) + 1,
+                                  updated_at = NOW() WHERE id = %s AND id_cliente = %s""",
+                            (project_id, context.client_id))
         connection.commit()
     except Exception:
         connection.rollback()

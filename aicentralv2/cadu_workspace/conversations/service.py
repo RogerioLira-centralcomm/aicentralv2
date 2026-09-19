@@ -299,7 +299,9 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query):
                         SELECT id, row_number() OVER (ORDER BY score DESC) AS rank FROM lexical
                         UNION ALL SELECT id, row_number() OVER (ORDER BY score DESC) AS rank FROM semantic
                     ) candidates GROUP BY id
-                ) SELECT c.titulo, LEFT(c.conteudo, 1000) AS trecho
+                ) SELECT c.id AS chunk_id, c.arquivo_id AS source_id, c.titulo,
+                              LEFT(c.conteudo, 1000) AS trecho, r.score,
+                              c.content_hash, c.embedding_model
                       FROM ranked r JOIN cadu_ci_chunks c ON c.id=r.id
                      ORDER BY r.score DESC, c.ordem ASC LIMIT 4''',
                 (terms, project_id, client_id, terms, vector, project_id, client_id, vector))
@@ -307,13 +309,16 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query):
                 # An unavailable embedding credential must not hide the project
                 # brief during rollout; lexical retrieval is a temporary read
                 # fallback, never an indexing mode.
-                sources = repository.rows('''SELECT titulo, LEFT(conteudo, 1000) AS trecho
+                sources = repository.rows('''SELECT id AS chunk_id, arquivo_id AS source_id, titulo,
+                                                   LEFT(conteudo, 1000) AS trecho,
+                                                   0::double precision AS score,
+                                                   content_hash, embedding_model
                                               FROM cadu_ci_chunks
                                              WHERE projeto_id = %s AND id_cliente = %s
                                                AND search_vector @@ plainto_tsquery('portuguese', %s)
                                           ORDER BY ordem ASC LIMIT 4''', (project_id, client_id, terms))
             packet['fontes_verificadas'] = [
-                {'fonte': row.get('titulo') or 'Fonte sem título', 'trecho': row.get('trecho') or ''}
+                _project_evidence(row, client_id, project_ref)
                 for row in sources
             ]
         except Exception:
@@ -321,6 +326,27 @@ def project_knowledge_context(project_ref, brand_ref, client_id, query):
             # suppress the explicitly saved project context.
             packet['fontes_verificadas'] = []
     return json.dumps(packet, ensure_ascii=False, default=str)[:24000]
+
+
+def _project_evidence(row, client_id, project_ref):
+    """Keep the legacy display shape while attaching provenance when available."""
+    evidence = {
+        'fonte': row.get('titulo') or 'Fonte sem título',
+        'trecho': row.get('trecho') or '',
+    }
+    if row.get('chunk_id') is None:
+        return evidence
+    from ..project_resource_service import resource_id_for_source
+    evidence.update({
+        'resource_id': resource_id_for_source(client_id, project_ref, 'workspace', f"file:{row.get('source_id')}"),
+        'source_id': row.get('source_id'),
+        'chunk_id': row.get('chunk_id'),
+        'retrieval_mode': 'hybrid',
+        'score': float(row.get('score') or 0),
+        'content_hash': row.get('content_hash'),
+        'embedding_model': row.get('embedding_model'),
+    })
+    return evidence
 
 
 def project_sources(project_context):
@@ -340,7 +366,11 @@ def project_sources(project_context):
             continue
         title = str(value.get('fonte') or 'Fonte sem título').strip()[:250]
         excerpt = str(value.get('trecho') or '').strip()[:1000]
-        sources.append({'title': title or 'Fonte sem título', 'excerpt': excerpt})
+        item = {'title': title or 'Fonte sem título', 'excerpt': excerpt}
+        for key in ('resource_id', 'source_id', 'chunk_id', 'retrieval_mode', 'score', 'content_hash', 'embedding_model'):
+            if key in value and value.get(key) is not None:
+                item[key] = value[key]
+        sources.append(item)
     for value in (packet.get('base_cadu_global_publicada') or [])[:4]:
         if not isinstance(value, dict):
             continue

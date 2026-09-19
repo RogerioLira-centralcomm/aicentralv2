@@ -24,6 +24,14 @@ def _project_id(project_ref: str) -> str:
     return str(project_ref)[3:]
 
 
+def resource_id_for_source(client_id: int, project_ref: str, source_system: str, source_id: str) -> str:
+    """Return the deterministic ID used by the materialized resource registry."""
+    return str(uuid5(
+        NAMESPACE_URL,
+        f"cadu:{client_id}:{project_ref}:{source_system}:{source_id}",
+    ))
+
+
 def _relation(cursor, table: str) -> bool:
     cursor.execute("SELECT to_regclass(%s) IS NOT NULL AS available", (f"public.{table}",))
     return bool(cursor.fetchone()["available"])
@@ -56,16 +64,20 @@ def _collect(cursor, client_id: int, project_ref: str) -> list[dict]:
         purpose = "purpose" if "purpose" in columns else "CASE WHEN indexing_status='completed' THEN 'knowledge_source' ELSE 'project_attachment' END AS purpose"
         category = "category" if "category" in columns else "'other' AS category"
         metadata = "classification_metadata" if "classification_metadata" in columns else "'{}'::jsonb AS classification_metadata"
-        cursor.execute(f"""SELECT id, nome_arquivo, mime, storage_path, indexing_status, {purpose}, {category}, {metadata},
-                                   criado_por, created_at, updated_at
+        chunk_count = "(SELECT COUNT(*) FROM cadu_ci_chunks ch WHERE ch.arquivo_id = a.id)" if _relation(cursor, "cadu_ci_chunks") else "0"
+        cursor.execute(f"""SELECT a.id, a.nome_arquivo, a.mime, a.storage_path, a.indexing_status, {purpose}, {category}, {metadata},
+                                   {chunk_count} AS chunk_count,
+                                   a.criado_por, a.created_at, a.updated_at
                               FROM cadu_ci_projeto_arquivos
-                             WHERE id_cliente=%s AND projeto_id=%s""", (client_id, project_id))
+                             AS a WHERE a.id_cliente=%s AND a.projeto_id=%s""", (client_id, project_id))
         for row in cursor.fetchall():
             records.append(_record("workspace", f"file:{row['id']}", "file", row["nome_arquivo"],
                 mime_type=row.get("mime"), purpose=row.get("purpose"), category=row.get("category"),
                 status=row.get("indexing_status"), content_hash=(row.get("classification_metadata") or {}).get("sha256"),
                 locator=row.get("storage_path"), created_by=row.get("criado_por"),
-                source_created_at=row.get("created_at"), source_updated_at=row.get("updated_at")))
+                source_created_at=row.get("created_at"), source_updated_at=row.get("updated_at"),
+                metadata={"chunk_count": int(row.get("chunk_count") or 0),
+                          "indexing_status": row.get("indexing_status")}))
 
     queries = (
         ("cadu_workspace_artifacts", """SELECT id::text AS id, type, title, status, current_version AS version,
@@ -168,7 +180,7 @@ def reconcile(client_id: int, project_ref: str, actor_id=None) -> dict:
             started_at = cursor.fetchone()["started_at"]
             records = _collect(cursor, client_id, project_ref)
             for item in records:
-                resource_id = str(uuid5(NAMESPACE_URL, f"cadu:{client_id}:{project_ref}:{item['source_system']}:{item['source_id']}"))
+                resource_id = resource_id_for_source(client_id, project_ref, item["source_system"], item["source_id"])
                 fingerprint = sha256(json.dumps(item, default=str, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
                 cursor.execute("""INSERT INTO cadu_project_resources
                 (id, organization_id, client_id, project_ref, source_system, source_id, resource_type,

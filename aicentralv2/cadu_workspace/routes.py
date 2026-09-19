@@ -28,7 +28,7 @@ from ..cadu_skills.repository import CaduCreditUnavailable, charge_project_rag, 
 from ..db import close_db, get_db
 from ..product_domains import product_url
 from ..smart_planner.logos import public_logo
-from . import project_knowledge, project_sources
+from . import project_index_service, project_knowledge, project_sources
 
 
 def _send_brand_approval_email(brand: dict, pack: dict, client_id: int, brand_id: int) -> None:
@@ -1509,8 +1509,7 @@ def _chunk_project_note(content: str, limit: int = 1800) -> list[str]:
 def _persist_project_source(client_id: int, project_id: str, title: str, content: str,
                             mime: str, size: int, storage_path: str, source: str,
                             user_id: Optional[int] = None) -> int:
-    source_chunks, embedding_tokens, embedding_model = project_knowledge.index(content)
-    word_count = len(re.findall(r'\b\w+\b', content, flags=re.UNICODE))
+    source_chunks, embedding_tokens, embedding_model = project_index_service.indexed_content(content)
     tokens = embedding_tokens
     connection = get_db()
     try:
@@ -1519,42 +1518,12 @@ def _persist_project_source(client_id: int, project_id: str, title: str, content
                 cursor, client_id=client_id, user_id=int(user_id if user_id is not None else session.get('user_id') or 0), project_id=project_id,
                 tokens=tokens, stage='indexacao', idempotency_key='workspace-rag-index:' + uuid4().hex,
             )
-            cursor.execute(
-                """INSERT INTO cadu_ci_projeto_arquivos
-                       (projeto_id, id_cliente, criado_por, nome_arquivo, mime, tamanho,
-                        storage_path, extracted_text, doc_form, indexing_status, word_count, tokens,
-                        purpose, category, classification_status, classification_confidence,
-                        classification_reason, classification_metadata, created_at, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s,
-                            %s, 'text_model', 'completed', %s, %s,
-                            'knowledge_source', 'other', 'needs_review', 0.25,
-                            'Aguardando classificação contextual.', %s::jsonb,
-                            NOW(), NOW())
-                 RETURNING id""",
-                (project_id, client_id, user_id if user_id is not None else session.get('user_id'), title, mime, size,
-                 storage_path, content, word_count, charged_tokens, json.dumps({
-                     'classifier': 'workspace-v1', 'content_inspected': True,
-                     'sha256': sha256(content.encode('utf-8')).hexdigest(),
-                 })),
-            )
-            file_id = cursor.fetchone()['id']
-            for chunk in source_chunks:
-                cursor.execute(
-                    """INSERT INTO cadu_ci_chunks
-                           (projeto_id, id_cliente, arquivo_id, ordem, titulo, conteudo,
-                            search_vector, metadata, embedding, embedding_model, content_hash, tokens, created_at)
-                        VALUES (%s, %s, %s, %s, %s, %s, to_tsvector('portuguese', %s), %s::jsonb, %s::vector,
-                                %s, %s, %s, NOW())""",
-                    (project_id, client_id, file_id, chunk.order, title, chunk.content,
-                     chunk.content, json.dumps({'source': source, 'arquivo_id': file_id, 'section': chunk.section}),
-                     project_knowledge.vector_literal(chunk.embedding), embedding_model,
-                     chunk.content_hash, chunk.tokens),
-                )
-            cursor.execute(
-                """UPDATE cadu_ci_projetos
-                      SET total_arquivos = COALESCE(total_arquivos, 0) + 1, updated_at = NOW()
-                    WHERE id = %s AND id_cliente = %s""",
-                (project_id, client_id),
+            file_id = project_index_service.persist_indexed_source(
+                cursor, project_id=project_id, client_id=client_id,
+                user_id=user_id if user_id is not None else session.get('user_id'),
+                name=title, mime=mime, size=size, storage_path=storage_path,
+                source=source, content=content, chunks=source_chunks,
+                embedding_model=embedding_model, charged_tokens=charged_tokens,
             )
         connection.commit()
         return int(file_id)
@@ -2702,6 +2671,25 @@ def reprocess_project_source(project_id, source_id):
     if not source:
         abort(404)
     storage_path = str(source.get('storage_path') or '')
+    if storage_path.startswith(('workspace://project-notes/', 'workspace_project_sources/')):
+        try:
+            from .project_index_jobs import enqueue
+            job_id = enqueue(client_id, project_id, source_id, int(session.get('user_id') or 0))
+        except Exception as exc:
+            try:
+                get_db().rollback()
+            except Exception:
+                pass
+            current_app.logger.exception('Não foi possível enfileirar a reindexação da fonte %s', source_id)
+            abort(503, description='Não foi possível enfileirar essa fonte agora.')
+        if not job_id:
+            # The queue migration is additive. Older deployments keep the
+            # existing synchronous reprocessing path until it is applied.
+            pass
+        elif request.accept_mimetypes.best == 'application/json':
+            return jsonify({'ok': True, 'source_id': source_id, 'job_id': job_id, 'status': 'queued'}), 202
+        else:
+            return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
     reprocess_id = uuid4().hex
     user_id = int(session.get('user_id') or 0)
     try:

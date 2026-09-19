@@ -107,6 +107,12 @@ class Config:
 	# Minimum balance required before a Conversas request reaches Dify. The
 	# final debit still follows measured provider usage.
 	CADU_CHAT_ADMISSION_TOKENS = int(os.getenv('CADU_CHAT_ADMISSION_TOKENS', '8000'))
+	# Conversations V2 uses an isolated Dify app.  Keeping separate credentials
+	# makes the rollout reversible and prevents prompt/schema changes from
+	# affecting active legacy conversations.
+	CADU_CONVERSATIONS_V2_ENABLED = os.getenv('CADU_CONVERSATIONS_V2_ENABLED', '0').lower() in ('true', '1', 'yes', 'on')
+	CADU_CONVERSATIONS_V2_DIFY_URL = os.getenv('CADU_CONVERSATIONS_V2_DIFY_URL', '')
+	CADU_CONVERSATIONS_V2_DIFY_KEY = os.getenv('CADU_CONVERSATIONS_V2_DIFY_KEY', '')
 	# Brand discovery may run for several minutes. It is dispatched to a durable
 	# worker after its database migration; routes retain a short-lived fallback
 	# thread only when the migration is not installed yet.

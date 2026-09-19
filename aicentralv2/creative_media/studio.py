@@ -154,6 +154,22 @@ def _studio_reference_masks():
             'headline-overlay',
         ), start=1)
     )
+    references.append(
+        {
+            'id': 'iab-300x250-mask-01',
+            'label': '300×250 · composição 01',
+            'role': 'composition',
+            'group': 'iab-300x250',
+            'concept': 'institutional-lifestyle',
+            'format': '6:5',
+            'width': 300,
+            'height': 250,
+            'url': url_for(
+                'static',
+                filename='images/cadu/studio/references/iab-300x250/iab-300x250-mask-01.webp',
+            ),
+        }
+    )
     return references
 
 

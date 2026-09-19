@@ -106,6 +106,16 @@ def test_square_300_references_are_compact_webp_assets():
     assert all(reference.stat().st_size < 100_000 for reference in references)
 
 
+def test_iab_300x250_reference_is_a_compact_webp_asset():
+    root = Path(__file__).resolve().parents[1]
+    reference_dir = root / "aicentralv2" / "static" / "images" / "cadu" / "studio" / "references" / "iab-300x250"
+    references = sorted(reference_dir.glob("iab-300x250-mask-*.webp"))
+
+    assert len(references) == 1
+    assert not list(reference_dir.glob("iab-300x250-mask-*.png"))
+    assert all(reference.stat().st_size < 100_000 for reference in references)
+
+
 def test_create_frontend_connects_persistent_session_lifecycle():
     root = Path(__file__).resolve().parents[1]
     source = (root / "aicentralv2" / "static" / "js" / "mc-studio-create.js").read_text(encoding="utf-8")

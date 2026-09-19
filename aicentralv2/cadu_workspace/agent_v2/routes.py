@@ -15,6 +15,7 @@ from ..mcp.registry import load_builtin_tools
 from ..mcp.authorization import MAX_AGE_SECONDS, issue
 from ..artifacts import create_draft, get_artifact, get_version, list_versions, patch_artifact
 from .service import prepare as prepare_message, stream as stream_message
+from .provider import ProviderUnavailable
 from . import journal, observability
 from . import action_executor
 from ..mcp.registry import ToolError
@@ -60,6 +61,9 @@ def protect():
 def api_error(exc):
     if isinstance(exc, HTTPException):
         return jsonify(error=exc.description), exc.code
+    if isinstance(exc, ProviderUnavailable):
+        current_app.logger.exception("Runtime Cadu indisponível")
+        return jsonify(error="O agente desta conversa está temporariamente indisponível. Tente novamente em instantes."), 503
     current_app.logger.exception("Falha na API Cadu Conversations V2")
     return jsonify(error="Não foi possível concluir a operação."), 503
 

@@ -845,11 +845,64 @@ def test_cancelled_v2_stream_does_not_persist_late_provider_answer(monkeypatch):
         "provider_payload": {},
     }
 
-    output = "".join(v2_service.stream(run))
+    app = Flask(__name__)
+    with app.app_context():
+        output = "".join(v2_service.stream(run))
 
     assert '"status": "cancelled"' in output
     assert "answer.completed" not in output
     assert not any("INSERT INTO cadu_conversation_messages" in sql for sql in connection.statements)
+
+
+def test_failed_v2_stream_emits_only_one_terminal_event(monkeypatch):
+    class Cursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def execute(self, *_):
+            pass
+
+    class Connection:
+        def cursor(self):
+            return Cursor()
+
+        def commit(self):
+            pass
+
+        def rollback(self):
+            pass
+
+    def fail_provider(*_):
+        raise v2_service.provider.ProviderUnavailable("provider offline")
+        yield
+
+    monkeypatch.setattr(v2_service.provider, "events", fail_provider)
+    monkeypatch.setattr(v2_service.repository, "rows", lambda *_: [{"status": "running"}])
+    monkeypatch.setattr(v2_service.repository, "get_db", lambda: Connection())
+    monkeypatch.setattr(v2_service.journal, "record", lambda _run, kind, payload, **_: {"event": kind, **payload})
+    monkeypatch.setattr(v2_service.journal, "complete_step", lambda *_: None)
+    monkeypatch.setattr(v2_service.journal, "waiting_actions", lambda *_: [])
+    run = {
+        "run_id": "be777b36-a973-419c-802a-886bf1d125b0",
+        "conversation_id": "conversation",
+        "context": context(),
+        "route": {"artifact_type": None},
+        "policy": {"max_questions": 1, "max_next_steps": 1, "artifact_in_chat": False},
+        "resolved_context": SimpleNamespace(tool_calls=[]),
+        "provider_payload": {},
+        "execution_mode": "analysis",
+    }
+
+    app = Flask(__name__)
+    with app.app_context():
+        output = "".join(v2_service.stream(run))
+
+    assert output.count('"event": "run.failed"') == 1
+    assert '"event": "run.completed"' not in output
+    assert '"code": "provider_failed"' in output
 
 
 def test_provider_registry_selects_three_runtimes_and_supports_safe_rollout_fallback():
@@ -874,5 +927,10 @@ def test_provider_registry_selects_three_runtimes_and_supports_safe_rollout_fall
         _, headers = provider.settings("fast")
         assert headers["Authorization"] == "Bearer fallback-key"
         app.config["CADU_DIFY_FAST_URL"] = "https://incomplete.example/v1"
+        partial_fallback = provider.runtime_for("fast")
+        assert partial_fallback["url"] == "https://legacy-v2.example/v1"
+        assert partial_fallback["source"] == "legacy"
+        app.config["CADU_CONVERSATIONS_V2_DIFY_URL"] = ""
+        app.config["CADU_CONVERSATIONS_V2_DIFY_KEY"] = ""
         with pytest.raises(provider.ProviderUnavailable):
             provider.runtime_for("fast")

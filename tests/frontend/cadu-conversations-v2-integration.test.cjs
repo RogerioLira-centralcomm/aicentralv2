@@ -66,6 +66,9 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(app, /ConfirmDialog/);
   assert.match(app, /beforeunload/);
   assert.match(app, /streamEvents/);
+  assert.match(app, /let runStarted = false/);
+  assert.match(app, /if \(runStarted\)/);
+  assert.match(app, /event\.message \|\| 'O agente não conseguiu concluir/);
   assert.match(app, /expected_version/);
   assert.match(app, /\/versions\/\$\{version\}/);
   assert.match(artifact, /resource\.editor_url/);

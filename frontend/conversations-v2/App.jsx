@@ -212,6 +212,7 @@ export default function App({bootstrap}) {
     setTitle(current => current === emptyTitle ? clean.slice(0, 62) : current);
     setInput(''); setAttachments([]); setRuntime('Trabalhando');
     let terminal = false;
+    let runStarted = false;
     let latestArtifact = null;
     const startedAt = Date.now();
     try {
@@ -227,6 +228,7 @@ export default function App({bootstrap}) {
       await streamEvents(response, event => {
         const kind = event.event;
         if (kind === 'run.started') {
+          runStarted = true;
           setConversationId(event.conversation_id); conversationRef.current = event.conversation_id;
           runRef.current = event.run_id; runStartedRef.current = Date.now();
           trace('Execução iniciada', event.run_id);
@@ -248,7 +250,7 @@ export default function App({bootstrap}) {
           trace('Resposta concluída', responseData.confidence || '');
         } else if (kind === 'run.failed') {
           terminal = true; setRuntime('Não foi possível concluir'); trace('Execução interrompida', event.message || '', 'error');
-          setMessages(items => [...items, {id: uid(), turnId, role: 'assistant', response: {answer: 'Não consegui concluir esta solicitação. Você pode tentar novamente pelo campo abaixo.'}}]);
+          setMessages(items => [...items, {id: uid(), turnId, role: 'assistant', response: {answer: event.message || 'O agente não conseguiu concluir esta solicitação. Tente novamente em instantes.'}}]);
           setInput(clean);
         } else if (kind === 'run.cancelled' || (kind === 'run.completed' && event.status === 'cancelled')) {
           terminal = true; setRuntime('Interrompido'); trace('Execução interrompida');
@@ -258,13 +260,19 @@ export default function App({bootstrap}) {
       });
       if (!terminal) throw new Error('A conexão terminou antes da conclusão.');
     } catch (error) {
-      setRuntime('Não foi possível concluir'); trace('Falha na conversa', error.message, 'error');
-      setMessages(items => [...items, {id: uid(), turnId, role: 'assistant', response: {answer: 'Não consegui concluir esta solicitação. Você pode tentar novamente pelo campo abaixo.'}}]);
+      const detail = String(error?.message || '').trim();
+      const answer = detail && !/^HTTP\s+\d+/i.test(detail)
+        ? detail
+        : 'O agente desta conversa está temporariamente indisponível. Tente novamente em instantes.';
+      setRuntime('Não foi possível concluir'); trace('Falha na conversa', detail, 'error');
+      setMessages(items => [...items, {id: uid(), turnId, role: 'assistant', response: {answer}}]);
       setInput(clean);
     } finally {
-      const seconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
-      const worked = {id: uid(), turnId, role: 'assistant', kind: 'worked', seconds};
-      setMessages(items => insertWorkedBeforeResult(items, turnId, worked));
+      if (runStarted) {
+        const seconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+        const worked = {id: uid(), turnId, role: 'assistant', kind: 'worked', seconds};
+        setMessages(items => insertWorkedBeforeResult(items, turnId, worked));
+      }
       setRunning(false); runRef.current = null; await loadRecent();
     }
   }, [input, running, artifactDirty, confirmDiscard, attachments, fetchArtifact, trace, bootstrap.endpoints.messages, loadRecent]);

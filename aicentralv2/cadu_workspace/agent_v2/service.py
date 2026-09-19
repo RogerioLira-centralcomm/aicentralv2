@@ -298,6 +298,7 @@ def stream(run):
     first_token_ms = None
     answer_chunks, usage, provider_id, task_id = [], {}, None, None
     state, assistant_id = "failed", None
+    terminal_message = None
     _journal(run["run_id"], "run.started", {"conversation_id": run["conversation_id"],
              "execution_mode": execution_mode})
     yield _event("run.started", run_id=run["run_id"], conversation_id=run["conversation_id"], execution_mode=execution_mode)
@@ -431,8 +432,7 @@ def stream(run):
         else:
             current_app.logger.exception("Falha no runtime Cadu Conversations V2; run=%s", run["run_id"])
             _complete_step(run["run_id"], "generate", error_code="provider_failed")
-            _journal(run["run_id"], "run.failed", {"code": "provider_failed"}, item_type="error")
-            yield _event("run.failed", message="A execução foi interrompida. Tente novamente.")
+            terminal_message = "A execução foi interrompida. Tente novamente."
     finally:
         total_duration_ms = round((perf_counter() - run_started) * 1000)
         provider_duration_ms = round((perf_counter() - provider_started) * 1000) if provider_started else None
@@ -453,6 +453,15 @@ def stream(run):
             conn.rollback()
             current_app.logger.exception("Falha ao finalizar run V2 %s", run["run_id"])
     terminal_event = "run.completed" if state == "completed" else "run.cancelled" if state == "cancelled" else "run.failed"
-    _journal(run["run_id"], terminal_event, {"status": state, "conversation_id": run["conversation_id"],
-             "message_id": assistant_id, "total_duration_ms": round((perf_counter() - run_started) * 1000)})
-    yield _event("run.completed", status=state, conversation_id=run["conversation_id"], message_id=assistant_id)
+    terminal_payload = {
+        "status": state,
+        "conversation_id": run["conversation_id"],
+        "message_id": assistant_id,
+        "total_duration_ms": round((perf_counter() - run_started) * 1000),
+    }
+    if terminal_message:
+        terminal_payload["message"] = terminal_message
+        terminal_payload["code"] = "provider_failed"
+    _journal(run["run_id"], terminal_event, terminal_payload,
+             item_type="error" if state == "failed" else "activity")
+    yield _event(terminal_event, **terminal_payload)

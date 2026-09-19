@@ -1,8 +1,4 @@
-"""Separate Dify adapter for Conversations V2.
-
-The legacy Dify app and credentials remain untouched.  V2 fails closed until
-its own URL and key are configured, which makes parallel rollout reversible.
-"""
+"""Dify adapter for Conversations V2 with a reversible runtime rollout."""
 
 import json
 from urllib.parse import urlparse
@@ -27,15 +23,26 @@ def _configuration(execution_mode="analysis") -> dict:
     runtime_id, url_key, secret_key = RUNTIMES[mode]
     specific_url = str(current_app.config.get(url_key) or "").rstrip("/")
     specific_key = str(current_app.config.get(secret_key) or "")
-    if bool(specific_url) != bool(specific_key):
+    legacy_url = str(current_app.config.get("CADU_CONVERSATIONS_V2_DIFY_URL") or "").rstrip("/")
+    legacy_key = str(current_app.config.get("CADU_CONVERSATIONS_V2_DIFY_KEY") or "")
+    specific_complete = bool(specific_url) and bool(specific_key)
+    specific_partial = bool(specific_url) != bool(specific_key)
+    legacy_complete = bool(legacy_url) and bool(legacy_key)
+    if specific_partial and not legacy_complete:
         raise ProviderUnavailable(f"A configuração do runtime {runtime_id} está incompleta.")
-    url = specific_url or str(current_app.config.get("CADU_CONVERSATIONS_V2_DIFY_URL") or "").rstrip("/")
-    key = specific_key or str(current_app.config.get("CADU_CONVERSATIONS_V2_DIFY_KEY") or "")
+    if specific_partial:
+        current_app.logger.warning(
+            "Configuração parcial do runtime %s; usando o runtime legado do Conversations V2.",
+            runtime_id,
+        )
+    url = specific_url if specific_complete else legacy_url
+    key = specific_key if specific_complete else legacy_key
+    source = "mode-specific" if specific_complete else "legacy"
     parsed = urlparse(url)
     if not key or parsed.scheme != "https" or not parsed.hostname:
         raise ProviderUnavailable(f"O runtime {runtime_id} ainda não foi configurado.")
-    return {"id": runtime_id, "mode": mode, "url": url, "key": key,
-            "transport": "chat-messages", "config_version": "2026-09-19"}
+    return {"id": runtime_id, "mode": mode, "url": url, "key": key, "source": source,
+            "transport": "chat-messages", "config_version": "2026-09-19.2"}
 
 
 def runtime_for(execution_mode="analysis") -> dict:

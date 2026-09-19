@@ -117,6 +117,22 @@ def create(payload, text_callable):
 def clean_context(raw, count):
     data = raw if isinstance(raw, dict) else {}
     references = [clean_direction_reference(item, index) for index, item in enumerate(data.get("references", [])[:2]) if isinstance(item, dict)]
+    raw_brand = data.get("brand_context") if isinstance(data.get("brand_context"), dict) else {}
+    brand_context = {
+        "name": text(raw_brand.get("name"), 120),
+        "logo_url": text(raw_brand.get("logo_url"), 500),
+        "palette": [text(item, 16) for item in raw_brand.get("palette", [])[:8]],
+        "fonts": [text(item.get("family") if isinstance(item, dict) else item, 80) for item in raw_brand.get("fonts", [])[:4]],
+        "brand_summary": text(raw_brand.get("brand_summary"), 500),
+        "products_services": [text(item, 120) for item in raw_brand.get("products_services", [])[:8]],
+        "mandatory_elements": [text(item, 160) for item in raw_brand.get("mandatory_elements", [])[:8]],
+        "forbidden_elements": [text(item, 160) for item in raw_brand.get("forbidden_elements", [])[:8]],
+        "creative_guidelines": text(raw_brand.get("creative_guidelines"), 700),
+        "assets": {
+            "logo": [text(item, 500) for item in (raw_brand.get("assets") or {}).get("logo", [])[:3]],
+            "references": [text(item, 500) for item in (raw_brand.get("assets") or {}).get("references", [])[:8]],
+        },
+    }
     return {key: text(data.get(key), limit) for key, limit in (("project_name", 120), ("brand", 120), ("brief", 1800), ("objective", 300), ("audience", 300), ("purpose", 24), ("format", 24))} | {
         "channels": [text(item, 24) for item in data.get("channels", []) if text(item, 24)][:5],
         "iab_formats": [text(item, 32) for item in data.get("formats", []) if text(item, 32)][:6],
@@ -129,6 +145,7 @@ def clean_context(raw, count):
         "generation_round": max(0, integer(data.get("generation_round"), 0)),
         "references": references,
         "reference_mode": "visual_references_selected" if references else "briefing_only",
+        "brand_context": brand_context if brand_context.get("name") else {},
     }
 
 
@@ -161,6 +178,7 @@ Responda somente JSON no formato {{\"directions\":[{{\"title\":\"...\",\"summary
 REVISÃO DO BRIEFING: antes de escrever cada prompt, harmonize o pedido do usuário com o contexto do Studio. Preserve a intenção, produto, público, cenário, ação, texto literal e restrições explícitas. Corrija apenas ambiguidades, contradições, ordem e instruções técnicas; não troque o produto, não remova requisitos concretos e não invente benefícios, ofertas ou identidade visual.
 ORDEM OBRIGATÓRIA DO PROMPT FINAL: escreva um único prompt contínuo, nesta sequência: (1) objetivo e tipo de peça; (2) produto/assunto principal e o que precisa estar visível; (3) público, pessoas e ação; (4) cenário, praça ou contexto cultural brasileiro, momento e atmosfera; (5) composição, enquadramento, hierarquia, posição dos elementos e área segura; (6) como cada referência selecionada deve orientar a peça; (7) iluminação, materiais e paleta; (8) canal e formato controlados pelo Studio; (9) texto literal solicitado e posição reservada; (10) restrições e checagens finais. Não comece pelo formato nem pelas referências: eles orientam a execução, mas não substituem a ideia do usuário.
 FORMATO É CONTROLADO PELO STUDIO: o campo contexto.format, contexto.format_key, contexto.width e contexto.height é a fonte de verdade do output selecionado na interface. Se o texto do pedido mencionar outra dimensão ou proporção, trate isso apenas como descrição do pedido e ignore a dimensão conflitante. Nunca escreva 300x300, 1080x1080 ou outra medida no prompt final quando o formato selecionado for diferente. Sempre repita o formato controlado pelo contexto no prompt final.
+MARCA E PROJETO: quando contexto.brand_context existir, use-o como fonte de verdade para nome, logo, paleta, tipografia, ativos, elementos obrigatórios e elementos proibidos. Ativos de marca podem ser aplicados na peça; referências de composição continuam sendo apenas guias de posição e hierarquia.
 
 REFERÊNCIAS — trate cada item do contexto como contrato, nunca como decoração. Itens com source="global" são referências protegidas do Studio: use-os apenas para similaridade visual — linguagem, enquadramento, ritmo, paleta, atmosfera e composição — sem copiar o template, sem alterar o arquivo e sem colocá-lo na biblioteca do usuário. Itens com source="user" ou source="project" são referências de produção: aplique na imagem criada o conteúdo visual útil, como produto, pessoa, embalagem, identidade, textura, cenário ou objeto, preservando os detalhes relevantes quando a intenção indicar. Não confunda uma referência global de similaridade com uma imagem-base do usuário. Quando reference_mode="briefing_only", não mencione referências visuais, não invente uma referência_plan e crie uma direção original baseada somente no briefing, canal e formato. O prompt final deve mencionar como cada referência será usada somente quando houver referência selecionada e respeitar o role declarado.
 

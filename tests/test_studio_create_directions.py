@@ -102,6 +102,9 @@ def test_direction_context_preserves_reference_roles_without_embedding_data_urls
     assert "FORMATO É CONTROLADO PELO STUDIO" in studio_create.system_prompt(1)
     assert "ORDEM OBRIGATÓRIA DO PROMPT FINAL" in studio_create.system_prompt(1)
     assert "REVISÃO DO BRIEFING" in studio_create.system_prompt(1)
+    cleaned = studio_create.clean_context({"brand_context": {"name": "Reserva", "palette": ["#6b21a8"], "assets": {"logo": ["/logo.svg"]}}}, 1)
+    assert cleaned["brand_context"]["name"] == "Reserva"
+    assert cleaned["brand_context"]["assets"]["logo"] == ["/logo.svg"]
 
 
 def image_data(color, size=(4, 4), mask_box=None):

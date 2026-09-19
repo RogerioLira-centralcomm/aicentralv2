@@ -498,3 +498,4 @@ body.portal--studio:has(.studio-v2) > .cadu-family-footer { display:none!importa
 .studio-v2 #libraryItem.is-expanded>i:last-child{transform:rotate(90deg)}
 .studio-v2 .studio-rail.is-references-collapsed .library-content{display:none!important}
 .studio-v2 #backToDirection,.studio-v2 .result-discard{display:none!important}
+.studio-v2 .rail-project-context{padding:0 14px 14px}.studio-v2 .rail-project-context label{display:grid;gap:6px}.studio-v2 .rail-project-context label>span{font-size:10px;font-weight:700;color:#93a5b6;text-transform:uppercase;letter-spacing:.04em}.studio-v2 .rail-project-context select{width:100%;min-height:36px;padding:0 30px 0 10px;border:1px solid rgba(119,151,180,.28);border-radius:8px;background:#162532;color:#eef4f8;font:inherit;font-size:12px;white-space:nowrap;text-overflow:ellipsis}

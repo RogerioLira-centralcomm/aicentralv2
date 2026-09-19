@@ -6,7 +6,7 @@
 <meta name="trocr-csrf-token" content="{{ mc_trocr_csrf|default('') }}">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-navigation.css') }}?v=13">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-create-v2.css') }}?v=34">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-create-v2.css') }}?v=35">
 {% endblock %}
 {% block content %}
 <main class="studio-v2" id="studioV2" data-state="draft"
@@ -20,6 +20,7 @@
   <div class="studio-v2__body">
     <aside class="studio-rail" id="referenceRail" aria-label="Referências">
       <header class="panel-heading"><div><span class="eyebrow">Material de apoio</span><h2><i class="fa-regular fa-images" aria-hidden="true"></i> Referências</h2></div><button class="icon-button rail-close" type="button" aria-label="Recolher referências"><i class="fa-solid fa-chevron-left"></i></button></header>
+      <div class="rail-project-context"><label for="studioSidebarProject"><span>Projeto e marca</span><select id="studioSidebarProject" aria-label="Selecionar projeto e marca"><option value="">Carregando projetos…</option></select></label></div>
       <div class="reference-content" id="referenceContent"><div class="reference-grid" id="referenceGrid" aria-label="Referências globais e selecionadas"><div class="shelf-empty">Carregando referências…</div></div><span id="referenceCount" hidden>0</span></div>
       <div class="library-content" id="libraryContent" hidden><div class="reference-grid" id="libraryGrid" aria-label="Imagens da sua biblioteca"><div class="shelf-empty">Nenhuma imagem criada ou enviada neste contexto.</div></div></div>
       <div class="rail-section"><button class="rail-item" id="libraryItem" type="button" aria-expanded="false" aria-controls="libraryContent"><i class="fa-regular fa-folder-open"></i><span><strong>Biblioteca</strong><small id="libraryScope">Carregando contexto…</small></span><i class="fa-solid fa-chevron-right"></i></button><button class="rail-item" id="historyItem" type="button"><i class="fa-regular fa-clock"></i><span><strong>Histórico</strong><small id="historyScope">Carregando criações…</small></span><i class="fa-solid fa-chevron-right"></i></button></div>
@@ -75,4 +76,4 @@
   </dialog>
 </main>
 {% endblock %}
-{% block portal_scripts %}<script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script><script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=8" defer></script><script src="{{ url_for('static', filename='js/cadu-studio-create-v2.js') }}?v=33" defer></script>{% endblock %}
+{% block portal_scripts %}<script src="{{ url_for('static', filename='js/mc-desk-brand.js') }}?v=1" defer></script><script src="{{ url_for('static', filename='js/mc-cadu-nav.js') }}?v=9" defer></script><script src="{{ url_for('static', filename='js/cadu-studio-create-v2.js') }}?v=33" defer></script>{% endblock %}

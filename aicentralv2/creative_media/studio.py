@@ -318,6 +318,12 @@ def studio_create_directions():
         project_id = str(data.get('project_id') or '')
         if not project_id and not quick_mode:
             raise ValueError('Selecione um projeto antes de gerar direções.')
+        if not quick_mode:
+            from ..creative_format_lab.brand_context import build_brand_context
+            project_context = data.get('context') if isinstance(data.get('context'), dict) else {}
+            project_context['brand_context'] = build_brand_context(modeling.get_client(client_id))
+            project_context['project_id'] = project_id
+            data['context'] = project_context
         # The balance gate occurs before the provider receives the request.
         studio_create.assert_available(client_id, user_id, count)
         history = _creation_history()
@@ -615,17 +621,28 @@ def studio_project_contexts():
         account_id = 0
     if not account_id:
         return jsonify({'success': False, 'error': 'Não foi possível identificar a sua conta.'}), 400
-    items = [
-        {
-            'id': str(project['id']),
-            'name': str(project.get('nome') or 'Projeto sem nome'),
-            'brief': str(project.get('descricao') or project.get('instrucoes') or ''),
-            'client_id': str(project['client_id']),
-            'brand_name': str(project.get('brand_name') or 'Marca vinculada'),
-            'brand_count': int(project.get('brand_count') or 1),
-        }
-        for project in linked_project_contexts(account_id)
-    ]
+    from psycopg.types.json import Json
+    from ..db import get_db
+    modeling = _http()[3]()
+    items = []
+    db = get_db()
+    with db.cursor() as cursor:
+        for project in linked_project_contexts(account_id):
+            external_id = str(project['id'])
+            client_id = int(project['client_id'])
+            cursor.execute("SELECT id::text AS id FROM cx_studio_projects WHERE client_id=%s AND document->>'external_project_id'=%s LIMIT 1", (client_id, external_id))
+            row = cursor.fetchone()
+            studio_id = str(row['id']) if row else str(uuid.uuid4())
+            if not row:
+                cursor.execute("INSERT INTO cx_studio_projects (id, client_id, name, revision, document) VALUES (%s,%s,%s,1,%s)", (studio_id, client_id, str(project.get('nome') or 'Projeto sem nome')[:120], Json({'external_project_id': external_id, 'brief': str(project.get('descricao') or project.get('instrucoes') or ''), 'brand_name': str(project.get('brand_name') or '')})))
+            brand_context = {}
+            try:
+                from ..creative_format_lab.brand_context import build_brand_context
+                brand_context = build_brand_context(modeling.get_client(client_id))
+            except Exception:
+                logger.exception('Studio project brand context unavailable for %s', external_id)
+            items.append({'id': studio_id, 'external_project_id': external_id, 'name': str(project.get('nome') or 'Projeto sem nome'), 'brief': str(project.get('descricao') or project.get('instrucoes') or ''), 'client_id': str(client_id), 'brand_name': str(project.get('brand_name') or brand_context.get('name') or 'Marca vinculada'), 'brand_count': int(project.get('brand_count') or 1), 'brand_context': brand_context})
+    db.commit()
     return jsonify({'success': True, 'data': {'items': items}})
 
 
@@ -660,7 +677,7 @@ def studio_project(ident):
 
 @studio_or_admin_required_api
 def studio_project_creation_history(ident):
-    execute, _, ok, _ = _http()
+    execute, _, ok, service = _http()
     def run():
         try:
             uuid.UUID(ident)
@@ -672,6 +689,19 @@ def studio_project_creation_history(ident):
         if not history:
             return ok({'runs': [], 'items': [], 'reference_masks': _studio_reference_masks()})
         result = history.history(ident, client_id, request.args.get('limit', 30))
+        try:
+            from ..creative_format_lab.brand_context import build_brand_context
+            brand = build_brand_context(service().get_client(client_id))
+            assets = brand.get('assets') if isinstance(brand, dict) else {}
+            brand_items = []
+            for role, urls in (('logo', assets.get('logo', [])), ('reference', assets.get('references', []))):
+                for index, asset_url in enumerate(urls or []):
+                    if asset_url:
+                        brand_items.append({'id': f'brand:{role}:{index}', 'kind': 'reference', 'title': f'{brand.get("name") or "Marca"} · {role}', 'asset_url': asset_url, 'source_type': 'brand_asset', 'metadata': {'role': role, 'brand_name': brand.get('name', '')}})
+            result['items'] = brand_items + result.get('items', [])
+            result['brand_context'] = brand
+        except Exception:
+            logger.exception('Studio project brand assets unavailable for %s', ident)
         result['reference_masks'] = _studio_reference_masks()
         return ok(result)
     return execute(run)

@@ -1,6 +1,8 @@
 # Playbook — servidores MCP do Cadu
 
 Documentação navegável da versão inicial: [`cadu-mcp-v1.html`](./cadu-mcp-v1.html).
+Arquitetura do agente e fronteira entre Harness, tools, skills e MCP:
+[`cadu-agent-architecture.md`](./cadu-agent-architecture.md).
 
 Este documento é a referência para criar os próximos servidores MCP sem
 duplicar autorização, regras de tenant ou consultas de produto.

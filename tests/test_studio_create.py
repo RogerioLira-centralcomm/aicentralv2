@@ -32,8 +32,26 @@ def test_create_screen_exposes_unified_visual_workspace():
     assert 'id="creationProgressTitle"' in html
     assert 'id="composerFeedback"' in html
     assert 'id="resultsView"' in html
-    assert 'href="/static/css/cadu-studio-create-v2.css?v=29"' in html
-    assert 'src="/static/js/cadu-studio-create-v2.js?v=28"' in html
+    assert 'href="/static/css/cadu-studio-create-v2.css?v=30"' in html
+    assert 'src="/static/js/cadu-studio-create-v2.js?v=29"' in html
+
+
+def test_create_v2_keeps_manual_review_and_progress_recoverable():
+    root = Path(__file__).resolve().parents[1]
+    template = (root / "aicentralv2" / "templates" / "cadu_studio" / "create.html").read_text(encoding="utf-8")
+    source = (root / "aicentralv2" / "static" / "js" / "cadu-studio-create-v2.js").read_text(encoding="utf-8")
+    styles = (root / "aicentralv2" / "static" / "css" / "cadu-studio-create-v2.css").read_text(encoding="utf-8")
+
+    assert "Supermercados BH" not in template
+    assert 'id="directionEditText"' in template
+    assert "seedDirectionEditor(direction)" in source
+    assert "approveDirectionSilently" not in source
+    assert "returnToComposerAfterDiscard" in source
+    assert "state.direction = null" in source
+    assert "Finalizando a direção criativa." in source
+    assert "window.clearInterval(generationTimer)" in source
+    assert "max-height:none" in styles
+    assert ".review-loading.creation-progress>.creation-progress__track" in styles
 
 
 def test_create_frontend_connects_persistent_session_lifecycle():

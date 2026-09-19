@@ -11,6 +11,8 @@ Entrega aplicada:
   modo de recuperação quando esses dados existem;
 - o formato antigo de fontes continua compatível com históricos já gravados.
 - reprocessamento de notas e arquivos pode usar fila durável com retry/backoff;
+- novas notas e uploads usam a mesma fila durável quando
+  `CADU_PROJECT_INDEX_ASYNC_ENABLED` está ativo, retornando `202` com o job;
 - o worker `project-index-worker-once` foi registrado para processamento
   supervisionado;
 - a fila é opcional até a migration `add_cadu_project_index_jobs.sql` ser
@@ -158,8 +160,9 @@ contrato completo de conteúdo. Por exemplo:
   no carregamento;
 - as relações automáticas existentes ainda são poucas, como duplicidade por
   hash e relação genérica entre report e media plan;
-- a extração é assíncrona para URL, mas o upload de texto/arquivo ainda faz a
-  extração e os embeddings dentro da requisição;
+- a extração de URL continua em fluxo assíncrono legado enquanto a migração de
+  jobs de indexação não cobre essa entrada; notas e uploads já não fazem os
+  embeddings dentro da requisição quando a fila está ativa;
 - imagens, planilhas, apresentações, áudio e vídeo ainda não possuem uma
   pipeline multimodal comum de indexação.
 

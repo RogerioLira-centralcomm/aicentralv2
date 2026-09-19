@@ -109,6 +109,61 @@ def persist_indexed_source(
     return file_id
 
 
+def persist_pending_source(
+    cursor, *,
+    project_id: str,
+    client_id: int,
+    user_id: int | None,
+    name: str,
+    mime: str,
+    size: int,
+    storage_path: str,
+    content: str,
+    classification: dict | None = None,
+    metadata: dict | None = None,
+) -> int:
+    """Register a source before embedding so a worker can finish it later."""
+    classification = classification or {
+        "category": "other",
+        "status": "needs_review",
+        "confidence": 0.25,
+        "reason": "Aguardando classificação contextual.",
+    }
+    source_metadata = dict(metadata or {})
+    source_sha256 = source_metadata.pop("sha256", None)
+    file_metadata = {
+        "classifier": "workspace-v1",
+        "content_inspected": True,
+        **source_metadata,
+        "sha256": sha256(str(content).encode("utf-8")).hexdigest(),
+    }
+    if source_sha256:
+        file_metadata["source_sha256"] = str(source_sha256)
+    cursor.execute(
+        """INSERT INTO cadu_ci_projeto_arquivos
+               (projeto_id, id_cliente, criado_por, nome_arquivo, mime, tamanho,
+                storage_path, extracted_text, doc_form, indexing_status, word_count, tokens,
+                purpose, category, classification_status, classification_confidence,
+                classification_reason, classification_metadata, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'text_model', 'queued', 0, 0,
+                'knowledge_source', %s, %s, %s, %s, %s, %s::jsonb, NOW(), NOW())
+         RETURNING id""",
+        (project_id, client_id, user_id, name, mime, size, storage_path, content,
+         classification.get("category") or "other",
+         classification.get("status") or "needs_review",
+         float(classification.get("confidence") or 0), classification.get("reason") or "",
+         json.dumps(file_metadata, ensure_ascii=False)),
+    )
+    file_id = int(cursor.fetchone()["id"])
+    cursor.execute(
+        """UPDATE cadu_ci_projetos
+              SET total_arquivos=COALESCE(total_arquivos, 0) + 1, updated_at=NOW()
+            WHERE id=%s AND id_cliente=%s""",
+        (project_id, client_id),
+    )
+    return file_id
+
+
 def project_resource_id(client_id: int, project_ref: str, source_id: str) -> str:
     """Return the registry ID used for a source before reconciliation."""
     from .project_resource_service import resource_id_for_source

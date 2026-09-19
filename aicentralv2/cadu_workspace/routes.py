@@ -1532,6 +1532,75 @@ def _persist_project_source(client_id: int, project_id: str, title: str, content
         raise
 
 
+def _try_queue_project_source(client_id: int, project_id: str, title: str, content: str,
+                              mime: str, size: int, storage_path: str, source: str,
+                              user_id: Optional[int] = None) -> Optional[dict]:
+    """Register a source and enqueue embedding when the durable queue is available.
+
+    The queue migration is additive, so local/test environments may still need the
+    original synchronous path. A pending source is committed before enqueueing
+    because the job has a foreign key to it; if the queue table is not installed,
+    the provisional row is removed and callers can safely fall back to sync.
+    """
+    if not current_app.config.get('CADU_PROJECT_INDEX_ASYNC_ENABLED', False):
+        return None
+
+    effective_user_id = user_id if user_id is not None else session.get('user_id')
+    connection = get_db()
+    source_id = None
+    try:
+        with connection.cursor() as cursor:
+            source_id = project_index_service.persist_pending_source(
+                cursor, project_id=project_id, client_id=client_id,
+                user_id=effective_user_id, name=title, mime=mime, size=size,
+                storage_path=storage_path, content=content,
+                metadata={'source': source},
+            )
+        connection.commit()
+
+        from .project_index_jobs import enqueue
+        job_id = enqueue(client_id, project_id, source_id, int(effective_user_id or 0))
+        if job_id:
+            return {'source_id': int(source_id), 'job_id': str(job_id)}
+
+        _remove_pending_project_source(client_id, project_id, int(source_id))
+        return None
+    except Exception:
+        connection.rollback()
+        if source_id is not None:
+            try:
+                _remove_pending_project_source(client_id, project_id, int(source_id))
+            except Exception:
+                current_app.logger.exception('Não foi possível limpar fonte pendente %s', source_id)
+        raise
+
+
+def _remove_pending_project_source(client_id: int, project_id: str, source_id: int) -> None:
+    """Remove a provisional source created when the durable queue is unavailable."""
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """DELETE FROM cadu_ci_projeto_arquivos
+                    WHERE id=%s AND projeto_id=%s AND id_cliente=%s
+                    RETURNING id""",
+                (source_id, project_id, client_id),
+            )
+            removed = cursor.fetchone()
+            if removed:
+                cursor.execute(
+                    """UPDATE cadu_ci_projetos
+                          SET total_arquivos=GREATEST(COALESCE(total_arquivos, 0)-1, 0),
+                              updated_at=NOW()
+                        WHERE id=%s AND id_cliente=%s""",
+                    (project_id, client_id),
+                )
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+
+
 def _queue_project_url_source(client_id: int, project_id: str, user_id: int, url: str) -> int:
     """Persist the pending URL before starting network work.
 
@@ -2536,10 +2605,19 @@ def create_project_note(project_id):
         abort(400, description='A nota precisa ter ao menos 20 caracteres de contexto.')
     if not _chunk_project_note(content):
         abort(400, description='A nota não contém texto que possa ser indexado.')
+    storage_path = f'workspace://project-notes/{uuid4()}'
     try:
+        queued = _try_queue_project_source(
+            client_id, project_id, title, content, 'text/markdown',
+            len(content.encode('utf-8')), storage_path, 'workspace_note',
+        )
+        if queued:
+            if request.accept_mimetypes.best == 'application/json':
+                return jsonify({'ok': True, **queued, 'status': 'queued'}), 202
+            return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
         _persist_project_source(
             client_id, project_id, title, content, 'text/markdown',
-            len(content.encode('utf-8')), f'workspace://project-notes/{uuid4()}', 'workspace_note',
+            len(content.encode('utf-8')), storage_path, 'workspace_note',
         )
     except CaduCreditUnavailable as exc:
         abort(409, description=str(exc))
@@ -2567,6 +2645,14 @@ def upload_project_source(project_id):
     target.write_bytes(source['data'])
     storage_path = target.relative_to(Path(_workspace_source_root())).as_posix()
     try:
+        queued = _try_queue_project_source(
+            client_id, project_id, source['name'], source['text'], source['mime'],
+            len(source['data']), storage_path, 'workspace_upload',
+        )
+        if queued:
+            if request.accept_mimetypes.best == 'application/json':
+                return jsonify({'ok': True, **queued, 'status': 'queued'}), 202
+            return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
         _persist_project_source(
             client_id, project_id, source['name'], source['text'], source['mime'],
             len(source['data']), storage_path, 'workspace_upload',

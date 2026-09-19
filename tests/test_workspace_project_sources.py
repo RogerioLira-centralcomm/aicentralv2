@@ -103,6 +103,83 @@ class WorkspaceProjectSourcesTest(TestCase):
             self.assertEqual(args[0:4], (12, 'p-1', 'contexto.txt', 'Contexto aprovado para orientar todo o projeto.'))
             self.assertTrue((Path(folder) / args[6]).is_file())
 
+    def test_note_uses_durable_index_queue_when_enabled(self):
+        app = _app()
+        app.config['CADU_PROJECT_INDEX_ASYNC_ENABLED'] = True
+        with mock.patch('aicentralv2.cadu_workspace.routes._editable_workspace_project', return_value={'id': 'p-1'}), \
+             mock.patch('aicentralv2.cadu_workspace.routes._persist_project_source') as persist, \
+             mock.patch('aicentralv2.cadu_workspace.routes.project_index_service.persist_pending_source', return_value=41), \
+             mock.patch('aicentralv2.cadu_workspace.routes.get_db') as get_db, \
+             mock.patch('aicentralv2.cadu_workspace.project_index_jobs.enqueue', return_value='job-1') as enqueue:
+            connection = mock.MagicMock()
+            get_db.return_value = connection
+            client = app.test_client()
+            with client.session_transaction() as session:
+                session.update(user_id=7, cliente_id=12, family_csrf='known-token')
+            response = client.post('/workspace/app/projetos/p-1/fontes/notas', data={
+                '_csrf': 'known-token',
+                'title': 'Diretriz aprovada',
+                'content': 'Contexto aprovado para orientar todo o projeto e a equipe.',
+            }, headers={'Accept': 'application/json'})
+
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(response.get_json(), {
+            'ok': True, 'source_id': 41, 'job_id': 'job-1', 'status': 'queued',
+        })
+        persist.assert_not_called()
+        enqueue.assert_called_once_with(12, 'p-1', 41, 7)
+        connection.commit.assert_called_once_with()
+
+    def test_upload_uses_durable_index_queue_when_enabled(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            app = _app(folder)
+            app.config['CADU_PROJECT_INDEX_ASYNC_ENABLED'] = True
+            with mock.patch('aicentralv2.cadu_workspace.routes._editable_workspace_project', return_value={'id': 'p-1'}), \
+                 mock.patch('aicentralv2.cadu_workspace.routes._persist_project_source') as persist, \
+                 mock.patch('aicentralv2.cadu_workspace.routes.project_index_service.persist_pending_source', return_value=42), \
+                 mock.patch('aicentralv2.cadu_workspace.routes.get_db') as get_db, \
+                 mock.patch('aicentralv2.cadu_workspace.project_index_jobs.enqueue', return_value='job-2') as enqueue:
+                connection = mock.MagicMock()
+                get_db.return_value = connection
+                client = app.test_client()
+                with client.session_transaction() as session:
+                    session.update(user_id=7, cliente_id=12, family_csrf='known-token')
+                response = client.post('/workspace/app/projetos/p-1/fontes/arquivos', data={
+                    '_csrf': 'known-token',
+                    'file': (BytesIO(b'Contexto aprovado para orientar todo o projeto.'), 'contexto.txt'),
+                }, headers={'Accept': 'application/json'})
+
+            self.assertEqual(response.status_code, 202)
+            self.assertEqual(response.get_json()['job_id'], 'job-2')
+            persist.assert_not_called()
+            enqueue.assert_called_once_with(12, 'p-1', 42, 7)
+            pending_path = Path(folder) / 'workspace_project_sources' / '12' / 'p-1'
+            self.assertTrue(any(pending_path.glob('*.txt')))
+
+    def test_note_falls_back_to_sync_when_queue_migration_is_missing(self):
+        app = _app()
+        app.config['CADU_PROJECT_INDEX_ASYNC_ENABLED'] = True
+        with mock.patch('aicentralv2.cadu_workspace.routes._editable_workspace_project', return_value={'id': 'p-1'}), \
+             mock.patch('aicentralv2.cadu_workspace.routes._persist_project_source', return_value=43) as persist, \
+             mock.patch('aicentralv2.cadu_workspace.routes.project_index_service.persist_pending_source', return_value=43), \
+             mock.patch('aicentralv2.cadu_workspace.routes.get_db') as get_db, \
+             mock.patch('aicentralv2.cadu_workspace.project_index_jobs.enqueue', return_value=None), \
+             mock.patch('aicentralv2.cadu_workspace.routes._remove_pending_project_source') as remove_pending:
+            get_db.return_value = mock.MagicMock()
+            client = app.test_client()
+            with client.session_transaction() as session:
+                session.update(user_id=7, cliente_id=12, family_csrf='known-token')
+            response = client.post('/workspace/app/projetos/p-1/fontes/notas', data={
+                '_csrf': 'known-token',
+                'title': 'Diretriz legada',
+                'content': 'Contexto aprovado para orientar o fallback síncrono.',
+            })
+
+        self.assertEqual(response.status_code, 303)
+        persist.assert_called_once()
+        remove_pending.assert_called_once_with(12, 'p-1', 43)
+
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_project')
     def test_status_projection_does_not_expose_private_paths(self, project):
         project.return_value = {'id': 'p-1', 'files': [{

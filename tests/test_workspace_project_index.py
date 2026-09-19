@@ -53,6 +53,23 @@ class WorkspaceProjectIndexTest(TestCase):
         self.assertNotEqual(metadata["sha256"], "raw-upload-hash")
         self.assertEqual(metadata["source_sha256"], "raw-upload-hash")
 
+    def test_pending_source_is_registered_without_chunks(self):
+        cursor = MagicMock()
+        cursor.fetchone.return_value = {"id": 9}
+
+        source_id = project_index_service.persist_pending_source(
+            cursor, project_id="project-1", client_id=12, user_id=7,
+            name="brief.md", mime="text/markdown", size=19,
+            storage_path="workspace_project_sources/12/project-1/brief.md",
+            content="Contexto pendente para indexação.", metadata={"source": "workspace_upload"},
+        )
+
+        self.assertEqual(source_id, 9)
+        source_sql = [call for call in cursor.execute.call_args_list
+                      if "INSERT INTO cadu_ci_projeto_arquivos" in call.args[0]][0]
+        self.assertIn("'queued'", source_sql.args[0])
+        self.assertIn('"source": "workspace_upload"', source_sql.args[1][-1])
+
     @patch("aicentralv2.cadu_workspace.project_index_jobs.get_db")
     def test_enqueue_updates_source_in_same_transaction(self, get_db):
         connection = MagicMock()

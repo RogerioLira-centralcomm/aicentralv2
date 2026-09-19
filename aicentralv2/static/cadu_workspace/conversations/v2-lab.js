@@ -7,6 +7,10 @@
   const form = root.querySelector('[data-form]');
   const input = root.querySelector('[data-message]');
   const send = root.querySelector('[data-send]');
+  const stop = root.querySelector('[data-stop]');
+  const attach = root.querySelector('[data-attach]');
+  const fileInput = root.querySelector('[data-file-input]');
+  const attachmentsNode = root.querySelector('[data-attachments]');
   const thread = root.querySelector('[data-thread]');
   const trace = root.querySelector('[data-trace]');
   const runtime = root.querySelector('[data-runtime-state]');
@@ -23,15 +27,23 @@
   const artifactSavebar = root.querySelector('[data-artifact-savebar]');
   const artifactStatus = root.querySelector('[data-artifact-status]');
   const artifactSave = root.querySelector('[data-artifact-save]');
+  const artifactVersions = root.querySelector('[data-artifact-versions]');
+  const unsavedDialog = root.querySelector('[data-unsaved-dialog]');
+  const versionsDialog = root.querySelector('[data-versions-dialog]');
+  const versionsList = root.querySelector('[data-versions-list]');
   const workspaceRecent = document.getElementById('workspace-sidebar-recent-conversations');
 
   let conversationId = null;
   let currentRunId = null;
   let currentArtifact = null;
+  let latestRunArtifact = null;
   let artifactRenderer = 'document';
+  let artifactDirty = false;
   let running = false;
   let runStartedAt = 0;
   let selectedContext = {};
+  let attachments = [];
+  let attachmentsBusy = false;
 
   const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -61,7 +73,73 @@
   const autoGrow = () => {
     input.style.height = 'auto';
     input.style.height = `${Math.min(input.scrollHeight, 150)}px`;
-    send.disabled = running || !input.value.trim();
+    send.disabled = running || attachmentsBusy || !input.value.trim();
+  };
+
+  const renderAttachments = () => {
+    attachmentsNode.replaceChildren();
+    attachmentsNode.hidden = !attachments.length;
+    attachments.forEach((item, index) => {
+      const row = document.createElement('div');
+      const label = document.createElement('span');
+      const remove = document.createElement('button');
+      row.className = `v2-lab-attachment${item.error ? ' is-error' : ''}`;
+      label.textContent = item.error ? `${item.name} · falhou` : item.uploading ? `${item.name} · enviando` : item.name;
+      remove.type = 'button';
+      remove.textContent = '×';
+      remove.disabled = item.uploading;
+      remove.setAttribute('aria-label', `Remover ${item.name}`);
+      remove.addEventListener('click', () => {
+        attachments.splice(index, 1);
+        renderAttachments();
+        autoGrow();
+      });
+      row.append(label, remove);
+      attachmentsNode.append(row);
+    });
+  };
+
+  const stageAttachment = file => {
+    if (attachments.length >= 3) {
+      addTrace('Limite de anexos', 'Envie no máximo três arquivos.', 'is-error');
+      return;
+    }
+    if (!file.size || file.size > 15 * 1024 * 1024 || !/\.(png|jpe?g|webp|gif|pdf|txt|csv|md|json|docx|xlsx|pptx)$/i.test(file.name)) {
+      addTrace('Arquivo não aceito', 'Use imagem, PDF, texto ou Office de até 15 MB.', 'is-error');
+      return;
+    }
+    attachments.push({name: file.name, file, id: null, error: false, uploading: false});
+    renderAttachments();
+    autoGrow();
+  };
+
+  const uploadPendingAttachments = async () => {
+    attachmentsBusy = true;
+    autoGrow();
+    for (const item of attachments) {
+      if (item.id) continue;
+      item.error = false;
+      item.uploading = true;
+      renderAttachments();
+      const body = new FormData();
+      body.append('file', item.file);
+      try {
+        const response = await fetch('/workspace/api/v2/uploads', {
+          method: 'POST', credentials: 'same-origin', headers: {'X-CSRF-Token': csrf()}, body
+        });
+        const data = await json(response);
+        if (!response.ok || !data.file?.id) throw new Error(data.error || 'Não foi possível anexar o arquivo.');
+        item.id = data.file.id;
+      } catch (error) {
+        item.error = true;
+        throw error;
+      } finally {
+        item.uploading = false;
+        renderAttachments();
+      }
+    }
+    attachmentsBusy = false;
+    autoGrow();
   };
 
   const addTrace = (title, detail = '', tone = '') => {
@@ -72,13 +150,19 @@
     trace.append(row);
   };
 
-  const addUser = message => {
+  const addUser = (message, files = []) => {
     thread.querySelector('.v2-lab-empty')?.remove();
     const node = document.createElement('article');
     const content = document.createElement('p');
     node.className = 'v2-lab-message is-user';
     content.textContent = message;
     node.append(content);
+    if (Array.isArray(files) && files.length) {
+      const fileList = document.createElement('small');
+      fileList.className = 'v2-message-files';
+      fileList.textContent = files.map(file => file.name || 'Arquivo').join(', ');
+      node.append(fileList);
+    }
     thread.append(node);
     scrollThread();
   };
@@ -102,13 +186,101 @@
     media_plan: 'Plano de mídia',
     scenario: 'Cenário',
     research: 'Pesquisa',
-    project_map: 'Mapa do projeto'
+    project_map: 'Mapa do projeto',
+    html: 'Página interativa'
   })[type] || 'Artefato';
+
+  const htmlPreviewDocument = content => {
+    const css = String(content.css || '').replace(/<\/style/gi, '<\\/style');
+    const javascript = String(content.js || '').replace(/<\/script/gi, '<\\/script');
+    return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: blob: https:; style-src 'unsafe-inline'; font-src data: https:; script-src 'unsafe-inline'; connect-src 'none'; media-src data: blob: https:; form-action 'none'; base-uri 'none'"><style>html,body{margin:0;min-height:100%;background:#fff}${css}</style></head><body>${String(content.html || '')}<script>${javascript}<\/script></body></html>`;
+  };
 
   const markArtifactDirty = () => {
     if (!currentArtifact?.id) return;
+    artifactDirty = true;
     artifactStatus.textContent = 'Alterações não salvas';
     artifactSavebar.hidden = false;
+  };
+
+  const confirmDiscard = async () => {
+    if (!artifactDirty) return true;
+    if (!unsavedDialog?.showModal) {
+      return window.confirm('O artefato tem alterações não salvas. Deseja descartá-las?');
+    }
+    return new Promise(resolve => {
+      const finish = () => resolve(unsavedDialog.returnValue === 'discard');
+      unsavedDialog.addEventListener('close', finish, {once: true});
+      unsavedDialog.showModal();
+    });
+  };
+
+  const fetchArtifact = async artifactId => {
+    const data = await request(`/workspace/api/v2/artifacts/${encodeURIComponent(artifactId)}`, {
+      headers: {'Accept': 'application/json'}
+    });
+    return data.artifact;
+  };
+
+  const loadVersions = async () => {
+    if (!currentArtifact?.id || !versionsDialog) return;
+    versionsList.innerHTML = '<p>Carregando versões…</p>';
+    versionsDialog.showModal();
+    try {
+      const data = await request(`/workspace/api/v2/artifacts/${encodeURIComponent(currentArtifact.id)}/versions`, {
+        headers: {'Accept': 'application/json'}
+      });
+      versionsList.replaceChildren();
+      (data.versions || []).forEach(item => {
+        const row = document.createElement('article');
+        const copy = document.createElement('div');
+        const title = document.createElement('strong');
+        const detail = document.createElement('small');
+        const restore = document.createElement('button');
+        title.textContent = `Versão ${item.version}`;
+        detail.textContent = item.change_summary || 'Revisão do artefato';
+        restore.type = 'button';
+        restore.textContent = Number(item.version) === Number(currentArtifact.current_version) ? 'Atual' : 'Restaurar';
+        restore.disabled = Number(item.version) === Number(currentArtifact.current_version);
+        restore.addEventListener('click', async () => {
+          if (artifactDirty) {
+            versionsDialog.close();
+            if (!(await confirmDiscard())) {
+              versionsDialog.showModal();
+              return;
+            }
+          }
+          restore.disabled = true;
+          restore.textContent = 'Restaurando…';
+          try {
+            const versionData = await request(`/workspace/api/v2/artifacts/${encodeURIComponent(currentArtifact.id)}/versions/${item.version}`);
+            const restored = await request(`/workspace/api/v2/artifacts/${encodeURIComponent(currentArtifact.id)}`, {
+              method: 'PATCH',
+              headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
+              body: JSON.stringify({
+                conversation_id: conversationId,
+                expected_version: currentArtifact.current_version,
+                content: versionData.version.content,
+                title: currentArtifact.title,
+                change_summary: `Versão ${item.version} restaurada`
+              })
+            });
+            showArtifact(restored.artifact);
+            versionsDialog.close();
+          } catch (error) {
+            restore.disabled = false;
+            restore.textContent = 'Tentar novamente';
+            addTrace('Falha ao restaurar versão', error.message, 'is-error');
+          }
+        });
+        copy.append(title, detail);
+        row.append(copy, restore);
+        versionsList.append(row);
+      });
+      if (!versionsList.childElementCount) versionsList.innerHTML = '<p>Nenhuma versão disponível.</p>';
+    } catch (error) {
+      versionsList.innerHTML = `<p>${escape(error.message)}</p>`;
+    }
   };
 
   const resourceTypeLabel = type => ({
@@ -152,7 +324,7 @@
       ['Estado', resource.status || 'Ativo'],
       ['Categoria', resource.category || 'Outro'],
       ['Versão', String(resource.version || 1)],
-      ['Origem', resource.source_system || 'Projeto']
+      ['Origem', resource.provider || resource.source_system || 'Projeto']
     ];
     values.forEach(([label, value]) => {
       const wrapper = document.createElement('div');
@@ -186,19 +358,57 @@
       warning.textContent = 'Pode ser uma versão duplicada de outro arquivo.';
       inspector.append(warning);
     }
-    if (resource.url) {
+    const resourceActions = document.createElement('div');
+    resourceActions.className = 'v2-map-resource-actions';
+    const addResourceLink = (url, label, external = false) => {
       const link = document.createElement('a');
-      link.href = resource.url;
-      link.target = '_blank';
-      link.rel = 'noopener';
-      link.textContent = 'Abrir origem';
-      inspector.append(link);
+      link.href = url;
+      link.textContent = label;
+      if (external) {
+        link.target = '_blank';
+        link.rel = 'noopener';
+      }
+      resourceActions.append(link);
+    };
+    if (resource.editor_url) addResourceLink(resource.editor_url, 'Editar documento');
+    if (resource.download_url) addResourceLink(resource.download_url, 'Baixar original');
+    if (resource.url) addResourceLink(resource.url, resource.provider ? `Abrir no ${resource.provider}` : 'Abrir origem', true);
+    if (resource.editable_copy_url) {
+      const convert = document.createElement('button');
+      convert.type = 'button';
+      convert.textContent = 'Criar versão editável';
+      convert.addEventListener('click', async () => {
+        convert.disabled = true;
+        convert.textContent = 'Criando…';
+        try {
+          const data = await request(resource.editable_copy_url, {
+            method: 'POST', headers: {'X-CSRF-Token': csrf()}
+          });
+          window.location.assign(data.document.editor_url);
+        } catch (error) {
+          convert.disabled = false;
+          convert.textContent = 'Tentar novamente';
+          addTrace('Conversão indisponível', error.message, 'is-error');
+        }
+      });
+      resourceActions.append(convert);
+    }
+    if (resourceActions.childElementCount) inspector.append(resourceActions);
+
+    if (!resource.editor_url) {
+      const support = document.createElement('p');
+      support.className = 'v2-map-resource-support';
+      support.textContent = resource.download_url
+        ? 'O original será preservado; a edição acontece em uma nova versão.'
+        : 'Este recurso está disponível para consulta, sem edição direta neste formato.';
+      inspector.append(support);
     }
     map?.append(inspector);
   };
 
   const renderProjectMap = content => {
     artifactRenderer = 'project-map';
+    artifactContent.classList.remove('is-html-preview');
     artifactContent.classList.add('is-project-map');
     artifactContent.replaceChildren();
     const map = document.createElement('section');
@@ -219,7 +429,7 @@
     currentArtifact.content = {...currentArtifact.content, ...content};
 
     const sceneWidth = Math.max(820, ...content.groups.map(group => Number(group.x || 0) + Number(group.width || 310) + 80));
-    const sceneHeight = Math.max(680, ...content.groups.map(group => Number(group.y || 0) + 310));
+    const sceneHeight = Math.max(680, ...content.groups.map(group => Number(group.y || 0) + Number(group.height || 310) + 80));
     scene.style.width = `${sceneWidth}px`;
     scene.style.height = `${sceneHeight}px`;
     connections.setAttribute('viewBox', `0 0 ${sceneWidth} ${sceneHeight}`);
@@ -262,6 +472,7 @@
       panel.style.left = `${Number(group.x || 0)}px`;
       panel.style.top = `${Number(group.y || 0)}px`;
       panel.style.width = `${Number(group.width || 310)}px`;
+      panel.style.height = `${Number(group.height || 310)}px`;
       header.tabIndex = 0;
       header.setAttribute('aria-label', `${group.title}. Use as setas para mover o grupo.`);
       heading.textContent = group.title;
@@ -380,6 +591,12 @@
     renderRelations();
     viewport.append(scene);
     map.append(viewport, controls);
+    if (content.truncated) {
+      const limit = document.createElement('p');
+      limit.className = 'v2-project-map-limit';
+      limit.textContent = `${content.visible_resources || content.resources.length} de ${content.total_resources || content.resources.length} recursos exibidos`;
+      map.append(limit);
+    }
     artifactContent.append(map);
     applyZoom(content.layout.zoom);
   };
@@ -388,7 +605,10 @@
     if (!value || typeof value !== 'object') return;
 
     const persisted = value.id && value.content ? value : null;
-    if (persisted) currentArtifact = persisted;
+    if (persisted) {
+      currentArtifact = persisted;
+      artifactDirty = false;
+    }
     const content = persisted?.content || value;
     if (!persisted && currentArtifact?.id) {
       currentArtifact = {...currentArtifact, content: {...currentArtifact.content, ...content}};
@@ -398,7 +618,24 @@
 
     artifactTitle.textContent = persisted?.title || content.title || currentArtifact?.title || 'Trabalho em andamento';
     artifactKind.textContent = artifactLabel(type);
+    artifactVersions.hidden = !currentArtifact?.id;
+    artifactVersions.textContent = `v${currentArtifact?.current_version || 1}`;
     artifactContent.replaceChildren();
+
+    if (type === 'html') {
+      artifactRenderer = 'html';
+      artifactContent.classList.remove('is-project-map');
+      artifactContent.classList.add('is-html-preview');
+      const frame = document.createElement('iframe');
+      frame.title = artifactTitle.textContent;
+      frame.sandbox = 'allow-scripts';
+      frame.referrerPolicy = 'no-referrer';
+      frame.srcdoc = htmlPreviewDocument(content);
+      artifactContent.append(frame);
+      artifactSavebar.hidden = true;
+      openArtifact();
+      return;
+    }
 
     if (type === 'project_map' && Array.isArray(currentArtifact?.content?.groups)) {
       renderProjectMap(currentArtifact.content);
@@ -408,7 +645,7 @@
     }
 
     artifactRenderer = 'document';
-    artifactContent.classList.remove('is-project-map');
+    artifactContent.classList.remove('is-project-map', 'is-html-preview');
 
     const article = document.createElement('article');
     const summary = document.createElement('textarea');
@@ -445,7 +682,29 @@
     openArtifact();
   };
 
-  const addAnswer = response => {
+  const appendArtifactLink = (node, artifact) => {
+    const artifactId = artifact?.id;
+    if (!artifactId) return;
+    const artifactLink = document.createElement('button');
+    artifactLink.type = 'button';
+    artifactLink.className = 'v2-artifact-link';
+    artifactLink.textContent = `Abrir ${artifact?.title || artifactLabel(artifact?.type).toLowerCase()}`;
+    artifactLink.addEventListener('click', async () => {
+      try {
+        if (currentArtifact?.id === artifactId) {
+          openArtifact();
+          return;
+        }
+        if (!(await confirmDiscard())) return;
+        showArtifact(await fetchArtifact(artifactId));
+      } catch (error) {
+        addTrace('Artefato indisponível', error.message, 'is-error');
+      }
+    });
+    node.append(artifactLink);
+  };
+
+  const addAnswer = (response, artifact = null) => {
     const node = document.createElement('article');
     node.className = 'v2-lab-message is-cadu';
 
@@ -495,15 +754,10 @@
       node.append(controls);
     }
 
-    if (response.artifact_patch) {
+    if (response.artifact_patch && !artifact?.id) {
       showArtifact(response.artifact_patch);
-      const artifactLink = document.createElement('button');
-      artifactLink.type = 'button';
-      artifactLink.className = 'v2-artifact-link';
-      artifactLink.textContent = `Abrir ${artifactTitle.textContent}`;
-      artifactLink.addEventListener('click', openArtifact);
-      node.append(artifactLink);
     }
+    appendArtifactLink(node, artifact);
 
     thread.append(node);
     scrollThread();
@@ -568,6 +822,8 @@
       conversationId = event.conversation_id;
       currentRunId = event.run_id;
       runStartedAt = Date.now();
+      latestRunArtifact = null;
+      stop.hidden = false;
       addTrace('Execução iniciada', event.run_id, 'is-ok');
     } else if (kind === 'route.selected') {
       addTrace('Rota selecionada', `${event.route?.domain || ''} / ${event.route?.action || ''}`, 'is-ok');
@@ -580,9 +836,10 @@
       addTrace('Confirmação solicitada', event.action?.name || '', 'is-ok');
     } else if (kind === 'artifact.created') {
       addTrace('Artefato criado', event.artifact?.id || '', 'is-ok');
+      latestRunArtifact = event.artifact || null;
       showArtifact(event.artifact);
     } else if (kind === 'answer.completed') {
-      addAnswer(event.response || {});
+      addAnswer(event.response || {}, latestRunArtifact);
       addTrace('Resposta concluída', event.response?.confidence || '', 'is-ok');
     } else if (kind === 'run.failed') {
       addTrace('Execução interrompida', event.message || '', 'is-error');
@@ -643,6 +900,11 @@
   };
 
   const selectProject = async () => {
+    const previousProject = selectedContext.project_ref || '';
+    if (running || !(await confirmDiscard())) {
+      project.value = previousProject;
+      return;
+    }
     project.disabled = true;
     projectState.textContent = 'Atualizando contexto…';
     try {
@@ -652,7 +914,7 @@
         body: JSON.stringify({project_ref: project.value || null, brand_ref: selectedContext.brand_ref || null})
       });
       selectedContext = data.context || {};
-      conversationId = null;
+      resetConversation();
       const label = project.value ? project.options[project.selectedIndex].text : 'Contexto pessoal';
       projectState.textContent = project.value ? `Usando ${label}` : 'Nenhum projeto selecionado';
       setProjectLabel(label);
@@ -669,21 +931,28 @@
     conversationId = null;
     currentRunId = null;
     currentArtifact = null;
+    latestRunArtifact = null;
+    artifactDirty = false;
     runStartedAt = 0;
     conversationTitle.textContent = 'Nova conversa';
     trace.innerHTML = '<p>Nenhuma execução iniciada.</p>';
     thread.innerHTML = '<div class="v2-lab-empty"><span class="v2-lab-mark" aria-hidden="true">C</span><h2>Em que vamos trabalhar?</h2><p>Converse, analise arquivos ou crie algo usando o contexto do projeto.</p><div class="v2-lab-starters" aria-label="Sugestões"><button type="button" data-prompt="Estruture um briefing para esta campanha e destaque somente o que ainda precisa ser decidido.">Criar um briefing</button><button type="button" data-prompt="Pesquise nos documentos do projeto o que já definimos sobre orçamento e prazo.">Pesquisar no projeto</button><button type="button" data-prompt="Compare as opções disponíveis e recomende a melhor com uma justificativa curta.">Comparar opções</button></div></div>';
     artifactContent.innerHTML = '<p>O resultado aparecerá aqui.</p>';
+    artifactContent.classList.remove('is-project-map', 'is-html-preview');
+    artifactVersions.hidden = true;
     artifactSavebar.hidden = true;
     closeArtifact();
     setRuntime('Pronto');
     workspaceRecent?.querySelectorAll('[aria-current="page"]').forEach(item => item.removeAttribute('aria-current'));
     input.value = '';
+    attachments = [];
+    attachmentsBusy = false;
+    renderAttachments();
     autoGrow();
   };
 
   const openConversation = async (id, title) => {
-    if (running) return;
+    if (running || !(await confirmDiscard())) return;
     setRuntime('Abrindo conversa');
     try {
       const data = await request(`${root.dataset.historyEndpoint}/${encodeURIComponent(id)}/messages`, {
@@ -691,13 +960,35 @@
       });
       conversationId = id;
       currentArtifact = null;
+      latestRunArtifact = null;
+      artifactDirty = false;
+      artifactSavebar.hidden = true;
+      closeArtifact();
       conversationTitle.textContent = title || 'Conversa';
       thread.replaceChildren();
+      let lastArtifactId = null;
       (data.messages || []).forEach(message => {
-        if (message.role === 'user') addUser(message.content || '');
-        else addAnswer({answer: message.content || '', assumptions: [], questions: [], actions: []});
+        if (message.role === 'user') addUser(message.content || '', message.files || []);
+        else {
+          const metadata = message.metadata && typeof message.metadata === 'object' ? message.metadata : {};
+          const response = metadata.response && typeof metadata.response === 'object'
+            ? {...metadata.response, answer: metadata.response.answer || message.content || ''}
+            : {answer: message.content || '', assumptions: [], questions: [], actions: []};
+          const artifactId = metadata.artifact_id ? String(metadata.artifact_id) : '';
+          const artifact = artifactId ? {
+            id: artifactId,
+            title: response.artifact_patch?.title || 'artefato',
+            type: response.artifact_patch?.type
+          } : null;
+          addAnswer(response, artifact);
+          if (artifactId) lastArtifactId = artifactId;
+        }
       });
       if (!thread.childElementCount) resetConversation();
+      if (lastArtifactId) {
+        try { showArtifact(await fetchArtifact(lastArtifactId)); }
+        catch (error) { addTrace('Artefato indisponível', error.message, 'is-error'); }
+      }
       workspaceRecent?.querySelectorAll('button[data-conversation-id]').forEach(button => {
         if (button.dataset.conversationId === id) button.setAttribute('aria-current', 'page');
         else button.removeAttribute('aria-current');
@@ -736,11 +1027,36 @@
 
   const submit = async message => {
     if (running || !message.trim()) return;
+    if (artifactDirty) {
+      if (!(await confirmDiscard())) return;
+      try { showArtifact(await fetchArtifact(currentArtifact.id)); }
+      catch (error) {
+        addTrace('Não foi possível restaurar o artefato', error.message, 'is-error');
+        return;
+      }
+    }
     const cleanMessage = message.trim();
+    latestRunArtifact = null;
     running = true;
     send.disabled = true;
+    send.hidden = true;
+    setRuntime(attachments.length ? 'Enviando arquivos' : 'Trabalhando', true);
+    if (attachments.length) {
+      try { await uploadPendingAttachments(); }
+      catch (error) {
+        attachmentsBusy = false;
+        running = false;
+        send.hidden = false;
+        stop.hidden = true;
+        setRuntime('Não foi possível anexar');
+        addTrace('Falha no anexo', error.message, 'is-error');
+        autoGrow();
+        return;
+      }
+    }
+    const sentAttachments = attachments.map(item => ({id: item.id, name: item.name}));
     setRuntime('Trabalhando', true);
-    addUser(cleanMessage);
+    addUser(cleanMessage, sentAttachments);
     if (!conversationId) conversationTitle.textContent = cleanMessage.slice(0, 62);
     input.value = '';
     autoGrow();
@@ -753,15 +1069,23 @@
           message: cleanMessage,
           request_id: crypto.randomUUID(),
           conversation_id: conversationId,
-          surface: surface.value
+          surface: surface.value,
+          files: sentAttachments.map(item => item.id),
+          active_object: currentArtifact?.id ? {type: 'artifact', id: currentArtifact.id} : null
         })
       });
+      if (response.ok) {
+        attachments = [];
+        renderAttachments();
+      }
       await parseStream(response);
     } catch (error) {
       addTrace('Falha na conversa', error.message, 'is-error');
       setRuntime('Não foi possível concluir');
     } finally {
       running = false;
+      send.hidden = false;
+      stop.hidden = true;
       root.classList.remove('is-running');
       autoGrow();
       input.focus();
@@ -794,6 +1118,7 @@
         })
       });
       currentArtifact = data.artifact;
+      artifactDirty = false;
       artifactStatus.textContent = `Salvo · versão ${currentArtifact.current_version}`;
       artifactSave.textContent = 'Salvo';
       window.setTimeout(() => { artifactSavebar.hidden = true; artifactSave.textContent = 'Salvar'; }, 1100);
@@ -823,8 +1148,33 @@
     }
   });
 
-  root.querySelector('[data-reset]').addEventListener('click', resetConversation);
+  root.querySelector('[data-reset]').addEventListener('click', async () => {
+    if (!running && await confirmDiscard()) resetConversation();
+  });
   root.querySelector('[data-artifact-close]').addEventListener('click', closeArtifact);
+  artifactVersions.addEventListener('click', loadVersions);
+  root.querySelector('[data-versions-close]').addEventListener('click', () => versionsDialog.close());
+  attach.addEventListener('click', () => fileInput.click());
+  stop.addEventListener('click', async () => {
+    if (!running || !currentRunId) return;
+    stop.disabled = true;
+    setRuntime('Interrompendo', true);
+    try {
+      await request(`/workspace/api/v2/runs/${encodeURIComponent(currentRunId)}/stop`, {
+        method: 'POST', headers: {'X-CSRF-Token': csrf()}
+      });
+      setRuntime('Interrompido');
+    } catch (error) {
+      setRuntime('Não foi possível interromper');
+      addTrace('Falha ao interromper', error.message, 'is-error');
+    } finally {
+      stop.disabled = false;
+    }
+  });
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files?.[0]) stageAttachment(fileInput.files[0]);
+    fileInput.value = '';
+  });
   project.addEventListener('change', selectProject);
   form.addEventListener('submit', event => { event.preventDefault(); submit(input.value); });
   input.addEventListener('input', autoGrow);
@@ -837,6 +1187,12 @@
 
   document.addEventListener('click', event => {
     if (diagnostics.open && !diagnostics.contains(event.target)) diagnostics.open = false;
+  });
+
+  window.addEventListener('beforeunload', event => {
+    if (!artifactDirty && !attachments.length) return;
+    event.preventDefault();
+    event.returnValue = '';
   });
 
   autoGrow();

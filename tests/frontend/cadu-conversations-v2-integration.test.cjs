@@ -49,3 +49,21 @@ test('v2 attachments require an explicit project usage choice', () => {
   assert.match(attachments, /projects\.prepare_source_upload/);
   assert.match(attachments, /use_as_knowledge/);
 });
+
+test('conversations 2.0 restores artifacts and protects unsaved work', () => {
+  const lab = fs.readFileSync(path.join(root, 'aicentralv2/static/cadu_workspace/conversations/v2-lab.js'), 'utf8');
+  const template = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/conversations_v2_lab.html'), 'utf8');
+  assert.match(lab, /metadata\.artifact_id/);
+  assert.match(lab, /fetchArtifact\(lastArtifactId\)/);
+  assert.match(lab, /confirmDiscard/);
+  assert.match(lab, /beforeunload/);
+  assert.match(lab, /resource\.editor_url/);
+  assert.match(lab, /resource\.download_url/);
+  assert.match(lab, /sandbox = 'allow-scripts'/);
+  assert.match(lab, /Content-Security-Policy/);
+  assert.match(lab, /\/versions\/\$\{item\.version\}/);
+  assert.match(lab, /workspace\/api\/v2\/uploads/);
+  assert.match(template, /data-unsaved-dialog/);
+  assert.match(template, /data-versions-dialog/);
+  assert.match(template, /data-file-input/);
+});

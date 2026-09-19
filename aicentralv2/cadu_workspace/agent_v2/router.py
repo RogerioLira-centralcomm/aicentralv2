@@ -46,6 +46,13 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
             or _has(text, r"\b(arquivo|documento|recurso|fonte)s?\b.{0,45}\b(mapa|organiz|agrupe|agrupar|visualiz)")):
         return IntentRoute("workspace", "organize_project_resources", "high", "artifact_first",
                            ("project",), ("projects.list_resources",), "project_map")
+    if _has(text, r"\b(ajust|alter|mude|troque|revis|atualiz).{0,45}\b(html|landing page|p[aá]gina|site|interface)\b"):
+        return IntentRoute("workspace", "update_html", "high", "artifact_first",
+                           ("current_object",), ("artifacts.get",), "html")
+    if (_has(text, r"\b(cri(e|ar)|mont(e|ar)|gere|gerar|prototip).{0,40}\b(html|landing page|p[aá]gina|site|interface)\b")
+            or _has(text, r"\b(html|landing page|p[aá]gina|site)\b.{0,35}\b(cri|mont|ger|prototip)")):
+        return IntentRoute("workspace", "create_html", "high", "artifact_first",
+                           ("project", "brand") if has_project else (), (), "html")
     if _has(text, r"\b(pesquis|busqu|procur|encontr|localiz).{0,30}\b(projeto|arquivo|documento|nota|conte[uú]do)|\bo que (temos|existe|foi definido)\b"):
         return IntentRoute("workspace", "search_project", "medium", "analysis",
                            ("project",), ("workspace.search_project_content",))

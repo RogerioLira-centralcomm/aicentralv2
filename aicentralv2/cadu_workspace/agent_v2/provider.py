@@ -49,6 +49,28 @@ def settings(execution_mode="analysis"):
                             "Accept": "text/event-stream", "Cache-Control": "no-cache"}
 
 
+def upload_file(file, user: str, execution_mode="analysis") -> str:
+    runtime = _configuration(execution_mode)
+    try:
+        file.stream.seek(0)
+        with requests.post(
+            runtime["url"] + "/files/upload",
+            headers={"Authorization": "Bearer " + runtime["key"]},
+            data={"user": user},
+            files={"file": (file.filename, file.stream, file.content_type)},
+            timeout=(10, 90),
+            allow_redirects=False,
+        ) as response:
+            if response.status_code not in {200, 201}:
+                raise ProviderUnavailable("O runtime V2 não aceitou o arquivo.")
+            value = response.json()
+            if not isinstance(value, dict) or not value.get("id"):
+                raise ProviderUnavailable("O runtime V2 não confirmou o arquivo.")
+            return str(value["id"])
+    except (requests.RequestException, ValueError) as exc:
+        raise ProviderUnavailable("Não foi possível enviar o arquivo ao runtime V2.") from exc
+
+
 def events(payload, execution_mode="analysis"):
     url, headers = settings(execution_mode)
     read_timeout = {"fast": 30, "analysis": 120, "agentic": 240}.get(execution_mode, 120)

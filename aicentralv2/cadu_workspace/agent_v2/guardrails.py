@@ -69,11 +69,19 @@ def _clean_patch(value):
             })
         if len(fields) >= 100:
             break
-    return {
+    patch = {
         "title": _clean_text(value.get("title"), 300),
         "summary": _clean_text(value.get("summary"), 2000),
         "fields": fields,
     }
+    if any(key in value for key in ("html", "css", "js")):
+        patch.update({
+            "fields": [],
+            "html": str(value.get("html") or "")[:100_000],
+            "css": str(value.get("css") or "")[:30_000],
+            "js": str(value.get("js") or "")[:40_000],
+        })
+    return patch
 
 
 def normalize_response(raw, policy: dict) -> AgentResponse:

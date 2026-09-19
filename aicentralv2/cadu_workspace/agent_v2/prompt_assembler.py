@@ -54,7 +54,12 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
         "response_policy": json.dumps(policy, ensure_ascii=False, separators=(",", ":")),
         "output_contract": json.dumps({
             "answer": "string", "confidence": "low|medium|high", "assumptions": [],
-            "questions": [], "actions": [], "artifact_patch": None, "citations": [],
+            "questions": [], "actions": [],
+            "artifact_patch": (
+                {"title": "string", "summary": "string", "html": "HTML body fragment", "css": "CSS", "js": "JavaScript"}
+                if route.artifact_type == "html" else None
+            ),
+            "citations": [],
         }, ensure_ascii=False, separators=(",", ":")),
     }
     return {"query": message, "user": user_label, "inputs": inputs, "response_mode": "streaming"}

@@ -3,6 +3,7 @@
 import json
 from dataclasses import asdict
 from time import perf_counter
+from urllib.parse import urlparse
 from uuid import UUID, uuid4
 
 from flask import abort, current_app, has_app_context
@@ -11,13 +12,18 @@ from psycopg.types.json import Json
 from ...cadu_credit_connector import CaduCreditConnector, CreditActor
 from ...cadu_family import repository
 from ...cadu_tool_billing import InsufficientToolCredits
-from ..conversations.guardrails import history_context
-from ..artifacts import create_draft
+from ..conversations.guardrails import history_context, validate_files
+from ..artifacts import create_draft, get_artifact, patch_artifact
 from . import provider
 from .executor import prepare_execution
 from .guardrails import normalize_response
 from .request_context import resolve
 from . import journal
+
+
+PROJECT_MAP_MAX_RESOURCES = 120
+PROJECT_MAP_MAX_RELATIONS = 200
+PROJECT_MAP_GROUP_MAX_HEIGHT = 520
 
 
 def _event(kind, **values):
@@ -78,16 +84,39 @@ def _project_map_content(run: dict, suggested=None) -> dict:
     grouped["other"] = []
     type_group = {resource_type: key for key, _, types in group_specs for resource_type in types}
     safe_resources = []
-    for item in resources if isinstance(resources, list) else []:
+    all_resources = resources if isinstance(resources, list) else []
+    project_ref = str(getattr(run.get("context"), "project_ref", "") or "")
+    project_id = project_ref[3:] if project_ref.startswith("ci:") else ""
+    for item in all_resources[:PROJECT_MAP_MAX_RESOURCES]:
         if not isinstance(item, dict) or not item.get("id"):
             continue
         group_id = type_group.get(str(item.get("resource_type") or ""), "other")
         locator = str(item.get("locator") or "")
+        source_system = str(item.get("source_system") or "")[:120]
+        source_id = str(item.get("source_id") or "")[:220]
+        metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+        provider_name = str(metadata.get("provider") or "")[:80]
+        parsed_locator = urlparse(locator) if locator.startswith("https://") else None
+        hostname = (parsed_locator.hostname or "").lower() if parsed_locator else ""
+        if hostname.endswith("docs.google.com"):
+            provider_name = "Google Sheets" if parsed_locator.path.startswith("/spreadsheets/") else "Google Docs"
+        elif hostname.endswith("drive.google.com"):
+            provider_name = "Google Drive"
+        editor_url = f"/workspace/docs/{source_id}" if source_system == "planner_docs" else ""
+        download_url = ""
+        if source_system == "workspace" and source_id.startswith("file:") and source_id[5:].isdigit() and project_id:
+            download_url = f"/workspace/app/projetos/{project_id}/fontes/{source_id[5:]}/download"
+        editing_mode = (
+            "native" if editor_url else
+            "download" if download_url else
+            "external" if locator.startswith("https://") else
+            "read_only"
+        )
         record = {
-            "id": str(item["id"]),
-            "title": str(item.get("title") or "Arquivo")[:500],
-            "source_system": str(item.get("source_system") or "")[:120],
-            "source_id": str(item.get("source_id") or "")[:220],
+            "id": str(item["id"])[:120],
+            "title": str(item.get("title") or "Arquivo")[:220],
+            "source_system": source_system,
+            "source_id": source_id,
             "type": str(item.get("resource_type") or "file")[:80],
             "mime_type": str(item.get("mime_type") or "")[:160],
             "category": str(item.get("category") or "other")[:120],
@@ -95,23 +124,35 @@ def _project_map_content(run: dict, suggested=None) -> dict:
             "version": max(1, int(item.get("version") or 1)),
             "group_id": group_id,
             "possible_duplicate": bool(item.get("possible_duplicate")),
-            "url": locator[:2000] if locator.startswith(("https://", "http://")) else "",
+            "url": locator[:500] if locator.startswith("https://") else "",
+            "editor_url": editor_url,
+            "download_url": download_url,
+            "editable_copy_url": f"/workspace/api/v2/resources/{str(item['id'])[:120]}/editable-copy" if download_url else "",
+            "editing_mode": editing_mode,
+            "provider": provider_name,
         }
         grouped[group_id].append(record)
         safe_resources.append(record)
     visible_specs = [(key, title) for key, title, _ in group_specs if grouped[key]]
     if grouped["other"]:
         visible_specs.append(("other", "Outros recursos"))
-    for index, (key, title) in enumerate(visible_specs):
-        column = index % 2
-        row = index // 2
-        groups.append({
-            "id": key, "title": title, "x": 48 + column * 360, "y": 48 + row * 330,
-            "width": 310, "resource_ids": [item["id"] for item in grouped[key]],
-        })
+    y = 48
+    for row_start in range(0, len(visible_specs), 2):
+        row_specs = visible_specs[row_start:row_start + 2]
+        row_heights = []
+        for column, (key, title) in enumerate(row_specs):
+            height = min(PROJECT_MAP_GROUP_MAX_HEIGHT, 56 + (len(grouped[key]) * 48))
+            height = max(112, height)
+            row_heights.append(height)
+            groups.append({
+                "id": key, "title": title, "x": 48 + column * 360, "y": y,
+                "width": 310, "height": height,
+                "resource_ids": [item["id"] for item in grouped[key]],
+            })
+        y += max(row_heights, default=112) + 48
     safe_ids = {item["id"] for item in safe_resources}
     safe_relations = []
-    for relation in relations if isinstance(relations, list) else []:
+    for relation in (relations if isinstance(relations, list) else [])[:PROJECT_MAP_MAX_RELATIONS]:
         source = str(relation.get("source_resource_id") or "")
         target = str(relation.get("target_resource_id") or "")
         if source in safe_ids and target in safe_ids:
@@ -120,10 +161,13 @@ def _project_map_content(run: dict, suggested=None) -> dict:
                 "type": str(relation.get("relation_type") or "related")[:80],
                 "confidence": float(relation.get("confidence") or 0),
             })
-    total = len(safe_resources)
+    total = len(all_resources)
+    visible = len(safe_resources)
     return {
         "title": suggested.get("title") or "Mapa do projeto",
         "summary": suggested.get("summary") or (
+            f"{visible} de {total} recurso{'s' if total != 1 else ''} organizado{'s' if visible != 1 else ''} pelo Cadu."
+            if total > visible else
             f"{total} recurso{'s' if total != 1 else ''} organizado{'s' if total != 1 else ''} pelo Cadu."
         ),
         "layout": {"mode": "spatial", "version": 1, "zoom": 1},
@@ -131,6 +175,9 @@ def _project_map_content(run: dict, suggested=None) -> dict:
         "resources": safe_resources,
         "relations": safe_relations,
         "summary_counts": registry.get("summary") if isinstance(registry, dict) else {},
+        "total_resources": total,
+        "visible_resources": visible,
+        "truncated": total > visible,
     }
 
 
@@ -144,6 +191,14 @@ def prepare(data):
     current = resolve(conversation_id=conversation_id,
                       surface=str(data.get("surface") or "conversations"),
                       active_object=data.get("active_object"))
+    file_ids = validate_files(data.get("files"))
+    uploads = repository.rows(
+        """SELECT id, provider_id, kind, name FROM cadu_family_chat_uploads
+             WHERE id::text = ANY(%s) AND user_id = %s AND client_id = %s""",
+        ([str(value) for value in file_ids], current.user_id, current.client_id),
+    ) if file_ids else []
+    if len(uploads) != len(set(str(value) for value in file_ids)):
+        abort(403, description="Um arquivo não pertence a este ambiente ou usuário.")
     try:
         CaduCreditConnector().authorize(
             CreditActor.from_values(current.client_id, current.user_id),
@@ -154,8 +209,15 @@ def prepare(data):
     previous_messages = (repository.conversation_messages(
         current.user_id, current.client_id, conversation_id
     ) if data.get("conversation_id") else []) or []
-    requested_mode = data.get("execution_mode") or data.get("depth") or data.get("mode") or ""
+    requested_mode = "analysis" if uploads else (
+        data.get("execution_mode") or data.get("depth") or data.get("mode") or ""
+    )
     execution = prepare_execution(message, current, history_context(previous_messages), requested_mode)
+    if uploads:
+        execution["provider_payload"]["files"] = [
+            {"type": row["kind"], "transfer_method": "local_file", "upload_file_id": row["provider_id"]}
+            for row in uploads
+        ]
     runtime = provider.runtime_for(execution["execution_mode"])
     conn = repository.get_db()
     try:
@@ -200,8 +262,10 @@ def prepare(data):
                  len(execution["provider_payload"]["inputs"]["evidence"])))
             cur.execute("""INSERT INTO cadu_conversation_messages
                 (id, conversation_id, role, content, files, metadata, created_at)
-                VALUES (%s, %s, 'user', %s, '[]'::jsonb, %s, NOW())""",
-                (str(uuid4()), conversation_id, message, Json({"runtime": "v2"})))
+                VALUES (%s, %s, 'user', %s, %s, %s, NOW())""",
+                (str(uuid4()), conversation_id, message,
+                 Json([{"id": str(row["id"]), "name": row["name"]} for row in uploads]),
+                 Json({"runtime": "v2"})))
             for call in execution["resolved_context"].tool_calls:
                 cur.execute("""INSERT INTO cadu_agent_tool_calls
                     (id, run_id, tool_name, status, input_redacted, output_summary, error_code,
@@ -277,11 +341,26 @@ def stream(run):
                 artifact_content = response.artifact_patch or {}
                 if run["route"]["artifact_type"] == "project_map":
                     artifact_content = _project_map_content(run, response.artifact_patch)
-                artifact = create_draft(
-                    run["context"], run["route"]["artifact_type"], artifact_content,
-                    title=str(artifact_content.get("title") or response.answer)[:120],
-                    conversation_id=run["conversation_id"],
-                )
+                artifact_title = str(artifact_content.get("title") or response.answer)[:120]
+                active = run["context"].active_object
+                if active and active.type == "artifact":
+                    existing_artifact = get_artifact(run["context"], active.id)
+                else:
+                    existing_artifact = None
+                if existing_artifact and existing_artifact.get("type") == run["route"]["artifact_type"]:
+                    artifact = patch_artifact(
+                        run["context"], active.id,
+                        {**(existing_artifact.get("content") or {}), **artifact_content},
+                        expected_version=existing_artifact["current_version"],
+                        title=artifact_title,
+                        change_summary="Revisão pelo Cadu",
+                    )
+                else:
+                    artifact = create_draft(
+                        run["context"], run["route"]["artifact_type"], artifact_content,
+                        title=artifact_title,
+                        conversation_id=run["conversation_id"],
+                    )
                 _complete_step(run["run_id"], "artifact", {"artifact_id": str(artifact["id"])})
                 _journal(run["run_id"], "artifact.created", {"artifact_id": str(artifact["id"]),
                          "type": run["route"]["artifact_type"]}, item_type="artifact")

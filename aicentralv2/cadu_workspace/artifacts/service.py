@@ -12,7 +12,7 @@ from ..agent_v2.contracts import RequestContext
 
 ALLOWED_TYPES = {
     "brief", "document", "note", "executive_summary", "media_plan", "scenario", "research",
-    "project_map",
+    "project_map", "html",
 }
 ALLOWED_STATUS = {"draft", "active", "published", "archived"}
 MAX_CONTENT_BYTES = 256_000
@@ -111,6 +111,22 @@ def list_versions(context: RequestContext, artifact_id: str, *, limit=50) -> lis
                         WHERE v.artifact_id = %s
                      ORDER BY v.version DESC LIMIT %s""", (str(artifact_id), limit))
         return [dict(row) for row in cur.fetchall()]
+
+
+def get_version(context: RequestContext, artifact_id: str, version: int) -> dict:
+    get_artifact(context, artifact_id)
+    try:
+        version = int(version)
+    except (TypeError, ValueError):
+        raise BadRequest("Versão inválida.")
+    with get_db().cursor() as cur:
+        cur.execute("""SELECT v.id, v.version, v.content, v.change_summary, v.created_by, v.created_at
+                         FROM cadu_workspace_artifact_versions v
+                        WHERE v.artifact_id = %s AND v.version = %s""", (str(artifact_id), version))
+        row = cur.fetchone()
+    if not row:
+        raise NotFound("Versão indisponível.")
+    return dict(row)
 
 
 def patch_artifact(context: RequestContext, artifact_id: str, content: dict, *, expected_version: int,

@@ -4,7 +4,7 @@
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace.css') }}?v=3">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-app.css') }}?v=11">
-<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/v2-lab.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/v2-lab.css') }}?v=3">
 {% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
@@ -58,9 +58,12 @@
           </div>
         </div>
         <form class="v2-lab-composer" data-form>
+          <div class="v2-lab-attachments" data-attachments hidden></div>
           <textarea data-message rows="1" maxlength="20000" placeholder="Pergunte ou peça uma alteração…" required aria-label="Mensagem para o Cadu"></textarea>
           <div class="v2-lab-composer-bar">
-            <span data-composer-context>Contexto pessoal</span>
+            <div><button type="button" class="v2-lab-attach" data-attach aria-label="Anexar arquivo" title="Anexar arquivo">+</button><span data-composer-context>Contexto pessoal</span></div>
+            <input type="file" data-file-input hidden accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.txt,.csv,.md,.json,.docx,.xlsx,.pptx">
+            <button type="button" class="v2-lab-stop" data-stop hidden aria-label="Interromper geração" title="Interromper"><span></span></button>
             <button type="submit" data-send aria-label="Enviar mensagem" title="Enviar">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
             </button>
@@ -72,6 +75,7 @@
         <header>
           <div><span data-artifact-kind>Artefato</span><h2 data-artifact-title>Trabalho em andamento</h2></div>
           <div class="v2-lab-artifact-actions">
+            <button type="button" data-artifact-versions hidden aria-label="Ver versões do artefato" title="Histórico de versões">v1</button>
             <button type="button" data-artifact-close aria-label="Fechar artefato" title="Fechar">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
             </button>
@@ -84,7 +88,23 @@
         </div>
       </aside>
     </div>
+    <dialog class="v2-unsaved-dialog" data-unsaved-dialog>
+      <form method="dialog">
+        <h2>Descartar alterações?</h2>
+        <p>O artefato tem mudanças que ainda não foram salvas.</p>
+        <div>
+          <button value="cancel">Continuar editando</button>
+          <button value="discard" class="is-danger">Descartar</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog class="v2-versions-dialog" data-versions-dialog>
+      <section>
+        <header><div><h2>Versões</h2><p>Restaure uma versão anterior como uma nova revisão.</p></div><button type="button" data-versions-close aria-label="Fechar">×</button></header>
+        <div data-versions-list><p>Carregando versões…</p></div>
+      </section>
+    </dialog>
   </main>
 </div>
 {% endblock %}
-{% block portal_scripts %}<script defer src="{{ url_for('static', filename='cadu_workspace/conversations/v2-lab.js') }}?v=2"></script>{% endblock %}
+{% block portal_scripts %}<script defer src="{{ url_for('static', filename='cadu_workspace/conversations/v2-lab.js') }}?v=3"></script>{% endblock %}

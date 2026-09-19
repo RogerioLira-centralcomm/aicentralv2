@@ -21,7 +21,7 @@ def claim(max_attempts=5):
                  SET status='running', attempts=attempts+1, started_at=NOW(), finished_at=NULL,
                      next_attempt_at=NULL, error_message=NULL
                 FROM candidate WHERE job.id=candidate.id
-            RETURNING job.id::text,job.client_id,job.project_ref,job.event_type""", (max_attempts,))
+            RETURNING job.id::text,job.client_id,job.project_ref,job.event_type,job.actor_id""", (max_attempts,))
             row = cursor.fetchone()
         connection.commit()
         return dict(row) if row else None
@@ -36,7 +36,7 @@ def process_one():
         return False
     connection = get_db()
     try:
-        reconcile(job["client_id"], job["project_ref"])
+        reconcile(job["client_id"], job["project_ref"], job.get("actor_id"))
         with connection.cursor() as cursor:
             cursor.execute("""UPDATE cadu_project_resource_jobs
                                   SET status='completed',finished_at=NOW() WHERE id=%s""", (job["id"],))

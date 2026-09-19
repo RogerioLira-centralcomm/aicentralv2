@@ -2,7 +2,7 @@
 
 from io import BytesIO
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 from hashlib import sha256
 import json
 import re
@@ -71,14 +71,20 @@ def _project_id(context: RequestContext) -> str:
     return str(row["id"])
 
 
-def prepare_upload(context: RequestContext, *, use_as_knowledge: bool, category: Optional[str] = None) -> dict:
+def prepare_upload(context: RequestContext, *, request_id: str, use_as_knowledge: bool,
+                   category: Optional[str] = None) -> dict:
     project_id = _project_id(context)
+    try:
+        request_id = str(UUID(str(request_id)))
+    except (TypeError, ValueError) as exc:
+        raise BadRequest("Identificador do upload inválido.") from exc
     category = str(category or "").strip().lower() or None
     if category and category not in CATEGORIES:
         raise BadRequest("Categoria de arquivo inválida.")
     token = _serializer().dumps({
         "organization_id": context.organization_id, "client_id": context.client_id,
         "user_id": context.user_id, "project_id": project_id,
+        "request_id": request_id,
         "use_as_knowledge": bool(use_as_knowledge),
         "category": category,
     })
@@ -173,11 +179,42 @@ def save_upload(context: RequestContext, token: str, file_storage) -> dict:
         raise BadRequest("O projeto selecionado mudou. Solicite uma nova autorização de upload.")
     use_as_knowledge = bool(claims["use_as_knowledge"])
     source = project_sources.validate_upload(file_storage) if use_as_knowledge else _attachment(file_storage)
-    target = project_sources.private_path(_storage_root(), context.client_id, project_id, source["suffix"], uuid4().hex)
-    target.write_bytes(source["data"])
-    storage_path = target.relative_to(Path(_storage_root())).as_posix()
-    connection = get_db()
     try:
+        request_id = str(UUID(str(claims.get("request_id"))))
+    except (TypeError, ValueError) as exc:
+        raise BadRequest("A autorização de upload não possui identificador válido.") from exc
+    content_hash = sha256(source["data"]).hexdigest()
+    connection = get_db()
+    target = None
+    try:
+        with connection.cursor() as cur:
+            cur.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s,0))",
+                        (f"cadu-project-upload:{context.client_id}:{context.user_id}:{request_id}",))
+            cur.execute("""SELECT id,nome_arquivo AS name,mime AS mime_type,tamanho AS size,purpose,category,
+                                  classification_status,classification_confidence,classification_reason,tokens
+                             FROM cadu_ci_projeto_arquivos
+                            WHERE id_cliente=%s AND projeto_id=%s AND criado_por=%s
+                              AND classification_metadata->>'upload_request_id'=%s
+                            ORDER BY id DESC LIMIT 1""",
+                        (context.client_id, project_id, context.user_id, request_id))
+            existing = cur.fetchone()
+        if existing:
+            connection.commit()
+            return {"source_id": int(existing["id"]), "project_ref": context.project_ref,
+                    "name": existing["name"], "mime_type": existing["mime_type"],
+                    "size": int(existing.get("size") or 0),
+                    "use_as_knowledge": existing.get("purpose") == "knowledge_source",
+                    "purpose": existing.get("purpose"), "category": existing.get("category"),
+                    "classification": {"status": existing.get("classification_status"),
+                                       "confidence": float(existing.get("classification_confidence") or 0),
+                                       "reason": existing.get("classification_reason")},
+                    "status": "indexed" if existing.get("purpose") == "knowledge_source" else "attached",
+                    "charged_credits": int(existing.get("tokens") or 0), "idempotent_replay": True}
+        target = project_sources.private_path(
+            _storage_root(), context.client_id, project_id, source["suffix"], uuid4().hex,
+        )
+        target.write_bytes(source["data"])
+        storage_path = target.relative_to(Path(_storage_root())).as_posix()
         chunks, charged_tokens, extracted_text = [], 0, None
         if use_as_knowledge:
             extracted_text = source["text"]
@@ -189,7 +226,7 @@ def save_upload(context: RequestContext, token: str, file_storage) -> dict:
                 charged_tokens = charge_project_rag(
                     cur, client_id=context.client_id, user_id=context.user_id, project_id=project_id,
                     tokens=embedding_tokens, stage="indexacao",
-                    idempotency_key="mcp-project-rag-index:" + uuid4().hex,
+                    idempotency_key="mcp-project-rag-index:" + request_id,
                 )
             cur.execute("""INSERT INTO cadu_ci_projeto_arquivos
                 (projeto_id, id_cliente, criado_por, nome_arquivo, mime, tamanho, storage_path,
@@ -204,7 +241,7 @@ def save_upload(context: RequestContext, token: str, file_storage) -> dict:
                  len(re.findall(r"\b\w+\b", extracted_text or "", flags=re.UNICODE)), charged_tokens,
                  purpose, classification["category"], classification["status"], classification["confidence"],
                  classification["reason"], Json({"classifier": "deterministic-v1", "content_inspected": use_as_knowledge,
-                                                  "sha256": sha256(source["data"]).hexdigest()})))
+                                                  "sha256": content_hash, "upload_request_id": request_id})))
             source_id = int(cur.fetchone()["id"])
             for chunk in chunks:
                 cur.execute("""INSERT INTO cadu_ci_chunks
@@ -222,7 +259,8 @@ def save_upload(context: RequestContext, token: str, file_storage) -> dict:
         connection.commit()
     except Exception:
         connection.rollback()
-        target.unlink(missing_ok=True)
+        if target is not None:
+            target.unlink(missing_ok=True)
         raise
     try:
         from .project_resource_service import notify_change

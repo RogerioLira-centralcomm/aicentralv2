@@ -122,6 +122,23 @@ def _collect(cursor, client_id: int, project_ref: str) -> list[dict]:
                 locator=row.get("url"), metadata={"provider": row.get("provider")}, created_by=row.get("criado_por"),
                 source_created_at=row.get("created_at"), source_updated_at=row.get("updated_at")))
 
+    if _relation(cursor, "cadu_planner_link_test_runs"):
+        columns = _columns(cursor, "cadu_planner_link_test_runs")
+        if "project_ref" in columns:
+            cursor.execute("""SELECT id::text AS id, mode, original_url, final_url, score,
+                                      status_label, created_by, created_at
+                                 FROM cadu_planner_link_test_runs
+                                WHERE client_id=%s AND project_ref=%s""", (client_id, project_ref))
+            for row in cursor.fetchall():
+                records.append(_record(
+                    "planner_link_tester", row["id"], "analysis",
+                    f"Link Tester · {row.get('final_url') or row.get('original_url')}",
+                    category=f"link_test_{row.get('mode') or 'destination'}", status="active",
+                    locator=row.get("final_url"), created_by=row.get("created_by"),
+                    metadata={"score": row.get("score"), "status_label": row.get("status_label")},
+                    source_created_at=row.get("created_at"),
+                ))
+
     if _relation(cursor, "cx_studio_projects") and _relation(cursor, "cx_studio_project_items"):
         cursor.execute("""SELECT item.id::text AS id, item.kind, item.title, item.asset_url, item.source_type,
                                    item.user_id, item.metadata, item.created_at, item.updated_at
@@ -217,7 +234,10 @@ def list_resources(client_id: int, project_ref: str, *, reconcile_first=True, ac
 
 
 def list_for_context(context: RequestContext) -> dict:
-    return list_resources(context.client_id, context.project_ref or "", actor_id=context.user_id)
+    # MCP reads use the materialized registry. Mutations enqueue reconciliation;
+    # the project-detail UI retains an explicit repair-on-open path for rollout.
+    return list_resources(context.client_id, context.project_ref or "", reconcile_first=False,
+                          actor_id=context.user_id)
 
 
 def notify_change(client_id: int, project_ref: str, event_type: str, *, source_system="", source_id="", actor_id=None) -> None:
@@ -230,9 +250,10 @@ def notify_change(client_id: int, project_ref: str, event_type: str, *, source_s
             if not _relation(cursor, "cadu_project_resource_jobs"):
                 return
             cursor.execute("""INSERT INTO cadu_project_resource_jobs
-                (id,client_id,project_ref,event_type,source_system,source_id,status,created_at)
-                VALUES (%s,%s,%s,%s,%s,%s,'queued',NOW())""",
-                (job_id, client_id, project_ref, event_type, source_system or None, str(source_id or "") or None))
+                (id,client_id,project_ref,event_type,source_system,source_id,actor_id,status,created_at)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,'queued',NOW())""",
+                (job_id, client_id, project_ref, event_type, source_system or None,
+                 str(source_id or "") or None, actor_id))
         connection.commit()
     except Exception as exc:
         connection.rollback()

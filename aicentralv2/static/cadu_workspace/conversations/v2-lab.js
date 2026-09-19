@@ -12,6 +12,7 @@
   const project = root.querySelector('[data-project]');
   const projectState = root.querySelector('[data-project-state]');
   let conversationId = null;
+  let currentRunId = null;
   let running = false;
   let selectedContext = {};
 
@@ -47,12 +48,34 @@
     node.innerHTML = `<p>${escape(response.answer)}</p><div class="v2-lab-meta"><span>confiança ${escape(response.confidence)}</span>${(response.assumptions || []).length ? `<span>${response.assumptions.length} premissa(s)</span>` : ''}</div>${questions ? `<div class="v2-lab-questions">${questions}</div>` : ''}${actions ? `<div class="v2-lab-actions">${actions}</div>` : ''}`;
     thread.append(node); showArtifact(response.artifact_patch); scrollThread();
   };
+  const addAction = (action, runId) => {
+    const node = document.createElement('article'); node.className = 'v2-lab-message is-cadu';
+    const summary = document.createElement('p'); summary.textContent = action.summary || 'Confirmar ação';
+    const controls = document.createElement('div'); controls.className = 'v2-lab-actions';
+    ['Cancelar', 'Confirmar'].forEach((label, index) => {
+      const button = document.createElement('button'); button.type = 'button'; button.textContent = label;
+      button.addEventListener('click', async () => {
+        controls.querySelectorAll('button').forEach(item => { item.disabled = true; });
+        try {
+          const response = await fetch(`/workspace/api/v2/runs/${encodeURIComponent(runId)}/steps/${encodeURIComponent(action.step_id)}/decision`, {
+            method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':csrf()}, body:JSON.stringify({approved:index === 1})
+          });
+          const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Falha na decisão');
+          summary.textContent = data.step?.status === 'completed' ? 'Ação concluída.' : index === 1 ? 'Ação registrada.' : 'Ação cancelada.';
+          controls.remove(); addTrace('Decisão registrada', data.step?.status || '', 'is-ok');
+        } catch (error) { controls.querySelectorAll('button').forEach(item => { item.disabled = false; }); addTrace('Falha na ação', error.message, 'is-error'); }
+      });
+      controls.append(button);
+    });
+    node.append(summary, controls); thread.append(node); scrollThread();
+  };
   const handleEvent = event => {
     const kind = event.event || 'evento';
-    if (kind === 'run.started') { conversationId = event.conversation_id; addTrace('Execução iniciada', event.run_id, 'is-ok'); }
+    if (kind === 'run.started') { conversationId = event.conversation_id; currentRunId = event.run_id; addTrace('Execução iniciada', event.run_id, 'is-ok'); }
     else if (kind === 'route.selected') addTrace('Rota selecionada', `${event.route?.domain || ''} / ${event.route?.action || ''} · ${event.policy?.mode || ''}`, 'is-ok');
     else if (kind === 'tool.completed') addTrace('Tool concluída', event.name, 'is-ok');
     else if (kind === 'tool.unavailable') addTrace('Tool indisponível', `${event.name} · ${event.code || ''}`, 'is-error');
+    else if (kind === 'action.proposed') { addAction(event.action || {}, currentRunId); addTrace('Confirmação solicitada', event.action?.name || '', 'is-ok'); }
     else if (kind === 'artifact.created') { addTrace('Artefato persistido', event.artifact?.id || '', 'is-ok'); showArtifact(event.artifact?.content || event.artifact); }
     else if (kind === 'answer.completed') { addAnswer(event.response || {}); addTrace('Resposta normalizada', event.response?.confidence || '', 'is-ok'); }
     else if (kind === 'run.failed') { addTrace('Execução interrompida', event.message || '', 'is-error'); setRuntime('Falhou'); }
@@ -121,7 +144,7 @@
     root.querySelectorAll('[data-tab]').forEach(item => item.classList.toggle('is-active', item === button));
     root.querySelectorAll('[data-panel]').forEach(panel => { panel.hidden = panel.dataset.panel !== button.dataset.tab; });
   }));
-  root.querySelector('[data-reset]').addEventListener('click', () => { conversationId = null; trace.innerHTML = '<p>Nenhuma execução iniciada.</p>'; artifact.innerHTML = '<p>Artefatos estruturados aparecerão aqui.</p>'; root.querySelector('[data-artifact-count]').textContent = '0'; thread.innerHTML = '<div class="v2-lab-empty"><i>C</i><h2>Teste uma conversa completa</h2><p>Escolha um cenário ou escreva um pedido. A resposta, as perguntas e as ações aparecem aqui; o diagnóstico fica separado.</p></div>'; setRuntime('Pronto'); });
+  root.querySelector('[data-reset]').addEventListener('click', () => { conversationId = null; currentRunId = null; trace.innerHTML = '<p>Nenhuma execução iniciada.</p>'; artifact.innerHTML = '<p>Artefatos estruturados aparecerão aqui.</p>'; root.querySelector('[data-artifact-count]').textContent = '0'; thread.innerHTML = '<div class="v2-lab-empty"><i>C</i><h2>Teste uma conversa completa</h2><p>Escolha um cenário ou escreva um pedido. A resposta, as perguntas e as ações aparecem aqui; o diagnóstico fica separado.</p></div>'; setRuntime('Pronto'); });
   project.addEventListener('change', selectProject);
   form.addEventListener('submit', event => { event.preventDefault(); submit(input.value); });
   input.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); form.requestSubmit(); } });

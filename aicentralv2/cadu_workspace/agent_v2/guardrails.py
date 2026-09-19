@@ -102,8 +102,9 @@ def normalize_response(raw, policy: dict) -> AgentResponse:
     citations = _clean_citations(value.get("citations"))
     actions = _clean_actions(value.get("actions"), max(0, int(policy.get("max_next_steps", 2))))
     patch = _clean_patch(value.get("artifact_patch"))
-    if not policy.get("artifact_in_chat", False) and len(answer) > 12000:
-        answer = answer[:12000].rstrip() + "…"
+    max_answer_chars = min(12000, max(1000, int(policy.get("max_output_tokens") or 3000) * 4))
+    if len(answer) > max_answer_chars:
+        answer = answer[:max_answer_chars].rstrip() + "…"
     confidence = str(value.get("confidence") or "medium").lower()
     if confidence not in {"low", "medium", "high"}:
         confidence = "medium"

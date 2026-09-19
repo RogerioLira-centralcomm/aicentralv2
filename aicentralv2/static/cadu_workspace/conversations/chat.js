@@ -900,6 +900,32 @@
     }
     if (Array.isArray(response.citations) && response.citations.length) addSources(response.citations.map(source => ({title:source.title, excerpt:source.excerpt, url:source.url})));
   }
+  function renderV2Action(action, actionRunId) {
+    if (!action?.step_id || !actionRunId) return;
+    const card = document.createElement('section'); card.className = 'conversation-revision-notice conversation-v2-confirmation';
+    const copy = document.createElement('div'); copy.className = 'conversation-revision-copy';
+    const title = document.createElement('strong'); title.textContent = 'Confirmar ação';
+    const summary = document.createElement('span'); summary.textContent = action.summary || 'Revise antes de continuar.';
+    copy.append(title, summary);
+    const controls = document.createElement('div'); controls.className = 'conversation-revision-actions';
+    const reject = document.createElement('button'); reject.type = 'button'; reject.textContent = 'Cancelar';
+    const approve = document.createElement('button'); approve.type = 'button'; approve.className = 'is-primary'; approve.textContent = 'Confirmar';
+    const decide = async approved => {
+      approve.disabled = true; reject.disabled = true; status.textContent = approved ? 'Executando ação confirmada…' : 'Cancelando ação…';
+      try {
+        const result = await workspaceApi(`/workspace/api/v2/runs/${encodeURIComponent(actionRunId)}/steps/${encodeURIComponent(action.step_id)}/decision`, 'POST', {approved});
+        const completed = result.step?.status === 'completed';
+        title.textContent = completed ? 'Ação concluída' : approved ? 'Ação registrada' : 'Ação cancelada';
+        summary.textContent = completed ? 'O resultado foi salvo no histórico desta conversa.' : approved ? 'A execução foi registrada.' : 'Nenhuma alteração foi realizada.';
+        controls.remove(); status.textContent = '';
+      } catch (error) {
+        approve.disabled = false; reject.disabled = false;
+        status.textContent = publicErrorMessage(error.message, 'Não foi possível concluir esta ação.');
+      }
+    };
+    reject.addEventListener('click', () => decide(false)); approve.addEventListener('click', () => decide(true));
+    controls.append(reject, approve); card.append(copy, controls); history.append(card); scrollHistoryToEnd(true);
+  }
   function setMessageElapsed(text, startedAt) {
     const note = text?.parentElement?.querySelector('.conversation-work-time');
     if (!note || !startedAt) return;
@@ -1384,6 +1410,7 @@
             v2ArtifactCreated = true;
             window.CaduV2Artifacts?.open(data.artifact);
           }
+          else if (data.event === 'v2.action') renderV2Action(data.action, runId);
           else if (data.event === 'progress') status.textContent = data.message;
           else if (data.event === 'catalog') addCatalogCard(data);
           else if (data.event === 'result') addResultCard(data);

@@ -51,9 +51,10 @@ def settings(execution_mode="analysis"):
 
 def events(payload, execution_mode="analysis"):
     url, headers = settings(execution_mode)
+    read_timeout = {"fast": 30, "analysis": 120, "agentic": 240}.get(execution_mode, 120)
     try:
         with requests.post(url + "/chat-messages", json=payload, headers=headers, stream=True,
-                           timeout=(10, 90), allow_redirects=False) as response:
+                           timeout=(10, read_timeout), allow_redirects=False) as response:
             if response.status_code != 200:
                 raise ProviderUnavailable("O runtime V2 não conseguiu iniciar a resposta.")
             parts = []

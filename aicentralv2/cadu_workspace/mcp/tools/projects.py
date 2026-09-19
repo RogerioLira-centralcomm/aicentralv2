@@ -57,12 +57,13 @@ def inspect_file_support(context: RequestContext, arguments: dict) -> dict:
     description="Prepara upload privado de arquivo. O usuário escolhe se ele será indexado como fonte de dados.",
     exposures=("internal", "customer_agent"),
     input_schema={"type": "object", "required": ["request_id", "use_as_knowledge"], "properties": {
-        "request_id": {"type": "string", "minLength": 16, "maxLength": 80},
+        "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
         "use_as_knowledge": {"type": "boolean"},
         "category": {"type": "string", "enum": sorted(project_source_service.CATEGORIES)},
     }, "additionalProperties": False},
 )
 def prepare_source_upload(context: RequestContext, arguments: dict) -> dict:
     return _domain(lambda: project_source_service.prepare_upload(
-        context, use_as_knowledge=arguments["use_as_knowledge"], category=arguments.get("category"),
+        context, request_id=arguments["request_id"],
+        use_as_knowledge=arguments["use_as_knowledge"], category=arguments.get("category"),
     ))

@@ -16,11 +16,13 @@ def prepare_execution(message, request, history="", requested_mode=""):
     execution_mode = execution_mode_for(route, requested_mode)
     budget, policy = budget_for(route, execution_mode), policy_for(route)
     policy["execution_mode"] = execution_mode
+    policy["max_output_tokens"] = budget.max_output_tokens
+    policy["max_duration_ms"] = budget.max_duration_ms
     resolved = resolve_context(route, request, message, load_builtin_tools())
     payload = build_payload(message=message, request=request, route=route,
                             resolved=resolved.values, policy=policy,
                             user_label="user-" + str(request.user_id), history=history,
-                            execution_mode=execution_mode)
+                            execution_mode=execution_mode, max_context_chars=budget.max_context_chars)
     return {
         "route": route.to_dict(), "execution_mode": execution_mode,
         "budget": asdict(budget), "policy": policy,

@@ -24,7 +24,7 @@ def list_brands(context: RequestContext, arguments: dict) -> dict:
 
 
 @register_tool(name="brands.create", capability="workspace", effect="write",
-               description="Cria uma marca com nome e site oficial após confirmação do usuário.", exposures=("internal", "customer_agent"),
+               description="Cria uma marca com nome e site oficial após confirmação do usuário.", exposures=("internal",),
                input_schema={"type":"object","required":["request_id","confirmed","name","website_url"],"properties":{"request_id":{"type":"string","minLength":36,"maxLength":36},"confirmed":{"type":"boolean","enum":[True]},"name":{"type":"string","minLength":2,"maxLength":150},"website_url":{"type":"string","minLength":3,"maxLength":2000},"sector":{"type":"string","maxLength":80}},"additionalProperties":False})
 def create_brand(context: RequestContext, arguments: dict) -> dict:
     values = {key: value for key, value in arguments.items() if key != "confirmed"}
@@ -39,7 +39,7 @@ def prepare_logo_upload(context: RequestContext, arguments: dict) -> dict:
 
 
 @register_tool(name="brands.start_audit", capability="workspace", effect="write",
-               description="Inicia a auditoria paga de uma marca após confirmação explícita do usuário administrador.", exposures=("internal", "customer_agent"),
+               description="Inicia a auditoria paga de uma marca após confirmação explícita do usuário administrador.", exposures=("internal",),
                input_schema={"type":"object","required":["request_id","confirmed","brand_id"],"properties":{"request_id":{"type":"string","minLength":36,"maxLength":36},"confirmed":{"type":"boolean","enum":[True]},"brand_id":{"type":"integer","minimum":1},"website_url":{"type":"string","maxLength":2000}},"additionalProperties":False})
 def start_audit(context: RequestContext, arguments: dict) -> dict:
     values = {key: value for key, value in arguments.items() if key != "confirmed"}

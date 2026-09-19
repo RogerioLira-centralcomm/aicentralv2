@@ -15,6 +15,7 @@
     if (event.event === 'route.selected') return {event:'progress', message:progressFor(event)};
     if (event.event === 'tool.completed') return {event:'progress', message:'Contexto consultado. Preparando a resposta…'};
     if (event.event === 'tool.unavailable') return {event:'progress', message:'Continuando com as informações disponíveis…'};
+    if (event.event === 'action.proposed') return {event:'v2.action', action:event.action || {}};
     if (event.event === 'artifact.created') return {event:'v2.artifact', artifact:event.artifact};
     if (event.event === 'answer.completed') return {event:'v2.answer', response:event.response || {}};
     if (event.event === 'run.failed') return {event:'error', message:event.message || 'A execução foi interrompida.'};

@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS cadu_project_resource_jobs (
     event_type VARCHAR(40) NOT NULL,
     source_system VARCHAR(40),
     source_id TEXT,
+    actor_id BIGINT,
     status VARCHAR(24) NOT NULL DEFAULT 'queued',
     attempts INTEGER NOT NULL DEFAULT 0,
     error_message TEXT,
@@ -63,7 +64,8 @@ CREATE TABLE IF NOT EXISTS cadu_project_resource_jobs (
     CHECK (status IN ('queued','running','completed','failed'))
 );
 ALTER TABLE cadu_project_resource_jobs
-    ADD COLUMN IF NOT EXISTS next_attempt_at TIMESTAMPTZ;
+    ADD COLUMN IF NOT EXISTS next_attempt_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS actor_id BIGINT;
 
 DROP INDEX IF EXISTS idx_cadu_project_resource_jobs_queue;
 CREATE INDEX idx_cadu_project_resource_jobs_queue

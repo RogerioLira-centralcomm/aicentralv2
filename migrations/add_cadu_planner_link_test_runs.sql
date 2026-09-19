@@ -27,3 +27,7 @@ CREATE INDEX IF NOT EXISTS cadu_planner_link_test_runs_public_idx
 ALTER TABLE cadu_planner_link_test_runs ADD COLUMN IF NOT EXISTS public_token UUID UNIQUE;
 ALTER TABLE cadu_planner_link_test_runs ADD COLUMN IF NOT EXISTS shared_at TIMESTAMPTZ;
 ALTER TABLE cadu_planner_link_test_runs ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ;
+ALTER TABLE cadu_planner_link_test_runs ADD COLUMN IF NOT EXISTS project_ref TEXT;
+CREATE INDEX IF NOT EXISTS cadu_planner_link_test_runs_project_idx
+    ON cadu_planner_link_test_runs (client_id, project_ref, created_at DESC)
+    WHERE project_ref IS NOT NULL;

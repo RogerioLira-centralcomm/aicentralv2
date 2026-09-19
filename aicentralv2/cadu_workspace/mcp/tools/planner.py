@@ -62,7 +62,9 @@ def _private_link_result(result):
 @register_tool(
     name="planner.link_test", capability="planner", effect="write",
     description="Executa um diagnóstico seguro de destino, mídia ou presença para agentes de IA após confirmação.",
-    exposures=("internal", "customer_agent"),
+    # External agents need a Harness-signed approval grant before this can be
+    # exposed safely. A caller-controlled boolean is not human confirmation.
+    exposures=("internal",),
     input_schema={"type": "object", "required": ["request_id", "confirmed", "url", "mode"], "properties": {
         "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
         "confirmed": {"type": "boolean", "enum": [True]},
@@ -74,7 +76,9 @@ def run_link_test(context: RequestContext, arguments: dict) -> dict:
     payload = {"url": arguments["url"], "mode": arguments["mode"]}
     return _link_domain(lambda: operations.execute(
         arguments["request_id"], context, "planner.link_test", payload,
-        lambda: _private_link_result(link_tester.test(payload, context.client_id, context.user_id)),
+        lambda: _private_link_result(link_tester.test(
+            payload, context.client_id, context.user_id, project_ref=context.project_ref,
+        )),
     ))
 
 

@@ -97,7 +97,7 @@ def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
         "artifacts.list", "artifacts.get", "artifacts.create_draft", "artifacts.update_draft",
         "artifacts.list_versions", "projects.list_sources", "projects.list_resources", "projects.inspect_file_support",
         "projects.prepare_source_upload",
-        "brands.list", "brands.create", "brands.prepare_logo_upload", "brands.start_audit",
+        "brands.list", "brands.prepare_logo_upload",
         "brands.audit_status",
     } <= names
     planner_names = {item["name"] for item in catalog.list(
@@ -105,23 +105,33 @@ def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
     )}
     assert {
         "planner.list_plans", "planner.search_catalog", "planner.get_brief", "planner.get_media_plan",
-        "planner.link_test", "planner.list_link_tests", "planner.get_link_test",
+        "planner.list_link_tests", "planner.get_link_test",
     } <= planner_names
+    internal_planner_names = {item["name"] for item in catalog.list(
+        context(capabilities=("planner",)), "internal",
+    )}
+    assert "planner.link_test" in internal_planner_names
+    assert "planner.link_test" not in planner_names
+    internal_names = {item["name"] for item in catalog.list(
+        context(capabilities=("workspace", "artifacts")), "internal",
+    )}
+    assert {"brands.create", "brands.start_audit"} <= internal_names
+    assert not {"brands.create", "brands.start_audit"} & names
     assert "artifacts.archive" not in names
     with pytest.raises(ToolInputError):
         catalog.execute("brands.create", {
             "request_id": "be777b36-a973-419c-802a-886bf1d125b0",
             "name": "Marca", "website_url": "https://example.com",
-        }, context(), "customer_agent")
+        }, context(), "internal")
     with pytest.raises(ToolInputError):
         catalog.execute("brands.start_audit", {
             "request_id": "be777b36-a973-419c-802a-886bf1d125b0", "brand_id": 81,
-        }, context(), "customer_agent")
+        }, context(), "internal")
     with pytest.raises(ToolInputError):
         catalog.execute("planner.link_test", {
             "request_id": "be777b36-a973-419c-802a-886bf1d125b0",
             "confirmed": False, "url": "https://example.com", "mode": "destination",
-        }, context(capabilities=("planner",)), "customer_agent")
+        }, context(capabilities=("planner",)), "internal")
 
 
 def test_planner_link_test_is_idempotent_and_hides_share_token(monkeypatch):
@@ -134,13 +144,13 @@ def test_planner_link_test_is_idempotent_and_hides_share_token(monkeypatch):
         return operation()
 
     monkeypatch.setattr(planner.operations, "execute", execute)
-    monkeypatch.setattr(planner.link_tester, "test", lambda *_: {
+    monkeypatch.setattr(planner.link_tester, "test", lambda *_, **__: {
         "run_id": "run-1", "public_token": "must-not-reach-agent", "score": 91,
     })
     result = load_builtin_tools().execute("planner.link_test", {
         "request_id": "be777b36-a973-419c-802a-886bf1d125b0",
         "confirmed": True, "url": "https://example.com", "mode": "destination",
-    }, context(capabilities=("planner",)), "customer_agent")
+    }, context(capabilities=("planner",)), "internal")
 
     assert result == {"run_id": "run-1", "score": 91}
     assert captured["tool_name"] == "planner.link_test"
@@ -207,6 +217,24 @@ def test_mcp_upload_endpoint_uses_signed_principal_context(monkeypatch):
     assert response.status_code == 201
     assert response.get_json()["source"]["source_id"] == 91
     assert saved == {"context": scoped, "token": "signed-upload", "name": "reference.png"}
+
+
+def test_prepare_project_upload_seals_request_id_in_intent(monkeypatch):
+    captured = {}
+
+    def prepare(current, **values):
+        captured.update(current=current, **values)
+        return {"upload_token": "signed"}
+
+    monkeypatch.setattr(project_source_service, "prepare_upload", prepare)
+    current = context(project_ref="ci:42")
+    result = load_builtin_tools().execute("projects.prepare_source_upload", {
+        "request_id": "be777b36-a973-419c-802a-886bf1d125b0", "use_as_knowledge": True,
+    }, current, "customer_agent")
+
+    assert result == {"upload_token": "signed"}
+    assert captured["request_id"] == "be777b36-a973-419c-802a-886bf1d125b0"
+    assert captured["use_as_knowledge"] is True
 
 
 def test_mcp_brand_logo_upload_uses_signed_principal_context(monkeypatch):
@@ -475,6 +503,20 @@ def test_prompt_payload_is_compact_and_does_not_inject_unrequested_domains():
     assert "workspace_da_equipe" not in serialized
     assert "catalogo_midia_cadu" not in serialized
     assert "user_profile_context" not in serialized
+
+
+def test_prompt_evidence_respects_mode_budget_and_remains_valid_json():
+    route = route_request("Melhore este título")
+    payload = build_payload(
+        message="Melhore este título", request=context(), route=route,
+        resolved={"current_context": context().to_dict(), "large": "x" * 20000},
+        policy=policy_for(route), user_label="user-7", execution_mode="fast",
+        max_context_chars=6000,
+    )
+    evidence = __import__("json").loads(payload["inputs"]["evidence"])
+    assert len(payload["inputs"]["evidence"]) <= 6000
+    assert evidence["truncated"] is True
+    assert evidence["current_context"]["client_id"] == 12
 
 
 def test_prompt_payload_includes_bounded_prior_conversation_as_evidence():

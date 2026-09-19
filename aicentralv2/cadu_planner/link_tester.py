@@ -219,31 +219,33 @@ def _agentic(common):
                          'llms_quality': llms_quality, 'screenshot': capture.get('screenshot')}, 'alerts': alerts}
 
 
-def _save_run(client_id, actor_id, mode, result):
+def _save_run(client_id, actor_id, mode, result, project_ref=None):
     """Persist one independent report without coupling the analyzer to history UI."""
     if not client_id or not actor_id:
         return None
+    from psycopg.types.json import Json
+    from ..db import get_db
+    conn = get_db()
+    run_id, public_token = str(uuid.uuid4()), str(uuid.uuid4())
     try:
-        from psycopg.types.json import Json
-        from ..db import get_db
-        conn = get_db()
-        run_id, public_token = str(uuid.uuid4()), str(uuid.uuid4())
         with conn.cursor() as cur:
             cur.execute('''INSERT INTO cadu_planner_link_test_runs
-                           (id, client_id, created_by, mode, original_url, final_url, score, status_label, result, public_token, shared_at)
-                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())''',
-                        (run_id, client_id, actor_id, mode, result['original_url'], result['final_url'], result['score'],
+                           (id, client_id, created_by, project_ref, mode, original_url, final_url, score, status_label, result, public_token, shared_at)
+                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())''',
+                        (run_id, client_id, actor_id, project_ref, mode, result['original_url'], result['final_url'], result['score'],
                          result['status_label'], Json(result), public_token))
         conn.commit()
-        return {'id': run_id, 'public_token': public_token}
     except Exception:
-        # The checker must continue working while a deployment has not applied the
-        # additive history migration yet.
+        conn.rollback()
+        raise
+    if project_ref:
         try:
-            conn.rollback()
+            from ..cadu_workspace.project_resource_service import notify_change
+            notify_change(client_id, project_ref, 'created', source_system='planner_link_tester',
+                          source_id=run_id, actor_id=actor_id)
         except Exception:
-            pass
-        return None
+            conn.rollback()
+    return {'id': run_id, 'public_token': public_token}
 
 
 def public_result(token):
@@ -275,7 +277,7 @@ def detail(client_id, run_id):
     return rows[0] if rows else None
 
 
-def test(payload, client_id=None, actor_id=None):
+def test(payload, client_id=None, actor_id=None, project_ref=None):
     if not isinstance(payload, dict):
         raise BadRequest('Envie um link para testar.')
     mode = str(payload.get('mode') or 'destination').strip().lower()
@@ -284,7 +286,7 @@ def test(payload, client_id=None, actor_id=None):
     common = _common(payload, mode)
     result = {'destination': _destination, 'media': _media, 'agentic': _agentic}[mode](common)
     result.update(original_url=common['original_url'], final_url=common['final_url'], elapsed_ms=common['elapsed_ms'])
-    saved = _save_run(client_id, actor_id, mode, result)
+    saved = _save_run(client_id, actor_id, mode, result, project_ref)
     result['run_id'] = saved['id'] if saved else None
     result['public_token'] = saved['public_token'] if saved else None
     return result

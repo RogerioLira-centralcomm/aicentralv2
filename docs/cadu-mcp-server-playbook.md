@@ -254,7 +254,7 @@ de retenção próprios.
 O MCP também expõe `brands.list`, `brands.create`,
 `brands.prepare_logo_upload`, `brands.start_audit` e `brands.audit_status`.
 O logo usa uma autorização multipart de dez minutos em
-`/workspace/mcp/brand-uploads`. A auditoria nunca é acionada implicitamente pelo
+`/workspace/mcp/brand-uploads` (limite real de 5 MB). A auditoria nunca é acionada implicitamente pelo
 cadastro ou pelo upload: exige uma chamada separada, administrador do tenant,
-saldo disponível e `request_id` idempotente. O resultado continua como proposta
+saldo disponível, `confirmed: true` e `request_id` idempotente. O resultado continua como proposta
 pendente de revisão no Workspace.

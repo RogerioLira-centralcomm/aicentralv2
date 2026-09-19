@@ -25,23 +25,25 @@ def list_brands(context: RequestContext, arguments: dict) -> dict:
 
 @register_tool(name="brands.create", capability="workspace", effect="write",
                description="Cria uma marca com nome e site oficial após confirmação do usuário.", exposures=("internal", "customer_agent"),
-               input_schema={"type":"object","required":["request_id","name","website_url"],"properties":{"request_id":{"type":"string","minLength":36,"maxLength":36},"name":{"type":"string","minLength":2,"maxLength":150},"website_url":{"type":"string","minLength":3,"maxLength":2000},"sector":{"type":"string","maxLength":80}},"additionalProperties":False})
+               input_schema={"type":"object","required":["request_id","confirmed","name","website_url"],"properties":{"request_id":{"type":"string","minLength":36,"maxLength":36},"confirmed":{"type":"boolean","enum":[True]},"name":{"type":"string","minLength":2,"maxLength":150},"website_url":{"type":"string","minLength":3,"maxLength":2000},"sector":{"type":"string","maxLength":80}},"additionalProperties":False})
 def create_brand(context: RequestContext, arguments: dict) -> dict:
-    return _domain(lambda: service.create_brand(context, **arguments))
+    values = {key: value for key, value in arguments.items() if key != "confirmed"}
+    return _domain(lambda: service.create_brand(context, **values))
 
 
 @register_tool(name="brands.prepare_logo_upload", capability="workspace", effect="draft",
                description="Cria uma autorização curta para enviar o logo principal de uma marca.", exposures=("internal", "customer_agent"),
-               input_schema={"type":"object","required":["brand_id"],"properties":{"brand_id":{"type":"integer","minimum":1}},"additionalProperties":False})
+               input_schema={"type":"object","required":["request_id","brand_id"],"properties":{"request_id":{"type":"string","minLength":36,"maxLength":36},"brand_id":{"type":"integer","minimum":1}},"additionalProperties":False})
 def prepare_logo_upload(context: RequestContext, arguments: dict) -> dict:
     return _domain(lambda: service.prepare_logo_upload(context, arguments["brand_id"]))
 
 
 @register_tool(name="brands.start_audit", capability="workspace", effect="write",
                description="Inicia a auditoria paga de uma marca após confirmação explícita do usuário administrador.", exposures=("internal", "customer_agent"),
-               input_schema={"type":"object","required":["request_id","brand_id"],"properties":{"request_id":{"type":"string","minLength":36,"maxLength":36},"brand_id":{"type":"integer","minimum":1},"website_url":{"type":"string","maxLength":2000}},"additionalProperties":False})
+               input_schema={"type":"object","required":["request_id","confirmed","brand_id"],"properties":{"request_id":{"type":"string","minLength":36,"maxLength":36},"confirmed":{"type":"boolean","enum":[True]},"brand_id":{"type":"integer","minimum":1},"website_url":{"type":"string","maxLength":2000}},"additionalProperties":False})
 def start_audit(context: RequestContext, arguments: dict) -> dict:
-    return _domain(lambda: service.start_audit(context, **arguments))
+    values = {key: value for key, value in arguments.items() if key != "confirmed"}
+    return _domain(lambda: service.start_audit(context, **values))
 
 
 @register_tool(name="brands.audit_status", capability="workspace", effect="read",

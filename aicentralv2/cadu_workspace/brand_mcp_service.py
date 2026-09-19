@@ -78,6 +78,7 @@ def create_brand(context: RequestContext, *, request_id, name: str, website_url:
     connection = get_db()
     try:
         with connection.cursor() as cursor:
+            cursor.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", ("cadu-brand:" + operation_id,))
             cursor.execute(
                 """SELECT id, name, website_url FROM cx_clients
                      WHERE crm_client_id = %s AND brand_profile->>'mcp_request_id' = %s LIMIT 1""",
@@ -85,8 +86,13 @@ def create_brand(context: RequestContext, *, request_id, name: str, website_url:
             )
             existing = cursor.fetchone()
             if existing:
+                connection.commit()  # Release the idempotency advisory lock before related reads.
+                links = family_repository.project_brand_links(context.client_id)
+                project_ref = next((str(item.get("project_ref") or "") for item in links
+                                    if str(item.get("brand_ref") or "") == f"studio:{existing['id']}"), None)
                 return {"brand_id": int(existing["id"]), "brand_ref": f"studio:{existing['id']}",
-                        "name": existing["name"], "website_url": existing["website_url"], "created": False}
+                        "project_ref": project_ref, "name": existing["name"],
+                        "website_url": existing["website_url"], "created": False}
             cursor.execute(
                 """INSERT INTO cx_clients
                        (crm_client_id, name, sector, website_url, brand_profile, analysis_metadata, price_policy)
@@ -95,12 +101,29 @@ def create_brand(context: RequestContext, *, request_id, name: str, website_url:
                  website_url, json.dumps(profile)),
             )
             brand_id = int(cursor.fetchone()["id"])
+            project_id = str(uuid4())
+            cursor.execute(
+                """INSERT INTO cadu_ci_projetos
+                       (id, id_cliente, criado_por, nome, descricao, instrucoes, tipo, cor, status)
+                    VALUES (%s, %s, %s, %s, %s, %s, 'projeto', '#176b5e', 'ativo')""",
+                (project_id, context.client_id, context.user_id, name,
+                 f"Dossiê operacional da marca {name}.",
+                 "Contexto de marca vinculado; decisões de campanha devem ser registradas neste projeto."),
+            )
         connection.commit()
     except Exception:
         connection.rollback()
         raise
-    return {"brand_id": brand_id, "brand_ref": f"studio:{brand_id}", "name": name,
-            "website_url": website_url, "created": True}
+    project_ref = f"ci:{project_id}"
+    try:
+        family_repository.set_project_brand_link(
+            context.client_id, context.user_id, project_ref, f"studio:{brand_id}", True,
+        )
+    except Exception:
+        current_app.logger.exception("Marca %s criada via MCP sem vínculo ao dossiê %s", brand_id, project_id)
+        project_ref = None
+    return {"brand_id": brand_id, "brand_ref": f"studio:{brand_id}", "project_ref": project_ref,
+            "name": name, "website_url": website_url, "created": True}
 
 
 def _serializer():
@@ -113,7 +136,7 @@ def prepare_logo_upload(context: RequestContext, brand_id) -> dict:
                                  "brand_id": int(brand["id"])})
     return {"upload_token": token, "upload_url": "/workspace/mcp/brand-uploads", "method": "POST",
             "field": "file", "accepted": [".png", ".jpg", ".jpeg", ".webp"],
-            "max_bytes": 15 * 1024 * 1024, "expires_in": UPLOAD_MAX_AGE}
+            "max_bytes": 5 * 1024 * 1024, "expires_in": UPLOAD_MAX_AGE}
 
 
 def save_logo_upload(context: RequestContext, token: str, uploaded) -> dict:
@@ -142,7 +165,6 @@ def start_audit(context: RequestContext, *, request_id, brand_id, website_url: s
     operation_id = _request_id(request_id)
     brand = _brand(context, brand_id)
     from .routes import _ensure_brand_audit_credit, _start_brand_review_job
-    _ensure_brand_audit_credit(context.client_id)
     website_url = _website(website_url or brand.get("website_url") or "")
     metadata = dict(brand.get("analysis_metadata") or {})
     current = metadata.get("review_pack") if isinstance(metadata.get("review_pack"), dict) else {}
@@ -151,17 +173,33 @@ def start_audit(context: RequestContext, *, request_id, brand_id, website_url: s
                 "status": current.get("status"), "queued": False}
     if current.get("status") in {"queued", "running"}:
         raise Conflict("Esta marca já possui uma auditoria em andamento.")
+    _ensure_brand_audit_credit(context.client_id)
     job_id = uuid4().hex
-    metadata["review_pack"] = {
-        "job_id": job_id, "request_id": operation_id, "status": "queued", "stage": "queued",
-        "index": 0, "total": 4, "message": "A auditoria entrou na fila.", "error": "",
-        "created_at": datetime.utcnow().isoformat() + "Z",
-        "input": {"website_url": website_url, "has_images": False, "include_project_sources": False},
-        "analysis": {}, "reviews": [],
-    }
     connection = get_db()
     try:
         with connection.cursor() as cursor:
+            cursor.execute("SELECT analysis_metadata FROM cx_clients WHERE id = %s AND crm_client_id = %s FOR UPDATE",
+                           (int(brand["id"]), context.client_id))
+            locked = cursor.fetchone()
+            if not locked:
+                raise NotFound("Marca indisponível.")
+            metadata = locked.get("analysis_metadata") or {}
+            if isinstance(metadata, str):
+                metadata = json.loads(metadata)
+            current = metadata.get("review_pack") if isinstance(metadata.get("review_pack"), dict) else {}
+            if current.get("request_id") == operation_id:
+                connection.rollback()
+                return {"brand_id": int(brand["id"]), "job_id": current.get("job_id"),
+                        "status": current.get("status"), "queued": False}
+            if current.get("status") in {"queued", "running"}:
+                raise Conflict("Esta marca já possui uma auditoria em andamento.")
+            metadata["review_pack"] = {
+                "job_id": job_id, "request_id": operation_id, "status": "queued", "stage": "queued",
+                "index": 0, "total": 4, "message": "A auditoria entrou na fila.", "error": "",
+                "created_at": datetime.utcnow().isoformat() + "Z",
+                "input": {"website_url": website_url, "has_images": False, "include_project_sources": False},
+                "analysis": {}, "reviews": [],
+            }
             cursor.execute("""UPDATE cx_clients SET website_url = %s, analysis_metadata = %s::jsonb
                                WHERE id = %s AND crm_client_id = %s RETURNING id""",
                            (website_url, json.dumps(metadata), int(brand["id"]), context.client_id))

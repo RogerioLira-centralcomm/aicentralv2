@@ -133,14 +133,14 @@ upload_token=&lt;token retornado&gt;
 file=@briefing.pdf</pre>
       <p>Limite inicial: 15 MB. Para indexação são aceitos PDF, DOCX e formatos textuais. Como simples anexo, também são aceitos PNG, JPEG, WebP e GIF.</p>
       <h3>Logo da marca</h3>
-      <p><code>brands.prepare_logo_upload</code> gera uma autorização de dez minutos. O cliente envia um único PNG, JPEG ou WebP para <code>/workspace/mcp/brand-uploads</code>. O upload define o ativo como logo principal, mas não inicia auditoria.</p>
+      <p><code>brands.prepare_logo_upload</code> gera uma autorização de dez minutos. O cliente envia um único PNG, JPEG ou WebP de até 5 MB para <code>/workspace/mcp/brand-uploads</code>. O upload define o ativo como logo principal, mas não inicia auditoria.</p>
       <pre>POST /workspace/mcp/brand-uploads
 Authorization: Bearer &lt;mesma delegação MCP&gt;
 Content-Type: multipart/form-data
 
 upload_token=&lt;token retornado&gt;
 file=@logo.png</pre>
-      <p>A auditoria é uma etapa separada: <code>brands.start_audit</code> exige administrador, saldo disponível, site oficial e confirmação explícita. Consulte o progresso com <code>brands.audit_status</code>.</p>
+      <p>A criação e a auditoria exigem <code>confirmed: true</code>. A auditoria é uma etapa separada: <code>brands.start_audit</code> exige administrador, saldo disponível, site oficial e confirmação explícita. Consulte o progresso com <code>brands.audit_status</code>.</p>
     </section>
 
     <section id="seguranca">

@@ -86,7 +86,8 @@ def test_artifact_write_does_not_close_request_scoped_connection(monkeypatch):
 
 
 def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
-    names = {item["name"] for item in load_builtin_tools().list(
+    catalog = load_builtin_tools()
+    names = {item["name"] for item in catalog.list(
         context(capabilities=("workspace", "artifacts")), "customer_agent",
     )}
     assert {
@@ -96,6 +97,25 @@ def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
         "brands.audit_status",
     } <= names
     assert "artifacts.archive" not in names
+    with pytest.raises(ToolInputError):
+        catalog.execute("brands.create", {
+            "request_id": "be777b36-a973-419c-802a-886bf1d125b0",
+            "name": "Marca", "website_url": "https://example.com",
+        }, context(), "customer_agent")
+    with pytest.raises(ToolInputError):
+        catalog.execute("brands.start_audit", {
+            "request_id": "be777b36-a973-419c-802a-886bf1d125b0", "brand_id": 81,
+        }, context(), "customer_agent")
+
+
+def test_brand_logo_upload_contract_matches_existing_storage_limit(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = "test-secret"
+    monkeypatch.setattr(brand_mcp_service, "_brand", lambda *_: {"id": 81})
+    with app.app_context():
+        prepared = brand_mcp_service.prepare_logo_upload(context(), 81)
+    assert prepared["max_bytes"] == 5 * 1024 * 1024
+    assert prepared["accepted"] == [".png", ".jpg", ".jpeg", ".webp"]
 
 
 def test_mcp_upload_endpoint_uses_signed_principal_context(monkeypatch):

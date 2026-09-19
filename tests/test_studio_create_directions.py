@@ -99,6 +99,9 @@ def test_direction_context_preserves_reference_roles_without_embedding_data_urls
     assert context["references"][0]["url"] == "inline upload"
     assert context["references"][1]["role"] == "insert"
     assert context["references"][1]["instruction"] == studio_create.IMAGE_ROLES["insert"]
+    assert "FORMATO É CONTROLADO PELO STUDIO" in studio_create.system_prompt(1)
+    assert "ORDEM OBRIGATÓRIA DO PROMPT FINAL" in studio_create.system_prompt(1)
+    assert "REVISÃO DO BRIEFING" in studio_create.system_prompt(1)
 
 
 def image_data(color, size=(4, 4), mask_box=None):

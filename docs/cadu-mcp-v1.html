@@ -100,11 +100,11 @@ Cadu Harness
         <tr><td>MCP interno modular</td><td><span class="status done">Implementado</span></td><td>Workspace, artifacts, fontes, marcas, Planner e Reports em diferentes níveis.</td></tr>
         <tr><td>Artifacts e versões</td><td><span class="status done">Implementado</span></td><td>Rascunho, concorrência otimista e histórico.</td></tr>
         <tr><td>Classificação de arquivos</td><td><span class="status done">Implementado</span></td><td>Finalidade separada da categoria; migration necessária no ambiente.</td></tr>
-        <tr><td>Resource Registry transversal</td><td><span class="status partial">Parcial</span></td><td>Registro canônico, reconciliação, eventos e adaptadores iniciais implementados; relações semânticas e processamento assíncrono ainda faltam.</td></tr>
+        <tr><td>Resource Registry transversal</td><td><span class="status done">Implementado</span></td><td>Registro canônico, reconciliação, eventos, fila com worker e relações contextuais iniciais.</td></tr>
         <tr><td>ExecutionMode</td><td><span class="status done">Implementado</span></td><td>Contrato, roteamento, budgets, persistência e interface para fast, analysis e agentic.</td></tr>
         <tr><td>Journal e observabilidade</td><td><span class="status done">Implementado</span></td><td>Eventos ordenados, etapas, métricas operacionais, endpoint de retomada e painel administrativo.</td></tr>
         <tr><td>Studio via MCP</td><td><span class="status todo">Pendente</span></td><td>Aguardar contratos, custos e persistência estabilizados.</td></tr>
-        <tr><td>Modo agentic durável</td><td><span class="status partial">Fundação</span></td><td>Plano, etapas, checkpoints e cancelamento persistidos; falta o executor de retomada e confirmação entre etapas.</td></tr>
+        <tr><td>Modo agentic durável</td><td><span class="status partial">Fundação</span></td><td>Plano, etapas, checkpoints, cancelamento, leitura de estado e decisões humanas persistidos; falta executar automaticamente ações aprovadas.</td></tr>
         <tr><td>OAuth para agentes externos</td><td><span class="status todo">Pendente</span></td><td>Hoje há delegação curta iniciada dentro do Cadu.</td></tr>
       </tbody></table>
     </section>
@@ -240,10 +240,10 @@ studio.jobs.get           studio.assets.attach_to_project</pre>
     <section id="limites">
       <h2>Próximos endurecimentos, na ordem correta</h2>
       <ol>
-        <li><strong>Agentic durável:</strong> retomar planos persistidos, solicitar confirmações entre etapas e reconciliar cobrança após cancelamento ou falha.</li>
-        <li><strong>Organização assíncrona:</strong> executar a fila de reconciliação em worker próprio e adicionar hooks de movimentação, substituição, vínculo e arquivamento em todos os adapters.</li>
-        <li><strong>Context Graph:</strong> registrar relações semânticas entre fontes, decisões, artifacts, criativos, planos e relatórios.</li>
-        <li><strong>Observabilidade avançada:</strong> adicionar alertas, métricas de qualidade, feedback, custo real por provider e filtros exportáveis.</li>
+        <li><strong>Agentic executor:</strong> executar automaticamente ações aprovadas a partir do último checkpoint, com adapters idempotentes por domínio.</li>
+        <li><strong>Adapters de eventos:</strong> ampliar hooks de movimentação, substituição, vínculo e arquivamento para Planner, Studio e Reports.</li>
+        <li><strong>Context Graph semântico:</strong> enriquecer as relações determinísticas atuais com proveniência, decisões e derivações entre versões.</li>
+        <li><strong>Observabilidade avançada:</strong> adicionar métricas de qualidade, feedback, custo real por provider e filtros exportáveis; os alertas operacionais iniciais já estão ativos.</li>
         <li><strong>Turn Items:</strong> consolidar mensagens, activities, actions, tables, artifacts e errors em um envelope canônico, preservando as tabelas atuais.</li>
         <li><strong>Abertura externa:</strong> adicionar OAuth, revogação por aplicativo, idempotência integral, rate limits e recursos MCP.</li>
       </ol>

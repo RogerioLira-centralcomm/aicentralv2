@@ -31,13 +31,33 @@ def dashboard(client_id: int, limit=60) -> dict:
              (SELECT COUNT(*) FROM cadu_agent_turn_events event WHERE event.run_id=run.id) AS events
           FROM cadu_family_chat_runs run WHERE run.client_id=%s AND run.runtime_version='v2'
          ORDER BY run.created_at DESC LIMIT %s""", (client_id, limit))
-        return {"available": True, "summary": summary, "modes": modes, "runs": runs}
+        queue = repository.rows("""SELECT
+             COUNT(*) FILTER (WHERE status='queued') AS queued,
+             COUNT(*) FILTER (WHERE status='failed') AS failed,
+             COUNT(*) FILTER (WHERE status='running' AND started_at < NOW()-INTERVAL '10 minutes') AS stalled
+          FROM cadu_project_resource_jobs WHERE client_id=%s""", (client_id,))[0]
+        alerts = []
+        turns, failures = int(summary.get("turns") or 0), int(summary.get("failed") or 0)
+        if turns >= 5 and failures / turns >= .10:
+            alerts.append({"severity": "high", "code": "turn_failure_rate",
+                           "message": f"{round(failures / turns * 100)}% dos Turns falharam nos últimos 30 dias."})
+        if int(queue.get("failed") or 0):
+            alerts.append({"severity": "high", "code": "resource_jobs_failed",
+                           "message": f"{queue['failed']} reconciliações de projeto exigem nova tentativa."})
+        if int(queue.get("stalled") or 0):
+            alerts.append({"severity": "medium", "code": "resource_jobs_stalled",
+                           "message": f"{queue['stalled']} reconciliações estão em execução há mais de 10 minutos."})
+        if int(summary.get("avg_first_token_ms") or 0) > 5000:
+            alerts.append({"severity": "medium", "code": "first_token_slow",
+                           "message": "O primeiro retorno médio ultrapassou 5 segundos."})
+        return {"available": True, "summary": summary, "modes": modes, "runs": runs,
+                "resource_queue": queue, "alerts": alerts}
     except Exception:
         try:
             repository.get_db().rollback()
         except Exception:
             pass
-        return {"available": False, "summary": {}, "modes": [], "runs": []}
+        return {"available": False, "summary": {}, "modes": [], "runs": [], "alerts": []}
 
 
 def run_detail(client_id: int, run_id: str) -> dict:

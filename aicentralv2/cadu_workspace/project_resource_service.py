@@ -176,6 +176,7 @@ def reconcile(client_id: int, project_ref: str, actor_id=None) -> dict:
             cursor.execute("""UPDATE cadu_project_resources SET status='archived', last_seen_at=NOW()
                                 WHERE client_id=%s AND project_ref=%s AND last_seen_at < %s
                                   AND status <> 'archived'""", (client_id, project_ref, started_at))
+            _rebuild_relations(cursor, client_id, project_ref)
         connection.commit()
     except Exception:
         connection.rollback()
@@ -197,11 +198,19 @@ def list_resources(client_id: int, project_ref: str, *, reconcile_first=True, ac
                          ORDER BY COALESCE(source_updated_at, source_created_at, last_seen_at) DESC, title""",
                        (client_id, project_ref))
         resources = [dict(row) for row in cursor.fetchall()]
+        relations = []
+        if _relation(cursor, "cadu_project_resource_relations"):
+            cursor.execute("""SELECT source_resource_id::text, target_resource_id::text,
+                                      relation_type, confidence, metadata
+                                 FROM cadu_project_resource_relations
+                                WHERE client_id=%s AND project_ref=%s
+                             ORDER BY relation_type, source_resource_id""", (client_id, project_ref))
+            relations = [dict(row) for row in cursor.fetchall()]
     counts = Counter(item["resource_type"] for item in resources)
     hashes = Counter(item["content_hash"] for item in resources if item.get("content_hash"))
     for item in resources:
         item["possible_duplicate"] = bool(item.get("content_hash") and hashes[item["content_hash"]] > 1)
-    return {"resources": resources, "summary": {
+    return {"resources": resources, "relations": relations, "summary": {
         "total": len(resources), "possible_duplicates": sum(1 for item in resources if item["possible_duplicate"]),
         **dict(counts),
     }}
@@ -212,7 +221,7 @@ def list_for_context(context: RequestContext) -> dict:
 
 
 def notify_change(client_id: int, project_ref: str, event_type: str, *, source_system="", source_id="", actor_id=None) -> None:
-    """Persist a movement and reconcile immediately; queued state supports future workers."""
+    """Persist a movement for the supervised worker; reads may still reconcile on demand."""
     from uuid import uuid4
     connection = get_db()
     job_id = str(uuid4())
@@ -225,14 +234,6 @@ def notify_change(client_id: int, project_ref: str, event_type: str, *, source_s
                 VALUES (%s,%s,%s,%s,%s,%s,'queued',NOW())""",
                 (job_id, client_id, project_ref, event_type, source_system or None, str(source_id or "") or None))
         connection.commit()
-        with connection.cursor() as cursor:
-            cursor.execute("""UPDATE cadu_project_resource_jobs SET status='running',attempts=attempts+1,started_at=NOW()
-                                WHERE id=%s""", (job_id,))
-        connection.commit()
-        reconcile(client_id, project_ref, actor_id)
-        with connection.cursor() as cursor:
-            cursor.execute("""UPDATE cadu_project_resource_jobs SET status='completed',finished_at=NOW() WHERE id=%s""", (job_id,))
-        connection.commit()
     except Exception as exc:
         connection.rollback()
         try:
@@ -243,3 +244,27 @@ def notify_change(client_id: int, project_ref: str, event_type: str, *, source_s
         except Exception:
             connection.rollback()
         raise
+
+
+def _rebuild_relations(cursor, client_id: int, project_ref: str) -> None:
+    if not _relation(cursor, "cadu_project_resource_relations"):
+        return
+    cursor.execute("DELETE FROM cadu_project_resource_relations WHERE client_id=%s AND project_ref=%s",
+                   (client_id, project_ref))
+    cursor.execute("""INSERT INTO cadu_project_resource_relations
+        (client_id,project_ref,source_resource_id,target_resource_id,relation_type,confidence,metadata)
+        SELECT %s,%s,a.id,b.id,'possible_duplicate',1,'{}'::jsonb
+          FROM cadu_project_resources a JOIN cadu_project_resources b
+            ON a.client_id=b.client_id AND a.project_ref=b.project_ref
+           AND a.content_hash=b.content_hash AND a.id < b.id
+         WHERE a.client_id=%s AND a.project_ref=%s AND a.content_hash IS NOT NULL
+           AND a.status<>'archived' AND b.status<>'archived'
+        ON CONFLICT DO NOTHING""", (client_id, project_ref, client_id, project_ref))
+    cursor.execute("""INSERT INTO cadu_project_resource_relations
+        (client_id,project_ref,source_resource_id,target_resource_id,relation_type,confidence,metadata)
+        SELECT %s,%s,report.id,plan.id,'evaluates',0.85,'{"reason":"report_to_media_plan"}'::jsonb
+          FROM cadu_project_resources report CROSS JOIN cadu_project_resources plan
+         WHERE report.client_id=%s AND report.project_ref=%s AND report.resource_type='report'
+           AND plan.client_id=report.client_id AND plan.project_ref=report.project_ref
+           AND plan.resource_type='media_plan' AND report.status<>'archived' AND plan.status<>'archived'
+        ON CONFLICT DO NOTHING""", (client_id, project_ref, client_id, project_ref))

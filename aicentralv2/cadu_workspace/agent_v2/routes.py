@@ -107,6 +107,29 @@ def run_events(run_id):
     return jsonify(events=journal.events(str(run_id), current.client_id, current.user_id))
 
 
+@bp.get("/runs/<uuid:run_id>/state")
+def run_state(run_id):
+    current = resolve()
+    try:
+        return jsonify(journal.state(str(run_id), current.client_id, current.user_id))
+    except ValueError as exc:
+        abort(404, description=str(exc))
+
+
+@bp.post("/runs/<uuid:run_id>/steps/<uuid:step_id>/decision")
+def run_step_decision(run_id, step_id):
+    current = resolve()
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data.get("approved"), bool):
+        abort(400, description="Informe approved como verdadeiro ou falso.")
+    try:
+        step = journal.decide_step(str(run_id), str(step_id), current.client_id, current.user_id,
+                                   data["approved"], data.get("note"))
+        return jsonify(step=step, state=journal.state(str(run_id), current.client_id, current.user_id))
+    except ValueError as exc:
+        abort(409, description=str(exc))
+
+
 @bp.get("/observability/runs/<uuid:run_id>")
 def observability_run(run_id):
     if session.get("user_type") not in {"admin", "superadmin"}:

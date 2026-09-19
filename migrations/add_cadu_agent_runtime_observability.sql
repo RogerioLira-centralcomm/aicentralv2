@@ -50,3 +50,7 @@ CREATE TABLE IF NOT EXISTS cadu_agent_checkpoints (
 CREATE INDEX IF NOT EXISTS idx_cadu_agent_checkpoints_run
     ON cadu_agent_checkpoints (run_id, created_at DESC);
 
+ALTER TABLE cadu_agent_run_steps
+    ADD COLUMN IF NOT EXISTS decided_by BIGINT,
+    ADD COLUMN IF NOT EXISTS decided_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS decision_note TEXT;

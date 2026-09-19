@@ -63,3 +63,20 @@ CREATE TABLE IF NOT EXISTS cadu_project_resource_jobs (
 );
 CREATE INDEX IF NOT EXISTS idx_cadu_project_resource_jobs_queue
     ON cadu_project_resource_jobs (status, created_at) WHERE status IN ('queued','failed');
+
+CREATE TABLE IF NOT EXISTS cadu_project_resource_relations (
+    id BIGSERIAL PRIMARY KEY,
+    client_id BIGINT NOT NULL,
+    project_ref TEXT NOT NULL,
+    source_resource_id UUID NOT NULL REFERENCES cadu_project_resources(id) ON DELETE CASCADE,
+    target_resource_id UUID NOT NULL REFERENCES cadu_project_resources(id) ON DELETE CASCADE,
+    relation_type VARCHAR(40) NOT NULL,
+    confidence NUMERIC(5,4) NOT NULL DEFAULT 1,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (source_resource_id, target_resource_id, relation_type),
+    CHECK (source_resource_id <> target_resource_id)
+);
+CREATE INDEX IF NOT EXISTS idx_cadu_project_resource_relations_project
+    ON cadu_project_resource_relations (client_id, project_ref, relation_type);

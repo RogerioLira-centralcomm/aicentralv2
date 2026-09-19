@@ -455,3 +455,40 @@ body.portal--studio:has(.studio-v2) > .cadu-family-footer { display:none!importa
 
 /* The image glyph follows the title baseline when the reference rail is open. */
 .studio-v2 .studio-rail:not(.is-references-collapsed)>.panel-heading h2>i{margin-top:10px}
+
+/* Reference preview is one calm surface. The mockup is guidance, not a card
+   nested inside another card. */
+.studio-v2 .reference-preview-dialog{
+  width:min(900px,calc(100vw - 40px));max-width:900px;max-height:calc(100dvh - 40px);
+  padding:22px 24px 24px;border:0;border-radius:16px;background:#101b25;
+  box-shadow:0 30px 90px rgba(0,0,0,.62);overflow:auto;
+}
+.studio-v2 .reference-preview-dialog header{align-items:flex-start;padding:0 0 18px}
+.studio-v2 .reference-preview-dialog header>div{max-width:720px}
+.studio-v2 .reference-preview-dialog h2{margin:4px 0 7px}
+.studio-v2 .reference-preview-dialog p{max-width:68ch;color:#aebdca;font-size:13px;line-height:1.5}
+.studio-v2 .reference-preview-dialog .icon-button{flex:0 0 auto;border:0;background:transparent}
+.studio-v2 .reference-preview-dialog .icon-button:hover{background:rgba(255,255,255,.07)}
+.studio-v2 .reference-preview-frame{min-height:0;margin:0;padding:0;border:0;border-radius:0;background:transparent}
+.studio-v2 .reference-preview-frame img{max-width:100%;height:min(72vh,760px);border-radius:8px;box-shadow:0 18px 44px rgba(0,0,0,.3)}
+
+/* Generic icon styling used to pull the nested check out of its badge. */
+.studio-v2 .reference-card .reference-check i,
+.studio-v2 .reference-card .reference-preview-trigger i{
+  position:static;inset:auto;padding:0;border-radius:0;background:transparent;line-height:1;
+}
+
+@media(max-width:680px){
+  .studio-v2 .reference-preview-dialog{
+    position:fixed;inset:0;width:100vw;max-width:none;height:100dvh;max-height:none;
+    margin:0;padding:0 16px 18px;border-radius:0;
+  }
+  .studio-v2 .reference-preview-dialog header{
+    position:sticky;z-index:2;top:0;gap:12px;padding:16px 0 14px;background:#101b25;
+  }
+  .studio-v2 .reference-preview-dialog header>div{min-width:0}
+  .studio-v2 .reference-preview-dialog h2{font-size:19px}
+  .studio-v2 .reference-preview-dialog p{font-size:12px}
+  .studio-v2 .reference-preview-frame{display:flex;min-height:calc(100dvh - 170px);align-items:flex-start;justify-content:center}
+  .studio-v2 .reference-preview-frame img{width:100%;height:auto;max-height:none;border-radius:6px;box-shadow:none}
+}

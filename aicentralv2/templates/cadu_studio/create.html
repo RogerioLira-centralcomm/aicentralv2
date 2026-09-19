@@ -6,7 +6,7 @@
 <meta name="trocr-csrf-token" content="{{ mc_trocr_csrf|default('') }}">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-navigation.css') }}?v=13">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-create-v2.css') }}?v=31">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-studio-create-v2.css') }}?v=32">
 {% endblock %}
 {% block content %}
 <main class="studio-v2" id="studioV2" data-state="draft"
@@ -53,8 +53,8 @@
       <button class="primary-cta" type="submit">Aplicar formato</button>
     </form>
   </dialog>
-  <dialog class="reference-preview-dialog" id="referencePreviewDialog" aria-labelledby="referencePreviewTitle">
-    <header><div><span class="eyebrow">Referência visual</span><h2 id="referencePreviewTitle">Prévia da composição</h2><p>Use esta imagem para avaliar a posição, margem e camadas antes de selecionar.</p></div><button class="icon-button" type="button" data-close-reference-preview aria-label="Fechar prévia"><i class="fa-solid fa-xmark"></i></button></header>
+  <dialog class="reference-preview-dialog" id="referencePreviewDialog" aria-labelledby="referencePreviewTitle" aria-describedby="referencePreviewDescription">
+    <header><div><span class="eyebrow">Referência visual</span><h2 id="referencePreviewTitle">Prévia da composição</h2><p id="referencePreviewDescription">Esta referência orienta composição, margens e hierarquia. A peça gerada terá uma estrutura similar, usando seu briefing, suas imagens e sua marca — sem copiar este mockup.</p></div><button class="icon-button" type="button" data-close-reference-preview aria-label="Fechar referência"><i class="fa-solid fa-xmark"></i></button></header>
     <div class="reference-preview-frame"><img id="referencePreviewImage" alt=""></div>
   </dialog>
   <dialog class="reference-upload-dialog" id="referenceUploadDialog" aria-labelledby="referenceUploadTitle">

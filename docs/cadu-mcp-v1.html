@@ -77,6 +77,9 @@ Content-Type: application/json
         <tr><td>Artefatos</td><td><code>artifacts.list</code>, <code>artifacts.get</code>, <code>artifacts.list_versions</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
         <tr><td>Artefatos</td><td><code>artifacts.create_draft</code>, <code>artifacts.update_draft</code></td><td><span class="tag">draft</span></td><td>Interno e cliente</td></tr>
         <tr><td>Artefatos</td><td><code>artifacts.archive</code></td><td><span class="tag">write</span></td><td>Somente interno</td></tr>
+        <tr><td>Marcas</td><td><code>brands.list</code>, <code>brands.audit_status</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
+        <tr><td>Marcas</td><td><code>brands.prepare_logo_upload</code></td><td><span class="tag">draft</span></td><td>Interno e cliente</td></tr>
+        <tr><td>Marcas</td><td><code>brands.create</code>, <code>brands.start_audit</code></td><td><span class="tag">write</span></td><td>Interno e cliente, com confirmação</td></tr>
         <tr><td>Planner</td><td><code>planner.get_brief</code>, <code>planner.get_media_plan</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
         <tr><td>Relatórios</td><td><code>reports.list_project_reports</code>, <code>reports.get_report_metrics</code>, <code>reports.compare_report_to_plan</code></td><td><span class="tag">read</span></td><td>Interno e cliente</td></tr>
       </tbody></table>
@@ -129,6 +132,15 @@ Content-Type: multipart/form-data
 upload_token=&lt;token retornado&gt;
 file=@briefing.pdf</pre>
       <p>Limite inicial: 15 MB. Para indexação são aceitos PDF, DOCX e formatos textuais. Como simples anexo, também são aceitos PNG, JPEG, WebP e GIF.</p>
+      <h3>Logo da marca</h3>
+      <p><code>brands.prepare_logo_upload</code> gera uma autorização de dez minutos. O cliente envia um único PNG, JPEG ou WebP para <code>/workspace/mcp/brand-uploads</code>. O upload define o ativo como logo principal, mas não inicia auditoria.</p>
+      <pre>POST /workspace/mcp/brand-uploads
+Authorization: Bearer &lt;mesma delegação MCP&gt;
+Content-Type: multipart/form-data
+
+upload_token=&lt;token retornado&gt;
+file=@logo.png</pre>
+      <p>A auditoria é uma etapa separada: <code>brands.start_audit</code> exige administrador, saldo disponível, site oficial e confirmação explícita. Consulte o progresso com <code>brands.audit_status</code>.</p>
     </section>
 
     <section id="seguranca">

@@ -19,6 +19,7 @@ from flask import Flask
 from aicentralv2.cadu_workspace.agent_v2 import routes as v2_routes
 from aicentralv2.cadu_workspace.agent_v2 import service as v2_service
 from aicentralv2.cadu_workspace.artifacts import service as artifact_service
+from aicentralv2.cadu_workspace import brand_mcp_service
 from aicentralv2.cadu_workspace.mcp import routes as mcp_routes
 from aicentralv2.cadu_workspace.mcp.registry import load_builtin_tools
 
@@ -91,6 +92,8 @@ def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
     assert {
         "artifacts.list", "artifacts.get", "artifacts.create_draft", "artifacts.update_draft",
         "artifacts.list_versions", "projects.list_sources", "projects.prepare_source_upload",
+        "brands.list", "brands.create", "brands.prepare_logo_upload", "brands.start_audit",
+        "brands.audit_status",
     } <= names
     assert "artifacts.archive" not in names
 
@@ -118,6 +121,40 @@ def test_mcp_upload_endpoint_uses_signed_principal_context(monkeypatch):
     assert response.status_code == 201
     assert response.get_json()["source"]["source_id"] == 91
     assert saved == {"context": scoped, "token": "signed-upload", "name": "reference.png"}
+
+
+def test_mcp_brand_logo_upload_uses_signed_principal_context(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = "test-secret"
+    app.register_blueprint(mcp_routes.bp)
+    scoped = context(brand_ref="studio:81")
+    monkeypatch.setattr(mcp_routes, "authorize", lambda params: SimpleNamespace(
+        context=scoped, exposure="customer_agent",
+    ))
+    saved = {}
+
+    def save_logo(current, token, uploaded):
+        saved.update(context=current, token=token, name=uploaded.filename)
+        return {"brand_id": 81, "status": "uploaded"}
+
+    monkeypatch.setattr(brand_mcp_service, "save_logo_upload", save_logo)
+    response = app.test_client().post("/workspace/mcp/brand-uploads", data={
+        "upload_token": "signed-logo",
+        "file": (BytesIO(b"image"), "logo.png"),
+    })
+    assert response.status_code == 201
+    assert response.get_json()["logo"]["brand_id"] == 81
+    assert saved == {"context": scoped, "token": "signed-logo", "name": "logo.png"}
+
+
+def test_brand_audit_requires_current_tenant_admin(monkeypatch):
+    monkeypatch.setattr(brand_mcp_service.family_repository, "actor", lambda *_: {
+        "id": 7, "organization_id": 12,
+    })
+    monkeypatch.setattr(brand_mcp_service.family_repository, "account_role", lambda *_: "member")
+    with pytest.raises(Exception) as error:
+        brand_mcp_service._require_admin(context())
+    assert getattr(error.value, "code", None) == 403
 
 
 def test_brief_creation_is_artifact_first_and_bounded():

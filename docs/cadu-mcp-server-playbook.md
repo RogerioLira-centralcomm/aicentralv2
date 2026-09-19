@@ -107,8 +107,11 @@ Uma tool representa uma intenção completa. Não criar ferramentas como
 - `draft`: cria estado reversível e versionado;
 - `write`: altera estado confirmado e exige política adicional.
 
-Tools externas começam somente como `read`. Escritas externas exigirão OAuth,
-consentimento explícito, idempotency key e auditoria antes de serem publicadas.
+Na delegação curta emitida por uma sessão autenticada, tools externas podem
+criar rascunhos e executar escritas explicitamente confirmadas. Toda escrita
+recebe `request_id`, permanece restrita ao tenant e registra seu estado no
+domínio. OAuth, revogação por aplicativo e rate limit são obrigatórios antes
+da distribuição pública em marketplaces.
 
 ### Versão
 
@@ -245,3 +248,13 @@ tipo ou nome do arquivo:
 Na versão inicial, imagens são aceitas como anexos. OCR ou entendimento visual
 somente devem ser habilitados quando tiverem orçamento, consentimento e política
 de retenção próprios.
+
+## Marcas e auditoria
+
+O MCP também expõe `brands.list`, `brands.create`,
+`brands.prepare_logo_upload`, `brands.start_audit` e `brands.audit_status`.
+O logo usa uma autorização multipart de dez minutos em
+`/workspace/mcp/brand-uploads`. A auditoria nunca é acionada implicitamente pelo
+cadastro ou pelo upload: exige uma chamada separada, administrador do tenant,
+saldo disponível e `request_id` idempotente. O resultado continua como proposta
+pendente de revisão no Workspace.

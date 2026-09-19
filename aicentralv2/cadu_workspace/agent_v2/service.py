@@ -1,7 +1,7 @@
 """Admission, execution and persistence for a complete Conversations V2 turn."""
 
 import json
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from time import perf_counter
 from urllib.parse import urlparse
 from uuid import UUID, uuid4
@@ -52,6 +52,17 @@ def _message(value):
     if not 1 <= len(text) <= 20000:
         abort(400, description="Informe uma mensagem de até 20.000 caracteres.")
     return text
+
+
+def _selected_context(value):
+    if not isinstance(value, dict):
+        return None
+    text = " ".join(str(value.get("text") or "").split())
+    if not 3 <= len(text) <= 1200:
+        return None
+    kind = str(value.get("type") or "selection")[:40]
+    label = str(value.get("label") or "Contexto selecionado")[:80]
+    return {"type": kind, "label": label, "text": text}
 
 
 def _run_was_cancelled(run_id: str) -> bool:
@@ -191,6 +202,7 @@ def prepare(data):
     current = resolve(conversation_id=conversation_id,
                       surface=str(data.get("surface") or "conversations"),
                       active_object=data.get("active_object"))
+    current = replace(current, selected_context=_selected_context(data.get("selected_context")))
     file_ids = validate_files(data.get("files"))
     uploads = repository.rows(
         """SELECT id, provider_id, kind, name FROM cadu_family_chat_uploads
@@ -281,7 +293,8 @@ def prepare(data):
         journal.persist_plan(run_id, execution["plan"], execution["resolved_context"].tool_calls)
         _journal(run_id, "run.admitted", {"execution_mode": execution["execution_mode"],
                  "runtime_id": runtime["id"], "provider_config_version": runtime["config_version"],
-                 "route": execution["route"], "budget": execution["budget"]})
+                 "route": execution["route"], "budget": execution["budget"],
+                 "selected_context": bool(execution.get("selected_context"))})
     except Exception:
         conn.rollback()
         raise

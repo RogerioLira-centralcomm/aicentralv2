@@ -32,6 +32,7 @@ class RequestContext:
     brand_ref: str | None = None
     active_object: ActiveObject | None = None
     capabilities: tuple[str, ...] = ()
+    selected_context: dict[str, str] | None = None
 
     def __post_init__(self) -> None:
         if self.surface not in SURFACES:

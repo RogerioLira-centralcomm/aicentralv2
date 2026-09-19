@@ -16,6 +16,7 @@ export default function App({bootstrap}) {
   const [title, setTitle] = useState(emptyTitle);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
+  const [composerContext, setComposerContext] = useState(null);
   const [attachments, setAttachments] = useState([]);
   const [artifact, setArtifact] = useState(null);
   const [artifactOpen, setArtifactOpen] = useState(false);
@@ -107,7 +108,7 @@ export default function App({bootstrap}) {
 
   const reset = useCallback(() => {
     setConversationId(null); conversationRef.current = null;
-    setTitle(emptyTitle); setMessages([]); setInput(''); setAttachments([]);
+    setTitle(emptyTitle); setMessages([]); setInput(''); setComposerContext(null); setAttachments([]);
     setArtifact(null); artifactRef.current = null; setArtifactOpen(false); setArtifactDirty(false);
     setDiagnostics([]); setRuntime(''); runRef.current = null;
   }, []);
@@ -125,7 +126,7 @@ export default function App({bootstrap}) {
       setConversationId(id); conversationRef.current = id;
       setTitle(conversationTitle || 'Conversa');
       if (data.context) setContext(data.context);
-      setAttachments([]); setArtifact(null); artifactRef.current = null; setArtifactDirty(false); setArtifactOpen(false);
+      setAttachments([]); setComposerContext(null); setArtifact(null); artifactRef.current = null; setArtifactDirty(false); setArtifactOpen(false);
       let lastArtifact = '';
       const restored = (data.messages || []).map(item => {
         if (item.role === 'user') return {id: uid(), role: 'user', content: item.content || '', files: item.files || []};
@@ -210,7 +211,7 @@ export default function App({bootstrap}) {
     const turnId = uid();
     setMessages(items => [...items, {id: uid(), turnId, role: 'user', content: clean, files}]);
     setTitle(current => current === emptyTitle ? clean.slice(0, 62) : current);
-    setInput(''); setAttachments([]); setRuntime('Trabalhando');
+    setInput(''); setComposerContext(null); setAttachments([]); setRuntime('Trabalhando');
     let terminal = false;
     let runStarted = false;
     let latestArtifact = null;
@@ -222,6 +223,7 @@ export default function App({bootstrap}) {
         body: JSON.stringify({
           message: clean, request_id: crypto.randomUUID(), conversation_id: conversationRef.current,
           surface: 'conversations', files: files.map(item => item.id),
+          selected_context: composerContext ? {type: composerContext.type, text: composerContext.text} : null,
           active_object: artifactRef.current?.id ? {type: `artifact:${artifactRef.current.type}`, id: artifactRef.current.id} : null,
         }),
       });
@@ -275,7 +277,7 @@ export default function App({bootstrap}) {
       }
       setRunning(false); runRef.current = null; await loadRecent();
     }
-  }, [input, running, artifactDirty, confirmDiscard, attachments, fetchArtifact, trace, bootstrap.endpoints.messages, loadRecent]);
+  }, [input, running, artifactDirty, confirmDiscard, attachments, composerContext, fetchArtifact, trace, bootstrap.endpoints.messages, loadRecent]);
 
   const stop = useCallback(async () => {
     if (!runRef.current) return;
@@ -337,7 +339,7 @@ export default function App({bootstrap}) {
   return <div className="cv-flex cv-h-full cv-min-h-0 cv-w-full cv-overflow-hidden cv-bg-ink">
     <Sidebar bootstrap={bootstrap} conversations={conversations} activeId={conversationId} onOpen={openConversation} onNew={newConversation} mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} loading={historyLoading} openingId={openingId}/>
     <div className="cv-relative cv-flex cv-min-w-0 cv-flex-1">
-      <Conversation title={title} context={context} projects={projects} onProjectChange={changeProject} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} onAttach={() => fileRef.current?.click()} attachments={attachments} onRemoveAttachment={index => setAttachments(items => items.filter((_, itemIndex) => itemIndex !== index))} running={running} onStop={stop} onNew={newConversation} onPrompt={prompt => setInput(prompt)} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} mobileMenu={() => setMobileOpen(true)} artifactOpen={artifactOpen} notice={notice} onDismissNotice={() => setNotice(null)}/>
+      <Conversation title={title} context={context} projects={projects} onProjectChange={changeProject} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} onAttach={() => fileRef.current?.click()} attachments={attachments} onRemoveAttachment={index => setAttachments(items => items.filter((_, itemIndex) => itemIndex !== index))} running={running} onStop={stop} onNew={newConversation} onPrompt={(prompt, selected) => { setInput(prompt); if (selected) setComposerContext(selected); }} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} mobileMenu={() => setMobileOpen(true)} artifactOpen={artifactOpen} notice={notice} onDismissNotice={() => setNotice(null)} composerContext={composerContext} onClearContext={() => setComposerContext(null)}/>
       {artifactOpen && <ArtifactPane artifact={artifact} dirty={artifactDirty} saving={saving} onChange={changeArtifact} onClose={() => setArtifactOpen(false)} onSave={saveArtifact} onLoadVersions={loadVersions} versions={versions} onRestoreVersion={restoreVersion}/>}
     </div>
     <input ref={fileRef} type="file" hidden multiple accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.txt,.csv,.md,.json,.docx,.xlsx,.pptx" onChange={event => { addFiles(Array.from(event.target.files || [])); event.target.value = ''; }}/>

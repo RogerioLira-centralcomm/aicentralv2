@@ -1,4 +1,4 @@
-import React, {useEffect, useRef} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {Icon} from '../lib/icons';
 import {Markdown} from './Markdown';
 import {safeUrl} from '../lib/api';
@@ -26,9 +26,35 @@ function Answer({message, onPrompt, onOpenArtifact, onOpenResource, onDecision})
   </div>;
 }
 
+function SelectionTools({text, onPrompt, onClear}) {
+  const quote = text.length > 420 ? `${text.slice(0, 420).replace(/\s+\S*$/, '')}…` : text;
+  const ask = prompt => { onClear(); onPrompt(prompt, {type: 'selection', label: 'Trecho selecionado', text: quote}); };
+  return <div className="cv-selection-tools cv-sticky cv-bottom-6 cv-z-10 cv-mx-auto cv-mb-5 cv-flex cv-w-fit cv-max-w-[calc(100%-32px)] cv-flex-wrap cv-items-center cv-justify-center cv-gap-1.5 cv-rounded-xl cv-border cv-border-teal/25 cv-bg-[#102326]/95 cv-p-1.5 cv-shadow-xl cv-backdrop-blur" role="toolbar" aria-label="Ações para o trecho selecionado">
+    <span className="cv-px-2 cv-text-[10px] cv-text-[#8faaa5]">Trecho selecionado</span>
+    <button type="button" onClick={() => ask('Explique este trecho de forma simples.')} className="cv-rounded-lg cv-border-0 cv-bg-transparent cv-px-2.5 cv-py-1.5 cv-text-[11px] cv-text-[#c3d6d2] hover:cv-bg-white/[.07] hover:cv-text-white">Perguntar</button>
+    <button type="button" onClick={() => ask('Resuma este trecho em uma frase.')} className="cv-rounded-lg cv-border-0 cv-bg-transparent cv-px-2.5 cv-py-1.5 cv-text-[11px] cv-text-[#c3d6d2] hover:cv-bg-white/[.07] hover:cv-text-white">Resumir</button>
+    <button type="button" onClick={() => ask('Adicione este trecho ao briefing do projeto como uma premissa.')} className="cv-rounded-lg cv-border-0 cv-bg-teal/15 cv-px-2.5 cv-py-1.5 cv-text-[11px] cv-font-semibold cv-text-teal hover:cv-bg-teal/25">Adicionar ao briefing</button>
+    <button type="button" onClick={onClear} className="cv-grid cv-h-6 cv-w-6 cv-place-items-center cv-rounded-md cv-border-0 cv-bg-transparent cv-text-[#7e9994] hover:cv-bg-white/[.07] hover:cv-text-white" aria-label="Fechar ações do trecho">×</button>
+  </div>;
+}
+
 function Thread({messages, onPrompt, onOpenArtifact, onOpenResource, onDecision, onOpenDiagnostics, running, runtime}) {
   const end = useRef(null);
+  const thread = useRef(null);
+  const [selection, setSelection] = useState('');
   useEffect(() => { end.current?.scrollIntoView({block: 'end'}); }, [messages]);
+  const captureSelection = () => {
+    window.requestAnimationFrame(() => {
+      const current = window.getSelection();
+      const text = String(current?.toString() || '').replace(/\s+/g, ' ').trim();
+      const anchor = current?.anchorNode;
+      if (!text || text.length < 3 || text.length > 1200 || !anchor || !thread.current?.contains(anchor)) return;
+      const answer = anchor.parentElement?.closest('[data-cv-answer]');
+      if (!answer) return;
+      setSelection(text);
+    });
+  };
+  const clearSelection = () => { setSelection(''); window.getSelection()?.removeAllRanges(); };
   if (!messages.length && !running) return <div className="cv-flex cv-min-h-full cv-items-center cv-justify-center cv-px-6 cv-py-16">
     <div className="cv-w-full cv-max-w-[700px] cv-text-center">
       <span className="cv-mx-auto cv-grid cv-h-10 cv-w-10 cv-place-items-center cv-rounded-xl cv-bg-teal/10 cv-text-lg cv-font-bold cv-text-teal">C</span>
@@ -41,14 +67,15 @@ function Thread({messages, onPrompt, onOpenArtifact, onOpenResource, onDecision,
       ].map(([label, prompt]) => <button key={label} type="button" onClick={() => onPrompt(prompt)} className="cv-rounded-full cv-border cv-border-white/10 cv-bg-white/[.025] cv-px-4 cv-py-2.5 cv-text-xs cv-text-[#bdcfcc] hover:cv-bg-white/[.06] hover:cv-text-white">{label}</button>)}</div>
     </div>
   </div>;
-  return <div className="cv-thread-content cv-mx-auto cv-w-full cv-max-w-[820px] cv-px-6 cv-pt-10 md:cv-px-10">
-    {messages.map(message => message.role === 'user' ? <article key={message.id} className="cv-mb-10 cv-flex cv-justify-end"><div className="cv-max-w-[68ch] cv-rounded-2xl cv-rounded-br-md cv-bg-[#12322f] cv-px-4 cv-py-3 cv-text-[14px] cv-leading-6 cv-text-[#f0f8f6]"><p className="cv-m-0 cv-whitespace-pre-wrap">{message.content}</p>{!!message.files?.length && <small className="cv-mt-2 cv-block cv-text-[#8fc6bf]">{message.files.map(file => file.name || 'Arquivo').join(', ')}</small>}</div></article> : message.kind === 'worked' ? <button key={message.id} type="button" onClick={onOpenDiagnostics} className="cv-mb-4 cv-border-0 cv-bg-transparent cv-p-0 cv-text-xs cv-text-[#718b87] hover:cv-text-[#a9bfbb]">Trabalhou por {message.seconds} s ›</button> : <article key={message.id} className="cv-mb-10"><Answer message={message} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onDecision={onDecision}/></article>)}
+  return <div ref={thread} onMouseUp={captureSelection} className="cv-thread-content cv-mx-auto cv-w-full cv-max-w-[820px] cv-px-6 cv-pt-10 md:cv-px-10">
+    {messages.map(message => message.role === 'user' ? <article key={message.id} className="cv-mb-10 cv-flex cv-justify-end"><div className="cv-max-w-[68ch] cv-rounded-2xl cv-rounded-br-md cv-bg-[#12322f] cv-px-4 cv-py-3 cv-text-[14px] cv-leading-6 cv-text-[#f0f8f6]"><p className="cv-m-0 cv-whitespace-pre-wrap">{message.content}</p>{!!message.files?.length && <small className="cv-mt-2 cv-block cv-text-[#8fc6bf]">{message.files.map(file => file.name || 'Arquivo').join(', ')}</small>}</div></article> : message.kind === 'worked' ? <button key={message.id} type="button" onClick={onOpenDiagnostics} className="cv-mb-4 cv-border-0 cv-bg-transparent cv-p-0 cv-text-xs cv-text-[#718b87] hover:cv-text-[#a9bfbb]">Trabalhou por {message.seconds} s ›</button> : <article key={message.id} data-cv-answer="true" className="cv-mb-10"><Answer message={message} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onDecision={onDecision}/></article>)}
+    {selection && <SelectionTools text={selection} onPrompt={onPrompt} onClear={clearSelection}/>}
     {running && <div className="cv-mb-10 cv-flex cv-items-center cv-gap-3 cv-text-xs cv-text-[#86a29e]" role="status"><span className="cv-flex cv-gap-1" aria-hidden="true"><i className="cv-h-1.5 cv-w-1.5 cv-animate-pulse cv-rounded-full cv-bg-teal"/><i className="cv-h-1.5 cv-w-1.5 cv-animate-pulse cv-rounded-full cv-bg-teal" style={{animationDelay: '160ms'}}/><i className="cv-h-1.5 cv-w-1.5 cv-animate-pulse cv-rounded-full cv-bg-teal" style={{animationDelay: '320ms'}}/></span>{runtime || 'Cadu está trabalhando'}</div>}
     <div ref={end}/>
   </div>;
 }
 
-function Composer({value, onChange, onSubmit, onAttach, attachments, onRemoveAttachment, running, onStop, contextLabel}) {
+function Composer({value, onChange, onSubmit, onAttach, attachments, onRemoveAttachment, running, onStop, contextLabel, composerContext, onClearContext}) {
   const textarea = useRef(null);
   useEffect(() => {
     if (!textarea.current) return;
@@ -58,6 +85,7 @@ function Composer({value, onChange, onSubmit, onAttach, attachments, onRemoveAtt
   }, [value]);
   return <div className="cv-composer-stage cv-pointer-events-none cv-absolute cv-inset-x-0 cv-bottom-0 cv-z-20 cv-px-4 md:cv-px-8">
     <form onSubmit={event => { event.preventDefault(); onSubmit(); }} className="cv-composer-shell cv-pointer-events-auto cv-mx-auto cv-w-full cv-max-w-[760px]">
+      {!!composerContext && <div className="cv-flex cv-items-center cv-gap-2 cv-border-b cv-border-white/[.06] cv-px-3 cv-py-2"><span className="cv-min-w-0 cv-flex-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-[11px] cv-text-[#8fbab4]">↳ {composerContext.label}: “{composerContext.text}”</span><button type="button" onClick={onClearContext} className="cv-grid cv-h-5 cv-w-5 cv-place-items-center cv-rounded cv-border-0 cv-bg-transparent cv-text-[#78918d] hover:cv-bg-white/[.06] hover:cv-text-white" aria-label="Remover contexto">×</button></div>}
       {!!attachments.length && <div className="cv-flex cv-flex-wrap cv-gap-2 cv-px-2 cv-pb-2">{attachments.map((item, index) => <span key={`${item.name}-${index}`} className={`cv-flex cv-items-center cv-gap-2 cv-rounded-lg cv-bg-white/[.06] cv-px-3 cv-py-2 cv-text-xs ${item.error ? 'cv-text-[#ff9ca1]' : 'cv-text-[#b9cbc8]'}`}>{item.uploading ? 'Enviando · ' : ''}{item.name}<button type="button" disabled={item.uploading} onClick={() => onRemoveAttachment(index)} className="cv-border-0 cv-bg-transparent cv-p-0 cv-text-[#91aaa6]">×</button></span>)}</div>}
       <textarea ref={textarea} value={value} onChange={event => onChange(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} rows="1" maxLength="20000" placeholder="Pergunte ou peça uma alteração…" aria-label="Mensagem para o Cadu" className="cv-composer-input cv-block cv-max-h-[150px] cv-min-h-[48px] cv-w-full cv-resize-none cv-border-0 cv-bg-transparent cv-px-4 cv-py-3 cv-text-[15px] cv-leading-6 cv-text-white cv-outline-none placeholder:cv-text-[#6f8985]"/>
       <div className="cv-composer-actions cv-flex cv-items-center cv-justify-between">
@@ -68,7 +96,7 @@ function Composer({value, onChange, onSubmit, onAttach, attachments, onRemoveAtt
   </div>;
 }
 
-export function Conversation({title, context, projects, onProjectChange, contextLoading, runtime, diagnostics, messages, input, setInput, onSubmit, onAttach, attachments, onRemoveAttachment, running, onStop, onNew, onPrompt, onOpenArtifact, onOpenResource, onDecision, mobileMenu, artifactOpen, notice, onDismissNotice}) {
+export function Conversation({title, context, projects, onProjectChange, contextLoading, runtime, diagnostics, messages, input, setInput, onSubmit, onAttach, attachments, onRemoveAttachment, running, onStop, onNew, onPrompt, onOpenArtifact, onOpenResource, onDecision, mobileMenu, artifactOpen, notice, onDismissNotice, composerContext, onClearContext}) {
   const details = useRef(null);
   const selected = projects.find(item => item.ref === context?.project_ref);
   return <section className="cv-relative cv-flex cv-min-w-0 cv-flex-1 cv-flex-col cv-bg-ink">
@@ -88,7 +116,7 @@ export function Conversation({title, context, projects, onProjectChange, context
     </header>
     {notice && <div className="cv-absolute cv-right-5 cv-top-[78px] cv-z-30 cv-flex cv-w-[min(390px,calc(100%-40px))] cv-items-start cv-gap-3 cv-rounded-xl cv-border cv-border-[#ff7d83]/25 cv-bg-[#28191b]/95 cv-p-3 cv-shadow-2xl cv-backdrop-blur" role="alert"><span className="cv-mt-1 cv-h-2 cv-w-2 cv-flex-none cv-rounded-full cv-bg-[#ff7d83]"/><div className="cv-min-w-0 cv-flex-1"><strong className="cv-block cv-text-xs cv-font-semibold">{notice.title}</strong>{notice.detail && <span className="cv-mt-1 cv-block cv-text-[11px] cv-leading-5 cv-text-[#d8b5b7]">{notice.detail}</span>}</div><button type="button" onClick={onDismissNotice} className="cv-grid cv-h-6 cv-w-6 cv-place-items-center cv-rounded-md cv-border-0 cv-bg-transparent cv-text-[#c99b9e]" aria-label="Fechar aviso"><Icon name="close" size={14}/></button></div>}
     <div className="cv-thread-scroll cv-scroll cv-min-h-0 cv-flex-1 cv-overflow-y-auto"><Thread messages={messages} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onDecision={onDecision} running={running} runtime={runtime} onOpenDiagnostics={() => { if (details.current) details.current.open = true; }}/></div>
-    <Composer value={input} onChange={setInput} onSubmit={onSubmit} onAttach={onAttach} attachments={attachments} onRemoveAttachment={onRemoveAttachment} running={running} onStop={onStop} contextLabel={selected?.name || 'Contexto pessoal'}/>
+    <Composer value={input} onChange={setInput} onSubmit={onSubmit} onAttach={onAttach} attachments={attachments} onRemoveAttachment={onRemoveAttachment} running={running} onStop={onStop} contextLabel={selected?.name || 'Contexto pessoal'} composerContext={composerContext} onClearContext={onClearContext}/>
     {artifactOpen && <span className="cv-sr-only">Artefato aberto ao lado da conversa</span>}
   </section>;
 }

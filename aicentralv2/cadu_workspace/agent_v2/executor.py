@@ -34,10 +34,12 @@ def prepare_execution(message, request, history="", requested_mode=""):
     payload = build_payload(message=message, request=request, route=route,
                             resolved=resolved.values, policy=policy,
                             user_label="user-" + str(request.user_id), history=history,
-                            execution_mode=execution_mode, max_context_chars=budget.max_context_chars)
+                            execution_mode=execution_mode, max_context_chars=budget.max_context_chars,
+                            selected_context=getattr(request, "selected_context", None))
     return {
         "route": route.to_dict(), "execution_mode": execution_mode,
         "budget": asdict(budget), "policy": policy,
         "plan": build_task_plan(route, budget, message), "resolved_context": resolved,
+        "selected_context": getattr(request, "selected_context", None),
         "provider_payload": payload,
     }

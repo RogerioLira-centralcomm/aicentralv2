@@ -1,6 +1,7 @@
 """Compact prompt input for the isolated Dify V2 application."""
 
 import json
+from typing import Optional
 
 from .contracts import IntentRoute, RequestContext
 
@@ -10,9 +11,10 @@ Use somente as evidências fornecidas. Diferencie fatos, premissas e lacunas. N�
 ferramentas, providers ou erros internos. Responda no JSON solicitado e não reproduza artefatos
 inteiros no chat. Em artifact_first, mantenha answer em no máximo duas frases e coloque todo o
 conteúdo detalhado e editável em artifact_patch. Em qualquer modo, mantenha answer curto e use
-blocks para resultados operáveis: decision para escolhas, checklist para revisão, insights para
-achados que podem ser aprofundados, metrics para indicadores, files para arquivos e steps para
-processos. Entregue no máximo dois blocks e cinco itens por block. Não use tabelas quando o usuário
+blocks para resultados operáveis: summary para síntese, activity para progresso, source_group para
+fontes, assumption ou warning para contexto, question ou decision para escolhas, checklist para
+revisão, insights para achados, metrics para indicadores, files para arquivos e steps para processos.
+Entregue no máximo três blocks e cinco itens por block. Não use tabelas quando o usuário
 precisar escolher, editar, abrir ou continuar o trabalho."""
 
 
@@ -42,7 +44,8 @@ def _bounded_json(value: dict, limit: int) -> str:
 
 def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
                   resolved: dict, policy: dict, user_label: str, history: str = "",
-                  execution_mode: str = "analysis", max_context_chars: int = 16000) -> dict:
+                  execution_mode: str = "analysis", max_context_chars: int = 16000,
+                  selected_context: Optional[dict] = None) -> dict:
     task = {
         "domain": route.domain, "action": route.action, "complexity": route.complexity,
         "response_mode": route.response_mode, "execution_mode": execution_mode,
@@ -55,13 +58,14 @@ def build_payload(*, message: str, request: RequestContext, route: IntentRoute,
         "evidence": _bounded_json({
             **resolved,
             **({"conversation_history": history} if history else {}),
+            **({"selected_context": selected_context} if selected_context else {}),
         }, max_context_chars),
         "response_policy": json.dumps(policy, ensure_ascii=False, separators=(",", ":")),
         "output_contract": json.dumps({
             "answer": "string", "confidence": "low|medium|high", "assumptions": [],
             "questions": [], "actions": [],
             "blocks": [{
-                "type": "decision|checklist|insights|metrics|files|steps", "title": "string", "summary": "string",
+                "type": "summary|activity|progress|source_group|assumption|warning|question|decision|checklist|insights|metrics|files|steps", "title": "string", "summary": "string", "text": "string", "label": "string", "status": "string",
                 "items": [{
                     "id": "string", "title": "string", "detail": "string", "value": "string",
                     "state": "pending|active|done|blocked", "recommended": False,

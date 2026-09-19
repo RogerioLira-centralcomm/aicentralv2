@@ -29,7 +29,13 @@ def _clean_actions(values, limit):
         label = _clean_text(item.get("label"), 160)
         prompt = _clean_text(item.get("prompt"), 1000)
         if action_id and label:
-            actions.append({"id": action_id, "label": label, "prompt": prompt})
+            actions.append({
+                "id": action_id,
+                "label": label,
+                "prompt": prompt,
+                "kind": _clean_text(item.get("kind") or "conversation.prompt", 80),
+                "requires_confirmation": _as_bool(item.get("requires_confirmation")),
+            })
         if len(actions) >= limit:
             break
     return actions
@@ -80,15 +86,35 @@ def _as_bool(value):
 def _clean_blocks(values):
     """Reduce provider UI suggestions to a small, inert product contract."""
     blocks = []
-    allowed = {"decision", "checklist", "insights", "metrics", "files", "steps"}
+    allowed = {
+        "summary", "activity", "progress", "source", "sources", "source_group",
+        "assumption", "warning", "error", "question", "questions",
+        "decision", "checklist", "insights", "metrics", "files", "steps",
+    }
     allowed_states = {"pending", "active", "done", "blocked"}
     for value in values if isinstance(values, list) else []:
         if not isinstance(value, dict) or value.get("type") not in allowed:
             continue
         block_type = value["type"]
+        if block_type in {"summary", "activity", "progress", "assumption", "warning", "error"}:
+            text = _clean_text(value.get("text") or value.get("summary") or value.get("detail") or value.get("title"), 1200)
+            if text:
+                blocks.append({
+                    "type": block_type,
+                    "title": _clean_text(value.get("title"), 180),
+                    "summary": _clean_text(value.get("summary"), 500),
+                    "text": text,
+                    "label": _clean_text(value.get("label"), 180),
+                    "status": _clean_text(value.get("status") or value.get("state"), 30),
+                })
+            if len(blocks) >= 3:
+                break
+            continue
         items = []
         used_ids = set()
         source_items = value.get("items") if isinstance(value.get("items"), list) else []
+        if not source_items and block_type in {"source", "sources"}:
+            source_items = [value.get("resource") or value]
         for index, item in enumerate(source_items):
             if not isinstance(item, dict):
                 continue
@@ -106,7 +132,15 @@ def _clean_blocks(values):
                 "title": title,
                 "detail": _clean_text(item.get("detail") or item.get("description"), 500),
             }
-            if block_type == "decision":
+            if block_type in {"question", "questions"}:
+                clean["prompt"] = _clean_text(item.get("prompt") or item.get("question"), 1000)
+            elif block_type in {"source", "sources", "source_group"}:
+                clean.update({
+                    "kind": _clean_text(item.get("kind"), 80),
+                    "url": _resource_url(item.get("url")),
+                    "resource_id": _clean_text(item.get("resource_id"), 120),
+                })
+            elif block_type == "decision":
                 clean.update({
                     "recommended": _as_bool(item.get("recommended")),
                     "prompt": _clean_text(item.get("prompt"), 1000),
@@ -143,7 +177,8 @@ def _clean_blocks(values):
                 "summary": _clean_text(value.get("summary"), 500),
                 "items": items,
             })
-        if len(blocks) >= 2:
+        compact_types = {"summary", "activity", "progress", "source", "sources", "source_group", "assumption", "warning", "error"}
+        if len(blocks) >= 2 and any(item["type"] not in compact_types for item in blocks):
             break
     return blocks
 

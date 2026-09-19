@@ -8,6 +8,56 @@ function BlockHeader({block}) {
   return <header className="cv-mb-3"><strong className="cv-block cv-text-sm cv-font-semibold cv-text-[#edf7f5]">{block.title}</strong>{block.summary && <p className="cv-mb-0 cv-mt-1 cv-text-xs cv-leading-5 cv-text-[#819b97]">{block.summary}</p>}</header>;
 }
 
+function SummaryBlock({block}) {
+  return <section className="cv-response-summary cv-mt-5 cv-border-l-2 cv-border-teal/60 cv-pl-4">
+    <span className="cv-block cv-text-[10px] cv-font-semibold cv-text-teal">Resumo</span>
+    <p className="cv-m-0 cv-mt-1 cv-text-sm cv-leading-6 cv-text-[#d9e7e4]">{block.text || block.summary || block.title}</p>
+  </section>;
+}
+
+function ActivityBlock({block}) {
+  const state = block.state || block.status || 'completed';
+  const marker = state === 'running' || state === 'active' ? 'cv-animate-pulse cv-bg-teal' : state === 'error' || state === 'failed' ? 'cv-bg-[#ff7d83]' : 'cv-bg-[#6f8884]';
+  return <div className="cv-mt-4 cv-flex cv-items-center cv-gap-2 cv-text-xs cv-text-[#819b97]" role="status">
+    <i className={`cv-h-1.5 cv-w-1.5 cv-flex-none cv-rounded-full ${marker}`}/>
+    <span>{block.label || block.title || block.text}</span>
+    {block.detail && <span className="cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-[#627b77]">{block.detail}</span>}
+  </div>;
+}
+
+function SourcesBlock({block, onOpenResource}) {
+  const items = Array.isArray(block.items) ? block.items : block.resource ? [block.resource] : [];
+  if (!items.length) return null;
+  return <section className="cv-mt-5">
+    <button type="button" className="cv-border-0 cv-bg-transparent cv-p-0 cv-text-[10px] cv-font-semibold cv-text-[#819b97]" onClick={event => { const list = event.currentTarget.nextElementSibling; if (list) list.hidden = !list.hidden; }}>
+      {block.title || 'Fontes usadas'} · {items.length}
+    </button>
+    <div className="cv-mt-2 cv-flex cv-flex-wrap cv-gap-1.5">
+      {items.slice(0, 6).map((item, index) => <button key={item.id || index} type="button" onClick={() => onOpenResource?.(item)} className="cv-max-w-full cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-rounded-full cv-border cv-border-white/[.09] cv-bg-transparent cv-px-2.5 cv-py-1 cv-text-[11px] cv-text-[#a9c0bc] hover:cv-border-teal/40 hover:cv-text-[#d9e7e4]">{item.title || item.name || item.label || 'Fonte'}</button>)}
+    </div>
+  </section>;
+}
+
+function NoteBlock({block, tone = 'neutral'}) {
+  const colors = tone === 'warning' ? 'cv-border-[#ff7d83]/35 cv-text-[#e8c4c6]' : 'cv-border-white/[.08] cv-text-[#a9bfbb]';
+  return <aside className={`cv-mt-5 cv-border-l-2 cv-pl-3 cv-text-xs cv-leading-5 ${colors}`}>
+    <strong className="cv-block cv-font-semibold">{block.title || (tone === 'warning' ? 'Atenção' : 'Premissa')}</strong>
+    <span className="cv-mt-0.5 cv-block">{block.text || block.detail || block.summary}</span>
+  </aside>;
+}
+
+function QuestionsBlock({block, onPrompt}) {
+  const items = Array.isArray(block.items) ? block.items : [];
+  return <section className="cv-mt-5">
+    <span className="cv-block cv-text-[10px] cv-font-semibold cv-text-[#819b97]">{block.title || 'Próximas decisões'}</span>
+    <div className="cv-mt-1 cv-grid cv-gap-0.5">{items.slice(0, 4).map((item, index) => {
+      const label = typeof item === 'string' ? item : item.title || item.label || item.question;
+      const prompt = typeof item === 'string' ? item : item.prompt || label;
+      return <button key={item.id || index} type="button" onClick={() => onPrompt(prompt)} className="cv-flex cv-items-start cv-gap-2 cv-border-0 cv-bg-transparent cv-px-0 cv-py-1.5 cv-text-left cv-text-sm cv-text-[#c0d1ce] hover:cv-text-white"><span className="cv-text-teal">→</span><span>{label}</span></button>;
+    })}</div>
+  </section>;
+}
+
 function DecisionBlock({block, onPrompt}) {
   const recommended = block.items.find(item => item.recommended);
   const [selected, setSelected] = useState(recommended?.id || '');
@@ -60,6 +110,12 @@ function StepsBlock({block, onPrompt}) {
 export function ResponseBlocks({blocks, onPrompt, onOpenResource}) {
   return <>{(blocks || []).map((block, index) => {
     const key = `${block.type}-${index}`;
+    if (block.type === 'summary') return <SummaryBlock key={key} block={block}/>;
+    if (block.type === 'activity' || block.type === 'progress') return <ActivityBlock key={key} block={block}/>;
+    if (block.type === 'source' || block.type === 'sources' || block.type === 'source_group') return <SourcesBlock key={key} block={block} onOpenResource={onOpenResource}/>;
+    if (block.type === 'assumption') return <NoteBlock key={key} block={block}/>;
+    if (block.type === 'warning' || block.type === 'error') return <NoteBlock key={key} block={block} tone="warning"/>;
+    if (block.type === 'question' || block.type === 'questions') return <QuestionsBlock key={key} block={block} onPrompt={onPrompt}/>;
     if (block.type === 'decision') return <DecisionBlock key={key} block={block} onPrompt={onPrompt}/>;
     if (block.type === 'checklist') return <ChecklistBlock key={key} block={block} onPrompt={onPrompt}/>;
     if (block.type === 'insights') return <InsightsBlock key={key} block={block} onPrompt={onPrompt}/>;

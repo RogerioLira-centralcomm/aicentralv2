@@ -549,6 +549,19 @@ def test_prompt_payload_includes_bounded_prior_conversation_as_evidence():
     assert payload["query"] == "Use a segunda opção"
 
 
+def test_prompt_payload_includes_selected_context_as_bounded_evidence():
+    route = route_request("Explique este trecho")
+    payload = build_payload(
+        message="Explique este trecho", request=context(), route=route,
+        resolved={"current_context": context().to_dict()}, policy=policy_for(route),
+        user_label="user-7", selected_context={
+            "type": "selection", "label": "Trecho selecionado", "text": "Uma premissa importante."
+        },
+    )
+    evidence = __import__("json").loads(payload["inputs"]["evidence"])
+    assert evidence["selected_context"]["text"] == "Uma premissa importante."
+
+
 def test_response_policy_caps_questions_even_if_provider_ignores_instruction():
     response = normalize_response({
         "answer": "Atualizei o briefing.",
@@ -568,8 +581,8 @@ def test_response_policy_caps_and_sanitizes_actions():
         ],
     }, {"max_questions": 0, "max_next_steps": 2, "artifact_in_chat": False})
     assert response.actions == [
-        {"id": "first", "label": "Criar plano", "prompt": "Faça o plano."},
-        {"id": "second", "label": "Revisar plano", "prompt": "Revise."},
+        {"id": "first", "label": "Criar plano", "prompt": "Faça o plano.", "kind": "conversation.prompt", "requires_confirmation": False},
+        {"id": "second", "label": "Revisar plano", "prompt": "Revise.", "kind": "conversation.prompt", "requires_confirmation": False},
     ]
 
 
@@ -615,6 +628,34 @@ def test_response_blocks_dedupe_ids_parse_boolean_strings_and_cap_density():
     assert len(response.blocks[0]["items"]) == 5
     assert len({item["id"] for item in response.blocks[0]["items"]}) == 5
     assert not any(item["recommended"] for item in response.blocks[0]["items"])
+
+
+def test_response_blocks_support_compact_context_outputs():
+    response = normalize_response({
+        "answer": "A campanha ainda precisa de uma decisão.",
+        "blocks": [
+            {"type": "summary", "text": "Defina o público antes de escolher os canais."},
+            {"type": "source_group", "title": "Fontes usadas", "items": [
+                {"id": "briefing", "title": "Briefing da campanha", "resource_id": "resource-1"},
+            ]},
+            {"type": "warning", "title": "Dado ausente", "text": "O prazo ainda não foi informado."},
+        ],
+    }, {"mode": "analysis", "max_questions": 0, "max_next_steps": 0, "max_answer_chars": 320})
+    assert [block["type"] for block in response.blocks] == ["summary", "source_group", "warning"]
+    assert response.blocks[0]["text"] == "Defina o público antes de escolher os canais."
+    assert response.blocks[1]["items"][0]["resource_id"] == "resource-1"
+
+
+def test_response_blocks_normalize_single_source_output():
+    response = normalize_response({
+        "answer": "Consultei a fonte principal.",
+        "blocks": [{
+            "type": "source", "title": "Fonte principal",
+            "resource": {"id": "resource-2", "title": "Plano de mídia", "kind": "artifact"},
+        }],
+    }, {"mode": "direct", "max_questions": 0, "max_next_steps": 0, "max_answer_chars": 320})
+    assert response.blocks[0]["items"][0]["id"] == "resource-2"
+    assert response.blocks[0]["items"][0]["kind"] == "artifact"
 
 
 def test_dense_plain_answer_becomes_editable_artifact_instead_of_truncated_chat():

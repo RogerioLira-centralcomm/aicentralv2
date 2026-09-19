@@ -112,6 +112,7 @@ Content-Type: application/json
         <article class="decision"><h3>Somente anexar</h3><p>O arquivo permanece privado no projeto, mas seu conteúdo não é enviado ao índice nem utilizado como evidência automática. Imagens também podem seguir este caminho.</p><code>use_as_knowledge: false</code></article>
       </div>
       <div class="note ok">A escolha é explícita em cada upload. O nome do arquivo ou seu formato nunca fazem o sistema presumir consentimento para usar o conteúdo como fonte.</div>
+      <p>A classificação é independente dessa escolha. Cada item recebe uma categoria revisável: briefing, pesquisa, plano de mídia, relatório, ativo de marca, referência, contrato, planilha ou outro. A lista de projetos devolve em <code>summary</code> as contagens de fontes, anexos, artifacts, planos, relatórios, imagens e vídeos associados.</p>
     </section>
 
     <section id="upload">
@@ -122,7 +123,8 @@ Content-Type: application/json
 
 {
   "request_id": "0199dff8-85ac-72cc-81df-49d221884703",
-  "use_as_knowledge": true
+  "use_as_knowledge": true,
+  "category": "brief"
 }</pre>
       <h3>2. Enviar</h3>
       <pre>POST /workspace/mcp/uploads

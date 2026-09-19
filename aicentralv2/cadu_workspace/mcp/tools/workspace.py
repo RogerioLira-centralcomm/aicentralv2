@@ -5,6 +5,7 @@ import json
 from ....cadu_family import repository
 from ...agent_v2.contracts import RequestContext
 from ...conversations.service import project_knowledge_context
+from ...project_portfolio_service import attach_summaries
 from ..registry import ToolInputError, register_tool
 
 
@@ -36,7 +37,13 @@ def list_projects(context: RequestContext, arguments: dict) -> dict:
     records = [row for row in repository.entities(context.client_id) if row.get("kind") == "project"]
     if query:
         records = [row for row in records if query in str(row.get("name") or "").casefold()]
-    return {"projects": [{key: row.get(key) for key in ("ref", "name", "source")} for row in records[:limit]]}
+    selected = [{key: row.get(key) for key in ("ref", "name", "source")} for row in records[:limit]]
+    try:
+        selected = attach_summaries(context.client_id, selected)
+    except Exception:
+        # The project directory remains available during additive migrations.
+        pass
+    return {"projects": selected}
 
 
 @register_tool(

@@ -20,6 +20,7 @@ from aicentralv2.cadu_workspace.agent_v2 import routes as v2_routes
 from aicentralv2.cadu_workspace.agent_v2 import service as v2_service
 from aicentralv2.cadu_workspace.artifacts import service as artifact_service
 from aicentralv2.cadu_workspace import brand_mcp_service
+from aicentralv2.cadu_workspace import project_source_service
 from aicentralv2.cadu_workspace.mcp import routes as mcp_routes
 from aicentralv2.cadu_workspace.mcp.registry import load_builtin_tools
 
@@ -193,6 +194,25 @@ def test_project_search_uses_one_semantic_tool():
     assert route.needs_tools == ("workspace.search_project_content",)
     assert "studio" not in route.needs_context
     assert "reports" not in route.needs_context
+
+
+def test_project_file_classification_never_decides_knowledge_usage():
+    result = project_source_service._classify(
+        {"name": "plano-de-midia.pdf", "suffix": ".pdf"}, None,
+        "Plano de mídia para o lançamento",
+    )
+    assert result["category"] == "media_plan"
+    assert "use_as_knowledge" not in result
+
+
+def test_manual_project_file_category_has_priority():
+    result = project_source_service._classify(
+        {"name": "dados.csv", "suffix": ".csv"}, "research", "",
+    )
+    assert result == {
+        "category": "research", "status": "manual", "confidence": 1.0,
+        "reason": "Categoria informada pelo usuário.",
+    }
 
 
 def test_cross_domain_report_comparison_gets_high_budget_only_when_needed():

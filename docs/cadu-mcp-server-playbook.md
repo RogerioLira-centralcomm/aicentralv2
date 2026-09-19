@@ -240,7 +240,19 @@ Uma tool só entra no catálogo `customer_agent` quando:
 ## Arquivos e fontes de projeto
 
 O envio de binários usa duas etapas: `projects.prepare_source_upload` cria uma
-autorização curta e o cliente envia multipart para `/workspace/mcp/uploads`.
+autorização curta e registra duas decisões independentes. `use_as_knowledge`
+define a finalidade (`knowledge_source` ou `project_attachment`) e somente a
+primeira permite extração e RAG. `category` é opcional e classifica o papel do
+arquivo (`brief`, `research`, `media_plan`, `report`, `brand_asset`,
+`reference`, `contract`, `spreadsheet` ou `other`). A classificação automática
+nunca muda a finalidade escolhida pelo usuário.
+
+`workspace.list_projects` devolve uma projeção leve em `summary`: fontes,
+anexos, artifacts, planos de mídia, relatórios, imagens e vídeos do Studio.
+Os conteúdos permanecem em ferramentas específicas e são carregados apenas
+quando necessários, evitando contexto, custo e latência desnecessários.
+
+O cliente envia multipart para `/workspace/mcp/uploads` usando essa autorização.
 O argumento `use_as_knowledge` é obrigatório e nunca pode ser inferido pelo
 tipo ou nome do arquivo:
 

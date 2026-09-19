@@ -383,6 +383,14 @@ Todo upload precisa de finalidade explícita:
 conversation_only | project_attachment | project_knowledge | brand_asset
 ```
 
+No armazenamento do projeto, intenção e classificação são dimensões diferentes:
+
+- `purpose=knowledge_source` só existe por escolha explícita do usuário e autoriza extração/indexação;
+- `purpose=project_attachment` guarda o arquivo no projeto sem colocá-lo no RAG;
+- `category` descreve o papel do conteúdo (`brief`, `research`, `media_plan`, `report`, `brand_asset`, `reference`, `contract`, `spreadsheet`, `other`);
+- o classificador pode sugerir `category`, mas nunca pode promover um anexo a fonte de conhecimento;
+- o catálogo de projetos expõe contagens leves de fontes, anexos, artifacts, planos, relatórios e itens do Studio; conteúdo detalhado continua sob demanda.
+
 `project_knowledge` permite extração e indexação; `project_attachment` não pode
 ser usado como evidência automática. A escolha não é inferida pelo nome ou MIME.
 

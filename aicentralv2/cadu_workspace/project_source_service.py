@@ -5,6 +5,7 @@ from pathlib import Path
 from uuid import uuid4
 import json
 import re
+from typing import Optional
 
 from flask import current_app
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
@@ -21,6 +22,7 @@ from .agent_v2.contracts import RequestContext
 
 UPLOAD_MAX_AGE = 600
 ATTACHMENT_EXTENSIONS = project_sources.ALLOWED_EXTENSIONS | {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+CATEGORIES = {"brief", "research", "media_plan", "report", "brand_asset", "reference", "contract", "spreadsheet", "other"}
 
 
 def _serializer():
@@ -41,12 +43,16 @@ def _project_id(context: RequestContext) -> str:
     return str(row["id"])
 
 
-def prepare_upload(context: RequestContext, *, use_as_knowledge: bool) -> dict:
+def prepare_upload(context: RequestContext, *, use_as_knowledge: bool, category: Optional[str] = None) -> dict:
     project_id = _project_id(context)
+    category = str(category or "").strip().lower() or None
+    if category and category not in CATEGORIES:
+        raise BadRequest("Categoria de arquivo inválida.")
     token = _serializer().dumps({
         "organization_id": context.organization_id, "client_id": context.client_id,
         "user_id": context.user_id, "project_id": project_id,
         "use_as_knowledge": bool(use_as_knowledge),
+        "category": category,
     })
     return {
         "upload_token": token,
@@ -55,6 +61,8 @@ def prepare_upload(context: RequestContext, *, use_as_knowledge: bool) -> dict:
         "field": "file",
         "max_bytes": project_sources.MAX_BYTES,
         "use_as_knowledge": bool(use_as_knowledge),
+        "purpose": "knowledge_source" if use_as_knowledge else "project_attachment",
+        "category": category,
         "expires_in": UPLOAD_MAX_AGE,
         "accepted": sorted(ATTACHMENT_EXTENSIONS if not use_as_knowledge else project_sources.ALLOWED_EXTENSIONS),
     }
@@ -102,6 +110,34 @@ def _attachment(file_storage) -> dict:
     return {"name": name, "suffix": suffix, "mime": mime, "data": data}
 
 
+def _classify(source: dict, requested: Optional[str], text: str = "") -> dict:
+    if requested in CATEGORIES:
+        return {"category": requested, "status": "manual", "confidence": 1.0,
+                "reason": "Categoria informada pelo usuário."}
+    haystack = f"{source.get('name', '')} {text[:4000]}".casefold()
+    rules = (
+        ("media_plan", ("plano de mídia", "plano de midia", "media plan")),
+        ("brief", ("briefing", "brief ")),
+        ("report", ("relatório", "relatorio", "report", "dashboard")),
+        ("research", ("pesquisa", "research", "estudo de mercado")),
+        ("contract", ("contrato", "contract", "proposta comercial")),
+        ("brand_asset", ("logo", "marca", "brandbook", "brand book", "manual de marca")),
+    )
+    for category, signals in rules:
+        matched = next((signal for signal in signals if signal in haystack), None)
+        if matched:
+            return {"category": category, "status": "classified", "confidence": 0.82,
+                    "reason": f"Sinal identificado: {matched}."}
+    if source.get("suffix") in {".csv", ".xlsx", ".xls"}:
+        return {"category": "spreadsheet", "status": "classified", "confidence": 0.95,
+                "reason": "Formato de planilha."}
+    if source.get("suffix") in {".png", ".jpg", ".jpeg", ".webp", ".gif"}:
+        return {"category": "reference", "status": "classified", "confidence": 0.7,
+                "reason": "Arquivo visual classificado como referência."}
+    return {"category": "other", "status": "needs_review", "confidence": 0.25,
+            "reason": "Não há sinais suficientes para uma categoria específica."}
+
+
 def save_upload(context: RequestContext, token: str, file_storage) -> dict:
     claims = _upload_claims(context, token)
     project_id = _project_id(context)
@@ -118,6 +154,8 @@ def save_upload(context: RequestContext, token: str, file_storage) -> dict:
         if use_as_knowledge:
             extracted_text = source["text"]
             chunks, embedding_tokens, embedding_model = project_knowledge.index(extracted_text)
+        classification = _classify(source, claims.get("category"), extracted_text or "")
+        purpose = "knowledge_source" if use_as_knowledge else "project_attachment"
         with connection.cursor() as cur:
             if use_as_knowledge:
                 charged_tokens = charge_project_rag(
@@ -127,13 +165,17 @@ def save_upload(context: RequestContext, token: str, file_storage) -> dict:
                 )
             cur.execute("""INSERT INTO cadu_ci_projeto_arquivos
                 (projeto_id, id_cliente, criado_por, nome_arquivo, mime, tamanho, storage_path,
-                 extracted_text, doc_form, indexing_status, word_count, tokens, created_at, updated_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW()) RETURNING id""",
+                 extracted_text, doc_form, indexing_status, word_count, tokens, purpose, category,
+                 classification_status, classification_confidence, classification_reason,
+                 classification_metadata, created_at, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW()) RETURNING id""",
                 (project_id, context.client_id, context.user_id, source["name"], source["mime"],
                  len(source["data"]), storage_path, extracted_text,
                  "text_model",
                  "completed" if use_as_knowledge else "paused",
-                 len(re.findall(r"\b\w+\b", extracted_text or "", flags=re.UNICODE)), charged_tokens))
+                 len(re.findall(r"\b\w+\b", extracted_text or "", flags=re.UNICODE)), charged_tokens,
+                 purpose, classification["category"], classification["status"], classification["confidence"],
+                 classification["reason"], Json({"classifier": "deterministic-v1", "content_inspected": use_as_knowledge})))
             source_id = int(cur.fetchone()["id"])
             for chunk in chunks:
                 cur.execute("""INSERT INTO cadu_ci_chunks
@@ -156,6 +198,8 @@ def save_upload(context: RequestContext, token: str, file_storage) -> dict:
     return {"source_id": source_id, "project_ref": context.project_ref, "name": source["name"],
             "mime_type": source["mime"], "size": len(source["data"]),
             "use_as_knowledge": use_as_knowledge,
+            "purpose": purpose, "category": classification["category"],
+            "classification": classification,
             "status": "indexed" if use_as_knowledge else "attached", "charged_credits": charged_tokens}
 
 
@@ -164,11 +208,15 @@ def list_sources(context: RequestContext, *, limit=50) -> list[dict]:
     limit = min(100, max(1, int(limit or 50)))
     with get_db().cursor() as cur:
         cur.execute("""SELECT id, nome_arquivo AS name, mime AS mime_type, tamanho AS size,
-                              indexing_status, word_count, tokens, created_at, updated_at
+                              indexing_status, word_count, tokens, purpose, category,
+                              classification_status, classification_confidence, classification_reason,
+                              created_at, updated_at
                          FROM cadu_ci_projeto_arquivos
                         WHERE projeto_id = %s AND id_cliente = %s
                      ORDER BY created_at DESC, id DESC LIMIT %s""", (project_id, context.client_id, limit))
         rows = [dict(row) for row in cur.fetchall()]
     for row in rows:
-        row["use_as_knowledge"] = row.get("indexing_status") == "completed"
+        row["use_as_knowledge"] = row.get("purpose") == "knowledge_source"
+        if row.get("classification_confidence") is not None:
+            row["classification_confidence"] = float(row["classification_confidence"])
     return rows

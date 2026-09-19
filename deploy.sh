@@ -237,6 +237,7 @@ fi
 "$VENV_PYTHON" migrations/run_add_format_variant_revisions.py
 "$VENV_PYTHON" migrations/run_sql_migration.py add_training_studio_import_palco.sql
 "$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_workspace_projects.sql
+"$VENV_PYTHON" migrations/run_sql_migration.py add_cadu_project_file_classification.sql
 # Planner: a tabela de planos é a base das migrações de documentos,
 # alocações, revisões e compartilhamento. Aplique a cadeia completa nesta
 # ordem para instalações novas e para servidores que ainda não receberam o

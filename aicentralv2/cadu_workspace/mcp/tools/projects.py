@@ -35,9 +35,10 @@ def list_sources(context: RequestContext, arguments: dict) -> dict:
     input_schema={"type": "object", "required": ["request_id", "use_as_knowledge"], "properties": {
         "request_id": {"type": "string", "minLength": 16, "maxLength": 80},
         "use_as_knowledge": {"type": "boolean"},
+        "category": {"type": "string", "enum": sorted(project_source_service.CATEGORIES)},
     }, "additionalProperties": False},
 )
 def prepare_source_upload(context: RequestContext, arguments: dict) -> dict:
     return _domain(lambda: project_source_service.prepare_upload(
-        context, use_as_knowledge=arguments["use_as_knowledge"],
+        context, use_as_knowledge=arguments["use_as_knowledge"], category=arguments.get("category"),
     ))

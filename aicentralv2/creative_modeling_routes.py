@@ -379,7 +379,7 @@ def modelagem_desk(page):
                 "format": "4:5",
                 "width": 1080,
                 "height": 1350,
-                "url": url_for("static", filename=f"images/cadu/studio/references/feed/feed-mask-{index:02d}.png"),
+                "url": url_for("static", filename=f"images/cadu/studio/references/feed/feed-mask-{index:02d}.webp"),
             }
             for index in range(1, 11)
         ] if page == "criar" else []),

@@ -10,6 +10,7 @@ from aicentralv2.cadu_tool_billing import (
     estimated_credit_tokens,
     usage_tokens,
 )
+from aicentralv2.cadu_credit_connector import CaduCreditConnector, CreditActor
 
 
 class FakeLedgerDb:
@@ -158,6 +159,39 @@ class ToolTokenLedgerTest(unittest.TestCase):
             ledger.charge(charge(tokens=21))
         self.assertEqual(db.lots[1]["tokens_used"], 0)
         self.assertEqual(db.usage, {})
+
+    def test_connector_owns_fixed_token_debits_for_cadu_apps(self):
+        db = FakeLedgerDb([
+            {"id": 1, "id_cliente": 10, "tokens_amount": 200, "tokens_used": 0, "status": "active"},
+        ])
+        connector = CaduCreditConnector(ToolTokenLedger(db.connect))
+
+        result = connector.charge_tokens(
+            actor=CreditActor.from_values(10, 7),
+            idempotency_key="analyzer:reservation:1",
+            app="Cadu Analyzer",
+            stage="image_analysis",
+            model="creative-analyzer",
+            charged_tokens=120,
+        )
+
+        self.assertEqual(result["tokens_cobrados"], 120)
+        self.assertEqual(db.lots[1]["tokens_used"], 120)
+        self.assertEqual(db.usage["analyzer:reservation:1"]["ferramenta"], "Cadu Analyzer")
+
+    def test_cadu_products_do_not_write_directly_to_the_token_ledger(self):
+        root = __import__("pathlib").Path(__file__).resolve().parents[1] / "aicentralv2"
+        product_files = [
+            root / "creative_analyzer" / "service.py",
+            root / "creative_format_lab" / "animate.py",
+            root / "creative_format_lab" / "service.py",
+            root / "creative_media" / "studio_create.py",
+        ]
+        sources = "\n".join(path.read_text(encoding="utf-8") for path in product_files)
+
+        self.assertNotIn("ToolTokenLedger", sources)
+        self.assertNotIn("charge_from_provider", sources)
+        self.assertNotIn(".charge(ToolCharge", sources)
 
 
 if __name__ == "__main__":

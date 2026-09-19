@@ -497,7 +497,7 @@ def sanitize_image_payload(payload):
 
 def image_reference(value):
     """Normaliza URL/data URL para o contrato ContentPartImage do OpenRouter."""
-    if isinstance(value, str) and value.startswith(("https://", "http://", "data:image/")):
+    if isinstance(value, str) and value.startswith(("https://", "http://", "/static/", "data:image/")):
         return {"type": "image_url", "image_url": {"url": value}}
     if isinstance(value, dict):
         image_url = value.get("image_url")
@@ -510,6 +510,39 @@ def image_reference(value):
         ):
             return {"type": "image_url", "image_url": {"url": image_url["url"]}}
     raise ValueError("Referência de imagem inválida.")
+
+
+def _absolute_provider_reference(value: str) -> str:
+    """Expose local static references as public HTTPS URLs for OpenRouter."""
+    raw = str(value or "").strip()
+    if not raw.startswith("/static/"):
+        return raw
+    try:
+        from flask import current_app, has_app_context, has_request_context, request
+
+        base = str(current_app.config.get("STUDIO_URL") or "").strip() if has_app_context() else ""
+        if not base and has_request_context():
+            base = request.url_root
+    except RuntimeError:
+        base = ""
+    if not base:
+        base = os.getenv("STUDIO_URL", "").strip()
+    if not base:
+        raise OpenRouterError("A URL pública do Studio não está configurada para enviar referências.")
+    return urljoin(base.rstrip("/") + "/", raw.lstrip("/"))
+
+
+def _openrouter_reference_payload(payload):
+    clean = dict(payload or {})
+    references = []
+    for item in list(clean.get("input_references") or [])[:2]:
+        normalized = image_reference(item)
+        image_url = normalized["image_url"]["url"]
+        normalized["image_url"]["url"] = _absolute_provider_reference(image_url)
+        references.append(normalized)
+    if references:
+        clean["input_references"] = references
+    return clean
 
 
 def build_image_payload(
@@ -685,9 +718,14 @@ def _reference_bytes(item, index: int, *, http_client=requests) -> tuple[bytes, 
         root = current_app.static_folder if has_app_context() and current_app.static_folder else ""
         path = os.path.join(root, url.split("/static/", 1)[-1]) if root else ""
         if path and os.path.isfile(path):
-            raw = open(path, "rb").read()
-            mime = "image/png" if raw.startswith(b"\x89PNG") else "image/jpeg"
-            ext = "png" if "png" in mime else "jpg"
+            with open(path, "rb") as reference_file:
+                raw = reference_file.read()
+            if raw.startswith(b"\x89PNG"):
+                mime, ext = "image/png", "png"
+            elif raw.startswith(b"RIFF") and raw[8:12] == b"WEBP":
+                mime, ext = "image/webp", "webp"
+            else:
+                mime, ext = "image/jpeg", "jpg"
             return raw, mime, f"ref{index}.{ext}"
     if not url.startswith(("https://", "http://")):
         raise OpenRouterError("Referência de imagem inválida.")
@@ -746,6 +784,7 @@ def _download_reference_bytes(url, *, http_client=requests, max_bytes=5 * 1024 *
 
 def _openrouter_generate_image(payload, *, image_model, output_format, timeout, http_client=requests):
     try:
+        payload = _openrouter_reference_payload(payload)
         headers = {
             "Authorization": f"Bearer {_api_key()}",
             "Content-Type": "application/json",

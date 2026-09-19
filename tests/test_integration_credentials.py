@@ -441,6 +441,36 @@ class OpenAIDirectRoutingTest(unittest.TestCase):
         self.assertEqual(mime, "image/webp")
         self.assertEqual(name, "ref0.webp")
 
+    def test_referencia_global_vira_url_publica_apenas_no_openrouter(self):
+        app = Flask(__name__)
+        app.config["STUDIO_URL"] = "https://studio.centralcomm.media"
+        with app.app_context():
+            payload = openrouter_service._openrouter_reference_payload({
+                "model": "openai/gpt-image-2",
+                "input_references": [{
+                    "type": "image_url",
+                    "image_url": {"url": "/static/images/cadu/studio/references/feed/feed-mask-07.webp"},
+                }],
+            })
+
+        self.assertEqual(
+            payload["input_references"][0]["image_url"]["url"],
+            "https://studio.centralcomm.media/static/images/cadu/studio/references/feed/feed-mask-07.webp",
+        )
+
+    def test_openai_le_referencia_global_diretamente_do_disco(self):
+        app = Flask(
+            __name__, static_folder=str(ROOT / "aicentralv2" / "static")
+        )
+        with app.app_context():
+            raw, mime, name = openrouter_service._reference_bytes(
+                "/static/images/cadu/studio/references/feed/feed-mask-07.webp", 0
+            )
+
+        self.assertGreater(len(raw), 1000)
+        self.assertEqual(mime, "image/webp")
+        self.assertEqual(name, "ref0.webp")
+
     def test_referencia_invalida_nao_e_descartada_silenciosamente(self):
         with self.assertRaisesRegex(ValueError, "referências de imagem é inválida"):
             openrouter_service.generate_image(

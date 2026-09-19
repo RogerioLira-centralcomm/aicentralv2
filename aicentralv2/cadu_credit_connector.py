@@ -110,3 +110,33 @@ class CaduCreditConnector:
             metadata=metadata or {},
             margin_multiplier=margin_multiplier,
         )
+
+    def charge_tokens(
+        self, *, actor: CreditActor, idempotency_key: str, app: str, stage: str,
+        charged_tokens: int, model: str = "cadu", input_tokens: int = 0,
+        output_tokens: int = 0, provider_total_tokens: int = 0,
+        internal_cost_usd=0, additional_cost_usd=0, metadata: dict | None = None,
+    ) -> dict | None:
+        """Debit a fixed token amount through the shared Cadu boundary.
+
+        This covers reservations and media quotes whose providers do not
+        return a standard usage payload. Product modules must not write a
+        ``ToolCharge`` to the ledger directly.
+        """
+        from .cadu_tool_billing import ToolCharge
+
+        return self.ledger.charge(ToolCharge(
+            idempotency_key=str(idempotency_key),
+            client_id=actor.client_id,
+            user_id=actor.user_id,
+            tool=str(app),
+            stage=str(stage),
+            model=str(model or "cadu"),
+            input_tokens=max(0, int(input_tokens or 0)),
+            output_tokens=max(0, int(output_tokens or 0)),
+            provider_total_tokens=max(0, int(provider_total_tokens or 0)),
+            charged_tokens=max(0, int(charged_tokens or 0)),
+            internal_cost_usd=internal_cost_usd,
+            additional_cost_usd=additional_cost_usd,
+            metadata={**(metadata or {}), "margin_multiplier": 1},
+        ))

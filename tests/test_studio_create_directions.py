@@ -2,11 +2,47 @@ import base64
 import io
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from flask import Flask
 from PIL import Image, ImageDraw
 
 from aicentralv2.creative_media import studio_create
+
+
+def test_direction_charge_accounts_for_the_final_prompt_review():
+    captured = {}
+
+    class Credits:
+        def authorize(self, *_args):
+            return 10_000
+
+        def charge_provider(self, **kwargs):
+            captured.update(kwargs)
+            return {"tokens_cobrados": 321}
+
+        def balance(self, _client_id):
+            return 9_679
+
+    modeling = SimpleNamespace(
+        _credits_crm_id=lambda value: value,
+        credit_connector=Credits(),
+        credit_ledger=SimpleNamespace(),
+    )
+    with patch(
+        "aicentralv2.creative_modeling_service.CreativeModelingService",
+        return_value=modeling,
+    ):
+        charged, remaining = studio_create.charge(
+            {"model": "test", "usage": {"input_tokens": 100, "output_tokens": 40}},
+            10, 20, 1, "", "run-review-1",
+        )
+
+    assert charged == 321
+    assert remaining == 9_679
+    assert captured["metadata"]["prompt_review_included"] is True
+    assert captured["metadata"]["prompt_review_mode"] == "same_provider_call"
+    assert captured["margin_multiplier"] == 1
 
 
 def test_project_suggestions_are_specific_to_its_brief():
@@ -75,14 +111,14 @@ def image_data(color, size=(4, 4), mask_box=None):
     return "data:image/png;base64," + base64.b64encode(output.getvalue()).decode()
 
 
-def test_global_feed_reference_is_embedded_for_both_image_providers():
+def test_global_feed_reference_stays_url_first_for_image_providers():
     static_folder = Path(__file__).parents[1] / "aicentralv2" / "static"
     app = Flask(__name__, static_folder=str(static_folder))
 
     with app.app_context():
         references = studio_create.normalize_image_references([{
             "id": "feed-mask-01",
-            "url": "/static/images/cadu/studio/references/feed/feed-mask-01.png",
+            "url": "/static/images/cadu/studio/references/feed/feed-mask-01.webp",
             "role": "composition",
             "source": "global",
             "label": "Referência de composição",
@@ -91,30 +127,19 @@ def test_global_feed_reference_is_embedded_for_both_image_providers():
     assert len(references) == 1
     assert references[0]["source"] == "global"
     assert references[0]["role"] == "composition"
-    assert references[0]["data"].startswith("data:image/png;base64,")
-    assert len(base64.b64decode(references[0]["data"].split(",", 1)[1])) > 100
+    assert references[0]["data"] == "/static/images/cadu/studio/references/feed/feed-mask-01.webp"
 
     provider_value = studio_create.provider_image_references(references, "")[0]
-    original_size = len(base64.b64decode(references[0]["data"].split(",", 1)[1]))
-    provider_size = len(base64.b64decode(provider_value.split(",", 1)[1]))
-    assert provider_value.startswith("data:image/webp;base64,")
-    assert provider_size < original_size / 2
+    assert provider_value == references[0]["data"]
 
 
-def test_uploaded_reference_preserves_its_real_mime_type():
-    captured = {}
-
-    class Storage:
-        def reference_as_data_url(self, _path, mime):
-            captured["mime"] = mime
-            return image_data("red")
-
-    studio_create.normalize_image_references([{
+def test_uploaded_reference_stays_url_first_until_pixels_are_needed():
+    references = studio_create.normalize_image_references([{
         "url": "/static/uploads/creative_references/product.webp",
         "role": "identity",
-    }], Storage())
+    }], SimpleNamespace())
 
-    assert captured["mime"] == "image/webp"
+    assert references[0]["data"] == "/static/uploads/creative_references/product.webp"
 
 
 def test_generated_output_is_fitted_to_exact_selected_dimensions():

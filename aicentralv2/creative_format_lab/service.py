@@ -476,7 +476,9 @@ class FormatLabService:
     def _animate(self):
         from .animate import AnimateService
 
-        return AnimateService(self._trocr_store(), self._media_repository(), ledger=self._tool_ledger())
+        return AnimateService(
+            self._trocr_store(), self._media_repository(), credits=self._credit_connector()
+        )
 
     def quote_animate(self, payload=None):
         return self._animate().quote(payload)
@@ -1450,12 +1452,10 @@ class FormatLabService:
 
         return _run
 
-    def _tool_ledger(self):
+    def _credit_connector(self):
+        from ..cadu_credit_connector import CaduCreditConnector
         configured = getattr(self.modeling, "tool_token_ledger", None)
-        if configured is not None:
-            return configured
-        from ..cadu_tool_billing import ToolTokenLedger
-        return ToolTokenLedger()
+        return CaduCreditConnector(configured)
 
     def _billing_identity(self, payload, user_id):
         data = payload if isinstance(payload, dict) else {}
@@ -1481,7 +1481,10 @@ class FormatLabService:
         if identity is None:
             return
         try:
-            self._tool_ledger().assert_available(identity[0], estimated_tokens)
+            from ..cadu_credit_connector import CreditActor
+            self._credit_connector().authorize(
+                CreditActor.from_values(identity[0], identity[1]), estimated_tokens
+            )
         except ValueError as exc:
             raise CreativeConflictError(str(exc)) from exc
 
@@ -1491,9 +1494,12 @@ class FormatLabService:
         identity = self._billing_identity(payload, user_id)
         if identity is None or not calls:
             return []
-        from ..cadu_tool_billing import charge_from_provider, cost_token_equivalent, usage_tokens
+        from ..cadu_credit_connector import CreditActor
+        from ..cadu_tool_billing import cost_token_equivalent, usage_tokens
 
         base_key = str(payload.get("request_id") or uuid.uuid4())
+        credits = self._credit_connector()
+        actor = CreditActor.from_values(identity[0], identity[1])
         charged = []
         for index, result in enumerate(calls, start=1):
             actual = (
@@ -1504,12 +1510,10 @@ class FormatLabService:
             provider_tokens = usage_tokens(result.get("usage"))[2]
             media_tokens = max(0, cost_token_equivalent(actual) - provider_tokens) if media else 0
             try:
-                charged.append(charge_from_provider(
-                    ledger=self._tool_ledger(),
+                charged.append(credits.charge_provider(
+                    actor=actor,
                     idempotency_key=f"{base_key}:{stage}:{index}",
-                    client_id=identity[0],
-                    user_id=identity[1],
-                    tool=tool,
+                    app=tool,
                     stage=stage,
                     provider_result=result,
                     fallback_cost_usd=fallback_cost_usd,
@@ -1524,6 +1528,7 @@ class FormatLabService:
                             or ""
                         ),
                     },
+                    margin_multiplier=1,
                 ))
             except ValueError as exc:
                 raise CreativeConflictError(str(exc)) from exc

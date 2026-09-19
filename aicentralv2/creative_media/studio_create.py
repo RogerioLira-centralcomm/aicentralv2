@@ -168,35 +168,44 @@ Use a marca, briefing, referências e ativos do contexto como fonte de verdade. 
 Antes de devolver cada direção, faça uma revisão final como agente GPT-5 nano: confirme que o prompt está fiel ao pedido, respeita todas as exclusões explícitas, usa cada referência conforme seu source e role, não inventa informações e está pronto para ser enviado ao GPT Image 2. O campo "prompt" deve ser a instrução final revisada para o processador de imagem, sem comentários sobre esta revisão. Inclua também "reference_plan" como uma lista curta de objetos {{"label":"...","source":"global|user|project","use":"..."}} para tornar a decisão de cada referência auditável."""
 
 
-def assert_available(client_id, count):
-    from ..cadu_tool_billing import ToolTokenLedger
+def credit_context(modeling, client_id, user_id):
+    from ..cadu_credit_connector import CaduCreditConnector, CreditActor
+    payer = modeling._credits_crm_id(client_id) or int(client_id)
+    credits = getattr(modeling, "credit_connector", None) or CaduCreditConnector(modeling.credit_ledger)
+    return credits, CreditActor.from_values(payer, user_id)
+
+
+def assert_available(client_id, user_id, count):
     from ..creative_modeling_service import CreativeModelingService
-    credit_client_id = CreativeModelingService()._credits_crm_id(client_id) or int(client_id)
-    ToolTokenLedger().assert_available(credit_client_id, estimated_tokens(count))
-    return credit_client_id
+    modeling = CreativeModelingService()
+    credits, actor = credit_context(modeling, client_id, user_id)
+    credits.authorize(actor, estimated_tokens(count))
+    return actor.client_id
 
 
 def charge(provider_result, client_id, user_id, count, project_id, run_id=None,
            studio_session_id="", studio_root_session_id=""):
-    from ..cadu_tool_billing import ToolTokenLedger, charge_from_provider
     from ..creative_modeling_service import CreativeModelingService
-    credit_client_id = CreativeModelingService()._credits_crm_id(client_id) or int(client_id)
-    ledger = ToolTokenLedger()
-    ledger.assert_available(credit_client_id, estimated_tokens(count))
+    modeling = CreativeModelingService()
+    credits, actor = credit_context(modeling, client_id, user_id)
+    credits.authorize(actor, estimated_tokens(count))
     run_id = str(run_id or uuid4().hex)
-    charged = charge_from_provider(
-        ledger=ledger, idempotency_key=f"studio:directions:{run_id}",
-        client_id=credit_client_id, user_id=int(user_id), tool="studio.direction",
-        stage="creative_directions", provider_result=provider_result,
+    charged = credits.charge_provider(
+        actor=actor, idempotency_key=f"studio:directions:{run_id}",
+        app="Cadu Studio", stage="creative_directions", provider_result=provider_result,
         model=str(provider_result.get("model") or MODEL) if isinstance(provider_result, dict) else MODEL,
         metadata={
             "project_id": str(project_id or ""), "directions": int(count), "run_id": run_id,
             "studio_session_id": str(studio_session_id or ""),
             "studio_root_session_id": str(studio_root_session_id or studio_session_id or ""),
+            # Direction drafting and the final prompt review happen inside the
+            # same metered provider call. Its complete usage is charged once.
+            "prompt_review_included": True,
+            "prompt_review_mode": "same_provider_call",
         },
         margin_multiplier=1,
     ) or {}
-    return int(charged.get("tokens_cobrados") or 0), ledger.available(credit_client_id)
+    return int(charged.get("tokens_cobrados") or 0), credits.balance(actor.client_id)
 
 
 def create_image(payload, modeling, client_id, user_id):
@@ -213,7 +222,11 @@ def create_image(payload, modeling, client_id, user_id):
                 raise ValueError
         except (TypeError, ValueError, ZeroDivisionError):
             raise ValueError("Formato de imagem inválido.")
-    references = normalize_image_references(data.get("references"), modeling.storage)
+    try:
+        references = normalize_image_references(data.get("references"), modeling.storage)
+    except Exception as error:
+        setattr(error, "studio_phase", "image_reference")
+        raise
     mask = str(data.get("mask") or "")
     mask_node_id = text(data.get("mask_node_id"), 160)
     primary = next((item for item in references if item["role"] == "primary"), None)
@@ -228,11 +241,14 @@ def create_image(payload, modeling, client_id, user_id):
     # are used as the preservation layer after generation.
     estimate = modeling._estimate("image", "draft", IMAGE_MODEL)
     from ..cadu_tool_billing import cost_token_equivalent
-    credit_client_id = modeling._credits_crm_id(client_id) or int(client_id)
-    modeling.credit_ledger.assert_available(
-        credit_client_id, cost_token_equivalent(estimate, margin_multiplier=1)
-    )
+    credits, actor = credit_context(modeling, client_id, user_id)
+    try:
+        credits.authorize(actor, cost_token_equivalent(estimate, margin_multiplier=1))
+    except Exception as error:
+        setattr(error, "studio_phase", "image_credit")
+        raise
     if mask and primary:
+        primary["data"] = materialize_reference(primary["data"], modeling.storage)
         validate_mask(primary["data"], mask)
 
     role_lines = [
@@ -336,9 +352,7 @@ def create_image(payload, modeling, client_id, user_id):
         setattr(error, "studio_phase", "image_billing")
         raise
     try:
-        remaining = modeling.credit_ledger.available(
-            modeling._credits_crm_id(client_id) or int(client_id)
-        )
+        remaining = credits.balance(actor.client_id)
     except Exception:
         remaining = None
     return {
@@ -367,9 +381,9 @@ def normalize_image_references(raw, storage):
         if value.startswith("data:image/"):
             image_data = value
         elif value.startswith("/static/uploads/creative_generated/"):
-            image_data = storage.generated_as_data_url(value)
+            image_data = value
         elif value.startswith("/static/uploads/creative_references/"):
-            image_data = storage.reference_as_data_url(value, image_mime(value))
+            image_data = value
         elif value.startswith("/static/images/cadu/studio/references/"):
             from flask import current_app
             from pathlib import Path
@@ -382,8 +396,7 @@ def normalize_image_references(raw, storage):
                 raise ValueError("Imagem de referência não encontrada.")
             if not path.is_file():
                 raise ValueError("Imagem de referência não encontrada.")
-            mime = image_mime(path)
-            image_data = f"data:{mime};base64,{base64.b64encode(path.read_bytes()).decode('ascii')}"
+            image_data = value
         elif value.startswith(("https://", "http://")):
             from ..creative_modeling_storage import _validated_public_asset_url
             image_data = _validated_public_asset_url(value)
@@ -399,6 +412,35 @@ def normalize_image_references(raw, storage):
     if sum(1 for item in cleaned if item["role"] == "primary") > 1:
         raise ValueError("Escolha somente uma imagem principal.")
     return sorted(cleaned, key=lambda item: item["role"] != "primary")
+
+
+def materialize_reference(value, storage):
+    """Load pixels only for local operations such as masks.
+
+    Normal generation keeps references URL-first so the Studio does not build
+    multi-megabyte base64 strings merely to pass an already public asset on.
+    """
+    raw = str(value or "")
+    if raw.startswith("data:image/"):
+        return raw
+    if raw.startswith("/static/uploads/creative_generated/"):
+        return storage.generated_as_data_url(raw)
+    if raw.startswith("/static/uploads/creative_references/"):
+        return storage.reference_as_data_url(raw, image_mime(raw))
+    if raw.startswith("/static/images/cadu/studio/references/"):
+        from flask import current_app
+        from pathlib import Path
+        path = (Path(current_app.static_folder) / raw.removeprefix("/static/")).resolve()
+        static_root = Path(current_app.static_folder).resolve()
+        try:
+            path.relative_to(static_root)
+        except ValueError as exc:
+            raise ValueError("Imagem de referência não encontrada.") from exc
+        if not path.is_file():
+            raise ValueError("Imagem de referência não encontrada.")
+        mime = image_mime(path)
+        return f"data:{mime};base64,{base64.b64encode(path.read_bytes()).decode('ascii')}"
+    raise ValueError("A imagem principal precisa estar disponível no Studio para usar máscara.")
 
 
 def image_request_id(payload):

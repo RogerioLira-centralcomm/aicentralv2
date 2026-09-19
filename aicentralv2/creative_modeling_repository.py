@@ -365,6 +365,13 @@ class CreativeModelingRepository:
             self.conn.rollback()
             raise
 
+    def resolve_client_id(self, source_client_id, client_source="creative"):
+        """Resolve a CRM tenant into the canonical creative client identity."""
+        with self._write() as cursor:
+            return _resolve_cx_client_id(
+                cursor, str(client_source or "creative"), int(source_client_id)
+            )
+
     def list_formats(self):
         with self.conn.cursor() as cursor:
             cursor.execute(

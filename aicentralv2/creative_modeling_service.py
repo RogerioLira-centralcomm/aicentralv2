@@ -985,10 +985,11 @@ class CreativeModelingService:
         self.generator = generator or CreativeGenerationClient()
         self.storage = storage or CreativeAssetStorage()
         self.brand_analyzer = brand_analyzer or CreativeBrandAnalyzer()
-        if credit_ledger is None:
-            from .cadu_tool_billing import ToolTokenLedger
-            credit_ledger = ToolTokenLedger()
-        self.credit_ledger = credit_ledger
+        from .cadu_credit_connector import CaduCreditConnector
+        self.credit_connector = CaduCreditConnector(credit_ledger)
+        # Compatibility for injected test doubles and older collaborators;
+        # product code performs billing through ``credit_connector`` only.
+        self.credit_ledger = self.credit_connector.ledger
 
     def _append_brand_references(self, client_id, data_urls, job_id=None, engine=None):
         if (
@@ -4303,8 +4304,11 @@ class CreativeModelingService:
         credit_client_id = self._credits_crm_id(context.get("client_id")) or context.get("client_id")
         if not credit_client_id or not created_by:
             raise ValueError("Não foi possível identificar cliente e usuário para debitar esta geração.")
-        credit_ledger = self.credit_ledger
-        credit_ledger.assert_available(credit_client_id, cost_token_equivalent(estimate))
+        from .cadu_credit_connector import CreditActor
+        self.credit_connector.authorize(
+            CreditActor.from_values(credit_client_id, created_by),
+            cost_token_equivalent(estimate),
+        )
         job_id = self.repository.create_generation_job(
             context["campaign_id"],
             None,
@@ -5841,12 +5845,12 @@ class CreativeModelingService:
             # They remain non-billable until their HTTP contract is migrated;
             # customer-scoped Studio routes always pass both values.
             return None
-        from .cadu_credit_connector import CaduCreditConnector, CreditActor
+        from .cadu_credit_connector import CreditActor
         payer = self._credits_crm_id(client_id) or int(client_id)
         result = dict(provider_result or {})
         if result.get("actual_cost_usd") in (None, ""):
             result["actual_cost_usd"] = float(fallback_cost or 0)
-        return CaduCreditConnector(self.credit_ledger).charge_provider(
+        return self.credit_connector.charge_provider(
             actor=CreditActor.from_values(payer, user_id),
             idempotency_key=str(idempotency_key), app="Cadu Studio", stage=stage,
             provider_result=result, model=str(result.get("model") or "studio"),

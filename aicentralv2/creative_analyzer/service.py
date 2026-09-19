@@ -18,10 +18,8 @@ class AnalyzerBilling:
     customer's balance cannot cover.
     """
     def __init__(self, ledger=None):
-        if ledger is None:
-            from ..cadu_tool_billing import ToolTokenLedger
-            ledger = ToolTokenLedger()
-        self.ledger = ledger
+        from ..cadu_credit_connector import CaduCreditConnector
+        self.credits = CaduCreditConnector(ledger)
 
     @staticmethod
     def credit_client_id(client_id):
@@ -44,14 +42,13 @@ class AnalyzerBilling:
         snapshot and two uploads could otherwise both spend the same balance.
         The ledger debit is idempotent and is the reservation itself.
         """
-        from ..cadu_tool_billing import ToolCharge
+        from ..cadu_credit_connector import CreditActor
         credit_client = self.credit_client_id(client_id)
         held = self.estimate(media_type)
-        row = self.ledger.charge(ToolCharge(
+        row = self.credits.charge_tokens(
+            actor=CreditActor.from_values(credit_client, user_id),
             idempotency_key=f"studio:creative-analyzer:{public_id}",
-            client_id=credit_client,
-            user_id=int(user_id),
-            tool="studio.creative_analyzer",
+            app="Cadu Analyzer",
             stage=f"{media_type}_analysis",
             model="creative-analyzer",
             charged_tokens=held,
@@ -61,7 +58,7 @@ class AnalyzerBilling:
                 "reservation": True,
                 "credit_ceiling": held,
             },
-        )) or {}
+        ) or {}
         return int(row.get("tokens_cobrados") or held)
 
     def settle(self, reserved_credits, result):

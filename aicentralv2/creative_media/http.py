@@ -43,6 +43,13 @@ def _run_extra(exc):
     return extra or None
 
 
+def _request_id():
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return ""
+    return str(payload.get("request_id") or "")[:160]
+
+
 def _execute(callback):
     try:
         return callback()
@@ -56,9 +63,16 @@ def _execute(callback):
         return _error(exc, 400, _run_extra(exc))
     except Exception as exc:
         error_id = uuid4().hex[:12]
-        logger.exception("Erro no Studio error_id=%s path=%s", error_id, request.path)
+        request_id = _request_id()
+        logger.exception(
+            "Erro no Studio error_id=%s request_id=%s phase=%s path=%s error_type=%s",
+            error_id, request_id, getattr(exc, "studio_phase", ""), request.path,
+            type(exc).__name__,
+        )
         extra = _run_extra(exc) or {}
         extra["error_id"] = error_id
+        if request_id:
+            extra["request_id"] = request_id
         return _error("Não foi possível concluir a solicitação.", 500, extra)
 
 

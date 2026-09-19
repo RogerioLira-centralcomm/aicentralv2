@@ -424,8 +424,9 @@ body.portal--studio:has(.studio-v2) > .cadu-family-footer { display:none!importa
 
 .studio-v2 .results-view{width:min(1060px,calc(100% - 32px));margin:0 auto;align-self:start}
 .studio-v2 .results-heading{margin-bottom:14px}.studio-v2 .results-heading h2{font-size:22px}.studio-v2 .results-heading p{margin:5px 0 0;color:#91a1af;font-size:13px}
-.studio-v2 .results-grid{grid-template-columns:1fr;gap:14px}.studio-v2 .results-grid[data-count="4"]{grid-template-columns:repeat(2,minmax(0,1fr))}
-.studio-v2 .results-grid:not([data-count="4"]) .result-card{width:min(720px,100%);min-height:min(66vh,720px);margin-inline:auto}
+.studio-v2 .results-grid{grid-template-columns:1fr;gap:14px}.studio-v2 .results-grid[data-count="2"],.studio-v2 .results-grid[data-count="4"]{grid-template-columns:repeat(2,minmax(0,1fr))}
+.studio-v2 .results-grid[data-count="1"] .result-card{width:min(720px,100%);min-height:min(66vh,720px);margin-inline:auto}
+.studio-v2 .results-grid[data-count="2"] .result-card{min-height:420px}
 .studio-v2 .results-grid[data-count="4"] .result-card{min-height:340px}
 .studio-v2 .result-card{border-color:rgba(125,151,171,.38);border-radius:13px}.studio-v2 .result-followup-actions{justify-content:center;border-top:0}
 .studio-v2 .creative-line{max-width:820px;margin:0 auto 14px;border-left-color:#8d68ff;background:transparent}
@@ -440,6 +441,17 @@ body.portal--studio:has(.studio-v2) > .cadu-family-footer { display:none!importa
   .studio-v2 .prompt-dock{left:12px;right:12px;bottom:12px;width:auto;transform:none;border-radius:20px}.studio-v2[data-state="draft"] .prompt-dock,.studio-v2[data-state="review_error"] .prompt-dock{left:12px;right:12px;bottom:50%;width:auto;transform:translateY(50%)}
   .studio-v2[data-state="reviewing"] .prompt-dock,.studio-v2[data-state="review_ready"] .prompt-dock,.studio-v2[data-state="approved"] .prompt-dock,.studio-v2[data-state="generating"] .prompt-dock{left:12px;right:12px;bottom:12px;width:auto;transform:none}
   .studio-v2 .prompt-composer-controls{padding-right:0}.studio-v2 .prompt-context{display:none}.studio-v2 .composer-feedback{bottom:132px;grid-template-columns:auto 1fr}.studio-v2 .composer-feedback button{grid-column:2;justify-self:start;padding:0}
-  .studio-v2 .results-grid[data-count="4"]{grid-template-columns:1fr}.studio-v2 .results-grid[data-count="4"] .result-card{min-height:330px}
+  .studio-v2 .results-grid[data-count="2"],.studio-v2 .results-grid[data-count="4"]{grid-template-columns:1fr}.studio-v2 .results-grid[data-count="2"] .result-card,.studio-v2 .results-grid[data-count="4"] .result-card{min-height:330px}
 }
 @media(prefers-reduced-motion:reduce){.studio-v2 .creation-progress__track span{animation:none;transform:scaleX(.45)}}
+
+/* Delivery density: exact sizes remain readable without clipping against the
+   inspector edge, and every variation count owns an equal segment. */
+.studio-v2 .segmented[data-group="variations"]{grid-template-columns:repeat(3,minmax(0,1fr))}
+.studio-v2 .format-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.studio-v2 .format-card{min-height:88px;padding:10px 8px;gap:5px}
+.studio-v2 .format-card b{overflow:visible;text-overflow:clip;white-space:normal;text-align:center;line-height:1.2}
+.studio-v2 .format-card small{overflow:visible;text-overflow:clip;white-space:nowrap;font-size:11px}
+
+/* The image glyph follows the title baseline when the reference rail is open. */
+.studio-v2 .studio-rail:not(.is-references-collapsed)>.panel-heading h2>i{margin-top:10px}

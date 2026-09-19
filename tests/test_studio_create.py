@@ -32,8 +32,10 @@ def test_create_screen_exposes_unified_visual_workspace():
     assert 'id="creationProgressTitle"' in html
     assert 'id="composerFeedback"' in html
     assert 'id="resultsView"' in html
-    assert 'href="/static/css/cadu-studio-create-v2.css?v=30"' in html
-    assert 'src="/static/js/cadu-studio-create-v2.js?v=29"' in html
+    assert 'href="/static/css/cadu-studio-create-v2.css?v=31"' in html
+    assert 'src="/static/js/cadu-studio-create-v2.js?v=31"' in html
+    assert 'data-group="variations"><button class="is-selected" type="button">1</button><button type="button">2</button><button type="button">4</button>' in html
+    assert "Inclui direção criativa e revisão final do prompt" in html
 
 
 def test_create_v2_keeps_manual_review_and_progress_recoverable():
@@ -52,6 +54,30 @@ def test_create_v2_keeps_manual_review_and_progress_recoverable():
     assert "window.clearInterval(generationTimer)" in source
     assert "max-height:none" in styles
     assert ".review-loading.creation-progress>.creation-progress__track" in styles
+    assert 'grid-template-columns:repeat(3,minmax(0,1fr))' in styles
+    assert '.studio-v2 .format-grid{grid-template-columns:repeat(2,minmax(0,1fr))' in styles
+    assert '.results-grid[data-count="2"]' in styles
+    assert 'margin-top:10px' in styles
+    assert '2: 1700' in source
+
+
+def test_quick_creation_uses_canonical_client_and_recovers_optional_history_failure():
+    root = Path(__file__).resolve().parents[1]
+    source = (root / "aicentralv2" / "creative_media" / "studio.py").read_text(encoding="utf-8")
+
+    assert "modeling.repository.resolve_client_id(crm_client_id, 'crm')" in source
+    assert "Studio quick image history claim unavailable" in source
+    assert "history.connection.rollback()" in source
+
+
+def test_global_feed_references_are_compact_webp_assets():
+    root = Path(__file__).resolve().parents[1]
+    reference_dir = root / "aicentralv2" / "static" / "images" / "cadu" / "studio" / "references" / "feed"
+    references = sorted(reference_dir.glob("feed-mask-*.webp"))
+
+    assert len(references) == 10
+    assert not list(reference_dir.glob("feed-mask-*.png"))
+    assert all(reference.stat().st_size < 100_000 for reference in references)
 
 
 def test_create_frontend_connects_persistent_session_lifecycle():

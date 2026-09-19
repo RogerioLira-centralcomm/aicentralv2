@@ -123,7 +123,7 @@ def _studio_reference_masks():
             'height': 1350,
             'url': url_for(
                 'static',
-                filename=f'images/cadu/studio/references/feed/feed-mask-{index:02d}.png',
+                filename=f'images/cadu/studio/references/feed/feed-mask-{index:02d}.webp',
             ),
         }
         for index in range(1, 11)
@@ -206,13 +206,17 @@ def studio_prompt_optimize():
 
     def run():
         data = json_body()
-        client_id = session.get('cliente_id') or data.get('client_id')
+        quick_mode = not data.get('client_id')
+        modeling = service()
+        client_id = _quick_creative_client(modeling) if quick_mode else data.get('client_id')
         if not session.get('user_id'):
             raise ValueError('Entre novamente para otimizar o pedido.')
         _scope(client_id)
-        modeling = service()
+        from ..cadu_credit_connector import CaduCreditConnector, CreditActor
         payer = modeling._credits_crm_id(client_id) or int(client_id)
-        modeling.credit_ledger.assert_available(payer, 1100)
+        CaduCreditConnector(modeling.credit_ledger).authorize(
+            CreditActor.from_values(payer, session.get('user_id')), 1100
+        )
         provider_calls = []
 
         def metered_prompt(*args, **kwargs):
@@ -251,7 +255,7 @@ def studio_prompt_optimize():
 def studio_create_directions():
     from ..services.openrouter_service import chat_completion
     from . import studio_create
-    execute, json_body, ok, _ = _http()
+    execute, json_body, ok, service = _http()
 
     def run():
         data = json_body()
@@ -259,7 +263,8 @@ def studio_create_directions():
         # A quick creation has no creative brand or project, but it is still
         # billable.  Its tenant must therefore come from the authenticated
         # session, never from an arbitrary browser-provided client id.
-        client_id = session.get('cliente_id') if quick_mode else data.get('client_id')
+        modeling = service()
+        client_id = _quick_creative_client(modeling) if quick_mode else data.get('client_id')
         user_id = session.get('user_id')
         if not user_id:
             raise ValueError('Entre novamente para gerar direções.')
@@ -271,7 +276,7 @@ def studio_create_directions():
         if not project_id and not quick_mode:
             raise ValueError('Selecione um projeto antes de gerar direções.')
         # The balance gate occurs before the provider receives the request.
-        studio_create.assert_available(client_id, count)
+        studio_create.assert_available(client_id, user_id, count)
         history = _creation_history()
         run_id = history.start(project_id, client_id, user_id, data.get('prompt'), data.get('context'), count) if history and project_id else None
         try:
@@ -319,7 +324,8 @@ def studio_create_image():
         if data.get('studio_v2') is True and not direction_approved:
             raise ValueError('Revise e aprove a direção antes de gerar a imagem.')
         quick_mode = data.get('quick_mode') is True
-        client_id = session.get('cliente_id') if quick_mode else data.get('client_id')
+        modeling = service()
+        client_id = _quick_creative_client(modeling) if quick_mode else data.get('client_id')
         user_id = session.get('user_id')
         if not client_id:
             raise ValueError('Não foi possível identificar a conta de créditos desta sessão.')
@@ -353,6 +359,10 @@ def studio_create_image():
                     logger.exception('Studio image history claim failed')
                     raise
                 logger.exception('Studio quick image history claim unavailable')
+                try:
+                    history.connection.rollback()
+                except Exception:
+                    logger.exception('Studio quick image history rollback failed')
                 history = None
             if claim:
                 if claim['state'] == 'pending':
@@ -370,10 +380,15 @@ def studio_create_image():
         if result is None:
             try:
                 studio_phase = 'image_provider'
-                result = studio_create.create_image(data, service(), int(client_id), int(user_id))
+                result = studio_create.create_image(data, modeling, int(client_id), int(user_id))
             except Exception as error:
                 if not getattr(error, 'studio_phase', ''):
                     setattr(error, 'studio_phase', studio_phase)
+                logger.exception(
+                    'Studio image failed request_id=%s phase=%s client_id=%s user_id=%s error_type=%s',
+                    request_id, getattr(error, 'studio_phase', studio_phase), client_id,
+                    user_id, type(error).__name__,
+                )
                 if history:
                     try:
                         history.fail_image(request_id, client_id, str(error))
@@ -457,11 +472,11 @@ def studio_projects():
 
 @studio_or_admin_required_api
 def studio_library_sessions():
-    execute, _, ok, _ = _http()
+    execute, _, ok, service = _http()
     def run():
         # Quick creation does not have a project option with a client id in
         # the DOM. Resolve it from the authenticated tenant instead.
-        client_id = request.args.get('client_id') or session.get('cliente_id')
+        client_id = _quick_creative_client(service())
         _scope(client_id)
         history = _creation_history()
         user_id = session.get('user_id')
@@ -477,10 +492,11 @@ def studio_library_sessions():
 @studio_csrf_required
 def studio_reference_uploads():
     """Persist user uploads as private, reusable Studio reference assets."""
-    execute, _, ok, _ = _http()
+    execute, _, ok, service = _http()
 
     def run():
-        client_id = request.form.get('client_id') or session.get('cliente_id')
+        project_id = str(request.form.get('project_id') or '').strip() or None
+        client_id = request.form.get('client_id') if project_id else _quick_creative_client(service())
         user_id = session.get('user_id')
         _scope(client_id)
         if not user_id:
@@ -490,7 +506,6 @@ def studio_reference_uploads():
             raise ValueError('Selecione ao menos uma imagem.')
         if len(files) > 2:
             raise ValueError('Use no máximo duas referências por envio.')
-        project_id = str(request.form.get('project_id') or '').strip() or None
         history = _creation_history()
         if not history:
             raise ValueError('A biblioteca persistente do Studio não está disponível nesta sessão.')
@@ -534,10 +549,10 @@ def studio_reference_uploads():
 @studio_or_admin_required_api
 @studio_csrf_required
 def studio_personal_assets():
-    execute, json_body, ok, _ = _http()
+    execute, json_body, ok, service = _http()
     def run():
         data = json_body()
-        client_id = data.get('client_id')
+        client_id = _quick_creative_client(service())
         _scope(client_id)
         user_id = session.get('user_id')
         if not user_id:
@@ -860,6 +875,17 @@ def _creation_history():
     connection = db.get_db()
     ensure_schema(connection)
     return StudioCreationHistory(connection)
+
+
+def _quick_creative_client(modeling=None):
+    """Map the authenticated CRM tenant to the Studio's canonical client id."""
+    crm_client_id = session.get('cliente_id')
+    if not crm_client_id:
+        raise ValueError('Não foi possível identificar a conta de créditos desta sessão.')
+    if modeling is None:
+        from ..creative_modeling_service import CreativeModelingService
+        modeling = CreativeModelingService()
+    return int(modeling.repository.resolve_client_id(crm_client_id, 'crm'))
 
 
 @studio_or_admin_required_api

@@ -13,10 +13,13 @@ def claim(max_attempts=5):
         with connection.cursor() as cursor:
             cursor.execute("""WITH candidate AS (
                 SELECT id FROM cadu_project_resource_jobs
-                 WHERE status IN ('queued','failed') AND attempts < %s
+                 WHERE (status IN ('queued','failed') OR
+                        (status='running' AND started_at < NOW()-INTERVAL '10 minutes'))
+                   AND attempts < %s AND (next_attempt_at IS NULL OR next_attempt_at <= NOW())
                  ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1
             ) UPDATE cadu_project_resource_jobs job
-                 SET status='running', attempts=attempts+1, started_at=NOW(), error_message=NULL
+                 SET status='running', attempts=attempts+1, started_at=NOW(), finished_at=NULL,
+                     next_attempt_at=NULL, error_message=NULL
                 FROM candidate WHERE job.id=candidate.id
             RETURNING job.id::text,job.client_id,job.project_ref,job.event_type""", (max_attempts,))
             row = cursor.fetchone()
@@ -42,7 +45,9 @@ def process_one():
         connection.rollback()
         with connection.cursor() as cursor:
             cursor.execute("""UPDATE cadu_project_resource_jobs SET status='failed',
-                                  error_message=%s,finished_at=NOW() WHERE id=%s""", (str(exc)[:500], job["id"]))
+                                  error_message=%s,finished_at=NOW(),
+                                  next_attempt_at=NOW()+make_interval(mins => LEAST(attempts*2,60))
+                                WHERE id=%s""", (str(exc)[:500], job["id"]))
         connection.commit()
         raise
     return True

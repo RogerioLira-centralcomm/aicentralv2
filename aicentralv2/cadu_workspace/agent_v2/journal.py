@@ -93,6 +93,11 @@ def decide_step(run_id: str, step_id: str, client_id: int, user_id: int, approve
     next_status = "completed" if approved else "cancelled"
     try:
         with connection.cursor() as cursor:
+            cursor.execute("""SELECT id FROM cadu_family_chat_runs
+                                WHERE id=%s AND client_id=%s AND user_id=%s AND runtime_version='v2'
+                                FOR UPDATE""", (run_id, client_id, user_id))
+            if not cursor.fetchone():
+                raise ValueError("Turn indisponível.")
             cursor.execute("""UPDATE cadu_agent_run_steps step SET status=%s,decided_by=%s,
                                       decided_at=NOW(),decision_note=%s,finished_at=NOW()
                                  FROM cadu_family_chat_runs run
@@ -108,11 +113,16 @@ def decide_step(run_id: str, step_id: str, client_id: int, user_id: int, approve
                                VALUES (%s,%s,%s,%s)""",
                            (str(uuid4()), run_id, step_id, Json({"status": next_status, "approved": approved,
                                                                  "note": str(note or "")[:1000]})))
+            cursor.execute("SELECT COALESCE(MAX(sequence),0)+1 AS sequence FROM cadu_agent_turn_events WHERE run_id=%s",
+                           (run_id,))
+            sequence = int(cursor.fetchone()["sequence"])
+            cursor.execute("""INSERT INTO cadu_agent_turn_events
+                (run_id,sequence,event_type,item_type,payload)
+                VALUES (%s,%s,%s,'action',%s)""",
+                (run_id, sequence, "confirmation.approved" if approved else "confirmation.rejected",
+                 Json({"step_id": step_id, "step": step.get("name"), "note": str(note or "")[:1000]})))
         connection.commit()
     except Exception:
         connection.rollback()
         raise
-    record(run_id, "confirmation.approved" if approved else "confirmation.rejected",
-           {"step_id": step_id, "step": step.get("name"), "note": str(note or "")[:1000]},
-           item_type="action")
     return dict(step)

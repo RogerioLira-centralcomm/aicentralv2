@@ -34,7 +34,7 @@ def observability_page():
         abort(401)
     if session.get("user_type") not in {"admin", "superadmin"}:
         abort(403)
-    client_id = int(session.get("cliente_id") or 0)
+    client_id = resolve().client_id
     return render_template("cadu_workspace/observability.html", telemetry=observability.dashboard(client_id))
 
 

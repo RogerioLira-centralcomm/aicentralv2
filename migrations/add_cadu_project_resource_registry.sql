@@ -56,13 +56,18 @@ CREATE TABLE IF NOT EXISTS cadu_project_resource_jobs (
     status VARCHAR(24) NOT NULL DEFAULT 'queued',
     attempts INTEGER NOT NULL DEFAULT 0,
     error_message TEXT,
+    next_attempt_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     started_at TIMESTAMPTZ,
     finished_at TIMESTAMPTZ,
     CHECK (status IN ('queued','running','completed','failed'))
 );
-CREATE INDEX IF NOT EXISTS idx_cadu_project_resource_jobs_queue
-    ON cadu_project_resource_jobs (status, created_at) WHERE status IN ('queued','failed');
+ALTER TABLE cadu_project_resource_jobs
+    ADD COLUMN IF NOT EXISTS next_attempt_at TIMESTAMPTZ;
+
+DROP INDEX IF EXISTS idx_cadu_project_resource_jobs_queue;
+CREATE INDEX idx_cadu_project_resource_jobs_queue
+    ON cadu_project_resource_jobs (status, next_attempt_at, created_at) WHERE status IN ('queued','failed','running');
 
 CREATE TABLE IF NOT EXISTS cadu_project_resource_relations (
     id BIGSERIAL PRIMARY KEY,

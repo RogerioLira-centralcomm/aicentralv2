@@ -31,11 +31,15 @@ def dashboard(client_id: int, limit=60) -> dict:
              (SELECT COUNT(*) FROM cadu_agent_turn_events event WHERE event.run_id=run.id) AS events
           FROM cadu_family_chat_runs run WHERE run.client_id=%s AND run.runtime_version='v2'
          ORDER BY run.created_at DESC LIMIT %s""", (client_id, limit))
-        queue = repository.rows("""SELECT
-             COUNT(*) FILTER (WHERE status='queued') AS queued,
-             COUNT(*) FILTER (WHERE status='failed') AS failed,
-             COUNT(*) FILTER (WHERE status='running' AND started_at < NOW()-INTERVAL '10 minutes') AS stalled
-          FROM cadu_project_resource_jobs WHERE client_id=%s""", (client_id,))[0]
+        try:
+            queue = repository.rows("""SELECT
+                 COUNT(*) FILTER (WHERE status='queued') AS queued,
+                 COUNT(*) FILTER (WHERE status='failed') AS failed,
+                 COUNT(*) FILTER (WHERE status='running' AND started_at < NOW()-INTERVAL '10 minutes') AS stalled
+              FROM cadu_project_resource_jobs WHERE client_id=%s""", (client_id,))[0]
+        except Exception:
+            repository.get_db().rollback()
+            queue = {"queued": 0, "failed": 0, "stalled": 0}
         alerts = []
         turns, failures = int(summary.get("turns") or 0), int(summary.get("failed") or 0)
         if turns >= 5 and failures / turns >= .10:

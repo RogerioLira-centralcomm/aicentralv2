@@ -18,9 +18,11 @@ from aicentralv2.cadu_workspace.mcp.authorization import MCPUnauthorized, author
 from flask import Flask
 from aicentralv2.cadu_workspace.agent_v2 import routes as v2_routes
 from aicentralv2.cadu_workspace.agent_v2 import service as v2_service
+from aicentralv2.cadu_workspace.agent_v2 import journal
 from aicentralv2.cadu_workspace.artifacts import service as artifact_service
 from aicentralv2.cadu_workspace import brand_mcp_service
 from aicentralv2.cadu_workspace import project_source_service
+from aicentralv2.cadu_workspace import project_resource_jobs
 from aicentralv2.cadu_workspace.mcp import routes as mcp_routes
 from aicentralv2.cadu_workspace.mcp.registry import load_builtin_tools
 
@@ -237,6 +239,55 @@ def test_execution_modes_are_bounded_by_route():
     assert execution_mode_for(brief, "") == "agentic"
     assert budget_for(simple, "fast").max_tool_calls == 1
     assert budget_for(brief, "agentic").max_duration_ms == 240000
+
+
+def test_agentic_decision_persists_checkpoint_and_event_atomically(monkeypatch):
+    results = iter([{"id": "run"}, {"id": "step", "kind": "action", "name": "publish", "status": "completed"},
+                    {"sequence": 4}])
+
+    class Cursor:
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+        def execute(self, *_args, **_kwargs): pass
+        def fetchone(self): return next(results)
+
+    cursor = Cursor()
+
+    class Connection:
+        committed = 0
+        rolled_back = 0
+        def cursor(self): return cursor
+        def commit(self): self.committed += 1
+        def rollback(self): self.rolled_back += 1
+
+    connection = Connection()
+    monkeypatch.setattr(journal.repository, "get_db", lambda: connection)
+    result = journal.decide_step("run", "step", 12, 7, True, "Aprovado")
+    assert result["status"] == "completed"
+    assert connection.committed == 1
+    assert connection.rolled_back == 0
+
+
+def test_resource_worker_reclaims_stale_jobs_with_backoff(monkeypatch):
+    calls = []
+
+    class Cursor:
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+        def execute(self, sql, params=()): calls.append((sql, params))
+        def fetchone(self): return None
+
+    class Connection:
+        def cursor(self): return Cursor()
+        def commit(self): pass
+        def rollback(self): pass
+
+    monkeypatch.setattr(project_resource_jobs, "get_db", lambda: Connection())
+    assert project_resource_jobs.claim() is None
+    sql = calls[0][0]
+    assert "SKIP LOCKED" in sql
+    assert "started_at < NOW()-INTERVAL '10 minutes'" in sql
+    assert "next_attempt_at <= NOW()" in sql
 
 
 def test_registry_enforces_capability_and_project_before_handler():

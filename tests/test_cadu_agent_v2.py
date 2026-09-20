@@ -1060,6 +1060,30 @@ def test_v2_page_creates_csrf_token_when_opened_directly(monkeypatch):
         assert len(session["family_csrf"]) >= 32
 
 
+def test_brand_identity_route_accepts_the_brand_id_and_returns_context(monkeypatch):
+    app = Flask(__name__)
+    app.secret_key = "test-secret"
+    app.register_blueprint(v2_routes.bp)
+    scoped = context(conversation_id=None)
+    monkeypatch.setattr(v2_routes, "resolve", lambda **_: scoped)
+    monkeypatch.setattr(v2_routes.repository, "entities", lambda *_: [{"ref": "studio:31", "kind": "brand"}])
+    monkeypatch.setattr(v2_routes.repository, "project_brand_links", lambda *_: [])
+    monkeypatch.setattr("aicentralv2.cadu_workspace.routes._workspace_brands", lambda *_: [{
+        "id": 31, "name": "CentralComm", "display_logo": "/logo.png",
+        "brand_profile": {"positioning": "Comunicação clara"},
+        "primary_color": "#176b5e", "secondary_color": "#102a2a",
+    }])
+    monkeypatch.setattr("aicentralv2.cadu_workspace.routes._workspace_projects", lambda *_args, **_kwargs: [])
+    client = app.test_client()
+    with client.session_transaction() as session:
+        session["user_id"] = 7
+
+    response = client.get("/workspace/api/v2/brands/31/identity")
+
+    assert response.status_code == 200
+    assert response.json["artifact"]["content"]["name"] == "CentralComm"
+
+
 def test_v2_stop_is_scoped_and_uses_v2_provider(monkeypatch):
     app = Flask(__name__)
     app.secret_key = "test-secret"

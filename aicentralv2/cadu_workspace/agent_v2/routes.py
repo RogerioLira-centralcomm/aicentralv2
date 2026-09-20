@@ -133,7 +133,7 @@ def mcp_token():
 
 
 @bp.get("/brands/<int:brand_id>/identity")
-def brand_identity():
+def brand_identity(brand_id):
     """Return a read-only identity artifact for a brand selected in Chat."""
     current = resolve(surface=request.args.get("surface") or "conversations")
     brand_ref = f"studio:{brand_id}"

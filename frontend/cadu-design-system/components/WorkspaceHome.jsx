@@ -152,13 +152,13 @@ export function WorkspaceHome({bootstrap}) {
   const solutions = workspaceSolutionItems(bootstrap);
   return <div className="cadu-ds-home-shell">
     <main className="cadu-ds-home-main">
-      <WorkspaceNavbar logo={bootstrap.caduMark} solutions={solutions} user={bootstrap.user} onOpenAccount={() => setAccountOpen(true)}>
+      <WorkspaceNavbar logo={bootstrap.caduMark} solutions={solutions}>
         <span className="cadu-ds-agency-label">{home.agency?.name || 'Minha agência'}</span>
         <ProjectSelector agencyName={home.agency?.name} value={projectRef} items={projects} onChange={selectProject}/>
         <label className="cadu-ds-home-search"><span className="cadu-ds-sr-only">Buscar projetos no workspace</span><input value={searchValue} onChange={event => setSearchValue(event.target.value)} placeholder="Buscar projetos"/></label>
       </WorkspaceNavbar>
       <div className="cadu-ds-home-workarea">
-        <CaduDock brands={home.brands || []} resources={home.resources || []} shortcutItems={dockItems} usagePercent={home.usagePercent} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onDropItem={addDroppedShortcut} onReorderShortcuts={reorderShortcuts} onOpenUsage={() => setAccountOpen(true)}/>
+      <CaduDock logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} usagePercent={home.usagePercent} onManageShortcuts={() => { setAccountOpen(false); setShortcutsOpen(true); }}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={home.brands || []} resources={home.resources || []} shortcutItems={dockItems} usagePercent={home.usagePercent} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onDropItem={addDroppedShortcut} onReorderShortcuts={reorderShortcuts} onOpenUsage={() => setAccountOpen(true)}/>
         <section className="cadu-ds-home-content">
         <div className="cadu-ds-home-intro"><p className="cadu-ds-home-kicker">Workspace {home.agency?.name ? `da ${home.agency.name}` : ''}</p><h1>{normalizedSearch ? 'Contextos encontrados' : selectedProject ? selectedProject.name : 'O que vamos resolver hoje?'}</h1><p>{normalizedSearch ? `${matchedProjects.length} projeto${matchedProjects.length === 1 ? '' : 's'} encontrado${matchedProjects.length === 1 ? '' : 's'} para “${searchValue.trim()}”.` : selectedProject ? `Trabalhe no contexto de ${selectedProject.brandName || 'seu projeto'}.` : 'Comece uma conversa ou escolha um contexto para trabalhar.'}</p></div>
         {normalizedSearch ? <section className="cadu-ds-home-search-results" aria-live="polite">{matchedProjects.map(project => <button key={project.id} type="button" onClick={() => selectProject(project.id)}><VisualIdentity src={project.previewUrl} initials={project.visualInitials} label={project.name} color={project.visualColor}/><span><b>{project.name}</b><small>{project.brandName || 'Projeto sem marca vinculada'}</small></span><em>Usar contexto</em></button>)}{!matchedProjects.length && <p>Nenhum projeto corresponde a esta busca.</p>}</section> : <>
@@ -168,7 +168,6 @@ export function WorkspaceHome({bootstrap}) {
       </div>
     </main>
     <ActivityDrawer open={activityOpen} onClose={() => setActivityOpen(false)} items={(home.resumeCards || []).map(item => ({...item, detail: item.context, time: item.status}))} onOpenItem={openItem}/>
-    <WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} onManageShortcuts={() => { setAccountOpen(false); setShortcutsOpen(true); }}/>
     <ShortcutManagerDialog open={shortcutsOpen} onClose={() => { setShortcutsOpen(false); if (window.location.hash === '#atalhos') window.history.replaceState(null, '', window.location.pathname + window.location.search); }} items={managerItems} onToggle={toggleShortcut} onReorder={reorderShortcuts}/>
     <UndoToast message={toast} onDismiss={() => setToast('')}/>
   </div>;

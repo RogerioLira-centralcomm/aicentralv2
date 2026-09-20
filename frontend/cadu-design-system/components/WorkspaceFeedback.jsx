@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {VisualIdentity} from './VisualIdentity';
 import {CaduDialog} from './CaduDialog';
 
@@ -27,16 +27,37 @@ export function ShortcutManagerDialog({open, items = [], onClose, onToggle, onRe
   return <CaduDialog className="cadu-ds-shortcut-dialog" label="Personalizar dock" onClose={onClose}><header><div><h2>Atalhos da dock</h2><p>Arraste para ordenar. Marcas e projetos com logo aparecem na barra.</p></div><button type="button" onClick={onClose} aria-label="Fechar">×</button></header><div className="cadu-ds-shortcut-grid">{items.map(item => <article key={item.id} draggable={item.pinned} onDragStart={() => setDraggedId(item.id)} onDragEnd={() => setDraggedId('')} onDragOver={event => item.pinned && event.preventDefault()} onDrop={() => dropOn(item)} className={item.pinned ? 'is-pinned' : ''}><VisualIdentity src={item.logoUrl || item.previewUrl} initials={item.visualInitials} label={item.title} color={item.visualColor}/><b>{item.title}</b><button type="button" onClick={() => onToggle?.(item)}>{item.pinned ? 'Remover' : 'Adicionar'}</button></article>)}</div></CaduDialog>;
 }
 
-export function WorkspaceAccountMenu({open, onClose, user = {}, links = {}, onManageShortcuts}) {
+export function WorkspaceAccountMenu({open, onClose, user = {}, links = {}, usagePercent = 0, onManageShortcuts}) {
+  const menuRef = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const closeOutside = event => {
+      const target = event.target instanceof Element ? event.target : null;
+      const isAccountTrigger = target?.closest('.cadu-ds-home-account,.cadu-ds-dock-avatar-button');
+      if (!menuRef.current?.contains(event.target) && !isAccountTrigger) onClose?.();
+    };
+    const closeOnEscape = event => { if (event.key === 'Escape') onClose?.(); };
+    document.addEventListener('pointerdown', closeOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => { document.removeEventListener('pointerdown', closeOutside); document.removeEventListener('keydown', closeOnEscape); };
+  }, [open, onClose]);
   if (!open) return null;
-  return <CaduDialog className="cadu-ds-account-menu" label="Conta e gestão" onClose={onClose}><header><div className="cadu-ds-account-menu__identity"><b>{user.name || 'Minha conta'}</b>{user.email && <small>{user.email}</small>}</div><button type="button" onClick={onClose} aria-label="Fechar conta">×</button></header><nav aria-label="Conta e gestão">
-    <a href={links.profile}>Perfil</a><a href={links.usage}>Créditos e consumo</a><a href={links.plans}>Planos</a><a href={links.team}>Equipe</a>{links.observability && <a href={links.observability}>Observabilidade</a>}
-  </nav><footer><button type="button" onClick={onManageShortcuts}>Personalizar atalhos</button><a href={links.logout}>Sair</a></footer></CaduDialog>;
+  const percent = Math.max(0, Math.min(100, Number(usagePercent) || 0));
+  const usageLink = links.usage || links.credits || '/uso';
+  const billingLink = links.billing || links.faturamento || '/faturas';
+  const integrationsLink = links.integrations || '/integracoes';
+  return <div ref={menuRef} className="cadu-ds-account-menu" role="menu" aria-label="Conta e gestão">
+    <header><div className="cadu-ds-account-menu__identity"><b>{user.name || 'Minha conta'}</b>{user.email && <small>{user.email}</small>}</div><span className="cadu-ds-account-menu__label">Conta</span></header>
+    <section className="cadu-ds-account-menu__usage" aria-label="Uso de créditos"><div><span>Uso de créditos</span><strong>{new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 1}).format(percent)}%</strong></div><div className="cadu-ds-account-menu__progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={percent}><i style={{width: `${percent}%`}}/></div><a href={usageLink}>Ver uso e histórico</a></section>
+    <nav aria-label="Conta e gestão">
+      {links.agency && <a role="menuitem" href={links.agency}>Agência</a>}<a role="menuitem" href={links.profile}>Perfil</a><a role="menuitem" href={links.team}>Equipe</a><a role="menuitem" href={links.plans}>Planos</a><a role="menuitem" href={usageLink}>Créditos e consumo</a><a role="menuitem" href={billingLink}>Faturamento</a><a role="menuitem" href={integrationsLink}>Integrações</a>{links.observability && <a role="menuitem" href={links.observability}>Observabilidade</a>}
+    </nav><footer><button type="button" onClick={onManageShortcuts}>Personalizar dock</button><a href={links.logout}>Sair</a></footer>
+  </div>;
 }
 
-export function WorkspaceAccountControl({user = {}, onOpen}) {
+export function WorkspaceAccountControl({user = {}, open = false, onOpen}) {
   const name = user.name || 'Minha conta';
-  return <button type="button" className="cadu-ds-home-account cadu-ds-home-account--identity" onClick={onOpen} aria-label={`Abrir conta de ${name}`} aria-haspopup="dialog">
+  return <button type="button" className="cadu-ds-home-account cadu-ds-home-account--identity" onClick={onOpen} aria-label={`Abrir conta de ${name}`} aria-haspopup="menu" aria-expanded={open}>
     <VisualIdentity src={user.avatar} initials={name} label={name} color="#1b6d64"/>
     <span><strong>{name}</strong><small>{user.email || 'Conta e perfil'}</small></span>
     <i aria-hidden="true">⌄</i>

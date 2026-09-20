@@ -88,7 +88,7 @@ export function DockUsageRing({percent, onOpen}) {
   return <DockTooltip label="Créditos e consumo"><button type="button" className="cadu-ds-usage-ring" style={{'--cadu-usage': `${value * 3.6}deg`}} onClick={onOpen} aria-label={`Utilização de créditos: ${formatted}%`}><span>{formatted}%</span></button></DockTooltip>;
 }
 
-export function CaduDock({onNewConversation, brands = [], resources = [], shortcutItems = [], usagePercent, onOpenBrand, onOpenResource, onDropItem, onReorderShortcuts, onOpenUsage}) {
+export function CaduDock({logo, homeUrl, userName = 'Minha conta', userAvatar, userInitials, accountOpen = false, accountMenu, onOpenAccount, onNewConversation, brands = [], resources = [], shortcutItems = [], usagePercent, onOpenBrand, onOpenResource, onDropItem, onReorderShortcuts, onOpenUsage}) {
   const writePayload = (event, payload) => { event.dataTransfer.effectAllowed = 'copy'; event.dataTransfer.setData('application/x-cadu-item', JSON.stringify(payload)); };
   const items = shortcutItems.length ? shortcutItems : [...brands, ...resources];
   const dockBrands = items.filter(item => item.kind === 'brand');
@@ -108,9 +108,10 @@ export function CaduDock({onNewConversation, brands = [], resources = [], shortc
     } catch (_) { /* The outer drop zone handles items originating elsewhere. */ }
   };
   return <aside className="cadu-ds-dock" aria-label="Atalhos do Workspace">
+    <DockTooltip label="Cadu Workspace"><a className="cadu-ds-dock-logo" href={homeUrl || '#'} aria-label="Abrir Cadu Workspace"><img src={logo} alt="Cadu"/></a></DockTooltip>
     <DockTooltip label="Novo chat"><button type="button" className="cadu-ds-dock-new" onClick={onNewConversation} aria-label="Novo chat"><Icon name="newChat" size={18}/></button></DockTooltip>
-    <div className="cadu-ds-dock-context" aria-label="Marcas e projetos fixados"><DockDropZone onDropItem={onDropItem}>{dockBrands.map(item => <DockBrandShortcut key={item.shortcutId || item.id} brand={item} projectCount={item.projectCount} active={item.active} onOpen={onOpenBrand} onDragStart={canReorder ? writePayload : undefined} onDropShortcut={canReorder ? reorder : undefined}/>)}</DockDropZone>
+    <div className="cadu-ds-dock-context" aria-label="Marcas e projetos"><DockDropZone onDropItem={onDropItem}>{dockBrands.map(item => <DockBrandShortcut key={item.shortcutId || item.id} brand={item} projectCount={item.projectCount} active={item.active} onOpen={onOpenBrand} onDragStart={canReorder ? writePayload : undefined} onDropShortcut={canReorder ? reorder : undefined}/>)}</DockDropZone>
       <div className="cadu-ds-dock-resources">{dockResources.map(item => <DockResourceShortcut key={item.shortcutId || item.id} item={item} pinned={item.pinned} active={item.active} onOpen={onOpenResource} onDragStart={canReorder ? writePayload : undefined} onDropShortcut={canReorder ? reorder : undefined}/>)}</div></div>
-    <div className="cadu-ds-dock-bottom">{usagePercent != null && <DockUsageRing percent={usagePercent} onOpen={onOpenUsage}/>}</div>
+    <div className="cadu-ds-dock-bottom">{usagePercent != null && <DockUsageRing percent={usagePercent} onOpen={onOpenUsage}/>}<div className="cadu-ds-dock-account-wrap"><DockTooltip label={`Conta de ${userName}`}><button type="button" className="cadu-ds-dock-avatar-button" onClick={onOpenAccount} aria-label={`Abrir conta de ${userName}`} aria-haspopup="menu" aria-expanded={accountOpen}><VisualIdentity src={userAvatar} initials={userInitials || userName} label={userName} color="#1b6d64"/></button></DockTooltip>{accountMenu}</div></div>
   </aside>;
 }

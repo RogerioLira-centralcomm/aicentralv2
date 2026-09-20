@@ -139,6 +139,8 @@ test('brand dossier uses the shared React dock and design-system dialogs', () =>
   assert.match(brand, /LinkProjectsDialog/);
   assert.match(brand, /AuditDialog/);
   assert.match(entry, /bootstrap\.brandMode \? <WorkspaceBrand/);
+  assert.match(entry, /bootstrap\.brandMode \|\| bootstrap\.brandsMode/);
+  assert.match(brand, /add_brand_id/);
   assert.match(template, /'brandMode': True/);
   assert.match(route, /brand_detail_react\.html/);
   assert.match(styles, /\.cadu-ds-brand-content/);

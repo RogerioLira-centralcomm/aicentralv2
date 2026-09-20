@@ -1183,10 +1183,10 @@ def _brand_review_pack(brand: dict) -> dict:
     metadata = brand.get('analysis_metadata') or {}
     pack = metadata.get('review_pack') if isinstance(metadata, dict) else {}
     if not isinstance(pack, dict):
-        return {}
+        pack = {}
     reviews = [item for item in pack.get('reviews', []) if isinstance(item, dict)]
     return {
-        'status': str(pack.get('status') or 'pending_approval'),
+        'status': str(pack.get('status') or 'not_started'),
         'job_id': pack.get('job_id'),
         'stage': str(pack.get('stage') or ''),
         'index': int(pack.get('index') or 0),
@@ -3295,12 +3295,18 @@ def update_project_brands(project_id):
     client_id = int(session.get('cliente_id') or 0)
     _editable_workspace_project(client_id, project_id)
     valid_ids = {str(item['id']) for item in _workspace_brands(client_id)}
-    wanted = {value for value in request.form.getlist('brand_ids') if value in valid_ids}
     project_ref = f'ci:{project_id}'
+    additive_brand_id = str(request.form.get('add_brand_id') or '').strip()
+    if additive_brand_id and additive_brand_id not in valid_ids:
+        abort(404)
     try:
         existing = {str(item.get('brand_ref') or '') for item in family_repository.project_brand_links(client_id)
                     if item.get('project_ref') == project_ref and str(item.get('brand_ref') or '').startswith('studio:')}
-        selected = {f'studio:{brand_id}' for brand_id in wanted}
+        if additive_brand_id:
+            selected = existing | {f'studio:{additive_brand_id}'}
+        else:
+            wanted = {value for value in request.form.getlist('brand_ids') if value in valid_ids}
+            selected = {f'studio:{brand_id}' for brand_id in wanted}
         for brand_ref in existing - selected:
             family_repository.set_project_brand_link(client_id, session.get('user_id'), project_ref, brand_ref, False)
         for brand_ref in selected - existing:
@@ -4187,6 +4193,7 @@ def clean_brand_detail(brand_id):
 def update_brand_identity(brand_id):
     if not _workspace_api_csrf():
         abort(403, description='Atualize a página e tente novamente.')
+    _workspace_team_admin()
     client_id = int(session.get('cliente_id') or 0)
     existing_brand = _workspace_brand(client_id, brand_id)
     if not existing_brand:
@@ -4233,6 +4240,7 @@ def update_brand_identity(brand_id):
 def upload_brand_assets(brand_id):
     if not _workspace_api_csrf():
         abort(403, description='Atualize a página e tente novamente.')
+    _workspace_team_admin()
     client_id = int(session.get('cliente_id') or 0)
     if not _workspace_brand(client_id, brand_id):
         abort(404)
@@ -4260,6 +4268,7 @@ def upload_brand_assets(brand_id):
 def set_primary_brand_asset(brand_id, asset_id):
     if not _workspace_api_csrf():
         abort(403, description='Atualize a página e tente novamente.')
+    _workspace_team_admin()
     client_id = int(session.get('cliente_id') or 0)
     if not _workspace_brand(client_id, brand_id):
         abort(404)
@@ -4280,6 +4289,7 @@ def promote_brand_asset_to_logo(brand_id, asset_id):
     """Let the team choose any imported website visual as the official logo."""
     if not _workspace_api_csrf():
         abort(403, description='Atualize a página e tente novamente.')
+    _workspace_team_admin()
     client_id = int(session.get('cliente_id') or 0)
     if not _workspace_brand(client_id, brand_id):
         abort(404)

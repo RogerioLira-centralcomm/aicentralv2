@@ -10,7 +10,7 @@ from werkzeug.exceptions import BadRequest
 from aicentralv2.product_domains import product_url
 from aicentralv2.cadu_workspace.routes import (
     _authorized_dock_target, _brand_review_is_stale, _dock_shortcuts_available, _merge_brand_analysis,
-    _normalized_website_url, _user_dock_shortcuts,
+    _brand_review_pack, _normalized_website_url, _user_dock_shortcuts,
     _save_brand_review_job, bp,
 )
 
@@ -82,6 +82,9 @@ class WorkspaceBrandsTest(TestCase):
         self.assertFalse(_brand_review_is_stale({
             'status': 'pending_approval', 'created_at': '2020-01-01T00:00:00Z',
         }))
+
+    def test_empty_brand_review_starts_as_not_started(self):
+        self.assertEqual(_brand_review_pack({'analysis_metadata': {}})['status'], 'not_started')
 
     def test_analysis_merge_preserves_reviewed_identity(self):
         merged = _merge_brand_analysis({
@@ -256,6 +259,35 @@ class WorkspaceBrandsTest(TestCase):
         self.assertEqual(response.status_code, 403)
         _workspace_brand.assert_not_called()
         service.assert_not_called()
+
+    @mock.patch('aicentralv2.cadu_workspace.routes.family_repository.set_project_brand_link')
+    @mock.patch('aicentralv2.cadu_workspace.routes.family_repository.project_brand_links')
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brands')
+    @mock.patch('aicentralv2.cadu_workspace.routes._editable_workspace_project', return_value={'id': 'p-1'})
+    def test_additive_project_brand_link_preserves_existing_brands(
+            self, _project, brands, links, set_link):
+        brands.return_value = [{'id': 81}, {'id': 82}]
+        links.return_value = [{'project_ref': 'ci:p-1', 'brand_ref': 'studio:81'}]
+
+        response = _client().post('/workspace/app/projetos/p-1/marcas', data={
+            '_csrf': 'known-token', 'add_brand_id': '82',
+        })
+
+        self.assertEqual(response.status_code, 303)
+        set_link.assert_called_once_with(12, 7, 'ci:p-1', 'studio:82', True)
+
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand')
+    def test_member_cannot_update_brand_identity(self, _workspace_brand):
+        client = _client()
+        with client.session_transaction() as session:
+            session['user_type'] = 'client'
+
+        response = client.post('/workspace/app/marcas/81/identidade', data={
+            '_csrf': 'known-token', 'name': 'Marca segura',
+        })
+
+        self.assertEqual(response.status_code, 403)
+        _workspace_brand.assert_not_called()
 
     @mock.patch('aicentralv2.creative_modeling_service.CreativeModelingService')
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand', return_value=None)

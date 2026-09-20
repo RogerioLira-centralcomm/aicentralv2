@@ -128,7 +128,7 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, userName
     event.dataTransfer.setData('application/x-cadu-item', serialized);
     event.dataTransfer.setData('text/plain', serialized);
   };
-  const isWorkspaceSurface = sharedDock || Boolean(bootstrap?.homeMode || bootstrap?.projectMode || bootstrap?.brandsMode || bootstrap?.projectsMode || bootstrap?.accountMode);
+  const isWorkspaceSurface = sharedDock || Boolean(bootstrap?.homeMode || bootstrap?.projectMode || bootstrap?.brandMode || bootstrap?.brandsMode || bootstrap?.projectsMode || bootstrap?.accountMode);
   const isControlled = typeof onReorderShortcuts === 'function';
   const [managedItems, setManagedItems] = useState(() => shortcutItems);
   useEffect(() => {

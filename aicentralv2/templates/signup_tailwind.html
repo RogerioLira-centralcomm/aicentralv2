@@ -1,6 +1,6 @@
 {% extends "base_auth_react.html" %}
 
-{% block title %}Entrar — {{ 'CentralX' if is_centralx_host else 'Cadu Workspace' }}{% endblock %}
+{% block title %}Criar conta — Cadu Workspace{% endblock %}
 
 {% block auth_bootstrap %}
 {% set auth_tools = [
@@ -11,18 +11,14 @@
   {'id': 'skills', 'name': 'Skills', 'description': 'Recursos e automações', 'icon': url_for('static', filename='images/cadu/products/skills-icon.png')}
 ] %}
 {{ {
-  'page': 'login',
-  'brandName': 'CentralX' if is_centralx_host else 'Cadu Workspace',
-  'brandUrl': product_url('centralx') if is_centralx_host else product_url('workspace'),
-  'logoUrl': url_for('static', filename='images/cc_logo.png' if is_centralx_host else 'images/cadu/products/cadu-icon.png'),
+  'page': 'signup',
+  'brandName': 'Cadu Workspace',
+  'brandUrl': product_url('workspace'),
+  'logoUrl': url_for('static', filename='images/cadu/products/cadu-icon.png'),
   'imageUrl': url_for('static', filename='images/cadu/home-heroes/workspace-hero-v1.jpg'),
-  'googleUrl': url_for('cadu_identity.google_login', next=next_target),
-  'formAction': url_for('login'),
-  'forgotUrl': url_for('forgot_password'),
-  'signupUrl': url_for('signup', next=next_target),
+  'googleUrl': url_for('cadu_identity.google_signup', next=next_target),
+  'loginUrl': url_for('login', next=next_target),
   'next': request.values.get('next', ''),
-  'email': request.form.get('email_local') or request.form.get('email') or '',
-  'isCorporate': is_centralx_access,
   'messages': get_flashed_messages(with_categories=true),
   'tools': auth_tools
 }|tojson }}

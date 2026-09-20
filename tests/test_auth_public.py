@@ -9,32 +9,20 @@ STATIC = ROOT / "aicentralv2" / "static"
 
 class AuthPublicLayoutTests(unittest.TestCase):
     def test_shell_trava_viewport_e_teclado(self):
-        base = (TEMPLATES / "base_auth_public.html").read_text(encoding="utf-8")
-        css = (STATIC / "css" / "auth-public.css").read_text(encoding="utf-8")
-        js = (STATIC / "js" / "auth-public.js").read_text(encoding="utf-8")
+        base = (TEMPLATES / "base_auth_react.html").read_text(encoding="utf-8")
+        css = (ROOT / "frontend" / "cadu-design-system" / "auth" / "styles.css").read_text(encoding="utf-8")
+        app = (ROOT / "frontend" / "cadu-design-system" / "auth" / "AuthApp.jsx").read_text(encoding="utf-8")
 
         self.assertIn("interactive-widget=overlays-content", base)
-        self.assertIn('class="auth-root"', base)
-        self.assertIn("auth-public.css", base)
-        self.assertRegex(base, r"auth-public\.css[^\n]+\?v=\d+")
-        self.assertIn("visualViewport", js)
-        self.assertIn("is-keyboard-open", js)
-        self.assertIn("--vvh", css)
-        self.assertIn("overflow: hidden", css)
-        self.assertIn("font-size: 16px", css)
-        self.assertNotIn("auth-scene-pan", css)
-        self.assertNotIn("authCityImage", js)
-        self.assertNotIn("window.showToast", js)
-        self.assertIn("active_auth_product", base)
-        self.assertIn("cadu-icon.png", base)
-        self.assertIn("planner-icon.png", base)
-        self.assertNotIn("setupProductShowcase", js)
-        self.assertNotIn("auth-product-tabs", base)
-        self.assertIn('class="auth-scene-impact"', base)
-        self.assertIn("-webkit-text-size-adjust: 100%", css)
-        self.assertIn("body.auth-public", css)
-        self.assertIn("display: none", css)
-        self.assertIn("safe-area-inset-top", css)
+        self.assertIn("cadu-auth-root", base)
+        self.assertIn("cadu_auth/app.css", base)
+        self.assertIn("cadu_auth/app.js", base)
+        self.assertIn("100dvh", css)
+        self.assertIn("@media (max-width: 720px)", css)
+        self.assertIn("cadu-auth-visual { display: none; }", css)
+        self.assertIn("inputMode=\"email\"", app)
+        self.assertIn("cadu-auth-mobile-tools", app)
+        self.assertIn("cadu-auth-noscript", base)
 
     def test_login_e_recuperacao_sem_autofocus(self):
         login = (TEMPLATES / "login_tailwind.html").read_text(encoding="utf-8")
@@ -44,26 +32,22 @@ class AuthPublicLayoutTests(unittest.TestCase):
         self.assertNotIn("autofocus", login)
         self.assertNotIn("autofocus", forgot)
         self.assertNotIn("autofocus", reset)
-        self.assertIn('inputmode="email"', login)
-        self.assertIn('name="email_local"', login)
-        self.assertIn("@centralcomm.media", login)
-        self.assertNotIn('name="remember"', login)
-        self.assertNotIn("Manter acesso neste dispositivo", login)
-        self.assertIn("{% extends \"base_auth_public.html\" %}", login)
+        self.assertIn("base_auth_react.html", login)
+        self.assertIn("'page': 'login'", login)
+        self.assertIn("'signupUrl'", login)
+        self.assertIn("'forgotUrl'", login)
+        self.assertIn("base_auth_react.html", forgot)
+        self.assertIn("base_auth_react.html", reset)
 
     def test_dominio_corporativo_apenas_no_login_interno(self):
         login = (TEMPLATES / "login_tailwind.html").read_text(encoding="utf-8")
         forgot = (TEMPLATES / "forgot_password_tailwind.html").read_text(encoding="utf-8")
-        css = (STATIC / "css" / "auth-public.css").read_text(encoding="utf-8")
-        js = (STATIC / "js" / "auth-public.js").read_text(encoding="utf-8")
+        app = (ROOT / "frontend" / "cadu-design-system" / "auth" / "AuthApp.jsx").read_text(encoding="utf-8")
 
-        self.assertIn("auth-email-lock", login)
-        self.assertNotIn("auth-email-lock", forgot)
-        self.assertIn('type="email"', forgot)
-        self.assertIn('name="email"', forgot)
-        self.assertIn("auth-email-domain", css)
-        self.assertIn("setupCorporateEmail", js)
-        self.assertIn("centralcomm.media", js)
+        self.assertIn("'isCorporate': is_centralx_access", login)
+        self.assertIn("email_local", app)
+        self.assertIn("Use seu acesso CentralComm.", app)
+        self.assertNotIn("'isCorporate': is_centralx_access", forgot)
 
     def test_convite_usa_shell_publico(self):
         invite = (TEMPLATES / "aceitar_convite.html").read_text(encoding="utf-8")
@@ -74,6 +58,18 @@ class AuthPublicLayoutTests(unittest.TestCase):
         self.assertIn('name="senha"', invite)
         self.assertIn('name="confirmar_senha"', invite)
         self.assertIn("{% block page_name %}invite{% endblock %}", invite)
+
+    def test_cadastro_publico_usa_google_e_mostra_ferramentas(self):
+        signup = (TEMPLATES / "signup_tailwind.html").read_text(encoding="utf-8")
+        app = (ROOT / "frontend" / "cadu-design-system" / "auth" / "AuthApp.jsx").read_text(encoding="utf-8")
+
+        self.assertIn("base_auth_react.html", signup)
+        self.assertIn("'page': 'signup'", signup)
+        self.assertIn("Criar conta com Google", app)
+        self.assertIn("cadu_identity.google_signup", signup)
+        self.assertIn("Ferramentas incluídas no Cadu", app)
+        for tool in ("Workspace", "Planner", "Studio", "Reports", "Skills"):
+            self.assertIn(tool, app)
 
 
 if __name__ == "__main__":

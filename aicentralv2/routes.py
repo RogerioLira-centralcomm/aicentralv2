@@ -1200,6 +1200,24 @@ def init_routes(app):
             response.headers['Access-Control-Allow-Origin'] = '*'
         return response
     
+    # ==================== AUTHENTICATION ====================
+
+    @app.route('/signup', methods=['GET'])
+    def signup():
+        """Public Cadu account creation entry point.
+
+        Account provisioning is intentionally delegated to the existing Google
+        identity flow. This keeps the signup surface simple while preserving
+        the product-owned SSO and its existing tenant/account rules.
+        """
+        from aicentralv2.product_domains import is_centralx_request, product_url, safe_product_target
+
+        if is_centralx_request():
+            return redirect(url_for('login'), code=302)
+        destination = 'workspace' if app.config.get('CADU_GOOGLE_NATIVE_ENABLED', False) else 'cadu'
+        next_target = safe_product_target(request.args.get('next'), product_url(destination))
+        return render_template('signup_tailwind.html', next_target=next_target)
+
     # ==================== LOGIN ====================
     
     @app.route('/login', methods=['GET', 'POST'])

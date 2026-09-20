@@ -109,6 +109,24 @@ def google_login():
         return redirect(url_for("login"), code=302)
 
 
+@bp.get("/google/signup")
+def google_signup():
+    """Start the Cadu-owned Google signup/provisioning flow.
+
+    Native identity currently resolves existing users only. New account
+    provisioning remains owned by the Cadu PHP application, so signup must
+    use that flow even when native login is enabled for existing users.
+    """
+    target = safe_product_target(request.args.get("next"), product_url("cadu"))
+    login_url = str(
+        current_app.config.get("CADU_GOOGLE_LOGIN_URL")
+        or product_url("cadu", "/google-login.php")
+    )
+    separator = "&" if "?" in login_url else "?"
+    query = urlencode({"v3": "1", "nav": "/v3", "return_to": target, "signup": "1"})
+    return redirect(f"{login_url}{separator}{query}", code=302)
+
+
 @bp.get("/google/callback")
 def google_callback():
     target = safe_product_target(session.pop("google_auth_next", ""), product_url("centralx"))

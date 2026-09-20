@@ -11,7 +11,7 @@ import os
 import re
 import threading
 from typing import Optional
-from urllib.parse import urlencode, urlparse
+from urllib.parse import quote, urlencode, urlparse
 from uuid import uuid4
 import secrets
 
@@ -4079,6 +4079,93 @@ def brand_detail(brand_id):
     brand['review_pack'] = _brand_review_pack(brand)
     can_manage_brand = session.get('user_type') in {'admin', 'superadmin'}
     studio_base = product_url('studio', '/studio/modelagem-criativos')
+    if request.args.get('legacy') != '1':
+        projects = _workspace_projects(client_id, status='todos')
+        brands = _workspace_brands(client_id)
+        linked_projects = _brand_linked_projects(client_id, brand_id)
+        active_linked_project = linked_projects[0] if linked_projects else None
+        profile = brand.get('brand_profile') or {}
+        review_pack = brand.get('review_pack') or {}
+        project_items = [{
+            'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'),
+            'name': str(item.get('nome') or 'Projeto'), 'projectRef': f"ci:{item.get('id')}",
+            'previewUrl': str(item.get('brand_logo_url') or ''), 'visualInitials': str(item.get('thumbnail_initials') or 'P'),
+            'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'),
+            'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id'))),
+        } for item in projects]
+        brand_items = [{
+            'id': str(item.get('id')), 'kind': 'brand', 'name': str(item.get('name') or 'Marca'),
+            'title': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''),
+            'visualInitials': str(item.get('display_initials') or 'M'),
+            'visualColor': str(item.get('display_color') or item.get('primary_color') or '#176b5e'),
+            'href': url_for('cadu_workspace.clean_brand_detail', brand_id=int(item.get('id'))),
+        } for item in brands]
+        available_project_items = [{
+            'id': str(item.get('id')), 'name': str(item.get('nome') or 'Projeto'),
+            'description': str(item.get('descricao') or ''),
+            'linkUrl': url_for('cadu_workspace.update_project_brands', project_id=str(item.get('id'))),
+        } for item in projects if str(item.get('status') or 'ativo') != 'arquivado']
+        brand_base = url_for('cadu_workspace.brand_detail', brand_id=brand_id).rstrip('/')
+        conversation_args = {'prompt': f"Quero trabalhar a marca {brand.get('name') or 'marca'} em um projeto."}
+        if active_linked_project:
+            conversation_args['project'] = f"ci:{active_linked_project.get('id')}"
+        brand_links = {
+            'conversation': url_for('cadu_workspace.conversations', **conversation_args),
+            'createImage': product_url('studio', f"/studio/modelagem-criativos/criar?creative_client_id={brand_id}" + (f"&project_id={active_linked_project.get('id')}" if active_linked_project else '')),
+            'createVideo': product_url('studio', f"/studio/modelagem-criativos/video?creative_client_id={brand_id}" + (f"&project_id={active_linked_project.get('id')}" if active_linked_project else '')),
+            'createPlan': product_url('planner', f"/novo?cliente_id={brand.get('crm_client_id') or ''}&cliente_name={quote(str(brand.get('name') or 'Marca'))}&brand_id={brand_id}&brand_name={quote(str(brand.get('name') or 'Marca'))}" + (f"&project_id={active_linked_project.get('id')}" if active_linked_project else '')),
+            'system': url_for('cadu_workspace.brand_system', brand_id=brand_id),
+            'generateHero': url_for('cadu_workspace.generate_brand_hero', brand_id=brand_id),
+            'updateIdentity': url_for('cadu_workspace.update_brand_identity', brand_id=brand_id),
+            'uploadAssets': url_for('cadu_workspace.upload_brand_assets', brand_id=brand_id),
+            'audit': url_for('cadu_workspace.audit_brand', brand_id=brand_id),
+            'auditStatus': url_for('cadu_workspace.brand_audit_status', brand_id=brand_id),
+            'approve': url_for('cadu_workspace.approve_brand_reviews', brand_id=brand_id),
+            'retry': url_for('cadu_workspace.retry_brand_audit', brand_id=brand_id),
+            'setPrimaryBase': f'{brand_base}/ativos/__ASSET_ID__/principal',
+            'promoteLogoBase': f'{brand_base}/ativos/__ASSET_ID__/logo',
+            'deleteAssetBase': f'{brand_base}/ativos/__ASSET_ID__/apagar',
+        }
+        brand_data = {
+            'id': str(brand.get('id')), 'name': str(brand.get('name') or 'Marca'), 'sector': str(brand.get('sector') or ''),
+            'websiteUrl': str(brand.get('website_url') or ''), 'crmClientId': str(brand.get('crm_client_id') or ''),
+            'logoUrl': str(brand.get('display_logo') or ''), 'initials': str(brand.get('display_initials') or 'M'),
+            'primaryColor': str(brand.get('primary_color') or '#176b5e'), 'secondaryColor': str(brand.get('secondary_color') or '#dcece6'),
+            'profile': {
+                'brandSummary': str(profile.get('brand_summary') or profile.get('positioning') or ''),
+                'toneOfVoice': str(profile.get('tone_of_voice') or brand.get('tone_of_voice') or ''),
+                'targetAudience': str(profile.get('target_audience') or ''), 'positioning': str(profile.get('positioning') or ''),
+                'brandValues': profile.get('brand_values') if isinstance(profile.get('brand_values'), list) else [],
+                'colorPalette': profile.get('color_palette') if isinstance(profile.get('color_palette'), list) else [],
+                'fonts': profile.get('fonts') if isinstance(profile.get('fonts'), list) else [],
+            },
+            'readiness': brand.get('readiness') or {'score': 0, 'missing': []}, 'reviewPack': review_pack,
+            'analysisMetadata': {
+                'pagesAnalyzed': int((brand.get('analysis_metadata') or {}).get('pages_analyzed') or 0),
+                'assetsFound': int((brand.get('analysis_metadata') or {}).get('assets_found') or 0),
+                'visualEvidenceCount': int((brand.get('analysis_metadata') or {}).get('visual_evidence_count') or 0),
+                'sources': [str(item) for item in ((brand.get('analysis_metadata') or {}).get('sources') or []) if item],
+            },
+            'assets': [{
+                'id': str(item.get('id')), 'role': str(item.get('role') or 'reference'), 'status': str(item.get('status') or 'registered'),
+                'isPrimary': bool(item.get('is_primary')), 'displayUrl': str(item.get('display_url') or ''),
+                'mimeType': str(item.get('mime_type') or ''), 'sourceKind': str(item.get('source_kind') or ''),
+                'metadata': item.get('metadata') if isinstance(item.get('metadata'), dict) else {},
+            } for item in brand.get('assets') or []],
+            'linkedProjects': [{
+                'id': str(item.get('id')), 'name': str(item.get('nome') or 'Projeto'), 'description': str(item.get('descricao') or ''),
+                'sources': int(item.get('fontes_prontas') or 0), 'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id'))),
+                'logoUrl': str(item.get('brand_logo_url') or ''), 'initials': str(item.get('thumbnail_initials') or 'P'),
+                'color': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'),
+            } for item in linked_projects],
+        }
+        dock_items = _workspace_common_dock_items(client_id, int(session.get('user_id') or 0))
+        return render_template(
+            'cadu_workspace/brand_detail_react.html', brand_data=brand_data, brand_links=brand_links,
+            brand_items=brand_items, project_items=project_items, available_project_items=available_project_items,
+            dock_items=dock_items, can_manage_brand=can_manage_brand,
+            usage_percent=round(float(credit_position(client_id).get('monthly_usage_percentage') or 0), 1),
+        )
     return render_template(
         'cadu_workspace/brand_detail.html', brand=brand,
         can_manage_brand=can_manage_brand,

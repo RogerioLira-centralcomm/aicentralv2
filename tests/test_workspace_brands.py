@@ -430,7 +430,9 @@ class WorkspaceBrandsTest(TestCase):
         response = client.get('/marcas/81')
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn('Criar hero', response.get_data(as_text=True))
+        html = response.get_data(as_text=True)
+        self.assertIn('"brandMode": true', html)
+        self.assertIn('/workspace/app/marcas/81/hero/gerar', html)
 
     @mock.patch('aicentralv2.creative_modeling_service.CreativeModelingService')
     @mock.patch('aicentralv2.cadu_workspace.routes.CaduCreditConnector')

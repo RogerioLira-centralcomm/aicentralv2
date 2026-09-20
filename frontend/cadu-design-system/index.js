@@ -20,6 +20,7 @@ export {ResumeCard, ResumeCardCollection} from './components/ResumeCards';
 export {AgentActionDrop, ActivityDrawer, ShortcutManagerDialog, WorkspaceAccountControl, WorkspaceAccountMenu, UndoToast, PermissionState, LoadingSkeleton} from './components/WorkspaceFeedback';
 export {WorkspaceHome} from './components/WorkspaceHome';
 export {WorkspaceProject} from './components/WorkspaceProject';
+export {WorkspaceBrand} from './components/WorkspaceBrand';
 export {WorkspaceBrands} from './components/WorkspaceBrands';
 export {WorkspaceProjects} from './components/WorkspaceProjects';
 export {workspaceSolutionItems} from './workspaceSolutions';

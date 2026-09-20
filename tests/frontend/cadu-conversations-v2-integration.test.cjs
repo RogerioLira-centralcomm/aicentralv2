@@ -126,6 +126,25 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(entry, /bootstrap\.projectMode \? <WorkspaceProject/);
 });
 
+test('brand dossier uses the shared React dock and design-system dialogs', () => {
+  const brand = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceBrand.jsx'), 'utf8');
+  const entry = fs.readFileSync(path.join(root, 'frontend/conversations-v2/main.jsx'), 'utf8');
+  const template = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/brand_detail_react.html'), 'utf8');
+  const route = fs.readFileSync(path.join(root, 'aicentralv2/cadu_workspace/routes.py'), 'utf8');
+  const styles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/styles.css'), 'utf8');
+  assert.match(brand, /export function WorkspaceBrand/);
+  assert.match(brand, /<CaduDock/);
+  assert.match(brand, /<CaduDialog/);
+  assert.match(brand, /IdentityDialog/);
+  assert.match(brand, /LinkProjectsDialog/);
+  assert.match(brand, /AuditDialog/);
+  assert.match(entry, /bootstrap\.brandMode \? <WorkspaceBrand/);
+  assert.match(template, /'brandMode': True/);
+  assert.match(route, /brand_detail_react\.html/);
+  assert.match(styles, /\.cadu-ds-brand-content/);
+  assert.match(styles, /\.cadu-ds-brand-dialog/);
+});
+
 test('Workspace catalogs keep the dock inside the shared work area at full width', () => {
   const projects = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceProjects.jsx'), 'utf8');
   const brands = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceBrands.jsx'), 'utf8');

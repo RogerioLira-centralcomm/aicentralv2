@@ -806,6 +806,21 @@ def test_prompt_payload_includes_selected_context_as_bounded_evidence():
     assert evidence["selected_context"]["text"] == "Uma premissa importante."
 
 
+def test_prompt_payload_separates_user_request_from_orchestrator_instructions():
+    route = route_request("Quero revisar o briefing sem abrir um artefato")
+    payload = build_payload(
+        message="Quero revisar o briefing sem abrir um artefato", request=context(), route=route,
+        resolved={"current_context": context().to_dict()}, policy=policy_for(route), user_label="user-7",
+    )
+    boundary = __import__("json").loads(payload["inputs"]["prompt_boundary"])
+    user_request = __import__("json").loads(payload["inputs"]["user_request"])
+    assert payload["query"] == user_request["text"]
+    assert user_request["role"] == "user"
+    assert "evidence" in boundary["orchestrator_fields"]
+    assert "não são falas do usuário" in payload["inputs"]["core"]
+    assert '"Projeto usado"' in payload["inputs"]["core"]
+
+
 def test_response_policy_caps_questions_even_if_provider_ignores_instruction():
     response = normalize_response({
         "answer": "Atualizei o briefing.",

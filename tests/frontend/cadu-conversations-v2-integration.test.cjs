@@ -105,6 +105,8 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(template, /'updateContext': url_for\('cadu_workspace\.update_project_context'/);
   assert.match(template, /'uploadSource': url_for\('cadu_workspace\.upload_project_source'/);
   assert.match(template, /'legacy': url_for\('cadu_workspace\.project_detail'/);
+  assert.match(template, /'conversation': url_for\('cadu_workspace\.conversations', project_ref='ci:' ~ project_data\.id, history='1'\)/);
+  assert.doesNotMatch(template, /'conversation':[^\n]*prompt=/);
   assert.match(route, /request\.args\.get\('legacy'\) != '1'/);
   assert.match(route, /project_detail_react\.html/);
   assert.match(entry, /bootstrap\.projectMode \? <WorkspaceProject/);
@@ -265,6 +267,7 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(app, /streamEvents/);
   assert.match(app, /<CaduDock/);
   assert.match(app, /const activeProjectRef = String\(context\?\.project_ref \|\| ''\)/);
+  assert.match(app, /get\('auto_send'\) === '1'/);
   assert.match(app, /active: item\.kind === 'project' && String\(item\.projectRef \|\| ''\) === activeProjectRef/);
   assert.match(dock, /active=\{item\.active\}/);
   assert.match(dock, /aria-current=\{active \? 'page' : undefined\}/);
@@ -272,11 +275,16 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(app, /\[historyOpen, setHistoryOpen\] = useState\(\(\) => !window\.matchMedia/);
   assert.match(app, /requestedHistoryOpen/);
   assert.match(app, /changeProject\(item\.projectRef, \{showHistory: true\}\)/);
+  assert.match(app, /changeProject = useCallback\(async \(projectRef, \{showHistory = true\}/);
+  assert.doesNotMatch(app, /loadProjectResources/);
+  assert.match(app, /recentConversations\(data\.conversations, 500\)/);
   assert.match(app, /changeBrand\(item\.brandRef \|\| `studio:\$\{item\.id\}`\)/);
   assert.match(app, /loadBrandIdentity/);
   assert.match(app, /reset\(\); setHistoryOpen\(false\)/);
-  assert.match(app, /if \(!conversationRef\.current\) setHistoryOpen\(false\)/);
+  assert.match(app, /if \(!conversationRef\.current && window\.matchMedia\('\(max-width: 900px\)'\)\.matches\) setHistoryOpen\(false\)/);
   assert.match(sidebar, /cv-recent-sidebar/);
+  assert.match(sidebar, /activeProjectRef/);
+  assert.match(sidebar, /leftActive/);
   assert.match(sidebar, /Chats recentes/);
   assert.doesNotMatch(sidebar, /secondaryNav|Áreas principais|Workspace e conta/);
   assert.match(app, /let runStarted = false/);

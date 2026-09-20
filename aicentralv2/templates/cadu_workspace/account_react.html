@@ -2,7 +2,7 @@
 {% block title %}{{ {'perfil':'Perfil','equipe':'Equipe','planos':'Plano','creditos':'Uso','faturamento':'Faturamento'}[section] }} — Workspace{% endblock %}
 {% block product_id %}workspace{% endblock %}
 {% block content_class %}portal-content--workspace-react{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v=12">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v=16">{% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
 <div id="cadu-conversations-v2-root" class="cv-home-root cv-account-root" aria-label="Conta do Workspace"><noscript>{% if section == 'perfil' %}Perfil de {{ account.current_user.nome_completo or session.get('user_name','') }} · {{ account.current_user.email or session.get('user_email','') }} · Salvar perfil{% elif section == 'equipe' %}Núcleo da agência. Projetos, marcas, plano e créditos são compartilhados por esta equipe.{% elif section == 'planos' %}Tokens neste ciclo: {{ account.insights.tokens.used }}. Gerenciar equipe. Consulte o atendimento para mudanças contratuais.{% elif section == 'creditos' %}Créditos disponíveis. últimas {{ account.movements|length }} execuções confirmadas.{% for item in account.movements %} {{ item.reason }} −{{ item.amount }}{% endfor %}{% for lot in account.purchases %} {{ lot.package_name }}{% endfor %}{% else %}Histórico financeiro da operação.{% endif %}</noscript></div>
@@ -36,4 +36,4 @@
   }
 }|tojson }}</script>
 {% endblock %}
-{% block portal_scripts %}<script type="module" src="{{ url_for('static', filename='cadu_workspace/conversations/react/app.js') }}?v=12"></script>{% endblock %}
+{% block portal_scripts %}<script type="module" src="{{ url_for('static', filename='cadu_workspace/conversations/react/app.js') }}?v=16"></script>{% endblock %}

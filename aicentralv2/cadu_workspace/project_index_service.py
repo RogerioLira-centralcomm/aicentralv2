@@ -164,6 +164,50 @@ def persist_pending_source(
     return file_id
 
 
+def persist_attachment_source(
+    cursor, *, project_id: str, client_id: int, user_id: int | None,
+    name: str, mime: str, size: int, storage_path: str,
+    extracted_text: str = '', classification: dict | None = None,
+    metadata: dict | None = None,
+) -> int:
+    """Preserve a file before the user decides whether it enters the index."""
+    classification = classification or {
+        'category': 'other', 'status': 'needs_review', 'confidence': 0.25,
+        'reason': 'Aguardando validação do usuário.',
+    }
+    file_metadata = dict(metadata or {})
+    file_metadata.setdefault('classifier', 'workspace-triage-v1')
+    file_metadata['content_inspected'] = bool(extracted_text)
+    file_metadata['sha256'] = file_metadata.get('sha256') or sha256(
+        str(extracted_text).encode('utf-8')
+    ).hexdigest()
+    cursor.execute(
+        """INSERT INTO cadu_ci_projeto_arquivos
+               (projeto_id, id_cliente, criado_por, nome_arquivo, mime, tamanho,
+                storage_path, extracted_text, doc_form, indexing_status, word_count, tokens,
+                purpose, category, classification_status, classification_confidence,
+                classification_reason, classification_metadata, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'attachment', 'paused', %s, 0,
+                'project_attachment', %s, %s, %s, %s, %s::jsonb, NOW(), NOW())
+         RETURNING id""",
+        (project_id, client_id, user_id, name, mime, size, storage_path,
+         extracted_text or None, _word_count(extracted_text),
+         classification.get('category') or 'other',
+         classification.get('status') or 'needs_review',
+         float(classification.get('confidence') or 0),
+         classification.get('reason') or 'Aguardando validação do usuário.',
+         json.dumps(file_metadata, ensure_ascii=False)),
+    )
+    file_id = int(cursor.fetchone()['id'])
+    cursor.execute(
+        """UPDATE cadu_ci_projetos
+              SET total_arquivos = COALESCE(total_arquivos, 0) + 1, updated_at = NOW()
+            WHERE id = %s AND id_cliente = %s""",
+        (project_id, client_id),
+    )
+    return file_id
+
+
 def project_resource_id(client_id: int, project_ref: str, source_id: str) -> str:
     """Return the registry ID used for a source before reconciliation."""
     from .project_resource_service import resource_id_for_source
@@ -183,11 +227,20 @@ def _source_content(source: dict) -> str:
     path = project_sources.resolve_private_path(str(root), storage_path)
     if not path.is_file():
         raise FileNotFoundError("O arquivo original da fonte não está disponível.")
-    return project_sources.reextract(
-        source.get("nome_arquivo") or path.name,
-        path.read_bytes(),
-        source.get("mime") or "",
-    )["text"]
+    try:
+        return project_sources.reextract(
+            source.get("nome_arquivo") or path.name,
+            path.read_bytes(),
+            source.get("mime") or "",
+        )["text"]
+    except Exception:
+        # OCR/adapter output captured during triage is still a valid source of
+        # truth for a confirmed creative asset, even if the worker lacks the
+        # same optional OCR binary at reindex time.
+        preserved = str(source.get("extracted_text") or "").strip()
+        if len(preserved) >= 20:
+            return preserved
+        raise
 
 
 def reindex_source(client_id: int, project_id: str, source_id: int, user_id: int) -> dict:

@@ -43,6 +43,84 @@ SCOPES = (
     "https://www.googleapis.com/auth/adwords",
 )
 
+# The matrix is intentionally kept beside the OAuth contract. This makes the
+# Integrations screen explain the real activation requirements instead of
+# presenting a static list of Google product names.
+GOOGLE_SERVICE_CATALOG = (
+    {
+        "key": "drive",
+        "name": "Google Drive",
+        "icon": "fa-brands fa-google-drive",
+        "description": "Arquivos, pastas e links podem ser indexados e associados a projetos.",
+        "scopes": ("https://www.googleapis.com/auth/drive",),
+        "api_url": "https://console.cloud.google.com/apis/library/drive.googleapis.com",
+    },
+    {
+        "key": "calendar",
+        "name": "Google Calendar",
+        "icon": "fa-regular fa-calendar",
+        "description": "Eventos e agenda entram no contexto de reuniões e entregas.",
+        "scopes": (
+            "https://www.googleapis.com/auth/calendar.readonly",
+            "https://www.googleapis.com/auth/calendar.events",
+        ),
+        "api_url": "https://console.cloud.google.com/apis/library/calendar-json.googleapis.com",
+    },
+    {
+        "key": "meet",
+        "name": "Google Meet",
+        "icon": "fa-solid fa-video",
+        "description": "Espaços de reunião e links do Meet ficam disponíveis para o projeto.",
+        "scopes": (
+            "https://www.googleapis.com/auth/meetings.space.created",
+            "https://www.googleapis.com/auth/meetings.space.readonly",
+        ),
+        "api_url": "https://console.cloud.google.com/apis/library/meet.googleapis.com",
+    },
+    {
+        "key": "analytics",
+        "name": "Google Analytics",
+        "icon": "fa-solid fa-chart-line",
+        "description": "Propriedades e sinais de audiência podem alimentar o planejamento.",
+        "scopes": ("https://www.googleapis.com/auth/analytics.readonly",),
+        "api_url": "https://console.cloud.google.com/apis/library/analyticsadmin.googleapis.com",
+    },
+    {
+        "key": "search_console",
+        "name": "Search Console",
+        "icon": "fa-solid fa-magnifying-glass-chart",
+        "description": "Sites, consultas e presença orgânica ficam disponíveis para análise.",
+        "scopes": ("https://www.googleapis.com/auth/webmasters.readonly",),
+        "api_url": "https://console.cloud.google.com/apis/library/searchconsole.googleapis.com",
+    },
+    {
+        "key": "ads",
+        "name": "Google Ads",
+        "icon": "fa-solid fa-bullhorn",
+        "description": "Contas e campanhas podem ser descobertas para mídia e relatórios.",
+        "scopes": ("https://www.googleapis.com/auth/adwords",),
+        "api_url": "https://console.cloud.google.com/apis/library/googleads.googleapis.com",
+        "requires_developer_token": True,
+    },
+)
+
+_SERVICE_STATUS_LABELS = {
+    "enabled": "Habilitado",
+    "needs_authorization": "Autorizar conta",
+    "needs_reauthorization": "Atualizar permissões",
+    "needs_configuration": "Configuração pendente",
+    "unavailable": "Indisponível",
+    "error": "Requer atenção",
+}
+
+_SERVICE_CONFIG_LABELS = {
+    "client_id": "Client ID do OAuth",
+    "client_secret": "Client secret do OAuth",
+    "redirect_uri": "URL de retorno do OAuth",
+    "token_encryption_key": "chave de proteção dos tokens",
+    "ads_developer_token": "developer token do Google Ads",
+}
+
 
 class GoogleWorkspaceError(RuntimeError):
     pass
@@ -72,6 +150,128 @@ def _encryption_key() -> str:
     except (ValueError, TypeError) as exc:
         raise GoogleWorkspaceError("GOOGLE_TOKEN_ENCRYPTION_KEY não é uma chave Fernet válida.") from exc
     return value
+
+
+def _configuration_state() -> dict:
+    """Return safe configuration metadata for the Integrations console."""
+    try:
+        from . import integration_credentials
+
+        config = integration_credentials.get_configuration(
+            "google_workspace", include_secrets=True
+        )
+    except Exception as exc:
+        return {
+            "configured": False,
+            "source": "unavailable",
+            "missing": ["credenciais do Google Workspace"],
+            "error": str(exc),
+            "redirect_uri": "",
+            "encryption_ready": False,
+            "ads_ready": False,
+        }
+
+    missing = [
+        _SERVICE_CONFIG_LABELS[field]
+        for field in ("client_id", "client_secret", "redirect_uri")
+        if not str(config.get(field) or "").strip()
+    ]
+    encryption_ready = True
+    try:
+        _encryption_key()
+    except (GoogleWorkspaceError, RuntimeError):
+        encryption_ready = False
+        missing.append(_SERVICE_CONFIG_LABELS["token_encryption_key"])
+
+    if not config.get("configured") and not missing:
+        missing.append("credencial Google Workspace ativa")
+
+    try:
+        configured_ads_token = current_app.config.get("GOOGLE_ADS_DEVELOPER_TOKEN")
+    except RuntimeError:
+        configured_ads_token = ""
+    ads_developer_token = str(
+        configured_ads_token or os.getenv("GOOGLE_ADS_DEVELOPER_TOKEN", "")
+    ).strip()
+    return {
+        "configured": bool(config.get("configured")) and not missing,
+        "source": config.get("source") or "environment",
+        "missing": missing,
+        "error": "",
+        "redirect_uri": str(config.get("redirect_uri") or ""),
+        "encryption_ready": encryption_ready,
+        "ads_ready": bool(ads_developer_token),
+    }
+
+
+def service_matrix(organization_id: int) -> dict:
+    """Describe every native Google capability without returning credentials.
+
+    ``enabled`` means the server is configured, the organization has an
+    active Google connection, and the connection granted the scopes needed by
+    that capability. Google Cloud API enablement still belongs to the project
+    owner, so every card exposes the exact API Library link for that last step.
+    """
+    config = _configuration_state()
+    connection = None
+    table_available = _available()
+    if table_available:
+        try:
+            connection = get_connection(organization_id)
+        except Exception:
+            table_available = False
+
+    granted = {
+        scope.strip()
+        for scope in str((connection or {}).get("granted_scopes") or "").split()
+        if scope.strip()
+    }
+    connection_status = str((connection or {}).get("status") or "").lower()
+    connection_needs_reauth = connection_status not in {"", "connected"}
+    services = []
+    for definition in GOOGLE_SERVICE_CATALOG:
+        missing_scopes = [scope for scope in definition["scopes"] if scope not in granted]
+        if not table_available:
+            status = "unavailable"
+            detail = "A tabela de conexões ainda não está disponível nesta instalação."
+        elif not config["configured"]:
+            status = "needs_configuration"
+            detail = "Complete a configuração do OAuth e da proteção dos tokens no servidor."
+        elif not connection:
+            status = "needs_authorization"
+            detail = "Autorize a conta Google da organização para liberar este serviço."
+        elif connection_needs_reauth or missing_scopes:
+            status = "needs_reauthorization"
+            detail = "A conta está conectada, mas precisa renovar as permissões deste serviço."
+        elif definition.get("requires_developer_token") and not config["ads_ready"]:
+            status = "needs_configuration"
+            detail = "O OAuth está pronto; falta o developer token do Google Ads."
+        else:
+            status = "enabled"
+            detail = "OAuth, permissões e requisitos locais estão prontos para uso."
+
+        services.append({
+            **definition,
+            "scopes": list(definition["scopes"]),
+            "missing_scopes": missing_scopes,
+            "status": status,
+            "status_label": _SERVICE_STATUS_LABELS[status],
+            "enabled": status == "enabled",
+            "detail": detail,
+        })
+
+    enabled_count = sum(item["enabled"] for item in services)
+    return {
+        "services": services,
+        "summary": {
+            "enabled_count": enabled_count,
+            "total_count": len(services),
+            "pending_count": len(services) - enabled_count,
+        },
+        "configuration": config,
+        "connection_status": connection_status or "disconnected",
+        "cloud_console_url": "https://console.cloud.google.com/apis/credentials",
+    }
 
 
 def encrypt_refresh_token(refresh_token: str) -> str:

@@ -68,16 +68,16 @@ export function DockDropZone({children, onDropItem, label = 'Fixar na dock'}) {
 export function DockBrandShortcut({brand, projectCount = 0, active = false, onOpen, onDragStart, onDropShortcut}) {
   const draggable = typeof onDragStart === 'function';
   const droppable = typeof onDropShortcut === 'function';
-  return <DockTooltip label={brand.name}><button type="button" draggable={draggable} onDragStart={draggable ? event => onDragStart(event, brand) : undefined} onDragOver={droppable ? event => event.preventDefault() : undefined} onDrop={droppable ? event => { event.preventDefault(); event.stopPropagation(); onDropShortcut(event, brand); } : undefined} onClick={() => onOpen?.(brand)} aria-label={`Abrir marca ${brand.name}`} className={`cadu-ds-dock-brand ${active ? 'is-active' : ''}`}>
+  return <DockTooltip label={brand.name}><button type="button" draggable={draggable} onDragStart={draggable ? event => onDragStart(event, brand) : undefined} onDragOver={droppable ? event => event.preventDefault() : undefined} onDrop={droppable ? event => { event.preventDefault(); event.stopPropagation(); onDropShortcut(event, brand); } : undefined} onClick={() => onOpen?.(brand)} aria-label={`Abrir marca ${brand.name}`} aria-current={active ? 'page' : undefined} className={`cadu-ds-dock-brand ${active ? 'is-active' : ''}`}>
     <VisualIdentity src={brand.logoUrl} initials={brand.visualInitials} label={brand.name} color={brand.visualColor}/>
     {projectCount > 1 && <i aria-label={`${projectCount} projetos fixados`}>{projectCount}</i>}
   </button></DockTooltip>;
 }
 
-export function DockResourceShortcut({item, pinned = false, onOpen, onDragStart, onDropShortcut}) {
+export function DockResourceShortcut({item, pinned = false, active = false, onOpen, onDragStart, onDropShortcut}) {
   const draggable = typeof onDragStart === 'function';
   const droppable = typeof onDropShortcut === 'function';
-  return <DockTooltip label={item.title}><button type="button" draggable={draggable} onDragStart={draggable ? event => onDragStart(event, item) : undefined} onDragOver={droppable ? event => event.preventDefault() : undefined} onDrop={droppable ? event => { event.preventDefault(); event.stopPropagation(); onDropShortcut(event, item); } : undefined} onClick={() => onOpen?.(item)} aria-label={`Abrir ${item.title}`} className="cadu-ds-dock-resource">
+  return <DockTooltip label={item.title}><button type="button" draggable={draggable} onDragStart={draggable ? event => onDragStart(event, item) : undefined} onDragOver={droppable ? event => event.preventDefault() : undefined} onDrop={droppable ? event => { event.preventDefault(); event.stopPropagation(); onDropShortcut(event, item); } : undefined} onClick={() => onOpen?.(item)} aria-label={`Abrir ${item.title}`} aria-current={active ? 'page' : undefined} className={`cadu-ds-dock-resource ${active ? 'is-active' : ''}`}>
     <VisualIdentity src={item.previewUrl} initials={item.visualInitials} label={item.title} color={item.visualColor}/>{pinned && <i aria-label="Fixado">●</i>}
   </button></DockTooltip>;
 }
@@ -110,7 +110,7 @@ export function CaduDock({onNewConversation, brands = [], resources = [], shortc
   return <aside className="cadu-ds-dock" aria-label="Atalhos do Workspace">
     <DockTooltip label="Novo chat"><button type="button" className="cadu-ds-dock-new" onClick={onNewConversation} aria-label="Novo chat"><Icon name="newChat" size={18}/></button></DockTooltip>
     <div className="cadu-ds-dock-context" aria-label="Marcas e projetos fixados"><DockDropZone onDropItem={onDropItem}>{dockBrands.map(item => <DockBrandShortcut key={item.shortcutId || item.id} brand={item} projectCount={item.projectCount} active={item.active} onOpen={onOpenBrand} onDragStart={canReorder ? writePayload : undefined} onDropShortcut={canReorder ? reorder : undefined}/>)}</DockDropZone>
-      <div className="cadu-ds-dock-resources">{dockResources.map(item => <DockResourceShortcut key={item.shortcutId || item.id} item={item} pinned={item.pinned} onOpen={onOpenResource} onDragStart={canReorder ? writePayload : undefined} onDropShortcut={canReorder ? reorder : undefined}/>)}</div></div>
+      <div className="cadu-ds-dock-resources">{dockResources.map(item => <DockResourceShortcut key={item.shortcutId || item.id} item={item} pinned={item.pinned} active={item.active} onOpen={onOpenResource} onDragStart={canReorder ? writePayload : undefined} onDropShortcut={canReorder ? reorder : undefined}/>)}</div></div>
     <div className="cadu-ds-dock-bottom">{usagePercent != null && <DockUsageRing percent={usagePercent} onOpen={onOpenUsage}/>}</div>
   </aside>;
 }

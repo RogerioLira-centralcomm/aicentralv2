@@ -507,7 +507,11 @@ export default function App({bootstrap}) {
 
   const solutions = workspaceSolutionItems(bootstrap);
   const dockProjects = projects.slice(0, 6).map(item => ({id: item.ref, projectRef: item.ref, kind: 'project', title: item.name, name: item.name, visualInitials: String(item.name || 'P').slice(0, 2).toUpperCase()}));
-  const sharedDockItems = bootstrap.dock ? (bootstrap.dock.items || []) : [...(bootstrap.brands || []), ...dockProjects];
+  const activeProjectRef = String(context?.project_ref || '');
+  const sharedDockItems = (bootstrap.dock ? (bootstrap.dock.items || []) : [...(bootstrap.brands || []), ...dockProjects]).map(item => ({
+    ...item,
+    active: item.kind === 'project' && String(item.projectRef || '') === activeProjectRef,
+  }));
   return <div className="cadu-ds-home-shell cv-conversations-shell">
     <main className="cadu-ds-home-main">
       <header className="cadu-ds-home-navbar cv-conversations-navbar"><CaduSolutionSwitcher logo={bootstrap.caduMark || bootstrap.logo} solutions={solutions} activeId="workspace"/><strong>Cadu Chat</strong><div className="cadu-ds-project-navbar__spacer"/><WorkspaceAccountControl user={bootstrap.user} onOpen={() => setAccountOpen(true)}/></header>

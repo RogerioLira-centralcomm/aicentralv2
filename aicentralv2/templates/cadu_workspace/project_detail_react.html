@@ -5,7 +5,7 @@
 {% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v=16">{% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
-<div id="cadu-conversations-v2-root" class="cv-home-root" aria-label="{{ project_data.name }} — projeto no Workspace"><noscript>Ative o JavaScript para usar o projeto no Workspace.</noscript></div>
+<div id="cadu-conversations-v2-root" class="cv-home-root cadu-project-root" aria-label="{{ project_data.name }} — projeto no Workspace"><noscript>Ative o JavaScript para usar o projeto no Workspace.</noscript></div>
 <script id="cadu-conversations-v2-bootstrap" type="application/json">{{ {
   'projectMode': True,
   'caduMark': url_for('static', filename='images/cadu/products/cadu-icon.png'),

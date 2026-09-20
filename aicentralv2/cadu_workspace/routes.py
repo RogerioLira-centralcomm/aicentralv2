@@ -422,7 +422,16 @@ def _workspace_integration_data(client_id: int, organization_id: int) -> dict:
     for account in accounts:
         key = str(account.get('provider') or '').lower()
         account['provider_label'] = providers.get(key, key.replace('_', ' ').title() or 'Plataforma')
-    google = {'connection': None, 'resources': [], 'projects': [], 'connect_url': product_url('auth', '/auth/google/workspace') + '?' + urlencode({'next': product_url('workspace', '/integracoes')}), 'configured': False}
+    google = {
+        'connection': None,
+        'resources': [],
+        'projects': [],
+        'services': [],
+        'summary': {'enabled_count': 0, 'total_count': 0, 'pending_count': 0},
+        'configuration': {'configured': False, 'missing': [], 'redirect_uri': ''},
+        'connect_url': product_url('auth', '/auth/google/workspace') + '?' + urlencode({'next': product_url('workspace', '/integracoes')}),
+        'configured': False,
+    }
     try:
         from ..services import google_workspace
         connection = google_workspace.get_connection(organization_id)
@@ -431,6 +440,7 @@ def _workspace_integration_data(client_id: int, organization_id: int) -> dict:
             'connection': connection,
             'resources': google_workspace.list_resources(organization_id, limit=120),
             'configured': bool(connection and connection.get('status') == 'connected'),
+            **google_workspace.service_matrix(organization_id),
         }
         with get_db().cursor() as cursor:
             cursor.execute(
@@ -471,9 +481,36 @@ def _workspace_integration_data(client_id: int, organization_id: int) -> dict:
             },
         ),
         'coming_soon_connectors': (
-            {'name': 'Meta Business Suite', 'icon': 'fa-brands fa-meta'},
-            {'name': 'Slack', 'icon': 'fa-brands fa-slack'},
-            {'name': 'Notion', 'icon': 'fa-solid fa-note-sticky'},
+            {
+                'name': 'ClickUp', 'icon': 'fa-solid fa-check-double',
+                'summary': 'Tarefas, checklists e entregas conectados ao job.',
+                'scope': 'Planejamento e execução',
+            },
+            {
+                'name': 'Trello', 'icon': 'fa-brands fa-trello',
+                'summary': 'Quadros visuais para acompanhar produção e aprovações.',
+                'scope': 'Operação visual',
+            },
+            {
+                'name': 'Slack', 'icon': 'fa-brands fa-slack',
+                'summary': 'Alertas e contexto de projetos perto da equipe.',
+                'scope': 'Comunicação e alertas',
+            },
+            {
+                'name': 'Figma', 'icon': 'fa-brands fa-figma',
+                'summary': 'Arquivos de design, protótipos e comentários no projeto.',
+                'scope': 'Criação colaborativa',
+            },
+            {
+                'name': 'Asana', 'icon': 'fa-brands fa-asana',
+                'summary': 'Projetos, responsáveis e prazos em uma visão operacional.',
+                'scope': 'Gestão de produção',
+            },
+            {
+                'name': 'Dropbox', 'icon': 'fa-brands fa-dropbox',
+                'summary': 'Arquivos legados e pastas de clientes em migração.',
+                'scope': 'Arquivos e migração',
+            },
         ),
     }
 
@@ -2140,7 +2177,9 @@ def _project_source(client_id: int, project_id: str, source_id: int) -> Optional
         with get_db().cursor() as cursor:
             cursor.execute(
                 """SELECT id, nome_arquivo, mime, tamanho, storage_path, extracted_text, indexing_status,
-                          word_count, tokens, erro_msg, created_at, updated_at
+                          word_count, tokens, erro_msg, purpose, category, classification_status,
+                          classification_confidence, classification_reason, classification_metadata,
+                          created_at, updated_at
                      FROM cadu_ci_projeto_arquivos
                     WHERE id = %s AND projeto_id = %s AND id_cliente = %s""",
                 (source_id, project_id, client_id),
@@ -2177,7 +2216,8 @@ def _workspace_project(client_id: int, project_id: str) -> Optional[dict]:
         with get_db().cursor() as cursor:
             cursor.execute(
                 """SELECT id, nome_arquivo, mime, tamanho, storage_path, doc_form, indexing_status,
-                          word_count, tokens, erro_msg, created_at
+                          word_count, tokens, erro_msg, purpose, category, classification_status,
+                          classification_confidence, classification_reason, classification_metadata, created_at
                      FROM cadu_ci_projeto_arquivos
                     WHERE projeto_id = %s AND id_cliente = %s ORDER BY created_at DESC""",
                 (project_id, client_id),
@@ -2875,6 +2915,14 @@ def project_detail(project_id):
             },
             'files': [{'id': str(item.get('id')), 'title': str(item.get('nome_arquivo') or 'Fonte'),
                        'mime': str(item.get('mime') or 'Arquivo'), 'status': str(item.get('indexing_status') or 'queued'),
+                       'purpose': str(item.get('purpose') or 'project_attachment'),
+                       'category': str(item.get('category') or 'other'),
+                       'classificationStatus': str(item.get('classification_status') or 'pending'),
+                       'classificationConfidence': float(item.get('classification_confidence') or 0),
+                       'classificationReason': str(item.get('classification_reason') or ''),
+                       'canIndex': int(item.get('word_count') or 0) >= 20,
+                       'requiresReview': str(item.get('purpose') or 'project_attachment') == 'project_attachment' and str(item.get('indexing_status') or '') == 'paused' and str(item.get('classification_status') or '') in {'pending', 'classified', 'needs_review'},
+                       'confirmUrl': url_for('cadu_workspace.confirm_project_source', project_id=project_id, source_id=item.get('id')),
                        'words': int(item.get('word_count') or 0)} for item in project.get('files') or []],
             'deliveries': ([{'id': f"plan:{item.get('id')}", 'title': str(item.get('title') or 'Plano de mídia'),
                              'kind': 'Planejamento', 'status': str(item.get('status') or ''),
@@ -3252,6 +3300,52 @@ def upload_project_source(project_id):
     uploaded = request.files.get('file')
     if uploaded is None:
         abort(400, description='Escolha um arquivo para adicionar.')
+
+    # The React project library uses an explicit triage pass. The original
+    # form path remains as a progressive-enhancement fallback for clients that
+    # cannot run the library UI.
+    if request.accept_mimetypes.best == 'application/json' and request.headers.get('X-Cadu-Triage') == '1':
+        source = project_sources.inspect_upload(uploaded, require_text=False)
+        source_key = uuid4().hex
+        target = project_sources.private_path(
+            _workspace_source_root(), client_id, project_id, source['suffix'], source_key,
+        )
+        target.write_bytes(source['data'])
+        storage_path = target.relative_to(Path(_workspace_source_root())).as_posix()
+        content_hash = sha256(source['data']).hexdigest()
+        connection = None
+        try:
+            connection = get_db()
+            with connection.cursor() as cursor:
+                source_id = project_index_service.persist_attachment_source(
+                    cursor, project_id=project_id, client_id=client_id,
+                    user_id=int(session.get('user_id') or 0), name=source['name'],
+                    mime=source['mime'], size=len(source['data']), storage_path=storage_path,
+                    extracted_text=source.get('text') or '',
+                    classification=source.get('classification'),
+                    metadata={'sha256': content_hash, 'processing': source.get('processing'),
+                              'can_index': bool(source.get('can_index')), 'triage': True},
+                )
+            connection.commit()
+        except Exception:
+            if connection is not None:
+                try:
+                    connection.rollback()
+                except Exception:
+                    pass
+            target.unlink(missing_ok=True)
+            current_app.logger.exception('Não foi possível preparar o arquivo para triagem no projeto %s', project_id)
+            abort(503, description='Não foi possível preparar o arquivo agora. Tente novamente.')
+        classification = source.get('classification') or {}
+        return jsonify({
+            'ok': True, 'source_id': source_id, 'status': 'awaiting_confirmation',
+            'name': source['name'], 'mime': source['mime'], 'size': len(source['data']),
+            'processing': source.get('processing') or 'metadata_only',
+            'can_index': bool(source.get('can_index')), 'text_preview': (source.get('text') or '')[:1200],
+            'classification': classification,
+            'confirm_url': url_for('cadu_workspace.confirm_project_source', project_id=project_id, source_id=source_id),
+        }), 202
+
     source = project_sources.validate_upload(uploaded)
     source_key = uuid4().hex
     target = project_sources.private_path(
@@ -3293,6 +3387,63 @@ def upload_project_source(project_id):
         current_app.logger.exception('Não foi possível registrar arquivo no projeto %s', project_id)
         abort(503, description='Não foi possível adicionar o arquivo agora. Tente novamente.')
     return redirect(url_for('cadu_workspace.project_detail', project_id=project_id), code=303)
+
+
+@bp.post('/workspace/app/projetos/<project_id>/fontes/<int:source_id>/confirmar')
+@login_required
+def confirm_project_source(project_id, source_id):
+    """Apply the user's purpose/category decision after OCR and triage."""
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    client_id = int(session.get('cliente_id') or 0)
+    _editable_workspace_project(client_id, project_id)
+    payload = request.get_json(silent=True) or request.form
+    purpose = str(payload.get('purpose') or 'project_attachment').strip().lower()
+    category = str(payload.get('category') or 'other').strip().lower()
+    if purpose not in {'knowledge_source', 'project_attachment'}:
+        abort(400, description='Escolha se o arquivo será fonte ou apenas anexo.')
+    if category not in {'brief', 'research', 'media_plan', 'report', 'brand_asset', 'reference', 'contract', 'spreadsheet', 'other'}:
+        abort(400, description='Categoria de arquivo inválida.')
+    source = _project_source(client_id, project_id, source_id)
+    if not source:
+        abort(404)
+    if purpose == 'knowledge_source' and len(str(source.get('extracted_text') or '').strip()) < 20:
+        abort(409, description='Este arquivo foi preservado, mas ainda não tem texto suficiente para indexação. Mantenha-o como anexo ou adicione um adapter.')
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """UPDATE cadu_ci_projeto_arquivos
+                      SET purpose=%s, category=%s, classification_status='manual',
+                          classification_confidence=1, classification_reason=%s,
+                          indexing_status=%s, erro_msg=NULL, updated_at=NOW()
+                    WHERE id=%s AND projeto_id=%s AND id_cliente=%s""",
+                (purpose, category, 'Decisão confirmada pelo usuário.',
+                 'queued' if purpose == 'knowledge_source' else 'paused',
+                 source_id, project_id, client_id),
+            )
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    if purpose == 'project_attachment':
+        return jsonify({'ok': True, 'source_id': source_id, 'status': 'attached', 'purpose': purpose, 'category': category})
+    job_id = None
+    try:
+        from .project_index_jobs import enqueue
+        job_id = enqueue(client_id, project_id, source_id, int(session.get('user_id') or 0))
+    except Exception:
+        current_app.logger.warning('Fila de indexação indisponível para a fonte %s; usando modo síncrono', source_id, exc_info=True)
+    if job_id:
+        return jsonify({'ok': True, 'source_id': source_id, 'job_id': job_id, 'status': 'queued', 'purpose': purpose, 'category': category}), 202
+    try:
+        result = project_index_service.reindex_source(client_id, project_id, source_id, int(session.get('user_id') or 0))
+    except CaduCreditUnavailable as exc:
+        abort(409, description=str(exc))
+    except Exception:
+        current_app.logger.exception('Não foi possível indexar a fonte confirmada %s', source_id)
+        abort(503, description='O arquivo foi preservado, mas a indexação precisa ser reprocessada.')
+    return jsonify({'ok': True, **result, 'purpose': purpose, 'category': category})
 
 
 @bp.post('/workspace/app/projetos/<project_id>/fontes/urls')
@@ -3366,11 +3517,18 @@ def project_sources_status(project_id):
     project = _workspace_project(client_id, project_id)
     if not project:
         abort(404)
-    files = [{
-        'id': item.get('id'), 'name': item.get('nome_arquivo'),
-        'status': item.get('indexing_status'), 'words': item.get('word_count') or 0,
-        'error': item.get('erro_msg') or '',
-    } for item in project.get('files', [])]
+    files = []
+    for item in project.get('files', []):
+        record = {'id': item.get('id'), 'name': item.get('nome_arquivo'),
+                  'status': item.get('indexing_status'), 'words': item.get('word_count') or 0,
+                  'error': item.get('erro_msg') or ''}
+        if 'purpose' in item:
+            record.update({'purpose': item.get('purpose') or 'project_attachment',
+                           'category': item.get('category') or 'other',
+                           'classification_status': item.get('classification_status') or 'pending',
+                           'classification_confidence': float(item.get('classification_confidence') or 0),
+                           'classification_reason': item.get('classification_reason') or ''})
+        files.append(record)
     return jsonify({'sources': files})
 
 

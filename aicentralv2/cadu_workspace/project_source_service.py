@@ -23,7 +23,13 @@ from .agent_v2.contracts import RequestContext
 
 
 UPLOAD_MAX_AGE = 600
-ATTACHMENT_EXTENSIONS = project_sources.ALLOWED_EXTENSIONS | {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+ATTACHMENT_EXTENSIONS = (
+    project_sources.ALLOWED_EXTENSIONS
+    | project_sources.IMAGE_EXTENSIONS
+    | project_sources.CREATIVE_EXTENSIONS
+    | project_sources.ARCHIVE_EXTENSIONS
+    | {".ppt", ".pptx", ".odp"}
+)
 CATEGORIES = {"brief", "research", "media_plan", "report", "brand_asset", "reference", "contract", "spreadsheet", "other"}
 
 
@@ -36,6 +42,13 @@ def inspect_file_support(filename: str, mime_type: str = "") -> dict:
         return {"filename": safe_name, "extension": suffix, "mime_type": mime_type,
                 "status": "supported", "can_attach": True, "can_index": True,
                 "processing": "text_extraction", "requires_adapter": False}
+    # InDesign packages are accepted by the project dropzone, but keep the
+    # capability probe conservative until a dedicated parser is installed.
+    if suffix == '.indd':
+        return {"filename": safe_name, "extension": suffix, "mime_type": mime_type,
+                "status": "unsupported", "can_attach": False, "can_index": False,
+                "processing": "none", "requires_adapter": True,
+                "reason": "O arquivo pode ser preservado pelo dropzone visual, mas ainda não há adapter de leitura."}
     if suffix in ATTACHMENT_EXTENSIONS:
         return {"filename": safe_name, "extension": suffix, "mime_type": mime_type,
                 "status": "attachment_only", "can_attach": True, "can_index": False,
@@ -252,27 +265,8 @@ def _storage_root() -> str:
 
 
 def _attachment(file_storage) -> dict:
-    name = secure_filename(file_storage.filename or "")[:220]
-    suffix = Path(name).suffix.lower()
-    if not name or suffix not in ATTACHMENT_EXTENSIONS:
-        raise BadRequest("Use imagem, PDF, DOCX, TXT, CSV, Markdown, JSON ou HTML.")
-    data = file_storage.stream.read(project_sources.MAX_BYTES + 1)
-    if len(data) > project_sources.MAX_BYTES:
-        raise BadRequest("Cada anexo pode ter no máximo 15 MB.")
-    if not data:
-        raise BadRequest("O arquivo está vazio.")
-    mime = str(file_storage.mimetype or "application/octet-stream")[:160]
-    if suffix == ".pdf" and not data.startswith(b"%PDF-"):
-        raise BadRequest("O conteúdo não corresponde a um PDF válido.")
-    if suffix in {".png", ".jpg", ".jpeg", ".webp", ".gif"}:
-        try:
-            from PIL import Image
-            image = Image.open(BytesIO(data))
-            image.verify()
-            mime = Image.MIME.get(image.format, mime)
-        except Exception as exc:
-            raise BadRequest("A imagem não pôde ser validada.") from exc
-    return {"name": name, "suffix": suffix, "mime": mime, "data": data}
+    source = project_sources.inspect_upload(file_storage, require_text=False)
+    return source
 
 
 def _classify(source: dict, requested: Optional[str], text: str = "") -> dict:
@@ -403,7 +397,9 @@ def save_upload(context: RequestContext, token: str, file_storage) -> dict:
                  "completed" if use_as_knowledge else "paused",
                  len(re.findall(r"\b\w+\b", extracted_text or "", flags=re.UNICODE)), charged_tokens,
                  purpose, classification["category"], classification["status"], classification["confidence"],
-                 classification["reason"], Json({"classifier": "deterministic-v1", "content_inspected": use_as_knowledge,
+                 classification["reason"], Json({"classifier": "deterministic-v1", "content_inspected": bool(source.get("text")),
+                                                  "processing": source.get("processing") or "metadata_only",
+                                                  "can_index": bool(source.get("can_index")),
                                                   "sha256": content_hash, "upload_request_id": request_id})))
                 source_id = int(cur.fetchone()["id"])
                 cur.execute("""UPDATE cadu_ci_projetos SET total_arquivos = COALESCE(total_arquivos, 0) + 1,
@@ -421,6 +417,8 @@ def save_upload(context: RequestContext, token: str, file_storage) -> dict:
             "use_as_knowledge": use_as_knowledge,
             "purpose": purpose, "category": classification["category"],
             "classification": classification,
+            "processing": source.get("processing") or "metadata_only",
+            "can_index": bool(source.get("can_index")),
             "status": "indexed" if use_as_knowledge else "attached", "charged_credits": charged_tokens,
             "registry_sync": registry_sync}
 

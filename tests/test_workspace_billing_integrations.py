@@ -47,7 +47,9 @@ class WorkspaceBillingAndIntegrationsTest(TestCase):
         self.assertEqual([item['name'] for item in data['priority_connectors']], [
             'Canva', 'Google Drive', 'ERP da agência',
         ])
-        self.assertEqual(len(data['coming_soon_connectors']), 3)
+        self.assertEqual([item['name'] for item in data['coming_soon_connectors']], [
+            'ClickUp', 'Trello', 'Slack', 'Figma', 'Asana', 'Dropbox',
+        ])
 
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_billing_data', return_value={
         'summary': {'open_total': 1299.9, 'open_count': 1, 'overdue_count': 1, 'paid_count': 2},

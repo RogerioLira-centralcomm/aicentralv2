@@ -243,6 +243,7 @@ test('Workspace catalogs expose server-backed filters and preserve personalized 
 
 test('conversations 2.0 is one React surface with streaming, artifacts and protected work', () => {
   const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
+  const dock = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/CaduDock.jsx'), 'utf8');
   const sidebar = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Sidebar.jsx'), 'utf8');
   const historyModel = fs.readFileSync(path.join(root, 'frontend/conversations-v2/lib/historyModel.mjs'), 'utf8');
   const contextModel = fs.readFileSync(path.join(root, 'frontend/conversations-v2/lib/contextModel.mjs'), 'utf8');
@@ -263,6 +264,10 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(app, /beforeunload/);
   assert.match(app, /streamEvents/);
   assert.match(app, /<CaduDock/);
+  assert.match(app, /const activeProjectRef = String\(context\?\.project_ref \|\| ''\)/);
+  assert.match(app, /active: item\.kind === 'project' && String\(item\.projectRef \|\| ''\) === activeProjectRef/);
+  assert.match(dock, /active=\{item\.active\}/);
+  assert.match(dock, /aria-current=\{active \? 'page' : undefined\}/);
   assert.match(app, /cadu-ds-home-navbar cv-conversations-navbar/);
   assert.match(app, /\[historyOpen, setHistoryOpen\] = useState\(\(\) => !window\.matchMedia/);
   assert.match(app, /requestedHistoryOpen/);

@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {CaduDock} from './CaduDock';
 import {VisualIdentity} from './VisualIdentity';
 import {WorkspaceAccountMenu} from './WorkspaceFeedback';
@@ -39,14 +39,57 @@ function IdentityDialog({project, urls, csrfToken, onClose}) {
   </ProjectDialog>;
 }
 
-function SourcesDialog({urls, csrfToken, canEdit, files, onClose}) {
+const TRIAGE_CATEGORIES = [['brief', 'Briefing'], ['research', 'Pesquisa'], ['media_plan', 'Plano de mídia'], ['report', 'Relatório'], ['brand_asset', 'Ativo de marca'], ['reference', 'Referência'], ['contract', 'Contrato'], ['spreadsheet', 'Planilha'], ['other', 'Outro']];
+
+function SourcesDialog({urls, csrfToken, canEdit, files, droppedFiles, onDropConsumed, onClose}) {
+  const [triage, setTriage] = useState(() => files.filter(file => file.requiresReview).map(file => ({source_id: file.id, name: file.title, mime: file.mime, processing: 'metadata_only', text_preview: '', can_index: file.canIndex, confirm_url: file.confirmUrl, purpose: 'project_attachment', category: file.category || 'other'})));
+  const [busy, setBusy] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [error, setError] = useState('');
+  const uploadFiles = async (incoming) => {
+    const selected = Array.from(incoming || []).filter(Boolean);
+    if (!selected.length || busy) return;
+    setBusy(true); setError('');
+    try {
+      const prepared = [];
+      for (const file of selected) {
+        const body = new FormData(); body.append('_csrf', csrfToken); body.append('file', file);
+        const response = await fetch(urls.uploadSource, {method: 'POST', credentials: 'same-origin', headers: {'Accept': 'application/json', 'X-CSRF-Token': csrfToken, 'X-Cadu-Triage': '1'}, body});
+        const value = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(value.error || 'Não foi possível preparar este arquivo.');
+        prepared.push({...value, purpose: 'project_attachment', category: value.classification?.category || 'other'});
+      }
+      setTriage(current => [...current, ...prepared]);
+    } catch (uploadError) { setError(uploadError.message || 'Não foi possível preparar o arquivo.'); }
+    finally { setBusy(false); }
+  };
+  const confirm = async (item) => {
+    setBusy(true); setError('');
+    try {
+      const response = await fetch(item.confirm_url || item.confirmUrl, {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': csrfToken}, body: JSON.stringify({purpose: item.purpose, category: item.category})});
+      const value = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(value.error || 'Não foi possível confirmar este arquivo.');
+      setTriage(current => current.filter(entry => entry.source_id !== item.source_id));
+      window.setTimeout(() => window.location.reload(), 250);
+    } catch (confirmError) { setError(confirmError.message || 'Não foi possível confirmar este arquivo.'); }
+    finally { setBusy(false); }
+  };
+  const updateTriage = (sourceId, key, value) => setTriage(current => current.map(item => item.source_id === sourceId ? {...item, [key]: value} : item));
+  const onDrop = (event) => { event.preventDefault(); setDragging(false); uploadFiles(event.dataTransfer.files); };
+  useEffect(() => {
+    if (!droppedFiles?.length) return;
+    uploadFiles(droppedFiles);
+    onDropConsumed?.();
+  }, [droppedFiles]);
   return <ProjectDialog title="Fontes e arquivos" detail="O Cadu consulta estas fontes nas conversas do projeto." onClose={onClose}>
     {canEdit && <div className="cadu-ds-project-source-actions">
       <details><summary>Adicionar nota ou briefing</summary><form className="cadu-ds-project-form" method="post" action={urls.createNote}><input type="hidden" name="_csrf" value={csrfToken}/><label>Título<input name="title" required minLength="2" maxLength="180"/></label><label>Conteúdo<textarea name="content" required minLength="20" maxLength="50000" rows="5"/></label><button className="is-primary">Adicionar e indexar</button></form></details>
-      <details><summary>Enviar arquivo</summary><form className="cadu-ds-project-form" method="post" encType="multipart/form-data" action={urls.uploadSource}><input type="hidden" name="_csrf" value={csrfToken}/><label>Arquivo<input name="file" type="file" required accept=".pdf,.docx,.txt,.csv,.md,.markdown,.json,.html,.htm"/></label><button className="is-primary">Enviar e indexar</button></form></details>
+      <details open><summary>Enviar ou soltar arquivos</summary><div className={`cadu-ds-project-upload-drop ${dragging ? 'is-dragging' : ''}`} onDragEnter={(event) => {event.preventDefault(); setDragging(true);}} onDragOver={(event) => event.preventDefault()} onDragLeave={(event) => {if (event.currentTarget === event.target) setDragging(false);}} onDrop={onDrop}><input id="cadu-project-file-picker" name="file" type="file" multiple hidden onChange={(event) => {uploadFiles(event.target.files); event.target.value = '';}}/><label htmlFor="cadu-project-file-picker"><b>{busy ? 'Preparando arquivo…' : 'Solte aqui ou escolha arquivos'}</b><span>Imagens, PDFs, documentos, planilhas, apresentações, design, vídeo, áudio e outros anexos.</span></label></div><p className="cadu-ds-project-upload-note">O arquivo é preservado primeiro. OCR e classificação aparecem abaixo para você decidir se entra na base de conhecimento.</p></details>
       <details><summary>Importar página pública</summary><form className="cadu-ds-project-form" method="post" action={urls.importUrl}><input type="hidden" name="_csrf" value={csrfToken}/><label>URL<input name="url" type="url" required maxLength="2000" placeholder="https://exemplo.com/pagina"/></label><button className="is-primary">Importar página</button></form></details>
     </div>}
-    <div className="cadu-ds-project-modal-list">{files.map(file => <div key={file.id}><ProjectIcon name="source"/><span><b>{file.title}</b><small>{file.mime} · {sourceStatus(file.status)}</small></span></div>)}{!files.length && <p>Ainda não há fontes neste projeto.</p>}</div>
+    {error && <p className="cadu-ds-project-upload-error" role="alert">{error}</p>}
+    {!!triage.length && <section className="cadu-ds-project-triage" aria-label="Revisar arquivos preparados"><header><b>Revisar antes de indexar</b><span>{triage.length} arquivo{triage.length === 1 ? '' : 's'} aguardando decisão</span></header>{triage.map(item => <article key={item.source_id}><div className="cadu-ds-project-triage__file"><ProjectIcon name="source"/><span><b>{item.name}</b><small>{item.mime} · {item.processing === 'ocr' ? 'OCR aplicado' : item.processing === 'text_extraction' ? 'Texto extraído' : 'Metadados preservados'}</small></span></div>{item.text_preview && <p className="cadu-ds-project-triage__preview">{item.text_preview}</p>}<label className="cadu-ds-project-triage__category">Categoria<select value={item.category} onChange={(event) => updateTriage(item.source_id, 'category', event.target.value)}>{TRIAGE_CATEGORIES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><div className="cadu-ds-project-triage__purpose"><label><input type="radio" name={`purpose-${item.source_id}`} checked={item.purpose === 'project_attachment'} onChange={() => updateTriage(item.source_id, 'purpose', 'project_attachment')}/> Manter como anexo</label><label className={!item.can_index ? 'is-disabled' : ''}><input type="radio" name={`purpose-${item.source_id}`} disabled={!item.can_index} checked={item.purpose === 'knowledge_source'} onChange={() => updateTriage(item.source_id, 'purpose', 'knowledge_source')}/> Indexar na base {item.can_index ? '' : '(sem texto suficiente)'}</label></div><button type="button" className="is-primary" disabled={busy} onClick={() => confirm(item)}>Confirmar decisão</button></article>)}</section>}
+    <div className="cadu-ds-project-modal-list">{files.map(file => <div key={file.id}><ProjectIcon name="source"/><span><b>{file.title}</b><small>{file.mime} · {sourceStatus(file.status)}{file.category && ` · ${file.category.replace(/_/g, ' ')}`}</small></span></div>)}{!files.length && !triage.length && <p>Ainda não há fontes neste projeto.</p>}</div>
   </ProjectDialog>;
 }
 
@@ -79,6 +122,8 @@ function deliveryStatus(item) {
 export function WorkspaceProject({bootstrap}) {
   const project = bootstrap.project || {};
   const [dialog, setDialog] = useState('');
+  const [dropActive, setDropActive] = useState(false);
+  const [dropQueue, setDropQueue] = useState([]);
   const [resourceId, setResourceId] = useState(() => new URLSearchParams(window.location.search).get('resource') || '');
   const [accountOpen, setAccountOpen] = useState(false);
   const canEdit = project.status !== 'arquivado';
@@ -90,7 +135,8 @@ export function WorkspaceProject({bootstrap}) {
   return <div className="cadu-ds-home-shell cadu-ds-project-shell">
     <main className="cadu-ds-home-main">
       <WorkspaceNavbar className="cadu-ds-project-navbar" logo={bootstrap.caduMark} solutions={solutions} user={bootstrap.user} actions={<a className="cadu-ds-project-quiet-link" href={projectLinks.legacy}>Mais opções</a>} onOpenAccount={() => setAccountOpen(true)}><a href={bootstrap.urls.projects}>Projetos</a><span aria-hidden="true">/</span><strong>{project.name}</strong></WorkspaceNavbar>
-      <div className="cadu-ds-home-workarea cadu-ds-project-workarea">
+      <div className="cadu-ds-home-workarea cadu-ds-project-workarea" onDragEnter={(event) => {if (event.dataTransfer?.types?.includes('Files')) {event.preventDefault(); setDropActive(true);}}} onDragOver={(event) => {if (event.dataTransfer?.types?.includes('Files')) event.preventDefault();}} onDragLeave={() => setDropActive(false)} onDrop={(event) => {if (event.dataTransfer?.files?.length) {event.preventDefault(); setDropActive(false); setDropQueue(Array.from(event.dataTransfer.files)); setDialog('sources');}}}>
+        {dropActive && <div className="cadu-ds-project-page-drop" aria-hidden="true"><strong>Solte para anexar ao projeto</strong><span>O arquivo será preservado e revisado antes da indexação.</span></div>}
         <CaduDock brands={bootstrap.brands || []} resources={bootstrap.projects || []} shortcutItems={bootstrap.dock?.items || []} usagePercent={bootstrap.usagePercent} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} onNewConversation={startConversation} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onOpenUsage={() => setAccountOpen(true)}/>
         <section className="cadu-ds-project-content">
         <header className="cadu-ds-project-hero"><div className="cadu-ds-project-hero__identity"><VisualIdentity src={project.brand?.logoUrl} initials={project.brand?.initials || project.name} label={project.brand?.name || project.name} color={project.brand?.color || project.color}/></div><div><p>{project.status === 'arquivado' ? 'Projeto arquivado' : 'Projeto em andamento'}</p><h1>{project.name}</h1>{project.brand?.name && <a href={project.brand.href}>{project.brand.name}</a>}<span>{project.description || 'Organize a direção, as fontes e as decisões que vão sustentar este trabalho.'}</span></div><div className="cadu-ds-project-hero__actions"><button type="button" className="is-primary" onClick={startConversation}>Conversar no projeto</button><details><summary>Criar</summary><div><a href={projectLinks.createPlan}>Plano de mídia</a><a href={projectLinks.createImage}>Imagem</a><a href={projectLinks.createVideo}>Vídeo</a></div></details></div></header>
@@ -107,6 +153,6 @@ export function WorkspaceProject({bootstrap}) {
       </div>
     </main>
     <WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>
-    {dialog === 'identity' && <IdentityDialog project={project} urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {dialog === 'sources' && <SourcesDialog urls={projectLinks} csrfToken={bootstrap.csrf} canEdit={canEdit} files={project.files || []} onClose={() => setDialog('')}/>} {dialog === 'link' && <LinkDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {selectedResource && <ResourceDialog resource={selectedResource} onClose={() => setResourceId('')}/>}
+    {dialog === 'identity' && <IdentityDialog project={project} urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {dialog === 'sources' && <SourcesDialog urls={projectLinks} csrfToken={bootstrap.csrf} canEdit={canEdit} files={project.files || []} droppedFiles={dropQueue} onDropConsumed={() => setDropQueue([])} onClose={() => setDialog('')}/>} {dialog === 'link' && <LinkDialog urls={projectLinks} csrfToken={bootstrap.csrf} onClose={() => setDialog('')}/>} {selectedResource && <ResourceDialog resource={selectedResource} onClose={() => setResourceId('')}/>}
   </div>;
 }

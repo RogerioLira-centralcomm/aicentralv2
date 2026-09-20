@@ -26,6 +26,42 @@ def _hexes(palette):
     return colors[:8]
 
 
+def _fonts(value):
+    """Normalize the small font contract shared by Workspace and Studio.
+
+    A family is only treated as approved when it was entered or approved by a
+    person. Visual analysis can still contribute a *classification* (for
+    example, ``sans geométrica``) without pretending it discovered the
+    licensed font used by a wordmark.
+    """
+    items = value if isinstance(value, list) else []
+    fonts = []
+    for index, item in enumerate(items[:6]):
+        raw = item if isinstance(item, dict) else {"family": item}
+        family = str(raw.get("family") or "").strip()[:100]
+        classification = str(raw.get("classification") or "").strip()[:100]
+        if not family and not classification:
+            continue
+        role = str(raw.get("role") or ("display" if index == 0 else "body")).strip().lower()[:24]
+        if role not in {"display", "body", "accent", "legal", "ui"}:
+            role = "body"
+        source = str(raw.get("source") or "manual").strip().lower()[:32]
+        try:
+            confidence = max(0.0, min(float(raw.get("confidence", 1)), 1.0))
+        except (TypeError, ValueError):
+            confidence = 1.0
+        fonts.append({
+            "family": family,
+            "classification": classification,
+            "role": role,
+            "weight": str(raw.get("weight") or "").strip()[:32],
+            "style": str(raw.get("style") or "").strip()[:32],
+            "source": source,
+            "confidence": confidence,
+        })
+    return fonts
+
+
 def _asset_url(asset):
     if not isinstance(asset, dict):
         return ""
@@ -212,9 +248,9 @@ def build_brand_context(client=None, extra_assets=None):
         palette = [client["primary_color"], *palette]
     if client.get("secondary_color") and client["secondary_color"] not in palette:
         palette.append(client["secondary_color"])
-    fonts = profile.get("fonts") if isinstance(profile.get("fonts"), list) else []
+    fonts = _fonts(profile.get("fonts"))
     if not fonts and (line.get("copy_system") or {}).get("typography", {}).get("family"):
-        fonts = [{"family": line["copy_system"]["typography"]["family"]}]
+        fonts = _fonts([{"family": line["copy_system"]["typography"]["family"], "role": "display", "source": "creative_line"}])
     logo_options = [_logo_asset(item, index) for index, item in enumerate(logos) if _asset_url(item)]
     if logo_url and not any(item["url"] == logo_url for item in logo_options):
         logo_options.insert(0, {

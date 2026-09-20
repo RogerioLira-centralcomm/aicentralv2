@@ -203,6 +203,21 @@ def test_missing_brand_identity_is_explicit_and_never_becomes_an_invented_mark()
     assert "Do not invent, infer or stylize a logo" in studio_create.brand_identity_guard(cleaned["brand_context"])
 
 
+def test_neutral_asset_mode_never_injects_brand_identity_or_safe_area():
+    context = studio_create.clean_context({
+        "creation_intent": "neutral_asset",
+        "references": [{"url": "/static/images/cadu/studio/references/feed/feed-mask-01.webp", "source": "global", "role": "reference"}],
+        "brand_context": {"name": "Marca", "logo_url": "/static/uploads/logo.webp", "palette": ["#123456"]},
+    }, 1)
+
+    assert context["creation_intent"] == "neutral_asset"
+    assert context["brand_context"] == {}
+    assert [item["role"] for item in context["references"]] == ["composition"]
+    assert "Do not apply, infer, reserve space for" in studio_create.brand_identity_guard(context["brand_context"], creation_intent="neutral_asset")
+    source = Path(studio_create.__file__).read_text(encoding="utf-8")
+    assert "NEUTRAL ASSET CHECK: Do not reserve space for a logo" in source
+
+
 def test_user_visual_and_global_mask_activate_fast_visual_remix_without_brand_identity():
     context = studio_create.clean_context({"references": [
         {"name": "Peça anexada", "source": "user", "role": "reference", "url": "/static/uploads/creative_references/piece.webp"},

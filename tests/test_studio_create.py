@@ -87,7 +87,9 @@ def test_create_v2_keeps_manual_review_and_progress_recoverable():
     assert '.reference-preview-frame{min-height:0;margin:0;padding:0;border:0' in styles
     assert "normalizePromptHex" in source
     assert "rgbToHex" in source
-    assert "project_id: state.projectId, colors: paletteChoice" in source
+    assert "project_id: state.projectId, selected_logo_id: state.selectedLogoId, colors: paletteChoice" in source
+    assert "brand-palette/suggest" in source
+    assert "Cores da marca" in source
     assert "if (!isLogo)" in source
     assert '.brand-identity-preview:has(#brandIdentityLogo[hidden])>div' in styles
     assert '.brand-identity-preview__actions{display:flex!important' in styles
@@ -121,6 +123,47 @@ def test_create_contract_binds_palette_and_image_to_the_project_context():
     source = (Path(__file__).resolve().parents[1] / "aicentralv2" / "creative_media" / "studio.py").read_text(encoding="utf-8")
     assert source.count("_assert_project_brand_access(project_id, client_id)") >= 2
     assert "_assert_project_brand_access(data.get('project_id'), client_id)" in source
+    assert "brand-palette/suggest" in source
+    assert "brand_identity_extraction" in source
+    assert "select_brand_logo(" in source
+
+
+def test_logo_palette_suggestion_uses_the_official_logo_and_rejects_unusable_colors():
+    captured = {}
+
+    def provider(messages, **kwargs):
+        captured["messages"] = messages
+        captured.update(kwargs)
+        return {"model": "openai/gpt-5-nano", "message": {"content": '{"colors":["#7428C8","#FFFFFF","#20123A","invalid"]}'}, "usage": {"total_tokens": 120}}
+
+    colors, result = studio._logo_palette_suggestion(
+        {"logo_url": "https://studio.test/static/brands/nubank-logo.png", "assets": {"logo": []}},
+        provider,
+    )
+
+    assert colors == ["#7428C8", "#FFFFFF", "#20123A"]
+    assert result["model"] == "openai/gpt-5-nano"
+    assert captured["model"] == "openai/gpt-5-nano"
+    assert captured["messages"][1]["content"][1]["image_url"]["url"].endswith("nubank-logo.png")
+
+
+def test_logo_identity_suggestion_keeps_typography_as_a_cautious_direction():
+    def provider(_messages, **_kwargs):
+        return {"message": {"content": '{"colors":["#7428C8","#FFFFFF","#20123A"],"fonts":[{"role":"display","classification":"sans geométrica","confidence":0.72}]}'}}
+
+    identity, _ = studio._logo_identity_suggestion({"logo_url": "https://studio.test/logo.png"}, provider)
+
+    assert identity["colors"][0] == "#7428C8"
+    assert identity["fonts"] == [{"family": "", "classification": "sans geométrica", "role": "display", "source": "logo_analysis", "confidence": 0.72}]
+
+
+def test_logo_identity_suggestion_accepts_a_monochrome_official_logo():
+    def provider(_messages, **_kwargs):
+        return {"message": {"content": '{"colors":["#111111"],"fonts":[]}'}}
+
+    identity, _ = studio._logo_identity_suggestion({"logo_url": "https://studio.test/logo.png"}, provider)
+
+    assert identity["colors"] == ["#111111"]
 
 
 def test_global_feed_references_are_compact_webp_assets():

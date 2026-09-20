@@ -141,13 +141,27 @@ def create(payload, text_callable):
 def clean_context(raw, count):
     data = raw if isinstance(raw, dict) else {}
     references = [clean_direction_reference(item, index) for index, item in enumerate(data.get("references", [])[:MAX_IMAGE_REFERENCES]) if isinstance(item, dict)]
+    creation_intent = str(data.get("creation_intent") or "branded_creative").strip().lower()
+    if creation_intent not in {"branded_creative", "neutral_asset"}:
+        creation_intent = "branded_creative"
     raw_brand = data.get("brand_context") if isinstance(data.get("brand_context"), dict) else {}
     brand_assets = raw_brand.get("assets") if isinstance(raw_brand.get("assets"), dict) else {}
     brand_context = {
         "name": text(raw_brand.get("name"), 120),
         "logo_url": text(raw_brand.get("logo_url"), 500),
         "palette": [text(item, 16) for item in raw_brand.get("palette", [])[:8]],
-        "fonts": [text(item.get("family") if isinstance(item, dict) else item, 80) for item in raw_brand.get("fonts", [])[:4]],
+        "fonts": [
+            {
+                "family": text(item.get("family"), 80),
+                "classification": text(item.get("classification"), 80),
+                "role": text(item.get("role"), 24) or ("display" if index == 0 else "body"),
+                "weight": text(item.get("weight"), 24),
+                "style": text(item.get("style"), 24),
+            }
+            if isinstance(item, dict) else {"family": text(item, 80), "role": "display" if index == 0 else "body"}
+            for index, item in enumerate(raw_brand.get("fonts", [])[:4])
+            if text(item.get("family") if isinstance(item, dict) else item, 80) or (isinstance(item, dict) and text(item.get("classification"), 80))
+        ],
         "brand_summary": text(raw_brand.get("brand_summary"), 500),
         "products_services": [text(item, 120) for item in raw_brand.get("products_services", [])[:8]],
         "mandatory_elements": [text(item, 160) for item in raw_brand.get("mandatory_elements", [])[:8]],
@@ -159,7 +173,8 @@ def clean_context(raw, count):
         },
     }
     brand_context["readiness"] = brand_identity_readiness(brand_context)
-    references = references_with_brand_logo(references, brand_context)
+    if creation_intent == "branded_creative":
+        references = references_with_brand_logo(references, brand_context)
     return {key: text(data.get(key), limit) for key, limit in (("project_name", 120), ("brand", 120), ("brief", 1800), ("objective", 300), ("audience", 300), ("purpose", 24), ("format", 24))} | {
         "channels": [text(item, 24) for item in data.get("channels", []) if text(item, 24)][:5],
         "iab_formats": [text(item, 32) for item in data.get("formats", []) if text(item, 32)][:6],
@@ -171,9 +186,10 @@ def clean_context(raw, count):
         "auto_generate_next": data.get("auto_generate_next") is True,
         "generation_round": max(0, integer(data.get("generation_round"), 0)),
         "requested_palette": clean_palette(data.get("requested_palette")),
+        "creation_intent": creation_intent,
         "references": references,
         "reference_mode": reference_mode(references),
-        "brand_context": brand_context if brand_context.get("name") else {},
+        "brand_context": brand_context if brand_context.get("name") and creation_intent == "branded_creative" else {},
     }
 
 
@@ -232,8 +248,14 @@ def brand_identity_readiness(brand_context):
     }
 
 
-def brand_identity_guard(raw_brand, visual_reference=False):
+def brand_identity_guard(raw_brand, visual_reference=False, creation_intent="branded_creative"):
     brand = raw_brand if isinstance(raw_brand, dict) else {}
+    if creation_intent == "neutral_asset":
+        return (
+            "NEUTRAL ASSET MODE: This request is a page, background, texture, scene or other reusable visual asset, not a branded advertisement. "
+            "Do not apply, infer, reserve space for, or describe the project's logo, palette, font system, product, claim or campaign. "
+            "Follow only the user's requested visual material and any selected reference contract."
+        )
     if visual_reference:
         logo = official_logo_reference(brand)
         return (
@@ -384,7 +406,7 @@ Responda somente JSON no formato {{\"directions\":[{{\"title\":\"...\",\"summary
 REVISÃO DO BRIEFING: antes de escrever cada prompt, harmonize o pedido do usuário com o contexto do Studio. Preserve a intenção, anunciante, produto, público, cenário, ação, texto literal, preço, volume, logo solicitado e restrições explícitas. Corrija apenas ambiguidades, contradições, ordem e instruções técnicas; não troque o produto, não remova requisitos concretos e não invente benefícios, ofertas ou identidade visual. Se o usuário informar explicitamente uma marca, preço, volume, slogan ou pedido de logo, isso é requisito obrigatório e deve aparecer no prompt final exatamente como informado.
 ORDEM OBRIGATÓRIA DO PROMPT FINAL: escreva um único prompt contínuo, nesta sequência: (1) objetivo e tipo de peça; (2) produto/assunto principal e o que precisa estar visível; (3) público, pessoas e ação; (4) cenário, praça ou contexto cultural brasileiro, momento e atmosfera; (5) composição, enquadramento, hierarquia, posição dos elementos e área segura; (6) como cada referência selecionada deve orientar a peça; (7) iluminação, materiais e paleta; (8) canal e formato controlados pelo Studio; (9) texto literal solicitado e posição reservada; (10) restrições e checagens finais. Não comece pelo formato nem pelas referências: eles orientam a execução, mas não substituem a ideia do usuário.
 FORMATO É CONTROLADO PELO STUDIO: o campo contexto.format, contexto.format_key, contexto.width e contexto.height é a fonte de verdade do output selecionado na interface. Se o texto do pedido mencionar outra dimensão ou proporção, trate isso apenas como descrição do pedido e ignore a dimensão conflitante. Nunca escreva 300x300, 1080x1080 ou outra medida no prompt final quando o formato selecionado for diferente. Sempre repita o formato controlado pelo contexto no prompt final.
-MARCA E PROJETO: quando contexto.brand_context existir, use-o como fonte de verdade para nome, logo, paleta, tipografia, ativos, elementos obrigatórios e elementos proibidos. Ativos de marca podem ser aplicados na peça; referências de composição continuam sendo apenas guias de posição e hierarquia. Se contexto.requested_palette tiver cores, aplique-as apenas nesta peça como escolha explícita do briefing: elas não sobrescrevem nem passam a ser apresentadas como cores oficiais da marca. Se contexto.brand_context.readiness indicar ausência de logo ou cores, trate o nome apenas como contexto verbal: nunca invente logotipo, monograma, inicial, símbolo, wordmark ou paleta de marca. Reserve uma área neutra e segura para a identidade ser aplicada posteriormente. EXCEÇÃO DE REMIX: quando contexto.reference_mode for "visual_remix" ou "user_visual_reference", a imagem anexada pelo usuário é a evidência visual prioritária. Extraia dela apenas características observáveis — paleta, materiais, luz, tratamento do assunto e linguagem da peça — sem dizer que são cores ou logo oficiais do projeto e sem exigir identidade ausente.
+MARCA E PROJETO: contexto.creation_intent define o escopo. Em "branded_creative", quando contexto.brand_context existir, use-o como fonte de verdade para nome, logo, paleta, tipografia, ativos, elementos obrigatórios e elementos proibidos; aplique os ativos aprovados na peça. Tipografia pode trazer família aprovada ou somente uma classificação observada; não invente o nome de uma fonte proprietária quando houver apenas classificação. Em "neutral_asset", ignore integralmente a identidade do projeto: a solicitação é um fundo, página, textura, cena ou elemento reutilizável, não uma peça de marca. Referências de composição continuam sendo apenas guias de posição e hierarquia. Se contexto.requested_palette tiver cores, aplique-as apenas nesta peça como escolha explícita do briefing: elas não sobrescrevem nem passam a ser apresentadas como cores oficiais da marca. Se contexto.brand_context.readiness indicar ausência de logo ou cores, trate o nome apenas como contexto verbal: nunca invente logotipo, monograma, inicial, símbolo, wordmark ou paleta de marca. Reserve uma área neutra e segura para a identidade ser aplicada posteriormente. EXCEÇÃO DE REMIX: quando contexto.reference_mode for "visual_remix" ou "user_visual_reference", a imagem anexada pelo usuário é a evidência visual prioritária. Extraia dela apenas características observáveis — paleta, materiais, luz, tratamento do assunto e linguagem da peça — sem dizer que são cores ou logo oficiais do projeto e sem exigir identidade ausente.
 
 REFERÊNCIAS — você receberá as imagens selecionadas como blocos visuais no mesmo turno. Inspecione seus pixels antes de escrever cada direção; não deduza a composição apenas pelo nome ou URL. Trate cada item do contexto como contrato, nunca como decoração. Itens com source="global" são máscaras protegidas de composição do Studio: use-as como planta estrutural, extraindo ordem de camadas, zona do produto/assunto, faixa de headline, área de preço ou CTA, margens seguras, alinhamento, respiro e relação entre foreground e background. Reproduza essa arquitetura espacial na peça final com o conteúdo do briefing, sem copiar o template, sem usar o objeto fictício da máscara como produto, sem alterar o arquivo e sem colocá-lo na biblioteca do usuário. Para cada global, devolva no reference_plan um layout com subject_zone, headline_zone, support_zone, safe_margin, layer_order e alignment, descrevendo posições relativas observadas na imagem. Itens com source="user" ou source="project" são referências de produção: aplique na imagem criada o conteúdo visual útil, como produto, pessoa, embalagem, identidade, textura, cenário ou objeto, preservando os detalhes relevantes quando a intenção indicar. Quando reference_mode="visual_remix", una a imagem do usuário e a máscara global: a imagem do usuário define a linguagem visual e a máscara global define a estrutura, zonas e respiro. Gere uma nova peça coerente, não uma cópia literal, e não transforme cores vistas no anexo em identidade oficial. Não confunda uma referência global de composição com uma imagem-base do usuário. Quando reference_mode="briefing_only", não mencione referências visuais, não invente uma reference_plan e crie uma direção original baseada somente no briefing, canal e formato. O prompt final deve mencionar como cada referência será usada somente quando houver referência selecionada e respeitar o role declarado.
 
@@ -451,13 +473,17 @@ def create_image(payload, modeling, client_id, user_id):
         except (TypeError, ValueError, ZeroDivisionError):
             raise ValueError("Formato de imagem inválido.")
     raw_references = data.get("references") if isinstance(data.get("references"), list) else []
+    creation_intent = str(data.get("creation_intent") or "branded_creative").strip().lower()
+    if creation_intent not in {"branded_creative", "neutral_asset"}:
+        creation_intent = "branded_creative"
     visual_reference = uses_user_visual_reference([
         clean_direction_reference(item, index)
         for index, item in enumerate(raw_references[:MAX_IMAGE_REFERENCES]) if isinstance(item, dict)
     ])
     try:
-        provider_source_references = references_with_brand_logo(
-            raw_references, data.get("brand_context"),
+        provider_source_references = (
+            references_with_brand_logo(raw_references, data.get("brand_context"))
+            if creation_intent == "branded_creative" else raw_references
         )
         references = normalize_image_references(provider_source_references, modeling.storage)
     except Exception as error:
@@ -537,8 +563,10 @@ def create_image(payload, modeling, client_id, user_id):
         raise ValueError("Informe largura e altura do formato.")
     if (width and not 120 <= width <= 7680) or (height and not 80 <= height <= 7680):
         raise ValueError("Dimensões do formato fora do limite permitido.")
-    supplied_logo = official_logo_reference(data.get("brand_context"))
+    supplied_logo = official_logo_reference(data.get("brand_context")) if creation_intent == "branded_creative" else None
     identity_safe_area = (
+        "NEUTRAL ASSET CHECK: Do not reserve space for a logo, headline, price, product packshot or brand lockup unless the user explicitly asks for that element."
+        if creation_intent == "neutral_asset" else
         "VISUAL REMIX IDENTITY CHECK: Use the supplied approved logo exactly as provided, fully inside the safe margin, without redrawing or cropping it."
         if visual_reference and supplied_logo else
         "VISUAL REMIX IDENTITY CHECK: The user reference is sufficient visual evidence for this remix. "
@@ -550,7 +578,7 @@ def create_image(payload, modeling, client_id, user_id):
     technical_prompt = "\n".join([
         "MANDATORY BRIEFING FIDELITY: Preserve every concrete requirement in the user briefing, especially named products, packaging, people, setting, action, copy and requested format. A composition reference is only a layout guide; it must never replace the requested subject or product.",
         "MANDATORY COMMERCIAL FACTS: Any advertiser name, brand name, product name, price, currency, package volume, slogan or logo request explicitly present in the user briefing must remain in the creative instruction exactly as provided. Do not silently drop Reserva, R$ 599, 50 ml, 1 Million or any other named fact.",
-        brand_identity_guard(data.get("brand_context"), visual_reference=visual_reference),
+        brand_identity_guard(data.get("brand_context"), visual_reference=visual_reference, creation_intent=creation_intent),
         f"REQUESTED CREATIVE PALETTE: {', '.join(requested_palette)}. Use these colors for this piece only; they are not a claim about official brand identity." if requested_palette else "REQUESTED CREATIVE PALETTE: none.",
         prompt,
         "\nREFERENCE CONTRACT:",

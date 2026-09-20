@@ -30,6 +30,83 @@ _SLOTS = threading.BoundedSemaphore(2)
 _MAX_UPLOAD = 25 * 1024 * 1024
 _ID = re.compile(r"^[a-f0-9]{32}$")
 _HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
+_PALETTE_ANALYST_MODEL = "openai/gpt-5-nano"
+
+
+def _logo_identity_suggestion(brand_context, text_callable):
+    """Extract a reviewable palette and type direction from an official logo.
+
+    The model is deliberately not asked to name a proprietary typeface from
+    pixels. It can only return an observable type classification; the team
+    later assigns the approved font family in Marcas.
+    """
+    brand = brand_context if isinstance(brand_context, dict) else {}
+    assets = brand.get("assets") if isinstance(brand.get("assets"), dict) else {}
+    logo_url = str(brand.get("logo_url") or next(iter(assets.get("logo") or []), "")).strip()
+    if not logo_url:
+        raise ValueError("Adicione uma logo antes de definir as cores da marca.")
+    response = text_callable(
+        [
+            {
+                "role": "system",
+                "content": (
+                    "Extract a conservative visual identity proposal from the supplied official brand logo. "
+                    "Return JSON only in the form {\"colors\":[\"#RRGGBB\",...],\"fonts\":[{\"role\":\"display|body\",\"classification\":\"short observable description\",\"confidence\":0.0}]}. "
+                    "Return one to five distinct, visible logo colors. If the logo is monochrome or has only two colors, return only those colors. Ignore transparency, "
+                    "near-white canvas backgrounds and generic shadows. Do not invent colors. "
+                    "For typography, describe only what is visibly supported (such as geometric sans, humanist sans, high-contrast serif). "
+                    "Never guess, name or claim a proprietary/licensed font family."
+                ),
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Official brand logo. Extract its visible colors and a cautious typographic direction."},
+                    {"type": "image_url", "image_url": {"url": logo_url}},
+                ],
+            },
+        ],
+        model=_PALETTE_ANALYST_MODEL,
+        max_tokens=220,
+        response_format={"type": "json_object"},
+        reasoning={"effort": "low"},
+    )
+    raw = response.get("message", {}).get("content") if isinstance(response, dict) else {}
+    if isinstance(raw, str):
+        clean = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip(), flags=re.IGNORECASE)
+        try:
+            raw = json.loads(clean)
+        except json.JSONDecodeError as exc:
+            raise ValueError("Não foi possível identificar as cores da logo.") from exc
+    values = raw.get("colors") if isinstance(raw, dict) else []
+    colors = []
+    for value in values[:6] if isinstance(values, list) else []:
+        color = str(value or "").strip().upper()
+        if _HEX_COLOR.fullmatch(color) and color not in colors:
+            colors.append(color)
+    if not colors:
+        raise ValueError("Não foi possível identificar uma cor confiável nesta logo.")
+    fonts = []
+    values = raw.get("fonts") if isinstance(raw, dict) else []
+    for item in values[:3] if isinstance(values, list) else []:
+        if not isinstance(item, dict):
+            continue
+        classification = str(item.get("classification") or "").strip()[:100]
+        role = str(item.get("role") or "body").strip().lower()
+        if not classification or role not in {"display", "body", "accent", "legal", "ui"}:
+            continue
+        try:
+            confidence = max(0.0, min(float(item.get("confidence", 0.55)), 1.0))
+        except (TypeError, ValueError):
+            confidence = 0.55
+        fonts.append({"family": "", "classification": classification, "role": role, "source": "logo_analysis", "confidence": confidence})
+    return {"colors": colors[:5], "fonts": fonts}, response
+
+
+def _logo_palette_suggestion(brand_context, text_callable):
+    """Backward-compatible palette helper used by existing Studio callers."""
+    identity, response = _logo_identity_suggestion(brand_context, text_callable)
+    return identity["colors"], response
 
 
 def _api_root():
@@ -223,6 +300,7 @@ def register_studio_routes(blueprint):
     blueprint.add_url_rule('/api/format-lab/studio/projects', view_func=studio_projects, methods=['GET', 'POST'])
     blueprint.add_url_rule('/api/format-lab/studio/library-sessions', view_func=studio_library_sessions, methods=['GET'])
     blueprint.add_url_rule('/api/format-lab/studio/reference-uploads', view_func=studio_reference_uploads, methods=['POST'])
+    blueprint.add_url_rule('/api/format-lab/studio/brand-palette/suggest', view_func=studio_brand_palette_suggest, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/brand-palette', view_func=studio_brand_palette, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/personal-assets', view_func=studio_personal_assets, methods=['DELETE'])
     blueprint.add_url_rule('/api/format-lab/studio/project-contexts', view_func=studio_project_contexts, methods=['GET'])
@@ -535,6 +613,73 @@ def studio_create_image():
 
 @studio_or_admin_required_api
 @studio_csrf_required
+def studio_brand_palette_suggest():
+    """Suggest colors from the selected official logo before the user saves them."""
+    from ..cadu_credit_connector import CaduCreditConnector, CreditActor
+    from ..creative_format_lab.brand_context import build_brand_context, select_brand_logo
+    from ..services.openrouter_service import chat_completion
+    execute, json_body, ok, service = _http()
+
+    def run():
+        data = json_body()
+        client_id = data.get('client_id')
+        user_id = session.get('user_id')
+        if not user_id:
+            raise ValueError('Entre novamente para definir as cores da marca.')
+        _scope(client_id)
+        _assert_project_brand_access(data.get('project_id'), client_id)
+        modeling = service()
+        brand_context = select_brand_logo(
+            build_brand_context(modeling.get_client(client_id)), data.get('selected_logo_id'),
+        )
+        existing = [str(color or '').strip().upper() for color in brand_context.get('palette', [])]
+        existing = [color for color in existing if _HEX_COLOR.fullmatch(color)]
+        existing_fonts = brand_context.get('fonts') if isinstance(brand_context.get('fonts'), list) else []
+        has_typography = any(
+            isinstance(font, dict) and (str(font.get('family') or '').strip() or str(font.get('classification') or '').strip())
+            for font in existing_fonts
+        )
+        if existing and has_typography:
+            return ok({'colors': existing[:5], 'fonts': existing_fonts[:4], 'brand_context': brand_context, 'suggested': False})
+        payer = modeling._credits_crm_id(client_id) or int(client_id)
+        CaduCreditConnector(modeling.credit_ledger).authorize(
+            CreditActor.from_values(payer, user_id), 1200
+        )
+        identity, provider = _logo_identity_suggestion(brand_context, chat_completion)
+        # Existing approved colors are evidence, not a provider suggestion.
+        # When only typography is missing, retain them exactly and ask the
+        # visual read only for the missing type direction.
+        colors = existing[:5] or identity['colors']
+        logo_url = str(brand_context.get('logo_url') or '').strip()
+        request_key = str(data.get('request_id') or hashlib.sha256(
+            f"{client_id}:{brand_context.get('selected_logo_id') or logo_url}".encode('utf-8')
+        ).hexdigest())[:160]
+        charged = modeling._charge_studio_call(
+            client_id=client_id,
+            user_id=user_id,
+            idempotency_key=f"studio:brand-palette:{request_key}",
+            stage='brand_identity_extraction',
+            provider_result=provider,
+            fallback_cost=modeling._estimate('prompt'),
+            media=False,
+            metadata={
+                'project_id': str(data.get('project_id') or ''),
+                'selected_logo_id': str(brand_context.get('selected_logo_id') or ''),
+            },
+        ) or {}
+        return ok({
+            'colors': colors,
+            'fonts': identity['fonts'],
+            'brand_context': brand_context,
+            'suggested': True,
+            'charged_credits': int(charged.get('tokens_cobrados') or 0),
+        })
+
+    return execute(run)
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
 def studio_brand_palette():
     """Persist an explicit palette before a brand-led Studio generation.
 
@@ -557,21 +702,39 @@ def studio_brand_palette():
                 raise ValueError('Escolha cores no formato hexadecimal #RRGGBB.')
             if color not in colors:
                 colors.append(color)
-        if len(colors) < 3:
-            raise ValueError('Escolha uma paleta com ao menos três cores.')
+        if not colors:
+            raise ValueError('Escolha ao menos uma cor oficial da marca.')
         modeling = service()
         client = modeling.get_client(client_id)
         profile = dict(client.get('brand_profile') or {})
         profile['color_palette'] = [
-            {'hex': color, 'name': f'Cor {index + 1}', 'confidence': 1.0}
+            {'hex': color, 'name': f'Cor {index + 1}', 'role': 'primary' if index == 0 else 'accent' if index == 1 else 'support', 'source': 'manual', 'confidence': 1.0}
             for index, color in enumerate(colors)
         ]
+        raw_fonts = data.get('fonts') if isinstance(data.get('fonts'), list) else []
+        fonts = []
+        for index, item in enumerate(raw_fonts[:4]):
+            source = item if isinstance(item, dict) else {'family': item}
+            family = str(source.get('family') or '').strip()[:100]
+            classification = str(source.get('classification') or '').strip()[:100]
+            role = str(source.get('role') or ('display' if index == 0 else 'body')).strip().lower()
+            if not family and not classification:
+                continue
+            if role not in {'display', 'body', 'accent', 'legal', 'ui'}:
+                role = 'body'
+            fonts.append({'family': family, 'classification': classification, 'role': role, 'weight': str(source.get('weight') or '').strip()[:32], 'style': str(source.get('style') or '').strip()[:32], 'source': 'manual', 'confidence': 1.0})
+        if fonts:
+            profile['fonts'] = fonts
         writer = getattr(modeling.repository, 'update_client_brand_profile', None)
         if not callable(writer):
             raise ValueError('Não foi possível salvar a paleta desta marca.')
         writer(int(client_id), profile)
-        from ..creative_format_lab.brand_context import build_brand_context
-        return ok({'brand_context': build_brand_context(modeling.get_client(client_id))})
+        from ..creative_format_lab.brand_context import build_brand_context, select_brand_logo
+        return ok({
+            'brand_context': select_brand_logo(
+                build_brand_context(modeling.get_client(client_id)), data.get('selected_logo_id'),
+            ),
+        })
 
     return execute(run)
 

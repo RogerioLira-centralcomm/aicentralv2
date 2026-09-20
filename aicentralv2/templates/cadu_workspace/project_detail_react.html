@@ -26,7 +26,7 @@
   },
   'solutionIcons': {'workspace': url_for('static', filename='images/cadu/products/cadu-icon.png'), 'planner': url_for('static', filename='images/cadu/products/planner-icon.png'), 'studio': url_for('static', filename='images/cadu/products/studio-icon.png'), 'connect': url_for('static', filename='images/cadu/products/connect-icon.png'), 'skills': url_for('static', filename='images/cadu/products/skills-icon.png')},
   'projectLinks': {
-    'conversation': url_for('cadu_workspace.conversations', project='ci:' ~ project_data.id, prompt='Quero trabalhar no projeto ' ~ project_data.name ~ '.'),
+    'conversation': url_for('cadu_workspace.conversations', project_ref='ci:' ~ project_data.id, history='1', prompt='Quero trabalhar no projeto ' ~ project_data.name ~ '.'),
     'createPlan': product_url('planner', '/novo?project_id=' ~ project_data.id ~ ('&cliente_id=' ~ project_data.brand.crmClientId ~ '&cliente_name=' ~ (project_data.brand.name|urlencode) ~ '&brand_id=' ~ project_data.brand.id ~ '&brand_name=' ~ (project_data.brand.name|urlencode) if project_data.brand.id else '')),
     'createImage': product_url('studio', '/studio/modelagem-criativos/criar?project_id=' ~ project_data.id ~ ('&creative_client_id=' ~ project_data.brand.id if project_data.brand.id else '')),
     'createVideo': product_url('studio', '/studio/modelagem-criativos/video?project_id=' ~ project_data.id ~ ('&creative_client_id=' ~ project_data.brand.id if project_data.brand.id else '')),

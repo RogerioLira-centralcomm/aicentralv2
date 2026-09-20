@@ -30,6 +30,22 @@ body:has(#cadu-conversations-v2-root.cv-account-root) { height:auto; min-height:
 body:has(#cadu-conversations-v2-root.cv-account-root) > #content,
 #cadu-conversations-v2-root.cv-account-root { height:auto; min-height:100dvh; }
 
+/* The logged Workspace home is a document surface: its sections can grow
+   beyond the viewport and must use the browser's native page scroll. The
+   fixed-height canvas remains reserved for the active conversation screen. */
+html:has(#cadu-conversations-v2-root.cv-home-root),
+body:has(#cadu-conversations-v2-root.cv-home-root) {
+  height:auto;
+  min-height:100%;
+  overflow-x:hidden;
+  overflow-y:auto;
+}
+body:has(#cadu-conversations-v2-root.cv-home-root) > #content,
+#cadu-conversations-v2-root.cv-home-root {
+  height:auto;
+  min-height:100dvh;
+}
+
 #cadu-conversations-v2-root,
 #cadu-conversations-v2-root * { box-sizing: border-box; }
 #cadu-conversations-v2-root { height: 100%; min-height: 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: var(--cv-text); }

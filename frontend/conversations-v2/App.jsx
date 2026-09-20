@@ -6,6 +6,10 @@ import {ConfirmDialog} from './components/ConfirmDialog';
 import {csrf, request, streamEvents, uid} from './lib/api';
 import {chatFailure} from './lib/errorModel.mjs';
 import {insertWorkedBeforeResult} from './lib/responseModel.mjs';
+import {attachmentIssues, createStagedAttachment, MAX_ATTACHMENTS, validateAttachment} from './lib/attachmentModel.mjs';
+import {recentConversations, restoreConversationMessages} from './lib/historyModel.mjs';
+import {conversationPayload, projectContextPayload} from './lib/contextModel.mjs';
+import {uploadAttachments} from './lib/attachmentUpload.mjs';
 import {Icon} from './lib/icons';
 
 const emptyTitle = 'Novo chat';
@@ -52,6 +56,10 @@ export default function App({bootstrap}) {
     if (tone === 'error') setNotice({id: uid(), tone: 'error', title: eventTitle, detail});
   }, []);
 
+  const releasePreviews = useCallback(items => items.forEach(item => {
+    if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+  }), []);
+
   const fetchArtifact = useCallback(async id => {
     const data = await request(`${bootstrap.endpoints.artifacts}/${encodeURIComponent(id)}`);
     setArtifact(data.artifact);
@@ -64,7 +72,7 @@ export default function App({bootstrap}) {
     setHistoryLoading(true);
     try {
       const data = await request(bootstrap.endpoints.history);
-      setConversations((data.conversations || []).filter(item => !['arquivada', 'archived'].includes(String(item.status || '').toLowerCase())).slice(0, 30));
+      setConversations(recentConversations(data.conversations));
     } catch (_) {
       setConversations([]);
     } finally { setHistoryLoading(false); }
@@ -113,10 +121,11 @@ export default function App({bootstrap}) {
 
   const reset = useCallback(() => {
     setConversationId(null); conversationRef.current = null;
-    setTitle(emptyTitle); setMessages([]); setInput(''); setComposerContext(null); setAttachments([]);
+    setTitle(emptyTitle); setMessages([]); setInput(''); setComposerContext(null);
+    setAttachments(items => { releasePreviews(items); return []; });
     setArtifact(null); artifactRef.current = null; setArtifactOpen(false); setArtifactDirty(false);
     setDiagnostics([]); setRuntime(''); runRef.current = null;
-  }, []);
+  }, [releasePreviews]);
 
   const newConversation = useCallback(async () => {
     if (!running && await confirmDiscard()) reset();
@@ -132,18 +141,7 @@ export default function App({bootstrap}) {
       setTitle(conversationTitle || 'Conversa');
       if (data.context) setContext(data.context);
       setAttachments(items => { releasePreviews(items); return []; }); setComposerContext(null); setArtifact(null); artifactRef.current = null; setArtifactDirty(false); setArtifactOpen(false);
-      let lastArtifact = '';
-      let restoredContext = null;
-      const restored = (data.messages || []).map(item => {
-        const metadata = item.metadata && typeof item.metadata === 'object' ? item.metadata : {};
-        if (item.role === 'user') {
-          if (metadata.selected_context) restoredContext = metadata.selected_context;
-          return {id: uid(), role: 'user', content: item.content || '', files: item.files || []};
-        }
-        const response = metadata.response && typeof metadata.response === 'object' ? {...metadata.response, answer: metadata.response.answer || item.content || ''} : {answer: item.content || ''};
-        if (metadata.artifact_id) lastArtifact = String(metadata.artifact_id);
-        return {id: uid(), role: 'assistant', response, artifact: metadata.artifact_id ? {id: String(metadata.artifact_id), title: response.artifact_patch?.title || 'artefato', type: response.artifact_patch?.type} : null};
-      });
+      const {messages: restored, selectedContext: restoredContext, lastArtifact} = restoreConversationMessages(data.messages, uid);
       setMessages(restored);
       setComposerContext(restoredContext);
       if (lastArtifact) await fetchArtifact(lastArtifact);
@@ -153,7 +151,7 @@ export default function App({bootstrap}) {
       setRuntime('Não foi possível abrir');
       trace('Falha ao abrir conversa', error.message, 'error');
     } finally { setOpeningId(null); }
-  }, [running, confirmDiscard, bootstrap.endpoints.history, fetchArtifact, trace]);
+  }, [running, confirmDiscard, bootstrap.endpoints.history, fetchArtifact, trace, releasePreviews]);
 
   const changeProject = useCallback(async projectRef => {
     if (running || !(await confirmDiscard())) return;
@@ -162,7 +160,7 @@ export default function App({bootstrap}) {
     try {
       const data = await request(bootstrap.endpoints.context, {
         method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
-        body: JSON.stringify({project_ref: projectRef || null, brand_ref: null}),
+        body: JSON.stringify(projectContextPayload(projectRef)),
       });
       setContext(data.context || {});
       reset();
@@ -181,7 +179,7 @@ export default function App({bootstrap}) {
     requestedProjectRef.current = '';
     request(bootstrap.endpoints.context, {
       method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
-      body: JSON.stringify({project_ref: projectRef, brand_ref: null}),
+      body: JSON.stringify(projectContextPayload(projectRef)),
     }).then(data => setContext(data.context || {})).catch(error => trace('Não foi possível aplicar o projeto selecionado', error.message, 'error'));
   }, [contextLoading, running, bootstrap.endpoints.context, trace]);
 
@@ -198,60 +196,38 @@ export default function App({bootstrap}) {
     setAttachments(current => {
       const next = [...current];
       for (const file of files) {
-        if (next.length >= 3) { trace('Limite de anexos', 'Envie no máximo três arquivos.', 'error'); break; }
-        if (!file.size || file.size > 15 * 1024 * 1024 || !/\.(png|jpe?g|webp|gif|pdf|txt|csv|md|json|docx|xlsx|pptx)$/i.test(file.name)) {
-          trace('Arquivo não aceito', 'Use imagem, PDF, texto ou Office de até 15 MB.', 'error'); continue;
+        if (next.length >= MAX_ATTACHMENTS) {
+          trace(attachmentIssues.limit.title, attachmentIssues.limit.detail, 'error');
+          break;
         }
-        next.push({name: file.name, file, previewUrl: file.type?.startsWith('image/') ? URL.createObjectURL(file) : '', id: null, source: null, destination: attachmentDestination, uploading: false, error: false});
+        const issue = validateAttachment(file);
+        if (issue) {
+          trace(issue.title, issue.detail, 'error');
+          continue;
+        }
+        const previewUrl = file.type?.startsWith('image/') ? URL.createObjectURL(file) : '';
+        next.push(createStagedAttachment(file, attachmentDestination, previewUrl));
       }
       return next;
     });
   }, [trace, attachmentDestination]);
 
-  const releasePreviews = useCallback(items => items.forEach(item => { if (item.previewUrl) URL.revokeObjectURL(item.previewUrl); }), []);
   const removeAttachment = useCallback(index => setAttachments(items => { const removed = items[index]; if (removed) releasePreviews([removed]); return items.filter((_, itemIndex) => itemIndex !== index); }), [releasePreviews]);
   const handleDragEnter = useCallback(event => { if (!Array.from(event.dataTransfer?.types || []).includes('Files')) return; event.preventDefault(); dragDepthRef.current += 1; setDropActive(true); }, []);
   const handleDragOver = useCallback(event => { if (event.dataTransfer?.types?.includes('Files')) event.preventDefault(); }, []);
   const handleDragLeave = useCallback(event => { event.preventDefault(); dragDepthRef.current = Math.max(0, dragDepthRef.current - 1); if (!dragDepthRef.current) setDropActive(false); }, []);
   const handleDrop = useCallback(event => { event.preventDefault(); dragDepthRef.current = 0; setDropActive(false); addFiles(Array.from(event.dataTransfer?.files || [])); }, [addFiles]);
 
-  const uploadFiles = async () => {
-    const staged = [...attachments];
-    for (let index = 0; index < staged.length; index += 1) {
-      if (staged[index].id || staged[index].source) continue;
-      staged[index] = {...staged[index], uploading: true, error: false}; setAttachments([...staged]);
-      try {
-        if (staged[index].destination === 'conversation') {
-          const body = new FormData(); body.append('file', staged[index].file);
-          const response = await fetch(bootstrap.endpoints.uploads, {method: 'POST', credentials: 'same-origin', headers: {'X-CSRF-Token': csrf()}, body});
-          const data = await response.json().catch(() => ({}));
-          if (!response.ok || !data.file?.id) throw new Error(data.error || 'Não foi possível anexar o arquivo.');
-          staged[index] = {...staged[index], id: data.file.id, uploading: false};
-        } else {
-          if (!context.project_ref) throw new Error('Escolha um projeto antes de adicionar arquivos a ele.');
-          const prepared = await request('/workspace/mcp', {
-            method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
-            body: JSON.stringify({jsonrpc: '2.0', id: crypto.randomUUID(), method: 'tools/call', params: {
-              name: 'projects.prepare_source_upload', surface: 'conversations', project_ref: context.project_ref, arguments: {
-                request_id: crypto.randomUUID(), use_as_knowledge: staged[index].destination === 'knowledge',
-              },
-            }}),
-          });
-          const intent = prepared.result?.structuredContent;
-          if (prepared.result?.isError || !intent?.upload_token) throw new Error(prepared.result?.content?.[0]?.text || 'Não foi possível preparar o arquivo para o projeto.');
-          const body = new FormData(); body.append('upload_token', intent.upload_token); body.append('file', staged[index].file);
-          const response = await fetch(intent.upload_url, {method: 'POST', credentials: 'same-origin', headers: {'X-CSRF-Token': csrf()}, body});
-          const data = await response.json().catch(() => ({}));
-          if (!response.ok || !data.source?.source_id) throw new Error(data.error || 'Não foi possível adicionar o arquivo ao projeto.');
-          staged[index] = {...staged[index], source: data.source, uploading: false};
-        }
-      } catch (error) {
-        staged[index] = {...staged[index], uploading: false, error: true}; setAttachments([...staged]); throw error;
-      }
-      setAttachments([...staged]);
-    }
-    return staged;
-  };
+  const uploadFiles = useCallback(() => uploadAttachments({
+      attachments,
+      projectRef: context.project_ref,
+      uploadsEndpoint: bootstrap.endpoints.uploads,
+      requestFn: request,
+      fetchFn: fetch,
+      csrfToken: csrf,
+      uuid: () => crypto.randomUUID(),
+      onProgress: setAttachments,
+    }), [attachments, context.project_ref, bootstrap.endpoints.uploads]);
 
   const submit = useCallback(async (requestedInput = input) => {
     const clean = requestedInput.trim();
@@ -278,14 +254,16 @@ export default function App({bootstrap}) {
       const response = await fetch(bootstrap.endpoints.messages, {
         method: 'POST', credentials: 'same-origin',
         headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
-        body: JSON.stringify({
-          message: clean, request_id: crypto.randomUUID(), conversation_id: conversationRef.current,
-          surface: 'conversations', files: providerFileIds,
-          execution_mode: executionMode,
-          project_ref: context.project_ref || null, brand_ref: context.brand_ref || null,
-          selected_context: composerContext ? {type: composerContext.type, text: composerContext.text} : null,
-          active_object: artifactRef.current?.id ? {type: `artifact:${artifactRef.current.type}`, id: artifactRef.current.id} : null,
-        }),
+        body: JSON.stringify(conversationPayload({
+          message: clean,
+          requestId: crypto.randomUUID(),
+          conversationId: conversationRef.current,
+          providerFileIds,
+          executionMode,
+          context,
+          selectedContext: composerContext,
+          activeArtifact: artifactRef.current,
+        })),
       });
       await streamEvents(response, event => {
         const kind = event.event;
@@ -337,7 +315,7 @@ export default function App({bootstrap}) {
       }
       setRunning(false); runRef.current = null; await loadRecent();
     }
-  }, [input, running, artifactDirty, confirmDiscard, attachments, attachmentDestination, context.project_ref, composerContext, executionMode, fetchArtifact, trace, bootstrap.endpoints.messages, loadRecent, releasePreviews]);
+  }, [input, running, artifactDirty, confirmDiscard, attachments, context, composerContext, executionMode, fetchArtifact, trace, bootstrap.endpoints.messages, loadRecent, releasePreviews, uploadFiles]);
 
   const initialPromptRef = useRef(new URLSearchParams(window.location.search).get('prompt') || '');
   useEffect(() => {

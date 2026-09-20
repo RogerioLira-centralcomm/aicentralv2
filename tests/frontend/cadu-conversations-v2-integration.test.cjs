@@ -48,7 +48,7 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.match(feedback, /WorkspaceAccountControl/);
   assert.match(feedback, /user\.email \|\| 'Conta e perfil'/);
   assert.match(home, /matchedProjects/);
-  assert.match(home, /id: 'skills'/);
+  assert.match(home, /workspaceSolutionItems\(bootstrap\)/);
   assert.match(dock, /DockTooltip/);
   assert.match(dock, /createPortal/);
   assert.match(dock, /role="tooltip"/);
@@ -70,6 +70,7 @@ test('Workspace home keeps a functional product switcher and resilient visual do
 
 test('project dossier reuses the React workspace shell while retaining project actions', () => {
   const project = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceProject.jsx'), 'utf8');
+  const styles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/styles.css'), 'utf8');
   const template = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/project_detail_react.html'), 'utf8');
   const route = fs.readFileSync(path.join(root, 'aicentralv2/cadu_workspace/routes.py'), 'utf8');
   const entry = fs.readFileSync(path.join(root, 'frontend/conversations-v2/main.jsx'), 'utf8');
@@ -78,6 +79,11 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(project, /Enviar arquivo/);
   assert.match(project, /Criar primeira entrega/);
   assert.match(project, /WorkspaceAccountMenu/);
+  assert.match(project, /cadu-ds-home-workarea cadu-ds-project-workarea/);
+  assert.match(project, /cadu-ds-project-workarea[\s\S]*<CaduDock[\s\S]*cadu-ds-project-content/);
+  assert.match(styles, /\.cadu-ds-home-content \{ width:100%; max-width:none; margin:0;/);
+  assert.match(styles, /\.cadu-ds-home-content \.cadu-ds-composer,[\s\S]*width:100%; max-width:none;/);
+  assert.match(styles, /\.cadu-ds-project-content \{ width:100%; max-width:none;/);
   assert.match(template, /'projectMode': True/);
   assert.match(template, /'updateContext': url_for\('cadu_workspace\.update_project_context'/);
   assert.match(template, /'uploadSource': url_for\('cadu_workspace\.upload_project_source'/);
@@ -85,6 +91,30 @@ test('project dossier reuses the React workspace shell while retaining project a
   assert.match(route, /request\.args\.get\('legacy'\) != '1'/);
   assert.match(route, /project_detail_react\.html/);
   assert.match(entry, /bootstrap\.projectMode \? <WorkspaceProject/);
+});
+
+test('Workspace catalogs keep the dock inside the shared work area at full width', () => {
+  const projects = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceProjects.jsx'), 'utf8');
+  const brands = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components/WorkspaceBrands.jsx'), 'utf8');
+  const styles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/styles.css'), 'utf8');
+  for (const catalog of [projects, brands]) {
+    assert.match(catalog, /cadu-ds-home-workarea cadu-ds-catalog-workarea/);
+    assert.match(catalog, /cadu-ds-catalog-workarea[\s\S]*<CaduDock[\s\S]*cadu-ds-brands-content/);
+  }
+  assert.match(styles, /\.cadu-ds-brands-content\{width:100%;max-width:none;/);
+});
+
+test('Workspace React surfaces share one product navigation catalog', () => {
+  const solutions = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/workspaceSolutions.js'), 'utf8');
+  assert.match(solutions, /'workspace', 'Workspace'/);
+  assert.match(solutions, /'planner', 'Planner'/);
+  assert.match(solutions, /'studio', 'Studio'/);
+  assert.match(solutions, /'connect', 'Reports'/);
+  assert.match(solutions, /'skills', 'Skills'/);
+  for (const file of ['WorkspaceHome.jsx', 'WorkspaceProject.jsx', 'WorkspaceProjects.jsx', 'WorkspaceBrands.jsx']) {
+    const source = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/components', file), 'utf8');
+    assert.match(source, /workspaceSolutionItems\(bootstrap\)/);
+  }
 });
 
 test('v2 artifact surface uses optimistic version checks', () => {
@@ -105,15 +135,20 @@ test('v2 attachments require an explicit project usage choice', () => {
 
 test('conversations 2.0 is one React surface with streaming, artifacts and protected work', () => {
   const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
+  const historyModel = fs.readFileSync(path.join(root, 'frontend/conversations-v2/lib/historyModel.mjs'), 'utf8');
+  const contextModel = fs.readFileSync(path.join(root, 'frontend/conversations-v2/lib/contextModel.mjs'), 'utf8');
   const artifact = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ArtifactPane.jsx'), 'utf8');
   const conversation = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Conversation.jsx'), 'utf8');
   const responseBlocks = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ResponseBlocks.jsx'), 'utf8');
   const styles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
   const template = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/conversations_v2_lab.html'), 'utf8');
   const base = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_portals/base.html'), 'utf8');
-  assert.match(app, /metadata\.artifact_id/);
+  assert.match(app, /restoreConversationMessages\(data\.messages, uid\)/);
+  assert.match(historyModel, /metadata\.artifact_id/);
   assert.match(app, /fetchArtifact\(lastArtifact\)/);
   assert.match(app, /confirmDiscard/);
+  assert.match(app, /setAttachments\(items => \{ releasePreviews\(items\); return \[\]; \}\)/);
+  assert.match(app, /const uploadFiles = useCallback/);
   assert.doesNotMatch(app, /window\.confirm/);
   assert.match(app, /ConfirmDialog/);
   assert.match(app, /beforeunload/);
@@ -147,9 +182,10 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(styles, /cv-attachment-chip\.is-image/);
   assert.match(app, /Solte para anexar ao chat/);
   assert.doesNotMatch(conversation, /contextLabel/);
-  assert.match(app, /execution_mode: executionMode/);
+  assert.match(app, /conversationPayload\(/);
+  assert.match(contextModel, /execution_mode: executionMode/);
   assert.match(app, /setExecutionMode\(event\.policy\.execution_mode\)/);
-  assert.match(app, /selected_context/);
+  assert.match(contextModel, /selected_context/);
   assert.match(responseBlocks, /Usar esta opção/);
   assert.match(responseBlocks, /Continuar com/);
   assert.match(responseBlocks, /block\.type === 'insights'/);
@@ -208,4 +244,86 @@ test('conversation response model preserves execution order and explicit checkli
   assert.equal(model.checklistPrompt([]), '');
   assert.equal(model.checklistPrompt([{title: 'Validar casting', prompt: 'Revise o casting.'}]), 'Revise o casting.');
   assert.equal(model.checklistPrompt([{title: 'Casting'}, {title: 'Locação'}]), 'Revise estes itens comigo: Casting; Locação.');
+});
+
+test('conversation attachment model preserves validation and destination rules', async () => {
+  const model = await import(pathToFileURL(path.join(root, 'frontend/conversations-v2/lib/attachmentModel.mjs')).href);
+  assert.equal(model.MAX_ATTACHMENTS, 3);
+  assert.equal(model.validateAttachment({name: 'referencia.png', size: 1200}), null);
+  assert.equal(model.validateAttachment({name: 'brief.exe', size: 1200}), model.attachmentIssues.invalid);
+  assert.equal(model.validateAttachment({name: 'brief.pdf', size: model.MAX_ATTACHMENT_BYTES + 1}), model.attachmentIssues.invalid);
+  assert.equal(model.validateAttachment({name: 'vazio.pdf', size: 0}), model.attachmentIssues.invalid);
+  const file = {name: 'brief.pdf', size: 1200, type: 'application/pdf'};
+  assert.deepEqual(model.createStagedAttachment(file, 'project_source'), {
+    name: 'brief.pdf', file, previewUrl: '', id: null, source: null,
+    destination: 'project_source', uploading: false, error: false,
+  });
+});
+
+test('conversation history model restores messages, selected context and latest artifact', async () => {
+  const model = await import(pathToFileURL(path.join(root, 'frontend/conversations-v2/lib/historyModel.mjs')).href);
+  let sequence = 0;
+  const restored = model.restoreConversationMessages([
+    {role: 'user', content: 'Primeira', files: [{id: 'f1'}], metadata: {selected_context: {type: 'project', id: 'p1'}}},
+    {role: 'assistant', content: 'Fallback', metadata: {response: {answer: '', artifact_patch: {title: 'Plano', type: 'document'}}, artifact_id: 41}},
+    {role: 'user', content: 'Segunda', metadata: {selected_context: {type: 'project', id: 'p2'}}},
+    {role: 'assistant', content: 'Final', metadata: {artifact_id: 42}},
+  ], () => `message-${++sequence}`);
+  assert.deepEqual(restored.selectedContext, {type: 'project', id: 'p2'});
+  assert.equal(restored.lastArtifact, '42');
+  assert.deepEqual(restored.messages.map(item => item.id), ['message-1', 'message-2', 'message-3', 'message-4']);
+  assert.deepEqual(restored.messages[0].files, [{id: 'f1'}]);
+  assert.equal(restored.messages[1].response.answer, 'Fallback');
+  assert.deepEqual(restored.messages[1].artifact, {id: '41', title: 'Plano', type: 'document'});
+  assert.deepEqual(restored.messages[3].artifact, {id: '42', title: 'artefato', type: undefined});
+  assert.deepEqual(model.restoreConversationMessages(null, () => 'unused'), {messages: [], selectedContext: null, lastArtifact: ''});
+  assert.deepEqual(model.recentConversations([
+    {id: 1, status: 'active'},
+    {id: 2, status: 'Arquivada'},
+    {id: 3, status: 'ARCHIVED'},
+    {id: 4},
+  ]).map(item => item.id), [1, 4]);
+  assert.deepEqual(model.recentConversations([{id: 1}, {id: 2}], 1).map(item => item.id), [1]);
+});
+
+test('conversation context model keeps project, brand and active artifact explicit', async () => {
+  const model = await import(pathToFileURL(path.join(root, 'frontend/conversations-v2/lib/contextModel.mjs')).href);
+  assert.deepEqual(model.projectContextPayload('project-1'), {project_ref: 'project-1', brand_ref: null});
+  assert.deepEqual(model.projectContextPayload(''), {project_ref: null, brand_ref: null});
+  assert.deepEqual(model.conversationPayload({
+    message: 'Revise', requestId: 'request-1', conversationId: 'conversation-1', providerFileIds: ['file-1'],
+    executionMode: 'analysis', context: {project_ref: 'project-1', brand_ref: 'brand-1'},
+    selectedContext: {type: 'selection', text: 'Trecho'}, activeArtifact: {id: 'artifact-1', type: 'document'},
+  }), {
+    message: 'Revise', request_id: 'request-1', conversation_id: 'conversation-1', surface: 'conversations',
+    files: ['file-1'], execution_mode: 'analysis', project_ref: 'project-1', brand_ref: 'brand-1',
+    selected_context: {type: 'selection', text: 'Trecho'},
+    active_object: {type: 'artifact:document', id: 'artifact-1'},
+  });
+});
+
+test('attachment upload service preserves progress and conversation upload contract', async () => {
+  const model = await import(pathToFileURL(path.join(root, 'frontend/conversations-v2/lib/attachmentUpload.mjs')).href);
+  const progress = [];
+  const file = new Blob(['brief'], {type: 'text/plain'});
+  const uploaded = await model.uploadAttachments({
+    attachments: [{name: 'brief.txt', file, destination: 'conversation', id: null, source: null}],
+    projectRef: null,
+    uploadsEndpoint: '/uploads',
+    requestFn: async () => { throw new Error('MCP não deveria ser chamado'); },
+    fetchFn: async (url, options) => {
+      assert.equal(url, '/uploads');
+      assert.equal(options.method, 'POST');
+      assert.equal(options.headers['X-CSRF-Token'], 'csrf-token');
+      assert.equal(options.body.get('file').type, 'text/plain');
+      assert.equal(await options.body.get('file').text(), 'brief');
+      return {ok: true, json: async () => ({file: {id: 'file-1'}})};
+    },
+    csrfToken: () => 'csrf-token',
+    uuid: () => 'uuid-1',
+    onProgress: items => progress.push(items),
+  });
+  assert.equal(progress[0][0].uploading, true);
+  assert.equal(uploaded[0].id, 'file-1');
+  assert.equal(uploaded[0].uploading, false);
 });

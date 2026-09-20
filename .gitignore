@@ -61,6 +61,7 @@ instance/
 # Build
 build/
 dist/
+node_modules/
 *.egg-info/
 
 # Tailwind — gerado por npm run build (nao versionar; evita conflito no deploy)

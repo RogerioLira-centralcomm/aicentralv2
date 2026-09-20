@@ -6,6 +6,7 @@ import {ResumeCardCollection} from './ResumeCards';
 import {ActivityDrawer, ShortcutManagerDialog, UndoToast, WorkspaceAccountControl, WorkspaceAccountMenu} from './WorkspaceFeedback';
 import {VisualIdentity} from './VisualIdentity';
 import {csrf, request} from '../../conversations-v2/lib/api';
+import {workspaceSolutionItems} from '../workspaceSolutions';
 
 function withQuery(url, values) {
   const target = new URL(url, window.location.origin);
@@ -103,13 +104,7 @@ export function WorkspaceHome({bootstrap}) {
       await request(`${bootstrap.endpoints.dockShortcuts}/order`, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()}, body: JSON.stringify({ids: explicit.map(candidate => candidate.shortcutId)})});
     } catch (error) { setDockItems(before); setToast(error.message || 'Não foi possível salvar a ordem dos atalhos.'); }
   };
-  const solutions = [
-    {id: 'workspace', name: 'Workspace', description: 'Projetos e contexto'},
-    {id: 'planner', name: 'Planner', description: 'Planos e cenários'},
-    {id: 'studio', name: 'Studio', description: 'Criação e análise'},
-    {id: 'connect', name: 'Reports', description: 'Relatórios e resultados'},
-    {id: 'skills', name: 'Skills', description: 'Recursos e automações'},
-  ].map(solution => ({...solution, href: bootstrap.urls.solutions?.[solution.id], icon: bootstrap.solutionIcons?.[solution.id]}));
+  const solutions = workspaceSolutionItems(bootstrap);
   const contextVisuals = projects.filter(project => project.previewUrl).slice(0, 4);
   return <div className="cadu-ds-home-shell">
     <main className="cadu-ds-home-main">

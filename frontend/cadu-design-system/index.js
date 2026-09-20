@@ -10,3 +10,4 @@ export {ResumeCard, ResumeCardCollection} from './components/ResumeCards';
 export {AgentActionDrop, ActivityDrawer, ShortcutManagerDialog, WorkspaceAccountMenu, UndoToast, PermissionState, LoadingSkeleton} from './components/WorkspaceFeedback';
 export {WorkspaceHome} from './components/WorkspaceHome';
 export {WorkspaceProject} from './components/WorkspaceProject';
+export {workspaceSolutionItems} from './workspaceSolutions';

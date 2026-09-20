@@ -666,6 +666,91 @@ def reorder_dock_shortcuts():
     return jsonify(shortcuts=_user_dock_shortcuts(client_id, user_id))
 
 
+_WORKSPACE_HOME_WIDGETS = ('resume', 'next', 'projects', 'brands', 'activity', 'usage')
+
+
+def _home_preferences_available() -> bool:
+    """Keep the Home usable while its additive preference migration rolls out."""
+    try:
+        with get_db().cursor() as cursor:
+            cursor.execute("SELECT to_regclass('public.cadu_workspace_home_preferences') AS relation")
+            return bool((cursor.fetchone() or {}).get('relation'))
+    except Exception:
+        current_app.logger.warning('Preferências da Home indisponíveis; usando padrão', exc_info=True)
+        return False
+
+
+def _user_home_preferences(client_id: int, user_id: int) -> dict:
+    """Read the signed-in user's durable Home layout preference."""
+    if not _home_preferences_available():
+        return {}
+    try:
+        with get_db().cursor() as cursor:
+            cursor.execute(
+                """SELECT widget_order, visible_widgets
+                     FROM cadu_workspace_home_preferences
+                    WHERE client_id=%s AND user_id=%s""",
+                (client_id, user_id),
+            )
+            row = cursor.fetchone()
+        if not row:
+            return {}
+        order = row.get('widget_order') if isinstance(row.get('widget_order'), list) else []
+        visible = row.get('visible_widgets') if isinstance(row.get('visible_widgets'), list) else []
+        return {'order': order, 'visible': visible}
+    except Exception:
+        current_app.logger.warning('Preferências da Home não puderam ser carregadas', exc_info=True)
+        return {}
+
+
+def _validated_home_preferences(payload: dict) -> tuple[list[str], list[str]]:
+    order = payload.get('order')
+    visible = payload.get('visible')
+    allowed = set(_WORKSPACE_HOME_WIDGETS)
+    if not isinstance(order, list) or set(order) != allowed or len(order) != len(_WORKSPACE_HOME_WIDGETS):
+        abort(400, description='A ordem dos blocos da Home é inválida.')
+    if not isinstance(visible, list) or any(item not in allowed for item in visible) or len(visible) != len(set(visible)):
+        abort(400, description='A visibilidade dos blocos da Home é inválida.')
+    return [str(item) for item in order], [str(item) for item in visible]
+
+
+@bp.get('/workspace/api/home/preferences')
+@login_required
+def get_home_preferences():
+    client_id, user_id = int(session.get('cliente_id') or 0), int(session.get('user_id') or 0)
+    return jsonify(preferences=_user_home_preferences(client_id, user_id))
+
+
+@bp.put('/workspace/api/home/preferences')
+@login_required
+def save_home_preferences():
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    if not _home_preferences_available():
+        abort(409, description='As preferências da Home ainda estão sendo atualizadas. Atualize a página em instantes.')
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        abort(400, description='Envie as preferências da Home em formato JSON.')
+    order, visible = _validated_home_preferences(payload)
+    client_id, user_id = int(session.get('cliente_id') or 0), int(session.get('user_id') or 0)
+    connection = get_db()
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """INSERT INTO cadu_workspace_home_preferences
+                    (id, client_id, user_id, widget_order, visible_widgets, created_at, updated_at)
+                VALUES (%s, %s, %s, %s::jsonb, %s::jsonb, NOW(), NOW())
+                ON CONFLICT (client_id, user_id) DO UPDATE
+                    SET widget_order=EXCLUDED.widget_order,
+                        visible_widgets=EXCLUDED.visible_widgets,
+                        updated_at=NOW()
+                RETURNING widget_order, visible_widgets""",
+            (str(uuid4()), client_id, user_id, json.dumps(order), json.dumps(visible)),
+        )
+        saved = cursor.fetchone() or {}
+    connection.commit()
+    return jsonify(preferences={'order': saved.get('widget_order') or order, 'visible': saved.get('visible_widgets') or visible})
+
+
 @bp.get('/workspace/api/creditos/resumo')
 @login_required
 def workspace_credit_summary():
@@ -2346,6 +2431,12 @@ def dashboard():
     dock_items = _workspace_common_dock_items(
         client_id, int(session.get('user_id') or 0), projects=projects, brands=brands,
     )
+    continuity_feed = _workspace_continuity_feed(client_id, projects, {
+        'id': int(session.get('user_id') or 0),
+        # Older Workspace sessions do not carry organization_id. In that
+        # case the client is the organization boundary used by Cadu Family.
+        'organization_id': int(session.get('organization_id') or session.get('organizacao_id') or client_id),
+    })
     home_data = {
         'agency': {'id': str(client_id), 'name': str(session.get('client_name') or session.get('cliente_nome') or session.get('organization_name') or 'Minha agência')},
         # Every brand has a visual identity in the React shell. A principal logo
@@ -2355,13 +2446,10 @@ def dashboard():
         'projects': project_items,
         'dock': {'items': dock_items, 'isSuggested': not any(item.get('shortcutId') for item in dock_items)},
         'resources': project_items[:8],
-        'resumeCards': _workspace_continuity_feed(client_id, projects, {
-            'id': int(session.get('user_id') or 0),
-            # Older Workspace sessions do not carry organization_id. In that
-            # case the client is the organization boundary used by Cadu Family.
-            'organization_id': int(session.get('organization_id') or session.get('organizacao_id') or client_id),
-        }),
+        'resumeCards': continuity_feed,
+        'activity': continuity_feed,
         'usagePercent': round(usage, 1),
+        'preferences': _user_home_preferences(client_id, int(session.get('user_id') or 0)),
     }
     return render_template(
         "cadu_workspace/workspace_home_chat.html", sections=sections, projects=projects, brands=brands,

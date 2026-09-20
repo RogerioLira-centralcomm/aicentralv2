@@ -1,8 +1,8 @@
 import React, {useMemo, useState} from 'react';
 import {ProjectSelector} from './WorkspaceSelectors';
 import {CaduDock} from './CaduDock';
-import {WorkspaceComposer} from './WorkspaceComposer';
-import {ResumeCardCollection} from './ResumeCards';
+import {WorkspaceChatComposer} from './WorkspaceChatComposer';
+import {WorkspaceHomeWidgets} from './WorkspaceHomeWidgets';
 import {ActivityDrawer, ShortcutManagerDialog, UndoToast, WorkspaceAccountMenu} from './WorkspaceFeedback';
 import {VisualIdentity} from './VisualIdentity';
 import {csrf, request} from '../../conversations-v2/lib/api';
@@ -25,6 +25,7 @@ export function WorkspaceHome({bootstrap}) {
   const [shortcutsOpen, setShortcutsOpen] = useState(() => window.location.hash === '#atalhos');
   const [accountOpen, setAccountOpen] = useState(false);
   const [toast, setToast] = useState('');
+  const [executionMode, setExecutionMode] = useState('analysis');
   const projects = home.projects || [];
   const [dockItems, setDockItems] = useState(home.dock?.items || []);
   const selectedProject = useMemo(() => projects.find(item => item.id === projectRef), [projects, projectRef]);
@@ -107,7 +108,6 @@ export function WorkspaceHome({bootstrap}) {
     } catch (error) { setDockItems(before); setToast(error.message || 'Não foi possível salvar a ordem dos atalhos.'); }
   };
   const solutions = workspaceSolutionItems(bootstrap);
-  const contextVisuals = projects.filter(project => project.previewUrl).slice(0, 4);
   return <div className="cadu-ds-home-shell">
     <main className="cadu-ds-home-main">
       <WorkspaceNavbar logo={bootstrap.caduMark} solutions={solutions} user={bootstrap.user} onOpenAccount={() => setAccountOpen(true)}>
@@ -119,9 +119,9 @@ export function WorkspaceHome({bootstrap}) {
         <CaduDock brands={home.brands || []} resources={home.resources || []} shortcutItems={dockItems} usagePercent={home.usagePercent} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} onNewConversation={() => window.location.assign(bootstrap.urls.newConversation)} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onDropItem={addDroppedShortcut} onReorderShortcuts={reorderShortcuts} onOpenUsage={() => setAccountOpen(true)}/>
         <section className="cadu-ds-home-content">
         <div className="cadu-ds-home-intro"><p className="cadu-ds-home-kicker">Workspace {home.agency?.name ? `da ${home.agency.name}` : ''}</p><h1>{normalizedSearch ? 'Contextos encontrados' : selectedProject ? selectedProject.name : 'O que vamos resolver hoje?'}</h1><p>{normalizedSearch ? `${matchedProjects.length} projeto${matchedProjects.length === 1 ? '' : 's'} encontrado${matchedProjects.length === 1 ? '' : 's'} para “${searchValue.trim()}”.` : selectedProject ? `Trabalhe no contexto de ${selectedProject.brandName || 'seu projeto'}.` : 'Comece uma conversa ou escolha um contexto para trabalhar.'}</p></div>
-        {normalizedSearch ? <section className="cadu-ds-home-search-results" aria-live="polite">{matchedProjects.map(project => <button key={project.id} type="button" onClick={() => selectProject(project.id)}><VisualIdentity src={project.previewUrl} initials={project.visualInitials} label={project.name} color={project.visualColor}/><span><b>{project.name}</b><small>{project.brandName || 'Projeto sem marca vinculada'}</small></span><em>Usar contexto</em></button>)}{!matchedProjects.length && <p>Nenhum projeto corresponde a esta busca.</p>}</section> : <><WorkspaceComposer value={value} onChange={setValue} onSubmit={submit} context={selectedProject ? {label: selectedProject.name} : null} onClearContext={() => setProjectRef('')} onAttach={() => setToast('Arraste um arquivo para anexar ao chat.')} onContextDrop={dropContext}/>
-        {!value.trim() && contextVisuals.length > 0 && <section className="cadu-ds-home-context-strip" aria-label="Projetos com identidade"><div><span>Projetos com identidade</span><b>{projects.length} projeto{projects.length === 1 ? '' : 's'}</b><small>Escolha um projeto para levar sua base para a conversa.</small></div><div className="cadu-ds-home-context-strip__visuals">{contextVisuals.map(project => <button key={project.id} type="button" onClick={() => selectProject(project.id)} aria-label={`Usar ${project.name} como contexto`}><VisualIdentity src={project.previewUrl} initials="" label="" color={project.visualColor}/></button>)}</div><a href={bootstrap.urls.projects}>Ver projetos</a></section>}
-        {!value.trim() && <ResumeCardCollection items={home.resumeCards || []} onOpen={openItem} onOpenActivity={() => setActivityOpen(true)}/>}</>}
+        {normalizedSearch ? <section className="cadu-ds-home-search-results" aria-live="polite">{matchedProjects.map(project => <button key={project.id} type="button" onClick={() => selectProject(project.id)}><VisualIdentity src={project.previewUrl} initials={project.visualInitials} label={project.name} color={project.visualColor}/><span><b>{project.name}</b><small>{project.brandName || 'Projeto sem marca vinculada'}</small></span><em>Usar contexto</em></button>)}{!matchedProjects.length && <p>Nenhum projeto corresponde a esta busca.</p>}</section> : <>
+          <WorkspaceChatComposer value={value} onChange={setValue} onSubmit={submit} hasProject={Boolean(projectRef)} executionMode={executionMode} onExecutionModeChange={setExecutionMode} composerContext={selectedProject ? {label: selectedProject.name, text: selectedProject.brandName || 'projeto'} : null} onClearContext={() => setProjectRef('')} onContextDrop={dropContext} embedded homeMode/>
+          {!value.trim() && <WorkspaceHomeWidgets home={home} projects={projects} brands={home.brands || []} links={bootstrap.urls} onOpen={openItem} onPrompt={setValue} onOpenActivity={() => setActivityOpen(true)} onFeedback={setToast}/>}</>}
         </section>
       </div>
     </main>

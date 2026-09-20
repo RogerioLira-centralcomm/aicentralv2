@@ -4,6 +4,7 @@ import {Markdown} from './Markdown';
 import {safeUrl} from '../lib/api';
 import {ResponseBlocks} from './ResponseBlocks';
 import {ChatContextSelector} from '../../cadu-design-system/components/WorkspaceSelectors';
+import {WorkspaceChatComposer} from '../../cadu-design-system/components/WorkspaceChatComposer';
 
 function FailureCard({failure, prompt, onRevisitPrompt, creditsUrl}) {
   const needsCredits = failure?.kind === 'credits';
@@ -182,7 +183,7 @@ export function Conversation({title, context, projects, brands, onProjectChange,
     </header>
     {notice && <div className="cv-absolute cv-right-5 cv-top-[78px] cv-z-30 cv-flex cv-w-[min(390px,calc(100%-40px))] cv-items-start cv-gap-3 cv-rounded-xl cv-border cv-border-[#ff7d83]/25 cv-bg-[#28191b]/95 cv-p-3 cv-shadow-2xl cv-backdrop-blur" role="alert"><span className="cv-mt-1 cv-h-2 cv-w-2 cv-flex-none cv-rounded-full cv-bg-[#ff7d83]"/><div className="cv-min-w-0 cv-flex-1"><strong className="cv-block cv-text-xs cv-font-semibold">{notice.title}</strong>{notice.detail && <span className="cv-mt-1 cv-block cv-text-[11px] cv-leading-5 cv-text-[#d8b5b7]">{notice.detail}</span>}</div><button type="button" onClick={onDismissNotice} className="cv-grid cv-h-6 cv-w-6 cv-place-items-center cv-rounded-md cv-border-0 cv-bg-transparent cv-text-[#c99b9e]" aria-label="Fechar aviso"><Icon name="close" size={14}/></button></div>}
     <div className="cv-thread-scroll cv-scroll cv-min-h-0 cv-flex-1 cv-overflow-y-auto"><Thread messages={messages} onPrompt={onPrompt} onOpenArtifact={onOpenArtifact} onOpenResource={onOpenResource} onDecision={onDecision} onRevisitPrompt={onRevisitPrompt} creditsUrl={creditsUrl} running={running} runtime={runtime} onOpenDiagnostics={() => { if (details.current) details.current.open = true; }}/></div>
-    <Composer value={input} onChange={setInput} onSubmit={onSubmit} attachments={attachments} onRemoveAttachment={onRemoveAttachment} onAttachmentPurposeChange={onAttachmentPurposeChange} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={onAttachmentDestinationChange} hasProject={Boolean(context?.project_ref)} executionMode={executionMode} onExecutionModeChange={onExecutionModeChange} running={running} onStop={onStop} composerContext={composerContext} onClearContext={onClearContext}/>
+    <WorkspaceChatComposer value={input} onChange={setInput} onSubmit={onSubmit} attachments={attachments} onRemoveAttachment={onRemoveAttachment} onAttachmentPurposeChange={onAttachmentPurposeChange} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={onAttachmentDestinationChange} hasProject={Boolean(context?.project_ref)} executionMode={executionMode} onExecutionModeChange={onExecutionModeChange} running={running} onStop={onStop} composerContext={composerContext} onClearContext={onClearContext}/>
     {artifactOpen && <span className="cv-sr-only">Artefato aberto ao lado da conversa</span>}
   </section>;
 }

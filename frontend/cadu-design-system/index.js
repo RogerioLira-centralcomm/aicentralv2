@@ -8,6 +8,8 @@ export {CaduSolutionSwitcher, AgencySwitcher, ProjectSelector} from './component
 export {CaduDock, DockDropZone, DockBrandShortcut, DockResourceShortcut, DockUsageRing} from './components/CaduDock';
 export {VisualIdentity} from './components/VisualIdentity';
 export {WorkspaceComposer, ContextDropZone} from './components/WorkspaceComposer';
+export {WorkspaceChatComposer} from './components/WorkspaceChatComposer';
+export {WorkspaceHomeWidgets} from './components/WorkspaceHomeWidgets';
 export {WorkspaceNavbar} from './components/WorkspaceNavbar';
 export {WorkspaceCatalog, CatalogError, CatalogFilters} from './components/WorkspaceCatalog';
 export {WorkspaceLegacyChrome} from './components/WorkspaceLegacyChrome';

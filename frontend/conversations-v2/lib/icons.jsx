@@ -11,7 +11,6 @@ export function Icon({name, size = 18, className = ''}) {
     menu: <path d="M4 7h16M4 12h16M4 17h16"/>,
     close: <path d="m6 6 12 12M18 6 6 18"/>,
     arrowUp: <path d="M12 19V5M6 11l6-6 6 6"/>,
-    attach: <path d="m8 12 5.5-5.5a3 3 0 0 1 4.2 4.2L10 18.4a5 5 0 0 1-7-7l8-8"/>,
     pulse: <path d="M3 12h4l2-6 4 12 2-6h6"/>,
     history: <><path d="M4 12a8 8 0 1 0 2.4-5.7L4 8"/><path d="M4 4v4h4M12 8v5l3 2"/></>,
     external: <><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 13v7H4V6h7"/></>,

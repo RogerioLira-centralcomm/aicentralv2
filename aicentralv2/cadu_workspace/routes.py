@@ -2190,7 +2190,9 @@ def dashboard():
         'projects': project_items,
         'dock': {'items': dock_items, 'isSuggested': bool(suggested_dock_items)},
         'resources': project_items[:8],
-        'resumeCards': [{'id': f"ci:{item.get('id')}", 'title': str(item.get('nome') or 'Projeto'), 'context': str(item.get('thumbnail_label') or 'Projeto'), 'status': f"{int(item.get('total_conversas') or 0)} conversa(s)", 'previewUrl': str(item.get('thumbnail_url') or ''), 'visualInitials': str(item.get('thumbnail_initials') or 'P'), 'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'), 'href': url_for('cadu_workspace.project_detail', project_id=str(item.get('id')))} for item in projects[:3]],
+        # A continuity item represents work that actually happened. Empty
+        # projects must not become oversized placeholder cards on the home.
+        'resumeCards': [{'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'), 'context': str(item.get('thumbnail_label') or 'Projeto'), 'status': f"{int(item.get('total_conversas') or 0)} conversa(s)", 'previewUrl': str(item.get('thumbnail_url') or ''), 'visualInitials': str(item.get('thumbnail_initials') or 'P'), 'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'), 'href': url_for('cadu_workspace.project_detail', project_id=str(item.get('id')))} for item in projects if int(item.get('total_conversas') or 0) > 0][:5],
         'usagePercent': round(usage),
     }
     return render_template(

@@ -33,6 +33,15 @@ export function WorkspaceAccountMenu({open, onClose, user = {}, links = {}, onMa
   </nav><footer><button type="button" onClick={onManageShortcuts}>Personalizar atalhos</button><a href={links.logout}>Sair</a></footer></dialog>;
 }
 
+export function WorkspaceAccountControl({user = {}, onOpen}) {
+  const name = user.name || 'Minha conta';
+  return <button type="button" className="cadu-ds-home-account cadu-ds-home-account--identity" onClick={onOpen} aria-label={`Abrir conta de ${name}`} aria-haspopup="dialog">
+    <VisualIdentity src={user.avatar} initials={name} label={name} color="#1b6d64"/>
+    <span><strong>{name}</strong><small>{user.email || 'Conta e perfil'}</small></span>
+    <i aria-hidden="true">⌄</i>
+  </button>;
+}
+
 export function UndoToast({message, actionLabel = 'Desfazer', onUndo, onDismiss}) {
   if (!message) return null;
   return <div className="cadu-ds-undo-toast" role="status"><span>{message}</span>{onUndo && <button type="button" onClick={onUndo}>{actionLabel}</button>}<button type="button" onClick={onDismiss} aria-label="Fechar">×</button></div>;

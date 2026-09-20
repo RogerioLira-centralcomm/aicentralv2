@@ -1976,10 +1976,25 @@ def dashboard():
         ("Integrações", "Conexões autorizadas para os produtos da organização.", url_for("cadu_workspace.integrations"), "Workspace"),
         ("Ajuda", "Orientação de uso e canais de atendimento.", url_for("cadu_workspace.public_page", page="ajuda"), "Suporte"),
     )
+    credit = credit_position(client_id)
+    usage = float(credit.get('monthly_usage_percentage') or 0)
+    brand_project_counts: dict[str, int] = {}
+    for project in projects:
+        brand_name = str(project.get('thumbnail_label') or '').casefold()
+        if brand_name:
+            brand_project_counts[brand_name] = brand_project_counts.get(brand_name, 0) + 1
+    home_data = {
+        'agency': {'id': str(client_id), 'name': str(session.get('client_name') or session.get('cliente_nome') or session.get('organization_name') or 'Minha agência')},
+        'brands': [{'id': str(item.get('id')), 'name': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''), 'projectCount': brand_project_counts.get(str(item.get('name') or '').casefold(), 0)} for item in brands[:8]],
+        'projects': [{'id': f"ci:{item.get('id')}", 'name': str(item.get('nome') or 'Projeto'), 'href': url_for('cadu_workspace.project_detail', project_id=str(item.get('id'))), 'previewUrl': str(item.get('thumbnail_url') or ''), 'brandName': str(item.get('thumbnail_label') or '')} for item in projects],
+        'resources': [{'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'), 'previewUrl': str(item.get('thumbnail_url') or ''), 'projectRef': f"ci:{item.get('id')}", 'pinned': index == 0} for index, item in enumerate(projects[:2])],
+        'resumeCards': [{'id': f"ci:{item.get('id')}", 'title': str(item.get('nome') or 'Projeto'), 'context': str(item.get('thumbnail_label') or 'Projeto'), 'status': f"{int(item.get('total_conversas') or 0)} conversa(s)", 'previewUrl': str(item.get('thumbnail_url') or ''), 'href': url_for('cadu_workspace.project_detail', project_id=str(item.get('id')))} for item in projects[:3]],
+        'usagePercent': round(usage),
+    }
     return render_template(
         "cadu_workspace/workspace_home_chat.html", sections=sections, projects=projects, brands=brands,
-        customizations=customizations, credit=credit_position(client_id), hero=secrets.choice(WORKSPACE_APP_HEROES),
-        data_health=_workspace_data_health(),
+        customizations=customizations, credit=credit, hero=secrets.choice(WORKSPACE_APP_HEROES),
+        data_health=_workspace_data_health(), home_data=home_data,
     )
 
 

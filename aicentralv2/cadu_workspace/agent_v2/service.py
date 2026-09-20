@@ -192,6 +192,34 @@ def _project_map_content(run: dict, suggested=None) -> dict:
     }
 
 
+def _enrich_source_blocks(response, run):
+    """Resolve provider source references against the canonical project registry."""
+    registry = run["resolved_context"].values.get("projects.list_resources") or {}
+    resources = registry.get("resources") if isinstance(registry, dict) else []
+    by_id = {}
+    for resource in resources if isinstance(resources, list) else []:
+        if not isinstance(resource, dict):
+            continue
+        for key in ("id", "source_id"):
+            if resource.get(key):
+                by_id[str(resource[key])] = resource
+    for block in response.blocks:
+        if block.get("type") not in {"source", "sources", "source_group"}:
+            continue
+        for item in block.get("items") or []:
+            resource = by_id.get(str(item.get("resource_id") or item.get("id")))
+            if not resource:
+                continue
+            item.update({
+                "resource_id": str(resource.get("id") or item.get("resource_id") or ""),
+                "title": str(resource.get("title") or item.get("title") or "Arquivo")[:220],
+                "kind": str(resource.get("resource_type") or item.get("kind") or "Arquivo")[:80],
+                "url": str(resource.get("locator") or item.get("url") or "")[:2000],
+                "source_system": str(resource.get("source_system") or "")[:80],
+            })
+    return response
+
+
 def prepare(data):
     message = _message(data.get("message"))
     try:
@@ -277,7 +305,7 @@ def prepare(data):
                 VALUES (%s, %s, 'user', %s, %s, %s, NOW())""",
                 (str(uuid4()), conversation_id, message,
                  Json([{"id": str(row["id"]), "name": row["name"]} for row in uploads]),
-                 Json({"runtime": "v2"})))
+                 Json({"runtime": "v2", "selected_context": execution.get("selected_context")})))
             for call in execution["resolved_context"].tool_calls:
                 cur.execute("""INSERT INTO cadu_agent_tool_calls
                     (id, run_id, tool_name, status, input_redacted, output_summary, error_code,
@@ -349,6 +377,7 @@ def stream(run):
             state = "cancelled"
         else:
             response = normalize_response("".join(answer_chunks), run["policy"])
+            response = _enrich_source_blocks(response, run)
             artifact = None
             artifact_type = run["route"].get("artifact_type") or (
                 "document" if response.artifact_patch else None

@@ -171,6 +171,17 @@ export default function App({bootstrap}) {
     } finally { setRuntime(''); setContextLoading(false); }
   }, [running, confirmDiscard, bootstrap.endpoints.context, context.brand_ref, reset, trace, projects, loadContext]);
 
+  const requestedProjectRef = useRef(new URLSearchParams(window.location.search).get('project_ref') || '');
+  useEffect(() => {
+    if (!requestedProjectRef.current || contextLoading || running) return;
+    const projectRef = requestedProjectRef.current;
+    requestedProjectRef.current = '';
+    request(bootstrap.endpoints.context, {
+      method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()},
+      body: JSON.stringify({project_ref: projectRef, brand_ref: null}),
+    }).then(data => setContext(data.context || {})).catch(error => trace('Não foi possível aplicar o projeto selecionado', error.message, 'error'));
+  }, [contextLoading, running, bootstrap.endpoints.context, trace]);
+
   const addFiles = useCallback(files => {
     setAttachments(current => {
       const next = [...current];

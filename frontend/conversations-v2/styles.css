@@ -27,6 +27,7 @@ body:has(#cadu-conversations-v2-root) > .cadu-family-footer { display: none; }
 #cadu-conversations-v2-root * { box-sizing: border-box; }
 #cadu-conversations-v2-root { height: 100%; min-height: 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: var(--cv-text); }
 #cadu-conversations-v2-root.cv-home-root { background: var(--cv-bg); }
+#cadu-conversations-v2-root.cv-home-root :focus-visible { outline-color: var(--cadu-accent-strong); }
 #cadu-conversations-v2-root .cv-home-mode .cv-composer-shell { max-width: 820px; }
 #cadu-conversations-v2-root .cv-workspace-sidebar { background: #0d171a; color: #e6f1ef; border-right: 1px solid rgba(181,218,211,.14); }
 #cadu-conversations-v2-root .cv-workspace-sidebar :is(a,button,summary) { color: #b3c7c3; }

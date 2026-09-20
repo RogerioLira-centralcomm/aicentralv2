@@ -8,6 +8,7 @@ const {chromium} = require(playwrightModule);
 const root = path.resolve(__dirname, '../..');
 const tokens = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/tokens.css'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'frontend/cadu-design-system/styles.css'), 'utf8');
+const conversationStyles = fs.readFileSync(path.join(root, 'frontend/conversations-v2/styles.css'), 'utf8');
 const chromePath = process.env.CHROME_PATH;
 
 function documentFor(contentClass) {
@@ -30,6 +31,10 @@ function documentFor(contentClass) {
       </main>
     </body>
   </html>`;
+}
+
+function conversationDocument() {
+  return `<!doctype html><html data-cadu-theme="dark" data-cadu-skin="conversations"><head><meta charset="utf-8"><style>html,body{margin:0;height:100%}.cv-conversation-surface{min-width:0;flex:1}\n${tokens}\n${conversationStyles}\n${styles}</style></head><body><main id="content"><div id="cadu-conversations-v2-root"><div class="cadu-ds-home-shell cv-conversations-shell"><main class="cadu-ds-home-main"><header class="cadu-ds-home-navbar cv-conversations-navbar">Navegação</header><div class="cadu-ds-home-workarea cv-conversations-workarea"><aside class="cadu-ds-dock">Dock</aside><aside class="cv-recent-sidebar">Recentes</aside><section class="cv-conversation-surface">Conversa</section></div></main></div></div></main></body></html>`;
 }
 
 async function dimensions(page, contentClass) {
@@ -82,6 +87,32 @@ async function dimensions(page, contentClass) {
       assert.equal(mobile.content.right, mobile.viewport, `${contentClass}: conteúdo em largura total mobile`);
       assert.equal(mobile.scrollWidth, mobile.viewport, `${contentClass}: sem overflow mobile`);
     }
+    await page.setViewportSize({width: 1440, height: 1000});
+    await page.setContent(conversationDocument());
+    const conversationDesktop = await page.evaluate(() => {
+      const dock = document.querySelector('.cadu-ds-dock').getBoundingClientRect();
+      const recent = document.querySelector('.cv-recent-sidebar').getBoundingClientRect();
+      const conversation = document.querySelector('.cv-conversation-surface').getBoundingClientRect();
+      return {dock, recent, conversation, viewport: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth};
+    });
+    assert.equal(conversationDesktop.dock.width, 64, 'Conversas: Dock desktop');
+    assert.equal(conversationDesktop.recent.width, 260, 'Conversas: recentes desktop');
+    assert.equal(conversationDesktop.recent.left, conversationDesktop.dock.right, 'Conversas: recentes ao lado da Dock');
+    assert.equal(conversationDesktop.conversation.left, conversationDesktop.recent.right, 'Conversas: conteúdo após recentes');
+    assert.equal(conversationDesktop.conversation.right, conversationDesktop.viewport, 'Conversas: conteúdo até a borda');
+    assert.equal(conversationDesktop.scrollWidth, conversationDesktop.viewport, 'Conversas: sem overflow desktop');
+
+    await page.setViewportSize({width: 390, height: 844});
+    await page.setContent(conversationDocument());
+    const conversationMobile = await page.evaluate(() => ({
+      dockDisplay: getComputedStyle(document.querySelector('.cadu-ds-dock')).display,
+      recentPosition: getComputedStyle(document.querySelector('.cv-recent-sidebar')).position,
+      scrollWidth: document.documentElement.scrollWidth,
+      viewport: document.documentElement.clientWidth,
+    }));
+    assert.equal(conversationMobile.dockDisplay, 'none', 'Conversas: Dock oculta no mobile');
+    assert.equal(conversationMobile.recentPosition, 'absolute', 'Conversas: recentes sobrepostos no mobile');
+    assert.equal(conversationMobile.scrollWidth, conversationMobile.viewport, 'Conversas: sem overflow mobile');
     assert.deepEqual(errors, []);
     console.log('PASS: Workspace full-width, Dock and overflow at 1440px and 390px.');
   } finally {

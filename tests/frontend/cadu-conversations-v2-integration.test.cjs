@@ -135,6 +135,7 @@ test('v2 attachments require an explicit project usage choice', () => {
 
 test('conversations 2.0 is one React surface with streaming, artifacts and protected work', () => {
   const app = fs.readFileSync(path.join(root, 'frontend/conversations-v2/App.jsx'), 'utf8');
+  const sidebar = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/Sidebar.jsx'), 'utf8');
   const historyModel = fs.readFileSync(path.join(root, 'frontend/conversations-v2/lib/historyModel.mjs'), 'utf8');
   const contextModel = fs.readFileSync(path.join(root, 'frontend/conversations-v2/lib/contextModel.mjs'), 'utf8');
   const artifact = fs.readFileSync(path.join(root, 'frontend/conversations-v2/components/ArtifactPane.jsx'), 'utf8');
@@ -153,6 +154,14 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(app, /ConfirmDialog/);
   assert.match(app, /beforeunload/);
   assert.match(app, /streamEvents/);
+  assert.match(app, /<CaduDock/);
+  assert.match(app, /cadu-ds-home-navbar cv-conversations-navbar/);
+  assert.match(app, /\[historyOpen, setHistoryOpen\] = useState\(\(\) => !window\.matchMedia/);
+  assert.match(app, /reset\(\); setHistoryOpen\(false\)/);
+  assert.match(app, /if \(!conversationRef\.current\) setHistoryOpen\(false\)/);
+  assert.match(sidebar, /cv-recent-sidebar/);
+  assert.match(sidebar, /Conversas recentes/);
+  assert.doesNotMatch(sidebar, /secondaryNav|Áreas principais|Workspace e conta/);
   assert.match(app, /let runStarted = false/);
   assert.match(app, /if \(runStarted\)/);
   assert.match(app, /kind: 'failure'/);
@@ -208,6 +217,8 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(template, /cadu-conversations-v2-root/);
   assert.match(template, /cadu-conversations-v2-bootstrap/);
   assert.match(template, /react\/app\.js/);
+  assert.match(template, /'solutions': \{'workspace'/);
+  assert.match(template, /'solutionIcons'/);
   assert.match(template, /react\/app\.css'\) }}\?v=\d+/);
   assert.match(template, /react\/app\.js'\) }}\?v=\d+/);
   assert.doesNotMatch(template, /_app_sidebar\.html/);

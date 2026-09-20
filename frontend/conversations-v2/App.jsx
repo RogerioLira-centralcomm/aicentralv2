@@ -11,6 +11,10 @@ import {recentConversations, restoreConversationMessages} from './lib/historyMod
 import {conversationPayload, projectContextPayload} from './lib/contextModel.mjs';
 import {uploadAttachments} from './lib/attachmentUpload.mjs';
 import {Icon} from './lib/icons';
+import {CaduDock} from '../cadu-design-system/components/CaduDock';
+import {CaduSolutionSwitcher} from '../cadu-design-system/components/WorkspaceSelectors';
+import {WorkspaceAccountControl, WorkspaceAccountMenu} from '../cadu-design-system/components/WorkspaceFeedback';
+import {workspaceSolutionItems} from '../cadu-design-system/workspaceSolutions';
 
 const emptyTitle = 'Novo chat';
 
@@ -34,7 +38,8 @@ export default function App({bootstrap}) {
   const [running, setRunning] = useState(false);
   const [runtime, setRuntime] = useState('');
   const [diagnostics, setDiagnostics] = useState([]);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(() => !window.matchMedia('(max-width: 900px)').matches);
+  const [accountOpen, setAccountOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [contextLoading, setContextLoading] = useState(true);
   const [openingId, setOpeningId] = useState(null);
@@ -50,6 +55,20 @@ export default function App({bootstrap}) {
 
   useEffect(() => { conversationRef.current = conversationId; }, [conversationId]);
   useEffect(() => { artifactRef.current = artifact; }, [artifact]);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 900px)');
+    const adaptHistory = event => {
+      if (event.matches) setHistoryOpen(false);
+      else if (!conversationRef.current) setHistoryOpen(true);
+    };
+    if (media.addEventListener) media.addEventListener('change', adaptHistory);
+    else media.addListener(adaptHistory);
+    return () => {
+      if (media.removeEventListener) media.removeEventListener('change', adaptHistory);
+      else media.removeListener(adaptHistory);
+    };
+  }, []);
 
   const trace = useCallback((eventTitle, detail = '', tone = '') => {
     setDiagnostics(items => [...items, {id: uid(), title: eventTitle, detail, tone}].slice(-30));
@@ -128,7 +147,7 @@ export default function App({bootstrap}) {
   }, [releasePreviews]);
 
   const newConversation = useCallback(async () => {
-    if (!running && await confirmDiscard()) reset();
+    if (!running && await confirmDiscard()) { reset(); setHistoryOpen(false); }
   }, [running, confirmDiscard, reset]);
 
   const openConversation = useCallback(async (id, conversationTitle) => {
@@ -146,7 +165,7 @@ export default function App({bootstrap}) {
       setComposerContext(restoredContext);
       if (lastArtifact) await fetchArtifact(lastArtifact);
       setRuntime('');
-      setMobileOpen(false);
+      if (window.matchMedia('(max-width: 900px)').matches) setHistoryOpen(false);
     } catch (error) {
       setRuntime('Não foi possível abrir');
       trace('Falha ao abrir conversa', error.message, 'error');
@@ -164,6 +183,7 @@ export default function App({bootstrap}) {
       });
       setContext(data.context || {});
       reset();
+      setHistoryOpen(false);
       trace('Contexto alterado', projects.find(item => item.ref === projectRef)?.name || 'Contexto pessoal');
     } catch (error) {
       trace('Falha ao alterar contexto', error.message, 'error');
@@ -237,6 +257,7 @@ export default function App({bootstrap}) {
       try { await fetchArtifact(artifactRef.current.id); } catch (error) { trace('Não foi possível restaurar o artefato', error.message, 'error'); return; }
     }
     setRunning(true); setRuntime(attachments.length ? 'Enviando arquivos' : 'Trabalhando');
+    if (!conversationRef.current) setHistoryOpen(false);
     let staged;
     try { staged = attachments.length ? await uploadFiles() : []; }
     catch (error) { setRunning(false); setRuntime('Não foi possível anexar'); trace('Falha no anexo', error.message, 'error'); return; }
@@ -394,14 +415,25 @@ export default function App({bootstrap}) {
     setInput(prompt || '');
     window.requestAnimationFrame(() => document.querySelector('.cv-composer-input')?.focus());
   }, []);
+  const openHistory = useCallback(() => setHistoryOpen(true), []);
+  const closeHistory = useCallback(() => setHistoryOpen(false), []);
 
-  return <div onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} className={`cv-flex cv-h-full cv-min-h-0 cv-w-full cv-overflow-hidden cv-bg-ink ${bootstrap.homeMode ? 'cv-home-mode' : ''}`}>
-    {!bootstrap.homeMode && <Sidebar bootstrap={bootstrap} conversations={conversations} activeId={conversationId} onOpen={openConversation} onNew={newConversation} mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} loading={historyLoading} openingId={openingId}/>}
-    {dropActive && <div className="cv-drop-overlay" role="status"><div className="cv-drop-overlay-card"><Icon name="file" size={24}/><strong>Solte para anexar ao chat</strong><span>Imagens aparecem como miniaturas. Os demais arquivos entram com nome e tipo.</span></div></div>}
-    <div className="cv-relative cv-flex cv-min-w-0 cv-flex-1">
-      <Conversation title={title} context={context} projects={projects} onProjectChange={changeProject} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onNew={newConversation} onPrompt={(prompt, selected) => { setInput(prompt); if (selected) setComposerContext(selected); }} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} mobileMenu={() => setMobileOpen(true)} artifactOpen={artifactOpen} notice={notice} onDismissNotice={() => setNotice(null)} composerContext={composerContext} onClearContext={() => setComposerContext(null)}/>
-      {artifactOpen && <ArtifactPane artifact={artifact} dirty={artifactDirty} saving={saving} onChange={changeArtifact} onClose={() => setArtifactOpen(false)} onSave={saveArtifact} onLoadVersions={loadVersions} versions={versions} onRestoreVersion={restoreVersion}/>}
-    </div>
-    <ConfirmDialog request={discardRequest} onResolve={resolveDiscard}/>
+  const solutions = workspaceSolutionItems(bootstrap);
+  const dockProjects = projects.slice(0, 6).map(item => ({id: item.ref, projectRef: item.ref, kind: 'project', title: item.name, name: item.name, visualInitials: String(item.name || 'P').slice(0, 2).toUpperCase()}));
+  return <div className="cadu-ds-home-shell cv-conversations-shell">
+    <main className="cadu-ds-home-main">
+      <header className="cadu-ds-home-navbar cv-conversations-navbar"><CaduSolutionSwitcher logo={bootstrap.caduMark || bootstrap.logo} solutions={solutions} activeId="workspace"/><strong>Conversas</strong><div className="cadu-ds-project-navbar__spacer"/><WorkspaceAccountControl user={bootstrap.user} onOpen={() => setAccountOpen(true)}/></header>
+      <div onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} className="cadu-ds-home-workarea cv-conversations-workarea">
+        <CaduDock resources={dockProjects} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} onNewConversation={newConversation} onOpenResource={item => item.projectRef && changeProject(item.projectRef)} onOpenUsage={() => setAccountOpen(true)}/>
+        <Sidebar conversations={conversations} activeId={conversationId} onOpen={openConversation} onNew={newConversation} open={historyOpen} onClose={closeHistory} loading={historyLoading} openingId={openingId}/>
+        {dropActive && <div className="cv-drop-overlay" role="status"><div className="cv-drop-overlay-card"><Icon name="file" size={24}/><strong>Solte para anexar ao chat</strong><span>Imagens aparecem como miniaturas. Os demais arquivos entram com nome e tipo.</span></div></div>}
+        <div className="cv-relative cv-flex cv-min-w-0 cv-flex-1">
+          <Conversation title={title} context={context} projects={projects} onProjectChange={changeProject} contextLoading={contextLoading} runtime={runtime} diagnostics={diagnostics} messages={messages} input={input} setInput={setInput} onSubmit={submit} attachments={attachments} onRemoveAttachment={removeAttachment} attachmentDestination={attachmentDestination} onAttachmentDestinationChange={setAttachmentDestination} executionMode={executionMode} onExecutionModeChange={setExecutionMode} running={running} onStop={stop} onNew={newConversation} onPrompt={(prompt, selected) => { setInput(prompt); if (selected) setComposerContext(selected); }} onOpenArtifact={item => item?.id && item.id !== artifactRef.current?.id ? fetchArtifact(item.id) : setArtifactOpen(true)} onOpenResource={openResource} onDecision={decide} onRevisitPrompt={revisitFailedPrompt} creditsUrl={bootstrap.urls?.credits || ''} onOpenHistory={openHistory} historyOpen={historyOpen} artifactOpen={artifactOpen} notice={notice} onDismissNotice={() => setNotice(null)} composerContext={composerContext} onClearContext={() => setComposerContext(null)}/>
+          {artifactOpen && <ArtifactPane artifact={artifact} dirty={artifactDirty} saving={saving} onChange={changeArtifact} onClose={() => setArtifactOpen(false)} onSave={saveArtifact} onLoadVersions={loadVersions} versions={versions} onRestoreVersion={restoreVersion}/>}
+        </div>
+        <ConfirmDialog request={discardRequest} onResolve={resolveDiscard}/>
+      </div>
+    </main>
+    <WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>
   </div>;
 }

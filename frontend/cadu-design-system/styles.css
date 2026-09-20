@@ -786,6 +786,13 @@ body.portal--workspace :is(.cadu-ds-home-shell,.workspace-app-shell) {
   overflow:auto;
 }
 .cadu-ds-dock-bottom { flex:0 0 auto; margin-top:auto; }
+@media (min-width:761px) {
+  .cadu-ds-dock-resources {
+    margin-top:14px;
+    padding-top:14px;
+    border-top:1px solid var(--cadu-nav-line);
+  }
+}
 /* Opening the solutions menu must lift the whole rail above conversation
    surfaces; a child z-index alone cannot escape the dock stacking context. */
 body.portal--workspace .cadu-ds-dock:has(.cadu-ds-solution-switcher[open]) {

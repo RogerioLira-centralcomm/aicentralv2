@@ -598,6 +598,7 @@ def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Opti
         'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'),
         'name': str(item.get('nome') or 'Projeto'), 'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id'))),
         'previewUrl': str(item.get('thumbnail_url') or item.get('brand_logo_url') or ''), 'projectRef': f"ci:{item.get('id')}",
+        'logoUrl': str(item.get('brand_logo_url') or ''),
         'brandName': str(item.get('thumbnail_label') or ''),
         'visualInitials': str(item.get('thumbnail_initials') or 'P'),
         'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'),
@@ -610,18 +611,10 @@ def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Opti
                 for row in _user_dock_shortcuts(client_id, user_id)
                 if (row['shortcut_type'], row['target_ref']) in catalog]
     if explicit:
-        explicit_keys = {(item['kind'], item.get('brandRef') if item['kind'] == 'brand' else item.get('projectRef')) for item in explicit}
-        # Keep personal order first, then add project destinations so a dock
-        # made of brand pins never loses the project's route on other pages.
-        suggestions = [item for item in project_items + brand_items
-                       if (item['kind'], item.get('brandRef') if item['kind'] == 'brand' else item.get('projectRef')) not in explicit_keys]
-        combined = explicit + suggestions
-        if project_items and not any(item['kind'] == 'project' for item in combined[:8]):
-            project = next((item for item in project_items if item not in explicit), None)
-            if project:
-                combined = combined[:7] + [project] + combined[8:]
-        return combined[:8]
-    return (brand_items[:3] + project_items)[:8]
+        return explicit[:8]
+    # Before the user personalizes the dock, show only a small brand shelf.
+    # Projects enter the dock through an explicit shortcut, never by catalog size.
+    return brand_items[:3]
 
 
 @bp.get('/workspace/api/dock/shortcuts')

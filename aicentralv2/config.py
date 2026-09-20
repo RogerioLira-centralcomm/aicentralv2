@@ -118,12 +118,11 @@ class Config:
 	# Minimum balance required before a Conversas request reaches Dify. The
 	# final debit still follows measured provider usage.
 	CADU_CHAT_ADMISSION_TOKENS = int(os.getenv('CADU_CHAT_ADMISSION_TOKENS', '8000'))
-	# Conversations V2 uses an isolated Dify app.  Keeping separate credentials
-	# makes the rollout reversible and prevents prompt/schema changes from
-	# affecting active legacy conversations.
-	CADU_CONVERSATIONS_V2_ENABLED = os.getenv('CADU_CONVERSATIONS_V2_ENABLED', '0').lower() in ('true', '1', 'yes', 'on')
+	# Conversations V2 is the published Workspace surface. Separate credentials
+	# keep runtime modes isolated while the legacy renderer remains compatibility-only.
+	CADU_CONVERSATIONS_V2_ENABLED = os.getenv('CADU_CONVERSATIONS_V2_ENABLED', '1').lower() in ('true', '1', 'yes', 'on')
 	CADU_CONVERSATIONS_V2_UI_ENABLED = os.getenv(
-		'CADU_CONVERSATIONS_V2_UI_ENABLED', os.getenv('CADU_CONVERSATIONS_V2_ENABLED', '0')
+		'CADU_CONVERSATIONS_V2_UI_ENABLED', os.getenv('CADU_CONVERSATIONS_V2_ENABLED', '1')
 	).lower() in ('true', '1', 'yes', 'on')
 	CADU_CONVERSATIONS_V2_DIFY_URL = os.getenv('CADU_CONVERSATIONS_V2_DIFY_URL', '')
 	CADU_CONVERSATIONS_V2_DIFY_KEY = os.getenv('CADU_CONVERSATIONS_V2_DIFY_KEY', '')

@@ -23,11 +23,11 @@ export function Sidebar({conversations, projects = [], brands = [], activeId, on
 
   if (!open) return null;
   return <>
-    <button type="button" onClick={onClose} aria-label="Fechar conversas recentes" className="cv-recent-backdrop"/>
-    <aside id="cv-recent-sidebar" className="cv-recent-sidebar" aria-label="Conversas recentes">
+    <button type="button" onClick={onClose} aria-label="Fechar chats recentes" className="cv-recent-backdrop"/>
+    <aside id="cv-recent-sidebar" className="cv-recent-sidebar" aria-label="Chats recentes">
       <header className="cv-recent-sidebar__header">
-        <div><span>Conversas</span><strong>Recentes</strong></div>
-        <div><button type="button" onClick={onNew} aria-label="Novo chat"><Icon name="newChat" size={16}/></button><button type="button" onClick={onClose} aria-label="Recolher conversas recentes"><Icon name="chevron" size={16}/></button></div>
+        <div><span>Cadu Chat</span><strong>Recentes</strong></div>
+        <div><button type="button" onClick={onNew} aria-label="Novo chat"><Icon name="newChat" size={16}/></button><button type="button" onClick={onClose} aria-label="Recolher chats recentes"><Icon name="chevron" size={16}/></button></div>
       </header>
       {conversations.length > 6 && <label className="cv-recent-search"><Icon name="search" size={14}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar conversa" aria-label="Buscar conversa"/></label>}
       <div className="cv-recent-list">

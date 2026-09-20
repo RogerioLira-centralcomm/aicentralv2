@@ -2394,10 +2394,11 @@ def legacy_dashboard_url():
 @bp.get('/conversas')
 @login_required
 def conversations():
-    """Dedicated Cadu surface; message delivery remains in the shared guarded API."""
-    if request.path.startswith('/workspace/app/'):
-        return redirect(url_for('cadu_workspace.conversations', **request.args.to_dict(flat=True)), code=308)
-    return render_template('cadu_workspace/conversations.html')
+    """Compatibility entry; the customer-facing conversation surface is React V2."""
+    target = '/workspace/conversas-v2-lab'
+    if request.query_string:
+        target = f'{target}?{request.query_string.decode("utf-8")}'
+    return redirect(target, code=308)
 
 
 @bp.get('/workspace/app/marcas')

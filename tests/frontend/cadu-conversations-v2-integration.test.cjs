@@ -23,7 +23,7 @@ test('runtime v2 translates internal events into public UI events', () => {
   assert.equal(runtime.normalize({event:'run.completed', status:'cancelled'}).status, 'stopped');
 });
 
-test('official conversation screen wires v2 without removing legacy fallback', () => {
+test('legacy conversation screen stays wired only as a compatibility fallback', () => {
   const template = fs.readFileSync(path.join(root, 'aicentralv2/templates/cadu_workspace/conversations.html'), 'utf8');
   const chat = fs.readFileSync(path.join(root, 'aicentralv2/static/cadu_workspace/conversations/chat.js'), 'utf8');
   assert.match(template, /data-runtime=/);
@@ -33,6 +33,12 @@ test('official conversation screen wires v2 without removing legacy fallback', (
   assert.match(chat, /CaduConversationV2\.events/);
   assert.match(chat, /CaduV2Artifacts/);
   assert.match(chat, /\/familia\/api\/conversations\/send/);
+});
+
+test('the old conversation entries now hand off to the React V2 screen', () => {
+  const routes = fs.readFileSync(path.join(root, 'aicentralv2/cadu_workspace/routes.py'), 'utf8');
+  assert.match(routes, /Compatibility entry; the customer-facing conversation surface is React V2/);
+  assert.match(routes, /target = '\/workspace\/conversas-v2-lab'/);
 });
 
 test('Workspace home keeps a functional product switcher and resilient visual dock', () => {
@@ -266,7 +272,7 @@ test('conversations 2.0 is one React surface with streaming, artifacts and prote
   assert.match(app, /reset\(\); setHistoryOpen\(false\)/);
   assert.match(app, /if \(!conversationRef\.current\) setHistoryOpen\(false\)/);
   assert.match(sidebar, /cv-recent-sidebar/);
-  assert.match(sidebar, /Conversas recentes/);
+  assert.match(sidebar, /Chats recentes/);
   assert.doesNotMatch(sidebar, /secondaryNav|Áreas principais|Workspace e conta/);
   assert.match(app, /let runStarted = false/);
   assert.match(app, /if \(runStarted\)/);
@@ -345,7 +351,7 @@ test('conversation failures are converted into an actionable user-facing state',
     detail: 'Esta solicitação precisa de 8.000 créditos. O saldo disponível é 0.',
     guidance: 'Nenhum crédito foi usado. Adicione créditos à conta antes de enviar novamente.',
   });
-  assert.equal(model.chatFailure({status: 503}).title, 'Conversas está temporariamente indisponível');
+  assert.equal(model.chatFailure({status: 503}).title, 'Cadu Chat está temporariamente indisponível');
 });
 
 test('conversation response model preserves execution order and explicit checklist selection', async () => {

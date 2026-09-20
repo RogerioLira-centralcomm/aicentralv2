@@ -44,7 +44,7 @@ export function chatFailure(error) {
 
   if (status === 503) return {
     kind: 'unavailable',
-    title: 'Conversas está temporariamente indisponível',
+    title: 'Cadu Chat está temporariamente indisponível',
     detail: 'Não foi possível concluir esta solicitação agora.',
     guidance: 'Sua mensagem foi mantida no campo. Tente novamente em alguns instantes.',
   };

@@ -270,7 +270,8 @@ class ProductPortalsTest(TestCase):
         with client.session_transaction() as sess:
             sess.update(user_id=7, cliente_id=12, user_name="Apolo")
         conversations = client.get("/workspace/app/conversas", headers={"Host": "workspace.centralcomm.media"})
-        self.assertIn('data-theme-mode="preference"', conversations.get_data(as_text=True))
+        self.assertEqual(conversations.status_code, 308)
+        self.assertTrue(conversations.headers["Location"].endswith("/workspace/conversas-v2-lab"))
         sidebar_projects = [{"id": str(index), "nome": f"Projeto {index}"} for index in range(1, 7)]
         with mock.patch("aicentralv2.cadu_workspace.routes._workspace_sidebar_projects", return_value=sidebar_projects):
             response = client.get("/app", headers={"Host": "workspace.centralcomm.media"})

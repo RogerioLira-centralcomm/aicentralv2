@@ -1,11 +1,11 @@
 {% extends 'cadu_portals/base.html' %}
-{% block title %}Conversas 2.0 — Cadu Workspace{% endblock %}
+{% block title %}Cadu Chat — Cadu Workspace{% endblock %}
 {% block product_id %}workspace{% endblock %}
 {% block content_class %}portal-content--workspace-react{% endblock %}
 {% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='cadu_workspace/conversations/react/app.css') }}?v=16">{% endblock %}
 {% block navigation %}{% endblock %}
 {% block content %}
-<div id="cadu-conversations-v2-root" aria-label="Conversas 2.0"><noscript>Ative o JavaScript para usar a Conversas 2.0.</noscript></div>
+<div id="cadu-conversations-v2-root" aria-label="Cadu Chat"><noscript>Ative o JavaScript para usar o Cadu Chat.</noscript></div>
 {% set secondary_nav = [
   {'label': 'Uso', 'href': url_for('cadu_workspace.account_page', section='creditos')},
   {'label': 'Planos', 'href': url_for('cadu_workspace.account_page', section='planos')},

@@ -172,6 +172,26 @@ def _classify(source: dict, requested: Optional[str], text: str = "") -> dict:
             "reason": "Não há sinais suficientes para uma categoria específica."}
 
 
+def _schedule_resource_reconciliation(context: RequestContext, source_id: int) -> str:
+    """Queue registry reconciliation and repair immediately only if queueing failed."""
+    from . import project_resource_service
+
+    try:
+        project_resource_service.notify_change(
+            context.client_id, context.project_ref, "created", source_system="workspace",
+            source_id=f"file:{source_id}", actor_id=context.user_id,
+        )
+        return "queued"
+    except Exception:
+        current_app.logger.exception("Falha ao enfileirar organização do recurso %s", source_id)
+        try:
+            project_resource_service.reconcile(context.client_id, context.project_ref, context.user_id)
+            return "reconciled"
+        except Exception:
+            current_app.logger.exception("Reconciliação imediata indisponível para o recurso %s", source_id)
+            return "pending"
+
+
 def save_upload(context: RequestContext, token: str, file_storage) -> dict:
     claims = _upload_claims(context, token)
     project_id = _project_id(context)
@@ -264,18 +284,81 @@ def save_upload(context: RequestContext, token: str, file_storage) -> dict:
         if target is not None:
             target.unlink(missing_ok=True)
         raise
-    try:
-        from .project_resource_service import notify_change
-        notify_change(context.client_id, context.project_ref, "created", source_system="workspace",
-                      source_id=f"file:{source_id}", actor_id=context.user_id)
-    except Exception:
-        current_app.logger.exception("Falha ao organizar o arquivo %s no projeto", source_id)
+    registry_sync = _schedule_resource_reconciliation(context, source_id)
     return {"source_id": source_id, "project_ref": context.project_ref, "name": source["name"],
             "mime_type": source["mime"], "size": len(source["data"]),
             "use_as_knowledge": use_as_knowledge,
             "purpose": purpose, "category": classification["category"],
             "classification": classification,
-            "status": "indexed" if use_as_knowledge else "attached", "charged_credits": charged_tokens}
+            "status": "indexed" if use_as_knowledge else "attached", "charged_credits": charged_tokens,
+            "registry_sync": registry_sync}
+
+
+def create_note(context: RequestContext, *, title: str, content: str, category: Optional[str] = None) -> dict:
+    """Persist a chat-authored note through the same index and registry pipeline as uploads."""
+    project_id = _project_id(context)
+    title = " ".join(str(title or "").split())[:180]
+    content = str(content or "").strip()[:50000]
+    if len(title) < 2:
+        raise BadRequest("Dê um título para identificar esta nota.")
+    if len(content) < 20:
+        raise BadRequest("A nota precisa ter ao menos 20 caracteres de contexto.")
+    category = str(category or "other").strip().lower()
+    if category not in CATEGORIES:
+        raise BadRequest("Categoria de nota inválida.")
+    content_hash = sha256(content.encode("utf-8")).hexdigest()
+    classification = {"category": category, "status": "manual", "confidence": 1.0,
+                      "reason": "Nota estruturada pelo usuário no Conversas."}
+    connection = get_db()
+    try:
+        with connection.cursor() as cursor:
+            # Keep a same-content retry or a second request from becoming a new
+            # knowledge source. The lock spans embedding generation below so two
+            # simultaneous turns cannot both pass the lookup.
+            cursor.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s,0))",
+                           (f"cadu-project-note:{context.client_id}:{project_id}:{content_hash}",))
+            cursor.execute("""SELECT id,nome_arquivo AS name,tokens,category
+                              FROM cadu_ci_projeto_arquivos
+                             WHERE id_cliente=%s AND projeto_id=%s
+                               AND purpose='knowledge_source'
+                               AND classification_metadata->>'sha256'=%s
+                               AND classification_metadata->>'classifier'='user-note-v1'
+                             ORDER BY id DESC LIMIT 1""",
+                           (context.client_id, project_id, content_hash))
+            existing = cursor.fetchone()
+            if existing:
+                connection.commit()
+                registry_sync = _schedule_resource_reconciliation(context, int(existing["id"]))
+                return {"source_id": int(existing["id"]), "project_ref": context.project_ref,
+                        "name": existing["name"], "purpose": "knowledge_source",
+                        "category": existing.get("category") or category, "status": "indexed",
+                        "chunks": None, "charged_credits": 0, "idempotent_replay": True,
+                        "registry_sync": registry_sync}
+
+            chunks, embedding_tokens, embedding_model = project_knowledge.index(content)
+            if not chunks:
+                raise BadRequest("A nota não contém texto que possa ser indexado.")
+            charged_tokens = charge_project_rag(
+                cursor, client_id=context.client_id, user_id=context.user_id, project_id=project_id,
+                tokens=embedding_tokens, stage="indexacao",
+                idempotency_key=f"mcp-project-note:{context.client_id}:{project_id}:{content_hash}",
+            )
+            source_id = project_index_service.persist_indexed_source(
+                cursor, project_id=project_id, client_id=context.client_id, user_id=context.user_id,
+                name=title, mime="text/markdown", size=len(content.encode("utf-8")),
+                storage_path=f"workspace://project-notes/{uuid4()}", source="mcp_note", content=content,
+                chunks=chunks, embedding_model=embedding_model, charged_tokens=charged_tokens,
+                classification=classification,
+                metadata={"classifier": "user-note-v1", "sha256": content_hash, "created_via": "conversations"},
+            )
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    registry_sync = _schedule_resource_reconciliation(context, source_id)
+    return {"source_id": source_id, "project_ref": context.project_ref, "name": title,
+            "purpose": "knowledge_source", "category": category, "status": "indexed",
+            "chunks": len(chunks), "charged_credits": charged_tokens, "registry_sync": registry_sync}
 
 
 def list_sources(context: RequestContext, *, limit=50) -> list[dict]:

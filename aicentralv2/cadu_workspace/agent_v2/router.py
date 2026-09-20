@@ -14,7 +14,7 @@ def _has(text: str, pattern: str) -> bool:
 
 
 def route_request(message: str, surface: str = "conversations", has_project: bool = False,
-                  active_object_type: str = "") -> IntentRoute:
+                  active_object_type: str = "", has_brand: bool = False) -> IntentRoute:
     text = " ".join(str(message or "").split())[:20000]
 
     if (_has(text, r"\b(test|teste|testar|verifi|diagn[oó]stico|audit).{0,30}\b(link|url|destino|utm|tracking)\b")
@@ -71,6 +71,30 @@ def route_request(message: str, surface: str = "conversations", has_project: boo
         needs_tool = "projects.list_sources" if _has(text, r"\b(fontes?|base de conhecimento|indexad[oa])\b") else "projects.list_resources"
         return IntentRoute("workspace", "list_project_resources", "low", "analysis",
                            ("project",), (needs_tool,))
+    if has_project and _has(text, r"\b(arquiv|desativ|reativ|restaur).{0,30}\bprojeto\b"):
+        return IntentRoute("workspace", "set_project_status", "medium", "decision",
+                           ("project",), (), None, True)
+    if has_project and _has(text, r"\b(vincul|associ|conect).{0,35}\bmarca\b"):
+        return IntentRoute("workspace", "link_project_brand" if has_brand else "select_brand_for_project",
+                           "medium", "decision" if has_brand else "clarification",
+                           ("project", "brand") if has_brand else ("project",), (), None, has_brand)
+    reindex_requested = (
+        _has(text, r"\b(reprocess|reindex)\w*.{0,35}\b(fonte|arquivo|documento)\b")
+        or _has(text, r"\batualiz\w*.{0,35}\b([íi]ndice|indexa[çc][ãa]o)\b.{0,35}\b(fonte|arquivo|documento)\b")
+    )
+    if has_project and reindex_requested:
+        has_source_id = bool(re.search(r"\b(?:fonte|arquivo|documento)\s*#?\s*\d+\b", text, re.IGNORECASE))
+        return IntentRoute("workspace", "reindex_project_source" if has_source_id else "select_project_source",
+                           "high", "decision" if has_source_id else "clarification",
+                           ("project",), ("projects.list_sources",), None, has_source_id)
+    if has_project and _has(text, r"\b(adicion|crie|registre).{0,35}\b(nota|fonte textual)\b"):
+        has_note_payload = bool(re.search(
+            r"\b(?:nota|fonte textual)\s*[\"“][^\"”]{2,180}[\"”]\s*:\s*.{20,50000}$",
+            text, re.IGNORECASE | re.DOTALL,
+        ))
+        return IntentRoute("workspace", "create_project_note" if has_note_payload else "clarify_project_note",
+                           "medium", "decision" if has_note_payload else "clarification",
+                           ("project",), (), None, has_note_payload)
     if _has(text, r"\b(ajust|alter|mude|troque|revis|atualiz).{0,45}\b(html|landing page|p[aá]gina|site|interface)\b"):
         return IntentRoute("workspace", "update_html", "high", "artifact_first",
                            ("current_object",), ("artifacts.get",), "html")

@@ -35,7 +35,7 @@ def briefing_readiness(message: str, history: str = "", context: Optional[dict] 
 def prepare_execution(message, request, history="", requested_mode=""):
     route = route_request(
         message, request.surface, bool(request.project_ref),
-        request.active_object.type if request.active_object else "",
+        request.active_object.type if request.active_object else "", bool(request.brand_ref),
     )
     readiness = None
     if route.action == "create_brief":

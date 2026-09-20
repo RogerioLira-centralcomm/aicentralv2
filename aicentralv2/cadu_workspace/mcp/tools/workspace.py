@@ -1,13 +1,29 @@
 """Workspace tools.  Every query remains scoped to RequestContext.client_id."""
 
 import json
+import re
 
 from ....cadu_family import repository
+from ....db import get_db
 from ...agent_v2.contracts import RequestContext
 from ...conversations.service import project_knowledge_context
 from ...project_portfolio_service import attach_summaries
 from .. import operations
 from ..registry import ToolInputError, register_tool
+
+
+def _native_project_id(context: RequestContext) -> str:
+    project_ref = str(context.project_ref or "")
+    if not project_ref.startswith("ci:"):
+        raise ToolInputError("Selecione um projeto nativo do Cadu para realizar esta ação.")
+    project_id = project_ref[3:]
+    records = repository.rows(
+        "SELECT id FROM cadu_ci_projetos WHERE id=%s AND id_cliente=%s AND status <> 'deletado'",
+        (project_id, context.client_id),
+    )
+    if not records:
+        raise ToolInputError("Projeto indisponível.")
+    return project_id
 
 
 @register_tool(
@@ -48,6 +64,121 @@ def create_project(context: RequestContext, arguments: dict) -> dict:
         return {"project_ref": project_ref, "name": payload["name"], "status": "created"}
 
     return operations.execute(arguments["request_id"], context, "workspace.create_project", payload, create)
+
+
+@register_tool(
+    name="workspace.update_project_context", capability="workspace", effect="write", requires_project=True,
+    description="Atualiza campos de contexto do projeto atual após confirmação explícita.",
+    exposures=("internal",),
+    input_schema={
+        "type": "object", "required": ["request_id", "confirmed"],
+        "properties": {
+            "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
+            "confirmed": {"type": "boolean", "enum": [True]},
+            "name": {"type": "string", "minLength": 2, "maxLength": 150},
+            "description": {"type": "string", "maxLength": 4000},
+            "instructions": {"type": "string", "maxLength": 12000},
+            "tone_of_voice": {"type": "string", "maxLength": 4000},
+            "audience": {"type": "string", "maxLength": 4000},
+            "positioning": {"type": "string", "maxLength": 4000},
+            "color": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"},
+        }, "additionalProperties": False,
+    },
+)
+def update_project_context(context: RequestContext, arguments: dict) -> dict:
+    project_id = _native_project_id(context)
+    fields = ("name", "description", "instructions", "tone_of_voice", "audience", "positioning", "color")
+    payload = {key: arguments[key] for key in fields if key in arguments}
+    if not payload:
+        raise ToolInputError("Informe ao menos um campo do projeto para atualizar.")
+    if "name" in payload:
+        payload["name"] = " ".join(str(payload["name"]).split())[:150]
+        if len(payload["name"]) < 2:
+            raise ToolInputError("O projeto precisa de um nome com ao menos dois caracteres.")
+    if "color" in payload and not re.fullmatch(r"#[0-9a-fA-F]{6}", str(payload["color"])):
+        raise ToolInputError("Use uma cor hexadecimal válida para o projeto.")
+    column = {"name": "nome", "description": "descricao", "instructions": "instrucoes",
+              "tone_of_voice": "tom_de_voz", "audience": "publico", "positioning": "posicionamento",
+              "color": "cor"}
+
+    def update():
+        assignments = ", ".join(f"{column[key]}=%s" for key in payload)
+        connection = get_db()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"UPDATE cadu_ci_projetos SET {assignments}, updated_at=NOW() "
+                    "WHERE id=%s AND id_cliente=%s RETURNING id,nome,updated_at",
+                    (*payload.values(), project_id, context.client_id),
+                )
+                result = cursor.fetchone()
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        return {"project_ref": context.project_ref, "project_id": str(result["id"]),
+                "name": result["nome"], "updated_fields": sorted(payload), "status": "updated"}
+
+    return operations.execute(arguments["request_id"], context, "workspace.update_project_context", payload, update)
+
+
+@register_tool(
+    name="workspace.set_project_status", capability="workspace", effect="write", requires_project=True,
+    description="Arquiva ou reativa o projeto atual após confirmação explícita.",
+    exposures=("internal",),
+    input_schema={"type": "object", "required": ["request_id", "confirmed", "status"], "properties": {
+        "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
+        "confirmed": {"type": "boolean", "enum": [True]},
+        "status": {"type": "string", "enum": ["ativo", "arquivado"]},
+    }, "additionalProperties": False},
+)
+def set_project_status(context: RequestContext, arguments: dict) -> dict:
+    project_id = _native_project_id(context)
+    status = arguments["status"]
+
+    def update():
+        connection = get_db()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("UPDATE cadu_ci_projetos SET status=%s,updated_at=NOW() "
+                               "WHERE id=%s AND id_cliente=%s RETURNING nome,status",
+                               (status, project_id, context.client_id))
+                result = cursor.fetchone()
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        return {"project_ref": context.project_ref, "name": result["nome"],
+                "status": result["status"]}
+
+    return operations.execute(arguments["request_id"], context, "workspace.set_project_status", {"status": status}, update)
+
+
+@register_tool(
+    name="workspace.link_current_brand", capability="workspace", effect="write", requires_project=True,
+    description="Vincula ou desvincula a marca selecionada ao projeto atual após confirmação.",
+    exposures=("internal",),
+    input_schema={"type": "object", "required": ["request_id", "confirmed", "linked"], "properties": {
+        "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
+        "confirmed": {"type": "boolean", "enum": [True]},
+        "linked": {"type": "boolean"},
+    }, "additionalProperties": False},
+)
+def link_current_brand(context: RequestContext, arguments: dict) -> dict:
+    _native_project_id(context)
+    brand_ref = str(context.brand_ref or "")
+    entities = {item.get("ref"): item for item in repository.entities(context.client_id)}
+    if not brand_ref or (entities.get(brand_ref) or {}).get("kind") != "brand":
+        raise ToolInputError("Selecione uma marca válida antes de alterar o vínculo do projeto.")
+    linked = bool(arguments["linked"])
+
+    def update():
+        repository.set_project_brand_link(context.client_id, context.user_id, context.project_ref, brand_ref, linked)
+        return {"project_ref": context.project_ref, "brand_ref": brand_ref,
+                "brand_name": entities[brand_ref].get("name"), "linked": linked,
+                "status": "linked" if linked else "unlinked"}
+
+    return operations.execute(arguments["request_id"], context, "workspace.link_current_brand", {"linked": linked}, update)
 
 
 @register_tool(

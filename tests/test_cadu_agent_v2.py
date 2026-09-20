@@ -118,7 +118,11 @@ def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
         context(capabilities=("workspace", "artifacts")), "internal",
     )}
     assert {"brands.create", "brands.start_audit"} <= internal_names
+    assert "projects.reindex_source" in internal_names
+    assert "projects.create_note" in internal_names
     assert "workspace.create_project" in internal_names
+    assert {"workspace.update_project_context", "workspace.set_project_status"} <= internal_names
+    assert "workspace.link_current_brand" in internal_names
     assert not {"brands.create", "brands.start_audit"} & names
     assert "artifacts.archive" not in names
     with pytest.raises(ToolInputError):
@@ -254,6 +258,122 @@ def test_project_commands_route_to_real_registry_capabilities():
                   if step["kind"] == "action")
     assert action["name"] == "workspace.create_project"
     assert action["requires_confirmation"] is True
+
+
+def test_project_archive_is_a_confirmed_workspace_action():
+    route = route_request("Arquive este projeto", has_project=True)
+    action = next(step for step in build_task_plan(route, budget_for(route), "Arquive este projeto")
+                  if step["kind"] == "action")
+    assert route.action == "set_project_status"
+    assert action["name"] == "workspace.set_project_status"
+    assert action["arguments"]["status"] == "arquivado"
+
+
+def test_linking_a_project_brand_requires_an_explicit_brand_context():
+    missing = route_request("Vincule esta marca ao projeto", has_project=True)
+    ready = route_request("Vincule esta marca ao projeto", has_project=True, has_brand=True)
+    assert missing.action == "select_brand_for_project"
+    assert missing.response_mode == "clarification"
+    action = next(step for step in build_task_plan(ready, budget_for(ready), "Vincule esta marca ao projeto")
+                  if step["kind"] == "action")
+    assert action["name"] == "workspace.link_current_brand"
+    assert action["arguments"]["linked"] is True
+
+
+def test_reindexing_a_source_requires_its_explicit_identifier():
+    route = route_request("Reprocesse o arquivo 42", has_project=True)
+    action = next(step for step in build_task_plan(route, budget_for(route), "Reprocesse o arquivo 42")
+                  if step["kind"] == "action")
+    assert route.action == "reindex_project_source"
+    assert action["name"] == "projects.reindex_source"
+    assert action["arguments"] == {"source_id": 42}
+
+
+def test_project_document_edits_do_not_trigger_costly_reindexing():
+    update = route_request("Atualize o documento do projeto com a nova oferta", has_project=True)
+    missing_source = route_request("Reprocesse este arquivo", has_project=True)
+
+    assert update.action != "reindex_project_source"
+    assert missing_source.action == "select_project_source"
+    assert missing_source.response_mode == "clarification"
+
+
+def test_project_note_is_a_confirmed_knowledge_source_action():
+    message = 'Adicione a nota "Decisão de mídia": Priorizar LinkedIn para gestores B2B e validar o CPL na primeira semana.'
+    route = route_request(message, has_project=True)
+    action = next(step for step in build_task_plan(route, budget_for(route), message) if step["kind"] == "action")
+    assert route.action == "create_project_note"
+    assert action["name"] == "projects.create_note"
+    assert action["arguments"]["title"] == "Decisão de mídia"
+
+
+def test_incomplete_project_note_asks_only_for_the_missing_payload():
+    route = route_request("Adicione uma nota ao projeto", has_project=True)
+    plan = build_task_plan(route, budget_for(route), "Adicione uma nota ao projeto")
+
+    assert route.action == "clarify_project_note"
+    assert route.response_mode == "clarification"
+    assert not [step for step in plan if step["kind"] == "action"]
+
+
+def test_project_note_reuses_a_matching_knowledge_source(monkeypatch):
+    class Cursor:
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+        def execute(self, *_): pass
+        def fetchone(self):
+            return {"id": 91, "name": "Decisão de mídia", "tokens": 20, "category": "research"}
+
+    class Connection:
+        committed = False
+        def cursor(self): return Cursor()
+        def commit(self): self.committed = True
+        def rollback(self): raise AssertionError("A consulta duplicada não deve falhar")
+
+    connection = Connection()
+    monkeypatch.setattr(project_source_service, "_project_id", lambda _: "42")
+    monkeypatch.setattr(project_source_service, "get_db", lambda: connection)
+    monkeypatch.setattr(project_source_service.project_knowledge, "index",
+                        lambda _: (_ for _ in ()).throw(AssertionError("Não deve reindexar conteúdo duplicado")))
+    monkeypatch.setattr(project_source_service, "_schedule_resource_reconciliation",
+                        lambda *_: "queued")
+
+    result = project_source_service.create_note(
+        context(project_ref="ci:42"), title="Decisão de mídia",
+        content="Priorizar LinkedIn para gestores B2B e validar o CPL na primeira semana.",
+    )
+
+    assert result["source_id"] == 91
+    assert result["idempotent_replay"] is True
+    assert connection.committed is True
+
+
+def test_reindex_domain_errors_are_safe_tool_errors(monkeypatch):
+    from aicentralv2.cadu_workspace.mcp.tools import projects
+
+    monkeypatch.setattr(projects.project_index_service, "reindex_source",
+                        lambda *_: (_ for _ in ()).throw(ValueError("Fonte indisponível para reindexação.")))
+    monkeypatch.setattr(projects.operations, "execute", lambda _id, _context, _tool, _payload, operation: operation())
+
+    with pytest.raises(ToolInputError, match="Fonte indisponível"):
+        load_builtin_tools().execute("projects.reindex_source", {
+            "request_id": "be777b36-a973-419c-802a-886bf1d125b0", "confirmed": True, "source_id": 91,
+        }, context(project_ref="ci:42"), "internal")
+
+
+def test_registry_reconciliation_falls_back_to_an_idempotent_repair(monkeypatch):
+    from aicentralv2.cadu_workspace import project_resource_service
+
+    monkeypatch.setattr(project_resource_service, "notify_change",
+                        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("queue unavailable")))
+    repaired = []
+    monkeypatch.setattr(project_resource_service, "reconcile",
+                        lambda *args: repaired.append(args) or {"available": True})
+
+    app = Flask(__name__)
+    with app.app_context():
+        assert project_source_service._schedule_resource_reconciliation(context(project_ref="ci:42"), 91) == "reconciled"
+    assert repaired == [(12, "ci:42", 7)]
 
 
 def test_create_project_tool_writes_canonical_project_only_after_confirmation(monkeypatch):
@@ -521,6 +641,25 @@ def test_approved_action_executes_only_the_sealed_tool_and_arguments(monkeypatch
         "current": current, "exposure": "internal",
     }
     assert receipt["result"]["run_id"] == "link-run"
+    assert receipt["completion"]["answer"] == "Ação concluída."
+
+
+def test_project_note_action_emits_a_semantic_completion_item(monkeypatch):
+    from aicentralv2.cadu_workspace.agent_v2 import action_executor
+
+    class Registry:
+        def execute(self, *_):
+            return {"source_id": 91, "name": "Decisão de mídia", "registry_sync": "queued"}
+
+    monkeypatch.setattr(action_executor, "load_builtin_tools", lambda: Registry())
+    receipt = action_executor.execute({
+        "kind": "action", "status": "running", "name": "projects.create_note",
+        "input_snapshot": {"name": "projects.create_note", "request_id": "be777b36-a973-419c-802a-886bf1d125b0",
+                           "arguments": {"title": "Decisão de mídia", "content": "Priorizar LinkedIn para gestores B2B."}},
+    }, context())
+
+    assert receipt["completion"]["refresh_context"] is True
+    assert receipt["completion"]["blocks"][0]["type"] == "sources"
 
 
 def test_resource_worker_reclaims_stale_jobs_with_backoff(monkeypatch):

@@ -4,7 +4,9 @@ from werkzeug.exceptions import HTTPException
 
 from ...agent_v2.contracts import RequestContext
 from ... import project_source_service
+from ... import project_index_service
 from ... import project_resource_service
+from .. import operations
 from ..registry import ToolInputError, register_tool
 
 
@@ -13,6 +15,8 @@ def _domain(call):
         return call()
     except HTTPException as exc:
         raise ToolInputError(str(exc.description)) from exc
+    except ValueError as exc:
+        raise ToolInputError(str(exc)) from exc
 
 
 @register_tool(
@@ -66,4 +70,45 @@ def prepare_source_upload(context: RequestContext, arguments: dict) -> dict:
     return _domain(lambda: project_source_service.prepare_upload(
         context, request_id=arguments["request_id"],
         use_as_knowledge=arguments["use_as_knowledge"], category=arguments.get("category"),
+    ))
+
+
+@register_tool(
+    name="projects.reindex_source", capability="workspace", effect="write", requires_project=True,
+    description="Reprocessa uma fonte de conhecimento do projeto após confirmação explícita.",
+    exposures=("internal",),
+    input_schema={"type": "object", "required": ["request_id", "confirmed", "source_id"], "properties": {
+        "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
+        "confirmed": {"type": "boolean", "enum": [True]},
+        "source_id": {"type": "integer", "minimum": 1},
+    }, "additionalProperties": False},
+)
+def reindex_source(context: RequestContext, arguments: dict) -> dict:
+    if not context.project_ref or not context.project_ref.startswith("ci:"):
+        raise ToolInputError("Selecione um projeto nativo do Cadu para reprocessar uma fonte.")
+    project_id = context.project_ref[3:]
+    source_id = int(arguments["source_id"])
+    return _domain(lambda: operations.execute(
+        arguments["request_id"], context, "projects.reindex_source", {"source_id": source_id},
+        lambda: project_index_service.reindex_source(context.client_id, project_id, source_id, context.user_id),
+    ))
+
+
+@register_tool(
+    name="projects.create_note", capability="workspace", effect="write", requires_project=True,
+    description="Cria uma nota como fonte de conhecimento do projeto após confirmação explícita.",
+    exposures=("internal",),
+    input_schema={"type": "object", "required": ["request_id", "confirmed", "title", "content"], "properties": {
+        "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
+        "confirmed": {"type": "boolean", "enum": [True]},
+        "title": {"type": "string", "minLength": 2, "maxLength": 180},
+        "content": {"type": "string", "minLength": 20, "maxLength": 50000},
+        "category": {"type": "string", "enum": sorted(project_source_service.CATEGORIES)},
+    }, "additionalProperties": False},
+)
+def create_note(context: RequestContext, arguments: dict) -> dict:
+    payload = {key: arguments[key] for key in ("title", "content", "category") if key in arguments}
+    return _domain(lambda: operations.execute(
+        arguments["request_id"], context, "projects.create_note", payload,
+        lambda: project_source_service.create_note(context, **payload),
     ))

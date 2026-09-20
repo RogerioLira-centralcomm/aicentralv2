@@ -38,6 +38,52 @@ def _create_project_step(message: str):
     }
 
 
+def _project_status_step(message: str):
+    text = str(message or "")
+    status = "ativo" if re.search(r"\b(reativ|restaur)\w*", text, re.IGNORECASE) else "arquivado"
+    label = "Reativar" if status == "ativo" else "Arquivar"
+    return {
+        "kind": "action", "name": "workspace.set_project_status", "requires_confirmation": True,
+        "request_id": str(uuid4()), "arguments": {"status": status}, "effect": "write",
+        "summary": f"{label} o projeto atual.",
+    }
+
+
+def _project_brand_step(message: str):
+    linked = not bool(re.search(r"\b(desvincul|remov|desassoci)\w*", str(message or ""), re.IGNORECASE))
+    return {
+        "kind": "action", "name": "workspace.link_current_brand", "requires_confirmation": True,
+        "request_id": str(uuid4()), "arguments": {"linked": linked}, "effect": "write",
+        "summary": "Vincular a marca selecionada ao projeto atual." if linked else "Desvincular a marca selecionada do projeto atual.",
+    }
+
+
+def _reindex_source_step(message: str):
+    match = re.search(r"\b(?:fonte|arquivo|documento)\s*#?\s*(\d+)\b", str(message or ""), re.IGNORECASE)
+    if not match:
+        return None
+    source_id = int(match.group(1))
+    return {
+        "kind": "action", "name": "projects.reindex_source", "requires_confirmation": True,
+        "request_id": str(uuid4()), "arguments": {"source_id": source_id}, "effect": "write",
+        "summary": f"Reprocessar a fonte {source_id} do projeto atual.",
+    }
+
+
+def _project_note_step(message: str):
+    match = re.search(r"\b(?:nota|fonte textual)\s*[\"“]([^\"”]{2,180})[\"”]\s*:\s*(.{20,50000})$",
+                      str(message or ""), re.IGNORECASE | re.DOTALL)
+    if not match:
+        return None
+    title = " ".join(match.group(1).split())
+    content = match.group(2).strip()
+    return {
+        "kind": "action", "name": "projects.create_note", "requires_confirmation": True,
+        "request_id": str(uuid4()), "arguments": {"title": title, "content": content}, "effect": "write",
+        "summary": f"Adicionar “{title}” como fonte de conhecimento do projeto.",
+    }
+
+
 def build_task_plan(route: IntentRoute, budget: ExecutionBudget, message: str = "") -> list[dict]:
     steps = [{"kind": "tool", "name": name} for name in route.needs_tools[:budget.max_tool_calls]]
     if route.action == "link_test":
@@ -46,6 +92,18 @@ def build_task_plan(route: IntentRoute, budget: ExecutionBudget, message: str = 
             steps.append(action)
     if route.action == "create_project":
         action = _create_project_step(message)
+        if action:
+            steps.append(action)
+    if route.action == "set_project_status":
+        steps.append(_project_status_step(message))
+    if route.action == "link_project_brand":
+        steps.append(_project_brand_step(message))
+    if route.action == "reindex_project_source":
+        action = _reindex_source_step(message)
+        if action:
+            steps.append(action)
+    if route.action == "create_project_note":
+        action = _project_note_step(message)
         if action:
             steps.append(action)
     if route.artifact_type:

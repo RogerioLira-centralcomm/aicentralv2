@@ -350,9 +350,17 @@ export default function App({bootstrap}) {
   const decide = useCallback(async (message, approved) => {
     try {
       const data = await request(`${bootstrap.endpoints.runs}/${encodeURIComponent(message.runId)}/steps/${encodeURIComponent(message.action.step_id)}/decision`, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()}, body: JSON.stringify({approved})});
-      setMessages(items => items.map(item => item.id === message.id ? {...item, kind: undefined, response: {answer: data.step?.status === 'completed' ? 'Ação concluída.' : approved ? 'Ação confirmada.' : 'Ação cancelada.'}} : item));
+      const completion = data.step?.output_snapshot?.completion || {};
+      const response = data.step?.status === 'completed'
+        ? {answer: completion.answer || 'Ação concluída.', blocks: completion.blocks || []}
+        : {answer: approved ? 'Ação confirmada.' : 'Ação cancelada.'};
+      setMessages(items => items.map(item => item.id === message.id ? {...item, kind: undefined, response} : item));
+      if (data.step?.status === 'completed' && completion.refresh_context) {
+        try { await loadContext(); }
+        catch (error) { trace('Contexto será atualizado em seguida', error.message); }
+      }
     } catch (error) { trace('Falha na ação', error.message, 'error'); }
-  }, [bootstrap.endpoints.runs, trace]);
+  }, [bootstrap.endpoints.runs, trace, loadContext]);
 
   const changeArtifact = useCallback(content => {
     setArtifact(current => current ? {...current, content} : current);

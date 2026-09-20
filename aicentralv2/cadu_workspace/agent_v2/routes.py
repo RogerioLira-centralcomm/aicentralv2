@@ -100,7 +100,7 @@ def route_preview():
                       project_ref=data.get("project_ref"), brand_ref=data.get("brand_ref"))
     route = route_request(
         message, current.surface, bool(current.project_ref),
-        current.active_object.type if current.active_object else "",
+        current.active_object.type if current.active_object else "", bool(current.brand_ref),
     )
     execution_mode = execution_mode_for(route, data.get("execution_mode") or data.get("depth") or data.get("mode"))
     return jsonify(

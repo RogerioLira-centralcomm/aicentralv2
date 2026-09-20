@@ -182,6 +182,14 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, userName
   const resolvedAvatar = avatarSource(userAvatar, bootstrap);
   const fallbackAvatar = avatarFallbackSource(bootstrap, userName);
   const resolvedAccountUrl = accountUrl || bootstrap?.urls?.usage;
+  const openUsage = () => {
+    const usageUrl = bootstrap?.urls?.usage || bootstrap?.urls?.credits;
+    if (usageUrl) {
+      window.location.assign(usageUrl);
+      return;
+    }
+    onOpenUsage?.();
+  };
   const avatar = <VisualIdentity src={resolvedAvatar || fallbackAvatar} fallbackSrc={resolvedAvatar ? fallbackAvatar : ''} initials={userInitials || userName} label={userName} color="#1b6d64" imageAlt={`Foto de ${userName}`}/>;
   return <aside className="cadu-ds-dock" aria-label="Atalhos do Workspace">
     <div className="cadu-ds-dock-solution"><CaduSolutionSwitcher logo={logo} solutions={solutions} activeId="workspace"/></div>
@@ -191,6 +199,6 @@ export function CaduDock({logo, homeUrl, bootstrap, sharedDock = false, userName
       <section className="cadu-ds-dock-section cadu-ds-dock-section--projects" aria-label="Projetos fixados"><span className="cadu-ds-dock-section-label" aria-hidden="true">Projetos</span>{dockProjects.map(item => <DockResourceShortcut key={item.shortcutId || item.id} item={item} pinned={item.pinned} active={item.active} onOpen={onOpenResource} onDragStart={canReorder ? writePayload : undefined} onDropShortcut={canReorder ? reorder : undefined}/>)}</section>
       {dockResourceItems.length > 0 && <section className="cadu-ds-dock-section cadu-ds-dock-section--resources" aria-label="Recursos fixados"><span className="cadu-ds-dock-section-label" aria-hidden="true">Recursos</span>{dockResourceItems.map(item => <DockResourceShortcut key={item.shortcutId || item.id} item={item} pinned={item.pinned} active={item.active} onOpen={onOpenResource} onDragStart={canReorder ? writePayload : undefined} onDropShortcut={canReorder ? reorder : undefined}/>)}</section>}
     </div></DockDropZone>
-    <div className="cadu-ds-dock-bottom">{usagePercent != null && <DockUsageRing percent={usagePercent} onOpen={onOpenUsage}/>}<div className="cadu-ds-dock-account-wrap"><DockTooltip label={`Conta de ${userName}`}>{resolvedAccountUrl ? <a href={resolvedAccountUrl} className="cadu-ds-dock-avatar-button cadu-ds-dock-avatar-link" aria-label={`Abrir uso e conta de ${userName}`}>{avatar}</a> : <button type="button" className="cadu-ds-dock-avatar-button" onClick={onOpenAccount} aria-label={`Abrir conta de ${userName}`} aria-haspopup="menu" aria-expanded={accountOpen}>{avatar}</button>}</DockTooltip>{!resolvedAccountUrl && accountMenu}</div></div>
+    <div className="cadu-ds-dock-bottom">{usagePercent != null && <DockUsageRing percent={usagePercent} onOpen={openUsage}/>}<div className="cadu-ds-dock-account-wrap"><DockTooltip label={`Conta de ${userName}`}>{resolvedAccountUrl ? <a href={resolvedAccountUrl} className="cadu-ds-dock-avatar-button cadu-ds-dock-avatar-link" aria-label={`Abrir uso e conta de ${userName}`}>{avatar}</a> : <button type="button" className="cadu-ds-dock-avatar-button" onClick={onOpenAccount} aria-label={`Abrir conta de ${userName}`} aria-haspopup="menu" aria-expanded={accountOpen}>{avatar}</button>}</DockTooltip>{!resolvedAccountUrl && accountMenu}</div></div>
   </aside>;
 }

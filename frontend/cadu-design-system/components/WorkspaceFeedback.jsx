@@ -43,7 +43,8 @@ export function WorkspaceAccountMenu({open, onClose, user = {}, links = {}, proj
   }, [open, onClose]);
   if (!open) return null;
   const percent = Math.max(0, Math.min(100, Number(usagePercent) || 0));
-  const usageLink = links.usage || links.credits || '/uso';
+  const usageLink = links.usage || '/uso';
+  const creditsLink = links.credits || '/creditos';
   const billingLink = links.billing || links.faturamento || '/faturas';
   const integrationsLink = links.integrations || '/integracoes';
   const projectItems = Array.isArray(projects) ? projects.filter(item => item?.href || item?.url) : [];
@@ -56,13 +57,13 @@ export function WorkspaceAccountMenu({open, onClose, user = {}, links = {}, proj
   return <div ref={menuRef} className="cadu-ds-account-menu" role="menu" aria-label="Conta e gestão">
     <header><div className="cadu-ds-account-menu__identity"><div><b>{firstName}</b>{lastName && <em> {lastName}</em>}</div>{user.email && <small>{user.email}</small>}</div><span className="cadu-ds-account-menu__label">Conta</span></header>
     <nav aria-label="Conta e gestão">
-      {links.agency && <a role="menuitem" href={links.agency}>Agência</a>}<a role="menuitem" href={links.profile}>Perfil</a><a role="menuitem" href={links.team}>Equipe</a><a role="menuitem" href={links.plans}>Planos</a><a role="menuitem" href={usageLink}>Créditos e consumo</a><a role="menuitem" href={billingLink}>Faturamento</a><a role="menuitem" href={integrationsLink}>Integrações</a>{links.observability && <a role="menuitem" href={links.observability}>Observabilidade</a>}
+      {links.agency && <a role="menuitem" href={links.agency}>Agência</a>}<a role="menuitem" href={links.profile}>Perfil</a><a role="menuitem" href={links.team}>Equipe</a><a role="menuitem" href={links.plans}>Planos</a><a role="menuitem" href={usageLink}>Uso</a><a role="menuitem" href={creditsLink}>Créditos</a><a role="menuitem" href={billingLink}>Faturamento</a><a role="menuitem" href={integrationsLink}>Integrações</a>{links.observability && <a role="menuitem" href={links.observability}>Observabilidade</a>}
     </nav>
     {(brandItems.length > 0 || projectItems.length > 0) && <section className="cadu-ds-account-menu__catalog" aria-label="Projetos e marcas">
       {brandItems.length > 0 && <div className="cadu-ds-account-menu__catalog-group"><header><b>Marcas</b>{links.brands && <a href={links.brands}>Ver todas</a>}</header>{brandItems.map(item => <a className="cadu-ds-account-menu__catalog-item" role="menuitem" href={itemHref(item)} key={`brand-${item.id || itemHref(item)}`}><VisualIdentity src={item.logoUrl || item.previewUrl} initials={item.visualInitials || item.name} label={itemLabel(item, 'Marca')} color={item.visualColor}/><span><b>{itemLabel(item, 'Marca')}</b><small>{item.sector || item.summary || 'Abrir vitrine da marca'}</small></span></a>)}</div>}
       {projectItems.length > 0 && <div className="cadu-ds-account-menu__catalog-group"><header><b>Projetos</b>{links.projects && <a href={links.projects}>Ver todos</a>}</header>{projectItems.map(item => <a className="cadu-ds-account-menu__catalog-item" role="menuitem" href={itemHref(item)} key={`project-${item.id || itemHref(item)}`}><VisualIdentity src={item.previewUrl || item.logoUrl || item.dockLogoUrl} initials={item.visualInitials || item.name} label={itemLabel(item, 'Projeto')} color={item.visualColor}/><span><b>{itemLabel(item, 'Projeto')}</b><small>{item.brandName || item.description || 'Abrir vitrine do projeto'}</small></span></a>)}</div>}
     </section>}
-    <section className="cadu-ds-account-menu__usage" aria-label="Uso de créditos"><div><span>Uso de créditos</span><strong>{new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 1}).format(percent)}%</strong></div><div className="cadu-ds-account-menu__progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={percent}><i style={{width: `${percent}%`}}/></div><a href={usageLink}>Ver uso e histórico</a></section>
+    <section className="cadu-ds-account-menu__usage" aria-label="Uso de créditos"><div><span>Uso de créditos</span><strong>{new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 1}).format(percent)}%</strong></div><div className="cadu-ds-account-menu__progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={percent}><i style={{width: `${percent}%`}}/></div><a href={usageLink}>Ver uso</a><a href={creditsLink}>Ver créditos</a></section>
     <footer><button type="button" onClick={onManageShortcuts}>Personalizar dock</button><a href={links.logout}>Sair</a></footer>
   </div>;
 }

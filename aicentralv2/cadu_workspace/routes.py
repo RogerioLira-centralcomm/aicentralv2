@@ -2124,7 +2124,9 @@ def _workspace_continuity_feed(client_id: int, projects: list[dict], user: dict)
                      'title': str(conversation.get('title') or 'Conversa sem título'),
                      'context': str(project.get('thumbnail_label') or project.get('nome') or 'Conversa pessoal'),
                      'status': 'Conversa atualizada', 'updatedAt': updated,
-                     'href': url_for('cadu_agent_v2_lab.conversations_v2_lab', conversation_id=str(conversation.get('id'))),
+                     'href': url_for('cadu_agent_v2_lab.conversations_v2_lab',
+                                     conversation_id=str(conversation.get('id')), history='1',
+                                     project_ref=str(conversation.get('project_ref') or '')),
                      'conversationId': str(conversation.get('id')), 'projectRef': str(conversation.get('project_ref') or ''),
                      'previewUrl': '', 'visualColor': str(project.get('thumbnail_color') or project.get('cor') or '#176b5e')})
     feed.sort(key=lambda item: item.get('updatedAt') or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
@@ -5338,14 +5340,15 @@ def brand_system(brand_id):
 @bp.get('/perfil', defaults={'section': 'perfil'})
 @bp.get('/equipe', defaults={'section': 'equipe'})
 @bp.get('/plano', defaults={'section': 'planos'})
-@bp.get('/uso', defaults={'section': 'creditos'})
+@bp.get('/uso', defaults={'section': 'uso'})
+@bp.get('/creditos', defaults={'section': 'creditos'})
 @bp.get('/faturas', defaults={'section': 'faturamento'})
 @bp.get("/workspace/app/<section>")
 @login_required
 def account_page(section):
     aliases = {
         "conta": "perfil", "perfil": "perfil", "agencia": "agencia", "organizacao": "agencia",
-        "usuarios": "equipe", "equipe": "equipe", "planos": "planos", "creditos": "creditos",
+        "usuarios": "equipe", "equipe": "equipe", "planos": "planos", "uso": "uso", "creditos": "creditos",
         "financeiro": "faturamento", "faturamento": "faturamento",
     }
     section = aliases.get(section)
@@ -5356,7 +5359,8 @@ def account_page(section):
         'perfil': '/perfil',
         'equipe': '/equipe',
         'planos': '/plano',
-        'creditos': '/uso',
+        'uso': '/uso',
+        'creditos': '/creditos',
         'faturamento': '/faturas',
     }
     if request.path.startswith('/workspace/app/') or request.path != canonical_paths[section]:
@@ -5369,6 +5373,13 @@ def account_page(section):
     # The agency identity belongs to the whole Account journey, not only to
     # the profile editor. These are canonical PHP records, never a copy.
     account.update(_workspace_settings_data(client_id, int(session.get("user_id") or 0)))
+    if section == 'planos':
+        try:
+            from .. import db
+            account['plan_options'] = [dict(row) for row in db.obter_plan_definitions(apenas_ativos=True)]
+        except Exception:
+            current_app.logger.warning('Não foi possível carregar as opções comerciais de planos', exc_info=True)
+            account['plan_options'] = []
     projects = _workspace_projects(client_id)
     brands = _workspace_brands(client_id)
     account['agency_context'] = {
@@ -5403,12 +5414,6 @@ def _redirect_account_alias(target):
 @login_required
 def account_alias_conta():
     return _redirect_account_alias('/perfil')
-
-
-@bp.get('/creditos')
-@login_required
-def account_alias_creditos():
-    return _redirect_account_alias('/uso')
 
 
 @bp.get('/planos')

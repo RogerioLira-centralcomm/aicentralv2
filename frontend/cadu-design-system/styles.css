@@ -1305,13 +1305,6 @@ body.portal--workspace .cadu-ds-home-workarea {
   white-space:normal!important;
 }
 
-.cadu-ds-context-sidebar__collection-index {
-  color:var(--cadu-muted);
-  font-size:9px;
-  font-variant-numeric:tabular-nums;
-  line-height:1;
-}
-
 .cadu-ds-context-sidebar__collection-item > span {
   display:grid;
   min-width:0;
@@ -1621,7 +1614,7 @@ body.portal--workspace .cadu-ds-home-widget.is-collapsed > header {
 /* Account pages use a compact settings rhythm; workspace home and chat keep their own scale. */
 .cadu-ds-account-shell .cadu-ds-account-content {
   padding:clamp(28px,4vw,48px) clamp(24px,4vw,56px) 64px;
-  background:var(--cadu-surface);
+  background:var(--cadu-canvas);
 }
 
 .cadu-ds-account-shell .cadu-ds-account-hero {
@@ -1807,6 +1800,22 @@ body.portal--workspace .cadu-ds-home-widget.is-collapsed > header {
   overflow-wrap:anywhere;
 }
 
+/* The Workspace dock is light on account/catalog surfaces; keep usage
+   readable there while Conversations retain their dark contrast. */
+[data-cadu-skin="workspace"] .cadu-ds-usage-ring {
+  background:conic-gradient(var(--cadu-accent-strong) var(--cadu-usage),var(--cadu-nav-line) 0);
+  color:var(--cadu-ink);
+}
+
+[data-cadu-skin="workspace"] .cadu-ds-usage-ring:before {
+  background:var(--cadu-nav-bg);
+}
+
+[data-cadu-skin="workspace"] .cadu-ds-usage-ring span {
+  color:var(--cadu-ink);
+  font-size:9px;
+}
+
 @media (max-width:760px) {
   .cadu-ds-account-shell .cadu-ds-account-content {
     padding:28px 18px 54px;
@@ -1891,3 +1900,50 @@ body.portal--workspace .cadu-ds-home-widget.is-collapsed > header {
 .cadu-ds-project-library-summary>b { color:var(--cadu-ink); font-size:13px; }
 .cadu-ds-project-library-summary>p { margin:7px 0 0; color:var(--cadu-muted); font-size:12px; line-height:1.5; }
 .cadu-ds-project-library-summary>button { margin:12px 0 15px; padding:0; border:0; background:transparent; color:var(--cadu-accent-strong); font:650 11px var(--cadu-font-sans); cursor:pointer; }
+
+/* Account sales surface: a calm canvas with cards reserved for decisions. */
+.cadu-ds-account-shell .cadu-ds-plan-current {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px;
+  padding:18px 20px;
+  border:1px solid var(--cadu-line);
+  border-radius:12px;
+  background:var(--cadu-surface);
+}
+.cadu-ds-account-shell .cadu-ds-plan-current>div { display:grid; gap:5px; }
+.cadu-ds-account-shell .cadu-ds-plan-current span,
+.cadu-ds-account-shell .cadu-ds-plan-grid article>span { color:var(--cadu-accent-strong); font-size:10px; font-weight:750; letter-spacing:.08em; text-transform:uppercase; }
+.cadu-ds-account-shell .cadu-ds-plan-current strong { color:var(--cadu-ink); font-size:20px; letter-spacing:-.04em; }
+.cadu-ds-account-shell .cadu-ds-plan-current p { margin:0; color:var(--cadu-muted); font-size:12px; }
+.cadu-ds-account-shell .cadu-ds-plan-current>a,
+.cadu-ds-account-shell .cadu-ds-plan-grid a { color:var(--cadu-accent-strong); font-size:11px; font-weight:750; text-decoration:none; }
+.cadu-ds-account-shell .cadu-ds-plan-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px; }
+.cadu-ds-account-shell .cadu-ds-plan-grid article { display:flex; min-height:240px; flex-direction:column; padding:20px; border:1px solid var(--cadu-line); border-radius:12px; background:var(--cadu-surface); }
+.cadu-ds-account-shell .cadu-ds-plan-grid article.is-current { border-color:var(--cadu-accent); box-shadow:0 0 0 2px color-mix(in srgb,var(--cadu-accent-soft) 60%,transparent); }
+.cadu-ds-account-shell .cadu-ds-plan-grid h3 { margin:8px 0 0; color:var(--cadu-ink); font-size:21px; letter-spacing:-.04em; }
+.cadu-ds-account-shell .cadu-ds-plan-grid p { margin:8px 0 0; color:var(--cadu-muted); font-size:12px; line-height:1.5; }
+.cadu-ds-account-shell .cadu-ds-plan-grid ul { display:grid; gap:7px; margin:14px 0; padding-left:16px; color:var(--cadu-muted); font-size:11px; line-height:1.35; }
+.cadu-ds-account-shell .cadu-ds-plan-grid a { margin-top:auto; }
+
+/* Integrations is a legacy template, but it belongs to the same account shell. */
+.cadu-ds-legacy-account-page { min-height:100dvh; box-sizing:border-box; padding:clamp(28px,4vw,48px) clamp(24px,4vw,56px) 64px; background:var(--cadu-canvas); color:var(--cadu-ink); }
+.cadu-ds-legacy-account-page .workspace-integrations-intro { margin:0 0 28px; padding:0 0 22px; border-bottom:1px solid var(--cadu-line); }
+.cadu-ds-legacy-account-page .workspace-integrations-back { color:var(--cadu-accent-strong); font-size:11px; font-weight:700; text-decoration:none; }
+.cadu-ds-legacy-account-page h1 { margin:14px 0 8px; color:var(--cadu-ink); font-size:clamp(28px,3vw,38px); letter-spacing:-.05em; line-height:1.05; }
+.cadu-ds-legacy-account-page .workspace-integrations-intro p,
+.cadu-ds-legacy-account-page .workspace-integration-primary p,
+.cadu-ds-legacy-account-page .workspace-integration-section p { color:var(--cadu-muted); font-size:12px; line-height:1.5; }
+.cadu-ds-legacy-account-page .workspace-integration-primary,
+.cadu-ds-legacy-account-page .workspace-integration-section,
+.cadu-ds-legacy-account-page .workspace-integration-advanced { border:1px solid var(--cadu-line); border-radius:12px; background:var(--cadu-surface); box-shadow:none; }
+.cadu-ds-legacy-account-page .workspace-integration-primary { padding:20px; }
+.cadu-ds-legacy-account-page .workspace-integration-section { margin-top:14px; padding:20px; }
+.cadu-ds-legacy-account-page .workspace-integration-advanced { margin-top:14px; padding:16px 20px; }
+
+@media (max-width:760px) {
+  .cadu-ds-account-shell .cadu-ds-plan-current { align-items:flex-start; flex-direction:column; }
+  .cadu-ds-account-shell .cadu-ds-plan-grid { grid-template-columns:1fr; }
+  .cadu-ds-legacy-account-page { padding:28px 18px 54px; }
+}

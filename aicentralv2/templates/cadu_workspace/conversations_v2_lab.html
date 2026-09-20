@@ -7,7 +7,7 @@
 {% block content %}
 <div id="cadu-conversations-v2-root" aria-label="Cadu Chat"><noscript>Ative o JavaScript para usar o Cadu Chat.</noscript></div>
 {% set secondary_nav = [
-  {'label': 'Uso', 'href': url_for('cadu_workspace.account_page', section='creditos')},
+  {'label': 'Uso', 'href': url_for('cadu_workspace.account_page', section='uso')},
   {'label': 'Planos', 'href': url_for('cadu_workspace.account_page', section='planos')},
   {'label': 'Equipe', 'href': url_for('cadu_workspace.account_page', section='equipe')},
   {'label': 'Perfil', 'href': url_for('cadu_workspace.account_page', section='perfil')}
@@ -31,7 +31,7 @@
     'agency': url_for('cadu_workspace.account_page', section='agencia'),
     'profile': url_for('cadu_workspace.account_page', section='perfil'),
     'credits': url_for('cadu_workspace.account_page', section='creditos'),
-    'usage': url_for('cadu_workspace.account_page', section='creditos'),
+    'usage': url_for('cadu_workspace.account_page', section='uso'),
     'plans': url_for('cadu_workspace.account_page', section='planos'),
     'team': url_for('cadu_workspace.account_page', section='equipe'),
     'logout': product_url('auth', '/logout'),

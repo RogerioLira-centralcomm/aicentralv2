@@ -324,6 +324,57 @@ html[data-cadu-theme="dark"] body.portal--workspace-public:has(.ws-hero){backgro
   .portal--workspace-public .ws-public-intro{gap:36px}
 }
 
+/* Public Workspace chrome: the signed-out entry keeps the same navigation
+   grammar as the app, but the rail only exposes public sections. It must not
+   pretend to contain private projects or recent conversations. */
+.portal--workspace-public .cadu-universal-nav{
+  background:#0d191c!important;
+  border-bottom-color:rgba(196,229,222,.14)!important;
+  color:#f2fbf8;
+}
+.portal--workspace-public .cadu-universal-pages a{color:#b8ccc8}
+.portal--workspace-public .cadu-universal-pages a:hover,
+.portal--workspace-public .cadu-universal-pages a:focus-visible{background:rgba(255,255,255,.09);color:#fff}
+.portal--workspace-public .cadu-product-switch summary>small,
+.portal--workspace-public .cadu-product-switch summary>i{color:#9eb7b2}
+.portal--workspace-public .cadu-product-switch summary:hover,
+.portal--workspace-public .cadu-product-switch[open] summary{background:rgba(255,255,255,.09)}
+.portal--workspace-public .cadu-universal-enter{color:#d9ece8;background:transparent;border:1px solid rgba(196,229,222,.24)}
+.portal--workspace-public .cadu-universal-enter:hover{background:rgba(255,255,255,.09)}
+.portal--workspace-public .cadu-universal-access{background:#14b8a6;color:#062e2a;box-shadow:none}
+.portal--workspace-public .cadu-theme-toggle{border-color:rgba(196,229,222,.24);background:transparent;color:#d9ece8}
+.portal--workspace-public .ws-public-shell{display:grid;grid-template-columns:72px minmax(0,1fr);min-height:calc(100dvh - var(--cadu-nav-height));background:#f5f9f8}
+.portal--workspace-public .ws-public-rail{position:sticky;top:0;z-index:8;display:flex;flex-direction:column;align-items:center;gap:24px;height:calc(100dvh - var(--cadu-nav-height));padding:16px 10px;background:#0d191c;color:#c5d8d4}
+.portal--workspace-public .ws-public-rail__back{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;color:#16b8a6;font-size:35px;line-height:1;text-decoration:none}
+.portal--workspace-public .ws-public-rail__back:hover,.portal--workspace-public .ws-public-rail__back:focus-visible{background:rgba(255,255,255,.08);color:#8de0d3}
+.portal--workspace-public .ws-public-rail nav{display:grid;gap:8px}
+.portal--workspace-public .ws-public-rail a:not(.ws-public-rail__back){position:relative;display:grid;place-items:center;width:40px;height:40px;border:1px solid transparent;border-radius:11px;color:#a5bbb6;text-decoration:none}
+.portal--workspace-public .ws-public-rail a:not(.ws-public-rail__back) span{font-size:20px;line-height:1}
+.portal--workspace-public .ws-public-rail a:not(.ws-public-rail__back) small{position:absolute;left:calc(100% + 10px);z-index:12;display:none;width:max-content;padding:7px 9px;border-radius:7px;background:#172b2f;color:#f2fbf8;font-size:11px;box-shadow:0 8px 20px rgba(0,0,0,.18)}
+.portal--workspace-public .ws-public-rail a:not(.ws-public-rail__back):hover small,.portal--workspace-public .ws-public-rail a:not(.ws-public-rail__back):focus-visible small{display:block}
+.portal--workspace-public .ws-public-rail a.is-active,.portal--workspace-public .ws-public-rail a:not(.ws-public-rail__back):hover,.portal--workspace-public .ws-public-rail a:not(.ws-public-rail__back):focus-visible{background:#f4fbf9;color:#087765}
+.portal--workspace-public .ws-public-rail__account{display:grid;margin-top:auto}
+.portal--workspace-public .ws-public-stage{min-width:0}
+.portal--workspace-public .ws-public-stage .ws-hero--photo{width:auto;margin:0}
+.portal--workspace-public .ws-public-stage .ws-creative-carousel{margin-inline:0}
+.portal--workspace-public .ws-public-stage .ws-trust{box-shadow:none;clip-path:none}
+
+@media(max-width:820px){
+  .portal--workspace-public .ws-public-shell{display:block;min-height:0}
+  .portal--workspace-public .ws-public-rail{position:sticky;top:0;z-index:15;display:flex;flex-direction:row;align-items:center;gap:8px;width:100%;height:auto;min-height:58px;padding:8px 12px;overflow:auto}
+  .portal--workspace-public .ws-public-rail nav{display:flex;gap:5px;min-width:max-content}
+  .portal--workspace-public .ws-public-rail a:not(.ws-public-rail__back){display:flex;gap:7px;width:auto;min-height:38px;height:38px;padding:0 10px;border-radius:9px;white-space:nowrap}
+  .portal--workspace-public .ws-public-rail a:not(.ws-public-rail__back) small{position:static;display:block;width:auto;padding:0;background:transparent;color:inherit;font-size:11px;box-shadow:none}
+  .portal--workspace-public .ws-public-rail__account{margin:0 0 0 auto}
+  .portal--workspace-public .ws-public-rail__account a{padding-inline:10px}
+}
+
+@media(max-width:520px){
+  .portal--workspace-public .ws-public-rail{padding-inline:8px}
+  .portal--workspace-public .ws-public-rail a:not(.ws-public-rail__back){padding-inline:8px}
+  .portal--workspace-public .ws-public-rail a:not(.ws-public-rail__back) span{font-size:17px}
+}
+
 .portal--workspace-public .ws-access-people{align-self:end;display:flex;justify-content:center;min-width:0}
 .portal--workspace-public .ws-trust{padding-bottom:0;align-items:end}
 .portal--workspace-public .ws-trust>div:first-child{padding-bottom:58px}

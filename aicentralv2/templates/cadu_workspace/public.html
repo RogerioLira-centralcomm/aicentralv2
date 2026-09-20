@@ -10,11 +10,25 @@
 {% endblock %}
 {% block styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cadu-workspace-public.css') }}?v=11">{% endblock %}
 {% block content %}
+<div class="ws-public-shell" id="inicio">
+  <aside class="ws-public-rail" aria-label="Navegação pública do Workspace">
+    <a class="ws-public-rail__back" href="{{ product_url('cadu') }}" aria-label="Voltar para Cadu" title="Voltar para Cadu">‹</a>
+    <nav aria-label="Seções do Workspace">
+      <a class="is-active" href="#inicio" aria-label="Início" title="Início"><span aria-hidden="true">⌂</span><small>Início</small></a>
+      <a href="#como-funciona" aria-label="Como funciona" title="Como funciona"><span aria-hidden="true">↗</span><small>Como funciona</small></a>
+      <a href="#solucoes" aria-label="Soluções" title="Soluções"><span aria-hidden="true">◇</span><small>Soluções</small></a>
+      <a href="#privacidade" aria-label="Privacidade e acesso" title="Privacidade e acesso"><span aria-hidden="true">✓</span><small>Privacidade</small></a>
+    </nav>
+    <div class="ws-public-rail__account">
+      <a href="{{ product_url('auth', '/login') }}" aria-label="Entrar no Workspace" title="Entrar"><span aria-hidden="true">↪</span><small>Entrar</small></a>
+    </div>
+  </aside>
+  <div class="ws-public-stage">
 <section class="ws-hero ws-hero--photo ws-hero--{{ hero.tone }}">
   <img class="ws-hero-photo" src="{{ url_for('static', filename='images/cadu/workspace-headers/' + hero.image) }}" alt="Time de agência alinhando uma entrega" width="1600" height="534" fetchpriority="high">
   <div class="ws-hero-copy"><p>Cadu Workspace</p><h1>Seu time não deveria reconstruir o briefing a cada entrega.</h1><span>Marcas, projetos, pessoas e decisões seguem juntos, do primeiro alinhamento ao resultado do trabalho.</span><div class="ws-actions"><a href="{{ url_for('cadu_workspace.dashboard') }}">{{ 'Continuar meu trabalho' if session.get('user_id') else 'Entrar no Workspace' }}</a><a href="#como-funciona">Ver como funciona</a></div></div>
 </section>
-<section class="ws-creative-carousel" aria-labelledby="creative-carousel-title" data-ws-carousel>
+<section class="ws-creative-carousel" id="solucoes" aria-labelledby="creative-carousel-title" data-ws-carousel>
   <header class="ws-creative-carousel__head"><div><p class="ws-eyebrow">Cadu Studio</p><h2 id="creative-carousel-title">Uma direção. Vários jeitos de continuar.</h2><p class="ws-gallery-hint">Deslize pelas referências e veja como o contexto vira criação.</p></div><img class="ws-creative-carousel__logo" src="{{ url_for('static', filename='images/cadu/brand-icons/studio-192.png') }}" width="48" height="48" alt="Cadu Studio"></header>
   <div class="ws-creative-carousel__viewport"><div class="ws-creative-carousel__track" data-ws-carousel-track>
     {% set creative_items = [
@@ -56,7 +70,9 @@
 </div>
 </section>
 <section class="ws-public-agency" data-ws-moment><div class="ws-role-stack" aria-label="Camadas do sistema de trabalho da agência"><div><span>Marcas</span><b>Um contexto para cada marca</b></div><div><span>Projetos</span><b>Briefing, decisões e histórico</b></div><div><span>Ferramentas</span><b>Agentes, Studio, Planner e Reports</b></div></div><div><p class="ws-eyebrow">O sistema de trabalho da agência</p><h2>Cada marca tem seu projeto. Cada projeto, seu próximo movimento.</h2><p>Organize marcas e projetos separados, preserve o contexto de cada trabalho e dê ao time as ferramentas certas para avançar: agentes especializados, Media Planner, Studio e Reports.</p><a href="{{ url_for('cadu_workspace.public_page', page='como-funciona') }}">Conheça como o trabalho se organiza</a></div></section>
-<section class="ws-trust" data-ws-moment><div><h2>Seu trabalho não vira conteúdo público.</h2><p>Projetos, arquivos, referências, decisões e relatórios ficam acessíveis apenas às pessoas certas, de acordo com a marca, o projeto e o papel de cada pessoa no time.</p><a href="{{ url_for('cadu_workspace.public_page', page='ajuda') }}">Entender privacidade e acesso</a></div><div class="ws-access-people"><img src="{{ url_for('static', filename='images/cadu/workspace-access-team-v1.png') }}" alt="Duas pessoas representando diferentes papéis com acesso ao trabalho da agência"></div></section>
+<section class="ws-trust" id="privacidade" data-ws-moment><div><h2>Seu trabalho não vira conteúdo público.</h2><p>Projetos, arquivos, referências, decisões e relatórios ficam acessíveis apenas às pessoas certas, de acordo com a marca, o projeto e o papel de cada pessoa no time.</p><a href="{{ url_for('cadu_workspace.public_page', page='ajuda') }}">Entender privacidade e acesso</a></div><div class="ws-access-people"><img src="{{ url_for('static', filename='images/cadu/workspace-access-team-v1.png') }}" alt="Duas pessoas representando diferentes papéis com acesso ao trabalho da agência"></div></section>
 <section class="ws-closing" data-ws-moment><img src="{{ url_for('static', filename='images/cadu/home-heroes/workspace-hero-v1.jpg') }}" alt="Visão do Workspace organizando marcas e projetos"><div><p class="ws-eyebrow">O ponto de partida do trabalho</p><h2>Marcas, projetos e ferramentas no mesmo sistema de trabalho.</h2><p class="ws-closing-lede">Abra o contexto certo para cada marca e continue de onde a agência parou.</p><div class="ws-actions"><a href="{{ url_for('cadu_workspace.dashboard') }}">Entrar no Workspace</a><a href="{{ url_for('cadu_workspace.public_page', page='contato') }}">Falar com a equipe</a></div></div></section>
+  </div>
+</div>
 {% endblock %}
 {% block portal_scripts %}<script defer src="{{ url_for('static', filename='js/cadu-workspace-public.js') }}?v=1"></script>{% endblock %}

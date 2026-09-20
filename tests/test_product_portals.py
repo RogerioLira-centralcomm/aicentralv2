@@ -256,6 +256,11 @@ class ProductPortalsTest(TestCase):
         self.assertIn('rel="canonical" href="https://workspace.centralcomm.media/"', html)
         self.assertIn('>Criar conta</a>', html)
         self.assertIn('href="https://auth.centralcomm.media/login"', html)
+        self.assertIn('class="ws-public-shell"', html)
+        self.assertIn('class="ws-public-rail"', html)
+        self.assertIn('aria-label="Navegação pública do Workspace"', html)
+        self.assertIn('href="#solucoes"', html)
+        self.assertIn('id="privacidade"', html)
         self.assertEqual(client.get("/workspace/app", headers={"Host": "workspace.centralcomm.media"}).status_code, 302)
         for page in ("como-funciona", "planos", "ajuda", "contato"):
             with self.subTest(page=page):

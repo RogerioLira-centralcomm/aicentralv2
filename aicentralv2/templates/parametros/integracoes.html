@@ -42,6 +42,13 @@
     </form>
     {% endfor %}
 
+    <form class="cx-integration-card" data-integration-form="google_workspace">
+      <header><span class="cx-integration-logo is-google"><i class="fa-brands fa-google" aria-hidden="true"></i></span><div><h2>Google Workspace — dados do cliente</h2><p>Uma aplicação OAuth compartilhada para Drive, Calendar, Meet, Analytics, Search Console e Google Ads.</p></div><span class="cx-integration-status" data-integration-status>Carregando…</span></header>
+      <div class="cx-integration-fields"><label><span>Client ID</span><input name="client_id" type="text" autocomplete="off" placeholder="000000.apps.googleusercontent.com"></label><label><span>Client secret</span><input name="client_secret" type="password" autocomplete="new-password" placeholder="Deixe vazio para manter"><small data-secret-state>Nenhum segredo armazenado.</small></label><label class="is-wide"><span>Redirect URI</span><input name="redirect_uri" type="url" value="https://auth.centralcomm.media/auth/google/workspace/callback"></label></div>
+      <aside><strong>Conta da organização</strong><span>O token fica criptografado por organização. A página do Workspace controla autorização, sincronização e vínculos com projetos.</span></aside>
+      <footer><button type="button" class="cx-btn cx-btn-ghost cx-btn-sm" data-integration-action="validate">Validar configuração</button><button type="button" class="cx-btn cx-btn-ghost cx-btn-sm is-danger" data-integration-action="remove">Remover</button><button type="submit" class="cx-btn cx-btn-primary cx-btn-sm">Salvar Google Workspace</button></footer>
+    </form>
+
     <form class="cx-integration-card" data-integration-form="google_calendar">
       <header>
         <span class="cx-integration-logo is-google"><i class="fa-brands fa-google" aria-hidden="true"></i></span>

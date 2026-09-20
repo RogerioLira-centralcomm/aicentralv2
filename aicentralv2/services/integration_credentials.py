@@ -24,6 +24,12 @@ PROVIDERS = {
         "secret_fields": ("client_secret",),
         "required": ("client_id", "redirect_uri", "client_secret"),
     },
+    "google_workspace": {
+        "label": "Google Workspace — Dados e arquivos do cliente",
+        "public_fields": ("client_id", "redirect_uri"),
+        "secret_fields": ("client_secret",),
+        "required": ("client_id", "redirect_uri", "client_secret"),
+    },
     "google_calendar": {
         "label": "Google Calendar e Meet",
         "public_fields": ("client_id", "redirect_uri"),
@@ -85,6 +91,11 @@ ENV_FIELDS = {
         "client_id": "GOOGLE_CADU_CLIENT_ID",
         "redirect_uri": "GOOGLE_CADU_REDIRECT_URI",
         "client_secret": "GOOGLE_CADU_CLIENT_SECRET",
+    },
+    "google_workspace": {
+        "client_id": "GOOGLE_WORKSPACE_CLIENT_ID",
+        "redirect_uri": "GOOGLE_WORKSPACE_REDIRECT_URI",
+        "client_secret": "GOOGLE_WORKSPACE_CLIENT_SECRET",
     },
     "google_calendar": {
         "client_id": "GOOGLE_OAUTH_CLIENT_ID",

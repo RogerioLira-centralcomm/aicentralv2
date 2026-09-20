@@ -14,6 +14,17 @@ class WorkspaceAccountRoutesTest(TestCase):
             response = self.client.get(path, headers={'Host': 'workspace.centralcomm.media'})
             self.assertEqual(response.status_code, 200)
 
+    def test_account_aliases_redirect_to_the_new_canonical_pages(self):
+        for alias, canonical in (
+            ('/conta', '/perfil'),
+            ('/creditos', '/uso'),
+            ('/planos', '/plano'),
+            ('/faturamento', '/faturas'),
+        ):
+            response = self.client.get(f'{alias}?ref=sidebar', headers={'Host': 'workspace.centralcomm.media'})
+            self.assertEqual(response.status_code, 308)
+            self.assertTrue(response.headers['Location'].endswith(f'{canonical}?ref=sidebar'))
+
     def test_legacy_credit_url_redirects_to_short_route(self):
         response = self.client.get('/workspace/app/creditos?ref=sidebar', headers={'Host': 'workspace.centralcomm.media'})
         self.assertEqual(response.status_code, 308)

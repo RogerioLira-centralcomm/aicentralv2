@@ -10,7 +10,7 @@ import json
 import re
 import threading
 from typing import Optional
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 from uuid import uuid4
 import secrets
 
@@ -422,10 +422,34 @@ def _workspace_integration_data(client_id: int, organization_id: int) -> dict:
     for account in accounts:
         key = str(account.get('provider') or '').lower()
         account['provider_label'] = providers.get(key, key.replace('_', ' ').title() or 'Plataforma')
+    google = {'connection': None, 'resources': [], 'projects': [], 'connect_url': product_url('auth', '/auth/google/workspace') + '?' + urlencode({'next': product_url('workspace', '/integracoes')}), 'configured': False}
+    try:
+        from ..services import google_workspace
+        connection = google_workspace.get_connection(organization_id)
+        google = {
+            **google,
+            'connection': connection,
+            'resources': google_workspace.list_resources(organization_id, limit=120),
+            'configured': bool(connection and connection.get('status') == 'connected'),
+        }
+        with get_db().cursor() as cursor:
+            cursor.execute(
+                """SELECT id::text AS id, nome AS name
+                     FROM cadu_ci_projetos
+                    WHERE id_cliente=%s AND status <> 'arquivado'
+                 ORDER BY nome LIMIT 200""",
+                (int(client_id),),
+            )
+            google['projects'] = [dict(row) for row in cursor.fetchall()]
+    except Exception:
+        # A migration may be rolled out after the application code. Keep the
+        # account page usable and show the connection as not yet available.
+        current_app.logger.info('Google Workspace ainda não está disponível nesta instalação', exc_info=True)
     return {
         'accounts': accounts,
         'connected_count': sum(str(item.get('status') or '').lower() in {'active', 'connected', 'ready'}
                                for item in accounts),
+        'google': google,
         # These are product capabilities, not tenant connections.  A connector
         # only becomes an account in the list above after its authorization is
         # completed in Reports, where credentials stay isolated from Workspace.
@@ -4265,7 +4289,6 @@ def brand_system(brand_id):
 @bp.get("/workspace/app/<section>")
 @login_required
 def account_page(section):
-    requested_section = section
     aliases = {
         "conta": "perfil", "perfil": "perfil", "organizacao": "equipe",
         "usuarios": "equipe", "equipe": "equipe", "planos": "planos", "creditos": "creditos",
@@ -4274,11 +4297,18 @@ def account_page(section):
     section = aliases.get(section)
     if section is None:
         abort(404)
-    if request.path.startswith('/workspace/app/') or requested_section != section:
-        return redirect(
-            url_for('cadu_workspace.account_page', section=section, **request.args.to_dict(flat=True)),
-            code=308,
-        )
+    canonical_paths = {
+        'perfil': '/perfil',
+        'equipe': '/equipe',
+        'planos': '/plano',
+        'creditos': '/uso',
+        'faturamento': '/faturas',
+    }
+    if request.path.startswith('/workspace/app/') or request.path != canonical_paths[section]:
+        target = canonical_paths[section]
+        if request.query_string:
+            target = f'{target}?{request.query_string.decode("utf-8")}'
+        return redirect(target, code=308)
     client_id = int(session.get("cliente_id") or 0)
     account = _php_account_data(client_id)
     # The agency identity belongs to the whole Account journey, not only to
@@ -4286,10 +4316,45 @@ def account_page(section):
     account.update(_workspace_settings_data(client_id, int(session.get("user_id") or 0)))
     if section == 'faturamento':
         account.update(_workspace_billing_data(client_id))
+    try:
+        dock_items = _workspace_common_dock_items(client_id, int(session.get('user_id') or 0))
+    except Exception:
+        current_app.logger.exception('Não foi possível carregar a dock do Workspace para a conta')
+        dock_items = []
     return render_template(
         "cadu_workspace/account_react.html", section=section,
-        account=account,
+        account=account, dock_items=dock_items,
     )
+
+
+def _redirect_account_alias(target):
+    if request.query_string:
+        target = f'{target}?{request.query_string.decode("utf-8")}'
+    return redirect(target, code=308)
+
+
+@bp.get('/conta')
+@login_required
+def account_alias_conta():
+    return _redirect_account_alias('/perfil')
+
+
+@bp.get('/creditos')
+@login_required
+def account_alias_creditos():
+    return _redirect_account_alias('/uso')
+
+
+@bp.get('/planos')
+@login_required
+def account_alias_planos():
+    return _redirect_account_alias('/plano')
+
+
+@bp.get('/faturamento')
+@login_required
+def account_alias_faturamento():
+    return _redirect_account_alias('/faturas')
 
 
 @bp.get('/workspace/app/integracoes')
@@ -4304,6 +4369,66 @@ def integrations():
         'cadu_workspace/integrations.html',
         integration_data=_workspace_integration_data(client_id, organization_id),
     )
+
+
+@bp.post('/integracoes/google/sync')
+@login_required
+def google_workspace_sync():
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    from ..services import google_workspace
+    organization_id = int(session.get('organization_id') or session.get('cliente_id') or 0)
+    try:
+        results = []
+        errors = []
+        for operation in (google_workspace.sync_drive, google_workspace.sync_ads):
+            try:
+                results.append(operation(organization_id))
+            except google_workspace.GoogleWorkspaceError as exc:
+                errors.append(str(exc))
+        if not results and errors:
+            return jsonify({'success': False, 'error': errors[0]}), 400
+        return jsonify({'success': True, 'results': results, 'errors': errors,
+                        'synced': sum(int(item.get('synced') or 0) for item in results)})
+    except google_workspace.GoogleWorkspaceError as exc:
+        return jsonify({'success': False, 'error': str(exc)}), 400
+
+
+@bp.post('/integracoes/google/disconnect')
+@login_required
+def google_workspace_disconnect():
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    from ..services import google_workspace
+    organization_id = int(session.get('organization_id') or session.get('cliente_id') or 0)
+    try:
+        removed = google_workspace.disconnect(organization_id)
+        return jsonify({'success': True, 'removed': removed})
+    except google_workspace.GoogleWorkspaceError as exc:
+        return jsonify({'success': False, 'error': str(exc)}), 400
+
+
+@bp.post('/integracoes/google/resources/<uuid:resource_id>/link')
+@login_required
+def google_workspace_link_resource(resource_id):
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    from ..services import google_workspace
+    payload = request.get_json(silent=True) or {}
+    client_id = int(session.get('cliente_id') or 0)
+    organization_id = int(session.get('organization_id') or client_id)
+    try:
+        result = google_workspace.link_resource(
+            organization_id=organization_id,
+            client_id=client_id,
+            resource_id=str(resource_id),
+            project_ref=str(payload.get('project_ref') or '').strip(),
+            purpose=str(payload.get('purpose') or 'project_knowledge').strip(),
+            user_id=int(session.get('user_id') or 0),
+        )
+        return jsonify({'success': True, **result})
+    except google_workspace.GoogleWorkspaceError as exc:
+        return jsonify({'success': False, 'error': str(exc)}), 400
 
 
 @bp.post('/workspace/app/perfil')

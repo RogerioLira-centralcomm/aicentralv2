@@ -135,6 +135,84 @@ def google_callback():
         return redirect(url_for("login", next=target), code=302)
 
 
+@bp.get("/google/workspace")
+@login_required
+def google_workspace_start():
+    """Start the organization-level Google Workspace authorization."""
+    from ..services import google_workspace
+
+    target = safe_product_target(
+        request.args.get("next"),
+        product_url("workspace", "/integracoes"),
+    )
+    state = secrets.token_urlsafe(32)
+    verifier = secrets.token_urlsafe(64)
+    challenge = base64.urlsafe_b64encode(
+        hashlib.sha256(verifier.encode("ascii")).digest()
+    ).rstrip(b"=").decode("ascii")
+    session["google_workspace_auth"] = {
+        "state": state,
+        "verifier": verifier,
+        "next": target,
+        "organization_id": int(session.get("organization_id") or session.get("cliente_id") or 0),
+        "client_id": int(session.get("cliente_id") or 0),
+        "user_id": int(session.get("user_id") or 0),
+    }
+    try:
+        return redirect(
+            google_workspace.authorization_url(
+                state,
+                login_hint=str(session.get("user_email") or ""),
+                code_challenge=challenge,
+            ),
+            code=302,
+        )
+    except google_workspace.GoogleWorkspaceError as exc:
+        session.pop("google_workspace_auth", None)
+        flash(str(exc), "error")
+        return redirect(target, code=302)
+
+
+@bp.get("/google/workspace/callback")
+def google_workspace_callback():
+    """Finish the organization-level Google Workspace authorization."""
+    from ..services import google_workspace
+
+    pending = session.pop("google_workspace_auth", None) or {}
+    target = safe_product_target(
+        pending.get("next"),
+        product_url("workspace", "/integracoes"),
+    )
+    if request.args.get("error"):
+        flash("A conexão Google Workspace foi cancelada.", "warning")
+        return redirect(target, code=302)
+    if not pending.get("state") or not secrets.compare_digest(
+        str(pending.get("state")), str(request.args.get("state") or "")
+    ):
+        flash("A validação de segurança da conexão Google expirou.", "error")
+        return redirect(target, code=302)
+    try:
+        existing = google_workspace.get_connection(
+            int(pending["organization_id"]), include_secret=True
+        )
+        identity = google_workspace.exchange_code(
+            request.args.get("code") or "",
+            code_verifier=str(pending.get("verifier") or ""),
+        )
+        google_workspace.save_connection(
+            organization_id=int(pending["organization_id"]),
+            client_id=int(pending["client_id"]),
+            user_id=int(pending["user_id"]),
+            identity=identity,
+            existing=existing,
+        )
+        flash("Conta Google Workspace conectada.", "success")
+    except (google_workspace.GoogleWorkspaceError, KeyError, TypeError, ValueError) as exc:
+        current_app.logger.warning("Conexão Google Workspace recusada: %s", exc)
+        flash(str(exc), "error")
+    return redirect(target, code=303)
+
+
 @bp.get("/sso/consume")
 def consume_sso():
     """Consume a short-lived token created by PHP or another trusted app."""

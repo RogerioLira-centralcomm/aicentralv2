@@ -71,6 +71,17 @@ class Config:
 	CADU_GOOGLE_NATIVE_ENABLED = os.getenv('CADU_GOOGLE_NATIVE_ENABLED', '1') == '1'
 	GOOGLE_CADU_CLIENT_SECRET = os.getenv('GOOGLE_CADU_CLIENT_SECRET', '')
 	GOOGLE_CADU_REDIRECT_URI = os.getenv('GOOGLE_CADU_REDIRECT_URI', f"{AUTH_URL.rstrip('/')}/auth/google/callback")
+	# Aplicação OAuth exclusiva para dados Google Workspace dos clientes.
+	GOOGLE_WORKSPACE_CLIENT_ID = os.getenv('GOOGLE_WORKSPACE_CLIENT_ID', '')
+	GOOGLE_WORKSPACE_CLIENT_SECRET = os.getenv('GOOGLE_WORKSPACE_CLIENT_SECRET', '')
+	GOOGLE_WORKSPACE_REDIRECT_URI = os.getenv(
+		'GOOGLE_WORKSPACE_REDIRECT_URI',
+		f"{AUTH_URL.rstrip('/')}/auth/google/workspace/callback",
+	)
+	GOOGLE_TOKEN_ENCRYPTION_KEY = os.getenv('GOOGLE_TOKEN_ENCRYPTION_KEY', '')
+	GOOGLE_ADS_API_VERSION = os.getenv('GOOGLE_ADS_API_VERSION', 'v25')
+	GOOGLE_ADS_DEVELOPER_TOKEN = os.getenv('GOOGLE_ADS_DEVELOPER_TOKEN', '')
+	GOOGLE_ADS_LOGIN_CUSTOMER_ID = os.getenv('GOOGLE_ADS_LOGIN_CUSTOMER_ID', '')
 
 	# Sessão persistente: o login permanece neste dispositivo sem checkbox.
 	SESSION_LIFETIME_DAYS = int(os.getenv('SESSION_LIFETIME_DAYS', '180'))

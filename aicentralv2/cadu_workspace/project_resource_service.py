@@ -1,5 +1,7 @@
 """Canonical project resource registry shared by the UI and MCP."""
 
+from __future__ import annotations
+
 from collections import Counter
 from hashlib import sha256
 import json

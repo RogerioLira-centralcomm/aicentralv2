@@ -83,12 +83,15 @@ function avatarFallbackSource(bootstrap, userName) {
   return `/static/images/cadu/avatars/${badge}`;
 }
 
+const DOCK_RESOURCE_KINDS = new Set(['resource', 'file', 'image', 'artifact', 'video', 'media_plan', 'report', 'analysis', 'link']);
+const isDockResource = item => Boolean(item?.resourceRef) || DOCK_RESOURCE_KINDS.has(String(item?.kind || '').toLowerCase());
+
 export function DockDropZone({children, onDropItem, label = 'Fixar na dock'}) {
   const [active, setActive] = useState(false);
   const drop = useCallback(event => {
     allowDockDrop(event); setActive(false);
     const payload = readDockPayload(event);
-    if (payload) onDropItem?.(payload);
+    if (payload && payload.dockSource !== 'dock') onDropItem?.(payload);
   }, [onDropItem]);
   const enabled = typeof onDropItem === 'function';
   return <div className={`cadu-ds-dock-drop ${active ? 'is-active' : ''}`} onDragEnter={enabled ? () => setActive(true) : undefined} onDragLeave={enabled ? () => setActive(false) : undefined} onDragOver={enabled ? event => { event.preventDefault(); if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'; } : undefined} onDrop={enabled ? drop : undefined} aria-label={label}>{children}</div>;
@@ -106,7 +109,8 @@ export function DockBrandShortcut({brand, projectCount = 0, active = false, onOp
 export function DockResourceShortcut({item, pinned = false, active = false, onOpen, onDragStart, onDropShortcut}) {
   const draggable = typeof onDragStart === 'function';
   const droppable = typeof onDropShortcut === 'function';
-  return <DockTooltip label={item.title}><button type="button" draggable={draggable} onDragStart={draggable ? event => onDragStart(event, item) : undefined} onDragOver={droppable ? allowDockDrop : undefined} onDrop={droppable ? event => { allowDockDrop(event); onDropShortcut(event, item); } : undefined} onClick={() => onOpen?.(item)} aria-label={`Abrir ${item.title}`} aria-current={active ? 'page' : undefined} className={`cadu-ds-dock-resource ${active ? 'is-active' : ''}`}>
+  const resource = isDockResource(item);
+  return <DockTooltip label={item.title}><button type="button" draggable={draggable} onDragStart={draggable ? event => onDragStart(event, item) : undefined} onDragOver={droppable ? allowDockDrop : undefined} onDrop={droppable ? event => { allowDockDrop(event); onDropShortcut(event, item); } : undefined} onClick={() => onOpen?.(item)} aria-label={`Abrir ${item.title}`} aria-current={active ? 'page' : undefined} className={`cadu-ds-dock-resource ${resource ? 'cadu-ds-dock-resource--file' : ''} ${active ? 'is-active' : ''}`}>
     <VisualIdentity src={item.logoUrl || item.logo_url || item.dockLogoUrl || item.previewUrl} initials={item.visualInitials} label={item.title} color={item.visualColor} variant={item.visualVariant}/>{pinned && <i aria-label="Fixado">●</i>}
   </button></DockTooltip>;
 }
@@ -119,20 +123,21 @@ export function DockUsageRing({percent, onOpen}) {
 
 export function CaduDock({logo, homeUrl, bootstrap, userName = 'Minha conta', userAvatar, userInitials, accountOpen = false, accountMenu, onOpenAccount, onNewConversation, brands = [], resources = [], shortcutItems = [], usagePercent, onOpenBrand, onOpenResource, onDropItem, onReorderShortcuts, onOpenUsage}) {
   const writePayload = (event, payload) => {
-    const serialized = JSON.stringify(payload);
+    const serialized = JSON.stringify({...payload, dockSource: 'dock'});
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('application/x-cadu-item', serialized);
     event.dataTransfer.setData('text/plain', serialized);
   };
   const isWorkspaceSurface = Boolean(bootstrap?.homeMode || bootstrap?.projectMode || bootstrap?.brandsMode || bootstrap?.projectsMode || bootstrap?.accountMode);
   const isControlled = typeof onReorderShortcuts === 'function';
-  const [managedItems, setManagedItems] = useState(() => shortcutItems.length ? shortcutItems : [...brands, ...resources]);
+  const [managedItems, setManagedItems] = useState(() => shortcutItems);
   useEffect(() => {
-    if (!isControlled) setManagedItems(shortcutItems.length ? shortcutItems : [...brands, ...resources]);
-  }, [brands, isControlled, resources, shortcutItems]);
-  const items = isControlled ? (shortcutItems.length ? shortcutItems : [...brands, ...resources]) : managedItems;
+    if (!isControlled) setManagedItems(shortcutItems);
+  }, [isControlled, shortcutItems]);
+  const items = isControlled ? shortcutItems : managedItems;
   const dockBrands = items.filter(item => item.kind === 'brand');
-  const dockResources = items.filter(item => item.kind !== 'brand');
+  const dockProjects = items.filter(item => item.kind !== 'brand' && !isDockResource(item));
+  const dockResourceItems = items.filter(item => item.kind !== 'brand' && isDockResource(item));
   const canReorder = isControlled || isWorkspaceSurface;
   const persistManagedOrder = async next => {
     const before = managedItems;
@@ -143,8 +148,9 @@ export function CaduDock({logo, homeUrl, bootstrap, userName = 'Minha conta', us
       const explicit = [];
       for (const item of next) {
         if (item.shortcutId) { explicit.push(item); continue; }
-        const kind = item.kind === 'brand' ? 'brand' : 'project';
-        const targetRef = kind === 'brand' ? item.id : item.projectRef || item.id;
+        const resource = isDockResource(item);
+        const kind = item.kind === 'brand' ? 'brand' : resource ? 'resource' : 'project';
+        const targetRef = kind === 'brand' ? item.id : resource ? item.resourceRef || item.id : item.projectRef || item.id;
         const response = await fetch(endpoint, {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': token}, body: JSON.stringify({shortcut_type: kind, target_ref: targetRef, project_ref: item.projectRef || null, brand_ref: item.brandRef || null})});
         if (!response.ok) throw new Error('Não foi possível salvar a ordem da dock.');
         const data = await response.json();
@@ -177,8 +183,11 @@ export function CaduDock({logo, homeUrl, bootstrap, userName = 'Minha conta', us
   return <aside className="cadu-ds-dock" aria-label="Atalhos do Workspace">
     <div className="cadu-ds-dock-solution"><CaduSolutionSwitcher logo={logo} solutions={solutions} activeId="workspace"/></div>
     <DockTooltip label="Novo chat"><button type="button" className="cadu-ds-dock-new" onClick={onNewConversation} aria-label="Novo chat"><Icon name="newChat" size={18}/></button></DockTooltip>
-    <div className="cadu-ds-dock-context" aria-label="Marcas e projetos"><DockDropZone onDropItem={onDropItem} label="Marcas fixadas">{dockBrands.map(item => <DockBrandShortcut key={item.shortcutId || item.id} brand={item} projectCount={item.projectCount} active={item.active} onOpen={onOpenBrand} onDragStart={canReorder ? writePayload : undefined} onDropShortcut={canReorder ? reorder : undefined}/>)}</DockDropZone>
-      <div className="cadu-ds-dock-resources" aria-label="Projetos fixados">{dockResources.map(item => <DockResourceShortcut key={item.shortcutId || item.id} item={item} pinned={item.pinned} active={item.active} onOpen={onOpenResource} onDragStart={canReorder ? writePayload : undefined} onDropShortcut={canReorder ? reorder : undefined}/>)}</div></div>
+    <DockDropZone onDropItem={onDropItem} label="Fixar marca, projeto ou recurso"><div className="cadu-ds-dock-context" aria-label="Atalhos do Workspace">
+      <section className="cadu-ds-dock-section cadu-ds-dock-section--brands" aria-label="Marcas fixadas"><span className="cadu-ds-dock-section-label" aria-hidden="true">Marcas</span>{dockBrands.map(item => <DockBrandShortcut key={item.shortcutId || item.id} brand={item} projectCount={item.projectCount} active={item.active} onOpen={onOpenBrand} onDragStart={canReorder ? writePayload : undefined} onDropShortcut={canReorder ? reorder : undefined}/>)}</section>
+      <section className="cadu-ds-dock-section cadu-ds-dock-section--projects" aria-label="Projetos fixados"><span className="cadu-ds-dock-section-label" aria-hidden="true">Projetos</span>{dockProjects.map(item => <DockResourceShortcut key={item.shortcutId || item.id} item={item} pinned={item.pinned} active={item.active} onOpen={onOpenResource} onDragStart={canReorder ? writePayload : undefined} onDropShortcut={canReorder ? reorder : undefined}/>)}</section>
+      {dockResourceItems.length > 0 && <section className="cadu-ds-dock-section cadu-ds-dock-section--resources" aria-label="Recursos fixados"><span className="cadu-ds-dock-section-label" aria-hidden="true">Recursos</span>{dockResourceItems.map(item => <DockResourceShortcut key={item.shortcutId || item.id} item={item} pinned={item.pinned} active={item.active} onOpen={onOpenResource} onDragStart={canReorder ? writePayload : undefined} onDropShortcut={canReorder ? reorder : undefined}/>)}</section>}
+    </div></DockDropZone>
     <div className="cadu-ds-dock-bottom">{usagePercent != null && <DockUsageRing percent={usagePercent} onOpen={onOpenUsage}/>}<div className="cadu-ds-dock-account-wrap"><DockTooltip label={`Conta de ${userName}`}><button type="button" className="cadu-ds-dock-avatar-button" onClick={onOpenAccount} aria-label={`Abrir conta de ${userName}`} aria-haspopup="menu" aria-expanded={accountOpen}><VisualIdentity src={resolvedAvatar || fallbackAvatar} fallbackSrc={resolvedAvatar ? fallbackAvatar : ''} initials={userInitials || userName} label={userName} color="#1b6d64" imageAlt={`Foto de ${userName}`}/></button></DockTooltip>{accountMenu}</div></div>
   </aside>;
 }

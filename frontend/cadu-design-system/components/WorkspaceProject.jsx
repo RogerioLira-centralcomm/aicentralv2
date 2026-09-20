@@ -4,6 +4,7 @@ import {VisualIdentity} from './VisualIdentity';
 import {WorkspaceAccountMenu} from './WorkspaceFeedback';
 import {CaduDialog} from './CaduDialog';
 import {openWorkspaceDetail} from '../workspaceNavigation';
+import {csrf, request} from '../../conversations-v2/lib/api';
 
 function ProjectIcon({name}) {
   const paths = {
@@ -13,6 +14,20 @@ function ProjectIcon({name}) {
     spark: <><path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></>,
   };
   return <svg className="cadu-ds-project-icon" viewBox="0 0 24 24" aria-hidden="true">{paths[name] || paths.context}</svg>;
+}
+
+function writeDockResourcePayload(event, resource, projectId) {
+  const target = new URL(window.location.href);
+  target.searchParams.set('resource', resource.id);
+  const payload = {
+    id: `resource:${resource.id}`, type: 'resource', kind: 'resource', resourceRef: String(resource.id),
+    projectRef: `ci:${projectId}`, title: resource.title || 'Recurso', resourceType: resource.resourceType || resource.kind || 'resource',
+    previewUrl: /^https:\/\//i.test(resource.locator || '') ? resource.locator : '', href: `${target.pathname}${target.search}`,
+  };
+  const serialized = JSON.stringify(payload);
+  event.dataTransfer.effectAllowed = 'copy';
+  event.dataTransfer.setData('application/x-cadu-item', serialized);
+  event.dataTransfer.setData('text/plain', serialized);
 }
 
 function ProjectDialog({title, detail, onClose, children}) {
@@ -124,16 +139,44 @@ export function WorkspaceProject({bootstrap}) {
   const [dropQueue, setDropQueue] = useState([]);
   const [resourceId, setResourceId] = useState(() => new URLSearchParams(window.location.search).get('resource') || '');
   const [accountOpen, setAccountOpen] = useState(false);
+  const [dockItems, setDockItems] = useState(bootstrap.dock?.items || []);
   const canEdit = project.status !== 'arquivado';
   const missing = project.health?.missing || [];
   const projectLinks = bootstrap.projectLinks || {};
   const startConversation = () => window.location.assign(projectLinks.conversation);
   const selectedResource = (project.resources || []).find(item => String(item.id) === String(resourceId));
+  useEffect(() => {
+    const strip = document.querySelector('.cadu-ds-project-resource-strip');
+    if (!strip) return undefined;
+    const buttons = Array.from(strip.querySelectorAll('button'));
+    buttons.forEach(button => { button.draggable = true; });
+    const handleDragStart = event => {
+      const title = event.target.closest('button')?.textContent?.trim();
+      const resource = (project.resources || []).find(item => item.title === title);
+      if (resource) writeDockResourcePayload(event, resource, project.id);
+    };
+    strip.addEventListener('dragstart', handleDragStart);
+    return () => strip.removeEventListener('dragstart', handleDragStart);
+  }, [project.id, project.resources]);
+  const addDockResource = async payload => {
+    if (!payload?.resourceRef || dockItems.some(item => item.resourceRef === payload.resourceRef && item.shortcutId)) return;
+    try {
+      const endpoint = bootstrap.endpoints?.dockShortcuts || '/workspace/api/dock/shortcuts';
+      const data = await request(endpoint, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRF-Token': bootstrap.csrf || csrf()},
+        body: JSON.stringify({shortcut_type: 'resource', target_ref: payload.resourceRef, project_ref: payload.projectRef, metadata: {title: payload.title, resource_type: payload.resourceType}}),
+      });
+      setDockItems(items => [...items, {...payload, shortcutId: data.shortcut?.id, pinned: true}]);
+    } catch (_) {
+      // The dock remains usable if a resource shortcut cannot be saved.
+    }
+  };
   return <div className="cadu-ds-home-shell cadu-ds-project-shell">
     <main className="cadu-ds-home-main">
       <div className="cadu-ds-home-workarea cadu-ds-project-workarea" onDragEnter={(event) => {if (event.dataTransfer?.types?.includes('Files')) {event.preventDefault(); setDropActive(true);}}} onDragOver={(event) => {if (event.dataTransfer?.types?.includes('Files')) event.preventDefault();}} onDragLeave={() => setDropActive(false)} onDrop={(event) => {if (event.dataTransfer?.files?.length) {event.preventDefault(); setDropActive(false); setDropQueue(Array.from(event.dataTransfer.files)); setDialog('sources');}}}>
         {dropActive && <div className="cadu-ds-project-page-drop" aria-hidden="true"><strong>Solte para anexar ao projeto</strong><span>O arquivo será preservado e revisado antes da indexação.</span></div>}
-        <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={bootstrap.brands || []} resources={bootstrap.projects || []} shortcutItems={(bootstrap.dock?.items || []).map(item => ({...item, active: (item.kind === 'project' && String(item.projectRef || '') === `ci:${project.id}`) || (item.kind === 'brand' && String(item.brandRef || '') === `studio:${project.brand?.id || ''}`)}))} usagePercent={bootstrap.usagePercent} onNewConversation={startConversation} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onOpenUsage={() => setAccountOpen(true)}/>
+        <CaduDock bootstrap={bootstrap} logo={bootstrap.caduMark} homeUrl={bootstrap.urls.home} userName={bootstrap.user?.name} userAvatar={bootstrap.user?.avatar} userInitials={bootstrap.user?.name?.slice(0, 2).toUpperCase()} accountOpen={accountOpen} accountMenu={<WorkspaceAccountMenu open={accountOpen} onClose={() => setAccountOpen(false)} user={bootstrap.user} links={bootstrap.urls} usagePercent={bootstrap.usagePercent} onManageShortcuts={() => window.location.assign(`${bootstrap.urls.home}#atalhos`)}/>} onOpenAccount={() => setAccountOpen(current => !current)} brands={bootstrap.brands || []} resources={bootstrap.projects || []} shortcutItems={dockItems.map(item => ({...item, active: (item.kind === 'project' && String(item.projectRef || '') === `ci:${project.id}`) || (item.kind === 'brand' && String(item.brandRef || '') === `studio:${project.brand?.id || ''}`)}))} onDropItem={addDockResource} usagePercent={bootstrap.usagePercent} onNewConversation={startConversation} onOpenBrand={openWorkspaceDetail} onOpenResource={openWorkspaceDetail} onOpenUsage={() => setAccountOpen(true)}/>
         <section className="cadu-ds-project-content">
         <header className="cadu-ds-project-hero"><div className="cadu-ds-project-hero__identity"><VisualIdentity src={project.brand?.logoUrl} initials={project.brand?.initials || project.name} label={project.brand?.name || project.name} color={project.brand?.color || project.color}/></div><div><p>{project.status === 'arquivado' ? 'Projeto arquivado' : 'Projeto em andamento'}</p><h1>{project.name}</h1>{project.brand?.name && <a href={project.brand.href}>{project.brand.name}</a>}<span>{project.description || 'Organize a direção, as fontes e as decisões que vão sustentar este trabalho.'}</span></div><div className="cadu-ds-project-hero__actions"><button type="button" className="is-primary" onClick={startConversation}>Conversar no projeto</button><details><summary>Criar</summary><div><a href={projectLinks.createPlan}>Plano de mídia</a><a href={projectLinks.createImage}>Imagem</a><a href={projectLinks.createVideo}>Vídeo</a></div></details></div></header>
         {project.status === 'arquivado' && <aside className="cadu-ds-project-notice"><b>Este projeto está arquivado.</b><span>O contexto permanece disponível para consulta.</span><form method="post" action={projectLinks.toggleStatus}><input type="hidden" name="_csrf" value={bootstrap.csrf}/><button>Reativar projeto</button></form></aside>}

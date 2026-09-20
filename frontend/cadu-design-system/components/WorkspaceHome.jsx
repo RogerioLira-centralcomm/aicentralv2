@@ -16,6 +16,8 @@ function withQuery(url, values) {
   return target.pathname + target.search;
 }
 
+const isDockResource = item => Boolean(item?.resourceRef) || item?.kind === 'resource';
+
 export function WorkspaceHome({bootstrap}) {
   const home = bootstrap.home || {};
   const [value, setValue] = useState(() => new URLSearchParams(window.location.search).get('prompt') || '');
@@ -89,7 +91,7 @@ export function WorkspaceHome({bootstrap}) {
   // The dock is a visual brand shelf. Keep the manager on the same catalog as
   // the server, so a project without the linked brand's primary logo can never
   // be manually reintroduced as initials.
-  const shortcutCandidates = [...(home.brands || []), ...projects.filter(item => item.dockLogoUrl)]
+  const shortcutCandidates = [...(home.brands || []), ...projects.filter(item => item.dockLogoUrl), ...(home.resources || []).filter(isDockResource)]
     .map(item => item.kind === 'project' ? {...item, previewUrl: item.dockLogoUrl, title: item.title || item.name} : {...item, title: item.title || item.name});
   const explicitDockItems = dockItems.filter(item => item.shortcutId);
   const managerItems = [
@@ -97,8 +99,8 @@ export function WorkspaceHome({bootstrap}) {
     ...shortcutCandidates.filter(item => !explicitDockItems.some(dockItem => dockItem.id === item.id)),
   ].map(item => ({...item, pinned: Boolean(item.shortcutId)}));
   const createShortcut = async item => {
-    const kind = item.kind === 'brand' ? 'brand' : 'project';
-    const targetRef = kind === 'brand' ? item.id : item.projectRef || item.id;
+    const kind = item.kind === 'brand' ? 'brand' : isDockResource(item) ? 'resource' : 'project';
+    const targetRef = kind === 'brand' ? item.id : isDockResource(item) ? item.resourceRef || item.id : item.projectRef || item.id;
     const response = await request(bootstrap.endpoints.dockShortcuts, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf()}, body: JSON.stringify({shortcut_type: kind, target_ref: targetRef, project_ref: item.projectRef || null, brand_ref: item.brandRef || null})});
     return {...item, shortcutId: response.shortcut.id, pinned: true};
   };
@@ -107,11 +109,13 @@ export function WorkspaceHome({bootstrap}) {
     setDockItems(current => [...current.filter(currentItem => currentItem.shortcutId && currentItem.id !== item.id), next]);
   };
   const addDroppedShortcut = async payload => {
-    const candidate = payload.type === 'brand'
+    const candidate = payload.type === 'resource' || payload.resourceRef
+      ? {...payload, kind: 'resource', id: payload.id || `resource:${payload.resourceRef}`, title: payload.title || 'Recurso'}
+      : payload.type === 'brand'
       ? (home.brands || []).find(item => item.id === payload.id)
       : projects.find(item => item.id === (payload.projectRef || payload.id));
-    if (!candidate || !['brand', 'project'].includes(candidate.kind)) {
-      setToast('Apenas marcas e projetos podem ser fixados na dock.');
+    if (!candidate || !['brand', 'project', 'resource'].includes(candidate.kind)) {
+      setToast('Apenas marcas, projetos e recursos podem ser fixados na dock.');
       return;
     }
     if (dockItems.some(item => item.id === candidate.id && item.shortcutId)) {

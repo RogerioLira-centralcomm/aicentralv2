@@ -557,6 +557,40 @@ def _dock_visual_variant(kind: str, value: object) -> int:
     return int.from_bytes(digest[:2], 'big') % 10
 
 
+_DOCK_RESOURCE_KINDS = {'resource', 'file', 'image', 'artifact', 'video', 'media_plan', 'report', 'analysis', 'link'}
+
+
+def _workspace_dock_resource_items(client_id: int, project_rows: list[dict]) -> list[dict]:
+    """Build launchable resource entries without putting them in the dock by default."""
+    projects_by_ref = {f"ci:{row.get('id')}": row for row in project_rows if row.get('id')}
+    try:
+        resources = project_resource_service.list_recent_resources(client_id, list(projects_by_ref), limit=80)
+    except Exception:
+        current_app.logger.warning('Não foi possível carregar recursos para a dock do cliente %s', client_id, exc_info=True)
+        return []
+    items = []
+    for resource in resources:
+        resource_ref = str(resource.get('id') or '').strip()
+        project_ref = str(resource.get('project_ref') or '').strip()
+        project_id = project_ref[3:] if project_ref.startswith('ci:') else ''
+        if not resource_ref or not project_id or project_ref not in projects_by_ref:
+            continue
+        resource_type = str(resource.get('resource_type') or 'resource').strip().lower()
+        title = str(resource.get('title') or 'Recurso')
+        locator = str(resource.get('locator') or '').strip()
+        preview = locator if resource_type == 'image' and urlparse(locator).scheme in {'http', 'https'} else ''
+        project = projects_by_ref[project_ref]
+        items.append({
+            'id': f'resource:{resource_ref}', 'kind': 'resource', 'title': title,
+            'name': title, 'resourceRef': resource_ref, 'resourceType': resource_type,
+            'projectRef': project_ref, 'projectName': str(project.get('nome') or 'Projeto'),
+            'href': url_for('cadu_workspace.clean_project_detail', project_id=project_id, resource=resource_ref),
+            'previewUrl': preview, 'visualInitials': resource_type[:2].upper(),
+            'visualColor': str(project.get('thumbnail_color') or project.get('cor') or '#176b5e'),
+        })
+    return items
+
+
 def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Optional[list[dict]] = None,
                                   brands: Optional[list[dict]] = None) -> list[dict]:
     """Return the one shared visual dock used by every Workspace surface.
@@ -594,6 +628,7 @@ def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Opti
         'brandRef': f"studio:{item.get('id')}",
         'projectCount': brand_project_counts.get(str(item.get('name') or '').casefold(), 0),
     } for item in brand_rows]
+    brand_items = [item for item in brand_items if item['logoUrl']]
     project_items = [{
         'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'),
         'name': str(item.get('nome') or 'Projeto'), 'href': url_for('cadu_workspace.clean_project_detail', project_id=str(item.get('id'))),
@@ -604,12 +639,19 @@ def _workspace_common_dock_items(client_id: int, user_id: int, *, projects: Opti
         'visualColor': str(item.get('thumbnail_color') or item.get('cor') or '#176b5e'),
         'visualVariant': _dock_visual_variant('project', item.get('id')),
     } for item in project_rows]
+    resource_items = _workspace_dock_resource_items(client_id, project_rows)
 
     catalog = {('brand', item['id']): item for item in brand_items}
     catalog.update({('project', item['projectRef']): item for item in project_items})
-    explicit = [{**catalog[(row['shortcut_type'], row['target_ref'])], 'shortcutId': row['id'], 'pinned': True}
-                for row in _user_dock_shortcuts(client_id, user_id)
-                if (row['shortcut_type'], row['target_ref']) in catalog]
+    catalog.update({('resource', item['resourceRef']): item for item in resource_items})
+    explicit = []
+    for row in _user_dock_shortcuts(client_id, user_id):
+        key = (row['shortcut_type'], row['target_ref'])
+        if key not in catalog and row['shortcut_type'] in _DOCK_RESOURCE_KINDS:
+            key = ('resource', row['target_ref'])
+        item = catalog.get(key)
+        if item:
+            explicit.append({**item, 'shortcutId': row['id'], 'pinned': True})
     if explicit:
         return explicit[:8]
     # Before the user personalizes the dock, show only a small brand shelf.
@@ -629,7 +671,26 @@ def _authorized_dock_target(client_id: int, kind: str, target_ref: str) -> Optio
                      if f"ci:{item.get('id')}" == target_ref), None)
     if kind == 'brand':
         return next((item for item in _workspace_brands(client_id)
-                     if str(item.get('id')) == target_ref), None)
+                     if str(item.get('id')) == target_ref
+                     and str(item.get('display_logo') or item.get('resolved_logo_path')
+                               or item.get('logo_upload_path') or item.get('logo_url') or '').strip()), None)
+    if kind == 'resource':
+        try:
+            with get_db().cursor() as cursor:
+                cursor.execute("""SELECT id::text, project_ref, resource_type, title, locator
+                                   FROM cadu_project_resources
+                                  WHERE id=%s AND client_id=%s AND status <> 'archived'""",
+                               (target_ref, client_id))
+                row = cursor.fetchone()
+            return dict(row) if row else None
+        except Exception:
+            connection = getattr(g, 'db', None)
+            if connection is not None:
+                try:
+                    connection.rollback()
+                except Exception:
+                    pass
+            current_app.logger.warning('Não foi possível autorizar o recurso %s para a dock', target_ref, exc_info=True)
     return None
 
 
@@ -643,26 +704,43 @@ def save_dock_shortcut():
     payload = request.get_json(silent=True) or {}
     kind = str(payload.get('shortcut_type') or '').strip().lower()
     target_ref = str(payload.get('target_ref') or '').strip()[:500]
-    if kind not in {'brand', 'project'} or not target_ref:
+    if kind in _DOCK_RESOURCE_KINDS:
+        kind = 'resource'
+    if kind not in {'brand', 'project', 'resource'} or not target_ref:
         abort(400, description='Atalho inválido.')
     client_id, user_id = int(session.get('cliente_id') or 0), int(session.get('user_id') or 0)
-    if not _authorized_dock_target(client_id, kind, target_ref):
+    authorized_target = _authorized_dock_target(client_id, kind, target_ref)
+    if not authorized_target:
         abort(403, description='O item não pertence à sua agência ou não está disponível para a dock.')
+    project_ref = str(authorized_target.get('project_ref') or payload.get('project_ref') or '')[:500] or None
+    brand_ref = str(authorized_target.get('brand_ref') or payload.get('brand_ref') or '')[:500] or None
+    metadata = json.dumps(payload.get('metadata') if isinstance(payload.get('metadata'), dict) else {})
     connection = get_db()
-    with connection.cursor() as cursor:
-        cursor.execute("""INSERT INTO cadu_workspace_dock_shortcuts
-                (id,client_id,user_id,shortcut_type,target_ref,project_ref,brand_ref,position,metadata,created_at,updated_at)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,
-                    COALESCE((SELECT MAX(position)+1 FROM cadu_workspace_dock_shortcuts WHERE client_id=%s AND user_id=%s),0),
-                    %s,NOW(),NOW())
-            ON CONFLICT (client_id,user_id,shortcut_type,target_ref) DO UPDATE
-                SET project_ref=EXCLUDED.project_ref,brand_ref=EXCLUDED.brand_ref,metadata=EXCLUDED.metadata,updated_at=NOW()
-            RETURNING id::text,shortcut_type,target_ref,project_ref,brand_ref,position,metadata""",
-            (str(uuid4()), client_id, user_id, kind, target_ref,
-             str(payload.get('project_ref') or '')[:500] or None, str(payload.get('brand_ref') or '')[:500] or None,
-             client_id, user_id, json.dumps(payload.get('metadata') if isinstance(payload.get('metadata'), dict) else {})))
-        shortcut = dict(cursor.fetchone())
-    connection.commit()
+    try:
+        with connection.cursor() as cursor:
+            # Do not rely on a particular name for the legacy unique index. Some
+            # installations created the dock table before the named conflict
+            # target was present; a target-less conflict clause works with any
+            # unique constraint on the table and keeps the action idempotent.
+            cursor.execute("""INSERT INTO cadu_workspace_dock_shortcuts
+                    (id,client_id,user_id,shortcut_type,target_ref,project_ref,brand_ref,position,metadata,created_at,updated_at)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,
+                        COALESCE((SELECT MAX(position)+1 FROM cadu_workspace_dock_shortcuts WHERE client_id=%s AND user_id=%s),0),
+                        %s,NOW(),NOW())
+                ON CONFLICT DO UPDATE
+                    SET project_ref=EXCLUDED.project_ref,brand_ref=EXCLUDED.brand_ref,metadata=EXCLUDED.metadata,updated_at=NOW()
+                RETURNING id::text,shortcut_type,target_ref,project_ref,brand_ref,position,metadata""",
+                (str(uuid4()), client_id, user_id, kind, target_ref, project_ref, brand_ref,
+                 client_id, user_id, metadata))
+            row = cursor.fetchone()
+            if not row:
+                raise RuntimeError('O banco não retornou o atalho salvo.')
+            shortcut = dict(row)
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        current_app.logger.exception('Falha ao salvar atalho da dock: tipo=%s alvo=%s', kind, target_ref)
+        abort(503, description='Não foi possível salvar este atalho agora. Tente novamente.')
     return jsonify(shortcut=shortcut), 201
 
 
@@ -674,11 +752,16 @@ def delete_dock_shortcut(shortcut_id):
     if not _dock_shortcuts_available():
         abort(409, description='Os atalhos ainda estão sendo atualizados. Atualize a página em instantes.')
     connection = get_db()
-    with connection.cursor() as cursor:
-        cursor.execute('DELETE FROM cadu_workspace_dock_shortcuts WHERE id=%s AND client_id=%s AND user_id=%s',
-                       (str(shortcut_id), int(session.get('cliente_id') or 0), int(session.get('user_id') or 0)))
-        found = cursor.rowcount
-    connection.commit()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute('DELETE FROM cadu_workspace_dock_shortcuts WHERE id=%s AND client_id=%s AND user_id=%s',
+                           (str(shortcut_id), int(session.get('cliente_id') or 0), int(session.get('user_id') or 0)))
+            found = cursor.rowcount
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        current_app.logger.exception('Falha ao remover atalho da dock: %s', shortcut_id)
+        abort(503, description='Não foi possível remover este atalho agora. Tente novamente.')
     if not found:
         abort(404, description='Atalho não encontrado.')
     return '', 204
@@ -692,22 +775,32 @@ def reorder_dock_shortcuts():
     if not _dock_shortcuts_available():
         abort(409, description='Os atalhos ainda estão sendo atualizados. Atualize a página em instantes.')
     values = (request.get_json(silent=True) or {}).get('ids')
-    if not isinstance(values, list) or len(values) > 32 or len(values) != len(set(values)) or any(not isinstance(value, str) for value in values):
+    if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
+        abort(400, description='Ordem de atalhos inválida.')
+    if len(values) > 32 or len(values) != len(set(values)):
         abort(400, description='Ordem de atalhos inválida.')
     client_id, user_id = int(session.get('cliente_id') or 0), int(session.get('user_id') or 0)
     connection = get_db()
-    with connection.cursor() as cursor:
-        cursor.execute('SELECT id::text FROM cadu_workspace_dock_shortcuts WHERE client_id=%s AND user_id=%s FOR UPDATE',
-                       (client_id, user_id))
-        expected = {row['id'] for row in cursor.fetchall()}
-        if expected != set(values):
-            abort(400, description='Envie a lista completa dos seus atalhos para reorganizá-los.')
-        for position, shortcut_id in enumerate(values):
-            cursor.execute("""UPDATE cadu_workspace_dock_shortcuts
-                             SET position=%s,updated_at=NOW()
-                           WHERE id=%s AND client_id=%s AND user_id=%s""",
-                         (position, shortcut_id, client_id, user_id))
-    connection.commit()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT id::text FROM cadu_workspace_dock_shortcuts WHERE client_id=%s AND user_id=%s FOR UPDATE',
+                           (client_id, user_id))
+            expected = {row['id'] for row in cursor.fetchall()}
+            if expected != set(values):
+                abort(400, description='Envie a lista completa dos seus atalhos para reorganizá-los.')
+            for position, shortcut_id in enumerate(values):
+                cursor.execute("""UPDATE cadu_workspace_dock_shortcuts
+                                 SET position=%s,updated_at=NOW()
+                               WHERE id=%s AND client_id=%s AND user_id=%s""",
+                             (position, shortcut_id, client_id, user_id))
+        connection.commit()
+    except HTTPException:
+        connection.rollback()
+        raise
+    except Exception:
+        connection.rollback()
+        current_app.logger.exception('Falha ao ordenar atalhos da dock')
+        abort(503, description='Não foi possível reorganizar os atalhos agora. Tente novamente.')
     return jsonify(shortcuts=_user_dock_shortcuts(client_id, user_id))
 
 
@@ -2483,6 +2576,7 @@ def dashboard():
     dock_items = _workspace_common_dock_items(
         client_id, int(session.get('user_id') or 0), projects=projects, brands=brands,
     )
+    dock_resource_items = _workspace_dock_resource_items(client_id, projects)
     continuity_feed = _workspace_continuity_feed(client_id, projects, {
         'id': int(session.get('user_id') or 0),
         # Older Workspace sessions do not carry organization_id. In that
@@ -2516,7 +2610,7 @@ def dashboard():
         'brands': visible_brands,
         'projects': project_items,
         'dock': {'items': dock_items, 'isSuggested': not any(item.get('shortcutId') for item in dock_items)},
-        'resources': project_items[:8],
+        'resources': dock_resource_items,
         'resumeCards': continuity_feed,
         'decisions': decisions,
         'activity': continuity_feed,

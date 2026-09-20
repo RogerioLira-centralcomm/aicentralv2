@@ -33,6 +33,11 @@
 [data-cadu-skin="skills"] { --cadu-accent: #7a68d8; --cadu-accent-strong: #5c4cb2; --cadu-accent-soft: #f0edff; }
 
 [data-cadu-theme="light"] {
+  --cadu-nav-bg: #ffffff;
+  --cadu-nav-surface: #edf4f2;
+  --cadu-nav-ink: #17302c;
+  --cadu-nav-muted: #617773;
+  --cadu-nav-line: #d9e4e1;
   --cadu-canvas: #f6f8fa;
   --cadu-surface: #ffffff;
   --cadu-surface-raised: #ffffff;

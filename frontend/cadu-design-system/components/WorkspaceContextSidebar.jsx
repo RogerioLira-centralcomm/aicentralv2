@@ -30,7 +30,7 @@ function SidebarCollection({label, href, items, kind}) {
   </section>;
 }
 
-export function WorkspaceContextSidebar({mode = 'home', links = {}, active = 'home', resources = [], projects = [], brands = []}) {
+export function WorkspaceContextSidebar({mode = 'home', links = {}, active = 'home', resources = [], projects = [], brands = [], agencyName = ''}) {
   const [collapsed, setCollapsed] = useState(() => readCollapsed(mode));
   const items = mode === 'account' ? ACCOUNT_ITEMS : HOME_ITEMS;
   const recentFiles = useMemo(() => resources.filter(item => item?.href || item?.url).slice(0, 3), [resources]);
@@ -41,7 +41,7 @@ export function WorkspaceContextSidebar({mode = 'home', links = {}, active = 'ho
 
   return <aside className={`cadu-ds-context-sidebar ${collapsed ? 'is-collapsed' : ''}`} aria-label={mode === 'account' ? 'Navegação da conta' : 'Navegação do Workspace'}>
     <header className="cadu-ds-context-sidebar__header">
-      <div className="cadu-ds-context-sidebar__heading"><span>{mode === 'account' ? 'Conta' : 'Workspace'}</span></div>
+      <div className="cadu-ds-context-sidebar__heading"><span>{mode === 'account' ? 'Conta' : 'Workspace'}</span><strong>{agencyName || 'Minha agência'}</strong></div>
       <button type="button" className="cadu-ds-context-sidebar__toggle" onClick={() => setCollapsed(value => !value)} aria-label={collapsed ? 'Expandir navegação' : 'Recolher navegação'} aria-expanded={!collapsed}>{collapsed ? '›' : '‹'}</button>
     </header>
     <nav className="cadu-ds-context-sidebar__nav" aria-label={mode === 'account' ? 'Seções da conta' : 'Seções do Workspace'}>

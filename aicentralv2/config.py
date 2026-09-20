@@ -126,7 +126,7 @@ class Config:
 	).lower() in ('true', '1', 'yes', 'on')
 	# Cache-busting compartilhado pelas páginas React do Workspace. O valor
 	# pode ser avançado no ambiente sem editar cada template individualmente.
-	CADU_WORKSPACE_ASSET_VERSION = os.getenv('CADU_WORKSPACE_ASSET_VERSION', '27')
+	CADU_WORKSPACE_ASSET_VERSION = os.getenv('CADU_WORKSPACE_ASSET_VERSION', '28')
 	CADU_CONVERSATIONS_V2_DIFY_URL = os.getenv('CADU_CONVERSATIONS_V2_DIFY_URL', '')
 	CADU_CONVERSATIONS_V2_DIFY_KEY = os.getenv('CADU_CONVERSATIONS_V2_DIFY_KEY', '')
 	# Three isolated language runtimes. Empty mode-specific values fall back to

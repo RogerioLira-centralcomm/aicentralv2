@@ -64,7 +64,10 @@ test('Workspace home keeps a functional product switcher and resilient visual do
   assert.doesNotMatch(contextSidebar, /context-sidebar__footer/);
   assert.match(feedback, /WorkspaceAccountControl/);
   assert.match(feedback, /user\.email \|\| 'Conta e perfil'/);
-  assert.match(home, /matchedProjects/);
+  assert.doesNotMatch(home, /matchedProjects|ProjectSelector|Buscar projetos/);
+  assert.match(home, /agencyName=\{home\.agency\?\.name\}/);
+  assert.match(contextSidebar, /agencyName = ''/);
+  assert.match(contextSidebar, /<strong>\{agencyName \|\| 'Minha agência'\}<\/strong>/);
   assert.match(dock, /workspaceSolutionItems\(bootstrap\)/);
   assert.match(home, /onOpenResource=\{openWorkspaceDetail\}/);
   assert.match(projects, /onOpenResource=\{openWorkspaceDetail\}/);

@@ -31,6 +31,11 @@ from ..smart_planner.logos import public_logo
 from . import project_index_service, project_knowledge, project_sources
 
 
+def _utc_timestamp() -> str:
+    """RFC 3339 UTC timestamp without the deprecated naive ``utcnow`` API."""
+    return datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+
+
 def _send_brand_approval_email(brand: dict, pack: dict, client_id: int, brand_id: int) -> None:
     """Send a readable approval recap without making approval depend on mail delivery."""
     recipient = str(session.get('user_email') or '').strip()
@@ -463,6 +468,120 @@ def _workspace_api_csrf() -> bool:
     return bool(token and secrets.compare_digest(token, supplied))
 
 
+def _dock_shortcuts_available() -> bool:
+    """Allow the Workspace to keep rendering while the migration is rolling out."""
+    with get_db().cursor() as cursor:
+        cursor.execute("SELECT to_regclass('public.cadu_workspace_dock_shortcuts') AS relation")
+        return bool(cursor.fetchone().get('relation'))
+
+
+def _user_dock_shortcuts(client_id: int, user_id: int) -> list[dict]:
+    """Explicit preferences only; automatic shortcuts are never persisted."""
+    if not _dock_shortcuts_available():
+        return []
+    with get_db().cursor() as cursor:
+        cursor.execute("""SELECT id::text, shortcut_type, target_ref, project_ref, brand_ref,
+                                 position, metadata
+                            FROM cadu_workspace_dock_shortcuts
+                           WHERE client_id=%s AND user_id=%s
+                        ORDER BY position, updated_at DESC""", (client_id, user_id))
+        return [dict(row) for row in cursor.fetchall()]
+
+
+@bp.get('/workspace/api/dock/shortcuts')
+@login_required
+def list_dock_shortcuts():
+    return jsonify(shortcuts=_user_dock_shortcuts(int(session.get('cliente_id') or 0), int(session.get('user_id') or 0)))
+
+
+def _authorized_dock_target(client_id: int, kind: str, target_ref: str) -> Optional[dict]:
+    if kind == 'project':
+        return next((item for item in _workspace_projects(client_id, status='todos')
+                     if f"ci:{item.get('id')}" == target_ref), None)
+    if kind == 'brand':
+        return next((item for item in _workspace_brands(client_id)
+                     if str(item.get('id')) == target_ref and item.get('display_logo')), None)
+    return None
+
+
+@bp.post('/workspace/api/dock/shortcuts')
+@login_required
+def save_dock_shortcut():
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    if not _dock_shortcuts_available():
+        abort(409, description='Os atalhos ainda estão sendo atualizados. Atualize a página em instantes.')
+    payload = request.get_json(silent=True) or {}
+    kind = str(payload.get('shortcut_type') or '').strip().lower()
+    target_ref = str(payload.get('target_ref') or '').strip()[:500]
+    if kind not in {'brand', 'project'} or not target_ref:
+        abort(400, description='Atalho inválido.')
+    client_id, user_id = int(session.get('cliente_id') or 0), int(session.get('user_id') or 0)
+    if not _authorized_dock_target(client_id, kind, target_ref):
+        abort(403, description='O item não pertence à sua agência ou não está disponível para a dock.')
+    connection = get_db()
+    with connection.cursor() as cursor:
+        cursor.execute("""INSERT INTO cadu_workspace_dock_shortcuts
+                (id,client_id,user_id,shortcut_type,target_ref,project_ref,brand_ref,position,metadata,created_at,updated_at)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,
+                    COALESCE((SELECT MAX(position)+1 FROM cadu_workspace_dock_shortcuts WHERE client_id=%s AND user_id=%s),0),
+                    %s,NOW(),NOW())
+            ON CONFLICT (client_id,user_id,shortcut_type,target_ref) DO UPDATE
+                SET project_ref=EXCLUDED.project_ref,brand_ref=EXCLUDED.brand_ref,metadata=EXCLUDED.metadata,updated_at=NOW()
+            RETURNING id::text,shortcut_type,target_ref,project_ref,brand_ref,position,metadata""",
+            (str(uuid4()), client_id, user_id, kind, target_ref,
+             str(payload.get('project_ref') or '')[:500] or None, str(payload.get('brand_ref') or '')[:500] or None,
+             client_id, user_id, json.dumps(payload.get('metadata') if isinstance(payload.get('metadata'), dict) else {})))
+        shortcut = dict(cursor.fetchone())
+    connection.commit()
+    return jsonify(shortcut=shortcut), 201
+
+
+@bp.delete('/workspace/api/dock/shortcuts/<uuid:shortcut_id>')
+@login_required
+def delete_dock_shortcut(shortcut_id):
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    if not _dock_shortcuts_available():
+        abort(409, description='Os atalhos ainda estão sendo atualizados. Atualize a página em instantes.')
+    connection = get_db()
+    with connection.cursor() as cursor:
+        cursor.execute('DELETE FROM cadu_workspace_dock_shortcuts WHERE id=%s AND client_id=%s AND user_id=%s',
+                       (str(shortcut_id), int(session.get('cliente_id') or 0), int(session.get('user_id') or 0)))
+        found = cursor.rowcount
+    connection.commit()
+    if not found:
+        abort(404, description='Atalho não encontrado.')
+    return '', 204
+
+
+@bp.post('/workspace/api/dock/shortcuts/order')
+@login_required
+def reorder_dock_shortcuts():
+    if not _workspace_api_csrf():
+        abort(403, description='Atualize a página e tente novamente.')
+    if not _dock_shortcuts_available():
+        abort(409, description='Os atalhos ainda estão sendo atualizados. Atualize a página em instantes.')
+    values = (request.get_json(silent=True) or {}).get('ids')
+    if not isinstance(values, list) or len(values) > 32 or len(values) != len(set(values)) or any(not isinstance(value, str) for value in values):
+        abort(400, description='Ordem de atalhos inválida.')
+    client_id, user_id = int(session.get('cliente_id') or 0), int(session.get('user_id') or 0)
+    connection = get_db()
+    with connection.cursor() as cursor:
+        cursor.execute('SELECT id::text FROM cadu_workspace_dock_shortcuts WHERE client_id=%s AND user_id=%s FOR UPDATE',
+                       (client_id, user_id))
+        expected = {row['id'] for row in cursor.fetchall()}
+        if expected != set(values):
+            abort(400, description='Envie a lista completa dos seus atalhos para reorganizá-los.')
+        for position, shortcut_id in enumerate(values):
+            cursor.execute("""UPDATE cadu_workspace_dock_shortcuts
+                             SET position=%s,updated_at=NOW()
+                           WHERE id=%s AND client_id=%s AND user_id=%s""",
+                         (position, shortcut_id, client_id, user_id))
+    connection.commit()
+    return jsonify(shortcuts=_user_dock_shortcuts(client_id, user_id))
+
+
 @bp.get('/workspace/api/creditos/resumo')
 @login_required
 def workspace_credit_summary():
@@ -823,7 +942,7 @@ def _save_brand_review_job(client_id: int, brand_id: int, job_id: str, **changes
                 # remains inside review_pack until a human approves it.
                 metadata.update(analysis_metadata)
             current.update(changes)
-            current['updated_at'] = datetime.utcnow().isoformat() + 'Z'
+            current['updated_at'] = _utc_timestamp()
             metadata['review_pack'] = current
             cursor.execute(
                 """UPDATE cx_clients SET analysis_metadata = %s::jsonb
@@ -1983,11 +2102,36 @@ def dashboard():
         brand_name = str(project.get('thumbnail_label') or '').casefold()
         if brand_name:
             brand_project_counts[brand_name] = brand_project_counts.get(brand_name, 0) + 1
+    visible_brands = [{'id': str(item.get('id')), 'kind': 'brand', 'title': str(item.get('name') or 'Marca'),
+                       'name': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''),
+                       'href': url_for('cadu_workspace.brand_detail', brand_id=int(item.get('id'))),
+                       'projectCount': brand_project_counts.get(str(item.get('name') or '').casefold(), 0)}
+                      for item in brands if item.get('display_logo')][:8]
+    project_items = [{'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'),
+                      'name': str(item.get('nome') or 'Projeto'), 'href': url_for('cadu_workspace.project_detail', project_id=str(item.get('id'))),
+                      'previewUrl': str(item.get('thumbnail_url') or ''), 'projectRef': f"ci:{item.get('id')}",
+                      'brandName': str(item.get('thumbnail_label') or '')} for item in projects]
+    user_shortcuts = _user_dock_shortcuts(client_id, int(session.get('user_id') or 0))
+    dock_catalog = {('brand', item['id']): item for item in visible_brands}
+    dock_catalog.update({('project', item['projectRef']): item for item in project_items})
+    explicit_dock_items = [{**dock_catalog[(row['shortcut_type'], row['target_ref'])], 'shortcutId': row['id'], 'pinned': True}
+                           for row in user_shortcuts if (row['shortcut_type'], row['target_ref']) in dock_catalog]
+    # A small team gets useful visual starting points. They disappear as soon
+    # as the user makes an explicit personal selection.
+    suggested_dock_items = []
+    if not explicit_dock_items and len(project_items) <= 8:
+        # The automatic dock is a starting point, never an unbounded list.
+        suggested_dock_items = (visible_brands[:3] + project_items)[:8]
+    dock_items = explicit_dock_items or suggested_dock_items
     home_data = {
         'agency': {'id': str(client_id), 'name': str(session.get('client_name') or session.get('cliente_nome') or session.get('organization_name') or 'Minha agência')},
-        'brands': [{'id': str(item.get('id')), 'name': str(item.get('name') or 'Marca'), 'logoUrl': str(item.get('display_logo') or ''), 'projectCount': brand_project_counts.get(str(item.get('name') or '').casefold(), 0)} for item in brands[:8]],
-        'projects': [{'id': f"ci:{item.get('id')}", 'name': str(item.get('nome') or 'Projeto'), 'href': url_for('cadu_workspace.project_detail', project_id=str(item.get('id'))), 'previewUrl': str(item.get('thumbnail_url') or ''), 'brandName': str(item.get('thumbnail_label') or '')} for item in projects],
-        'resources': [{'id': f"ci:{item.get('id')}", 'kind': 'project', 'title': str(item.get('nome') or 'Projeto'), 'previewUrl': str(item.get('thumbnail_url') or ''), 'projectRef': f"ci:{item.get('id')}", 'pinned': index == 0} for index, item in enumerate(projects[:2])],
+        # The dock is visual navigation: a brand belongs there only after a
+        # principal logo has been chosen.  Brands without a logo remain in the
+        # contextual selectors and search, never as generated initials.
+        'brands': visible_brands,
+        'projects': project_items,
+        'dock': {'items': dock_items, 'isSuggested': bool(suggested_dock_items)},
+        'resources': project_items[:8],
         'resumeCards': [{'id': f"ci:{item.get('id')}", 'title': str(item.get('nome') or 'Projeto'), 'context': str(item.get('thumbnail_label') or 'Projeto'), 'status': f"{int(item.get('total_conversas') or 0)} conversa(s)", 'previewUrl': str(item.get('thumbnail_url') or ''), 'href': url_for('cadu_workspace.project_detail', project_id=str(item.get('id')))} for item in projects[:3]],
         'usagePercent': round(usage),
     }
@@ -2568,7 +2712,7 @@ def import_project_brand(project_id):
     metadata = {'review_pack': {
         'job_id': job_id, 'status': 'queued', 'stage': 'queued', 'index': 0, 'total': 4,
         'message': 'A importação entrou na fila.', 'error': '',
-        'created_at': datetime.utcnow().isoformat() + 'Z',
+        'created_at': _utc_timestamp(),
         'input': {'website_url': website_url, 'has_images': bool(image_payload)}, 'analysis': {}, 'reviews': [],
     }}
     connection = get_db()
@@ -3229,7 +3373,7 @@ def update_brand_identity(brand_id):
         current_app.logger.exception('Não foi possível atualizar a marca %s', brand_id)
         abort(503, description='Não foi possível salvar a identidade agora. Tente novamente.')
     if request.accept_mimetypes.best == 'application/json':
-        return jsonify({'ok': True, 'brand_id': brand_id, 'saved_at': datetime.utcnow().isoformat() + 'Z'})
+        return jsonify({'ok': True, 'brand_id': brand_id, 'saved_at': _utc_timestamp()})
     return redirect(url_for('cadu_workspace.brand_detail', brand_id=brand_id), code=303)
 
 
@@ -3447,7 +3591,7 @@ def audit_brand(brand_id):
             'total': 4,
             'message': 'A auditoria entrou na fila.',
             'error': '',
-            'created_at': datetime.utcnow().isoformat() + 'Z',
+            'created_at': _utc_timestamp(),
             'input': {'website_url': website_url, 'has_images': bool(image_payload),
                       'include_project_sources': request.form.get('include_project_sources') == 'true'},
             'analysis': {},
@@ -3537,7 +3681,7 @@ def retry_brand_audit(brand_id):
     metadata['review_pack'] = {
         'job_id': job_id, 'status': 'queued', 'stage': 'queued', 'index': 0, 'total': 4,
         'message': 'Retomando a proposta salva.' if checkpoint else 'A auditoria entrou novamente na fila.', 'error': '',
-        'created_at': datetime.utcnow().isoformat() + 'Z',
+        'created_at': _utc_timestamp(),
         'input': {'website_url': website_url, 'has_images': False}, 'analysis': checkpoint, 'reviews': [],
     }
     connection = get_db()
@@ -3592,7 +3736,7 @@ def refresh_brand_audit_module(brand_id, module_id):
     next_pack.update({
         'job_id': job_id, 'status': 'running', 'stage': module_id, 'index': 2,
         'total': 4, 'message': f'Refazendo o parecer de {module_id.replace("_", " ")}.',
-        'error': '', 'created_at': datetime.utcnow().isoformat() + 'Z',
+        'error': '', 'created_at': _utc_timestamp(),
     })
     metadata['review_pack'] = next_pack
     connection = get_db()
@@ -3670,7 +3814,7 @@ def approve_brand_reviews(brand_id):
     review_pack = dict(metadata.get('review_pack') or pack)
     review_pack.update({
         'status': 'approved',
-        'approved_at': datetime.utcnow().isoformat() + 'Z',
+        'approved_at': _utc_timestamp(),
         'approved_by': int(session.get('user_id') or 0),
         # Keep the evidence and reviews for audit, but do not use the proposal
         # as a second source of truth after its values enter brand_profile.

@@ -6,7 +6,7 @@ from flask import Flask
 from werkzeug.exceptions import BadRequest
 
 from aicentralv2.cadu_workspace.routes import (
-    _brand_review_is_stale, _merge_brand_analysis, _normalized_website_url,
+    _authorized_dock_target, _brand_review_is_stale, _merge_brand_analysis, _normalized_website_url,
     _save_brand_review_job, bp,
 )
 
@@ -26,6 +26,22 @@ def _client():
 
 
 class WorkspaceBrandsTest(TestCase):
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_projects')
+    def test_dock_project_target_requires_the_current_agency_project(self, projects):
+        projects.return_value = [{'id': 'p-1', 'nome': 'Projeto permitido'}]
+        self.assertEqual(_authorized_dock_target(12, 'project', 'ci:p-1')['id'], 'p-1')
+        self.assertIsNone(_authorized_dock_target(12, 'project', 'ci:outro-projeto'))
+        projects.assert_called_with(12, status='todos')
+
+    @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brands')
+    def test_dock_brand_target_requires_a_principal_logo(self, brands):
+        brands.return_value = [
+            {'id': 81, 'name': 'Sem logo', 'display_logo': ''},
+            {'id': 82, 'name': 'Com logo', 'display_logo': 'https://cdn/logo.png'},
+        ]
+        self.assertIsNone(_authorized_dock_target(12, 'brand', '81'))
+        self.assertEqual(_authorized_dock_target(12, 'brand', '82')['name'], 'Com logo')
+
     def test_normal_domain_becomes_https_url(self):
         self.assertEqual(_normalized_website_url('centralcomm.media'), 'https://centralcomm.media')
 
@@ -242,11 +258,11 @@ class WorkspaceBrandsTest(TestCase):
         service.assert_not_called()
 
     @mock.patch('aicentralv2.cadu_workspace.routes._ensure_brand_audit_credit')
-    @mock.patch('aicentralv2.cadu_workspace.routes.threading.Thread')
+    @mock.patch('aicentralv2.cadu_workspace.brand_audit_jobs.enqueue')
     @mock.patch('aicentralv2.cadu_workspace.routes.get_db')
     @mock.patch('aicentralv2.creative_modeling_service.CreativeModelingService')
     @mock.patch('aicentralv2.cadu_workspace.routes._workspace_brand')
-    def test_audit_queues_review_with_tenant_scope(self, workspace_brand, service, get_db, thread, ensure_credit):
+    def test_audit_queues_review_with_tenant_scope(self, workspace_brand, service, get_db, enqueue, ensure_credit):
         workspace_brand.return_value = {
             'id': 81, 'website_url': 'https://example.com',
             'brand_profile': {'tone_of_voice': 'Tom aprovado'},
@@ -277,7 +293,9 @@ class WorkspaceBrandsTest(TestCase):
         workspace_brand.assert_called_once_with(12, 81)
         ensure_credit.assert_called_once_with(12)
         service.assert_not_called()
-        thread.return_value.start.assert_called_once_with()
+        enqueue.assert_called_once()
+        queued_job = enqueue.call_args.args[0]
+        self.assertEqual((queued_job['client_id'], queued_job['user_id'], queued_job['brand_id']), (12, 7, 81))
         sql, params = cursor.execute.call_args.args
         self.assertIn('crm_client_id = %s', sql)
         self.assertEqual(params[-2:], (81, 12))

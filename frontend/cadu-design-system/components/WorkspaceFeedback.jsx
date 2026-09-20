@@ -12,7 +12,8 @@ export function ActivityDrawer({open, title = 'Atividade recente', items = [], o
 
 export function ShortcutManagerDialog({open, items = [], onClose, onToggle, onMove}) {
   if (!open) return null;
-  return <dialog open className="cadu-ds-dialog" aria-label="Personalizar dock"><header><div><h2>Personalizar dock</h2><p>Fixe, remova ou reorganize seus atalhos.</p></div><button type="button" onClick={onClose} aria-label="Fechar">×</button></header><div className="cadu-ds-shortcut-list">{items.map((item, index) => <div key={item.id}><span>{item.title}</span><button type="button" onClick={() => onToggle?.(item)}>{item.pinned ? 'Remover' : 'Fixar'}</button><button type="button" disabled={!index} onClick={() => onMove?.(item, -1)} aria-label={`Mover ${item.title} para cima`}>↑</button><button type="button" disabled={index === items.length - 1} onClick={() => onMove?.(item, 1)} aria-label={`Mover ${item.title} para baixo`}>↓</button></div>)}</div></dialog>;
+  const pinnedCount = items.filter(item => item.pinned).length;
+  return <dialog open className="cadu-ds-dialog" aria-label="Personalizar dock"><header><div><h2>Personalizar dock</h2><p>Fixe, remova ou reorganize seus atalhos.</p></div><button type="button" onClick={onClose} aria-label="Fechar">×</button></header><div className="cadu-ds-shortcut-list">{items.map((item, index) => <div key={item.id}><span>{item.title}</span><button type="button" onClick={() => onToggle?.(item)}>{item.pinned ? 'Remover' : 'Fixar'}</button><button type="button" disabled={!item.pinned || !index} onClick={() => onMove?.(item, -1)} aria-label={`Mover ${item.title} para cima`}>↑</button><button type="button" disabled={!item.pinned || index === pinnedCount - 1} onClick={() => onMove?.(item, 1)} aria-label={`Mover ${item.title} para baixo`}>↓</button></div>)}</div></dialog>;
 }
 
 export function UndoToast({message, actionLabel = 'Desfazer', onUndo, onDismiss}) {

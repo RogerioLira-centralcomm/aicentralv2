@@ -33,9 +33,8 @@ AUDIENCE_CONVERSATION_FIELDS = (
     'caso_uso_principal', 'insights_planejamento', 'perfil_socioeconomico',
     'perfil_consumo', 'momentos_chave', 'interesses_correlatos',
     'propensao_compra', 'tamanho',
-    # Detail tools may return the catalog's structured taxonomy. It contains
-    # editorial planning descriptors, not rate-card or buying fields.
-    'data_groups', 'taxonomy', 'fonte',
+    # Keep taxonomy labels only; data_groups may contain commercial metrics.
+    'taxonomy', 'fonte',
 )
 
 

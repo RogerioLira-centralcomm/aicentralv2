@@ -45,9 +45,10 @@ def context(**overrides):
     return RequestContext(**values)
 
 
-def test_context_never_allows_cross_tenant_selection():
-    with pytest.raises(ValueError):
-        context(client_id=99)
+def test_context_keeps_agency_and_selected_client_as_distinct_boundaries():
+    selected = context(client_id=99)
+    assert selected.organization_id == 12
+    assert selected.client_id == 99
 
 
 def test_artifact_write_does_not_close_request_scoped_connection(monkeypatch):

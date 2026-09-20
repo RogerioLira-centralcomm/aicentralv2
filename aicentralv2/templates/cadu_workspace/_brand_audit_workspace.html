@@ -95,7 +95,7 @@
           <input type="hidden" name="_csrf" value="{{ session.get('family_csrf', '') }}">
           <div><strong>{{ 'Atualizar a auditoria' if audit_status == 'approved' else 'Iniciar auditoria' }}</strong><span>Use o site oficial e até quatro referências. O resultado só substitui a identidade após nova aprovação humana.</span></div>
           <label>Site oficial<input type="url" name="website_url" value="{{ brand.website_url or '' }}" placeholder="https://"></label>
-          <label>Referências<input type="file" name="images" accept="image/*" multiple></label>
+          <label>Referências<div class="workspace-brand-file-drop" data-brand-file-drop><input type="file" name="images" accept="image/*" multiple><span><b>Solte referências visuais aqui</b><small>ou escolha até quatro imagens oficiais</small></span></div></label>
           <label><input type="checkbox" name="include_project_sources" value="true"> Adicionar páginas oficiais como fontes do projeto vinculado após aprovação</label>
           <button type="submit">{{ 'Criar nova proposta' if audit_status == 'approved' else 'Iniciar análise' }}</button>
         </form>
@@ -119,3 +119,16 @@
     </aside>
   </div>
 </section>
+<script>
+  document.querySelectorAll('[data-brand-file-drop]').forEach(function (zone) {
+    var input = zone.querySelector('input[type=file]');
+    var text = zone.querySelector('small');
+    ['dragenter', 'dragover'].forEach(function (eventName) { zone.addEventListener(eventName, function (event) { event.preventDefault(); zone.classList.add('is-active'); }); });
+    ['dragleave', 'drop'].forEach(function (eventName) { zone.addEventListener(eventName, function (event) { event.preventDefault(); zone.classList.remove('is-active'); }); });
+    zone.addEventListener('drop', function (event) { var files = Array.from(event.dataTransfer.files || []).filter(function (file) { return file.type.indexOf('image/') === 0; }).slice(0, 4); if (!files.length) return; var transfer = new DataTransfer(); files.forEach(function (file) { transfer.items.add(file); }); input.files = transfer.files; text.textContent = files.length + ' imagem(ns) selecionada(s)'; });
+    input.addEventListener('change', function () { if (input.files.length) text.textContent = input.files.length + ' imagem(ns) selecionada(s)'; });
+  });
+</script>
+<style>
+  .workspace-brand-file-drop{display:grid;min-height:62px;place-items:center;border:1px dashed color-mix(in srgb,var(--workspace-accent,#087765) 55%,#dce6e1);border-radius:9px;background:#fff;cursor:pointer}.workspace-brand-file-drop.is-active,.workspace-brand-file-drop:hover{border-color:var(--workspace-accent,#087765);background:#edf8f4}.workspace-brand-file-drop input{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}.workspace-brand-file-drop span{display:grid;gap:3px;padding:10px;text-align:center}.workspace-brand-file-drop b{color:var(--workspace-dark);font-size:11px}.workspace-brand-file-drop small{color:var(--muted);font-size:10px}
+</style>

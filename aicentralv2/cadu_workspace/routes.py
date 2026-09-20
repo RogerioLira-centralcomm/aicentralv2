@@ -1146,7 +1146,67 @@ def _workspace_brands(client_id: int, query: str = "", *, raise_on_error: bool =
     except Exception:
         if raise_on_error:
             raise
-        return []
+        # The brand catalog must not disappear just because the optional
+        # assets table/query is unavailable during a deploy or migration. The
+        # ownership boundary is still the CRM client id; this fallback only
+        # omits asset counts and logo enrichment and lets the UI render the
+        # brand identity with initials.
+        current_app.logger.warning(
+            'Consulta enriquecida de marcas falhou para o cliente %s; usando catálogo básico por crm_client_id',
+            client_id,
+            exc_info=True,
+        )
+        try:
+            with get_db().cursor() as cursor:
+                cursor.execute(
+                    """SELECT id, crm_client_id, name, sector, tone_of_voice,
+                              website_url, primary_color, secondary_color,
+                              logo_url, logo_upload_path, brand_profile,
+                              analysis_metadata, created_at AS updated_at
+                         FROM cx_clients
+                        WHERE crm_client_id = %s
+                          AND name ILIKE %s
+                     ORDER BY created_at DESC NULLS LAST, name""",
+                    (client_id, '%' + query[:100] + '%'),
+                )
+                brands = []
+                for row in cursor.fetchall():
+                    brand = dict(row)
+                    for field in ('brand_profile', 'analysis_metadata'):
+                        if isinstance(brand.get(field), str):
+                            try:
+                                brand[field] = json.loads(brand[field])
+                            except (TypeError, ValueError):
+                                brand[field] = {}
+                        elif not isinstance(brand.get(field), dict):
+                            brand[field] = {}
+                    name = str(brand.get('name') or '').strip()
+                    brand['display_logo'] = public_logo(brand.get('logo_upload_path') or brand.get('logo_url'))
+                    brand['visual_hero'] = ''
+                    brand['visual_thumbnail'] = ''
+                    analysis = brand.get('analysis_metadata') or {}
+                    brand['display_summary'] = (
+                        brand['brand_profile'].get('brand_summary')
+                        or brand['brand_profile'].get('positioning')
+                        or analysis.get('brand_summary')
+                        or analysis.get('positioning')
+                        or ''
+                    )
+                    brand['display_initials'] = ''.join(
+                        word[0] for word in re.findall(r"[\wÀ-ÿ]+", name)[:2]
+                    ).upper() or 'M'
+                    brand['display_color'] = brand.get('primary_color') or '#176b5e'
+                    brand['asset_count'] = 0
+                    brand['has_logo'] = 1 if brand['display_logo'] else 0
+                    brands.append(brand)
+                return brands
+        except Exception:
+            current_app.logger.warning(
+                'Consulta básica de marcas também falhou para o cliente %s',
+                client_id,
+                exc_info=True,
+            )
+            return []
 
 
 def _workspace_brand(client_id: int, brand_id: int) -> Optional[dict]:

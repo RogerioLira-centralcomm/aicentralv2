@@ -608,8 +608,7 @@ def build_run(run_id, conversation_id, user, selected, chosen, profile,
     except (TypeError, ValueError, AttributeError):
         has_project = False
     depth = work_depth(depth)
-    directives = planning_directives(chosen, route, has_project)
-    directives += '\n\nPROFUNDIDADE SELECIONADA\n' + WORK_DEPTHS[depth]['directive']
+    directives = 'PROFUNDIDADE SELECIONADA\n' + WORK_DEPTHS[depth]['directive'] + '\n\n' + planning_directives(chosen, route, has_project)
     skill_context = json.dumps({
         'versao': '2.0',
         'agente': 'Cadu',

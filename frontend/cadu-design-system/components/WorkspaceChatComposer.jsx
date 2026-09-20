@@ -101,6 +101,14 @@ export function WorkspaceChatComposer({
   const handleDrop = event => {
     event.preventDefault();
     setContextActive(false);
+    const files = Array.from(event.dataTransfer?.files || []);
+    // The composer is itself a valid drop target. Do not try to parse a file
+    // as a workspace-context payload: that used to make drops over the input
+    // look accepted while silently discarding the attachment.
+    if (files.length) {
+      onAttach?.(files);
+      return;
+    }
     const raw = event.dataTransfer?.getData('application/x-cadu-item') || event.dataTransfer?.getData('application/json') || event.dataTransfer?.getData('text/plain');
     if (!raw) return;
     try { onContextDrop?.(JSON.parse(raw)); } catch (_) { /* Ignore non-context drops. */ }

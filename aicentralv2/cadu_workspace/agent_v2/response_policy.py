@@ -6,7 +6,7 @@ from .contracts import ExecutionBudget, IntentRoute
 def budget_for(route: IntentRoute, execution_mode: str = "analysis") -> ExecutionBudget:
     if execution_mode == "fast":
         return ExecutionBudget(max_llm_calls=1, max_tool_calls=1, max_context_chars=6000,
-                               max_output_tokens=700, max_duration_ms=30000)
+                               max_output_tokens=900, max_duration_ms=30000)
     if execution_mode == "agentic":
         return ExecutionBudget(max_llm_calls=3, max_tool_calls=12, max_context_chars=36000,
                                max_output_tokens=2600, max_duration_ms=240000)
@@ -18,7 +18,7 @@ def budget_for(route: IntentRoute, execution_mode: str = "analysis") -> Executio
 
 def policy_for(route: IntentRoute) -> dict:
     policies = {
-        "direct": {"max_questions": 1, "max_next_steps": 2, "max_answer_chars": 600, "artifact_in_chat": False},
+        "direct": {"max_questions": 1, "max_next_steps": 2, "max_answer_chars": 900, "artifact_in_chat": False},
         "analysis": {"max_questions": 1, "max_next_steps": 2, "max_answer_chars": 420, "artifact_in_chat": False},
         "decision": {"max_questions": 1, "max_next_steps": 2, "max_answer_chars": 320, "artifact_in_chat": False},
         "artifact_first": {"max_questions": 1, "max_next_steps": 2, "max_answer_chars": 240, "artifact_in_chat": False},

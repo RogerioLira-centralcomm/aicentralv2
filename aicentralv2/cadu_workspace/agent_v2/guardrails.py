@@ -31,6 +31,16 @@ def repair_metadata_answer(value):
     original = str(value or "").strip()
     text = " ".join(original.split()).strip()
 
+    # Providers sometimes collapse the orchestration report into one
+    # paragraph. In that form the line-oriented cleanup below cannot see the
+    # labels, so prefer the factual/customer-facing segment when it exists.
+    fact_match = re.search(
+        r"(?is)(?:^|\s)fato\s*:\s*(.*?)(?=\s+pr[oó]xima\s+a[cç][aã]o\s*:|$)",
+        text,
+    )
+    if fact_match and fact_match.group(1).strip():
+        return fact_match.group(1).strip().rstrip(".") + "."
+
     # Some providers wrap the actual answer in an orchestration report. Keep
     # only the customer-facing response and discard the internal next-action
     # instruction before streaming or persisting it.
@@ -40,8 +50,6 @@ def repair_metadata_answer(value):
         if response:
             return response
     text = re.sub(r"(?is)^\s*(?:projeto usado|decis[aã]o proposta|confian[cç]a|pr[oó]ximo passo)\s*:[^.]*\.\s*", "", text)
-    if text != original:
-        return text.strip()
     match = _LEAKED_DECISION_PATTERN.match(text)
     if not match:
         return original
@@ -204,7 +212,7 @@ def _clean_blocks(values):
     """Reduce provider UI suggestions to a small, inert product contract."""
     blocks = []
     allowed = {
-        "summary", "activity", "progress", "source", "sources", "source_group",
+        "entity", "summary", "activity", "progress", "source", "sources", "source_group",
         "assumption", "warning", "error", "question", "questions",
         "decision", "checklist", "insights", "metrics", "files", "steps", "images",
     }

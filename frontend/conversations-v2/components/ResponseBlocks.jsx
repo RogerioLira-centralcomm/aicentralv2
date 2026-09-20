@@ -15,6 +15,15 @@ function SummaryBlock({block}) {
   </section>;
 }
 
+function EntityBlock({block}) {
+  const items = Array.isArray(block.items) ? block.items.slice(0, 4) : [];
+  return <section className="cv-response-block cv-mt-5 cv-rounded-xl cv-border cv-border-teal/20 cv-bg-teal/[.06] cv-p-4">
+    <div className="cv-flex cv-items-start cv-justify-between cv-gap-3"><div><span className="cv-block cv-text-[10px] cv-font-semibold cv-uppercase cv-tracking-[.08em] cv-text-teal">Contexto identificado</span><strong className="cv-mt-1 cv-block cv-text-base cv-font-semibold cv-text-[#edf7f5]">{block.title || 'Entidade'}</strong></div><span className="cv-rounded-full cv-bg-teal/10 cv-px-2 cv-py-1 cv-text-[10px] cv-text-[#8bd7cc]">{block.label || 'Referência'}</span></div>
+    {block.summary && <p className="cv-mb-0 cv-mt-2 cv-text-xs cv-leading-5 cv-text-[#a9bfbb]">{block.summary}</p>}
+    {!!items.length && <dl className="cv-mb-0 cv-mt-3 cv-grid cv-gap-2 sm:cv-grid-cols-2">{items.map((item, index) => <div key={item.id || index} className="cv-border-t cv-border-white/[.07] cv-pt-2"><dt className="cv-text-[10px] cv-font-semibold cv-text-[#78918d]">{item.title || item.label || 'Informação'}</dt><dd className="cv-mb-0 cv-mt-0.5 cv-text-xs cv-leading-5 cv-text-[#d9e7e4]">{item.value || item.detail || item.text || '—'}</dd></div>)}</dl>}
+  </section>;
+}
+
 function ActivityBlock({block}) {
   const state = block.state || block.status || 'completed';
   const marker = state === 'running' || state === 'active' ? 'cv-animate-pulse cv-bg-teal' : state === 'error' || state === 'failed' ? 'cv-bg-[#ff7d83]' : 'cv-bg-[#6f8884]';
@@ -157,6 +166,7 @@ export function ResponseBlocks({blocks, onPrompt, onOpenResource}) {
   return <>{(blocks || []).map((block, index) => {
     const key = `${block.type}-${index}`;
     if (block.type === 'summary') return <SummaryBlock key={key} block={block}/>;
+    if (block.type === 'entity') return <EntityBlock key={key} block={block}/>;
     if (block.type === 'activity' || block.type === 'progress') return <ActivityBlock key={key} block={block}/>;
     if (block.type === 'source' || block.type === 'sources' || block.type === 'source_group') return <SourcesBlock key={key} block={block} onPrompt={onPrompt}/>;
     if (block.type === 'assumption') return <NoteBlock key={key} block={block}/>;

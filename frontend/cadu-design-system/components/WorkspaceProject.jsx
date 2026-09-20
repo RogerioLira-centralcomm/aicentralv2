@@ -110,6 +110,24 @@ function BrandPickerDialog({brands, currentBrandId, urls, csrfToken, canManageBr
   </ProjectDialog>;
 }
 
+function BrandFileDrop({label, hint, name, multiple = false}) {
+  const input = useRef(null);
+  const [active, setActive] = useState(false);
+  const [files, setFiles] = useState([]);
+  const assign = values => {
+    const selected = Array.from(values || []).slice(0, multiple ? 8 : 1);
+    if (!selected.length || !input.current) return;
+    const transfer = new DataTransfer();
+    selected.forEach(file => transfer.items.add(file));
+    input.current.files = transfer.files;
+    setFiles(selected);
+  };
+  return <div className={`cadu-ds-brand-file-drop${active ? ' is-active' : ''}`} onDragEnter={event => { event.preventDefault(); setActive(true); }} onDragOver={event => event.preventDefault()} onDragLeave={event => { if (event.currentTarget === event.target) setActive(false); }} onDrop={event => { event.preventDefault(); setActive(false); assign(event.dataTransfer?.files); }}>
+    <input ref={input} name={name} type="file" accept="image/*" multiple={multiple} onChange={event => assign(event.target.files)}/>
+    <button type="button" onClick={() => input.current?.click()}><strong>{files.length ? `${files.length} arquivo${files.length > 1 ? 's' : ''} selecionado${files.length > 1 ? 's' : ''}` : label}</strong><small>{files.length ? files.map(file => file.name).join(', ') : hint}</small></button>
+  </div>;
+}
+
 function ImportBrandDialog({urls, csrfToken, onClose}) {
   return <ProjectDialog title="Criar e auditar marca" detail="A nova marca será vinculada a este projeto e seguirá para uma auditoria com revisão humana." onClose={onClose}>
     <form className="cadu-ds-project-form" method="post" encType="multipart/form-data" action={urls.importBrand}>
@@ -117,8 +135,8 @@ function ImportBrandDialog({urls, csrfToken, onClose}) {
       <p className="cadu-ds-project-form__intro">Informe o site oficial e, se tiver, envie o logo e referências. A análise não aprova nada sozinha: ela prepara evidências para você revisar.</p>
       <label>Nome da marca<input name="brand_name" required minLength="2" maxLength="150" placeholder="Ex.: Uhuru"/></label>
       <label>Site oficial<input name="website_url" type="url" required maxLength="2000" placeholder="https://exemplo.com"/></label>
-      <label>Logo principal <small>Opcional</small><input name="logo" type="file" accept="image/*"/></label>
-      <label>Referências visuais <small>Opcional · até 8 arquivos</small><input name="images" type="file" accept="image/*" multiple/></label>
+      <label>Logo principal <small>Opcional</small><BrandFileDrop name="logo" label="Solte o logo aqui" hint="ou escolha uma imagem principal"/></label>
+      <label>Referências visuais <small>Opcional · até 8 arquivos</small><BrandFileDrop name="images" multiple label="Solte referências aqui" hint="ou escolha imagens oficiais da marca"/></label>
       <footer><button type="button" onClick={onClose}>Cancelar</button><button className="is-primary">Criar e iniciar auditoria</button></footer>
     </form>
   </ProjectDialog>;

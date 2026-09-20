@@ -38,8 +38,8 @@ class RequestContext:
     def __post_init__(self) -> None:
         if self.surface not in SURFACES:
             raise ValueError("Superfície inválida.")
-        if self.organization_id != self.client_id:
-            raise ValueError("O contexto V2 não permite trocar de tenant.")
+        if self.organization_id <= 0 or self.client_id <= 0:
+            raise ValueError("O contexto V2 precisa de uma agência e um cliente válidos.")
 
     def to_dict(self) -> dict[str, Any]:
         value = asdict(self)

@@ -7,6 +7,7 @@ ALLOWED_ACTION_TOOLS = frozenset({
     "workspace.link_current_brand",
     "projects.reindex_source",
     "projects.create_note",
+    "projects.create_link_reference",
 })
 
 
@@ -41,6 +42,12 @@ def _completion(step_name: str, result: dict) -> dict:
         status = result.get("status") or "concluído"
         return {"answer": f"Fonte {source_id} reprocessada.", "blocks": [
             {"type": "activity", "state": "completed", "label": "Reprocessamento concluído", "detail": status},
+        ], "refresh_context": True}
+    if step_name == "projects.create_link_reference":
+        title = result.get("title") or "Link"
+        detail = "Referência salva sem indexação automática."
+        return {"answer": f"“{title}” foi adicionado às referências do projeto.", "blocks": [
+            {"type": "activity", "state": "completed", "label": detail},
         ], "refresh_context": True}
     return {"answer": "Ação concluída.", "blocks": [{"type": "activity", "state": "completed", "label": "Ação concluída"}]}
 

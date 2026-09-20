@@ -98,7 +98,7 @@ def test_builtin_catalog_exposes_artifact_and_project_source_drafts():
     assert {
         "artifacts.list", "artifacts.get", "artifacts.create_draft", "artifacts.update_draft",
         "artifacts.list_versions", "projects.list_sources", "projects.list_resources", "projects.inspect_file_support",
-        "projects.prepare_source_upload", "projects.classify_intake",
+        "projects.prepare_source_upload", "projects.classify_intake", "projects.create_link_reference",
         "brands.list", "brands.prepare_logo_upload",
         "brands.audit_status",
     } <= names
@@ -255,6 +255,16 @@ def test_intake_classification_keeps_links_and_chat_text_out_of_the_index():
     assert note["purpose"] == "artifact"
     assert brief["category"] == "brief"
     assert brief["purpose"] == "knowledge_source"
+
+
+def test_project_link_is_an_explicit_confirmed_reference_action():
+    message = "Adicione este link ao projeto: https://docs.google.com/document/d/abc"
+    route = route_request(message, has_project=True)
+    action = next(step for step in build_task_plan(route, budget_for(route), message) if step["kind"] == "action")
+
+    assert route.action == "create_project_link"
+    assert action["name"] == "projects.create_link_reference"
+    assert action["arguments"]["url"].startswith("https://docs.google.com/")
 
 
 def test_project_commands_route_to_real_registry_capabilities():

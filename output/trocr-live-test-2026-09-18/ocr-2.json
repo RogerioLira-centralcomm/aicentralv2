@@ -1,0 +1,107 @@
+{
+  "headline": "Recarregue R$30 e tenha muita internet por até 30 dias",
+  "support": "",
+  "subtitle": "",
+  "price": "",
+  "cta": "Comprar Chip",
+  "disclaimer": "",
+  "logo_text": "TIM Pré",
+  "visual_marks": [
+    {
+      "type": "wordmark",
+      "description": "TIM Pré",
+      "orientation": "left",
+      "text": "TIM Pré",
+      "confidence": 0.95,
+      "matches_reference": null
+    },
+    {
+      "type": "icon",
+      "description": "círculo amarelo com o número 16 dentro",
+      "orientation": "unknown",
+      "text": "16GB",
+      "confidence": 0.9,
+      "matches_reference": null
+    },
+    {
+      "type": "icon",
+      "description": "ícones do Facebook e Instagram",
+      "orientation": "unknown",
+      "text": "",
+      "confidence": 0.85,
+      "matches_reference": null
+    },
+    {
+      "type": "icon",
+      "description": "ícone do Twitter (X)",
+      "orientation": "unknown",
+      "text": "",
+      "confidence": 0.85,
+      "matches_reference": null
+    }
+  ],
+  "dates": "",
+  "venue": "",
+  "aspect_hint": "16:9",
+  "style": "fundo azul, pessoa segurando celular, texto em destaque",
+  "elements": [
+    {
+      "id": "headline_01",
+      "role": "headline",
+      "kind": "type",
+      "text_original": "Recarregue R$30 e tenha muita internet por até 30 dias",
+      "text": "Recarregue R$30 e tenha muita internet por até 30 dias",
+      "note": "",
+      "bbox_px": null,
+      "container_id": null,
+      "source": "ocr",
+      "recognition_score": null,
+      "user_verified": false
+    },
+    {
+      "id": "cta_01",
+      "role": "cta",
+      "kind": "type",
+      "text_original": "Comprar Chip",
+      "text": "Comprar Chip",
+      "note": "",
+      "bbox_px": null,
+      "container_id": null,
+      "source": "ocr",
+      "recognition_score": null,
+      "user_verified": false
+    },
+    {
+      "id": "logo_01",
+      "role": "logo",
+      "kind": "logo",
+      "text_original": "TIM Pré",
+      "text": "TIM Pré",
+      "note": "",
+      "bbox_px": null,
+      "container_id": null,
+      "source": "ocr",
+      "recognition_score": null,
+      "user_verified": false
+    }
+  ],
+  "faces": 0,
+  "locks": [
+    "TIM Pré"
+  ],
+  "locks_overflow": false,
+  "elements_overflow": false,
+  "overflow": [],
+  "analysis": {
+    "background": true,
+    "images": true,
+    "graphic": false,
+    "logo": true,
+    "headline": true,
+    "secondary": false,
+    "cta": true,
+    "supports": false
+  },
+  "status": "completed",
+  "error": ""
+}

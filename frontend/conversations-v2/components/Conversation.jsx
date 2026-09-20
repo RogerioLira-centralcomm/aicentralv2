@@ -111,6 +111,11 @@ const CAPABILITIES = [
 
 const COMPOSER_MAX_HEIGHT = 260;
 
+function pastedUrl(value) {
+  const match = String(value || '').match(/https?:\/\/[^\s<>\]\["']+|(?<!@)\b(?:www\.)?[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:\/[^\s<>\]\["']*)?/i);
+  return match ? match[0].replace(/[.,;:)]$/, '') : '';
+}
+
 function Composer({value, onChange, onSubmit, attachments, onRemoveAttachment, onAttachmentPurposeChange, attachmentDestination, onAttachmentDestinationChange, hasProject, executionMode, onExecutionModeChange, running, onStop, composerContext, onClearContext}) {
   const textarea = useRef(null);
   const capabilityMenu = useRef(null);
@@ -125,11 +130,18 @@ function Composer({value, onChange, onSubmit, attachments, onRemoveAttachment, o
     textarea.current.style.height = `${Math.min(textarea.current.scrollHeight, COMPOSER_MAX_HEIGHT)}px`;
     if (value && document.activeElement !== textarea.current) textarea.current.focus();
   }, [value]);
+  const detectedUrl = pastedUrl(value);
+  const saveLink = () => {
+    if (!detectedUrl || !hasProject) return;
+    onChange(`Adicione este link ao projeto: ${detectedUrl}`);
+    textarea.current?.focus();
+  };
   return <div className="cv-composer-stage cv-pointer-events-none cv-absolute cv-inset-x-0 cv-bottom-0 cv-z-20 cv-px-4 md:cv-px-8">
     <form onSubmit={event => { event.preventDefault(); onSubmit(); }} className="cv-composer-shell cv-pointer-events-auto cv-mx-auto cv-w-full cv-max-w-[760px]">
       {!!composerContext && <div className="cv-flex cv-items-center cv-gap-2 cv-border-b cv-border-white/[.06] cv-px-3 cv-py-2"><span className="cv-min-w-0 cv-flex-1 cv-overflow-hidden cv-text-ellipsis cv-whitespace-nowrap cv-text-[11px] cv-text-[#8fbab4]">↳ {composerContext.label}: “{composerContext.text}”</span><button type="button" onClick={onClearContext} className="cv-grid cv-h-5 cv-w-5 cv-place-items-center cv-rounded cv-border-0 cv-bg-transparent cv-text-[#78918d] hover:cv-bg-white/[.06] hover:cv-text-white" aria-label="Remover contexto">×</button></div>}
       {!!attachments.length && <div className="cv-flex cv-flex-wrap cv-gap-2 cv-px-3 cv-pt-3 cv-pb-2">{attachments.map((item, index) => { const suggested = item.intake?.purpose === 'knowledge_source' ? 'knowledge' : item.intake?.purpose === 'project_attachment' ? 'attachment' : ''; const label = suggested === 'knowledge' ? 'Fonte sugerida' : suggested === 'attachment' ? 'Anexo sugerido' : item.intake?.state === 'pending' ? 'Classificando…' : ''; return <span key={item.localId || `${item.name}-${index}`} className={`cv-attachment-chip ${item.previewUrl ? 'is-image' : 'is-file'} ${item.error ? 'has-error' : ''}`} aria-label={item.name}>{item.previewUrl ? <img src={item.previewUrl} alt="" className="cv-attachment-thumb"/> : <Icon name="file" size={19}/>}<button type="button" disabled={item.uploading} onClick={() => onRemoveAttachment(index)} className="cv-attachment-remove" aria-label={`Remover ${item.name}`}>×</button>{label && <button type="button" disabled={!suggested || !hasProject || item.uploading} onClick={() => suggested && onAttachmentPurposeChange(index, suggested)} className={`cv-attachment-intake ${item.destination === suggested ? 'is-applied' : ''}`}>{item.destination === suggested ? '✓' : label}</button>}{item.uploading && <span className="cv-sr-only">Enviando {item.name}</span>}</span>; })}</div>}
       <textarea ref={textarea} value={value} onChange={event => onChange(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} rows="1" maxLength="20000" placeholder="Pergunte ou peça uma alteração…" aria-label="Mensagem para o Cadu" className="cv-composer-input cv-block cv-min-h-[48px] cv-w-full cv-resize-none cv-border-0 cv-bg-transparent cv-px-4 cv-py-3 cv-text-[15px] cv-leading-6 cv-text-white cv-outline-none placeholder:cv-text-[#6f8985]"/>
+      {!!detectedUrl && <div className="cv-link-intake cv-flex cv-items-center cv-justify-between cv-gap-3 cv-px-4 cv-pb-1"><span>{hasProject ? 'Link detectado. Salve como referência antes de extrair conteúdo.' : 'Link detectado. Selecione um projeto para salvá-lo como referência.'}</span>{hasProject && <button type="button" onClick={saveLink}>Preparar referência</button>}</div>}
       <div className="cv-composer-actions cv-flex cv-items-center cv-justify-between">
         <div className="cv-flex cv-min-w-0 cv-items-center cv-gap-2">
           <details ref={capabilityMenu} className="cv-composer-capabilities">

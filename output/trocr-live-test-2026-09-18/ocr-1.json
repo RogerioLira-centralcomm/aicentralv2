@@ -1,0 +1,113 @@
+{
+  "headline": "TIM Ultracombo",
+  "support": "Conexão dentro e fora de casa com Fibra + Móvel",
+  "subtitle": "",
+  "price": "149,99",
+  "cta": "",
+  "disclaimer": "",
+  "logo_text": "",
+  "visual_marks": [
+    {
+      "type": "wordmark",
+      "description": "TIM Ultracombo",
+      "orientation": "unknown",
+      "text": "TIM ULTRA COMBO",
+      "confidence": 0.95,
+      "matches_reference": null
+    },
+    {
+      "type": "icon",
+      "description": "símbolos de assinaturas",
+      "orientation": "unknown",
+      "text": "",
+      "confidence": 0.9,
+      "matches_reference": null
+    },
+    {
+      "type": "icon",
+      "description": "um ícone de globo com um coração",
+      "orientation": "unknown",
+      "text": "",
+      "confidence": 0.85,
+      "matches_reference": null
+    },
+    {
+      "type": "icon",
+      "description": "um ícone de AYA",
+      "orientation": "unknown",
+      "text": "",
+      "confidence": 0.85,
+      "matches_reference": null
+    },
+    {
+      "type": "icon",
+      "description": "um ícone de AYA",
+      "orientation": "unknown",
+      "text": "",
+      "confidence": 0.85,
+      "matches_reference": null
+    }
+  ],
+  "dates": "",
+  "venue": "",
+  "aspect_hint": "16:9",
+  "style": "fundo escuro, letras grandes e iluminadas, pessoas interagindo com tecnologia",
+  "elements": [
+    {
+      "id": "headline_01",
+      "role": "headline",
+      "kind": "type",
+      "text_original": "TIM Ultracombo",
+      "text": "TIM Ultracombo",
+      "note": "",
+      "bbox_px": null,
+      "container_id": null,
+      "source": "ocr",
+      "recognition_score": null,
+      "user_verified": false
+    },
+    {
+      "id": "support_01",
+      "role": "support",
+      "kind": "type",
+      "text_original": "Conexão dentro e fora de casa com Fibra + Móvel",
+      "text": "Conexão dentro e fora de casa com Fibra + Móvel",
+      "note": "",
+      "bbox_px": null,
+      "container_id": null,
+      "source": "ocr",
+      "recognition_score": null,
+      "user_verified": false
+    },
+    {
+      "id": "price_01",
+      "role": "price",
+      "kind": "type",
+      "text_original": "149,99",
+      "text": "149,99",
+      "note": "",
+      "bbox_px": null,
+      "container_id": null,
+      "source": "ocr",
+      "recognition_score": null,
+      "user_verified": false
+    }
+  ],
+  "faces": 0,
+  "locks": [],
+  "locks_overflow": false,
+  "elements_overflow": false,
+  "overflow": [],
+  "analysis": {
+    "background": true,
+    "images": true,
+    "graphic": true,
+    "logo": false,
+    "headline": true,
+    "secondary": true,
+    "cta": false,
+    "supports": true
+  },
+  "status": "completed",
+  "error": ""
+}

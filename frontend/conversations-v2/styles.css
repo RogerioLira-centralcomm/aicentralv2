@@ -169,6 +169,37 @@ body:has(#cadu-conversations-v2-root.cv-account-root) > #content,
   opacity: 1;
 }
 
+#cadu-conversations-v2-root .cv-link-intake {
+  color: #84a39e;
+  font-size: 11px;
+  line-height: 18px;
+}
+
+#cadu-conversations-v2-root .cv-link-intake span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#cadu-conversations-v2-root .cv-link-intake button {
+  flex: none;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #74ded0;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 650;
+  padding: 2px 0;
+}
+
+#cadu-conversations-v2-root .cv-link-intake button:hover,
+#cadu-conversations-v2-root .cv-link-intake button:focus-visible {
+  color: #c0faf2;
+  outline: none;
+}
+
 #cadu-conversations-v2-root .cv-composer-actions {
   min-height: 42px;
   padding: 0 8px 7px 10px;

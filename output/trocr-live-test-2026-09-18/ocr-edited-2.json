@@ -1,0 +1,129 @@
+{
+  "headline": "Recarregue R$35 e tenha muita internet por até 30 dias",
+  "support": "com 4GB de internet exclusiva para redes sociais",
+  "subtitle": "",
+  "price": "",
+  "cta": "",
+  "disclaimer": "",
+  "logo_text": "TIM Pré",
+  "visual_marks": [
+    {
+      "type": "icon",
+      "description": "círculo com ícones de redes sociais (Facebook, Instagram, X)",
+      "orientation": "unknown",
+      "text": "",
+      "confidence": 0.9,
+      "matches_reference": null
+    },
+    {
+      "type": "graphic",
+      "description": "bloco amarelo com o texto '16GB'",
+      "orientation": "unknown",
+      "text": "16GB",
+      "confidence": 0.95,
+      "matches_reference": null
+    },
+    {
+      "type": "graphic",
+      "description": "texto estilizado 'RENDE MAIS'",
+      "orientation": "unknown",
+      "text": "RENDE MAIS",
+      "confidence": 0.95,
+      "matches_reference": null
+    }
+  ],
+  "dates": "",
+  "venue": "",
+  "aspect_hint": "16:9",
+  "style": "fundo azul, pessoa segurando um celular, texto em destaque",
+  "elements": [
+    {
+      "id": "cta_01",
+      "role": "cta",
+      "kind": "type",
+      "text_original": "Comprar Chip",
+      "text": "Comprar Chip",
+      "note": "",
+      "bbox_px": null,
+      "container_id": null,
+      "source": "ocr",
+      "recognition_score": null,
+      "user_verified": false
+    },
+    {
+      "id": "cta_02",
+      "role": "cta",
+      "kind": "type",
+      "text_original": "Recarregar",
+      "text": "Recarregar",
+      "note": "",
+      "bbox_px": null,
+      "container_id": null,
+      "source": "ocr",
+      "recognition_score": null,
+      "user_verified": false
+    },
+    {
+      "id": "headline_01",
+      "role": "headline",
+      "kind": "type",
+      "text_original": "Recarregue R$35 e tenha muita internet por até 30 dias",
+      "text": "Recarregue R$35 e tenha muita internet por até 30 dias",
+      "note": "",
+      "bbox_px": null,
+      "container_id": null,
+      "source": "ocr",
+      "recognition_score": null,
+      "user_verified": false
+    },
+    {
+      "id": "support_01",
+      "role": "support",
+      "kind": "type",
+      "text_original": "com 4GB de internet exclusiva para redes sociais",
+      "text": "com 4GB de internet exclusiva para redes sociais",
+      "note": "",
+      "bbox_px": null,
+      "container_id": null,
+      "source": "ocr",
+      "recognition_score": null,
+      "user_verified": false
+    },
+    {
+      "id": "logo_01",
+      "role": "logo",
+      "kind": "logo",
+      "text_original": "TIM Pré",
+      "text": "TIM Pré",
+      "note": "",
+      "bbox_px": null,
+      "container_id": null,
+      "source": "ocr",
+      "recognition_score": null,
+      "user_verified": false
+    }
+  ],
+  "faces": 0,
+  "locks": [
+    "Comprar Chip",
+    "Recarregar",
+    "Recarregue R$35 e tenha muita internet por até 30 dias",
+    "com 4GB de internet exclusiva para redes sociais",
+    "TIM Pré"
+  ],
+  "locks_overflow": false,
+  "elements_overflow": false,
+  "overflow": [],
+  "analysis": {
+    "background": true,
+    "images": true,
+    "graphic": true,
+    "logo": true,
+    "headline": true,
+    "secondary": true,
+    "cta": true,
+    "supports": false
+  },
+  "status": "completed",
+  "error": ""
+}

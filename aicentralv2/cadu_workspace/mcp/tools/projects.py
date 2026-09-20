@@ -73,6 +73,25 @@ def classify_intake(context: RequestContext, arguments: dict) -> dict:
 
 
 @register_tool(
+    name="projects.create_link_reference", capability="workspace", effect="write", requires_project=True,
+    description="Salva uma URL como referência do projeto, sem extrair ou indexar seu conteúdo automaticamente.",
+    exposures=("internal", "customer_agent"),
+    input_schema={"type": "object", "required": ["request_id", "confirmed", "url"], "properties": {
+        "request_id": {"type": "string", "minLength": 36, "maxLength": 36},
+        "confirmed": {"type": "boolean", "enum": [True]},
+        "url": {"type": "string", "minLength": 8, "maxLength": 2000},
+        "title": {"type": "string", "maxLength": 180},
+    }, "additionalProperties": False},
+)
+def create_link_reference(context: RequestContext, arguments: dict) -> dict:
+    payload = {key: arguments[key] for key in ("url", "title") if key in arguments}
+    return _domain(lambda: operations.execute(
+        arguments["request_id"], context, "projects.create_link_reference", payload,
+        lambda: project_source_service.create_link_reference(context, **payload),
+    ))
+
+
+@register_tool(
     name="projects.prepare_source_upload", capability="workspace", effect="draft", requires_project=True,
     description="Prepara upload privado de arquivo. O usuário escolhe se ele será indexado como fonte de dados.",
     exposures=("internal", "customer_agent"),

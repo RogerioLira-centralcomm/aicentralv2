@@ -1,0 +1,163 @@
+{
+  "headline": "Conexão dentro e fora de casa com Fibra + Móvel",
+  "support": "Internet com 600 MEGA + 70GB",
+  "subtitle": "",
+  "price": "por R$ 149,99/mês",
+  "cta": "Contratar",
+  "disclaimer": "",
+  "logo_text": "TIM Ultracombo",
+  "visual_marks": [
+    {
+      "type": "wordmark",
+      "description": "TIM Ultracombo",
+      "orientation": "unknown",
+      "text": "",
+      "confidence": 0.95,
+      "matches_reference": null
+    },
+    {
+      "type": "icon",
+      "description": "símbolos de assinaturas incluídas",
+      "orientation": "unknown",
+      "text": "",
+      "confidence": 0.9,
+      "matches_reference": null
+    }
+  ],
+  "dates": "",
+  "venue": "",
+  "aspect_hint": "16:9",
+  "style": "pessoas em um ambiente interno, com elementos de tecnologia e conforto",
+  "elements": [
+    {
+      "id": "graphic_01",
+      "role": "graphic",
+      "kind": "graphic",
+      "text_original": "+ 70GB",
+      "text": "+ 70GB",
+      "note": "",
+      "bbox_px": null,
+      "container_id": null,
+      "source": "ocr",
+      "recognition_score": null,
+      "user_verified": false
+    },
+    {
+      "id": "graphic_02",
+      "role": "graphic",
+      "kind": "graphic",
+      "text_original": "600 MEGA",
+      "text": "600 MEGA",
+      "note": "",
+      "bbox_px": null,
+      "container_id": null,
+      "source": "ocr",
+      "recognition_score": null,
+      "user_verified": false
+    },
+    {
+      "id": "button_01",
+      "role": "button",
+      "kind": "type",
+      "text_original": "Conferir planos",
+      "text": "Conferir planos",
+      "note": "",
+      "bbox_px": null,
+      "container_id": null,
+      "source": "ocr",
+      "recognition_score": null,
+      "user_verified": false
+    },
+    {
+      "id": "headline_01",
+      "role": "headline",
+      "kind": "type",
+      "text_original": "Conexão dentro e fora de casa com Fibra + Móvel",
+      "text": "Conexão dentro e fora de casa com Fibra + Móvel",
+      "note": "",
+      "bbox_px": null,
+      "container_id": null,
+      "source": "ocr",
+      "recognition_score": null,
+      "user_verified": false
+    },
+    {
+      "id": "support_01",
+      "role": "support",
+      "kind": "type",
+      "text_original": "Internet com 600 MEGA + 70GB",
+      "text": "Internet com 600 MEGA + 70GB",
+      "note": "",
+      "bbox_px": null,
+      "container_id": null,
+      "source": "ocr",
+      "recognition_score": null,
+      "user_verified": false
+    },
+    {
+      "id": "cta_01",
+      "role": "cta",
+      "kind": "type",
+      "text_original": "Contratar",
+      "text": "Contratar",
+      "note": "",
+      "bbox_px": null,
+      "container_id": null,
+      "source": "ocr",
+      "recognition_score": null,
+      "user_verified": false
+    },
+    {
+      "id": "price_01",
+      "role": "price",
+      "kind": "type",
+      "text_original": "por R$ 149,99/mês",
+      "text": "por R$ 149,99/mês",
+      "note": "",
+      "bbox_px": null,
+      "container_id": null,
+      "source": "ocr",
+      "recognition_score": null,
+      "user_verified": false
+    },
+    {
+      "id": "logo_01",
+      "role": "logo",
+      "kind": "logo",
+      "text_original": "TIM Ultracombo",
+      "text": "TIM Ultracombo",
+      "note": "",
+      "bbox_px": null,
+      "container_id": null,
+      "source": "ocr",
+      "recognition_score": null,
+      "user_verified": false
+    }
+  ],
+  "faces": 0,
+  "locks": [
+    "+ 70GB",
+    "600 MEGA",
+    "Conferir planos",
+    "Conexão dentro e fora de casa com Fibra + Móvel",
+    "Internet com 600 MEGA + 70GB",
+    "Contratar",
+    "por R$ 149,99/mês",
+    "TIM Ultracombo"
+  ],
+  "locks_overflow": false,
+  "elements_overflow": false,
+  "overflow": [],
+  "analysis": {
+    "background": true,
+    "images": true,
+    "graphic": true,
+    "logo": true,
+    "headline": true,
+    "secondary": true,
+    "cta": true,
+    "supports": true
+  },
+  "status": "completed",
+  "error": ""
+}

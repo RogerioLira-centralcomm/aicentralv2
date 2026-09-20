@@ -1,0 +1,92 @@
+{
+  "prompt": "Edit the attached advertising reference. Keep the same composition, crop, hierarchy and number of frames. The first attachment is the latest approved working version. The second is the original continuity anchor. Preserve the same people, identity, products, logos and recurring graphic elements across both; do not drift or replace them. This is an item swap. Change only the listed items. Every other face, name pill, date, logo and graphic stays locked. Do not redesign the layout. All visible text must be Brazilian Portuguese. Spell every visible line exactly as written below. Do not scramble, hyphenate, invent or auto-correct Portuguese. Do not invent a new visual effect: no neon light trails, sci-fi streaks, extra glow, lens flares or futuristic overlays that are not in the reference. Keep the original lighting, color grade, materials and photography. Do not add a new light ribbon or energy streak. Do not add player chrome, app UI or extra frames that are not in the reference. Use only the supplied brand reference for logos and symbols. Never redraw, rotate, mirror or invent a brand icon; preserve its exact geometry and orientation unless that icon is explicitly the selected item to change. The brand identity visible in the FIRST image is locked. Never replace its logo, wordmark, bank, institution or advertiser from context, memory or an unrelated reference. This is a production render. Preserve brand fidelity, sharpness and exact copy. Output aspect ratio 16:9. Recrop and rebalance composition for that frame. Preserve exactly: layout, background, people, product, logo, text placement, colors, graphic devices, visual style. Keep every face, pose, hair, garment and name-pill label exactly. Do not replace, add or drop a person. Do not redraw name pills, dates, logos or the headline. Clone those text regions from the reference. Typeset only the lines listed under Change only. Keep the repeating pennant/bunting and field pattern. Do not restyle the graphic devices. Change only: price. These strings must remain visible and correctly spelled: TIM (TIM=3). Paint each locked string glyph by glyph. Do not double letters or add syllables (franca not franceça, Mumuzinho not Mumuzinho). Price exactly: R$ 139,99/mês Troque exclusivamente o preço visível de R$ 149,99/mês para R$ 139,99/mês. Preserve literalmente todos os outros textos, ambos os botões, o wordmark TIM, o lockup TIM ULTRA COMBO, os selos de assinatura, as duas pessoas, o ambiente, enquadramento, cores, tipografia e posições. Não redesenhe nem substitua a marca. Não altere nenhum outro número.",
+  "preview": "Edite o criativo preservando a identidade visual, a oferta e a composição geral. Preserve layout, fundo, pessoas, produto, logo, posicionamento dos textos, cores, grafismo, estilo visual. Altere preço. Price: 'R$ 139,99/mês'. Troque exclusivamente o preço visível de R$ 149,99/mês para R$ 139,99/mês. Preserve literalmente todos os outros textos, ambos os botões, o wordmark TIM, o lockup TIM ULTRA COMBO, os selos de assinatura, as duas pessoas, o ambiente, enquadramento, cores, tipografia e posições. Não redesenhe nem substitua a marca. Não altere nenhum outro número. Formato de saída 16:9. Versão de produção, alta fidelidade. Cartela com elenco. O Image 2 costuma embaralhar os selos. Clone o tipo da referência e só reescreva o item marcado — ou use decompose.",
+  "quality": "production",
+  "aspect_ratio": "16:9",
+  "quote": {
+    "estimated_cost_usd": 0.22,
+    "model": "openai/gpt-image-2",
+    "passes": 1,
+    "image_credits": 1,
+    "agent_tokens_estimate": 900,
+    "quality": "production",
+    "later": {
+      "image": true,
+      "video": false
+    },
+    "output_formats": [
+      {
+        "key": "ctv",
+        "label": "CTV / TV",
+        "aspect_ratio": "16:9",
+        "hint": "YouTube e TV horizontal"
+      },
+      {
+        "key": "mobile",
+        "label": "Stories / Reels",
+        "aspect_ratio": "9:16",
+        "hint": "Vertical no celular"
+      },
+      {
+        "key": "feed",
+        "label": "Feed",
+        "aspect_ratio": "4:5",
+        "hint": "Instagram e Facebook"
+      },
+      {
+        "key": "square",
+        "label": "Quadrado",
+        "aspect_ratio": "1:1",
+        "hint": "Feed 1:1"
+      }
+    ],
+    "cost_usd": 0.22,
+    "usd_brl_rate": 5.1381,
+    "usd_brl_source": "awesomeapi.com.br",
+    "estimated_tokens": 22000
+  },
+  "risk": {
+    "level": "high",
+    "reason": "Cartela com elenco. O Image 2 costuma embaralhar os selos. Clone o tipo da referência e só reescreva o item marcado — ou use decompose."
+  },
+  "mode": "image",
+  "locks": [
+    "TIM"
+  ],
+  "plan_id": "pln_a33281f10198",
+  "plan_hash": "a33281f1019840a4f85de6e58d213af44f04d234ba4bd77c5235f2c2de1fbaad",
+  "planner_version": "trocr-plan-6",
+  "operations": [
+    {
+      "element_id": "price_01",
+      "field": "price",
+      "from": "",
+      "to": "R$ 139,99/mês"
+    }
+  ],
+  "conflicts": [],
+  "noop": false,
+  "blocked": false,
+  "qa_criteria": {
+    "decode": true,
+    "same_size": false,
+    "pixels_outside_mask": false,
+    "requested_copy": [
+      "R$ 139,99/mês"
+    ],
+    "locks": [
+      "TIM"
+    ]
+  },
+  "protected": [
+    "layout",
+    "background",
+    "people",
+    "product",
+    "logo",
+    "text_position",
+    "colors",
+    "graphic",
+    "style"
+  ]
+}

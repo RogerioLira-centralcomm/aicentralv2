@@ -126,7 +126,8 @@ body:has(#cadu-studio-editor-root) > .cadu-family-footer { display:none; }
 .se-outline-action:hover { border-color:#55d8c673; color:#e4f8f4; }
 .se-queue-state { display:grid; gap:7px; padding:11px; border:1px solid #55d8c633; border-radius:10px; background:#12312e66; }.se-queue-state strong { color:#dff5f0; font-size:12px; }.se-queue-state span { color:#9fc1bb; font-size:11px; line-height:1.4; }.se-queue-state div { display:flex; gap:7px; }.se-queue-state button { padding:7px 8px; border:1px solid #ffffff18; border-radius:7px; background:#ffffff0a; color:#d5e5e1; cursor:pointer; font-size:10px; }.se-queue-state button:first-child { border-color:#55d8c65e; color:var(--se-teal); }
 .se-modal-backdrop { position:fixed; inset:0; z-index:100; display:grid; place-items:center; padding:20px; background:#03090b9c; backdrop-filter:blur(7px); animation:se-fade 160ms ease; }
-.se-modal { width:min(680px,100%); max-height:calc(100dvh - 40px); overflow:auto; border:1px solid #ffffff1b; border-radius:18px; background:#152328; box-shadow:0 28px 90px #0009; animation:se-rise 180ms ease; }
+.se-modal { width:min(680px,calc(100vw - 40px)); max-height:calc(100dvh - 40px); margin:auto; padding:0; overflow:auto; border:1px solid #ffffff1b; border-radius:18px; background:#152328; color:inherit; box-shadow:0 28px 90px #0009; animation:se-rise 180ms ease; }
+.se-modal::backdrop { background:#03090b9c; backdrop-filter:blur(7px); animation:se-fade 160ms ease; }
 .se-modal > header { display:flex; align-items:center; justify-content:space-between; padding:18px 20px; border-bottom:1px solid #ffffff0e; }
 .se-modal h2 { margin:0; font-size:18px; }
 .se-modal > header button { display:grid; width:28px; height:28px; place-items:center; border:0; border-radius:8px; background:transparent; color:#b6c8c4; cursor:pointer; font-size:20px; }

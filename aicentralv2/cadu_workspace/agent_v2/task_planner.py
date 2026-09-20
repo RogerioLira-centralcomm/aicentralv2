@@ -84,6 +84,18 @@ def _project_note_step(message: str):
     }
 
 
+def _project_link_step(message: str):
+    match = re.search(r"https?://[^\s<>\]\[\"']+|(?<!@)\b(?:www\.)?[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:/[^\s<>\]\[\"']*)?",
+                      str(message or ""), re.IGNORECASE)
+    if not match:
+        return None
+    return {
+        "kind": "action", "name": "projects.create_link_reference", "requires_confirmation": True,
+        "request_id": str(uuid4()), "arguments": {"url": match.group(0).rstrip(".,;:)")}, "effect": "write",
+        "summary": "Adicionar o link como referência do projeto, sem indexar seu conteúdo.",
+    }
+
+
 def build_task_plan(route: IntentRoute, budget: ExecutionBudget, message: str = "") -> list[dict]:
     steps = [{"kind": "tool", "name": name} for name in route.needs_tools[:budget.max_tool_calls]]
     if route.action == "link_test":
@@ -104,6 +116,10 @@ def build_task_plan(route: IntentRoute, budget: ExecutionBudget, message: str = 
             steps.append(action)
     if route.action == "create_project_note":
         action = _project_note_step(message)
+        if action:
+            steps.append(action)
+    if route.action == "create_project_link":
+        action = _project_link_step(message)
         if action:
             steps.append(action)
     if route.artifact_type:

@@ -1,0 +1,75 @@
+{
+  "prompt": "Edit the attached advertising reference. Keep the same composition, crop, hierarchy and number of frames. This is an item swap. Change only the listed items. Every other face, name pill, date, logo and graphic stays locked. Do not redesign the layout. All visible text must be Brazilian Portuguese. Spell every visible line exactly as written below. Do not scramble, hyphenate, invent or auto-correct Portuguese. Do not invent a new visual effect: no neon light trails, sci-fi streaks, extra glow, lens flares or futuristic overlays that are not in the reference. Keep the original lighting, color grade, materials and photography. Do not add a new light ribbon or energy streak. Do not add player chrome, app UI or extra frames that are not in the reference. Use only the supplied brand reference for logos and symbols. Never redraw, rotate, mirror or invent a brand icon; preserve its exact geometry and orientation unless that icon is explicitly the selected item to change. The brand identity visible in the FIRST image is locked. Never replace its logo, wordmark, bank, institution or advertiser from context, memory or an unrelated reference. This is a production render. Preserve brand fidelity, sharpness and exact copy. Output aspect ratio 16:9. Recrop and rebalance composition for that frame. Preserve exactly: layout, background, people, product, logo, text placement, colors, graphic devices, visual style. Keep every face, pose, hair, garment and name-pill label exactly. Do not replace, add or drop a person. Do not redraw name pills, dates, logos or the headline. Clone those text regions from the reference. Typeset only the lines listed under Change only. Keep the repeating pennant/bunting and field pattern. Do not restyle the graphic devices. Change only: headline. These strings must remain visible and correctly spelled: Comprar Chip (Comprar=7 + Chip=4) | Recarregar (Recarregar=10) | TIM Pré (TIM=3 + Pré=3) | Recarregue R$30 e tenha muita internet por até 30 dias (Recarregue=10 + R$30=4 + e=1 + tenha=5 + muita=5 + internet=8 + por=3 + até=3 + 30=2 + dias=4) | 16GB (16GB=4) | 4GB (4GB=3) | TIM PRÉ RENDE MAIS (TIM=3 + PRÉ=3 + RENDE=5 + MAIS=4). Paint each locked string glyph by glyph. Do not double letters or add syllables (franca not franceça, Mumuzinho not Mumuzinho). Headline exactly: Recarregue R$35 e tenha muita internet por até 30 dias Replace only the line 'Recarregue R$30 e tenha muita internet por até 30 dias'. Leave every other line untouched. Troque exclusivamente R$30 por R$35 na frase principal. Preserve literalmente 16GB, 4GB, TIM Pré, TIM PRÉ RENDE MAIS, Comprar Chip, Recarregar, os três ícones sociais e todos os demais textos. Preserve a mesma mulher, rosto, pose, celular, roupa, lettering amarelo, fundo azul, enquadramento e posições. Não altere a marca nem qualquer outro número.",
+  "preview": "Edite o criativo preservando a identidade visual, a oferta e a composição geral. Preserve layout, fundo, pessoas, produto, logo, posicionamento dos textos, cores, grafismo, estilo visual. Altere headline. Headline: 'Recarregue R$30 e tenha muita internet por até 30 dias' → 'Recarregue R$35 e tenha muita internet por até 30 dias'. Troque exclusivamente R$30 por R$35 na frase principal. Preserve literalmente 16GB, 4GB, TIM Pré, TIM PRÉ RENDE MAIS, Comprar Chip, Recarregar, os três ícones sociais e todos os demais textos. Preserve a mesma mulher, rosto, pose, celular, roupa, lettering amarelo, fundo azul, enquadramento e posições. Não altere a marca nem qualquer outro número. Formato de saída 16:9. Versão de produção, alta fidelidade. Cartela com elenco. O Image 2 costuma embaralhar os selos. Clone o tipo da referência e só reescreva o item marcado — ou use decompose.",
+  "reference": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABbYAAAJACAYAAABR8zBrAAABYmlDQ1BJQ0",
+  "logo_used": false,
+  "aspect_ratio": "16:9",
+  "quality": "production",
+  "model": "openai/gpt-image-2",
+  "mode": "image",
+  "risk": {
+    "level": "high",
+    "reason": "Cartela com elenco. O Image 2 costuma embaralhar os selos. Clone o tipo da referência e só reescreva o item marcado — ou use decompose."
+  },
+  "quote": {
+    "estimated_cost_usd": 0.22,
+    "model": "openai/gpt-image-2",
+    "passes": 1,
+    "image_credits": 1,
+    "agent_tokens_estimate": 900,
+    "quality": "production",
+    "later": {
+      "image": true,
+      "video": false
+    },
+    "output_formats": [
+      {
+        "key": "ctv",
+        "label": "CTV / TV",
+        "aspect_ratio": "16:9",
+        "hint": "YouTube e TV horizontal"
+      },
+      {
+        "key": "mobile",
+        "label": "Stories / Reels",
+        "aspect_ratio": "9:16",
+        "hint": "Vertical no celular"
+      },
+      {
+        "key": "feed",
+        "label": "Feed",
+        "aspect_ratio": "4:5",
+        "hint": "Instagram e Facebook"
+      },
+      {
+        "key": "square",
+        "label": "Quadrado",
+        "aspect_ratio": "1:1",
+        "hint": "Feed 1:1"
+      }
+    ],
+    "cost_usd": 0.22,
+    "usd_brl_rate": 5.1434,
+    "usd_brl_source": "awesomeapi.com.br",
+    "estimated_tokens": 22000
+  },
+  "plan_id": "pln_c1a1616ba207",
+  "plan_hash": "c1a1616ba207b5a88c8e5399f3033baa755b000fc5de36bc44b2e87f7ea498d0",
+  "conflicts": [
+    {
+      "code": "note_mismatch",
+      "message": "A instrução pede algo que não está em Alterar. Confirme ou marque o item.",
+      "blocking": true
+    }
+  ],
+  "operations": [
+    {
+      "element_id": "headline_01",
+      "field": "headline",
+      "from": "Recarregue R$30 e tenha muita internet por até 30 dias",
+      "to": "Recarregue R$35 e tenha muita internet por até 30 dias"
+    }
+  ],
+  "noop": false,
+  "blocked": false
+}

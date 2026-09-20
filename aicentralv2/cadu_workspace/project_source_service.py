@@ -7,6 +7,7 @@ from hashlib import sha256
 import json
 import re
 from typing import Optional
+from urllib.parse import urlparse
 
 from flask import current_app
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
@@ -97,6 +98,90 @@ def classify_intake(*, filename: str = "", mime_type: str = "", url: str = "", t
             "reason": "Texto do chat deve começar como artifact editável; salvar como fonte é uma decisão separada.",
         }
     raise BadRequest("Informe um arquivo, link ou texto para classificar.")
+
+
+_LINK_PROVIDERS = {
+    "drive.google.com": ("google_drive", "Google Drive"),
+    "docs.google.com": ("google_drive", "Google Drive"),
+    "clickup.com": ("clickup", "ClickUp"),
+    "trello.com": ("trello", "Trello"),
+    "miro.com": ("miro", "Miro"),
+}
+
+
+def _link_metadata(value: str, title: str = "") -> dict:
+    """Normalize a URL without fetching it or accepting credential-bearing URLs."""
+    raw = str(value or "").strip()
+    if raw and "://" not in raw:
+        raw = f"https://{raw}"
+    parsed = urlparse(raw)
+    host = (parsed.hostname or "").lower().rstrip(".")
+    if parsed.scheme != "https" or not host or parsed.username or parsed.password:
+        raise BadRequest("Use um link HTTPS válido.")
+    matched = next((data for domain, data in _LINK_PROVIDERS.items()
+                    if host == domain or host.endswith(f".{domain}")), None)
+    provider, suggested = matched or ("generic", host.removeprefix("www."))
+    return {"url": parsed._replace(fragment="").geturl(), "provider": provider,
+            "title": str(title or "").strip()[:180] or suggested}
+
+
+def create_link_reference(context: RequestContext, *, url: str, title: str = "") -> dict:
+    """Save a project URL as a reference and schedule registry reconciliation.
+
+    Deliberately does not download, parse, or index the remote page. Those are
+    explicit future jobs so a pasted link never changes the knowledge base by
+    surprise.
+    """
+    project_id = _project_id(context)
+    link = _link_metadata(url, title)
+    connection = get_db()
+    link_id = None
+    created = False
+    try:
+        with connection.cursor() as cursor:
+            # The table predates this service and does not guarantee a unique
+            # (client, project, url) key. Serialize that natural key so two
+            # different MCP request IDs cannot insert the same reference.
+            cursor.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s,0))",
+                           (f"cadu-project-link:{context.client_id}:{project_id}:{link['url']}",))
+            cursor.execute("""SELECT id::text AS id, titulo FROM cadu_ci_projeto_links
+                               WHERE id_cliente=%s AND projeto_id=%s AND url=%s
+                               ORDER BY created_at ASC LIMIT 1""",
+                           (context.client_id, project_id, link["url"]))
+            existing = cursor.fetchone()
+            if existing:
+                link_id = str(existing["id"])
+                link["title"] = existing.get("titulo") or link["title"]
+            else:
+                link_id = str(uuid4())
+                cursor.execute(
+                    """INSERT INTO cadu_ci_projeto_links
+                       (id, projeto_id, id_cliente, criado_por, provider, url, titulo, position)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s,
+                               COALESCE((SELECT MAX(position) + 1 FROM cadu_ci_projeto_links
+                                         WHERE projeto_id = %s AND id_cliente = %s), 0))""",
+                    (link_id, project_id, context.client_id, context.user_id, link["provider"],
+                     link["url"], link["title"], project_id, context.client_id),
+                )
+                created = True
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    try:
+        from . import project_resource_service
+        project_resource_service.notify_change(
+            context.client_id, context.project_ref, "created" if created else "linked",
+            source_system="workspace", source_id=f"link:{link_id}", actor_id=context.user_id,
+        )
+        registry_sync = "queued"
+    except Exception:
+        current_app.logger.exception("Falha ao enfileirar reconciliação do link %s", link_id)
+        registry_sync = "pending"
+    return {"link_id": link_id, "url": link["url"], "title": link["title"],
+            "provider": link["provider"], "created": created,
+            "purpose": "project_attachment", "indexing": "not_requested",
+            "registry_sync": registry_sync}
 
 
 def _serializer():
